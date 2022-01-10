@@ -17,6 +17,8 @@ type target = constr list
 (* Shorthands for Trace functions *)
 include Trace
 
+include AstParser
+
 
 (******************************************************************************)
 (*                        Smart constructors for targets                      *)
@@ -40,8 +42,14 @@ let cTrue : constr =
 let cFalse : constr =
   Constr_bool false
 
+let cStrictNew : constr =
+  Constr_depth (DepthAt 0)
+
 let cStrict : constr =
   Constr_depth (DepthAt 1)
+
+let cInDepth : constr =
+  Constr_depth DepthAny
 
 let cChain (cstrs : constr list) : constr =
   Constr_target cstrs
@@ -81,9 +89,14 @@ let tIndices ?(nb : int = -1) (indices : int list) : constr =
     | _ -> Some nb in
   Constr_occurrences (ExpectedSelected (expected_nb, indices)  )
 
-let tIndex ?(nb : int = -1) (index : int) : constr =
+let occIndex ?(nb : int = -1) (index : int) : constr =
   tIndices ~nb [index]
 
+let occFirst : constr =
+  Constr_occurrences FirstOcc
+
+let occLast : constr =
+  Constr_occurrences LastOcc
 
 (******************************************************************************)
 (*                                Directions                                  *)
@@ -95,8 +108,15 @@ let target_of_path (p : path) : target =
 let dRoot : constr =
     Constr_root
 
-let dNth (n : int) : constr =
+let dArrayNth (n : int) : constr =
+    Constr_dir (Dir_array_nth n)
+
+let dSeqNth (n : int) : constr =
     Constr_dir (Dir_seq_nth n)
+
+let dStructNth (n : int) : constr =
+    Constr_dir (Dir_struct_nth n)
+
 
 let dCond : constr =
     Constr_dir Dir_cond
@@ -108,9 +128,9 @@ let dElse : constr =
     Constr_dir Dir_else
 
 let dBody : constr =
-    Constr_dir Dir_body
+  Constr_dir Dir_body
 
-let dInit : constr =
+let dForInit : constr =
     Constr_dir Dir_for_c_init
 
 let dStep : constr =
@@ -135,7 +155,7 @@ let dEnumConstName : enum_const_dir = Enum_const_name
 let dEnumConstVal : enum_const_dir = Enum_const_val
 
 let dArg (n : int) : constr =
-  Constr_dir (Dir_arg n)
+  Constr_dir (Dir_arg_nth n)
 
 
 (* [string_to_rexp regexp substr s trmKind]  transforms a string into a regular expression
@@ -195,6 +215,9 @@ let cOr (tgl : target list) : constr =
 let cAnd (tgl : target list) : constr =
   Constr_and tgl
 
+let cDiff (tgl1 : target list) (tgl2 : target list) : constr =
+  Constr_diff (tgl1, tgl2)
+
 let typ_constraint_default : typ_constraint =
   (fun _ -> true)
 
@@ -218,7 +241,7 @@ let cHasType (typ : string) : constr =
 let with_type ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default)  (tg : target) : target =
   if typ = "" && typ_pred == typ_constraint_default
     then tg
-    else [cAnd [tg; [Constr_hastype (make_typ_constraint ~typ ~typ_pred ())]]]
+    else [cAnd [tg; [cStrictNew; Constr_hastype (make_typ_constraint ~typ ~typ_pred ())]]]
 
 let cArgPred ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (pred : string -> bool) : constr =
   Constr_arg (pred, make_typ_constraint ~typ ~typ_pred ())
@@ -233,9 +256,10 @@ let cVarDef
   let ty_pred = make_typ_constraint ~typ ~typ_pred () in
   Constr_decl_var (ty_pred, ro, body)
 
-let cFor ?(direction : loop_dir = DirUp) ?(start : target = []) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
+let cFor ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
-  Constr_for (ro, direction, start, stop, step, body)
+  Constr_for (ro, start, direction, stop, step, body)
+
 
 let cForNestedAtDepth (i:int) : constr =
   Constr_target (List.flatten (List.init i (fun _ -> [cStrict; cFor ""])))
@@ -327,7 +351,7 @@ let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_
 let cTopFunDef
   ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default)
   ?(body : target = []) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
-  cChain [ dRoot; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred name ]
+  cChain [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred name ]
 
 let cTypDef
   ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =
@@ -363,26 +387,68 @@ let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : s
   if typ = "" && typ_pred == typ_constraint_default then c else (* this line is just an optimization *)
   Constr_target (with_type ~typ ~typ_pred [c])
 
-let cBool (b : bool) : constr =
-    Constr_lit (Some (Lit_bool b))
+(* [cLitPred pred_l] matches all the literals that statisfy the predicate [pred_l] *)
+let cLitPred (pred_l : lit -> bool) : constr =
+  Constr_lit pred_l
 
-let cInt (n : int) : constr =
-    Constr_lit (Some (Lit_int n))
-
-let cDouble (f : float) : constr =
-    Constr_lit (Some (Lit_double f))
-
-let cString (s : string) : constr =
-    Constr_lit (Some (Lit_string s))
-
+(* [cLit ] matches all the literals *)
 let cLit : constr =
-   Constr_lit None
+  cLitPred (function _ -> true)
+
+
+(* [cIntPred pred] matches all the integer literals that statisfy the predicate [pred] *)
+let cIntPred (pred : int -> bool) : constr =
+  cLitPred (function l ->
+   begin match l with
+   | Lit_int n -> pred n
+   | _ -> false
+   end )
+
+(* [cInt n] matches all string literals equal to [n] *)
+let cInt (n : int) : constr =
+  cIntPred (function m -> m = n)
+
+(* [cDoublePred pred] matches all the double literals that statisfy the predicate [pred]*)
+let cDoublePred (pred : float -> bool) : constr =
+  cLitPred (function l ->
+   begin match l with
+   | Lit_double d -> pred d
+   | _ -> false
+   end )
+
+(* [cDouble d] matches all the doubles equal to [d] *)
+let cDouble (d : float) : constr =
+  cDoublePred (function d1 -> d1 = d)
+
+(* [cBoolPred pred] matches all the boolean literals that satisfy the predicate [pred] *)
+let cBoolPred (pred : bool -> bool) : constr =
+  cLitPred (function l ->
+   begin match l with
+   | Lit_bool b -> pred b
+   | _ -> false
+   end )
+
+(* [cBool b] matches all the booleans equal to [b] *)
+let cBool (b : bool) : constr =
+  cBoolPred (function b1 -> b1 = b)
+
+(* [cStringPred pred] matches all the string literals that satisfy the predicate [pred] *)
+let cStringPred (pred : string -> bool) : constr =
+  cLitPred (function l ->
+   begin match l with
+   | Lit_string s -> pred s
+   | _ -> false
+   end )
+
+(* [let cString s] matches all the string literals equal to [s] *)
+let cString (s : string) : constr =
+  cStringPred (function s1 -> s1 = s)
 
 (* [cCall] can match all kind of function calls *)
-let cCall ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) ?(accept_encoded : bool = false) (name:string) : constr =
+let cCall ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) ?(accept_encoded : bool = false) ?(regexp : bool = false) (name:string) : constr =
   let exception Argument_Error of string in
   let p_fun = match fun_ with
-  | [] -> [cVar name]
+  | [] -> [cVar ~regexp  name]
   | _ ->
     begin match name with
     | "" -> fun_
@@ -391,39 +457,65 @@ let cCall ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_
   Constr_app (p_fun, combine_args args args_pred, accept_encoded)
 
 (* [cFun] matches a function by its name; it cannot match primitive functions *)
-let cFun ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (name:string) : constr =
-  cCall ~fun_ ~args ~args_pred ~accept_encoded:false name
+let cFun ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) ?(regexp : bool = false) (name:string) : constr =
+  cCall ~fun_ ~args ~args_pred ~accept_encoded:false ~regexp name
 
-(* [cPrim] matches only primitive functions; use [cPrimFun] for matching primitive function calls. *)
+(* [cPrimPred f_pred] matches all primitives which satisfy the predicated [f_pred]*)
+let cPrimPred (f_pred : prim -> bool) : constr =
+  Constr_prim f_pred
+
+(* [cPrim] matches all [p] primitives *)
 let cPrim (p : prim) : constr =
-  Constr_prim p
+  cPrimPred (fun p2 -> p2 = p)
 
-(* [cPrimFun ~args ~args_pred  p] matches only primitive function calls*)
+(* [cPrimPredFun ~args ~args_pred  p] matches only primitive function calls which satisfy the predicate [prim_pred]
+    and the other constraints in [args] or [args_pred]
+*)
+let cPrimPredFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (prim_pred:prim -> bool) : constr =
+   cCall ~fun_:[cPrimPred prim_pred] ~args ~args_pred ~accept_encoded:true ""
+
+(* [cPrimFun ~args ~args_pred  p] matches only primitive function calls with priimitive [p]*)
 let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
-   cCall ~fun_:[cPrim p] ~args ~args_pred ~accept_encoded:true ""
+   cPrimPredFun ~args ~args_pred (fun p2 -> p2 = p)
 
-(* [cSet ~lhs ~rhs ()] matches set operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
+(* [cPrimFunArith] matches all the primitive arithmetic operations *)
+let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) () : constr =
+  cPrimPredFun ~args ~args_pred (fun p2 -> (is_arith_fun p2))
+
+(* [let cPrimNew ~arg ()] matches all the encode new primitive operations*)
+let cPrimNew ?(arg : target = []) () : constr =
+  cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false)
+
+(* [cInit ~arg ()] matches all the initialization values of variable declarations *)
+let cInit ?(arg:target = []) () : constr =
+  cChain ([ cPrimNew ~arg (); dArg 0 ])
+
+(* [dInit] similar to cInit  but this one doesn't match on depth *)
+let dInit : constr =
+  cChain [cStrict; cInit ()]
+
+(* [cWrite ~lhs ~rhs ()] matches write operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.
 *)
-let cSet ?(lhs : target = []) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
+let cWrite ?(lhs : target = [cTrue]) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
   let lhs_typed = with_type ~typ ~typ_pred lhs in
   cPrimFun ~args:[lhs_typed; rhs] (Prim_binop Binop_set)
 
-(* [cSetVar x] matches a set operation for variable [x] *)
-let cSetVar (x : var) : constr =
-  cSet ~lhs:[cVar x] ()
+(* [cRead] matches all the get operations on mutable variables *)
+let cRead ?(addr : target = [cTrue]) () : constr =
+  cPrimFun ~args:[addr] (Prim_unop Unop_get)
 
-(* [cAny] matches all the calls to function ANY *)
-let cAny : constr =
-  cFun "ANY"
+(* [cReadOrWrite] *)
+let cReadOrWrite ?(addr : target = [cTrue]) () : constr =
+  cOr [[cWrite ~lhs:addr ()];[cRead ~addr ()]]
 
-(* [cChoose] matches all the calls to function CHOOSE *)
-let cChoose : constr =
-  cFun "CHOOSE"
+(* [cWriteVar x] matches a set operation for variable [x] *)
+let cWriteVar (x : var) : constr =
+  cWrite ~lhs:[cVar x] ()
 
-(* [cGet] matches all the get operations on immutable variables *)
-let cGet ?(arg : target = []) () : constr =
-  cPrimFun ~args:[arg] (Prim_unop Unop_get)
+(* [cReadVar x] matches a read operation for variable [x] *)
+let cReadVar (x : var) : constr =
+  cRead ~addr:[cVar x] ()
 
 (* [cMark m] matches all the ast nodes with annotation Mark m*)
 let cMark (m : mark) : constr =
@@ -446,6 +538,9 @@ let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = fals
   let p_body = body in
   Constr_label (ro, p_body)
 
+(* [cLabelBdoy ~substr ~body ~regexp label] matches C label bodys*)
+let cLabelBody ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
+  cChain [cLabel ~substr ~body ~regexp label; dBody]
 
 let cGoto ?(label : string = "")
   ?(substr : bool = false) ?(regexp : bool = false) (_ : unit) : constr =
@@ -478,8 +573,13 @@ let cBreak : constr =
 let cContinue : constr =
   Constr_abort (cAbrtCtn)
 
+(* [cAny] matches all the calls to function ANY *)
+let cAny : constr =
+  cFun "ANY"
 
-
+(* [cChoose] matches all the calls to function CHOOSE *)
+let cChoose : constr =
+  cFun "CHOOSE"
 
 
 (* the empty list is interpreted as no constraint on the cases *)
@@ -501,22 +601,21 @@ let cCase ?(value : target = []) (_ : unit) : case_kind =
 let cDefault : case_kind = Case_default
 
 let dLHS : constr =
-  cChain [cSet(); dArg 0]
+  cChain [cWrite(); dArg 0]
 
 let dRHS : constr =
-  cChain [cSet (); dArg 1]
+  cChain [cWrite (); dArg 1]
 
 let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
 
 
-
-(* [cAccesses ~base ~accesses ()] matches array_accesses or struct accesses 
+(* [cAccesses ~base ~accesses ()] matches array_accesses or struct accesses
     depending on [accesses] parameter. [base] is a target on the base of an access
-    and [accesses] is a list of constraints on accesses. 
+    and [accesses] is a list of constraints on accesses.
     Note:
       the empty list is interpreted as no constraint on the accesses
-      accesses are reversed so that users give constraints on what they see  
+      accesses are reversed so that users give constraints on what they see
 *)
 
 let cAccesses ?(base : target = [])
@@ -527,7 +626,7 @@ let cAccesses ?(base : target = [])
   in
     Constr_access (p_base, accesses, inner_accesses)
 
-(* [cIndex ~index ()] is an access constrint in index [index], because the 
+(* [cIndex ~index ()] is an access constrint in index [index], because the
     index can be a variable or an integer it should be given as a target.
 *)
 let cIndex ?(index : target = []) (_ : unit) : constr_access =
@@ -535,8 +634,8 @@ let cIndex ?(index : target = []) (_ : unit) : constr_access =
   Array_access p_index
 
 (* [cField ~field ~substr ~regexp ()] is an access constraint on field [field]
-      since the field is a string this constructor allows to use more advance 
-      string matching like matching all substrings which contain [field] as a 
+      since the field is a string this constructor allows to use more advance
+      string matching like matching all substrings which contain [field] as a
       substring. Also one can constaint accesses on multiple fields by enabling
       regular expressions when setting [regexp] to true.
  *)
@@ -549,38 +648,61 @@ let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = fal
 let cAccess : constr_access =
   Any_access
 
-(* [cFieldGet ~base field] matches all struct accesses at field [field] with base [base] 
+(* [cFieldAccess field] field matches all struct accesses in field [field]*)
+let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ?(field : field = "" )  () : constr =
+ cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()
+
+(* [cFieldRead ~base ~substr ~regexp ~field ] matches all struct accesses at field [field] with base [base]
     which are at the base of a get operation
 *)
-let cFieldGet ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false)  (field : field )  : constr =
-  cGet ~arg:[cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()] ()
+let cFieldRead ?(field : field = "") ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false)  () : constr =
+  cRead ~addr:[cFieldAccess ~base ~substr ~regexp ~field ()] ()
 
-(* [cFieldAccess field] field matches all struct accesses in field [field]*)
-let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) (field : field )  : constr =
-  cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()
+(* [cFieldWrite ~base field] matches all struct field write operations*)
+let cFieldWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ?(rhs : target = []) ?(field : field = "")  () : constr =
+  let lhs = [cFieldAccess ~base ~substr ~regexp ~field ()] in
+  cWrite ~lhs ~rhs ()
 
+(* [cFieldReadOrWrite ~base ~substr ~regexp ~field] matches all read or write operations
+*)
+let cFieldReadOrWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ?(field : field = "")  () : constr =
+ cOr [[cFieldWrite ~base ~substr ~regexp ~field ()];[cFieldRead ~base ~substr ~regexp ~field ()] ]
 
-(* [cFieldSet ~base field] matches all struct field set operations*)
-let cFieldSet ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) (field : field) : constr =
-  let lhs = [cFieldAccess ~base ~substr ~regexp field] in
-  cSet ~lhs ()
+(* [cCellAccess ~base ~index ] matches all array accesses at index [index] with base [base] *)
+let cCellAccess ?(base : target = []) ?(index : target = [])  () : constr =
+  cAccesses ~base ~accesses:[cIndex ~index ()] ()
 
-
-
-(* [cIndexGet ~base index] matches all array accesses at index [index] with base [base] 
+(* [cCellRead ~base index] matches all array accesses at index [index] with base [base]
     which are under a get operation
 *)
-let cIndexGet ?(base : target = []) (index : target )  : constr =
-  cGet ~arg:[cAccesses ~base ~accesses:[cIndex ~index ()] ()] ()
+let cCellRead ?(base : target = []) ?(index : target = []) (): constr =
+  cRead ~addr:[cCellAccess ~base ~index ()] ()
 
-(* [cIndexSet ~base index] matches all array index set operations*)
-let cIndexSet ?(base : target = [cStrict;cVar ""]) (index : target) : constr =
-  let lhs = [cAccesses ~base ~accesses:[cIndex ~index ()] ()] in
-  cSet ~lhs ()
+(* [cCellWrite ~base ~index ~arg] matches all array index write operations*)
+let cCellWrite ?(base : target = []) ?(rhs:target = []) ?(index : target = []) (): constr =
+  let lhs = [cCellAccess ~base ~index ()]  in
+  cWrite ~lhs ~rhs ()
 
-(* [cIndexAccess ~base index] matches all array accesses at index [index] with base [base] *)
-let cIndexAccess ?(base : target = []) (index : target )  : constr =
-  cAccesses ~base ~accesses:[cIndex ~index ()] ()
+(* [cCellReadOrWrite ~base ~index ] matches all read or write operations on array cells with
+  base [base] and index [index]
+*)
+let cCellReadOrWrite ?(base : target = []) ?(index : target = []) () : constr =
+  cOr [[cCellRead ~base ~index ()];[cCellWrite ~base ~index ()]]
+
+
+(* [cArrayInit] matches all array initialization lists *)
+let cArrayInit : constr =
+  Constr_array_init
+
+(* [cStructInit] matches all struct initialization lists *)
+let cStructInit : constr =
+  Constr_struct_init
+
+(* [cCell arary_size] matches all arrray cells in an array initialization *)
+let cCell ?(cell_index : int option = None) (): constr =
+  match cell_index with
+  | None -> cChain [cArrayInit; cStrict; cTrue]
+  | Some i -> cChain [cArrayInit; dArrayNth i]
 
 
 
@@ -593,6 +715,17 @@ let resolve_target = Constr.resolve_target
 let resolve_target_between = Constr.resolve_target_between
 *)
 
+(* [filter_constr_occurrence tg] *)
+let filter_constr_occurrence (tg : target) : target =
+  List.filter (function Constr_occurrences _ -> false | _ -> true ) tg
+
+(* [enable_multi_targets tg]: matching multiple targets is not possible then enable it otherwise
+    do nothing
+ *)
+let enable_multi_targets (tg : target) : target =
+    if List.exists (function Constr_occurrences _ -> true | _ -> false) tg
+      then tg
+      else nbMulti::tg
 
 (******************************************************************************)
 (*                          Apply on target operations                        *)
@@ -606,16 +739,9 @@ module Transfo = struct
 end
 
 let apply_on_path = Path.apply_on_path
+let applyp_on_path = Path.applyp_on_path
 
 
-(* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
-      params:
-        transformer: change the resolved path so that more information about the context of the node is given
-        tr: transformation to be applied at the nodes corresponedt to target [tg]
-        tg: target
-      return:
-        unit
-*)
 
 let debug_disappearing_mark = true
 exception Interrupted_applyi_on_transformed_targets of trm
@@ -627,30 +753,46 @@ let fix_target (tg : target) : target =
   let check_logic = List.exists (function Constr_or _ | Constr_and _ -> true | _ -> false) tg in
   if (not check_occurrences) && check_logic then nbMulti :: tg else tg
 
-let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
+(* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
+      params:
+        transformer: change the resolved path so that more information about the context of the node is given
+        tr: transformation to be applied at the nodes corresponedt to target [tg]
+        tg: target
+      return:
+        unit
+*)
+let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   let tg = fix_target tg in
   Trace.apply (fun t ->
-    let ps = resolve_target tg t in
+    let ps =
+      Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
+        resolve_target tg t) in
+    let ps = if rev then List.rev ps else ps in
     let marks = List.map (fun _ -> Mark.next()) ps in
-    let _t_before = t in
     (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
-    let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
+    (* Tools.printf "Before applyin_marks: %s\n" (Ast_to_c.ast_to_string t); *)
+    let t =
+        Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_marks" (fun () ->
+          List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
+    (* Tools.printf "After applying_marks: %s\n" (Ast_to_c.ast_to_string t); *)
     (* iterate over these marks *)
     try
-      Tools.foldi (fun imark t m ->
-        match resolve_target [nbAny;cMark m] t with
-        | [p] ->
-            let t = apply_on_path (trm_remove_mark m) t p in
-            tr imark t (transformer p)
-        | ps ->
-            let msg =
-              if ps <> []
-                then "applyi_on_transformed_targets: a mark was duplicated"
-                else (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
-              in
-            if debug_disappearing_mark
-              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-              else fail None msg
+      Tools.fold_lefti (fun imark t m ->
+        Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
+          match resolve_target [nbAny;cMark m] t with
+          | [p] ->
+              let t = apply_on_path (trm_remove_mark m) t p in
+              tr imark t (transformer p)
+          | ps ->
+              let msg =
+                if ps <> []
+                  then "applyi_on_transformed_targets: a mark was duplicated"
+                  else (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
+                in
+              if debug_disappearing_mark
+                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+                else fail None msg
+        )
       ) t marks
     with Interrupted_applyi_on_transformed_targets t -> t
     )
@@ -664,8 +806,8 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
     return:
       unit
 *)
-let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
-  applyi_on_transformed_targets  transformer (fun _i t descr -> tr descr t) tg
+let apply_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : trm -> 'a -> trm) (tg : target) : unit =
+  applyi_on_transformed_targets  ~rev transformer (fun _i t descr -> tr t descr) tg
 
 
 (* [applyi_on_targets ~replace tr tg]:  A specialization of [applyi_on_transformed_targets] but here the transformer
@@ -676,6 +818,7 @@ let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> t
       return:
         unit
 *)
+(*  (tr : int * trm -> path -> trm) *)
 let applyi_on_targets (tr : int -> trm -> path -> trm) (tg : target) : unit =
   applyi_on_transformed_targets (fun p -> p) tr tg
 
@@ -697,10 +840,11 @@ let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
 (* [iteri_on_transformed_targets] is similar to [applyi] except that it is meant to for
    transformations that are implemented in terms of other transformations with unit return type.
    LATER: try to better factorize the code. *)
-let iteri_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> unit) (tg : target) : unit =
+let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> unit) (tg : target) : unit =
   let tg = fix_target tg in
   Trace.call (fun t ->
     let ps = resolve_target tg t in
+    let ps = if rev then List.rev ps else ps in
     let marks = List.map (fun _ -> Mark.next()) ps in
     let _t_before = t in
     (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
@@ -731,14 +875,14 @@ let iteri_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 
 
 (* Variants *)
 
-let iter_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> unit) (tg : target) : unit =
-  iteri_on_transformed_targets  transformer (fun _i t descr -> tr descr t) tg
+let iter_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : trm -> 'a -> unit) (tg : target) : unit =
+  iteri_on_transformed_targets ~rev transformer (fun _i t descr -> tr t descr) tg
 
-let iteri_on_targets (tr : int -> trm -> path -> unit) (tg : target) : unit =
-  iteri_on_transformed_targets (fun p -> p) tr tg
+let iteri_on_targets ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) : unit =
+  iteri_on_transformed_targets~rev (fun p -> p) tr tg
 
-let iter_on_targets (tr : trm -> path -> unit) (tg : target) : unit =
-  iteri_on_targets (fun _i t dl -> tr t dl) tg
+let iter_on_targets ?(rev : bool = false) (tr : trm -> path -> unit) (tg : target) : unit =
+  iteri_on_targets ~rev (fun _i t dl -> tr t dl) tg
 
 
 (* [applyi_on_transformed_targets_between transformer tr tg]: Apply a transformation [tr] on a target relative to [tg]
@@ -755,10 +899,10 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   let marks = List.map (fun _ -> Mark.next ()) ps in
   let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks in
   try
-    Tools.foldi (fun imark t m ->
+    Tools.fold_lefti (fun imark t m ->
       match resolve_target [nbAny;cMark m] t with
       | [p_to_seq] ->
-        let t_seq, _ = resolve_path p_to_seq t in
+        let t_seq, _ = resolve_path_and_ctx p_to_seq t in
         let i = begin match get_mark_index m t_seq with | Some i -> i | None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
         let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
         tr imark t (transformer (p_to_seq,i))
@@ -841,15 +985,12 @@ let target_between_show_transfo (id : int) : Transfo.local_between =
    The operation add marks if the command line argument [-exit-line]
    matches the [line] argument provided to the function. Otherwise, the
    [show] function only checks that the path resolve properly.
-   There is no need for a prefix [!!] or [!!!] to the front of the [show]
+   There is no need for a prefix such as [!!] in front of the [show]
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
-let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
+let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
   (* Automatically add [nbMulti] if there is no occurence constraint *)
-  let tg =
-    if List.exists (function Constr_occurrences _ -> true | _ -> false) tg
-      then tg
-      else nbMulti::tg in
+  let tg = enable_multi_targets tg in
   if reparse then reparse_alias();
   let should_exit = (Flags.get_exit_line() = Some line) in
   if should_exit then begin
@@ -867,11 +1008,115 @@ let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
       else applyi_on_targets (fun _i t _p -> t) tg
   end
 
-(** [reparse_after tr] is a wrapper to invoke for forcing the reparsing
+(* [get_trm_at] returns that trm that corresponds to the target [tg]
+    Note:
+      Call this function only on targets which resolve to a unique ast node
+*)
+let get_trm_at (tg : target) : trm =
+  let t_ast = ref (trm_unit ()) in
+  Trace.call (fun t ->
+    let tg_path = resolve_target_exactly_one tg t in
+    t_ast := Path.resolve_path tg_path t
+  );
+  !t_ast
+
+(* [get_ast ()] returns the full ast*)
+let get_ast () : trm =
+  get_trm_at []
+
+
+
+
+(******************************************************************************)
+(*                          Reparse                                           *)
+(******************************************************************************)
+(* LATER: We can use the following type for reparsing *)
+(* type reparse = | Reparse_none | Reparse_only_paths | Reparse_all *)
+
+
+
+(* [get_function_name_at dl] get the name of the function that corresponds to [dl]*)
+let get_function_name_at (dl : path) : string option =
+  let fun_decl = get_trm_at (target_of_path dl) in
+  match fun_decl.desc with
+  | Trm_let_fun (f, _, _, _) -> Some f
+  | _ -> None
+
+
+(* [get_top_level_function_name_containing dl] get the name of the toplevel function which contains the path [dl]  *)
+let get_toplevel_function_name_containing (dl : path) : string option =
+  match dl with
+  | Dir_seq_nth i :: Dir_body :: _ -> get_function_name_at [Dir_seq_nth i]
+  | _ -> None
+
+
+(* [reparse_only fun_nmaes] reparse only those functions whose identifier is contained in [fun_names]*)
+let reparse_only (fun_names : string list) : unit =
+  Trace.call (fun t ->
+    let chopped_ast, chopped_ast_map  =  keep_only_function_bodies fun_names t in
+    let parsed_chopped_ast = Trace.reparse_trm (Trace.get_context ()) chopped_ast in
+    let new_ast = update_chopped_ast parsed_chopped_ast chopped_ast_map in
+    Trace.set_ast new_ast
+  )
+
+(* [get_relative_type tg] get the type of target relative , Before, After, First Last *)
+let get_relative_type (tg : target) : target_relative option =
+  List.fold_left (fun acc x ->
+    match acc with
+    | Some _ -> acc
+    | None ->
+      begin match x with
+      | Constr_relative occ -> Some occ
+      | _ -> None
+      end
+  ) None tg
+
+
+(* [reparse_after tr] is a wrapper to invoke for forcing the reparsing
     after a transformation. For example because it modifies type definitions.
     See example in [Struct.inline]. The argument [~reparse:false] can be
-    specified to deactivate the reparsing. *)
-let reparse_after ?(reparse:bool=true) (tr : Transfo.t) : Transfo.t =
+    specified to deactivate the reparsing.
+*)
+let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
+    let tg = enable_multi_targets tg in
+    let ast = (get_ast()) in
+    let tg_paths = if Constr.is_target_between tg then
+      let tg_ps = (resolve_target_between tg ast) in
+      fst (List.split tg_ps)
+      else resolve_target tg ast in
     tr tg;
-    if reparse then Trace.reparse ()
+    if reparse then begin
+    let fun_names = List.map get_toplevel_function_name_containing tg_paths in
+    let fun_names = Tools.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
+    reparse_only fun_names end
+
+
+(* LATER: use this more efficient version that avoids computing path resolution twice
+
+type apply_on_target_arg = trm -> path -> trm
+
+let list_of_option (o : 'a option) : 'a list =
+  match o with
+  | None -> []
+  | Some x -> [x]
+
+let reparse_after ?(reparse : bool = true) (tr_of : (apply_on_target_arg -> apply_on_target_arg) -> Transfo.t) : Transfo.t =
+  fun (tg : target) ->
+    let function_names_to_reparse : string list ref = ref [] in
+    let reparse_where (tr : apply_on_target_arg) : apply_on_target_arg =
+      fun (t:trm) (p:path) ->
+        function_names_to_reparse := (list_of_option (get_toplevel_function_name_containing p)) @ !function_names_to_reparse;
+        tr t p
+      in
+    tr_of reparse_where tg;
+    let func_names_to_keep = Tools.remove_duplicates !function_names_to_reparse in
+    if reparse then reparse_only func_names_to_keep
+
+
+example usage: in Access_basic.
+let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm) : Target.Transfo.t =
+  Target.reparse_after ~reparse (fun reparse_where ->
+    Target.apply_on_targets (reparse_where (Accesses_core.transform f_get f_set)))
+
+*)

@@ -6,18 +6,18 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [any_aux array_index t]: replace variable_occurrence t with array_index 
+(* [any_aux var t]: replace a function call t with a variable occurrence [var]
       params:
-        array_index: index going to be used for the variable represented by node t
-        t: ast of the current array variable occurrence
+        [var]: the variablee replacing the function call [t]
+        [t]: ast of a call to function [ANY]
       return:
-        update ast with the replaced array variable occurence
+        the ast of [var]
 *)
 let any_aux (array_index : var) (t : trm) : trm =
   match t.desc with 
   | Trm_apps (f,_) ->
     begin match f.desc with
-    | Trm_var "ANY" ->  trm_var array_index
+    | Trm_var (_, any) when Tools.pattern_matches "ANY?." any ->  trm_var array_index
     | _ -> fail f.loc "any_aux: expected the special function ANY"
     end
   | _ -> fail t.loc "any_aux: expected a trm_var with ANY annotation"
@@ -25,13 +25,13 @@ let any_aux (array_index : var) (t : trm) : trm =
 let any (array_index : var) : Target.Transfo.local =
   Target.apply_on_path (any_aux array_index)
 
-(* [choose_aux  selelct_arg t]: replace function call t with one of its arguments which statisfies
+(* [choose_aux  selelct_arg t]: replace the function call t with one of its arguments which statisfies
         the predicate select_arg
       params:
-        select_arg: a predicate on the index of the argument which should be choosed
-        t: ast of the call to function choose
+        [select_arg]: a predicate on the index of the argument which should be choosed
+        [t]: ast of the call to function choose
       return:
-        update ast with the replaced call to function choose
+        the variable occurrence of the selected argument
 *)
 let choose_aux (select_arg : string list -> int) (t : trm) : trm =
   match t.desc with 
@@ -41,10 +41,10 @@ let choose_aux (select_arg : string list -> int) (t : trm) : trm =
        if nb <> List.length args then fail t.loc "choose_aux: number of args is not correct";
         let choices = List.map (fun arg -> 
           match arg.desc with 
-          | Trm_var s -> s 
+          | Trm_var (_, s) -> s 
           | Trm_apps (_, [v])  -> 
             begin match v.desc with 
-            | Trm_var v -> v 
+            | Trm_var (_, v) -> v 
             | _ -> fail arg.loc "choose_aux: could not match non constant variable"
             end
           | _ ->  

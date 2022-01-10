@@ -137,7 +137,6 @@ let return (t : trm) : trm =
 (*
   return the number of scopes to exit before a break/continue instruction
   look for closest for/while scope
-  todo later: do scope too
  *)
 let find_scope ?(break : bool = false) (kl : scope_kind list) : int =
   let rec aux (n : int) = function
@@ -326,8 +325,8 @@ and translate_stmt (s : stmt) : trm =
   let ctx = Some (get_ctx ()) in
   match s.desc with
   | Compound sl ->
-    compute_scope ~loc Other_scope
-      (fun () -> trm_seq_nomarks ~loc ~ctx (List.map translate_stmt sl))
+    compute_scope ~loc Other_scope (fun () ->
+      trm_seq_nomarks ~loc ~ctx (List.map translate_stmt sl))
   | If {init = None; condition_variable = None; cond = c; then_branch = st;
         else_branch = seo} ->
     let tc = translate_expr c in
@@ -348,7 +347,6 @@ and translate_stmt (s : stmt) : trm =
     let tc = translate_expr c in
     let ts = compute_scope Do_scope (fun () -> translate_stmt s) in
     trm_do_while ~loc ~ctx ts tc
-  (* todo: use while encoding in semantics *)
   | For {init = inito; condition_variable = None; cond = condo; inc = stepo;
          body} ->
     let translate_stmt_opt (so : stmt option) : trm =
@@ -367,8 +365,18 @@ and translate_stmt (s : stmt) : trm =
            | Some e -> translate_expr e
          in
          let step = translate_stmt_opt stepo in
+
+         (* FOR FUTURE USE? let is_standard_for =
+            let init_ops = trm_for_c_inv_simple_init init in
+            let bound_ops = trm_for_c_inv_simple_stop cond in
+            let step_ops = trm_for_c_inv_simple_step step in
+            match init_ops, bound_ops, step_ops with
+            | Some _, Some _, Some _ -> true
+            | _ -> false
+            in *)
+
          let body = compute_scope For_scope (fun () -> translate_stmt body) in
-         trm_for_of_trm_for_c(trm_for_c~loc ~ctx init cond step body)
+         trm_for_of_trm_for_c (trm_for_c~loc ~ctx init cond step body)
       )
   | For _ ->
     fail loc "translate_stmt: variable declaration forbidden in for conditions"
@@ -440,7 +448,7 @@ and translate_switch (loc : location) (cond : expr) (cases : stmt list) : trm =
   compute the list of nested cases described by s in reverse order and the first
   instruction of their body
  *)
-and compute_cases (case_acc : trm list) (s : stmt) : trm list * stmt =
+and compute_cases (case_acc : trms) (s : stmt) : trms * stmt =
   let loc = loc_of_node s in
   match s.desc with
   | Case {lhs = e; rhs = None; body = s'} ->
@@ -458,7 +466,7 @@ and compute_cases (case_acc : trm list) (s : stmt) : trm list * stmt =
   to find the first break, cases must be written without compound statements
     -> no variable declaration in cases
 *)
-and compute_body (loc : location) (body_acc : trm list)
+and compute_body (loc : location) (body_acc : trms)
     (sl : stmt list) : trm * (stmt list) =
   match sl with
   | [] -> fail loc "compute_body: cases must end with break"
@@ -603,7 +611,8 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                   typ;
                   ctx;
                   attributes = t.attributes}
-              | Rvalue -> trm_apps ~loc ~typ ~ctx (trm_unop ~loc Unop_get) [t]
+              | Rvalue ->
+                trm_apps ~loc ~typ ~ctx (trm_unop ~loc Unop_get) [t]
             end
           | Minus ->
             let t = translate_expr e in
@@ -706,7 +715,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
   | Call {callee = f; args = el} ->
     let tf = translate_expr f in
     begin match tf.desc with
-    | Trm_var x when Str.string_match (Str.regexp "overloaded=") x 0 ->
+    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
         begin match el with
         | [tl;tr] -> trm_set ~loc ~ctx  ~is_statement (translate_expr ~val_t:Lvalue tl) (translate_expr tr)
         | _ -> fail loc "translate_expr: overloaded= expects two arguments"
@@ -740,7 +749,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | OperatorName op -> trm_var ~loc ~ctx ~typ (string_of_overloaded_op ~loc op)
       | _ -> fail loc "translate_expr: only identifiers allowed for variables"
     end
-  | Member {base = eo; arrow = b; field = f} -> (* TODO: ARTHUR relire bien *)
+  | Member {base = eo; arrow = b; field = f} ->
     begin match eo with
       | None -> fail loc "translate_expr: field accesses should have a base"
       | Some e ->
@@ -768,7 +777,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
 
             *)
             begin match base.desc with
-              | Trm_var x when not (is_mutable_var x) ->
+              | Trm_var (_, x) when not (is_mutable_var x) ->
                 let base =
                   if b (* if arrow instead of dot *)
                     then trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get) [base]   (* Code is [b->f], we encode it as [( *b ).f] *)
@@ -776,24 +785,24 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                   in
                     (* fail loc
                       "translate_expr: 1arrow field access should be on a pointer" *)
-                trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_field_get f)) [base]
+                trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_get f)) [base]
               | Trm_apps
-                  ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _))); _}, _)
+                  ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get _))); _}, _)
               | Trm_apps
-                  ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_get)); _},
+                  ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
                    _) ->
                 if b then
                   fail loc
                     "translate_expr: 2arrow field access should be on a pointer"
                 else
-                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc (Unop_struct_field_get f)) [base]
+                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc (Unop_struct_get f)) [base]
               | _ ->
                 let t =
                   if b then trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get) [base]
                   else base
                 in
                 let res =
-                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_field_addr f)) [t]
+                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_access f)) [t]
                 in
                 begin match val_t with
                   | Lvalue -> res
@@ -825,17 +834,17 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
        or the result of a struct_get/array_get
       *)
     begin match te.desc with
-      | Trm_var x when not (is_mutable_var x) ->
-        trm_apps ~loc ~ctx ~typ (trm_binop ~ctx ~loc Binop_array_cell_get) [te; ti]
+      | Trm_var (_, x) when not (is_mutable_var x) ->
+        trm_apps ~loc ~ctx ~typ (trm_binop ~ctx ~loc Binop_array_get) [te; ti]
       | Trm_apps
-          ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _))); _}, _)
+          ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get _))); _}, _)
       | Trm_apps
-          ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_get)); _},
+          ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
            _) ->
-        trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_cell_get) [te; ti]
+        trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_get) [te; ti]
       | _ ->
         let res =
-          trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_cell_addr) [te; ti]
+          trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_access) [te; ti]
         in
         begin match val_t with
           | Lvalue -> res
@@ -872,7 +881,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         begin match translate_expr se with
           | {desc = Trm_val (Val_lit (Lit_int n)); loc; _} ->
             trm_prim ~loc ~ctx (Prim_new (typ_array tq (Const n)))
-          | {desc = Trm_var x; loc; _} ->
+          | {desc = Trm_var (_, x); loc; _} ->
             trm_prim ~loc ~ctx (Prim_new (typ_array tq (Trm (trm_var ~loc ~ctx x))))
           | _ ->
             fail loc ("translate_expr: new array size must be either " ^
@@ -895,7 +904,7 @@ and translate_attribute (loc : location) (a : Clang.Ast.attribute) : attribute =
   | Aligned {spelling = _; alignment_expr = e} -> Aligned (translate_expr e)
   | _ -> fail loc "translate_attribute: unsupported attribute"
 
-and translate_decl_list (dl : decl list) : trm list =
+and translate_decl_list (dl : decl list) : trms =
   let loc =
     (* some recursive calls might be on the empty list *)
     match dl with
@@ -911,7 +920,7 @@ and translate_decl_list (dl : decl list) : trm list =
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
-                                        complete_definition = _}} ::
+                                        complete_definition = _;_ }} ::
     ({desc = Var _;_} as d1) ::
     dl' ->
        let trm_list = List.map (fun (d : decl) ->
@@ -936,7 +945,7 @@ and translate_decl_list (dl : decl list) : trm list =
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
-                                        complete_definition = _}} ::
+                                        complete_definition = _; _}} ::
     {decoration = _; desc = TypedefDecl {name = tn; underlying_type = _q}} ::
     dl' ->
     begin match k with
@@ -990,7 +999,7 @@ and translate_decl_list (dl : decl list) : trm list =
 and translate_decl (d : decl) : trm =
   let loc = loc_of_node d in
   let ctx = Some (get_ctx ()) in
-  match d.desc with
+  let res = match d.desc with
   | EnumDecl {name = tn; constants; _} ->
     let enum_constant_l =
       List.map
@@ -1117,7 +1126,7 @@ and translate_decl (d : decl) : trm =
         | Some _ ->
           begin match tt.typ_desc with
           | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tt1} -> begin match tt1.typ_desc with
-                           (* This check is needed because we don't want const regerences to be accessed by using get  *)
+                           (* This check is needed because we don't want const references to be accessed by using get  *)
                            | Typ_const _ -> trm_let ~loc Var_immutable (n, tt) (te)
                            | _ ->
                              add_var n;
@@ -1203,13 +1212,14 @@ and translate_decl (d : decl) : trm =
          | Some e -> NonType (translate_qual_type ~loc q, Some (translate_expr e ))
          | None -> NonType (translate_qual_type ~loc q, None)
          end
-        | _ -> fail loc "translate_decl: nested templates are not supported" (* TODO: Add support for nested templates *)
+        | _ -> fail loc "translate_decl: nested templates are not supported" (* LATER: Add support for nested templates *)
         end in
         (n, tpk, b)
     ) pl in
     trm_template pl dl
-  | _ -> fail loc "translate_decl: not implemented"
 
+  | _ -> fail loc "translate_decl: not implemented" in
+     res
 module Include_map = Map.Make(String)
 type 'a imap = 'a Include_map.t
 
@@ -1248,6 +1258,9 @@ let dump_clang_ast = false
 let dump_clang_file = "clang_ast.ml"
 
 let translate_ast (t : translation_unit) : trm =
+
+  (* Initialize id_counter *)
+  init_typconstrid ();
   let {decoration = _; desc = {filename = filename; items = dl}} = t in
   print_info None "translate_ast: translating %s's AST...\n" filename;
   let (include_map, file_decls) = filter_out_include filename dl in
@@ -1277,3 +1290,4 @@ let translate_ast (t : translation_unit) : trm =
        in
          trm_seq_nomarks ~loc ~annot:[Main_file] ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ translate_decl_list file_decls)
     )
+

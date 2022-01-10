@@ -9,7 +9,6 @@ let decode = ref true
 (* translate an ast to a C/C++ document *)
 let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
   match t with
-  | Typ_const t when (is_atomic_typ t)-> typ_to_doc t ^^ string " const "
   | Typ_const t -> string " const "  ^^ typ_to_doc t
   | Typ_constr (tv, _, _) -> string tv
   | Typ_auto  -> string "auto"
@@ -19,6 +18,7 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
   | Typ_double -> string "double"
   | Typ_bool -> string "bool"
   | Typ_char -> string "char"
+  | Typ_string -> string "string"
   | Typ_ptr { ptr_kind = pk; inner_typ = t} ->
     begin match pk with
     | Ptr_kind_mut ->
@@ -38,7 +38,7 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
      | Const n -> d ^^ brackets (string (string_of_int n))
      | Trm t' -> d ^^ brackets (decorate_trm t')
      end
-  | Typ_fun (_, _) ->
+  | Typ_fun _ -> (* Typ_fun (targs, tret) : todo, in C we need a name for the value.. *)
      print_info None "typ_desc_to_doc: typ_fun not implemented\n";
      at
   | Typ_var (t, _) -> string t
@@ -48,12 +48,31 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
     drt ^^ blank 1 ^^ d
   | Typ_template_param n ->
     string n
-
+  | Typ_arbitrary a_kind ->
+        begin match a_kind with
+        | Atyp ty -> string ty
+        | Atypexpr tye -> parens (string tye)
+        | _ -> fail None "typ_to_doc: arbitrary types entered as string should be entered by using either Atyp or Atypexpr"
+        end
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with
   | Unsigned -> string "unsigned"
   | Long -> string "long"
   | Short -> string "short"
+
+and trm_annot_to_doc (t_annot : trm_annot list) : document =
+  let aux t_annot = match t_annot with
+  | Access -> string "Access"
+  | Multi_decl -> string "Multi_dec"
+  | App_and_set -> string "App_and_set"
+  | Main_file -> string "Main_file"
+  | Mutable_var_get -> string "Mutable_var_get"
+  | As_left_value -> string "As_left_value"
+  | _ -> empty
+  in
+  if t_annot = [] then empty else
+  Tools.list_to_doc ~sep:comma (List.map aux t_annot)
+
 
 and typ_to_doc ?(const : bool = false) (t : typ) : document =
   let d = typ_desc_to_doc ~const t.typ_desc in
@@ -94,11 +113,19 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
      dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
+  | Typ_fun (tyl, ty) -> (* TODO: should be deprecated? to discuss *)
+    let ret_type = typ_to_doc ty  in
+    let arg_types = List.map typ_to_doc tyl in
+    dattr ^^ ret_type ^^ blank 1 ^^ string x ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
+  | Typ_ptr {inner_typ = {typ_desc = Typ_fun (tyl, ty); _};_} -> (* TODO: should be deprecated? to discuss *)
+    let ret_type = typ_to_doc ty  in
+    let arg_types = List.map typ_to_doc tyl in
+    dattr ^^ ret_type ^^ parens(star ^^ string x) ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
   | _ -> const_string ^^ typ_to_doc ~const t ^^ blank 1 ^^ string x
 
 and lit_to_doc (l : lit) : document =
   match l with
-  | Lit_unit -> empty
+  | Lit_unit -> semi
   | Lit_uninitialized ->
      print_info None "lit_to_doc: uninitialized literal should not occur\n";
      at
@@ -110,13 +137,14 @@ and lit_to_doc (l : lit) : document =
 and unop_to_doc (op : unary_op) : document =
   match op with
   | Unop_get -> star
+  | Unop_address -> ampersand
   | Unop_neg -> bang
   | Unop_bitwise_neg -> tilde
   | Unop_opp -> minus
   | Unop_post_inc | Unop_pre_inc -> twice plus
   | Unop_post_dec | Unop_pre_dec -> twice minus
-  | Unop_struct_field_addr s -> dot ^^ string s
-  | Unop_struct_field_get s -> dot ^^ string s
+  | Unop_struct_access s -> dot ^^ string s
+  | Unop_struct_get s -> dot ^^ string s
   | Unop_cast t ->
      let dt = typ_to_doc t in
      string "static_cast" ^^ langle ^^ dt ^^ rangle
@@ -124,8 +152,8 @@ and unop_to_doc (op : unary_op) : document =
 and binop_to_doc (op : binary_op) : document =
   match op with
   | Binop_set -> equals
-  | Binop_array_cell_addr -> lbracket ^^ rbracket
-  | Binop_array_cell_get -> lbracket ^^ rbracket
+  | Binop_array_access -> lbracket ^^ rbracket
+  | Binop_array_get -> lbracket ^^ rbracket
   | Binop_eq -> twice equals
   | Binop_neq -> bang ^^ equals
   | Binop_sub -> minus
@@ -149,15 +177,12 @@ and prim_to_doc (p : prim) : document =
   match p with
   | Prim_unop op -> unop_to_doc op
   | Prim_binop op -> binop_to_doc op
+  | Prim_compound_assgn_op op -> equals ^^ (binop_to_doc op)
+  | Prim_overloaded_op p-> prim_to_doc p
   | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
   | Prim_conditional_op ->
      (* put holes to display the operator *)
      separate (blank 1) [underscore; qmark; underscore; colon; underscore]
-  | Prim_fetch_add ->
-    string "fetch_add"
-  | Prim_atomic_get _ -> string "atomic_get"
-  | Prim_atomic_set _ -> string "atomic_set"
-  | Prim_compare_and_swap -> string "compare_and_swap"
 
 and val_to_doc (v : value) : document =
   match v with
@@ -179,15 +204,18 @@ and attr_to_doc (a : attribute) : document =
 
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in
-  if t.marks = []
-    then dt
-    else
-      begin
-      let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t.marks in
-      let sleft = string ("/*@" ^ m ^ "*/") in
-      let sright =  string ("/*" ^ m ^ "@*/") in
-      sleft ^^ dt ^^ sright
-      end
+  let dt =
+    if t.marks = []
+      then dt
+      else
+        begin
+        let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t.marks in
+        let sleft = string ("/*@" ^ m ^ "*/") in
+        let sright =  string ("/*" ^ m ^ "@*/") in
+        sleft ^^ dt ^^ sright
+        end
+    in
+    if not !decode then trm_annot_to_doc t.annot ^^ dt else dt
 
 and trm_to_doc ?(semicolon=false) (t : trm) : document =
   let loc = t.loc in
@@ -199,6 +227,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
   in
   (* For printing C code, we have (see explanations in [clang_to_ast.ml],
      search for [Address_operator] and [Star_operator]. *)
+
   match t.add with
   | Address_operator :: addl ->
      let d =
@@ -215,16 +244,14 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
                    is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
                    attributes = []}
      in
-     let body = if !decode then parens (star ^^ d) else d in
+     let body = if !decode then parens (star ^^ d) else string "<annotation:valueof>" ^^ d in
      dattr ^^ body ^^ dsemi
   | _ ->
      begin match t.desc with
      | Trm_val v ->
         if List.mem Empty_cond t.annot then empty
           else dattr ^^ val_to_doc v
-     | Trm_var x ->
-        if List.mem Any t.annot then dattr ^^ string "ANY (" ^^ string x ^^ string ")"
-          else
+     | Trm_var (_, x) ->
             dattr ^^ string x
      | Trm_array tl | Trm_struct tl ->
         let tl = Mlist.to_list tl in
@@ -257,11 +284,14 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         else if List.mem Main_file t.annot then
            let dl = List.map (decorate_trm ~semicolon:true) tl in
            dattr ^^ separate (twice hardline) dl
-        else if List.exists (function Include _ -> true | _ -> false) t.annot then empty
+        else if List.exists (function Include _ -> true | _ -> false) t.annot then
+          (* LATER: restore printing of includes
+             sharp ^^ string "include" ^^ blank 1 ^^ dquote ^^ string (get_include_filename t) ^^ dquote *)
+          empty
         else
            let counter = ref (-1) in
            let dl = List.map (decorate_trm ~semicolon:true) tl in
-           let dl = Tools.foldi (fun i acc m ->
+           let dl = Tools.fold_lefti (fun i acc m ->
             if m <> [] then
               let () = incr counter in
               let m = Tools.list_to_string ~sep:"," m in
@@ -276,17 +306,16 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
            dattr ^^ apps_to_doc ~is_app_and_set:true f tl ^^ dsemi
         else if  List.mem As_left_value t.annot then
           dattr ^^ apps_to_doc ~as_left_value:true f tl
-        else
+
+        else begin
            (*
              do not display * operator if the operand is a heap allocated
              variable or a succession of accesses
-            *)
-          let display_star =
-
-             if (List.mem Mutable_var_get t.annot || List.mem Access t.annot) && !decode then false
-             else true
-           in
-           dattr ^^ apps_to_doc ~display_star f tl ^^ dsemi
+           *)
+            if List.mem Mutable_var_get t.annot || List.mem Access t.annot then
+              dattr ^^ apps_to_doc ~display_star:false f tl ^^ dsemi
+            else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
+            end
      | Trm_while (b, t) ->
         let db = decorate_trm b in
         let dt = decorate_trm ~semicolon:true t in
@@ -303,9 +332,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string "for" ^^ blank 1 ^^
           parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
             blank 1 ^^ dbody
-     | Trm_for (index, direction, start, stop, step, body) ->
-           (* for (int i = 10; i >= 0; i--)       dir=dDirDownTo   step=1 *)
-       let full_loop = trm_for_to_trm_for_c index direction start stop step body in
+     | Trm_for (index, start, direction, stop, step, body) ->
+       let local_index = not (List.mem Non_local_index t.annot) in
+       let full_loop = trm_for_to_trm_for_c ~local_index index start direction stop step body in
        decorate_trm full_loop
      | Trm_switch (cond, cases) ->
         let dcond = decorate_trm cond in
@@ -340,11 +369,18 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         | Continue _ -> dattr ^^ string "continue" ^^ dsemi
         end
      | Trm_labelled (l, t) ->
-        let dt = decorate_trm ~semicolon t in
+        let dt = decorate_trm  ~semicolon t in
         dattr ^^ string l ^^ colon ^^ nest 2 (hardline ^^ dt)
      | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
-     | Trm_arbitrary code ->
-        dattr ^^ string code ^^ hardline
+     | Trm_arbitrary a_kind  ->
+        let code_str =
+        begin match a_kind with
+        | Lit l -> string l
+        | Expr e -> parens (string e)
+        | Stmt s -> string s
+        | _ -> fail t.loc "trm_to_doc: arbitrary code should be entered by using Lit, Expr and Stmt only"
+        end  in
+        dattr ^^ code_str
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
      | Trm_omp_routine  r -> dattr ^^ routine_to_doc r ^^ semi
      | Trm_extern (lang, tl) ->
@@ -365,7 +401,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
       let drt = record_type_to_doc rt in
       let dt = decorate_trm t1 in
       let dl = List.map (decorate_trm ~semicolon:true) tl in
-      dattr ^^ drt ^^ dname ^^  blank 1 ^^ Tools.doc_list_to_doc ~sep:hardline ~bounds:[lbrace; rbrace] dl ^^ blank 1 ^^ dt ^^ semi
+      dattr ^^ drt ^^ dname ^^  blank 1 ^^ Tools.list_to_doc ~sep:hardline ~bounds:[lbrace; rbrace] dl ^^ blank 1 ^^ dt ^^ semi
      | Trm_template (tpl, t1) ->
         let dl = decorate_trm t1 in
         let dtpl = List.map (fun (n, tpk, _) ->
@@ -383,7 +419,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
           | Template _ -> fail None "template_param_kind_to_doc: nested templates are not supported"
 
         ) tpl in
-        string "template" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl ^^ semi
+        string "template" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl ^^ semi
      end
 
 and record_type_to_doc (rt : record_type) : document =
@@ -426,9 +462,9 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
     if not !decode then string "let" ^^ blank 1 ^^ string (fst tv) ^^ blank 1 ^^ colon ^^  blank 1 ^^ dtx ^^ initialisation
       else dtx ^^ initialisation
 
-and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_var list) (b : trm) : document =
+and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
-  let f = Str.global_replace (Str.regexp "overloaded") "operator" f in
+  let f = Tools.string_subst "overloaded" "operator" f in
   let argd = separate (comma ^^ blank 1) (List.map (fun tv ->
     if is_typ_const (snd tv) then typed_var_to_doc ~const:true tv else typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
@@ -483,7 +519,7 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       separate (blank 1) [string "enum"; string tname;
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
-and multi_decl_to_doc (loc : location) (tl : trm list) : document =
+and multi_decl_to_doc (loc : location) (tl : trms) : document =
  let get_info (t : trm) : document =
   begin match t.desc with
   | Trm_let (vk, (x, _), init) ->
@@ -523,13 +559,18 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
   | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
 
-(* display_star: true if f is get and we should display it *)
 and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false)
-  (f : trm) (tl : trm list) : document =
+  (f : trm) (tl : trms) : document =
+  let aux_arguments f_as_doc =
+      f_as_doc ^^ Tools.list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
+      in
+
   match f.desc with
-  (* NOTE: in C, we don't apply arbitrary terms to terms, functions can only
-     be variables or primitive functions. *)
-  | Trm_var x ->
+  (* Case of function pointers *)
+  | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var (_, x); _ } ]) ->
+      aux_arguments (string x)
+  (* Case of function by name *)
+  | Trm_var (_, x) ->
      if !decode && Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
         (* Note x is for example "overloaded=" *)
        let (d1, d2) =
@@ -557,14 +598,12 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
        else
          fail f.loc "apps_to_doc: unsupported operator"
      else
-       (* The generic case of a function being applied *)
-       let rec aux d = function
-         | [] -> d
-         | [t] -> d ^^ decorate_trm t
-         | t1 :: t2 :: tl ->
-            aux (d ^^ decorate_trm t1 ^^ comma ^^ blank 1) (t2 :: tl)
-       in
-       string x ^^ parens (aux empty tl)
+       aux_arguments (string x)
+
+  (* Case of inlined function *)
+  | Trm_let_fun _ ->
+        parens (decorate_trm f) ^^ Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] (List.map decorate_trm tl)
+  (* Case of primitive operations *)
   | Trm_val v ->
      begin match v with
      | Val_prim p ->
@@ -576,11 +615,12 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               begin match op with
               | Unop_get when as_left_value -> d
               | Unop_get ->
-                 if not !decode then
-                   string "read(" ^^ d ^^ string ")"
-                 else begin
-                   if display_star then parens (star ^^ d) else d
-                 end
+                 if not !decode then begin
+                   string "get(" ^^ d ^^ string ")"
+                end else begin
+                  if display_star then parens (star ^^ d) else d
+                end
+              | Unop_address -> ampersand
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
               | Unop_opp -> parens (minus ^^ blank 1 ^^ d)
@@ -592,9 +632,9 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               | Unop_pre_inc  -> string "operator++(" ^^ d ^^ string ")"
               | Unop_pre_dec when !decode -> twice minus ^^ d
               | Unop_pre_dec  -> string "operator--(" ^^ d ^^ string ")"
-              (* | Unop_struct_field_get f  when !decode->
+              (* | Unop_struct_get f  when !decode->
                 parens (d ^^ minus ^^ rangle ^^ string f) *)
-              | (Unop_struct_field_get f | Unop_struct_field_addr f) when !decode ->
+              | (Unop_struct_get f | Unop_struct_access f) when !decode ->
                  begin match t.desc with
                  (* if t is get t' we can simplify the display *)
                  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
@@ -614,9 +654,9 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                      (*parens (d ^^ dot ^^ string f)*)
                     d ^^ dot ^^ string f
                  end
-              | Unop_struct_field_get f  ->
-                  d ^^ dot ^^ string f
-              | Unop_struct_field_addr f ->
+              | Unop_struct_get f  ->
+                  string "struct_get(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f) ^^ string ")"
+              | Unop_struct_access f ->
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f) ^^ string ")"
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
@@ -633,7 +673,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               begin match op with
               | Binop_set ->
                  if not !decode then
-                   string "write(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+                   string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
                  else if not is_app_and_set then
                    separate (blank 1) [d1; equals; d2]
                  else
@@ -685,11 +725,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                  parens (separate (blank 1) [d1; ampersand; d2])
               | Binop_or -> parens (separate (blank 1) [d1; twice bar; d2])
               | Binop_bitwise_or -> parens (separate (blank 1) [d1; bar; d2])
-              | Binop_array_cell_addr when !decode ->
+              | Binop_array_access when !decode ->
                   d1 ^^ brackets (d2)
-              | Binop_array_cell_addr (* when not !decode *) ->
+              | Binop_array_access (* when not !decode *) ->
                   string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
-              | Binop_array_cell_get ->
+              | Binop_array_get ->
                  d1 ^^ brackets (d2)
               | Binop_shiftl ->
                  parens (separate (blank 1) [d1; twice langle; d2])
@@ -700,6 +740,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
            | _ ->
               fail f.loc "apps_to_doc: binary operators must have two arguments"
            end
+        | Prim_new t ->
+          (* Here we assume that trm_apps has only one trm as argument *)
+          let value = List.hd tl in
+          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
+
         | Prim_conditional_op ->
            begin match tl with
            | [t1; t2; t3] ->
@@ -711,27 +756,15 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               fail f.loc
                 "apps_to_doc: conditional operator must have three arguments"
            end
-        | Prim_new t ->
-          (* Here we assume that trm_apps has only one trm as argument *)
-          let value = List.hd tl in
-          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
-        | Prim_fetch_add ->
-          begin match tl with
-          | [d1;d2] ->
-            string "fetch_add" ^^ parens ((decorate_trm d1) ^^ comma ^^ blank 1 ^^ decorate_trm d2)
-          | _ -> fail f.loc "apps_to_doc: fetch_add expects two arguments"
-          end
-        (* LATER: FIX ME! *)
-        | Prim_atomic_get _cm -> string "atomic_get"
-        | Prim_atomic_set _cm -> string "atomic_set"
-        | Prim_compare_and_swap -> string "compare_and_swap"
-        (* | _ -> fail f.loc "apps_to_doc: only op primitives may be applied" *)
+        | _ -> fail f.loc "apps_to_doc: only op primitives may be applied"
+
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end
    | _ ->
       Ast_to_text.print_ast ~only_desc:true stdout f;
       fail f.loc "apps_to_doc: only functions may be applied"
+
 and mode_to_doc (m : mode) : document =
   match m with
   | Shared_m -> string "shared"
@@ -825,6 +858,7 @@ and clause_to_doc (cl : clause) : document =
   | Link vl -> string "link" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | Num_teams n -> string "num_teams" ^^ parens (string n)
   | Thread_limit n -> string "thread_limit" ^^ parens (string n)
+
 and atomic_operation_to_doc (ao : atomic_operation option) : document =
   match ao with
   | None -> empty
@@ -841,53 +875,53 @@ and directive_to_doc (d : directive) : document =
   | Atomic ao -> string "atomic" ^^ blank 1 ^^ (atomic_operation_to_doc ao)
   | Atomic_capture -> string "atomic" ^^ blank 1 ^^ string "capture"
   | Barrier -> string "barrier"
-  | Cancel (c, cl) -> string "cancel" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.doc_list_to_doc ~sep:comma (List.map clause_to_doc cl))
-  | Cancellation_point (c, cl) -> string "cancellation" ^^ blank 1 ^^ string "point" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.doc_list_to_doc ~sep:comma (List.map clause_to_doc cl))
+  | Cancel (c, cl) -> string "cancel" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.list_to_doc ~sep:comma (List.map clause_to_doc cl))
+  | Cancellation_point (c, cl) -> string "cancellation" ^^ blank 1 ^^ string "point" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.list_to_doc ~sep:comma (List.map clause_to_doc cl))
   | Critical (name, hint) -> string "critical" ^^ if name = "" then empty else parens (string name) ^^ if hint = "" then empty else (string "hint" ^^ parens (string hint))
-  | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd " ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd " ^^ (Tools.list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Declare_reduction (ri, tvl, e, c) ->  string "declare" ^^ blank 1 ^^ string "simd" ^^ parens (
     reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (Tools.list_to_string ~sep:"," ~bounds:["";""] tvl) ^^
     string e ^^ clause_to_doc c)
-  | Declare_target cl -> string "declare" ^^ blank 1 ^^ string "target " ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Distribute cl -> string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Distribute_parallel_for cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Declare_target cl -> string "declare" ^^ blank 1 ^^ string "target " ^^ (Tools.list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Distribute cl -> string "distribute" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Distribute_parallel_for cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Distribute_simd -> string "distribute" ^^ blank 1 ^^ string "simd"
   | End_declare_target -> string "end" ^^ blank 1 ^^ string "declare " ^^ string "target"
   | Flush vl -> string "flush" ^^ string (Tools.list_to_string ~sep:"," ~bounds:["(";")"] vl)
-  | For cl -> string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
-  | For_simd cl -> string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | For cl -> string "for" ^^ blank 1 ^^ (Tools.list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
+  | For_simd cl -> string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
   | Master -> string "master"
-  | Ordered cl -> string "ordered" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
-  | Parallel  cl -> string "parallel" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
-  | Parallel_for cl -> string "parallel" ^^ blank 1 ^^ string "for " ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
-  | Parallel_for_simd  cl -> string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (Tools.doc_list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Ordered cl -> string "ordered" ^^ blank 1 ^^ (Tools.list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
+  | Parallel  cl -> string "parallel" ^^ blank 1 ^^ (Tools.list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
+  | Parallel_for cl -> string "parallel" ^^ blank 1 ^^ string "for " ^^ (Tools.list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
+  | Parallel_for_simd  cl -> string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (Tools.list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Section -> string "section"
-  | Sections cl -> string "sections" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Simd cl -> string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Single cl -> string "single" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Target cl -> string "target" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Target_data cl -> string "target" ^^ blank 1 ^^ string "data"  ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_enter_data  cl -> string "target" ^^ blank 1 ^^ string "enter" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_exit_data  cl -> string "target" ^^ blank 1 ^^ string "exit" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Target_teams_distribute cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Task cl -> string "task" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Sections cl -> string "sections" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Simd cl -> string "simd" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Single cl -> string "single" ^^ blank 1 ^^ (Tools.list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Target cl -> string "target" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Target_data cl -> string "target" ^^ blank 1 ^^ string "data"  ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Target_enter_data  cl -> string "target" ^^ blank 1 ^^ string "enter" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Target_exit_data  cl -> string "target" ^^ blank 1 ^^ string "exit" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (Tools.list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Target_teams_distribute cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Task cl -> string "task" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Taskgroup -> string "taskgroup"
-  | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Taskloop_simd cl -> string "taskloop" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Taskloop_simd cl -> string "taskloop" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
   | Taskwait -> string "taskwait"
   | Taskyield -> string "taskyield"
-  | Teams cl -> string "teams" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Teams_distribute cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Teams_distribute_end cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "end" ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Teams_distribute_parallel_for cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Teams_distribute_parallel_for_simd cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^(Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Teams cl -> string "teams" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute_end cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "end" ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute_parallel_for cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute_parallel_for_simd cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^(Tools.list_to_doc (List.map clause_to_doc cl))
   | Threadprivate vl -> string "threadprivate" ^^ parens(string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl))
 
 and routine_to_doc (r : omp_routine) : document =

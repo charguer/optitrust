@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en-us"><head>
+<title>
+Documentation for {FOLDER}/{BASENAME} 
+</title>
+<meta charset="utf-8">
+   <!--Make sure to load the CSS file in that order-->
+   <link rel="stylesheet" type="text/css" href="../../tools/lib/highlight.js_github.min.css" />
+   <link rel="stylesheet" type="text/css" href="../../tools/lib/diff2html.min.css" />
+
+   <!--custom highlightjs with only ocaml and C/C++ supported-->
+   <script src="../../tools/lib/highlight_custom/highlight.pack.js"></script>
+   <script src="../../tools/lib/jquery.min.js"></script>
+   <script src="../../tools/lib/jquery-ui.min.js"></script>
+   <script type="text/javascript" src="../../tools/lib/diff2html-ui.min.js"></script>
+
+   <script src="../../doc/doc_transfo.js"></script>
+   <link rel="stylesheet" type="text/css" href="../../doc/doc_transfo.css" />
+
+   <!--TODO: http://underscorejs.org/ ? -->
+   <!--explicit inclusion of files-->
+   <script src="{BASENAME}_doc.js"></script>
+
+   <style></style><script></script>
+</head>
+<body>
+
+<!---------------------------------------------------------------------------->
+
+<div class="test" id="{FOLDER}__{BASENAME}"></div>
+
+</body>
+</html>

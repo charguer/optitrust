@@ -5,4 +5,4 @@
 
 (env
   (dev
-    (flags (:standard -warn-error -27))))
+    (flags (:standard -warn-error -27-16))))

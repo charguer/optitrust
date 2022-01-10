@@ -9,39 +9,39 @@ open Ast
 
 (* [inline_array_access array_var new_vars t]: change all the occurences of the array to variables,
     params:
-      array_var: array_variable  to apply changes on
-      new_vars: a list of variables, the variables at index i replaces and occurence of [array_var[i]]
-      t: ast node located in the same level or deeper as the array declaration
+      [array_var]: array_variable  to apply changes on
+      [new_vars]: a list of variables, the variables at index i replaces and occurence of [array_var[i]]
+      [t]: ast node located in the same level or deeper as the array declaration
     return: 
-        updated ast node  with the replaced array accesses to variable references.
+        updated ast with the replaced array accesses to variable references.
 *)
-let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
+let inline_array_access (array_var : var) (new_vars : vars) (t: trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
-    | Trm_var y when y = array_var -> fail t.loc "inline_array_access: arrays should be accessed by using indices"
+    | Trm_var (_, y) when y = array_var -> fail t.loc "inline_array_access: arrays should be accessed by using indices"
     | Trm_apps(f,[arr_base;arr_index]) ->
       begin match f.desc with
-      | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr)) ->
+      | Trm_val (Val_prim (Prim_binop Binop_array_access)) ->
         begin match arr_base.desc with
-        | Trm_var x when x = array_var ->
+        | Trm_var (_, x) when x = array_var ->
           begin match arr_index.desc with
           | Trm_val (Val_lit (Lit_int i)) ->
             if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
             else
               trm_var ~typ:t.typ ~add:t.add (List.nth new_vars i)
-          | Trm_apps ({desc = Trm_var "ANY";_}, _) ->
+          | Trm_apps ({desc = Trm_var (_, "ANY");_}, _) ->
             let nb_vars = List.length new_vars in
             trm_apps (trm_var "CHOOSE") ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var new_vars))
           | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
           end
         | Trm_apps (f1,[base1]) ->
           begin match f1.desc with
-          | Trm_val (Val_prim (Prim_unop Unop_struct_field_addr var)) when var = array_var ->
+          | Trm_val (Val_prim (Prim_unop Unop_struct_access var)) when var = array_var ->
             begin match arr_index.desc with
             | Trm_val (Val_lit (Lit_int i)) ->
               if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
               else
-                let f1 = {f1 with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr (List.nth new_vars i))))} in
+                let f1 = {f1 with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (List.nth new_vars i))))} in
                 trm_apps ~typ:t.typ ~add:t.add f1 [base1]
                 (* trm_var (List.nth new_vars i) *)
             | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
@@ -60,17 +60,20 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
       the size of the arrys. The variable at index i in [new_vars] will replace the array occurrence 
       at index i
     params:
-      new_vars: a list of strings of length equal to the size of the array
-      index: index of the instruction inside the sequence 
-      t: ast of the surrounding sequence of the array declaration
+      (new_vars]: a list of strings of length equal to the size of the array
+      [index]: index of the instruction inside the sequence 
+      [t]: ast of the surrounding sequence of the array declaration
     return: 
       updated ast of the outer sequence with the replaced declarations and all changed accesses.
 *)
-let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
+let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
-    let array_name = decl_name d in
+    let array_name = begin match (decl_name d) with
+                     | Some nm -> nm
+                     | None -> fail t.loc "to_variables_aux: could don't find the name of the array declaration"
+                     end in
     let var_decls = begin match d.desc with
     | Trm_let (_, (_ , __), init) ->
       begin match init.desc with
@@ -102,16 +105,16 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
     trm_seq ~annot:t.annot ~loc:t.loc ~marks:t.marks tl
   | _ -> fail t.loc "to_variables_aux: expected the outer sequence of the targeted trm"
 
-let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
+let to_variables (new_vars : vars) (index : int): Target.Transfo.local =
   Target.apply_on_path (to_variables_aux new_vars index)
 
 (* [apply_tiling base_type block_name b x]: Change all the occurences of the array to the tiled form
     params:
-      base_type: type of the array
-      block_name: new name for the array
-      b: the size of the tile
-      x: typvar
-      t: ast node located in the same level or deeper as the array declaration
+      [base_type]: type of the array
+      [block_name]: new name for the array
+      [b]: the size of the tile
+      [x]: typvar
+      [t]: ast node located in the same level or deeper as the array declaration
     assumptions:
     - if x is ty*, each array of type x is allocated through a custom function:
       x a = my_alloc(nb_elements, size_element)
@@ -126,8 +129,8 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
   (* array accesses *)
   | Trm_apps (f, tl) ->
      begin match f.desc with
-     | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr))
-       | Trm_val (Val_prim (Prim_binop Binop_array_cell_get)) ->
+     | Trm_val (Val_prim (Prim_binop Binop_array_access))
+       | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
         begin match tl with
         | [base; index] ->
            begin match base.typ with
@@ -157,10 +160,10 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
 (* [tile_aux: name block_name b x t]: transform an array declaration from a normal shape into a tiled one,
     then call apply_tiling to change all the array occurrences into the correct form.
     params:
-      block_name: the name of the arrays representing one tile
-      block_size: the size of the tile
-      index: the index of the instruction inside the sequence
-      t: ast of the outer sequence containing the array declaration
+      [block_name]: the name of the arrays representing one tile
+      [block_size]: the size of the tile
+      [index]: the index of the instruction inside the sequence
+      [t]: ast of the outer sequence containing the array declaration
     return: 
       updated ast of the surrounding sequence with the new tiled declaration and correct array accesses based on the new tiled form.
 *)
@@ -292,8 +295,8 @@ let tile (block_name : typvar) (block_size : var) (index : int): Target.Transfo.
 
 (* [apply_swapping x t]: change all the occurrences of the array to the swapped form.
     params:
-      x: typvar
-      t: an ast node which on the same level as the array declaration or deeper.
+      [x]: typvar
+      [t]: an ast node which on the same level as the array declaration or deeper.
     return:
       updated ast nodes which are in the same level with the array declaration or deeper.
  *)
@@ -302,16 +305,16 @@ let tile (block_name : typvar) (block_size : var) (index : int): Target.Transfo.
   | Trm_apps (f, tl) ->
      begin match f.desc with
      (* array accesses… *)
-     | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr))
-       | Trm_val (Val_prim (Prim_binop Binop_array_cell_get)) ->
+     | Trm_val (Val_prim (Prim_binop Binop_array_access))
+       | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
         begin match tl with
         | [base; index] ->
            begin match base.desc with
            | Trm_apps (f', tl') ->
               begin match f'.desc with
               (* we look for two successive accesses to an array of type x *)
-              | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr))
-                | Trm_val (Val_prim (Prim_binop Binop_array_cell_get)) ->
+              | Trm_val (Val_prim (Prim_binop Binop_array_access))
+                | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
                  begin match tl' with
                  | [base'; index'] ->
 
@@ -378,7 +381,7 @@ let tile (block_name : typvar) (block_size : var) (index : int): Target.Transfo.
      remaining cases: val, var, array, struct, if, seq, while, for, switch,
      abort, labelled
      inside values, array accesses may only happen in array sizes in types
-     todo: currently ignored, is it reasonable to expect such things to happen?
+     LATER: currently ignored, is it reasonable to expect such things to happen?
    *)
   | _ -> trm_map (apply_swapping x) t
 
@@ -386,9 +389,8 @@ let tile (block_name : typvar) (block_size : var) (index : int): Target.Transfo.
 (* [swap_aux name x t]: transform an array declaration to a swaped one, Basically the bounds will swap
      places in the array declaration, and the indices will swap places on all the array occurrences.
     params:
-      index: used to find the instruction inside the sequence
-      x: typ of the array
-      t: ast of the surrounding sequence if the array declaration
+      [index]: used to find the instruction inside the sequence
+      [t]: ast of the surrounding sequence if the array declaration
     assumption: x is not used in fun declarations
       -> to swap the first dimensions of a function argument, use swap_coordinates
       on the array on which the function is called: a new function with the
@@ -447,33 +449,33 @@ let swap (index : int) : Target.Transfo.local =
 
 (* [aos_to_soa_aux t ] : Transform an array of structures to a structure of arrays
     params:
-      index: the index of the array declaration inside the surrounding sequence
-      t: ast of the outer sequence containing the array of structures declaration
+      [index]: the index of the array declaration inside the surrounding sequence
+      [t]: ast of the outer sequence containing the array of structures declaration
     return:
       updated ast of the surrounding sequence wuth the new changed declaration and occurences
 *)
 let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
-    (* TODO: document  E.G.  matching (array_access(struct_access(t, f), index)); ... *)
+    (* LATER: document  E.G.  matching (array_access(struct_access(t, f), index)); ... *)
     | Trm_apps(_,[get_base]) when (List.mem Access t.annot)  ->
       begin match get_base.desc with
       | Trm_apps (f, [base]) ->
          begin match f.desc with
-         | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr _)))
-           | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _))) ->
+         | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
+           | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
             begin match base.desc with
             | Trm_apps (f', [base'; index]) ->
                begin match f'.desc with
-               | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr))
-                 | Trm_val (Val_prim (Prim_binop Binop_array_cell_get)) ->
+               | Trm_val (Val_prim (Prim_binop Binop_array_access))
+                 | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
                   (*
                     swap accesses only if the type of base' is x (or x* in case of
                     an access on a heap allocated variable)
                    *)
 
                    (*
-                     TODO: Arthur write better specification for the changes
+                     LATER: Arthur write better specification for the changes
                       <<t>> [i].x
                    *)
 
@@ -518,7 +520,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
          end
       | _ -> trm_map (aux global_trm) t
       end
-      (* TODO: arthur: test the use of exceptions for structuring this code *)
+      (* LATER: arthur: test the use of exceptions for structuring this code *)
 
     | Trm_typedef td when td.typdef_tconstr = struct_name ->
       begin match td.typdef_body with
@@ -573,3 +575,32 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
 
 let aos_to_soa (tv : typvar) (sz : var): Target.Transfo.local =
   Target.apply_on_path(aos_to_soa_aux tv sz)
+
+(* [set_explicit_aux t]: transoform an initialized array declaration into a list of write operations
+      for each one of its cells
+      params:
+        [t]: ast of the array declaration
+      return:
+        the ast of the uninitialized array declaration and a list of write operations
+*)
+let set_explicit_aux (t : trm) : trm = 
+  match t.desc with 
+  | Trm_let (vk, (x, tx), init) ->
+    let init = match get_init_val init with 
+    | Some init -> init
+    | None -> fail t.loc "set_explicit_aux: could not get the initialization trms for the targeted array declaration" in
+    begin match init.desc with 
+    | Trm_array tl -> 
+      let array_set_list = 
+      List.mapi ( fun i t1 -> 
+        trm_set (trm_apps (trm_binop (Binop_array_access)) [trm_var x;trm_int i]) t1
+      ) (Mlist.to_list tl) in
+      let new_decl = trm_let vk (x,tx) (trm_prim (Prim_new (get_inner_ptr_type tx))) in
+      trm_seq_no_brace ([new_decl] @ array_set_list)
+    | _ -> fail init.loc "set_explicit_aux: expected an array initialization"
+    end
+  | _ -> fail t.loc "set_explicit_aux: expected an array declaration"
+
+
+let set_explicit : Target.Transfo.local =
+  Target.apply_on_path (set_explicit_aux )

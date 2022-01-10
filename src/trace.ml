@@ -1,7 +1,16 @@
 open Ast
+
+
+(* Store the last line at which a step was declared *)
+let line_of_last_step = ref (-1)
+
+
 (******************************************************************************)
 (*                             Logging management                             *)
 (******************************************************************************)
+
+(* [timing_log] is a handle on the channel for writing timing reports. *)
+let timing_log_handle = ref None
 
 (* [logs] is a reference on the list of open log channels. *)
 let logs : (out_channel list) ref = ref []
@@ -16,7 +25,9 @@ let close_logs () : unit =
 let init_logs directory prefix =
   close_logs();
   let clog = open_out (directory ^ prefix ^ ".log") in
-  logs := clog :: [];
+  let timing_log = open_out ("timing.log") in
+  timing_log_handle := Some timing_log;
+  logs := timing_log :: clog :: [];
   clog
 
 (* [write_log clog msg] writes the string [msg] to the channel [clog]. *)
@@ -35,6 +46,56 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
     in
   let msg = Printf.sprintf (" -expression\n%s\n" ^^ " %s is a %s\n") (Ast_to_c.ast_to_string t) sloc exp_type in
  write_log clog msg
+
+(******************************************************************************)
+(*                             Timing logs                                    *)
+(******************************************************************************)
+
+(* [write_timing_log msg] is writing a message in the timing log *)
+let write_timing_log (msg : string) : unit =
+  let timing_log = match !timing_log_handle with
+    | Some log -> log
+    | None -> failwith "uninitialized timing log"
+   in
+   write_log timing_log msg
+
+(* [timing ~name f] writes the execution time of [f] in the timing log file *)
+let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
+  if !Flags.analyse_time && cond then begin
+    let t0 = Unix.gettimeofday () in
+    let res = f() in
+    let t1 = Unix.gettimeofday () in
+    let msg = Printf.sprintf "%d\tms -- %s\n" (Tools.milliseconds_between t0 t1) name in
+    write_timing_log msg;
+    res
+  end else begin
+    f()
+  end
+
+(* Storage for measuring the duration of all the steps *)
+let start_time  = ref (0.)
+
+(* Storage for measuring the duration of each step *)
+let last_time  = ref (0.)
+
+(* [last_time_update()] updates [last_time] and returns the delay
+   since last call *)
+let last_time_update () : int =
+  let t0 = !last_time in
+  let t = Unix.gettimeofday() in
+  last_time := t;
+  Tools.milliseconds_between t0 t
+
+(* [report_time_of_last_step()] reports the total duration of the last step *)
+let report_time_of_last_step () : unit =
+  if !Flags.analyse_time then begin
+    let duration_of_previous_step = last_time_update () in
+    write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" duration_of_previous_step);
+  end
+
+(* [id_big_step] traces the number of big steps executed; it is used only when
+   executing from the command line, in which case line numbers are not available *)
+let id_big_step = ref 0
 
 (******************************************************************************)
 (*                             File input                                     *)
@@ -60,21 +121,26 @@ let get_cpp_includes (filename : string) : string =
 let parse (filename : string) : string * trm =
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
-  let command_line_args =
+  let command_line_include =
     List.map Clang.Command_line.include_directory
       (Clang.default_include_directories ()) in
-  let ast = Clang.Ast.parse_file ~command_line_args filename  in
+  let command_line_warnings = ["-Wno-parentheses-equality"; "-Wno-c++11-extensions"] in
+  let command_line_args = command_line_warnings @ command_line_include in
+  let ast =
+    timing ~name:"parse_file" (fun () ->
+      Clang.Ast.parse_file ~command_line_args filename) in
 
   (* DEBUG: Format.eprintf "%a@."
        (Clang.Ast.format_diagnostics Clang.not_ignored_diagnostics) ast; *)
   print_info None "Parsing Done.\n";
   print_info None "Translating AST...\n";
 
-  let t = Clang_to_ast.translate_ast ast in
+  let t =
+    timing ~name:"translate_ast" (fun () ->
+      Clang_to_ast.translate_ast ast) in
 
   print_info None "Translation done.\n";
   (includes, t)
-
 
 (******************************************************************************)
 (*                             Trace management                               *)
@@ -104,7 +170,7 @@ let context_dummy : context =
 type trace = {
   mutable context : context;
   mutable cur_ast : trm;
-  mutable history : trm list; }
+  mutable history : trms; }
 
 let trm_dummy : trm =
   trm_val (Val_lit Lit_unit)
@@ -135,16 +201,66 @@ let reset () : unit =
   close_logs();
   traces := [trace_dummy]
 
+(* [ml_file_excerpts] maps line numbers to the corresponding sections in-between [!!] marks in
+   the source file. Line numbers are counted from 1 in that map. *)
+module Int_map = Map.Make(Int)
+let ml_file_excerpts = ref Int_map.empty
+
+(* [compute_ml_file_excerpts lines] is a function for grouping lines according to the [!!] symbols. *)
+let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
+  let r = ref Int_map.empty in
+  let start = ref 0 in
+  let acc = Buffer.create 3000 in
+  let push () =
+    r := Int_map.add (!start+1) (Buffer.contents acc) !r;
+    Buffer.clear acc; in
+  let regexp_let = Str.regexp "^[ ]*let" in
+  let starts_with_let (str : string) : bool =
+    Str.string_match regexp_let str 0 in
+  let regexp_double_quote = Str.regexp "^[ ]*!!" in
+  let starts_with_double_quote (str : string) : bool =
+    Str.string_match regexp_double_quote str 0 in
+  let process_line (iline : int) (line : string) : unit =
+    if starts_with_double_quote line then begin
+      push();
+      start := iline;
+    end;
+    if not (starts_with_let line) then begin
+      Buffer.add_string acc line;
+      Buffer.add_string acc "\n";
+    end;
+    in
+  List.iteri process_line lines;
+  push();
+  !r
+
 (* [init f] initialize the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
-   The history is initialized with the initial AST. *)
+   The history is initialized with the initial AST.
+   [~prefix:"foo"] allows to use a custom prefix for all output files,
+   instead of the basename of [f]. *)
 (* LATER for mli: val set_init_source : string -> unit *)
-let init (filename : string) : unit =
+let init ?(prefix : string = "") (filename : string) : unit =
   reset ();
+
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
   let directory = (Filename.dirname filename) ^ "/" in
-  let prefix = Filename.remove_extension basename in
+  let default_prefix = Filename.remove_extension basename in
+  let ml_file_name =
+    if Tools.pattern_matches "_inlined" default_prefix
+      then List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0
+      else default_prefix in
+  if !Flags.analyse_time then begin
+    let src_file = (ml_file_name ^ ".ml") in
+    if Sys.file_exists src_file then begin
+      let lines = Xfile.get_lines src_file in
+      ml_file_excerpts := compute_ml_file_excerpts lines;
+    end;
+  end;
+  start_time := Unix.gettimeofday ();
+  last_time := !start_time;
+  let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
   let (includes, cur_ast) = parse filename in
   let context = { extension; directory; prefix; includes; clog } in
@@ -201,7 +317,7 @@ let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
   (* Close logs: new logs will be opened in every branch. *)
   close_logs ();
   let list_of_traces =
-    Tools.foldi
+    Tools.fold_lefti
       (fun i tr f ->
         let branch_id = i + 1 in
         if only_branch = 0 || branch_id = only_branch then
@@ -299,7 +415,8 @@ let step () : unit =
    LATER: find a way to remove extra parentheses in ast_to_doc, by using
    priorities to determine when parentheses are required. *)
 let cleanup_cpp_file_using_clang_format (filename : string) : unit =
-  ignore (Sys.command ("clang-format -i " ^ filename))
+  timing ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
+    ignore (Sys.command ("clang-format -i " ^ filename)))
 
 (* [output_prog ctx prefix ast] writes the program described by the term [ast]
    in several files:
@@ -323,22 +440,26 @@ let get_language () =
   | [] -> fail None "cannot detect language -- trace should not be empty"
   | t::_ -> language_of_extension t.context.extension
 
-let output_prog ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
+let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   let file_prog = prefix ^ ctx.extension in
   let out_prog = open_out file_prog in
   begin try
     (* print C++ code with decoding *)
+    (*   DEPRECATED
+    Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
     output_string out_prog ctx.includes;
     Ast_to_c.ast_to_doc out_prog ast;
+    output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->
     close_out out_prog;
     failwith s
   end;
   (* beautify the C++ code --comment out for debug *)
-  cleanup_cpp_file_using_clang_format file_prog;
+  if beautify
+    then cleanup_cpp_file_using_clang_format file_prog;
   (* ast and enc *)
-  if ast_and_enc then begin
+  if ast_and_enc && !Flags.dump_ast_details then begin
     let file_ast = prefix ^ ".ast" in
     let file_enc = prefix ^ "_enc" ^ ctx.extension in
     let out_ast = open_out file_ast in
@@ -375,7 +496,6 @@ let output_prog_opt  ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) 
    of the source and ast after applying transformaion i.
 *)
 let output_js  ?(vars_declared : bool = false)(index : int) (prefix : string) (ast : trm) : unit =
-  (* DEPRECATED let (_, ast) = parse cpp_filename in *)
   let file_js = prefix ^ ".js" in
   let out_js = open_out file_js in
   try
@@ -406,7 +526,7 @@ let output_js  ?(vars_declared : bool = false)(index : int) (prefix : string) (a
 *)
 let dump_trace_to_js ?(prefix : string = "") () : unit =
   assert (prefix = prefix && false);
-  let dump_history (prefix : string) (asts : trm list) : unit =
+  let dump_history (prefix : string) (asts : trms) : unit =
     let nbAst = List.length asts in
     let i = ref (nbAst - 2) in
     List.iter
@@ -458,9 +578,14 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
 (******************************************************************************)
 
 (* [reparse_trm ctx ast] print [ast] in a temporary file and reparses it using Clang. *)
-let reparse_trm (ctx : context) (ast : trm) : trm =
+let reparse_trm ?(info : string = "") (ctx : context) (ast : trm) : trm =
+  if !Flags.debug_reparse then begin
+    let info = if info <> "" then info else "of a term during the step starting at" in
+    Printf.printf "Reparse: %s line %d.\n" info !line_of_last_step;
+    flush stdout
+  end;
   let in_prefix = ctx.directory ^ "tmp_" ^ ctx.prefix in
-  output_prog ctx in_prefix ast;
+  output_prog ~beautify:false ctx in_prefix ast;
   let (_, t) = parse (in_prefix ^ ctx.extension) in
   (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
   t
@@ -468,9 +593,10 @@ let reparse_trm (ctx : context) (ast : trm) : trm =
 (* [reparse()] function takes the current AST, prints it to a file, and parses it
    as if it was a fresh input. Doing so ensures in particular that all the type
    information is properly set up. *)
-let reparse () : unit =
+let reparse ?(info : string = "") () : unit =
  List.iter (fun trace ->
-    trace.cur_ast <- reparse_trm trace.context trace.cur_ast)
+    let info = if info <> "" then info else "the code during the step starting at" in
+    trace.cur_ast <- reparse_trm ~info trace.context trace.cur_ast)
     !traces
 
 (* Work-around for a name clash *)
@@ -488,46 +614,54 @@ let reparse_alias = reparse
    If option [-dump-last nb] was provided, output files are produced for the last [nb] step. *)
 (* LATER for mli: dump_diff_and_exit : unit -> unit *)
 let dump_diff_and_exit () : unit =
-  print_info None "Exiting script\n";
-  close_logs ();
-  let trace =
-    match !traces with
-    | [] -> fail None "No trace"
-    | [tr] -> tr
-    | trs -> Printf.eprintf "Warning: considering the last branch of all switches.\n";
-             List.hd (List.rev trs)
-    in
-  let ctx = trace.context in
-  let prefix = ctx.directory ^ ctx.prefix in
-  (* Common printinf function *)
-  let output_ast ?(ast_and_enc:bool=true) filename_prefix ast_opt =
-    output_prog_opt ~ast_and_enc ctx filename_prefix ast_opt;
-    print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
-    in
-  (* CPP and AST output for BEFORE *)
-  let astBefore =
-    match trace.history with
-    | t::_ -> Some t (* the most recently saved AST *)
-    | [] -> Printf.eprintf "Warning: only one step in the history; consider previous step blank.\n"; None
-    in
-  output_ast (prefix ^ "_before") astBefore;
-  (* CPP and AST for BEFORE_N *)
-  if !Flags.dump_last <> Flags.dump_last_default then begin
-    let nb_requested = !Flags.dump_last in
-    let nb_available = List.length trace.history in
-    (* if nb_requested < nb_available
-       then Printf.eprintf "Warning: not enought many steps for [dump_last]; completing with blank files.\n"; *)
-    for i = 0 to nb_requested-1 do
-      let astBeforeI = if i < nb_available then Some (List.nth trace.history i) else None in
-      output_ast ~ast_and_enc:false (prefix ^ "_before_" ^ string_of_int i) astBeforeI
-    done;
+  if !Flags.analyse_time then begin
+     report_time_of_last_step();
+     write_timing_log (Printf.sprintf "------------------------TOTAL TRANSFO TIME: %.3f s\n" (!last_time -. !start_time));
+     write_timing_log (Printf.sprintf "------------START DUMP------------\n");
   end;
-  (* CPP and AST and Javscript for AFTER *)
-  let astAfter = trace.cur_ast in
-  output_ast (prefix ^ "_after") (Some astAfter);
-  print_info None "Writing ast and code into %s.js " prefix;
-  output_js 0 prefix astAfter;
+  timing ~name:"TOTAL for dump_diff_and_exit" (fun () ->
+    print_info None "Exiting script\n";
+    let trace =
+      match !traces with
+      | [] -> fail None "No trace"
+      | [tr] -> tr
+      | trs -> Printf.eprintf "Warning: considering the last branch of all switches.\n";
+              List.hd (List.rev trs)
+      in
+    let ctx = trace.context in
+    let prefix = ctx.directory ^ ctx.prefix in
+    (* Common printinf function *)
+    let output_ast ?(ast_and_enc:bool=true) filename_prefix ast_opt =
+      output_prog_opt ~ast_and_enc ctx filename_prefix ast_opt;
+      print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
+      in
+    (* CPP and AST output for BEFORE *)
+    let astBefore =
+      match trace.history with
+      | t::_ -> Some t (* the most recently saved AST *)
+      | [] -> Printf.eprintf "Warning: only one step in the history; consider previous step blank.\n"; None
+      in
+    output_ast (prefix ^ "_before") astBefore;
+    (* CPP and AST for BEFORE_N *)
+    if !Flags.dump_last <> Flags.dump_last_default then begin
+      let nb_requested = !Flags.dump_last in
+      let nb_available = List.length trace.history in
+      (* if nb_requested < nb_available
+        then Printf.eprintf "Warning: not enought many steps for [dump_last]; completing with blank files.\n"; *)
+      for i = 0 to nb_requested-1 do
+        let astBeforeI = if i < nb_available then Some (List.nth trace.history i) else None in
+        output_ast ~ast_and_enc:false (prefix ^ "_before_" ^ string_of_int i) astBeforeI
+      done;
+    end;
+    (* CPP and AST and Javscript for AFTER *)
+    let astAfter = trace.cur_ast in
+    output_ast (prefix ^ "_after") (Some astAfter);
+    print_info None "Writing ast and code into %s.js " prefix;
+    output_js 0 prefix astAfter;
+    (* Printf.printf "EXIT   %s\n" prefix; *)
+  );
   (* Exit *)
+  close_logs ();
   exit 0
 
 (* [check_exit_and_step()] performs a call to [check_exit], to check whether
@@ -537,20 +671,70 @@ let dump_diff_and_exit () : unit =
    [check_exit_and_step] triggers a call to [dump_diff_and_exit].
    If the optional argument [~reparse:true] is passed to the function,
    then the [reparse] function is called, replacing the current AST with
-   a freshly parsed and typechecked version of it. *)
-let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
-  let should_exit =
-    match Flags.get_exit_line() with
-    | Some li -> (line > li)
-    | _ -> false
-    in
-  if should_exit then begin
-     dump_diff_and_exit();
+   a freshly parsed and typechecked version of it.
+   The [~is_small_step] flag indicates whether the current step is small
+   and should be ignored when visualizing big steps only. *)
+let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(reparse : bool = false) () : unit =
+  (* Update the line of the last step entered *)
+  line_of_last_step := line;
+  (* Special hack for minimizing diff in documentation *)
+  if !Flags.documentation_save_file_at_first_check <> "" then begin
+    let trace =
+      match !traces with
+      | [trace] -> trace
+      | _ -> fail None "doc_script_cpp: does not support the use of [switch]"
+      in
+    let ctx = trace.context in
+    output_prog ctx !Flags.documentation_save_file_at_first_check (trace.cur_ast)
   end else begin
-    if reparse
-      then reparse_alias();
-    step();
- end
+    let ignore_step = is_small_step && !Flags.only_big_steps in
+    if not ignore_step then begin
+      report_time_of_last_step();
+      (* Handle exit of script *)
+      let should_exit =
+        match Flags.get_exit_line() with
+        | Some li -> (line > li)
+        | _ -> false
+        in
+      if should_exit then begin
+        if !Flags.analyse_time then begin
+          write_timing_log (Printf.sprintf "------------------------\n");
+        end;
+        dump_diff_and_exit();
+      end else begin
+        (* Handle reparse of code *)
+        if reparse || (!Flags.reparse_at_big_steps && not is_small_step) then begin
+          let info = if reparse then "the code on demand at" else "the code just before the big step at" in
+          reparse_alias ~info ();
+          if !Flags.analyse_time then
+            let duration_of_reparse = last_time_update () in
+            write_timing_log (Printf.sprintf "------------------------\nREPARSE: %d\tms\n" duration_of_reparse);
+        end;
+        (* Handle the reporting of the execution time *)
+        if !Flags.analyse_time then begin
+          let txt =
+            if !ml_file_excerpts = Int_map.empty then "" else begin
+              match Int_map.find_opt line !ml_file_excerpts with
+              | Some txt -> txt
+              | None -> (*failwith*) Printf.sprintf "<unable to retrieve line %d from script>" line
+            end in
+          write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line txt);
+        end;
+        (* Handle progress report *)
+        if not is_small_step && !Flags.report_big_steps then begin
+          if line = -1 then begin
+            incr id_big_step;
+            Printf.printf "Executing big-step #%d\n" !id_big_step
+          end else begin
+            Printf.printf "Executing big-step line %d\n" line
+          end;
+          flush stdout
+        end;
+      end;
+      (* Save the current code in the trace *)
+      step();
+  end
+end
 
 (* [!!] is a prefix notation for the operation [check_exit_and_step].
    By default, it performs only [step]. The preprocessor of the OCaml script file
@@ -562,14 +746,28 @@ let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
    which could be on line N or before (or could correspond to the input AST
    loaded by [Trace.init] if there is no preceeding '!!'.).
    Use [!!();] for a step in front of another language construct, e.g., a let-binding. *)
+
 let (!!) (x:'a) : 'a =
-  check_exit_and_step ();
+  check_exit_and_step ~is_small_step:true ~reparse:false ();
+  x
+
+(* [!^] is similar to [!!] but indicates the start of a big step in the transformation script. *)
+let (!^) (x:'a) : 'a =
+  check_exit_and_step ~is_small_step:false ~reparse:false ();
   x
 
 (* [!!!] is similar to [!!] but forces a [reparse] prior to the [step] operation. *)
-let (!!!) (x:'a) : 'a =
-  check_exit_and_step ~reparse:true ();
+
+let (!!!) (x : 'a) : 'a =
+  check_exit_and_step ~is_small_step:true ~reparse:true ();
   x
+
+(* [!!^] is forces reparse before a big step. *)
+
+let (!!^) (x : 'a) : 'a =
+  check_exit_and_step ~is_small_step:false ~reparse:true ();
+  x
+
 
 (* [dump ~prefix] invokes [output_prog] to write the contents of the current AST.
    If there are several traces (e.g., due to a [switch]), it writes one file for each.
@@ -585,6 +783,9 @@ let (!!!) (x:'a) : 'a =
 (* LATER for mli: val dump : ?prefix:string -> unit -> unit *)
 
 let dump ?(prefix : string = "") () : unit =
+  if !Flags.analyse_time then begin
+      write_timing_log (Printf.sprintf "------------START DUMP------------\n");
+  end;
   (* Dump full trace if requested *)
   if !Flags.dump_all then
      dump_trace_to_js ~prefix (); (* dump_trace ~prefix () *)
@@ -636,3 +837,70 @@ let set_ast (t:trm) : unit =
   match !traces with
   | [tr] -> tr.cur_ast <- t
   | _ -> assert false
+
+(* get the current context *)
+let get_context () : context =
+  match !traces with
+  | [tr] -> tr.context
+  | _ -> fail None "get_context: couldn't get the current context"
+
+
+(* Transform code entered as string into ast, this function returns a list of ast nodes because, the user can enter
+    code which could be a list of instructions, for ex: int x; x = 1; x = 5;
+    [context] - denotes specific entered by the user
+    [is_expression] - a flag for telling if the entered code is an expression or not, this is needed to decide
+      if we should add a semicolon at the end or not.
+    [s] - denotes the code entered as a string.
+    [ctx] - check context
+*)
+let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : context) : trms =
+ let context = if context = "" then ctx.includes else context in
+ let command_line_args =
+  List.map Clang.Command_line.include_directory
+    (ctx.directory :: Clang.default_include_directories())
+  in
+ let ast =
+    Clang.Ast.parse_string ~command_line_args
+      (Printf.sprintf
+         {|
+          %s
+          void f(void){
+            #pragma clang diagnostic ignored "-Wunused-value"
+            %s
+          }
+          |}
+         context
+         (if is_expression then s ^ ";" else s)
+      )
+  in
+  let t = Clang_to_ast.translate_ast ast in
+  match t.desc with
+  | Trm_seq tl1 when Mlist.length tl1 = 1 ->
+    let t = Mlist.nth tl1 0 in
+     begin match t.desc with
+     | Trm_seq tl  ->
+        let fun_def = List.nth (List.rev (Mlist.to_list tl)) 0 in
+        begin match fun_def.desc with
+        | Trm_let_fun (_, _, _, fun_body) ->
+          begin match fun_body.desc with
+          | Trm_seq tl -> Mlist.to_list tl
+          | _ -> fail fun_body.loc "parse_cstring: expcted a sequence of terms"
+          end
+        | _ -> fail fun_def.loc "parse_cstring: expected a function definition"
+        end
+     | _ -> fail t.loc "parse_cstring: expected another sequence"
+     end
+  | _-> fail t.loc (Printf.sprintf "parse_cstring: exptected a sequence with only one trm, got %s\n" (Ast_to_c.ast_to_string t))
+
+
+(* For a single instruction s return its ast *)
+let term ?(context : string = "")(ctx : context) (s : string) : trm =
+  let tl = parse_cstring context true s ctx  in
+  match tl with
+  | [expr] -> expr
+  | _ -> fail None "term: expcted a list with only one element"
+
+(* LATER:  need to reparse to hide spurious parentheses *)
+(* LATER: add a mechanism for automatic simplifications after every step *)
+
+

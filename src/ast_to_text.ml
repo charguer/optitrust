@@ -20,6 +20,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_double -> string "Typ_double"
   | Typ_bool -> string "Typ_bool"
   | Typ_char -> string "Typ_char"
+  | Typ_string -> string "Typ_string"
   | Typ_ptr {ptr_kind = pk; inner_typ = ty} ->
      let dpk = begin match pk with
                | Ptr_kind_mut -> string "pointer"
@@ -48,7 +49,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
     node "Typ_record" ^^ parens (drt ^^ comma ^^ blank 1 ^^ dt)
   | Typ_template_param name ->
     node "Typ_template_param" ^^ parens (string name)
-
+  | Typ_arbitrary s -> string (code_to_str s)
 
 and print_typ_annot (a : typ_annot) : document =
   match a with
@@ -75,6 +76,7 @@ and print_typ ?(only_desc : bool = false) (t : typ) : document =
 and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
   match op with
   | Unop_get -> string "Unop_get"
+  | Unop_address -> string "Unop_address"
   | Unop_neg -> string "Unop_neg"
   | Unop_bitwise_neg -> string "Unop_bitwise_neg"
   | Unop_opp -> string "Unop_opp"
@@ -82,8 +84,8 @@ and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
   | Unop_post_dec -> string "Unop_post_dec"
   | Unop_pre_inc -> string "Unop_pre_inc"
   | Unop_pre_dec -> string "Unop_pre_dec"
-  | Unop_struct_field_addr f -> node "Unop_struct_field_addr" ^^ string f
-  | Unop_struct_field_get f -> node "Unop_struct_field_get" ^^ string f
+  | Unop_struct_access f -> node "Unop_struct_access" ^^ string f
+  | Unop_struct_get f -> node "Unop_struct_get" ^^ string f
   (* | Unop_delete b -> node "Unop_delete" ^^ string (string_of_bool b) *)
   | Unop_cast t ->
      let dt = print_typ ~only_desc t in
@@ -92,8 +94,8 @@ and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
 and print_binop (op : binary_op) : document =
   match op with
   | Binop_set -> string "Binop_set"
-  | Binop_array_cell_addr -> string "Binop_array_cell_addr"
-  | Binop_array_cell_get -> string "Binop_array_cell_get"
+  | Binop_array_access -> string "Binop_array_access"
+  | Binop_array_get -> string "Binop_array_get"
   | Binop_eq -> string "Binop_eq"
   | Binop_neq -> string "Binop_neq"
   | Binop_sub -> string "Binop_sub"
@@ -127,14 +129,16 @@ and print_prim ?(only_desc : bool = false) (p : prim) : document =
   | Prim_binop op ->
      let dop = print_binop op in
      node "Prim_binop" ^^ dop
+  | Prim_compound_assgn_op op -> 
+    let dop = print_binop op in
+    node "Prim_compound_assgn_op" ^^ dop
+  | Prim_overloaded_op p -> 
+    let dp = print_prim p in 
+    node "Prim_overloaded_op" ^^ dp
   | Prim_new t ->
      let dt = print_typ ~only_desc t in
      node "Prim_new" ^^ dt
   | Prim_conditional_op -> node "Prim_conditional_op"
-  | Prim_fetch_add -> node "Prim_fetch_add"
-  | Prim_atomic_get cm -> node "Prim_atomic_get" ^^ print_consistency cm
-  | Prim_atomic_set cm -> node "Prim_atomic_set" ^^ print_consistency cm
-  | Prim_compare_and_swap -> node "Prim_compare_and_swap"
 
 and print_lit (l : lit) : document =
   match l with
@@ -171,7 +175,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_val v ->
      let dv = print_val ~only_desc v in
      node "Trm_val" ^^ parens dv
-  | Trm_var x -> string "Trm_var" ^^ blank 1 ^^ string x
+  | Trm_var (_, x) -> string "Trm_var" ^^ blank 1 ^^ string x
   | Trm_array tl ->
      let tl = Mlist.to_list tl in
      let dtl = List.map (print_trm ~only_desc) tl in
@@ -228,18 +232,25 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let dbody = print_trm ~only_desc body in
      node "Trm_for" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
-  | Trm_for (index, direction, start, stop, step, body) ->
+  | Trm_for (index, start, direction, stop, step, body) ->
     let dstart = print_trm ~only_desc start in
-    let ddirection = match direction with
-    | DirUp -> string "Up"
-    | DirDown -> string "Down"
-    in
     let dstop = print_trm ~only_desc stop in
-    let dstep = print_trm ~only_desc step in
+    let ddir  = match direction with
+    | DirUp -> string "Up" 
+    | DirDown -> string "Down" 
+    | DirUpEq -> string "UpEq" 
+    | DirDownEq -> string "DownEq" 
+    in
+    let dstep = match step with 
+    | Post_inc -> string "Post_inc" 
+    | Post_dec -> string "Post_dec"
+    | Pre_inc -> string "Pre_inc"
+    | Pre_dec -> string "Pre_dec"
+    | Step st -> string "Step " ^^ parens (print_trm ~only_desc st)
+    in
     let dbody = print_trm ~only_desc body in
-
     node "Trm_for" ^^ parens (separate (comma ^^ break 1)
-      [string index; ddirection; dstart; dstop; dstep; dbody])
+      [string index; dstart; ddir; dstop; dstep; dbody])
   | Trm_switch (cond, cases) ->
      let dcond = print_trm ~only_desc cond in
      let dcases =
@@ -279,7 +290,9 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      node "Trm_labelled" ^^ parens (string l ^^ comma ^/^ dt)
   | Trm_goto l ->
      node "Trm_goto" ^^ string l
-  | Trm_arbitrary _ ->  string ""
+  | Trm_arbitrary s ->  
+    let code_str = code_to_str s in
+    node "Trm_arbitrary" ^^ parens (string code_str)
   | Trm_omp_directive directive ->
     node "Trm_omp_directive" ^^ parens (print_directive directive)
   | Trm_omp_routine routine->
@@ -326,7 +339,8 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
       aux [] s
      in
     let dtl = get_document_list s in
-    node "Typedef_prod" ^^ print_pair (print_list dtl) (string tname)
+    node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
+     [string tname; string (string_of_int tid); print_list dtl ])
   | Typdef_sum _ ->
     fail None "print_typedef: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
@@ -356,11 +370,12 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Main_file -> string "Main_file"
     | Mutable_var_get -> string "Mutable_var_get"
     | As_left_value -> string "As_left_value"
-    | Any -> string "Any" in
+    | Non_local_index -> string "Non_local_index"
+    | Display_arrow -> string "Display_arrow" in
 
   if only_desc then ddesc
     else
-      let dannot = Tools.doc_list_to_doc (List.map print_annot t.annot)
+      let dannot = Tools.list_to_doc (List.map print_annot t.annot)
     in
     let dloc =
       begin match t.loc with
@@ -504,7 +519,7 @@ and print_routine (routine : omp_routine) : document =
 
 let trm_access_to_string (ta : trm_access) : string =
   let aux (ta : trm_access) : document =
-  match ta with 
+  match ta with
   | Array_access_get i -> string "arr_at " ^^ print_trm ~only_desc:true i
   | Array_access_addr i -> string "arr_at " ^^ print_trm ~only_desc:true i
   | Struct_access_get f -> string "struct_at " ^^ string f

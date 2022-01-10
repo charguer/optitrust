@@ -11,6 +11,7 @@ TOOLS_FOLDER="${VSCODE}/../tools"
 
 DIRNAME=$1
 FILEBASE=$2
+DIFFFOR=$3   # this flag could be "" or "enc"
 
 # Work in the file directory
 cd ${DIRNAME}
@@ -20,10 +21,23 @@ TARGET="${FILEBASE}_diff.html"
 #echo "Generating ${TARGET}"
 
 # Compute title
-TITLESTR="OptiTrust_Diff_${FILEBASE}" 
+TITLESTR="OptiTrust_Diff_${FILEBASE}"
+
+
+# Read options from optitrust_flags.sh
+# options: e.g., DIFFFOR="enc"
+if [ -f "optitrust_flags.sh" ]; then
+  source optitrust_flags.sh
+fi
+
+# Treat the options DIFFFOR="enc"
+if [ "${DIFFFOR}" = "enc" ]; then
+  ENCOPT="_enc"
+fi
+
 
 # Compute diff
-DIFFCODE=`git diff --ignore-all-space --no-index -U10 ${FILEBASE}_before.cpp ${FILEBASE}_after.cpp | base64 -w 0`
+DIFFCODE=`git diff --ignore-all-space --no-index -U10 ${FILEBASE}_before${ENCOPT}.cpp ${FILEBASE}_after${ENCOPT}.cpp | base64 -w 0`
 DIFFSTR="var diffString = window.atob(\"${DIFFCODE}\");"
 
 # Take templace and substitute ${TOOLS_FOLDER}, ${INSERT_TITLE}, and ${INSERT_DIFF}

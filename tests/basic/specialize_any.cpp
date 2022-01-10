@@ -1,17 +1,12 @@
-int ANY(int maxValue) { return 0; }
+#include "../../include/optitrust.h"
 
 int const N = 2;
 
-typedef int T;
-
-void test() {
+int main() {
   int corners[4];
   corners[ANY(4)] = 9;
-} 
-
-int main() {
-  T a;
-  T x[N];
+  int a;
+  int x[N];
   x[0] = a;
   for (int k = 1; (k < N); k++) {
     x[k] = 0;

@@ -10,8 +10,9 @@ int f(int n) {
   return 3;
 }
 
-int main() {  
+int main() {
   for (int i = 0; i < 3; i++) {
     vect r = { f(2), f(3) };
+    const vect s = { 3, f(4) };
   }
 }

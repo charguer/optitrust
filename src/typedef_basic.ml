@@ -2,31 +2,31 @@ open Ast
 open Target
 
 (* [fold ~at tg] expects [tg] to point to a typedef declaration.
-    [at] - denotes a target where folding is done. If empty
-      the folding operation is performed on all the ast nodes in the same 
+    [at] - denotes a target where fold_lefting is done. If empty
+      the fold_lefting operation is performed on all the ast nodes in the same 
       level as the declaration or deeper
 *)
 let fold ?(at : target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Typedef_core.fold at i t p) tg
+    (fun t (p,i) -> Typedef_core.fold at i t p) tg
   
 (* [inline ~delete ~at tg] expects [tg] to point to a typedef declaration
     [delete] - denotes a flag for telling if the declaration should be kept or no
-    [at] - denotes a target where inlining is done, if empty 
-      the inlining operation is performed on all the ast nodes in the same level as 
-      the declaration or deeper, by default [at] = []
+    [at] - denotes a target where inlining is done, 
+    if empty the inlining operation is performed on all the ast nodes in the 
+    same level as the declaration or deeper, by default [at] = []
 *)
 let inline ?(delete : bool = false) ?(at : target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t ->
+    (fun t (p,i) ->
       Typedef_core.inline delete at i t p) tg
 
 
-(* [copy name tg] expects [tg] to point to a typedef declaration in then copies the content 
+(* [insert_copy name tg] expects [tg] to point to a typedef declaration it then copies the content 
       of the body of typedef at gives to it the name [name]
 *)
-let copy (name : string) (tg : Target.target) : unit =
-  Internal.nobrace_remove_after( fun _ -> Target.apply_on_targets (Typedef_core.copy name) tg)
+let insert_copy (name : string) (tg : Target.target) : unit =
+  Internal.nobrace_remove_after( fun _ -> Target.apply_on_targets (Typedef_core.insert_copy name) tg)
 
 (* [insert name td_body] expects target [tg] to a relative location inside a sequence
     then it will insert a typedef declaration at that location. [name] is the new type

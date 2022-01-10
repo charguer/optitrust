@@ -32,7 +32,7 @@ V ?= @
 EXCLUDE_TESTS ?=
 
 # List of ml files to include (by default, all *.ml except those in EXCLUDE_TESTS, and the generated *.ml files)
-TESTS ?= $(filter-out $(wildcard *with_lines.ml),$(filter-out $(EXCLUDE_TESTS), $(wildcard *.ml)))
+TESTS ?= $(filter-out $(wildcard *with_lines.ml), $(filter-out $(EXCLUDE_TESTS), $(wildcard *.ml)))
 
 # List of ml files for which the cpp files should be compiled
 COMPILE ?= $(TESTS)
@@ -45,6 +45,16 @@ OPTITRUST ?= ../..
 
 # Default target for 'make all'
 TARGET_MAKE_ALL ?= check compile
+
+# Path to the OptiTrust installed library
+OPTITRUSTLIB ?= $(shell ocamlfind query optitrust)
+
+# Browser for opening documentation
+BROWSER ?= chromium-browser
+
+# Flags for executing the programs
+-include optitrust_flags.sh
+FLAGS ?=
 
 
 #######################################################
@@ -81,6 +91,9 @@ execute: $(EXECUTE:.ml=.exec)
 optitrust: clean
 	$(MAKE) -C $(OPTITRUST) install
 
+# 'make recheck' is a shorthand for 'make optitrust' followed with 'make check'
+recheck: optitrust check
+
 # 'make expected' produces all the '_exp.cpp' files
 expected: $(TESTS:.ml=.exp)
 
@@ -95,7 +108,7 @@ DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Instruction to keep intermediate files
-.PRECIOUS: %.byte %_out.cpp %.chk
+.PRECIOUS: %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_doc_out.cpp
 
 # Rule for viewing the encoding of an output
 %.enc: %_out.cpp
@@ -113,17 +126,23 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Rule for building .chk, that gives evidence whether the output matches the expected output
 %.chk: %_out.cpp %_exp.cpp
-	$(V) ($(DIFF) -q $^ > /dev/null && touch $@ && echo "$< matches the expected result") \
+	$(V) ($(DIFF) -q $^ > /dev/null && touch $@ && echo "Success for $@") \
 	|| (echo "=== ERROR: $< does not match the expected result:" && echo "  make $*.meld")
 #	|| (echo "$< does not match the expected result:" && $(DIFF) $^)
 
 # Rule for building the output of a test: build the binary and run it; result depends on input .cpp file
-%_out.cpp: %.byte %.cpp
-	$(V)OCAMLRUNPARAM=b ./$<
+#-----begin rules for non-batch mode------
+ifeq ($(BATCH),)
+
+%_out.cpp: %.byte %.cpp %.ml
+	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS)
 	@echo "Produced $@"
 
+endif
+#-----end rules for non-batch mode------
+
 # Rule for building the binary associated with a test
-%.byte: %.ml
+%.byte: %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@
 
 # Rule for producing the expected output file from the result
@@ -131,12 +150,12 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 %.exp: %_out.cpp
 	$(V)(ls `basename -s .exp $@`_exp.cpp 2> /dev/null && echo "Skipping $@") \
   || (cp $< `basename -s .exp $@`_exp.cpp && \
-      echo "Generated `basename -s .exp $@`_exp.cpp from $<, should GIT ADD.")
+      echo "Produced `basename -s .exp $@`_exp.cpp from $<, should GIT ADD.")
 
 # Rule for producing the expected file after deleting the previous one
 %.reexp: %_out.cpp
 	@rm $*_exp.cpp && (cp $< `basename -s .reexp $@`_exp.cpp && \
-	echo "ReGenerated `basename -s .reexp $@`_exp.cpp from $<.")
+	echo "(Re)Produced `basename -s .reexp $@`_exp.cpp from $<.")
 
 # Rule for checking that a file compiles
 %.prog: %.cpp
@@ -158,33 +177,113 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 
 #######################################################
+# Batch-Targets
+
+# 'make batch_check' is like 'make check' but it builds a single binary for executing all the tests at once.
+# It is equivalent to 'make BATCH=1 recheck'.
+# For a subset of the tests, use the syntax 'make BATCH=1 TESTS="foo.ml bar.ml"'.
+
+# 'make batch_recheck' is similar but for 'recheck' instead of 'check'.
+# 'make batch' is a shorthand for this.
+
+batch_check: clean_batch
+	$(MAKE) BATCH=1 check
+
+batch_recheck: clean_batch
+	$(MAKE) BATCH=1 recheck
+
+batch: batch_recheck
+
+clean_batch:
+	$(V)rm -f batch.ml
+
+#-----begin rules for batch mode------
+
+ifeq ($(BATCH), 1)
+
+# Create batch.ml by concatenating all tests files, and fixing each call to 'Run.script_cpp'
+batch.ml: $(OPTITRUST)/tests/batch_tests.sh $(TESTS)
+	$(V) $^ > $@
+
+# Produce all '_out.cpp' files at once by running 'batch.byte' (obtained by compiling 'batch.ml')
+$(TESTS:.ml=_out.cpp): batch.byte $(TESTS:.ml=.cpp)
+	$(V)OCAMLRUNPARAM=b ./$<
+	@echo "Executed batch.byte to produce all output files"
+
+endif
+#-----end rules for batch mode------
+
+
+#######################################################
 # Documentation
 
-CURDIR=$(shell basename `pwd`)
+# Current folder, to prefix the function names that appear in the JS files
+CURDIR := $(shell basename `pwd`)
+
+# Source files that the documentation depends upon
+OPTITRUST_SRC := $(wildcard $(OPTITRUST)/src/*.ml)
 
 # CHECKS contains the list of targets to be produced for the documentation
-DIFFJS=$(TESTS:.ml=_diff.js)
+DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 
-%_one.ml: %.ml
-	$(V)$(OPTITRUST)/tests/extract_first_transfo.sh $<
-
-%_one.cpp: %.cpp
-	$(V)cp $< $@
-
-# Rule for producing the diff between the output and the expected output, in a form readable in a browser
-#	git diff  --ignore-blank-lines --ignore-all-space --no-index -U10 $*_one.cpp $*_one_out.cpp
-%_diff.js: %_one.cpp %_one_out.cpp %_one.ml
-	@echo "function get_diff_$(CURDIR)__$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U10 $*_one.cpp $*_one_out.cpp | base64 -w 0`\"); }" > $@
-	@echo "function get_src_$(CURDIR)__$*() { return window.atob(\"`cat $*_one.ml | base64 -w 0`\"); }" >> $@
+# Generate an OCaml file containing the script executed by the demo
+%_doc.txt: %.ml
+	$(V)$(OPTITRUST)/doc/extract_demo.sh $<
 	@echo Produced $@
 
-# 'make doc' to build the auxililary files needed by _doc.html
-doc: $(DIFFJS)
+# Generate an OCaml file containing the spec of the function associated with the test
+%_doc_spec.txt: %_doc.txt $(OPTITRUST_SRC)
+	$(V)$(OPTITRUST)/doc/extract_spec_for_demo.sh $< $(OPTITRUST)
+	@echo Produced $@
 
-# 'make redoc' to force rebuilding all *_diff.js files
-redoc:
-	rm -f *_diff.js
-	$(MAKE) doc
+# To produce the demo input and output files, execute the unit test
+%_doc.cpp %_doc_out.cpp: %_out.cpp
+	@echo Produced $*_doc.cpp
+	@echo Produced $*_doc_out.cpp
+
+#%_doc_out.cpp: %_out.cpp
+#	@echo Produced $@
+
+# Generate a JS file containing the material to be displayed in the doc:
+# including the source code, and the full input/output diff
+# (first remove leading white lines in _doc.cpp)
+%_doc.js: %_out.cpp %_doc.txt %_doc_spec.txt %_doc.cpp # %_doc_out.cpp
+	$(V)sed -i '/./,$$!d' $*_doc.cpp
+	@echo "function get_diff_$(CURDIR)__$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
+	@echo "function get_src_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc.txt | base64 -w 0`\"); }" >> $@
+	@echo "function get_spec_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc_spec.txt | base64 -w 0`\"); }" >> $@
+	@echo Produced $@
+
+# Use 'make mytransfo_doc.html' to build an html preview of the documentation on that transformation
+%_doc.html: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
+	$(V)cp $(OPTITRUST)/doc/doc_template.html $@
+	$(V)sed -i "s#{FOLDER}#$(CURDIR)#g;s#{BASENAME}#$*#g" $@
+	@echo Produced $@
+
+# To check the documentation associated with the demo in a browser, use 'make mytransfo.doc'
+%.doc: %_doc.html
+	$(V)$(BROWSER) $<
+
+# To check the documentation associated with the demo in a console, use 'make mytransfo.doct'
+%.doct: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
+	@echo "Produced $*_doc_spec.txt and $*_doc.{txt,cpp,out_cpp}"
+	@echo "---------------------"
+	$(V)cat $*_doc_spec.txt
+	@echo "---------------------"
+	$(V)cat $*_doc.txt
+	@echo "---------------------"
+	$(V)cat $*_doc.cpp
+	@echo "---------------------"
+	$(V)cat $*_doc_out.cpp
+	@echo "---------------------"
+	$(V)git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | tail -n +5
+
+# 'make doc' to build the auxililary files needed by _doc.html
+doc: $(DOCJS)
+
+# 'make redoc' to force rebuilding all the documentation files
+redoc: cleandoc doc
+
 
 #######################################################
 # Cleanup
@@ -192,8 +291,12 @@ redoc:
 clean_chk:
 	$(V)rm -rf *.chk
 
-clean:
-	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_* 
+cleandoc:
+	$(V)rm -rf *_doc.txt *_doc.cpp *_doc_out.cpp *_doc_spec.txt *_doc.js *_doc.html *_out.cpp
+	@echo "Clean documentation"
+
+clean: cleandoc
+	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml
 	$(V)rm -rf _build
 	@echo "Clean successful"
 

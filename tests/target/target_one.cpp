@@ -1,4 +1,3 @@
-
 typedef struct { int x; int y; } vect;
 
 typedef struct { vect pos; vect speed; } particle;
@@ -56,4 +55,3 @@ int main() {
   int y = f(2);
   lbl2: g(t, &v);
 }
-

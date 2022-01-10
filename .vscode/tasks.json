@@ -19,123 +19,38 @@
         "options": {
           "cwd": "${workspaceFolder}/.vscode"
         },
-        {
-          "label": "Compile the library without installation tests",
-          "type": "shell",
-          "command": "make library",
-          "options": {
-            "cwd": "${workspaceFolder}"
-          },
+      },
+      {
+        "label": "Compile the library without installation tests",
+        "type": "shell",
+        "command": "make library",
+        "options": {
+          "cwd": "${workspaceFolder}"
         },
-        {
-          "label": "Compile and build everything",
-          "type": "shell",
-          "command": "make all", // was make all
-          "options": {
-            // "cwd": "${workspaceFolder}"
-          }
-        },
-        {
-          "label": "View state",
-          "type": "shell",
-          "command": "./run_action.sh",
-          "options": {
-            "cwd": "${workspaceFolder}/.vscode"
-          },
-          "args": [
-              "./view_result.sh",
-              "${fileDirname}",
-              "${fileBasenameNoExtension}",
-              "${lineNumber}",
-              "view_result",
-              "recompile_optitrust_no",
-              ""
-          ]
-        },
-        {
-          "label": "View diff",
-          "type": "shell",
-          "command": "./run_action.sh",
-          "options": {
-            "cwd": "${workspaceFolder}/.vscode"
-          },
-          "args": [
-              "./view_result.sh",
-              "${fileDirname}",
-              "${fileBasenameNoExtension}",
-              "${lineNumber}",
-              "view_diff",
-              "recompile_optitrust_no",
-              /*"-dump-last",
-              "5"*/
-          ]
-        },
-        {
-          "label": "Compile and run current",
-          "type":"shell",
-          "command":"make ${fileBasenameNoExtension}.out",
-          "options": {
-            "cwd": "${fileDirname}"
-          },
-        },
-        {
-          "label": "Compile the full current folder",
-          "type": "shell",
-          "command": "make all",
-          "options": {
-            "cwd": "${fileDirname}"
-          },
-        },
-        {
-          "label": "Recompile and view state",
-          "type": "shell",
-          "command": "./run_action.sh",
-          "options": {
-            "cwd": "${workspaceFolder}/.vscode"
-          },
-          "args": [
-              "./view_result.sh",
-              "${fileDirname}",
-              "${fileBasenameNoExtension}",
-              "${lineNumber}",
-              "view_result",
-              "recompile_optitrust_yes",
-              ""
-          ]
-        },
-        {
-          "label": "Recompile and view diff",
-          "type": "shell",
-          "command": "./run_action.sh",
-          "options": {
-            "cwd": "${workspaceFolder}/.vscode"
-          },
-          "args": [
-              "./view_result.sh",
-              "${fileDirname}",
-              "${fileBasenameNoExtension}",
-              "${lineNumber}",
-              "view_diff",
-              "recompile_optitrust_yes",
-              ""
-          ]
-        },
-        { // LATER: if current folder contains exp_out, we could also produce the .chk
-          "label": "Recompile then compile and run current",
-          "type":"shell",
-          "command":"make optitrust; make ${fileBasenameNoExtension}.out",
-          "options": {
-            "cwd": "${fileDirname}"
-          },
+      },
+      {
+        "label": "Compile and build everything",
+        "type": "shell",
+        "command": "make all", // was make all
+        "options": {
+          // "cwd": "${workspaceFolder}"
+        }
+      },
+      {
+        "label": "View state",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-          "./view_result.sh",
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
-          "${lineNumber}",
-          "view_result",
-          "recompile_optitrust_no",
-          ""
+            "./view_result.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_result",
+            "recompile_optitrust_no",
+            ""
         ]
       },
       {
@@ -146,23 +61,132 @@
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-          "./view_result.sh",
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
-          "${lineNumber}",
-          "view_diff",
-          "recompile_optitrust_no",
-          /*"-dump-last",
-          "5"*/
+            "./view_result.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_diff",
+            "recompile_optitrust_no",
+            /*"-dump-last",
+            "5"*/
+        ]
+      },
+      {
+        "label": "View big step diff",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "./view_result.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_diff",
+            "recompile_optitrust_no",
+            "-only-big-steps"
+        ]
+      },
+      {
+        "label": "View diff for ast encoding",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "./view_result.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_diff_enc",
+            "recompile_optitrust_no"
+        ]
+      },
+      {
+        "label": "Execute from intermediate state",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "./view_result_intermediate.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_diff",
+            "recompile_optitrust_no",
+        ]
+      },
+      {
+        "label": "Recompile and execute from intermediate state",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "./view_result_intermediate.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_diff",
+            "recompile_optitrust_yes",
+        ]
+      },
+      {
+        "label": "Execute a big step from intermediate state",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "./view_result_intermediate.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_diff",
+            "recompile_optitrust_no",
+            "-only-big-steps",
+        ]
+      },
+      {
+        "label": "Save intermediate state",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "./view_result_intermediate.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "save_intermediate_state",
+            "recompile_optitrust_no",
+        ]
+      },
+      {
+        "label": "View documentation for unit test",
+        "type": "shell",
+        "command": "make",
+        "options": {
+          "cwd": "${fileDirname}"
+        }
+        "args": [
+            "${fileBasenameNoExtension}.doc",
         ]
       },
       {
         "label": "Compile and run current",
-        "type": "shell",
-        "command": "make ${fileBasenameNoExtension}.out",
+        "type":"shell",
+        "command":"make ${fileBasenameNoExtension}.out",
         "options": {
           "cwd": "${fileDirname}"
-        }
+        },
       },
       {
         "label": "Compile the full current folder",
@@ -170,7 +194,7 @@
         "command": "make all",
         "options": {
           "cwd": "${fileDirname}"
-        }
+        },
       },
       {
         "label": "Recompile and view state",
@@ -180,13 +204,13 @@
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-          "./view_result.sh",
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
-          "${lineNumber}",
-          "view_result",
-          "recompile_optitrust_yes",
-          ""
+            "./view_result.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_result",
+            "recompile_optitrust_yes",
+            ""
         ]
       },
       {
@@ -197,54 +221,139 @@
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
+            "./view_result.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_diff",
+            "recompile_optitrust_yes",
+            ""
+        ]
+      },
+      { // LATER: if current folder contains exp_out, we could also produce the .chk
+        "label": "Recompile then compile and run current",
+        "type":"shell",
+        "command":"make optitrust; make ${fileBasenameNoExtension}.out",
+        "options": {
+          "cwd": "${fileDirname}"
+        },
+       "args": [
           "./view_result.sh",
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_diff",
-          "recompile_optitrust_yes",
+          "view_result",
+          "recompile_optitrust_no",
           ""
         ]
+    },
+    {
+      "label": "View diff",
+      "type": "shell",
+      "command": "./run_action.sh",
+      "options": {
+        "cwd": "${workspaceFolder}/.vscode"
       },
-      {
-        "label": "Recompile then compile and run current",
-        "type": "shell",
-        "command": "make optitrust; make ${fileBasenameNoExtension}.out",
-        "options": {
-          "cwd": "${fileDirname}"
-        }
-      },
-      {
-        "label": "Compile the full current folder",
-        "type": "shell",
-        "command": "make all",
-        "options": {
-          "cwd": "${fileDirname}"
-        }
-      },
-      {
-        "label": "First recompile optitrust then compile the full current folder",
-        "type": "shell",
-        "command": "make optitrust; make all",
-        "options": {
-          "cwd": "${fileDirname}"
-        }
-      },
-      {
-        "label": "Start the inotifywait watch",
-        "type": "shell",
-        "command": "./.vscode/watch.sh "
-      },
-      {
-        "label": "Execute transformation script (dump trace)",
-        "type": "shell",
-        "command": "./.vscode/view_result.sh",
-        "args": [
-          "${fileDirname}",
-          "${fileBasenameNoExtension}",
-          "${lineNumber}",
-          "-dump-trace"
-        ]
+      "args": [
+        "./view_result.sh",
+        "${fileDirname}",
+        "${fileBasenameNoExtension}",
+        "${lineNumber}",
+        "view_diff",
+        "recompile_optitrust_no",
+        /*"-dump-last",
+        "5"*/
+      ]
+    },
+    {
+      "label": "Compile and run current",
+      "type": "shell",
+      "command": "make ${fileBasenameNoExtension}.out",
+      "options": {
+        "cwd": "${fileDirname}"
       }
-    ]
+    },
+    {
+      "label": "Compile the full current folder",
+      "type": "shell",
+      "command": "make all",
+      "options": {
+        "cwd": "${fileDirname}"
+      }
+    },
+    {
+      "label": "Recompile and view state",
+      "type": "shell",
+      "command": "./run_action.sh",
+      "options": {
+        "cwd": "${workspaceFolder}/.vscode"
+      },
+      "args": [
+        "./view_result.sh",
+        "${fileDirname}",
+        "${fileBasenameNoExtension}",
+        "${lineNumber}",
+        "view_result",
+        "recompile_optitrust_yes",
+        ""
+      ]
+    },
+    {
+      "label": "Recompile and view diff",
+      "type": "shell",
+      "command": "./run_action.sh",
+      "options": {
+        "cwd": "${workspaceFolder}/.vscode"
+      },
+      "args": [
+        "./view_result.sh",
+        "${fileDirname}",
+        "${fileBasenameNoExtension}",
+        "${lineNumber}",
+        "view_diff",
+        "recompile_optitrust_yes",
+        ""
+      ]
+    },
+    {
+      "label": "Recompile then compile and run current",
+      "type": "shell",
+      "command": "make optitrust; make ${fileBasenameNoExtension}.out",
+      "options": {
+        "cwd": "${fileDirname}"
+      }
+    },
+    {
+      "label": "Compile the full current folder",
+      "type": "shell",
+      "command": "make all",
+      "options": {
+        "cwd": "${fileDirname}"
+      }
+    },
+    {
+      "label": "First recompile optitrust then compile the full current folder",
+      "type": "shell",
+      "command": "make optitrust; make all",
+      "options": {
+        "cwd": "${fileDirname}"
+      }
+    },
+    {
+      "label": "Start the inotifywait watch",
+      "type": "shell",
+      "command": "./.vscode/watch.sh "
+    },
+    {
+      "label": "Execute transformation script (dump trace)",
+      "type": "shell",
+      "command": "./.vscode/view_result.sh",
+      "args": [
+        "${fileDirname}",
+        "${fileBasenameNoExtension}",
+        "${lineNumber}",
+        "-dump-trace"
+      ]
+    }
+  ]
 }

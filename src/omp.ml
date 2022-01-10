@@ -31,7 +31,7 @@ let declare_simd (cl : clause list) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.declare_simd cl i t p)
 
-let declare_reduction (ri : reduction_identifier) (tl : typvar list) (e : expression) (cl : clause) : Target.Transfo.t = 
+let declare_reduction (ri : reduction_identifier) (tl : typvars) (e : expression) (cl : clause) : Target.Transfo.t = 
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.declare_reduction ri tl e cl i t p)
 
@@ -59,7 +59,7 @@ let end_declare_target : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.end_declare_target i t p)
 
-let flush (vl : var list) : Target.Transfo.t = 
+let flush (vl : vars) : Target.Transfo.t = 
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.flush vl i t p)
 
@@ -196,7 +196,7 @@ let teams_distribute_parallel_for_simd (cl : clause list) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.teams_distribute_parallel_for_simd cl i t p)    
 
-let threadprivate (vl : var list) : Target.Transfo.t =
+let threadprivate (vl : vars) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.threadprivate vl i t p)
 

@@ -8,12 +8,13 @@ int main() {
     x = 5;
   }
   int a = 3;
-  if ((x > 0)) {
+  if ((x > 0)) /*@foo*/ {
     int b = 4;
     c = 5;
-  } else {
+  } /*foo@*/
+  else /*@foo*/ {
     int b = 4;
     c = 5;
-  }
+  } /*foo@*/
   return 0;
 }

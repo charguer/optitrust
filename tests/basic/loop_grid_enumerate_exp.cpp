@@ -1,12 +1,12 @@
 #include <stdio.h>
 
-int const X = 5;
+const int X = 5;
 
-int const Y = 6;
+const int Y = 6;
 
-int const Z = 7;
+const int Z = 7;
 
-int const nbCells = ((X * Y) * Z);
+const int nbCells = ((X * Y) * Z);
 
 int main() {
   int total = 0;

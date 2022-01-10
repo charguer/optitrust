@@ -18,8 +18,8 @@ int main() {
   b.y = p.y;
   vect u;
   obj a = {0, {0, 0}, {0, 0}};
-  u.x = (a.pos.x);
-  u.y = (a.pos.y);
+  u.x = a.pos.x;
+  u.y = a.pos.y;
   vect t[2];
   vect p2 = p;
   t[0].x = p2.x;

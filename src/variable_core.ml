@@ -1,32 +1,22 @@
 open Ast
 open Target
 
-(* *********************************************************************************** 
+(* ***********************************************************************************
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
  * have only one purpose, and that is targeting the trm in which we want to apply the *
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [fold_aux as_reference fold_at]: fold the variable declarations t
+(* [fold_aux as_reference fold_at index t]: fold the variable declarations [t]
     params:
-      as_reference: a flag for telling if the variable on the assignment 
+      [as_reference]: a flag for telling if the variable on the assignment
         has the address operator or not
-      fold_at: target where folding should be performed, if left empty 
-        then folding is applied everywhere
-      t: ast of the variable declaration
+      [fold_at]: target where fold_lefting should be performed, if left empty
+        then fold_lefting is applied everywhere
+      [t]: ast of the variable declaration
     return:
-      updated ast 
+      updated ast of the block which contained the variable declaration [t]
 *)
-
-(* This type is used for variable renaming, the user can choose between renaming all the variables 
-    on one block, by giving the suffix to add after or he can also  give the list of variables to 
-    be renamed together with their new name.
-*)
-module Rename = struct
-  type t = | AddSuffix of string | ByList of (string * string) list
-end
-type rename = Rename.t
-
 let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
@@ -38,14 +28,14 @@ let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : 
           else trm_var x
         in
         let def_x =
-            begin match vk with 
-            | Var_immutable -> 
-              if as_reference 
+            begin match vk with
+            | Var_immutable ->
+              if as_reference
                 then {dx with add = List.filter (fun x -> x <> Address_operator) dx.add}
                 else dx
-            | _ -> begin match dx.desc with 
-                   | Trm_apps(_, [init]) -> 
-                    if as_reference 
+            | _ -> begin match dx.desc with
+                   | Trm_apps(_, [init]) ->
+                    if as_reference
                       then {init with add = List.filter (fun x -> x <> Address_operator) init.add}
                       else init
                    | _ -> fail t.loc "fold_aux: expected a new operation"
@@ -59,7 +49,7 @@ let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : 
         in
         let new_tl = Mlist.merge lfront lback in
         let new_tl = Mlist.insert_at index d new_tl in
-        trm_seq new_tl 
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
      | _ -> fail t.loc "fold_decl: expected a variable declaration"
      end
@@ -71,111 +61,107 @@ let fold (as_reference : bool) (fold_at : target) (index) : Target.Transfo.local
   Target.apply_on_path(fold_aux as_reference fold_at index)
 
 
-(* [inline_aux inline_at]: inline variable defined in term t
+(* [inline_aux delete_decl inline_at index t]: inline a constant variable declared in [t]
     params:
-      delete_decl: delete or don't delete the declaration of the variable after inlining
-      inline_at: target where inlining should be performed, if empty inlining is applied everywhere
-      t: ast of the variable declaration
+      [delete_decl]: delete or don't delete the declaration of the variable after inlining
+      [inline_at]: target where inlining should be performed, if empty all the occurrences
+        of the variable are replaced with its initialization value
+      [t]: ast of the variable declaration
     return:
-      updated ast
+      the ast of the updated sequence which contains the declaration ast [t]
 *)
-let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm) : trm =
+
+let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-     let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
+    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
     begin match dl.desc with
-    | Trm_let (vk, (x,tx), dx) ->
-      let t_x = begin match vk with 
-                | Var_immutable -> trm_var x
-                | _ -> trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var x] 
-                end in
-      let def_x = 
-      begin match vk with 
-            | Var_immutable -> dx
-            | _ ->
-                   begin match dx.desc with 
-                   | Trm_apps(_, [init]) -> init
-                   | Trm_val (Val_prim (Prim_new _)) -> fail dl.loc "inline_aux: can't inline a variable with detached declaration"
-                   | _ -> dx
-                   end
-      end in
-      let init = get_init_val dl in
-      let lback = 
-      begin match init.desc with 
-      | Trm_struct field_init ->
-        let tyid = Internal.get_typid_from_typ tx in
-        let struct_def = 
-          if tyid <> -1
-             then match Context.typid_to_typedef tyid with 
-              | Some td -> td 
-              | _ -> fail t.loc "inline_aux: could not get the declaration of the struct"
-             else 
-              fail t.loc "inline_aux: there is something wrong with type of the variable you are trying to inline"
+    | Trm_let (vk, (x, _), init) ->
+      let init = if mark = "" then init else trm_add_mark mark init in
+      begin match vk with
+      | Var_immutable ->
+        let new_lback = begin match unfold_at with
+        | [] -> Mlist.map (Internal.subst_var x init) lback
+        | _ -> Mlist.map (Internal.change_trm ~change_at:[unfold_at] (trm_var x) init) lback
+        end
         in
-        let field_list = fst (List.split (Internal.get_field_list struct_def)) in
-        Mlist.map (fun t1 ->
-          List.fold_left2 (fun acc t2 f2 -> Internal.change_trm ~change_at:[inline_at]
-            (trm_apps (trm_unop (Unop_struct_field_addr f2)) [trm_var x]) t2 acc ) t1 (Mlist.to_list field_init) field_list) lback 
-        
-      | _ -> Mlist.map (Internal.change_trm ~change_at:[inline_at] t_x def_x) lback 
-      end in
-      let new_tl = Mlist.merge lfront lback in
-      let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
-      trm_seq ~annot:t.annot ~marks:t.marks new_tl
-    | _ -> fail t.loc "inline_aux: expected a variable declaration"
+        let new_tl = Mlist.merge lfront new_lback in
+        let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      | Var_mutable -> fail dl.loc "unfold_aux: only const variables are safe to unfold"
+      end
+    | Trm_let_fun (f, _, _, _) ->
+      if accept_functions then
+        let new_lback = Mlist.map (Internal.subst_var f dl) lback in
+        let new_tl = Mlist.merge lfront new_lback in
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      else fail dl.loc "unfold_aux: to replace function calls with their declaration you need to set accept_functions arg to true"
+    | _ -> fail t.loc "unfold_aux: expected a target to a variable declaration"
     end
-  | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "unfold_aux: expected the surrounding sequence"
 
 
-let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Transfo.local =
-  Target.apply_on_path(inline_aux delete_decl inline_at index)
+let unfold (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) : Target.Transfo.local =
+  Target.apply_on_path(unfold_aux delete_decl accept_functions mark unfold_at index)
 
 
-(* [rename_aux new_name index t] rename a variable, change its declaration
-      and all its occurrences
+(* [rename_aux index new_name t] rename the variable declared in [t] and all its occurrences
    params:
-    rename: a type covering both the case when a prefix is given or the list of variables to change
-      together with their new name
+     [new_name]: the new name for the targeted variable
+     [t]: ast of the declaration
    return:
-    updated ast 
+    updated sequence with the renamed occurrences of the targeted variable
 *)
-let rename_aux (rename : Rename.t) (t : trm) : trm =
+let rename_aux (index : int) (new_name : var) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let t_acc = t in
-    Mlist.fold_left (fun acc t1 ->
-        match t1.desc with
-        | Trm_let (vk,(x, tx), init) ->
-          begin match rename with 
-          | AddSuffix post_fix ->
-            let new_name = x ^ post_fix  in
-            let acc = Internal.change_trm t1 {t1 with desc = Trm_let (vk, (new_name, tx), init)} acc in
-            Internal.change_trm (trm_var x) (trm_var new_name) acc 
-          | ByList list -> 
-            if List.mem_assoc x list then
-            begin 
-            let new_var = List.assoc x list in
-            let acc = Internal.change_trm t1 (trm_let vk (new_var, tx) init) acc in
-             Internal.change_trm (trm_var x) (trm_var new_var) acc
-            end
-            else
-              acc 
-          end
-        | _ -> acc
-      ) t_acc tl 
-  | _ -> fail t.loc "rename_aux: expected the sequence block"
+    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
+    begin match dl.desc with
+    | Trm_let (vk, (x, tx), init) ->
+      let rec aux (t : trm) : trm =
+        match t.desc with
+        | Trm_var (vk, y) when y = x -> {t with desc = Trm_var (vk, new_name)}
+        | _ -> trm_map aux t
+       in
+      let lback = Mlist.map aux lback in
+      let new_dl = trm_let ~annot:dl.annot  ~marks:dl.marks vk (new_name, tx) init in
+      let new_tl = Mlist.merge lfront lback in
+      let new_tl = Mlist.insert_at index new_dl new_tl in
+      trm_seq ~annot:t.annot ~marks:t.marks new_tl
+    | _ -> fail t.loc "rename_aux: expected a declaration"
+    end
+  | _ -> fail t.loc "rename_aux: expected the surrounding sequence of the targeted declaration"
 
-let rename (rename : Rename.t) : Target.Transfo.local =
-  Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence (rename_aux rename) "var_rename")
+
+let rename (new_name : var) (index : int): Target.Transfo.local =
+  Target.apply_on_path (rename_aux index new_name)
+
+(* [subst_aux name space t]: replace all occurrences of [name] with [space]
+      params:
+        [name]: name of the variable whose occurrences are going to be replaced
+        [space]:trm which is going to replace all the occurrences of [name]
+        [t]: any node in the ast which could contain an occurrence of [name]
+      return:
+        updated [t] with all the replaced occurrences
+*)
+
+let rec subst_aux (name : var) (space : trm) (t : trm) : trm =
+  match t.desc with
+  | Trm_var (_, y) when y = name -> space
+  | _ -> trm_map (subst_aux name space) t
+
+let subst (name : var)(space : trm) : Target.Transfo.local =
+  Target.apply_on_path (subst_aux name space)
+
+
 
 (* [init_detach_aux t]: replace an initialized variable declaration with an
-    uninitialized declaration and an assignment.
+      uninitialized declaration and a set operation.
     params:
-      index: 
-      t: ast of the surrounding sequence of the variable declaration
+      [index]:
+      [t]: ast of the surrounding sequence of the variable declaration
     return:
-      the updated ast of the outer sequence which contains the declaration of the variable 
-      and a set operations for that variable
+      the updated ast of the sequence which contains [t]
 *)
 let init_detach_aux  (t : trm) : trm =
   match t.desc with
@@ -186,7 +172,7 @@ let init_detach_aux  (t : trm) : trm =
         let init =
           begin match init.desc with
           | Trm_apps(_,[init]) -> init
-          | _ -> fail t.loc "init_detach_aux: expected a heap allocated variable declaration"
+          | _ -> fail t.loc "init_detach_aux: can't detach an uninitialized declaration"
           end in
         let var_type = get_inner_ptr_type tx in
         let var_type = begin match  var_type.typ_desc  with
@@ -194,13 +180,13 @@ let init_detach_aux  (t : trm) : trm =
         | _ -> var_type
         end in
         let new_tx = typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type in
-        let var_decl = trm_let vk (x, new_tx) (trm_prim (Prim_new new_tx)) in
+        let var_decl = trm_let ~annot:t.annot ~marks:t.marks vk (x, new_tx) (trm_prim (Prim_new new_tx)) in
         (* Check if variable was declared as a reference *)
-        
+
         let var_assgn = trm_set (trm_var ~typ:(Some var_type) x) {init with typ = (Some var_type)} in
-        trm_seq_no_brace [var_decl; var_assgn] 
+        trm_seq_no_brace [var_decl; var_assgn]
       end
-    | _ -> 
+    | _ ->
     fail t.loc "init_detach_aux: variable could not be matched, make sure your path is correct"
 
 let init_detach : Target.Transfo.local =
@@ -211,171 +197,132 @@ let init_detach : Target.Transfo.local =
 
 (* [init_attach_aux t]: replace an uninitialized variable declaration with an initialized one.
     params:
-      const: a boolean to decide if the attached variable should be mutable or not
-      t: ast of the surrounding sequence of the variable declaration
+      [const]: a boolean to decide if the attached variable should be mutable or not
+      [t]: ast of the surrounding sequence of the variable declaration
     return
-      the updated ast of the outer sequence which contains now the initialized variable declaration
+      the updated ast of the sequence which contains [t]
     raises:
       - Init_attach_no_occurrences if no variable set operations are found
-      - Init_attach_occurrence_below_control if more than one variable set operation are found 
-        
+      - Init_attach_occurrence_below_control if more than one variable set operation are found
+
 *)
 exception Init_attach_no_occurrences
 exception Init_attach_occurrence_below_control
 
-let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
-  match t.desc with 
+
+let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
+  match t.desc with
   | Trm_seq tl ->
-    let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
-    begin match trm_to_change.desc with 
+    let lfront, trm_to_change, lback  = Internal.get_trm_and_its_relatives index tl in
+    begin match trm_to_change.desc with
     | Trm_let (_, (x, tx), _) ->
-        let nb_sets = Internal.nb_inits x (trm_seq lback) in
-        if nb_sets < 1 then raise Init_attach_no_occurrences
-          else if nb_sets > 1 then raise Init_attach_occurrence_below_control;
-        let init_index = Mlist.foldi (fun i acc t1 -> 
-          match t1.desc with 
-          | Trm_apps(_,[ls;_]) ->
-            begin match ls.desc with 
-            | Trm_var y when y = x -> 
-              Some i 
-            | _ -> acc
-            end
-          | _ -> acc
-        ) None lback in
-        let index1  = match init_index with 
-        | Some index -> index
-        | _ -> raise Init_attach_occurrence_below_control
-          in
-        let lfront1, assgn_to_change, lback1 = Internal.get_trm_and_its_relatives index1 lback in
-        begin match assgn_to_change.desc with 
-        | Trm_apps(_, [_; rhs]) ->
-          let vk = if const then Var_immutable else Var_mutable in
-          let inner_type = 
-          begin match tx.typ_desc with
-          | Typ_ptr {ptr_kind=Ptr_kind_mut; inner_typ = ty} -> ty
-          | _ -> tx
-          end in
-          let tx = if const then typ_const inner_type else typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut inner_type in
-          let init = if const then rhs else (trm_apps (trm_prim (Prim_new inner_type)) [rhs]) in 
-          let new_trm = trm_let ~marks:trm_to_change.marks vk (x, tx)  init in
-          let new_front = Mlist.merge lfront lfront1 in
-          let new_back = Mlist.insert_at 0 new_trm lback1 in
-          let new_tl = Mlist.merge new_front new_back in
-          trm_seq ~annot:t.annot ~marks:t.marks new_tl
-        | _ -> 
-          fail assgn_to_change.loc "init_attach: something went wrong"
+      let tg = [nbAny;cSeq (); cStrict;cWriteVar x] in
+      let new_tl = Mlist.merge lfront lback in
+      let new_t = trm_seq ~annot:t.annot ~marks:t.marks new_tl in
+      let ps = resolve_target tg new_t in
+      let nb_occs = List.length ps in
+      if nb_occs = 0 then raise Init_attach_no_occurrences
+       else if nb_occs >= 2 then raise Init_attach_occurrence_below_control;
+      Tools.fold_lefti (fun i acc p ->
+        if i = 0 then begin
+        apply_on_path (fun t1 ->
+          begin match t1.desc with
+          | Trm_apps (_, [_;rs]) ->
+            if const then trm_let_immut ~marks:trm_to_change.marks (x,tx) rs else trm_let_mut ~marks:trm_to_change.marks (x, (get_inner_ptr_type tx)) rs
+          | _ -> t1
+          end
+        ) acc p
         end
-    | _ -> fail t.loc "init_attach_aux: target_doesn't point to the right trm, expected a trm_let"
+        else acc
+      ) new_t ps
+    | _ -> fail trm_to_change.loc "init_attach_aux: expected a variable declaration"
     end
   | _ -> fail t.loc "init_attach_axu: expected the surrounding sequence"
-
 
 let init_attach (const : bool) (index : int) : Target.Transfo.local =
   Target.apply_on_path(init_attach_aux const index )
 
 
-(* [const_non_const_aux t]: transform a const declaration to a non-const one or vice-versa
-    params:
-      t: ast of the variable declaration 
-    return:
-      the updated ast of the declaration
-*)
-let const_non_const_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_let (vk, (x,tx), init) ->
-    begin match vk with
-     (* If variable is a constant than whe remove the const and we perform the heap allocation  *)
-    | Var_immutable ->
-      trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tx) (trm_apps (trm_prim ~loc: t.loc (Prim_new tx)) [init])
-    | _ ->
-      let var_type = begin match tx.typ_desc with
-      | Typ_ptr {inner_typ = t; _} -> t
-      | _ -> fail t.loc "const_non_const_aux: expected a pointer type"
-      end
-      in
-      let var_init = begin match init.desc with
-      | Trm_apps(_, [_; init]) -> init
-      | _ -> fail t.loc "const_non_const_aux: expected a something of the form 'new ()'"
-      end
-      in
-      trm_let Var_immutable (x,var_type) var_init
-    end
-  | _ -> fail t.loc "const_non_const_aux: variable declaration was not matched, make sure the path is correct"
-
-let const_non_const : Target.Transfo.local =
-  apply_on_path (const_non_const_aux)
-
-
-(* [local_other_name_aux var_type old_var new_var t] add a local name and replace all the 
+(* [local_name_aux var_type curr_var local_var t]: add a local name and replace all the
       occurrences of a variable inside a sequence.
     params:
-      var_type: the type of the variable
-      old_var: the previous name of the variable, this is used to find all the occurrences
-      new_var: the name of the variable to be declared and replace all the occurrences of old_var
-      t: ast of the trm which contains old_var.
+      [mark]: a mark to mark the producesd nobrace sequence
+      [curr_var]: the previous name of the variable, this is used to find all its occurrences
+      [local_var]: the name of the variable to be declared and replace all the occurrences of curr_var
+      [t]: ast of the trm which contains curr_var.
     return:
-      the updated ast of the targeted sequence with the new local name
+      the ast of a marked(clean) nobrace sequence depending on the flag [mark] which contains
+        the term [t] the new declaration and a set operation at the end
 
 *)
-let local_other_name_aux (mark : mark) (var_type : typ) (old_var : var) (new_var : var) (t : trm) : trm =
-  let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var old_var]) in
-  let lst_instr = trm_set (trm_var old_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
-  let new_t = Internal.change_trm (trm_var old_var) (trm_var new_var) t in
+let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : trm =
+  let vardef_trm = Target.get_trm_at [Target.cVarDef curr_var] in
+  let var_type = match trm_var_def_inv vardef_trm with
+  | Some (_, _, ty, _) -> ty
+  | _ -> fail vardef_trm.loc "local_name: make sure the name of the current var is entered correctly" in
+  let fst_instr = trm_let Var_mutable (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var curr_var]) in
+  let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var ~typ:(Some var_type) local_var]) in
+  let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in
   let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
   if mark <> "" then trm_add_mark mark final_trm else final_trm
 
-let local_other_name (mark : mark) (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.local =
-  Target.apply_on_path(local_other_name_aux mark var_type old_var new_var)
+let local_name (mark : mark) (curr_var : var) (local_var : var) : Target.Transfo.local =
+  Target.apply_on_path(local_name_aux mark curr_var local_var)
 
-(* [delocalize_aux array_size neutral_element fold_operation t] add local array to apply
-      the operation inside the for loop in parallel.
+(* [delocalize_aux array_size ops index t]: after introduced the local_name transformation
+      transform the newly declared local variable [local_var]  into an array of size [array size]
+      and add to loops: the first one to initialize the elements of the added array and the last one
+      to reduce the array into a single value, the inittialization value and the reducing(fold_lefting operation)
+      is given through [ops].
     params:
-      array_size: size of the arrays to be declared inside the targeted sequence
-      neutral_element: the neutral element used when applying the [fold_operation]
-      fold_operation: reduction over all the elements of the declared array
-      t: the ast of the @nobrace sequence
+      [array_size]: size of the arrays to be declared inside the targeted sequence
+      [ops]: delocalize operation representing the unitary lement used for initialization
+        and the fold_lefting operation used for the reduction
+      [index]: the index for the two added loops
+      [t]: the ast of the sequence generated after applying the local_name transformation
     return:
-      the updated ast of the targeted sequence
+      the update ast of [t]
 *)
-let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index : string) (t : trm) : trm =
-  match t.desc with 
+let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string) (t : trm) : trm =
+  match t.desc with
   | Trm_seq tl ->
     if Mlist.length tl <> 3 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
-    
     let def = Mlist.nth tl 0 in
-    let middle_instr = Mlist.nth tl 1 in
+    let snd_instr = Mlist.nth tl 1 in
     begin match def.desc with
-    | Trm_let (vk, (x, tx), _) ->
-      let new_var = x in
-      let old_var_trm = get_init_val def in
+    | Trm_let (vk, (x, tx), init) ->
+      let local_var = x in
+      let curr_var_trm = match get_init_val init with
+      | Some init1 -> init1
+      | _ -> fail def.loc "delocalize_aux: couldn't get the value of the current variable " in
       let var_type = (get_inner_ptr_type tx) in
-      let add_star_if_ptr (t : trm) : trm = 
+      let add_star_if_ptr (t : trm) : trm =
         if is_typ_ptr (get_inner_ptr_type tx)  then add_star t
           else t
-          in 
-      let init_trm, op = begin match dl_ops with 
+          in
+      let init_trm, op = begin match ops with
       | Delocalize_arith (li, op) ->
-          trm_lit li, (trm_set ~annot:[App_and_set] (old_var_trm)
+          trm_lit li, (trm_set ~annot:[App_and_set] (curr_var_trm)
                             (trm_apps (trm_binop op) [
-                             old_var_trm;
-                              trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]])) 
+                             curr_var_trm;
+                              trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_var index]]))
       | Delocalize_obj (clear_f, transfer_f) ->
-          trm_apps ~typ:(Some (typ_unit ())) (trm_var clear_f) [], 
-          trm_apps ~typ:(Some (typ_unit())) (trm_var transfer_f) 
-            [add_star_if_ptr old_var_trm ; 
-            add_star_if_ptr  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index])]
+          trm_apps ~typ:(Some (typ_unit ())) (trm_var clear_f) [],
+          trm_apps ~typ:(Some (typ_unit())) (trm_var transfer_f)
+            [add_star_if_ptr curr_var_trm ;
+            add_star_if_ptr  (trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_var index])]
       end in
       let new_first_trm = trm_seq_no_brace[
-          trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
-          trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_lit (Lit_int 0)]) old_var_trm;
-          trm_for loop_index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
-         (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]) init_trm])]
+          trm_let vk (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
+          trm_set (trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_lit (Lit_int 0)]) curr_var_trm;
+          trm_for index (trm_int 1)  DirUp (trm_var array_size) Post_inc
+         (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_var index]) init_trm])]
           in
-      let new_snd_instr = Internal.change_trm (trm_var new_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_apps (trm_var "ANY") [trm_var array_size] ]) middle_instr  in
+      let new_snd_instr = Internal.subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_apps (trm_var "ANY") [trm_var array_size] ]) snd_instr  in
       let new_thrd_trm = trm_seq_no_brace [
-                      trm_set (old_var_trm) (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_lit (Lit_int 0)]);
+                      trm_set (curr_var_trm) (trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_lit (Lit_int 0)]);
                       (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)
-                      trm_for loop_index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
+                      trm_for index (trm_int 1) DirUp (trm_var array_size) Post_inc
                         (trm_seq_nomarks [op])
                      ] in
       let new_tl = (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) in
@@ -387,37 +334,48 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index :
   | _ -> fail t.loc "delocalize_aux: expected the nobrace sequence"
 
 
-let delocalize (array_size : string) (dl_ops : delocalize_ops) (loop_index : string) : Target.Transfo.local =
-  Target.apply_on_path (delocalize_aux array_size dl_ops loop_index )
+let delocalize (array_size : string) (ops : delocalize_ops) (index : string) : Target.Transfo.local =
+  Target.apply_on_path (delocalize_aux array_size ops index )
 
 
 
-
-let insert_aux (index : int) (const : bool) (name : string) (typ : string) (value : string) (t : trm) : trm =
-  match t.desc with 
+(* [insert_aux index const name typ value t] insert a variaable declaration at index [index] with
+    name [name], type [typ] and initial value [value].
+    params:
+      [index]: index inside the sequence where the insertion is performed
+      [const]: a flag on the mutability of the variable [name]
+      [typ]: the type of the inserted variable entered as a string
+      [value]: the initial value of the inserted variable [name] entered as a string
+      [t]: the ast of the sequence where the insertion is performed
+    return:
+      the updated [t] with the newly inserted declaration []
+  *)
+let insert_aux (index : int) (const : bool) (name : string) (typ : string) (value : trm) (t : trm) : trm =
+  match t.desc with
   | Trm_seq tl ->
     let vk = if const then Var_immutable else Var_mutable  in
-    let new_typ = if const then typ_const (typ_constr typ) else typ_constr typ in
-    let new_trm = trm_let vk (name, new_typ) (code value) in
+    let new_typ = if const then typ_const (atyp typ) else atyp typ in
+    let new_trm = trm_let vk (name, new_typ) value in
     let new_tl = Mlist.insert_at index new_trm tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
-  | _ -> fail t.loc "insert_aux: expected the sequence which is going to contain the variable declaration" 
+  | _ -> fail t.loc "insert_aux: expected the sequence which is going to contain the variable declaration"
 
-let insert (index : int) (const : bool) (name : string) (typ : string) (value : string) : Target.Transfo.local =
+let insert (index : int) (const : bool) (name : string) (typ : string) (value : trm) : Target.Transfo.local =
   Target.apply_on_path (insert_aux index const name typ value)
 
 
 
 
-(* [change_type_aux new_type t]:  change the current type of the variable to new_type
+(* [change_type_aux new_type t]:  change the current type of the variable declared at the node with index [i]
+      of the sequence with ast [t] to [new_type]
     params:
-      new_type: the new type replacing the old one
-      t: ast of the declaration
+      [new_type]: the new type replacing the current one entered as a string
+      [t]: ast of the sequence which contains the declaration
     return:
-      the updated ast of the declaration
+      the updated ast of the sequence which contains the declaration
 *)
 let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
-  let constructed_type = typ_constr new_type in
+  let constructed_type = atyp new_type in
   match t.desc with
   | Trm_seq tl ->
     let lfront, decl, lback = Internal.get_trm_and_its_relatives index tl in
@@ -446,3 +404,133 @@ let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
 
 let change_type (new_type : typvar) (index : int) : Target.Transfo.local =
   Target.apply_on_path (change_type_aux new_type index)
+
+
+(* [bind_aux index fresh_name const p_local t]: bind the variable [fresh_name] to the function_call
+    params:
+      [my_mark]: a mark to be left in the targeted node
+      [index]: index of the instruction containing the targeted function call
+      [fresh_name]: name of the variable which going to be binded to the function call
+      [const]: a flag for the mutability of the binded variable
+      [p_local]: the local path from the instruction containing the targeted node
+        to the targeted node
+      [t]: ast of the sequence containing the targeted node
+    return:
+      the updated sequence with the new generated binding
+*)
+let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl ->
+    let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
+    let targeted_node = Path.resolve_path p_local instr in
+    let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
+    let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
+    let node_to_change = Internal.change_trm targeted_node (if const then trm_var fresh_name else (trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var fresh_name])) instr in
+    let targeted_node = if my_mark <> "" then trm_add_mark my_mark targeted_node else targeted_node in
+    let node_type = match targeted_node.typ with
+    | Some ty -> ty
+    | _ -> typ_auto() in
+    let decl_to_insert =
+      begin match targeted_node.desc with
+      | Trm_array tl ->
+        let node_type = begin match node_type.typ_desc with
+        | Typ_array (ty, _) -> ty
+        | _ -> typ_auto ()
+        end in
+        let sz = (Mlist.length tl)  in
+        if const
+          then
+            trm_let_array Var_immutable (fresh_name, node_type) (Const sz) targeted_node
+          else
+            trm_let_array Var_mutable (fresh_name, node_type) (Const sz) targeted_node
+      | _ ->
+        if const
+          then trm_let_immut (fresh_name, node_type) targeted_node
+          else trm_let_mut (fresh_name, node_type) targeted_node
+      end in
+      let new_tl = Mlist.merge lfront (Mlist.of_list ([decl_to_insert] @ [node_to_change])) in
+      let new_tl = Mlist.merge new_tl lback in
+      trm_seq ~annot:t.annot ~marks:t.marks new_tl
+  | _ -> fail t.loc "bind_aux: expected the surrounding sequence"
+
+
+let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
+  Target.apply_on_path (bind_aux my_mark index fresh_name const p_local)
+
+
+(* [to_const_aux index t] change the mutability of a variable, and replace all the get operations on that variable
+    with an occurrence of that variable
+    params:
+      [index]: the index of the targeted declaration inside its englobing sequence
+      [t]: ast of the surrounding sequence of the targeted instruction
+    return:
+      the update [t]
+*)
+let to_const_aux (index : int) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl ->
+    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
+    begin match dl.desc with
+    | Trm_let (vk, (x, tx), init) ->
+      begin match vk with
+      | Var_immutable -> t
+      | Var_mutable ->
+        (* first search if there are any write operations inside the same scope *)
+        Mlist.iter (fun t1 ->
+          begin match t1.desc with
+          | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
+            begin match ls.desc with
+            | Trm_var (_, y) when y = x -> fail ls.loc "to_const_aux: can't convert a variable to a const variable if there are other write operations besides the first initalization"
+            | _ -> ()
+            end
+          | _ -> ()
+          end
+        ) lback;
+        (* replace all get(x) with x *)
+        let init_val = match get_init_val init with
+        | Some init1 -> init1
+        | _ -> fail dl.loc "to_const_aux: can't convert to const a non intialized variable"
+        in
+        let init_type = get_inner_ptr_type tx in
+        let new_dl = trm_let_immut ~annot:dl.annot ~marks:dl.marks (x, init_type) init_val in
+        let new_lback = Mlist.map (Internal.change_trm (trm_get ~annot:[Mutable_var_get] (trm_var x)) (trm_var x)) lback in
+        let new_tl = Mlist.merge lfront new_lback in
+        let new_tl = Mlist.insert_at index new_dl new_tl in
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      end
+
+    | _ -> fail t.loc "to_const_aux: expected a target to variable declaration"
+    end
+
+  | _ -> fail t.loc "to_const_aux: expected the sequence that contains the targeted declaration"
+
+let to_const (index : int) : Target.Transfo.local =
+  Target.apply_on_path (to_const_aux index)
+
+(* [simpl_deref_aux t] find all the occurrences of *(&b) and simplify them
+    params:
+      [t]: any node, that could contain in its depth expression of the form &( * ) or * (&)
+    return:
+      the update [t]
+*)
+let simpl_deref_aux (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match t.desc with
+    | Trm_apps (op, [t1]) ->
+      (* First case  &* both & and * are encoded as annotations of t*)
+      if List.mem Address_operator t.add && List.mem Star_operator t.add then
+      let new_add = List.filter (function |Address_operator | Star_operator -> false) t.add in
+      {t with add = new_add}
+      (* Second case: * is a get operation and & is annotation encode inside  t1 *)
+      else if op.desc = Trm_val (Val_prim (Prim_unop Unop_get))  && List.mem Address_operator t1.add then
+        begin
+        let new_t1 = {t1 with add = []} in
+        trm_get ~annot:[Mutable_var_get] new_t1
+        end
+      else trm_map aux t
+    | _ -> trm_map aux t
+   in
+   aux t
+
+let simpl_deref : Target.Transfo.local =
+  Target.apply_on_path (simpl_deref_aux)

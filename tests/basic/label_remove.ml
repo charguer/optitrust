@@ -1,6 +1,17 @@
 open Optitrust
 open Target
 
+let _ = Run.doc_script_cpp (fun _ ->
+    !! Label_basic.remove [cLabel "mylabel"]
+  )
+"
+int main() {
+  int a = 0;
+  mylabel: int b = 1;
+  int c = 2;
+}
+"
+
 let _ = Run.script_cpp ( fun _ ->
 
       !! Label_basic.remove [cLabel "start"];

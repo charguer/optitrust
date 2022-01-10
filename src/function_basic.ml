@@ -13,9 +13,14 @@ open Ast
                                   }
 
 *)
-let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = ""): Target.Transfo.t =
- Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
-  (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p)
+(* let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : Target.target) : unit =
+ Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+  (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg *)
+let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : Target.target) : unit =
+  Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+    (fun occ t (p, p_local, i)  ->
+      let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
+    Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
 
 
 (* [inline ~body_mark tg] - expects the target [tg] to point to a function call inside a declaration
@@ -24,8 +29,8 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
       or  g(a);
 
     Then it will replace that instruction with a nobrace sequence which is a sequence
-    hidden from the user. This sequence will be marked with [body_mark] and it will 
-    contain the body of the declaration of the called function targeted with [tg]. 
+    hidden from the user. This sequence will be marked with [body_mark] and it will
+    contain the body of the declaration of the called function targeted with [tg].
     Transformation steps:
        1) generate in that sequence the binding "int r", in case it is needed
           (if the original instructions featured a "int r = ..")
@@ -67,8 +72,59 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
         }
 *)
 
-let inline  ?(body_mark : var = "body") : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
-   (fun (p, p_local, i) t ->
-    Function_core.inline i body_mark t p_local t p)
+let inline ?(body_mark : mark option) (tg : Target.target) : unit =
+  Internal.nobrace_remove_after (fun _ ->
+  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+   (fun  t (p, p_local, i) ->
+    Function_core.inline i body_mark p_local t p) tg)
+
+(* [beta ~body_mark tg] the difference between using function_inline and function_beta lies inside the implementation
+     basically beta is used in the cases when the declaration of the function call be founded at the targeted function call
+     contrary to function_inline which will need to find the toplevel declaration.
+     At the basic level they are both the same.
+*)
+let beta ?(body_mark : var = "body") (tg : Target.target) : unit =
+  inline ~body_mark tg
+
+(* [use_infix_ops tg] expects the target [tg] to be pointing at an instruction of the form x = x (op) a,
+    then it will transform that instruction into x (op)= a.
+    Note: This transformation can be used only with operators that have an infix version like +, -, *, / etc.
+ *)
+let use_infix_ops_at ?(allow_identity : bool = true) : Target.Transfo.t =
+  Target.apply_on_targets (Function_core.use_infix_ops allow_identity)
+
+(* [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similar to what Function_basic.inline generates
+    Then it will replace that sequence with a call to the fuction with declaration targeted by [fct].
+*)
+let uninline ~fct:(fct : Target.target) (tg : Target.target) : unit =
+  Trace.call (fun t ->
+    let fct_path = Target.resolve_target_exactly_one fct t in
+    let fct_decl = Path.resolve_path fct_path t in
+    Target.apply_on_targets (Function_core.uninline fct_decl) tg)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

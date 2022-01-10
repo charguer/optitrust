@@ -25,7 +25,7 @@ let set_implicit ?(keep_label : bool = true) : Target.Transfo.t =
     [struct_fields] - list of fields to move
 *)
 
-let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : var list) (tg : target) : unit =
+let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : vars) (tg : target) : unit =
   let move_where =
     begin match move_before, move_after with
     | "", "" -> Reorder_all
@@ -40,10 +40,10 @@ let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struc
     replace [field_to_inline] with a list of fields rename comming from the underlying type
     renamed with the following the prefix "field_to_inline_".
 *)
-let inline ?(reparse:bool=true) (field_to_inline : field) : Target.Transfo.t =
+let inline ?(reparse:bool=false) (field_to_inline : field) : Target.Transfo.t =
   Target.reparse_after ~reparse
     (Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-      (fun (p, i) t -> Struct_core.inline field_to_inline i t p))
+      (fun t (p, i) -> Struct_core.inline field_to_inline i t p))
 
 (* [to_variables tg] expects [tg] to point to a variable declaration of type typedef struct.
     Then it will transform this declaration into a list of variable declarations where the type
@@ -51,17 +51,39 @@ let inline ?(reparse:bool=true) (field_to_inline : field) : Target.Transfo.t =
     are going to be changed to variable occurrences.
 *)
 let to_variables : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Struct_core.to_variables i t p)
+  Target.reparse_after ~reparse:false (Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun t (p, i) -> Struct_core.to_variables i t p) )
 
-
+(* [rename_fields rename tg] expects [tg] to point to a struct declaration 
+    then it will rename all the fields which are matched when applying the type rename
+    which can be a function to renam all the struct fields or only those which 
+    are matched by the patter given as argument when the function [only_for] is used.
+*)
 let rename_fields (rename : rename) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Struct_core.rename_fields i rename t p)
+    (fun t (p, i) -> Struct_core.rename_fields i rename t p)
+
+
+(* [rename_field field ~into tg] this is a specialization of the previous function
+      when one wants to rename only one field of a struct. [field] is the current field name 
+      [into] is the new name that is going to replace all the occurrences of field in the context of 
+      the targetd typedef struct.
+*)
+let rename_field (field : field) ~into:(into : var): Target.Transfo.t = 
+  rename_fields (only_for field (fun _ -> into))
 
 
 
-let update_fields_type (pattern : string) (ty : typ) (tg : Target.target) : unit =
-  Target.apply_on_targets (Struct_core.update_fields_type pattern ty) tg;
-  Trace.reparse();
+
+(* [update_fields_type pattern ty tg] expects [tg] to point to a struct declaration . 
+    Then it will change the current type to [ty] of all the fields which are matched with [pattern].
+*)
+let update_fields_type (pattern : string) (ty : typ) : Target.Transfo.t =
+  Target.reparse_after (Target.apply_on_targets (Struct_core.update_fields_type pattern ty))
+
   
+(* [simpl_proj tg] expects the target [tg] pointing to any node whose descendants can contain struct
+ initialization list projections 
+*)
+let simpl_proj : Target.Transfo.t =
+  Target.apply_on_targets (Struct_core.simpl_proj)

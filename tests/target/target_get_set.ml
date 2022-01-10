@@ -9,14 +9,14 @@ let _ = Run.script_cpp (fun () ->
    (* All left hand sides of the equalities*)
    show [dLHS];   
    (* All equalities*)
-   show [cSet ()];
+   show [cWrite ()];
    (* Equalities with specific right hand side*)
-   show [cSet ~lhs:[cVar "i"] ()];
-   show [cSet ~lhs:[cVar "t"] ()];
+   show [cWrite ~lhs:[cVar "i"] ()];
+   show [cWrite ~lhs:[cVar "t"] ()];
    (* All get operations *)
-   show [cGet ~arg:[sExpr "a"] ()];
-   show [cGet ~arg:[cVar "b"] ()];
-   show [cGet ~arg:[cVar "i"] ()];
+   show [cRead ~arg:[sExpr "a"] ()];
+   show [cRead ~arg:[cVar "b"] ()];
+   show [cRead ~arg:[cVar "i"] ()];
    
    
    

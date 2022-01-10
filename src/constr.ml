@@ -38,7 +38,8 @@ type target_occurrences =
     | ExpectedMulti  (* > 0 number of occurrences *)
     | ExpectedAnyNb  (* any number of occurrences *)
     | ExpectedSelected of int option * int list
-
+    | FirstOcc
+    | LastOcc
 (* A [target] is a list of constraints to identify nodes of the AST
    that we require the result path to go through. *)
 type target = constr list
@@ -65,7 +66,6 @@ and constr =
     matching constraint: match against regexp
     the user may also match against a string through smart constructors
    *)
-  (* todo: beware of multiline matching *)
   | Constr_regexp of rexp
   (*
     node related constraints (constraints are expressed using a target):
@@ -92,7 +92,7 @@ and constr =
   (* for: init, cond, step, body *)
   | Constr_for_c of target * target * target * target
   (* for index, start, stop, step, body *)
-  | Constr_for of constr_name * loop_dir * target * target * target * target
+  | Constr_for of constr_name * target * loop_dir option * target * target * target
   (* while: cond, body *)
   | Constr_while of target * target
   (* do while: body, cond *)
@@ -112,7 +112,7 @@ and constr =
   (* var *)
   | Constr_var of constr_name
   (* lit *)
-  | Constr_lit of lit option
+  | Constr_lit of (lit -> bool)
   (* app: function, arguments *)
   | Constr_app of target * target_list_pred * bool
   (* label *)
@@ -138,17 +138,23 @@ and constr =
   (* Constraint that matches only the root of the AST *)
   | Constr_root
   (* Constraint that matches primitive operations *)
-  | Constr_prim of prim
+  | Constr_prim of (prim -> bool)
   (* Constraint that matches ast nodes whose marks satisfy the predicate *)
   | Constr_mark of (mark -> bool) * string
   (* Constraint that matches a union of targets *)
   | Constr_or of target list
   (* Constraint that matches an intersection of targets *)
   | Constr_and of target list
+  (* Constrain that match the diff between two targets *)
+  | Constr_diff of target list * target list
   (* Constraint to match arguments  that sastify both the name predicated and the type predicate *)
   | Constr_arg of var_constraint * typ_constraint
   (* Constraint to match ast nodes of types that satisfy the type predicate *)
   | Constr_hastype of typ_constraint
+  (* Constraint to match an array initialization list *)
+  | Constr_array_init
+  (* Constraint to match an struct initialization list  *)
+  | Constr_struct_init
 
 (* Constraint over types *)
 and typ_constraint = typ -> bool
@@ -258,13 +264,16 @@ let rec constr_to_string (c : constr) : string =
      let s_step = target_to_string p_step in
      let s_body = target_to_string p_body in
      "For (" ^ s_init ^ ", " ^ s_cond ^ ", " ^ s_step ^ ", " ^ s_body ^ ")"
-  | Constr_for (p_index, p_direction, p_start, p_stop, p_step, p_body) ->
+  | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body) ->
     let s_index =
       match p_index with | None -> "_" | Some r -> rexp_to_string r
     in
     let s_direction = match p_direction with
-    | DirUp -> "Up"
-    | DirDown -> "Down"
+    | Some DirUp -> "Up"
+    | Some DirUpEq -> "UpEq"
+    | Some DirDown -> "Down"
+    | Some DirDownEq -> "DownEq"
+    | None -> "AnyDirection"
     in
     let s_start = target_to_string p_start in
     let s_stop = target_to_string p_stop in
@@ -331,8 +340,9 @@ let rec constr_to_string (c : constr) : string =
      sprintf "Seq (%s)" spred
   | Constr_var name ->
      "Var " ^ (match name with | None -> "_" | Some r -> rexp_to_string r)
-  | Constr_lit l ->
-     let s =
+  | Constr_lit _ ->
+     "Lit todo"
+     (* let s =
        begin match l with
        | Some l1 -> begin match l1 with
             | Lit_unit ->  "()"
@@ -344,7 +354,7 @@ let rec constr_to_string (c : constr) : string =
             end
        | None -> "Any"
        end
-     in "Lit " ^ s
+     in "Lit " ^ s *)
   | Constr_app (p_fun, tgt_list_pred, accept_encoded) ->
     let spred = tgt_list_pred.target_list_pred_to_string() in
     let s_fun = target_to_string p_fun in
@@ -412,9 +422,12 @@ let rec constr_to_string (c : constr) : string =
   | Constr_prim _ -> "Prim"
   | Constr_mark (_, str) -> "Mark (" ^ str ^ ")"
   | Constr_or tl -> "Or (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
-  | Constr_and tl -> " (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
+  | Constr_and tl -> "And (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
+  | Constr_diff (tl1, tl2) -> "Diff (" ^ Tools.list_to_string (List.map target_to_string tl1) ^ "," ^ Tools.list_to_string (List.map target_to_string tl2) ^ ")"
   | Constr_arg _ -> "<Constr_args>"
   | Constr_hastype _ -> "<Constr_hastype>"
+  | Constr_array_init -> "Array_init "
+  | Constr_struct_init -> "Struct_init"
 
 and target_to_string (tg : target) : string =
   list_to_string (List.map constr_to_string tg)
@@ -428,6 +441,8 @@ and target_struct_to_string (tgs : target_struct) : string =
 
 and target_occurrences_to_string (occ : target_occurrences) =
   match occ with
+  | FirstOcc -> "FirstOcc"
+  | LastOcc -> "LastOcc"
   | ExpectedOne -> "ExpectedOne"
   | ExpectedNb n -> sprintf "ExpectedNb(%d)" n
   | ExpectedMulti -> "ExpectedMulti"
@@ -590,8 +605,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
       end
    | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
    | Trm_labelled (_, t) -> get_trm_kind t
-   | Trm_arbitrary _ -> fail t.loc "get_trm_kind: Trm_arbitrary is removed during parsing"
-   | Trm_omp_directive _ | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _->TrmKind_Any
+   | Trm_omp_directive _ | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ -> TrmKind_Any
 
 let match_regexp_str (r : rexp) (s : string) : bool =
   (*if s = "x" then incr Debug.counter;
@@ -623,17 +637,7 @@ let check_hastype (pred : typ->bool) (t : trm) : bool =
 
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
-  (* DEPRECATED with the introduction of cGet constructor *)
-  (* if List.mem Access t.annot  then
-     (* forget the star operator at the root before checking the constraint *)
-     begin match t.desc with
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t']) ->
-        check_constraint c t'
-     | _ -> false
-        (* Ast_to_text.print_ast ~only_desc:true stdout t;
-        fail t.loc "check_constraint: bad access annotation" *)
-     end
-  else *) if List.mem Multi_decl t.annot then
+   if List.mem Multi_decl t.annot then
      (*
        check the constraint on each element of the seq and return true if one
        is true
@@ -661,13 +665,16 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_target p_step step &&
         check_target p_body body
-     | Constr_for (p_index, p_direction, p_start, p_stop, p_step, p_body),
-        Trm_for(index, direction, start, stop, step, body) ->
+     | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body),
+        Trm_for(index, start, direction, stop, step, body) ->
+        let direction_match = match p_direction with
+        | None -> true
+        | Some d -> d = direction in
         check_name p_index index &&
-        (p_direction = direction) &&
+        direction_match &&
         check_target p_start start &&
         check_target p_stop stop &&
-        check_target p_step step &&
+        check_target p_step (loop_step_to_trm step) &&
         check_target p_body body
      | Constr_while (p_cond, p_body), Trm_while (cond, body) ->
         check_target p_cond cond &&
@@ -706,13 +713,10 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         not ((List.exists (function No_braces _ -> true | _ -> false) t.annot) || List.mem Main_file t.annot)->
         check_list ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
         in constra_app *)
-     | Constr_var name, Trm_var x ->
+     | Constr_var name, Trm_var (_, x) ->
         check_name name x
-     | Constr_lit l, Trm_val (Val_lit l') ->
-        begin match l with
-        | Some l1 -> is_equal_lit l1 l'
-        | None -> true
-        end
+     | Constr_lit pred_l, Trm_val (Val_lit l) ->
+        pred_l l
      | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args) ->
         if not accept_encoded then
           begin match f.desc with
@@ -723,7 +727,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           end
         else
           check_target p_fun f &&
-          check_list ~depth:(DepthAny) cl_args args (* LATER: check if depth any is ok *)
+          check_list ~depth:(DepthAny) cl_args args
      | Constr_label (so, p_body), Trm_labelled (l, body) ->
         check_name so l &&
         check_target p_body body
@@ -745,11 +749,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_bool b, _ -> b
      | Constr_root, _ ->
         List.mem Main_file t.annot
-     | Constr_prim p, Trm_val (Val_prim p1) ->
-        p = p1
+     | Constr_prim pred, Trm_val (Val_prim p1) ->
+        pred p1
      | Constr_mark (pred, _m), _ ->
-        (* Tools.printf "Checking mark %s with trm %s\n" _m (Ast_to_text.ast_to_string t); *)
-        (* Tools.printf "---------------------------\n"; *)
         begin match t.desc with
         | Trm_seq tl | Trm_array tl | Trm_struct tl->
           (List.exists pred t.marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
@@ -757,6 +759,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         end
      | Constr_hastype pred , _ ->
         check_hastype pred t
+     | Constr_array_init, Trm_array _ -> true
+     | Constr_struct_init, Trm_struct _ -> true
      | _ -> false
      end
 
@@ -766,7 +770,7 @@ and check_name (name : constr_name) (s : string) : bool =
   | Some r ->
      match_regexp_str r  s
 
-and check_list ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trm list) : bool =
+and check_list ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trms) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i t -> check_target ~depth (ith_target i) t) tl)
@@ -795,9 +799,9 @@ and check_arg (tg:arg_constraint) ((var_name, var_typ) : typed_var) : bool =
 and check_accesses ?(inner_accesses : bool = true) (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
     match cal, al with
-    | [], a -> if not inner_accesses 
-                  then begin match a with 
-                       | [] -> true 
+    | [], a -> if not inner_accesses
+                  then begin match a with
+                       | [] -> true
                        | _  -> false
                        end
                   else true
@@ -820,9 +824,9 @@ and check_accesses ?(inner_accesses : bool = true) (ca : constr_accesses) (al : 
   | None -> true
   | Some cal -> aux cal al
 
-and check_cases (cc : constr_cases) (cases : (trm list * trm) list) : bool =
+and check_cases (cc : constr_cases) (cases : (trms * trm) list) : bool =
   let rec aux (cl : (case_kind * target) list)
-    (cases : (trm list * trm) list) : bool =
+    (cases : (trms * trm) list) : bool =
     match cl, cases with
     | [], [] -> true
     | (k, p_body) :: cl, (tl, body) :: cases ->
@@ -835,7 +839,7 @@ and check_cases (cc : constr_cases) (cases : (trm list * trm) list) : bool =
   | None -> true
   | Some cl -> aux cl cases
 
-and check_kind (k : case_kind) (tl : trm list) : bool =
+and check_kind (k : case_kind) (tl : trms) : bool =
   match k, tl with
   | Case_any, _ -> true
   | Case_default, [] -> true
@@ -877,21 +881,41 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
   let epl =
     match trs with
     | [] -> [[]]
-    | Constr_or tl :: [] -> (* LATER: maybe we'll add an option to enforce that each target from the list tl resolves to at list one solution *)
+    | Constr_or tl :: trest -> (* LATER: maybe we'll add an option to enforce that each target from the list tl resolves to at least one solution *)
         let all_targets_must_resolve = false in
         List.fold_left (fun acc tr ->
+          let potential_targets = resolve_target_simple (tr @ trest) t in
+          begin match potential_targets with
+          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
+          | _ ->
+            Path.union acc potential_targets
+          end ) [] tl
+    | Constr_diff (tl1 , tl2) :: [] ->
+      let all_targets_must_resolve = false in
+      let targets_to_keep =
+      List.fold_left (fun acc tr ->
           let potential_targets = resolve_target_simple tr t in
           begin match potential_targets with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
-          | _ -> 
+          | _ ->
             Path.union acc potential_targets
-          end ) [] tl
-    | Constr_and tl :: [] ->
-        (* TODO ARTHUR : optimize resolution by resolving the targets only by exploring
+          end ) [] tl1 in
+      let targets_to_remove =
+      List.fold_left (fun acc tr ->
+          let potential_targets = resolve_target_simple tr t in
+          begin match potential_targets with
+          | ([] | [[]]) -> acc
+          | _ ->
+            Path.union acc potential_targets
+          end ) [] tl2 in
+      Path.diff targets_to_keep targets_to_remove
+
+    | Constr_and tl :: trest ->
+        (* LATER: ARTHUR : optimize resolution by resolving the targets only by exploring
           through the paths that are candidates; using e.g. path_satisfies_target *)
         let all_targets_must_resolve = false in
-        Tools.foldi (fun i acc tr ->
-          let targetsi = resolve_target_simple tr t in
+        Tools.fold_lefti (fun i acc tr ->
+          let targetsi = resolve_target_simple (tr @ trest) t in
           begin match targetsi with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
           | _ ->
@@ -901,6 +925,16 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
             (* Compute the intersection of all resolved targets *)
               else Path.intersect acc targetsi
           end) [] tl
+
+    | Constr_diff (_ , _) :: _ ->
+        fail t.loc "cDiff can only appear at last item in a target"
+
+    (* DEPRECATED
+    | Constr_or _ :: _
+    | Constr_and _ :: _ ->
+        fail t.loc "currently, cOr and cAnd are only supported at last item in a target"
+    *)
+
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
         resolve_target_simple ~depth:new_depth tr t
@@ -954,6 +988,8 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
     | None -> if nb = 0 then error (sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb)
                 else Tools.filter_not_selected i_selected res;
     end
+  | FirstOcc -> [fst (Tools.uncons res)]
+  | LastOcc ->  [snd (Tools.unlast res)]
   end
 
 and resolve_target (tg : target) (t : trm) : paths =
@@ -1012,16 +1048,20 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      print_info loc "explore_in_depth: no exploration in included files\n";
      []
      end
-
-  else if List.mem Access t.annot then
+  (* DEPRECATED
+  else if List.mem Access t.annot (* || List.mem Mutable_var_get t.annot *) then
      begin match t.desc with
        (*
          the wildcard is a star operator the user doesn't know about
          t' is an access under which want to explore
         *)
-     | Trm_apps (_, [t']) -> add_dir (Dir_arg 0) (explore_in_depth p t')
+     | Trm_apps (_, [t']) -> add_dir (Dir_arg_nth 0) (explore_in_depth p t')
+
+
+
      | _ -> fail loc "explore_in_depth: bad access annotation"
      end
+  *)
   else if List.mem Multi_decl t.annot then
      (* explore each declaration in the seq *)
      begin match t.desc with
@@ -1034,14 +1074,12 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_let (_ ,(_, _), body) ->
        add_dir Dir_body (aux body)
      | Trm_let_fun (_, _ , _,body) ->
-        (* DEPRECATED: the name of the function should not be considered an occurence;
-            add_dir Dir_name (aux (trm_var ~loc x))@*)
         add_dir Dir_body (aux_body body)
      | Trm_typedef td  ->
       begin match td.typdef_body with
       | Typdef_enum xto_l ->
         let (il, tl) =
-          foldi
+          fold_lefti
             (fun n (il, tl) (_, t_o) ->
               match t_o with
               | None -> (il, tl)
@@ -1061,10 +1099,11 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
       end
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (aux body)
-     | Trm_for ( _, _, start, stop, step, body) ->
+     | Trm_for ( _, start, _, stop, step, body) ->
+        let step_t = loop_step_to_trm step in
         (add_dir Dir_for_start (aux start)) @
         (add_dir Dir_for_stop (aux stop)) @
-        (add_dir Dir_for_step (aux step)) @
+        (add_dir Dir_for_step (aux step_t)) @
         (add_dir Dir_body (aux_body body))
      | Trm_for_c (init, cond, step, body) ->
         (* init *)
@@ -1096,18 +1135,19 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (* fun *)
         (add_dir Dir_app_fun (aux f)) @
         (* args *)
-        (explore_list args (fun n -> Dir_arg n) (aux))
+        (explore_list args (fun n -> Dir_arg_nth n) (aux))
+     | Trm_array tl ->
+        explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
      | Trm_seq tl ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
-     | Trm_array tl
      | Trm_struct tl ->
-        explore_list (Mlist.to_list tl) (fun n -> Dir_nth n) (aux)
+        explore_list (Mlist.to_list tl) (fun n -> Dir_struct_nth n) (aux)
      | Trm_labelled (l, body) ->
         add_dir Dir_name (aux (trm_var ~loc l)) @
         add_dir Dir_body (aux body)
      | Trm_switch (cond, cases) ->
         (add_dir Dir_cond (aux cond)) @
-        (foldi (fun i epl case -> epl@explore_case depth i case p) [] cases)
+        (fold_lefti (fun i epl case -> epl@explore_case depth i case p) [] cases)
      | _ ->
         print_info loc "explore_in_depth: cannot find a subterm to explore\n";
         []
@@ -1117,7 +1157,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
   call resolve_target_simple on given case name and body
   i is the index of the case in its switch
  *)
-and explore_case (depth : depth) (i : int) (case : trm list * trm) (p : target_simple) : paths =
+and explore_case (depth : depth) (i : int) (case : trms * trm) (p : target_simple) : paths =
   let aux = resolve_target_simple ~depth p in
   let (tl, body) = case in
   match tl with
@@ -1125,7 +1165,7 @@ and explore_case (depth : depth) (i : int) (case : trm list * trm) (p : target_s
   | [] ->
      add_dir (Dir_case (i, Case_body)) (aux body)
   | _ ->
-     (foldi
+     (fold_lefti
         (fun j epl t ->
           epl @
           (add_dir (Dir_case (i, Case_name j)) (aux t))
@@ -1140,13 +1180,15 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   let aux = resolve_target_simple p in
   let loc = t.loc in
   match d, t.desc with
+  | Dir_array_nth n, Trm_array tl ->
+    app_to_nth_dflt loc (Mlist.to_list tl) n
+       (fun nth_t -> add_dir (Dir_array_nth n) (aux nth_t))
   | Dir_seq_nth n, Trm_seq tl ->
     app_to_nth_dflt loc (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
-  | Dir_nth n, Trm_array tl
-    | Dir_nth n, Trm_struct tl ->
+  | Dir_struct_nth n, Trm_struct tl ->
      app_to_nth_dflt loc (Mlist.to_list tl) n
-       (fun nth_t -> add_dir (Dir_nth n) (aux nth_t))
+       (fun nth_t -> add_dir (Dir_struct_nth n) (aux nth_t))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
     | Dir_cond, Trm_do_while (_, cond)
@@ -1171,13 +1213,13 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   | Dir_for_c_step, Trm_for_c (_, _, step, _) ->
      add_dir Dir_for_c_step (aux step)
   | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (aux f)
-  | Dir_arg n, Trm_apps (_, tl) ->
+  | Dir_arg_nth n, Trm_apps (_, tl) ->
      app_to_nth_dflt loc tl n (fun nth_t ->
-         add_dir (Dir_arg n) (aux nth_t))
-  | Dir_arg n, Trm_let_fun (_, _, arg, _) ->
+         add_dir (Dir_arg_nth n) (aux nth_t))
+  | Dir_arg_nth n, Trm_let_fun (_, _, arg, _) ->
      let tl = List.map (fun (x, _) -> trm_var ~loc x) arg in
      app_to_nth_dflt loc tl n (fun nth_t ->
-         add_dir (Dir_arg n) (aux nth_t))
+         add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
      add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr))
   | Dir_name, Trm_let (_,(x,_),_)
@@ -1225,18 +1267,18 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   used for seq, array, struct, and fun arguments
   d: function that gives the direction to add depending on the index
  *)
-and explore_list (tl : trm list) (d : int -> dir)
+and explore_list (tl : trms) (d : int -> dir)
   (cont : trm -> paths) : paths =
-  foldi (fun i epl t -> epl@add_dir (d i) (cont t)) [] tl
+  fold_lefti (fun i epl t -> epl@add_dir (d i) (cont t)) [] tl
 
 (*
   call cont on each element of the list whose index is in the domain and
   gather the results
   d: function that gives the direction to add depending on the index
  *)
-and explore_list_ind (tl : trm list) (d : int -> dir) (dom : int list)
+and explore_list_ind (tl : trms) (d : int -> dir) (dom : int list)
   (cont : trm -> paths) : paths =
-  foldi
+  fold_lefti
     (fun i epl t ->
       if List.mem i dom then epl@add_dir (d i) (cont t) else epl)
     []
@@ -1257,7 +1299,7 @@ let extract_last_dir (p : path) : path * int =
   | [] -> raise Not_found
   | d :: p' ->
     begin match d with
-    | Dir_seq_nth i | Dir_nth i -> (List.rev p', i)
+    | Dir_seq_nth i -> (List.rev p', i)
     | _ -> fail None "extract_last_dir: expected a directory in a sequence"
     end
 
@@ -1274,10 +1316,10 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
     in
   match d with
   | Dir_seq_nth _ ->
-      let (seq_trm,_context) = Path.resolve_path p' t in
+      let seq_trm = Path.resolve_path p' t in
       get_sequence_length seq_trm
   | Dir_then | Dir_else | Dir_body  ->
-      let (seq_trm, _) = resolve_path p t in
+      let seq_trm = Path.resolve_path p t in
       get_sequence_length seq_trm
   | _ -> fail None "get_arity_of_seq_at: expected a Dir_seq_nth, Dir_then, Dir_else or Dir_body as last direction"
 
@@ -1299,8 +1341,7 @@ let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path *
         in
       match d with
       | Dir_seq_nth i -> (p', i + shift)
-      | Dir_nth i -> (p', i + shift)
-      | _ -> fail None "compute_relative_index: expected a Dir_nth as last direction"
+      | _ -> fail None "compute_relative_index: expected a Dir_seq_nth as last direction"
 
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   let tgs = target_to_target_struct tg in

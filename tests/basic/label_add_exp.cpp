@@ -1,5 +1,3 @@
-#include <omp.h>
-
 int main() {
 start:
   int x = 3;

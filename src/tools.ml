@@ -25,12 +25,21 @@ let document_to_string (d : document) : string =
   Buffer.contents b
 
 (* fold left with access to the indices
-  [foldi f a xs] computes  [ f 2 (f 1 (f 0 a x0) x1) x2) ] *)
-let foldi (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
+  [fold_lefti f a xs] computes  [ f 2 (f 1 (f 0 a x0) x1) x2) ] *)
+let fold_lefti (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
   let (_, res) = List.fold_left (fun (i, a) b -> (i + 1, f i a b)) (0, a) bl in
   res
 
-let foldi2 (f : int -> 'a -> 'b -> 'c -> 'a) (a : 'a) (bl : 'b list) (cl : 'c list) : 'a =
+
+(* fold right with access to the indices
+  [fold_righti f a xs] computes  [][ f 0 (f 1 (f 2 a x2) x1) x0) ] *)
+let fold_righti (f : int -> 'b -> 'a -> 'a) (bl : 'b list) (a : 'a) : 'a =
+  let (_, res) = List.fold_right (fun b (i,a) -> (i + 1, f i b a)) bl (0, a) in
+  res
+
+
+
+let fold_lefti2 (f : int -> 'a -> 'b -> 'c -> 'a) (a : 'a) (bl : 'b list) (cl : 'c list) : 'a =
   let (_, res) = List.fold_left2 (fun (i, a) b c -> (i + 1, f i a b c)) (0, a) bl cl in
   res
 
@@ -48,7 +57,7 @@ let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"]) (l : stri
   bl ^ aux l ^ br
 
 (* convert a list of docs to doc *)
-let doc_list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds:document list = [string "["; string "]"]) (l : document list) : document =
+let list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds:document list = [string "["; string "]"]) (l : document list) : document =
   let rec aux = function
     | [] -> empty
     | [s] -> s
@@ -100,16 +109,26 @@ module Debug = struct
 end
 
 (* generate a positive integer *)
-let fresh_generator () : (unit -> int) =
+let fresh_generator ?(init : bool = false)() : (unit -> int) =
   let n = ref 0 in
   fun () ->
-    incr n;
+    if init then
+      n := 0 else incr n;
     !n
 
+(* [reset_generator ()] reset the generator to avoid id clashes when reparsing *)
+let reset_generator () : unit =
+  let _x = fresh_generator ~init:true () in ()
+
 (* used for unit tests *)
+exception Failure_expected_did_not_fail
 let failure_expected (f : unit -> unit) : unit =
-  try f(); failwith "failure_expected: the operation was supposed to fail but it didn't"
-  with _ -> ()
+  try
+    f();
+    raise Failure_expected_did_not_fail
+  with
+    | Failure_expected_did_not_fail -> failwith "failure_expected: the operation was supposed to fail but it didn't"
+    |_ -> ()
 
 
 (* remove all the elements from a list starting from a element x *)
@@ -147,6 +166,9 @@ let filter_not_selected (indices :int list) (list : 'a list) : 'a list =
   list_filteri (fun i _ -> List.mem i indices) list
 
 
+let list_remove x xs =
+  List.filter (fun y -> y <> x) xs
+
 let list_remove_duplicate xs x = if List.mem x xs then xs else x :: xs
 
 let list_remove_duplicates xs = List.rev (List.fold_left list_remove_duplicate [] xs)
@@ -164,6 +186,13 @@ let list_intersect (xs1:'a list) (xs2:'a list) : 'a list =
     let h = Hashtbl.create (List.length xs1) in
     List.fold_left (fun acc x -> if Hashtbl.mem h x then acc else x::acc) xs1 xs2
    *)
+
+
+(* removes all duplicates from a list *)
+let remove_duplicates (lst : 'a list) =
+  let unique_set = Hashtbl.create (List.length lst) in
+  List.iter (fun x -> Hashtbl.replace unique_set x ()) lst;
+  Hashtbl.fold (fun x () xs -> x :: xs) unique_set []
 
 
 
@@ -191,8 +220,8 @@ module IntList =
 module IntListSet = Set.Make(IntList)
 type ilset = IntListSet.t
 
-(* foldi for int list sets *)
-let intl_set_foldi (f : int -> int list -> 'a -> 'a) (ils : ilset)
+(* fold_lefti for int list sets *)
+let intl_set_fold_lefti (f : int -> int list -> 'a -> 'a) (ils : ilset)
   (a : 'a) : 'a =
   let (_, res) =
     IntListSet.fold (fun il (i, a) -> (i + 1, f i il a)) ils (0, a)
@@ -217,7 +246,7 @@ let map_at (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
 let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list =
   if index = List.length l
     then l @ el
-    else foldi (fun i acc x ->
+    else fold_lefti (fun i acc x ->
       if i = ((List.length l) - index - 1) then el @ x :: acc else x :: acc) [] (List.rev l)
 
 (* [insert_at index e l] inserts an element [e] at index [index] in the list [l].
@@ -257,5 +286,70 @@ let find_map f t =
   in
   loop t
 
+(* [index_of x l] returns the index of element [x] in list [l] if
+    the list contains that element, otherwise None
+ *)
 let index_of (x : 'a) (l : 'a list) : int option =
-  foldi (fun i acc y -> if x = y then Some i else acc) None l 
+  fold_lefti (fun i acc y -> if x = y then Some i else acc) None l
+
+
+
+exception Out_of_bound
+
+(* [list_reorder order l] reorder list [l] based on order [order] *)
+let list_reorder (order : int list) (l : 'a list) : 'a list =
+  List.map (fun k -> match List.nth_opt l k with | None -> raise Out_of_bound | Some v -> v) order
+
+exception Invalid_permutation
+
+(* [check_permuattion nb order] check if the given order is a permutation of the integer set [0, .. ,nb] *)
+let check_permutation (nb : int) (order : int list) : unit =
+  List.iter (fun k -> if not (List.mem k order) then raise Invalid_permutation) (range 0 (nb -1))
+
+
+(* Check if a regexp matches a given string or not *)
+let pattern_matches (pattern : string) (s : string) : bool =
+  try let _ = Str.search_forward (Str.regexp pattern) s 0 in true
+  with Not_found -> false
+
+(* for pattern_matching when the args or the pattern are ginve as Ex:
+    double a, b, c; this function converst them into double a, double b, double c
+ *)
+let fix_pattern_args (var_decls : string) : string =
+  let aux (var_decl : string) : string =
+    let args_decl_list = Str.split (Str.regexp_string ",") var_decl in
+    let first_var, other_vars = uncons args_decl_list in
+    let var_type, _ =  unlast (Str.split (Str.regexp_string " ") first_var) in
+    let var_type = List.fold_left (^) "" var_type in
+    let other_vars = List.map (fun x -> var_type ^ " " ^ x) other_vars in
+    let var_decl_list = first_var :: other_vars in
+    (list_to_string ~sep:"," ~bounds:["";""] var_decl_list)
+    in
+  let var_decls = Str.split (Str.regexp_string ";") var_decls in
+  List.fold_left (fun acc x -> if acc = "" then acc ^ (aux x) else acc ^ "," ^ (aux x)) "" var_decls
+
+(* [miliseconds_between t0 t2] compute the diff between two times and them convert it to miliseconds*)
+let milliseconds_between (t0 : float) (t1 : float) : int =
+  int_of_float (1000. *. (t1 -. t0))
+
+
+(* [string_subst pattern replacement s] replace all [pattern] occurrences inisde [s] with
+      [replacement]
+*)
+let string_subst (pattern : string) (replacement : string) (s : string) : string =
+  Str.global_replace (Str.regexp_string pattern) replacement s
+
+(* [subst_dollar_number inst s] search for ocurrences of ${i} in s and replace them with the variable
+      at index i in [inst] where [inst] is a list of variables
+*)
+let subst_dollar_number (inst : string list) (s : string) : string =
+  fold_lefti (fun i acc insti ->
+    string_subst ("${"^(string_of_int i) ^ "}") insti acc
+  ) s inst
+
+(* [list_rotate n l] move n elements at the end of the list *)
+let list_rotate (n : int) (l : 'a list) : 'a list =
+ if n > List.length l then failwith "list_rotate: the elements to rotate shouuld be less or equal to the number of the elements in the list";
+ let ls, rs = split_list_at n l in rs @ ls
+
+

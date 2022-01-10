@@ -16,14 +16,14 @@ int main() {
   p.x = 0;
   p.y = 0;
   vect b;
-  b.x = (p.x);
-  b.y = (p.y);
+  b.x = p.x;
+  b.y = p.y;
   obj a;
   a.weight = 0;
   a.pos = {0, 0};
-  a.speed.x = 0;
-  a.speed.y = 0;
+  a.speed.x = {0, 0}.x;
+  a.speed.y = {0, 0}.y;
   vect u;
-  u.x = (a.pos.x);
-  u.y = (a.pos.y);
+  u.x = a.pos.x;
+  u.y = a.pos.y;
 }

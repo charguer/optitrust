@@ -1,80 +1,32 @@
 open Optitrust
 open Target
-open Ast 
+open Ast
 
-let _ = Run.script_cpp (fun () ->
-  
-  (* PART: Inlining of arithmetic operations *)
-  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:2 0; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:2 1; cFun "vect_mul"];
-  !! Function.inline [cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-  !! Variable.inline [nbMulti; cVarDef ~regexp:true "r."];
-  !! Function.(inline ~vars:(AddSuffix "2"))[cFun "idCellOfPos"];
+let main = cFunDef "main"
+let dims = ["X";"Y";"Z"]
+let nb_dims = List.length dims
+let iter_dims f = List.iter f dims
+let map_dims f = List.map f dims
+let idims = map_dims (fun d -> "i" ^ d)
+let delocalize_double_add = Delocalize_arith (Lit_double 0., Binop_add)
 
-  (* Part: Coloring *)
-  !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
-  let colorize (tile : string) (color : string) (d:string) : unit =
-    let bd = "b" ^ d in
-    Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor d]; (* DONE: ~index:"b${id}" *)
-    Loop.color color ~index:("c"^d) [cFor bd]
-    in
-  (*!! colorize "2" "2" "x";*)
-  let dims = ["x";"y";"z"] in
-  !! List.iter (colorize "2" "2") dims;
-  !! Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cx"];
-  
-  (* Introduction of the computation *)
-  !! Variable.insert "d" "int" "blockSize/2" [tAfter;cVarDef "blockSize"];
-  !! Variable.insert "distanceToBlockLessThanHalfABlock" "bool"  
-       "(x2 >= bx + d && x2 < bx + blockSize + d)
-    && (y2 >= by + d && y2 < by + blockSize + d)" [tAfter; cVarDef "p2"];
-  !! Flow.insert_if "distanceToBlockLessThanHalfABlock" [cFunDef "main"; cFun "bag_push"];
-  !! Instr.replace_fun "bag_push_atomic" [cFunDef "main"; cIf ();dElse; cFun "bag_push"];
-  
-  (* Delocalize of bagsNext *)
-  !! Sequence.intro_between ~mark:"next" [tAfter; cVarDef "bagsNext"] [tBefore; cFor ~body:[cFun "bag_transfer"] "idCell"];
-  let ops = Ast.Delocalize_obj ("bag_create", "bag_transfer") in
-  !! Variable.delocalize_in_vars  ~local_vars:["bagsNextPrivate";"bagsNextShared"]~old_var:"bagsNext" ~new_var:"bagsNextLocal" ~var_type:Ast.(typ_ptr Ptr_kind_mut (typ_constr "bag")) ~array_size:"N" ~dl_ops:ops  [cMark "next"];
-  !! Specialize.choose "bagsNextPrivate" [cIf();dThen; cChoose];
-  !! Specialize.choose "bagsNextShared" [cIf();dElse; cChoose];
-  !! Sequence.elim [cMark "next"];
-
-  (* Inlining of structure assignements *)
-  !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
-  !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
-  !! Struct.set_explicit [nbMulti;cSet ~typ:"particle"()];
-  !!! Struct.set_explicit [nbMulti;cSet ~typ:"vect"()];
-  !! Function.inline ~args:["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
-  !! Function.inline ~args:["&b3";""] [cTopFunDef "main"; cFun "bag_push_atomic"];
-
-  (* TODO: Fix the issue of type changing in the case of function inline, for the moment reparsing vorks fine *)
-  !!! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
-
-  (* AOS-TO-SOA *)
-  !! Struct.inline "pos" [cTypDef "particle"];
-  !! Struct.inline "speed" [cTypDef "particle"];
-  
-  (* Relative positions *)
-    let shift_coord d = 
-        let f = "pos_" ^ d in
-          Arith.shift (code (d ^ " * cellSize")) [nbAny;cFunDef "main";cFieldGet f];
-          Arith.shift ~neg:true (code (d ^ "2 * cellSize")) [nbAny;cFunDef "main";cFieldSet f] 
-        in
-  !! List.iter shift_coord dims;
+let _ = Run.script_cpp (*~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"]*) (fun () ->
 
 
-  !! Struct.inline "items" [cTypDef "bag"];
-  
-  (* Renaming struct fields *)
-  !! Struct.(rename_fields Rename.(only_for "pos_." (fun x ->  "rel_" ^ x))) [cTypDef "particle"];
 
-  (* Change of precision *)
-  (* Casting works fine, missing a tests case for the pic demo *)
-  (* !! Cast.insert (typ_float ()) [nbMulti;cFieldGet ~substr:true ~regexp:true "rel_pos_"]; *)
 
-  !! Struct.update_fields_type "rel_pos_." (typ_float ()) [cTypDef "particle"];
-  
-  
-    
+
+  (* Part: duplicate the charge of a corner for each of the threads *)
+  !^ Matrix.delocalize "nextChargeCorners" ~into:"nextChargeThreadCorners" ~indices:["idCell"; "idCorner"]
+      ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "core"];
+  !! Specialize.any "idThread" [nbMulti; main; cAny]; (* TODO: why nbMulti here? *) (* TODO: exploit the ~use argument in delocalize *)
+
 
 )
+
+
+
+
+(*
+!! Instr.read_last_write [nbMulti; main; cWrite ~lhs:[sExpr "p2.pos"](); dRHS; cRead ~addr:[sExpr "(c->items)[i].pos"]()];
+*)

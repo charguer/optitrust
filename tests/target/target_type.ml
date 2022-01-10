@@ -27,16 +27,16 @@ let _ = Run.script_cpp (fun () ->
   show [ nbExact 1; cVarDef ~typ_pred:ty_double "" ];
 
   (* Type of arguments *)
-  show [ nbExact 3; cSet () ];
-  show [ nbExact 10; cSet (); cHasType "int" ];
-  show [ nbExact 4; cSet (); cStrict; cHasType "int" ];
+  show [ nbExact 3; cWrite () ];
+  show [ nbExact 10; cWrite (); cHasType "int" ];
+  show [ nbExact 4; cWrite (); cStrict; cHasType "int" ];
   show [ nbExact 3; cPrimFun ~args:[[]; []] (Prim_binop Binop_set) ];
   show [ nbExact 3; cPrimFun ~args:[[cVar ""]; []] (Prim_binop Binop_set) ];
   show [ nbExact 1; cPrimFun ~args:[[cVar "i"]; []] (Prim_binop Binop_set) ];
   show [ nbExact 2; cPrimFun ~args:[[cHasType "int"]; []] (Prim_binop Binop_set) ];
   show [ nbExact 2; cPrimFun ~args:[[cAnd [[]; [cHasType "int"]]]; []] (Prim_binop Binop_set) ];
-  show [ nbExact 2; cSet ~typ:"int" () ];
-  show [ nbExact 1; cSet ~typ_pred:ty_double () ];
+  show [ nbExact 2; cWrite ~typ:"int" () ];
+  show [ nbExact 1; cWrite ~typ_pred:ty_double () ];
 
   (* Type of arguments *)
   show [ nbExact 1; cFunDef ~args:[ [cArg ~typ:"int" ""]; [cArg ""] ] "" ];

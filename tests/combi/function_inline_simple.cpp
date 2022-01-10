@@ -1,3 +1,18 @@
+typedef struct {
+  int x;
+  int y;
+  int z;
+} vect;
+
+vect vect_add(vect v1, vect v2) {
+  return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
+}
+
+vect vect_mul(int d, vect v) {
+  return { d * v.x, d * v.y, d * v.z };
+}
+
+
 int f(int x) {
   int a = x + x;
   return a + a;
@@ -27,5 +42,9 @@ int main() {
   int u = h(x);
   int *q = new int(3);
   m(q);
+
+  vect a = {0,1};
+  vect b = {3,4,5};
+  vect c = vect_add (b, vect_mul(x, a));
   return 0;
 }

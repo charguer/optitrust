@@ -16,5 +16,19 @@
   ],
   "search.exclude": {
     "**/_build": true,
+  },
+  "files.associations": {
+    "*.ml": "ocaml",
+    "*.mli": "ocaml",
+    "*.json": "jsonc",
+    "*.md": "markdown",
+    "*.v": "coq",
+    "functional": "cpp",
+    "*.tcc": "cpp",
+    "random": "cpp",
+    "array": "cpp",
+    "istream": "cpp",
+    "tuple": "cpp",
+    "utility": "cpp"
   }
 }

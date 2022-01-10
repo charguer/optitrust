@@ -4,17 +4,22 @@ open Target
 let _ = Run.script_cpp (fun () ->
 
   (* Or constraints *)
-  show [nbMulti; cOr [[cFor "i"];[cFor "j"]]];
-  show [nbMulti; cOr [[sInstr "i++"];[sInstr "j++"]]];
+  show [ cOr [[cFor "i"];[cFor "j"]]];
+  show [ cOr [[sInstr "i++"];[sInstr "j++"]]];
 
   (* And constraints *)
-  show [nbMulti; cAnd [[cFor "i"];[cFor ""]]];
+  show [ cAnd [[cFor "i"];[cFor ""]]];
   show [nbExact 0; cAnd []];
   show [nbExact 0; cAnd [[cFor "i"];[cFor "j"];[cFor "k"]]];
-  show [nbMulti; cAnd [[cSet()]; [sInstr "k + j"]]];
+  show [ cAnd [[cWrite()]; [sInstr "k + j"]]];
+
+  (* Diff constraints *)
+  show [cDiff [[cFor ""]] [[cFor "j"]]];
+  show [cDiff [[cFor ""]] [[cFor "j"];[cFor "k"]]];
 )
+  
   (*
    LATER: -- not the most urgent
-  show [nbMulti; sInstr "k++"];
-  show [nbMulti; sInstr "k < 13"];
-  show [nbMulti; cFor ~step:[sInstr "k++"]] "" ; *)
+  show [ sInstr "k++"];
+  show [ sInstr "k < 13"];
+  show [ cFor ~step:[sInstr "k++"]] "" ; *)

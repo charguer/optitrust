@@ -21,10 +21,3 @@ int main() {
   return 0;
 }
 
-/* TODO: uncomment to test
-int conflicts() {
-  int a = 1;
-  int r = 2;
-  a = r;
-  r = a;
-}*/

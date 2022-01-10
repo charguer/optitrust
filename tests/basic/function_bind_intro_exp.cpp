@@ -6,9 +6,11 @@ int h() { return 1; }
 
 int main() {
   int a = 3;
-  int const r = g(a, 4);
+  const int r = g(a, 4);
   int t = f(r);
-  int const s = h();
+  const int a = f(a);
+  int u = f(a);
+  const int s = h();
   int z = f(s);
   return 0;
 }

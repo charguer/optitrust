@@ -20,6 +20,10 @@ void m(int* p) {
   (*p)++;
 }
 
+int k(int a, int b) {
+  return a + b;
+}
+
 int main(){
   int x = 3;
   int y = f(x);
@@ -27,5 +31,6 @@ int main(){
   int u = h(x);
   int *q = new int(3);
   m(q);
+  int result = k(result, 4);
   return 0;
 }

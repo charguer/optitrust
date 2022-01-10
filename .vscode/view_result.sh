@@ -1,10 +1,5 @@
 #!/bin/bash
-# Arguments:
-#   0. file dirname
-#   1. filename of the transformation script (without extension)
-#   2. active line number (to add exit_script instruction)
-#   3. option(s) for execution
-#      currently: only -dump-trace
+
 
 # TODO FOR ARTHUR: take as argument FILENAME, then deduce FILEBASE AND FILEEXT
 # AND if we're calling a cpp file, then don't add_exit
@@ -33,14 +28,22 @@ eval $(opam env)
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}
 
+
+# Read options from optitrust_flags.sh
+# options: e.g., FLAGS="-dump-ast-details -analyse-time-details -debug-reparse"
+if [ -f "optitrust_flags.sh" ]; then
+  source optitrust_flags.sh
+fi
+
+
 # NOTE: this could be removed if we use the VScode command to run "make optitrust" first.
 # Run make update in working folder if requested
 if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ]; then
   echo "recompile lib"
   make optitrust
   OUT=$?
-  if [ ${OUT} -ne 0 ];then
-    echo "Could not compile lib"
+  if [ ${OUT} -ne 0 ]; then
+    echo "Could not compile lib"  >> /dev/stderr
     exit 1
   fi
 fi
@@ -56,9 +59,8 @@ PROG="${FILEBASE}_with_lines.byte"
 # From "${FILEBASE}.ml", create ""{FILEBASE}_with_lines.ml" by inserting
 # [~lines:__LINE__]   in the relevant places, and interpreting '!!' and '!!!'
 
-# NOTE: could be move
-sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\!\!/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ();/;s/!!/Trace.check_exit_and_step ~line:__LINE__ ();/' "${FILEBASE}.ml" > "${FILEBASE}_with_lines.ml"
- # DEBUG: cat "${FILEBASE}_with_lines.ml"; exit 0
+${VSCODE}/add_lines.sh ${FILEBASE}.ml ${FILEBASE}_with_lines.ml
+# DEBUG: cat "${FILEBASE}_with_lines.ml"; exit 0
 
 # LATER: add_exit should also introduce special commands for figuring out the line of the command that executes
 
@@ -68,27 +70,40 @@ sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\!\!/Trace.check_exit_
 # TODO(Anton): replace this line with a dune command that uses directly /src/src files instead
 # of the installed package; only consider ${FILEBASE}.ml from local folder
 
-ocamlbuild -tag debug -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}
+
+# TODO: check that PROG is also more recent than the optitrust library
+if [[ "${FILEBASE}.ml" -nt "${PROG}" ]] || [[ "${FILEBASE}.cpp" -nt "${PROG}" ]]; then
+  # echo FILE1 is newer than FILE2
+  PROGNEEDSREBUILD="needsrebuild"
+fi
+
+
+if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ] || [ "${PROGNEEDSREBUILD}" = "needsrebuild" ]; then
+  echo "ocamlbuild -tag debug -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}"
+  ocamlbuild -tag debug -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}
+fi
+
 # LATER: capture the output error message
 # so we can do the postprocessing on it
 
+
 OUT=$?
 if [ ${OUT} -ne 0 ];then
-  echo "Could not compile file"
+  echo "Could not compile file"  >> /dev/stderr
   exit 1
 fi
 
 # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp
 # Activate the backtrace
-OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}
+OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS}
 
 # DEBUG: echo "cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS}"
 # DEPREACTED | tee stdoutput.txt
 
 OUT=$?
 if [ ${OUT} -ne 0 ];then
-  echo "Error executing the script:"
-  echo "  cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}"
+  #echo "Error executing the script:"
+  #echo "  cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}"
   exit 1
 fi
 
@@ -98,9 +113,13 @@ fi
 cd ${VSCODE}
 
 
-if [ "${VIEW}" = "view_diff" ]; then
+if [ "${VIEW}" = "view_diff" ] || [ "${VIEW}" = "view_diff_enc" ]; then
 
-  ./open_diff.sh ${DIRNAME} ${FILEBASE} &
+  if [ "${VIEW}" = "view_diff_enc" ]; then
+    DIFFFOR="enc"
+  fi
+
+  ./open_diff.sh ${DIRNAME} ${FILEBASE} ${DIFFFOR} &
 
 elif [ "${VIEW}" = "view_result" ]; then
 
@@ -108,7 +127,7 @@ elif [ "${VIEW}" = "view_result" ]; then
 
 else
 
-  echo "invalid VIEW argument"
+  echo "invalid VIEW argument"  >> /dev/stderr
   exit 1
 
 fi

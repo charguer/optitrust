@@ -1,6 +1,6 @@
 int ANY(int maxValue) { return 0; }
 
-int const N = 2;
+const int N = 2;
 
 typedef int T;
 

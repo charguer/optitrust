@@ -7,7 +7,7 @@ let _ = Run.script_cpp (fun () ->
   1) the user creates a copy "vect2" of the type "vect" -- LATER: after pic demo is completed
       Typedef.copy "vect2" [cTypeDef "vect"]
   2) the user replaces "vect" with "vect2" where desired -- LATER: after pic demo is completed
-      => TODO:   Types.replace "pattern" "replacement" target
+      => LATER:   Types.replace "pattern" "replacement" target
       vect t;
 
       => the target gives the scope in which all occurences should be replaced

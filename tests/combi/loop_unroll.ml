@@ -1,12 +1,10 @@
 open Optitrust
 open Target
 
-(* TODO: Fix the issue with variable rename *)
-
 let _ = Run.script_cpp (fun _ ->
   
   (* With partitioning *)
-  !! Loop.unroll ~braces:false ~shuffle:true ~blocks:[2;1;2] [cFor "i"];
+  !! Loop.unroll ~shuffle:true ~blocks:[2;1;2] [cFor "i"];
   !! Loop.unroll  [cFor "j"];
   
   (* Without partitioning *)

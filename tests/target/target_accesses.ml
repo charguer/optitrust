@@ -7,26 +7,26 @@ let _ = Run.script_cpp (fun _ ->
   show [cAccesses ~accesses:[cAccess] ()];
   
   (* Array_accesses *)
-  show [cIndexGet [cVar "i"]];
+  (* show [cCellRead ~base:[cVar "i"] ~index:[] ()]; *)
 
-  (* show [cIndexSet [cVar "i"]]; *)
+  (* show [cCellWrite [cVar "i"]]; *)
 
   show  [cAccesses ~base:[cVar "t"] ~accesses:[cIndex ~index:[cVar "i"]  ()] ()];
   show  [nbExact 0;cAccesses ~base:[cVar "t"] ~accesses:[cIndex ~index:[cVar "j" ] ()] ()];
   
   show  [cAccesses ~accesses:[cField ~field:"x" ~substr:true ()] ()];
   (* Struct accesses *)
-  show [cFieldGet "x"];
-  show [cFieldGet "y"];
+  show [cFieldRead ~field:"x" ()];
+  show [cFieldRead ~field:"y" ()];
   
-  show [cFieldGet "pos"];
-  show [cFieldGet "speed"];
+  show [cFieldRead ~field:"pos" ()];
+  show [cFieldRead ~field:"speed" ()];
 
-  show [cFieldSet "x"];
-  show [cFieldSet "y"];
+  show [cFieldWrite ~field:"x" ()];
+  show [cFieldWrite ~field:"y" ()];
   
-  show [cFieldSet "pos"];
-  show [cFieldSet "speed"];
+  show [cFieldWrite ~field:"pos" ()];
+  show [cFieldWrite ~field:"speed" ()];
 
 
   show  [cAccesses ~base:[cVar "p"] ~accesses:[cField ~field:"x"  ()] ()];

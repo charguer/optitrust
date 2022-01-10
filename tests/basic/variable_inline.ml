@@ -2,9 +2,14 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-   
-   !! Variable_basic.inline_at [cVarDef "b"] [cVarDef "a"];
-   !! Variable_basic.inline [cVarDef "c"];
-   !! Variable_basic.inline_at [cVarDef "y"] [cVarDef "x"];
-   !! Variable_basic.inline [cVarDef "z"];
+
+   (* for variables *)
+   !! Variable_basic.inline [cVarDef "a"];
+
+   (* for functions *)
+   Tools.failure_expected (fun () ->
+    !! Variable_basic.inline ~accept_functions:false [cFunDef "f"];);
+
+   !! Variable_basic.inline [cFunDef "f"];
+
 )

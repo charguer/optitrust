@@ -2,10 +2,21 @@ open Optitrust
 open Target
 open Ast
 
+
+let _ = Run.doc_script_cpp (fun _ ->
+    !! Arith_basic.shift (lit "4") [cVar "x"];
+  )
+"
+int x;
+
+int y = x;
+"
+
+
 let _ = Run.script_cpp (fun () ->
-   
-   !! Arith_basic.shift ~neg:true (code "i")  [cIndexSet ~base:[cVar "t"] [cVar "i"]];
-   !! Arith_basic.shift  (code "i") [cIndexGet ~base:[cVar "t"] [cVar "i"]];
-   !! Arith_basic.shift (code "i") ~pre_cast:(typ_double ()) [cIndexGet ~base:[cVar "u"] [cVar "i"]];
-   !! Arith_basic.shift (code "i") ~post_cast:(typ_float ()) [cIndexSet ~base:[cVar "u"] [cVar "i"]];
+
+   !! Arith_basic.shift ~inv:true (var "i")  [cCellWrite ~base:[cVar "t"] ~index:[cVar "i"] ()];
+   !! Arith_basic.shift  (var "i") [cCellRead ~base:[cVar "t"] ~index:[cVar "i"] ()];
+   !! Arith_basic.shift (var "i") ~pre_cast:(typ_double ()) [cCellRead ~base:[cVar "u"] ~index:[cVar "i"] ()];
+   !! Arith_basic.shift (var "i") ~post_cast:(typ_float ()) [cCellWrite ~base:[cVar "u"] ~index:[cVar "i"] ()];
 )

@@ -1,17 +1,23 @@
 open Optitrust
 open Target
 
+(* Fix this unit test *)
+
+
 let _ = Run.script_cpp (fun _ ->
   
-  !! Function.inline ~body_mark:"body" [cFun "f"];
+  (* !! Function.inline ~vars:(AddSuffix "${occ}") [occFirst;cFun "f?"]; *)
+  !! Function.inline [cFun "vect_mul"];
+  !! Function.inline [cFun "vect_add"];
+  
   (* with naming of the arguments *)
   !! Trace.alternative (fun () ->
-    !! Function.inline ~body_mark:"body" ~args:["v"] [cFun "f"];
+    !! Function.inline  ~args:["v"] [cFun "f"];
     !!());
   (* inlining a function with if else branches *)
-  !! Function.inline ~body_mark:"body" [cFun "g"];
+  !! Function.inline [cFun "g"];
   (* inlining a function with one if branch *)
-  !! Function.inline ~body_mark:"body" [cFun "h"]; 
+  !! Function.inline [cFun "h"]; 
   (* inlining a function of type void *)
-  !! Function.inline ~body_mark:"body" [cFun "m"];
+  !! Function.inline [cFun "m"];
 )

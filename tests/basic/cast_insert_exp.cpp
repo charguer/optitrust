@@ -1,6 +1,6 @@
 int main() {
   float a = 5.;
-  double b = (float)a;
-  float c = (double)b;
+  double b = (double)a;
+  float c = (float)b;
   return 0;
 }

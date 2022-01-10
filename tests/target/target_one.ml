@@ -1,7 +1,24 @@
 open Optitrust
 open Target
 
+
+(* LATER: add unit test for each constraint function *)
+(*
+  show [cFieldRead "x" ()];
+  show [cFieldWrite "x" ()];
+  show [cFieldAccess "x" ()];
+  show [cFieldWrite "x" ];
+  show [cFieldRead "y" ];
+  show [cFieldWrite "y" ];
+  show [cFieldRead "pos" ];
+  show [cFieldWrite "pos" ];*)
+
+
 let _ = Run.script_cpp (fun () ->
+
+  (* Root *)
+  show [];
+  show [dRoot];
 
   (* Constants *)
   show [ cInt 8 ];
@@ -15,6 +32,16 @@ let _ = Run.script_cpp (fun () ->
   show [ cVar "u" ];
   show [ cVar "r2" ];
   show [ cVar "g" ];
+
+  (* Vardef/initializer *)
+  show [ cVarDef "r" ];
+  show [ cVarDef "r" ; cPrimNew() ];
+  show [ cVarDef "r" ; cPrimNew(); dArg 0 ];
+  show [ cVarDef "r" ; cInit () ];
+  show [ cVarDef "r" ; dInit ];
+  show [ cInit () ];
+  show [ cVarDef ""; cInit ~arg:[cStrict; cLit] () ];
+  show [ cVarDef ""; cStrict; cInit ~arg:[ cStrict; cLit] () ]; (* TODO: not resolving to the good ones *)
 
   (* Loops *)
   show [ cFor "i" ];
@@ -33,6 +60,7 @@ let _ = Run.script_cpp (fun () ->
   (* Calls *)
   show [ cCall ~args:[[cInt 2]] "" ];
 
+
   (* Var/Fun definitions *)
   show [ cFunDef "main" ];
   show [ cFunDef "f" ];
@@ -41,6 +69,15 @@ let _ = Run.script_cpp (fun () ->
   (* find functions of 2 arguments, one named t *)
   show [ cFunDef "" ~args:[[cArg "t"];[]] ];
   show [ cFunDef "" ~args:[[cTrue];[cArg "varg"]]];
+
+
+  (* Function calls are
+    - instructions if return type is unit
+    - expressions otherwise *)
+  (* TODO
+    show [sInstr "myfun1("];  -- where myfun1 is returning void
+    show [sExpr "myfun2("];   --where myfun2 is returning an int
+  *)
 
   (* Regexp *)
   (* show [sInstr "j <"]; *) (* We can match only inside the body of the loop now*)
@@ -53,24 +90,20 @@ let _ = Run.script_cpp (fun () ->
   show [sInstr "r += 2"];
   show [sInstr "i++"];
   show [nbExact 6; sInstrRegexp "int . = .."];
-  show [nbMulti; sInstrRegexp ~substr:true ". = ."];
+  show [ sInstrRegexp ~substr:true ". = ."];
   show [nbExact 1; sInstrRegexp ~substr:false ". = ."];
   show [nbExact 1; sInstr "int r = 3"];
   show [nbExact 0; sExpr "int r = 3"];
   show [sInstr "i++" ];
   show [nbExact 2; sInstrRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
-  show [nbMulti;cVarDef ~regexp:true "r|s"];
-  
+  show [cVarDef ~regexp:true "r|s"];
+
   (* Declarations *)
   show [cDef "s"];
   show [cDef "p2"];
+
 )
-(* LATER: smart constructors for checking calls to builtin operations such as get/set/compare/incr, etc *)
-
-(* LATER: show [ cFunDefDef ~args:[[cTrue]; [cOfTyp "vect*"]] "" ]; *)
-
 (* LATER: match typedef using a function over the body of the type definition *)
 (* LATER: match a typedef struct using of a function over the list fields [(var*typ)list->bool] *)
-
 (* LATER: match types using a function of their list of fields *)
 

@@ -13,8 +13,7 @@ int main() {
   int u = 1, v = 2, w = 3;
   int a = h(4);
   int b = m(v, 2);
-  int p1 = ((((a + a) + u) + b) + (w + 1));
-
-  int t = f((p1 + p1));
+  int p = ((((a + a) + u) + b) + (w + 1));
+  int t = f((p + p));
   return 0;
 }

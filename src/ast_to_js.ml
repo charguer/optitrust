@@ -84,7 +84,7 @@ let loc_to_json (t : trm) : json =
            (strquote "col", Json.Int end_column)] )]
   end
 
-let typed_var_list_to_json (tv : typed_var list) : json =
+let typed_var_list_to_json (tv : typed_vars) : json =
   Json.Object (List.map (fun (v,typ) -> (strquote v, Json.typ_to_json typ)) tv)
 
 let child_to_json (label : string) (child_id : nodeid) : json =
@@ -209,7 +209,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "val";
           (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes(Ast_to_c.val_to_doc v))));
           children_to_field [] ]
-    | Trm_var x ->
+    | Trm_var (_, x) ->
         [ kind_to_field "var";
           value_to_field x;
           children_to_field [] ]
@@ -250,13 +250,13 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         let children = (child_to_json "fun" (aux f)) :: args_children in
         [ kind_to_field "app";
           children_to_field children]
-    | Trm_for (index, _, start, stop, step, body) ->
+    | Trm_for (index, start, _, stop, step, body) ->
       [ kind_to_field "simple_for";
           (strquote "index", strquote index);
           children_to_field [
             child_to_json "start" (aux start);
             child_to_json "stop" (aux stop);
-            child_to_json "step" (aux step);
+            child_to_json "step" (aux (loop_step_to_trm step));
             child_to_json "body" (aux body) ] ]
     | Trm_for_c (init, cond, step, body) ->
         [ kind_to_field "for";
@@ -288,7 +288,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
              "body_2", aux t2
           *)
           (* children_to_field (List.flatten (List.mapi children_of_icase cases)) *)
-          (* let children_of_icase (i:int) (case:(trm list*trm)) : (string,nodeid) =
+          (* let children_of_icase (i:int) (case:(trms*trm)) : (string,nodeid) =
                 let pat_label = "pat_" ^ string_of_int i in
                 let body_label = "body_" ^ string_of_int i in
                 match case with
@@ -320,7 +320,10 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "goto";
           (strquote "target", strquote label);
           children_to_field []]
-    | Trm_arbitrary _ -> fail t.loc  "node_to_js: arbitrary code dissappears when C code is parsed"
+    | Trm_arbitrary a_kind -> 
+       let code_str = code_to_str a_kind in
+      [kind_to_field "arbitrary code";
+      value_to_field code_str]
     | Trm_omp_directive d -> [directive_to_json d]
     | Trm_omp_routine r -> [routine_to_json r]
     | Trm_extern (_, l) ->
@@ -353,7 +356,8 @@ let annot_to_string (t_ann : trm_annot) : string =
      | Main_file -> "Main_file"
      | Mutable_var_get -> "Mutable_var_get"
      | As_left_value -> "As_left_value"
-     | Any -> "Any"
+     | Non_local_index -> "Non_local_index"
+     | Display_arrow -> "Display_arrow"
 
 
   let annot_list_to_string (t : trm) : string =

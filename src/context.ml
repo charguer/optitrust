@@ -2,7 +2,7 @@ open Ast
 
 (* [typid_to_typedef tid ] Get the declaration of a typedef with id [tid]*)
 let typid_to_typedef (tid : typconstrid) : typedef option =
-  let t_root = Trace.ast () in
+  let t_root = Target.get_ast () in
   match t_root.desc with 
   | Trm_seq tl ->
     Mlist.find_map (function t ->

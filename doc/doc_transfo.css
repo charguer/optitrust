@@ -1,0 +1,80 @@
+
+pre {
+  margin: 0;
+}
+
+/* Hide the filename since we're concerned with only one file name */
+.d2h-file-header {
+   display: none;
+}
+
+/* Hide the diff line number because we're showing full file comparisons */
+.d2h-info {
+   display: none;
+}
+
+.title {
+   font-size: 300%;
+   font-weight: bold;
+   text-align: center;
+}
+
+h1 {
+   padding: 4px;
+   /*color: #0000CC;*/
+   background: #ADAFAF;
+}
+
+h2 {
+   padding: 4px;
+   /*color: #006600;*/
+   background: #00FFFF;
+   padding-left: 1em;
+}
+
+
+.name {
+   padding: 5px 5px 1px 50px;
+   background: #FFCFA0;
+   font-weight: bold;
+   font-size: 22px;
+}
+
+.spec {
+  margin-top: 0.5em;
+}
+
+.src {
+   /* border: 1px solid black; */
+   padding-bottom: 5px;
+   padding-top: 5px;
+   margin-top: 1em;
+   margin-bottom: 0.5em;
+   background: #FFE0FF;
+   font-weight: bold;
+}
+
+.src {
+   border: 1px solid black;
+   padding: 1px 5px 1px 5px;
+   background: #FFFFA0;
+   font-weight: bold;
+}
+
+.diff {
+   margin: 2px 0px 2px 0px;
+}
+
+.error {
+   padding: 2em;
+   background: red;
+   font-weight: bold;
+   font-size: 2em;
+}
+
+.warning {
+   padding: 1em;
+   background: red;
+   font-weight: bold;
+   font-size: 1em;
+}

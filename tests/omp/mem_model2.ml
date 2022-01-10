@@ -9,5 +9,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.flush ["flag";"data"] [tBefore; cWhile ()];
   !! Omp.flush ["flag";"data"] [tFirst; cWhile ();dBody];
   !! Omp.flush ["flag";"data"] [tAfter; cWhile ()];
-  !! Omp.barrier [tBefore; tIndex ~nb:2 1;cIf ()];
+  !! Omp.barrier [tBefore; occIndex ~nb:2 1;cIf ()];
 )

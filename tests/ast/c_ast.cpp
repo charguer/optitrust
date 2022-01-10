@@ -1,4 +1,5 @@
 
+
 // Description of the encoding performed for the AST representation
 
 typedef struct { int x; int y; } vect;
@@ -12,33 +13,33 @@ typedef vect2 vect3;
 typedef int int2[2];
 typedef int* intstar;
 
-union u { int single; struct { int i; float f; };};
+// union u { int single; struct { int i; float f; };};
 
-struct s { int label; union { int i; float f; };};
+// struct s { int label; union { int i; float f; };};
 
-struct { int i; float f; } s;
+// struct { int i; float f; } s;
 
-struct  {
-  float weight;
-  int pos_x;
-  int pos_y;
-  int speed_x;
-  int speed_y;
-  vect speed;
-} particles [3];
+// struct  {
+//   float weight;
+//   int pos_x;
+//   int pos_y;
+//   int speed_x;
+//   int speed_y;
+//   vect speed;
+// } particles [3];
 
 
-void check_struct (struct s b)
-{
-    b.label  = 10;
-    b.i = 10;
-    b.f = 10;
-    // etc.
-}
+// void check_struct (struct s b)
+// {
+//     b.label  = 10;
+//     b.i = 10;
+//     b.f = 10;
+//     // etc.
+// }
 
 template <class X, int i> int f(X);
 
-union { int i; float f; } u;
+// union { int i; float f; } u;
 
 namespace example {
       int i;
@@ -66,6 +67,9 @@ void test_loop() {
   for (int i = 0; i < 10; i++) {
       i++;
   }
+  for (int i = 10; i >= 0; i--) {
+      i++;
+  }
 
 }
 
@@ -73,7 +77,7 @@ void test_loop() {
 // Stack allocated variables are turned into heap allocated variables
 void stack_var() {
   int r = 3;
-  r = r + 1;
+  r = r + 1 + 2;
   r += 2;
   r++;
   int s = f(r);
@@ -214,6 +218,48 @@ int mutable_stack_array (){
    *(w[0]) = 3; // allowed
    return *(w[0]);
 }
+
+
+
+void access_encoding() {
+  const vect a = { 0, 1 };
+  // copy as const
+  const vect b = a;
+  // copy as non-const
+  vect c = a;
+  // accesses to const
+  const int ax = a.x;
+ // accesses to non-const
+  const int cy = c.y;
+}
+
+int foo(vect v) { return v.x; }
+
+int mutable_var_encoding() {
+    const vect a = { 0, 1 };
+    int ax = foo(a);
+    vect c = a;
+    int cx = foo(c);
+}
+
+typedef struct {
+  vect fst;
+  vect snd;
+} vectpair;
+
+void lvalue_encoding() {
+  vect* p;
+  p->x = 2;
+  (*p).x = 3;
+
+  vectpair* q;
+  q->fst.x = 2;
+  (*q).fst.x = 3;
+
+  int *v;
+  *v = 4;
+}
+
 
 /* LATER
 int local_function() {

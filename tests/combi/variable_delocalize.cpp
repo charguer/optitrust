@@ -11,6 +11,9 @@ int main(){
      a++;
   }
   int y = 0;
+  for (int j = 0; j < N; j++){
+     a++;
+  }
   return 0;
 }
 
