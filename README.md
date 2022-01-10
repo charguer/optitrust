@@ -253,3 +253,38 @@ In a given folder, you can create `optitrust_flags.sh` with custom flags, e.g.:
   },
 
 ```
+
+
+# Optitrust flags
+
+You can create a file called `optitrust_flags.sh` in the working directory,
+to define the variable `FLAGS`. Examples include:
+
+```
+# generation of timing.log
+FLAGS="-analyse-time"
+FLAGS="-analyse-time-details"
+
+# generation of _enc.cpp files
+FLAGS="-dump-ast-details"
+
+# reports the lines at which reparse operations are performed
+FLAGS="-debug-reparse"
+
+# add a reparse operation at every !^ symbol in the script
+FLAGS="-reparse-at-big-steps"
+
+```
+
+Multiple flags can be passed at once in the string.
+
+
+# Troubleshouting
+
+If the watch script is not launched in a background terminal, then the execution of a task simply hangs.
+Start the watch, press the shortcut again, click on "terminate/restart the task".
+
+In case of missing opam packages, or incorrect opam switch loaded:
+```
+  Reason: /home/charguer/.opam/4.09.1+flambda/lib/ocaml/stublibs/dllunix.so: undefined symbol: caml_local_roots
+```

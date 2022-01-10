@@ -253,6 +253,21 @@ int main() {
       nextCharge[idCell] = 0.;
     }
 
+    /* TODO
+    bag_iter* bag_it = bag_iter_begin(b);
+	    for (particle* p = bag_iter_get(bag_it); p != NULL; p = bag_iter_next(bag_it, true))
+
+    --or even better
+
+    bag_iter* bag_it = new bag_iter();
+	    for (particle* p = bag_iter_begin(bag_it, b); p != NULL; p = bag_iter_next(bag_it, true))
+
+    --or even better
+
+    bag_iter bag_it;
+	    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it, true))
+    */
+
     // For each cell from the grid
     for (int idCell = 0; idCell < nbCells; idCell++) {
 
