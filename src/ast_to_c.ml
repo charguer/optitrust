@@ -126,9 +126,9 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
 and lit_to_doc (l : lit) : document =
   match l with
   | Lit_unit -> semi
-  | Lit_uninitialized ->
-     print_info None "lit_to_doc: uninitialized literal should not occur\n";
-     at
+  | Lit_uninitialized -> empty
+     (* print_info None "lit_to_doc: uninitialized literal should not occur\n";
+     at *)
   | Lit_bool b -> string (string_of_bool b)
   | Lit_int i -> string (string_of_int i)
   | Lit_double f -> string (string_of_float f)
@@ -456,6 +456,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
       else begin match init.desc with
            | Trm_apps (_, [value]) -> value, true
            | Trm_val(Val_prim(Prim_new _)) -> trm_var "", false
+           | Trm_val (Val_lit Lit_uninitialized) -> init, false
            | _-> init, true
            end in
     let initialisation = blank 1 ^^ (if is_initialized then equals else empty) ^^ blank 1 ^^ decorate_trm d_init ^^ dsemi in
