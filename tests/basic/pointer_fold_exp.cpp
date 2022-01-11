@@ -12,6 +12,6 @@ int main() {
   int r3 = ((*b) + (*b));
   (*b) = 9;
   const int *v = m[0];
-  int r4 = v[2];
-  v[1] = 9;
+  int r4 = m[0][2];
+  m[0][1] = 9;
 }

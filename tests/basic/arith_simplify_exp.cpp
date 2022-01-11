@@ -26,6 +26,9 @@ int main() {
   v = ((c / (d * d)) / e);
   v = (b * c);
   v = (a + d);
+  v = d;
+  v = d;
+  v = (a + c);
   w = ((a + (a * 3)) + f(((b * f((c + c))) / b)));
   return 0;
 }

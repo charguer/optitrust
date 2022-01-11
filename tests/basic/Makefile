@@ -35,7 +35,6 @@ TESTS_WORKING := \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
-	pointer_fold.ml \
 	reference_fold.ml \
 	rewrite_equiv_at.ml \
 	rewrite_compute.ml \
@@ -77,6 +76,7 @@ TESTS_TOCHECK := \
 	function_use_infix_ops.ml \
 	include_inline.ml \
 	instr_accumulate.ml \
+	pointer_fold.ml \
 	reference_inline.ml \
 	specialize_any.ml \
 	specialize_choose.ml \

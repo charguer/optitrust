@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#include <stdlib.h>
+
 void g(int x, int y) {}
 
 void gtwice(int x) { g(x, x); }
@@ -20,7 +22,7 @@ fbody:
   f((r + 2));
 }
 
-void iter_nat_for(int n, @body) {
+void iter_nat_for(int n, void body(int)) {
   for (int i = 0; (i < n); i++) {
     body(i);
   }
@@ -31,7 +33,7 @@ void test_ho() {
   int m = 3;
 hobody:
   iter_nat_for(
-      m, void body(int j) {
+      m, void body(int i) {
         s += (2 * j);
         s -= j;
       });
@@ -52,21 +54,52 @@ particle *bag_iter_get(bag_iter *it);
 
 particle *bag_iter_next(bag_iter *it, bool destructive);
 
-void iter_bag(bag *b, @body) {
-  bag_iter *it = bag_iter_begin(b);
-  for (particle *p = bag_iter_get(it); (p != NULL);
-       p = bag_iter_next(it, true)) {
+void iter_bag(bag *b, void body(particle *)) {
+  const bag_iter *iter = bag_iter_begin(b);
+  for (particle *p = bag_iter_get(iter); (p != NULL);
+       p = bag_iter_next(iter, true)) {
+    body(p);
+  }
+  free(iter);
+}
+
+void test_bag() {
+  int x = 0;
+  bag *mybag;
+  const bag_iter *iter = bag_iter_begin(mybag);
+  for (particle *p = bag_iter_get(iter); (p != NULL);
+       p = bag_iter_next(iter, true)) {
+    /*@body*/ {
+      if (p = p) {
+        x++;
+      }
+    } /*body@*/
+  }
+  free(iter);
+}
+
+particle *bag2_iter_begin(bag_iter *it, bag *b);
+
+particle *bag2_iter_next(bag_iter *it, bool destructive);
+
+void iter_bag2(bag *b, void body(particle *)) {
+  bag_iter iter;
+  for (particle *p = bag2_iter_begin((&iter), b); (p != NULL);
+       p = bag2_iter_next((&iter), true)) {
     body(p);
   }
 }
 
-void test_bag() {
+void test_bag2() {
+  int x = 0;
   bag *mybag;
-bagbody:
-  iter_bag(
-      mybag, void body(particle * *p) {
-        if (p = p) {
-          return;
-        }
-      });
+  bag_iter iter;
+  for (particle *p = bag2_iter_begin((&iter), mybag); (p != NULL);
+       p = bag2_iter_next((&iter), true)) {
+    /*@body*/ {
+      if (p = p) {
+        x++;
+      }
+    } /*body@*/
+  }
 }
