@@ -358,7 +358,8 @@ let annot_to_string (t_ann : trm_annot) : string =
      | As_left_value -> "As_left_value"
      | Non_local_index -> "Non_local_index"
      | Display_arrow -> "Display_arrow"
-
+     | Reference -> "Reference"
+     | Stackvar -> "Stackvar"
 
   let annot_list_to_string (t : trm) : string =
     Tools.list_to_string ((List.map annot_to_string) t.annot)

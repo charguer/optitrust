@@ -603,6 +603,8 @@ and translate_expr ?(is_statement : bool = false)
         let base = translate_expr e in 
         if has_arrow then 
           trm_apps (trm_unop ~annot:[Display_arrow] (Unop_struct_get f) ) [trm_get base]
+        else if is_star_operation base then 
+          trm_apps (trm_unop (Unop_struct_get f) ) [base]
         else 
           trm_apps (trm_unop (Unop_struct_access f)) [base]
       | _ -> fail loc "translate_expr: fields should be accessed by names"
