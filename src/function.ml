@@ -146,45 +146,36 @@ int f2() { // result of Funciton_basic.inline_cal
 // where p is the path to the englobing sequence.
 *)
 
-let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit =
+(* TODO: Factorize the code better *)
+let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit = 
     Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-      (fun i t (path_to_seq, local_path, i1) ->
-        let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in (* TODO: this does not seem to work *)
+      (fun i t (path_to_seq, local_path, i1) -> 
+        let _vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in 
         let name_result = ref name_result in
         let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
         let path_to_call = path_to_instruction @ local_path in
-        (* DEPRECATED let tg_trm = Path.resolve_path (path_to_instruction @ local_path) t in *)
+        let tg_trm = Path.resolve_path (path_to_instruction @ local_path) t in
         let tg_out_trm = Path.resolve_path path_to_instruction t in
         let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
         let res_inlining_needed = ref false in
         let mark_added = ref false in
         begin match tg_out_trm.desc with
-        | Trm_let (_, (x, _), _init) ->
-            (* DEPRECATED let init1 = match get_init_val init with
-              | Some init1 -> init1
-              | None -> fail t.loc "inline: coudl not get the target to the function call"
-              in
-            if !name_result <> "" && (Internal.same_trm init1 tg_trm) then fail tg_trm.loc "inline: no need to enter the result name in this case" *)
-            (* TODO: perhaps use something like this to disable inlining when structs are involved?
-            let init_is_initializer_list =
-              match init.desc with
-              | Trm_struct _ | Trm_array _ -> true
-              | _ -> false
-              in
-            *)
-            if !name_result <> "" then
-              res_inlining_needed := false
+        | Trm_let (_, (x, _), init) ->
+          let init1 = match get_init_val init with
+          | Some init1 -> init1
+          | None -> fail t.loc "inline: coudl not get the target to the function call" in
+          if !name_result <> "" && (Internal.same_trm init1 tg_trm) then fail tg_trm.loc "inline: no need to enter the result name in this case"
+            
             else if List.length local_path <= 2 && List.length local_path > 0 then
               begin
               name_result := x;
               res_inlining_needed := false
               end
-            else (* TODO: should factorize better the code below; start the code with [if !name_result = ""] *)
+            else
                 begin match !name_result with
                 | ""  ->  name_result := "__TEMP_Optitrust";
                           Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
                           res_inlining_needed := true;
-                          (* TODO: maybe handle initializers like this?  res_inlining_needed := not init_is_initializer_list; *)
                           mark_added := true
 
                 | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path path_to_call);
@@ -193,7 +184,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
                 end
         | Trm_apps (_f, [_; _]) when is_set_operation tg_out_trm ->
             begin match !name_result with
-            | ""  ->
+            | ""  ->  
                       name_result := "__TEMP_Optitrust";
                       Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
                       res_inlining_needed := true;
@@ -201,7 +192,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
             | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path path_to_call);
                res_inlining_needed := false;
                mark_added := true
-           end
+           end 
         | Trm_apps _ -> res_inlining_needed := false
         | _ -> fail None "inline: expected a variable declaration or a function call"
         end;
@@ -212,19 +203,20 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
         Function_basic.inline ~body_mark [new_target];
         Accesses_basic.intro [Target.cMark body_mark];
         elim_body ~vars [Target.cMark body_mark];
-        if !name_result <> "" then begin
-            let success_attach = ref true in
+        if !name_result <> "" then begin 
+            let success_attach = ref true in 
             let _ = try Variable_basic.init_attach [new_target] with
                 | Variable_core.Init_attach_no_occurrences
                 | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
-                | e -> raise e in
+                | e -> raise e in 
              if !res_inlining_needed then Variable.inline ~delete:true [new_target];
             if !success_attach then Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result];
             Marks.remove my_mark [Target.nbAny; new_target]
           end;
           Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
-
+      
       ) tg
+
 (*
 
 
