@@ -270,19 +270,13 @@ let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : Target.target)
 
 (* [use_infix_ops ~tg_ops] by default it targets all the instructions of the form x = x + a or x = a + x an transforms them
     into x += a
- *)
- (* TODO: add a ~indepth flag like in function beta, to control if we ust tg or go deeper *)
-let use_infix_ops ?(allow_identity : bool = true) (tg : Target.target) : unit =
-  let tg_infix_ops = [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()] in
-  Target.iter_on_targets (fun t p ->
-    if p = [] then
-      Function_basic.use_infix_ops_at ~allow_identity ((Target.target_of_path p) @ tg_infix_ops)
-      else
-        let tg_trm = Path.resolve_path p t in
-        let path_to_seq = if is_trm_seq tg_trm then p else fst (Internal.isolate_last_dir_in_seq p) in
-        let tg_seq = Target.target_of_path path_to_seq in
-        Function_basic.use_infix_ops_at ~allow_identity (tg_seq @ tg_infix_ops)
-  ) tg
+*)
+
+let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg : Target.target) : unit = 
+  let tg = if indepth 
+    then [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()] else tg in 
+  Function_basic.use_infix_ops_at ~allow_identity tg
+  
 
 (* [uninline ~fxt tg] expects the target [tg] to be pointing at an instruction that is similar to the first instruction
     of the body of the function declared in [fct]. Let nb be the number of instruction on the body of [fct]. The transformation
