@@ -150,7 +150,7 @@ int f2() { // result of Funciton_basic.inline_cal
 let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit = 
     Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
       (fun i t (path_to_seq, local_path, i1) -> 
-        let _vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in 
+        let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in 
         let name_result = ref name_result in
         let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
         let path_to_call = path_to_instruction @ local_path in
