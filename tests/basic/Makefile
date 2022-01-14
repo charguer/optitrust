@@ -67,7 +67,7 @@ TESTS_WORKING := \
 	variable_rename.ml \
 	variable_subst.ml \
   variable_unfold.ml \
-	
+
 TESTS_TOCHECK := \
 	accesses_intro.ml \
 	arith_simplify.ml \
@@ -100,7 +100,7 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	arith_shift.ml \
 	arith_to_fix.ml \
-	
+
 
 
 TESTS_WITH_DOC := \

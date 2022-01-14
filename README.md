@@ -252,6 +252,13 @@ In a given folder, you can create `optitrust_flags.sh` with custom flags, e.g.:
     "args": "Save intermediate state",
   },
 
+  {
+    "key":"f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Open unit test ML and CPP files",
+    "when": "resourceFilename == Makefile && resourceDirname =~ /^.*\/verified_transfo\/src\/tests\/.*$/"
+  },
+
 ```
 
 

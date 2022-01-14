@@ -203,7 +203,7 @@ let create_or_reuse_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
   let no_id = -1 in
   let occ = ref no_id in
   Atom_map.iter (fun id tid -> if !occ = no_id && Internal.same_trm t tid then occ := id) !atoms;
-  if !occ = no_id then begin
+  if !occ = no_id then begin 
     let new_id = next_id() in
     atoms := Atom_map.add new_id t !atoms;
     occ := new_id
