@@ -67,22 +67,24 @@ TESTS_WORKING := \
 	variable_rename.ml \
 	variable_subst.ml \
   variable_unfold.ml \
-
-TESTS_TOCHECK := \
-	accesses_intro.ml \
+	instr_accumulate.ml \
+	function_use_infix_ops.ml \
 	arith_simplify.ml \
 	function_beta.ml \
 	function_uninline.ml \
-	function_use_infix_ops.ml \
-	include_inline.ml \
-	instr_accumulate.ml \
-	pointer_fold.ml \
 	reference_inline.ml \
 	specialize_any.ml \
-	specialize_choose.ml \
-	struct_simpl_proj.ml \
+	pointer_fold.ml \
 	variable_bind.ml \
 	variable_simpl_deref.ml \
+
+TESTS_WORKING_NOTINDOC := \
+	specialize_choose.ml \
+
+TESTS_TOCHECK := \
+	accesses_intro.ml \
+	include_inline.ml \
+	struct_simpl_proj.ml \
 	variable_to_const.ml \
 	matrix_delocalize.ml \
 	matrix_intro_mcalloc.ml \
@@ -91,17 +93,14 @@ TESTS_TOCHECK := \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
 
+
 # missing expected
 # matrix_insert_alloc_dim.ml
 #	matrix_insert_access_dim_index.ml \
 
-
-
 TESTS_TO_FIX := \
 	arith_shift.ml \
 	arith_to_fix.ml \
-
-
 
 TESTS_WITH_DOC := \
 	label_add.ml \
@@ -114,7 +113,7 @@ TESTS_WITH_DOC := \
 
 # TODO: script for vscode opening
 
-TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK)
+TESTS := $(TESTS_WORKING) $(TESTS_WORKING_NOTINDOC) $(TESTS_TOCHECK)
 
 
 # TEMPORARY FOR TESTING MAKEFILE

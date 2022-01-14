@@ -11,20 +11,20 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Function_basic.uninline ~fct:[cFunDef "f"] [cLabelBody "body"];
+    !! Function_basic.uninline ~fct:[cFunDef "g"] [cLabelBody "body"];
   )
 "
-void foo(int x);
+void f(int x);
 
-void f(int x) {
-  foo(x);
-  foo(x);
+void g(int x) {
+  f(x);
+  f(x);
 }
 
 int main() {
   body: {
-    foo(3);
-    foo(3);
+    f(3);
+    f(3);
   }
 }
 "
@@ -43,6 +43,9 @@ let _ = Run.script_cpp (fun _ ->
     !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabelBody "bagbody"];
     (* LATER: bug if iter_bag uses variable name "it" instead of "iter", the variable
        is considered as non-const; maybe this will be fixed when encodings are reimplemented *)
+    (* ARTHUR: the issue is related to the fact that the matching function does
+       not currently check that the types in the pattern match the types in the term;
+       thus, a "const int x" can match against an "int x", and this is an issue it seems *)
     (* Test to undo the action of the unlining: *)
       !! Function_basic.inline [cFun "iter_bag"];
       !! Function_basic.beta [cTopFunDef "test_bag"; cFor_c ""; dBody; cFun""];

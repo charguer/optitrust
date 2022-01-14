@@ -86,7 +86,7 @@ let inline ?(body_mark : mark option) (tg : Target.target) : unit =
 let beta ?(body_mark : var = "body") (tg : Target.target) : unit =
   inline ~body_mark tg
 
-(* [use_infix_ops tg] expects the target [tg] to be pointing at an instruction of the form x = x (op) a,
+(* [use_infix_ops_at tg] expects the target [tg] to be pointing at an instruction of the form x = x (op) a,
     then it will transform that instruction into x (op)= a.
     Note: This transformation can be used only with operators that have an infix version like +, -, *, / etc.
  *)

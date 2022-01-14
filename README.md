@@ -258,6 +258,12 @@ In a given folder, you can create `optitrust_flags.sh` with custom flags, e.g.:
     "args": "Open unit test ML and CPP files",
     "when": "resourceFilename == Makefile && resourceDirname =~ /^.*\/verified_transfo\/src\/tests\/.*$/"
   },
+  {
+    "key":"ctrl+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View documentation for unit test",
+  },
+
 
 ```
 
