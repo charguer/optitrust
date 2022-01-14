@@ -105,7 +105,14 @@ TESTS_TO_FIX := \
 TESTS_WITH_DOC := \
 	label_add.ml \
 	label_remove.ml \
+	sequence_delete.ml \
+	sequence_elim_around_instr.ml \
+	sequence_elim.ml \
+	sequence_insert.ml \
+	sequence_intro_on_instr.ml \
+	sequence_partition.ml \
 
+# 	sequence_intro.ml \
 
 # TODO:
 # arith_simpl.ml
