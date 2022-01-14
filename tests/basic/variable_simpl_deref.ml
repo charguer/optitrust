@@ -1,6 +1,19 @@
 open Optitrust
 open Target
 
+let _ = Run.doc_script_cpp (fun _ ->
+  !! Variable_basic.simpl_deref [dRoot];
+  )
+"
+int main() {
+  int a = 1;
+  int b = *(&a);
+  int* p = &a;
+  int* q = &(*p);
+}
+"
+ (* LATER: replace [dRoot] with [] above *)
+
 
 let _ = Run.script_cpp (fun _ ->
   (* !! Variable_basic.simpl_deref [dRoot]; --uncomment to simplify all *)
@@ -37,7 +50,7 @@ let simpl_deref_opt (t : trm) : trm option =
 
 let simpl_deref_at (t : trm) : trm =
     match simpl_deref_opt t with
-    | None -> if allow_identity then t else fail None "simpl_deref: not a &(*t) expression"
+    | None -> if allow_identity then t else fail None "simpl_deref: not a &(*t) or *(&t) expression"
     | Some t2 -> t2
 
 let simpl_deref_indepth (t : trm) : trm =

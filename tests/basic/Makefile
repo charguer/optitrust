@@ -77,6 +77,7 @@ TESTS_WORKING := \
 	pointer_fold.ml \
 	variable_bind.ml \
 	variable_simpl_deref.ml \
+	variable_to_const.ml \
 
 TESTS_WORKING_NOTINDOC := \
 	specialize_choose.ml \
@@ -85,7 +86,6 @@ TESTS_TOCHECK := \
 	accesses_intro.ml \
 	include_inline.ml \
 	struct_simpl_proj.ml \
-	variable_to_const.ml \
 	matrix_delocalize.ml \
 	matrix_intro_mcalloc.ml \
 	matrix_intro_mindex.ml \
