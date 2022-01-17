@@ -17,7 +17,7 @@ let get_varkind (env : env) (x : var) : varkind =
 let is_var_mutable (env : env) (x : var) : bool = 
   get_varkind env x = Var_mutable
 
-(* [env_extend env e varkind] add variable [e] into the environment [env] *)
+(* [env_extend env e varkind] add variable [e] into environment [env] *)
 let env_extend (env : env) (e : var) (varkind : varkind) : env = 
   String_map.add e varkind env 
 
@@ -67,7 +67,6 @@ let stackvar_elim (t : trm) : trm =
     | Trm_var (_, x) -> 
       if is_var_mutable !env x then trm_annot_add Mutable_var_get (trm_get t)
       else {t with desc = Trm_var (Var_immutable, x)}
-    | Trm_seq ts ->  {t with desc = Trm_seq (Mlist.map aux ts)} 
     | Trm_let (xm, (x, ty), tbody) -> 
       env := env_extend !env x xm;
       begin match ty.typ_desc with 
@@ -93,16 +92,13 @@ let stackvar_elim (t : trm) : trm =
   in aux t
 
 
-
 (* [stackvar_intro t] is the reciprocal to [stackvar_elim]. It replaces [<annotation:stackvar> int *a = new int(5)] with [int a = 5] 
     and a variable occurrence [*a] becomes [a] if it corresponds to a stack variable
     (as a simplification to [*(&a)])
     For references, [<annotation:reference> int* b = a] becomes [int& b = a],
       as a simplification of b = *(&a), where &a is obtained after translating a.
     and [<annotation:reference> int* x = &t[i]] becomes [int& x = t[i]], where t has type [const int*] as a simplification of x = *(&t[i])
-
 *)
-
 let stackvar_intro (t : trm) : trm = 
   let rec aux (t : trm) : trm = 
     match t.desc with 
@@ -140,27 +136,24 @@ let stackvar_intro (t : trm) : trm =
     [t+i] is represented as [Trm_apps (Prim_array_acces, [t;i])] in the AST
     [t+offset(f)] is represented as [Trm_apps (Prim_struct_access "f", [t])]
 
-    Transformation is implemented as [caddress_elim_lvalue t], where the 
+    This transformation is implemented as [caddress_elim_lvalue t], where the 
     boolean [lvalue] indicates whether we are currentyl translating a l-value
     or a normal instruction or expression (r-value).
-
 *)
-
 let rec caddress_elim (lvalue : bool) (t : trm) : trm = 
   let aux t = caddress_elim false t in 
   let access t = caddress_elim true t in 
   let mk td = {t with desc = td} in 
   if lvalue then begin 
     match t.desc with 
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_}, [t1]) ->
-      mk (Trm_apps (trm_unop (Unop_struct_access f), [access t1]))
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as t1, [t2]) ->
+      mk (Trm_apps (trm_unop  ~annot:t1.annot (Unop_struct_access f), [access t2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_}, [t1; t2]) -> 
       mk (Trm_apps (trm_binop Binop_array_access, [access t1; aux t2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) -> 
       aux t1
     | _ -> fail None "address_elim: invalid lvalue"
     end 
-    
     else begin 
          match t.desc with 
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));_}, [t1; t2]) -> 
@@ -184,7 +177,6 @@ let rec caddress_elim (lvalue : bool) (t : trm) : trm =
               mk (Trm_apps (trm_unop Unop_get, [mk (Trm_apps (trm_binop Binop_array_access, [u11; u2]))]))
             | _ -> mk (Trm_apps (trm_binop (Binop_array_get), [u1; u2]))
             end 
-
          | _ -> trm_map aux t 
          end 
       
