@@ -123,7 +123,7 @@ let rec stackvar_intro (t : trm) : trm =
   let rec aux (env : env) (t : trm) : trm =
     match t.desc with
     (* Note: this shortcut does not seem needed:
-       | Trm_apps (Prim_get, [Trm_var x as t1]) when is_var_mutable env x -> t1 *)
+       | Trm_apps (Prim_get (*with annotation*), [Trm_var x as t1]) when is_var_mutable env x -> t1 *)
     | Trm_var (x, _vk) ->
         if is_var_mutable env x (* could use _vk *)
           then trm_address_of t
