@@ -151,11 +151,12 @@ let rec caddress_elim (lvalue : bool) (t : trm) : trm =
     match t.desc with 
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as t1, [t2]) ->
       mk (Trm_apps (trm_unop  ~annot:t1.annot (Unop_struct_access f), [access t2]))
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_}, [t1; t2]) -> 
-      mk (Trm_apps (trm_binop Binop_array_access, [access t1; aux t2]))
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_} as op, [t1; t2]) -> 
+      mk (Trm_apps (trm_binop ~loc:op.loc Binop_array_access, [access t1; aux t2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) -> 
       aux t1
-    | _ -> fail None "address_elim: invalid lvalue"
+    | _  -> t
+    (* | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue: %s\n" (Ast_to_text.ast_to_string t)) *)
     end 
     else begin 
          match t.desc with 
