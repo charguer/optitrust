@@ -63,7 +63,7 @@ let hoist ? (name : var = "${var}_step") (tg : Target.target) : unit =
     Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
      (fun t (p, i) -> Loop_core.hoist name i t p) tg)
 
-(* [fission tg]: expects [tg] to point somewhere inside the body ot the simple loop
+(* [fission tg]: expects [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
 *)
 let fission (tg : Target.target) : unit =

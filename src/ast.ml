@@ -1120,7 +1120,7 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
       let sub_is_terminal = is_terminal && i == n-1 in
       f sub_is_terminal tsub
     ) tl in
-    trm_seq ~annot ~marks tl'
+    trm_seq ~annot ~marks ~loc tl'
   | Trm_apps (f', args) ->
     let f'' = f false f' in
     let args' = List.map (f false) args in

@@ -45,10 +45,10 @@ namespace example {
       int i;
 }
 
-// struct tree_node {
-//   struct tree_node *left;
-//   struct tree_node *right;
-// };
+// // struct tree_node {
+// //   struct tree_node *left;
+// //   struct tree_node *right;
+// // };
 void initlist() {
   vect v1 = { 1, 2 };
   vect3 v2 = { 1, 2 };
@@ -57,7 +57,7 @@ void initlist() {
 }
 
 
-// Function arguments are assumed to be 'const' by default
+// // Function arguments are assumed to be 'const' by default
 int f(int n) {
   return n;
 }
@@ -73,8 +73,7 @@ void test_loop() {
 
 }
 
-
-// Stack allocated variables are turned into heap allocated variables
+// // Stack allocated variables are turned into heap allocated variables
 void stack_var() {
   int r = 3;
   r = r + 1 + 2;
@@ -83,14 +82,14 @@ void stack_var() {
   int s = f(r);
 }
 
-// Field and arrays accessed are composed in two steps:
-// first, compute the address of the memory cell, then derefence it.
+// // Field and arrays accessed are composed in two steps:
+// // first, compute the address of the memory cell, then derefence it.
 
-// For example,  t[i]  is decomposed as the operation that computes &t[i],
-// then applying the star operator to it, obtaining  "*(&t[i])".
-// The star is the standard dereferencing operator.
-// In the AST, the operation &t[i] is the application of the primitive
-// binary operation "Binop_array_cell_addr" to the argument t and i.
+// // For example,  t[i]  is decomposed as the operation that computes &t[i],
+// // then applying the star operator to it, obtaining  "*(&t[i])".
+// // The star is the standard dereferencing operator.
+// // In the AST, the operation &t[i] is the application of the primitive
+// // binary operation "Binop_array_cell_addr" to the argument t and i.
 
 void stack_array() {
   int t[2] = { 5, 6 };
@@ -98,8 +97,8 @@ void stack_array() {
   t[1] = a + 2;
 }
 
-// Likewise,  t.x  is decomposed  as *(&t.x), which involves the primitive
-// unary operator "Unop_struct_field_addr x" applied to the argument t.
+// // Likewise,  t.x  is decomposed  as *(&t.x), which involves the primitive
+// // unary operator "Unop_struct_field_addr x" applied to the argument t.
 
 void stack_struct() {
   vect v = { 5, 6 };
@@ -113,14 +112,12 @@ void stack_struct() {
   particle p2 = { v, { 7,8 } };
 }
 
-// References: not yet implemented
-/*
+// // References: not yet implemented
 void references() {
   int a = 3;
   int& b = a;
   b = b + 4;
 }
-*/
 
 void constants() {
   const int a = 3;
@@ -147,10 +144,10 @@ void nonconst_pointers() {
 }
 
 
-// When arrays are passed by values, they are not heap allocated.
-// They are values, out of which it is possible to directly read a value
-// using the operator Binop_array_cell_get.
-// Likewise a struct passed by value is read using Unop_struct_get.
+// // When arrays are passed by values, they are not heap allocated.
+// // They are values, out of which it is possible to directly read a value
+// // using the operator Binop_array_cell_get.
+// // Likewise a struct passed by value is read using Unop_struct_get.
 void by_value(int t[2], vect v) { // implicit const arguments
   int b = t[0];
   int a = v.x;
@@ -259,57 +256,3 @@ void lvalue_encoding() {
   int *v;
   *v = 4;
 }
-
-
-/* LATER
-int local_function() {
-  int n = 2;
-  auto addOne = [&] () {
-      i++;
-  };
-  addOne(n);
-  return n;
-}
-*/
-
-
-// void advanced_stuff () {
-//     int* x;
-//     int ** p;
-//     int ** const q = &x;
-//     int * const * r = &
-//     int const ** s;
-//     int * const * const u;
-
-// }
-
-/*  ENCODED VERSION
-int mutable_stack_var() {
-  const int* r = new 3;
-  set(r, get(r) + 1);
-  operator++(r);
-  return get(r);
-}
-*/
-
-
-
-
-/*
-  t[3].f
-  t[3]->f
-  t->f[3]
-  t.f[3]
-
-  both in case t a stack allocated
-  or t in a const
-  or t is a function argument passed by pointer
-  or t is a  function argument passed by value
-
-
-*/
-
-
-
-
-

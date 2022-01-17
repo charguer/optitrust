@@ -10,20 +10,6 @@ open Ast
 let update (f : trm -> trm) : Target.Transfo.local =
   Target.apply_on_path f
 
-(* TODO: replace can be implemented as a particular case of update *)
-
-(* [replace code t]: replace an instruction with arbitrary code or ast code
-    params:
-      [t]: ast node which is going to replace the current one
-    return:
-      updated ast with the replaced trm
- *)
-let replace (t : trm) : Target.Transfo.local =
-  Target.apply_on_path (fun _t ->  t)
-
-
-
-
 (* [replace_fun name t]: change the current function call
       to another function call with where the function called now
       has name [name]

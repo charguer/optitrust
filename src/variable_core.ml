@@ -350,6 +350,7 @@ let delocalize (array_size : string) (ops : delocalize_ops) (index : string) : T
     return:
       the updated [t] with the newly inserted declaration []
   *)
+
 let insert_aux (index : int) (const : bool) (name : string) (typ : string) (value : trm) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -358,12 +359,10 @@ let insert_aux (index : int) (const : bool) (name : string) (typ : string) (valu
     let new_trm = trm_let vk (name, new_typ) value in
     let new_tl = Mlist.insert_at index new_trm tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
-  | _ -> fail t.loc "insert_aux: expected the sequence which is going to contain the variable declaration"
+  | _ -> fail t.loc "insert_aux: expeted the sequence where the declaration is going to be inserted"
 
 let insert (index : int) (const : bool) (name : string) (typ : string) (value : trm) : Target.Transfo.local =
   Target.apply_on_path (insert_aux index const name typ value)
-
-
 
 
 (* [change_type_aux new_type t]:  change the current type of the variable declared at the node with index [i]

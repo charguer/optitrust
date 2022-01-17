@@ -145,7 +145,7 @@ let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_in
   Arrays.to_variables  lv [Target.cVarDef nv];
   Marks.remove "section_of_interest" [Target.cMark "section_of_interest"]
 
-let intro_pattern_array ?(pattern_aux_vars : string = "") ~pattern_vars:(pattern_vars : string ) ~pattern:(pattern : string) (tg : Target.target) : unit =
+let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false) ~pattern_vars:(pattern_vars : string ) ~pattern:(pattern : string) (tg : Target.target) : unit =
   Trace.call (fun t ->
   (* Temporary hack till Arthur enables the usage of the new parser *)
   let str = pattern_vars ^ " ==>" ^ pattern_aux_vars ^ " ==> " ^ pattern in
@@ -170,8 +170,10 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ~pattern_vars:(pattern
     let new_t = Internal.subst new_inst pattern_instr in
     Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> new_t) t p) (Target.target_of_path p)
   ) tg;
-  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let Var_mutable (x, typ_ptr Ptr_kind_mut (typ_array (typ_double ()) (Const nb_paths)) ~typ_attributes:[GeneratedStar])
-  (trm_apps (trm_prim (Prim_new (typ_array (typ_double ()) (Const nb_paths)))) [trm_array (Mlist.of_list (Array.to_list all_values.(id_var)))])) pattern_vars in
+  let vk = if const then Var_immutable else Var_mutable in
+  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array vk (x, typ_double ()) (Const nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
+  (* let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let Var_mutable (x, typ_ptr Ptr_kind_mut (typ_array (typ_double ()) (Const nb_paths)) ~typ_attributes:[GeneratedStar])
+  (trm_apps (trm_prim (Prim_new (typ_array (typ_double ()) (Const nb_paths)))) [trm_array (Mlist.of_list (Array.to_list all_values.(id_var)))])) pattern_vars in *)
   Internal.nobrace_remove_after (fun _ ->
     Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tFirst] @ (Target.target_of_path !path_to_surrounding_seq))))
 

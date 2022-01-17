@@ -28,10 +28,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctx = cChain [ctxf; sInstr "r.v"] in
   !^ Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array ~pattern_aux_vars:"double rX, rY, rZ;"
+  !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ;"
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);"
-      [nbMulti; ctx; dRHS];   (* TODO: add ?(const:bool=true) to this operation, to generate const vars *)
+      [nbMulti; ctx; dRHS];   
   !! Loop.fold_instrs ~index:"k" [ctx];
 
   (* Part: update particles in-place instead of in a local variable *) (* LATER: it might be possible to change the script to postpone this step *)

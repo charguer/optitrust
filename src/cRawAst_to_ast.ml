@@ -11,13 +11,13 @@ let env_empty =
 let get_varkind (env : env) (x : var) : varkind = 
   match String_map.find_opt x env with 
   | Some m -> m
-  | _ -> fail None "get_varkind: unbound variable"
+  | _ -> fail None (Printf.sprintf "get_varkind: unbound variable %s\n" x)
 
 (* [is_var_mutable env x] check if variable [x] is mutable or not *)
 let is_var_mutable (env : env) (x : var) : bool = 
   get_varkind env x = Var_mutable
 
-(* [env_extend env e varkind] add variable [e] into the environment [env] *)
+(* [env_extend env e varkind] add variable [e] into environment [env] *)
 let env_extend (env : env) (e : var) (varkind : varkind) : env = 
   String_map.add e varkind env 
 
@@ -67,7 +67,6 @@ let stackvar_elim (t : trm) : trm =
     | Trm_var (_, x) -> 
       if is_var_mutable !env x then trm_annot_add Mutable_var_get (trm_get t)
       else {t with desc = Trm_var (Var_immutable, x)}
-    | Trm_seq ts ->  {t with desc = Trm_seq (Mlist.map aux ts)} 
     | Trm_let (xm, (x, ty), tbody) -> 
       env := env_extend !env x xm;
       begin match ty.typ_desc with 
@@ -89,9 +88,11 @@ let stackvar_elim (t : trm) : trm =
       env := env_extend !env f Var_immutable;
       List.iter (fun (x, _) -> (env := env_extend !env x Var_immutable)) targs;
       {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
+    | Trm_for (index, _, _, _, _, _) ->
+      env := env_extend !env index Var_mutable;
+      trm_map aux t
     | _ -> trm_map aux t
-  in aux t
-
+   in aux t 
 
 
 (* [stackvar_intro t] is the reciprocal to [stackvar_elim]. It replaces [<annotation:stackvar> int *a = new int(5)] with [int a = 5] 
@@ -100,9 +101,7 @@ let stackvar_elim (t : trm) : trm =
     For references, [<annotation:reference> int* b = a] becomes [int& b = a],
       as a simplification of b = *(&a), where &a is obtained after translating a.
     and [<annotation:reference> int* x = &t[i]] becomes [int& x = t[i]], where t has type [const int*] as a simplification of x = *(&t[i])
-
 *)
-
 let stackvar_intro (t : trm) : trm = 
   let rec aux (t : trm) : trm = 
     match t.desc with 
@@ -116,18 +115,18 @@ let stackvar_intro (t : trm) : trm =
         then 
           begin match tx.typ_desc , tbody.desc with 
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_new _));_}, [tbody1])  ->
-              trm_annot_filter (function | Stackvar -> true | _ -> false) {t with desc = Trm_let (vk, (x, tx1), aux tbody1)}
+              trm_annot_filter (function | Stackvar -> false | _ -> true) {t with desc = Trm_let (vk, (x, tx1), aux tbody1)}
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
           end 
         else if List.mem Reference t.annot then 
           begin match tx.typ_desc with 
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1} -> 
-            trm_annot_filter (function | Reference -> true | _ -> false) { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get ~simplify:true (aux tbody))}
+            trm_annot_filter (function | Reference -> false | _ -> true) { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get ~simplify:true (aux tbody))}
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
           end 
         else 
-        trm_map aux tbody 
-
+          {t with desc = Trm_let (vk, (x, tx), aux tbody)}
+    | Trm_apps (_, [t1]) when List.mem Mutable_var_get t.annot -> t1
     | _ -> trm_map aux t
     in aux t
 
@@ -140,27 +139,25 @@ let stackvar_intro (t : trm) : trm =
     [t+i] is represented as [Trm_apps (Prim_array_acces, [t;i])] in the AST
     [t+offset(f)] is represented as [Trm_apps (Prim_struct_access "f", [t])]
 
-    Transformation is implemented as [caddress_elim_lvalue t], where the 
+    This transformation is implemented as [caddress_elim_lvalue t], where the 
     boolean [lvalue] indicates whether we are currentyl translating a l-value
     or a normal instruction or expression (r-value).
-
 *)
-
 let rec caddress_elim (lvalue : bool) (t : trm) : trm = 
   let aux t = caddress_elim false t in 
   let access t = caddress_elim true t in 
   let mk td = {t with desc = td} in 
   if lvalue then begin 
     match t.desc with 
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_}, [t1]) ->
-      mk (Trm_apps (trm_unop (Unop_struct_access f), [access t1]))
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_}, [t1; t2]) -> 
-      mk (Trm_apps (trm_binop Binop_array_access, [access t1; aux t2]))
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as t1, [t2]) ->
+      mk (Trm_apps (trm_unop  ~annot:t1.annot (Unop_struct_access f), [access t2]))
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_} as op, [t1; t2]) -> 
+      mk (Trm_apps (trm_binop ~loc:op.loc Binop_array_access, [access t1; aux t2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) -> 
       aux t1
-    | _ -> fail None "address_elim: invalid lvalue"
+    | _  -> t
+    (* | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue: %s\n" (Ast_to_text.ast_to_string t)) *)
     end 
-    
     else begin 
          match t.desc with 
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));_}, [t1; t2]) -> 
@@ -184,7 +181,6 @@ let rec caddress_elim (lvalue : bool) (t : trm) : trm =
               mk (Trm_apps (trm_unop Unop_get, [mk (Trm_apps (trm_binop Binop_array_access, [u11; u2]))]))
             | _ -> mk (Trm_apps (trm_binop (Binop_array_get), [u1; u2]))
             end 
-
          | _ -> trm_map aux t 
          end 
       
@@ -240,6 +236,10 @@ let rec caddress_intro (lvalue : bool) (t : trm) : trm =
  *)
 let encode (t : trm) : trm = 
   caddress_elim false (stackvar_elim t) 
+
+
+let decode (t : trm) : trm = 
+  caddress_intro false (stackvar_intro t)
 
 (* Note: in the unit tests, we could check that caddress_intro (stackvar_intro t) produces the same result  *)
 
