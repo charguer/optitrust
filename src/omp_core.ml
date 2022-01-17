@@ -577,7 +577,7 @@ let get_num_procs_aux (num_procs : var) (index : int) (t : trm) : trm =
     | Some _ ->
       trm_set (trm_var num_procs) (trm_omp_routine (Get_num_procs))
     | None ->
-      trm_let Var_mutable (num_procs, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_num_procs)])
+      trm_let Var_mutable (num_procs, typ_ptr_generated (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_num_procs)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl

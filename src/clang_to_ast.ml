@@ -930,7 +930,7 @@ and translate_decl_list (dl : decl list) : trms =
         let ft = translate_qual_type ~loc q in
         let al = List.map (translate_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
-        trm_let ~loc  Var_mutable (fn,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_prim ~loc (Prim_new ty))
+        trm_let ~loc  Var_mutable (fn,typ_ptr_generated ty) (trm_prim ~loc (Prim_new ty))
       | _ ->
       translate_decl d
     ) fl in
@@ -1122,7 +1122,7 @@ and translate_decl (d : decl) : trm =
         begin match eo with
         | None ->
           add_var n;
-          trm_let ~loc  Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) te
+          trm_let ~loc  Var_mutable (n,typ_ptr_generated tt) te
         | Some _ ->
           begin match tt.typ_desc with
           | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tt1} -> begin match tt1.typ_desc with
@@ -1130,11 +1130,11 @@ and translate_decl (d : decl) : trm =
                            | Typ_const _ -> trm_let ~loc Var_immutable (n, tt) (te)
                            | _ ->
                              add_var n;
-                             trm_let ~loc Var_mutable (n, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) {te with annot = [As_left_value]}
+                             trm_let ~loc Var_mutable (n, typ_ptr_generated tt) {te with annot = [As_left_value]}
                            end
           | _ ->
             add_var n;
-            trm_let ~loc Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
+            trm_let ~loc Var_mutable (n,typ_ptr_generated tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
           end
         end
       end
@@ -1184,7 +1184,7 @@ and translate_decl (d : decl) : trm =
         let ft = translate_qual_type ~loc q in
         let al = List.map (translate_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
-        trm_let ~loc  Var_mutable (fn,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_prim ~loc (Prim_new ty))
+        trm_let ~loc  Var_mutable (fn,typ_ptr_generated ty) (trm_prim ~loc (Prim_new ty))
       | _ ->
       translate_decl d
     ) fl in

@@ -727,6 +727,10 @@ let typ_template_param ?(annot : typ_annot list = []) ?(typ_attributes = [])
 let typdef_prod ?(recursive:bool=false) (field_list : (label * typ) list) : typdef_body =
   Typdef_prod (recursive, field_list)
 
+(* [typ_ptr_generated ty] krejt a generated start used for encodings *)
+let typ_ptr_generated (ty : typ) : typ = 
+  typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty
+
 let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (s : code_kind) : typ =
   {typ_annot = annot; typ_desc = Typ_arbitrary s ; typ_attributes}
@@ -1732,7 +1736,7 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
   (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
   let init = if not local_index
                 then trm_set (trm_var index) start
-                else trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start])  in
+                else trm_let Var_mutable (index, typ_ptr_generated (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start])  in
   let cond = begin match direction with
     | DirUp ->
       (trm_apps (trm_binop Binop_lt)

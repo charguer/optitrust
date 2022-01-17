@@ -83,14 +83,14 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
         begin match t_var.typ_desc with
         | Typ_constr (y, tid, _) ->
           List.map(fun x ->
-            trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_constr y ~tid ))) (trm_prim (Prim_new (typ_constr y ~tid )))) new_vars
+            trm_let Var_mutable (x,(typ_ptr_generated (typ_constr y ~tid ))) (trm_prim (Prim_new (typ_constr y ~tid )))) new_vars
         | Typ_var (y, tid) ->
           List.map(fun x ->
-            trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_var y tid ))) (trm_prim (Prim_new (typ_var y tid )))) new_vars
+            trm_let Var_mutable (x,(typ_ptr_generated (typ_var y tid ))) (trm_prim (Prim_new (typ_var y tid )))) new_vars
         
         | _ -> 
           List.map(fun x ->
-            trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut t_var)) (trm_prim (Prim_new t_var))) new_vars
+            trm_let Var_mutable (x,(typ_ptr_generated t_var)) (trm_prim (Prim_new t_var))) new_vars
         end
       | _ -> fail t.loc "to_variables_aux: expected an array type"
       end
@@ -563,7 +563,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
         | Typ_array (a, _) ->
           begin match a.typ_desc with
           | Typ_constr (sn,_, _) when sn = struct_name -> 
-            trm_let vk (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut a) (trm_prim ~loc:t.loc (Prim_new a)) 
+            trm_let vk (n,typ_ptr_generated a) (trm_prim ~loc:t.loc (Prim_new a)) 
           | _ -> trm_map (aux global_trm) t
           end
         | _ -> trm_map (aux global_trm) t

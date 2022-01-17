@@ -179,7 +179,7 @@ let init_detach_aux  (t : trm) : trm =
         | Typ_ptr {inner_typ = ty;_} -> ty
         | _ -> var_type
         end in
-        let new_tx = typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type in
+        let new_tx = typ_ptr_generated var_type in
         let var_decl = trm_let ~annot:t.annot ~marks:t.marks vk (x, new_tx) (trm_prim (Prim_new new_tx)) in
         (* Check if variable was declared as a reference *)
 
@@ -260,7 +260,7 @@ let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : 
   let var_type = match trm_var_def_inv vardef_trm with
   | Some (_, _, ty, _) -> ty
   | _ -> fail vardef_trm.loc "local_name: make sure the name of the current var is entered correctly" in
-  let fst_instr = trm_let Var_mutable (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var curr_var]) in
+  let fst_instr = trm_let Var_mutable (local_var, typ_ptr_generated var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var curr_var]) in
   let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var ~typ:(Some var_type) local_var]) in
   let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in
   let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
@@ -313,7 +313,7 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
             add_star_if_ptr  (trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_var index])]
       end in
       let new_first_trm = trm_seq_no_brace[
-          trm_let vk (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
+          trm_let vk (local_var, typ_ptr_generated (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
           trm_set (trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_lit (Lit_int 0)]) curr_var_trm;
           trm_for index (trm_int 1)  DirUp (trm_var array_size) Post_inc
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_var index]) init_trm])]
@@ -389,7 +389,7 @@ let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
         end in
       let new_decl = begin match vk with
       | Var_mutable ->
-        trm_let vk (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut new_type ) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init)
+        trm_let vk (x, typ_ptr_generated new_type ) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init)
       | Var_immutable ->
         trm_let vk (x, typ_const new_type) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init)
       end in

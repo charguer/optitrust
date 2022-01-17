@@ -434,7 +434,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           let args_decl =
             List.rev_map
               (fun (x, tx) ->
-                trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tx) (trm_lit Lit_uninitialized)
+                trm_let Var_mutable (x, typ_ptr_generated tx) (trm_lit Lit_uninitialized)
               )
               args
           in

@@ -141,7 +141,7 @@ let hoist_aux (name : var) (decl_index : int) (t : trm) : trm =
         let new_body = trm_seq (Mlist.insert_at decl_index new_decl new_tl) in
         let inner_typ = get_inner_ptr_type tx in
         trm_seq_no_brace [
-          trm_let Var_mutable (new_name, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array inner_typ (Trm stop))) (trm_prim (Prim_new inner_typ));
+          trm_let Var_mutable (new_name, typ_ptr_generated (typ_array inner_typ (Trm stop))) (trm_prim (Prim_new inner_typ));
           trm_for index start direction stop step new_body ]
       | _ -> fail var_decl.loc "hoist_aux: expected a variable declaration"
       end
@@ -232,7 +232,7 @@ let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : t
                               acc; trm_var bnd]
                               ; trm_var ind]
                     )  (trm_var "") index_and_bounds in
-                    let old_loop_index_decl = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) old_loop_index_val in
+                    let old_loop_index_decl = trm_let Var_mutable (index, typ_ptr_generated (typ_int ())) old_loop_index_val in
                     let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
                     trm_seq new_tl
                    | _ -> fail body.loc "grid_enumerate_aux: the body of the loop should be a sequence"
@@ -384,7 +384,7 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
     | DirDownEq -> (trm_div (aux start stop) loop_step)
     end in  
     
-    let new_decl = trm_let Var_mutable (index, (typ_ptr Ptr_kind_mut (typ_int()) ~typ_attributes:[GeneratedStar]))
+    let new_decl = trm_let Var_mutable (index, (typ_ptr_generated (typ_int()) ))
         (trm_apps (trm_prim (Prim_new (typ_int())))
           [trm_apps (trm_binop Binop_add)[
             start;

@@ -704,7 +704,7 @@ and translate_decl_list (dl : decl list) : trms =
         let ft = translate_qual_type ~loc q in
         let al = List.map (translate_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
-        trm_let ~loc  Var_mutable (fn,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_prim ~loc (Prim_new ty))
+        trm_let ~loc  Var_mutable (fn,typ_ptr_generated ty) (trm_prim ~loc (Prim_new ty))
       | _ ->
       translate_decl d
     ) fl in
@@ -930,7 +930,7 @@ and translate_decl (d : decl) : trm =
         let ft = translate_qual_type ~loc q in
         let al = List.map (translate_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
-        trm_let ~loc  Var_mutable (fn,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_prim ~loc (Prim_new ty))
+        trm_let ~loc  Var_mutable (fn,typ_ptr_generated ty) (trm_prim ~loc (Prim_new ty))
       | _ ->
       translate_decl d
     ) fl in

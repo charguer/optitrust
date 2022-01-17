@@ -48,6 +48,9 @@ let trm_get ?(simplify : bool = false) (t : trm) : trm =
     | _ -> aux t
 
 
+
+
+
 (* [stackvar_elim t] replaces
     [int a = 5] with [<annotation:stackvar> int* a = new int(5)]
       and a variable occurrence [a] becomes [ * a]
@@ -58,8 +61,18 @@ let trm_get ?(simplify : bool = false) (t : trm) : trm =
    Here, the "reference" annotation is added to allow decoding.
    LATER: Support references on constants
 *)
+
 let stackvar_elim (t : trm) : trm =
   let env = ref env_empty in
+  let onscope (t : trm) (f : trm -> trm ) : trm = 
+    let prev_env = !env in 
+    let res = f t in 
+    env := prev_env;
+    res
+    in 
+  let onscope_extended (x : var) (mut : varkind) (t : trm) (f : trm -> trm) : trm = 
+    onscope t (fun t -> begin env := env_extend !env x mut; f t end)
+    in
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_var (_, x) ->
@@ -72,69 +85,26 @@ let stackvar_elim (t : trm) : trm =
         begin match xm with
         | Var_immutable -> fail t.loc "stackvar_elim: unsupported references on const variables"
         | _ ->
-          {t with desc = Trm_let (xm, (x, (* TODO: typ_ptr_generated *) typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty1), trm_address_of ~simplify:true (aux tbody)); annot = Reference :: t.annot}
+          {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of ~simplify:true (aux tbody)); annot = Reference :: t.annot}
         end
       | _ ->
         begin match xm with
         | Var_mutable ->
-          {t with desc = Trm_let (xm, (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty), trm_new ty (aux tbody) ); annot = Stackvar :: t.annot}
+          {t with desc = Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) ); annot = Stackvar :: t.annot}
         | Var_immutable ->
           trm_map aux t
         end
       end
-    (* TODO: | trm_seq ts ->
-        let saved = !env in
-        List.iter (trm_map aux) ts
-        env := saved;
-
-      TODO:
-        onscope (fun () -> List.iter (trm_map aux) ts)
-
-        where
-
-        let onscope f =
-          let saved = !env in
-          f()
-          env := saved;
-    *)
+    | Trm_seq _ -> onscope t (trm_map aux)
     | Trm_let_fun (f, retty, targs, tbody) ->
       env := env_extend !env f Var_immutable;
       List.iter (fun (x, _) -> (env := env_extend !env x Var_immutable)) targs;
       {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
     | Trm_for (index, _, _, _, _, _) ->
-      (* for simple loop (LATER: conversion to simple loop should check that the init/stop/step don't refer to index)
-         - index scopes in body, but not in others
-        Trm_for (index, aux init, aux stop, aux step, dir, body2)
-         where body2 = onscope_extended index Var_mutable (fun () -> aux body)
-
-          int i = 3;
-          for i = i to i+1 do .i. done
-      *)
-      (* for C-loops
-          onscope (fun () ->  trm_map aux t)
-       *)
-
-      let saved = !env in
-      env := env_extend !env index Var_mutable;
-      trm_map aux t;
-      env := saved
-      (*
-      onscope_extended index Var_mutable (fun () ->
-        trm_map aux t
-      *)
-      (*
-
-      *)
+      onscope_extended index Var_mutable t (trm_map aux)
+      
     | _ -> trm_map aux t
    in aux t
-
-(* TODO:
-let onscope_extended x immut f =
-  onscope (fun () -> env := env_extend env x immut; f())
-
-  Note: this is equivalent to using a stack of env, like done in clang_to_ast.ml
-*)
-
 
 (* [stackvar_intro t] is the reciprocal to [stackvar_elim]. It replaces [<annotation:stackvar> int *a = new int(5)] with [int a = 5]
     and a variable occurrence [*a] becomes [a] if it corresponds to a stack variable
