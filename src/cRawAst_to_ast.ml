@@ -47,9 +47,14 @@ let trm_get ?(simplify : bool = false) (t : trm) : trm =
       end
     | _ -> aux t
 
-
-
-
+(* [onscope env t f] save the current environment before entering a new scope,
+    the revert back to the saved env after leaving the scope
+*)
+let onscope (env : env ref) (t : trm) (f : trm -> trm ) : trm = 
+    let prev_env = !env in 
+    let res = f t in 
+    env := prev_env;
+    res
 
 (* [stackvar_elim t] replaces
     [int a = 5] with [<annotation:stackvar> int* a = new int(5)]
@@ -61,18 +66,8 @@ let trm_get ?(simplify : bool = false) (t : trm) : trm =
    Here, the "reference" annotation is added to allow decoding.
    LATER: Support references on constants
 *)
-
 let stackvar_elim (t : trm) : trm =
   let env = ref env_empty in
-  let onscope (t : trm) (f : trm -> trm ) : trm = 
-    let prev_env = !env in 
-    let res = f t in 
-    env := prev_env;
-    res
-    in 
-  let onscope_extended (x : var) (mut : varkind) (t : trm) (f : trm -> trm) : trm = 
-    onscope t (fun t -> begin env := env_extend !env x mut; f t end)
-    in
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_var (_, x) ->
@@ -95,14 +90,13 @@ let stackvar_elim (t : trm) : trm =
           trm_map aux t
         end
       end
-    | Trm_seq _ -> onscope t (trm_map aux)
+    | Trm_seq _ -> onscope env t (trm_map aux)
     | Trm_let_fun (f, retty, targs, tbody) ->
       env := env_extend !env f Var_immutable;
-      List.iter (fun (x, _) -> (env := env_extend !env x Var_immutable)) targs;
+      List.iter (fun (x, tx) -> let mut = if is_typ_const tx then Var_immutable else Var_mutable in (env := env_extend !env x mut)) targs;
       {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
     | Trm_for (index, _, _, _, _, _) ->
-      onscope_extended index Var_mutable t (trm_map aux)
-      
+      onscope env t (fun t -> begin env := env_extend !env index Var_mutable; trm_map aux t end)
     | _ -> trm_map aux t
    in aux t
 
@@ -114,19 +108,13 @@ let stackvar_elim (t : trm) : trm =
     and [<annotation:reference> int* x = &t[i]] becomes [int& x = t[i]], where t has type [const int*] as a simplification of x = *(&t[i])
 *)
 let stackvar_intro (t : trm) : trm =
+  let env = ref env_empty in 
   let rec aux (t : trm) : trm =
     match t.desc with
-    (* TODO: have env with onscope function
-     | Trm_apps (Prim_get, [Trm_var x as t1])
-       when List.mem Mutable_var_get t.annot ->
-        if not is_var_mutable env x then error "x was declared immutable, but appears inside an annotated get operation";
-        ...  *)
-    | Trm_var (vk, _x) ->
-      begin match vk with
-      | Var_mutable -> trm_address_of t
-      | Var_immutable -> t
-      end
+    | Trm_var (vk, x) ->
+      if is_var_mutable !env x then trm_address_of t else t
     | Trm_let (vk, (x, tx), tbody) ->
+      env := env_extend !env x vk;
       if List.mem Stackvar t.annot
         then
           begin match tx.typ_desc , tbody.desc with
@@ -142,7 +130,15 @@ let stackvar_intro (t : trm) : trm =
           end
         else
           {t with desc = Trm_let (vk, (x, tx), aux tbody)}
-    | Trm_apps (_, [t1]) when List.mem Mutable_var_get t.annot -> t1
+    | Trm_seq _ -> onscope env t (trm_map aux)
+    | Trm_let_fun (f, retty, targs, tbody) -> 
+      env := env_extend !env f Var_immutable;
+      List.iter (fun (x, tx) -> let mut = if is_typ_const tx then Var_immutable else Var_mutable in (env := env_extend !env x mut)) targs;
+      {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
+    | Trm_for (index, _, _, _, _, _) ->
+      onscope env t (fun t -> begin env := env_extend !env index Var_mutable; trm_map aux t end)
+    | Trm_apps (_, [{desc = Trm_var (_, x); _} as t1]) when List.mem Mutable_var_get t.annot -> 
+      if is_var_mutable !env x then t1 else fail t.loc "stackvar_intro: x was declared as immutable, but appears inside an annotated get operation"
     | _ -> trm_map aux t
     in aux t
 
