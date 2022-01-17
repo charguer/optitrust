@@ -11,7 +11,7 @@ let env_empty =
 let get_varkind (env : env) (x : var) : varkind = 
   match String_map.find_opt x env with 
   | Some m -> m
-  | _ -> fail None "get_varkind: unbound variable"
+  | _ -> fail None (Printf.sprintf "get_varkind: unbound variable %s\n" x)
 
 (* [is_var_mutable env x] check if variable [x] is mutable or not *)
 let is_var_mutable (env : env) (x : var) : bool = 
@@ -88,8 +88,11 @@ let stackvar_elim (t : trm) : trm =
       env := env_extend !env f Var_immutable;
       List.iter (fun (x, _) -> (env := env_extend !env x Var_immutable)) targs;
       {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
+    | Trm_for (index, _, _, _, _, _) ->
+      env := env_extend !env index Var_mutable;
+      trm_map aux t
     | _ -> trm_map aux t
-  in aux t
+   in aux t 
 
 
 (* [stackvar_intro t] is the reciprocal to [stackvar_elim]. It replaces [<annotation:stackvar> int *a = new int(5)] with [int a = 5] 
@@ -112,18 +115,18 @@ let stackvar_intro (t : trm) : trm =
         then 
           begin match tx.typ_desc , tbody.desc with 
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_new _));_}, [tbody1])  ->
-              trm_annot_filter (function | Stackvar -> true | _ -> false) {t with desc = Trm_let (vk, (x, tx1), aux tbody1)}
+              trm_annot_filter (function | Stackvar -> false | _ -> true) {t with desc = Trm_let (vk, (x, tx1), aux tbody1)}
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
           end 
         else if List.mem Reference t.annot then 
           begin match tx.typ_desc with 
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1} -> 
-            trm_annot_filter (function | Reference -> true | _ -> false) { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get ~simplify:true (aux tbody))}
+            trm_annot_filter (function | Reference -> false | _ -> true) { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get ~simplify:true (aux tbody))}
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
           end 
         else 
-        trm_map aux tbody 
-
+          {t with desc = Trm_let (vk, (x, tx), aux tbody)}
+    | Trm_apps (_, [t1]) when List.mem Mutable_var_get t.annot -> t1
     | _ -> trm_map aux t
     in aux t
 
@@ -232,6 +235,10 @@ let rec caddress_intro (lvalue : bool) (t : trm) : trm =
  *)
 let encode (t : trm) : trm = 
   caddress_elim false (stackvar_elim t) 
+
+
+let decode (t : trm) : trm = 
+  caddress_intro false (stackvar_intro t)
 
 (* Note: in the unit tests, we could check that caddress_intro (stackvar_intro t) produces the same result  *)
 
