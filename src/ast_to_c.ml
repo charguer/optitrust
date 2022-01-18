@@ -980,6 +980,12 @@ let ast_to_undecoded_doc (out : out_channel) (t : trm) : unit =
   ast_to_doc out t;
   decode := true
 
+
+let ast_to_file (filename : string) (t : trm) : unit = 
+  let out = open_out filename in 
+  ast_to_doc out t;
+  close_out out
+
 let ast_to_string ?(ast_decode:bool=true) (t : trm) : string =
   let old_decode = !decode in
   decode := ast_decode;

@@ -869,7 +869,7 @@ let ast_to_doc (out : out_channel) (t : trm) : unit =
 
 let ast_to_file (filename : string) (t : trm) : unit = 
   let out = open_out filename in 
-  Ast_to_c.ast_to_doc out t;
+  ast_to_doc out t;
   close_out out
 
 let ast_to_string (t : trm) : string =
