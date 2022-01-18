@@ -111,7 +111,7 @@ let stackvar_intro (t : trm) : trm =
   let env = ref env_empty in 
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_var (vk, x) ->
+    | Trm_var (_, x) ->
       if is_var_mutable !env x then trm_address_of t else t
     | Trm_let (vk, (x, tx), tbody) ->
       env := env_extend !env x vk;
@@ -142,7 +142,7 @@ let stackvar_intro (t : trm) : trm =
     | _ -> trm_map aux t
     in aux t
 
-(* [caddress_elim false t] eliminates the use of l-values in the AST
+(* [caddress_elim_aux false t] eliminates the use of l-values in the AST
     [* t1]  becomes [get(t1)]
     [* t1 = t2] becomes as [set(t1, t2)]
     [t[i] = t[i] + 1] is encoded as [set(t+i, get(t+i) + 1)]
@@ -153,13 +153,13 @@ let stackvar_intro (t : trm) : trm =
     [t+i] is represented in optitrust as [Trm_apps (Prim_array_acces, [t;i])] in the AST
     [t+offset(f)] is represented in optitrust as [Trm_apps (Prim_struct_access "f", [t])]
 
-    This transformation is implemented as [caddress_elim_lvalue t], where the
-    boolean [lvalue] indicates whether we are currentyl translating a l-value
+    This transformation is implemented as [caddress_elim_aux lvalue t], where the
+    boolean [lvalue] indicates whether we are currently translating a l-value
     or a normal instruction or expression (r-value).
 *)
-let rec caddress_elim (lvalue : bool) (t : trm) : trm =
-  let aux t = caddress_elim false t in
-  let access t = caddress_elim true t in
+let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
+  let aux t = caddress_elim_aux false t in
+  let access t = caddress_elim_aux true t in
   let mk td = {t with desc = td} in
   if lvalue then begin
     match t.desc with
@@ -170,7 +170,6 @@ let rec caddress_elim (lvalue : bool) (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) ->
       aux t1
     | _  -> t
-    (* | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue: %s\n" (Ast_to_text.ast_to_string t)) *)
     end
     else begin
          match t.desc with
@@ -209,21 +208,19 @@ let is_access (t : trm) : bool =
     end
   | _ -> false
 
-(* TODO: rename
-  address_elim to address_elim_aux
-  and
-  let address_elim = address_elim_aux false *)
 
-(* [caddress_intro false t ] is the inverse of [caddress_elim]
+let caddress_elim = caddress_elim_aux false 
+
+(* [caddress_intro_aux false t ] is the inverse of [caddress_elim]
 
     [get(t1)  becomes ][* t1]
     [set(t1, t2)] becomes as [* t1 = t2]
     [Trm_apps (Prim_struct_access "f", [t])] becomes [t.f] as lvalue
     [get(Trm_apps (Prim_struct_access "f", [t]))] becomes [t.f] as rlvalue
  *)
-let rec caddress_intro (lvalue : bool) (t : trm) : trm =
-  let aux t = caddress_intro false t in
-  let access t = caddress_intro true t in
+let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
+  let aux t = caddress_intro_aux false t in
+  let access t = caddress_intro_aux true t in
   let mk td = {t with desc = td} in
   if lvalue then begin
     match t.desc with
@@ -245,7 +242,9 @@ let rec caddress_intro (lvalue : bool) (t : trm) : trm =
     | _ -> trm_map aux t
     end
 
-(* TODO: Use unit tests to chack that
+let caddress_intro = caddress_intro_aux false
+
+(* 
   caddress_intro (caddress_elim t) = t and stackvar_intro (stackvar_elim t) = t
 
   proof:
@@ -259,17 +258,14 @@ let rec caddress_intro (lvalue : bool) (t : trm) : trm =
     p+f = get_access(p,i)
 
  *)
-let encode (t : trm) : trm = (* TODO: rename cfeatures_elim *)
-  caddress_elim false (stackvar_elim t)
+let cfeatures_elim (t : trm) : trm = 
+  caddress_elim (stackvar_elim t)
 
 
-let decode (t : trm) : trm =
-  caddress_intro false (stackvar_intro t)
+let cfeatures_intro (t : trm) : trm =
+  caddress_intro (stackvar_intro t)
 
 (* Note: in the unit tests, we could check that caddress_intro (stackvar_intro t) produces the same result  *)
-
-(* TODO: Check decode (encode t) = t *)
-
 
 (* unit test:
   int main () {

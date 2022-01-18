@@ -273,7 +273,6 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
     | Expr_atom id ->
         begin match Atom_map.find_opt id atoms with
         | Some t1 ->
-           (* Ast_to_text.print_ast stdout t1; *)
             begin match t1.desc with
             | Trm_var (_, x) -> string x
             | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x); _}]) -> string x

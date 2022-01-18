@@ -867,6 +867,11 @@ and unpack_trm_for ?(loc = None) ?(local_index : bool = true) (index : var) (sta
 let ast_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (decorate_trm t)
 
+let ast_to_file (filename : string) (t : trm) : unit = 
+  let out = open_out filename in 
+  Ast_to_c.ast_to_doc out t;
+  close_out out
+
 let ast_to_string (t : trm) : string =
   let b = Buffer.create 80 in
   PPrintEngine.ToBuffer.pretty 0.9 80 b (decorate_trm t);
