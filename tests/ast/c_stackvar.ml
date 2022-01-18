@@ -4,7 +4,7 @@ open Ast
 open Ast_to_rawC
 open CRawAst_to_ast
 
-
+(* src/ast_check.ml *)
 let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
   (* LATER: see if we can have a ast comparison function *)
   let success = Ast_to_text.ast_to_string t1 = Ast_to_text.ast_to_string t2 in
@@ -16,20 +16,18 @@ let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
       Ast_to_text.ast_to_file (test_name ^ "_ast_2.ast") t2;
   end
 
-let check_id (test_name : string) (f : trm -> trm) (t : trm) : unit =
-  let t1 = f t in 
-  check test_name t t1
+let check_transfo_is_identity ?(test : string = "") (f : trm -> trm) (t : trm) : unit =
+  let t1 = f t in
+  check test t t1
 
 let test_stackvar () =
   let clang_ast = Clang.Ast.parse_file "c_stackvar.cpp" in
   let raw_ast = Clang_to_astRawC.translate_ast clang_ast in
+  check_transfo_is_identity ~test:"Stack variables" (fun t -> stackvar_intro (stackvar_elim t)) raw_ast
 
-  check_id "Stack variables" (fun t -> stackvar_intro (stackvar_elim t)) raw_ast
-  
 let _ = test_stackvar ()
 
-let _ = Run.script_cpp (fun () ->
-
+let _ = Run.script_cpp ~raw_ast:true (fun () ->
   !! Trace.apply stackvar_elim;
-     Trace.apply stackvar_intro;
-)
+  !! Trace.apply stackvar_intro;
+ )

@@ -70,6 +70,13 @@ void test_loop() {
   for (int i = 10; i >= 0; i--) {
       i++;
   }
+  const int x = 3;
+  const int y = 2;
+  for (int x = 2; ; ) {
+    int y = 1;
+    int r = x + y;
+  }
+  const int z = x + y;
 
 }
 

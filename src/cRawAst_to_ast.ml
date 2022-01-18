@@ -50,9 +50,9 @@ let trm_get ?(simplify : bool = false) (t : trm) : trm =
 (* [onscope env t f] save the current environment before entering a new scope,
     the revert back to the saved env after leaving the scope
 *)
-let onscope (env : env ref) (t : trm) (f : trm -> trm ) : trm = 
-    let prev_env = !env in 
-    let res = f t in 
+let onscope (env : env ref) (t : trm) (f : trm -> trm ) : trm =
+    let prev_env = !env in
+    let res = f t in
     env := prev_env;
     res
 
@@ -93,10 +93,17 @@ let stackvar_elim (t : trm) : trm =
     | Trm_seq _ -> onscope env t (trm_map aux)
     | Trm_let_fun (f, retty, targs, tbody) ->
       env := env_extend !env f Var_immutable;
-      List.iter (fun (x, tx) -> let mut = if is_typ_const tx then Var_immutable else Var_mutable in (env := env_extend !env x mut)) targs;
+      List.iter (fun (x, tx) ->
+        let mut = Var_immutable (*if is_typ_const tx then Var_immutable else Var_mutable*) in
+        (* because arguments are always treated as const --> maybe we should replace targs with a version that enforces a const to each type.
+            targs = [ (x, typ_int); (x, typ_const typ_int) ]
+            targs2= [ (x, typ_const@("added") typ_int); (x, typ_const typ_int) ] *)
+        (env := env_extend !env x mut)) targs;
       {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
     | Trm_for (index, _, _, _, _, _) ->
-      onscope env t (fun t -> begin env := env_extend !env index Var_mutable; trm_map aux t end)
+        onscope env t (fun t -> env := env_extend !env index Var_immutable; trm_map aux t)
+    | Trm_for_c _ ->
+        onscope env t (fun t -> trm_map aux t)
     | _ -> trm_map aux t
    in aux t
 
@@ -108,7 +115,7 @@ let stackvar_elim (t : trm) : trm =
     and [<annotation:reference> int* x = &t[i]] becomes [int& x = t[i]], where t has type [const int*] as a simplification of x = *(&t[i])
 *)
 let stackvar_intro (t : trm) : trm =
-  let env = ref env_empty in 
+  let env = ref env_empty in
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_var (_, x) ->
@@ -131,13 +138,13 @@ let stackvar_intro (t : trm) : trm =
         else
           {t with desc = Trm_let (vk, (x, tx), aux tbody)}
     | Trm_seq _ -> onscope env t (trm_map aux)
-    | Trm_let_fun (f, retty, targs, tbody) -> 
+    | Trm_let_fun (f, retty, targs, tbody) ->
       env := env_extend !env f Var_immutable;
       List.iter (fun (x, tx) -> let mut = if is_typ_const tx then Var_immutable else Var_mutable in (env := env_extend !env x mut)) targs;
       {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
     | Trm_for (index, _, _, _, _, _) ->
       onscope env t (fun t -> begin env := env_extend !env index Var_mutable; trm_map aux t end)
-    | Trm_apps (_, [{desc = Trm_var (_, x); _} as t1]) when List.mem Mutable_var_get t.annot -> 
+    | Trm_apps (_, [{desc = Trm_var (_, x); _} as t1]) when List.mem Mutable_var_get t.annot ->
       if is_var_mutable !env x then t1 else fail t.loc "stackvar_intro: x was declared as immutable, but appears inside an annotated get operation"
     | _ -> trm_map aux t
     in aux t
@@ -210,7 +217,7 @@ let is_access (t : trm) : bool =
   | _ -> false
 
 
-let caddress_elim = caddress_elim_aux false 
+let caddress_elim = caddress_elim_aux false
 
 (* [caddress_intro_aux false t ] is the inverse of [caddress_elim]
 
@@ -245,7 +252,7 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
 
 let caddress_intro = caddress_intro_aux false
 
-(* 
+(*
   caddress_intro (caddress_elim t) = t and stackvar_intro (stackvar_elim t) = t
 
   proof:
@@ -259,7 +266,7 @@ let caddress_intro = caddress_intro_aux false
     p+f = get_access(p,i)
 
  *)
-let cfeatures_elim (t : trm) : trm = 
+let cfeatures_elim (t : trm) : trm =
   caddress_elim (stackvar_elim t)
 
 

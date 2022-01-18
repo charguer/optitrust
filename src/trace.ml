@@ -5,6 +5,10 @@ open Ast
 let line_of_last_step = ref (-1)
 
 
+(* [use_raw_ast] should be used if we want to use the new encoding system *)
+let use_raw_ast =
+  ref false
+
 (******************************************************************************)
 (*                             Logging management                             *)
 (******************************************************************************)
@@ -135,8 +139,11 @@ let parse ?(raw_ast : bool = false) (filename : string) : string * trm =
   print_info None "Parsing Done.\n";
   print_info None "Translating AST...\n";
 
-  let t = 
-    timing ~name:"translate_ast" (fun () -> if raw_ast then Clang_to_astRawC.translate_ast ast else Clang_to_ast.translate_ast ast) in
+  let t =
+    timing ~name:"translate_ast" (fun () ->
+      if raw_ast
+        then Clang_to_astRawC.translate_ast ast
+        else Clang_to_ast.translate_ast ast) in
 
   print_info None "Translation done.\n";
   (includes, t)
@@ -239,7 +246,7 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
    [~prefix:"foo"] allows to use a custom prefix for all output files,
    instead of the basename of [f]. *)
 (* LATER for mli: val set_init_source : string -> unit *)
-let init ?(prefix : string = "") ?(raw_ast : bool = false) (filename : string) : unit =
+let init ?(prefix : string = "") (filename : string) : unit =
   reset ();
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
@@ -260,7 +267,7 @@ let init ?(prefix : string = "") ?(raw_ast : bool = false) (filename : string) :
   last_time := !start_time;
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
-  let (includes, cur_ast) = parse ~raw_ast filename in
+  let (includes, cur_ast) = parse ~raw_ast:!use_raw_ast filename in
   let context = { extension; directory; prefix; includes; clog } in
   let trace = { context; cur_ast; history = [cur_ast] } in
   traces := [trace];
@@ -438,7 +445,7 @@ let get_language () =
   | [] -> fail None "cannot detect language -- trace should not be empty"
   | t::_ -> language_of_extension t.context.extension
 
-let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
+let output_prog ?(beautify:bool=true) ?(raw_ast:bool=false) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   let file_prog = prefix ^ ctx.extension in
   let out_prog = open_out file_prog in
   begin try
@@ -446,7 +453,9 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     (*   DEPRECATED
     Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
     output_string out_prog ctx.includes;
-    Ast_to_c.ast_to_doc out_prog ast;
+    if raw_ast
+      then Ast_to_rawC.ast_to_doc out_prog ast
+      else Ast_to_c.ast_to_doc out_prog ast;
     output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->
@@ -457,7 +466,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
   if beautify
     then cleanup_cpp_file_using_clang_format file_prog;
   (* ast and enc *)
-  if ast_and_enc && !Flags.dump_ast_details then begin
+  if not raw_ast && ast_and_enc && !Flags.dump_ast_details then begin
     let file_ast = prefix ^ ".ast" in
     let file_enc = prefix ^ "_enc" ^ ctx.extension in
     let out_ast = open_out file_ast in
@@ -481,9 +490,9 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
 
 (* [output_prog_opt ctx prefix ast_opt] is similar to [output_prog], but it
    generates an empty file in case the [ast_opt] is [None]. *)
-let output_prog_opt  ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast_opt : trm option) : unit =
+let output_prog_opt ?(raw_ast:bool=false) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast_opt : trm option) : unit =
   match ast_opt with
-  | Some ast -> output_prog ~ast_and_enc ctx prefix ast
+  | Some ast -> output_prog ~raw_ast ~ast_and_enc ctx prefix ast
   | None ->
       let file_prog = prefix ^ ctx.extension in
       let out_prog = open_out file_prog in
@@ -630,7 +639,7 @@ let dump_diff_and_exit () : unit =
     let prefix = ctx.directory ^ ctx.prefix in
     (* Common printinf function *)
     let output_ast ?(ast_and_enc:bool=true) filename_prefix ast_opt =
-      output_prog_opt ~ast_and_enc ctx filename_prefix ast_opt;
+      output_prog_opt ~raw_ast:(!use_raw_ast) ~ast_and_enc ctx filename_prefix ast_opt;
       print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
       in
     (* CPP and AST output for BEFORE *)
@@ -794,7 +803,7 @@ let dump ?(prefix : string = "") () : unit =
       let prefix =
         if prefix = "" then ctx.directory ^ ctx.prefix else prefix
       in
-      output_prog ctx (prefix ^ "_out") (trace.cur_ast)
+      output_prog ~raw_ast:!use_raw_ast ctx (prefix ^ "_out") (trace.cur_ast)
     )
     (!traces)
 

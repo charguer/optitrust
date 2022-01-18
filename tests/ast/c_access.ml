@@ -18,7 +18,7 @@ let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
 
 
 let check_id (test_name : string) (f : trm -> trm) (t : trm) : unit =
-  let t1 = f t in 
+  let t1 = f t in
   check test_name t t1
 
 let test_accesses () =
@@ -30,7 +30,8 @@ let test_accesses () =
 
 let _ = test_accesses ()
 
-let _ = Run.script_cpp (fun () ->
+let _ = Run.script_cpp ~use_raw:true (fun () ->
+  (* .cpp --> clang --> clang_to_rawast -[t1]-> stackvar_elim -> [t2] -> *)
   (* Note: address_elim might not work in the presence of stack variables *)
   !! Trace.apply stackvar_elim;
   !! Trace.apply caddress_elim;

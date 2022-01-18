@@ -11,7 +11,7 @@ typedef struct vects { vect head; vects* tail; } vects;
 typedef vect vect2;
 typedef vect2 vect3;
 typedef int int2[2];
-typedef int* intstar;
+typedef int* intstar;Makef
 
 // union u { int single; struct { int i; float f; };};
 
