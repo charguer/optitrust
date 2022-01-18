@@ -29,6 +29,22 @@ typedef int* intstar;
 // } particles [3];
 
 
+// void check_struct (struct s b)
+// {
+//     b.label  = 10;
+//     b.i = 10;
+//     b.f = 10;
+//     // etc.
+// }
+
+template <class X, int i> int f(X);
+
+// union { int i; float f; } u;
+
+namespace example {
+      int i;
+}
+
 // // struct tree_node {
 // //   struct tree_node *left;
 // //   struct tree_node *right;
@@ -39,6 +55,13 @@ void initlist() {
   int2 p = { 1, 2 };
   intstar n = &p[0];
 }
+
+
+// // Function arguments are assumed to be 'const' by default
+int f(int n) {
+  return n;
+}
+
 
 void test_loop() {
   for (int i = 0; i < 10; i++) {
@@ -223,7 +246,7 @@ typedef struct {
 
 void lvalue_encoding() {
   vect* p;
-  // p->x = 2;
+  p->x = 2;
   (*p).x = 3;
 
   vectpair* q;
