@@ -25,7 +25,8 @@ let test_accesses () =
   let clang_ast = Clang.Ast.parse_file "c_access.cpp" in
   let raw_ast = Clang_to_astRawC.translate_ast clang_ast in
 
-  check_id "Addresses" (fun t -> stackvar_intro (caddress_intro (caddress_elim (stackvar_elim t)))) raw_ast
+  check_id "Addresses" (fun t -> caddress_elim t) raw_ast
+  (* check_id "Addresses" (fun t -> stackvar_intro (caddress_intro (caddress_elim (stackvar_elim t)))) raw_ast *)
 
 let _ = test_accesses ()
 
