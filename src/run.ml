@@ -94,7 +94,7 @@ let get_basename (filename : string) =
    - [~inline:["foo.cpp";"bar.h"]] allows to perform substitution of "#include" directives
      with the contents of the corresponding files; the substitutions are performed one after
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp". *)
-let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") (f : unit -> unit) : unit =
+let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(raw_ast : bool = false) (f : unit -> unit) : unit =
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
   (* LATER: see what happens of the directory... *)
   let basename = get_basename filename in
@@ -111,10 +111,9 @@ let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_ex
         if debug_inline_cpp then Printf.printf "Generated %s\n" file;
         file
     in
-
   (* Set the input file, execute the function [f], dump the results. *)
   script (fun () ->
-    Trace.init ~prefix input_file;
+    Trace.init ~prefix ~raw_ast input_file;
     f();
     flush stdout;
     if check_exit_at_end && Flags.get_exit_line() <> None
