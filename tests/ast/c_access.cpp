@@ -11,7 +11,7 @@ typedef struct vects { vect head; vects* tail; } vects;
 typedef vect vect2;
 typedef vect2 vect3;
 typedef int int2[2];
-typedef int* intstar;Makef
+typedef int* intstar;
 
 // union u { int single; struct { int i; float f; };};
 
@@ -159,10 +159,16 @@ int main() {
 
 }
 
-
+/* Not supported in OptiTrust
 int g(int x) {
   x = x + 1;
   return x;
+}
+*/
+
+int h(int x) {
+  int y = x + 1;
+  return y;
 }
 
 int immutable_stack_ptr() {

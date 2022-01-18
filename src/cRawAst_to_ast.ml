@@ -176,7 +176,9 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [access t1; aux t2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) ->
       aux t1
-    | _ -> fail t.loc (Printf.sprintf "caddres_elim_aux: invalid lvalue, %s" (Ast_to_text.ast_to_string t))
+    | Trm_var (_, x) -> fail t.loc (Printf.sprintf "caddress_elim: const variable cannot appear as lvalue (mutation of function arguments is not supported in OptiTrust), %s" x)
+    | _ -> fail t.loc (* TODO: why is t.loc None? or if is some, why is it not printing? *)
+       (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (Ast_to_rawC.ast_to_string t) (Ast_to_text.ast_to_string t))
     (* | _  -> t *)
     end
     else begin

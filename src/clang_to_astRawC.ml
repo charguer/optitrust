@@ -38,7 +38,7 @@ type scope_kind =
    removed when we leave a scope; T: would be cleaner to have ctx_var
    as argument to the recursive function. *)
 
-let ctx_var : typ varmap ref = ref String_map.empty 
+let ctx_var : typ varmap ref = ref String_map.empty
 
 let ctx_tconstr : typconstrid varmap ref = ref String_map.empty
 
@@ -82,7 +82,7 @@ let get_typid_from_trm (tv : typvar) : int  =
    | Some id -> id
    | None -> -1
    end
-   
+
 (* names for overloaded operators (later matched for printing) *)
  let string_of_overloaded_op ?(loc : location = None)
     (op : clang_ext_overloadedoperatorkind) : string =
@@ -573,7 +573,7 @@ and translate_expr ?(is_statement : bool = false)
     end
   | DeclRef {nested_name_specifier = _; name = n; _} -> (* Occurrence of a variable *)
     begin match n with
-      | IdentifierName s -> 
+      | IdentifierName s ->
         (*
           particular case for variables:
           we look at the type given in their declaration to take into account
@@ -594,25 +594,23 @@ and translate_expr ?(is_statement : bool = false)
       | _ -> fail loc "translate_expr: only identifiers allowed for variables"
     end
   | Member {base = eo; arrow = has_arrow; field = f} ->
-    begin match eo with 
+    begin match eo with
     | None -> fail loc "translate_expr: field accesses should have a base"
-    | Some e -> 
-      begin match f with 
-      | FieldName id -> 
-        let f = translate_ident id in 
-        let base = translate_expr e in 
-        if has_arrow then 
+    | Some e ->
+      begin match f with
+      | FieldName id ->
+        let f = translate_ident id in
+        let base = translate_expr e in
+        if has_arrow then
           trm_apps (trm_unop ~annot:[Display_arrow] (Unop_struct_get f) ) [trm_get base]
-        else if is_star_operation base then 
+        else
           trm_apps (trm_unop (Unop_struct_get f) ) [base]
-        else 
-          trm_apps (trm_unop (Unop_struct_access f)) [base]
       | _ -> fail loc "translate_expr: fields should be accessed by names"
       end
-    end 
-  | ArraySubscript {base = e; index = i} ->   
-    let ti = translate_expr i in 
-    let te = translate_expr e in 
+    end
+  | ArraySubscript {base = e; index = i} ->
+    let ti = translate_expr i in
+    let te = translate_expr e in
     (*
        override typ to account for typedefs:
        if e's type is x*, make sure typ is x (it is not always the case if x is

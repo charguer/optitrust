@@ -466,21 +466,26 @@ let output_prog ?(beautify:bool=true) ?(raw_ast:bool=false) ?(ast_and_enc:bool=t
   if beautify
     then cleanup_cpp_file_using_clang_format file_prog;
   (* ast and enc *)
-  if not raw_ast && ast_and_enc && !Flags.dump_ast_details then begin
+  if ast_and_enc && !Flags.dump_ast_details then begin
     let file_ast = prefix ^ ".ast" in
     let file_enc = prefix ^ "_enc" ^ ctx.extension in
     let out_ast = open_out file_ast in
     let out_enc = open_out file_enc in
     begin try
-    (* print the raw ast *)
-      Ast_to_text.print_ast out_ast ast;
-      output_string out_ast "\n";
-      output_string out_enc ctx.includes;
-      Ast_to_c.ast_to_undecoded_doc out_enc ast;
-      output_string out_enc "\n";
-      close_out out_ast;
-      close_out out_enc;
-      cleanup_cpp_file_using_clang_format file_enc;
+      (* print the raw ast *)
+      begin
+        Ast_to_text.print_ast out_ast ast;
+        output_string out_ast "\n";
+        close_out out_ast;
+      end;
+      (* print the non-decoded ast *)
+      if not raw_ast then begin
+        output_string out_enc ctx.includes;
+        Ast_to_c.ast_to_undecoded_doc out_enc ast;
+        output_string out_enc "\n";
+        close_out out_enc;
+        cleanup_cpp_file_using_clang_format file_enc;
+      end
     with | Failure s ->
       close_out out_ast;
       close_out out_enc;
