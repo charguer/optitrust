@@ -93,7 +93,7 @@ let stackvar_elim (t : trm) : trm =
     | Trm_seq _ -> onscope env t (trm_map aux)
     | Trm_let_fun (f, retty, targs, tbody) ->
       env := env_extend !env f Var_immutable;
-      List.iter (fun (x, tx) ->
+      List.iter (fun (x, _tx) ->
         let mut = Var_immutable (*if is_typ_const tx then Var_immutable else Var_mutable*) in
         (* because arguments are always treated as const --> maybe we should replace targs with a version that enforces a const to each type.
             targs = [ (x, typ_int); (x, typ_const typ_int) ]
@@ -140,10 +140,12 @@ let stackvar_intro (t : trm) : trm =
     | Trm_seq _ -> onscope env t (trm_map aux)
     | Trm_let_fun (f, retty, targs, tbody) ->
       env := env_extend !env f Var_immutable;
-      List.iter (fun (x, tx) -> let mut = if is_typ_const tx then Var_immutable else Var_mutable in (env := env_extend !env x mut)) targs;
+      List.iter (fun (x, _tx) -> let mut = Var_immutable  in (env := env_extend !env x mut)) targs;
       {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
     | Trm_for (index, _, _, _, _, _) ->
-      onscope env t (fun t -> begin env := env_extend !env index Var_mutable; trm_map aux t end)
+      onscope env t (fun t -> begin env := env_extend !env index Var_immutable; trm_map aux t end)
+    | Trm_for_c _ -> 
+      onscope env t (fun t -> trm_map aux t)
     | Trm_apps (_, [{desc = Trm_var (_, x); _} as t1]) when List.mem Mutable_var_get t.annot ->
       if is_var_mutable !env x then t1 else fail t.loc "stackvar_intro: x was declared as immutable, but appears inside an annotated get operation"
     | _ -> trm_map aux t

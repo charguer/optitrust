@@ -13,42 +13,7 @@ typedef vect2 vect3;
 typedef int int2[2];
 typedef int* intstar;
 
-// union u { int single; struct { int i; float f; };};
 
-// struct s { int label; union { int i; float f; };};
-
-// struct { int i; float f; } s;
-
-// struct  {
-//   float weight;
-//   int pos_x;
-//   int pos_y;
-//   int speed_x;
-//   int speed_y;
-//   vect speed;
-// } particles [3];
-
-
-// void check_struct (struct s b)
-// {
-//     b.label  = 10;
-//     b.i = 10;
-//     b.f = 10;
-//     // etc.
-// }
-
-template <class X, int i> int f(X);
-
-// union { int i; float f; } u;
-
-namespace example {
-      int i;
-}
-
-// // struct tree_node {
-// //   struct tree_node *left;
-// //   struct tree_node *right;
-// // };
 void initlist() {
   vect v1 = { 1, 2 };
   vect3 v2 = { 1, 2 };

@@ -1510,11 +1510,6 @@ let is_reference (ty : typ) : bool =
 (* check if the type is const or not *)
 let is_typ_const (t : typ) : bool =
   begin match t.typ_desc with
-  | Typ_ptr {inner_typ = tx;_} ->
-    begin match tx.typ_desc with
-    | Typ_const _ -> true
-    | _ -> false
-    end
   | Typ_array (tx, _) ->
     begin match tx.typ_desc with
     | Typ_const _ -> true
