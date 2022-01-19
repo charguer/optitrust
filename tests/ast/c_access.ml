@@ -4,32 +4,18 @@ open Ast
 open Ast_to_rawC
 open CRawAst_to_ast
 
-(* TODO: use the shared functions *)
-let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
-  (* LATER: see if we can have a ast comparison function *)
-  let success = Ast_to_text.ast_to_string t1 = Ast_to_text.ast_to_string t2 in
-  Printf.printf "Checking %s: %s\n" test_name (if success then "succcess" else Printf.sprintf "failure (see %s_ast_{1,2}.{ast,cpp})" test_name);
-  if not success then begin
-      Ast_to_rawC.ast_to_file (test_name ^ "_ast_1.cpp") t1;
-      Ast_to_rawC.ast_to_file (test_name ^ "_ast_2.cpp") t2;
-      Ast_to_text.ast_to_file (test_name ^ "_ast_1.ast") t1;
-      Ast_to_text.ast_to_file (test_name ^ "_ast_2.ast") t2;
-  end
 
-let check_id (test_name : string) (f : trm -> trm) (t : trm) : unit =
-  let t1 = f t in
-  check test_name t t1
 
+(* Note: .cpp --> clang --> clang_to_rawast -[t1]-> stackvar_elim -> [t2] -> *)
 
 let test_accesses () =
   let clang_ast = Clang.Ast.parse_file "c_access.cpp" in
   let raw_ast = Clang_to_astRawC.translate_ast clang_ast in
-  check_id "Addresses" (fun t -> caddress_elim (stackvar_elim t)) raw_ast
-  (* check_id "Addresses" (fun t -> stackvar_intro (caddress_intro (caddress_elim (stackvar_elim t)))) raw_ast *)
+  let stackvar_ast = stackvar_elim raw_ast in 
+  Ast_check.check_transfo_is_identity ~test:"access" (fun t -> caddress_intro (caddress_elim t)) stackvar_ast
 
-(* let _ = test_accesses () *)
+let _ = test_accesses ()
 
-(* Note: .cpp --> clang --> clang_to_rawast -[t1]-> stackvar_elim -> [t2] -> *)
 
 let _ = Flags.dump_ast_details := true
 
@@ -37,9 +23,7 @@ let _ = Run.script_cpp ~raw_ast:true (fun () ->
   (* Note: address_elim might not work in the presence of stack variables *)
   !! Trace.apply stackvar_elim;
   !! Trace.apply caddress_elim;
-  (*
-  !! Trace.apply caddress_intro; *)
-  (* !! Trace.apply (check_id "roundtrip_address" (fun t -> caddress_intro (caddress_elim t))); *)
+     Trace.apply caddress_intro;
 )
 
 (* ARTHUR: in case of crash, it would be nice to generate the _before file nevertheless *)

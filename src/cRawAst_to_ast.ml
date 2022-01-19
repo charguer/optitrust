@@ -38,7 +38,7 @@ let trm_address_of ?(simplify : bool = false) (t : trm) : trm =
    if [simplify] is true and [t] is of the form [&u] then it will return just [u] *)
 let trm_get ?(simplify : bool = false) (t : trm) : trm =
   let aux t1 = trm_apps (trm_unop Unop_get) [t1] in
-  if not simplify then  aux t
+  if not simplify then aux t 
     else match t.desc with
     | Trm_apps (f, [t1]) ->
       begin match trm_prim_inv f with
@@ -185,10 +185,11 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
     end
     else begin
          match t.desc with
-         | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));_}, [t1; t2]) ->
-            trm_set (access t1) (aux t2)
+         | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));_} as op, [t1; t2]) ->
+            mk (Trm_apps (op, [access t1; aux t2]))
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address));_} as op, [t1]) ->
-            mk (Trm_apps (op, [aux t1]))
+            mk (Trm_apps (op, [access t1]))
+            (* access t1 *)
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
             let u1 = aux t1 in
             begin match u1.desc with
@@ -198,12 +199,12 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
               mk (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u11]))]))
             | _ -> mk (Trm_apps (op, [u1]))
             end
-         | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get))); _}, [t1; t2]) ->
+         | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get))); _} as op, [t1; t2]) ->
             let u1 = aux t1 in
             let u2 = aux t2 in
             begin match u1.desc with
-            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [u11]) ->
-              mk (Trm_apps (trm_unop Unop_get, [mk (Trm_apps (trm_binop Binop_array_access, [u11; u2]))]))
+            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11]) ->
+              mk (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u11; u2]))]))
             | _ -> mk (Trm_apps (trm_binop (Binop_array_get), [u1; u2]))
             end
          | _ -> trm_map aux t
@@ -240,8 +241,7 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [access t1]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _} as op, [t1; t2]) ->
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)))}, [access t1; aux t2]))
-    | _ ->
-      trm_get ~simplify:true (aux t)
+    | _ -> trm_get ~simplify:true (aux t) 
     end
     else begin
     match t.desc with
@@ -251,6 +251,9 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
             mk (Trm_apps (op, [access t1]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) when is_access t1 ->
       access t1
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} , [{desc = Trm_var _; _}]) ->
+      Printf.printf "I was here \n";
+      {t with annot = [Mutable_var_get]}
     | _ -> trm_map aux t
     end
 
