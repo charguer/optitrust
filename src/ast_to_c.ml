@@ -202,7 +202,7 @@ and attr_to_doc (a : attribute) : document =
   match a with
   | Identifier x -> string x
   | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
-  | GeneratedStar -> blank 1
+  | GeneratedTyp -> blank 1
 
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in
@@ -442,7 +442,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
       else dtx ^^ initialisation
   | Var_mutable ->
     let dtx = begin match (snd tv).typ_desc with
-              | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx} when is_generated_star (snd tv) ->
+              | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx} when is_generated_typ (snd tv) ->
                   begin match tx.typ_desc with
                   | Typ_ptr {ptr_kind = Ptr_kind_ref; _} ->
                     if not !decode then (typ_to_doc tx)
@@ -555,7 +555,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
       begin match vk with
       | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
       | _ -> begin match ty.typ_desc with
-            | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} when is_generated_star ty -> typ_to_doc ty1 ^^ blank 1 ^^ dnames ^^ semi
+            | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} when is_generated_typ ty -> typ_to_doc ty1 ^^ blank 1 ^^ dnames ^^ semi
             | _ -> typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
             end
        end

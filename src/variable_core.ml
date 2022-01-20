@@ -94,6 +94,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
       if accept_functions then
         let new_lback = Mlist.map (Internal.subst_var f dl) lback in
         let new_tl = Mlist.merge lfront new_lback in
+        let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in 
         trm_seq ~annot:t.annot ~marks:t.marks new_tl
       else fail dl.loc "unfold_aux: to replace function calls with their declaration you need to set accept_functions arg to true"
     | _ -> fail t.loc "unfold_aux: expected a target to a variable declaration"

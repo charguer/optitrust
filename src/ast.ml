@@ -293,7 +293,7 @@ and special_operator =
 and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   | Identifier of var
   | Aligned of trm
-  | GeneratedStar
+  | GeneratedTyp
 
 
 and record_type =
@@ -729,7 +729,7 @@ let typdef_prod ?(recursive:bool=false) (field_list : (label * typ) list) : typd
 
 (* [typ_ptr_generated ty] krejt a generated start used for encodings *)
 let typ_ptr_generated (ty : typ) : typ = 
-  typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty
+  typ_ptr ~typ_attributes:[GeneratedTyp] Ptr_kind_mut ty
 
 let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (s : code_kind) : typ =
@@ -1214,8 +1214,8 @@ let same_node_type (t : trm) (t1 : trm) : bool =
 
 
 (* check ia a typ is a type used only for optitrust encoding *)
-let is_generated_star (ty : typ) : bool =
-  List.mem GeneratedStar ty.typ_attributes
+let is_generated_typ (ty : typ) : bool =
+  List.mem GeneratedTyp ty.typ_attributes
 
 (* check if two arrays are of the same size *)
 let same_sizes (sz1 : size) (sz2 : size) : bool =
@@ -1245,8 +1245,8 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
   | Typ_char, Typ_char -> true
   | Typ_string, Typ_string -> true
   | Typ_ptr {ptr_kind = pk1; inner_typ = typ_a1}, Typ_ptr {ptr_kind = pk2; inner_typ = typ_a2} ->
-   if match_generated_star then (pk1 = pk2) && (is_generated_star typ_1 && is_generated_star typ_2) && (aux typ_a1 typ_a2)
-    else (not (is_generated_star typ_1 || is_generated_star typ_2)) && (pk1 = pk2) && (aux typ_a1 typ_a2)
+   if match_generated_star then (pk1 = pk2) && (is_generated_typ typ_1 && is_generated_typ typ_2) && (aux typ_a1 typ_a2)
+    else (not (is_generated_typ typ_1 || is_generated_typ typ_2)) && (pk1 = pk2) && (aux typ_a1 typ_a2)
   | Typ_array (typa1, size1), Typ_array (typa2, size2) ->
       (same_types typa1 typa2) && (same_sizes size1 size2)
   | _, _ -> false
@@ -1496,7 +1496,7 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
 (* bypass the pointer type used only for optitrust encoding *)
 let get_inner_ptr_type (ty : typ) : typ =
   match ty.typ_desc with
-  | Typ_ptr {inner_typ = ty1;_} when is_generated_star ty -> ty1
+  | Typ_ptr {inner_typ = ty1;_} when is_generated_typ ty -> ty1
   | _ -> ty
 
 
@@ -1939,7 +1939,7 @@ let tmap_filter (keys : vars) (map : tmap) : tmap =
 let trm_let_mut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
-  let var_type_ptr = typ_ptr Ptr_kind_mut var_type ~typ_attributes:[GeneratedStar] in
+  let var_type_ptr = typ_ptr_generated var_type in 
   trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
 
 (* [trm_let_IMmut ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating immutable variable declarations *)
@@ -1954,7 +1954,7 @@ let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type = typ_array var_type sz in
-  let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr Ptr_kind_mut var_type ~typ_attributes:[GeneratedStar] in
+  let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr_generated var_type in 
   let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
   trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init
 

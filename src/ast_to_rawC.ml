@@ -190,7 +190,7 @@ and attr_to_doc (a : attribute) : document =
   match a with
   | Identifier x -> string x
   | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
-  | GeneratedStar -> blank 1
+  | GeneratedTyp -> blank 1
 
 and decorate_trm ?(semicolon : bool = false) ?(parentheses : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in
@@ -393,31 +393,6 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
   end in
     dtx ^^ blank 1 ^^ dinit
 
-(* and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
-  let dsemi = if semicolon then semi else empty in
-  match varkind with
-  | Var_immutable ->
-    let dtx = typed_var_to_doc tv in
-    let initialisation = blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm init ^^ dsemi in
-      dtx ^^ initialisation
-  | Var_mutable ->
-    let dtx = begin match (snd tv).typ_desc with
-              | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx} when is_generated_star (snd tv) ->
-                  begin match tx.typ_desc with
-                  | Typ_ptr {ptr_kind = Ptr_kind_ref; _} -> typed_var_to_doc (fst tv,tx)
-                  | _-> typed_var_to_doc (fst tv, tx)
-                  end
-              | _ -> typed_var_to_doc tv
-              end in
-    let d_init, is_initialized  =
-         begin match init.desc with
-           | Trm_apps (_, [value]) -> value, true
-           | Trm_val (Val_lit Lit_uninitialized) -> trm_var "", false
-           | _-> init, true
-           end in
-    let initialisation = blank 1 ^^ (if is_initialized then equals else empty) ^^ blank 1 ^^ decorate_trm d_init ^^ dsemi in
-    dtx ^^ initialisation *)
-
 and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let f = Tools.string_subst "overloaded" "operator" f in
@@ -507,7 +482,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
       begin match vk with
       | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
       | _ -> begin match ty.typ_desc with
-            | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} when is_generated_star ty -> typ_to_doc ty1 ^^ blank 1 ^^ dnames ^^ semi
+            | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} when is_generated_typ ty -> typ_to_doc ty1 ^^ blank 1 ^^ dnames ^^ semi
             | _ -> typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
             end
        end

@@ -21,9 +21,3 @@ let _ = Run.script_cpp (fun _ ->
   !! Function_basic.beta [cFun ""];
 
 )
-
-(* TODO: see comment in Variable_basic:
-    unfold should not delete the original definition
-    only inline should. *)
-
-

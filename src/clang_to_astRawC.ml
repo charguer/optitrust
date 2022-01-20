@@ -702,6 +702,7 @@ and translate_decl_list (dl : decl list) : trms =
         let ft = translate_qual_type ~loc q in
         let al = List.map (translate_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
+        (* LATER: Fix this *)
         trm_let ~loc  Var_mutable (fn,typ_ptr_generated ty) (trm_prim ~loc (Prim_new ty))
       | _ ->
       translate_decl d

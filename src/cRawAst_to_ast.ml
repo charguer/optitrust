@@ -94,7 +94,7 @@ let stackvar_elim (t : trm) : trm =
     | Trm_let_fun (f, retty, targs, tbody) ->
       env := env_extend !env f Var_immutable;
       List.iter (fun (x, _tx) ->
-        let mut = Var_immutable (*if is_typ_const tx then Var_immutable else Var_mutable*) in
+        let mut = Var_immutable in
         (* because arguments are always treated as const --> maybe we should replace targs with a version that enforces a const to each type.
             targs = [ (x, typ_int); (x, typ_const typ_int) ]
             targs2= [ (x, typ_const@("added") typ_int); (x, typ_const typ_int) ] *)
@@ -179,9 +179,7 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op, [t1]) ->
       if List.mem Mutable_var_get t.annot then aux t1 else mk (Trm_apps (op, [aux t1]))
     | Trm_var (_, x) -> fail t.loc (Printf.sprintf "caddress_elim: const variable cannot appear as lvalue (mutation of function arguments is not supported in OptiTrust), %s" x)
-    | _ -> fail t.loc (* TODO: why is t.loc None? or if is some, why is it not printing? *)
-       (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (Ast_to_rawC.ast_to_string t) (Ast_to_text.ast_to_string t))
-    (* | _  -> t *)
+    | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (Ast_to_rawC.ast_to_string t) (Ast_to_text.ast_to_string t))
     end
     else begin
          match t.desc with
@@ -253,27 +251,13 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
 
 let caddress_intro = caddress_intro_aux false
 
-(*
-  caddress_intro (caddress_elim t) = t and stackvar_intro (stackvar_elim t) = t
-
-  proof:
-    forall b, caddress_intro b (caddress_elim b t) = t
-
-  assume:
-    &*t = t
-    *&t = t
-  writing:
-    p+i = array_access(p,i)
-    p+f = get_access(p,i)
-
- *)
 let cfeatures_elim (t : trm) : trm =
   caddress_elim (stackvar_elim t)
 
 
 let cfeatures_intro (t : trm) : trm =
-  caddress_intro (stackvar_intro t)
-
+  (stackvar_intro (caddress_intro t))
+  
 (* Note: in the unit tests, we could check that caddress_intro (stackvar_intro t) produces the same result  *)
 
 (* unit test:
