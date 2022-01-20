@@ -38,7 +38,7 @@ let trm_address_of ?(simplify : bool = false) (t : trm) : trm =
    if [simplify] is true and [t] is of the form [&u] then it will return just [u] *)
 let trm_get ?(simplify : bool = false) (t : trm) : trm =
   let aux t1 = trm_apps (trm_unop Unop_get) [t1] in
-  if not simplify then aux t 
+  if not simplify then aux t
     else match t.desc with
     | Trm_apps (f, [t1]) ->
       begin match trm_prim_inv f with
@@ -48,12 +48,11 @@ let trm_get ?(simplify : bool = false) (t : trm) : trm =
     | _ -> aux t
 
 (* [onscope env t f] save the current environment before entering a new scope,
-    the revert back to the saved env after leaving the scope
-*)
-let onscope (env : env ref) (t : trm) (f : trm -> trm ) : trm =
-    let prev_env = !env in
+    the revert back to the saved env after leaving the scope.*)
+let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
+    let saved_env = !env in
     let res = f t in
-    env := prev_env;
+    env := saved_env;
     res
 
 (* [stackvar_elim t] replaces
@@ -64,28 +63,32 @@ let onscope (env : env ref) (t : trm) (f : trm -> trm ) : trm =
    For references, [int& b = a] becomes [<annotation:reference> int* b = a] as a simplification of [b = &*a]
    and [int& x = t[i]] becomes [<annotation:reference> int* x = &(t[i])] if t has type [const int*].
    Here, the "reference" annotation is added to allow decoding.
-   LATER: Support references on constants
-*)
+   LATER: Support references on constants. *)
 let stackvar_elim (t : trm) : trm =
-  let env = ref env_empty in
+  let env = ref env_empty in (* TODO: use a function [create_env () = ref env_empty], also further *)
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_var (_, x) ->
-      if is_var_mutable !env x then trm_annot_add Mutable_var_get (trm_get t)
-      else {t with desc = Trm_var (Var_immutable, x)}
+      if is_var_mutable !env x
+        then trm_annot_add Mutable_var_get (trm_get t)
+        else { t with desc = Trm_var (Var_immutable, x) }
     | Trm_let (xm, (x, ty), tbody) ->
-      env := env_extend !env x xm;
-      begin match ty.typ_desc with
+      env := env_extend !env x xm; (* TODO: to improve abstraction, use a function [addvar env x mut], also further *)
+      begin match ty.typ_desc with (* TODO: to improve readability, use a helper function [typ_ref_inv ty] that returns Some t1 or None *)
       | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = ty1} ->
         begin match xm with
         | Var_immutable -> fail t.loc "stackvar_elim: unsupported references on const variables"
         | _ ->
-          {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of ~simplify:true (aux tbody)); annot = Reference :: t.annot}
+          {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of ~simplify:true (aux tbody));
+                  annot = Reference :: t.annot}
+          (* TODO: to be symmetric with what you do in stackvar_intro, you could write above and further
+              trm_annot_add Reference { t with desc = ...} *)
         end
       | _ ->
         begin match xm with
         | Var_mutable ->
-          {t with desc = Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) ); annot = Stackvar :: t.annot}
+          {t with desc = Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) );
+                  annot = Stackvar :: t.annot}
         | Var_immutable ->
           trm_map aux t
         end
@@ -93,6 +96,8 @@ let stackvar_elim (t : trm) : trm =
     | Trm_seq _ -> onscope env t (trm_map aux)
     | Trm_let_fun (f, retty, targs, tbody) ->
       env := env_extend !env f Var_immutable;
+      (* TODO: here the code is missing onscope for processing [aux tbody];
+         only [f] should be added to the current environment. *)
       List.iter (fun (x, _tx) ->
         let mut = Var_immutable in
         (* because arguments are always treated as const --> maybe we should replace targs with a version that enforces a const to each type.
@@ -119,34 +124,39 @@ let stackvar_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_var (_, x) ->
-      if is_var_mutable !env x then trm_address_of t else t
+      if is_var_mutable !env x
+        then trm_address_of t
+        else t
     | Trm_let (vk, (x, tx), tbody) ->
       env := env_extend !env x vk;
-      if List.mem Stackvar t.annot
+      if List.mem Stackvar t.annot (* TODO: introduce [trm_annot_has annot t], and use it whenever possible, to improve readability and abstraction. Should be in AST, next to [trm_annot_add] *)
         then
           begin match tx.typ_desc , tbody.desc with
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_new _));_}, [tbody1])  ->
+              (* TODO: there is a [trm_annot_remove] function which I introduced recently, specialized version of the filter *)
               trm_annot_filter (function | Stackvar -> false | _ -> true) {t with desc = Trm_let (vk, (x, tx1), aux tbody1)}
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
           end
-        else if List.mem Reference t.annot then
-          begin match tx.typ_desc with
-          | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1} ->
-            trm_annot_filter (function | Reference -> false | _ -> true) { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get ~simplify:true (aux tbody))}
-          | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
-          end
-        else
-          {t with desc = Trm_let (vk, (x, tx), aux tbody)}
-    | Trm_seq _ -> onscope env t (trm_map aux)
+      else if List.mem Reference t.annot then
+        begin match tx.typ_desc with
+        | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1} ->
+          trm_annot_filter (function | Reference -> false | _ -> true) { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get ~simplify:true (aux tbody))}
+        | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
+        end
+      else
+        {t with desc = Trm_let (vk, (x, tx), aux tbody)}
+    | Trm_seq _ ->
+      onscope env t (trm_map aux)
     | Trm_let_fun (f, retty, targs, tbody) ->
       env := env_extend !env f Var_immutable;
       List.iter (fun (x, _tx) -> let mut = Var_immutable  in (env := env_extend !env x mut)) targs;
       {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
     | Trm_for (index, _, _, _, _, _) ->
       onscope env t (fun t -> begin env := env_extend !env index Var_immutable; trm_map aux t end)
-    | Trm_for_c _ -> 
+    | Trm_for_c _ ->
       onscope env t (fun t -> trm_map aux t)
-    | Trm_apps (_, [{desc = Trm_var (_, x); _} as t1]) when List.mem Mutable_var_get t.annot ->
+    | Trm_apps (_, [{desc = Trm_var (_, x); _} as t1]) when List.mem Mutable_var_get t.annot -> (* TODO: trm_annot_has *)
+      (* TODO: you should check that the function is get, and raise an error otherwise, or something like this *)
       if is_var_mutable !env x then t1 else fail t.loc "stackvar_intro: x was declared as immutable, but appears inside an annotated get operation"
     | _ -> trm_map aux t
     in aux t
@@ -172,17 +182,21 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
   let mk ?(annot = []) td = {t with desc = td; annot = annot} in
   if lvalue then begin
     match t.desc with
+    (* TODO: would be nice to document in one line of readable text what each case corresponds to.
+       For example, the first case corresponds to [t.f] translated to [access(aux t, f)] *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t2]) ->
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [access t2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_} as op, [t1; t2]) ->
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [access t1; aux t2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op, [t1]) ->
-      if List.mem Mutable_var_get t.annot then aux t1 else mk (Trm_apps (op, [aux t1]))
+      if List.mem Mutable_var_get t.annot
+        then aux t1
+        else mk (Trm_apps (op, [aux t1]))
     | Trm_var (_, x) -> fail t.loc (Printf.sprintf "caddress_elim: const variable cannot appear as lvalue (mutation of function arguments is not supported in OptiTrust), %s" x)
     | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (Ast_to_rawC.ast_to_string t) (Ast_to_text.ast_to_string t))
     end
     else begin
-         match t.desc with
+         match t.desc with (* TODO: a few comments here would be nice too *)
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));_} as op, [t1; t2]) ->
             mk (Trm_apps (op, [access t1; aux t2]))
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
@@ -201,10 +215,11 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
             | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11]) ->
               mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u11; u2]))]))
             | _ -> mk (Trm_apps (op, [u1;u2]))
-            (* | _ -> mk (Trm_apps (trm_binop (Binop_array_get), [u1; u2])) *)
             end
          | _ -> trm_map aux t
          end
+
+let caddress_elim = caddress_elim_aux false
 
 
 (* [is_access t] check if trm t is a struct access or an array access *)
@@ -217,10 +232,7 @@ let is_access (t : trm) : bool =
     end
   | _ -> false
 
-
-let caddress_elim = caddress_elim_aux false
-
-(* [caddress_intro_aux false t ] is the inverse of [caddress_elim]
+(* [caddress_intro_aux false t] is the inverse of [caddress_elim]
     [get(t1)  becomes ][* t1]
     [set(t1, t2)] becomes as [* t1 = t2]
     [Trm_apps (Prim_struct_access "f", [t])] becomes [t.f] as lvalue
@@ -232,7 +244,7 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
   let access t = caddress_intro_aux true t in
   let mk td = {t with desc = td} in
   if lvalue then begin
-    match t.desc with
+    match t.desc with (* TODO: a few comments *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _} as op, [t1]) ->
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [access t1]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _} as op, [t1; t2]) ->
@@ -254,29 +266,5 @@ let caddress_intro = caddress_intro_aux false
 let cfeatures_elim (t : trm) : trm =
   caddress_elim (stackvar_elim t)
 
-
 let cfeatures_intro (t : trm) : trm =
-  (stackvar_intro (caddress_intro t))
-  
-(* Note: in the unit tests, we could check that caddress_intro (stackvar_intro t) produces the same result  *)
-
-(* unit test:
-  int main () {
-    // invalid code
-    // const int x = 4
-    // int& y = x;
-
-    // valid code:
-    int a = 3;
-    int const &b = a;
-    a = 4;
-    printf("%d %d\n", a, b); // prints 4 4
-
-   return 0;
-  }
-
- *)
-
-(*
-https://en.cppreference.com/w/cpp/language/reference
-*)
+  stackvar_intro (caddress_intro t)
