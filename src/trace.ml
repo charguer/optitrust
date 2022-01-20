@@ -142,7 +142,7 @@ let parse ?(raw_ast : bool = false) (filename : string) : string * trm =
   let t =
     timing ~name:"translate_ast" (fun () ->
       if raw_ast
-        then Clang_to_astRawC.translate_ast ast
+        then Clang_to_astRawC.tr_ast ast
         else Clang_to_ast.translate_ast ast) in
 
   print_info None "Translation done.\n";
