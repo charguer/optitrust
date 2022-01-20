@@ -731,6 +731,20 @@ let typdef_prod ?(recursive:bool=false) (field_list : (label * typ) list) : typd
 let typ_ptr_generated (ty : typ) : typ =
   typ_ptr ~typ_attributes:[GeneratedTyp] Ptr_kind_mut ty
 
+(* [typ_ref_inv ty] get the inner type of a reference *)
+let typ_ref_inv (ty : typ) : typ option = 
+  match ty.typ_desc with 
+  | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = ty1} -> Some ty1
+  | _ -> None
+
+(* [typ_ptr_inv ty] get the inner type of a pointer *)
+let typ_ptr_inv (ty : typ) : typ option = 
+  match ty.typ_desc with 
+  | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} -> Some ty1
+  | _ -> None
+
+
+(* [typ_str ~annot ~typ_attributes s] *)
 let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (s : code_kind) : typ =
   {typ_annot = annot; typ_desc = Typ_arbitrary s ; typ_attributes}
@@ -756,6 +770,9 @@ let fail (loc : location) (err : string) : 'a =
 
 let trm_annot_add (a:trm_annot) (t:trm) : trm =
   { t with annot =  a :: t.annot }
+
+let trm_annot_has (a : trm_annot) (t : trm) : bool = 
+  List.mem a t.annot
 
 let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
   { t with annot = List.filter pred t.annot }

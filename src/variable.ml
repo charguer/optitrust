@@ -16,9 +16,7 @@ let map f = function
 | ByList kvs -> ByList (List.map (fun (k,v) -> (k, f v)) kvs)
 
 
-(* [fold ~deref ~at ~nonconst tg] expects [tg] to point to a variable declaration
-    [deref] - denotes a flag whether the declaration initialization contains a
-      variable reference or not.
+(* [fold ~at ~nonconst tg] expects [tg] to point to a variable declaration
     [at] - denotes a list of targets where the fold_lefting is done. If empty the
       fold_lefting operation is performed on all the ast nodes in the same level as the
       declaration or deeper, by default [at] = [].
@@ -28,7 +26,7 @@ let map f = function
         also for mutable variables.
     This transformation
 *)
-let fold ?(deref : bool = false) ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.target) : unit =
+let fold ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
@@ -37,18 +35,17 @@ let fold ?(deref : bool = false) ?(at : Target.target = []) ?(nonconst : bool = 
       begin match ty.typ_desc with
       (* If the declared variable has a refernce type checking its mutability is not needed*)
       | Typ_ptr {ptr_kind = Ptr_kind_ref;_} ->
-        Variable_basic.fold ~deref ~at (Target.target_of_path p)
+        Variable_basic.fold ~at (Target.target_of_path p)
       (* In other cases we need to check the mutability of the variable *)
       | _ -> begin match vk with
-            | Var_immutable -> Variable_basic.fold ~deref ~at (Target.target_of_path p)
+            | Var_immutable -> Variable_basic.fold ~at (Target.target_of_path p)
             | _ -> if nonconst = true
-                then Variable_basic.fold ~deref ~at (Target.target_of_path p)
+                then Variable_basic.fold ~at (Target.target_of_path p)
                 else
                   fail tg_trm.loc "fold: if you want to use fold_lefting for mutable variables you should set
                             ~nonconst to true when calling this transformation"
             end
       end
-
     | _ -> fail tg_trm.loc "fold: expected a variable declaration"
 ) tg
 

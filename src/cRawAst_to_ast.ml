@@ -11,7 +11,7 @@ let env_empty =
 let get_varkind (env : env) (x : var) : varkind =
   match String_map.find_opt x env with
   | Some m -> m
-  | _ -> fail None (Printf.sprintf "get_varkind: unbound variable %s\n" x)
+  | _ -> Var_immutable (* For functions that come from an external library are set to immutable by default *)
 
 (* [is_var_mutable env x] check if variable [x] is mutable or not *)
 let is_var_mutable (env : env) (x : var) : bool =
@@ -20,6 +20,10 @@ let is_var_mutable (env : env) (x : var) : bool =
 (* [env_extend env e varkind] add variable [e] into environment [env] *)
 let env_extend (env : env) (e : var) (varkind : varkind) : env =
   String_map.add e varkind env
+
+(* [add_var env x xm] add variable [x] into environemnt [env] with value [xm] *)
+let add_var (env : env ref) (x : var) (xm : varkind) : unit = 
+  env := env_extend !env x xm
 
 (* [trm_address_of ~simplify t] adds the address operator before [t].
     if [simplify] is true and [t] is of the form [*u] then it will return just [u] *)
@@ -55,6 +59,10 @@ let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
     env := saved_env;
     res
 
+(* [create_env] creates an empty environment *)
+let create_env () = ref env_empty
+
+
 (* [stackvar_elim t] replaces
     [int a = 5] with [<annotation:stackvar> int* a = new int(5)]
       and a variable occurrence [a] becomes [ * a]
@@ -65,7 +73,7 @@ let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
    Here, the "reference" annotation is added to allow decoding.
    LATER: Support references on constants. *)
 let stackvar_elim (t : trm) : trm =
-  let env = ref env_empty in (* TODO: use a function [create_env () = ref env_empty], also further *)
+  let env = create_env () in 
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_var (_, x) ->
@@ -73,40 +81,28 @@ let stackvar_elim (t : trm) : trm =
         then trm_annot_add Mutable_var_get (trm_get t)
         else { t with desc = Trm_var (Var_immutable, x) }
     | Trm_let (xm, (x, ty), tbody) ->
-      env := env_extend !env x xm; (* TODO: to improve abstraction, use a function [addvar env x mut], also further *)
-      begin match ty.typ_desc with (* TODO: to improve readability, use a helper function [typ_ref_inv ty] that returns Some t1 or None *)
-      | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = ty1} ->
+      add_var env x xm;
+      begin match typ_ref_inv ty with 
+      | Some ty1 ->
         begin match xm with
         | Var_immutable -> fail t.loc "stackvar_elim: unsupported references on const variables"
         | _ ->
-          {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of ~simplify:true (aux tbody));
-                  annot = Reference :: t.annot}
-          (* TODO: to be symmetric with what you do in stackvar_intro, you could write above and further
-              trm_annot_add Reference { t with desc = ...} *)
+          trm_annot_add Reference {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of ~simplify:true (aux tbody))}
         end
-      | _ ->
+      | None ->
         begin match xm with
         | Var_mutable ->
-          {t with desc = Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) );
-                  annot = Stackvar :: t.annot}
+          trm_annot_add Stackvar {t with desc = Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) )}
         | Var_immutable ->
           trm_map aux t
         end
       end
     | Trm_seq _ -> onscope env t (trm_map aux)
-    | Trm_let_fun (f, retty, targs, tbody) ->
-      env := env_extend !env f Var_immutable;
-      (* TODO: here the code is missing onscope for processing [aux tbody];
-         only [f] should be added to the current environment. *)
-      List.iter (fun (x, _tx) ->
-        let mut = Var_immutable in
-        (* because arguments are always treated as const --> maybe we should replace targs with a version that enforces a const to each type.
-            targs = [ (x, typ_int); (x, typ_const typ_int) ]
-            targs2= [ (x, typ_const@("added") typ_int); (x, typ_const typ_int) ] *)
-        (env := env_extend !env x mut)) targs;
-      {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
+    | Trm_let_fun (f, _retty, targs, _tbody) ->
+      add_var env f Var_immutable;
+      onscope env t (fun t -> List.iter (fun (x, _tx) -> add_var env x Var_immutable) targs; trm_map aux t)
     | Trm_for (index, _, _, _, _, _) ->
-        onscope env t (fun t -> env := env_extend !env index Var_immutable; trm_map aux t)
+        onscope env t (fun t -> add_var env index Var_immutable; trm_map aux t)
     | Trm_for_c _ ->
         onscope env t (fun t -> trm_map aux t)
     | _ -> trm_map aux t
@@ -120,7 +116,7 @@ let stackvar_elim (t : trm) : trm =
     and [<annotation:reference> int* x = &t[i]] becomes [int& x = t[i]], where t has type [const int*] as a simplification of x = *(&t[i])
 *)
 let stackvar_intro (t : trm) : trm =
-  let env = ref env_empty in
+  let env = create_env () in
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_var (_, x) ->
@@ -128,44 +124,41 @@ let stackvar_intro (t : trm) : trm =
         then trm_address_of t
         else t
     | Trm_let (vk, (x, tx), tbody) ->
-      env := env_extend !env x vk;
-      if List.mem Stackvar t.annot (* TODO: introduce [trm_annot_has annot t], and use it whenever possible, to improve readability and abstraction. Should be in AST, next to [trm_annot_add] *)
+      add_var env x vk;
+      if trm_annot_has Stackvar t 
         then
           begin match tx.typ_desc , tbody.desc with
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_new _));_}, [tbody1])  ->
-              (* TODO: there is a [trm_annot_remove] function which I introduced recently, specialized version of the filter *)
-              trm_annot_filter (function | Stackvar -> false | _ -> true) {t with desc = Trm_let (vk, (x, tx1), aux tbody1)}
+              trm_annot_remove Stackvar {t with desc = Trm_let (vk, (x, tx1), aux tbody1)}
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
           end
       else if List.mem Reference t.annot then
         begin match tx.typ_desc with
         | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1} ->
-          trm_annot_filter (function | Reference -> false | _ -> true) { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get ~simplify:true (aux tbody))}
+          trm_annot_remove Reference { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get ~simplify:true (aux tbody))}
         | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
         end
       else
         {t with desc = Trm_let (vk, (x, tx), aux tbody)}
     | Trm_seq _ ->
       onscope env t (trm_map aux)
-    | Trm_let_fun (f, retty, targs, tbody) ->
-      env := env_extend !env f Var_immutable;
-      List.iter (fun (x, _tx) -> let mut = Var_immutable  in (env := env_extend !env x mut)) targs;
-      {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
+    | Trm_let_fun (f, _retty, targs, _tbody) ->
+      add_var env f Var_immutable;
+      onscope env t (fun t -> 
+      List.iter (fun (x, _tx) -> let mut = Var_immutable  in (add_var env x mut)) targs; trm_map aux t)
     | Trm_for (index, _, _, _, _, _) ->
-      onscope env t (fun t -> begin env := env_extend !env index Var_immutable; trm_map aux t end)
+      onscope env t (fun t -> begin add_var env index Var_immutable; trm_map aux t end)
     | Trm_for_c _ ->
       onscope env t (fun t -> trm_map aux t)
-    | Trm_apps (_, [{desc = Trm_var (_, x); _} as t1]) when List.mem Mutable_var_get t.annot -> (* TODO: trm_annot_has *)
-      (* TODO: you should check that the function is get, and raise an error otherwise, or something like this *)
-      if is_var_mutable !env x then t1 else fail t.loc "stackvar_intro: x was declared as immutable, but appears inside an annotated get operation"
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var _; _} as t1]) when trm_annot_has Mutable_var_get t -> t1
     | _ -> trm_map aux t
     in aux t
 
-(* [caddress_elim_aux false t] eliminates the use of l-values in the AST
+(* [caddress_elim_aux false t] eliminates the use of l-values in the AST    
     [* t1]  becomes [get(t1)]
     [* t1 = t2] becomes as [set(t1, t2)]
     [t[i] = t[i] + 1] is encoded as [set(t+i, get(t+i) + 1)]
-    [t.f = t.f + 1] is encoded as [set(t+offset(f), get(t + offset(f)) + 1)]
+    [t.f = t.f + 1] is encoded as [set(t+offset(f), get(t + offse                                         t(f)) + 1)]
     [( * p).f.x] is encoded as [get(p+offset(f)) + offset(x))]
     [( * p).f.x = 3] is encoded as [set(p+offset(f) + offset(x), 3)]
     [( * p) [ i ] ]  is encoded as [get(p+i)]
