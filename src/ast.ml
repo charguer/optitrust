@@ -283,7 +283,7 @@ and trm_annot =
   | Display_arrow (* Used for struct accesses of the form ( *p ).x or p -> x, with this annotation the arrow syntax sugar is used *)
   | Reference (* Used to encode references as pointers with annotation Reference *)
   | Stackvar (* Used to encode stack variables *)
-  
+
 (* symbols to add while printing a C++ program.*)
 and special_operator =
   | Address_operator (* used to print the ampersand operator for declarations of the form int x = &b*)
@@ -728,7 +728,7 @@ let typdef_prod ?(recursive:bool=false) (field_list : (label * typ) list) : typd
   Typdef_prod (recursive, field_list)
 
 (* [typ_ptr_generated ty] krejt a generated start used for encodings *)
-let typ_ptr_generated (ty : typ) : typ = 
+let typ_ptr_generated (ty : typ) : typ =
   typ_ptr ~typ_attributes:[GeneratedTyp] Ptr_kind_mut ty
 
 let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
@@ -1603,13 +1603,13 @@ let is_typ_ptr (ty : typ) : bool =
 
 (* [is_get_operation t] check if [t] is a struct access get operation of a immutable variable get operation *)
 let is_star_operation (t : trm) : bool =
-  match t.desc with 
-  | Trm_apps (f, _) -> 
+  match t.desc with
+  | Trm_apps (f, _) ->
     begin match trm_prim_inv f with
-    | Some (Prim_unop Unop_get) -> true 
+    | Some (Prim_unop Unop_get) -> true
     | _ -> false
     end
-  | _ -> false  
+  | _ -> false
 
 (* [is_get_operation t] check if [t] is a struct access get operation of a immutable variable get operation *)
 let is_get_operation (t : trm) : bool =
@@ -1637,8 +1637,8 @@ let is_set_operation (t : trm) : bool =
   | _ -> false
 
 (* [get_operation_arg t] get the arg of a get operation *)
-let get_operation_arg (t : trm) : trm = 
-  match t.desc with 
+let get_operation_arg (t : trm) : trm =
+  match t.desc with
   | Trm_apps (_, [t1]) -> t1
   | _ -> fail t.loc "get_operation_arg: this function should be called only on get operations "
 
@@ -1939,7 +1939,7 @@ let tmap_filter (keys : vars) (map : tmap) : tmap =
 let trm_let_mut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
-  let var_type_ptr = typ_ptr_generated var_type in 
+  let var_type_ptr = typ_ptr_generated var_type in
   trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
 
 (* [trm_let_IMmut ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating immutable variable declarations *)
@@ -1954,7 +1954,7 @@ let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type = typ_array var_type sz in
-  let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr_generated var_type in 
+  let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr_generated var_type in
   let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
   trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init
 
@@ -2074,7 +2074,7 @@ let trm_get ?(annot : trm_annot list = []) (t : trm) : trm =
   trm_apps ~annot (trm_unop Unop_get) [t]
 
 (* [trm_new ty t] generates new ty (t) *)
-let trm_new (ty : typ) (t : trm) : trm = 
+let trm_new (ty : typ) (t : trm) : trm =
   trm_apps (trm_prim (Prim_new ty)) [t]
 
 (* [trm_any_bool] generates ANY_BOOL () *)

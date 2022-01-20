@@ -38,6 +38,17 @@ type scope_kind =
    removed when we leave a scope; T: would be cleaner to have ctx_var
    as argument to the recursive function. *)
 
+(* TODO (but only after all other TODOs are handled and commited):
+  Could we first build the full optitrust AST without any variable context,
+  and then have a totally separate function that traverses the term AST to
+  produce the same term but decorated with contexts?
+  In the long term, we could also do this for typedef definitions,
+  but then we would need to rebuild all the types to insert typconstrid,
+  so I'd rather avoid that.
+  I thus suggest, for the moment, to only remove ctx_var from this file.
+  We can set the ctx_var separately in another function, using an
+  environment like done in stackelim. *)
+
 let ctx_var : typ varmap ref = ref String_map.empty
 
 let ctx_tconstr : typconstrid varmap ref = ref String_map.empty
@@ -66,7 +77,6 @@ let ctx_label_add (lb : label) (tid : typconstrid) : unit =
 
 let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
   ctx_constr := String_map.add c tid (!ctx_constr)
-
 
 (* [get_ctx] returns the current context *)
 let get_ctx () : ctx =
@@ -108,7 +118,11 @@ let get_typid_from_trm (tv : typvar) : int  =
   | StarEqual -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_mul))
   | _ -> fail loc "overloaded_op: non supported operator"
 
+(* TODO: rename all "translate_" to "tr_", to make code more concise *)
 let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(translate_record_types : bool = true) (d : type_desc) : typ =
+  (* TODO: define aux as [translate_type_desc ~loc ~translate_record_types]  and use it *)
+  (* TODO: here and elsewhere, use the function
+    [wrap_const ~const t = if const then typ_const t else t]. *)
   match d with
   | Pointer q ->
     let t = translate_qual_type ~loc ~translate_record_types q in
@@ -116,10 +130,9 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
     if const then typ_const ty else ty
   | LValueReference  q ->
     let t = translate_qual_type ~loc ~translate_record_types q in
-    if const then
-      typ_const (typ_ptr Ptr_kind_ref t)
-    else
-    typ_ptr Ptr_kind_ref t
+    if const
+      then typ_const (typ_ptr Ptr_kind_ref t)
+      else  typ_ptr Ptr_kind_ref t
   | RValueReference  q ->
     let t = translate_qual_type ~loc ~translate_record_types q in
     if const then
@@ -141,9 +154,11 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
     let t = translate_qual_type ~loc ~translate_record_types q in
     let s = translate_expr eo in
     typ_array t (Trm s)
+    (* TODO: is const not possible here ?*)
   | IncompleteArray q ->
     let t = translate_qual_type ~loc ~translate_record_types q in
     typ_array t Undefined
+  (* TODO: is const not possible here ?*)
   | Auto ->
     typ_auto ()
   | BuiltinType b ->
@@ -183,8 +198,7 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
       | IdentifierName n ->
         let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n)  in
         if const then typ_const typ_to_add else typ_to_add
-      | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
-                       "type definitions")
+      | _ -> fail loc ("translate_type_desc: only identifiers are allowed in type definitions")
     end
   | Elaborated {keyword = k; nested_name_specifier = _; named_type = q} ->
     begin match k with
@@ -197,15 +211,13 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
     begin match n with
       | IdentifierName n ->
          typ_constr n ~tid:(get_typid_from_trm n)
-      | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
-                       "records")
+      | _ -> fail loc ("translate_type_desc: only identifiers are allowed in records")
     end
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
          typ_constr n ~tid:(get_typid_from_trm n)
-      | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
-                       "enums")
+      | _ -> fail loc ("translate_type_desc: only identifiers are allowed in enums")
     end
   | TemplateTypeParm name ->
     typ_template_param name
@@ -246,7 +258,7 @@ and translate_stmt (s : stmt) : trm =
   | While {condition_variable = _; cond = c; body = s} ->
     let tc = translate_expr c in
     let ts = translate_stmt s in
-    trm_while ~loc ~ctx  tc ts
+    trm_while ~loc ~ctx tc ts
   | Do {body = s; cond = c;} ->
     let tc = translate_expr c in
     let ts = translate_stmt s in
@@ -257,17 +269,17 @@ and translate_stmt (s : stmt) : trm =
       match so with
       | None -> trm_lit ~loc ~ctx  Lit_unit
       | Some s -> translate_stmt s
+      in
+    let init = translate_stmt_opt inito in
+    let cond =
+      match condo with
+      (* no condition is equivalent to true *)
+      | None -> trm_lit ~annot:[Empty_cond] ~loc ~ctx (Lit_bool true)
+      | Some e -> translate_expr e
     in
-         let init = translate_stmt_opt inito in
-         let cond =
-           match condo with
-           (* no condition is equivalent to true *)
-           | None -> trm_lit ~annot:[Empty_cond] ~loc ~ctx (Lit_bool true)
-           | Some e -> translate_expr e
-         in
-         let step = translate_stmt_opt stepo in
-         let body = translate_stmt body in
-         trm_for_of_trm_for_c(trm_for_c~loc ~ctx init cond step body)
+    let step = translate_stmt_opt stepo in
+    let body = translate_stmt body in
+    trm_for_of_trm_for_c(trm_for_c~loc ~ctx init cond step body)
   | For _ ->
     fail loc "translate_stmt: variable declaration forbidden in for conditions"
   | Return eo ->
@@ -290,16 +302,13 @@ and translate_stmt (s : stmt) : trm =
     let t = translate_stmt s in
     trm_labelled ~loc ~ctx l t
   | Null -> trm_lit ~loc ~ctx Lit_unit
-  | Switch {init = None; condition_variable = None; cond = c;
-            body = s} ->
+  | Switch {init = None; condition_variable = None; cond = c; body = s} ->
     begin match s.desc with
       | Compound sl -> translate_switch loc c sl
-      | _ ->
-        fail loc "translate_stmt: switch cases must be in a compound statement"
+      | _ -> fail loc "translate_stmt: switch cases must be in a compound statement"
     end
   | Switch _ ->
-    fail loc
-      "translate_stmt: variable declaration forbidden in switch conditions"
+    fail loc "translate_stmt: variable declaration forbidden in switch conditions"
   | Goto l -> trm_goto ~loc ~ctx l
   | _ ->
     fail loc ("translate_stmt: the following statement is unsupported: " ^
@@ -377,6 +386,11 @@ and translate_expr ?(is_statement : bool = false)
     (e : expr) : trm =
   (* let aux = translate_expr *)
   let loc = loc_of_node e in
+    (* TODO: define a function [trm_apps'] for
+         trm_apps ~loc ~is_statement ~typ ~ctx
+       Beware that in a few places there is a [let loc] that
+       modifies the loc, so in those case [trm_apps'] should be
+       either not used or redefined locally for the new loc *)
   let typ : typ option =
     let q = Clang.Type.of_node e in
     try Some (translate_qual_type ~loc q) with
@@ -411,7 +425,6 @@ and translate_expr ?(is_statement : bool = false)
   | StringLiteral {byte_width = _; bytes = s; string_kind = _} ->
     trm_lit ~loc ~ctx (Lit_string s)
 
-
   | InitList el ->
     (* maybe typ is already the value of tt ---let tt = translate_qual_type ~loc t in *)
     let tt = match typ with
@@ -442,6 +455,7 @@ and translate_expr ?(is_statement : bool = false)
       | _ -> fail loc "translate_expr: unsupported unary expr"
     end
   | UnaryOperator {kind = k; operand = e} ->
+     (* TODO: move this out into a separate function earlier in the file: [loc_of_unary_operator] *)
     let loc = (* deduce location of infix symbol *)
       match loc, loc_of_node e with
       | Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; _}, Some {loc_start = {pos_line = start_row2; pos_col = start_column2}; _}->
@@ -457,6 +471,7 @@ and translate_expr ?(is_statement : bool = false)
         let t = translate_expr e in
         trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop Unop_address) [t]
       | _ ->
+        (* TODO: let t = translate_expr e in should be factorized outside the match *)
         begin match k with
           | PostInc ->
             let t = translate_expr e in
@@ -493,6 +508,10 @@ and translate_expr ?(is_statement : bool = false)
       | _ -> None
       in
     let tr = translate_expr re in
+    (* TODO:
+        let tll = translate_expr le in
+        let tlr = translate_expr re in
+      should be factorized outside the match *)
     begin match k with
       | Assign ->
         let tl = translate_expr le in
@@ -539,7 +558,8 @@ and translate_expr ?(is_statement : bool = false)
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_xor) ) [tll; tlr]
       | _ ->
         let tl = translate_expr  le in
-        begin match k with
+        begin match k with (* TODO: define [trm_apps_binop' op t1 t2] for
+              trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx op) [t1;t2] *)
           | Mul -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mul) [tl; tr]
           | Div -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_div) [tl; tr]
           | Add -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_add) [tl; tr]
@@ -702,8 +722,11 @@ and translate_decl_list (dl : decl list) : trms =
         let ft = translate_qual_type ~loc q in
         let al = List.map (translate_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
-        (* LATER: Fix this *)
-        trm_let ~loc  Var_mutable (fn,typ_ptr_generated ty) (trm_prim ~loc (Prim_new ty))
+        (* LATER: Fix this *) (* TODO: you can define in ast.ml
+            let var_mutability_unknown = Var_mutable  --as an arbitrary value
+            and then use [var_mutability_unknown] below, to document that it is a dummy
+            value until we call the function stackvar_elim *)
+        trm_let ~loc Var_mutable (fn,typ_ptr_generated ty) (trm_prim ~loc (Prim_new ty))
       | _ ->
       translate_decl d
     ) fl in
@@ -881,6 +904,7 @@ and translate_decl (d : decl) : trm =
       end
       in
     ctx_var_add n tt;
+    (* TODO: we can use [var_mutability_unknown] here again *)
     let mut = if const then Var_immutable else Var_mutable in
     trm_let ~loc ~is_statement:true mut (n,tt) te
   | TypedefDecl {name = tn; underlying_type = q} ->
