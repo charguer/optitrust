@@ -11,7 +11,7 @@ let env_empty =
 let get_varkind (env : env) (x : var) : varkind =
   match String_map.find_opt x env with
   | Some m -> m
-  | _ -> fail None (Printf.sprintf "get_varkind: unbound variable %s\n" x)
+  | _ -> Var_immutable (* For functions that come from an external library are set to immutable by default *)
 
 (* [is_var_mutable env x] check if variable [x] is mutable or not *)
 let is_var_mutable (env : env) (x : var) : bool =
@@ -81,16 +81,15 @@ let stackvar_elim (t : trm) : trm =
         then trm_annot_add Mutable_var_get (trm_get t)
         else { t with desc = Trm_var (Var_immutable, x) }
     | Trm_let (xm, (x, ty), tbody) ->
-      
       add_var env x xm;
-      begin match ty.typ_desc with (* TODO: to improve readability, use a helper function [typ_ref_inv ty] that returns Some t1 or None *)
-      | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = ty1} ->
+      begin match typ_ref_inv ty with 
+      | Some ty1 ->
         begin match xm with
         | Var_immutable -> fail t.loc "stackvar_elim: unsupported references on const variables"
         | _ ->
           trm_annot_add Reference {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of ~simplify:true (aux tbody))}
         end
-      | _ ->
+      | None ->
         begin match xm with
         | Var_mutable ->
           trm_annot_add Stackvar {t with desc = Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) )}
@@ -99,17 +98,9 @@ let stackvar_elim (t : trm) : trm =
         end
       end
     | Trm_seq _ -> onscope env t (trm_map aux)
-    | Trm_let_fun (f, retty, targs, tbody) ->
+    | Trm_let_fun (f, _retty, targs, _tbody) ->
       add_var env f Var_immutable;
-      (* TODO: here the code is missing onscope for processing [aux tbody];
-         only [f] should be added to the current environment. *)
-      List.iter (fun (x, _tx) ->
-        let mut = Var_immutable in
-        (* because arguments are always treated as const --> maybe we should replace targs with a version that enforces a const to each type.
-            targs = [ (x, typ_int); (x, typ_const typ_int) ]
-            targs2= [ (x, typ_const@("added") typ_int); (x, typ_const typ_int) ] *)
-        (add_var env x mut)) targs;
-      {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
+      onscope env t (fun t -> List.iter (fun (x, _tx) -> add_var env x Var_immutable) targs; trm_map aux t)
     | Trm_for (index, _, _, _, _, _) ->
         onscope env t (fun t -> add_var env index Var_immutable; trm_map aux t)
     | Trm_for_c _ ->
@@ -151,25 +142,23 @@ let stackvar_intro (t : trm) : trm =
         {t with desc = Trm_let (vk, (x, tx), aux tbody)}
     | Trm_seq _ ->
       onscope env t (trm_map aux)
-    | Trm_let_fun (f, retty, targs, tbody) ->
+    | Trm_let_fun (f, _retty, targs, _tbody) ->
       add_var env f Var_immutable;
-      List.iter (fun (x, _tx) -> let mut = Var_immutable  in (add_var env x mut)) targs;
-      {t with desc = Trm_let_fun (f , retty, targs, aux tbody)}
+      onscope env t (fun t -> 
+      List.iter (fun (x, _tx) -> let mut = Var_immutable  in (add_var env x mut)) targs; trm_map aux t)
     | Trm_for (index, _, _, _, _, _) ->
       onscope env t (fun t -> begin add_var env index Var_immutable; trm_map aux t end)
     | Trm_for_c _ ->
       onscope env t (fun t -> trm_map aux t)
-    | Trm_apps (_, [{desc = Trm_var (_, x); _} as t1]) when trm_annot_has Mutable_var_get t -> (* TODO: trm_annot_has *)
-      (* TODO: you should check that the function is get, and raise an error otherwise, or something like this *)
-      if is_var_mutable !env x then t1 else fail t.loc "stackvar_intro: x was declared as immutable, but appears inside an annotated get operation"
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var _; _} as t1]) when trm_annot_has Mutable_var_get t -> t1
     | _ -> trm_map aux t
     in aux t
 
-(* [caddress_elim_aux false t] eliminates the use of l-values in the AST
+(* [caddress_elim_aux false t] eliminates the use of l-values in the AST    
     [* t1]  becomes [get(t1)]
     [* t1 = t2] becomes as [set(t1, t2)]
     [t[i] = t[i] + 1] is encoded as [set(t+i, get(t+i) + 1)]
-    [t.f = t.f + 1] is encoded as [set(t+offset(f), get(t + offset(f)) + 1)]
+    [t.f = t.f + 1] is encoded as [set(t+offset(f), get(t + offse                                         t(f)) + 1)]
     [( * p).f.x] is encoded as [get(p+offset(f)) + offset(x))]
     [( * p).f.x = 3] is encoded as [set(p+offset(f) + offset(x), 3)]
     [( * p) [ i ] ]  is encoded as [get(p+i)]

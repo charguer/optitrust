@@ -12,7 +12,7 @@ let test_stackvar () =
 
 let _ = test_stackvar ()
 
-let _ = Run.script_cpp ~raw_ast:true (fun () ->
+let _ = Run.script_cpp (* ~filename:"c_big.cpp" ~prefix:"c_big" *) ~raw_ast:true (fun () ->
   !! Trace.apply stackvar_elim;
-  !! Trace.apply stackvar_intro;
+     Trace.apply stackvar_intro;
  )
