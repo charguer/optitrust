@@ -757,6 +757,10 @@ let fail (loc : location) (err : string) : 'a =
 let trm_annot_add (a:trm_annot) (t:trm) : trm =
   { t with annot =  a :: t.annot }
 
+
+let trm_annot_has (a : trm_annot) (t : trm) : bool = 
+  List.mem a t.annot
+
 let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
   { t with annot = List.filter pred t.annot }
 
