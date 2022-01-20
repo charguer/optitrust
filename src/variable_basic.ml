@@ -2,16 +2,14 @@ open Target
 open Ast
 
 
-(* [fold ~deref ~at tg] expects the target [tg] to point to a variable declaration
-    [deref] - denotes a flag whether the declaration initialization contains a
-      variable reference or not.
+(* [fold ~at tg] expects the target [tg] to point to a variable declaration
     [at] - denotes a target where the fold_lefting is done. If empty the
       fold_lefting operation is performed on all the ast nodes in the same level as the
       declaration or deeper, by default [at] = []
 *)
-let fold ?(deref : bool = false) ?(at : target = []) : Target.Transfo.t =
+let fold ?(at : target = []) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Variable_core.fold deref at i t p)
+    (fun t (p,i) -> Variable_core.fold at i t p)
 
 
 (* [unfold ~mark ~accept_functions ~at tg] expects the target [tg] to be pointing at an initialized
@@ -172,8 +170,9 @@ let to_const : Target.Transfo.t =
      ( fun t (p, i) -> Variable_core.to_const i t p)
 
 
-(* [simpl_deref tg] expects the target [tg] to be pointing at a node which could contain expression of the form
-      &( * ) or * (&) and simply them.
+(* [simpl_deref ~indepth tg] if [tg] = [] then the transformation will start from the root of the ast
+    otherwise it will search for expressions of the form *(&b) &( *b) in depth if [indepth] is set to true
+    or at the give target if [indepth] is false.
 *)
-let simpl_deref : Target.Transfo.t =
-  Target.apply_on_targets (Variable_core.simpl_deref)
+let simpl_deref ?(indepth : bool = false) : Target.Transfo.t =
+  Target.apply_on_targets (Variable_core.simpl_deref indepth)
