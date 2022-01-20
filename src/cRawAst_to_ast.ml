@@ -187,8 +187,6 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
          match t.desc with
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));_} as op, [t1; t2]) ->
             mk (Trm_apps (op, [access t1; aux t2]))
-         (* | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address));_} as op, [t1]) ->
-            mk (Trm_apps (op, [access t1])) *)
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
             let u1 = aux t1 in
             begin match u1.desc with
@@ -204,7 +202,8 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
             begin match u1.desc with
             | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11]) ->
               mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u11; u2]))]))
-            | _ -> mk (Trm_apps (trm_binop (Binop_array_get), [u1; u2]))
+            | _ -> mk (Trm_apps (op, [u1;u2]))
+            (* | _ -> mk (Trm_apps (trm_binop (Binop_array_get), [u1; u2])) *)
             end
          | _ -> trm_map aux t
          end
@@ -230,9 +229,9 @@ let caddress_elim = caddress_elim_aux false
     [get(Trm_apps (Prim_struct_access "f", [t]))] becomes [t.f] as rlvalue
  *)
 
-let rec caddress_intro_aux (* ?(hidden_get : bool = false) *) (lvalue : bool) (t : trm) : trm =
+let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
   let aux t = caddress_intro_aux false t in
-  let access (* ?(hidden_get : bool = false) *) t = caddress_intro_aux (* ~hidden_get *)  true t in
+  let access t = caddress_intro_aux true t in
   let mk td = {t with desc = td} in
   if lvalue then begin
     match t.desc with
@@ -241,21 +240,14 @@ let rec caddress_intro_aux (* ?(hidden_get : bool = false) *) (lvalue : bool) (t
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _} as op, [t1; t2]) ->
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)))}, [access t1; aux t2]))
     | Trm_var _ -> Ast.trm_get ~annot:[Mutable_var_get] t
-    | _ -> t
-    (* | _ -> if hidden_get then Ast.trm_get ~annot:[Mutable_var_get] (aux t) else trm_get ~simplify:true (aux t)  *)
+    | _ -> trm_map aux t
     end
     else begin
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _}, [t1; t2]) ->
       mk (Trm_apps (trm_binop Binop_set, [access t1; aux t2]))
-    (* | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address));_} as op, [t1]) ->
-            mk (Trm_apps (op, [access t1])) *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) when is_access t1 ->
-      (* let hidden_get = List.mem Mutable_var_get t.annot in  *)
       access  t1
-    (* | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} , [{desc = Trm_var (_, x); _}]) ->
-      Printf.printf "I was here for variable %s\n" x;
-      {t with annot = [Mutable_var_get]} *)
     | _ -> trm_map aux t
     end
 

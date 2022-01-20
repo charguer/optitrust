@@ -99,7 +99,7 @@ void stack_array() {
 
 // // Likewise,  t.x  is decomposed  as *(&t.x), which involves the primitive
 // // unary operator "Unop_struct_field_addr x" applied to the argument t.
-
+  
 void stack_struct() {
   vect v = { 5, 6 };
   int a = v.x;
@@ -159,10 +159,16 @@ int main() {
 
 }
 
-
+/* Not supported in OptiTrust
 int g(int x) {
   x = x + 1;
   return x;
+}
+*/
+
+int h(int x) {
+  int y = x + 1;
+  return y;
 }
 
 int immutable_stack_ptr() {

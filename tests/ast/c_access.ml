@@ -1,12 +1,8 @@
 open Optitrust
 open Target
 open Ast
-open Ast_to_rawC
 open CRawAst_to_ast
 
-
-
-(* Note: .cpp --> clang --> clang_to_rawast -[t1]-> stackvar_elim -> [t2] -> *)
 
 let test_accesses () =
   let clang_ast = Clang.Ast.parse_file "c_access.cpp" in
@@ -21,10 +17,9 @@ let _ = Flags.dump_ast_details := true
 
 let _ = Run.script_cpp ~raw_ast:true (fun () ->
   (* Note: address_elim might not work in the presence of stack variables *)
-  !! Trace.apply stackvar_elim;
-  !! Trace.apply caddress_elim;
+     Trace.apply stackvar_elim;
+  !! Trace.apply caddress_elim; (* Press F6 on this line *)
      Trace.apply caddress_intro;
-  !! Trace.apply stackvar_intro;
 )
 
 (* ARTHUR: in case of crash, it would be nice to generate the _before file nevertheless *)
