@@ -84,7 +84,6 @@ void stack_struct() {
   particle p2 = { v, { 7,8 } };
 }
 
-// // References: not yet implemented
 void references() {
   int a = 3;
   int& b = a;

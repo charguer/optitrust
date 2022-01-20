@@ -24,6 +24,7 @@ let _ = Run.script_cpp ~raw_ast:true (fun () ->
   !! Trace.apply stackvar_elim;
   !! Trace.apply caddress_elim;
      Trace.apply caddress_intro;
+  !! Trace.apply stackvar_intro;
 )
 
 (* ARTHUR: in case of crash, it would be nice to generate the _before file nevertheless *)
