@@ -1291,7 +1291,7 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
 
 
 let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm = 
-  trm_map_with_terminal_opt is_terminal f t
+  trm_map_with_terminal_unopt is_terminal f t
 
 let trm_map (f : trm -> trm) (t : trm) : trm =
   trm_map_with_terminal false (fun _is_terminal t -> f t) t
@@ -2109,36 +2109,17 @@ exception Ast_and_code_provided
  *)
 let keep_only_function_bodies (fun_names : vars) (t : trm) : trm * tmap =
   let t_map = ref Trm_map.empty in
-  let aux (t : trm) : trm = 
-    match t.desc with 
-    | Trm_seq tl ->
-      let new_tl = Mlist.map (fun t1 ->
-        match t1.desc with 
-        | Trm_let_fun (f, ty, tv, _) -> 
-          if not (List.mem f fun_names) then 
-            t_map := Trm_map.add f t !t_map;
-            trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) 
-        | _ -> t1
-      ) tl in 
-      {t with desc = Trm_seq new_tl}
-    | _ -> fail t.loc "keep_only_function_bodies: expected the globale sequence that contains all the toplevel declarations"
-    in
+    let rec aux (t : trm) : trm =
+      match t.desc with
+      | Trm_let_fun (f,ty, tv, _) ->
+        if not (List.mem f fun_names) then begin
+          t_map := Trm_map.add f t !t_map;
+         trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) end
+        else t
+      | _ -> trm_map aux t
+      in
   let res = aux t in
-  res,!t_map
-  
-  (* let rec aux (t : trm) : trm =
-    match t.desc with
-    | Trm_let_fun (f,ty, tv, _) ->
-      if not (List.mem f fun_names) then begin
-        t_map := Trm_map.add f t !t_map;
-      trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) end
-       else t
-    | _ -> trm_map aux t
-    in
-  let res = aux t in
-  res, !t_map *)
-
-
+  res, !t_map
 
 (* [update_chopped_ast chopped_ast chopped_fun_map] for all the functions whose bodies were removed during the creation
     of the chopped_ast restore their bodies by using [chopped_fun_map] which is map with keys the names of the functions

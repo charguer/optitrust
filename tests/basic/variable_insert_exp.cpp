@@ -4,6 +4,8 @@ typedef struct {
   double z;
 } vect;
 
+int c;
+
 int b = 500;
 
 const int a = 300;

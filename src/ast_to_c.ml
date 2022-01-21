@@ -88,6 +88,7 @@ and typ_to_doc ?(const : bool = false) (t : typ) : document =
   dattr ^^ dannot ^^ d
 
 and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
+  let const_string = if false then blank 1 ^^ string " const " ^^ blank 1 else empty in 
   let rec aux (t : typ) (s : size) : document * document list =
     let ds =
       match s with
@@ -111,7 +112,7 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
   match t.typ_desc with
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
-     dattr ^^ base ^^ blank 1 ^^ string x ^^ concat bracketl
+     dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
   | Typ_fun (tyl, ty) -> (* TODO: should be deprecated? to discuss *)
     let ret_type = typ_to_doc ty  in
     let arg_types = List.map typ_to_doc tyl in

@@ -3,7 +3,7 @@ typedef struct {
 } int_5;
 
 int_5 test() {
-  const int[5] a = {0, 1, 2, 3, 4};
+  const int a[5] = {0, 1, 2, 3, 4};
   return {a};
 }
 

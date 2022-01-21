@@ -7,6 +7,7 @@ TARGET_MAKE_ALL := check
 TESTS_WORKING := \
 	accesses_scale.ml \
 	accesses_shift.ml \
+	arith_simplify.ml \
 	aos_to_soa_sized_array.ml \
 	aos_to_soa_typedef.ml \
 	array_set_explicit.ml \
@@ -15,8 +16,12 @@ TESTS_WORKING := \
 	array_to_variables.ml \
 	cast_insert.ml \
   flow_insert_if.ml \
+	function_beta.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
+	function_uninline.ml \
+	function_use_infix_ops.ml \
+	instr_accumulate.ml \
 	instr_move.ml \
 	instr_replace.ml \
 	instr_read_last_write.ml \
@@ -35,25 +40,32 @@ TESTS_WORKING := \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
+	pointer_fold.ml \
 	reference_fold.ml \
+	reference_inline.ml \
 	rewrite_compute.ml \
 	rewrite_compute_inside.ml \
+	rewrite_equiv_at.ml \
 	sequence_delete.ml \
 	sequence_elim_around_instr.ml \
+	sequence_insert.ml \
 	sequence_elim.ml \
 	sequence_intro.ml \
 	sequence_intro_on_instr.ml \
 	sequence_partition.ml \
+	specialize_any.ml \
 	struct_fields_reorder.ml \
 	struct_inline.ml \
 	struct_rename_field.ml \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
+	struct_update_fields_type.ml \
 	typedef_fold.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
+	variable_bind.ml \
 	variable_change_type.ml \
 	variable_fold.ml \
 	variable_init_attach.ml \
@@ -63,14 +75,7 @@ TESTS_WORKING := \
 	variable_rename.ml \
 	variable_subst.ml \
   variable_unfold.ml \
-	instr_accumulate.ml \
-	function_use_infix_ops.ml \
-	arith_simplify.ml \
-	function_beta.ml \
-	function_uninline.ml \
-	reference_inline.ml \
-	specialize_any.ml \
-	pointer_fold.ml \
+	variable_insert.ml \
 	variable_simpl_deref.ml \
 	variable_to_const.ml \
 
@@ -88,7 +93,6 @@ TESTS_TOCHECK := \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
 
-
 # missing expected
 # matrix_insert_alloc_dim.ml
 #	matrix_insert_access_dim_index.ml \
@@ -96,15 +100,6 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	arith_shift.ml \
 	arith_to_fix.ml \
-	rewrite_equiv_at.ml \
-	sequence_insert.ml \
-	struct_update_fields_type.ml \
-	variable_bind.ml \
-	variable_insert.ml \
-
-
-
-
 
 TESTS_WITH_DOC := \
 	label_add.ml \

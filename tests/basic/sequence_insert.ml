@@ -14,7 +14,6 @@ int main() {
 
 let _ =
   Run.script_cpp (fun _ ->
-
     !! Sequence_basic.insert (stmt "int a = 5; const float b = 5.0;") [tBefore; cVarDef "x"];
     !! Sequence_basic.insert ~reparse:true (stmt "y++;") [tAfter; cVarDef "y"];
     !! Sequence_basic.insert (stmt "p++;") [tAfter; cVarDef "y"];
