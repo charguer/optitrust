@@ -50,42 +50,55 @@ let () = (* subset of Driver.ml setup operations*)
               Gc.major_heap_increment = 4194304 (* 4M *)
          };
   Printexc.record_backtrace true;
-  Frontend.init ()
+  Machine.config := Machine.x86_64
+
+  (*   Frontend.init ()* *)
   (*  Driver.parse_cmdline cmdline_actions
-      Cprint.destination := Some "out.parsed.c" *)
+       *)
 
 
+(* From preprocessed C to C AST *)
+
+let myparse_c_file sourcename ifile =
+  Debug.init_compile_unit sourcename;
+  Sections.initialize();
+  (* CPragmas.reset(); *)
+  (* Simplification options *)
+  let simplifs = "" (*
+    "b" (* blocks: mandatory *)
+  ^ (if !option_fstruct_passing then "s" else "")
+  ^ (if !option_fpacked_structs then "p" else "") *)
+  in
+  (* Parsing and production of a simplified C AST *)
+  let ast = Parse.preprocessed_file simplifs sourcename ifile in
+  (* Save C AST if requested *)
+  Cprint.print_if ast;
+  ast
+
+
+(* Take filename of the cpp file as argument, else use a default name *)
+let sourcename =
+  if Array.length Sys.argv > 2
+    then Sys.argv.(1)
+    else "TestCParser.cpp"
 
 let _ =
-  let sourcename = "Test.cpp" in
-  let ifine = sourcename in
-  (* TEMP  get_ast sourcefile *)
-
+  let ifile = sourcename in
+  (* TEMP get_ast sourcefile *)
 
   (* Parse the ast *)
-  let csyntax = Frontend.parse_c_file sourcename ifile in
+  Cprint.destination := Some "TestCParser.parsed.c";
+  let _csyntax = myparse_c_file sourcename ifile in
+  (* Print the ast
+  print_ast csyntax *)
+  ()
 
 
-(*
-    Machine.config := Machine.compcert_interpreter !Machine.config;
-    let csyntax = parse_c_file sourcename preproname in
-    Interp.execute csyntax;
+
+
+(* Interpret the code
+Machine.config := Machine.compcert_interpreter !Machine.config;
+Interp.execute csyntax;
 *)
 
 
-let compile_c_file sourcename ifile ofile =
-  (* Prepare to dump Clight, RTL, etc, if requested *)
-  let set_dest dst opt ext =
-    dst := if !opt then Some (output_filename sourcename ".c" ext)
-      else None in
-  set_dest Cprint.destination option_dparse ".parsed.c";
-  set_dest PrintCsyntax.destination option_dcmedium ".compcert.c";
-  set_dest PrintClight.destination option_dclight ".light.c";
-  set_dest PrintCminor.destination option_dcminor ".cm";
-  set_dest PrintRTL.destination option_drtl ".rtl";
-  set_dest Regalloc.destination_alloctrace option_dalloctrace ".alloctrace";
-  set_dest PrintLTL.destination option_dltl ".ltl";
-  set_dest PrintMach.destination option_dmach ".mach";
-  set_dest AsmToJSON.destination option_sdump !sdump_suffix;
-  (* Parse the ast *)
-  let csyntax = parse_c_file sourcename ifile in

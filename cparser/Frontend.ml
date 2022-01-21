@@ -34,11 +34,11 @@ let v_number =
 (* Predefined macros: version numbers, C11 features *)
 
 let predefined_macros =
-  let macros = [  
+  let macros = [
     "-D__COMPCERT__";
-    sprintf "-D__COMPCERT_MAJOR__=%d" v_major;    
-    sprintf "-D__COMPCERT_MINOR__=%d" v_minor;    
-    sprintf "-D__COMPCERT_VERSION__=%d" v_number;    
+    sprintf "-D__COMPCERT_MAJOR__=%d" v_major;
+    sprintf "-D__COMPCERT_MINOR__=%d" v_minor;
+    sprintf "-D__COMPCERT_VERSION__=%d" v_number;
     "-U__STDC_IEC_559_COMPLEX__";
     "-D__STDC_NO_ATOMICS__";
     "-D__STDC_NO_COMPLEX__";
@@ -75,7 +75,7 @@ let preprocess ifile ofile =
 let parse_c_file sourcename ifile =
   Debug.init_compile_unit sourcename;
   Sections.initialize();
-  CPragmas.reset();
+(*  CPragmas.reset();*)
   (* Simplification options *)
   let simplifs =
     "b" (* blocks: mandatory *)
@@ -123,7 +123,7 @@ let init () =
   end;
   Env.set_builtins C2C.builtins;
   Cutil.declare_attributes C2C.attributes;
-  CPragmas.initialize()
+  (*CPragmas.initialize()*)()
 
 
 (* Add gnu preprocessor list *)
