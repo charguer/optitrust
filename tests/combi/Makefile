@@ -19,7 +19,6 @@ TESTS_WORKING := \
 	loop_moveout.ml \
 	loop_move.ml \
 	loop_reorder.ml \
-	loop_unroll.ml \
 	sequence_intro.ml \
 	sequence_split.ml \
 	struct_set_explicit.ml \
@@ -28,8 +27,6 @@ TESTS_WORKING := \
 	variable_delocalize_in_vars.ml \
 	variable_fold.ml \
 	variable_intro_pattern_array.ml \
-  variable_insert.ml \
-	variable_insert_and_fold.ml \
 	variable_renames.ml \
 	variable_reuse.ml \
 
@@ -53,6 +50,10 @@ TESTS_TOCHECK := \
 
 TESTS_TO_FIX := \
 	aos_to_soa.ml \
+	loop_unroll.ml \
+	variable_insert_and_fold.ml \
+  variable_insert.ml \
+  
 
 TESTS_WITH_DOC := \
 	loop_fusion.ml \

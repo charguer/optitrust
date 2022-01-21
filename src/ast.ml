@@ -1208,11 +1208,15 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   let ret nochange t' =
     if nochange then t else t' in
   
-  (* apply f recursively over the marked list [tl] *)
+  (* [flist tl] applies [f] to all the elements of a list [tl] *)
+  let flist tl = 
+    let tl' = List.map (f false) tl in 
+    if List.for_all2 (==) tl tl' then tl else tl'
+   in 
+  (* [fmlist] is like [flist] but for marked lists *)
   let fmlist is_terminal tl =
     let tl' = Mlist.map (f is_terminal) tl in
     if Mlist.for_all2 (==) tl tl' then tl else tl' in
-
   match t.desc with
   | Trm_array tl ->
     let tl' = fmlist false tl in
@@ -1244,6 +1248,15 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
       ) tl in
     ret (Mlist.for_all2 (==) tl tl')
         (trm_seq ~annot ~marks ~loc tl')
+  | Trm_apps (func, args) -> 
+    let func' = f false func in 
+    let args' = flist args in 
+    ret (func' == func && args' == args)
+      (trm_apps ~annot ~loc ~is_statement ~add ~typ ~marks func' args') 
+  | Trm_while (cond, body) ->
+    let cond' = f false cond in 
+    let body' = f false body in 
+    trm_while ~annot ~marks ~loc ~add cond' body'
   | Trm_for_c (init, cond, step, body) ->
      let init' = f false init in
      let cond' = f false cond in
@@ -1256,7 +1269,7 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
     let stop' = f false stop in
     let step' = match step with
       | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
-      | Step sp -> Step (f false sp)
+      | Step sp -> Step (aux sp)
       in
     let body' = aux body in
     ret (step' == step && start' == start && stop' == stop && body' == body)
@@ -1266,6 +1279,14 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
      let cases' = List.map (fun (tl, body) -> (tl, aux body)) cases in
      ret (cond' == cond && List.for_all2 (fun (_tl1,body1) (_tl2,body2) -> body1 == body2) cases' cases)
          (trm_switch ~annot ~marks ~loc ~add cond' cases')
+  | Trm_abort a -> 
+    begin match a with 
+    | Ret (Some t') -> trm_ret ~annot ~marks ~loc ~add (Ret (Some (f false t')))
+    | _ -> t
+    end 
+  | Trm_labelled (l, body) -> 
+    let body' = f false body in 
+    trm_labelled ~annot ~marks ~loc ~add l body'
   | _ -> t
 
 
