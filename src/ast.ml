@@ -84,8 +84,6 @@ type string_trm = string
 (* constructor name (for enum and algebraic datatypes) *)
 type constrname = string
 
-
-
 (* array sizes *)
 type size =
   | Undefined (* t[] *)
@@ -1996,7 +1994,24 @@ exception Ast_and_code_provided
  *)
 let keep_only_function_bodies (fun_names : vars) (t : trm) : trm * tmap =
   let t_map = ref Trm_map.empty in
-  let rec aux (t : trm) : trm =
+  let aux (t : trm) : trm = 
+    match t.desc with 
+    | Trm_seq tl ->
+      let new_tl = Mlist.map (fun t1 ->
+        match t1.desc with 
+        | Trm_let_fun (f, ty, tv, _) -> 
+          if not (List.mem f fun_names) then 
+            t_map := Trm_map.add f t !t_map;
+            trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) 
+        | _ -> t1
+      ) tl in 
+      {t with desc = Trm_seq new_tl}
+    | _ -> fail t.loc "keep_only_function_bodies: expected the globale sequence that contains all the toplevel declarations"
+    in
+  let res = aux t in
+  res,!t_map
+  
+  (* let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_let_fun (f,ty, tv, _) ->
       if not (List.mem f fun_names) then begin
@@ -2006,7 +2021,7 @@ let keep_only_function_bodies (fun_names : vars) (t : trm) : trm * tmap =
     | _ -> trm_map aux t
     in
   let res = aux t in
-  res, !t_map
+  res, !t_map *)
 
 
 
@@ -2239,13 +2254,17 @@ let top_level_fun_bindings (t : trm) : tmap =
   aux t;
   !tmap
 
-(* [top_fun_to_hide tm1 tm2] find all the functions in [tm1] and [tm2] that have the same value*)
-let top_fun_to_hide (tm1 : tmap) (tm2 : tmap) : vars = 
+(* [top_fun_to_keep tm1 tm2] find all the functions in [tm1] and [tm2] that have the same value*)
+let top_fun_to_keep (tm1 : tmap) (tm2 : tmap) : vars = 
   let f_names = ref [] in 
   Trm_map.iter (fun f1 b1 -> 
     match Trm_map.find_opt f1 tm2 with 
     | Some b2 -> 
-      if not (b1 == b2) then f_names := f1 :: !f_names else ()
+      if not (b1 == b2) then begin
+        Printf.printf "keeping name %s\n" f1;
+        f_names := f1 :: !f_names end else 
+        Printf.printf "removing name %s\n" f1
+        (* () *)
     | None -> fail None "top_fun_to_hide: one function was deleted"
   ) tm1;
   !f_names

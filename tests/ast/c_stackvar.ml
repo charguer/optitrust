@@ -12,8 +12,6 @@ let test_stackvar () =
 
 (* let _ = test_stackvar () *)
 
-let _ = Flags.disable_light_diff := true
-
 let _ = Run.script_cpp (* ~filename:"c_big.cpp" ~prefix:"c_big" *) ~raw_ast:true (fun () ->
   !! Trace.apply stackvar_elim;
   !! Trace.apply stackvar_intro;

@@ -627,9 +627,9 @@ let light_diff (astBefore : trm option) (astAfter : trm) : trm option * trm  =
   | Some astBefore -> 
     let topfun_map_before = top_level_fun_bindings astBefore in
     let topfun_map_after = top_level_fun_bindings astAfter in
-    let top_fun_to_hide = top_fun_to_hide topfun_map_before topfun_map_after in 
-    let new_astBefore, _  = keep_only_function_bodies top_fun_to_hide astBefore in 
-    let new_astAfter, _ = keep_only_function_bodies top_fun_to_hide astAfter in
+    let top_fun_to_keep = top_fun_to_keep topfun_map_before topfun_map_after in 
+    let new_astBefore, _  = keep_only_function_bodies top_fun_to_keep astBefore in 
+    let new_astAfter, _ = keep_only_function_bodies top_fun_to_keep astAfter in
     (Some new_astBefore, new_astAfter)
   | _ -> astBefore, astAfter 
   
