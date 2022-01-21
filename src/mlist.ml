@@ -21,10 +21,10 @@ let mapi (f : int -> 'a -> 'b) (ml : 'a t) : 'b t =
 let map (f : 'a -> 'b) (ml : 'a t) : 'b t =
   mapi (fun _i x -> f x) ml
 
-let iteri (f : int -> 'a -> unit) (ml : 'a t) : unit = 
+let iteri (f : int -> 'a -> unit) (ml : 'a t) : unit =
   List.iteri f (to_list ml)
 
-let iter (f : 'a -> unit) (ml : 'a t) : unit = 
+let iter (f : 'a -> unit) (ml : 'a t) : unit =
   iteri (fun _i x -> f x) ml
 
 let find_map (f : 'a -> 'b option) (ml : 'a t) : 'b option =
@@ -41,6 +41,9 @@ let fold_lefti (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
 
 let fold_righti (acc_f : int -> 'a -> 'b -> 'b)  (ml : 'a t) (acc : 'b) : 'b =
   Tools.fold_righti acc_f ml.items acc
+
+let for_all2 p ml1 ml2 =
+  List.for_all2 p (to_list ml1) (to_list ml2)
 
 let replace_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
   { ml with items = Tools.map_at (fun _ -> x) ml.items index  }
