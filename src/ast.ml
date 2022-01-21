@@ -985,6 +985,13 @@ let rec trm_vardef_get_vars (t : trm) : var list =
   | Trm_seq tl when List.mem Multi_decl t.annot -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl))
   | _ -> []
 
+
+
+(* [trm_ret ~annot] special trm_abort case, used for return statements*)
+let trm_ret ?(annot = []) ?(loc = None) ?(add = []) ?(marks : mark list = [])
+  (a : abort) : trm =
+  trm_abort ~annot ~loc ~add ~marks a
+
 (* get the primitive operation *)
 let trm_prim_inv (t : trm) : prim option =
   match t.desc with
@@ -1110,8 +1117,9 @@ let apply_on_loop_step (f : trm -> trm) (l_step : loop_step) : loop_step =
 
 (* apply a function over ast nodes, if nodes are terminal nodes than specific treatment is considered
     depending on the definition of function f
+    Note: This is an unoptimized version of trm_map_with_terminal
 *)
-let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
+let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
   let annot = t.annot in
   let loc = t.loc in
   let add = t.add in
@@ -1120,13 +1128,17 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
   let marks = t.marks in
   match t.desc with
   | Trm_array tl ->
-    trm_array ~annot ~loc ~add ~typ ~marks (Mlist.map (f false) tl)
+    let tl' = Mlist.map (f false) tl in 
+    trm_array ~annot ~loc ~add ~typ ~marks tl'
   | Trm_struct tl ->
-    trm_struct ~annot ~loc ~add ~typ ~marks (Mlist.map (f false) tl)
+    let tl' = Mlist.map (f false) tl in 
+    trm_struct ~annot ~loc ~add ~typ ~marks tl'
   | Trm_let (vk, tv, init) ->
-    trm_let ~annot ~marks ~loc ~is_statement ~add vk tv (f false init)
+    let init' = f false init in 
+    trm_let ~annot ~marks ~loc ~is_statement ~add vk tv init'
   | Trm_let_fun (f', res, args, body) ->
-    trm_let_fun ~annot ~marks ~loc ~is_statement ~add f' res args (f false body)
+    let body' = f false body in 
+    trm_let_fun ~annot ~marks ~loc ~is_statement ~add f' res args body'
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
@@ -1162,14 +1174,17 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
     | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
     | Step sp -> Step (f is_terminal sp)
     in
-    trm_for ~annot ~marks ~loc ~add index (f is_terminal start) direction (f is_terminal stop) m_step (f is_terminal body)
+    let start' = f false start in
+    let stop' = f false stop in
+    let body' = f is_terminal body in 
+    trm_for ~annot ~marks ~loc ~add index start' direction stop' m_step body'
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, f is_terminal body)) cases in
      trm_switch ~annot ~marks ~loc ~add cond' cases'
   | Trm_abort a ->
      begin match a with
-     | Ret (Some t') -> trm_abort ~annot ~marks ~loc ~add (Ret (Some (f false t')))
+     | Ret (Some t') -> trm_ret ~annot ~marks ~loc ~add (Ret (Some (f false t')))
      (* return without value, continue, break *)
      | _ -> t
      end
@@ -1177,7 +1192,86 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
      trm_labelled ~annot ~marks ~loc ~add l (f false body)
   | _ -> t
 
-(* similart to trm_map_with_terminal but here terminal nodes are not treated differently *)
+(* trm_map_with_terminal derived from trm_map *)
+let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
+  let annot = t.annot in
+  let loc = t.loc in
+  let add = t.add in
+  let is_statement = t.is_statement in
+  let typ = t.typ in
+  let marks = t.marks in
+  let aux = f is_terminal in
+  
+  (* [ret nochange t'] evaluates the condition [nochange]; if is true,
+     it returns [t], because [f] has not performed any change on [t];
+     else, it returns the new result [t'], which was computed as [f t]. *)
+  let ret nochange t' =
+    if nochange then t else t' in
+  
+  (* apply f recursively over the marked list [tl] *)
+  let fmlist is_terminal tl =
+    let tl' = Mlist.map (f is_terminal) tl in
+    if Mlist.for_all2 (==) tl tl' then tl else tl' in
+
+  match t.desc with
+  | Trm_array tl ->
+    let tl' = fmlist false tl in
+    ret (tl' == tl)
+        (trm_array ~annot ~loc ~add ~typ ~marks tl')
+  | Trm_struct tl ->
+    let tl' = fmlist false tl in
+    ret (tl' == tl)
+        (trm_struct ~annot ~loc ~add ~typ ~marks tl')
+  | Trm_let (vk, tv, init) ->
+    let init' = f false init in
+    ret (init' == init)
+        (trm_let ~annot ~marks ~loc ~is_statement ~add vk tv init')
+  | Trm_let_fun (f', res, args, body) ->
+    let body' = f false body in
+    ret (body' == body)
+        (trm_let_fun ~annot ~marks ~loc ~is_statement ~add f' res args body')
+  | Trm_if (cond, then_, else_) ->
+    let cond' = f false cond in
+    let then_' = aux then_ in
+    let else_' = aux else_ in
+    ret (cond' == cond && then_' == then_ && else_' == else_)
+        (trm_if ~annot ~marks ~loc ~add cond' then_' else_')
+  | Trm_seq tl ->
+    let n = Mlist.length tl in
+    let tl' = Mlist.mapi (fun i tsub ->
+        let sub_is_terminal = (is_terminal && i == n-1) in
+        f sub_is_terminal tsub
+      ) tl in
+    ret (Mlist.for_all2 (==) tl tl')
+        (trm_seq ~annot ~marks ~loc tl')
+  | Trm_for_c (init, cond, step, body) ->
+     let init' = f false init in
+     let cond' = f false cond in
+     let step' = f false step in
+     let body' = aux body in
+     ret (init' == init && cond' == cond && step' == step && body' == body)
+         (trm_for_c ~annot ~marks ~loc ~add init' cond' step' body')
+  | Trm_for (index, start, direction, stop, step, body) ->
+    let start' = f false start in
+    let stop' = f false stop in
+    let step' = match step with
+      | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
+      | Step sp -> Step (f false sp)
+      in
+    let body' = aux body in
+    ret (step' == step && start' == start && stop' == stop && body' == body)
+        (trm_for ~annot ~marks ~loc ~add index start' direction stop' step' body')
+  | Trm_switch (cond, cases) ->
+     let cond' = f false cond in
+     let cases' = List.map (fun (tl, body) -> (tl, aux body)) cases in
+     ret (cond' == cond && List.for_all2 (fun (_tl1,body1) (_tl2,body2) -> body1 == body2) cases' cases)
+         (trm_switch ~annot ~marks ~loc ~add cond' cases')
+  | _ -> t
+
+
+let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm = 
+  trm_map_with_terminal_opt is_terminal f t
+
 let trm_map (f : trm -> trm) (t : trm) : trm =
   trm_map_with_terminal false (fun _is_terminal t -> f t) t
 

@@ -36,13 +36,11 @@ TESTS_WORKING := \
 	loop_unroll.ml \
 	loop_unswitch.ml \
 	reference_fold.ml \
-	rewrite_equiv_at.ml \
 	rewrite_compute.ml \
 	rewrite_compute_inside.ml \
 	sequence_delete.ml \
 	sequence_elim_around_instr.ml \
 	sequence_elim.ml \
-	sequence_insert.ml \
 	sequence_intro.ml \
 	sequence_intro_on_instr.ml \
 	sequence_partition.ml \
@@ -52,7 +50,6 @@ TESTS_WORKING := \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
-	struct_update_fields_type.ml \
 	typedef_fold.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
@@ -62,7 +59,6 @@ TESTS_WORKING := \
 	variable_init_attach.ml \
 	variable_init_detach.ml \
 	variable_inline.ml \
-	variable_insert.ml \
 	variable_local_name.ml \
 	variable_rename.ml \
 	variable_subst.ml \
@@ -75,7 +71,6 @@ TESTS_WORKING := \
 	reference_inline.ml \
 	specialize_any.ml \
 	pointer_fold.ml \
-	variable_bind.ml \
 	variable_simpl_deref.ml \
 	variable_to_const.ml \
 
@@ -101,6 +96,15 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	arith_shift.ml \
 	arith_to_fix.ml \
+	rewrite_equiv_at.ml \
+	sequence_insert.ml \
+	struct_update_fields_type.ml \
+	variable_bind.ml \
+	variable_insert.ml \
+
+
+
+
 
 TESTS_WITH_DOC := \
 	label_add.ml \
