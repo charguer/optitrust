@@ -619,6 +619,21 @@ let reparse_alias = reparse
 (*                                   Dump                                     *)
 (******************************************************************************)
 
+(* [light_diff astBefore astAfter] finds all the functions that have not change after
+    applying a transformation and hides their body for a more robust view diff
+*)
+let light_diff (astBefore : trm option) (astAfter : trm) : trm option * trm  = 
+  match astBefore with 
+  | Some astBefore -> 
+    let topfun_map_before = top_level_fun_bindings astBefore in
+    let topfun_map_after = top_level_fun_bindings astAfter in
+    let top_fun_to_hide = top_fun_to_hide topfun_map_before topfun_map_after in 
+    let new_astBefore, _  = keep_only_function_bodies top_fun_to_hide astBefore in 
+    let new_astAfter, _ = keep_only_function_bodies top_fun_to_hide astAfter in
+    (Some new_astBefore, new_astAfter)
+  | _ -> astBefore, astAfter 
+  
+
 (* [dump_diff_and_exit()] invokes [output_prog] on the current AST an also on the
    last item from the history, then it interrupts the execution of the script.
    This function is useful for interactively studying the effect of one particular
@@ -653,6 +668,9 @@ let dump_diff_and_exit () : unit =
       | t::_ -> Some t (* the most recently saved AST *)
       | [] -> Printf.eprintf "Warning: only one step in the history; consider previous step blank.\n"; None
       in
+    let astAfter = trace.cur_ast in
+    let astBefore, astAfter = if not !Flags.disable_light_diff then light_diff astBefore astAfter else astBefore, astAfter in 
+    
     output_ast (prefix ^ "_before") astBefore;
     (* CPP and AST for BEFORE_N *)
     if !Flags.dump_last <> Flags.dump_last_default then begin
@@ -666,7 +684,6 @@ let dump_diff_and_exit () : unit =
       done;
     end;
     (* CPP and AST and Javscript for AFTER *)
-    let astAfter = trace.cur_ast in
     output_ast (prefix ^ "_after") (Some astAfter);
     print_info None "Writing ast and code into %s.js " prefix;
     output_js 0 prefix astAfter;

@@ -25,6 +25,10 @@ let reparse_at_big_steps : bool ref = ref false
 (* Flag to report progress during a script execution *)
 let report_big_steps : bool ref = ref false
 
+
+(* Flag to disable light diff *)
+let disable_light_diff : bool ref = ref false 
+
 (* exit line number *)
 let exit_line : int ref = ref max_int
 

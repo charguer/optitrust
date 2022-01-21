@@ -2222,3 +2222,30 @@ end
 (* [var_mutability_unkown] dummy value used for variable mutability*)
 let var_mutability_unknown = Var_mutable
 
+(* [top_level_fun_bindings t] return a map with keys the names of toplevel function names
+    and values their bodies *)
+let top_level_fun_bindings (t : trm) : tmap =
+  let tmap = ref Trm_map.empty in 
+    let aux (t : trm) : unit = 
+      match t.desc with 
+      | Trm_seq tl ->
+        Mlist.iter (fun t1 -> 
+          match t1.desc with 
+          | Trm_let_fun (f, _, _, body) -> tmap := Trm_map.add f body !tmap
+          | _ -> ()
+        ) tl 
+      | _ -> fail t.loc "top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
+   in 
+  aux t;
+  !tmap
+
+(* [top_fun_to_hide tm1 tm2] find all the functions in [tm1] and [tm2] that have the same value*)
+let top_fun_to_hide (tm1 : tmap) (tm2 : tmap) : vars = 
+  let f_names = ref [] in 
+  Trm_map.iter (fun f1 b1 -> 
+    match Trm_map.find_opt f1 tm2 with 
+    | Some b2 -> 
+      if not (b1 == b2) then f_names := f1 :: !f_names else ()
+    | None -> fail None "top_fun_to_hide: one function was deleted"
+  ) tm1;
+  !f_names

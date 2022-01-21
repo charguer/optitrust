@@ -822,7 +822,6 @@ and tr_decl (d : decl) : trm =
     end
 
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
-
     let rec contains_elaborated_type (q : qual_type) : bool =
       let {desc = d;const = _;_} = q in
       match d with
@@ -837,8 +836,6 @@ and tr_decl (d : decl) : trm =
 
     in
     let tt = if contains_elaborated_type t then tr_qual_type ~loc ~tr_record_types:false t else tr_qual_type ~loc t in
-
-    let const = is_typ_const tt in
     let te =
       begin match eo with
       | None -> trm_lit ~loc Lit_uninitialized
