@@ -378,11 +378,6 @@ and tr_expr ?(is_statement : bool = false)
     (e : expr) : trm =
   (* let aux = tr_expr *)
   let loc = loc_of_node e in
-    (* TODO: define a function [trm_apps'] for
-         trm_apps ~loc ~is_statement ~typ ~ctx
-       Beware that in a few places there is a [let loc] that
-       modifies the loc, so in those case [trm_apps'] should be
-       either not used or redefined locally for the new loc *)
   let typ : typ option =
     let q = Clang.Type.of_node e in
     try Some (tr_qual_type ~loc q) with
@@ -687,10 +682,6 @@ and tr_decl_list (dl : decl list) : trms =
         let ft = tr_qual_type ~loc q in
         let al = List.map (tr_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
-        (* LATER: Fix this *) (* TODO: you can define in ast.ml
-            let var_mutability_unknown = Var_mutable  --as an arbitrary value
-            and then use [var_mutability_unknown] below, to document that it is a dummy
-            value until we call the function stackvar_elim *)
         (fn, ty)
       | _ ->
         fail loc "tr_decl_list: only fields are allowed in record declaration"
@@ -868,8 +859,8 @@ and tr_decl (d : decl) : trm =
       end
       in
     ctx_var_add n tt;
-    (* TODO: we can use [var_mutability_unknown] here again *)
-    let mut = if const then Var_immutable else Var_mutable in
+    (* dummy value used for variable mutability *)
+    let mut = var_mutability_unknown in
     trm_let ~loc ~is_statement:true mut (n,tt) te
   | TypedefDecl {name = tn; underlying_type = q} ->
     let tid = next_typconstrid () in
@@ -918,7 +909,6 @@ and tr_decl (d : decl) : trm =
         let al = List.map (tr_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
         (fn, ty)
-        (* trm_let ~loc  Var_mutable (fn,typ_ptr_generated ty) (trm_prim ~loc (Prim_new ty)) *)
       | _ -> fail loc "tr_decl_list: only fields are allowed in record declaration"
     ) fl in
       let kw = match k with
