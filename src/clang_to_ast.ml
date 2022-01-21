@@ -923,24 +923,24 @@ and translate_decl_list (dl : decl list) : trms =
                                         complete_definition = _;_ }} ::
     ({desc = Var _;_} as d1) ::
     dl' ->
-       let trm_list = List.map (fun (d : decl) ->
+       let prod_list = List.map (fun (d : decl) ->
       let loc = loc_of_node d in
       match d with
       | {decoration = _; desc = Field {name = fn; qual_type = q; attributes = al;_}} ->
         let ft = translate_qual_type ~loc q in
         let al = List.map (translate_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
-        trm_let ~loc  Var_mutable (fn,typ_ptr_generated ty) (trm_prim ~loc (Prim_new ty))
+        (fn, ty)
       | _ ->
-      translate_decl d
+        fail loc "tr_decl_list: only fields are allowed in record declaration"
     ) fl in
       let kw = match k with
       | Struct -> Struct
       | Union -> Union
       | Class -> Class
-      | _ -> fail loc "translate_decl_list: special records are not supported" in
+      | _ -> fail loc "tr_decl_list: special records are not supported" in
       let tl' = translate_decl_list dl' in
-      trm_let_record rn kw trm_list (translate_decl d1) :: tl'
+      trm_let_record rn kw (List.rev prod_list) (translate_decl d1) :: tl'
 
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
@@ -1177,23 +1177,22 @@ and translate_decl (d : decl) : trm =
      | _ -> "" in
      trm_extern lang dls
   | RecordDecl {keyword = k; name = n; fields = fl;_} ->
-    let trm_list = List.map (fun (d : decl) ->
+    let prod_list = List.map (fun (d : decl) ->
       let loc = loc_of_node d in
       match d with
       | {decoration = _; desc = Field {name = fn; qual_type = q; attributes = al;_}} ->
         let ft = translate_qual_type ~loc q in
         let al = List.map (translate_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
-        trm_let ~loc  Var_mutable (fn,typ_ptr_generated ty) (trm_prim ~loc (Prim_new ty))
-      | _ ->
-      translate_decl d
+        (fn, ty)
+      | _ -> fail loc "translate_decl_list: only_fields are allowed in record declaration"
     ) fl in
       let kw = match k with
       | Struct -> Struct
       | Union -> Union
       | Class -> Class
       | _ -> fail loc "translate_decl_list: special records are not supported" in
-      trm_let_record n kw trm_list (trm_lit (Lit_unit))
+      trm_let_record n kw (List.rev prod_list) (trm_lit (Lit_unit))
   | Namespace {name = n; declarations = dl; inline = b} ->
     let dls = translate_decl_list dl in
     trm_namespace n (trm_seq_nomarks dls) b

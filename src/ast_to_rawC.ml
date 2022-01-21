@@ -351,12 +351,19 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
       let inline = if inline then string "inline" else empty in
       let dt = decorate_trm ~semicolon:true t1 in
       dattr ^^ inline ^^ string "namespace" ^^ blank 1 ^^ string name ^^  blank 1 ^^ dt
-     | Trm_let_record (name, rt, tl, t1) ->
-      let dname = if name = "" then empty else blank 1 ^^ string name in
-      let drt = record_type_to_doc rt in
-      let dt = decorate_trm t1 in
-      let dl = List.map (decorate_trm ~semicolon:true) tl in
-      dattr ^^ drt ^^ dname ^^  blank 1 ^^ Tools.list_to_doc ~sep:hardline ~bounds:[lbrace; rbrace] dl ^^ blank 1 ^^ dt ^^ semi
+     | Trm_let_record (name, rt, s, t1) -> 
+      let get_document_list s =
+        let rec aux acc = function 
+          | [] -> acc
+          | (lb, t) :: tl -> 
+            aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in 
+            aux [] s in 
+        let dl = get_document_list s in 
+        let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in 
+        let dname = if name = "" then empty else blank 1 ^^ string name in 
+        let drt = record_type_to_doc rt in 
+        let dt = decorate_trm t1 in 
+        dattr ^^ drt ^^ dname ^^ blank 1 ^^ sbody  ^^ blank 1 ^^ dt ^^ semi
      | Trm_template (tpl, t1) ->
         let dl = decorate_trm t1 in
         let dtpl = List.map (fun (n, tpk, _) ->

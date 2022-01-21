@@ -375,8 +375,7 @@ and trm_desc =
   | Trm_struct of trm mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_fun of var * typ * (typed_vars) * trm
-  | Trm_let_record of string * record_type * trms * trm
-
+  | Trm_let_record of string * record_type * (label * typ) list * trm
   (* LATER: trm_fun  for anonymous functions *)
   (* LATER: mutual recursive functions via mutual recursion *)
   | Trm_typedef of typedef
@@ -941,8 +940,8 @@ let trm_namespace ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attribu
   {annot; marks; desc = Trm_namespace (name, t, inline); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_let_record ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
-(name : string) (rt : record_type ) (tl : trms) (t : trm) : trm =
-  {annot; marks; desc = Trm_let_record (name, rt, tl, t); loc = loc; is_statement = true; add ; typ; attributes; ctx}
+(name : string) (rt : record_type ) (lt : (label * typ) list) (t : trm) : trm =
+  {annot; marks; desc = Trm_let_record (name, rt, lt, t); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_template ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
 (tpl : template_parameter_list) (t : trm ) : trm =
@@ -2098,45 +2097,45 @@ let trm_new (ty : typ) (t : trm) : trm =
 let trm_any_bool : trm =
   trm_apps (trm_var "ANY_BOOL") []
 
-(* [trm_eq t1 t2] generates t1 = t2 *)
-let trm_eq (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_eq) [t1; t2]
+(* [trm_eq ~loc ~ctx ~typ t1 t2] generates t1 = t2 *)
+let trm_eq ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx  Binop_eq) [t1; t2]
 
 (* [trm_neq t1 t2] generates t1 != t2 *)
-let trm_neq (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_neq) [t1; t2]
+let trm_neq ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_neq) [t1; t2]
 
 (* [trm_sub t1 t2] generates t1 - t2 *)
-let trm_sub (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_sub) [t1; t2]
+let trm_sub ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_sub) [t1; t2]
 
 (* [trm_add t1 t2] generates t1 + t2 *)
-let trm_add (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_add) [t1; t2]
+let trm_add ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_add) [t1; t2]
 
 (* [trm_mul t1 t2] generates t1 * t2 *)
-let trm_mul (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_mul) [t1; t2]
+let trm_mul ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mul) [t1; t2]
 
 (* [trm_div t1 t2] generates t1 / t2 *)
-let trm_div (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_div) [t1; t2]
+let trm_div ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_div) [t1; t2]
 
 (* [trm_le t1 t2] generates t1 <= t2 *)
-let trm_le (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_le) [t1; t2]
+let trm_le ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_le) [t1; t2]
 
 (* [trm_lt t1 t2] generates t1 < t2 *)
-let trm_lt (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_lt) [t1; t2]
+let trm_lt ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_lt) [t1; t2]
 
 (* [trm_ge t1 t2] generates t1 >= t2 *)
-let trm_ge (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_ge) [t1; t2]
+let trm_ge ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_ge) [t1; t2]
 
 (* [trm_gt t1 t2] generates t1 > t2 *)
-let trm_gt (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_gt) [t1; t2]
+let trm_gt ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_gt) [t1; t2]
 
 (* [trm_ineq ineq_sgn t1 t2] generates an inequality t1 # t2
     where # is one of the following operators <, <=, >, >=.
@@ -2151,18 +2150,46 @@ let trm_ineq (ineq_sgn : loop_dir) (t1 : trm) (t2 : trm) : trm =
 
 
 (* [trm_and t1 t2] generates t1 && t2 *)
-let trm_and (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_and) [t1;t2]
+let trm_and ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_and) [t1;t2]
+
+(* [trm_bit_and t1 t2] generates t1 && t2 *)
+let trm_bit_and ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_bitwise_and) [t1;t2]
 
 (* [trm_or t1 t2] generates t1 || t2 *)
-let trm_or (t1 : trm) (t2 : trm) : trm =
-  trm_apps (trm_binop Binop_or) [t1;t2]
+let trm_or ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_or) [t1;t2]
+
+(* [trm_bit_or t1 t2] generates t1 || t2 *)
+let trm_bit_or ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_bitwise_or) [t1;t2]
+
+(* [trm_shiftl t1 t2] generates t1 << t2*)
+let trm_shiftl ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm = 
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_shiftl) [t1; t2]
+
+(* [trm_shiftr t1 t2] generates t1 >> t2*)
+let trm_shiftr ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm = 
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_shiftr) [t1; t2]
+
+(* [trm_mod t1 t2] generates t1 % t2*)
+let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm = 
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [t1;t2]
+
+(* [trm_xor t1 t2] generates t1 ^ t2 *)
+let trm_xor ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm = 
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_xor) [t1; t2]
 
 (* [trm_ands ts] generalized version of trm_and *)
 let trm_ands (ts : trm list) : trm =
   Tools.fold_lefti (fun i acc t1 ->
     if i = 0 then t1 else trm_and acc t1
   ) (trm_bool true) ts
+
+(* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
+let trm_prim_compound ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None) ?(typ = None) (binop : binary_op) (t1 : trm) (t2 : trm) : trm = 
+  trm_apps ~loc ~is_statement ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
 
 (* [code_to_str] extract the code from the nodes that contain the arbitrary code*)
 let code_to_str (code : code_kind) : string =

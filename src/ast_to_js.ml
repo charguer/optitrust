@@ -333,14 +333,15 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
       [ kind_to_field "namespace";
           value_to_field name;
           children_to_field [child_to_json "namespace" (aux t1)]]
-    | Trm_let_record (name, rt, l, t) ->
+    | Trm_let_record (name, rt, _l, _t) ->
         let rt_str = match rt with
         | Struct -> "struct"
         | Union -> "union"
         | Class -> "class" in
         [ kind_to_field rt_str;
-          value_to_field name;
-          children_to_field (List.mapi ichild_to_json (List.map aux (l @ [t])))]
+          value_to_field name
+          (* LATER: When we will need structs fix this *)
+          (* children_to_field (List.mapi ichild_to_json (List.map aux (l @ [t]))) *)]
     | Trm_template (_, t) ->
       [ kind_to_field "template";
           children_to_field [child_to_json "template" (aux t)]]
