@@ -27,7 +27,7 @@ let report_big_steps : bool ref = ref false
 
 
 (* Flag to disable light diff *)
-let disable_light_diff : bool ref = ref true 
+let disable_light_diff : bool ref = ref true
 
 (* exit line number *)
 let exit_line : int ref = ref max_int

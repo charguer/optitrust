@@ -632,7 +632,6 @@ let light_diff (astBefore : trm option) (astAfter : trm) : trm option * trm  =
     let new_astAfter, _ = keep_only_function_bodies top_fun_to_keep astAfter in
     (Some new_astBefore, new_astAfter)
   | _ -> astBefore, astAfter 
-  
 
 (* [dump_diff_and_exit()] invokes [output_prog] on the current AST an also on the
    last item from the history, then it interrupts the execution of the script.

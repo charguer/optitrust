@@ -2103,10 +2103,11 @@ let is_typ (ty : typ) : bool =
 exception No_ast_or_code_provided
 exception Ast_and_code_provided
 
-(* [keep_only_function_bodies fun_names t] all the functions with the name listed in [fun_names] will be transformed into
-    function prototypes. Return the chopped ast and a map were the keys are the function names that do not belong to
-    [fun_names] and their values are their bodies.
- *)
+(* [keep_onl_function_bodies fun_names tl] all the toplevel function with their name belonging to [fun_names] list
+    will be keep unchanged and all for all the other toplevel function names we will hide their body.
+    The new ast is called the chopped_ast. This function wlll return the choped_ast and a map with keys
+    the names of the functions whose body has been removed and values their removed body.
+*)
 let keep_only_function_bodies (fun_names : vars) (t : trm) : trm * tmap =
   let t_map = ref Trm_map.empty in
     let rec aux (t : trm) : trm =
@@ -2357,10 +2358,7 @@ let top_fun_to_keep (tm1 : tmap) (tm2 : tmap) : vars =
     match Trm_map.find_opt f1 tm2 with 
     | Some b2 -> 
       if not (b1 == b2) then begin
-        Printf.printf "keeping name %s\n" f1;
-        f_names := f1 :: !f_names end else 
-        Printf.printf "removing name %s\n" f1
-        (* () *)
-    | None -> fail None "top_fun_to_hide: one function was deleted"
+        f_names := f1 :: !f_names end
+    | _ -> ()
   ) tm1;
   !f_names

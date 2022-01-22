@@ -6,5 +6,6 @@ open Target
 
 let _ = Run.script_cpp (fun () ->
 
-  Trace.reparse();
+  !! Sequence_basic.insert (stmt "int h(int x) {return x;}") [tBefore; cFunDef "f"];
+  (* Trace.reparse(); *)
 )
