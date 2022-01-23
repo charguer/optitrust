@@ -1769,7 +1769,7 @@ let is_set_operation (t : trm) : bool =
 let get_operation_arg (t : trm) : trm =
   match t.desc with
   | Trm_apps (_, [t1]) -> t1
-  | _ -> fail t.loc "get_operation_arg: this function should be called only on get operations "
+  | _ -> t (* fail t.loc "get_operation_arg: this function should be called only on get operations " *)
 
 (* [trm_for_c_inv_simple_init init] check if the init loop component is simple or not.
     It not then return None else return the index used in the init trm, its initial value and a boolean which states if

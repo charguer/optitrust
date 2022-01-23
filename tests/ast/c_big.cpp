@@ -91,7 +91,7 @@ void bag_push_concurrent(bag *b, particle p) {
       (c->items)[index] = p;
       if ((index == (CHUNK_SIZE - 1))) {
         bag_add_front_chunk(b);
-      }
+      } 
       return;
     } else {
       (c->size) = CHUNK_SIZE;
@@ -332,6 +332,9 @@ const int nbCorners = 8;
 
 vect *fields = (vect *)malloc((nbCells * sizeof(vect)));
 
+int MINDEX3(int N1, int N2, int N3, int i1, int i2, int i3) {
+  return i1 * N2 * N3 + i2 * N2 + i3;
+}
 int cellOfCoord(int i, int j, int k) {
   return MINDEX3(gridX, gridY, gridZ, i, j, k);
 }

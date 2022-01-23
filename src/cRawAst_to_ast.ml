@@ -100,7 +100,9 @@ let stackvar_elim (t : trm) : trm =
     | Trm_seq _ -> onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
       add_var env f Var_immutable;
-      onscope env t (fun t -> List.iter (fun (x, _tx) -> add_var env x Var_immutable) targs; trm_map aux t)
+      onscope env t (fun t -> List.iter (fun (x, _tx) ->
+       let mut = Var_immutable in (* if is_typ_ptr tx then Var_mutable else Var_immutable in *)
+       add_var env x mut) targs; trm_map aux t)
     | Trm_for (index, _, _, _, _, _) ->
         onscope env t (fun t -> add_var env index Var_immutable; trm_map aux t)
     | Trm_for_c _ ->
