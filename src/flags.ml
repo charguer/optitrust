@@ -29,6 +29,27 @@ let report_big_steps : bool ref = ref false
 (* Flag to disable light diff *)
 let disable_light_diff : bool ref = ref true
 
+type serialized_mode = 
+  | Serialized_None 
+  | Serialized_Build 
+  | Serialized_Use 
+  | Serialized_Make 
+  | Serialized_Auto
+
+let serialized_mode : serialized_mode ref = ref Serialized_None
+
+let process_serialized_input (mode : string) : unit = 
+  serialized_mode := match mode with 
+  | "build" -> Serialized_Build
+  | "use" -> Serialized_Use
+  | "make" -> Serialized_Make
+  | "auto" -> Serialized_Auto
+  | _ -> Serialized_None
+
+(* Flag to enable serialized input *)
+
+
+
 (* exit line number *)
 let exit_line : int ref = ref max_int
 
@@ -39,6 +60,10 @@ let get_exit_line () : int option =
 
 (* ignore small steps to apply multiple transformations at one time *)
 let only_big_steps : bool ref = ref false
+
+
+(* let spec = ...
+ ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'."); *)
 
 let spec =
   Arg.align [
@@ -53,6 +78,7 @@ let spec =
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
      ("-analyse-time", Arg.Set analyse_time, " produce a file reporting on the execution time");
      ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
+     ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      (* LATER: a -dev flag to activate a combination of dump *)
     ]
 

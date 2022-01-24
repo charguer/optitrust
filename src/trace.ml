@@ -240,6 +240,19 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   push();
   !r
 
+let get_initial_ast ?(raw_ast : bool = false) (ser_mode : Flags.serialized_mode) (ser_file : string) (filename : string) : (string * trm) =  
+  if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in ();
+  let ser_file_exists =  Sys.file_exists  ser_file in 
+  let ser_file_more_recent = if (not ser_file_exists) then false else true in 
+  if (ser_mode = Serialized_Use || ser_mode = Serialized_Make || (ser_mode = Serialized_Auto && ser_file_more_recent)) then 
+    if not ser_file_exists then fail None "get_initial_ast: TODO error";
+    if not ser_file_more_recent then fail None "get_initial_ast: TODO error";
+    let ast = Tools.read_ser_file ser_file in 
+    let includes = get_cpp_includes filename in
+    (includes, ast)
+  else 
+    parse ~raw_ast filename 
+
 (* [init f] initialize the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
    The history is initialized with the initial AST.
@@ -263,14 +276,19 @@ let init ?(prefix : string = "") (filename : string) : unit =
       ml_file_excerpts := compute_ml_file_excerpts lines;
     end;
   end;
+  let mode = !Flags.serialized_mode in 
   start_time := Unix.gettimeofday ();
   last_time := !start_time;
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
-  let (includes, cur_ast) = parse ~raw_ast:!use_raw_ast filename in
+  let ser_file = basename ^ ".ser" in 
+  let (includes, cur_ast) = get_initial_ast ~raw_ast:!use_raw_ast mode ser_file filename in
+  (* let (includes, cur_ast) = parse ~raw_ast:!use_raw_ast filename in *)
   let context = { extension; directory; prefix; includes; clog } in
   let trace = { context; cur_ast; history = [cur_ast] } in
   traces := [trace];
+  if mode = Serialized_Build || mode = Serialized_Auto then 
+    Tools.write_ser_file ser_file cur_ast;
   print_info None "Starting script execution...\n"
 
 (* [finalize()] should be called at the end of the script, to properly close the log files
