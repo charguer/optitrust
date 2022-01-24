@@ -322,7 +322,7 @@ void bag_push_serial(bag* b, particle p) {
 }
 
 void bag_push(bag* b, particle p) {
-  return bag_push_serial(b, p);
+  bag_push_serial(b, p);
 }
 
 /*

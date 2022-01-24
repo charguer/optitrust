@@ -318,7 +318,7 @@ and is_constant_expr env e =
           is_constant_expr env e1 && is_constant_expr env e2
       | Oindex ->
           is_constant_rval_of_lval env e
-      | Oassign 
+      | Oassign
       | Oadd_assign | Osub_assign | Omul_assign | Odiv_assign | Omod_assign
       | Oand_assign | Oor_assign | Oxor_assign  | Oshl_assign | Oshr_assign ->
           false
@@ -364,7 +364,7 @@ and is_constant_lval env e =
   | EUnop(Oderef, e1) -> is_constant_expr env e1
   | EUnop(Odot f, e1) -> is_constant_lval env e1
   | EUnop(Oarrow f, e1) -> is_constant_expr env e1
-  | EBinop(Oindex, e1, e2, _) -> 
+  | EBinop(Oindex, e1, e2, _) ->
       is_constant_expr env e1 && is_constant_expr env e2
   | ECompound(ty, i) ->
       is_constant_init env i

@@ -239,20 +239,30 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   List.iteri process_line lines;
   push();
   !r
-  
-let get_initial_ast ?(raw_ast : bool = false) (ser_mode : Flags.serialized_mode) (ser_file : string) (filename : string) : (string * trm) =  
+
+let get_initial_ast ?(raw_ast : bool = false) (ser_mode : Flags.serialized_mode) (ser_file : string) (filename : string) : (string * trm) =
   (* if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
-  let ser_file_exists = Sys.file_exists ser_file in 
   let includes = get_cpp_includes filename in
-  let ser_file_more_recent = if (not ser_file_exists) then false else Tools.is_newer_than ser_file filename in 
-  if (ser_mode = Serialized_Use || ser_mode = Serialized_Make || (ser_mode = Serialized_Auto && ser_file_more_recent)) then begin
-    if not ser_file_exists then fail None "get_initial_ast: please generate a serialized file first";
-    if not ser_file_more_recent then fail None "get_initial_ast: serialized_file was not generated";
-    let ast = Tools.read_ser_file ser_file in 
+  let ser_file_exists = Sys.file_exists ser_file in
+  let ser_file_more_recent = if (not ser_file_exists) then false else Tools.is_newer_than ser_file filename in (* TODO: rename to is_file_newer_than t1 t2  => check if t2 has a date >= than t1 *)
+  let auto_use_ser = (ser_mode = Serialized_Auto && ser_file_more_recent) in
+  if (ser_mode = Serialized_Use
+   || ser_mode = Serialized_Make
+   || auto_use_ser) then begin
+    if not ser_file_exists
+      then fail None "get_initial_ast: please generate a serialized file first";
+    if not ser_file_more_recent
+      then fail None "get_initial_ast: serialized file appears out of date";
+      (* TODO: message ser_file is out of date wrt filename *)
+    let ast = Tools.read_ser_file ser_file in
+      (* Tools.unmarshal_file : 'a
+         Ast.read_from_file : ast *)
+    if auto_use_ser
+      then Printf.printf "Loaded ast from %s.\n" ser_file;
     (includes, ast)
     end
-  else 
-    parse ~raw_ast filename 
+  else
+    parse ~raw_ast filename
 
 (* [init f] initialize the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
@@ -277,19 +287,22 @@ let init ?(prefix : string = "") (filename : string) : unit =
       ml_file_excerpts := compute_ml_file_excerpts lines;
     end;
   end;
-  let mode = !Flags.serialized_mode in 
+  let mode = !Flags.serialized_mode in
   start_time := Unix.gettimeofday ();
   last_time := !start_time;
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
-  let ser_file = basename ^ ".ser" in 
+  let ser_file = basename ^ ".ser" in
   let (includes, cur_ast) = get_initial_ast ~raw_ast:!use_raw_ast mode ser_file filename in
   (* let (includes, cur_ast) = parse ~raw_ast:!use_raw_ast filename in *)
   let context = { extension; directory; prefix; includes; clog } in
   let trace = { context; cur_ast; history = [cur_ast] } in
   traces := [trace];
-  if mode = Serialized_Build || mode = Serialized_Auto then 
-    Tools.write_ser_file ser_file cur_ast;
+  if mode = Serialized_Build || mode = Serialized_Auto
+    then Tools.write_ser_file ser_file cur_ast;
+    (* TODO: Tools.  and AST.write_to_file *)
+  if mode = Serialized_Build
+    then exit 0;
   print_info None "Starting script execution...\n"
 
 (* [finalize()] should be called at the end of the script, to properly close the log files
@@ -641,16 +654,16 @@ let reparse_alias = reparse
 (* [light_diff astBefore astAfter] finds all the functions that have not change after
     applying a transformation and hides their body for a more robust view diff
 *)
-let light_diff (astBefore : trm option) (astAfter : trm) : trm option * trm  = 
-  match astBefore with 
-  | Some astBefore -> 
+let light_diff (astBefore : trm option) (astAfter : trm) : trm option * trm  =
+  match astBefore with
+  | Some astBefore ->
     let topfun_map_before = top_level_fun_bindings astBefore in
     let topfun_map_after = top_level_fun_bindings astAfter in
-    let top_fun_to_keep = top_fun_to_keep topfun_map_before topfun_map_after in 
-    let new_astBefore, _  = keep_only_function_bodies top_fun_to_keep astBefore in 
+    let top_fun_to_keep = top_fun_to_keep topfun_map_before topfun_map_after in
+    let new_astBefore, _  = keep_only_function_bodies top_fun_to_keep astBefore in
     let new_astAfter, _ = keep_only_function_bodies top_fun_to_keep astAfter in
     (Some new_astBefore, new_astAfter)
-  | _ -> astBefore, astAfter 
+  | _ -> astBefore, astAfter
 
 (* [dump_diff_and_exit()] invokes [output_prog] on the current AST an also on the
    last item from the history, then it interrupts the execution of the script.
@@ -687,8 +700,8 @@ let dump_diff_and_exit () : unit =
       | [] -> Printf.eprintf "Warning: only one step in the history; consider previous step blank.\n"; None
       in
     let astAfter = trace.cur_ast in
-    let astBefore, astAfter = if not !Flags.disable_light_diff then light_diff astBefore astAfter else astBefore, astAfter in 
-    
+    let astBefore, astAfter = if not !Flags.disable_light_diff then light_diff astBefore astAfter else astBefore, astAfter in
+
     output_ast (prefix ^ "_before") astBefore;
     (* CPP and AST for BEFORE_N *)
     if !Flags.dump_last <> Flags.dump_last_default then begin

@@ -78,7 +78,7 @@ let myparse_c_file sourcename ifile =
 
 (* Take filename of the cpp file as argument, else use a default name *)
 let sourcename =
-  if Array.length Sys.argv > 2
+  if Array.length Sys.argv >= 2
     then Sys.argv.(1)
     else "TestCParser.cpp"
 
@@ -87,7 +87,7 @@ let _ =
   (* TEMP get_ast sourcefile *)
 
   (* Parse the ast *)
-  Cprint.destination := Some "TestCParser.parsed.c";
+  Cprint.destination := Some (Filename.remove_extension sourcename ^ "_parsed.c");
   let _csyntax = myparse_c_file sourcename ifile in
   (* Print the ast
   print_ast csyntax *)

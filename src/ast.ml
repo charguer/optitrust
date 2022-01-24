@@ -729,14 +729,14 @@ let typ_ptr_generated (ty : typ) : typ =
   typ_ptr ~typ_attributes:[GeneratedTyp] Ptr_kind_mut ty
 
 (* [typ_ref_inv ty] get the inner type of a reference *)
-let typ_ref_inv (ty : typ) : typ option = 
-  match ty.typ_desc with 
+let typ_ref_inv (ty : typ) : typ option =
+  match ty.typ_desc with
   | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = ty1} -> Some ty1
   | _ -> None
 
 (* [typ_ptr_inv ty] get the inner type of a pointer *)
-let typ_ptr_inv (ty : typ) : typ option = 
-  match ty.typ_desc with 
+let typ_ptr_inv (ty : typ) : typ option =
+  match ty.typ_desc with
   | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} -> Some ty1
   | _ -> None
 
@@ -768,7 +768,7 @@ let fail (loc : location) (err : string) : 'a =
 let trm_annot_add (a:trm_annot) (t:trm) : trm =
   { t with annot =  a :: t.annot }
 
-let trm_annot_has (a : trm_annot) (t : trm) : bool = 
+let trm_annot_has (a : trm_annot) (t : trm) : bool =
   List.mem a t.annot
 
 let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
@@ -1128,16 +1128,16 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
   let marks = t.marks in
   match t.desc with
   | Trm_array tl ->
-    let tl' = Mlist.map (f false) tl in 
+    let tl' = Mlist.map (f false) tl in
     trm_array ~annot ~loc ~add ~typ ~marks tl'
   | Trm_struct tl ->
-    let tl' = Mlist.map (f false) tl in 
+    let tl' = Mlist.map (f false) tl in
     trm_struct ~annot ~loc ~add ~typ ~marks tl'
   | Trm_let (vk, tv, init) ->
-    let init' = f false init in 
+    let init' = f false init in
     trm_let ~annot ~marks ~loc ~is_statement ~add vk tv init'
   | Trm_let_fun (f', res, args, body) ->
-    let body' = f false body in 
+    let body' = f false body in
     trm_let_fun ~annot ~marks ~loc ~is_statement ~add f' res args body'
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
@@ -1176,7 +1176,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
     in
     let start' = f false start in
     let stop' = f false stop in
-    let body' = f is_terminal body in 
+    let body' = f is_terminal body in
     trm_for ~annot ~marks ~loc ~add index start' direction stop' m_step body'
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
@@ -1201,18 +1201,18 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   let typ = t.typ in
   let marks = t.marks in
   let aux = f is_terminal in
-  
+
   (* [ret nochange t'] evaluates the condition [nochange]; if is true,
      it returns [t], because [f] has not performed any change on [t];
      else, it returns the new result [t'], which was computed as [f t]. *)
   let ret nochange t' =
     if nochange then t else t' in
-  
+
   (* [flist tl] applies [f] to all the elements of a list [tl] *)
-  let flist tl = 
-    let tl' = List.map (f false) tl in 
+  let flist tl =
+    let tl' = List.map (f false) tl in
     if List.for_all2 (==) tl tl' then tl else tl'
-   in 
+   in
   (* [fmlist] is like [flist] but for marked lists *)
   let fmlist is_terminal tl =
     let tl' = Mlist.map (f is_terminal) tl in
@@ -1248,14 +1248,14 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
       ) tl in
     ret (Mlist.for_all2 (==) tl tl')
         (trm_seq ~annot ~marks ~loc tl')
-  | Trm_apps (func, args) -> 
-    let func' = f false func in 
-    let args' = flist args in 
+  | Trm_apps (func, args) ->
+    let func' = f false func in
+    let args' = flist args in
     ret (func' == func && args' == args)
-      (trm_apps ~annot ~loc ~is_statement ~add ~typ ~marks func' args') 
+      (trm_apps ~annot ~loc ~is_statement ~add ~typ ~marks func' args')
   | Trm_while (cond, body) ->
-    let cond' = f false cond in 
-    let body' = f false body in 
+    let cond' = f false cond in
+    let body' = f false body in
     trm_while ~annot ~marks ~loc ~add cond' body'
   | Trm_for_c (init, cond, step, body) ->
      let init' = f false init in
@@ -1279,18 +1279,18 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
      let cases' = List.map (fun (tl, body) -> (tl, aux body)) cases in
      ret (cond' == cond && List.for_all2 (fun (_tl1,body1) (_tl2,body2) -> body1 == body2) cases' cases)
          (trm_switch ~annot ~marks ~loc ~add cond' cases')
-  | Trm_abort a -> 
-    begin match a with 
+  | Trm_abort a ->
+    begin match a with
     | Ret (Some t') -> trm_ret ~annot ~marks ~loc ~add (Ret (Some (f false t')))
     | _ -> t
-    end 
-  | Trm_labelled (l, body) -> 
-    let body' = f false body in 
+    end
+  | Trm_labelled (l, body) ->
+    let body' = f false body in
     trm_labelled ~annot ~marks ~loc ~add l body'
   | _ -> t
 
 
-let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm = 
+let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm =
   trm_map_with_terminal_unopt is_terminal f t
 
 let trm_map (f : trm -> trm) (t : trm) : trm =
@@ -2278,19 +2278,19 @@ let trm_bit_or ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm)
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_bitwise_or) [t1;t2]
 
 (* [trm_shiftl t1 t2] generates t1 << t2*)
-let trm_shiftl ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm = 
+let trm_shiftl ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_shiftl) [t1; t2]
 
 (* [trm_shiftr t1 t2] generates t1 >> t2*)
-let trm_shiftr ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm = 
+let trm_shiftr ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_shiftr) [t1; t2]
 
 (* [trm_mod t1 t2] generates t1 % t2*)
-let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm = 
+let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [t1;t2]
 
 (* [trm_xor t1 t2] generates t1 ^ t2 *)
-let trm_xor ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm = 
+let trm_xor ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_xor) [t1; t2]
 
 (* [trm_ands ts] generalized version of trm_and *)
@@ -2300,7 +2300,7 @@ let trm_ands (ts : trm list) : trm =
   ) (trm_bool true) ts
 
 (* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
-let trm_prim_compound ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None) ?(typ = None) (binop : binary_op) (t1 : trm) (t2 : trm) : trm = 
+let trm_prim_compound ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None) ?(typ = None) (binop : binary_op) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~is_statement ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
 
 (* [code_to_str] extract the code from the nodes that contain the arbitrary code*)
@@ -2337,26 +2337,26 @@ let var_mutability_unknown = Var_mutable
 (* [top_level_fun_bindings t] return a map with keys the names of toplevel function names
     and values their bodies *)
 let top_level_fun_bindings (t : trm) : tmap =
-  let tmap = ref Trm_map.empty in 
-    let aux (t : trm) : unit = 
-      match t.desc with 
+  let tmap = ref Trm_map.empty in
+    let aux (t : trm) : unit =
+      match t.desc with
       | Trm_seq tl ->
-        Mlist.iter (fun t1 -> 
-          match t1.desc with 
+        Mlist.iter (fun t1 ->
+          match t1.desc with
           | Trm_let_fun (f, _, _, body) -> tmap := Trm_map.add f body !tmap
           | _ -> ()
-        ) tl 
+        ) tl
       | _ -> fail t.loc "top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
-   in 
+   in
   aux t;
   !tmap
 
 (* [top_fun_to_keep tm1 tm2] find all the functions in [tm1] and [tm2] that have the same value*)
-let top_fun_to_keep (tm1 : tmap) (tm2 : tmap) : vars = 
-  let f_names = ref [] in 
-  Trm_map.iter (fun f1 b1 -> 
-    match Trm_map.find_opt f1 tm2 with 
-    | Some b2 -> 
+let top_fun_to_keep (tm1 : tmap) (tm2 : tmap) : vars =
+  let f_names = ref [] in
+  Trm_map.iter (fun f1 b1 ->
+    match Trm_map.find_opt f1 tm2 with
+    | Some b2 ->
       if not (b1 == b2) then begin
         f_names := f1 :: !f_names end
     | _ -> ()
