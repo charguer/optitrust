@@ -361,4 +361,11 @@ let write_ser_file (ser_file : string) (t : 'a) : unit =
 let read_ser_file (ser_file : string) : 'a =
   let in_file = open_in ser_file in 
   Marshal.from_channel in_file
-  
+
+(* [is_newer filename1 filename2] comparese the time when this files were modified
+    returns true if [filename1] is newer thena [filename2] and false otherwise
+*)
+let is_newer_than (filename1 : string) (filename2 : string) : bool = 
+  let t_f1 = Unix.((stat filename1).st_mtime) in 
+  let t_f2 = Unix.((stat filename2).st_mtime) in 
+  t_f1 <= t_f2

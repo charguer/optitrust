@@ -239,17 +239,18 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   List.iteri process_line lines;
   push();
   !r
-
+  
 let get_initial_ast ?(raw_ast : bool = false) (ser_mode : Flags.serialized_mode) (ser_file : string) (filename : string) : (string * trm) =  
-  if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in ();
-  let ser_file_exists =  Sys.file_exists  ser_file in 
-  let ser_file_more_recent = if (not ser_file_exists) then false else true in 
-  if (ser_mode = Serialized_Use || ser_mode = Serialized_Make || (ser_mode = Serialized_Auto && ser_file_more_recent)) then 
-    if not ser_file_exists then fail None "get_initial_ast: TODO error";
-    if not ser_file_more_recent then fail None "get_initial_ast: TODO error";
+  (* if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
+  let ser_file_exists = Sys.file_exists ser_file in 
+  let includes = get_cpp_includes filename in
+  let ser_file_more_recent = if (not ser_file_exists) then false else Tools.is_newer_than ser_file filename in 
+  if (ser_mode = Serialized_Use || ser_mode = Serialized_Make || (ser_mode = Serialized_Auto && ser_file_more_recent)) then begin
+    if not ser_file_exists then fail None "get_initial_ast: please generate a serialized file first";
+    if not ser_file_more_recent then fail None "get_initial_ast: serialized_file was not generated";
     let ast = Tools.read_ser_file ser_file in 
-    let includes = get_cpp_includes filename in
     (includes, ast)
+    end
   else 
     parse ~raw_ast filename 
 

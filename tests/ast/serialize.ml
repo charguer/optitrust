@@ -15,3 +15,12 @@ let test_serialize () =
 
 
 let _  = test_serialize()
+
+
+
+
+let _ = Run.script_cpp (fun _ -> 
+
+  !! Trace.apply stackvar_elim;
+  !! Trace.apply caddress_elim;
+)
