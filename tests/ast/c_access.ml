@@ -10,7 +10,7 @@ let test_accesses () =
   let stackvar_ast = stackvar_elim raw_ast in
   Ast_check.check_transfo_is_identity ~test:"access" (fun t -> caddress_intro (caddress_elim t)) stackvar_ast
 
-(* let _ = test_accesses () *)
+let _ = test_accesses ()
 
 
 let _ = Flags.dump_ast_details := true

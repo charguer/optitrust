@@ -857,7 +857,7 @@ and tr_decl (d : decl) : trm =
       in
     ctx_var_add n tt;
     (* dummy value used for variable mutability *)
-    let mut = var_mutability_unknown in
+    let mut = if is_typ_const tt then Var_immutable else Var_mutable  in
     trm_let ~loc ~is_statement:true mut (n,tt) te
   | TypedefDecl {name = tn; underlying_type = q} ->
     let tid = next_typconstrid () in

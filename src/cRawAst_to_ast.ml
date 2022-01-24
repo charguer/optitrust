@@ -80,7 +80,8 @@ let stackvar_elim (t : trm) : trm =
       if is_var_mutable !env x
         then trm_annot_add Mutable_var_get (trm_get t)
         else { t with desc = Trm_var (Var_immutable, x) }
-    | Trm_let (xm, (x, ty), tbody) ->
+    | Trm_let (_, (x, ty), tbody) ->
+      let xm = if is_typ_const ty then Var_immutable else Var_mutable in
       add_var env x xm;
       begin match typ_ref_inv ty with 
       | Some ty1 ->
@@ -125,7 +126,8 @@ let stackvar_intro (t : trm) : trm =
       if is_var_mutable !env x
         then trm_address_of t
         else t
-    | Trm_let (vk, (x, tx), tbody) ->
+    | Trm_let (_, (x, tx), tbody) ->
+      let vk = if is_typ_const tx then Var_immutable else Var_mutable  in
       add_var env x vk;
       if trm_annot_has Stackvar t 
         then
