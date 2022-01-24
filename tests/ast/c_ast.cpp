@@ -45,6 +45,11 @@ namespace example {
       int i;
 }
 
+void test_const () {
+  int const a = 10;
+  const int b = 10;
+}
+
 // // struct tree_node {
 // //   struct tree_node *left;
 // //   struct tree_node *right;
