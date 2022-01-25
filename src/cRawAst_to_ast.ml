@@ -11,7 +11,7 @@ let env_empty =
 let get_varkind (env : env) (x : var) : varkind =
   match String_map.find_opt x env with
   | Some m -> m
-  | _ -> Var_immutable (* For functions that come from an external library are set to immutable by default *)
+  | _ -> Var_immutable (* Functions that come from an external library are set to immutable by default *)
 
 (* [is_var_mutable env x] check if variable [x] is mutable or not *)
 let is_var_mutable (env : env) (x : var) : bool =
@@ -52,7 +52,10 @@ let trm_get ?(simplify : bool = false) (t : trm) : trm =
     | _ -> aux t
 
 (* [onscope env t f] save the current environment before entering a new scope,
-    the revert back to the saved env after leaving the scope.*)
+    the revert back to the saved env after leaving the scope.
+    
+    Usage:Global variables stay always in the environment but local variables like function args, loop indices etc are added before entering the scope
+    and removed when leaving the scope *)
 let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
     let saved_env = !env in
     let res = f t in
@@ -70,6 +73,7 @@ let create_env () = ref env_empty
 
    For references, [int& b = a] becomes [<annotation:reference> int* b = a] as a simplification of [b = &*a]
    and [int& x = t[i]] becomes [<annotation:reference> int* x = &(t[i])] if t has type [const int*].
+  
    Here, the "reference" annotation is added to allow decoding.
    LATER: Support references on constants. *)
 let stackvar_elim (t : trm) : trm =
@@ -77,10 +81,12 @@ let stackvar_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_var (_, x) ->
+      (* x when x is mutable becomes *x, where the ' * 'is used only for encoding purposes, hence not visible to the user *)
       if is_var_mutable !env x
         then trm_annot_add Mutable_var_get (trm_get t)
         else { t with desc = Trm_var (Var_immutable, x) }
     | Trm_let (_, (x, ty), tbody) ->
+      (* mutability is deducted from the declaration of the variable, by checking if it has a const type or not *)
       let xm = if is_typ_const ty then Var_immutable else Var_mutable in
       add_var env x xm;
       begin match typ_ref_inv ty with 
@@ -100,6 +106,7 @@ let stackvar_elim (t : trm) : trm =
       end
     | Trm_seq _ -> onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
+      (* function names are by default immutable *)
       add_var env f Var_immutable;
       onscope env t (fun t -> List.iter (fun (x, _tx) ->
        let mut = Var_immutable in (* if is_typ_ptr tx then Var_mutable else Var_immutable in *)
@@ -179,12 +186,13 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
   let mk ?(annot = []) td = {t with desc = td; annot = annot} in
   if lvalue then begin
     match t.desc with
-    (* TODO: would be nice to document in one line of readable text what each case corresponds to.
-       For example, the first case corresponds to [t.f] translated to [access(aux t, f)] *)
+     (* [t.f] is translated to [access(aux t, f)] *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t2]) ->
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [access t2]))
+      (* [t[i]] is translated to [access(aux t, i)] *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_} as op, [t1; t2]) ->
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [access t1; aux t2]))
+      (* *t1 becomes to *(aux t1) if '*' is not a hidden get operation, otherwise it becomes aux t1 *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op, [t1]) ->
       if List.mem Mutable_var_get t.annot
         then aux t1
@@ -193,14 +201,15 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
     | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (Ast_to_rawC.ast_to_string t) (Ast_to_text.ast_to_string t))
     end
     else begin
-         match t.desc with (* TODO: a few comments here would be nice too *)
+         match t.desc with 
+         (* [t1 = t2] is translated to access t1 = aux t2 *)
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));_} as op, [t1; t2]) ->
             mk (Trm_apps (op, [access t1; aux t2]))
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
             let u1 = aux t1 in
             begin match u1.desc with
-            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11]) ->
-              (* struct_get (get(t1), f) is encoded as get(struct_access(t1,f))
+            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11]) when trm_annot_has Mutable_var_get u1->
+              (* struct_get (get(t1), f) is encoded as get(struct_access(t1,f)) where get is a hidden '*' operator,
                  in terms of C syntax: ( * t).f is compiled into * (t + offset(f)) *)
               mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u11]))]))
             | _ -> mk (Trm_apps (op, [u1]))
@@ -210,6 +219,7 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
             let u2 = aux t2 in
             begin match u1.desc with
             | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11]) ->
+              (* array_get (get(t1), t2) is encoded as get(array_access (t1, t2) *)
               mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u11; u2]))]))
             | _ -> mk (Trm_apps (op, [u1;u2]))
             end
@@ -241,19 +251,25 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
   let access t = caddress_intro_aux true t in
   let mk td = {t with desc = td} in
   if lvalue then begin
-    match t.desc with (* TODO: a few comments *)
+    match t.desc with 
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _} as op, [t1]) ->
+      (* struct_access (f, t1) is reverted to struct_get (f, access t1) *)
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [access t1]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _} as op, [t1; t2]) ->
+      (* array_access (t1, t2) is reverted to array_get (access t1, aux t2) *)
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)))}, [access t1; aux t2]))
-    | Trm_var _ -> Ast.trm_get ~annot:[Mutable_var_get] t
+    | Trm_var _ -> 
+      (* x is reverted to *x when x is mutable and an lvalue *)
+      Ast.trm_get ~annot:[Mutable_var_get] t
     | _ -> trm_map aux t
     end
     else begin
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _}, [t1; t2]) ->
+      (* t1 = t2 is translated to access t1 = aux t2 *)
       mk (Trm_apps (trm_binop Binop_set, [access t1; aux t2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) when is_access t1 ->
+      (* get(access ) becomes access (get)*)
       access  t1
     | _ -> trm_map aux t
     end

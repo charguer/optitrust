@@ -352,20 +352,20 @@ let list_rotate (n : int) (l : 'a list) : 'a list =
  if n > List.length l then failwith "list_rotate: the elements to rotate shouuld be less or equal to the number of the elements in the list";
  let ls, rs = split_list_at n l in rs @ ls
 
-(* [write_ser_file ser_file t ] dump object [ŧ] of type 'a into file ser_file *)
-let write_ser_file (ser_file : string) (t : 'a) : unit = 
+(* [dumpt_file ser_file t ] dump object [ŧ] of type 'a into file ser_file *)
+let dump_to_file (ser_file : string) (t : 'a) : unit = 
   let out_file = open_out ser_file in 
   Marshal.to_channel out_file  t []
 
-(* [read_ser_file ser_file] reconstruct the object dumped in [ser_file]*)
-let read_ser_file (ser_file : string) : 'a =
+(* [load_from_file ser_file] reconstruct the object dumped in [ser_file]*)
+let load_from_file (ser_file : string) : 'a =
   let in_file = open_in ser_file in 
   Marshal.from_channel in_file
 
 (* [is_newer filename1 filename2] comparese the time when this files were modified
     returns true if [filename1] is newer thena [filename2] and false otherwise
 *)
-let is_newer_than (filename1 : string) (filename2 : string) : bool = 
+let is_file_newer_than (filename1 : string) (filename2 : string) : bool = 
   let t_f1 = Unix.((stat filename1).st_mtime) in 
   let t_f2 = Unix.((stat filename2).st_mtime) in 
-  t_f1 <= t_f2
+  t_f1 >= t_f2
