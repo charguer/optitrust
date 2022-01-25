@@ -113,17 +113,17 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
      dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
-  | Typ_fun (tyl, ty) -> (* TODO: should be deprecated? to discuss *)
+  | Typ_fun (tyl, ty) -> (* LATER: should be deprecated? to discuss *)
     let ret_type = typ_to_doc ty  in
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ blank 1 ^^ string x ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
-  | Typ_ptr {inner_typ = {typ_desc = Typ_fun (tyl, ty); _};_} -> (* TODO: should be deprecated? to discuss *)
+  | Typ_ptr {inner_typ = {typ_desc = Typ_fun (tyl, ty); _};_} -> (* LATER: should be deprecated? to discuss *)
     let ret_type = typ_to_doc ty  in
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ parens(star ^^ string x) ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
   | Typ_const {typ_desc = Typ_array (t,s);_} -> 
-    let (base, bracketl) = aux t s in
-     dattr ^^ string "const " ^^ base ^^ blank 1 ^^ string x ^^ concat bracketl
+    let (base, bracket) = aux t s in
+     dattr ^^ string "const " ^^ base ^^ blank 1 ^^ string x ^^ concat bracket
   | _ -> typ_to_doc ~const t ^^ blank 1 ^^ string x
 
 and lit_to_doc (l : lit) : document =
@@ -987,7 +987,7 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_wtick -> string "get_wtich" ^^ lparen ^^ blank 1 ^^ rparen
 
 let ast_to_doc (out : out_channel) (t : trm) : unit =
-  PPrintEngine.ToChannel.pretty 0.9 80 out (decorate_trm t)
+  ToChannel.pretty 0.9 80 out (decorate_trm t)
 
 (* To obtain the C++ code without decoding, we temporary set the flag
    "decode" (defined at the top of this file) to false. *)
@@ -1006,13 +1006,13 @@ let ast_to_string ?(ast_decode:bool=true) (t : trm) : string =
   let old_decode = !decode in
   decode := ast_decode;
   let b = Buffer.create 80 in
-  PPrintEngine.ToBuffer.pretty 0.9 80 b (decorate_trm t);
+  ToBuffer.pretty 0.9 80 b (decorate_trm t);
   decode := old_decode;
   Buffer.contents b
 
 let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in
-  PPrintEngine.ToBuffer.pretty 0.9 80 b (typ_to_doc ty);
+  ToBuffer.pretty 0.9 80 b (typ_to_doc ty);
   Buffer.contents b
 
 

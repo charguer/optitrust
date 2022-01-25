@@ -4,7 +4,7 @@ open Target
 (* *********************************************************************************** 
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
  * have only one purpose, and that is targeting the trm in which we want to apply the *
- * transformation. That's why there is not need to document them.                     *
+ * transformation. That's why it's not needed to document them.                     *
  *)
 
 (* [fold_aux as_reference fold_at]: replace all the occurrences of the typedef underlying type

@@ -26,13 +26,6 @@ let file_of_node (n : 'a node) : string =
   | Some {loc_file = filename; _} -> filename
   | _ -> fail None "file_of_node: bad location"
 
-type scope_kind =
-  | For_scope
-  | While_scope
-  | Do_scope
-  | Switch_scope
-  | Other_scope
-
 (*
   map from variables to their type
   used for loops that do not declare their counter

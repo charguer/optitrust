@@ -1,7 +1,7 @@
 
 (* This generated code requires the following version of MenhirLib: *)
 
-let () =
+let _ =
   MenhirLib.StaticVersion.require_20210419
 
 module MenhirBasics = struct
