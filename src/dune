@@ -1,8 +1,11 @@
 (library
   (name optitrust)
   (public_name optitrust)
-  (libraries clangml refl pprint str))
+  (libraries clangml refl pprint str)
+  (modes byte))
+
+(include_subdirs unqualified)
 
 (env
   (dev
-    (flags (:standard -warn-error -27-16))))
+    (flags (:standard -warn-error -16 -w -27-32-33-34-9))))
