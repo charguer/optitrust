@@ -885,6 +885,8 @@ and elab_type_declarator ?(fundef = false) loc env ty = function
       if is_function_type env ty && incl_attributes [ARestrict] a then
         error loc "pointer to function type %a may not be 'restrict' qualified" (print_typ env) ty;
       elab_type_declarator ~fundef loc env (TPtr(ty, a)) d
+  | Cabs.REF d -> (* OptiTrust adds support for references; we don't perform any checks here *)
+      elab_type_declarator ~fundef loc env (TRef ty) d
   | Cabs.PROTO(d, (params, vararg)) ->
       elab_return_type loc env ty;
       let (ty, a) = get_nontype_attrs env ty in
@@ -2512,7 +2514,10 @@ let enter_typedef loc env sto (s, ty, init) =
 
 let enter_decdef local nonstatic_inline loc sto (decls, env) (s, ty, init) =
   let isfun = is_function_type env ty in
+  let isref = match ty with TRef _ -> true | _ -> false in
   let has_init = init <> NO_INIT in
+  if isref && not has_init then
+    error loc "definition of references must include an initializer";
   if sto = Storage_register && has_std_alignas env ty then
     error loc "alignment specified for 'register' object '%s'" s;
   if sto = Storage_extern && has_init then
@@ -2531,10 +2536,13 @@ let enter_decdef local nonstatic_inline loc sto (decls, env) (s, ty, init) =
   (* Local variable declarations with default storage are treated as 'auto'.
      Local function declarations with default storage remain with
      default storage. *)
+  (* OptiTrust: we might need to do something for the storage associated with reference types *)
   let sto1 =
     if local && sto = Storage_default && not isfun
     then Storage_auto
     else sto in
+  (* if [isref] is true, delete the outer "reference" in the type *)
+  let ty = match ty with TRef t -> t | _ -> ty in
   (* enter ident in environment with declared type, because
      initializer can refer to the ident *)
   let (id, sto', env1, ty, linkage) =
@@ -2581,6 +2589,9 @@ let enter_decdef local nonstatic_inline loc sto (decls, env) (s, ty, init) =
      && sto' = Storage_static
      && not is_const then
     warning loc Static_in_inline "non-constant static local variable '%s' in inline function may be different in different files" s;
+  (* for a reference, wrap the typ in a TRef *)
+  let ty' = if isref then TRef ty' else ty' in
+  (* add the declaration to the environment *)
   if local && not isfun && sto' <> Storage_extern && sto' <> Storage_static then
     (* Local definition *)
     ((sto', id, ty', init') :: decls, env2)

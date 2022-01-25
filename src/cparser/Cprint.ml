@@ -169,6 +169,11 @@ let rec dcl ?(pp_indication=true) pp ty n =
         | TFun _ | TArray _ -> fprintf pp " (*%a%t)" attributes a n
         | _ -> fprintf pp " *%a%t" attributes a n in
       dcl pp t n'
+  | TRef(t) ->
+      let n' pp =
+        n pp;
+        fprintf pp "&" in
+      dcl pp t n'
   | TArray(t, sz, a) ->
       let n' pp =
         n pp;
