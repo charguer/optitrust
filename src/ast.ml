@@ -989,8 +989,8 @@ let rec trm_vardef_get_vars (t : trm) : var list =
 
 (* [trm_ret ~annot] special trm_abort case, used for return statements*)
 let trm_ret ?(annot = []) ?(loc = None) ?(add = []) ?(marks : mark list = [])
-  (a : abort) : trm =
-  trm_abort ~annot ~loc ~add ~marks a
+  (a : trm option) : trm =
+  trm_abort ~annot ~loc ~add ~marks (Ret a)
 
 (* get the primitive operation *)
 let trm_prim_inv (t : trm) : prim option =
@@ -1184,7 +1184,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
      trm_switch ~annot ~marks ~loc ~add cond' cases'
   | Trm_abort a ->
      begin match a with
-     | Ret (Some t') -> trm_ret ~annot ~marks ~loc ~add (Ret (Some (f false t')))
+     | Ret (Some t') -> trm_ret ~annot ~marks ~loc ~add (Some (f false t'))
      (* return without value, continue, break *)
      | _ -> t
      end
@@ -1281,7 +1281,7 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
          (trm_switch ~annot ~marks ~loc ~add cond' cases')
   | Trm_abort a ->
     begin match a with
-    | Ret (Some t') -> trm_ret ~annot ~marks ~loc ~add (Ret (Some (f false t')))
+    | Ret (Some t') -> trm_ret ~annot ~marks ~loc ~add (Some (f false t'))
     | _ -> t
     end
   | Trm_labelled (l, body) ->
@@ -1296,7 +1296,9 @@ let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : tr
 let trm_map (f : trm -> trm) (t : trm) : trm =
   trm_map_with_terminal false (fun _is_terminal t -> f t) t
 
-(* same as trm_map for types *)
+
+
+(* similar as trm_map for types *)
 let typ_map (f : typ -> typ) (ty : typ) : typ =
   let annot = ty.typ_annot in
   let typ_attributes = ty.typ_attributes in

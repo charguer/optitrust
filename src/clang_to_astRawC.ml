@@ -11,6 +11,15 @@ let loc_of_node (n : 'a node) : location =
   let (_, end_row,end_column) = Clang.get_presumed_location end_location_of_node in
   Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}}
 
+
+(* [loc_from_to start_l end_l] returns the location from the begining of [start_l] to [end_l] 
+    if one of the locations is unknown then it will return [None]*)
+let loc_from_to (start_l : location) (end_l : location) : location = 
+  match start_l, end_l with 
+  | Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; _}, Some {loc_start = {pos_line = start_row2; pos_col = start_column2};_} ->
+    Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; loc_end = {pos_line = start_row2; pos_col = start_column2}}
+  | _ -> None
+
 (* file which contains the node *)
 let file_of_node (n : 'a node) : string =
   match loc_of_node n with
@@ -442,13 +451,7 @@ and tr_expr ?(is_statement : bool = false)
       | _ -> fail loc "tr_expr: unsupported unary expr"
     end
   | UnaryOperator {kind = k; operand = e} ->
-     (* TODO: move this out into a separate function earlier in the file: [loc_of_unary_operator] *)
-    let loc = (* deduce location of infix symbol *)
-      match loc, loc_of_node e with
-      | Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; _}, Some {loc_start = {pos_line = start_row2; pos_col = start_column2}; _}->
-        Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; loc_end = {pos_line = start_row2; pos_col = start_column2}}
-      | _ -> None
-     in
+    let loc = loc_from_to loc (loc_of_node e) in  
     begin match k with
       | AddrOf -> (* expectation: e is not a const variable *)
         (* We are translating a term of the form that involves [&p],
@@ -486,12 +489,7 @@ and tr_expr ?(is_statement : bool = false)
         end
     end
   | BinaryOperator {lhs = le; kind = k; rhs = re} ->
-    let loc = (* deduce location of infix symbol *)
-      match loc_of_node le, loc_of_node re with
-      | Some {loc_file = file; loc_end = {pos_line = end_row1; pos_col = end_column1}; _}, Some {loc_start = {pos_line = start_row2; pos_col = start_column2}; _}->
-        Some {loc_file = file; loc_start = {pos_line = end_row1; pos_col = end_column1}; loc_end = {pos_line = start_row2; pos_col = start_column2}}
-      | _ -> None
-      in
+    let loc = loc_from_to (loc_of_node le) (loc_of_node re) in 
     let tr = tr_expr re in
     let tl = tr_expr le in
     let trm_prim_c binop tl tr = trm_prim_compound ~loc ~is_statement ~ctx ~typ binop tl tr in

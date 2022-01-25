@@ -400,7 +400,6 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
       let dt = decorate_trm t1 in
       dattr ^^ string "namespace " ^^ string name ^^ blank 1 ^^ inline ^^ blank 1 ^^ dt
      | Trm_let_record (name, rt, s, t1) -> 
-      (* TODO: Factorize me! *)
       let get_document_list s =
         let rec aux acc = function 
           | [] -> acc
