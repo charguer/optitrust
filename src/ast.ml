@@ -2112,17 +2112,17 @@ let is_typ (ty : typ) : bool =
 exception No_ast_or_code_provided
 exception Ast_and_code_provided
 
-(* [keep_onl_function_bodies fun_names tl] all the toplevel function with their name belonging to [fun_names] list
-    will be keep unchanged and all for all the other toplevel function names we will hide their body.
+(* [hide_function_bodies f_pred tl] all the toplevel function with their names satisfying 
+   [f_pred] will have hidden bodie. Others will be kept unchanged.
     The new ast is called the chopped_ast. This function wlll return the choped_ast and a map with keys
     the names of the functions whose body has been removed and values their removed body.
 *)
-let keep_only_function_bodies (fun_names : vars) (t : trm) : trm * tmap =
+let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
   let t_map = ref Trm_map.empty in
     let rec aux (t : trm) : trm =
       match t.desc with
       | Trm_let_fun (f,ty, tv, _) ->
-        if not (List.mem f fun_names) then begin
+        if f_pred f then begin
           t_map := Trm_map.add f t !t_map;
          trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) end
         else t
@@ -2360,13 +2360,13 @@ let top_level_fun_bindings (t : trm) : tmap =
   aux t;
   !tmap
 
-(* [top_fun_to_keep tm1 tm2] find all the functions in [tm1] and [tm2] that have the same value*)
-let top_fun_to_keep (tm1 : tmap) (tm2 : tmap) : vars =
+(* [get_common_top_fun tm1 tm2] find all the functions in [tm1] and [tm2] that have the same value*)
+let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
   let f_names = ref [] in
   Trm_map.iter (fun f1 b1 ->
     match Trm_map.find_opt f1 tm2 with
     | Some b2 ->
-      if not (b1 == b2) then begin
+      if (b1 == b2) then begin
         f_names := f1 :: !f_names end
     | _ -> ()
   ) tm1;

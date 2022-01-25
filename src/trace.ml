@@ -655,9 +655,9 @@ let light_diff (astBefore : trm option) (astAfter : trm) : trm option * trm  =
   | Some astBefore ->
     let topfun_map_before = top_level_fun_bindings astBefore in
     let topfun_map_after = top_level_fun_bindings astAfter in
-    let top_fun_to_keep = top_fun_to_keep topfun_map_before topfun_map_after in (* TODO: function top_fun_to_keep should be get_common_topfun *)
-    let new_astBefore, _  = keep_only_function_bodies top_fun_to_keep astBefore in (* TODO: hide_function_bodies (fun f -> Fmap.get_opt top_fun_to_keep f <> None) astBefore *)
-    let new_astAfter, _ = keep_only_function_bodies top_fun_to_keep astAfter in
+    let get_common_top_fun = get_common_top_fun topfun_map_before topfun_map_after in 
+    let new_astBefore, _  = hide_function_bodies (function f -> List.mem f get_common_top_fun) astBefore in 
+    let new_astAfter, _ = hide_function_bodies (function f -> List.mem f get_common_top_fun ) astAfter in
     (Some new_astBefore, new_astAfter)
   | _ -> astBefore, astAfter
 
@@ -696,7 +696,7 @@ let dump_diff_and_exit () : unit =
       | [] -> Printf.eprintf "Warning: only one step in the history; consider previous step blank.\n"; None
       in
     let astAfter = trace.cur_ast in
-    let astBefore, astAfter = if not !Flags.disable_light_diff then light_diff astBefore astAfter else astBefore, astAfter in
+    let astBefore, astAfter = if !Flags.use_light_diff then light_diff astBefore astAfter else astBefore, astAfter in
 
     output_ast (prefix ^ "_before") astBefore;
     (* CPP and AST for BEFORE_N *)

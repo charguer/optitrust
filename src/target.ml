@@ -1053,7 +1053,7 @@ let get_toplevel_function_name_containing (dl : path) : string option =
 (* [reparse_only fun_nmaes] reparse only those functions whose identifier is contained in [fun_names]*)
 let reparse_only (fun_names : string list) : unit =
   Trace.call (fun t ->
-    let chopped_ast, chopped_ast_map  =  keep_only_function_bodies fun_names t in
+    let chopped_ast, chopped_ast_map  =  hide_function_bodies (function f -> not (List.mem f fun_names)) t in
     let parsed_chopped_ast = Trace.reparse_trm (Trace.get_context ()) chopped_ast in
     let new_ast = update_chopped_ast parsed_chopped_ast chopped_ast_map in
     Trace.set_ast new_ast

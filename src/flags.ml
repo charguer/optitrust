@@ -26,9 +26,8 @@ let reparse_at_big_steps : bool ref = ref false
 let report_big_steps : bool ref = ref false
 
 
-(* Flag to disable light diff *)
-let disable_light_diff : bool ref = ref true
-(* TODO: use_light_diff := ref true *)
+(* Flag to enable light diff *)
+let use_light_diff : bool ref = ref true
 
 type serialized_mode =
   | Serialized_None
@@ -80,9 +79,9 @@ let spec =
      ("-analyse-time", Arg.Set analyse_time, " produce a file reporting on the execution time");
      ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
+     ("-disable_light_diff", Arg.Clear use_light_diff, "disable light diff");
      (* LATER: a -dev flag to activate a combination of dump *)
     ]
-    (* TODO: -disable-light-diff", Arg.clear use_light_diff *)
 
 let fix_flags () =
   if !analyse_time_details then analyse_time := true;

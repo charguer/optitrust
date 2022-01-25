@@ -1,4 +1,3 @@
-
 TARGET_MAKE_ALL := check
 
 # Usage: make transfo   or   make check
