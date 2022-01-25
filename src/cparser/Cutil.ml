@@ -157,6 +157,7 @@ let rec add_attributes_type attr t =
   | TInt(ik, a) -> TInt(ik, add_attributes attr a)
   | TFloat(fk, a) -> TFloat(fk, add_attributes attr a)
   | TPtr(ty, a) -> TPtr(ty, add_attributes attr a)
+  | TRef _ -> if attr = [] then t else failwith "Cutil.add_attributes_type: reference types are not supported"
   | TArray(ty, sz, a) ->
       let (attr_arr, attr_elt) = List.partition attr_array_applicable attr in
       TArray(add_attributes_type attr_elt ty, sz, add_attributes attr_arr a)
@@ -187,6 +188,7 @@ let rec attributes_of_type env t =
   | TInt(ik, a) -> a
   | TFloat(fk, a) -> a
   | TPtr(ty, a) -> a
+  | TRef _ -> []
   | TArray(ty, sz, a) -> add_attributes a (attributes_of_type env ty)
   | TFun(ty, params, vararg, a) -> a
   | TNamed(s, a) -> attributes_of_type env (unroll env t)
@@ -216,6 +218,7 @@ let rec attributes_of_type_no_expand t =
   | TInt(ik, a) -> a
   | TFloat(fk, a) -> a
   | TPtr(ty, a) -> a
+  | TRef _ -> failwith "Cutil.change_attributes_type: reference types are not supported"
   | TArray(ty, sz, a) -> add_attributes a (attributes_of_type_no_expand ty)
   | TFun(ty, params, vararg, a) -> a
   | TNamed(s, a) -> a
@@ -232,6 +235,7 @@ let rec change_attributes_type env (f: attributes -> attributes) t =
   | TInt(ik, a) -> TInt(ik, f a)
   | TFloat(fk, a) -> TFloat(fk, f a)
   | TPtr(ty, a) -> TPtr(ty, f a)
+  | TRef _ -> failwith "Cutil.change_attributes_type: reference types are not supported"
   | TArray(ty, sz, a) ->
       TArray(change_attributes_type env f ty, sz, f a)
   | TFun(ty, params, vararg, a) -> TFun(ty, params, vararg, f a)
@@ -257,6 +261,7 @@ let strip_attributes_type t attr =
   | TInt (k,at) ->  TInt (k,strip at)
   | TFloat (k,at) -> TFloat(k,strip at)
   | TPtr (t,at) -> TPtr(t,strip at)
+  | TRef _ -> failwith "Cutil.attributes: reference types are not supported"
   | TArray (t,s,at) -> TArray(t,s,strip at)
   | TFun (t,arg,v,at) -> TFun(t,arg,v,strip at)
   | TNamed (n,at) -> TNamed(n,strip at)
@@ -290,6 +295,7 @@ let strip_last_attribute typ  =
     l,TUnion(n,r)
   | TEnum (n,at) -> let l,r = hd_opt at in
     l,TEnum(n,r)
+  | TRef _ -> failwith "Cutil.strip_last_attribute: reference types are not supported"
 
 (* Check whether the attributes contain _Alignas attribute *)
 let has_std_alignas env typ  =
@@ -378,6 +384,8 @@ let combine_types mode env t1 t2 =
     | TPtr(ty1, a1), TPtr(ty2, a2) ->
         let m' = if m = AttrIgnoreTop then AttrCompat else m in
         TPtr(comp m' ty1 ty2, comp_attr m a1 a2)
+    | TRef(ty1), TRef(ty2) ->
+        comp m ty1 ty2
     | TArray(ty1, sz1, a1), TArray(ty2, sz2, a2) ->
         TArray(comp m ty1 ty2, comp_array_size sz1 sz2, comp_attr m a1 a2)
     | TFun(ty1, params1, vararg1, a1), TFun(ty2, params2, vararg2, a2) ->
@@ -420,6 +428,8 @@ let rec equal_types env t1 t2 =
      fk1 = fk2 && a1 = a2
   | TPtr(ty1, a1), TPtr(ty2, a2) ->
       a1 = a2 && equal_types env ty1 ty2
+  | TRef(ty1), TRef(ty2) ->
+      equal_types env ty1 ty2
   | TArray(ty1, sz1, a1), TArray(ty2, sz2, a2) ->
       let size = begin match sz1,sz2 with
       | None, None -> true
@@ -477,6 +487,7 @@ let rec alignof env t =
   | TInt(ik, _) -> Some(alignof_ikind ik)
   | TFloat(fk, _) -> Some(alignof_fkind fk)
   | TPtr(_, _) -> Some(!config.alignof_ptr)
+  | TRef _ -> failwith "TRef should be eliminated" (* | TRef ty -> alignof env ty *)
   | TArray(ty, _, _) -> alignof env ty
   | TFun(_, _, _, _) -> !config.alignof_fun
   | TNamed(_, _) -> alignof env (unroll env t)
@@ -537,6 +548,7 @@ let rec sizeof env t =
   | TInt(ik, _) -> Some(sizeof_ikind ik)
   | TFloat(fk, _) -> Some(sizeof_fkind fk)
   | TPtr(_, _) -> Some(!config.sizeof_ptr)
+  | TRef _ -> failwith "TRef should be eliminated" (*| TRef ty -> sizeof env ty*)
   | TArray(ty, None, _) -> None
   | TArray(ty, Some n, _) as t' ->
       begin match sizeof env ty with
@@ -799,11 +811,12 @@ let is_pointer_type env t =
   | TPtr _ -> true
   | _ -> false
 
-let is_scalar_type env t =
+let rec is_scalar_type env t =
   match unroll env t with
   | TInt(_, _) -> true
   | TFloat(_, _) -> true
   | TPtr _ -> true
+  | TRef ty -> is_scalar_type env ty
   | TArray _ -> true                    (* assume implicit decay *)
   | TFun _ -> true                      (* assume implicit decay *)
   | TEnum(_, _) -> true
@@ -838,6 +851,7 @@ let is_anonymous_type = function
 let is_function_pointer_type env t =
   match unroll env t with
   | TPtr (ty, _) -> is_function_type env ty
+  | TRef _ -> failwith "TRef should be eliminated" (*| TRef ty -> is_function_pointer_type env ty*)
   | _ -> false
 
 (* Find the info for a field access *)
@@ -852,7 +866,7 @@ let field_of_dot_access env t m =
 let field_of_arrow_access env t m =
   match unroll env t with
   | TPtr(t, _) | TArray(t, _, _) -> field_of_dot_access env t m
-  | _ -> assert false
+  | _ -> assert false (* OptiTrust: something for TRef? *)
 
 (* Ranking of integer kinds *)
 
@@ -878,7 +892,7 @@ let rec is_qualified_array = function
     List.exists attr_is_standard attr || is_qualified_array ty
   | TPtr (ty, _) -> is_qualified_array ty
   | TFun(ty_ret, _, _, _) -> is_qualified_array ty_ret
-  | _ -> false
+  | _ -> false (* OptiTrust: false for TRef *)
 
 (* Array and function types "decay" to pointer types in many cases *)
 
@@ -886,6 +900,7 @@ let pointer_decay env t =
   match unroll env t with
   | TArray(ty, _, _) -> TPtr(ty, [])
   | TFun _ as ty -> TPtr(ty, [])
+  | TRef _ -> failwith "TRef should be eliminated" (*   | TRef ty -> pointer_decay env ty*)
   | t -> t
 
 (* The usual unary conversions (H&S 6.3.3) *)
@@ -908,6 +923,7 @@ let unary_conversion env t =
   (* Float types and pointer types lose their attributes *)
   | TFloat(kind, attr) -> TFloat(kind, [])
   | TPtr(ty, attr) -> TPtr(ty, [])
+  | TRef _ -> failwith "TRef should be eliminated"
   (* Other types should not occur, but in doubt... *)
   | _ -> t
 
@@ -969,7 +985,7 @@ let default_argument_conversion env t =
   | TFloat(FFloat, attr) -> TFloat(FDouble, attr)
   | t' -> t'
 
-(** Is the type Tptr(ty, a) appropriate for pointer arithmetic? *)
+(** Is the type TPtr(ty, a) appropriate for pointer arithmetic? *)
 
 let pointer_arithmetic_ok env ty =
   match unroll env ty with
@@ -1138,7 +1154,7 @@ let valid_assignment env from tto =
           || compatible_types AttrIgnoreTop env ty ty')
   | TStruct(s, _), TStruct(s', _) -> s = s'
   | TUnion(s, _), TUnion(s', _) -> s = s'
-  | _, _ -> false
+  | _, _ -> false (* OptiTrust: failwith "TRef should be eliminated" *)
 
 (* Check that a cast is allowed *)
 
@@ -1331,7 +1347,7 @@ let rec subst_stmt phi s =
       | Sswitch(e, s1) -> Sswitch (subst_expr phi e, subst_stmt phi s1)
       | Slabeled(l, s1) -> Slabeled (l, subst_stmt phi s1)
       | Sreturn None -> s.sdesc
-      | Sreturn (Some e) -> Sreturn (Some (subst_expr phi e))
+      | Sreturn (Some i) -> Sreturn (Some (subst_init phi i))
       | Sblock sl -> Sblock (List.map (subst_stmt phi) sl)
       | Sdecl d -> Sdecl (subst_decl phi d)
       | Sasm(attr, template, outputs, inputs, clob) ->

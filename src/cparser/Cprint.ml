@@ -169,6 +169,11 @@ let rec dcl ?(pp_indication=true) pp ty n =
         | TFun _ | TArray _ -> fprintf pp " (*%a%t)" attributes a n
         | _ -> fprintf pp " *%a%t" attributes a n in
       dcl pp t n'
+  | TRef(t) ->
+      let n' pp =
+        n pp;
+        fprintf pp "&" in
+      dcl pp t n'
   | TArray(t, sz, a) ->
       let n' pp =
         n pp;
@@ -457,8 +462,8 @@ let rec stmt pp s =
       fprintf pp "goto %s;" lbl
   | Sreturn None ->
       fprintf pp "return;"
-  | Sreturn (Some e) ->
-      fprintf pp "return %a;" exp (0, e)
+  | Sreturn (Some i) ->
+      fprintf pp "return %a;" init i
   | Sblock sl ->
       fprintf pp "@[<v 2>{@ %a@;<0 -2>}@]" stmt_block s
   | Sdecl d ->

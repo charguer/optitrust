@@ -55,6 +55,7 @@ and decl_type =
 | JUSTBASE
 | ARRAY of decl_type * cvspec list * expression option
 | PTR of cvspec list * decl_type
+| REF of decl_type
 | PROTO of decl_type * (parameter list * bool)
 | PROTO_OLD of decl_type * String.t list
 and parameter =
@@ -172,7 +173,7 @@ and statement =
    * statement * loc
 | BREAK of loc
 | CONTINUE of loc
-| RETURN of expression option * loc
+| RETURN of init_expression * loc
 | SWITCH of expression * statement * loc
 | CASE of expression * statement * loc
 | DEFAULT of statement * loc

@@ -168,8 +168,9 @@ let stmt ~expr ?(decl = fun env decl -> assert false) env s =
       {s with sdesc = Slabeled(lbl, stm s1)}
   | Sgoto lbl -> s
   | Sreturn None -> s
-  | Sreturn (Some e) ->
-      {s with sdesc = Sreturn(Some(expr s.sloc env Val e))}
+  | Sreturn (Some (Init_single e)) ->
+      {s with sdesc = Sreturn(Some(Init_single(expr s.sloc env Val e)))}
+  | Sreturn(Some _) -> failwith "Transform: support for return of compound initializers not supported"
   | Sasm(attr, template, outputs, inputs, clob) ->
       let asm_operand (lbl, cstr, e) =
         (lbl, cstr, expr s.sloc env Val e) in

@@ -452,6 +452,7 @@ module Gram :
   | Prod'postfix_expression'2
   | Prod'postfix_expression'1
   | Prod'postfix_expression'0
+  | Prod'pointer'4
   | Prod'pointer'3
   | Prod'pointer'2
   | Prod'pointer'1
@@ -1060,6 +1061,7 @@ module Aut :
     | Prod'postfix_expression'2
     | Prod'postfix_expression'1
     | Prod'postfix_expression'0
+    | Prod'pointer'4
     | Prod'pointer'3
     | Prod'pointer'2
     | Prod'pointer'1
@@ -1665,6 +1667,7 @@ module Aut :
     | Prod'postfix_expression'2
     | Prod'postfix_expression'1
     | Prod'postfix_expression'0
+    | Prod'pointer'4
     | Prod'pointer'3
     | Prod'pointer'2
     | Prod'pointer'1
@@ -1934,6 +1937,7 @@ module Aut :
   val first_nterm : Coq__2.nonterminal -> Coq__2.terminal list
 
   type noninitstate' =
+  | Nis'622
   | Nis'621
   | Nis'620
   | Nis'619
@@ -2188,7 +2192,7 @@ module Aut :
   | Nis'370
   | Nis'369
   | Nis'368
-  | Nis'367
+  | Nis'366
   | Nis'365
   | Nis'364
   | Nis'363

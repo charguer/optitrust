@@ -14,14 +14,11 @@ typedef struct {
 } particle;
 
 vect vect_add(vect v1, vect v2) {
-  vect r = {(v1.x + v2.x), (v1.y + v2.y), (v1.z + v2.z)};
-  return r;
+  return {(v1.x + v2.x), (v1.y + v2.y), (v1.z + v2.z)};
 }
 
 vect vect_mul(double d, vect v) {
-  // return {(d * v.x), (d * v.y), (d * v.z)};
-  vect r = {(d * v.x), (d * v.y), (d * v.z)};
-  return r;
+  return {(d * v.x), (d * v.y), (d * v.z)};
 }
 
 const int CHUNKSIZE = 128;
@@ -388,8 +385,7 @@ coord coordOfCell(int idCell) {
   const int iXY = (idCell / gridZ);
   const int iY = (iXY % gridY);
   const int iX = (iXY / gridY);
-  coord r = {iX, iY, iZ};
-  return r;
+  return {iX, iY, iZ};
 }
 
 typedef struct { int v[8]; } int_8;
@@ -406,11 +402,10 @@ int_8 indicesOfCorners(int idCell) {
   const int x2 = wrap(gridX, (x + 1));
   const int y2 = wrap(gridY, (y + 1));
   const int z2 = wrap(gridZ, (z + 1));
-  int_8 r = {cellOfCoord(x, y, z),   cellOfCoord(x, y, z2),
+  return {cellOfCoord(x, y, z),   cellOfCoord(x, y, z2),
           cellOfCoord(x, y2, z),  cellOfCoord(x, y2, z2),
           cellOfCoord(x2, y, z),  cellOfCoord(x2, y, z2),
           cellOfCoord(x2, y2, z), cellOfCoord(x2, y2, z2)};
-  return r;
 }
 
 vect_8 getFieldAtCorners(int idCell, vect *field) {
