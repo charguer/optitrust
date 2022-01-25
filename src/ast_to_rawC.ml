@@ -56,6 +56,7 @@ and typ_annot_to_doc (a : typ_annot) : document =
   | Long -> string "long"
   | Short -> string "short"
 
+(* TODO: remove at some point *)
 and trm_annot_to_doc (t_annot : trm_annot list) : document =
   let aux t_annot = match t_annot with
   | Access -> string "Access"
@@ -194,7 +195,8 @@ and attr_to_doc (a : attribute) : document =
 
 and decorate_trm ?(semicolon : bool = false) ?(parentheses : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in
-  let dt = if parentheses then parens (dt) else dt in     
+  (* LATER: if Flags.print_trm_addresses then (string (sprintf "%p" t) ^ dt) else dt *)
+  let dt = if parentheses then parens (dt) else dt in
     if t.marks = []
       then dt
       else
@@ -351,18 +353,18 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
       let inline = if inline then string "inline" else empty in
       let dt = decorate_trm ~semicolon:true t1 in
       dattr ^^ inline ^^ string "namespace" ^^ blank 1 ^^ string name ^^  blank 1 ^^ dt
-     | Trm_let_record (name, rt, s, t1) -> 
+     | Trm_let_record (name, rt, s, t1) ->
       let get_document_list s =
-        let rec aux acc = function 
+        let rec aux acc = function
           | [] -> acc
-          | (lb, t) :: tl -> 
-            aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in 
-            aux [] s in 
-        let dl = get_document_list s in 
-        let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in 
-        let dname = if name = "" then empty else blank 1 ^^ string name in 
-        let drt = record_type_to_doc rt in 
-        let dt = decorate_trm t1 in 
+          | (lb, t) :: tl ->
+            aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in
+            aux [] s in
+        let dl = get_document_list s in
+        let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
+        let dname = if name = "" then empty else blank 1 ^^ string name in
+        let drt = record_type_to_doc rt in
+        let dt = decorate_trm t1 in
         dattr ^^ drt ^^ dname ^^ blank 1 ^^ sbody  ^^ blank 1 ^^ dt ^^ semi
      | Trm_template (tpl, t1) ->
         let dl = decorate_trm t1 in
@@ -391,10 +393,10 @@ and record_type_to_doc (rt : record_type) : document =
   | Class -> string "class"
 
 
-and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : document = 
+and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dtx = typed_var_to_doc tv in
-  let dinit = begin match init.desc with 
+  let dinit = begin match init.desc with
   | Trm_val (Val_lit Lit_uninitialized) -> dsemi
   | _ -> equals ^^ blank 1 ^^ decorate_trm init ^^ dsemi
   end in
@@ -521,7 +523,7 @@ and apps_to_doc (f : trm) (tl : trms) : document =
            | [t] ->
               let d = decorate_trm t in
               begin match op with
-              | Unop_get -> star ^^ d 
+              | Unop_get -> star ^^ d
               | Unop_address -> ampersand ^^ d
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
@@ -531,13 +533,13 @@ and apps_to_doc (f : trm) (tl : trms) : document =
               | Unop_pre_inc -> twice plus ^^ d
               | Unop_pre_dec -> twice minus ^^ d
               | (Unop_struct_get f1 | Unop_struct_access f1) ->
-                 if List.mem Display_arrow f.annot 
-                  then 
-                    let t1 = get_operation_arg t in 
+                 if List.mem Display_arrow f.annot
+                  then
+                    let t1 = get_operation_arg t in
                     let d = decorate_trm t1 in
                     d ^^ minus ^^ rangle ^^ string f1
-                  else 
-                    let parentheses = is_star_operation t in 
+                  else
+                    let parentheses = is_star_operation t in
                     (* Tools.printf "%b\n" parentheses; *)
                     let d = decorate_trm ~parentheses t in
                     d ^^ dot ^^ string f1
@@ -849,8 +851,8 @@ and unpack_trm_for ?(loc = None) ?(local_index : bool = true) (index : var) (sta
 let ast_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (decorate_trm t)
 
-let ast_to_file (filename : string) (t : trm) : unit = 
-  let out = open_out filename in 
+let ast_to_file (filename : string) (t : trm) : unit =
+  let out = open_out filename in
   ast_to_doc out t;
   close_out out
 

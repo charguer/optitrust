@@ -19,7 +19,7 @@ install: install_lib
 uninstall:
 	@ ocamlfind remove $(THIS) || true
 #  dune uninstall
-	
+
 reinstall: uninstall
 	@ make install
 

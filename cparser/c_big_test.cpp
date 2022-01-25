@@ -2,7 +2,6 @@
 
 // #include <stdio.h>
 
-
 typedef struct {
   double x;
   double y;
