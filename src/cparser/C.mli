@@ -214,7 +214,7 @@ and stmt_desc =
   | Sswitch of exp * stmt
   | Slabeled of slabel * stmt
   | Sgoto of string
-  | Sreturn of exp option
+  | Sreturn of init option (* OptiTrust generalized from exp option *)
   | Sblock of stmt list
   | Sdecl of decl
   | Sasm of attributes * string * asm_operand list * asm_operand list * string list

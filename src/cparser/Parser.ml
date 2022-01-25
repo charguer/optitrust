@@ -4303,11 +4303,11 @@ module Gram =
          (snd lbl)))
      | Prod'jump_statement'4 ->
        Obj.magic box (Coq_jump_statement'nt, ((T SEMICOLON't) :: ((T
-         RETURN't) :: []))) (fun _ loc0 -> Cabs.RETURN (None, loc0))
+         RETURN't) :: []))) (fun _ loc0 -> Cabs.RETURN (NO_INIT, loc0))
      | Prod'jump_statement'3 ->
        Obj.magic box (Coq_jump_statement'nt, ((T SEMICOLON't) :: ((NT
-         Coq_expression'nt) :: ((T RETURN't) :: [])))) (fun _ expr loc0 ->
-         Cabs.RETURN ((Some (fst expr)), loc0))
+         Coq_c_initializer'nt) :: ((T RETURN't) :: [])))) (fun _ init loc0 ->
+         Cabs.RETURN (init, loc0))
      | Prod'jump_statement'2 ->
        Obj.magic box (Coq_jump_statement'nt, ((T SEMICOLON't) :: ((T
          BREAK't) :: []))) (fun _ loc0 -> Cabs.BREAK loc0)
@@ -9918,7 +9918,7 @@ module Aut =
   | Nis'401 -> Coq__2.T Coq__2.COLON't
   | Nis'400 -> Coq__2.T Coq__2.OTHER_NAME't
   | Nis'399 -> Coq__2.T Coq__2.SEMICOLON't
-  | Nis'398 -> Coq__2.NT Coq__2.Coq_expression'nt
+  | Nis'398 -> Coq__2.NT Coq__2.Coq_c_initializer'nt
   | Nis'397 -> Coq__2.T Coq__2.SEMICOLON't
   | Nis'396 -> Coq__2.T Coq__2.RETURN't
   | Nis'395 -> Coq__2.T Coq__2.SEMICOLON't
@@ -13106,7 +13106,6 @@ module Aut =
      | Nis'398 ->
        Lookahead_act (fun terminal0 ->
          match terminal0 with
-         | Coq__2.COMMA't -> Shift_act Nis'187
          | Coq__2.SEMICOLON't -> Shift_act Nis'399
          | _ -> Fail_act)
      | Nis'397 -> Default_reduce_act Coq__2.Prod'jump_statement'4
@@ -13121,6 +13120,7 @@ module Aut =
          | Coq__2.CONSTANT't -> Shift_act Nis'41
          | Coq__2.DEC't -> Shift_act Nis'40
          | Coq__2.INC't -> Shift_act Nis'27
+         | Coq__2.LBRACE't -> Shift_act Nis'329
          | Coq__2.LPAREN't -> Shift_act Nis'24
          | Coq__2.MINUS't -> Shift_act Nis'17
          | Coq__2.PLUS't -> Shift_act Nis'16
@@ -18426,12 +18426,12 @@ module Aut =
          (match nt with
           | Coq__2.AND_expression'nt -> Some Nis'183
           | Coq__2.Coq_additive_expression'nt -> Some Nis'160
-          | Coq__2.Coq_assignment_expression'nt -> Some Nis'192
+          | Coq__2.Coq_assignment_expression'nt -> Some Nis'338
+          | Coq__2.Coq_c_initializer'nt -> Some Nis'398
           | Coq__2.Coq_cast_expression'nt -> Some Nis'149
           | Coq__2.Coq_conditional_expression'nt -> Some Nis'188
           | Coq__2.Coq_equality_expression'nt -> Some Nis'175
           | Coq__2.Coq_exclusive_OR_expression'nt -> Some Nis'184
-          | Coq__2.Coq_expression'nt -> Some Nis'398
           | Coq__2.Coq_inclusive_OR_expression'nt -> Some Nis'185
           | Coq__2.Coq_logical_AND_expression'nt -> Some Nis'169
           | Coq__2.Coq_logical_OR_expression'nt -> Some Nis'167

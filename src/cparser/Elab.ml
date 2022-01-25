@@ -114,7 +114,7 @@ let elaborated_program () =
   let p = !top_declarations in
   top_declarations := [];
   (* Reverse it and eliminate unreferenced declarations *)
-  Cleanup.program p
+  p
 
 (* Monadic map for functions env -> 'a -> 'b * env *)
 
@@ -2016,7 +2016,7 @@ let elab_expr ctx loc env a =
       warning Celeven_extension "'_Alignof' is a C11 extension";
       if wrap incomplete_type loc env' ty then
         fatal_error "invalid application of 'alignof' to an incomplete type %a" (print_typ env) ty;
-      { edesc = EAlignof ty; etyp =  TInt(size_t_ikind(), []); eloc = elab_loc loc },env'
+      { edesc = EAlignof ty; etyp = TInt(size_t_ikind(), []); eloc = elab_loc loc },env'
 
   | BUILTIN_OFFSETOF ((spec,dcl), mem) ->
     let (ty,env) = elab_type loc env spec dcl in
@@ -2812,7 +2812,7 @@ let elab_fundef genv spec name defs body loc =
              If we trusted the return analysis, we would do this only if
              this control point is reachable, i.e if can_fallthrough is true. *)
           sseq no_loc body1
-               {sdesc = Sreturn(Some(intconst 0L IInt)); sloc = no_loc}
+               {sdesc = Sreturn(Some(Init_single(intconst 0L IInt))); sloc = no_loc}
       | _ ->
           warning loc Main_return_type "return type of 'main' should be 'int'";
           body1
@@ -3129,37 +3129,50 @@ let rec elab_stmt env ctx s =
       { sdesc = Scontinue; sloc = elab_loc loc },env
 
 (* 6.8.6 Return statements *)
-  | RETURN(a, loc) ->
-      (* OptiTrust: elab_initializer loc env "<compound literal>"  ctx.ctx_return_typ init in
-          when a = Some init *)
-      let a',env = elab_opt_expr ctx loc env a in
-      begin match (unroll env ctx.ctx_return_typ, a') with
-      | TVoid _, None -> ()
-      | TVoid _, Some _ ->
-          error loc
-            "'return' with a value in a function returning void"
-      | _, None ->
-          warning loc Return_type
-            "'return' with no value, in a function returning non-void"
-      | _, Some b ->
-          if not (wrap2 valid_assignment loc env b ctx.ctx_return_typ)
-          then begin
-            if wrap2 valid_cast loc env b.etyp ctx.ctx_return_typ then
-              if wrap2 int_pointer_conversion loc env b.etyp ctx.ctx_return_typ then
-                warning loc Int_conversion
-                  "incompatible integer-pointer conversion: returning %a from a function with result type %a"
-                  (print_typ env) b.etyp (print_typ env) ctx.ctx_return_typ
-              else
-                warning loc Unnamed
-                  "incompatible conversion: returning %a from a function with result type %a"
-                  (print_typ env) b.etyp (print_typ env) ctx.ctx_return_typ
-            else
+  | RETURN(i, loc) ->
+      begin match i with
+      | COMPOUND_INIT _ ->
+          let (_ty',i') = elab_initializer loc env "<compound literal>" ctx.ctx_return_typ i in
+          { sdesc = Sreturn i'; sloc = elab_loc loc },env
+      | _ ->
+          let a = match i with
+            | Cabs.SINGLE_INIT e -> Some e
+            | NO_INIT -> None
+            | COMPOUND_INIT _ -> assert false (* tested earlier *)
+            in
+          let a',env = elab_opt_expr ctx loc env a in
+          begin match (unroll env ctx.ctx_return_typ, a') with
+          | TVoid _, None -> ()
+          | TVoid _, Some _ ->
               error loc
-                "returning %a from a function with incompatible result type %a"
-                (print_typ env) b.etyp (print_typ env) ctx.ctx_return_typ
-          end
-      end;
-      { sdesc = Sreturn a'; sloc = elab_loc loc },env
+                "'return' with a value in a function returning void"
+          | _, None ->
+              warning loc Return_type
+                "'return' with no value, in a function returning non-void"
+          | _, Some b ->
+              if not (wrap2 valid_assignment loc env b ctx.ctx_return_typ)
+              then begin
+                if wrap2 valid_cast loc env b.etyp ctx.ctx_return_typ then
+                  if wrap2 int_pointer_conversion loc env b.etyp ctx.ctx_return_typ then
+                    warning loc Int_conversion
+                      "incompatible integer-pointer conversion: returning %a from a function with result type %a"
+                      (print_typ env) b.etyp (print_typ env) ctx.ctx_return_typ
+                  else
+                    warning loc Unnamed
+                      "incompatible conversion: returning %a from a function with result type %a"
+                      (print_typ env) b.etyp (print_typ env) ctx.ctx_return_typ
+                else
+                  error loc
+                    "returning %a from a function with incompatible result type %a"
+                    (print_typ env) b.etyp (print_typ env) ctx.ctx_return_typ
+              end
+          end;
+          let i' = match a' with
+            | Some e' -> Some (Init_single e')
+            | None -> None
+            in
+          { sdesc = Sreturn i'; sloc = elab_loc loc },env
+     end
 
 (* 6.8.6 Goto statements *)
   | GOTO(lbl, loc) ->
@@ -3250,7 +3263,7 @@ let elab_file prog =
   let elab_def env d = snd (elab_definition false false false env d) in
   ignore (List.fold_left elab_def env prog);
   let p = elaborated_program () in
-  Checks.unused_variables p;
-  Checks.unknown_attrs_program p;
-  Checks.non_linear_conditional p;
+  
+  
+  
   p

@@ -1331,7 +1331,7 @@ let rec subst_stmt phi s =
       | Sswitch(e, s1) -> Sswitch (subst_expr phi e, subst_stmt phi s1)
       | Slabeled(l, s1) -> Slabeled (l, subst_stmt phi s1)
       | Sreturn None -> s.sdesc
-      | Sreturn (Some e) -> Sreturn (Some (subst_expr phi e))
+      | Sreturn (Some i) -> Sreturn (Some (subst_init phi i))
       | Sblock sl -> Sblock (List.map (subst_stmt phi) sl)
       | Sdecl d -> Sdecl (subst_decl phi d)
       | Sasm(attr, template, outputs, inputs, clob) ->

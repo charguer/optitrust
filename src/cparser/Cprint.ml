@@ -457,8 +457,8 @@ let rec stmt pp s =
       fprintf pp "goto %s;" lbl
   | Sreturn None ->
       fprintf pp "return;"
-  | Sreturn (Some e) ->
-      fprintf pp "return %a;" exp (0, e)
+  | Sreturn (Some i) ->
+      fprintf pp "return %a;" init i
   | Sblock sl ->
       fprintf pp "@[<v 2>{@ %a@;<0 -2>}@]" stmt_block s
   | Sdecl d ->

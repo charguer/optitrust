@@ -172,7 +172,7 @@ and statement =
    * statement * loc
 | BREAK of loc
 | CONTINUE of loc
-| RETURN of expression option * loc
+| RETURN of init_expression * loc
 | SWITCH of expression * statement * loc
 | CASE of expression * statement * loc
 | DEFAULT of statement * loc
