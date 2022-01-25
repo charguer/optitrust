@@ -19,17 +19,17 @@ vect vect_add(vect v1, vect v2) {
 }
 
 vect vect_mul(double d, vect v) {
-  vect r = {(d * v.x), (d * v.y), (d * v.z)};
-  return r;
+  return {(d * v.x), (d * v.y), (d * v.z)};
+  //vect r = {(d * v.x), (d * v.y), (d * v.z)};
+  //return r;
 }
 
-// const int 128 = 128;
-// TODO: #define 128 128
+const int CHUNKSIZE = 128;
 
 typedef struct chunk {
   struct chunk *next;
   int size;
-  particle items[128];
+  particle items[CHUNKSIZE];
 } chunk;
 
 typedef struct {
