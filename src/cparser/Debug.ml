@@ -13,7 +13,7 @@
 open BinNums
 open C
 open Camlcoq
-open DwarfTypes
+(*ARTHUR o pen DwarfTypes*) type debug_entries = unit
 open Sections
 
 (* Interface for generating and printing debug information *)
