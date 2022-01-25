@@ -20,6 +20,8 @@ type error =
   | Tag_mismatch of string * string * string
   | Unbound_typedef of string
   | No_member of string * string * string
+  | Unbound_const of string
+
 val error_message : error -> string
 exception Error of error
 
@@ -55,6 +57,7 @@ val lookup_union : t -> string -> C.ident * composite_info
 val lookup_composite : t -> string -> (C.ident * composite_info) option
 val lookup_typedef : t -> string -> C.ident * typedef_info
 val lookup_enum : t -> string -> C.ident * enum_info
+val lookup_const : t -> string -> C.ident * int64
 
 val ident_is_bound : t -> string -> bool
 
@@ -65,6 +68,7 @@ val find_struct_member : t -> C.ident * string -> C.field list
 val find_union_member : t -> C.ident * string -> C.field list
 val find_typedef : t -> C.ident -> typedef_info
 val find_enum : t -> C.ident -> enum_info
+val find_const : t -> C.ident -> int64
 
 val enter_ident : t -> string -> C.storage -> C.typ -> C.ident * t
 val enter_composite : t -> string -> composite_info -> C.ident * t
@@ -76,6 +80,7 @@ val add_ident : t -> C.ident -> C.storage -> C.typ -> t
 val add_composite : t -> C.ident -> composite_info -> t
 val add_typedef : t -> C.ident -> typedef_info -> t
 val add_enum : t -> C.ident -> enum_info -> t
+val add_const : t -> C.ident -> int64 -> t
 
 val add_types : t -> t -> t
 

@@ -19,9 +19,9 @@ vect vect_add(vect v1, vect v2) {
 }
 
 vect vect_mul(double d, vect v) {
-  return {(d * v.x), (d * v.y), (d * v.z)};
-  //vect r = {(d * v.x), (d * v.y), (d * v.z)};
-  //return r;
+  // return {(d * v.x), (d * v.y), (d * v.z)};
+  vect r = {(d * v.x), (d * v.y), (d * v.z)};
+  return r;
 }
 
 const int CHUNKSIZE = 128;
@@ -100,14 +100,14 @@ void bag_push_concurrent(bag *b, particle p) {
   while (true) {
     c = (b->front);
     index = (c->size)++;
-    if ((index < 128)) {
+    if ((index < CHUNKSIZE)) {
       (c->items)[index] = p;
-      if ((index == (128 - 1))) {
+      if ((index == (CHUNKSIZE - 1))) {
         bag_add_front_chunk(b);
       }
       return;
     } else {
-      (c->size) = 128;
+      (c->size) = CHUNKSIZE;
       while ((atomic_read((&(b->front))) == c)) {
       }
     }
@@ -118,7 +118,7 @@ void bag_push_serial(bag *b, particle p) {
   chunk *c = (b->front);
   int index = (c->size)++;
   (c->items)[index] = p;
-  if ((index == (128 - 1))) {
+  if ((index == (CHUNKSIZE - 1))) {
     bag_add_front_chunk(b);
   }
 }

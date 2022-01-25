@@ -104,7 +104,7 @@ type attribute_class =
   | Attr_struct         (* Attribute applies to struct, union and enum *)
   | Attr_function       (* Attribute applies to function types and decls *)
   | Attr_unknown        (* Unknown attribute *)
-      
+
 let attr_class : (string, attribute_class) Hashtbl.t = Hashtbl.create 32
 
 let declare_attribute name cls =
@@ -350,7 +350,9 @@ let combine_types mode env t1 t2 =
     match sz1, sz2 with
     | None, _ -> sz2
     | _, None -> sz1
-    | Some n1, Some n2 -> if n1 = n2 then Some n2 else raise Incompat
+    | Some n1, Some n2 ->
+      (* assert that n1 and n2 are either constants or variables *)
+      if n1 = n2 then Some n2 else raise Incompat
   and comp_conv (id, ty) =
     match unroll env ty with
     | TInt(kind, attr) ->

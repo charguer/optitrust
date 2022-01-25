@@ -24,6 +24,7 @@ type error =
   | Tag_mismatch of string * string * string
   | Unbound_typedef of string
   | No_member of string * string * string
+  | Unbound_const of string
 
 exception Error of error
 
@@ -93,7 +94,8 @@ type t = {
   env_ident: ident_info IdentMap.t;
   env_tag: composite_info IdentMap.t;
   env_typedef: typedef_info IdentMap.t;
-  env_enum: enum_info IdentMap.t
+  env_enum: enum_info IdentMap.t;
+  env_const: int64 IdentMap.t; (* OptiTrust: keep track of integer constants *)
 }
 
 let empty = {
@@ -101,7 +103,8 @@ let empty = {
   env_ident = IdentMap.empty;
   env_tag = IdentMap.empty;
   env_typedef = IdentMap.empty;
-  env_enum = IdentMap.empty
+  env_enum = IdentMap.empty;
+  env_const = IdentMap.empty
 }
 
 (* Enter a new scope. *)
@@ -152,6 +155,12 @@ let lookup_enum env s =
     IdentMap.lookup s env.env_enum
   with Not_found ->
     raise(Error(Unbound_tag(s, "enum")))
+
+let lookup_const env s =
+  try
+    IdentMap.lookup s env.env_const
+  with Not_found ->
+    raise(Error(Unbound_const s))
 
 (* Checking if a source name is bound *)
 
@@ -233,6 +242,12 @@ let find_enum env id =
   with Not_found ->
     raise(Error(Unbound_tag(id.name, "enum")))
 
+let find_const env id =
+  try
+    IdentMap.find id env.env_const
+  with Not_found ->
+    raise(Error(Unbound_const id.name))
+
 (* Inserting things by source name, with generation of a translated name *)
 
 let enter_ident env s sto ty =
@@ -273,6 +288,9 @@ let add_enum env id info =
   List.fold_left add_enum_item
     { env with env_enum = IdentMap.add id info env.env_enum }
     info.ei_members
+
+let add_const env id info =
+  { env with env_const = IdentMap.add id info env.env_const }
 
 let add_types env_old env_new =
   { env_new with env_ident = env_old.env_ident;env_scope = env_old.env_scope;}
@@ -339,7 +357,9 @@ let error_message = function
       sprintf "unbound typedef '%s'" name
   | No_member(compname, compkind, memname) ->
       sprintf "no member named '%s' in '%s %s'"
-        memname compkind (composite_tag_name compname) 
+        memname compkind (composite_tag_name compname)
+  | Unbound_const name ->
+      sprintf "use of variable '%s' which is not an integer constant" name
 
 let _ =
   Printexc.register_printer

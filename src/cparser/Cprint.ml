@@ -127,6 +127,34 @@ let name_of_fkind = function
   | FDouble -> "double"
   | FLongDouble -> "long double"
 
+
+type associativity = LtoR | RtoL | NA
+
+let precedence = function               (* H&S section 7.2 *)
+  | EConst _ -> (16, NA)
+  | ESizeof _ -> (15, RtoL)
+  | EAlignof _ -> (15, RtoL)
+  | EVar _ -> (16, NA)
+  | EBinop(Oindex, _, _, _) -> (16, LtoR)
+  | ECall _ -> (16, LtoR)
+  | EUnop((Odot _|Oarrow _), _) -> (16, LtoR)
+  | EUnop((Opostincr|Opostdecr), _) -> (16, LtoR)
+  | EUnop((Opreincr|Opredecr|Onot|Olognot|Ominus|Oplus|Oaddrof|Oderef), _) -> (15, RtoL)
+  | ECast _ | ECompound _ -> (14, RtoL)
+  | EBinop((Omul|Odiv|Omod), _, _, _) -> (13, LtoR)
+  | EBinop((Oadd|Osub), _, _, _) -> (12, LtoR)
+  | EBinop((Oshl|Oshr), _, _, _) -> (11, LtoR)
+  | EBinop((Olt|Ogt|Ole|Oge), _, _, _) -> (10, LtoR)
+  | EBinop((Oeq|One), _, _, _) -> (9, LtoR)
+  | EBinop(Oand, _, _, _) -> (8, LtoR)
+  | EBinop(Oxor, _, _, _) -> (7, LtoR)
+  | EBinop(Oor, _, _, _) -> (6, LtoR)
+  | EBinop(Ologand, _, _, _) -> (5, LtoR)
+  | EBinop(Ologor, _, _, _) -> (4, LtoR)
+  | EConditional _ -> (3, RtoL)
+  | EBinop((Oassign|Oadd_assign|Osub_assign|Omul_assign|Odiv_assign|Omod_assign|Oand_assign|Oor_assign|Oxor_assign|Oshl_assign|Oshr_assign), _, _, _) -> (2, RtoL)
+  | EBinop(Ocomma, _, _, _) -> (1, LtoR)
+
 let rec dcl ?(pp_indication=true) pp ty n =
   match ty with
   | TVoid a ->
@@ -187,33 +215,6 @@ let typ pp ty =
 
 let typ_raw pp ty =
   dcl ~pp_indication:false pp ty (fun _ -> ())
-
-type associativity = LtoR | RtoL | NA
-
-let precedence = function               (* H&S section 7.2 *)
-  | EConst _ -> (16, NA)
-  | ESizeof _ -> (15, RtoL)
-  | EAlignof _ -> (15, RtoL)
-  | EVar _ -> (16, NA)
-  | EBinop(Oindex, _, _, _) -> (16, LtoR)
-  | ECall _ -> (16, LtoR)
-  | EUnop((Odot _|Oarrow _), _) -> (16, LtoR)
-  | EUnop((Opostincr|Opostdecr), _) -> (16, LtoR)
-  | EUnop((Opreincr|Opredecr|Onot|Olognot|Ominus|Oplus|Oaddrof|Oderef), _) -> (15, RtoL)
-  | ECast _ | ECompound _ -> (14, RtoL)
-  | EBinop((Omul|Odiv|Omod), _, _, _) -> (13, LtoR)
-  | EBinop((Oadd|Osub), _, _, _) -> (12, LtoR)
-  | EBinop((Oshl|Oshr), _, _, _) -> (11, LtoR)
-  | EBinop((Olt|Ogt|Ole|Oge), _, _, _) -> (10, LtoR)
-  | EBinop((Oeq|One), _, _, _) -> (9, LtoR)
-  | EBinop(Oand, _, _, _) -> (8, LtoR)
-  | EBinop(Oxor, _, _, _) -> (7, LtoR)
-  | EBinop(Oor, _, _, _) -> (6, LtoR)
-  | EBinop(Ologand, _, _, _) -> (5, LtoR)
-  | EBinop(Ologor, _, _, _) -> (4, LtoR)
-  | EConditional _ -> (3, RtoL)
-  | EBinop((Oassign|Oadd_assign|Osub_assign|Omul_assign|Odiv_assign|Omod_assign|Oand_assign|Oor_assign|Oxor_assign|Oshl_assign|Oshr_assign), _, _, _) -> (2, RtoL)
-  | EBinop(Ocomma, _, _, _) -> (1, LtoR)
 
 let rec exp pp (prec, a) =
   let (prec', assoc) = precedence a.edesc in
