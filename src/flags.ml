@@ -81,6 +81,7 @@ let spec =
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      ("-disable-light-diff", Arg.Clear use_light_diff, "disable light diff");
      (* LATER: a -dev flag to activate a combination of dump *)
+  ]
 
 let fix_flags () =
   if !analyse_time_details then analyse_time := true;
