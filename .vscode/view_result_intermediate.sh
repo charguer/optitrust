@@ -26,10 +26,17 @@ eval $(opam env)
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}
 
+
 #----------------------------------------------------
 # Prepare the transformation program
 
 if [ "${VIEW}" = "view_diff" ]; then
+
+  # Read options from optitrust_flags.sh
+  # options: e.g., FLAGS="-dump-ast-details -analyse-time-details -debug-reparse"
+  if [ -f "optitrust_flags.sh" ]; then
+    source optitrust_flags.sh
+  fi
 
   # Generate "${FILEBASE}_fast.ml" as a version of the script with lines
   # that were saved in "${FILEBASE}_inter.ml" replaced with blank lines.
@@ -88,7 +95,12 @@ elif [ "${VIEW}" = "save_intermediate_state" ]; then
 
   echo "Produced ${SOURCEBASE}.ml"
 
-
+  #TODO: FLAGS=-serialized-output only
+  # in Flags.ml: -serialized-output  "choose between 'yes' or 'no' or 'only'"
+  #   - yes means that the output file is serialized
+  #   - no means that the output file is not serialized
+  #   - only means that only the serialized output is created
+  #TODO: we should trim the script at the LINE_STOP and run it without an exit line number to produce the intermediate file
 else
 
   echo "invalid VIEW argument"  >> /dev/stderr
@@ -126,7 +138,7 @@ fi
 # Execute the transformation program
 
 # Execute with backtrace activated, and specifying the -exit-line value
-OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}
+OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS}
 # echo "./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}"
 
 OUT=$?
