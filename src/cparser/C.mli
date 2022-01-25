@@ -170,7 +170,7 @@ and struct_or_union =
 
 (** Expressions *)
 
-and exp = { edesc: exp_desc; etyp: typ }
+and exp = { edesc: exp_desc; etyp: typ; eloc: location }
 
 and exp_desc =
   | EConst of constant

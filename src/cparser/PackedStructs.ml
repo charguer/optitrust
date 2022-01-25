@@ -24,7 +24,7 @@ open Machine
 open C
 open Cutil
 open Env
-open Diagnostics
+open! Diagnostics (* OptiTrust warning *)
 open Transform
 
 (* The set of struct fields that are byte-swapped.
@@ -131,7 +131,7 @@ let accessor_type loc env ty =
      (32, TVoid [])
 
 (*  (ty) e *)
-let ecast ty e = {edesc = ECast(ty, e); etyp = ty}
+let ecast ty e = {edesc = ECast(ty, e); etyp = ty; eloc = no_loc}
 
 let ecast_opt env ty e =
   if compatible_types AttrCompat env ty e.etyp then e else ecast ty e
@@ -149,16 +149,16 @@ let bswap_read loc env lval =
     if !use_reversed then begin
       let (id, fty) =
         lookup_function env (sprintf "__builtin_read%d_reversed" bsize) in
-      let fn = {edesc = EVar id; etyp = fty} in
+      let fn = {edesc = EVar id; etyp = fty; eloc = no_loc} in
       let args = [ecast_opt env (TPtr(aty,[])) (eaddrof lval)] in
-      let call = {edesc = ECall(fn, args); etyp = aty} in
+      let call = {edesc = ECall(fn, args); etyp = aty; eloc = no_loc} in
       ecast_opt env ty call
     end else begin
       let (id, fty) =
         lookup_function env (sprintf "__builtin_bswap%d" bsize) in
-      let fn = {edesc = EVar id; etyp = fty} in
+      let fn = {edesc = EVar id; etyp = fty; eloc = no_loc} in
       let args = [ecast_opt env aty lval] in
-      let call = {edesc = ECall(fn, args); etyp = aty} in
+      let call = {edesc = ECall(fn, args); etyp = aty; eloc = no_loc} in
       ecast_opt env ty call
     end
   with Env.Error msg ->
@@ -176,16 +176,16 @@ let bswap_write loc env lhs rhs =
     if !use_reversed then begin
       let (id, fty) =
         lookup_function env (sprintf "__builtin_write%d_reversed" bsize) in
-      let fn = {edesc = EVar id; etyp = fty} in
+      let fn = {edesc = EVar id; etyp = fty; eloc = no_loc} in
       let args = [ecast_opt env (TPtr(aty,[])) (eaddrof lhs);
                   ecast_opt env aty rhs] in
-      {edesc = ECall(fn, args); etyp = TVoid[]}
+      {edesc = ECall(fn, args); etyp = TVoid[]; eloc = no_loc}
     end else begin
       let (id, fty) =
         lookup_function env (sprintf "__builtin_bswap%d" bsize) in
-      let fn = {edesc = EVar id; etyp = fty} in
+      let fn = {edesc = EVar id; etyp = fty; eloc = no_loc} in
       let args = [ecast_opt env aty rhs] in
-      let call = {edesc = ECall(fn, args); etyp = aty} in
+      let call = {edesc = ECall(fn, args); etyp = aty; eloc = no_loc} in
       eassign lhs (ecast_opt env ty call)
     end
   with Env.Error msg ->
@@ -210,14 +210,14 @@ let transf_expr loc env ctx e =
   let rec lvalue e =
     match e.edesc with
     | EUnop(Odot fieldname, e1) ->
-        ({edesc = EUnop(Odot fieldname, texp Val e1); etyp = e.etyp},
+        ({edesc = EUnop(Odot fieldname, texp Val e1); etyp = e.etyp; eloc = no_loc},
          is_byteswapped e1.etyp fieldname)
     | EUnop(Oarrow fieldname, e1) ->
-        ({edesc = EUnop(Oarrow fieldname, texp Val e1); etyp = e.etyp},
+        ({edesc = EUnop(Oarrow fieldname, texp Val e1); etyp = e.etyp; eloc = no_loc},
          is_byteswapped_ptr e1.etyp fieldname)
     | EBinop(Oindex, e1, e2, tyres) ->
         let (e1', swap) = lvalue e1 in
-        ({edesc = EBinop(Oindex, e1', e2, tyres); etyp = e.etyp}, swap)
+        ({edesc = EBinop(Oindex, e1', e2, tyres); etyp = e.etyp; eloc = no_loc}, swap)
     | _ ->
         (texp Val e, false)
 
@@ -236,7 +236,7 @@ let transf_expr loc env ctx e =
         let (e1', swap) = lvalue e1 in
         if swap then
           error loc "& over byte-swapped field";
-        {edesc = EUnop(Oaddrof, e1'); etyp = e.etyp}
+        {e with edesc = EUnop(Oaddrof, e1')}
 
     | EUnop((Opreincr|Opredecr) as op, e1) ->
         let (e1', swap) = lvalue e1 in
@@ -245,7 +245,7 @@ let transf_expr loc env ctx e =
             ~read:(bswap_read loc env) ~write:(bswap_write loc env)
             env ctx op e1'
         else
-          {edesc = EUnop(op, e1'); etyp = e.etyp}
+          {e with edesc = EUnop(op, e1')}
 
     | EUnop((Opostincr|Opostdecr as op), e1) ->
         let (e1', swap) = lvalue e1 in
@@ -254,10 +254,10 @@ let transf_expr loc env ctx e =
             ~read:(bswap_read loc env) ~write:(bswap_write loc env)
             env ctx op e1'
         else
-          {edesc = EUnop(op, e1'); etyp = e.etyp}
+          {e with edesc = EUnop(op, e1')}
 
     | EUnop(op, e1) ->
-        {edesc = EUnop(op, texp Val e1); etyp = e.etyp}
+        {e with edesc = EUnop(op, texp Val e1)}
 
     | EBinop(Oassign, e1, e2, ty) ->
         let (e1', swap) = lvalue e1 in
@@ -265,7 +265,7 @@ let transf_expr loc env ctx e =
         if swap then
           expand_assign ~write:(bswap_write loc env) env ctx e1' e2'
         else
-          {edesc = EBinop(Oassign, e1', e2', ty); etyp = e.etyp}
+          {e with edesc = EBinop(Oassign, e1', e2', ty)}
 
     | EBinop((Oadd_assign|Osub_assign|Omul_assign|Odiv_assign|Omod_assign|
               Oand_assign|Oor_assign|Oxor_assign|Oshl_assign|Oshr_assign as op),
@@ -277,27 +277,25 @@ let transf_expr loc env ctx e =
             ~read:(bswap_read loc env) ~write:(bswap_write loc env)
             env ctx op e1' e2' ty
         else
-          {edesc = EBinop(op, e1', e2', ty); etyp = e.etyp}
+          {e with edesc = EBinop(op, e1', e2', ty)}
 
     | EBinop(Ocomma, e1, e2, ty) ->
-        {edesc = EBinop(Ocomma, texp Effects e1, texp Val e2, ty);
-         etyp = e.etyp}
+        {e with edesc = EBinop(Ocomma, texp Effects e1, texp Val e2, ty)}
 
     | EBinop(op, e1, e2, ty) ->
-        {edesc = EBinop(op, texp Val e1, texp Val e2, ty); etyp = e.etyp}
+        {e with edesc = EBinop(op, texp Val e1, texp Val e2, ty)}
 
     | EConditional(e1, e2, e3) ->
-        {edesc = EConditional(texp Val e1, texp ctx e2, texp ctx e3);
-         etyp = e.etyp}
+        {e with edesc = EConditional(texp Val e1, texp ctx e2, texp ctx e3)}
 
     | ECast(ty, e1) ->
-        {edesc = ECast(ty, texp Val e1); etyp = e.etyp}
+        {e with edesc = ECast(ty, texp Val e1)}
 
     | ECompound _ ->
         assert false    (* does not occur in unblocked code *)
 
     | ECall(e1, el) ->
-        {edesc = ECall(texp Val e1, List.map (texp Val) el); etyp = e.etyp}
+        {e with edesc = ECall(texp Val e1, List.map (texp Val) el)}
 
   in texp ctx e
 
@@ -334,7 +332,7 @@ let transf_init loc env i =
           match Ceval.constant_expr env ty e with
           | Some(CInt(n, ik, _)) ->
               let n' = byteswap_int (sizeof_ikind ik) n in
-              Init_single {edesc = EConst(CInt(n', ik, "")); etyp = e.etyp}
+              Init_single {e with edesc = EConst(CInt(n', ik, ""))}
           | _ ->
               error loc "initializer for byte-swapped field is not \
                          a compile-time integer constant"; i

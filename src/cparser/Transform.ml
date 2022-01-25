@@ -39,7 +39,7 @@ let new_temp_var ?(name = "t") ty =
 
 let new_temp ?(name = "t") ty =
   let id = new_temp_var ~name ty in
-  { edesc = EVar id; etyp = ty }
+  { edesc = EVar id; etyp = ty; eloc = no_loc }
 
 (* Temporaries should not be [const] because we assign into them
    and not be [volatile] because they are local and not observable *)
@@ -63,7 +63,7 @@ let bind_lvalue env e fn =
   else begin
     let tmp = new_temp (TPtr(e.etyp, [])) in
     ecomma (eassign tmp (eaddrof e))
-           (fn {edesc = EUnop(Oderef, tmp); etyp = e.etyp})
+           (fn { e with edesc = EUnop(Oderef, tmp)})
   end
 
 (* Most transformations over expressions can be optimized if the
@@ -110,7 +110,7 @@ let expand_assign ~write env ctx l r =
 
 let expand_assignop ~read ~write env ctx op l r ty =
   bind_lvalue env l (fun l ->
-    let res = {edesc = EBinop(op_for_assignop op, read l, r, ty); etyp = ty} in
+    let res = {edesc = EBinop(op_for_assignop op, read l, r, ty); etyp = ty; eloc = no_loc} in
     match ctx with
     | Effects ->
         write l res
@@ -129,13 +129,15 @@ let expand_postincrdecr ~read ~write env ctx op l =
     | Effects ->
         let newval =
           {edesc = EBinop(op_for_incr_decr op, read l, intconst 1L IInt, ty);
-           etyp = ty} in
+           etyp = ty;
+           eloc = no_loc } in
         write l newval
     | Val ->
         let tmp = mk_temp env l.etyp in
         let newval =
           {edesc = EBinop(op_for_incr_decr op, tmp, intconst 1L IInt, ty);
-           etyp = ty} in
+           etyp = ty;
+           eloc = no_loc } in
         ecomma (eassign tmp (read l)) (ecomma (write l newval) tmp))
 
 (* Generic transformation of a statement, transforming expressions within

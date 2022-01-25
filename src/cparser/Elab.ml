@@ -1757,14 +1757,14 @@ let elab_expr ctx loc env a =
       begin match wrap Env.lookup_ident loc env s with
         | (id, Env.II_ident(sto, ty)) ->
           check_static_var env id sto ty;
-          { edesc = EVar id; etyp = ty },env
+          { edesc = EVar id; etyp = ty; eloc = elab_loc loc },env
       | (id, Env.II_enum v) ->
-          { edesc = EConst(CEnum(id, v)); etyp = TInt(enum_ikind, []) },env
+          { edesc = EConst(CEnum(id, v)); etyp = TInt(enum_ikind, []); eloc = elab_loc loc },env
       end
 
   | CONSTANT cst ->
       let cst' = elab_constant loc cst in
-      { edesc = EConst cst'; etyp = type_of_constant cst' },env
+      { edesc = EConst cst'; etyp = type_of_constant cst'; eloc = elab_loc loc },env
 
 (* 6.5.2 Postfix expressions *)
 
@@ -1776,7 +1776,7 @@ let elab_expr ctx loc env a =
         | (TPtr(t, _) | TArray(t, _, _)), (TInt _ | TEnum _) -> t
         | (TInt _ | TEnum _), (TPtr(t, _) | TArray(t, _, _)) -> t
         | t1, t2 -> fatal_error "subscripted value is neither an array nor pointer" in
-      { edesc = EBinop(Oindex, b1, b2, TPtr(tres, [])); etyp = tres },env
+      { edesc = EBinop(Oindex, b1, b2, TPtr(tres, [])); etyp = tres; eloc = elab_loc loc },env
 
   | MEMBEROF(a1, fieldname) ->
       let b1,env = elab env a1 in
@@ -1795,7 +1795,8 @@ let elab_expr ctx loc env a =
              let b1 = access rest in
              { edesc = EUnop(Odot fld.fld_name, b1);
                etyp = add_attributes_type (List.filter attr_inherited_by_members attrs)
-                 (type_of_member env fld) } in
+                 (type_of_member env fld);
+               eloc = elab_loc loc } in
        access fld,env
 
   | MEMBEROFPTR(a1, fieldname) ->
@@ -1817,13 +1818,15 @@ let elab_expr ctx loc env a =
          | [] -> assert false
          | [fld] ->
            { edesc = EUnop(Oarrow fld.fld_name, b1);
-               etyp = add_attributes_type (List.filter attr_inherited_by_members attrs)
-                (type_of_member env fld) }
+             etyp = add_attributes_type (List.filter attr_inherited_by_members attrs)
+                (type_of_member env fld);
+             eloc = elab_loc loc }
          | fld::rest ->
              let b1 = access rest in
              { edesc = EUnop(Odot fld.fld_name, b1);
                etyp = add_attributes_type (List.filter attr_inherited_by_members attrs)
-                (type_of_member env fld) } in
+                (type_of_member env fld);
+               eloc = elab_loc loc } in
             access fld,env
 
 (* Hack to treat vararg.h functions the GCC way.  Helps with testing.
@@ -1843,14 +1846,15 @@ let elab_expr ctx loc env a =
           let b2,env = elab env a2 in
           let _b3,env = elab env a3 in
           { edesc = ECall(b1, [b2]);
-            etyp = TVoid [] },env
+            etyp = TVoid [];
+            eloc = elab_loc loc },env
         | _ -> fatal_error "'__builtin_va_start' expects 2 arguments"
       end
 
   | BUILTIN_VA_ARG (a2, a3) ->
       let ident =
         match wrap Env.lookup_ident loc env "__builtin_va_arg" with
-          | (id, Env.II_ident(sto, ty)) -> { edesc = EVar id; etyp = ty }
+          | (id, Env.II_ident(sto, ty)) -> { edesc = EVar id; etyp = ty; eloc = elab_loc loc }
           | _ -> assert false
       in
       let b2,env = elab env a2 in
@@ -1860,7 +1864,7 @@ let elab_expr ctx loc env a =
       if not (compatible_types AttrIgnoreTop env ty ty') then
         warning Varargs "%a is promoted to %a when passed through '...'. You should pass %a, not %a, to 'va_arg'"
           (print_typ env) ty (print_typ env) ty'  (print_typ env) ty'  (print_typ env) ty;
-      { edesc = ECall(ident, [b2; b3]); etyp = ty },env
+      { edesc = ECall(ident, [b2; b3]); etyp = ty; eloc = elab_loc loc },env
 
   | CALL(VARIABLE "__builtin_constant_p", al) ->
       begin match al with
@@ -1903,7 +1907,7 @@ let elab_expr ctx loc env a =
                   (print_typ env) b2.etyp (print_typ env) b3.etyp
 
             in
-          { edesc = ECall(b0, [b1; b2; b3]); etyp = tyres }, env
+          { edesc = ECall(b0, [b1; b2; b3]); etyp = tyres; eloc = elab_loc loc }, env
       | _ ->
           fatal_error "'__builtin_sel' expect 3 arguments"
       end
@@ -1926,7 +1930,7 @@ let elab_expr ctx loc env a =
               enter_or_refine_ident true loc env n Storage_extern ty in
             (* Emit an extern declaration for it *)
             emit_elab ~linkage env loc (Gdecl(sto, id, ty, None));
-            { edesc = EVar id; etyp = ty },env
+            { edesc = EVar id; etyp = ty; eloc = elab_loc loc },env
         | _ -> elab env a1 in
       let (bl, env) = mmap elab env al in
       (* Extract type information *)
@@ -1950,7 +1954,7 @@ let elab_expr ctx loc env a =
                 error "argument type %a is incomplete" (print_typ env) arg.etyp;
             ) bl; (bl,env)
         | Some proto -> elab_arguments 1 (bl, env) proto vararg in
-      { edesc = ECall(b1, bl'); etyp = res },env
+      { edesc = ECall(b1, bl'); etyp = res; eloc = elab_loc loc },env
 
   | UNARY(POSINCR, a1) ->
       elab_pre_post_incr_decr env Opostincr "increment" a1
@@ -1978,7 +1982,7 @@ let elab_expr ctx loc env a =
         | _ ->
             error "illegal cast from %a to %a" (print_typ env) b1.etyp (print_typ env) ty
         end;
-      { edesc = ECast(ty, b1); etyp = ty },env
+      { edesc = ECast(ty, b1); etyp = ty; eloc = elab_loc loc },env
 
 (* 6.5.2.5 Compound literals *)
 
@@ -1987,7 +1991,7 @@ let elab_expr ctx loc env a =
       if not (is_array_type env ty) && incomplete_type env ty then
         fatal_error "ill-formed compound literal with incomplete type %a" (print_typ env) ty;
       begin match elab_initializer loc env "<compound literal>" ty ie with
-      | (ty', Some i) -> { edesc = ECompound(ty', i); etyp = ty' },env
+      | (ty', Some i) -> { edesc = ECompound(ty', i); etyp = ty'; eloc = elab_loc loc },env
       | (ty', None)   -> fatal_error "ill-formed compound literal"
       end
 
@@ -1999,20 +2003,20 @@ let elab_expr ctx loc env a =
         fatal_error "invalid application of 'sizeof' to an incomplete type %a" (print_typ env) b1.etyp;
       if wrap is_bitfield loc env b1 then
         fatal_error "invalid application of 'sizeof' to a bit-field";
-      { edesc = ESizeof b1.etyp; etyp = TInt(size_t_ikind(), []) },env
+      { edesc = ESizeof b1.etyp; etyp = TInt(size_t_ikind(), []); eloc = elab_loc loc },env
 
   | TYPE_SIZEOF (spec, dcl) ->
       let (ty, env') = elab_type loc env spec dcl in
       if wrap incomplete_type loc env' ty then
         fatal_error "invalid application of 'sizeof' to an incomplete type %a" (print_typ env) ty;
-      { edesc = ESizeof ty; etyp = TInt(size_t_ikind(), []) },env'
+      { edesc = ESizeof ty; etyp = TInt(size_t_ikind(), []); eloc = elab_loc loc },env'
 
   | ALIGNOF (spec, dcl) ->
       let (ty, env') = elab_type loc env spec dcl in
       warning Celeven_extension "'_Alignof' is a C11 extension";
       if wrap incomplete_type loc env' ty then
         fatal_error "invalid application of 'alignof' to an incomplete type %a" (print_typ env) ty;
-      { edesc = EAlignof ty; etyp =  TInt(size_t_ikind(), []) },env'
+      { edesc = EAlignof ty; etyp =  TInt(size_t_ikind(), []); eloc = elab_loc loc },env'
 
   | BUILTIN_OFFSETOF ((spec,dcl), mem) ->
     let (ty,env) = elab_type loc env spec dcl in
@@ -2054,31 +2058,31 @@ let elab_expr ctx loc env a =
     let size_t = size_t_ikind () in
     let offset = Ceval.normalize_int (Int64.of_int offset) size_t in
     let offsetof_const = EConst (CInt(offset,size_t,"")) in
-    { edesc = offsetof_const; etyp = TInt(size_t, []) },env
+    { edesc = offsetof_const; etyp = TInt(size_t, []); eloc = elab_loc loc },env
 
   | UNARY(PLUS, a1) ->
       let b1,env = elab env a1 in
       if not (is_arith_type env b1.etyp) then
         fatal_error "invalid argument type %a to unary '+'" (print_typ env) b1.etyp;
-      { edesc = EUnop(Oplus, b1); etyp = unary_conversion env b1.etyp },env
+      { edesc = EUnop(Oplus, b1); etyp = unary_conversion env b1.etyp; eloc = elab_loc loc },env
 
   | UNARY(MINUS, a1) ->
       let b1,env = elab env a1 in
       if not (is_arith_type env b1.etyp) then
         fatal_error "invalid argument type %a to unary '-'" (print_typ env) b1.etyp;
-      { edesc = EUnop(Ominus, b1); etyp = unary_conversion env b1.etyp },env
+      { edesc = EUnop(Ominus, b1); etyp = unary_conversion env b1.etyp; eloc = elab_loc loc },env
 
   | UNARY(BNOT, a1) ->
       let b1,env = elab env a1 in
       if not (is_integer_type env b1.etyp) then
         fatal_error "invalid argument type %a to unary '~'" (print_typ env) b1.etyp;
-      { edesc = EUnop(Onot, b1); etyp = unary_conversion env b1.etyp },env
+      { edesc = EUnop(Onot, b1); etyp = unary_conversion env b1.etyp; eloc = elab_loc loc },env
 
   | UNARY(NOT, a1) ->
       let b1,env = elab env a1 in
       if not (is_scalar_type env b1.etyp) then
         fatal_error "invalid argument type %a to unary '!'" (print_typ env) b1.etyp;
-      { edesc = EUnop(Olognot, b1); etyp = TInt(IInt, []) },env
+      { edesc = EUnop(Olognot, b1); etyp = TInt(IInt, []); eloc = elab_loc loc },env
 
   | UNARY(ADDROF, a1) ->
       let b1,env = elab env a1 in
@@ -2101,7 +2105,7 @@ let elab_expr ctx loc env a =
             error "address of bit-field '%s' requested" f
       | _ -> ()
       end;
-      { edesc = EUnop(Oaddrof, b1); etyp = TPtr(b1.etyp, []) },env
+      { edesc = EUnop(Oaddrof, b1); etyp = TPtr(b1.etyp, []); eloc = elab_loc loc },env
 
   | UNARY(MEMOF, a1) ->
       let b1,env = elab env a1 in
@@ -2109,7 +2113,7 @@ let elab_expr ctx loc env a =
       (* '*' applied to a function type has no effect *)
       | TFun _ -> b1,env
       | TPtr(ty, _) | TArray(ty, _, _) ->
-          { edesc = EUnop(Oderef, b1); etyp = ty },env
+          { edesc = EUnop(Oderef, b1); etyp = ty; eloc = elab_loc loc },env
       | _ ->
           fatal_error "argument of unary '*' is not a pointer (%a invalid)"
             (print_typ env) b1.etyp
@@ -2123,13 +2127,13 @@ let elab_expr ctx loc env a =
 (* 6.5.5 to 6.5.12  Binary operator expressions *)
 
   | BINARY(MUL, a1, a2) ->
-      elab_binary_arithmetic env "*" Omul a1 a2
+      elab_binary_arithmetic loc env "*" Omul a1 a2
 
   | BINARY(DIV, a1, a2) ->
-      elab_binary_arithmetic env "/" Odiv a1 a2
+      elab_binary_arithmetic loc env "/" Odiv a1 a2
 
   | BINARY(MOD, a1, a2) ->
-      elab_binary_integer env "%" Omod a1 a2
+      elab_binary_integer loc env "%" Omod a1 a2
 
   | BINARY(ADD, a1, a2) ->
       let b1,env = elab env a1 in
@@ -2148,7 +2152,7 @@ let elab_expr ctx loc env a =
           check_ptr_arith env ty "binary '+'";
           TPtr(ty, [])
         end in
-      { edesc = EBinop(Oadd, b1, b2, tyres); etyp = tyres },env
+      { edesc = EBinop(Oadd, b1, b2, tyres); etyp = tyres; eloc = elab_loc loc },env
 
   | BINARY(SUB, a1, a2) ->
       let b1,env = elab env a1 in
@@ -2176,40 +2180,40 @@ let elab_expr ctx loc env a =
               fatal_error "invalid operands to binary '-' (%a and %a)"
                 (print_typ env) b1.etyp (print_typ env) b2.etyp
         end in
-      { edesc = EBinop(Osub, b1, b2, tyop); etyp = tyres },env
+      { edesc = EBinop(Osub, b1, b2, tyop); etyp = tyres; eloc = elab_loc loc },env
 
   | BINARY(SHL, a1, a2) ->
-      elab_shift env "<<" Oshl a1 a2
+      elab_shift loc env "<<" Oshl a1 a2
 
   | BINARY(SHR, a1, a2) ->
-      elab_shift env ">>" Oshr a1 a2
+      elab_shift loc env ">>" Oshr a1 a2
 
   | BINARY(EQ, a1, a2) ->
-      elab_comparison env Oeq a1 a2
+      elab_comparison loc env Oeq a1 a2
   | BINARY(NE, a1, a2) ->
-      elab_comparison env One a1 a2
+      elab_comparison loc env One a1 a2
   | BINARY(LT, a1, a2) ->
-      elab_comparison env Olt a1 a2
+      elab_comparison loc env Olt a1 a2
   | BINARY(GT, a1, a2) ->
-      elab_comparison env Ogt a1 a2
+      elab_comparison loc env Ogt a1 a2
   | BINARY(LE, a1, a2) ->
-      elab_comparison env Ole a1 a2
+      elab_comparison loc env Ole a1 a2
   | BINARY(GE, a1, a2) ->
-      elab_comparison env Oge a1 a2
+      elab_comparison loc env Oge a1 a2
 
   | BINARY(BAND, a1, a2) ->
-     elab_binary_integer env "&" Oand a1 a2
+     elab_binary_integer loc env "&" Oand a1 a2
   | BINARY(BOR, a1, a2) ->
-     elab_binary_integer env "|" Oor a1 a2
+     elab_binary_integer loc env "|" Oor a1 a2
   | BINARY(XOR, a1, a2) ->
-     elab_binary_integer env "^" Oxor a1 a2
+     elab_binary_integer loc env "^" Oxor a1 a2
 
 (* 6.5.13 and 6.5.14 Logical operator expressions *)
 
   | BINARY(AND, a1, a2) ->
-      elab_logical_operator env "&&" Ologand a1 a2
+      elab_logical_operator loc env "&&" Ologand a1 a2
   | BINARY(OR, a1, a2) ->
-      elab_logical_operator env "||" Ologor a1 a2
+      elab_logical_operator loc env "||" Ologor a1 a2
 
 (* 6.5.15 Conditional expressions *)
   | QUESTION(a1, a2, a3) ->
@@ -2222,7 +2226,8 @@ let elab_expr ctx loc env a =
       begin match pointer_decay env b2.etyp, pointer_decay env b3.etyp with
       | (TInt _ | TFloat _ | TEnum _), (TInt _ | TFloat _ | TEnum _) ->
           { edesc = EConditional(b1, b2, b3);
-            etyp = binary_conversion env b2.etyp b3.etyp },env
+            etyp = binary_conversion env b2.etyp b3.etyp;
+            eloc = elab_loc loc },env
       | (TPtr(ty1, a1) as pty1), (TPtr(ty2, a2)  as pty2) ->
           let tyres =
             if is_void_type env ty1 || is_void_type env ty2 then
@@ -2237,18 +2242,18 @@ let elab_expr ctx loc env a =
                   TPtr(TVoid (add_attributes a1 a2), [])
               | Some ty -> ty
             in
-          { edesc = EConditional(b1, b2, b3); etyp = tyres },env
+          { edesc = EConditional(b1, b2, b3); etyp = tyres; eloc = elab_loc loc },env
       | TPtr(ty1, a1), TInt _ when is_literal_0 b3 ->
-          { edesc = EConditional(b1, b2, nullconst); etyp = TPtr(ty1, []) },env
+          { edesc = EConditional(b1, b2, nullconst); etyp = TPtr(ty1, []); eloc = elab_loc loc },env
       | TInt _, TPtr(ty2, a2) when is_literal_0 b2 ->
-          { edesc = EConditional(b1, nullconst, b3); etyp = TPtr(ty2, []) },env
+          { edesc = EConditional(b1, nullconst, b3); etyp = TPtr(ty2, []); eloc = elab_loc loc },env
       | ty1, ty2 ->
           match combine_types AttrIgnoreAll env ty1 ty2 with
           | None ->
               fatal_error "the second and third argument of '?:' incompatible types (%a and %a)"
                  (print_typ env) ty1  (print_typ env) ty2
           | Some tyres ->
-              { edesc = EConditional(b1, b2, b3); etyp = tyres },env
+              { edesc = EConditional(b1, b2, b3); etyp = tyres; eloc = elab_loc loc },env
       end
 
 (* 6.5.16 Assignment expressions *)
@@ -2274,7 +2279,7 @@ let elab_expr ctx loc env a =
           error "assigning to %a from incompatible type %a"
             (print_typ env) b1.etyp  (print_typ env) b2.etyp;
       end;
-      { edesc = EBinop(Oassign, b1, b2, b1.etyp); etyp = b1.etyp },env
+      { edesc = EBinop(Oassign, b1, b2, b1.etyp); etyp = b1.etyp; eloc = elab_loc loc },env
 
   | BINARY((ADD_ASSIGN | SUB_ASSIGN | MUL_ASSIGN | DIV_ASSIGN | MOD_ASSIGN
             | BAND_ASSIGN | BOR_ASSIGN | XOR_ASSIGN | SHL_ASSIGN | SHR_ASSIGN
@@ -2293,7 +2298,7 @@ let elab_expr ctx loc env a =
         | SHR_ASSIGN -> (SHR, Oshr_assign)
         | _ -> assert false in
       begin match elab env (BINARY(sop, a1, a2)) with
-      | ({ edesc = EBinop(_, b1, b2, _); etyp = ty } as b),env  ->
+      | ({ edesc = EBinop(_, b1, b2, _); etyp = ty; eloc = _ } as b),env  ->
           if List.mem AConst (attributes_of_type env b1.etyp) then
             error "left-hand side of assignment has 'const' type";
           if not (is_modifiable_lvalue env b1) then
@@ -2312,7 +2317,7 @@ let elab_expr ctx loc env a =
               error "assigning to %a from incompatible type %a"
                  (print_typ env) b1.etyp (print_typ env) ty;
           end;
-          { edesc = EBinop(top, b1, b2, ty); etyp = b1.etyp },env
+          { edesc = EBinop(top, b1, b2, ty); etyp = b1.etyp; eloc = elab_loc loc },env
       | _ -> assert false
       end
 
@@ -2322,7 +2327,7 @@ let elab_expr ctx loc env a =
       let b1,env = elab env a1 in
       let b2,env = elab env a2 in
       let  ty2 = pointer_decay env b2.etyp in
-      { edesc = EBinop (Ocomma, b1, b2, ty2); etyp = ty2 },env
+      { edesc = EBinop (Ocomma, b1, b2, ty2); etyp = ty2; eloc = elab_loc loc },env
 
 (* Elaboration of pre- or post- increment/decrement *)
   and elab_pre_post_incr_decr env op msg a1 =
@@ -2336,40 +2341,40 @@ let elab_expr ctx loc env a =
       check_ptr_arith env ty ("unary " ^ msg)
     | _ -> ()
     end;
-    { edesc = EUnop(op, b1); etyp = b1.etyp },env
+    { edesc = EUnop(op, b1); etyp = b1.etyp; eloc = elab_loc loc },env
 
 (* Elaboration of binary operators over integers *)
-  and elab_binary_integer env msg op a1 a2 =
+  and elab_binary_integer loc env msg op a1 a2 =
     let b1,env = elab env a1 in
     let b2,env = elab env a2 in
     if not ((is_integer_type env b1.etyp) && (is_integer_type env b2.etyp)) then
       fatal_error "invalid operands to binary '%s' (%a and %a)" msg
         (print_typ env) b1.etyp (print_typ env) b2.etyp;
     let tyres = binary_conversion env b1.etyp b2.etyp in
-    { edesc = EBinop(op, b1, b2, tyres); etyp = tyres },env
+    { edesc = EBinop(op, b1, b2, tyres); etyp = tyres; eloc = elab_loc loc },env
 
 (* Elaboration of binary operators over arithmetic types *)
-  and elab_binary_arithmetic env msg op a1 a2 =
+  and elab_binary_arithmetic loc env msg op a1 a2 =
     let b1,env = elab env a1 in
     let b2,env = elab env a2 in
     if not ((is_arith_type env b1.etyp) && (is_arith_type env b2.etyp)) then
       fatal_error "invalid operands to binary '%s' (%a and %a)" msg
         (print_typ env) b1.etyp (print_typ env) b2.etyp;
     let tyres = binary_conversion env b1.etyp b2.etyp in
-    { edesc = EBinop(op, b1, b2, tyres); etyp = tyres },env
+    { edesc = EBinop(op, b1, b2, tyres); etyp = tyres; eloc = elab_loc loc },env
 
 (* Elaboration of shift operators *)
-  and elab_shift env msg op a1 a2 =
+  and elab_shift loc env msg op a1 a2 =
     let b1,env = elab env a1 in
     let b2,env = elab env a2 in
     if not ((is_integer_type env b1.etyp) && (is_integer_type env b2.etyp)) then
       fatal_error "invalid operands to '%s' (%a and %a)" msg
         (print_typ env) b1.etyp (print_typ env) b2.etyp;
     let tyres = unary_conversion env b1.etyp in
-    { edesc = EBinop(op, b1, b2, tyres); etyp = tyres },env
+    { edesc = EBinop(op, b1, b2, tyres); etyp = tyres; eloc = elab_loc loc },env
 
 (* Elaboration of comparisons *)
-  and elab_comparison env op a1 a2 =
+  and elab_comparison loc env op a1 a2 =
       let b1,env = elab env a1 in
       let b2,env = elab env a2 in
       let resdesc =
@@ -2403,16 +2408,16 @@ let elab_expr ctx loc env a =
         | ty1, ty2 ->
             fatal_error "illegal comparison between types@ %a@ and %a"
               (print_typ env) b1.etyp (print_typ env) b2.etyp; in
-      { edesc = resdesc; etyp = TInt(IInt, []) },env
+      { edesc = resdesc; etyp = TInt(IInt, []); eloc = elab_loc loc },env
 
 (* Elaboration of && and || *)
-  and elab_logical_operator env msg op a1 a2 =
+  and elab_logical_operator loc env msg op a1 a2 =
     let b1,env = elab env a1 in
     let b2,env = elab env a2 in
     if not ((is_scalar_type env b1.etyp) && (is_scalar_type env b2.etyp)) then
       fatal_error "invalid operands to binary '%s' (%a and %a)" msg
         (print_typ env) b1.etyp (print_typ env) b2.etyp;
-    { edesc = EBinop(op, b1, b2, TInt(IInt, [])); etyp = TInt(IInt, []) },env
+    { edesc = EBinop(op, b1, b2, TInt(IInt, [])); etyp = TInt(IInt, []); eloc = elab_loc loc },env
 
 (* Type-checking of function arguments *)
   and elab_arguments argno args params vararg =
@@ -2669,7 +2674,7 @@ let elab_KR_function_parameters env params defs loc =
              the parameter of type ty_param *)
           let id_param = Env.fresh_ident p in
           let id_var = Env.fresh_ident p in
-          let init = Init_single { edesc = EVar id_param; etyp = ty_param } in
+          let init = Init_single { edesc = EVar id_param; etyp = ty_param; eloc = elab_loc loc } in
           match_params ((id_param, ty_param) :: params')
                        ((Storage_default, id_var, ty_var, Some init)
                                                            :: extra_decls)

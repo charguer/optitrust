@@ -27,7 +27,7 @@ open Cutil
 let rec local_initializer env path init k =
   match init with
   | Init_single e ->
-      { edesc = EBinop(Oassign, path, e, path.etyp); etyp = path.etyp } :: k
+      { e with edesc = EBinop(Oassign, path, e, path.etyp) } :: k
   | Init_array il ->
       let (ty_elt, sz) =
         match unroll env path.etyp with
@@ -44,7 +44,8 @@ let rec local_initializer env path init k =
             | i1 :: il' -> (i1, il') in
           local_initializer env
             { edesc = EBinop(Oindex, path, intconst pos IInt, TPtr(ty_elt, []));
-              etyp = ty_elt }
+              etyp = ty_elt;
+              eloc = no_loc } (* OptiTrust: TODO  loc on initializers *)
             i1
             (array_init (Int64.succ pos) il')
         end in
@@ -52,12 +53,14 @@ let rec local_initializer env path init k =
   | Init_struct(id, fil) ->
       let field_init (fld, i) k =
         local_initializer env
-          { edesc = EUnop(Odot fld.fld_name, path); etyp = fld.fld_typ }
+          { edesc = EUnop(Odot fld.fld_name, path); etyp = fld.fld_typ;
+            eloc = no_loc } (* OptiTrust: TODO  loc on initializers *)
           i k in
       List.fold_right field_init fil k
   | Init_union(id, fld, i) ->
       local_initializer env
-        { edesc = EUnop(Odot fld.fld_name, path); etyp = fld.fld_typ }
+        { edesc = EUnop(Odot fld.fld_name, path); etyp = fld.fld_typ;
+          eloc = no_loc } (* OptiTrust: TODO  loc on initializers *)
         i k
 
 (* Prepend assignments to the given statement. *)
@@ -87,18 +90,18 @@ let remove_const env ty = remove_attributes_type env [AConst] ty
    Within a function, it gives rise to a local variable
    and an explicit initialization at the nearest sequence point. *)
 
-let process_compound_literal islocal env ty init =
+let process_compound_literal loc islocal env ty init =
   let id = Env.fresh_ident "__compound" in
   if islocal then begin
     let ty' = remove_const env ty in
-    let e = {edesc = EVar id; etyp = ty'} in
+    let e = {edesc = EVar id; etyp = ty'; eloc = loc } in
     local_variables :=
       (Storage_default, id, ty', None) :: !local_variables;
     (local_initializer env e init [], e)
   end else begin
     global_variables :=
       (Storage_static, id, ty, Some init) :: !global_variables;
-    ([], {edesc = EVar id; etyp = ty})
+    ([], {edesc = EVar id; etyp = ty; eloc = loc})
   end
 
 (* Elimination of compound literals within an expression.
@@ -114,7 +117,7 @@ let rec expand_expr islocal env e =
     match e.edesc with
     | EConst _ | ESizeof _ | EAlignof _ | EVar _ -> e
     | EUnop(op, e1) ->
-        {edesc = EUnop(op, expand e1); etyp = e.etyp}
+        { e with edesc = EUnop(op, expand e1) }
     | EBinop(op, e1, e2, ty) ->
         let e1' = expand e1 in
         let e2' =
@@ -123,23 +126,22 @@ let rec expand_expr islocal env e =
               (* Make sure the initializers of [e2] are performed in
                  sequential order, i.e. just before [e2] but after [e1]. *)
           | _ -> expand e2 in
-        {edesc = EBinop(op, e1', e2', ty); etyp = e.etyp}
+        { e with edesc = EBinop(op, e1', e2', ty) }
     | EConditional(e1, e2, e3) ->
         (* Same remark as above: initializers of [e2] and [e3] must
            be performed after the conditional is resolved. *)
-        {edesc = EConditional(expand e1,
+        { e with edesc = EConditional(expand e1,
                               expand_expr islocal env e2,
-                              expand_expr islocal env e3);
-         etyp = e.etyp}
+                              expand_expr islocal env e3) }
     | ECast(ty, e1) ->
-        {edesc = ECast(ty, expand e1); etyp = e.etyp}
+        { e with edesc = ECast(ty, expand e1) }
     | ECompound(ty, ie) ->
         let ie' = expand_init islocal env ie in
-        let (l, e') = process_compound_literal islocal env ty ie' in
+        let (l, e') = process_compound_literal e.eloc islocal env ty ie' in
         inits := l @ !inits;
         e'
     | ECall(e1, el) ->
-        {edesc = ECall(expand e1, List.map expand el); etyp = e.etyp}
+        { e with edesc = ECall(expand e1, List.map expand el) }
   in
     let e' = expand e in ecommalist !inits e'
 
@@ -179,13 +181,14 @@ let debug_annot kind args =
   { sloc = no_loc;
     sdesc = Sdo {
       etyp = TVoid [];
-      edesc = ECall({edesc = EVar debug_id; etyp = debug_ty},
-                    intconst kind IInt :: args)
+      edesc = ECall({edesc = EVar debug_id; etyp = debug_ty; eloc = no_loc },
+                    intconst kind IInt :: args);
+      eloc = no_loc;
     }
   }
 
 let string_const str =
-  let c = CStr str in { edesc = EConst c; etyp = type_of_constant c }
+  let c = CStr str in { edesc = EConst c; etyp = type_of_constant c; eloc = no_loc }
 
 let integer_const n =
   intconst (Int64.of_int n) IInt
@@ -255,7 +258,7 @@ let process_decl loc env ctx (sto, id, ty, optinit) k =
       k
   | Some init ->
       let init' = expand_init true env init in
-      let l = local_initializer env { edesc = EVar id; etyp = ty' } init' [] in
+      let l = local_initializer env { edesc = EVar id; etyp = ty'; eloc = loc } init' [] in
       add_inits_stmt loc l k
 
 (* Simplification of blocks within a statement *)

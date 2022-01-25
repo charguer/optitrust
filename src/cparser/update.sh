@@ -10,6 +10,10 @@ FILES="\
   cparser/Cprint.ml \
   cparser/Elab.ml \
   cparser/StructPassing.ml \
+  cparser/PackedStructs.ml \
+  cparser/Rename.ml \
+  cparser/Unblock.ml \
+  cparser/Transform.ml \
   cparser/Ceval.ml \
   cparser/Cutil.ml \
   cparser/Cutil.mli \

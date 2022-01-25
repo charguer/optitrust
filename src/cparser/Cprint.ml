@@ -403,10 +403,12 @@ let rec exp_of_stmt s =
   | Sdo e -> e
   | Sseq(s1, s2) ->
       {edesc = EBinop(Ocomma, exp_of_stmt s1, exp_of_stmt s2, TVoid []);
-       etyp = TVoid []}
+       etyp = TVoid [];
+       eloc = s.sloc }
   | Sif(e, s1, s2) ->
       {edesc = EConditional(e, exp_of_stmt s1, exp_of_stmt s2);
-       etyp = TVoid []}
+       etyp = TVoid [];
+       eloc = s.sloc }
   | _ ->
       raise Not_expr
 
@@ -423,7 +425,7 @@ let rec stmt pp s =
       fprintf pp "@[<v 2>if (%a) {@ %a@;<0 -2>}@]"
               exp (0, e) stmt_block s1
   | Sif(e, {sdesc = Sskip}, s2) ->
-      let not_e = {edesc = EUnop(Olognot, e); etyp = TInt(IInt, [])} in
+      let not_e = {edesc = EUnop(Olognot, e); etyp = TInt(IInt, []); eloc = s.sloc} in
       fprintf pp "@[<v 2>if (%a) {@ %a@;<0 -2>}@]"
               exp (0, not_e) stmt_block s2
   | Sif(e, s1, s2) ->
