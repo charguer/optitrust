@@ -1,26 +1,36 @@
 
-let print_ast ast =
-  let pp = Format.std_formatter in
-  Cprint.program pp ast;
-  flush stdout
+let print_parsed_ast = ref true
 
+(* Configuration of the parser *)
 
-let () = (* subset of Driver.ml setup operations*)
-  Gc.set { (Gc.get()) with
-              Gc.minor_heap_size = 524288; (* 512k *)
-              Gc.major_heap_increment = 4194304 (* 4M *)
-         };
+let _ =
   Printexc.record_backtrace true;
   Machine.config := Machine.x86_64
 
-  (*   Frontend.init ()* *)
-  (*  Driver.parse_cmdline cmdline_actions
-       *)
 
+(* Output an AST *)
 
-(* From preprocessed C to C AST *)
+let print_ast pp ast =
+  Cprint.program pp ast
 
-let read_file sourcefile =
+let print_ast_to_stdout ast =
+  let pp = Format.std_formatter in
+  print_ast pp ast;
+  flush stdout
+
+let print_ast_to_file f ast =
+  let oc = open_out f in
+  print_ast (Format.formatter_of_out_channel oc) ast;
+  close_out oc
+
+let get_parsed_ast_filename sourcename =
+    Filename.remove_extension sourcename
+  ^ "_parsed"
+  ^ Filename.extension sourcename
+
+(* Input an AST *)
+
+let read_file sourcefile = (* also in xfile.ml, as [get_contents] *)
   let ic = open_in_bin sourcefile in
   let n = in_channel_length ic in
   let text = really_input_string ic n in
@@ -29,8 +39,7 @@ let read_file sourcefile =
 
 let parse_string name text =
   let log_fuel = Camlcoq.Nat.of_int 50 in
-  match
-    Parser.translation_unit_file log_fuel (Lexer.tokens_stream name text)
+  match Parser.translation_unit_file log_fuel (Lexer.tokens_stream name text)
   with
   | Parser.MenhirLibParser.Inter.Parsed_pr (ast, _ ) ->
       (ast: Cabs.definition list)
@@ -41,62 +50,29 @@ let parse_string name text =
             Timeout_pr means that we ran for 2^50 steps. *)
       Diagnostics.fatal_error Diagnostics.no_loc "internal error while parsing"
 
-let preprocessed_file transfs name sourcefile =
-  Diagnostics.reset();
-  let check_errors x =
-    Diagnostics.check_errors(); x in
-  (* Reading the whole file at once may seem costly, but seems to be
-     the simplest / most robust way of accessing the text underlying
-     a range of positions. This is used when printing an error message.
-     Plus, I note that reading the whole file into memory leads to a
-     speed increase: "make -C test" speeds up by 3 seconds out of 40
-     on my machine. *)
-  read_file sourcefile
-  |> Timing.time2 "Parsing" parse_string name
-  |> Timing.time "Elaboration" Elab.elab_file
-  |> check_errors
-
-
-let myparse_c_file sourcename ifile =
+let parse_c_file sourcename sourcefile =
   Debug.init_compile_unit sourcename;
   Sections.initialize();
   (* CPragmas.reset(); *)
-  (* Simplification options *)
-  let simplifs = "" (*
-    "b" (* blocks: mandatory *)
-  ^ (if !option_fstruct_passing then "s" else "")
-  ^ (if !option_fpacked_structs then "p" else "") *)
-  in
-  (* Parsing and production of a simplified C AST *)
-  let ast = preprocessed_file simplifs sourcename ifile in
-  (* Save C AST if requested *)
-  Cprint.print_if ast;
-  ast
+  Diagnostics.reset();
+  let check_errors x =
+    Diagnostics.check_errors(); x in
+  read_file sourcefile
+  |> Timing.time2 "Parsing" parse_string sourcename
+  |> Timing.time "Elaboration" Elab.elab_file
+  |> check_errors
 
-
-(* Take filename of the cpp file as argument, else use a default name *)
-let sourcename =
-  if Array.length Sys.argv >= 2
-    then Sys.argv.(1)
-    else "TestCParser.cpp"
+(* Main *)
 
 let _ =
-  let ifile = sourcename in
-  (* TEMP get_ast sourcefile *)
-
+  let sourcename =
+    if Array.length Sys.argv >= 2
+      then Sys.argv.(1)
+      else failwith "Please provide the input filename as argument"
+    in
   (* Parse the ast *)
-  Cprint.destination := Some (Filename.remove_extension sourcename ^ "_parsed.c");
-  let _csyntax = myparse_c_file sourcename ifile in
-  (* Print the ast
-  print_ast csyntax *)
+  let ast = parse_c_file sourcename sourcename in
+  (* Print the ast *)
+  if !print_parsed_ast
+     then print_ast_to_file (get_parsed_ast_filename sourcename) ast;
   ()
-
-
-
-
-(* Interpret the code
-Machine.config := Machine.compcert_interpreter !Machine.config;
-Interp.execute csyntax;
-*)
-
-

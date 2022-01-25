@@ -13,6 +13,16 @@ let set_exn_backtrace (b : bool) : unit =
 let _ = set_exn_backtrace true
 
 
+(******************************************************************************)
+(*                        Perf                                                *)
+(******************************************************************************)
+
+(* Use higher default value for the GC parameters *)
+let _ =
+  Gc.set { (Gc.get()) with
+              Gc.minor_heap_size = 524288; (* 512k *)
+              Gc.major_heap_increment = 4194304 (* 4M *) };
+
 
 (******************************************************************************)
 (*                              Run                                           *)

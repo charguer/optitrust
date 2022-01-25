@@ -11,7 +11,7 @@ let rev_not_rec l =
          cur := xs
    done with Break -> () end;
    !res
-   
+
 (** Write the string [str] into a file of given name *)
 
 let put_contents filename str =
@@ -51,9 +51,17 @@ let get_lines_or_empty file =
 (** Read the content of a file as a string, terminated with a newline;
     raise FileNotFound if no such file exists *)
 
+(* DEPRECATED implementation, slower
 let get_contents file =
    let lines = get_lines file in
-   (String.concat "\n" lines) ^ "\n"
+   (String.concat "\n" lines) ^ "\n" *)
+
+let get_contents file =
+  let ic = open_in_bin file in
+  let n = in_channel_length ic in
+  let text = really_input_string ic n in
+  close_in ic;
+  text
 
 (** Read the content of a file as a string, terminated with a newline;
     returns an empty string if no such file exists *)
