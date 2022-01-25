@@ -2362,3 +2362,12 @@ let top_fun_to_keep (tm1 : tmap) (tm2 : tmap) : vars =
     | _ -> ()
   ) tm1;
   !f_names
+
+(* [dump_to_file file t] write serialized [t] into file [file]*)
+let dump_to_file (file : string) (t : trm) : unit = 
+  Tools.dump_to_file file t
+
+
+(* [load_from_file file ] read from file [file], where [file] is expected to be generated from [dumpt_to_file]*)
+let load_from_file (file : string) : trm = 
+  Tools.load_from_file file 

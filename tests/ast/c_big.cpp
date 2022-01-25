@@ -51,7 +51,7 @@ void bag_init(bag *b, int id_bag, int id_cell) {
   (b->back) = c;
 }
 
-void bag_append(bag* const b, bag *other, int id_bag, int id_cell) {
+void bag_append(bag* b, bag *other, int id_bag, int id_cell) {
   if ((other->front)) {
     ((b->back)->next) = (other->front);
     (b->back) = (other->back);

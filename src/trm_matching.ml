@@ -135,7 +135,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
       | _ -> mismatch() (* note: in general, this should have been tested earlier on by comparing lengths *)
       in
 
-    (* Check matching addressof annotation -- TODO: maybe we should simply ignore additions that appear on t2? *)
+    (* Check matching addressof annotation -- LATER: maybe we should simply ignore additions that appear on t2? *)
     if List.mem Address_operator t1.add then begin
       if not (List.mem Address_operator t2.add)
         then mismatch ~t1 ~t2 ();

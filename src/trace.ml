@@ -244,7 +244,7 @@ let get_initial_ast ?(raw_ast : bool = false) (ser_mode : Flags.serialized_mode)
   (* if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
   let includes = get_cpp_includes filename in
   let ser_file_exists = Sys.file_exists ser_file in
-  let ser_file_more_recent = if (not ser_file_exists) then false else Tools.is_newer_than ser_file filename in (* TODO: rename to is_file_newer_than t1 t2  => check if t2 has a date >= than t1 *)
+  let ser_file_more_recent = if (not ser_file_exists) then false else Tools.is_file_newer_than ser_file filename in 
   let auto_use_ser = (ser_mode = Serialized_Auto && ser_file_more_recent) in
   if (ser_mode = Serialized_Use
    || ser_mode = Serialized_Make
@@ -252,11 +252,8 @@ let get_initial_ast ?(raw_ast : bool = false) (ser_mode : Flags.serialized_mode)
     if not ser_file_exists
       then fail None "get_initial_ast: please generate a serialized file first";
     if not ser_file_more_recent
-      then fail None "get_initial_ast: serialized file appears out of date";
-      (* TODO: message ser_file is out of date wrt filename *)
-    let ast = Tools.read_ser_file ser_file in
-      (* Tools.unmarshal_file : 'a
-         Ast.read_from_file : ast *)
+      then fail None (Printf.sprintf "get_initial_ast: serialized file is out of date with respect to %s\n" filename);
+    let ast = load_from_file ser_file in
     if auto_use_ser
       then Printf.printf "Loaded ast from %s.\n" ser_file;
     (includes, ast)
@@ -299,8 +296,7 @@ let init ?(prefix : string = "") (filename : string) : unit =
   let trace = { context; cur_ast; history = [cur_ast] } in
   traces := [trace];
   if mode = Serialized_Build || mode = Serialized_Auto
-    then Tools.write_ser_file ser_file cur_ast;
-    (* TODO: Tools.  and AST.write_to_file *)
+    then dump_to_file ser_file cur_ast;
   if mode = Serialized_Build
     then exit 0;
   print_info None "Starting script execution...\n"
