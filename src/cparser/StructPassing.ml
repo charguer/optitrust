@@ -100,54 +100,54 @@ let ty_buffer n =
 
 let ebuffer_index base idx =
   { edesc = EBinop(Oindex, base, intconst (Int64.of_int idx) IInt, uintptr);
-    etyp = uint }
+    etyp = uint; eloc = no_loc }
 
 let attr_structret = [Attr("__structreturn", [])]
 
 (* Expression constructor functions *)
 
 let ereinterpret ty e =
-  { edesc = EUnop(Oderef, ecast (TPtr(ty, [])) (eaddrof e)); etyp = ty }
+  { edesc = EUnop(Oderef, ecast (TPtr(ty, [])) (eaddrof e)); etyp = ty; eloc = no_loc }
 
-let or2 a b = { edesc = EBinop(Oor, a, b, uint); etyp = uint }
+let or2 a b = { edesc = EBinop(Oor, a, b, uint); etyp = uint; eloc = no_loc }
 let or3 a b c = or2 (or2 a b) c
 let or4 a b c d = or2 (or2 (or2 a b) c) d
 
 let lshift a nbytes =
   if nbytes = 0 then a else
     { edesc = EBinop(Oshl, a, intconst (Int64.of_int (nbytes * 8)) IInt, uint);
-      etyp = uint }
+      etyp = uint; eloc = no_loc }
 
 let offsetptr base ofs =
   if ofs = 0 then base else
   { edesc = EBinop(Oadd, base, intconst (Int64.of_int ofs) IInt, ucharptr);
-    etyp = ucharptr }
+    etyp = ucharptr; eloc = no_loc }
 
 let load1 base ofs shift_le shift_be =
   let shift = if (!config).bigendian then shift_be else shift_le in
   let a = offsetptr base ofs in
-  lshift { edesc = EUnop(Oderef, a); etyp = uchar } shift
+  lshift { edesc = EUnop(Oderef, a); etyp = uchar; eloc = no_loc } shift
 
 let load2 base ofs shift_le shift_be =
   let shift = if (!config).bigendian then shift_be else shift_le in
   let a = ecast ushortptr (offsetptr base ofs) in
-  lshift { edesc = EUnop(Oderef, a); etyp = ushort } shift
+  lshift { edesc = EUnop(Oderef, a); etyp = ushort; eloc = no_loc } shift
 
 let load4 base ofs =
   let a = ecast uintptr (offsetptr base ofs) in
-  { edesc = EUnop(Oderef, a); etyp = uint }
+  { edesc = EUnop(Oderef, a); etyp = uint; eloc = no_loc }
 
 let load8 base ofs =
   let a = ecast ulonglongptr (offsetptr base ofs) in
-  { edesc = EUnop(Oderef, a); etyp = ulonglong }
+  { edesc = EUnop(Oderef, a); etyp = ulonglong; eloc = no_loc }
 
 let lshift_ll a nbytes =
   let a = ecast ulonglong a in
   if nbytes = 0 then a else
     { edesc = EBinop(Oshl, a, intconst (Int64.of_int (nbytes * 8)) IInt, ulonglong);
-      etyp = ulonglong }
+      etyp = ulonglong; eloc = no_loc }
 
-let or2_ll a b = { edesc = EBinop(Oor, a, b, uint); etyp = ulonglong }
+let or2_ll a b = { edesc = EBinop(Oor, a, b, uint); etyp = ulonglong; eloc = no_loc }
 
 (* Loading a memory area as one or several integers. *)
 
@@ -268,16 +268,16 @@ let rec transf_expr env ctx e =
   let newty = transf_type env e.etyp in
   match e.edesc with
   | EConst c ->
-      {edesc = EConst c; etyp = newty}
+      {edesc = EConst c; etyp = newty; eloc = no_loc}
   | ESizeof ty ->
-      {edesc = ESizeof (transf_type env ty); etyp = newty}
+      {edesc = ESizeof (transf_type env ty); etyp = newty; eloc = no_loc}
   | EAlignof ty ->
-      {edesc = EAlignof (transf_type env ty); etyp = newty}
+      {edesc = EAlignof (transf_type env ty); etyp = newty; eloc = no_loc}
   | EVar x ->
-      {edesc = EVar x; etyp = newty}
+      {edesc = EVar x; etyp = newty; eloc = no_loc}
   | EUnop(op, e1) ->
-      {edesc = EUnop(op, transf_expr env Val e1); etyp = newty}
-  | EBinop(Oassign, lhs, {edesc = ECall(fn, args); etyp = ty}, _) ->
+      {edesc = EUnop(op, transf_expr env Val e1); etyp = newty; eloc = no_loc}
+  | EBinop(Oassign, lhs, {edesc = ECall(fn, args); etyp = ty; eloc = no_loc}, _) ->
       transf_call env ctx (Some (transf_expr env Val lhs)) fn args ty
   | EBinop(Ocomma, e1, e2, ty) ->
       ecomma (transf_expr env Effects e1) (transf_expr env ctx e2)
@@ -285,16 +285,16 @@ let rec transf_expr env ctx e =
       {edesc = EBinop(op, transf_expr env Val e1,
                           transf_expr env Val e2,
                           transf_type env ty);
-       etyp = newty}
+       etyp = newty; eloc = no_loc}
   | EConditional(e1, e2, e3) ->
       {edesc = EConditional(transf_expr env Val e1,
                             transf_expr env ctx e2,
                             transf_expr env ctx e3);
-       etyp = newty}
+       etyp = newty; eloc = no_loc}
   | ECast(ty, e1) ->
-      {edesc = ECast(transf_type env ty, transf_expr env Val e1); etyp = newty}
+      {edesc = ECast(transf_type env ty, transf_expr env Val e1); etyp = newty; eloc = no_loc}
   | ECompound(ty, ie) ->
-      {edesc = ECompound(transf_type env ty, transf_init env ie); etyp = newty}
+      {edesc = ECompound(transf_type env ty, transf_init env ie); etyp = newty; eloc = no_loc}
   | ECall(fn, args) ->
       transf_call env ctx None fn args e.etyp
 
@@ -330,32 +330,32 @@ and transf_call env ctx opt_lhs fn args ty =
     (* Do not transform the call in this case, just use the default
        pass-by-reference mode for struct/union arguments. *)
     let args' = List.map (fun arg -> transf_expr env Val arg) args in
-    opt_eassign {edesc = ECall(fn, args'); etyp = ty}
+    opt_eassign {edesc = ECall(fn, args'); etyp = ty; eloc = no_loc}
   | _ ->
     let (assignments, args') = transf_arguments env args in
     let call =
       match classify_return env ty with
       | Ret_scalar ->
-          opt_eassign {edesc = ECall(fn', args'); etyp = ty'}
+          opt_eassign {edesc = ECall(fn', args'); etyp = ty'; eloc = no_loc}
       | Ret_ref ->
           begin match ctx, opt_lhs with
           | Effects, None ->
               let tmp = new_temp ~name:"_res" ty in
-              {edesc = ECall(fn', eaddrof tmp :: args'); etyp = TVoid []}
+              {edesc = ECall(fn', eaddrof tmp :: args'); etyp = TVoid []; eloc = no_loc}
           (* Copy optimization, turned off as explained above *)
        (* | Effects, Some lhs ->
-              {edesc = ECall(fn', eaddrof lhs :: args'); etyp = TVoid []} *)
+              {edesc = ECall(fn', eaddrof lhs :: args'); etyp = TVoid []; eloc = no_loc} *)
           | Val, None ->
               let tmp = new_temp ~name:"_res" ty in
-              ecomma {edesc = ECall(fn', eaddrof tmp :: args'); etyp = TVoid []}
+              ecomma {edesc = ECall(fn', eaddrof tmp :: args'); etyp = TVoid []; eloc = no_loc}
                      tmp
           | _, Some lhs ->
               let tmp = new_temp ~name:"_res" ty in
-              ecomma {edesc = ECall(fn', eaddrof tmp :: args'); etyp = TVoid []}
+              ecomma {edesc = ECall(fn', eaddrof tmp :: args'); etyp = TVoid []; eloc = no_loc}
                      (eassign lhs tmp)
           end
       | Ret_value(ty_ret, sz, al) ->
-          let ecall = {edesc = ECall(fn', args'); etyp = ty_ret} in
+          let ecall = {edesc = ECall(fn', args'); etyp = ty_ret; eloc = no_loc} in
           begin match ctx, opt_lhs with
           | Effects, None ->
               ecall
@@ -524,8 +524,8 @@ let rec transf_funparams loc env params =
            subst)
       | Param_ref_caller ->
           let tpx = TPtr(tx', []) in
-          let ex = { edesc = EVar x; etyp = tpx } in
-          let estarx = { edesc = EUnop(Oderef, ex); etyp = tx' } in
+          let ex = { edesc = EVar x; etyp = tpx; eloc = no_loc } in
+          let estarx = { edesc = EUnop(Oderef, ex); etyp = tx'; eloc = no_loc } in
           ((x, tpx) :: params',
            actions,
            IdentMap.add x estarx subst)
@@ -533,7 +533,7 @@ let rec transf_funparams loc env params =
           let y = new_temp ~name:x.C.name (ty_buffer n) in
           let yparts = list_map_n (fun _ -> Env.fresh_ident x.C.name) n in
           let assign_part e p act =
-            sseq loc (sassign loc e {edesc = EVar p; etyp = uint}) act in
+            sseq loc (sassign loc e {edesc = EVar p; etyp = uint; eloc = no_loc}) act in
           (List.map (fun p -> (p, uint)) yparts @ params',
            List.fold_right2 assign_part
                             (list_map_n (ebuffer_index y) n)
@@ -558,8 +558,8 @@ let transf_fundef env loc f =
     | Ret_ref ->
         let vres = Env.fresh_ident "_res" in
         let tres = TPtr(ret, []) in
-        let eres = {edesc = EVar vres; etyp = tres} in
-        let eeres = {edesc = EUnop(Oderef, eres); etyp = ret} in
+        let eres = {edesc = EVar vres; etyp = tres; eloc = no_loc} in
+        let eeres = {edesc = EUnop(Oderef, eres); etyp = ret; eloc = no_loc} in
         (add_attributes f.fd_attrib attr_structret,
          TVoid [],
          (vres, tres) :: params,

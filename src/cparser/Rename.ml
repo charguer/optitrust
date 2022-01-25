@@ -117,7 +117,7 @@ let constant env = function
   | cst -> cst
 
 let rec exp env e =
-  { edesc = exp_desc env e.edesc; etyp = typ env e.etyp }
+  { edesc = exp_desc env e.edesc; etyp = typ env e.etyp; eloc = e.eloc }
 
 and exp_desc env = function
   | EConst cst -> EConst(constant env cst)

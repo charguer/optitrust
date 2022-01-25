@@ -1165,17 +1165,18 @@ let int_pointer_conversion env tfrom tto =
 (* Construct an integer constant *)
 
 let intconst v ik =
-  { edesc = EConst(CInt(v, ik, "")); etyp = TInt(ik, []) }
+  { edesc = EConst(CInt(v, ik, "")); etyp = TInt(ik, []); eloc = no_loc }
 
 (* Construct the 0 float constant of double type *)
 
 let floatconst0 =
   { edesc = EConst(CFloat({hex=false; intPart="0"; fracPart="0"; exp="0"}, FDouble));
-    etyp = TFloat(FDouble, []) }
+    etyp = TFloat(FDouble, []);
+    eloc = no_loc }
 
 (* Construct a cast expression *)
 
-let ecast ty e = { edesc = ECast(ty, e); etyp = ty }
+let ecast ty e = { edesc = ECast(ty, e); etyp = ty; eloc = no_loc }
 
 (* Construct the literal "0" with void * type *)
 
@@ -1183,7 +1184,7 @@ let nullconst = ecast (TPtr(TVoid [], [])) (intconst 0L IInt)
 
 (* Construct an assignment expression *)
 
-let eassign e1 e2 = { edesc = EBinop(Oassign, e1, e2, e1.etyp); etyp = e1.etyp }
+let eassign e1 e2 = { edesc = EBinop(Oassign, e1, e2, e1.etyp); etyp = e1.etyp; eloc = no_loc }
 
 (* Construct a "," expression.  Reassociate to the left so that
    it prints more nicely. *)
@@ -1193,7 +1194,7 @@ let rec ecomma e1 e2 =
   | EBinop(Ocomma, e2', e2'', _) ->
      ecomma (ecomma e1 e2') e2''
   | _ ->
-     { edesc = EBinop(Ocomma, e1, e2, e2.etyp); etyp = e2.etyp }
+     { edesc = EBinop(Ocomma, e1, e2, e2.etyp); etyp = e2.etyp; eloc = no_loc }
 
 (* Construct a cascade of "," expressions.
    Associate to the left so that it prints more nicely. *)
@@ -1211,8 +1212,8 @@ let rec eaddrof e =
   | EUnop(Oderef, e1) -> e1
   | EBinop(Ocomma, e1, e2, _) -> ecomma e1 (eaddrof e2)
   | EConditional(e1, e2, e3) ->
-      { edesc = EConditional(e1, eaddrof e2, eaddrof e3); etyp = TPtr(e.etyp, []) }
-  | _ -> { edesc = EUnop(Oaddrof, e); etyp = TPtr(e.etyp, []) }
+      { edesc = EConditional(e1, eaddrof e2, eaddrof e3); etyp = TPtr(e.etyp, []); eloc = no_loc }
+  | _ -> { edesc = EUnop(Oaddrof, e); etyp = TPtr(e.etyp, []); eloc = no_loc }
 
 (* Construct a sequence *)
 
