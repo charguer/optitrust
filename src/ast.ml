@@ -1192,6 +1192,13 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
      trm_labelled ~annot ~marks ~loc ~add l (f false body)
   | _ -> t
 
+(* TODO:
+  trm_map (f: bool -> trm -> trm) (t : trm) : trm =
+
+  trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
+    using trm_map, and only duplicating 5 cases
+*)
+
 (* trm_map_with_terminal derived from trm_map *)
 let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
   let annot = t.annot in

@@ -28,18 +28,19 @@ let report_big_steps : bool ref = ref false
 
 (* Flag to disable light diff *)
 let disable_light_diff : bool ref = ref true
+(* TODO: use_light_diff := ref true *)
 
-type serialized_mode = 
-  | Serialized_None 
-  | Serialized_Build 
-  | Serialized_Use 
-  | Serialized_Make 
+type serialized_mode =
+  | Serialized_None
+  | Serialized_Build
+  | Serialized_Use
+  | Serialized_Make
   | Serialized_Auto
 
 let serialized_mode : serialized_mode ref = ref Serialized_None
 
-let process_serialized_input (mode : string) : unit = 
-  serialized_mode := match mode with 
+let process_serialized_input (mode : string) : unit =
+  serialized_mode := match mode with
   | "build" -> Serialized_Build
   | "use" -> Serialized_Use
   | "make" -> Serialized_Make
@@ -81,6 +82,7 @@ let spec =
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      (* LATER: a -dev flag to activate a combination of dump *)
     ]
+    (* TODO: -disable-light-diff", Arg.clear use_light_diff *)
 
 let fix_flags () =
   if !analyse_time_details then analyse_time := true;
