@@ -24,6 +24,11 @@ open C
 open Diagnostics
 open! Cutil
 
+let generate_static_func_names = ref true
+
+let set_generate_static_func_names b =
+  generate_static_func_names := b
+
 (** * Utility functions *)
 
 (* Error reporting  *)
@@ -114,7 +119,7 @@ let elaborated_program () =
   let p = !top_declarations in
   top_declarations := [];
   (* Reverse it and eliminate unreferenced declarations *)
-  p
+  List.rev p
 
 (* Monadic map for functions env -> 'a -> 'b * env *)
 
@@ -796,7 +801,7 @@ let rec elab_specifier ?(only = false) loc env specifier =
                          (elab_attributes env a) in
         let (id', env') =
           elab_struct_or_union only Struct loc id optmembers a' env in
-        let ty =  TStruct(id', !attr) in
+        let ty = TStruct(id', !attr) in
         restrict_check ty;
         (!sto, !inline, !noreturn, !typedef, ty, env')
 
@@ -806,7 +811,7 @@ let rec elab_specifier ?(only = false) loc env specifier =
                          (elab_attributes env a) in
         let (id', env') =
           elab_struct_or_union only Union loc id optmembers a' env in
-        let ty =  TUnion(id', !attr) in
+        let ty = TUnion(id', !attr) in
         restrict_check ty;
         (!sto, !inline, !noreturn, !typedef, ty, env')
 
@@ -2800,11 +2805,15 @@ let elab_fundef genv spec name defs body loc =
     List.fold_left (fun e (sto, id, ty, init) -> Env.add_ident e id sto ty)
                    lenv extra_decls in
   (* Define "__func__" and enter it in the local environment *)
-  let (func_ty, func_init) = __func__type_and_init s in
-  let (func_id, _, lenv, func_ty, _) =
-    enter_or_refine_ident true loc lenv "__func__" Storage_static func_ty in
-  emit_elab ~debuginfo:false lenv loc
-                  (Gdecl(Storage_static, func_id, func_ty, Some func_init));
+  let lenv =
+    if !generate_static_func_names then begin
+      let (func_ty, func_init) = __func__type_and_init s in
+      let (func_id, _, lenv, func_ty, _) =
+        enter_or_refine_ident true loc lenv "__func__" Storage_static func_ty in
+      emit_elab ~debuginfo:false lenv loc
+                      (Gdecl(Storage_static, func_id, func_ty, Some func_init));
+      lenv
+    end else lenv in
   (* Elaborate function body *)
   let body1 = !elab_funbody_f ty_ret vararg (inline && sto <> Storage_static)
                               lenv body in
@@ -2881,6 +2890,10 @@ let elab_decdef (for_loop: bool) (local: bool) (nonstatic_inline: bool)
     if sto <> Storage_default && namelist = [] then
       warning loc Missing_declarations "declaration does not declare anything";
   end;
+  let typdef_default_name = (* OptiTrust: fix typedef on anonymous structures *)
+    match namelist with
+    | [] -> None
+    | id::_ -> Some id in
   let elab_one_name (decls, env) (Init_name (Name (id, decl, attr, loc), init)) =
     let ((ty, _), env1) =
       elab_type_declarator loc env bty decl in
