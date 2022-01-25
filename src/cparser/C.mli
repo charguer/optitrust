@@ -157,20 +157,20 @@ type typ =
 
 (** Struct or union field *)
 
-type field = {
+and field = {
     fld_name: string;
     fld_typ: typ;
     fld_bitfield: int option;
     fld_anonymous: bool;
 }
 
-type struct_or_union =
+and struct_or_union =
   | Struct
   | Union
 
 (** Expressions *)
 
-type exp = { edesc: exp_desc; etyp: typ }
+and exp = { edesc: exp_desc; etyp: typ }
 
 and exp_desc =
   | EConst of constant

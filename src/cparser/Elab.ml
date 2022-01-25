@@ -275,7 +275,7 @@ let elab_expr_f : (Cabs.loc -> Env.t -> Cabs.expression -> C.exp * Env.t) ref
 let elab_funbody_f : (C.typ -> bool -> bool -> Env.t -> statement -> C.stmt) ref
   = ref (fun _ _ _ _ _ -> assert false)
 
-
+
 (** * Elaboration of constants - C99 section 6.4.4 *)
 
 let has_suffix s suff =
@@ -473,7 +473,7 @@ let elab_static_assert env exp loc_exp msg loc_msg loc =
               error loc "static assertion failed (cannot display associated message)"
       end
 
-
+
 (** * Elaboration of type expressions, type specifiers, name declarations *)
 
 (* Elaboration of attributes *)
@@ -720,7 +720,7 @@ let rec elab_specifier ?(only = false) loc env specifier =
      - A use of an already-defined struct/union/enum.  In this case
        the name-related attributes should go to the name being declared.
        Sending them to the struct/union/enum would cause them to be ignored,
-       with a warning.  The struct-related attributes go to the 
+       with a warning.  The struct-related attributes go to the
        struct/union/enum, are ignored, and cause a warning.
      - An incomplete declaration of a struct/union.  In this case
        the name- and struct-related attributes are just ignored,
@@ -867,7 +867,7 @@ and elab_type_declarator ?(fundef = false) loc env ty = function
             None
         | Some sz ->
             let expr,env = (!elab_expr_f loc env sz) in
-            match Ceval.integer_expr env expr  with
+            match Ceval.integer_expr env expr with
             | Some n ->
                 if n < 0L then error loc "size of array is negative";
                 if n = 0L then warning loc Zero_length_array
@@ -876,7 +876,8 @@ and elab_type_declarator ?(fundef = false) loc env ty = function
                 Some n
             | None ->
                 error loc "size of array is not a compile-time constant";
-                Some 1L in (* produces better error messages later *)
+                Some 1L (* produces better error messages later *)
+         in
        elab_type_declarator ~fundef loc env (TArray(ty, sz', a)) d
   | Cabs.PTR(cv_specs, d) ->
       let (ty, a) = get_nontype_attrs env ty in
@@ -1061,7 +1062,7 @@ and elab_field_group env = function
 | Field_group_static_assert(exp, loc_exp, msg, loc_msg, loc) ->
     elab_static_assert env exp loc_exp msg loc_msg loc;
     ([], env)
-  
+
 (* Elaboration of a struct or union. C99 section 6.7.2.1 *)
 
 and elab_struct_or_union_info kind loc env members attrs =
@@ -1257,7 +1258,7 @@ let elab_type loc env spec decl =
     error loc "'typedef', 'extern', 'static', 'auto', 'register' and 'inline' are meaningless in cast";
   (ty, env'')
 
-
+
 (* Elaboration of initializers. C99 section 6.7.8 *)
 
 let init_char_array_string opt_size s =
@@ -1699,7 +1700,7 @@ let elab_initializer loc env root ty ie =
   | Some init ->
       (fixup_typ loc env ty init, Some init)
 
-
+
 (* Contexts for elaborating statements and expressions *)
 
 type elab_context = {
@@ -1721,7 +1722,7 @@ let ctx_constexp = {
   ctx_vararg = false; ctx_nonstatic_inline = false
 }
 
-
+
 (* Elaboration of expressions *)
 
 let elab_expr ctx loc env a =
@@ -2024,7 +2025,7 @@ let elab_expr ctx loc env a =
       | _ -> fatal_error "request for member '%s' in something not a structure or union" mem in
     let rec offset_of_list acc env ty = function
       | [] -> acc,ty
-      | fld::rest -> 
+      | fld::rest ->
         if fld.fld_bitfield <> None then
           fatal_error "cannot compute offset of bit-field '%s'" fld.fld_name;
         let off = offsetof env ty fld in
@@ -2470,7 +2471,7 @@ let __func__type_and_init s =
   (TArray(TInt(IChar, [AConst]), Some(Int64.of_int (String.length s + 1)), []),
    init_char_array_string None s)
 
-
+
 (* Elaboration of top-level and local definitions *)
 
 let enter_typedef loc env sto (s, ty, init) =
@@ -2554,10 +2555,26 @@ let enter_decdef local nonstatic_inline loc sto (decls, env) (s, ty, init) =
       error loc "variable '%s' has incomplete type %a" s (print_typ env) ty';
   (* check if alignment is reduced *)
   check_reduced_alignment loc env ty';
+  (* extend environment with constant integer definitions *)
+  let is_const = List.mem AConst (attributes_of_type env ty') in
+  let is_int = match ty' with TInt _ -> true | _ -> false in
+  let env2 =
+    if is_const && is_int && has_init then begin
+      let body = match init' with
+        | Some (Init_single e) -> e
+        | Some _ -> assert false (* unreachable: const int cannot bind to an array/struct/union *)
+        | None -> assert false (* unreachable: has_init was true *)
+        in
+      match Ceval.integer_expr env2 body with
+      | Some n ->
+        Env.add_const env2 id n
+      | None -> env2 (* Nonconst *)
+    end else env2
+    in
   (* check for static variables in nonstatic inline functions *)
   if local && nonstatic_inline
      && sto' = Storage_static
-     && not (List.mem AConst (attributes_of_type env ty')) then
+     && not is_const then
     warning loc Static_in_inline "non-constant static local variable '%s' in inline function may be different in different files" s;
   if local && not isfun && sto' <> Storage_extern && sto' <> Storage_static then
     (* Local definition *)
@@ -2912,7 +2929,7 @@ let elab_asm_operand ctx loc env (ASMOPERAND(label, wide, chars, e)) =
   let e',env = elab_expr ctx loc env e in
   (label, s, e'),env
 
-
+
 (* Operations over contexts *)
 
 let stmt_labels stmt =
@@ -3108,6 +3125,8 @@ let rec elab_stmt env ctx s =
 
 (* 6.8.6 Return statements *)
   | RETURN(a, loc) ->
+      (* OptiTrust: elab_initializer loc env "<compound literal>"  ctx.ctx_return_typ init in
+          when a = Some init *)
       let a',env = elab_opt_expr ctx loc env a in
       begin match (unroll env ctx.ctx_return_typ, a') with
       | TVoid _, None -> ()
@@ -3217,7 +3236,7 @@ let elab_funbody return_typ vararg nonstatic_inline env b =
 (* Filling in forward declaration *)
 let _ = elab_funbody_f := elab_funbody
 
-
+
 (** * Entry point *)
 
 let elab_file prog =

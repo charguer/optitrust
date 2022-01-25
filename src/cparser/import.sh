@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "deprecated script"
+exit 1
+
 # git clone https://github.com/AbsInt/CompCert.git
 # ./configure x86_64-linux && make -j4 all
 
