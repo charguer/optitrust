@@ -1,5 +1,6 @@
 open Ast
 open Ast_to_text
+open PPrint
 module Json = struct
   open PPrint
   (* Representation of a json object *)
@@ -52,11 +53,11 @@ module Json = struct
       | -1 -> string "source"  ^^ equals ^^ bquotes (string src) ^^ hardline
       | _ -> string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src) ^^ hardline
       in
-    PPrintEngine.ToChannel.pretty 0.9 80 out doc
+    ToChannel.pretty 0.9 80 out doc
    *)
   let code_to_js (out : out_channel) (index : int) (src : string) : unit =
     let doc = string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src) ^^ hardline in
-    PPrintEngine.ToChannel.pretty 0.9 80 out doc
+    ToChannel.pretty 0.9 80 out doc
 
 end
 
@@ -405,10 +406,10 @@ let ast_to_json (trm_root : trm) : json =
 
 
 let ast_json_to_doc (out : out_channel) (t : trm) : unit =
-  PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_doc (ast_to_json t))
+  ToChannel.pretty 0.9 80 out (Json.json_to_doc (ast_to_json t))
 
 (* Convert ast into a json format then print it as a javascript variable inside a javascript file
   the index represents the state of the ast after applying i-th transformation
 *)
 let ast_to_js (out : out_channel) (index : int) (t : trm) : unit =
-  PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_js index (ast_to_json t)  )
+  ToChannel.pretty 0.9 80 out (Json.json_to_js index (ast_to_json t)  )

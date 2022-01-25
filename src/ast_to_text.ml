@@ -547,7 +547,7 @@ let trm_access_to_string (ta : trm_access) : string =
 
 let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
   let d = print_trm ~only_desc t in
-  PPrintEngine.ToChannel.pretty 0.9 80 out d
+  ToChannel.pretty 0.9 80 out d
 
 let ast_to_file (filename : string) (t : trm) : unit = 
   let out = open_out filename in

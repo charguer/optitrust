@@ -21,7 +21,7 @@ let print_pair (d1 : document) (d2 : document) : document =
 
 let document_to_string (d : document) : string =
   let b = Buffer.create 80 in
-  PPrintEngine.ToBuffer.pretty 0.9 80 b d;
+  ToBuffer.pretty 0.9 80 b d;
   Buffer.contents b
 
 (* fold left with access to the indices
