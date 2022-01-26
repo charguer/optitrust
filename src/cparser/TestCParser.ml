@@ -6,7 +6,11 @@ let print_parsed_ast = ref true (* Warning: result does not display very well *)
 let _ =
   Printexc.record_backtrace true;
   Machine.config := Machine.x86_64;
-  Elab.set_generate_static_func_names false
+  Elab.generate_static_func_names := false;
+  Elab.generate_implicit_return_on_main := false;
+  Elab.allow_variables_as_array_size := true;
+  Elab.allow_compound_initializer_in_return := true
+
 
 
 (* Output an AST *)
@@ -77,3 +81,7 @@ let _ =
   if !print_parsed_ast
      then print_ast_to_file (get_parsed_ast_filename sourcename) ast;
   ()
+
+(*
+# make -C .. -f Makefile.extr depend
+*)

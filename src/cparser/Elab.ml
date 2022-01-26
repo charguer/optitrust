@@ -26,8 +26,11 @@ open! Cutil
 
 let generate_static_func_names = ref true
 
-let set_generate_static_func_names b =
-  generate_static_func_names := b
+let generate_implicit_return_on_main = ref true
+
+let allow_variables_as_array_size = ref false
+
+let allow_compound_initializer_in_return = ref false
 
 (** * Utility functions *)
 
@@ -2596,7 +2599,7 @@ let enter_decdef local nonstatic_inline loc sto (decls, env) (s, ty, init) =
   let is_const = List.mem AConst (attributes_of_type env ty') in
   let is_int = match ty' with TInt _ -> true | _ -> false in
   let env2 =
-    if is_const && is_int && has_init then begin
+    if !allow_variables_as_array_size && is_const && is_int && has_init then begin
       let body = match init' with
         | Some (Init_single e) -> e
         | Some _ -> assert false (* unreachable: const int cannot bind to an array/struct/union *)
@@ -2847,11 +2850,14 @@ let elab_fundef genv spec name defs body loc =
         warning loc Unnamed "'main' is not allowed to be declared _Noreturn";
       match unroll genv ty_ret with
       | TInt(IInt, []) ->
-          (* Add implicit "return 0;" at end of function body.
-             If we trusted the return analysis, we would do this only if
-             this control point is reachable, i.e if can_fallthrough is true. *)
-          sseq no_loc body1
-               {sdesc = Sreturn(Some(Init_single(intconst 0L IInt))); sloc = no_loc}
+          if !generate_implicit_return_on_main then
+            (* Add implicit "return 0;" at end of function body.
+               If we trusted the return analysis, we would do this only if
+               this control point is reachable, i.e if can_fallthrough is true. *)
+            sseq no_loc body1
+                 {sdesc = Sreturn(Some(Init_single(intconst 0L IInt))); sloc = no_loc}
+          else
+            body1
       | _ ->
           warning loc Main_return_type "return type of 'main' should be 'int'";
           body1
@@ -3174,14 +3180,15 @@ let rec elab_stmt env ctx s =
 (* 6.8.6 Return statements *)
   | RETURN(i, loc) ->
       begin match i with
-      | COMPOUND_INIT _ ->
+      | COMPOUND_INIT _ when !allow_compound_initializer_in_return ->
           let (_ty',i') = elab_initializer loc env "<compound literal>" ctx.ctx_return_typ i in
           { sdesc = Sreturn i'; sloc = elab_loc loc },env
       | _ ->
           let a = match i with
             | Cabs.SINGLE_INIT e -> Some e
             | NO_INIT -> None
-            | COMPOUND_INIT _ -> assert false (* tested earlier *)
+            | COMPOUND_INIT _ -> error loc "'return' with an compound initializer in an extension";
+                 None (* ignore the argument of return to continue processing the file *)
             in
           let a',env = elab_opt_expr ctx loc env a in
           begin match (unroll env ctx.ctx_return_typ, a') with
@@ -3190,7 +3197,9 @@ let rec elab_stmt env ctx s =
               error loc
                 "'return' with a value in a function returning void"
           | _, None ->
-              warning loc Return_type
+              let was_compound = match i with COMPOUND_INIT _ -> true | _ -> false in
+              if not was_compound
+                then warning loc Return_type
                 "'return' with no value, in a function returning non-void"
           | _, Some b ->
               if not (wrap2 valid_assignment loc env b ctx.ctx_return_typ)

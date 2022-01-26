@@ -20,8 +20,6 @@ open C
 open Cutil
 open Machine
 
-let allow_variables_as_array_size = true (* OptiTrust extension *)
-
 (* Extra arith on int64 *)
 
 (* Unsigned comparison: do signed comparison after shifting range *)
@@ -246,8 +244,7 @@ let rec expr env e =
       | None -> raise Notconst
       | Some n -> I(Int64.of_int n)
       end
-  | EVar id -> (* OptiTrust generalized *)
-      if not allow_variables_as_array_size then raise Notconst else
+  | EVar id -> (* OptiTrust generalized; see Elab.allow_variables_as_array_size *)
       let n =
         try Env.find_const env id
         with Env.Error (Env.Unbound_const _) -> raise Notconst

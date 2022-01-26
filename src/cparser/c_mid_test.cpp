@@ -25,7 +25,7 @@ int testref() {
   return b + 1;
 }
 
-// gcc std=c++11 c_small_test.cpp
+
 
 // #include "stdlib.h"
 
