@@ -909,6 +909,11 @@ let trm_set ?(annot = []) ?(loc = None) ?(is_statement : bool = false) ?(add = [
   trm_apps ~annot:annot ~loc ~is_statement ~add ~ctx ~typ:(Some (typ_unit ()))
     (trm_binop Binop_set) [t1; t2]
 
+let trm_neq ?(annot = []) ?(loc = None) ?(is_statement : bool = false) ?(add = []) ?(ctx : ctx option = None)
+  (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~annot:annot ~loc ~is_statement ~add ~ctx ~typ:(Some (typ_unit ()))
+    (trm_binop Binop_neq) [t1; t2]
+
 let trm_uninitialized ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 () : trm =
   {annot; marks = []; desc = Trm_val (Val_lit Lit_uninitialized); loc = loc; is_statement=false; add; typ; attributes; ctx}

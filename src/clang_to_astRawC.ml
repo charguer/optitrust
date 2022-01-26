@@ -120,7 +120,7 @@ let get_typid_from_trm (tv : typvar) : int  =
   | StarEqual -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_mul))
   | _ -> fail loc "overloaded_op: non supported operator"
 
-(* [wrap_const ~const t] wrap type [t] into a const type *)
+(* [wrap_const ~const t] wrap type [t] into a const type if [const] = true *)
 let wrap_const ?(const : bool = false) (t : typ) : typ =
   if const then typ_const t else t
 
@@ -163,7 +163,7 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
       | UInt -> wrap_const ~const (typ_int ~annot:[Unsigned] ())
       | Long -> wrap_const ~const (typ_int ~annot:[Long] ())
       | ULong -> wrap_const ~const (typ_int ~annot:[Unsigned; Long] ())
-      | LongLong -> wrap_const ~const (typ_int ~annot:[Unsigned; Long] ())
+      | LongLong -> wrap_const ~const (typ_int ~annot:[Long; Long] ())
       | ULongLong -> wrap_const ~const (typ_int ~annot:[Unsigned; Long; Long] ())
       | Float -> wrap_const ~const (typ_float ())
       | Double -> wrap_const ~const (typ_double ())
@@ -392,7 +392,7 @@ and tr_expr ?(is_statement : bool = false)
   match e.desc with
   | ConditionalOperator {cond; then_branch = Some e_then;
                          else_branch = e_else} ->
-    let t_cond = tr_expr cond in
+    let t_cond = tr_expr cond in 
     let t_then = tr_expr e_then in
     let t_else = tr_expr e_else in
     trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op)
@@ -439,22 +439,21 @@ and tr_expr ?(is_statement : bool = false)
             trm_apps ~loc ~typ ~ctx (trm_var ~loc "sizeof") [t]
           | ArgumentType q ->
             let ty = tr_qual_type q in
-            trm_var ~loc ~typ ~ctx ("sizeof(" ^ Ast_to_c.typ_to_string ty ^ ")")
+            trm_var ~loc ~typ ~ctx ("sizeof(" ^ Ast_to_rawC.typ_to_string ty ^ ")")
         end
       | _ -> fail loc "tr_expr: unsupported unary expr"
     end
   | UnaryOperator {kind = k; operand = e} ->
     let loc = loc_from_to loc (loc_of_node e) in  
+    let t = tr_expr e in 
     begin match k with
       | AddrOf -> (* expectation: e is not a const variable *)
         (* We are translating a term of the form that involves [&p],
            for example, [int p = 3; f(&p)]. In our AST, [p] represents
            the address of the cell at which [3] is stored, thus the
            call is actually [f(p)]. In other words we drop the [&] operator. *)
-        let t = tr_expr e in
         trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop Unop_address) [t]
       | _ ->
-        let t = tr_expr e in 
         let trm_apps1 unop t1 = trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc unop) [t1] in
         begin match k with
           | PostInc ->
