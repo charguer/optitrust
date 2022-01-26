@@ -88,10 +88,9 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
 
    // Fill the source part
    var srcContents = eval(targetJsFunctionSrc + "()");
-   /* DEPRECATED
-   if (ascombi) {
+   if (hide_basic) { // hack to handle inclusion of basic tests in the combi folder
      srcContents = srcContents.replace("_basic.", ".");
-   } */
+   }
    var srcHTML = "<pre><code class='ocaml'>"+escapeHTML(shrinkSrc(srcContents))+"</code></pre>";
    var srcWarning = "";
    if (enableWarning && sWarning) {

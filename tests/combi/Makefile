@@ -58,13 +58,50 @@ TESTS_TO_FIX := \
 TESTS_WITH_DOC := \
 	variable_insert_and_fold.ml \
 	loop_fusion.ml \
-	variable_insert.ml
+	variable_insert.ml \
+	label_add__basic.ml \
 
 # 	variable_renames.ml \
 
 
-
 TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK)
+
+
+
+# Rule for generating documentation for tests from the basic folder
+# and copying the files over here
+
+BASICDIR:=../basic
+
+.PRECIOUS: ../basic/%_doc.js
+
+../basic/%_doc.js:
+	$(V)$(MAKE) -C $(BASICDIR) $*_doc.js
+
+.SECONDEXPANSION:
+%__basic_doc.js: ../basic/$$*_doc.js
+	$(V)cp $< $(*F)_doc.js
+	$(V)touch $@
+	@echo "Produced $(*F)_doc.js"
+
+# $(V)cp $< $@
+
+# LATER: if basic/*_doc.js files were not encoded, we could remove "Basic_" from it; for now we hack using a hook
+
+TESTS_FOR_DOC := $(subst __basic, , $(TESTS_WITH_DOC:.ml=))
+
+SPECIAL_RULE_FOR_DOC_HTML := yes
+doc.html: $(DOCJS)
+	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $@ $(TESTS_FOR_DOC)
+	echo "<script>var hide_basic = 1;</script>" >> doc.html
+	@echo Produced $@
+
+cleandoc::
+	rm -f *__basic_doc.js
+
+
+
+# Common makefile for test folders
 
 include ../Common.Makefile
 

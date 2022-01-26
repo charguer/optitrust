@@ -300,9 +300,12 @@ docs: $(DOCJS)
 doc: doc.html
 	$(V)$(BROWSER) $<
 
+# Rule for building 'doc.html', unless it's already defined in an ad-hoc way (e.g. tests/combi/Makefile)
+ifeq ($(SPECIAL_RULE_FOR_DOC_HTML),)
 doc.html: $(DOCJS)
 	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $@ $(TESTS_WITH_DOC:.ml=)
 	@echo Produced $@
+endif
 
 # 'make redoc' to force rebuilding all the documentation files
 redoc: cleandoc doc
@@ -311,15 +314,15 @@ redoc: cleandoc doc
 #######################################################
 # Cleanup
 
-clean_chk:
-	$(V)rm -rf *.chk
+clean_chk::
+	$(V)rm -f *.chk
 
-cleandoc:
-	$(V)rm -rf *_doc.txt *_doc.cpp *_doc_out.cpp *_doc_spec.txt *_doc.js *_doc.html *_out.cpp
+cleandoc::
+	$(V)rm -f *_doc.txt *_doc.cpp *_doc_out.cpp *_doc_spec.txt *_doc.js *_doc.html *_out.cpp
 	@echo "Clean documentation"
 
-clean: cleandoc
-	$(V)rm -rf *.js *_out.cpp *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml
+clean:: cleandoc
+	$(V)rm -f *.js *_out.cpp *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml
 	$(V)rm -rf _build
 	@echo "Clean successful"
 
