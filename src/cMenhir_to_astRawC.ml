@@ -321,7 +321,7 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
 
 and tr_decl (d : C.globdecl) : trm =
   match d.gdesc with 
-  | Gdecl (_stor, {name = n; _}, ty, init_opt) ->
+  | C.Gdecl (_stor, {name = n; _}, ty, init_opt) ->
     let tt = tr_type ty in 
     let te = begin match init_opt with 
              | None -> trm_lit Lit_uninitialized
@@ -330,7 +330,7 @@ and tr_decl (d : C.globdecl) : trm =
       in
     let mut = if is_typ_const tt then Var_immutable else Var_mutable in 
     trm_let ~is_statement:true mut (n, tt) te
-  | Gfundef {fd_storage = _; fd_inline = inline; fd_name = {name = n;_}; fd_attrib = _att; fd_ret = ty; fd_params = po; fd_body = bo; _} ->
+  | C.Gfundef {fd_storage = _; fd_inline = inline; fd_name = {name = n;_}; fd_attrib = _att; fd_ret = ty; fd_params = po; fd_body = bo; _} ->
     let tt = tr_type ty in 
     let tb = tr_stmt bo in 
     begin match po with 
@@ -348,6 +348,34 @@ and tr_decl (d : C.globdecl) : trm =
 
   (* | Gtypedef (n, ty)
   | Genumdef (n, att, e_l) *)
+  | C.Gcompositedecl (st, idn, att) -> fail None "tr_decl: "
+  | C.Gcompositedef (su, {name = n; _}, att, fl) -> 
+    let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (fr, tr_type ft)) fl in 
+    let kw = match su with 
+    | C.Struct -> Struct
+    | C.Union -> Union 
+     in 
+    trm_let_record n kw (List.rev prod_list) (trm_lit (Lit_unit))
+  | C.Genumdef ({C.name = tn}, att, enum_list) -> 
+    let el = List.map (fun ({C.name = constant_name; }, _, exp_opt) ->
+      match exp_opt with 
+      | None -> (constant_name, None)
+      | Some e -> 
+        let t_init = tr_expr e in 
+        (constant_name, Some t_init)
+    ) enum_list in 
+    let tid = next_typconstrid () in
+    ctx_tconstr_add tn tid;
+    let td = {
+      typdef_loc = None;
+      typdef_typid = tid;
+      typdef_tconstr = tn;
+      typdef_vars = [];
+      typdef_body = Typdef_enum el
+    } in 
+    ctx_typedef_add tn tid td;
+    trm_typedef td
+
   | _ -> fail None "tr_decl: declaration not supported"
 
 
