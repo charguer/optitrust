@@ -617,6 +617,9 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
           | Minus ->
             let t = translate_expr e in
             trm_apps ~loc ~typ ~ctx (trm_unop ~loc ~ctx Unop_minus) [t]
+          | Plus ->
+            let t = translate_expr e in 
+            trm_apps ~loc ~typ ~ctx (trm_unop ~loc ~ctx Unop_plus) [t]
           | Not ->
             let t = translate_expr e in
             trm_apps ~loc ~typ ~ctx (trm_unop ~loc ~ctx Unop_bitwise_neg) [t]

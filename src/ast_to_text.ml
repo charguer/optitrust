@@ -80,13 +80,13 @@ and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
   | Unop_neg -> string "Unop_neg"
   | Unop_bitwise_neg -> string "Unop_bitwise_neg"
   | Unop_minus -> string "Unop_minus"
+  | Unop_plus -> string "Unop_plus"
   | Unop_post_inc -> string "Unop_post_inc"
   | Unop_post_dec -> string "Unop_post_dec"
   | Unop_pre_inc -> string "Unop_pre_inc"
   | Unop_pre_dec -> string "Unop_pre_dec"
   | Unop_struct_access f -> node "Unop_struct_access" ^^ string f
   | Unop_struct_get f -> node "Unop_struct_get" ^^ string f
-  (* | Unop_delete b -> node "Unop_delete" ^^ string (string_of_bool b) *)
   | Unop_cast t ->
      let dt = print_typ ~only_desc t in
      node "Unop_cast" ^^ dt

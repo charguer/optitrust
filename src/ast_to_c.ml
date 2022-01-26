@@ -144,6 +144,7 @@ and unop_to_doc (op : unary_op) : document =
   | Unop_neg -> bang
   | Unop_bitwise_neg -> tilde
   | Unop_minus -> minus
+  | Unop_plus -> plus
   | Unop_post_inc | Unop_pre_inc -> twice plus
   | Unop_post_dec | Unop_pre_dec -> twice minus
   | Unop_struct_access s -> dot ^^ string s
@@ -643,6 +644,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
               | Unop_minus -> parens (minus ^^ blank 1 ^^ d)
+              | Unop_plus -> parens (plus ^^ blank 1 ^^ d)
               | Unop_post_inc when !decode -> d ^^ twice plus
               | Unop_post_inc  -> string "operator++(" ^^ d ^^ string ")"
               | Unop_post_dec when !decode -> d ^^ twice minus

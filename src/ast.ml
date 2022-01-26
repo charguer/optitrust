@@ -1,4 +1,4 @@
-(* a record used to represent a specifi location inside the code*)
+(* a record used to represent a specific location inside the code*)
 type pos = {
     pos_line : int;
     pos_col : int; }
@@ -198,6 +198,7 @@ and unary_op =
   | Unop_bitwise_neg
   | Unop_neg
   | Unop_minus
+  | Unop_plus
   | Unop_post_inc
   | Unop_post_dec
   | Unop_pre_inc
