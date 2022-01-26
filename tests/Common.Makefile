@@ -257,8 +257,7 @@ DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 
 # Use 'make mytransfo_doc.html' to build an html preview of the documentation on that transformation
 %_doc.html: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
-	$(V)cp $(OPTITRUST)/doc/doc_template.html $@
-	$(V)sed -i "s#{FOLDER}#$(CURDIR)#g;s#{BASENAME}#$*#g" $@
+	$(V)$(OPTITRUST)/doc/doc_create.js $(OPTITRUST) $(CURDIR) $* $@
 	@echo Produced $@
 
 # To check the documentation associated with the demo in a browser, use 'make mytransfo.doc'
