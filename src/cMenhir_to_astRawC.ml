@@ -147,6 +147,51 @@ and tr_stmt (s : stmt) : trm =
     let tc = tr_expr cond in 
     let ts = tr_stmt body in 
     trm_while tc ts
+  | Sdowhile (body, cond) -> 
+    let tc = tr_expr cond in 
+    let ts = tr_stmt body in 
+    trm_do_while ts tc
+  (* | Sfor (init, cond, step, body) -> 
+    let tr_stmt_opt (so : stmt) : trm = 
+      match so.sdesc with 
+      | Sskip -> trm_lit Lit_unit
+      | _ -> tr_stmt so
+      in
+    let init = tr_stmt_opt init in 
+    let cond = match cond.edesc with 
+    | Sskip -> trm_lit (Lit_bool true)
+    | _ -> tr_expr cond
+      in 
+    let step = tr_stmt_opt step in 
+    let body = tr_stmt body in 
+    trm_for_of_trm_for_c (trm_for_c init cond step body) *)
+  | Sbreak -> 
+    trm_abort (Break None)
+  | Scontinue -> 
+    trm_abort (Continue None)
+  | Slabeled (label, body) -> 
+    begin match label with 
+    | Slabel lb ->
+      let t = tr_stmt body in 
+      trm_labelled lb t
+    | _ -> fail None "tr_stmt: Ast Arthur"
+    end
+  | Sgoto lb -> 
+    trm_goto lb
+  | Sreturn init_opt -> 
+    begin match init_opt with 
+    | Some re ->
+     begin match re with 
+     | Init_single e -> 
+       let t = tr_expr e in 
+       trm_abort (Ret (Some t))
+     | _ -> fail None "tr_stmt: ast Arthur"
+     end
+    |_ -> trm_abort (Ret None)
+    end
+  | Sblock sl -> 
+    let tl = List.map tr_stmt sl in 
+    trm_seq_nomarks tl
   | _ -> fail None "tr_stmt: statment not supported" 
 
 
