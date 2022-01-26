@@ -25,7 +25,7 @@ let (va_list_type, va_list_scalar, size_va_list) =
       (TPtr(TVoid [], []), true, 8)
     else
       (* Actually a struct passed by reference; equivalent to 3 64-bit words *)
-      (TArray(TInt(IULong, []), Some (3L,Cutil.no_exp), []), false, 3*8)
+      (TArray(TInt(IULong, []), Some (3L,no_exp), []), false, 3*8)
   else
     (* Just a pointer *)
     (TPtr(TVoid [], []), true, 4)

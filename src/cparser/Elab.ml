@@ -21,7 +21,7 @@
 open Machine
 open Cabs
 open C
-open Diagnostics
+open! Diagnostics
 open! Cutil
 
 let generate_static_func_names = ref true
@@ -31,6 +31,8 @@ let generate_implicit_return_on_main = ref true
 let allow_variables_as_array_size = ref false
 
 let allow_compound_initializer_in_return = ref false
+
+let keep_for_loops_untransformed = ref false
 
 (** * Utility functions *)
 
@@ -2494,7 +2496,7 @@ let elab_opt_expr ctx loc env = function
   | Some a -> let a,env = (elab_expr ctx loc env a) in
     Some a,env
 
-let elab_for_expr ctx loc env = function
+let elab_for_expr ctx loc env = function (* only used for for-loops optional expressions *)
   | None -> { sdesc = Sskip; sloc = elab_loc loc },env
   | Some a -> let a,env = elab_expr ctx loc env a in
     { sdesc = Sdo a; sloc = elab_loc loc },env
@@ -3140,11 +3142,19 @@ let rec elab_stmt env ctx s =
             let (dcl, env') = elab_definition true true ctx.ctx_nonstatic_inline
                                               env' def in
             let loc = elab_loc (Cabshelper.get_definitionloc def) in
-            (sskip, env',
-             Some(List.map (fun d -> {sdesc = Sdecl d; sloc = loc}) dcl)) in
+            let decls' = List.map (fun d -> {sdesc = Sdecl d; sloc = loc}) dcl in
+            if !keep_for_loops_untransformed then begin
+              let a1' =
+                if decls' = []
+                  then sskip
+                  else { sdesc = Sblock decls'; sloc = loc } in
+              (a1', env', None)
+            end else
+              (sskip, env', Some decls')
+        in
       let a2',env_test =
         match a2 with
-          | None -> intconst 1L IInt,env_decls
+          | None -> exp_missing_for_loop_conditional,env_decls
           | Some a2 -> elab_expr ctx loc env_decls a2
       in
       if not (is_scalar_type env_test a2'.etyp) then

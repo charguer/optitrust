@@ -1,6 +1,20 @@
 const int CHUNKSIZE = 128;
-
 int t[CHUNKSIZE];
+int u[2*CHUNKSIZE+1];
+
+struct list {
+  int head;
+  struct list* tail;
+};
+
+/*
+typedef struct tlist {
+  int head;
+  tlist* tail;
+} tlist;
+  gcc -std=c99 c_small_test.cpp
+
+*/
 
 typedef struct vect {
   double x;
@@ -24,8 +38,6 @@ int testref() {
   const int & t = a;
   return b + 1;
 }
-
-
 
 // #include "stdlib.h"
 

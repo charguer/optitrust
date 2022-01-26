@@ -452,9 +452,16 @@ let rec stmt pp s =
       fprintf pp "@[<v 2>do {@ %a@;<0 -2>} while(%a);@]"
               stmt_block s1 exp (0, e)
   | Sfor(e1, e2, e3, s1) ->
-      fprintf pp "@[<v 2>for (@[<hv 0>%a;@ %a;@ %a) {@]@ %a@;<0 -2>}@]"
+      let exp_possibly_missing_conditional pp e =
+        if is_exp_missing_for_loop_conditional e
+          then fprintf pp "/*nothing*/"
+          else exp pp (0, e) in
+      let semicolon = (* initializers already print a semi-colon *)
+        match e1.sdesc with | Sblock _ -> "" | _ -> ";" in
+      fprintf pp "@[<v 2>for (@[<hv 0>%a%s@ %a;@ %a) {@]@ %a@;<0 -2>}@]"
               opt_exp e1
-              exp (0, e2)
+              semicolon
+              exp_possibly_missing_conditional e2
               opt_exp e3
               stmt_block s1
   | Sbreak ->
@@ -510,8 +517,11 @@ and stmt_block pp s =
   | _ ->
       stmt pp s
 
-and opt_exp pp s =
-  if s.sdesc = Sskip then fprintf pp "/*nothing*/" else
+and opt_exp pp s = (* for first and third components of a for loop *)
+  match s.sdesc with
+  | Sskip -> fprintf pp "/*nothing*/"
+  | Sblock decls -> stmt_block pp s (* decls is nonempty *)
+  | _ ->
     try
       exp pp (0, exp_of_stmt s)
     with Not_expr ->

@@ -273,3 +273,46 @@ type builtins = {
   builtin_typedefs: (string * typ) list;
   builtin_functions: (string * (typ * typ list * bool)) list
 }
+
+
+
+val no_loc: location
+  (* Denotes an unknown location. *)
+
+(* Constructors *)
+
+val no_exp : exp
+  (* Build a dummy expression (used for TArray size annotation) *)
+val is_no_exp : exp -> bool
+  (* Test if an expression has been built using [no_exp] *)
+
+val exp_missing_for_loop_conditional : exp
+  (* Define a nonzero constant for missing loop conditionals *)
+val is_exp_missing_for_loop_conditional : exp -> bool
+  (* Test if an expression has been built using [exp_missing_for_loop_conditional] *)
+
+
+val intconst : int64 -> ikind -> exp
+  (* Build expression for given integer constant. *)
+val floatconst0 : exp
+  (* Build expression for (double)0. *)
+val nullconst : exp
+  (* Expression for [(void * ) 0] *)
+val eaddrof : exp -> exp
+  (* Expression for [&e] *)
+val ecast : typ -> exp -> exp
+  (* Expression for [(ty)e] *)
+val eassign : exp -> exp -> exp
+  (* Expression for [e1 = e2] *)
+val ecomma :  exp -> exp -> exp
+  (* Expression for [e1, e2] *)
+val ecommalist :  exp list -> exp -> exp
+  (* Expression for [e1, ..., eN, e] *)
+val sskip: stmt
+  (* The [skip] statement.  No location. *)
+val sseq : location -> stmt -> stmt -> stmt
+  (* Return the statement [s1; s2], optimizing the cases
+     where [s1] or [s2] is [skip], or [s2] is a block. *)
+val sassign : location -> exp -> exp -> stmt
+  (* Return the statement [exp1 = exp2;] *)
+
