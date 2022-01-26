@@ -250,14 +250,15 @@ DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 # (first remove leading white lines in _doc.cpp)
 %_doc.js: %_out.cpp %_doc.txt %_doc_spec.txt %_doc.cpp # %_doc_out.cpp
 	$(V)sed -i '/./,$$!d' $*_doc.cpp
-	@echo "function get_diff_$(CURDIR)__$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
-	@echo "function get_src_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc.txt | base64 -w 0`\"); }" >> $@
-	@echo "function get_spec_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc_spec.txt | base64 -w 0`\"); }" >> $@
+	@echo "function get_diff_$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
+	@echo "function get_src_$*() { return window.atob(\"`cat $*_doc.txt | base64 -w 0`\"); }" >> $@
+	@echo "function get_spec_$*() { return window.atob(\"`cat $*_doc_spec.txt | base64 -w 0`\"); }" >> $@
 	@echo Produced $@
+# DEPRECATED:$(CURDIR)__  -- TODO: move above into a separate script
 
-# Use 'make mytransfo_doc.html' to build an html preview of the documentation on that transformation
+# Use 'make mytransfo_doc.html' to build an html preview of the documentation on that transformation (in $(CURDIR))
 %_doc.html: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
-	$(V)$(OPTITRUST)/doc/doc_create.js $(OPTITRUST) $(CURDIR) $* $@
+	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $*
 	@echo Produced $@
 
 # To check the documentation associated with the demo in a browser, use 'make mytransfo.doc'

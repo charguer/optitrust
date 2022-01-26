@@ -34,7 +34,8 @@ h2 {
 
 
 .name {
-   padding: 5px 5px 1px 50px;
+   border: 1px solid black;
+   padding: 5px 5px 5px 10px;
    background: #FFCFA0;
    font-weight: bold;
    font-size: 22px;
@@ -55,8 +56,8 @@ h2 {
 }
 
 .src {
-   border: 1px solid black;
-   padding: 1px 5px 1px 5px;
+   /*border: 1px solid black;*/
+   padding: 3px 5px 3px 5px;
    background: #FFFFA0;
    font-weight: bold;
 }
