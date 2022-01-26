@@ -169,7 +169,7 @@ let rec dcl ?(pp_indication=true) pp ty n =
         | TFun _ | TArray _ -> fprintf pp " (*%a%t)" attributes a n
         | _ -> fprintf pp " *%a%t" attributes a n in
       dcl pp t n'
-  | TRef(t, _) ->
+  | TRef(t) ->
       let n' pp =
         n pp;
         fprintf pp "&" in
@@ -184,7 +184,10 @@ let rec dcl ?(pp_indication=true) pp ty n =
         begin match sz with
         | None -> fprintf pp "]"
         | Some (i,e) ->
-           if Cutil.is_no_exp e
+           if (* OptiTrust: hack to avoid circular dependency,
+                 we exploit the internal definition of Cutil.no_exp;
+                 otherwise, the test should be on [Cutil.is_no_exp e] *)
+               e.etyp = TVoid []
              then fprintf pp "%Ld]" i
              else begin (* e.g., print   arr[C+3 /*=54*/]   *)
                exp pp (0, e);

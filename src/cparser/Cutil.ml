@@ -384,7 +384,7 @@ let combine_types mode env t1 t2 =
     | TPtr(ty1, a1), TPtr(ty2, a2) ->
         let m' = if m = AttrIgnoreTop then AttrCompat else m in
         TPtr(comp m' ty1 ty2, comp_attr m a1 a2)
-    | TRef(ty1, _), TRef(ty2, _) ->
+    | TRef(ty1), TRef(ty2) ->
         comp m ty1 ty2
     | TArray(ty1, sz1, a1), TArray(ty2, sz2, a2) ->
         TArray(comp m ty1 ty2, comp_array_size sz1 sz2, comp_attr m a1 a2)
@@ -428,7 +428,7 @@ let rec equal_types env t1 t2 =
      fk1 = fk2 && a1 = a2
   | TPtr(ty1, a1), TPtr(ty2, a2) ->
       a1 = a2 && equal_types env ty1 ty2
-  | TRef(ty1, _), TRef(ty2, _) ->
+  | TRef(ty1), TRef(ty2) ->
       equal_types env ty1 ty2
   | TArray(ty1, sz1, a1), TArray(ty2, sz2, a2) ->
       let size = begin match sz1,sz2 with
@@ -816,7 +816,7 @@ let rec is_scalar_type env t =
   | TInt(_, _) -> true
   | TFloat(_, _) -> true
   | TPtr _ -> true
-  | TRef (ty,_) -> is_scalar_type env ty
+  | TRef ty -> is_scalar_type env ty
   | TArray _ -> true                    (* assume implicit decay *)
   | TFun _ -> true                      (* assume implicit decay *)
   | TEnum(_, _) -> true
@@ -900,7 +900,7 @@ let pointer_decay env t =
   match unroll env t with
   | TArray(ty, _, _) -> TPtr(ty, [])
   | TFun _ as ty -> TPtr(ty, [])
-  | TRef _ -> failwith "TRef should be eliminated" (*   | TRef (ty, _) -> pointer_decay env ty*)
+  | TRef _ -> failwith "TRef should be eliminated" (*   | TRef ty -> pointer_decay env ty*)
   | t -> t
 
 (* The usual unary conversions (H&S 6.3.3) *)
@@ -989,7 +989,7 @@ let default_argument_conversion env t =
    (used in particular to annotate TArray when the index does not come from the source) *)
 
 let no_exp =
-  { edesc = EConst (CStr ""); etyp = TVoid [] }
+  { edesc = EConst (CStr ""); etyp = TVoid []; eloc = no_loc }
 
 let is_no_exp e =
   e == no_exp
