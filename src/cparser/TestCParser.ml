@@ -9,7 +9,8 @@ let _ =
   Elab.generate_static_func_names := false;
   Elab.generate_implicit_return_on_main := false;
   Elab.allow_variables_as_array_size := true;
-  Elab.allow_compound_initializer_in_return := true
+  Elab.allow_compound_initializer_in_return := true;
+  Elab.keep_for_loops_untransformed := true
 
 
 

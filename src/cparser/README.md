@@ -3,11 +3,10 @@ DO NOT EDIT THE FILES IN THIS DIRECTORY.
 
 They are imported from a patched version of CompCert
 https://github.com/charguer/CompCert
+to support several language extensions.
 
-to support a several language extensions.
 
-
-# Size of arrays.
+# Size of arrays
 
 In C99, array sizes must be constants, they cannot refer to variables.
 We relax this restriction with flag `Elab.allow_variables_as_array_size`.
@@ -28,6 +27,10 @@ int const CHUNKSIZE = 128;
 int t[CHUNKSIZE /*=128*/];
 int u[2 * CHUNKSIZE + 1 /*=257*/];
 ```
+
+In the future, we could use options to choose between printing only
+computed values, or only original expressions, or both, in which case
+we need to specify which one of the two goes in the comment.
 
 
 # Compound initializers in return statements
@@ -89,15 +92,13 @@ typedef struct vect1 vect1;
 typedef struct vect1 vect2;
 ```
 
-
-
 Note that `gcc -std=c99 c_small_test.cpp` accepts typedef recursive definitions
 without require the `struct` keyword.
 
 ```
 typedef struct list {
   int head;
-  list* tail; // the standard seems to require "struct list* tail"
+  list* tail; // CompCert requires "struct list* tail", it seems to follow the standard
 } list;
 ```
 
@@ -121,20 +122,47 @@ We've added `eloc` as a location field in expressions, in `C.mli`.
 
 # For loop with C++ binding scope
 
-The for loop
+The for loop construct
 
 ```
-for (int i = 0; i < n; i++) {
+for (int i = 0; ; i++) { }
 ```
 
-gets interpreted in CompCert as:
+gets elaborated in CompCert as:
 
 ```
-int i = 0;
-for (/*nothing*/; i < n; i++) {
+{
+   int i = 0;
+   for (/*nothing*/; 1; i++) { }
+}
 ```
 
-We've added a mode `Elab.cpp_scoping_rule_for_loops` to keep the declaration inside the loop.
+We've added a mode `Elab.keep_for_loops_untransformed` to keep the declarations
+in the loop initializer statement, and have CPrint get back the original form:
+
+```
+for (int i = 0; /*nothing*/; i++) { }
+```
+
+The implementation supports the various forms of for-loops.
+
+
+# Smart constructors for the C language moved to C.ml
+
+The file `Cutil.ml` depends on `Cprint.ml`, and only for one error message in the
+`sizeof` function. I felt instead the need for Cprint to depend on Cutil, to
+access auxiliary functions for manipulating expressions.
+
+We need access from Cprint to `no_exp` (dummy expression used in the size
+annotation for `TArray`), as well as to `missing exp_missing_for_loop_conditional`
+(used to keep for-loops in their original form).
+
+Thus, I created a file C.ml, containing the contents of C.mli, plus the
+smart constructors extracted from Cutil.ml, and the new smart constructors
+which we introduced.
+
+Btw, `dune` seem to require an .ml file for every .mli file, so it's probably
+a good idea to have a `C.ml` file anyway.
 
 
 # Reference types (only supported as local variables)
@@ -174,19 +202,8 @@ depend: $(GENERATED) $(ALL_ML) $(ALL_MLI)
 	@$(OCAMLDEP) $(ALL_MLI) $(GENERATED) >>.depend.extr || { rm -f .depend.extr; exit 2; }
 ```
 
-The file `Cutil.ml` depends on `Cprint.ml`, and only for one error message in the
-`sizeof` function. I felt instead the need for Cprint to depend on Cutil, to
-access auxiliary functions for manipulating expressions (in my case, to access
-to the `no_exp` dummy expression used in the size annotation for `TArray`).
-I suggest finding another way to print the error message in Cutil (either by
-moving the sizeof function somewhere else, or with backpatching of a reference).
 
-Dune seem to require an .ml file for every .mli file. Does it make sense to have
-`C.ml` as a copy of `C.mli`? Possibly with a number of auxiliary functions that
-currently belong to `Cutil`? This might solve the circular dependency issue
-described above.
-
-`C2C.ml` was quite confusing a name for me at first. Suggested: `C2Csyntax.ml`
+`C2C.ml` was quite confusing a name for me at first. Suggested: `C2Csyntax.ml`.
 
 It would be nice to have precise locations for all expressions. I can do the
 necessary change at some point in the future. One question is whether all data

@@ -985,15 +985,6 @@ let default_argument_conversion env t =
   | TFloat(FFloat, attr) -> TFloat(FDouble, attr)
   | t' -> t'
 
-(* Construct a dummy expression
-   (used in particular to annotate TArray when the index does not come from the source) *)
-
-let no_exp =
-  { edesc = EConst (CStr ""); etyp = TVoid []; eloc = no_loc }
-
-let is_no_exp e =
-  e == no_exp
-
 (** Is the type TPtr(ty, a) appropriate for pointer arithmetic? *)
 
 let pointer_arithmetic_ok env ty =
@@ -1186,77 +1177,6 @@ let int_pointer_conversion env tfrom tto =
   | (TInt _ | TEnum _),(TPtr _)
   | (TPtr _),(TInt _ | TEnum _) -> true
   | _,_ -> false
-
-(* Construct an integer constant *)
-
-let intconst v ik =
-  { edesc = EConst(CInt(v, ik, "")); etyp = TInt(ik, []); eloc = no_loc }
-
-(* Construct the 0 float constant of double type *)
-
-let floatconst0 =
-  { edesc = EConst(CFloat({hex=false; intPart="0"; fracPart="0"; exp="0"}, FDouble));
-    etyp = TFloat(FDouble, []);
-    eloc = no_loc }
-
-(* Construct a cast expression *)
-
-let ecast ty e = { edesc = ECast(ty, e); etyp = ty; eloc = no_loc }
-
-(* Construct the literal "0" with void * type *)
-
-let nullconst = ecast (TPtr(TVoid [], [])) (intconst 0L IInt)
-
-(* Construct an assignment expression *)
-
-let eassign e1 e2 = { edesc = EBinop(Oassign, e1, e2, e1.etyp); etyp = e1.etyp; eloc = no_loc }
-
-(* Construct a "," expression.  Reassociate to the left so that
-   it prints more nicely. *)
-
-let rec ecomma e1 e2 =
-  match e2.edesc with
-  | EBinop(Ocomma, e2', e2'', _) ->
-     ecomma (ecomma e1 e2') e2''
-  | _ ->
-     { edesc = EBinop(Ocomma, e1, e2, e2.etyp); etyp = e2.etyp; eloc = no_loc }
-
-(* Construct a cascade of "," expressions.
-   Associate to the left so that it prints more nicely. *)
-
-let ecommalist el e =
-  match el with
-  | [] -> e
-  | e1 :: el -> ecomma (List.fold_left ecomma e1 el) e
-
-(* Construct an address-of expression.  Can be applied not just to
-   an l-value but also to a sequence or a conditional of l-values. *)
-
-let rec eaddrof e =
-  match e.edesc with
-  | EUnop(Oderef, e1) -> e1
-  | EBinop(Ocomma, e1, e2, _) -> ecomma e1 (eaddrof e2)
-  | EConditional(e1, e2, e3) ->
-      { edesc = EConditional(e1, eaddrof e2, eaddrof e3); etyp = TPtr(e.etyp, []); eloc = no_loc }
-  | _ -> { edesc = EUnop(Oaddrof, e); etyp = TPtr(e.etyp, []); eloc = no_loc }
-
-(* Construct a sequence *)
-
-let sseq loc s1 s2 =
-  match s1.sdesc, s2.sdesc with
-  | Sskip, _ -> s2
-  | _, Sskip -> s1
-  | _, Sblock sl -> { sdesc = Sblock(s1 :: sl); sloc = loc }
-  | _, _ -> { sdesc = Sseq(s1, s2); sloc = loc }
-
-(* Construct an assignment statement *)
-
-let sassign loc lv rv =
-  { sdesc = Sdo (eassign lv rv); sloc = loc }
-
-(* Dummy skip statement *)
-
-let sskip = { sdesc = Sskip; sloc = no_loc }
 
 (* Print a location *)
 

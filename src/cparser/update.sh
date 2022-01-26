@@ -13,6 +13,7 @@ FILES="\
   cparser/Ceval.ml \
   cparser/Cutil.ml \
   cparser/Cutil.mli \
+  cparser/C.ml \
   cparser/C.mli \
   cparser/Env.ml \
   cparser/Env.mli \

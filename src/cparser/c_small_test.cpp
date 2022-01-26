@@ -1,45 +1,24 @@
 
-const int CHUNKSIZE = 128;
-
-int t[CHUNKSIZE];
-int u[2*CHUNKSIZE+1];
-
-
-typedef struct {
-  double x;
-} foo;
-
-typedef struct /*vect*/ {
-  double x;
-  double y;
-  double z;
-} vect, vect2;
-
-
-struct list {
-  int head;
-  struct list* tail;
-};
-
-/*
-typedef struct tlist {
-  int head;
-  tlist* tail;
-} tlist;
-  gcc -std=c99 c_small_test.cpp
-
-*/
 
 int main() {
-  const vect2 v = {0,0,0};
-  const double y = v.x;
-  return 1;
+  for (int i = 0; i < 5; i++) {
+    i++;
+  }
+  for (int i = 0; i < 5; i++) {
+    i++;
+  }
+  int j = 0;
+  int r = 0;
+  for (j = 1, r = 2; j + r < 5; j++, r--) {
+    j++;
+  }
+  for (int i = 0, k = 2; i < 5; i++, j++, k--) {
+    i++;
+  }
+  for (; ; ) {
+  }
 }
 
-typedef enum {  A, B } bar;
 
-vect vect_mul(double d, vect v) {
-  return {(d * v.x), (d * v.y), (d * v.z)};
-}
-
+// gcc -std=c99 c_small_test.cpp
 // gcc -std=c++11 c_small_test.cpp

@@ -26,6 +26,8 @@ val allow_variables_as_array_size : bool ref
 val allow_compound_initializer_in_return : bool ref
   (* This option adds support for return statements applied to compound initializers *)
 
+val keep_for_loops_untransformed : bool ref
+  (* This option disables on-the-fly transformations on for-loops *)
 
 val elab_file : Cabs.definition list -> C.program
   (* This is the main entry point.  It transforms a list of toplevel
