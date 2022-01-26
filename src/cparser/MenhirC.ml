@@ -17,9 +17,13 @@ let _ =
 
 let debug_preprocessor = true
 
-let optitrust_path =
-  try Sys.getenv("OPTITRUST")
-  with Not_found -> failwith "OPTITRUST environment variable must be defined"
+let compcert_include_path =
+  try Sys.getenv("OPTITRUST") ^ "src/cparser/include";
+  with Not_found ->
+    let p = "/usr/local/lib/compcert" in
+    if not (Sys.file_exists p)
+      then failwith "Please either install src/cparser/include into /usr/local/lib/compcert, or export the environment variable OPTITRUST";
+    p
 
 let preprocessor_command ifile =
   [ "gcc";
@@ -33,7 +37,7 @@ let preprocessor_command ifile =
     "-D__STDC_NO_COMPLEX__";
     "-D__STDC_NO_THREADS__";
     "-D__STDC_NO_VLA__";
-    "-I" ^ optitrust_path ^ "src/cparser/include";
+    "-I" ^ compcert_include_path;
     ifile
   ]
 

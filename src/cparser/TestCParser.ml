@@ -12,7 +12,8 @@ let _ =
   let ast = MenhirC.parse_c_file sourcename in
   (* Print the ast *)
   let destname = MenhirC.get_parsed_ast_filename sourcename in
-  MenhirC.print_ast_to_file destname ast
+  MenhirC.print_ast_to_file destname ast;
+  Printf.printf "Produced %s\n" destname
 
 
 (*

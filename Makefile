@@ -12,6 +12,15 @@ library:
 install_lib: library
 	dune install -p $(THIS)
 
+# requires root access -- can use another absolute path if needed
+COMPCERT_STDLIB_DIR_DST=/usr/local/lib/compcert
+COMPCERT_STDLIB_DIR_SRC=./src/cparser/include
+
+install_compcert_stdlib:
+	install -d $(COMPCERT_STDLIB_DIR_DST)
+	install -m 0644 $(COMPCERT_STDLIB_DIR_SRC)/*.h $(COMPCERT_STDLIB_DIR_DST)
+
+
 install: install_lib
 	mkdir -p $(INSTALL_TARGET)/tools
 	install -m755 tools/*.* $(INSTALL_TARGET)/tools
