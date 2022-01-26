@@ -1,6 +1,4 @@
-// #include <stdlib.h>
-
-// #include <stdio.h>
+#include "stdlib.h"
 
 typedef struct {
   double x;
@@ -40,14 +38,9 @@ chunk *atomic_read(chunk **p) {
   return value;
 }
 
-void* malloc(int);
-void free(void*);
-
 chunk *chunk_alloc() { return (chunk *)malloc(sizeof(chunk)); }
 
 void chunk_free(chunk *c) { free(c); }
-
-void* NULL = 0;
 
 void bag_init(bag *b, int id_bag, int id_cell) {
   chunk *c = chunk_alloc();

@@ -25,6 +25,8 @@ let reparse_at_big_steps : bool ref = ref false
 (* Flag to report progress during a script execution *)
 let report_big_steps : bool ref = ref false
 
+(* Flag to report more about file manipulations performed by the tool *)
+let verbose_mode : bool ref = ref false
 
 (* Flag to enable light diff *)
 let use_light_diff : bool ref = ref true
@@ -79,7 +81,8 @@ let spec =
      ("-analyse-time", Arg.Set analyse_time, " produce a file reporting on the execution time");
      ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
-     ("-disable-light-diff", Arg.Clear use_light_diff, "disable light diff");
+     ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
+     ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
 
@@ -92,7 +95,7 @@ let documentation_save_file_at_first_check = ref ""
 
 
 
-(* 
+(*
 in file Parser.ml
 
 type cparser = Clang | Menhir | Default | All

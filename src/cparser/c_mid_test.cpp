@@ -39,9 +39,27 @@ int testref() {
   return b + 1;
 }
 
-// #include "stdlib.h"
 
-void* malloc(int);
+int loops() {
+  for (int i = 0; i < 5; i++) {
+    i++;
+  }
+  for (int i = 0; i < 5; i++) {
+    i++;
+  }
+  int j = 0;
+  int r = 0;
+  for (j = 1, r = 2; j + r < 5; j++, r--) {
+    j++;
+  }
+  for (int i = 0, k = 2; i < 5; i++, j++, k--) {
+    i++;
+  }
+  for (; ; ) {
+  }
+}
+
+#include "stdlib.h"
 
 int f(int x) {
   int a = x + x;

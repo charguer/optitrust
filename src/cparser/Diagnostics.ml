@@ -305,7 +305,7 @@ let pp_loc fmt (filename,lineno) =
   if filename <> "" && filename <> "cabs loc unknown" then
     fprintf fmt "%t%s%s:%t " bc filename lineno rsc
   else
-    fprintf fmt "%tccomp:%t " bc rsc
+    fprintf fmt "%tOptiTrust-Menhir-parser:%t " bc rsc
 
 let error key loc fmt =
   incr num_errors;

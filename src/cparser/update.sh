@@ -22,6 +22,8 @@ FILES="\
   cparser/pre_parser_aux.ml \
   cparser/pre_parser_aux.mli \
   cparser/pre_parser_messages.ml \
+  driver/Driveraux.ml \
+  driver/Driveraux.mli \
   x86/CBuiltins.ml \
   extraction/Cabs.ml \
   extraction/Cabs.mli \
@@ -35,8 +37,11 @@ echo "Copied files: ${FILES}"
 
 cd ${DEST}
 sed -i 's/Cleanup\.program p/List.rev p/;s/Checks\.unused_variables p;//;s/Checks\.unknown_attrs_program p;//;s/Checks\.non_linear_conditional p;//' Elab.ml
-sed -i '' Elab.ml
-echo "Patched Elab.ml"
+sed -i 's/ccomp:/OptiTrust-Menhir-parser:/' Diagnostics.ml
+
+echo "Patched Elab.ml and Diagnostics.ml"
+
+
 
 
 #  cparser/StructPassing.ml \

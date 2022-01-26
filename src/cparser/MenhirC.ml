@@ -1,4 +1,5 @@
 
+open Driveraux
 
 (* Configuration of the parser for OptiTrust's needs *)
 
@@ -11,6 +12,41 @@ let _ =
   Elab.allow_compound_initializer_in_return := true;
   Elab.keep_for_loops_untransformed := true
 
+
+(* Preprocessor *)
+
+let debug_preprocessor = true
+
+let optitrust_path =
+  try Sys.getenv("OPTITRUST")
+  with Not_found -> failwith "OPTITRUST environment variable must be defined"
+
+let preprocessor_command ifile =
+  [ "gcc";
+    "-xc";
+    "-m64";
+    "-U__GNUC__";
+    "-U__SIZEOF_INT128__";
+    "-E"; (* -std=c99 *)
+    "-U__STDC_IEC_559_COMPLEX__";
+    "-D__STDC_NO_ATOMICS__";
+    "-D__STDC_NO_COMPLEX__";
+    "-D__STDC_NO_THREADS__";
+    "-D__STDC_NO_VLA__";
+    "-I" ^ optitrust_path ^ "src/cparser/include";
+    ifile
+  ]
+
+let preprocess ifile ofile =
+  let output = Some ofile in
+  let cmd = preprocessor_command ifile in
+  if false && debug_preprocessor
+    then Printf.eprintf "preprocessor command: %s\n" (String.concat " " cmd);
+  let exc = command ?stdout:output cmd in
+  if exc <> 0 then begin
+    safe_remove ofile;
+    command_error "preprocessor" exc;
+  end
 
 (* Input an AST *)
 
@@ -34,7 +70,7 @@ let parse_string name text =
             Timeout_pr means that we ran for 2^50 steps. *)
       Diagnostics.fatal_error Diagnostics.no_loc "internal error while parsing"
 
-let parse_c_file_aux sourcename sourcefile =
+let parse_preprocessed_c_file sourcename sourcefile =
   Debug.init_compile_unit sourcename;
   Sections.initialize();
   (* CPragmas.reset(); *)
@@ -46,8 +82,15 @@ let parse_c_file_aux sourcename sourcefile =
   |> Timing.time "Elaboration" Elab.elab_file
   |> check_errors
 
-let parse_c_file sourcefile =
-  parse_c_file_aux sourcefile sourcefile
+let parse_c_file sourcename =
+  ensure_inputfile_exists sourcename;
+  let preproname =
+    if debug_preprocessor
+      then output_filename sourcename (Filename.extension sourcename) ".i"
+      else tmp_file ".i"
+    in
+  preprocess sourcename preproname;
+  parse_preprocessed_c_file sourcename preproname
 
 (* Output an AST *)
 
