@@ -1,4 +1,10 @@
 
+const int CHUNKSIZE = 128;
+
+int t[CHUNKSIZE];
+int u[2*CHUNKSIZE+1];
+
+
 typedef struct {
   double x;
 } foo;
@@ -13,3 +19,6 @@ int main() {
   const vec2 v = {0,0,0};
   const double y = v.x;
 }
+
+typedef enum {  A, B } bar;
+

@@ -149,7 +149,7 @@ type typ =
   | TFloat of fkind * attributes
   | TPtr of typ * attributes
   | TRef of typ (* OptiTrust adds support for reference types *)
-  | TArray of typ * int64 option * attributes
+  | TArray of typ * (int64 * exp) option * attributes
   | TFun of typ * (ident * typ) list option * bool * attributes
   | TNamed of ident * attributes
   | TStruct of ident * attributes

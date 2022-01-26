@@ -274,6 +274,11 @@ val contains_flex_array_mem : Env.t  -> typ -> bool
 
 (* Constructors *)
 
+val no_exp : exp
+  (* Build a dummy expression (used for TArray size annotation) *)
+val is_no_exp : exp -> bool
+  (* Test if an expression has been built using [no_exp] *)
+
 val intconst : int64 -> ikind -> exp
   (* Build expression for given integer constant. *)
 val floatconst0 : exp

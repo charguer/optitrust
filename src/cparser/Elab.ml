@@ -667,7 +667,7 @@ let check_bitfield loc env id ty ik n =
    C99 section 6.7.2.
 *)
 
-let rec elab_specifier ?(only = false) loc env specifier =
+let rec elab_specifier ?(only = false) ?(typedef_name:string option = None) loc env specifier =
   (* We first divide the parts of the specifier as follows:
        - a storage class
        - a set of attributes (const, volatile, restrict)
@@ -713,6 +713,12 @@ let rec elab_specifier ?(only = false) loc env specifier =
   let simple ty =
     restrict_check ty;
     (!sto, !inline, !noreturn ,!typedef, add_attributes_type !attr ty, env) in
+
+  let use_typedef_name_if_none id =
+    match id with
+    | Some _ -> id
+    | None -> typedef_name
+    in
 
   (* Partition !attr into name- and struct-related attributes,
      which are returned, and other attributes, which are left in !attr.
@@ -799,6 +805,7 @@ let rec elab_specifier ?(only = false) loc env specifier =
         let a' =
           add_attributes (get_definition_attrs optmembers)
                          (elab_attributes env a) in
+        let id = use_typedef_name_if_none id in
         let (id', env') =
           elab_struct_or_union only Struct loc id optmembers a' env in
         let ty = TStruct(id', !attr) in
@@ -809,6 +816,7 @@ let rec elab_specifier ?(only = false) loc env specifier =
         let a' =
           add_attributes (get_definition_attrs optmembers)
                          (elab_attributes env a) in
+        let id = use_typedef_name_if_none id in
         let (id', env') =
           elab_struct_or_union only Union loc id optmembers a' env in
         let ty = TUnion(id', !attr) in
@@ -819,6 +827,7 @@ let rec elab_specifier ?(only = false) loc env specifier =
         let a' =
           add_attributes (get_definition_attrs optmembers)
                          (elab_attributes env a) in
+        let id = use_typedef_name_if_none id in
         let (id', env') =
           elab_enum only loc id optmembers a' env in
         let ty = TEnum (id', !attr) in
@@ -878,10 +887,10 @@ and elab_type_declarator ?(fundef = false) loc env ty = function
                 if n = 0L then warning loc Zero_length_array
                     "zero size arrays are an extension";
                 if not (Cutil.valid_array_size env ty n) then error loc "size of array is too large";
-                Some n
+                Some (n,expr)
             | None ->
                 error loc "size of array is not a compile-time constant";
-                Some 1L (* produces better error messages later *)
+                Some (1L,expr) (* produces better error messages later *)
          in
        elab_type_declarator ~fundef loc env (TArray(ty, sz', a)) d
   | Cabs.PTR(cv_specs, d) ->
@@ -1413,6 +1422,7 @@ module I = struct
     let ty = typeof zi in
     match unroll env ty, i with
     | TArray(ty, sz, _), Init_array il ->
+        let sz = match sz with None -> None | Some (sz,_) -> sz in
         if index_below 0L sz then begin
           let dfl = default_init env ty in
           OK(Zarray(z, ty, sz, dfl, [], 0L, il_tail il), il_head dfl il)
@@ -1448,6 +1458,7 @@ module I = struct
   let index env (z, i as zi) n =
     match unroll env (typeof zi), i with
     | TArray(ty, sz, _), Init_array il ->
+        let sz = match sz with None -> None | Some (sz,_) -> sz in
         if n >= 0L && index_below n sz then begin
           let dfl = default_init env ty in
           let rec loop p before after =
@@ -1594,6 +1605,7 @@ and elab_item zi item il =
      | COMPOUND_INIT [_, SINGLE_INIT(CONSTANT (CONST_STRING(w, s)))]),
     TArray(ty_elt, sz, _)
     when is_integer_type env ty_elt ->
+      let sz = match sz with None -> None | Some (sz,_) -> sz in
       begin match elab_string_literal loc w s, unroll env ty_elt with
       | CStr s, TInt((IChar | ISChar | IUChar), _) ->
           if not (I.index_below (Int64.of_int(String.length s - 1)) sz) then
@@ -1695,7 +1707,7 @@ let fixup_typ loc env ty init =
   match unroll env ty, init with
   | TArray(ty_elt, None, attr), Init_array il ->
       if il = [] then warning loc Zero_length_array "zero size arrays are an extension";
-      TArray(ty_elt, Some(Int64.of_int(List.length il)), attr)
+      TArray(ty_elt, Some(Int64.of_int(List.length il), no_exp), attr)
   | _ -> ty
 
 (* Entry point *)
@@ -2480,7 +2492,7 @@ let elab_for_expr ctx loc env = function
 (* Handling of __func__ (section 6.4.2.2) *)
 
 let __func__type_and_init s =
-  (TArray(TInt(IChar, [AConst]), Some(Int64.of_int (String.length s + 1)), []),
+  (TArray(TInt(IChar, [AConst]), Some(Int64.of_int (String.length s + 1), no_exp), []),
    init_char_array_string None s)
 
 
@@ -2875,8 +2887,12 @@ let elab_fundef genv spec name defs body loc =
 let elab_decdef (for_loop: bool) (local: bool) (nonstatic_inline: bool)
                 (env: Env.t) ((spec, namelist): Cabs.init_name_group)
                 (loc: Cabs.loc) : decl list * Env.t =
+  let typedef_name = (* OptiTrust: for anonymous structures, use the name provided by the associated typedef *)
+    match namelist with
+    | [] -> None
+    | (Init_name(Name(id,_,_,_),_))::_ -> Some id in
   let (sto, inl, noret, tydef, bty, env') =
-    elab_specifier ~only:(namelist=[]) loc env spec in
+    elab_specifier ~only:(namelist=[]) ~typedef_name loc env spec in
   (* Sanity checks on storage class *)
   if tydef then begin
     if sto <> Storage_default then
@@ -2890,10 +2906,6 @@ let elab_decdef (for_loop: bool) (local: bool) (nonstatic_inline: bool)
     if sto <> Storage_default && namelist = [] then
       warning loc Missing_declarations "declaration does not declare anything";
   end;
-  let typdef_default_name = (* OptiTrust: fix typedef on anonymous structures *)
-    match namelist with
-    | [] -> None
-    | id::_ -> Some id in
   let elab_one_name (decls, env) (Init_name (Name (id, decl, attr, loc), init)) =
     let ((ty, _), env1) =
       elab_type_declarator loc env bty decl in

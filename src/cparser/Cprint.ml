@@ -183,7 +183,13 @@ let rec dcl ?(pp_indication=true) pp ty n =
         end;
         begin match sz with
         | None -> fprintf pp "]"
-        | Some i -> fprintf pp "%Ld]" i
+        | Some (i,e) ->
+           if Cutil.is_no_exp e
+             then fprintf pp "%Ld]" i
+             else begin (* e.g., print   arr[C+3 /*=54*/]   *)
+               exp pp (0, e);
+               fprintf pp " /*=%Ld*/]" i
+             end
         end in
       dcl pp t n'
   | TFun(tres, args, vararg, a) ->
@@ -215,13 +221,13 @@ let rec dcl ?(pp_indication=true) pp ty n =
   | TEnum(id, a) ->
       fprintf pp "enum %a%a%t" ident id attributes a n
 
-let typ pp ty =
+and typ pp ty =
   dcl pp ty (fun _ -> ())
 
-let typ_raw pp ty =
+and typ_raw pp ty =
   dcl ~pp_indication:false pp ty (fun _ -> ())
 
-let rec exp pp (prec, a) =
+and exp pp (prec, a) =
   let (prec', assoc) = precedence a.edesc in
   let (prec1, prec2) =
     if assoc = LtoR

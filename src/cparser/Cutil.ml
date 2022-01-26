@@ -157,7 +157,7 @@ let rec add_attributes_type attr t =
   | TInt(ik, a) -> TInt(ik, add_attributes attr a)
   | TFloat(fk, a) -> TFloat(fk, add_attributes attr a)
   | TPtr(ty, a) -> TPtr(ty, add_attributes attr a)
-  | TRef _ -> if attr = [] then t else failwith "Cutil.add_attributes_type: reference types are not supported"
+  | TRef _ -> if attr = [] then t else failwith "Cutil.add_attributes_type: reference types cannot have attributes" (* OptiTrust: should use "error" *)
   | TArray(ty, sz, a) ->
       let (attr_arr, attr_elt) = List.partition attr_array_applicable attr in
       TArray(add_attributes_type attr_elt ty, sz, add_attributes attr_arr a)
@@ -433,7 +433,7 @@ let rec equal_types env t1 t2 =
   | TArray(ty1, sz1, a1), TArray(ty2, sz2, a2) ->
       let size = begin match sz1,sz2 with
       | None, None -> true
-      | Some s1, Some s2 -> s1 = s2
+      | Some (s1,_), Some (s2,_) -> s1 = s2
       | _ -> false end in
       size && a1 = a2 && equal_types env ty1 ty2
   | TFun(ty1, params1, vararg1, a1), TFun(ty2, params2, vararg2, a2) ->
@@ -550,7 +550,7 @@ let rec sizeof env t =
   | TPtr(_, _) -> Some(!config.sizeof_ptr)
   | TRef _ -> failwith "TRef should be eliminated" (*| TRef ty -> sizeof env ty*)
   | TArray(ty, None, _) -> None
-  | TArray(ty, Some n, _) as t' ->
+  | TArray(ty, Some (n,_), _) as t' ->
       begin match sizeof env ty with
       | None -> None
       | Some s ->
@@ -985,6 +985,15 @@ let default_argument_conversion env t =
   | TFloat(FFloat, attr) -> TFloat(FDouble, attr)
   | t' -> t'
 
+(* Construct a dummy expression
+   (used in particular to annotate TArray when the index does not come from the source) *)
+
+let no_exp =
+  { edesc = EConst (CStr ""); etyp = TVoid [] }
+
+let is_no_exp e =
+  e == no_exp
+
 (** Is the type TPtr(ty, a) appropriate for pointer arithmetic? *)
 
 let pointer_arithmetic_ok env ty =
@@ -1041,10 +1050,10 @@ let type_of_constant = function
   | CFloat(_, fk) -> TFloat(fk, [])
   | CStr s ->
     let size = Int64.of_int (String.length s + 1) in
-    TArray(TInt(IChar,[]), Some size, [])
+    TArray(TInt(IChar,[]), Some (size,no_exp), [])
   | CWStr s ->
     let size = Int64.of_int (List.length s + 1) in
-    TArray(TInt(wchar_ikind(), []), Some size, [])
+    TArray(TInt(wchar_ikind(), []), Some (size,no_exp), [])
   | CEnum(_, _) -> TInt(IInt, [])
 
 (* Check that a C expression is a lvalue *)

@@ -17,12 +17,20 @@ int& x = y;
   meaning that reference types are supported for local variables
 
 typedef struct { int x; int y; } vect;
-   meaning that the name of the struct may be given only once
+  meaning that the name of the struct may be given only once
 ```
 
 
 
 TOFIX
+
+
+const int chunksize = 128
+t[chunksize]
+==> apparaît sous forme d'expression? de variable?
+==> t[size_t + (exp!)]
+
+
 
 
 int main(void)
@@ -66,3 +74,20 @@ typedef struct vect {
   double y;
   double z;
 } vect, vec2;
+
+
+
+missing dependencies
+
+depend: $(GENERATED)
+	@echo "Analyzing OCaml dependencies"
+	@$(OCAMLDEP) $(foreach d,$(DIRS),$(wildcard $(d)/*.ml)) $(GENERATED) >.depend.extr || { rm -f .depend.extr; exit 2; }
+	@$(OCAMLDEP) $(foreach d,$(DIRS),$(wildcard $(d)/*.mli)) $(GENERATED) >>.depend.extr || { rm -f .depend.extr; exit 2; }
+
+
+# make -C .. -f Makefile.extr depend
+
+
+Cutil <-> Cprint dep for no_exp
+
+C2C drole de nom
