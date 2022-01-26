@@ -36,7 +36,6 @@ TESTS ?= $(filter-out $(wildcard *with_lines.ml), $(filter-out $(EXCLUDE_TESTS),
 
 # List of ml files for which the cpp files should be compiled
 COMPILE ?= $(TESTS)
-
 # List of ml files for which the cpp files should be executed for comparison
 EXECUTE ?= $(COMPILE)
 
@@ -56,6 +55,8 @@ BROWSER ?= chromium-browser
 -include optitrust_flags.sh
 FLAGS ?=
 
+# Choose between native or bytecode compilation ("native" or "byte")
+PROGEXT ?= byte
 
 #######################################################
 # Targets
@@ -108,7 +109,7 @@ DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Instruction to keep intermediate files
-.PRECIOUS: %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_doc_out.cpp
+.PRECIOUS: %.native %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_doc_out.cpp
 
 # Rule for viewing the encoding of an output
 %.enc: %_out.cpp
@@ -134,7 +135,7 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 #-----begin rules for non-batch mode------
 ifeq ($(BATCH),)
 
-%_out.cpp: %.byte %.cpp %.ml
+%_out.cpp: %.$(PROGEXT) %.cpp %.ml
 	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS)
 	@echo "Produced $@"
 
@@ -142,7 +143,7 @@ endif
 #-----end rules for non-batch mode------
 
 # Rule for building the binary associated with a test
-%.byte: %.ml $(OPTITRUSTLIB)
+%.$(PROGEXT): %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@
 
 # Rule for producing the expected output file from the result
@@ -206,9 +207,9 @@ batch.ml: $(OPTITRUST)/tests/batch_tests.sh $(TESTS)
 	$(V) $^ > $@
 
 # Produce all '_out.cpp' files at once by running 'batch.byte' (obtained by compiling 'batch.ml')
-$(TESTS:.ml=_out.cpp): batch.byte $(TESTS:.ml=.cpp)
+$(TESTS:.ml=_out.cpp): batch.$(PROGEXT) $(TESTS:.ml=.cpp)
 	$(V)OCAMLRUNPARAM=b ./$<
-	@echo "Executed batch.byte to produce all output files"
+	@echo "Executed batch.$(PROGEXT) to produce all output files"
 
 endif
 #-----end rules for batch mode------
@@ -296,7 +297,7 @@ cleandoc:
 	@echo "Clean documentation"
 
 clean: cleandoc
-	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml
+	$(V)rm -rf *.js *_out.cpp *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml
 	$(V)rm -rf _build
 	@echo "Clean successful"
 
