@@ -237,9 +237,9 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     let trm_apps1 unop t1 = trm_apps (trm_unop unop) [t1] in
     begin match unop with
     | Ominus ->
-      trm_apps1 Unop_opp t
+      trm_apps1 Unop_minus t
     | Oplus	->
-      trm_apps1 Unop_opp t (* TODO: add this in our unop *)
+      trm_apps1 Unop_minus t (* TODO: add this in our unop *)
     | Olognot	->
       trm_apps1 Unop_neg t
     | Onot ->

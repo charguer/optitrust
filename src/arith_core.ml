@@ -363,7 +363,7 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
         let y = aux e in
         let x =
           if c = 1 then y
-          else if c = -1 then trm_apps (trm_unop Unop_opp) [y]
+          else if c = -1 then trm_apps (trm_unop Unop_minus) [y]
           else trm_apps (trm_binop Binop_mul) [trm_int c; y]
           in
         if i = 0 then x else trm_apps (trm_binop (if w >= 0 then Binop_add else Binop_sub)) [acc; x]

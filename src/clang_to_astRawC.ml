@@ -456,27 +456,14 @@ and tr_expr ?(is_statement : bool = false)
       | _ ->
         let trm_apps1 unop t1 = trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc unop) [t1] in
         begin match k with
-          | PostInc ->
-            trm_apps1 Unop_post_inc t
-            (* trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_post_inc) [t] *)
-          | PostDec ->
-            trm_apps1 Unop_post_dec t
-          | PreInc ->
-            (* trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_pre_inc) [t] *)
-            trm_apps1 Unop_pre_inc t
-          | PreDec ->
-            (* trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_pre_dec) [t] *)
-            trm_apps1 Unop_pre_dec t
-          | Deref ->
-            (* trm_apps ~loc ~typ ~ctx (trm_unop ~loc Unop_get) [t] *)
-            trm_apps1 Unop_get t
-          | Minus ->
-            (* trm_apps ~loc ~typ ~ctx (trm_unop ~loc ~ctx Unop_opp) [t] *)
-            trm_apps1 Unop_opp t
-          | Not ->
-            trm_apps1 Unop_bitwise_neg t
-          | LNot ->
-            trm_apps1 Unop_neg t
+          | PostInc -> trm_apps1 Unop_post_inc t
+          | PostDec -> trm_apps1 Unop_post_dec t
+          | PreInc -> trm_apps1 Unop_pre_inc t
+          | PreDec -> trm_apps1 Unop_pre_dec t
+          | Deref -> trm_apps1 Unop_get t
+          | Minus -> trm_apps1 Unop_minus t
+          | Not -> trm_apps1 Unop_bitwise_neg t
+          | LNot -> trm_apps1 Unop_neg t
           | _ -> fail loc "tr_expr: unary operator not implemented"
         end
     end
