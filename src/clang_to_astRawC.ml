@@ -462,6 +462,7 @@ and tr_expr ?(is_statement : bool = false)
           | PreDec -> trm_apps1 Unop_pre_dec t
           | Deref -> trm_apps1 Unop_get t
           | Minus -> trm_apps1 Unop_minus t
+          | Plus -> trm_apps1 Unop_plus t
           | Not -> trm_apps1 Unop_bitwise_neg t
           | LNot -> trm_apps1 Unop_neg t
           | _ -> fail loc "tr_expr: unary operator not implemented"

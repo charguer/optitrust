@@ -2,6 +2,7 @@ open! Ast
 open Tools
 
 
+
 let ctx_tconstr : typconstrid varmap ref = ref String_map.empty
 
 let ctx_typedef : typedef typmap ref = ref Typ_map.empty
@@ -74,8 +75,6 @@ let wrap_const (att : C.attributes)(ty : Ast.typ) : Ast.typ =
   if const then typ_const ty else ty
 
 
-
-(* TODO: Add location later when it is fixed in C.ml *)
 let rec tr_type  (ty : C.typ) : Ast.typ =
   match ty with
   | C.TPtr (ty1, att) ->
@@ -89,7 +88,7 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
     let ty = tr_type ty1 in
     begin match sz with
     | None -> wrap_const att (typ_array ty Undefined)
-    | Some (n, _) -> wrap_const att (typ_array ty (Const (Int64.to_int n)))
+    | Some (_, e) -> wrap_const att (typ_array ty (Trm (tr_expr e)))
     end
   | C.TInt (ik, att) ->
     begin match ik with
@@ -239,7 +238,7 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     | Ominus ->
       trm_apps1 Unop_minus t
     | Oplus	->
-      trm_apps1 Unop_minus t (* TODO: add this in our unop *)
+      trm_apps1 Unop_plus t 
     | Olognot	->
       trm_apps1 Unop_neg t
     | Onot ->
