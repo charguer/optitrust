@@ -43,38 +43,12 @@ let get_typid_from_trm (tv : typvar) : int  =
    | None -> -1
    end
 
-(* names for overloaded operators (later matched for printing) *)
-let string_of_overloaded ?(loc : Ast.location = None) (op : C.binary_operator) : string =
-  match op with
-  | C.Oadd -> "+"
-  | C.Osub -> "-"
-  | C.Omul -> "*"
-  | C.Oassign -> "="
-  | C.Oadd_assign -> "+="
-  | C.Osub_assign -> "-="
-  | C.Omul_assign -> "*="
-  | _ -> fail loc "string_of_overloaded_op: non supported operator"
-
-
-(* [overloaded op ~loc ~ctx op] *)
-let overloaded_op ?(loc : Ast.location = None) ?(ctx : ctx option = None) (op : C.binary_operator) : trm =
-  match op with
-  | C.Oadd -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_add))
-  | C.Osub -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_sub))
-  | C.Omul -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_mul))
-  | C.Oassign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_set))
-  | C.Oadd_assign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_add))
-  | C.Osub_assign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_sub))
-  | C.Omul_assign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_mul))
-  | _ -> fail loc "overloaded_op: non supported operator"
-
-
 (* [wrap_const ~const t] wrap the type [t] into a const typ if const is true *)
 let wrap_const (att : C.attributes)(ty : Ast.typ) : Ast.typ =
   let const = List.mem C.AConst att in
   if const then typ_const ty else ty
 
-
+(* [tr_type ty] translate C.typ to Ast.typ *)
 let rec tr_type  (ty : C.typ) : Ast.typ =
   match ty with
   | C.TPtr (ty1, att) ->
@@ -125,6 +99,8 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
     typ_constr n ~tid:(get_typid_from_trm n)
   | C.TVoid _ -> typ_unit ()
 
+
+(* [tr_stmt s] translate C.stms to Ast.stmt *)
 and tr_stmt (s : C.stmt) : trm =
   (* TODO: loc like for expr *)
   match s.sdesc with
@@ -191,7 +167,7 @@ and tr_stmt (s : C.stmt) : trm =
 
   | _ -> fail None "tr_stmt: statment not supported"
 
-
+(* [tr_init i] translate C.inti into optitrust ast*)
 and tr_init (i : C.init) : trm = 
   match i with 
   | Init_single e -> tr_expr e 
@@ -199,7 +175,7 @@ and tr_init (i : C.init) : trm =
   | Init_struct (_, il) -> trm_struct (Mlist.of_list (List.map (fun (_, init) -> tr_init init) il))
   | Init_union _ -> fail None "tr_init: union not supported yet"
 
-
+(* [tr_constant c] translate C.constant into Optitrust ast*)
 and tr_constant (c : C.constant) : trm = 
   match c with 
   | C.CInt (i, ik, _)->
@@ -219,6 +195,7 @@ and tr_constant (c : C.constant) : trm =
     trm_lit (Lit_string s)
   | _  -> fail None "tr_const: constant expression is not supported"
 
+(* [tr_expr ~is_stement e] translate C.exp into Optitrust ast *)
 and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
   (* TODO: let loc = tr_loc e.C.eloc
     in tr_loc   => end_column : use start_column+1 *)
@@ -318,7 +295,7 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     | _ -> trm_apps tf (List.map tr_expr el)
     end
 
-
+(* [tr_decl d] transalte C.globdecl into OptiTrust ast *)
 and tr_decl (d : C.globdecl) : trm =
   match d.gdesc with 
   | C.Gdecl (_stor, {name = n; _}, ty, init_opt) ->
@@ -379,3 +356,7 @@ and tr_decl (d : C.globdecl) : trm =
   | _ -> fail None "tr_decl: declaration not supported"
 
 
+(* [tr_ast tl] translate a C.program into Optitrust ast *)
+let tr_ast (tl : C.program) : trm = 
+  let tl = List.map tr_decl tl in 
+  trm_seq_nomarks ~annot:[Main_file] tl
