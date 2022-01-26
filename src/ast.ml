@@ -197,7 +197,7 @@ and unary_op =
   | Unop_address (* the "&" operator as in &p *)
   | Unop_bitwise_neg
   | Unop_neg
-  | Unop_opp
+  | Unop_minus
   | Unop_post_inc
   | Unop_post_dec
   | Unop_pre_inc
@@ -1510,7 +1510,7 @@ let for_loop_step (t : trm) : trm =
            n
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_sub)); _},
                     [_; n]) ->
-           trm_apps (trm_unop Unop_opp) [n]
+           trm_apps (trm_unop Unop_minus) [n]
         | _ -> fail step.loc "for_loop_step: bad for loop step"
         end
      | _ -> fail step.loc "for_loop_step: bad for loop step"
@@ -1525,7 +1525,7 @@ let for_loop_nb_iter (t : trm) : trm =
   (* reorder to use positive step *)
   let (init, bound, step) =
     match step.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_opp)); _}, [step']) ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_minus)); _}, [step']) ->
        (bound, init, step')
     | _ -> (init, bound, step)
   in

@@ -369,3 +369,7 @@ let is_file_newer_than (filename1 : string) (filename2 : string) : bool =
   let t_f1 = Unix.((stat filename1).st_mtime) in 
   let t_f2 = Unix.((stat filename2).st_mtime) in 
   t_f1 >= t_f2
+
+(* [int_to_bool i] convert an integer into a boolean *)
+let int_to_bool (i : int) : bool = 
+  if i = 1 then true else if i = 0 then false else failwith "int_to_bool: can't convert an arbitrary integer into a boolean"

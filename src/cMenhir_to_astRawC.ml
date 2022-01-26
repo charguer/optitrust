@@ -1,12 +1,6 @@
-open C (* TODO: remove probably better *)
 open! Ast
 open Tools
 
-(* map with keys variables and values their type
-  used for loops that do not declare their counter
-*)
-
-let ctx_var : Ast.typ varmap ref = ref String_map.empty (* TODO: remove *)
 
 let ctx_tconstr : typconstrid varmap ref = ref String_map.empty
 
@@ -17,9 +11,6 @@ let ctx_label : typconstrid varmap ref = ref String_map.empty
 let ctx_constr : typconstrid varmap ref = ref String_map.empty
 
 let debug_typedefs = false
-
-let ctx_var_add (tv : typvar) (t : Ast.typ) : unit =
-  ctx_var := String_map.add tv t (!ctx_var)
 
 let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
   if debug_typedefs then printf "Type %s has been added into map with typconstrid %d\n" tn tid;
@@ -37,7 +28,7 @@ let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
 
 (* [get_ctx] returns the current context *)
 let get_ctx () : ctx =
-  { ctx_var = !ctx_var; (* String_map.empty TODO *)
+  { ctx_var = String_map.empty; 
     ctx_tconstr = !ctx_tconstr;
     ctx_typedef = !ctx_typedef;
     ctx_label = !ctx_label;
@@ -54,32 +45,32 @@ let get_typid_from_trm (tv : typvar) : int  =
 (* names for overloaded operators (later matched for printing) *)
 let string_of_overloaded ?(loc : Ast.location = None) (op : C.binary_operator) : string =
   match op with
-  | Oadd -> "+"
-  | Osub -> "-"
-  | Omul -> "*"
-  | Oassign -> "="
-  | Oadd_assign -> "+="
-  | Osub_assign -> "-="
-  | Omul_assign -> "*="
+  | C.Oadd -> "+"
+  | C.Osub -> "-"
+  | C.Omul -> "*"
+  | C.Oassign -> "="
+  | C.Oadd_assign -> "+="
+  | C.Osub_assign -> "-="
+  | C.Omul_assign -> "*="
   | _ -> fail loc "string_of_overloaded_op: non supported operator"
 
 
 (* [overloaded op ~loc ~ctx op] *)
 let overloaded_op ?(loc : Ast.location = None) ?(ctx : ctx option = None) (op : C.binary_operator) : trm =
   match op with
-  | Oadd -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_add))
-  | Osub -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_sub))
-  | Omul -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_mul))
-  | Oassign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_set))
-  | Oadd_assign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_add))
-  | Osub_assign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_sub))
-  | Omul_assign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_mul))
+  | C.Oadd -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_add))
+  | C.Osub -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_sub))
+  | C.Omul -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_mul))
+  | C.Oassign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_set))
+  | C.Oadd_assign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_add))
+  | C.Osub_assign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_sub))
+  | C.Omul_assign -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_mul))
   | _ -> fail loc "overloaded_op: non supported operator"
 
 
 (* [wrap_const ~const t] wrap the type [t] into a const typ if const is true *)
 let wrap_const (att : C.attributes)(ty : Ast.typ) : Ast.typ =
-  let const = List.mem AConst att in
+  let const = List.mem C.AConst att in
   if const then typ_const ty else ty
 
 
@@ -87,35 +78,38 @@ let wrap_const (att : C.attributes)(ty : Ast.typ) : Ast.typ =
 (* TODO: Add location later when it is fixed in C.ml *)
 let rec tr_type  (ty : C.typ) : Ast.typ =
   match ty with
-  | TPtr (ty1, att) ->
+  | C.TPtr (ty1, att) ->
     let ty = tr_type ty1 in
     wrap_const att (typ_ptr Ptr_kind_mut ty)
-  | TRef (ty1, att) ->
+  | C.TRef ty1->
     let ty = tr_type ty1 in
-    wrap_const att (typ_ptr Ptr_kind_ref ty)
-  | TArray (ty1, sz, att) ->
+    typ_ptr Ptr_kind_ref ty
+  (* Only const arrays are supported for the moment *)
+  | C.TArray (ty1, sz, att) ->
     let ty = tr_type ty1 in
     begin match sz with
     | None -> wrap_const att (typ_array ty Undefined)
-    | Some n -> wrap_const att (typ_array ty (Const (Int64.to_int n)))
+    | Some (n, _) -> wrap_const att (typ_array ty (Const (Int64.to_int n)))
     end
-  | TInt (ik, att) ->
+  | C.TInt (ik, att) ->
     begin match ik with
-    | IInt -> wrap_const att (typ_int ())
-    | IUInt -> wrap_const att (typ_int ~annot:[Unsigned] ())
-    | ILong -> wrap_const att (typ_int ~annot:[Long] ())
-    | IULong -> wrap_const att (typ_int ~annot:[Unsigned; Long] ())
-    | ILongLong -> wrap_const att (typ_int ~annot:[Long; Long] ())
-    | IULongLong -> wrap_const att (typ_int ~annot:[Unsigned; Long; Long] ())
+    | C.IBool ->  wrap_const att (typ_bool ())
+    | C.IChar | C.ISChar | IUChar -> wrap_const att (typ_char ())
+    | C.IInt -> wrap_const att (typ_int ())
+    | C.IUInt -> wrap_const att (typ_int ~annot:[Unsigned] ())
+    | C.ILong -> wrap_const att (typ_int ~annot:[Long] ())
+    | C.IULong -> wrap_const att (typ_int ~annot:[Unsigned; Long] ())
+    | C.ILongLong -> wrap_const att (typ_int ~annot:[Long; Long] ())
+    | C.IULongLong -> wrap_const att (typ_int ~annot:[Unsigned; Long; Long] ())
     | _ -> fail None "tr_type: ikind not supported for integers"
     end
-  | TFloat (fk, att) ->
+  | C.TFloat (fk, att) ->
     begin match fk with
     | FFloat -> wrap_const att (typ_float ())
     | FDouble -> wrap_const att (typ_double ())
     | FLongDouble -> wrap_const att (typ_double ~annot:[Long] ())
     end
-  | TFun (ty1, params, _, att) ->
+  | C.TFun (ty1, params, _, att) ->
     let ty = tr_type ty1 in
     begin match params with
     | None -> typ_fun [] ty
@@ -123,16 +117,16 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
       let tl = List.map (fun (_, ty1) -> tr_type ty1 ) pl in
       typ_fun tl ty
     end
-  | TNamed ({name = n;_}, att) ->
+  | C.TNamed ({name = n;_}, att) ->
     let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n) in
     wrap_const att (typ_to_add)
-  | TStruct (_idn, _att) | TUnion (_idn, _att) ->
+  | C.TStruct (_idn, _att) | C.TUnion (_idn, _att) ->
       fail None "OptiTrust does not support inline use of struct or union; you must use a typedef"
-  | TEnum ({name = n; _}, att) ->
+  | C.TEnum ({name = n; _}, att) ->
     typ_constr n ~tid:(get_typid_from_trm n)
-  | TVoid _ -> typ_unit ()
+  | C.TVoid _ -> typ_unit ()
 
-and tr_stmt (s : stmt) : trm =
+and tr_stmt (s : C.stmt) : trm =
   (* TODO: loc like for expr *)
   match s.sdesc with
   | Sif (cond, then_, else_) ->
@@ -152,20 +146,17 @@ and tr_stmt (s : stmt) : trm =
     let tc = tr_expr cond in
     let ts = tr_stmt body in
     trm_do_while ts tc
-  (* | Sfor (init, cond, step, body) ->
-    let tr_stmt_opt (so : stmt) : trm =
+  | Sfor (init, cond, step, body) ->
+    let tr_stmt_opt (so : C.stmt) : trm =
       match so.sdesc with
       | Sskip -> trm_lit Lit_unit
       | _ -> tr_stmt so
       in
     let init = tr_stmt_opt init in
-    let cond = match cond.edesc with
-    | Sskip -> trm_lit (Lit_bool true)
-    | _ -> tr_expr cond
-      in
+    let cond = tr_expr cond in 
     let step = tr_stmt_opt step in
     let body = tr_stmt body in
-    trm_for_of_trm_for_c (trm_for_c init cond step body) *)
+    trm_for_of_trm_for_c (trm_for_c init cond step body)
   | Sbreak ->
     trm_abort (Break None)
   | Scontinue ->
@@ -181,68 +172,55 @@ and tr_stmt (s : stmt) : trm =
     trm_goto lb
   | Sreturn init_opt ->
     begin match init_opt with
-    | Some re -> (* TODO: use tr_init on re *)
-     begin match re with
-     | Init_single e ->
-       let t = tr_expr e in
+    | Some re -> 
+       let t = tr_init re in 
        trm_abort (Ret (Some t))
-     | _ -> fail None "tr_stmt: "
-     end
     |_ -> trm_abort (Ret None)
     end
   | Sblock sl ->
     let tl = List.map tr_stmt sl in
     trm_seq_nomarks tl
-    (* TODO: Sdecl (io)
-         match io with Some i -> tr_init i *)
+  | Sdecl (_stor, {name = n; _}, ty, init_opt) ->
+    let tt = tr_type ty in 
+    let te = begin match init_opt with 
+             | None -> trm_lit Lit_uninitialized
+             | Some init -> tr_init init
+             end
+      in
+    let mut = if is_typ_const tt then Var_immutable else Var_mutable in 
+    trm_let ~is_statement:true mut (n, tt) te
+
   | _ -> fail None "tr_stmt: statment not supported"
 
 
-and tr_init (i : init) : trm =
-  match i with
-  | Init_single t -> tr_expr t
-  | Init_array is -> trm_array (List.map tr_init is)
-  (* TODO | Init_struct of ident * (field * init) list  -> trm_struct *)
+and tr_init (i : C.init) : trm = 
+  match i with 
+  | Init_single e -> tr_expr e 
+  | Init_array il -> trm_array (Mlist.of_list (List.map tr_init il))
+  | Init_struct (_, il) -> trm_struct (Mlist.of_list (List.map (fun (_, init) -> tr_init init) il))
   | Init_union _ -> fail None "tr_init: union not supported yet"
 
-(* and tr_constant (c : constant) =
-type constant =
-  | CInt of int64 * ikind * string      (* as it appeared in the source *)
-  | CFloat of float_cst * fkind
 
+and tr_constant (c : C.constant) : trm = 
+  match c with 
+  | C.CInt (i, ik, _)->
+    let i = Int64.to_int i in
+    begin match ik with 
+    | C.IBool -> 
+      let ib = Tools.int_to_bool i in
+      trm_lit (Lit_bool ib)
+    | C.IChar | C.ISChar | C.IUChar->
+      trm_lit (Lit_string (string_of_int i))
+    | _ -> 
+      trm_lit (Lit_int i)
+    end
+  | C.CFloat ({intPart = inp; fracPart = fp;_}, fk) ->
+    trm_lit (Lit_double (float_of_string (inp ^ "." ^ fp)))
+  | CStr s -> 
+    trm_lit (Lit_string s)
+  | _  -> fail None "tr_const: constant expression is not supported"
 
-type ikind =
-  | IBool       (** [_Bool] *) -> yes
-  | IChar       (** [char] *)
-  | ISChar      (** [signed char] *)
-  | IUChar      (** [unsigned char] *)
-  | IInt        (** [int] *)
-  | IUInt       (** [unsigned int] *)
-  | IShort      (** [short] *)
-  | IUShort     (** [unsigned short] *)
-  | ILong       (** [long] *)
-  | IULong      (** [unsigned long] *)
-  | ILongLong   (** [long long] (or [_int64] on Microsoft Visual C) *)
-  | IULongLong  (** [unsigned long long] (or [unsigned _int64] on Microsoft
-                    Visual C) *)
-
-we support:
-  | Typ_int
-  | Typ_float
-  | Typ_double
-  | Typ_bool
-  | Typ_char
-
-(** Kinds of floating-point numbers*)
-
-type fkind =
-    FFloat      (** [float] *)
-  | FDouble     (** [double] *)
-  | FLongDouble (** [long double] *) -> not supported
-
-*)
-
-and tr_expr ?(is_statement : bool = false) (e : exp) : trm =
+and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
   (* TODO: let loc = tr_loc e.C.eloc
     in tr_loc   => end_column : use start_column+1 *)
   match e.edesc with
@@ -259,9 +237,9 @@ and tr_expr ?(is_statement : bool = false) (e : exp) : trm =
     let trm_apps1 unop t1 = trm_apps (trm_unop unop) [t1] in
     begin match unop with
     | Ominus ->
-      trm_apps1 Unop_opp t
+      trm_apps1 Unop_minus t
     | Oplus	->
-      trm_apps1 Unop_opp t (* TODO: add this in our unop *)
+      trm_apps1 Unop_minus t (* TODO: add this in our unop *)
     | Olognot	->
       trm_apps1 Unop_neg t
     | Onot ->
@@ -329,7 +307,7 @@ and tr_expr ?(is_statement : bool = false) (e : exp) : trm =
     let ty = tr_type ty in
     let te = tr_expr e in
     trm_apps (trm_unop (Unop_cast ty)) [te]
-  | ECompound _ -> fail None "tr_expr:" (* TODO: trm_seq *)
+  | ECompound _ -> fail None "tr_expr: Not supported for the moment" 
   | ECall (f, el) ->
     let tf = tr_expr f in
     begin match tf.desc with

@@ -79,7 +79,7 @@ and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
   | Unop_address -> string "Unop_address"
   | Unop_neg -> string "Unop_neg"
   | Unop_bitwise_neg -> string "Unop_bitwise_neg"
-  | Unop_opp -> string "Unop_opp"
+  | Unop_minus -> string "Unop_minus"
   | Unop_post_inc -> string "Unop_post_inc"
   | Unop_post_dec -> string "Unop_post_dec"
   | Unop_pre_inc -> string "Unop_pre_inc"
