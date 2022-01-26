@@ -103,6 +103,10 @@ let filter_origin sourcename ast =
     fst g.C.gloc = sourcename in
   List.filter select_globdecl ast
 
+let parse_c_file_without_includes sourcename =
+  let ast = parse_c_file sourcename in
+  filter_origin sourcename ast
+
 (* Output an AST *)
 
 let print_ast pp ast =

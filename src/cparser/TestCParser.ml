@@ -9,8 +9,7 @@ let _ =
       else failwith "Please provide the input filename as argument"
     in
   (* Parse the ast *)
-  let ast = MenhirC.parse_c_file sourcename in
-  let ast = MenhirC.filter_origin sourcename ast in
+  let ast = MenhirC.parse_c_file_without_includes sourcename in
   (* Print the ast *)
   let destname = MenhirC.get_parsed_ast_filename sourcename in
   MenhirC.print_ast_to_file destname ast;
