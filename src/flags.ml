@@ -91,7 +91,8 @@ let fix_flags () =
 let documentation_save_file_at_first_check = ref ""
 
 
-(* TODO:
+
+(* 
 in file Parser.ml
 
 type cparser = Clang | Menhir | Default | All
@@ -106,7 +107,7 @@ in flags.ml
 
 let default_parser = ref Parser.Default
 
--cparser clang   => " specify the parser among 'clang', ...
+-cparser clang   => " specify the parser among 'clang', ..."
 -cparser menhir
 -cparser all
 
