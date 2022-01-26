@@ -1,11 +1,12 @@
 open Ast
+open C
 open Tools
 
 (* map with keys variables and values their type 
   used for loops that do not declare their counter
 *)
 
-let ctx_var : typ varmap ref = ref String_map.empty
+let ctx_var : Ast.typ varmap ref = ref String_map.empty
 
 let ctx_tconstr : typconstrid varmap ref = ref String_map.empty
 
@@ -17,7 +18,7 @@ let ctx_constr : typconstrid varmap ref = ref String_map.empty
 
 let debug_typedefs = false
 
-let ctx_var_add (tv : typvar) (t : typ) : unit =
+let ctx_var_add (tv : typvar) (t : Ast.typ) : unit =
   ctx_var := String_map.add tv t (!ctx_var)
 
 let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
@@ -51,7 +52,7 @@ let get_typid_from_trm (tv : typvar) : int  =
    end
 
 (* names for overloaded operators (later matched for printing) *)
-let string_of_overloaded ?(loc : location = None) (op : C.binary_operator) : string = 
+let string_of_overloaded ?(loc : Ast.location = None) (op : C.binary_operator) : string = 
   match op with 
   | Oadd -> "+"
   | Osub -> "-"
@@ -64,7 +65,7 @@ let string_of_overloaded ?(loc : location = None) (op : C.binary_operator) : str
   
 
 (* [overloaded op ~loc ~ctx op] *)
-let overloade_op ?(loc : location = None) ?(ctx : ctx option = None) (op : C.binary_operator) : trm = 
+let overloade_op ?(loc : Ast.location = None) ?(ctx : ctx option = None) (op : C.binary_operator) : trm = 
   match op with 
   | Oadd -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_add))
   | Osub -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_sub))
@@ -77,8 +78,56 @@ let overloade_op ?(loc : location = None) ?(ctx : ctx option = None) (op : C.bin
 
 
 (* [wrap_const ~const t] wrap the type [t] into a const typ if const is true *)
-let wrap_const ?(const : bool = false) (t : typ) : typ = 
-  if const then typ_const t else t 
+let wrap_const (att : C.attributes)(ty : Ast.typ) : Ast.typ = 
+  let const = List.mem AConst att in 
+  if const then typ_const ty else ty 
 
 
+  
+(* TODO: Add location later when it is fixed in C.ml *)
+let rec tr_type  (ty : C.typ) : Ast.typ = 
+  match ty with 
+  | TPtr (ty1, att) -> 
+    let ty = tr_type ty1 in 
+    wrap_const att (typ_ptr Ptr_kind_mut ty)
+  | TRef (ty1, att) -> 
+    let ty = tr_type ty1 in 
+    wrap_const att (typ_ptr Ptr_kind_ref ty)
+  | TArray (ty1, sz, att) ->
+    let ty = tr_type ty1 in 
+    begin match sz with 
+    | None -> wrap_const att (typ_array ty Undefined)
+    | Some n -> wrap_const att (typ_array ty (Const (Int64.to_int n)))
+    end
+  | TInt (ik, att) -> 
+    begin match ik with 
+    | IInt -> wrap_const att (typ_int ())
+    | IUInt -> wrap_const att (typ_int ~annot:[Unsigned] ())
+    | ILong -> wrap_const att (typ_int ~annot:[Long] ())
+    | IULong -> wrap_const att (typ_int ~annot:[Unsigned; Long] ())
+    | ILongLong -> wrap_const att (typ_int ~annot:[Long; Long] ())
+    | IULongLong -> wrap_const att (typ_int ~annot:[Unsigned; Long; Long] ())
+    | _ -> fail None "tr_type: ikind not supported for integers" 
+    end 
+  | TFloat (fk, att) -> 
+    begin match fk with 
+    | FFloat -> wrap_const att (typ_float ())
+    | FDouble -> wrap_const att (typ_double ())
+    | FLongDouble -> wrap_const att (typ_double ~annot:[Long] ())
+    end
+  | TFun (ty1, params, _, att) -> 
+    let ty = tr_type ty1 in 
+    begin match params with 
+    | None -> typ_fun [] ty
+    | Some pl -> 
+      let tl = List.map (fun (_, ty1) -> tr_type ty1 ) pl in 
+      typ_fun tl ty
+    end
+  | TNamed ({name = n;_}, att) -> 
+    let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n) in 
+    wrap_const att (typ_to_add)
+  | TStruct (idn, att) | TUnion (idn, att) -> fail None "discuss with Arthur"
+  | TEnum ({name = n; _}, att) -> 
+    typ_constr n ~tid:(get_typid_from_trm n)
+  | TVoid _ -> typ_unit ()
   

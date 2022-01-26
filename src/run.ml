@@ -21,7 +21,7 @@ let _ = set_exn_backtrace true
 let _ =
   Gc.set { (Gc.get()) with
               Gc.minor_heap_size = 524288; (* 512k *)
-              Gc.major_heap_increment = 4194304 (* 4M *) };
+              Gc.major_heap_increment = 4194304 (* 4M *) }
 
 
 (******************************************************************************)
@@ -50,8 +50,6 @@ let script (f : unit -> unit) : unit =
     Printf.eprintf "%s\n" sbt;
     Printf.eprintf "=======\nFailure: %s\n" s;
     exit 1
-
-
 
 let debug_inline_cpp = false
 
