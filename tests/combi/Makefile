@@ -53,10 +53,15 @@ TESTS_TOCHECK := \
 
 TESTS_TO_FIX := \
 	aos_to_soa.ml \
-  
+
 
 TESTS_WITH_DOC := \
+	variable_insert_and_fold.ml \
 	loop_fusion.ml \
+	variable_insert.ml
+
+# 	variable_renames.ml \
+
 
 
 TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK)

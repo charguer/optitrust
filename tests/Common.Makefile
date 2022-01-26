@@ -34,8 +34,12 @@ EXCLUDE_TESTS ?=
 # List of ml files to include (by default, all *.ml except those in EXCLUDE_TESTS, and the generated *.ml files)
 TESTS ?= $(filter-out $(wildcard *with_lines.ml), $(filter-out $(EXCLUDE_TESTS), $(wildcard *.ml)))
 
+# List of ml files to include in the documentation
+TESTS_WITH_DOC ?= $(TESTS)
+
 # List of ml files for which the cpp files should be compiled
 COMPILE ?= $(TESTS)
+
 # List of ml files for which the cpp files should be executed for comparison
 EXECUTE ?= $(COMPILE)
 
@@ -186,12 +190,21 @@ endif
 
 # 'make batch_recheck' is similar but for 'recheck' instead of 'check'.
 # 'make batch' is a shorthand for this.
+# 'make batch_doc' is currently just an alias for 'make batch_check', followed by 'make doc'
+# 'make batch_redoc' is currently just an alias for 'make batch_recheck', followed by 'make doc'
+# LATER: we may want 'make batch_doc' to check only the files that belong to $(TESTS_WITH_DOC), but it's minor gain
 
 batch_check: clean_batch
 	$(MAKE) BATCH=1 check
 
 batch_recheck: clean_batch
 	$(MAKE) BATCH=1 recheck
+
+batch_doc: clean_batch
+	$(MAKE) BATCH=1 batch_check doc
+
+batch_redoc: clean_batch
+	$(MAKE) BATCH=1 batch_recheck doc
 
 batch: batch_recheck
 
@@ -212,6 +225,7 @@ $(TESTS:.ml=_out.cpp): batch.$(PROGEXT) $(TESTS:.ml=.cpp)
 	@echo "Executed batch.$(PROGEXT) to produce all output files"
 
 endif
+
 #-----end rules for batch mode------
 
 
@@ -258,7 +272,7 @@ DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 
 # Use 'make mytransfo_doc.html' to build an html preview of the documentation on that transformation (in $(CURDIR))
 %_doc.html: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
-	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $*
+	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $@ $*
 	@echo Produced $@
 
 # To check the documentation associated with the demo in a browser, use 'make mytransfo.doc'
@@ -279,8 +293,16 @@ DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 	@echo "---------------------"
 	$(V)git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | tail -n +5
 
-# 'make doc' to build the auxililary files needed by _doc.html
-doc: $(DOCJS)
+# 'make docs' to build all the auxililary *_doc.html
+docs: $(DOCJS)
+
+# 'make doc' to build the documentation for all $(TESTS_WITH_DOC) in doc.html
+doc: doc.html
+	$(V)$(BROWSER) $<
+
+doc.html: $(DOCJS)
+	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $@ $(TESTS_WITH_DOC:.ml=)
+	@echo Produced $@
 
 # 'make redoc' to force rebuilding all the documentation files
 redoc: cleandoc doc
