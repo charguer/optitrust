@@ -319,5 +319,35 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     end
 
 
+and tr_decl (d : C.globdecl) : trm =
+  match d.gdesc with 
+  | Gdecl (_stor, {name = n; _}, ty, init_opt) ->
+    let tt = tr_type ty in 
+    let te = begin match init_opt with 
+             | None -> trm_lit Lit_uninitialized
+             | Some init -> tr_init init
+             end
+      in
+    let mut = if is_typ_const tt then Var_immutable else Var_mutable in 
+    trm_let ~is_statement:true mut (n, tt) te
+  | Gfundef {fd_storage = _; fd_inline = inline; fd_name = {name = n;_}; fd_attrib = _att; fd_ret = ty; fd_params = po; fd_body = bo; _} ->
+    let tt = tr_type ty in 
+    let tb = tr_stmt bo in 
+    begin match po with 
+    | [] -> 
+      trm_let_fun n tt [] tb
+    | _ ->   
+      let get_args (tv : C.ident * C.typ) : (var * typ) = 
+        let (id, ty) = tv in 
+        let ty = tr_type ty in 
+        (id.name, ty)
+       in 
+      let args = List.map get_args po in
+      trm_let_fun n tt args tb
+    end
+
+  (* | Gtypedef (n, ty)
+  | Genumdef (n, att, e_l) *)
+  | _ -> fail None "tr_decl: declaration not supported"
 
 
