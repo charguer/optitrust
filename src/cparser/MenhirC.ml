@@ -96,6 +96,13 @@ let parse_c_file sourcename =
   preprocess sourcename preproname;
   parse_preprocessed_c_file sourcename preproname
 
+(* Filter AST global entries that originate in a specific file *)
+
+let filter_origin sourcename ast =
+  let select_globdecl g =
+    fst g.gloc = sourcename in
+  List.filter select_globdecl ast
+
 (* Output an AST *)
 
 let print_ast pp ast =
