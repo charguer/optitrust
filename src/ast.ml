@@ -250,8 +250,8 @@ and lit =
   | Lit_unit (* void, e.g. "return;" is represented as "Lit_unit" *)
   | Lit_uninitialized (* e.g. "int x;" is "int x = Lit_uninitalized" *)
   | Lit_bool of bool
-  | Lit_int of int
-  | Lit_double of float
+  | Lit_int of int (* LATER: add the string "as it was in the source" *)
+  | Lit_double of float (* LATER: add the string "as it was in the source" *)
   | Lit_string of string
 
 (* values *)
@@ -2117,7 +2117,7 @@ let is_typ (ty : typ) : bool =
 exception No_ast_or_code_provided
 exception Ast_and_code_provided
 
-(* [hide_function_bodies f_pred tl] all the toplevel function with their names satisfying 
+(* [hide_function_bodies f_pred tl] all the toplevel function with their names satisfying
    [f_pred] will have hidden bodie. Others will be kept unchanged.
     The new ast is called the chopped_ast. This function wlll return the choped_ast and a map with keys
     the names of the functions whose body has been removed and values their removed body.
@@ -2378,10 +2378,10 @@ let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
   !f_names
 
 (* [dump_to_file file t] write serialized [t] into file [file]*)
-let dump_to_file (file : string) (t : trm) : unit = 
+let dump_to_file (file : string) (t : trm) : unit =
   Tools.dump_to_file file t
 
 
 (* [load_from_file file ] read from file [file], where [file] is expected to be generated from [dumpt_to_file]*)
-let load_from_file (file : string) : trm = 
-  Tools.load_from_file file 
+let load_from_file (file : string) : trm =
+  Tools.load_from_file file

@@ -1,12 +1,12 @@
-open Ast
-open C
+open C (* TODO: remove probably better *)
+open! Ast
 open Tools
 
-(* map with keys variables and values their type 
+(* map with keys variables and values their type
   used for loops that do not declare their counter
 *)
 
-let ctx_var : Ast.typ varmap ref = ref String_map.empty
+let ctx_var : Ast.typ varmap ref = ref String_map.empty (* TODO: remove *)
 
 let ctx_tconstr : typconstrid varmap ref = ref String_map.empty
 
@@ -37,7 +37,7 @@ let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
 
 (* [get_ctx] returns the current context *)
 let get_ctx () : ctx =
-  { ctx_var = !ctx_var;
+  { ctx_var = !ctx_var; (* String_map.empty TODO *)
     ctx_tconstr = !ctx_tconstr;
     ctx_typedef = !ctx_typedef;
     ctx_label = !ctx_label;
@@ -52,21 +52,21 @@ let get_typid_from_trm (tv : typvar) : int  =
    end
 
 (* names for overloaded operators (later matched for printing) *)
-let string_of_overloaded ?(loc : Ast.location = None) (op : C.binary_operator) : string = 
-  match op with 
+let string_of_overloaded ?(loc : Ast.location = None) (op : C.binary_operator) : string =
+  match op with
   | Oadd -> "+"
   | Osub -> "-"
   | Omul -> "*"
-  | Oassign -> "=" 
-  | Oadd_assign -> "+=" 
+  | Oassign -> "="
+  | Oadd_assign -> "+="
   | Osub_assign -> "-="
   | Omul_assign -> "*="
   | _ -> fail loc "string_of_overloaded_op: non supported operator"
-  
+
 
 (* [overloaded op ~loc ~ctx op] *)
-let overloade_op ?(loc : Ast.location = None) ?(ctx : ctx option = None) (op : C.binary_operator) : trm = 
-  match op with 
+let overloaded_op ?(loc : Ast.location = None) ?(ctx : ctx option = None) (op : C.binary_operator) : trm =
+  match op with
   | Oadd -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_add))
   | Osub -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_sub))
   | Omul -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_mul))
@@ -78,168 +78,216 @@ let overloade_op ?(loc : Ast.location = None) ?(ctx : ctx option = None) (op : C
 
 
 (* [wrap_const ~const t] wrap the type [t] into a const typ if const is true *)
-let wrap_const (att : C.attributes)(ty : Ast.typ) : Ast.typ = 
-  let const = List.mem AConst att in 
-  if const then typ_const ty else ty 
+let wrap_const (att : C.attributes)(ty : Ast.typ) : Ast.typ =
+  let const = List.mem AConst att in
+  if const then typ_const ty else ty
 
 
-  
+
 (* TODO: Add location later when it is fixed in C.ml *)
-let rec tr_type  (ty : C.typ) : Ast.typ = 
-  match ty with 
-  | TPtr (ty1, att) -> 
-    let ty = tr_type ty1 in 
+let rec tr_type  (ty : C.typ) : Ast.typ =
+  match ty with
+  | TPtr (ty1, att) ->
+    let ty = tr_type ty1 in
     wrap_const att (typ_ptr Ptr_kind_mut ty)
-  | TRef (ty1, att) -> 
-    let ty = tr_type ty1 in 
+  | TRef (ty1, att) ->
+    let ty = tr_type ty1 in
     wrap_const att (typ_ptr Ptr_kind_ref ty)
   | TArray (ty1, sz, att) ->
-    let ty = tr_type ty1 in 
-    begin match sz with 
+    let ty = tr_type ty1 in
+    begin match sz with
     | None -> wrap_const att (typ_array ty Undefined)
     | Some n -> wrap_const att (typ_array ty (Const (Int64.to_int n)))
     end
-  | TInt (ik, att) -> 
-    begin match ik with 
+  | TInt (ik, att) ->
+    begin match ik with
     | IInt -> wrap_const att (typ_int ())
     | IUInt -> wrap_const att (typ_int ~annot:[Unsigned] ())
     | ILong -> wrap_const att (typ_int ~annot:[Long] ())
     | IULong -> wrap_const att (typ_int ~annot:[Unsigned; Long] ())
     | ILongLong -> wrap_const att (typ_int ~annot:[Long; Long] ())
     | IULongLong -> wrap_const att (typ_int ~annot:[Unsigned; Long; Long] ())
-    | _ -> fail None "tr_type: ikind not supported for integers" 
-    end 
-  | TFloat (fk, att) -> 
-    begin match fk with 
+    | _ -> fail None "tr_type: ikind not supported for integers"
+    end
+  | TFloat (fk, att) ->
+    begin match fk with
     | FFloat -> wrap_const att (typ_float ())
     | FDouble -> wrap_const att (typ_double ())
     | FLongDouble -> wrap_const att (typ_double ~annot:[Long] ())
     end
-  | TFun (ty1, params, _, att) -> 
-    let ty = tr_type ty1 in 
-    begin match params with 
+  | TFun (ty1, params, _, att) ->
+    let ty = tr_type ty1 in
+    begin match params with
     | None -> typ_fun [] ty
-    | Some pl -> 
-      let tl = List.map (fun (_, ty1) -> tr_type ty1 ) pl in 
+    | Some pl ->
+      let tl = List.map (fun (_, ty1) -> tr_type ty1 ) pl in
       typ_fun tl ty
     end
-  | TNamed ({name = n;_}, att) -> 
-    let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n) in 
+  | TNamed ({name = n;_}, att) ->
+    let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n) in
     wrap_const att (typ_to_add)
-  | TStruct (idn, att) | TUnion (idn, att) -> fail None "discuss with Arthur"
-  | TEnum ({name = n; _}, att) -> 
+  | TStruct (_idn, _att) | TUnion (_idn, _att) ->
+      fail None "OptiTrust does not support inline use of struct or union; you must use a typedef"
+  | TEnum ({name = n; _}, att) ->
     typ_constr n ~tid:(get_typid_from_trm n)
   | TVoid _ -> typ_unit ()
-  
 
-and tr_stmt (s : stmt) : trm = 
-  match s.sdesc with 
+and tr_stmt (s : stmt) : trm =
+  (* TODO: loc like for expr *)
+  match s.sdesc with
   | Sif (cond, then_, else_) ->
-     let tc = tr_expr cond in 
-     let tt = tr_stmt then_ in 
-     begin match else_.sdesc with 
+     let tc = tr_expr cond in
+     let tt = tr_stmt then_ in
+     begin match else_.sdesc with
      | Sskip -> trm_if tc tt (trm_lit Lit_unit)
-     | _ -> 
-      let te = tr_stmt else_ in 
+     | _ ->
+      let te = tr_stmt else_ in
       trm_if tc tt te
      end
-  | Swhile (cond, body) -> 
-    let tc = tr_expr cond in 
-    let ts = tr_stmt body in 
+  | Swhile (cond, body) ->
+    let tc = tr_expr cond in
+    let ts = tr_stmt body in
     trm_while tc ts
-  | Sdowhile (body, cond) -> 
-    let tc = tr_expr cond in 
-    let ts = tr_stmt body in 
+  | Sdowhile (body, cond) ->
+    let tc = tr_expr cond in
+    let ts = tr_stmt body in
     trm_do_while ts tc
-  (* | Sfor (init, cond, step, body) -> 
-    let tr_stmt_opt (so : stmt) : trm = 
-      match so.sdesc with 
+  (* | Sfor (init, cond, step, body) ->
+    let tr_stmt_opt (so : stmt) : trm =
+      match so.sdesc with
       | Sskip -> trm_lit Lit_unit
       | _ -> tr_stmt so
       in
-    let init = tr_stmt_opt init in 
-    let cond = match cond.edesc with 
+    let init = tr_stmt_opt init in
+    let cond = match cond.edesc with
     | Sskip -> trm_lit (Lit_bool true)
     | _ -> tr_expr cond
-      in 
-    let step = tr_stmt_opt step in 
-    let body = tr_stmt body in 
+      in
+    let step = tr_stmt_opt step in
+    let body = tr_stmt body in
     trm_for_of_trm_for_c (trm_for_c init cond step body) *)
-  | Sbreak -> 
+  | Sbreak ->
     trm_abort (Break None)
-  | Scontinue -> 
+  | Scontinue ->
     trm_abort (Continue None)
-  | Slabeled (label, body) -> 
-    begin match label with 
+  | Slabeled (label, body) ->
+    begin match label with
     | Slabel lb ->
-      let t = tr_stmt body in 
+      let t = tr_stmt body in
       trm_labelled lb t
-    | _ -> fail None "tr_stmt: Ast Arthur"
+    | _ -> fail None "tr_stmt: switch clauses are not yet supported in OptiTrust"
     end
-  | Sgoto lb -> 
+  | Sgoto lb ->
     trm_goto lb
-  | Sreturn init_opt -> 
-    begin match init_opt with 
-    | Some re ->
-     begin match re with 
-     | Init_single e -> 
-       let t = tr_expr e in 
+  | Sreturn init_opt ->
+    begin match init_opt with
+    | Some re -> (* TODO: use tr_init on re *)
+     begin match re with
+     | Init_single e ->
+       let t = tr_expr e in
        trm_abort (Ret (Some t))
-     | _ -> fail None "tr_stmt: ast Arthur"
+     | _ -> fail None "tr_stmt: "
      end
     |_ -> trm_abort (Ret None)
     end
-  | Sblock sl -> 
-    let tl = List.map tr_stmt sl in 
+  | Sblock sl ->
+    let tl = List.map tr_stmt sl in
     trm_seq_nomarks tl
-  | _ -> fail None "tr_stmt: statment not supported" 
+    (* TODO: Sdecl (io)
+         match io with Some i -> tr_init i *)
+  | _ -> fail None "tr_stmt: statment not supported"
 
 
+and tr_init (i : init) : trm =
+  match i with
+  | Init_single t -> tr_expr t
+  | Init_array is -> trm_array (List.map tr_init is)
+  (* TODO | Init_struct of ident * (field * init) list  -> trm_struct *)
+  | Init_union _ -> fail None "tr_init: union not supported yet"
 
-and tr_expr ?(is_statement : bool = false) (e : exp) : trm = 
-  match e.edesc with 
-  | EConst c -> fail None "tr_expr: Ask Arthur"
+(* and tr_constant (c : constant) =
+type constant =
+  | CInt of int64 * ikind * string      (* as it appeared in the source *)
+  | CFloat of float_cst * fkind
+
+
+type ikind =
+  | IBool       (** [_Bool] *) -> yes
+  | IChar       (** [char] *)
+  | ISChar      (** [signed char] *)
+  | IUChar      (** [unsigned char] *)
+  | IInt        (** [int] *)
+  | IUInt       (** [unsigned int] *)
+  | IShort      (** [short] *)
+  | IUShort     (** [unsigned short] *)
+  | ILong       (** [long] *)
+  | IULong      (** [unsigned long] *)
+  | ILongLong   (** [long long] (or [_int64] on Microsoft Visual C) *)
+  | IULongLong  (** [unsigned long long] (or [unsigned _int64] on Microsoft
+                    Visual C) *)
+
+we support:
+  | Typ_int
+  | Typ_float
+  | Typ_double
+  | Typ_bool
+  | Typ_char
+
+(** Kinds of floating-point numbers*)
+
+type fkind =
+    FFloat      (** [float] *)
+  | FDouble     (** [double] *)
+  | FLongDouble (** [long double] *) -> not supported
+
+*)
+
+and tr_expr ?(is_statement : bool = false) (e : exp) : trm =
+  (* TODO: let loc = tr_loc e.C.eloc
+    in tr_loc   => end_column : use start_column+1 *)
+  match e.edesc with
+  | EConst c -> fail None "tr_expr: " (* TODO :tr_constant *)
   | ESizeof ty ->
-    let ty = tr_type ty in  
+    let ty = tr_type ty in
     trm_var ("sizeof(" ^ Ast_to_rawC.typ_to_string ty ^ ")")
-  | EAlignof ty -> 
-     let ty = tr_type ty in 
+  | EAlignof ty ->
+     let ty = tr_type ty in
      trm_var ("_Alignas(" ^ Ast_to_rawC.typ_to_string ty ^ ")")
   | EVar {name = n; _} -> trm_var n
-  | EUnop (unop, e) -> 
-    let t = tr_expr e in 
-    let trm_apps1 unop t1 = trm_apps (trm_unop unop) [t1] in 
-    begin match unop with 
-    | Ominus -> 
+  | EUnop (unop, e) ->
+    let t = tr_expr e in
+    let trm_apps1 unop t1 = trm_apps (trm_unop unop) [t1] in
+    begin match unop with
+    | Ominus ->
       trm_apps1 Unop_opp t
-    | Oplus	-> 
-      trm_apps1 Unop_opp t (* Arthur: What should I do here *)
+    | Oplus	->
+      trm_apps1 Unop_opp t (* TODO: add this in our unop *)
     | Olognot	->
-      trm_apps1 Unop_neg t 
-    | Onot -> 
+      trm_apps1 Unop_neg t
+    | Onot ->
       trm_apps1 Unop_bitwise_neg t
-    | Oderef -> 
+    | Oderef ->
       trm_apps1 Unop_get t
     | Oaddrof ->
       trm_apps1 Unop_address t
     | Opreincr ->
       trm_apps1 Unop_pre_inc t
-    | Opredecr -> 
-      trm_apps1 Unop_pre_dec t 
+    | Opredecr ->
+      trm_apps1 Unop_pre_dec t
     | Opostincr ->
       trm_apps1 Unop_post_inc t
     | Opostdecr ->
-      trm_apps1 Unop_post_dec t 
+      trm_apps1 Unop_post_dec t
     | Odot s ->
       trm_apps1 (Unop_struct_get s)  t
     | Oarrow s ->
       trm_apps ~annot:[Display_arrow] (trm_unop (Unop_struct_get s)) [t]
     end
-  | EBinop (binop, le, re, _) -> 
-    let tl = tr_expr le in 
-    let tr = tr_expr re in 
-    let trm_prim_c binop tl tr = trm_prim_compound binop tl tr in 
-    begin match binop with 
+  | EBinop (binop, le, re, _) ->
+    let tl = tr_expr le in
+    let tr = tr_expr re in
+    let trm_prim_c binop tl tr = trm_prim_compound binop tl tr in
+    begin match binop with
     | Oadd -> trm_add tl tr
     | Osub -> trm_sub tl tr
     | Omul -> trm_mul tl tr
@@ -268,31 +316,31 @@ and tr_expr ?(is_statement : bool = false) (e : exp) : trm =
     | Oxor_assign -> trm_prim_c Binop_xor tl tr
     | Oshl_assign -> trm_prim_c Binop_shiftl tl tr
     | Oshr_assign -> trm_prim_c Binop_shiftr tl tr
-    | Ocomma -> fail None "tr_expr: Ast Arthur"
+    | Ocomma -> fail None "tr_expr: OptiTrust does not support the comma operator"
     | Ologand -> trm_bit_and tl tr
     | Ologor -> trm_bit_or tl tr
     end
-  | EConditional (cond, then_, else_) -> 
+  | EConditional (cond, then_, else_) ->
     let t_cond = tr_expr cond in
-    let t_then = tr_expr then_ in 
-    let t_else = tr_expr else_ in 
+    let t_then = tr_expr then_ in
+    let t_else = tr_expr else_ in
     trm_apps (trm_prim Prim_conditional_op) [t_cond; t_then; t_else]
-  | ECast (ty, e) -> 
-    let ty = tr_type ty in 
-    let te = tr_expr e in 
+  | ECast (ty, e) ->
+    let ty = tr_type ty in
+    let te = tr_expr e in
     trm_apps (trm_unop (Unop_cast ty)) [te]
-  | ECompound _ -> fail None "tr_expr:Ask Arthur"
-  | ECall (f, el) -> 
-    let tf = tr_expr f in 
-    begin match tf.desc with 
+  | ECompound _ -> fail None "tr_expr:" (* TODO: trm_seq *)
+  | ECall (f, el) ->
+    let tf = tr_expr f in
+    begin match tf.desc with
     | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
-      begin match el with 
+      begin match el with
       | [tl; tr] -> trm_set (tr_expr tl) (tr_expr tr)
       | _ -> fail None "tr_expr: overloaded= expects two arguments"
       end
     | _ -> trm_apps tf (List.map tr_expr el)
     end
-  
+
 
 
 

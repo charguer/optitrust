@@ -18,6 +18,7 @@ typedef struct /*vect*/ {
 int main() {
   const vec2 v = {0,0,0};
   const double y = v.x;
+  return 1;
 }
 
 typedef enum {  A, B } bar;

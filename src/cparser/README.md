@@ -93,3 +93,10 @@ depend: $(GENERATED)
 Cutil <-> Cprint dep for no_exp
 
 C2C drole de nom
+
+
+can we get end positions easily?
+locations for types and init and all identities?
+
+remove return 0
+

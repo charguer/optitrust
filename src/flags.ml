@@ -91,3 +91,28 @@ let fix_flags () =
 let documentation_save_file_at_first_check = ref ""
 
 
+(* TODO:
+in file Parser.ml
+
+type cparser = Clang | Menhir | Default | All
+
+let cparser_of_string (s : string) : cparser =
+  | "clang" => Clang
+
+
+
+
+in flags.ml
+
+let default_parser = ref Parser.Default
+
+-cparser clang   => " specify the parser among 'clang', ...
+-cparser menhir
+-cparser all
+
+
+in trace/run:
+let reparse ?(parser=Parser.Default)
+
+
+*)
