@@ -14,8 +14,18 @@
 (*                                                                     *)
 (* *********************************************************************)
 
-val set_generate_static_func_names : bool -> unit
+val generate_static_func_names : bool ref
   (* This option allows to deactivate the generation of __func__ entries *)
+
+val generate_implicit_return_on_main : bool ref
+  (* This option allows to deactivate the generation of [return 0] at end of main *)
+
+val allow_variables_as_array_size : bool ref
+  (* This option adds support for referring to const variables in array sizes *)
+
+val allow_compound_initializer_in_return : bool ref
+  (* This option adds support for return statements applied to compound initializers *)
+
 
 val elab_file : Cabs.definition list -> C.program
   (* This is the main entry point.  It transforms a list of toplevel
