@@ -93,12 +93,14 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
     end
   | C.TInt (ik, att) ->
     begin match ik with
-    | IInt -> wrap_const att (typ_int ())
-    | IUInt -> wrap_const att (typ_int ~annot:[Unsigned] ())
-    | ILong -> wrap_const att (typ_int ~annot:[Long] ())
-    | IULong -> wrap_const att (typ_int ~annot:[Unsigned; Long] ())
-    | ILongLong -> wrap_const att (typ_int ~annot:[Long; Long] ())
-    | IULongLong -> wrap_const att (typ_int ~annot:[Unsigned; Long; Long] ())
+    | C.IBool ->  wrap_const att (typ_bool ())
+    | C.IChar | C.ISChar | IUChar -> wrap_const att (typ_char ())
+    | C.IInt -> wrap_const att (typ_int ())
+    | C.IUInt -> wrap_const att (typ_int ~annot:[Unsigned] ())
+    | C.ILong -> wrap_const att (typ_int ~annot:[Long] ())
+    | C.IULong -> wrap_const att (typ_int ~annot:[Unsigned; Long] ())
+    | C.ILongLong -> wrap_const att (typ_int ~annot:[Long; Long] ())
+    | C.IULongLong -> wrap_const att (typ_int ~annot:[Unsigned; Long; Long] ())
     | _ -> fail None "tr_type: ikind not supported for integers"
     end
   | C.TFloat (fk, att) ->
@@ -170,13 +172,9 @@ and tr_stmt (s : C.stmt) : trm =
     trm_goto lb
   | Sreturn init_opt ->
     begin match init_opt with
-    | Some re -> (* TODO: use tr_init on re *)
-     begin match re with
-     | Init_single e ->
-       let t = tr_expr e in
+    | Some re -> 
+       let t = tr_init re in 
        trm_abort (Ret (Some t))
-     | _ -> fail None "tr_stmt: "
-     end
     |_ -> trm_abort (Ret None)
     end
   | Sblock sl ->
@@ -202,42 +200,25 @@ and tr_init (i : C.init) : trm =
   | Init_struct (_, il) -> trm_struct (Mlist.of_list (List.map (fun (_, init) -> tr_init init) il))
   | Init_union _ -> fail None "tr_init: union not supported yet"
 
-(* and tr_constant (c : constant) =
-type constant =
-  | CInt of int64 * ikind * string      (* as it appeared in the source *)
-  | CFloat of float_cst * fkind
 
-
-type ikind =
-  | IBool       (** [_Bool] *) -> yes
-  | IChar       (** [char] *)
-  | ISChar      (** [signed char] *)
-  | IUChar      (** [unsigned char] *)
-  | IInt        (** [int] *)
-  | IUInt       (** [unsigned int] *)
-  | IShort      (** [short] *)
-  | IUShort     (** [unsigned short] *)
-  | ILong       (** [long] *)
-  | IULong      (** [unsigned long] *)
-  | ILongLong   (** [long long] (or [_int64] on Microsoft Visual C) *)
-  | IULongLong  (** [unsigned long long] (or [unsigned _int64] on Microsoft
-                    Visual C) *)
-
-we support:
-  | Typ_int
-  | Typ_float
-  | Typ_double
-  | Typ_bool
-  | Typ_char
-
-(** Kinds of floating-point numbers*)
-
-type fkind =
-    FFloat      (** [float] *)
-  | FDouble     (** [double] *)
-  | FLongDouble (** [long double] *) -> not supported
-
-*)
+and tr_constant (c : C.constant) : trm = 
+  match c with 
+  | C.CInt (i, ik, _)->
+    let i = Int64.to_int i in
+    begin match ik with 
+    | C.IBool -> 
+      let ib = Tools.int_to_bool i in
+      trm_lit (Lit_bool ib)
+    | C.IChar | C.ISChar | C.IUChar->
+      trm_lit (Lit_string (string_of_int i))
+    | _ -> 
+      trm_lit (Lit_int i)
+    end
+  | C.CFloat ({intPart = inp; fracPart = fp;_}, fk) ->
+    trm_lit (Lit_double (float_of_string (inp ^ "." ^ fp)))
+  | CStr s -> 
+    trm_lit (Lit_string s)
+  | _  -> fail None "tr_const: constant expression is not supported"
 
 and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
   (* TODO: let loc = tr_loc e.C.eloc
@@ -326,7 +307,7 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     let ty = tr_type ty in
     let te = tr_expr e in
     trm_apps (trm_unop (Unop_cast ty)) [te]
-  | ECompound _ -> fail None "tr_expr:" (* TODO: trm_seq *)
+  | ECompound _ -> fail None "tr_expr: Not supported for the moment" 
   | ECall (f, el) ->
     let tf = tr_expr f in
     begin match tf.desc with
