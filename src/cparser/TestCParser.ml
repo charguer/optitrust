@@ -1,11 +1,12 @@
 
-let print_parsed_ast = ref true
+let print_parsed_ast = ref true (* Warning: result does not display very well *)
 
 (* Configuration of the parser *)
 
 let _ =
   Printexc.record_backtrace true;
-  Machine.config := Machine.x86_64
+  Machine.config := Machine.x86_64;
+  Elab.set_generate_static_func_names false
 
 
 (* Output an AST *)

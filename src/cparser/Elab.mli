@@ -14,6 +14,9 @@
 (*                                                                     *)
 (* *********************************************************************)
 
+val set_generate_static_func_names : bool -> unit
+  (* This option allows to deactivate the generation of __func__ entries *)
+
 val elab_file : Cabs.definition list -> C.program
   (* This is the main entry point.  It transforms a list of toplevel
      definitions as produced by the parser into a program in C abstract

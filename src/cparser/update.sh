@@ -9,6 +9,7 @@ DEST=`pwd`
 FILES="\
   cparser/Cprint.ml \
   cparser/Elab.ml \
+  cparser/Elab.mli \
   cparser/Ceval.ml \
   cparser/Cutil.ml \
   cparser/Cutil.mli \
@@ -19,7 +20,7 @@ FILES="\
   cparser/pre_parser.mli \
   cparser/pre_parser_aux.ml \
   cparser/pre_parser_aux.mli \
-  cparser/pre_parser_messages.mli \
+  cparser/pre_parser_messages.ml \
   x86/CBuiltins.ml \
   extraction/Cabs.ml \
   extraction/Cabs.mli \
@@ -32,7 +33,7 @@ cp ${FILES} ${DEST}
 echo "Copied files: ${FILES}"
 
 cd ${DEST}
-sed -i 's/Cleanup\.program p/p/;s/Checks\.unused_variables p;//;s/Checks\.unknown_attrs_program p;//;s/Checks\.non_linear_conditional p;//' Elab.ml
+sed -i 's/Cleanup\.program p/List.rev p/;s/Checks\.unused_variables p;//;s/Checks\.unknown_attrs_program p;//;s/Checks\.non_linear_conditional p;//' Elab.ml
 sed -i '' Elab.ml
 echo "Patched Elab.ml"
 
