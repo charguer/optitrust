@@ -100,7 +100,7 @@ let parse_c_file sourcename =
 
 let filter_origin sourcename ast =
   let select_globdecl g =
-    fst g.gloc = sourcename in
+    fst g.C.gloc = sourcename in
   List.filter select_globdecl ast
 
 (* Output an AST *)
