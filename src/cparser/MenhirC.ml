@@ -20,7 +20,7 @@ let debug_preprocessor = true
 let compcert_include_path =
   try Sys.getenv("OPTITRUST") ^ "src/cparser/include";
   with Not_found ->
-    let p = "/usr/local/lib/compcert" in
+    let p = Config.stdlib_path in
     if not (Sys.file_exists p)
       then failwith "Please either install src/cparser/include into /usr/local/lib/compcert, or export the environment variable OPTITRUST";
     p

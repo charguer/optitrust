@@ -62,12 +62,12 @@ let command ?stdout args =
     end;
     prerr_endline ""
   end;
-  let resp = Sys.win32 && Configuration.response_file_style <> Configuration.Unsupported in
+  let resp = Sys.win32 && Config.response_file_style <> Config.Unsupported in
   if resp && List.fold_left (fun len arg -> len + String.length arg + 1) 0 args > 7000 then
-    let quote,prefix = match Configuration.response_file_style with
-    | Configuration.Unsupported -> assert false
-    | Configuration.Gnu -> Responsefile.gnu_quote,"@"
-    | Configuration.Diab -> Responsefile.diab_quote,"-@" in
+    let quote,prefix = match Config.response_file_style with
+    | Config.Unsupported -> assert false
+    | Config.Gnu -> Responsefile.gnu_quote,"@"
+    | Config.Diab -> Responsefile.diab_quote,"-@" in
     let file,oc = Filename.open_temp_file "compcert" "" in
     let cmd,args = match args with
     | cmd::args -> cmd,args

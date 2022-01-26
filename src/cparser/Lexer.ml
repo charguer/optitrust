@@ -15,7 +15,7 @@ let reserved_keyword loc id =
 
 let () =
   List.iter (fun (key, builder) -> Hashtbl.add lexicon key builder)
-    [ 
+    [
       ("_Alignas", fun loc -> ALIGNAS loc);
       ("_Alignof", fun loc -> ALIGNOF loc);
       ("_Bool", fun loc -> UNDERSCORE_BOOL loc);
@@ -77,7 +77,7 @@ let () =
       ("void", fun loc -> VOID loc);
       ("volatile", fun loc -> VOLATILE loc);
       ("while", fun loc -> WHILE loc)];
-  if Configuration.system <> "diab" then
+  if Config.system <> "diab" then
     (* We can ignore the __extension__ GCC keyword. *)
     ignored_keywords := SSet.add "__extension__" !ignored_keywords
 

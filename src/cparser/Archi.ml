@@ -67,6 +67,6 @@ let float_of_single_preserves_sNaN =
 
 (** val win64 : bool **)
 
-let win64 = match Configuration.system with
+let win64 = match Config.system with
     | "cygwin" when ptr64 -> true
     | _ -> false

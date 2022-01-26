@@ -33,7 +33,7 @@ let option_falignbranchtargets = ref 0
 let option_faligncondbranchs = ref 0
 let option_finline_asm = ref false
 let option_fcommon = ref true
-let option_mthumb = ref (Configuration.model = "armv7m")
+let option_mthumb = ref (Config.model = "armv7m")
 let option_Osize = ref false
 let option_finline = ref true
 let option_finline_functions_called_once = ref true
@@ -49,7 +49,7 @@ let option_dmach = ref false
 let option_dasm = ref false
 let option_sdump = ref false
 let option_g = ref false
-let option_gdwarf = ref (if Configuration.system = "diab" then 2 else 3)
+let option_gdwarf = ref (if Config.system = "diab" then 2 else 3)
 let option_gdepth = ref 3
 let option_o = ref (None: string option)
 let option_E = ref false
@@ -58,12 +58,12 @@ let option_c = ref false
 let option_v = ref false
 let option_interp = ref false
 let option_small_data =
-  ref (if Configuration.arch = "powerpc"
-       && Configuration.abi = "eabi"
-       && Configuration.system = "diab"
+  ref (if Config.arch = "powerpc"
+       && Config.abi = "eabi"
+       && Config.system = "diab"
        then 8 else 0)
 let option_small_const = ref (!option_small_data)
 let option_timings = ref false
-let stdlib_path = ref Configuration.stdlib_path
-let use_standard_headers =  ref Configuration.has_standard_headers
+let stdlib_path = ref Config.stdlib_path
+let use_standard_headers =  ref Config.has_standard_headers
 let main_function_name = ref "main"

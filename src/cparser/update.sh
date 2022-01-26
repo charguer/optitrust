@@ -27,6 +27,7 @@ FILES="\
   x86/CBuiltins.ml \
   extraction/Cabs.ml \
   extraction/Cabs.mli \
+  cparser/Lexer.ml \
   extraction/Parser.ml \
   extraction/Parser.mli \
   "
@@ -39,10 +40,15 @@ cd ${DEST}
 sed -i 's/Cleanup\.program p/List.rev p/;s/Checks\.unused_variables p;//;s/Checks\.unknown_attrs_program p;//;s/Checks\.non_linear_conditional p;//' Elab.ml
 sed -i 's/ccomp:/OptiTrust-Menhir-parser:/' Diagnostics.ml
 
-echo "Patched Elab.ml and Diagnostics.ml"
+echo "Patched Elab.ml and Diagnostics.ml to remove cleanup and checks."
 
+CONFIGPAT='s/Configuration\./Config./'
+sed -i ${CONFIGPAT} Lexer.ml
+sed -i ${CONFIGPAT} Archi.ml
+sed -i ${CONFIGPAT} Driveraux.ml
+sed -i ${CONFIGPAT} Clflags.ml
 
-
+echo "Patched Lexer.ml, Archi.ml, Driveraux.ml and Clflags.ml to rename Configuration to Config."
 
 #  cparser/StructPassing.ml \
 #  cparser/PackedStructs.ml \
