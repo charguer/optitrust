@@ -131,3 +131,123 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
     typ_constr n ~tid:(get_typid_from_trm n)
   | TVoid _ -> typ_unit ()
   
+
+and tr_stmt (s : stmt) : trm = 
+  match s.sdesc with 
+  | Sif (cond, then_, else_) ->
+     let tc = tr_expr cond in 
+     let tt = tr_stmt then_ in 
+     begin match else_.sdesc with 
+     | Sskip -> trm_if tc tt (trm_lit Lit_unit)
+     | _ -> 
+      let te = tr_stmt else_ in 
+      trm_if tc tt te
+     end
+  | Swhile (cond, body) -> 
+    let tc = tr_expr cond in 
+    let ts = tr_stmt body in 
+    trm_while tc ts
+  | _ -> fail None "tr_stmt: statment not supported" 
+
+
+
+and tr_expr ?(is_statement : bool = false) (e : exp) : trm = 
+  match e.edesc with 
+  | EConst c -> fail None "tr_expr: Ask Arthur"
+  | ESizeof ty ->
+    let ty = tr_type ty in  
+    trm_var ("sizeof(" ^ Ast_to_rawC.typ_to_string ty ^ ")")
+  | EAlignof ty -> 
+     let ty = tr_type ty in 
+     trm_var ("_Alignas(" ^ Ast_to_rawC.typ_to_string ty ^ ")")
+  | EVar {name = n; _} -> trm_var n
+  | EUnop (unop, e) -> 
+    let t = tr_expr e in 
+    let trm_apps1 unop t1 = trm_apps (trm_unop unop) [t1] in 
+    begin match unop with 
+    | Ominus -> 
+      trm_apps1 Unop_opp t
+    | Oplus	-> 
+      trm_apps1 Unop_opp t (* Arthur: What should I do here *)
+    | Olognot	->
+      trm_apps1 Unop_neg t 
+    | Onot -> 
+      trm_apps1 Unop_bitwise_neg t
+    | Oderef -> 
+      trm_apps1 Unop_get t
+    | Oaddrof ->
+      trm_apps1 Unop_address t
+    | Opreincr ->
+      trm_apps1 Unop_pre_inc t
+    | Opredecr -> 
+      trm_apps1 Unop_pre_dec t 
+    | Opostincr ->
+      trm_apps1 Unop_post_inc t
+    | Opostdecr ->
+      trm_apps1 Unop_post_dec t 
+    | Odot s ->
+      trm_apps1 (Unop_struct_get s)  t
+    | Oarrow s ->
+      trm_apps ~annot:[Display_arrow] (trm_unop (Unop_struct_get s)) [t]
+    end
+  | EBinop (binop, le, re, _) -> 
+    let tl = tr_expr le in 
+    let tr = tr_expr re in 
+    let trm_prim_c binop tl tr = trm_prim_compound binop tl tr in 
+    begin match binop with 
+    | Oadd -> trm_add tl tr
+    | Osub -> trm_sub tl tr
+    | Omul -> trm_mul tl tr
+    | Odiv -> trm_div tl tr
+    | Omod -> trm_mod tl tr
+    | Oand -> trm_and tl tr
+    | Oor -> trm_or tl tr
+    | Oxor -> trm_xor tl tr
+    | Oshl -> trm_shiftl tl tr
+    | Oshr -> trm_shiftr tl tr
+    | Oeq -> trm_eq tl tr
+    | One -> trm_neq tl tr
+    | Olt -> trm_lt tl tr
+    | Ogt -> trm_gt tl tr
+    | Ole -> trm_le tl tr
+    | Oge -> trm_ge tl tr
+    | Oindex -> trm_apps (trm_binop (Binop_array_get) ) [tl; tr]
+    | Oassign -> trm_set tl tr
+    | Oadd_assign -> trm_prim_c Binop_add tl tr
+    | Osub_assign -> trm_prim_c Binop_sub tl tr
+    | Omul_assign -> trm_prim_c Binop_mul tl tr
+    | Odiv_assign -> trm_prim_c Binop_div tl tr
+    | Omod_assign -> trm_prim_c Binop_mod tl tr
+    | Oand_assign -> trm_prim_c Binop_and tl tr
+    | Oor_assign -> trm_prim_c Binop_or tl tr
+    | Oxor_assign -> trm_prim_c Binop_xor tl tr
+    | Oshl_assign -> trm_prim_c Binop_shiftl tl tr
+    | Oshr_assign -> trm_prim_c Binop_shiftr tl tr
+    | Ocomma -> fail None "tr_expr: Ast Arthur"
+    | Ologand -> trm_bit_and tl tr
+    | Ologor -> trm_bit_or tl tr
+    end
+  | EConditional (cond, then_, else_) -> 
+    let t_cond = tr_expr cond in
+    let t_then = tr_expr then_ in 
+    let t_else = tr_expr else_ in 
+    trm_apps (trm_prim Prim_conditional_op) [t_cond; t_then; t_else]
+  | ECast (ty, e) -> 
+    let ty = tr_type ty in 
+    let te = tr_expr e in 
+    trm_apps (trm_unop (Unop_cast ty)) [te]
+  | ECompound _ -> fail None "tr_expr:Ask Arthur"
+  | ECall (f, el) -> 
+    let tf = tr_expr f in 
+    begin match tf.desc with 
+    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
+      begin match el with 
+      | [tl; tr] -> trm_set (tr_expr tl) (tr_expr tr)
+      | _ -> fail None "tr_expr: overloaded= expects two arguments"
+      end
+    | _ -> trm_apps tf (List.map tr_expr el)
+    end
+  
+
+
+

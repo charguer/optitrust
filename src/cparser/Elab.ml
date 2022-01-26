@@ -2890,7 +2890,7 @@ let elab_decdef (for_loop: bool) (local: bool) (nonstatic_inline: bool)
     if sto <> Storage_default && namelist = [] then
       warning loc Missing_declarations "declaration does not declare anything";
   end;
-  let typdef_default_name = (* OptiTrust: fix typedef on anonymous structures *)
+  let _typdef_default_name = (* OptiTrust: fix typedef on anonymous structures *)
     match namelist with
     | [] -> None
     | id::_ -> Some id in
