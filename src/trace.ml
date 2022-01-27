@@ -133,15 +133,22 @@ let parse ?(raw_ast : bool = false) ?(parser = Parsers.Default) (filename : stri
   
   let t = 
     timing ~name:"tr_ast" (fun () -> 
+      let parser = if parser = Parsers.Default then !Flags.default_parser else parser in 
       if raw_ast
-         then
-          if parser = Clang then 
-            Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename)
-          else 
-            CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename)
+         then begin
+          if parser = Parsers.Clang 
+            then Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename)
+            else if parser = Parsers.Menhir then
+              CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename)
+            else begin
+              let clang_ast = Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename) in 
+              let menhir_ast = CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename) in 
+              if Ast_to_text.ast_to_string clang_ast <> Ast_to_text.ast_to_string menhir_ast then Printf.printf "parse: different ast-s from different parsers";
+              if !Flags.default_parser = Parsers.Clang then clang_ast else menhir_ast
+              end
+            end
          else 
           Clang_to_ast.translate_ast (Clang.Ast.parse_file ~command_line_args filename)
-
     )
   in
   (*  *)
@@ -777,7 +784,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(rep
         (* Handle reparse of code *)
         if reparse || (!Flags.reparse_at_big_steps && not is_small_step) then begin
           let info = if reparse then "the code on demand at" else "the code just before the big step at" in
-          let parser = !Flags.default_parser in
+          let parser = !Flags.use_parser in
           reparse_alias ~info ~parser ();
           if !Flags.analyse_time then
             let duration_of_reparse = last_time_update () in
@@ -883,7 +890,7 @@ let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> un
   if (Flags.get_exit_line() = Some line) then begin
     if reparse
       then 
-        let parser = !Flags.default_parser in 
+        let parser = !Flags.use_parser in 
         reparse_alias ~parser ();
     step();
     f();

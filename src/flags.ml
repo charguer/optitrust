@@ -51,10 +51,13 @@ let process_serialized_input (mode : string) : unit =
 (* Flag to enable serialized input *)
 
 
-let default_parser = ref Parsers.Default
+let default_parser = ref Parsers.Clang
 
-let use_parser (s : string) : unit = 
-  default_parser := Parsers.cparser_of_string s
+
+let use_parser = ref Parsers.Default
+
+let cparser_of_string (s : string) : unit = 
+  use_parser := Parsers.cparser_of_string s
 
 
 (* exit line number *)
@@ -83,7 +86,7 @@ let spec =
      ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
-     ("-cparser", Arg.String use_parser, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
+     ("-cparser", Arg.String cparser_of_string, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
