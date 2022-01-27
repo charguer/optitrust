@@ -155,21 +155,8 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
    end
   )
 
-(* [unroll] expects the target to point to a loop. Then it checks if the loop
-    is of the form for(int i = a; i < a + C; i++){..} then it will move the
-    the instructions out of the loop and the loop will be removed. It works also
-    in the case when C = 0 and a is a constant variable. To get the number of steps
-    a is first inlined.
-
-    [braces]: a flag on the visiblity of blocks created during the unroll process
-
-    [blocks]: a list of integers describing the partition type of the targeted sequence
-
-    [shuffle]: shuffle blocks
-
-      Assumption: C should be a literal or a constant variable
-
-DETAILS:
+(*
+DETAILS for [unroll]
  Let [tg] target the following loop
 
     for (int i = a; i < a + N; i++) {
@@ -264,6 +251,20 @@ STEP 1 (BASIC): ONLY UNROLL
 
 *)
 
+
+(* [unroll] expects the target to point to a loop. Then it checks if the loop
+    is of the form for(int i = a; i < a + C; i++){..} then it will move the
+    the instructions out of the loop and the loop will be removed. It works also
+    in the case when C = 0 and a is a constant variable. To get the number of steps
+    a is first inlined.
+
+    [braces]: a flag on the visiblity of blocks created during the unroll process
+
+    [blocks]: a list of integers describing the partition type of the targeted sequence
+
+    [shuffle]: shuffle blocks
+
+      Assumption: C should be a literal or a constant variable *)
 let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : Target.target) : unit =
   Target.reparse_after ~reparse:(not braces) (Target.iteri_on_targets (fun i t p ->
     let my_mark = "__unroll_" ^ string_of_int i in

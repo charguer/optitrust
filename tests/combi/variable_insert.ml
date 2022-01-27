@@ -1,8 +1,12 @@
 open Optitrust
 open Target
 
+(* TODO: here and in other transformations with a typ as argument:
+   the typ argument should not be a string, but a typ,
+   like the value is a trm; we can apply [typ "int"] to convert a string to a typ. *)
+
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Variable.insert ~name:"b" ~value:(lit "2") [tAfter; cVarDef "a"];
+    !! Variable.insert ~typ:"int" ~name:"b" ~value:(lit "2") [tAfter; cVarDef "a"];
   )
 "
 int main() {

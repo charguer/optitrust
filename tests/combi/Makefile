@@ -18,6 +18,9 @@ TESTS_WITH_DOC := \
 	loop_moveout.ml \
 	loop_reorder.ml \
 	sequence_intro.ml \
+	struct_set_implicit.ml \
+  variable_insert.ml \
+  variable_intro_pattern_array.ml \
 
 TESTS_WITHOUT_DOC := \
 	function_bind_args.ml \
@@ -26,14 +29,8 @@ TESTS_WITHOUT_DOC := \
 	function_inline_complex.ml \
 	function_inline_simple.ml \
 	function_inline_struct.ml \
-	struct_set_explicit.ml \
-	struct_set_implicit.ml \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
-	variable_fold.ml \
-  variable_insert.ml \
-	variable_insert_and_fold.ml \
-	variable_intro_pattern_array.ml \
 	variable_renames.ml \
 	variable_reuse.ml \
 
@@ -54,6 +51,9 @@ TESTS_TOCHECK := \
   variable_insert_list.ml \
 
 TESTS_TO_FIX := \
+	variable_insert_and_fold.ml \
+	variable_fold.ml \
+	struct_set_explicit.ml \
 	aos_to_soa.ml \
 	loop_hoist.ml \
 	loop_move.ml \

@@ -1,6 +1,23 @@
 open Optitrust
 open Target
 
+let _ = Run.doc_script_cpp (fun _ ->
+  !! Struct.set_implicit [sInstr "v.x = w.x"];
+  )
+"
+typedef struct {
+    int x;
+    int y; }
+  vect;
+
+int main() {
+  vect v, w;
+  v.x = w.x;
+  v.y = w.y;
+}
+"
+
+
 let _ = Run.script_cpp (fun _ ->
 
   !! Struct.set_implicit [sInstr "= p.x"];
