@@ -31,6 +31,8 @@ let verbose_mode : bool ref = ref false
 (* Flag to enable light diff *)
 let use_light_diff : bool ref = ref true
 
+(* Flag for using only raw ast, when parsing and printing *)
+let use_raw_ast : bool ref = ref true
 type serialized_mode =
   | Serialized_None
   | Serialized_Build
@@ -51,7 +53,7 @@ let process_serialized_input (mode : string) : unit =
 (* Flag to enable serialized input *)
 
 
-let default_parser = ref Parsers.Menhir
+let default_parser = ref Parsers.Clang
 
 let use_parser = ref Parsers.Default
 
@@ -86,6 +88,7 @@ let spec =
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
      ("-cparser", Arg.String cparser_of_string, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
+     ("-use_encoded_ast", Arg.Clear use_raw_ast, "produce optitrust enocded ast when parsing and printing");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
