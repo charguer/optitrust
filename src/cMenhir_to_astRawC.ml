@@ -298,14 +298,14 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     begin match tf.desc with
     | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
       begin match el with
-      | [tl; tr] -> trm_set ~lco ~ctx ~is_statement (tr_expr tl) (tr_expr tr)
+      | [tl; tr] -> trm_set ~loc ~ctx ~is_statement (tr_expr tl) (tr_expr tr)
       | _ -> fail None "tr_expr: overloaded= expects two arguments"
       end
     | _ -> trm_apps ~loc ~ctx ~is_statement ~typ tf (List.map tr_expr el)
     end
 
-(* [tr_decl d] transalte C.globdecl into OptiTrust ast *)
-and tr_decl (d : C.globdecl) : trm =
+(* [tr_globdef d] transalte C.globdecl into OptiTrust ast *)
+and tr_globdef (d : C.globdecl) : trm =
   let loc = loc_of_cloc d.gloc in 
   let ctx = Some (get_ctx ()) in 
   match d.gdesc with 
@@ -333,15 +333,6 @@ and tr_decl (d : C.globdecl) : trm =
       let args = List.map get_args po in
       trm_let_fun ~loc ~ctx n tt args tb
     end
-
-  | C.Gcompositedecl (st, idn, att) -> fail None "tr_decl: "
-  | C.Gcompositedef (su, {name = n; _}, att, fl) -> 
-    let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (fr, tr_type ft)) fl in 
-    let kw = match su with 
-    | C.Struct -> Struct
-    | C.Union -> Union 
-     in 
-    trm_let_record ~loc ~ctx n kw (List.rev prod_list) (trm_lit (Lit_unit))
   | C.Genumdef ({C.name = tn}, att, enum_list) -> 
     let el = List.map (fun ({C.name = constant_name; }, _, exp_opt) ->
       match exp_opt with 
@@ -361,11 +352,57 @@ and tr_decl (d : C.globdecl) : trm =
     } in 
     ctx_typedef_add tn tid td;
     trm_typedef ~loc ~ctx td
+  | C.Gtypedef ({C.name = tn}, ty) -> 
+    let tid = next_typconstrid () in 
+    ctx_tconstr_add tn tid;
+    let ty = tr_type ty in 
+    let td = {
+      typdef_loc = loc;
+      typdef_typid = tid;
+      typdef_tconstr = tn;
+      typdef_vars = [];
+      typdef_body = Typdef_alias ty
+    }
+    in 
+    ctx_typedef_add tn tid td;
+    trm_typedef ~loc ~ctx td;
+  | _ -> fail None "tr_globdef: declaration not supported"
 
-  | _ -> fail None "tr_decl: declaration not supported"
 
+(* [tr_globdefs gs] translates a list of global declarations*)
+let tr_globdefs (gs : C.globdecl list) : trms =
+  let rec aux acc gs = 
+    match gs with 
+    | [] -> []
+    | {C.gdesc = C.Gcompositedecl (su, {C.name = sn;_}, _); C.gloc = loc} :: {C.gdesc = C.Gcompositedef (su1, {C.name = sn1},_, fl )} 
+      :: {C.gdesc = C.Gtypedef ({C.name = sn2},ty)} :: gs' -> 
+      begin match su,su1 with 
+      | Struct , Struct -> 
+        let loc = loc_of_cloc loc in 
+        let ctx = Some (get_ctx ()) in
+        if sn <> sn1 && sn <> sn2 then fail None (Printf.sprintf "tr_globdefs: the struct name (%s) must match the typdef name (%s).\n" sn sn2);
+        let tid = next_typconstrid () in
+        ctx_tconstr_add sn tid;
+        let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (fr, tr_type ft)) fl in 
+        let two_names = false in 
+        let td = {
+          typdef_loc = None;
+          typdef_typid = tid;
+          typdef_tconstr = sn;
+          typdef_vars = [];
+          typdef_body = Typdef_prod (two_names, (List.rev prod_list))
+        } in 
+        ctx_typedef_add sn tid td;
+        let trm_td = trm_typedef ~loc ~ctx td in 
+        aux ( trm_td :: acc) gs'
+      | _ -> fail None "tr_globdefs: only struct records are supported"
+      end 
+    | ({C.gdesc = C.Gcompositedecl _; _} | {C.gdesc = C.Gcompositedef _; _}) :: _ -> fail None "tr_globdefs: struct and unions are not supported"
+    | g :: gs' -> aux (tr_globdef g :: acc) gs'
+  in 
+    List.rev( aux [] gs)
 
 (* [tr_ast tl] translate a C.program into Optitrust ast *)
 let tr_ast (tl : C.program) : trm = 
-  let tl = List.map tr_decl tl in 
+  let tl = tr_globdefs tl in 
   trm_seq_nomarks ~annot:[Main_file] tl
