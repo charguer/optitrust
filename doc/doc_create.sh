@@ -11,6 +11,12 @@ BASENAMES=$*
 
 cp ${OPTITRUST}/doc/doc_template.html ${OUTFILE}
 
+NBBASENAMES=`echo "${BASENAMES}" | wc -w`
+
+if [ ${NBBASENAMES} = 1 ]; then
+  sed -i "s/<\/title>/ for ${BASENAMES}<\/title>/" ${OUTFILE}
+fi
+
 for BASENAME in ${BASENAMES}; do
   # echo "Including ${BASENAME}"
 

@@ -94,5 +94,5 @@ h2 {
 
 .d2h-diff-table {
   margin: 5px 5px 5px 5px;
-  width: 95%; /* hack to avoid the scrollbar showing up all the time */
+  width: 90%; /* hack to avoid the scrollbar showing up all the time */
 }

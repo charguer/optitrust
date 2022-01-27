@@ -3,12 +3,11 @@ TARGET_MAKE_ALL := check
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
-TESTS_WORKING := \
+TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	arith_simplify.ml \
 	aos_to_soa_sized_array.ml \
-	aos_to_soa_typedef.ml \
 	array_set_explicit.ml \
 	array_swap.ml \
 	array_tile.ml \
@@ -99,18 +98,7 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	arith_shift.ml \
 	arith_to_fix.ml \
-
-TESTS_WITH_DOC := \
-	label_add.ml \
-	label_remove.ml \
-	sequence_delete.ml \
-	sequence_elim_around_instr.ml \
-	sequence_elim.ml \
-	sequence_insert.ml \
-	sequence_intro_on_instr.ml \
-	sequence_partition.ml \
-
-# 	sequence_intro.ml \
+	aos_to_soa_typedef.ml \
 
 # TODO:
 # arith_simpl.ml
@@ -118,7 +106,7 @@ TESTS_WITH_DOC := \
 
 # TODO: script for vscode opening
 
-TESTS := $(TESTS_WORKING) $(TESTS_WORKING_NOTINDOC) $(TESTS_TOCHECK)
+TESTS := $(TESTS_WITH_DOC) $(TESTS_WORKING_NOTINDOC) $(TESTS_TOCHECK)
 
 
 # TEMPORARY FOR TESTING MAKEFILE
