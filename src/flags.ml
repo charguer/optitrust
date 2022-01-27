@@ -51,6 +51,11 @@ let process_serialized_input (mode : string) : unit =
 (* Flag to enable serialized input *)
 
 
+let default_parser = ref Parsers.Default
+
+let use_parser (s : string) : unit = 
+  default_parser := Parsers.cparser_of_string s
+
 
 (* exit line number *)
 let exit_line : int ref = ref max_int
@@ -62,10 +67,6 @@ let get_exit_line () : int option =
 
 (* ignore small steps to apply multiple transformations at one time *)
 let only_big_steps : bool ref = ref false
-
-
-(* let spec = ...
- ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'."); *)
 
 let spec =
   Arg.align [
@@ -82,6 +83,7 @@ let spec =
      ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
+     ("-cparser", Arg.String use_parser, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
@@ -92,31 +94,3 @@ let fix_flags () =
 
 (* Flag used for a hack by [doc_script_cpp] *)
 let documentation_save_file_at_first_check = ref ""
-
-
-
-(*
-in file Parser.ml
-
-type cparser = Clang | Menhir | Default | All
-
-let cparser_of_string (s : string) : cparser =
-  | "clang" => Clang
-
-
-
-
-in flags.ml
-
-let default_parser = ref Parser.Default
-
--cparser clang   => " specify the parser among 'clang', ..."
--cparser menhir
--cparser all
-
-
-in trace/run:
-let reparse ?(parser=Parser.Default)
-
-
-*)

@@ -122,7 +122,7 @@ let get_cpp_includes (filename : string) : string =
   | End_of_file -> close_in c_in; !includes
 
 (* [parse filename] returns a list of includes and an AST. *)
-let parse ?(raw_ast : bool = false) (filename : string) : string * trm =
+let parse ?(raw_ast : bool = false) ?(parser = Parsers.Default) (filename : string) : string * trm =
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
   let command_line_include =
@@ -130,20 +130,36 @@ let parse ?(raw_ast : bool = false) (filename : string) : string * trm =
       (Clang.default_include_directories ()) in
   let command_line_warnings = ["-Wno-parentheses-equality"; "-Wno-c++11-extensions"] in
   let command_line_args = command_line_warnings @ command_line_include in
-  let ast =
+  
+  let t = 
+    timing ~name:"tr_ast" (fun () -> 
+      if raw_ast
+         then
+          if parser = Clang then 
+            Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename)
+          else 
+            CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename)
+         else 
+          Clang_to_ast.translate_ast (Clang.Ast.parse_file ~command_line_args filename)
+
+    )
+  in
+  (*  *)
+  (* let ast =
     timing ~name:"parse_file" (fun () ->
-      Clang.Ast.parse_file ~command_line_args filename) in
+      Clang.Ast.parse_file ~command_line_args filename
+      ) in *)
 
   (* DEBUG: Format.eprintf "%a@."
        (Clang.Ast.format_diagnostics Clang.not_ignored_diagnostics) ast; *)
   print_info None "Parsing Done.\n";
-  print_info None "Translating AST...\n";
+  print_info None "Translating Done...\n";
 
-  let t =
+  (* let t =
     timing ~name:"translate_ast" (fun () ->
       if raw_ast
         then Clang_to_astRawC.tr_ast ast
-        else Clang_to_ast.translate_ast ast) in
+        else Clang_to_ast.translate_ast ast) in *)
 
   print_info None "Translation done.\n";
   (includes, t)
@@ -618,7 +634,7 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
 (******************************************************************************)
 
 (* [reparse_trm ctx ast] print [ast] in a temporary file and reparses it using Clang. *)
-let reparse_trm ?(info : string = "") (ctx : context) (ast : trm) : trm =
+let reparse_trm ?(info : string = "") ?(parser = Parsers.Default) (ctx : context) (ast : trm) : trm =
   if !Flags.debug_reparse then begin
     let info = if info <> "" then info else "of a term during the step starting at" in
     Printf.printf "Reparse: %s line %d.\n" info !line_of_last_step;
@@ -626,17 +642,17 @@ let reparse_trm ?(info : string = "") (ctx : context) (ast : trm) : trm =
   end;
   let in_prefix = ctx.directory ^ "tmp_" ^ ctx.prefix in
   output_prog ~beautify:false ctx in_prefix ast;
-  let (_, t) = parse (in_prefix ^ ctx.extension) in
+  let (_, t) = parse ~parser (in_prefix ^ ctx.extension) in
   (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
   t
 
 (* [reparse()] function takes the current AST, prints it to a file, and parses it
    as if it was a fresh input. Doing so ensures in particular that all the type
    information is properly set up. *)
-let reparse ?(info : string = "") () : unit =
+let reparse ?(info : string = "") ?(parser = Parsers.Default) () : unit =
  List.iter (fun trace ->
     let info = if info <> "" then info else "the code during the step starting at" in
-    trace.cur_ast <- reparse_trm ~info trace.context trace.cur_ast)
+    trace.cur_ast <- reparse_trm ~info ~parser trace.context trace.cur_ast)
     !traces
 
 (* Work-around for a name clash *)
@@ -761,7 +777,8 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(rep
         (* Handle reparse of code *)
         if reparse || (!Flags.reparse_at_big_steps && not is_small_step) then begin
           let info = if reparse then "the code on demand at" else "the code just before the big step at" in
-          reparse_alias ~info ();
+          let parser = !Flags.default_parser in
+          reparse_alias ~info ~parser ();
           if !Flags.analyse_time then
             let duration_of_reparse = last_time_update () in
             write_timing_log (Printf.sprintf "------------------------\nREPARSE: %d\tms\n" duration_of_reparse);
@@ -865,7 +882,9 @@ let dump ?(prefix : string = "") () : unit =
 let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> unit) : unit =
   if (Flags.get_exit_line() = Some line) then begin
     if reparse
-      then reparse_alias();
+      then 
+        let parser = !Flags.default_parser in 
+        reparse_alias ~parser ();
     step();
     f();
     dump_diff_and_exit()
