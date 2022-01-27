@@ -1,8 +1,8 @@
 open Optitrust
 open Target
-
+ 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Label_basic.add "mylabel" [cVarDef "b"]
+     !! Label_basic.add "mylabel" [cVarDef "b"]
   )
 "
 int main() {

@@ -34,8 +34,12 @@ EXCLUDE_TESTS ?=
 # List of ml files to include (by default, all *.ml except those in EXCLUDE_TESTS, and the generated *.ml files)
 TESTS ?= $(filter-out $(wildcard *with_lines.ml), $(filter-out $(EXCLUDE_TESTS), $(wildcard *.ml)))
 
+# List of ml files to include in the documentation
+TESTS_WITH_DOC ?= $(TESTS)
+
 # List of ml files for which the cpp files should be compiled
 COMPILE ?= $(TESTS)
+
 # List of ml files for which the cpp files should be executed for comparison
 EXECUTE ?= $(COMPILE)
 
@@ -186,12 +190,21 @@ endif
 
 # 'make batch_recheck' is similar but for 'recheck' instead of 'check'.
 # 'make batch' is a shorthand for this.
+# 'make batch_doc' is currently just an alias for 'make batch_check', followed by 'make doc'
+# 'make batch_redoc' is currently just an alias for 'make batch_recheck', followed by 'make doc'
+# LATER: we may want 'make batch_doc' to check only the files that belong to $(TESTS_WITH_DOC), but it's minor gain
 
 batch_check: clean_batch
 	$(MAKE) BATCH=1 check
 
 batch_recheck: clean_batch
 	$(MAKE) BATCH=1 recheck
+
+batch_doc: clean_batch
+	$(MAKE) BATCH=1 batch_check doc
+
+batch_redoc: clean_batch
+	$(MAKE) BATCH=1 batch_recheck doc
 
 batch: batch_recheck
 
@@ -212,6 +225,7 @@ $(TESTS:.ml=_out.cpp): batch.$(PROGEXT) $(TESTS:.ml=.cpp)
 	@echo "Executed batch.$(PROGEXT) to produce all output files"
 
 endif
+
 #-----end rules for batch mode------
 
 
@@ -250,14 +264,15 @@ DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 # (first remove leading white lines in _doc.cpp)
 %_doc.js: %_out.cpp %_doc.txt %_doc_spec.txt %_doc.cpp # %_doc_out.cpp
 	$(V)sed -i '/./,$$!d' $*_doc.cpp
-	@echo "function get_diff_$(CURDIR)__$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
-	@echo "function get_src_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc.txt | base64 -w 0`\"); }" >> $@
-	@echo "function get_spec_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc_spec.txt | base64 -w 0`\"); }" >> $@
+	@echo "function get_diff_$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
+	@echo "function get_src_$*() { return window.atob(\"`cat $*_doc.txt | base64 -w 0`\"); }" >> $@
+	@echo "function get_spec_$*() { return window.atob(\"`cat $*_doc_spec.txt | base64 -w 0`\"); }" >> $@
 	@echo Produced $@
+# DEPRECATED:$(CURDIR)__  -- TODO: move above into a separate script
 
-# Use 'make mytransfo_doc.html' to build an html preview of the documentation on that transformation
+# Use 'make mytransfo_doc.html' to build an html preview of the documentation on that transformation (in $(CURDIR))
 %_doc.html: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
-	$(V)$(OPTITRUST)/doc/doc_create.js $(OPTITRUST) $(CURDIR) $* $@
+	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $@ $*
 	@echo Produced $@
 
 # To check the documentation associated with the demo in a browser, use 'make mytransfo.doc'
@@ -278,8 +293,19 @@ DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 	@echo "---------------------"
 	$(V)git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | tail -n +5
 
-# 'make doc' to build the auxililary files needed by _doc.html
-doc: $(DOCJS)
+# 'make docs' to build all the auxililary *_doc.html
+docs: $(DOCJS)
+
+# 'make doc' to build the documentation for all $(TESTS_WITH_DOC) in doc.html
+doc: doc.html
+	$(V)$(BROWSER) $<
+
+# Rule for building 'doc.html', unless it's already defined in an ad-hoc way (e.g. tests/combi/Makefile)
+ifeq ($(SPECIAL_RULE_FOR_DOC_HTML),)
+doc.html: $(DOCJS)
+	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $@ $(TESTS_WITH_DOC:.ml=)
+	@echo Produced $@
+endif
 
 # 'make redoc' to force rebuilding all the documentation files
 redoc: cleandoc doc
@@ -288,15 +314,15 @@ redoc: cleandoc doc
 #######################################################
 # Cleanup
 
-clean_chk:
-	$(V)rm -rf *.chk
+clean_chk::
+	$(V)rm -f *.chk
 
-cleandoc:
-	$(V)rm -rf *_doc.txt *_doc.cpp *_doc_out.cpp *_doc_spec.txt *_doc.js *_doc.html *_out.cpp
+cleandoc::
+	$(V)rm -f *_doc.txt *_doc.cpp *_doc_out.cpp *_doc_spec.txt *_doc.js *_doc.html *_out.cpp
 	@echo "Clean documentation"
 
-clean: cleandoc
-	$(V)rm -rf *.js *_out.cpp *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml
+clean:: cleandoc
+	$(V)rm -f *.js *_out.cpp *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml
 	$(V)rm -rf _build
 	@echo "Clean successful"
 

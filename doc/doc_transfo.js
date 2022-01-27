@@ -74,12 +74,12 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
    var diffId = targetId + "_diff";
 
    var elem = $('#'+targetId);
-   var title = elem.html();
-   var ascombi = elem.is(".ascombi");
-   var pieces = targetName.split("/");
-   var kind = pieces[0]; // unused
-   var name = pieces[1]; // unused
-   var contents = "<div class='name'>"+title+"</div><div class='spec' id='"+specId+"'></div><div class='src' id='"+srcId+"'></div><div class='diff' id='"+diffId+"'></div>";
+   // DEPRECATED var title = elem.html();
+   // DEPRECATED var ascombi = elem.is(".ascombi");
+   // DEPRECATED var pieces = targetName.split("/");
+   // DEPRECATED var kind = pieces[0]; // unused
+   // DEPRECATED var name = pieces[1]; // unused
+   var contents = "<div class='name'>"+targetName+"</div><div class='spec' id='"+specId+"'></div><div class='src' id='"+srcId+"'></div><div class='diff' id='"+diffId+"'></div>";
    elem.html(contents);
 
    // Fill the spec part
@@ -88,7 +88,7 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
 
    // Fill the source part
    var srcContents = eval(targetJsFunctionSrc + "()");
-   if (ascombi) {
+   if (hide_basic) { // hack to handle inclusion of basic tests in the combi folder
      srcContents = srcContents.replace("_basic.", ".");
    }
    var srcHTML = "<pre><code class='ocaml'>"+escapeHTML(shrinkSrc(srcContents))+"</code></pre>";
@@ -105,12 +105,15 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
 }
 
 function loadTestFromFile(targetId) {
-   var targetName = targetId.replace("__", "/");
-   var targetJsFilename = "../tests/" + targetName + "_doc.js";
+   var targetName = targetId;
+   loadTestFromFileAssumedLoaded(targetId, targetName);
 
+   /* DEPRECATED
+   var targetName = targetId.replace("__", "/");
    try { // try loading from an include
       loadTestFromFileAssumedLoaded(targetId, targetName);
    } catch (error) {
+      var targetJsFilename = "../tests/" + targetName + "_doc.js";
       // The dynamic loading of the JS file requires --disable-web-security
       $.getScript(targetJsFilename, function(data, status) {
          if (status != "success") {
@@ -121,8 +124,7 @@ function loadTestFromFile(targetId) {
       }).fail(function () {
          reportError(targetId, targetName + "_doc.js");
       });
-   }
-
+   }*/
 }
 
 function loadAllTestFromFile() {
