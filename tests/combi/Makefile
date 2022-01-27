@@ -5,12 +5,19 @@ TARGET_MAKE_ALL := check
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
+# TESTS_WITH_DOC_INCLUDING_BASIC := \
+#	 label_add__basic.ml \
+#  LATER: define TESTS_WITH_DOC  as a filter of TESTS_WITH_DOC_INCLUDING_BASIC by removing *__basic.ml from the list
+
 TESTS_WITH_DOC := \
 	instr_inline_last_write.ml \
 	instr_read_last_write.ml \
 	loop_fusion.ml \
 	loop_fold.ml \
 	loop_fold_instr.ml \
+	loop_moveout.ml \
+	loop_reorder.ml \
+	sequence_intro.ml \
 
 TESTS_WITHOUT_DOC := \
 	function_bind_args.ml \
@@ -19,13 +26,6 @@ TESTS_WITHOUT_DOC := \
 	function_inline_complex.ml \
 	function_inline_simple.ml \
 	function_inline_struct.ml \
-	loop_hoist.ml \
-	loop_moveout.ml \
-	loop_move.ml \
-	loop_reorder.ml \
-	loop_unroll.ml \
-	sequence_intro.ml \
-	sequence_split.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	variable_delocalize.ml \
@@ -36,13 +36,6 @@ TESTS_WITHOUT_DOC := \
 	variable_intro_pattern_array.ml \
 	variable_renames.ml \
 	variable_reuse.ml \
-
-
-OLD_TESTS_WITH_DOC := \
-	variable_insert_and_fold.ml \
-	loop_fusion.ml \
-	variable_insert.ml \
-	label_add__basic.ml \
 
 TESTS_TOCHECK := \
 	function_beta.ml \
@@ -62,6 +55,9 @@ TESTS_TOCHECK := \
 
 TESTS_TO_FIX := \
 	aos_to_soa.ml \
+	loop_hoist.ml \
+	loop_move.ml \
+	loop_unroll.ml \
 
 
 # 	variable_renames.ml \

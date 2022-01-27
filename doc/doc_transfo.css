@@ -82,10 +82,10 @@ h2 {
 
 .d2h-code-side-linenumber {
   display: none;
-  width: 0em;
+  width: 2em;
 }
 .d2h-code-side-line {
-  padding: 0em;
+  padding-left:2em;
 }
 
 .d2h-file-side-diff {
@@ -94,5 +94,5 @@ h2 {
 
 .d2h-diff-table {
   margin: 5px 5px 5px 5px;
-  width: 90%; /* hack to avoid the scrollbar showing up all the time */
+  width: 85%; /* hack to avoid the scrollbar showing up all the time */
 }

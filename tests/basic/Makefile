@@ -101,6 +101,7 @@ TESTS_TOCHECK := \
 #	matrix_insert_access_dim_index.ml \
 
 TESTS_TO_FIX := \
+	sequence_split.ml \
 	arith_shift.ml \
 	arith_to_fix.ml \
 	aos_to_soa_typedef.ml \
