@@ -1,4 +1,5 @@
-FLAGS := -dump-ast-details
+# FLAGS := -dump-ast-details
+FLAGS := -disable-light-diff
 
 TARGET_MAKE_ALL := check
 
@@ -10,6 +11,8 @@ TARGET_MAKE_ALL := check
 #  LATER: define TESTS_WITH_DOC  as a filter of TESTS_WITH_DOC_INCLUDING_BASIC by removing *__basic.ml from the list
 
 TESTS_WITH_DOC := \
+	instr_gather.ml \
+	instr_moveout.ml \
 	instr_inline_last_write.ml \
 	instr_read_last_write.ml \
 	loop_fusion.ml \
@@ -18,9 +21,13 @@ TESTS_WITH_DOC := \
 	loop_moveout.ml \
 	loop_reorder.ml \
 	sequence_intro.ml \
+	sequence_intro_targets.ml \
 	struct_set_implicit.ml \
   variable_insert.ml \
+	variable_insert_list.ml \
   variable_intro_pattern_array.ml \
+	variable_renames.ml \
+	variable_reuse.ml \
 
 TESTS_WITHOUT_DOC := \
 	function_bind_args.ml \
@@ -31,8 +38,6 @@ TESTS_WITHOUT_DOC := \
 	function_inline_struct.ml \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
-	variable_renames.ml \
-	variable_reuse.ml \
 
 TESTS_TOCHECK := \
 	function_beta.ml \
@@ -40,25 +45,20 @@ TESTS_TOCHECK := \
 	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_accumulate_targets.ml \
-	instr_moveout.ml \
-	instr_gather.ml \
-	loop_fusion_targets.ml \
 	matrix_intro_mops.ml \
 	matrix_delocalize.ml \
-	sequence_intro_targets.ml \
 	variable_inline_and_rename.ml \
-	variable_elim_redundant.ml \
-  variable_insert_list.ml \
 
 TESTS_TO_FIX := \
-	variable_insert_and_fold.ml \
 	variable_fold.ml \
+	variable_insert_and_fold.ml \
+	variable_elim_redundant.ml \
 	struct_set_explicit.ml \
 	aos_to_soa.ml \
 	loop_hoist.ml \
 	loop_move.ml \
 	loop_unroll.ml \
-
+	loop_fusion_targets.ml \
 
 # 	variable_renames.ml \
 

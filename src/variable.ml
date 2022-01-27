@@ -7,13 +7,17 @@ include Variable_basic
     be renamed where the list should be a a list of string pairs ex. (current_name, new_name).
 *)
 module Rename = struct
-  type t = | AddSuffix of string | ByList of (string * string) list
+  type t =
+  | AddSuffix of string
+  | ByList of (string * string) list
+  | Renamefn of (string -> string)
 end
 type rename = Rename.t
 
 let map f = function
 | Rename.AddSuffix v -> Rename.AddSuffix (f v)
-| ByList kvs -> ByList (List.map (fun (k,v) -> (k, f v)) kvs)
+| Rename.ByList kvs -> Rename.ByList (List.map (fun (k,v) -> (k, f v)) kvs)
+| Rename.Renamefn g -> Rename.Renamefn (fun x -> f (g x))
 
 
 (* [fold ~at ~nonconst tg] expects [tg] to point to a variable declaration
@@ -226,6 +230,17 @@ let renames (rename : rename) : Target.Transfo.t =
         if s = "" then () (* No changes so we can return unit *)
         else
           let new_decls = List.map (fun d -> d ^ s) decls in
+          List.iter2 (fun d into -> Variable_basic.rename ~into ((Target.target_of_path p) @  [Target.cVarDef d])) decls new_decls
+      | Renamefn g -> (* TODO: factorize the code above and below.
+           maybe the easiest is to declare
+              let add_suffix s = Renamefn (fun x -> x ^ s)
+          and then the user can call Rename.(add_suffix s)
+          By symmetry, we would have
+              let Rename.apply g = Renamefn g
+          and let Rename.bylist l = ByList l
+          to have lowercase names for all functions
+          *)
+          let new_decls = List.map (fun d -> g d) decls in
           List.iter2 (fun d into -> Variable_basic.rename ~into ((Target.target_of_path p) @  [Target.cVarDef d])) decls new_decls
       | ByList l ->
         List.iter (fun (d, into) -> if not (List.mem d decls) then () (* if not (List.mem d decls) then fail tg_trm.loc "renames: one of the variables you want to rename does not belong to the targeted scope" *)

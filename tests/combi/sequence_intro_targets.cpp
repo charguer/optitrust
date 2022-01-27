@@ -1,11 +1,9 @@
 
 int main() {
-  int a = 3;
-  int b = 2;
-  int c = 5;
-  int d = 6;
-  int e = 7;
-  int f = 9;
-  int g = 10;
+  int a = 0;
+  int b = 0;
+  int c1 = 0;
+  int c2 = 0;
+  int d = 0;
   return 0;
 }

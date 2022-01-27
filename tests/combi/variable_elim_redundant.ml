@@ -1,6 +1,7 @@
 open Optitrust
 open Target
 
+(* TODO: fix fold_aux first *)
 let _ = Run.script_cpp (fun _ ->
 
   !! Variable.elim_redundant [cVarDef "b"];
