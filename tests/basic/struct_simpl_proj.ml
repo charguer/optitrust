@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-  Variable_basic.inline [cVarDef "v"];
+     Variable_basic.inline [cVarDef "v"];
   !! Struct_basic.simpl_proj [cVarDef "a"];
   )
 "

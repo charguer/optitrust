@@ -363,7 +363,7 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
 (* [fold ~index ~start ~step ~nb_instr tg] expects the target [tg] to be pointing to an instruction folloed by [nb_instr] -1 instructions
       which could be expressed into a single for loop with [index], [start], [nb_instr] and [step] as its components.
  *)
-let fold  ?(start : int = 0) ?(step : int = 1) ~index:(index : var)  (nb_instr : int) (tg : Target.target) : unit =
+let fold  ?(start : int = 0) ?(step : int = 1) ~index:(index : var) (nb_instr : int) (tg : Target.target) : unit =
   let mark = "opti_fold" in
   Sequence_basic.intro ~mark nb_instr tg;
   Loop_basic.fold ~index ~start ~step [Target.cMark mark]

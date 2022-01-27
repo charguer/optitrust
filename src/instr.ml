@@ -52,6 +52,16 @@ let read_last_write ?(write : Target.target = []) : Target.Transfo.t =
 let inline_last_write ?(write : Target.target = []) (tg : Target.target) : unit =
   Instr_basic.read_last_write ~write tg;
   if write <> [] then  Instr_basic.delete write
+   (* TODO: it would be much nicer that delete gets executed every time.
+    but to implement that we need a different strategy:
+    0) define a mark "__todelete__"
+    1) add a different mark on each of the targets tg
+    2) for each of these mark:
+        - find the path to the corresponding write operations in the same sequence
+        - at that path, i.e. on the write operation, add the mark "__todelete__" only if is not already there
+        - on the read operation, inline the value from the write operation
+    3) delete all the nodes with the mark "__todelete__" (they are in sequences)
+*)
 
 
 (* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location

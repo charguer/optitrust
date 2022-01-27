@@ -768,6 +768,13 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
       Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
         resolve_target tg t) in
     let ps = if rev then List.rev ps else ps in
+    (* TODO: here we can have the following optimization, in case there is a single target,
+        that is, in
+        [match ps with
+         | [] -> t  (* do nothing *)
+         | [p] -> tr 0 (transformer p) t
+         | _ -> ... the current code
+     *)
     let marks = List.map (fun _ -> Mark.next()) ps in
     (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
     (* Tools.printf "Before applyin_marks: %s\n" (Ast_to_c.ast_to_string t); *)

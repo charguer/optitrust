@@ -80,6 +80,8 @@ TESTS_WITH_DOC := \
 TESTS_WORKING_NOTINDOC := \
 	specialize_choose.ml \
 
+# TODO: move include_inline to tests/interact/
+
 TESTS_TOCHECK := \
 	accesses_intro.ml \
 	include_inline.ml \

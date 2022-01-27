@@ -5,16 +5,20 @@ TARGET_MAKE_ALL := check
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
-TESTS_WORKING := \
+TESTS_WITH_DOC := \
 	instr_inline_last_write.ml \
+	instr_read_last_write.ml \
+	loop_fusion.ml \
+	loop_fold.ml \
+	loop_fold_instr.ml \
+
+TESTS_WITHOUT_DOC := \
 	function_bind_args.ml \
 	function_bind.ml \
 	function_elim_body.ml \
 	function_inline_complex.ml \
 	function_inline_simple.ml \
 	function_inline_struct.ml \
-	loop_fusion.ml \
-	loop_fold.ml \
 	loop_hoist.ml \
 	loop_moveout.ml \
 	loop_move.ml \
@@ -34,6 +38,12 @@ TESTS_WORKING := \
 	variable_reuse.ml \
 
 
+OLD_TESTS_WITH_DOC := \
+	variable_insert_and_fold.ml \
+	loop_fusion.ml \
+	variable_insert.ml \
+	label_add__basic.ml \
+
 TESTS_TOCHECK := \
 	function_beta.ml \
 	function_uninline.ml \
@@ -41,7 +51,6 @@ TESTS_TOCHECK := \
 	instr_accumulate.ml \
 	instr_accumulate_targets.ml \
 	instr_moveout.ml \
-	instr_read_last_write.ml \
 	instr_gather.ml \
 	loop_fusion_targets.ml \
 	matrix_intro_mops.ml \
@@ -55,19 +64,12 @@ TESTS_TO_FIX := \
 	aos_to_soa.ml \
 
 
-TESTS_WITH_DOC := \
-	variable_insert_and_fold.ml \
-	loop_fusion.ml \
-	variable_insert.ml \
-	label_add__basic.ml \
-
 # 	variable_renames.ml \
 
 
-TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK)
+TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC) $(TESTS_TOCHECK)
 
-
-
+#---------------------------------------------------------------------
 # Rule for generating documentation for tests from the basic folder
 # and copying the files over here
 
@@ -100,7 +102,7 @@ cleandoc::
 	rm -f *__basic_doc.js
 
 
-
+#---------------------------------------------------------------------
 # Common makefile for test folders
 
 include ../Common.Makefile
