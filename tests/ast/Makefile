@@ -1,5 +1,5 @@
 
-FLAGS := -dump-ast-details -serialized_input build
+FLAGS := -dump-ast-details 
 
 include ../Common.Makefile
 

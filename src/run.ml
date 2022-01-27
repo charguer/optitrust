@@ -102,8 +102,7 @@ let get_basename (filename : string) =
    - [~inline:["foo.cpp";"bar.h"]] allows to perform substitution of "#include" directives
      with the contents of the corresponding files; the substitutions are performed one after
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp". *)
-let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(raw_ast : bool = false) (f : unit -> unit) : unit =
-  if raw_ast then Trace.use_raw_ast := true;
+let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") (f : unit -> unit) : unit =
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
   (* LATER: see what happens of the directory... *)
   let basename = get_basename filename in
@@ -129,7 +128,6 @@ let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_ex
       then Trace.dump_diff_and_exit ();
     Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
     Trace.finalize();
-    Trace.use_raw_ast := false; (* reset *)
   )
   (* Printf.printf "END  %s\n" basename *)
 

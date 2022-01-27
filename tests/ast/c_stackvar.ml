@@ -10,9 +10,7 @@ let test_stackvar () =
   let raw_ast = Clang_to_astRawC.tr_ast clang_ast in
   Ast_check.check_transfo_is_identity ~test:"Stack variables" (fun t -> stackvar_intro (stackvar_elim t)) raw_ast
 
-let _ = test_stackvar ()
-
-let _ = Run.script_cpp (* ~filename:"c_big.cpp" ~prefix:"c_big" *) ~raw_ast:true (fun () ->
+let _ = Run.script_cpp ~filename:"c_big.cpp" ~prefix:"c_big" ~raw_ast:true (fun () ->
   !! Trace.apply stackvar_elim;
-  !! Trace.apply stackvar_intro;
+     Trace.apply stackvar_intro;
  )

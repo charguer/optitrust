@@ -31,6 +31,8 @@ let verbose_mode : bool ref = ref false
 (* Flag to enable light diff *)
 let use_light_diff : bool ref = ref true
 
+(* Flag for using only raw ast, when parsing and printing *)
+let use_raw_ast : bool ref = ref true
 type serialized_mode =
   | Serialized_None
   | Serialized_Build
@@ -51,6 +53,13 @@ let process_serialized_input (mode : string) : unit =
 (* Flag to enable serialized input *)
 
 
+let default_parser = ref Parsers.Clang
+
+let use_parser = ref Parsers.Default
+
+let cparser_of_string (s : string) : unit = 
+  use_parser := Parsers.cparser_of_string s
+
 
 (* exit line number *)
 let exit_line : int ref = ref max_int
@@ -62,10 +71,6 @@ let get_exit_line () : int option =
 
 (* ignore small steps to apply multiple transformations at one time *)
 let only_big_steps : bool ref = ref false
-
-
-(* let spec = ...
- ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'."); *)
 
 let spec =
   Arg.align [
@@ -82,6 +87,8 @@ let spec =
      ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
+     ("-cparser", Arg.String cparser_of_string, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
+     ("-use_encoded_ast", Arg.Clear use_raw_ast, "produce optitrust enocded ast when parsing and printing");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
@@ -92,31 +99,3 @@ let fix_flags () =
 
 (* Flag used for a hack by [doc_script_cpp] *)
 let documentation_save_file_at_first_check = ref ""
-
-
-
-(*
-in file Parser.ml
-
-type cparser = Clang | Menhir | Default | All
-
-let cparser_of_string (s : string) : cparser =
-  | "clang" => Clang
-
-
-
-
-in flags.ml
-
-let default_parser = ref Parser.Default
-
--cparser clang   => " specify the parser among 'clang', ..."
--cparser menhir
--cparser all
-
-
-in trace/run:
-let reparse ?(parser=Parser.Default)
-
-
-*)
