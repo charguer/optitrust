@@ -262,6 +262,7 @@ DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 # Generate a JS file containing the material to be displayed in the doc:
 # including the source code, and the full input/output diff
 # (first remove leading white lines in _doc.cpp)
+#  LATER:  $(V)(test -f $*_doc.cpp) || (echo "ERROR: no script_doc for $*")
 %_doc.js: %_out.cpp %_doc.txt %_doc_spec.txt %_doc.cpp # %_doc_out.cpp
 	$(V)sed -i '/./,$$!d' $*_doc.cpp
 	@echo "function get_diff_$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@

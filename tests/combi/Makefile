@@ -93,7 +93,7 @@ TESTS_FOR_DOC := $(subst __basic, , $(TESTS_WITH_DOC:.ml=))
 SPECIAL_RULE_FOR_DOC_HTML := yes
 doc.html: $(DOCJS)
 	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $@ $(TESTS_FOR_DOC)
-	echo "<script>var hide_basic = 1;</script>" >> doc.html
+	sed -i "s#<\/body><\/html>#<script>var hide_basic = 1;<\/script><\/body><\/html>#" $@
 	@echo Produced $@
 
 cleandoc::

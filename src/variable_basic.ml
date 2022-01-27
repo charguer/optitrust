@@ -36,6 +36,7 @@ let unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : Target.t
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.unfold false accept_functions mark at i t p)
 
+(* [inline] documentation *)
 let inline ?(mark : mark = "") ?(accept_functions : bool = true) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Variable_core.unfold true accept_functions mark [] i t p)

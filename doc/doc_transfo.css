@@ -79,3 +79,20 @@ h2 {
    font-weight: bold;
    font-size: 1em;
 }
+
+.d2h-code-side-linenumber {
+  display: none;
+  width: 0em;
+}
+.d2h-code-side-line {
+  padding: 0em;
+}
+
+.d2h-file-side-diff {
+  overflow-x: auto;
+}
+
+.d2h-diff-table {
+  margin: 5px 5px 5px 5px;
+  width: 90%; /* hack to avoid the scrollbar showing up all the time */
+}
