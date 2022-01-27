@@ -112,6 +112,7 @@ and tr_stmt (s : C.stmt) : trm =
   let loc = loc_of_cloc s.sloc in  
   let ctx = Some (get_ctx ()) in 
   match s.sdesc with
+  | Sdo e -> tr_expr e
   | Sif (cond, then_, else_) ->
      let tc = tr_expr cond in
      let tt = tr_stmt then_ in
@@ -149,7 +150,7 @@ and tr_stmt (s : C.stmt) : trm =
     | Slabel lb ->
       let t = tr_stmt body in
       trm_labelled ~loc ~ctx lb t
-    | _ -> fail None "tr_stmt: switch clauses are not yet supported in OptiTrust"
+    | _ -> fail loc "tr_stmt: switch clauses are not yet supported in OptiTrust"
     end
   | Sgoto lb ->
     trm_goto ~loc ~ctx lb
@@ -173,7 +174,7 @@ and tr_stmt (s : C.stmt) : trm =
     let mut = if is_typ_const tt then Var_immutable else Var_mutable in 
     trm_let ~loc ~is_statement:true mut (n, tt) te
 
-  | _ -> fail None "tr_stmt: statment not supported"
+  | _ -> fail loc "tr_stmt: statment not supported"
 
 (* [tr_init i] translate C.inti into optitrust ast*)
 and tr_init ?(loc : location = None) (i : C.init) : trm = 
@@ -181,7 +182,7 @@ and tr_init ?(loc : location = None) (i : C.init) : trm =
   | Init_single e -> tr_expr e 
   | Init_array il -> trm_array ~loc (Mlist.of_list (List.map tr_init il))
   | Init_struct (_, il) -> trm_struct ~loc (Mlist.of_list (List.map (fun (_, init) -> tr_init init) il))
-  | Init_union _ -> fail None "tr_init: union not supported yet"
+  | Init_union _ -> fail loc "tr_init: union not supported yet"
 
 (* [tr_constant c] translate C.constant into Optitrust ast*)
 and tr_constant ?(loc : location = None) (c : C.constant) : trm = 
@@ -201,7 +202,7 @@ and tr_constant ?(loc : location = None) (c : C.constant) : trm =
     trm_lit ~loc (Lit_double (float_of_string (inp ^ "." ^ fp)))
   | CStr s -> 
     trm_lit ~loc (Lit_string s)
-  | _  -> fail None "tr_const: constant expression is not supported"
+  | _  -> fail loc "tr_const: constant expression is not supported"
 
 (* [tr_expr ~is_stement e] translate C.exp into Optitrust ast *)
 and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
@@ -279,7 +280,7 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     | Oxor_assign -> trm_prim_c Binop_xor tl tr
     | Oshl_assign -> trm_prim_c Binop_shiftl tl tr
     | Oshr_assign -> trm_prim_c Binop_shiftr tl tr
-    | Ocomma -> fail None "tr_expr: OptiTrust does not support the comma operator"
+    | Ocomma -> fail loc "tr_expr: OptiTrust does not support the comma operator"
     | Ologand -> trm_bit_and ~loc ~ctx ~typ tl tr
     | Ologor -> trm_bit_or ~loc ~ctx ~typ tl tr
     end
@@ -292,14 +293,14 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     let ty = tr_type ty in
     let te = tr_expr e in
     trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te]
-  | ECompound _ -> fail None "tr_expr: Not supported for the moment" 
+  | ECompound _ -> fail loc "tr_expr: Not supported for the moment" 
   | ECall (f, el) ->
     let tf = tr_expr f in
     begin match tf.desc with
     | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
       begin match el with
       | [tl; tr] -> trm_set ~loc ~ctx ~is_statement (tr_expr tl) (tr_expr tr)
-      | _ -> fail None "tr_expr: overloaded= expects two arguments"
+      | _ -> fail loc "tr_expr: overloaded= expects two arguments"
       end
     | _ -> trm_apps ~loc ~ctx ~is_statement ~typ tf (List.map tr_expr el)
     end
@@ -366,27 +367,27 @@ and tr_globdef (d : C.globdecl) : trm =
     in 
     ctx_typedef_add tn tid td;
     trm_typedef ~loc ~ctx td;
-  | _ -> fail None "tr_globdef: declaration not supported"
+  | _ -> fail loc "tr_globdef: declaration not supported"
 
 
 (* [tr_globdefs gs] translates a list of global declarations*)
 let tr_globdefs (gs : C.globdecl list) : trms =
   let rec aux acc gs = 
     match gs with 
-    | [] -> []
+    | [] -> acc
     | {C.gdesc = C.Gcompositedecl (su, {C.name = sn;_}, _); C.gloc = loc} :: {C.gdesc = C.Gcompositedef (su1, {C.name = sn1},_, fl )} 
       :: {C.gdesc = C.Gtypedef ({C.name = sn2},ty)} :: gs' -> 
+      let loc = loc_of_cloc loc in 
       begin match su,su1 with 
       | Struct , Struct -> 
-        let loc = loc_of_cloc loc in 
         let ctx = Some (get_ctx ()) in
-        if sn <> sn1 && sn <> sn2 then fail None (Printf.sprintf "tr_globdefs: the struct name (%s) must match the typdef name (%s).\n" sn sn2);
+        if sn <> sn1 && sn <> sn2 then fail loc (Printf.sprintf "tr_globdefs: the struct name (%s) must match the typdef name (%s).\n" sn sn2);
         let tid = next_typconstrid () in
         ctx_tconstr_add sn tid;
         let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (fr, tr_type ft)) fl in 
         let two_names = false in 
         let td = {
-          typdef_loc = None;
+          typdef_loc = loc;
           typdef_typid = tid;
           typdef_tconstr = sn;
           typdef_vars = [];
@@ -395,7 +396,7 @@ let tr_globdefs (gs : C.globdecl list) : trms =
         ctx_typedef_add sn tid td;
         let trm_td = trm_typedef ~loc ~ctx td in 
         aux ( trm_td :: acc) gs'
-      | _ -> fail None "tr_globdefs: only struct records are supported"
+      | _ -> fail loc "tr_globdefs: only struct records are supported"
       end 
     | ({C.gdesc = C.Gcompositedecl _; _} | {C.gdesc = C.Gcompositedef _; _}) :: _ -> fail None "tr_globdefs: struct and unions are not supported"
     | g :: gs' -> aux (tr_globdef g :: acc) gs'

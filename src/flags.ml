@@ -51,8 +51,7 @@ let process_serialized_input (mode : string) : unit =
 (* Flag to enable serialized input *)
 
 
-let default_parser = ref Parsers.Clang
-
+let default_parser = ref Parsers.Menhir
 
 let use_parser = ref Parsers.Default
 

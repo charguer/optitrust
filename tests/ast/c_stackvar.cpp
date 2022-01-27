@@ -6,7 +6,7 @@ typedef struct { int x; int y; } vect;
 
 typedef struct { vect pos; vect speed; } particle;
 
-typedef struct vects { vect head; vects* tail; } vects;
+// typedef struct { vect head; vects* tail; } vects;
 
 typedef vect vect2;
 typedef vect2 vect3;
@@ -45,7 +45,7 @@ void test_loop() {
 
 }
 
-// // Stack allocated variables are turned into heap allocated variables
+// Stack allocated variables are turned into heap allocated variables
 void stack_var() {
   int r = 3;
   r = r + 1 + 2;
@@ -201,7 +201,10 @@ void access_encoding() {
   const int cy = c.y;
 }
 
-int foo(vect v) { return v.x; }
+int foo(vect v) {
+  
+   return v.x; 
+}
 
 int mutable_var_encoding() {
     const vect a = { 0, 1 };
