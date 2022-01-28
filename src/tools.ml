@@ -21,6 +21,9 @@ let range (a : int) (b : int) : int list =
 
 (*-----------Extensions to lists-------------*)
 
+(* LATER: create a module Xlist with all these functions,
+   and remove the prefix [list_] for functions that have them. *)
+
 (* [fold_lefti f a xs] is a [List.fold_left] with access to the indices.
    It computes, e.g., [f 2 (f 1 (f 0 a x0) x1) x2)]. *)
 let fold_lefti (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
@@ -59,6 +62,11 @@ let split_list_at (i : int) (l : 'a list) : ('a list) * ('a list) =
 let update_nth (i : int) (f : 'a -> 'a) (l : 'a list) : 'a list =
   List.mapi (fun j a -> if j = i then f a else a) l
 
+(* TODO: remove [map_at], replace all occurrences with update_nth *)
+(* [map_at f] return the list where the nth element is transformed *)
+let map_at (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
+  List.mapi (fun i a -> if i = n then transfo a else a) al
+
 (* LATER: replace this function with List.filteri, offered by new versions of OCaml. *)
 let list_filteri p l =
   let rec aux i acc = function
@@ -67,10 +75,8 @@ let list_filteri p l =
   in
   aux 0 [] l
 
-
-(* [filter_not_selected indices l] keeps only the elements from [l] whose indices belong 
+(* [filter_not_selected indices l] keeps only the elements from [l] whose indices belong
     to the list [indices]. *)
-(* LATER: might be available as List.filteri? to check. *)
 let filter_selected (indices : int list) (l : 'a list) : 'a list =
   list_filteri (fun i _ -> List.mem i indices) l
 
@@ -89,49 +95,45 @@ let list_remove_duplicates (lst : 'a list) =
    The order of the return elements is not specified. *)
 let list_intersect (xs1:'a list) (xs2:'a list) : 'a list =
   List.filter (fun x -> List.mem x xs1) xs2
-  (* LATER: could be optimized with:
+  (* LATER: could be optimized like list_remove_duplicates, e.g.:
     let h = Hashtbl.create (List.length xs1) in
     List.filter (fun x -> Hashtbl.mem h x) xs2 *)
 
-
-(* remove all the elements from a list starting from a element x *)
-let rec chop_list_after x xs = match xs with
-  (* | [] -> failwith "did not find x" *)
+(* [chop_list_after x xs] returns a prefix of [xs] where all elements
+    after the item [x] are removed, including [x]. If [x] does not
+    occur in the list, then the original list [xs] is returned. *)
+(* TODO: rename to list_chop_after *)
+let rec chop_list_after (x : 'a) (xs : 'a list) : 'a list =
+  match xs with
   | [] -> []
   | y::tl -> if y = x then [] else y:: chop_list_after x tl
 
-
-(* return the list where the nth element is transformed *)
-let map_at (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
-  List.mapi (fun i a -> if i = n then transfo a else a) al
-
-(* [insert_sublist_at index el l] inserts the elemtns [el] at index [index] in the list [l].
-   The [index] should be in the range [0] to [length l], inclusive.
-   In particular, if [index = length l], then the operation returns [l @ el]. *)
-let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list =
-  if index = List.length l
+(* [insert_sublist_at i el l] inserts the elemtns [el] at index [i] in the list [l].
+   The [i] should be in the range [0] to [length l], inclusive.
+   In particular, if [i = length l], then the operation returns [l @ el]. *)
+let insert_sublist_at (i : int) (el : 'a list) (l : 'a list) : 'a list =
+  if i = List.length l
     then l @ el
     else fold_lefti (fun i acc x ->
-      if i = ((List.length l) - index - 1) then el @ x :: acc else x :: acc) [] (List.rev l)
+      if i = ((List.length l) - i - 1) then el @ x :: acc else x :: acc) [] (List.rev l)
 
-(* [insert_at index e l] inserts an element [e] at index [index] in the list [l].
+(* [insert_at i e l] inserts an element [e] at index [i] in the list [l].
    The [index] should be in the range [0] to [length l], inclusive.
    In particular, if [index = length l], then the operation returns [l @ [e]]. *)
-let insert_at (index : int) (e : 'a) (l : 'a list) : 'a list =
-  insert_sublist_at index [e] l
+let insert_at (i : int) (e : 'a) (l : 'a list) : 'a list =
+  insert_sublist_at i [e] l
 
 (* [uncons l] returns [(x,l')] such that [l = x::l']. If fails on empty lists. *)
 let uncons (l : 'a list) : 'a * 'a list =
   match l with
-  | [] -> invalid_arg "uncons"
+  | [] -> failwith "uncons: the input list should not be empty."
   | x::l' -> (x,l')
 
 (* [unlast l] returns [(l',x)] such that [l = l'@[x]]. If fails on empty lists. *)
 let unlast (l : 'a list) : 'a list * 'a =
   match List.rev l with
-  | [] -> invalid_arg "uncons"
+  | [] -> failwith "unlast: the input list should not be empty."
   | x::l' -> (List.rev l', x)
-
 
 (* LATER: in recent versions of OCaml, this function is in the List stdlib module. *)
 let find_map f t =
@@ -144,30 +146,40 @@ let find_map f t =
   in
   loop t
 
-(* [index_of x l] returns the index of element [x] in list [l] if
-    the list contains that element, otherwise None
- *)
+(* [index_of x l] returns the [Some i], where [i] is the index of element
+   [x] in list [l], or [None] if [x] does not belong to the list. *)
 let index_of (x : 'a) (l : 'a list) : int option =
   fold_lefti (fun i acc y -> if x = y then Some i else acc) None l
 
-
-
-exception Out_of_bound
-
-(* [list_reorder order l] reorder list [l] based on order [order] *)
-let list_reorder (order : int list) (l : 'a list) : 'a list =
-  List.map (fun k -> match List.nth_opt l k with | None -> raise Out_of_bound | Some v -> v) order
-
 exception Invalid_permutation
 
-(* [check_permuattion nb order] check if the given order is a permutation of the integer set [0, .. ,nb] *)
+(* [check_permutation nb order] checks if the list [order] is a permutation
+   of the list of the [nb] first integers (zero inclusive, [nb] exclusive).
+   It raises [Invalid_permutation] if it is not the case. *)
 let check_permutation (nb : int) (order : int list) : unit =
+  if List.length order <> nb then raise Invalid_permutation;
   List.iter (fun k -> if not (List.mem k order) then raise Invalid_permutation) (range 0 (nb -1))
 
-(* [list_rotate n l] move n elements at the end of the list *)
+(* [list_reorder order l] returns a reordered version of the list [l].
+   The i-th item from the output list corresponds to the j-th item from
+   the input list, where [j] is the [i-th] item from the list [order].
+   In other words, the output list is (using the bracket notation for nth):
+   [ l[order[0]] ; l[order[1]]; ... l[order[length l-1]].
+   The list [order] must have the same length as [l].
+   All the values in the list [order] must be in the range [0 <= .. < length l]. *)
+let list_reorder (order : int list) (l : 'a list) : 'a list =
+  List.map (fun k -> match List.nth_opt l k with
+                     | None -> failwith "list_reorder: invalid index."
+                    | Some v -> v) order
+
+(* [list_rotate n l] returns a copy of list where the [n] elements from the end
+   of the list are moved to the front. If [l = l1 ++ l2] with [length l2 = n],
+   then the output list is [l2 ++ l1]. *)
 let list_rotate (n : int) (l : 'a list) : 'a list =
- if n > List.length l then failwith "list_rotate: the elements to rotate shouuld be less or equal to the number of the elements in the list";
- let ls, rs = split_list_at n l in rs @ ls
+  if n > List.length l
+   then failwith "list_rotate: the number of elements to rotate should not exceed the length of the input list.";
+  let ls, rs = split_list_at n l in
+  rs @ ls
 
 
 
