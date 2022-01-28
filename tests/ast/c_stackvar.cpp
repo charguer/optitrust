@@ -1,4 +1,14 @@
+typedef struct { int x; int y; } vect;
 
+int main() {
+  vect v = {0,1};
+  vect* p = &v;
+  p.x = p.y;
+  p->x = p->y;
+}
+
+
+/*
 
 // Description of the encoding performed for the AST representation
 
@@ -202,8 +212,8 @@ void access_encoding() {
 }
 
 int foo(vect v) {
-  
-   return v.x; 
+
+   return v.x;
 }
 
 int mutable_var_encoding() {
@@ -230,3 +240,5 @@ void lvalue_encoding() {
   int *v;
   *v = 4;
 }
+
+*/

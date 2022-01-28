@@ -10,7 +10,13 @@ let test_stackvar () =
   let raw_ast = Clang_to_astRawC.tr_ast clang_ast in
   Ast_check.check_transfo_is_identity ~test:"Stack variables" (fun t -> stackvar_intro (stackvar_elim t)) raw_ast
 
-let _ = Run.script_cpp ~filename:"c_big.cpp" ~prefix:"c_big" ~raw_ast:true (fun () ->
-  !! Trace.apply stackvar_elim;
-     Trace.apply stackvar_intro;
+let _ =
+  Flags.dump_ast_details := true;
+  Flags.bypass_cfeatures := true
+
+(* ARTHUR: we don't see the right diff when we specify a prefix *)
+let _ = Run.script_cpp (*  ~filename:"c_big.cpp" ~prefix:"c_big" *) (fun () ->
+  !! Trace.apply stackvar_elim;  (* Press F6 on this line, with !! in front of the next line *)
+  !! Trace.apply stackvar_intro;
+    (* TODO: fix look at the .ast file *)
  )

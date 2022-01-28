@@ -7,8 +7,10 @@ TARGET_MAKE_ALL := check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
 # TESTS_WITH_DOC_INCLUDING_BASIC := \
+#  instr_moveout.ml \
 #	 label_add__basic.ml \
 #  LATER: define TESTS_WITH_DOC  as a filter of TESTS_WITH_DOC_INCLUDING_BASIC by removing *__basic.ml from the list
+
 
 TESTS_WITH_DOC := \
 	instr_gather.ml \
@@ -17,7 +19,6 @@ TESTS_WITH_DOC := \
 	instr_read_last_write.ml \
 	loop_fusion.ml \
 	loop_fold.ml \
-	loop_fold_instr.ml \
 	loop_moveout.ml \
 	loop_reorder.ml \
 	sequence_intro.ml \
@@ -28,6 +29,8 @@ TESTS_WITH_DOC := \
   variable_intro_pattern_array.ml \
 	variable_renames.ml \
 	variable_reuse.ml \
+
+# 	loop_fold_instrs.ml \
 
 TESTS_WITHOUT_DOC := \
 	function_bind_args.ml \

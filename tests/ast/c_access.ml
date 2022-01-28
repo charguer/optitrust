@@ -12,13 +12,14 @@ let test_accesses () =
 
 (* let _ = test_accesses () *)
 
-
-let _ = Flags.dump_ast_details := true
+let _ =
+  Flags.dump_ast_details := true;
+  Flags.bypass_cfeatures := true
 
 let _ = Run.script_cpp (* ~filename:"c_big.cpp" ~prefix:"c_big" *) ~raw_ast:true (fun () ->
   (* Note: address_elim might not work in the presence of stack variables *)
   !! Trace.apply stackvar_elim;
-     Trace.apply caddress_elim; (* Press F6 on this line *)
+     Trace.apply caddress_elim; (* Press F6 on this line, with !! in front of the next line *)
      Trace.apply caddress_intro;
      Trace.apply stackvar_intro;
 

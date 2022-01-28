@@ -37,7 +37,10 @@ let verbose_mode : bool ref = ref false
 let use_light_diff : bool ref = ref true
 
 (* Flag for using only raw ast, when parsing and printing *)
-let use_new_encodings : bool ref = ref true
+let use_new_encodings : bool ref = ref false
+
+(* Flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them *)
+let bypass_cfeatures : bool ref = ref false
 
 (* Option to deal with serialized AST as input and output:
   | Serialized_None: do not read or write any serialized ast, just parse the input file.

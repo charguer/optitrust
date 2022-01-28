@@ -74,6 +74,8 @@ let create_env () = ref env_empty
    For references, [int& b = a] becomes [<annotation:reference> int* b = a] as a simplification of [b = &*a]
    and [int& x = t[i]] becomes [<annotation:reference> int* x = &(t[i])] if t has type [const int*].
 
+   Note that in the input ast, [p->f] is represented as [( *p ).f @"annot:Display_arrow"].
+
    Here, the "reference" annotation is added to allow decoding.
    LATER: Support references on constants. *)
 let stackvar_elim (t : trm) : trm =
@@ -193,10 +195,13 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_} as op, [t1; t2]) ->
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [access t1; aux t2]))
       (* *t1 becomes to [*(aux t1)] if '*' is not a hidden get operation, otherwise it becomes  [aux t1] *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op, [t1]) ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as _op, [t1]) ->
+      (* DEPRECATED
       if List.mem Mutable_var_get t.annot
         then aux t1
         else mk (Trm_apps (op, [aux t1]))
+      *)
+      aux t1
     | Trm_var (_, x) -> fail t.loc (Printf.sprintf "caddress_elim: const variable cannot appear as lvalue (mutation of function arguments is not supported in OptiTrust), %s" x)
     | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (Ast_to_rawC.ast_to_string t) (Ast_to_text.ast_to_string t))
     end
@@ -259,8 +264,9 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
       (* array_access (t1, t2) is reverted to array_get (access t1, aux t2) *)
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)))}, [access t1; aux t2]))
     | Trm_var _ ->
-      (* x is reverted to *x when x is mutable and an lvalue *)
-      Ast.trm_get ~annot:[Mutable_var_get] t
+      (* DEPRECATED (* x is reverted to *x when x is mutable and an lvalue *)
+      Ast.trm_get ~annot:[Mutable_var_get] t *)
+      Ast.trm_get t
     | _ -> trm_map aux t
     end
     else begin

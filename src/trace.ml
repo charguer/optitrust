@@ -159,7 +159,9 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
              (* If the two ast match, we can use any one of them (only locations might differ); let's use the one from the default parser. *)
                if Flags.default_parser = Parsers.Clang then rawAstClang else rawAtMenhir
             in
-          CRawAst_to_ast.cfeatures_elim rawAst
+          if !Flags.bypass_cfeatures
+            then rawAst
+            else CRawAst_to_ast.cfeatures_elim rawAst
       end else
         Clang_to_ast.translate_ast (Clang.Ast.parse_file ~command_line_args filename)
     )
@@ -518,9 +520,11 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
     (* LATER: try to find a way to put the includes in the AST so we can do simply ast_to_file *)
     output_string out_prog ctx.includes;
-    if use_new_encodings
-      then Ast_to_rawC.ast_to_outchannel out_prog (CRawAst_to_ast.cfeatures_intro ast)
-      else Ast_to_c.ast_to_outchannel out_prog ast;
+    if use_new_encodings then begin
+      let astRaw = if !Flags.bypass_cfeatures then ast else CRawAst_to_ast.cfeatures_intro ast in
+      Ast_to_rawC.ast_to_outchannel out_prog astRaw
+    end else
+      Ast_to_c.ast_to_outchannel out_prog ast;
     output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->

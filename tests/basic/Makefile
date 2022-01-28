@@ -1,4 +1,4 @@
-FLAGS := -use_encoded_ast
+# FLAGS := -use-new-encodings
 
 
 TARGET_MAKE_ALL := check
