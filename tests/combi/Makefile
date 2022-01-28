@@ -1,5 +1,5 @@
 # FLAGS := -dump-ast-details
-FLAGS := -disable-light-diff
+FLAGS := -dump-ast-details
 
 TARGET_MAKE_ALL := check
 

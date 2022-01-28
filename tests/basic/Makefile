@@ -88,24 +88,24 @@ TESTS_WORKING_NOTINDOC := \
 TESTS_TOCHECK := \
 	accesses_intro.ml \
 	include_inline.ml \
-	struct_simpl_proj.ml \
 	matrix_delocalize.ml \
 	matrix_intro_mcalloc.ml \
 	matrix_intro_mindex.ml \
 	matrix_intro_mmalloc.ml \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
+	sequence_split.ml \
+
 
 # missing expected
 # matrix_insert_alloc_dim.ml
 #	matrix_insert_access_dim_index.ml \
 
 TESTS_TO_FIX := \
-	sequence_split.ml \
 	arith_shift.ml \
 	arith_to_fix.ml \
 	aos_to_soa_typedef.ml \
-
+  struct_simpl_proj.ml \
 # TODO:
 # arith_simpl.ml
 

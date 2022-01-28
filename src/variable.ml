@@ -11,6 +11,13 @@ module Rename = struct
   | AddSuffix of string
   | ByList of (string * string) list
   | Renamefn of (string -> string)
+
+  let add_sufix (s : string) =  Renamefn (fun x -> x ^ s)
+
+  let apply (f : string -> string) = Renamefn f 
+
+  let bylist (l : (string * string) list) =  ByList l
+
 end
 type rename = Rename.t
 
@@ -217,7 +224,6 @@ let reuse ~space:(space : trm) ?(reparse : bool = false) : Target.Transfo.t =
     Or AddSuffix s, if this is the case then all the variable declared inside the targeted sequence
      are going to be renamed by adding the suffix at the end of its current name.
 *)
-
 let renames (rename : rename) : Target.Transfo.t =
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in

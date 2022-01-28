@@ -1341,7 +1341,6 @@ let contains_variable (x : var) (t : trm) : bool =
 let decl_name (t : trm) : var option =
   match t.desc with
   | Trm_let (_,(x,_),_) -> Some x
-  (* take into account heap allocated variables *)
   | Trm_let_fun (f, _, _, _) -> Some f
   | Trm_typedef td -> Some td.typdef_tconstr
   | _ -> None

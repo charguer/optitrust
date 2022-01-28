@@ -127,19 +127,17 @@ let unwrap : Target.Transfo.local =
     return:
       a nobrace sequence containing the splitted sequence
 *)
-let split_aux (index : int) (marks : mark list) (t : trm) : trm =
+let split_aux (index : int) (is_fun_body : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     let first_part,last_part = Mlist.split index tl in
-    let mark1, mark2 = match marks with 
-    | [] -> "",""
-    | [mark1; mark2] -> mark1, mark2
-    | _ -> fail t.loc "split_aux: the list of marks should be either empty or contain only two strings" in
-    trm_seq_no_brace [trm_add_mark mark1 (trm_seq ~annot:t.annot first_part);trm_add_mark mark2 (trm_seq ~annot:t.annot ~marks:[] last_part)]
+    let res = 
+    trm_seq_no_brace [trm_seq first_part; trm_seq last_part] in 
+    if is_fun_body then trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [res]) else res
   | _ -> fail t.loc "split_aux: expected a sequence, containing the location where it is going to be splitted"
 
-let split (index : int) (marks : mark list): Target.Transfo.local =
-  Target.apply_on_path (split_aux index marks)
+let split (index : int) (is_fun_body : bool) : Target.Transfo.local =
+  Target.apply_on_path (split_aux index is_fun_body)
 
 (* [partition blocks braces]: partition a sequence into a list of sequences
     params:

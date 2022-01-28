@@ -190,6 +190,14 @@ let get_trm_in_surrounding_loop (dl : path) : path * int =
     | _ -> fail None "get_trm_in_surrounding_loop: empty path"
 
 
+(* [is_decl_body dl] checks if the full path points to a declaration body *)
+let is_decl_body (dl : path) : bool = 
+  match List.rev dl with 
+  | Dir_body :: _ -> true 
+  | _ -> false
+
+
+
 (* Rename all the occurrences of a variable by adding an underscore as prefix*)
 let fresh_args (t : trm) : trm =
   match t.desc with

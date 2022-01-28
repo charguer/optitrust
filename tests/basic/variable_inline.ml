@@ -12,20 +12,6 @@ int main() {
 }
 "
 
-(* TODO: add an option ~accept_nonconst to inline and unfold operations
-let _ = Run.doc_script_cpp (fun _ ->
-    !! Variable_basic.inline [cVarDef "a"];
-       Variable_basic.inline [cVarDef "b"];
-  )
-"
-int main() {
-  const int a = 3;
-  int r = a + a;
-  int b = 4;
-  int s = b + b;
-}
-"
-*)
 
 let _ = Run.script_cpp (fun _ ->
 

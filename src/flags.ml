@@ -6,7 +6,7 @@ let analyse_time : bool ref = ref false
 let analyse_time_details : bool ref = ref false
 
 (* dump .ast and _enc.cpp files *)
-let dump_ast_details : bool ref = ref true
+let dump_ast_details : bool ref = ref false
 
 (* Call [Trace.dump_last !dump_last] instead of [Trace.dump], if value is set.
    Note: incompatible with the use of [switch] in scripts, currently. *)
@@ -32,7 +32,7 @@ let verbose_mode : bool ref = ref false
 let use_light_diff : bool ref = ref true
 
 (* Flag for using only raw ast, when parsing and printing *)
-let use_raw_ast : bool ref = ref true
+let use_raw_ast : bool ref = ref false
 type serialized_mode =
   | Serialized_None
   | Serialized_Build
