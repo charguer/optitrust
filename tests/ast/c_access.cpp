@@ -99,7 +99,7 @@ void stack_array() {
 
 // // Likewise,  t.x  is decomposed  as *(&t.x), which involves the primitive
 // // unary operator "Unop_struct_field_addr x" applied to the argument t.
-  
+
 void stack_struct() {
   vect v = { 5, 6 };
   int a = v.x;
@@ -261,4 +261,12 @@ void lvalue_encoding() {
 
   int *v;
   *v = 4;
+}
+
+
+void arrow() {
+ vect v = {0,1};
+ vect* p = &v;
+ (*p).x = (*p).y;
+ p->x = p->y;
 }

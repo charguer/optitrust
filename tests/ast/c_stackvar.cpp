@@ -229,3 +229,9 @@ void lvalue_encoding() {
   *v = 4;
 }
 
+void arrow() {
+ vect v = {0,1};
+ vect* p = &v;
+ (*p).x = (*p).y;
+ p->x = p->y;
+}

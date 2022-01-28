@@ -15,7 +15,8 @@ let _ =
   Flags.bypass_cfeatures := true;
   Flags.use_new_encodings := true
 
-let _ = Run.script_cpp ~filename:"c_big.cpp" ~prefix:"c_stackvar" (fun () ->
+let _ = Run.script_cpp (* ~filename:"c_big.cpp" ~prefix:"c_stackvar" *) (fun () ->
   !! Trace.apply stackvar_elim;  (* Press F6 on this line, with !! in front of the next line *)
-     Trace.apply stackvar_intro;
+  !! Trace.apply stackvar_intro;
+  !! Trace.check_recover_original();
  )

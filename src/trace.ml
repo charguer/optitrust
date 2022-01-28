@@ -475,6 +475,26 @@ let step () : unit =
     trace.history <- trace.cur_ast::trace.history)
     !traces
 
+(* [check_recover_original()] checks that the AST obtained so far
+   is identical to the input AST, obtained from parsing. If not,
+   it raises an error. *)
+let check_recover_original () : unit =
+  let check_same ast1 ast2 =
+    if Ast_to_rawC.ast_to_string ast1 <> Ast_to_rawC.ast_to_string ast2
+      then fail None "check_recover_original: the current AST is not identical to the original one."
+    in
+  let check_trace trace =
+    let h = trace.history in
+    match h with
+    | [] -> failwith "check_recover_original: no history"
+    | astLast :: [] -> () (* no operation performed, nothing to check *)
+    | astLast :: astsBefore ->
+        let _,astInit = Tools.unlast astsBefore in
+        check_same astLast astInit
+    in
+  List.iter check_trace !traces
+
+
 
 (******************************************************************************)
 (*                                   Output                                   *)
