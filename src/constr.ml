@@ -984,9 +984,9 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
       if n <> nb then error (sprintf "resolve_target_struct: expected %d matches, got %d" n nb)
         else
           (* List.iter (fun i -> if not (0 <= i && i < nb) then error (sprintf "resolve_target_struct: the requested indices are out of range") else ()); *)
-          Tools.filter_not_selected i_selected res;
+          Tools.filter_selected i_selected res;
     | None -> if nb = 0 then error (sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb)
-                else Tools.filter_not_selected i_selected res;
+                else Tools.filter_selected i_selected res;
     end
   | FirstOcc -> [fst (Tools.uncons res)]
   | LastOcc ->  [snd (Tools.unlast res)]

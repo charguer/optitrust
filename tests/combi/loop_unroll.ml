@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-(* TODO: this case is not covered
+(* TODO: this case is not covered *)
 let _ = Run.doc_script_cpp (fun _ ->
   !! Loop.unroll [cFor "a"];
   )
@@ -13,13 +13,13 @@ int main() {
   }
 }
 "
-*)
+
 
 
 let _ = Run.script_cpp (fun _ ->
 
   (* With partitioning *)
-  !! Loop.unroll ~shuffle:true ~blocks:[2;1;2] [cFor "i"];
+  (* !! Loop.unroll ~shuffle:true ~blocks:[2;1;2] [cFor "i"]; *)
   !! Loop.unroll  [cFor "j"];
 
   (* Without partitioning *)

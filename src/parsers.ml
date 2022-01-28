@@ -1,7 +1,3 @@
-(* TODO: this file should be name Parser, not Parsers.
-  By default, always use singular names, they are shorter;
-  (Flags is an exception, probably because it's an idiomatic plural word, like settings). *)
-
 
 type cparser = Clang | Menhir | Default | All
 
