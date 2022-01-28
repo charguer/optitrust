@@ -15,7 +15,7 @@ let _ =
   Flags.bypass_cfeatures := true
 
 (* ARTHUR: we don't see the right diff when we specify a prefix *)
-let _ = Run.script_cpp (*  ~filename:"c_big.cpp" ~prefix:"c_big" *) (fun () ->
+let _ = Run.script_cpp (* ~filename:"c_big.cpp" *) ~prefix:"c_stackvar" (fun () ->
   !! Trace.apply stackvar_elim;  (* Press F6 on this line, with !! in front of the next line *)
   !! Trace.apply stackvar_intro;
     (* TODO: fix look at the .ast file *)
