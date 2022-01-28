@@ -71,6 +71,9 @@ let create_env () = ref env_empty
       and a variable occurrence [a] becomes [ * a]
    The transformation leaves [const int c = 5] unchanged.
 
+   This transformation introduces many [*] operators. This may lead to the production of
+   [&*p] patterns. They are simplified into [p] on the fly.
+
    For references, [int& b = a] becomes [<annotation:reference> int* b = a] as a simplification of [b = &*a]
    and [int& x = t[i]] becomes [<annotation:reference> int* x = &(t[i])] if t has type [const int*].
 
@@ -117,8 +120,19 @@ let stackvar_elim (t : trm) : trm =
         onscope env t (fun t -> add_var env index Var_immutable; trm_map aux t)
     | Trm_for_c _ ->
         onscope env t (fun t -> trm_map aux t)
+    (* Simplification of [&*p] patterns *) (* LATER: factorize in different places? *)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _} as op, [t1]) ->
+        let u1 = aux t1 in
+        begin match u1.desc with
+        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [u11]) -> u11
+        | _ -> { t with desc = Trm_apps (op, [u1]) }
+        end
     | _ -> trm_map aux t
    in aux t
+
+
+(* TODO: do we need to produce any Address_operator annotation?
+   if we don't need, then we might need to change a few things in transformations that depend on this annotation. *)
 
 (* [stackvar_intro t] is the reciprocal to [stackvar_elim]. It replaces [<annotation:stackvar> int *a = new int(5)] with [int a = 5]
     and a variable occurrence [*a] becomes [a] if it corresponds to a stack variable
@@ -228,6 +242,13 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
               mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u11; u2]))]))
             | _ -> mk (Trm_apps (op, [u1;u2]))
             end
+         (* Simplification of [&*p] patterns *)
+         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _} as op, [t1]) ->
+            let u1 = aux t1 in
+            begin match u1.desc with
+            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [u11]) -> u11
+            | _ -> { t with desc = Trm_apps (op, [u1]) }
+            end
          | _ -> trm_map aux t
          end
 
@@ -263,11 +284,7 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _} as op, [t1; t2]) ->
       (* array_access (t1, t2) is reverted to array_get (access t1, aux t2) *)
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)))}, [access t1; aux t2]))
-    | Trm_var _ ->
-      (* DEPRECATED (* x is reverted to *x when x is mutable and an lvalue *)
-      Ast.trm_get ~annot:[Mutable_var_get] t *)
-      Ast.trm_get t
-    | _ -> trm_map aux t
+    | _ -> trm_get ~simplify:true (aux t)
     end
     else begin
     match t.desc with

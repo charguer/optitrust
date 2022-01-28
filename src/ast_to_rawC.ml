@@ -1,6 +1,10 @@
 open PPrint
 open Ast
 
+(* only for internal use *)
+let print_optitrust_syntax = ref false
+
+
 (* translate an ast to a C/C++ document *)
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
@@ -509,8 +513,14 @@ and apps_to_doc (f : trm) (tl : trms) : document =
            | [t] ->
               let d = decorate_trm t in
               begin match op with
+              | Unop_get when !print_optitrust_syntax ->
+                  string "get(" ^^ d ^^ string ")"
               | Unop_get -> star ^^ d
-              | Unop_address -> ampersand ^^ d
+              | Unop_address ->
+                  let isvar_t = match t.desc with Trm_var _ -> true | _ -> false in
+                  if isvar_t
+                    then ampersand ^^ d
+                    else ampersand ^^ parens d
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
               | Unop_minus -> parens (minus ^^ blank 1 ^^ d)
@@ -519,6 +529,8 @@ and apps_to_doc (f : trm) (tl : trms) : document =
               | Unop_post_dec -> d ^^ twice minus
               | Unop_pre_inc -> twice plus ^^ d
               | Unop_pre_dec -> twice minus ^^ d
+              | Unop_struct_access f1 when !print_optitrust_syntax ->
+                  string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
               | (Unop_struct_get f1 | Unop_struct_access f1) ->
                  if List.mem Display_arrow f.annot
                   then
@@ -556,8 +568,15 @@ and apps_to_doc (f : trm) (tl : trms) : document =
               decorate_trm t2
              end  in
              begin match op with
+             | Binop_set when !print_optitrust_syntax ->
+                string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+             | Binop_array_access when !print_optitrust_syntax ->
+                string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+             (* LATER:
+               | Binop_array_access ->
+                fail t.loc "Binop_array_access should not appear in C code " *)
              | Binop_array_access | Binop_array_get ->
-              d1 ^^ brackets (d2)
+                d1 ^^ brackets (d2)
              | _ -> separate (blank 1) [d1; op_d; d2]
              end
 
@@ -836,15 +855,18 @@ and unpack_trm_for ?(loc = None) ?(local_index : bool = true) (index : var) (sta
     trm_for_c  ~loc init cond step body
 
 
-let ast_to_doc (t : trm) : document =
-  decorate_trm t
+let ast_to_doc ?(optitrust_syntax:bool=false) (t : trm) : document =
+  if optitrust_syntax then print_optitrust_syntax := true;
+  let d = decorate_trm t in
+  if optitrust_syntax then print_optitrust_syntax := false;
+  d
 
-let ast_to_outchannel (out : out_channel) (t : trm) : unit =
-  ToChannel.pretty 0.9 80 out (ast_to_doc t)
+let ast_to_outchannel ?(optitrust_syntax:bool=false) (out : out_channel) (t : trm) : unit =
+  ToChannel.pretty 0.9 80 out (ast_to_doc ~optitrust_syntax t)
 
-let ast_to_file (filename : string) (t : trm) : unit =
+let ast_to_file ?(optitrust_syntax:bool=false) (filename : string) (t : trm) : unit =
   let out = open_out filename in
-  ast_to_outchannel out t;
+  ast_to_outchannel ~optitrust_syntax out t;
   close_out out
 
 let ast_to_string (t : trm) : string =

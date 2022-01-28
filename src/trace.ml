@@ -541,8 +541,9 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     (* LATER: try to find a way to put the includes in the AST so we can do simply ast_to_file *)
     output_string out_prog ctx.includes;
     if use_new_encodings then begin
-      let astRaw = if !Flags.bypass_cfeatures then ast else CRawAst_to_ast.cfeatures_intro ast in
-      Ast_to_rawC.ast_to_outchannel out_prog astRaw
+      if !Flags.bypass_cfeatures
+        then Ast_to_rawC.ast_to_outchannel ~optitrust_syntax:true out_prog ast
+        else Ast_to_rawC.ast_to_outchannel out_prog (CRawAst_to_ast.cfeatures_intro ast)
     end else
       Ast_to_c.ast_to_outchannel out_prog ast;
     output_string out_prog "\n";
