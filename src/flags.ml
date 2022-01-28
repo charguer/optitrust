@@ -37,7 +37,7 @@ let verbose_mode : bool ref = ref false
 let use_light_diff : bool ref = ref true
 
 (* Flag for using only raw ast, when parsing and printing *)
-let use_raw_ast : bool ref = ref false
+let use_new_encodings : bool ref = ref true
 
 (* Option to deal with serialized AST as input and output:
   | Serialized_None: do not read or write any serialized ast, just parse the input file.
@@ -69,13 +69,12 @@ let process_serialized_input (mode : string) : unit =
   | _ -> Serialized_None
 
 
-(* Option to select the parser *)
+(* Option to select the C parser to use *)
+let use_parser = ref Parsers.Default (* TODO: rename to selected_cparser *)
 
-let default_parser = ref Parsers.Clang
+let default_parser = Parsers.Clang (* TODO: move to Parsers.default *)
 
-let use_parser = ref Parsers.Default
-
-let cparser_of_string (s : string) : unit =
+let cparser_of_string (s : string) : unit = (* TODO: move to Parsers.of_string *)
   use_parser := Parsers.cparser_of_string s
 
 
@@ -108,7 +107,7 @@ let spec =
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
      ("-cparser", Arg.String cparser_of_string, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
-     ("-use_encoded_ast", Arg.Clear use_raw_ast, "produce optitrust enocded ast when parsing and printing");
+     ("-use-new-encodings", Arg.Clear use_new_encodings, "FOR DEV ONLY");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
@@ -122,3 +121,14 @@ let fix_flags () =
    associated with the documentation of a unit test, before running the main contents
    of the file. *)
 let documentation_save_file_at_first_check = ref ""
+
+
+(*
+
+  Note: to see a diff at the level of the OptiTrust AST, use:
+    -dump-ast-details
+  and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp]
+
+*)
+
+

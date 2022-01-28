@@ -124,7 +124,8 @@ let get_cpp_includes (filename : string) : string =
 (* [parse filename] returns (1) a list of filenames corresponding to the '#include',
    and the OptiTrust AST. *)
 let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
-  let raw_ast = !Flags.use_raw_ast in
+  let use_new_encodings = !Flags.use_new_encodings in
+  let parser = if parser = Parsers.Default then Flags.default_parser else parser in
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
   let command_line_include =
@@ -135,22 +136,32 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
 
   let t =
     timing ~name:"tr_ast" (fun () ->
-      let parser = if parser = Parsers.Default then !Flags.default_parser else parser in
-      if raw_ast
-         then begin
-          if parser = Parsers.Clang
-            then Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename)
-            else if parser = Parsers.Menhir then
-              CRawAst_to_ast.cfeatures_elim (CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename))
-            else begin
-              let clang_ast = Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename) in
-              let menhir_ast = CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename) in
-              if Ast_to_text.ast_to_string clang_ast <> Ast_to_text.ast_to_string menhir_ast then Printf.printf "parse: different ast-s from different parsers";
-              if !Flags.default_parser = Parsers.Clang then CRawAst_to_ast.cfeatures_elim clang_ast else CRawAst_to_ast.cfeatures_elim menhir_ast
-              end
-            end
-         else
-          Clang_to_ast.translate_ast (Clang.Ast.parse_file ~command_line_args filename)
+      if use_new_encodings then begin
+        let parse_clang () =
+          Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename) in
+        let parse_menhir () =
+          CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename) in
+        let rawAst = match parser with
+          | Parsers.Default -> assert false (* see def of parser; Flags.default_parser should not be Default *)
+          | Parsers.Clang -> parse_clang()
+          | Parsers.Menhir -> parse_menhir()
+          | Parsers.All ->
+             let rawAstClang = parse_clang() in
+             let rawAtMenhir = parse_menhir() in
+             let strAstClang = Ast_to_rawC.ast_to_string rawAstClang in
+             let strAstMenhir = Ast_to_rawC.ast_to_string rawAtMenhir in
+             if strAstClang <> strAstMenhir then begin
+               (* LATER: we could add a prefix based on the filename, but this is only for debug *)
+               Xfile.put_contents "ast_clang.cpp" strAstClang;
+               Xfile.put_contents "ast_menhir.cpp" strAstMenhir;
+              fail None "parse: [-cparser all] option detected discrepencies; see ast_clang.cpp and ast_menhir.cpp";
+             end else
+             (* If the two ast match, we can use any one of them (only locations might differ); let's use the one from the default parser. *)
+               if Flags.default_parser = Parsers.Clang then rawAstClang else rawAtMenhir
+            in
+          CRawAst_to_ast.cfeatures_elim rawAst
+      end else
+        Clang_to_ast.translate_ast (Clang.Ast.parse_file ~command_line_args filename)
     )
   in
   (*  *)
@@ -166,7 +177,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
 
   (* let t =
     timing ~name:"translate_ast" (fun () ->
-      if raw_ast
+      if use_new_encodings
         then Clang_to_astRawC.tr_ast ast
         else Clang_to_ast.translate_ast ast) in *)
 
@@ -498,7 +509,7 @@ let get_language () =
   | t::_ -> language_of_extension t.context.extension
 
 let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
-  let raw_ast = !Flags.use_raw_ast in
+  let use_new_encodings = !Flags.use_new_encodings in
   let file_prog = prefix ^ ctx.extension in
   let out_prog = open_out file_prog in
   begin try
@@ -506,9 +517,8 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     (*   DEPRECATED
     Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
     output_string out_prog ctx.includes;
-    if raw_ast
-      then
-        Ast_to_rawC.ast_to_doc out_prog (CRawAst_to_ast.cfeatures_intro ast)
+    if use_new_encodings
+      then Ast_to_rawC.ast_to_doc out_prog (CRawAst_to_ast.cfeatures_intro ast)
       else Ast_to_c.ast_to_doc out_prog ast;
     output_string out_prog "\n";
     close_out out_prog;
@@ -533,7 +543,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
         close_out out_ast;
       end;
       (* print the non-decoded ast *)
-      if not raw_ast then begin
+      if not use_new_encodings then begin
         output_string out_enc ctx.includes;
         Ast_to_c.ast_to_undecoded_doc out_enc ast;
         output_string out_enc "\n";
