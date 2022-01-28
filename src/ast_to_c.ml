@@ -88,7 +88,7 @@ and typ_to_doc ?(const : bool = false) (t : typ) : document =
   dattr ^^ dannot ^^ d
 
 and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
-  let const_string = if false then blank 1 ^^ string " const " ^^ blank 1 else empty in 
+  let const_string = if false then blank 1 ^^ string " const " ^^ blank 1 else empty in
   let rec aux (t : typ) (s : size) : document * document list =
     let ds =
       match s with
@@ -121,7 +121,7 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
     let ret_type = typ_to_doc ty  in
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ parens(star ^^ string x) ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
-  | Typ_const {typ_desc = Typ_array (t,s);_} -> 
+  | Typ_const {typ_desc = Typ_array (t,s);_} ->
     let (base, bracket) = aux t s in
      dattr ^^ string "const " ^^ base ^^ blank 1 ^^ string x ^^ concat bracket
   | _ -> typ_to_doc ~const t ^^ blank 1 ^^ string x
@@ -400,20 +400,20 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
       let inline = if inline then string "inline" else empty in
       let dt = decorate_trm t1 in
       dattr ^^ string "namespace " ^^ string name ^^ blank 1 ^^ inline ^^ blank 1 ^^ dt
-     | Trm_let_record (name, rt, s, t1) -> 
+     | Trm_let_record (name, rt, s, t1) ->
       let get_document_list s =
-        let rec aux acc = function 
+        let rec aux acc = function
           | [] -> acc
-          | (lb, t) :: tl -> 
-            aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in 
-            aux [] s in 
-        let dl = get_document_list s in 
-        let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in 
-        let dname = if name = "" then empty else blank 1 ^^ string name in 
-        let drt = record_type_to_doc rt in 
-        let dt = decorate_trm t1 in 
+          | (lb, t) :: tl ->
+            aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in
+            aux [] s in
+        let dl = get_document_list s in
+        let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
+        let dname = if name = "" then empty else blank 1 ^^ string name in
+        let drt = record_type_to_doc rt in
+        let dt = decorate_trm t1 in
         dattr ^^ drt ^^ dname ^^ blank 1 ^^ sbody  ^^ blank 1 ^^ dt ^^ semi
-     (* 
+     (*
      DEPRECATED
      | Trm_let_record (name, rt, tl, t1) ->
       let dname = if name = "" then empty else blank 1 ^^ string name in
@@ -988,27 +988,31 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_wtime -> string "get_wtime" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_wtick -> string "get_wtich" ^^ lparen ^^ blank 1 ^^ rparen
 
-let ast_to_doc (out : out_channel) (t : trm) : unit =
-  ToChannel.pretty 0.9 80 out (decorate_trm t)
+
+let ast_to_doc t =
+  decorate_trm t
+
+let ast_to_outchannel (out : out_channel) (t : trm) : unit =
+  ToChannel.pretty 0.9 80 out (ast_to_doc t)
 
 (* To obtain the C++ code without decoding, we temporary set the flag
    "decode" (defined at the top of this file) to false. *)
 let ast_to_undecoded_doc (out : out_channel) (t : trm) : unit =
   decode := false;
-  ast_to_doc out t;
+  ast_to_outchannel out t;
   decode := true
 
 
-let ast_to_file (filename : string) (t : trm) : unit = 
-  let out = open_out filename in 
-  ast_to_doc out t;
+let ast_to_file (filename : string) (t : trm) : unit =
+  let out = open_out filename in
+  ast_to_outchannel out t;
   close_out out
 
 let ast_to_string ?(ast_decode:bool=true) (t : trm) : string =
   let old_decode = !decode in
   decode := ast_decode;
   let b = Buffer.create 80 in
-  ToBuffer.pretty 0.9 80 b (decorate_trm t);
+  ToBuffer.pretty 0.9 80 b (ast_to_doc t);
   decode := old_decode;
   Buffer.contents b
 

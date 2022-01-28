@@ -516,10 +516,11 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     (* print C++ code with decoding *)
     (*   DEPRECATED
     Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
+    (* LATER: try to find a way to put the includes in the AST so we can do simply ast_to_file *)
     output_string out_prog ctx.includes;
     if use_new_encodings
-      then Ast_to_rawC.ast_to_doc out_prog (CRawAst_to_ast.cfeatures_intro ast)
-      else Ast_to_c.ast_to_doc out_prog ast;
+      then Ast_to_rawC.ast_to_outchannel out_prog (CRawAst_to_ast.cfeatures_intro ast)
+      else Ast_to_c.ast_to_outchannel out_prog ast;
     output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->
@@ -543,13 +544,13 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
         close_out out_ast;
       end;
       (* print the non-decoded ast *)
-      if not use_new_encodings then begin
-        output_string out_enc ctx.includes;
-        Ast_to_c.ast_to_undecoded_doc out_enc ast;
-        output_string out_enc "\n";
-        close_out out_enc;
-        cleanup_cpp_file_using_clang_format file_enc;
-      end
+      output_string out_enc ctx.includes;
+      if use_new_encodings
+        then Ast_to_rawC.ast_to_outchannel out_prog ast
+        else Ast_to_c.ast_to_undecoded_doc out_enc ast;
+      output_string out_enc "\n";
+      close_out out_enc;
+      cleanup_cpp_file_using_clang_format file_enc;
     with | Failure s ->
       close_out out_ast;
       close_out out_enc;

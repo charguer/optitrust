@@ -835,17 +835,21 @@ and unpack_trm_for ?(loc = None) ?(local_index : bool = true) (index : var) (sta
     end in
     trm_for_c  ~loc init cond step body
 
-let ast_to_doc (out : out_channel) (t : trm) : unit =
-  ToChannel.pretty 0.9 80 out (decorate_trm t)
+
+let ast_to_doc (t : trm) : document =
+  decorate_trm t
+
+let ast_to_outchannel (out : out_channel) (t : trm) : unit =
+  ToChannel.pretty 0.9 80 out (ast_to_doc t)
 
 let ast_to_file (filename : string) (t : trm) : unit =
   let out = open_out filename in
-  ast_to_doc out t;
+  ast_to_outchannel out t;
   close_out out
 
 let ast_to_string (t : trm) : string =
   let b = Buffer.create 80 in
-  ToBuffer.pretty 0.9 80 b (decorate_trm t);
+  ToBuffer.pretty 0.9 80 b (ast_to_doc t);
   Buffer.contents b
 
 let typ_to_string (ty : typ) : string =
