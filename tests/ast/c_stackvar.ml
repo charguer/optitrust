@@ -12,11 +12,10 @@ let test_stackvar () =
 
 let _ =
   Flags.dump_ast_details := true;
-  Flags.bypass_cfeatures := true
+  Flags.bypass_cfeatures := true;
+  Flags.use_new_encodings := true
 
-(* ARTHUR: we don't see the right diff when we specify a prefix *)
-let _ = Run.script_cpp (* ~filename:"c_big.cpp" *) ~prefix:"c_stackvar" (fun () ->
+let _ = Run.script_cpp ~filename:"c_big.cpp" ~prefix:"c_stackvar" (fun () ->
   !! Trace.apply stackvar_elim;  (* Press F6 on this line, with !! in front of the next line *)
-  !! Trace.apply stackvar_intro;
-    (* TODO: fix look at the .ast file *)
+     Trace.apply stackvar_intro;
  )

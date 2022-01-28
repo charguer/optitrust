@@ -549,8 +549,8 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
       end;
       (* print the non-decoded ast *)
       output_string out_enc ctx.includes;
-      if use_new_encodings
-        then Ast_to_rawC.ast_to_outchannel out_prog ast
+      if use_new_encodings then ()
+        (* then Ast_to_rawC.ast_to_outchannel out_prog ast *)
         else Ast_to_c.ast_to_undecoded_doc out_enc ast;
       output_string out_enc "\n";
       close_out out_enc;

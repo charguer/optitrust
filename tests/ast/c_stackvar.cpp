@@ -1,15 +1,3 @@
-typedef struct { int x; int y; } vect;
-
-int main() {
-  vect v = {0,1};
-  vect* p = &v;
-  p.x = p.y;
-  p->x = p->y;
-}
-
-
-/*
-
 // Description of the encoding performed for the AST representation
 
 typedef struct { int x; int y; } vect;
@@ -241,4 +229,3 @@ void lvalue_encoding() {
   *v = 4;
 }
 
-*/
