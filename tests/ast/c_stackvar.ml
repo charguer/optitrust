@@ -16,7 +16,7 @@ let _ =
   Flags.use_new_encodings := true
 
 let _ = Run.script_cpp (* ~filename:"c_big.cpp" ~prefix:"c_stackvar" *) (fun () ->
-  !! Trace.apply stackvar_elim;  (* Press F6 on this line, with !! in front of the next line *)
+  !^ Trace.apply stackvar_elim;  (* Press F6 on this line *) (* press alt+f6 to check the blank diff *)
   !! Trace.apply stackvar_intro;
-  !! Trace.check_recover_original();
+  !^ Trace.check_recover_original(); (* Press F6 on this line should give a blank diff if successful, else an error message *)
  )
