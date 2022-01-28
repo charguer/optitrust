@@ -1,38 +1,56 @@
-(* debug printing*)
+(* Flag to activate the printing of debug information -- NOT SUPPORTED YET *)
 let verbose : bool ref = ref false
 
-(* check the time it takes to run one transformation *)
+(* Flag to meansure the time taken by each transformation *)
 let analyse_time : bool ref = ref false
+
+(* Flagsto meansure the time taken by each step within a transformation
+   (in particular, time to resolve targets, to set up marks, etc.) *)
 let analyse_time_details : bool ref = ref false
 
-(* dump .ast and _enc.cpp files *)
+(* Flag to dump OptiTrust AST, both in the form of a '.ast' and '_enc.cpp' files *)
 let dump_ast_details : bool ref = ref false
 
-(* Call [Trace.dump_last !dump_last] instead of [Trace.dump], if value is set.
-   Note: incompatible with the use of [switch] in scripts, currently. *)
+(* DEPRECATED? Flag to call [Trace.dump_last !dump_last] instead of [Trace.dump].
+   Note: incompatible with the use of [switch] in scripts, currently.
+    *)
 let dump_last_default = -1
 let dump_last : int ref = ref dump_last_default
 
-(* Call [Trace.dump_all] in addition to [Trace.dump] *)
+(* DEPRECATED? Call [Trace.dump_all] in addition to [Trace.dump] *)
 let dump_all : bool ref = ref false
 
-(* Flag to help debugging the error that occur during reparsing *)
+(* Flag to print the line numbers at which reparsing is triggered *)
 let debug_reparse : bool ref = ref false
 
-(* Flag to force reparsing on big steps *)
+(* Flag to force reparsing of the entire file at each entry of a big step *)
 let reparse_at_big_steps : bool ref = ref false
 
-(* Flag to report progress during a script execution *)
+(* Flag to report on the progress of big steps during a script execution *)
 let report_big_steps : bool ref = ref false
 
 (* Flag to report more about file manipulations performed by the tool *)
 let verbose_mode : bool ref = ref false
 
-(* Flag to enable light diff *)
+(* Flag to enable "light diffs", whereby we hide the function body of all the
+   toplevel functions that are not affected by the transformation. *)
 let use_light_diff : bool ref = ref true
 
 (* Flag for using only raw ast, when parsing and printing *)
 let use_raw_ast : bool ref = ref false
+
+(* Option to deal with serialized AST as input and output:
+  | Serialized_None: do not read or write any serialized ast, just parse the input file.
+  | Serialized_Build: parse the input file, save its serialized ast, exit
+  | Serialized_Use: do not parse the input file, simply read the corresponding serialized ast
+  | Serialized_Make: NOT YET IMPLEMENTED: first call 'make inputfile.ser', assuming the Makefile
+                     features a rule for this (invoking the program with the Serialized_Build option,
+                     with the appropriate dependencies); then load the serialized file just like
+                     Serialized_Use would do, and continue the execution.
+  | Serialized_Auto: if the serialized ast is up to date wrt the input file, read the serialized ast,
+                     else parse the input file and save its serialized ast; then continue the execution.
+*)
+
 type serialized_mode =
   | Serialized_None
   | Serialized_Build
@@ -50,18 +68,18 @@ let process_serialized_input (mode : string) : unit =
   | "auto" -> Serialized_Auto
   | _ -> Serialized_None
 
-(* Flag to enable serialized input *)
 
+(* Option to select the parser *)
 
 let default_parser = ref Parsers.Clang
 
 let use_parser = ref Parsers.Default
 
-let cparser_of_string (s : string) : unit = 
+let cparser_of_string (s : string) : unit =
   use_parser := Parsers.cparser_of_string s
 
 
-(* exit line number *)
+(* Option for exiting the program when reaching a '!!' (step) after a specific line number *)
 let exit_line : int ref = ref max_int
 
 let get_exit_line () : int option =
@@ -69,9 +87,11 @@ let get_exit_line () : int option =
     then None
     else Some !exit_line
 
-(* ignore small steps to apply multiple transformations at one time *)
+(* Flag for the treatment of the exit line to ignore the small steps ('!!') and only
+   consider big steps ('!^'). *)
 let only_big_steps : bool ref = ref false
 
+(* List of options *)
 let spec =
   Arg.align [
      ("-verbose", Arg.Set verbose, " activates debug printing");
@@ -93,9 +113,12 @@ let spec =
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
 
+(* Processing of flags than imply other flags *)
 let fix_flags () =
   if !analyse_time_details then analyse_time := true;
   if !reparse_at_big_steps then debug_reparse := true
 
-(* Flag used for a hack by [doc_script_cpp] *)
+(* Flag used for a hack used by function [doc_script_cpp], for generating the output
+   associated with the documentation of a unit test, before running the main contents
+   of the file. *)
 let documentation_save_file_at_first_check = ref ""

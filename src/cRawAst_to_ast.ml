@@ -276,9 +276,13 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
 
 let caddress_intro = caddress_intro_aux false
 
+(* Main entry points *)
+
+(* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics. *)
 let cfeatures_elim (t : trm) : trm =
   caddress_elim (stackvar_elim t)
 
+(* [cfeatures_elim t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax. *)
 let cfeatures_intro (t : trm) : trm =
   stackvar_intro (caddress_intro t)
 

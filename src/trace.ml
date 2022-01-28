@@ -1,7 +1,8 @@
 open Ast
 
 
-(* Store the last line at which a step was declared *)
+(* [line_of_last_step] stores the line number from the source script at which a step
+   ('!!' or '!^') was last processed. *)
 let line_of_last_step = ref (-1)
 
 
@@ -51,7 +52,7 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
 (*                             Timing logs                                    *)
 (******************************************************************************)
 
-(* [write_timing_log msg] is writing a message in the timing log *)
+(* [write_timing_log msg] writes a message in the timing log file. *)
 let write_timing_log (msg : string) : unit =
   let timing_log = match !timing_log_handle with
     | Some log -> log
@@ -59,7 +60,7 @@ let write_timing_log (msg : string) : unit =
    in
    write_log timing_log msg
 
-(* [timing ~name f] writes the execution time of [f] in the timing log file *)
+(* [timing ~name f] writes the execution time of [f] in the timing log file. *)
 let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
   if !Flags.analyse_time && cond then begin
     let t0 = Unix.gettimeofday () in
@@ -72,30 +73,33 @@ let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
     f()
   end
 
-(* Storage for measuring the duration of all the steps *)
-let start_time  = ref (0.)
+(* [start_time] stores the date at which the script execution started (before parsing). *)
+let start_time = ref (0.)
 
-(* Storage for measuring the duration of each step *)
-let last_time  = ref (0.)
+(* [last_time] stores the date at which the execution of the current step started. *)
+let last_time = ref (0.)
 
-(* [last_time_update()] updates [last_time] and returns the delay
-   since last call *)
+(* [last_time_update()] returns the delay elapsed since the last call to this function;
+   it updates the reference [last_time] with the current date. *)
 let last_time_update () : int =
   let t0 = !last_time in
   let t = Unix.gettimeofday() in
   last_time := t;
   Tools.milliseconds_between t0 t
 
-(* [report_time_of_last_step()] reports the total duration of the last step *)
+(* [report_time_of_last_step()] reports in the timing log the duration of the step
+   that just completed, as measured by a call to [last_time_update]. *)
 let report_time_of_last_step () : unit =
   if !Flags.analyse_time then begin
     let duration_of_previous_step = last_time_update () in
     write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" duration_of_previous_step);
   end
 
-(* [id_big_step] traces the number of big steps executed; it is used only when
-   executing from the command line, in which case line numbers are not available *)
+(* [id_big_step] traces the number of big steps executed. This reference is used only
+   when executing a script from the command line, because in this case the line numbers
+   from the source script are not provided on calls to the [step] function. *)
 let id_big_step = ref 0
+
 
 (******************************************************************************)
 (*                             File input                                     *)
@@ -117,9 +121,10 @@ let get_cpp_includes (filename : string) : string =
   with
   | End_of_file -> close_in c_in; !includes
 
-(* [parse filename] returns a list of includes and an AST. *)
+(* [parse filename] returns (1) a list of filenames corresponding to the '#include',
+   and the OptiTrust AST. *)
 let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
-  let raw_ast = !Flags.use_raw_ast in 
+  let raw_ast = !Flags.use_raw_ast in
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
   let command_line_include =
@@ -127,24 +132,24 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
       (Clang.default_include_directories ()) in
   let command_line_warnings = ["-Wno-parentheses-equality"; "-Wno-c++11-extensions"] in
   let command_line_args = command_line_warnings @ command_line_include in
-  
-  let t = 
-    timing ~name:"tr_ast" (fun () -> 
-      let parser = if parser = Parsers.Default then !Flags.default_parser else parser in 
+
+  let t =
+    timing ~name:"tr_ast" (fun () ->
+      let parser = if parser = Parsers.Default then !Flags.default_parser else parser in
       if raw_ast
          then begin
-          if parser = Parsers.Clang 
+          if parser = Parsers.Clang
             then Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename)
             else if parser = Parsers.Menhir then
               CRawAst_to_ast.cfeatures_elim (CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename))
             else begin
-              let clang_ast = Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename) in 
-              let menhir_ast = CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename) in 
+              let clang_ast = Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename) in
+              let menhir_ast = CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename) in
               if Ast_to_text.ast_to_string clang_ast <> Ast_to_text.ast_to_string menhir_ast then Printf.printf "parse: different ast-s from different parsers";
               if !Flags.default_parser = Parsers.Clang then CRawAst_to_ast.cfeatures_elim clang_ast else CRawAst_to_ast.cfeatures_elim menhir_ast
               end
             end
-         else 
+         else
           Clang_to_ast.translate_ast (Clang.Ast.parse_file ~command_line_args filename)
     )
   in
@@ -261,10 +266,10 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   !r
 
 let get_initial_ast (ser_mode : Flags.serialized_mode) (ser_file : string) (filename : string) : (string * trm) =
-  (* if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
+  (* LATER if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
   let includes = get_cpp_includes filename in
   let ser_file_exists = Sys.file_exists ser_file in
-  let ser_file_more_recent = if (not ser_file_exists) then false else Tools.is_file_newer_than ser_file filename in 
+  let ser_file_more_recent = if (not ser_file_exists) then false else Tools.is_file_newer_than ser_file filename in
   let auto_use_ser = (ser_mode = Serialized_Auto && ser_file_more_recent) in
   if (ser_mode = Serialized_Use
    || ser_mode = Serialized_Make
@@ -273,7 +278,7 @@ let get_initial_ast (ser_mode : Flags.serialized_mode) (ser_file : string) (file
       then fail None "get_initial_ast: please generate a serialized file first";
     if not ser_file_more_recent
       then fail None (Printf.sprintf "get_initial_ast: serialized file is out of date with respect to %s\n" filename);
-    let ast = load_from_file ser_file in
+    let ast = unserialize_from_file ser_file in
     if auto_use_ser
       then Printf.printf "Loaded ast from %s.\n" ser_file;
     (includes, ast)
@@ -315,7 +320,7 @@ let init ?(prefix : string = "") (filename : string) : unit =
   let trace = { context; cur_ast; history = [cur_ast] } in
   traces := [trace];
   if mode = Serialized_Build || mode = Serialized_Auto
-    then dump_to_file ser_file cur_ast;
+    then serialize_to_file ser_file cur_ast;
   if mode = Serialized_Build
     then exit 0;
   print_info None "Starting script execution...\n"
@@ -493,7 +498,7 @@ let get_language () =
   | t::_ -> language_of_extension t.context.extension
 
 let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
-  let raw_ast = !Flags.use_raw_ast in 
+  let raw_ast = !Flags.use_raw_ast in
   let file_prog = prefix ^ ctx.extension in
   let out_prog = open_out file_prog in
   begin try
@@ -502,7 +507,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
     output_string out_prog ctx.includes;
     if raw_ast
-      then 
+      then
         Ast_to_rawC.ast_to_doc out_prog (CRawAst_to_ast.cfeatures_intro ast)
       else Ast_to_c.ast_to_doc out_prog ast;
     output_string out_prog "\n";
@@ -542,9 +547,9 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     end
   end
 
-(* [output_prog_opt ctx prefix ast_opt] is similar to [output_prog], but it
+(* [output_prog_opt ?ast_and_enc ctx prefix ast_opt] is similar to [output_prog], but it
    generates an empty file in case the [ast_opt] is [None]. *)
-let output_prog_opt ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast_opt : trm option) : unit =
+let output_prog_opt ?(ast_and_enc : bool = true) (ctx : context) (prefix : string) (ast_opt : trm option) : unit =
   match ast_opt with
   | Some ast -> output_prog ~ast_and_enc ctx prefix ast
   | None ->
@@ -584,7 +589,7 @@ let output_js  ?(vars_declared : bool = false)(index : int) (prefix : string) (a
 (* [dump_trace_to_js] writes into one/several (?) files
    the contents of the current AST and of all the history,
    that is, of all the ASTs for which the [step] method was called.
-*)
+   DEPRECATED, will be fixed soon. *)
 let dump_trace_to_js ?(prefix : string = "") () : unit =
   assert (prefix = prefix && false);
   let dump_history (prefix : string) (asts : trms) : unit =
@@ -647,14 +652,14 @@ let reparse_trm ?(info : string = "") ?(parser = Parsers.Default) (ctx : context
   end;
   let in_prefix = ctx.directory ^ "tmp_" ^ ctx.prefix in
   output_prog ~beautify:false ctx in_prefix ast;
-  
+
   let (_, t) = parse ~parser (in_prefix ^ ctx.extension) in
   (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
   t
 
 (* [reparse()] function takes the current AST, prints it to a file, and parses it
    as if it was a fresh input. Doing so ensures in particular that all the type
-   information is properly set up. *)
+   information is properly set up. WARNING: reparsing discards all the marks in the AST. *)
 let reparse ?(info : string = "") ?(parser = Parsers.Default) () : unit =
  List.iter (fun trace ->
     let info = if info <> "" then info else "the code during the step starting at" in
@@ -670,16 +675,17 @@ let reparse_alias = reparse
 (******************************************************************************)
 
 (* [light_diff astBefore astAfter] finds all the functions that have not change after
-    applying a transformation and hides their body for a more robust view diff
-*)
+    applying a transformation and hides their body for a more robust view diff. *)
+ (* TODO: see the comment in dump_diff_and_exit on how to remove the option to simplify the code *)
 let light_diff (astBefore : trm option) (astAfter : trm) : trm option * trm  =
   match astBefore with
   | Some astBefore ->
-    let topfun_map_before = top_level_fun_bindings astBefore in
-    let topfun_map_after = top_level_fun_bindings astAfter in
-    let get_common_top_fun = get_common_top_fun topfun_map_before topfun_map_after in 
-    let new_astBefore, _  = hide_function_bodies (function f -> List.mem f get_common_top_fun) astBefore in 
-    let new_astAfter, _ = hide_function_bodies (function f -> List.mem f get_common_top_fun ) astAfter in
+    let topfun_before = top_level_fun_bindings astBefore in
+    let topfun_after = top_level_fun_bindings astAfter in
+    let topfun_common = get_common_top_fun topfun_before topfun_after in
+    let filter_common ast = fst (hide_function_bodies (fun f -> List.mem f topfun_common) ast) in
+    let new_astBefore = filter_common astBefore in
+    let new_astAfter = filter_common astAfter in
     (Some new_astBefore, new_astAfter)
   | _ -> astBefore, astAfter
 
@@ -712,13 +718,19 @@ let dump_diff_and_exit () : unit =
       print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
       in
     (* CPP and AST output for BEFORE *)
+    (* TODO: we could simplify quite a bit all this code by creating an empty AST
+       when trace.history is empty. In ast.ml, you can define [empty_ast] to be
+       a trm_seq with no items, and with the annotation Main_file. *)
     let astBefore =
       match trace.history with
       | t::_ -> Some t (* the most recently saved AST *)
       | [] -> Printf.eprintf "Warning: only one step in the history; consider previous step blank.\n"; None
       in
     let astAfter = trace.cur_ast in
-    let astBefore, astAfter = if !Flags.use_light_diff then light_diff astBefore astAfter else astBefore, astAfter in
+
+    (* Compute light-diff: hide bodies of functions that are identical in astBefore and astAfter. *)
+    let astBefore, astAfter =
+      if !Flags.use_light_diff then light_diff astBefore astAfter else astBefore, astAfter in
 
     output_ast (prefix ^ "_before") astBefore;
     (* CPP and AST for BEFORE_N *)
@@ -825,7 +837,6 @@ end
    which could be on line N or before (or could correspond to the input AST
    loaded by [Trace.init] if there is no preceeding '!!'.).
    Use [!!();] for a step in front of another language construct, e.g., a let-binding. *)
-
 let (!!) (x:'a) : 'a =
   check_exit_and_step ~is_small_step:true ~reparse:false ();
   x
@@ -835,18 +846,17 @@ let (!^) (x:'a) : 'a =
   check_exit_and_step ~is_small_step:false ~reparse:false ();
   x
 
-(* [!!!] is similar to [!!] but forces a [reparse] prior to the [step] operation. *)
-
+(* [!!!] is similar to [!!] but forces a [reparse] prior to the [step] operation.
+   ONLY FOR DEVELOPMENT PURPOSE. *)
 let (!!!) (x : 'a) : 'a =
   check_exit_and_step ~is_small_step:true ~reparse:true ();
   x
 
-(* [!!^] is forces reparse before a big step. *)
-
+(* [!!^] is forces reparse before a big step.
+   ONLY FOR DEVELOPMENT PURPOSE. *)
 let (!!^) (x : 'a) : 'a =
   check_exit_and_step ~is_small_step:false ~reparse:true ();
   x
-
 
 (* [dump ~prefix] invokes [output_prog] to write the contents of the current AST.
    If there are several traces (e.g., due to a [switch]), it writes one file for each.
@@ -860,7 +870,6 @@ let (!!^) (x : 'a) : 'a =
    WILL BE DEPRECATED: If the command line argument [-dump-trace] was provided, then the
    function writes all the ASTs from the history into javascript files. *)
 (* LATER for mli: val dump : ?prefix:string -> unit -> unit *)
-
 let dump ?(prefix : string = "") () : unit =
   if !Flags.analyse_time then begin
       write_timing_log (Printf.sprintf "------------START DUMP------------\n");
@@ -884,12 +893,11 @@ let dump ?(prefix : string = "") () : unit =
    [step] function to save the current AST, then calls [f] (for example
    to add decorators to the AST in the case of function [show]), then
    calls [dump_diff_and_exit] to visualize the effect of [f]. *)
-
 let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> unit) : unit =
   if (Flags.get_exit_line() = Some line) then begin
     if reparse
-      then 
-        let parser = !Flags.use_parser in 
+      then
+        let parser = !Flags.use_parser in
         reparse_alias ~parser ();
     step();
     f();
@@ -901,9 +909,11 @@ let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> un
     f()
     end
 
-(* TODO: Arthur make sure to document that reparse invalidates the marks *)
-
-(* [ast] returns the current ast; must be done as part of a call to [Trace.call]. *)
+(* [ast()] returns the current ast; this function should only be called within the
+   scope of a call to [Trace.apply] or [Trace.call]. For example:
+   [Trace.call (fun t -> ...  let t = ast() in ...) ].
+   Note that in most cases, this function is not needed because the argument of
+   the continuation already describes the current AST as the variable [t]. *)
 let ast () : trm =
   if !call_depth = 0
     then failwith "[get_the_ast] can only be invoked inside a call to [Trace.call].";
@@ -912,28 +922,31 @@ let ast () : trm =
    | [] -> assert false (* [!traces] can never be empty *)
    | _ -> failwith "[get_the_ast] can only be invoked inside a call to [Trace.call] and not after a switch."
 
-(* only for implementing [iteri_on_transformed_targets]. don't use it otherwise *)
+(* INTERNAL FUNCTION.
+   [set_ast] is used for implementing [iteri_on_transformed_targets]. Don't use it elsewhere. *)
 let set_ast (t:trm) : unit =
   assert (!call_depth > 0);
   match !traces with
   | [tr] -> tr.cur_ast <- t
   | _ -> assert false
 
-(* get the current context *)
+(* [get_context ()] returns the current context. Like [ast()], it should only be called
+   within the scope of [Trace.apply] or [Trace.call]. *)
 let get_context () : context =
   match !traces with
   | [tr] -> tr.context
   | _ -> fail None "get_context: couldn't get the current context"
 
-
-(* Transform code entered as string into ast, this function returns a list of ast nodes because, the user can enter
-    code which could be a list of instructions, for ex: int x; x = 1; x = 5;
-    [context] - denotes specific entered by the user
-    [is_expression] - a flag for telling if the entered code is an expression or not, this is needed to decide
-      if we should add a semicolon at the end or not.
-    [s] - denotes the code entered as a string.
-    [ctx] - check context
-*)
+(* [parse_cstring] is a function that can be used to acquire the AST of a statement
+   provided as a string by the user, e.g, [int x; x = 1; x = 5;]. The arguments are:
+   - [ctx]: an optional context, from which to obtain the list of '#include' to use.
+   - [context]: describes a context in which the statement can be parsed
+     (e.g., to parse [int x = y], in a context where [int y] is defined.
+   - [is_expression]: a flag to indicate if we are parsing an expression or a statement
+     (for expressions, we add a semicolon at the end).
+   - [s]: the string that describes the code of which we want the AST. *)
+(* TODO: change [ctx : context]   to [ctx option]. If it is Some, includes [ctx.includes]
+   in addition  to the string [context]. *)
 let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : context) : trms =
  let context = if context = "" then ctx.includes else context in
  let command_line_args =
@@ -973,9 +986,14 @@ let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : 
      end
   | _-> fail t.loc (Printf.sprintf "parse_cstring: exptected a sequence with only one trm, got %s\n" (Ast_to_c.ast_to_string t))
 
-
-(* For a single instruction s return its ast *)
-let term ?(context : string = "")(ctx : context) (s : string) : trm =
+(* [Trace.term ctx s] returns the AST that corresponds to a statement
+  described by the string [s]. The context in which the statement is
+  parsed can be provided as optional argument. By default, we use only
+  as context the '#include' obtained from the [ctx], which may be obtained
+  using [get_context()]. *)
+  (* TODO: should make ctx on optional argument ?(ctx:context), which could be None
+    or Some ctx, in which case we would use the include from the context. *)
+let term ?(context : string = "") (ctx : context) (s : string) : trm =
   let tl = parse_cstring context true s ctx  in
   match tl with
   | [expr] -> expr

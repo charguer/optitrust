@@ -2365,23 +2365,22 @@ let top_level_fun_bindings (t : trm) : tmap =
   aux t;
   !tmap
 
-(* [get_common_top_fun tm1 tm2] find all the functions in [tm1] and [tm2] that have the same value*)
+(* [get_common_top_fun tm1 tm2] takes two maps, binding function names to terms describing
+   the function bodies, and returns the list of function names that ard bound to the same
+   terms in the two maps. *)
 let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
-  let f_names = ref [] in
+  let common = ref [] in
   Trm_map.iter (fun f1 b1 ->
     match Trm_map.find_opt f1 tm2 with
-    | Some b2 ->
-      if (b1 == b2) then begin
-        f_names := f1 :: !f_names end
+    | Some b2 when b1 == b2 -> common := f1 :: !common
     | _ -> ()
   ) tm1;
-  !f_names
+  !common
 
-(* [dump_to_file file t] write serialized [t] into file [file]*)
-let dump_to_file (file : string) (t : trm) : unit =
-  Tools.dump_to_file file t
+(* [serialize_to_file filename t] writes a serialized version of the AST [t] into the file [filename]. *)
+let serialize_to_file (filename : string) (t : trm) : unit =
+  Tools.serialize_to_file filename t
 
-
-(* [load_from_file file ] read from file [file], where [file] is expected to be generated from [dumpt_to_file]*)
-let load_from_file (file : string) : trm =
-  Tools.load_from_file file
+(* [unserialize_from_file filename] reads a serialized AST from the file [filename]. *)
+let unserialize_from_file (filename : string) : trm =
+  Tools.unserialize_from_file filename

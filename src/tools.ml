@@ -352,24 +352,24 @@ let list_rotate (n : int) (l : 'a list) : 'a list =
  if n > List.length l then failwith "list_rotate: the elements to rotate shouuld be less or equal to the number of the elements in the list";
  let ls, rs = split_list_at n l in rs @ ls
 
-(* [dumpt_file ser_file t ] dump object [ŧ] of type 'a into file ser_file *)
-let dump_to_file (ser_file : string) (t : 'a) : unit = 
-  let out_file = open_out ser_file in 
-  Marshal.to_channel out_file  t []
+(* [serialize_to_file filename t] dumps the object [obj] of type 'a into file [filename]. *)
+let serialize_to_file (filename : string) (obj : 'a) : unit =
+  let out_file = open_out filename in
+  Marshal.to_channel out_file obj []
 
-(* [load_from_file ser_file] reconstruct the object dumped in [ser_file]*)
-let load_from_file (ser_file : string) : 'a =
-  let in_file = open_in ser_file in 
+(* [unserialize_from_file filename] reconstruct the object previously dumped in file [filename]. *)
+let unserialize_from_file (filename : string) : 'a =
+  let in_file = open_in filename in
   Marshal.from_channel in_file
 
 (* [is_newer filename1 filename2] comparese the time when this files were modified
     returns true if [filename1] is newer thena [filename2] and false otherwise
 *)
-let is_file_newer_than (filename1 : string) (filename2 : string) : bool = 
-  let t_f1 = Unix.((stat filename1).st_mtime) in 
-  let t_f2 = Unix.((stat filename2).st_mtime) in 
+let is_file_newer_than (filename1 : string) (filename2 : string) : bool =
+  let t_f1 = Unix.((stat filename1).st_mtime) in
+  let t_f2 = Unix.((stat filename2).st_mtime) in
   t_f1 >= t_f2
 
 (* [int_to_bool i] convert an integer into a boolean *)
-let int_to_bool (i : int) : bool = 
+let int_to_bool (i : int) : bool =
   if i = 1 then true else if i = 0 then false else failwith "int_to_bool: can't convert an arbitrary integer into a boolean"
