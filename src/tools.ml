@@ -56,8 +56,7 @@ let split_list_at (i : int) (l : 'a list) : ('a list) * ('a list) =
 
 (* [update_nth f l i] returns a copy of the list [l] where the element
    [x] at index [i] is replaced with [f x]. The index [i] must be valid. *)
-(* TODO: the arguments should be better in the order [update_nth i f l] *)
-let update_nth (f : 'a -> 'a) (l : 'a list) (i : int) : 'a list =
+let update_nth (i : int) (f : 'a -> 'a) (l : 'a list) : 'a list =
   List.mapi (fun j a -> if j = i then f a else a) l
 
 (* LATER: replace this function with List.filteri, offered by new versions of OCaml. *)
@@ -68,13 +67,11 @@ let list_filteri p l =
   in
   aux 0 [] l
 
-(* TODO: there is a problem with the name (or the implementation?)
-  because this function is filters_selected, not the opposite... *)
-(* [filter_not_selected indices l]
-     ...keeps only / removes...
-   the elements from [l] whose indices belong to the list [indices]. *)
+
+(* [filter_not_selected indices l] keeps only the elements from [l] whose indices belong 
+    to the list [indices]. *)
 (* LATER: might be available as List.filteri? to check. *)
-let filter_not_selected (indices : int list) (l : 'a list) : 'a list =
+let filter_selected (indices : int list) (l : 'a list) : 'a list =
   list_filteri (fun i _ -> List.mem i indices) l
 
 (* [list_remove x xs] removes the item [x] from the list [xs]. *)
@@ -83,16 +80,7 @@ let list_remove (x : 'a) (xs : 'a list) : 'a list =
 
 (* [list_remove_duplicates xs] returns a list made of the items from [xs]
    with the duplicates removed. *)
-(* TODO: see if this function can be replaced with [remove_duplicates] below *)
-let list_remove_duplicates xs =
-  let aux acc x =
-    if List.mem x acc then acc else x :: acc in
- List.rev (List.fold_left aux [] xs)
-
-(* [remove_duplicates xs] returns a list made of the items from [xs]
-   with the duplicates removed. *)
-(* TODO: rename to list_remove_duplicates, after removing the function above *)
-let remove_duplicates (lst : 'a list) =
+let list_remove_duplicates (lst : 'a list) =
   let unique_set = Hashtbl.create (List.length lst) in
   List.iter (fun x -> Hashtbl.replace unique_set x ()) lst;
   Hashtbl.fold (fun x () xs -> x :: xs) unique_set []

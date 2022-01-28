@@ -93,7 +93,7 @@ let rev (ml : 'a t) : 'a t =
   { items = List.rev ml.items;
     marks = List.rev ml.marks }
 
-let update_nth (transfo : 'a -> 'a) (ml : 'a t) (n : int) : 'a t =
+let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =
   { ml with items = Tools.map_at transfo ml.items n }
 
 let marks_to_string (ml : 'a t) : string =

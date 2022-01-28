@@ -260,11 +260,11 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        let aux t = aux_on_path_rec dl t in
        let newt = begin match d, t.desc with
        | Dir_array_nth n, Trm_array tl ->
-          { t with desc = Trm_array (Mlist.update_nth aux tl n)}
+          { t with desc = Trm_array (Mlist.update_nth n aux tl)}
        | Dir_seq_nth n, Trm_seq tl ->
-          { t with desc = Trm_seq (Mlist.update_nth aux tl n) }
+          { t with desc = Trm_seq (Mlist.update_nth n aux tl) }
        | Dir_struct_nth n, Trm_struct tl ->
-          { t with desc = Trm_struct (Mlist.update_nth aux tl n)}
+          { t with desc = Trm_struct (Mlist.update_nth n aux tl)}
        | Dir_cond, Trm_if (cond, then_t, else_t) ->
           { t with desc = Trm_if (aux cond, then_t, else_t)}
        | Dir_cond, Trm_while (cond, body) ->
