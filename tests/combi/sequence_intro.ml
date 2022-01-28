@@ -23,9 +23,6 @@ int main() {
 let _ = Run.script_cpp (fun _ ->
   !! Sequence.intro ~on:[cVarDef "a"] ();
   !! Sequence.intro ~start:[tBefore; cVarDef "b"] ~stop:[tAfter; cVarDef "c"] ();
-  (* TODO: it is not clear why we have tBefore above, but not below.
-     Is tBefore the default for start, and tAfter the default for stop?
-     that seems fine, but should be well documented. *)
   !! Sequence.intro ~start:[cVarDef "d"] ~nb:2 ();
   !! Sequence.intro ~stop:[cVarDef "g"] ~nb:2 ();
      Trace.alternative (fun _ ->

@@ -1,10 +1,9 @@
 open Optitrust
 open Target
+open Ast 
 
-(* TODO: there is a missing List.rev on the processing of definitions *)
-(* TODO: the arguments of ~defs should be a list of  typ*string*trm *)
 let _ = Run.doc_script_cpp (fun _ ->
-  !! Variable.insert_list  ~defs:[("int","c","3"); ("int","d","4")] [tAfter; cVarDef "b"]
+  !! Variable.insert_list  ~defs:[("int","c",lit "3"); ("int","d",lit "4")] [tAfter; cVarDef "b"]
   )
 "
 int main() {
@@ -16,6 +15,6 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-    !! Variable.insert_list  ~defs:[("const int","x","1");("const int","y","x/2");("const int","z","y/x")] [tBefore; cFunDef "main"]
+    !! Variable.insert_list  ~defs:[("const int","x", lit "1");("const int","y",expr "x/2");("const int","z",expr "y/x")] [tBefore; cFunDef "main"]
 
 )

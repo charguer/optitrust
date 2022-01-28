@@ -15,6 +15,7 @@ int main() {
 "
 
 (* TODO: why does this one not work?
+Because the correct implementation works only for start = 0
 let _ = Run.doc_script_cpp (fun _ ->
   !! Loop.fold ~index:"k" ~start:1 3 [sInstr "a += 1"];
 )

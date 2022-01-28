@@ -1,8 +1,8 @@
 open Optitrust
 open Target
 
-(* TODO: why does not work?
-let _ = Run.doc_script_cpp (fun _ ->
+(* TODO: Fix the issue when using labels instead of marks*)
+(* let _ = Run.doc_script_cpp (fun _ ->
   !! Loop.fusion_targets [cLabel "block"; dBody];
   )
 "
@@ -18,10 +18,12 @@ int main() {
     }
   }
 }
-"
-*)
+" *)
+
 
 let _ = Run.script_cpp ( fun _ ->
+
+  !! Loop.fusion_targets [cLabelBody "block"];
 
   !! Sequence_basic.intro ~mark:"tofusion" 8 [cFor "i" ~body:[sInstr "t[i]"]];
 

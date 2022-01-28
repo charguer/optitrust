@@ -1,7 +1,6 @@
 open Optitrust
 open Target
 
-(* TODO: why is the target [sInstr "v = w"]; not succesful?
 
 let _ = Run.doc_script_cpp (fun _ ->
   !! Struct.set_explicit [sInstr "v = w"];
@@ -17,9 +16,7 @@ int main() {
   v = w;
 }
 "
-*)
 
-(* TODO: fix the script below, does not seem to work *)
 
 let _ = Run.script_cpp (fun _ ->
     (* Example with detach of initialization *)

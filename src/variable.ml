@@ -64,7 +64,7 @@ let fold ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.targ
     The new declared variable is [name] with typ [typ] and value [value]. This variable will be folded everywhere on the ast nodes
     which come after the declared variable.
 *)
-let insert_and_fold ~name:(name : string) ~typ:(typ : string) ~value:(value : trm) (tg : Target.target) : unit =
+let insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value : trm) (tg : Target.target) : unit =
   Variable_basic.insert ~reparse:true ~name ~typ ~value tg;
   Variable_basic.fold [Target.cVarDef name]
 
@@ -421,16 +421,16 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value].
     This transformation is basically the same as the basic one except that this has a default value for the type argument.
 *)
-let insert ?(const : bool = false) ?(reparse : bool = false) ?(typ : string = "auto") ~name:(name : string) ~value:(value : trm) : Target.Transfo.t =
+let insert ?(const : bool = false) ?(reparse : bool = false) ?(typ : typ = typ_auto ()) ~name:(name : string) ~value:(value : trm) : Target.Transfo.t =
  Variable_basic.insert ~const ~reparse ~name ~typ ~value
 
 (* [insert_list ~const names typ values tg] expects the target [tg] to be poiting to a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
 *)
-let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * string ) list) : Target.Transfo.t =
+let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) : Target.Transfo.t =
+  let defs = List.rev defs in 
   Target.reparse_after ~reparse (fun tg ->
     List.iter (fun (typ, name, value) ->
       (* This check is needed to avoid the parentheses in the case when the value of the vairbale is a simple expression  *)
-      let str_val = if String.length value = 1 then Target.lit value else Target.expr value in
-      insert ~name ~typ ~value:str_val tg) defs
+      insert ~name ~typ:(AstParser.atyp typ) ~value tg) defs
 )

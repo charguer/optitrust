@@ -1,8 +1,9 @@
 open Optitrust
 open Target
+open Ast 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Variable_basic.insert ~name:"b" ~typ:"int" ~value:(lit "2") [tAfter; cVarDef "a"];
+    !! Variable_basic.insert ~name:"b" ~typ:(atyp "int") ~value:(lit "2") [tAfter; cVarDef "a"];
   )
 "
 int main() {
@@ -14,7 +15,7 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Variable_basic.insert ~const:true ~name:"a" ~typ:"int" ~value:(lit "300") [ tAfter; cTypDef "vect"];
-  !! Variable_basic.insert ~reparse:true ~name:"b" ~typ:"int" ~value:(lit "500") [ tAfter; cTypDef "vect"];
-  !! Variable_basic.insert ~name:"c" ~typ:"int" [tAfter ; cTypDef "vect"];
+  !! Variable_basic.insert ~const:true ~name:"a" ~typ:(atyp "int") ~value:(lit "300") [ tAfter; cTypDef "vect"];
+  !! Variable_basic.insert ~reparse:true ~name:"b" ~typ:(atyp "int") ~value:(lit "500") [ tAfter; cTypDef "vect"];
+  !! Variable_basic.insert ~name:"c" ~typ:(atyp "int") [tAfter ; cTypDef "vect"];
 )
