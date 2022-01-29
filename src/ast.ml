@@ -1798,7 +1798,7 @@ let trm_let_ref ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr_generated var_type in
-  trm_let ~annot:(Reference :: annot) ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
+  trm_let ~annot:(Reference :: annot) ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) init
 
 
 (* [trm_let_IMmut ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating immutable variable declarations *)
@@ -1819,9 +1819,6 @@ let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr_generated var_type in
   let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
   trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init
-
-
-
 
 
 (* [trm_for_c_inv_simple_init init] check if the init loop component is simple or not.
@@ -1913,7 +1910,7 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
   (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
   let init = if not local_index
                 then trm_set (trm_var index) start
-                else trm_let_mut (index, typ_int()) start in
+                else trm_let Var_mutable (index, typ_int()) start in
   let cond = begin match direction with
     | DirUp ->
       (trm_apps (trm_binop Binop_lt)
