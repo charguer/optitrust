@@ -49,6 +49,12 @@ typedef int* intstar;
 // //   struct tree_node *left;
 // //   struct tree_node *right;
 // // };
+
+void addr_array_cell() {
+  int p[2];
+  int* n = &p[0];
+}
+
 void initlist() {
   vect v1 = { 1, 2 };
   vect3 v2 = { 1, 2 };
