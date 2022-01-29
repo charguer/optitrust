@@ -482,6 +482,7 @@ let check_recover_original () : unit =
   let check_same ast1 ast2 =
     if Ast_to_rawC.ast_to_string ast1 <> Ast_to_rawC.ast_to_string ast2
       then fail None "check_recover_original: the current AST is not identical to the original one."
+      else Printf.printf "check_recover_original: successful"
     in
   let check_trace trace =
     let h = trace.history in

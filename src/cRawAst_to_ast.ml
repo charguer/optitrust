@@ -177,7 +177,14 @@ let stackvar_intro (t : trm) : trm =
       onscope env t (fun t -> begin add_var env index Var_immutable; trm_map aux t end)
     | Trm_for_c _ ->
       onscope env t (fun t -> trm_map aux t)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var _; _} as t1]) when trm_annot_has Mutable_var_get t -> t1
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_var_mutable !env x (* DEPRCATED trm_annot_has Mutable_var_get t *) -> t1
+    (* Simplification of [*&p] patterns *) (* LATER: factorize in different places? *)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op, [t1]) ->
+        let u1 = aux t1 in
+        begin match u1.desc with
+        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [u11]) -> u11
+        | _ -> { t with desc = Trm_apps (op, [u1]) }
+        end
     | _ -> trm_map aux t
     in aux t
 
@@ -227,7 +234,8 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
             let u1 = aux t1 in
             begin match u1.desc with
-            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11]) when trm_annot_has Mutable_var_get u1->
+            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11])
+               (* DEPRECATED when trm_annot_has Mutable_var_get u1 *) ->
               (* struct_get (get(t1), f) is encoded as get(struct_access(t1,f)) where get is a hidden '*' operator,
                  in terms of C syntax: ( * t).f is compiled into * (t + offset(f)) *)
               mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u11]))]))
@@ -292,8 +300,11 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
       (* t1 = t2 is translated to access t1 = aux t2 *)
       mk (Trm_apps (trm_binop Binop_set, [access t1; aux t2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) when is_access t1 ->
-      (* get(access ) becomes access (get)*)
-      access  t1
+      (* get(access ) becomes access (get)*) (* LATER: the simplification could be performed a posteriori, if we use the following case *)
+      access t1
+    | _ when is_access t ->
+      (* [access(..)] becomes [& ...] *)
+        trm_address_of ~simplify:true (access t)
     | _ -> trm_map aux t
     end
 
