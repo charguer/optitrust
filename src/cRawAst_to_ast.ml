@@ -177,7 +177,7 @@ let stackvar_intro (t : trm) : trm =
       onscope env t (fun t -> begin add_var env index Var_immutable; trm_map aux t end)
     | Trm_for_c _ ->
       onscope env t (fun t -> trm_map aux t)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var _; _} as t1]) when trm_annot_has Mutable_var_get t -> t1 (* TODO: check *)
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_var_mutable !env x (* DEPRCATED trm_annot_has Mutable_var_get t *) -> t1
     (* Simplification of [*&p] patterns *) (* LATER: factorize in different places? *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op, [t1]) ->
         let u1 = aux t1 in
@@ -234,7 +234,8 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
             let u1 = aux t1 in
             begin match u1.desc with
-            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11]) when trm_annot_has Mutable_var_get u1-> (* TODO: check! *)
+            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11])
+               (* DEPRECATED when trm_annot_has Mutable_var_get u1 *) ->
               (* struct_get (get(t1), f) is encoded as get(struct_access(t1,f)) where get is a hidden '*' operator,
                  in terms of C syntax: ( * t).f is compiled into * (t + offset(f)) *)
               mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u11]))]))
