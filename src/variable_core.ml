@@ -179,10 +179,8 @@ let init_detach_aux  (t : trm) : trm =
         | Typ_ptr {inner_typ = ty;_} -> ty
         | _ -> var_type
         end in
-        let new_tx = typ_ptr_generated var_type in
-        let var_decl = trm_let ~annot:t.annot ~marks:t.marks vk (x, new_tx) (trm_prim (Prim_new new_tx)) in
+        let var_decl = trm_let_mut (x, var_type) (trm_uninitialized ()) in
         (* Check if variable was declared as a reference *)
-
         let var_assgn = trm_set (trm_var ~typ:(Some var_type) x) {init with typ = (Some var_type)} in
         trm_seq_no_brace [var_decl; var_assgn]
       end
@@ -260,7 +258,7 @@ let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : 
   let var_type = match trm_var_def_inv vardef_trm with
   | Some (_, _, ty, _) -> ty
   | _ -> fail vardef_trm.loc "local_name: make sure the name of the current var is entered correctly" in
-  let fst_instr = trm_let Var_mutable (local_var, typ_ptr_generated var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var curr_var]) in
+  let fst_instr = trm_let_mut (local_var, var_type) (trm_var curr_var) in
   let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var ~typ:(Some var_type) local_var]) in
   let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in
   let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
@@ -313,7 +311,7 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
             add_star_if_ptr  (trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_var index])]
       end in
       let new_first_trm = trm_seq_no_brace[
-          trm_let vk (local_var, typ_ptr_generated (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
+          trm_let_array vk (local_var, var_type) (Trm (trm_var array_size)) (trm_uninitialized ());
           trm_set (trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_lit (Lit_int 0)]) curr_var_trm;
           trm_for index (trm_int 1)  DirUp (trm_var array_size) Post_inc
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var local_var; trm_var index]) init_trm])]
@@ -351,15 +349,13 @@ let delocalize (array_size : string) (ops : delocalize_ops) (index : string) : T
       the updated [t] with the newly inserted declaration []
   *)
 
-let insert_aux (index : int) (const : bool) (name : string) (typ : typ) (value : trm) (t : trm) : trm =
-  match t.desc with
+let insert_aux (index : int) (const : bool) (name : string) (typ : typ) (value : trm) (t : trm) : trm = 
+  match t.desc with 
   | Trm_seq tl ->
-    let vk = if const then Var_immutable else Var_mutable  in
-    let new_typ = if const then typ_const typ else typ in
-    let new_trm = trm_let vk (name, new_typ) value in
-    let new_tl = Mlist.insert_at index new_trm tl in
+    let new_decl = if const then trm_let_immut (name, typ) value else trm_let_mut (name, typ) value in 
+    let new_tl = Mlist.insert_at index new_decl tl in 
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
-  | _ -> fail t.loc "insert_aux: expeted the sequence where the declaration is going to be inserted"
+  | _ -> fail t.loc "insert_aux: expected the sequence where the declaration is oing to be inserted"
 
 let insert (index : int) (const : bool) (name : string) (typ : typ) (value : trm) : Target.Transfo.local =
   Target.apply_on_path (insert_aux index const name typ value)
@@ -374,25 +370,13 @@ let insert (index : int) (const : bool) (name : string) (typ : typ) (value : trm
       the updated ast of the sequence which contains the declaration
 *)
 let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
-  let constructed_type = atyp new_type in
+  let new_type = atyp new_type in
   match t.desc with
   | Trm_seq tl ->
     let lfront, decl, lback = Internal.get_trm_and_its_relatives index tl in
     begin match decl.desc with
     | Trm_let (vk, (x, tx), init) ->
-      let new_type =
-        begin match (get_inner_ptr_type tx) .typ_desc with
-        | Typ_const _ -> typ_const constructed_type
-        | Typ_ptr {ptr_kind = pk; _} -> typ_ptr pk constructed_type
-        | Typ_array (_, sz) -> typ_array constructed_type sz
-        | _ -> constructed_type
-        end in
-      let new_decl = begin match vk with
-      | Var_mutable ->
-        trm_let vk (x, typ_ptr_generated new_type ) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init)
-      | Var_immutable ->
-        trm_let vk (x, typ_const new_type) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init)
-      end in
+      let new_decl = Internal.change_typ tx new_type decl in 
       let lback = Mlist.map (Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[Target.cVar x]]) lback in
       let tl = Mlist.merge lfront lback in
       let tl = Mlist.insert_at index new_decl tl in

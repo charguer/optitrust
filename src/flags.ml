@@ -37,7 +37,7 @@ let verbose_mode : bool ref = ref false
 let use_light_diff : bool ref = ref true
 
 (* Flag for using only raw ast, when parsing and printing *)
-let use_new_encodings : bool ref = ref false
+let use_new_encodings : bool ref = ref true
 
 (* Flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them *)
 let bypass_cfeatures : bool ref = ref false

@@ -133,8 +133,8 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         let inlined_body =
          if is_type_unit(ty)
            then [marked_body; exit_label]
-           else  [trm_let ~marks:fun_call.marks Var_mutable (name, ty) (trm_prim (Prim_new ty));
-                   marked_body;exit_label]
+           else [trm_let_mut ~marks:fun_call.marks (name, ty) (trm_uninitialized ());
+                marked_body; exit_label]
            in
         let new_tl = Mlist.merge lfront (Mlist.of_list inlined_body) in
         let new_tl = Mlist.merge new_tl lback in

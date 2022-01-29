@@ -417,8 +417,8 @@ let to_variables_aux (index : int) (t : trm) : trm =
       let var_decls = List.mapi( fun  i (sf, ty) ->
           let new_name = Convention.name_app x sf in
           match struct_init_list with
-          | [] -> trm_let Var_mutable (new_name, typ_ptr_generated ty) (trm_prim (Prim_new ty))
-          | _ -> trm_let Var_mutable (new_name, typ_ptr_generated ty) (trm_apps (trm_prim (Prim_new ty)) [List.nth struct_init_list i])
+          | [] -> trm_let_mut (new_name, ty) (trm_uninitialized ())
+          | _ -> trm_let_mut (new_name, ty) (List.nth struct_init_list i)
       ) field_list in
       let lback = Mlist.map (fun t1 ->
         List.fold_left (fun t2 f1 ->

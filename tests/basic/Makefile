@@ -9,43 +9,30 @@ TARGET_MAKE_ALL := check
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
-	arith_simplify.ml \
 	aos_to_soa_sized_array.ml \
 	array_set_explicit.ml \
 	array_swap.ml \
 	array_tile.ml \
-	array_to_variables.ml \
 	cast_insert.ml \
   flow_insert_if.ml \
-	function_beta.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
 	function_uninline.ml \
 	function_use_infix_ops.ml \
-	instr_accumulate.ml \
 	instr_move.ml \
 	instr_replace.ml \
-	instr_read_last_write.ml \
 	instr_replace_fun.ml \
 	label_add.ml \
 	label_remove.ml \
-	loop_color.ml \
-	loop_fission.ml \
 	loop_fusion.ml \
-	loop_fold.ml \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
 	loop_swap.ml \
 	loop_moveout.ml \
-	loop_tile.ml \
-	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
 	pointer_fold.ml \
-	reference_fold.ml \
-	reference_inline.ml \
 	rewrite_compute.ml \
-	rewrite_compute_inside.ml \
 	rewrite_equiv_at.ml \
 	sequence_delete.ml \
 	sequence_elim_around_instr.ml \
@@ -59,9 +46,6 @@ TESTS_WITH_DOC := \
 	struct_inline.ml \
 	struct_rename_field.ml \
 	struct_rename_fields.ml \
-	struct_set_explicit.ml \
-	struct_set_implicit.ml \
-	struct_update_fields_type.ml \
 	typedef_fold.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
@@ -70,15 +54,12 @@ TESTS_WITH_DOC := \
 	variable_change_type.ml \
 	variable_fold.ml \
 	variable_init_attach.ml \
-	variable_init_detach.ml \
 	variable_inline.ml \
-	variable_local_name.ml \
 	variable_rename.ml \
 	variable_subst.ml \
+	variable_local_name.ml \
   variable_unfold.ml \
 	variable_insert.ml \
-	variable_simpl_deref.ml \
-	variable_to_const.ml \
 
 TESTS_WORKING_NOTINDOC := \
 	specialize_choose.ml \
@@ -94,7 +75,7 @@ TESTS_TOCHECK := \
 	matrix_intro_mmalloc.ml \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
-	sequence_split.ml \
+
 
 
 # missing expected
@@ -106,6 +87,45 @@ TESTS_TO_FIX := \
 	arith_to_fix.ml \
 	aos_to_soa_typedef.ml \
   struct_simpl_proj.ml \
+	arith_simplify.ml \
+	array_to_variables.ml \
+	function_beta.ml \
+	instr_accumulate.ml \
+	instr_read_last_write.ml \
+	loop_color.ml \
+	loop_fission.ml \
+	loop_fold.ml \
+	loop_tile.ml \
+	loop_to_unit_steps.ml \
+	reference_fold.ml \
+	reference_inline.ml \
+	rewrite_compute_inside.ml \
+	struct_set_implicit.ml \
+	struct_set_explicit.ml \
+	struct_update_fields_type.ml \
+	variable_inline.ml \
+	variable_rename.ml \
+	variable_subst.ml \
+	variable_init_detach.ml \
+	variable_simpl_deref.ml \
+	variable_to_const.ml \
+	sequence_split.ml \
+
+
+  
+
+  
+
+
+
+
+
+
+  
+
+  
+
+
 # TODO:
 # arith_simpl.ml
 

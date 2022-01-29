@@ -131,7 +131,7 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
 
 let vardef_alloc ?(init : trm option = None) (x : string) (ty : typ) (dims : trms) (size : trm) : trm =
   let alloc_trm = alloc ~init dims size in
-  trm_let Var_mutable (x, typ_ptr Ptr_kind_mut ty) (trm_apps (trm_prim (Prim_new ty) ) [alloc_trm])
+  trm_let_mut (x, ty) alloc_trm
 
 (* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
 let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) option =

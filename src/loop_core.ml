@@ -129,19 +129,18 @@ let tile (tile_index : var) (bound : tile_bound) (tile_size : var) : Target.Tran
 let hoist_aux (name : var) (decl_index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, start, direction, stop, step, body) ->
-    
     begin match body.desc with
     | Trm_seq tl ->
       let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
         let new_name = Tools.string_subst "${var}" x name in
-        let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var new_name; trm_var index] ) in
+        let new_decl = trm_let_ref (x, (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var new_name; trm_var index] ) in
         let new_tl = Mlist.merge lfront lback in
         let new_body = trm_seq (Mlist.insert_at decl_index new_decl new_tl) in
         let inner_typ = get_inner_ptr_type tx in
         trm_seq_no_brace [
-          trm_let Var_mutable (new_name, typ_ptr_generated (typ_array inner_typ (Trm stop))) (trm_prim (Prim_new inner_typ));
+          trm_let_array Var_mutable (new_name, inner_typ) (Trm stop) (trm_uninitialized ());
           trm_for index start direction stop step new_body ]
       | _ -> fail var_decl.loc "hoist_aux: expected a variable declaration"
       end
@@ -232,7 +231,7 @@ let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : t
                               acc; trm_var bnd]
                               ; trm_var ind]
                     )  (trm_var "") index_and_bounds in
-                    let old_loop_index_decl = trm_let Var_mutable (index, typ_ptr_generated (typ_int ())) old_loop_index_val in
+                    let old_loop_index_decl = trm_let_mut (index, typ_int ()) old_loop_index_val in 
                     let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
                     trm_seq new_tl
                    | _ -> fail body.loc "grid_enumerate_aux: the body of the loop should be a sequence"
@@ -384,12 +383,10 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
     | DirDownEq -> (trm_div (aux start stop) loop_step)
     end in  
     
-    let new_decl = trm_let Var_mutable (index, (typ_ptr_generated (typ_int()) ))
-        (trm_apps (trm_prim (Prim_new (typ_int())))
-          [trm_apps (trm_binop Binop_add)[
+    let new_decl = trm_let_mut (index, typ_int() ) (trm_apps (trm_binop Binop_add)[
             start;
             trm_apps (trm_binop Binop_mul) [trm_var new_index; loop_step]
-          ]]) in
+          ]) in
     trm_for new_index (trm_int 0) direction new_stop Post_inc 
       (trm_seq (Mlist.insert_at 0 new_decl body_trms ))
   | _ -> fail t.loc "to_unit_steps: only simple loops are supported "

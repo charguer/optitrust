@@ -1785,6 +1785,45 @@ let get_operation_arg (t : trm) : trm =
   | Trm_apps (_, [t1]) -> t1
   | _ -> t (* fail t.loc "get_operation_arg: this function should be called only on get operations " *)
 
+(* [trm_let_mut ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating mutable variable declarations *)
+let trm_let_mut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type_ptr = typ_ptr_generated var_type in
+  trm_let ~annot:(Stackvar :: annot) ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
+
+
+(* [trm_let_ref ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating reference variable declarations *)
+let trm_let_ref ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type_ptr = typ_ptr_generated var_type in
+  trm_let ~annot:(Reference :: annot) ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
+
+
+(* [trm_let_IMmut ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating immutable variable declarations *)
+let trm_let_immut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type = typ_const var_type in
+  trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_immutable (var_name, var_type) (init)
+
+
+
+
+(* [trm_let_array ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating array variable declarations *)
+let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type = typ_array var_type sz in
+  let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr_generated var_type in
+  let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
+  trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init
+
+
+
+
+
 (* [trm_for_c_inv_simple_init init] check if the init loop component is simple or not.
     It not then return None else return the index used in the init trm, its initial value and a boolean which states if
   the loop index is declared locally or belongs to another scope.
@@ -1874,7 +1913,7 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
   (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
   let init = if not local_index
                 then trm_set (trm_var index) start
-                else trm_let Var_mutable (index, typ_ptr_generated (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start])  in
+                else trm_let_mut (index, typ_int()) start in
   let cond = begin match direction with
     | DirUp ->
       (trm_apps (trm_binop Binop_lt)
@@ -2076,30 +2115,6 @@ let tmap_to_list (keys : vars) (map : tmap) : trms =
 (* [tmap_filter keys tmap] remove all the bindings with [keys] in [map] and return that map *)
 let tmap_filter (keys : vars) (map : tmap) : tmap =
   Trm_map.filter (fun k _ -> not (List.mem k keys)) map
-
-
-(* [trm_let_mut ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating mutable variable declarations *)
-let trm_let_mut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
-  let var_name, var_type = typed_var in
-  let var_type_ptr = typ_ptr_generated var_type in
-  trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
-
-(* [trm_let_IMmut ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating immutable variable declarations *)
-let trm_let_immut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
-  let var_name, var_type = typed_var in
-  let var_type = typ_const var_type in
-  trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_immutable (var_name, var_type) (init)
-
-(* [trm_let_array ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating array variable declarations *)
-let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
-  let var_name, var_type = typed_var in
-  let var_type = typ_array var_type sz in
-  let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr_generated var_type in
-  let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
-  trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init
 
 
 (* [is_trm t] check if [t] is a proper ast node or not *)

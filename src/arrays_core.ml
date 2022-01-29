@@ -83,14 +83,13 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
         begin match t_var.typ_desc with
         | Typ_constr (y, tid, _) ->
           List.map(fun x ->
-            trm_let Var_mutable (x,(typ_ptr_generated (typ_constr y ~tid ))) (trm_prim (Prim_new (typ_constr y ~tid )))) new_vars
+            trm_let_mut (x, typ_constr y ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
         | Typ_var (y, tid) ->
           List.map(fun x ->
-            trm_let Var_mutable (x,(typ_ptr_generated (typ_var y tid ))) (trm_prim (Prim_new (typ_var y tid )))) new_vars
-        
+            trm_let_mut (x, typ_var y tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
         | _ -> 
           List.map(fun x ->
-            trm_let Var_mutable (x,(typ_ptr_generated t_var)) (trm_prim (Prim_new t_var))) new_vars
+            trm_let_mut (x, t_var) (trm_uninitialized ~loc:init.loc ())) new_vars
         end
       | _ -> fail t.loc "to_variables_aux: expected an array type"
       end
@@ -267,6 +266,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
         begin match ty.typ_desc with
         | Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _};_} when y = base_type_name ->
           trm_let Var_mutable (y, ty) init
+          (* TODO: Check me later *)
         | _ -> fail t.loc "tile_aux: expected a pointer because of heap allocation"
         end
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
@@ -556,14 +556,14 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
         | _ -> trm_map(aux global_trm) t
         end
 
-    | Trm_let (vk, (n, dx), _) ->
+    | Trm_let (vk, (n, dx), init) ->
        begin match dx.typ_desc with
        | Typ_ptr {inner_typ = ty;_} ->
         begin match ty.typ_desc with
         | Typ_array (a, _) ->
           begin match a.typ_desc with
           | Typ_constr (sn,_, _) when sn = struct_name -> 
-            trm_let vk (n,typ_ptr_generated a) (trm_prim ~loc:t.loc (Prim_new a)) 
+            trm_let_mut (n, a) (trm_uninitialized ~loc:init.loc ())
           | _ -> trm_map (aux global_trm) t
           end
         | _ -> trm_map (aux global_trm) t
@@ -595,7 +595,7 @@ let set_explicit_aux (t : trm) : trm =
       List.mapi ( fun i t1 -> 
         trm_set (trm_apps (trm_binop (Binop_array_access)) [trm_var x;trm_int i]) t1
       ) (Mlist.to_list tl) in
-      let new_decl = trm_let vk (x,tx) (trm_prim (Prim_new (get_inner_ptr_type tx))) in
+      let new_decl = trm_let_mut (x, (get_inner_ptr_type tx)) (trm_uninitialized ~loc:init.loc ()) in
       trm_seq_no_brace ([new_decl] @ array_set_list)
     | _ -> fail init.loc "set_explicit_aux: expected an array initialization"
     end

@@ -819,7 +819,7 @@ and routine_to_doc (r : omp_routine) : document =
 and unpack_trm_for ?(loc = None) ?(local_index : bool = true) (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
   let init = if not local_index
                 then trm_set (trm_var index) start
-                else trm_let Var_mutable (index, typ_int ()) start  in
+                else trm_let_mut (index, typ_int()) start  in
   let cond = begin match direction with
     | DirUp -> trm_apps (trm_binop Binop_lt) [trm_var index;stop]
     | DirUpEq -> trm_apps (trm_binop Binop_le) [trm_var index;stop]
