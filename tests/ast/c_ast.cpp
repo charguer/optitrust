@@ -164,11 +164,12 @@ int main() {
 
 }
 
-
+/* Not supportd in optitrust: mutation of function variables
 int g(int x) {
   x = x + 1;
   return x;
 }
+*/
 
 int immutable_stack_ptr() {
   int x = 3;

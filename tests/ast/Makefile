@@ -1,5 +1,5 @@
 
-FLAGS := -dump-ast-details 
+FLAGS := -dump-ast-details
 
 #debug: c_ast_debug.out
 #debug_enc: c_ast_debug.enc
@@ -7,7 +7,11 @@ FLAGS := -dump-ast-details
 TESTS := \
 	c_access.ml \
 	c_stackvar.ml \
-	c_elimintro.ml
+	c_features.ml \
+	c_ast.ml \
+
+#	serialize.ml
+#   rawc.ml
 
 TARGET_MAKE_ALL := transfo
 

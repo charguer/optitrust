@@ -3,6 +3,8 @@ open Target
 open Ast
 open CRawAst_to_ast
 
+(* TODO: this test seems superseeded by others, let's remove it *)
+
 let test_const () =
   let clang_ast = Clang.Ast.parse_file "const.cpp" in
   let raw_ast = Clang_to_astRawC.tr_ast clang_ast in

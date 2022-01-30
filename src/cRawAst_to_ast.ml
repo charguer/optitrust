@@ -216,13 +216,12 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_} as op, [t1; t2]) ->
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [access t1; aux t2]))
       (* *t1 becomes to [*(aux t1)] if '*' is not a hidden get operation, otherwise it becomes  [aux t1] *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op, [t1]) ->
-      (* DEPRECATED *)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as _op, [t1]) ->
+      (* DEPRECATED
       if List.mem Mutable_var_get t.annot
         then aux t1
-        else mk (Trm_apps (op, [aux t1]))
-     
-      (* aux t1 *)
+        else mk (Trm_apps (op, [aux t1]))*)
+      aux t1
     | Trm_var (_, x) -> fail t.loc (Printf.sprintf "caddress_elim: const variable cannot appear as lvalue (mutation of function arguments is not supported in OptiTrust), %s" x)
     | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (Ast_to_rawC.ast_to_string t) (Ast_to_text.ast_to_string t))
     end
