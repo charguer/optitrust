@@ -95,14 +95,14 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
      | TileBoundDivides -> 
        trm_for index (trm_var tile_index) direction (tile_bound) step body
      | TileBoundAnd -> 
-       let init = trm_let_mut (index, typ_int ()) (trm_get ~annot:[Mutable_var_get](trm_var tile_index)) in
-       let cond = trm_and (trm_ineq direction (trm_var index) 
+       let init = trm_let Var_mutable (index, typ_int ()) (trm_var tile_index) in
+       let cond = trm_and (trm_ineq direction (trm_get ~annot:[Mutable_var_get] (trm_var index)) 
          (if is_step_one step 
            then (trm_add (trm_var tile_index) (trm_var tile_size)) 
-           else (trm_add (trm_var tile_index) (trm_mul (trm_var tile_size) (loop_step_to_trm step) ) ))) (trm_ineq direction (trm_var index) stop)
+           else (trm_add (trm_var tile_index) (trm_mul (trm_var tile_size) (loop_step_to_trm step) ) ))) (trm_ineq direction (trm_get ~annot:[Mutable_var_get] (trm_var index)) stop)
         in 
-       let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index] 
-         else trm_set ~annot:[App_and_set] (trm_var index) (trm_add (trm_var index) (loop_step_to_trm step)) in
+       let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_get ~annot:[Mutable_var_get] (trm_var index)] 
+         else trm_prim_compound Binop_add (trm_get ~annot:[Mutable_var_get] (trm_var index)) (loop_step_to_trm step) in
        trm_for_c init cond step body 
      end in 
      trm_for tile_index start direction (stop) (if is_step_one step then Step (trm_var tile_size) else Step (trm_mul (trm_var tile_size)(loop_step_to_trm step))) (

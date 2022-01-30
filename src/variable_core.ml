@@ -38,7 +38,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
                     if as_reference
                       then {init with add = List.filter (fun x -> x <> Address_operator) init.add}
                       else init
-                   | _ -> fail t.loc "fold_aux: expected a new operation"
+                   | _ -> dx
                    end
             end in
         let lback = Mlist.map(Internal.change_trm ~change_at:[fold_at] def_x t_x) lback

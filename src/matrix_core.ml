@@ -386,7 +386,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                 | None -> "s", false in
                 
                 let op_fun (l_arg : trm) (r_arg : trm) : trm  = match ops with 
-                  | Delocalize_arith (_, op) -> trm_set ~annot:[App_and_set] l_arg (trm_apps (trm_binop op) [l_arg; r_arg])
+                  | Delocalize_arith (_, op) -> trm_prim_compound op l_arg r_arg
                   | Delocalize_obj (_, transfer_f) -> trm_apps (trm_var transfer_f) [l_arg; r_arg] 
                 in
 
@@ -406,8 +406,8 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     (trm_seq_nomarks [
                         trm_let_mut (acc, typ_int ()) (trm_int 0);
                         trm_for index (trm_int 0) DirUp dim (Post_inc) (trm_seq_nomarks [
-                            op_fun (trm_var acc) new_access]);
-                        trm_set old_var_access (trm_var acc)]) in
+                            op_fun (trm_var_get acc) new_access]);
+                        trm_set old_var_access (trm_var_get acc)]) in
                 let new_frth_instr =
                   trm_fors loop_range new_body in
                     

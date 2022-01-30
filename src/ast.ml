@@ -2220,6 +2220,10 @@ let trm_access (base : trm) (field : var) : trm =
 let trm_get ?(annot : trm_annot list = []) (t : trm) : trm =
   trm_apps ~annot (trm_unop Unop_get) [t]
 
+(* [trm_var_get x] add a get operation around [x]*)
+let trm_var_get (x : var) : trm = 
+  trm_get ~annot:[Mutable_var_get] (trm_var x)
+
 (* [trm_new ty t] generates new ty (t) *)
 let trm_new (ty : typ) (t : trm) : trm =
   trm_apps (trm_prim (Prim_new ty)) [t]

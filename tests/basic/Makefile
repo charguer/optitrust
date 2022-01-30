@@ -30,6 +30,7 @@ TESTS_WITH_DOC := \
 	loop_unroll.ml \
 	loop_unswitch.ml \
 	pointer_fold.ml \
+	reference_fold.ml \
 	rewrite_compute.ml \
 	rewrite_equiv_at.ml \
 	sequence_delete.ml \
@@ -91,7 +92,6 @@ TESTS_TO_FIX := \
 	loop_fold.ml \
 	loop_tile.ml \
 	loop_to_unit_steps.ml \
-	reference_fold.ml \
 	reference_inline.ml \
 	rewrite_compute_inside.ml \
 	struct_set_implicit.ml \
