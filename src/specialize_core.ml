@@ -52,7 +52,7 @@ let choose_aux (select_arg : string list -> int) (t : trm) : trm =
           function call should be variable occurrences\n and %s is not one \n") args  in
         let id = select_arg choices in
         if id < 0 || id > List.length choices -1 then fail t.loc "choose_aux: select_arg function does not give a correct index";
-        trm_var (List.nth choices id ) 
+        trm_get ~annot:[Mutable_var_get] (trm_var (List.nth choices id ) )
     | _ -> fail argnb.loc "choose_aux: expected a literel trm"
     end
    

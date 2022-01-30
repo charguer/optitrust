@@ -21,6 +21,7 @@ TESTS_WITH_DOC := \
 	instr_replace_fun.ml \
 	label_add.ml \
 	label_remove.ml \
+	loop_color.ml \
 	loop_fusion.ml \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
@@ -42,20 +43,15 @@ TESTS_WITH_DOC := \
 	struct_fields_reorder.ml \
 	struct_inline.ml \
 	struct_rename_field.ml \
-	struct_rename_fields.ml \
 	struct_update_fields_type.ml \
-	typedef_fold.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
-	variable_bind.ml \
-	variable_change_type.ml \
 	variable_fold.ml \
 	variable_init_attach.ml \
 	variable_init_detach.ml \
 	variable_inline.ml \
 	variable_rename.ml \
-	variable_subst.ml \
 	variable_local_name.ml \
   variable_unfold.ml \
 	variable_insert.ml \
@@ -68,12 +64,9 @@ TESTS_WORKING_NOTINDOC := \
 TESTS_TOCHECK := \
 	accesses_intro.ml \
 	include_inline.ml \
-	matrix_delocalize.ml \
 	matrix_intro_mcalloc.ml \
 	matrix_intro_mindex.ml \
 	matrix_intro_mmalloc.ml \
-	matrix_local_name.ml \
-	matrix_reorder_dims.ml \
 
 
 
@@ -94,7 +87,6 @@ TESTS_TO_FIX := \
 	function_uninline.ml \
 	instr_accumulate.ml \
 	instr_read_last_write.ml \
-	loop_color.ml \
 	loop_fission.ml \
 	loop_fold.ml \
 	loop_tile.ml \
@@ -107,6 +99,17 @@ TESTS_TO_FIX := \
 	variable_simpl_deref.ml \
 	variable_to_const.ml \
 	sequence_split.ml \
+	typedef_fold.ml \
+	variable_change_type.ml \
+	struct_rename_fields.ml \
+	variable_bind.ml \
+	matrix_delocalize.ml \
+	variable_subst.ml \
+	matrix_local_name.ml \
+	matrix_reorder_dims.ml \
+
+
+  
 
 
   

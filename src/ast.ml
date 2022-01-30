@@ -1871,9 +1871,9 @@ let trm_for_c_inv_simple_step (step : trm) : loop_step option =
      Some Post_dec
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_dec)); _}, _) ->
      Some Pre_dec
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                 [_; t']) ->
-      begin match t'.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op _)); _},
+                 [_; n]) -> Some (Step n)
+      (* begin match t'.desc with
       | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_add)); _},
                   [_; n]) ->
          Some (Step n)
@@ -1881,7 +1881,7 @@ let trm_for_c_inv_simple_step (step : trm) : loop_step option =
                   [_; n]) ->
          Some (Step n)
       | _ -> None
-      end
+      end *)
   | _ -> None
 
 
