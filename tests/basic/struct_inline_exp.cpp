@@ -22,8 +22,8 @@ int main() {
   vect dfoo = d.foo;
   obj a = {0, 0, 0, s};
   obj b = {0, p.x, p.y, s};
-  int nx = (a.posX + a.speedX);
-  int ny = (a.posY + a.speedY);
+  int nx = a.posX + a.speedX;
+  int ny = a.posY + a.speedY;
   a.posX = 5;
   p.x = 5;
   vect t = {1, 0};

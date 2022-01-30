@@ -546,7 +546,6 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
            | _ ->
               fail f.loc "apps_to_doc: unary operators must have one argument"
            end
-
         | Prim_binop op -> 
           let (prec1, prec2) = 
             if assoc = LtoR 

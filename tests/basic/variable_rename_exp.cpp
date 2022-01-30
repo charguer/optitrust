@@ -1,12 +1,12 @@
 int f(int x) {
   int y = 1;
   int z = 2;
-  return (y + z);
+  return y + z;
 }
 
 int g(int x) {
-  int y = (-1);
-  return (y + x);
+  int y = -1;
+  return y + x;
 }
 
 int main() {
