@@ -14,5 +14,5 @@ int main() {
 let _ = Run.script_cpp (fun _ ->
 
   !! Loop_basic.color "C" ~index:"ci" [cFor "i"];
-  !! Loop_basic.color "C" [cFor "j"];
+  !! Loop_basic.color "C" [cFor_c "j"];
 )

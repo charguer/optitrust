@@ -21,7 +21,6 @@ let _ = Run.script_cpp (fun _ ->
     (* LATER: have a function that attempts reparse and raise an exception if reparse fails *)
     ); *)
 
-  !! Variable_basic.to_const [cVarDef "u"];
   !! Variable_basic.to_const [cVarDef "y"];
 
   !! Variable_basic.to_const [cVarDef "z"];

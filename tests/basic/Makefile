@@ -46,6 +46,7 @@ TESTS_WITH_DOC := \
 	struct_inline.ml \
 	struct_rename_field.ml \
 	struct_rename_fields.ml \
+	struct_update_fields_type.ml \
 	typedef_fold.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
@@ -54,6 +55,7 @@ TESTS_WITH_DOC := \
 	variable_change_type.ml \
 	variable_fold.ml \
 	variable_init_attach.ml \
+	variable_init_detach.ml \
 	variable_inline.ml \
 	variable_rename.ml \
 	variable_subst.ml \
@@ -102,11 +104,6 @@ TESTS_TO_FIX := \
 	rewrite_compute_inside.ml \
 	struct_set_implicit.ml \
 	struct_set_explicit.ml \
-	struct_update_fields_type.ml \
-	variable_inline.ml \
-	variable_rename.ml \
-	variable_subst.ml \
-	variable_init_detach.ml \
 	variable_simpl_deref.ml \
 	variable_to_const.ml \
 	sequence_split.ml \

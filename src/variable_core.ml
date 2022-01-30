@@ -475,7 +475,7 @@ let to_const_aux (index : int) (t : trm) : trm =
         | _ -> fail dl.loc "to_const_aux: can't convert to const a non intialized variable"
         in
         let init_type = get_inner_ptr_type tx in
-        let new_dl = trm_let_immut ~annot:dl.annot ~marks:dl.marks (x, init_type) init_val in
+        let new_dl = trm_let_immut ~marks:dl.marks (x, init_type) init_val in
         let new_lback = Mlist.map (Internal.change_trm (trm_get ~annot:[Mutable_var_get] (trm_var x)) (trm_var x)) lback in
         let new_tl = Mlist.merge lfront new_lback in
         let new_tl = Mlist.insert_at index new_dl new_tl in

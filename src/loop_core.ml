@@ -58,14 +58,13 @@ let color_aux (nb_colors : var) (i_color : var option) (t : trm) : trm =
       | Post_inc | Pre_inc -> true 
       | _ -> false 
       end in
-  
-    trm_for i_color start direction (trm_var nb_colors) (Post_inc) (
+   let nb_colors_var = trm_get ~annot:[Mutable_var_get] (trm_var nb_colors) in 
+    trm_for i_color start direction nb_colors_var (Post_inc) (
       trm_seq_nomarks [
         trm_for index (if is_step_one then trm_var i_color else trm_apps (trm_binop Binop_mul) [trm_var i_color; loop_step_to_trm step]) direction stop 
-          (if is_step_one then Step (trm_var nb_colors) else Step (trm_apps (trm_binop Binop_mul) [trm_var nb_colors; loop_step_to_trm step])) body
+          (if is_step_one then Step nb_colors_var else Step (trm_apps (trm_binop Binop_mul) [nb_colors_var; loop_step_to_trm step])) body
       ]
     )
-
   | _ -> fail t.loc "color_aux: only_simple loops are supported"
 
 let color (c : var) (i_color : var option ) : Target.Transfo.local =
