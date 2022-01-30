@@ -9,15 +9,12 @@ TARGET_MAKE_ALL := check
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
-	aos_to_soa_sized_array.ml \
 	array_set_explicit.ml \
 	array_swap.ml \
 	array_tile.ml \
-	cast_insert.ml \
   flow_insert_if.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
-	function_uninline.ml \
 	function_use_infix_ops.ml \
 	instr_move.ml \
 	instr_replace.ml \
@@ -88,10 +85,13 @@ TESTS_TO_FIX := \
 	arith_shift.ml \
 	arith_to_fix.ml \
 	aos_to_soa_typedef.ml \
-  struct_simpl_proj.ml \
+	aos_to_soa_sized_array.ml \
+	cast_insert.ml \
+	struct_simpl_proj.ml \
 	arith_simplify.ml \
 	array_to_variables.ml \
 	function_beta.ml \
+	function_uninline.ml \
 	instr_accumulate.ml \
 	instr_read_last_write.ml \
 	loop_color.ml \

@@ -156,27 +156,27 @@ let inline (index: int) (body_mark : string option) (p_local : path) : Target.Tr
     return:
       the same ast node with the added annotation App_and_set
 *)
+
 let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm = 
   match t.desc with 
-  | Trm_apps (f, [ls; rs]) when is_set_operation t ->
+  | Trm_apps(f, [ls; rs]) when is_set_operation t ->
     begin match rs.desc with 
     | Trm_apps (f1, [get_ls; arg]) ->
       begin match trm_prim_inv f1 with 
-      | Some p when is_infix_prim_fun p ->
-        let aux s = Ast_to_c.ast_to_string s in 
-        let final_trm =
-        if aux ls = aux get_ls then t else  trm_apps ~marks:t.marks f [ls; trm_apps f1 [arg; get_ls]] in
-        trm_annot_add App_and_set final_trm
-
+      | Some (Prim_binop b) -> 
+        let aux s1 s2 = Internal.same_kind s1 s2 in 
+        if aux ls get_ls 
+          then trm_prim_compound b get_ls arg 
+          else  trm_prim_compound b arg get_ls
       | _ -> 
         if allow_identity then t else
         fail f1.loc "use_infix_ops_aux: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
-      
-      end 
-    | _ -> if allow_identity then t else 
-           fail rs.loc "use_infix_ops_aux: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
+      end
+    | _ -> if allow_identity then t else
+            fail f.loc "use_infix_ops_aux: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
     end 
-  | _-> if allow_identity then t else fail t.loc "use_infi_ops_aux: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
+  | _ ->if allow_identity then t else fail t.loc "use_infix_ops_aux: expected an infix operation of the form x = f(x,a) or x = f(a,x)
+     where f is a binary operator than can be written in infix form"
 
 let use_infix_ops (allow_identity: bool) : Target.Transfo.local =
   Target.apply_on_path (use_infix_ops_aux allow_identity)

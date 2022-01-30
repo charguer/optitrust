@@ -2168,12 +2168,7 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
 (* [is_infix_prim_fun p] check if the primitive function [p] is one of those which supports app and set operations or not*)
 let is_infix_prim_fun (p : prim) : bool =
   match p with
-  | Prim_binop bin_op ->
-    begin match bin_op with
-    | Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_mod | Binop_shiftl | Binop_shiftr
-      | Binop_bitwise_and | Binop_bitwise_or | Binop_xor -> true
-    | _ -> false
-    end
+  | Prim_compound_assgn_op __ -> true
   | _ -> false
 
 
