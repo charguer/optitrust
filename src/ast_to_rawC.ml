@@ -183,8 +183,8 @@ and attr_to_doc (a : attribute) : document =
   | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
 
-and decorate_trm ?(semicolon : bool = false) ?(parentheses : bool = false) (t : trm) : document =
-  let dt = trm_to_doc ~semicolon t in
+and decorate_trm ?(semicolon : bool = false) ?(parentheses : bool = false) ?(prec : int = 0) (t : trm) : document =
+  let dt = trm_to_doc ~semicolon ~prec t in
   (* LATER: if Flags.print_trm_addresses then (string (sprintf "%p" t) ^ dt) else dt *)
   let dt = if parentheses then parens (dt) else dt in
     if t.marks = []
@@ -197,7 +197,7 @@ and decorate_trm ?(semicolon : bool = false) ?(parentheses : bool = false) (t : 
         sleft ^^ dt ^^ sright
         end
 
-and trm_to_doc ?(semicolon=false) (t : trm) : document =
+and trm_to_doc ?(semicolon=false) ?(prec : int = 0) (t : trm) : document =
   let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
   let dattr =
@@ -262,7 +262,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
           counter := -1;
           dattr ^^ surround 2 1 lbrace (separate hardline dl) rbrace
     | Trm_apps (f, tl) ->
-           dattr ^^ apps_to_doc f tl ^^ dsemi
+           dattr ^^ apps_to_doc ~prec f tl ^^ dsemi
      | Trm_while (b, t) ->
         let db = decorate_trm b in
         let dt = decorate_trm ~semicolon:true t in
@@ -488,7 +488,13 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
   | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
 
-and apps_to_doc (f : trm) (tl : trms) : document =
+
+and wrap_parens ?(parentheses : bool = false) (d : document) : document = 
+  if parentheses then parens (d) else d 
+
+and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
+  let parentheses = Precedence.parentheses_needed ~prec f in 
+  let prec = fst Precedece.precedence_trm f in 
   let aux_arguments f_as_doc =
       f_as_doc ^^ Tools.list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
       in
@@ -511,20 +517,16 @@ and apps_to_doc (f : trm) (tl : trms) : document =
         | Prim_unop op ->
            begin match tl with
            | [t] ->
-              let d = decorate_trm t in
+              let d = wrap_parens ~parentheses (decorate_trm ~prec t) in
               begin match op with
               | Unop_get when !print_optitrust_syntax ->
                   string "get(" ^^ d ^^ string ")"
               | Unop_get -> star ^^ d
-              | Unop_address ->
-                  let isvar_t = match t.desc with Trm_var _ -> true | _ -> false in
-                  if isvar_t
-                    then ampersand ^^ d
-                    else ampersand ^^ parens d
-              | Unop_neg -> parens (bang ^^ d)
-              | Unop_bitwise_neg -> parens (tilde ^^ d)
-              | Unop_minus -> parens (minus ^^ blank 1 ^^ d)
-              | Unop_plus -> parens (plus ^^ blank 1 ^^ d)
+              | Unop_address ->ampersand ^^ d
+              | Unop_neg -> bang ^^ d
+              | Unop_bitwise_neg -> tilde ^^ d
+              | Unop_minus -> minus ^^ blank 1 ^^ d
+              | Unop_plus -> plus ^^ blank 1 ^^ d
               | Unop_post_inc -> d ^^ twice plus
               | Unop_post_dec -> d ^^ twice minus
               | Unop_pre_inc -> twice plus ^^ d
@@ -535,7 +537,7 @@ and apps_to_doc (f : trm) (tl : trms) : document =
                  if List.mem Display_arrow f.annot
                   then
                     let t1 = get_operation_arg t in
-                    let d = decorate_trm t1 in
+                    let d = decorate_trm ~prec t1 in
                     d ^^ minus ^^ rangle ^^ string f1
                   else
                     let parentheses = is_star_operation t in
@@ -549,25 +551,14 @@ and apps_to_doc (f : trm) (tl : trms) : document =
            | _ ->
               fail f.loc "apps_to_doc: unary operators must have one argument"
            end
-        | Prim_binop op ->
-          let op_d = binop_to_doc op in
+
+        | Prim_binop op -> 
+          let op_d = binop_to_doc op in 
           begin match tl with
-          | [t1; t2] ->
-             let d1 = decorate_trm t1 in
-             let d2 =
-             begin match t2.desc with
-             | Trm_apps (f, _) ->
-               begin match trm_prim_inv f with
-               | Some (Prim_binop op1 ) when is_same_binop op op1 ->
-                 decorate_trm t2
-               | _ ->
-                let d = decorate_trm t2 in
-                if (is_same_binop op Binop_set) then d else parens (d)
-               end
-             | _ ->
-              decorate_trm t2
-             end  in
-             begin match op with
+          | [t1; t2] -> 
+            let d1 = decorate_trm ~prec t1 in 
+            let d2 = decorate_trm ~prec t2 in 
+            begin match op with
              | Binop_set when !print_optitrust_syntax ->
                 string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
              | Binop_array_access when !print_optitrust_syntax ->
@@ -579,14 +570,14 @@ and apps_to_doc (f : trm) (tl : trms) : document =
                 d1 ^^ brackets (d2)
              | _ -> separate (blank 1) [d1; op_d; d2]
              end
-
           | _ -> fail f.loc "apps_to_doc: binary_operators must have two arguments"
           end
+
         | (Prim_compound_assgn_op _ | Prim_overloaded_op _) as p_b ->
            begin match tl with
            | [t1; t2] ->
-              let d1 = decorate_trm t1 in
-              let d2 = decorate_trm t2 in
+              let d1 = decorate_trm ~prec t1 in
+              let d2 = decorate_trm ~prec t2 in
               let op_d = prim_to_doc p_b in
               separate (blank 1) [d1; op_d; d2]
           | _ -> fail f.loc "apps_to_doc: binary operators must have two arguments"

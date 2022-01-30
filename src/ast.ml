@@ -1808,9 +1808,6 @@ let trm_let_immut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   let var_type = typ_const var_type in
   trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_immutable (var_name, var_type) (init)
 
-
-
-
 (* [trm_let_array ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating array variable declarations *)
 let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
@@ -1818,7 +1815,8 @@ let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   let var_type = typ_array var_type sz in
   let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr_generated var_type in
   let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
-  trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init
+  let res = trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init in
+  if kind = Var_mutable then trm_annot_add Stackvar res else res
 
 
 (* [trm_for_c_inv_simple_init init] check if the init loop component is simple or not.
