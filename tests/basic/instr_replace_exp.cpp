@@ -1,11 +1,11 @@
 int f(int x) {
   int y = 1;
-  return (y + x);
+  return y + x;
 }
 
 int f1(int x) {
-  int y = (-1);
-  return (y + x);
+  int y = -1;
+  return y + x;
 }
 
 int f2(int a, int b, int c) { return a; }

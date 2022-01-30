@@ -1,5 +1,6 @@
 open PPrint
 open Ast
+open Precedence
 
 (* only for internal use *)
 let print_optitrust_syntax = ref false
@@ -183,7 +184,8 @@ and attr_to_doc (a : attribute) : document =
   | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
 
-and decorate_trm ?(semicolon : bool = false) ?(parentheses : bool = false) ?(prec : int = 0) (t : trm) : document =
+and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) (t : trm) : document =
+  let parentheses = parentheses_needed ~prec t in 
   let dt = trm_to_doc ~semicolon ~prec t in
   (* LATER: if Flags.print_trm_addresses then (string (sprintf "%p" t) ^ dt) else dt *)
   let dt = if parentheses then parens (dt) else dt in
@@ -488,13 +490,8 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
   | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
 
-
-and wrap_parens ?(parentheses : bool = false) (d : document) : document = 
-  if parentheses then parens (d) else d 
-
 and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
-  let parentheses = Precedence.parentheses_needed ~prec f in 
-  let prec = fst Precedece.precedence_trm f in 
+  let (prec, assoc) = precedence_trm f in 
   let aux_arguments f_as_doc =
       f_as_doc ^^ Tools.list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
       in
@@ -517,7 +514,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
         | Prim_unop op ->
            begin match tl with
            | [t] ->
-              let d = wrap_parens ~parentheses (decorate_trm ~prec t) in
+              let d = decorate_trm ~prec t in
               begin match op with
               | Unop_get when !print_optitrust_syntax ->
                   string "get(" ^^ d ^^ string ")"
@@ -540,9 +537,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
                     let d = decorate_trm ~prec t1 in
                     d ^^ minus ^^ rangle ^^ string f1
                   else
-                    let parentheses = is_star_operation t in
-                    (* Tools.printf "%b\n" parentheses; *)
-                    let d = decorate_trm ~parentheses t in
+                    let d = decorate_trm ~prec t in
                     d ^^ dot ^^ string f1
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
@@ -553,11 +548,16 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
            end
 
         | Prim_binop op -> 
+          let (prec1, prec2) = 
+            if assoc = LtoR 
+              then (prec, prec + 1)
+              else (prec + 1, prec)
+            in 
           let op_d = binop_to_doc op in 
           begin match tl with
           | [t1; t2] -> 
-            let d1 = decorate_trm ~prec t1 in 
-            let d2 = decorate_trm ~prec t2 in 
+            let d1 = decorate_trm ~prec:prec1 t1 in 
+            let d2 = decorate_trm ~prec:prec2 t2 in 
             begin match op with
              | Binop_set when !print_optitrust_syntax ->
                 string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
@@ -567,6 +567,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
                | Binop_array_access ->
                 fail t.loc "Binop_array_access should not appear in C code " *)
              | Binop_array_access | Binop_array_get ->
+                let d2 = decorate_trm ~prec:0 t2 in 
                 d1 ^^ brackets (d2)
              | _ -> separate (blank 1) [d1; op_d; d2]
              end
@@ -585,9 +586,9 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
         | Prim_conditional_op ->
            begin match tl with
            | [t1; t2; t3] ->
-              let d1 = decorate_trm t1 in
-              let d2 = decorate_trm t2 in
-              let d3 = decorate_trm t3 in
+              let d1 = decorate_trm ~prec:4 t1 in
+              let d2 = decorate_trm ~prec:4 t2 in
+              let d3 = decorate_trm ~prec:4 t3 in
               parens (separate (blank 1) [d1; qmark; d2; colon; d3])
            | _ ->
               fail f.loc
@@ -597,7 +598,6 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
           (* Here we assume that trm_apps has only one trm as argument *)
           let value = List.hd tl in
           string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
-        (* | _ -> fail f.loc "apps_to_doc: only op primitives may be applied" *)
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end
