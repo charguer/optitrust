@@ -1,5 +1,4 @@
 open Ast
-open Ast_to_c
 open Str
 open Tools
 open Path
@@ -620,7 +619,9 @@ let match_regexp_str (r : rexp) (s : string) : bool =
 let match_regexp_trm (r : rexp) (t : trm) : bool =
   if r.rexp_trm_kind <> get_trm_kind t
     then false
-    else match_regexp_str r (ast_to_string t)
+    else match_regexp_str r (Ast_to_c.ast_to_string t)
+    (*if use_new_encodings then begin
+CRawAst_to_ast.cfeatures_elim rawAst*)
 
 let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
