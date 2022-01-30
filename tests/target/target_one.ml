@@ -82,6 +82,8 @@ let _ = Run.script_cpp (fun () ->
   (* Regexp *)
   (* show [sInstr "j <"]; *) (* We can match only inside the body of the loop now*)
 
+  (* TODO: fix the sInstr with new encodings *)
+
   show [nbExact 0; sInstr ~substr:false "j <"];
 
   show [sInstr "+= 2"];

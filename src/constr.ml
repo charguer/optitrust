@@ -617,11 +617,17 @@ let match_regexp_str (r : rexp) (s : string) : bool =
   end
 
 let match_regexp_trm (r : rexp) (t : trm) : bool =
-  if r.rexp_trm_kind <> get_trm_kind t
-    then false
-    else match_regexp_str r (Ast_to_c.ast_to_string t)
-    (*if use_new_encodings then begin
-CRawAst_to_ast.cfeatures_elim rawAst*)
+  if r.rexp_trm_kind <> get_trm_kind t then false else begin
+    let str_t =
+      if use_new_encodings
+        (* TODO: rename Ast_to_rawC  into AstC_to_c, and
+                 rename CRawAst_to_ast to Ast_fromto_AstC *)
+        then Ast_to_rawC.ast_to_string (CRawAst_to_ast.cfeatures_elim t)
+        else Ast_to_c.ast_to_string t
+      in
+    match_regexp_str r s
+  end
+
 
 let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
