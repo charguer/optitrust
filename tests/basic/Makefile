@@ -1,5 +1,3 @@
-# FLAGS := -use-new-encodings
-
 
 TARGET_MAKE_ALL := check
 
@@ -109,21 +107,21 @@ TESTS_TO_FIX := \
 	matrix_reorder_dims.ml \
 
 
-  
-
-
-  
-
-  
 
 
 
 
 
 
-  
 
-  
+
+
+
+
+
+
+
+
 
 
 # TODO:

@@ -99,7 +99,7 @@ let accumulate ?(nb : int option) : Target.Transfo.t =
 let accumulate_targets (tg : Target.target) : unit =
   let mark = Mark.next() in
   Sequence.intro_targets ~mark tg;
-  Instr_basic.accumulate  [Target.cMark mark]
+  Instr_basic.accumulate [Target.cMark mark]
 
 type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of Target.target
 
@@ -144,7 +144,7 @@ let gather_targets ?(dest : gather_dest = GatherAtLast) (tg : Target.target) : u
 (* [move_multiple ~targets tgs] expects a list of destinations and a list of targets to be movet at those
     destinations, the map is based on the indices, ex target and index 1 will be move at the destination 1 and so on.
 *)
-let move_multiple ~destinations:(destinations : Target.target list)  ~targets:(targets : Target.target list ) : unit =
+let move_multiple ~destinations:(destinations : Target.target list) ~targets:(targets : Target.target list) : unit =
   if List.length destinations <> List.length targets then fail None "move_multiple: each destination corresponds to a single target and vice-versa";
   List.iter2(fun dest tg1 -> Instr_basic.move ~dest tg1) destinations targets
 

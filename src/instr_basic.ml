@@ -12,7 +12,7 @@ let update ?(reparse: bool = false)  (f : trm -> trm) : Target.Transfo.t =
     also some code entered as string which is transformed into a trm through function code
     then this node is merged into the ast by doing a reparse of the full ast.
 *)
-let replace ?(reparse : bool = false) (node : trm) : Target.Transfo.t = 
+let replace ?(reparse : bool = false) (node : trm) : Target.Transfo.t =
   update ~reparse (fun _t -> node)
 
 (* [replace_fun code tg] expects the target to point to a function call,
@@ -66,4 +66,19 @@ let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
 *)
 let accumulate : Target.Transfo.t =
   Target.apply_on_targets (Instr_core.accumulate)
+
+
+(* LATER: move this to Expr_basic.ml *)
+
+(* [view_subterms tg] displays on stdout all the subterms of the targeted term. *)
+let view_subterms ?(constr:Constr.constr option) ?(rexp : Constr.rexp option) (tg : Target.target) : unit =
+  let ro = match constr, rexp with
+    | None, None -> None
+    | Some (Constr_regexp r), None -> Some r
+    | Some _, None -> fail None "view_subterms: [~constr] argument must be a regexp-constraint (e.g., sInstr or sExpr)"
+    | None, Some r -> Some r
+    | Some _, Some _ -> fail None "view_subterms: cannot provide both [~constr] and [rexp]"
+    in
+  Target.apply_on_targets (Instr_core.view_subterms ro) tg
+
 

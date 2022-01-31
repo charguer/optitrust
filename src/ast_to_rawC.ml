@@ -185,7 +185,7 @@ and attr_to_doc (a : attribute) : document =
   | GeneratedTyp -> blank 1
 
 and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) (t : trm) : document =
-  let parentheses = parentheses_needed ~prec t in 
+  let parentheses = parentheses_needed ~prec t in
   let dt = trm_to_doc ~semicolon ~prec t in
   (* LATER: if Flags.print_trm_addresses then (string (sprintf "%p" t) ^ dt) else dt *)
   let dt = if parentheses then parens (dt) else dt in
@@ -491,7 +491,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
   end
 
 and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
-  let (prec, assoc) = precedence_trm f in 
+  let (prec, assoc) = precedence_trm f in
   let aux_arguments f_as_doc =
       f_as_doc ^^ Tools.list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
       in
@@ -546,17 +546,17 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
            | _ ->
               fail f.loc "apps_to_doc: unary operators must have one argument"
            end
-        | Prim_binop op -> 
-          let (prec1, prec2) = 
-            if assoc = LtoR 
+        | Prim_binop op ->
+          let (prec1, prec2) =
+            if assoc = LtoR
               then (prec, prec + 1)
               else (prec + 1, prec)
-            in 
-          let op_d = binop_to_doc op in 
+            in
+          let op_d = binop_to_doc op in
           begin match tl with
-          | [t1; t2] -> 
-            let d1 = decorate_trm ~prec:prec1 t1 in 
-            let d2 = decorate_trm ~prec:prec2 t2 in 
+          | [t1; t2] ->
+            let d1 = decorate_trm ~prec:prec1 t1 in
+            let d2 = decorate_trm ~prec:prec2 t2 in
             begin match op with
              | Binop_set when !print_optitrust_syntax ->
                 string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
@@ -566,7 +566,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
                | Binop_array_access ->
                 fail t.loc "Binop_array_access should not appear in C code " *)
              | Binop_array_access | Binop_array_get ->
-                let d2 = decorate_trm ~prec:0 t2 in 
+                let d2 = decorate_trm ~prec:0 t2 in
                 d1 ^^ brackets (d2)
              | _ -> separate (blank 1) [d1; op_d; d2]
              end

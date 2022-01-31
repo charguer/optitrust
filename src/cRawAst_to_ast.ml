@@ -222,7 +222,7 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
         then aux t1
         else mk (Trm_apps (op, [aux t1]))*)
       aux t1
-    | Trm_var (_, x) -> fail t.loc (Printf.sprintf "caddress_elim: const variable cannot appear as lvalue (mutation of function arguments is not supported in OptiTrust), %s" x)
+    | Trm_var (_, x) -> fail t.loc (Printf.sprintf "caddress_elim: const variable '%s' cannot appear as lvalue (mutation of function arguments is not supported in OptiTrust)" x)
     | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (Ast_to_rawC.ast_to_string t) (Ast_to_text.ast_to_string t))
     end
     else begin
@@ -308,13 +308,30 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
 
 let caddress_intro = caddress_intro_aux false
 
+(* [cseq_items_void_type t] updates [t] in such a way that all instructions appearing in sequences
+   have type [Typ_unit]. This might not be the case, for example on [x += 2], Menhir provides an
+   [int] type, whereas [Clang] provides a [void] type. *)
+
+let rec cseq_items_void_type (t : trm) : trm =
+  let t2 = trm_map cseq_items_void_type t in
+  match t2.desc with
+  | Trm_seq ts ->
+      let enforce_unit (u : trm) : trm =
+        match u.typ with
+        | Some { typ_desc = Typ_unit; _ } -> u
+        | _ -> { u with typ = Some (typ_unit()) }
+        in
+      { t2 with desc = Trm_seq (Mlist.map enforce_unit ts) }
+  | _ -> t2
+
+
 (* Main entry points *)
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics. *)
 let cfeatures_elim (t : trm) : trm =
-  caddress_elim (stackvar_elim t)
+  cseq_items_void_type (caddress_elim (stackvar_elim t))
 
-(* [cfeatures_elim t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax. *)
+(* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax. *)
 let cfeatures_intro (t : trm) : trm =
   stackvar_intro (caddress_intro t)
 

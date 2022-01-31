@@ -1,3 +1,14 @@
+
+
+int main() {
+  int s = 0;
+  s += 2;
+  if (true) {
+    s += 1;
+  }
+}
+
+/*
 typedef struct {
   int x;
   int y;
@@ -31,4 +42,4 @@ int main() {
   c.speed.x = (a.speed).x;
   c.speed.y = (a.speed).y;
   return 0;
-}
+}*/
