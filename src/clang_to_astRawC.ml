@@ -12,10 +12,10 @@ let loc_of_node (n : 'a node) : location =
   Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}}
 
 
-(* [loc_from_to start_l end_l] returns the location from the begining of [start_l] to [end_l] 
+(* [loc_from_to start_l end_l] returns the location from the begining of [start_l] to [end_l]
     if one of the locations is unknown then it will return [None]*)
-let loc_from_to (start_l : location) (end_l : location) : location = 
-  match start_l, end_l with 
+let loc_from_to (start_l : location) (end_l : location) : location =
+  match start_l, end_l with
   | Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; _}, Some {loc_start = {pos_line = start_row2; pos_col = start_column2};_} ->
     Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; loc_end = {pos_line = start_row2; pos_col = start_column2}}
   | _ -> None
@@ -151,7 +151,7 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
     wrap_const ~const (typ_array t (Trm s))
   | IncompleteArray q ->
     let t = tr_qual_type ~loc ~tr_record_types q in
-    
+
     wrap_const ~const (typ_array t Undefined)
   | Auto ->
     typ_auto ()
@@ -392,7 +392,7 @@ and tr_expr ?(is_statement : bool = false)
   match e.desc with
   | ConditionalOperator {cond; then_branch = Some e_then;
                          else_branch = e_else} ->
-    let t_cond = tr_expr cond in 
+    let t_cond = tr_expr cond in
     let t_then = tr_expr e_then in
     let t_else = tr_expr e_else in
     trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op)
@@ -444,8 +444,8 @@ and tr_expr ?(is_statement : bool = false)
       | _ -> fail loc "tr_expr: unsupported unary expr"
     end
   | UnaryOperator {kind = k; operand = e} ->
-    let loc = loc_from_to loc (loc_of_node e) in  
-    let t = tr_expr e in 
+    let loc = loc_from_to loc (loc_of_node e) in
+    let t = tr_expr e in
     begin match k with
       | AddrOf -> (* expectation: e is not a const variable *)
         (* We are translating a term of the form that involves [&p],
@@ -469,10 +469,16 @@ and tr_expr ?(is_statement : bool = false)
         end
     end
   | BinaryOperator {lhs = le; kind = k; rhs = re} ->
-    let loc = loc_from_to (loc_of_node le) (loc_of_node re) in 
+    let loc = loc_from_to (loc_of_node le) (loc_of_node re) in
     let tr = tr_expr re in
     let tl = tr_expr le in
-    let trm_prim_c binop tl tr = trm_prim_compound ~loc ~is_statement ~ctx ~typ binop tl tr in
+    let trm_prim_c binop tl tr =
+       trm_set ~annot:[App_and_set] ~loc ~is_statement tl
+          (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr]) in
+          (* TODO: define [trm_prim_compound_encoded_as_set] for the two lines above *)
+
+          (* DEPRECATED
+           trm_prim_compound ~loc ~is_statement ~ctx ~typ binop tl tr in *)
     begin match k with
       | Assign ->
         trm_set ~loc ~ctx ~is_statement tl tr
@@ -497,9 +503,9 @@ and tr_expr ?(is_statement : bool = false)
       | XorAssign ->
          trm_prim_c Binop_xor tl tr
       | _ ->
-        begin match k with 
+        begin match k with
           | Mul -> trm_mul ~loc ~ctx ~typ tl tr
-          | Div -> trm_div ~loc ~ctx ~typ tl tr 
+          | Div -> trm_div ~loc ~ctx ~typ tl tr
           | Add -> trm_add ~loc ~ctx ~typ tl tr
           | Sub -> trm_sub ~loc ~ctx ~typ tl tr
           | LT ->  trm_lt ~loc ~ctx ~typ tl tr

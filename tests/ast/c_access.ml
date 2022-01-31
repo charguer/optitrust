@@ -19,12 +19,13 @@ let filename =
   if perform_big_test then "c_big.cpp" else "c_access.ml"
 
 (* FOR DEBUG:
-let filename = "c_debug.cpp"
-*)
+let filename = "c_debug.cpp" *)
+
 let _ = Run.script_cpp ~filename ~prefix:"c_access" (fun () ->
 
   !^ Trace.apply stackvar_elim;
-  !^ Trace.apply caddress_elim; (* Press F6 on this line to see the encoding step; keep in mind that the output is not regular C code *) (* Press Alt+F6 to check the blank diff of the round-trip for caddress_elim+intro *)
+  !^ Trace.apply caddress_elim;  (* Press F6 on this line to see the encoding step; keep in mind that the output is not regular C code *) (* Press Alt+F6 to check the blank diff of the round-trip for caddress_elim+intro *)
+
   !! Trace.apply caddress_intro;
   !^ Trace.apply stackvar_intro;
   !^ Trace.check_recover_original(); (* Press F6 on this line to see a blank diff if successful, or an error message if the full round-trip fails *)

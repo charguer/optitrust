@@ -2,12 +2,12 @@ open! Ast
 open Tools
 
 
-(* [loc_of_node cloc ] transforms a C.location into Ast.location 
-    Note: For the moment only the line of the node is known, hence the 
+(* [loc_of_node cloc ] transforms a C.location into Ast.location
+    Note: For the moment only the line of the node is known, hence the
     start column and end column are set to 0 *)
-let loc_of_cloc (cloc : C.location) : location = 
-  match cloc with 
-  | ("", -1) -> None 
+let loc_of_cloc (cloc : C.location) : location =
+  match cloc with
+  | ("", -1) -> None
   | (file, line) -> Some {loc_file = file; loc_start = {pos_line = line; pos_col = 0}; loc_end = {pos_line = line; pos_col = 0}} (* TODO: Find the correct location *)
 
 let ctx_tconstr : typconstrid varmap ref = ref String_map.empty
@@ -36,7 +36,7 @@ let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
 
 (* [get_ctx] returns the current context *)
 let get_ctx () : ctx =
-  { ctx_var = String_map.empty; 
+  { ctx_var = String_map.empty;
     ctx_tconstr = !ctx_tconstr;
     ctx_typedef = !ctx_typedef;
     ctx_label = !ctx_label;
@@ -109,8 +109,8 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
 
 (* [tr_stmt s] translate C.stms to Ast.stmt *)
 and tr_stmt (s : C.stmt) : trm =
-  let loc = loc_of_cloc s.sloc in  
-  let ctx = Some (get_ctx ()) in 
+  let loc = loc_of_cloc s.sloc in
+  let ctx = Some (get_ctx ()) in
   match s.sdesc with
   | Sdo e -> tr_expr e
   | Sif (cond, then_, else_) ->
@@ -137,7 +137,7 @@ and tr_stmt (s : C.stmt) : trm =
       | _ -> tr_stmt so
       in
     let init = tr_stmt_opt init in
-    let cond = tr_expr cond in 
+    let cond = tr_expr cond in
     let step = tr_stmt_opt step in
     let body = tr_stmt body in
     trm_for_of_trm_for_c (trm_for_c ~loc ~ctx init cond step body)
@@ -156,8 +156,8 @@ and tr_stmt (s : C.stmt) : trm =
     trm_goto ~loc ~ctx lb
   | Sreturn init_opt ->
     begin match init_opt with
-    | Some re -> 
-       let t = tr_init re in 
+    | Some re ->
+       let t = tr_init re in
        trm_abort~loc ~ctx  (Ret (Some t))
     |_ -> trm_abort ~loc ~ctx (Ret None)
     end
@@ -165,50 +165,50 @@ and tr_stmt (s : C.stmt) : trm =
     let tl = List.map tr_stmt sl in
     trm_seq_nomarks ~loc ~ctx tl
   | Sdecl (_stor, {name = n; _}, ty, init_opt) ->
-    let tt = tr_type ty in 
-    let te = begin match init_opt with 
+    let tt = tr_type ty in
+    let te = begin match init_opt with
              | None -> trm_lit ~loc Lit_uninitialized
              | Some init -> tr_init ~loc init
              end
       in
-    let mut = if is_typ_const tt then Var_immutable else Var_mutable in 
+    let mut = if is_typ_const tt then Var_immutable else Var_mutable in
     trm_let ~loc ~is_statement:true mut (n, tt) te
 
   | _ -> fail loc "tr_stmt: statment not supported"
 
 (* [tr_init i] translate C.inti into optitrust ast*)
-and tr_init ?(loc : location = None) (i : C.init) : trm = 
-  match i with 
-  | Init_single e -> tr_expr e 
+and tr_init ?(loc : location = None) (i : C.init) : trm =
+  match i with
+  | Init_single e -> tr_expr e
   | Init_array il -> trm_array ~loc (Mlist.of_list (List.map tr_init il))
   | Init_struct (_, il) -> trm_struct ~loc (Mlist.of_list (List.map (fun (_, init) -> tr_init init) il))
   | Init_union _ -> fail loc "tr_init: union not supported yet"
 
 (* [tr_constant c] translate C.constant into Optitrust ast*)
-and tr_constant ?(loc : location = None) (c : C.constant) : trm = 
-  match c with 
+and tr_constant ?(loc : location = None) (c : C.constant) : trm =
+  match c with
   | C.CInt (i, ik, _)->
     let i = Int64.to_int i in
-    begin match ik with 
-    | C.IBool -> 
+    begin match ik with
+    | C.IBool ->
       let ib = Tools.int_to_bool i in
       trm_lit ~loc (Lit_bool ib)
     | C.IChar | C.ISChar | C.IUChar->
       trm_lit ~loc (Lit_string (string_of_int i))
-    | _ -> 
+    | _ ->
       trm_lit ~loc (Lit_int i)
     end
   | C.CFloat ({intPart = inp; fracPart = fp;_}, fk) ->
     trm_lit ~loc (Lit_double (float_of_string (inp ^ "." ^ fp)))
-  | CStr s -> 
+  | CStr s ->
     trm_lit ~loc (Lit_string s)
   | _  -> fail loc "tr_const: constant expression is not supported"
 
 (* [tr_expr ~is_stement e] translate C.exp into Optitrust ast *)
 and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
-  let loc = loc_of_cloc e.eloc in 
+  let loc = loc_of_cloc e.eloc in
   let typ = Some (tr_type e.etyp) in
-  let ctx = Some (get_ctx()) in 
+  let ctx = Some (get_ctx()) in
   match e.edesc with
   | EConst c -> tr_constant ~loc c
   | ESizeof ty ->
@@ -225,7 +225,7 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     | Ominus ->
       trm_apps1 Unop_minus t
     | Oplus	->
-      trm_apps1 Unop_plus t 
+      trm_apps1 Unop_plus t
     | Olognot	->
       trm_apps1 Unop_neg t
     | Onot ->
@@ -250,7 +250,11 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
   | EBinop (binop, le, re, _) ->
     let tl = tr_expr le in
     let tr = tr_expr re in
-    let trm_prim_c binop tl tr = trm_prim_compound ~loc ~is_statement ~ctx ~typ binop tl tr in
+    let trm_prim_c binop tl tr =
+      (* DEPRECATED trm_prim_compound ~loc ~is_statement ~ctx ~typ binop tl tr *)
+       trm_set ~annot:[App_and_set] ~loc ~is_statement tl
+          (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr])
+      in
     begin match binop with
     | Oadd -> trm_add ~loc ~ctx ~typ tl tr
     | Osub -> trm_sub ~loc ~ctx ~typ  tl tr
@@ -293,7 +297,7 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     let ty = tr_type ty in
     let te = tr_expr e in
     trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te]
-  | ECompound _ -> fail loc "tr_expr: Not supported for the moment" 
+  | ECompound _ -> fail loc "tr_expr: Not supported for the moment"
   | ECall (f, el) ->
     let tf = tr_expr f in
     begin match tf.desc with
@@ -307,41 +311,41 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
 
 (* [tr_globdef d] transalte C.globdecl into OptiTrust ast *)
 and tr_globdef (d : C.globdecl) : trm =
-  let loc = loc_of_cloc d.gloc in 
-  let ctx = Some (get_ctx ()) in 
-  match d.gdesc with 
+  let loc = loc_of_cloc d.gloc in
+  let ctx = Some (get_ctx ()) in
+  match d.gdesc with
   | C.Gdecl (_stor, {name = n; _}, ty, init_opt) ->
-    let tt = tr_type ty in 
-    let te = begin match init_opt with 
+    let tt = tr_type ty in
+    let te = begin match init_opt with
              | None -> trm_lit Lit_uninitialized
              | Some init -> tr_init init
              end
       in
-    let mut = if is_typ_const tt then Var_immutable else Var_mutable in 
+    let mut = if is_typ_const tt then Var_immutable else Var_mutable in
     trm_let ~loc ~ctx ~is_statement:true mut (n, tt) te
   | C.Gfundef {fd_storage = _; fd_inline = inline; fd_name = {name = n;_}; fd_attrib = _att; fd_ret = ty; fd_params = po; fd_body = bo; _} ->
-    let tt = tr_type ty in 
-    let tb = tr_stmt bo in 
-    begin match po with 
-    | [] -> 
+    let tt = tr_type ty in
+    let tb = tr_stmt bo in
+    begin match po with
+    | [] ->
       trm_let_fun n tt [] tb
-    | _ ->   
-      let get_args (tv : C.ident * C.typ) : (var * typ) = 
-        let (id, ty) = tv in 
-        let ty = tr_type ty in 
+    | _ ->
+      let get_args (tv : C.ident * C.typ) : (var * typ) =
+        let (id, ty) = tv in
+        let ty = tr_type ty in
         (id.name, ty)
-       in 
+       in
       let args = List.map get_args po in
       trm_let_fun ~loc ~ctx n tt args tb
     end
-  | C.Genumdef ({C.name = tn}, att, enum_list) -> 
+  | C.Genumdef ({C.name = tn}, att, enum_list) ->
     let el = List.map (fun ({C.name = constant_name; }, _, exp_opt) ->
-      match exp_opt with 
+      match exp_opt with
       | None -> (constant_name, None)
-      | Some e -> 
-        let t_init = tr_expr e in 
+      | Some e ->
+        let t_init = tr_expr e in
         (constant_name, Some t_init)
-    ) enum_list in 
+    ) enum_list in
     let tid = next_typconstrid () in
     ctx_tconstr_add tn tid;
     let td = {
@@ -350,13 +354,13 @@ and tr_globdef (d : C.globdecl) : trm =
       typdef_tconstr = tn;
       typdef_vars = [];
       typdef_body = Typdef_enum el
-    } in 
+    } in
     ctx_typedef_add tn tid td;
     trm_typedef ~loc ~ctx td
-  | C.Gtypedef ({C.name = tn}, ty) -> 
-    let tid = next_typconstrid () in 
+  | C.Gtypedef ({C.name = tn}, ty) ->
+    let tid = next_typconstrid () in
     ctx_tconstr_add tn tid;
-    let ty = tr_type ty in 
+    let ty = tr_type ty in
     let td = {
       typdef_loc = loc;
       typdef_typid = tid;
@@ -364,7 +368,7 @@ and tr_globdef (d : C.globdecl) : trm =
       typdef_vars = [];
       typdef_body = Typdef_alias ty
     }
-    in 
+    in
     ctx_typedef_add tn tid td;
     trm_typedef ~loc ~ctx td;
   | _ -> fail loc "tr_globdef: declaration not supported"
@@ -372,38 +376,38 @@ and tr_globdef (d : C.globdecl) : trm =
 
 (* [tr_globdefs gs] translates a list of global declarations*)
 let tr_globdefs (gs : C.globdecl list) : trms =
-  let rec aux acc gs = 
-    match gs with 
+  let rec aux acc gs =
+    match gs with
     | [] -> acc
-    | {C.gdesc = C.Gcompositedecl (su, {C.name = sn;_}, _); C.gloc = loc} :: {C.gdesc = C.Gcompositedef (su1, {C.name = sn1},_, fl )} 
-      :: {C.gdesc = C.Gtypedef ({C.name = sn2},ty)} :: gs' -> 
-      let loc = loc_of_cloc loc in 
-      begin match su,su1 with 
-      | Struct , Struct -> 
+    | {C.gdesc = C.Gcompositedecl (su, {C.name = sn;_}, _); C.gloc = loc} :: {C.gdesc = C.Gcompositedef (su1, {C.name = sn1},_, fl )}
+      :: {C.gdesc = C.Gtypedef ({C.name = sn2},ty)} :: gs' ->
+      let loc = loc_of_cloc loc in
+      begin match su,su1 with
+      | Struct , Struct ->
         let ctx = Some (get_ctx ()) in
         if sn <> sn1 && sn <> sn2 then fail loc (Printf.sprintf "tr_globdefs: the struct name (%s) must match the typdef name (%s).\n" sn sn2);
         let tid = next_typconstrid () in
         ctx_tconstr_add sn tid;
-        let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (fr, tr_type ft)) fl in 
-        let two_names = false in 
+        let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (fr, tr_type ft)) fl in
+        let two_names = false in
         let td = {
           typdef_loc = loc;
           typdef_typid = tid;
           typdef_tconstr = sn;
           typdef_vars = [];
           typdef_body = Typdef_prod (two_names, (List.rev prod_list))
-        } in 
+        } in
         ctx_typedef_add sn tid td;
-        let trm_td = trm_typedef ~loc ~ctx td in 
+        let trm_td = trm_typedef ~loc ~ctx td in
         aux ( trm_td :: acc) gs'
       | _ -> fail loc "tr_globdefs: only struct records are supported"
-      end 
+      end
     | ({C.gdesc = C.Gcompositedecl _; _} | {C.gdesc = C.Gcompositedef _; _}) :: _ -> fail None "tr_globdefs: struct and unions are not supported"
     | g :: gs' -> aux (tr_globdef g :: acc) gs'
-  in 
+  in
     List.rev( aux [] gs)
 
 (* [tr_ast tl] translate a C.program into Optitrust ast *)
-let tr_ast (tl : C.program) : trm = 
-  let tl = tr_globdefs tl in 
+let tr_ast (tl : C.program) : trm =
+  let tl = tr_globdefs tl in
   trm_seq_nomarks ~annot:[Main_file] tl

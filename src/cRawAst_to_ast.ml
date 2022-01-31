@@ -239,11 +239,20 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
   begin if lvalue then begin
     match t.desc with
      (* [t.f] is translated to [struct_access(access t, f)] *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t2]) ->
-      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [access t2]))
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t1]) ->
+      let u1 = access t1 in
+      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u1]))
       (* [t[i]] is translated to [array_access(access t, aux i)] *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_} as op, [t1; t2]) ->
-      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [access t1; aux t2]))
+      let u1 = aux t1 in (*DEPRECATED? access t1*)
+      let u2 = aux t2 in
+      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2]))
+      (* DEPRECATED begin match u1.desc with
+      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11]) ->
+        mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [u11; u2]))]))
+      | _ ->mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2]))
+      end*)
+
       (* *t1 becomes to [*(aux t1)] if '*' is not a hidden get operation, otherwise it becomes  [aux t1] *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as _op, [t1]) ->
       (* DEPRECATED
@@ -255,9 +264,13 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
     | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (Ast_to_rawC.ast_to_string t) (Ast_to_text.ast_to_string t))
   end else begin
     match t.desc with
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op _));_}, _) ->
+      fail t.loc "caddress_elim_aux: compound assignments must be eliminated beforehand"
     (* [t1 = t2] is translated to  [set (access t1, aux t2) *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));_} as op, [t1; t2]) ->
-      mk (Trm_apps (op, [access t1; aux t2]))
+      let u1 = access t1 in
+      let u2 = aux t2 in
+      mk (Trm_apps (op, [u1; u2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
       let u1 = aux t1 in
       begin match u1.desc with
@@ -267,7 +280,13 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
         mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u11]))]))
       | _ -> mk (Trm_apps (op, [u1]))
       end
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get))); _} as op, [t1; t2]) ->
+
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get))); _} as _op, [t1; t2]) ->
+        let u1 = aux t1 in
+        let u2 = aux t2 in
+        trm_get ~simplify:true { t with desc = Trm_apps ({ t with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2]) }
+
+    (* DEPRECATED | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get))); _} as op, [t1; t2]) ->
       let u1 = aux t1 in
       let u2 = aux t2 in
       begin match u1.desc with
@@ -275,7 +294,7 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
         (* array_get (get(t1), t2) is encoded as get(array_access (t1, t2) *)
         mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u11; u2]))]))
       | _ -> mk (Trm_apps (op, [u1;u2]))
-      end
+      end*)
     (* OPTIMIZATION Simplification of [&*p] patterns
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _} as op, [t1]) ->
       let u1 = aux t1 in
@@ -316,20 +335,26 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _} as op, [t1]) ->
       (* struct_access (f, t1) is reverted to struct_get (f, access t1) *)
-      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [access t1]))
+      let u1 = access t1 in
+      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [u1]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _} as op, [t1; t2]) ->
-      (* array_access (t1, t2) is reverted to array_get (access t1, aux t2) *)
-      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)))}, [access t1; aux t2]))
+      (* array_access (t1, t2) is reverted to array_get (aux t1, aux t2) *)
+      let u1 = aux t1 in
+      let u2 = aux t2 in
+      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)))}, [u1; u2]))
     | _ -> trm_get ~simplify:true (aux t)
     end
     else begin
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _}, [t1; t2]) ->
       (* t1 = t2 is translated to access t1 = aux t2 *)
-      mk (Trm_apps (trm_binop Binop_set, [access t1; aux t2]))
+      let u1 = access t1 in
+      let u2 = aux t2 in
+      mk (Trm_apps (trm_binop Binop_set, [u1; u2]))
+    (* OPTIMIZATION
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) when is_access t1 ->
       (* get(access ) becomes access (get)*) (* LATER: the simplification could be performed a posteriori, if we use the following case *)
-      access t1
+      access t1 *)
     | _ when is_access t ->
       (* [access(..)] becomes [& ...] *)
         trm_address_of ~simplify:true (access t)
@@ -358,11 +383,15 @@ let rec cseq_items_void_type (t : trm) : trm =
 
 (* Main entry points *)
 
-(* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics. *)
+(* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
+   It assumes [t] to be a full program or a right value. *)
 let cfeatures_elim (t : trm) : trm =
   cseq_items_void_type (caddress_elim (stackvar_elim t))
 
-(* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax. *)
+(* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
   stackvar_intro (caddress_intro t)
 
+(* [cfeatures_intro_aux lvalue t] is similar to [cfeatures_intro] but allows printing lvalues *)
+let cfeatures_intro_aux (lvalue : bool) (t : trm) : trm =
+  stackvar_intro (caddress_intro_aux lvalue t)

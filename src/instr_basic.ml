@@ -71,7 +71,7 @@ let accumulate : Target.Transfo.t =
 (* LATER: move this to Expr_basic.ml *)
 
 (* [view_subterms tg] displays on stdout all the subterms of the targeted term. *)
-let view_subterms ?(constr:Constr.constr option) ?(rexp : Constr.rexp option) (tg : Target.target) : unit =
+let view_subterms ?(constr:Constr.constr option) ?(rexp : Constr.rexp option) ?(lvalue : bool = false) (tg : Target.target) : unit =
   let ro = match constr, rexp with
     | None, None -> None
     | Some (Constr_regexp r), None -> Some r
@@ -79,6 +79,6 @@ let view_subterms ?(constr:Constr.constr option) ?(rexp : Constr.rexp option) (t
     | None, Some r -> Some r
     | Some _, Some _ -> fail None "view_subterms: cannot provide both [~constr] and [rexp]"
     in
-  Target.apply_on_targets (Instr_core.view_subterms ro) tg
+  Target.apply_on_targets (Instr_core.view_subterms ro lvalue) tg
 
 

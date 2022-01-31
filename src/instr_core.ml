@@ -116,7 +116,7 @@ let accumulate : Target.Transfo.local =
 
 
 
-let rec view_subterms_aux (ro : Constr.rexp option) (t : trm) : trm =
+let rec view_subterms_aux (ro : Constr.rexp option) (lvalue : bool) (t : trm) : trm =
   let sprintf = Printf.sprintf in
   let sloc =
     match t.loc with
@@ -129,7 +129,7 @@ let rec view_subterms_aux (ro : Constr.rexp option) (t : trm) : trm =
     in
   let strm =
     if !Flags.use_new_encodings
-      then Ast_to_rawC.ast_to_string (CRawAst_to_ast.cfeatures_intro t)
+      then Ast_to_rawC.ast_to_string (CRawAst_to_ast.cfeatures_intro_aux lvalue t)
       else Ast_to_c.ast_to_string t
       in
   let styp =
@@ -169,11 +169,12 @@ let rec view_subterms_aux (ro : Constr.rexp option) (t : trm) : trm =
   let spacing1 =
     let nloc = String.length sloc in
     if nloc > 15 then "" else String.make (15 - nloc) ' ' in
+  let skind = if lvalue then "L-" ^ skind else skind in
   let spacing2=
     let nkind = String.length skind in
-    if nkind > 5 then "" else String.make (5 - nkind) ' ' in
+    if nkind > 7 then "" else String.make (7 - nkind) ' ' in (* ARTHUR: use a wrapper function *)
   Printf.printf "%s%s: %s : %s%s : %s : %s\n" sloc spacing1 sreg skind spacing2 styp_trimmed strm_trimmed;
-  trm_map (view_subterms_aux ro) t
+  trm_map_with_lvalue (view_subterms_aux ro) t
 
-let view_subterms (ro : Constr.rexp option) : Target.Transfo.local =
-  Target.apply_on_path (view_subterms_aux ro)
+let view_subterms (ro : Constr.rexp option) (lvalue : bool) : Target.Transfo.local =
+  Target.apply_on_path (view_subterms_aux ro lvalue)

@@ -277,7 +277,7 @@ and trm_annot =
   | Include of string (* to avoid printing content of included files *)
   | Main_file (* sequence annotated as the main file is not printed *)
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
-  | As_left_value (* Used for reference encoding *)
+  | As_left_value (* Used for reference encoding *) (* LATER: might become deprecated *)
   | Non_local_index (* Used for loops whose index is not declared inside the scope of the loop body *)
   | Display_arrow (* Used for struct accesses of the form ( *p ).x or p -> x, with this annotation the arrow syntax sugar is used *)
   | Reference (* Used to encode references as pointers with annotation Reference *)
@@ -1309,6 +1309,19 @@ let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : tr
 let trm_map (f : trm -> trm) (t : trm) : trm =
   trm_map_with_terminal false (fun _is_terminal t -> f t) t
 
+
+let trm_map_with_lvalue (f : bool -> trm -> trm) (t : trm) : trm =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim ((Prim_unop (Unop_struct_access _) | Prim_binop Binop_array_access))); _} as op, [t1]) ->
+      (* struct_access (f, t1) or array_access (t1, t2) *)
+      let u1 = f true t1 in
+      { t with desc = Trm_apps (op, [u1]) }
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _} as op, [t1; t2]) ->
+      (* [t1 = t2] assignment *)
+      let u1 = f true t1 in
+      let u2 = f false t2 in
+      { t with desc = Trm_apps (op, [u1; u2]) }
+  | _ -> trm_map (f false) t
 
 
 (* similar as trm_map for types *)
