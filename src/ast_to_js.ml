@@ -321,7 +321,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "goto";
           (strquote "target", strquote label);
           children_to_field []]
-    | Trm_arbitrary a_kind -> 
+    | Trm_arbitrary a_kind ->
        let code_str = code_to_str a_kind in
       [kind_to_field "arbitrary code";
       value_to_field code_str]
@@ -362,6 +362,7 @@ let annot_to_string (t_ann : trm_annot) : string =
      | Display_arrow -> "Display_arrow"
      | Reference -> "Reference"
      | Stackvar -> "Stackvar"
+     | Annot_string_repr s -> "Annot_string_repr(..)"
 
   let annot_list_to_string (t : trm) : string =
     Tools.list_to_string ((List.map annot_to_string) t.annot)

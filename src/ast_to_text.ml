@@ -129,11 +129,11 @@ and print_prim ?(only_desc : bool = false) (p : prim) : document =
   | Prim_binop op ->
      let dop = print_binop op in
      node "Prim_binop" ^^ dop
-  | Prim_compound_assgn_op op -> 
+  | Prim_compound_assgn_op op ->
     let dop = print_binop op in
     node "Prim_compound_assgn_op" ^^ dop
-  | Prim_overloaded_op p -> 
-    let dp = print_prim p in 
+  | Prim_overloaded_op p ->
+    let dp = print_prim p in
     node "Prim_overloaded_op" ^^ dp
   | Prim_new t ->
      let dt = print_typ ~only_desc t in
@@ -236,13 +236,13 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dstart = print_trm ~only_desc start in
     let dstop = print_trm ~only_desc stop in
     let ddir  = match direction with
-    | DirUp -> string "Up" 
-    | DirDown -> string "Down" 
-    | DirUpEq -> string "UpEq" 
-    | DirDownEq -> string "DownEq" 
+    | DirUp -> string "Up"
+    | DirDown -> string "Down"
+    | DirUpEq -> string "UpEq"
+    | DirDownEq -> string "DownEq"
     in
-    let dstep = match step with 
-    | Post_inc -> string "Post_inc" 
+    let dstep = match step with
+    | Post_inc -> string "Post_inc"
     | Post_dec -> string "Post_dec"
     | Pre_inc -> string "Pre_inc"
     | Pre_dec -> string "Pre_dec"
@@ -290,7 +290,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      node "Trm_labelled" ^^ parens (string l ^^ comma ^/^ dt)
   | Trm_goto l ->
      node "Trm_goto" ^^ string l
-  | Trm_arbitrary s ->  
+  | Trm_arbitrary s ->
     let code_str = code_to_str s in
     node "Trm_arbitrary" ^^ parens (string code_str)
   | Trm_omp_directive directive ->
@@ -305,20 +305,20 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     node "Trm_namespace" ^^ parens (separate (comma ^^ break 1)
       [string name; string (string_of_bool inline); dt])
   | Trm_let_record (name, rt, s, t1) ->
-    let get_document_list s = 
-      let rec aux acc = function 
+    let get_document_list s =
+      let rec aux acc = function
         | [] -> acc
-        | (lb, t) :: tl -> 
-          let dt = print_typ ~only_desc t in 
-          aux (print_pair (string lb) dt :: acc) tl in 
+        | (lb, t) :: tl ->
+          let dt = print_typ ~only_desc t in
+          aux (print_pair (string lb) dt :: acc) tl in
         aux [] s
-      in 
-    let dt = print_trm ~only_desc t1 in 
-    let dtl = get_document_list s in 
-    let drt = print_record_type rt in 
+      in
+    let dt = print_trm ~only_desc t1 in
+    let dtl = get_document_list s in
+    let drt = print_record_type rt in
     node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
       [string name; drt; print_list dtl; dt])
-  (* 
+  (*
    DEPRECATED
    | Trm_let_record (name, rt, tl, t1) ->
     let dt = print_trm ~only_desc t1 in
@@ -387,9 +387,11 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Mutable_var_get -> string "Mutable_var_get"
     | As_left_value -> string "As_left_value"
     | Non_local_index -> string "Non_local_index"
-    | Display_arrow -> string "Display_arrow" 
-    | Reference -> string "Reference" 
-    | Stackvar -> string "Stackvar" in
+    | Display_arrow -> string "Display_arrow"
+    | Reference -> string "Reference"
+    | Stackvar -> string "Stackvar"
+    | Annot_string_repr s -> string "Annot_string_repr" ^^ string s
+    in
 
   if only_desc then ddesc
     else
@@ -549,7 +551,7 @@ let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
   let d = print_trm ~only_desc t in
   ToChannel.pretty 0.9 80 out d
 
-let ast_to_file (filename : string) (t : trm) : unit = 
+let ast_to_file (filename : string) (t : trm) : unit =
   let out = open_out filename in
   print_ast out t;
   close_out out

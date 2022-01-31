@@ -116,65 +116,68 @@ let accumulate : Target.Transfo.local =
 
 
 
-let rec view_subterms_aux (ro : Constr.rexp option) (lvalue : bool) (t : trm) : trm =
+let view_subterms_aux (ro : Constr.rexp option) (t : trm) : trm =
   let sprintf = Printf.sprintf in
-  let sloc =
-    match t.loc with
-    | None -> "<noloc>"
-    | Some {loc_file = _filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
-      (* Format:  is 18(4-7)  or 18(4)-20(7)  for multilines *)
-      if start_row = end_row
-        then sprintf "%d(%d-%d)" start_row start_column end_column
-        else sprintf "%d(%d)-%d(%d)" start_row start_column end_row end_column
-    in
-  let strm =
-    if !Flags.use_new_encodings
-      then Ast_to_rawC.ast_to_string (CRawAst_to_ast.cfeatures_intro_aux lvalue t)
-      else Ast_to_c.ast_to_string t
+  let rec aux t =
+    let sloc =
+      match t.loc with
+      | None -> "<noloc>"
+      | Some {loc_file = _filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
+        (* Format:  is 18(4-7)  or 18(4)-20(7)  for multilines *)
+        if start_row = end_row
+          then sprintf "%d(%d-%d)" start_row start_column end_column
+          else sprintf "%d(%d)-%d(%d)" start_row start_column end_row end_column
       in
-  let styp =
-    match t.typ with
-    | Some ty -> Ast_to_rawC.typ_to_string ty
-    | None -> "<notyp>"
-    in
-  let styp_trimmed =
-    (* If styp > 15 chars, cut the end *)
-    let sz = 15 in
-    let s = if String.length styp <= sz then styp else (String.sub strm 0 (sz-3)) ^ "..." in
-    s ^ String.make (sz - (String.length s)) ' '
-    in
-  let strm_trimmed =
-    (* If strm > 50 chars, keep only 30 first and 20 last. and make it a single line *)
-    let n = String.length strm in
-    let s =
-      if n <= 50
-        then strm
-        else (String.sub strm 0 30) ^ " ... " ^ (String.sub strm (n-20) 20)
+    let strm =
+      match Ast.trm_get_string_repr t with
+      | Some s -> s
+      | None -> "<no_string_repr>"
       in
-    Str.global_replace (Str.regexp "\n") " " s
+    let styp =
+      match t.typ with
+      | Some ty -> Ast_to_rawC.typ_to_string ty
+      | None -> "<notyp>"
+      in
+    let styp_trimmed =
+      (* If styp > 15 chars, cut the end *)
+      let sz = 15 in
+      let s = if String.length styp <= sz then styp else (String.sub strm 0 (sz-3)) ^ "..." in
+      s ^ String.make (sz - (String.length s)) ' '
+      in
+    let strm_trimmed =
+      (* If strm > 50 chars, keep only 30 first and 20 last. and make it a single line *)
+      let n = String.length strm in
+      let s =
+        if n <= 50
+          then strm
+          else (String.sub strm 0 30) ^ " ... " ^ (String.sub strm (n-20) 20)  (* ARTHUR: use a wrapper function *)
+        in
+      Str.global_replace (Str.regexp "\n") " " s
+      in
+    let tkind = Constr.get_trm_kind t in
+    let skind = Constr.trm_kind_to_string tkind in
+    let sreg =
+      match ro with
+      | None -> ""
+      | Some r ->
+        (if r.rexp_trm_kind <> tkind then
+          sprintf "-"
+        else if Constr.match_regexp_str r strm then
+          sprintf "1"
+        else
+          sprintf "0")
+      in
+    let spacing1 =
+      let nloc = String.length sloc in
+      if nloc > 15 then "" else String.make (15 - nloc) ' ' in  (* ARTHUR: use a wrapper function *)
+    let spacing2=
+      let nkind = String.length skind in
+      if nkind > 5 then "" else String.make (5 - nkind) ' ' in (* ARTHUR: use a wrapper function *)
+    Printf.printf "%s%s: %s : %s%s : %s : %s\n" sloc spacing1 sreg skind spacing2 styp_trimmed strm_trimmed;
+    trm_map aux t
     in
-  let tkind = Constr.get_trm_kind t in
-  let skind = Constr.trm_kind_to_string tkind in
-  let sreg =
-    match ro with
-    | None -> ""
-    | Some r ->
-      (if r.rexp_trm_kind <> tkind then
-        sprintf "-"
-      else if Constr.match_regexp_str r strm then
-        sprintf "1"
-      else
-        sprintf "0")
-    in
-  let spacing1 =
-    let nloc = String.length sloc in
-    if nloc > 15 then "" else String.make (15 - nloc) ' ' in
-  let skind = if lvalue then "L-" ^ skind else skind in
-  let spacing2=
-    let nkind = String.length skind in
-    if nkind > 7 then "" else String.make (7 - nkind) ' ' in (* ARTHUR: use a wrapper function *)
-  Printf.printf "%s%s: %s : %s%s : %s : %s\n" sloc spacing1 sreg skind spacing2 styp_trimmed strm_trimmed;
-  trm_map_with_lvalue (view_subterms_aux ro) t
+  aux t
 
-let view_subterms (ro : Constr.rexp option) (lvalue : bool) : Target.Transfo.local =
-  Target.apply_on_path (view_subterms_aux ro lvalue)
+
+let view_subterms (ro : Constr.rexp option) : Target.Transfo.local =
+  Target.apply_on_path (view_subterms_aux ro)

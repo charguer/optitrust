@@ -282,6 +282,7 @@ and trm_annot =
   | Display_arrow (* Used for struct accesses of the form ( *p ).x or p -> x, with this annotation the arrow syntax sugar is used *)
   | Reference (* Used to encode references as pointers with annotation Reference *)
   | Stackvar (* Used to encode stack variables *)
+  | Annot_string_repr of string (* String representation of this node *)
 
 (* symbols to add while printing a C++ program.*)
 and special_operator =
@@ -778,12 +779,14 @@ let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
 let trm_annot_remove (annot : trm_annot) (t : trm) : trm =
   { t with annot = Tools.list_remove annot t.annot }
 
+let trm_get_string_repr (t : trm) : string option =
+  List.find_map (function Annot_string_repr s -> Some s | _ -> None) t.annot
+
 let trm_special_operator_add (a : special_operator) (t : trm) : trm =
   { t with add = a :: t.add }
 
 let trm_special_operator_remove (sp : special_operator) (t : trm) : trm =
   { t with add = Tools.list_remove sp t.add }
-
 
 let trm_val ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
@@ -1308,20 +1311,6 @@ let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : tr
 
 let trm_map (f : trm -> trm) (t : trm) : trm =
   trm_map_with_terminal false (fun _is_terminal t -> f t) t
-
-
-let trm_map_with_lvalue (f : bool -> trm -> trm) (t : trm) : trm =
-  match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim ((Prim_unop (Unop_struct_access _) | Prim_binop Binop_array_access))); _} as op, [t1]) ->
-      (* struct_access (f, t1) or array_access (t1, t2) *)
-      let u1 = f true t1 in
-      { t with desc = Trm_apps (op, [u1]) }
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _} as op, [t1; t2]) ->
-      (* [t1 = t2] assignment *)
-      let u1 = f true t1 in
-      let u2 = f false t2 in
-      { t with desc = Trm_apps (op, [u1; u2]) }
-  | _ -> trm_map (f false) t
 
 
 (* similar as trm_map for types *)

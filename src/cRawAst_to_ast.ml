@@ -395,3 +395,43 @@ let cfeatures_intro (t : trm) : trm =
 (* [cfeatures_intro_aux lvalue t] is similar to [cfeatures_intro] but allows printing lvalues *)
 let cfeatures_intro_aux (lvalue : bool) (t : trm) : trm =
   stackvar_intro (caddress_intro_aux lvalue t)
+
+(* [trm_map_with_lvalue] is a variant of [trm_map] that provides the [is_lvalue] information to [f]. *)
+let trm_map_with_lvalue (f : bool -> trm -> trm) (t : trm) : trm =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim ((Prim_unop (Unop_struct_access _) | Prim_binop Binop_array_access))); _} as op, [t1]) ->
+      (* struct_access (f, t1) or array_access (t1, t2) *)
+      let u1 = f true t1 in
+      { t with desc = Trm_apps (op, [u1]) }
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _} as op, [t1; t2]) ->
+      (* [t1 = t2] assignment *)
+      let u1 = f true t1 in
+      let u2 = f false t2 in
+      { t with desc = Trm_apps (op, [u1; u2]) }
+  | _ -> trm_map (f false) t
+
+
+(* See next function *)
+let rec annotate_string_representation_aux (f : trm -> bool) (lvalue : bool) (t : trm) : trm =
+  let t2 =
+    if not (f t) then t else begin
+      let strm =
+        if !Flags.use_new_encodings
+          then Ast_to_rawC.ast_to_string (cfeatures_intro_aux lvalue t)
+          else Ast_to_c.ast_to_string t
+          in
+      let strm = if lvalue then "LVALUE " ^ strm else strm in
+      (* LATER: is it needed to remove previous string annotations? probably not *)
+      trm_annot_add (Ast.Annot_string_repr strm) t
+    end in
+  trm_map_with_lvalue (annotate_string_representation_aux f) t2
+
+(* [annotate_string_representation f t] takes a term [t] (assumed to be a full program or a left value)
+   and annotate all nodes in [t] satisfying the predicate [f] (typically filterning on the kind)
+   with an annotation [Annot_string_repr] carrying the string representation, which may be used
+   for regexp matching in constraint resolution, or for functions such as [view_subterms]. *)
+let annotate_string_representation (f : trm -> bool) (t : trm) : trm =
+  annotate_string_representation_aux f false t
+
+
+
