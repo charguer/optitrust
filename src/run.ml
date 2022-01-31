@@ -122,7 +122,10 @@ let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_ex
   (* Set the input file, execute the function [f], dump the results. *)
   script (fun () ->
     Trace.init ~prefix input_file;
-    f();
+    begin
+      try f()
+      with e -> Printf.eprintf "===> Script failed: %s\n" prefix; raise e
+    end;
     flush stdout;
     if check_exit_at_end && Flags.get_exit_line() <> None
       then Trace.dump_diff_and_exit ();

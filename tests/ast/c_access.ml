@@ -18,8 +18,9 @@ let perform_big_test = true
 let filename =
   if perform_big_test then "c_big.cpp" else "c_access.ml"
 
-(* FOR DEBUG: let filename = "c_debug.cpp"*)
-
+(* FOR DEBUG:
+let filename = "c_debug.cpp"
+*)
 let _ = Run.script_cpp ~filename ~prefix:"c_access" (fun () ->
 
   !^ Trace.apply stackvar_elim;

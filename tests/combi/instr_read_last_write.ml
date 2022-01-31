@@ -20,6 +20,7 @@ int main() {
 let _ = Run.script_cpp (fun _->
 
     !! Instr.read_last_write [cRead ~addr:[cVar "x" ] ()];
+    !! Instr.view_subterms ~constr:(sInstr "= t[0]") [dRoot];
     !! Instr.read_last_write [sInstr "= t[0]"; dRHS];
 
     !! Trace.alternative (fun _ ->
