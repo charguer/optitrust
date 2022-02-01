@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
+(* let _ = Run.doc_script_cpp (fun _ ->
   !! Variable_basic.inline [cVarDef "x"];
   )
 "
@@ -11,7 +11,7 @@ int main() {
   int y = x;
   y++;
 }
-"
+" *)
 
 let _ = Run.script_cpp ( fun _ ->
   (* unfold (without deletion of the definition) *)

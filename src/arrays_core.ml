@@ -75,25 +75,21 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
                      | None -> fail t.loc "to_variables_aux: could don't find the name of the array declaration"
                      end in
     let var_decls = begin match d.desc with
-    | Trm_let (_, (_ , __), init) ->
-      begin match init.desc with
-      | Trm_val(Val_prim (Prim_new t_arr)) ->
-        begin match t_arr.typ_desc with
+    | Trm_let (_, (_ , tx), init) ->
+      begin match (get_inner_ptr_type tx).typ_desc with
       | Typ_array (t_var,_) ->
-        begin match t_var.typ_desc with
-        | Typ_constr (y, tid, _) ->
-          List.map(fun x ->
-            trm_let_mut (x, typ_constr y ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
-        | Typ_var (y, tid) ->
-          List.map(fun x ->
-            trm_let_mut (x, typ_var y tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
-        | _ -> 
-          List.map(fun x ->
-            trm_let_mut (x, t_var) (trm_uninitialized ~loc:init.loc ())) new_vars
-        end
+       begin match t_var.typ_desc with
+       | Typ_constr (y, tid, _) ->
+        List.map(fun x ->
+          trm_let_mut (x, typ_constr y ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
+       | Typ_var (y, tid) ->
+        List.map(fun x ->
+          trm_let_mut (x, typ_var y tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
+       | _ -> 
+        List.map(fun x ->
+          trm_let_mut (x, t_var) (trm_uninitialized ~loc:init.loc ())) new_vars
+       end
       | _ -> fail t.loc "to_variables_aux: expected an array type"
-      end
-      | _ -> fail t.loc "to_variables_aux: expected a new_operation"
       end
     | _ -> fail t.loc "to_variables_aux: expected a variable declaration"
     end

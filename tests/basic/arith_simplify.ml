@@ -4,7 +4,7 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
     !! Arith_basic.(simpl gather) [cVarDef "a"; cInit ()];
-       Arith_basic.(simpl gather) [cVarDef "b"; cInit ()];
+    !! Arith_basic.(simpl gather) [cVarDef "b"; cInit ()];
        Arith_basic.(simpl gather) [cVarDef "c"; cInit ()];
        Arith_basic.(simpl expand) [cVarDef "d"; cInit ()];
   )

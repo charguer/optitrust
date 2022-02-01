@@ -10,10 +10,10 @@ TESTS_WITH_DOC := \
 	array_set_explicit.ml \
 	array_swap.ml \
 	array_tile.ml \
-  flow_insert_if.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
 	function_use_infix_ops.ml \
+	instr_accumulate.ml \
 	instr_move.ml \
 	instr_replace.ml \
 	instr_replace_fun.ml \
@@ -84,7 +84,6 @@ TESTS_TO_FIX := \
 	array_to_variables.ml \
 	function_beta.ml \
 	function_uninline.ml \
-	instr_accumulate.ml \
 	instr_read_last_write.ml \
 	loop_fission.ml \
 	loop_fold.ml \

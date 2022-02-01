@@ -154,7 +154,7 @@ let inline (index: int) (body_mark : string option) (p_local : path) : Target.Tr
     params:
       [t]: the ast of the write operation
     return:
-      the same ast node with the added annotation App_and_set
+      ast of a binary compound operation 
 *)
 
 let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm = 

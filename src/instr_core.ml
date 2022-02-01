@@ -61,8 +61,54 @@ let move (dest_index : int) (index : int) : Target.Transfo.local =
       is the accumulated trm from all the initial write instructions, the operation used for
       the accumulation is the one used in each write operation
  *)
+(* TODO: Factorize me! *)
+let accumulate_aux (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl -> 
+    let nb_instr = Mlist.length tl in 
+    if nb_instr < 2 then fail t.loc "accumulate_aux: expected at least two instructions";
+    Mlist.fold_lefti ( fun i acc t1 -> 
+      begin match t1.desc with 
+      | Trm_apps (f, [ls; rs]) -> 
+        begin match trm_prim_inv f with 
+        | Some (Prim_binop Binop_set) -> 
+           begin match rs.desc with 
+           | Trm_apps (f1, [ls1; rs1]) ->
+            if i = 0 then rs1
+              else if i = nb_instr - 1 
+               then 
+                let acc = trm_apps f1 [acc; rs1] in 
+                let acc_trm = trm_apps f1 [ls1; acc] in 
+                trm_set ls acc_trm
+              else 
+                (trm_apps f1 [acc; rs1])
+                
+           | _ -> fail rs.loc "accumulate_aux: expected an instruction of the form x (op)= A or x = x (op) A where op is a binary operator"
+           end
+        | Some (Prim_compound_assgn_op op) -> 
+          if i = 0 then rs
+            else if i = nb_instr - 1
+              then 
+                let acc = trm_apps (trm_binop op) [acc; rs] in
+                trm_prim_compound op ls acc
+           else 
+            trm_apps (trm_binop op) [acc; rs]
 
-let accumulate_aux (t : trm) : trm =
+        | _ -> fail f.loc "accumulate_aux: expected a set operation or a compound assignment"
+        end
+      | _ -> fail t1.loc "accumulate_aux: expected a binary operator"
+      end
+    ) (trm_int 0) tl
+
+  | _ -> fail t.loc "accumulate_aux: expected a block of instructions"
+
+
+
+
+
+
+
+let accumulate_aux1 (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let nb_instr = Mlist.length tl in
@@ -87,20 +133,6 @@ let accumulate_aux (t : trm) : trm =
                 else trm_set ls acc_trm
           else
             (trm_apps f [acc; rs1])
-          (* let acc = if i = 0
-            then
-             begin
-               if List.mem App_and_set t1.annot then is_infix_op := true;
-               acc
-             end
-            else acc in
-          let acc_trm = if i = nb_instr - 1 then trm_apps f [ls1; acc] else (trm_apps f [acc; rs1]) in
-          if i = nb_instr -1
-            then
-              if !is_infix_op
-                then trm_annot_add App_and_set (trm_set ls acc_trm)
-                else trm_set ls acc_trm
-            else acc_trm  *)
         | _-> fail t.loc "accumulate_aux: expected an instruction of the form x += A or x = x + A"
         end
       | _ -> fail t.loc "accumulate_aux: all the instructions should be write operations"

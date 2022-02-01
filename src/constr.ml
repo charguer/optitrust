@@ -619,14 +619,14 @@ let match_regexp_str (r : rexp) (s : string) : bool =
 
 let match_regexp_trm (r : rexp) (t : trm) : bool =
   if r.rexp_trm_kind <> get_trm_kind t then false else begin
-    let s =
+    let str_t =
       if !Flags.use_new_encodings
         (* TODO: rename Ast_to_rawC  into AstC_to_c, and
                  rename CRawAst_to_ast to Ast_fromto_AstC *)
         then Ast_to_rawC.ast_to_string (CRawAst_to_ast.cfeatures_intro t)
         else Ast_to_c.ast_to_string t
       in
-    match_regexp_str r s
+    match_regexp_str r str_t
   end
 
 
