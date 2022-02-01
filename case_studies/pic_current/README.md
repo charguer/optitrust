@@ -77,13 +77,18 @@ In the folder `scripts/3d_performance/`, execute:
 
 ```
 ./a_compile_aocosoa_3d.sh
+# or
+./a_compile_pic_demo.sh
 ```
 
 This should create the binary and a copy of the parameters file in the folder:
 ```
    ls ../../3d_runs/run1
 ```
+--- TODO: if we should use a distinct folder for the results of pic_demo.out,
+   please modify the compile and the run script accordingly.
 
+--- TODO: why do we need to compile the program once per run? could we just copy?
 
 # Execution
 
@@ -93,6 +98,8 @@ Then, in the folder `scripts/3d_performance/`, execute:
 
 ```
 ./b_run_aocosoa_3d.sh
+# or
+./b_run_pic_demo.sh
 ```
 
 Ignore the warnings (we'll fix them later)
