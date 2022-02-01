@@ -43,7 +43,7 @@ void accumulate_field_2d(double** Ex, double** Ey,
         int ncx, int ncy, double x_factor, double y_factor, field_2d f2d) {
     int i, j, i_cell;
     const int icell_param = I_CELL_PARAM_2D(ncx, ncy);
-    
+
     // This loop doesn't cause arrayOutOfBoundsException because
     // Ex and Ey are (ncx+1) * (ncy+1) arrays.
     #pragma omp parallel for private(i, j, i_cell) firstprivate(icell_param, ncx, ncy, x_factor, y_factor) collapse(2)
@@ -54,7 +54,7 @@ void accumulate_field_2d(double** Ex, double** Ey,
             f2d[i_cell].field_x.south_east = Ex[i+1][j  ] * x_factor;
             f2d[i_cell].field_x.north_west = Ex[i  ][j+1] * x_factor;
             f2d[i_cell].field_x.north_east = Ex[i+1][j+1] * x_factor;
-            
+
             f2d[i_cell].field_y.south_west = Ey[i  ][j  ] * y_factor;
             f2d[i_cell].field_y.south_east = Ey[i+1][j  ] * y_factor;
             f2d[i_cell].field_y.north_west = Ey[i  ][j+1] * y_factor;
@@ -95,7 +95,7 @@ void accumulate_field_2d_opt(double** Ex, double** Ey,
         int ncx, int ncy, double x_factor, double y_factor, field_2d_opt f2d) {
     int i, j, i_cell;
     const int icell_param = I_CELL_PARAM_2D(ncx, ncy);
-    
+
     // This loop doesn't cause arrayOutOfBoundsException because
     // Ex and Ey are (ncx+1) * (ncy+1) arrays.
     #pragma omp parallel for private(i, j, i_cell) firstprivate(icell_param, ncx, ncy, x_factor, y_factor) collapse(2)
@@ -106,7 +106,7 @@ void accumulate_field_2d_opt(double** Ex, double** Ey,
             f2d[i_cell].field_x.dx_coeff       = (Ex[i+1][j  ] - Ex[i][j]                          ) * x_factor;
             f2d[i_cell].field_x.dy_coeff       = (Ex[i  ][j+1] - Ex[i][j]                          ) * x_factor;
             f2d[i_cell].field_x.dx_dy_coeff    = (Ex[i+1][j+1] + Ex[i][j] - Ex[i][j+1] - Ex[i+1][j]) * x_factor;
-            
+
             f2d[i_cell].field_y.constant_coeff =  Ey[i  ][j  ]                                       * y_factor;
             f2d[i_cell].field_y.dx_coeff       = (Ey[i+1][j  ] - Ey[i][j]                          ) * y_factor;
             f2d[i_cell].field_y.dy_coeff       = (Ey[i  ][j+1] - Ey[i][j]                          ) * y_factor;
@@ -155,7 +155,7 @@ void accumulate_field_3d(double*** Ex, double*** Ey, double*** Ez,
     int i, j, k, i_cell;
     const int icell_param1 = I_CELL_PARAM1_3D(ncx, ncy, ncz);
     const int icell_param2 = I_CELL_PARAM2_3D(ncx, ncy, ncz);
-    
+
     // This loop doesn't cause arrayOutOfBoundsException because
     // Ex, Ey and Ez are (ncx+1) * (ncy+1) * (ncz+1) arrays.
     #pragma omp parallel for private(i, j, k, i_cell) firstprivate(icell_param1, icell_param2, ncx, ncy, ncz, x_factor, y_factor, z_factor) collapse(3)
@@ -171,7 +171,7 @@ void accumulate_field_3d(double*** Ex, double*** Ey, double*** Ez,
                 f3d[i_cell].field_x.right_front_top  = Ex[i+1][j  ][k+1] * x_factor;
                 f3d[i_cell].field_x.right_back_down  = Ex[i+1][j+1][k  ] * x_factor;
                 f3d[i_cell].field_x.right_back_top   = Ex[i+1][j+1][k+1] * x_factor;
-                
+
                 f3d[i_cell].field_y.left_front_down  = Ey[i  ][j  ][k  ] * y_factor;
                 f3d[i_cell].field_y.left_front_top   = Ey[i  ][j  ][k+1] * y_factor;
                 f3d[i_cell].field_y.left_back_down   = Ey[i  ][j+1][k  ] * y_factor;
@@ -180,7 +180,7 @@ void accumulate_field_3d(double*** Ex, double*** Ey, double*** Ez,
                 f3d[i_cell].field_y.right_front_top  = Ey[i+1][j  ][k+1] * y_factor;
                 f3d[i_cell].field_y.right_back_down  = Ey[i+1][j+1][k  ] * y_factor;
                 f3d[i_cell].field_y.right_back_top   = Ey[i+1][j+1][k+1] * y_factor;
-                
+
                 f3d[i_cell].field_z.left_front_down  = Ez[i  ][j  ][k  ] * z_factor;
                 f3d[i_cell].field_z.left_front_top   = Ez[i  ][j  ][k+1] * z_factor;
                 f3d[i_cell].field_z.left_back_down   = Ez[i  ][j+1][k  ] * z_factor;
@@ -231,7 +231,7 @@ void accumulate_field_3d_opt(double*** Ex, double*** Ey, double*** Ez,
     int i, j, k, i_cell;
     const int icell_param1 = I_CELL_PARAM1_3D(ncx, ncy, ncz);
     const int icell_param2 = I_CELL_PARAM2_3D(ncx, ncy, ncz);
-    
+
     // This loop doesn't cause arrayOutOfBoundsException because
     // Ex, Ey and Ez are (ncx+1) * (ncy+1) * (ncz+1) arrays.
     #pragma omp parallel for private(i, j, k, i_cell) firstprivate(icell_param1, icell_param2, ncx, ncy, ncz, x_factor, y_factor, z_factor) collapse(3)

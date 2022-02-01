@@ -33,7 +33,7 @@
  *     Ex(x) = -partial_x phi(x)
  *
  * The algorithm uses the fact that the resulting electric field will be odd.
- * 
+ *
  * @param[in]  mesh, the mesh on which we're working.
  * @param[in]  rho[ncx+1] the charge density.
  * @param[out] e_x[ncx+1] the electric field on the x-axis.
@@ -41,7 +41,7 @@
 void compute_E_from_rho_1d_trapezoidal(cartesian_mesh_1d mesh, double* rho, double* e_x) {
     int j, ncx;
     double dx, x_min;
-    
+
     ncx = mesh.num_cell_x;
     dx = mesh.delta_x;
     x_min = mesh.x_min;
@@ -71,7 +71,7 @@ poisson_1d_solver new_poisson_1d_fft_solver(cartesian_mesh_1d mesh) {
     // i - p.ncx will take really big values instead of negative ones.
     int i;
     poisson_1d_solver p;
-    
+
     p.ncx = mesh.num_cell_x;
     p.kx = malloc(p.ncx * sizeof(double));
     p.k2 = malloc(p.ncx * sizeof(double));
@@ -81,21 +81,21 @@ poisson_1d_solver new_poisson_1d_fft_solver(cartesian_mesh_1d mesh) {
     p.e_x_hat = fftw_alloc_complex(p.ncx);
     p.fw  = fftw_plan_dft_1d(p.ncx, p.tmp_rho, p.rho_hat, FFTW_FORWARD,  FFTW_PATIENT);
     p.bwx = fftw_plan_dft_1d(p.ncx, p.e_x_hat, p.tmp_e_x, FFTW_BACKWARD, FFTW_PATIENT);
-    
+
     // Computes the wave numbers.
     double kx0 = 2. * PI / (mesh.x_max - mesh.x_min);
     for (i = 0; i < p.ncx / 2; i++)
         p.kx[i] = i * kx0;
     for (i = p.ncx / 2; i < p.ncx; i++)
         p.kx[i] = (i - p.ncx) * kx0;
-    
+
     // Computes k2 = kx^2 then normalizes kx.
     // Starts at i = 1 because kx[0] = 0.
     for (i = 1; i < p.ncx; i++) {
         p.k2[i] = sqr(p.kx[i]);
         p.kx[i] /= p.k2[i];
     }
-    
+
     return p;
 }
 
@@ -110,18 +110,18 @@ poisson_1d_solver new_poisson_1d_fft_solver(cartesian_mesh_1d mesh) {
  */
 void compute_E_from_rho_1d_fft(poisson_1d_solver p, double* rho, double* e_x) {
     int i;
-    
+
     for (i = 0; i < p.ncx; i++)
         p.tmp_rho[i] = rho[i];
-    
+
     // Computes rho_hat = FFT(tmp_rho).
     fftw_execute(p.fw);
-    
+
     // Computes tmp_e_x = IFFT(-I*kx*rho_hat) = IFFT(-I*kx*FFT(tmp_rho)).
     for (i = 0; i < p.ncx; i++)
         p.e_x_hat[i] = (-p.kx[i] * I) * p.rho_hat[i];
     fftw_execute(p.bwx);
-    
+
     // Puts into double* array and normalize.
     for (i = 0; i < p.ncx; i++)
         e_x[i] = creal(p.tmp_e_x[i] / p.ncx);
@@ -162,7 +162,7 @@ poisson_2d_solver new_poisson_2d_fft_solver(cartesian_mesh_2d mesh) {
     int i, j;
     poisson_2d_solver p;
     size_t sz_fft = mesh.num_cell_x * (mesh.num_cell_y / 2 + 1);
-    
+
     p.ncx = mesh.num_cell_x;
     p.ncy = mesh.num_cell_y;
     p.kx = allocate_matrix(p.ncx, p.ncy / 2 + 1);
@@ -177,7 +177,7 @@ poisson_2d_solver new_poisson_2d_fft_solver(cartesian_mesh_2d mesh) {
     p.fw  = fftw_plan_dft_r2c_2d(p.ncx, p.ncy, p.tmp_rho, p.rht, FFTW_PATIENT);
     p.bwx = fftw_plan_dft_c2r_2d(p.ncx, p.ncy, p.ext, p.tmp_e_x, FFTW_PATIENT);
     p.bwy = fftw_plan_dft_c2r_2d(p.ncx, p.ncy, p.eyt, p.tmp_e_y, FFTW_PATIENT);
-    
+
     // Computes the wave numbers.
     double kx0 = 2. * PI / (mesh.x_max - mesh.x_min);
     double ky0 = 2. * PI / (mesh.y_max - mesh.y_min);
@@ -201,11 +201,11 @@ poisson_2d_solver new_poisson_2d_fft_solver(cartesian_mesh_2d mesh) {
             p.ky[i][j] = (j - p.ncy) * ky0;
         }
     }
-    
+
     // Sets kx[0][0] to a non-zero value because we have kx[0][0] = ky[0][0] = 0.
     // which would lead to k2[0][0] = 0. then divide by zero error (1. is arbitrary).
     p.kx[0][0] = 1.;
-    
+
     // Computes k2 = kx^2 + ky^2 then normalizes kx and ky.
     for (i = 0; i < p.ncx; i++) {
         for (j = 0; j < p.ncy / 2 + 1; j++) {
@@ -214,42 +214,42 @@ poisson_2d_solver new_poisson_2d_fft_solver(cartesian_mesh_2d mesh) {
             p.ky[i][j] /= p.k2[i][j];
         }
     }
-    
+
     // Puts back kx[0][0] to its 0. value.
     p.kx[0][0] = 0.;
-    
+
     return p;
 }
 
 /*
  * Solve laplacian(phi(x, y)) = -rho(x, y) with periodic boundary conditions.
- * 
+ *
  * @param[in]  p the poisson solver (has to be initialized before the call).
  * @param[in]  rho[ncx+1][ncy+1] the charge density.
  * @param[out] phi[ncx+1][ncy+1] the electric potential.
  */
 void compute_phi_from_rho_2d_fft(poisson_2d_solver p, double** rho, double** phi) {
     int i, j;
-    
+
     for (i = 0; i < p.ncx; i++)
         for (j = 0; j < p.ncy; j++)
             p.tmp_rho[i * p.ncy + j] = rho[i][j];
-    
+
     // Computes rht = FFT(tmp_rho).
     fftw_execute(p.fw);
     p.rht[0] = 0;
-    
+
     // Computes tmp_e_x = IFFT(rht/k2) = IFFT(FFT(tmp_rho)/k2).
     for (i = 0; i < p.ncx; i++)
         for (j = 0; j < p.ncy / 2 + 1; j++)
             p.ext[i * (p.ncy / 2 + 1) + j] = p.rht[i * (p.ncy / 2 + 1) + j] / p.k2[i][j];
     fftw_execute(p.bwx);
-    
+
     // Puts into double** array and normalize.
     for (i = 0; i < p.ncx; i++)
         for (j = 0; j < p.ncy; j++)
             phi[i][j] = p.tmp_e_x[i * p.ncy + j] / (p.ncx * p.ncy);
-    
+
     // Periodicity
     for (i = 0; i < p.ncx; i++) {
         phi[i][p.ncy] = phi[i][0];
@@ -265,7 +265,7 @@ void compute_phi_from_rho_2d_fft(poisson_2d_solver p, double** rho, double** phi
  * then set E(x, y) = -grad(phi(x, y)) which means
  *     Ex(x, y) = -partial_x phi(x, y)
  *     Ey(x, y) = -partial_y phi(x, y)
- * 
+ *
  * @param[in]  p the poisson solver (has to be initialized before the call).
  * @param[in]  rho[ncx+1][ncy+1] the charge density.
  * @param[out] e_x[ncx+1][ncy+1] the electric field on the x-axis.
@@ -273,26 +273,26 @@ void compute_phi_from_rho_2d_fft(poisson_2d_solver p, double** rho, double** phi
  */
 void compute_E_from_rho_2d_fft(poisson_2d_solver p, double** rho, double** e_x, double** e_y) {
     int i, j;
-    
+
     for (i = 0; i < p.ncx; i++)
         for (j = 0; j < p.ncy; j++)
             p.tmp_rho[i * p.ncy + j] = rho[i][j];
-    
+
     // Computes rht = FFT(tmp_rho).
     fftw_execute(p.fw);
-    
+
     // Computes tmp_e_x = IFFT(-I*kx*rht) = IFFT(-I*kx*FFT(tmp_rho)).
     for (i = 0; i < p.ncx; i++)
         for (j = 0; j < p.ncy / 2 + 1; j++)
             p.ext[i * (p.ncy / 2 + 1) + j] = (-p.kx[i][j] * I) * p.rht[i * (p.ncy / 2 + 1) + j];
     fftw_execute(p.bwx);
-    
+
     // Computes tmp_e_y = IFFT(-I*ky*rht) = IFFT(-I*ky*FFT(tmp_rho)).
     for (i = 0; i < p.ncx; i++)
         for (j = 0; j < p.ncy / 2 + 1; j++)
             p.eyt[i * (p.ncy / 2 + 1) + j] = (-p.ky[i][j] * I) * p.rht[i * (p.ncy / 2 + 1) + j];
     fftw_execute(p.bwy);
-    
+
     // Puts into double** array and normalize.
     for (i = 0; i < p.ncx; i++)
         for (j = 0; j < p.ncy; j++)
@@ -300,7 +300,7 @@ void compute_E_from_rho_2d_fft(poisson_2d_solver p, double** rho, double** e_x, 
     for (i = 0; i < p.ncx; i++)
         for (j = 0; j < p.ncy; j++)
             e_y[i][j] = p.tmp_e_y[i * p.ncy + j] / (p.ncx * p.ncy);
-    
+
     // Periodicity
     for (i = 0; i < p.ncx; i++) {
         e_x[i][p.ncy] = e_x[i][0];
@@ -349,13 +349,13 @@ poisson_3d_solver new_poisson_3d_fft_solver(cartesian_mesh_3d mesh) {
     int i, j, k;
     int num_threads;
     poisson_3d_solver p;
-    
+
     #pragma omp parallel
     num_threads = omp_get_num_threads();
     p.ncx = mesh.num_cell_x;
     p.ncy = mesh.num_cell_y;
     p.ncz = mesh.num_cell_z;
-    
+
     int N = max(p.ncx, max(p.ncy, p.ncz));
     p.in  = malloc(num_threads * sizeof(fftw_complex*));
     p.out = malloc(num_threads * sizeof(fftw_complex*));
@@ -375,13 +375,13 @@ poisson_3d_solver new_poisson_3d_fft_solver(cartesian_mesh_3d mesh) {
         p.py_inv[i] = fftw_plan_dft_1d(p.ncy, p.in[i], p.out[i], FFTW_BACKWARD, FFTW_ESTIMATE);
         p.pz_inv[i] = fftw_plan_dft_1d(p.ncz, p.in[i], p.out[i], FFTW_BACKWARD, FFTW_ESTIMATE);
     }
-    
+
     p.kx = allocate_array(p.ncx);
     p.ky = allocate_array(p.ncy);
     p.kz = allocate_array(p.ncz);
-    
+
     p.k2 = allocate_3d_array(p.ncx, p.ncy, p.ncz);
-    
+
     p.hat_rho = malloc(p.ncx * sizeof(fftw_complex**));
     if (!p.hat_rho) {
         fprintf(stderr, "allocate_3d_array(%d, %d, %d) : malloc error.\n", p.ncx, p.ncy, p.ncz);
@@ -396,33 +396,33 @@ poisson_3d_solver new_poisson_3d_fft_solver(cartesian_mesh_3d mesh) {
         for (j = 0; j < p.ncy; j++)
             p.hat_rho[i][j] = fftw_alloc_complex(p.ncz);
     }
-    
+
     // Computes the wave numbers.
     double kx0 = 2. * PI / (mesh.x_max - mesh.x_min);
     for (i = 0; i < p.ncx / 2; i++)
         p.kx[i] = (double)i * kx0;
     for (i = p.ncx / 2; i < p.ncx; i++)
         p.kx[i] = (double)(i - p.ncx) * kx0;
-    
+
     double ky0 = 2. * PI / (mesh.y_max - mesh.y_min);
     for (j = 0; j < p.ncy / 2; j++)
         p.ky[j] = (double)j * ky0;
     for (j = p.ncy / 2; j < p.ncy; j++)
         p.ky[j] = (double)(j - p.ncy) * ky0;
-    
+
     double kz0 = 2. * PI / (mesh.z_max - mesh.z_min);
     for (k = 0; k < p.ncz / 2; k++)
         p.kz[k] = (double)k * kz0;
     for (k = p.ncz / 2; k < p.ncz; k++)
         p.kz[k] = (double)(k - p.ncz) * kz0;
-    
+
     // Computes k2 = kx^2 + ky^2 + kz^2.
     // Warning : Do not divide by k2[0][0][0] = 0 in the solve Poisson code.
     for (i = 0; i < p.ncx; i++)
         for (j = 0; j < p.ncy; j++)
             for (k = 0; k < p.ncz; k++)
                 p.k2[i][j][k] = sqr(p.kx[i]) + sqr(p.ky[j]) + sqr(p.kz[k]);
-    
+
     return p;
 }
 
@@ -432,7 +432,7 @@ poisson_3d_solver new_poisson_3d_fft_solver(cartesian_mesh_3d mesh) {
  *     Ex(x, y, z) = -partial_x phi(x, y, z)
  *     Ey(x, y, z) = -partial_y phi(x, y, z)
  *     Ez(x, y, z) = -partial_z phi(x, y, z)
- * 
+ *
  * @param[in]  p the poisson solver (has to be initialized before the call).
  * @param[in]  rho[ncx+1][ncy+1][ncz+1] the charge density.
  * @param[out] e_x[ncx+1][ncy+1][ncz+1] the electric field on the x-axis.
@@ -444,7 +444,7 @@ void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x
     const int ncx = p.ncx;
     const int ncy = p.ncy;
     const int ncz = p.ncz;
-    
+
     #pragma omp parallel private(i, j, k, thread_id) firstprivate(ncx, ncy, ncz)
     {
         thread_id = omp_get_thread_num();
@@ -483,7 +483,7 @@ void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x
                 }
             }
         }
-        
+
         // Compute hat_phi (in hat_rho)
         #pragma omp for collapse(3)
         for (i = 0; i < ncx; i++)
@@ -493,7 +493,7 @@ void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x
                         p.hat_rho[0][0][0] = 0.;
                     else
                         p.hat_rho[i][j][k] /= p.k2[i][j][k];
-        
+
         // FFT_inv in z
         #pragma omp for collapse(2)
         for (i = 0; i < ncx; i++) {
@@ -527,7 +527,7 @@ void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x
                     p.hat_rho[i][j][k] = p.out[thread_id][i];
             }
         }
-        
+
         // Compute E: FFT + derive + FFT inv + Assign in E_field
         // Compute Ex
         #pragma omp for collapse(2)
@@ -543,7 +543,7 @@ void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x
                     e_x[i][j][k] = creal(p.out[thread_id][i]) / ((double)ncx);
             }
         }
-        
+
         // Compute Ey
         #pragma omp for collapse(2)
         for (k = 0; k < ncz; k++) {
@@ -558,7 +558,7 @@ void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x
                     e_y[i][j][k] = creal(p.out[thread_id][j]) / ((double)ncy);
             }
         }
-        
+
         // Compute Ez
         #pragma omp for collapse(2)
         for (i = 0; i < ncx; i++) {
@@ -573,7 +573,7 @@ void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x
                     e_z[i][j][k] = creal(p.out[thread_id][k]) / ((double)ncz);
             }
         }
-        
+
         // Periodicity
         #pragma omp for collapse(2)
         for (i = 0; i < ncx; i++) {
@@ -626,7 +626,7 @@ void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x
 void free_poisson_3d(poisson_3d_solver* p) {
     int num_threads;
     size_t i, j;
-    
+
     #pragma omp parallel
     num_threads = omp_get_num_threads();
     for (i = 0; i < num_threads; i++) {

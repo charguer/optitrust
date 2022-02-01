@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
     double time_start, time_simu;
     double time_mark1, time_mark2, time_mark3, time_mark4, time_mark5;
     double time_particle_loop, time_append, time_mpi_allreduce, time_poisson;
-    
+
 #ifdef PAPI_LIB_INSTALLED
     // Performance counters
     int papi_num_events = 3;
@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
     long_long values[papi_num_events];
     FILE* file_diag_papi;
 #endif
-    
+
     // Automatic values for the parameters.
     unsigned char sim_distrib = INITIAL_DISTRIBUTION; // Physical test case (LANDAU_1D_PROJ3D, LANDAU_2D_PROJ3D, LANDAU_3D_SUM_OF_COS,
                                                       // LANDAU_3D_PROD_OF_COS, LANDAU_3D_PROD_OF_ONE_PLUS_COS or DRIFT_VELOCITIES_3D).
@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
     double kmode_x = 0.5;  // Landau perturbation mode, x-axis
     double kmode_y = 0.5;  // Landau perturbation mode, y-axis
     double kmode_z = 0.5;  // Landau perturbation mode, z-axis
-    
+
     // Read parameters from file.
     if (argc >= 2) {
         simulation_parameters parameters = read_parameters_from_file(argv[1], "3D");
@@ -176,10 +176,10 @@ int main(int argc, char** argv) {
             kmode_z = parameters.kmode_z;
     } else
         printf("No parameter file was passed through the command line. I will use the default parameters.\n");
-    
+
     // Random initialization or read from file.
     const char sim_initial = INIT_NOFILE;
-    
+
     // Spatial parameters for initial density function.
     double *params;
     if (sim_distrib == LANDAU_1D_PROJ3D) {
@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
         params[2] = 2 * PI / L;
         params[3] = 2 * PI / L;
     }
-    
+
     // Velocity parameters for initial density function.
     double *speed_params;
     if (sim_distrib == DRIFT_VELOCITIES_3D) {
@@ -217,7 +217,7 @@ int main(int argc, char** argv) {
         speed_params = malloc(1 * sizeof(double));
         speed_params[0] = thermal_speed;
     }
-    
+
     // Mesh
     double x_min, y_min, z_min, x_max, y_max, z_max;
     const int num_cells_3d = ncx * ncy * ncz;
@@ -285,7 +285,7 @@ int main(int argc, char** argv) {
     const float  signs_y[NB_CORNERS_3D] __attribute__((aligned(VEC_ALIGN))) = { -1., -1.,  1.,  1., -1., -1.,  1.,  1.};
     const float coeffs_z[NB_CORNERS_3D] __attribute__((aligned(VEC_ALIGN))) = {  1.,  0.,  1.,  0.,  1.,  0.,  1.,  0.};
     const float  signs_z[NB_CORNERS_3D] __attribute__((aligned(VEC_ALIGN))) = { -1.,  1., -1.,  1., -1.,  1., -1.,  1.};
-    
+
     // Simulation parameters
     const double q           = -1.; // particle charge
     const double m           =  1.; // particle mass
@@ -300,7 +300,7 @@ int main(int argc, char** argv) {
     char data_structure_name[99] = "Array of Chunkbags of SoA (1 private + 1 shared / cell)";
 #endif
     char sort_name[42]           = "always sort";
-    
+
     // MPI + OpenMP parallelism
     int mpi_world_size, mpi_rank;
     double* send_buf = malloc(num_cells_3d * sizeof(double));
@@ -314,14 +314,14 @@ int main(int argc, char** argv) {
     int offset;
     #pragma omp parallel
     num_threads = omp_get_num_threads();
-    
+
     // Temporary variables.
     double x, y, z;                                                 // store the new position values
     int ic_x, ic_y, ic_z, i_cell;                                   // store the new position index values
     size_t i, j, k, i_time;                                         // loop indices
     double*** q_times_rho = allocate_3d_array(ncx+1, ncy+1, ncz+1); // to store q * rho = -rho
     aligned_int_array* i_cells = allocate_aligned_int_array_array(num_threads); // to vectorize the computation of the i_cells
-    
+
     // The following matrices are (ncx+1) * (ncy+1) * (ncz+1) arrays, with the periodicity :
     //     M[ncx][ . ][ . ] = M[0][.][.]
     //     M[ . ][ncy][ . ] = M[.][0][.]
@@ -334,7 +334,7 @@ int main(int argc, char** argv) {
     double*** Ex = allocate_3d_array(ncx+1, ncy+1, ncz+1);
     double*** Ey = allocate_3d_array(ncx+1, ncy+1, ncz+1);
     double*** Ez = allocate_3d_array(ncx+1, ncy+1, ncz+1);
-    
+
     // accumulators are num_cells_3d arrays : for each cell, the 8 corners values
     field_3d E_field = create_field_3d(ncx, ncy, ncz);
     // For each cell, the 8 corners values for vectorization ; each thread has its own copy
@@ -356,7 +356,7 @@ int main(int argc, char** argv) {
     charge_accu = __builtin_assume_aligned(charge_accu, VEC_ALIGN);
     reduced_charge_accu = __builtin_assume_aligned(reduced_charge_accu, VEC_ALIGN);
 #endif
-    
+
     // Diagnostic energy.
     double kmode = 0.;
     switch(sim_distrib) {
@@ -386,14 +386,14 @@ int main(int argc, char** argv) {
     const int diag_speed_size  = 5;
     double** diag_energy = allocate_matrix(num_iteration, diag_energy_size);
     double** diag_speed  = allocate_matrix(num_iteration, diag_speed_size);
-    
+
     // Poisson solver.
     poisson_3d_solver solver = new_poisson_3d_fft_solver(mesh);
 
     // Coloring
     int i_color;
     const int nb_color_3d = 8;
-    
+
     // Particle data structure.
     bag* chunkbag;
     chunk* next_chunk;
@@ -404,7 +404,7 @@ int main(int argc, char** argv) {
     for (j = 0; j < NB_BAGS_PER_CELL; j++)
         particlesNext[j] = malloc(num_cells_3d * sizeof(bag));
     init_all_chunks(NB_BAGS_PER_CELL, nb_particles, mesh, OMP_TILE_SIZE, OMP_TILE_BORDERS, &particlesNext);
-    
+
     /* A "numerical particle" (we also say "macro particle") represents several
      * physical particles. The weight is the number of physical particles it
      * represents. The more particles we have in the simulation, the less this
@@ -450,7 +450,7 @@ int main(int argc, char** argv) {
             return 0;
         }
     }
-    
+
     // Because the weight is constant, the whole array can be multiplied by weight just once.
     // Because charge is the charge MASS and not the charge DENSITY, we have to divide.
     const double charge_factor = weight / (mesh.delta_x * mesh.delta_y * mesh.delta_z);
@@ -458,7 +458,7 @@ int main(int argc, char** argv) {
     const double x_field_factor = dt_q_over_m * dt_over_dx;
     const double y_field_factor = dt_q_over_m * dt_over_dy;
     const double z_field_factor = dt_q_over_m * dt_over_dz;
-    
+
   if (mpi_rank == 0) {
     printf("#CHUNK_SIZE = %d\n", CHUNK_SIZE);
     printf("#VEC_ALIGN = %d\n", VEC_ALIGN);
@@ -493,7 +493,7 @@ int main(int argc, char** argv) {
     printf("#nb_particles = %ld\n", nb_particles);
     printf("#num_iteration = %d\n", num_iteration);
   }
-    
+
     reset_charge_3d_accumulator(ncx, ncy, ncz, num_threads, charge_accu);
     // Computes rho at initial time.
     #pragma omp parallel private(thread_id, offset)
@@ -530,7 +530,7 @@ int main(int argc, char** argv) {
     } // End parallel region
     convert_charge_to_rho_3d_per_per(reduced_charge_accu, ncx, ncy, ncz, charge_factor, rho_3d);
     mpi_reduce_rho_3d(mpi_world_size, send_buf, recv_buf, ncx, ncy, ncz, rho_3d);
-    
+
     // Computes E at initial time.
     for (i = 0; i < ncx + 1; i++)
         for (j = 0; j < ncy + 1; j++)
@@ -538,7 +538,7 @@ int main(int argc, char** argv) {
                 q_times_rho[i][j][k] = q * rho_3d[i][j][k];
     compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez);
     accumulate_field_3d(Ex, Ey, Ez, ncx, ncy, ncz, x_field_factor, y_field_factor, z_field_factor, E_field);
-    
+
     // Computes speeds half time-step backward (leap-frog method).
     // WARNING : starting from here, v doesn't represent the speed, but speed * dt / dx.
     #pragma omp parallel for private(i, j, chunkbag, my_chunk)
@@ -579,7 +579,7 @@ int main(int argc, char** argv) {
             }
         }
     }
-    
+
     /********************************************************************************************
      *                         Simulation with 8 corners data structure                         *
      *                                  (no if, fast modulo)                                    *
@@ -587,7 +587,7 @@ int main(int argc, char** argv) {
 #ifdef PAPI_LIB_INSTALLED
     start_diag_papi(&file_diag_papi, "diag_papi_8corners-opt.txt", papi_num_events, Events);
 #endif
-    
+
     time_start = omp_get_wtime();
     for (i_time = 0; i_time < num_iteration; i_time++) {
         // Diagnostics energy
@@ -609,9 +609,9 @@ int main(int argc, char** argv) {
         diag_energy[i_time][2] = 0.5 * log(exval_ee); // log(Integral of squared E_field), theoretical
         diag_energy[i_time][3] = val_ee;              // Integral of squared E_field, simulated
         diag_energy[i_time][4] = exval_ee;            // Integral of squared E_field, theoretical
-        
+
         time_mark1 = omp_get_wtime();
-        
+
 #ifdef PAPI_LIB_INSTALLED
         /* Read the counters */
         if (PAPI_read_counters(values, papi_num_events) != PAPI_OK)
@@ -737,7 +737,7 @@ int main(int argc, char** argv) {
         } // End parallel region
         update_free_list_sizes();
         time_mark3 = omp_get_wtime();
-        
+
 #ifdef PAPI_LIB_INSTALLED
         /* Read the counters */
         if (PAPI_read_counters(values, papi_num_events) != PAPI_OK)
@@ -747,12 +747,12 @@ int main(int argc, char** argv) {
             fprintf(file_diag_papi, " %lld", values[i]);
         fprintf(file_diag_papi, "\n");
 #endif
-        
+
         // Converts accumulator to rho
         convert_charge_to_rho_3d_per_per(reduced_charge_accu, ncx, ncy, ncz, charge_factor, rho_3d);
         mpi_reduce_rho_3d(mpi_world_size, send_buf, recv_buf, ncx, ncy, ncz, rho_3d);
         time_mark4 = omp_get_wtime();
-        
+
         // Solves Poisson and updates the field E
         for (i = 0; i < ncx + 1; i++)
             for (j = 0; j < ncy + 1; j++)
@@ -761,7 +761,7 @@ int main(int argc, char** argv) {
         compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez);
         accumulate_field_3d(Ex, Ey, Ez, ncx, ncy, ncz, x_field_factor, y_field_factor, z_field_factor, E_field);
         time_mark5 = omp_get_wtime();
-        
+
         // Diagnostics speed
         diag_speed[i_time][0] = time_mark1; // beginining of time loop
         diag_speed[i_time][1] = time_mark2; // after update v / x / deposit
@@ -780,7 +780,7 @@ int main(int argc, char** argv) {
         time_mpi_allreduce += diag_speed[i_time][3] - diag_speed[i_time][2];
         time_poisson       += diag_speed[i_time][4] - diag_speed[i_time][3];
     }
-    
+
 #ifdef PAPI_LIB_INSTALLED
     stop_diag_papi(file_diag_papi, papi_num_events, values);
 #endif
@@ -789,7 +789,7 @@ int main(int argc, char** argv) {
         "diag_speed_8corners.txt", num_iteration, diag_speed_size,  diag_speed);
     print_time_chunkbags(mpi_rank, mpi_world_size, nb_particles, num_iteration, time_simu, simulation_name, data_structure_name, sort_name,
         time_particle_loop, time_append, time_mpi_allreduce, time_poisson);
-    
+
     free(params);
     free(speed_params);
     deallocate_3d_array(q_times_rho, ncx+1, ncy+1, ncz+1);
@@ -802,14 +802,14 @@ int main(int argc, char** argv) {
     free(charge_accu);
     free(reduced_charge_accu);
     deallocate_aligned_int_array_array(i_cells, num_threads);
-    
+
     free(send_buf);
     free(recv_buf);
     free_poisson_3d(&solver);
     free_field_3d(E_field);
     pic_vert_free_RNG();
     MPI_Finalize();
-    
+
     return 0;
 }
 
