@@ -463,4 +463,10 @@ void bag_init_initial(bag* b) {
   // TODO: maybe put the thread_id argument before id_bag and id_cell (both are dummy values here)
 }
 
-
+// Free all the chunks in a bag
+void bag_free_initial(bag* b) {
+  chunk* c = b->front;
+  while (c != NULL) {
+    c = chunk_next(c, true);
+  }
+}
