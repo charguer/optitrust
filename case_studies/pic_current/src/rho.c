@@ -73,7 +73,7 @@ void reset_charge_1d_accumulator(int ncx,
 void convert_charge_to_rho_1d_per_per(double* charge_accu,
         int num_threads, int ncx, double factor, double* rho) {
     int i, i_thread, offset;
-    
+
     for (i = 0; i < ncx + 1; i++)
         rho[i] = 0.;
 
@@ -84,17 +84,17 @@ void convert_charge_to_rho_1d_per_per(double* charge_accu,
         rho[i] += (charge_accu[offset + NB_CORNERS_1D*(i    ) + LEFT] +
                    charge_accu[offset + NB_CORNERS_1D*(i - 1) + RIGHT]);
     }
-    
+
     // i = 0
     rho[ 0 ] += charge_accu[offset + NB_CORNERS_1D*(0      ) + LEFT];
     // i = ncx
     rho[ncx] += charge_accu[offset + NB_CORNERS_1D*(ncx - 1) + RIGHT];
   }
-    
+
     // Periodicity
     rho[ 0 ] += rho[ncx];
     rho[ncx]  = rho[ 0 ];
-    
+
     // Normalization
     for (i = 0; i < ncx + 1; i++)
         rho[i] *= factor;
@@ -242,10 +242,10 @@ void convert_charge_to_rho_2d_per_per(double* charge_accu,
     const int ncxminusone = ncx - 1;
     const int ncyminusone = ncy - 1;
     const int icell_param = I_CELL_PARAM_2D(ncx, ncy);
-    
+
     int num_cells_2d = ncx * ncy;
     double** reduced_charge_accu = allocate_aligned_double_matrix(num_cells_2d, NB_CORNERS_2D);
-    
+
     #pragma omp parallel private(i, j, corner, offset) firstprivate(icell_param, ncx, ncy, ncxminusone, ncyminusone, factor)
     {
         #pragma omp for
@@ -265,7 +265,7 @@ void convert_charge_to_rho_2d_per_per(double* charge_accu,
                     reduced_charge_accu[j][corner] += charge_accu[offset + NB_CORNERS_2D * j + corner];
             }
         }
-        
+
         #pragma omp for collapse(2)
         for (i = 0; i < ncx + 1; i++)
             for (j = 0; j < ncy + 1; j++)
@@ -275,7 +275,7 @@ void convert_charge_to_rho_2d_per_per(double* charge_accu,
                     reduced_charge_accu[COMPUTE_I_CELL_2D(icell_param, (i-1)&ncxminusone, (j-1)&ncyminusone)][NORTH_EAST] +
                     reduced_charge_accu[COMPUTE_I_CELL_2D(icell_param,  i   &ncxminusone, (j-1)&ncyminusone)][NORTH_WEST]);
     }
-    
+
     deallocate_matrix(reduced_charge_accu, num_cells_2d, NB_CORNERS_2D);
 }
 
@@ -442,7 +442,7 @@ void convert_charge_to_rho_3d_per_per(double* charge_accu,
     const int nczminusone = ncz - 1;
     const int param1 = I_CELL_PARAM1_3D(ncx, ncy, ncz);
     const int param2 = I_CELL_PARAM2_3D(ncx, ncy, ncz);
-    
+
     #pragma omp parallel for private(i, j, k) firstprivate(param1, param2, ncx, ncy, ncz, ncxminusone, ncyminusone, nczminusone) collapse(3)
     for (i = 0; i < ncx + 1; i++)
         for (j = 0; j < ncy + 1; j++)
