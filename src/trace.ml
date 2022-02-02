@@ -125,7 +125,7 @@ let get_cpp_includes (filename : string) : string =
    and the OptiTrust AST. *)
 let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
   let use_new_encodings = !Flags.use_new_encodings in
-  let parser = if parser = Parsers.Default then Flags.default_parser else parser in
+  let parser = if parser = Parsers.Default then Parsers.default_cparser else parser in
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
   let command_line_include =
@@ -142,7 +142,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
         let parse_menhir () =
           CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename) in
         let rawAst = match parser with
-          | Parsers.Default -> assert false (* see def of parser; Flags.default_parser should not be Default *)
+          | Parsers.Default -> assert false (* see def of parser; Parsers.default_cparser should not be Default *)
           | Parsers.Clang -> parse_clang()
           | Parsers.Menhir -> parse_menhir()
           | Parsers.All ->
@@ -157,7 +157,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
               fail None "parse: [-cparser all] option detected discrepencies; see ast_clang.cpp and ast_menhir.cpp";
              end else
              (* If the two ast match, we can use any one of them (only locations might differ); let's use the one from the default parser. *)
-               if Flags.default_parser = Parsers.Clang then rawAstClang else rawAtMenhir
+               if Parsers.default_cparser = Parsers.Clang then rawAstClang else rawAtMenhir
             in
           if !Flags.bypass_cfeatures
             then rawAst
@@ -832,7 +832,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(rep
         (* Handle reparse of code *)
         if reparse || (!Flags.reparse_at_big_steps && not is_small_step) then begin
           let info = if reparse then "the code on demand at" else "the code just before the big step at" in
-          let parser = !Flags.use_parser in
+          let parser = !Parsers.selected_cparser in
           reparse_alias ~info ~parser ();
           if !Flags.analyse_time then
             let duration_of_reparse = last_time_update () in
@@ -934,7 +934,7 @@ let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> un
   if (Flags.get_exit_line() = Some line) then begin
     if reparse
       then
-        let parser = !Flags.use_parser in
+        let parser = !Parsers.selected_cparser in
         reparse_alias ~parser ();
     step();
     f();

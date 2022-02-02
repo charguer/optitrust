@@ -71,16 +71,6 @@ let process_serialized_input (mode : string) : unit =
   | "auto" -> Serialized_Auto
   | _ -> Serialized_None
 
-
-(* Option to select the C parser to use *)
-let use_parser = ref Parsers.Default (* TODO: rename to selected_cparser *)
-
-let default_parser = Parsers.Clang (* TODO: move to Parsers.default *)
-
-let cparser_of_string (s : string) : unit = (* TODO: move to Parsers.of_string *)
-  use_parser := Parsers.cparser_of_string s
-
-
 (* Option for exiting the program when reaching a '!!' (step) after a specific line number *)
 let exit_line : int ref = ref max_int
 
@@ -109,7 +99,7 @@ let spec =
      ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
-     ("-cparser", Arg.String cparser_of_string, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
+     ("-cparser", Arg.String Parsers.cparser_of_string, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
      ("-use-old-encodings", Arg.Clear use_new_encodings, "FOR DEV ONLY");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
