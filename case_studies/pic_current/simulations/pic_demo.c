@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <omp.h>                                          // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
 
 // --------- Bags of particles
 
@@ -25,9 +26,9 @@ double particleCharge;
 double particleMass;
 
 // Grid description
-int gridX = 64;
-int gridY = 64;
-int gridZ = 64;
+int gridX;
+int gridY;
+int gridZ;
 int nbCells; // nbCells = gridX * gridY * gridZ;
 
 // Derived grid parameters
@@ -212,12 +213,19 @@ double*** rho;
 double*** Ex;
 double*** Ey;
 double*** Ez;
+// nextCharge[idCell] corresponds to the cell in the front-top-left corner of that cell
+double* nextCharge;
+// Strength of the field that applies to each cell
+// fields[idCell] corresponds to the field at the top-right corner of the cell idCell;
+// The grid is treated with wrap-around
+vect* field;
+
 
 // Particles in each cell, at the current and the next time step
 bag* bagsCur;
 bag* bagsNext;
 
-#include "parameters.h"                                   // constants PI, EPSILON, VEC_ALIGN, DBL_DECIMAL_DIG, FLT_DECIMAL_DIG, NB_PARTICLE
+#include "parameters.h"                                   // constants PI, EPSILON, DBL_DECIMAL_DIG, FLT_DECIMAL_DIG, NB_PARTICLE
 // TODO: it would be simpler if the Poisson module could take rho directly as an array indexed by idCell
 void computeRhoForPoisson(double* nextCharge, double*** rho) {
   for (int i = 0; i < gridX; i++) {
@@ -229,6 +237,12 @@ void computeRhoForPoisson(double* nextCharge, double*** rho) {
   }
 }
 
+void resetIntArray(double* array) {
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    array[idCell] = 0;
+  }
+}
+
 // updateFieldsUsingNextCharge in an operation that reads nextCharge,
 // and updates the values in the fields array.
 void updateFieldUsingNextCharge(double* nextCharge, vect* field) {
@@ -236,7 +250,7 @@ void updateFieldUsingNextCharge(double* nextCharge, vect* field) {
   // Compute Rho from nextCharge
   computeRhoForPoisson(nextCharge, rho);
 
-  // Execute Poisson Solver
+  // Execute Poisson Solver (0 avoids the useless cell at borders which contains the same data)
   compute_E_from_rho_3d_fft(poisson, rho, Ex, Ey, Ez, 0);
 
   // Fill in the field array
@@ -249,9 +263,7 @@ void updateFieldUsingNextCharge(double* nextCharge, vect* field) {
   }
 
   // Reset nextCharge
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    nextCharge[idCell] = 0;
-  }
+  resetIntArray(nextCharge);
 }
 
 
@@ -259,7 +271,7 @@ void updateFieldUsingNextCharge(double* nextCharge, vect* field) {
 #include "random.h"                                       // macros    pic_vert_seed_double_RNG, pic_vert_free_RNG
 #include "initial_distributions.h"                        // types     speeds_generator_3d, distribution_function_3d, max_distribution_function
                                                           // variables speed_generators_3d, distribution_funs_3d, distribution_maxs_3d
-void init(bag* bagsCur, bag* bagsNext, double* nextCharge, vect* field) {
+void init() {
  /****************************
   * DO NOT CHANGE            *
   * COPY/PASTE FROM PIC-VERT *
@@ -387,7 +399,7 @@ void init(bag* bagsCur, bag* bagsNext, double* nextCharge, vect* field) {
       y_max = 2 * PI / kmode_y;
       z_max = 2 * PI / kmode_z;
   }
-    
+  
   cartesian_mesh_3d mesh = create_mesh_3d(ncx, ncy, ncz, x_min, x_max, y_min, y_max, z_min, z_max);
   poisson = new_poisson_3d_fft_solver(mesh);
  /*********************
@@ -425,8 +437,11 @@ void init(bag* bagsCur, bag* bagsNext, double* nextCharge, vect* field) {
   Ex = allocate_3d_array(gridX, gridY, gridZ);
   Ey = allocate_3d_array(gridX, gridY, gridZ);
   Ez = allocate_3d_array(gridX, gridY, gridZ);
-
-  fields = (vect*) malloc(nbCells * sizeof(vect));
+  nextCharge = (double*) malloc(nbCells * sizeof(double));
+  // Reset nextCharge
+  resetIntArray(nextCharge);
+  // Not initializes in this function, only allocated
+  field = (vect*) malloc(nbCells * sizeof(vect));
 
   // Later in optimizations: call an 'initialize' function in particle_chunk_alloc
 
@@ -438,24 +453,12 @@ void init(bag* bagsCur, bag* bagsNext, double* nextCharge, vect* field) {
     bag_init_initial(&bagsNext[idCell]);
   }
 
-  // TODO: fill bagsCur and NextCharge at time zero
-  // example push of one particle in cell zero
-  /*
-  double posX = 1.0, posY = 1.0, posZ = 1.0; // arbitrary values
-  double speedX = 1.0, speedY = 1.0, speedZ = 1.0; // arbitrary values
-  const vect pos = { posX, posY, posZ };
-  const vect speed = { speedX, speedY, speedZ };
-  const particle p0 = { pos, speed };
-  bag_push(&bagsCur[0], p0);
-  should also add charge in nextCharge
-  */
   int seed = 0;
   // If you want different random number at each run, type instead
   // seed = seed_64bits(0);
   pic_vert_seed_double_RNG(seed);
-  // Creation of random particles and sorting.
-  time_start = omp_get_wtime();
   
+  // Creation of random particles and put them into bags.
   { // COPY PASTE FROM PIC-VERT WITH AMENDMENTS
     double x, y, z, vx, vy, vz;
     double control_point, evaluated_function;
@@ -468,7 +471,7 @@ void init(bag* bagsCur, bag* bagsNext, double* nextCharge, vect* field) {
     const double z_range = mesh.z_max - mesh.z_min;
     
     // Create particles and push them into the bags.
-    for (int j = 0; j < nb_particle; j++) {
+    for (int idParticle = 0; idParticle < nb_particle; idParticle++) {
         do {
             // x, y, z are offsets from mesh x/y/z/min
             x = x_range * pic_vert_next_random_double();
@@ -533,26 +536,17 @@ void finalize(bag* bagsCur, bag* bagsNext, vect* field) {
 
 int main() {
 
-  // nextCharge[idCell] corresponds to the cell in the front-top-left corner of that cell
-  double* nextCharge = (double*) malloc(nbCells * sizeof(double));
+  init();
 
-  // Strength of the field that applies to each cell
-  // fields[idCell] corresponds to the field at the top-right corner of the cell idCell;
-  // The grid is treated with wrap-around
-  vect* field = (vect*) malloc(nbCells * sizeof(vect));
-
-  init(bagsCur, bagsNext, nextCharge, field);
+  // Instrumentation of the code
+  double time_start = omp_get_wtime();
 
   // Foreach time step
   for (int step = 0; step < nbSteps; step++) {
 
-    // Update the new field based on the total charge accumulated in each cell
+    // Update the new field based on the total charge accumulated in each cell,
+    // and reset nextCharge.
     updateFieldUsingNextCharge(nextCharge, field);
-
-    // reset the array of next charges
-    for (int idCell = 0; idCell < nbCells; idCell++) {
-      nextCharge[idCell] = 0.;
-    }
 
     // For each cell from the grid
     for (int idCell = 0; idCell < nbCells; idCell++) {
@@ -600,6 +594,8 @@ int main() {
     // Poisson solver and reset nextCharge
     updateFieldUsingNextCharge(nextCharge, field);
   }
+  double time_simu = (double) (omp_get_wtime() - time_start);
+  // TODO: printf
 
   finalize(bagsCur, bagsNext, field);
 }

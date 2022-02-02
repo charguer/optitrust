@@ -590,25 +590,27 @@ int main(int argc, char** argv) {
 
     time_start = omp_get_wtime();
     for (i_time = 0; i_time < num_iteration; i_time++) {
-        // Diagnostics energy
-        t = i_time * delta_t;
-        exval_ee = landau_mult_cstt * exp(2. * omega_imag * t) *
-               (0.5 + 0.5 * cos(2. * (omega_real * t - psi)));
-        switch(sim_distrib) {
-            case LANDAU_1D_PROJ3D:
-                val_ee = integral_of_squared_field_3d(mesh, Ex);
-                break;
-            case LANDAU_2D_PROJ3D:
-                val_ee = integral_of_squared_field_3d(mesh, Ex) + integral_of_squared_field_3d(mesh, Ey);
-                break;
-            default:
-                val_ee = integral_of_squared_field_3d(mesh, Ex) + integral_of_squared_field_3d(mesh, Ey) + integral_of_squared_field_3d(mesh, Ez);
+        if (0) { // DISABLED TO TEST AGAINST VERIFIED_TRANSFO
+            // Diagnostics energy
+            t = i_time * delta_t;
+            exval_ee = landau_mult_cstt * exp(2. * omega_imag * t) *
+                   (0.5 + 0.5 * cos(2. * (omega_real * t - psi)));
+            switch(sim_distrib) {
+                case LANDAU_1D_PROJ3D:
+                    val_ee = integral_of_squared_field_3d(mesh, Ex);
+                    break;
+                case LANDAU_2D_PROJ3D:
+                    val_ee = integral_of_squared_field_3d(mesh, Ex) + integral_of_squared_field_3d(mesh, Ey);
+                    break;
+                default:
+                    val_ee = integral_of_squared_field_3d(mesh, Ex) + integral_of_squared_field_3d(mesh, Ey) + integral_of_squared_field_3d(mesh, Ez);
+            }
+            diag_energy[i_time][0] = t;                   // time
+            diag_energy[i_time][1] = 0.5 * log(val_ee);   // log(Integral of squared E_field), simulated
+            diag_energy[i_time][2] = 0.5 * log(exval_ee); // log(Integral of squared E_field), theoretical
+            diag_energy[i_time][3] = val_ee;              // Integral of squared E_field, simulated
+            diag_energy[i_time][4] = exval_ee;            // Integral of squared E_field, theoretical
         }
-        diag_energy[i_time][0] = t;                   // time
-        diag_energy[i_time][1] = 0.5 * log(val_ee);   // log(Integral of squared E_field), simulated
-        diag_energy[i_time][2] = 0.5 * log(exval_ee); // log(Integral of squared E_field), theoretical
-        diag_energy[i_time][3] = val_ee;              // Integral of squared E_field, simulated
-        diag_energy[i_time][4] = exval_ee;            // Integral of squared E_field, theoretical
 
         time_mark1 = omp_get_wtime();
 
@@ -784,11 +786,14 @@ int main(int argc, char** argv) {
 #ifdef PAPI_LIB_INSTALLED
     stop_diag_papi(file_diag_papi, papi_num_events, values);
 #endif
-    diag_energy_and_speed_chunkbags(mpi_rank,
-        "diag_lee_8corners.txt",   num_iteration, diag_energy_size, diag_energy,
-        "diag_speed_8corners.txt", num_iteration, diag_speed_size,  diag_speed);
-    print_time_chunkbags(mpi_rank, mpi_world_size, nb_particles, num_iteration, time_simu, simulation_name, data_structure_name, sort_name,
-        time_particle_loop, time_append, time_mpi_allreduce, time_poisson);
+    if (0) { // DISABLED TO TEST AGAINST VERIFIED_TRANSFO
+        diag_energy_and_speed_chunkbags(mpi_rank,
+            "diag_lee_8corners.txt",   num_iteration, diag_energy_size, diag_energy,
+            "diag_speed_8corners.txt", num_iteration, diag_speed_size,  diag_speed);
+        print_time_chunkbags(mpi_rank, mpi_world_size, nb_particles, num_iteration, time_simu, simulation_name, data_structure_name, sort_name,
+            time_particle_loop, time_append, time_mpi_allreduce, time_poisson);
+    }
+    // TODO: printf
 
     free(params);
     free(speed_params);
