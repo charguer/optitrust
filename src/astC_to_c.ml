@@ -220,6 +220,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) (t : trm) : document =
        let dl = List.map (decorate_trm ~semicolon) tl in
        dattr ^^ braces (separate (comma ^^ blank 1) dl)
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
+    | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl
     | Trm_let_fun (f, r, tvl, b) -> dattr ^^ trm_let_fun_to_doc ~semicolon f r tvl b
     | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
     | Trm_if (b, then_, else_) ->
@@ -392,6 +393,18 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
   | _ -> equals ^^ blank 1 ^^ decorate_trm init ^^ dsemi
   end in
     dtx ^^ blank 1 ^^ dinit
+
+
+and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (tl : trm list) : document = 
+  let dsemi = if semicolon then semi else empty in 
+  let dtx = typ_to_doc ty in
+  let dtl = List.map2 (fun v t1 -> 
+    if is_trm_uninitialized t1 
+      then string v 
+      else string v ^^ equals ^^ trm_to_doc t1 
+  ) vl tl in 
+  dtx  ^^ blank 1 ^^ Tools.list_to_doc ~sep:comma dtl ~bounds:[empty; empty] ^^ dsemi
+
 
 and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in

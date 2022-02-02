@@ -263,6 +263,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let dl = List.map (decorate_trm ~semicolon) tl in
         dattr ^^ braces (separate (comma ^^ blank 1) dl)
      | Trm_let (vk,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon vk tx t
+     | Trm_let_mult _ -> fail t.loc "this should never happen"
      | Trm_let_fun (f, r, tvl, b) -> dattr ^^ trm_let_fun_to_doc ~semicolon f r tvl b
      | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
      | Trm_if (b, then_, else_) ->

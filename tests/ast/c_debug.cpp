@@ -38,10 +38,14 @@ int f(int* t, int** u, vect w) {
 
 */
 int main() {
-  int x;
-  int y;
-  for(x = 0; x < 10; x++){
-    y += 5;
-  }
-  
+  int x, y = 1;
+  // tofuse: {
+  //   for (int i = 0; (i < 5); i++) {
+  //     x += i;
+  //   }
+  //   for (int i = 0; (i < 5); i++) {
+  //     y += i;
+  //   }
+  // }
 }
+  

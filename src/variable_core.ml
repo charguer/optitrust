@@ -16,6 +16,7 @@ open Target
     return:
       updated ast of the block which contained the variable declaration [t]
 *)
+
 let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
@@ -29,15 +30,10 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
         in
         let def_x =
             begin match vk with
-            | Var_immutable ->
-              if as_reference (* TODO: Remove Reference annotation *)
-                then {dx with add = List.filter (fun x -> x <> Address_operator) dx.add}
-                else dx
+            | Var_immutable -> dx
+              
             | _ -> begin match dx.desc with
-                   | Trm_apps(_, [init]) ->
-                    if as_reference
-                      then {init with add = List.filter (fun x -> x <> Address_operator) init.add}
-                      else init
+                   | Trm_apps(_, [init]) -> init
                    | _ -> dx
                    end
             end in

@@ -374,6 +374,7 @@ and trm_desc =
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_struct of trm mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
+  | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c; *)
   | Trm_let_fun of var * typ * (typed_vars) * trm
   | Trm_let_record of string * record_type * (label * typ) list * trm
   (* LATER: trm_fun  for anonymous functions *)
@@ -811,6 +812,11 @@ let trm_struct ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
 let trm_let ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind) (typed_var : typed_var) (init : trm): trm =
   {annot; marks; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; add;
+   typ = Some (typ_unit ()); attributes; ctx}
+
+let trm_let_mult ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind) (ty : typ) (vl : var list) (tl : trms) : trm =
+  {annot; marks; desc = Trm_let_mult (kind, ty, vl, tl); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_let_fun ?(annot = []) ?(loc = None) ?(is_statement : bool = false)

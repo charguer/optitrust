@@ -289,7 +289,16 @@ and tr_stmt (s : stmt) : trm =
     begin match dl with
       | [] -> fail loc "tr_stmt: empty declaration list"
       | [d] -> tr_decl d
-      | _ -> trm_seq_nomarks ~annot:[Multi_decl] ~loc ~ctx (tr_decl_list dl)
+      | _ -> 
+       let dls = tr_decl_list dl in 
+       let var_list, ty, init_list = List.fold_left (fun (acc1, _, acc2) t1 -> 
+        begin match t1.desc with 
+        | Trm_let (_, (x, ty), init) -> 
+          (x :: acc1, ty, init :: acc2)
+        | _ -> fail loc "tr_stmr: expected a multip declaration statemnt" 
+        end
+       )([],typ_unit(), []) dls in 
+       trm_let_mult ~loc ~ctx Var_mutable ty (List.rev var_list) (List.rev init_list)
     end
   | Expr e -> tr_expr ~is_statement:true e
   | Label {label = l; body = s} ->

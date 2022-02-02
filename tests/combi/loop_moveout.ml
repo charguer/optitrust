@@ -1,8 +1,6 @@
 open Optitrust
 open Target
 
-(* TODO:  int t = &r + (&s); displays incorrectly *)
-
 let _ = Run.doc_script_cpp (fun _ ->
     !! Loop.move_out [cVarDef "s"];
   )
