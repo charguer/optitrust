@@ -82,7 +82,7 @@ let view_subterms ?(constr:Constr.constr option) ?(rexp : Constr.rexp option) (t
     | Some _, Some _ -> fail None "view_subterms: cannot provide both [~constr] and [rexp]"
     in
   (* LATER: it is probably possible to not save the modified term into the trace *)
-  Trace.apply (fun t -> CRawAst_to_ast.annotate_string_representation (fun _ -> true) t);
+  Trace.apply (fun t -> Ast_fromto_AstC.annotate_string_representation (fun _ -> true) t);
   Target.apply_on_targets (Instr_core.view_subterms ro) tg
 
 

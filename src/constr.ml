@@ -560,9 +560,6 @@ let is_target_between (tr : target) : bool =
 let add_dir (d : dir) (dll : paths) : paths =
   List.map (fun dl -> d :: dl) dll
 
-
-
-
 (* compare literals *)
 let is_equal_lit (l : lit) (l' : lit) =
   match l, l' with
@@ -621,9 +618,8 @@ let match_regexp_trm (r : rexp) (t : trm) : bool =
   if r.rexp_trm_kind <> get_trm_kind t then false else begin
     let str_t =
       if !Flags.use_new_encodings
-        (* TODO: rename Ast_to_rawC  into AstC_to_c, and
-                 rename CRawAst_to_ast to Ast_fromto_AstC *)
-        then Ast_to_rawC.ast_to_string (CRawAst_to_ast.cfeatures_intro t)
+        
+        then AstC_to_c.ast_to_string (Ast_fromto_AstC.cfeatures_intro t)
         else Ast_to_c.ast_to_string t
       in
     match_regexp_str r str_t

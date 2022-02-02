@@ -148,8 +148,8 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
           | Parsers.All ->
              let rawAstClang = parse_clang() in
              let rawAtMenhir = parse_menhir() in
-             let strAstClang = Ast_to_rawC.ast_to_string rawAstClang in
-             let strAstMenhir = Ast_to_rawC.ast_to_string rawAtMenhir in
+             let strAstClang = AstC_to_c.ast_to_string rawAstClang in
+             let strAstMenhir = AstC_to_c.ast_to_string rawAtMenhir in
              if strAstClang <> strAstMenhir then begin
                (* LATER: we could add a prefix based on the filename, but this is only for debug *)
                Xfile.put_contents "ast_clang.cpp" strAstClang;
@@ -161,7 +161,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
             in
           if !Flags.bypass_cfeatures
             then rawAst
-            else CRawAst_to_ast.cfeatures_elim rawAst
+            else Ast_fromto_AstC.cfeatures_elim rawAst
       end else
         Clang_to_ast.translate_ast (Clang.Ast.parse_file ~command_line_args filename)
     )
@@ -480,7 +480,7 @@ let step () : unit =
    it raises an error. *)
 let check_recover_original () : unit =
   let check_same ast1 ast2 =
-    if Ast_to_rawC.ast_to_string ast1 <> Ast_to_rawC.ast_to_string ast2
+    if AstC_to_c.ast_to_string ast1 <> AstC_to_c.ast_to_string ast2
       then fail None "check_recover_original: the current AST is not identical to the original one."
       else () (* FOR DEBUG: Printf.printf "check_recover_original: successful" *)
     in
@@ -543,8 +543,8 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     output_string out_prog ctx.includes;
     if use_new_encodings then begin
       if !Flags.bypass_cfeatures
-        then Ast_to_rawC.ast_to_outchannel ~optitrust_syntax:true out_prog ast
-        else Ast_to_rawC.ast_to_outchannel out_prog (CRawAst_to_ast.cfeatures_intro ast)
+        then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
+        else AstC_to_c.ast_to_outchannel out_prog (Ast_fromto_AstC.cfeatures_intro ast)
     end else
       Ast_to_c.ast_to_outchannel out_prog ast;
     output_string out_prog "\n";
@@ -572,7 +572,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
       (* print the non-decoded ast *)
       output_string out_enc ctx.includes;
       if use_new_encodings then ()
-        (* then Ast_to_rawC.ast_to_outchannel out_prog ast *)
+        (* then AstC_to_c.ast_to_outchannel out_prog ast *)
         else Ast_to_c.ast_to_undecoded_doc out_enc ast;
       output_string out_enc "\n";
       close_out out_enc;

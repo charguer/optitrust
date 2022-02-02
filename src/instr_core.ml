@@ -162,7 +162,7 @@ let view_subterms_aux (ro : Constr.rexp option) (t : trm) : trm =
       in
     let styp =
       match t.typ with
-      | Some ty -> Ast_to_rawC.typ_to_string ty
+      | Some ty -> AstC_to_c.typ_to_string ty
       | None -> "<notyp>"
       in
     let styp_trimmed =

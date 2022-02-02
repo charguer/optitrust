@@ -439,7 +439,7 @@ and tr_expr ?(is_statement : bool = false)
             trm_apps ~loc ~typ ~ctx (trm_var ~loc "sizeof") [t]
           | ArgumentType q ->
             let ty = tr_qual_type q in
-            trm_var ~loc ~typ ~ctx ("sizeof(" ^ Ast_to_rawC.typ_to_string ty ^ ")")
+            trm_var ~loc ~typ ~ctx ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")")
         end
       | _ -> fail loc "tr_expr: unsupported unary expr"
     end

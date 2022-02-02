@@ -9,8 +9,8 @@ let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
   let success = Ast_to_text.ast_to_string t1 = Ast_to_text.ast_to_string t2 in
   Printf.printf "Checking %s: %s\n" test_name (if success then "succcess" else Printf.sprintf "failure (see %s_ast_{1,2}.{ast,cpp})" test_name);
   if not success then begin
-      Ast_to_rawC.ast_to_file (test_name ^ "_ast_1.cpp") t1;
-      Ast_to_rawC.ast_to_file (test_name ^ "_ast_2.cpp") t2;
+      AstC_to_c.ast_to_file (test_name ^ "_ast_1.cpp") t1;
+      AstC_to_c.ast_to_file (test_name ^ "_ast_2.cpp") t2;
       Ast_to_text.ast_to_file (test_name ^ "_ast_1.ast") t1;
       Ast_to_text.ast_to_file (test_name ^ "_ast_2.ast") t2;
   end

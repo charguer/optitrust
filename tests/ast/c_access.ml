@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 open Ast
-open CRawAst_to_ast
+open Ast_fromto_AstC
 
 (* Note: [address_elim] is not meant work in the presence of stack variables;
    thus [stackvar_elim] must be called first. *)

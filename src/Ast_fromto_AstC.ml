@@ -257,7 +257,7 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
         else mk (Trm_apps (op, [aux t1]))*)
       aux t1
     | Trm_var (_, x) -> fail t.loc (Printf.sprintf "caddress_elim: const variable '%s' cannot appear as lvalue (mutation of function arguments is not supported in OptiTrust)" x)
-    | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (Ast_to_rawC.ast_to_string t) (Ast_to_text.ast_to_string t))
+    | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (AstC_to_c.ast_to_string t) (Ast_to_text.ast_to_string t))
   end else begin
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op _));_}, _) ->
@@ -413,7 +413,7 @@ let rec annotate_string_representation_aux (f : trm -> bool) (lvalue : bool) (t 
     if not (f t) then t else begin
       let strm =
         if !Flags.use_new_encodings
-          then Ast_to_rawC.ast_to_string (cfeatures_intro_aux lvalue t)
+          then AstC_to_c.ast_to_string (cfeatures_intro_aux lvalue t)
           else Ast_to_c.ast_to_string t
           in
       let strm = if lvalue then "LVALUE " ^ strm else strm in

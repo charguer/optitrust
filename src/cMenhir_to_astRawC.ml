@@ -213,10 +213,10 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
   | EConst c -> tr_constant ~loc c
   | ESizeof ty ->
     let ty = tr_type ty in
-    trm_var ~loc ("sizeof(" ^ Ast_to_rawC.typ_to_string ty ^ ")")
+    trm_var ~loc ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")")
   | EAlignof ty ->
      let ty = tr_type ty in
-     trm_var ~loc ~typ ("_Alignas(" ^ Ast_to_rawC.typ_to_string ty ^ ")")
+     trm_var ~loc ~typ ("_Alignas(" ^ AstC_to_c.typ_to_string ty ^ ")")
   | EVar {name = n; _} -> trm_var ~loc ~ctx ~typ n
   | EUnop (unop, e) ->
     let t = tr_expr e in

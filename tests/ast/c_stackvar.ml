@@ -1,8 +1,8 @@
 open Optitrust
 open Target
 open Ast
-open Ast_to_rawC
-open CRawAst_to_ast
+open AstC_to_c
+open Ast_fromto_AstC
 
 let _ =
   Flags.dump_ast_details := true;
