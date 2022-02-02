@@ -529,7 +529,6 @@ void init(int argc, char** argv) {
     }
   }
   TRACE("Init end\n");
-    exit(0);
 }
 
 void finalize(bag* bagsCur, bag* bagsNext, vect* field) {
