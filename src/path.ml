@@ -312,10 +312,10 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
            *)
           { t with desc = Trm_apps (aux f, tl)}
        | Dir_arg_nth n, Trm_apps (f, tl) ->
-          { t with desc = Trm_apps (f, Tools.map_at aux tl n)}
+          { t with desc = Trm_apps (f, Tools.update_nth n aux tl)}
        | Dir_arg_nth n, Trm_let_fun (x, tx, txl, body) ->
           let txl' =
-            Tools.map_at
+            Tools.update_nth n
               (fun (x, tx) ->
                 let t' = aux (trm_var ~loc:t.loc x) in
                 match t'.desc with
@@ -325,7 +325,6 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
                                "must preserve fun arguments")
               )
               txl
-              n
           in
           {t with desc = Trm_let_fun (x, tx, txl', body)}
         | Dir_name , Trm_let (vk,(x,tx),body) ->
@@ -353,15 +352,14 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
 
        | Dir_case (n, cd), Trm_switch (cond, cases) ->
           let updated_cases =
-            (Tools.map_at
+            (Tools.update_nth n
                (fun (tl, body) ->
                  match cd with
                  | Case_body -> (tl, aux body)
                  | Case_name i ->
-                    (Tools.map_at (fun ith_t -> aux ith_t) tl i, body)
+                    (Tools.update_nth i (fun ith_t -> aux ith_t) tl , body)
                )
                cases
-               n
             ) in {t with desc = Trm_switch (cond, updated_cases)}
         | _, _ ->
            let s = dir_to_string d in

@@ -2347,8 +2347,13 @@ module AstParser = struct
 
   let atyp ty = typ_str (Atyp ty)
 
+  let subst_dollar_number (inst : string list) (s : string) : string =
+  Tools.fold_lefti (fun i acc insti ->
+    Tools.string_subst ("${"^(string_of_int i) ^ "}") insti acc
+  ) s inst
+
   let expr ?(vars : var list = []) (e : string)  =
-    let e = if vars = [] then e else Tools.subst_dollar_number vars e in
+    let e = if vars = [] then e else subst_dollar_number vars e in
     code (Expr e)
 
   let atypexpr tye = typ_str (Atypexpr tye)

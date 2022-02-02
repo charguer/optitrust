@@ -7,12 +7,12 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   match t with
   | Typ_const t ->
     let dt = print_typ ~only_desc t in
-    node "Typ_const" ^^ dt
+    print_node "Typ_const" ^^ dt
   | Typ_var (x, tid) ->
-    node "Typ_var" ^^ parens ( separate (comma ^^ break 1) [string x; string (string_of_int tid)])
+    print_node "Typ_var" ^^ parens ( separate (comma ^^ break 1) [string x; string (string_of_int tid)])
   | Typ_constr (tv, tid, tl) ->
     let tl = List.map (print_typ ~only_desc) tl in
-    node "Typ_constr" ^^ parens ( separate (comma ^^ break 1) [string tv; string (string_of_int tid); print_list tl])
+    print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1) [string tv; string (string_of_int tid); print_list tl])
   | Typ_auto -> string "Typ_auto"
   | Typ_unit -> string "Typ_unit"
   | Typ_int -> string "Typ_int"
@@ -28,7 +28,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
                end
       in
      let dt = print_typ ~only_desc ty in
-     node "Typ_ptr" ^^ parens (dpk) ^^dt
+     print_node "Typ_ptr" ^^ parens (dpk) ^^dt
   | Typ_array (t, s) ->
      let dt = print_typ ~only_desc t in
      let ds =
@@ -38,17 +38,17 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
        | Trm t' -> print_trm ~only_desc t'
        end
      in
-     node "Typ_array" ^^ print_pair dt ds
+     print_node "Typ_array" ^^ print_pair dt ds
   | Typ_fun (tl, t) ->
      let dtl = List.map (print_typ ~only_desc) tl in
      let dt = print_typ ~only_desc t in
-     node "Typ_fun" ^^ parens (print_list dtl ^^ comma ^/^ dt)
+     print_node "Typ_fun" ^^ parens (print_list dtl ^^ comma ^/^ dt)
   | Typ_record (rt, name) ->
     let dt = print_typ ~only_desc name in
     let drt = print_record_type rt in
-    node "Typ_record" ^^ parens (drt ^^ comma ^^ blank 1 ^^ dt)
+    print_node "Typ_record" ^^ parens (drt ^^ comma ^^ blank 1 ^^ dt)
   | Typ_template_param name ->
-    node "Typ_template_param" ^^ parens (string name)
+    print_node "Typ_template_param" ^^ parens (string name)
   | Typ_arbitrary s -> string (code_to_str s)
 
 and print_typ_annot (a : typ_annot) : document =
@@ -85,11 +85,11 @@ and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
   | Unop_post_dec -> string "Unop_post_dec"
   | Unop_pre_inc -> string "Unop_pre_inc"
   | Unop_pre_dec -> string "Unop_pre_dec"
-  | Unop_struct_access f -> node "Unop_struct_access" ^^ string f
-  | Unop_struct_get f -> node "Unop_struct_get" ^^ string f
+  | Unop_struct_access f -> print_node "Unop_struct_access" ^^ string f
+  | Unop_struct_get f -> print_node "Unop_struct_get" ^^ string f
   | Unop_cast t ->
      let dt = print_typ ~only_desc t in
-     node "Unop_cast" ^^ dt
+     print_node "Unop_cast" ^^ dt
 
 and print_binop (op : binary_op) : document =
   match op with
@@ -125,42 +125,42 @@ and print_prim ?(only_desc : bool = false) (p : prim) : document =
   match p with
   | Prim_unop op ->
      let dop = print_unop ~only_desc op in
-     node "Prim_unop" ^^ dop
+     print_node "Prim_unop" ^^ dop
   | Prim_binop op ->
      let dop = print_binop op in
-     node "Prim_binop" ^^ dop
+     print_node "Prim_binop" ^^ dop
   | Prim_compound_assgn_op op ->
     let dop = print_binop op in
-    node "Prim_compound_assgn_op" ^^ dop
+    print_node "Prim_compound_assgn_op" ^^ dop
   | Prim_overloaded_op p ->
     let dp = print_prim p in
-    node "Prim_overloaded_op" ^^ dp
+    print_node "Prim_overloaded_op" ^^ dp
   | Prim_new t ->
      let dt = print_typ ~only_desc t in
-     node "Prim_new" ^^ dt
-  | Prim_conditional_op -> node "Prim_conditional_op"
+     print_node "Prim_new" ^^ dt
+  | Prim_conditional_op -> print_node "Prim_conditional_op"
 
 and print_lit (l : lit) : document =
   match l with
   | Lit_unit -> string "Lit_unit"
   | Lit_uninitialized -> string "Lit_uninitialized"
-  | Lit_bool b -> node "Lit_bool" ^^ string (string_of_bool b)
-  | Lit_int n -> node "Lit_int" ^^ string (string_of_int n)
-  | Lit_double f -> node "Lit_double" ^^ string (string_of_float f)
+  | Lit_bool b -> print_node "Lit_bool" ^^ string (string_of_bool b)
+  | Lit_int n -> print_node "Lit_int" ^^ string (string_of_int n)
+  | Lit_double f -> print_node "Lit_double" ^^ string (string_of_float f)
   | Lit_string s ->
-     node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
+     print_node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
 
 and print_val ?(only_desc : bool = false) (v : value) : document =
   match v with
   | Val_lit l ->
      let dl = print_lit l in
-     node "Val_lit" ^^ parens dl
+     print_node "Val_lit" ^^ parens dl
   | Val_ptr l ->
      if l = 0 then string "NULL"
      else fail None "print_val: pointers not implemented"
   | Val_prim p ->
      let dp = print_prim ~only_desc p in
-     node "Val_prim" ^^ parens dp
+     print_node "Val_prim" ^^ parens dp
 
 and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
   match a with
@@ -174,15 +174,15 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   match t with
   | Trm_val v ->
      let dv = print_val ~only_desc v in
-     node "Trm_val" ^^ parens dv
+     print_node "Trm_val" ^^ parens dv
   | Trm_var (_, x) -> string "Trm_var" ^^ blank 1 ^^ string x
   | Trm_array tl ->
      let tl = Mlist.to_list tl in
      let dtl = List.map (print_trm ~only_desc) tl in
-     node "Trm_array" ^^ print_list dtl
+     print_node "Trm_array" ^^ print_list dtl
   | Trm_struct tl ->
      let dtl = List.map (print_trm ~only_desc) (Mlist.to_list tl) in
-     node "Trm_struct" ^^ print_list dtl
+     print_node "Trm_struct" ^^ print_list dtl
   | Trm_let (vk,(x,tx),t) ->
     let dvk = match vk with
     | Var_immutable -> string "Var_immutable"
@@ -191,7 +191,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     in
     let dtx = print_typ ~only_desc tx in
     let dt = print_trm ~only_desc t in
-    node "Trm_let" ^^
+    print_node "Trm_let" ^^
       parens (separate (comma ^^ break 1) [dvk;string x;dtx;dt])
 
   | Trm_let_fun (f, r, tvl, b) ->
@@ -200,7 +200,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
           let dtx = print_typ ~only_desc tx in
           print_pair (string x) dtx) tvl in
     let dt = print_trm ~only_desc b in
-    node "Trm_let_fun" ^^
+    print_node "Trm_let_fun" ^^
       parens (separate (comma ^^ break 1)
         [string f; dout; print_list dtvl; dt])
   | Trm_typedef td -> print_typedef ~only_desc td
@@ -208,29 +208,29 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let dc = print_trm ~only_desc c in
      let dt = print_trm ~only_desc t in
      let de = print_trm ~only_desc e in
-     node "Trm_if" ^^ parens (separate (comma ^^ break 1) [dc; dt; de])
+     print_node "Trm_if" ^^ parens (separate (comma ^^ break 1) [dc; dt; de])
   | Trm_seq tl ->
      let dtl = List.map (print_trm ~only_desc) (Mlist.to_list tl) in
-     node "Trm_seq" ^^ print_list dtl
+     print_node "Trm_seq" ^^ print_list dtl
   | Trm_apps (f, tl) ->
      let df = print_trm ~only_desc f in
      let dtl = List.map (print_trm ~only_desc) tl in
-     node "Trm_apps" ^^ parens (df ^^ comma ^/^ print_list dtl)
+     print_node "Trm_apps" ^^ parens (df ^^ comma ^/^ print_list dtl)
   | Trm_while (c, b) ->
      let dc = print_trm ~only_desc c in
      let db = print_trm ~only_desc b in
-     node "Trm_while" ^^ parens (dc ^^ comma ^/^ db)
+     print_node "Trm_while" ^^ parens (dc ^^ comma ^/^ db)
   | Trm_do_while (b, c) ->
      let db = print_trm ~only_desc b in
      let dc = print_trm ~only_desc c in
-     node "Trm_do_while" ^^ parens (db ^^ comma ^/^ dc)
+     print_node "Trm_do_while" ^^ parens (db ^^ comma ^/^ dc)
 
   | Trm_for_c (init, cond, step, body) ->
      let dinit = print_trm ~only_desc init in
      let dcond = print_trm ~only_desc cond in
      let dstep = print_trm ~only_desc step in
      let dbody = print_trm ~only_desc body in
-     node "Trm_for" ^^ parens (separate (comma ^^ break 1)
+     print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
   | Trm_for (index, start, direction, stop, step, body) ->
     let dstart = print_trm ~only_desc start in
@@ -249,7 +249,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     | Step st -> string "Step " ^^ parens (print_trm ~only_desc st)
     in
     let dbody = print_trm ~only_desc body in
-    node "Trm_for" ^^ parens (separate (comma ^^ break 1)
+    print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
       [string index; dstart; ddir; dstop; dstep; dbody])
   | Trm_switch (cond, cases) ->
      let dcond = print_trm ~only_desc cond in
@@ -262,16 +262,16 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
          )
          cases
      in
-     node "Trm_switch" ^^ print_pair dcond (print_list dcases)
+     print_node "Trm_switch" ^^ print_pair dcond (print_list dcases)
   | Trm_abort a ->
      let da =
        begin match a with
        | Ret t_o ->
           begin match t_o with
-          | None -> node "Ret" ^^ underscore
+          | None -> print_node "Ret" ^^ underscore
           | Some t ->
              let dt = print_trm ~only_desc t in
-             node "Ret" ^^ dt
+             print_node "Ret" ^^ dt
           end
        | Break lb_opt ->
           begin match lb_opt with
@@ -284,25 +284,25 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
           | None -> string "Continue"
           end
        end in
-     node "Trm_abort" ^^ parens da
+     print_node "Trm_abort" ^^ parens da
   | Trm_labelled (l, t) ->
      let dt = print_trm ~only_desc t in
-     node "Trm_labelled" ^^ parens (string l ^^ comma ^/^ dt)
+     print_node "Trm_labelled" ^^ parens (string l ^^ comma ^/^ dt)
   | Trm_goto l ->
-     node "Trm_goto" ^^ string l
+     print_node "Trm_goto" ^^ string l
   | Trm_arbitrary s ->
     let code_str = code_to_str s in
-    node "Trm_arbitrary" ^^ parens (string code_str)
+    print_node "Trm_arbitrary" ^^ parens (string code_str)
   | Trm_omp_directive directive ->
-    node "Trm_omp_directive" ^^ parens (print_directive directive)
+    print_node "Trm_omp_directive" ^^ parens (print_directive directive)
   | Trm_omp_routine routine->
-    node "Trm_omp_routine" ^^ parens (print_routine routine)
+    print_node "Trm_omp_routine" ^^ parens (print_routine routine)
   | Trm_extern (lang, decls) ->
     let dtl = List.map (print_trm ~only_desc) decls in
-    node "Trm_extern" ^^ parens (string lang ^^ comma ^^ print_list dtl)
+    print_node "Trm_extern" ^^ parens (string lang ^^ comma ^^ print_list dtl)
   | Trm_namespace (name, dcls, inline) ->
     let dt = print_trm ~only_desc dcls in
-    node "Trm_namespace" ^^ parens (separate (comma ^^ break 1)
+    print_node "Trm_namespace" ^^ parens (separate (comma ^^ break 1)
       [string name; string (string_of_bool inline); dt])
   | Trm_let_record (name, rt, s, t1) ->
     let get_document_list s =
@@ -316,7 +316,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dt = print_trm ~only_desc t1 in
     let dtl = get_document_list s in
     let drt = print_record_type rt in
-    node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
+    print_node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
       [string name; drt; print_list dtl; dt])
   (*
    DEPRECATED
@@ -324,7 +324,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dt = print_trm ~only_desc t1 in
     let dtl = List.map (print_trm ~only_desc) tl in
     let drt = print_record_type rt in
-    node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
+    print_node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
       [string name; drt; print_list dtl; dt]) *)
   | Trm_template _ -> string ""
 
@@ -343,7 +343,7 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
   match tbody with
   | Typdef_alias t ->
     let dt = print_typ ~only_desc t in
-    node "Typedef_alias" ^^ parens ( separate (comma ^^ break 1)
+    print_node "Typedef_alias" ^^ parens ( separate (comma ^^ break 1)
      [string tname; string (string_of_int tid); dt ])
   | Typdef_prod (_, s) ->
     let get_document_list s =
@@ -355,7 +355,7 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
       aux [] s
      in
     let dtl = get_document_list s in
-    node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
+    print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
      [string tname; string (string_of_int tid); print_list dtl ])
   | Typdef_sum _ ->
     fail None "print_typedef: sum types are not supported in C/C++"
@@ -371,7 +371,7 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
             enum_const_l
          )
      in
-     node "Typedef_enum" ^^ print_pair (string tname) denum_const_l
+     print_node "Typedef_enum" ^^ print_pair (string tname) denum_const_l
 
 and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let ddesc = print_trm_desc ~only_desc t.desc in

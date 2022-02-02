@@ -2,6 +2,10 @@ open Optitrust
 open Target
 open Ast 
 
+
+let add_prefix (prefix : string) (indices : string list) : string list = 
+  List.map (fun x -> prefix ^ x) indices
+
 let _ = Run.script_cpp (fun () ->
   
   (* PART: Inlining of arithmetic operations *)
@@ -21,7 +25,7 @@ let _ = Run.script_cpp (fun () ->
   (*!! colorize "2" "2" "x";*)
   let dims = ["x";"y";"z"] in
   !! List.iter (colorize "2" "2") dims;
-  !! Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cx"];
+  !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims) [cFor "cx"];
   
   (* Introduction of the computation *)
   !! Variable.insert ~name:"d" ~typ:"int" ~value:"blockSize/2" [tAfter;cVarDef "blockSize"];

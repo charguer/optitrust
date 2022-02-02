@@ -46,10 +46,10 @@ let for_all2 p ml1 ml2 =
   List.for_all2 p (to_list ml1) (to_list ml2)
 
 let replace_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
-  { ml with items = Tools.map_at (fun _ -> x) ml.items index  }
+  { ml with items = Tools.update_nth index (fun _ -> x) ml.items }
 
 let insert_mark_at (index : int) (m : mark) (ml : 'a t) : 'a t =
-  { ml with marks = Tools.map_at (fun ms -> m :: ms) ml.marks index}
+  { ml with marks = Tools.update_nth index (fun ms -> m :: ms) ml.marks}
 
 let remove_mark (m : mark) (ml : 'a t) : 'a t =
   let new_marks = List.map (fun ms -> List.filter (fun x -> x <> m) ms) ml.marks in
@@ -94,7 +94,7 @@ let rev (ml : 'a t) : 'a t =
     marks = List.rev ml.marks }
 
 let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =
-  { ml with items = Tools.map_at transfo ml.items n }
+  { ml with items = Tools.update_nth n transfo ml.items }
 
 let marks_to_string (ml : 'a t) : string =
   "[" ^ List.fold_left (fun acc x -> (Tools.list_to_string x) ^ acc ) "" (List.rev ml.marks) ^ "]"

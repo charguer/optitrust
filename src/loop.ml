@@ -122,13 +122,13 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
     let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in
     if List.mem targeted_loop_index loop_to_move_nested_indices
       then begin
-           let choped_indices = Tools.chop_list_after targeted_loop_index loop_to_move_nested_indices in
+           let choped_indices = Tools.list_chop_after targeted_loop_index loop_to_move_nested_indices in
            List.iter (fun _ -> Loop_basic.swap loop_to_move) choped_indices
            end
       else if List.mem loop_to_move_index targeted_loop_nested_indices then
         begin
-        let choped_indices = Tools.chop_list_after loop_to_move_index targeted_loop_nested_indices in
-        let choped_indices = Tools.chop_list_after targeted_loop_index (List.rev choped_indices) in
+        let choped_indices = Tools.list_chop_after loop_to_move_index targeted_loop_nested_indices in
+        let choped_indices = Tools.list_chop_after targeted_loop_index (List.rev choped_indices) in
         List.iter (fun x -> Loop_basic.swap [Target.cFor x]) choped_indices
         end
       else fail loop_to_move_trm.loc "move: the given targets are not correct"
@@ -140,13 +140,13 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
     let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in
     if List.mem targeted_loop_index loop_to_move_nested_indices
       then begin
-           let choped_indices = Tools.chop_list_after targeted_loop_index loop_to_move_nested_indices in
-           let choped_indices = Tools.chop_list_after loop_to_move_index (List.rev choped_indices) in
+           let choped_indices = Tools.list_chop_after targeted_loop_index loop_to_move_nested_indices in
+           let choped_indices = Tools.list_chop_after loop_to_move_index (List.rev choped_indices) in
            List.iter (fun _ -> Loop_basic.swap loop_to_move) (List.rev choped_indices)
            end
       else if List.mem loop_to_move_index targeted_loop_nested_indices then
         begin
-        let choped_indices = Tools.chop_list_after loop_to_move_index targeted_loop_nested_indices in
+        let choped_indices = Tools.list_chop_after loop_to_move_index targeted_loop_nested_indices in
         List.iter (fun x -> Loop_basic.swap [Target.cFor x]) (List.rev choped_indices)
         end
       else fail loop_to_move_trm.loc "move: the given targets are not correct"
@@ -350,8 +350,11 @@ let reorder ?(order : vars = []) (tg : Target.target) : unit =
         The target should be a nested loop
 *)
 let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : Target.target) : unit =
-  let bs = Tools.add_prefix "b" ds in
-  let cs = Tools.add_prefix "c" ds in
+  let add_prefix (prefix : string) (indices : string list) : string list =
+    List.map (fun x -> prefix ^ x) indices
+   in
+  let bs = add_prefix "b" ds in
+  let cs = add_prefix "c" ds in
   let first_cs = List.nth cs 0 in
   let order = cs @ bs @ ds in
   let tile = string_of_int tile_size in

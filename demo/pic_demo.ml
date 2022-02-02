@@ -3,6 +3,11 @@ open Target
 open Ast
 
 
+
+let add_prefix (prefix : string) (indices : string list) : string list =
+    List.map (fun x -> prefix ^ x) indices
+
+
 let main = cFunDef "main"
 let dims = ["X";"Y";"Z"]
 let nb_dims = List.length dims
@@ -207,7 +212,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
     Loop.color color ~index:("ci"^d) [main; cFor bd]
     in
     iter_dims (fun d -> colorize "block" "block" d);
-  !! Loop.reorder ~order:(Tools.((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims)) [main; cFor "ciX"];
+  !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [main; cFor "ciX"];
 
   (* Part: introduce atomic push operations, but only for particles moving more than one cell away *)
   !^ Variable.insert ~const:true ~typ:"coord" ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];

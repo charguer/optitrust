@@ -156,10 +156,6 @@ let stackvar_elim (t : trm) : trm =
    end in
    aux t
 
-
-(* TODO: do we need to produce any Address_operator annotation?
-   if we don't need, then we might need to change a few things in transformations that depend on this annotation. *)
-
 (* [stackvar_intro t] is the reciprocal to [stackvar_elim]. It replaces [<annotation:stackvar> int *a = new int(5)] with [int a = 5]
     and a variable occurrence [*a] becomes [a] if it corresponds to a stack variable
     (as a simplification to [*(&a)])

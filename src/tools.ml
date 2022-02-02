@@ -7,17 +7,19 @@ let sprintf = Printf.sprintf
 (*-----------Extensions for List of integers------------*)
 
 (* [range a b] returns the list of integers between [a] and [b] inclusive.
-   If [a > b] then it returns the list [a (a-1) .. (b+1) b].
-   TODO: do we know when the reverse order is needed in optitrust? *)
-let range (a : int) (b : int) : int list =
+   If [a > b] then it returns the list [a (a-1) .. (b+1) b].*)
+let range ?(rev : bool = false) (a : int) (b : int) : int list =
   let rec aux a b =
     if a > b
       then []
       else a :: aux (a + 1) b
     in
+  let res = 
   if a > b
     then List.rev (aux b a)
     else aux a b
+    in 
+  if rev then List.rev res else res
 
 (*-----------Extensions to lists-------------*)
 
@@ -62,11 +64,6 @@ let split_list_at (i : int) (l : 'a list) : ('a list) * ('a list) =
 let update_nth (i : int) (f : 'a -> 'a) (l : 'a list) : 'a list =
   List.mapi (fun j a -> if j = i then f a else a) l
 
-(* TODO: remove [map_at], replace all occurrences with update_nth *)
-(* [map_at f] return the list where the nth element is transformed *)
-let map_at (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
-  List.mapi (fun i a -> if i = n then transfo a else a) al
-
 (* LATER: replace this function with List.filteri, offered by new versions of OCaml. *)
 let list_filteri p l =
   let rec aux i acc = function
@@ -99,14 +96,13 @@ let list_intersect (xs1:'a list) (xs2:'a list) : 'a list =
     let h = Hashtbl.create (List.length xs1) in
     List.filter (fun x -> Hashtbl.mem h x) xs2 *)
 
-(* [chop_list_after x xs] returns a prefix of [xs] where all elements
+(* [list_chop_after x xs] returns a prefix of [xs] where all elements
     after the item [x] are removed, including [x]. If [x] does not
     occur in the list, then the original list [xs] is returned. *)
-(* TODO: rename to list_chop_after *)
-let rec chop_list_after (x : 'a) (xs : 'a list) : 'a list =
+let rec list_chop_after (x : 'a) (xs : 'a list) : 'a list =
   match xs with
   | [] -> []
-  | y::tl -> if y = x then [] else y:: chop_list_after x tl
+  | y::tl -> if y = x then [] else y:: list_chop_after x tl
 
 (* [insert_sublist_at i el l] inserts the elemtns [el] at index [i] in the list [l].
    The [i] should be in the range [0] to [length l], inclusive.
@@ -227,14 +223,9 @@ let failure_expected (f : unit -> unit) : unit =
 
 (*-----------Extensions to Pprint-------------*)
 
-(* TODO: rename this function to a more specific name.
-   print the ast *)
-let node (s : string) : document =
+let print_node (s : string) : document =
   string s ^^ blank 1
 
-(* TODO: inline use of this function, it's not used in enough many places *)
-let surround : document -> document -> document -> document =
-  surround 2 1
 
 (* [parens d] adds parentheses around a document. *)
 let parens (d : document) : document =
@@ -243,7 +234,7 @@ let parens (d : document) : document =
 (* [print_list ?sep dl] display a list of items, separated with [sep] and a space.
    By default, [sep] is a semicolon. *)
 let print_list ?(sep : string = ";") (dl : document list) : document =
-  surround lbracket (separate (string sep ^^ break 1) dl) rbracket
+  surround 2 1 lbracket (separate (string sep ^^ break 1) dl) rbracket
 
 (* [list_to_doc] is a generalization of [print_list] with special treatment for
    the empty list. LATER: merge with [print_list], making [empty] an optional argument? *)
@@ -257,7 +248,7 @@ let list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds
 
 (* [print_object dl] displays a list of documents in the form [{x, y, z}]. *)
 let print_object (dl : document list) : document =
-  surround lbrace (separate (comma ^^ break 1) dl) rbrace
+  surround 2 1 lbrace (separate (comma ^^ break 1) dl) rbrace
 
 (* [print_pair dl] displays a document in the form [(d1,d2)]. *)
 let print_pair (d1 : document) (d2 : document) : document =
@@ -299,13 +290,6 @@ and then you can do:
 and reset_next_id() will get you a fresh sequence for calls to next_id().
 
 *)
-
-(* generate special optitrust labels *)
-(* TODO: this does not seem to be used, should be removed *)
-let optitrust_label : string =
-  let rnd_nb = Random.int 1000 in
-  "__optitrust__" ^ (string_of_int rnd_nb)
-
 
 (*-----------Extensions for Strings-------------*)
 
@@ -375,7 +359,7 @@ let int_to_bool (i : int) : bool =
 
 (*-----------Extensions for Maps-------------*)
 
-(* maps on functions -- TODO: move to ast.ml  *)
+(* maps on functions -- LATER: move to ast.ml  *)
 
 module Fun_map = Map.Make(String)
 
@@ -422,36 +406,3 @@ let ilset_funmap_union : ilset funmap -> ilset funmap -> ilset funmap =
 let (+@) = ilset_funmap_union
 
 
-(*-----------TOMOVE-------------*)
-
-(* TODO: move this function in the module Rename. *)
-(* [subst_dollar_number inst s] search for ocurrences of ${i} in s and replace them with the variable
-      at index i in [inst] where [inst] is a list of variables
-*)
-let subst_dollar_number (inst : string list) (s : string) : string =
-  fold_lefti (fun i acc insti ->
-    string_subst ("${"^(string_of_int i) ^ "}") insti acc
-  ) s inst
-
-(* TODO: this function is too specific, it should be defined locally inside the
-    one function where it is used; or maybe we could call a similar function from module Rename. *)
-(* [add_prefix prefix indices] iterates over the indices by adding the prefix [prefix]
-    to each element in [indices] *)
-let add_prefix (prefix : string) (indices : string list) : string list =
-    List.map (fun x -> prefix ^ x) indices
-
-(* TODO: this function is too specific, it should be moved to the module trm_matching where it's used *)
-(* for pattern_matching when the args or the pattern are ginve as Ex:
-    double a, b, c; this function converst them into double a, double b, double c  *)
-let fix_pattern_args (var_decls : string) : string =
-  let aux (var_decl : string) : string =
-    let args_decl_list = Str.split (Str.regexp_string ",") var_decl in
-    let first_var, other_vars = uncons args_decl_list in
-    let var_type, _ =  unlast (Str.split (Str.regexp_string " ") first_var) in
-    let var_type = List.fold_left (^) "" var_type in
-    let other_vars = List.map (fun x -> var_type ^ " " ^ x) other_vars in
-    let var_decl_list = first_var :: other_vars in
-    (list_to_string ~sep:"," ~bounds:["";""] var_decl_list)
-    in
-  let var_decls = Str.split (Str.regexp_string ";") var_decls in
-  List.fold_left (fun acc x -> if acc = "" then acc ^ (aux x) else acc ^ "," ^ (aux x)) "" var_decls

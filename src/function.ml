@@ -146,7 +146,7 @@ int f2() { // result of Funciton_basic.inline_cal
 // where p is the path to the englobing sequence.
 *)
 
-(* TODO: Factorize the code better *)
+(* LATER: Factorize the code better *)
 let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit = 
     Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
       (fun i t (path_to_seq, local_path, i1) -> 

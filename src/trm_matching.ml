@@ -10,6 +10,22 @@ open Ast
     }
 *)
 let parse_pattern (str : string) : (typed_vars * typed_vars *trm) =
+  
+  
+  let fix_pattern_args (var_decls : string) : string =
+  let aux (var_decl : string) : string =
+    let args_decl_list = Str.split (Str.regexp_string ",") var_decl in
+    let first_var, other_vars = Tools.uncons args_decl_list in
+    let var_type, _ =  Tools.unlast (Str.split (Str.regexp_string " ") first_var) in
+    let var_type = List.fold_left (^) "" var_type in
+    let other_vars = List.map (fun x -> var_type ^ " " ^ x) other_vars in
+    let var_decl_list = first_var :: other_vars in
+    (Tools.list_to_string ~sep:"," ~bounds:["";""] var_decl_list)
+    in
+  let var_decls = Str.split (Str.regexp_string ";") var_decls in
+  List.fold_left (fun acc x -> if acc = "" then acc ^ (aux x) else acc ^ "," ^ (aux x)) "" var_decls
+   in 
+  
   let output_file = "tmp_rule.cpp" in
   let splitted_pattern = Str.split (Str.regexp_string "==>") str in
   if List.length splitted_pattern < 2 then fail None "parse_pattern : could not split the given pattern, make sure that you are using ==> as a separator
@@ -17,9 +33,9 @@ let parse_pattern (str : string) : (typed_vars * typed_vars *trm) =
   let var_decls = String.trim (List.nth splitted_pattern 0) in
   let aux_var_decls, pat = if List.length splitted_pattern = 3 then (String.trim (List.nth splitted_pattern 1)),(List.nth splitted_pattern 2)
     else ("", List.nth splitted_pattern 1) in
-  let var_decls_temp = Tools.fix_pattern_args var_decls in
+  let var_decls_temp = fix_pattern_args var_decls in
 
-  let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else Tools.fix_pattern_args aux_var_decls in
+  let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else fix_pattern_args aux_var_decls in
 
   let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
   let file_content = "bool f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ "\n}" in
