@@ -25,18 +25,6 @@ let env_extend (env : env) (e : var) (varkind : varkind) : env =
 let add_var (env : env ref) (x : var) (xm : varkind) : unit =
   env := env_extend !env x xm
 
-(* [trm_simplify_addressof_and_get t] simplifies [&*t] and [*&t] to [t] *)
-(* TODO: move to Ast.trm_simplify_addressof_and_get *)
-let trm_simplify_addressof_and_get (t : trm) : trm =
-  match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [
-      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) }
-    ])
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [
-      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [t1]) }
-    ]) -> t1
-  | _ -> t
-
 (* OPTIMIZATION (keep this code)
 (* [trm_address_of ~simplify t] adds the address operator before [t].
     if [simplify] is true and [t] is of the form [*u] then it will return just [u] *)
@@ -378,16 +366,21 @@ let rec cseq_items_void_type (t : trm) : trm =
   | _ -> t2
 
 
-(* TODO:
-cfeatures: coumpound_assign_elim:
+let compound_assign_elim (t : trm) : trm = 
+  match t.desc with 
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))}, [tl; tr]) -> 
+    trm_prim_compound_encoded_as_set ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl tr
+  | _ -> t
 
-   trm_apps (prim_compound binop_add) [s; 2]
-->
-   set(s, get(s) + 2) @op_and_set
-
-coumpound_assign_intro
-
-*)
+let compound_assign_intro (t : trm) : trm = 
+  match t.desc with 
+  | Trm_apps (f_, [tl; {desc = Trm_apps (f, [_; tr]);_}]) when ((trm_annot_has App_and_set t) && (is_set_operation t)) -> 
+    begin match trm_prim_inv f with 
+    | Some (Prim_binop binop) ->
+      trm_prim_compound ~loc:t.loc ~is_statement:t.is_statement ~ctx:t.ctx binop tl tr
+    | _ -> fail f.loc "compound_assign_into: expected a binary operator as an argument of a compound assignment"
+    end
+  | _ -> t
 
 
 (* Main entry points *)

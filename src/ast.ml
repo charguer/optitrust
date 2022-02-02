@@ -2324,10 +2324,15 @@ let trm_ands (ts : trm list) : trm =
     if i = 0 then t1 else trm_and acc t1
   ) (trm_bool true) ts
 
+
+(* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
+let trm_prim_compound ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None) ?(typ = None) (binop : binary_op) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~is_statement ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
+
 (* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
 let trm_prim_compound_encoded_as_set ?(loc = None) ?(is_statement = false) ?(ctx : ctx option = None) ?(typ = None) (binop : binary_op) (tl : trm) (tr : trm) : trm =
   trm_set ~annot:[App_and_set] ~loc ~is_statement ~typ tl
-    (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr])
+    (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [trm_get tl; tr])
 
 
 (* [code_to_str] extract the code from the nodes that contain the arbitrary code*)
@@ -2406,3 +2411,14 @@ let unserialize_from_file (filename : string) : trm =
 (* [empty_ast] *)
 let empty_ast : trm =
   trm_seq_nomarks ~annot:[Main_file] []
+
+(* [trm_simplify_addressof_and_get t] simplifies [&*t] and [*&t] to [t] *)
+let trm_simplify_addressof_and_get (t : trm) : trm =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [
+      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) }
+    ])
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [
+      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [t1]) }
+    ]) -> t1
+  | _ -> t
