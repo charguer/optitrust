@@ -166,9 +166,11 @@ let dArg (n : int) : constr =
 *)
 let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
     { rexp_desc = (if regexp then "Regexp" else "String") ^ "(\"" ^ s ^ "\")";
-      rexp_exp = (if regexp then Str.regexp s else
-                       if substr then Str.regexp_string s else Str.regexp ("^" ^ s ^ "$"));
-      rexp_substr = substr;
+      rexp_exp =
+        (let pat1 = if regexp then s else Str.quote s in
+        let pat2 = if substr then pat1 else ("^" ^ pat1 ^ "$") in
+        Str.regexp pat2);
+      rexp_substr = substr; (* LATER: is there a smart way to avoid rexp_substr in addition to the regexp? *)
       rexp_trm_kind = trmKind; }
 
   let string_to_rexp_opt (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp option =

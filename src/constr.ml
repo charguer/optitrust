@@ -726,6 +726,8 @@ let match_regexp_str (r : rexp) (s : string) : bool =
     try let _ = Str.search_forward r.rexp_exp s 0 in true
     with Not_found -> false
   end else begin
+    (* Here we assume that [r.rexp_exp] ends with [^], to ensure that
+       the pattern matches all of [s] and not a strict substring of [s]. *)
     Str.string_match r.rexp_exp s 0
   end
 

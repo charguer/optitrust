@@ -3,6 +3,13 @@ open Target
 
 (*let _= Flags.use_new_encodings :=  false*)
 
+(*
+let _ =
+  if Str.string_match (Str.regexp "^r$") "rr" 0
+  then assert false
+  else assert false
+  *)
+
 let _ = Run.script_cpp (fun () ->
 
   (* TODO: create a unit test *)
