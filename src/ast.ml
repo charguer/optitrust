@@ -1758,8 +1758,9 @@ let is_star_operation (t : trm) : bool =
 
 (* [is_get_operation t] check if [t] is a struct access get operation of a immutable variable get operation *)
 let is_get_operation (t : trm) : bool =
-  List.exists (function | Access | Mutable_var_get -> true | _ -> false) t.annot
-
+  match t.desc with 
+  | Trm_apps ({desc = Trm_val(Val_prim (Prim_unop Unop_get))}, _) -> true
+  | _ -> false
 
 (* [is_new_operation t] check if [t] is new operation *)
 let is_new_operation (t : trm) : bool =
@@ -2098,6 +2099,11 @@ let is_trm_uninitialized (t:trm) : bool =
   | Trm_val (Val_lit Lit_uninitialized) -> true
   | _ -> false
 
+let is_trm_var (t : trm) : bool = 
+  match t.desc with 
+  | Trm_var _ -> true
+  | _ -> false
+
 
 
 exception Unknown_key
@@ -2222,9 +2228,9 @@ let trm_access (base : trm) (field : var) : trm =
 let trm_get ?(annot : trm_annot list = []) (t : trm) : trm =
   trm_apps ~annot (trm_unop Unop_get) [t]
 
-(* [trm_var_get x] add a get operation around [x]*)
-let trm_var_get (x : var) : trm =
-  trm_get ~annot:[Mutable_var_get] (trm_var x)
+(* [trm_var_get x] generates *x *)
+let trm_var_get (x : var) : trm = 
+  trm_get (trm_var x)
 
 (* [trm_new ty t] generates new ty (t) *)
 let trm_new (ty : typ) (t : trm) : trm =

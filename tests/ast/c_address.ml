@@ -20,8 +20,7 @@ let filename =
   | 1 -> "c_access.cpp"
   | _ -> "c_big.cpp"
 
-
-let _ = Run.script_cpp ~filename ~prefix:"c_access" (fun () ->
+let _ = Run.script_cpp ~filename ~prefix:"c_address" (fun () ->
 
   !^ Trace.apply compound_assign_elim;
   !^ Trace.apply stackvar_elim;

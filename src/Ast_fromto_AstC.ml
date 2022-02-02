@@ -102,7 +102,7 @@ let stackvar_elim (t : trm) : trm =
     | Trm_var (_, x) ->
       (* x when x is mutable becomes *x, where the ' * 'is used only for encoding purposes, hence not visible to the user *)
       if is_var_mutable !env x
-        then trm_annot_add Mutable_var_get (trm_get ~simplify:true t) (* Note: simplify not needed here *) (* TODO: might not need Mutable_var_get *)
+        then trm_get ~simplify:true t 
         else { t with desc = Trm_var (Var_immutable, x) }
     | Trm_let (_, (x, ty), tbody) ->
       (* mutability is deducted from the declaration of the variable, by checking if it has a const type or not *)
@@ -229,22 +229,11 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u1]))
       (* [t[i]] is translated to [array_access(access t, aux i)] *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_} as op, [t1; t2]) ->
-      let u1 = aux t1 in (*DEPRECATED? access t1*)
+      let u1 = aux t1 in 
       let u2 = aux t2 in
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2]))
-      (* DEPRECATED begin match u1.desc with
-      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11]) ->
-        mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [u11; u2]))]))
-      | _ ->mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2]))
-      end*)
-
       (* *t1 becomes to [*(aux t1)] if '*' is not a hidden get operation, otherwise it becomes  [aux t1] *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as _op, [t1]) ->
-      (* DEPRECATED
-      if List.mem Mutable_var_get t.annot
-        then aux t1
-        else mk (Trm_apps (op, [aux t1]))*)
-      aux t1
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as _op, [t1]) -> aux t1
     | Trm_var (_, x) -> fail t.loc (Printf.sprintf "caddress_elim: const variable '%s' cannot appear as lvalue (mutation of function arguments is not supported in OptiTrust)" x)
     | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (AstC_to_c.ast_to_string t) (Ast_to_text.ast_to_string t))
   end else begin
@@ -271,15 +260,6 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
         let u2 = aux t2 in
         trm_get ~simplify:true { t with desc = Trm_apps ({ t with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2]) }
 
-    (* DEPRECATED | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get))); _} as op, [t1; t2]) ->
-      let u1 = aux t1 in
-      let u2 = aux t2 in
-      begin match u1.desc with
-      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11]) ->
-        (* array_get (get(t1), t2) is encoded as get(array_access (t1, t2) *)
-        mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u11; u2]))]))
-      | _ -> mk (Trm_apps (op, [u1;u2]))
-      end*)
     (* OPTIMIZATION Simplification of [&*p] patterns
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _} as op, [t1]) ->
       let u1 = aux t1 in
@@ -392,10 +372,7 @@ let compound_assign_intro (t : trm) : trm =
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let cfeatures_elim (t : trm) : trm =
-  (* DEPRECATED *)
-  (* cseq_items_void_type (caddress_elim (stackvar_elim t)) *)
   cseq_items_void_type (caddress_elim (stackvar_elim (compound_assign_elim t)))
-  (* and same for intro *)
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =

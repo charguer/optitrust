@@ -406,8 +406,8 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     (trm_seq_nomarks [
                         trm_let_mut (acc, typ_int ()) (trm_int 0);
                         trm_for index (trm_int 0) DirUp dim (Post_inc) (trm_seq_nomarks [
-                            op_fun (trm_var_get acc) new_access]);
-                        trm_set old_var_access (trm_var_get acc)]) in
+                            op_fun (trm_get (trm_var acc)) new_access]);
+                        trm_set old_var_access (trm_get (trm_var acc))]) in
                 let new_frth_instr =
                   trm_fors loop_range new_body in
                     

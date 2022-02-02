@@ -8,32 +8,22 @@ TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	array_set_explicit.ml \
-	array_swap.ml \
-	array_tile.ml \
-	function_bind_intro.ml \
 	function_inline.ml \
-	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_move.ml \
-	instr_replace.ml \
 	instr_replace_fun.ml \
-	label_add.ml \
 	label_remove.ml \
 	loop_color.ml \
-	loop_fusion.ml \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
 	loop_swap.ml \
 	loop_moveout.ml \
 	loop_unroll.ml \
-	loop_unswitch.ml \
 	pointer_fold.ml \
 	reference_fold.ml \
 	rewrite_compute.ml \
 	rewrite_equiv_at.ml \
-	sequence_delete.ml \
 	sequence_elim_around_instr.ml \
-	sequence_insert.ml \
 	sequence_elim.ml \
 	sequence_intro.ml \
 	sequence_intro_on_instr.ml \
@@ -83,6 +73,7 @@ TESTS_TO_FIX := \
 	arith_simplify.ml \
 	array_to_variables.ml \
 	function_beta.ml \
+	function_bind_intro.ml \
 	function_uninline.ml \
 	instr_read_last_write.ml \
 	loop_fission.ml \
@@ -93,6 +84,7 @@ TESTS_TO_FIX := \
 	rewrite_compute_inside.ml \
 	struct_set_implicit.ml \
 	struct_set_explicit.ml \
+	array_tile.ml \
 	variable_simpl_deref.ml \
 	variable_to_const.ml \
 	sequence_split.ml \
@@ -102,9 +94,21 @@ TESTS_TO_FIX := \
 	variable_bind.ml \
 	matrix_delocalize.ml \
 	variable_subst.ml \
+	array_swap.ml \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
+	instr_replace.ml \
+	label_add.ml \
+	loop_fusion.ml \
+	sequence_delete.ml \
+	loop_unswitch.ml \
+	sequence_insert.ml \
+	function_use_infix_ops.ml \
 
+
+
+  
+  
 
 
 

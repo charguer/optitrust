@@ -29,5 +29,3 @@ let _ = Run.script_cpp ~filename ~prefix:"c_compound_assign" (fun () ->
   !^ Trace.check_recover_original(); (* Press F6 on this line to see a blank diff if successful, or an error message if the full round-trip fails *)
 
 )
-
-
