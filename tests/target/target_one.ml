@@ -108,9 +108,10 @@ let _ = Run.script_cpp (fun () ->
 
   show [nbExact 1; cVarDef "r"];
   show [nbExact 4; cVarDef ~substr:true "r"];
-  show [nbExact 4; cVarDef ~regexp:true "p."];
+  show [nbExact 2; cVarDef ~regexp:true "p."];
   show [nbExact 1; cVarDef ~regexp:true "r"];
-  (* TODO: broken show [nbExact 5; cVarDef ~regexp:true ~substr:false "r\\|n"];  *)
+  (* TODO: broken?
+     show [nbExact 5; cVarDef ~regexp:true "r\\|n"];  *)
 
   (* Declarations *)
   show [cDef "s"];
