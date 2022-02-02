@@ -25,7 +25,9 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
      let function_call = Path.resolve_path p_local instr in
      let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
      let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
-     let decl_to_change = Internal.change_trm function_call (if const then trm_var fresh_name else (trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var fresh_name])) instr in
+     let decl_to_change = Internal.change_trm function_call (if const then trm_var fresh_name else (trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var fresh_name])) instr in (* LATER: use a smart constructor  trm_var_possibly_mutable
+        this function could also put the typ  on the variable (and on the get operation)
+           (if const then trm_var fresh_name else (trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var fresh_name]))  *)
      let function_call = if my_mark <> "" then trm_add_mark my_mark function_call else function_call in
      let function_type = match function_call.typ with
      | Some typ -> typ
@@ -154,29 +156,29 @@ let inline (index: int) (body_mark : string option) (p_local : path) : Target.Tr
     params:
       [t]: the ast of the write operation
     return:
-      ast of a binary compound operation 
+      ast of a binary compound operation
 *)
 
-let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm = 
-  match t.desc with 
+let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
+  match t.desc with
   | Trm_apps (f, [ls; rs]) when is_set_operation t ->
-    begin match rs.desc with 
+    begin match rs.desc with
     | Trm_apps (f1, [get_ls; arg]) ->
-      begin match trm_prim_inv f1 with 
+      begin match trm_prim_inv f1 with
       | Some p when is_infix_prim_fun p ->
-        let aux s = Ast_to_c.ast_to_string s in 
+        let aux s = Ast_to_c.ast_to_string s in
         let final_trm =
         if aux ls = aux get_ls then t else  trm_apps ~marks:t.marks f [ls; trm_apps f1 [arg; get_ls]] in
         trm_annot_add App_and_set final_trm
 
-      | _ -> 
+      | _ ->
         if allow_identity then t else
         fail f1.loc "use_infix_ops_aux: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
-      
-      end 
-    | _ -> if allow_identity then t else 
+
+      end
+    | _ -> if allow_identity then t else
            fail rs.loc "use_infix_ops_aux: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
-    end 
+    end
   | _-> if allow_identity then t else fail t.loc "use_infi_ops_aux: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
 
 

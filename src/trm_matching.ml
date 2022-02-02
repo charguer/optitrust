@@ -10,8 +10,8 @@ open Ast
     }
 *)
 let parse_pattern (str : string) : (typed_vars * typed_vars *trm) =
-  
-  
+
+
   let fix_pattern_args (var_decls : string) : string =
   let aux (var_decl : string) : string =
     let args_decl_list = Str.split (Str.regexp_string ",") var_decl in
@@ -24,8 +24,8 @@ let parse_pattern (str : string) : (typed_vars * typed_vars *trm) =
     in
   let var_decls = Str.split (Str.regexp_string ";") var_decls in
   List.fold_left (fun acc x -> if acc = "" then acc ^ (aux x) else acc ^ "," ^ (aux x)) "" var_decls
-   in 
-  
+   in
+
   let output_file = "tmp_rule.cpp" in
   let splitted_pattern = Str.split (Str.regexp_string "==>") str in
   if List.length splitted_pattern < 2 then fail None "parse_pattern : could not split the given pattern, make sure that you are using ==> as a separator
@@ -152,7 +152,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
       in
 
     (* Check matching addressof annotation -- LATER: maybe we should simply ignore additions that appear on t2? *)
-    if List.mem Address_operator t1.add then begin
+    if List.mem Address_operator t1.add then begin (* TODO: decide if this is still needed? *)
       if not (List.mem Address_operator t2.add)
         then mismatch ~t1 ~t2 ();
       aux (Ast.trm_special_operator_remove Address_operator t1) (Ast.trm_special_operator_remove Address_operator t2)

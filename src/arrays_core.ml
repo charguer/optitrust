@@ -1,6 +1,6 @@
 open Ast
 
-(* *********************************************************************************** 
+(* ***********************************************************************************
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
  * have only one purpose, and that is targeting the trm in which we want to apply the *
  * transformation. That's why there is not need to document them.                     *
@@ -12,7 +12,7 @@ open Ast
       [array_var]: array_variable  to apply changes on
       [new_vars]: a list of variables, the variables at index i replaces and occurence of [array_var[i]]
       [t]: ast node located in the same level or deeper as the array declaration
-    return: 
+    return:
         updated ast with the replaced array accesses to variable references.
 *)
 let inline_array_access (array_var : var) (new_vars : vars) (t: trm) : trm =
@@ -56,14 +56,14 @@ let inline_array_access (array_var : var) (new_vars : vars) (t: trm) : trm =
   in aux t t
 
 (* [to_variables_aux new_vars t]: tansform an array declaration into a list of variable declarations
-      the list of variables should be entered by the user. The number of variables should correspond to 
-      the size of the arrys. The variable at index i in [new_vars] will replace the array occurrence 
+      the list of variables should be entered by the user. The number of variables should correspond to
+      the size of the arrys. The variable at index i in [new_vars] will replace the array occurrence
       at index i
     params:
       (new_vars]: a list of strings of length equal to the size of the array
-      [index]: index of the instruction inside the sequence 
+      [index]: index of the instruction inside the sequence
       [t]: ast of the surrounding sequence of the array declaration
-    return: 
+    return:
       updated ast of the outer sequence with the replaced declarations and all changed accesses.
 *)
 let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
@@ -85,7 +85,7 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
        | Typ_var (y, tid) ->
         List.map(fun x ->
           trm_let_mut (x, typ_var y tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
-       | _ -> 
+       | _ ->
         List.map(fun x ->
           trm_let_mut (x, t_var) (trm_uninitialized ~loc:init.loc ())) new_vars
        end
@@ -115,7 +115,7 @@ let to_variables (new_vars : vars) (index : int): Target.Transfo.local =
       x a = my_alloc(nb_elements, size_element)
     - x is not used in function definitions, but only in var declarations
     - for now: in any case, the number of elements is divisible by b
-   return: 
+   return:
       updated ast nodes which are in the same level with the array declaration or deeper.
 *)
 let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
@@ -136,7 +136,7 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
                 ~typ:t.typ f [
                     trm_apps ~annot:base.annot ~loc:base.loc ~is_statement:false
                       ~add:base.add ~typ:base.typ f [
-                          {base with typ = 
+                          {base with typ =
                             match base.typ with
                             | None -> None
                             | Some ty -> Some (typ_ptr Ptr_kind_mut ty)
@@ -159,7 +159,7 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
       [block_size]: the size of the tile
       [index]: the index of the instruction inside the sequence
       [t]: ast of the outer sequence containing the array declaration
-    return: 
+    return:
       updated ast of the surrounding sequence with the new tiled declaration and correct array accesses based on the new tiled form.
 *)
 let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : trm =
@@ -474,6 +474,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
                      LATER: Arthur write better specification for the changes
                       <<t>> [i].x
                    *)
+                   (* TODO ARTHUR *)
 
                   let base'  = match base'.desc with
                   | Trm_apps (_, [base'']) when List.mem Mutable_var_get base'.annot  -> base''
@@ -527,11 +528,11 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
           begin match ty.typ_desc with
           | Typ_array (a, _)->
             begin match a.typ_desc with
-            | Typ_constr (sn, _, _) when sn = struct_name-> trm_typedef {td with typdef_body  = Typdef_alias a} 
+            | Typ_constr (sn, _, _) when sn = struct_name-> trm_typedef {td with typdef_body  = Typdef_alias a}
 
             | _ -> trm_map(aux global_trm) t
             end
-            
+
           | _ -> trm_map(aux global_trm) t
           end
       | _ -> fail t.loc "aos_to_soa_aux: expected a typedef struct"
@@ -542,11 +543,11 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
           begin match ty.typ_desc with
           | Typ_array (a, _)->
             begin match a.typ_desc with
-            | Typ_constr (sn, _, _) when sn = struct_name-> trm_typedef {td with typdef_body  = Typdef_alias a} 
+            | Typ_constr (sn, _, _) when sn = struct_name-> trm_typedef {td with typdef_body  = Typdef_alias a}
 
             | _ -> trm_map(aux global_trm) t
             end
-            
+
           | _ -> trm_map(aux global_trm) t
           end
         | _ -> trm_map(aux global_trm) t
@@ -558,13 +559,13 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
         begin match ty.typ_desc with
         | Typ_array (a, _) ->
           begin match a.typ_desc with
-          | Typ_constr (sn,_, _) when sn = struct_name -> 
+          | Typ_constr (sn,_, _) when sn = struct_name ->
             trm_let_mut (n, a) (trm_uninitialized ~loc:init.loc ())
           | _ -> trm_map (aux global_trm) t
           end
         | _ -> trm_map (aux global_trm) t
         end
-       | _ -> trm_map (aux global_trm) t 
+       | _ -> trm_map (aux global_trm) t
        end
     | _ -> trm_map (aux global_trm) t
   in aux t t
@@ -579,16 +580,16 @@ let aos_to_soa (tv : typvar) (sz : var): Target.Transfo.local =
       return:
         the ast of the uninitialized array declaration and a list of write operations
 *)
-let set_explicit_aux (t : trm) : trm = 
-  match t.desc with 
+let set_explicit_aux (t : trm) : trm =
+  match t.desc with
   | Trm_let (vk, (x, tx), init) ->
-    let init = match get_init_val init with 
+    let init = match get_init_val init with
     | Some init -> init
     | None -> fail t.loc "set_explicit_aux: could not get the initialization trms for the targeted array declaration" in
-    begin match init.desc with 
-    | Trm_array tl -> 
-      let array_set_list = 
-      List.mapi ( fun i t1 -> 
+    begin match init.desc with
+    | Trm_array tl ->
+      let array_set_list =
+      List.mapi ( fun i t1 ->
         trm_set (trm_apps (trm_binop (Binop_array_access)) [trm_var x;trm_int i]) t1
       ) (Mlist.to_list tl) in
       let new_decl = trm_let_mut (x, (get_inner_ptr_type tx)) (trm_uninitialized ~loc:init.loc ()) in

@@ -26,6 +26,7 @@ let add_var (env : env ref) (x : var) (xm : varkind) : unit =
   env := env_extend !env x xm
 
 (* [trm_simplify_addressof_and_get t] simplifies [&*t] and [*&t] to [t] *)
+(* TODO: move to Ast.trm_simplify_addressof_and_get *)
 let trm_simplify_addressof_and_get (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [

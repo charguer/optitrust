@@ -3,7 +3,7 @@ int f(int n, double x) {
   int i; /* Note: if i is declared inside the loop, we are not allowed to mutate the index in the loop ;
           TODO: the loop
            for (i = 0; i < 10; i++)  should not be treated as a simple loop */
-  for (i = 0; i < 10; /* TODO: test i++ */) {
+  for (i = 0; i < 10; /* TODO: test i++ */0) {
     for (int j = 0; j < 12; j++) {
        i = i + 1;
        /*j += 2;*/
