@@ -161,7 +161,7 @@ let dArg (n : int) : constr =
 (* [string_to_rexp regexp substr s trmKind]  transforms a string into a regular expression
     used to match ast nodes based on their code representation.
     [string_to_rexp] - denotes a flag to tell if the string entered is a regular epxression or no
-    [substr] - denotes a flag to decide if we should target strings whcih contain string [s] or not
+    [substr] - denotes a flag to decide if we should target strings that contain string [s] as a strict substring
     [trmKind] - denotes the kind of the ast note represented in code by string [s]
 *)
 let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
@@ -788,7 +788,7 @@ let with_stringreprs_available_for (tg : target) (f : trm -> 'a) : trm -> 'a =
     (* for debug  List.iter (fun k -> Printf.printf "(kind:%s)" (Constr.trm_kind_to_string k)) kinds;
        Printf.printf "==end of kinds==\n"; *)
     let t2, m = compute_stringreprs (Constr.match_regexp_trm_kinds kinds) t in
-    AstC_to_c.trm_print_debug t2;
+    (* FOR DEBUG: AstC_to_c.trm_print_debug t2;*)
     (* AstC_to_c.print_stringreprs m; for debug *)
     let stringreprs = convert_stringreprs_from_documentation_to_string m in
     Constr.stringreprs := Some stringreprs;
@@ -811,7 +811,7 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
     let ps =
       Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
         with_stringreprs_available_for tg (fun t2 ->
-          AstC_to_c.trm_print_debug t2;
+          (* FOR DEBUG:AstC_to_c.trm_print_debug t2;*)
           resolve_target tg t2) t
         (* DEPRECATED: resolve_target tg t *)) in
     let ps = if rev then List.rev ps else ps in

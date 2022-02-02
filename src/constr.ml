@@ -776,7 +776,7 @@ let match_regexp_trm_kinds (ks : trm_kind list) (t : trm) : bool =
 let match_regexp_trm (r : rexp) (t : trm) : bool =
   if not (match_regexp_trm_kind r.rexp_trm_kind t) then false else begin
     let s = get_stringrepr t in
-    Printf.printf "Considered: %s\n" s; (* for debug *)
+    (* FOR DEBUG: Printf.printf "Considered: %s\n" s; *)
     s <> "" && match_regexp_str r s
     (* If the stringrepr is not available, we return false *)
   end
