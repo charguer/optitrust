@@ -593,16 +593,16 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_typedef _ | Trm_let_record _-> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
-   | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
+   (* | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr *)
    (* TODO: discuss why we once deprecated the above version *)
-   (* DEPRECATED | Trm_apps (f,_) ->
+   | Trm_apps (f,_) ->
      begin match f.desc with
       | Trm_var _ -> TrmKind_Instr
       | Trm_val (Val_prim (Prim_unop Unop_post_inc)) | Trm_val (Val_prim (Prim_unop Unop_post_dec))
       | Trm_val (Val_prim (Prim_unop Unop_pre_inc)) | Trm_val (Val_prim (Prim_unop Unop_pre_dec)) -> TrmKind_Instr
       | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr
       | _ -> TrmKind_Expr
-      end*)
+      end
    | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
    | Trm_labelled (_, t) -> get_trm_kind t
    | Trm_omp_directive _ | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ -> TrmKind_Any

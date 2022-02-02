@@ -473,12 +473,8 @@ and tr_expr ?(is_statement : bool = false)
     let tr = tr_expr re in
     let tl = tr_expr le in
     let trm_prim_c binop tl tr =
-       trm_set ~annot:[App_and_set] ~loc ~is_statement tl
-          (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr]) in
-          (* TODO: define [trm_prim_compound_encoded_as_set] for the two lines above *)
-
-          (* DEPRECATED
-           trm_prim_compound ~loc ~is_statement ~ctx ~typ binop tl tr in *)
+       trm_prim_compound_encoded_as_set ~loc ~is_statement ~ctx binop  tl tr in
+       
     begin match k with
       | Assign ->
         trm_set ~loc ~ctx ~is_statement tl tr

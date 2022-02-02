@@ -386,7 +386,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                 | None -> "s", false in
                 
                 let op_fun (l_arg : trm) (r_arg : trm) : trm  = match ops with 
-                  | Delocalize_arith (_, op) -> trm_prim_compound op l_arg r_arg
+                  | Delocalize_arith (_, op) -> trm_prim_compound_encoded_as_set op l_arg r_arg
                   | Delocalize_obj (_, transfer_f) -> trm_apps (trm_var transfer_f) [l_arg; r_arg] 
                 in
 

@@ -102,7 +102,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
            else (trm_add (trm_var tile_index) (trm_mul (trm_var tile_size) (loop_step_to_trm step) ) ))) (trm_ineq direction (trm_get ~annot:[Mutable_var_get] (trm_var index)) stop)
         in 
        let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_get ~annot:[Mutable_var_get] (trm_var index)] 
-         else trm_prim_compound Binop_add (trm_get ~annot:[Mutable_var_get] (trm_var index)) (loop_step_to_trm step) in
+         else trm_prim_compound_encoded_as_set Binop_add (trm_get ~annot:[Mutable_var_get] (trm_var index)) (loop_step_to_trm step) in
        trm_for_c init cond step body 
      end in 
      trm_for tile_index start direction (stop) (if is_step_one step then Step (trm_var tile_size) else Step (trm_mul (trm_var tile_size)(loop_step_to_trm step))) (

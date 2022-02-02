@@ -909,8 +909,8 @@ let trm_prim ?(annot = []) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) 
   trm_val ~annot:annot ~loc ~add ~ctx (Val_prim p)
 
 let trm_set ?(annot = []) ?(loc = None) ?(is_statement : bool = false) ?(add = []) ?(ctx : ctx option = None)
-  (t1 : trm) (t2 : trm) : trm =
-  trm_apps ~annot:annot ~loc ~is_statement ~add ~ctx ~typ:(Some (typ_unit ()))
+  ?(typ : typ option = Some (typ_unit ())) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~annot:annot ~loc ~is_statement ~add ~ctx ~typ
     (trm_binop Binop_set) [t1; t2]
 
 let trm_neq ?(annot = []) ?(loc = None) ?(is_statement : bool = false) ?(add = []) ?(ctx : ctx option = None)
@@ -2324,9 +2324,17 @@ let trm_ands (ts : trm list) : trm =
     if i = 0 then t1 else trm_and acc t1
   ) (trm_bool true) ts
 
+(* DEPRECATED *)
 (* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
 let trm_prim_compound ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None) ?(typ = None) (binop : binary_op) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~is_statement ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
+
+
+(* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
+let trm_prim_compound_encoded_as_set ?(loc = None) ?(is_statement = false) ?(ctx : ctx option = None) ?(typ = None) (binop : binary_op) (tl : trm) (tr : trm) : trm =
+  trm_set ~annot:[App_and_set] ~loc ~is_statement ~typ tl 
+    (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr])
+
 
 (* [code_to_str] extract the code from the nodes that contain the arbitrary code*)
 let code_to_str (code : code_kind) : string =
