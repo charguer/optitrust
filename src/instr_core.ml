@@ -143,7 +143,7 @@ let accumulate : Target.Transfo.local =
 
 
 
-let view_subterms_aux (ro : Constr.rexp option) (t : trm) : trm =
+let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp option) (t : trm) : trm =
   let sprintf = Printf.sprintf in
   let rec aux t =
     let sloc =
@@ -156,9 +156,13 @@ let view_subterms_aux (ro : Constr.rexp option) (t : trm) : trm =
           else sprintf "%d(%d)-%d(%d)" start_row start_column end_row end_column
       in
     let strm =
-      match Ast.trm_get_string_repr t with
-      | Some s -> s
-      | None -> "<no_string_repr>"
+      match Ast.trm_get_stringreprid t with
+      | Some id ->
+        begin match Hashtbl.find_opt stringreprs id with
+        | None -> Printf.sprintf "<no_stringrepr_for:%d>" id
+        | Some d -> Tools.document_to_string ~width:PPrint.infinity d
+        end
+      | None -> "<no_stringreprid>"
       in
     let styp =
       match t.typ with
@@ -205,6 +209,7 @@ let view_subterms_aux (ro : Constr.rexp option) (t : trm) : trm =
     in
   aux t
 
-
-let view_subterms (ro : Constr.rexp option) : Target.Transfo.local =
-  Target.apply_on_path (view_subterms_aux ro)
+(* [view_subterms] assume terms to carry [Annot_stringreprid], using the ids from the table [stringreprs].
+   See [Instr_basic.view_subterms] for details on how this is achieved. *)
+let view_subterms (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp option) : Target.Transfo.local =
+  Target.apply_on_path (view_subterms_aux stringreprs ro)

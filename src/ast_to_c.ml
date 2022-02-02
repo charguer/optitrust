@@ -68,7 +68,7 @@ and trm_annot_to_doc (t_annot : trm_annot list) : document =
   | Main_file -> string "Main_file"
   | Mutable_var_get -> string "Mutable_var_get"
   | As_left_value -> string "As_left_value"
-  | Annot_string_repr _ -> string "Annot_string_repr"
+  | Annot_stringreprid id -> string "Annot_stringreprid" ^^ string (string_of_int id)
   | _ -> empty
   in
   if t_annot = [] then empty else

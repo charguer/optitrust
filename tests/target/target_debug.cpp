@@ -4,7 +4,7 @@ int main() {
   int s = 0;
   s += 2;
   if (true) {
-    s += 1;
+    s = s + 1;
   }
 }
 

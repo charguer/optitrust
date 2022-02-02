@@ -390,7 +390,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Display_arrow -> string "Display_arrow"
     | Reference -> string "Reference"
     | Stackvar -> string "Stackvar"
-    | Annot_string_repr s -> string "Annot_string_repr" ^^ string s
+    | Annot_stringreprid s -> string "Annot_stringreprid" ^^ string (string_of_int s)
     in
 
   if only_desc then ddesc

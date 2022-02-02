@@ -362,7 +362,7 @@ let annot_to_string (t_ann : trm_annot) : string =
      | Display_arrow -> "Display_arrow"
      | Reference -> "Reference"
      | Stackvar -> "Stackvar"
-     | Annot_string_repr s -> "Annot_string_repr(..)"
+     | Annot_stringreprid id -> "Annot_stringreprid(" ^ string_of_int id ^ ")"
 
   let annot_list_to_string (t : trm) : string =
     Tools.list_to_string ((List.map annot_to_string) t.annot)

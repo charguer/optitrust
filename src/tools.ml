@@ -14,11 +14,11 @@ let range ?(rev : bool = false) (a : int) (b : int) : int list =
       then []
       else a :: aux (a + 1) b
     in
-  let res = 
+  let res =
   if a > b
     then List.rev (aux b a)
     else aux a b
-    in 
+    in
   if rev then List.rev res else res
 
 (*-----------Extensions to lists-------------*)
@@ -226,7 +226,6 @@ let failure_expected (f : unit -> unit) : unit =
 let print_node (s : string) : document =
   string s ^^ blank 1
 
-
 (* [parens d] adds parentheses around a document. *)
 let parens (d : document) : document =
   soft_surround 2 1 lparen d rparen
@@ -255,11 +254,10 @@ let print_pair (d1 : document) (d2 : document) : document =
   parens (d1 ^^ comma ^/^ d2)
 
 (* [document_to_string d] converts a document into a string *)
-let document_to_string (d : document) : string =
-  let b = Buffer.create 80 in
-  ToBuffer.pretty 0.9 80 b d;
+let document_to_string ?(width:PPrint.requirement=80) (d : document) : string =
+  let b = Buffer.create 15 in (* the vast majority of string representation have less than 15 chars *)
+  ToBuffer.pretty 0.9 width b d;
   Buffer.contents b
-
 
 (*-----------Extensions for Fresh name generation-------------*)
 
@@ -355,6 +353,22 @@ let int_to_bool (i : int) : bool =
   | 0 -> false
   | 1 -> true
   | _ -> failwith "int_to_bool: converts only 0 and 1 to boolean values"
+
+
+
+(*-----------Extensions for Option-------------*)
+
+let option_map (f : 'a -> 'b) (o : 'a option) : 'b option =
+  match o with
+  | None -> None
+  | Some v -> Some (f v)
+
+(*-----------Extensions for Hashtbl-------------*)
+
+let hashtbl_map_values (f : 'a -> 'b -> 'c) (h : ('a,'b) Hashtbl.t) : ('a,'c) Hashtbl.t =
+  let r = Hashtbl.create (Hashtbl.length h) in
+  Hashtbl.iter (fun k v -> Hashtbl.add r k (f k v)) h;
+  r
 
 
 (*-----------Extensions for Maps-------------*)

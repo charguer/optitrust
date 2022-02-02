@@ -2,9 +2,58 @@ open PPrint
 open Ast
 open Precedence
 
+(*----------------------------------------------------------------------------------*)
+(* An optional memoization table that maps a [stringreprid] of a term
+   to the [document] obtained by executing [trm_to_doc] on it.
+   If [stringreprs] is not [None], the stringreprs table is filled in
+   during the calls to [trm_to_doc], for terms that bear a [Annot_stringreprid].
+   Make sure to invoke [label_subterms_with_fresh_stringreprids] on the
+   AST being printed, and preferably to reinitialize the stringreprs
+   table before starting. *)
+
+type stringreprs = (Ast.stringreprid, document) Hashtbl.t
+
+let stringreprs : stringreprs option ref = ref None
+
+let clear_stringreprs () =
+  stringreprs := None
+
+let get_stringreprs () : stringreprs =
+  match !stringreprs with
+  | Some m -> m
+  | None -> fail None "get_stringreprs: must call init_stringreprs or set_stringreprs first"
+
+let get_and_clear_stringreprs () : stringreprs =
+  let m = get_stringreprs() in
+  stringreprs := None;
+  m
+
+let set_stringreprs (t : stringreprs) : unit =
+  stringreprs := Some t
+
+let init_stringreprs () =
+  stringreprs := Some (Hashtbl.create 100)
+
+let add_stringreprs_entry (t : trm) (d : document) : unit =
+  match !stringreprs with
+  | None -> ()
+  | Some m ->
+      match trm_get_stringreprid t with
+      | None -> ()
+      | Some id -> Hashtbl.add m id d
+
+(* for debugging purpose *)
+let print_stringreprs (m : stringreprs) : unit =
+  let pr id d =
+    Printf.printf "stringreprs[%d] = %s\n----\n" id (Tools.document_to_string d) in
+  Printf.printf "====<stringreprs>====\n";
+  Hashtbl.iter pr m;
+  Printf.printf "====</stringreprs>====\n"
+
+(*----------------------------------------------------------------------------------*)
+
 (* only for internal use *)
 let print_optitrust_syntax = ref false
-
 
 (* translate an ast to a C/C++ document *)
 let rec typ_desc_to_doc (t : typ_desc) : document =
@@ -206,9 +255,10 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) (t : trm) : document =
     match t.attributes with
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
-  in
+    in
   (* For printing C code, we have (see explanations in [clang_to_ast.ml],
      search for [Address_operator] and [Star_operator]. *)
+  let d =
     begin match t.desc with
     | Trm_val v ->
        if List.mem Empty_cond t.annot then empty
@@ -376,7 +426,10 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) (t : trm) : document =
 
         ) tpl in
         string "template" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl ^^ semi
-     end
+     end in
+  (* Save the result in the optional stringreprs table, before returning the document *)
+  add_stringreprs_entry t d;
+  d
 
 and record_type_to_doc (rt : record_type) : document =
   match rt with
@@ -860,9 +913,7 @@ let ast_to_file ?(optitrust_syntax:bool=false) (filename : string) (t : trm) : u
   close_out out
 
 let ast_to_string (t : trm) : string =
-  let b = Buffer.create 80 in
-  ToBuffer.pretty 0.9 80 b (ast_to_doc t);
-  Buffer.contents b
+  Tools.document_to_string (ast_to_doc t)
 
 let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in

@@ -69,10 +69,12 @@ let accumulate : Target.Transfo.t =
 
 
 (* LATER: move this to Expr_basic.ml *)
-
-
-
-(* [view_subterms tg] displays on stdout all the subterms of the targeted term. *)
+(* [view_subterms tg] displays on stdout all the subterms of the targeted term.
+   For viewing on stdout all subterms of a program, use:
+     Instr.view_subterms [dRoot];
+   and possibly specify a regexp to investigate:
+     Instr.view_subterms ~constr:(sInstr "+= 2") [dRoot];
+   Note that this is for debugging purpose only. *)
 let view_subterms ?(constr:Constr.constr option) ?(rexp : Constr.rexp option) (tg : Target.target) : unit =
   let ro = match constr, rexp with
     | None, None -> None
@@ -81,8 +83,7 @@ let view_subterms ?(constr:Constr.constr option) ?(rexp : Constr.rexp option) (t
     | None, Some r -> Some r
     | Some _, Some _ -> fail None "view_subterms: cannot provide both [~constr] and [rexp]"
     in
-  (* LATER: it is probably possible to not save the modified term into the trace *)
-  Trace.apply (fun t -> Ast_fromto_AstC.annotate_string_representation (fun _ -> true) t);
-  Target.apply_on_targets (Instr_core.view_subterms ro) tg
-
+  let stringreprs = Target.compute_stringreprs_and_update_ast (fun _ -> true) in
+  (* for debug: AstC_to_c.print_stringreprs stringreprs; *)
+  Target.apply_on_targets (Instr_core.view_subterms stringreprs ro) tg
 

@@ -741,6 +741,31 @@ end
 let apply_on_path = Path.apply_on_path
 let applyp_on_path = Path.applyp_on_path
 
+let convert_stringreprs_from_documentation_to_string (m : AstC_to_c.stringreprs) : (stringreprid, string) Hashtbl.t =
+  Tools.hashtbl_map_values (fun _id d -> Tools.document_to_string ~width:PPrint.infinity d) m
+
+let compute_stringreprs ?(optitrust_syntax:bool=false) (f : trm->bool) (t : trm) : trm * AstC_to_c.stringreprs =
+  let t2 = Ast.label_subterms_with_fresh_stringreprids f t in
+  AstC_to_c.init_stringreprs();
+  let t2_c_syntax = Ast_fromto_AstC.cfeatures_intro t2 in
+  let _doc = AstC_to_c.ast_to_doc ~optitrust_syntax t2_c_syntax in (* fill in the [AstC_to_c.stringreprs] table, ignore the result *)
+  let m = AstC_to_c.get_and_clear_stringreprs() in
+  t2, m
+
+(* Label subterms with fresh stringreprids, then build a table that maps stringreprids to the corresponding documents
+   NOTE: this function will not work in the presence of multiple traces
+   LATER: this function should proabably be moved/merged into the view_subterms function. *)
+let compute_stringreprs_and_update_ast ?(optitrust_syntax:bool=false) (f : trm->bool) : AstC_to_c.stringreprs =
+  let stringreprs = ref None in
+  (* Note: through [Trace.apply], we modify the current AST by adding ids in the term annotation *)
+  Trace.apply (fun t ->
+    let t2, m = compute_stringreprs ~optitrust_syntax f t in
+    stringreprs := Some m;
+    t2
+    );
+  match !stringreprs with
+  | Some m -> m
+  | _ -> assert false (* table was set in Trace.apply *)
 
 
 let debug_disappearing_mark = true
@@ -752,6 +777,24 @@ let fix_target (tg : target) : target =
   (* If there are logic constraints then multiple occurrences are allowed *)
   let check_logic = List.exists (function Constr_or _ | Constr_and _ -> true | _ -> false) tg in
   if (not check_occurrences) && check_logic then nbMulti :: tg else tg
+
+(* [with_stringreprs_available_for tg (fun t2 -> action) t]  executes the [action]
+   in a context where the AST [t] is viewed as [t2], which is a copy of [t] where
+   certain nodes have their string representation available. Which nodes are concerned
+   depend on the regexp constraints expressed in the target [tg]. *)
+let with_stringreprs_available_for (tg : target) (f : trm -> 'a) : trm -> 'a =
+  fun t ->
+    let kinds = Constr.get_target_regexp_kinds tg in
+    (* for debug  List.iter (fun k -> Printf.printf "(kind:%s)" (Constr.trm_kind_to_string k)) kinds;
+       Printf.printf "==end of kinds==\n"; *)
+    let t2, m = compute_stringreprs (Constr.match_regexp_trm_kinds kinds) t in
+    (* AstC_to_c.print_stringreprs m; for debug *)
+    let stringreprs = convert_stringreprs_from_documentation_to_string m in
+    Constr.stringreprs := Some stringreprs;
+    (* for debug Constr.print_stringreprs();*)
+    let r = f t2 in
+    Constr.stringreprs := None;
+    r
 
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
       params:
@@ -766,7 +809,8 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
   Trace.apply (fun t ->
     let ps =
       Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
-        resolve_target tg t) in
+        with_stringreprs_available_for tg (fun t2 -> resolve_target tg t2) t
+        (* DEPRECATED: resolve_target tg t *)) in
     let ps = if rev then List.rev ps else ps in
     (* TODO: here we can have the following optimization, in case there is a single target,
         that is, in
