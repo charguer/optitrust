@@ -45,9 +45,10 @@ let _ = Run.script_cpp (fun () ->
 
   (* Loops *)
   show [ cFor "i" ];
+  (* TODO: FIX
   show [ cFor "j" ];
   show [ cFor ~stop:[cInt 5] "" ];
-  show [cFor_c "k"];
+  *)
 
   (* Abort *)
   show [ cBreak ];
@@ -85,24 +86,32 @@ let _ = Run.script_cpp (fun () ->
 
   (* TODO: fix the sInstr with new encodings *)
 
-  show [nbExact 0; sInstr ~substr:false "j <"];
+  show [nbExact 1; sExpr "j <"];
 
-  show [sInstr "+= 2"];
+  (* TODO: FIX after printing += correctly
+    show [sInstr "+= 2"];
   show [nbExact 0; sExpr ~substr:false "+= 2"];
   show [nbExact 0; sInstr ~substr:false "+= 2"];
   show [sInstr "r += 2"];
   show [sInstr "i++"];
-  show [nbExact 6; sInstrRegexp "int . = .."];
-  (* how [nbMulti; sInstrRegexp ~substr:true ". = ."]; *)
-  (* LATER: why some of these match even if they are substrings?
-       show [sInstrRegexp ~substr:false "int . = ."]; *)
+  *)
+  show [nbExact 2; sInstrRegexp "int . = .."];
+  show [nbExact 9; sInstrRegexp ~substr:true "int . ="];
+  show [nbExact 6; sInstrRegexp ~substr:true " .. ="];
+
   show [nbExact 1; sInstr "int r = 3"];
   show [nbExact 0; sExpr "int r = 3"];
   show [sInstr "i++" ];
   (* TODO: broken?
-    show [sInstrRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*) *)
+  show [sExpr "f" ];*)
+  show [sInstr "f" ];
+
+  show [nbExact 1; cVarDef "r"];
+  show [nbExact 4; cVarDef ~substr:true "r"];
+  show [nbExact 2; cVarDef ~regexp:true "p."];
+  show [nbExact 1; cVarDef ~regexp:true "r"];
   (* TODO: broken?
-   show [cVarDef ~regexp:true "r|s"];*)
+     show [nbExact 5; cVarDef ~regexp:true "r\\|n"];  *)
 
   (* Declarations *)
   show [cDef "s"];

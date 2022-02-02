@@ -473,6 +473,117 @@ and access_to_string (ca : constr_access) : string =
   | Any_access -> "Any_access"
 
 
+let constr_map (f : constr -> constr) (c : constr) : constr =
+  (* LATER: optimize using identity reconstruction, like trm_map with optim *)
+  let aux (cs:target) : target =
+    List.map f cs in
+  let auxs (tgs:targets) : targets =
+    List.map aux tgs in
+  match c with
+  | Constr_depth _depth -> c
+  | Constr_dir _d -> c
+  | Constr_include _s -> c
+  | Constr_regexp _r -> c
+  | Constr_for_c (p_init, p_cond, p_step, p_body) ->
+     let s_init = aux p_init in
+     let s_cond = aux p_cond in
+     let s_step = aux p_step in
+     let s_body = aux p_body in
+     Constr_for_c (s_init, s_cond, s_step, s_body)
+  | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body) ->
+      let s_start = aux p_start in
+      let s_stop = aux p_stop in
+      let s_step = aux p_step in
+      let s_body = aux p_body in
+      Constr_for (p_index, s_start, p_direction, s_stop, s_step, s_body)
+  | Constr_while (p_cond, p_body) ->
+     let s_cond = aux p_cond in
+     let s_body = aux p_body in
+     Constr_while (s_cond, s_body)
+  | Constr_do_while (p_body, p_cond) ->
+     let s_body = aux p_body in
+     let s_cond = aux p_cond in
+     Constr_do_while (s_body, s_cond)
+  | Constr_if (p_cond, p_then, p_else) ->
+     let s_cond = aux p_cond in
+     let s_then = aux p_then in
+     let s_else = aux p_else in
+     Constr_if (s_cond, s_then, s_else)
+  | Constr_decl_var (ty_pred, name, p_body) ->
+     let s_body = aux p_body in
+     Constr_decl_var (ty_pred, name, s_body)
+  | Constr_decl_fun (ty_pred,name, tgt_list_pred, p_body) ->
+     let s_body = aux p_body in
+     Constr_decl_fun (ty_pred,name, tgt_list_pred, s_body)
+  | Constr_decl_type name -> c
+  | Constr_decl_enum (name, c_const) ->
+     let s_const = Tools.option_map (List.map (fun (n,tg) -> (n,aux tg))) c_const in
+     Constr_decl_enum (name, s_const)
+  | Constr_seq _tgt_list_pred -> c
+  | Constr_var _name -> c
+  | Constr_lit _-> c
+  | Constr_app (p_fun, tgt_list_pred, accept_encoded) ->
+     let s_fun = aux p_fun in
+     Constr_app (s_fun, tgt_list_pred, accept_encoded)
+  | Constr_label (so, p_body) ->
+     let s_body = aux p_body in
+     Constr_label (so, s_body)
+  | Constr_goto so -> c
+  | Constr_return p_res ->
+      let s_res = aux p_res in
+      Constr_return s_res
+  | Constr_abort kind -> c
+  | Constr_access (p_base, ca, inner) ->
+     let s_base = aux p_base in
+     Constr_access (s_base, ca, inner)
+  | Constr_switch (p_cond, cc) ->
+     let s_cond = aux p_cond in
+     let s_cc = Tools.option_map (List.map (fun (k,tg) -> (k,aux tg))) cc in
+     Constr_switch (s_cond, s_cc)
+  | Constr_relative tr -> c
+  | Constr_occurrences oc -> c
+  | Constr_target cl ->
+      Constr_target (aux cl)
+  | Constr_bool b -> c
+  | Constr_root -> c
+  | Constr_prim _ -> c
+  | Constr_mark (_, str) -> c
+  | Constr_or tl ->
+      Constr_or (auxs tl)
+  | Constr_and tl ->
+      Constr_and (auxs tl)
+  | Constr_diff (tl1, tl2) ->
+      let s_tl1 = auxs tl1 in
+      let s_tl2 = auxs tl2 in
+      Constr_diff (s_tl1, s_tl2)
+  | Constr_arg _ -> c
+  | Constr_hastype _ -> c
+  | Constr_array_init -> c
+  | Constr_struct_init -> c
+
+(* [get_target_regexp_kinds tg] gets the list of trm_kinds of the terms
+   for which we would potentially need to use the string representation,
+   for resolving the target [tg]. The result is either a list of kinds
+   without [TrmKind_Any], or a singleton list made of [TrmKind_Any]. *)
+let get_target_regexp_kinds (tg : target) : trm_kind list =
+  (* LATER: could be optimize by avoiding the construction of a copy of c;
+     but this should be done automatically when constr_map is optimized *)
+  (* Note: we use lists, but this is fine because the lists are very short *)
+  let res = ref [] in
+  let add (k : trm_kind) : unit =
+    match k with
+    | TrmKind_Any -> res := [TrmKind_Any]
+    | _ -> if not (List.mem k !res) then res := k :: !res
+    in
+  let rec explore (c : constr) : constr =
+    begin match c with
+    | Constr_regexp r -> add r.rexp_trm_kind
+    | _ -> ()
+    end;
+    constr_map explore c
+    in
+  List.iter (fun c -> ignore (explore c)) tg;
+  !res
 
 
 (******************************************************************************)
@@ -574,6 +685,7 @@ let is_equal_lit (l : lit) (l' : lit) =
   | Lit_string s, Lit_string s' when s = s' -> true
   | _ -> false
 
+(* LATER: we may want to save the kind inside the term? *)
 let rec get_trm_kind (t : trm) : trm_kind =
    let is_unit = begin match t.typ with
                  | Some ty ->
@@ -614,17 +726,61 @@ let match_regexp_str (r : rexp) (s : string) : bool =
     try let _ = Str.search_forward r.rexp_exp s 0 in true
     with Not_found -> false
   end else begin
+    (* Here we assume that [r.rexp_exp] ends with [^], to ensure that
+       the pattern matches all of [s] and not a strict substring of [s]. *)
     Str.string_match r.rexp_exp s 0
   end
 
+
+(* LATER: this could be passed as argument throughout the function calls *)
+(* This variable should only be modified by [Target.with_stringreprs_available] *)
+(* Keep in mind that the stringrepr is not available for AST nodes that are removed
+   during the computation of [cfeatures_intro], that is, during the translations
+   from OptiTrust AST to the C AST. *)
+let stringreprs : (stringreprid, string) Hashtbl.t option ref = ref None
+
+(* for debugging purpose *)
+let print_stringreprs () : unit =
+  match !stringreprs with
+  | None -> fail None "print_stringreprs: no table registered"
+  | Some m ->
+      let pr id s =
+        Printf.printf "stringreprs[%d] = %s\n----\n" id s in
+      Printf.printf "====<constr.stringreprs>====\n";
+      Hashtbl.iter pr m;
+      Printf.printf "====</constr.stringreprs>====\n"
+
+(* [get_stringrepr t] returns the string representation saved in table [stringreprs],
+   or an empty string otherwise *)
+let get_stringrepr (t : trm) : string =
+  if not !Flags.use_new_encodings then Ast_to_c.ast_to_string t else begin (* this line will be deprecated *)
+    match !stringreprs with
+    | None -> fail t.loc "get_stringrepr: stringreprs must be computed and registered before resolving constraints"
+    | Some m ->
+        match Ast.trm_get_stringreprid t with
+        | Some id ->
+          begin match Hashtbl.find_opt m id with
+          | None -> ""
+              (* This term must correspond to a node that was removed during
+                 [cfeatures_intro], hence not printed *)
+              (* FOR debug: print_stringreprs(); AstC_to_c.trm_print_debug t; *)
+          | Some s -> s
+          end
+        | None -> ""
+  end
+
+let match_regexp_trm_kind (k : trm_kind) (t : trm) : bool =
+  (k = TrmKind_Any) || (get_trm_kind t = k)
+
+let match_regexp_trm_kinds (ks : trm_kind list) (t : trm) : bool =
+  List.mem (get_trm_kind t) ks
+
 let match_regexp_trm (r : rexp) (t : trm) : bool =
-  if r.rexp_trm_kind <> get_trm_kind t then false else begin
-    let str_t =
-      if !Flags.use_new_encodings
-        then AstC_to_c.ast_to_string (Ast_fromto_AstC.cfeatures_intro t)
-        else Ast_to_c.ast_to_string t
-      in
-    match_regexp_str r str_t
+  if not (match_regexp_trm_kind r.rexp_trm_kind t) then false else begin
+    let s = get_stringrepr t in
+    (* FOR DEBUG: Printf.printf "Considered: %s\n" s; *)
+    s <> "" && match_regexp_str r s
+    (* If the stringrepr is not available, we return false *)
   end
 
 

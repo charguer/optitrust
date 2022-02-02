@@ -50,12 +50,19 @@ type typvars = typvar list
 type typconstrid = int
 
 (* [next_typconstrid ()] generate and return a new integer *)
-let next_typconstrid : (unit -> int) =
+let next_typconstrid : (unit -> typconstrid) =
   Tools.fresh_generator ()
 
-(* [init_typconstrid ()] reset the id generator *)
+(* [init_typconstrid ()] reset the id generator for type constructors *)
 let init_typconstrid (): unit =
   Tools.reset_generator ()
+
+(* unique identifier used as keys for memoization of string representation of subterms *)
+type stringreprid = int
+
+(* [next_stringreprid ()] generate and return a new string representation id *)
+let next_stringreprid : (unit -> stringreprid) =
+  Tools.fresh_generator ()
 
 
 (* ['a typmap] is a map from [typeid] to ['a] *)
@@ -282,7 +289,7 @@ and trm_annot =
   | Display_arrow (* Used for struct accesses of the form ( *p ).x or p -> x, with this annotation the arrow syntax sugar is used *)
   | Reference (* Used to encode references as pointers with annotation Reference *)
   | Stackvar (* Used to encode stack variables *)
-  | Annot_string_repr of string (* String representation of this node *)
+  | Annot_stringreprid of stringreprid (* Memoization id for the string representation of this node *)
 
 (* symbols to add while printing a C++ program.*)
 and special_operator =
@@ -780,8 +787,8 @@ let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
 let trm_annot_remove (annot : trm_annot) (t : trm) : trm =
   { t with annot = Tools.list_remove annot t.annot }
 
-let trm_get_string_repr (t : trm) : string option =
-  List.find_map (function Annot_string_repr s -> Some s | _ -> None) t.annot
+let trm_get_stringreprid (t : trm) : stringreprid option =
+  List.find_map (function Annot_stringreprid id -> Some id | _ -> None) t.annot
 
 let trm_special_operator_add (a : special_operator) (t : trm) : trm =
   { t with add = a :: t.add }
@@ -1330,6 +1337,19 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
      typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
   | _ -> ty
+
+(* [label_subterms_with_fresh_stringreprids f t] annotates all the subterms of [t]
+   that satisfy the boolean predicate [f] with a fresh string representation identifier.
+   This operation should be performed to enable the term to doc function to memoize
+   its results, and possibly export a table mapping subterms to their string representation. *)
+let rec label_subterms_with_fresh_stringreprids (f : trm -> bool) (t : trm) : trm =
+  let t2 =
+    if not (f t) then t else begin
+      let id = next_stringreprid () in
+      let keep_annot = List.filter (function Annot_stringreprid _ -> false | _ -> true) t.annot in
+       { t with annot = (Annot_stringreprid id)::keep_annot }
+    end in
+  trm_map (label_subterms_with_fresh_stringreprids f) t2
 
 (* check if a trm contains a variable occurrence or not *)
 let contains_variable (x : var) (t : trm) : bool =

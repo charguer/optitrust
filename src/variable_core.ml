@@ -30,8 +30,10 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
         in
         let def_x =
             begin match vk with
-            | Var_immutable -> dx
-              
+            | Var_immutable ->
+              if as_reference
+                then {dx with add = List.filter (fun x -> x <> Address_operator) dx.add} (* TODO: probably useless *)
+                else dx
             | _ -> begin match dx.desc with
                    | Trm_apps(_, [init]) -> init
                    | _ -> dx

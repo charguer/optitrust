@@ -312,6 +312,8 @@ val filter_constr_occurrence : target -> target
 
 val enable_multi_targets : target -> target
 
+val compute_stringreprs_and_update_ast : ?optitrust_syntax:bool -> (trm->bool) -> AstC_to_c.stringreprs
+
 (* Target resolution *)
 
 val resolve_target : target -> trm -> paths
