@@ -338,8 +338,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
           parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
             blank 1 ^^ dbody
      | Trm_for (index, start, direction, stop, step, body) ->
-       let local_index = not (List.mem Non_local_index t.annot) in
-       let full_loop = trm_for_to_trm_for_c ~local_index index start direction stop step body in
+       let full_loop = trm_for_to_trm_for_c index start direction stop step body in
        decorate_trm full_loop
      | Trm_switch (cond, cases) ->
         let dcond = decorate_trm cond in

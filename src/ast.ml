@@ -1571,22 +1571,6 @@ let for_loop_body_trms (t : trm) : trm mlist =
     end
   | _ -> fail t.loc "for_loop_body_trms: expected a loop"
 
-(* used for distinguishing simple loops from complex ones *) (* TODO: deprecated?*)
-let is_simple_loop_component (t : trm) : bool =
-  match t.desc with
-  | Trm_apps (f,_) ->
-    begin match f.desc with
-    | Trm_val(Val_prim (Prim_unop (Unop_get))) -> true
-    | Trm_val(Val_prim (Prim_unop (Unop_pre_inc))) -> false
-    | Trm_val(Val_prim (Prim_unop (Unop_pre_dec))) -> false
-    | _ -> true
-    end
-  | Trm_var _ -> true
-  | Trm_val (Val_lit (Lit_int _)) -> true
-  | Trm_let _ -> true
-  | _ -> false
-
-
 (* kind of the type used when parsing initialization lists*)
 type typ_kind =
   | Typ_kind_undefined
@@ -1837,11 +1821,6 @@ let trm_for_c_inv_simple_init (init : trm) : (var * trm * bool) option =
       Some (x, init1, true)
     | _ -> None
     end
-  | Trm_apps (_, [ls; rs]) when is_set_operation init ->
-    begin match ls.desc with
-    | Trm_var (_, x) -> Some (x, rs, false)
-    | _ -> None
-    end
   | _ -> None
 
 
@@ -1907,11 +1886,9 @@ let trm_for_of_trm_for_c (t : trm) : trm =
 
 
 (* before printing a simple loop first it should be converted to complex loop *)
-let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(local_index : bool = true)
+let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) 
   (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
-  let init = if not local_index
-                then trm_set (trm_var index) start
-                else trm_let Var_mutable (index, typ_int()) start in
+  let init = trm_let Var_mutable (index, typ_int()) start in
   let cond = begin match direction with
     | DirUp ->
       (trm_apps (trm_binop Binop_lt)

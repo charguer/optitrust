@@ -47,6 +47,7 @@ let _ = Run.script_cpp (fun () ->
   show [ cFor "i" ];
   show [ cFor "j" ];
   show [ cFor ~stop:[cInt 5] "" ];
+  show [cFor_c "k"];
 
   (* Abort *)
   show [ cBreak ];

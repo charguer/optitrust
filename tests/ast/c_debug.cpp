@@ -38,8 +38,10 @@ int f(int* t, int** u, vect w) {
 
 */
 int main() {
-  float a = 5.0;
-  double b = (double) a;
-  float c = (float)b;
+  int x;
+  int y;
+  for(x = 0; x < 10; x++){
+    y += 5;
+  }
   
 }

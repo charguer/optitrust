@@ -54,4 +54,9 @@ int main() {
   // calls
   int y = f(2);
   lbl2: g(t, &v);
+
+  int k;
+  for(k = 0; k < 10; k++){
+    y = k;
+  }
 }
