@@ -2402,3 +2402,7 @@ let serialize_to_file (filename : string) (t : trm) : unit =
 (* [unserialize_from_file filename] reads a serialized AST from the file [filename]. *)
 let unserialize_from_file (filename : string) : trm =
   Tools.unserialize_from_file filename
+
+(* [empty_ast] *)
+let empty_ast : trm = 
+  trm_seq_nomarks ~annot:[Main_file] []

@@ -352,8 +352,8 @@ let finalize () : unit =
         !! Loop.fusion_on_block [cLabel "tofusion"];
         !!());
 
-   TODO: figure out if it is possible to avoid "!!" in front and tail of [Trace.restart].
-   TODO: figure out if this implementation could be extended in the presence of [switch]. *)
+   LATER: figure out if it is possible to avoid "!!" in front and tail of [Trace.restart].
+   LATER: figure out if this implementation could be extended in the presence of [switch]. *)
 let alternative f : unit =
   let saved_traces = !traces in
   let trace = match !traces with
@@ -584,12 +584,12 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     end
   end
 
-(* [output_prog_opt ?ast_and_enc ctx prefix ast_opt] is similar to [output_prog], but it
-   generates an empty file in case the [ast_opt] is [None]. *)
-let output_prog_opt ?(ast_and_enc : bool = true) (ctx : context) (prefix : string) (ast_opt : trm option) : unit =
-  match ast_opt with
-  | Some ast -> output_prog ~ast_and_enc ctx prefix ast
-  | None ->
+(* [output_prog_check_empty ?ast_and_enc ctx prefix ast_opt] is similar to [output_prog], but it
+   generates an empty file in case the [ast] is an empty ast. *)
+let output_prog_check_empty ?(ast_and_enc : bool = true) (ctx : context) (prefix : string) (ast_opt : trm) : unit =
+  match ast_opt.desc with
+  | Trm_seq tl when Mlist.length tl <> 0 -> output_prog ~ast_and_enc ctx prefix ast_opt
+  | _ ->
       let file_prog = prefix ^ ctx.extension in
       let out_prog = open_out file_prog in
       close_out out_prog
@@ -713,18 +713,14 @@ let reparse_alias = reparse
 
 (* [light_diff astBefore astAfter] finds all the functions that have not change after
     applying a transformation and hides their body for a more robust view diff. *)
- (* TODO: see the comment in dump_diff_and_exit on how to remove the option to simplify the code *)
-let light_diff (astBefore : trm option) (astAfter : trm) : trm option * trm  =
-  match astBefore with
-  | Some astBefore ->
+let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
     let topfun_before = top_level_fun_bindings astBefore in
     let topfun_after = top_level_fun_bindings astAfter in
     let topfun_common = get_common_top_fun topfun_before topfun_after in
     let filter_common ast = fst (hide_function_bodies (fun f -> List.mem f topfun_common) ast) in
     let new_astBefore = filter_common astBefore in
     let new_astAfter = filter_common astAfter in
-    (Some new_astBefore, new_astAfter)
-  | _ -> astBefore, astAfter
+    (new_astBefore, new_astAfter)
 
 (* [dump_diff_and_exit()] invokes [output_prog] on the current AST an also on the
    last item from the history, then it interrupts the execution of the script.
@@ -750,18 +746,15 @@ let dump_diff_and_exit () : unit =
     let ctx = trace.context in
     let prefix = ctx.directory ^ ctx.prefix in
     (* Common printinf function *)
-    let output_ast ?(ast_and_enc:bool=true) filename_prefix ast_opt =
-      output_prog_opt ~ast_and_enc ctx filename_prefix ast_opt;
+    let output_ast ?(ast_and_enc:bool=true) filename_prefix ast =
+      output_prog_check_empty ~ast_and_enc ctx filename_prefix ast;
       print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
       in
     (* CPP and AST output for BEFORE *)
-    (* TODO: we could simplify quite a bit all this code by creating an empty AST
-       when trace.history is empty. In ast.ml, you can define [empty_ast] to be
-       a trm_seq with no items, and with the annotation Main_file. *)
     let astBefore =
       match trace.history with
-      | t::_ -> Some t (* the most recently saved AST *)
-      | [] -> Printf.eprintf "Warning: only one step in the history; consider previous step blank.\n"; None
+      | t::_ -> t (* the most recently saved AST *)
+      | [] -> Printf.eprintf "Warning: only one step in the history; consider previous step blank.\n"; empty_ast
       in
     let astAfter = trace.cur_ast in
 
@@ -777,12 +770,12 @@ let dump_diff_and_exit () : unit =
       (* if nb_requested < nb_available
         then Printf.eprintf "Warning: not enought many steps for [dump_last]; completing with blank files.\n"; *)
       for i = 0 to nb_requested-1 do
-        let astBeforeI = if i < nb_available then Some (List.nth trace.history i) else None in
+        let astBeforeI = if i < nb_available then List.nth trace.history i else empty_ast in
         output_ast ~ast_and_enc:false (prefix ^ "_before_" ^ string_of_int i) astBeforeI
       done;
     end;
     (* CPP and AST and Javscript for AFTER *)
-    output_ast (prefix ^ "_after") (Some astAfter);
+    output_ast (prefix ^ "_after") astAfter;
     print_info None "Writing ast and code into %s.js " prefix;
     output_js 0 prefix astAfter;
     (* Printf.printf "EXIT   %s\n" prefix; *)
@@ -974,67 +967,6 @@ let get_context () : context =
   | [tr] -> tr.context
   | _ -> fail None "get_context: couldn't get the current context"
 
-(* [parse_cstring] is a function that can be used to acquire the AST of a statement
-   provided as a string by the user, e.g, [int x; x = 1; x = 5;]. The arguments are:
-   - [ctx]: an optional context, from which to obtain the list of '#include' to use.
-   - [context]: describes a context in which the statement can be parsed
-     (e.g., to parse [int x = y], in a context where [int y] is defined.
-   - [is_expression]: a flag to indicate if we are parsing an expression or a statement
-     (for expressions, we add a semicolon at the end).
-   - [s]: the string that describes the code of which we want the AST. *)
-(* TODO: change [ctx : context]   to [ctx option]. If it is Some, includes [ctx.includes]
-   in addition  to the string [context]. *)
-let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : context) : trms =
- let context = if context = "" then ctx.includes else context in
- let command_line_args =
-  List.map Clang.Command_line.include_directory
-    (ctx.directory :: Clang.default_include_directories())
-  in
- let ast =
-    Clang.Ast.parse_string ~command_line_args
-      (Printf.sprintf
-         {|
-          %s
-          void f(void){
-            #pragma clang diagnostic ignored "-Wunused-value"
-            %s
-          }
-          |}
-         context
-         (if is_expression then s ^ ";" else s)
-      )
-  in
-  let t = Clang_to_ast.translate_ast ast in
-  match t.desc with
-  | Trm_seq tl1 when Mlist.length tl1 = 1 ->
-    let t = Mlist.nth tl1 0 in
-     begin match t.desc with
-     | Trm_seq tl  ->
-        let fun_def = List.nth (List.rev (Mlist.to_list tl)) 0 in
-        begin match fun_def.desc with
-        | Trm_let_fun (_, _, _, fun_body) ->
-          begin match fun_body.desc with
-          | Trm_seq tl -> Mlist.to_list tl
-          | _ -> fail fun_body.loc "parse_cstring: expcted a sequence of terms"
-          end
-        | _ -> fail fun_def.loc "parse_cstring: expected a function definition"
-        end
-     | _ -> fail t.loc "parse_cstring: expected another sequence"
-     end
-  | _-> fail t.loc (Printf.sprintf "parse_cstring: exptected a sequence with only one trm, got %s\n" (Ast_to_c.ast_to_string t))
-
-(* [Trace.term ctx s] returns the AST that corresponds to a statement
-  described by the string [s]. The context in which the statement is
-  parsed can be provided as optional argument. By default, we use only
-  as context the '#include' obtained from the [ctx], which may be obtained
-  using [get_context()]. *)
-  (* TODO: should make ctx on optional argument ?(ctx:context), which could be None
-    or Some ctx, in which case we would use the include from the context. *)
-let term ?(context : string = "") (ctx : context) (s : string) : trm =
-  let tl = parse_cstring context true s ctx  in
-  match tl with
-  | [expr] -> expr
-  | _ -> fail None "term: expcted a list with only one element"
 
 (* LATER:  need to reparse to hide spurious parentheses *)
 (* LATER: add a mechanism for automatic simplifications after every step *)
