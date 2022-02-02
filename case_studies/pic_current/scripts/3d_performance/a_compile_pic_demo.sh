@@ -20,8 +20,8 @@ source $PICVERT_HOME/your_configuration.sh
 #Modify the compile scripts : modify the -DCHUNK_SIZE= for a different chunk size
 #Modify other parameters    : modify the other parameters in parameters_3d.txt
 
-#CHUNK_SIZE=256
-CHUNK_SIZE=4
+CHUNK_SIZE=256
+#CHUNK_SIZE=16
 
 ###################################
 #              gcc                #

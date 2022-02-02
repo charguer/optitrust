@@ -31,6 +31,7 @@ double areaZ;
 double stepDuration;
 double particleCharge;
 double particleMass;
+int nbParticles;
 
 // Grid description
 int gridX;
@@ -83,9 +84,9 @@ int cellOfCoord(int i, int j, int k) {
 
 // idCellOfPos computes the id of the cell that contains a position.
 int idCellOfPos(vect pos) {
-  int iX = int_of_double(pos.x / cellX);
-  int iY = int_of_double(pos.y / cellY);
-  int iZ = int_of_double(pos.z / cellZ);
+  int iX = wrap(gridX, int_of_double(pos.x / cellX));
+  int iY = wrap(gridY, int_of_double(pos.y / cellY));
+  int iZ = wrap(gridZ, int_of_double(pos.z / cellZ));
   return cellOfCoord(iX, iY, iZ);
 }
 
@@ -279,7 +280,7 @@ void updateFieldUsingNextCharge(double* nextCharge, vect* field) {
 #include "initial_distributions.h"                        // types     speeds_generator_3d, distribution_function_3d, max_distribution_function
                                                           // variables speed_generators_3d, distribution_funs_3d, distribution_maxs_3d
 void init(int argc, char** argv) {
-    TRACE("Start init\n");
+    TRACE("Initialization starts, using chunk size %d\n", CHUNK_SIZE);
  /****************************
   * DO NOT CHANGE            *
   * COPY/PASTE FROM PIC-VERT *
@@ -424,6 +425,7 @@ void init(int argc, char** argv) {
   particleCharge = totalCharge / nb_particles;
   particleMass =  1.;
   nbSteps = num_iteration;
+  nbParticles = nb_particles;
   gridX = ncx;
   gridY = ncy;
   gridZ = ncz;
@@ -450,7 +452,9 @@ void init(int argc, char** argv) {
 
   // Later in optimizations: call an 'initialize' function in particle_chunk_alloc
 
-  TRACE("Fill particles\n");
+  TRACE("Filling particles on %d cells\n", nbCells);
+
+
   // Initialize bagsNext and bagsCur with empty bags in every cell
   bagsCur = (bag*) malloc(nbCells * sizeof(bag));
   bagsNext = (bag*) malloc(nbCells * sizeof(bag));
@@ -476,7 +480,7 @@ void init(int argc, char** argv) {
     const double y_range = mesh.y_max - mesh.y_min;
     const double z_range = mesh.z_max - mesh.z_min;
 
-    TRACE("Create particles %ld\n", nb_particles);
+    TRACE("Creating %ld particles", nb_particles);
     // Create particles and push them into the bags.
     for (int idParticle = 0; idParticle < nb_particles; idParticle++) {
         do {
@@ -497,11 +501,10 @@ void init(int argc, char** argv) {
     }
   }
 
-  TRACE("First poisson\n");
+  TRACE("Computing initial poisson and leap-frog step\n");
   // Poisson solver to compute field at time zero, and reset nextCharge
   updateFieldUsingNextCharge(nextCharge, field);
 
-  TRACE("Leap frog (chunksize=%d)\n", CHUNK_SIZE);
   // Computes speeds backwards for half a time-step (leap-frog method)
   double negHalfStepDuration = -0.5 * stepDuration;
   // For each cell from the grid
@@ -528,11 +531,10 @@ void init(int argc, char** argv) {
         p->speed = vect_add(p->speed, vect_mul(negHalfStepDuration, accel));
     }
   }
-  TRACE("Init end\n");
 }
 
 void finalize(bag* bagsCur, bag* bagsNext, vect* field) {
-  TRACE("Finalize\n");
+  // TRACE("Finalize\n");
   // Later in optimizations: call a 'finalize' function in particle_chunk_alloc
 
   // Free the chunks
@@ -556,8 +558,7 @@ int main(int argc, char** argv) {
   init(argc, argv);
 
   // Instrumentation of the code
-  double time_start = omp_get_wtime();
-  TRACE("Simulate\n");
+  double timeStart = omp_get_wtime();
 
   // Foreach time step
   for (int step = 0; step < nbSteps; step++) {
@@ -565,18 +566,23 @@ int main(int argc, char** argv) {
     // Update the new field based on the total charge accumulated in each cell,
     // and reset nextCharge.
     updateFieldUsingNextCharge(nextCharge, field);
+    // TRACE("Field global ready\n");
 
     // For each cell from the grid
     for (int idCell = 0; idCell < nbCells; idCell++) {
+      //TRACE("idCell %d\n", idCell);
 
       // Read the electric field that applies to the corners of the cell considered
       vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
+      //TRACE("   field local ready\n");
 
       // Consider the bag of particles in that cell
       bag* b = &bagsCur[idCell];
 
       bag_iter bag_it;
+      int k=0;
       for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_destructive(&bag_it)) {
+        //TRACE("    step particle %d\n", k++);
 
         // Interpolate the field based on the position relative to the corners of the cell
         double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
@@ -594,6 +600,7 @@ int main(int argc, char** argv) {
         int idCell2 = idCellOfPos(pos2);
 
         // Push the updated particle into the bag associated with its target cell
+        //TRACE("    bag push into %d\n", idCell2);
         bag_push(&bagsNext[idCell2], p2);
 
         // Deposit the charge of the particle at the corners of the target cell
@@ -601,20 +608,24 @@ int main(int argc, char** argv) {
         double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs2);
         accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
       }
+      // TRACE("  reset bag\n");
       bag_init_initial(b);
     }
 
     // For the next time step, the contents of bagNext is moved into bagCur (which is empty)
-    TRACE("Swap\n");
+    // TRACE("Swap\n");
     for (int idCell = 0; idCell < nbCells; idCell++) {
       bag_swap(&bagsCur[idCell], &bagsNext[idCell]);
     }
 
     // Poisson solver and reset nextCharge
-    TRACE("Poisson\n");
+    // TRACE("Poisson\n");
     updateFieldUsingNextCharge(nextCharge, field);
   }
-  double time_simu = (double) (omp_get_wtime() - time_start);
+
+  double timeTotal = (double) (omp_get_wtime() - timeStart);
+  printf("Exectime: %.3f sec\n", timeTotal);
+  printf("Throughput: %.1f million particles/sec\n", nbParticles * nbSteps / timeTotal / 1000000);
   // TODO: TRACE
 
   finalize(bagsCur, bagsNext, field);

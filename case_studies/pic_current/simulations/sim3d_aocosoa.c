@@ -792,6 +792,9 @@ int main(int argc, char** argv) {
             "diag_speed_8corners.txt", num_iteration, diag_speed_size,  diag_speed);
         print_time_chunkbags(mpi_rank, mpi_world_size, nb_particles, num_iteration, time_simu, simulation_name, data_structure_name, sort_name,
             time_particle_loop, time_append, time_mpi_allreduce, time_poisson);
+    } else {
+      printf("Exectime: %.3f sec\n", time_simu);
+      printf("Throughput: %.1f million particles/sec\n", nb_particles * num_iteration / time_simu / 1000000);
     }
     // TODO: printf
 
