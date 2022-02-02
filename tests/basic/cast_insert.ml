@@ -14,7 +14,7 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Cast_basic.insert Ast.(typ_double ()) [cVar "a"];
-  !! Cast_basic.insert Ast.(typ_float ()) [cVar "b"];
+  !! Cast_basic.insert Ast.(typ_double ()) [cReadVar "a"];
+  !! Cast_basic.insert Ast.(typ_float ()) [cReadVar "b"];
 
 )

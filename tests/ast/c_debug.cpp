@@ -38,7 +38,8 @@ int f(int* t, int** u, vect w) {
 
 */
 int main() {
-  int r = 3;
-  r = r + 1 + 2;
-  r += 2;
+  float a = 5.0;
+  double b = (double) a;
+  float c = (float)b;
+  
 }

@@ -8,12 +8,15 @@ TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	array_set_explicit.ml \
+	cast_insert.ml \
+	function_beta.ml \
 	function_inline.ml \
 	instr_accumulate.ml \
 	instr_move.ml \
 	instr_replace_fun.ml \
 	label_remove.ml \
 	loop_color.ml \
+	loop_fold.ml \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
 	loop_swap.ml \
@@ -68,16 +71,13 @@ TESTS_TO_FIX := \
 	arith_to_fix.ml \
 	aos_to_soa_typedef.ml \
 	aos_to_soa_sized_array.ml \
-	cast_insert.ml \
 	struct_simpl_proj.ml \
 	arith_simplify.ml \
 	array_to_variables.ml \
-	function_beta.ml \
 	function_bind_intro.ml \
 	function_uninline.ml \
 	instr_read_last_write.ml \
 	loop_fission.ml \
-	loop_fold.ml \
 	loop_tile.ml \
 	loop_to_unit_steps.ml \
 	reference_inline.ml \
