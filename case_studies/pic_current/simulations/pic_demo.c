@@ -1,5 +1,10 @@
-#include <stdlib.h>
 #include <omp.h>                                          // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
+#include <stdlib.h>
+#include <string.h>
+#include "parameter_reader.h"                             // type      simulation_parameters
+                                                          // constants STRING_NOT_SET, INT_NOT_SET, DOUBLE_NOT_SET
+                                                          // function  read_parameters_from_file
+
 
 // --------- Bags of particles
 
@@ -271,7 +276,7 @@ void updateFieldUsingNextCharge(double* nextCharge, vect* field) {
 #include "random.h"                                       // macros    pic_vert_seed_double_RNG, pic_vert_free_RNG
 #include "initial_distributions.h"                        // types     speeds_generator_3d, distribution_function_3d, max_distribution_function
                                                           // variables speed_generators_3d, distribution_funs_3d, distribution_maxs_3d
-void init() {
+void init(int argc, char** argv) {
  /****************************
   * DO NOT CHANGE            *
   * COPY/PASTE FROM PIC-VERT *
@@ -336,9 +341,6 @@ void init() {
     } else
         printf("No parameter file was passed through the command line. I will use the default parameters.\n");
 
-    // Random initialization or read from file.
-    const char sim_initial = INIT_NOFILE;
-
     // Spatial parameters for initial density function.
     double *params;
     if (sim_distrib == LANDAU_1D_PROJ3D) {
@@ -376,7 +378,7 @@ void init() {
         speed_params = malloc(1 * sizeof(double));
         speed_params[0] = thermal_speed;
     }
-  
+
   // Mesh
   double x_min, y_min, z_min, x_max, y_max, z_max;
   x_min = 0.;
@@ -399,7 +401,7 @@ void init() {
       y_max = 2 * PI / kmode_y;
       z_max = 2 * PI / kmode_z;
   }
-  
+
   cartesian_mesh_3d mesh = create_mesh_3d(ncx, ncy, ncz, x_min, x_max, y_min, y_max, z_min, z_max);
   poisson = new_poisson_3d_fft_solver(mesh);
  /*********************
@@ -425,7 +427,7 @@ void init() {
   areaX = x_max - x_min;
   areaY = y_max - y_min;
   areaZ = z_max - z_min;
-  
+
   // New verified_transfo variables.
   nbCells = gridX * gridY * gridZ;
   cellX = areaX / gridX;
@@ -457,7 +459,7 @@ void init() {
   // If you want different random number at each run, type instead
   // seed = seed_64bits(0);
   pic_vert_seed_double_RNG(seed);
-  
+
   // Creation of random particles and put them into bags.
   { // COPY PASTE FROM PIC-VERT WITH AMENDMENTS
     double x, y, z, vx, vy, vz;
@@ -465,13 +467,13 @@ void init() {
     speeds_generator_3d speeds_generator = speed_generators_3d[sim_distrib];
     distribution_function_3d distrib_function = distribution_funs_3d[sim_distrib];
     max_distribution_function max_distrib_function = distribution_maxs_3d[sim_distrib];
-    
+
     const double x_range = mesh.x_max - mesh.x_min;
     const double y_range = mesh.y_max - mesh.y_min;
     const double z_range = mesh.z_max - mesh.z_min;
-    
+
     // Create particles and push them into the bags.
-    for (int idParticle = 0; idParticle < nb_particle; idParticle++) {
+    for (int idParticle = 0; idParticle < nb_particles; idParticle++) {
         do {
             // x, y, z are offsets from mesh x/y/z/min
             x = x_range * pic_vert_next_random_double();
@@ -534,9 +536,9 @@ void finalize(bag* bagsCur, bag* bagsNext, vect* field) {
 // --------- Module Simulation
 
 
-int main() {
+int main(int argc, char** argv) {
 
-  init();
+  init(argc, argv);
 
   // Instrumentation of the code
   double time_start = omp_get_wtime();

@@ -18,7 +18,7 @@
  *     Ex(x) = -partial_x phi(x)
  *
  * The algorithm uses the fact that the resulting electric field will be odd.
- * 
+ *
  * @param[in]  mesh, the mesh on which we're working.
  * @param[in]  rho[ncx+1] the charge density.
  * @param[out] e_x[ncx+1] the electric field on the x-axis.
@@ -110,7 +110,7 @@ poisson_2d_solver new_poisson_2d_fft_solver(cartesian_mesh_2d mesh);
 
 /*
  * Solve laplacian(phi(x, y)) = -rho(x, y) with periodic boundary conditions.
- * 
+ *
  * @param[in]  p the poisson solver (has to be initialized before the call).
  * @param[in]  rho[ncx+1][ncy+1] the charge density.
  * @param[out] phi[ncx+1][ncy+1] the electric potential.
@@ -122,7 +122,7 @@ void compute_phi_from_rho_2d_fft(poisson_2d_solver p, double** rho, double** phi
  * then set E(x, y) = -grad(phi(x, y)) which means
  *     Ex(x, y) = -partial_x phi(x, y)
  *     Ey(x, y) = -partial_y phi(x, y)
- * 
+ *
  * @param[in]  p the poisson solver (has to be initialized before the call).
  * @param[in]  rho[ncx+1][ncy+1] the charge density.
  * @param[out] e_x[ncx+1][ncy+1] the electric field on the x-axis.
@@ -174,14 +174,14 @@ poisson_3d_solver new_poisson_3d_fft_solver(cartesian_mesh_3d mesh);
  *     Ex(x, y, z) = -partial_x phi(x, y, z)
  *     Ey(x, y, z) = -partial_y phi(x, y, z)
  *     Ez(x, y, z) = -partial_z phi(x, y, z)
- * 
+ *
  * @param[in]  p the poisson solver (has to be initialized before the call).
  * @param[in]  rho[ncx+1][ncy+1][ncz+1] the charge density.
  * @param[out] e_x[ncx+1][ncy+1][ncz+1] the electric field on the x-axis.
  * @param[out] e_y[ncx+1][ncy+1][ncz+1] the electric field on the y-axis.
  * @param[out] e_z[ncx+1][ncy+1][ncz+1] the electric field on the y-axis.
  */
-void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x, double*** e_y, double*** e_z);
+void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x, double*** e_y, double*** e_z, int periodic);
 
 void free_poisson_3d(poisson_3d_solver* p);
 
