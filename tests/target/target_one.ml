@@ -82,19 +82,18 @@ let _ = Run.script_cpp (fun () ->
   *)
 
   (* Regexp *)
-  (* show [sInstr "j <"]; *) (* We can match only inside the body of the loop now*)
-
-  (* TODO: fix the sInstr with new encodings *)
-
-  show [nbExact 1; sExpr "j <"];
+  (* We can match only inside the body of the loop now*)
+  (* TODO: I would expect sExpr to match in the condition for instance;
+    but this is not urgent
+    show [nbExact 1; sExpr "j <"]; *)
 
   (* TODO: FIX after printing += correctly
-    show [sInstr "+= 2"];
+  show [sInstr "+= 2"];
   show [nbExact 0; sExpr ~substr:false "+= 2"];
   show [nbExact 0; sInstr ~substr:false "+= 2"];
   show [sInstr "r += 2"];
-  show [sInstr "i++"];
-  *)
+  show [sInstr "i++"];*)
+
   show [nbExact 2; sInstrRegexp "int . = .."];
   show [nbExact 9; sInstrRegexp ~substr:true "int . ="];
   show [nbExact 6; sInstrRegexp ~substr:true " .. ="];

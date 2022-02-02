@@ -13,7 +13,7 @@ let _ =
 let _ = Run.script_cpp (fun () ->
 
   (* TODO: create a unit test *)
-  (*!! Instr.view_subterms [dRoot];*)
+  !! Instr.view_subterms [dRoot];(**)
   show [sInstr "+="];
   show [sExpr "s + 1"];
   show [sExpr "s + 1"];

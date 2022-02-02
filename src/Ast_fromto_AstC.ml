@@ -102,7 +102,7 @@ let stackvar_elim (t : trm) : trm =
     | Trm_var (_, x) ->
       (* x when x is mutable becomes *x, where the ' * 'is used only for encoding purposes, hence not visible to the user *)
       if is_var_mutable !env x
-        then trm_get ~simplify:true t 
+        then trm_get ~simplify:true t
         else { t with desc = Trm_var (Var_immutable, x) }
     | Trm_let (_, (x, ty), tbody) ->
       (* mutability is deducted from the declaration of the variable, by checking if it has a const type or not *)
@@ -229,7 +229,7 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u1]))
       (* [t[i]] is translated to [array_access(access t, aux i)] *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_} as op, [t1; t2]) ->
-      let u1 = aux t1 in 
+      let u1 = aux t1 in
       let u2 = aux t2 in
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2]))
       (* *t1 becomes to [*(aux t1)] if '*' is not a hidden get operation, otherwise it becomes  [aux t1] *)
@@ -332,7 +332,6 @@ let caddress_intro = caddress_intro_aux false
 (* [cseq_items_void_type t] updates [t] in such a way that all instructions appearing in sequences
    have type [Typ_unit]. This might not be the case, for example on [x += 2;], Menhir provides an
    [int] type, whereas [Clang] provides a [void] type. *)
-
 let rec cseq_items_void_type (t : trm) : trm =
   let t2 = trm_map cseq_items_void_type t in
   match t2.desc with
@@ -345,26 +344,33 @@ let rec cseq_items_void_type (t : trm) : trm =
       { t2 with desc = Trm_seq (Mlist.map enforce_unit ts) }
   | _ -> t2
 
-let compound_assign_elim (t : trm) : trm = 
-  let rec aux t = 
-  match t.desc with 
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))}, [tl; tr]) -> 
-    trm_prim_compound_encoded_as_set ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl tr
-  | _ -> trm_map aux t
-  in aux t
+(* TODO: documentation *)
+let compound_assign_elim (t : trm) : trm =
+  let rec aux t =
+    match t.desc with
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))}, [tl; tr]) ->
+      let tl2 = aux tl in
+      let tr2 = aux tr in
+      trm_prim_compound_encoded_as_set ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl2 tr2
+    | _ -> trm_map aux t
+    in
+  aux t
 
-
-let compound_assign_intro (t : trm) : trm = 
- let rec aux t = 
-  match t.desc with 
-  | Trm_apps (f_, [tl; {desc = Trm_apps (f, [_; tr]);_}]) when trm_annot_has App_and_set t -> 
-    begin match trm_prim_inv f with 
-    | Some (Prim_binop binop) ->
-      trm_prim_compound ~loc:t.loc ~is_statement:t.is_statement ~ctx:t.ctx binop tl tr
-    | _ -> fail f.loc "compound_assign_into: expected a binary operator as an argument of a compound assignment"
-    end
-  | _ -> trm_map aux t
-  in aux t
+(* TODO: documentation *)
+let compound_assign_intro (t : trm) : trm =
+  let rec aux t =
+    match t.desc with
+    | Trm_apps (f_, [tl; {desc = Trm_apps (f, [_; tr]);_}]) when trm_annot_has App_and_set t ->
+      begin match trm_prim_inv f with
+      | Some (Prim_binop binop) ->
+        let tl2 = aux tl in
+        let tr2 = aux tr in
+        trm_prim_compound ~loc:t.loc ~is_statement:t.is_statement ~ctx:t.ctx binop tl2 tr2
+      | _ -> fail f.loc "compound_assign_into: expected a binary operator as an argument of a compound assignment"
+      end
+    | _ -> trm_map aux t
+    in
+  aux t
 
 
 (* Main entry points *)
