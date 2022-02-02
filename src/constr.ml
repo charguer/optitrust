@@ -732,6 +732,9 @@ let match_regexp_str (r : rexp) (s : string) : bool =
 
 (* LATER: this could be passed as argument throughout the function calls *)
 (* This variable should only be modified by [Target.with_stringreprs_available] *)
+(* Keep in mind that the stringrepr is not available for AST nodes that are removed
+   during the computation of [cfeatures_intro], that is, during the translations
+   from OptiTrust AST to the C AST. *)
 let stringreprs : (stringreprid, string) Hashtbl.t option ref = ref None
 
 (* for debugging purpose *)
@@ -750,12 +753,15 @@ let print_stringreprs () : unit =
 let get_stringrepr (t : trm) : string =
   if not !Flags.use_new_encodings then Ast_to_c.ast_to_string t else begin (* this line will be deprecated *)
     match !stringreprs with
-    | None -> fail None "get_stringrepr: stringreprs must be computed and registered before resolving constraints"
+    | None -> fail t.loc "get_stringrepr: stringreprs must be computed and registered before resolving constraints"
     | Some m ->
         match Ast.trm_get_stringreprid t with
         | Some id ->
           begin match Hashtbl.find_opt m id with
-          | None -> fail None (Printf.sprintf "get_stringrepr: no entry for the string representation of node with id '%d'" id)
+          | None -> ""
+              (* This term must correspond to a node that was removed during
+                 [cfeatures_intro], hence not printed *)
+              (* FOR debug: print_stringreprs(); AstC_to_c.trm_print_debug t; *)
           | Some s -> s
           end
         | None -> ""
@@ -768,13 +774,11 @@ let match_regexp_trm_kinds (ks : trm_kind list) (t : trm) : bool =
   List.mem (get_trm_kind t) ks
 
 let match_regexp_trm (r : rexp) (t : trm) : bool =
-  if match_regexp_trm_kind r.rexp_trm_kind t then false else begin
+  if not (match_regexp_trm_kind r.rexp_trm_kind t) then false else begin
     let s = get_stringrepr t in
     Printf.printf "Considered: %s\n" s; (* for debug *)
     s <> "" && match_regexp_str r s
-    (* If the stringrepr is not available, we return false;
-       The stringrepr is not available for AST nodes that are created by [cfeatures_intro],
-       during the translations from OptiTrust AST to the C AST.  *)
+    (* If the stringrepr is not available, we return false *)
   end
 
 

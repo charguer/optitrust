@@ -788,6 +788,7 @@ let with_stringreprs_available_for (tg : target) (f : trm -> 'a) : trm -> 'a =
     (* for debug  List.iter (fun k -> Printf.printf "(kind:%s)" (Constr.trm_kind_to_string k)) kinds;
        Printf.printf "==end of kinds==\n"; *)
     let t2, m = compute_stringreprs (Constr.match_regexp_trm_kinds kinds) t in
+    AstC_to_c.trm_print_debug t2;
     (* AstC_to_c.print_stringreprs m; for debug *)
     let stringreprs = convert_stringreprs_from_documentation_to_string m in
     Constr.stringreprs := Some stringreprs;
@@ -809,7 +810,9 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
   Trace.apply (fun t ->
     let ps =
       Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
-        with_stringreprs_available_for tg (fun t2 -> resolve_target tg t2) t
+        with_stringreprs_available_for tg (fun t2 ->
+          AstC_to_c.trm_print_debug t2;
+          resolve_target tg t2) t
         (* DEPRECATED: resolve_target tg t *)) in
     let ps = if rev then List.rev ps else ps in
     (* TODO: here we can have the following optimization, in case there is a single target,

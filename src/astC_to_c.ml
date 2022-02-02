@@ -2,6 +2,13 @@ open PPrint
 open Ast
 open Precedence
 
+
+(* only for internal use *)
+let print_optitrust_syntax = ref false
+
+(* only for debugging purposes *)
+let print_stringreprids = ref false
+
 (*----------------------------------------------------------------------------------*)
 (* An optional memoization table that maps a [stringreprid] of a term
    to the [document] obtained by executing [trm_to_doc] on it.
@@ -51,9 +58,6 @@ let print_stringreprs (m : stringreprs) : unit =
   Printf.printf "====</stringreprs>====\n"
 
 (*----------------------------------------------------------------------------------*)
-
-(* only for internal use *)
-let print_optitrust_syntax = ref false
 
 (* translate an ast to a C/C++ document *)
 let rec typ_desc_to_doc (t : typ_desc) : document =
@@ -238,15 +242,21 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) (t : trm) : docum
   let dt = trm_to_doc ~semicolon ~prec t in
   (* LATER: if Flags.print_trm_addresses then (string (sprintf "%p" t) ^ dt) else dt *)
   let dt = if parentheses then parens (dt) else dt in
-    if t.marks = []
-      then dt
-      else
-        begin
-        let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t.marks in
-        let sleft = string ("/*@" ^ m ^ "*/") in
-        let sright =  string ("/*" ^ m ^ "@*/") in
-        sleft ^^ dt ^^ sright
-        end
+  if t.marks = [] && not !print_stringreprids
+    then dt
+    else
+      begin
+      let sid =
+        if not !print_stringreprids then "" else begin
+        match Ast.trm_get_stringreprid t with
+        | None -> "[-]"
+        | Some id -> Printf.sprintf "[%d]" id
+        end in
+      let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t.marks in
+      let sleft = string ("/*@" ^ sid ^ m ^ "*/") in
+      let sright =  string ("/*" ^ sid ^ m ^ "@*/") in
+      sleft ^^ dt ^^ sright
+      end
 
 and trm_to_doc ?(semicolon=false) ?(prec : int = 0) (t : trm) : document =
   let loc = t.loc in
@@ -919,3 +929,10 @@ let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in
   ToBuffer.pretty 0.9 80 b (typ_to_doc ty);
   Buffer.contents b
+
+let trm_print_debug (t : trm) : unit =
+  print_stringreprids := true;
+  Printf.printf "==\n%s\n===\n" (ast_to_string t);
+  print_stringreprids := false
+
+
