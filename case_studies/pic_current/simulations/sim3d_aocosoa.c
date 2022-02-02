@@ -536,7 +536,7 @@ int main(int argc, char** argv) {
         for (j = 0; j < ncy + 1; j++)
             for (k = 0; k < ncz + 1; k++)
                 q_times_rho[i][j][k] = q * rho_3d[i][j][k];
-    compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez);
+    compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez, 1);
     accumulate_field_3d(Ex, Ey, Ez, ncx, ncy, ncz, x_field_factor, y_field_factor, z_field_factor, E_field);
 
     // Computes speeds half time-step backward (leap-frog method).
@@ -758,7 +758,7 @@ int main(int argc, char** argv) {
             for (j = 0; j < ncy + 1; j++)
                 for (k = 0; k < ncz + 1; k++)
                     q_times_rho[i][j][k] = q * rho_3d[i][j][k];
-        compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez);
+        compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez, 1);
         accumulate_field_3d(Ex, Ey, Ez, ncx, ncy, ncz, x_field_factor, y_field_factor, z_field_factor, E_field);
         time_mark5 = omp_get_wtime();
 

@@ -438,8 +438,12 @@ poisson_3d_solver new_poisson_3d_fft_solver(cartesian_mesh_3d mesh) {
  * @param[out] e_x[ncx+1][ncy+1][ncz+1] the electric field on the x-axis.
  * @param[out] e_y[ncx+1][ncy+1][ncz+1] the electric field on the y-axis.
  * @param[out] e_z[ncx+1][ncy+1][ncz+1] the electric field on the y-axis.
+ *
+ * TODO: take p as a pointer.
+ * TODO: make clear that this function takes as parameter rho[ncx][ncy][ncz].
+ * TODO: when this function is called by verified_transfo, the [+1] cells are not present => creation of a boolean.
  */
-void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x, double*** e_y, double*** e_z) {
+void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x, double*** e_y, double*** e_z, int make_periodic_wraps) {
     int i, j, k, thread_id;
     const int ncx = p.ncx;
     const int ncy = p.ncy;
@@ -575,52 +579,56 @@ void compute_E_from_rho_3d_fft(poisson_3d_solver p, double*** rho, double*** e_x
         }
 
         // Periodicity
-        #pragma omp for collapse(2)
-        for (i = 0; i < ncx; i++) {
-            for (k = 0; k < ncz; k++) {
-                e_x[i][ncy][k] = e_x[i][0][k];
-                e_y[i][ncy][k] = e_y[i][0][k];
-                e_z[i][ncy][k] = e_z[i][0][k];
+        if (make_periodic_wraps) {
+            #pragma omp for collapse(2)
+            for (i = 0; i < ncx; i++) {
+                for (k = 0; k < ncz; k++) {
+                    e_x[i][ncy][k] = e_x[i][0][k];
+                    e_y[i][ncy][k] = e_y[i][0][k];
+                    e_z[i][ncy][k] = e_z[i][0][k];
+                }
             }
-        }
-        #pragma omp for collapse(2)
-        for (j = 0; j < ncy; j++) {
-            for (k = 0; k < ncz; k++) {
-                e_x[ncx][j][k] = e_x[0][j][k];
-                e_y[ncx][j][k] = e_y[0][j][k];
-                e_z[ncx][j][k] = e_z[0][j][k];
-            }
-        }
-        #pragma omp for collapse(2)
-        for (i = 0; i < ncx; i++) {
+            #pragma omp for collapse(2)
             for (j = 0; j < ncy; j++) {
-                e_x[i][j][ncz] = e_x[i][j][0];
-                e_y[i][j][ncz] = e_y[i][j][0];
-                e_z[i][j][ncz] = e_z[i][j][0];
+                for (k = 0; k < ncz; k++) {
+                    e_x[ncx][j][k] = e_x[0][j][k];
+                    e_y[ncx][j][k] = e_y[0][j][k];
+                    e_z[ncx][j][k] = e_z[0][j][k];
+                }
             }
-        }
-        #pragma omp for
-        for (i = 0; i < ncx; i++) {
-            e_x[i][ncy][ncz] = e_x[i][0][0];
-            e_y[i][ncy][ncz] = e_y[i][0][0];
-            e_z[i][ncy][ncz] = e_z[i][0][0];
-        }
-        #pragma omp for
-        for (j = 0; j < ncy; j++) {
-            e_x[ncx][j][ncz] = e_x[0][j][0];
-            e_y[ncx][j][ncz] = e_y[0][j][0];
-            e_z[ncx][j][ncz] = e_z[0][j][0];
-        }
-        #pragma omp for
-        for (k = 0; k < ncz; k++) {
-            e_x[ncx][ncy][k] = e_x[0][0][k];
-            e_y[ncx][ncy][k] = e_y[0][0][k];
-            e_z[ncx][ncy][k] = e_z[0][0][k];
+            #pragma omp for collapse(2)
+            for (i = 0; i < ncx; i++) {
+                for (j = 0; j < ncy; j++) {
+                    e_x[i][j][ncz] = e_x[i][j][0];
+                    e_y[i][j][ncz] = e_y[i][j][0];
+                    e_z[i][j][ncz] = e_z[i][j][0];
+                }
+            }
+            #pragma omp for
+            for (i = 0; i < ncx; i++) {
+                e_x[i][ncy][ncz] = e_x[i][0][0];
+                e_y[i][ncy][ncz] = e_y[i][0][0];
+                e_z[i][ncy][ncz] = e_z[i][0][0];
+            }
+            #pragma omp for
+            for (j = 0; j < ncy; j++) {
+                e_x[ncx][j][ncz] = e_x[0][j][0];
+                e_y[ncx][j][ncz] = e_y[0][j][0];
+                e_z[ncx][j][ncz] = e_z[0][j][0];
+            }
+            #pragma omp for
+            for (k = 0; k < ncz; k++) {
+                e_x[ncx][ncy][k] = e_x[0][0][k];
+                e_y[ncx][ncy][k] = e_y[0][0][k];
+                e_z[ncx][ncy][k] = e_z[0][0][k];
+            }
         }
     } // End parallel region
-    e_x[ncx][ncy][ncz] = e_x[0][0][0];
-    e_y[ncx][ncy][ncz] = e_y[0][0][0];
-    e_z[ncx][ncy][ncz] = e_z[0][0][0];
+    if (make_periodic_wraps) {
+        e_x[ncx][ncy][ncz] = e_x[0][0][0];
+        e_y[ncx][ncy][ncz] = e_y[0][0][0];
+        e_z[ncx][ncy][ncz] = e_z[0][0][0];
+    }
 }
 
 void free_poisson_3d(poisson_3d_solver* p) {

@@ -85,6 +85,26 @@
 #   define NB_ITER 100
 #endif
 
+// TODO: comment what it does
+#ifndef THERMAL_SPEED
+#    define THERMAL_SPEED 1.
+#endif
+
+// TODO: comment what it does
+#ifndef DRIFT_VELOCITY
+#    define DRIFT_VELOCITY 4.
+#endif
+
+// TODO: comment what it does
+#ifndef PROPORTION_FAST_PARTICLES
+#    define PROPORTION_FAST_PARTICLES 0.01
+#endif
+
+// TODO: comment what it does
+#ifndef INITIAL_DISTRIBUTION
+#    define INITIAL_DISTRIBUTION LANDAU_3D_PROD_OF_ONE_PLUS_COS
+#endif
+
 // Useful for chunk bags.
 #if !defined(CHUNK_SIZE)
 #   define CHUNK_SIZE 512
