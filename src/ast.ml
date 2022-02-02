@@ -1571,7 +1571,7 @@ let for_loop_body_trms (t : trm) : trm mlist =
     end
   | _ -> fail t.loc "for_loop_body_trms: expected a loop"
 
-(* used for distinguishing simple loops from complex ones *)
+(* used for distinguishing simple loops from complex ones *) (* TODO: deprecated?*)
 let is_simple_loop_component (t : trm) : bool =
   match t.desc with
   | Trm_apps (f,_) ->
@@ -2326,7 +2326,7 @@ let trm_ands (ts : trm list) : trm =
 
 (* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
 let trm_prim_compound_encoded_as_set ?(loc = None) ?(is_statement = false) ?(ctx : ctx option = None) ?(typ = None) (binop : binary_op) (tl : trm) (tr : trm) : trm =
-  trm_set ~annot:[App_and_set] ~loc ~is_statement ~typ tl 
+  trm_set ~annot:[App_and_set] ~loc ~is_statement ~typ tl
     (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr])
 
 
@@ -2404,5 +2404,5 @@ let unserialize_from_file (filename : string) : trm =
   Tools.unserialize_from_file filename
 
 (* [empty_ast] *)
-let empty_ast : trm = 
+let empty_ast : trm =
   trm_seq_nomarks ~annot:[Main_file] []

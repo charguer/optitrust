@@ -10,7 +10,12 @@ let _ =
   Flags.use_new_encodings := true
 
 
-let filename = "c_big.cpp"
+
+let filename =
+  match 2 with
+  | 0 -> "c_debug.cpp"
+  | 1 -> "c_features.cpp"
+  | _ -> "c_big.cpp"
 
 
 let _ = Run.script_cpp ~filename ~prefix:"c_features" (fun () ->

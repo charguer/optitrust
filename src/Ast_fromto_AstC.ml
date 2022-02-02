@@ -113,7 +113,7 @@ let stackvar_elim (t : trm) : trm =
     | Trm_var (_, x) ->
       (* x when x is mutable becomes *x, where the ' * 'is used only for encoding purposes, hence not visible to the user *)
       if is_var_mutable !env x
-        then trm_annot_add Mutable_var_get (trm_get ~simplify:true t) (* Note: simplify not needed here *)
+        then trm_annot_add Mutable_var_get (trm_get ~simplify:true t) (* Note: simplify not needed here *) (* TODO: might not need Mutable_var_get *)
         else { t with desc = Trm_var (Var_immutable, x) }
     | Trm_let (_, (x, ty), tbody) ->
       (* mutability is deducted from the declaration of the variable, by checking if it has a const type or not *)
@@ -173,7 +173,7 @@ let stackvar_intro (t : trm) : trm =
         then trm_address_of ~simplify:true t (* ~simplify:true  is not technically needed *)
         else t
     | Trm_let (_, (x, tx), tbody) ->
-      let vk = if is_typ_const tx then Var_immutable else Var_mutable  in
+      let vk = if is_typ_const tx then Var_immutable else Var_mutable in
       add_var env x vk;
       if trm_annot_has Stackvar t
         then
@@ -195,7 +195,7 @@ let stackvar_intro (t : trm) : trm =
     | Trm_let_fun (f, _retty, targs, _tbody) ->
       add_var env f Var_immutable;
       onscope env t (fun t ->
-      List.iter (fun (x, _tx) -> let mut = Var_immutable  in (add_var env x mut)) targs; trm_map aux t)
+      List.iter (fun (x, _tx) -> let mut = Var_immutable in (add_var env x mut)) targs; trm_map aux t)
     | Trm_for (index, _, _, _, _, _) ->
       onscope env t (fun t -> begin add_var env index Var_immutable; trm_map aux t end)
     | Trm_for_c _ ->
@@ -361,7 +361,7 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
 let caddress_intro = caddress_intro_aux false
 
 (* [cseq_items_void_type t] updates [t] in such a way that all instructions appearing in sequences
-   have type [Typ_unit]. This might not be the case, for example on [x += 2], Menhir provides an
+   have type [Typ_unit]. This might not be the case, for example on [x += 2;], Menhir provides an
    [int] type, whereas [Clang] provides a [void] type. *)
 
 let rec cseq_items_void_type (t : trm) : trm =
@@ -377,12 +377,28 @@ let rec cseq_items_void_type (t : trm) : trm =
   | _ -> t2
 
 
+(* TODO:
+cfeatures: coumpound_assign_elim:
+
+   trm_apps (prim_compound binop_add) [s; 2]
+->
+   set(s, get(s) + 2) @op_and_set
+
+coumpound_assign_intro
+
+*)
+
+
 (* Main entry points *)
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let cfeatures_elim (t : trm) : trm =
   cseq_items_void_type (caddress_elim (stackvar_elim t))
+  (* TODO:
+  cseq_items_void_type (caddress_elim (stackvar_elim (coumpound_assign_elim t)))
+  and same for intro
+  *)
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =

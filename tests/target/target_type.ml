@@ -15,6 +15,7 @@ let _ = Run.script_cpp (fun () ->
 *)
   (* This is a demo for the [hasType] constraints and variants *)
 
+  show [cFor ""];
   (* Type of terms *)
   show [ nbMulti; cFor "j"; cHasType "int" ]; (* not all marks are visible in the diff *)
   show [ nbExact 5; cHasTypePred ty_double ];

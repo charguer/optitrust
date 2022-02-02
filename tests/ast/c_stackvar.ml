@@ -10,10 +10,11 @@ let _ =
   Flags.use_new_encodings := true
 
 (* Option to choose the size of the test *)
-let perform_big_test = true
-
 let filename =
-  if perform_big_test then "c_big.cpp" else "c_stackvar.ml"
+  match 2 with
+  | 0 -> "c_debug.cpp"
+  | 1 -> "c_stackvar.cpp"
+  | _ -> "c_big.cpp"
 
 let _ = Run.script_cpp ~filename ~prefix:"c_stackvar" (fun () ->
   !^ Trace.apply stackvar_elim;   (* Press F6 on this line to see the encoding *) (* Press Alt+F6 to check the blank diff of the round-trip *)

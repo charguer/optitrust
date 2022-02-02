@@ -21,6 +21,7 @@ int main() {
 }
 
 */
+/*
 
 typedef struct {int x; int y; } vect;
 
@@ -33,4 +34,12 @@ int f(int* t, int** u, vect w) {
   r[0][0] = 0;
 
 
+}
+
+*/
+int main() {
+  int i;
+  for (i = 0; i < 3; i++) {
+    i = 2;
+  }
 }

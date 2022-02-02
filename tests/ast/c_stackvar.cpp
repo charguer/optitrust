@@ -228,7 +228,6 @@ void lvalue_encoding() {
   int *v;
   *v = 4;
 }
-<<<<<<< Updated upstream
 
 void arrow() {
  vect v = {0,1};
@@ -236,5 +235,3 @@ void arrow() {
  (*p).x = (*p).y;
  p->x = p->y;
 }
-=======
->>>>>>> Stashed changes

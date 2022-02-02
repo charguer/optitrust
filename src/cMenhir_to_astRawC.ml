@@ -251,8 +251,13 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     let tl = tr_expr le in
     let tr = tr_expr re in
     let trm_prim_c binop tl tr =
+      (* TODO: replace with
+       trm_prim_compound ~loc ~is_statement ~ctx binop  tl tr in
+       to produce e.g.
+       trm_apps (prim_compound binop_add) [s; 2]
+      *)
        trm_prim_compound_encoded_as_set ~loc ~is_statement ~ctx binop  tl tr in
-       
+
     begin match binop with
     | Oadd -> trm_add ~loc ~ctx ~typ tl tr
     | Osub -> trm_sub ~loc ~ctx ~typ  tl tr

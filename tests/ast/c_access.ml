@@ -13,13 +13,15 @@ let _ =
 
 
 (* Option to choose the size of the test *)
-let perform_big_test = true
 
 let filename =
-  if perform_big_test then "c_big.cpp" else "c_access.ml"
+  match 2 with
+  | 0 -> "c_debug.cpp"
+  | 1 -> "c_access.cpp"
+  | _ -> "c_big.cpp"
 
-(* FOR DEBUG:
-let filename = "c_debug.cpp" *)
+(* TODO: rename this file to c_address
+make sure to change ~prefix:"c_access" *)
 
 let _ = Run.script_cpp ~filename ~prefix:"c_access" (fun () ->
 
@@ -31,12 +33,6 @@ let _ = Run.script_cpp ~filename ~prefix:"c_access" (fun () ->
   !^ Trace.check_recover_original(); (* Press F6 on this line to see a blank diff if successful, or an error message if the full round-trip fails *)
 
 )
-
-(* TODO: the round trip is not correct at the moment *)
-
-(* TODO: I think we should have a flag in the file ast_to_rawC to display "set(p, v)"  instead of p = v ? also, we should not be printing arrows in that mode.
-   (this would be similar to what we had with ~decode:false in terms of printing certain primitive operations such as set and access) *)
-
 
 (* ARTHUR: in case of crash, it would be nice to generate the _before file nevertheless *)
 (* ARTHUR: find if clang_format has an option to tell that the user is mutating an argument. *)
