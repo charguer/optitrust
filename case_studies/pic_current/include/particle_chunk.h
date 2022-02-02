@@ -315,11 +315,14 @@ void bag_push_concurrent(bag* b, particle p) {
  */
 void bag_push_serial(bag* b, particle p) {
   chunk* c = b->front;
-  int index = c->size++;
+  int index = c->size;
+  c->size++;
+  // TRACE("Push bag %p, chunk size %d\n", b, c->size);
   c->items[index] = p;
   if (index == CHUNK_SIZE - 1) {
     // chunk is full, we extend the bag
     bag_add_front_chunk(b);
+    // TRACE("Extend bag %p\n", b);
   }
 }
 
@@ -358,7 +361,12 @@ void bag_iter_init(bag_iter* it, bag* b) {
 }
 
 particle* bag_iter_get(bag_iter* it) {
-  return &(it->iter_chunk->items[it->index]);
+  //TRACE("bag iter get at index %d of size %d in chunksize %d\n", it->index, it->size, it->iter_chunk->size);
+  if (it->size == 0) {
+    return NULL;
+  } else {
+    return &(it->iter_chunk->items[it->index]);
+  }
 }
 
 chunk* bag_iter_get_chunk(bag_iter* it) {
@@ -382,30 +390,42 @@ chunk* chunk_next(chunk* c, bool destructive) {
 
 // Return the next particle, or NULL if at the end
 // (we cannot return one-past-the-end pointer because chunks are deallocated)
-particle* bag_iter_next(bag_iter* it, bool destructive) {
+particle* bag_iter_next_common(bag_iter* it, bool destructive) {
+  //TRACE("bag iter next from index %d in size %d\n", it->index, it->size);
   it->index++;
   if (it->index == it->size) {
     chunk* c = it->iter_chunk;
     chunk* cnext = chunk_next(c, destructive);
     if (cnext == NULL) {
+      //TRACE("bag iter next reached the end\n");
       return NULL;
     }
+    //TRACE("bag iter next jumps to chunk of size %d\n", cnext->size);
     bag_iter_load_chunk(it, cnext);
+    //TRACE("bag iter next reset index to %d\n", it->index);
   }
   return bag_iter_get(it);
 }
 
+particle* bag_iter_next(bag_iter* it) {
+  return bag_iter_next_common(it, false);
+}
+
+particle* bag_iter_next_destructive(bag_iter* it) {
+  return bag_iter_next_common(it, true);
+}
+
 // example of a basic iteration over a bag
-void bag_ho_iter_basic(bag* b, void body(particle*)) {
+void bag_ho_iter_basic(bag* b, void body(particle*), bool destructive) {
   bag_iter it;
-  for (particle* p = bag_iter_begin(&it, b); p != NULL; p = bag_iter_next(&it, true)) {
+  for (particle* p = bag_iter_begin(&it, b); p != NULL; p = bag_iter_next_common(&it, destructive)) {
     body(p);
   }
 }
 
 // example of an iteration over a bag with the loop over the chunk items revealed
-void bag_ho_iter_chunk(bag* b, void body(particle*)) {
-  for (chunk* c = b->front; c != NULL; c = chunk_next(c, true)) {
+void bag_ho_iter_chunk(bag* b, void body(particle*), bool destructive) {
+  for (chunk* c = b->front; c != NULL; c = chunk_next(c, destructive)) {
     int nb = c->size;
     for (int i = 0; i < nb; i++) {
       particle* p = &c->items[i];

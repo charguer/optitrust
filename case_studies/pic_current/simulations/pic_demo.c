@@ -1,10 +1,12 @@
 #include <omp.h>                                          // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "parameter_reader.h"                             // type      simulation_parameters
                                                           // constants STRING_NOT_SET, INT_NOT_SET, DOUBLE_NOT_SET
                                                           // function  read_parameters_from_file
 
+#define TRACE printf
 
 // --------- Bags of particles
 
@@ -277,6 +279,7 @@ void updateFieldUsingNextCharge(double* nextCharge, vect* field) {
 #include "initial_distributions.h"                        // types     speeds_generator_3d, distribution_function_3d, max_distribution_function
                                                           // variables speed_generators_3d, distribution_funs_3d, distribution_maxs_3d
 void init(int argc, char** argv) {
+    TRACE("Start init\n");
  /****************************
   * DO NOT CHANGE            *
   * COPY/PASTE FROM PIC-VERT *
@@ -339,7 +342,7 @@ void init(int argc, char** argv) {
         if (parameters.kmode_z != DOUBLE_NOT_SET)
             kmode_z = parameters.kmode_z;
     } else
-        printf("No parameter file was passed through the command line. I will use the default parameters.\n");
+        TRACE("No parameter file was passed through the command line. I will use the default parameters.\n");
 
     // Spatial parameters for initial density function.
     double *params;
@@ -447,6 +450,7 @@ void init(int argc, char** argv) {
 
   // Later in optimizations: call an 'initialize' function in particle_chunk_alloc
 
+  TRACE("Fill particles\n");
   // Initialize bagsNext and bagsCur with empty bags in every cell
   bagsCur = (bag*) malloc(nbCells * sizeof(bag));
   bagsNext = (bag*) malloc(nbCells * sizeof(bag));
@@ -472,6 +476,7 @@ void init(int argc, char** argv) {
     const double y_range = mesh.y_max - mesh.y_min;
     const double z_range = mesh.z_max - mesh.z_min;
 
+    TRACE("Create particles %ld\n", nb_particles);
     // Create particles and push them into the bags.
     for (int idParticle = 0; idParticle < nb_particles; idParticle++) {
         do {
@@ -492,32 +497,43 @@ void init(int argc, char** argv) {
     }
   }
 
+  TRACE("First poisson\n");
   // Poisson solver to compute field at time zero, and reset nextCharge
   updateFieldUsingNextCharge(nextCharge, field);
 
+  TRACE("Leap frog (chunksize=%d)\n", CHUNK_SIZE);
   // Computes speeds backwards for half a time-step (leap-frog method)
   double negHalfStepDuration = -0.5 * stepDuration;
   // For each cell from the grid
   for (int idCell = 0; idCell < nbCells; idCell++) {
     // Consider the bag of particles in that cell
     bag* b = &bagsCur[idCell];
+    // TRACE("Leap frog cell %d, bag %p\n", idCell, b);
     bag_iter bag_it;
     // Compute fields at corners of the cell
     vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
     // For each particle in that cell
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it, true)) {
+    int k = 0;
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
+        // TRACE("leap frog step %d\n", k++);
         // Interpolate the field based on the position relative to the corners of the cell
         double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
+        // TRACE("LOOP2\n");
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
         // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
+        // TRACE("LOOP3\n");
         vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
         // Compute the new speed and position for the particle.
+        // TRACE("LOOP4\n");
         p->speed = vect_add(p->speed, vect_mul(negHalfStepDuration, accel));
     }
   }
+  TRACE("Init end\n");
+    exit(0);
 }
 
 void finalize(bag* bagsCur, bag* bagsNext, vect* field) {
+  TRACE("Finalize\n");
   // Later in optimizations: call a 'finalize' function in particle_chunk_alloc
 
   // Free the chunks
@@ -542,10 +558,11 @@ int main(int argc, char** argv) {
 
   // Instrumentation of the code
   double time_start = omp_get_wtime();
+  TRACE("Simulate\n");
 
   // Foreach time step
   for (int step = 0; step < nbSteps; step++) {
-
+    TRACE("Step %d\n", step);
     // Update the new field based on the total charge accumulated in each cell,
     // and reset nextCharge.
     updateFieldUsingNextCharge(nextCharge, field);
@@ -560,7 +577,7 @@ int main(int argc, char** argv) {
       bag* b = &bagsCur[idCell];
 
       bag_iter bag_it;
-      for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it, true)) {
+      for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_destructive(&bag_it)) {
 
         // Interpolate the field based on the position relative to the corners of the cell
         double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
@@ -589,15 +606,17 @@ int main(int argc, char** argv) {
     }
 
     // For the next time step, the contents of bagNext is moved into bagCur (which is empty)
+    TRACE("Swap\n");
     for (int idCell = 0; idCell < nbCells; idCell++) {
       bag_swap(&bagsCur[idCell], &bagsNext[idCell]);
     }
 
     // Poisson solver and reset nextCharge
+    TRACE("Poisson\n");
     updateFieldUsingNextCharge(nextCharge, field);
   }
   double time_simu = (double) (omp_get_wtime() - time_start);
-  // TODO: printf
+  // TODO: TRACE
 
   finalize(bagsCur, bagsNext, field);
 }
