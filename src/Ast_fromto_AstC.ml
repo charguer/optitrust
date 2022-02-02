@@ -255,7 +255,7 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));_} as op, [t1; t2]) ->
       let u1 = access t1 in
       let u2 = aux t2 in
-      mk (Trm_apps (op, [u1; u2]))
+      mk ~annot:t.annot (Trm_apps (op, [u1; u2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
       let u1 = aux t1 in
       begin match u1.desc with
@@ -365,22 +365,26 @@ let rec cseq_items_void_type (t : trm) : trm =
       { t2 with desc = Trm_seq (Mlist.map enforce_unit ts) }
   | _ -> t2
 
-
 let compound_assign_elim (t : trm) : trm = 
+  let rec aux t = 
   match t.desc with 
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))}, [tl; tr]) -> 
     trm_prim_compound_encoded_as_set ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl tr
-  | _ -> t
+  | _ -> trm_map aux t
+  in aux t
+
 
 let compound_assign_intro (t : trm) : trm = 
+ let rec aux t = 
   match t.desc with 
-  | Trm_apps (f_, [tl; {desc = Trm_apps (f, [_; tr]);_}]) when ((trm_annot_has App_and_set t) && (is_set_operation t)) -> 
+  | Trm_apps (f_, [tl; {desc = Trm_apps (f, [_; tr]);_}]) when trm_annot_has App_and_set t -> 
     begin match trm_prim_inv f with 
     | Some (Prim_binop binop) ->
       trm_prim_compound ~loc:t.loc ~is_statement:t.is_statement ~ctx:t.ctx binop tl tr
     | _ -> fail f.loc "compound_assign_into: expected a binary operator as an argument of a compound assignment"
     end
-  | _ -> t
+  | _ -> trm_map aux t
+  in aux t
 
 
 (* Main entry points *)
@@ -388,15 +392,14 @@ let compound_assign_intro (t : trm) : trm =
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let cfeatures_elim (t : trm) : trm =
-  cseq_items_void_type (caddress_elim (stackvar_elim t))
-  (* TODO:
-  cseq_items_void_type (caddress_elim (stackvar_elim (coumpound_assign_elim t)))
-  and same for intro
-  *)
+  (* DEPRECATED *)
+  (* cseq_items_void_type (caddress_elim (stackvar_elim t)) *)
+  cseq_items_void_type (caddress_elim (stackvar_elim (compound_assign_elim t)))
+  (* and same for intro *)
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
-  stackvar_intro (caddress_intro t)
+  compound_assign_intro (stackvar_intro (caddress_intro t))
 
 (* [cfeatures_intro_aux lvalue t] is similar to [cfeatures_intro] but allows printing lvalues *)
 let cfeatures_intro_aux (lvalue : bool) (t : trm) : trm =

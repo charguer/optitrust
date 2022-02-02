@@ -2332,7 +2332,7 @@ let trm_prim_compound ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx o
 (* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
 let trm_prim_compound_encoded_as_set ?(loc = None) ?(is_statement = false) ?(ctx : ctx option = None) ?(typ = None) (binop : binary_op) (tl : trm) (tr : trm) : trm =
   trm_set ~annot:[App_and_set] ~loc ~is_statement ~typ tl
-    (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [trm_get tl; tr])
+    (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr])
 
 
 (* [code_to_str] extract the code from the nodes that contain the arbitrary code*)

@@ -38,8 +38,7 @@ int f(int* t, int** u, vect w) {
 
 */
 int main() {
-  int i;
-  for (i = 0; i < 3; i++) {
-    i = 2;
-  }
+  int r = 3;
+  r = r + 1 + 2;
+  r += 2;
 }

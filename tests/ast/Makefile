@@ -5,11 +5,12 @@ FLAGS := -dump-ast-details
 #debug_enc: c_ast_debug.enc
 
 TESTS := \
-	c_access.ml \
+	c_address.ml \
 	c_stackvar.ml \
 	c_features.ml \
 	c_ast.ml \
 	c_serialize.ml \
+	c_compound_assign.ml \
 
 #	serialize.ml
 #   rawc.ml
