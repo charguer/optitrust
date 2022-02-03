@@ -7,6 +7,13 @@
                                                           // function  read_parameters_from_file
 
 #define TRACE printf
+#define CHECKER 1
+
+#ifdef CHECKER
+#define CHECKER_ONLY(X) X
+#elif
+#define CHECKER_ONLY(X)
+#endif
 
 // --------- Bags of particles
 
@@ -495,7 +502,7 @@ void init(int argc, char** argv) {
         // Modified from pic-vert
         const vect pos = { x, y, z };
         const vect speed = { vx, vy, vz };
-        const particle particle = { pos, speed };
+        const particle particle = { pos, speed, CHECKER_ONLY(idParticle) };
         const int idCell = idCellOfPos(pos);
         bag_push_initial(&bagsCur[idCell], particle);
     }
