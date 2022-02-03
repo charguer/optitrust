@@ -352,8 +352,7 @@ let compound_assign_elim (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))}, [tl; tr]) ->
       let tl2 = aux tl in
       let tr2 = aux tr in
-      let t2 = trm_prim_compound_encoded_as_set ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl2 tr2 in
-      { t with desc = t2.desc }
+      trm_prim_compound_encoded_as_set ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl2 tr2 
     | _ -> trm_map aux t
     in
   aux t
@@ -370,10 +369,6 @@ let compound_assign_intro (t : trm) : trm =
         let tr2 = aux tr in
         let annot = List.filter (fun annot -> match annot with | Annot_stringreprid _ -> true | _ -> false) t.annot in
         trm_prim_compound ~annot ~loc:t.loc ~is_statement:t.is_statement ~ctx:t.ctx ~marks:t.marks binop tl2 tr2
-        (* TODO: why this does not work?
-        let t2 = trm_prim_compound (*~annot ~loc:t.loc ~is_statement:t.is_statement ~ctx:t.ctx*) binop tl2 tr2 in
-        { t with desc = t2.desc } *)
-
       | _ -> fail f.loc "compound_assign_into: expected a binary operator as an argument of a compound assignment"
       end
     | _ -> trm_map aux t
