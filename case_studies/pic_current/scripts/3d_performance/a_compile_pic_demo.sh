@@ -23,6 +23,8 @@ source $PICVERT_HOME/your_configuration.sh
 CHUNK_SIZE=256
 #CHUNK_SIZE=16
 
+CHECKER=-DCHECKER=1
+
 ###################################
 #              gcc                #
 ###################################
@@ -31,7 +33,7 @@ compile_gcc() {
   mkdir -p run$1
   cp $PICVERT_HOME/scripts/3d_performance/parameters_3d.txt run$1/
   export OMPI_CC=gcc
-  mpicc -I$PICVERT_HOME/include $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c  $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c $PICVERT_HOME/simulations/pic_demo.c -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE -lfftw3 -lm -O3 -fopenmp -march=native -std=gnu11 -o run$1/pic_demo.out
+  mpicc -I$PICVERT_HOME/include $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c  $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c $PICVERT_HOME/simulations/pic_demo.c -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $CHECKER -lfftw3 -lm -O3 -fopenmp -march=native -std=gnu11 -o run$1/pic_demo.out
 }
 
 ###################################
@@ -43,7 +45,7 @@ compile_icc() {
   cp $PICVERT_HOME/scripts/3d_performance/parameters_3d.txt run$1/
   #Depending on your version, you may change "export OMPI_CC=icc\n  mpicc" by just "mpiicc".
   export OMPI_CC=icc
-  mpicc -I$PICVERT_HOME/include $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c $PICVERT_HOME/simulations/pic_demo.c -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE -lfftw3 -lm -O3 -qopenmp -march=native -std=gnu11 -o run$1/pic_demo.out
+  mpicc -I$PICVERT_HOME/include $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c $PICVERT_HOME/simulations/pic_demo.c -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $CHECKER -lfftw3 -lm -O3 -qopenmp -march=native -std=gnu11 -o run$1/pic_demo.out
 }
 
 ###################################

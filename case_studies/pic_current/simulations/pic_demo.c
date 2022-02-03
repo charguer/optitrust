@@ -7,7 +7,6 @@
                                                           // function  read_parameters_from_file
 
 #define TRACE printf
-#define CHECKER 1
 
 #ifdef CHECKER
 #define CHECKER_ONLY(X) X
@@ -601,7 +600,7 @@ int main(int argc, char** argv) {
         // Compute the new speed and position for the particle.
         vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
         vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
-        particle p2 = { pos2, speed2 };
+        particle p2 = { pos2, speed2, CHECKER_ONLY(p->id) };
 
         // Compute the location of the cell that now contains the particle
         int idCell2 = idCellOfPos(pos2);

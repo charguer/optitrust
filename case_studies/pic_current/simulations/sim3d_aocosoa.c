@@ -10,6 +10,14 @@
 
 //#define PAPI_LIB_INSTALLED
 
+
+#ifdef CHECKER
+#define CHECKER_ONLY(X) X
+#elif
+#define CHECKER_ONLY(X)
+#endif
+
+
 #include <omp.h>                                          // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
 #include <math.h>                                         // functions cos, log, fmin
 #include <mpi.h>                                          // constants MPI_COMM_WORLD, MPI_THREAD_FUNNELED
@@ -691,13 +699,14 @@ int main(int argc, char** argv) {
                             }
                             for (i = 0; i < my_chunk->size; i++) {
                                 i_cell = i_cells[thread_id].array[i];
+                                CHECKER_ONLY(int id = my_chunk->id[i];)
                                 ic_x = ((i_cell / ncz) / ncy        );
                                 ic_y = ((i_cell / ncz) & ncyminusone);
                                 ic_z = (i_cell & nczminusone        );
                                 if (((ic_x >= ix_min - OMP_TILE_BORDERS && ic_x <= ix_max + OMP_TILE_BORDERS) || (ix_min == 0 && ic_x >= ncx - OMP_TILE_BORDERS) || (ix_max == ncxminusone && ic_x <= OMP_TILE_BORDERS - 1)) && ((ic_y >= iy_min - OMP_TILE_BORDERS && ic_y <= iy_max + OMP_TILE_BORDERS) || (iy_min == 0 && ic_y >= ncy - OMP_TILE_BORDERS) || (iy_max == ncyminusone && ic_y <= OMP_TILE_BORDERS - 1)) && ((ic_z >= iz_min - OMP_TILE_BORDERS && ic_z <= iz_max + OMP_TILE_BORDERS) || (iz_min == 0 && ic_z >= ncz - OMP_TILE_BORDERS) || (iz_max == nczminusone && ic_z <= OMP_TILE_BORDERS - 1)))
-                                    bag_push_serial(&(particlesNext[ID_PRIVATE_BAG][i_cell]), my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i], my_chunk->vx[i], my_chunk->vy[i], my_chunk->vz[i], thread_id);
+                                    bag_push_serial(&(particlesNext[ID_PRIVATE_BAG][i_cell]), my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i], my_chunk->vx[i], my_chunk->vy[i], my_chunk->vz[i], CHECKER_ONLY_COMMA(id) thread_id);
                                 else
-                                    bag_push_concurrent(&(particlesNext[ID_SHARED_BAG][i_cell]), my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i], my_chunk->vx[i], my_chunk->vy[i], my_chunk->vz[i], thread_id);
+                                    bag_push_concurrent(&(particlesNext[ID_SHARED_BAG][i_cell]), my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i], my_chunk->vx[i], my_chunk->vy[i], my_chunk->vz[i], CHECKER_ONLY_COMMA(id) thread_id);
 #ifdef PIC_VERT_OPENMP_4_0
                                 #pragma omp simd aligned(coeffs_x, coeffs_y, coeffs_z, signs_x, signs_y, signs_z:VEC_ALIGN)
 #endif
