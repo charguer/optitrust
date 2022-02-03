@@ -263,7 +263,7 @@ let document_to_string ?(width:PPrint.requirement=80) (d : document) : string =
 
 (* [fresh_generator()] generate a function that can be used to return
    the next integer at each invokation. *)
-(* TODO: this option ?init seems boggus, because it resets the generator
+(* LATER: this option ?init seems boggus, because it resets the generator
    at every call...  *)
 let fresh_generator ?(init : bool = false) () : (unit -> int) =
   let n = ref 0 in
@@ -274,7 +274,7 @@ let fresh_generator ?(init : bool = false) () : (unit -> int) =
 (* [reset_generator ()] reset the generator to avoid id clashes when reparsing *)
 let reset_generator () : unit =
   let _x = fresh_generator ~init:true () in ()
-(* TODO: this function is boggus; you cannot reset a generator once
+(* LATER: this function is boggus; you cannot reset a generator once
    it's been created. If you want to do this, you have to do:
 
 let resetable_fresh_generator () : (unit -> unit) * (unit -> int) =

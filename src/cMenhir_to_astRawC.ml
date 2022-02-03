@@ -8,7 +8,7 @@ open Tools
 let loc_of_cloc (cloc : C.location) : location =
   match cloc with
   | ("", -1) -> None
-  | (file, line) -> Some {loc_file = file; loc_start = {pos_line = line; pos_col = 0}; loc_end = {pos_line = line; pos_col = 0}} (* TODO: Find the correct location *)
+  | (file, line) -> Some {loc_file = file; loc_start = {pos_line = line; pos_col = 0}; loc_end = {pos_line = line; pos_col = 0}} (* LATER: Find the correct location *)
 
 let ctx_tconstr : typconstrid varmap ref = ref String_map.empty
 

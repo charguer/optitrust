@@ -258,11 +258,11 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
         end
       | _ -> fail t.loc "tile_aux: no enums expected"
       end
+
     | Trm_let (Var_mutable, (y,ty), init) when y = base_type_name ->
         begin match ty.typ_desc with
         | Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _};_} when y = base_type_name ->
           trm_let Var_mutable (y, ty) init
-          (* TODO: Check me later *)
         | _ -> fail t.loc "tile_aux: expected a pointer because of heap allocation"
         end
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
