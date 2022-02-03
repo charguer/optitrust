@@ -26,16 +26,16 @@ let _ = Run.script_cpp (fun () ->
   show [ nbExact 3; cVar ~typ_pred:ty_double "" ]; *)
 
   (* Type of variables definitions *)
-    (* TODO: uncomment after fixing the cpp file
+    (* TODO: uncomment after fixing the cpp file*)
 
-  show [ nbExact 2; cVarDef "" ];
+  show [ nbExact 3; cVarDef "" ];
   show [ nbExact 1; cVarDef ~typ:"double" "" ];
   show [ nbExact 1; cVarDef ~typ_pred:ty_double "" ];
 
   (* Type of arguments *)
 
   show [ nbExact 3; cWrite () ];
-  show [ nbExact 10; cWrite (); cHasType "int" ];
+  show [ nbExact 5; cWrite (); cHasType "int" ];
   show [ nbExact 4; cWrite (); cStrict; cHasType "int" ];
   show [ nbExact 3; cPrimFun ~args:[[]; []] (Prim_binop Binop_set) ];
   show [ nbExact 3; cPrimFun ~args:[[cVar ""]; []] (Prim_binop Binop_set) ];
@@ -44,7 +44,7 @@ let _ = Run.script_cpp (fun () ->
   show [ nbExact 2; cPrimFun ~args:[[cAnd [[]; [cHasType "int"]]]; []] (Prim_binop Binop_set) ];
   show [ nbExact 2; cWrite ~typ:"int" () ];
   show [ nbExact 1; cWrite ~typ_pred:ty_double () ];
-*)
+
   (* Type of arguments *)
   show [ nbExact 1; cFunDef ~args:[ [cArg ~typ:"int" ""]; [cArg ""] ] "" ];
   show [ nbExact 2; cFunDef ~args_pred:(target_list_one_st [ cArg ~typ:"double" "" ]) "" ];

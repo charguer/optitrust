@@ -709,7 +709,6 @@ let rec get_trm_kind (t : trm) : trm_kind =
    (* TODO: discuss why we once deprecated the above version *)
    | Trm_apps (f,_) ->
      begin match f.desc with
-      | Trm_var _ -> TrmKind_Instr
       | Trm_val (Val_prim (Prim_unop Unop_post_inc)) | Trm_val (Val_prim (Prim_unop Unop_post_dec))
       | Trm_val (Val_prim (Prim_unop Unop_pre_inc)) | Trm_val (Val_prim (Prim_unop Unop_pre_dec)) -> TrmKind_Instr
       | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr

@@ -81,11 +81,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Regexp *)
   (* We can match only inside the body of the loop now*)
-  (* TODO: I would expect sExpr to match in the condition for instance;
-    but this is not urgent
-    show [nbExact 1; sExpr "j <"]; *)
-
-  (* TODO: FIX after printing += correctly *)
+  
   show [sInstr "+= 2"];
   show [nbExact 0; sExpr ~substr:false "+= 2"];
   show [nbExact 0; sInstr ~substr:false "+= 2"];
@@ -99,16 +95,14 @@ let _ = Run.script_cpp (fun () ->
   show [nbExact 1; sInstr "int r = 3"];
   show [nbExact 0; sExpr "int r = 3"];
   show [sInstr "i++" ];
-  (* TODO: broken?
-  show [sExpr "f" ];*)
+  show [sExpr "f"];
   show [sInstr "f" ];
 
   show [nbExact 1; cVarDef "r"];
   show [nbExact 4; cVarDef ~substr:true "r"];
   show [nbExact 2; cVarDef ~regexp:true "p."];
   show [nbExact 1; cVarDef ~regexp:true "r"];
-  (* TODO: broken?
-     show [nbExact 5; cVarDef ~regexp:true "r\\|n"];  *)
+  show [nbExact 5; cVarDef ~regexp:true "r\\|n"];
 
   (* Declarations *)
   show [cDef "s"];
