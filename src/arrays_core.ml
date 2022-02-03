@@ -450,6 +450,7 @@ let swap (index : int) : Target.Transfo.local =
     return:
       updated ast of the surrounding sequence wuth the new changed declaration and occurences
 *)
+(* TODO: Reimplement it from scratch *)
 let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with

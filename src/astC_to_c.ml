@@ -902,7 +902,7 @@ and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_d
         trm_apps (trm_unop Unop_post_inc) [trm_var index]
       | Step st ->
         trm_apps (trm_prim (Prim_compound_assgn_op Binop_add) ) [trm_var index; st]
-      | _ -> fail body.loc "trm_for_to_trm_for_c: can't use decrementing operators for upper bounded for loops"
+      | _ -> fail body.loc "unpack_trm_for: can't use decrementing operators for upper bounded for loops"
       end
     | DirDown | DirDownEq ->
       begin match step with
@@ -912,7 +912,7 @@ and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_d
         trm_apps (trm_unop Unop_post_dec) [trm_var index]
       | Step st ->
         trm_apps (trm_prim (Prim_compound_assgn_op Binop_sub) ) [trm_var index; st]
-      | _ -> fail body.loc "trm_for_to_trm_for_c: can't use decrementing operators for upper bounded for loops"
+      | _ -> fail body.loc "unpack_trm_for: can't use decrementing operators for upper bounded for loops"
       end
 
     end in

@@ -1910,28 +1910,20 @@ let trm_for_of_trm_for_c (t : trm) : trm =
     end
   | _ -> fail t.loc "trm_for_of_trm_for_c: expected a for loop"
 
-
+(* DEPRECATED: Remove it after removing ast_to_c.ml *)
 (* before printing a simple loop first it should be converted to complex loop *)
 let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
   let init = trm_let Var_mutable (index, typ_int()) start in
   let cond = begin match direction with
     | DirUp ->
-      (trm_apps (trm_binop Binop_lt)
-        [trm_apps ~annot:[Mutable_var_get]
-          (trm_unop Unop_get) [trm_var index];stop])
+      (trm_apps (trm_binop Binop_lt) [trm_var index;stop])
     | DirUpEq ->
-      (trm_apps (trm_binop Binop_le)
-        [trm_apps ~annot:[Mutable_var_get]
-          (trm_unop Unop_get) [trm_var index];stop])
+      (trm_apps (trm_binop Binop_le) [trm_var index;stop])
     | DirDown ->
-      (trm_apps (trm_binop Binop_gt)
-        [trm_apps ~annot:[Mutable_var_get]
-          (trm_unop Unop_get) [trm_var index];stop])
+      (trm_apps (trm_binop Binop_gt) [trm_var index;stop])
     | DirDownEq ->
-      (trm_apps (trm_binop Binop_ge)
-        [trm_apps ~annot:[Mutable_var_get]
-          (trm_unop Unop_get) [trm_var index];stop])
+      (trm_apps (trm_binop Binop_ge) [trm_var index;stop])
    end in
   let step =
     begin match direction with
@@ -2228,12 +2220,16 @@ let trm_access (base : trm) (field : var) : trm =
   trm_apps (trm_unop (Unop_struct_access field)) [base]
 
 (* [trm_get t] generates a get operation in [t] *)
-let trm_get ?(annot : trm_annot list = []) (t : trm) : trm =
+let trm_get ?(annot : trm_annot list = []) ?(typ : typ option = None) (t : trm) : trm =
   trm_apps ~annot (trm_unop Unop_get) [t]
 
 (* [trm_var_get x] generates *x *)
-let trm_var_get (x : var) : trm =
-  trm_get (trm_var x)
+let trm_var_get ?(typ : typ option = None) (x : var) : trm =
+  trm_get ~typ (trm_var ~typ x)
+
+(* [trm_var_possibly_mut ~const ty] *)
+let trm_var_possibly_mut ?(const : bool = false) ?(typ : typ option = None) (x : var) : trm = 
+  if const then trm_var ~typ ~kind:Var_immutable x else trm_var_get ~typ x
 
 (* [trm_new ty t] generates new ty (t) *)
 let trm_new (ty : typ) (t : trm) : trm =

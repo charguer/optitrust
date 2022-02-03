@@ -25,14 +25,13 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
      let function_call = Path.resolve_path p_local instr in
      let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
      let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
-     let decl_to_change = Internal.change_trm function_call (if const then trm_var fresh_name else (trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var fresh_name])) instr in (* LATER: use a smart constructor  trm_var_possibly_mutable
-        this function could also put the typ  on the variable (and on the get operation)
-           (if const then trm_var fresh_name else (trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var fresh_name]))  *)
-     let function_call = if my_mark <> "" then trm_add_mark my_mark function_call else function_call in
+    
      let function_type = match function_call.typ with
      | Some typ -> typ
-     (* Maybe it should fail here!! *)
      | None -> typ_auto() in
+     let decl_to_change = Internal.change_trm function_call (trm_var_possibly_mut ~const ~typ:(Some function_type) fresh_name) instr in 
+    
+     let function_call = if my_mark <> "" then trm_add_mark my_mark function_call else function_call in
      let decl_to_insert =
       if const
         then trm_let_immut (fresh_name, function_type) function_call

@@ -249,8 +249,7 @@ let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : 
   | Some (_, _, ty, _) -> ty
   | _ -> fail vardef_trm.loc "local_name: make sure the name of the current var is entered correctly" in
   let fst_instr = trm_let_mut (local_var, var_type) (trm_var curr_var) in
-  let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var ~typ:(Some var_type) local_var]) in (* TODO: here we also have a call to
-      the smart constructor  trm_var_possibly_mutable  with const:false -> mutable:true *)
+  let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_var_possibly_mut ~typ:(Some var_type) local_var) in 
   let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in
   let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
   if mark <> "" then trm_add_mark mark final_trm else final_trm
@@ -398,11 +397,13 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p
     let targeted_node = Path.resolve_path p_local instr in
     let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
     let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
-    let node_to_change = Internal.change_trm targeted_node (if const then trm_var fresh_name else (trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var fresh_name])) instr in (* TODO: use the smart constructor *)
-    let targeted_node = if my_mark <> "" then trm_add_mark my_mark targeted_node else targeted_node in
     let node_type = match targeted_node.typ with
     | Some ty -> ty
     | _ -> typ_auto() in
+    let node_to_change = Internal.change_trm targeted_node (trm_var_possibly_mut ~const ~typ:(Some node_type) fresh_name) instr in 
+
+    let targeted_node = if my_mark <> "" then trm_add_mark my_mark targeted_node else targeted_node in
+    
     let decl_to_insert =
       begin match targeted_node.desc with
       | Trm_array tl ->
@@ -466,8 +467,7 @@ let to_const_aux (index : int) (t : trm) : trm =
         in
         let init_type = get_inner_ptr_type tx in
         let new_dl = trm_let_immut ~marks:dl.marks (x, init_type) init_val in
-        let new_lback = Mlist.map (Internal.change_trm (trm_get ~annot:[Mutable_var_get] (trm_var x)) (trm_var x)) lback in
-        (* TODO: use the smart constructor *)
+        let new_lback = Mlist.map (Internal.change_trm (trm_var_possibly_mut ~typ:(Some init_type) x) (trm_var x)) lback in 
         let new_tl = Mlist.merge lfront new_lback in
         let new_tl = Mlist.insert_at index new_dl new_tl in
         trm_seq ~annot:t.annot ~marks:t.marks new_tl

@@ -1209,20 +1209,6 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      print_info loc "explore_in_depth: no exploration in included files\n";
      []
      end
-  (* DEPRECATED
-  else if List.mem Access t.annot (* || List.mem Mutable_var_get t.annot *) then
-     begin match t.desc with
-       (*
-         the wildcard is a star operator the user doesn't know about
-         t' is an access under which want to explore
-        *)
-     | Trm_apps (_, [t']) -> add_dir (Dir_arg_nth 0) (explore_in_depth p t')
-
-
-
-     | _ -> fail loc "explore_in_depth: bad access annotation"
-     end
-  *)
   else if List.mem Multi_decl t.annot then
      (* explore each declaration in the seq *)
      begin match t.desc with
