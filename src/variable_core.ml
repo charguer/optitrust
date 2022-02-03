@@ -28,23 +28,16 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
           if as_reference then trm_apps (trm_unop Unop_get) [trm_var x]
           else trm_var x
         in
-        let def_x =
+        let def_x = 
             begin match vk with
-            | Var_immutable ->
-              if as_reference
-                then {dx with add = List.filter (fun x -> x <> Address_operator) dx.add} (* TODO: probably useless *)
-                else dx
+            | Var_immutable -> dx
             | _ -> begin match dx.desc with
                    | Trm_apps(_, [init]) -> init
                    | _ -> dx
                    end
             end in
         let lback = Mlist.map(Internal.change_trm ~change_at:[fold_at] def_x t_x) lback
-        (*
-          def_x might have been replaced with x in the definition of x
-          -> replace it again with def_x
-         *)
-        in
+         in
         let new_tl = Mlist.merge lfront lback in
         let new_tl = Mlist.insert_at index d new_tl in
         trm_seq ~annot:t.annot ~marks:t.marks new_tl
@@ -52,7 +45,6 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
      | _ -> fail t.loc "fold_decl: expected a variable declaration"
      end
   | _ -> fail t.loc "fold_aux: expected the surrounding sequence"
-
 
 let fold (fold_at : target) (index) : Target.Transfo.local =
   Target.apply_on_path(fold_aux  fold_at index)

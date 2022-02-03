@@ -2335,12 +2335,13 @@ let trm_ands (ts : trm list) : trm =
 
 
 (* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
-let trm_prim_compound ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None) ?(typ = None) (binop : binary_op) (t1 : trm) (t2 : trm) : trm =
-  trm_apps ~loc ~is_statement ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
+let trm_prim_compound ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None) ?(typ = None) ?(annot :trm_annot list = [])(binop : binary_op) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~is_statement ~typ ~annot (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
 
 (* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
-let trm_prim_compound_encoded_as_set ?(loc = None) ?(is_statement = false) ?(ctx : ctx option = None) ?(typ = None) (binop : binary_op) (tl : trm) (tr : trm) : trm =
-  trm_set ~annot:[App_and_set] ~loc ~is_statement ~typ tl
+let trm_prim_compound_encoded_as_set ?(loc = None) ?(is_statement = false) ?(ctx : ctx option = None) ?(typ = None) ?(annot : trm_annot list = []) (binop : binary_op) (tl : trm) (tr : trm) : trm =
+  let annot = App_and_set :: annot in 
+  trm_set ~annot ~loc ~is_statement ~typ tl
     (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr])
 
 

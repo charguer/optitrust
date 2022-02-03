@@ -344,19 +344,21 @@ let rec cseq_items_void_type (t : trm) : trm =
       { t2 with desc = Trm_seq (Mlist.map enforce_unit ts) }
   | _ -> t2
 
-(* TODO: documentation *)
+(* [compound_assign_elim t] updates [t] in such a way that all compound assignments are
+    converted to set operations with annotation [App_and_set]*)
 let compound_assign_elim (t : trm) : trm =
   let rec aux t =
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))}, [tl; tr]) ->
       let tl2 = aux tl in
       let tr2 = aux tr in
-      trm_prim_compound_encoded_as_set ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl2 tr2
+      trm_prim_compound_encoded_as_set ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl2 tr2
     | _ -> trm_map aux t
     in
   aux t
 
-(* TODO: documentation *)
+(* [compound_assign_intro t] this is the inverse of compound_assign_elim function, it takes a set operation  
+     with annotation [App_and_set] and converts it into a compound_assignment *)
 let compound_assign_intro (t : trm) : trm =
   let rec aux t =
     match t.desc with
@@ -365,7 +367,8 @@ let compound_assign_intro (t : trm) : trm =
       | Some (Prim_binop binop) ->
         let tl2 = aux tl in
         let tr2 = aux tr in
-        trm_prim_compound ~loc:t.loc ~is_statement:t.is_statement ~ctx:t.ctx binop tl2 tr2
+        let annot = List.filter (fun annot -> match annot with | Annot_stringreprid _ -> true | _ -> false ) t.annot in 
+        trm_prim_compound ~annot ~loc:t.loc ~is_statement:t.is_statement ~ctx:t.ctx binop tl2 tr2
       | _ -> fail f.loc "compound_assign_into: expected a binary operator as an argument of a compound assignment"
       end
     | _ -> trm_map aux t

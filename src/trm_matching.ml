@@ -152,7 +152,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
       in
 
     (* Check matching addressof annotation -- LATER: maybe we should simply ignore additions that appear on t2? *)
-    if List.mem Address_operator t1.add then begin (* TODO: decide if this is still needed? *)
+    if List.mem Address_operator t1.add then begin 
       if not (List.mem Address_operator t2.add)
         then mismatch ~t1 ~t2 ();
       aux (Ast.trm_special_operator_remove Address_operator t1) (Ast.trm_special_operator_remove Address_operator t2)

@@ -41,15 +41,13 @@ let _ = Run.script_cpp (fun () ->
   show [ cVarDef "r" ; dInit ];
   show [ cInit () ];
   show [ cVarDef ""; cInit ~arg:[cStrict; cLit] () ];
-  show [ cVarDef ""; cStrict; cInit ~arg:[ cStrict; cLit] () ]; (* TODO: not resolving to the good ones *)
+  show [ cVarDef ""; cStrict; cInit ~arg:[ cStrict; cLit] () ]; 
 
   (* Loops *)
   show [ cFor "i" ];
-  (* TODO: FIX
   show [ cFor "j" ];
   show [ cFor ~stop:[cInt 5] "" ];
-  *)
-
+  
   (* Abort *)
   show [ cBreak ];
   show [ cContinue ];
