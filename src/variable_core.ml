@@ -490,7 +490,7 @@ let to_const (index : int) : Target.Transfo.local =
       updated ast
 *)
 
-let rec simpl_deref_aux (indepth : bool) (t : trm) : trm =
+let simpl_deref_aux (indepth : bool) (t : trm) : trm =
   let aux = trm_simplify_addressof_and_get in 
   if indepth then trm_map aux t else aux t
 

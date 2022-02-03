@@ -5,7 +5,9 @@ int min(int x, int y) {
 }
 
 int main() {
-  int s1 = 0, s2 = 0, s3 = 0;
+  int s1 = 0;
+  int s2 = 0;
+  int s3 = 0;
   for (int x = 0; x < 10; x++) {
     s1 += x;
   }
@@ -17,7 +19,9 @@ int main() {
   }
   printf ("%d %d %d\n", s1, s2, s3);
 
-  int t1 = 0, t2 = 0, t3 = 0;
+  int t1 = 0;
+  int t2 = 0;
+  int t3 = 0;
   for (int i = 0; i < 12; i+=3) {
     t1 += i;
   }

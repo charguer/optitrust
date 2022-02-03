@@ -20,14 +20,10 @@ void f(int x, int y, T t[2]){
   t[0][1] = 0;
   t[1][0] = 0;
   t[1][1] = 0;
-  x = 0;
-  y = 1;
 }
 
 void g(int x, int y, U t[2]){
   t[0][0].x = 0;
-  x = 0;
-  y = 1;
 }
 
  int main(){
@@ -40,10 +36,10 @@ void g(int x, int y, U t[2]){
 
   // Array access with struct access
   U u[2];
-  u[0][1].x = 5;
-  u[0][1].y = u[0][1].x + 6;
-  u[1][1].x = 5;
-  u[1][1].y = u[1][1].x + 6;
+  (u[0][1]).x = 5;
+  (u[0][1]).y = u[0][1].x + 6;
+  (u[1][1]).x = 5;
+  (u[1][1]).y = u[1][1].x + 6;
 
   // NOTE: uncomment the line below triggers a legitimate error,
   //       because "u" is used without an access to it.

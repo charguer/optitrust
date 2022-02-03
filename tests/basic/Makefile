@@ -10,6 +10,7 @@ TESTS_WITH_DOC := \
 	array_set_explicit.ml \
 	cast_insert.ml \
 	function_beta.ml \
+	function_bind_intro.ml \
 	function_inline.ml \
 	instr_accumulate.ml \
 	instr_move.ml \
@@ -22,8 +23,6 @@ TESTS_WITH_DOC := \
 	loop_swap.ml \
 	loop_moveout.ml \
 	loop_unroll.ml \
-	pointer_fold.ml \
-	reference_fold.ml \
 	rewrite_compute.ml \
 	rewrite_equiv_at.ml \
 	sequence_elim_around_instr.ml \
@@ -74,7 +73,6 @@ TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	arith_simplify.ml \
 	array_to_variables.ml \
-	function_bind_intro.ml \
 	function_uninline.ml \
 	instr_read_last_write.ml \
 	loop_fission.ml \
@@ -87,6 +85,7 @@ TESTS_TO_FIX := \
 	array_tile.ml \
 	variable_simpl_deref.ml \
 	variable_to_const.ml \
+	reference_fold.ml \
 	sequence_split.ml \
 	typedef_fold.ml \
 	variable_change_type.ml \
@@ -96,6 +95,7 @@ TESTS_TO_FIX := \
 	variable_subst.ml \
 	array_swap.ml \
 	matrix_local_name.ml \
+	pointer_fold.ml \
 	matrix_reorder_dims.ml \
 	instr_replace.ml \
 	label_add.ml \

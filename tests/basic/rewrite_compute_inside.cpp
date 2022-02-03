@@ -18,7 +18,9 @@ int main() {
   y = 2.5 + 2.5 - 2.5 + 2.5;
   }
   block3: {
-  bool a, b, c;
+  bool a; 
+  bool b;
+  bool c;
   c = true || a;
   c = false || a;
   c = a || true;

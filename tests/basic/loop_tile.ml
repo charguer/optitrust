@@ -24,5 +24,5 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Loop_basic.tile "2" ~index:"b${id}" ~bound:TileBoundDivides [cFor "i"];
   !! Loop_basic.tile "2" ~bound:TileBoundMin [cFor "j"];
-  (* !! Loop_basic.tile "2" ~bound:TileBoundAnd [cFor "k"]; *)
+  !! Loop_basic.tile "2" ~bound:TileBoundAnd [cFor "k"];
 )
