@@ -33,7 +33,6 @@ let _ = Run.script_cpp (fun () ->
   show [ nbExact 1; cVarDef ~typ_pred:ty_double "" ];
 
   (* Type of arguments *)
-
   show [ nbExact 3; cWrite () ];
   show [ nbExact 5; cWrite (); cHasType "int" ];
   show [ nbExact 4; cWrite (); cStrict; cHasType "int" ];
@@ -48,6 +47,7 @@ let _ = Run.script_cpp (fun () ->
   (* Type of arguments *)
   show [ nbExact 1; cFunDef ~args:[ [cArg ~typ:"int" ""]; [cArg ""] ] "" ];
   show [ nbExact 2; cFunDef ~args_pred:(target_list_one_st [ cArg ~typ:"double" "" ]) "" ];
+  
   (* Type of funcions *)
   show [nbExact 2; cFunDef "" ~ret_typ:"int"];
   show [nbExact 1; cFunDef "" ~ret_typ_pred:ty_bool];

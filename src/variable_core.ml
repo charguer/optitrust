@@ -481,56 +481,18 @@ let to_const_aux (index : int) (t : trm) : trm =
 let to_const (index : int) : Target.Transfo.local =
   Target.apply_on_path (to_const_aux index)
 
-(* [simpl_deref_opt t] check if [t] is of the form *(&b) or *(&b), if tha tis the case
-      then simplify that expression and return it, otherwise return None
+(* [simpl_deref_aux t] check if [t] is of the form *(&b) or *(&b), if that is the case
+      then simplify that expression and return it, otherwise if [indepth] is true then
+      search in depth of [t] else return [t]
     params:
       [t]: a node that represents one of the epxression *(&b) or &( *b)
     return:
-      An optional trm
-
-    Note: Variable [b] in the documentation has not specific meaning.
+      updated ast
 *)
 
-let simpl_deref_opt (t : trm) : trm option =
-(* TODO: reimplement using
-    Ast.trm_simplify_addressof_and_get
-*)
-  match t.desc with
-  | Trm_apps (op, [t1]) ->
-    (* First case  &* both & and * are encoded as annotations of t*)
-    if List.mem Address_operator t.add && List.mem Star_operator t.add then
-    let new_add = List.filter (function |Address_operator | Star_operator -> false) t.add in
-    Some {t with add = new_add}
-    (* Second case: * is a get operation and & is annotation encode inside  t1 *)
-    else if op.desc = Trm_val (Val_prim (Prim_unop Unop_get))  && List.mem Address_operator t1.add then
-      begin
-      let new_t1 = {t1 with add = []} in
-      Some (trm_get ~annot:[Mutable_var_get] new_t1)
-      end
-    else None
-  | _ -> None
-
-(* [simple_deref_at t] simplify the ast of an expression of the form *(&b) or &( *b)
-      params:
-        [t]: ast of an expression of the form &( *b) or *(&b)
-      return:
-        ast of the simplified expressions
-*)
-let simpl_deref_at (t : trm) : trm =
-  match simpl_deref_opt t with
-  | None -> fail t.loc "simple_deref: not a &(*) or *(&t) expression"
-  | Some t2 -> t2
-
-
-(* [simpl_deref_indepth t] similart like [simpl_deref function] but this one checks in depth too *)
-let simpl_deref_indepth (t : trm) : trm =
-  let rec aux (t : trm) : trm =
-    match simpl_deref_opt t with
-    | Some t2 -> trm_map aux t2
-    | _ -> trm_map aux t
-    in
-  aux t
+let rec simpl_deref_aux (indepth : bool) (t : trm) : trm =
+  let aux = trm_simplify_addressof_and_get in 
+  if indepth then trm_map aux t else aux t
 
 let simpl_deref (indepth : bool) : Target.Transfo.local =
-  let tr = if indepth then simpl_deref_indepth else simpl_deref_at in
-  Target.apply_on_path tr
+  Target.apply_on_path (simpl_deref_aux indepth)

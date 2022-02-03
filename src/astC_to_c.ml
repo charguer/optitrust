@@ -942,7 +942,7 @@ let typ_to_string (ty : typ) : string =
   Buffer.contents b
 
 let trm_print_debug (t : trm) : unit =
-  print_stringreprids := true; (* TODO: could add a flag to print annotation *)
+  print_stringreprids := true; 
   Printf.printf "==\n%s\n===\n" (ast_to_string t);
   print_stringreprids := false
 
