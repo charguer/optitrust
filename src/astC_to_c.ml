@@ -108,6 +108,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
         | Atypexpr tye -> parens (string tye)
         | _ -> fail None "typ_to_doc: arbitrary types entered as string should be entered by using either Atyp or Atypexpr"
         end
+
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with
   | Unsigned -> string "unsigned"
@@ -438,7 +439,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) (t : trm) : document =
         string "template" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl ^^ semi
      end in
   (* Save the result in the optional stringreprs table, before returning the document *)
-  add_stringreprs_entry t d;
+  add_stringreprs_entry t d; (* LATER/ might be also in decorate_trm *)
   d
 
 and record_type_to_doc (rt : record_type) : document =
@@ -458,14 +459,14 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
     dtx ^^ blank 1 ^^ dinit
 
 
-and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (tl : trm list) : document = 
-  let dsemi = if semicolon then semi else empty in 
+and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (tl : trm list) : document =
+  let dsemi = if semicolon then semi else empty in
   let dtx = typ_to_doc ty in
-  let dtl = List.map2 (fun v t1 -> 
-    if is_trm_uninitialized t1 
-      then string v 
-      else string v ^^ equals ^^ trm_to_doc t1 
-  ) vl tl in 
+  let dtl = List.map2 (fun v t1 ->
+    if is_trm_uninitialized t1
+      then string v
+      else string v ^^ equals ^^ trm_to_doc t1
+  ) vl tl in
   dtx  ^^ blank 1 ^^ Tools.list_to_doc ~sep:comma dtl ~bounds:[empty; empty] ^^ dsemi
 
 
@@ -941,7 +942,7 @@ let typ_to_string (ty : typ) : string =
   Buffer.contents b
 
 let trm_print_debug (t : trm) : unit =
-  print_stringreprids := true;
+  print_stringreprids := true; (* TODO: could add a flag to print annotation *)
   Printf.printf "==\n%s\n===\n" (ast_to_string t);
   print_stringreprids := false
 

@@ -14,7 +14,8 @@ let _ = Run.script_cpp (fun () ->
 
   (* TODO: create a unit test *)
   (* !! Instr.view_subterms [dRoot]; *)
-  show [sInstr "+="];
+  !! Instr.view_subterms ~constr:(sInstr "+= 2") [dRoot];
+  show [nbExact 1; sInstr "+="];
   show [sExpr "s + 1"];
   show [sExpr "s + 1"];
   show [sExpr "2"];

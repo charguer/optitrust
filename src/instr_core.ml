@@ -185,6 +185,8 @@ let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp op
         in
       Str.global_replace (Str.regexp "\n") " " s
       in
+    let sannot =
+      Tools.document_to_string (Ast_to_c.trm_annot_to_doc t.annot) in
     let tkind = Constr.get_trm_kind t in
     let skind = Constr.trm_kind_to_string tkind in
     let sreg =
@@ -204,7 +206,7 @@ let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp op
     let spacing2=
       let nkind = String.length skind in
       if nkind > 5 then "" else String.make (5 - nkind) ' ' in (* ARTHUR: use a wrapper function *)
-    Printf.printf "%s%s: %s : %s%s : %s : %s\n" sloc spacing1 sreg skind spacing2 styp_trimmed strm_trimmed;
+    Printf.printf "%s%s: %s : %s%s : %s : %s : %s\n" sloc spacing1 sreg skind spacing2 styp_trimmed strm_trimmed sannot;
     trm_map aux t
     in
   aux t

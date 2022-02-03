@@ -1768,7 +1768,7 @@ let is_star_operation (t : trm) : bool =
 
 (* [is_get_operation t] check if [t] is a struct access get operation of a immutable variable get operation *)
 let is_get_operation (t : trm) : bool =
-  match t.desc with 
+  match t.desc with
   | Trm_apps ({desc = Trm_val(Val_prim (Prim_unop Unop_get))}, _) -> true
   | _ -> false
 
@@ -1912,7 +1912,7 @@ let trm_for_of_trm_for_c (t : trm) : trm =
 
 
 (* before printing a simple loop first it should be converted to complex loop *)
-let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) 
+let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
   let init = trm_let Var_mutable (index, typ_int()) start in
   let cond = begin match direction with
@@ -2102,8 +2102,8 @@ let is_trm_uninitialized (t:trm) : bool =
   | Trm_val (Val_lit Lit_uninitialized) -> true
   | _ -> false
 
-let is_trm_var (t : trm) : bool = 
-  match t.desc with 
+let is_trm_var (t : trm) : bool =
+  match t.desc with
   | Trm_var _ -> true
   | _ -> false
 
@@ -2232,7 +2232,7 @@ let trm_get ?(annot : trm_annot list = []) (t : trm) : trm =
   trm_apps ~annot (trm_unop Unop_get) [t]
 
 (* [trm_var_get x] generates *x *)
-let trm_var_get (x : var) : trm = 
+let trm_var_get (x : var) : trm =
   trm_get (trm_var x)
 
 (* [trm_new ty t] generates new ty (t) *)
@@ -2335,12 +2335,12 @@ let trm_ands (ts : trm list) : trm =
 
 
 (* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
-let trm_prim_compound ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None) ?(typ = None) ?(annot :trm_annot list = [])(binop : binary_op) (t1 : trm) (t2 : trm) : trm =
-  trm_apps ~loc ~is_statement ~typ ~annot (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
+let trm_prim_compound ?(marks : mark list = []) ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None) ?(typ = None) ?(annot :trm_annot list = [])(binop : binary_op) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~is_statement ~typ ~annot ~marks (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
 
 (* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
 let trm_prim_compound_encoded_as_set ?(loc = None) ?(is_statement = false) ?(ctx : ctx option = None) ?(typ = None) ?(annot : trm_annot list = []) (binop : binary_op) (tl : trm) (tr : trm) : trm =
-  let annot = App_and_set :: annot in 
+  let annot = App_and_set :: annot in
   trm_set ~annot ~loc ~is_statement ~typ tl
     (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr])
 
