@@ -232,7 +232,7 @@ and tr_ident (id : ident_ref node) : string =
     let loc = loc_of_node id in
     fail loc "tr_ident_ref: not implemented"
 
-and tr_stmt ?(typ : typ = typ_unit ()) (s : stmt) : trm =
+and tr_stmt (s : stmt) : trm =
   let loc = loc_of_node s in
   let ctx = Some (get_ctx ()) in
   match s.desc with

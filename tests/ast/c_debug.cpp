@@ -37,15 +37,23 @@ int f(int* t, int** u, vect w) {
 }
 
 */
+typedef struct { int x; int y; } vect;
+
+typedef struct { vect pos; vect speed; } particle;
+
 int main() {
-  int x, y = 1;
-  // tofuse: {
-  //   for (int i = 0; (i < 5); i++) {
-  //     x += i;
-  //   }
-  //   for (int i = 0; (i < 5); i++) {
-  //     y += i;
-  //   }
-  // }
+ vect v = {0,1};
+ vect v1 = {0,1};
+ vect* p = &v;
+ particle p1 = {{0,1}, {1,2}};
+ particle p2;
+ 
+ p1.pos = p2.pos;
+ p1.pos.x = p2.pos.x;
+
+ v = v1;
+ v.x = v.y;
+ (*p).x = (*p).y;
+ p->x = p->y;
 }
   

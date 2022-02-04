@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-
+(* 
 let _ = Run.doc_script_cpp (fun _ ->
   !! Struct.set_explicit [sInstr "v = w"];
   )
@@ -12,10 +12,11 @@ typedef struct {
   vect;
 
 int main() {
-  vect v, w;
+  vect v;
+  vect w;
   v = w;
 }
-"
+" *)
 
 
 let _ = Run.script_cpp (fun _ ->

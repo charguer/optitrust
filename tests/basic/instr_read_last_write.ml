@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
+(* let _ = Run.doc_script_cpp (fun _ ->
   !! Instr_basic.read_last_write ~write:[sInstr "a ="] [cVarDef "b"; dBody];
   )
 "
@@ -10,7 +10,7 @@ int main() {
   a = 6;
   int b = a;
 }
-"
+" *)
 
 let _ = Run.script_cpp (fun _->
 

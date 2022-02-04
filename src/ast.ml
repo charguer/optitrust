@@ -1787,7 +1787,8 @@ let is_set_operation (t : trm) : bool =
   match t.desc with
   | Trm_apps (f, _) ->
     begin match trm_prim_inv f with
-    | Some (Prim_binop Binop_set) -> true
+    | Some (Prim_binop Binop_set) 
+     | Some (Prim_overloaded_op (Prim_binop Binop_set)) -> true
     | _ -> false
     end
   | _ -> false
@@ -2216,7 +2217,7 @@ let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool =
 
 
 (* [trm_access base field] create a dummy access without type checking*)
-let trm_access (base : trm) (field : var) : trm =
+let trm_struct_access (base : trm) (field : var) : trm =
   trm_apps (trm_unop (Unop_struct_access field)) [base]
 
 (* [trm_get t] generates a get operation in [t] *)

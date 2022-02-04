@@ -705,15 +705,19 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_typedef _ | Trm_let_record _-> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
-   (* | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr *)
-   (* TODO: discuss why we once deprecated the above version *)
+   (* LATER: discuss why we once deprecated the above version 
+      | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr*)
    | Trm_apps (f,_) ->
-     begin match f.desc with
-      | Trm_val (Val_prim (Prim_unop Unop_post_inc)) | Trm_val (Val_prim (Prim_unop Unop_post_dec))
-      | Trm_val (Val_prim (Prim_unop Unop_pre_inc)) | Trm_val (Val_prim (Prim_unop Unop_pre_dec)) -> TrmKind_Instr
-      | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr
+     begin match trm_prim_inv f with 
+     | Some p -> 
+      begin match p with 
+      | Prim_unop Unop_post_inc | Prim_unop Unop_post_dec | Prim_unop Unop_pre_inc 
+        | Prim_unop Unop_pre_dec | Prim_binop Binop_set | Prim_overloaded_op (Prim_binop Binop_set) -> TrmKind_Instr
       | _ -> TrmKind_Expr
       end
+     | _ -> TrmKind_Expr 
+     end 
+     
    | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
    | Trm_labelled (_, t) -> get_trm_kind t
    | Trm_omp_directive _ | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ -> TrmKind_Any

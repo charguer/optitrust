@@ -12,8 +12,55 @@ open Ast
     return:
       the ast of nobrace sequence which is going to contain the added set operations
  *)
- (* TODO: Addapt to the new changes *)
-let set_explicit_aux (t : trm) : trm =
+let set_explicit_aux (t : trm) : trm = 
+  match t.desc with 
+  | Trm_apps (_, [lt; rt]) ->
+    let tid_r = Internal.get_typid_from_trm rt  in
+      let tid_l = Internal.get_typid_from_trm lt  in
+      let tid = match tid_r, tid_l with
+      | -1, _ -> tid_l
+      | _, -1 -> tid_r
+      | _, _ -> if tid_r = tid_l then tid_r
+                  else fail t.loc "set_explicit_aux: different types in an assignment"
+      in
+      let struct_def =
+        if tid <> -1 then
+          match Context.typid_to_typedef tid with
+          | Some td -> td
+          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef"
+        else begin
+          (* Tools.printf "%s\n" (Ast_to_text.ast_to_string t); *)
+          Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
+          fail t.loc "set_explicit_aux: explicit assignment cannot operate on unknown types"
+        end
+      in
+      let field_list = Internal.get_field_list struct_def in 
+      begin match rt.desc with 
+      | Trm_apps (f, [rt1]) when is_get_operation f ->
+         let exp_assgn = List.mapi (fun i (sf, ty) -> 
+          trm_set (trm_struct_access lt sf) {rt with desc = Trm_apps (f, [trm_struct_access rt1 sf])}
+         ) field_list in 
+         trm_seq_no_brace exp_assgn
+         
+      | Trm_struct st ->
+        let st = Mlist.to_list st in 
+        let exp_assgn = List.mapi (fun i (sf, ty) -> 
+          trm_set (trm_struct_access lt sf) (List.nth st i)
+        ) field_list 
+         in 
+        trm_seq_no_brace exp_assgn
+        | _ -> fail rt.loc "set_explicit_aux: expected a set instruction of the form v1 = v2 or v1 = {0,1}"
+      end
+
+  | _ -> fail t.loc "set_explicit_aux: expected a set operation"
+
+
+
+
+
+
+
+let set_explicit_aux1 (t : trm) : trm =
   match t.desc with
   | Trm_apps(_, [lt;rt]) ->
       let tid_r = Internal.get_typid_from_trm rt  in
