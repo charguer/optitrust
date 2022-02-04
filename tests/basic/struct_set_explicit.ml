@@ -17,6 +17,9 @@ int main() {
 }
 " *)
 
+let _ = Flags.dump_ast_details := true
+
+
 let _ = Run.script_cpp ( fun _ ->
 
   !! Struct_basic.set_explicit [sInstr "b = p"];

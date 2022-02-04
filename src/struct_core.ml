@@ -14,7 +14,13 @@ open Ast
  *)
 let set_explicit_aux (t : trm) : trm = 
   match t.desc with 
-  | Trm_apps (_, [lt; rt]) ->
+  | Trm_apps (f, [lt; rt]) ->
+    let lt = begin match trm_prim_inv f with 
+      | Some (Prim_overloaded_op (Prim_binop Binop_set)) ->
+        get_operation_arg lt
+      | _ -> lt
+      end
+     in 
     let tid_r = Internal.get_typid_from_trm rt  in
       let tid_l = Internal.get_typid_from_trm lt  in
       let tid = match tid_r, tid_l with
@@ -36,9 +42,9 @@ let set_explicit_aux (t : trm) : trm =
       in
       let field_list = Internal.get_field_list struct_def in 
       begin match rt.desc with 
-      | Trm_apps (f, [rt1]) when is_get_operation f ->
+      | Trm_apps (f1, [rt1]) when is_get_operation rt ->
          let exp_assgn = List.mapi (fun i (sf, ty) -> 
-          trm_set (trm_struct_access lt sf) {rt with desc = Trm_apps (f, [trm_struct_access rt1 sf])}
+          trm_set (trm_struct_access lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access rt1 sf])}
          ) field_list in 
          trm_seq_no_brace exp_assgn
          
@@ -49,7 +55,7 @@ let set_explicit_aux (t : trm) : trm =
         ) field_list 
          in 
         trm_seq_no_brace exp_assgn
-        | _ -> fail rt.loc "set_explicit_aux: expected a set instruction of the form v1 = v2 or v1 = {0,1}"
+      | _ -> fail rt.loc "set_explicit_aux: expected a set instruction of the form v1 = v2 or v1 = {0,1}"
       end
 
   | _ -> fail t.loc "set_explicit_aux: expected a set operation"

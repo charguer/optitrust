@@ -570,9 +570,9 @@ and tr_expr ?(is_statement : bool = false)
         let f = tr_ident id in
         let base = tr_expr e in
         if has_arrow then
-          trm_apps (trm_unop ~annot:[Display_arrow] (Unop_struct_get f) ) [trm_get base]
+          trm_apps ~loc ~ctx ~typ (trm_unop ~annot:[Display_arrow] (Unop_struct_get f) ) [trm_get base]
         else
-          trm_apps (trm_unop (Unop_struct_get f) ) [base]
+          trm_apps ~loc ~ctx ~typ (trm_unop ~loc (Unop_struct_get f) ) [base]
       | _ -> fail loc "tr_expr: fields should be accessed by names"
       end
     end
