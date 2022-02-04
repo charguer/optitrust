@@ -23,8 +23,10 @@ TESTS_WITH_DOC := \
 	loop_fold.ml \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
-	loop_swap.ml \
 	loop_moveout.ml \
+	loop_swap.ml \
+	loop_tile.ml \
+	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	rewrite_compute.ml \
 	rewrite_equiv_at.ml \
@@ -79,8 +81,6 @@ TESTS_TO_FIX := \
 	function_uninline.ml \
 	instr_read_last_write.ml \
 	loop_fission.ml \
-	loop_tile.ml \
-	loop_to_unit_steps.ml \
 	reference_inline.ml \
 	rewrite_compute_inside.ml \
 	struct_set_implicit.ml \

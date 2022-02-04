@@ -364,6 +364,7 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
 
 
    let body_trms = for_loop_body_trms t in 
+   let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_var_get index) t) body_trms in 
    let loop_step = match step with 
    | Step l_step -> l_step 
    | _ -> trm_int 1 in
