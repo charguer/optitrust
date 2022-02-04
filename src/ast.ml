@@ -2372,7 +2372,6 @@ module AstParser = struct
 
   let stmt s = code (Stmt s)
 
-
 end
 
 (* [var_mutability_unkown] dummy value used for variable mutability*)
