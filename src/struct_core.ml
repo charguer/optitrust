@@ -48,7 +48,6 @@ let set_explicit_aux (t : trm) : trm =
           trm_set (trm_struct_access ~typ:(Some ty) lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access rt1 sf]); typ = Some ty}
          ) field_list in 
          trm_seq_no_brace exp_assgn
-         
       | Trm_struct st ->
         let st = Mlist.to_list st in 
         let exp_assgn = List.mapi (fun i (sf, ty) -> 
@@ -56,6 +55,11 @@ let set_explicit_aux (t : trm) : trm =
         ) field_list 
          in 
         trm_seq_no_brace exp_assgn
+      | Trm_var _ -> 
+        let exp_assgn = List.mapi (fun i (sf, ty) -> 
+         trm_set (trm_struct_access ~typ:(Some ty) lt sf) (trm_struct_access rt sf)
+         ) field_list in 
+         trm_seq_no_brace exp_assgn
       | _ -> fail rt.loc "set_explicit_aux: expected a set instruction of the form v1 = v2 or v1 = {0,1}"
       end
 

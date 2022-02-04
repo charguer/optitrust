@@ -157,13 +157,15 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
   Trace.call (fun t ->
   (* Temporary hack till Arthur enables the usage of the new parser *)
   let str = pattern_vars ^ " ==>" ^ pattern_aux_vars ^ " ==> " ^ pattern in
+  let minimal_index = ref 10000 in
   let (pattern_vars, pattern_aux_vars, pattern_instr) = Trm_matching.parse_pattern str in
   let path_to_surrounding_seq = ref [] in
   let paths = Target.resolve_target tg t in
   List.iteri (fun _i p ->
-    let path_to_seq, _ , _index  = Internal.get_instruction_in_surrounding_sequence p in
+    let path_to_seq, _ , index  = Internal.get_instruction_in_surrounding_sequence p in
     if !path_to_surrounding_seq = [] then path_to_surrounding_seq := path_to_seq
       else if !path_to_surrounding_seq <> path_to_seq then fail None "intro_patter_array: all the targeted instuctions should belong to the same englobing sequence";
+    if index < !minimal_index then minimal_index := index;
   ) paths;
   let nb_paths = List.length paths in
   let nb_vars = List.length pattern_vars in
@@ -181,7 +183,7 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
   let vk = if const then Var_immutable else Var_mutable in
   let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array vk (x, typ_double ()) (Const nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
   Internal.nobrace_remove_after (fun _ ->
-    Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tFirst] @ (Target.target_of_path !path_to_surrounding_seq))))
+    Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tBefore] @ (Target.target_of_path !path_to_surrounding_seq) @ [Target.dSeqNth !minimal_index])))
 
 
 let detach_if_needed (tg : Target.target) : unit =
