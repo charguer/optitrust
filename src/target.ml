@@ -817,40 +817,38 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
           resolve_target tg t2) t
         (* DEPRECATED: resolve_target tg t *)) in
     let ps = if rev then List.rev ps else ps in
-    (* TODO: here we can have the following optimization, in case there is a single target,
-        that is, in
-        [match ps with
-         | [] -> t  (* do nothing *)
-         | [p] -> tr 0 (transformer p) t
-         | _ -> ... the current code
-     *)
-    let marks = List.map (fun _ -> Mark.next()) ps in
-    (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
-    (* Tools.printf "Before applyin_marks: %s\n" (Ast_to_c.ast_to_string t); *)
-    let t =
-        Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_marks" (fun () ->
-          List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
-    (* Tools.printf "After applying_marks: %s\n" (Ast_to_c.ast_to_string t); *)
-    (* iterate over these marks *)
-    try
-      Tools.fold_lefti (fun imark t m ->
-        Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
-          match resolve_target [nbAny;cMark m] t with
-          | [p] ->
-              let t = apply_on_path (trm_remove_mark m) t p in
-              tr imark t (transformer p)
-          | ps ->
-              let msg =
-                if ps <> []
-                  then "applyi_on_transformed_targets: a mark was duplicated"
-                  else (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
-                in
-              if debug_disappearing_mark
-                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-                else fail None msg
-        )
-      ) t marks
-    with Interrupted_applyi_on_transformed_targets t -> t
+    match ps with 
+    | [] -> t
+    | [p] -> tr 0 t (transformer p)
+    | _ -> 
+        let marks = List.map (fun _ -> Mark.next()) ps in
+        (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
+        (* Tools.printf "Before applyin_marks: %s\n" (Ast_to_c.ast_to_string t); *)
+        let t =
+            Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_marks" (fun () ->
+              List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
+        (* Tools.printf "After applying_marks: %s\n" (Ast_to_c.ast_to_string t); *)
+        (* iterate over these marks *)
+        begin try
+          Tools.fold_lefti (fun imark t m ->
+            Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
+              match resolve_target [nbAny;cMark m] t with
+              | [p] ->
+                  let t = apply_on_path (trm_remove_mark m) t p in
+                  tr imark t (transformer p)
+              | ps ->
+                  let msg =
+                    if ps <> []
+                      then "applyi_on_transformed_targets: a mark was duplicated"
+                      else (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
+                    in
+                  if debug_disappearing_mark
+                    then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+                    else fail None msg
+            )
+          ) t marks
+        with Interrupted_applyi_on_transformed_targets t -> t
+        end
     )
 
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:

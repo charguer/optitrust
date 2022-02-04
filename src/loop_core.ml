@@ -103,7 +103,8 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
         in 
        let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_var_get index] 
          else trm_prim_compound_encoded_as_set Binop_add (trm_var_get index) (loop_step_to_trm step) in
-       trm_for_c init cond step body 
+       let new_body = Internal.change_trm (trm_var index) (trm_var_get index) body in 
+       trm_for_c init cond step new_body 
      end in 
      trm_for tile_index start direction (stop) (if is_step_one step then Step (trm_var tile_size) else Step (trm_mul (trm_var tile_size)(loop_step_to_trm step))) (
        trm_seq_nomarks [inner_loop]
