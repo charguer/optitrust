@@ -15,9 +15,6 @@ vect f() {
 }
 
 int main() {
-  int x = 1;
-  int y;
-  x = y;
   vect p = {0,0};
   vect b;
   b = p;

@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 
-(* let _ = Run.doc_script_cpp (fun _ ->
+let _ = Run.doc_script_cpp (fun _ ->
     !! Struct_basic.set_explicit [sInstr "a = b"];
   )
 "
@@ -12,11 +12,11 @@ typedef struct {
 } vect;
 
 int main() {
-  vect a, b;
+  vect a;
+  vect b;
   a = b;
 }
-" *)
-
+"
 let _ = Flags.dump_ast_details := true
 
 

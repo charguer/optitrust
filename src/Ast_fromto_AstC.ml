@@ -55,12 +55,12 @@ let trm_get ?(simplify : bool = false) (t : trm) : trm =
 
 let trm_address_of ?(simplify : bool = false) (t : trm) : trm =
   assert (simplify);
-  let u = trm_apps (trm_unop Unop_address) [t] in
+  let u = trm_apps ~typ:t.typ (trm_unop Unop_address) [t] in
   trm_simplify_addressof_and_get u
 
 let trm_get ?(simplify : bool = false) (t : trm) : trm =
   assert (simplify);
-  let u = trm_apps (trm_unop Unop_get) [t] in
+  let u = trm_apps ~typ:t.typ (trm_unop Unop_get) [t] in
   trm_simplify_addressof_and_get u
 
 

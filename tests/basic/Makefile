@@ -36,6 +36,7 @@ TESTS_WITH_DOC := \
 	struct_fields_reorder.ml \
 	struct_inline.ml \
 	struct_rename_field.ml \
+	struct_set_explicit.ml \
 	struct_update_fields_type.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
@@ -83,7 +84,6 @@ TESTS_TO_FIX := \
 	reference_inline.ml \
 	rewrite_compute_inside.ml \
 	struct_set_implicit.ml \
-	struct_set_explicit.ml \
 	array_tile.ml \
 	variable_simpl_deref.ml \
 	variable_to_const.ml \

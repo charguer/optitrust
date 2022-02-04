@@ -15,6 +15,7 @@ open Ast
 let set_explicit_aux (t : trm) : trm = 
   match t.desc with 
   | Trm_apps (f, [lt; rt]) ->
+    (* Temporary hack for overloaded set operator *)
     let lt = begin match trm_prim_inv f with 
       | Some (Prim_overloaded_op (Prim_binop Binop_set)) ->
         get_operation_arg lt
@@ -44,14 +45,14 @@ let set_explicit_aux (t : trm) : trm =
       begin match rt.desc with 
       | Trm_apps (f1, [rt1]) when is_get_operation rt ->
          let exp_assgn = List.mapi (fun i (sf, ty) -> 
-          trm_set (trm_struct_access lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access rt1 sf])}
+          trm_set (trm_struct_access ~typ:(Some ty) lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access rt1 sf]); typ = Some ty}
          ) field_list in 
          trm_seq_no_brace exp_assgn
          
       | Trm_struct st ->
         let st = Mlist.to_list st in 
         let exp_assgn = List.mapi (fun i (sf, ty) -> 
-          trm_set (trm_struct_access lt sf) (List.nth st i)
+          trm_set (trm_struct_access ~typ:(Some ty) lt sf) (List.nth st i)
         ) field_list 
          in 
         trm_seq_no_brace exp_assgn
@@ -59,82 +60,6 @@ let set_explicit_aux (t : trm) : trm =
       end
 
   | _ -> fail t.loc "set_explicit_aux: expected a set operation"
-
-
-
-
-
-
-
-let set_explicit_aux1 (t : trm) : trm =
-  match t.desc with
-  | Trm_apps(_, [lt;rt]) ->
-      let tid_r = Internal.get_typid_from_trm rt  in
-      let tid_l = Internal.get_typid_from_trm lt  in
-      let tid = match tid_r, tid_l with
-      | -1, _ -> tid_l
-      | _, -1 -> tid_r
-      | _, _ -> if tid_r = tid_l then tid_r
-                  else fail t.loc "set_explicit_aux: different types in an assignment"
-      in
-      let struct_def =
-        if tid <> -1 then
-          match Context.typid_to_typedef tid with
-          | Some td -> td
-          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef"
-        else begin
-          (* Tools.printf "%s\n" (Ast_to_text.ast_to_string t); *)
-          Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
-          fail t.loc "set_explicit_aux: explicit assignment cannot operate on unknown types"
-        end
-      in
-      let field_list = Internal.get_field_list struct_def in
-      (* LATER: factorize the code better here; also, check the [Some ty] they do not seem to all be correct *)
-      begin match rt.desc with
-      | Trm_apps(_f1, [rbase]) ->
-        let rt = if is_get_operation rt then rbase else rt in
-        begin match lt.desc with
-        | Trm_apps (_f2, [lbase]) ->
-          let lt = if is_get_operation lt then lbase else lt in
-          let exp_assgn = List.map (fun (sf, ty) ->
-          let new_f = trm_unop (Unop_struct_access sf) in
-           trm_set (trm_apps ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) (trm_unop Unop_get) [trm_apps ~typ:(Some ty) new_f [rt]])
-          ) field_list in
-         trm_seq_no_brace exp_assgn
-        | _ -> let exp_assgn = List.map(fun (sf, ty) ->
-          let new_f = trm_unop (Unop_struct_access sf) in
-          trm_set (trm_apps ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) (trm_unop Unop_get) [trm_apps ~typ:(Some ty) new_f [rt]])
-          ) field_list in
-          trm_seq_no_brace exp_assgn
-        end
-      (* If the right hand side is a struct initialization *)
-      | Trm_struct st ->
-        let st = Mlist.to_list st in
-        begin match lt.desc with
-        | Trm_apps (_f2, [lbase]) ->
-          let lt = if is_get_operation lt then lbase else lt in
-          let exp_assgn = List.mapi(fun i (sf, ty) ->
-            let new_f = trm_unop (Unop_struct_access sf) in
-            trm_set (trm_apps ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) (trm_unop (Unop_get )) [List.nth st i])
-          ) field_list in
-          trm_seq_no_brace exp_assgn
-        | Trm_var _ ->
-          let exp_assgn = List.mapi(fun i (sf, ty) ->
-          let new_f = trm_unop (Unop_struct_access sf) in
-          trm_set (trm_apps ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) (trm_unop (Unop_get )) [List.nth st i])
-          ) field_list in
-          trm_seq_no_brace exp_assgn
-        | _ -> fail t.loc "set_explicit_aux: left term was not matched"
-        end
-      | _ ->
-          let exp_assgn = List.map (fun (sf, ty) ->
-              let new_f = trm_unop (Unop_struct_access sf) in
-                trm_set (trm_apps ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) (trm_unop (Unop_get )) [trm_apps ~typ:(Some ty) new_f [rt]])
-                ) field_list in
-             trm_seq_no_brace exp_assgn
-      end
-
-    | _ -> fail t.loc "set_explicit_aux: expected a set operation"
 
 let set_explicit : Target.Transfo.local =
   Target.apply_on_path(set_explicit_aux )
