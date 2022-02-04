@@ -4,8 +4,8 @@ int f(int x) {
 
 int main()
 {
-  double a, b, c, d, e;
-  double r, s, t, u, v, w, x, y, z;
+  double a; double  b; double  c; double d; double  e;
+  double r; double  s; double t; double  u; double  v; double w; double  x; double  y; double z;
 
   // test parsing and normalizing
   x = 2 * b;

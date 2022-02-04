@@ -36,7 +36,7 @@ void g(int x, int y, U t[2]){
 
   // Array access with struct access
   U u[2];
-  (u[0][1]).x = 5;
+  u[0][1].x = 5;
   (u[0][1]).y = u[0][1].x + 6;
   (u[1][1]).x = 5;
   (u[1][1]).y = u[1][1].x + 6;
