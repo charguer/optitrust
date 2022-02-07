@@ -155,7 +155,7 @@ endif
 %.exp: %_out.cpp
 	$(V)(ls `basename -s .exp $@`_exp.cpp 2> /dev/null && echo "Skipping $@") \
   || (cp $< `basename -s .exp $@`_exp.cpp && \
-      echo "Produced `basename -s .exp $@`_exp.cpp from $<, should GIT ADD.")
+      echo "Produced and should git add `basename -s .exp $@`_exp.cpp")
 
 # Rule for producing the expected file after deleting the previous one
 %.reexp: %_out.cpp
