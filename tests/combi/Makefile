@@ -15,20 +15,15 @@ TARGET_MAKE_ALL := check
 TESTS_WITH_DOC := \
 	instr_gather.ml \
 	instr_moveout.ml \
-	instr_inline_last_write.ml \
-	instr_read_last_write.ml \
-	loop_fusion.ml \
 	loop_fold.ml \
 	loop_moveout.ml \
 	loop_reorder.ml \
 	sequence_intro.ml \
 	sequence_intro_targets.ml \
-	struct_set_implicit.ml \
   variable_insert.ml \
 	variable_insert_list.ml \
   variable_intro_pattern_array.ml \
 	variable_renames.ml \
-	variable_reuse.ml \
 
 # 	loop_fold_instrs.ml \
 
@@ -37,32 +32,37 @@ TESTS_WITHOUT_DOC := \
 	function_bind.ml \
 	function_elim_body.ml \
 	function_inline_complex.ml \
-	function_inline_simple.ml \
 	function_inline_struct.ml \
-	variable_delocalize.ml \
-	variable_delocalize_in_vars.ml \
 
 TESTS_TOCHECK := \
 	function_beta.ml \
 	function_uninline.ml \
-	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_accumulate_targets.ml \
 	matrix_intro_mops.ml \
-	matrix_delocalize.ml \
 	variable_inline_and_rename.ml \
 
 TESTS_TO_FIX := \
+  instr_inline_last_write.ml \
+	instr_read_last_write.ml \
+	variable_delocalize_in_vars.ml \
 	variable_fold.ml \
 	variable_insert_and_fold.ml \
 	variable_elim_redundant.ml \
 	struct_set_explicit.ml \
+	function_use_infix_ops.ml \
 	aos_to_soa.ml \
+	variable_reuse.ml \
+	variable_delocalize.ml \
 	loop_hoist.ml \
 	loop_move.ml \
+	function_inline_simple.ml \
 	loop_unroll.ml \
+	loop_fusion.ml \
+	struct_set_implicit.ml \
 	loop_fusion_targets.ml \
-
+	matrix_delocalize.ml \
+  
 # 	variable_renames.ml \
 
 

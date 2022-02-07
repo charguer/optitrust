@@ -3,11 +3,11 @@ int *t;
 int main() {
   int a = 5;
   int b = 6;
-  int x = (a + b);
+  int x = a + b;
   int s = i;
-  for (int i = 0; (i < 10); i++) {
+  for (int i = 0; i < 10; i++) {
     int r = i;
-    for (int j = 0; (j < 10); j++) {
+    for (int j = 0; j < 10; j++) {
       t[i] = i;
     }
   }
