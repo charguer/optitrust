@@ -12,18 +12,18 @@ gtwice_body:
 }
 
 void f(int x) {
-  int a = (x + 1);
+  int a = x + 1;
   g(a, x);
 }
 
 void test_basic() {
   int r = 5;
 fbody:
-  f((r + 2));
+  f(r + 2);
 }
 
 void iter_nat_for(int n, void body(int)) {
-  for (int i = 0; (i < n); i++) {
+  for (int i = 0; i < n; i++) {
     body(i);
   }
 }
@@ -34,7 +34,7 @@ void test_ho() {
 hobody:
   iter_nat_for(
       m, void body(int i) {
-        s += (2 * j);
+        s += 2 * j;
         s -= j;
       });
 }
@@ -55,8 +55,8 @@ particle *bag_iter_get(bag_iter *it);
 particle *bag_iter_next(bag_iter *it, bool destructive);
 
 void iter_bag(bag *b, void body(particle *)) {
-  const bag_iter *iter = bag_iter_begin(b);
-  for (particle *p = bag_iter_get(iter); (p != NULL);
+  bag_iter *const iter = bag_iter_begin(b);
+  for (particle *p = bag_iter_get(iter); p != (NULL);
        p = bag_iter_next(iter, true)) {
     body(p);
   }
@@ -66,11 +66,11 @@ void iter_bag(bag *b, void body(particle *)) {
 void test_bag() {
   int x = 0;
   bag *mybag;
-  const bag_iter *iter = bag_iter_begin(mybag);
-  for (particle *p = bag_iter_get(iter); (p != NULL);
+  bag_iter *const iter = bag_iter_begin(mybag);
+  for (particle *p = bag_iter_get(iter); p != (NULL);
        p = bag_iter_next(iter, true)) {
     /*@body*/ {
-      if (p = p) {
+      if (*p = *p) {
         x++;
       }
     } /*body@*/
@@ -84,8 +84,8 @@ particle *bag2_iter_next(bag_iter *it, bool destructive);
 
 void iter_bag2(bag *b, void body(particle *)) {
   bag_iter iter;
-  for (particle *p = bag2_iter_begin((&iter), b); (p != NULL);
-       p = bag2_iter_next((&iter), true)) {
+  for (particle *p = bag2_iter_begin(&iter, b); p != (NULL);
+       p = bag2_iter_next(&iter, true)) {
     body(p);
   }
 }
@@ -94,10 +94,10 @@ void test_bag2() {
   int x = 0;
   bag *mybag;
   bag_iter iter;
-  for (particle *p = bag2_iter_begin((&iter), mybag); (p != NULL);
-       p = bag2_iter_next((&iter), true)) {
+  for (particle *p = bag2_iter_begin(&iter, mybag); p != (NULL);
+       p = bag2_iter_next(&iter, true)) {
     /*@body*/ {
-      if (p = p) {
+      if (*p = *p) {
         x++;
       }
     } /*body@*/

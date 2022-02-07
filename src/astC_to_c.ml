@@ -158,6 +158,10 @@ and typed_var_to_doc (tx : typed_var) : document =
     let ret_type = typ_to_doc ty  in
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ parens(star ^^ string x) ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
+  | Typ_fun (tyl, ty) -> 
+    let ret_type = typ_to_doc ty in 
+    let arg_types = List.map typ_to_doc tyl in
+    dattr ^^ ret_type ^^ blank 1 ^^ string x ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
   | _ -> const_string ^^ typ_to_doc t ^^ blank 1 ^^ string x
 
 and lit_to_doc (l : lit) : document =

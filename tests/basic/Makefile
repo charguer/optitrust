@@ -17,6 +17,7 @@ TESTS_WITH_DOC := \
 	function_beta.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
+	function_uninline.ml \
 	instr_accumulate.ml \
 	instr_move.ml \
 	instr_replace_fun.ml \
@@ -79,7 +80,6 @@ TESTS_TO_FIX := \
 	aos_to_soa_sized_array.ml \
 	struct_simpl_proj.ml \
 	array_to_variables.ml \
-	function_uninline.ml \
 	instr_read_last_write.ml \
 	loop_fission.ml \
 	reference_inline.ml \
