@@ -1351,19 +1351,17 @@ let rec label_subterms_with_fresh_stringreprids (f : trm -> bool) (t : trm) : tr
     end in
   trm_map (label_subterms_with_fresh_stringreprids f) t2
 
-(* check if a trm contains a variable occurrence or not *)
-let contains_variable (x : var) (t : trm) : bool =
-  let rec aux (t : trm) : bool =
-    match t.desc with
-    | Trm_var (_, y) when y = x -> true
-    | Trm_let (_, (_, _), init) -> aux init
-    | Trm_apps (_, args) -> List.exists aux args
-    | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || (aux t)) false tl
-    | Trm_let_fun (_, _, _, body) -> aux body
-    | Trm_for (_, _, _, _, _, body) -> aux body
-    | _ -> false
-  in aux t
 
+(* [contains_decl x t] check if t constains a subtem that is a redeclaration of variable x *)
+let contains_decl (x : var) (t : trm) : bool =
+  let rec aux (t : trm) : bool = 
+    match t.desc with 
+    | Trm_let (_, (y, _), _) when y = x -> true 
+    | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl 
+    | Trm_for (y, _, _, _, _,body) -> y = x || aux body
+    | Trm_let_fun (_, _, , body) -> aux body
+    | Trm_for_c (init, _, _, body) -> aux init || aux body
+    | _ -> false
 
 (* return the name of the declared object as an optional type *)
 let decl_name (t : trm) : var option =
