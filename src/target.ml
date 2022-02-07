@@ -817,15 +817,15 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
           resolve_target tg t2) t
         (* DEPRECATED: resolve_target tg t *)) in
     let ps = if rev then List.rev ps else ps in
-    match ps with 
+    match ps with
     | [] -> t
     | [p] -> tr 0 t (transformer p)
-    | _ -> 
+    | _ ->
         let marks = List.map (fun _ -> Mark.next()) ps in
         (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
         (* Tools.printf "Before applyin_marks: %s\n" (Ast_to_c.ast_to_string t); *)
         let t =
-            Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_marks" (fun () ->
+            Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () ->
               List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
         (* Tools.printf "After applying_marks: %s\n" (Ast_to_c.ast_to_string t); *)
         (* iterate over these marks *)
@@ -949,26 +949,30 @@ let iter_on_targets ?(rev : bool = false) (tr : trm -> path -> unit) (tg : targe
 *)
 let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply( fun t ->
-  let ps = resolve_target_between tg t in
+  let ps =
+    Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
+      with_stringreprs_available_for tg (fun t2 ->
+        resolve_target_between tg t2) t) in
   let marks = List.map (fun _ -> Mark.next ()) ps in
-  let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks in
+  let t = Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () -> List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks) in
   try
     Tools.fold_lefti (fun imark t m ->
-      match resolve_target [nbAny;cMark m] t with
-      | [p_to_seq] ->
-        let t_seq, _ = resolve_path_and_ctx p_to_seq t in
-        let i = begin match get_mark_index m t_seq with | Some i -> i | None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
-        let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
-        tr imark t (transformer (p_to_seq,i))
-      | ps ->
-        let msg =
-          if ps <> []
-            then "applyi_on_transformed_targets_between: a mark was duplicated"
-            else (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
-        if debug_disappearing_mark
-          then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-          else fail None msg
-    )  t marks
+      Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
+        match resolve_target [nbAny;cMark m] t with
+        | [p_to_seq] ->
+          let t_seq, _ = resolve_path_and_ctx p_to_seq t in
+          let i = begin match get_mark_index m t_seq with | Some i -> i | None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
+          let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
+          tr imark t (transformer (p_to_seq,i))
+        | ps ->
+          let msg =
+            if ps <> []
+              then "applyi_on_transformed_targets_between: a mark was duplicated"
+              else (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
+          if debug_disappearing_mark
+            then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+            else fail None msg
+      )) t marks
     with Interrupted_applyi_on_transformed_targets t -> t
 )
 
