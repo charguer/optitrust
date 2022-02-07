@@ -780,24 +780,23 @@ let fix_target (tg : target) : target =
   let check_logic = List.exists (function Constr_or _ | Constr_and _ -> true | _ -> false) tg in
   if (not check_occurrences) && check_logic then nbMulti :: tg else tg
 
-(* [with_stringreprs_available_for tg (fun t2 -> action) t]  executes the [action]
+(* [with_stringreprs_available_for tg t (fun t2 -> action)]  executes the [action]
    in a context where the AST [t] is viewed as [t2], which is a copy of [t] where
    certain nodes have their string representation available. Which nodes are concerned
    depend on the regexp constraints expressed in the target [tg]. *)
-let with_stringreprs_available_for (tg : target) (f : trm -> 'a) : trm -> 'a =
-  fun t ->
-    let kinds = Constr.get_target_regexp_kinds tg in
-    (* for debug  List.iter (fun k -> Printf.printf "(kind:%s)" (Constr.trm_kind_to_string k)) kinds;
-       Printf.printf "==end of kinds==\n"; *)
-    let t2, m = compute_stringreprs (Constr.match_regexp_trm_kinds kinds) t in
-    (* FOR DEBUG: AstC_to_c.trm_print_debug t2;*)
-    (* AstC_to_c.print_stringreprs m; for debug *)
-    let stringreprs = convert_stringreprs_from_documentation_to_string m in
-    Constr.stringreprs := Some stringreprs;
-    (* for debug Constr.print_stringreprs();*)
-    let r = f t2 in
-    Constr.stringreprs := None;
-    r
+let with_stringreprs_available_for (tg : target) (t : trm) (f : trm -> 'a) : 'a =
+  let kinds = Constr.get_target_regexp_kinds tg in
+  (* for debug  List.iter (fun k -> Printf.printf "(kind:%s)" (Constr.trm_kind_to_string k)) kinds;
+      Printf.printf "==end of kinds==\n"; *)
+  let t2, m = compute_stringreprs (Constr.match_regexp_trm_kinds kinds) t in
+  (* FOR DEBUG: AstC_to_c.trm_print_debug t2;*)
+  (* AstC_to_c.print_stringreprs m; for debug *)
+  let stringreprs = convert_stringreprs_from_documentation_to_string m in
+  Constr.stringreprs := Some stringreprs;
+  (* for debug Constr.print_stringreprs();*)
+  let r = f t2 in
+  Constr.stringreprs := None;
+  r
 
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
       params:
@@ -812,9 +811,9 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
   Trace.apply (fun t ->
     let ps =
       Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
-        with_stringreprs_available_for tg (fun t2 ->
+        with_stringreprs_available_for tg t (fun t2 ->
           (* FOR DEBUG:AstC_to_c.trm_print_debug t2;*)
-          resolve_target tg t2) t
+          resolve_target tg t2)
         (* DEPRECATED: resolve_target tg t *)) in
     let ps = if rev then List.rev ps else ps in
     match ps with
@@ -893,11 +892,14 @@ let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
 
 (* [iteri_on_transformed_targets] is similar to [applyi] except that it is meant to for
    transformations that are implemented in terms of other transformations with unit return type.
-   LATER: try to better factorize the code. *)
+   LATER: try to better factorize the code.
+   LATER: add timing measurements *)
+
 let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> unit) (tg : target) : unit =
   let tg = fix_target tg in
   Trace.call (fun t ->
-    let ps = resolve_target tg t in
+    let ps =
+      with_stringreprs_available_for tg t (fun t2 -> resolve_target tg t2) in
     let ps = if rev then List.rev ps else ps in
     let marks = List.map (fun _ -> Mark.next()) ps in
     let _t_before = t in
@@ -948,11 +950,11 @@ let iter_on_targets ?(rev : bool = false) (tr : trm -> path -> unit) (tg : targe
         unit
 *)
 let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
-  Trace.apply( fun t ->
+  Trace.apply (fun t ->
   let ps =
     Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
-      with_stringreprs_available_for tg (fun t2 ->
-        resolve_target_between tg t2) t) in
+      with_stringreprs_available_for tg t (fun t2 ->
+        resolve_target_between tg t2)) in
   let marks = List.map (fun _ -> Mark.next ()) ps in
   let t = Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () -> List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks) in
   try

@@ -5,9 +5,7 @@ typedef struct {
   int y;
 } particle;
 
-typedef struct {
-  particle items[2];
-} bag;
+typedef struct { particle items[2]; } bag;
 
 int f(int x) { return x; }
 

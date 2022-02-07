@@ -1785,7 +1785,7 @@ let is_set_operation (t : trm) : bool =
   match t.desc with
   | Trm_apps (f, _) ->
     begin match trm_prim_inv f with
-    | Some (Prim_binop Binop_set) 
+    | Some (Prim_binop Binop_set)
      | Some (Prim_overloaded_op (Prim_binop Binop_set)) -> true
     | _ -> false
     end
@@ -2227,7 +2227,7 @@ let trm_var_get ?(typ : typ option = None) (x : var) : trm =
   trm_get ~typ (trm_var ~typ x)
 
 (* [trm_var_possibly_mut ~const ty] *)
-let trm_var_possibly_mut ?(const : bool = false) ?(typ : typ option = None) (x : var) : trm = 
+let trm_var_possibly_mut ?(const : bool = false) ?(typ : typ option = None) (x : var) : trm =
   if const then trm_var ~typ ~kind:Var_immutable x else trm_var_get ~typ x
 
 (* [trm_new ty t] generates new ty (t) *)
@@ -2426,3 +2426,15 @@ let trm_simplify_addressof_and_get (t : trm) : trm =
       {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [t1]) }
     ]) -> t1
   | _ -> t
+
+
+(* [simpl_struct_get_get t] simplifies
+  [struct_get(get(t), "x"))] into
+  [get(struct_access(t, "x"))] *)
+(* TODO
+| Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
+    begin match u1.desc with
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11])  ->
+        mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u11]))]))
+
+*)

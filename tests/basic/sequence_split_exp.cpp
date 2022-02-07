@@ -1,24 +1,20 @@
-void f() {
+void warning() {
   {
     int x = 4;
-    int y = 3;
-    x += y;
-  }
-  {
-    y++;
-    int z = (y + 2);
+    int y = x + 2;
   }
 }
 
 int main() {
+  int x = 0;
+  int y = 0;
   {
-    int x = 4;
-    int y = 3;
-    x += y;
+    x++;
+    y++;
   }
   {
-    y++;
-    int z = (y + 2);
+    x += 2;
+    y += 2;
   }
   return 0;
 }

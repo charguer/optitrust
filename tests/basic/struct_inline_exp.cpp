@@ -11,9 +11,7 @@ typedef struct {
   int speedY;
 } obj;
 
-typedef struct {
-  vect foo;
-} dummy;
+typedef struct { vect foo; } dummy;
 
 int main() {
   vect p = {0, 0};
