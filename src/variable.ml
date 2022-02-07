@@ -226,36 +226,29 @@ let reuse ~space:(space : trm) ?(reparse : bool = false) : Target.Transfo.t =
     Or AddSuffix s, if this is the case then all the variable declared inside the targeted sequence
      are going to be renamed by adding the suffix at the end of its current name.
 *)
-let renames (rename : rename) : Target.Transfo.t =
-  Target.iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
-    match tg_trm.desc with
-    | Trm_seq tl ->
-      let decls = List.map decl_name  (Mlist.to_list tl)  in
-      let decls = List.filter_map (fun d -> d) decls in
-      begin match rename with
-      | AddSuffix s ->
-        if s = "" then () (* No changes so we can return unit *)
-        else
-          let new_decls = List.map (fun d -> d ^ s) decls in
-          List.iter2 (fun d into -> Variable_basic.rename ~into ((Target.target_of_path p) @  [Target.cVarDef d])) decls new_decls
-      | Renamefn g -> (* TODO: factorize the code above and below.
-           maybe the easiest is to declare
-              let add_suffix s = Renamefn (fun x -> x ^ s)
-          and then the user can call Rename.(add_suffix s)
-          By symmetry, we would have
-              let Rename.apply g = Renamefn g
-          and let Rename.bylist l = ByList l
-          to have lowercase names for all functions
-          *)
-          let new_decls = List.map (fun d -> g d) decls in
-          List.iter2 (fun d into -> Variable_basic.rename ~into ((Target.target_of_path p) @  [Target.cVarDef d])) decls new_decls
-      | ByList l ->
-        List.iter (fun (d, into) -> if not (List.mem d decls) then () (* if not (List.mem d decls) then fail tg_trm.loc "renames: one of the variables you want to rename does not belong to the targeted scope" *)
-          else Variable_basic.rename ~into ((Target.target_of_path p) @ [Target.cVarDef d])) l
-      end
-    | _ -> fail tg_trm.loc "renames: the target should be pointing to a sequence"
-  )
+let renames (rename : rename) : Target.Transfo.t = 
+  Target.iter_on_targets (fun t p -> 
+    let tg_trm = Path.resolve_path p t in 
+    match tg_trm.desc with 
+    | Trm_seq tl -> 
+      let decl_vars = List.map decl_name (Mlist.to_list tl) in 
+      let decl_vars = List.filter_map (fun d -> d) decl_vars in 
+      let new_decl_vars = begin match rename with 
+      | AddSuffix s -> 
+        List.map (fun d -> d ^ s) decl_vars
+      | Renamefn g -> 
+        List.map g decl_vars
+      | ByList l -> 
+        List.map (fun d -> 
+          begin match List.assoc_opt d l with 
+          | Some d1 -> d1
+          | _ -> d
+          end) decl_vars 
+      
+      end in 
+      List.iter2 (fun d into -> Variable_basic.rename ~into ((Target.target_of_path p) @  [Target.cVarDef d])) decl_vars new_decl_vars
+
+    | _ -> fail tg_trm.loc "renames: the target should be pointing at a sequence" )
 
 
 (* VERY MUCH LATER: do some checks

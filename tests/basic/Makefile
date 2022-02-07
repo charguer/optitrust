@@ -39,6 +39,7 @@ TESTS_WITH_DOC := \
 	struct_fields_reorder.ml \
 	struct_inline.ml \
 	struct_rename_field.ml \
+	struct_rename_fields.ml \
 	struct_set_explicit.ml \
 	struct_update_fields_type.ml \
 	typedef_inline.ml \
@@ -91,7 +92,6 @@ TESTS_TO_FIX := \
 	sequence_split.ml \
 	typedef_fold.ml \
 	variable_change_type.ml \
-	struct_rename_fields.ml \
 	variable_bind.ml \
 	matrix_delocalize.ml \
 	variable_subst.ml \
