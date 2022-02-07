@@ -14,6 +14,7 @@ int f2 (int x, int y, int z) {
 
 int main(){
   int a = 5;
+  int i = 10;
   int b = a;
   a = f(a);
   int x = 6;

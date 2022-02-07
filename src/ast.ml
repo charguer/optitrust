@@ -1359,9 +1359,10 @@ let contains_decl (x : var) (t : trm) : bool =
     | Trm_let (_, (y, _), _) when y = x -> true 
     | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl 
     | Trm_for (y, _, _, _, _,body) -> y = x || aux body
-    | Trm_let_fun (_, _, , body) -> aux body
+    | Trm_let_fun (_, _, _, body) -> aux body
     | Trm_for_c (init, _, _, body) -> aux init || aux body
     | _ -> false
+  in aux t
 
 (* return the name of the declared object as an optional type *)
 let decl_name (t : trm) : var option =

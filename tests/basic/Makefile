@@ -21,10 +21,12 @@ TESTS_WITH_DOC := \
 	instr_accumulate.ml \
 	instr_move.ml \
 	instr_replace_fun.ml \
+	label_add.ml \
 	label_remove.ml \
 	loop_color.ml \
 	loop_fission.ml \
 	loop_fold.ml \
+	loop_fusion.ml \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
 	loop_moveout.ml \
@@ -32,6 +34,7 @@ TESTS_WITH_DOC := \
 	loop_tile.ml \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
+	loop_unswitch.ml \
 	rewrite_compute.ml \
 	rewrite_compute_inside.ml \
 	rewrite_equiv_at.ml \
@@ -73,6 +76,8 @@ TESTS_TOCHECK := \
 	matrix_intro_mcalloc.ml \
 	matrix_intro_mindex.ml \
 	matrix_intro_mmalloc.ml \
+	matrix_reorder_dims.ml \
+
 
 
 
@@ -97,12 +102,8 @@ TESTS_TO_FIX := \
 	array_swap.ml \
 	matrix_local_name.ml \
 	pointer_fold.ml \
-	matrix_reorder_dims.ml \
 	instr_replace.ml \
-	label_add.ml \
-	loop_fusion.ml \
 	sequence_delete.ml \
-	loop_unswitch.ml \
 	sequence_insert.ml \
 	function_use_infix_ops.ml \
 

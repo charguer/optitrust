@@ -3,7 +3,7 @@ open Target
 open Ast
 
 
-let _ = Run.doc_script_cpp (fun _ ->
+(* let _ = Run.doc_script_cpp (fun _ ->
   !! Instr_basic.replace (lit "20") [sExpr "a * 4"];
   )
 "
@@ -11,11 +11,11 @@ int main() {
   int a = 5;
   int x = a * 4;
 }
-"
+" *)
 
 let _ = Run.script_cpp (fun _ ->
   (* replace multiple occurrences of variable "a" with variable "b" *)
-  !! Instr_basic.replace (var "b") [nbMulti; cVar "a"];
+  !! Instr_basic.replace (var "d") [nbMulti; cVar "a"];
   (* replace the definition of "x" with a definition of "y" --somewhat arbitrary *)
   !! Instr_basic.replace (stmt "int y = 5;") [cVarDef "x"];
   (* replace the definition of "c" with a call to "f" --somewhat arbitrary *)
