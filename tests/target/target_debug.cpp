@@ -1,11 +1,16 @@
 
 
+
 int main() {
+  int t[2] = {0,0};
+  int a = t[0];
   int s = 0;
+  /*
   s += 2;
   if (true) {
     s = s + 1;
   }
+  */
 }
 
 /*

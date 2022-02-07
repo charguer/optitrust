@@ -38,7 +38,15 @@ fi
 
 # Compute diff
 DIFFCODE=`git diff --ignore-all-space --no-index -U10 ${FILEBASE}_before${ENCOPT}.cpp ${FILEBASE}_after${ENCOPT}.cpp | base64 -w 0`
+
+
+if [ "$DIFFCODE" == "" ]; then
+  echo ">>>============EMPTY DIFF============<<<"
+  exit 0
+fi
+
 DIFFSTR="var diffString = window.atob(\"${DIFFCODE}\");"
+
 
 # Take templace and substitute ${TOOLS_FOLDER}, ${INSERT_TITLE}, and ${INSERT_DIFF}
 TEMPLATE="${TOOLS_FOLDER}/diff_template.html"
