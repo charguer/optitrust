@@ -15,9 +15,7 @@ int main() {
 }
 "
 
-
 let _ = Run.script_cpp (fun _ ->
-  !! Sequence_basic.split [tAfter; cFunDef "main"; sInstr "x += y"]; 
-  !! Sequence_basic.split [tAfter; cFunDef "f"; sInstr "x += y"]; 
+  !! Sequence_basic.split [tAfter; cFunDef "main"; sInstr "y++"];
 
 )
