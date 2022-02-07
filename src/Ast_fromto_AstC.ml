@@ -246,6 +246,7 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
       let u2 = aux t2 in
       mk ~annot:t.annot (Trm_apps (op, [u1; u2]))
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
+      (* LATER ARTHUR: just call simpl_struct_get_get afterwards *)
       let u1 = aux t1 in
       begin match u1.desc with
       | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11])  ->
@@ -352,7 +353,7 @@ let compound_assign_elim (t : trm) : trm =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))}, [tl; tr]) ->
       let tl2 = aux tl in
       let tr2 = aux tr in
-      trm_prim_compound_encoded_as_set ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl2 tr2 
+      trm_prim_compound_encoded_as_set ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl2 tr2
     | _ -> trm_map aux t
     in
   aux t
