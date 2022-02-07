@@ -462,7 +462,6 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
   end in
     dtx ^^ blank 1 ^^ dinit
 
-
 and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (tl : trm list) : document =
   let dsemi = if semicolon then semi else empty in
   let dtx = typ_to_doc ty in

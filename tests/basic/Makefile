@@ -23,6 +23,7 @@ TESTS_WITH_DOC := \
 	instr_replace_fun.ml \
 	label_remove.ml \
 	loop_color.ml \
+	loop_fission.ml \
 	loop_fold.ml \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
@@ -39,6 +40,7 @@ TESTS_WITH_DOC := \
 	sequence_intro.ml \
 	sequence_intro_on_instr.ml \
 	sequence_partition.ml \
+	sequence_split.ml \
 	specialize_any.ml \
 	struct_fields_reorder.ml \
 	struct_inline.ml \
@@ -84,13 +86,10 @@ TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	array_to_variables.ml \
 	instr_read_last_write.ml \
-	loop_fission.ml \
-	reference_inline.ml \
 	struct_set_implicit.ml \
 	array_tile.ml \
 	variable_to_const.ml \
 	reference_fold.ml \
-	sequence_split.ml \
 	variable_change_type.ml \
 	variable_bind.ml \
 	matrix_delocalize.ml \

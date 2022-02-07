@@ -39,6 +39,8 @@ int f(int* t, int** u, vect w) {
 */
 int main() {
 
+  
+  const int arr[3] = {0,1,2};
   int x = 4;
   x = 6;
   int y = 10;

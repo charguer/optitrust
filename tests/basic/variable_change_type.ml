@@ -8,6 +8,9 @@ let _ = Run.doc_script_cpp (fun _ ->
 int a = 0;
 "
 
+let _ = Flags.dump_ast_details := true
+
+
 let _ = Run.script_cpp (fun _ ->
   
   !! Variable_basic.change_type "vect2" [cVarDef "w"];
