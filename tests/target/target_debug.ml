@@ -14,6 +14,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* !! Instr.view_subterms [dRoot]; *)
   (* !! Instr.view_subterms ~constr:(sInstr "+= 2") [dRoot]; *)
+  show [sInstr "= t[0]"; dRHS];
   show [nbExact 1; sInstr "+="];
   show [sExpr "s + 1"];
   show [sExpr "s + 1"];

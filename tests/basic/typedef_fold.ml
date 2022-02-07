@@ -5,6 +5,7 @@ open Target
 let _ = Run.doc_script_cpp (fun _ ->
     !! Typedef_basic.fold ~at:[cVarDef "c"] [cTypDef "uchar"];
   )
+
 "
 typedef unsigned char uchar;
 
@@ -18,4 +19,4 @@ let _ = Run.script_cpp (fun _ ->
   !! Typedef_basic.fold ~at:[cVarDef "y1"] [cTypDef "cdouble"];
   !! Typedef_basic.fold [cTypDef "mat2d"] ;
   !! Typedef_basic.fold [cTypDef "mat3d"];
-  )
+)

@@ -17,7 +17,9 @@ block2 : {
   y = 5.;
 }
 block3 : {
-  bool a, b, c;
+  bool a;
+  bool b;
+  bool c;
   c = true;
   c = false;
   c = true;
@@ -26,10 +28,10 @@ block3 : {
   c = false;
   c = a;
   c = false;
-  c = ((a || b) || true);
+  c = a || b || true;
   c = false;
   c = true;
-  a = (a & b);
+  a = a & b;
 }
   return 0;
 }

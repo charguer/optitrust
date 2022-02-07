@@ -32,6 +32,7 @@ TESTS_WITH_DOC := \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	rewrite_compute.ml \
+	rewrite_compute_inside.ml \
 	rewrite_equiv_at.ml \
 	sequence_elim_around_instr.ml \
 	sequence_elim.ml \
@@ -48,14 +49,16 @@ TESTS_WITH_DOC := \
 	typedef_inline.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
+	typedef_fold.ml \
 	variable_fold.ml \
 	variable_init_attach.ml \
 	variable_init_detach.ml \
 	variable_inline.ml \
-	variable_rename.ml \
-	variable_local_name.ml \
-  variable_unfold.ml \
 	variable_insert.ml \
+	variable_local_name.ml \
+	variable_rename.ml \
+	variable_simpl_deref.ml \
+  variable_unfold.ml \
 
 TESTS_WORKING_NOTINDOC := \
 	specialize_choose.ml \
@@ -83,14 +86,11 @@ TESTS_TO_FIX := \
 	instr_read_last_write.ml \
 	loop_fission.ml \
 	reference_inline.ml \
-	rewrite_compute_inside.ml \
 	struct_set_implicit.ml \
 	array_tile.ml \
-	variable_simpl_deref.ml \
 	variable_to_const.ml \
 	reference_fold.ml \
 	sequence_split.ml \
-	typedef_fold.ml \
 	variable_change_type.ml \
 	variable_bind.ml \
 	matrix_delocalize.ml \

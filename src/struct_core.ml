@@ -91,8 +91,7 @@ let set_implicit_aux (t: trm) : trm =
                begin match f''.desc with
                | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
                | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))->
-                  [rt]
-
+                  [trm_get rt]
                | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
                end
               | _ -> fail f'.loc "set_implicit_aux: expected a trm_apps"

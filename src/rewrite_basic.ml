@@ -22,7 +22,3 @@ let compute_inside (tg : Target.target) : unit =
   let cPrimFunAny = Target.cPrimPredFun (function (Prim_binop _) | (Prim_unop _ )-> true | _ -> false) in
   let new_tg = tg @ [cPrimFunAny] in
   Target.apply_on_targets (Rewrite_core.compute) new_tg
-
-
-
-

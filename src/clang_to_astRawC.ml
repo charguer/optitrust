@@ -519,10 +519,10 @@ and tr_expr ?(is_statement : bool = false)
           | GE ->  trm_ge ~loc ~ctx ~typ tl tr
           | EQ ->  trm_eq ~loc ~ctx ~typ tl tr
           | NE ->  trm_neq ~loc ~ctx ~typ tl tr
-          | And -> trm_and ~loc ~ctx ~typ tl tr
-          | LAnd -> trm_bit_and ~loc ~ctx ~typ tl tr
-          | Or ->  trm_or ~loc ~ctx ~typ tl tr
-          | LOr -> trm_bit_or ~loc ~ctx ~typ tl tr
+          | And -> trm_bit_and ~loc ~ctx ~typ tl tr
+          | LAnd -> trm_and ~loc ~ctx ~typ tl tr
+          | Or ->  trm_bit_or ~loc ~ctx ~typ tl tr
+          | LOr -> trm_or ~loc ~ctx ~typ tl tr
           | Shl -> trm_shiftl ~loc ~ctx ~typ tl tr
           | Shr -> trm_shiftr ~loc ~ctx ~typ tl tr
           | Rem -> trm_mod ~loc ~ctx ~typ tl tr

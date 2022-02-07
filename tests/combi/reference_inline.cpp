@@ -2,7 +2,7 @@
 int main() {
    // inline reference on an integer
    int x = 2;
-   const int& y = x;
+   int& y = x;
    int r1 = y + y;
 
    // inline reference on array cell

@@ -14,8 +14,10 @@ typedef mat2d *mat3d;
 int main() {
   unsigned int x;
   unsigned int t[3];
-  int a = 1, b;
-  cdouble y1 = 1., y2 = 2.;
+  int a = 1;
+  int b;
+  cdouble y1 = 1.;
+  const double y2 = 2.;
   vect v;
   mat2d m;
   mat3d M;
