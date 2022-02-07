@@ -4,7 +4,7 @@ open Ast
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Arith_basic.scale (lit "4") [cVar "x"];
+    !! Arith_basic.scale (lit "4") [cReadVar "x"];
   )
 "
 int x;

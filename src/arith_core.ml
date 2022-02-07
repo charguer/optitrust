@@ -12,8 +12,13 @@ let debug_rec = false
  *)
 
 
- (* [shift_aux neg pre_cast post_cast u t]: shift the right hand side of a set operation with term [u]
+type arith_op = 
+  | Arith_shift
+  | Arith_scale 
+
+(* [shift_aux neg pre_cast post_cast u t]: shift or scale the right hand side of a set operation with term [u]
     params:
+      [aop]: a flag to decide if the arithmetic operation should be a scale or a shift
       [neg]: a flag for the sine of shifting
       [pre_cast]: casting of type [pre_cast] performed on the right hand side of the set operation before shifting is applied
       [post_cast]: casting of type [post_cast] performed after shifting is done
@@ -22,42 +27,31 @@ let debug_rec = false
     return:
       updated ast of the set operation
 *)
-let shift_aux (neg : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) (t : trm) : trm =
-    let binop_op = if neg then Binop_sub else Binop_add in
-    begin match pre_cast, post_cast with
-    | None , None -> trm_apps (trm_binop binop_op) [t; u]
-    | None, Some ty -> trm_cast ty (trm_apps (trm_binop binop_op) [t; u])
-    | Some ty, None -> trm_apps (trm_binop binop_op) [trm_cast ty t; u]
-    | _ -> fail t.loc "shift_aux: can'd do both pre-casting and post-casting"
+let transform_aux (aop : arith_op) (inv : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) (t : trm) : trm = 
+  let binop_op = match aop with 
+  | Arith_shift -> if inv then Binop_sub else Binop_add 
+  | Arith_scale -> if inv then Binop_div else Binop_mul in 
+  let trm_apps_binop t1 t2 = trm_apps (trm_binop binop_op) [t1; t2] in 
+  match t.desc with 
+  | Trm_apps(f, [lhs; rhs]) when is_set_operation t ->
+    begin match pre_cast, post_cast with 
+    | None, None -> {t with desc = Trm_apps (f, [lhs; trm_apps_binop rhs u])}
+    | None, Some ty -> {t with desc = Trm_apps (f, [lhs; trm_cast ty (trm_apps_binop rhs u)])}
+    | Some ty, None -> {t with desc = Trm_apps (f, [lhs; trm_apps_binop (trm_cast ty rhs) u])}
+    | _ -> fail t.loc "transform_aux: can't do both pre-casting and post-casting"
     end
-
-
-let shift (neg : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) : Target.Transfo.local =
-  Target.apply_on_path (shift_aux neg pre_cast post_cast u)
-
-
- (* [scale_aux neg pre_cast post_cast u t]: scale the right hand side of a set operation with term [u]
-    params:
-      [inv]: a flag for the inverse of the scaling
-      [pre_cast]: casting of type [pre_cast] performed on the right hand side of the set operation before scaling is applied
-      [post_cast]: casting of type [post_cast] performed after scaling is done
-      [u]: scale size
-      [t]: the ast of teh set operation
-    return:
-      updated ast of the set operation
-*)
-let scale_aux (inv : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) (t : trm) : trm =
-    let binop_op = if inv then Binop_div else Binop_mul in
+  | Trm_apps (_, [arg]) when is_get_operation t -> 
     begin match pre_cast, post_cast with
-    | None , None -> trm_apps (trm_binop binop_op) [t; u]
-    | None, Some ty -> trm_cast ty (trm_apps (trm_binop binop_op) [t; u])
-    | Some ty, None -> trm_apps (trm_binop binop_op) [trm_cast ty t; u]
-    | _ -> fail t.loc "scale_aux: can'd do both pre-casting and post-casting"
+    | None , None -> trm_apps_binop t u
+    | None, Some ty -> trm_cast ty (trm_apps_binop t u)
+    | Some ty, None -> trm_apps_binop (trm_cast ty t)  u
+    | _ -> fail t.loc "transfom_aux: can'd do both pre-casting and post-casting"
     end
+  | _ -> fail t.loc "transform_aux: expected a get or a set operation"
 
-let scale (neg : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) : Target.Transfo.local =
-  Target.apply_on_path (scale_aux neg pre_cast post_cast u)
-
+ 
+let transform (aop : arith_op)(inv : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) : Target.Transfo.local =
+  Target.apply_on_path (transform_aux  aop inv pre_cast post_cast u)
 
 
 (* [apply_aux op arg t]: apply binary_operation op on [t] with the second arguement of the operation being [arg]

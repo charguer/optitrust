@@ -19,3 +19,4 @@ let _ = Run.script_cpp (fun _ ->
   !! Variable_basic.bind "a" ~const:true [cFunDef "test"; cReturn; cArrayInit];
   !! Variable_basic.bind "b" [cVarDef "x"; cArrayInit];
 )
+ 

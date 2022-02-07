@@ -63,9 +63,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: optimization of charge accumulation *)
   !^ Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
-  !! Trace.reparse(); (* required to get the parentheses right;
-        TODO: using the printing system with priorities,
-        we should be able to print t.v[k] instead of (t.v)[k]; *)
+  !! Trace.reparse();
   !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="]
        [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "coeffs2.v[k]"];
   !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]

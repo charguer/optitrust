@@ -10,6 +10,8 @@ TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	arith_simplify.ml \
+	arith_scale.ml \
+	arith_shift.ml \
 	array_set_explicit.ml \
 	cast_insert.ml \
 	function_beta.ml \
@@ -73,8 +75,6 @@ TESTS_TOCHECK := \
 #	matrix_insert_access_dim_index.ml \
 
 TESTS_TO_FIX := \
-	arith_shift.ml \
-	arith_to_fix.ml \
 	aos_to_soa_typedef.ml \
 	aos_to_soa_sized_array.ml \
 	struct_simpl_proj.ml \
