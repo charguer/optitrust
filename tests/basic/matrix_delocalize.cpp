@@ -2,11 +2,13 @@
 
 typedef int T;
 
+
 int main() {
   int const N0 = 5;
   int const N1 = 10;
   int const N2 = 11;
   int const N3 = 12;
+  // This is a result of the local_name transformation
   T *a = (T *)MCALLOC3(N1, N2, N3, sizeof(T));
    mark: {
     T *x = (T *)MCALLOC3(N1, N2, N3, sizeof(T));

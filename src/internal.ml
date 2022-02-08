@@ -191,9 +191,9 @@ let get_trm_in_surrounding_loop (dl : path) : path * int =
 
 
 (* [is_decl_body dl] checks if the full path points to a declaration body *)
-let is_decl_body (dl : path) : bool = 
-  match List.rev dl with 
-  | Dir_body :: _ -> true 
+let is_decl_body (dl : path) : bool =
+  match List.rev dl with
+  | Dir_body :: _ -> true
   | _ -> false
 
 
@@ -561,17 +561,75 @@ let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
 (* find all the occurrences of variables in [t] and check if they are key in map [tm]
     if yes then assign its values otherwise do nothing
 *)
-let subst (tm : tmap) (t : trm) : trm =
-  let rec function_to_apply (t : trm) : trm =
-    match t.desc with
-    | Trm_var (_, x) ->
-      begin match Trm_map.find_opt x tm with
-      | Some t1 -> t1
-      | _ -> t
-      end
-    | _ -> trm_map function_to_apply t
-  in
-  trm_map function_to_apply t
+(* LATER: open question: can this be implemented using onscope? *)
+let rec subst (tm : tmap) (t : trm) : trm =
+  let aux (t : trm) : trm =
+    subst tm t in
+  (* make a recursive call by removing from the map
+     the keys that satisfy [f] *)
+  let _aux_filter f (t : trm) : trm =
+    let tm2 = Trm_map.filter (fun k _v -> not (f k)) tm in
+    subst tm2 t in
+  match t.desc with
+  | Trm_var (_, x) ->
+    begin match Trm_map.find_opt x tm with
+    | Some t1 -> t1
+    | _ -> t
+    end
+  (* TODO:
+  | Trm_seq ts ->
+      let cur_tm = ref tm in
+      let subst_item ti =
+        begin match ti.desc with
+        | Trm_let (_, (x, ty), tbody) ->
+            let ti2 = subst !cur_tm ti in
+            cur_tm := Trm_map.filter (fun k _v -> k = x) tm;
+            ti2
+        | Trm_let_fun (f, _retty, targs, _tbody) ->
+            cur_tm := Trm_map.filter (fun k _v -> k = f) tm;
+            (* here f may scope within its body, for rec functions *)
+            subst !cur_tm ti
+        | _ -> subst !cur_tm ti
+        in
+      let ts2 = MList.map subst_item ts in
+      { t with desc = Trm_seq ts2 }
+  | Trm_for (index, _, _, _, _, _) ->
+      trm_map (aux_filter (fun x -> x = index)) t
+  | Trm_for_c { init; _ } ->
+      let vs = vars_bound_in_trm init in
+      trm_map (aux_filter (fun x -> List.mem x vs)) t
+  *)
+  | _ -> trm_map aux t
+
+(* TODO:
+  unit test in ast/subst.ml
+    create tm with (x -> trm_var x2, y -> trm_var y2)
+    call subst tm on:
+    rename function arguments -> replace targs in Trm_let_fun
+    with the new names,
+    in the body call subst
+
+    Function.rename_args ["x2";"y2"] [cVarDef "f"]
+
+    resolve tg to  Trm_let_fun (targs, body)
+      return Trm_let_fun (targs2, body2)
+      where targs2   uses the new names and the types from targs
+      and body2 is the result of subst tm body
+      with tm the map from old names to new names
+      (useful: map_from_assoc_list  [(x,x2);(y,y2)] -> to map
+       implemented using List.fold_left)
+
+  int f(x, y) {
+    int z = x; // becomes int z = x2;
+    for (int x = 0; x < 4; x++) { // remains
+      z += x + y; // becomes z += x + y2
+      int y = 1;
+      int r = x + y; // remains
+    }
+    int a = x + y; // becomes  int a = x2 + y2;
+  }
+
+*)
 
 (* [subst x u t] replace all the occurences of x with t *)
 let subst_var (x : var) (u : trm) (t : trm) =
