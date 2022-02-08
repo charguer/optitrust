@@ -1795,7 +1795,7 @@ let is_set_operation (t : trm) : bool =
 (* [get_operation_arg t] get the arg of a get operation *)
 let get_operation_arg (t : trm) : trm =
   match t.desc with
-  | Trm_apps (_, [t1]) -> t1
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) -> t1
   | _ -> t (* fail t.loc "get_operation_arg: this function should be called only on get operations " *)
 
 (* [trm_let_mut ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating mutable variable declarations *)

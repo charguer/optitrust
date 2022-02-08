@@ -13,6 +13,7 @@ TESTS_WITH_DOC := \
 	arith_scale.ml \
 	arith_shift.ml \
 	array_set_explicit.ml \
+	array_to_variables.ml \
 	cast_insert.ml \
 	function_beta.ml \
 	function_bind_intro.ml \
@@ -89,7 +90,6 @@ TESTS_TO_FIX := \
 	aos_to_soa_typedef.ml \
 	aos_to_soa_sized_array.ml \
 	struct_simpl_proj.ml \
-	array_to_variables.ml \
 	instr_read_last_write.ml \
 	struct_set_implicit.ml \
 	array_tile.ml \

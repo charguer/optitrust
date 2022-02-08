@@ -17,15 +17,9 @@ void f(int x, int y, T t[2]) {
   t[0][1] = 0;
   t[1][0] = 0;
   t[1][1] = 0;
-  x = 0;
-  y = 1;
 }
 
-void g(int x, int y, U t[2]) {
-  t[0][0].x = 0;
-  x = 0;
-  y = 1;
-}
+void g(int x, int y, U t[2]) { t[0][0].x = 0; }
 
 int main() {
   T t[2];
@@ -36,9 +30,9 @@ int main() {
   U ua;
   U ub;
   ua[1].x = 5;
-  ua[1].y = (ua[1].x + 6);
+  ua[1].y = ua[1].x + 6;
   ub[1].x = 5;
-  ub[1].y = (ub[1].x + 6);
+  ub[1].y = ub[1].x + 6;
   particle p;
   p.t[0][1] = 9;
   p.t[1][1] = 2;
