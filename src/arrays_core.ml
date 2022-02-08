@@ -37,47 +37,6 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
     | _ -> trm_map aux t
    in aux t
 
-
-let inline_array_access1 (array_var : var) (new_vars : vars) (t: trm) : trm =
-  let rec aux (global_trm : trm) (t : trm) : trm =
-    match t.desc with
-    | Trm_var (_, y) when y = array_var -> fail t.loc "inline_array_access: arrays should be accessed by using indices"
-    | Trm_apps(f,[arr_base;arr_index]) ->
-      begin match f.desc with
-      | Trm_val (Val_prim (Prim_binop Binop_array_access)) ->
-        begin match arr_base.desc with
-        | Trm_var (_, x) when x = array_var ->
-          begin match arr_index.desc with
-          | Trm_val (Val_lit (Lit_int i)) ->
-            if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
-            else
-              trm_var ~typ:t.typ ~add:t.add (List.nth new_vars i)
-          | Trm_apps ({desc = Trm_var (_, "ANY");_}, _) ->
-            let nb_vars = List.length new_vars in
-            trm_apps (trm_var "CHOOSE") ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var new_vars))
-          | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
-          end
-        | Trm_apps (f1,[base1]) ->
-          begin match f1.desc with
-          | Trm_val (Val_prim (Prim_unop Unop_struct_access var)) when var = array_var ->
-            begin match arr_index.desc with
-            | Trm_val (Val_lit (Lit_int i)) ->
-              if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
-              else
-                let f1 = {f1 with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (List.nth new_vars i))))} in
-                trm_apps ~typ:t.typ ~add:t.add f1 [base1]
-                (* trm_var (List.nth new_vars i) *)
-            | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
-            end
-          | _ -> trm_map (aux global_trm) t
-          end
-        | _ -> trm_map (aux global_trm) t
-        end
-      | _ -> trm_map (aux global_trm) t
-      end
-    | _ -> trm_map (aux global_trm) t
-  in aux t t
-
 (* [to_variables_aux new_vars t]: tansform an array declaration into a list of variable declarations
       the list of variables should be entered by the user. The number of variables should correspond to
       the size of the arrys. The variable at index i in [new_vars] will replace the array occurrence
@@ -141,39 +100,21 @@ let to_variables (new_vars : vars) (index : int): Target.Transfo.local =
    return:
       updated ast nodes which are in the same level with the array declaration or deeper.
 *)
-let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
-  (t : trm) : trm =
-  match t.desc with
-  (* array accesses *)
-  | Trm_apps (f, tl) ->
-     begin match f.desc with
-     | Trm_val (Val_prim (Prim_binop Binop_array_access))
-       | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
-        begin match tl with
-        | [base; index] ->
-           begin match base.typ with
-           (* we only look for arrays of type x *)
-           | Some {typ_desc = Typ_constr  (y, _, _); _} when y = x ->
-              (* replace base[index] with base[index/b][index%b] *)
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
-                ~typ:t.typ f [
-                    trm_apps ~annot:base.annot ~loc:base.loc ~is_statement:false
-                      ~add:base.add ~typ:base.typ f [
-                          {base with typ =
-                            match base.typ with
-                            | None -> None
-                            | Some ty -> Some (typ_ptr Ptr_kind_mut ty)
-                          };
-                      trm_apps (trm_binop Binop_div) [index; b]];
-                      trm_apps (trm_binop Binop_mod) [index; b]]
-           | _ -> trm_map (apply_tiling base_type block_name b x) t
-           end
-        | _ -> fail t.loc "apply_tiling: array accesses must have two arguments"
-        end
-     | _ -> trm_map (apply_tiling base_type block_name b x) t
-     end
-  | _ -> trm_map (apply_tiling base_type block_name b x) t
-
+let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar) (t : trm) : trm = 
+  let aux = apply_tiling base_type block_name b x in 
+  match t.desc with 
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [arg]) -> 
+    begin match arg.desc with 
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base;index]) -> 
+      begin match base.typ with 
+      | Some {typ_desc = Typ_constr (y,_, _); _} when y = x -> 
+          get_array_access (get_array_access base (trm_div index b)) (trm_mod index b)
+      | _ -> 
+        trm_map aux t
+      end
+    | _ -> trm_map aux t
+    end
+  | _ -> trm_map aux t
 
 (* [tile_aux: name block_name b x t]: transform an array declaration from a normal shape into a tiled one,
     then call apply_tiling to change all the array occurrences into the correct form.
