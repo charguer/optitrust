@@ -1,5 +1,31 @@
 open Ast
 
+(*
+
+  t[i]  =  get(array_access(t,i))  = array_read(t,i)
+       // array_read_inv also
+       // array_access(t,i) corresponds to the C code t+i, which is the same as (( void* )t)+i*(sizeof(typeof(t[0]))
+
+  t->f  =  get(struct_access(t,f)) = struct_read(t,f)
+       // struct_access(t,f)  corresponds to the C code for   t + offset(f)
+
+  ( *t ).f  =  t->f
+
+  t.f  where t is not a get(.)    -> struct_get(t,"f")
+
+   Recall: struct_get(t,f)  means  trm_apps (Prim_unop (unop_struct_get "f")) [t]
+*
+
+(* TODO: Display_arrow -> Display_no_arrow
+
+    astC to ast
+    t->f   => ( *t ).f // unlike now, no annotation is needed
+    u.f  => if u is a get(t) then  produce ( *t ).f @ Display_no_arrow
+*)
+
+
+
+
 (* environment for storing the mutability of all the variables *)
 type env = varkind String_map.t
 

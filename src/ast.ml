@@ -1354,10 +1354,10 @@ let rec label_subterms_with_fresh_stringreprids (f : trm -> bool) (t : trm) : tr
 
 (* [contains_decl x t] check if t constains a subtem that is a redeclaration of variable x *)
 let contains_decl (x : var) (t : trm) : bool =
-  let rec aux (t : trm) : bool = 
-    match t.desc with 
-    | Trm_let (_, (y, _), _) when y = x -> true 
-    | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl 
+  let rec aux (t : trm) : bool =
+    match t.desc with
+    | Trm_let (_, (y, _), _) when y = x -> true
+    | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl
     | Trm_for (y, _, _, _, _,body) -> y = x || aux body
     | Trm_let_fun (_, _, _, body) -> aux body
     | Trm_for_c (init, _, _, body) -> aux init || aux body
@@ -2428,57 +2428,67 @@ let trm_simplify_addressof_and_get (t : trm) : trm =
     ]) -> t1
   | _ -> t
 
-
-let simpl_struct_get (t : trm) : trm = 
-let mk td = {t with desc = td} in 
-  match t.desc with 
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t1]) -> 
-    begin match t1.desc with 
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [t2]) -> 
+(* TODO: document and rename to simpl_struct_get_get *)
+let simpl_struct_get (t : trm) : trm =
+let mk td = {t with desc = td} in  (* TODO: inline this fct *)
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t1]) ->
+    begin match t1.desc with
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [t2]) ->
       mk (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t2]))]))
     | _ -> t
     end
   | _ -> t
 
+(* TODO: define simpl_accesses, a function that calls
+   simpl_struct_get (trm_simplify_addressof_and_get t)
+   use this function instead of trm_simplify_addressof_and_get
+   in the fromto file.
+   LATER: try to remove "begin match u1.desc with .." since it's
+   already covered by simpl_accesses.
 
-let simpl_array_get (t : trm) : trm = 
-  let mk td = {t with desc = td} in 
-  match t.desc with 
+   TODO: define [Expr.simpl_accesses tg] to invoke this transformation
+   on the AST.  If tg = [], use dRoot. *)
+
+
+let simpl_array_get (t : trm) : trm =
+  let mk td = {t with desc = td} in
+  match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)));_} as op, [base; index]) ->
-    begin match base.desc with 
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [base1]) -> 
+    begin match base.desc with
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [base1]) ->
        mk (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base1; index]))]))
     | _ -> t
     end
   | _ -> t
 
-let array_access (base : trm) (index : trm) : trm = 
+let array_access (base : trm) (index : trm) : trm =
   trm_apps (trm_binop Binop_array_access) [base; index]
 
 
-let get_array_access (base : trm) (index : trm) : trm = 
+let get_array_access (base : trm) (index : trm) : trm =
   trm_get (array_access base index)
 
 
-let get_array_access_inv (t : trm) : (trm * trm) option = 
-  match t.desc with 
+let get_array_access_inv (t : trm) : (trm * trm) option =
+  match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) ->
-    begin match arg.desc with 
+    begin match arg.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_}, [base;index]) -> Some (base, index)
     | _ -> None
     end
   | _ -> None
 
-let struct_access (f : field) (base : trm) : trm = 
+let struct_access (f : field) (base : trm) : trm =
   trm_apps (trm_unop (Unop_struct_access f)) [base]
 
 let get_struct_access (f : field) (base : trm) : trm =
   trm_get (struct_access f base)
 
-let get_struct_access_inv (t : trm) : (string * trm) option = 
-  match t.desc with 
+let get_struct_access_inv (t : trm) : (string * trm) option =
+  match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) ->
-    begin match arg.desc with 
+    begin match arg.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)));_}, [base]) -> Some (f, base)
     | _ -> None
     end
