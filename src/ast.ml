@@ -1372,6 +1372,14 @@ let decl_name (t : trm) : var option =
   | Trm_typedef td -> Some td.typdef_tconstr
   | _ -> None
 
+(* [vars_bound_in_trm_init t] get the list of variables that are bound inside 
+   the initialization trm of the for_c loop*)
+let vars_bound_in_trm_init (t : trm) : var list = 
+  match t.desc with 
+  | Trm_let (_, (x,_), _) -> [x]
+  | Trm_let_mult (_, _, vl, _) -> vl
+  | _ -> []
+
 (* checks if two declarations are of the same category  *)
 let same_node_type (t : trm) (t1 : trm) : bool =
   begin match t.desc, t1.desc with
@@ -2453,7 +2461,7 @@ let rec simpl_array_get_get (t : trm) : trm =
 
 (* [simpl_accesses t] *)
 let simpl_accesses (t : trm) = 
- simpl_struct_get_get (simpl_array_get_get (trm_simplify_addressof_and_get t))
+ trm_simplify_addressof_and_get (simpl_struct_get_get (simpl_array_get_get t))
 
 
 (* TODO: define simpl_accesses, a function that calls

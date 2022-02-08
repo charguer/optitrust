@@ -562,44 +562,43 @@ let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
     if yes then assign its values otherwise do nothing
 *)
 (* LATER: open question: can this be implemented using onscope? *)
-let rec subst (tm : tmap) (t : trm) : trm =
-  let aux (t : trm) : trm =
-    subst tm t in
-  (* make a recursive call by removing from the map
-     the keys that satisfy [f] *)
-  let _aux_filter f (t : trm) : trm =
-    let tm2 = Trm_map.filter (fun k _v -> not (f k)) tm in
-    subst tm2 t in
-  match t.desc with
-  | Trm_var (_, x) ->
-    begin match Trm_map.find_opt x tm with
+
+let rec subst (tm : tmap) (t : trm) : trm = 
+  let aux (t : trm) : trm = 
+    subst tm t in 
+  (* make a recursive call by removing from the map 
+    the keys that satisfy [f] *)
+  let aux_filter (f : var -> bool)  (t : trm) : trm = 
+    let tm2 = Trm_map.filter (fun k v -> not (f k)) tm in 
+    subst tm2 t in 
+  match t.desc with 
+  | Trm_var (_, x) -> 
+    begin match Trm_map.find_opt x tm with 
     | Some t1 -> t1
     | _ -> t
     end
-  (* TODO:
-  | Trm_seq ts ->
-      let cur_tm = ref tm in
-      let subst_item ti =
-        begin match ti.desc with
-        | Trm_let (_, (x, ty), tbody) ->
-            let ti2 = subst !cur_tm ti in
-            cur_tm := Trm_map.filter (fun k _v -> k = x) tm;
-            ti2
-        | Trm_let_fun (f, _retty, targs, _tbody) ->
-            cur_tm := Trm_map.filter (fun k _v -> k = f) tm;
-            (* here f may scope within its body, for rec functions *)
-            subst !cur_tm ti
-        | _ -> subst !cur_tm ti
-        in
-      let ts2 = MList.map subst_item ts in
-      { t with desc = Trm_seq ts2 }
-  | Trm_for (index, _, _, _, _, _) ->
+  | Trm_seq ts -> 
+    let cur_tm = ref tm in 
+    let subst_item ti = 
+      begin match ti.desc with 
+      | Trm_let (_, (x, ty), tbody) -> 
+        let ti2 = subst !cur_tm ti in 
+        cur_tm := Trm_map.filter (fun k _v -> k = x) tm;
+        ti2
+      | Trm_let_fun (f, __retty, targs, _tbody) -> 
+        cur_tm := Trm_map.filter (fun k _v -> k = f) tm;
+        subst !cur_tm ti
+      | _ -> subst !cur_tm ti
+      end
+      in 
+      let ts2 = Mlist.map subst_item ts in 
+      { t with desc = Trm_seq ts2}
+    | Trm_for (index, _, _, _, _, _) -> 
       trm_map (aux_filter (fun x -> x = index)) t
-  | Trm_for_c { init; _ } ->
-      let vs = vars_bound_in_trm init in
+    | Trm_for_c (init, _, _, _) -> 
+      let vs = vars_bound_in_trm_init init in 
       trm_map (aux_filter (fun x -> List.mem x vs)) t
-  *)
-  | _ -> trm_map aux t
+    | _ -> trm_map aux t
 
 (* TODO:
   unit test in ast/subst.ml

@@ -99,7 +99,7 @@ let spec =
      ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
-     ("-cparser", Arg.String Parsers.cparser_of_string, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
+     ("-cparser", Arg.String Parsers.set_selected_parser, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
      ("-use-old-encodings", Arg.Clear use_new_encodings, "FOR DEV ONLY");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)

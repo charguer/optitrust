@@ -414,8 +414,6 @@ let cfeatures_elim (t : trm) : trm =
 let cfeatures_intro (t : trm) : trm =
   compound_assign_intro (stackvar_intro (caddress_intro t))
 
-
-
 (* LATER: might be deprecated *)
 (* [cfeatures_intro_aux lvalue t] is similar to [cfeatures_intro] but allows processing lvalues *)
 let cfeatures_intro_aux (lvalue : bool) (t : trm) : trm =
@@ -435,10 +433,6 @@ let trm_map_with_lvalue (f : bool -> trm -> trm) (t : trm) : trm =
       let u2 = f false t2 in
       { t with desc = Trm_apps (op, [u1; u2]) }
   | _ -> trm_map (f false) t
-
-
-
-
 
 
 (* Note: recall that currently const references are not supported
