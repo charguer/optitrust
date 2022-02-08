@@ -260,7 +260,32 @@ let tile (block_name : typvar) (block_size : var) (index : int): Target.Transfo.
     return:
       updated ast nodes which are in the same level with the array declaration or deeper.
  *)
- let rec apply_swapping (x : typvar) (t : trm) : trm =
+
+let rec apply_swapping (x : typvar) (t : trm) : trm = 
+  let aux = apply_swapping x in 
+  match t.desc with 
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [arg]) -> 
+    begin match arg.desc with 
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));_}, [base; index]) -> 
+      begin match get_array_access_inv base with 
+      | Some (base1, index1) -> 
+        begin match base1.typ with 
+        | Some {typ_desc = Typ_constr (y,_, _); _} when y = x -> get_array_access (get_array_access base1 index) index1
+        | _ -> trm_map aux t
+        end
+      | None -> trm_map aux t
+      end
+    | _ -> trm_map aux t
+    end
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));_}, [base; index]) -> 
+      begin match get_array_access_inv base with 
+      | Some (base1, index1) -> 
+        array_access (get_array_access base1 index) index1
+      | None -> trm_map aux t
+      end
+  | _ -> trm_map aux t
+
+ (* let rec apply_swapping1 (x : typvar) (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, tl) ->
      begin match f.desc with
@@ -343,7 +368,7 @@ let tile (block_name : typvar) (block_size : var) (index : int): Target.Transfo.
      inside values, array accesses may only happen in array sizes in types
      LATER: currently ignored, is it reasonable to expect such things to happen?
    *)
-  | _ -> trm_map (apply_swapping x) t
+  | _ -> trm_map (apply_swapping x) t *)
 
 
 (* [swap_aux name x t]: transform an array declaration to a swaped one, Basically the bounds will swap
