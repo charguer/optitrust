@@ -2429,13 +2429,57 @@ let trm_simplify_addressof_and_get (t : trm) : trm =
   | _ -> t
 
 
-(* [simpl_struct_get_get t] simplifies
-  [struct_get(get(t), "x"))] into
-  [get(struct_access(t, "x"))] *)
-(* TODO
-| Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
-    begin match u1.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11])  ->
-        mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u11]))]))
+let simpl_struct_get (t : trm) : trm = 
+let mk td = {t with desc = td} in 
+  match t.desc with 
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t1]) -> 
+    begin match t1.desc with 
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [t2]) -> 
+      mk (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t2]))]))
+    | _ -> t
+    end
+  | _ -> t
 
-*)
+
+let simpl_array_get (t : trm) : trm = 
+  let mk td = {t with desc = td} in 
+  match t.desc with 
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)));_} as op, [base; index]) ->
+    begin match base.desc with 
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [base1]) -> 
+       mk (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base1; index]))]))
+    | _ -> t
+    end
+  | _ -> t
+
+let array_access (base : trm) (index : trm) : trm = 
+  trm_apps (trm_binop Binop_array_access) [base; index]
+
+
+let get_array_access (base : trm) (index : trm) : trm = 
+  trm_get (array_access base index)
+
+
+let get_array_access_inv (t : trm) : (trm * trm) option = 
+  match t.desc with 
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) ->
+    begin match arg.desc with 
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_}, [base;index]) -> Some (base, index)
+    | _ -> None
+    end
+  | _ -> None
+
+let struct_access (f : field) (base : trm) : trm = 
+  trm_apps (trm_unop (Unop_struct_access f)) [base]
+
+let get_struct_access (f : field) (base : trm) : trm =
+  trm_get (struct_access f base)
+
+let get_struct_access_inv (t : trm) : (string * trm) option = 
+  match t.desc with 
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) ->
+    begin match arg.desc with 
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)));_}, [base]) -> Some (f, base)
+    | _ -> None
+    end
+  | _ -> None
