@@ -103,28 +103,5 @@ let uninline ~fct:(fct : Target.target) (tg : Target.target) : unit =
     Target.apply_on_targets (Function_core.uninline fct_decl) tg)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+let rename_args (new_args : var list)  : Target.Transfo.t = 
+  Target.apply_on_targets (Function_core.rename_args new_args)

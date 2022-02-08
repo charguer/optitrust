@@ -418,5 +418,3 @@ let ilset_funmap_union : ilset funmap -> ilset funmap -> ilset funmap =
   Fun_map.union ilset_funmap_union_aux
 
 let (+@) = ilset_funmap_union
-
-

@@ -2511,3 +2511,8 @@ let get_struct_access_inv (t : trm) : (string * trm) option =
     | _ -> None
     end
   | _ -> None
+
+(* [trm_var_assoc_list to_map al] creat a map from an association list wher keys are string and values are trms *)
+let map_from_trm_var_assoc_list (al : (string * trm) list) : tmap = 
+  let tm = Trm_map.empty in 
+  List.fold_left (fun acc (k, v) -> Trm_map.add k v acc) tm al

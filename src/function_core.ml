@@ -199,3 +199,18 @@ let uninline_aux (fct_decl : trm) (t : trm) : trm =
 let uninline (fct_decl : trm) : Target.Transfo.local =
   Target.apply_on_path (uninline_aux fct_decl)
 
+(* [rename_args_aux vl t] rename arguments of funciton [t] and replace all the 
+    occurrences of the args inside the body with the new names *)
+let rename_args_aux (vl : var list) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_let_fun (f, retty, args, body) ->
+    let renamed_args = List.map2 (fun v1 (arg1, ty1) -> if v1 <> "" then (v1, ty1) else (arg1, ty1)) vl args in 
+    let assoc_list = List.fold_left2 (fun acc v1 (arg1, _ty1) -> if v1 <> "" then (arg1, trm_var v1) ::  acc else acc) [] vl args in 
+    let tm = map_from_trm_var_assoc_list assoc_list in 
+    let new_body = Internal.subst tm body in 
+    trm_let_fun f retty renamed_args new_body
+  | _ -> fail t.loc "rename_args_aux: expected a target to a function declaration"
+
+let rename_args (vl : var list) : Target.Transfo.local =
+  Target.apply_on_path (rename_args_aux vl)
+
