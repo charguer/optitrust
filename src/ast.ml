@@ -2428,17 +2428,33 @@ let trm_simplify_addressof_and_get (t : trm) : trm =
     ]) -> t1
   | _ -> t
 
-(* TODO: document and rename to simpl_struct_get_get *)
-let simpl_struct_get (t : trm) : trm =
-let mk td = {t with desc = td} in  (* TODO: inline this fct *)
+(* [simpl_struct_get_get t] transform struct_get (get(t1), f) to get(struct_access (t1, f))*)
+let simpl_struct_get_get (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t1]) ->
     begin match t1.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [t2]) ->
-      mk (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t2]))]))
+      {t with desc = (Trm_apps (op1, [{t with desc = (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t2]))}]))}
     | _ -> t
     end
   | _ -> t
+
+(* [simpl_array_get t] tranform array_get (get(t1), index) to get(array_access (t1), index) *)
+let rec simpl_array_get_get (t : trm) : trm =
+  let aux = simpl_array_get_get in 
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)));_} as op, [base; index]) ->
+    begin match base.desc with
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [base1]) ->
+       {t with desc = (Trm_apps (op1, [{t with desc = (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base1; index]))}]))}
+    | _ -> trm_map aux t
+    end
+  | _ -> trm_map aux t
+
+(* [simpl_accesses t] *)
+let simpl_accesses (t : trm) = 
+ simpl_struct_get_get (simpl_array_get_get (trm_simplify_addressof_and_get t))
+
 
 (* TODO: define simpl_accesses, a function that calls
    simpl_struct_get (trm_simplify_addressof_and_get t)
@@ -2450,26 +2466,16 @@ let mk td = {t with desc = td} in  (* TODO: inline this fct *)
    TODO: define [Expr.simpl_accesses tg] to invoke this transformation
    on the AST.  If tg = [], use dRoot. *)
 
-
-let simpl_array_get (t : trm) : trm =
-  let mk td = {t with desc = td} in
-  match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)));_} as op, [base; index]) ->
-    begin match base.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_} as op1, [base1]) ->
-       mk (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base1; index]))]))
-    | _ -> t
-    end
-  | _ -> t
-
+(* [array_access base index] generates array_access (base, index) *)
 let array_access (base : trm) (index : trm) : trm =
   trm_apps (trm_binop Binop_array_access) [base; index]
 
-
+(* [get_array_access base index] generates get(array_access (base, index)) *)
 let get_array_access (base : trm) (index : trm) : trm =
   trm_get (array_access base index)
 
-
+(* [get_array_access_inv t] returns the Some(base, index) of an array_access if [t]
+     is of the form get(array_access(base, index) otherwise None *)
 let get_array_access_inv (t : trm) : (trm * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) ->
@@ -2479,12 +2485,16 @@ let get_array_access_inv (t : trm) : (trm * trm) option =
     end
   | _ -> None
 
+(* [struct_access base index] generates struct_access (base, index) *)
 let struct_access (f : field) (base : trm) : trm =
   trm_apps (trm_unop (Unop_struct_access f)) [base]
 
+(* [get_struct_access base index] generates get(struct_access (base, index)) *)
 let get_struct_access (f : field) (base : trm) : trm =
   trm_get (struct_access f base)
 
+(* [get_struct_access_inv t] returns the Some(base, index) of an struct_access if [t]
+     is of the form get(struct_access(base, index) otherwise None *)
 let get_struct_access_inv (t : trm) : (string * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) ->
