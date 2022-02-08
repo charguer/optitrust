@@ -89,7 +89,7 @@ fi
 
 OUT=$?
 if [ ${OUT} -ne 0 ];then
-  echo "Could not compile file"  >> /dev/stderr
+  echo "Error: could not compile the program ${PROG}"  >> /dev/stderr
   exit 1
 fi
 
