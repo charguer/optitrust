@@ -10,18 +10,19 @@ int main() {
 }
 "
 
+(* let _ = Flags.dump_ast_details := true *)
 
 let _ = Run.script_cpp (fun _ ->
 
   !! Variable_basic.to_const [cVarDef "x"];
-
-  (* Tools.failure_expected (fun () ->
-    !! Variable_basic.to_const [cVarDef "y"];
-    (* fails at reparse of [int& u = y] with const [y] *)
-    (* LATER: have a function that attempts reparse and raise an exception if reparse fails *)
-    ); *)
-
   !! Variable_basic.to_const [cVarDef "y"];
-
   !! Variable_basic.to_const [cVarDef "z"];
 )
+
+(* TODO: not urgent:   to_nonconst
+   the inverse transformation
+   internally, maybe have fromto_const or change_const_attribute *)
+
+
+(* Note: recall that currently const references are not supported,
+   see Ast_fromto_AstC *)

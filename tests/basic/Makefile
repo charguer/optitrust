@@ -99,7 +99,6 @@ TESTS_TO_FIX := \
 	variable_bind.ml \
 	matrix_delocalize.ml \
 	variable_subst.ml \
-	array_swap.ml \
 	matrix_local_name.ml \
 	pointer_fold.ml \
 	instr_replace.ml \
@@ -107,24 +106,8 @@ TESTS_TO_FIX := \
 	sequence_insert.ml \
 	function_use_infix_ops.ml \
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+NOT_NEEEDED_TO_FIX := \
+	array_swap.ml \
 
 
 

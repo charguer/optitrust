@@ -14,7 +14,7 @@ open Ast
   t.f  where t is not a get(.)    -> struct_get(t,"f")
 
    Recall: struct_get(t,f)  means  trm_apps (Prim_unop (unop_struct_get "f")) [t]
-*
+*)
 
 (* TODO: Display_arrow -> Display_no_arrow
 
@@ -437,3 +437,24 @@ let trm_map_with_lvalue (f : bool -> trm -> trm) (t : trm) : trm =
   | _ -> trm_map (f false) t
 
 
+
+
+
+
+(* Note: recall that currently const references are not supported
+   Argument of why const ref is not so useful
+before:
+  const vect v = {0,1}
+  f(v.x, v.x, v.x)
+
+after:
+  const vect v = {0,1}
+  const int& a = v.x;
+  f(a,a,a)
+
+but it is equivalent to:
+  const vect v = {0,1}
+  const int a = v.x;
+  f(a,a,a)
+
+*)

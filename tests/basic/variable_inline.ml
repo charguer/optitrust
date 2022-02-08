@@ -25,3 +25,13 @@ let _ = Run.script_cpp (fun _ ->
    !! Variable_basic.inline [cFunDef "f"];
 
 )
+
+(*
+
+TODO: in variable_inline unit test at the basic level,
+  make a check that we have a failure on
+
+  int c = 3; // cannot inline c
+  int d = c;
+  c = 4;
+  *)
