@@ -12,8 +12,9 @@ int f2(int a, int b, int c) { return a; }
 
 int main() {
   int a = 5;
-  int b = b;
-  b = f(b);
+  int i = 10;
+  int b = i;
+  i = f(i);
   int y = 5;
   f(5);
   int d = f2(3, 2, 3);

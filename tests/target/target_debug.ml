@@ -12,8 +12,9 @@ let _ =
 
 let _ = Run.script_cpp (fun () ->
 
-  (*!! Instr.view_subterms ~constr:(sInstr "t[0]") [dRoot];*)
-  show [tBefore; sInstr "t[0]"];
+  (* !! Marks.add "rhs" [sInstr "= t[0]"]; *)
+  !! Instr.view_subterms ~constr:(sInstr "t[0] =") [dRoot];
+  show [sInstr "= t[0]"; dRHS];
   (*
   (* !! Instr.view_subterms [dRoot]; *)
   (* !! Instr.view_subterms ~constr:(sInstr "+= 2") [dRoot]; *)

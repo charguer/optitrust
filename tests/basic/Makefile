@@ -105,6 +105,7 @@ TESTS_TO_FIX := \
 	pointer_fold.ml \
 	sequence_delete.ml \
 	sequence_insert.ml \
+	flow_insert_if.ml \
 
 NOT_NEEEDED_TO_FIX := \
 	array_swap.ml \
