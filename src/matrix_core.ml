@@ -62,7 +62,7 @@ let access_inv (t : trm) : (trm * trms * trms) option=
     end
   | _ -> None
 
-(* [get base dims indices] takes the trm builded from access function and puts it into a get
+(* [get base dims indices] takes the trm built from access function and puts it into a get
      operation
 *)
 let get (base : trm) (dims : trms) (indices : trms) : trm =
@@ -92,7 +92,6 @@ let set_inv (t : trm) : (trm * trms * trms * trm)  option =
     | None -> None
     end
   | _ -> None
-
 
 (* |alloc ~init dims size] create a call to function MMALLOC$(N) and MCALLOC$(N) where [N] is the
      number of dimensions and [size] is the size in bytes occupied by a single matrix element in
@@ -128,7 +127,6 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
 (* [vardef_alloc ~init x ty dims size] returns a term of the form T* x = ( T* ) A where A is the trm
     created from alloc function
 *)
-
 let vardef_alloc ?(init : trm option = None) (x : string) (ty : typ) (dims : trms) (size : trm) : trm =
   let alloc_trm = alloc ~init dims size in
   trm_let_mut (x, ty) alloc_trm
@@ -364,8 +362,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   then trm_seq_nomarks [set base new_dims new_indices init_val]
                   else trm_seq_nomarks [
                     set base new_dims((trm_int 0) :: indices) old_var_access;
-                    trm_for index (trm_int 1) DirUp  dim (Post_inc) (set base new_dims new_indices init_val;)
-                  ]
+                    trm_for index (trm_int 1) DirUp  dim (Post_inc) (set base new_dims new_indices init_val;)]
                   in
                 
                 let new_snd_instr = if init_zero 
@@ -389,7 +386,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   | Delocalize_arith (_, op) -> trm_prim_compound_encoded_as_set op l_arg r_arg
                   | Delocalize_obj (_, transfer_f) -> trm_apps (trm_var transfer_f) [l_arg; r_arg] 
                 in
-
+                
                 let new_body = if acc_in_place then
                   if acc_provided then fail t.loc "delocalize_aux: if acc_in_place is set to true there is not need to provide an accumulator"
                   else 
@@ -406,8 +403,8 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     (trm_seq_nomarks [
                         trm_let_mut (acc, typ_int ()) (trm_int 0);
                         trm_for index (trm_int 0) DirUp dim (Post_inc) (trm_seq_nomarks [
-                            op_fun (trm_get (trm_var acc)) new_access]);
-                        trm_set old_var_access (trm_get (trm_var acc))]) in
+                            op_fun (trm_var acc) (trm_get new_access)]);
+                        trm_set (get_operation_arg old_var_access) (trm_var_get acc)]) in
                 let new_frth_instr =
                   trm_fors loop_range new_body in
                     
