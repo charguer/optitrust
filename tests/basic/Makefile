@@ -37,6 +37,7 @@ TESTS_WITH_DOC := \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
+	reference_fold.ml \
 	reference_unfold.ml \
 	rewrite_compute.ml \
 	rewrite_compute_inside.ml \
@@ -94,7 +95,6 @@ TESTS_TO_FIX := \
 	instr_read_last_write.ml \
 	struct_set_implicit.ml \
 	variable_to_const.ml \
-	reference_fold.ml \
 	variable_change_type.ml \
 	variable_bind.ml \
 	matrix_delocalize.ml \

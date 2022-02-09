@@ -16,16 +16,16 @@ open Target
     return:
       updated ast of the block which contained the variable declaration [t]
 *)
-
-let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
+let fold_aux1 (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
     let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
     begin match d.desc with
     | Trm_let (vk, (x, tx), dx) ->
-        let as_reference = is_typ_ptr (get_inner_ptr_type tx) in
+        (* check if the declaration is of the form int*x = &y *)
+        let as_reference = is_typ_ptr (get_inner_ptr_type tx) && not (trm_annot_has Reference d) in
         let t_x =
-          if as_reference then trm_apps (trm_unop Unop_get) [trm_var x]
+          if as_reference then trm_var_get x
           else trm_var x
         in
         let def_x = 
