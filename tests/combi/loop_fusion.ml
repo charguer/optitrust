@@ -6,7 +6,8 @@ let _ = Run.doc_script_cpp (fun _ ->
   )
 "
 int main() {
-  int s, t = 0;
+  int s;
+  int t = 0;
   for (int i = 0; i < 3; i++) {
     s += i;
   }

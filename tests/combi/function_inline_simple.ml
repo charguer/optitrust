@@ -12,7 +12,7 @@ let _ = Run.script_cpp (fun _ ->
   
   (* with naming of the arguments *)
   !! Trace.alternative (fun () ->
-    !! Function.inline  ~args:["v"] [cFun "f"];
+    !! Function.inline  ~args:["v"] [cFunDef "main";cFun "f"];
     !!());
   (* inlining a function with if else branches *)
   !! Function.inline [cFun "g"];

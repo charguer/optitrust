@@ -17,6 +17,7 @@ TESTS_WITH_DOC := \
 	instr_moveout.ml \
 	function_use_infix_ops.ml \
 	loop_fold.ml \
+	loop_fusion.ml \
 	loop_hoist.ml \
 	loop_moveout.ml \
 	loop_reorder.ml \
@@ -59,7 +60,6 @@ TESTS_TO_FIX := \
 	instr_read_last_write.ml \
 	function_inline_simple.ml \
 	loop_unroll.ml \
-	loop_fusion.ml \
 	struct_set_implicit.ml \
 	loop_fusion_targets.ml \
   
