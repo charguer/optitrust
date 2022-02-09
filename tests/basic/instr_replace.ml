@@ -15,7 +15,7 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
   (* replace multiple occurrences of variable "a" with variable "b" *)
-  !! Instr_basic.replace (var "d") [nbMulti; cVar "a"];
+  !! Instr_basic.replace (var "i") [nbMulti; cVar "a"];
   (* replace the definition of "x" with a definition of "y" --somewhat arbitrary *)
   !! Instr_basic.replace (stmt "int y = 5;") [cVarDef "x"];
   (* replace the definition of "c" with a call to "f" --somewhat arbitrary *)

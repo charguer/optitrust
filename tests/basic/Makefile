@@ -20,8 +20,10 @@ TESTS_WITH_DOC := \
 	function_bind_intro.ml \
 	function_inline.ml \
 	function_uninline.ml \
+	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_move.ml \
+	instr_replace.ml \
 	instr_replace_fun.ml \
 	label_add.ml \
 	label_remove.ml \
@@ -68,6 +70,7 @@ TESTS_WITH_DOC := \
 	variable_local_name.ml \
 	variable_rename.ml \
 	variable_simpl_deref.ml \
+	variable_subst.ml \
 	variable_to_const.ml \
 	variable_to_nonconst.ml \
 	variable_unfold.ml \
@@ -98,13 +101,10 @@ TESTS_TO_FIX := \
 	instr_read_last_write.ml \
 	struct_set_implicit.ml \
 	matrix_delocalize.ml \
-	variable_subst.ml \
 	matrix_local_name.ml \
 	pointer_fold.ml \
-	instr_replace.ml \
 	sequence_delete.ml \
 	sequence_insert.ml \
-	function_use_infix_ops.ml \
 
 NOT_NEEEDED_TO_FIX := \
 	array_swap.ml \

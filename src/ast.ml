@@ -2189,6 +2189,11 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
 let is_infix_prim_fun (p : prim) : bool =
   match p with
   | Prim_compound_assgn_op __ -> true
+  | Prim_binop op -> 
+    begin match op with 
+    | Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_mod | Binop_shiftl | Binop_shiftr | Binop_and | Binop_or -> true 
+    | _ -> false 
+    end
   | _ -> false
 
 

@@ -23,6 +23,5 @@ let _ = Run.script_cpp (fun _->
   (* Example with matrices *)
   !! Variable_basic.fold ~at:[cVarDef "r3"] [cVarDef "b"];
   !! Variable_basic.fold ~at:[sInstr "= 9"] [cVarDef "b"];
-  (* !! Variable_basic.fold ~deref:true [cVarDef "v"]; *) (* CHeck why this is not working *)
 )
 

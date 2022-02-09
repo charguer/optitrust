@@ -167,7 +167,7 @@ let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
       | Some p when is_infix_prim_fun p ->
         let aux s = Ast_to_c.ast_to_string s in 
         let final_trm =
-        if aux ls = aux get_ls then t else  trm_apps ~marks:t.marks f [ls; trm_apps f1 [arg; get_ls]] in
+        if aux ls = aux (get_operation_arg get_ls) then t else  trm_apps ~marks:t.marks f [ls; trm_apps f1 [arg; get_ls]] in
         trm_annot_add App_and_set final_trm
 
       | _ -> 

@@ -15,6 +15,6 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Variable_basic.subst ~subst:"y" ~put:(expr "(2 + x)") [cVarDef "z"];
+  !! Variable_basic.subst ~subst:"y" ~put:(expr "2 + x") [cVarDef "z"];
   !! Variable_basic.subst ~subst:"y" ~put:(Ast.trm_int 5) [cFunDef "main"];
 )
