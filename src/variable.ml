@@ -185,7 +185,8 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
   Internal.nobrace_remove_after (fun _ ->
     Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tBefore] @ (Target.target_of_path !path_to_surrounding_seq) @ [Target.dSeqNth !minimal_index])))
 
-
+(* [detach_if_needed tg] expects the target [tg] to be pointing at a variable declaration, then it will check if it s
+    already initialized or not, if that is the case than it will deatch that declaration, otherwise no change is applied*)
 let detach_if_needed (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let decl_t  = Path.resolve_path p t in
@@ -216,7 +217,7 @@ let reuse ~space:(space : trm) ?(reparse : bool = false) : Target.Transfo.t =
         Marks.add "reuse_mark" (Target.target_of_path p);
         detach_if_needed [Target.cMark "reuse_mark"];
         Instr_basic.delete [Target.cMark "reuse_mark"];
-        Variable_basic.subst ~subst:x ~put:space (Target.target_of_path _path_to_seq);
+        Variable_basic.subst ~subst:x ~put:space (Target.target_of_path _path_to_seq)
       | None -> fail decl_t.loc "reuse: could not match the declaration"
       end
       ))

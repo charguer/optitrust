@@ -29,6 +29,7 @@ TESTS_WITH_DOC := \
 	variable_insert_and_fold.ml \
   variable_intro_pattern_array.ml \
 	variable_renames.ml \
+	variable_reuse.ml \
 
 # 	loop_fold_instrs.ml \
 
@@ -40,8 +41,9 @@ TESTS_WITHOUT_DOC := \
 	function_inline_struct.ml \
 	loop_move.ml \
 	variable_delocalize.ml \
+	variable_delocalize_in_vars.ml \
 	variable_elim_redundant.ml \
-
+  
 
 TESTS_TOCHECK := \
 	function_beta.ml \
@@ -55,8 +57,6 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
   instr_inline_last_write.ml \
 	instr_read_last_write.ml \
-	variable_delocalize_in_vars.ml \
-	variable_reuse.ml \
 	function_inline_simple.ml \
 	loop_unroll.ml \
 	loop_fusion.ml \

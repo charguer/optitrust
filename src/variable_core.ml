@@ -181,7 +181,7 @@ let init_detach_aux  (t : trm) : trm =
         | Typ_ptr {inner_typ = ty;_} -> ty
         | _ -> var_type
         end in
-        let var_decl = trm_let_mut (x, var_type) (trm_uninitialized ()) in
+        let var_decl = trm_let_mut ~marks:t.marks (x, var_type) (trm_uninitialized ()) in
         (* Check if variable was declared as a reference *)
         let var_assgn = trm_set (trm_var ~typ:(Some var_type) x) {init with typ = (Some var_type)} in
         trm_seq_no_brace [var_decl; var_assgn]

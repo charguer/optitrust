@@ -2245,6 +2245,10 @@ let trm_struct_access ?(typ : typ option = None) (base : trm) (field : var) : tr
 let trm_get ?(annot : trm_annot list = []) ?(typ : typ option = None) (t : trm) : trm =
   trm_apps ~annot (trm_unop Unop_get) [t]
 
+(* [trm_get t] generates a address operation in [t] *)
+let trm_address_of ?(annot : trm_annot list = []) ?(typ : typ option = None) (t : trm) : trm = 
+  trm_apps ~typ:t.typ (trm_unop Unop_address) [t] 
+
 (* [trm_var_get x] generates *x *)
 let trm_var_get ?(typ : typ option = None) (x : var) : trm =
   trm_get ~typ (trm_var ~typ x)

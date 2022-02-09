@@ -12,7 +12,7 @@ int main() {
   T xb;
   xa = a;
   xb = 0;
-  for (int i = 0; (i < 2); i++) {
+  for (int i = 0; i < 2; i++) {
     CHOOSE(2, xa, xb)++;
   }
   a = xa;
