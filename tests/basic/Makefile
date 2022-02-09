@@ -37,6 +37,7 @@ TESTS_WITH_DOC := \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
+	reference_unfold.ml \
 	rewrite_compute.ml \
 	rewrite_compute_inside.ml \
 	rewrite_equiv_at.ml \
@@ -89,8 +90,6 @@ TESTS_TOCHECK := \
 #	matrix_insert_access_dim_index.ml \
 
 TESTS_TO_FIX := \
-	aos_to_soa_typedef.ml \
-	aos_to_soa_sized_array.ml \
 	struct_simpl_proj.ml \
 	instr_read_last_write.ml \
 	struct_set_implicit.ml \
@@ -109,6 +108,8 @@ TESTS_TO_FIX := \
 
 NOT_NEEEDED_TO_FIX := \
 	array_swap.ml \
+	aos_to_soa_typedef.ml \
+	aos_to_soa_sized_array.ml \
 
 
 

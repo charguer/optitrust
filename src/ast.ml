@@ -971,7 +971,10 @@ let trm_cast (ty : typ) (t : trm) : trm =
   trm_apps (trm_unop (Unop_cast ty)) [t]
 
 let trm_remove_marks (t : trm) : trm =
-  {t with marks = []}
+  match t.desc with 
+  (* In the case of sequences, special treatment is needed for inbetween marks*)
+  | Trm_seq tl -> {t with desc = Trm_seq {items = tl.items; marks = []}; marks = []}
+  | _ -> {t with marks = []}
 
 let trm_add_mark (m : mark) (t : trm) : trm =
   {t with marks = m :: t.marks}

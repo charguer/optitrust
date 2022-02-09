@@ -613,35 +613,6 @@ let rec subst (tm : tmap) (t : trm) : trm =
     trm_map (aux_filter (fun x -> List.mem x vs)) t
   | _ -> trm_map aux t
 
-(* TODO:
-  unit test in ast/subst.ml
-    create tm with (x -> trm_var x2, y -> trm_var y2)
-    call subst tm on:
-    rename function arguments -> replace targs in Trm_let_fun
-    with the new names,
-    in the body call subst
-
-    Function.rename_args ["x2";"y2"] [cVarDef "f"]
-
-    resolve tg to  Trm_let_fun (targs, body)
-      return Trm_let_fun (targs2, body2)
-      where targs2   uses the new names and the types from targs
-      and body2 is the result of subst tm body
-      with tm the map from old names to new names
-      (useful: map_from_assoc_list  [(x,x2);(y,y2)] -> to map
-       implemented using List.fold_left)
-
-  int f(x, y) {
-    int z = x; // becomes int z = x2;
-    for (int x = 0; x < 4; x++) { // remains
-      z += x + y; // becomes z += x + y2
-      int y = 1;
-      int r = x + y; // remains
-    }
-    int a = x + y; // becomes  int a = x2 + y2;
-  }
-
-*)
 
 (* [subst x u t] replace all the occurences of x with t *)
 let subst_var (x : var) (u : trm) (t : trm) =

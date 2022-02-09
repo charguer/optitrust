@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let aim tg = (* TODO: clean inbetween marks *)
+let aim tg = 
   if Flags.get_exit_line() <> None then Marks.clean [dRoot];
   Marks.add_between (Mark.next()) tg
 

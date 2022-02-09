@@ -50,11 +50,14 @@ let fold (fold_at : target) (index) : Target.Transfo.local =
   Target.apply_on_path(fold_aux  fold_at index)
 
 
-(* [inline_aux delete_decl inline_at index t]: inline a constant variable declared in [t]
+(* [inline_aux delete_decl accept_functions mark unfold_at index t]: unfold a constant variable or reference declared in [t]
     params:
       [delete_decl]: delete or don't delete the declaration of the variable after inlining
-      [inline_at]: target where inlining should be performed, if empty all the occurrences
+      [accept_functions]: if true then this function will consider function declarations as variable declarations
+      [mark]: add a mark at the intialization trm of the declaratin
+      [unfold_at]: target where inlining should be performed, if empty all the occurrences
         of the variable are replaced with its initialization value
+      [index]: index of the declaration inside its surrounding sequence
       [t]: ast of the variable declaration
     return:
       the ast of the updated sequence which contains the declaration ast [t]
@@ -64,27 +67,35 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
   match t.desc with
   | Trm_seq tl ->
     let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
+    let aux (new_lback : trm mlist) : trm = 
+        let new_tl = Mlist.merge lfront new_lback in
+        let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      in 
     begin match dl.desc with
     | Trm_let (vk, (x, _), init) ->
       let init = if mark = "" then init else trm_add_mark mark init in
+      
       begin match vk with
       | Var_immutable ->
         let new_lback = begin match unfold_at with
         | [] -> Mlist.map (Internal.subst_var x init) lback
         | _ -> Mlist.map (Internal.change_trm ~change_at:[unfold_at] (trm_var x) init) lback
         end
-        in
-        let new_tl = Mlist.merge lfront new_lback in
-        let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
-        trm_seq ~annot:t.annot ~marks:t.marks new_tl
-      | Var_mutable -> fail dl.loc "unfold_aux: only const variables are safe to unfold"
+         in aux new_lback 
+        
+      | Var_mutable -> if trm_annot_has Reference dl then 
+          let new_lback = begin match unfold_at with
+          | [] -> Mlist.map (Internal.subst_var x init) lback
+          | _ -> Mlist.map (Internal.change_trm ~change_at:[unfold_at] (trm_var x) init) lback
+          end
+           in aux new_lback 
+          else fail dl.loc "unfold_aux: only const variables are safe to unfold"
       end
     | Trm_let_fun (f, _, _, _) ->
       if accept_functions then
-        let new_lback = Mlist.map (Internal.subst_var f dl) lback in
-        let new_tl = Mlist.merge lfront new_lback in
-        let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
-        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+        let new_lback = Mlist.map (Internal.subst_var f dl) lback in 
+          aux new_lback
       else fail dl.loc "unfold_aux: to replace function calls with their declaration you need to set accept_functions arg to true"
     | _ -> fail t.loc "unfold_aux: expected a target to a variable declaration"
     end

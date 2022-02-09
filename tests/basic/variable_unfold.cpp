@@ -7,8 +7,14 @@ int main() {
   const int a = 2;
   const int b = a + a;
 
+  
+  int c = 3;
+  int r = c + c;
+  
   // inlining of function
   const int e = f(2);
+
+  
 
   return 0;
 }

@@ -17,21 +17,18 @@ let _ = Run.script_cpp (fun _ ->
 
    (* for variables *)
    !! Variable_basic.inline [cVarDef "a"];
-
+   
    (* for functions *)
+   !! Variable_basic.inline ~accept_functions:true [cFunDef "f"];
+   
+   (* if accept_functions is false then transformation will fail *)
    Tools.failure_expected (fun () ->
-    !! Variable_basic.inline ~accept_functions:false [cFunDef "f"];);
+    !! Variable_basic.inline [cFunDef "f"];);
 
-   !! Variable_basic.inline [cFunDef "f"];
+   (* tranformation fails for non const variables *)
+   Tools.failure_expected (fun () ->
+   !! Variable_basic.inline [cVarDef "c"];)
+
+   
 
 )
-
-(*
-
-TODO: in variable_inline unit test at the basic level,
-  make a check that we have a failure on
-
-  int c = 3; // cannot inline c
-  int d = c;
-  c = 4;
-  *)
