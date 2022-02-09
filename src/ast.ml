@@ -1664,6 +1664,11 @@ let get_inner_ptr_type (ty : typ) : typ =
   | Typ_ptr {inner_typ = ty1;_} when is_generated_typ ty -> ty1
   | _ -> ty
 
+(* [get_inner_const_type ty] bypass the const type *)
+let get_inner_const_type (ty : typ) : typ = 
+  match ty.typ_desc with 
+  | Typ_const ty -> ty
+  | _ -> ty
 
 (* check if the type is a reference type or not *)
 let is_reference (ty : typ) : bool =

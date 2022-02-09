@@ -67,7 +67,9 @@ TESTS_WITH_DOC := \
 	variable_local_name.ml \
 	variable_rename.ml \
 	variable_simpl_deref.ml \
-  variable_unfold.ml \
+	variable_to_const.ml \
+	variable_to_nonconst.ml \
+	variable_unfold.ml \
 
 TESTS_WORKING_NOTINDOC := \
 	specialize_choose.ml \
@@ -94,7 +96,6 @@ TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	instr_read_last_write.ml \
 	struct_set_implicit.ml \
-	variable_to_const.ml \
 	variable_change_type.ml \
 	variable_bind.ml \
 	matrix_delocalize.ml \

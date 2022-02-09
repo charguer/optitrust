@@ -164,16 +164,24 @@ let bind ?(const : bool = false) ?(mark : mark = "") (fresh_name : var) : Target
 (* [to_const tg] expects the target [tg] to be pointing at a variable declaration, then it will search inside the same scope if there are
       any write operations on that variable. If this is the case then the tranformation will fail, because of the safety of this operation.
       Otherwise, first switch the mutability of that variable and then replace all get operations on that variable with its intialization
-      value.
-*)
+      value.*)
 let to_const : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-     ( fun t (p, i) -> Variable_core.to_const i t p)
+     ( fun t (p, i) -> Variable_core.from_to_const true i t p)
+
+
+(* [to_nonconst tg] expects the target [tg] to be pointing at a variable declaration, 
+      If the variable is mutable then do nothing, otherwise change the mutability of the targeted variable to a mutable one,
+      and replace all the variable occurrences with a get operation containing that occurrence.*)
+let to_nonconst : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+     ( fun t (p, i) -> Variable_core.from_to_const false i t p)
+
+
 
 
 (* [simpl_deref ~indepth tg] if [tg] = [] then the transformation will start from the root of the ast
     otherwise it will search for expressions of the form *(&b) &( *b) in depth if [indepth] is set to true
-    or at the give target if [indepth] is false.
-*)
+    or at the give target if [indepth] is false.*)
 let simpl_deref ?(indepth : bool = false) : Target.Transfo.t =
   Target.apply_on_targets (Variable_core.simpl_deref indepth)

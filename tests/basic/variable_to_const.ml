@@ -19,10 +19,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Variable_basic.to_const [cVarDef "z"];
 )
 
-(* TODO: not urgent:   to_nonconst
-   the inverse transformation
-   internally, maybe have fromto_const or change_const_attribute *)
-
-
 (* Note: recall that currently const references are not supported,
    see Ast_fromto_AstC *)
