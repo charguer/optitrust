@@ -102,6 +102,9 @@ let uninline ~fct:(fct : Target.target) (tg : Target.target) : unit =
     let fct_decl = Path.resolve_path fct_path t in
     Target.apply_on_targets (Function_core.uninline fct_decl) tg)
 
-
+(* [rename_args new_args tg] expects the target [ŧg] to be pointing at  a function declaration, then it will rename the args of thef
+      function f, if there are local variables declared inside the body of the function that have the same name as one of the function args
+      then it will skip those variables an all their occurrences.
+*)
 let rename_args (new_args : var list)  : Target.Transfo.t = 
   Target.apply_on_targets (Function_core.rename_args new_args)

@@ -79,6 +79,7 @@ TESTS_TOCHECK := \
 	matrix_intro_mindex.ml \
 	matrix_intro_mmalloc.ml \
 	matrix_reorder_dims.ml \
+	function_rename_args.ml \
 
 
 
