@@ -59,6 +59,7 @@ TESTS_WITH_DOC := \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
 	typedef_fold.ml \
+	variable_bind.ml \
 	variable_fold.ml \
 	variable_init_attach.ml \
 	variable_init_detach.ml \
@@ -96,8 +97,6 @@ TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	instr_read_last_write.ml \
 	struct_set_implicit.ml \
-	variable_change_type.ml \
-	variable_bind.ml \
 	matrix_delocalize.ml \
 	variable_subst.ml \
 	matrix_local_name.ml \
@@ -111,6 +110,7 @@ NOT_NEEEDED_TO_FIX := \
 	array_swap.ml \
 	aos_to_soa_typedef.ml \
 	aos_to_soa_sized_array.ml \
+	variable_change_type.ml \
 
 
 
