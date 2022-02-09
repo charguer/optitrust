@@ -87,6 +87,7 @@ TESTS_TOCHECK := \
 	matrix_intro_mcalloc.ml \
 	matrix_intro_mindex.ml \
 	matrix_intro_mmalloc.ml \
+	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
 	function_rename_args.ml \
 
@@ -101,7 +102,6 @@ TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	instr_read_last_write.ml \
 	struct_set_implicit.ml \
-	matrix_local_name.ml \
 	pointer_fold.ml \
 	sequence_delete.ml \
 	sequence_insert.ml \

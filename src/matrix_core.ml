@@ -310,12 +310,12 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_range = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp,  dim, Post_inc)) dims indices_list in
-  let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_access) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_access) [trm_var var; mindex dims indices]) in
-  let write_on_var = trm_set (trm_apps (trm_binop Binop_array_access) [trm_var var; mindex dims indices]) (trm_apps (trm_binop Binop_array_access) [trm_var local_var; mindex dims indices]) in
+  let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_access) [trm_var_get local_var; mindex dims indices]) (trm_get (trm_apps (trm_binop Binop_array_access) [trm_var_get var; mindex dims indices])) in
+  let write_on_var = trm_set (trm_apps (trm_binop Binop_array_access) [trm_var_get var; mindex dims indices]) (trm_get (trm_apps (trm_binop Binop_array_access) [trm_var_get local_var; mindex dims indices])) in
   let snd_instr = trm_fors nested_loop_range write_on_local_var in
   let new_t = Internal.subst_var var (trm_var local_var) t in 
   let thrd_instr = trm_fors nested_loop_range write_on_var in
-  let last_instr = trm_apps (trm_var "MFREE") [trm_var local_var] in
+  let last_instr = trm_apps (trm_var "MFREE") [trm_var_get local_var] in
   let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
   match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm
 
