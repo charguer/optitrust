@@ -26,6 +26,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
         let as_reference = is_typ_ptr (get_inner_ptr_type tx) && not (trm_annot_has Reference d) in
         let t_x =
           if as_reference then trm_var_get x
+          else if trm_annot_has Stackvar d then trm_var_get x
           else trm_var x
         in
         let def_x = 

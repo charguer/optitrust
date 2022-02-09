@@ -29,7 +29,7 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
             else (trm_var (List.nth new_vars i))
         | Trm_apps ({desc = Trm_var (_, "ANY"); _}, _) ->
           let nb_vars = List.length new_vars in
-          trm_apps (trm_var "CHOOSE") ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var new_vars))
+          trm_apps (trm_var "CHOOSE") ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var_get new_vars))
         | _ -> fail index.loc "inline_array_access: only integer indices are supported"
         end
       | _ ->  trm_map aux t

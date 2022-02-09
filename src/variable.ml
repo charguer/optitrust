@@ -45,7 +45,7 @@ let fold ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.targ
       let ty = get_inner_ptr_type tx in
       begin match ty.typ_desc with
       (* If the declared variable has a refernce type checking its mutability is not needed*)
-      | Typ_ptr {ptr_kind = Ptr_kind_ref;_} ->
+      | Typ_ptr _ when trm_annot_has Reference tg_trm ->
         Variable_basic.fold ~at (Target.target_of_path p)
       (* In other cases we need to check the mutability of the variable *)
       | _ -> begin match vk with
