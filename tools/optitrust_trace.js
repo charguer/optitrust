@@ -1,5 +1,56 @@
 
 
+//---------------------------------------------------
+// Code Mirror editor
+// Documentation: https://codemirror.net/doc/manual.html
+
+var editor;
+
+// Initialize the editor
+function initEditor() {
+  editor = CodeMirror.fromTextArea(document.getElementById('source_code'), {
+    mode: "text/x-c++src", // or text/x-rustsrc
+    lineNumbers: true,
+    lineWrapping: true,
+    readOnly: true,
+    tabSize: 2,
+    extraKeys: {
+      'N': function(cm) { console.log("pressed N in editor"); },
+    },
+  });
+
+  // Dimensions for codemirror window, if the code has more lines that the size of the window
+  // a scrollbar will appear
+  editor.setSize(700, 600);
+
+  // CURRENTLY NOT USED
+  // Add a "getSelectedLoc" function
+  // Returns a value in the form:
+  // { start: { line: 1, col: 4 }, end: { line: 3, col: 8 } }
+  editor.getSelectedLoc = function() {
+    var from = editor.getCursor(true);
+    var to = editor.getCursor(false);
+    // Adding 1 because compilers counts from 1, and Codemirror from 0
+    return { start: { line: from.line + 1, col: from.ch + 1 },
+      end: { line: to.line + 1, col: to.ch + 1 } };
+  };
+}
+
+function scrollToLoc(loc) { // ({from: from, to: to});
+  editor.scrollIntoView(loc, 100);
+}
+
+// hook for codemirror
+/*
+$(document).on('mouseup', '.CodeMirror', function () {
+  // triggered on mouseup events in codemirror, eg to update selection
+  // editor.getSelectedLoc()
+});*/
+
+
+//---------------------------------------------------
+// Diff2html
+
 var configuration = {
    inputFormat: 'json',
    drawFileList: false,
@@ -21,24 +72,98 @@ var configuration = {
 // TODO: the horizontal scrollbars should not be needed if the diff contains no long lines.
 
 
-// Could use Underscore's _escape method.
-function escapeHTML(s) {
-   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function loadDiffFromString(targetId, diffString) {
+function loadDiffFromString(diffString) {
    // this function should be called only after DOM contents is loaded
-  var targetElement = document.getElementById(targetId);
+  var targetElement = document.getElementById("diffDiv");
   var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
   diff2htmlUi.draw();
   diff2htmlUi.highlightCode();
 }
 
+//---------------------------------------------------
+
+// Could use Underscore's _escape method.
+function escapeHTML(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function htmlButton(id, label, css, onclick) {
+  return "<button id='" + id + "' class='" + css + "' type ='button' onclick='" + onclick + "'>" + label + "</button>";
+}
+
+var curSource = -1;
+var curSdiff = -1;
+
+function resetView() {
+  $("#sourceDiv").hide();
+  $("#diffDiv").hide();
+  curSource = -1;
+  curSdiff = -1;
+  $(".ctrl-button").removeClass("ctrl-button-selected");
+}
+
+function loadSource(id) {
+  resetView();
+  $("#sourceDiv").show();
+  editor.setValue(codes[id]);
+  $("#button_code_" + id).addClass("ctrl-button-selected");
+  curSource = id;
+}
+
+function loadSdiff(id) {
+  resetView();
+  $("#diffDiv").show();
+  loadDiffFromString(smallsteps[id].diff);
+  $("#button_sdiff_" + id).addClass("ctrl-button-selected");
+  curSdiff = id;
+}
+
+function nextSource() {
+  if (curSource == -1 && curSdiff != -1) {
+    curSource = curSdiff;
+  }
+  var id = Math.min(curSource + 1, codes.length-1);
+  loadSource(id);
+}
+
+function nextSdiff() {
+  if (curSdiff == -1 && curSource != -1) {
+     curSdiff = curSource - 1;
+  }
+  var id = Math.min(curSdiff + 1, smallsteps.length-1);
+  loadSdiff(id);
+}
+
+function initControls() {
+  var s = "";
+  function addRow(sTitle, sRow) {
+    s += "<span class='row-title'>" + sTitle + ":</span>" + sRow + "<br/>";
+  };
+
+  // Code buttons
+  var sCode = "";
+  sCode += htmlButton("button_code_next", "next", "next-button", "nextSource()");
+  for (var i = 0; i < codes.length; i++) {
+    sCode += htmlButton("button_code_" + i, i, "ctrl-button", "loadSource(" + i + ")");
+  }
+  addRow("Source", sCode);
+
+  // Diff buttons
+  var sSdiff = "";
+  sSdiff += htmlButton("button_sdiff_next", "next", "next-button", "nextSdiff()");
+  for (var i = 0; i < smallsteps.length; i++) {
+    sSdiff += htmlButton("button_sdiff_" + i, (i+1), "ctrl-button", "loadSdiff(" + i + ")");
+  }
+  addRow("Diff", sSdiff);
+
+  $("#contents").html(s);
+}
 
 document.addEventListener('DOMContentLoaded', function () {
-
-  var diffId = "diffDiv";
-  var diffContents = smallsteps[0].diff;
-  loadDiffFromString(diffId, diffContents);
+  initEditor();
+  initControls();
+  // editor.setValue("click on a button");
+  // loadSource(codes.length-1);
+  loadSource(0);
 
 });

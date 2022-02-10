@@ -78,3 +78,31 @@ h2 {
    font-weight: bold;
    font-size: 1em;
 }
+
+#contents {
+  margin-bottom: 1em;
+}
+
+.row-title {
+  display: inline-block;
+  width: 4em;
+}
+
+.ctrl-button {
+  width: 2em;
+  margin: 3px;
+  text-align: center;
+}
+
+.next-button {
+  width: 5em;
+  margin: 3px;
+  text-align: center;
+}
+
+.ctrl-button-selected {
+  background-color: #4CAF50;
+  /*background-color: "#000";*/
+  color: black: /*color: "#FFF";*/
+}
+

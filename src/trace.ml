@@ -570,7 +570,7 @@ let dump_trace_to_js (ctx : context) (prefix : string) (history_and_isbigstep : 
   List.iteri (fun i (ast,isstartofbigstep) ->
     (* obtain source code *)
     output_prog ctx "tmp_after" ast;
-    let src = compute_command_base64 "echo tmp_after.cpp" in
+    let src = compute_command_base64 "cat tmp_after.cpp" in
     out (sprintf "codes[%d] = window.atob(\"%s\");\n" i src);
     (* obtain smallstep diff *)
     if i > 0 then begin

@@ -12,6 +12,11 @@ Trace for {FILEBASE}
    <script src="{OPTITRUST}/tools/lib/highlight_custom/highlight.pack.js"></script>
    <script src="{OPTITRUST}/tools/lib/jquery.min.js"></script>
    <script src="{OPTITRUST}/tools/lib/jquery-ui.min.js"></script>
+
+   <link rel=stylesheet href="{OPTITRUST}/tools/lib/codemirror/codemirror.css">
+   <script src="{OPTITRUST}/tools/lib/codemirror/codemirror.js"></script>
+   <script src="{OPTITRUST}/tools/lib/codemirror/clike.js"></script>
+
    <script type="text/javascript" src="{OPTITRUST}/tools/lib/diff2html-ui.min.js"></script>
 
    <script src="{OPTITRUST}/tools/optitrust_trace.js"></script>
@@ -28,6 +33,11 @@ Trace for {FILEBASE}
 <div id="contents"></div>
 
 <div id="diffDiv"></div>
+
+<div id="sourceDiv">
+  <textarea id='source_code' class="source col-sm-auto">empty</textarea>
+</div>
+
 
 </body>
 </html>
