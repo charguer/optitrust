@@ -16,6 +16,7 @@ TESTS_WITH_DOC := \
 	array_tile.ml \
 	array_to_variables.ml \
 	cast_insert.ml \
+	flow_insert_if.ml \
 	function_beta.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
@@ -39,13 +40,16 @@ TESTS_WITH_DOC := \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
+	pointer_fold.ml \
 	reference_fold.ml \
 	reference_unfold.ml \
 	rewrite_compute.ml \
 	rewrite_compute_inside.ml \
 	rewrite_equiv_at.ml \
+	sequence_delete.ml \
 	sequence_elim_around_instr.ml \
 	sequence_elim.ml \
+	sequence_insert.ml \
 	sequence_intro.ml \
 	sequence_intro_on_instr.ml \
 	sequence_partition.ml \
@@ -102,10 +106,6 @@ TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	instr_read_last_write.ml \
 	struct_set_implicit.ml \
-	pointer_fold.ml \
-	sequence_delete.ml \
-	sequence_insert.ml \
-	flow_insert_if.ml \
 
 NOT_NEEEDED_TO_FIX := \
 	array_swap.ml \

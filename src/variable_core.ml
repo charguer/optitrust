@@ -39,6 +39,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
             end in
         let lback = Mlist.map(Internal.change_trm ~change_at:[fold_at] def_x t_x) lback
          in
+         
         let new_tl = Mlist.merge lfront lback in
         let new_tl = Mlist.insert_at index d new_tl in
         trm_seq ~annot:t.annot ~marks:t.marks new_tl
@@ -181,7 +182,7 @@ let init_detach_aux  (t : trm) : trm =
         | Typ_ptr {inner_typ = ty;_} -> ty
         | _ -> var_type
         end in
-        let var_decl = trm_let_mut ~marks:t.marks (x, var_type) (trm_uninitialized ()) in
+        let var_decl = trm_let_mut ~marks:t.marks ~annot:t.annot (x, var_type) (trm_uninitialized ()) in
         (* Check if variable was declared as a reference *)
         let var_assgn = trm_set (trm_var ~typ:(Some var_type) x) {init with typ = (Some var_type)} in
         trm_seq_no_brace [var_decl; var_assgn]

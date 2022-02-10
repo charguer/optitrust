@@ -758,7 +758,7 @@ let print_stringreprs () : unit =
 let get_stringrepr (t : trm) : string =
   if not !Flags.use_new_encodings then Ast_to_c.ast_to_string t else begin (* this line will be deprecated *)
     match !stringreprs with
-    | None -> if is_get_operation t  then "" else fail t.loc "get_stringrepr: stringreprs must be computed and registered before resolving constraints"
+    | None -> if is_get_operation t  then "" else fail t.loc (Printf.sprintf "get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
     | Some m ->
         match Ast.trm_get_stringreprid t with
         | Some id ->

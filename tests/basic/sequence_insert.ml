@@ -18,7 +18,7 @@ let _ =
     !! Sequence_basic.insert ~reparse:true (stmt "y++;") [tAfter; cVarDef "y"];
     !! Sequence_basic.insert (stmt "p++;") [tAfter; cVarDef "y"];
     !! Sequence_basic.insert (stmt "printf(\"%d\", y);") [tAfter; cVarDef "y"];
-    !! Sequence_basic.insert (stmt "for (int i = 0; i < 5; i++) { x++; }") [tAfter; sInstr "y++"];
+    !! Sequence_basic.insert (stmt "for (int i = 0; i < 5; i++) { x++; }") [tBefore; cVarDef "z"];
     !! Sequence_basic.insert ~reparse:true (stmt "typedef struct { int x; int y; } vect;") [tBefore; cTopFunDef "main"];
     !! Sequence_basic.insert (stmt "typedef vect myvect;") [tAfter; cTypDef "vect"];
     !! Sequence_basic.insert (stmt "int test () {return 0;}") [tAfter; cTypDef "vect"];

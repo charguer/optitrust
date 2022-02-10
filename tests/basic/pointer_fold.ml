@@ -22,6 +22,7 @@ let _ = Run.script_cpp (fun _->
   !! Variable_basic.fold [cVarDef "a"];
   (* Example with matrices *)
   !! Variable_basic.fold ~at:[cVarDef "r3"] [cVarDef "b"];
-  !! Variable_basic.fold ~at:[sInstr "= 9"] [cVarDef "b"];
+  (* show [sInstr "m[1][1] = 9"]; *)
+  !! Variable_basic.fold ~at:[cCellWrite ()] [cVarDef "b"];
 )
 

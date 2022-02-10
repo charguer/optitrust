@@ -12,7 +12,8 @@ typedef struct {
 } vect;
 
 int main() {
-  vect a, b;
+  vect a;
+  vect b;
   fuse:{
     a.x = b.x;
     a.y = b.y;
@@ -30,7 +31,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.alternative (fun () ->
     Struct_basic.set_implicit [nbMulti; cLabel ~regexp:true "group."; dBody];
     !!(););
-
+  
   (* apply operation using a more complex target *)
   !! Trace.alternative (fun () ->
     let tg = [cSeq ~args_pred:(Target.target_list_one_st [sInstr "b.x ="]) ()] in
