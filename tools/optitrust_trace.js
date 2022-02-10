@@ -93,12 +93,14 @@ function htmlButton(id, label, css, onclick) {
 
 var curSource = -1;
 var curSdiff = -1;
+var curBdiff = -1;
 
 function resetView() {
   $("#sourceDiv").hide();
   $("#diffDiv").hide();
   curSource = -1;
   curSdiff = -1;
+  curBdiff = -1;
   $(".ctrl-button").removeClass("ctrl-button-selected");
 }
 
@@ -118,6 +120,15 @@ function loadSdiff(id) {
   curSdiff = id;
 }
 
+function loadBdiff(id) {
+  resetView();
+  $("#diffDiv").show();
+  loadDiffFromString(bigsteps[id].diff);
+  $("#button_bdiff_" + id).addClass("ctrl-button-selected");
+  curBdiff = id;
+  curSdiff = bigsteps[id].start;
+}
+
 function nextSource() {
   if (curSource == -1 && curSdiff != -1) {
     curSource = curSdiff;
@@ -128,10 +139,28 @@ function nextSource() {
 
 function nextSdiff() {
   if (curSdiff == -1 && curSource != -1) {
-     curSdiff = curSource - 1;
+    curSdiff = curSource - 1;
   }
   var id = Math.min(curSdiff + 1, smallsteps.length-1);
   loadSdiff(id);
+}
+
+function nextBdiff() {
+  if (curBdiff == -1) {
+    if (curSdiff == -1 && curSource != -1) {
+      curSdiff = curSource - 1;
+    }
+    /* compute the id of the first bigstep that contains curSdiff */
+    for (var i = 0; i < bigsteps.length; i++) {
+      if (bigsteps[i].start >= curSdiff) {
+        curBdiff = i;
+        break;
+      }
+    }
+    curBdiff--; // anticipate for the +1 operation
+  }
+  var id = Math.min(curBdiff + 1, bigsteps.length-1);
+  loadBdiff(id);
 }
 
 function initControls() {
@@ -148,13 +177,21 @@ function initControls() {
   }
   addRow("Source", sCode);
 
-  // Diff buttons
+  // Small diff buttons
   var sSdiff = "";
   sSdiff += htmlButton("button_sdiff_next", "next", "next-button", "nextSdiff()");
   for (var i = 0; i < smallsteps.length; i++) {
     sSdiff += htmlButton("button_sdiff_" + i, (i+1), "ctrl-button", "loadSdiff(" + i + ")");
   }
   addRow("Diff", sSdiff);
+
+  // Big diff buttons
+  var sBdiff = "";
+  sBdiff += htmlButton("button_bdiff_next", "next", "next-button", "nextBdiff()");
+  for (var i = 0; i < bigsteps.length; i++) {
+    sBdiff += htmlButton("button_bdiff_" + i, (i+1), "ctrl-button", "loadBdiff(" + i + ")");
+  }
+  addRow("BigDiff", sBdiff);
 
   $("#contents").html(s);
 }
