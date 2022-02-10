@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 (* TODO: this case is not covered *)
-(* let _ = Run.doc_script_cpp (fun _ ->
+let _ = Run.doc_script_cpp (fun _ ->
   !! Loop.unroll [cFor "a"];
   )
 "
@@ -14,7 +14,7 @@ int main() {
 }
 "
 
- *)
+
 
 let _ = Run.script_cpp (fun _ ->
 

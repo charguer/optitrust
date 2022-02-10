@@ -1,6 +1,9 @@
 
 int main() {
+  
+  int x = 5;
   int t[2];
+  x = 3;
   t[0] = 3;
   t[1] = 4;
   int a;

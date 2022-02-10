@@ -10,10 +10,18 @@ let _ =
   else assert false
   *)
 
+
+let _ = Flags.dump_ast_details := true
+
+
 let _ = Run.script_cpp (fun () ->
 
   (* !! Marks.add "rhs" [sInstr "= t[0]"]; *)
-  !! Instr.view_subterms ~constr:(sInstr "t[0] =") [dRoot];
+  
+
+
+  show [cWriteVar "a" ; dRHS];
+  !! Instr.view_subterms ~constr:(sExpr "3") [dRoot];
   show [sInstr "= t[0]"; dRHS];
   (*
   (* !! Instr.view_subterms [dRoot]; *)
