@@ -501,7 +501,7 @@ let dInit : constr =
 *)
 let cWrite ?(lhs : target = [cTrue]) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
   let lhs_typed = with_type ~typ ~typ_pred lhs in
-  let rhs_typed = with_type ~typ ~typ_pred rhs in 
+  let rhs_typed = with_type ~typ ~typ_pred rhs in
   cPrimFun ~args:[lhs_typed; rhs_typed] (Prim_binop Binop_set)
 
 (* [cRead] matches all the get operations on mutable variables *)
