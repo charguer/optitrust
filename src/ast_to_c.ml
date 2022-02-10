@@ -66,6 +66,7 @@ and trm_annot_to_doc (t_annot : trm_annot list) : document =
   | Multi_decl -> string "Multi_dec"
   | App_and_set -> string "App_and_set"
   | Main_file -> string "Main_file"
+  | Postfix_set -> string "Postfix_set"
   | Mutable_var_get -> string "Mutable_var_get"
   | As_left_value -> string "As_left_value"
   | Annot_stringreprid id -> string "Annot_stringreprid" ^^ string (string_of_int id)

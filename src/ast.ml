@@ -281,6 +281,7 @@ and trm_annot =
   | Multi_decl (* used to print back sequences that contain multiple declarations *)
   | Empty_cond (* used for loops with empty condition *)
   | App_and_set (* annotate uses of binop_set that unfold +=, -=, *= *)
+  | Postfix_set (* annotates all x++ and x-- unary operations as write operations *)
   | Include of string (* to avoid printing content of included files *)
   | Main_file (* sequence annotated as the main file is not printed *)
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
@@ -290,6 +291,7 @@ and trm_annot =
   | Reference (* Used to encode references as pointers with annotation Reference *)
   | Stackvar (* Used to encode stack variables *)
   | Annot_stringreprid of stringreprid (* Memoization id for the string representation of this node *)
+  
 
 (* symbols to add while printing a C++ program.*)
 and special_operator =
@@ -2196,6 +2198,11 @@ let is_infix_prim_fun (p : prim) : bool =
     end
   | _ -> false
 
+(* [is_postfix_prim_fun p] *)
+let is_postfix_unary (unop : unary_op) : bool = 
+  match unop with 
+  | Unop_post_inc | Unop_post_dec -> true 
+  | _ -> false
 
 (* [is_arith_fun p] check if the primitive function [p] is an arithmetic operation or not *)
 let is_arith_fun (p : prim) : bool =
@@ -2366,6 +2373,15 @@ let trm_prim_compound_encoded_as_set ?(loc = None) ?(is_statement = false) ?(ctx
   trm_set ~annot ~loc ~is_statement ~typ tl
     (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr])
 
+(* [trm_prim_postfix_as_set ~loc ~is_statement ~ctx ~typ ~annot binop tl tr] *)
+let trm_prim_postfix_as_set ?(loc = None) ?(is_statement = false) ?(ctx : ctx option = None) ?(typ = None) ?(annot : trm_annot list = []) (binop : binary_op) (tl : trm) (tr : trm) : trm =
+  let annot = Postfix_set :: annot in
+  trm_set ~annot ~loc ~is_statement ~typ tl
+    (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr])
+
+(* [trm_prim_postfix ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
+let trm_prim_postfix ?(marks : mark list = []) ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None) ?(typ = None) ?(annot :trm_annot list = [])(unop : unary_op) (t : trm) : trm =
+  trm_apps ~loc ~is_statement ~typ ~annot ~marks (trm_prim ~loc ~ctx (Prim_unop unop)) [t]
 
 (* [code_to_str] extract the code from the nodes that contain the arbitrary code*)
 let code_to_str (code : code_kind) : string =

@@ -395,6 +395,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | App_and_set -> string "App_and_set"
     | Include h -> string "Include" ^^ blank 1 ^^ string h
     | Main_file -> string "Main_file"
+    | Postfix_set -> string "Postfix_set"
     | Mutable_var_get -> string "Mutable_var_get"
     | As_left_value -> string "As_left_value"
     | Non_local_index -> string "Non_local_index"

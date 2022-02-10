@@ -358,6 +358,7 @@ let annot_to_string (t_ann : trm_annot) : string =
      | App_and_set -> "App_and_set"
      | Include h -> "Include" ^ " " ^ h
      | Main_file -> "Main_file"
+     | Postfix_set -> "Postfix_set"
      | Mutable_var_get -> "Mutable_var_get"
      | As_left_value -> "As_left_value"
      | Non_local_index -> "Non_local_index"
