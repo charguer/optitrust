@@ -20,12 +20,11 @@ int main() {
 let _ = Run.script_cpp (fun _->
 
     !! Instr.read_last_write [cRead ~addr:[cVar "x" ] ()];
-    !! Instr.view_subterms ~constr:(sInstr "= t[0]") [dRoot];
-    !! Instr.read_last_write [sInstr "= t[0]"; dRHS];
+    !! Instr.read_last_write [cWriteVar "a"; dRHS];
 
     !! Trace.alternative (fun _ ->
       !! Instr.read_last_write ~write:[cWrite ~rhs:[cInt 7] ()] [cRead ~addr:[cVar "x" ] ()];
-      !! Instr.read_last_write ~write:[sInstr "t[0] ="] [sInstr "= t[0]"; dRHS];
+      !! Instr.read_last_write ~write:[cCellWrite ~index:[cInt 0] ()] [cWriteVar "a"; dRHS];
       !!();
     );
 

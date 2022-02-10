@@ -23,6 +23,7 @@ TESTS_WITH_DOC := \
 	function_uninline.ml \
 	function_use_infix_ops.ml \
 	instr_accumulate.ml \
+	instr_read_last_write.ml \
 	instr_move.ml \
 	instr_replace.ml \
 	instr_replace_fun.ml \
@@ -60,6 +61,7 @@ TESTS_WITH_DOC := \
 	struct_rename_field.ml \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
+	struct_set_implicit.ml \
 	struct_update_fields_type.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
@@ -104,8 +106,6 @@ TESTS_TOCHECK := \
 
 TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
-	instr_read_last_write.ml \
-	struct_set_implicit.ml \
 
 NOT_NEEEDED_TO_FIX := \
 	array_swap.ml \
