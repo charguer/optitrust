@@ -166,7 +166,9 @@ let context_dummy : context =
 type trace = {
   mutable context : context;
   mutable cur_ast : trm;
-  mutable history : trms; }
+  mutable history : trms;
+  mutable isbigstep : bool list }
+  (* isbigstep[i] = true  indicates that history[i] is a state at a beginning of a big step *)
 
 let trm_dummy : trm =
   trm_val (Val_lit Lit_unit)
@@ -174,7 +176,10 @@ let trm_dummy : trm =
 let trace_dummy : trace =
   { context = context_dummy;
     cur_ast = trm_dummy; (* dummy *)
-    history = []; }
+    history = [];
+    isbigstep = []; (* indicate for each step if it was a big step *)
+      (* LATER: could improve the storage of bigsteps *)
+    }
 
 (* [traces] denotes the internal state of Optitrust. It consists of a list of traces,
    because Optitrust supports a [switch] command that allows branching in the
@@ -260,7 +265,7 @@ let init ?(prefix : string = "") (filename : string) : unit =
   let clog = init_logs directory prefix in
   let (includes, cur_ast) = parse filename in
   let context = { extension; directory; prefix; includes; clog } in
-  let trace = { context; cur_ast; history = [cur_ast] } in
+  let trace = { context; cur_ast; history = [cur_ast]; isbigstep = [false] } in
   traces := [trace];
   print_info None "Starting script execution...\n"
 
@@ -292,7 +297,7 @@ let alternative f : unit =
     | [] -> fail None "alternative: the history is empty"
     | t::_ -> t
     in
-  let init_trace = { trace with cur_ast = init_ast; history = [init_ast] } in
+  let init_trace = { trace with cur_ast = init_ast; history = [init_ast]; isbigstep = [false] } in
   traces := [init_trace];
   f();
   traces := saved_traces
@@ -396,9 +401,10 @@ let call (f : trm -> unit) : unit =
 
 (* [step()] takes the current AST and adds it to the history.
    If there are several traces, it does so in every branch. *)
-let step () : unit =
+let step ?(isbigstep:bool=false) () : unit =
   List.iter (fun trace ->
-    trace.history <- trace.cur_ast::trace.history)
+    trace.history <- trace.cur_ast::trace.history;
+    trace.isbigstep <- isbigstep::trace.isbigstep)
     !traces
 
 
@@ -487,11 +493,12 @@ let output_prog_opt  ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) 
       let out_prog = open_out file_prog in
       close_out out_prog
 
-(* [output_js index cpp_filename prefix _ast] Produces a javascript file used for viewing the ast in interactive mode
+(* CURRENTLY NOT MAINTAINTED
+  [output_optitrust_ast_to_js] index cpp_filename prefix _ast] Produces a javascript file used for viewing the ast in interactive mode
    This javascript file contains an array of source codes and an array of ast's. Where the entry at index i contains the state
-   of the source and ast after applying transformaion i.
+   of the source and ast after applying transformation i.
 *)
-let output_js  ?(vars_declared : bool = false)(index : int) (prefix : string) (ast : trm) : unit =
+let output_optitrust_ast_to_js ?(vars_declared : bool = false) (index : int) (prefix : string) (ast : trm) : unit =
   let file_js = prefix ^ ".js" in
   let out_js = open_out file_js in
   try
@@ -516,36 +523,97 @@ let output_js  ?(vars_declared : bool = false)(index : int) (prefix : string) (a
     close_out out_js;
     failwith s
 
-(* [dump_trace_to_js] writes into one/several (?) files
-   the contents of the current AST and of all the history,
-   that is, of all the ASTs for which the [step] method was called.
-*)
-let dump_trace_to_js ?(prefix : string = "") () : unit =
-  assert (prefix = prefix && false);
-  let dump_history (prefix : string) (asts : trms) : unit =
-    let nbAst = List.length asts in
-    let i = ref (nbAst - 2) in
-    List.iter
-      (fun ast ->
-        if !i = 0 then
-          output_js 0 prefix ast
-        else if !i = (nbAst - 2) then
-          output_js ~vars_declared:true (nbAst - 2) prefix ast
-        else if !i = (-1) then ()
-        else
-          begin
-          output_js ~vars_declared:true !i prefix ast;
-          i := !i - 1
-          end
-      )
-      asts in
-  List.iter
+(* [dump_trace_to_js] writes into a file called [`prefix`.js] the
+   contents of each of the steps record by the script, both for
+   small steps and big steps, including the diffs and the excerpts
+   of proof scripts associated with each step.
+
+   The argument [history_and_isbigstep] takes the history
+   with oldest entry first (unliked the history record field).
+
+   The JS file is
+   structured as follows (up to the order of the definitions):
+
+   var codes = []; // if the script has 3 '!!', the array will have 4 entries (one for the state of the code before each '!!' and one for the final result)
+   codes[i] = window.atob("...");
+
+   var smallsteps = []; // smallsteps.length = codes.length - 1
+   smallsteps[i] = { diff: window.atob("...");
+                     script: window.atob("..."); // later filled by external tool
+                     exectime: ... } // for future use
+   var bigsteps = []; // bigsteps.length <= smallsteps.length
+   bigstep.push ({ diff: window.atob("...");
+                  start: idStart;
+                  stop: idStop;
+                  script : ... }); // later filled by external tool
+     // invariant: bigstep[j].stop = bigstep[j+1].start
+   *)
+let dump_trace_to_js (ctx : context) (prefix : string) (history_and_isbigstep : (trm*bool) list) : unit =
+  let file_js = prefix ^ ".js" in
+  let out_js = open_out file_js in
+  let out = output_string out_js in
+  let sprintf = Printf.sprintf in
+  let cmd s =
+    Printf.printf "execute: %s\n" s; flush stdout;
+    ignore (Sys.command s) in
+  let compute_command_base64 (s : string) : string =
+    cmd (sprintf "%s | base64 -w 0 > tmp.base64" s);
+    Xfile.get_contents ~newline_at_end:false "tmp.base64"
+    in
+  let compute_diff () : string =
+    compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp" in
+  let lastbigstepstart = ref (-1) in
+  (* LATER: catch failures *)
+  (* LATER: support other languages than C/C++ *)
+  out "var codes = [];\nvar smallsteps = [];\nvar bigsteps = [];\n";
+  let n = List.length history_and_isbigstep in
+  List.iteri (fun i (ast,isstartofbigstep) ->
+    (* obtain source code *)
+    output_prog ctx "tmp_after" ast;
+    let src = compute_command_base64 "echo tmp_after.cpp" in
+    out (sprintf "codes[%d] = window.atob(\"%s\");\n" i src);
+    (* obtain smallstep diff *)
+    if i > 0 then begin
+      let diff = compute_diff() in
+      out (sprintf "smallsteps[%d] = { diff: window.atob(\"%s\"); };\n" (i-1) diff);
+    end;
+    (* obtain bigstep diff *)
+    let isendofbigstep = (i > 0 && isstartofbigstep) || i = n-1 in
+    if isendofbigstep then begin
+      cmd "mv tmp_big.cpp tmp_before.cpp";
+      let diff = compute_diff() in
+      out (sprintf "bigsteps.push({ start: %d, stop: %d, diff: window.atob(\"%s\"); });\n"  !lastbigstepstart i diff);
+    end;
+    (* shift files to prepare for next step *)
+    cmd "mv tmp_after.cpp tmp_before.cpp";
+    if isstartofbigstep then begin
+      cmd "cp tmp_before.cpp tmp_big.cpp";
+      lastbigstepstart := i;
+    end
+  ) history_and_isbigstep;
+  cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp tmp_big.cpp";
+  close_out out_js
+
+(* LATER: later generalize to multiple traces, currently it would
+    probably overwrite the same file over and over again *)
+let dump_traces_to_js ?(prefix : string = "") () : unit =
+   if List.length !traces > 1
+     then failwith "-dump-trace currently does not support multiple traces";
+   List.iter
     (fun trace ->
       let ctx = trace.context in
       let prefix =
         if prefix = "" then ctx.directory ^ ctx.prefix else prefix
       in
-      dump_history prefix (trace.cur_ast :: trace.history)
+      if List.length trace.history <> List.length trace.isbigstep
+        then failwith "dump_traces_to_js: invariant broken, isbistep should have the same length as history";
+      let hrev = List.combine (trace.cur_ast :: trace.history) (false :: trace.isbigstep) in
+      let h = (* remove the ast associated with the input file *)
+        match List.rev hrev with
+        | _::h -> h
+        | _ -> failwith "dump_trace_to_js: empty history"
+        in
+      dump_trace_to_js ctx prefix h
     )
     (!traces)
 
@@ -649,11 +717,11 @@ let dump_diff_and_exit () : unit =
         output_ast ~ast_and_enc:false (prefix ^ "_before_" ^ string_of_int i) astBeforeI
       done;
     end;
-    (* CPP and AST and Javscript for AFTER *)
+    (* CPP and AST for AFTER *)
     let astAfter = trace.cur_ast in
     output_ast (prefix ^ "_after") (Some astAfter);
     print_info None "Writing ast and code into %s.js " prefix;
-    output_js 0 prefix astAfter;
+    (* LATER output_js 0 prefix astAfter; *)
     (* Printf.printf "EXIT   %s\n" prefix; *)
   );
   (* Exit *)
@@ -670,7 +738,7 @@ let dump_diff_and_exit () : unit =
    a freshly parsed and typechecked version of it.
    The [~is_small_step] flag indicates whether the current step is small
    and should be ignored when visualizing big steps only. *)
-let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(reparse : bool = false) () : unit =
+let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(reparse : bool = false) () : unit =
   (* Update the line of the last step entered *)
   line_of_last_step := line;
   (* Special hack for minimizing diff in documentation *)
@@ -718,7 +786,8 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(rep
         end;
         end;
       (* Save the current code in the trace *)
-      step();
+      let isbigstep = not is_small_step in
+      step ~isbigstep ();
   end
 end
 
@@ -773,8 +842,8 @@ let dump ?(prefix : string = "") () : unit =
       write_timing_log (Printf.sprintf "------------START DUMP------------\n");
   end;
   (* Dump full trace if requested *)
-  if !Flags.dump_all then
-     dump_trace_to_js ~prefix (); (* dump_trace ~prefix () *)
+  if !Flags.dump_trace then
+     dump_traces_to_js ~prefix ();
   (* Dump final result, for every [switch] branch *)
   List.iter
     (fun trace ->
