@@ -549,12 +549,12 @@ let output_optitrust_ast_to_js ?(vars_declared : bool = false) (index : int) (pr
      // invariant: bigstep[j].stop = bigstep[j+1].start
    *)
 let dump_trace_to_js (ctx : context) (prefix : string) (history_and_isbigstep : (trm*bool) list) : unit =
-  let file_js = prefix ^ ".js" in
+  let file_js = prefix ^ "_trace.js" in
   let out_js = open_out file_js in
   let out = output_string out_js in
   let sprintf = Printf.sprintf in
   let cmd s =
-    Printf.printf "execute: %s\n" s; flush stdout;
+    (* FOR DEBUG Printf.printf "execute: %s\n" s; flush stdout; *)
     ignore (Sys.command s) in
   let compute_command_base64 (s : string) : string =
     cmd (sprintf "%s | base64 -w 0 > tmp.base64" s);
@@ -575,14 +575,14 @@ let dump_trace_to_js (ctx : context) (prefix : string) (history_and_isbigstep : 
     (* obtain smallstep diff *)
     if i > 0 then begin
       let diff = compute_diff() in
-      out (sprintf "smallsteps[%d] = { diff: window.atob(\"%s\"); };\n" (i-1) diff);
+      out (sprintf "smallsteps[%d] = { diff: window.atob(\"%s\") };\n" (i-1) diff);
     end;
     (* obtain bigstep diff *)
     let isendofbigstep = (i > 0 && isstartofbigstep) || i = n-1 in
     if isendofbigstep then begin
       cmd "mv tmp_big.cpp tmp_before.cpp";
       let diff = compute_diff() in
-      out (sprintf "bigsteps.push({ start: %d, stop: %d, diff: window.atob(\"%s\"); });\n"  !lastbigstepstart i diff);
+      out (sprintf "bigsteps.push({ start: %d, stop: %d, diff: window.atob(\"%s\") });\n"  !lastbigstepstart i diff);
     end;
     (* shift files to prepare for next step *)
     cmd "mv tmp_after.cpp tmp_before.cpp";

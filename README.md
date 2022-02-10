@@ -230,7 +230,11 @@ In a given folder, you can create `optitrust_flags.sh` with custom flags, e.g.:
     "command": "workbench.action.tasks.runTask",
     "args": "View diff for ast encoding",
   },
-
+  {
+    "key": "shift+alt+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View trace",
+  },
   {
     "key": "f7",
     "command": "workbench.action.tasks.runTask",

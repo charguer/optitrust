@@ -72,6 +72,22 @@
         ]
       },
       {
+        "label": "View trace",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "./view_result.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_trace",
+            "recompile_optitrust_no",
+        ]
+      },
+      {
         "label": "View big step diff",
         "type": "shell",
         "command": "./run_action.sh",

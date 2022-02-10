@@ -8,7 +8,7 @@ let  _ = Flags.dump_trace := true
 let _ = Run.script_cpp (fun _ ->
     !^ Label.add "lab1" [cVarDef "a"];
     !! Label.add "lab2" [cVarDef "a"];
-    !^ Label.add "lab3" [cVarDef "a"];
+    !^ Label.add "lab3" [cVarDef "a"];  
     !! Label.add "lab4" [cVarDef "a"];
     !! Label.add "lab5" [cVarDef "a"];
 )
