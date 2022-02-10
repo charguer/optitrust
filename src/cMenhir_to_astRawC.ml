@@ -137,6 +137,11 @@ and tr_stmt (s : C.stmt) : trm =
       | _ -> tr_stmt so
       in
     let init = tr_stmt_opt init in
+    let init = begin match init.desc with 
+    | Trm_seq tl ->
+      if Mlist.length tl = 1 then Mlist.nth tl 0 else init
+    |_ -> init
+    end in 
     let cond = tr_expr cond in
     let step = tr_stmt_opt step in
     let body = tr_stmt body in
