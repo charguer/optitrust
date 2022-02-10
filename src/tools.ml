@@ -108,10 +108,12 @@ let rec list_chop_after (x : 'a) (xs : 'a list) : 'a list =
    The [i] should be in the range [0] to [length l], inclusive.
    In particular, if [i = length l], then the operation returns [l @ el]. *)
 let insert_sublist_at (i : int) (el : 'a list) (l : 'a list) : 'a list =
-  if i = List.length l
+  if i = 0 then el @ l 
+  else if i = List.length l
     then l @ el
-    else fold_lefti (fun i acc x ->
-      if i = ((List.length l) - i - 1) then el @ x :: acc else x :: acc) [] (List.rev l)
+  else 
+    let first_part, last_part = split_list_at i l in 
+    first_part @ el @ last_part    
 
 (* [insert_at i e l] inserts an element [e] at index [i] in the list [l].
    The [index] should be in the range [0] to [length l], inclusive.

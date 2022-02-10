@@ -16,7 +16,6 @@ TESTS_WITH_DOC := \
 	array_tile.ml \
 	array_to_variables.ml \
 	cast_insert.ml \
-	flow_insert_if.ml \
 	function_beta.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
@@ -106,6 +105,8 @@ TESTS_TOCHECK := \
 
 TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
+	flow_insert_if.ml \
+
 
 NOT_NEEEDED_TO_FIX := \
 	array_swap.ml \
