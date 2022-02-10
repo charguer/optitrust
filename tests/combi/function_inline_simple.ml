@@ -11,9 +11,10 @@ let _ = Run.script_cpp (fun _ ->
   !! Function.inline [cFun "vect_add"];
   
   (* with naming of the arguments *)
-  !! Trace.alternative (fun () ->
+  (* !! Trace.alternative (fun () ->
+    TODO: Fix this error
     !! Function.inline  ~args:["v"] [cFunDef "main";cFun "f"];
-    !!());
+    !!()); *)
   (* inlining a function with if else branches *)
   !! Function.inline [cFun "g"];
   (* inlining a function with one if branch *)

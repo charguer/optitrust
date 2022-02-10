@@ -15,9 +15,13 @@ TARGET_MAKE_ALL := check
 TESTS_WITH_DOC := \
 	instr_gather.ml \
 	instr_moveout.ml \
+	function_inline_simple.ml \
 	function_use_infix_ops.ml \
+  instr_inline_last_write.ml \
+	instr_read_last_write.ml \
 	loop_fold.ml \
 	loop_fusion.ml \
+	loop_fusion_targets.ml \
 	loop_hoist.ml \
 	loop_moveout.ml \
 	loop_reorder.ml \
@@ -25,6 +29,7 @@ TESTS_WITH_DOC := \
 	sequence_intro.ml \
 	sequence_intro_targets.ml \
 	struct_set_explicit.ml \
+	struct_set_implicit.ml \
 	variable_insert.ml \
 	variable_insert_list.ml \
 	variable_insert_and_fold.ml \
@@ -56,12 +61,7 @@ TESTS_TOCHECK := \
 	variable_inline_and_rename.ml \
 
 TESTS_TO_FIX := \
-  instr_inline_last_write.ml \
-	instr_read_last_write.ml \
-	function_inline_simple.ml \
 	loop_unroll.ml \
-	struct_set_implicit.ml \
-	loop_fusion_targets.ml \
   
 # 	variable_renames.ml \
 

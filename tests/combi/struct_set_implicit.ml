@@ -11,7 +11,8 @@ typedef struct {
   vect;
 
 int main() {
-  vect v, w;
+  vect v;
+  vect w;
   v.x = w.x;
   v.y = w.y;
 }

@@ -51,14 +51,23 @@ let fusion_targets (tg : Target.target) : unit =
   let non_loop_indices = ref [] in
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
-    match tg_trm.desc with
-    | Trm_seq tl ->
+    
+    let aux (tl : trm mlist) : unit = 
       Mlist.iteri (fun i t1 ->
         match t1.desc with
         | Trm_for _ -> ()
         | _ -> non_loop_indices := i :: !non_loop_indices
       ) tl
-    | _ -> fail tg_trm.loc "fusion_targets: expected a target pointing to the sequence that contains the potention loops to be fused"
+     in 
+    match tg_trm.desc with
+    | Trm_seq tl ->
+      aux tl
+    | Trm_labelled (l, t1) -> 
+      begin match t1.desc with 
+      | Trm_seq tl -> aux tl
+      | _ -> fail t.loc" fusion_targets: expected a labelled sequence or a direct target to a sequence"
+      end
+    | _ -> fail tg_trm.loc (Printf.sprintf "fusion_targets: expected a target pointing to the sequence that contains the potential loops to be fused, %s" (Ast_to_text.ast_to_string tg_trm))
 
   ) tg;
   List.iteri (fun i index -> Instr.move_out ~dest:([Target.tBefore] @ tg) (tg @ [Target.dSeqNth (index-i)])) (List.rev !non_loop_indices);
@@ -300,6 +309,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           | _ -> fail start.loc "unroll: expected a loop of the form for (int i = a; i < N; i where a should be a constant variable"
           end in
           (aux x t) - start_nb
+      | Trm_val (Val_lit (Lit_int n)) -> n
       | _ -> fail stop.loc "unroll: expected an addition of two constants or a constant variable"
       end
         in
