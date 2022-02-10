@@ -501,7 +501,7 @@ let dInit : constr =
 *)
 let cWrite ?(lhs : target = [cTrue]) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
   let lhs_typed = with_type ~typ ~typ_pred lhs in
-  let rhs_typed = with_type ~typ ~typ_pred rhs in 
+  let rhs_typed = with_type ~typ ~typ_pred rhs in
   cPrimFun ~args:[lhs_typed; rhs_typed] (Prim_binop Binop_set)
 
 (* [cRead] matches all the get operations on mutable variables *)
@@ -1054,14 +1054,16 @@ let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
   let tg = enable_multi_targets tg in
   if reparse then reparse_alias();
   let should_exit = (Flags.get_exit_line() = Some line) in
-  if should_exit then begin
+  let batch_mode = (Flags.get_exit_line() = None) in
+  if should_exit || (!Flags.execute_show_even_in_batch_mode && batch_mode) then begin
     if Constr.is_target_between tg then begin
       applyi_on_targets_between (fun i t (p,k) ->
         target_between_show_transfo i k t p) tg
     end else begin
       applyi_on_targets (fun i t p -> target_show_transfo i t p) tg
     end;
-    dump_diff_and_exit()
+    if should_exit
+      then dump_diff_and_exit()
   end else begin
     (* only check targets are valid *)
     if Constr.is_target_between tg

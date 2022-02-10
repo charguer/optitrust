@@ -42,6 +42,9 @@ let use_new_encodings : bool ref = ref true
 (* Flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them *)
 let bypass_cfeatures : bool ref = ref false
 
+(* Flag used for unit tests on targets that use the show function *)
+let execute_show_even_in_batch_mode : bool ref = ref false
+
 (* Option to deal with serialized AST as input and output:
   | Serialized_None: do not read or write any serialized ast, just parse the input file.
   | Serialized_Build: parse the input file, save its serialized ast, exit

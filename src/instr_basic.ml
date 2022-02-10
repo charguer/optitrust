@@ -71,11 +71,14 @@ let accumulate : Target.Transfo.t =
 (* LATER: move this to Expr_basic.ml *)
 (* [view_subterms tg] displays on stdout all the subterms of the targeted term.
    For viewing on stdout all subterms of a program, use:
+     Instr.view_subterms [];
+   which is like
      Instr.view_subterms [dRoot];
    and possibly specify a regexp to investigate:
      Instr.view_subterms ~constr:(sInstr "+= 2") [dRoot];
    Note that this is for debugging purpose only. *)
 let view_subterms ?(constr:Constr.constr option) ?(rexp : Constr.rexp option) (tg : Target.target) : unit =
+  let tg = if tg = [] then [dRoot] else tg in
   let ro = match constr, rexp with
     | None, None -> None
     | Some (Constr_regexp r), None -> Some r
