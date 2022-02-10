@@ -13,8 +13,8 @@ let delocalize_double_add = Delocalize_arith (Lit_double 0., Binop_add)
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
   (* Part: optimization and inlining of [matrix_vect_mul] *)
-  !^ let ctx = cTopFunDef "matrix_vect_mul" in
-     Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+    let ctx = cTopFunDef "matrix_vect_mul" in
+  !^ Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
   !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[x-y]"];
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
@@ -22,9 +22,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [cFun "matrix_vect_mul"];
 
   (* Part: vectorization in [cornerInterpolationCoeff] *)
-  !^ let ctxf = cTopFunDef "cornerInterpolationCoeff" in
+    let ctxf = cTopFunDef "cornerInterpolationCoeff" in
      let ctx = cChain [ctxf; sInstr "r.v"] in
-     Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
+  !^ Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array ~pattern_aux_vars:"double rX, rY, rZ;"
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;"
@@ -38,8 +38,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: reveal write operations involved manipulation of particles and vectors *)
   !^ Trace.reparse();
-  !! let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
-     List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
+  let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
+  !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
 
@@ -134,7 +134,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextCharge"] ~index:[] ~rhs:[cDouble 0.] ()]];
 
   (* Part: apply a bijection on the array storing charge to vectorize charge deposit *)
-  !^ let mybij_def =
+  let mybij_def =
       "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
         coord coord = coordOfCell(idCell);
         int iX = coord.iX;
@@ -152,7 +152,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
         };
       return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
       }" in
-     Sequence.insert (stmt mybij_def) [tBefore; main];
+  !^ Sequence.insert (stmt mybij_def) [tBefore; main];
   !! Matrix.biject "mybij" [main; cVarDef "nextChargeCorners"];
   !! Instr.replace ~reparse:true (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)")
       [main; cLabel "charge"; cFun "mybij"];
@@ -174,12 +174,12 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: coloring *)
   !^ Variable.insert_list ~defs:[("int","block","2"); ("int","halfBlock","block / 2")] [tBefore; cVarDef "nbCells"];
-  !! let colorize (tile : string) (color : string) (d:string) : unit =
+  let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "bi" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [main; cFor ("i" ^ d)];
     Loop.color color ~index:("ci"^d) [main; cFor bd]
     in
-    iter_dims (fun d -> colorize "block" "block" d);
+  !! iter_dims (fun d -> colorize "block" "block" d);
   !! Loop.reorder ~order:(Tools.((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims)) [main; cFor "ciX"];
 
   (* Part: introduce atomic push operations, but only for particles moving more than one cell away *)

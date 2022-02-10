@@ -9,5 +9,6 @@ TESTS := pic_demo.ml
 
 include ../tests/Common.Makefile
 
-FLAGS := $(FLAGS) -report-big-steps
+FLAGS := $(FLAGS)
+# report-big-steps
 
