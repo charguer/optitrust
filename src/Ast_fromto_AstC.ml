@@ -451,14 +451,29 @@ let infix_elim (t : trm) : trm =
   let rec aux (t : trm) : trm = 
     match t.desc with 
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr]) ->
-     {t with desc = Trm_apps(op, [Ast.trm_address_of tl; tr])}
+     {t with desc = Trm_apps(op, [trm_address_of ~simplify:true tl; tr])}
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base]) when is_postfix_unary unop ->
-      {t with desc = Trm_apps(op, [Ast.trm_address_of base])}
+      {t with desc = Trm_apps(op, [trm_address_of ~simplify:true base])}
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set))} as op, [tl; tr]) ->
-      {t with desc = Trm_apps (op, [Ast.trm_address_of tl;tr])}
+      {t with desc = Trm_apps (op, [trm_address_of ~simplify:true tl;tr])}
     | _ -> trm_map aux t
   in aux t
 
+(* [iinfix_intro t] updates [t] clean special encodings for compound_assign operations, set operations and postfix unary operations 
+    [++(&x)] becomes [++x]
+    [+=(&x, y)] becomes [x += y]
+    [=(&x, y)] becomes [x = y]*)
+let infix_intro (t : trm) : trm = 
+  let rec aux (t : trm) : trm = 
+    match t.desc with 
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr]) ->
+     {t with desc = Trm_apps(op, [trm_get ~simplify:true tl; tr])}
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base]) when is_postfix_unary unop ->
+      {t with desc = Trm_apps(op, [trm_get ~simplify:true base])}
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set))} as op, [tl; tr]) ->
+      {t with desc = Trm_apps (op, [trm_get ~simplify:true tl;tr])}
+    | _ -> trm_map aux t
+  in aux t
 
 (* [unary_postfix_elim t] updates [t] in such a way that all postfix increment decrement instructions are turned into 
     special write operations *)
@@ -535,11 +550,11 @@ let compound_assign_intro (t : trm) : trm =
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let cfeatures_elim (t : trm) : trm =
-  cseq_items_void_type (caddress_elim (stackvar_elim (compound_assign_elim (unary_postfix_elim t))))
+  cseq_items_void_type (caddress_elim (stackvar_elim (infix_elim t)))
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
-  unary_postfix_intro (compound_assign_intro (stackvar_intro (caddress_intro t)))
+  infix_intro (stackvar_intro (caddress_intro t))
 
 (* LATER: might be deprecated *)
 (* [trm_map_with_lvalue] is a variant of [trm_map] that provides the [is_lvalue] information to [f]. *)

@@ -636,7 +636,8 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
             let d2 = decorate_trm ~prec:prec2 t2 in
             begin match op with
              | Binop_set when !print_optitrust_syntax ->
-                string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+                equals ^^ parens (d1 ^^ comma ^^ d2)
+                (* string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")" *)
              | Binop_array_access when !print_optitrust_syntax ->
                 string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
              (* LATER:
@@ -656,7 +657,9 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
               let d1 = decorate_trm ~prec t1 in
               let d2 = decorate_trm ~prec t2 in
               let op_d = prim_to_doc p_b in
-              separate (blank 1) [d1; op_d; d2]
+              if !print_optitrust_syntax 
+                then op_d ^^ parens (d1 ^^ comma ^^ d2)
+                else separate (blank 1) [d1; op_d; d2]
           | _ -> fail f.loc "apps_to_doc: binary operators must have two arguments"
           end
         | Prim_conditional_op ->
