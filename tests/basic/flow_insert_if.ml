@@ -2,9 +2,9 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-    (*
+    
      !! Flow_basic.insert_if ~cond:(expr "x > 0") [sInstr "x++"];
-     *)
+    
      !! Marks.add "foo" [cRead()];
   )
 "

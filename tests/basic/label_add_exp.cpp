@@ -8,7 +8,7 @@ start:
       x++;
     } else {
     incr_2:
-      i++;
+      x--;
     }
   }
   x++;

@@ -8,10 +8,10 @@ int main() {
   int a;
   int x[N];
   x[0] = a;
-  for (int k = 1; (k < N); k++) {
+  for (int k = 1; k < N; k++) {
     x[k] = 0;
   }
-  for (int i = 0; (i < N); i++) {
+  for (int i = 0; i < N; i++) {
     x[ANY(N)]++;
   }
   return 0;

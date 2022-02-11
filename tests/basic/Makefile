@@ -54,7 +54,6 @@ TESTS_WITH_DOC := \
 	sequence_intro_on_instr.ml \
 	sequence_partition.ml \
 	sequence_split.ml \
-	specialize_any.ml \
 	struct_fields_reorder.ml \
 	struct_inline.ml \
 	struct_rename_field.ml \
@@ -99,6 +98,7 @@ TESTS_TOCHECK := \
 
 
 
+
 # missing expected
 # matrix_insert_alloc_dim.ml
 #	matrix_insert_access_dim_index.ml \
@@ -106,7 +106,9 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	flow_insert_if.ml \
+	specialize_any.ml \
 
+  
 
 NOT_NEEEDED_TO_FIX := \
 	array_swap.ml \

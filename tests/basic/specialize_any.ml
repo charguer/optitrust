@@ -15,6 +15,10 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
+
+
   !! Specialize_basic.any "2" [sInstr "corners"; cAny];
-  !! Specialize_basic.any "i" [cFor "i"; cAny];
+  show [cAny];
+  
+  !! Specialize_basic.any "i" [cAny];
 )

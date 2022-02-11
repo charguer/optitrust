@@ -8,7 +8,7 @@ int main() {
     cond: if (true) {
       incr_1: x++;
     } else {
-      incr_2: i++;
+      incr_2: x--;
     }
   }
 

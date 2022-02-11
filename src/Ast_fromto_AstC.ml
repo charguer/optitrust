@@ -438,16 +438,11 @@ let compound_assign_intro (t : trm) : trm =
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let cfeatures_elim (t : trm) : trm =
-  cseq_items_void_type (caddress_elim (stackvar_elim (compound_assign_elim t)))
+  cseq_items_void_type (caddress_elim (stackvar_elim (compound_assign_elim (unary_postfix_elim t))))
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
-  compound_assign_intro (stackvar_intro (caddress_intro t))
-
-(* LATER: might be deprecated *)
-(* [cfeatures_intro_aux lvalue t] is similar to [cfeatures_intro] but allows processing lvalues *)
-let cfeatures_intro_aux (lvalue : bool) (t : trm) : trm =
-  stackvar_intro (caddress_intro_aux lvalue t)
+  unary_postfix_intro (compound_assign_intro (stackvar_intro (caddress_intro t)))
 
 (* LATER: might be deprecated *)
 (* [trm_map_with_lvalue] is a variant of [trm_map] that provides the [is_lvalue] information to [f]. *)
