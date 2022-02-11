@@ -1,5 +1,4 @@
 
-
 //---------------------------------------------------
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
@@ -91,6 +90,10 @@ function htmlButton(id, label, css, onclick) {
   return "<button id='" + id + "' class='" + css + "' type ='button' onclick='" + onclick + "'>" + label + "</button>";
 }
 
+function htmlSpan(contents, css) {
+  return "<span class='" + css +"'>" + contents + "</span>";
+}
+
 var curSource = -1;
 var curSdiff = -1;
 var curBdiff = -1;
@@ -98,10 +101,15 @@ var curBdiff = -1;
 function resetView() {
   $("#sourceDiv").hide();
   $("#diffDiv").hide();
+  $("#infoDiv").html("");
   curSource = -1;
   curSdiff = -1;
   curBdiff = -1;
   $(".ctrl-button").removeClass("ctrl-button-selected");
+}
+
+function displayInfo(descr) {
+  $("#infoDiv").html(descr);
 }
 
 function loadSource(id) {
@@ -115,7 +123,11 @@ function loadSource(id) {
 function loadSdiff(id) {
   resetView();
   $("#diffDiv").show();
-  loadDiffFromString(smallsteps[id].diff);
+  var step = smallsteps[id];
+  loadDiffFromString(step.diff);
+  var sStep = htmlSpan(escapeHTML(step.script), "step-info");
+  var sTime = htmlSpan(step.exectime + "ms", "timing-info") + "<div style='clear: both'></div>";
+  displayInfo(sStep + sTime);
   $("#button_sdiff_" + id).addClass("ctrl-button-selected");
   curSdiff = id;
 }
@@ -123,8 +135,11 @@ function loadSdiff(id) {
 function loadBdiff(id) {
   resetView();
   $("#diffDiv").show();
-  loadDiffFromString(bigsteps[id].diff);
+  var step = bigsteps[id];
+  loadDiffFromString(step.diff);
   $("#button_bdiff_" + id).addClass("ctrl-button-selected");
+  var sStep = htmlSpan(escapeHTML(step.descr), "step-info");
+  displayInfo(sStep);
   curBdiff = id;
   curSdiff = bigsteps[id].start;
 }

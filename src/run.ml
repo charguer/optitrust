@@ -119,8 +119,14 @@ let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_ex
     flush stdout;
     if check_exit_at_end && Flags.get_exit_line() <> None
       then Trace.dump_diff_and_exit ();
-    (* Trace.dump automatically adds the current ast to the end of the history *)
+    (* Stores the current ast to the end of the history *)
     Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
+    (* Dump full trace if [-dump-trace] option was provided;
+       in this case, record the last step in the history *)
+    if !Flags.dump_trace then begin
+      Trace.check_exit_and_step ~is_small_step:false ();
+      Trace.dump_traces_to_js ~prefix ();
+    end;
     Trace.finalize();
   )
   (* Printf.printf "END  %s\n" basename *)

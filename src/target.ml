@@ -981,6 +981,10 @@ let target_between_show_aux (id : int) (k : int) (t : trm) : trm =
 let target_between_show_transfo (id : int) : Transfo.local_between =
   fun (k:int) -> apply_on_path (target_between_show_aux id k)
 
+(* [bigstep s] is a shorthand for [Trace.bigstep s] *)
+let bigstep (s : string) : unit =
+  Trace.bigstep s
+
 (* [show ~line:int tg] is a transformation for visualizing targets.
    The operation add marks if the command line argument [-exit-line]
    matches the [line] argument provided to the function. Otherwise, the

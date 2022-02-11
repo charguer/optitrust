@@ -10,9 +10,23 @@ open Target
 let  _ = Flags.dump_trace := true
 
 let _ = Run.script_cpp (fun _ ->
+    (* LATER
     !^ Label.add "lab1" [cVarDef "a"];
     !! Label.add "lab2" [cVarDef "a"];
     !^ Label.add "lab3" [cVarDef "a"];
     !! Label.add "lab4" [cVarDef "a"];
+    !! Label.add "lab5" [cVarDef "a"]; *)
+
+    bigstep "first part";
+    !! Label.add "lab1" [cVarDef "a"];
+    !! Label.add "lab2" [cVarDef "a"];
+
+    bigstep "second part";
+    !! Label.add "lab3" [cVarDef "a"];
+    !! Label.add "lab4" [cVarDef "a"];
     !! Label.add "lab5" [cVarDef "a"];
+
+    bigstep "third part";
+    !! Label.add "lab6" [cVarDef "a"];
+    !! Label.add "lab7" [cVarDef "a"];
 )

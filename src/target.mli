@@ -354,6 +354,8 @@ val apply_on_transformed_targets_between : (path * int -> 'a) -> (trm -> 'a -> t
 
 val show : ?line:int -> ?reparse:bool -> target -> unit
 
+val bigstep : string -> unit
+
 (* Target debugging *)
 
 val target_to_string : target -> string

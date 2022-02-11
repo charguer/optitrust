@@ -106,3 +106,19 @@ h2 {
   color: black: /*color: "#FFF";*/
 }
 
+#infoDiv {
+  /*min-height: 1em;*/
+  background-color: #FFCCCC;
+  border: 1px solid black;
+  margin-bottom: 1em;
+  padding: 3px;
+}
+
+.step-info {
+  font-family: monospace;
+}
+
+.timing-info {
+  float: right;
+}
+

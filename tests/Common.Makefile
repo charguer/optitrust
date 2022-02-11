@@ -151,8 +151,12 @@ endif
 	$(V)sed -i "s#{TRACEJSFILE}#$<#g;s#{OPTITRUST}#$(OPTITRUST)#g;s#{FILEBASE}#$*#g" $@
 	@echo "Produced $@"
 
+# Rule for annotating a transformation script with the line numbers
+%_with_lines.ml: %.ml
+	$(V)$(OPTITRUST)/.vscode/add_lines.sh $< $@
+
 # Rule for building the js file describing the trace associated with a script
-%_trace.js: %.byte %.cpp %.ml
+%_trace.js: %.byte %.cpp %_with_lines.ml
 	$(V)OCAMLRUNPARAM=b ./$< -dump-trace $(FLAGS)
 
 # Rule for producing the expected output file from the result
