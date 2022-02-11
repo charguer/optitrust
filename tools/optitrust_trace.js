@@ -141,7 +141,7 @@ function loadBdiff(id) {
   var sStep = htmlSpan(escapeHTML(step.descr), "step-info");
   displayInfo(sStep);
   curBdiff = id;
-  curSdiff = bigsteps[id].start;
+  curSdiff = bigsteps[id].start - 1;
 }
 
 function nextSource() {

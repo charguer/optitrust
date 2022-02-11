@@ -233,7 +233,7 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   let starts_with_let (str : string) : bool =
     Str.string_match regexp_let str 0 in
   (* match a line that starts with '!!' or LATER '!^' or 'bigstep' *)
-  let regexp_step = Str.regexp "^[ ]*\\(!!\\|bigstep\\)" in
+  let regexp_step = Str.regexp "^[ ]*\\(!!\\|!!\\^\\|bigstep\\)" in
   let starts_with_step (str : string) : bool =
     Str.string_match regexp_step str 0 in
   let process_line (iline : int) (line : string) : unit =
@@ -626,7 +626,7 @@ let dump_trace_to_js (ctx : context) (prefix : string) (history_and_descr : (trm
     let isstartofbigstep =
       match stepdescr.isbigstep with
       | None -> false
-      | Some descr -> nextbigstep_descr := descr; true
+      | Some _descr -> true
       in
     let isendofbigstep = (i > 0 && isstartofbigstep) || i = n-1 in
     if isendofbigstep then begin
@@ -639,6 +639,10 @@ let dump_trace_to_js (ctx : context) (prefix : string) (history_and_descr : (trm
     if isstartofbigstep then begin
       cmd "cp tmp_before.cpp tmp_big.cpp";
       lastbigstepstart := i;
+      begin match stepdescr.isbigstep with
+      | None -> assert false
+      | Some descr -> nextbigstep_descr := descr
+      end;
     end
   ) history_and_descr;
   cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp tmp_big.cpp";
