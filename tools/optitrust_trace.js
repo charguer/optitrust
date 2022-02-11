@@ -216,6 +216,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initControls();
   // editor.setValue("click on a button");
   // loadSource(codes.length-1);
-  loadSource(0);
+  // loadSource(0);
+  loadBdiff(0);
 
 });

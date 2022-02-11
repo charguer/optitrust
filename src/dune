@@ -1,7 +1,7 @@
 (library
   (name optitrust)
   (public_name optitrust)
-  (libraries clangml refl pprint str))
+  (libraries clangml refl pprint str base64))
 
 (env
   (dev

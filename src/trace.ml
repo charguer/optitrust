@@ -583,13 +583,13 @@ let output_optitrust_ast_to_js ?(vars_declared : bool = false) (index : int) (pr
 
    var smallsteps = []; // smallsteps.length = codes.length - 1
    smallsteps[i] = { diff: window.atob("...");
-                     script: `...`;
+                     script: window.atob("...");
                      exectime: ... } // for future use
    var bigsteps = []; // bigsteps.length <= smallsteps.length
    bigstep.push ({ diff: window.atob("...");
                   start: idStart;
                   stop: idStop;
-                  descr : `...` });
+                  descr : window.atob("...") });
      // invariant: bigstep[j].stop = bigstep[j+1].start
    *)
 let dump_trace_to_js (ctx : context) (prefix : string) (history_and_descr : (trm*stepdescr) list) : unit =
@@ -620,7 +620,7 @@ let dump_trace_to_js (ctx : context) (prefix : string) (history_and_descr : (trm
     (* obtain smallstep diff *)
     if i > 0 then begin
       let diff = compute_diff() in
-      out (sprintf "smallsteps[%d] = { exectime: %d, script: `%s`, diff: window.atob(\"%s\") };\n" (i-1) stepdescr.exectime stepdescr.script diff);
+      out (sprintf "smallsteps[%d] = { exectime: %d, script: window.atob(\"%s\"), diff: window.atob(\"%s\") };\n" (i-1) stepdescr.exectime (Base64.encode_exn stepdescr.script) diff);
     end;
     (* obtain bigstep diff *)
     let isstartofbigstep =
@@ -632,7 +632,7 @@ let dump_trace_to_js (ctx : context) (prefix : string) (history_and_descr : (trm
     if isendofbigstep then begin
       cmd "mv tmp_big.cpp tmp_before.cpp";
       let diff = compute_diff() in
-      out (sprintf "bigsteps.push({ start: %d, stop: %d, descr: `%s`, diff: window.atob(\"%s\") });\n"  !lastbigstepstart i !nextbigstep_descr diff);
+      out (sprintf "bigsteps.push({ start: %d, stop: %d, descr: window.atob(\"%s\"), diff: window.atob(\"%s\") });\n"  !lastbigstepstart i (Base64.encode_exn !nextbigstep_descr) diff);
     end;
     (* shift files to prepare for next step *)
     cmd "mv tmp_after.cpp tmp_before.cpp";

@@ -18,7 +18,7 @@
    # Installation of opam: https://opam.ocaml.org/doc/Install.html
    sudo apt-get install opam
    opam switch create 4.11.0
-   opam install dune clangml pprint
+   opam install dune clangml pprint base64
    # (optional but recommended for vscode)
    opam install merlin ocp-indent user-setup
    # (includes ocaml-lsp-server)
