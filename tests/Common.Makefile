@@ -107,7 +107,7 @@ DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Instruction to keep intermediate files
-.PRECIOUS: %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_trace.js %_doc_out.cpp
+.PRECIOUS: %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_trace.js %_doc_out.cpp %_with_lines.ml
 
 # Rule for viewing the encoding of an output
 %.enc: %_out.cpp
