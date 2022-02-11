@@ -101,9 +101,12 @@ h2 {
 }
 
 .ctrl-button-selected {
+  background-color: #3C3F20;
+  color: white;
+}
+
+.ctrl-button-covered {
   background-color: #4CAF50;
-  /*background-color: "#000";*/
-  color: black: /*color: "#FFF";*/
 }
 
 #infoDiv {

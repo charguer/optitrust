@@ -94,6 +94,8 @@ function htmlSpan(contents, css) {
   return "<span class='" + css +"'>" + contents + "</span>";
 }
 
+var maxButtons = 10;
+
 var curSource = -1;
 var curSdiff = -1;
 var curBdiff = -1;
@@ -105,7 +107,45 @@ function resetView() {
   curSource = -1;
   curSdiff = -1;
   curBdiff = -1;
-  $(".ctrl-button").removeClass("ctrl-button-selected");
+  $(".ctrl-button").removeClass("ctrl-button-selected ctrl-button-covered");
+}
+
+function getBdiffCovering(sdiffId) {
+  for (var i = 0; i < bigsteps.length; i++) {
+    if (bigsteps[i].start <= sdiffId && sdiffId < bigsteps[i].stop) {
+      return i;
+    }
+  }
+  return -1; // should not happen
+}
+
+function showOrHide(obj, visible) {
+  if (visible) {
+    obj.show();
+  } else {
+    obj.hide();
+  }
+}
+
+function hideNoncoveredButtons(bdiffId) {
+  if (smallsteps.length <= maxButtons)
+    return; // no hiding needed if only a few steps
+  var step = bigsteps[bdiffId];
+  var start = step.start;
+  var stop = step.stop;
+  for (var i = 0; i <= codes.length; i++) {
+    showOrHide($("#button_code_" + i), (start <= i && i <= stop));
+    if (i < smallsteps.length)
+      showOrHide($("#button_sdiff_" + i), (start <= i && i < stop));
+  }
+}
+
+function showBdiffCovered(sdiffId) {
+  var bdiffId = getBdiffCovering(sdiffId);
+  if (bdiffId == -1)
+    return;
+  $("#button_bdiff_" + bdiffId).addClass("ctrl-button-covered");
+  hideNoncoveredButtons(bdiffId);
 }
 
 function displayInfo(descr) {
@@ -117,6 +157,7 @@ function loadSource(id) {
   $("#sourceDiv").show();
   editor.setValue(codes[id]);
   $("#button_code_" + id).addClass("ctrl-button-selected");
+  showBdiffCovered(id);
   curSource = id;
 }
 
@@ -129,6 +170,9 @@ function loadSdiff(id) {
   var sTime = htmlSpan(step.exectime + "ms", "timing-info") + "<div style='clear: both'></div>";
   displayInfo(sStep + sTime);
   $("#button_sdiff_" + id).addClass("ctrl-button-selected");
+  $("#button_code_" + id).addClass("ctrl-button-covered");
+  $("#button_code_" + (id+1)).addClass("ctrl-button-covered");
+  showBdiffCovered(id);
   curSdiff = id;
 }
 
@@ -141,7 +185,9 @@ function loadBdiff(id) {
   var sStep = htmlSpan(escapeHTML(step.descr), "step-info");
   displayInfo(sStep);
   curBdiff = id;
-  curSdiff = bigsteps[id].start - 1;
+  // $("#button_sdiff_" + bigsteps[id].start).addClass("ctrl-button-covered");
+  hideNoncoveredButtons(id);
+  curSdiff = bigsteps[id].start - 1; // -1 to anticipate for "next" being pressed
 }
 
 function nextSource() {
@@ -165,14 +211,7 @@ function nextBdiff() {
     if (curSdiff == -1 && curSource != -1) {
       curSdiff = curSource - 1;
     }
-    /* compute the id of the first bigstep that contains curSdiff */
-    for (var i = 0; i < bigsteps.length; i++) {
-      if (bigsteps[i].start >= curSdiff) {
-        curBdiff = i;
-        break;
-      }
-    }
-    curBdiff--; // anticipate for the +1 operation
+    curBdiff = getBdiffCovering(curSdiff) - 1; // anticipate for the +1 operation
   }
   var id = Math.min(curBdiff + 1, bigsteps.length-1);
   loadBdiff(id);

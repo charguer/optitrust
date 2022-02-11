@@ -11,7 +11,7 @@ let  _ = Flags.dump_trace := true
 
 let _ = Run.script_cpp (fun _ ->
 
-    bigstep "first part"; 
+    bigstep "first part";  
     !! Label.add "lab1" [cVarDef "a"];
     !! Label.add "lab2" [cVarDef "a"];
     bigstep "second part";

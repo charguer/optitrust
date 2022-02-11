@@ -233,7 +233,7 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   let starts_with_let (str : string) : bool =
     Str.string_match regexp_let str 0 in
   (* match a line that starts with '!!' or LATER '!^' or 'bigstep' *)
-  let regexp_step = Str.regexp "^[ ]*\\(!!\\|!!\\^\\|bigstep\\)" in
+  let regexp_step = Str.regexp "^[ ]*\\(!!\\|!\\^\\|bigstep\\)" in
   let starts_with_step (str : string) : bool =
     Str.string_match regexp_step str 0 in
   let process_line (iline : int) (line : string) : unit =
