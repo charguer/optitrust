@@ -1810,6 +1810,13 @@ let is_set_operation (t : trm) : bool =
     end
   | _ -> false
 
+
+(* check if [t] is a compound assignment *)
+let is_compound_assignment (t : trm) : bool =
+  match t.desc with 
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_compound_assgn_op _))}, _) -> true
+  | _ -> false
+
 (* [get_operation_arg t] get the arg of a get operation *)
 let get_operation_arg (t : trm) : trm =
   match t.desc with
@@ -2198,6 +2205,13 @@ let is_infix_prim_fun (p : prim) : bool =
     end
   | _ -> false
 
+(* [get_binop_from_prim p] *)
+let get_binop_from_prim (p : prim) : binary_op option = 
+  match p with 
+  | Prim_compound_assgn_op binop -> Some binop
+  | Prim_binop binop -> Some binop
+  | _ -> None
+
 (* [is_postfix_prim_fun p] *)
 let is_postfix_unary (unop : unary_op) : bool = 
   match unop with 
@@ -2259,6 +2273,10 @@ let trm_address_of ?(annot : trm_annot list = []) ?(typ : typ option = None) (t 
 (* [trm_var_get x] generates *x *)
 let trm_var_get ?(typ : typ option = None) (x : var) : trm =
   trm_get ~typ (trm_var ~typ x)
+
+(* [trm_var_addr ~typ x] generates &x*)
+let trm_var_addr ?(typ : typ option = None) (x : var) : trm = 
+  trm_address_of ~typ (trm_var ~typ x)
 
 (* [trm_var_possibly_mut ~const ty] *)
 let trm_var_possibly_mut ?(const : bool = false) ?(typ : typ option = None) (x : var) : trm =
@@ -2366,12 +2384,6 @@ let trm_ands (ts : trm list) : trm =
 (* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
 let trm_prim_compound ?(marks : mark list = []) ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None) ?(typ = None) ?(annot :trm_annot list = [])(binop : binary_op) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~is_statement ~typ ~annot ~marks (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
-
-(* [trm_prim_compound ~loc ~is_statement ~ctx ~typ binop t1 t2] generates a compound operation, ex t1+=t2*)
-let trm_prim_compound_encoded_as_set ?(loc = None) ?(is_statement = false) ?(ctx : ctx option = None) ?(typ = None) ?(annot : trm_annot list = []) (binop : binary_op) (tl : trm) (tr : trm) : trm =
-  let annot = App_and_set :: annot in
-  trm_set ~annot ~loc ~is_statement ~typ tl
-    (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx binop) [tl; tr])
 
 (* [trm_prim_postfix_as_set ~loc ~is_statement ~ctx ~typ ~annot binop tl tr] *)
 let trm_prim_postfix_as_set ?(loc = None) ?(is_statement = false) ?(ctx : ctx option = None) ?(typ = None) ?(annot : trm_annot list = []) (binop : binary_op) (tl : trm) (tr : trm) : trm =
