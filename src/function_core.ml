@@ -157,7 +157,6 @@ let inline (index: int) (body_mark : string option) (p_local : path) : Target.Tr
     return:
       ast of a binary compound operation
 *)
-
 let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm = 
   match t.desc with 
   | Trm_apps (f, [ls; rs]) when is_set_operation t ->
@@ -166,10 +165,8 @@ let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
       begin match trm_prim_inv f1 with 
       | Some p when is_infix_prim_fun p ->
         let aux s = Ast_to_c.ast_to_string s in 
-        let final_trm =
-        if aux ls = aux (get_operation_arg get_ls) then t else  trm_apps ~marks:t.marks f [ls; trm_apps f1 [arg; get_ls]] in
-        trm_annot_add App_and_set final_trm
-
+        let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> fail f.loc "use_infix_ops_aux: this should never happen" in 
+        if not (aux ls = aux (get_operation_arg get_ls)) then trm_prim_compound ~marks:t.marks binop ls get_ls else  trm_prim_compound ~marks:t.marks binop ls arg
       | _ -> 
         if allow_identity then t else
         fail f1.loc "use_infix_ops_aux: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"

@@ -3,7 +3,7 @@ open Target
 
 
 
-let _ = Run.doc_script_cpp (fun _ ->
+(* let _ = Run.doc_script_cpp (fun _ ->
     !! Instr_basic.accumulate [cLabelBody "fuse"];
   )
 "
@@ -15,7 +15,7 @@ int main() {
     x += 3;
   }
 }
-"
+" *)
 
 let _ = Run.script_cpp (fun _ ->
 

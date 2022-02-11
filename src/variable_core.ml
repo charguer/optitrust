@@ -303,7 +303,7 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
           in
       let init_trm, op = begin match ops with
       | Delocalize_arith (li, op) ->
-          trm_lit li,  (trm_prim_compound_encoded_as_set op
+          trm_lit li,  (trm_prim_compound op
                              curr_var_trm
                               (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])))
       | Delocalize_obj (clear_f, transfer_f) ->
