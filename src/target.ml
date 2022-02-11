@@ -898,9 +898,9 @@ let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
 
 let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> unit) (tg : target) : unit =
   let tg = fix_target tg in
-  Trace.call (fun t ->
-    let ps =
-      with_stringreprs_available_for tg t (fun t2 -> resolve_target tg t2) in
+  Trace.call (fun t -> with_stringreprs_available_for tg t (fun t ->
+    let ps = resolve_target tg t
+      (* ALTERNATIVE with_stringreprs_available_for tg t (fun t2 -> resolve_target tg t2) *) in
     let ps = if rev then List.rev ps else ps in
     let marks = List.map (fun _ -> Mark.next()) ps in
     let _t_before = t in
@@ -928,7 +928,7 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
               else fail None msg
       ) marks
     with Interrupted_applyi_on_transformed_targets t -> Trace.set_ast t (* view the ast when the bug appears *)
-    )
+    ))
 
 (* Variants *)
 
@@ -951,11 +951,12 @@ let iter_on_targets ?(rev : bool = false) (tr : trm -> path -> unit) (tg : targe
         unit
 *)
 let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
-  Trace.apply (fun t ->
+  Trace.apply (fun t -> with_stringreprs_available_for tg t (fun t ->
   let ps =
-    Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
+    Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () -> resolve_target_between tg t
+      (* ALTERNATIVE
       with_stringreprs_available_for tg t (fun t2 ->
-        resolve_target_between tg t2)) in
+        resolve_target_between tg t2) *) ) in
   let marks = List.map (fun _ -> Mark.next ()) ps in
   let t = Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () -> List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks) in
   try
@@ -977,7 +978,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
             else fail None msg
       )) t marks
     with Interrupted_applyi_on_transformed_targets t -> t
-)
+  ))
 
 (* [apply_on_transformed_targets_between ~replace_top transformer tr tg]:
     Same as [applyi_to_transformed_targets_between] except that here the index of the resolved_path is not considered.
@@ -1144,15 +1145,21 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
     let tg = enable_multi_targets tg in
     let ast = (get_ast()) in
-    let tg_paths = if Constr.is_target_between tg then
-      let tg_ps = (resolve_target_between tg ast) in
-      fst (List.split tg_ps)
-      else resolve_target tg ast in
+    (* LATER: it would be nice to avoid computing the
+       with_stringreprs_available_for which we already compute later on
+       during [tr tg]. *)
+    let tg_paths = with_stringreprs_available_for tg ast (fun ast ->
+      if Constr.is_target_between tg
+      then let tg_ps = resolve_target_between tg ast in
+           fst (List.split tg_ps)
+      else resolve_target tg ast
+      ) in
     tr tg;
     if reparse then begin
-    let fun_names = List.map get_toplevel_function_name_containing tg_paths in
-    let fun_names = Tools.list_remove_duplicates (List.filter_map (fun d -> d) fun_names) in
-    reparse_only fun_names end
+      let fun_names = List.map get_toplevel_function_name_containing tg_paths in
+      let fun_names = Tools.list_remove_duplicates (List.filter_map (fun d -> d) fun_names) in
+      reparse_only fun_names
+    end
 
 
 (* LATER: use this more efficient version that avoids computing path resolution twice
