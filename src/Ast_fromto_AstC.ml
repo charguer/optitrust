@@ -371,7 +371,8 @@ let rec cseq_items_void_type (t : trm) : trm =
       { t2 with desc = Trm_seq (Mlist.map enforce_unit ts) }
   | _ -> t2
 
-(* [unary_postfix_elim t] updates*)
+(* [unary_postfix_elim t] updates [t] in such a way that all postfix increment decrement instructions are turned into 
+    special write operations *)
 let unary_postfix_elim (t : trm) : trm = 
     let rec aux (t : trm) : trm = 
       match t.desc with 
@@ -379,22 +380,23 @@ let unary_postfix_elim (t : trm) : trm =
          let binop = match unop with | Unop_post_inc -> Binop_add | Unop_post_dec -> Binop_sub | _ -> fail t.loc "unary_postfix_elim: this should never happen" in 
          let tl = base in 
          let tr = trm_int 1 in 
-         trm_prim_compound_encoded_as_set ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl tr
+         trm_prim_postfix_as_set ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ binop tl tr
       | _ -> trm_map aux t 
     in aux t
 
-(* [unary_postfix_into t] *)
+(* [unary_postfix_into t] this is the inverse unary_postfix_elim . It takes a set operation 
+    with annotation [Post_fix_set] and converst it into a postfix instruction*)
 let unary_postfix_intro (t : trm) : trm =
   let rec aux t =
     match t.desc with
-    | Trm_apps (f_, [t; {desc = Trm_apps (f, [_; _]);_}]) when trm_annot_has Postfix_set t ->
+    | Trm_apps (_, [t1; {desc = Trm_apps (f, [_; _]);_}]) when trm_annot_has Postfix_set t ->
       begin match trm_prim_inv f with
       | Some (Prim_binop binop) ->
         let unop = begin match binop with 
         | Binop_add -> Unop_post_inc | Binop_sub -> Unop_post_dec | _ -> fail f.loc "unary_postfix_intro: this should never happen" 
         end in
         let annot = List.filter (fun annot -> match annot with | Annot_stringreprid _ -> true | _ -> false) t.annot in
-        trm_prim_postfix ~annot ~loc:t.loc ~is_statement:t.is_statement ~ctx:t.ctx ~marks:t.marks unop t
+        trm_prim_postfix ~annot ~loc:t.loc ~is_statement:t.is_statement ~ctx:t.ctx ~marks:t.marks unop t1
       | _ -> fail f.loc "unary_postfix_intro: expected a binary operator as an argument of a compound assignment"
       end
     | _ -> trm_map aux t

@@ -27,11 +27,12 @@ int f(int n) {
 
 
 void test_loop() {
+  int a = 0;
   for (int i = 0; i < 10; i++) {
-      i++;
+      a++;
   }
   for (int i = 10; i >= 0; i--) {
-      i++;
+      a--;
   }
   const int x = 3;
   const int y = 2;
