@@ -156,7 +156,7 @@ endif
 	$(V)$(OPTITRUST)/.vscode/add_lines.sh $< $@
 
 # Rule for building the js file describing the trace associated with a script
-%_trace.js: %.byte %.cpp %_with_lines.ml
+%_trace.js: %_with_lines.byte %.cpp %_with_lines.ml
 	$(V)OCAMLRUNPARAM=b ./$< -dump-trace $(FLAGS)
 
 # Rule for producing the expected output file from the result

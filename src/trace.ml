@@ -232,11 +232,12 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   let regexp_let = Str.regexp "^[ ]*let" in
   let starts_with_let (str : string) : bool =
     Str.string_match regexp_let str 0 in
-  let regexp_double_quote = Str.regexp "^[ ]*!!" in
-  let starts_with_double_quote (str : string) : bool =
-    Str.string_match regexp_double_quote str 0 in
+  (* match a line that starts with '!!' or LATER '!^' or 'bigstep' *)
+  let regexp_step = Str.regexp "^[ ]*\\(!!\\|bigstep\\)" in
+  let starts_with_step (str : string) : bool =
+    Str.string_match regexp_step str 0 in
   let process_line (iline : int) (line : string) : unit =
-    if starts_with_double_quote line then begin
+    if starts_with_step line then begin
       push();
       start := iline;
     end;
@@ -250,7 +251,7 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   !r
 
 (* [get_excerpt line] returns the piece of transformation script that starts on the given line. Currently returns the "" in case [compute_ml_file_excerpts] was never called. LATER: make it fail in that case. *)
-let get_excerpt (line : int) =
+let get_excerpt (line : int) : string =
   if line = - 1 then failwith "get_excerpt: requires a valid line number";
   if !ml_file_excerpts = Int_map.empty then "" else begin (* should "" be failure? *)
   match Int_map.find_opt line !ml_file_excerpts with
