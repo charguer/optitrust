@@ -1,9 +1,8 @@
 int main() {
   int x = 0;
-  x += 1;
   x++;
 }
-/*int main() {
+/* int main() {
   int x = 2;
   int y = 8;
   int c = 9;
@@ -13,4 +12,4 @@ int main() {
   c = 5;
   return 0;
 }
-*/
+ */

@@ -23,11 +23,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctx = cTopFunDef "matrix_vect_mul" in
   !^ Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
-  !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; cFieldWrite ~base:[cVar "res"] ()];
-  (* !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[x-y]"]; TODO: split between *)
+  !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[x-y]"]; (* TODO: split between *)
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
-  !! Instr.accumulate ~nb:8 [nbMulti; ctx; cFieldWrite ~base:[cVar "res"] ()];
-  (* !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp "res.*\\[0\\]"]; *)
+  !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp "res.*\\[0\\]"];
   !! Function.inline [cFun "matrix_vect_mul"];
 
   (* Part: vectorization in [cornerInterpolationCoeff] *)
@@ -96,8 +94,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !^ Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push.*"];
   !! Struct.to_variables [main; cVarDef "fieldAtPos"];
   !! Variable.insert_list ~reparse:true ~defs:(
-         ["const double", "factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
-       @ (map_dims (fun d -> "const double", ("factor" ^ d), expr ("factorC / cell" ^ d))))
+         ["const double", "factorC", "particleCharge * stepDuration * stepDuration / particleMass"]
+       @ (map_dims (fun d -> "const double", ("factor" ^ d), ("factorC / cell" ^ d))))
      [tBefore; cVarDef "nbSteps"];
 
   (* Part: scaling of electric field *)
@@ -191,7 +189,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: insert thread number and thread id *)
   !^ Sequence.insert ~reparse:false (stmt "int omp_get_thread_num();") [tBefore; main]; (* TODO: use a include instead *)
-  !! Variable.insert ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "8") [tBefore; main]; (* TODO: remove ~value, see comment in Variable.insert *)
+  !! Variable.insert ~name:"nbThreads" ~typ:"int" ~value:(lit "8") [tBefore; main]; (* TODO: remove ~value, see comment in Variable.insert *)
   !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"]; (* TODO: there is an extra semi-column appearing *)
        (* TODO: this could be just   Variable.insert ~name"idThread" ~value:(Omp.get_thread_num())
            where get_thread_num returns the term that corresponds to the function call; this would be more uniform. *)
@@ -207,7 +205,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Instr.move_out ~dest:[tAfter; main; cFor "step"] [nbMulti; main; cFun "MFREE"];
 
   (* Part: coloring *)
-  !^ Variable.insert_list ~defs:[("int","block",lit "2"); ("int","halfBlock",expr "block / 2")] [tBefore; cVarDef "nbCells"];
+  !^ Variable.insert_list ~defs:[("int","block","2"); ("int","halfBlock","block / 2")] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "bi" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [main; cFor ("i" ^ d)];
@@ -217,10 +215,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [main; cFor "ciX"];
 
   (* Part: introduce atomic push operations, but only for particles moving more than one cell away *)
-  !^ Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
+  !^ Variable.insert ~const:true ~typ:"coord" ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
   !! Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
         (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
-  !! Variable.insert ~const:true ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
+  !! Variable.insert ~const:true ~typ:"bool" ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:(trm_ands (map_dims (fun d ->
          expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
       [tBefore; main; cVarDef "b2"];
@@ -233,7 +231,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !^ Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
   !! Loop.hoist [main; cVarDef "idCell2"];
   !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
-  !! Variable.insert ~typ:(atyp "int&") ~name:"idCell2" ~value:(expr "idCell2_step[i]") [tBefore; main; cVarDef "p2"];
+  !! Variable.insert ~typ:"int&" ~name:"idCell2" ~value:(expr "idCell2_step[i]") [tBefore; main; cVarDef "p2"];
     (* LATER: fission should automatically do the duplication of references when necessary *)
 
   (* Part: Parallelization *)

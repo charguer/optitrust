@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
+(* let _ = Run.doc_script_cpp (fun _ ->
     
      !! Flow_basic.insert_if ~cond:(expr "x > 0") [sInstr "x++"];
     
@@ -11,15 +11,16 @@ let _ = Run.doc_script_cpp (fun _ ->
 int main() {
   int x = 0;
   x++;
-}
-"
+} 
+"*)
 (* TODO: cleanup after x++ and x--
    Document that  f(x++) is not supported by optitrust.
  *)
 
 
 let _ = Run.script_cpp (fun _ ->
-  show [cRead()];
+
+   !! Flow_basic.insert_if ~cond:(expr "x > 0") [sInstr "x++"];
 
   (* Demo with a single instruction *)
   !! Flow_basic.insert_if ~cond:(expr "x > 0") [cWriteVar "x"];
