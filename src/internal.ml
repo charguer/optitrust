@@ -36,7 +36,7 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
 (* check if two ast nodes when translated give the same code *)
 let same_trm ?(ast_decode:bool=false) (t1 : trm) (t2 : trm) : bool =
   if same_kind t1 t2 then
-    Ast_to_c.ast_to_string ~ast_decode t1 = Ast_to_c.ast_to_string ~ast_decode t2
+    AstC_to_c.ast_to_string t1 = AstC_to_c.ast_to_string  t2
    else false
 
 (* check if two values are equal *)

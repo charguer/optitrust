@@ -3,7 +3,7 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-      !! Loop_basic.fold ~index:"i" ~start:0 ~step:1 [cLabel "tofold"; dBody];
+      !! Loop_basic.fold ~index:"i" ~start:0 ~step:1 [cLabelBody "tofold"; ];
   )
 "
 int main() {

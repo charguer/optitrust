@@ -32,7 +32,7 @@ let read_last_write ?(write : Target.target = []) : Target.Transfo.t =
                    | _ -> ()
                    end
           ) tl
-        | _ -> fail seq_trm.loc (Printf.sprintf "read_last_write: expected the sequence which contains the targeted get operation got %s" (Ast_to_c.ast_to_string seq_trm))
+        | _ -> fail seq_trm.loc (Printf.sprintf "read_last_write: expected the sequence which contains the targeted get operation got %s" (AstC_to_c.ast_to_string seq_trm))
         end;
         begin match !write_index with
         | Some index ->

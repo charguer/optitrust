@@ -154,7 +154,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
     if another term is used for size: use b * t_size
    *)
     let new_size (t_size : trm) : trm =
-      if Ast_to_c.ast_to_string t_size =
+      if AstC_to_c.ast_to_string t_size =
          "sizeof(" ^ Ast_to_c.typ_to_string base_type ^ ")"
       then trm_var ("sizeof(" ^ block_name ^ ")")
       else trm_apps (trm_binop Binop_mul) [trm_var block_size; t_size]

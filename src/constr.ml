@@ -705,19 +705,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_typedef _ | Trm_let_record _-> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
-   (* LATER: discuss why we once deprecated the above version
-      | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr*)
-   | Trm_apps (f,_) ->
-     begin match trm_prim_inv f with
-     | Some p ->
-      begin match p with
-      | Prim_unop Unop_post_inc | Prim_unop Unop_post_dec | Prim_unop Unop_pre_inc
-        | Prim_unop Unop_pre_dec | Prim_binop Binop_set | Prim_overloaded_op (Prim_binop Binop_set) -> TrmKind_Instr
-      | _ -> TrmKind_Expr
-      end
-     | _ -> TrmKind_Expr
-     end
-
+   | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
    | Trm_labelled (_, t) -> get_trm_kind t
    | Trm_omp_directive _ | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ -> TrmKind_Any
@@ -756,7 +744,6 @@ let print_stringreprs () : unit =
 (* [get_stringrepr t] returns the string representation saved in table [stringreprs],
    or an empty string otherwise *)
 let get_stringrepr (t : trm) : string =
-  if not !Flags.use_new_encodings then Ast_to_c.ast_to_string t else begin (* this line will be deprecated *)
     match !stringreprs with
     | None -> if is_get_operation t  then "" else fail t.loc (Printf.sprintf "get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
     | Some m ->
@@ -770,7 +757,6 @@ let get_stringrepr (t : trm) : string =
           | Some s -> s
           end
         | None -> ""
-  end
 
 let match_regexp_trm_kind (k : trm_kind) (t : trm) : bool =
   (k = TrmKind_Any) || (get_trm_kind t = k)
@@ -1121,7 +1107,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
         (* printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
           (if strict then "true" else "false")
           (target_to_string trs)
-          (Ast_to_c.ast_to_string ~ast_decode:false t)
+          (AstC_to_c.ast_to_string ~ast_decode:false t)
           (paths_to_string ~sep:"\n   " res_deep)
           (paths_to_string ~sep:"\n   " res_here); *)
 

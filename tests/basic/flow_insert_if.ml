@@ -12,11 +12,6 @@ int main() {
 }
 "
 
-(* TODO: cleanup after x++ and x--
-   Document that  f(x++) is not supported by optitrust.
- *)
-
-
 let _ = Run.script_cpp (fun _ ->
 
   (* Demo with a single instruction *)

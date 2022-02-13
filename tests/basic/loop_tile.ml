@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
+(* let _ = Run.doc_script_cpp (fun _ ->
     !! Loop_basic.tile "3" ~index:"bi" ~bound:TileBoundDivides [cFor "i"];
        Loop_basic.tile "3" ~index:"bj" ~bound:TileBoundAnd [cFor "j"];
   )
@@ -13,7 +13,7 @@ int main() {
   for (int j = 0; (j < 10); j++) {
   }
 }
-"
+" *)
 
 let _ = Run.script_cpp (fun _ ->
 

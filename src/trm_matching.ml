@@ -98,8 +98,8 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
         if Ast.is_trm_uninitialized t0 then
           inst := Trm_map.add x (ty,u) !inst
         else if not (Internal.same_trm ~ast_decode:false t0 u) then begin
-          Tools.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x (Ast_to_c.ast_to_string t0) (Ast_to_c.ast_to_string u);
-          Tools.printf "Witout encodings: '%s' is not identical to '%s'.\n" (Ast_to_c.ast_to_string ~ast_decode:false t0) (Ast_to_c.ast_to_string ~ast_decode:false u);
+          Tools.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x (AstC_to_c.ast_to_string ~optitrust_syntax:true t0) (AstC_to_c.ast_to_string ~optitrust_syntax:true u);
+          Tools.printf "Witout encodings: '%s' is not identical to '%s'.\n" (AstC_to_c.ast_to_string t0) (AstC_to_c.ast_to_string  u);
           Tools.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
           raise Rule_mismatch
         end
@@ -122,7 +122,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
 
   let rec aux (t1 : trm) (t2 : trm) : unit =
     let mismatch ?(t1:trm=t1) ?(t2:trm=t2) () : unit =
-      Tools.printf "Mismatch on subterm, comparing '%s' with '%s'.\n" (Ast_to_c.ast_to_string t1) (Ast_to_c.ast_to_string t2);
+      Tools.printf "Mismatch on subterm, comparing '%s' with '%s'.\n" (AstC_to_c.ast_to_string t1) (AstC_to_c.ast_to_string t2);
       Tools.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t1.loc) (Ast.loc_to_string t2.loc);
       raise Rule_mismatch
       in
@@ -217,7 +217,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
     in
   begin try aux pat t
   with Rule_mismatch ->
-    Tools.printf "Mismatch comparing\n------\n%s\n------\n%s\n------\n" (Ast_to_c.ast_to_string ~ast_decode:false pat) (Ast_to_c.ast_to_string ~ast_decode:false t);
+    Tools.printf "Mismatch comparing\n------\n%s\n------\n%s\n------\n" (AstC_to_c.ast_to_string ~optitrust_syntax:true pat) (AstC_to_c.ast_to_string ~optitrust_syntax:true t);
     raise Rule_mismatch
   end;
   Trm_map.map (fun (_ty,t) -> t) !inst

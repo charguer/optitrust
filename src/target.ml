@@ -823,11 +823,11 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
     | _ ->
         let marks = List.map (fun _ -> Mark.next()) ps in
         (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
-        (* Tools.printf "Before applyin_marks: %s\n" (Ast_to_c.ast_to_string t); *)
+        (* Tools.printf "Before applyin_marks: %s\n" (AstC_to_c.ast_to_string t); *)
         let t =
             Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () ->
               List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
-        (* Tools.printf "After applying_marks: %s\n" (Ast_to_c.ast_to_string t); *)
+        (* Tools.printf "After applying_marks: %s\n" (AstC_to_c.ast_to_string t); *)
         (* iterate over these marks *)
         begin try
           Tools.fold_lefti (fun imark t m ->

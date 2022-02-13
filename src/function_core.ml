@@ -164,7 +164,7 @@ let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
     | Trm_apps (f1, [get_ls; arg]) ->
       begin match trm_prim_inv f1 with 
       | Some p when is_infix_prim_fun p ->
-        let aux s = Ast_to_c.ast_to_string s in 
+        let aux s = AstC_to_c.ast_to_string s in 
         let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> fail f.loc "use_infix_ops_aux: this should never happen" in 
         if not (aux ls = aux (get_operation_arg get_ls)) then trm_prim_compound ~marks:t.marks binop ls get_ls else  trm_prim_compound ~marks:t.marks binop ls arg
       | _ -> 

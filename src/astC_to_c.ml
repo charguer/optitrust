@@ -678,7 +678,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
           let value = List.hd tl in
           string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
         end
-     | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
+     | _ -> fail f.loc (Printf.sprintf "apps_to_doc: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
      end
    | _ ->
       Ast_to_text.print_ast ~only_desc:true stdout f;
@@ -937,7 +937,7 @@ let ast_to_file ?(optitrust_syntax:bool=false) (filename : string) (t : trm) : u
   ast_to_outchannel ~optitrust_syntax out t;
   close_out out
 
-let ast_to_string (t : trm) : string =
+let ast_to_string ?(optitrust_syntax : bool = false) (t : trm) : string =
   Tools.document_to_string (ast_to_doc t)
 
 let typ_to_string (ty : typ) : string =

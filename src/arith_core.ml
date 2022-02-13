@@ -102,7 +102,7 @@ let no_atoms = Atom_map.empty
 
 (* [print_atom_map k v] pretty print the keys and values of an atom_map  *)
 let print_atom_map (k : int) (v : trm) : unit =
-  Tools.printf "Atom_id : %d assigned to node %s _n" k (Ast_to_c.ast_to_string v)
+  Tools.printf "Atom_id : %d assigned to node %s _n" k (AstC_to_c.ast_to_string v)
 
 
 (******************************************************************************)

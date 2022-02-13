@@ -36,7 +36,7 @@ int main() {
     }
   }
   for (int bk = 0; bk < 13; bk += 2 * 3) {
-    for (int k = bk; k < bk + 2 * 3 && k < 13; *k += 3) {
+    for (int k = bk; k < bk + 2 * 3 && k < 13; k += 3) {
       t3 += k;
     }
   }

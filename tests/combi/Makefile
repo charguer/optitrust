@@ -54,7 +54,6 @@ TESTS_WITHOUT_DOC := \
 TESTS_TOCHECK := \
 	function_beta.ml \
 	function_uninline.ml \
-	instr_accumulate.ml \
 	instr_accumulate_targets.ml \
 	matrix_delocalize.ml \
 	matrix_intro_mops.ml \
@@ -62,6 +61,8 @@ TESTS_TOCHECK := \
 
 TESTS_TO_FIX := \
 	loop_unroll.ml \
+	instr_accumulate.ml \
+
   
 # 	variable_renames.ml \
 

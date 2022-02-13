@@ -363,7 +363,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
             ) in {t with desc = Trm_switch (cond, updated_cases)}
         | _, _ ->
            let s = dir_to_string d in
-           fail t.loc (Printf.sprintf "apply_on_path: direction %s does not match with trm %s" s (Ast_to_c.ast_to_string t))
+           fail t.loc (Printf.sprintf "apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
 
        end in
         { newt with typ = None; ctx = None }
@@ -509,7 +509,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
 
        | _, _ ->
           let s = dir_to_string d in
-          let s_t = Ast_to_c.ast_to_string t in
+          let s_t = AstC_to_c.ast_to_string t in
           fail loc (Tools.sprintf "resolve_path_and_ctx: direction  %s does not match with the following term %s" s s_t )
        end
   in

@@ -37,7 +37,7 @@ let set_explicit_aux (t : trm) : trm =
           | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef"
         else begin
           (* Tools.printf "%s\n" (Ast_to_text.ast_to_string t); *)
-          Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
+          Tools.printf "%s\n" (AstC_to_c.ast_to_string t);
           fail t.loc "set_explicit_aux: explicit assignment cannot operate on unknown types"
         end
       in

@@ -16,6 +16,8 @@ TESTS_WITH_DOC := \
 	array_tile.ml \
 	array_to_variables.ml \
 	cast_insert.ml \
+	flow_insert_if.ml \
+	function_beta.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
 	function_uninline.ml \
@@ -28,11 +30,14 @@ TESTS_WITH_DOC := \
 	label_add.ml \
 	label_remove.ml \
 	loop_color.ml \
+	loop_fission.ml \
+	loop_fold.ml \
 	loop_fusion.ml \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
 	loop_moveout.ml \
 	loop_swap.ml \
+	loop_tile.ml \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
@@ -50,6 +55,7 @@ TESTS_WITH_DOC := \
 	sequence_intro_on_instr.ml \
 	sequence_partition.ml \
 	sequence_split.ml \
+	specialize_any.ml \
 	struct_fields_reorder.ml \
 	struct_inline.ml \
 	struct_rename_field.ml \
@@ -83,6 +89,7 @@ TESTS_WORKING_NOTINDOC := \
 TESTS_TOCHECK := \
 	accesses_intro.ml \
 	include_inline.ml \
+	matrix_delocalize.ml \
 	matrix_intro_mcalloc.ml \
 	matrix_intro_mindex.ml \
 	matrix_intro_mmalloc.ml \
@@ -99,23 +106,13 @@ TESTS_TOCHECK := \
 #	matrix_insert_access_dim_index.ml \
 
 TESTS_TO_FIX := \
-	struct_simpl_proj.ml \
-	flow_insert_if.ml \
-	function_beta.ml \
-	specialize_any.ml \
-	loop_fission.ml \
-	loop_fold.ml \
-	loop_tile.ml \
-
-
-  
+	struct_simpl_proj.ml \  
 
 NOT_NEEEDED_TO_FIX := \
 	array_swap.ml \
 	aos_to_soa_typedef.ml \
 	aos_to_soa_sized_array.ml \
 	variable_change_type.ml \
-	matrix_delocalize.ml \
 
   
 

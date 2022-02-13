@@ -45,7 +45,7 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
     | Some {loc_file = _; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
        Printf.sprintf "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in
-  let msg = Printf.sprintf (" -expression\n%s\n" ^^ " %s is a %s\n") (Ast_to_c.ast_to_string t) sloc exp_type in
+  let msg = Printf.sprintf (" -expression\n%s\n" ^^ " %s is a %s\n") (AstC_to_c.ast_to_string t) sloc exp_type in
  write_log clog msg
 
 (******************************************************************************)
