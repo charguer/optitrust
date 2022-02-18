@@ -175,7 +175,7 @@ let hoist (name : var) (index : int): Target.Transfo.local =
         trm_for loop_index start direction stop step b2;]
     | _ -> fail t.loc "fission_aux: expected the sequence inside the loop body"
     end
-  | _ -> fail t.loc "fission_aux: onl simple loops are supported"
+  | _ -> fail t.loc "fission_aux: only simple loops are supported"
 
  let fission (index : int) : Target.Transfo.local=
   Target.apply_on_path (fission_aux index)

@@ -373,6 +373,25 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
   List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs;
   reorder ~order [Target.cFor first_cs]
 
+(* [fission tg] if [split_between] is false then this function just calls Loop_basic.fission otherwise
+    it will split the targeted loop into unit instructions   
+*)
+let fission ?(split_between : bool = false) (tg : Target.target) : unit = 
+  if not split_between 
+    then Loop_basic.fission tg 
+    else Internal.nobrace_remove_after(fun _ ->
+      Target.apply_on_targets (fun t p -> 
+        let tg_trm = Path.resolve_path p t in 
+        match tg_trm.desc with 
+        | Trm_for (loop_index, start, direction, stop, step, body) ->
+          begin match body.desc with
+          | Trm_seq tl ->
+            let body_lists = List.map (fun t1 -> trm_seq_nomarks [t1] ) (Mlist.to_list tl) in 
+            trm_seq_no_brace (List.map (fun t1 -> trm_for loop_index start direction stop step t1) body_lists)
+          | _ -> fail t.loc "fission_aux: expected the sequence inside the loop body"
+          end
+        | _ -> fail t.loc "fission_aux: only simple loops are supported") tg)
+  
 
 (* [fold ~index ~start ~step ~nb_instr tg] expects the target [tg] to be pointing to an instruction folloed by [nb_instr] -1 instructions
       which could be expressed into a single for loop with [index], [start], [nb_instr] and [step] as its components.
