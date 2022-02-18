@@ -23,8 +23,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctx = cTopFunDef "matrix_vect_mul" in
   !^ Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
-  !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; cFieldWrite ~base:[cVar "res"] ()];
-  (* !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[x-y]"]; TODO: split between *)
+  
+  !! Loop.fission ~split_between:true [ctx; cFor "k"]; 
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; cFieldWrite ~base:[cVar "res"] ~field:"x" ()];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; cFieldWrite ~base:[cVar "res"] ~field:"y" ()];

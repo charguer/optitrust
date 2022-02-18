@@ -387,7 +387,7 @@ let fission ?(split_between : bool = false) (tg : Target.target) : unit =
           begin match body.desc with
           | Trm_seq tl ->
             let body_lists = List.map (fun t1 -> trm_seq_nomarks [t1] ) (Mlist.to_list tl) in 
-            trm_seq_no_brace (List.map (fun t1 -> trm_for loop_index start direction stop step t1) body_lists)
+            Target.apply_on_path (fun t -> trm_seq_no_brace (List.map (fun t1 -> trm_for loop_index start direction stop step t1) body_lists)) t p
           | _ -> fail t.loc "fission_aux: expected the sequence inside the loop body"
           end
         | _ -> fail t.loc "fission_aux: only simple loops are supported") tg)
