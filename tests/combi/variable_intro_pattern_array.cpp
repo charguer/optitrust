@@ -12,9 +12,9 @@ typedef struct {
 
 
 double_nbCorners cornerInterpolationCoeff(vect pos) {
-  double rx = pos.x;
-  double ry = pos.y;
-  double rz = pos.z;
+  const double rx = pos.x;
+  const double ry = pos.y;
+  const double rz = pos.z;
   return { {
     (1. + -1. * rx) * (1. + -1. * ry) * (1. + -1. * rz),
     (1. + -1. * rx) * (1. + -1. * ry) * (0. + 1. * rz),

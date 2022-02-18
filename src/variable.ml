@@ -156,8 +156,8 @@ let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_in
 let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false) ~pattern_vars:(pattern_vars : string ) ~pattern:(pattern : string) (tg : Target.target) : unit =
   Trace.call (fun t ->
   (* Temporary hack till Arthur enables the usage of the new parser *)
-  let str = pattern_vars ^ " ==>" ^ pattern_aux_vars ^ " ==> " ^ pattern in
-  let minimal_index = ref 10000 in
+  let str = pattern_vars ^ "==>" ^ pattern_aux_vars ^ "==> " ^ pattern in
+  let minimal_index = ref 10000 in (* 10000 is considered as infinity, we assume here that there will no block of code with 10k instructions *)
   let (pattern_vars, pattern_aux_vars, pattern_instr) = Trm_matching.parse_pattern str in
   let path_to_surrounding_seq = ref [] in
   let paths = Target.resolve_target tg t in

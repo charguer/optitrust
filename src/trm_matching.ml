@@ -38,7 +38,7 @@ let parse_pattern (str : string) : (typed_vars * typed_vars *trm) =
   let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else fix_pattern_args aux_var_decls in
 
   let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
-  let file_content = "bool f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ "\n}" in
+  let file_content = "bool f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
   Xfile.put_contents output_file file_content;
   let _, ast_of_file = Trace.parse output_file in
   match ast_of_file.desc with
