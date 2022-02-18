@@ -53,7 +53,7 @@ let fold ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.targ
             | _ -> if nonconst = true
                 then Variable_basic.fold ~at (Target.target_of_path p)
                 else
-                  fail tg_trm.loc "fold: if you want to use fold_lefting for mutable variables you should set
+                  fail tg_trm.loc "fold: if you want to use fold for mutable variables you should set
                             ~nonconst to true when calling this transformation"
             end
       end
@@ -224,7 +224,7 @@ let reuse ~space:(space : trm) ?(reparse : bool = false) : Target.Transfo.t =
 (* [renames rename tg] expects [tg] to point to a sequence.
     [rename] can be either ByList l where l denotes a list of pairs where
     each pair has the current variable and the one which is going to replace it.
-    Or AddSuffix s, if this is the case then all the variable declared inside the targeted sequence
+    Or AddSuffix s, if this is the case then all the variable declared inside the targeted sequencev
      are going to be renamed by adding the suffix at the end of its current name.
 *)
 let renames (rename : rename) : Target.Transfo.t = 

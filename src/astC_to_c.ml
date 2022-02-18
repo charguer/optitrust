@@ -388,7 +388,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) (t : trm) : document =
         let code_str =
         begin match a_kind with
         | Lit l -> string l
-        | Expr e -> parens (string e)
+        | Expr e -> string e
         | Stmt s -> string s
         | _ -> fail t.loc "trm_to_doc: arbitrary code should be entered by using Lit, Expr and Stmt only"
         end  in

@@ -29,7 +29,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; cFieldWrite ~base:[cVar "res"] ~field:"x" ()];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; cFieldWrite ~base:[cVar "res"] ~field:"y" ()];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; cFieldWrite ~base:[cVar "res"] ~field:"z" ()];
-  (* !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp "res.*\\[0\\]"]; *)
   !! Function.inline [cFun "matrix_vect_mul"];
 
   (* Part: vectorization in [cornerInterpolationCoeff] *)
@@ -37,15 +36,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctx = cChain [ctxf; sInstr "r.v"] in
   !^ Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
-  !!! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ;"
-      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;"
-      ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);"
-      [nbMulti; ctx; dRHS];   
-  !! Loop.fold_instrs ~index:"k" [ctx];
+  (* !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
+      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
+      ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
+      [nbMulti; ctx; dRHS];    *)
+  (* !! Loop.fold_instrs ~index:"k" [ctx]; *) (* TODO: Fix me! *)
 
   (* Part: update particles in-place instead of in a local variable *) (* LATER: it might be possible to change the script to postpone this step *)
   !^ Variable.reuse ~space:(expr "p->speed") [main; cVarDef "speed2" ];
-  !! Variable.reuse ~space:(expr "p->pos") [main; cVarDef "pos2"];
+  !! Variable.reuse ~reparse:true ~space:(expr "p->pos") [main; cVarDef "pos2"];
 
   (* Part: reveal write operations involved manipulation of particles and vectors *)
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in

@@ -420,4 +420,4 @@ let fold_instrs ~index:(index : var) ?(start : int = 0) ?(step : int = 1) (tg : 
     ) tg;
     if !nb_targets < 1 then fail None "fold_instrs: expected at least 1 instruction";
     fold ~index ~start ~step !nb_targets first_target;
-    Variable.fold [Target.nbAny;Target.cVarDef "" ~body:[Target.cInt !nb_targets]]
+    Variable.fold ~nonconst:true [Target.nbAny;Target.cVarDef "" ~body:[Target.cInt !nb_targets]]

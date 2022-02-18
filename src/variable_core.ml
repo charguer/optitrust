@@ -147,11 +147,12 @@ let rename (new_name : var) (index : int): Target.Transfo.local =
       return:
         updated [t] with all the replaced occurrences
 *)
-
-let rec subst_aux (name : var) (space : trm) (t : trm) : trm =
-  match t.desc with
-  | Trm_var (_, y) when y = name -> space
-  | _ -> trm_map (subst_aux name space) t
+let subst_aux (name : var) (space : trm) (t : trm) : trm =
+  (* A hack for cases when space is not a variable, to be able to avoid the unnecessary get operation & is added manually *)
+  (* let new_space = match space.desc with 
+  | Trm_arbitrary _ -> trm_address_of space
+  | _ -> space in  *)
+  Internal.subst_var name space t
 
 let subst (name : var)(space : trm) : Target.Transfo.local =
   Target.apply_on_path (subst_aux name space)

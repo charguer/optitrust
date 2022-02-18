@@ -52,6 +52,7 @@ let precedence_trm (t : trm) : precedence =
   | Trm_val (Val_prim p) -> precedence_prim p
   | Trm_val (Val_lit _ ) -> (30, NA)
   | Trm_var _ -> (20, NA)
+  | Trm_arbitrary _ -> (100, NA)
   | _ -> precedence_none
 
 let parentheses_needed ?(prec : int = 0)  (t : trm) = 

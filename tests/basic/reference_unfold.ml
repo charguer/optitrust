@@ -18,5 +18,5 @@ let _ = Run.script_cpp ( fun _ ->
   !! Variable_basic.unfold ~at:[cVarDef "r1"] [cVarDef "y"];
   !! Variable_basic.unfold ~at:[cVarDef "r3"] [cVarDef "b"];
   (* inline (with definition of the definition) *)
-  !! Variable_basic.inline [cVarDef "a"];
+  !! Variable_basic.unfold [cVarDef "a"];
 )

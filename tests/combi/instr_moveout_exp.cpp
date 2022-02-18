@@ -1,8 +1,10 @@
+int a = 5;
+
+int b = 6;
+
 int *t;
 
 int main() {
-  int a = 5;
-  int b = 6;
   int x = a + b;
   for (int i = 0; i < 10; i++) {
     int r = i;

@@ -37,8 +37,6 @@ TESTS_WITH_DOC := \
 	variable_renames.ml \
 	variable_reuse.ml \
 
-# 	loop_fold_instrs.ml \
-
 TESTS_WITHOUT_DOC := \
 	function_bind_args.ml \
 	function_bind.ml \
@@ -47,6 +45,7 @@ TESTS_WITHOUT_DOC := \
 	function_inline_struct.ml \
 	loop_move.ml \
 	loop_fission.ml \
+	loop_fold_instrs.ml \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_elim_redundant.ml \

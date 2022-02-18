@@ -562,20 +562,6 @@ let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
     if yes then assign its values otherwise do nothing
 *)
 (* LATER: open question: can this be implemented using onscope? *)
-
-(* let subst (tm : tmap) (t : trm) : trm =
-  let rec function_to_apply (t : trm) : trm =
-    match t.desc with
-    | Trm_var (_, x) ->
-      begin match Trm_map.find_opt x tm with
-      | Some t1 -> t1
-      | _ -> t
-      end
-    | _ -> trm_map function_to_apply t
-  in
-  trm_map function_to_apply t *)
-
-
 let rec subst (tm : tmap) (t : trm) : trm = 
   let aux (t : trm) : trm = 
     subst tm t in 
@@ -585,10 +571,20 @@ let rec subst (tm : tmap) (t : trm) : trm =
     let tm2 = Trm_map.filter (fun k v -> not (f k)) tm in 
     subst tm2 t in  
   match t.desc with 
+  (* Hack to avoid unnecessary get operations when we substitute a variable occurrence with arbitrary code *)
   | Trm_var (_, x) -> 
     begin match Trm_map.find_opt x tm with 
-    | Some t1 -> t1
+    | Some t1 -> t1 
     | _ -> t
+    end
+  | Trm_apps (_, [{desc = Trm_var (_, x)}]) when is_get_operation t -> 
+    begin match Trm_map.find_opt x tm with 
+    | Some t1 -> 
+      begin match t1.desc with 
+      | Trm_arbitrary _ -> t1
+      | _ -> trm_map aux t
+      end
+    | _ ->  t
     end
   | Trm_seq ts -> 
     let cur_tm = ref tm in 
@@ -616,10 +612,9 @@ let rec subst (tm : tmap) (t : trm) : trm =
 
 (* [subst x u t] replace all the occurences of x with t *)
 let subst_var (x : var) (u : trm) (t : trm) =
-  let tmap =  Trm_map.empty  in
-  let tmap = Trm_map.add x u tmap  in
+  let empty_tmap =  Trm_map.empty  in
+  let tmap = Trm_map.add x u empty_tmap  in
   subst tmap t
-
 
 (* [clean_nobraces tg] Remove all the hidden sequence starting from target [ŧg] *)
 let clean_nobraces : Transfo.t =

@@ -4,6 +4,7 @@ int main() {
   y = 3;
   int r1 = x + x;
   int t[2] = {4, 5};
+  int &a = t[1];
   t[1] = 3;
   int r2 = t[1] + t[1];
   int m[3][3];
