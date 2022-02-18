@@ -12,8 +12,8 @@ let _ = Run.script_cpp (fun _ ->
   
   (* with naming of the arguments *)
   (* !! Trace.alternative (fun () ->
-    TODO: Fix this error
-    !! Function.inline  ~args:["v"] [cFunDef "main";cFun "f"];
+    (* TODO: Fix this error *)
+    !! Function.inline  ~args:["v"] [nbMulti;cFunDef "main";cFun "f"];
     !!()); *)
   (* inlining a function with if else branches *)
   !! Function.inline [cFun "g"];

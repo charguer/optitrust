@@ -62,7 +62,6 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	loop_unroll.ml \
 	instr_accumulate.ml \
-
   
 # 	variable_renames.ml \
 

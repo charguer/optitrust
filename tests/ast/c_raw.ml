@@ -3,7 +3,7 @@ open Target
 
 (* This test if for testing only the roudntrip of parsing+printing, without encodings *)
 
-(* TODO: the test should execute a command to check that the diff is empty, e.g.
+(* LATER: the test should execute a command to check that the diff is empty, e.g.
       let r = Sys.command (diff ... ) in
       r = 0
   *)

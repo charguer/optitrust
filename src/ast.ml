@@ -2505,11 +2505,6 @@ let rec simpl_array_get_get (t : trm) : trm =
     end
   | _ -> trm_map aux t
 
-(* [simpl_accesses t] *)
-let simpl_accesses (t : trm) = 
- trm_simplify_addressof_and_get (simpl_struct_get_get (simpl_array_get_get t))
-
-
 (* TODO: define simpl_accesses, a function that calls
    simpl_struct_get (trm_simplify_addressof_and_get t)
    use this function instead of trm_simplify_addressof_and_get
@@ -2519,6 +2514,11 @@ let simpl_accesses (t : trm) =
 
    TODO: define [Expr.simpl_accesses tg] to invoke this transformation
    on the AST.  If tg = [], use dRoot. *)
+
+
+(* [simpl_accesses t] *)
+let simpl_accesses (t : trm) = 
+ trm_simplify_addressof_and_get (simpl_struct_get_get (simpl_array_get_get t))
 
 (* [array_access base index] generates array_access (base, index) *)
 let array_access (base : trm) (index : trm) : trm =
