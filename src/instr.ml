@@ -1,9 +1,6 @@
 open Ast
 include Instr_basic
 
-
-
-
 (* [read_last_write ~write tg] expects the target [tg] to be pointing at a read operation
     then it will take the value of the write operation [write] and replace the current read operation
     with that value, if [tg] doesn't point to a read operation then the transformation will fail

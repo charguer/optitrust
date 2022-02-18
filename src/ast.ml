@@ -1804,7 +1804,7 @@ let is_set_operation (t : trm) : bool =
   match t.desc with
   | Trm_apps (f, _) ->
     begin match trm_prim_inv f with
-    | Some (Prim_binop Binop_set)
+    | Some (Prim_binop Binop_set) | Some(Prim_compound_assgn_op _)
      | Some (Prim_overloaded_op (Prim_binop Binop_set)) -> true
     | _ -> false
     end
