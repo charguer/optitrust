@@ -1,6 +1,6 @@
-const int z = (y / x);
+const int z = y / x;
 
-const int y = (x / 2);
+const int y = x / 2;
 
 const int x = 1;
 

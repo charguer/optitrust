@@ -572,19 +572,11 @@ let rec subst (tm : tmap) (t : trm) : trm =
     subst tm2 t in  
   match t.desc with 
   (* Hack to avoid unnecessary get operations when we substitute a variable occurrence with arbitrary code *)
-  | Trm_var (_, x) -> 
-    begin match Trm_map.find_opt x tm with 
-    | Some t1 -> t1 
-    | _ -> t
-    end
-  | Trm_apps (_, [{desc = Trm_var (_, x)}]) when is_get_operation t -> 
+  | Trm_var (vk, x) -> 
     begin match Trm_map.find_opt x tm with 
     | Some t1 -> 
-      begin match t1.desc with 
-      | Trm_arbitrary _ -> t1
-      | _ -> trm_map aux t
-      end
-    | _ ->  t
+      if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1 
+    | _ -> t
     end
   | Trm_seq ts -> 
     let cur_tm = ref tm in 

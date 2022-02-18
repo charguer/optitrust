@@ -1774,19 +1774,15 @@ let is_typ_ptr (ty : typ) : bool =
   | _ -> false
 
 (* [is_get_operation t] check if [t] is a struct access get operation of a immutable variable get operation *)
-let is_star_operation (t : trm) : bool =
-  match t.desc with
-  | Trm_apps (f, _) ->
-    begin match trm_prim_inv f with
-    | Some (Prim_unop Unop_get) -> true
-    | _ -> false
-    end
-  | _ -> false
-
-(* [is_get_operation t] check if [t] is a struct access get operation of a immutable variable get operation *)
 let is_get_operation (t : trm) : bool =
   match t.desc with
   | Trm_apps ({desc = Trm_val(Val_prim (Prim_unop Unop_get))}, _) -> true
+  | _ -> false
+
+(* [is_address_operation t] check if [t] is of the form &x*)
+let is_address_operation (t : trm) : bool =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val(Val_prim (Prim_unop Unop_address ))}, _) -> true
   | _ -> false
 
 (* [is_new_operation t] check if [t] is new operation *)
@@ -2141,11 +2137,11 @@ let tmap_filter (keys : vars) (map : tmap) : tmap =
   Trm_map.filter (fun k _ -> not (List.mem k keys)) map
 
 
-(* [is_trm t] check if [t] is a proper ast node or not *)
-let is_trm (t : trm) : bool =
+(* [is_trm_arbit t] check if [t] is a proper ast node or not *)
+let is_trm_arbit (t : trm) : bool =
   match t.desc with
-  | Trm_arbitrary _ -> false
-  | _ -> true
+  | Trm_arbitrary _ -> true
+  | _ -> false
 
 (* [is_typ ty] check if [ty] is a type ast or a string *)
 let is_typ (ty : typ) : bool =
