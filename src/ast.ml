@@ -2254,9 +2254,14 @@ let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool =
   | _, _ -> false
 
 
-(* [trm_access base field] create a dummy access without type checking*)
+(* [trm_struct_access~typ base field]*)
 let trm_struct_access ?(typ : typ option = None) (base : trm) (field : var) : trm =
   trm_apps ~typ (trm_unop (Unop_struct_access field)) [base]
+
+(* [trm_struct_get base field] *)
+let trm_struct_get ?(typ : typ option = None) (base : trm) (field : var) : trm =
+  trm_apps ~typ (trm_unop (Unop_struct_get field)) [base]
+
 
 (* [trm_get t] generates a get operation in [t] *)
 let trm_get ?(annot : trm_annot list = []) ?(typ : typ option = None) (t : trm) : trm =

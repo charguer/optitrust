@@ -45,7 +45,7 @@ let set_explicit_aux (t : trm) : trm =
       begin match rt.desc with 
       | Trm_apps (f1, [rt1]) when is_get_operation rt ->
          let exp_assgn = List.mapi (fun i (sf, ty) -> 
-          trm_set (trm_struct_access ~typ:(Some ty) lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access rt1 sf]); typ = Some ty}
+          trm_set (trm_struct_access ~typ:(Some ty) lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:(Some ty) rt1 sf]); typ = Some ty}
          ) field_list in 
          trm_seq_no_brace exp_assgn
       | Trm_struct st ->
@@ -55,12 +55,13 @@ let set_explicit_aux (t : trm) : trm =
         ) field_list 
          in 
         trm_seq_no_brace exp_assgn
-      | Trm_var _ -> 
+      | _ ->  (* other cases are included here *)
+        Printf.printf "I was here\n";
         let exp_assgn = List.mapi (fun i (sf, ty) -> 
-         trm_set (trm_struct_access ~typ:(Some ty) lt sf) (trm_struct_access rt sf)
+         trm_set (trm_struct_access ~typ:(Some ty) lt sf) (trm_struct_get ~typ:(Some ty) rt sf)
          ) field_list in 
          trm_seq_no_brace exp_assgn
-      | _ -> fail rt.loc "set_explicit_aux: expected a set instruction of the form v1 = v2 or v1 = {0,1}"
+      (* | _ -> fail rt.loc "set_explicit_aux: expected a set instruction of the form v1 = v2 or v1 = {0,1}" *)
       end
 
   | _ -> fail t.loc "set_explicit_aux: expected a set operation"

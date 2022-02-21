@@ -35,7 +35,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctxf = cTopFunDef "cornerInterpolationCoeff" in
   let ctx = cChain [ctxf; sInstr "r.v"] in
   !^ Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
-  !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
+  !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true
+   "c."];
   (* !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
@@ -49,6 +50,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: reveal write operations involved manipulation of particles and vectors *)
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !^ Trace.reparse();
+  !! Struct.set_explicit [nbMulti; ctx; cWrite ~typ:"particle" ()];
+  !! Struct.set_explicit [nbMulti; ctx; cWrite ~typ:"vect" ()];
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];

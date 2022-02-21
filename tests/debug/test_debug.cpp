@@ -9,11 +9,10 @@ typedef struct {
 
 int main () {
 
-  vect* v;
-  int z;
-  int y = v->x + 1;
-
-  y = y + 3;
+  const vect  a = {0, 1};
+  vect b;
+  
+  b = a;
 
   return 0;
 }
