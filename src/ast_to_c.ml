@@ -968,7 +968,7 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_wtick -> string "get_wtich" ^^ lparen ^^ blank 1 ^^ rparen
 
 let ast_to_doc (out : out_channel) (t : trm) : unit =
-  PPrintEngine.ToChannel.pretty 0.9 80 out (decorate_trm t)
+  ToChannel.pretty 0.9 80 out (decorate_trm t)
 
 (* To obtain the C++ code without decoding, we temporary set the flag
    "decode" (defined at the top of this file) to false. *)
@@ -981,13 +981,13 @@ let ast_to_string ?(ast_decode:bool=true) (t : trm) : string =
   let old_decode = !decode in
   decode := ast_decode;
   let b = Buffer.create 80 in
-  PPrintEngine.ToBuffer.pretty 0.9 80 b (decorate_trm t);
+  ToBuffer.pretty 0.9 80 b (decorate_trm t);
   decode := old_decode;
   Buffer.contents b
 
 let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in
-  PPrintEngine.ToBuffer.pretty 0.9 80 b (typ_to_doc ty);
+  ToBuffer.pretty 0.9 80 b (typ_to_doc ty);
   Buffer.contents b
 
 

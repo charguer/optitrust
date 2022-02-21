@@ -849,14 +849,14 @@ and unpack_trm_for ?(loc = None) ?(local_index : bool = true) (index : var) (sta
     trm_for_c  ~loc init cond step body
 
 let ast_to_doc (out : out_channel) (t : trm) : unit =
-  PPrintEngine.ToChannel.pretty 0.9 80 out (decorate_trm t)
+  ToChannel.pretty 0.9 80 out (decorate_trm t)
 
 let ast_to_string (t : trm) : string =
   let b = Buffer.create 80 in
-  PPrintEngine.ToBuffer.pretty 0.9 80 b (decorate_trm t);
+  ToBuffer.pretty 0.9 80 b (decorate_trm t);
   Buffer.contents b
 
 let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in
-  PPrintEngine.ToBuffer.pretty 0.9 80 b (typ_to_doc ty);
+  ToBuffer.pretty 0.9 80 b (typ_to_doc ty);
   Buffer.contents b
