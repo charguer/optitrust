@@ -195,7 +195,6 @@ void updateFieldUsingNextCharge(double* nextCharge, vect* field) { }
 
 // --------- Module Simulation
 
-
 int main() {
 
   // Particles in each cell, at the current and the next time step

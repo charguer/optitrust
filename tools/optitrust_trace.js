@@ -86,6 +86,10 @@ function escapeHTML(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+function newlinetobr(s) {
+  return s.replace("\n", "<br/>");
+}
+
 function htmlButton(id, label, css, onclick) {
   return "<button id='" + id + "' class='" + css + "' type ='button' onclick='" + onclick + "'>" + label + "</button>";
 }
@@ -166,7 +170,7 @@ function loadSdiff(id) {
   $("#diffDiv").show();
   var step = smallsteps[id];
   loadDiffFromString(step.diff);
-  var sStep = htmlSpan(escapeHTML(step.script), "step-info");
+  var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
   var sTime = htmlSpan(step.exectime + "ms", "timing-info") + "<div style='clear: both'></div>";
   displayInfo(sStep + sTime);
   $("#button_sdiff_" + id).addClass("ctrl-button-selected");

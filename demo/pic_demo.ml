@@ -19,18 +19,18 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[x-y]"];
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp "res.*\\[0\\]"];
-  !! Function.inline [cFun "matrix_vect_mul"];
+  !! Function.inline [main; cFun "matrix_vect_mul"];
 
   bigstep "Vectorization in [cornerInterpolationCoeff]";
-    let ctxf = cTopFunDef "cornerInterpolationCoeff" in
-     let ctx = cChain [ctxf; sInstr "r.v"] in
-  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
-  !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
+    let ctx = cTopFunDef "cornerInterpolationCoeff" in
+     let ctx_rv = cChain [ctx; sInstr "r.v"] in
+  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
+  !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array ~pattern_aux_vars:"double rX, rY, rZ;"
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);"
-      [nbMulti; ctx; dRHS];
-  !! Loop.fold_instrs ~index:"k" [ctx];
+      [nbMulti; ctx_rv; dRHS];
+  !! Loop.fold_instrs ~index:"k" [ctx_rv];
 
   bigstep "Update particles in-place instead of in a local variable ";
   !! Variable.reuse ~space:(expr "p->speed") [main; cVarDef "speed2" ];
@@ -62,7 +62,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]
        [main; sInstr "nextCharge[indices"; sExpr "deltaChargeOnCorners.v[k]"];
 
-  bigstep "AOS-to-SOA";
+  bigstep "Struct inline";
   !! Variable.inline [main; cVarDef "p"];
   !! Variable.simpl_deref [main];
   !! Struct.set_explicit [main; cVarDef "p2"];
@@ -103,7 +103,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Label.add "core" [cFor "idCell" ~body:[cFor "i"]];
      Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];
 
-  bigstep "Make positions relative";
+  bigstep "Make positions relative and store them using float";
   !! iter_dims (fun d ->
       Variable.bind ~const:true ("p" ^ d) [main; sInstr ("(c->items)[i].pos" ^ d ^ " ="); dRHS]);
   !! Instr.(gather_targets ~dest:GatherAtFirst) [main; cVarDef ~regexp:true "p[X-Z]"];
@@ -116,8 +116,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [main; cVarDef ~regexp:true "r[X-Z]1"; cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d)] ()];
        );
   !! Arith.(simpl expand) [nbMulti; main; cVarDef ~regexp:true "r[X-Z]1"; dInit];
-
-  bigstep "Convert storage of relative locations to float";
   !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"];
   !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
   (* !! Trace.reparse (); *)
@@ -157,18 +155,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.replace ~reparse:true (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)")
       [main; cLabel "charge"; cFun "mybij"];
 
-  bigstep "Insert thread number and thread id";
+  bigstep "Duplicate the charge of a corner for each of the threads";
   !! Sequence.insert ~reparse:false (stmt "int omp_get_thread_num();") [tBefore; main];
   !! Variable.insert ~name:"nbThreads" ~typ:"int" ~value:(lit "8") [tBefore; main];
   !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"];
-
-  bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "nextChargeCorners" ~into:"nextChargeThreadCorners" ~indices:["idCell"; "idCorner"]
       ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "core"];
   !! Specialize.any "idThread" [nbMulti; main; cAny];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
-
-  bigstep "Make the new matrices persistent across iterations";
   !! Instr.move_out ~dest:[tBefore; main; cFor "step"] [nbMulti; main; cVarDef ~regexp:true "nextCharge."];
      Instr.move_out ~dest:[tAfter; main; cFor "step"] [nbMulti; main; cFun "MFREE"];
 
@@ -201,6 +195,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Parallelization";
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
-     Omp.parallel_for [Shared ["bX";"bY";"bZ"]] [tBefore; cFor "biX"];
+  !! Omp.parallel_for [Shared ["bX";"bY";"bZ"]] [tBefore; cFor "biX"];
 
       )
