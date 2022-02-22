@@ -1,18 +1,15 @@
-typedef struct {
+int f(int x) {
+  int a = x + x;
+  return a + a;
+}
 
-  int x;
-  int y;
+int g(int x){
+  const int b = f(x);
+  return b;
+}
 
-} vect;
-
-
-
-int main () {
-
-  const vect  a = {0, 1};
-  vect b;
-  
-  b = a;
-
+int main() {
+  int x = 3;
+  const int y = f(x);
   return 0;
 }

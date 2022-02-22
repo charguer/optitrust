@@ -287,7 +287,7 @@ and trm_annot =
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
   | As_left_value (* Used for reference encoding *) (* LATER: might become deprecated *)
   | Non_local_index (* Used for loops whose index is not declared inside the scope of the loop body *)
-  | Display_arrow (* Used for struct accesses of the form ( *p ).x or p -> x, with this annotation the arrow syntax sugar is used *)
+  | Display_no_arrow (* Used for struct accesses of the form ( *p ).x or p -> x, with this annotation the arrow syntax sugar is not used *)
   | Reference (* Used to encode references as pointers with annotation Reference *)
   | Stackvar (* Used to encode stack variables *)
   | Annot_stringreprid of stringreprid (* Memoization id for the string representation of this node *)
@@ -2459,6 +2459,15 @@ let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
     | _ -> ()
   ) tm1;
   !common
+
+(* [get_mutability t] if [t] is a variable declaration or a variable occurrence then return its occurrences otherwise 
+    return nothing *)
+let get_mutability (t : trm) : varkind option = 
+  match t.desc with 
+  | Trm_let (vk, _, _) -> Some vk 
+  | Trm_var (vk, _) -> Some vk 
+  | _ -> None
+
 
 (* [serialize_to_file filename t] writes a serialized version of the AST [t] into the file [filename]. *)
 let serialize_to_file (filename : string) (t : trm) : unit =

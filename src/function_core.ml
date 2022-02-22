@@ -124,7 +124,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         let fresh_args = List.map Internal.fresh_args fun_call_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
-        let name = match trm_to_change.desc with | Trm_let (_, (x, _), _) -> x | _ -> ""  in
+        let name = match trm_to_change.desc with | Trm_let (vk, (x, _), _) -> x| _ -> ""  in
         let processed_body, nb_gotos = process_return_in_inlining "exit_body" name fun_decl_body in
         let marked_body = begin match body_mark with
         | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body
@@ -134,7 +134,8 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         let inlined_body =
          if is_type_unit(ty)
            then [marked_body; exit_label]
-           else [trm_let_mut ~marks:fun_call.marks (name, ty) (trm_uninitialized ());
+           else 
+            [trm_let_mut ~marks:fun_call.marks (name, ty) (trm_uninitialized ());
                 marked_body; exit_label]
            in
         let new_tl = Mlist.merge lfront (Mlist.of_list inlined_body) in

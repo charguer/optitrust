@@ -160,7 +160,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
         let res_inlining_needed = ref false in
         let mark_added = ref false in
         begin match tg_out_trm.desc with
-        | Trm_let (_, (x, _), init) ->
+        | Trm_let (vk, (x, _), init) ->
           let init1 = match get_init_val init with
           | Some init1 -> init1
           | None -> fail t.loc "inline: coudl not get the target to the function call" in
@@ -171,6 +171,17 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
               name_result := x;
               res_inlining_needed := false
               end
+            
+            else if vk = Var_immutable then 
+              begin match !name_result with
+                | ""  ->  name_result := "__TEMP_Optitrust";
+                          Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
+                          res_inlining_needed := true;
+                          mark_added := true
+                | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path path_to_call);
+                    res_inlining_needed := true;
+                    mark_added := true
+                end
             else
                 begin match !name_result with
                 | ""  ->  name_result := "__TEMP_Optitrust";

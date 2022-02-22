@@ -50,13 +50,12 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: reveal write operations involved manipulation of particles and vectors *)
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !^ Trace.reparse();
-  !! Struct.set_explicit [nbMulti; ctx; cWrite ~typ:"particle" ()];
-  !! Struct.set_explicit [nbMulti; ctx; cWrite ~typ:"vect" ()];
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
 
   (* Part: inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners] *)
+  !! Function.inline [nbMulti; cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
   !^ Function.inline [cOr [
        [cFun "vect8_mul"];
        [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];

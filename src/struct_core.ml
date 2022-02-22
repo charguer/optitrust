@@ -56,7 +56,6 @@ let set_explicit_aux (t : trm) : trm =
          in 
         trm_seq_no_brace exp_assgn
       | _ ->  (* other cases are included here *)
-        Printf.printf "I was here\n";
         let exp_assgn = List.mapi (fun i (sf, ty) -> 
          trm_set (trm_struct_access ~typ:(Some ty) lt sf) (trm_struct_get ~typ:(Some ty) rt sf)
          ) field_list in 

@@ -608,13 +608,14 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
               | Unop_struct_access f1 when !print_optitrust_syntax ->
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
               | (Unop_struct_get f1 | Unop_struct_access f1) ->
-                 if List.mem Display_arrow f.annot
-                  then
-                    let t1 = get_operation_arg t in
-                    let d = decorate_trm ~prec t1 in
-                    d ^^ minus ^^ rangle ^^ string f1
-                  else
-                    let d = decorate_trm ~prec t in
+                 if is_get_operation t then 
+                    if List.mem Display_no_arrow f.annot
+                      then
+                        d ^^ dot ^^ string f1
+                      else  
+                        let d = decorate_trm ~prec (get_operation_arg t) in 
+                        d ^^ minus ^^ rangle ^^ string f1
+                 else
                     d ^^ dot ^^ string f1
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in

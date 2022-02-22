@@ -399,7 +399,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Mutable_var_get -> string "Mutable_var_get"
     | As_left_value -> string "As_left_value"
     | Non_local_index -> string "Non_local_index"
-    | Display_arrow -> string "Display_arrow"
+    | Display_no_arrow -> string "Display_no_arrow"
     | Reference -> string "Reference"
     | Stackvar -> string "Stackvar"
     | Annot_stringreprid s -> string "Annot_stringreprid" ^^ string (string_of_int s)

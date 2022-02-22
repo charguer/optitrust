@@ -250,7 +250,7 @@ and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
     | Odot s ->
       trm_apps1 (Unop_struct_get s)  t
     | Oarrow s ->
-      trm_apps ~loc ~ctx (trm_unop ~annot:[Display_arrow] (Unop_struct_get s)) [t]
+      trm_apps ~loc ~ctx (trm_unop ~annot:[Display_no_arrow] (Unop_struct_get s)) [t]
     end
   | EBinop (binop, le, re, _) ->
     let tl = tr_expr le in

@@ -8,13 +8,11 @@ let _ = Flags.dump_ast_details := true
 
 
 let _ = Run.script_cpp (fun _ ->
+  let ctx = cFunDef "g" in
+  !! Function_basic.bind_intro ~fresh_name:"r" [ctx; cFun "f"];
+  !! Function_basic.inline ~body_mark:"body" [ctx;cFun "f"];
+  !! Function.elim_body [cMark "body"];
   
-  
-  (* !! Trace.apply infix_elim ; *)
-  (* !! Trace.apply stackvar_elim; *)
-  (* !! Trace.apply caddress_elim; *)
-
-  !! Struct.set_explicit [sInstr "b = a"];
-  !! Variable.reuse ~space:((expr "v->x")) [cVarDef "y"];
+  !! Function.inline [cFunDef "g"; cFun "f"];
 
 )

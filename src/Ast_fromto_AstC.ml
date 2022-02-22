@@ -16,14 +16,12 @@ open Ast
    Recall: struct_get(t,f)  means  trm_apps (Prim_unop (unop_struct_get "f")) [t]
 *)
 
-(* TODO: Display_arrow -> Display_no_arrow
+(* TODO: Display_no_arrow -> Display_no_arrow
 
     astC to ast
     t->f   => ( *t ).f // unlike now, no annotation is needed
     u.f  => if u is a get(t) then  produce ( *t ).f @ Display_no_arrow
 *)
-
-
 
 
 (* environment for storing the mutability of all the variables *)
@@ -115,8 +113,6 @@ let create_env () = ref env_empty
 
    For references, [int& b = a] becomes [<annotation:reference> int* b = a] as a simplification of [b = &*a]
    and [int& x = t[i]] becomes [<annotation:reference> int* x = &(t[i])] if t has type [const int*].
-
-   Note that in the input ast, [p->f] is represented as [( *p ).f @"annot:Display_arrow"].
 
    Here, the "reference" annotation is added to allow decoding.
    LATER: Support references on constants. *)
