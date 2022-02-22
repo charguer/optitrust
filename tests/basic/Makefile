@@ -10,17 +10,14 @@ TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	arith_simplify.ml \
-	arith_scale.ml \
-	arith_shift.ml \
 	array_set_explicit.ml \
 	array_tile.ml \
 	array_to_variables.ml \
 	cast_insert.ml \
 	flow_insert_if.ml \
+	function_inline.ml \
 	function_beta.ml \
 	function_bind_intro.ml \
-	function_inline.ml \
-	function_uninline.ml \
 	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_read_last_write.ml \
@@ -106,13 +103,17 @@ TESTS_TOCHECK := \
 #	matrix_insert_access_dim_index.ml \
 
 TESTS_TO_FIX := \
+	function_uninline.ml \
 	struct_simpl_proj.ml \  
 
 NOT_NEEEDED_TO_FIX := \
+	arith_scale.ml \
+	arith_shift.ml \
 	array_swap.ml \
 	aos_to_soa_typedef.ml \
 	aos_to_soa_sized_array.ml \
 	variable_change_type.ml \
+
 
   
 

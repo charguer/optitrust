@@ -1,9 +1,11 @@
 #include <stdio.h>
 
-const int N = 5;
-double t[N];
+
+
 
 int main() {
+   const int N = 5;
+   double t[N];
    for (int i = 0; i < N; i++) {
       t[i] = i + 3.14; // internally: set(access(t,i), i + 3.14)
    }
@@ -17,6 +19,7 @@ int main() {
 float* u;
 
 int other() {
+   const int N = 5;
    for (int i = 0; i < N; i++) {
       double a = u[i];
       double b = 3.14 * a + 0.68;

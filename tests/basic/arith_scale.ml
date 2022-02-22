@@ -1,15 +1,19 @@
 open Optitrust
 open Target
 open Ast
-
+open Parsers
 
 let _ = Run.doc_script_cpp (fun _ ->
     !! Arith_basic.scale (lit "4") [cReadVar "x"];
   )
 "
-int x;
-
-int y = x;
+int main(){
+  
+  int x = 10;
+  int y = x;
+  
+  return 0;
+}
 "
 
 

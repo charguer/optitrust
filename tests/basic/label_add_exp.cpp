@@ -3,7 +3,7 @@ start:
   int x = 3;
   for (int i = 0; i < 3; i++) {
   cond:
-    if (true) {
+    if (1) {
     incr_1:
       x++;
     } else {

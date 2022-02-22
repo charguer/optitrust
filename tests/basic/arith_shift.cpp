@@ -1,9 +1,9 @@
 #include <stdio.h>
 
 const int N = 5;
-double t[N];
 
 int main() {
+   double t[N];
    for (int i = 0; i < N; i++) {
       t[i] = i + 3.14; // internally: set(access(t,i), i + 3.14)
    }

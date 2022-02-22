@@ -102,8 +102,8 @@ let get_basename (filename : string) =
    - [~inline:["foo.cpp";"bar.h"]] allows to perform substitution of "#include" directives
      with the contents of the corresponding files; the substitutions are performed one after
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp". *)
-let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(cparser : Parsers.cparser = Default)(f : unit -> unit) : unit =
-  Parsers.selected_cparser := cparser;
+let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(parser : Parsers.cparser = Default)(f : unit -> unit) : unit =
+  Parsers.selected_cparser := parser;
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
   (* LATER: see what happens of the directory... *)
   let basename = get_basename filename in
@@ -122,7 +122,7 @@ let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_ex
     in
   (* Set the input file, execute the function [f], dump the results. *)
   script (fun () ->
-    Trace.init ~prefix input_file;
+    Trace.init ~prefix ~parser input_file;
     begin
       try f()
       with e -> Printf.eprintf "===> Script failed: %s\n" prefix; raise e
@@ -139,14 +139,15 @@ let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_ex
     piece of source code [src] as a string, and stores this contents into
     [foo_doc.cpp], where [foo.ml] is the name of the current file. It then
     executes the transformation [f] using [script_cpp ~filename:"foo_doc.cpp"]  *)
-let doc_script_cpp ?(filename : string = "") ?(prefix : string = "") (f : unit -> unit) (src : string) : unit =
+let doc_script_cpp ?(filename : string = "") ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (f : unit -> unit) (src : string) : unit =
+  Parsers.selected_cparser := parser;
   let basename = get_basename filename in
   let doc_basename = basename ^ "_doc" in
   Flags.documentation_save_file_at_first_check := doc_basename;
   let src_filename = doc_basename ^ ".ml" in
   (* Write the contents of the cpp file; not that it will be overwritten at the first '!!' from the script. *)
   Xfile.put_contents (doc_basename ^ ".cpp") src;
-  script_cpp ~filename:src_filename ~check_exit_at_end:false ~prefix f;
+  script_cpp ~filename:src_filename ~parser ~check_exit_at_end:false ~prefix f;
   Flags.documentation_save_file_at_first_check := ""
 
 (* LATER:   add  script_rust  following script_cpp *)
