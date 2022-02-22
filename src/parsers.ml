@@ -1,6 +1,6 @@
 type cparser = Clang | Menhir | Default | All
 
-let default_cparser = Clang
+let default_cparser = Menhir
 
 
 (* Option to select the C parser to use *)

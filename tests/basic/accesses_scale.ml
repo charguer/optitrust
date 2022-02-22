@@ -17,7 +17,7 @@ int main() {
 "
 
 
-let _ = Run.script_cpp (fun _ ->
+let _ = Run.script_cpp ~cparser:Parsers.Menhir (fun _ ->
 
   !! Accesses_basic.scale (trm_double 5.0) [cCellReadOrWrite ~base:[cVar "t"] ~index:[cVar "i"] ()];
   
