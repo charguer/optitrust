@@ -3,15 +3,19 @@ open Driveraux
 
 (* Configuration of the parser for OptiTrust's needs *)
 
-let _ =
+let set_options =
   Printexc.record_backtrace true;
-  Machine.config := Machine.x86_64;
   Elab.generate_static_func_names := false;
   Elab.generate_implicit_return_on_main := false;
   Elab.allow_variables_as_array_size := true;
   Elab.allow_compound_initializer_in_return := true;
   Elab.keep_for_loops_untransformed := true
 
+let init_parser =
+  Machine.config := Machine.x86_64;
+  Env.set_builtins C2C.builtins;
+  Cutil.declare_attributes C2C.attributes
+  (* CPragmas.initialize() *)
 
 (* Preprocessor *)
 
@@ -22,7 +26,7 @@ let compcert_include_path =
   with Not_found ->
     let p = Config.stdlib_path in
     if not (Sys.file_exists p)
-      then failwith "Please either install src/cparser/include into /usr/local/lib/compcert, or export the environment variable OPTITRUST";
+      then failwith "Please either export the environment variable OPTITRUST with path to the main folder, OR install the files from src/cparser/include into /usr/local/lib/compcert";
     p
 
 let preprocessor_command ifile =
@@ -81,8 +85,11 @@ let parse_preprocessed_c_file sourcename sourcefile =
   Diagnostics.reset();
   let check_errors x =
     Diagnostics.check_errors(); x in
+  (*let debug x =
+    Printf.printf "parsed ok\n"; x in*)
   read_file sourcefile
   |> Timing.time2 "Parsing" parse_string sourcename
+  (*|> debug*)
   |> Timing.time "Elaboration" Elab.elab_file
   |> check_errors
 

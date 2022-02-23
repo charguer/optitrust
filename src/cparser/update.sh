@@ -50,6 +50,10 @@ sed -i ${CONFIGPAT} Clflags.ml
 
 echo "Patched Lexer.ml, Archi.ml, Driveraux.ml and Clflags.ml to rename Configuration to Config."
 
+echo "Warning: C2C.ml is not copied automatically, because the patch was done by hand."
+# ARTHUR: should automate the patch at some point.
+
+
 #  cparser/StructPassing.ml \
 #  cparser/PackedStructs.ml \
 #  cparser/Rename.ml \
