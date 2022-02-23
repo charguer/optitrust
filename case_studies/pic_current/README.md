@@ -76,9 +76,9 @@ Make sure to recompile whenever you change the parameter file.
 In the folder `scripts/3d_performance/`, execute:
 
 ```
-./a_compile_aocosoa_3d.sh
+./compile.sh pic_barsamian.c
 # or
-./a_compile_pic_demo.sh
+./compile.sh pic_demo.c
 ```
 
 This should create the binary and a copy of the parameters file in the folder:
@@ -97,9 +97,9 @@ First, open `htop` is an auxiliary terminal, to visualize CPU utilization.
 Then, in the folder `scripts/3d_performance/`, execute:
 
 ```
-./b_run_aocosoa_3d.sh
+./run.sh pic_barsamian.c
 # or
-./b_run_pic_demo.sh
+./run.sh pic_demo.c
 ```
 
 Ignore the warnings (we'll fix them later)
@@ -143,6 +143,34 @@ Time / particle / iteration : 10.9119 ns
 ```
 
 Interesting is to compute the "Nb. particles / s / core" by dividing the value of "Nb. particles / s" (here ~90million) by the number of cores used (here 4), giving 22.5 million particles processed by core per second. (This is to be compared with 30 million reported in the paper, on a high-performance hardware; note that using more particles helps improving the figure).
+
+
+# Combined script for compiling and executing
+
+`test.sh` invokes `compile.sh` then `run.sh` on the argument.
+
+```
+./test.sh pic_barsamian.c
+# or
+./test.sh pic_demo.c
+```
+
+
+# Correctness checker
+
+`check.sh` measures the distance (max and mean, for positions and speeds)
+between the final state of particles associated with two simulations.
+
+```
+./check.sh pic_barsamian.c pic_demo.c
+```
+
+To achieve this, the simulations are compiled using a flag `CHECKER`,
+that adds an identifier information to every particle, and dumps the
+state of all particles in a file (in binary format) after the last step.
+The program `checker.c` implements a comparison function for two such
+binary output files.
+
 
 
 

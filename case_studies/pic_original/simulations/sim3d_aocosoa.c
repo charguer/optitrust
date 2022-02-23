@@ -433,15 +433,18 @@ int main(int argc, char** argv) {
             char filename[30];
             sprintf(filename, "initial_particles_%ldkk.dat", nb_particles / 1000000);
             FILE* file_write_particles = fopen(filename, "w");
-            fprintf(file_write_particles, "%d %d %d\n", ncx, ncy, ncz);
-            fprintf(file_write_particles, "%ld\n", nb_particles);
+            fwrite(NB_PARTICLE, sizeof(int), file_write_particles);
             for (j = 0; j < num_cells_3d; j++) {
                 chunkbag = &(particles[j]);
                 for (my_chunk = chunkbag->front; my_chunk; my_chunk = my_chunk->next) {
                     for (i = 0; i < my_chunk->size; i++) {
-                        fprintf(file_write_particles, "%ld %.*g %.*g %.*g %.*g %.*g %.*g\n", j,
-                          FLT_DECIMAL_DIG, my_chunk->dx[i], FLT_DECIMAL_DIG, my_chunk->dy[i], FLT_DECIMAL_DIG, my_chunk->dz[i],
-                          DBL_DECIMAL_DIG, my_chunk->vx[i], DBL_DECIMAL_DIG, my_chunk->vy[i], DBL_DECIMAL_DIG, my_chunk->vz[i]);
+                        fwrite(j, sizeof(int), file_write_particles);
+                        fwrite((double)my_chunk->dx[i], sizeof(double), file_write_particles);
+                        fwrite((double)my_chunk->dy[i], sizeof(double), file_write_particles);
+                        fwrite((double)my_chunk->dz[i], sizeof(double), file_write_particles);
+                        fwrite((double)my_chunk->vx[i], sizeof(double), file_write_particles);
+                        fwrite((double)my_chunk->vy[i], sizeof(double), file_write_particles);
+                        fwrite((double)my_chunk->vz[i], sizeof(double), file_write_particles);
                     }
                 }
             }

@@ -510,7 +510,7 @@ void bag_init_initial(bag* b) {
   add_front_chunk_initial(b);
   b->back = b->front;
 }
-void bag_push_initial(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, CHECKER_ONLY(int id)) {
+void bag_push_initial(bag* b, CHECKER_ONLY_COMMA(int id) float dx, float dy, float dz, double vx, double vy, double vz) {
   chunk* c = b->front;
   int index = c->size++;
   c->dx[index] = dx;
@@ -953,7 +953,7 @@ void read_particle_array_3d(int mpi_world_size, unsigned int num_particle, carte
             fprintf(stderr, "I expected %d particles but there are less in the input file.\n", num_particle);
             exit(EXIT_FAILURE);
         }
-        bag_push_initial(&((*particles)[i_cell]), dx, dy, dz, vx, vy, vz, CHECKER_ONLY(i));
+        bag_push_initial(&((*particles)[i_cell]), CHECKER_ONLY_COMMA(i) dx, dy, dz, vx, vy, vz);
     }
     fclose(file_read_particles);
 
@@ -1015,7 +1015,7 @@ void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, car
         z = (z - mesh.z_min) / mesh.delta_z;
         (*speeds_generator)(speed_params, &vx, &vy, &vz);
         i_cell = COMPUTE_I_CELL_3D(icell_param1, icell_param2, (int)x, (int)y, (int)z);
-        bag_push_initial(&((*particles)[i_cell]), (float)(x - (int)x), (float)(y - (int)y), (float)(z - (int)z), vx, vy, vz, CHECKER_ONLY(j));
+        bag_push_initial(&((*particles)[i_cell]), CHECKER_ONLY_COMMA(j) (float)(x - (int)x), (float)(y - (int)y), (float)(z - (int)z), vx, vy, vz);
     }
 
     // Initializes the different freelists with the remaining free chunks.

@@ -25,8 +25,5 @@ int checker (char* file1, char* file2){
 
 
   }
-  
-
-
 
 }
