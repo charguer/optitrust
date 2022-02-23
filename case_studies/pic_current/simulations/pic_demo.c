@@ -634,20 +634,21 @@ int main(int argc, char** argv) {
   printf("Throughput: %.1f million particles/sec\n", nbParticles * nbSteps / timeTotal / 1000000);
   
  #ifdef CHECKER 
-  FILE* f = fopen(CHECKER, "w");
-  fwrite(NB_PARTICLE, sizeof(int), f);
+  FILE* f = fopen("CHECKER", "w");
+  int nbParticles = NB_PARTICLE;
+  fwrite(&nbParticles, sizeof(int), 1, f);
   fprintf(f, "%d\n", NB_PARTICLE);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag* b = &bagsCur[idCell];
     bag_iter bag_it;
     for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
-      fwrite(p->id, sizeof(int), f);
-      fwrite(p->pos.x, sizeof(double), f);
-      fwrite(p->pos.y, sizeof(double), f);
-      fwrite(p->pos.z, sizeof(double), f);
-      fwrite(p->speed.x, sizeof(double), f);
-      fwrite(p->speed.y, sizeof(double), f);
-      fwrite(p->speed.z, sizeof(double), f);
+      fwrite(&p->id, sizeof(int), 1, f);
+      fwrite(&(p->pos.x), sizeof(double), 1, f);
+      fwrite(&(p->pos.y), sizeof(double), 1, f);
+      fwrite(&(p->pos.z), sizeof(double), 1, f);
+      fwrite(&(p->speed.x), sizeof(double), 1, f);
+      fwrite(&(p->speed.y), sizeof(double), 1, f);
+      fwrite(&(p->speed.z), sizeof(double), 1, f);
     }
   }
   fclose(f);

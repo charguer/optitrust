@@ -42,8 +42,6 @@ void checker (char* filename, particle* ps){
     fread(&(ps[i].speed.x), sizeof(double), 1, f);
     fread(&(ps[i].speed.y), sizeof(double), 1, f);
     fread(&(ps[i].speed.z), sizeof(double), 1, f);
-    
-
   }
   fclose(f);
 }
