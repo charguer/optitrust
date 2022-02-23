@@ -517,6 +517,11 @@ void init(int argc, char** argv) {
         const particle particle = { pos, speed, CHECKER_ONLY(idParticle) };
         const int idCell = idCellOfPos(pos);
         bag_push_initial(&bagsCur[idCell], particle);
+
+        // Deposit the charge of the particle at the corners of the target cell
+        double_nbCorners coeffs = cornerInterpolationCoeff(pos);
+        double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs);
+        accumulateChargeAtCorners(nextCharge, idCell, deltaChargeOnCorners);
     }
   }
 
