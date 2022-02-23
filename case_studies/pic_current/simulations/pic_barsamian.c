@@ -431,6 +431,7 @@ int main(int argc, char** argv) {
         if (mpi_rank == 0)
             printf("Read time (%ld particles) : %g sec\n", nb_particles, (double) (omp_get_wtime() - time_start));
     } else {
+        printf("Mpi_rank %d\n", mpi_rank); // prints zero
         pic_vert_seed_double_RNG(mpi_rank);
 //         Different random numbers at each run.
 //         pic_vert_seed_double_RNG(seed_64bits(mpi_rank));

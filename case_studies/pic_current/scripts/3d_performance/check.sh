@@ -14,11 +14,11 @@ CHECKER_OUTFILE2="`basename ${TARGET2} .c`.res"
 
 echo "====Compilation===="
 make checker.out
-./compile.sh ${TARGET1} ${CHECKER_OUTFILE1}
-./compile.sh ${TARGET2} ${CHECKER_OUTFILE2}
+./compile.sh ${TARGET1} ${CHECKER_OUTFILE1} || exit 1
+./compile.sh ${TARGET2} ${CHECKER_OUTFILE2} || exit 1
 echo "====Execution===="
-./run.sh ${TARGET1}
-./run.sh ${TARGET2}
+./run.sh ${TARGET1} || exit 1
+./run.sh ${TARGET2} || exit 1
 echo "====Comparison===="
 ln -f -s ../../3d_runs/run1/${CHECKER_OUTFILE1} ${CHECKER_OUTFILE1}
 ln -f -s ../../3d_runs/run1/${CHECKER_OUTFILE2} ${CHECKER_OUTFILE2}
