@@ -7,6 +7,7 @@ typedef struct {
 typedef struct {
   vect pos;
   vect speed;
+  CHECKER_ONLY(int id;)
 } particle;
 
 // --------- Vector operations

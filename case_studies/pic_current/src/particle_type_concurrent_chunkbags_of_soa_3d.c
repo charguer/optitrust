@@ -340,7 +340,7 @@ void bag_init(bag* b, int id_bag, int id_cell, int thread_id) {
   b->back  = c;
 }
 
-/* 
+/*
  * Merge other into b; other is re-initialized if not null,
  * and stays null if it was already null.
  *
@@ -406,12 +406,12 @@ chunk* atomic_read(chunk** p) {
   return value;
 }
 
-/* 
+/*
  * Add a particle into a chunk bag. Add it into the first chunk,
  * then tests if this chunk is full. In that case, allocate a new
  * chunk after adding the particle.
  * This function is thread-safe (uses atomics).
- * 
+ *
  * Adapted from openmp-examples-4.5.0.pdf, Example atomic.3.c
  * No flush is needed here, because the only variable that needs
  * to be really shared is c->size.
@@ -419,15 +419,15 @@ chunk* atomic_read(chunk** p) {
  * @param[in, out] b
  * @param[in]      dx, dy, dz, vx, vy, vz
  */
-void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, int thread_id) {
+void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id) int thread_id) {
   chunk* c;
   int index;
   while (true) { // Until success.
     c = b->front;
-    
+
     #pragma omp atomic capture
     index = c->size++;
-    
+
     if (index < CHUNK_SIZE) {
       // The chunk is not full, we can write the particle.
       c->dx[index] = dx;
@@ -436,6 +436,7 @@ void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double
       c->vx[index] = vx;
       c->vy[index] = vy;
       c->vz[index] = vz;
+      CHECKER_ONLY(c->id[index] = id;)
       if (index == CHUNK_SIZE - 1) {
         // The chunk is now full, we have to extend the bag.
         // Inside add_front_chunk, the update of the b->front
@@ -458,7 +459,7 @@ void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double
   }
 }
 
-/* 
+/*
  * Add a particle into a chunk bag. Add it into the first chunk,
  * then tests if this chunk is full. In that case, allocate a new
  * chunk after adding the particle.
@@ -468,7 +469,7 @@ void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double
  * @param[in, out] b
  * @param[in]      dx, dy, dz, vx, vy, vz
  */
-void bag_push_serial(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, int thread_id) {
+void bag_push_serial(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id) int thread_id) {
   chunk* c = b->front;
   int index = c->size++;
   c->dx[index] = dx;
@@ -477,6 +478,7 @@ void bag_push_serial(bag* b, float dx, float dy, float dz, double vx, double vy,
   c->vx[index] = vx;
   c->vy[index] = vy;
   c->vz[index] = vz;
+  CHECKER_ONLY(c->id[index] = id;)
   if (index == CHUNK_SIZE - 1) {
     // chunk is now full, we have to extend the bag
     add_front_chunk(b, thread_id);
@@ -508,7 +510,7 @@ void bag_init_initial(bag* b) {
   add_front_chunk_initial(b);
   b->back = b->front;
 }
-void bag_push_initial(bag* b, float dx, float dy, float dz, double vx, double vy, double vz) {
+void bag_push_initial(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, CHECKER_ONLY(int id)) {
   chunk* c = b->front;
   int index = c->size++;
   c->dx[index] = dx;
@@ -517,6 +519,7 @@ void bag_push_initial(bag* b, float dx, float dy, float dz, double vx, double vy
   c->vx[index] = vx;
   c->vy[index] = vy;
   c->vz[index] = vz;
+  CHECKER_ONLY(c->id[index] = id;)
   if (index == CHUNK_SIZE - 1)
     add_front_chunk_initial(b);
 }
@@ -557,7 +560,7 @@ void bag_push_initial(bag* b, float dx, float dy, float dz, double vx, double vy
  * (0,Y) and (6,Y) have both even indexes, so they store private data in the same bag, thus
  * conflicts can happen between the right border of (6,Y) and the inside of tile (0,Y) or
  * between the left border of (0,Y) and the inside of tile (6,Y).
- * 
+ *
  * Starting from border_size 1, there is a problem in the y direction: for each X, the tile
  * (X,0) and (X,2) have both even indexes, so they store private data in the same bag, thus
  * conflicts can happen between the upper border of (X,2) and the lower border of tile (X,0)
@@ -569,7 +572,7 @@ void bag_push_initial(bag* b, float dx, float dy, float dz, double vx, double vy
  * Notice that it is not always the last tile that causes problem (there is no problem with
  * tiles (X,3) on the y direction), it depends on parity - because that is how we manage
  * private bags.
- * 
+ *
  * Thus, in such cases, the cell index at the beginning of the tile than can overlap with the
  * tile that starts at cell index 0 is stored, so that the corresponding borders are set to 0
  * to avoid overlapping and thus race conditions. Here, we will store
@@ -703,7 +706,7 @@ void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_
   int cumulative_nb_chunks_per_cell[num_cells_3d];
   #pragma omp parallel
   num_threads = omp_get_num_threads();
-  
+
   // Testing that the tiling is appropriate.
   if (nb_bags_per_cell == 2) {
     if (border_size != (tile_size / 2)) {
@@ -716,7 +719,7 @@ void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_
       exit(EXIT_FAILURE);
     }
   }
-  
+
   // Handling of non-perfect tiling. See explanations a few lines before.
   int nb_full_tiles_x, nb_full_tiles_y, nb_full_tiles_z;
   int remaining_cells_x, remaining_cells_y, remaining_cells_z;
@@ -738,7 +741,7 @@ void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_
   start_tile_without_borders_z = is_even(nb_full_tiles_z)
       ? (nb_full_tiles_z    ) * tile_size  // even number of full tiles: the tile that can overlap is            the last one (x-axis on the picture)
       : (nb_full_tiles_z - 1) * tile_size; //  odd number of full tiles: the tile that can overlap is one before the last one (y-axis on the picture)
-  
+
   // Computation of the number of spare chunks to put in each cell, and the total number of spare chunks.
   // Also tells which bags will hold spare chunks, by temporarily putting a 0 inside.
   spare_chunks_ids = allocate_int_matrix(nb_bags_per_cell, num_cells_3d);
@@ -780,20 +783,20 @@ void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_
       }}}
     }}}
   }
-  
+
   // We are never too careful (-:
   for (i = 0; i < num_cells_3d; i++)
     if (nb_chunks_per_cell[i] > nb_bags_per_cell)
       fprintf(stderr, "Something went wrong with the computation of the bags ; edit init_all_chunks in %s.\n", __FILE__);
-  
+
   // Computation of the cumulative sum.
   cumulative_nb_chunks_per_cell[0] = 0;
   for (i = 1; i < num_cells_3d; i++)
     cumulative_nb_chunks_per_cell[i] = cumulative_nb_chunks_per_cell[i - 1] + nb_chunks_per_cell[i - 1];
-  
+
   // Total number of spare chunks per parity.
   number_of_spare_chunks_per_parity = cumulative_nb_chunks_per_cell[num_cells_3d - 1] + nb_chunks_per_cell[num_cells_3d - 1];
-  
+
   // Computation of bijection between [0 ; nb_bags_per_cell[ x [0 ; num_cells_3d[ and [0 ; number_of_spare_chunks_per_parity[
   // For this bijection, we must have that, for each two distinct chunks A and B:
   //   (idCell(A) < idCell(B))                                                       => (idChunk(A) < idChunk(B))
@@ -810,7 +813,7 @@ void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_
       if (spare_chunks_ids[j][i] != -1)
         spare_chunks_ids[j][i] = cumulative_nb_chunks_per_cell[i]++;
   }
-  
+
   // Worse-case scenario: on one given iteration, the particles are stored in full chunks,
   // thus there is one empty chunk per bucket.
   // Then we must add one spare chunk per bucket for the next iteration.
@@ -828,11 +831,11 @@ void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_
         exit(EXIT_FAILURE);
     }
   }
-  
+
   // Temporarily stores the number of free chunks inside the free_index of thread 0.
   free_index = allocate_aligned_int_matrix(num_threads, 1);
   FREE_INDEX(0) = total_nb_chunks;
-  
+
   // Filling of particlesNext.
   for (i = 0; i < num_cells_3d; i++)
     for (j = 0; j < nb_bags_per_cell; j++)
@@ -840,7 +843,7 @@ void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_
         bag_init_initial(&((*particlesNext)[j][i]));
       else
         bag_nullify(&((*particlesNext)[j][i]));
-  
+
 #ifdef SPARE_LOC_OPTIMIZED
   // To reduce the computation needed during the append phase.
   spare_chunk_location = allocate_aligned_int_matrix(num_threads, SPARE_CHUNK_LOCATION_NB_INFO);
@@ -909,7 +912,7 @@ void read_particle_array_3d(int mpi_world_size, unsigned int num_particle, carte
     int i_cell;
     float dx, dy, dz;
     double vx, vy, vz;
-    
+
     sprintf(filename, "initial_particles_%dkk.dat", num_particle / 1000000);
     FILE* file_read_particles = fopen(filename, "r");
     if (!file_read_particles) { // Error in file opening
@@ -938,11 +941,11 @@ void read_particle_array_3d(int mpi_world_size, unsigned int num_particle, carte
         exit(EXIT_FAILURE);
     }
     *weight = (float)(mesh.x_max - mesh.x_min) * (float)(mesh.y_max - mesh.y_min) * (float)(mesh.z_max - mesh.z_min) / ((float)mpi_world_size * (float)num_particle);
-    
+
     // Initializes the bags with empty chunks.
     for (i = 0; i < num_cells_3d; i++)
         bag_init_initial(&((*particles)[i]));
-    
+
     // Read particles and push them into the bags.
     for (i = 0; i < num_particle; i++) {
         if (fscanf(file_read_particles, "%d %f %f %f %lf %lf %lf", &i_cell,
@@ -950,10 +953,10 @@ void read_particle_array_3d(int mpi_world_size, unsigned int num_particle, carte
             fprintf(stderr, "I expected %d particles but there are less in the input file.\n", num_particle);
             exit(EXIT_FAILURE);
         }
-        bag_push_initial(&((*particles)[i_cell]), dx, dy, dz, vx, vy, vz);
+        bag_push_initial(&((*particles)[i_cell]), dx, dy, dz, vx, vy, vz, CHECKER_ONLY(i));
     }
     fclose(file_read_particles);
-    
+
     // Initializes the different freelists with the remaining free chunks.
     init_freelists();
 }
@@ -981,7 +984,7 @@ void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, car
     speeds_generator_3d speeds_generator = speed_generators_3d[sim_distrib];
     distribution_function_3d distrib_function = distribution_funs_3d[sim_distrib];
     max_distribution_function max_distrib_function = distribution_maxs_3d[sim_distrib];
-    
+
     const double x_range = mesh.x_max - mesh.x_min;
     const double y_range = mesh.y_max - mesh.y_min;
     const double z_range = mesh.z_max - mesh.z_min;
@@ -991,13 +994,13 @@ void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, car
     const int icell_param1 = I_CELL_PARAM1_3D(ncx, ncy, ncz);
     const int icell_param2 = I_CELL_PARAM2_3D(ncx, ncy, ncz);
     const int num_cells_3d = ncx * ncy * ncz;
-    
+
     *weight = (float)x_range * (float)y_range * (float)z_range / ((float)mpi_world_size * (float)num_particle);
-    
+
     // Initializes the bags with empty chunks.
     for (i = 0; i < num_cells_3d; i++)
         bag_init_initial(&((*particles)[i]));
-    
+
     // Create particles and push them into the bags.
     for (j = 0; j < num_particle; j++) {
         do {
@@ -1012,12 +1015,12 @@ void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, car
         z = (z - mesh.z_min) / mesh.delta_z;
         (*speeds_generator)(speed_params, &vx, &vy, &vz);
         i_cell = COMPUTE_I_CELL_3D(icell_param1, icell_param2, (int)x, (int)y, (int)z);
-        bag_push_initial(&((*particles)[i_cell]), (float)(x - (int)x), (float)(y - (int)y), (float)(z - (int)z), vx, vy, vz);
+        bag_push_initial(&((*particles)[i_cell]), (float)(x - (int)x), (float)(y - (int)y), (float)(z - (int)z), vx, vy, vz, CHECKER_ONLY(j));
     }
-    
+
     // Initializes the different freelists with the remaining free chunks.
     init_freelists();
-    
+
 #ifdef PIC_VERT_TEST_INITIAL_DISTRIBUTION
     // Test the initial distribution.
     size_t k;

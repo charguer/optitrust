@@ -1,0 +1,31 @@
+// This file accepts: C-like comments (like this line),
+# Script-like or Python-like comments (like this line),
+! Fortran-like comments (like this line),
+% Latex-like comments (like this line),
+// And blank lines (in fact also any line, but will then complain a little bit).
+
+// To set values of parameters, you may add any number of spaces.
+// It might be convenient to put spaces in the middle of the value (cf. nb_particles)
+// You may or may not add a ';' at the end of the line.
+// Any parameter not set will have default values (visible in the output).
+
+// Values for the parameters.
+sim_distrib = LANDAU_3D_PROD_OF_ONE_PLUS_COS; // Physical test case (LANDAU_1D_PROJ3D, LANDAU_2D_PROJ3D, LANDAU_3D_SUM_OF_COS,
+                                              // LANDAU_3D_PROD_OF_COS, LANDAU_3D_PROD_OF_ONE_PLUS_COS or DRIFT_VELOCITIES_3D).
+nb_cells_x    = 2;                           // Number of grid points, x-axis
+nb_cells_y    = 2;                           // Number of grid points, y-axis
+nb_cells_z    = 2;                           // Number of grid points, z-axis
+nb_particles  = 100;                // Number of particles. As example, 2 billions is a maximum for 96 GB of memory.
+nb_iterations = 5;                          // Number of time steps
+delta_t       = 0.05;                         // Time step
+thermal_speed = 1.;                           // Thermal speed
+// DRIFT_VELOCITIES_3D only
+drift_velocity            = 11.;  // Center of the second maxwellian
+proportion_fast_particles = 0.02; // Proportions of the particles in the second maxwellian
+// LANDAU_3D_PROD_OF_ONE_PLUS_COS only
+L = 22.;        // Length of the physical space
+// LANDAU_XXX only
+alpha   = 0.05; // Landau perturbation amplitude
+kmode_x = 0.5;  // Landau perturbation mode, x-axis
+kmode_y = 0.5;  // Landau perturbation mode, y-axis
+kmode_z = 0.5;  // Landau perturbation mode, z-axis

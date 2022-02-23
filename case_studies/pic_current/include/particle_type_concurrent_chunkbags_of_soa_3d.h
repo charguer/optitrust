@@ -1,6 +1,14 @@
 #ifndef PIC_VERT_PARTICLE_TYPE_CONCURRENT_CHUNKBAGS_OF_SOA_3D
 #define PIC_VERT_PARTICLE_TYPE_CONCURRENT_CHUNKBAGS_OF_SOA_3D
 
+#ifdef CHECKER
+#define CHECKER_ONLY(X) X
+#define CHECKER_ONLY_COMMA(X) X,
+
+#elif
+#define CHECKER_ONLY(X)
+#endif
+
 #include "meshes.h"     // type     cartesian_mesh_3d
 #include "parameters.h" // constant CHUNK_SIZE
 
@@ -27,7 +35,7 @@
  *          y +-------------------------|--*    | ^               .
  *            |                         |  .    | | dy*delta_y
  *            |           ...           |———————| v
- *            |                            .     
+ *            |                            .
  *            .               .            .              .       .
  *            .               .            .              .       .
  *            .               .            .              .       .
@@ -46,12 +54,12 @@
  * In the physical world, the particle has x in [x_min ; x_max [
  *                                         y in [y_min ; y_max [
  *                                         z in [z_min ; z_max [
- * 
+ *
  * This is mapped to a grid of size ncx * ncy * ncz. Thus, we have :
  *     delta_x = (x_max - x_min) / ncx;
  *     delta_y = (y_max - y_min) / ncy;
  *     delta_z = (z_max - z_min) / ncz;
- * 
+ *
  * If we call :
  *     x_mapped = (x - x_min) / delta_x which is in [0 ; ncx [
  *     y_mapped = (y - y_min) / delta_y which is in [0 ; ncy [
@@ -130,9 +138,10 @@ typedef struct chunk {
   double vx[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // speed of the particle on the x-axis
   double vy[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // speed of the particle on the y-axis
   double vz[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // speed of the particle on the z-axis
+  CHECKER_ONLY(double id[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN)));)
 } chunk;
 
-typedef struct bag { 
+typedef struct bag {
   chunk* front;
   chunk* back;
 } bag;
@@ -266,7 +275,7 @@ void update_free_list_sizes();
  */
 void bag_init(bag* b, int id_bag, int id_cell, int thread_id);
 
-/* 
+/*
  * Merge other into b; other is re-initialized.
  *
  * @param[in, out] b
@@ -309,12 +318,12 @@ int bag_size(bag* b);
  */
 chunk* atomic_read(chunk** p);
 
-/* 
+/*
  * Add a particle into a chunk bag. Add it into the first chunk,
  * then tests if this chunk is full. In that case, allocate a new
  * chunk after adding the particle.
  * This function is thread-safe (uses atomics).
- * 
+ *
  * Adapted from openmp-examples-4.5.0.pdf, Example atomic.3.c
  * No flush is needed here, because the only variable that needs
  * to be really shared is c->size.
@@ -322,9 +331,9 @@ chunk* atomic_read(chunk** p);
  * @param[in, out] b
  * @param[in]      dx, dy, dz, vx, vy, vz
  */
-void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, int thread_id);
+void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id) int thread_id);
 
-/* 
+/*
  * Add a particle into a chunk bag. Add it into the first chunk,
  * then tests if this chunk is full. In that case, allocate a new
  * chunk after adding the particle.
@@ -334,7 +343,7 @@ void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double
  * @param[in, out] b
  * @param[in]      dx, dy, dz, vx, vy, vz
  */
-void bag_push_serial(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, int thread_id);
+void bag_push_serial(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id)  int thread_id);
 
 /*
  * In case of non-perfect tiling, computes the border_size for the contour tiles.
@@ -372,7 +381,7 @@ void bag_push_serial(bag* b, float dx, float dy, float dz, double vx, double vy,
  * (0,Y) and (6,Y) have both even indexes, so they store private data in the same bag, thus
  * conflicts can happen between the right border of (6,Y) and the inside of tile (0,Y) or
  * between the left border of (0,Y) and the inside of tile (6,Y).
- * 
+ *
  * Starting from border_size 1, there is a problem in the y direction: for each X, the tile
  * (X,0) and (X,2) have both even indexes, so they store private data in the same bag, thus
  * conflicts can happen between the upper border of (X,2) and the lower border of tile (X,0)
@@ -384,7 +393,7 @@ void bag_push_serial(bag* b, float dx, float dy, float dz, double vx, double vy,
  * Notice that it is not always the last tile that causes problem (there is no problem with
  * tiles (X,3) on the y direction), it depends on parity - because that is how we manage
  * private bags.
- * 
+ *
  * Thus, in such cases, the cell index at the beginning of the tile than can overlap with the
  * tile that starts at cell index 0 is stored, so that the corresponding borders are set to 0
  * to avoid overlapping and thus race conditions. Here, we will store

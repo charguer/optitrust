@@ -10,6 +10,14 @@
 
 //#define PAPI_LIB_INSTALLED
 
+
+#ifdef CHECKER
+#define CHECKER_ONLY(X) X
+#elif
+#define CHECKER_ONLY(X)
+#endif
+
+
 #include <omp.h>                                          // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
 #include <math.h>                                         // functions cos, log, fmin
 #include <mpi.h>                                          // constants MPI_COMM_WORLD, MPI_THREAD_FUNNELED
@@ -536,7 +544,7 @@ int main(int argc, char** argv) {
         for (j = 0; j < ncy + 1; j++)
             for (k = 0; k < ncz + 1; k++)
                 q_times_rho[i][j][k] = q * rho_3d[i][j][k];
-    compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez);
+    compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez, 1);
     accumulate_field_3d(Ex, Ey, Ez, ncx, ncy, ncz, x_field_factor, y_field_factor, z_field_factor, E_field);
 
     // Computes speeds half time-step backward (leap-frog method).
@@ -590,25 +598,27 @@ int main(int argc, char** argv) {
 
     time_start = omp_get_wtime();
     for (i_time = 0; i_time < num_iteration; i_time++) {
-        // Diagnostics energy
-        t = i_time * delta_t;
-        exval_ee = landau_mult_cstt * exp(2. * omega_imag * t) *
-               (0.5 + 0.5 * cos(2. * (omega_real * t - psi)));
-        switch(sim_distrib) {
-            case LANDAU_1D_PROJ3D:
-                val_ee = integral_of_squared_field_3d(mesh, Ex);
-                break;
-            case LANDAU_2D_PROJ3D:
-                val_ee = integral_of_squared_field_3d(mesh, Ex) + integral_of_squared_field_3d(mesh, Ey);
-                break;
-            default:
-                val_ee = integral_of_squared_field_3d(mesh, Ex) + integral_of_squared_field_3d(mesh, Ey) + integral_of_squared_field_3d(mesh, Ez);
+        if (0) { // DISABLED TO TEST AGAINST VERIFIED_TRANSFO
+            // Diagnostics energy
+            t = i_time * delta_t;
+            exval_ee = landau_mult_cstt * exp(2. * omega_imag * t) *
+                   (0.5 + 0.5 * cos(2. * (omega_real * t - psi)));
+            switch(sim_distrib) {
+                case LANDAU_1D_PROJ3D:
+                    val_ee = integral_of_squared_field_3d(mesh, Ex);
+                    break;
+                case LANDAU_2D_PROJ3D:
+                    val_ee = integral_of_squared_field_3d(mesh, Ex) + integral_of_squared_field_3d(mesh, Ey);
+                    break;
+                default:
+                    val_ee = integral_of_squared_field_3d(mesh, Ex) + integral_of_squared_field_3d(mesh, Ey) + integral_of_squared_field_3d(mesh, Ez);
+            }
+            diag_energy[i_time][0] = t;                   // time
+            diag_energy[i_time][1] = 0.5 * log(val_ee);   // log(Integral of squared E_field), simulated
+            diag_energy[i_time][2] = 0.5 * log(exval_ee); // log(Integral of squared E_field), theoretical
+            diag_energy[i_time][3] = val_ee;              // Integral of squared E_field, simulated
+            diag_energy[i_time][4] = exval_ee;            // Integral of squared E_field, theoretical
         }
-        diag_energy[i_time][0] = t;                   // time
-        diag_energy[i_time][1] = 0.5 * log(val_ee);   // log(Integral of squared E_field), simulated
-        diag_energy[i_time][2] = 0.5 * log(exval_ee); // log(Integral of squared E_field), theoretical
-        diag_energy[i_time][3] = val_ee;              // Integral of squared E_field, simulated
-        diag_energy[i_time][4] = exval_ee;            // Integral of squared E_field, theoretical
 
         time_mark1 = omp_get_wtime();
 
@@ -689,13 +699,14 @@ int main(int argc, char** argv) {
                             }
                             for (i = 0; i < my_chunk->size; i++) {
                                 i_cell = i_cells[thread_id].array[i];
+                                CHECKER_ONLY(int id = my_chunk->id[i];)
                                 ic_x = ((i_cell / ncz) / ncy        );
                                 ic_y = ((i_cell / ncz) & ncyminusone);
                                 ic_z = (i_cell & nczminusone        );
                                 if (((ic_x >= ix_min - OMP_TILE_BORDERS && ic_x <= ix_max + OMP_TILE_BORDERS) || (ix_min == 0 && ic_x >= ncx - OMP_TILE_BORDERS) || (ix_max == ncxminusone && ic_x <= OMP_TILE_BORDERS - 1)) && ((ic_y >= iy_min - OMP_TILE_BORDERS && ic_y <= iy_max + OMP_TILE_BORDERS) || (iy_min == 0 && ic_y >= ncy - OMP_TILE_BORDERS) || (iy_max == ncyminusone && ic_y <= OMP_TILE_BORDERS - 1)) && ((ic_z >= iz_min - OMP_TILE_BORDERS && ic_z <= iz_max + OMP_TILE_BORDERS) || (iz_min == 0 && ic_z >= ncz - OMP_TILE_BORDERS) || (iz_max == nczminusone && ic_z <= OMP_TILE_BORDERS - 1)))
-                                    bag_push_serial(&(particlesNext[ID_PRIVATE_BAG][i_cell]), my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i], my_chunk->vx[i], my_chunk->vy[i], my_chunk->vz[i], thread_id);
+                                    bag_push_serial(&(particlesNext[ID_PRIVATE_BAG][i_cell]), my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i], my_chunk->vx[i], my_chunk->vy[i], my_chunk->vz[i], CHECKER_ONLY_COMMA(id) thread_id);
                                 else
-                                    bag_push_concurrent(&(particlesNext[ID_SHARED_BAG][i_cell]), my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i], my_chunk->vx[i], my_chunk->vy[i], my_chunk->vz[i], thread_id);
+                                    bag_push_concurrent(&(particlesNext[ID_SHARED_BAG][i_cell]), my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i], my_chunk->vx[i], my_chunk->vy[i], my_chunk->vz[i], CHECKER_ONLY_COMMA(id) thread_id);
 #ifdef PIC_VERT_OPENMP_4_0
                                 #pragma omp simd aligned(coeffs_x, coeffs_y, coeffs_z, signs_x, signs_y, signs_z:VEC_ALIGN)
 #endif
@@ -758,7 +769,7 @@ int main(int argc, char** argv) {
             for (j = 0; j < ncy + 1; j++)
                 for (k = 0; k < ncz + 1; k++)
                     q_times_rho[i][j][k] = q * rho_3d[i][j][k];
-        compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez);
+        compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez, 1);
         accumulate_field_3d(Ex, Ey, Ez, ncx, ncy, ncz, x_field_factor, y_field_factor, z_field_factor, E_field);
         time_mark5 = omp_get_wtime();
 
@@ -784,11 +795,17 @@ int main(int argc, char** argv) {
 #ifdef PAPI_LIB_INSTALLED
     stop_diag_papi(file_diag_papi, papi_num_events, values);
 #endif
-    diag_energy_and_speed_chunkbags(mpi_rank,
-        "diag_lee_8corners.txt",   num_iteration, diag_energy_size, diag_energy,
-        "diag_speed_8corners.txt", num_iteration, diag_speed_size,  diag_speed);
-    print_time_chunkbags(mpi_rank, mpi_world_size, nb_particles, num_iteration, time_simu, simulation_name, data_structure_name, sort_name,
-        time_particle_loop, time_append, time_mpi_allreduce, time_poisson);
+    if (0) { // DISABLED TO TEST AGAINST VERIFIED_TRANSFO
+        diag_energy_and_speed_chunkbags(mpi_rank,
+            "diag_lee_8corners.txt",   num_iteration, diag_energy_size, diag_energy,
+            "diag_speed_8corners.txt", num_iteration, diag_speed_size,  diag_speed);
+        print_time_chunkbags(mpi_rank, mpi_world_size, nb_particles, num_iteration, time_simu, simulation_name, data_structure_name, sort_name,
+            time_particle_loop, time_append, time_mpi_allreduce, time_poisson);
+    } else {
+      printf("Exectime: %.3f sec\n", time_simu);
+      printf("Throughput: %.1f million particles/sec\n", nb_particles * num_iteration / time_simu / 1000000);
+    }
+    // TODO: printf
 
     free(params);
     free(speed_params);
