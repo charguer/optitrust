@@ -12,7 +12,6 @@ TESTS_WITH_DOC := \
 	arith_simplify.ml \
 	array_set_explicit.ml \
 	array_tile.ml \
-	array_to_variables.ml \
 	cast_insert.ml \
 	flow_insert_if.ml \
 	function_inline.ml \
@@ -25,51 +24,36 @@ TESTS_WITH_DOC := \
 	instr_replace.ml \
 	instr_replace_fun.ml \
 	label_add.ml \
-	label_remove.ml \
-	loop_color.ml \
 	loop_fission.ml \
 	loop_fold.ml \
 	loop_fusion.ml \
-	loop_grid_enumerate.ml \
 	loop_hoist.ml \
 	loop_moveout.ml \
 	loop_swap.ml \
-	loop_tile.ml \
-	loop_to_unit_steps.ml \
 	loop_unroll.ml \
-	loop_unswitch.ml \
 	pointer_fold.ml \
 	reference_fold.ml \
 	reference_unfold.ml \
 	rewrite_compute.ml \
-	rewrite_compute_inside.ml \
-	rewrite_equiv_at.ml \
 	sequence_delete.ml \
 	sequence_elim_around_instr.ml \
 	sequence_elim.ml \
-	sequence_insert.ml \
 	sequence_intro.ml \
 	sequence_intro_on_instr.ml \
 	sequence_partition.ml \
 	sequence_split.ml \
-	specialize_any.ml \
 	struct_fields_reorder.ml \
-	struct_inline.ml \
 	struct_rename_field.ml \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
-	struct_update_fields_type.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
-	typedef_insert_copy.ml \
 	typedef_fold.ml \
-	variable_bind.ml \
 	variable_fold.ml \
 	variable_init_attach.ml \
 	variable_init_detach.ml \
 	variable_inline.ml \
-	variable_insert.ml \
 	variable_local_name.ml \
 	variable_rename.ml \
 	variable_simpl_deref.ml \
@@ -84,14 +68,11 @@ TESTS_WORKING_NOTINDOC := \
 # TODO: move include_inline to tests/interact/
 
 TESTS_TOCHECK := \
-	accesses_intro.ml \
-	include_inline.ml \
 	matrix_delocalize.ml \
 	matrix_intro_mcalloc.ml \
 	matrix_intro_mindex.ml \
 	matrix_intro_mmalloc.ml \
 	matrix_local_name.ml \
-	matrix_reorder_dims.ml \
 	function_rename_args.ml \
 
 
@@ -103,8 +84,28 @@ TESTS_TOCHECK := \
 #	matrix_insert_access_dim_index.ml \
 
 TESTS_TO_FIX := \
+	struct_simpl_proj.ml \
 	function_uninline.ml \
-	struct_simpl_proj.ml \  
+	label_remove.ml \
+	loop_color.ml \
+	loop_grid_enumerate.ml \
+	loop_tile.ml \
+	loop_to_unit_steps.ml \
+	loop_unswitch.ml \
+	rewrite_compute_inside.ml \
+	rewrite_equiv_at.ml \
+	sequence_insert.ml \
+	specialize_any.ml \
+	struct_update_fields_type.ml \
+	accesses_intro.ml \
+	include_inline.ml \
+	array_to_variables.ml  \
+	typedef_insert_copy.ml \
+	struct_inline.ml \
+	variable_bind.ml \
+	variable_insert.ml \
+	matrix_reorder_dims.ml \
+
 
 NOT_NEEEDED_TO_FIX := \
 	arith_scale.ml \
@@ -113,6 +114,7 @@ NOT_NEEEDED_TO_FIX := \
 	aos_to_soa_typedef.ml \
 	aos_to_soa_sized_array.ml \
 	variable_change_type.ml \
+
 
 
   

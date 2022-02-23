@@ -7,9 +7,10 @@ int main() {
     a += 2;
     a += 3;
   }
+  return 0;
 }
 
-int more() {
+void more() {
   double coef_x[3] = {0.,1.,2.};
   double sign_x[3] = {0.,1.,2.};
   double values[3];
