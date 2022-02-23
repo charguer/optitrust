@@ -632,7 +632,22 @@ int main(int argc, char** argv) {
   double timeTotal = (double) (omp_get_wtime() - timeStart);
   printf("Exectime: %.3f sec\n", timeTotal);
   printf("Throughput: %.1f million particles/sec\n", nbParticles * nbSteps / timeTotal / 1000000);
-  // TODO: TRACE
+  char filename[30];
+  sprintf(filename, "final_particles_ours_%dhk.dat", nbParticles / 1000000) ;
+  FILE* file_write_particles = fopen(filename, "w");
+  fprintf(file_write_particles, "%d %d %d\n", ncx, ncy, ncz);
+  fprintf(file_write_particles, "%d\n", NB_PARTICLE);
+  for(int idCell = 0; idCell < nbCells; idCell++){
+    bag* b = &bagsCur[idCell];
+    bag_iter bag_it;
+    int k=0;
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_destructive(&bag_it)) {
+      fprintf(file_write_particles, "%ld %.*g %.*g %.*g %.*g %.*g %.*g\n", j,
+      FLT_DECIMAL_DIG, p->pos.x, FLT_DECIMAL_DIG, p->pos.y, FLT_DECIMAL_DIG, p->pos.z,
+      DBL_DECIMAL_DIG, p->speed.x, DBL_DECIMAL_DIG, p->speed.y, DBL_DECIMAL_DIG, p->speed.z);
+    }
+
+  }
 
   finalize(bagsCur, bagsNext, field);
 }

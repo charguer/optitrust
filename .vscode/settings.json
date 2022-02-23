@@ -29,6 +29,9 @@
     "array": "cpp",
     "istream": "cpp",
     "tuple": "cpp",
-    "utility": "cpp"
+    "utility": "cpp",
+    "particle_chunk.h": "c",
+    "particle_chunk_alloc.h": "c",
+    "particle.h": "c"
   }
 }
