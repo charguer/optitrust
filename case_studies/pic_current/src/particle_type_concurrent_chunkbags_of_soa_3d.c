@@ -1004,16 +1004,28 @@ void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, car
     // Create particles and push them into the bags.
     for (j = 0; j < num_particle; j++) {
         do {
+#ifdef CHECKER
+            double rx = pic_vert_next_random_double();
+            x = x_range * rx + mesh.x_min;
+            // printf("id = %d, rand = %lf, x = %lf\n", (int) j, rx, x);
+#else
             x = x_range * pic_vert_next_random_double() + mesh.x_min;
+#endif
             y = y_range * pic_vert_next_random_double() + mesh.y_min;
             z = z_range * pic_vert_next_random_double() + mesh.z_min;
             control_point = (*max_distrib_function)(spatial_params) * pic_vert_next_random_double();
             evaluated_function = (*distrib_function)(spatial_params, x, y, z);
         } while (control_point > evaluated_function);
+#ifdef CHECKER
+        printf("created = %d, %lf %lf %lf ", (int) j, x, y, z);
+#endif
         x = (x - mesh.x_min) / mesh.delta_x;
         y = (y - mesh.y_min) / mesh.delta_y;
         z = (z - mesh.z_min) / mesh.delta_z;
         (*speeds_generator)(speed_params, &vx, &vy, &vz);
+#ifdef CHECKER
+        printf("%lf %lf %lf \n", vx, vy, vz);
+#endif
         i_cell = COMPUTE_I_CELL_3D(icell_param1, icell_param2, (int)x, (int)y, (int)z);
         bag_push_initial(&((*particles)[i_cell]), CHECKER_ONLY_COMMA(j) (float)(x - (int)x), (float)(y - (int)y), (float)(z - (int)z), vx, vy, vz);
     }

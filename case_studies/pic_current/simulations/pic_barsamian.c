@@ -817,21 +817,28 @@ int main(int argc, char** argv) {
       chunkbag = &particles[j];
       for (my_chunk = chunkbag->front; my_chunk; my_chunk = my_chunk->next) {
         for (i = 0; i < my_chunk->size; i++) {
-            x = ((j / ncz) / ncy        ) + my_chunk->dx[i];
-            y = ((j / ncz) & ncyminusone) + my_chunk->dy[i];
-            z = (j & nczminusone        ) + my_chunk->dz[i];
+            int ix = ((j / ncz) / ncy);
+            int iy = ((j / ncz) & ncyminusone);
+            int iz = (j & nczminusone);
+            // printf("id=%d ix=%d iy=%d iz=%d dx=%f dy=%f dz=%f\n", my_chunk->id[i], ix, iy, iz, my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i]);
+
+            x = (ix + my_chunk->dx[i]) * mesh.delta_x + mesh.x_min;
+            y = (iy + my_chunk->dy[i]) * mesh.delta_y + mesh.y_min;
+            z = (iz + my_chunk->dz[i]) * mesh.delta_z + mesh.z_min;
+
+            double vx = my_chunk->vx[i] / dt_over_dx;
+            double vy = my_chunk->vy[i] / dt_over_dy;
+            double vz = my_chunk->vz[i] / dt_over_dz;
+
+            printf("id=%d %f %f %f %g %g %g\n", my_chunk->id[i], x, y, z, vx, vy, vz);
 
             fwrite(&(my_chunk->id[i]), sizeof(int), 1, f);
             fwrite(&x, sizeof(double), 1, f);
             fwrite(&y, sizeof(double), 1, f);
             fwrite(&z, sizeof(double), 1, f);
-            fwrite(&(my_chunk->vx[i]), sizeof(double), 1, f);
-            fwrite(&(my_chunk->vy[i]), sizeof(double), 1, f);
-            fwrite(&(my_chunk->vz[i]), sizeof(double), 1, f);
-
-            printf("id=%d %f %f %f %g %g %g\n", my_chunk->id[i],
-              my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i],
-              my_chunk->vx[i], my_chunk->vy[i], my_chunk->vz[i]);
+            fwrite(&vx, sizeof(double), 1, f);
+            fwrite(&vy, sizeof(double), 1, f);
+            fwrite(&vz, sizeof(double), 1, f);
        }
       }
     }

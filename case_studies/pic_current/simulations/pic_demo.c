@@ -490,12 +490,18 @@ void init(int argc, char** argv) {
     const double y_range = mesh.y_max - mesh.y_min;
     const double z_range = mesh.z_max - mesh.z_min;
 
-    TRACE("Creating %ld particles", nb_particles);
+    TRACE("Creating %ld particles\n", nb_particles);
     // Create particles and push them into the bags.
     for (int idParticle = 0; idParticle < nb_particles; idParticle++) {
         do {
             // x, y, z are offsets from mesh x/y/z/min
+#ifdef CHECKER
+            double rx = pic_vert_next_random_double();
+            x = x_range * rx;
+            // printf("id = %d, rand = %lf, x = %lf\n", idParticle, rx, x);
+#else
             x = x_range * pic_vert_next_random_double();
+#endif
             y = y_range * pic_vert_next_random_double();
             z = z_range * pic_vert_next_random_double();
             control_point = (*max_distrib_function)(params) * pic_vert_next_random_double();
@@ -505,6 +511,9 @@ void init(int argc, char** argv) {
         // Modified from pic-vert
         const vect pos = { x, y, z };
         const vect speed = { vx, vy, vz };
+#ifdef CHECKER
+        printf("created = %d, %lf %lf %lf %lf %lf %lf \n", idParticle, x, y, z, vx, vy, vz);
+#endif
         const particle particle = { pos, speed, CHECKER_ONLY(idParticle) };
         const int idCell = idCellOfPos(pos);
         bag_push_initial(&bagsCur[idCell], particle);
