@@ -4,6 +4,7 @@
 
 
 int main() {
+  label:;
   bool b = true;
   printf("5");
 }
