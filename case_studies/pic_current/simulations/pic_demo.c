@@ -10,7 +10,7 @@
 
 #ifdef CHECKER
 #define CHECKER_ONLY(X) X
-#elif
+#else
 #define CHECKER_ONLY(X)
 #endif
 

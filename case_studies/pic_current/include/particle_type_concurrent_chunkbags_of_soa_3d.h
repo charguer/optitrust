@@ -4,9 +4,9 @@
 #ifdef CHECKER
 #define CHECKER_ONLY(X) X
 #define CHECKER_ONLY_COMMA(X) X,
-
-#elif
+#else
 #define CHECKER_ONLY(X)
+#define CHECKER_ONLY_COMMA(X)
 #endif
 
 #include "meshes.h"     // type     cartesian_mesh_3d
