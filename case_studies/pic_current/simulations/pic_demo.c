@@ -632,28 +632,26 @@ int main(int argc, char** argv) {
   double timeTotal = (double) (omp_get_wtime() - timeStart);
   printf("Exectime: %.3f sec\n", timeTotal);
   printf("Throughput: %.1f million particles/sec\n", nbParticles * nbSteps / timeTotal / 1000000);
-  char filename[30];
-  sprintf(filename, "final_particles_ours_%dhk.dat", nbParticles / 1000000) ;
-  FILE* file_write_particles = fopen(filename, "w");
-  fwrite(NB_PARTICLE, sizeof(int), file_write_particles);
-  fprintf(file_write_particles, "%d\n", NB_PARTICLE);
-  for(int idCell = 0; idCell < nbCells; idCell++){
+  
+ #ifdef CHECKER 
+  FILE* f = fopen(CHECKER, "w");
+  fwrite(NB_PARTICLE, sizeof(int), f);
+  fprintf(f, "%d\n", NB_PARTICLE);
+  for (int idCell = 0; idCell < nbCells; idCell++) {
     bag* b = &bagsCur[idCell];
     bag_iter bag_it;
-    int k=0;
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_destructive(&bag_it)) {
-      fwrite(k, sizeof(int), file_write_particles);
-      fwrite(p->pos.x, sizeof(double), file_write_particles);
-      fwrite(p->pos.y, sizeof(double), file_write_particles);
-      fwrite(p->pos.z, sizeof(double), file_write_particles);
-      fwrite(p->speed.x, sizeof(double), file_write_particles);
-      fwrite(p->speed.y, sizeof(double), file_write_particles);
-      fwrite(p->speed.z, sizeof(double), file_write_particles);
-      k++
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
+      fwrite(p->id, sizeof(int), f);
+      fwrite(p->pos.x, sizeof(double), f);
+      fwrite(p->pos.y, sizeof(double), f);
+      fwrite(p->pos.z, sizeof(double), f);
+      fwrite(p->speed.x, sizeof(double), f);
+      fwrite(p->speed.y, sizeof(double), f);
+      fwrite(p->speed.z, sizeof(double), f);
     }
-
   }
-
+  fclose(f);
+#endif  
   finalize(bagsCur, bagsNext, field);
 }
 

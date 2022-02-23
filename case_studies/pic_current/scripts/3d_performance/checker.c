@@ -6,86 +6,95 @@ double max (double a, double b){
   return a > b ? a : b;
 }
 
+typedef struct {
+  double x;
+  double y;
+  double z;
+} vect;
 
-double* checker (char* file){
 
-  FILE* file1 = fopen (file, "r");
+typedef struct {
+  vect pos;
+  vect speed;
+} particle;
 
 
-  if(file1 == NULL){
-    // couldn't read from file1
-    return NULL;
+
+int nbParticles = -1;
+
+
+void checker (char* filename, particle* ps){
+
+  FILE* f = fopen(filename, "r");
+
+  if(f = NULL){
+    printf("Couldn't read from file!\n");
+    exit(0);
   }
-  char chunk[128];
-  
-  int NB_PARTICLES;
-
-  fread(&NB_PARTICLES, sizeof(int), 1, file1);
-  
-
-  double* particle = (double*) malloc( NB_PARTICLES * 6 * sizeof (double));
-
-  for(int i = 0; i < NB_PARTICLES; i++){
+  int prev_nbParticles = nbParticles;
+  fread(&nbParticles, sizeof(int), 1, f);
+  for(int i = 0; i < nbParticles; i++){
     int id;
-    fread(&id, sizeof(int), 1, file1);
-    for(int j = 0; j < 6; j++){
-      fread(&particle[i * 6 + j], sizeof(double), 1, file1);
+    fread(&id, sizeof(int), 1, f);
+    fread(&(ps[i].pos.x), sizeof(double), 1, f);
+    fread(&(ps[i].pos.y), sizeof(double), 1, f);
+    fread(&(ps[i].pos.z), sizeof(double), 1, f);
+    fread(&(ps[i].speed.x), sizeof(double), 1, f);
+    fread(&(ps[i].speed.y), sizeof(double), 1, f);
+    fread(&(ps[i].speed.z), sizeof(double), 1, f);
+    
+
+  }
+  fclose(f);
+}
+
+double square( double x, double y){
+  return (x - y) * (x - y);
+}
+
+double distance (vect cmp1, vect cmp2){
+
+  double dist;
+
+  dist += square(cmp1.x, cmp2.x);
+  dist += square(cmp1.y, cmp2.y);
+  dist += square(cmp1.z, cmp2.z);
+
+  return dist;
+}
+
+
+
+int main(int argc, char* argv[]){
+
+  char* f1;
+  char* f2;
+
+  if (argc == 3){
+    f1 = argv[1];
+    f2 = argv[2];
+  
+    particle* particles1 = (particle*) malloc(nbParticles * sizeof(particle));
+    particle* particles2 = (particle*) malloc(nbParticles * sizeof(particle));
+
+    checker(f1, particles1);
+    checker(f2, particles2);
+
+    double max_dist_pos = -1;
+    double max_dist_speed = -1;
+    for (int i = 0; i < nbParticles; i++){
+     max_dist_pos = max (max_dist_pos, distance (particles1[i].pos, particles2[i].pos));
+     max_dist_speed = max (max_dist_pos, distance ((particles1[i]).speed, (particles2[i]).speed));
     }
-    id++;
-  }
-  return particle;
 
-}
-
-double distance (double* particle1, double* particle2){
-  double dist = 0.;
-
-  for(int i = 0; i < 6; i++){
-    double temp = particle1[i] - particle2[i];
-    dist += temp * temp;
-  }
-  return sqrt(dist);
-}
-
-
-int main(){
-
-  char* file1 = "yans_file"; // Dummy value
-  char* file2 = "our_file"; // Dummy value
+    printf ("Maximal position distance between particles: %f", max_dist_pos);
+    printf ("Maximal speed distance between particles: %f", max_dist_pos);
   
-  FILE* f1 = fopen(file1,"r");
-  FILE* f2 = fopen(file1, "r");
-  
-
-  int size = 10000; // Dummy value
-
-  double* tmp_particle1 = (double*) malloc (6 * sizeof(double));
-  double* tmp_particle2 = (double*) malloc (6 * sizeof(double));
-
-  
-
-  double* particles1 = checker(file1);
-  double* particles2 = checker(file2);
-
-
-  double max_dist = -1.;
-  for (int i = 0; i < 10000; i++){
-   for(int j = 0; j < 6; j++){
-     tmp_particle1[j] = particles1[i * 6 + j];
-     tmp_particle2[j] = particles2[i * 6 + j];
-     max_dist = max(max_dist, distance(tmp_particle1, tmp_particle2));
-
-   }
+    free(particles1);
+    free(particles2);
   }
-
-  if (max_dist > 1.)
-    printf ("Wrong results\n");
-  else 
-    printf ("Correct results\n");
-
-
-  free(tmp_particle1);
-  free(tmp_particle2);
-
+  else {
+    printf("Expected two commandline arguments");
+  }
   return 0;
 }

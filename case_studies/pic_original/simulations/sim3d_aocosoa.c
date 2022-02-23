@@ -430,25 +430,23 @@ int main(int argc, char** argv) {
             printf("Creation time (%ld particles) : %g sec\n", nb_particles, (double) (omp_get_wtime() - time_start));
         if (sim_initial == INIT_WRITE) {
             // Export the particles.
-            char filename[30];
-            sprintf(filename, "initial_particles_%ldkk.dat", nb_particles / 1000000);
-            FILE* file_write_particles = fopen(filename, "w");
-            fwrite(NB_PARTICLE, sizeof(int), file_write_particles);
+            FILE* f = fopen(CHECKER, "w");
+            fwrite(NB_PARTICLE, sizeof(int), f);
             for (j = 0; j < num_cells_3d; j++) {
                 chunkbag = &(particles[j]);
                 for (my_chunk = chunkbag->front; my_chunk; my_chunk = my_chunk->next) {
                     for (i = 0; i < my_chunk->size; i++) {
-                        fwrite(j, sizeof(int), file_write_particles);
-                        fwrite((double)my_chunk->dx[i], sizeof(double), file_write_particles);
-                        fwrite((double)my_chunk->dy[i], sizeof(double), file_write_particles);
-                        fwrite((double)my_chunk->dz[i], sizeof(double), file_write_particles);
-                        fwrite((double)my_chunk->vx[i], sizeof(double), file_write_particles);
-                        fwrite((double)my_chunk->vy[i], sizeof(double), file_write_particles);
-                        fwrite((double)my_chunk->vz[i], sizeof(double), file_write_particles);
+                        fwrite(j, sizeof(int), f);
+                        fwrite((double)my_chunk->dx[i], sizeof(double), f);
+                        fwrite((double)my_chunk->dy[i], sizeof(double), f);
+                        fwrite((double)my_chunk->dz[i], sizeof(double), f);
+                        fwrite((double)my_chunk->vx[i], sizeof(double), f);
+                        fwrite((double)my_chunk->vy[i], sizeof(double), f);
+                        fwrite((double)my_chunk->vz[i], sizeof(double), f);
                     }
                 }
             }
-            fclose(file_write_particles);
+            fclose(f);
             MPI_Finalize();
             return 0;
         }

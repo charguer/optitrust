@@ -805,22 +805,25 @@ int main(int argc, char** argv) {
       printf("Exectime: %.3f sec\n", time_simu);
       printf("Throughput: %.1f million particles/sec\n", nb_particles * num_iteration / time_simu / 1000000);
     }
-    // TODO
-    char filename[30];
-    sprintf(filename, "final_particles_our_%dhk.dat", nbParticles / 1000000) );
-    FILE* file_write_particles = fopen(filename, "w");
-    fprintf(file_write_particles, "%d %d %d\n", ncx, ncy, ncz);
-    fprintf(file_write_particles, "%d\n", NB_PARTICLE);
+    #ifdef CHECKER
+    FILE* f = fopen(CHECKER, "w");
+    fwrite(NB_PARTICLE, sizeof(int), f);
     for(int j = 0; j < num_cells_3d; j++){
       chunkbag = &particles[j];
       for(my_chunk = chunkbag->front; my_chunk; my_chunk = my_chunk->next){
         for (i = 0; i < my_chunk->size; i++) {
-                        fprintf(file_write_particles, "%ld %.*g %.*g %.*g %.*g %.*g %.*g\n", j,
-                          DBL_DECIMAL_DIG, (double)my_chunk->dx[i], DBL_DECIMAL_DIG, (double)my_chunk->dy[i], DBL_DECIMAL_DIG, my_chunk->dz[i],
-                          DBL_DECIMAL_DIG, (double)my_chunk->vx[i], DBL_DECIMAL_DIG, (double)my_chunk->vy[i], DBL_DECIMAL_DIG, my_chunk->vz[i]);
+            fwrite(j, sizeof(int), f);
+            fwrite((double)my_chunk->dx[i], sizeof(double), f);
+            fwrite((double)my_chunk->dy[i], sizeof(double), f);
+            fwrite((double)my_chunk->dz[i], sizeof(double), f);
+            fwrite((double)my_chunk->vx[i], sizeof(double), f);
+            fwrite((double)my_chunk->vy[i], sizeof(double), f);
+            fwrite((double)my_chunk->vz[i], sizeof(double), f);
         }
       }
-    }    
+    }
+    fclose(f);
+    #endif    
     free(params);
     free(speed_params);
     deallocate_3d_array(q_times_rho, ncx+1, ncy+1, ncz+1);
