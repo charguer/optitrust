@@ -10,6 +10,9 @@
 
 #ifdef CHECKER
 #define CHECKER_ONLY(X) X
+#define STR(a) STRINTERNAL(a)
+#define STRINTERNAL(a) #a
+#define CHECKER_FILENAME STR(CHECKER)
 #else
 #define CHECKER_ONLY(X)
 #endif
@@ -314,6 +317,7 @@ void init(int argc, char** argv) {
 
     // Read parameters from file.
     if (argc >= 2) {
+        printf("Loading parameters from file %s\n", argv[1]);
         simulation_parameters parameters = read_parameters_from_file(argv[1], "3D");
         if (strcmp(parameters.sim_distrib_name, STRING_NOT_SET) == 0)
             sim_distrib = parameters.sim_distrib;
@@ -632,27 +636,31 @@ int main(int argc, char** argv) {
   double timeTotal = (double) (omp_get_wtime() - timeStart);
   printf("Exectime: %.3f sec\n", timeTotal);
   printf("Throughput: %.1f million particles/sec\n", nbParticles * nbSteps / timeTotal / 1000000);
-  
- #ifdef CHECKER 
-  FILE* f = fopen("CHECKER", "w");
-  int nbParticles = NB_PARTICLE;
+
+#ifdef CHECKER
+  printf("NbParticles: %d\n", nbParticles);
+  FILE* f = fopen(CHECKER_FILENAME, "wb");
   fwrite(&nbParticles, sizeof(int), 1, f);
-  fprintf(f, "%d\n", NB_PARTICLE);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag* b = &bagsCur[idCell];
     bag_iter bag_it;
     for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
-      fwrite(&p->id, sizeof(int), 1, f);
+      fwrite(&(p->id), sizeof(int), 1, f);
       fwrite(&(p->pos.x), sizeof(double), 1, f);
       fwrite(&(p->pos.y), sizeof(double), 1, f);
       fwrite(&(p->pos.z), sizeof(double), 1, f);
       fwrite(&(p->speed.x), sizeof(double), 1, f);
       fwrite(&(p->speed.y), sizeof(double), 1, f);
       fwrite(&(p->speed.z), sizeof(double), 1, f);
+
+            printf("id=%d %lf %lf %lf %lf %lf %lf\n", p->id,
+              p->pos.x, p->pos.y, p->pos.z,
+              p->speed.x, p->speed.y, p->speed.z);
+
     }
   }
   fclose(f);
-#endif  
+#endif
   finalize(bagsCur, bagsNext, field);
 }
 

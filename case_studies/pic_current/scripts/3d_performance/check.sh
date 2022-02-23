@@ -12,8 +12,16 @@ TARGET2=$2
 CHECKER_OUTFILE1="`basename ${TARGET1} .c`.res"
 CHECKER_OUTFILE2="`basename ${TARGET2} .c`.res"
 
+echo "====Compilation===="
 make checker.out
-
-./test.sh ${TARGET1} ${CHECKER_OUTFILE1} && \
-./test.sh ${TARGET2} ${CHECKER_OUTFILE2} && \
+./compile.sh ${TARGET1} ${CHECKER_OUTFILE1}
+./compile.sh ${TARGET2} ${CHECKER_OUTFILE2}
+echo "====Execution===="
+./run.sh ${TARGET1}
+./run.sh ${TARGET2}
+echo "====Comparison===="
+ln -f -s ../../3d_runs/run1/${CHECKER_OUTFILE1} ${CHECKER_OUTFILE1}
+ln -f -s ../../3d_runs/run1/${CHECKER_OUTFILE2} ${CHECKER_OUTFILE2}
 ./checker.out ${CHECKER_OUTFILE1} ${CHECKER_OUTFILE2}
+
+

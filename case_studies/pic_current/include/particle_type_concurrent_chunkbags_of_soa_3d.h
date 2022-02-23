@@ -138,7 +138,7 @@ typedef struct chunk {
   double vx[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // speed of the particle on the x-axis
   double vy[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // speed of the particle on the y-axis
   double vz[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // speed of the particle on the z-axis
-  CHECKER_ONLY(double id[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN)));)
+  CHECKER_ONLY(int id[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN)));)
 } chunk;
 
 typedef struct bag {

@@ -13,6 +13,9 @@
 
 #ifdef CHECKER
 #define CHECKER_ONLY(X) X
+#define STR(a) STRINTERNAL(a)
+#define STRINTERNAL(a) #a
+#define CHECKER_FILENAME STR(CHECKER)
 #else
 #define CHECKER_ONLY(X)
 #endif
@@ -148,6 +151,7 @@ int main(int argc, char** argv) {
 
     // Read parameters from file.
     if (argc >= 2) {
+        printf("Loading parameters from file %s\n", argv[1]);
         simulation_parameters parameters = read_parameters_from_file(argv[1], "3D");
         if (strcmp(parameters.sim_distrib_name, STRING_NOT_SET) == 0)
             sim_distrib = parameters.sim_distrib;
@@ -805,26 +809,33 @@ int main(int argc, char** argv) {
       printf("Exectime: %.3f sec\n", time_simu);
       printf("Throughput: %.1f million particles/sec\n", nb_particles * num_iteration / time_simu / 1000000);
     }
-    #ifdef CHECKER
-    FILE* f = fopen("CHECKER", "w");
-    int nbParticles = NB_PARTICLE;                      // Number of
-    fwrite(&nbParticles, sizeof(int), 1, f);
-    for(int j = 0; j < num_cells_3d; j++){
+#ifdef CHECKER
+    FILE* f = fopen(CHECKER_FILENAME, "wb");
+    fwrite(&nb_particles, sizeof(int), 1, f);
+    for (int j = 0; j < num_cells_3d; j++) {
       chunkbag = &particles[j];
-      for(my_chunk = chunkbag->front; my_chunk; my_chunk = my_chunk->next){
+      for (my_chunk = chunkbag->front; my_chunk; my_chunk = my_chunk->next) {
         for (i = 0; i < my_chunk->size; i++) {
-            fwrite(&j, sizeof(int), 1, f);
-            fwrite(&(my_chunk->dx[i]), sizeof(double), 1, f);
-            fwrite(&(my_chunk->dy[i]), sizeof(double), 1, f);
-            fwrite(&(my_chunk->dz[i]), sizeof(double), 1, f);
+            x = ((j / ncz) / ncy        ) + my_chunk->dx[i];
+            y = ((j / ncz) & ncyminusone) + my_chunk->dy[i];
+            z = (j & nczminusone        ) + my_chunk->dz[i];
+
+            fwrite(&(my_chunk->id[i]), sizeof(int), 1, f);
+            fwrite(&x, sizeof(double), 1, f);
+            fwrite(&y, sizeof(double), 1, f);
+            fwrite(&z, sizeof(double), 1, f);
             fwrite(&(my_chunk->vx[i]), sizeof(double), 1, f);
             fwrite(&(my_chunk->vy[i]), sizeof(double), 1, f);
             fwrite(&(my_chunk->vz[i]), sizeof(double), 1, f);
-        }
+
+            printf("id=%d %f %f %f %g %g %g\n", my_chunk->id[i],
+              my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i],
+              my_chunk->vx[i], my_chunk->vy[i], my_chunk->vz[i]);
+       }
       }
     }
     fclose(f);
-    #endif    
+#endif
     free(params);
     free(speed_params);
     deallocate_3d_array(q_times_rho, ncx+1, ncy+1, ncz+1);
