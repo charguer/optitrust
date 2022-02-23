@@ -806,19 +806,20 @@ int main(int argc, char** argv) {
       printf("Throughput: %.1f million particles/sec\n", nb_particles * num_iteration / time_simu / 1000000);
     }
     #ifdef CHECKER
-    FILE* f = fopen(CHECKER, "w");
-    fwrite(NB_PARTICLE, sizeof(int), f);
+    FILE* f = fopen("CHECKER", "w");
+    int nbParticles = NB_PARTICLE;                      // Number of
+    fwrite(&nbParticles, sizeof(int), 1, f);
     for(int j = 0; j < num_cells_3d; j++){
       chunkbag = &particles[j];
       for(my_chunk = chunkbag->front; my_chunk; my_chunk = my_chunk->next){
         for (i = 0; i < my_chunk->size; i++) {
-            fwrite(j, sizeof(int), f);
-            fwrite((double)my_chunk->dx[i], sizeof(double), f);
-            fwrite((double)my_chunk->dy[i], sizeof(double), f);
-            fwrite((double)my_chunk->dz[i], sizeof(double), f);
-            fwrite((double)my_chunk->vx[i], sizeof(double), f);
-            fwrite((double)my_chunk->vy[i], sizeof(double), f);
-            fwrite((double)my_chunk->vz[i], sizeof(double), f);
+            fwrite(&j, sizeof(int), 1, f);
+            fwrite(&(my_chunk->dx[i]), sizeof(double), 1, f);
+            fwrite(&(my_chunk->dy[i]), sizeof(double), 1, f);
+            fwrite(&(my_chunk->dz[i]), sizeof(double), 1, f);
+            fwrite(&(my_chunk->vx[i]), sizeof(double), 1, f);
+            fwrite(&(my_chunk->vy[i]), sizeof(double), 1, f);
+            fwrite(&(my_chunk->vz[i]), sizeof(double), 1, f);
         }
       }
     }
