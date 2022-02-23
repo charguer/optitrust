@@ -511,7 +511,7 @@ void init(int argc, char** argv) {
         // Modified from pic-vert
         const vect pos = { x, y, z };
         const vect speed = { vx, vy, vz };
-#ifdef CHECKER
+#ifdef DEBUG_CHECKER
         printf("created = %d, %lf %lf %lf %lf %lf %lf \n", idParticle, x, y, z, vx, vy, vz);
 #endif
         const particle particle = { pos, speed, CHECKER_ONLY(idParticle) };
@@ -661,11 +661,11 @@ int main(int argc, char** argv) {
       fwrite(&(p->speed.x), sizeof(double), 1, f);
       fwrite(&(p->speed.y), sizeof(double), 1, f);
       fwrite(&(p->speed.z), sizeof(double), 1, f);
-
-            printf("id=%d %lf %lf %lf %lf %lf %lf\n", p->id,
-              p->pos.x, p->pos.y, p->pos.z,
-              p->speed.x, p->speed.y, p->speed.z);
-
+#ifdef DEBUG_CHECKER
+      printf("id=%d %lf %lf %lf %lf %lf %lf\n", p->id,
+        p->pos.x, p->pos.y, p->pos.z,
+        p->speed.x, p->speed.y, p->speed.z);
+#endif
     }
   }
   fclose(f);

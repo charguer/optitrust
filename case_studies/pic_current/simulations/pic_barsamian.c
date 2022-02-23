@@ -829,8 +829,9 @@ int main(int argc, char** argv) {
             double vx = my_chunk->vx[i] / dt_over_dx;
             double vy = my_chunk->vy[i] / dt_over_dy;
             double vz = my_chunk->vz[i] / dt_over_dz;
-
+#ifdef DEBUG_CHECKER
             printf("id=%d %f %f %f %g %g %g\n", my_chunk->id[i], x, y, z, vx, vy, vz);
+#endif
 
             fwrite(&(my_chunk->id[i]), sizeof(int), 1, f);
             fwrite(&x, sizeof(double), 1, f);

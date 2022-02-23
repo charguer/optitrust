@@ -41,7 +41,7 @@ fi
 ###################################
 
 if [ ! -z "$CHECKER_OUTFILE" ]; then
-  CHECKER="-DCHECKER=$CHECKER_OUTFILE"
+  CHECKER="-DCHECKER=$CHECKER_OUTFILE -DDEBUG_CHECKER=1"
 fi
 
 EXTRA_BARSAMIAN=
