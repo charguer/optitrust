@@ -26,6 +26,7 @@ TESTS_WITH_DOC := \
 	instr_replace.ml \
 	instr_replace_fun.ml \
 	label_add.ml \
+	label_remove.ml \
 	loop_color.ml \
 	loop_fission.ml \
 	loop_fold.ml \
@@ -59,10 +60,12 @@ TESTS_WITH_DOC := \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
 	typedef_fold.ml \
+	variable_bind.ml \
 	variable_fold.ml \
 	variable_init_attach.ml \
 	variable_init_detach.ml \
 	variable_inline.ml \
+	variable_insert.ml \
 	variable_local_name.ml \
 	variable_rename.ml \
 	variable_simpl_deref.ml \
@@ -82,6 +85,7 @@ TESTS_TOCHECK := \
 	matrix_intro_mindex.ml \
 	matrix_intro_mmalloc.ml \
 	matrix_local_name.ml \
+	matrix_reorder_dims.ml \
 	function_rename_args.ml \
 
 
@@ -95,20 +99,14 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	function_uninline.ml \
-	label_remove.ml \
 	loop_grid_enumerate.ml \
 	rewrite_compute_inside.ml \
 	rewrite_equiv_at.ml \
 	specialize_any.ml \
 	accesses_intro.ml \
 	struct_inline.ml \
-	variable_bind.ml \
-	variable_insert.ml \
-	matrix_reorder_dims.ml \
-
 
 NOT_NEEEDED_TO_FIX := \
-	arith_scale.ml \
 	arith_shift.ml \
 	array_swap.ml \
 	aos_to_soa_typedef.ml \

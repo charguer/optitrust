@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
+let _ = Run.doc_script_cpp ~parser:Parsers.Clang (fun _ ->
     !! Label_basic.remove [cLabel "mylabel"]
   )
 "
@@ -12,7 +12,7 @@ int main() {
 }
 "
 
-let _ = Run.script_cpp ( fun _ ->
+let _ = Run.script_cpp ~parser:Parsers.Clang ( fun _ ->
 
       !! Label_basic.remove [cLabel "start"];
       !! Label_basic.remove [cLabel "unit"];

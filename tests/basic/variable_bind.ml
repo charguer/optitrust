@@ -14,7 +14,7 @@ int main() {
 }
 "
 
-let _ = Run.script_cpp (fun _ ->
+let _ = Run.script_cpp ~parser:Parsers.Clang (fun _ ->
 
   !! Variable_basic.bind "a" ~const:true [cFunDef "test"; cReturn; cArrayInit];
   !! Variable_basic.bind "b" [cVarDef "x"; cArrayInit];
