@@ -594,7 +594,7 @@ int main(int argc, char** argv) {
 #endif
 
 #ifdef DEBUG_ACCEL
-    printf("nb_particles = %d\n", nb_particles);
+    printf("nb_particles = %ld\n", nb_particles);
     printf("delta_t = %g\n", delta_t);
     printf("q = %g\n", q);
     printf("m = %g\n", m);
