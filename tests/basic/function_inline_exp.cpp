@@ -41,7 +41,7 @@ int main() {
     u = 2;
   } /*bodyh@*/
 exit_body:;
-  int *q = new int;
+  int *q;
   (*q)++;
   int result;
   /*@bodyk*/ { result = result + 4; } /*bodyk@*/

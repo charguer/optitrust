@@ -1,4 +1,4 @@
-int more() {
+void more() {
   double coef_x[3] = {0., 1., 2.};
   double sign_x[3] = {0., 1., 2.};
   double values[3];

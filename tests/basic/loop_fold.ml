@@ -13,6 +13,7 @@ int main() {
     x += 1;
     x += 2;
   }
+  return 0;
 }
 "
 (* LATER: check that at the combi level, if the target is a labeled expression, automatically add dBody *)

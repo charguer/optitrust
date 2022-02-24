@@ -5,10 +5,10 @@ int main(){
   int C = 2;
   int D = 2;
   int s = 0;
-  for (int i = 0; i < N; i++) {
+  for (int i = 0; i < 10; i++) {
     s += i;
   }
-  for (int j = 0; j < N; j += 2) {
+  for (int j = 0; j < 10; j += 2) {
     s += j;
   }
   printf("%d\n", s);
