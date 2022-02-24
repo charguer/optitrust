@@ -10,7 +10,7 @@ let _ = Run.doc_script_cpp (fun _ ->
   )
 "
 int main() {
-  if (true) {
+  if (1) {
     return 0;
   } else {
     int c = 1;

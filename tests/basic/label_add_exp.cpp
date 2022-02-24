@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 int main() {
 start:
   int x = 3;

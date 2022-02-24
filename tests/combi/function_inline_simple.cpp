@@ -40,7 +40,7 @@ int main() {
   int y = f(x);
   int z = g(x);
   int u = h(x);
-  int *q = new int(3);
+  int *q;
   m(q);
 
   vect a = {0,1};

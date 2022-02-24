@@ -125,7 +125,7 @@ let get_cpp_includes (filename : string) : string =
    and the OptiTrust AST. *)
 let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
   let use_new_encodings = !Flags.use_new_encodings in
-  let parser = if parser = Parsers.Default then Parsers.default_cparser else parser in
+  let parser = if parser = Parsers.Default then !Parsers.default_cparser else parser in
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
   let command_line_include =
@@ -142,7 +142,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
         let parse_menhir () =
           CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename) in
         let rawAst = match parser with
-          | Parsers.Default -> assert false (* see def of parser; Parsers.default_cparser should not be Default *)
+          | Parsers.Default -> assert false (* see def of parser; !dParsers.default_cparser should not be Default *)
           | Parsers.Clang -> parse_clang()
           | Parsers.Menhir -> parse_menhir()
           | Parsers.All ->
@@ -157,7 +157,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
               fail None "parse: [-cparser all] option detected discrepencies; see ast_clang.cpp and ast_menhir.cpp";
              end else
              (* If the two ast match, we can use any one of them (only locations might differ); let's use the one from the default parser. *)
-               if Parsers.default_cparser = Parsers.Clang then rawAstClang else rawAtMenhir
+               if !Parsers.default_cparser = Parsers.Clang then rawAstClang else rawAtMenhir
             in
           if !Flags.bypass_cfeatures
             then rawAst
@@ -278,7 +278,7 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   push();
   !r
 
-let get_initial_ast (ser_mode : Flags.serialized_mode) (ser_file : string) (filename : string) : (string * trm) =
+let get_initial_ast ?(parser : Parsers.cparser =Parsers.Default) (ser_mode : Flags.serialized_mode) (ser_file : string) (filename : string) : (string * trm) =
   (* LATER if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
   let includes = get_cpp_includes filename in
   let ser_file_exists = Sys.file_exists ser_file in
@@ -297,7 +297,7 @@ let get_initial_ast (ser_mode : Flags.serialized_mode) (ser_file : string) (file
     (includes, ast)
     end
   else
-    parse filename
+    parse ~parser filename
 
 (* [init f] initialize the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
@@ -305,7 +305,7 @@ let get_initial_ast (ser_mode : Flags.serialized_mode) (ser_file : string) (file
    [~prefix:"foo"] allows to use a custom prefix for all output files,
    instead of the basename of [f]. *)
 (* LATER for mli: val set_init_source : string -> unit *)
-let init ?(prefix : string = "") (filename : string) : unit =
+let init ?(prefix : string = "") ?(parser : Parsers.cparser =Parsers.Default) (filename : string) : unit =
   reset ();
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
@@ -328,7 +328,7 @@ let init ?(prefix : string = "") (filename : string) : unit =
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
   let ser_file = basename ^ ".ser" in
-  let (includes, cur_ast) = get_initial_ast mode ser_file filename in
+  let (includes, cur_ast) = get_initial_ast ~parser mode ser_file filename in
   let context = { extension; directory; prefix; includes; clog } in
   let trace = { context; cur_ast; history = [cur_ast] } in
   traces := [trace];

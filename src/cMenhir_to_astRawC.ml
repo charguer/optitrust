@@ -114,7 +114,7 @@ and tr_stmt (s : C.stmt) : trm =
   match s.sdesc with
   | Sdo e -> tr_expr e
   | Sif (cond, then_, else_) ->
-     let tc = tr_expr cond in
+     let tc = tr_expr ~is_boolean:true cond in
      let tt = tr_stmt then_ in
      begin match else_.sdesc with
      | Sskip -> trm_if ~loc ~ctx tc tt (trm_lit Lit_unit)
@@ -190,17 +190,27 @@ and tr_init ?(loc : location = None) (i : C.init) : trm =
   | Init_union _ -> fail loc "tr_init: union not supported yet"
 
 (* [tr_constant c] translate C.constant into Optitrust ast*)
-and tr_constant ?(loc : location = None) (c : C.constant) : trm =
+and tr_constant ?(loc : location = None) ?(is_boolean : bool = false) (c : C.constant) : trm =
   match c with
-  | C.CInt (i, ik, _)->
+  | C.CInt (i, ik, s)->
     let i = Int64.to_int i in
     begin match ik with
     | C.IBool ->
       let ib = Tools.int_to_bool i in
       trm_lit ~loc (Lit_bool ib)
     | C.IChar | C.ISChar | C.IUChar->
+      
       trm_lit ~loc (Lit_string (string_of_int i))
     | _ ->
+      if is_boolean 
+        then 
+          let b = 
+          begin match s with 
+          | "0" -> false | "1" -> true 
+          | _ -> fail None "tr_constant: expected a constant boolean expression"
+          end in 
+          trm_lit ~loc (Lit_bool b)
+        else
       trm_lit ~loc (Lit_int i)
     end
   | C.CFloat ({intPart = inp; fracPart = fp;_}, fk) ->
@@ -210,12 +220,12 @@ and tr_constant ?(loc : location = None) (c : C.constant) : trm =
   | _  -> fail loc "tr_const: constant expression is not supported"
 
 (* [tr_expr ~is_stement e] translate C.exp into Optitrust ast *)
-and tr_expr ?(is_statement : bool = false) (e : C.exp) : trm =
+and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.exp) : trm =
   let loc = loc_of_cloc e.eloc in
   let typ = Some (tr_type e.etyp) in
   let ctx = Some (get_ctx()) in
   match e.edesc with
-  | EConst c -> tr_constant ~loc c
+  | EConst c -> tr_constant ~loc ~is_boolean c
   | ESizeof ty ->
     let ty = tr_type ty in
     trm_var ~loc ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")")
