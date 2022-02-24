@@ -1,3 +1,10 @@
+const int x, y = 4;
+const int z = x * y;
+const double t = 2.0 * x;
+int main() {
+}
+
+/*
 #include "stdbool.h"
 #include "stdio.h"
 
@@ -8,6 +15,8 @@ int main() {
   bool b = true;
   printf("5");
 }
+
+*/
 
 /*
 #include "stdlib.h"

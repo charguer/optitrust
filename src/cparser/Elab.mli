@@ -20,8 +20,9 @@ val generate_static_func_names : bool ref
 val generate_implicit_return_on_main : bool ref
   (* This option allows to deactivate the generation of [return 0] at end of main *)
 
-val allow_variables_as_array_size : bool ref
-  (* This option adds support for referring to const variables in array sizes *)
+val allow_generalized_constant_time_constants : bool ref
+  (* This option adds support for computing compile-time constants using expressions,
+     and allows in particular referring to const variables in array sizes *)
 
 val allow_compound_initializer_in_return : bool ref
   (* This option adds support for return statements applied to compound initializers *)

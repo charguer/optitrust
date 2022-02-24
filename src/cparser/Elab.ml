@@ -28,7 +28,7 @@ let generate_static_func_names = ref true
 
 let generate_implicit_return_on_main = ref true
 
-let allow_variables_as_array_size = ref false
+let allow_generalized_constant_time_constants = ref false
 
 let allow_compound_initializer_in_return = ref false
 
@@ -2601,7 +2601,7 @@ let enter_decdef local nonstatic_inline loc sto (decls, env) (s, ty, init) =
   let is_const = List.mem AConst (attributes_of_type env ty') in
   let is_int = match ty' with TInt _ -> true | _ -> false in
   let env2 =
-    if !allow_variables_as_array_size && is_const && is_int && has_init then begin
+    if !allow_generalized_constant_time_constants && is_const && is_int && has_init then begin
       let body = match init' with
         | Some (Init_single e) -> e
         | Some _ -> assert false (* unreachable: const int cannot bind to an array/struct/union *)
@@ -2629,7 +2629,8 @@ let enter_decdef local nonstatic_inline loc sto (decls, env) (s, ty, init) =
     emit_elab ~linkage env2 loc (Gdecl(sto', id, ty', init'));
     (* Make sure the initializer is constant. *)
     begin match init' with
-      | Some i when not (Ceval.is_constant_init env2 i) ->
+      | Some i when not !allow_generalized_constant_time_constants
+                 && not (Ceval.is_constant_init env2 i) ->
         error loc "initializer is not a compile-time constant"
       | _ -> ()
     end;
@@ -3325,7 +3326,7 @@ let elab_file prog =
   let elab_def env d = snd (elab_definition false false false env d) in
   ignore (List.fold_left elab_def env prog);
   let p = elaborated_program () in
-  
-  
-  
+
+
+
   p
