@@ -558,6 +558,25 @@ int main(int argc, char** argv) {
         for (j = 0; j < ncy + 1; j++)
             for (k = 0; k < ncz + 1; k++)
                 q_times_rho[i][j][k] = q * rho_3d[i][j][k];
+
+
+#ifdef DEBUG_CHARGE
+    // printf("charge_factor = %g  = nbcells/nbParticles = %g\n", charge_factor, ((double) ncx*ncy*ncz) / nb_particles);
+    double s = 0.;
+    for (int i = 0; i < ncx; i++) {
+        for (int j = 0; j < ncy; j++) {
+            for (int k = 0; k < ncz; k++) {
+                s += rho_3d[i][j][k];
+                // printf("rho[%d][%d][%d] = %lf\n", i, j, k, rho[i][j][k]);
+                printf("q_times_rho[%d][%d][%d] = %lf\n", i, j, k, q_times_rho[i][j][k]);
+                // printf("q_times_rho[%d][%d][%d] / nbCells = %lf\n", i, j, k, q_times_rho[i][j][k] / (ncx * ncy * ncz));
+                // printf("q_times_rho[%d][%d][%d] / charge_factor / nbParticles = %lf\n", i, j, k, q_times_rho[i][j][k] / charge_factor / nb_particles);
+            }
+        }
+    }
+   printf("total charge rho = %g\n", s);
+#endif
+
     compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez, 1);
 
 #ifdef DEBUG_FIELD
@@ -565,8 +584,8 @@ int main(int argc, char** argv) {
   for (int i = 0; i < ncx; i++) {
     for (int j = 0; j < ncy; j++) {
       for (int k = 0; k < ncz; k++) {
-        double r = (-q) / nb_particles / charge_factor;
-        printf("field[%d][%d][%d]*(-q)/nbParticles/charge_factor = %g %g %g\n", i, j, k,
+        double r = (-q); // / nb_particles / charge_factor;
+        printf("field[%d][%d][%d]*(-q) = %g %g %g\n", i, j, k,
             r*Ex[i][j][k], r*Ey[i][j][k], r*Ez[i][j][k]);
       }
     }
@@ -583,8 +602,8 @@ int main(int argc, char** argv) {
                 //if (! (i == 0 && j == 0 && k ==0))
                 //  break;
                 i_cell = COMPUTE_I_CELL_3D(icell_param1, icell_param2, i, j, k);
-                double r = - q / nb_particles / charge_factor;
-                printf("E_field<%d>[%d][%d][%d].left_front_down *(-q)/nbParticles/charge_factor/?_field_factor = %g %g %g\n", i_cell, i, j, k,
+                double r = - q; // / nb_particles / charge_factor; // /nbParticles/charge_factor
+                printf("E_field<%d>[%d][%d][%d].left_front_down *(-q)/xyz_field_factor = %g %g %g\n", i_cell, i, j, k,
                   r/x_field_factor * E_field[i_cell].field_x.left_front_down,
                   r/y_field_factor * E_field[i_cell].field_y.left_front_down,
                   r/z_field_factor * E_field[i_cell].field_z.left_front_down);
@@ -624,8 +643,8 @@ int main(int argc, char** argv) {
 #ifdef DEBUG_ACCEL
               int idp = my_chunk->id[i];
               if (idp == 0) {
-                double r = - q / nb_particles / charge_factor / x_field_factor;
-                printf("particle %d: topcorner_fieldx *(-q)/nbParticles/charge_factor/x_field_factor = %g\n", idp, r * E_field[j].field_x.left_front_down);
+                double r = - q / x_field_factor;
+                printf("particle %d: topcorner_fieldx *(-q)/x_field_factor = %g\n", idp, r * E_field[j].field_x.left_front_down);
                 double fieldx = (
                         (     my_chunk->dx[i]) * (     my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.right_back_top
                       + (1. - my_chunk->dx[i]) * (     my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.left_back_top
@@ -636,7 +655,7 @@ int main(int argc, char** argv) {
                       + (     my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_x.right_front_down
                       + (1. - my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_x.left_front_down);
                 printf("particle %d: fieldx = %g\n", idp, fieldx);
-                printf("particle %d: fieldx *(-q)/nbParticles/charge_factor/x_field_factor = %g\n", idp, r * fieldx);
+                printf("particle %d: fieldx *(-q)/x_field_factor = %g\n", idp, r * fieldx);
                 double delta_vx = - 0.5 * fieldx;
                 printf("particle %d: delta_vx = %g\n", idp, delta_vx);
                 printf("particle %d: delta_vx / (dt/dx) = %g\n", idp, delta_vx / dt_over_dx);

@@ -456,11 +456,6 @@ void convert_charge_to_rho_3d_per_per(double* charge_accu,
                     charge_accu[NB_CORNERS_3D*COMPUTE_I_CELL_3D(param1, param2, (i-1)&ncxminusone,  j   &ncyminusone, (k-1)&nczminusone) + RIGHT_FRONT_TOP] +
                     charge_accu[NB_CORNERS_3D*COMPUTE_I_CELL_3D(param1, param2, (i-1)&ncxminusone, (j-1)&ncyminusone, (k-1)&nczminusone) + RIGHT_BACK_TOP] +
                     charge_accu[NB_CORNERS_3D*COMPUTE_I_CELL_3D(param1, param2,  i   &ncxminusone, (j-1)&ncyminusone, (k-1)&nczminusone) + LEFT_BACK_TOP]);
-#ifdef DEBUG_CHARGE
-                // printf("rho[%d][%d][%d] = %lf\n", i, j, k, rho[i][j][k]);
-                if (i < ncx && j < ncy && k < ncz)
-                   printf("rho[%d][%d][%d] / factor = %lf\n", i, j, k, rho[i][j][k] / factor);
-#endif
             }
         }
     }

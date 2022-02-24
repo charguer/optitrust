@@ -249,16 +249,21 @@ bag* bagsNext;
 #include "parameters.h"                                   // constants PI, EPSILON, DBL_DECIMAL_DIG, FLT_DECIMAL_DIG, NB_PARTICLE
 // TODO: it would be simpler if the Poisson module could take rho directly as an array indexed by idCell
 void computeRhoForPoisson(double* nextCharge, double*** rho) {
+  double s = 0.;
   for (int i = 0; i < gridX; i++) {
     for (int j = 0; j < gridY; j++) {
       for (int k = 0; k < gridZ; k++) {
         rho[i][j][k] = nextCharge[cellOfCoord(i,j,k)];
 #ifdef DEBUG_CHARGE
         printf("rho[%d][%d][%d] = %lf\n", i, j, k, rho[i][j][k]);
+        s += rho[i][j][k];
 #endif
       }
     }
   }
+#ifdef DEBUG_CHARGE
+  printf("total charge = %g\n", s);
+#endif
 }
 
 void resetIntArray(double* array) {
@@ -445,8 +450,6 @@ void init(int argc, char** argv) {
      * physical particles than another numerical particle, even though in this
      * simulation it's not the case.
      */
-  particleCharge = totalCharge / nb_particles;
-  particleMass = 1. / nb_particles; // TODO YANN check this
   nbSteps = num_iteration;
   nbParticles = nb_particles;
   gridX = ncx;
@@ -456,11 +459,13 @@ void init(int argc, char** argv) {
   areaY = y_max - y_min;
   areaZ = z_max - z_min;
 
-  // New verified_transfo variables.
+  // New variables
   nbCells = gridX * gridY * gridZ;
   cellX = areaX / gridX;
   cellY = areaY / gridY;
   cellZ = areaZ / gridZ;
+  particleCharge = totalCharge / nb_particles * nbCells; // TEMPORARY
+  particleMass = 1. / nb_particles;
 
   // initialize poisson solver, and rho, Ex, Ey, Ez arrays
   rho = allocate_3d_array(gridX, gridY, gridZ);
@@ -577,7 +582,8 @@ void init(int argc, char** argv) {
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
         // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
         // TRACE("LOOP3\n");
-        vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
+        // vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
+        vect accel = vect_mul(-1. / particleMass / nbParticles, fieldAtPos); // TODO: magic?
 #ifdef DEBUG_ACCEL
         if (p->id == 0) {
           printf("particle %d: topcorner_fieldx = %g\n", p->id, field_at_corners.v[0].x);
@@ -629,10 +635,6 @@ int main(int argc, char** argv) {
   // Foreach time step
   for (int step = 0; step < nbSteps; step++) {
     TRACE("Step %d\n", step);
-    // Update the new field based on the total charge accumulated in each cell,
-    // and reset nextCharge.
-    updateFieldUsingNextCharge(nextCharge, field);
-    // TRACE("Field global ready\n");
 
     // For each cell from the grid
     for (int idCell = 0; idCell < nbCells; idCell++) {
@@ -655,7 +657,9 @@ int main(int argc, char** argv) {
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
 
         // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
-        vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
+        // vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
+        vect accel = vect_mul(-1. / particleMass / nbParticles, fieldAtPos); // TODO: magic?
+
         // Compute the new speed and position for the particle.
         vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
         vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
@@ -683,7 +687,8 @@ int main(int argc, char** argv) {
       bag_swap(&bagsCur[idCell], &bagsNext[idCell]);
     }
 
-    // Poisson solver and reset nextCharge
+    // Update the new field based on the total charge accumulated in each cell,
+    // and reset nextCharge.
     // TRACE("Poisson\n");
     updateFieldUsingNextCharge(nextCharge, field);
   }
