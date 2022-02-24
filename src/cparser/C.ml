@@ -188,10 +188,12 @@ and exp_desc =
 
 (** Initializers *)
 
+and identtyp = ident * typ
+
 and init =
   | Init_single of exp
   | Init_array of init list
-  | Init_struct of ident * (field * init) list
+  | Init_struct of identtyp * (field * init) list
   | Init_union of ident * field * init
 
 (** GCC extended asm *)

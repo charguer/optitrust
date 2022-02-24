@@ -1209,7 +1209,7 @@ let rec default_init env ty =
           then default_init_fields fl
           else (f1, default_init env f1.fld_typ) :: default_init_fields fl in
       let ci = Env.find_struct env id in
-      Init_struct(id, default_init_fields ci.ci_members)
+      Init_struct((id,TStruct(id,[])), default_init_fields ci.ci_members)
   | TUnion(id, _) ->
     let ci = Env.find_union env id in
     let rec default_init_field = function

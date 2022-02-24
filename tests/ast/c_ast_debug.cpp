@@ -1,5 +1,14 @@
+typedef struct { int x; int y; } vect;
+typedef struct { vect pos; } particle;
+
+int main() {
+  particle v = { { 2, 3 } };
+  //vect v = { 2, 4 };
+  // return v.x;
+}
 
 
+/*
 // TODO: move this to a unit test in ast/ folder on arrays
 typedef struct {
   int t[2];
@@ -11,7 +20,7 @@ int main() {
   int const a = u[0];
   int b = a;
 }
-
+*/
 
 /*
 TODO: try this  in the unit test for simpl_accesses

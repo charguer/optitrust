@@ -10,6 +10,6 @@ let _ =
 
 let _ = Run.script_cpp (fun () ->
 
-  show [cVarDef "u"];
+  show [cVarDef "v"];
 )
 

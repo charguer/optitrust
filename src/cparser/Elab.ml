@@ -1349,7 +1349,7 @@ module I = struct
               * init list               (* elements after point *)
 
     | Zstruct of zipinit                (* ancestor *)
-               * ident                  (* struct type *)
+               * identtyp               (* struct type *)
                * (field * init) list    (* elements before current, reversed *)
                * field                  (* current field *)
                * (field * init) list    (* elements after current *)
@@ -1443,7 +1443,7 @@ module I = struct
     | TStruct(id, _), Init_struct(id', []) ->
         NotFound
     | TStruct(id, _), Init_struct(id', (fld1, i1) :: flds) ->
-        OK(Zstruct(z, id, [], fld1, flds), i1)
+        OK(Zstruct(z, (id,ty), [], fld1, flds), i1)
     | TUnion(id, _), Init_union(id', fld, i) ->
       let rec first_named = function
         | [] -> NotFound
@@ -1509,9 +1509,9 @@ module I = struct
           | [] -> NotFound
           | (fld, i as f_i) :: after ->
               if fld.fld_name = name then
-                OK(Zstruct(z, id, before, fld, after), i)
+                OK(Zstruct(z, (id,ty), before, fld, after), i)
               else if fld.fld_anonymous && has_member env name fld.fld_typ then
-                let zi = (Zstruct(z, id, before, fld, after), i) in
+                let zi = (Zstruct(z, (id,ty), before, fld, after), i) in
                 member env zi name
               else
                 find (f_i :: before) after

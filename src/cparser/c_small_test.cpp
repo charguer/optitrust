@@ -1,10 +1,15 @@
-const int x, y = 4;
-const int z = x * y;
-const double t = 2.0 * x;
+typedef struct { int x; int y; } vect;
+
 int main() {
+  vect v = { 2, 4 };
+  v.x;
 }
 
 /*
+const int x, y = 4;
+const int z = x * y;
+const double t = 2.0 * x;
+
 #include "stdbool.h"
 #include "stdio.h"
 
