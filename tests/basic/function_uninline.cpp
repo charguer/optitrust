@@ -1,4 +1,4 @@
-
+#include <stdbool.h>
 
 void g(int x, int y) {}
 
