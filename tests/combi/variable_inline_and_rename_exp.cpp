@@ -1,4 +1,4 @@
-void f(int a);
+void f(int);
 
 int main() {
   int y = 5;

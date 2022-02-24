@@ -31,6 +31,7 @@ TESTS_WITH_DOC := \
 	loop_fission.ml \
 	loop_fold.ml \
 	loop_fusion.ml \
+	loop_grid_enumerate.ml \
 	loop_hoist.ml \
 	loop_moveout.ml \
 	loop_swap.ml \
@@ -51,6 +52,7 @@ TESTS_WITH_DOC := \
 	sequence_partition.ml \
 	sequence_split.ml \
 	struct_fields_reorder.ml \
+	struct_inline.ml \
 	struct_rename_field.ml \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
@@ -76,6 +78,8 @@ TESTS_WITH_DOC := \
 
 TESTS_WORKING_NOTINDOC := \
 	specialize_choose.ml \
+	specialize_any.ml \
+
 
 # TODO: move include_inline to tests/interact/
 
@@ -88,10 +92,6 @@ TESTS_TOCHECK := \
 	matrix_reorder_dims.ml \
 	function_rename_args.ml \
 
-
-
-
-
 # missing expected
 # matrix_insert_alloc_dim.ml
 #	matrix_insert_access_dim_index.ml \
@@ -99,12 +99,9 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	function_uninline.ml \
-	loop_grid_enumerate.ml \
 	rewrite_compute_inside.ml \
 	rewrite_equiv_at.ml \
-	specialize_any.ml \
 	accesses_intro.ml \
-	struct_inline.ml \
 
 NOT_NEEEDED_TO_FIX := \
 	arith_shift.ml \

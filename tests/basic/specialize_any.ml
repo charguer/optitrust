@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 
-let _ = Run.doc_script_cpp (fun _ ->
+(* let _ = Run.doc_script_cpp (fun _ ->
       !! Specialize_basic.any "i" [cAny];
   )
 "
@@ -11,7 +11,7 @@ int main() {
   int i = 0;
   int a = ANY(2);
 }
-"
+" *)
 
 let _ = Run.script_cpp (fun _ ->
 

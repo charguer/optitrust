@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Run.script_cpp (fun _ ->
+let _ = Run.script_cpp ~parser:Parsers.Clang  (fun _ ->
     
     !! Function.inline ~name_result:"r" ~args:["a";"";"b";""] [cFun "g"];
     !! Trace.alternative (fun () ->

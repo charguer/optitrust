@@ -14,6 +14,6 @@ int main() {
    then we could automatically use the items from the product to guide the loops;
    in this case, the user only need to give ~indices:["cx","cy","cz"] *)
 
-let _ = Run.script_cpp ~parser:Parsers. (fun _ ->
+let _ = Run.script_cpp (fun _ ->
   !! Loop_basic.grid_enumerate [("x", "X"); ("y", "Y"); ("z", "Z")] [cFor "idCell"];
 )

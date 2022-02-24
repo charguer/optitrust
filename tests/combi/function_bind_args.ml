@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Run.script_cpp (fun _ ->
+let _ = Run.script_cpp ~parser:Parsers.Clang (fun _ ->
   !! Function.bind_args ["a";"";"b";""] [cTopFunDef "main"; cFun "g"]; 
   (* It also works if the function is nested in a deeper context *)
   !! Function.bind_args ["a";"";"b";"c"] [cTopFunDef "main2"; cFun "g"]; 

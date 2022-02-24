@@ -45,9 +45,9 @@ int main() {
   }
   u = 2;
 exit_body:;
-  int *q = new int;
+  int *q;
   (*q)++;
-  vect a = {0, 1};
+  vect a = {0, 1, 2};
   vect b = {3, 4, 5};
   vect c = {b.x + x * (a.x), b.y + x * (a.y), b.z + x * (a.z)};
   return 0;

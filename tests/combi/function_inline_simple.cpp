@@ -43,7 +43,7 @@ int main() {
   int *q;
   m(q);
 
-  vect a = {0,1};
+  vect a = {0,1,2};
   vect b = {3,4,5};
   vect c = vect_add (b, vect_mul(x, a));
   return 0;
