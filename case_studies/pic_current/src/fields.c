@@ -2,6 +2,10 @@
 #include "space_filling_curves.h" // macros    COMPUTE_I_CELL_2D, COMPUTE_I_CELL_3D, I_CELL_PARAM_2D, I_CELL_PARAM1_3D, I_CELL_PARAM2_3D
 #include "fields.h"               // types     field_2d, field_2d_opt, field_3d, field_3d_opt
 
+#ifdef DEBUG_FIELD
+#include <stdio.h>
+#endif
+
 /*****************************************************************************
  *                           Electric field 2d                               *
  *                                                                           *
@@ -189,6 +193,7 @@ void accumulate_field_3d(double*** Ex, double*** Ey, double*** Ez,
                 f3d[i_cell].field_z.right_front_top  = Ez[i+1][j  ][k+1] * z_factor;
                 f3d[i_cell].field_z.right_back_down  = Ez[i+1][j+1][k  ] * z_factor;
                 f3d[i_cell].field_z.right_back_top   = Ez[i+1][j+1][k+1] * z_factor;
+
             }
         }
     }

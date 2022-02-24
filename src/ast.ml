@@ -291,7 +291,7 @@ and trm_annot =
   | Reference (* Used to encode references as pointers with annotation Reference *)
   | Stackvar (* Used to encode stack variables *)
   | Annot_stringreprid of stringreprid (* Memoization id for the string representation of this node *)
-  
+
 
 (* symbols to add while printing a C++ program.*)
 and special_operator =
@@ -383,7 +383,7 @@ and trm_desc =
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_struct of trm mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
-  | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c; *)
+  | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c; ONLY FOR RAW AST! *)
   | Trm_let_fun of var * typ * (typed_vars) * trm
   | Trm_let_record of string * record_type * (label * typ) list * trm
   (* LATER: trm_fun  for anonymous functions *)
@@ -973,7 +973,7 @@ let trm_cast (ty : typ) (t : trm) : trm =
   trm_apps (trm_unop (Unop_cast ty)) [t]
 
 let trm_remove_marks (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   (* In the case of sequences, special treatment is needed for inbetween marks*)
   | Trm_seq tl -> {t with desc = Trm_seq {items = tl.items; marks = []}; marks = []}
   | _ -> {t with marks = []}
@@ -1377,10 +1377,10 @@ let decl_name (t : trm) : var option =
   | Trm_typedef td -> Some td.typdef_tconstr
   | _ -> None
 
-(* [vars_bound_in_trm_init t] get the list of variables that are bound inside 
+(* [vars_bound_in_trm_init t] get the list of variables that are bound inside
    the initialization trm of the for_c loop*)
-let vars_bound_in_trm_init (t : trm) : var list = 
-  match t.desc with 
+let vars_bound_in_trm_init (t : trm) : var list =
+  match t.desc with
   | Trm_let (_, (x,_), _) -> [x]
   | Trm_let_mult (_, _, vl, _) -> vl
   | _ -> []
@@ -1667,8 +1667,8 @@ let get_inner_ptr_type (ty : typ) : typ =
   | _ -> ty
 
 (* [get_inner_const_type ty] bypass the const type *)
-let get_inner_const_type (ty : typ) : typ = 
-  match ty.typ_desc with 
+let get_inner_const_type (ty : typ) : typ =
+  match ty.typ_desc with
   | Typ_const ty -> ty
   | _ -> ty
 
@@ -1809,7 +1809,7 @@ let is_set_operation (t : trm) : bool =
 
 (* check if [t] is a compound assignment *)
 let is_compound_assignment (t : trm) : bool =
-  match t.desc with 
+  match t.desc with
   | Trm_apps ({ desc = Trm_val (Val_prim (Prim_compound_assgn_op _))}, _) -> true
   | _ -> false
 
@@ -1846,9 +1846,9 @@ let trm_let_immut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
 let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
   let var_name, var_type = typed_var in
-  let var_type_const = if kind = Var_immutable then typ_const var_type else var_type in 
+  let var_type_const = if kind = Var_immutable then typ_const var_type else var_type in
   let var_type = typ_array var_type_const sz in
-  let var_type_ptr = if kind = Var_mutable then typ_ptr_generated var_type else var_type in 
+  let var_type_ptr = if kind = Var_mutable then typ_ptr_generated var_type else var_type in
   let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
   let res = trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init in
   if kind = Var_mutable then trm_annot_add Stackvar res else res
@@ -2201,24 +2201,24 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
 let is_infix_prim_fun (p : prim) : bool =
   match p with
   | Prim_compound_assgn_op __ -> true
-  | Prim_binop op -> 
-    begin match op with 
-    | Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_mod | Binop_shiftl | Binop_shiftr | Binop_and | Binop_or -> true 
-    | _ -> false 
+  | Prim_binop op ->
+    begin match op with
+    | Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_mod | Binop_shiftl | Binop_shiftr | Binop_and | Binop_or -> true
+    | _ -> false
     end
   | _ -> false
 
 (* [get_binop_from_prim p] *)
-let get_binop_from_prim (p : prim) : binary_op option = 
-  match p with 
+let get_binop_from_prim (p : prim) : binary_op option =
+  match p with
   | Prim_compound_assgn_op binop -> Some binop
   | Prim_binop binop -> Some binop
   | _ -> None
 
 (* [is_postfix_prim_fun p] *)
-let is_postfix_unary (unop : unary_op) : bool = 
-  match unop with 
-  | Unop_post_inc | Unop_post_dec -> true 
+let is_postfix_unary (unop : unary_op) : bool =
+  match unop with
+  | Unop_post_inc | Unop_post_dec -> true
   | _ -> false
 
 (* [is_arith_fun p] check if the primitive function [p] is an arithmetic operation or not *)
@@ -2275,15 +2275,15 @@ let trm_get ?(annot : trm_annot list = []) ?(typ : typ option = None) (t : trm) 
   trm_apps ~annot (trm_unop Unop_get) [t]
 
 (* [trm_get t] generates a address operation in [t] *)
-let trm_address_of ?(annot : trm_annot list = []) ?(typ : typ option = None) (t : trm) : trm = 
-  trm_apps ~typ:t.typ (trm_unop Unop_address) [t] 
+let trm_address_of ?(annot : trm_annot list = []) ?(typ : typ option = None) (t : trm) : trm =
+  trm_apps ~typ:t.typ (trm_unop Unop_address) [t]
 
 (* [trm_var_get x] generates *x *)
 let trm_var_get ?(typ : typ option = None) (x : var) : trm =
   trm_get ~typ (trm_var ~typ x)
 
 (* [trm_var_addr ~typ x] generates &x*)
-let trm_var_addr ?(typ : typ option = None) (x : var) : trm = 
+let trm_var_addr ?(typ : typ option = None) (x : var) : trm =
   trm_address_of ~typ (trm_var ~typ x)
 
 (* [trm_var_possibly_mut ~const ty] *)
@@ -2467,12 +2467,12 @@ let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
   ) tm1;
   !common
 
-(* [get_mutability t] if [t] is a variable declaration or a variable occurrence then return its occurrences otherwise 
+(* [get_mutability t] if [t] is a variable declaration or a variable occurrence then return its occurrences otherwise
     return nothing *)
-let get_mutability (t : trm) : varkind option = 
-  match t.desc with 
-  | Trm_let (vk, _, _) -> Some vk 
-  | Trm_var (vk, _) -> Some vk 
+let get_mutability (t : trm) : varkind option =
+  match t.desc with
+  | Trm_let (vk, _, _) -> Some vk
+  | Trm_var (vk, _) -> Some vk
   | _ -> None
 
 
@@ -2512,7 +2512,7 @@ let simpl_struct_get_get (t : trm) : trm =
 
 (* [simpl_array_get t] tranform array_get (get(t1), index) to get(array_access (t1), index) *)
 let rec simpl_array_get_get (t : trm) : trm =
-  let aux = simpl_array_get_get in 
+  let aux = simpl_array_get_get in
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)));_} as op, [base; index]) ->
     begin match base.desc with
@@ -2534,7 +2534,7 @@ let rec simpl_array_get_get (t : trm) : trm =
 
 
 (* [simpl_accesses t] *)
-let simpl_accesses (t : trm) = 
+let simpl_accesses (t : trm) =
  trm_simplify_addressof_and_get (simpl_struct_get_get (simpl_array_get_get t))
 
 (* [array_access base index] generates array_access (base, index) *)
@@ -2575,8 +2575,8 @@ let get_struct_access_inv (t : trm) : (string * trm) option =
     end
   | _ -> None
 
-  
+
 (* [trm_var_assoc_list to_map al] creat a map from an association list wher keys are string and values are trms *)
-let map_from_trm_var_assoc_list (al : (string * trm) list) : tmap = 
-  let tm = Trm_map.empty in 
+let map_from_trm_var_assoc_list (al : (string * trm) list) : tmap =
+  let tm = Trm_map.empty in
   List.fold_left (fun acc (k, v) -> Trm_map.add k v acc) tm al

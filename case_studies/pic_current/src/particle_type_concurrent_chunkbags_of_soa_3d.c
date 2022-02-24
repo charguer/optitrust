@@ -1004,7 +1004,7 @@ void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, car
     // Create particles and push them into the bags.
     for (j = 0; j < num_particle; j++) {
         do {
-#ifdef DEBUG_CHECKER
+#ifdef DEBUG_CREATION_RANDOM
             double rx = pic_vert_next_random_double();
             x = x_range * rx + mesh.x_min;
             // printf("id = %d, rand = %lf, x = %lf\n", (int) j, rx, x);
@@ -1016,14 +1016,14 @@ void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, car
             control_point = (*max_distrib_function)(spatial_params) * pic_vert_next_random_double();
             evaluated_function = (*distrib_function)(spatial_params, x, y, z);
         } while (control_point > evaluated_function);
-#ifdef DEBUG_CHECKER
+#ifdef DEBUG_CREATION
         printf("created = %d, %lf %lf %lf ", (int) j, x, y, z);
 #endif
         x = (x - mesh.x_min) / mesh.delta_x;
         y = (y - mesh.y_min) / mesh.delta_y;
         z = (z - mesh.z_min) / mesh.delta_z;
         (*speeds_generator)(speed_params, &vx, &vy, &vz);
-#ifdef DEBUG_CHECKER
+#ifdef DEBUG_CREATION
         printf("%lf %lf %lf \n", vx, vy, vz);
 #endif
         i_cell = COMPUTE_I_CELL_3D(icell_param1, icell_param2, (int)x, (int)y, (int)z);

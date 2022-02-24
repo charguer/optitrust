@@ -16,8 +16,9 @@ echo "====Compilation===="
 make checker.out
 ./compile.sh ${TARGET1} ${CHECKER_OUTFILE1} || exit 1
 ./compile.sh ${TARGET2} ${CHECKER_OUTFILE2} || exit 1
-echo "====Execution===="
+echo "====Execution ${TARGET1}===="
 ./run.sh ${TARGET1} || exit 1
+echo "====Execution ${TARGET2}===="
 ./run.sh ${TARGET2} || exit 1
 echo "====Comparison===="
 ln -f -s ../../3d_runs/run1/${CHECKER_OUTFILE1} ${CHECKER_OUTFILE1}
