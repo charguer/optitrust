@@ -182,11 +182,13 @@ and tr_stmt (s : C.stmt) : trm =
   | _ -> fail loc "tr_stmt: statment not supported"
 
 (* [tr_init i] translate C.inti into optitrust ast*)
-and tr_init ?(loc : location = None) ?(typ : typ option = None) (i : C.init) : trm =
+and tr_init ?(loc : location = None) (i : C.init) : trm =
   match i with
   | Init_single e -> tr_expr e
   | Init_array il -> trm_array ~loc (Mlist.of_list (List.map tr_init il))
-  | Init_struct (_, il) -> trm_struct ~loc (Mlist.of_list (List.map (fun (_, init) -> tr_init init) il))
+  | Init_struct ((id, ty), il) -> 
+    let ty = tr_type ty in 
+    trm_struct ~loc ~typ:(Some ty) (Mlist.of_list (List.map (fun (_, init) -> tr_init init) il))
   | Init_union _ -> fail loc "tr_init: union not supported yet"
 
 (* [tr_constant c] translate C.constant into Optitrust ast*)
