@@ -34,7 +34,7 @@ let verbose_mode : bool ref = ref false
 
 (* Flag to enable "light diffs", whereby we hide the function body of all the
    toplevel functions that are not affected by the transformation. *)
-let use_light_diff : bool ref = ref true
+let use_light_diff : bool ref = ref false
 
 (* Flag for using only raw ast, when parsing and printing *)
 let use_new_encodings : bool ref = ref true

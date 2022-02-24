@@ -474,7 +474,7 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
 and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let f = Tools.string_subst "overloaded" "operator" f in
-  let argd = separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
+  let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
   begin match b.desc with
   | Trm_val (Val_lit Lit_uninitialized) ->

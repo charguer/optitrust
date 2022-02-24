@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 int main() {
   int x = 0;
   if (true)
