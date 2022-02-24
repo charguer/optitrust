@@ -201,10 +201,10 @@ batch_recheck: clean_batch
 	$(MAKE) BATCH=1 recheck
 
 batch_doc: clean_batch
-	$(MAKE) BATCH=1 batch_check doc
+	$(MAKE) -i BATCH=1 batch_check doc
 
 batch_redoc: clean_batch
-	$(MAKE) BATCH=1 batch_recheck doc
+	$(MAKE) -i BATCH=1 batch_recheck doc
 
 batch: batch_recheck
 
