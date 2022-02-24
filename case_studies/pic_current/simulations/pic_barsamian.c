@@ -10,6 +10,9 @@
 
 //#define PAPI_LIB_INSTALLED
 
+// #define PRINTPARAMS 1
+// #define PRINTPERF 1
+
 
 #ifdef CHECKER
 #define CHECKER_ONLY(X) X
@@ -151,7 +154,9 @@ int main(int argc, char** argv) {
 
     // Read parameters from file.
     if (argc >= 2) {
+#ifdef PRINTPARAMS
         printf("Loading parameters from file %s\n", argv[1]);
+#endif
         simulation_parameters parameters = read_parameters_from_file(argv[1], "3D");
         if (strcmp(parameters.sim_distrib_name, STRING_NOT_SET) == 0)
             sim_distrib = parameters.sim_distrib;
@@ -431,7 +436,7 @@ int main(int argc, char** argv) {
         if (mpi_rank == 0)
             printf("Read time (%ld particles) : %g sec\n", nb_particles, (double) (omp_get_wtime() - time_start));
     } else {
-        printf("Mpi_rank %d\n", mpi_rank); // prints zero
+        // printf("Mpi_rank %d\n", mpi_rank); // prints zero
         pic_vert_seed_double_RNG(mpi_rank);
 //         Different random numbers at each run.
 //         pic_vert_seed_double_RNG(seed_64bits(mpi_rank));
@@ -440,7 +445,9 @@ int main(int argc, char** argv) {
         create_particle_array_3d(mpi_world_size, nb_particles, mesh, sim_distrib,
             params, speed_params, &weight, &particles);
         if (mpi_rank == 0)
+#ifdef PRINTPERF
             printf("Creation time (%ld particles) : %g sec\n", nb_particles, (double) (omp_get_wtime() - time_start));
+#endif
         if (sim_initial == INIT_WRITE) {
             // Export the particles.
             char filename[30];
@@ -472,6 +479,7 @@ int main(int argc, char** argv) {
     const double y_field_factor = dt_q_over_m * dt_over_dy;
     const double z_field_factor = dt_q_over_m * dt_over_dz;
 
+#ifdef PRINTPARAMS
   if (mpi_rank == 0) {
     printf("#CHUNK_SIZE = %d\n", CHUNK_SIZE);
     printf("#VEC_ALIGN = %d\n", VEC_ALIGN);
@@ -506,6 +514,7 @@ int main(int argc, char** argv) {
     printf("#nb_particles = %ld\n", nb_particles);
     printf("#num_iteration = %d\n", num_iteration);
   }
+#endif
 
     reset_charge_3d_accumulator(ncx, ncy, ncz, num_threads, charge_accu);
     // Computes rho at initial time.
@@ -807,8 +816,10 @@ int main(int argc, char** argv) {
         print_time_chunkbags(mpi_rank, mpi_world_size, nb_particles, num_iteration, time_simu, simulation_name, data_structure_name, sort_name,
             time_particle_loop, time_append, time_mpi_allreduce, time_poisson);
     } else {
+#ifdef PRINTPERF
       printf("Exectime: %.3f sec\n", time_simu);
       printf("Throughput: %.1f million particles/sec\n", nb_particles * num_iteration / time_simu / 1000000);
+#endif
     }
 #ifdef CHECKER
     FILE* f = fopen(CHECKER_FILENAME, "wb");

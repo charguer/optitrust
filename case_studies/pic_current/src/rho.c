@@ -444,9 +444,9 @@ void convert_charge_to_rho_3d_per_per(double* charge_accu,
     const int param2 = I_CELL_PARAM2_3D(ncx, ncy, ncz);
 
     #pragma omp parallel for private(i, j, k) firstprivate(param1, param2, ncx, ncy, ncz, ncxminusone, ncyminusone, nczminusone) collapse(3)
-    for (i = 0; i < ncx + 1; i++)
-        for (j = 0; j < ncy + 1; j++)
-            for (k = 0; k < ncz + 1; k++)
+    for (i = 0; i < ncx + 1; i++) {
+        for (j = 0; j < ncy + 1; j++) {
+            for (k = 0; k < ncz + 1; k++) {
                 rho[i][j][k] = factor * (
                     charge_accu[NB_CORNERS_3D*COMPUTE_I_CELL_3D(param1, param2,  i   &ncxminusone,  j   &ncyminusone,  k   &nczminusone) + LEFT_FRONT_DOWN] +
                     charge_accu[NB_CORNERS_3D*COMPUTE_I_CELL_3D(param1, param2, (i-1)&ncxminusone,  j   &ncyminusone,  k   &nczminusone) + RIGHT_FRONT_DOWN] +
@@ -456,5 +456,13 @@ void convert_charge_to_rho_3d_per_per(double* charge_accu,
                     charge_accu[NB_CORNERS_3D*COMPUTE_I_CELL_3D(param1, param2, (i-1)&ncxminusone,  j   &ncyminusone, (k-1)&nczminusone) + RIGHT_FRONT_TOP] +
                     charge_accu[NB_CORNERS_3D*COMPUTE_I_CELL_3D(param1, param2, (i-1)&ncxminusone, (j-1)&ncyminusone, (k-1)&nczminusone) + RIGHT_BACK_TOP] +
                     charge_accu[NB_CORNERS_3D*COMPUTE_I_CELL_3D(param1, param2,  i   &ncxminusone, (j-1)&ncyminusone, (k-1)&nczminusone) + LEFT_BACK_TOP]);
+#ifdef DEBUG_CHARGE
+                // printf("rho[%d][%d][%d] = %lf\n", i, j, k, rho[i][j][k]);
+                if (i < ncx && j < ncy && k < ncz)
+                   printf("rho[%d][%d][%d] / factor = %lf\n", i, j, k, rho[i][j][k] / factor);
+#endif
+            }
+        }
+    }
 }
 

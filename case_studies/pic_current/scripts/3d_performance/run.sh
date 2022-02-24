@@ -40,8 +40,9 @@ run_one() {
 
   cd $PICVERT_HOME/3d_runs/run${id_run}
   export OMP_NUM_THREADS=$nb_threads
-  mpirun --report-bindings --cpus-per-proc $nb_threads -np $nb_sockets ./${BASENAME}.out ./parameters_3d.txt | tee ./std_output_run${id_run}.txt
+  mpirun -q --report-bindings --cpus-per-proc $nb_threads -np $nb_sockets ./${BASENAME}.out ./parameters_3d.txt | tee ./std_output_run${id_run}.txt
 }
+# LATER: remove -q to see the depreciation warnings
 
 
 ###################################

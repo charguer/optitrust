@@ -5,8 +5,11 @@
 #include "parameter_reader.h"                             // type      simulation_parameters
                                                           // constants STRING_NOT_SET, INT_NOT_SET, DOUBLE_NOT_SET
                                                           // function  read_parameters_from_file
+// #define PRINTPERF 1
+// #define PRINTPARAMS 1
 
-#define TRACE printf
+// #define TRACE printf
+#define TRACE
 
 #ifdef CHECKER
 #define CHECKER_ONLY(X) X
@@ -249,6 +252,9 @@ void computeRhoForPoisson(double* nextCharge, double*** rho) {
     for (int j = 0; j < gridY; j++) {
       for (int k = 0; k < gridZ; k++) {
         rho[i][j][k] = nextCharge[cellOfCoord(i,j,k)];
+#ifdef DEBUG_CHARGE
+        printf("rho[%d][%d][%d] = %lf\n", i, j, k, rho[i][j][k]);
+#endif
       }
     }
   }
@@ -317,7 +323,9 @@ void init(int argc, char** argv) {
 
     // Read parameters from file.
     if (argc >= 2) {
+#ifdef PRINTPARAMS
         printf("Loading parameters from file %s\n", argv[1]);
+#endif
         simulation_parameters parameters = read_parameters_from_file(argv[1], "3D");
         if (strcmp(parameters.sim_distrib_name, STRING_NOT_SET) == 0)
             sim_distrib = parameters.sim_distrib;
@@ -478,6 +486,8 @@ void init(int argc, char** argv) {
   // seed = seed_64bits(0);
   pic_vert_seed_double_RNG(seed);
 
+  double timeInitStart = omp_get_wtime();
+
   // Creation of random particles and put them into bags.
   { // COPY PASTE FROM PIC-VERT WITH AMENDMENTS
     double x, y, z, vx, vy, vz;
@@ -524,6 +534,11 @@ void init(int argc, char** argv) {
         accumulateChargeAtCorners(nextCharge, idCell, deltaChargeOnCorners);
     }
   }
+
+#ifdef PRINTPERF
+  double timeInit = (double) (omp_get_wtime() - timeInitStart);
+  printf("Creation time (including charge accumulation): %.3f sec\n", timeInit);
+#endif
 
   TRACE("Computing initial poisson and leap-frog step\n");
   // Poisson solver to compute field at time zero, and reset nextCharge
@@ -648,11 +663,13 @@ int main(int argc, char** argv) {
   }
 
   double timeTotal = (double) (omp_get_wtime() - timeStart);
+#ifdef PRINTPERF
   printf("Exectime: %.3f sec\n", timeTotal);
   printf("Throughput: %.1f million particles/sec\n", nbParticles * nbSteps / timeTotal / 1000000);
+#endif
 
 #ifdef CHECKER
-  printf("NbParticles: %d\n", nbParticles);
+  // printf("NbParticles: %d\n", nbParticles);
   FILE* f = fopen(CHECKER_FILENAME, "wb");
   fwrite(&nbParticles, sizeof(int), 1, f);
   for (int idCell = 0; idCell < nbCells; idCell++) {
