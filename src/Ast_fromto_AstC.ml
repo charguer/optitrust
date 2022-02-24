@@ -378,13 +378,13 @@ let rec cseq_items_void_type (t : trm) : trm =
       { t2 with desc = Trm_seq (Mlist.map enforce_unit ts) }
   | _ -> t2
 
-(* [iinfix_elim t] updates [t] special encodings for compound_assign operations, set operations and postfix  operations 
+(* [iinfix_elim t] updates [t] special encodings for compound_assign operations, set operations and postfix  operations
     [x++] becomes ++(&x)
     x = y becomes =(&x, y)
     x += y becomes +=(&x,y)*)
-let infix_elim (t : trm) : trm = 
-  let rec aux (t : trm) : trm = 
-    match t.desc with 
+let infix_elim (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr]) ->
      {t with desc = Trm_apps(op, [trm_address_of ~simplify:true tl; tr])}
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base]) when is_postfix_unary unop ->
@@ -394,13 +394,13 @@ let infix_elim (t : trm) : trm =
     | _ -> trm_map aux t
   in aux t
 
-(* [iinfix_intro t] updates [t] clean special encodings for compound_assign operations, set operations and postfix unary operations 
+(* [infix_intro t] updates [t] clean special encodings for compound_assign operations, set operations and postfix unary operations
     [++(&x)] becomes [++x]
     [+=(&x, y)] becomes [x += y]
     [=(&x, y)] becomes [x = y]*)
-let infix_intro (t : trm) : trm = 
-  let rec aux (t : trm) : trm = 
-    match t.desc with 
+let infix_intro (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr]) ->
      {t with desc = Trm_apps(op, [trm_get ~simplify:true tl; tr])}
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base]) when is_postfix_unary unop ->

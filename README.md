@@ -1,13 +1,18 @@
 # Requirements
 
-- OCaml (tested with version 4.08.0)
-- dune (tested with version 2.5.1)
+- OCaml (tested with version 4.12.0)
+- dune (tested with version 2.9.1)
 - [clangml](https://gitlab.inria.fr/tmartine/clangml) (tested with version
-  4.2.0)
-- clang-format (tested with version 6.0.0)
+  4.5.0)
 - [pprint](https://github.com/fpottier/pprint) (tested with version 20200410)
-- Visual Studio Code (tested with version 1.44.1)
+- [menhir] and [menhirLib] (tested with version 20210419)
+
+- gcc (tested with version 5.5.0)
+- clang-format (tested with version 3.8.0)
+
+- Visual Studio Code (tested with version 1.63.2)
 - Meld (tested with version 3.18.0)
+
 
 # Installation details
 
@@ -17,8 +22,8 @@
 
    # Installation of opam: https://opam.ocaml.org/doc/Install.html
    sudo apt-get install opam
-   opam switch create 4.11.0
-   opam install dune clangml pprint menhir
+   opam switch create 4.12.0
+   opam install dune clangml pprint menhir menhirLib
    # (optional but recommended for vscode)
    opam install merlin ocp-indent user-setup
    # (includes ocaml-lsp-server)
@@ -32,10 +37,10 @@
 ```
    # Recommended extensions for VSCode (type CTRL+SHIFT+X)
      - GitLens
-     - TODO Highlight
      - OCaml and Reason IDE (see below for details)
 
-
+     ?TODO Highlight
+     ?TODO marks
 
    # OCaml syntax highlighting
    # New plugins to highlight the code "OCaml and Reason IDE"
@@ -53,9 +58,9 @@
          // ... other stuff
 
 
-        "reason.path.ocamlmerlin": "bash -ic ~/.opam/4.11.0/bin/ocamlmerlin",
-        "reason.path.ocamlfind": "bash -ic ~/.opam/4.11.0/bin/ocamlfind",
-        "reason.path.ocpindent": "bash -ic ~/.opam/4.11.0/bin/ocp-indent",
+        "reason.path.ocamlmerlin": "bash -ic ~/.opam/4.12.0/bin/ocamlmerlin",
+        "reason.path.ocamlfind": "bash -ic ~/.opam/4.12.0/bin/ocamlfind",
+        "reason.path.ocpindent": "bash -ic ~/.opam/4.12.0/bin/ocp-indent",
         "reason.diagnostics.tools": [
             "merlin"
           ],
@@ -88,37 +93,6 @@ Useful entries for `keybindings.json`
    # (optional) Install GitLens extension
    #     ext install eamodio.gitlens
 ```
-
-
-# Setup
-
-The transformation script execution is based on a Visual Studio Code task. To
-execute this task, one may use a keyboard shortcut. This shortcut triggers a
-task defined in `.vscode/tasks.json`, which is part of the repository, unlike
-`keybindings.json`, which is a user-specific configuration file.
-
-Run `code` to open VSCode. To edit the `keybindings.json` file from Visual Studio
-Code, type `Ctrl + Shift + P` to access the command panel and then choose
-"Preferences: Open Keyboard Shortcuts (JSON)". There, replace the empty square
-braces with the following contents:
-
-```
-[
-  {
-    "key":"f6",
-    "command": "workbench.action.tasks.runTask",
-    "args": "Execute transformation script without update"
-  },
-  {
-    "key":"shift+f6",
-    "command": "workbench.action.tasks.runTask",
-    "args": "Execute transformation script with update"
-  },
-]
-```
-
-This sets up `F6` to execute a transformation, and `CTRL+F6` to dump the full
-trace of a transformation script (see `dump` in [SCRIPT.md](SCRIPT.md)).
 
 
 # Build and install
@@ -154,6 +128,7 @@ it:
 When a script is (partially) executed, a diff for the source code before and
 after the last transformation step is displayed with Meld.
 
+
 # Source codes
 
 Source codes in C or in C++ are allowed, but only a subset of these languages is
@@ -169,45 +144,19 @@ operator on them.
 Variables that are not `const` are heap allocated: the corresponding AST use
 `const` pointers to such variables. This should be transparent for the user.
 
-# Tests
-
-Basic test scripts are provided in the following files:
-
-- [`test_parser.ml`](test_suite/test_parser.ml).
-- [`test_transformations.ml`](test_suite/test_transformations.ml).
-- [`test_path.ml`](test_suite/test_path.ml).
-- [`test_aosoa.ml`](test_suite/test_aosoa.ml).
-- [`test_switch.ml`](test_suite/test_switch.ml).
-
-To run tests, execute `make TESTS="test_name1 test_name2 ..." tests`, where
-`test_name` is the name of a test script without its `.ml` extension. To run all
-test scripts, simply execute `make tests`.
-
-
-
-# Shorthands for OptiTrust developers
-
-Shorthand for opening tests files all at once
-
-```
-optitrust_tests() {
-  code `find /home/charguer/shared/verified_transfo/src/tests -name *$1* -type f \( \( -iname \*.ml -o -iname \*.cpp \) -and -not -iname \*_exp.cpp -and -not -iname \*_enc.cpp -and -not -iname \*lines.ml -and -not -iname \*_before.cpp  -and -not -iname \*_after.cpp \)  -not -path "*/_build/*"`
-}
-alias ot='optitrust_tests'
-
-
-# Flags
-
-In a given folder, you can create `optitrust_flags.sh` with custom flags, e.g.:
-
-```
-  #!/bin/bash
-  FLAGS="-dump-ast-details -analyse-time-details"
-```
-
 
 # Shortcuts
 
+
+The transformation script execution is based on a Visual Studio Code task. To
+execute this task, one may use a keyboard shortcut. This shortcut triggers a
+task defined in `.vscode/tasks.json`, which is part of the repository, unlike
+`keybindings.json`, which is a user-specific configuration file.
+
+Run `code` to open VSCode. To edit the `keybindings.json` file from Visual Studio
+Code, type `Ctrl + Shift + P` to access the command panel and then choose
+"Preferences: Open Keyboard Shortcuts (JSON)". There, replace the empty square
+braces with the following contents:
 
 ```
   {
@@ -264,8 +213,11 @@ In a given folder, you can create `optitrust_flags.sh` with custom flags, e.g.:
     "args": "View documentation for unit test",
   },
 
-
 ```
+
+Note: on Ubuntu, alt+F6 is bound to a window moving operation,
+it needs to be deactivated in the settings panel, shortcut tab,
+'window' group of shortcuts.
 
 
 # Optitrust flags

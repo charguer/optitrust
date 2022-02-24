@@ -43,6 +43,7 @@ double areaZ;
 double stepDuration;
 double particleCharge;
 double particleMass;
+double weight;
 int nbParticles;
 
 // Grid description
@@ -280,7 +281,11 @@ void updateFieldUsingNextCharge(double* nextCharge, vect* field) {
   for (int i = 0; i < gridX; i++) {
     for (int j = 0; j < gridY; j++) {
       for (int k = 0; k < gridZ; k++) {
-        field[cellOfCoord(i,j,k)] = (vect) { Ex[i][j][k], Ey[i][j][k], Ez[i][j][k] };
+        vect e = { Ex[i][j][k], Ey[i][j][k], Ez[i][j][k] };
+        field[cellOfCoord(i,j,k)] = e;
+#ifdef DEBUG_FIELD
+        printf("field<%d>[%d][%d][%d] = %g %g %g\n", cellOfCoord(i,j,k), i, j, k, e.x, e.y, e.z);
+#endif
       }
     }
   }
@@ -441,7 +446,7 @@ void init(int argc, char** argv) {
      * simulation it's not the case.
      */
   particleCharge = totalCharge / nb_particles;
-  particleMass =  1.;
+  particleMass = 1. / nb_particles; // TODO YANN check this
   nbSteps = num_iteration;
   nbParticles = nb_particles;
   gridX = ncx;
@@ -499,13 +504,14 @@ void init(int argc, char** argv) {
     const double x_range = mesh.x_max - mesh.x_min;
     const double y_range = mesh.y_max - mesh.y_min;
     const double z_range = mesh.z_max - mesh.z_min;
+    weight = x_range * y_range * z_range / nbParticles; // TODO YANN check
 
     TRACE("Creating %ld particles\n", nb_particles);
     // Create particles and push them into the bags.
     for (int idParticle = 0; idParticle < nb_particles; idParticle++) {
         do {
             // x, y, z are offsets from mesh x/y/z/min
-#ifdef CHECKER
+#ifdef DEBUG_CREATION_RANDOM
             double rx = pic_vert_next_random_double();
             x = x_range * rx;
             // printf("id = %d, rand = %lf, x = %lf\n", idParticle, rx, x);
@@ -521,7 +527,7 @@ void init(int argc, char** argv) {
         // Modified from pic-vert
         const vect pos = { x, y, z };
         const vect speed = { vx, vy, vz };
-#ifdef DEBUG_CHECKER
+#ifdef DEBUG_CREATION
         printf("created = %d, %lf %lf %lf %lf %lf %lf \n", idParticle, x, y, z, vx, vy, vz);
 #endif
         const particle particle = { pos, speed, CHECKER_ONLY(idParticle) };
@@ -544,6 +550,13 @@ void init(int argc, char** argv) {
   // Poisson solver to compute field at time zero, and reset nextCharge
   updateFieldUsingNextCharge(nextCharge, field);
 
+#ifdef DEBUG_ACCEL
+  printf("nbParticles = %d\n", nbParticles);
+  printf("stepDuration = %g\n", stepDuration);
+  printf("particleCharge = %g\n", particleCharge);
+  printf("particleMass = %g\n", particleMass);
+#endif
+
   // Computes speeds backwards for half a time-step (leap-frog method)
   double negHalfStepDuration = -0.5 * stepDuration;
   // For each cell from the grid
@@ -565,9 +578,23 @@ void init(int argc, char** argv) {
         // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
         // TRACE("LOOP3\n");
         vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
+#ifdef DEBUG_ACCEL
+        if (p->id == 0) {
+          printf("particle %d: topcorner_fieldx = %g\n", p->id, field_at_corners.v[0].x);
+          printf("particle %d: fieldx = %g\n", p->id, fieldAtPos.x);
+          double delta_vx = vect_mul(negHalfStepDuration, accel).x;
+          printf("particle %d: delta_vx = %g\n", p->id, delta_vx);
+          printf("particle %d: oldvx = %g\n", p->id, p->speed.x);
+        }
+#endif
         // Compute the new speed and position for the particle.
         // TRACE("LOOP4\n");
         p->speed = vect_add(p->speed, vect_mul(negHalfStepDuration, accel));
+#ifdef DEBUG_ACCEL
+        if (p->id == 0) {
+           printf("particle %d: newvx = %g\n", p->id, p->speed.x);
+        }
+#endif
     }
   }
 }
@@ -629,7 +656,6 @@ int main(int argc, char** argv) {
 
         // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
         vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
-
         // Compute the new speed and position for the particle.
         vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
         vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));

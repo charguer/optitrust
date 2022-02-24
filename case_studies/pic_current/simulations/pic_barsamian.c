@@ -559,7 +559,57 @@ int main(int argc, char** argv) {
             for (k = 0; k < ncz + 1; k++)
                 q_times_rho[i][j][k] = q * rho_3d[i][j][k];
     compute_E_from_rho_3d_fft(solver, q_times_rho, Ex, Ey, Ez, 1);
+
+#ifdef DEBUG_FIELD
+#if 1
+  for (int i = 0; i < ncx; i++) {
+    for (int j = 0; j < ncy; j++) {
+      for (int k = 0; k < ncz; k++) {
+        double r = (-q) / nb_particles / charge_factor;
+        printf("field[%d][%d][%d]*(-q)/nbParticles/charge_factor = %g %g %g\n", i, j, k,
+            r*Ex[i][j][k], r*Ey[i][j][k], r*Ez[i][j][k]);
+      }
+    }
+  }
+#endif
+#endif
+
     accumulate_field_3d(Ex, Ey, Ez, ncx, ncy, ncz, x_field_factor, y_field_factor, z_field_factor, E_field);
+
+#ifdef DEBUG_FIELD
+    for (int i = 0; i < ncx; i++) {
+        for (int j = 0; j < ncy; j++) {
+            for (int k = 0; k < ncz; k++) {
+                //if (! (i == 0 && j == 0 && k ==0))
+                //  break;
+                i_cell = COMPUTE_I_CELL_3D(icell_param1, icell_param2, i, j, k);
+                double r = - q / nb_particles / charge_factor;
+                printf("E_field<%d>[%d][%d][%d].left_front_down *(-q)/nbParticles/charge_factor/?_field_factor = %g %g %g\n", i_cell, i, j, k,
+                  r/x_field_factor * E_field[i_cell].field_x.left_front_down,
+                  r/y_field_factor * E_field[i_cell].field_y.left_front_down,
+                  r/z_field_factor * E_field[i_cell].field_z.left_front_down);
+            }
+        }
+    }
+#endif
+
+#ifdef DEBUG_ACCEL
+    printf("nb_particles = %d\n", nb_particles);
+    printf("delta_t = %g\n", delta_t);
+    printf("q = %g\n", q);
+    printf("m = %g\n", m);
+    printf("xrange = %g\n", mesh.x_max - mesh.x_min);
+    printf("yrange = %g\n", mesh.y_max - mesh.y_min);
+    printf("zrange = %g\n", mesh.z_max - mesh.z_min);
+    printf("dx = %g\n", mesh.delta_x);
+    printf("dy = %g\n", mesh.delta_y);
+    printf("dz = %g\n", mesh.delta_z);
+    printf("dt_over_dx = %g\n", dt_over_dx);
+    printf("dt_q_over_m = %g\n", dt_q_over_m);
+    printf("weight = %g\n", weight);
+    printf("charge_factor = %g\n", charge_factor);
+    printf("x_field_factor = %g\n", x_field_factor);
+#endif
 
     // Computes speeds half time-step backward (leap-frog method).
     // WARNING : starting from here, v doesn't represent the speed, but speed * dt / dx.
@@ -571,6 +621,31 @@ int main(int argc, char** argv) {
             #pragma omp simd
 #endif
             for (i = 0; i < my_chunk->size; i++) {
+#ifdef DEBUG_ACCEL
+              int idp = my_chunk->id[i];
+              if (idp == 0) {
+                double r = - q / nb_particles / charge_factor / x_field_factor;
+                printf("particle %d: topcorner_fieldx *(-q)/nbParticles/charge_factor/x_field_factor = %g\n", idp, r * E_field[j].field_x.left_front_down);
+                double fieldx = (
+                        (     my_chunk->dx[i]) * (     my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.right_back_top
+                      + (1. - my_chunk->dx[i]) * (     my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.left_back_top
+                      + (     my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.right_front_top
+                      + (1. - my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.left_front_top
+                      + (     my_chunk->dx[i]) * (     my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_x.right_back_down
+                      + (1. - my_chunk->dx[i]) * (     my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_x.left_back_down
+                      + (     my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_x.right_front_down
+                      + (1. - my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_x.left_front_down);
+                printf("particle %d: fieldx = %g\n", idp, fieldx);
+                printf("particle %d: fieldx *(-q)/nbParticles/charge_factor/x_field_factor = %g\n", idp, r * fieldx);
+                double delta_vx = - 0.5 * fieldx;
+                printf("particle %d: delta_vx = %g\n", idp, delta_vx);
+                printf("particle %d: delta_vx / (dt/dx) = %g\n", idp, delta_vx / dt_over_dx);
+                printf("particle %d: oldvx / dt_over_dx = %g\n", idp, my_chunk->vx[i]);
+                printf("particle %d: oldvx = %g\n", idp, my_chunk->vx[i] * dt_over_dx);
+                printf("particle %d: newvx = %g\n", idp, my_chunk->vx[i] * dt_over_dx + delta_vx);
+                printf("particle %d: newvx / (dt/dx) = %g\n", idp, (my_chunk->vx[i] * dt_over_dx + delta_vx) / dt_over_dx);
+              }
+#endif
                 my_chunk->vx[i] = my_chunk->vx[i] * dt_over_dx - 0.5 * (
                       (     my_chunk->dx[i]) * (     my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.right_back_top
                     + (1. - my_chunk->dx[i]) * (     my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.left_back_top
