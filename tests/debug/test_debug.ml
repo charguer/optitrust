@@ -1,18 +1,16 @@
 open Optitrust
 open Target
 open Ast
-open Ast_fromto_AstC
 
 
 let _ = Flags.dump_ast_details := true
 
+let _ = Flags.use_light_diff := true
 
-let _ = Run.script_cpp (fun _ ->
-  let ctx = cFunDef "g" in
-  !! Function_basic.bind_intro ~fresh_name:"r" [ctx; cFun "f"];
-  !! Function_basic.inline ~body_mark:"body" [ctx;cFun "f"];
-  !! Function.elim_body [cMark "body"];
-  
-  !! Function.inline [cFunDef "g"; cFun "f"];
-
+let _ =
+  Run.script_cpp  ~parser:Parsers.Clang (fun _ ->
+    
+    !! Sequence_basic.insert ~reparse:true (stmt "typedef struct { int x; int y; } vect;") [tBefore; cTopFunDef "main"];
+    !! Sequence_basic.insert (stmt "typedef vect myvect;") [tAfter; cTypDef "vect"];
+    !! Sequence_basic.insert (stmt "int test () {return 0;}") [tAfter; cTypDef "vect"];
 )

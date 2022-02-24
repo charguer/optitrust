@@ -2185,6 +2185,13 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
         | Some tdef ->  tdef
         | _ -> def
         end
+      | Trm_let (_, (x, _), _) -> 
+        (* There is a slight difference between clang and menhir how they handle function declarations, that's why we 
+         need to check if there are variables inside the function map *)
+        begin match Trm_map.find_opt x chopped_fun_map with
+        | Some tdef -> tdef
+        | _ -> def
+        end
       |_ ->  def
     ) tl in trm_seq ~annot:chopped_ast.annot ~marks:chopped_ast.marks new_tl
   | _ -> fail chopped_ast.loc "update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"

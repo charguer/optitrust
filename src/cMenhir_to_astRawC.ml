@@ -338,6 +338,10 @@ and tr_globdef (d : C.globdecl) : trm =
   | C.Gfundef {fd_storage = _; fd_inline = inline; fd_name = {name = n;_}; fd_attrib = _att; fd_ret = ty; fd_params = po; fd_body = bo; _} ->
     let tt = tr_type ty in
     let tb = tr_stmt bo in
+    let tb = begin match tb.desc with 
+    | Trm_seq tl when Mlist.length tl = 0-> trm_lit Lit_uninitialized
+    | _ -> tb 
+    end in 
     begin match po with
     | [] ->
       trm_let_fun n tt [] tb

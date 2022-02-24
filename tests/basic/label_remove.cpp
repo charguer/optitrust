@@ -1,7 +1,8 @@
 
   int main() {
 
-    start: int x = 3;
+    start:;
+     int x = 3;
 
     loop: for (int i = 0; i < 3; i++) {
 
