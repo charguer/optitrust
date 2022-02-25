@@ -7,7 +7,6 @@ let _ = Flags.dump_ast_details := true
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir (fun _ ->
 
-    show [cFunDef "main"];
     
     
     !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabelBody "hobody"];

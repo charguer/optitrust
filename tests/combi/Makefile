@@ -36,8 +36,10 @@ TESTS_WITH_DOC := \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	variable_inline_and_rename.ml \
+	variable_insert.ml \
 	variable_insert_list.ml \
 	variable_insert_and_fold.ml \
+  variable_intro_pattern_array.ml \
 	variable_renames.ml \
 	variable_reuse.ml \
 
@@ -59,8 +61,6 @@ TESTS_TOCHECK := \
 
 TESTS_TO_FIX := \
 	loop_unroll.ml \
-	variable_insert.ml \
-  variable_intro_pattern_array.ml \
 	function_elim_body.ml \
   
 # 	variable_renames.ml \

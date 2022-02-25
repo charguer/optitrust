@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp (fun _ ->
+(* let _ = Run.doc_script_cpp (fun _ ->
   !! Rewrite_basic.equiv_at "int x, k, l; ==> k + x * l == l * x + k;" [cVarDef "b"; cInit()];
   )
 "
@@ -9,7 +9,7 @@ int main() {
   int a = 2;
   int b = 3 + a * 4;
 }
-"
+" *)
 
 
 let _ = Run.script_cpp (fun _ ->

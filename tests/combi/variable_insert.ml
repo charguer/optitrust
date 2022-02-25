@@ -15,7 +15,6 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Variable.insert ~const:true ~name:"a" ~value:(lit "300") [ tAfter; cTypDef "vect"];
-  !! Variable.insert ~reparse:true ~name:"b" ~value:(lit "500") [ tAfter; cTypDef "vect"];
-
+  !! Variable.insert ~name:"a" ~value:(lit "300") [ tAfter; cTypDef "vect"];
+  !! Variable.insert ~name:"b" ~value:(lit "500") [ tAfter; cTypDef "vect"];
 )
