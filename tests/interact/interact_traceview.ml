@@ -17,9 +17,9 @@ let _ = Run.script_cpp (fun _ ->
 
     bigstep "first part";
     !! Label.add "lab1" [cVarDef "a"];
-    !! Label.add "lab2" [cVarDef "a"]; 
+    !! Label.add "lab2" [cVarDef "a"];
     bigstep "second part";
-    !! Label.add "lab3" [cVarDef "a"];
+    !! Label.add "lab3" [cVarDef "a"]; 
     !! Label.add "lab4" [cVarDef "a"];
     !! Label.add "lab5" [cVarDef "a"];
     bigstep "third part";

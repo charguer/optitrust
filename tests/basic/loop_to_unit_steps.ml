@@ -1,13 +1,12 @@
 open Optitrust
 open Target
 
-
 let _ = Run.doc_script_cpp (fun _ ->
     !! Loop_basic.to_unit_steps ~index:"s" [cFor "i"];
   )
 "
 int main() {
-  for (int i = 4; (i < 10); i += 2) {
+  for (int i = 4; i < 10; i += 2) {
     int x = i;
   }
 }

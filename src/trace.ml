@@ -387,7 +387,7 @@ let finalize () : unit =
 
    LATER: figure out if it is possible to avoid "!!" in front and tail of [Trace.restart].
    LATER: figure out if this implementation could be extended in the presence of [switch]. *)
-let alternative f : unit =
+let alternative (f : unit->unit) : unit =
   let saved_traces = !traces in
   let trace = match !traces with
     | [] -> fail None "alternative: the trace is empty"
@@ -396,8 +396,8 @@ let alternative f : unit =
     in
   if trace.history = [] || trace.stepdescrs = []
     then fail None "alternative: the history is empty";
-  let init_ast,_ = Tools.uncons trace.history in
-  let init_stepdescr, _ = Tools.uncons trace.stepdescrs in
+  let _,init_ast = Tools.unlast trace.history in
+  let _,init_stepdescr = Tools.unlast trace.stepdescrs in
   let init_trace = { trace with
     cur_ast = init_ast;
     history = [init_ast];

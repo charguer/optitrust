@@ -102,7 +102,11 @@ let get_basename (filename : string) =
    - [~inline:["foo.cpp";"bar.h"]] allows to perform substitution of "#include" directives
      with the contents of the corresponding files; the substitutions are performed one after
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp". *)
-let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(parser : Parsers.cparser = Default)(f : unit -> unit) : unit =
+let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(parser : Parsers.cparser = Default) (f : unit -> unit) : unit =
+  (* Reporting for batch mode *)
+  if !Flags.batch_tests
+    then Printf.printf "Batch test executing: %s\n" filename;
+
   Parsers.selected_cparser := parser;
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
   (* LATER: see what happens of the directory... *)
