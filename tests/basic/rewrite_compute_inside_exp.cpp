@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 int main() {
 block1 : {
   int x;

@@ -42,6 +42,8 @@ TESTS_WITH_DOC := \
 	reference_fold.ml \
 	reference_unfold.ml \
 	rewrite_compute.ml \
+	rewrite_equiv_at.ml \
+	rewrite_compute_inside.ml \
 	sequence_delete.ml \
 	sequence_elim_on_instr.ml \
 	sequence_intro_on_instr.ml \
@@ -96,8 +98,6 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	function_uninline.ml \
-	rewrite_compute_inside.ml \
-	rewrite_equiv_at.ml \
 	accesses_intro.ml \
 
 NOT_NEEEDED_TO_FIX := \
