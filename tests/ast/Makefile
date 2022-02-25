@@ -14,6 +14,9 @@ TESTS_TO_FIX := \
 	c_ast.ml \
 	c_serialize.ml \
 	c_compound_assign.ml \
+
+# TODO: revive "encodings.ml" ?
+
 # TODO: use the ~filename feature in the test to share c_big.cpp or c_ast.cpp
 # instead of copy pasting its contents in c_ast.cpp and c_serialize.cpp etc...
 

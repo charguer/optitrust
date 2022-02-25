@@ -18,7 +18,7 @@ let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
 
 
 let check_id (test_name : string) (f : trm -> trm) (t : trm) : unit =
-  let t1 = f t in 
+  let t1 = f t in
   check test_name t t1
 
 (* let check_id (test_name : string) (f : trm -> trm) : trm -> trm =
@@ -37,10 +37,10 @@ let test_encodings () =
 
   (* test1: check if stackvar_intro ° stackvar_elim = id *)
   check_id "Stack variables" (fun t -> stackvar_intro (stackvar_elim t)) raw_ast;
-  
+
   (* test2: check if caddress_intro ° caddress_elim = id *)
   check_id "Addresses" (fun t -> caddress_intro (caddress_elim (stackvar_elim t))) raw_ast
-  
+
   (* test3: check if decode ° encode = id, where encode applies stackvar_elim followed by caddress_intro *)
   (* check_id "Round trip" (cfeatures_intro cfeatures elim) raw_ast; *)
 
@@ -52,7 +52,7 @@ let _ = Run.script_cpp ~raw_ast:false (* ~filename:"c_ast.cpp" *) (fun () ->
 
   !! Trace.apply stackvar_elim;
   !! Trace.apply stackvar_intro;
-  
+
   (* !! Trace.apply (check_id "roundtrip_stackvar" (fun t -> stackvar_intro (stackvar_elim t))); *)
 
   (* Note: address_elim might not work in the presence of stack variables *)

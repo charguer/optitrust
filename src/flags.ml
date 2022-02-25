@@ -86,9 +86,6 @@ let get_exit_line () : int option =
    consider big steps ('!^'). *)
 let only_big_steps : bool ref = ref false
 
-(* Flag used to report progress during "make batch". *)
-let batch_tests : bool ref = ref false
-
 (* List of options *)
 let spec =
   Arg.align [

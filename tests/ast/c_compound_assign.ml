@@ -17,7 +17,7 @@ let filename =
   | _ -> "c_big.cpp"
 
 
-let _ = Run.script_cpp ~filename ~prefix:"c_compound_assign" (fun () ->
+let _ = Run.script_cpp ~filename (fun () ->
 
   !^ Trace.apply compound_assign_elim;
   !^ Trace.apply stackvar_elim;

@@ -2,9 +2,9 @@
 
 val script : (unit -> unit) -> unit
 
-val script_cpp : ?filename:string -> ?inline:(string list) -> ?check_exit_at_end:bool -> ?prefix:string -> ?parser:Parsers.cparser -> (unit -> unit) -> unit
+val script_cpp : ?batching:string -> ?filename:string -> ?inline:(string list) -> ?check_exit_at_end:bool -> ?prefix:string -> ?parser:Parsers.cparser -> (unit -> unit) -> unit
 
-val doc_script_cpp : ?filename:string -> ?prefix:string -> ?parser:Parsers.cparser -> (unit -> unit) -> string -> unit
+val doc_script_cpp : ?batching:string -> ?parser:Parsers.cparser -> (unit -> unit) -> string -> unit
 
 (** Debugging *)
 
