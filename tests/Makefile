@@ -10,12 +10,21 @@ TEST_DIRS = \
 # Path to the folder containing optitrust main Makefile, on which to call make install
 OPTITRUST ?= ..
 
-TARGETS=all transfo check clean batch batch_check
+TARGETS=transfo check clean batch batch_check
 
 ##############################################################################
 # Targets
 
-.PHONY: $(TARGETS) seq
+.PHONY: all $(TARGETS) seq
+
+all: optitrust
+	$(MAKE) -C basic batch_check
+	$(MAKE) -C combi batch_check
+	$(MAKE) -C target
+	$(MAKE) -C ast
+
+
+
 
 # "make all" and "make clean" can be run in parallel on all directories.
 
