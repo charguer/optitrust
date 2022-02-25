@@ -11,6 +11,7 @@ TESTS := \
 	c_ast.ml \
 	c_serialize.ml \
 	c_compound_assign.ml \
+	include_inline.ml \
 
 #	serialize.ml
 #   rawc.ml

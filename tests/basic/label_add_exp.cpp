@@ -1,8 +1,9 @@
 #include <stdbool.h>
 
 int main() {
+  int x;
 start:
-  int x = 3;
+  x = 3;
   for (int i = 0; i < 3; i++) {
   cond:
     if (true) {

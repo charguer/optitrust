@@ -19,7 +19,6 @@ TESTS_WITH_DOC := \
 	function_beta.ml \
 	function_bind_intro.ml \
 	function_use_infix_ops.ml \
-	include_inline.ml \
 	instr_accumulate.ml \
 	instr_read_last_write.ml \
 	instr_move.ml \
@@ -44,29 +43,29 @@ TESTS_WITH_DOC := \
 	reference_unfold.ml \
 	rewrite_compute.ml \
 	sequence_delete.ml \
-	sequence_elim_around_instr.ml \
+	sequence_elim_on_instr.ml \
+	sequence_intro_on_instr.ml \
 	sequence_elim.ml \
 	sequence_insert.ml \
 	sequence_intro.ml \
-	sequence_intro_on_instr.ml \
 	sequence_partition.ml \
 	sequence_split.ml \
 	struct_fields_reorder.ml \
 	struct_inline.ml \
-	struct_rename_field.ml \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	struct_update_fields_type.ml \
-	typedef_inline.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
 	typedef_fold.ml \
+	typedef_unfold.ml \
 	variable_bind.ml \
 	variable_fold.ml \
+	variable_unfold.ml \
+	variable_inline.ml \
 	variable_init_attach.ml \
 	variable_init_detach.ml \
-	variable_inline.ml \
 	variable_insert.ml \
 	variable_local_name.ml \
 	variable_rename.ml \
@@ -74,14 +73,12 @@ TESTS_WITH_DOC := \
 	variable_subst.ml \
 	variable_to_const.ml \
 	variable_to_nonconst.ml \
-	variable_unfold.ml \
+	
 
 TESTS_WORKING_NOTINDOC := \
 	specialize_choose.ml \
 	specialize_any.ml \
 
-
-# TODO: move include_inline to tests/interact/
 
 TESTS_TOCHECK := \
 	matrix_delocalize.ml \
@@ -110,17 +107,8 @@ NOT_NEEEDED_TO_FIX := \
 	aos_to_soa_sized_array.ml \
 	variable_change_type.ml \
 
-
-
-
-
-
-
-
 # TODO:
 # arith_simpl.ml
-
-
 # TODO: script for vscode opening
 
 TESTS := $(TESTS_WITH_DOC) $(TESTS_WORKING_NOTINDOC) $(TESTS_TOCHECK)

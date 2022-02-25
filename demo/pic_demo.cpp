@@ -1,5 +1,5 @@
 #include <stdlib.h>
-
+#include <stdbool.h>
 // --------- Bags of particles
 
 // Import the chunked sequence data structure, specialized to particles

@@ -41,17 +41,17 @@ let fold (fold_at : target) (index) : Target.Transfo.local =
   Target.apply_on_path(fold_aux fold_at index)
 
 
-(* [inline_aux inline_at]: replace all the occurrences of the defined type with
+(* [unfold_aux unfold_at]: replace all the occurrences of the defined type with
         its underlying type
     params:
       [delete]: a flag for deciding if we should delete or not the typedef declaration
-      [inline_at]: targets where inlining should be performed, if empty inlining is applied
+      [unfold_at]: targets where inlining should be performed, if empty inlining is applied
         on all the ast nodes in the same level as the typedef declaration
       [t]: ast subterm
     return:
-      updated ast with the typedef occurrences inlined
+      updated ast with the typedef occurrences unfolded
 *)
-let inline_aux (delete : bool) (inline_at : target) (index : int) (t : trm) : trm =
+let unfold_aux (delete : bool) (unfold_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
@@ -60,21 +60,21 @@ let inline_aux (delete : bool) (inline_at : target) (index : int) (t : trm) : tr
      begin match td.typdef_body with
      | Typdef_alias dx ->
       let ty_x = typ_constr td.typdef_tconstr ~tid:td.typdef_typid  in
-      let lback = Mlist.map(Internal.change_typ ~change_at:[inline_at] ty_x dx) lback in
+      let lback = Mlist.map(Internal.change_typ ~change_at:[unfold_at] ty_x dx) lback in
       let tl = Mlist.merge lfront lback in
       let new_tl = 
       if delete then tl else Mlist.insert_at index dl tl
       in
       trm_seq ~annot:t.annot ~marks:t.marks new_tl
-     | _ -> fail t.loc "inline_aux: expected a typdef_alias"
+     | _ -> fail t.loc "unfold_aux: expected a typdef_alias"
      end
-    | _ -> fail t.loc "inline_aux: expected a typedef declaration"
+    | _ -> fail t.loc "unfold_aux: expected a typedef declaration"
     end
-  | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "unfold_aux: expected the surrounding sequence"
 
 
-let inline (delete : bool) (inline_at : target) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (inline_aux delete inline_at index)
+let unfold (delete : bool) (unfold_at : target) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (unfold_aux delete unfold_at index)
 
 (* [insert_copy_aux name index t]: create a copy of a typedef with a new name
     params:

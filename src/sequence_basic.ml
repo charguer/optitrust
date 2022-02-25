@@ -112,15 +112,13 @@ let intro_on_instr ?(mark : mark = "") ?(visible : bool = true) : Target.Transfo
    Target.apply_on_targets (Sequence_core.intro_on_instr visible mark)
 
 
-(* [unwrap tg] expects the target [tg] to point to a instruction surrounded by a sequence..
+(* [elim_on_instr tg] expects the target [tg] to point to a instruction surrounded by a sequence..
  It moves this trm to the outer sequence*)
-let elim_around_instr (tg : Target.target) : unit =
+let elim_on_instr (tg : Target.target) : unit =
    Internal.nobrace_remove_after ( fun _ ->
     Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, _) -> Sequence_core.elim t p) tg
    )
-(* LATER: the name unwrap should suggest the opposite of intro_on_instr,
-  maybe elim_on_instr *)
 
 (* [split tg] expects target [tg] to point around another target in a sequence meaning, before or after another target
     It will split the sequence which contains that target into two parts, depending on the fact that the entered target
