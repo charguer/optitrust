@@ -6,6 +6,10 @@ double max (double a, double b) {
   return (a > b) ? a : b;
 }
 
+double min (double a, double b) {
+  return (a < b) ? a : b;
+}
+
 typedef struct {
   double x;
   double y;
@@ -19,6 +23,10 @@ typedef struct {
 } particle;
 
 int nbParticles = -1;
+
+double areaX;
+double areaY;
+double areaZ;
 
 particle* readfile(char* filename) {
 
@@ -35,6 +43,11 @@ particle* readfile(char* filename) {
     printf("Not matching number of particles\n");
     exit(1);
   }
+  
+  fread(&areaX, sizeof(double), 1, f);
+  fread(&areaY, sizeof(double), 1, f);
+  fread(&areaZ, sizeof(double), 1, f);
+
   nbParticles = nb;
   printf("nb : %d\n", nb);
   particle* ps = (particle*) malloc(nbParticles * sizeof(particle));
@@ -60,10 +73,21 @@ double sqdiff(double x, double y) {
   return r * r;
 }
 
-double dist(vect v1, vect v2) {
+
+// Euclidean distance
+double ec_dist(vect v1, vect v2) {
   return sqdiff(v1.x, v2.x)
        + sqdiff(v1.y, v2.y)
        + sqdiff(v1.z, v2.z);
+}
+
+double dist (vect v1, vect v2){
+  double d = ec_dist(v1, v2);
+  double m = min(d, abs(areaX - (v2.x - v1.x)));
+  m = min(m, abs(areaY - (v2.y - v1.y)));
+  m = min(m, abs(areaZ - (v2.z - v1.z)));
+
+  return m;
 }
 
 int main(int argc, char* argv[]) {

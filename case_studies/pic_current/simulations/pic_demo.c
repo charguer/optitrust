@@ -703,6 +703,9 @@ int main(int argc, char** argv) {
   // printf("NbParticles: %d\n", nbParticles);
   FILE* f = fopen(CHECKER_FILENAME, "wb");
   fwrite(&nbParticles, sizeof(int), 1, f);
+  fwrite(&areaX, sizeof(double), 1, f);
+  fwrite(&areaY, sizeof(double), 1, f);
+  fwrite(&areaZ, sizeof(double), 1, f);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag* b = &bagsCur[idCell];
     bag_iter bag_it;

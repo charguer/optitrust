@@ -917,7 +917,16 @@ int main(int argc, char** argv) {
     }
 #ifdef CHECKER
     FILE* f = fopen(CHECKER_FILENAME, "wb");
+    double areaX = x_max - x_min;
+    double areaY = y_max - y_min;
+    double areaZ = z_max - z_min;
+    fwrite(&areaX, sizeof(double), 1, f);
+    fwrite(&areaY, sizeof(double), 1, f);
+    fwrite(&areaZ, sizeof(double), 1, f);
     fwrite(&nb_particles, sizeof(int), 1, f);
+    fwrite(&areaX, sizeof(double), 1, f);
+    fwrite(&areaY, sizeof(double), 1, f);
+    fwrite(&areaZ, sizeof(double), 1, f);
     for (int j = 0; j < num_cells_3d; j++) {
       chunkbag = &particles[j];
       for (my_chunk = chunkbag->front; my_chunk; my_chunk = my_chunk->next) {
@@ -937,7 +946,6 @@ int main(int argc, char** argv) {
 #ifdef DEBUG_CHECKER
             printf("id=%d %f %f %f %g %g %g\n", my_chunk->id[i], x, y, z, vx, vy, vz);
 #endif
-
             fwrite(&(my_chunk->id[i]), sizeof(int), 1, f);
             fwrite(&x, sizeof(double), 1, f);
             fwrite(&y, sizeof(double), 1, f);

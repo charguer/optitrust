@@ -309,9 +309,11 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     let t_else = tr_expr else_ in
     trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op) [t_cond; t_then; t_else]
   | ECast (ty, e) ->
-    let ty = tr_type ty in
-    let te = tr_expr e in
-    trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te]
+    if e = C.nullconst then trm_null ~loc ~ctx () 
+      else 
+        let ty = tr_type ty in
+        let te = tr_expr e in
+        trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te]
   | ECompound _ -> fail loc "tr_expr: Not supported for the moment"
   | ECall (f, el) ->
     let tf = tr_expr f in
