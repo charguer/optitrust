@@ -154,11 +154,11 @@ and typed_var_to_doc (tx : typed_var) : document =
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
      dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
-  | Typ_ptr {inner_typ = {typ_desc = Typ_fun (tyl, ty); _};_} ->
-    let ret_type = typ_to_doc ty  in
+  | Typ_ptr {inner_typ = {typ_desc = Typ_fun (tyl, ty); _};_} | Typ_fun (tyl, ty) ->
+    (* DEPRECATED *)
+    (* let ret_type = typ_to_doc ty  in
     let arg_types = List.map typ_to_doc tyl in
-    dattr ^^ ret_type ^^ parens(star ^^ string x) ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
-  | Typ_fun (tyl, ty) -> 
+    dattr ^^ ret_type ^^ parens(star ^^ string x) ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types) *)
     let ret_type = typ_to_doc ty in 
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ blank 1 ^^ string x ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)

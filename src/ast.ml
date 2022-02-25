@@ -1773,6 +1773,11 @@ let is_typ_ptr (ty : typ) : bool =
   | Typ_ptr {ptr_kind = Ptr_kind_mut;_} -> true
   | _ -> false
 
+(* [is_typ_fun ty] check if [ty] is a function type or not *)
+let is_typ_fun (ty : typ) : bool = 
+  match ty.typ_desc with 
+  | Typ_fun _ -> true | _ -> false
+
 (* [is_get_operation t] check if [t] is a struct access get operation of a immutable variable get operation *)
 let is_get_operation (t : trm) : bool =
   match t.desc with

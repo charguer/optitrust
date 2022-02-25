@@ -60,7 +60,8 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
   match ty with
   | C.TPtr (ty1, att) ->
     let ty = tr_type ty1 in
-    wrap_const att (typ_ptr Ptr_kind_mut ty)
+    (* Temporary hack for function types, discus with Arthur why Menhir adds the pointer type automatically *)
+    if is_typ_fun ty then wrap_const att ty else wrap_const att (typ_ptr Ptr_kind_mut ty)
   | C.TRef ty1->
     let ty = tr_type ty1 in
     typ_ptr Ptr_kind_ref ty
