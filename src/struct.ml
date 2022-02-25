@@ -51,3 +51,12 @@ let set_implicit (tg : Target.target) : unit =
     | _ -> fail tg_trm.loc "set_implicit: expected a set operation"
 
 ) tg
+
+
+(* [rename_field field ~into tg] this is a specialization of the previous function
+      when one wants to rename only one field of a struct. [field] is the current field name 
+      [into] is the new name that is going to replace all the occurrences of field in the context of 
+      the targetd typedef struct.
+*)
+let rename_field (field : field) ~into:(into : var): Target.Transfo.t = 
+  rename_fields (only_for field (fun _ -> into))

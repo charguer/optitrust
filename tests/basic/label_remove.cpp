@@ -1,20 +1,20 @@
+#include <stdbool.h>
 
-  int main() {
+int main() {
 
-    start:;
-     int x = 3;
+  int x;
+  start:
+   x = 3;
 
-    loop: for (int i = 0; i < 3; i++) {
+  loop: for (int i = 0; i < 3; i++) {
 
-      cond: if (1) {
-        incr_1: x++;
-      } else {
-        incr_2: x--;
-      }
+  cond: if (1) {
+    incr_1: x++;
+  } else {
+    incr_2: x--;
     }
+  }
 
-    unit:;
-
-    stop: return 0;
+   stop: return 0;
   }
 

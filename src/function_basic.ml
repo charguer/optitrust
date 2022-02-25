@@ -81,9 +81,9 @@ let inline ?(body_mark : mark option) (tg : Target.target) : unit =
 (* [beta ~body_mark tg] the difference between using function_inline and function_beta lies inside the implementation
      basically beta is used in the cases when the declaration of the function call be founded at the targeted function call
      contrary to function_inline which will need to find the toplevel declaration.
-     At the basic level they are both the same.
+     At the basic level they are essentially the same.
 *)
-let beta ?(body_mark : var = "body") (tg : Target.target) : unit =
+let beta ?(body_mark : var = "") (tg : Target.target) : unit =
   inline ~body_mark tg
 
 (* [use_infix_ops_at tg] expects the target [tg] to be pointing at an instruction of the form x = x (op) a,

@@ -103,8 +103,8 @@ int main(int argc, char* argv[]) {
   double max_dist_pos = -1;
   double max_dist_speed = -1;
   for (int i = 0; i < nbParticles; i++){
-    max_dist_pos = max(max_dist_pos, dist(ps1[i].pos, ps2[i].pos));
-    max_dist_speed = max (max_dist_speed, dist(ps1[i].speed, ps2[i].speed));
+    max_dist_pos = max(max_dist_pos, ec_dist(ps1[i].pos, ps2[i].pos));
+    max_dist_speed = max (max_dist_speed, ec_dist(ps1[i].speed, ps2[i].speed));
   }
 
   printf ("Maximal dist pos  : %f\n", max_dist_pos);

@@ -4,7 +4,7 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Struct_basic.rename_field "pos" ~into:"POS" [cTypDef "obj"];
+    !! Struct.rename_field "pos" ~into:"POS" [cTypDef "obj"];
   )
 "
 typedef struct {

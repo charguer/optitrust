@@ -6,10 +6,8 @@ void f(int j) {
 
 int main() {
   int i = 1;
-  /*@body*/ {
-    int s = 0;
-    s += 2 * i;
-    s -= i;
-  } /*body@*/
+  int s = 0;
+  s += 2 * i;
+  s -= i;
   return 0;
 }

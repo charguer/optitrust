@@ -35,6 +35,7 @@ TESTS_WITH_DOC := \
 	sequence_intro_targets.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
+  struct_rename_field.ml \
 	variable_inline_and_rename.ml \
 	variable_insert.ml \
 	variable_insert_list.ml \

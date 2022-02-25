@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include "optitrust.h"
 
 // --------- Bags of particles
