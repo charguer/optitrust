@@ -2,7 +2,7 @@
 all: checker.out
 
 checker.out: checker.c
-	gcc $< -o $@
+	gcc $< -o $@  -lm
 
 clean:
 	rm -f checker.out *.res

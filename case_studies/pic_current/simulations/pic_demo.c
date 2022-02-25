@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include "parameter_reader.h"                             // type      simulation_parameters
                                                           // constants STRING_NOT_SET, INT_NOT_SET, DOUBLE_NOT_SET
                                                           // function  read_parameters_from_file
@@ -101,6 +102,13 @@ int idCellOfPos(vect pos) {
   int iY = wrap(gridY, int_of_double(pos.y / cellY));
   int iZ = wrap(gridZ, int_of_double(pos.z / cellZ));
   return cellOfCoord(iX, iY, iZ);
+}
+
+vect wrapAround(vect pos) {
+  double x = fmod(pos.x + areaX, areaX);
+  double y = fmod(pos.y + areaY, areaY);
+  double z = fmod(pos.z + areaZ, areaZ);
+  return (vect) { x,y,z };
 }
 
 double relativePosX(double x) {
@@ -634,7 +642,7 @@ int main(int argc, char** argv) {
 
   // Foreach time step
   for (int step = 0; step < nbSteps; step++) {
-    TRACE("Step %d\n", step);
+    printf("Step %d\n", step);
 
     // For each cell from the grid
     for (int idCell = 0; idCell < nbCells; idCell++) {
@@ -663,6 +671,7 @@ int main(int argc, char** argv) {
         // Compute the new speed and position for the particle.
         vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
         vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
+        pos2 = wrapAround(pos2);
         particle p2 = { pos2, speed2, CHECKER_ONLY(p->id) };
 
         // Compute the location of the cell that now contains the particle

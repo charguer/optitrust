@@ -706,6 +706,7 @@ int main(int argc, char** argv) {
 
     time_start = omp_get_wtime();
     for (i_time = 0; i_time < num_iteration; i_time++) {
+        printf("Step %d\n", (int) i_time);
         if (0) { // DISABLED TO TEST AGAINST VERIFIED_TRANSFO
             // Diagnostics energy
             t = i_time * delta_t;
@@ -924,6 +925,7 @@ int main(int argc, char** argv) {
     fwrite(&areaX, sizeof(double), 1, f);
     fwrite(&areaY, sizeof(double), 1, f);
     fwrite(&areaZ, sizeof(double), 1, f);
+    printf("negcheck\n");
     for (int j = 0; j < num_cells_3d; j++) {
       chunkbag = &particles[j];
       for (my_chunk = chunkbag->front; my_chunk; my_chunk = my_chunk->next) {
@@ -933,9 +935,16 @@ int main(int argc, char** argv) {
             int iz = (j & nczminusone);
             // printf("id=%d ix=%d iy=%d iz=%d dx=%f dy=%f dz=%f\n", my_chunk->id[i], ix, iy, iz, my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i]);
 
+
             x = (ix + my_chunk->dx[i]) * mesh.delta_x + mesh.x_min;
             y = (iy + my_chunk->dy[i]) * mesh.delta_y + mesh.y_min;
             z = (iz + my_chunk->dz[i]) * mesh.delta_z + mesh.z_min;
+            if (my_chunk->dx[i] < 0) {
+              printf("negative dx: %g\n", my_chunk->dx[i]);
+            }
+           if (x < 0) {
+              printf("negative x: %g\n", x);
+            }
 
             double vx = my_chunk->vx[i] / dt_over_dx;
             double vy = my_chunk->vy[i] / dt_over_dy;
