@@ -41,20 +41,19 @@ let _ = Run.script_cpp (fun () ->
   show [ cVarDef "r" ; dInit ];
   show [ cInit () ];
   show [ cVarDef ""; cInit ~arg:[cStrict; cLit] () ];
-  show [ cVarDef ""; cStrict; cInit ~arg:[ cStrict; cLit] () ]; 
+  show [ cVarDef ""; cStrict; cInit ~arg:[ cStrict; cLit] () ];
 
   (* Loops *)
   show [ cFor "i" ];
   show [ cFor "j" ];
   show [ cFor ~stop:[cInt 5] "" ];
-  
+
   (* Abort *)
   show [ cBreak ];
   show [ cContinue ];
   show [ cReturn ];
 
   (* Labels *)
-  show [ cLabel "lbl1" ];
   show [ cLabel "lbl2" ];
 
   (* Calls *)
@@ -81,12 +80,12 @@ let _ = Run.script_cpp (fun () ->
 
   (* Regexp *)
   (* We can match only inside the body of the loop now*)
-  
+
   show [sInstr "+= 2"];
   show [nbExact 0; sExpr ~substr:false "+= 2"];
   show [nbExact 0; sInstr ~substr:false "+= 2"];
   show [sInstr "r += 2"];
-  show [sInstr "i++"]; 
+  show [sInstr "i++"];
 
   show [nbExact 2; sInstrRegexp "int . = .."];
   (* show [nbExact 9; sInstrRegexp ~substr:true "int . = ."]; *)  (* Not working! *)

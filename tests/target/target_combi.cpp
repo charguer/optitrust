@@ -18,7 +18,7 @@ int main() {
     }
   }
   for (int j = 0; j < 3; j++) {
-    if (true) {
+    if (1) {
       j++;
     } else {
       j--;

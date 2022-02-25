@@ -43,7 +43,7 @@ int main() {
   v.y = a + 2;
   vect v2 = v;
   v2 = v;
-  lbl1: particle p1 = { v, v };
+  particle p1 = { v, v };
   particle p2 = { v, { 7,8 } };
   // sequences
   {

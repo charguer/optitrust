@@ -840,7 +840,7 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
                   let msg =
                     if ps <> []
                       then "applyi_on_transformed_targets: a mark was duplicated"
-                      else (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
+                      else (*failwith*) (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
                     in
                   if debug_disappearing_mark
                     then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))

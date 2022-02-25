@@ -10,7 +10,7 @@ TEST_DIRS = \
 # Path to the folder containing optitrust main Makefile, on which to call make install
 OPTITRUST ?= ..
 
-TARGETS=all transfo check clean batch_check
+TARGETS=all transfo check clean batch batch_check
 
 ##############################################################################
 # Targets

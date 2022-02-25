@@ -1,3 +1,4 @@
+#include "stdbool.h"
 typedef struct {int x; int y;} vect;
 int main() {
   for (int i = 0; i < 10; i++) {
