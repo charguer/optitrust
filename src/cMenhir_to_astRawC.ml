@@ -245,6 +245,7 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     | Oplus	->
       trm_apps1 Unop_plus t
     | Olognot	->
+      let t = tr_expr ~is_boolean:true e in
       trm_apps1 Unop_neg t
     | Onot ->
       trm_apps1 Unop_bitwise_neg t
@@ -276,8 +277,14 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     | Omul -> trm_mul ~loc ~ctx ~typ  tl tr
     | Odiv -> trm_div ~loc ~ctx ~typ  tl tr
     | Omod -> trm_mod ~loc ~ctx ~typ  tl tr
-    | Oand -> trm_and ~loc ~ctx ~typ  tl tr
-    | Oor -> trm_or ~loc ~ctx ~typ  tl tr
+    | Ologand -> 
+      let tl = tr_expr ~is_boolean:true le in
+      let tr = tr_expr ~is_boolean:true re in
+      trm_and ~loc ~ctx ~typ  tl tr
+    | Ologor -> 
+      let tl = tr_expr ~is_boolean:true le in
+      let tr = tr_expr ~is_boolean:true re in
+      trm_or ~loc ~ctx ~typ  tl tr
     | Oxor -> trm_xor ~loc ~ctx ~typ  tl tr
     | Oshl -> trm_shiftl ~loc ~ctx ~typ  tl tr
     | Oshr -> trm_shiftr ~loc ~ctx ~typ  tl tr
@@ -294,14 +301,14 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     | Omul_assign -> trm_prim_c Binop_mul tl tr
     | Odiv_assign -> trm_prim_c Binop_div tl tr
     | Omod_assign -> trm_prim_c Binop_mod tl tr
-    | Oand_assign -> trm_prim_c Binop_and tl tr
-    | Oor_assign -> trm_prim_c Binop_or tl tr
+    | Oand_assign -> trm_prim_c Binop_bitwise_and tl tr
+    | Oor_assign -> trm_prim_c Binop_bitwise_or tl tr
     | Oxor_assign -> trm_prim_c Binop_xor tl tr
     | Oshl_assign -> trm_prim_c Binop_shiftl tl tr
     | Oshr_assign -> trm_prim_c Binop_shiftr tl tr
     | Ocomma -> fail loc "tr_expr: OptiTrust does not support the comma operator"
-    | Ologand -> trm_bit_and ~loc ~ctx ~typ tl tr
-    | Ologor -> trm_bit_or ~loc ~ctx ~typ tl tr
+    | Oand -> trm_bit_and ~loc ~ctx ~typ tl tr
+    | Oor -> trm_bit_or ~loc ~ctx ~typ tl tr
     end
   | EConditional (cond, then_, else_) ->
     let t_cond = tr_expr cond in
@@ -309,9 +316,8 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     let t_else = tr_expr else_ in
     trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op) [t_cond; t_then; t_else]
   | ECast (ty, e1) ->
-    if e == C.nullconst then trm_null ~loc ~ctx () 
+    if e = C.nullconst then trm_null ~loc ~ctx () 
       else begin 
-        Printf.printf "I was here\n";
         let ty = tr_type ty in
         let te = tr_expr e1 in
         trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te] end
