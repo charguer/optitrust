@@ -1,6 +1,6 @@
 #include <stdlib.h>
-
 #include <stdio.h>
+#include <stdbool.h>
 
 
 typedef struct {
@@ -23,7 +23,7 @@ vect vect_mul(double d, vect v) { return {(d * v.x), (d * v.y), (d * v.z)}; }
 const int CHUNK_SIZE = 128;
 
 typedef struct chunk {
-  chunk *next;
+  struct chunk *next;
   int size;
   particle items[CHUNK_SIZE];
 } chunk;
@@ -110,7 +110,9 @@ void bag_push_serial(bag *b, particle p) {
   }
 }
 
-void bag_push(bag *b, particle p) { return bag_push_serial(b, p); }
+void bag_push(bag *b, particle p) {
+   bag_push_serial(b, p);
+}
 
 void bag_swap(bag *b1, bag *b2) {
   bag temp = (*b1);

@@ -6,7 +6,7 @@ typedef struct { int x; int y; } vect;
 
 typedef struct { vect pos; vect speed; } particle;
 
-typedef struct vects { vect head; vects* tail; } vects;
+// TODO: typedef struct vects { vect head; struct vects* tail; } vects;
 
 typedef vect vect2;
 typedef vect2 vect3;
@@ -37,13 +37,13 @@ typedef int* intstar;
 //     // etc.
 // }
 
-template <class X, int i> int f(X);
+// template <class X, int i> int f(X);
 
 // union { int i; float f; } u;
 
-namespace example {
-      int i;
-}
+// namespace example {
+//      int i;
+//}
 
 // // struct tree_node {
 // //   struct tree_node *left;
@@ -99,7 +99,7 @@ void stack_array() {
 
 // // Likewise,  t.x  is decomposed  as *(&t.x), which involves the primitive
 // // unary operator "Unop_struct_field_addr x" applied to the argument t.
-  
+
 void stack_struct() {
   vect v = { 5, 6 };
   int a = v.x;
