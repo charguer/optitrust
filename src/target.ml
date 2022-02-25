@@ -1043,6 +1043,10 @@ let target_between_show_aux (id : int) (k : int) (t : trm) : trm =
 let target_between_show_transfo (id : int) : Transfo.local_between =
   fun (k:int) -> apply_on_path (target_between_show_aux id k)
 
+(* [bigstep s] is a shorthand for [Trace.bigstep s] *)
+let bigstep (s : string) : unit =
+  Trace.bigstep s
+
 (* [show ~line:int tg] is a transformation for visualizing targets.
    The operation add marks if the command line argument [-exit-line]
    matches the [line] argument provided to the function. Otherwise, the
@@ -1156,7 +1160,7 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
       ) in
     tr tg;
     if reparse then begin
-      if !Flags.use_light_diff then 
+      if !Flags.use_light_diff then
       let fun_names = List.map get_toplevel_function_name_containing tg_paths in
       let fun_names = Tools.list_remove_duplicates (List.filter_map (fun d -> d) fun_names) in
       reparse_only fun_names

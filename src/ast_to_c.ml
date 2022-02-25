@@ -70,7 +70,7 @@ and trm_annot_to_doc (t_annot : trm_annot list) : document =
   | Mutable_var_get -> string "Mutable_var_get"
   | As_left_value -> string "As_left_value"
   | Annot_stringreprid id -> string "Annot_stringreprid" ^^ string (string_of_int id)
-  | _ -> empty 
+  | _ -> empty
   in
   if t_annot = [] then empty else
   Tools.list_to_doc ~sep:comma (List.map aux t_annot)
@@ -991,7 +991,7 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_wtick -> string "get_wtich" ^^ lparen ^^ blank 1 ^^ rparen
 
 
-let ast_to_doc t =
+let ast_to_doc (t : trm) : document =
   decorate_trm t
 
 let ast_to_outchannel (out : out_channel) (t : trm) : unit =
@@ -1003,7 +1003,6 @@ let ast_to_undecoded_doc (out : out_channel) (t : trm) : unit =
   decode := false;
   ast_to_outchannel out t;
   decode := true
-
 
 let ast_to_file (filename : string) (t : trm) : unit =
   let out = open_out filename in

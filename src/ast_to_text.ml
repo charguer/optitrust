@@ -193,15 +193,15 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dt = print_trm ~only_desc t in
     print_node "Trm_let" ^^
       parens (separate (comma ^^ break 1) [dvk;string x;dtx;dt])
-  | Trm_let_mult (vk, ty, tv, tl) -> 
-    let dvk = match vk with 
+  | Trm_let_mult (vk, ty, tv, tl) ->
+    let dvk = match vk with
     | Var_mutable -> string "Var_mutable"
     | Var_immutable -> string "Var_immutable"
-      in 
-    let dtx = print_typ ~only_desc ty in 
-    let dts = List.map (fun t -> print_trm ~only_desc t) tl in 
-    let dtl = List.map2 (fun v t ->  parens (string v ^^ comma ^^ t)) tv dts in  
-    print_node "Trm_let_mult" ^^  
+      in
+    let dtx = print_typ ~only_desc ty in
+    let dts = List.map (fun t -> print_trm ~only_desc t) tl in
+    let dtl = List.map2 (fun v t ->  parens (string v ^^ comma ^^ t)) tv dts in
+    print_node "Trm_let_mult" ^^
       parens (separate (comma ^^ break 1)
         [dvk; dtx; print_list dtl;]
       )
@@ -571,6 +571,7 @@ let ast_to_file (filename : string) (t : trm) : unit =
 let ast_to_string ?(only_desc : bool = false) (t : trm) : string =
   let d = print_trm ~only_desc t in
   document_to_string d
+
 let typedef_to_string ?(only_desc : bool = false) (td : typedef) : string =
   let d = print_typedef ~only_desc td in
   document_to_string d

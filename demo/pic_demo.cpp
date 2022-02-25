@@ -1,22 +1,13 @@
-#include <stdlib.h>
-#include <stdbool.h>
+#include "optitrust.h"
+
 // --------- Bags of particles
 
-// Import the chunked sequence data structure, specialized to particles
-// In OptiTrust, we want to actually inline that code.
-
-// implicitly includes particle.h
 #include "particle_chunk.h"
 #include "particle_chunk_alloc.h"
-#include "optitrust.h"
 
 bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
 
 // --------- Parameters
-
-// This code does not assume the cell size to be normalized,
-// not the charge to be normalized; the normalization will
-// be implemented in the transformations
 
 //  physical parameter of the simulation
 const double areaX = 10.0;
@@ -51,18 +42,6 @@ int int_of_double(double a) {
 int wrap(int gridSize, int a) {
   return (a % gridSize + gridSize) % gridSize;
 }
-
-/* Other possible implementations for wrap
-  // assuming that a particle does not traverse the grid more than once in a timestep
-   return (x % gridSize + gridSize) % gridSize
-  // use of fmod possible
-  // version without modulo but using if statements
-    if (x < 0)
-       return x + gridSize;
-    if (x >= gridSize)
-       return x - gridSize;
-    return x;
-*/
 
 // --------- Grid Representation
 
@@ -207,24 +186,13 @@ double_nbCorners vect8_mul(const double a, const double_nbCorners data) {
 
 // --------- LEFT to implement
 
-void init(bag* bagsCur, bag* bagsNext, vect* field) {
-  // example push of one particle in cell zero, just to see the effect of scaling/shifting
-  // of speed and positions
-  /*double posX = 1.0, posY = 1.0, posZ = 1.0; // arbitrary values
-  double speedX = 1.0, speedY = 1.0, speedZ = 1.0; // arbitrary values
-  const vect pos = { posX, posY, posZ };
-  const vect speed = { speedX, speedY, speedZ };
-  const particle p0 = { pos, speed };
-  bag_push(&bagsCur[0], p0);
-  */
-}
+void init(bag* bagsCur, bag* bagsNext, vect* field);
 
 // updateFieldsUsingNextCharge in an operation that reads nextCharge,
 // resets it to zero, and updates the values in the fields array.
 void updateFieldUsingNextCharge(double* nextCharge, vect* field) { }
 
 // --------- Module Simulation
-
 
 int main() {
 
@@ -298,14 +266,3 @@ int main() {
 
   }
 }
-
-
-// LATER: When ClangML supports it, we'll use overloaded + and * operators on class vect
-// LATER: When ClangML supports it, we'll use higher-order iteration with a local function
-// LATER: When ClangML supports it, we'll use boost arrays for fixed size arrays
-
-
-// TODO: rename "_nbCorners" to 8
-// TODO: move particle p2 = just before the bag_push
-// TODO: replace double cX = 1. + -1. * rX;   with   double cX = 1. - rX;   and use a transformation for this change
-// TODO: int x =     make those uppercase in indicesOfCorners

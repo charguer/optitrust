@@ -60,13 +60,19 @@ let write_timing_log (msg : string) : unit =
    in
    write_log timing_log msg
 
-(* [timing ~name f] writes the execution time of [f] in the timing log file. *)
+(* [measure_time f] returns a pair made of the result of [f()] and
+   of the number of milliseconds taken by that call. *)
+let measure_time (f : unit -> 'a) : 'a * int =
+  let t0 = Unix.gettimeofday () in
+  let res = f() in
+  let t1 = Unix.gettimeofday () in
+  res, (Tools.milliseconds_between t0 t1)
+
+(* [timing ~name f] writes the execution time of [f] in the timing log file *)
 let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
   if !Flags.analyse_time && cond then begin
-    let t0 = Unix.gettimeofday () in
-    let res = f() in
-    let t1 = Unix.gettimeofday () in
-    let msg = Printf.sprintf "%d\tms -- %s\n" (Tools.milliseconds_between t0 t1) name in
+    let res, time = measure_time f in
+    let msg = Printf.sprintf "%d\tms -- %s\n" time name in
     write_timing_log msg;
     res
   end else begin
@@ -79,20 +85,18 @@ let start_time = ref (0.)
 (* [last_time] stores the date at which the execution of the current step started. *)
 let last_time = ref (0.)
 
-(* [last_time_update()] returns the delay elapsed since the last call to this function;
-   it updates the reference [last_time] with the current date. *)
+(* [last_time_update()] updates [last_time] and returns the delay
+   since last call -- LATER: find a better name *)
 let last_time_update () : int =
   let t0 = !last_time in
   let t = Unix.gettimeofday() in
   last_time := t;
   Tools.milliseconds_between t0 t
 
-(* [report_time_of_last_step()] reports in the timing log the duration of the step
-   that just completed, as measured by a call to [last_time_update]. *)
-let report_time_of_last_step () : unit =
+(* [report_time_of_step()] reports the total duration of the last step *)
+let report_time_of_step (timing : int) : unit =
   if !Flags.analyse_time then begin
-    let duration_of_previous_step = last_time_update () in
-    write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" duration_of_previous_step);
+    write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" timing);
   end
 
 (* [id_big_step] traces the number of big steps executed. This reference is used only
@@ -208,13 +212,24 @@ let context_dummy : context =
     includes = "";
     clog = stdout; }
 
+type stepdescr = {
+  mutable isbigstep : string option; (* if the step is the beginning of a big step,
+                                        then the value is [Some descr] *)
+  mutable script : string; (* excerpt from the transformation script, or "" *)
+  mutable exectime : int; } (* number of milliseconds, -1 if unknown *)
+
+(* [stepdescr_for_interactive_step] is a dummy stepdescr used for interactive steps such as [show] *)
+let stepdescr_for_interactive_step =
+  { isbigstep = None; script = ""; exectime = 0; }
+
 (* A trace is made of a context, a current AST, and a list of ASTs that were
    saved as "interesting intermediate steps", via the [Trace.save] function.
    Any call to the [step] function adds a copy of [cur_ast] into [history]. *)
 type trace = {
   mutable context : context;
   mutable cur_ast : trm;
-  mutable history : trms; }
+  mutable history : trms;
+  mutable stepdescrs : stepdescr list } (* same length as the history field *)
 
 let trm_dummy : trm =
   trm_val (Val_lit Lit_unit)
@@ -222,7 +237,10 @@ let trm_dummy : trm =
 let trace_dummy : trace =
   { context = context_dummy;
     cur_ast = trm_dummy; (* dummy *)
-    history = []; }
+    history = [];
+    stepdescrs = []; (* indicate for each step if it was a big step *)
+      (* LATER: could improve the storage of bigsteps *)
+    }
 
 (* [traces] denotes the internal state of Optitrust. It consists of a list of traces,
    because Optitrust supports a [switch] command that allows branching in the
@@ -261,11 +279,12 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   let regexp_let = Str.regexp "^[ ]*let" in
   let starts_with_let (str : string) : bool =
     Str.string_match regexp_let str 0 in
-  let regexp_double_quote = Str.regexp "^[ ]*!!" in
-  let starts_with_double_quote (str : string) : bool =
-    Str.string_match regexp_double_quote str 0 in
+  (* match a line that starts with '!!' or LATER '!^' or 'bigstep' *)
+  let regexp_step = Str.regexp "^[ ]*\\(!!\\|!\\^\\|bigstep\\)" in
+  let starts_with_step (str : string) : bool =
+    Str.string_match regexp_step str 0 in
   let process_line (iline : int) (line : string) : unit =
-    if starts_with_double_quote line then begin
+    if starts_with_step line then begin
       push();
       start := iline;
     end;
@@ -299,6 +318,15 @@ let get_initial_ast ?(parser : Parsers.cparser =Parsers.Default) (ser_mode : Fla
   else
     parse ~parser filename
 
+(* [get_excerpt line] returns the piece of transformation script that starts on the given line. Currently returns the "" in case [compute_ml_file_excerpts] was never called. LATER: make it fail in that case. *)
+let get_excerpt (line : int) : string =
+  if line = - 1 then failwith "get_excerpt: requires a valid line number";
+  if !ml_file_excerpts = Int_map.empty then "" else begin (* should "" be failure? *)
+  match Int_map.find_opt line !ml_file_excerpts with
+    | Some txt -> txt
+    | None -> (*LATER: failwith? *) Printf.sprintf "<unable to retrieve line %d from script>" line
+  end
+
 (* [init f] initialize the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
    The history is initialized with the initial AST.
@@ -315,7 +343,7 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser =Parsers.Default) (f
     if Tools.pattern_matches "_inlined" default_prefix
       then List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0
       else default_prefix in
-  if !Flags.analyse_time then begin
+  if !Flags.analyse_time || !Flags.dump_trace then begin
     let src_file = (ml_file_name ^ ".ml") in
     if Sys.file_exists src_file then begin
       let lines = Xfile.get_lines src_file in
@@ -328,9 +356,14 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser =Parsers.Default) (f
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
   let ser_file = basename ^ ".ser" in
-  let (includes, cur_ast) = get_initial_ast ~parser mode ser_file filename in
+  let (includes, cur_ast), timing_parse = measure_time (fun () ->get_initial_ast ~parser mode ser_file filename) in
   let context = { extension; directory; prefix; includes; clog } in
-  let trace = { context; cur_ast; history = [cur_ast] } in
+  let stepdescr = { isbigstep = None;
+                    script = "Result of parsing";
+                    exectime = timing_parse; } in
+  let trace = { context; cur_ast;
+                history = [cur_ast];
+                stepdescrs = [stepdescr] } in
   traces := [trace];
   if mode = Serialized_Build || mode = Serialized_Auto
     then serialize_to_file ser_file cur_ast;
@@ -361,12 +394,14 @@ let alternative f : unit =
     | [trace] -> trace
     | _ -> fail None "alternative: incompatible with the use of switch"
     in
-  let init_ast =
-    match List.rev trace.history with
-    | [] -> fail None "alternative: the history is empty"
-    | t::_ -> t
-    in
-  let init_trace = { trace with cur_ast = init_ast; history = [init_ast] } in
+  if trace.history = [] || trace.stepdescrs = []
+    then fail None "alternative: the history is empty";
+  let init_ast,_ = Tools.uncons trace.history in
+  let init_stepdescr, _ = Tools.uncons trace.stepdescrs in
+  let init_trace = { trace with
+    cur_ast = init_ast;
+    history = [init_ast];
+    stepdescrs = [init_stepdescr] } in
   traces := [init_trace];
   f();
   traces := saved_traces
@@ -468,11 +503,24 @@ let call (f : trm -> unit) : unit =
   traces := cur_traces; (* restoring the original view on all traces *)
   decr call_depth
 
+(* [nextstep_isbigstep] is a reference that stores a [Some descr]
+   when the function [bigstep] is called. This reference is reset
+   to [None] after the [step] function is called. *)
+let nextstep_isbigstep : (string option) ref = ref None
+
+(* [bigstep s] announces that the next step is a bigstep, and registers
+   a string description for that step. *)
+let bigstep (s : string) : unit =
+  nextstep_isbigstep := Some s
+
 (* [step()] takes the current AST and adds it to the history.
    If there are several traces, it does so in every branch. *)
-let step () : unit =
+let step (stepdescr : stepdescr) : unit =
+  (* LATER: recording the step_descr as done here does not
+     make sense in the presence of multiple trace. *)
   List.iter (fun trace ->
-    trace.history <- trace.cur_ast::trace.history)
+    trace.history <- trace.cur_ast::trace.history;
+    trace.stepdescrs <- stepdescr::trace.stepdescrs)
     !traces
 
 (* [check_recover_original()] checks that the AST obtained so far
@@ -594,11 +642,12 @@ let output_prog_check_empty ?(ast_and_enc : bool = true) (ctx : context) (prefix
       let out_prog = open_out file_prog in
       close_out out_prog
 
-(* [output_js index cpp_filename prefix _ast] Produces a javascript file used for viewing the ast in interactive mode
+(* CURRENTLY NOT MAINTAINTED
+  [output_optitrust_ast_to_js] index cpp_filename prefix _ast] Produces a javascript file used for viewing the ast in interactive mode
    This javascript file contains an array of source codes and an array of ast's. Where the entry at index i contains the state
-   of the source and ast after applying transformaion i.
+   of the source and ast after applying transformation i.
 *)
-let output_js  ?(vars_declared : bool = false)(index : int) (prefix : string) (ast : trm) : unit =
+let output_optitrust_ast_to_js ?(vars_declared : bool = false) (index : int) (prefix : string) (ast : trm) : unit =
   let file_js = prefix ^ ".js" in
   let out_js = open_out file_js in
   try
@@ -623,36 +672,109 @@ let output_js  ?(vars_declared : bool = false)(index : int) (prefix : string) (a
     close_out out_js;
     failwith s
 
-(* [dump_trace_to_js] writes into one/several (?) files
-   the contents of the current AST and of all the history,
-   that is, of all the ASTs for which the [step] method was called.
-   DEPRECATED, will be fixed soon. *)
-let dump_trace_to_js ?(prefix : string = "") () : unit =
-  assert (prefix = prefix && false);
-  let dump_history (prefix : string) (asts : trms) : unit =
-    let nbAst = List.length asts in
-    let i = ref (nbAst - 2) in
-    List.iter
-      (fun ast ->
-        if !i = 0 then
-          output_js 0 prefix ast
-        else if !i = (nbAst - 2) then
-          output_js ~vars_declared:true (nbAst - 2) prefix ast
-        else if !i = (-1) then ()
-        else
-          begin
-          output_js ~vars_declared:true !i prefix ast;
-          i := !i - 1
-          end
-      )
-      asts in
-  List.iter
+
+(* [dump_trace_to_js] writes into a file called [`prefix`.js] the
+   contents of each of the steps record by the script, both for
+   small steps and big steps, including the diffs and the excerpts
+   of proof scripts associated with each step.
+
+   The argument [history_and_isbigstep] takes the history
+   with oldest entry first (unliked the history record field).
+   It does not include the parsing step. --LATER: include it.
+
+   The JS file is
+   structured as follows (up to the order of the definitions):
+
+   var codes = []; // if the script has 3 '!!', the array will have 4 entries (one for the state of the code before each '!!' and one for the final result)
+   codes[i] = window.atob("...");
+
+   var smallsteps = []; // smallsteps.length = codes.length - 1
+   smallsteps[i] = { diff: window.atob("...");
+                     script: window.atob("...");
+                     exectime: ... } // for future use
+   var bigsteps = []; // bigsteps.length <= smallsteps.length
+   bigstep.push ({ diff: window.atob("...");
+                  start: idStart;
+                  stop: idStop;
+                  descr : window.atob("...") });
+     // invariant: bigstep[j].stop = bigstep[j+1].start
+   *)
+let dump_trace_to_js (ctx : context) (prefix : string) (history_and_descr : (trm*stepdescr) list) : unit =
+  let file_js = prefix ^ "_trace.js" in
+  let out_js = open_out file_js in
+  let out = output_string out_js in
+  let sprintf = Printf.sprintf in
+  let cmd s =
+    (* FOR DEBUG Printf.printf "execute: %s\n" s; flush stdout; *)
+    ignore (Sys.command s) in
+  let compute_command_base64 (s : string) : string =
+    cmd (sprintf "%s | base64 -w 0 > tmp.base64" s);
+    Xfile.get_contents ~newline_at_end:false "tmp.base64"
+    in
+  let compute_diff () : string =
+    compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp" in
+  let lastbigstepstart = ref (-1) in
+  let nextbigstep_descr = ref "<undefined bigstep descr>" in
+  (* LATER: catch failures *)
+  (* LATER: support other languages than C/C++ *)
+  out "var codes = [];\nvar smallsteps = [];\nvar bigsteps = [];\n";
+  let n = List.length history_and_descr in
+  List.iteri (fun i (ast,stepdescr) ->
+    (* obtain source code *)
+    output_prog ctx "tmp_after" ast;
+    let src = compute_command_base64 "cat tmp_after.cpp" in
+    out (sprintf "codes[%d] = window.atob(\"%s\");\n" i src);
+    (* obtain smallstep diff *)
+    if i > 0 then begin
+      let diff = compute_diff() in
+      out (sprintf "smallsteps[%d] = { exectime: %d, script: window.atob(\"%s\"), diff: window.atob(\"%s\") };\n" (i-1) stepdescr.exectime (Base64.encode_exn stepdescr.script) diff);
+    end;
+    (* obtain bigstep diff *)
+    let isstartofbigstep =
+      match stepdescr.isbigstep with
+      | None -> false
+      | Some _descr -> true
+      in
+    let isendofbigstep = (i > 0 && isstartofbigstep) || i = n-1 in
+    if isendofbigstep then begin
+      cmd "mv tmp_big.cpp tmp_before.cpp";
+      let diff = compute_diff() in
+      out (sprintf "bigsteps.push({ start: %d, stop: %d, descr: window.atob(\"%s\"), diff: window.atob(\"%s\") });\n"  !lastbigstepstart i (Base64.encode_exn !nextbigstep_descr) diff);
+    end;
+    (* shift files to prepare for next step *)
+    cmd "mv tmp_after.cpp tmp_before.cpp";
+    if isstartofbigstep then begin
+      cmd "cp tmp_before.cpp tmp_big.cpp";
+      lastbigstepstart := i;
+      begin match stepdescr.isbigstep with
+      | None -> assert false
+      | Some descr -> nextbigstep_descr := descr
+      end;
+    end
+  ) history_and_descr;
+  cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp tmp_big.cpp";
+  close_out out_js
+
+(* LATER: later generalize to multiple traces, currently it would
+    probably overwrite the same file over and over again *)
+let dump_traces_to_js ?(prefix : string = "") () : unit =
+   if List.length !traces > 1
+     then failwith "-dump-trace currently does not support multiple traces";
+   List.iter
     (fun trace ->
       let ctx = trace.context in
       let prefix =
         if prefix = "" then ctx.directory ^ ctx.prefix else prefix
       in
-      dump_history prefix (trace.cur_ast :: trace.history)
+      if List.length trace.history <> List.length trace.stepdescrs
+        then failwith "dump_traces_to_js: invariant broken, stepdescrs should have the same length as history";
+      let hrev = List.combine trace.history trace.stepdescrs in
+      let h = (* remove the ast associated with the input file *)
+        match List.rev hrev with
+        | _::h -> h
+        | _ -> failwith "dump_trace_to_js: empty history"
+        in
+      dump_trace_to_js ctx prefix h
     )
     (!traces)
 
@@ -730,7 +852,8 @@ let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
 (* LATER for mli: dump_diff_and_exit : unit -> unit *)
 let dump_diff_and_exit () : unit =
   if !Flags.analyse_time then begin
-     report_time_of_last_step();
+     let timing = last_time_update() in
+     report_time_of_step timing;
      write_timing_log (Printf.sprintf "------------------------TOTAL TRANSFO TIME: %.3f s\n" (!last_time -. !start_time));
      write_timing_log (Printf.sprintf "------------START DUMP------------\n");
   end;
@@ -774,10 +897,10 @@ let dump_diff_and_exit () : unit =
         output_ast ~ast_and_enc:false (prefix ^ "_before_" ^ string_of_int i) astBeforeI
       done;
     end;
-    (* CPP and AST and Javscript for AFTER *)
+    (* CPP and AST for AFTER *)
     output_ast (prefix ^ "_after") astAfter;
     print_info None "Writing ast and code into %s.js " prefix;
-    output_js 0 prefix astAfter;
+    (* LATER output_js 0 prefix astAfter; *)
     (* Printf.printf "EXIT   %s\n" prefix; *)
   );
   (* Exit *)
@@ -794,9 +917,7 @@ let dump_diff_and_exit () : unit =
    a freshly parsed and typechecked version of it.
    The [~is_small_step] flag indicates whether the current step is small
    and should be ignored when visualizing big steps only. *)
-let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(reparse : bool = false) () : unit =
-  (* Update the line of the last step entered *)
-  line_of_last_step := line;
+let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(reparse : bool = false) () : unit =
   (* Special hack for minimizing diff in documentation *)
   if !Flags.documentation_save_file_at_first_check <> "" then begin
     let trace =
@@ -809,7 +930,9 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(rep
   end else begin
     let ignore_step = is_small_step && !Flags.only_big_steps in
     if not ignore_step then begin
-      report_time_of_last_step();
+      (* Processing of a regular step, which is not ignored by the [-only-big-steps flag] *)
+      let exectime = last_time_update() in
+      report_time_of_step exectime;
       (* Handle exit of script *)
       let should_exit =
         match Flags.get_exit_line() with
@@ -830,16 +953,14 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(rep
           if !Flags.analyse_time then
             let duration_of_reparse = last_time_update () in
             write_timing_log (Printf.sprintf "------------------------\nREPARSE: %d\tms\n" duration_of_reparse);
+            (* LATER: reparsing chould be included in the time of the next step,
+               by using a measure_time function around the call to reparse_alias,
+               instead of calling last_time_update *)
         end;
-        (* Handle the reporting of the execution time *)
+        (* Handle the reporting of the script excerpt associated with the __next__ step, which starts on the line number reported *)
         if !Flags.analyse_time then begin
-          let txt =
-            if !ml_file_excerpts = Int_map.empty then "" else begin
-              match Int_map.find_opt line !ml_file_excerpts with
-              | Some txt -> txt
-              | None -> (*failwith*) Printf.sprintf "<unable to retrieve line %d from script>" line
-            end in
-          write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line txt);
+          let descr = get_excerpt line in
+          write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line descr);
         end;
         (* Handle progress report *)
         if not is_small_step && !Flags.report_big_steps then begin
@@ -849,13 +970,26 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(rep
           end else begin
             Printf.printf "Executing big-step line %d\n" line
           end;
-          flush stdout
+          flush stdout;
         end;
       end;
-      (* Save the current code in the trace *)
-      step();
-  end
-end
+      (* Support for '!^' which simulates an on-the-fly call to [bigstep ""] *)
+      if not is_small_step then begin
+        let descr = if line = -1 then "" else Printf.sprintf "Bigstep at line %d" line in
+        bigstep descr; (* this call must be performed after reading [!nextstep_isbigstep] above *)
+      end;
+      (* Prepare the step description, handling immediate prior calls to [bigstep] *)
+      let isbigstep = !nextstep_isbigstep in
+      nextstep_isbigstep := None; (* reset the nextstep_isbigstep field after use *)
+      let script = if !Flags.dump_trace && !line_of_last_step <> -1 then get_excerpt !line_of_last_step else "" in
+      let stepdescr = { isbigstep; script; exectime } in
+      (* Save the step in the trace *)
+      step stepdescr;
+    end
+  end;
+  (* Update the line of the last step entered *)
+  line_of_last_step := line
+
 
 (* [!!] is a prefix notation for the operation [check_exit_and_step].
    By default, it performs only [step]. The preprocessor of the OCaml script file
@@ -904,9 +1038,6 @@ let dump ?(prefix : string = "") () : unit =
   if !Flags.analyse_time then begin
       write_timing_log (Printf.sprintf "------------START DUMP------------\n");
   end;
-  (* Dump full trace if requested *)
-  if !Flags.dump_all then
-     dump_trace_to_js ~prefix (); (* dump_trace ~prefix () *)
   (* Dump final result, for every [switch] branch *)
   List.iter
     (fun trace ->
@@ -929,7 +1060,7 @@ let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> un
       then
         let parser = !Parsers.selected_cparser in
         reparse_alias ~parser ();
-    step();
+    step stepdescr_for_interactive_step;
     f();
     dump_diff_and_exit()
   end
