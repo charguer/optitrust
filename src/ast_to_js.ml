@@ -225,7 +225,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           (strquote "name", strquote x);
           (strquote "def-type", Json.typ_to_json typ);
           children_to_field ([(child_to_json "init" (aux init))])]
-    | Trm_let_mult _ -> 
+    | Trm_let_mult _ ->
       []
     | Trm_let_fun (f, typ, xts, tbody) ->
       [ kind_to_field "fun-def";

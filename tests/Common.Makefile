@@ -113,7 +113,7 @@ DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Instruction to keep intermediate files
-.PRECIOUS: %.native %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_doc_out.cpp
+.PRECIOUS: %.native %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_trace.js %_doc_out.cpp %_with_lines.ml
 
 # Rule for viewing the encoding of an output
 %.enc: %_out.cpp
@@ -149,6 +149,21 @@ endif
 # Rule for building the binary associated with a test
 %.$(PROGEXT): %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@
+
+# Rule for building the html file to display the trace associated with a script
+# (copy a template, and substitute the JS file name)
+%_trace.html: %_trace.js
+	$(V)cp $(OPTITRUST)/tools/trace_template.html $@
+	$(V)sed -i "s#{TRACEJSFILE}#$<#g;s#{OPTITRUST}#$(OPTITRUST)#g;s#{FILEBASE}#$*#g" $@
+	@echo "Produced $@"
+
+# Rule for annotating a transformation script with the line numbers
+%_with_lines.ml: %.ml
+	$(V)$(OPTITRUST)/.vscode/add_lines.sh $< $@
+
+# Rule for building the js file describing the trace associated with a script
+%_trace.js: %_with_lines.byte %.cpp %_with_lines.ml
+	$(V)OCAMLRUNPARAM=b ./$< -dump-trace $(FLAGS)
 
 # Rule for producing the expected output file from the result
 # TODO: see if we can use $* instead of basename
@@ -323,7 +338,8 @@ cleandoc::
 	@echo "Clean documentation"
 
 clean:: cleandoc
-	$(V)rm -f *.js *_out.cpp *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml *.ser *.i
+	$(V)rm -f *.js *_out.cpp *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_trace.js *_trace.html *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml *.ser *.i
+
 	$(V)rm -rf _build
 	@echo "Clean successful"
 

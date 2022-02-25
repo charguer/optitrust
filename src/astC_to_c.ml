@@ -155,13 +155,13 @@ and typed_var_to_doc (tx : typed_var) : document =
      let (base, bracketl) = aux t s in
      dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
   | Typ_fun (tyl, ty) ->
-  
+
   (* DEPRECATED *)
-  (*| Typ_ptr {inner_typ = {typ_desc = Typ_fun (tyl, ty); _};_} 
+  (*| Typ_ptr {inner_typ = {typ_desc = Typ_fun (tyl, ty); _};_}
     let ret_type = typ_to_doc ty  in
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ parens(star ^^ string x) ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types) *)
-    let ret_type = typ_to_doc ty in 
+    let ret_type = typ_to_doc ty in
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ blank 1 ^^ string x ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
   | _ -> const_string ^^ typ_to_doc t ^^ blank 1 ^^ string x
@@ -327,7 +327,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) (t : trm) : document =
            else acc
           ) dl tl_m in
           counter := -1;
-          let res = if trm_annot_has Main_file t then (separate (twice hardline) dl) else surround 2 1 lbrace (separate hardline dl) rbrace in 
+          let res = if trm_annot_has Main_file t then (separate (twice hardline) dl) else surround 2 1 lbrace (separate hardline dl) rbrace in
           dattr ^^ res
     | Trm_apps (f, tl) ->
            dattr ^^ apps_to_doc ~prec f tl ^^ dsemi
@@ -610,12 +610,12 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
               | Unop_struct_access f1 when !print_optitrust_syntax ->
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
               | (Unop_struct_get f1 | Unop_struct_access f1) ->
-                 if is_get_operation t then 
+                 if is_get_operation t then
                     if List.mem Display_no_arrow f.annot
                       then
                         d ^^ dot ^^ string f1
-                      else  
-                        let d = decorate_trm ~prec (get_operation_arg t) in 
+                      else
+                        let d = decorate_trm ~prec (get_operation_arg t) in
                         d ^^ minus ^^ rangle ^^ string f1
                  else
                     d ^^ dot ^^ string f1
@@ -660,7 +660,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
               let d1 = decorate_trm ~prec t1 in
               let d2 = decorate_trm ~prec t2 in
               let op_d = prim_to_doc p_b in
-              if !print_optitrust_syntax 
+              if !print_optitrust_syntax
                 then op_d ^^ parens (d1 ^^ comma ^^ d2)
                 else separate (blank 1) [d1; op_d; d2]
           | _ -> fail f.loc "apps_to_doc: binary operators must have two arguments"
@@ -925,7 +925,6 @@ and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_d
     end in
     trm_for_c  ~loc init cond step body
 
-
 let ast_to_doc ?(optitrust_syntax:bool=false) (t : trm) : document =
   if optitrust_syntax then print_optitrust_syntax := true;
   let d = decorate_trm t in
@@ -949,7 +948,7 @@ let typ_to_string (ty : typ) : string =
   Buffer.contents b
 
 let trm_print_debug (t : trm) : unit =
-  print_stringreprids := true; 
+  print_stringreprids := true;
   Printf.printf "==\n%s\n===\n" (ast_to_string t);
   print_stringreprids := false
 

@@ -1,7 +1,8 @@
 (library
   (name optitrust)
   (public_name optitrust)
-  (libraries menhirLib clangml refl pprint str)
+
+  (libraries menhirLib clangml refl pprint str base64)
   (modes byte)
   (modules_without_implementation parse))
 

@@ -38,6 +38,9 @@ let fold_righti (f : int -> 'b -> 'a -> 'a) (bl : 'b list) (a : 'a) : 'a =
   let (_, res) = List.fold_right (fun b (i,a) -> (i + 1, f i b a)) bl (0, a) in
   res
 
+let iteri2 (f : int -> 'a -> 'b -> unit) (al : 'a list) (bl : 'b list) : unit =
+  ignore (List.fold_left2 (fun i a b -> f i a b; i+1) 0 al bl)
+
 (* [fold_lefti2] is a [List.fold_left2] with access to the indices. *)
 let fold_lefti2 (f : int -> 'a -> 'b -> 'c -> 'a) (a : 'a) (bl : 'b list) (cl : 'c list) : 'a =
   let (_, res) = List.fold_left2 (fun (i, a) b c -> (i + 1, f i a b c)) (0, a) bl cl in
@@ -108,12 +111,12 @@ let rec list_chop_after (x : 'a) (xs : 'a list) : 'a list =
    The [i] should be in the range [0] to [length l], inclusive.
    In particular, if [i = length l], then the operation returns [l @ el]. *)
 let insert_sublist_at (i : int) (el : 'a list) (l : 'a list) : 'a list =
-  if i = 0 then el @ l 
+  if i = 0 then el @ l
   else if i = List.length l
     then l @ el
-  else 
-    let first_part, last_part = split_list_at i l in 
-    first_part @ el @ last_part    
+  else
+    let first_part, last_part = split_list_at i l in
+    first_part @ el @ last_part
 
 (* [insert_at i e l] inserts an element [e] at index [i] in the list [l].
    The [index] should be in the range [0] to [length l], inclusive.

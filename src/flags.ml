@@ -17,8 +17,8 @@ let dump_ast_details : bool ref = ref false
 let dump_last_default = -1
 let dump_last : int ref = ref dump_last_default
 
-(* DEPRECATED? Call [Trace.dump_all] in addition to [Trace.dump] *)
-let dump_all : bool ref = ref false
+(* Call [Trace.dump_traces_to_js] in addition to [Trace.dump] at the end of the script. *)
+let dump_trace : bool ref = ref false
 
 (* Flag to print the line numbers at which reparsing is triggered *)
 let debug_reparse : bool ref = ref false
@@ -95,7 +95,7 @@ let spec =
      ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines");
      ("-debug-reparse", Arg.Set debug_reparse, " print on stdout the line number at which each reparse is performed");
      ("-reparse-at-big-steps", Arg.Set reparse_at_big_steps, " force reparsing at every big step (implies -debug-reparse)");
-     ("-dump-trace", Arg.Set dump_all, " produce a JS file with all the steps performed by the transformation script");
+     ("-dump-trace", Arg.Set dump_trace, " produce a JS file with all the steps performed by the transformation script");
      ("-dump-last", Arg.Set_int dump_last, " dump outputs the number of desired last steps; only for interactive mode");
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
      ("-analyse-time", Arg.Set analyse_time, " produce a file reporting on the execution time");
