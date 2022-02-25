@@ -101,8 +101,10 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
   | C.TNamed ({name = n;_}, att) ->
     let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n) in
     wrap_const att (typ_to_add)
-  | C.TStruct (_idn, _att) | C.TUnion (_idn, _att) ->
-      fail None "OptiTrust does not support inline use of struct or union; you must use a typedef"
+  | C.TStruct ({name = n;_}, att) | C.TUnion ({name = n;_}, att) ->
+      let typ_to_add = typ_constr n ~tid:(next_typconstrid()) in
+      wrap_const att (typ_to_add)
+      (* fail None "OptiTrust does not support inline use of struct or union; you must use a typedef" *)
   | C.TEnum ({name = n; _}, att) ->
     typ_constr n ~tid:(get_typid_from_trm n)
   | C.TVoid _ -> typ_unit ()
@@ -316,11 +318,11 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     let t_else = tr_expr else_ in
     trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op) [t_cond; t_then; t_else]
   | ECast (ty, e1) ->
-    if e = C.nullconst then trm_null ~loc ~ctx () 
-      else begin 
-        let ty = tr_type ty in
-        let te = tr_expr e1 in
-        trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te] end
+    let ty = tr_type ty in
+    let te = tr_expr e1 in
+    if is_null_pointer ty te  
+      then trm_null ~loc ~ctx () 
+      else  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te] 
   | ECompound _ -> fail loc "tr_expr: Not supported for the moment"
   | ECall (f, el) ->
     let tf = tr_expr f in

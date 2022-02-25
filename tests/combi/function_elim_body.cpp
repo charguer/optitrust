@@ -23,9 +23,9 @@ int main() {
     }
     u = 2;
   }
-  __exit_body:
+  __exit_body:;
 
-  int *q = new int;
+  int *q;
   body4:{
     (*q)++;
   }

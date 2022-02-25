@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdbool.h>
 
 int MINDEX1(int N1, int i1) {
   return i1;

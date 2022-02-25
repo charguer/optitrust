@@ -1400,6 +1400,14 @@ let same_node_type (t : trm) (t1 : trm) : bool =
 let is_generated_typ (ty : typ) : bool =
   List.mem GeneratedTyp ty.typ_attributes
 
+(* [is_null_pointer ty t] check if a trm with given type and value is a (void * ) 0 *)
+let is_null_pointer (ty : typ) (t : trm) : bool = 
+  match ty.typ_desc, t.desc with 
+  | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = {typ_desc = Typ_unit;_}}, Trm_val (Val_lit (Lit_int 0)) -> true
+  | _ -> false
+
+
+
 (* check if two arrays are of the same size *)
 let same_sizes (sz1 : size) (sz2 : size) : bool =
  match sz1, sz2 with

@@ -16,6 +16,7 @@ TESTS_WITH_DOC := \
 	cast_insert.ml \
 	flow_insert_if.ml \
 	function_inline.ml \
+	function_uninline.ml \
 	function_beta.ml \
 	function_bind_intro.ml \
 	function_use_infix_ops.ml \
@@ -97,7 +98,6 @@ TESTS_TOCHECK := \
 
 TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
-	function_uninline.ml \
 	accesses_intro.ml \
 
 NOT_NEEEDED_TO_FIX := \
