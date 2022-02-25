@@ -505,11 +505,15 @@ let call (f : trm -> unit) : unit =
 
 (* [nextstep_isbigstep] is a reference that stores a [Some descr]
    when the function [bigstep] is called. This reference is reset
-   to [None] after the [step] function is called. *)
-let nextstep_isbigstep : (string option) ref = ref None
+   to [None] after the [step] function is called. It is initialized
+   to false, for proper reporting in scripts that don't start with
+   a [bigstep] instruction. *)
+let nextstep_isbigstep : (string option) ref =
+  ref (Some "Start of the script")
 
 (* [bigstep s] announces that the next step is a bigstep, and registers
    a string description for that step. *)
+(* LATER: add the line argument *)
 let bigstep (s : string) : unit =
   nextstep_isbigstep := Some s
 
@@ -917,6 +921,7 @@ let dump_diff_and_exit () : unit =
    a freshly parsed and typechecked version of it.
    The [~is_small_step] flag indicates whether the current step is small
    and should be ignored when visualizing big steps only. *)
+(* The [is_small_step] option WILL PROBABLY BE DEPREACTED IN THE FUTURE *)
 let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(reparse : bool = false) () : unit =
   (* Special hack for minimizing diff in documentation *)
   if !Flags.documentation_save_file_at_first_check <> "" then begin
@@ -928,7 +933,19 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
     let ctx = trace.context in
     output_prog ctx !Flags.documentation_save_file_at_first_check (trace.cur_ast)
   end else begin
-    let ignore_step = is_small_step && !Flags.only_big_steps in
+    (* Support for '!^' which simulates an on-the-fly call to [bigstep ""] -- will probably be DEPRECATED *)
+    if not is_small_step then begin
+      let descr = if line = -1 then "" else Printf.sprintf "Bigstep at line %d" line in
+      bigstep descr; (* this call must be performed after reading [!nextstep_isbigstep] above;
+        it saves the big-step information to be used at the next call to [check_exit_and_step] *)
+    end;
+    let isbigstep = !nextstep_isbigstep in (* TODO: rename this variable/fieldname *)
+    let is_start_of_bigstep = isbigstep <> None in
+    let ignore_step = !Flags.only_big_steps && not is_start_of_bigstep in
+    (*Printf.printf "line=%d  istartbigstep=%d  ignore_step=%d\n"
+      (match Flags.get_exit_line() with Some line -> line | None -> -1)
+      (if is_start_of_bigstep then 1 else 0)
+      (if ignore_step then 1 else 0);*)
     if not ignore_step then begin
       (* Processing of a regular step, which is not ignored by the [-only-big-steps flag] *)
       let exectime = last_time_update() in
@@ -946,7 +963,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
         dump_diff_and_exit();
       end else begin
         (* Handle reparse of code *)
-        if reparse || (!Flags.reparse_at_big_steps && not is_small_step) then begin
+        if reparse || (!Flags.reparse_at_big_steps && is_start_of_bigstep) then begin
           let info = if reparse then "the code on demand at" else "the code just before the big step at" in
           let parser = !Parsers.selected_cparser in
           reparse_alias ~info ~parser ();
@@ -963,26 +980,20 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
           write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line descr);
         end;
         (* Handle progress report *)
-        if not is_small_step && !Flags.report_big_steps then begin
+        if is_start_of_bigstep && !Flags.report_big_steps then begin
           if line = -1 then begin
             incr id_big_step;
             Printf.printf "Executing big-step #%d\n" !id_big_step
           end else begin
-            Printf.printf "Executing big-step line %d\n" line
+            Printf.printf "Executing big-step whose first command is at line %d\n" line
           end;
           flush stdout;
         end;
       end;
-      (* Support for '!^' which simulates an on-the-fly call to [bigstep ""] *)
-      if not is_small_step then begin
-        let descr = if line = -1 then "" else Printf.sprintf "Bigstep at line %d" line in
-        bigstep descr; (* this call must be performed after reading [!nextstep_isbigstep] above *)
-      end;
       (* Prepare the step description, handling immediate prior calls to [bigstep] *)
-      let isbigstep = !nextstep_isbigstep in
-      nextstep_isbigstep := None; (* reset the nextstep_isbigstep field after use *)
       let script = if !Flags.dump_trace && !line_of_last_step <> -1 then get_excerpt !line_of_last_step else "" in
       let stepdescr = { isbigstep; script; exectime } in
+      nextstep_isbigstep := None; (* reset the nextstep_isbigstep field after use *)
       (* Save the step in the trace *)
       step stepdescr;
     end
@@ -1006,6 +1017,7 @@ let (!!) (x:'a) : 'a =
   x
 
 (* [!^] is similar to [!!] but indicates the start of a big step in the transformation script. *)
+(* WILL PROBABLY BE DEPREACTED IN THE FUTURE *)
 let (!^) (x:'a) : 'a =
   check_exit_and_step ~is_small_step:false ~reparse:false ();
   x
