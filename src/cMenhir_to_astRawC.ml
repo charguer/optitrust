@@ -336,8 +336,26 @@ and tr_globdef (d : C.globdecl) : trm =
              | Some init -> tr_init init
              end
       in
-    let mut = if is_typ_const tt then Var_immutable else Var_mutable in
-    trm_let ~loc ~ctx ~is_statement:true mut (n, tt) te
+    (* A temporary hack for function prototypes *)
+    if is_typ_fun tt
+      then begin match ty with 
+      | C.TFun (ty1, params, _, att) ->
+        let tt = tr_type ty1 in
+        begin match params with
+        | None -> trm_let_fun n tt [] (trm_lit (Lit_uninitialized))
+        | Some pl ->
+          let get_args (tv : C.ident * C.typ) : (var * typ) =
+            let (id, ty) = tv in
+            let ty = tr_type ty in
+            (id.name, ty) in
+          let args = List.map get_args pl in 
+          trm_let_fun ~loc ~ctx n tt args (trm_lit (Lit_uninitialized))
+        end
+      | _ -> fail None "tr_globdef: this function prototype is not supported"
+      end
+      else
+        let mut = if is_typ_const tt then Var_immutable else Var_mutable in
+        trm_let ~loc ~ctx ~is_statement:true mut (n, tt) te
   | C.Gfundef {fd_storage = _; fd_inline = inline; fd_name = {name = n;_}; fd_attrib = _att; fd_ret = ty; fd_params = po; fd_body = bo; _} ->
     let tt = tr_type ty in
     let tb = tr_stmt bo in
