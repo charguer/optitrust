@@ -39,7 +39,7 @@ TESTS_WITH_DOC := \
 	variable_insert.ml \
 	variable_insert_list.ml \
 	variable_insert_and_fold.ml \
-  variable_intro_pattern_array.ml \
+   variable_intro_pattern_array.ml \
 	variable_renames.ml \
 	variable_reuse.ml \
 
@@ -73,6 +73,15 @@ NOT_NEEEDED_TO_FIX := \
 TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC) $(TESTS_TOCHECK)
 
 #---------------------------------------------------------------------
+# Common makefile for test folders
+
+# Flag to disable the default rule for target "doc.html"
+SPECIAL_RULE_FOR_DOC_HTML := yes
+
+include ../Common.Makefile
+
+
+#---------------------------------------------------------------------
 # Rule for generating documentation for tests from the basic folder
 # and copying the files over here
 
@@ -95,7 +104,6 @@ BASICDIR:=../basic
 
 TESTS_FOR_DOC := $(subst __basic, , $(TESTS_WITH_DOC:.ml=))
 
-SPECIAL_RULE_FOR_DOC_HTML := yes
 doc.html: $(DOCJS)
 	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $@ $(TESTS_FOR_DOC)
 	sed -i "s#<\/body><\/html>#<script>var hide_basic = 1;<\/script><\/body><\/html>#" $@
@@ -103,10 +111,4 @@ doc.html: $(DOCJS)
 
 cleandoc::
 	rm -f *__basic_doc.js
-
-
-#---------------------------------------------------------------------
-# Common makefile for test folders
-
-include ../Common.Makefile
 
