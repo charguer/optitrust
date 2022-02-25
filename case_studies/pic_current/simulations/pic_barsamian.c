@@ -920,9 +920,6 @@ int main(int argc, char** argv) {
     double areaX = x_max - x_min;
     double areaY = y_max - y_min;
     double areaZ = z_max - z_min;
-    fwrite(&areaX, sizeof(double), 1, f);
-    fwrite(&areaY, sizeof(double), 1, f);
-    fwrite(&areaZ, sizeof(double), 1, f);
     fwrite(&nb_particles, sizeof(int), 1, f);
     fwrite(&areaX, sizeof(double), 1, f);
     fwrite(&areaY, sizeof(double), 1, f);
