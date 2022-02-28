@@ -745,7 +745,7 @@ let print_stringreprs () : unit =
    or an empty string otherwise *)
 let get_stringrepr (t : trm) : string =
     match !stringreprs with
-    | None -> if is_get_operation t  then "" else fail t.loc (Printf.sprintf "get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
+    | None -> fail t.loc (Printf.sprintf "get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
     | Some m ->
         match Ast.trm_get_stringreprid t with
         | Some id ->
