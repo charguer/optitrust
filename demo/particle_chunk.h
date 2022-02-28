@@ -66,8 +66,8 @@ const int CHUNK_SIZE = 128;
 /*
  * A chunk is a fixed-capacity array of particles, with a pointer to the next chunk.
  */
-typedef struct {
-  struct chunk* next; // null if last in the chain
+typedef struct chunk {
+  chunk* next; // null if last in the chain
   int size;
   particle items[CHUNK_SIZE];
 } chunk;

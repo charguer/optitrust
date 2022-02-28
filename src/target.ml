@@ -197,10 +197,10 @@ let sExpr ?(substr : bool = true) (s : string)  : constr =
 let sInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
   Constr_regexp (string_to_rexp true substr s tk)
 
-let sInstrRegexp ?(substr : bool = false) (s : string) : constr =
+let sInstrRegexp ?(substr : bool = true) (s : string) : constr =
   sInstrOrExprRegexp TrmKind_Instr substr s
 
-let sExprRegexp ?(substr : bool = false) (s : string) : constr =
+let sExprRegexp ?(substr : bool = true) (s : string) : constr =
   sInstrOrExprRegexp TrmKind_Expr substr s
 
 
@@ -383,8 +383,8 @@ let cEnum ?(name : string = "")
 let cSeq ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (_ : unit) : constr =
   Constr_seq (combine_args args args_pred)
 
-let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
-  let ro = string_to_rexp_opt regexp false name trmkind in
+let cVar ?(regexp : bool = false) ?(substr : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
+  let ro = string_to_rexp_opt regexp substr name trmkind in
   let c = Constr_var ro in
   if typ = "" && typ_pred == typ_constraint_default then c else (* this line is just an optimization *)
   Constr_target (with_type ~typ ~typ_pred [c])

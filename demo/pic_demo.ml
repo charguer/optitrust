@@ -7,7 +7,6 @@ open Ast
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
 
-
 let main = cFunDef "main"
 let dims = ["X";"Y";"Z"]
 let nb_dims = List.length dims
@@ -16,7 +15,6 @@ let map_dims f = List.map f dims
 let idims = map_dims (fun d -> "i" ^ d)
 let delocalize_double_add = Delocalize_arith (Lit_double 0., Binop_add)
 
-
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
@@ -24,17 +22,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
   !! Loop.fission ~split_between:true [ctx; cFor "k"];
-  !! Loop.unroll ~reparse:true [nbMulti; ctx; cFor "k"];
-  (* LATER: why not: !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp "res.*\\[0\\]"]; *)	
-  !! Instr.accumulate ~nb:8 [nbMulti; ctx; cFieldWrite ~base:[cVar "res"] ~field:"x" ()];
-  !! Instr.accumulate ~nb:8 [nbMulti; ctx; cFieldWrite ~base:[cVar "res"] ~field:"y" ()];
-  !! Instr.accumulate ~nb:8 [nbMulti; ctx; cFieldWrite ~base:[cVar "res"] ~field:"z" ()];
+  !! Loop.unroll [nbMulti; ctx; cFor "k"];
+  !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];	
   !! Function.inline [main; cFun "matrix_vect_mul"];
 
   bigstep "Vectorization in [cornerInterpolationCoeff]";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   let ctx_rv = cChain [ctx; sInstr "r.v"] in
-  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
+  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
   (* !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
@@ -44,7 +39,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Update particles in-place instead of in a local variable "; (* LATER: it might be possible to change the script to postpone this step *)
   !! Variable.reuse ~space:(expr "p->speed") [main; cVarDef "speed2" ];
-  !! Variable.reuse ~reparse:true ~space:(expr "p->pos") [main; cVarDef "pos2"]; (* TODO: reparse needed?*)
+  !! Variable.reuse ~reparse:true ~space:(expr "p->pos") [main; cVarDef "pos2"]; 
 
   bigstep "Reveal write operations involved manipulation of particles and vectors";
   !! Trace.reparse();

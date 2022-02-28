@@ -101,10 +101,11 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
   | C.TNamed ({name = n;_}, att) ->
     let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n) in
     wrap_const att (typ_to_add)
-  | C.TStruct ({name = n;_}, att) | C.TUnion ({name = n;_}, att) ->
-      let typ_to_add = typ_constr n ~tid:(next_typconstrid()) in
+  | C.TStruct ({name = n;_}, att) ->
+      let typ_to_add = typ_record Struct (typ_constr n ~tid:(next_typconstrid())) in 
       wrap_const att (typ_to_add)
-      (* fail None "OptiTrust does not support inline use of struct or union; you must use a typedef" *)
+  | C.TUnion ({name = n;_}, att) ->
+      fail None "OptiTrust does not support inline use of struct or union; you must use a typedef"
   | C.TEnum ({name = n; _}, att) ->
     typ_constr n ~tid:(get_typid_from_trm n)
   | C.TVoid _ -> typ_unit ()
