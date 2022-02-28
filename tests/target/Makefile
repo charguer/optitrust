@@ -10,11 +10,11 @@ TESTS_WORKING := \
 	target_args.ml \
 	target_combi.ml \
 	target_multi.ml \
+	target_between.ml \
 
 NOT_A_TEST := \
 	target_regexp.ml \
 	target_debug.ml \
-	target_between.ml \
 
 TESTS_TO_FIX := \
 	target_one.ml \

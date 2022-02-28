@@ -799,19 +799,19 @@ let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a)
   Constr.stringreprs := None;
   r
 
-(* [resolve_target_with_stringreprs_available tg t] similar to resolve_target but this one computes 
+(* [resolve_target_with_stringreprs_available tg t] similar to resolve_target but this one computes
     first the string representation of all the ast nodes *)
 let resolve_target_with_stringreprs_available (tg : target) (t : trm) : paths =
   with_stringreprs_available_for [tg] t (fun t2 -> resolve_target tg t2)
 
-(* [resolve_target_exactly_one_with_stringreprs_available tg t] similar to resolve_target_exactly_one but this one computes 
+(* [resolve_target_exactly_one_with_stringreprs_available tg t] similar to resolve_target_exactly_one but this one computes
     first the string representation of all the ast nodes *)
 let resolve_target_exactly_one_with_stringreprs_available (tg : target) (t : trm) : path =
   with_stringreprs_available_for [tg] t (fun t2 -> resolve_target_exactly_one tg t2)
 
-(* [resolve_path_with_stringreprs_available p t] similar to resolve_path but this one computes first the string 
+(* [resolve_path_with_stringreprs_available p t] similar to resolve_path but this one computes first the string
     representation of all the ast nodes first *)
-let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm = 
+let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm =
   with_stringreprs_available_for [target_of_path p] t (fun t2 -> resolve_path p t2)
 
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
@@ -1035,31 +1035,35 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 (*                                   Show                                     *)
 (******************************************************************************)
 
-(* [target_show_aux id t]: adds a mark with the
-   carrying the information [id] around the term t.
+(* [target_show_aux m t]: adds a mark [m] around the term t.
 *)
-let target_show_aux (id : int) (t : trm) : trm =
-  let show_mark = (* "show_mark " ^*) (string_of_int id) in
-  trm_add_mark show_mark t
+let target_show_aux (m : mark) (t : trm) : trm =
+  trm_add_mark m t
 
-(* [target_show_transfo id t p]: adds a mark with the
-   carrying the information [id] around the term at path [p] in the term [t]. *)
-let target_show_transfo (id : int) : Transfo.local =
-  apply_on_path (target_show_aux id)
+(* [target_show_transfo m t p]: adds a mark [m]
+  around the term at path [p] in the term [t]. *)
+let target_show_transfo (m : mark) : Transfo.local =
+  apply_on_path (target_show_aux m)
 
-(* [target_between_show_aux id k t]: adds a a mark with identifier [id]
+(* [target_between_show_aux m k t]: adds a a mark [m]
    at position [k] in the marks list of the sequence described by the term [t]. *)
-let target_between_show_aux (id : int) (k : int) (t : trm) : trm =
-    trm_add_mark_between k (string_of_int id) t
+let target_between_show_aux (m : mark) (k : int) (t : trm) : trm =
+    trm_add_mark_between k m t
 
 (* [target_between_show_transfo id k t p]: adds a mark with identifier [id]
    at position [k] in the sequence at path [p] in the term [t]. *)
-let target_between_show_transfo (id : int) : Transfo.local_between =
-  fun (k:int) -> apply_on_path (target_between_show_aux id k)
+let target_between_show_transfo (m : mark) : Transfo.local_between =
+  fun (k:int) -> apply_on_path (target_between_show_aux m k)
 
 (* [bigstep s] is a shorthand for [Trace.bigstep s] *)
 let bigstep (s : string) : unit =
   Trace.bigstep s
+
+(* [show_next_id] is used for batch mode execution of unit tests,
+   to generate names of for marks.
+   Only used when [Flags.execute_show_even_in_batch_mode] is set.  *)
+let show_next_id : (unit -> int) =
+  Tools.fresh_generator ()
 
 (* [show ~line:int tg] is a transformation for visualizing targets.
    The operation add marks if the command line argument [-exit-line]
@@ -1074,12 +1078,21 @@ let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
   if reparse then reparse_alias();
   let should_exit = (Flags.get_exit_line() = Some line) in
   let batch_mode = (Flags.get_exit_line() = None) in
+  let marks_base = show_next_id() in
+  let mark_of_occurence (i:int) : string =
+    if batch_mode && !Flags.execute_show_even_in_batch_mode
+      then sprintf "%d_%d" marks_base i
+      else sprintf "%d" i
+    in
   if should_exit || (!Flags.execute_show_even_in_batch_mode && batch_mode) then begin
     if Constr.is_target_between tg then begin
       applyi_on_targets_between (fun i t (p,k) ->
-        target_between_show_transfo i k t p) tg
+        let m = mark_of_occurence i in
+        target_between_show_transfo m k t p) tg
     end else begin
-      applyi_on_targets (fun i t p -> target_show_transfo i t p) tg
+      applyi_on_targets (fun i t p ->
+        let m = mark_of_occurence i in
+        target_show_transfo m t p) tg
     end;
     if should_exit
       then dump_diff_and_exit()

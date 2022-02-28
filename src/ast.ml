@@ -1401,8 +1401,8 @@ let is_generated_typ (ty : typ) : bool =
   List.mem GeneratedTyp ty.typ_attributes
 
 (* [is_null_pointer ty t] check if a trm with given type and value is a (void * ) 0 *)
-let is_null_pointer (ty : typ) (t : trm) : bool = 
-  match ty.typ_desc, t.desc with 
+let is_null_pointer (ty : typ) (t : trm) : bool =
+  match ty.typ_desc, t.desc with
   | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = {typ_desc = Typ_unit;_}}, Trm_val (Val_lit (Lit_int 0)) -> true
   | _ -> false
 
@@ -1782,8 +1782,8 @@ let is_typ_ptr (ty : typ) : bool =
   | _ -> false
 
 (* [is_typ_fun ty] check if [ty] is a function type or not *)
-let is_typ_fun (ty : typ) : bool = 
-  match ty.typ_desc with 
+let is_typ_fun (ty : typ) : bool =
+  match ty.typ_desc with
   | Typ_fun _ -> true | _ -> false
 
 (* [is_get_operation t] check if [t] is a struct access get operation of a immutable variable get operation *)
@@ -2198,8 +2198,8 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
         | Some tdef ->  tdef
         | _ -> def
         end
-      | Trm_let (_, (x, _), _) -> 
-        (* There is a slight difference between clang and menhir how they handle function declarations, that's why we 
+      | Trm_let (_, (x, _), _) ->
+        (* There is a slight difference between clang and menhir how they handle function declarations, that's why we
          need to check if there are variables inside the function map *)
         begin match Trm_map.find_opt x chopped_fun_map with
         | Some tdef -> tdef
@@ -2245,7 +2245,7 @@ let is_arith_fun (p : prim) : bool =
   | _ -> false
 
 (* [is_nobrace_seq t] check is [t] is a visible sequence or not*)
-let is_nobrace_seq (t : trm) : bool = 
+let is_nobrace_seq (t : trm) : bool =
   List.exists (function No_braces _ -> true | _ -> false) t.annot
 
 

@@ -20,7 +20,7 @@ TARGETS=transfo check clean batch batch_check
 all: optitrust
 	$(MAKE) -C basic batch_check
 	$(MAKE) -C combi batch_check
-	$(MAKE) -C target
+	$(MAKE) -C target batch_check
 	$(MAKE) -C ast
 
 

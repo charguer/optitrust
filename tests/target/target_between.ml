@@ -9,7 +9,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Before *)
   show [ tBefore; cVarDef "r1" ];
-  show [ tBefore; cVarDef "r2" ];
+  show [ tBefore; cVarDef "r2" ]; 
   show [ tBefore; cVarDef "m1" ];
   show [ tBefore; cVarDef "m2" ];
 
