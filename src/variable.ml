@@ -14,7 +14,7 @@ module Rename = struct
 
   let add_sufix (s : string) =  Renamefn (fun x -> x ^ s)
 
-  let apply (f : string -> string) = Renamefn f 
+  let apply (f : string -> string) = Renamefn f
 
   let bylist (l : (string * string) list) =  ByList l
 
@@ -160,7 +160,7 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
   let minimal_index = ref 10000 in (* 10000 is considered as infinity, we assume here that there will no block of code with 10k instructions *)
   let (pattern_vars, pattern_aux_vars, pattern_instr) = Trm_matching.parse_pattern str in
   let path_to_surrounding_seq = ref [] in
-  let paths = Target.resolve_target tg t in
+  let paths = Target.resolve_target_with_stringreprs_available tg t in
   List.iteri (fun _i p ->
     let path_to_seq, _ , index  = Internal.get_instruction_in_surrounding_sequence p in
     if !path_to_surrounding_seq = [] then path_to_surrounding_seq := path_to_seq
@@ -174,7 +174,7 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
     let inst = Trm_matching.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Target.get_trm_at (Target.target_of_path p)) in
     let values = Trm_matching.tmap_to_list pattern_vars (Trm_matching.tmap_filter_keys pattern_vars inst) in
     List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v) values;
-    let inst = List.map (fun (x, _) -> get_array_access (trm_var_get x) (trm_int id_path)) pattern_vars in 
+    let inst = List.map (fun (x, _) -> get_array_access (trm_var_get x) (trm_int id_path)) pattern_vars in
     let new_inst = Trm_map.empty in
     let new_inst = List.fold_left2 (fun acc (x, _) y -> Trm_map.add x y acc) new_inst pattern_vars inst in
     let new_t = Internal.subst new_inst pattern_instr in
@@ -183,7 +183,8 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
   let vk = if const then Var_immutable else Var_mutable in
   let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array vk (x, typ_double ()) (Const nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
   Internal.nobrace_remove_after (fun _ ->
-    Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tBefore] @ (Target.target_of_path !path_to_surrounding_seq) @ [Target.dSeqNth !minimal_index])))
+    Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tBefore] @ (Target.target_of_path !path_to_surrounding_seq) @ [Target.dSeqNth !minimal_index]))
+  )
 
 (* [detach_if_needed tg] expects the target [tg] to be pointing at a variable declaration, then it will check if it s
     already initialized or not, if that is the case than it will deatch that declaration, otherwise no change is applied*)
@@ -227,26 +228,26 @@ let reuse ~space:(space : trm) ?(reparse : bool = false) : Target.Transfo.t =
     Or AddSuffix s, if this is the case then all the variable declared inside the targeted sequencev
      are going to be renamed by adding the suffix at the end of its current name.
 *)
-let renames (rename : rename) : Target.Transfo.t = 
-  Target.iter_on_targets (fun t p -> 
-    let tg_trm = Path.resolve_path p t in 
-    match tg_trm.desc with 
-    | Trm_seq tl -> 
-      let decl_vars = List.map decl_name (Mlist.to_list tl) in 
-      let decl_vars = List.filter_map (fun d -> d) decl_vars in 
-      let new_decl_vars = begin match rename with 
-      | AddSuffix s -> 
+let renames (rename : rename) : Target.Transfo.t =
+  Target.iter_on_targets (fun t p ->
+    let tg_trm = Path.resolve_path p t in
+    match tg_trm.desc with
+    | Trm_seq tl ->
+      let decl_vars = List.map decl_name (Mlist.to_list tl) in
+      let decl_vars = List.filter_map (fun d -> d) decl_vars in
+      let new_decl_vars = begin match rename with
+      | AddSuffix s ->
         List.map (fun d -> d ^ s) decl_vars
-      | Renamefn g -> 
+      | Renamefn g ->
         List.map g decl_vars
-      | ByList l -> 
-        List.map (fun d -> 
-          begin match List.assoc_opt d l with 
+      | ByList l ->
+        List.map (fun d ->
+          begin match List.assoc_opt d l with
           | Some d1 -> d1
           | _ -> d
-          end) decl_vars 
-      
-      end in 
+          end) decl_vars
+
+      end in
       List.iter2 (fun d into -> Variable_basic.rename ~into ((Target.target_of_path p) @  [Target.cVarDef d])) decl_vars new_decl_vars
 
     | _ -> fail tg_trm.loc "renames: the target should be pointing at a sequence" )
@@ -424,7 +425,7 @@ let insert ?(const : bool = false) ?(reparse : bool = false) ?(typ : typ = typ_a
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
 *)
 let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) : Target.Transfo.t =
-  let defs = List.rev defs in 
+  let defs = List.rev defs in
   Target.reparse_after ~reparse (fun tg ->
     List.iter (fun (typ, name, value) ->
       (* This check is needed to avoid the parentheses in the case when the value of the vairbale is a simple expression  *)

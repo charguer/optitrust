@@ -324,6 +324,10 @@ val resolve_target_between : target -> trm -> (path * int) list
 
 val resolve_target_between_exactly_one : target -> trm -> (path * int)
 
+val with_stringreprs_available_for : target -> trm -> (trm -> 'a) -> 'a
+
+val resolve_target_with_stringreprs_available : target -> trm -> paths
+
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
 
 val applyp_on_path : (path -> trm -> trm) -> trm -> path -> trm
@@ -335,7 +339,6 @@ val apply_on_targets : (trm -> path -> trm) -> target -> unit
 val applyi_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (int -> trm -> 'a -> trm) -> target -> unit
 
 val apply_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (trm -> 'a -> trm) -> target -> unit
-
 
 val iteri_on_targets : ?rev:bool -> (int -> trm -> path -> unit) -> target -> unit
 

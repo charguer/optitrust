@@ -51,19 +51,19 @@ let fusion_targets (tg : Target.target) : unit =
   let non_loop_indices = ref [] in
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
-    
-    let aux (tl : trm mlist) : unit = 
+
+    let aux (tl : trm mlist) : unit =
       Mlist.iteri (fun i t1 ->
         match t1.desc with
         | Trm_for _ -> ()
         | _ -> non_loop_indices := i :: !non_loop_indices
       ) tl
-     in 
+     in
     match tg_trm.desc with
     | Trm_seq tl ->
       aux tl
-    | Trm_labelled (l, t1) -> 
-      begin match t1.desc with 
+    | Trm_labelled (l, t1) ->
+      begin match t1.desc with
       | Trm_seq tl -> aux tl
       | _ -> fail t.loc" fusion_targets: expected a labelled sequence or a direct target to a sequence"
       end
@@ -374,24 +374,24 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
   reorder ~order [Target.cFor first_cs]
 
 (* [fission tg] if [split_between] is false then this function just calls Loop_basic.fission otherwise
-    it will split the targeted loop into unit instructions   
+    it will split the targeted loop into unit instructions
 *)
-let fission ?(split_between : bool = false) (tg : Target.target) : unit = 
-  if not split_between 
-    then Loop_basic.fission tg 
+let fission ?(split_between : bool = false) (tg : Target.target) : unit =
+  if not split_between
+    then Loop_basic.fission tg
     else Internal.nobrace_remove_after(fun _ ->
-      Target.apply_on_targets (fun t p -> 
-        let tg_trm = Path.resolve_path p t in 
-        match tg_trm.desc with 
+      Target.apply_on_targets (fun t p ->
+        let tg_trm = Path.resolve_path p t in
+        match tg_trm.desc with
         | Trm_for (loop_index, start, direction, stop, step, body) ->
           begin match body.desc with
           | Trm_seq tl ->
-            let body_lists = List.map (fun t1 -> trm_seq_nomarks [t1] ) (Mlist.to_list tl) in 
+            let body_lists = List.map (fun t1 -> trm_seq_nomarks [t1] ) (Mlist.to_list tl) in
             Target.apply_on_path (fun t -> trm_seq_no_brace (List.map (fun t1 -> trm_for loop_index start direction stop step t1) body_lists)) t p
           | _ -> fail t.loc "fission_aux: expected the sequence inside the loop body"
           end
         | _ -> fail t.loc "fission_aux: only simple loops are supported") tg)
-  
+
 
 (* [fold ~index ~start ~step ~nb_instr tg] expects the target [tg] to be pointing to an instruction folloed by [nb_instr] -1 instructions
       which could be expressed into a single for loop with [index], [start], [nb_instr] and [step] as its components.
@@ -412,12 +412,11 @@ let fold_instrs ~index:(index : var) ?(start : int = 0) ?(step : int = 1) (tg : 
   let prev_index = ref (-1) in
   let first_target = [Target.occFirst] @ (Target.filter_constr_occurrence tg) in
   let tg = Target.enable_multi_targets tg in
-  Target.iter_on_targets
-    (fun t p ->
+  Target.iter_on_targets (fun t p ->
       let _, i = Internal.isolate_last_dir_in_seq p in
       if i <> !prev_index + 1 && !prev_index <> -1 then fail t.loc "fold_instrs: all the targeted instructions should be consecutive ones";
       incr nb_targets;
     ) tg;
-    if !nb_targets < 1 then fail None "fold_instrs: expected at least 1 instruction";
-    fold ~index ~start ~step !nb_targets first_target;
-    Variable.fold ~nonconst:true [Target.nbAny;Target.cVarDef "" ~body:[Target.cInt !nb_targets]]
+  if !nb_targets < 1 then fail None "fold_instrs: expected at least 1 instruction";
+  fold ~index ~start ~step !nb_targets first_target;
+  Variable.fold ~nonconst:true [Target.nbAny;Target.cVarDef "" ~body:[Target.cInt !nb_targets]]
