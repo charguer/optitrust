@@ -32,7 +32,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
-  !!! Variable.intro_pattern_array ~pattern_aux_vars:"double rX, rY, rZ"
+  (* Arthur: There is a problem with path resolution replace !!! with !! to see the issue *)
+  !!! Variable.intro_pattern_array~const:true ~pattern_aux_vars:"double rX, rY, rZ"
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ" 
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];

@@ -146,7 +146,7 @@ int f2() { // result of Funciton_basic.inline_cal
 // where p is the path to the englobing sequence.
 *)
 
-(* LATER: Factorize the code better *)
+(* LATER: Factorize the code *)
 let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit = 
     Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
       (fun i t (path_to_seq, local_path, i1) -> 
@@ -166,7 +166,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
           | None -> fail t.loc "inline: coudl not get the target to the function call" in
           if !name_result <> "" && (Internal.same_trm init1 tg_trm) then fail tg_trm.loc "inline: no need to enter the result name in this case"
             
-            else if List.length local_path <= 2 && List.length local_path > 0 then
+            else if List.length local_path <= 2 && List.length local_path > 0 && vk <> Var_immutable then
               begin
               name_result := x;
               res_inlining_needed := false
