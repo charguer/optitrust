@@ -29,20 +29,21 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   bigstep "Vectorization in [cornerInterpolationCoeff]";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   let ctx_rv = cChain [ctx; sInstr "r.v"] in
+  
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
+  !!! Variable.intro_pattern_array ~pattern_aux_vars:"double rX, rY, rZ"
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ" 
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];
-  (* !! Loop.fold_instrs ~index:"k" [ctx_rv]; *) (* TODO: Fix me! *)
+  !!! Loop.fold_instrs ~index:"k" [ctx_rv];
 
   bigstep "Update particles in-place instead of in a local variable "; (* LATER: it might be possible to change the script to postpone this step *)
   !! Variable.reuse ~space:(expr "p->speed") [main; cVarDef "speed2" ];
   !! Variable.reuse ~reparse:true ~space:(expr "p->pos") [main; cVarDef "pos2"];
 
   bigstep "Reveal write operations involved manipulation of particles and vectors";
-  !! Trace.reparse();
+  (* !! Trace.reparse(); *)
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
@@ -62,11 +63,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
-  !! Trace.reparse(); (* required to get the parentheses right;
-        TODO: using the printing system with priorities,
-        we should be able to print t.v[k] instead of (t.v)[k]; *)
+  
   !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="]
-       [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "coeffs2.v[k]"];
+       [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "coeffs2->v[k]"];
   !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]
        [main; sInstr "nextCharge[indices"; sExpr "deltaChargeOnCorners.v[k]"];
 

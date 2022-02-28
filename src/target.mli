@@ -330,6 +330,8 @@ val resolve_target_with_stringreprs_available : target -> trm -> paths
 
 val resolve_target_exactly_one_with_stringreprs_available : target -> trm -> path
 
+val resolve_path_with_stringreprs_available : path -> trm -> trm
+
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
 
 val applyp_on_path : (path -> trm -> trm) -> trm -> path -> trm

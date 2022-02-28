@@ -799,11 +799,20 @@ let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a)
   Constr.stringreprs := None;
   r
 
+(* [resolve_target_with_stringreprs_available tg t] similar to resolve_target but this one computes 
+    first the string representation of all the ast nodes *)
 let resolve_target_with_stringreprs_available (tg : target) (t : trm) : paths =
   with_stringreprs_available_for [tg] t (fun t2 -> resolve_target tg t2)
 
+(* [resolve_target_exactly_one_with_stringreprs_available tg t] similar to resolve_target_exactly_one but this one computes 
+    first the string representation of all the ast nodes *)
 let resolve_target_exactly_one_with_stringreprs_available (tg : target) (t : trm) : path =
   with_stringreprs_available_for [tg] t (fun t2 -> resolve_target_exactly_one tg t2)
+
+(* [resolve_path_with_stringreprs_available p t] similar to resolve_path but this one computes first the string 
+    representation of all the ast nodes first *)
+let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm = 
+  with_stringreprs_available_for [target_of_path p] t (fun t2 -> resolve_path p t2)
 
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
       params:
@@ -1088,7 +1097,7 @@ let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
 let get_trm_at (tg : target) : trm =
   let t_ast = ref (trm_unit ()) in
   Trace.call (fun t ->
-    let tg_path = resolve_target_exactly_one tg t in
+    let tg_path = resolve_target_exactly_one_with_stringreprs_available tg t in
     t_ast := Path.resolve_path tg_path t
   );
   !t_ast
