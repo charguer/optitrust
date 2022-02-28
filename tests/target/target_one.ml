@@ -87,8 +87,8 @@ let _ = Run.script_cpp (fun () ->
   show [sInstr "r += 2"];
   show [sInstr "i++"];
 
-  show [nbExact 2; sInstrRegexp "int . = .."];
-  (* show [nbExact 9; sInstrRegexp ~substr:true "int . = ."]; *)  (* Not working! *)
+  show [nbExact 2; sInstrRegexp ~substr:false "int . = .."];
+  show [nbExact 8; sInstrRegexp "int . = .."];
   show [nbExact 6; sInstrRegexp ~substr:true " .. ="];
 
   show [nbExact 1; sInstr "int r = 3"];

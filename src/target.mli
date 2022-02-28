@@ -324,7 +324,7 @@ val resolve_target_between : target -> trm -> (path * int) list
 
 val resolve_target_between_exactly_one : target -> trm -> (path * int)
 
-val with_stringreprs_available_for : target -> trm -> (trm -> 'a) -> 'a
+val with_stringreprs_available_for : target list -> trm -> (trm -> 'a) -> 'a
 
 val resolve_target_with_stringreprs_available : target -> trm -> paths
 

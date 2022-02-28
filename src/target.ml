@@ -781,12 +781,12 @@ let fix_target (tg : target) : target =
   let check_logic = List.exists (function Constr_or _ | Constr_and _ -> true | _ -> false) tg in
   if (not check_occurrences) && check_logic then nbMulti :: tg else tg
 
-(* [with_stringreprs_available_for tg t (fun t2 -> action)]  executes the [action]
+(* [with_stringreprs_available_for tgs t (fun t2 -> action)]  executes the [action]
    in a context where the AST [t] is viewed as [t2], which is a copy of [t] where
    certain nodes have their string representation available. Which nodes are concerned
-   depend on the regexp constraints expressed in the target [tg]. *)
-let with_stringreprs_available_for (tg : target) (t : trm) (f : trm -> 'a) : 'a =
-  let kinds = Constr.get_target_regexp_kinds tg in
+   depend on the regexp constraints expressed in the targets [tgs]. *)
+let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a) : 'a =
+  let kinds = Constr.get_target_regexp_kinds tgs in
   (* for debug  List.iter (fun k -> Printf.printf "(kind:%s)" (Constr.trm_kind_to_string k)) kinds;
       Printf.printf "==end of kinds==\n"; *)
   let t2, m = compute_stringreprs (Constr.match_regexp_trm_kinds kinds) t in
@@ -800,7 +800,7 @@ let with_stringreprs_available_for (tg : target) (t : trm) (f : trm -> 'a) : 'a 
   r
 
 let resolve_target_with_stringreprs_available (tg : target) (t : trm) : paths =
-  with_stringreprs_available_for tg t (fun t2 -> resolve_target tg t2)
+  with_stringreprs_available_for [tg] t (fun t2 -> resolve_target tg t2)
 
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
       params:
@@ -812,13 +812,12 @@ let resolve_target_with_stringreprs_available (tg : target) (t : trm) : paths =
 *)
 let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   let tg = fix_target tg in
-  Trace.apply (fun t ->
+  Trace.apply (fun t -> with_stringreprs_available_for [tg] t (fun t ->
+      (* LATER: use apply_with_stringreprs
+                           and take an optional list of auxiliary targets as argument *)
     let ps =
       Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
-        with_stringreprs_available_for tg t (fun t2 ->
-          (* FOR DEBUG:AstC_to_c.trm_print_debug t2;*)
-          resolve_target tg t2)
-        (* DEPRECATED: resolve_target tg t *)) in
+          resolve_target tg t) in
     let ps = if rev then List.rev ps else ps in
     match ps with
     | [] -> t
@@ -852,7 +851,7 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
           ) t marks
         with Interrupted_applyi_on_transformed_targets t -> t
         end
-    )
+    ))
 
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
     Same as [applyi_to_transformed_targets] except that here the index of the resolved_path is not considered
@@ -901,7 +900,7 @@ let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
 
 let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> unit) (tg : target) : unit =
   let tg = fix_target tg in
-  Trace.call (fun t -> with_stringreprs_available_for tg t (fun t ->
+  Trace.call (fun t -> with_stringreprs_available_for [tg] t (fun t ->
     let ps = resolve_target tg t
       (* ALTERNATIVE with_stringreprs_available_for tg t (fun t2 -> resolve_target tg t2) *) in
     let ps = if rev then List.rev ps else ps in
@@ -954,7 +953,7 @@ let iter_on_targets ?(rev : bool = false) (tr : trm -> path -> unit) (tg : targe
         unit
 *)
 let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
-  Trace.apply (fun t -> with_stringreprs_available_for tg t (fun t ->
+  Trace.apply (fun t -> with_stringreprs_available_for [tg] t (fun t ->
   let ps =
     Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () -> resolve_target_between tg t
       (* ALTERNATIVE
@@ -1155,7 +1154,7 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
     (* LATER: it would be nice to avoid computing the
        with_stringreprs_available_for which we already compute later on
        during [tr tg]. *)
-    let tg_paths = with_stringreprs_available_for tg ast (fun ast ->
+    let tg_paths = with_stringreprs_available_for [tg] ast (fun ast ->
       if Constr.is_target_between tg
       then let tg_ps = resolve_target_between tg ast in
            fst (List.split tg_ps)

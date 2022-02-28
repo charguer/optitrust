@@ -561,11 +561,11 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_array_init -> c
   | Constr_struct_init -> c
 
-(* [get_target_regexp_kinds tg] gets the list of trm_kinds of the terms
+(* [get_target_regexp_kinds tgs] gets the list of trm_kinds of the terms
    for which we would potentially need to use the string representation,
-   for resolving the target [tg]. The result is either a list of kinds
+   for resolving the targets [tgs]. The result is either a list of kinds
    without [TrmKind_Any], or a singleton list made of [TrmKind_Any]. *)
-let get_target_regexp_kinds (tg : target) : trm_kind list =
+let get_target_regexp_kinds (tgs : target list) : trm_kind list =
   (* LATER: could be optimize by avoiding the construction of a copy of c;
      but this should be done automatically when constr_map is optimized *)
   (* Note: we use lists, but this is fine because the lists are very short *)
@@ -582,7 +582,9 @@ let get_target_regexp_kinds (tg : target) : trm_kind list =
     end;
     constr_map explore c
     in
-  List.iter (fun c -> ignore (explore c)) tg;
+  let iter_in_target tg =
+    List.iter (fun c -> ignore (explore c)) tg in
+  List.iter iter_in_target tgs;
   !res
 
 

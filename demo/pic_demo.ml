@@ -23,7 +23,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
   !! Loop.fission ~split_between:true [ctx; cFor "k"];
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
-  !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];	
+  !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
   !! Function.inline [main; cFun "matrix_vect_mul"];
 
   bigstep "Vectorization in [cornerInterpolationCoeff]";
@@ -32,14 +32,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
-      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
+      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ" 
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
-      [nbMulti; ctx_rv; dRHS];   
+      [nbMulti; ctx_rv; dRHS];
   (* !! Loop.fold_instrs ~index:"k" [ctx_rv]; *) (* TODO: Fix me! *)
 
   bigstep "Update particles in-place instead of in a local variable "; (* LATER: it might be possible to change the script to postpone this step *)
   !! Variable.reuse ~space:(expr "p->speed") [main; cVarDef "speed2" ];
-  !! Variable.reuse ~reparse:true ~space:(expr "p->pos") [main; cVarDef "pos2"]; 
+  !! Variable.reuse ~reparse:true ~space:(expr "p->pos") [main; cVarDef "pos2"];
 
   bigstep "Reveal write operations involved manipulation of particles and vectors";
   !! Trace.reparse();
@@ -105,7 +105,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Scaling of speed and positions";
   !! iter_dims (fun d ->
-       Accesses.scale ~factor:(expr ("stepDuration / cell" ^ d)) 
+       Accesses.scale ~factor:(expr ("stepDuration / cell" ^ d))
          [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
@@ -118,7 +118,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       definition that we inlined just before. *)
   !! Arith.(simpl expand) [nbMulti; main; cFun "int_of_double"; dArg 0];
      Arith.(simpl expand) [nbMulti; main; cVarDef ~regexp:true "r.[01]"; dInit];
-     Sequence.apply ~start:[tAfter; main; cWrite ~lhs:[cVar "fieldAtPosZ"]()] 
+     Sequence.apply ~start:[tAfter; main; cWrite ~lhs:[cVar "fieldAtPosZ"]()]
        ~stop:[tAfter; main; cVarDef "coeffs2"] (fun m ->
        Arith.(simpl expand) [nbMulti; main; cMark m; cWrite(); dRHS; cStrictNew; Arith.constr];);
        (* LATER: Function.use_infix_ops [cMark m] *)
