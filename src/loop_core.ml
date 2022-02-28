@@ -262,22 +262,22 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
 let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, start, _direction, stop, _step, body) ->
-      
-      let unrolled_loop_range = begin match stop.desc with
-                         | Trm_apps(_,[_; bnd]) ->
-                            begin match bnd.desc with
-                            | Trm_val (Val_lit (Lit_int bnd)) ->
-                              Tools.range 0 (bnd - 1)
-                            | _ -> fail bnd.loc "unroll_aux: expected a literal trm"
-                            end
-                          | Trm_val (Val_lit (Lit_int bnd)) ->
-                              begin match start.desc with
-                              | Trm_val (Val_lit (Lit_int strt)) ->
-                                Tools.range 0 (bnd - 1 - strt)
-                              | _ -> fail start.loc "unroll_aux: expected a "
-                              end
-                         | _ -> fail t.loc "unroll_aux: the loop which is going to be unrolled shoudl have a bound which is a sum of a variable and a literal"
-                         end in
+      let unrolled_loop_range = 
+        begin match stop.desc with
+        | Trm_apps(_,[_; bnd]) ->
+           begin match bnd.desc with
+           | Trm_val (Val_lit (Lit_int bnd)) ->
+             Tools.range 0 (bnd - 1)
+           | _ -> fail bnd.loc "unroll_aux: expected a literal trm"
+           end
+         | Trm_val (Val_lit (Lit_int bnd)) ->
+             begin match start.desc with
+             | Trm_val (Val_lit (Lit_int strt)) ->
+               Tools.range 0 (bnd - 1 - strt)
+             | _ -> fail start.loc "unroll_aux: expected a "
+             end
+        | _ -> fail t.loc "unroll_aux: the loop which is going to be unrolled shoudl have a bound which is a sum of a variable and a literal"
+        end in
       let unrolled_body = List.fold_left ( fun acc i1 ->
         let new_index =
           begin match start.desc with

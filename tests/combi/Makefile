@@ -17,6 +17,7 @@ TESTS_WITH_DOC := \
 	instr_moveout.ml \
 	function_bind.ml \
 	function_bind_args.ml \
+	function_elim_body.ml \
 	function_inline_simple.ml \
 	function_inline_complex.ml \
 	function_inline_struct.ml \
@@ -30,6 +31,7 @@ TESTS_WITH_DOC := \
 	loop_hoist.ml \
 	loop_moveout.ml \
 	loop_reorder.ml \
+	loop_unroll.ml \
 	variable_fold.ml \
 	sequence_intro.ml \
 	sequence_intro_targets.ml \
@@ -40,7 +42,7 @@ TESTS_WITH_DOC := \
 	variable_insert.ml \
 	variable_insert_list.ml \
 	variable_insert_and_fold.ml \
-   variable_intro_pattern_array.ml \
+  variable_intro_pattern_array.ml \
 	variable_renames.ml \
 	variable_reuse.ml \
 
@@ -61,10 +63,6 @@ TESTS_TOCHECK := \
 	matrix_intro_mops.ml \
 
 TESTS_TO_FIX := \
-	loop_unroll.ml \
-	function_elim_body.ml \
-  
-# 	variable_renames.ml \
 
 NOT_NEEEDED_TO_FIX := \
 	aos_to_soa.ml \

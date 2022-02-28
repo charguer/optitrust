@@ -24,7 +24,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
   !! Loop.fission ~split_between:true [ctx; cFor "k"];
-  !! Loop.unroll [nbMulti; ctx; cFor "k"];
+  !! Loop.unroll ~reparse:true [nbMulti; ctx; cFor "k"];
   (* LATER: why not: !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp "res.*\\[0\\]"]; *)	
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; cFieldWrite ~base:[cVar "res"] ~field:"x" ()];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; cFieldWrite ~base:[cVar "res"] ~field:"y" ()];

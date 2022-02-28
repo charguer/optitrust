@@ -23,9 +23,11 @@ int main() {
     }
     u = 2;
   }
-  __exit_body:;
-
+  
+   
   int *q;
+  __exit_body:
+    q = &u;
   body4:{
     (*q)++;
   }

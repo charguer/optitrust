@@ -13,9 +13,7 @@ int main() {
 }
 "
 
-
-
-let _ = Run.script_cpp (fun _ ->
+let _ = Run.script_cpp ~parser:Parsers.Clang (fun _ ->
 
   (* With partitioning *)
   !! Loop.unroll ~shuffle:true ~blocks:[2;1;2] [cFor "i"];

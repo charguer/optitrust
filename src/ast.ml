@@ -2244,6 +2244,10 @@ let is_arith_fun (p : prim) : bool =
     end
   | _ -> false
 
+(* [is_nobrace_seq t] check is [t] is a visible sequence or not*)
+let is_nobrace_seq (t : trm) : bool = 
+  List.exists (function No_braces _ -> true | _ -> false) t.annot
+
 
 (* [is_same_binop op1 op2 ] check if two primitive operations are the same or not.
     Used to decide if parentheses should be printed or not.

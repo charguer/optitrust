@@ -9,7 +9,7 @@ FLAGS := -dump-ast-details
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
-	arith_simplify.ml \
+	arith_simpl.ml \
 	array_set_explicit.ml \
 	array_tile.ml \
 	array_to_variables.ml  \
@@ -93,7 +93,7 @@ TESTS_TOCHECK := \
 	function_rename_args.ml \
 
 # missing expected
-# matrix_insert_alloc_dim.ml
+# matrix_insert_alloc_dim.ml \
 #	matrix_insert_access_dim_index.ml \
 
 TESTS_TO_FIX := \
@@ -107,8 +107,6 @@ NOT_NEEEDED_TO_FIX := \
 	aos_to_soa_sized_array.ml \
 	variable_change_type.ml \
 
-# TODO:
-# arith_simpl.ml
 # TODO: script for vscode opening
 
 TESTS := $(TESTS_WITH_DOC) $(TESTS_WORKING_NOTINDOC) $(TESTS_TOCHECK)

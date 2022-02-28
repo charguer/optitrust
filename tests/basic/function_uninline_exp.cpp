@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 #include <stdio.h>
 
 #include <stdlib.h>
@@ -56,8 +58,8 @@ particle *bag_iter_next(bag_iter *it, bool destructive);
 
 void iter_bag(bag *b, void body(particle *)) {
   bag_iter *const iter = bag_iter_begin(b);
-  for (particle *p = bag_iter_get(iter); p != (NULL);
-       p = bag_iter_next(iter, true)) {
+  for (particle *p = bag_iter_get(iter); p != NULL;
+       p = bag_iter_next(iter, 1)) {
     body(p);
   }
   free(iter);
@@ -67,13 +69,11 @@ void test_bag() {
   int x = 0;
   bag *mybag;
   bag_iter *const iter = bag_iter_begin(mybag);
-  for (particle *p = bag_iter_get(iter); p != (NULL);
-       p = bag_iter_next(iter, true)) {
-    /*@body*/ {
-      if (*p = *p) {
-        x++;
-      }
-    } /*body@*/
+  for (particle *p = bag_iter_get(iter); p != NULL;
+       p = bag_iter_next(iter, 1)) {
+    if (*p = *p) {
+      x++;
+    }
   }
   free(iter);
 }
@@ -84,8 +84,8 @@ particle *bag2_iter_next(bag_iter *it, bool destructive);
 
 void iter_bag2(bag *b, void body(particle *)) {
   bag_iter iter;
-  for (particle *p = bag2_iter_begin(&iter, b); p != (NULL);
-       p = bag2_iter_next(&iter, true)) {
+  for (particle *p = bag2_iter_begin(&iter, b); p != NULL;
+       p = bag2_iter_next(&iter, 1)) {
     body(p);
   }
 }
@@ -94,12 +94,10 @@ void test_bag2() {
   int x = 0;
   bag *mybag;
   bag_iter iter;
-  for (particle *p = bag2_iter_begin(&iter, mybag); p != (NULL);
-       p = bag2_iter_next(&iter, true)) {
-    /*@body*/ {
-      if (*p = *p) {
-        x++;
-      }
-    } /*body@*/
+  for (particle *p = bag2_iter_begin(&iter, mybag); p != NULL;
+       p = bag2_iter_next(&iter, 1)) {
+    if (*p = *p) {
+      x++;
+    }
   }
 }

@@ -17,8 +17,9 @@ body3:
     goto __exit_body;
   }
   u = 2;
+  int *q;
 __exit_body:
-  int *q = new int;
+  q = &u;
 body4:
   (*q)++;
   return 0;

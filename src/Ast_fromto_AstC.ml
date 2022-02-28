@@ -136,7 +136,7 @@ let stackvar_elim (t : trm) : trm =
           trm_map aux t
         end
       end
-    | Trm_seq _ -> onscope env t (trm_map aux)
+    | Trm_seq _ when not (is_nobrace_seq t) -> onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
       (* function names are by default immutable *)
       add_var env f Var_immutable;
@@ -192,7 +192,7 @@ let stackvar_intro (t : trm) : trm =
         end
       else
         {t with desc = Trm_let (vk, (x, tx), aux tbody)}
-    | Trm_seq _ ->
+    | Trm_seq _ when not (is_nobrace_seq t) ->
       onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
       add_var env f Var_immutable;
