@@ -14,9 +14,9 @@ let _ = Run.script_cpp (fun () ->
    show [cWrite ~lhs:[cVar "i"] ()];
    show [cWrite ~lhs:[cVar "t"] ()];
    (* All get operations *)
-   show [cRead ~arg:[sExpr "a"] ()];
-   show [cRead ~arg:[cVar "b"] ()];
-   show [cRead ~arg:[cVar "i"] ()];
+   show [cRead ~addr:[sExpr "a"] ()];
+   show [cRead ~addr:[cVar "b"] ()];
+   show [cRead ~addr:[cVar "i"] ()];
    
    
    

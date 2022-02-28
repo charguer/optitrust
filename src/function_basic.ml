@@ -98,7 +98,7 @@ let use_infix_ops_at ?(allow_identity : bool = true) : Target.Transfo.t =
 *)
 let uninline ~fct:(fct : Target.target) (tg : Target.target) : unit =
   Trace.call (fun t ->
-    let fct_path = Target.resolve_target_exactly_one fct t in
+    let fct_path = Target.resolve_target_exactly_one_with_stringreprs_available fct t in
     let fct_decl = Path.resolve_path fct_path t in
     Target.apply_on_targets (Function_core.uninline fct_decl) tg)
 

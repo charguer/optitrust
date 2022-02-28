@@ -1,7 +1,6 @@
 open Optitrust
 open Target
 
-(* TODO: generalize to other tests *)
 let _ = Flags.execute_show_even_in_batch_mode := true
 
 let _ = Run.script_cpp (fun () ->
@@ -37,5 +36,3 @@ let _ = Run.script_cpp (fun () ->
   show [tAfter; cTopFunDef "main"];
 
 )
-
-

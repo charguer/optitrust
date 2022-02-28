@@ -118,14 +118,14 @@ let move_out ?(upto : string = "") (tg : Target.target) : unit =
 *)
 let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_move : Target.target) : unit =
   Trace.call (fun t ->
-   let loop_to_move_path = Target.resolve_target_exactly_one loop_to_move t in
+   let loop_to_move_path = Target.resolve_target_exactly_one_with_stringreprs_available loop_to_move t in
    let loop_to_move_trm = Path.resolve_path loop_to_move_path t in
    let loop_to_move_nested_indices = Internal.get_loop_nest_indices loop_to_move_trm in
    let loop_to_move_index  = List.nth loop_to_move_nested_indices 0 in
    begin match before, after with
    | [], [] -> fail None  "move: the before target or after target are mandatory please enter only one of them"
    | [], _ ->
-    let targeted_loop_path = Target.resolve_target_exactly_one after t in
+    let targeted_loop_path = Target.resolve_target_exactly_one_with_stringreprs_available after t in
     let targeted_loop = Path.resolve_path targeted_loop_path t in
     let targeted_loop_nested_indices = Internal.get_loop_nest_indices targeted_loop in
     let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in
@@ -143,7 +143,7 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
       else fail loop_to_move_trm.loc "move: the given targets are not correct"
 
    | _ , [] ->
-    let targeted_loop_path = Target.resolve_target_exactly_one before t in
+    let targeted_loop_path = Target.resolve_target_exactly_one_with_stringreprs_available before t in
     let targeted_loop = Path.resolve_path targeted_loop_path t in
     let targeted_loop_nested_indices = Internal.get_loop_nest_indices targeted_loop in
     let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in

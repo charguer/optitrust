@@ -66,7 +66,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
       let tr = if not (List.mem nbAny tr)
         then [nbAny] @ tr
         else tr in
-      let epl = resolve_target tr t' in
+      let epl = resolve_target_with_stringreprs_available tr t' in
       match epl with
       | [] ->
          print_info t'.loc "change_trm: no matching subterm for target %s\n"
@@ -145,7 +145,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
       let tr = if not (List.mem nbAny tr)
         then [nbAny] @ tr
         else tr in
-      let epl = resolve_target tr t' in
+      let epl = resolve_target_with_stringreprs_available tr t' in
       match epl with
       | [] ->
          print_info t'.loc "change_typ: no matching subterm for target %s\n"

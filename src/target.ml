@@ -802,6 +802,9 @@ let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a)
 let resolve_target_with_stringreprs_available (tg : target) (t : trm) : paths =
   with_stringreprs_available_for [tg] t (fun t2 -> resolve_target tg t2)
 
+let resolve_target_exactly_one_with_stringreprs_available (tg : target) (t : trm) : path =
+  with_stringreprs_available_for [tg] t (fun t2 -> resolve_target_exactly_one tg t2)
+
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
       params:
         transformer: change the resolved path so that more information about the context of the node is given

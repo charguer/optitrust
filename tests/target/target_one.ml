@@ -1,6 +1,7 @@
 open Optitrust
 open Target
 
+let _ = Flags.execute_show_even_in_batch_mode := true
 
 (* LATER: add unit test for each constraint function *)
 (*

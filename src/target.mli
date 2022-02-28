@@ -328,6 +328,8 @@ val with_stringreprs_available_for : target list -> trm -> (trm -> 'a) -> 'a
 
 val resolve_target_with_stringreprs_available : target -> trm -> paths
 
+val resolve_target_exactly_one_with_stringreprs_available : target -> trm -> path
+
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
 
 val applyp_on_path : (path -> trm -> trm) -> trm -> path -> trm

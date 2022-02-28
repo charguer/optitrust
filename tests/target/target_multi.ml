@@ -1,6 +1,8 @@
 open Optitrust
 open Target
 
+let _ = Flags.execute_show_even_in_batch_mode := true
+
 let _ = Run.script_cpp (fun () ->
 
   (* This is a demo for the [nb*] constraints, so we are purposely not precise about the number of occurrences *)
