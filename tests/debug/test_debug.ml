@@ -13,7 +13,8 @@ let _ = Run.script_cpp (fun _ ->
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ" 
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];
+  !!! Loop.fold_instrs ~index:"k" [ctx_rv];
   
-
+  !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
 )
 
