@@ -8,9 +8,12 @@ TESTS_WITH_DOC := \
 	label_add__basic.ml \
 	variable_fold__combi.ml \
 
+
 TESTS :=
 
-mydoc: cleanall
+redoc: optitrust cleanall mydoc
+
+mydoc: 
 	$(MAKE) -i BATCH=1 doc
 
 
@@ -56,11 +59,11 @@ TESTS_FOR_DOC :=  $(subst __combi, ,$(subst __basic, , $(TESTS_WITH_DOC:.ml=)))
 
 doc.html: $(DOCJS)
 	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $@ $(TESTS_FOR_DOC)
-	sed -i "s#<\/body><\/html>#<script>var hide_basic = 1; var only_correctness = 1;<\/script><\/body><\/html>#" $@
+	sed -i "s#<\/body><\/html>#<script>var hide_basic = 0; var only_correctness = 1;<\/script><\/body><\/html>#" $@
 	@echo Produced $@
 
 cleandoc::
-	rm -f *__basic_doc.js *__combi_doc.js
+	rm -f *__basic_doc.js *__combi_doc.js doc.html
 
 cleanall: clean
 	$(MAKE) -C $(BASICDIR) clean

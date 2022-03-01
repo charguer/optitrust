@@ -69,7 +69,7 @@ function shrinkSrc(src) {
 }
 
 function beautifySpec(txt) {
-  if (typeof only_correctness === 'undefined')
+  if (! (typeof only_correctness !== 'undefined' && only_correctness))
     return txt;
   var start = txt.indexOf("@correctness");
   if (start == -1)
@@ -108,9 +108,9 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
 
    // Fill the source part
    var srcContents = eval(targetJsFunctionSrc + "()");
-   if (typeof hide_basic === 'undefined') { // hack to handle inclusion of basic tests in the combi folder
+   if (typeof hide_basic !== 'undefined' && hide_basic) { // hack to handle inclusion of basic tests in the combi folder
      srcContents = srcContents.replace("_basic.", ".");
-   }
+   } else
    var srcHTML = "<pre><code class='ocaml'>"+escapeHTML(shrinkSrc(srcContents))+"</code></pre>";
    var srcWarning = "";
    if (enableWarning && sWarning) {
