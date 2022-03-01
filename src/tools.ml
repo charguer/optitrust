@@ -279,20 +279,14 @@ let fresh_generator ?(init : bool = false) () : (unit -> int) =
 (* [reset_generator ()] reset the generator to avoid id clashes when reparsing *)
 let reset_generator () : unit =
   let _x = fresh_generator ~init:true () in ()
-(* LATER: this function is boggus; you cannot reset a generator once
-   it's been created. If you want to do this, you have to do:
+(* TODO: this function is boggus remove it *)
 
-let resetable_fresh_generator () : (unit -> unit) * (unit -> int) =
+(* [resetable_fresh_generator()] returns a pair of a generator and its reset function *)
+let resetable_fresh_generator () : (unit -> int) * (unit -> unit) =
   let n = ref 0 in
-  (fun () -> n := 0), (fun () -> incr n; !n)
+  (fun () -> incr n; !n), (fun () -> n := 0)
 
-and then you can do:
 
-  let reset_next_id, next_id = resetable_fresh_generator ()
-
-and reset_next_id() will get you a fresh sequence for calls to next_id().
-
-*)
 
 (*-----------Extensions for Strings-------------*)
 

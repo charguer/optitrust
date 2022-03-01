@@ -403,3 +403,7 @@ val atypexpr : string -> typ
 val stmt : string -> trm
 
 val get_relative_type : target -> target_relative option
+
+(* Other *)
+
+val show_next_id_reset : unit -> unit

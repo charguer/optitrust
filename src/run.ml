@@ -102,6 +102,7 @@ let get_program_basename () : string =
      the printing of progress for batch mode; this is used by the "make batch" command for unit tests *)
 let script_cpp ?(batching : string = "") ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(parser : Parsers.cparser = Default) (f : unit -> unit) : unit =
   Parsers.selected_cparser := parser;
+  Target.show_next_id_reset();
 
   (* Handles batch mode *)
   let filename,prefix =

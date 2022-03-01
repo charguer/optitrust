@@ -799,19 +799,19 @@ let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a)
   Constr.stringreprs := None;
   r
 
-(* [resolve_target_with_stringreprs_available tg t] similar to resolve_target but this one computes 
+(* [resolve_target_with_stringreprs_available tg t] similar to resolve_target but this one computes
     first the string representation of all the ast nodes *)
 let resolve_target_with_stringreprs_available (tg : target) (t : trm) : paths =
   with_stringreprs_available_for [tg] t (fun t2 -> resolve_target tg t2)
 
-(* [resolve_target_exactly_one_with_stringreprs_available tg t] similar to resolve_target_exactly_one but this one computes 
+(* [resolve_target_exactly_one_with_stringreprs_available tg t] similar to resolve_target_exactly_one but this one computes
     first the string representation of all the ast nodes *)
 let resolve_target_exactly_one_with_stringreprs_available (tg : target) (t : trm) : path =
   with_stringreprs_available_for [tg] t (fun t2 -> resolve_target_exactly_one tg t2)
 
-(* [resolve_path_with_stringreprs_available p t] similar to resolve_path but this one computes first the string 
+(* [resolve_path_with_stringreprs_available p t] similar to resolve_path but this one computes first the string
     representation of all the ast nodes first *)
-let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm = 
+let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm =
   with_stringreprs_available_for [target_of_path p] t (fun t2 -> resolve_path p t2)
 
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
@@ -1062,8 +1062,8 @@ let bigstep (s : string) : unit =
 (* [show_next_id] is used for batch mode execution of unit tests,
    to generate names of for marks.
    Only used when [Flags.execute_show_even_in_batch_mode] is set.  *)
-let show_next_id : (unit -> int) =
-  Tools.fresh_generator ()
+let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
+  Tools.resetable_fresh_generator()
 
 (* [show ~line:int tg] is a transformation for visualizing targets.
    The operation add marks if the command line argument [-exit-line]
