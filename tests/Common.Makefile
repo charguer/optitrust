@@ -80,6 +80,10 @@ check: $(TESTS:.ml=.chk)
 # 'make exp' adds all the missing expected files
 exp: $(TESTS:.ml=.exp)
 
+# 'make reexp' regenerates all the expected files (! USE WITH CAUTION !)
+reexp: $(TESTS:.ml=.reexp)
+	$(V)echo "Dont forget:  git add *_exp.cpp"
+
 # 'make compile_src' checks that the source files compile
 compile_src: $(TESTS:.ml=.prog)
 

@@ -19,12 +19,17 @@ TARGET_MAKE_ALL := transfo
 
 include ../Common.Makefile
 
-c_address.cpp: c_big.cpp 
+
+c_ast.cpp: c_big.cpp
 	$(V)cp $< $@
 
-
-c_stackvar.cpp: c_big.cpp 
+c_address.cpp: c_big.cpp
 	$(V)cp $< $@
 
-c_features.cpp: c_big.cpp 
+c_stackvar.cpp: c_big.cpp
 	$(V)cp $< $@
+
+c_features.cpp: c_big.cpp
+	$(V)cp $< $@
+
+# LATER: use a makefile iteration to generate the above

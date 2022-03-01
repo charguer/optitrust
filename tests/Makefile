@@ -6,6 +6,8 @@
 TEST_DIRS = \
 	basic \
 	combi \
+	target \
+	ast \
 
 # Path to the folder containing optitrust main Makefile, on which to call make install
 OPTITRUST ?= ..
@@ -17,11 +19,11 @@ TARGETS=transfo check clean batch batch_check
 
 .PHONY: all $(TARGETS) seq
 
-all: optitrust
+all: clean optitrust
 	$(MAKE) -C basic batch_check
 	$(MAKE) -C combi batch_check
 	$(MAKE) -C target batch_check
-	$(MAKE) -C ast
+	$(MAKE) -C ast batch_check
 
 
 

@@ -8,8 +8,7 @@ open Ast_fromto_AstC
 
 let _ =
   Flags.dump_ast_details := true;
-  Flags.bypass_cfeatures := true;
-  Flags.use_new_encodings := true
+  Flags.bypass_cfeatures := true
 
 
 (* Option to choose the size of the test *)
@@ -17,7 +16,7 @@ let _ =
 let filename =
   match 2 with
   | 0 -> "c_debug.cpp"
-  | 1 -> "c_ast.cpp"
+  | 1 -> "c_mid.cpp"
   | _ -> "c_big.cpp"
 
 let _ = Run.script_cpp ~filename (fun () ->

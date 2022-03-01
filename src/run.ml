@@ -106,11 +106,11 @@ let script_cpp ?(batching : string = "") ?(filename : string = "") ?(inline : st
   (* Handles batch mode *)
   let filename,prefix =
     if batching <> "" then begin
-      if filename <> "" || prefix <> ""
-        then failwith "script_cpp: batching is incompatible with prefix and filename";
       Printf.printf "Batch test executing: %s\n" batching;
       let basename = Filename.chop_extension batching in
-      (basename ^ ".cpp"), basename
+      let prefix = if prefix <> "" then prefix else basename in
+      let filename = if filename <> "" then filename else (basename ^ ".cpp") in
+      filename, prefix
     end else
       filename, prefix
     in
