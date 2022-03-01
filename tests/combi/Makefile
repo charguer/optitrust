@@ -62,7 +62,10 @@ TESTS_TOCHECK := \
 	matrix_delocalize.ml \
 	matrix_intro_mops.ml \
 
+#variable_inline.ml \ TODO: Update variable_inline unit test
+
 TESTS_TO_FIX := \
+	
 
 NOT_NEEEDED_TO_FIX := \
 	aos_to_soa.ml \

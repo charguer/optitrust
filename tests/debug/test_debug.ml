@@ -3,14 +3,17 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Function.inline [cFun "f"];
-  !! Trace.alternative (fun () ->
-      !! Function_basic.bind_intro ~fresh_name:"r" ~const:false [cFun "f"];
-      !! Function_basic.inline ~body_mark:"body" [cFun "f"];
-      !! Function.elim_body [cMark "body"];
-      !! Variable_basic.init_attach [cVarDef "r"];
-      !! Variable.inline [cVarDef "r"];
-      !!());
+
+  let ctx = cTopFunDef "cornerInterpolationCoeff" in
+  let ctx_rv = cChain [ctx; sInstr "r.v"] in
+  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
+  !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
+  (* Arthur: There is a problem with path resolution replace !!! with !! to see the issue *)
+  !! Variable.intro_pattern_array~const:true ~pattern_aux_vars:"double rX, rY, rZ"
+      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ" 
+      ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
+      [nbMulti; ctx_rv; dRHS];
+  
 
 )
 

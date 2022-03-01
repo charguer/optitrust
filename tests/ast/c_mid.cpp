@@ -163,12 +163,13 @@ void nonconst_pointers() {
 // // They are values, out of which it is possible to directly read a value
 // // using the operator Binop_array_cell_get.
 // // Likewise a struct passed by value is read using Unop_struct_get.
-void by_value(int t[2], vect v) { // implicit const arguments
+// LATER: 
+/* void by_value(int t[2], vect v) { // implicit const arguments
   int b = t[0];
   int a = v.x;
   vect v2 = v; // this should make a copy of the data
 }
-
+ */
 int main() {
 
 
