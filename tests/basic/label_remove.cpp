@@ -8,7 +8,7 @@ int main() {
 
   loop: for (int i = 0; i < 3; i++) {
 
-  cond: if (1) {
+  cond: if (true) {
     incr_1: x++;
   } else {
     incr_2: x--;
