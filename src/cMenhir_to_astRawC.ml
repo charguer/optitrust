@@ -435,7 +435,6 @@ let tr_globdefs (gs : C.globdecl list) : trms =
         let tid = next_typconstrid () in
         ctx_tconstr_add sn tid;
         let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (fr, tr_type ft)) fl in
-        Printf.printf "%s, %s, %s \n" sn sn1 sn2;
         let two_names = if sn1 = "" then false else true in  
         let td = {
           typdef_loc = loc;

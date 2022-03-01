@@ -140,7 +140,7 @@ int f2() { // result of Funciton_basic.inline_cal
   int s = r;
 }
 
-
+// TODO: Explain in detail the last step
 // NOTE: if we want to optimize, we could instead of
 // using ~[cMark mymark] use ~((target_of_path p)++[cMark mymark])
 // where p is the path to the englobing sequence.
@@ -213,18 +213,18 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
         let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
         Function_basic.inline ~body_mark [new_target];
         Accesses_basic.intro [Target.cMark body_mark];
-        elim_body ~vars [Target.cMark body_mark];
-        if !name_result <> "" then begin 
+        elim_body ~vars [Target.cMark body_mark]
+        (* if !name_result <> "" then begin 
             let success_attach = ref true in 
             let _ = try Variable_basic.init_attach [new_target] with
                 | Variable_core.Init_attach_no_occurrences
                 | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
                 | e -> raise e in 
              if !res_inlining_needed then Variable.inline ~delete:true [new_target];
-            (* if !success_attach then Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result]; *)
+            if !success_attach && !res_inlining_needed then Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result];
             Marks.remove my_mark [Target.nbAny; new_target]
           end;
-          Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
+          Struct_basic.simpl_proj (Target.target_of_path path_to_seq) *)
       
       ) tg
 

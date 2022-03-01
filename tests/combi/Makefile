@@ -18,9 +18,6 @@ TESTS_WITH_DOC := \
 	function_bind.ml \
 	function_bind_args.ml \
 	function_elim_body.ml \
-	function_inline_simple.ml \
-	function_inline_complex.ml \
-	function_inline_struct.ml \
 	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_inline_last_write.ml \

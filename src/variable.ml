@@ -342,7 +342,48 @@ let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
       no occurrence of x appears after that instruction
 *)
 
-let inline_and_rename : Target.Transfo.t =
+let inline_and_rename : Target.Transfo.t = 
+  Target.iter_on_targets (fun t p -> 
+    let tg_trm = Path.resolve_path p t in 
+    let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in 
+    let tg_scope = Target.target_of_path path_to_seq in 
+    match tg_trm.desc with 
+    | Trm_let (vk, (y, ty), init) -> 
+        let spec_target = tg_scope @ [Target.cVarDef "y"] in 
+        begin match get_init_val init with 
+        | Some v -> 
+          begin match v.desc with 
+          | Trm_var (_, x) -> 
+            if is_typ_const ty then begin 
+                inline spec_target;
+                renames (ByList [(x,y)]) tg_scope
+              end
+             else begin
+              Variable_basic.to_const spec_target;
+              inline spec_target;
+              renames (ByList [(x,y)]) tg_scope
+              end
+          | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation v -> 
+             if is_typ_const ty then begin 
+                inline spec_target;
+                renames (ByList [(x,y)]) tg_scope
+              end
+             else begin
+              Variable_basic.to_const spec_target;
+              inline spec_target;
+              renames (ByList [(x,y)]) tg_scope
+              end
+          | _ -> 
+            Printf.printf "Got v: %s\n" (Ast_to_text.ast_to_string v);
+            fail tg_trm.loc "inline_and_rename: expected a target of the form int x = get(r), int x = r, const int x = r or const int x = get(r)"
+          end
+        | _ -> fail init.loc "inline_and_rename: please try targeting initialized variable declarations"
+        end
+    | _ -> fail t.loc "inline_and_rename: expected the declaration of the variable which is going to be inlined"
+  )
+
+
+let inline_and_rename1 : Target.Transfo.t =
   Target.iter_on_targets( fun t p ->
     let tg_trm  = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
