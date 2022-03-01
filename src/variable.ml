@@ -225,7 +225,7 @@ let reuse ~space:(space : trm) ?(reparse : bool = false) : Target.Transfo.t =
 (* [renames rename tg] expects [tg] to point to a sequence.
     [rename] can be either ByList l where l denotes a list of pairs where
     each pair has the current variable and the one which is going to replace it.
-    Or AddSuffix s, if this is the case then all the variable declared inside the targeted sequencev
+    Or AddSuffix s, if this is the case then all the variables declared inside the targeted sequencev
      are going to be renamed by adding the suffix at the end of its current name.
 *)
 let renames (rename : rename) : Target.Transfo.t =

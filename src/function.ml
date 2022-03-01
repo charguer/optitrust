@@ -221,7 +221,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
                 | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
                 | e -> raise e in 
              if !res_inlining_needed then Variable.inline ~delete:true [new_target];
-            if !success_attach then Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result];
+            (* if !success_attach then Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result]; *)
             Marks.remove my_mark [Target.nbAny; new_target]
           end;
           Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
