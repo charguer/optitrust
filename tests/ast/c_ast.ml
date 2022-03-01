@@ -6,7 +6,7 @@ open Target
 let _ =
   Flags.use_light_diff := false
 
-let _ = Run.script_cpp  (fun () ->
+let _ = Run.script_cpp ~parser:Parsers.Clang (fun () ->
 
   !!(); (* press F6 on this line, it should load the diff as a blank page *)
 )

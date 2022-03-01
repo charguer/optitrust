@@ -158,7 +158,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
                (* LATER: we could add a prefix based on the filename, but this is only for debug *)
                Xfile.put_contents "ast_clang.cpp" strAstClang;
                Xfile.put_contents "ast_menhir.cpp" strAstMenhir;
-              fail None "parse: [-cparser all] option detected discrepencies; see ast_clang.cpp and ast_menhir.cpp";
+              fail None "parse: [-cparser all] option detected discrepencies;\n meld ast_clang.cpp ast_menhir.cpp";
              end else
              (* If the two ast match, we can use any one of them (only locations might differ); let's use the one from the default parser. *)
                if !Parsers.default_cparser = Parsers.Clang then rawAstClang else rawAtMenhir

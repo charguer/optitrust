@@ -15,7 +15,16 @@ TESTS_TO_FIX := \
 	c_raw.ml \
 	c_serialize.ml \
 
-
 TARGET_MAKE_ALL := transfo
 
 include ../Common.Makefile
+
+c_address.cpp: c_big.cpp 
+	$(V)cp $< $@
+
+
+c_stackvar.cpp: c_big.cpp 
+	$(V)cp $< $@
+
+c_features.cpp: c_big.cpp 
+	$(V)cp $< $@

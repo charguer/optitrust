@@ -139,8 +139,7 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 #-----begin rules for non-batch mode------
 ifeq ($(BATCH),)
 
-#%_out.cpp: %.$(PROGEXT) %.cpp %.ml
-%_out.cpp: %.$(PROGEXT) %.ml
+%_out.cpp: %.$(PROGEXT) %.cpp %.ml
 	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS)
 	@echo "Produced $@"
 

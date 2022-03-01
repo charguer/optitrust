@@ -6,7 +6,7 @@ typedef struct { int x; int y; } vect;
 
 typedef struct { vect pos; vect speed; } particle;
 
-// typedef struct { vect head; struct vects* tail; } vects;
+typedef struct vects { vect head; struct vects* tail; } vects;
 
 typedef vect vect2;
 typedef vect2 vect3;
