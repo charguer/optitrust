@@ -15,13 +15,13 @@ let _ =
 (* Option to choose the size of the test *)
 
 let filename =
-  match 0 with
+  match 2 with
   | 0 -> "c_debug.cpp"
-  | 1 -> "c_address.cpp"
+  | 1 -> "c_ast.cpp"
   | _ -> "c_big.cpp"
 
-let _ = Run.script_cpp ~filename (fun () ->
-
+let _ = Run.script_cpp ~filename ~prefix:"c_address" (fun () ->
+  
   !^ Trace.apply infix_elim;
   !^ Trace.apply stackvar_elim;
   !^ Trace.apply caddress_elim;  (* Press F6 on this line to see the encoding step; keep in mind that the output is not regular C code *) (* Press Alt+F6 to check the blank diff of the round-trip for caddress_elim+intro *)
@@ -32,15 +32,3 @@ let _ = Run.script_cpp ~filename (fun () ->
   !^ Trace.check_recover_original(); (* Press F6 on this line to see a blank diff if successful, or an error message if the full round-trip fails *)
 
 )
-
-(* ARTHUR: in case of crash, it would be nice to generate the _before file nevertheless *)
-(* ARTHUR: find if clang_format has an option to tell that the user is mutating an argument. *)
-
-
-(* FOR DEBUG
-let test_accesses =
-  let clang_ast = Clang.Ast.parse_file "c_access.cpp" in
-  let raw_ast = Clang_to_astRawC.tr_ast clang_ast in
-  let stackvar_ast = stackvar_elim raw_ast in
-  Ast_check.check_transfo_is_identity ~test:"access" (fun t -> caddress_intro (caddress_elim t)) stackvar_ast
-*)

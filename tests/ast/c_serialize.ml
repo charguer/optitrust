@@ -3,8 +3,10 @@ open Target
 open Ast
 open Ast_fromto_AstC
 
+(* This test is used to check if we can serialize the current ast 
+  and recover it from its serialized version*)
 let test_serialize =
-  let clang_ast = Clang.Ast.parse_file "c_serialize.cpp" in
+  let clang_ast = Clang.Ast.parse_file "c_ast.cpp" in
   let raw_ast = Clang_to_astRawC.tr_ast clang_ast in
   let out_file = open_out "serialize.ser" in
   Marshal.to_channel out_file raw_ast [];
@@ -17,6 +19,5 @@ let test_serialize =
 let _ = Run.script_cpp (fun _ ->
 
   !!();
-
 )
   

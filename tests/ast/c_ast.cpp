@@ -6,7 +6,7 @@ typedef struct { int x; int y; } vect;
 
 typedef struct { vect pos; vect speed; } particle;
 
-typedef struct vects { vect head; struct vects* tail; } vects;
+// typedef struct { vect head; struct vects* tail; } vects;
 
 typedef vect vect2;
 typedef vect2 vect3;
@@ -45,15 +45,16 @@ typedef int* intstar;
 //       int i;
 // }
 
-void test_const () {
-  int const a = 10;
-  const int b = 10;
-}
-
 // // struct tree_node {
 // //   struct tree_node *left;
 // //   struct tree_node *right;
 // // };
+
+void addr_array_cell() {
+  int p[2];
+  int* n = &p[0];
+}
+
 void initlist() {
   vect v1 = { 1, 2 };
   vect3 v2 = { 1, 2 };
@@ -69,14 +70,23 @@ int f(int n) {
 
 
 void test_loop() {
+  int a = 0;
   for (int i = 0; i < 10; i++) {
-      i++;
+      a++;
   }
   for (int i = 10; i >= 0; i--) {
-      i++;
+      a--;
   }
+  const int x = 3;
+  const int y = 2;
+  for (int x = 2; ; ) {
+    int y = 1;
+    int r = x + y;
+  }
+  const int z = x + y;
 
 }
+
 
 // // Stack allocated variables are turned into heap allocated variables
 void stack_var() {
@@ -164,12 +174,17 @@ int main() {
 
 }
 
-/* Not supportd in optitrust: mutation of function variables
+/* Not supported in OptiTrust
 int g(int x) {
   x = x + 1;
   return x;
 }
 */
+
+int h(int x) {
+  int y = x + 1;
+  return y;
+}
 
 int immutable_stack_ptr() {
   int x = 3;
@@ -243,6 +258,7 @@ int mutable_var_encoding() {
     int ax = foo(a);
     vect c = a;
     int cx = foo(c);
+    return cx;
 }
 
 typedef struct {
@@ -261,4 +277,11 @@ void lvalue_encoding() {
 
   int *v;
   *v = 4;
+}
+
+void arrow() {
+ vect v = {0,1};
+ vect* p = &v;
+ (*p).x = (*p).y;
+ p->x = p->y;
 }

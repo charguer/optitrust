@@ -13,18 +13,11 @@ let _ =
 let filename =
   match 0 with
   | 0 -> "c_debug.cpp"
-  | 1 -> "c_stackvar.cpp"
+  | 1 -> "c_ast.cpp"
   | _ -> "c_big.cpp"
 
-let _ = Run.script_cpp ~filename (fun () ->
+let _ = Run.script_cpp ~filename ~prefix:"c_stackvar" (fun () ->
   !^ Trace.apply stackvar_elim;   (* Press F6 on this line to see the encoding *) (* Press Alt+F6 to check the blank diff of the round-trip *)
-  !! Trace.apply stackvar_intro; (* Press F6 on this line to see the decoding *)
+  !^ Trace.apply stackvar_intro; (* Press F6 on this line to see the decoding *)
   !^ Trace.check_recover_original(); (* Press F6 on this line to see a blank diff if successful, or an error message if round-trip fails *)
  )
-
-(* FOR DEBUG
-let test_stackvar () =
-  let clang_ast = Clang.Ast.parse_file "c_stackvar.cpp" in
-  let raw_ast = Clang_to_astRawC.tr_ast clang_ast in
-  Ast_check.check_transfo_is_identity ~test:"Stack variables" (fun t -> stackvar_intro (stackvar_elim t)) raw_ast
-*)

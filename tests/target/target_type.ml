@@ -41,6 +41,7 @@ let _ = Run.script_cpp (fun () ->
   show [ nbExact 2; cPrimFun ~args:[[cAnd [[]; [cHasType "int"]]]; []] (Prim_binop Binop_set) ];
   (* TODO: BUG: there are not one but occ... i = i+1 should be targeted
      show [ nbExact 2; cWrite ~typ:"int" () ]; *)
+  show [ cWrite ~typ:"int" () ];
   show [ nbExact 1; cWrite ~typ_pred:ty_double () ];
 
   (* Type of arguments *)

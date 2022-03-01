@@ -265,9 +265,10 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     | Opostdecr ->
       trm_apps1 Unop_post_dec t
     | Odot s ->
-      trm_apps1 (Unop_struct_get s)  t
+      let annot = if is_get_operation t then [Display_no_arrow] else [] in 
+      trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~annot (Unop_struct_get s)) [t]
     | Oarrow s ->
-      trm_apps ~loc ~ctx (trm_unop ~annot:[Display_no_arrow] (Unop_struct_get s)) [t]
+      trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get s) ) [trm_get t]
     end
   | EBinop (binop, le, re, _) ->
     let tl = tr_expr le in
