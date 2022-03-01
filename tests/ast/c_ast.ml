@@ -13,7 +13,7 @@ let _ = Run.script_cpp ~parser:Parsers.Clang (fun () ->
 
   !! Trace.reparse ~parser:Parsers.Clang ();
 
-  !! Trace.reparse ~parser:Parsers.Menhir (); (* F6 on this line shows the difference between Clang and Menhir *) 
+  !! Trace.reparse ~parser:Parsers.Menhir (); (* F6 on this line shows the difference between Clang and Menhir *)
 
   !! Trace.alternative (fun () ->
     !! Trace.reparse ~parser:Parsers.All (); (* F6 on this line checks for discrepencies *)

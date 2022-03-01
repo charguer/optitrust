@@ -26,7 +26,7 @@ let compcert_include_path =
   with Not_found ->
     let p = Config.stdlib_path in
     if not (Sys.file_exists p)
-      then failwith "Please either export the environment variable OPTITRUST with path to the main folder, OR install the files from src/cparser/include into /usr/local/lib/compcert";
+      then failwith "Please either export the environment variable OPTITRUST with path to the main folder, OR install the files:\n  sudo mkdir -p /usr/local/lib/compcert; cp ~/verified_transfo/src/src/cparser/include/* /usr/local/lib/compcert";
     p
 
 let preprocessor_command ifile =

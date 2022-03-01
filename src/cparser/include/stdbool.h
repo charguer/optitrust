@@ -13,7 +13,7 @@
  *     * Neither the name of the <organization> nor the
  *       names of its contributors may be used to endorse or promote products
  *       derived from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -33,8 +33,10 @@
 #define _STDBOOL_H
 
 #define bool _Bool
-#define true 1
-#define false 0
+// #define true 1
+// #define false 0
+const bool true = 1;
+const bool false = 0;
 #define __bool_true_false_are_defined 1
 
 #endif
