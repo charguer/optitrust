@@ -300,28 +300,27 @@ let renames (rename : rename) : Target.Transfo.t =
 *)
 let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(delete : bool = true): Target.Transfo.t =
   Target.iter_on_targets (fun t p ->
-    let tg_seq_path, _ = Internal.isolate_last_dir_in_seq p in
-    let seq = Target.target_of_path tg_seq_path in
     let tg_trm = Path.resolve_path p t in
-    let mark = Mark.next () in
+    let tg_decl = Target.target_of_path p in 
     match tg_trm.desc with
-    | Trm_let (vk, (x, _tx), _init) ->
+    | Trm_let (vk, (x, _tx), init) ->
 
-      (* LATER: this test is incorrect; we need to check if the body is a trm_struct or trm_array, not if it has struct type ;
-        for the moment, let's use the mark all the time
+      let mark = begin match get_init_val init with 
+      | Some init -> 
+          if is_struct_init init then Mark.next() else ""
+      | _ -> fail tg_trm.loc "inline: you should never try to inline uninitialized variables"
+      end in
 
-        let var_type = get_inner_ptr_type tx in
-        let mark = if (Internal.is_struct_type var_type) then mark else "" in *)
       begin match vk with
       | Var_immutable ->
         if delete
-          then Variable_basic.inline ~mark ~accept_functions (seq @ [Target.cVarDef x])
-          else Variable_basic.unfold ~mark ~accept_functions (seq @ [Target.cVarDef x])
+          then Variable_basic.inline ~mark ~accept_functions tg_decl
+          else Variable_basic.unfold ~mark ~accept_functions tg_decl
       | Var_mutable ->
-        Variable_basic.to_const (seq @ [Target.cVarDef x]);
+        Variable_basic.to_const tg_decl;
         if delete
-          then Variable_basic.inline ~mark ~accept_functions (seq @ [Target.cVarDef x])
-          else Variable_basic.unfold ~mark ~accept_functions (seq @ [Target.cVarDef x])
+          then Variable_basic.inline ~mark ~accept_functions tg_decl
+          else Variable_basic.unfold ~mark ~accept_functions tg_decl
       end;
      if mark <> "" then begin
        Struct_basic.simpl_proj [Target.nbAny; Target.cFieldAccess ~base:[Target.cMark mark] ()];

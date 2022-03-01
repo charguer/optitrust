@@ -2248,6 +2248,11 @@ let is_arith_fun (p : prim) : bool =
 let is_nobrace_seq (t : trm) : bool =
   List.exists (function No_braces _ -> true | _ -> false) t.annot
 
+(* [is_struct_init t] check if [t] is struct_init or not*)
+let is_struct_init (t : trm) : bool = 
+  match t.desc with 
+  | Trm_struct _ -> true | _ -> false 
+
 
 (* [is_same_binop op1 op2 ] check if two primitive operations are the same or not.
     Used to decide if parentheses should be printed or not.
