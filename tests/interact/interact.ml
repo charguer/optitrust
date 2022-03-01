@@ -12,9 +12,6 @@ open Target
 let _ = Run.script_cpp (fun () ->
 
   !! Label.add "m0" [cVarDef "a"];
-  (* The show command are ignored in batch mode,
-     and the execute properly in interactive mode,
-     showing only the result of one show command at a time. *)
   show [cVarDef "a"];
   show [cVarDef "b"];
   show [tFirst; cFunDef "main"; cStrict; dBody];
