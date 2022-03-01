@@ -32,6 +32,11 @@
 
    # Installation of vscode: https://code.visualstudio.com/download
    # ...download the .deb package and install it
+
+   # Installation of header files
+   cd src
+   sudo make install_compcert_stdlib
+
 ```
 
 # VScode customization
