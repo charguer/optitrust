@@ -1,19 +1,23 @@
 open Optitrust
 open Target
 
-(* let _ = Run.doc_script_cpp (fun _ ->
+let _ = Run.doc_script_cpp (fun _ ->
     !! Loop_basic.tile "3" ~index:"bi" ~bound:TileBoundDivides [cFor "i"];
-       Loop_basic.tile "3" ~index:"bj" ~bound:TileBoundAnd [cFor "j"];
+       Loop_basic.tile "3" ~index:"bj" ~bound:TileBoundMin [cFor "j"];
+       Loop_basic.tile "3" ~index:"bk" ~bound:TileBoundAnd [cFor "k"];
   )
 "
 int main() {
-  for (int i = 0; (i < 9); i++) {
+  for (int i = 0; i < 9; i++) {
   }
   int r;
-  for (int j = 0; (j < 10); j++) {
+  for (int j = 0; j < 10; j++) {
+  }
+  int s;
+  for (int k = 0; k < 10; k++) {
   }
 }
-" *)
+"
 
 let _ = Run.script_cpp (fun _ ->
 
