@@ -10,7 +10,7 @@ let _ =
 
 (* Option to choose the size of the test *)
 let filename =
-  match 0 with
+  match 2 with
   | 0 -> "c_debug.cpp"
   | 1 -> "c_mid.cpp"
   | _ -> "c_big.cpp"

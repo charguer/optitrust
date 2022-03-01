@@ -240,7 +240,7 @@ batch.ml: $(OPTITRUST)/tests/batch_tests.sh $(TESTS)
 
 # Produce all '_out.cpp' files at once by running 'batch.byte' (obtained by compiling 'batch.ml')
 $(TESTS:.ml=_out.cpp): batch.$(PROGEXT) $(TESTS:.ml=.cpp)
-	$(V)OCAMLRUNPARAM=b ./$<
+	$(V)OCAMLRUNPARAM=b ./$< -serialized-input none $(FLAGS)
 	@echo "Executed batch.$(PROGEXT) to produce all output files"
 
 endif

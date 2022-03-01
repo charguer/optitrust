@@ -6,7 +6,10 @@ open Target
 let _ =
   Flags.use_light_diff := false
 
-let _ = Run.script_cpp ~parser:Parsers.All (fun () ->
+let parser = (* TODO: activate "All" when it's working *)
+  if true then Parsers.Default else Parsers.All
+
+let _ = Run.script_cpp ~parser (fun () ->
 
   !!(); (* press F6 on this line, it should load the diff as a blank page *)
 )
