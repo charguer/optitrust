@@ -7,7 +7,7 @@ int g(int x) {
 
 void test_const_ret() {
   int x = 3;
-  const int y = f(x);
+  const int y = 10;
   const int z = g(x);
   int s = y + z;
 }

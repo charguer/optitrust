@@ -381,34 +381,7 @@ let inline_and_rename : Target.Transfo.t =
         end
     | _ -> fail t.loc "inline_and_rename: expected the declaration of the variable which is going to be inlined"
   )
-
-
-let inline_and_rename1 : Target.Transfo.t =
-  Target.iter_on_targets( fun t p ->
-    let tg_trm  = Path.resolve_path p t in
-    let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
-    match tg_trm.desc with
-    | Trm_let (_, (y,_), init) ->
-      begin match get_init_val init with
-      | Some v ->
-        let x =
-        begin match v.desc with
-        | Trm_var (_, x) -> x
-        | Trm_apps (_, [v1]) when is_get_operation v ->
-          begin match v1.desc with
-          | Trm_var (_, x) -> x
-          | _ -> ""
-          end
-        | _ -> ""
-        end in
-         if x <> "" then
-          inline ~delete:true [Target.cVarDef y];
-          renames (ByList [(x,y)]) (Target.target_of_path path_to_seq)
-      | _ -> fail init.loc "inline_and_rename: expected an initialized variable declaration"
-      end
-    | _ -> fail t.loc "inline_and_rename: expected the declaration of the variable which is goingg to be reverse folded"
-)
-
+  
 (* [elim_redundant ~source tg] expets the target [tg] to be pointing to a variable declaration with an initial value being
     the same as the variable declaration which [source] points to. Then it will fold the variable in [source] into
     the varibale declaration [tg] and inline the declaration in [tg]
