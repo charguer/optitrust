@@ -102,7 +102,7 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
     let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n) in
     wrap_const att (typ_to_add)
   | C.TStruct ({name = n;_}, att) ->
-      let typ_to_add = typ_record Struct (typ_constr n ~tid:(next_typconstrid())) in 
+      let typ_to_add = typ_record Struct (typ_constr n ~tid:(next_typconstrid())) in
       wrap_const att (typ_to_add)
   | C.TUnion ({name = n;_}, att) ->
       fail None "OptiTrust does not support inline use of struct or union; you must use a typedef"
@@ -141,11 +141,11 @@ and tr_stmt (s : C.stmt) : trm =
       | _ -> tr_stmt so
       in
     let init = tr_stmt_opt init in
-    let init = begin match init.desc with 
+    let init = begin match init.desc with
     | Trm_seq tl ->
       if Mlist.length tl = 1 then Mlist.nth tl 0 else init
     |_ -> init
-    end in 
+    end in
     let cond = tr_expr cond in
     let step = tr_stmt_opt step in
     let body = tr_stmt body in
@@ -190,8 +190,8 @@ and tr_init ?(loc : location = None) (i : C.init) : trm =
   match i with
   | Init_single e -> tr_expr e
   | Init_array il -> trm_array ~loc (Mlist.of_list (List.map tr_init il))
-  | Init_struct ((id, ty), il) -> 
-    let ty = tr_type ty in 
+  | Init_struct ((id, ty), il) ->
+    let ty = tr_type ty in
     trm_struct ~loc ~typ:(Some ty) (Mlist.of_list (List.map (fun (_, init) -> tr_init init) il))
   | Init_union _ -> fail loc "tr_init: union not supported yet"
 
@@ -205,16 +205,16 @@ and tr_constant ?(loc : location = None) ?(is_boolean : bool = false) (c : C.con
       let ib = Tools.int_to_bool i in
       trm_lit ~loc (Lit_bool ib)
     | C.IChar | C.ISChar | C.IUChar->
-      
+
       trm_lit ~loc (Lit_string (string_of_int i))
     | _ ->
-      if is_boolean 
-        then 
-          let b = 
-          begin match s with 
-          | "0" -> false | "1" -> true 
+      if is_boolean
+        then
+          let b =
+          begin match s with
+          | "0" -> false | "1" -> true
           | _ -> fail None "tr_constant: expected a constant boolean expression"
-          end in 
+          end in
           trm_lit ~loc (Lit_bool b)
         else
       trm_lit ~loc (Lit_int i)
@@ -265,7 +265,7 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     | Opostdecr ->
       trm_apps1 Unop_post_dec t
     | Odot s ->
-      let annot = if is_get_operation t then [Display_no_arrow] else [] in 
+      let annot = if is_get_operation t then [Display_no_arrow] else [] in
       trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~annot (Unop_struct_get s)) [t]
     | Oarrow s ->
       trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get s) ) [trm_get t]
@@ -281,11 +281,11 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     | Omul -> trm_mul ~loc ~ctx ~typ  tl tr
     | Odiv -> trm_div ~loc ~ctx ~typ  tl tr
     | Omod -> trm_mod ~loc ~ctx ~typ  tl tr
-    | Ologand -> 
+    | Ologand ->
       let tl = tr_expr ~is_boolean:true le in
       let tr = tr_expr ~is_boolean:true re in
       trm_and ~loc ~ctx ~typ  tl tr
-    | Ologor -> 
+    | Ologor ->
       let tl = tr_expr ~is_boolean:true le in
       let tr = tr_expr ~is_boolean:true re in
       trm_or ~loc ~ctx ~typ  tl tr
@@ -322,9 +322,9 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
   | ECast (ty, e1) ->
     let ty = tr_type ty in
     let te = tr_expr e1 in
-    if is_null_pointer ty te  
-      then trm_null ~loc ~ctx () 
-      else  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te] 
+    if is_null_pointer ty te
+      then trm_null ~loc ~ctx ()
+      else  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te]
   | ECompound _ -> fail loc "tr_expr: Not supported for the moment"
   | ECall (f, el) ->
     let tf = tr_expr f in
@@ -351,7 +351,7 @@ and tr_globdef (d : C.globdecl) : trm =
       in
     (* A temporary hack for function prototypes *)
     if is_typ_fun tt
-      then begin match ty with 
+      then begin match ty with
       | C.TFun (ty1, params, _, att) ->
         let tt = tr_type ty1 in
         begin match params with
@@ -361,7 +361,7 @@ and tr_globdef (d : C.globdecl) : trm =
             let (id, ty) = tv in
             let ty = tr_type ty in
             (id.name, ty) in
-          let args = List.map get_args pl in 
+          let args = List.map get_args pl in
           trm_let_fun ~loc ~ctx n tt args (trm_lit (Lit_uninitialized))
         end
       | _ -> fail None "tr_globdef: this function prototype is not supported"
@@ -419,37 +419,52 @@ and tr_globdef (d : C.globdecl) : trm =
     trm_typedef ~loc ~ctx td;
   | _ -> fail loc "tr_globdef: declaration not supported"
 
+(* [tr_typedef] translates a typedef (struct only for the moment) *)
+let tr_typedef struct_is_named loc sn fl ty =
+  let tid = next_typconstrid () in
+  ctx_tconstr_add sn tid;
+  let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (fr, tr_type ft)) fl in
+  let td = {
+    typdef_loc = loc;
+    typdef_typid = tid;
+    typdef_tconstr = sn;
+    typdef_vars = [];
+    typdef_body = Typdef_prod (struct_is_named, (List.rev prod_list))
+  } in
+  let ctx = Some (get_ctx ()) in
+  ctx_typedef_add sn tid td;
+  trm_typedef ~loc ~ctx td
 
-(* [tr_globdefs gs] translates a list of global declarations*)
+
+(* [tr_globdefs gs] translates a list of global declarations *)
 let tr_globdefs (gs : C.globdecl list) : trms =
   let rec aux acc gs =
     match gs with
     | [] -> acc
-    | {C.gdesc = C.Gcompositedecl (su, {C.name = sn;_}, _); C.gloc = loc} :: {C.gdesc = C.Gcompositedef (su1, {C.name = sn1},_, fl )}
+    |    {C.gdesc = C.Gcompositedef (su1, {C.name = sn1},_, fl ); C.gloc = loc }
       :: {C.gdesc = C.Gtypedef ({C.name = sn2},ty)} :: gs' ->
-      let loc = loc_of_cloc loc in
-      begin match su,su1 with
-      | Struct , Struct ->
-        let ctx = Some (get_ctx ()) in
-        if sn <> sn1 && sn <> sn2 then fail loc (Printf.sprintf "tr_globdefs: the struct name (%s) must match the typdef name (%s).\n" sn sn2);
-        let tid = next_typconstrid () in
-        ctx_tconstr_add sn tid;
-        let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (fr, tr_type ft)) fl in
-        Printf.printf "%s, %s, %s \n" sn sn1 sn2;
-        let two_names = if sn1 = "" then false else true in  
-        let td = {
-          typdef_loc = loc;
-          typdef_typid = tid;
-          typdef_tconstr = sn;
-          typdef_vars = [];
-          typdef_body = Typdef_prod (two_names, (List.rev prod_list))
-        } in
-        ctx_typedef_add sn tid td;
-        let trm_td = trm_typedef ~loc ~ctx td in
-        aux ( trm_td :: acc) gs'
-      | _ -> fail loc "tr_globdefs: only struct records are supported"
-      end
-    | ({C.gdesc = C.Gcompositedecl _; _} | {C.gdesc = C.Gcompositedef _; _}) :: _ -> fail None "tr_globdefs: struct and unions are not supported"
+        let loc = loc_of_cloc loc in
+        if su1 <> Struct
+          then fail loc "tr_globdefs: only struct records are supported";
+        if sn1 <> sn2
+          then fail loc (Printf.sprintf "tr_globdefs: the struct name (%s) must match the typdef name (%s).\n" sn1 sn2);
+        let td = tr_typedef false loc sn1 fl ty in
+        aux (td::acc) gs'
+    |    {C.gdesc = C.Gcompositedecl (su, {C.name = sn;_}, _)}
+      :: {C.gdesc = C.Gcompositedef (su1, {C.name = sn1},_, fl ); C.gloc = loc }
+      :: {C.gdesc = C.Gtypedef ({C.name = sn2},ty)} :: gs' ->
+        let loc = loc_of_cloc loc in
+        if su <> Struct
+          then fail loc "tr_globdefs: only struct records are supported";
+        if su <> su1
+          then fail loc (Printf.sprintf "tr_globdefs: the declaration (%s) and the definition (%s) must be consistent.\n" sn sn2);
+        if sn <> sn1 || sn <> sn2
+          then fail loc (Printf.sprintf "tr_globdefs: the struct name (%s) must match the typdef name (%s).\n" sn sn2);
+        let td = tr_typedef true loc sn1 fl ty in
+        aux (td::acc) gs'
+
+    | ({C.gdesc = C.Gcompositedecl _; _} | {C.gdesc = C.Gcompositedef _; _}) :: _ ->
+        fail None "tr_globdefs: struct and unions are not supported"
     | g :: gs' -> aux (tr_globdef g :: acc) gs'
   in
     List.rev( aux [] gs)

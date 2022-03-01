@@ -9,7 +9,14 @@ let _ =
 let parser = (* TODO: activate "All" when it's working *)
   if true then Parsers.Default else Parsers.All
 
-let _ = Run.script_cpp ~parser (fun () ->
+let _ = Run.script_cpp ~parser:Parsers.Clang (fun () ->
 
-  !!(); (* press F6 on this line, it should load the diff as a blank page *)
+  !! Trace.reparse ~parser:Parsers.Clang ();
+
+  !! Trace.reparse ~parser:Parsers.Menhir (); (* F6 on this line shows the difference between Clang and Menhir *) 
+
+  !! Trace.alternative (fun () ->
+    !! Trace.reparse ~parser:Parsers.All (); (* F6 on this line checks for discrepencies *)
+  );
+
 )

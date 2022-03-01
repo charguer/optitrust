@@ -391,10 +391,10 @@ int_nbCorners indicesOfCorners(int idCell) {
   const int x2 = wrap(gridX, (x + 1));
   const int y2 = wrap(gridY, (y + 1));
   const int z2 = wrap(gridZ, (z + 1));
-  return {cellOfCoord(x, y, z),   cellOfCoord(x, y, z2),
-          cellOfCoord(x, y2, z),  cellOfCoord(x, y2, z2),
-          cellOfCoord(x2, y, z),  cellOfCoord(x2, y, z2),
-          cellOfCoord(x2, y2, z), cellOfCoord(x2, y2, z2)};
+  return { { cellOfCoord(x, y, z),   cellOfCoord(x, y, z2),
+             cellOfCoord(x, y2, z),  cellOfCoord(x, y2, z2),
+             cellOfCoord(x2, y, z),  cellOfCoord(x2, y, z2),
+             cellOfCoord(x2, y2, z), cellOfCoord(x2, y2, z2) } };
 }
 
 vect_nbCorners getFieldAtCorners(int idCell, vect *field) {

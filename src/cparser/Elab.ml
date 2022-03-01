@@ -105,7 +105,7 @@ let is_global_defined name =
 
 let emit_elab ?(debuginfo = true) ?(linkage = false) env loc td =
   let loc = elab_loc loc in
-  let dec ={ gdesc = td; gloc = loc } in
+  let dec = { gdesc = td; gloc = loc } in
   if debuginfo then Debug.insert_global_declaration env dec;
   top_declarations := dec :: !top_declarations;
   if linkage then begin
@@ -810,9 +810,10 @@ let rec elab_specifier ?(only = false) ?(typedef_name:string option = None) loc 
         let a' =
           add_attributes (get_definition_attrs optmembers)
                          (elab_attributes env a) in
+        let named = (id <> None) in
         let id = use_typedef_name_if_none id in
         let (id', env') =
-          elab_struct_or_union only Struct loc id optmembers a' env in
+          elab_struct_or_union ~named only Struct loc id optmembers a' env in
         let ty = TStruct(id', !attr) in
         restrict_check ty;
         (!sto, !inline, !noreturn, !typedef, ty, env')
@@ -1151,7 +1152,7 @@ and elab_struct_or_union_info kind loc env members attrs =
   (* Final result *)
   (composite_info_def env' kind attrs m, env')
 
-and elab_struct_or_union only kind loc tag optmembers attrs env =
+and elab_struct_or_union ?(named:bool=true) only kind loc tag optmembers attrs env =
   let warn_attrs () =
     if attrs <> [] then
       warning loc Ignored_attributes "attribute declaration must precede definition" in
@@ -1205,6 +1206,8 @@ and elab_struct_or_union only kind loc tag optmembers attrs env =
       let (tag', env') = Env.enter_composite env tag ci1 in
       (* emit a declaration so that inner structs and unions can refer to it *)
       emit_elab env' loc (Gcompositedecl(kind, tag', attrs));
+      (* MODIF: we don't generate the declaration if the name does not occur recursively *)
+      if not named then top_declarations := List.tl !top_declarations;
       (* elaborate the members *)
       let (ci2, env'') =
         elab_struct_or_union_info kind loc env' members attrs in
