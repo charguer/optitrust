@@ -1,3 +1,13 @@
+/* options to this script
+
+    // To hide "_basic" suffix in names of transformation
+    var hide_basic = 1;  // else undefined
+
+    // To hide spec of transformations and keep only correctness part
+    var only_correctness = 1; // else undefined
+
+*/
+
 
 var enableWarning = false;
 
@@ -58,6 +68,16 @@ function shrinkSrc(src) {
    return src;
 }
 
+function beautifySpec(txt) {
+  if (typeof only_correctness === 'undefined')
+    return txt;
+  var start = txt.indexOf("@correctness");
+  if (start == -1)
+    return "";
+  else
+    return "(* " + txt.substr(start);
+}
+
 function reportError(targetId, targetJsFilename) {
    $('#'+targetId).html("Error loading " + targetJsFilename + ". Check that the '*_doc.js' file exists. If you opening transfo_doc.html, check also that this file is included explicitly in transfo_doc.html.").addClass("error");
    // that you open the chromium browser with flag --disable-web-security, e.g., via 'make opendoc', and that all the *_doc.js files have been generated using 'make doc'.
@@ -84,7 +104,7 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
 
    // Fill the spec part
    var specContents = eval(targetJsFunctionSpec + "()");
-   $('#'+specId).html("<pre>"+specContents+"</pre>");
+   $('#'+specId).html("<pre>"+beautifySpec(specContents)+"</pre>");
 
    // Fill the source part
    var srcContents = eval(targetJsFunctionSrc + "()");

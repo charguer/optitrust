@@ -13,7 +13,9 @@ open Target
 *)
 
 (* [add label tg] adds a C-label named [label] to the front of the
-   terms matching the target [tg]. *)
+   terms matching the target [tg].
+
+   @correctness: always correct. *)
 let add (label : string) : Target.Transfo.t =
   Target.apply_on_targets (Label_core.add label)
 

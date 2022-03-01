@@ -2,13 +2,17 @@
 # Usage: "make" alias "make doc"
 # "make clean" or "make cleanall" to also clean in basic and combi folders
 
-TARGET_MAKE_ALL := batch_doc
+TARGET_MAKE_ALL := mydoc
 
 TESTS_WITH_DOC := \
 	label_add__basic.ml \
 	variable_fold__combi.ml \
 
 TESTS :=
+
+mydoc: cleanall
+	$(MAKE) -i BATCH=1 doc
+
 
 #---------------------------------------------------------------------
 # Common makefile for test folders
@@ -52,7 +56,7 @@ TESTS_FOR_DOC :=  $(subst __combi, ,$(subst __basic, , $(TESTS_WITH_DOC:.ml=)))
 
 doc.html: $(DOCJS)
 	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $@ $(TESTS_FOR_DOC)
-	sed -i "s#<\/body><\/html>#<script>var hide_basic = 1;<\/script><\/body><\/html>#" $@
+	sed -i "s#<\/body><\/html>#<script>var hide_basic = 1; var only_correctness = 1;<\/script><\/body><\/html>#" $@
 	@echo Produced $@
 
 cleandoc::
