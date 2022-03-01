@@ -10,6 +10,10 @@ let _ = Run.script_cpp (fun _ ->
   !! Function.inline [nbMulti; cFun "f"];
   (* inlining a function with if else branches *)
   !! Function.inline [nbMulti; cFun "g"];
+  (* To avoid __OPTITRUST___VAR you need to set  *)
+  !! Trace.alternative (fun () ->
+    !! Function.inline ~name_result:"r"[cFunDef "test_const_ret";cFun "g"];
+    !!());
   (* inlining a function with one if branch *)
   !! Function.inline [nbMulti; cFun "h"];
   (* inlining a function of type void *)
@@ -22,7 +26,6 @@ let _ = Run.script_cpp (fun _ ->
 
   (* with naming of the arguments *)
   (* !! Trace.alternative (fun () ->
-    (* TODO: Fix this error *)
     !! Function.inline  ~args:["v"] [nbMulti;cFunDef "main";cFun "f"];
     !!()); *)
 
