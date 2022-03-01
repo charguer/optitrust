@@ -64,7 +64,7 @@ type serialized_mode =
   | Serialized_Make
   | Serialized_Auto
 
-let serialized_mode : serialized_mode ref = ref Serialized_Auto
+let serialized_mode : serialized_mode ref = ref Serialized_None
 
 let process_serialized_input (mode : string) : unit =
   serialized_mode := match mode with

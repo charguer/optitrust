@@ -55,9 +55,10 @@ OPTITRUSTLIB ?= $(shell ocamlfind query optitrust)
 # Browser for opening documentation
 BROWSER ?= chromium-browser
 
-# Flags for executing the programs
+# Flags for executing the programs, coming both from local user flags, and flags from the local Makefile
 -include optitrust_flags.sh
 FLAGS ?=
+FLAGS := $(FLAGS) $(FLAGS_MAKEFILE)
 
 # Choose between native or bytecode compilation ("native" or "byte")
 PROGEXT ?= byte
@@ -240,7 +241,7 @@ batch.ml: $(OPTITRUST)/tests/batch_tests.sh $(TESTS)
 
 # Produce all '_out.cpp' files at once by running 'batch.byte' (obtained by compiling 'batch.ml')
 $(TESTS:.ml=_out.cpp): batch.$(PROGEXT) $(TESTS:.ml=.cpp)
-	$(V)OCAMLRUNPARAM=b ./$< -serialized-input none $(FLAGS)
+	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS)
 	@echo "Executed batch.$(PROGEXT) to produce all output files"
 
 endif

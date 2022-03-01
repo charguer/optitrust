@@ -1,3 +1,24 @@
+
+void test_ref() {
+    int a = 3;
+    int& b = a;  // unfold/inline b
+    int r = a + b;
+}
+
+void test_nonconst() {
+    int a = 3; // basic.unfold/inline should succeed (but basic version should fail)
+    int r = a + a;
+}
+
+void test_nonconst_fail() {
+    int a = 3; // combi.unfold/inline should fail (because to_const fails)
+    a = 3;
+    int r = a + a;
+}
+
+// TODO: simplify parts of the test below
+
+
 #include "../../include/optitrust.h"
 
 const int CHUNK_SIZE = 10;
@@ -21,7 +42,6 @@ typedef struct {
   chunk *front;
   chunk *back;
 } bag;
-
 
 
 

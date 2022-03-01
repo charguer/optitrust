@@ -8,7 +8,8 @@ OPTITRUST := ..
 
 TESTS := pic_demo.ml
 
+FLAGS_MAKEFILE := -report-big-steps -serialized-input none
+
 include ../tests/Common.Makefile
 
-FLAGS := $(FLAGS) -report-big-steps
 
