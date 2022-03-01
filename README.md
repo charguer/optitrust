@@ -18,14 +18,14 @@
 
 ```
    # Installation of system packages
-   sudo apt-get install clang-format meld libclang-dev llvm-dev libomp-dev
+   sudo apt-get install clang-format meld libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev
 
    # Installation of opam: https://opam.ocaml.org/doc/Install.html
    sudo apt-get install opam
 
    opam switch create 4.12.0
+   opam pin add menhirLib 20210419
    opam install dune clangml pprint menhir menhirLib base64
-
    # (optional but recommended for vscode)
    opam install merlin ocp-indent user-setup
    # (includes ocaml-lsp-server)

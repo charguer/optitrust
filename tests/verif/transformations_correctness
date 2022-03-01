@@ -1,0 +1,248 @@
+accesses_scale & accesses_shift
+===============================
+These are instance of a more generic tactic, where there are two pure functions
+f and g cancelling each other.
+f and g need to be pure, the invariants can be rewritten and reproven thanks to 
+f \circ g = id.
+Probably need to check for overflows / underflows ?
+
+arith_simplify
+==============
+No precondition here since arith rewriting generate equality between terms.
+
+array_set_explicit
+==================
+No special precondition, need to create the intermediate invariants.
+Order of evaluation in C?
+
+array_tile
+==========
+B is constant (anyway does not compile without).
+What about the allocation ? Example does not show that. However C weak typing
+will still allow the allocation to refer sizeof(int).
+Should be reversible?
+
+array_to_variables
+==================
+Only for statically sized arrays
+Is it atomic enough? Compared to transform to struct first.
+Should be reversible
+
+cast_insert
+===========
+Example seems wrong, typing will fail I guess.
+On this example it seems to be a no op, only make explicit what the compiler
+does anyway (can it happen in OCaml? Rust?)
+
+flow_insert_if
+==============
+condition need to be pure, exists H P, triple c H (fun r => [P r] \* H).
+
+function_inline & function_beta
+===============================
+need to instantiate the call with a matching triple
+may fail if underspecified ?
+well technically we already know the triple before and after the call so it 
+should always work.
+be careful with functions with multiple specifications.
+
+function_bind_intro
+===================
+where should the triples be before transform ?
+be careful with C++ references (do we care ?)
+
+function_use_infix_ops
+======================
+pure syntax, no semantic change here
+
+instr_accumulate
+================
+requires the operator to be associative
+
+instr_read_last_write
+=====================
+no example but given what was on the whiteboard
+the write expression need to be pure
+may cause trouble with refolded predicates?
+
+instr_move
+==========
+We need to be able to frame the things so that it works
+if we take the two instructions we want to swap instr1 instr2 and we can 
+decompose their invariants as
+{H1 * H} instr1 {H1' * H} and {H2 * H} instr2 {H2' * H}
+which lead globally to the derivation
+{H1 * H2 * H} instr1 {H1' * H2 * H} instr2 {H1' * H2' * H}
+we can build the same postcondition with
+{H1 * H2 * H} instr2 {H1 * H2' * H} instr1 {H1' * H2' * H}
+
+However, in the case of commutative operations it might fail, like for changing
+two fields of the same enum. Separation might be too strong ?
+
+instr_replace & instr_replace_fun
+=================================
+This seems really complicated, we need to proove that the new replaced 
+instruction still satisfies the postcondition even if it changes the value.
+It might also require to weaken the postcondition or strenghten the 
+precondition.
+I guess only powerful static analysis could do it.
+
+label_add & label_remove
+========================
+Do not change anything in the actual code (remove must failed if referenced by
+a goto).
+
+loop_color
+==========
+No example shown
+
+loop_fission & loop_fusion
+==========================
+OK if we can separate the predicate in the loop into two separated predicates
+and a read only one. 
+Actually it should be the same as instr_move: we are just moving more.
+
+loop_fold
+=========
+Should always work, but might be hard to prove. We need to generalize the 
+invariants in the middle.
+
+loop_hoist
+==========
+Locally should be easy to keep the invariants. However it might be very useless
+if we don't adapt the post condition to speak about the final array.
+It must be doable though.
+C++ reference hides the extra indirection at every use of x.
+
+loop_moveout
+============
+OK if x is restored at the end of each iteration.
+Is it in move category?
+
+loop_swap
+=========
+Same as loop_fission and loop_fusion in spirit, 
+I guess same problems will arise.
+
+loop_tile
+=========
+Example does not exist
+
+loop_to_unit_steps
+==================
+should be similar to other arith if i is restored at the end of iteration
+decomposable with arith rewrite?
+long term: generalizable with Ehrarht inversion?
+
+loop_unswitch
+=============
+b needs to be restored at the end of both branches
+reordering rules apply (like instr_swap)
+probably decomposable
+
+loop_unroll
+===========
+i fully read only inside the loop (else compile error anyway)
+Generalization: what about partial unrolling ?
+
+pointer_fold & reference_fold & reference_unfold
+================================================
+Should change nothing semantically
+
+rewrite_compute
+===============
+Same as arith simplification
+
+sequence_delete & sequence_insert
+==================================
+can be automated if H ==> Q around the instruction
+mostly useless without reproving
+
+sequence_elim & sequence_elim_around_instr 
+& sequence_intro & sequence_intro_on_instr 
+& sequence_partition & sequence_split
+==========================================
+no semantics modification
+
+struct_fields_reorder
+=====================
+no cast to/from lower level memory access is performed (are these encoded in 
+logic anyway?)
+
+struct_rename_field & struct_rename_fields
+==========================================
+semantically identical
+
+struct_set_explicit & struct_set_implicit
+=========================================
+semantically identical
+
+struct_update_fields_type
+=========================
+really hard to automate, need a proof of type equivalence that translates all
+the invariants in the program.
+
+typedef_inline & typedef_insert & typedef_fold
+==============================================
+semantically identical
+
+typedef_insert_copy
+===================
+does nothing by itself...
+
+variable_bind
+=============
+what is the interest compared to function_bind_intro?
+Is it atomic ?
+
+variable_fold & variable_inline & variable_unfold
+=================================================
+there must be no observable side effect in the expression replaced
+fold is a bit weirdly defined for mutable variables, it should require that
+for each replacement site, nothing has been rewritten inside a.
+
+variable_init_attach
+====================
+Ok if the assignment is swappable just before
+Non atomic with the current spec, should accept only when the assignment is
+just after.
+
+variable_init_detach
+====================
+No semantic change
+
+variable_insert
+===============
+is it different than instruction insert?
+probably in ML but not C?
+anyway should behave similarly.
+
+variable_local_name
+===================
+weird adressof operation in the example that breaks typing
+this should be doable fully automatically, though aliasing might get in the way
+but not really.
+There must be a way to translate the proof correctly here.
+Reminds me what was done in Creusot by Xavier Denis
+
+variable_rename
+===============
+semantically equivalent
+
+variable_simpl_deref
+====================
+example broken, i guess that it is semantically equivalent anyway
+
+variable_subst
+==============
+is it atomic? Seems like same than instr_replace with maybe a more clever 
+placement.
+
+variable_to_const & variable_to_nonconst
+========================================
+Depending on the encoding of const vs nonconst it might require some work
+however, either it should already fail, or it should transform the proofs 
+without problems.
+Small worry about weakness of const in C(++) spec, ie mutable keyword or const 
+cast.
+
