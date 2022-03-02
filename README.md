@@ -4,7 +4,7 @@
 - dune (tested with version 2.9.1)
 - [clangml](https://gitlab.inria.fr/tmartine/clangml) (tested with version
   4.5.0)
-- [pprint](https://github.com/fpottier/pprint) (tested with version 20200410)
+- [pprint](https://github.com/fpottier/pprint) (tested with version 20220103)
 - [menhir] and [menhirLib] (tested with version 20210419)
 
 - gcc (tested with version 5.5.0)
