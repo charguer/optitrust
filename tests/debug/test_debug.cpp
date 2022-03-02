@@ -1,26 +1,27 @@
+// void f(int a);
 
-int f(int x) {
-  int a = x + x;
-  return a + a;
+
+typedef struct {
+
+  int x;
+  int y;
+
+} vect;
+
+void f(int);
+
+
+int test_nonconst_nonconst()
+{
+  
+  vect a;
+  
+  a.x = 6;
+  a.x = 7;
+  
+  vect b = a;
+  
+  int c = b.x;
+  int d = b.y;
+
 }
-
-int g(int x) {
-  if (x > 0)
-    return 1;
-  else
-    return 2;
-}
-
-void test_const_ret() {
-  int x = 3;
-  const int y = f(x);
-  const int z = g(x);
-  int s = y + z;
-}
-
-void test_const_arg() {
-  const int x = 3;
-  int y = f(x);
-  int z = g(x);
-  int s = y + z;
-

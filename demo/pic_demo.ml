@@ -25,6 +25,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
   !! Function.inline [main; cFun "matrix_vect_mul"];
+  !! Variable.inline_and_rename [main; cVarDef "fieldAtPos"];
 
   bigstep "Vectorization in [cornerInterpolationCoeff]";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
@@ -32,7 +33,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
-  (* Arthur: There is a problem with path resolution replace !!! with !! to see the issue *)
   !! Variable.intro_pattern_array~const:true ~pattern_aux_vars:"double rX, rY, rZ"
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ" 
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
@@ -57,16 +57,17 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        [cFun "vect8_mul"];
        [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
        [cFun "accumulateChargeAtCorners"]]];
-  !! Function.inline (* ~vars:(AddSuffix "2") *) [cFun "idCellOfPos"];
+  !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
-  (* !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\|i\\).1"]; *)
-
+  !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "i.1"];
+  !! Variable.inline_and_rename [main; cVarDef "coeffs2"];
+  
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
-  !! Variable.inline_and_rename [main; cVarDef "deltaChargeOnCorners"];
-  !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="]
-       [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "coeffs2->v[k]"];
+  (* !! Variable.inline_and_rename [main; cVarDef "deltaChargeOnCorners"]; *)
+  !! Instr.inline_last_write ~write:[sInstr "res.v[k] ="]
+       [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "deltaChargeOnCorv[k]"];
   !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]
        [main; sInstr "nextCharge[indices"; sExpr "deltaChargeOnCorners.v[k]"];
 

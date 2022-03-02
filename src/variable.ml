@@ -374,7 +374,8 @@ let inline_and_rename : Target.Transfo.t =
               renames (ByList [(x,y)]) tg_scope
               end
           | _ -> 
-            Printf.printf "%s\n" (Ast_to_text.ast_to_string v);
+            (* DEBUG: *)
+            (* Printf.printf "For variable %s\n got value %s\n" y (Ast_to_text.ast_to_string v); *)
             fail tg_trm.loc "inline_and_rename: expected a target of the form int x = get(r), int x = r, const int x = r or const int x = get(r)"
           end
         | _ -> fail init.loc "inline_and_rename: please try targeting initialized variable declarations"

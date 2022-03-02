@@ -1,10 +1,10 @@
 open Optitrust
 open Target
 
+
+let _ = Flags.dump_ast_details := true
+
 let _ = Run.script_cpp (fun _ ->
-
-
-  (* !! Function.inline [nbMulti; cFunDef "test_const_ret"; cFun "g"]; *)
-  !! Function.inline [nbMulti; cFunDef "test_const_arg"; cFun "g"];
+  
+  !! Variable.inline_and_rename [cTopFunDef "test_nonconst_nonconst"; cVarDef "b"];
 )
-

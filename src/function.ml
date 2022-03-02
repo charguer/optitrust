@@ -214,6 +214,8 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
              if !res_inlining_needed && !success_attach then begin
                 Variable.inline ~delete:true [new_target];
                 Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result] end
+             (* else if !success_attach && !name_result <> "__TEMP_Optitrust" then 
+                try Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result] with | TransfoError _ -> () *)
              else if !name_result = "__TEMP_Optitrust" then begin name_result := "__TEMP_Optitrust"; Printf.printf "Warning couldn't delete temporary variable__TEMP_Optitrust, please set ~name_result arg to remove it" end; 
             Marks.remove my_mark [Target.nbAny; new_target]
           end;
