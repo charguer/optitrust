@@ -74,7 +74,7 @@ let _ = Run.script_cpp (fun () ->
   (* Function calls are
     - instructions if return type is unit
     - expressions otherwise *)
-  (* show [sInstr "g("]; *)
+  show [sInstr "g("];
   show [sExpr "f("];
   (* Regexp *)
  

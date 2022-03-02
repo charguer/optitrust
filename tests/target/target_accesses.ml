@@ -7,9 +7,9 @@ let _ = Run.script_cpp (fun _ ->
   show [cAccesses ~accesses:[cAccess] ()];
   
   (* Array_accesses *)
-  (* show [cCellRead ~base:[cVar "i"] ~index:[] ()]; *)
+  show [cCellRead ()];
 
-  (* show [cCellWrite [cVar "i"]]; *)
+  show [cCellWrite ~index:[cVar "i"] ()];
 
   show  [cAccesses ~base:[cVar "t"] ~accesses:[cIndex ~index:[cVar "i"]  ()] ()];
   show  [nbExact 0;cAccesses ~base:[cVar "t"] ~accesses:[cIndex ~index:[cVar "j" ] ()] ()];
