@@ -7,16 +7,17 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  
+
   (* !! Function.inline ~vars:(AddSuffix "${occ}") [occFirst;cFun "f?"]; *)
   !! Function.inline [cFun "vect_mul"];
   !! Function.inline [cFun "vect_add"];
-  
+
   (* inlining a function with single return *)
   !! Function.inline [nbMulti; cFun "f"];
   (* inlining a function with if else branches *)
-  !! Function.inline [nbMulti; cFun "g"];
-  
+  !! Function.inline [cTopFunDef "main"; cFun "g"];
+  !! Function.inline ~name_result:"r" [cTopFunDef "test_const_ret"; cFun "g"];
+
   (* To avoid __OPTITRUST___VAR you need to set  *)
   !! Trace.alternative (fun () ->
     !! Function.inline ~name_result:"r"[cFunDef "test_const_ret";cFun "g"];
