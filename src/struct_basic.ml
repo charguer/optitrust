@@ -23,6 +23,9 @@ let set_implicit ?(keep_label : bool = true) : Target.Transfo.t =
     [move_before] - field before which all the fields in [struct_fields] will be moved
     [move_after] - field after which all the fields in [struct_fields] will be moved
     [struct_fields] - list of fields to move
+
+   @correctness: Correct if pointer arithmetic to field is replaced everywhere,
+   might be impossible to prove in case of casts between types.
 *)
 
 let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : vars) (tg : target) : unit =

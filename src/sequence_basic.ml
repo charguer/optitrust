@@ -11,6 +11,11 @@ let insert ?(reparse : bool = false) (code : trm) : Target.Transfo.t =
 
 (* [delete index nb tg] expects the target [tg] to point to an instruction.
      [nb] denotes the number of instructions to delete starting from the targeted trm.
+
+   @correctness: correct if nothing modified by the instruction was observed
+   later.
+   If the next instructions need an invariant H' and { H } del_instr { H'' }
+   we need both H ==> H' and H'' ==> H'.
 *)
 let delete ?(nb : int = 1) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)

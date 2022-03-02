@@ -164,7 +164,9 @@ let bind ?(const : bool = false) ?(mark : mark = "") (fresh_name : var) : Target
 (* [to_const tg] expects the target [tg] to be pointing at a variable declaration, then it will search inside the same scope if there are
       any write operations on that variable. If this is the case then the tranformation will fail, because of the safety of this operation.
       Otherwise, first switch the mutability of that variable and then replace all get operations on that variable with its intialization
-      value.*)
+      value.
+
+  @correctness: always correct if the result type checks. *)
 let to_const : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
      ( fun t (p, i) -> Variable_core.from_to_const true i t p)

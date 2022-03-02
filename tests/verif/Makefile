@@ -6,10 +6,30 @@ TARGET_MAKE_ALL := mydoc
 
 TESTS_WITH_DOC := \
 	label_add__basic.ml \
+	variable_to_const__basic.ml \
+	loop_fold__combi.ml \
+	function_inline.ml \
+	function_bind_intro__basic.ml \
+	\
+	instr_replace__basic.ml \
+	accesses_scale__basic.ml \
+	\
 	variable_fold__combi.ml \
+	instr_read_last_write__basic.ml \
+	sequence_delete__basic.ml \
+	variable_reuse__combi.ml \
+	\
+	instr_move.ml \
+	loop_reorder__combi.ml \
+	loop_unswitch__basic.ml \
+	\
+	loop_fission.ml \
+	\
+	struct_fields_reorder.ml \
+	aos_to_soa_sized_array__basic.ml \
 
 
-TESTS :=
+TESTS := 
 
 redoc: optitrust cleanall mydoc
 

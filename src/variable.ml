@@ -32,10 +32,17 @@ let map f = function
       fold_lefting operation is performed on all the ast nodes in the same level as the
       declaration or deeper, by default [at] = [].
     [nonconst] - denotes a flag to decide if fold_lefting should be done for variables which are
-        not mutable, in general is not safe to fold variables which are not declared as const.
+        mutable, in general is not safe to fold variables which are not declared as const.
         But if the users know what they're doing then  they can use this flag to use fold_lefting
         also for mutable variables.
-    This transformation
+   
+    @correctness: The folded expression should have no observable side-effect.
+    Moreover, the expression should produce the same value as when it was 
+    evaluated the first time.
+    Exists r such that for initialization and all replacement points we have
+    { H } expr { fun r' => [r' = r] * H } with H beeing the local invariant
+    If applied on non const variable, the variable must additionaly not have 
+    been mutated between the replacement point and its initialization.
 *)
 let fold ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
@@ -208,6 +215,7 @@ let detach_if_needed (tg : Target.target) : unit =
 (* [reuse ~reparse space tg] expects the target [tg] to be poiting to a variable declaration, then it will
     remove that declaration and replace all its occurrences with [space]
 
+   @correctness: correct if the previous variable space was never read after the reuse point.
 *)
 let reuse ~space:(space : trm) ?(reparse : bool = false) : Target.Transfo.t =
   Target.reparse_after ~reparse (Target.iter_on_targets (fun t p ->

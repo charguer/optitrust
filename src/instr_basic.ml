@@ -11,6 +11,10 @@ let update ?(reparse: bool = false)  (f : trm -> trm) : Target.Transfo.t =
     then it will replace this instruction with [node]. Note that [node] can be
     also some code entered as string which is transformed into a trm through function code
     then this node is merged into the ast by doing a reparse of the full ast.
+
+   @correctness: Needs local manual reproving that if an invariant in the
+   previous proof was { H } old_expr { Q } then { H } new_expr { Q } holds
+   as well.
 *)
 let replace ?(reparse : bool = false) (node : trm) : Target.Transfo.t =
   update ~reparse (fun _t -> node)
@@ -35,6 +39,16 @@ let delete : Target.Transfo.t =
 
 (* [move ~target tg] expects the target [tg] to point to the instruction which is
     going to be moved at the relative target [where]
+
+   @correctness: Correct if the swapped instructions are parallelizable:
+   {H1 * H} instr1 {H1' * H} and {H2 * H} instr2 {H2' * H}
+   which lead globally to the derivation
+   {H1 * H2 * H} instr1 {H1' * H2 * H} instr2 {H1' * H2' * H}
+   we can build the same postcondition with
+   {H1 * H2 * H} instr2 {H1 * H2' * H} instr1 {H1' * H2' * H}
+
+   This is sufficient but not necessary, a manual commutation proof can be used
+   as well.
 *)
 let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target) : unit =
   Target.apply_on_transformed_targets ~rev (Internal.isolate_last_dir_in_seq)
@@ -46,6 +60,9 @@ let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target
 
 (* [read_last_write ~write tg] expects the target [tg] to point to a read operation, then it
     replaces the trm corresponding to that read operation with the one at [write].
+
+   @correctness: the read expression must be pure, and its evaluation must not
+   have changed since the write.
  *)
 
 let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =

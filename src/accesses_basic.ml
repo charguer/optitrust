@@ -11,6 +11,8 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
 
 (* [scale ~factor ~factor_ast tg] this function is a specialization of function transform where the functions f_get and f_set
     are given explicitly as the division and multiplication operations respectively
+
+   @correctness: correct modulo newly introduced overflows and potential precision loss
 *)
 let scale ?(reparse : bool = false) ~factor:(factor:trm) (tg : Target.target) : unit =
   let f_get t = Arith_core.apply_aux Binop_div factor t in

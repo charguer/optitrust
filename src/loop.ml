@@ -331,6 +331,8 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
     reorder them based on [oder].
     Assumption:
       All loops have as bodies blocks of code(sequences)
+
+    @correctness: correct if loops are parallelizable
 *)
 let reorder ?(order : vars = []) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
@@ -395,6 +397,9 @@ let fission ?(split_between : bool = false) (tg : Target.target) : unit =
 
 (* [fold ~index ~start ~step ~nb_instr tg] expects the target [tg] to be pointing to an instruction folloed by [nb_instr] -1 instructions
       which could be expressed into a single for loop with [index], [start], [nb_instr] and [step] as its components.
+
+   @correctness: always correct, as we can map all intermediate predicates
+   to numbered predicates on the loop
  *)
 let fold  ?(start : int = 0) ?(step : int = 1) ~index:(index : var) (nb_instr : int) (tg : Target.target) : unit =
   let mark = "opti_fold" in

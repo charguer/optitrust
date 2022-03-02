@@ -65,6 +65,10 @@ let hoist ? (name : var = "${var}_step") (tg : Target.target) : unit =
 
 (* [fission tg]: expects [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
+
+   @correctness: Reads in new second loop need to never depend on writes on 
+   first loop after index i. Writes in new second loop need to never overwrite
+   writes in first loop after index i.
 *)
 let fission (tg : Target.target) : unit =
   Internal.nobrace_remove_after( fun _ ->
@@ -126,6 +130,8 @@ let move_out (tg : Target.target) : unit =
 (* [unswitch tg] expects the target [tg] to point to an if statement inside the loop
      with a constant condition (not dependent on loop index or local variables)
      Then it will take the if statment outside the loop.
+
+   @correctness: requires that the loop is parallelizable
 *)
 let unswitch (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ ->

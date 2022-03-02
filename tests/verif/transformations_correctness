@@ -72,7 +72,7 @@ if we take the two instructions we want to swap instr1 instr2 and we can
 decompose their invariants as
 {H1 * H} instr1 {H1' * H} and {H2 * H} instr2 {H2' * H}
 which lead globally to the derivation
-{H1 * H2 * H} instr1 {H1' * H2 * H} instr2 {H1' * H2' * H}
+{H1 * H2 * H} instr1 {H1' * H2 * H} instr2 {H1' * H2' * H}
 we can build the same postcondition with
 {H1 * H2 * H} instr2 {H1 * H2' * H} instr1 {H1' * H2' * H}
 

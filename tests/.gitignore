@@ -1,0 +1,7 @@
+*/*.i
+*/*_doc*.cpp
+*/*_doc*.js
+*/*_doc*.txt
+*/tmp_*.cpp
+*/batch.ml
+*/doc.html

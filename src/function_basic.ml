@@ -15,7 +15,11 @@ open Ast
 *)
 (* let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : Target.target) : unit =
  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-  (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg *)
+  (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg 
+
+   @correctness: correct if the new order of evaluation of expressions is 
+   not changed or does not matter.
+*)
 let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : Target.target) : unit =
   Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ t (p, p_local, i)  ->
@@ -70,6 +74,9 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
              r = y + y;
           }
         }
+
+   @correctness: always work, and also need to instantiate variables in the
+   local invariants in the body.
 *)
 
 let inline ?(body_mark : mark option) (tg : Target.target) : unit =
