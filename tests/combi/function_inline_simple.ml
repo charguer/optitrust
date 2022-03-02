@@ -7,10 +7,11 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-
   (* !! Function.inline ~vars:(AddSuffix "${occ}") [occFirst;cFun "f?"]; *)
-  !! Function.inline [cFun "vect_mul"];
-  !! Function.inline [cFun "vect_add"];
+  !! Function.inline [nbMulti; cFun "vect_mul"];
+  !! Function.inline [nbMulti; cFun "vect_add"];
+  !! Function.inline ~name_result:"r" [nbMulti; cFun "vect_op"];
+  !! Function.inline [nbMulti; cFun "vect_op2"];
 
   (* inlining a function with single return *)
   !! Function.inline [nbMulti; cFun "f"];

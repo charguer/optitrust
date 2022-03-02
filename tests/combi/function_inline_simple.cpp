@@ -51,11 +51,47 @@ int main() {
   return 0;
 }
 
+vect vect_op(vect v) {
+  if (true) {
+    return v;
+  }
+  return v;
+}
+
+vect vect_op2(vect v) {
+  vect res = {0,0};
+  res.x = 1;
+  return res;
+}
+
 void test_const_ret() {
   int x = 3;
   const int y = f(x);
   const int z = g(x);
   int s = y + z;
+  const vect t = { 0, 1 };
+  // const vect u = vect_mul(x, t);
+  const vect v = vect_add(t, vect_mul(x, t));
+  const vect w = vect_op(v);
+  vect w2 = vect_op2(v);
+  /*
+    vect res = {0,0};
+    res.x = 1;
+    vect optitrust_r = res;
+    vect w2 = optitrust_r;
+
+    // do this step (possibly on the fly), unless const vect w2 and there are "goto exit"
+
+    vect res = {0,0};
+    res.x = 1;
+    vect w2 = res;
+
+    // do this step if previous step succeeded AND the "return" expr is a variable
+    // AND (both w2 and res are const OR both are not const)
+
+    vect w2 = {0,0};
+    w2.x = 1;
+  */
 }
 
 void test_const_arg() {
