@@ -417,3 +417,10 @@ let ilset_funmap_union : ilset funmap -> ilset funmap -> ilset funmap =
   Fun_map.union ilset_funmap_union_aux
 
 let (+@) = ilset_funmap_union
+
+(* convert a string to a boolean if s is "true" or "false" otherwise do nothing *)
+let bool_of_var (s : string) : bool option = 
+  try Some (bool_of_string s )
+  with | Invalid_argument _ -> None
+
+

@@ -1,6 +1,6 @@
 type cparser = Clang | Menhir | Default | All
 
-let default_cparser = ref Clang
+let default_cparser = ref Menhir
 
 (* Reference to store the parser that is being currenty used *)
 let selected_cparser = ref Default

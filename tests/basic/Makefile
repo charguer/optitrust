@@ -37,7 +37,6 @@ TESTS_WITH_DOC := \
 	loop_swap.ml \
 	loop_tile.ml \
 	loop_to_unit_steps.ml \
-	loop_unswitch.ml \
 	loop_unroll.ml \
 	pointer_fold.ml \
 	reference_fold.ml \
@@ -99,6 +98,8 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	accesses_intro.ml \
+	loop_unswitch.ml \
+
 
 NOT_NEEEDED_TO_FIX := \
 	arith_shift.ml \

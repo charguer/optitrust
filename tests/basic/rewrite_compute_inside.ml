@@ -2,6 +2,10 @@ open Optitrust
 open Target
 
 
+
+let _ = Flags.dump_ast_details := true
+
+
 let _ = Run.doc_script_cpp (fun _ ->
   !! Rewrite_basic.compute_inside [];
   )
