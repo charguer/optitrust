@@ -1,3 +1,4 @@
+#include <stdbool.h>
 typedef struct { int x; int y; } vect;
 
 int f(int n) {
@@ -18,7 +19,7 @@ int main() {
     }
   }
   for (int j = 0; j < 3; j++) {
-    if (1) {
+    if (true) {
       j++;
     } else {
       j--;

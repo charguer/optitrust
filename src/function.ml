@@ -167,21 +167,12 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
               end
             
             else if vk = Var_immutable then begin
-                if !name_result = "" then begin name_result := "__TEMP_Optitrust"; Printf.printf "Warning couldn't delete temporary variable__TEMP_Optitrust, please set ~name_result arg to remove it" end; 
+                if !name_result = "" then name_result := "__TEMP_Optitrust"; 
                   Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
-                  res_inlining_needed := false;
+                  res_inlining_needed := true;
                   mark_added := true
                 end
-              (* begin match !name_result with
-                | ""  ->  name_result := "__TEMP_Optitrust";
-                          Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
-                          res_inlining_needed := false;
-                          Printf.printf "Warning temporary variable__TEMP_Optitrust could't be deleted, please set ~name_result: to hide it";
-                          mark_added := true
-                | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path path_to_call);
-                    res_inlining_needed := true;
-                    mark_added := true
-                end *)
+              
             else
                 begin match !name_result with
                 | ""  ->  name_result := "__TEMP_Optitrust";
@@ -220,8 +211,10 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
                 | Variable_core.Init_attach_no_occurrences
                 | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
                 | e -> raise e in 
-             if !res_inlining_needed then Variable.inline ~delete:true [new_target];
-            if !success_attach && !res_inlining_needed then Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result];
+             if !res_inlining_needed && !success_attach then begin
+                Variable.inline ~delete:true [new_target];
+                Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result] end
+             else if !name_result = "__TEMP_Optitrust" then begin name_result := "__TEMP_Optitrust"; Printf.printf "Warning couldn't delete temporary variable__TEMP_Optitrust, please set ~name_result arg to remove it" end; 
             Marks.remove my_mark [Target.nbAny; new_target]
           end;
           Struct_basic.simpl_proj (Target.target_of_path path_to_seq)

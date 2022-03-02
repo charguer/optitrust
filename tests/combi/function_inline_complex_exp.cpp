@@ -10,7 +10,9 @@ int h(int x) { return x - 1; }
 int m(int x, int y) { return x - y; }
 
 int main() {
-  int u = 1, v = 2, w = 3;
+  int u = 1;
+  int v = 2;
+  int w = 3;
   int a = h(4);
   int b = m(v, 2);
   int p = a + a + u + b + (w + 1);

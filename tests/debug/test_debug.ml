@@ -4,7 +4,7 @@ open Target
 let _ = Run.script_cpp (fun _ ->
 
 
-  !! Function.inline [cFun "vect_mul"];
-  !! Function.inline [cFun "vect_add"];
+  (* !! Function.inline [nbMulti; cFunDef "test_const_ret"; cFun "g"]; *)
+  !! Function.inline [nbMulti; cFunDef "test_const_arg"; cFun "g"];
 )
 

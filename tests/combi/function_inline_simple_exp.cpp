@@ -32,12 +32,14 @@ void m(int *p) { (*p)++; }
 
 int main() {
   int x = 3;
-  int y = f(x);
+  int a = x + x;
+  int y = a + a;
   int z;
   if (x > 0)
     z = 1;
   else
     z = 2;
+  int s = y + z;
   int u;
   if (x > 0) {
     u = 1;
@@ -51,4 +53,29 @@ exit_body:;
   vect b = {3, 4, 5};
   vect c = {b.x + x * (a.x), b.y + x * (a.y), b.z + x * (a.z)};
   return 0;
+}
+
+void test_const_ret() {
+  int x = 3;
+  int a = x + x;
+  const int y = a + a;
+  int __TEMP_Optitrust;
+  if (x > 0)
+    __TEMP_Optitrust = 1;
+  else
+    __TEMP_Optitrust = 2;
+  const int z = __TEMP_Optitrust;
+  int s = y + z;
+}
+
+void test_const_arg() {
+  const int x = 3;
+  int a = x + x;
+  int y = a + a;
+  int z;
+  if (x > 0)
+    z = 1;
+  else
+    z = 2;
+  int s = y + z;
 }

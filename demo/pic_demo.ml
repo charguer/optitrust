@@ -37,6 +37,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ" 
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];
+  !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
   !!! Loop.fold_instrs ~index:"k" [ctx_rv];
 
   bigstep "Update particles in-place instead of in a local variable "; (* LATER: it might be possible to change the script to postpone this step *)
@@ -56,15 +57,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        [cFun "vect8_mul"];
        [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
        [cFun "accumulateChargeAtCorners"]]];
-  !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
+  !! Function.inline (* ~vars:(AddSuffix "2") *) [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
-  !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\|i\\).1"];
-  !! Instr.move_out ~dest:[tBefore; main] [nbMulti; main; cVarDef ~regexp:true "\\(coef\\|sign\\).0"];
+  (* !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\|i\\).1"]; *)
 
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
-  
+  !! Variable.inline_and_rename [main; cVarDef "deltaChargeOnCorners"];
   !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="]
        [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "coeffs2->v[k]"];
   !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]

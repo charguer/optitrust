@@ -500,8 +500,8 @@ let dInit : constr =
     left empty, then no contraint on the side of the set operation will be applied.
 *)
 let cWrite ?(lhs : target = [cTrue]) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
-  let lhs_typed = with_type ~typ ~typ_pred lhs in
-  let rhs_typed = with_type ~typ ~typ_pred rhs in
+  let lhs_typed = with_type ~typ ~typ_pred lhs in 
+  let rhs_typed = with_type ~typ ~typ_pred rhs in 
   cPrimPredFun ~args:[lhs_typed; rhs_typed] (fun p -> match p with | Prim_binop Binop_set | Prim_compound_assgn_op _ -> true | _ -> false)
 
 (* [cRead] matches all the get operations on mutable variables *)

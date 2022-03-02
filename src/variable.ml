@@ -349,7 +349,7 @@ let inline_and_rename : Target.Transfo.t =
     let tg_scope = Target.target_of_path path_to_seq in 
     match tg_trm.desc with 
     | Trm_let (vk, (y, ty), init) -> 
-        let spec_target = tg_scope @ [Target.cVarDef "y"] in 
+        let spec_target = tg_scope @ [Target.cVarDef y] in 
         begin match get_init_val init with 
         | Some v -> 
           begin match v.desc with 
@@ -374,7 +374,7 @@ let inline_and_rename : Target.Transfo.t =
               renames (ByList [(x,y)]) tg_scope
               end
           | _ -> 
-            Printf.printf "Got v: %s\n" (Ast_to_text.ast_to_string v);
+            Printf.printf "%s\n" (Ast_to_text.ast_to_string v);
             fail tg_trm.loc "inline_and_rename: expected a target of the form int x = get(r), int x = r, const int x = r or const int x = get(r)"
           end
         | _ -> fail init.loc "inline_and_rename: please try targeting initialized variable declarations"

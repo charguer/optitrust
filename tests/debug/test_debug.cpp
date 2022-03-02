@@ -1,21 +1,26 @@
-typedef struct {
-  int x;
-  int y;
-  int z;
-} vect;
 
-vect vect_add(vect v1, vect v2) {
-  return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
+int f(int x) {
+  int a = x + x;
+  return a + a;
 }
 
-vect vect_mul(int d, vect v) {
-  return { d * v.x, d * v.y, d * v.z };
+int g(int x) {
+  if (x > 0)
+    return 1;
+  else
+    return 2;
 }
 
-int main() {
+void test_const_ret() {
   int x = 3;
-  vect a = {0,1,2};
-  vect b = {3,4,5};
-  vect c = vect_add (b, vect_mul(x, a));
-  return 0;
+  const int y = f(x);
+  const int z = g(x);
+  int s = y + z;
 }
+
+void test_const_arg() {
+  const int x = 3;
+  int y = f(x);
+  int z = g(x);
+  int s = y + z;
+
