@@ -25,6 +25,7 @@
 
    opam switch create 4.12.0
    opam pin add menhirLib 20210419
+   opam pin add pprint 20220103
    opam install dune clangml pprint menhir menhirLib base64
    # (optional but recommended for vscode)
    opam install merlin ocp-indent user-setup

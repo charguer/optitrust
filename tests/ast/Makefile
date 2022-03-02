@@ -17,6 +17,8 @@ TESTS_TO_FIX := \
 
 TARGET_MAKE_ALL := transfo
 
+FLAGS_MAKEFILE := -disable-clang-format
+
 include ../Common.Makefile
 
 

@@ -606,7 +606,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     failwith s
   end;
   (* beautify the C++ code --comment out for debug *)
-  if beautify
+  if beautify && !Flags.use_clang_format
     then cleanup_cpp_file_using_clang_format file_prog;
   (* ast and enc *)
   if ast_and_enc && !Flags.dump_ast_details then begin
@@ -628,7 +628,8 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
         else Ast_to_c.ast_to_undecoded_doc out_enc ast;
       output_string out_enc "\n";
       close_out out_enc;
-      cleanup_cpp_file_using_clang_format file_enc;
+      if beautify && !Flags.use_clang_format
+        then cleanup_cpp_file_using_clang_format file_enc;
     with | Failure s ->
       close_out out_ast;
       close_out out_enc;

@@ -29,6 +29,9 @@ let reparse_at_big_steps : bool ref = ref false
 (* Flag to report on the progress of big steps during a script execution *)
 let report_big_steps : bool ref = ref false
 
+(* Flag to use clang-format or not in output CPP files *)
+let use_clang_format : bool ref = ref true
+
 (* Flag to report more about file manipulations performed by the tool *)
 let verbose_mode : bool ref = ref false
 
@@ -103,6 +106,7 @@ let spec =
      ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
+     ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
      ("-cparser", Arg.String Parsers.set_selected_parser, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
      ("-use-old-encodings", Arg.Clear use_new_encodings, "FOR DEV ONLY");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
