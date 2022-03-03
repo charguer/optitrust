@@ -1369,6 +1369,17 @@ let contains_decl (x : var) (t : trm) : bool =
     | _ -> false
   in aux t
 
+
+(* [contains_occurrence x t] check if [t] contains any occurrence of the variable [x]*)
+let contains_occurrence (x : var) (t : trm) : bool = 
+  let rec aux (t : trm) : bool = 
+    match t.desc with 
+    | Trm_var (_, y) -> y = x
+    | Trm_apps (_, tl) -> List.fold_left (fun acc t1 -> acc || aux t1) false tl 
+    | _ -> false 
+  in aux t
+
+
 (* return the name of the declared object as an optional type *)
 let decl_name (t : trm) : var option =
   match t.desc with
@@ -2290,6 +2301,19 @@ let trm_struct_access ?(typ : typ option = None) (base : trm) (field : var) : tr
 (* [trm_struct_get base field] *)
 let trm_struct_get ?(typ : typ option = None) (base : trm) (field : var) : trm =
   trm_apps ~typ (trm_unop (Unop_struct_get field)) [base]
+
+
+(* [trm_array_access base index] generates array_access (base, index) *)
+let trm_array_access ?(typ : typ option = None) (base : trm) (index : trm) : trm =
+  trm_apps ~typ (trm_binop Binop_array_access) [base; index]
+
+(* [trm_array_get base index] generates array_get (base, index) *)
+let trm_array_get ?(typ : typ option = None) (base : trm) (index : trm) : trm =
+  trm_apps ~typ (trm_binop Binop_array_get) [base; index]
+
+(* [trm_get t] generates a get operation in [t] *)
+let trm_get ?(annot : trm_annot list = []) ?(typ : typ option = None) (t : trm) : trm =
+  trm_apps ~annot (trm_unop Unop_get) [t]
 
 
 (* [trm_get t] generates a get operation in [t] *)

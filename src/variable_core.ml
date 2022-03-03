@@ -465,16 +465,23 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
       let update_seq (new_dl : trm) (new_lback : trm mlist) (new_lfront : trm mlist) : trm = 
         let new_tl = Mlist.merge lfront new_lback in 
         let new_tl = Mlist.insert_at index new_dl new_tl in 
-        let new_tl = Mlist.insert_at index new_dl new_tl in 
         trm_seq ~annot:t.annot ~marks:t.marks new_tl 
       in 
-      let rec update_gets (t : trm) (u : trm) : trm = 
-        match t.desc with 
-        | Trm_var (_, y) when y = x -> u
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))},[base]) -> 
-          trm_struct_get ~typ:t.typ (update_gets base u) f 
-        | _ -> raise Variable_to_const_abort
-       in
+      
+      let update_gets (t : trm) : trm = 
+        let rec aux (update_accesses : bool) (t : trm) : trm = 
+          match t.desc with 
+          | Trm_apps (_, [base]) when is_get_operation t -> 
+            if contains_occurrence x base then aux true base else t
+          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [base]) -> 
+            if not update_accesses then t else trm_struct_get ~typ:t.typ (aux update_accesses base) f
+          | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [base; index]) -> 
+            if not update_accesses then t else  trm_array_get ~typ:t.typ (aux update_accesses base) index
+          | Trm_var _ -> t
+          | _ -> trm_map (aux update_accesses) t
+         in aux false t
+      
+        in  
        begin match vk with 
        | Var_immutable ->
         if to_const then t 
@@ -512,11 +519,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
               in
             let init_type = get_inner_ptr_type tx in
             let new_dl = trm_let_immut ~marks:dl.marks (x, init_type) init_val in
-            let new_lback = Mlist.map (fun t1 -> 
-              if is_get_operation t1 then begin try update_gets (get_operation_arg t1) (trm_var x) 
-                with Variable_to_const_abort -> t1 end
-              else trm_map (fun t2 -> update_gets t2 (trm_var x)) t1
-            ) lback in 
+            let new_lback = Mlist.map (fun t1 -> update_gets t1) lback in 
             update_seq new_dl new_lback lfront
             end
        end

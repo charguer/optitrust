@@ -17,12 +17,9 @@ typedef struct {
 
 int test_vect(){
   vect v = { 0, 1 };
-  const vect v1 = { 0, 1 };
   vect w = v;
   int a = v.x;
   int b = v.y;
-  int a1 = v1.x;
-  int b1 = v1.y;
   part p = { v, w };
   vect ppos = p.pos;
   int c = p.pos.x;
