@@ -32,8 +32,8 @@ void m(int *p) { (*p)++; }
 
 int main() {
   int x = 3;
-  int a = x + x;
-  int y = a + a;
+  int a0 = x + x;
+  int y = a0 + a0;
   int z;
   if (x > 0)
     z = 1;
@@ -55,27 +55,48 @@ exit_body:;
   return 0;
 }
 
-void test_const_ret() {
-  int x = 3;
-  int a = x + x;
-  const int y = a + a;
-  int __TEMP_Optitrust;
-  if (x > 0)
-    __TEMP_Optitrust = 1;
-  else
-    __TEMP_Optitrust = 2;
-  const int z = __TEMP_Optitrust;
-  int s = y + z;
+vect vect_op(vect v) {
+  if (true) {
+    return v;
+  }
+  return v;
 }
 
-void test_const_arg() {
-  const int x = 3;
-  int a = x + x;
-  int y = a + a;
+vect vect_op2(vect v) {
+  vect res = {0, 0};
+  res.x = 1;
+  return res;
+}
+
+void test_const_ret() {
+  int x = 3;
+  int a1 = x + x;
+  const int y = a1 + a1;
   int z;
   if (x > 0)
     z = 1;
   else
     z = 2;
+  int s = y + z;
+  const vect t = {0, 1};
+  const vect v = {t.x + x * (t.x), t.y + x * (t.y), t.z + x * (t.z)};
+  vect w;
+  if (true) {
+    {
+      w = v;
+      goto exit_body;
+    }
+  }
+  w = v;
+exit_body:;
+  vect w2 = {0, 0};
+  w2.x = 1;
+}
+
+void test_const_arg() {
+  const int x = 3;
+  int a2 = x + x;
+  int y = a2 + a2;
+  int z = g(x);
   int s = y + z;
 }

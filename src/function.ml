@@ -146,7 +146,6 @@ int f2() { // result of Funciton_basic.inline_cal
 // where p is the path to the englobing sequence.
 *)
 
-(* LATER: Factorize the code *)
 let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit = 
   Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun i t (path_to_seq, local_path, i1) -> 
@@ -174,100 +173,31 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
                 | e -> raise e in 
              if !success_attach then begin
                 Variable.inline ~delete:true [new_target];
-                Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result] end
-             (* else if !success_attach && !name_result <> "__TEMP_Optitrust" then 
-                try Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result] with | TransfoError _ -> () *)
-             else if !name_result = "__TEMP_Optitrust" then begin name_result := "__TEMP_Optitrust"; Printf.printf "Warning couldn't delete temporary variable__TEMP_Optitrust, please set ~name_result arg to remove it" end; 
+                Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result];
+                try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> ();
+                Marks.remove "__inline_instruction" [Target.nbAny;Target.cMark "__inline_instruction" ] end
+             else  
+                try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> ();
             Marks.remove my_mark [Target.nbAny; new_target]
-        end
+        end;
+        Marks.remove my_mark [Target.nbAny; new_target];
+        Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
        in 
       begin match tg_out_trm.desc with  
       | Trm_let _ -> 
+        Marks.add "__inline_instruction" (Target.target_of_path path_to_instruction);
         Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
+        mark_added := true;
         post_processing ~deep_cleanup:true ();
       | Trm_apps (_, [ls; rs]) when is_set_operation tg_out_trm -> 
         Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
+        mark_added := true;
         post_processing ~deep_cleanup:true ()
       | Trm_apps _ -> 
         post_processing ();
       | _ -> fail tg_out_trm.loc "inline: please be sure that you're tageting a proper function call"
       end
     ) tg
-(* let inline1 ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit = 
-    Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-      (fun i t (path_to_seq, local_path, i1) -> 
-        let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in 
-        let name_result = ref name_result in
-        let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
-        let path_to_call = path_to_instruction @ local_path in
-        let tg_out_trm = Path.resolve_path path_to_instruction t in
-        let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
-        let res_inlining_needed = ref false in
-        let mark_added = ref false in
-        begin match tg_out_trm.desc with
-        | Trm_let (vk, (x, _), init) ->
-            if List.length local_path <= 2 && List.length local_path > 0 && vk <> Var_immutable then
-              begin
-              name_result := x;
-              res_inlining_needed := false
-              end
-            
-            else if vk = Var_immutable then begin
-                if !name_result = "" then name_result := "__TEMP_Optitrust"; 
-                  Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
-                  res_inlining_needed := true;
-                  mark_added := true
-                end
-              
-            else
-                begin match !name_result with
-                | ""  ->  name_result := "__TEMP_Optitrust";
-                          Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
-                          res_inlining_needed := true;
-                          mark_added := true
-
-                | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path path_to_call);
-                    res_inlining_needed := true;
-                    mark_added := true
-                end
-        | Trm_apps (_f, [_; _]) when is_set_operation tg_out_trm ->
-            begin match !name_result with
-            | ""  ->  
-                      name_result := "__TEMP_Optitrust";
-                      Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
-                      res_inlining_needed := true;
-                      mark_added := true
-            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path path_to_call);
-               res_inlining_needed := false;
-               mark_added := true
-           end 
-        | Trm_apps _ -> res_inlining_needed := false
-        | _ -> fail None "inline: expected a variable declaration or a function call"
-        end;
-        let new_target = Target.cMark my_mark in
-        if not !mark_added then Marks.add my_mark (Target.target_of_path path_to_call);
-        if args <> [] then bind_args args [new_target] else ();
-        let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
-        Function_basic.inline ~body_mark [new_target];
-        Accesses_basic.intro [Target.cMark body_mark];
-        elim_body ~vars [Target.cMark body_mark];
-        if !name_result <> "" then begin 
-            let success_attach = ref true in 
-            let _ = try Variable_basic.init_attach [new_target] with
-                | Variable_core.Init_attach_no_occurrences
-                | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
-                | e -> raise e in 
-             if !res_inlining_needed && !success_attach then begin
-                Variable.inline ~delete:true [new_target];
-                Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result] end
-             (* else if !success_attach && !name_result <> "__TEMP_Optitrust" then 
-                try Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result] with | TransfoError _ -> () *)
-             else if !name_result = "__TEMP_Optitrust" then begin name_result := "__TEMP_Optitrust"; Printf.printf "Warning couldn't delete temporary variable__TEMP_Optitrust, please set ~name_result arg to remove it" end; 
-            Marks.remove my_mark [Target.nbAny; new_target]
-          end;
-          Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
-      ) tg *)
-
 (*
 
 
