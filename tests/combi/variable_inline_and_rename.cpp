@@ -37,7 +37,31 @@ typedef struct {
   int y;
 } vect;
 
-int test_nonconstvect_nonconstvect(){
+
+int test_const_const_vect(){
+  const vect a =  {6, 7};
+  const vect b = a;
+  int c = b.x;
+  int d = b.y;
+}
+
+int test_nonconst_const_vect(){
+  vect a;
+  a.x = 6;
+  a.x = 7;
+  const vect b = a;
+  int c = b.x;
+  int d = b.y;
+}
+
+int test_const_nonconst_vect(){
+  const vect a = {6, 7};
+  vect b = a;
+  int c = b.x;
+  int d = b.y;
+}
+
+int test_nonconst_nonconst_vect(){
   vect a;
   a.x = 6;
   a.x = 7;

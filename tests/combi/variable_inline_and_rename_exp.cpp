@@ -1,5 +1,3 @@
-void f(int);
-
 int test_const_const() {
   const int y = 5;
   int z = y + y;
@@ -22,4 +20,37 @@ int test_nonconst_nonconst() {
   y = 6;
   y = 7;
   int z = y + y;
+}
+
+typedef struct {
+  int x;
+  int y;
+} vect;
+
+int test_const_const_vect() {
+  const vect b = {6, 7};
+  int c = b.x;
+  int d = b.y;
+}
+
+int test_nonconst_const_vect() {
+  vect b;
+  b.x = 6;
+  b.x = 7;
+  int c = b.x;
+  int d = b.y;
+}
+
+int test_const_nonconst_vect() {
+  const vect b = {6, 7};
+  int c = b.x;
+  int d = b.y;
+}
+
+int test_nonconst_nonconst_vect() {
+  vect b;
+  b.x = 6;
+  b.x = 7;
+  int c = b.x;
+  int d = b.y;
 }
