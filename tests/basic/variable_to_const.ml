@@ -52,6 +52,6 @@ let tr t =
   | get(u) ->
       try (aux u)
       with Variable_to_const_abort -> t
-  | _ -> t
+  | _ -> trm_map (fun t -> (aux t u))
 
 *)

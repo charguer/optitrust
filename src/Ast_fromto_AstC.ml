@@ -297,43 +297,6 @@ let is_access (t : trm) : bool =
     [Trm_apps (Prim_struct_access "f", [t])] becomes [t.f] as lvalue
     [get(Trm_apps (Prim_struct_access "f", [t]))] becomes [t.f] as rlvalue
  *)
-
-let rec caddress_intro_aux_old (lvalue : bool) (t : trm) : trm =
-  let aux t = caddress_intro_aux_old false t in  (* recursive calls for rvalues *)
-  let access t = caddress_intro_aux_old true t in (* recursive calls for lvalues *)
-  let mk td = {t with desc = td} in
-  trm_simplify_addressof_and_get (* Note: might not be needed *)
-  begin if lvalue then begin
-    match t.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _} as op, [t1]) ->
-      (* struct_access (f, t1) is reverted to struct_get (f, access t1) *)
-      let u1 = access t1 in
-      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [u1]))
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _} as op, [t1; t2]) ->
-      (* array_access (t1, t2) is reverted to array_get (aux t1, aux t2) *)
-      let u1 = aux t1 in
-      let u2 = aux t2 in
-      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)))}, [u1; u2]))
-    | _ -> trm_get ~simplify:true (aux t)
-    end
-    else begin
-    match t.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _}, [t1; t2]) ->
-      (* t1 = t2 is translated to access t1 = aux t2 *)
-      let u1 = access t1 in
-      let u2 = aux t2 in
-      mk (Trm_apps (trm_binop Binop_set, [u1; u2]))
-    (* OPTIMIZATION
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) when is_access t1 ->
-      (* get(access ) becomes access (get)*) (* LATER: the simplification could be performed a posteriori, if we use the following case *)
-      access t1 *)
-    | _ when is_access t ->
-      (* [access(..)] becomes [& ...] *)
-        trm_address_of ~simplify:true (access t)
-    | _ -> trm_map aux t
-    end
-  end
-
 let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
   let aux t = caddress_intro_aux false t in  (* recursive calls for rvalues *)
   let access t = caddress_intro_aux true t in (* recursive calls for lvalues *)
@@ -420,22 +383,6 @@ let cfeatures_elim (t : trm) : trm =
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
   infix_intro (stackvar_intro (caddress_intro t))
-
-(* LATER: might be deprecated *)
-(* [trm_map_with_lvalue] is a variant of [trm_map] that provides the [is_lvalue] information to [f]. *)
-let trm_map_with_lvalue (f : bool -> trm -> trm) (t : trm) : trm =
-  match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim ((Prim_unop (Unop_struct_access _) | Prim_binop Binop_array_access))); _} as op, [t1]) ->
-      (* struct_access (f, t1) or array_access (t1, t2) *)
-      let u1 = f true t1 in
-      { t with desc = Trm_apps (op, [u1]) }
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _} as op, [t1; t2]) ->
-      (* [t1 = t2] assignment *)
-      let u1 = f true t1 in
-      let u2 = f false t2 in
-      { t with desc = Trm_apps (op, [u1; u2]) }
-  | _ -> trm_map (f false) t
-
 
 (* Note: recall that currently const references are not supported
    Argument of why const ref is not so useful

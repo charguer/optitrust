@@ -446,70 +446,86 @@ let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_loc
 (* [to_const_aux index t] change the mutability of a variable, and replace all the get operations on that variable
     with an occurrence of that variable
     params:
+      [to_const]: a flag on the conversion type, if tru then the transformation will try to transform the targeted variable
+        into a const variable otherwise into a non const variable
       [index]: the index of the targeted declaration inside its englobing sequence
       [t]: ast of the surrounding sequence of the targeted instruction
     return:
       the update [t]
 *)
 
-let from_to_const_aux (const : bool) (index : int) (t : trm) : trm = 
+exception Variable_to_const_abort
+
+let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl -> 
-    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
+    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in 
     begin match dl.desc with 
-    | Trm_let (vk, (x, tx), init) ->
-      let aux (new_dl : trm) (new_lback : trm mlist) : trm = 
-      let new_tl = Mlist.merge lfront new_lback in 
-      let new_tl = Mlist.insert_at index new_dl new_tl in 
-        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+    | Trm_let (vk, (x, tx), init) -> 
+      let update_seq (new_dl : trm) (new_lback : trm mlist) (new_lfront : trm mlist) : trm = 
+        let new_tl = Mlist.merge lfront new_lback in 
+        let new_tl = Mlist.insert_at index new_dl new_tl in 
+        let new_tl = Mlist.insert_at index new_dl new_tl in 
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl 
+      in 
+      let rec update_gets (t : trm) (u : trm) : trm = 
+        match t.desc with 
+        | Trm_var (_, y) when y = x -> u
+        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))},[base]) -> 
+          trm_struct_get ~typ:t.typ (update_gets base u) f 
+        | _ -> raise Variable_to_const_abort
        in
-      begin match vk with 
-      | Var_immutable -> 
-        if const then t
-           else begin
+       begin match vk with 
+       | Var_immutable ->
+        if to_const then t 
+          else  begin 
             let init_val = match get_init_val init with 
-            | Some init1 -> init1
-            | _ -> fail dl.loc "to_const_aux: const variables should always be initialized" in
+            | Some init1 -> init1 
+            | _ -> fail dl.loc "to_const_aux: const variables should always be initialized"
+              in 
             let init_type = get_inner_const_type tx in 
             let new_dl = trm_let_mut ~marks:dl.marks (x, init_type) init_val in 
-            (* replace all x with get(x) *)
-            let new_lback = Mlist.map (Internal.change_trm (trm_var x) (trm_var_possibly_mut ~typ:(Some init_type) x)) lback in 
-            aux new_dl new_lback    
-           
-            end
-      | Var_mutable -> 
-        if trm_annot_has Reference dl then fail dl.loc "from_to_const_aux: const references are not supported"
-         else if not const then t
-         else begin 
-         (* search if there are any write operations inside the same scope *)
-          Mlist.iter (fun t1 ->
-            begin match t1.desc with
-            | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
-              begin match ls.desc with
-              | Trm_var (_, y) when y = x -> fail ls.loc "to_const_aux: can't convert a variable to a const variable if there are other write operations besides the first initalization"
+            let new_lback = Mlist.map (Internal.subst_var x (trm_var_possibly_mut ~typ:(Some init_type) x)) lback in 
+            update_seq new_dl new_lback lfront
+          end
+
+       | Var_mutable -> 
+        if trm_annot_has Reference dl then fail dl.loc "from_to_const_aux: const reference are not supported"
+          else if not to_const then t 
+          else begin 
+            (* Search if there are any write operations on variable x *)
+            (* TODO: Fix this  *)
+            Mlist.iter (fun t1 ->
+              begin match t1.desc with
+              | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
+                begin match ls.desc with
+                | Trm_var (_, y) when y = x -> fail ls.loc "to_const_aux: can't convert a variable to a const variable if there are other write operations besides the first initalization"
+                | _ -> ()
+                end
               | _ -> ()
               end
-            | _ -> ()
-            end
-          ) lback;
+            ) lback;
           (* replace all get(x) with x *)
-          let init_val = match get_init_val init with
-          | Some init1 -> init1
-          | _ -> fail dl.loc "to_const_aux: can't convert to const a non intialized variable"
-          in
-          let init_type = get_inner_ptr_type tx in
-          let new_dl = trm_let_immut ~marks:dl.marks (x, init_type) init_val in
-          let new_lback = Mlist.map (Internal.change_trm (trm_var_possibly_mut ~typ:(Some init_type) x) (trm_var x)) lback in 
-          aux new_dl new_lback
-          end
-    end
-    | _ -> fail dl.loc "from_to_const_aux: expected a target to a variable declaration"
+            let init_val = match get_init_val init with
+            | Some init1 -> init1
+            | _ -> fail dl.loc "to_const_aux: can't convert to const a non intialized variable"
+              in
+            let init_type = get_inner_ptr_type tx in
+            let new_dl = trm_let_immut ~marks:dl.marks (x, init_type) init_val in
+            let new_lback = Mlist.map (fun t1 -> 
+              if is_get_operation t1 then begin try update_gets (get_operation_arg t1) (trm_var x) 
+                with Variable_to_const_abort -> t1 end
+              else trm_map (fun t2 -> update_gets t2 (trm_var x)) t1
+            ) lback in 
+            update_seq new_dl new_lback lfront
+            end
+       end
+    | _ -> fail dl.loc "from_to_const_aux: the main target should point to a variable declaration"
     end
   | _ -> fail t.loc "from_to_const_aux: expected the sequence that contains the targeted declaration"
 
-
-let from_to_const (const : bool) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (from_to_const_aux const index )
+let from_to_const (to_const : bool) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (from_to_const_aux to_const index )
 
 (* [simpl_deref_aux t] check if [t] is of the form *(&b) or *(&b), if that is the case
       then simplify that expression and return it, otherwise if [indepth] is true then
