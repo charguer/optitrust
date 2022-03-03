@@ -25,7 +25,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
   !! Function.inline [main; cFun "matrix_vect_mul"];
-  !! Variable.inline_and_rename [main; cVarDef "fieldAtPos"];
 
   bigstep "Vectorization in [cornerInterpolationCoeff]";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
@@ -38,14 +37,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];
   !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
-  !!! Loop.fold_instrs ~index:"k" [ctx_rv];
+  !!! Loop.fold_instrs ~index:"k" [sInstr "r.v"];
 
   bigstep "Update particles in-place instead of in a local variable "; (* LATER: it might be possible to change the script to postpone this step *)
   !! Variable.reuse ~space:(expr "p->speed") [main; cVarDef "speed2" ];
   !! Variable.reuse ~reparse:true ~space:(expr "p->pos") [main; cVarDef "pos2"];
 
   bigstep "Reveal write operations involved manipulation of particles and vectors";
-  (* !! Trace.reparse(); *)
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
@@ -60,16 +58,18 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "i.1"];
-  !! Variable.inline_and_rename [main; cVarDef "coeffs2"];
   
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
-  (* !! Variable.inline_and_rename [main; cVarDef "deltaChargeOnCorners"]; *)
-  !! Instr.inline_last_write ~write:[sInstr "res.v[k] ="]
-       [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "deltaChargeOnCorv[k]"];
-  !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]
-       [main; sInstr "nextCharge[indices"; sExpr "deltaChargeOnCorners.v[k]"];
+  !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="]
+       [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "coeffs2.v[k]"];
+  
+  !! Instr.inline_last_write ~write:[cCellWrite ~base:[cVar "deltaChargeOnCorners"] ()] [cCellRead ~base:[cVar "deltaChargeOnCorners"] ()];
+  
+  (* TODO: Find out why this is not working *)
+  (* !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]
+       [main; sExpr "deltaChargeOnCorners.v[k]"]; *)
 
   bigstep "Low level iteration on chunks of particles"; (* LATER: it might be possible to move this later in the script *)
   (* LATER: there are some missing Mutable_var_get tags on "p" inside the for_c loop; this might be fixed when using the new encodings *)

@@ -6,16 +6,14 @@ let _ = Flags.dump_ast_details := true
 
 let _ = Run.script_cpp (fun _ ->
   
-  (* inlining a function with if else branches *)
-  !! Function.inline [cTopFunDef "main"; cFun "g"];
-  !! Trace.alternative (fun () ->
-    !! Marks.add "__inline_instruction" [Target.cVarDef "z"];
-    !! Function_basic.bind_intro ~my_mark:"__inline_" ~fresh_name:"__TEMP_Optitrust" ~const:false [cTopFunDef "main"; cFun "g"];
-    !! Function_basic.inline ~body_mark:"__TEMP_BODY" [cMark "__inline_"];
-    !! Function.elim_body [cMark "__TEMP_BODY"];
-    !! Variable_basic.init_attach [cMark "__inline_"];
-    !! Variable.inline [cMark "__inline_"];
-    !! Variable.inline_and_rename [cMark "__inline_instruction"];
-    
-    !!());
+  let ctx = cTopFunDef "cornerInterpolationCoeff" in
+  let ctx_rv = cChain [ctx; sInstr "r.v"] in
+  
+  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
+  !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
+  !! Variable.intro_pattern_array~const:true ~pattern_aux_vars:"double rX, rY, rZ"
+      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ" 
+      ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
+      [nbMulti; ctx_rv; dRHS];
+  !! Loop.fold_instrs ~index:"k" [sInstr "r.v"];
 )
