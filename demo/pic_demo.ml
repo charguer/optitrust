@@ -73,14 +73,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Low level iteration on chunks of particles";
   (* LATER: there are some missing Mutable_var_get tags on "p" inside the for_c loop; this might be fixed when using the new encodings *)
-  (* !! Sequence.intro ~mark:"loop" ~start:[cVarDef "bag_it"] ~nb:2 ();
+  !! Sequence.intro ~mark:"loop" ~start:[cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [cMark "loop"; cFor_c ""; dBody]; (* LATER: will be integrated in uninline *)
+  (* !! Variable.insert_and_fold ~name:"q" ~typ:(atyp "particle* const") ~value:(expr "(particle* const) p") [tBefore; main; cVarDef "iX0"]; *)
   !! Function_basic.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [cMark "loop"];
   !! Instr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"]; (* LATER: why don't we also have Expr.replace_fun ? *)
   !! Function.inline [main; cFun "bag_ho_iter_chunk"];
-  !! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0];
+  (*!! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0];*)
   !! Function.beta ~indepth:true [main];
-  !! Variable.to_const [main; cVarDef "p"]; *)
+  !! Variable.to_const [main; cVarDef "p"];
 
   bigstep "Struct inline";
   (* !! Variable.inline [main; cVarDef "p"]; *)
