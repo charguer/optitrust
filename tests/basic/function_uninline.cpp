@@ -23,6 +23,23 @@ void test_basic() {
   }
 }
 
+void test_basic2() {
+  const int r = 5;
+  fbody:{
+    int b = r+1;
+    g(b, r);
+  }
+}
+
+
+void test_basic3() {
+  int r = 5;
+  fbody:{
+    int b = r+1;
+    g(b, r);
+  }
+}
+
 void iter_nat_for(int n, void body(int)) {
   for (int i = 0; i < n; i++) {
     body(i);
@@ -45,7 +62,7 @@ void test_ho() {
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct { } particle;
+typedef struct { int pos; } particle;
 typedef struct { } bag;
 typedef struct { } bag_iter;
 bag_iter* bag_iter_begin(bag* b);
@@ -67,7 +84,7 @@ void test_bag() {
     bag_iter* const myit = bag_iter_begin(mybag);
     for (particle* p = bag_iter_get(myit); p != NULL; p = bag_iter_next(myit, true)) {
       {
-         if (p = p) { x++; }
+         p->pos = p->pos + 1;
       }
     }
     free(myit);
@@ -91,7 +108,7 @@ void test_bag2() {
     bag_iter myit;
     for (particle* p = bag2_iter_begin(&myit, mybag); p != NULL; p = bag2_iter_next(&myit, true)) {
       {
-         if (p = p) { x++; }
+         p->pos = p->pos + 1;
       }
     }
   }

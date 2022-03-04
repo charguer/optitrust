@@ -105,8 +105,15 @@ if [ "${VIEW}" = "view_trace" ]; then
 
 else
 
+
+
+  if [ "${VIEW}" = "view_diff_enc" ]; then
+    OPTIONS="${OPTIONS} -dump-ast-details"
+  fi
+
   # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp, unless mode is view_trace
   # For that run, we activate the backtrace
+  echo "OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS}"
   OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS}
 
   # DEBUG: echo "cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS}"

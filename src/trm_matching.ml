@@ -88,7 +88,8 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
      when pattern variables are not yet instantiated,
      they are bound to the special term trm_uninitialized. *)
      (* LATER: we may need one day to introduce another special term Trm_uninstantiated  *)
-  let inst = ref (List.fold_left (fun acc (x,ty) -> Trm_map.add x (ty, Ast.trm_uninitialized()) acc) Trm_map.empty vars) in
+  let pat_vars_association = Ast.trm_uninitialized() in
+  let inst = ref (List.fold_left (fun acc (x,ty) -> Trm_map.add x (ty, pat_vars_association) acc) Trm_map.empty vars) in
   let is_var (x : var) : bool =
     Trm_map.mem x !inst in
   let find_var (x : var) (u : trm) : unit =
@@ -152,7 +153,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
       in
 
     (* Check matching addressof annotation -- LATER: maybe we should simply ignore additions that appear on t2? *)
-    if List.mem Address_operator t1.add then begin 
+    if List.mem Address_operator t1.add then begin
       if not (List.mem Address_operator t2.add)
         then mismatch ~t1 ~t2 ();
       aux (Ast.trm_special_operator_remove Address_operator t1) (Ast.trm_special_operator_remove Address_operator t2)
@@ -184,7 +185,10 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
         if List.length typ_args <> List.length xargs
           then fail t2.loc (Printf.sprintf "rule_match: the function call does not have the same number of arguments as the higher-order function variable %s" x);
         let targs = List.combine xargs typ_args in
-        let body = t2 in
+        (* TODO ARTHUR: we need to replace "get p" by "p" for each argument "p" that did not have type const *)
+        (* let body = t2 in *)
+        let body = List.fold_left (fun tacc x ->
+          Variable_core.remove_get_operations_on_var_temporary x tacc) t2 xargs in
         let func = trm_let_fun x typ_ret targs body in
         find_var x func
 
