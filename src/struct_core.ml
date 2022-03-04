@@ -176,55 +176,6 @@ let inline_struct_accesses (x : var) (t : trm) : trm =
 
    in aux "" t
 
-let inline_struct_accesses1 (x : var) (t : trm) : trm =  
-  let rec aux (t : trm) : trm = 
-    match t.desc with 
-    | Trm_apps (f, [base]) -> 
-      begin match f.desc with 
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y))) 
-        | Trm_val (Val_prim (Prim_unop (Unop_struct_get y)))  ->
-          begin match base.desc with 
-          | Trm_apps (f', base') -> 
-            begin match f'.desc with 
-            | Trm_val (Val_prim (Prim_unop (Unop_struct_access z))) when z = x-> 
-              begin match base' with 
-              | [base'] -> 
-                let updated_field = Convention.name_app z y in 
-                trm_struct_access base' updated_field
-              | _ -> fail base.loc "inline_struct_access: suspicious struct access"
-              end
-            | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) when z = x-> 
-              begin match base' with 
-              | [base'] -> 
-                let updated_field = Convention.name_app z y in 
-                trm_struct_get base' updated_field
-              | _ -> fail base.loc "inline_struct_access: suspicious struct access"
-              end
-            (* | Trm_val (Val_prim (Prim_binop (Binop_array_access))) ->
-              begin match base' with 
-              | [base''; index] ->
-                let updated_base = update_array_base x y base'' in
-                trm_array_access updated_base index
-              | _ -> fail base.loc "inline_struct_access: suspicious array access"
-              end
-            | Trm_val (Val_prim (Prim_binop (Binop_array_get))) ->
-              begin match base' with 
-              | [base''; index] ->
-                let updated_base = update_array_base x y base'' in
-                trm_array_get updated_base index
-              | _ -> fail base.loc "inline_struct_access: suspicious array access"
-              end *)
-            | _ -> trm_map aux t
-            end
-          | _ -> trm_map aux t
-          end 
-      | _ -> trm_map aux t
-      end
-    | _ -> trm_map aux t
-
-   in aux t
-
-
 (* [inline_struct_initialization struct_name field_list field_index t]: change all struct in struct initializations
     params:
       [struct_name]: the type of the struct which is being inlined
