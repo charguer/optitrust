@@ -10,7 +10,7 @@ let _ = Run.script_cpp (fun _ ->
   (* !! Function.inline ~vars:(AddSuffix "${occ}") [occFirst;cFun "f?"]; *)
   !! Function.inline [nbMulti; cFun "vect_mul"];
   !! Function.inline [nbMulti; cFun "vect_add"];
-  !! Function.inline  [nbMulti; cFun "vect_op"];
+  !! Function.inline [nbMulti; cFun "vect_op"];
   (* TODO
    vect r;
   if (true) {
@@ -34,8 +34,7 @@ const vect w = r
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "f"];
   (* inlining a function with if else branches *)
   !! Function.inline [cTopFunDef "main"; cFun "g"];
-  !! Function.inline ~name_result:"r" [cTopFunDef "test_const_ret"; cFun "g"];
-  (* TODO: resname: *)
+  !! Function.inline ~resname:"r" [cTopFunDef "test_const_ret"; cFun "g"];
 
   (* inlining a function with one if branch *)
   !! Function.inline [nbMulti; cFun "h"];

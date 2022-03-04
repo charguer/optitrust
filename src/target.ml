@@ -490,7 +490,7 @@ let cPrimNew ?(arg : target = []) () : constr =
 
 (* [cInit ~arg ()] matches all the initialization values of variable declarations *)
 let cInit ?(arg:target = []) () : constr =
-  cChain ([ cPrimNew ~arg (); dArg 0 ])
+  cOr [[ cPrimNew ~arg (); dArg 0 ]; [dBody]]
 
 (* [dInit] similar to cInit  but this one doesn't match on depth *)
 let dInit : constr =

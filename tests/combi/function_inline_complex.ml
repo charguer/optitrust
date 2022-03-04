@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
     
-    !! Function.inline ~name_result:"r" ~args:["a";"";"b";""] [cFun "g"];
+    !! Function.inline ~resname:"r" ~args:["a";"";"b";""] [cFun "g"];
     !! Trace.alternative (fun () ->
       !! Function_basic.bind_intro ~fresh_name:"r" [cFun "g"];
       !! Function.bind_args ["a";"";"b";""] [cFun "g"];
@@ -28,7 +28,7 @@ let _ = Run.script_cpp (fun _ ->
 
     (* Demo without naming the arguments, observe the duplicated call to h *)
     !! Trace.alternative (fun () ->
-       !! Function.inline ~name_result:"r" [cFun "g"];
+       !! Function.inline ~resname:"r" [cFun "g"];
        !!());
     !! Trace.alternative (fun () ->
        !! Function.inline [cFun "g"];

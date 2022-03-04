@@ -62,7 +62,7 @@ let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : Target.target)
   bind_args args tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
-(* [inline ~name_result ~body_mark ~vars ~args  tg]
+(* [inline ~resname ~body_mark ~vars ~args  tg]
       expects the target tg to point to point to a function call. And automates completely the process
       of function call inlining.
 
@@ -146,12 +146,12 @@ int f2() { // result of Funciton_basic.inline_cal
 // where p is the path to the englobing sequence.
 *)
 
-let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit = 
+let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) (tg : Target.target) : unit = 
   Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun i t (path_to_seq, local_path, i1) -> 
       let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in 
-      let name_result = ref name_result in
-      if !name_result = "" then name_result := "__TEMP_Optitrust";
+      let resname = ref resname in
+      if !resname = "" then resname := "__TEMP_Optitrust";
       let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
       let path_to_call = path_to_instruction @ local_path in
       let tg_out_trm = Path.resolve_path path_to_instruction t in
@@ -173,10 +173,10 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
                 | e -> raise e in 
              if !success_attach then begin
                 Variable.inline ~delete:true [new_target];
-                Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result];
+                Variable.inline_and_rename [Target.nbAny; Target.cVarDef !resname];
                 try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> ();
                 Marks.remove "__inline_instruction" [Target.nbAny;Target.cMark "__inline_instruction" ] end
-             else  
+             else if not keep_res then  
                 try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> ();
             Marks.remove my_mark [Target.nbAny; new_target]
         end;
@@ -186,11 +186,11 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
       begin match tg_out_trm.desc with  
       | Trm_let _ -> 
         Marks.add "__inline_instruction" (Target.target_of_path path_to_instruction);
-        Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
+        Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call);
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | Trm_apps (_, [ls; rs]) when is_set_operation tg_out_trm -> 
-        Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
+        Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call);
         mark_added := true;
         post_processing ~deep_cleanup:true ()
       | Trm_apps _ -> 

@@ -451,5 +451,5 @@ let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * trm )
   Target.reparse_after ~reparse (fun tg ->
     List.iter (fun (typ, name, value) ->
       (* This check is needed to avoid the parentheses in the case when the value of the vairbale is a simple expression  *)
-      insert ~name ~typ:(AstParser.atyp typ) ~value tg) defs
+      insert ~name ~typ:(AstParser.atyp typ) ~value tg) (List.rev defs)
 )

@@ -3,7 +3,6 @@ open Target
 open Ast
 
 
-
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
 
@@ -71,26 +70,27 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]
        [main; sExpr "deltaChargeOnCorners.v[k]"]; *)
 
-  bigstep "Low level iteration on chunks of particles";
+  (* bigstep "Low level iteration on chunks of particles"; *)
   (* LATER: there are some missing Mutable_var_get tags on "p" inside the for_c loop; this might be fixed when using the new encodings *)
-  !! Sequence.intro ~mark:"loop" ~start:[cVarDef "bag_it"] ~nb:2 ();
-  !! Sequence.intro_on_instr [cMark "loop"; cFor_c ""; dBody]; (* LATER: will be integrated in uninline *)
-  (* !! Variable.insert_and_fold ~name:"q" ~typ:(atyp "particle* const") ~value:(expr "(particle* const) p") [tBefore; main; cVarDef "iX0"]; *)
+  (* !! Sequence.intro ~mark:"loop" ~start:[cVarDef "bag_it"] ~nb:2 ();
+  !! Sequence.intro_on_instr [cMark "loop"; cFor_c ""; dBody]; LATER: will be integrated in uninline
+  !! Variable.insert_and_fold ~name:"q" ~typ:(atyp "particle* const") ~value:(expr "(particle* const) p") [tBefore; main; cVarDef "iX0"];
   !! Function_basic.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [cMark "loop"];
-  !! Instr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"]; (* LATER: why don't we also have Expr.replace_fun ? *)
+  !! Instr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"]; LATER: why don't we also have Expr.replace_fun ?
   !! Function.inline [main; cFun "bag_ho_iter_chunk"];
-  (*!! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0];*)
+  !! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0];
   !! Function.beta ~indepth:true [main];
-  !! Variable.to_const [main; cVarDef "p"];
+  !! Variable.to_const [main; cVarDef "p"]; *)
 
   bigstep "Struct inline";
   (* !! Variable.inline [main; cVarDef "p"]; *)
   (* !! Variable.simpl_deref [main]; *)
   !! Struct.set_explicit [main; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
-  !! Trace.reparse(); (* required to get the types right *)
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
-  !! Struct.inline "items" [cTypDef "chunk"];
+  (* !! Struct.inline "items" [cTypDef "chunk"];  *)
+
+
 
   bigstep "Prepare the stage for scaling (move definitions and introduce constants)";
   !! Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push.*"];
@@ -112,16 +112,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
          [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
-  !! Trace.reparse(); (* required for the terms to be visible to the simplifier *)
+  (* !! Trace.reparse(); required for the terms to be visible to the simplifier *)
   !! Variable.inline [cVarDef "accel"];
-  !! Trace.reparse();
-     (* required to get the types right, for [simpl_proj] to work in inlining o;
-      TODO: why are the types not there? it should be sufficient for the trm_struct to have
-      the right type; and this type should be known because it was available in the variable
-      definition that we inlined just before. *)
   !! Arith.(simpl expand) [nbMulti; main; cFun "int_of_double"; dArg 0];
-     Arith.(simpl expand) [nbMulti; main; cVarDef ~regexp:true "r.[01]"; dInit];
-     Sequence.apply ~start:[tAfter; main; cWrite ~lhs:[cVar "fieldAtPosZ"]()]
+  !! Arith.(simpl expand) [nbMulti; main; cVarDef ~regexp:true "r.."; dInit ];
+  !! Sequence.apply ~start:[tAfter; main; cWrite ~lhs:[cVar "fieldAtPosZ"]()]
        ~stop:[tAfter; main; cVarDef "coeffs2"] (fun m ->
        Arith.(simpl expand) [nbMulti; main; cMark m; cWrite(); dRHS; cStrictNew; Arith.constr];);
        (* LATER: Function.use_infix_ops [cMark m] *)

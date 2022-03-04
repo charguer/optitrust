@@ -5,10 +5,10 @@ typedef struct {
 } vect;
 
 vect vect_add(vect v1, vect v2) {
-  return {v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
+  return (vect){v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
 }
 
-vect vect_mul(int d, vect v) { return {d * (v.x), d * (v.y), d * (v.z)}; }
+vect vect_mul(int d, vect v) { return (vect){d * (v.x), d * (v.y), d * (v.z)}; }
 
 int f(int x) {
   int a = x + x;

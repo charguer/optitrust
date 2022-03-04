@@ -244,9 +244,9 @@ and attr_to_doc (a : attribute) : document =
   | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
 
-and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) (t : trm) : document =
+and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_init_type : bool = false) (t : trm) : document =
   let parentheses = parentheses_needed ~prec t in
-  let dt = trm_to_doc ~semicolon ~prec t in
+  let dt = trm_to_doc ~semicolon ~prec ~print_struct_init_type t in
   (* LATER: if Flags.print_trm_addresses then (string (sprintf "%p" t) ^ dt) else dt *)
   let dt = if parentheses then parens (dt) else dt in
   if t.marks = [] && not !print_stringreprids
@@ -265,7 +265,7 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) (t : trm) : docum
       sleft ^^ dt ^^ sright
       end
 
-and trm_to_doc ?(semicolon=false) ?(prec : int = 0) (t : trm) : document =
+and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false)  (t : trm) : document =
   let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
   let dattr =
@@ -282,10 +282,18 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) (t : trm) : document =
          else dattr ^^ val_to_doc v
     | Trm_var (_, x) ->
            dattr ^^ string x
-    | Trm_array tl | Trm_struct tl ->
-       let tl = Mlist.to_list tl in
+    | Trm_array tl -> let tl = Mlist.to_list tl in
        let dl = List.map (decorate_trm ~semicolon) tl in
        dattr ^^ braces (separate (comma ^^ blank 1) dl)
+    | Trm_struct tl ->
+       let tl = Mlist.to_list tl in
+       let dl = List.map (decorate_trm ~semicolon) tl in
+       let init_type = if not print_struct_init_type then empty else 
+        begin match t.typ with 
+        | Some ty -> parens (typ_to_doc ty )
+        | None -> empty 
+        end in
+       dattr ^^ init_type ^^ braces (separate (comma ^^ blank 1) dl)
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl
     | Trm_let_fun (f, r, tvl, b) -> dattr ^^ trm_let_fun_to_doc ~semicolon f r tvl b
@@ -458,7 +466,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
   let dtx = typed_var_to_doc tv in
   let dinit = begin match init.desc with
   | Trm_val (Val_lit Lit_uninitialized) -> dsemi
-  | _ -> equals ^^ blank 1 ^^ decorate_trm init ^^ dsemi
+  | _ -> equals ^^ blank 1 ^^ decorate_trm ~print_struct_init_type:false init ^^ dsemi
   end in
     dtx ^^ blank 1 ^^ dinit
 

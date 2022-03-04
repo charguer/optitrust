@@ -635,6 +635,7 @@ and tr_expr ?(is_statement : bool = false)
     trm_lit ~loc ~ctx Lit_uninitialized
   (* sometimes Null is translated like this *)
   | UnknownExpr (GNUNullExpr, GNUNullExpr) -> trm_null ~loc ~ctx ()
+  
   | ImplicitValueInit _ -> trm_lit ~loc ~ctx Lit_uninitialized
   | _ ->
     fail loc
