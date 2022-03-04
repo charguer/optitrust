@@ -369,7 +369,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         | Ret t_o ->
            begin match t_o with
            | None -> dattr ^^ string "return" ^^ dsemi
-           | Some t -> dattr ^^ string "return " ^^ decorate_trm t ^^ dsemi
+           | Some t -> dattr ^^ string "return " ^^ decorate_trm  t ^^ dsemi
            end
         | Break _ -> dattr ^^ string "break" ^^ dsemi
         | Continue _ -> dattr ^^ string "continue" ^^ dsemi

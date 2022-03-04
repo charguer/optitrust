@@ -598,7 +598,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
         then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
         else AstC_to_c.ast_to_outchannel out_prog (Ast_fromto_AstC.cfeatures_intro ast)
     end else
-      Ast_to_c.ast_to_outchannel out_prog ast;
+      AstC_to_c.ast_to_outchannel out_prog ast;
     output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->

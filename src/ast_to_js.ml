@@ -20,10 +20,10 @@ module Json = struct
 
   (* Printing functions *)
   let typ_to_json(typ : typ) : t =
-    Str (Tools.document_to_string (bquotes (Ast_to_c.typ_to_doc typ)) )
+    Str (Tools.document_to_string (bquotes (AstC_to_c.typ_to_doc typ)) )
 
   let typdef_to_json(td : typedef) : t =
-    Str (Tools.document_to_string (bquotes (Ast_to_c.typedef_to_doc td)))
+    Str (Tools.document_to_string (bquotes (AstC_to_c.typedef_to_doc td)))
 
   let print_object (dl : document list) : document =
     surround 2 1 lbrace (separate (comma ^^ break 1) dl) rbrace
@@ -208,7 +208,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     match t.desc with
     | Trm_val v ->
         [ kind_to_field "val";
-          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes(Ast_to_c.val_to_doc v))));
+          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes(AstC_to_c.val_to_doc v))));
           children_to_field [] ]
     | Trm_var (_, x) ->
         [ kind_to_field "var";

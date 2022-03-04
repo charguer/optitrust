@@ -231,7 +231,7 @@ let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : t
                               acc; trm_var bnd]
                               ; trm_var ind]
                     )  (trm_var "") index_and_bounds in
-                    let old_loop_index_decl = trm_let_mut (index, typ_int ()) old_loop_index_val in 
+                    let old_loop_index_decl = trm_let_immut (index, typ_int ()) old_loop_index_val in 
                     let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
                     trm_seq new_tl
                    | _ -> fail body.loc "grid_enumerate_aux: the body of the loop should be a sequence"

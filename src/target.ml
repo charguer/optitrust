@@ -228,7 +228,7 @@ let make_typ_constraint ?(typ:string="") ?(typ_pred : typ_constraint = typ_const
     then fail None "make_typ_constraint: cannot provide both ~typ and ~typ_pred.";
   if typ = ""
     then typ_pred
-    else (fun (ty : typ) -> typ = (Ast_to_c.typ_to_string ty))
+    else (fun (ty : typ) -> typ = (AstC_to_c.typ_to_string ty))
 
 let cHasTypePred (pred : typ -> bool) : constr =
   Constr_hastype pred

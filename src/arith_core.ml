@@ -270,7 +270,7 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
             begin match t1.desc with
             | Trm_var (_, x) -> string x
             | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x); _}]) -> string x
-            | _ -> braces (Ast_to_c.trm_to_doc t1)
+            | _ -> braces (AstC_to_c.trm_to_doc t1)
             end
         | _  ->
           if id > 26*26 then braces (string (string_of_int id)) else
@@ -328,7 +328,7 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
       end
     | Expr_atom id ->
       begin match Atom_map.find_opt id atoms with
-      | Some t1 -> (Ast_to_c.trm_to_doc t1)
+      | Some t1 -> (AstC_to_c.trm_to_doc t1)
       | _  -> fail None "expr_to_math_string: couldn't convert an atom expr to a trm"
       end
   in

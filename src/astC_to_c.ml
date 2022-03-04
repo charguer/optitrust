@@ -115,6 +115,21 @@ and typ_annot_to_doc (a : typ_annot) : document =
   | Long -> string "long"
   | Short -> string "short"
 
+and trm_annot_to_doc (t_annot : trm_annot list) : document =
+  let aux t_annot = match t_annot with
+  | Access -> string "Access"
+  | Multi_decl -> string "Multi_dec"
+  | App_and_set -> string "App_and_set"
+  | Main_file -> string "Main_file"
+  | Postfix_set -> string "Postfix_set"
+  | Mutable_var_get -> string "Mutable_var_get"
+  | As_left_value -> string "As_left_value"
+  | Annot_stringreprid id -> string "Annot_stringreprid" ^^ string (string_of_int id)
+  | _ -> empty
+  in
+  if t_annot = [] then empty else
+  Tools.list_to_doc ~sep:comma (List.map aux t_annot)
+
 and typ_to_doc (t : typ) : document =
   let d = typ_desc_to_doc t.typ_desc in
   let dannot =
@@ -244,7 +259,7 @@ and attr_to_doc (a : attribute) : document =
   | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
 
-and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_init_type : bool = false) (t : trm) : document =
+and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_init_type : bool = true) (t : trm) : document =
   let parentheses = parentheses_needed ~prec t in
   let dt = trm_to_doc ~semicolon ~prec ~print_struct_init_type t in
   (* LATER: if Flags.print_trm_addresses then (string (sprintf "%p" t) ^ dt) else dt *)
@@ -283,14 +298,18 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_var (_, x) ->
            dattr ^^ string x
     | Trm_array tl -> let tl = Mlist.to_list tl in
-       let dl = List.map (decorate_trm ~semicolon) tl in
+       let dl = List.map (decorate_trm ~semicolon ~print_struct_init_type:false) tl in
        dattr ^^ braces (separate (comma ^^ blank 1) dl)
     | Trm_struct tl ->
        let tl = Mlist.to_list tl in
-       let dl = List.map (decorate_trm ~semicolon) tl in
+       let dl = List.map (decorate_trm ~print_struct_init_type:false ~semicolon) tl in
        let init_type = if not print_struct_init_type then empty else 
         begin match t.typ with 
-        | Some ty -> parens (typ_to_doc ty )
+        | Some ty -> 
+          begin match ty.typ_desc with 
+          | Typ_constr (_, id, _) when id <> -1 -> parens(typ_to_doc ty) 
+          | _ -> empty
+          end
         | None -> empty 
         end in
        dattr ^^ init_type ^^ braces (separate (comma ^^ blank 1) dl)

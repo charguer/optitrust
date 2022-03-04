@@ -80,13 +80,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [main; cFun "bag_ho_iter_chunk"];
   !! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0];
   !! Function.beta ~indepth:true [main];
-<<<<<<< HEAD
   !! Variable.to_const [main; cVarDef "p"]; *)
-=======
-  (* THIS TRANSFOR IS INCORRECTLY IMPLEMENTED !! Variable.to_const [main; cVarDef "p"]; *)
-  (* WHEN TOCONST IS FIXED WE WANT TO EXECUTE: !! Variable.inline [main; cVarDef "p"]; *)
-
->>>>>>> 7c975a22ab0f55781772c27a1369d159af3ff68f
 
   bigstep "Struct inline";
   (* !! Variable.inline [main; cVarDef "p"]; *)
@@ -129,8 +123,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       (* ARTHUR: also missing simplifications in bag_push_concurrent *)
 
   bigstep "Enumerate grid cells by coordinates";
-  !! Label.add "core" [cFor "idCell" ~body:[cFor "i"]];
-     Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];
+  !! Label.add "core" [cFor "idCell" ~body:[cFor "k"]];
+  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];
 
   bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
   !! iter_dims (fun d ->

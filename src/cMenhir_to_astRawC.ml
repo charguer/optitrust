@@ -332,7 +332,7 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     if is_null_pointer ty te
       then trm_null ~loc ~ctx ()
       else  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te]
-  | ECompound _ -> fail loc "tr_expr: Not supported for the moment"
+  | ECompound (_, init) -> tr_init init ~loc
   | ECall (f, el) ->
     let tf = tr_expr f in
     begin match tf.desc with

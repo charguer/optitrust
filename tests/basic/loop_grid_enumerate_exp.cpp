@@ -13,8 +13,8 @@ int main() {
   for (int x = 0; x < X; x++) {
     for (int y = 0; y < Y; y++) {
       for (int z = 0; z < Z; z++) {
-        int idCell = (x * Y + y) * Z + z;
-        total += &idCell;
+        const int idCell = (x * Y + y) * Z + z;
+        total += idCell;
       }
     }
   }
