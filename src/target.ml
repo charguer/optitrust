@@ -500,8 +500,8 @@ let dInit : constr =
     left empty, then no contraint on the side of the set operation will be applied.
 *)
 let cWrite ?(lhs : target = [cTrue]) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
-  let lhs_typed = with_type ~typ ~typ_pred lhs in 
-  let rhs_typed = with_type ~typ ~typ_pred rhs in 
+  let lhs_typed = with_type ~typ ~typ_pred lhs in
+  let rhs_typed = with_type ~typ ~typ_pred rhs in
   cPrimPredFun ~args:[lhs_typed; rhs_typed] (fun p -> match p with | Prim_binop Binop_set | Prim_compound_assgn_op _ -> true | _ -> false)
 
 (* [cRead] matches all the get operations on mutable variables *)
@@ -1038,7 +1038,11 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 (* [target_show_aux m t]: adds a mark [m] around the term t.
 *)
 let target_show_aux (m : mark) (t : trm) : trm =
+   (* TODO: add ~types
+   let m = if types then sprintf "m{%s}" (types_to_string t.typ) else m in *)
+   (* TODO: test  show ?types:true [cWrite(); dRHS] *)
   trm_add_mark m t
+
 
 (* [target_show_transfo m t p]: adds a mark [m]
   around the term at path [p] in the term [t]. *)
@@ -1072,7 +1076,7 @@ let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
    There is no need for a prefix such as [!!] in front of the [show]
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
-let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
+let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit = (* TODO: add ?types:bool=false *)
   (* Automatically add [nbMulti] if there is no occurence constraint *)
   let tg = enable_multi_targets tg in
   if reparse then reparse_alias();
@@ -1092,7 +1096,7 @@ let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
     end else begin
       applyi_on_targets (fun i t p ->
         let m = mark_of_occurence i in
-        target_show_transfo m t p) tg
+        target_show_transfo m t p) tg (*  TODO: add ~types *)
     end;
     if should_exit
       then dump_diff_and_exit()

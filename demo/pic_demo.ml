@@ -29,11 +29,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   bigstep "Vectorization in [cornerInterpolationCoeff]";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   let ctx_rv = cChain [ctx; sInstr "r.v"] in
-  
+
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array~const:true ~pattern_aux_vars:"double rX, rY, rZ"
-      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ" 
+      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];
   !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
@@ -58,20 +58,20 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "i.1"];
-  
+
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
   !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="]
        [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "coeffs2.v[k]"];
-  
+
   !! Instr.inline_last_write ~write:[cCellWrite ~base:[cVar "deltaChargeOnCorners"] ()] [cCellRead ~base:[cVar "deltaChargeOnCorners"] ()];
-  
+
   (* TODO: Find out why this is not working *)
   (* !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]
        [main; sExpr "deltaChargeOnCorners.v[k]"]; *)
 
-  (* bigstep "Low level iteration on chunks of particles"; LATER: it might be possible to move this later in the script *)
+  bigstep "Low level iteration on chunks of particles";
   (* LATER: there are some missing Mutable_var_get tags on "p" inside the for_c loop; this might be fixed when using the new encodings *)
   (* !! Sequence.intro ~mark:"loop" ~start:[cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [cMark "loop"; cFor_c ""; dBody]; (* LATER: will be integrated in uninline *)
@@ -89,7 +89,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
   !! Trace.reparse(); (* required to get the types right *)
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
-  !! Struct.inline "particle" [cTypDef "chunk"];
+  !! Struct.inline "items" [cTypDef "chunk"];
 
   bigstep "Prepare the stage for scaling (move definitions and introduce constants)";
   !! Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push.*"];

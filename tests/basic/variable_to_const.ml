@@ -20,11 +20,15 @@ let _ = Run.script_cpp (fun _ ->
   !! Variable_basic.to_const [cVarDef "w"];
 
   !! Variable_basic.to_const [cVarDef "p"];
-  !! Variable_basic.to_const [cVarDef "q"];
+  (* LATER/ to const on array
+    !! Variable_basic.to_const [cVarDef "q"];
+   LATER to_const ?(simpl_deref:bool=true)
+     => performs simpl_deref on the sequence that contains varDef q *)
+  (*!! Variable_basic.simpl_deref ~indepth:true [cVarDef "r"];*)
   !! Variable_basic.to_const [cVarDef "r"];
 
-  
-  
+
+
 )
 
 (* Note: recall that currently const references are not supported,

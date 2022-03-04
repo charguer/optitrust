@@ -11,13 +11,31 @@ let _ = Run.script_cpp (fun _ ->
   !! Function.inline [nbMulti; cFun "vect_mul"];
   !! Function.inline [nbMulti; cFun "vect_add"];
   !! Function.inline  [nbMulti; cFun "vect_op"];
+  (* TODO
+   vect r;
+  if (true) {
+    {
+      r = v;
+      goto exit_body;
+    }
+  }
+const vect w = r
+*)
+
   !! Function.inline [nbMulti; cFun "vect_op2"];
-  
+  (* LATER: have an option to function inline for keeping "res" and not eliminating it ==> deactivate the final step
+    vect res = {0,0};
+    res.x = 1;
+    vect w2 = res;
+
+  *)
+
   (* inlining a function with single return *)
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "f"];
   (* inlining a function with if else branches *)
   !! Function.inline [cTopFunDef "main"; cFun "g"];
   !! Function.inline ~name_result:"r" [cTopFunDef "test_const_ret"; cFun "g"];
+  (* TODO: resname: *)
 
   (* inlining a function with one if branch *)
   !! Function.inline [nbMulti; cFun "h"];
