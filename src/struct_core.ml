@@ -143,7 +143,41 @@ let set_implicit (keep_label : bool) : Target.Transfo.local =
       updated ast node with the transformed field accesses
     example p.pos.x to p.pos_x
 *)
-let inline_struct_accesses  (x : var) (t : trm) : trm =
+let inline_struct_accesses (x : var) (t : trm) : trm =  
+  let rec aux (t : trm) : trm = 
+    match t.desc with 
+    | Trm_apps (f, [base]) -> 
+      begin match f.desc with 
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y))) 
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_get y)))  ->
+          begin match base.desc with 
+          | Trm_apps (f', base') -> 
+            begin match f'.desc with 
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_access z))) when z = x-> 
+              begin match base' with 
+              | [base'] -> 
+                let updated_field = Convention.name_app z y in 
+                trm_struct_access base' updated_field
+              | _ -> fail base.loc "inline_struct_access: suspicious struct access"
+              end
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) when z = x-> 
+              begin match base' with 
+              | [base'] -> 
+                let updated_field = Convention.name_app z y in 
+                trm_struct_get base' updated_field
+              | _ -> fail base.loc "inline_struct_access: suspicious struct access"
+              end
+            | _ -> trm_map aux t
+            end
+          | _ -> trm_map aux t
+          end 
+      | _ -> trm_map aux t
+      end
+    | _ -> trm_map aux t
+
+   in aux t
+
+let inline_struct_accesses1 (x : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, [base]) ->
