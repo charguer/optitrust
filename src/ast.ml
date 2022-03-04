@@ -1378,7 +1378,19 @@ let contains_occurrence (x : var) (t : trm) : bool =
     | Trm_apps (_, tl) -> List.fold_left (fun acc t1 -> acc || aux t1) false tl 
     | _ -> false 
   in aux t
-
+ 
+(* [contains_field_access f t] check if [t] contains an access on field [f]*)
+let contains_field_access (f : field) (t : trm) : bool = 
+  let rec aux (t : trm) : bool = 
+   match t.desc with 
+   | Trm_apps (f', tl) -> 
+      begin match f'.desc with 
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_access f1))) -> f = f1
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_get f1))) -> f = f1
+      | _ -> List.fold_left (fun acc t1 -> acc || aux t1) false tl 
+      end
+   | _ -> false  
+  in aux t
 
 (* return the name of the declared object as an optional type *)
 let decl_name (t : trm) : var option =

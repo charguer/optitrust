@@ -9,5 +9,5 @@ let _ = Run.script_cpp (fun _ ->
 
    !! Struct_basic.inline "pos" [cTypDef "particle"];
    !! Struct_basic.inline "speed" [cTypDef "particle"];
-   !! Struct_basic.inline "particle" [cTypDef "chunk"];
+   !! Struct_basic.inline "items" [cTypDef "chunk"];
 )

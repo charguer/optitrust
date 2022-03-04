@@ -144,6 +144,39 @@ let set_implicit (keep_label : bool) : Target.Transfo.local =
     example p.pos.x to p.pos_x
 *)
 let inline_struct_accesses (x : var) (t : trm) : trm =  
+  let rec aux (outer_field : string) (t : trm) : trm = 
+    match t.desc with 
+    | Trm_apps (f, base) -> 
+      begin match f.desc with 
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_access z))) ->
+        begin match base with 
+        | [base'] -> 
+          if contains_field_access x base' 
+            then aux z base'
+            else if outer_field <> "" then 
+              let updated_field = Convention.name_app z outer_field in 
+              trm_struct_access base' updated_field
+            else trm_map (aux "") t
+        | _ -> fail f.loc "inline_struct_access: suspicious struct access"
+        end
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) -> 
+        begin match base with 
+        | [base'] -> 
+          if contains_field_access x base' 
+            then aux z base'
+            else if outer_field <> "" then 
+              let updated_field = Convention.name_app z outer_field in 
+              trm_struct_get base' updated_field
+            else trm_map (aux "") t
+        | _ -> fail f.loc "inline_struct_access: suspicious struct access"
+        end
+      | _ -> trm_map (aux outer_field) t
+      end
+    | _ -> trm_map (aux outer_field) t
+
+   in aux "" t
+
+let inline_struct_accesses1 (x : var) (t : trm) : trm =  
   let rec aux (t : trm) : trm = 
     match t.desc with 
     | Trm_apps (f, [base]) -> 
@@ -167,6 +200,20 @@ let inline_struct_accesses (x : var) (t : trm) : trm =
                 trm_struct_get base' updated_field
               | _ -> fail base.loc "inline_struct_access: suspicious struct access"
               end
+            (* | Trm_val (Val_prim (Prim_binop (Binop_array_access))) ->
+              begin match base' with 
+              | [base''; index] ->
+                let updated_base = update_array_base x y base'' in
+                trm_array_access updated_base index
+              | _ -> fail base.loc "inline_struct_access: suspicious array access"
+              end
+            | Trm_val (Val_prim (Prim_binop (Binop_array_get))) ->
+              begin match base' with 
+              | [base''; index] ->
+                let updated_base = update_array_base x y base'' in
+                trm_array_get updated_base index
+              | _ -> fail base.loc "inline_struct_access: suspicious array access"
+              end *)
             | _ -> trm_map aux t
             end
           | _ -> trm_map aux t
@@ -177,54 +224,6 @@ let inline_struct_accesses (x : var) (t : trm) : trm =
 
    in aux t
 
-let inline_struct_accesses1 (x : var) (t : trm) : trm =
-  let rec aux (global_trm : trm) (t : trm) : trm =
-    match t.desc with
-    | Trm_apps (f, [base]) ->
-      begin match f.desc with
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
-        | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
-          (* Removed this if else condition just for debugging purposes *)
-          (* if false then fail t.loc ("Accessing field " ^ x ^ " is impossible, this field has been deleted during inlining")
-          else  *)
-          begin match base.desc with
-          | Trm_apps (f',base') ->
-            begin match f'.desc with
-            | Trm_val(Val_prim (Prim_binop Binop_array_access))
-              | Trm_val(Val_prim (Prim_binop Binop_array_get)) ->
-                (* Then base caontains another base and also the index  *)
-                let base2 = List.nth base' 0 in
-                let index = List.nth base' 1 in
-                begin match base2.desc with
-                | Trm_apps(f'',base3) ->
-                  begin match f''.desc with
-                  | Trm_val (Val_prim (Prim_unop Unop_struct_access z))
-                    | Trm_val (Val_prim (Prim_unop (Unop_struct_get z ))) when z = x ->
-                    let new_var = Convention.name_app z y in
-
-                    let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))} in
-                    trm_apps ~annot:t.annot  f' [trm_apps new_f base3;index]
-                  | _ -> trm_map (aux global_trm) t
-                  end
-                | _ -> t (* fail t.loc (Printf.sprintf "inline_struct_accesses: expected a trm_apps and got %s" (Ast_to_text.ast_to_string base2)) *)
-                end
-            | Trm_val (Val_prim (Prim_unop (Unop_struct_access z)))
-              | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) when z = x ->
-                let new_var = Convention.name_app z y in
-                (* let new_var = z ^"_"^ y in *)
-                let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))}
-              in
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
-                     ~add:t.add ~typ:t.typ new_f base'
-            | _ -> trm_map (aux global_trm) t
-            end
-          | _ -> trm_map (aux global_trm) t
-          end
-      | _ -> trm_map (aux global_trm) t
-      end
-    | _ -> trm_map (aux global_trm) t
-in
-aux t t
 
 (* [inline_struct_initialization struct_name field_list field_index t]: change all struct in struct initializations
     params:
