@@ -29,7 +29,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
           else if trm_annot_has Stackvar d then trm_var_get x
           else trm_var x
         in
-        let def_x = 
+        let def_x =
             begin match vk with
             | Var_immutable -> dx
             | _ -> begin match dx.desc with
@@ -39,7 +39,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
             end in
         let lback = Mlist.map(Internal.change_trm ~change_at:[fold_at] def_x t_x) lback
          in
-         
+
         let new_tl = Mlist.merge lfront lback in
         let new_tl = Mlist.insert_at index d new_tl in
         trm_seq ~annot:t.annot ~marks:t.marks new_tl
@@ -69,34 +69,34 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
   match t.desc with
   | Trm_seq tl ->
     let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
-    let aux (new_lback : trm mlist) : trm = 
+    let aux (new_lback : trm mlist) : trm =
         let new_tl = Mlist.merge lfront new_lback in
         let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
         trm_seq ~annot:t.annot ~marks:t.marks new_tl
-      in 
+      in
     begin match dl.desc with
     | Trm_let (vk, (x, _), init) ->
       let init = if mark = "" then init else trm_add_mark mark init in
-      
+
       begin match vk with
       | Var_immutable ->
         let new_lback = begin match unfold_at with
         | [] -> Mlist.map (Internal.subst_var x init) lback
         | _ -> Mlist.map (Internal.change_trm ~change_at:[unfold_at] (trm_var x) init) lback
         end
-         in aux new_lback 
-        
-      | Var_mutable -> if trm_annot_has Reference dl then 
+         in aux new_lback
+
+      | Var_mutable -> if trm_annot_has Reference dl then
           let new_lback = begin match unfold_at with
           | [] -> Mlist.map (Internal.subst_var x init) lback
           | _ -> Mlist.map (Internal.change_trm ~change_at:[unfold_at] (trm_var x) init) lback
           end
-           in aux new_lback 
+           in aux new_lback
           else fail dl.loc "unfold_aux: only const variables are safe to unfold"
       end
     | Trm_let_fun (f, _, _, _) ->
       if accept_functions then
-        let new_lback = Mlist.map (Internal.subst_var f dl) lback in 
+        let new_lback = Mlist.map (Internal.subst_var f dl) lback in
           aux new_lback
       else fail dl.loc "unfold_aux: to replace function calls with their declaration you need to set accept_functions arg to true"
     | _ -> fail t.loc "unfold_aux: expected a target to a variable declaration"
@@ -149,7 +149,7 @@ let rename (new_name : var) (index : int): Target.Transfo.local =
 *)
 let subst_aux (name : var) (space : trm) (t : trm) : trm =
   (* A hack for cases when space is not a variable, to be able to avoid the unnecessary get operation & is added manually *)
-  (* let new_space = match space.desc with 
+  (* let new_space = match space.desc with
   | Trm_arbitrary _ -> trm_address_of space
   | _ -> space in  *)
   Internal.subst_var name space t
@@ -263,7 +263,7 @@ let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : 
   | Some (_, _, ty, _) -> ty
   | _ -> fail vardef_trm.loc "local_name: make sure the name of the current var is entered correctly" in
   let fst_instr = trm_let_mut (local_var, var_type) (trm_var_possibly_mut ~typ:(Some var_type) curr_var) in
-  let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_var_possibly_mut ~typ:(Some var_type) local_var) in 
+  let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_var_possibly_mut ~typ:(Some var_type) local_var) in
   let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in
   let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
   if mark <> "" then trm_add_mark mark final_trm else final_trm
@@ -297,7 +297,7 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
       let curr_var_trm = match get_init_val init with
       | Some init1 -> init1
       | _ -> fail def.loc "delocalize_aux: couldn't get the value of the current variable " in
-      let curr_var_trm = get_operation_arg curr_var_trm in 
+      let curr_var_trm = get_operation_arg curr_var_trm in
       let var_type = (get_inner_ptr_type tx) in
       let init_trm, op = begin match ops with
       | Delocalize_arith (li, op) ->
@@ -408,13 +408,14 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p
     let targeted_node = Path.resolve_path p_local instr in
     let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
     let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
+
     let node_type = match targeted_node.typ with
     | Some ty -> ty
     | _ -> typ_auto() in
-    let node_to_change = Internal.change_trm targeted_node (trm_var_possibly_mut ~const ~typ:(Some node_type) fresh_name) instr in 
+    let node_to_change = Internal.change_trm targeted_node (trm_var_possibly_mut ~const ~typ:(Some node_type) fresh_name) instr in
 
     let targeted_node = if my_mark <> "" then trm_add_mark my_mark targeted_node else targeted_node in
-    
+
     let decl_to_insert =
       begin match targeted_node.desc with
       | Trm_array tl ->
@@ -443,6 +444,28 @@ let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_loc
   Target.apply_on_path (bind_aux my_mark index fresh_name const p_local)
 
 
+
+let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (* ARTHUR *)
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [{desc = Trm_var (_,y);_}as ty]) when y = x -> ty
+  | _ -> trm_map (remove_get_operations_on_var_temporary x) t
+
+
+
+let remove_get_operations_on_var (x : var) (t : trm) : trm = (* TODO: let's review this *)
+  let rec aux (update_accesses : bool) (t : trm) : trm =
+    match t.desc with
+    | Trm_apps (_, [base]) when is_get_operation t ->
+      if contains_occurrence x base then aux true base else t
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [base]) ->
+      if not update_accesses then t else trm_struct_get ~typ:t.typ (aux update_accesses base) f
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [base; index]) ->
+      if not update_accesses then t else  trm_array_get ~typ:t.typ (aux update_accesses base) index
+    | Trm_var _ -> t
+    | _ -> trm_map (aux update_accesses) t
+    in
+  aux false t
+
 (* [to_const_aux index t] change the mutability of a variable, and replace all the get operations on that variable
     with an occurrence of that variable
     params:
@@ -456,50 +479,36 @@ let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_loc
 
 exception Variable_to_const_abort
 
-let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm = 
-  match t.desc with 
-  | Trm_seq tl -> 
-    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in 
-    begin match dl.desc with 
-    | Trm_let (vk, (x, tx), init) -> 
-      let update_seq (new_dl : trm) (new_lback : trm mlist) (new_lfront : trm mlist) : trm = 
-        let new_tl = Mlist.merge lfront new_lback in 
-        let new_tl = Mlist.insert_at index new_dl new_tl in 
-        trm_seq ~annot:t.annot ~marks:t.marks new_tl 
-      in 
-      
-      let update_gets (t : trm) : trm = 
-        let rec aux (update_accesses : bool) (t : trm) : trm = 
-          match t.desc with 
-          | Trm_apps (_, [base]) when is_get_operation t -> 
-            if contains_occurrence x base then aux true base else t
-          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [base]) -> 
-            if not update_accesses then t else trm_struct_get ~typ:t.typ (aux update_accesses base) f
-          | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [base; index]) -> 
-            if not update_accesses then t else  trm_array_get ~typ:t.typ (aux update_accesses base) index
-          | Trm_var _ -> t
-          | _ -> trm_map (aux update_accesses) t
-         in aux false t
-      
-        in  
-       begin match vk with 
+let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl ->
+    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
+    begin match dl.desc with
+    | Trm_let (vk, (x, tx), init) ->
+      let update_seq (new_dl : trm) (new_lback : trm mlist) (new_lfront : trm mlist) : trm =
+        let new_tl = Mlist.merge lfront new_lback in
+        let new_tl = Mlist.insert_at index new_dl new_tl in
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      in
+
+       begin match vk with
        | Var_immutable ->
-        if to_const then t 
-          else  begin 
-            let init_val = match get_init_val init with 
-            | Some init1 -> init1 
+        if to_const then t
+          else  begin
+            let init_val = match get_init_val init with
+            | Some init1 -> init1
             | _ -> fail dl.loc "to_const_aux: const variables should always be initialized"
-              in 
-            let init_type = get_inner_const_type tx in 
-            let new_dl = trm_let_mut ~marks:dl.marks (x, init_type) init_val in 
-            let new_lback = Mlist.map (Internal.subst_var x (trm_var_possibly_mut ~typ:(Some init_type) x)) lback in 
+              in
+            let init_type = get_inner_const_type tx in
+            let new_dl = trm_let_mut ~marks:dl.marks (x, init_type) init_val in
+            let new_lback = Mlist.map (Internal.subst_var x (trm_var_possibly_mut ~typ:(Some init_type) x)) lback in
             update_seq new_dl new_lback lfront
           end
 
-       | Var_mutable -> 
+       | Var_mutable ->
         if trm_annot_has Reference dl then fail dl.loc "from_to_const_aux: const reference are not supported"
-          else if not to_const then t 
-          else begin 
+          else if not to_const then t
+          else begin
             (* Search if there are any write operations on variable x *)
             (* TODO: Fix this  *)
             Mlist.iter (fun t1 ->
@@ -519,7 +528,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
               in
             let init_type = get_inner_ptr_type tx in
             let new_dl = trm_let_immut ~marks:dl.marks (x, init_type) init_val in
-            let new_lback = Mlist.map (fun t1 -> update_gets t1) lback in 
+            let new_lback = Mlist.map (fun t1 -> remove_get_operations_on_var x t1) lback in
             update_seq new_dl new_lback lfront
             end
        end
@@ -540,7 +549,7 @@ let from_to_const (to_const : bool) (index : int) : Target.Transfo.local =
 *)
 
 let simpl_deref_aux (indepth : bool) (t : trm) : trm =
-  let aux = trm_simplify_addressof_and_get in 
+  let aux = trm_simplify_addressof_and_get in
   if indepth then trm_map aux t else aux t
 
 let simpl_deref (indepth : bool) : Target.Transfo.local =

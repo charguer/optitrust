@@ -80,7 +80,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [main; cFun "bag_ho_iter_chunk"];
   !! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0];
   !! Function.beta ~indepth:true [main];
+<<<<<<< HEAD
   !! Variable.to_const [main; cVarDef "p"]; *)
+=======
+  (* THIS TRANSFOR IS INCORRECTLY IMPLEMENTED !! Variable.to_const [main; cVarDef "p"]; *)
+  (* WHEN TOCONST IS FIXED WE WANT TO EXECUTE: !! Variable.inline [main; cVarDef "p"]; *)
+
+>>>>>>> 7c975a22ab0f55781772c27a1369d159af3ff68f
 
   bigstep "Struct inline";
   (* !! Variable.inline [main; cVarDef "p"]; *)

@@ -385,7 +385,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         | Ret t_o ->
            begin match t_o with
            | None -> dattr ^^ string "return" ^^ dsemi
-           | Some t -> dattr ^^ string "return " ^^ decorate_trm t ^^ dsemi
+           | Some t -> dattr ^^ string "return " ^^ decorate_trm ~print_struct_init_type:false t ^^ dsemi
            end
         | Break _ -> dattr ^^ string "break" ^^ dsemi
         | Continue _ -> dattr ^^ string "continue" ^^ dsemi

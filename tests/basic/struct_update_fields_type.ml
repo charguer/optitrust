@@ -12,8 +12,10 @@ typedef struct {
 } vect;
 "
 
+let _ = Flags.dump_ast_details := true
+
 let _ = Run.script_cpp ~parser:Parsers.Clang (fun _ ->
 
   !! Struct_basic.update_fields_type "x" (typ_float ()) [cTypDef "vect"];
-  !! Struct_basic.update_fields_type "y" (typ_float ()) [cTypDef "vect"];
+  !!! Struct_basic.update_fields_type "y" (typ_float ()) [cTypDef "vect"];
 )

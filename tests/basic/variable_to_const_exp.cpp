@@ -23,8 +23,8 @@ int test_vect() {
   const part p = {v, w};
   vect ppos = p.pos;
   int c = p.pos.x;
-  const part[2] q = {{v, w}, {v, w}};
+  part q[2] = {{v, w}, {v, w}};
   int d = q[0].pos.x;
-  part *const r = &(*q)[0];
+  part *const r = &q[0];
   int e = r[0].pos.x;
 }

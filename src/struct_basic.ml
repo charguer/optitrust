@@ -70,7 +70,7 @@ let rename_fields (rename : rename) : Target.Transfo.t =
     Then it will change the current type to [ty] of all the fields which are matched with [pattern].
 *)
 let update_fields_type (pattern : string) (ty : typ) : Target.Transfo.t =
-  Target.reparse_after (Target.apply_on_targets (Struct_core.update_fields_type pattern ty))
+  Target.reparse_after ~reparse:false (Target.apply_on_targets (Struct_core.update_fields_type pattern ty))
 
   
 (* [simpl_proj tg] expects the target [tg] pointing to any node whose descendants can contain struct

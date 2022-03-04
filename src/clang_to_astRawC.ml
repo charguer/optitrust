@@ -410,6 +410,7 @@ and tr_expr ?(is_statement : bool = false)
   | ConditionalOperator _ ->
     fail loc
       "tr_expr: conditional operators without then branch unsupported"
+  | CompoundLiteral {init = init_expr; qual_type = _q} -> tr_expr init_expr
   | IntegerLiteral i ->
     begin match i with
       | Int i -> trm_lit ~loc ~ctx (Lit_int i)
@@ -635,7 +636,7 @@ and tr_expr ?(is_statement : bool = false)
     trm_lit ~loc ~ctx Lit_uninitialized
   (* sometimes Null is translated like this *)
   | UnknownExpr (GNUNullExpr, GNUNullExpr) -> trm_null ~loc ~ctx ()
-  
+  | UnknownExpr (_, _) -> fail loc "I failed here\n"
   | ImplicitValueInit _ -> trm_lit ~loc ~ctx Lit_uninitialized
   | _ ->
     fail loc

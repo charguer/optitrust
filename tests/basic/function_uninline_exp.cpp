@@ -24,6 +24,18 @@ fbody:
   f(r + 2);
 }
 
+void test_basic2() {
+  const int r = 5;
+fbody:
+  f(r);
+}
+
+void test_basic3() {
+  int r = 5;
+fbody:
+  f(r);
+}
+
 void iter_nat_for(int n, void body(int)) {
   for (int i = 0; i < n; i++) {
     body(i);
@@ -42,6 +54,7 @@ hobody:
 }
 
 typedef struct {
+  int pos;
 } particle;
 
 typedef struct {
@@ -71,9 +84,7 @@ void test_bag() {
   bag_iter *const iter = bag_iter_begin(mybag);
   for (particle *p = bag_iter_get(iter); p != NULL;
        p = bag_iter_next(iter, true)) {
-    if (*p = *p) {
-      x++;
-    }
+    p->pos = p->pos + 1;
   }
   free(iter);
 }
@@ -96,8 +107,6 @@ void test_bag2() {
   bag_iter iter;
   for (particle *p = bag2_iter_begin(&iter, mybag); p != NULL;
        p = bag2_iter_next(&iter, true)) {
-    if (*p = *p) {
-      x++;
-    }
+    p->pos = p->pos + 1;
   }
 }

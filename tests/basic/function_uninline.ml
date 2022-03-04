@@ -33,7 +33,7 @@ int main() {
 let _ = Run.script_cpp (fun _ ->
 
     !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabelBody "gtwice_body"];
-    !! Function_basic.uninline ~fct:[cFunDef "f"] [cLabelBody "fbody"];
+    !! Function_basic.uninline ~fct:[cFunDef "f"] [nbMulti; cLabelBody "fbody"];
     !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabelBody "hobody"];
 
     !! Function_basic.uninline ~fct:[cFunDef "iter_bag2"] [cLabelBody "bagbody2"];
