@@ -129,7 +129,8 @@ let get_cpp_includes (filename : string) : string =
    and the OptiTrust AST. *)
 let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
   let use_new_encodings = !Flags.use_new_encodings in
-  let parser = if parser = Parsers.Default then !Parsers.default_cparser else parser in
+  let parser = Parsers.get_selected ~parser () in
+  Printf.printf "Parsing %s using %s\n" filename (Parsers.string_of_parser parser);
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
   let command_line_include =
@@ -161,7 +162,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
               fail None "parse: [-cparser all] option detected discrepencies;\n meld ast_clang.cpp ast_menhir.cpp";
              end else
              (* If the two ast match, we can use any one of them (only locations might differ); let's use the one from the default parser. *)
-               if !Parsers.default_cparser = Parsers.Clang then rawAstClang else rawAtMenhir
+               if Parsers.default_cparser = Parsers.Clang then rawAstClang else rawAtMenhir
             in
           if !Flags.bypass_cfeatures
             then rawAst
@@ -297,7 +298,7 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   push();
   !r
 
-let get_initial_ast ?(parser : Parsers.cparser =Parsers.Default) (ser_mode : Flags.serialized_mode) (ser_file : string) (filename : string) : (string * trm) =
+let get_initial_ast ?(parser : Parsers.cparser = Parsers.Default) (ser_mode : Flags.serialized_mode) (ser_file : string) (filename : string) : (string * trm) =
   (* LATER if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
   let includes = get_cpp_includes filename in
   let ser_file_exists = Sys.file_exists ser_file in
@@ -333,7 +334,7 @@ let get_excerpt (line : int) : string =
    [~prefix:"foo"] allows to use a custom prefix for all output files,
    instead of the basename of [f]. *)
 (* LATER for mli: val set_init_source : string -> unit *)
-let init ?(prefix : string = "") ?(parser : Parsers.cparser =Parsers.Default) (filename : string) : unit =
+let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (filename : string) : unit =
   reset ();
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in

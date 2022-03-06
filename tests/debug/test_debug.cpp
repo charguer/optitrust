@@ -4,6 +4,14 @@ typedef struct {
   int y;
 } vect;
 
+int main() {
+  vect v;
+  v = (vect) {0,10};
+}
+
+
+/*
+
 vect f(int a) {
   return { a-1, a };
 }
@@ -19,5 +27,5 @@ int main() {
   v = (vect){0,10};
 
 }
-
-
+  int p = f(3).x;
+*/

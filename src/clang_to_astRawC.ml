@@ -290,15 +290,15 @@ and tr_stmt (s : stmt) : trm =
     begin match dl with
       | [] -> fail loc "tr_stmt: empty declaration list"
       | [d] -> tr_decl d
-      | _ -> 
-       let dls = tr_decl_list dl in 
-       let var_list, ty, init_list = List.fold_left (fun (acc1, _, acc2) t1 -> 
-        begin match t1.desc with 
-        | Trm_let (_, (x, ty), init) -> 
+      | _ ->
+       let dls = tr_decl_list dl in
+       let var_list, ty, init_list = List.fold_left (fun (acc1, _, acc2) t1 ->
+        begin match t1.desc with
+        | Trm_let (_, (x, ty), init) ->
           (x :: acc1, ty, init :: acc2)
-        | _ -> fail loc "tr_stmr: expected a multip declaration statemnt" 
+        | _ -> fail loc "tr_stmr: expected a multip declaration statemnt"
         end
-       )([],typ_unit(), []) dls in 
+       )([],typ_unit(), []) dls in
        trm_let_mult ~loc ~ctx Var_mutable ty (List.rev var_list) (List.rev init_list)
     end
   | Expr e -> tr_expr ~is_statement:true e
@@ -574,7 +574,7 @@ and tr_expr ?(is_statement : bool = false)
         if has_arrow then
           trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get f) ) [trm_get base]
         else
-          let annot = if is_get_operation base then [Display_no_arrow] else [] in 
+          let annot = if is_get_operation base then [Display_no_arrow] else [] in
           trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~annot (Unop_struct_get f) ) [base]
       | _ -> fail loc "tr_expr: fields should be accessed by names"
       end
@@ -634,10 +634,9 @@ and tr_expr ?(is_statement : bool = false)
   | UnexposedExpr ImplicitValueInitExpr ->
     print_info loc "tr_expr: implicit initial value\n";
     trm_lit ~loc ~ctx Lit_uninitialized
-  (* sometimes Null is translated like this *)
-  | UnknownExpr (GNUNullExpr, GNUNullExpr) -> trm_null ~loc ~ctx ()
-  | UnknownExpr (CompoundLiteralExpr, CompoundLiteralExpr) -> trm_null ~loc ~ctx ()
-  
+  | UnknownExpr (GNUNullExpr, GNUNullExpr) -> trm_null ~loc ~ctx () (* sometimes Null is translated like this *) (* LATER: in which condition? *)
+  | UnknownExpr (CompoundLiteralExpr, CompoundLiteralExpr) -> trm_null ~loc ~ctx () (* TODO: should raise a warning, and possibly display a mark around null *)
+
   (* | UnknownExpr (CompoundStrinLiteral, _) -> fail loc "I failed here\n" *)
   | ImplicitValueInit _ -> trm_lit ~loc ~ctx Lit_uninitialized
   | _ ->

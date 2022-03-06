@@ -238,14 +238,14 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
   | EAlignof ty ->
      let ty = tr_type ty in
      trm_var ~loc ~typ ("_Alignas(" ^ AstC_to_c.typ_to_string ty ^ ")")
-  | EVar {name = n; _} -> 
+  | EVar {name = n; _} ->
     (* Booleans are parsed as const variables, here we need to convert them into literals *)
-    begin match Tools.bool_of_var n with 
-    | Some b -> 
-      trm_lit ~loc (Lit_bool b) 
+    begin match Tools.bool_of_var n with
+    | Some b ->
+      trm_lit ~loc (Lit_bool b)
     | None -> trm_var ~loc ~ctx ~typ n
     end
-    
+
   | EUnop (unop, e) ->
     let t = tr_expr e in
     let trm_apps1 unop t1 = trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc unop) [t1] in
@@ -329,7 +329,7 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
   | ECast (ty, e1) ->
     let ty = tr_type ty in
     let te = tr_expr e1 in
-    if is_null_pointer ty te
+    if is_null_pointer ty te (* Menhir encodes NULL as [( void* ) 0], we decode it here *)
       then trm_null ~loc ~ctx ()
       else  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te]
   | ECompound (_, init) -> tr_init init ~loc
