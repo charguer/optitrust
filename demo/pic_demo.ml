@@ -237,10 +237,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! iter_dims (fun d -> colorize "block" "block" d);
   !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [main; cFor "ciX"];
 
+(* TODO:FIX
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Trace.reparse();
   !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
-  !! Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
+  !! Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"]; (* TODO: fixme *)
         (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
   !! Variable.insert ~const:true ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:(trm_ands (map_dims (fun d ->
@@ -250,12 +251,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        (* TODO: in insert_if, allow for an optional mark argument, to be attached to the new if statement; use this mark in the targets below *)
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
+*)
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
   !! Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
   !! Loop.hoist [main; cVarDef "idCell2"];
   !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
   !! Variable.insert ~typ:(atyp "int&") ~name:"idCell2" ~value:(expr "idCell2_step[i]") [tBefore; main; cVarDef "p2"];
+    (* TODO: above, we could use Instr.copy to improve the scipt, before the feature describe below gets implemented *)
     (* LATER: fission should automatically do the duplication of references when necessary *)
 
   bigstep "Parallelization";
