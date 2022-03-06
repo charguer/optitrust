@@ -30,7 +30,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   bigstep "Vectorization in [cornerInterpolationCoeff]";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   let ctx_rv = cChain [ctx; sInstr "r.v"] in
-
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array~const:true ~pattern_aux_vars:"double rX, rY, rZ"
@@ -38,7 +37,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];
   !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
-  !!! Loop.fold_instrs ~index:"k" [sInstr "r.v"];
+  !! Trace.reparse(); (* Note: when using menhir, !!! does not seem to work fine *)
+  !! Loop.fold_instrs ~index:"k" [sInstr "r.v"];
 
   bigstep "Update particles in-place instead of in a local variable "; (* LATER: it might be possible to change the script to postpone this step *)
   !! Variable.reuse ~space:(expr "p->speed") [main; cVarDef "speed2" ];
@@ -65,24 +65,27 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Loop.fusion_targets [cMark "fuse"];
   !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="]
        [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "coeffs2.v[k]"];
-
-  !! Instr.inline_last_write ~write:[cCellWrite ~base:[cVar "deltaChargeOnCorners"] ()] [cCellRead ~base:[cVar "deltaChargeOnCorners"] ()];
+  !! Instr.inline_last_write ~write:[cCellWrite ~base:[cVar "deltaChargeOnCorners"] ()]
+       [cCellRead ~base:[cVar "deltaChargeOnCorners"] ()];
 
   (* TODO: Find out why this is not working *)
   (* !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]
        [main; sExpr "deltaChargeOnCorners.v[k]"]; *)
 
-  (* bigstep "Low level iteration on chunks of particles"; *)
-  (* LATER: there are some missing Mutable_var_get tags on "p" inside the for_c loop; this might be fixed when using the new encodings *)
-  (* !! Sequence.intro ~mark:"loop" ~start:[cVarDef "bag_it"] ~nb:2 ();
-  !! Sequence.intro_on_instr [cMark "loop"; cFor_c ""; dBody]; LATER: will be integrated in uninline
-  !! Variable.insert_and_fold ~name:"q" ~typ:(atyp "particle* const") ~value:(expr "(particle* const) p") [tBefore; main; cVarDef "iX0"];
-  !! Function_basic.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [cMark "loop"];
-  !! Instr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"]; LATER: why don't we also have Expr.replace_fun ?
-  !! Function.inline [main; cFun "bag_ho_iter_chunk"];
-  !! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0];
+  bigstep "Low level iteration on chunks of particles";
+  !! Sequence.intro ~mark:"loop" ~start:[main; cVarDef "bag_it"] ~nb:2 ();
+  !! Sequence.intro_on_instr [main; cMark "loop"; cFor_c ""; dBody]; (* LATER: will be integrated in uninline *)
+  (*!! Variable.insert_and_fold ~name:"q" ~typ:(atyp "particle* const") ~value:(expr "(particle* const) p") [tBefore; main; cVarDef "iX0"];*)
+  !! Function_basic.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [main; cMark "loop"];
+  !! Instr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"];(*  LATER: why don't we also have Expr.replace_fun ? *)
+  !! Function.inline [main; cFun "bag_ho_iter_chunk"]; (* LATER: uninline+replace+inline+beta *)
+  (*!! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0]; *)
   !! Function.beta ~indepth:true [main];
-  !! Variable.to_const [main; cVarDef "p"]; *)
+  (* LATER/ why is   show [nbMulti; main; cRead ~addr:[cVar "p"] ()];  not the same as show [nbMulti; main; cReadVar "p"] ? *)
+  !! Variable.init_detach [main; cVarDef "p"];
+  !! Instr.inline_last_write ~write:[main; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; main; cRead ~addr:[cStrictNew; cVar "p"] ()];  (*LATER: does not work, because access operations *)
+  (* !! Variable.to_const [main; cVarDef "p"];  LATER: does not work, because write in p->pos *)
+  (* LATER: read_last_write/inline_last_write should be able to target the write in an initialization, this would avoid the detach *)
 
   bigstep "Struct inline";
   (* !! Variable.inline [main; cVarDef "p"]; *)
