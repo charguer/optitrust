@@ -76,9 +76,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Sequence.intro ~mark:"loop" ~start:[main; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [main; cMark "loop"; cFor_c ""; dBody]; (* LATER: will be integrated in uninline *)
   (*!! Variable.insert_and_fold ~name:"q" ~typ:(atyp "particle* const") ~value:(expr "(particle* const) p") [tBefore; main; cVarDef "iX0"];*)
-  !! Function_basic.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [main; cMark "loop"];
-  !! Instr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"];(*  LATER: why don't we also have Expr.replace_fun ? *)
-  !! Function.inline [main; cFun "bag_ho_iter_chunk"]; (* LATER: uninline+replace+inline+beta *)
+  !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"] [main; cMark "loop"];
+  !! Instr.replace_fun "bag_iter_ho_chunk" [main; cFun "bag_iter_ho_basic"];(*  LATER: why don't we also have Expr.replace_fun ? *)
+  !! Function.inline [main; cFun "bag_iter_ho_chunk"]; (* LATER: uninline+replace+inline+beta *)
   (*!! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0]; *)
   !! Function.beta ~indepth:true [main];
   (* LATER/ why is   show [nbMulti; main; cRead ~addr:[cVar "p"] ()];  not the same as show [nbMulti; main; cReadVar "p"] ? *)
@@ -86,6 +86,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.inline_last_write ~write:[main; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; main; cRead ~addr:[cStrictNew; cVar "p"] ()];  (*LATER: does not work, because access operations *)
   (* !! Variable.to_const [main; cVarDef "p"];  LATER: does not work, because write in p->pos *)
   (* LATER: read_last_write/inline_last_write should be able to target the write in an initialization, this would avoid the detach *)
+  !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
   bigstep "Struct inline";
   (* !! Variable.inline [main; cVarDef "p"]; *)
@@ -93,7 +94,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.set_explicit [main; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
-  !! Struct.inline "items" [cTypDef "chunk"]; 
+  !! Struct.inline "items" [cTypDef "chunk"];
 
   bigstep "Prepare the stage for scaling (move definitions and introduce constants)";
   !! Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push.*"];
@@ -115,9 +116,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
          [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
-  (* !! Trace.reparse(); required for the terms to be visible to the simplifier *)
+  !! Trace.reparse(); (* required for the terms to be visible to the simplifier *)
   !! Variable.inline [cVarDef "accel"];
-  !! Arith.(simpl expand) [nbMulti; main; cFun "int_of_double"; dArg 0];
+  !! Arith.(simpl expand) [nbMulti; main; cFun "int_of_double"; dArg 0]; (* TODO: does nothing? *)
   !! Arith.(simpl expand) [nbMulti; main; cVarDef ~regexp:true "r.."; dInit ];
   !! Sequence.apply ~start:[tAfter; main; cWrite ~lhs:[cVar "fieldAtPosZ"]()]
        ~stop:[tAfter; main; cVarDef "coeffs2"] (fun m ->

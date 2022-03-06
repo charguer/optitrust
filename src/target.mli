@@ -164,7 +164,7 @@ val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> ?typ:string -> ?ty
 
 val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool ->string -> constr
 
-val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> string -> constr
+val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> string -> constr
 
 val cTypDef : ?substr:bool -> ?regexp:bool -> string -> constr
 
