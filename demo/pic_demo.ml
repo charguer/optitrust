@@ -93,9 +93,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.set_explicit [main; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
-  (* !! Struct.inline "items" [cTypDef "chunk"];  *)
-
-
+  !! Struct.inline "items" [cTypDef "chunk"]; 
 
   bigstep "Prepare the stage for scaling (move definitions and introduce constants)";
   !! Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push.*"];
