@@ -1,9 +1,10 @@
-type cparser = Clang | Menhir | Default | All
 
-let default_cparser = Clang
-
-(* Reference to store the parser that is being currenty used *)
-let selected_cparser = ref Default
+(* List of parsers available *)
+type cparser =
+  | Clang (* use Clang parser, via its ClangML interface *)
+  | Menhir (* use CompCert's Menhir parser *)
+  | Default (* use [default_cparser], define below *)
+  | All (* use all parsers, and ensure consistency of the results *)
 
 let cparser_of_string (s : string) : cparser =
    match s with
@@ -13,7 +14,7 @@ let cparser_of_string (s : string) : cparser =
     | "default" -> Default
     | _ -> failwith "cparser_of_string: please chhose one of the following options, 'clang', 'Menhir', 'All'"
 
-let string_of_parser (p : cparser) : string =
+let string_of_cparser (p : cparser) : string =
    match p with
     | Clang -> "clang"
     | Menhir -> "menhir"
@@ -21,19 +22,32 @@ let string_of_parser (p : cparser) : string =
     | Default -> "default"
 
 
+(* Default parser to use when no indication is provided,
+   neither via the command line, nor via [Parsers.select],
+   nor via the [~parser] option provided by functions such as
+   [Run.script_cpp] or [Trace.reparse]. *)
+let default_cparser = Clang
+
+(* Reference to the selected parser *)
+let selected_cparser = ref Default
+
+(* Get the parser currently selected *)
 let get_selected ?(parser : cparser = Default) () : cparser =
   if parser <> Default then parser
   else if !selected_cparser <> Default then !selected_cparser
   else default_cparser
 
-(* Change the current used cparser, unless the argument [p] is [Default] *)
-let select_if_not_default (p : cparser) : unit =
-  if p <> Default
-    then selected_cparser := p
+(* Select [p] as parser to be used *)
+let select (p : cparser) : unit =
+  selected_cparser := p
 
-(* Select the parser from the command line *)
-let set_selected_parser (s : string) : unit =
-  selected_cparser := (cparser_of_string s)
+(* Select the parser with name [s] as parser to be used *)
+let select_by_string (s : string) : unit =
+  select (cparser_of_string s)
+
+(* Select [p] as parser to be used, unless [p] is [Default], in this case do nothing *)
+let select_if_not_default (p : cparser) : unit =
+  if p <> Default then select p
 
 
 

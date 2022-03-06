@@ -14,6 +14,8 @@ let map_dims f = List.map f dims
 let idims = map_dims (fun d -> "i" ^ d)
 let delocalize_double_add = Delocalize_arith (Lit_double 0., Binop_add)
 
+let _ = Parsers.(select Menhir)
+
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";

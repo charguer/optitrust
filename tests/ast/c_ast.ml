@@ -6,9 +6,6 @@ open Target
 let _ =
   Flags.use_light_diff := false
 
-let parser = (* TODO: activate "All" when it's working *)
-  if true then Parsers.Default else Parsers.All
-
 let _ = Run.script_cpp ~parser:Parsers.Clang (fun () ->
 
   !! Trace.reparse ~parser:Parsers.Clang ();

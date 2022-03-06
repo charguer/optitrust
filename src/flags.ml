@@ -107,7 +107,7 @@ let spec =
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
-     ("-cparser", Arg.String Parsers.set_selected_parser, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
+     ("-cparser", Arg.String Parsers.select_by_string, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
      ("-use-old-encodings", Arg.Clear use_new_encodings, "FOR DEV ONLY");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)

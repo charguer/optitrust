@@ -130,7 +130,7 @@ let get_cpp_includes (filename : string) : string =
 let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
   let use_new_encodings = !Flags.use_new_encodings in
   let parser = Parsers.get_selected ~parser () in
-  Printf.printf "Parsing %s using %s\n" filename (Parsers.string_of_parser parser);
+  Printf.printf "Parsing %s using %s\n" filename (Parsers.string_of_cparser parser);
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
   let command_line_include =
@@ -826,8 +826,9 @@ let reparse_trm ?(info : string = "") ?(parser = Parsers.Default) (ctx : context
    as if it was a fresh input. Doing so ensures in particular that all the type
    information is properly set up. WARNING: reparsing discards all the marks in the AST. *)
 let reparse ?(info : string = "") ?(parser = Parsers.Default) () : unit =
- List.iter (fun trace ->
+  List.iter (fun trace ->
     let info = if info <> "" then info else "the code during the step starting at" in
+    let parser = Parsers.get_selected ~parser () in
     trace.cur_ast <- reparse_trm ~info ~parser trace.context trace.cur_ast)
     !traces
 
@@ -967,8 +968,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
         (* Handle reparse of code *)
         if reparse || (!Flags.reparse_at_big_steps && is_start_of_bigstep) then begin
           let info = if reparse then "the code on demand at" else "the code just before the big step at" in
-          let parser = !Parsers.selected_cparser in
-          reparse_alias ~info ~parser ();
+          reparse_alias ~info ();
           if !Flags.analyse_time then
             let duration_of_reparse = last_time_update () in
             write_timing_log (Printf.sprintf "------------------------\nREPARSE: %d\tms\n" duration_of_reparse);
@@ -1072,8 +1072,7 @@ let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> un
   if (Flags.get_exit_line() = Some line) then begin
     if reparse
       then
-        let parser = !Parsers.selected_cparser in
-        reparse_alias ~parser ();
+        reparse_alias ();
     step stepdescr_for_interactive_step;
     f();
     dump_diff_and_exit()
