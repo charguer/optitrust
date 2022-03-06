@@ -189,7 +189,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
         int iX = coord.iX;
         int iY = coord.iY;
         int iZ = coord.iZ;
-        int res[] = {
+        int res[8] = {
           cellOfCoord(iX, iY, iZ),
           cellOfCoord(iX, iY, wrap(gridZ,iZ-1)),
           cellOfCoord(iX, wrap(gridY,iY-1), iZ),
@@ -200,7 +200,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
           cellOfCoord(wrap(gridX,iX-1), wrap(gridY,iY-1), wrap(gridZ,iZ-1)),
         };
       return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
-      }" in
+      }" in (* LATER: menhir should support "res[]" syntax *)
   !! Sequence.insert (stmt mybij_def) [tBefore; main];
   !! Matrix.biject "mybij" [main; cVarDef "nextChargeCorners"];
   !! Instr.replace ~reparse:true (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)")
@@ -210,9 +210,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        (* ARTHUR: simplify mybij calls in the sum *)
 
   bigstep "Duplicate the charge of a corner for each of the threads";
-  !! Sequence.insert ~reparse:false (stmt "int omp_get_thread_num();") [tBefore; main]; (* TODO: use a include instead *)
-  !! Variable.insert ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "8") [tBefore; main]; (* TODO: remove ~value, see comment in Variable.insert *)
-  !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"]; (* TODO: there is an extra semi-column appearing *)
+  (* TODO: this makes the code nonreparsable   !! Sequence.insert ~reparse:false (stmt "int omp_get_thread_num();") [tBefore; main]; *) (* TODO: use a include instead *)
+  !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "8") [tBefore; main]; (* TODO: remove ~value, see comment in Variable.insert *)
+  (* TODO: this makes the code nonreparsable   !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"]; (* TODO: there is an extra semi-column appearing *) *)
+  !! Variable.insert ~name:"idThread"  ~reparse:false ~const:true ~typ:(atyp "int") ~value:(lit "0") [tBefore; cLabel "charge"]; (* TEMPORARY, use zero to avoid issues *)
        (* TODO: this could be just   Variable.insert ~name"idThread" ~value:(Omp.get_thread_num())
            where get_thread_num returns the term that corresponds to the function call; this would be more uniform. *)
 
@@ -227,7 +228,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.move_out ~dest:[tAfter; main; cFor "step"] [nbMulti; main; cFun "MFREE"];
 
   bigstep "Coloring";
-  !! Variable.insert_list ~defs:[("int","block",lit "2"); ("int","halfBlock",expr "block / 2")] [tBefore; cVarDef "nbCells"];
+  !! Variable.insert_list ~const:true ~defs:[("int","block",lit "2"); ("int","halfBlock",expr "block / 2")] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "bi" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [main; cFor ("i" ^ d)];
@@ -237,6 +238,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [main; cFor "ciX"];
 
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
+  !! Trace.reparse();
   !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
   !! Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
         (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)

@@ -35,13 +35,13 @@ let map f = function
         mutable, in general is not safe to fold variables which are not declared as const.
         But if the users know what they're doing then  they can use this flag to use fold_lefting
         also for mutable variables.
-   
+
     @correctness: The folded expression should have no observable side-effect.
-    Moreover, the expression should produce the same value as when it was 
+    Moreover, the expression should produce the same value as when it was
     evaluated the first time.
     Exists r such that for initialization and all replacement points we have
     { H } expr { fun r' => [r' = r] * H } with H beeing the local invariant
-    If applied on non const variable, the variable must additionaly not have 
+    If applied on non const variable, the variable must additionaly not have
     been mutated between the replacement point and its initialization.
 *)
 let fold ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.target) : unit =
@@ -309,12 +309,12 @@ let renames (rename : rename) : Target.Transfo.t =
 let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(delete : bool = true): Target.Transfo.t =
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
-    let tg_decl = Target.target_of_path p in 
+    let tg_decl = Target.target_of_path p in
     match tg_trm.desc with
     | Trm_let (vk, (x, _tx), init) ->
 
-      let mark = begin match get_init_val init with 
-      | Some init -> 
+      let mark = begin match get_init_val init with
+      | Some init ->
           if is_struct_init init then Mark.next() else ""
       | _ -> fail tg_trm.loc "inline: you should never try to inline uninitialized variables"
       end in
@@ -350,19 +350,19 @@ let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
       no occurrence of x appears after that instruction
 *)
 
-let inline_and_rename : Target.Transfo.t = 
-  Target.iter_on_targets (fun t p -> 
-    let tg_trm = Path.resolve_path p t in 
-    let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in 
-    let tg_scope = Target.target_of_path path_to_seq in 
-    match tg_trm.desc with 
-    | Trm_let (vk, (y, ty), init) -> 
-        let spec_target = tg_scope @ [Target.cVarDef y] in 
-        begin match get_init_val init with 
-        | Some v -> 
-          begin match v.desc with 
-          | Trm_var (_, x) -> 
-            if is_typ_const ty then begin 
+let inline_and_rename : Target.Transfo.t =
+  Target.iter_on_targets (fun t p ->
+    let tg_trm = Path.resolve_path p t in
+    let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
+    let tg_scope = Target.target_of_path path_to_seq in
+    match tg_trm.desc with
+    | Trm_let (vk, (y, ty), init) ->
+        let spec_target = tg_scope @ [Target.cVarDef y] in
+        begin match get_init_val init with
+        | Some v ->
+          begin match v.desc with
+          | Trm_var (_, x) ->
+            if is_typ_const ty then begin
                 inline spec_target;
                 renames (ByList [(x,y)]) tg_scope
               end
@@ -371,8 +371,8 @@ let inline_and_rename : Target.Transfo.t =
               inline spec_target;
               renames (ByList [(x,y)]) tg_scope
               end
-          | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation v -> 
-             if is_typ_const ty then begin 
+          | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation v ->
+             if is_typ_const ty then begin
                 inline spec_target;
                 renames (ByList [(x,y)]) tg_scope
               end
@@ -381,7 +381,7 @@ let inline_and_rename : Target.Transfo.t =
               inline spec_target;
               renames (ByList [(x,y)]) tg_scope
               end
-          | _ -> 
+          | _ ->
             (* DEBUG: *)
             (* Printf.printf "For variable %s\n got value %s\n" y (Ast_to_text.ast_to_string v); *)
             fail tg_trm.loc "inline_and_rename: expected a target of the form int x = get(r), int x = r, const int x = r or const int x = get(r)"
@@ -390,7 +390,7 @@ let inline_and_rename : Target.Transfo.t =
         end
     | _ -> fail t.loc "inline_and_rename: expected the declaration of the variable which is going to be inlined"
   )
-  
+
 (* [elim_redundant ~source tg] expets the target [tg] to be pointing to a variable declaration with an initial value being
     the same as the variable declaration which [source] points to. Then it will fold the variable in [source] into
     the varibale declaration [tg] and inline the declaration in [tg]
@@ -446,10 +446,10 @@ let insert ?(const : bool = false) ?(reparse : bool = false) ?(typ : typ = typ_a
 (* [insert_list ~const names typ values tg] expects the target [tg] to be poiting to a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
 *)
-let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) : Target.Transfo.t =
+let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) : Target.Transfo.t =
   let defs = List.rev defs in
   Target.reparse_after ~reparse (fun tg ->
     List.iter (fun (typ, name, value) ->
       (* This check is needed to avoid the parentheses in the case when the value of the vairbale is a simple expression  *)
-      insert ~name ~typ:(AstParser.atyp typ) ~value tg) (List.rev defs)
+      insert ~const ~name ~typ:(AstParser.atyp typ) ~value tg) (List.rev defs)
 )
