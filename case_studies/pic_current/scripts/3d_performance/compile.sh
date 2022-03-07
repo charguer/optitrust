@@ -3,11 +3,17 @@
 # Usage:  ./compile.sh ${TARGET} [${CHECKER_OUTFILE}]
 #  where ${TARGET} is a C filename from the folder simulations/
 #  where ${CHECKER_OUTFILE} is an optional filename argument,
-#        where to output particles in the final state
+#        where to output particles in the final state;
+#        If ${CHECKER_OUTFILE} is the string "1", then the filename
+#        is automatically generated from the target
 
 TARGET=$1
 BASENAME=`basename ${TARGET} .c`
 CHECKER_OUTFILE=$2
+
+if [ "$CHECKER_OUTFILE" == "1" ]; then
+  CHECKER_OUTFILE="${BASENAME}.res"
+fi
 
 #Home path for Pic-Vert.
 cd ../..
@@ -43,7 +49,7 @@ fi
 # possible additional flags -DPRINTPARAMS -DDEBUG_CHECKER -DDEBUG_CHARGE -DDEBUG_FIELD -DDEBUG_ACCEL -DDEBUG_CREATION
 # more flags: -DPRINTPERF -DPRINTSTEPS
 
-DEBUGFLAGS="-DPRINTSTEPS"
+DEBUGFLAGS="-DDEBUG_ACCEL "
 
 if [ ! -z "$CHECKER_OUTFILE" ]; then
   CHECKER="-DCHECKER=$CHECKER_OUTFILE ${DEBUGFLAGS}"

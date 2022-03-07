@@ -15,7 +15,7 @@ checker.out: checker.c
 progs: $(BINARIES)
 
 $(DIR_PROGS)/%.out: $(DEPENDENCIES)
-	./compile.sh $*.c
+	./compile.sh $*.c 1
 
 clean:
 	rm -f checker.out *.res $(DIR_PROGS)/*.out

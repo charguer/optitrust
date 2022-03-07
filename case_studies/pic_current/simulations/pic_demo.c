@@ -42,9 +42,10 @@ double areaY;
 double areaZ;
 
 double stepDuration;
+double averageChargeDensity;
+double averageMassDensity;
 double particleCharge;
 double particleMass;
-double weight;
 int nbParticles;
 
 // Grid description
@@ -258,11 +259,13 @@ bag* bagsNext;
 #include "parameters.h"                                   // constants PI, EPSILON, DBL_DECIMAL_DIG, FLT_DECIMAL_DIG, NB_PARTICLE
 // TODO: it would be simpler if the Poisson module could take rho directly as an array indexed by idCell
 void computeRhoForPoisson(double* deposit, double*** rho) {
+  // Each unit of particle in the deposit increases the charge density by 'factor'
+  double factor = averageChargeDensity * nbCells / nbParticles; // = particleCharge / cellVolume;
   double s = 0.;
   for (int i = 0; i < gridX; i++) {
     for (int j = 0; j < gridY; j++) {
       for (int k = 0; k < gridZ; k++) {
-        rho[i][j][k] = deposit[cellOfCoord(i,j,k)];
+        rho[i][j][k] = factor * deposit[cellOfCoord(i,j,k)];
 #ifdef DEBUG_CHARGE
         printf("rho[%d][%d][%d] = %lf\n", i, j, k, rho[i][j][k]);
         s += rho[i][j][k];
@@ -451,14 +454,6 @@ void init(int argc, char** argv) {
 
   // Convert PIC_VERT variables to verified_transfo variables.
   stepDuration = delta_t;
-  double totalCharge = -1.;
-    /* A "numerical particle" (we also say "macro particle") represents several
-     * physical particles. The weight is the number of physical particles it
-     * represents. The more particles we have in the simulation, the less this
-     * weight will be. A numerical particle may represent a different number of
-     * physical particles than another numerical particle, even though in this
-     * simulation it's not the case.
-     */
   nbSteps = num_iteration;
   nbParticles = nb_particles;
   gridX = ncx;
@@ -467,30 +462,39 @@ void init(int argc, char** argv) {
   areaX = x_max - x_min;
   areaY = y_max - y_min;
   areaZ = z_max - z_min;
+  const double q = -1.; // particle charge density
+  const double m =  1.; // particle mass density
+  averageChargeDensity = q;
+  averageMassDensity = m;
 
   // New variables
+
   nbCells = gridX * gridY * gridZ;
   cellX = areaX / gridX;
   cellY = areaY / gridY;
   cellZ = areaZ / gridZ;
-  particleCharge = totalCharge / nb_particles * nbCells; // TEMPORARY
-  particleMass = 1. / nb_particles;
+  const double cellVolume = cellX * cellY * cellZ;  // = totalVolume / nbCells
+  const double totalVolume = nbCells * cellVolume; // = areaX * areaY * areaZ;
+  const double totalCharge = averageChargeDensity * totalVolume;
+  const double totalMass = averageMassDensity * totalVolume;
+  particleCharge = totalCharge / nbParticles; // = averageChargeDensity * nbCells * cellVolume / nb_particles
+  particleMass = totalMass / nbParticles;
+  // Note: (particleCharge / particleMass) = (totalCharge / totalMass) = (averageChargeDensity / averageMassDensity) = -1.0
 
-  // initialize poisson solver, and rho, Ex, Ey, Ez arrays
+  // Allocate and rho, Ex, Ey, Ez arrays used by the Poisson solver
   rho = allocate_3d_array(gridX, gridY, gridZ);
   Ex = allocate_3d_array(gridX, gridY, gridZ);
   Ey = allocate_3d_array(gridX, gridY, gridZ);
   Ez = allocate_3d_array(gridX, gridY, gridZ);
+  // Allocate and reset array for deposit
   deposit = (double*) malloc(nbCells * sizeof(double));
-  // Reset deposit
   resetIntArray(deposit);
-  // Not initializes in this function, only allocated
+  // Allocate the field, not initialized in this function
   field = (vect*) malloc(nbCells * sizeof(vect));
 
   // Later in optimizations: call an 'initialize' function in particle_chunk_alloc
 
   TRACE("Filling particles on %d cells\n", nbCells);
-
 
   // Initialize bagsNext and bagsCur with empty bags in every cell
   bagsCur = (bag*) malloc(nbCells * sizeof(bag));
@@ -518,7 +522,6 @@ void init(int argc, char** argv) {
     const double x_range = mesh.x_max - mesh.x_min;
     const double y_range = mesh.y_max - mesh.y_min;
     const double z_range = mesh.z_max - mesh.z_min;
-    weight = x_range * y_range * z_range / nbParticles; // TODO YANN check
 
     TRACE("Creating %ld particles\n", nb_particles);
     // Create particles and push them into the bags.
@@ -590,8 +593,8 @@ void init(int argc, char** argv) {
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
         // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
         // TRACE("LOOP3\n");
-        // vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
-        vect accel = vect_mul(-1. * particleCharge / particleMass / nbParticles, fieldAtPos); // TODO: magic?
+        vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
+
 #ifdef DEBUG_ACCEL
         if (p->id == 0) {
           printf("particle %d: topcorner_fieldx = %g\n", p->id, field_at_corners.v[0].x);
@@ -675,7 +678,7 @@ int main(int argc, char** argv) {
 
         // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
         // vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
-        vect accel = vect_mul(-1. * particleCharge / particleMass / nbParticles, fieldAtPos); // TODO: magic?
+        vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
 
         // Compute the new speed and position for the particle.
         vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
