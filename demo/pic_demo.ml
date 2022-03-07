@@ -48,7 +48,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-  (* !! Trace.reparse(); *)
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
 
   bigstep "inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
@@ -84,7 +83,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.beta ~indepth:true [main];
   (* LATER/ why is   show [nbMulti; main; cRead ~addr:[cVar "p"] ()];  not the same as show [nbMulti; main; cReadVar "p"] ? *)
   (* !! Instr.inline_last_write ~write:[main; cVarDef "p"]  [nbMulti; main; cVar "p"]; *)  (*LATER: does not work, because access operations *)
-   !! Variable.init_detach [main; cVarDef "p"];
+  !! Variable.init_detach [main; cVarDef "p"];
   !! Instr.inline_last_write ~write:[main; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; main; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
   (* !! Variable.to_const [main; cVarDef "p"];  LATER: does not work, because write in p->pos *)
   (* LATER: read_last_write/inline_last_write should be able to target the write in an initialization, this would avoid the detach *)
@@ -256,7 +255,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "p2"]; [cVarDef "iX2"]]];
   !! Loop.fission [tBefore; main; cVarDef "p2"];
   
-  (* TODO: Discuss *)
+  (* Discuss *)
   (* !! Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
   !! Loop.hoist [main; cVarDef "idCell2"];
   !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
@@ -282,8 +281,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 (* TODO: insert the right include (using Instr.insert) to eliminate the error
    pic_demo_debug.cpp:616:30: error: use of undeclared identifier 'omp_get_thread_num'
    *)
-
-(* TODO: modify trm_add_mark so that it does not add any mark if the argument is "" *)
 
 (* TODO: generalize Specialize.any so that it takes a trm and not a string as argument.
 
