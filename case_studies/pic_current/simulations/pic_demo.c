@@ -593,6 +593,7 @@ void init(int argc, char** argv) {
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
         // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
         // TRACE("LOOP3\n");
+
         vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
 
 #ifdef DEBUG_ACCEL

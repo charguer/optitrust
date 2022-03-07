@@ -11,8 +11,11 @@ TARGET1=$1
 TARGET2=$2
 CHECKER_OUTFILE1="`basename ${TARGET1} .c`.res"
 CHECKER_OUTFILE2="`basename ${TARGET2} .c`.res"
+DIR_OUTFILE=../../3d_runs/run1/
 
 rm -f ${CHECKER_OUTFILE1} ${CHECKER_OUTFILE2}
+rm -f ${DIR_OUTFILE}/${CHECKER_OUTFILE1} ${DIR_OUTFILE}/${CHECKER_OUTFILE2}
+
 echo "====Compilation===="
 make -j3 all || exit 1
 # make checker.out
@@ -33,8 +36,8 @@ if [ ${OUT} -ne 0 ];then
   exit 1
 fi
 echo "====Comparison===="
-ln -f -s ../../3d_runs/run1/${CHECKER_OUTFILE1} ${CHECKER_OUTFILE1}
-ln -f -s ../../3d_runs/run1/${CHECKER_OUTFILE2} ${CHECKER_OUTFILE2}
+ln -f -s ${DIR_OUTFILE}/${CHECKER_OUTFILE1} ${CHECKER_OUTFILE1}
+ln -f -s ${DIR_OUTFILE}/${CHECKER_OUTFILE2} ${CHECKER_OUTFILE2}
 ./checker.out ${CHECKER_OUTFILE1} ${CHECKER_OUTFILE2}
 
 

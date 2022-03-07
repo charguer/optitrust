@@ -73,9 +73,9 @@ double squareNorm(vect v) {
 }
 
 double distWrapAround(double xWidth, double x1, double x2) {
-  return min(abs(x1-x2),
-         min(abs((x1+xWidth)-x2),
-             abs(x1-(x2+xWidth))));
+  return min(fabs(x1-x2),
+         min(fabs((x1+xWidth)-x2),
+             fabs(x1-(x2+xWidth))));
 }
 
 double squareDist(vect v1, vect v2) {
@@ -98,10 +98,17 @@ int main(int argc, char* argv[]) {
   double max_sqdist_pos = -1;
   double max_sqdist_speed = -1;
   for (int i = 0; i < nbParticles; i++){
-    double d = squareDist(ps1[i].pos, ps2[i].pos);
-    max_sqdist_pos = max(max_sqdist_pos, d);
     vect p1 = ps1[i].pos;
     vect p2 = ps2[i].pos;
+    //if (p1.x != p2.x || p1.y != p2.y || p1.z != p2.z) {
+    //  printf("%g %g %g %g %g %g\n", p1.x, p2.x, p1.y, p2.y, p1.z, p2.z);
+    //} // no match cause wraparound
+    double d = squareDist(ps1[i].pos, ps2[i].pos);
+    max_sqdist_pos = max(max_sqdist_pos, d);
+
+
+    // printf("%g %g %g %g %g %g ==> %g\n", p1.x, p2.x, p1.y, p2.y, p1.z, p2.z, d);
+
     if (d > 1. || p1.x < 0 || p1.x > areaX
         || p1.y < 0 || p1.y > areaY
         || p1.z < 0 || p1.z > areaZ
@@ -115,8 +122,13 @@ int main(int argc, char* argv[]) {
   }
 
   printf("Compared %d particles\n", nbParticles);
-  printf("Maximal dist pos  : %f\n", sqrt(max_sqdist_pos));
-  printf("Maximal dist speed: %f\n", sqrt(max_sqdist_speed));
+  printf("Maximal dist pos  : %g\n", sqrt(max_sqdist_pos));
+  printf("Maximal dist speed: %g\n", sqrt(max_sqdist_speed));
+
+  // #include <float.h>
+  // int Digs = DECIMAL_DIG;
+  // printf("Maximal dist pos  : %.*e\n", Digs, sqrt(max_sqdist_pos));
+  // printf("Maximal dist speed: %.*e\n", Digs, sqrt(max_sqdist_speed));
 
   free(ps1);
   free(ps2);
