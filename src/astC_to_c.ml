@@ -144,7 +144,9 @@ and typ_to_doc (t : typ) : document =
   dattr ^^ dannot ^^ d
 
 and typed_var_to_doc (tx : typed_var) : document =
-  let const_string = if false then blank 1 ^^ string " const " ^^ blank 1 else empty in
+  let (x, ty) = tx in 
+  let is_const = is_typ_const ty in 
+  let const_string = if is_const then blank 1 ^^ string " const " ^^ blank 1 else empty in
   let rec aux (t : typ) (s : size) : document * document list =
     let ds =
       match s with
@@ -159,27 +161,23 @@ and typed_var_to_doc (tx : typed_var) : document =
     | _ ->
        (typ_to_doc t, [ds])
   in
-  let (x, t) = tx in
   let dattr =
-    match t.typ_attributes with
+    match ty.typ_attributes with
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
   in
-  match t.typ_desc with
+  let ty = get_inner_const_type ty in 
+  match ty.typ_desc with
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
-     dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
+     dattr ^^ const_string ^^ base ^^ blank 1 ^^ string x ^^ concat bracketl
   | Typ_fun (tyl, ty) ->
-
-  (* DEPRECATED *)
-  (*| Typ_ptr {inner_typ = {typ_desc = Typ_fun (tyl, ty); _};_}
-    let ret_type = typ_to_doc ty  in
-    let arg_types = List.map typ_to_doc tyl in
-    dattr ^^ ret_type ^^ parens(star ^^ string x) ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types) *)
     let ret_type = typ_to_doc ty in
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ blank 1 ^^ string x ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
-  | _ -> const_string ^^ typ_to_doc t ^^ blank 1 ^^ string x
+  | Typ_ptr _ -> 
+     dattr ^^ typ_to_doc ty ^^ blank 2 ^^ const_string ^^ string x
+  | _ -> const_string ^^ typ_to_doc ty ^^ blank 1 ^^ string x
 
 and lit_to_doc (l : lit) : document =
   match l with

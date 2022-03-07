@@ -419,7 +419,7 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p
       begin match targeted_node.desc with
       | Trm_array tl ->
         let node_type = begin match node_type.typ_desc with
-        | Typ_array (ty, _) -> get_inner_const_type  ty
+        | Typ_array (ty, _) -> get_inner_const_type ty
         | _ -> typ_auto ()
         end in
         let sz = (Mlist.length tl)  in

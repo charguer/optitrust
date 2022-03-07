@@ -1712,15 +1712,15 @@ let is_reference (ty : typ) : bool =
 
 (* check if the type is const or not *)
 let is_typ_const (t : typ) : bool =
-  begin match t.typ_desc with
+  match t.typ_desc with 
+  (* 
   | Typ_array (tx, _) ->
     begin match tx.typ_desc with
     | Typ_const _ -> true
     | _ -> false
-    end
+    end *)
   | Typ_const _ -> true
   | _ -> false
-  end
 
 (* some need some special bounds to define tiling correctly *)
 type tile_bound = TileBoundMin | TileBoundAnd | TileBoundDivides
@@ -1882,11 +1882,9 @@ let trm_let_immut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
 let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
   let var_name, var_type = typed_var in
-  let var_type_const = if kind = Var_immutable then typ_const var_type else var_type in
-  let var_type = typ_array var_type_const sz in
-  let var_type_ptr = if kind = Var_mutable then typ_ptr_generated var_type else var_type in
+  let var_type = if kind = Var_immutable then typ_const (typ_array var_type sz) else typ_ptr_generated (typ_array var_type sz) in
   let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
-  let res = trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init in
+  let res = trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type) var_init in
   if kind = Var_mutable then trm_annot_add Stackvar res else res
 
 
