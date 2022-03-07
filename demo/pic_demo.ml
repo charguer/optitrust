@@ -32,7 +32,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctx_rv = cChain [ctx; sInstr "r.v"] in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array~const:true ~pattern_aux_vars:"double rX, rY, rZ"
+  !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];
@@ -95,9 +95,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.set_explicit [main; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
-  
+
   bigstep "Aos-to-soa";
-  !! Struct.inline "items" [cTypDef "chunk"]; 
+  !! Struct.inline "items" [cTypDef "chunk"];
 
   bigstep "Prepare the stage for scaling (move definitions and introduce constants)";
   !! Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push.*"];
@@ -171,7 +171,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
           (* !! Trace.reparse ();  LATER: needed? *)
   *)
 
-  
+
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal of x/y/z *)
   !! Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];
@@ -236,7 +236,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
-  !! Variable.bind "b2" ~const:true ~is_ptr:true [main; cFun "bag_push"; dArg 0]; 
+  !! Variable.bind "b2" ~const:true ~is_ptr:true [main; cFun "bag_push"; dArg 0];
   !! Variable.insert ~const:true ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:(trm_ands (map_dims (fun d ->
          expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
@@ -250,7 +250,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
   !! Variable.to_const [main; cVarDef "nb"];
   !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "p2"]; [cVarDef "iX2"]]];
-  
+
   (* Discuss *)
   (* !! Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
   !! Loop.hoist [main; cVarDef "idCell2"];
@@ -276,7 +276,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   TODO: add an argument ?(use:trm) to (Variable and Matrix) delocalize to specialize the any on the fly;
   if the argument is "Some t", then pass a fresh mark to delocalize_aux, then call Specialize.any on that mark with the trm t. *)
 
-(* TODO:
+(* LATER:
     define the function
         type path_with_trms = (dir * trm) list
         trms_in_path : trm -> path -> path_with_trms
@@ -306,23 +306,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
    we could generate coefX and coefX2       using Pattern (fun i s -> if i = 0 then s else s ^ string_of_int (i+1))
    this would avoid having "0" all around the place for redundant definitions. *)
 
-(* LATER:
-  replace
-    !! Variable.inline [main; cVarDef "p"];
-    !! Variable.simpl_deref [main];
 
-  with
-
-  !! Variable.inline ~simpl_deref:true [main; cVarDef "p"];
-
-   if the definition of the variable inlined is of the form &t1, and the simpl_deref flag is activated,
-    the transformation should be invoked on the parent path of the variable occurence
-    (the operation will automatically be a noop if this parent path does not correspond to a get operation) *)
-
-(* LATER:
-     !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[^z]"];
-     could be
-     !! Loop.fission [nbMulti; tAllInBetween; ctx; cFor "k"; cSeq]; *)
 
 (* LATER:
     !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] ..
@@ -352,20 +336,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
           Arith.(simpl expand) [nbMulti; cMark "simplify"; cWrite(); dRHS; cStrictNew; Arith.constr];
           Sequence.elim [cMark "simplify"]; *)
 
-(* LATER: we need a revert to use_infix_ops
+(* LATER: we need a reverse to use_infix_ops
    maybe name the function    Function.infix_ops_intro and infix_ops_elim *)
 
 (* LATER: cWrite has ~lhs and ~rhs, but cRead has ~addr, this is not coherent, cRead should have ~arg or cWrite should have ~addr and ~arg *)
 
-(* LATER  Variable.insert ~const:true
+(* TODO:  Variable.insert ~const:true
     we should make const:true the default
     and possibly introduce Variable.insert_mut   as a shorthand for   insert ~const:false *)
 
-
-
-(* LATER: add a "compute" transformation to simplify
-    - products of int
-    - sums and products of doubles
-
-   LATER: simplification recursively in atoms, see example of [w];
+(*  LATER: compute should perform simplification recursively in atoms, see example of [w];
    to implement using trm_map. *)
