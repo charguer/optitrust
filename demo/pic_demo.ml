@@ -238,7 +238,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! iter_dims (fun d -> colorize "block" "block" d);
   !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [main; cFor "ciX"];
 
-(* TODO:FIX*)
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
   !! Variable.bind "&b2" ~const:true ~is_ptr:true [main; cFun "bag_push"; dArg 0]; (* TODO: fixme *)
@@ -246,17 +245,22 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       ~value:(trm_ands (map_dims (fun d ->
          expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
       [tBefore; main; cVarDef "b2"];
-  !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") [main; cFun "bag_push"];
-       (* TODO: in insert_if, allow for an optional mark argument, to be attached to the new if statement; use this mark in the targets below *)
-  !! Expr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
-     Expr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
+  !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") ~mark:"push" [main; cFun "bag_push"];
+  !! Expr.replace_fun "bag_push_serial" [cMark "push"; dThen; cFun "bag_push"];
+     Expr.replace_fun "bag_push_concurrent" [cMark "push"; dElse; cFun "bag_push"];
+     Marks.remove "push" [cMark "push"];
 
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
-  !! Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
+  !! Variable.to_const [main; cVarDef "nb"];
+  !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "p2"]; [cVarDef "iX2"]]];
+  !! Loop.fission [tBefore; main; cVarDef "p2"];
+  
+  (* TODO: Discuss *)
+  (* !! Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
   !! Loop.hoist [main; cVarDef "idCell2"];
   !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
-  !! Variable.insert ~typ:(atyp "int&") ~name:"idCell2" ~value:(expr "idCell2_step[i]") [tBefore; main; cVarDef "p2"];
+  !! Variable.insert ~typ:(atyp "int&") ~name:"idCell2" ~value:(expr "idCell2_step[i]") [tBefore; main; cVarDef "p2"]; *)
     (* TODO: above, we could use Instr.copy to improve the scipt, before the feature describe below gets implemented *)
     (* LATER: fission should automatically do the duplication of references when necessary *)
 
