@@ -322,7 +322,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
 let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : var list ) : Target.Transfo.local =
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices)
 
-let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (index : string) (ops : delocalize_ops) (t : trm) : trm =
+let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (index : string) (ops : delocalize_ops) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     if Mlist.length tl <> 5 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
@@ -373,7 +373,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                 let ps2 = resolve_target tg thrd_instr in
                 let new_thrd_instr =
                   List.fold_left (fun acc p ->
-                    apply_on_path (insert_access_dim_index_aux dim (trm_apps (trm_var "ANY") [dim])) acc p
+                    apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var "ANY") [dim]))) acc p
                   ) thrd_instr ps2 in
 
                 let new_access = access base new_dims new_indices in
@@ -428,6 +428,6 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
 
   |  _ -> fail t.loc "delocalize_aux: expected sequence which contains the mandatory instructions for applying the delocalize transformation"
 
-let delocalize (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (index : string) (ops : delocalize_ops): Target.Transfo.local =
-  Target.apply_on_path (delocalize_aux dim init_zero acc_in_place acc index ops)
+let delocalize (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (index : string) (ops : delocalize_ops): Target.Transfo.local =
+  Target.apply_on_path (delocalize_aux dim init_zero acc_in_place acc any_mark index ops)
 

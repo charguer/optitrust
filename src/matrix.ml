@@ -115,11 +115,13 @@ let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place 
   let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
   let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
   let acc = match acc with | Some s -> s | _ -> "s" in  Matrix_basic.local_name ~my_mark:middle_mark  var ~into ~indices tg;
-  Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops [Target.cMark middle_mark];
+  let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in 
+  Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops [Target.cMark middle_mark];
   
   if last then Matrix_basic.reorder_dims ~rotate_n:1 () [Target.nbMulti; Target.cMark middle_mark; Target.cFun ~regexp:true "M.\\(NDEX\\|ALLOC\\)."] ;
   begin match use with 
-  | Some e -> Specialize.any e [Target.nbAny; Target.cMark middle_mark; Target.cAny]
+  | Some e ->   Specialize.any e [Target.nbAny; Target.cMark any_mark]
+    (* Specialize.any e [Target.nbAny; Target.cMark middle_mark; Target.cAny] *)
   | None -> ()
   end;
   
