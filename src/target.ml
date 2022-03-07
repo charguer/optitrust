@@ -1037,17 +1037,15 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 
 (* [target_show_aux m t]: adds a mark [m] around the term t.
 *)
-let target_show_aux (m : mark) (t : trm) : trm =
-   (* TODO: add ~types
-   let m = if types then sprintf "m{%s}" (types_to_string t.typ) else m in *)
-   (* TODO: test  show ?types:true [cWrite(); dRHS] *)
-  trm_add_mark m t
-
+let target_show_aux ?(types : bool = false) (m : mark) (t : trm) : trm =
+   let ty_as_string = begin match t.typ with | Some ty -> AstC_to_c.typ_to_string ty | _ ->  "" end in
+   let m = if types then Printf.sprintf "m %s" ty_as_string else m in
+   trm_add_mark m t
 
 (* [target_show_transfo m t p]: adds a mark [m]
   around the term at path [p] in the term [t]. *)
-let target_show_transfo (m : mark) : Transfo.local =
-  apply_on_path (target_show_aux m)
+let target_show_transfo ?(types : bool = false)(m : mark) : Transfo.local =
+  apply_on_path (target_show_aux ~types m)
 
 (* [target_between_show_aux m k t]: adds a a mark [m]
    at position [k] in the marks list of the sequence described by the term [t]. *)
@@ -1076,7 +1074,7 @@ let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
    There is no need for a prefix such as [!!] in front of the [show]
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
-let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit = (* TODO: add ?types:bool=false *)
+let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (tg : target) : unit = 
   (* Automatically add [nbMulti] if there is no occurence constraint *)
   let tg = enable_multi_targets tg in
   if reparse then reparse_alias();
@@ -1096,7 +1094,7 @@ let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit = (* 
     end else begin
       applyi_on_targets (fun i t p ->
         let m = mark_of_occurence i in
-        target_show_transfo m t p) tg (*  TODO: add ~types *)
+        target_show_transfo ~types m t p) tg 
     end;
     if should_exit
       then dump_diff_and_exit()

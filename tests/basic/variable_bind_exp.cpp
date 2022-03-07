@@ -7,8 +7,14 @@ int_5 test() {
   return {a};
 }
 
+void pointer_arg(int *a, int b) { *a = b; }
+
 int main() {
   int b[5] = {0, 1, 2, 3, 4};
-  int x[5] = b;
+  int arr[5] = b;
+  int x;
+  int y;
+  int *z = &x;
+  pointer_arg(z, y);
   return 0;
 }

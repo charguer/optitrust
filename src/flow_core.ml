@@ -14,12 +14,13 @@ open Ast
     return:
       updated ast of the surrounding sequence with the added if statement
  *)
-let insert_if_aux (cond : trm) (t : trm) : trm =
+let insert_if_aux (cond : trm) (mark : mark) (t : trm) : trm =
+  
   begin match t.desc with 
-  | Trm_seq _ -> trm_if cond t t
-  | _ -> trm_if cond (trm_seq_nomarks [t]) (trm_seq_nomarks [t])
+  | Trm_seq _ -> trm_add_mark mark (trm_if cond t t) 
+  | _ -> trm_add_mark mark (trm_if cond (trm_seq_nomarks [t]) (trm_seq_nomarks [t])) 
   end 
 
-let insert_if (cond : trm) : Target.Transfo.local =
-  Target.apply_on_path (insert_if_aux cond)
+let insert_if (cond : trm) (mark : mark ): Target.Transfo.local =
+  Target.apply_on_path (insert_if_aux cond mark)
 

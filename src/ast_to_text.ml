@@ -176,7 +176,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let dv = print_val ~only_desc v in
      print_node "Trm_val" ^^ parens dv
   | Trm_var (vk, x) -> 
-    let var_kind_str = match vk with | Var_immutable -> string "Var_immutable" | Var_mutable -> string "Var_immutable" in
+    let var_kind_str = match vk with | Var_immutable -> string "Var_immutable" | Var_mutable -> string "Var_mutable" in
     string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ string x ^^ rparen
   | Trm_array tl ->
      let tl = Mlist.to_list tl in

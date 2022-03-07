@@ -3,13 +3,8 @@ open Target
 
 let _ = Flags.dump_ast_details := true
 
-let _ = Run.script_cpp (fun _ ->
-
-  
-    show [cVarDef "a"];
-
-
+let _ = Run.script_cpp ~parser:Parsers.Clang (fun _ ->
+   
+  show ~types:true [cWriteVar "y";dLHS];
 )
-
-(* Note: recall that currently const references are not supported,
-   see Ast_fromto_AstC *)
+ 

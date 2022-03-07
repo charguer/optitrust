@@ -46,11 +46,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Reveal write operations involved manipulation of particles and vectors";
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
-  show [nbMulti; main; cWrite ~typ:"vect" ()];
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
-  show [nbMulti; main; cWrite ~typ:"vect" ()];
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-  !! Trace.reparse();
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
 
   bigstep "inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
@@ -86,7 +83,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.beta ~indepth:true [main];
   (* LATER/ why is   show [nbMulti; main; cRead ~addr:[cVar "p"] ()];  not the same as show [nbMulti; main; cReadVar "p"] ? *)
   (* !! Instr.inline_last_write ~write:[main; cVarDef "p"]  [nbMulti; main; cVar "p"]; *)  (*LATER: does not work, because access operations *)
-   !! Variable.init_detach [main; cVarDef "p"];
+  !! Variable.init_detach [main; cVarDef "p"];
   !! Instr.inline_last_write ~write:[main; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; main; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
   (* !! Variable.to_const [main; cVarDef "p"];  LATER: does not work, because write in p->pos *)
   (* LATER: read_last_write/inline_last_write should be able to target the write in an initialization, this would avoid the detach *)
@@ -98,7 +95,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.set_explicit [main; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
-  (* Note: this is done later... !! Struct.inline "items" [cTypDef "chunk"]; *)
+  
+  bigstep "Aos-to-soa";
+  !! Struct.inline "items" [cTypDef "chunk"]; 
 
   bigstep "Prepare the stage for scaling (move definitions and introduce constants)";
   !! Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push.*"];
@@ -172,8 +171,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
           (* !! Trace.reparse ();  LATER: needed? *)
   *)
 
-  bigstep "Aos-to-soa";
-  !! Struct.inline "items" [cTypDef "chunk"]; (* TODO: move?? *)
+  
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal of x/y/z *)
   !! Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];
@@ -182,8 +180,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   !! Matrix.delocalize "nextCharge" ~into:"nextChargeCorners" ~last:true ~indices:["idCell"] ~init_zero:true
-     ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "core"];
-  !! Specialize.any "k" [nbMulti; main; cAny]; (* TODO: Why nbMulti needed *) (* TODO: exploit the ~use argument in delocalize *)
+     ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:"k" [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextCharge"] ~index:[] ~rhs:[cDouble 0.] ()]];
 
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
@@ -214,17 +211,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        (* ARTHUR: simplify mybij calls in the sum *)
 
   bigstep "Duplicate the charge of a corner for each of the threads";
-  (* TODO: this makes the code nonreparsable   !! Sequence.insert ~reparse:false (stmt "int omp_get_thread_num();") [tBefore; main]; *) (* TODO: use a include instead *)
+  !! Sequence.insert (expr "#include \"omp.h\"") [tBefore; main];
   !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "8") [tBefore; main]; (* TODO: remove ~value, see comment in Variable.insert *)
-  (* TODO: this makes the code nonreparsable   !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"]; (* TODO: there is an extra semi-column appearing *) *)
-  !! Variable.insert ~name:"idThread"  ~reparse:false ~const:true ~typ:(atyp "int") ~value:(lit "0") [tBefore; cLabel "charge"]; (* TEMPORARY, use zero to avoid issues *)
-       (* TODO: this could be just   Variable.insert ~name"idThread" ~value:(Omp.get_thread_num())
-           where get_thread_num returns the term that corresponds to the function call; this would be more uniform. *)
+  !! Variable.insert ~name:"idThread" ~typ:(typ_int()) ~value:(expr "get_thread_num()") [tBefore; cLabel "charge" ];
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "nextChargeCorners" ~into:"nextChargeThreadCorners" ~indices:["idCell"; "idCorner"]
-      ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "core"];
-  !! Specialize.any "idThread" [nbMulti; main; cAny]; (* TODO: why nbMulti here? *) (* TODO: exploit the ~use argument in delocalize *)
+      ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:"idThread" [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
 
   bigstep "Make the new matrices persistent across iterations"; (* LATER: would be cleaner to do earlier, near the corresponding delocalize *)
@@ -241,27 +234,28 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! iter_dims (fun d -> colorize "block" "block" d);
   !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [main; cFor "ciX"];
 
-(* TODO:FIX
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
-  !! Trace.reparse();
   !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
-  !! Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"]; (* TODO: fixme *)
-        (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
+  !! Variable.bind "b2" ~const:true ~is_ptr:true [main; cFun "bag_push"; dArg 0]; 
   !! Variable.insert ~const:true ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:(trm_ands (map_dims (fun d ->
          expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
       [tBefore; main; cVarDef "b2"];
-  !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") [main; cFun "bag_push"];
-       (* TODO: in insert_if, allow for an optional mark argument, to be attached to the new if statement; use this mark in the targets below *)
-  !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
-     Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
-*)
+  !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") ~mark:"push" [main; cFun "bag_push"];
+  !! Expr.replace_fun "bag_push_serial" [cMark "push"; dThen; cFun "bag_push"];
+     Expr.replace_fun "bag_push_concurrent" [cMark "push"; dElse; cFun "bag_push"];
+     Marks.remove "push" [cMark "push"];
+
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
-  !! Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
+  !! Variable.to_const [main; cVarDef "nb"];
+  !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "p2"]; [cVarDef "iX2"]]];
+  
+  (* Discuss *)
+  (* !! Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
   !! Loop.hoist [main; cVarDef "idCell2"];
   !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
-  !! Variable.insert ~typ:(atyp "int&") ~name:"idCell2" ~value:(expr "idCell2_step[i]") [tBefore; main; cVarDef "p2"];
+  !! Variable.insert ~typ:(atyp "int&") ~name:"idCell2" ~value:(expr "idCell2_step[i]") [tBefore; main; cVarDef "p2"]; *)
     (* TODO: above, we could use Instr.copy to improve the scipt, before the feature describe below gets implemented *)
     (* LATER: fission should automatically do the duplication of references when necessary *)
 
@@ -273,18 +267,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 )
 
-
-
-
-
-
-
-
-(* TODO: insert the right include (using Instr.insert) to eliminate the error
-   pic_demo_debug.cpp:616:30: error: use of undeclared identifier 'omp_get_thread_num'
-   *)
-
-(* TODO: modify trm_add_mark so that it does not add any mark if the argument is "" *)
 
 (* TODO: generalize Specialize.any so that it takes a trm and not a string as argument.
 

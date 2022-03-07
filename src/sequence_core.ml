@@ -99,7 +99,7 @@ let elim : Target.Transfo.local =
  *)
 let intro_on_instr_aux (mark : mark) (visible : bool) (t : trm) : trm =
   let wrapped_seq = if visible then trm_seq (Mlist.of_list [t]) else trm_seq_no_brace [t] in
-  if mark <> "" then trm_add_mark mark wrapped_seq else wrapped_seq 
+  trm_add_mark mark wrapped_seq 
  
 let intro_on_instr (visible : bool) (mark : mark) : Target.Transfo.local=
   Target.apply_on_path (intro_on_instr_aux mark visible)

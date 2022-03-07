@@ -75,8 +75,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
       in
     begin match dl.desc with
     | Trm_let (vk, (x, _), init) ->
-      let init = if mark = "" then init else trm_add_mark mark init in
-
+      let init = trm_add_mark mark init in 
       begin match vk with
       | Var_immutable ->
         let new_lback = begin match unfold_at with
@@ -265,7 +264,7 @@ let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : 
   let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_var_possibly_mut ~typ:(Some var_type) local_var) in
   let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in
   let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
-  if mark <> "" then trm_add_mark mark final_trm else final_trm
+  trm_add_mark mark final_trm
 
 let local_name (mark : mark) (curr_var : var) (local_var : var) : Target.Transfo.local =
   Target.apply_on_path(local_name_aux mark curr_var local_var)
@@ -400,21 +399,18 @@ let change_type (new_type : typvar) (index : int) : Target.Transfo.local =
     return:
       the updated sequence with the new generated binding
 *)
-let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
+let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (is_ptr : bool) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
     let targeted_node = Path.resolve_path p_local instr in
     let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
     let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
-
     let node_type = match targeted_node.typ with
     | Some ty -> ty
     | _ -> typ_auto() in
     let node_to_change = Internal.change_trm targeted_node (trm_var_possibly_mut ~const ~typ:(Some node_type) fresh_name) instr in
-
-    let targeted_node = if my_mark <> "" then trm_add_mark my_mark targeted_node else targeted_node in
-
+    let targeted_node = trm_add_mark my_mark targeted_node in
     let decl_to_insert =
       begin match targeted_node.desc with
       | Trm_array tl ->
@@ -429,6 +425,7 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p
           else
             trm_let_array Var_mutable (fresh_name, node_type) (Const sz) targeted_node
       | _ ->
+        let node_type = if is_ptr then typ_ptr Ptr_kind_mut node_type else node_type in 
         if const
           then trm_let_immut (fresh_name, node_type) targeted_node
           else trm_let_mut (fresh_name, node_type) targeted_node
@@ -439,8 +436,8 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p
   | _ -> fail t.loc "bind_aux: expected the surrounding sequence"
 
 
-let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
-  Target.apply_on_path (bind_aux my_mark index fresh_name const p_local)
+let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (is_ptr : bool) (p_local : path) : Target.Transfo.local =
+  Target.apply_on_path (bind_aux my_mark index fresh_name const is_ptr p_local)
 
 
 
@@ -454,10 +451,10 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
     | Trm_var (_, y) when y = x -> (true, t)
     | Trm_apps (_, [t1]) when is_get_operation t -> 
       let r, t1' = aux true t1 in 
-      if r then (r, t1') else (false, trm_get t1')
+      if r then (true, t1') else (false, trm_get t1')
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t1]) -> 
       let r, t1' = aux belongs_to_get t1 in 
-      if r then (true, trm_struct_get t1' f) else (false, trm_struct_access t1' f)
+      if r then (true, trm_struct_get ~typ:t.typ ~annot:t.annot t1' f) else (false, trm_struct_access ~typ:t.typ t1' f)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [t1; t2]) -> 
       let r, t1' = aux belongs_to_get t1 in 
       let _, t2' = aux false t2 in 

@@ -979,8 +979,7 @@ let trm_remove_marks (t : trm) : trm =
   | _ -> {t with marks = []}
 
 let trm_add_mark (m : mark) (t : trm) : trm =
-  {t with marks = m :: t.marks}
-
+  if m = "" then t else {t with marks = m :: t.marks}
 
 let trm_filter_mark (pred : mark -> bool) (t : trm): trm =
   {t with marks = List.filter (fun m -> pred m) t.marks}
@@ -2305,12 +2304,12 @@ let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool =
 
 
 (* [trm_struct_access~typ base field]*)
-let trm_struct_access ?(typ : typ option = None) (base : trm) (field : var) : trm =
-  trm_apps ~typ (trm_unop (Unop_struct_access field)) [base]
+let trm_struct_access ?(typ : typ option = None) ?(annot : trm_annot list = []) (base : trm) (field : var) : trm =
+  trm_apps ~typ (trm_unop ~annot (Unop_struct_access field)) [base]
 
 (* [trm_struct_get base field] *)
-let trm_struct_get ?(typ : typ option = None) (base : trm) (field : var) : trm =
-  trm_apps ~typ (trm_unop (Unop_struct_get field)) [base]
+let trm_struct_get ?(typ : typ option = None) ?(annot : trm_annot list = [])(base : trm) (field : var) : trm =
+  trm_apps ~typ (trm_unop ~annot (Unop_struct_get field)) [base]
 
 
 (* [trm_array_access base index] generates array_access (base, index) *)

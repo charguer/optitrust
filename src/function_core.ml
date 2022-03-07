@@ -31,7 +31,7 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
      | None -> typ_auto() in
      let decl_to_change = Internal.change_trm function_call (trm_var_possibly_mut ~const ~typ:(Some function_type) fresh_name) instr in 
     
-     let function_call = if my_mark <> "" then trm_add_mark my_mark function_call else function_call in
+     let function_call = trm_add_mark my_mark function_call in
      let decl_to_insert =
       if const
         then trm_let_immut (fresh_name, function_type) function_call
