@@ -14,7 +14,7 @@ CHECKER_OUTFILE2="`basename ${TARGET2} .c`.res"
 
 rm -f ${CHECKER_OUTFILE1} ${CHECKER_OUTFILE2}
 echo "====Compilation===="
-make all || exit 1
+make -j3 all || exit 1
 # make checker.out
 #./compile.sh ${TARGET1} ${CHECKER_OUTFILE1} || exit 1
 #./compile.sh ${TARGET2} ${CHECKER_OUTFILE2} || exit 1
