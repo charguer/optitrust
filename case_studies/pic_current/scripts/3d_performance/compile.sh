@@ -49,7 +49,8 @@ fi
 # possible additional flags -DPRINTPARAMS -DDEBUG_CHECKER -DDEBUG_CHARGE -DDEBUG_FIELD -DDEBUG_ACCEL -DDEBUG_CREATION
 # more flags: -DPRINTPERF -DPRINTSTEPS
 
-DEBUGFLAGS=" -DPRINTPERF "
+DEBUGFLAGS=""
+PERFFLAGS=" -DPRINTPERF -DPRINTSTEPS"
 
 if [ ! -z "$CHECKER_OUTFILE" ]; then
   CHECKER="-DCHECKER=$CHECKER_OUTFILE ${DEBUGFLAGS}"
@@ -60,7 +61,7 @@ if [ "${TARGET}" = "pic_barsamian.c" ]; then
     EXTRA_BARSAMIAN="$PICVERT_HOME/src/particle_type_concurrent_chunkbags_of_soa_3d.c"
 fi
 
-COMPILE_ARGS="-I$PICVERT_HOME/include $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $EXTRA_BARSAMIAN  $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c $PICVERT_HOME/simulations/${BASENAME}.c -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $CHECKER -lfftw3 -lm -O3  -march=native -std=gnu11"
+COMPILE_ARGS="-I$PICVERT_HOME/include $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $EXTRA_BARSAMIAN  $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c $PICVERT_HOME/simulations/${BASENAME}.c -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $CHECKER $PERFFLAGS -lfftw3 -lm -O3  -march=native -std=gnu11"
 
 
 # Depending on your version, you may change "export OMPI_CC=icc\n  mpicc" by just "mpiicc".

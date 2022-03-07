@@ -97,33 +97,43 @@ int main(int argc, char* argv[]) {
 
   double max_sqdist_pos = -1;
   double max_sqdist_speed = -1;
+  double max_sqspeed = -1;
   for (int i = 0; i < nbParticles; i++){
     vect p1 = ps1[i].pos;
     vect p2 = ps2[i].pos;
+
     //if (p1.x != p2.x || p1.y != p2.y || p1.z != p2.z) {
     //  printf("%g %g %g %g %g %g\n", p1.x, p2.x, p1.y, p2.y, p1.z, p2.z);
     //} // no match cause wraparound
-    double d = squareDist(ps1[i].pos, ps2[i].pos);
-    max_sqdist_pos = max(max_sqdist_pos, d);
 
+    double dd = squareDist(ps1[i].pos, ps2[i].pos);
+    max_sqdist_pos = max(max_sqdist_pos, dd);
 
     // printf("%g %g %g %g %g %g ==> %g\n", p1.x, p2.x, p1.y, p2.y, p1.z, p2.z, d);
-
-    if (d > 1. || p1.x < 0 || p1.x > areaX
+    /*
+    if (dd > 1. || p1.x < 0 || p1.x > areaX
         || p1.y < 0 || p1.y > areaY
         || p1.z < 0 || p1.z > areaZ
         || p2.x < 0 || p2.x > areaX
         || p2.y < 0 || p2.y > areaY
         || p2.z < 0 || p2.z > areaZ) {
-
       printf("%g %g %g %g %g %g\n", p1.x, p2.x, p1.y, p2.y, p1.z, p2.z);
-    }
-    max_sqdist_speed = max(max_sqdist_speed, squareDist(ps1[i].speed, ps2[i].speed));
+    }*/
+
+    double dv = squareDist(ps1[i].speed, ps2[i].speed);
+    max_sqdist_speed = max(max_sqdist_speed, dv);
+
+    double sqv = squareNorm(ps1[i].speed);
+    max_sqspeed = max(max_sqspeed, sqv);
   }
 
   printf("Compared %d particles\n", nbParticles);
   printf("Maximal dist pos  : %g\n", sqrt(max_sqdist_pos));
   printf("Maximal dist speed: %g\n", sqrt(max_sqdist_speed));
+  if (areaX == areaY && areaX == areaZ) {
+    printf("Maximal dist pos relative to area width : %g%%\n", 100. * sqrt(max_sqdist_pos) / areaX);
+  }
+  printf("Maximal dist speed relative to maximal speed: %g%%\n", 100. * sqrt(max_sqdist_speed) / sqrt(max_sqspeed));
 
   // #include <float.h>
   // int Digs = DECIMAL_DIG;
