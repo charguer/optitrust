@@ -46,11 +46,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Reveal write operations involved manipulation of particles and vectors";
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
-  show [nbMulti; main; cWrite ~typ:"vect" ()];
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
-  show [nbMulti; main; cWrite ~typ:"vect" ()];
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-  !! Trace.reparse();
+  (* !! Trace.reparse(); *)
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
 
   bigstep "inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
@@ -98,7 +96,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.set_explicit [main; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
-  (* Note: this is done later... !! Struct.inline "items" [cTypDef "chunk"]; *)
+  
+  bigstep "Aos-to-soa";
+  !! Struct.inline "items" [cTypDef "chunk"]; 
 
   bigstep "Prepare the stage for scaling (move definitions and introduce constants)";
   !! Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push.*"];
@@ -172,8 +172,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
           (* !! Trace.reparse ();  LATER: needed? *)
   *)
 
-  bigstep "Aos-to-soa";
-  !! Struct.inline "items" [cTypDef "chunk"]; (* TODO: move?? *)
+  
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal of x/y/z *)
   !! Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];
@@ -182,8 +181,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   !! Matrix.delocalize "nextCharge" ~into:"nextChargeCorners" ~last:true ~indices:["idCell"] ~init_zero:true
-     ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "core"];
-  !! Specialize.any "k" [nbMulti; main; cAny]; (* TODO: Why nbMulti needed *) (* TODO: exploit the ~use argument in delocalize *)
+     ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:"k" [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextCharge"] ~index:[] ~rhs:[cDouble 0.] ()]];
 
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
@@ -223,8 +221,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "nextChargeCorners" ~into:"nextChargeThreadCorners" ~indices:["idCell"; "idCorner"]
-      ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "core"];
-  !! Specialize.any "idThread" [nbMulti; main; cAny]; (* TODO: why nbMulti here? *) (* TODO: exploit the ~use argument in delocalize *)
+      ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:"idThread" [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
 
   bigstep "Make the new matrices persistent across iterations"; (* LATER: would be cleaner to do earlier, near the corresponding delocalize *)

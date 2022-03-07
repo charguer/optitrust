@@ -454,10 +454,10 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
     | Trm_var (_, y) when y = x -> (true, t)
     | Trm_apps (_, [t1]) when is_get_operation t -> 
       let r, t1' = aux true t1 in 
-      if r then (r, t1') else (false, trm_get t1')
+      if r then (true, t1') else (false, trm_get t1')
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t1]) -> 
       let r, t1' = aux belongs_to_get t1 in 
-      if r then (true, trm_struct_get t1' f) else (false, trm_struct_access t1' f)
+      if r then (true, trm_struct_get ~typ:t.typ ~annot:t.annot t1' f) else (false, trm_struct_access ~typ:t.typ t1' f)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [t1; t2]) -> 
       let r, t1' = aux belongs_to_get t1 in 
       let _, t2' = aux false t2 in 

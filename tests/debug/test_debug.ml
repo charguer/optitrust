@@ -6,7 +6,7 @@ let _ = Flags.dump_ast_details := true
 let _ = Run.script_cpp (fun _ ->
 
   
-    show [cVarDef "a"];
+    Variable_basic.to_const [cFunDef "test_bag"; cVarDef "p"];
 
 
 )
