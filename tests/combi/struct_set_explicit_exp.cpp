@@ -20,7 +20,7 @@ int main() {
   b.y = p.y;
   obj a;
   a.weight = 0;
-  a.pos = {0, 0};
+  a.pos = (vect){0, 0};
   a.speed.x = 0;
   a.speed.y = 0;
   vect u;

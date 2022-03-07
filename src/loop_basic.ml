@@ -15,7 +15,7 @@ let swap : Target.Transfo.t =
 
 (* [color nb_colors i_color tg]: expects [tg] to point to a simple loop,
    say [for (int i = start; i < stop; i += step) { body } ].
-   [nb_colors] - denotes the number of colors (e.g., ["2"]),
+   [nb_colors] - an expression denoting the number of colors (e.g., ["2"]),
    [index] - denotes a fresh name to use as index for iterating over colors.
    In case [step = 1]:
    [for (int index = 0; index < nb_color; index++) {
@@ -24,7 +24,7 @@ let swap : Target.Transfo.t =
    [for (int index = 0; index < nb_color; index++) {
       for (int i = index*step; i < stop; i += step*nb_color) { body }].
 *)
-let color (nb_colors : string_trm) ?(index : var option) : Target.Transfo.t =
+let color (nb_colors : trm) ?(index : var option) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.color nb_colors index)
 
 

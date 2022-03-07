@@ -66,6 +66,7 @@ let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target
  *)
 
 let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
+  (* let write_trm = Target.get_trm_at (write @ [cOr [[dRHS]; [dInit]]]) in *)
   let write_trm = Target.get_trm_at (write @ [dRHS]) in
   Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> write_trm) t p) tg
 

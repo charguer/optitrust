@@ -44,8 +44,7 @@ let swap : Target.Transfo.local =
         the transformed loop
 *)
 
-
-let color_aux (nb_colors : var) (i_color : var option) (t : trm) : trm =
+let color_aux (nb_colors : trm) (i_color : var option) (t : trm) : trm =
   match t.desc with
   | Trm_for (index , start, direction, stop, step, body) ->
 
@@ -58,17 +57,17 @@ let color_aux (nb_colors : var) (i_color : var option) (t : trm) : trm =
       | Post_inc | Pre_inc -> true
       | _ -> false
       end in
-   let nb_colors_var = trm_var (*_get*) nb_colors in (* TODO: take nb_colors as an expression, not as a variable name *)
-    trm_for i_color start direction nb_colors_var (Post_inc) (
+   let nb_colors = nb_colors in 
+    trm_for i_color start direction nb_colors (Post_inc) (
       trm_seq_nomarks [
         trm_for index (if is_step_one then trm_var i_color else trm_apps (trm_binop Binop_mul) [trm_var i_color; loop_step_to_trm step]) direction stop
-          (if is_step_one then Step nb_colors_var else Step (trm_apps (trm_binop Binop_mul) [nb_colors_var; loop_step_to_trm step])) body
+          (if is_step_one then Step nb_colors else Step (trm_apps (trm_binop Binop_mul) [nb_colors; loop_step_to_trm step])) body
       ]
     )
   | _ -> fail t.loc "color_aux: only_simple loops are supported"
 
-let color (c : var) (i_color : var option ) : Target.Transfo.local =
-    Target.apply_on_path (color_aux c  i_color)
+let color (nb_colors : trm) (i_color : var option ) : Target.Transfo.local =
+    Target.apply_on_path (color_aux nb_colors  i_color)
 
 (*  [tile_aux divides b tile_index t]: tile loop t
       params:
