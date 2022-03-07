@@ -19,18 +19,6 @@ let update ?(reparse: bool = false)  (f : trm -> trm) : Target.Transfo.t =
 let replace ?(reparse : bool = false) (node : trm) : Target.Transfo.t =
   update ~reparse (fun _t -> node)
 
-(* [replace_fun code tg] expects the target to point to a function call,
-    it then replaces the name of the function call with the one entered
-    by the user
-
-    Assumption:
-      [name] is the name of an already defined function which has the same
-      signature as function whose call is targeted by [tg]
-*)
-let replace_fun (name : string) (tg : target) : unit =
-  Target.apply_on_targets (Instr_core.replace_fun name) tg
-
-
 (* [delete tg] expects the target [tg] to point to an instruction inside a sequence
       then it will remove that instruciton from that sequence
 *)

@@ -65,7 +65,7 @@ let biject (fun_bij : string) : Target.Transfo.t =
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     match tg_trm.desc with 
     | Trm_let (_, (p, _), _) -> 
-      Instr.replace_fun fun_bij ((Target.target_of_path path_to_seq) @ [Target.nbAny; Target.cCellAccess ~base:[Target.cVar p] ~index:[Target.cFun ""] (); Target.cFun ~regexp:true "MINDEX."])
+      Expr.replace_fun fun_bij ((Target.target_of_path path_to_seq) @ [Target.nbAny; Target.cCellAccess ~base:[Target.cVar p] ~index:[Target.cFun ""] (); Target.cFun ~regexp:true "MINDEX."])
     | _ -> fail tg_trm.loc "biject: expected a variable declaration"
   
 )

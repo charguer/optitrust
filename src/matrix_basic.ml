@@ -42,7 +42,7 @@ let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.t
       replaces the name of that function call with [fun_name]
 *)
 let biject (fun_name : string) : Target.Transfo.t =
-  Instr.replace_fun fun_name
+  Expr.replace_fun fun_name
 
 (* [local_name ~mark var into tg] expects the target pointing to an instruction that contains
       an occurrence of [var] then it will define a matrix [into] whose dimensions will be the same
