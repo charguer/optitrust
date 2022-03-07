@@ -96,3 +96,7 @@ let view_subterms ?(constr:Constr.constr option) ?(rexp : Constr.rexp option) (t
   (* for debug: AstC_to_c.print_stringreprs stringreprs; *)
   Target.apply_on_targets (Instr_core.view_subterms stringreprs ro) tg
 
+let copy : Target.Transfo.t = 
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun t (p, i) -> Instr_core.copy i t p )
+

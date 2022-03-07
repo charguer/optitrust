@@ -62,8 +62,7 @@ let fold (fold_at : target) (index) : Target.Transfo.local =
       [index]: index of the declaration inside its surrounding sequence
       [t]: ast of the variable declaration
     return:
-      the ast of the updated sequence which contains the declaration ast [t]
-*)
+      the ast of the updated sequence which contains the declaration ast [t] *)
 
 let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (t : trm) : trm =
   match t.desc with

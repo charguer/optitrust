@@ -11,4 +11,4 @@ open Target
       signature as function whose call is targeted by [tg]
 *)
 let replace_fun (name : string) (tg : target) : unit =
-  Target.apply_on_targets (Instr_core.replace_fun name) tg
+  Target.apply_on_targets (Expr_core.replace_fun name) tg

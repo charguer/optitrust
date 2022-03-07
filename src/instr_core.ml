@@ -162,3 +162,23 @@ let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp op
    See [Instr_basic.view_subterms] for details on how this is achieved. *)
 let view_subterms (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp option) : Target.Transfo.local =
   Target.apply_on_path (view_subterms_aux stringreprs ro)
+
+
+(* [copy_aux index t]: create a copy of the targeted instruction 
+    params:
+      [index]: index of the targeted instruction insed its surrounding sequence
+      [t]: ast of the surrounding sequence containing the targeted instruction
+    return:
+      the ast of the updated sequence
+*)
+let copy_aux (index : int) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl -> 
+    let lfront, inst, lback = Internal.get_trm_and_its_relatives index tl in 
+    let new_tl = Mlist.merge lfront lback in 
+    let new_tl = Mlist.insert_sublist_at index [inst;inst] new_tl in 
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
+  | _ -> fail t.loc "copy_aux: "
+
+let copy (index : int) : Target.Transfo.local =
+  Target.apply_on_path (copy_aux index)
