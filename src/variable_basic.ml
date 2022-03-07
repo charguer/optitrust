@@ -155,11 +155,11 @@ let subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Targe
       with name [fresh_name] just before the instruction that contains the target [tg]. And replace the targeted node with an occurrence
       of the variable [fresh_name].
 *)
-let bind ?(const : bool = false) ?(mark : mark = "") (fresh_name : var) : Target.Transfo.t =
+let bind ?(const : bool = false) ?(mark : mark = "") ?(is_ptr : bool = false) (fresh_name : var) : Target.Transfo.t =
   Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
-      Variable_core.bind mark i fresh_name const p_local t p)
+      Variable_core.bind mark i fresh_name const is_ptr p_local t p)
 
 (* [to_const tg] expects the target [tg] to be pointing at a variable declaration, then it will search inside the same scope if there are
       any write operations on that variable. If this is the case then the tranformation will fail, because of the safety of this operation.

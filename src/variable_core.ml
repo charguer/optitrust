@@ -400,14 +400,13 @@ let change_type (new_type : typvar) (index : int) : Target.Transfo.local =
     return:
       the updated sequence with the new generated binding
 *)
-let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
+let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (is_ptr : bool) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
     let targeted_node = Path.resolve_path p_local instr in
     let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
     let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
-
     let node_type = match targeted_node.typ with
     | Some ty -> ty
     | _ -> typ_auto() in
@@ -429,6 +428,7 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p
           else
             trm_let_array Var_mutable (fresh_name, node_type) (Const sz) targeted_node
       | _ ->
+        let node_type = if is_ptr then typ_ptr Ptr_kind_mut node_type else node_type in 
         if const
           then trm_let_immut (fresh_name, node_type) targeted_node
           else trm_let_mut (fresh_name, node_type) targeted_node
@@ -439,8 +439,8 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p
   | _ -> fail t.loc "bind_aux: expected the surrounding sequence"
 
 
-let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
-  Target.apply_on_path (bind_aux my_mark index fresh_name const p_local)
+let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (is_ptr : bool) (p_local : path) : Target.Transfo.local =
+  Target.apply_on_path (bind_aux my_mark index fresh_name const is_ptr p_local)
 
 
 

@@ -238,21 +238,19 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! iter_dims (fun d -> colorize "block" "block" d);
   !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [main; cFor "ciX"];
 
-(* TODO:FIX
+(* TODO:FIX*)
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
-  !! Trace.reparse();
   !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
-  !! Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"]; (* TODO: fixme *)
-        (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
+  !! Variable.bind "&b2" ~const:true ~is_ptr:true [main; cFun "bag_push"; dArg 0]; (* TODO: fixme *)
   !! Variable.insert ~const:true ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:(trm_ands (map_dims (fun d ->
          expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
       [tBefore; main; cVarDef "b2"];
   !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") [main; cFun "bag_push"];
        (* TODO: in insert_if, allow for an optional mark argument, to be attached to the new if statement; use this mark in the targets below *)
-  !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
-     Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
-*)
+  !! Expr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
+     Expr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
+
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
   !! Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];

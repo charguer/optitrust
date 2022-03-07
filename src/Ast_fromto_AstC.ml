@@ -115,7 +115,7 @@ let stackvar_elim (t : trm) : trm =
     | Trm_var (_, x) ->
       (* x when x is mutable becomes *x, where the ' * 'is used only for encoding purposes, hence not visible to the user *)
       if is_var_mutable !env x
-        then trm_get ~simplify:true t
+        then trm_get ~simplify:true {t with desc = Trm_var (Var_mutable, x)}
         else { t with desc = Trm_var (Var_immutable, x) }
     | Trm_let (_, (x, ty), tbody) ->
       (* mutability is deducted from the declaration of the variable, by checking if it has a const type or not *)
@@ -172,7 +172,7 @@ let stackvar_intro (t : trm) : trm =
     begin match t.desc with
     | Trm_var (_, x) ->
       if is_var_mutable !env x
-        then trm_address_of ~simplify:true t (* ~simplify:true  is not technically needed *)
+        then trm_address_of ~simplify:true {t with desc = Trm_var (Var_mutable, x)} 
         else t
     | Trm_let (_, (x, tx), tbody) ->
       let vk = if is_typ_const tx then Var_immutable else Var_mutable in
