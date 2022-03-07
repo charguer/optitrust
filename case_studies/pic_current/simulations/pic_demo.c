@@ -637,12 +637,21 @@ int main(int argc, char** argv) {
 
   init(argc, argv);
 
-  // Instrumentation of the code
+#if defined(PRINTPERF) || defined(PRINTSTEPS)
   double timeStart = omp_get_wtime();
+#endif
+#ifdef PRINTSTEPS
+  double nextReport = timeStart + 1.0;
+#endif
 
   // Foreach time step
   for (int step = 0; step < nbSteps; step++) {
-    printf("Step %d\n", step);
+#ifdef PRINTSTEPS
+    if (omp_get_wtime() > nextReport) {
+      nextReport += 1.0;
+      printf("Step %d\n", step);
+    }
+#endif
 
     // For each cell from the grid
     for (int idCell = 0; idCell < nbCells; idCell++) {
@@ -702,8 +711,8 @@ int main(int argc, char** argv) {
     updateFieldUsingNextCharge(nextCharge, field);
   }
 
-  double timeTotal = (double) (omp_get_wtime() - timeStart);
 #ifdef PRINTPERF
+  double timeTotal = (double) (omp_get_wtime() - timeStart);
   printf("Exectime: %.3f sec\n", timeTotal);
   printf("Throughput: %.1f million particles/sec\n", nbParticles * nbSteps / timeTotal / 1000000);
 #endif

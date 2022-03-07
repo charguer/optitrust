@@ -50,6 +50,8 @@
      ?TODO Highlight
      ?TODO marks
 
+   # Disable option   C_Cpp: Dim Inactive Regions   in the settings
+
    # OCaml syntax highlighting
    # New plugins to highlight the code "OCaml and Reason IDE"
    # Type CTRL+P, then paste and execute the commande:

@@ -46,8 +46,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Reveal write operations involved manipulation of particles and vectors";
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
+  show [nbMulti; main; cWrite ~typ:"vect" ()];
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
+  show [nbMulti; main; cWrite ~typ:"vect" ()];
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+  !! Trace.reparse();
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
 
   bigstep "inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
@@ -82,9 +85,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (*!! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0]; *)
   !! Function.beta ~indepth:true [main];
   (* LATER/ why is   show [nbMulti; main; cRead ~addr:[cVar "p"] ()];  not the same as show [nbMulti; main; cReadVar "p"] ? *)
-  !! Instr.inline_last_write ~write:[main; cVarDef "p"]  [nbMulti; main; cVar "p"];  (*LATER: does not work, because access operations *)
-  (* !! Variable.init_detach [main; cVarDef "p"];
-  !! Instr.inline_last_write ~write:[main; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; main; cRead ~addr:[cStrictNew; cVar "p"] ()]; *)  (*LATER: does not work, because access operations *)
+  (* !! Instr.inline_last_write ~write:[main; cVarDef "p"]  [nbMulti; main; cVar "p"]; *)  (*LATER: does not work, because access operations *)
+   !! Variable.init_detach [main; cVarDef "p"];
+  !! Instr.inline_last_write ~write:[main; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; main; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
   (* !! Variable.to_const [main; cVarDef "p"];  LATER: does not work, because write in p->pos *)
   (* LATER: read_last_write/inline_last_write should be able to target the write in an initialization, this would avoid the detach *)
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];

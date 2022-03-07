@@ -704,9 +704,18 @@ int main(int argc, char** argv) {
     start_diag_papi(&file_diag_papi, "diag_papi_8corners-opt.txt", papi_num_events, Events);
 #endif
 
+#ifdef PRINTSTEPS
+  double nextReport = omp_get_wtime() + 1.0;
+#endif
+
     time_start = omp_get_wtime();
     for (i_time = 0; i_time < num_iteration; i_time++) {
-        printf("Step %d\n", (int) i_time);
+#ifdef PRINTSTEPS
+        if (omp_get_wtime() > nextReport) {
+          nextReport += 1.0;
+          printf("Step %d\n", (int) i_time);
+        }
+#endif
         if (0) { // DISABLED TO TEST AGAINST VERIFIED_TRANSFO
             // Diagnostics energy
             t = i_time * delta_t;
@@ -925,7 +934,7 @@ int main(int argc, char** argv) {
     fwrite(&areaX, sizeof(double), 1, f);
     fwrite(&areaY, sizeof(double), 1, f);
     fwrite(&areaZ, sizeof(double), 1, f);
-    printf("negcheck\n");
+    //printf("negcheck\n");
     for (int j = 0; j < num_cells_3d; j++) {
       chunkbag = &particles[j];
       for (my_chunk = chunkbag->front; my_chunk; my_chunk = my_chunk->next) {
