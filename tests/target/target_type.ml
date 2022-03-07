@@ -30,8 +30,8 @@ let _ = Run.script_cpp (fun () ->
   show [ nbExact 1; cVarDef ~typ_pred:ty_double "" ];
 
   (* Type of arguments *)
-  show [ nbExact 3; cWrite () ];
-  show [ nbExact 5; cWrite (); cHasType "int" ];
+  show ~types:true [ nbExact 3; cWrite () ];
+  show ~types:true [ nbExact 5; cWrite (); cHasType "int" ];
   show [ nbExact 3; cWrite (); cStrict; cHasType "int" ];
   show [ nbExact 3; cPrimFun ~args:[[]; []] (Prim_binop Binop_set) ];
   

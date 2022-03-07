@@ -8,8 +8,8 @@ void test_pointer_arg(int* a, int b){
 
 int main () {
   
-  int x;
+  int x = 10;
   int y;
-  test_pointer_arg(&x, y);
+  y = x;
   return 0;
 }

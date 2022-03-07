@@ -1,5 +1,4 @@
 #include "optitrust.h"
-
 // --------- Bags of particles
 
 #include "particle_chunk.h"

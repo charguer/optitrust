@@ -211,12 +211,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        (* ARTHUR: simplify mybij calls in the sum *)
 
   bigstep "Duplicate the charge of a corner for each of the threads";
-  (* TODO: this makes the code nonreparsable   !! Sequence.insert ~reparse:false (stmt "int omp_get_thread_num();") [tBefore; main]; *) (* TODO: use a include instead *)
+  !! Sequence.insert (expr "#include \"omp.h\"") [tBefore; main];
   !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "8") [tBefore; main]; (* TODO: remove ~value, see comment in Variable.insert *)
-  (* TODO: this makes the code nonreparsable   !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"]; (* TODO: there is an extra semi-column appearing *) *)
-  !! Variable.insert ~name:"idThread"  ~reparse:false ~const:true ~typ:(atyp "int") ~value:(lit "0") [tBefore; cLabel "charge"]; (* TEMPORARY, use zero to avoid issues *)
-       (* TODO: this could be just   Variable.insert ~name"idThread" ~value:(Omp.get_thread_num())
-           where get_thread_num returns the term that corresponds to the function call; this would be more uniform. *)
+  !! Variable.insert ~name:"idThread" ~typ:(typ_int()) ~value:(expr "get_thread_num()") [tBefore; cLabel "charge" ];
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "nextChargeCorners" ~into:"nextChargeThreadCorners" ~indices:["idCell"; "idCorner"]
@@ -239,7 +236,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
-  !! Variable.bind "&b2" ~const:true ~is_ptr:true [main; cFun "bag_push"; dArg 0]; (* TODO: fixme *)
+  !! Variable.bind "b2" ~const:true ~is_ptr:true [main; cFun "bag_push"; dArg 0]; 
   !! Variable.insert ~const:true ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:(trm_ands (map_dims (fun d ->
          expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
@@ -253,7 +250,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
   !! Variable.to_const [main; cVarDef "nb"];
   !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "p2"]; [cVarDef "iX2"]]];
-  !! Loop.fission [tBefore; main; cVarDef "p2"];
   
   (* Discuss *)
   (* !! Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
@@ -271,16 +267,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 )
 
-
-
-
-
-
-
-
-(* TODO: insert the right include (using Instr.insert) to eliminate the error
-   pic_demo_debug.cpp:616:30: error: use of undeclared identifier 'omp_get_thread_num'
-   *)
 
 (* TODO: generalize Specialize.any so that it takes a trm and not a string as argument.
 
