@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# make test
+# make progs
 ./check.sh pic_demo.c pic_barsamian.c
 
 # DETAILS

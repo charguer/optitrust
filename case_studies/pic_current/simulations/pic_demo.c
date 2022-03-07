@@ -184,10 +184,10 @@ vect_nbCorners getFieldAtCorners(int idCell, vect* field) {
 // Total charge of the particles already placed in the cell for the next time step
 // charge are also accumulated in the corners of the cells
 
-void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners charges) {
+void accumulateChargeAtCorners(double* deposit, int idCell, double_nbCorners charges) {
   const int_nbCorners indices = indicesOfCorners(idCell);
   for (int k = 0; k < nbCorners; k++) {
-    nextCharge[indices.v[k]] += charges.v[k];
+    deposit[indices.v[k]] += charges.v[k];
   }
 }
 
@@ -225,6 +225,7 @@ vect matrix_vect_mul(const double_nbCorners coeffs, const vect_nbCorners matrix)
   return res;
 }
 
+/* DEPRECATED
 double_nbCorners vect8_mul(const double a, const double_nbCorners data) {
   double_nbCorners res;
   for (int k = 0; k < nbCorners; k++) {
@@ -232,7 +233,7 @@ double_nbCorners vect8_mul(const double a, const double_nbCorners data) {
   }
   return res;
 }
-
+*/
 
 #include "poisson_solvers.h"
 poisson_3d_solver poisson; // TODO: is this really passed by value to compute_E_from_rho_3d_fft? not by pointer?
@@ -242,8 +243,8 @@ double*** rho;
 double*** Ex;
 double*** Ey;
 double*** Ez;
-// nextCharge[idCell] corresponds to the cell in the front-top-left corner of that cell
-double* nextCharge;
+// deposit[idCell] corresponds to the cell in the front-top-left corner of that cell
+double* deposit;
 // Strength of the field that applies to each cell
 // fields[idCell] corresponds to the field at the top-right corner of the cell idCell;
 // The grid is treated with wrap-around
@@ -256,12 +257,12 @@ bag* bagsNext;
 
 #include "parameters.h"                                   // constants PI, EPSILON, DBL_DECIMAL_DIG, FLT_DECIMAL_DIG, NB_PARTICLE
 // TODO: it would be simpler if the Poisson module could take rho directly as an array indexed by idCell
-void computeRhoForPoisson(double* nextCharge, double*** rho) {
+void computeRhoForPoisson(double* deposit, double*** rho) {
   double s = 0.;
   for (int i = 0; i < gridX; i++) {
     for (int j = 0; j < gridY; j++) {
       for (int k = 0; k < gridZ; k++) {
-        rho[i][j][k] = nextCharge[cellOfCoord(i,j,k)];
+        rho[i][j][k] = deposit[cellOfCoord(i,j,k)];
 #ifdef DEBUG_CHARGE
         printf("rho[%d][%d][%d] = %lf\n", i, j, k, rho[i][j][k]);
         s += rho[i][j][k];
@@ -280,12 +281,12 @@ void resetIntArray(double* array) {
   }
 }
 
-// updateFieldsUsingNextCharge in an operation that reads nextCharge,
+// updateFieldUsingDeposit in an operation that reads deposit,
 // and updates the values in the fields array.
-void updateFieldUsingNextCharge(double* nextCharge, vect* field) {
+void updateFieldUsingDeposit(double* deposit, vect* field) {
 
-  // Compute Rho from nextCharge
-  computeRhoForPoisson(nextCharge, rho);
+  // Compute Rho from deposit
+  computeRhoForPoisson(deposit, rho);
 
   // Execute Poisson Solver (0 avoids the useless cell at borders which contains the same data)
   compute_E_from_rho_3d_fft(poisson, rho, Ex, Ey, Ez, 0);
@@ -303,8 +304,8 @@ void updateFieldUsingNextCharge(double* nextCharge, vect* field) {
     }
   }
 
-  // Reset nextCharge
-  resetIntArray(nextCharge);
+  // Reset deposit
+  resetIntArray(deposit);
 }
 
 
@@ -480,9 +481,9 @@ void init(int argc, char** argv) {
   Ex = allocate_3d_array(gridX, gridY, gridZ);
   Ey = allocate_3d_array(gridX, gridY, gridZ);
   Ez = allocate_3d_array(gridX, gridY, gridZ);
-  nextCharge = (double*) malloc(nbCells * sizeof(double));
-  // Reset nextCharge
-  resetIntArray(nextCharge);
+  deposit = (double*) malloc(nbCells * sizeof(double));
+  // Reset deposit
+  resetIntArray(deposit);
   // Not initializes in this function, only allocated
   field = (vect*) malloc(nbCells * sizeof(vect));
 
@@ -548,9 +549,8 @@ void init(int argc, char** argv) {
         bag_push_initial(&bagsCur[idCell], particle);
 
         // Deposit the charge of the particle at the corners of the target cell
-        double_nbCorners coeffs = cornerInterpolationCoeff(pos);
-        double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs);
-        accumulateChargeAtCorners(nextCharge, idCell, deltaChargeOnCorners);
+        double_nbCorners contribs = cornerInterpolationCoeff(pos);
+        accumulateChargeAtCorners(deposit, idCell, contribs);
     }
   }
 
@@ -560,8 +560,8 @@ void init(int argc, char** argv) {
 #endif
 
   TRACE("Computing initial poisson and leap-frog step\n");
-  // Poisson solver to compute field at time zero, and reset nextCharge
-  updateFieldUsingNextCharge(nextCharge, field);
+  // Poisson solver to compute field at time zero, and reset deposit
+  updateFieldUsingDeposit(deposit, field);
 
 #ifdef DEBUG_ACCEL
   printf("nbParticles = %d\n", nbParticles);
@@ -591,7 +591,7 @@ void init(int argc, char** argv) {
         // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
         // TRACE("LOOP3\n");
         // vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
-        vect accel = vect_mul(-1. / particleMass / nbParticles, fieldAtPos); // TODO: magic?
+        vect accel = vect_mul(-1. * particleCharge / particleMass / nbParticles, fieldAtPos); // TODO: magic?
 #ifdef DEBUG_ACCEL
         if (p->id == 0) {
           printf("particle %d: topcorner_fieldx = %g\n", p->id, field_at_corners.v[0].x);
@@ -675,7 +675,7 @@ int main(int argc, char** argv) {
 
         // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
         // vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
-        vect accel = vect_mul(-1. / particleMass / nbParticles, fieldAtPos); // TODO: magic?
+        vect accel = vect_mul(-1. * particleCharge / particleMass / nbParticles, fieldAtPos); // TODO: magic?
 
         // Compute the new speed and position for the particle.
         vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
@@ -691,9 +691,8 @@ int main(int argc, char** argv) {
         bag_push(&bagsNext[idCell2], p2);
 
         // Deposit the charge of the particle at the corners of the target cell
-        double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
-        double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs2);
-        accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
+        double_nbCorners contribs = cornerInterpolationCoeff(pos2);
+        accumulateChargeAtCorners(deposit, idCell2, contribs);
       }
       // TRACE("  reset bag\n");
       bag_init_initial(b);
@@ -706,9 +705,9 @@ int main(int argc, char** argv) {
     }
 
     // Update the new field based on the total charge accumulated in each cell,
-    // and reset nextCharge.
+    // and reset deposit.
     // TRACE("Poisson\n");
-    updateFieldUsingNextCharge(nextCharge, field);
+    updateFieldUsingDeposit(deposit, field);
   }
 
 #ifdef PRINTPERF

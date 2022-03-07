@@ -14,17 +14,18 @@ CHECKER_OUTFILE2="`basename ${TARGET2} .c`.res"
 
 rm -f ${CHECKER_OUTFILE1} ${CHECKER_OUTFILE2}
 echo "====Compilation===="
-make checker.out
-./compile.sh ${TARGET1} ${CHECKER_OUTFILE1} || exit 1
-./compile.sh ${TARGET2} ${CHECKER_OUTFILE2} || exit 1
-echo "====Execution ${TARGET1}===="
+make all || exit 1
+# make checker.out
+#./compile.sh ${TARGET1} ${CHECKER_OUTFILE1} || exit 1
+#./compile.sh ${TARGET2} ${CHECKER_OUTFILE2} || exit 1
+echo "====./run.sh ${TARGET1}===="
 ./run.sh ${TARGET1} || exit 1
 OUT=$?
 if [ ${OUT} -ne 0 ];then
   echo "Error: ${TARGET1} crashed"  >> /dev/stderr
   exit 1
 fi
-echo "====Execution ${TARGET2}===="
+echo "====./run.sh ${TARGET2}===="
 ./run.sh ${TARGET2} || exit 1
 OUT=$?
 if [ ${OUT} -ne 0 ];then
