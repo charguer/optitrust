@@ -9,5 +9,7 @@ int main() {
   t[1] = 4;
   int a;
   a = 3;
+  int b = t[1];
+  y = t[1];
   return 0;
 }

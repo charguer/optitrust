@@ -54,9 +54,19 @@ let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target
  *)
 
 let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
-  (* let write_trm = Target.get_trm_at (write @ [cOr [[dRHS]; [dInit]]]) in *)
-  let write_trm = Target.get_trm_at (write @ [dRHS]) in
-  Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> write_trm) t p) tg
+  let write_trm = Target.get_trm_at write in 
+  let written_trm =  
+  match write_trm.desc with 
+    | Trm_apps (_, [_; rhs]) when is_set_operation write_trm -> rhs
+    | Trm_let (_, _, init) -> 
+        begin match get_init_val init with
+        | Some init -> init
+        | None -> fail write_trm.loc "read_last_write: the targete write operation should be eithe a set operation or 
+            and initialized variable declaration "
+        end 
+    | _ -> fail write_trm.loc "read_last_write: the targete write operation should be eithe a set operation or 
+            and initialized variable declaration " in
+  Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> written_trm) t p) tg
 
 
 (* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location

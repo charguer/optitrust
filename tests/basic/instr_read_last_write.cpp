@@ -11,5 +11,7 @@ int main() {
   t[1] = 4;
   int a;
   a = t[0];
+  int b = t[1];
+  y = b;
   return 0;
 }
