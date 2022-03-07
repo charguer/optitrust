@@ -1,13 +1,24 @@
-#include <omp.h>                                          // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
+// --------- Includes
+
+#include <omp.h> // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include "parameter_reader.h"                             // type      simulation_parameters
-                                                          // constants STRING_NOT_SET, INT_NOT_SET, DOUBLE_NOT_SET
-                                                          // function  read_parameters_from_file
-// #define PRINTPERF 1
-// #define PRINTPARAMS 1
+
+#include "parameter_reader.h" // type simulation_parameters
+                              // constants STRING_NOT_SET, INT_NOT_SET, DOUBLE_NOT_SET
+                              // function  read_parameters_from_file
+
+#include "matrix_functions.h" // functions allocate_3d_array, deallocate_3d_array
+#include "random.h" // macros pic_vert_seed_double_RNG, pic_vert_free_RNG
+#include "initial_distributions.h" // types speeds_generator_3d, distribution_function_3d,
+  // max_distribution_function, variables speed_generators_3d, distribution_funs_3d,
+  // distribution_maxs_3d
+#include "parameters.h"  // constants PI, EPSILON, DBL_DECIMAL_DIG, FLT_DECIMAL_DIG, NB_PARTICLE
+#include "poisson_solvers.h"
+
+// --------- Macros for the correctness checker
 
 // #define TRACE printf
 #define TRACE
@@ -21,6 +32,7 @@
 #define CHECKER_ONLY(X)
 #endif
 
+
 // --------- Bags of particles
 
 // Import the chunked sequence data structure, specialized to particles
@@ -30,25 +42,14 @@
 #include "particle_chunk.h"
 #include "particle_chunk_alloc.h"
 
-// --------- Parameters
+// --------- Simulation parameters
 
-// This code does not assume the cell size to be normalized,
-// not the charge to be normalized; the normalization will
-// be implemented in the transformations
-
-//  physical parameter of the simulation
+// Physical space in which particles move
 double areaX;
 double areaY;
 double areaZ;
 
-double stepDuration;
-double averageChargeDensity;
-double averageMassDensity;
-double particleCharge;
-double particleMass;
-int nbParticles;
-
-// Grid description
+// Description of the grid that is mapped onto the space
 int gridX;
 int gridY;
 int gridZ;
@@ -59,12 +60,41 @@ double cellX;  // = areaX / gridX;
 double cellY;  // = areaY / gridY;
 double cellZ;  // = areaZ / gridZ;
 
-// duration of the simulation
+// Description of the number of steps and the duration of each time step
 int nbSteps;
+double stepDuration;
+
+// Description of the particles
+double averageChargeDensity;
+double averageMassDensity;
+double particleCharge;
+double particleMass;
+int nbParticles;
+
+// --------- Data structures
+
+// Object describing the configuration of the Poisson solver
+poisson_3d_solver poisson;
+
+// 3D-arrays used during Poisson computations
+double*** rho;
+double*** Ex;
+double*** Ey;
+double*** Ez;
+
+// Arrays used to deposit the electric field, and the contribution to the charge density
+// - field[idCell] corresponds to the field at the top-right corner of the cell idCell;
+// - deposit[idCell] corresponds to the cell in the front-top-left corner of that cell;
+// The grids are, here again, treated with wrap-around
+vect* field;
+double* deposit;
+
+// Bags used to store particles at the current and at the next time step.
+bag* bagsCur;
+bag* bagsNext;
 
 // --------- Grid coordinate functions
 
-// from double to int
 int int_of_double(double a) {
   return (int) a - (a < 0.);
 }
@@ -73,31 +103,15 @@ int wrap(int gridSize, int a) {
   return (a % gridSize + gridSize) % gridSize;
 }
 
-/* Other possible implementations for wrap
-  // assuming that a particle does not traverse the grid more than once in a timestep
-   return (x % gridSize + gridSize) % gridSize
-  // use of fmod possible
-  // version without modulo but using if statements
-    if (x < 0)
-       return x + gridSize;
-    if (x >= gridSize)
-       return x - gridSize;
-    return x;
-*/
-
 // --------- Grid Representation
 
-// const int nbCorners = 8;
-#define nbCorners 8
-
-vect* fields;
-
+#define nbCorners 8 // const int nbCorners = 8;
 
 int cellOfCoord(int i, int j, int k) {
   return MINDEX3(gridX,gridY,gridZ,i,j,k);
 }
 
-// idCellOfPos computes the id of the cell that contains a position.
+// [idCellOfPos(pos)] computes the id of the cell that contains a position.
 int idCellOfPos(vect pos) {
   int iX = wrap(gridX, int_of_double(pos.x / cellX));
   int iY = wrap(gridY, int_of_double(pos.y / cellY));
@@ -169,8 +183,9 @@ int_nbCorners indicesOfCorners(int idCell) {
     cellOfCoord(x2,y2,z),
     cellOfCoord(x2,y2,z2),
   };
-
 }
+
+// --------- Operations for field and charges
 
 vect_nbCorners getFieldAtCorners(int idCell, vect* field) {
   const int_nbCorners indices = indicesOfCorners(idCell);
@@ -179,7 +194,6 @@ vect_nbCorners getFieldAtCorners(int idCell, vect* field) {
     res.v[k] = field[indices.v[k]];
   }
   return res;
-
 }
 
 // Total charge of the particles already placed in the cell for the next time step
@@ -191,8 +205,6 @@ void accumulateChargeAtCorners(double* deposit, int idCell, double_nbCorners cha
     deposit[indices.v[k]] += charges.v[k];
   }
 }
-
-// --------- Interpolation operations
 
 // given the relative position inside a cell, with coordinates in the range [0,1],
 // compute the coefficient for interpolation at each corner;
@@ -226,72 +238,38 @@ vect matrix_vect_mul(const double_nbCorners coeffs, const vect_nbCorners matrix)
   return res;
 }
 
-/* DEPRECATED
-double_nbCorners vect8_mul(const double a, const double_nbCorners data) {
-  double_nbCorners res;
-  for (int k = 0; k < nbCorners; k++) {
-    res.v[k] = a * data.v[k];
-  }
-  return res;
-}
-*/
+// --------- Poisson solver
 
-#include "poisson_solvers.h"
-poisson_3d_solver poisson; // TODO: is this really passed by value to compute_E_from_rho_3d_fft? not by pointer?
-// Arrays used during Poisson computations
-
-double*** rho;
-double*** Ex;
-double*** Ey;
-double*** Ez;
-// deposit[idCell] corresponds to the cell in the front-top-left corner of that cell
-double* deposit;
-// Strength of the field that applies to each cell
-// fields[idCell] corresponds to the field at the top-right corner of the cell idCell;
-// The grid is treated with wrap-around
-vect* field;
-
-
-// Particles in each cell, at the current and the next time step
-bag* bagsCur;
-bag* bagsNext;
-
-#include "parameters.h"                                   // constants PI, EPSILON, DBL_DECIMAL_DIG, FLT_DECIMAL_DIG, NB_PARTICLE
-// TODO: it would be simpler if the Poisson module could take rho directly as an array indexed by idCell
-void computeRhoForPoisson(double* deposit, double*** rho) {
+void computeRhoFromDeposit(double* deposit, double*** rho) {
   // Each unit of particle in the deposit increases the charge density by 'factor'
   double factor = averageChargeDensity * nbCells / nbParticles; // = particleCharge / cellVolume;
-  double s = 0.;
   for (int i = 0; i < gridX; i++) {
     for (int j = 0; j < gridY; j++) {
       for (int k = 0; k < gridZ; k++) {
         rho[i][j][k] = factor * deposit[cellOfCoord(i,j,k)];
 #ifdef DEBUG_CHARGE
         printf("rho[%d][%d][%d] = %lf\n", i, j, k, rho[i][j][k]);
-        s += rho[i][j][k];
 #endif
       }
     }
   }
-#ifdef DEBUG_CHARGE
-  printf("total charge = %g\n", s);
-#endif
 }
 
-void resetIntArray(double* array) {
+void resetCellIndexedArray(double* array) {
   for (int idCell = 0; idCell < nbCells; idCell++) {
     array[idCell] = 0;
   }
 }
 
-// updateFieldUsingDeposit in an operation that reads deposit,
-// and updates the values in the fields array.
+// [updateFieldUsingDeposit(deposit, field)] computes the electric field
+// based on contributions of the particle in the [deposit] array.
+// It clears the deposit array when done.
 void updateFieldUsingDeposit(double* deposit, vect* field) {
 
-  // Compute Rho from deposit
-  computeRhoForPoisson(deposit, rho);
+  // Compute charge density from deposit
+  computeRhoFromDeposit(deposit, rho);
 
-  // Execute Poisson Solver (0 avoids the useless cell at borders which contains the same data)
+  // Execute Poisson Solver (the '0' deactivates a feature used in pic_barsmian.c)
   compute_E_from_rho_3d_fft(poisson, rho, Ex, Ey, Ez, 0);
 
   // Fill in the field array
@@ -308,14 +286,11 @@ void updateFieldUsingDeposit(double* deposit, vect* field) {
   }
 
   // Reset deposit
-  resetIntArray(deposit);
+  resetCellIndexedArray(deposit);
 }
 
+// --------- Load parameters and create initial particles
 
-#include "matrix_functions.h"                             // functions allocate_3d_array, deallocate_3d_array
-#include "random.h"                                       // macros    pic_vert_seed_double_RNG, pic_vert_free_RNG
-#include "initial_distributions.h"                        // types     speeds_generator_3d, distribution_function_3d, max_distribution_function
-                                                          // variables speed_generators_3d, distribution_funs_3d, distribution_maxs_3d
 void init(int argc, char** argv) {
     TRACE("Initialization starts, using chunk size %d\n", CHUNK_SIZE);
  /****************************
@@ -488,7 +463,7 @@ void init(int argc, char** argv) {
   Ez = allocate_3d_array(gridX, gridY, gridZ);
   // Allocate and reset array for deposit
   deposit = (double*) malloc(nbCells * sizeof(double));
-  resetIntArray(deposit);
+  resetCellIndexedArray(deposit);
   // Allocate the field, not initialized in this function
   field = (vect*) malloc(nbCells * sizeof(vect));
 
@@ -509,10 +484,12 @@ void init(int argc, char** argv) {
   // seed = seed_64bits(0);
   pic_vert_seed_double_RNG(seed);
 
+#ifdef PRINTPERF
   double timeInitStart = omp_get_wtime();
+#endif
 
   // Creation of random particles and put them into bags.
-  { // COPY PASTE FROM PIC-VERT WITH AMENDMENTS
+  { // Adapted from PIC-VERT with amendments
     double x, y, z, vx, vy, vz;
     double control_point, evaluated_function;
     speeds_generator_3d speeds_generator = speed_generators_3d[sim_distrib];
@@ -528,13 +505,7 @@ void init(int argc, char** argv) {
     for (int idParticle = 0; idParticle < nb_particles; idParticle++) {
         do {
             // x, y, z are offsets from mesh x/y/z/min
-#ifdef DEBUG_CREATION_RANDOM
-            double rx = pic_vert_next_random_double();
-            x = x_range * rx;
-            // printf("id = %d, rand = %lf, x = %lf\n", idParticle, rx, x);
-#else
             x = x_range * pic_vert_next_random_double();
-#endif
             y = y_range * pic_vert_next_random_double();
             z = z_range * pic_vert_next_random_double();
             control_point = (*max_distrib_function)(params) * pic_vert_next_random_double();
@@ -545,7 +516,7 @@ void init(int argc, char** argv) {
         const vect pos = { x, y, z };
         const vect speed = { vx, vy, vz };
 #ifdef DEBUG_CREATION
-        printf("created = %d, %lf %lf %lf %lf %lf %lf \n", idParticle, x, y, z, vx, vy, vz);
+        printf("Created = %d, %lf %lf %lf %lf %lf %lf \n", idParticle, x, y, z, vx, vy, vz);
 #endif
         const particle particle = { pos, speed, CHECKER_ONLY(idParticle) };
         const int idCell = idCellOfPos(pos);
@@ -572,53 +543,10 @@ void init(int argc, char** argv) {
   printf("particleCharge = %g\n", particleCharge);
   printf("particleMass = %g\n", particleMass);
 #endif
-
-  // Computes speeds backwards for half a time-step (leap-frog method)
-  double negHalfStepDuration = -0.5 * stepDuration;
-  // For each cell from the grid
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    // Consider the bag of particles in that cell
-    bag* b = &bagsCur[idCell];
-    // TRACE("Leap frog cell %d, bag %p\n", idCell, b);
-    bag_iter bag_it;
-    // Compute fields at corners of the cell
-    vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
-    // For each particle in that cell
-    int k = 0;
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
-        // TRACE("leap frog step %d\n", k++);
-        // Interpolate the field based on the position relative to the corners of the cell
-        double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
-        // TRACE("LOOP2\n");
-        vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
-        // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
-        // TRACE("LOOP3\n");
-
-        vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
-
-#ifdef DEBUG_ACCEL
-        if (p->id == 0) {
-          printf("particle %d: topcorner_fieldx = %g\n", p->id, field_at_corners.v[0].x);
-          printf("particle %d: fieldx = %g\n", p->id, fieldAtPos.x);
-          double delta_vx = vect_mul(negHalfStepDuration, accel).x;
-          printf("particle %d: delta_vx = %g\n", p->id, delta_vx);
-          printf("particle %d: oldvx = %g\n", p->id, p->speed.x);
-        }
-#endif
-        // Compute the new speed and position for the particle.
-        // TRACE("LOOP4\n");
-        p->speed = vect_add(p->speed, vect_mul(negHalfStepDuration, accel));
-#ifdef DEBUG_ACCEL
-        if (p->id == 0) {
-           printf("particle %d: newvx = %g\n", p->id, p->speed.x);
-        }
-#endif
-    }
-  }
 }
 
 void finalize(bag* bagsCur, bag* bagsNext, vect* field) {
-  // TRACE("Finalize\n");
+  TRACE("Finalize\n");
   // Later in optimizations: call a 'finalize' function in particle_chunk_alloc
 
   // Free the chunks
@@ -633,93 +561,90 @@ void finalize(bag* bagsCur, bag* bagsNext, vect* field) {
   free(field);
 }
 
+// --------- Steps
 
-// --------- Module Simulation
-
-
-int main(int argc, char** argv) {
-
-  init(argc, argv);
-
-#if defined(PRINTPERF) || defined(PRINTSTEPS)
-  double timeStart = omp_get_wtime();
-#endif
-#ifdef PRINTSTEPS
-  double nextReport = timeStart + 1.0;
-#endif
-
-  // Foreach time step
-  for (int step = 0; step < nbSteps; step++) {
-#ifdef PRINTSTEPS
-    if (omp_get_wtime() > nextReport) {
-      nextReport += 1.0;
-      printf("Step %d\n", step);
-    }
-#endif
-
-    // For each cell from the grid
-    for (int idCell = 0; idCell < nbCells; idCell++) {
-      //TRACE("idCell %d\n", idCell);
-
-      // Read the electric field that applies to the corners of the cell considered
-      vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
-      //TRACE("   field local ready\n");
-
-      // Consider the bag of particles in that cell
-      bag* b = &bagsCur[idCell];
-
-      bag_iter bag_it;
-      int k=0;
-      for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_destructive(&bag_it)) {
-        //TRACE("    step particle %d\n", k++);
-
-        // Interpolate the field based on the position relative to the corners of the cell
+// The Leaf-Frog method is used to obtain an order-2 interpolation for the
+// differential equation; it consists of precomputing, for half-of-step backwards,
+// the evolution of the particles speed.
+void applyLeapFrogStep() {
+  double negHalfStepDuration = -0.5 * stepDuration;
+  // For each cell from the grid
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    // Consider the bag of particles in that cell
+    bag* b = &bagsCur[idCell];
+    bag_iter bag_it;
+    // Compute fields at corners of the cell
+    vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
+    // For each particle in that cell
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
         double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
-
-        // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
-        // vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
         vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
-
-        // Compute the new speed and position for the particle.
-        vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
-        vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
-        pos2 = wrapAround(pos2);
-        particle p2 = { pos2, speed2, CHECKER_ONLY(p->id) };
-
-        // Compute the location of the cell that now contains the particle
-        int idCell2 = idCellOfPos(pos2);
-
-        // Push the updated particle into the bag associated with its target cell
-        //TRACE("    bag push into %d\n", idCell2);
-        bag_push(&bagsNext[idCell2], p2);
-
-        // Deposit the charge of the particle at the corners of the target cell
-        double_nbCorners contribs = cornerInterpolationCoeff(pos2);
-        accumulateChargeAtCorners(deposit, idCell2, contribs);
-      }
-      // TRACE("  reset bag\n");
-      bag_init_initial(b);
+        p->speed = vect_add(p->speed, vect_mul(negHalfStepDuration, accel));
     }
+  }
+}
 
-    // For the next time step, the contents of bagNext is moved into bagCur (which is empty)
-    // TRACE("Swap\n");
-    for (int idCell = 0; idCell < nbCells; idCell++) {
-      bag_swap(&bagsCur[idCell], &bagsNext[idCell]);
+void applyStep() {
+  // For each cell from the grid
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+
+    // Read the electric field that applies to the corners of the cell considered
+    vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
+
+    // Consider the bag of particles in that cell
+    bag* b = &bagsCur[idCell];
+
+    bag_iter bag_it;
+    int k=0;
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_destructive(&bag_it)) {
+
+      // Interpolate the field based on the position relative to the corners of the cell
+      double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
+      vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
+
+      // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
+      vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
+
+      // Compute the new speed and position for the particle.
+      vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
+      vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
+      pos2 = wrapAround(pos2);
+      particle p2 = { pos2, speed2, CHECKER_ONLY(p->id) };
+
+      // Compute the location of the cell that now contains the particle
+      int idCell2 = idCellOfPos(pos2);
+
+      // Push the updated particle into the bag associated with its target cell
+      bag_push(&bagsNext[idCell2], p2);
+
+      // Deposit the charge of the particle at the corners of the target cell
+      double_nbCorners contribs = cornerInterpolationCoeff(pos2);
+      accumulateChargeAtCorners(deposit, idCell2, contribs);
     }
-
-    // Update the new field based on the total charge accumulated in each cell,
-    // and reset deposit.
-    // TRACE("Poisson\n");
-    updateFieldUsingDeposit(deposit, field);
+    bag_init_initial(b);
   }
 
+  // For the next time step, the contents of bagNext is moved into bagCur (which is empty)
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    bag_swap(&bagsCur[idCell], &bagsNext[idCell]);
+  }
+
+  // Update the new field based on the deposit array, then reset this array
+  updateFieldUsingDeposit(deposit, field);
+}
+
+// --------- Reporting
+
+void reportPerformance(double timeStart) {
 #ifdef PRINTPERF
   double timeTotal = (double) (omp_get_wtime() - timeStart);
   printf("Exectime: %.3f sec\n", timeTotal);
   printf("Throughput: %.1f million particles/sec\n", nbParticles * nbSteps / timeTotal / 1000000);
 #endif
+}
 
+void reportParticlesState() {
 #ifdef CHECKER
   // printf("NbParticles: %d\n", nbParticles);
   FILE* f = fopen(CHECKER_FILENAME, "wb");
@@ -747,16 +672,42 @@ int main(int argc, char** argv) {
   }
   fclose(f);
 #endif
+}
+
+// --------- Main
+
+int main(int argc, char** argv) {
+
+  init(argc, argv);
+
+  applyLeapFrogStep();
+
+#if defined(PRINTPERF) || defined(PRINTSTEPS)
+  double timeStart = omp_get_wtime();
+#endif
+#ifdef PRINTSTEPS
+  double nextReport = timeStart + 1.0;
+#endif
+
+  // Foreach time step
+  for (int step = 0; step < nbSteps; step++) {
+#ifdef PRINTSTEPS
+    if (omp_get_wtime() > nextReport) {
+      nextReport += 1.0;
+      printf("Step %d\n", step);
+    }
+#endif
+    applyStep();
+  }
+
+#if defined(PRINTPERF)
+  reportPerformance(timeStart);
+#endif
+
+#ifdef CHECKER
+  reportParticlesState();
+#endif
+
   finalize(bagsCur, bagsNext, field);
 }
 
-
-// LATER: When ClangML supports it, we'll use overloaded + and * operators on class vect
-// LATER: When ClangML supports it, we'll use higher-order iteration with a local function
-// LATER: When ClangML supports it, we'll use boost arrays for fixed size arrays
-
-
-// TODO: rename "_nbCorners" to 8
-// TODO: move particle p2 = just before the bag_push
-// TODO: replace double cX = 1. + -1. * rX;   with   double cX = 1. - rX;   and use a transformation for this change
-// TODO: int x =     make those uppercase in indicesOfCorners

@@ -1004,13 +1004,7 @@ void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, car
     // Create particles and push them into the bags.
     for (j = 0; j < num_particle; j++) {
         do {
-#ifdef DEBUG_CREATION_RANDOM
-            double rx = pic_vert_next_random_double();
-            x = x_range * rx + mesh.x_min;
-            // printf("id = %d, rand = %lf, x = %lf\n", (int) j, rx, x);
-#else
             x = x_range * pic_vert_next_random_double() + mesh.x_min;
-#endif
             y = y_range * pic_vert_next_random_double() + mesh.y_min;
             z = z_range * pic_vert_next_random_double() + mesh.z_min;
             control_point = (*max_distrib_function)(spatial_params) * pic_vert_next_random_double();
