@@ -444,26 +444,32 @@ let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_loc
 
 
 
+(* [remove_get_operations_on_var x t] *)
+let remove_get_operations_on_var (x : var) (t : trm) : trm = 
+  let rec aux (belongs_to_get : bool) (t : trm) : bool * trm = 
+    let aux_false (t : trm) : trm = 
+      let _, t1 = aux false t in t1
+      in 
+    match t.desc with 
+    | Trm_var (_, y) when y = x -> (true, t)
+    | Trm_apps (_, [t1]) when is_get_operation t -> 
+      let r, t1' = aux true t1 in 
+      if r then (r, t1') else (false, trm_get t1')
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t1]) -> 
+      let r, t1' = aux belongs_to_get t1 in 
+      if r then (true, trm_struct_get t1' f) else (false, trm_struct_access t1' f)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [t1; t2]) -> 
+      let r, t1' = aux belongs_to_get t1 in 
+      let _, t2' = aux false t2 in 
+      if r then (true, trm_array_get t1' t2') else (false, trm_array_access t1' t2') 
+    | _ -> false, trm_map aux_false t
+   in 
+   snd (aux false t)
+
 let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (* ARTHUR *)
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [{desc = Trm_var (_,y);_}as ty]) when y = x -> ty
   | _ -> trm_map (remove_get_operations_on_var_temporary x) t
-
-
-
-let remove_get_operations_on_var (x : var) (t : trm) : trm = (* TODO: let's review this *)
-  let rec aux (update_accesses : bool) (t : trm) : trm =
-    match t.desc with
-    | Trm_apps (_, [base]) when is_get_operation t ->
-      if contains_occurrence x base then aux true base else t
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [base]) ->
-      if not update_accesses then t else trm_struct_get ~typ:t.typ (aux update_accesses base) f
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [base; index]) ->
-      if not update_accesses then t else  trm_array_get ~typ:t.typ (aux update_accesses base) index
-    | Trm_var _ -> t
-    | _ -> trm_map (aux update_accesses) t
-    in
-  aux false t
 
 (* [to_const_aux index t] change the mutability of a variable, and replace all the get operations on that variable
     with an occurrence of that variable

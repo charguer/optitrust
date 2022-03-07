@@ -77,13 +77,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Sequence.intro_on_instr [main; cMark "loop"; cFor_c ""; dBody]; (* LATER: will be integrated in uninline *)
   (*!! Variable.insert_and_fold ~name:"q" ~typ:(atyp "particle* const") ~value:(expr "(particle* const) p") [tBefore; main; cVarDef "iX0"];*)
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"] [main; cMark "loop"];
-  !! Instr.replace_fun "bag_iter_ho_chunk" [main; cFun "bag_iter_ho_basic"];(*  LATER: why don't we also have Expr.replace_fun ? *)
+  !! Expr.replace_fun "bag_iter_ho_chunk" [main; cFun "bag_iter_ho_basic"];
   !! Function.inline [main; cFun "bag_iter_ho_chunk"]; (* LATER: uninline+replace+inline+beta *)
   (*!! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0]; *)
   !! Function.beta ~indepth:true [main];
   (* LATER/ why is   show [nbMulti; main; cRead ~addr:[cVar "p"] ()];  not the same as show [nbMulti; main; cReadVar "p"] ? *)
-  !! Variable.init_detach [main; cVarDef "p"];
-  !! Instr.inline_last_write ~write:[main; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; main; cRead ~addr:[cStrictNew; cVar "p"] ()];  (*LATER: does not work, because access operations *)
+  !! Instr.inline_last_write ~write:[main; cVarDef "p"]  [nbMulti; main; cVar "p"];  (*LATER: does not work, because access operations *)
+  (* !! Variable.init_detach [main; cVarDef "p"];
+  !! Instr.inline_last_write ~write:[main; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; main; cRead ~addr:[cStrictNew; cVar "p"] ()]; *)  (*LATER: does not work, because access operations *)
   (* !! Variable.to_const [main; cVarDef "p"];  LATER: does not work, because write in p->pos *)
   (* LATER: read_last_write/inline_last_write should be able to target the write in an initialization, this would avoid the detach *)
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
@@ -232,7 +233,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "bi" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [main; cFor ("i" ^ d)];
-    Loop.color color ~index:("ci"^d) [main; cFor bd]
+    Loop.color (expr color) ~index:("ci"^d) [main; cFor bd]
     in
   !! iter_dims (fun d -> colorize "block" "block" d);
   !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [main; cFor "ciX"];

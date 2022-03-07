@@ -1,31 +1,30 @@
+int main() {
+  int x = 3;
+  int y = x + x;
+  int z = x + y + 4;
+  return z;
+}
 
 typedef struct {
   int x;
   int y;
 } vect;
 
-int main() {
-  vect v;
-  v = (vect) {0,10};
+typedef struct {
+  vect pos;
+  vect speed;
+} part;
+
+int test_vect(){
+  vect v = { 0, 1 };
+  vect w = v;
+  int a = v.x;
+  int b = v.y;
+  part p = { v, w };
+  vect ppos = p.pos;
+  int c = p.pos.x;
+  part q[2] = { { v, w }, { v, w } };
+  int d = q[0].pos.x;
+  part* r = &q[0];
+  int e = r[0].pos.x;
 }
-
-
-/*
-
-vect f(int a) {
-  return { a-1, a };
-}
-
-int g(vect v) {
-  return v.x + v.y;
-}
-
-int main() {
-  int s = g(f(2));
-  int p = f(3).x;
-  vect v;
-  v = (vect){0,10};
-
-}
-  int p = f(3).x;
-*/
