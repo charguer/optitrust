@@ -15,11 +15,10 @@ open Ast
       updated ast of the surrounding sequence with the added if statement
  *)
 let insert_if_aux (cond : trm) (mark : mark) (t : trm) : trm =
-  let wrap_mark (t : trm) (m : mark) : trm = 
-    if m <> "" then trm_add_mark m t else t in
+  
   begin match t.desc with 
-  | Trm_seq _ -> wrap_mark (trm_if cond t t) mark
-  | _ -> wrap_mark (trm_if cond (trm_seq_nomarks [t]) (trm_seq_nomarks [t])) mark
+  | Trm_seq _ -> trm_add_mark mark (trm_if cond t t) 
+  | _ -> trm_add_mark mark (trm_if cond (trm_seq_nomarks [t]) (trm_seq_nomarks [t])) 
   end 
 
 let insert_if (cond : trm) (mark : mark ): Target.Transfo.local =

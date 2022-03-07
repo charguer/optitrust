@@ -75,8 +75,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
       in
     begin match dl.desc with
     | Trm_let (vk, (x, _), init) ->
-      let init = if mark = "" then init else trm_add_mark mark init in
-
+      let init = trm_add_mark mark init in 
       begin match vk with
       | Var_immutable ->
         let new_lback = begin match unfold_at with
@@ -265,7 +264,7 @@ let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : 
   let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_var_possibly_mut ~typ:(Some var_type) local_var) in
   let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in
   let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
-  if mark <> "" then trm_add_mark mark final_trm else final_trm
+  trm_add_mark mark final_trm
 
 let local_name (mark : mark) (curr_var : var) (local_var : var) : Target.Transfo.local =
   Target.apply_on_path(local_name_aux mark curr_var local_var)
@@ -411,9 +410,7 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (i
     | Some ty -> ty
     | _ -> typ_auto() in
     let node_to_change = Internal.change_trm targeted_node (trm_var_possibly_mut ~const ~typ:(Some node_type) fresh_name) instr in
-
-    let targeted_node = if my_mark <> "" then trm_add_mark my_mark targeted_node else targeted_node in
-
+    let targeted_node = trm_add_mark my_mark targeted_node in
     let decl_to_insert =
       begin match targeted_node.desc with
       | Trm_array tl ->

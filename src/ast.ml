@@ -979,8 +979,7 @@ let trm_remove_marks (t : trm) : trm =
   | _ -> {t with marks = []}
 
 let trm_add_mark (m : mark) (t : trm) : trm =
-  {t with marks = m :: t.marks}
-
+  if m = "" then t else {t with marks = m :: t.marks}
 
 let trm_filter_mark (pred : mark -> bool) (t : trm): trm =
   {t with marks = List.filter (fun m -> pred m) t.marks}
