@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# make test
+#./compile.sh pic_demo.c 1
+
+#make test
 ./check.sh pic_demo.c pic_barsamian.c
 
 # DETAILS

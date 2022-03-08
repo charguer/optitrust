@@ -1,3 +1,6 @@
+#ifndef PARTICLE_CHUNK_ALLOC_H
+#define PARTICLE_CHUNK_ALLOC_H
+
 //==========================================================================
 // Manual memory management for chunks
 
@@ -230,3 +233,5 @@ void update_free_list_sizes() {
 // ARTHUR: simplify init_all_chunks and  init_freelists
 // ARTHUR: document what is number_of_spare_chunks_per_parity
 // ARTHUR: cumulative_nb_chunks_per_cell -> would be nicer to have one extra cell
+
+#endif

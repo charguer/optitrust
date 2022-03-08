@@ -1,6 +1,7 @@
+#ifndef PARTICLE_CHUNK_H
+#define PARTICLE_CHUNK_H
 
-#include <stdio.h>
-#include "particle.h"
+#include "bag.h"
 
 //==========================================================================
 // Representation of chunks
@@ -56,32 +57,6 @@
  *
  */
 
-// CHUNK_SIZE should be passed on the compilation command line
-#ifndef CHUNK_SIZE
-  const int CHUNK_SIZE = 128;
-#endif
-
-
-//==========================================================================
-// Representation
-
-/*
- * A chunk is a fixed-capacity array of particles, with a pointer to the next chunk.
- */
-typedef struct chunk {
-  struct chunk* next; // null if last in the chain
-  int size;
-  particle items[CHUNK_SIZE];
-} chunk;
-
-/*
- * A bag is a pair of pointers on the first and the last chunk (possibly the same).
- */
-typedef struct {
-  chunk* front;
-  chunk* back;
-} bag;
-
 
 //==========================================================================
 // Auxiliary tool
@@ -98,7 +73,6 @@ chunk* atomic_read(chunk** p) {
   value = *p;
   return value;
 }
-
 
 
 //==========================================================================
@@ -342,13 +316,6 @@ void bag_swap(bag* b1, bag* b2) {
 //==========================================================================
 // Iteration
 
-// First-order iterator
-typedef struct bag_iter {
-  chunk* iter_chunk;
-  int size;
-  int index;
-} bag_iter;
-
 void bag_iter_load_chunk(bag_iter* it, chunk* c) {
   it->iter_chunk = c;
   // if (c == NULL) { return; }   // technically optional as we assume all bags to have at least one chunk
@@ -490,3 +457,5 @@ void bag_free_initial(bag* b) {
     c = chunk_next(c, true);
   }
 }
+
+#endif
