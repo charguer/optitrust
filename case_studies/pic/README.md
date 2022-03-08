@@ -1,3 +1,30 @@
+# Relevant files
+
+
+Unoptimized code, used as input to the OptiTrust script:
+
+```
+	include/optitrust.h
+	include/mymacros.h
+	include/particle.h
+	include/bag.h
+	include/bag_atomics.h
+	src/particle.c
+	src/bag.c
+   src/bag_atomics.c
+	simulations/pic_demo_aux.h
+	simulations/pic_demo_aux.c
+	simulations/pic_demo.h
+	simulations/pic_demo.c
+```
+
+Original code optimized by hand:
+
+```
+	simulation/pic_barsamian.c
+```
+
+
 
 # Installation of dependencies
 
