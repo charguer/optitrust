@@ -1,3 +1,6 @@
+#ifndef OPTITRUST_H
+#define OPTITRUST_H
+
 #include <stdlib.h>
 
 // C-->C++ additions
@@ -75,7 +78,7 @@ void MFREE2(int N1, int N2, void* p) {
 bool ANY_BOOL () {return true;}
 
 
-
+#endif
 
 
 
