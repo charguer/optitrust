@@ -37,7 +37,8 @@ fi
 
 
 # Compute diff
-DIFFCODE=`git diff --ignore-all-space --no-index -U10 ${FILEBASE}_before${ENCOPT}.cpp ${FILEBASE}_after${ENCOPT}.cpp | base64 -w 0`
+CONTEXTSIZE=100
+DIFFCODE=`git diff --ignore-all-space --no-index -U${CONTEXTSIZE} ${FILEBASE}_before${ENCOPT}.cpp ${FILEBASE}_after${ENCOPT}.cpp | base64 -w 0`
 
 
 if [ "$DIFFCODE" == "" ]; then

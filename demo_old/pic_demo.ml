@@ -245,10 +245,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
+  !! Variable.to_const [main; cVarDef "nb"];
   !! Loop.hoist [main; cVarDef "idCell2"];
   !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
   (* !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "p2"]; [cVarDef "iX2"]]];
-  !! Variable.to_const [main; cVarDef "nb"];
+
   !! Instr.move ~dest:[tAfter; main; cVarDef "iZ2"] [nbMulti; main; cVarDef ~regexp:true "r.1"];
   !! Loop.hoist [main; cVarDef "idCell2"];
   !! Instr.copy ~dest:[tBefore; cVarDef "co"] [main; cVarDef "idCell2"];

@@ -29,3 +29,4 @@ alpha   = 0.05; // Landau perturbation amplitude
 kmode_x = 0.5;  // Landau perturbation mode, x-axis
 kmode_y = 0.5;  // Landau perturbation mode, y-axis
 kmode_z = 0.5;  // Landau perturbation mode, z-axis
+seed = 0;

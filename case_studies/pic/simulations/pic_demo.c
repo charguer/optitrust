@@ -70,6 +70,7 @@ double averageMassDensity;
 double particleCharge;
 double particleMass;
 int nbParticles;
+int seed; // determines initial particles
 
 // --------- Data structures
 
@@ -357,6 +358,11 @@ void init(int argc, char** argv) {
             kmode_y = parameters.kmode_y;
         if (parameters.kmode_z != DOUBLE_NOT_SET)
             kmode_z = parameters.kmode_z;
+        if (parameters.seed != INT_NOT_SET)
+            seed = parameters.seed;
+        if (seed < 0) // if seed is not specified
+          seed = seed_64bits(0); // then use a different seed at each run
+
     } else
         TRACE("No parameter file was passed through the command line. I will use the default parameters.\n");
 
@@ -443,7 +449,6 @@ void init(int argc, char** argv) {
   averageMassDensity = m;
 
   // New variables
-
   nbCells = gridX * gridY * gridZ;
   cellX = areaX / gridX;
   cellY = areaY / gridY;
@@ -479,16 +484,12 @@ void init(int argc, char** argv) {
     bag_init_initial(&bagsNext[idCell]);
   }
 
-  int seed = 0;
-  // If you want different random number at each run, type instead
-  // seed = seed_64bits(0);
-  pic_vert_seed_double_RNG(seed);
-
 #ifdef PRINTPERF
   double timeInitStart = omp_get_wtime();
 #endif
 
   // Creation of random particles and put them into bags.
+  pic_vert_seed_double_RNG(seed);
   { // Adapted from PIC-VERT with amendments
     double x, y, z, vx, vy, vz;
     double control_point, evaluated_function;
