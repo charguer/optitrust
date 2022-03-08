@@ -112,7 +112,7 @@ simulation_parameters read_parameters_from_file(const char* filename, const char
     int count = 0;                              // Number of the last line read
     char* parameter_name;
     char* parameter_value;
-    
+
     // Number of dimensions of the phase-space.
     int nb_phase_space_dims;
     if (strcmp(sim_dimensions, "1D") == 0) {
@@ -130,7 +130,7 @@ simulation_parameters read_parameters_from_file(const char* filename, const char
     double initial_tracked_array[nb_phase_space_dims];
     for (int i = 0; i < nb_phase_space_dims; i++)
         initial_tracked_array[i] = DOUBLE_NOT_SET;
-    
+
     // Unset parameter values.
     int nb_fourier_modes = INT_NOT_SET;
     couple fourier_modes[PICVERT_MAX_NB_FOURIER_MODES];
@@ -172,7 +172,8 @@ simulation_parameters read_parameters_from_file(const char* filename, const char
     double kmode_x = DOUBLE_NOT_SET; // Landau perturbation mode, x-axis
     double kmode_y = DOUBLE_NOT_SET; // Landau perturbation mode, y-axis
     double kmode_z = DOUBLE_NOT_SET; // Landau perturbation mode, z-axis
-    
+    int seed = INT_NOT_SET; // see for particle initialization
+
     // Read the parameter file.
     FILE* fp = fopen(filename, "r");
     if (!fp) { // Error in file opening
@@ -340,6 +341,9 @@ simulation_parameters read_parameters_from_file(const char* filename, const char
         } else if (strcmp(parameter_name, "kmode_z") == 0) {
             // Read the value as a double
             double_from_string(&parameter_value, &kmode_z, count, line);
+        } else if (strcmp(parameter_name, "seed") == 0) {
+            // Read the value as an integer
+            int_from_string(&parameter_value, &seed, count, line);
         } else { // The name of the parameter was wrong
             CONTINUE_MESSAGE("I did not understand the parameter name on line %d (%s). I drop this line.\n", count, line);
         }
@@ -348,7 +352,7 @@ simulation_parameters read_parameters_from_file(const char* filename, const char
         printf("Error while reading %s.\n", filename);
         exit(EXIT_FAILURE);
     }
-    
+
     if (strcmp(sim_dimensions, "1D") == 0) {
         initial_tracked.x  = initial_tracked_array[0];
         initial_tracked.vx = initial_tracked_array[1];
@@ -405,6 +409,7 @@ simulation_parameters read_parameters_from_file(const char* filename, const char
         .kmode_x = kmode_x,
         .kmode_y = kmode_y,
         .kmode_z = kmode_z,
+        .seed = seed,
     };
     memcpy(parameters.sim_distrib_name, sim_distrib_name, strlen(sim_distrib_name) + 1);
     if (nb_fourier_modes != INT_NOT_SET)

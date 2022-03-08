@@ -1,3 +1,3 @@
 #!/bin/bash
-cd ../scripts/3d_performance
+cd ../scripts
 ./go.sh

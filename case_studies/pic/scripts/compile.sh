@@ -7,6 +7,9 @@
 #        If ${CHECKER_OUTFILE} is the string "1", then the filename
 #        is automatically generated from the target
 
+# Note: this script also takes care of copying the "parameters_3d.txt" file
+# into the run folder
+
 TARGET=$1
 BASENAME=`basename ${TARGET} .c`
 CHECKER_OUTFILE=$2
@@ -16,7 +19,7 @@ if [ "$CHECKER_OUTFILE" == "1" ]; then
 fi
 
 #Home path for Pic-Vert.
-cd ../..
+cd ..
 PICVERT_HOME=$(pwd)
 
 
@@ -69,7 +72,7 @@ compile_one() {
   id_run=$1
   cd $PICVERT_HOME/3d_runs
   mkdir -p run${id_run}
-  cp $PICVERT_HOME/scripts/3d_performance/parameters_3d.txt run${id_run}/
+  cp $PICVERT_HOME/scripts/parameters_3d.txt run${id_run}/
   if [ "${compiler}" = "gcc" ]; then
     export OMPI_CC=gcc
     mpicc ${COMPILE_ARGS} -fopenmp -o run${id_run}/${BASENAME}.out

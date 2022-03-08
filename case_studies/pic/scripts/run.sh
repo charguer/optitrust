@@ -7,7 +7,7 @@ TARGET=$1
 BASENAME=`basename ${TARGET} .c`
 
 # Home path for Pic-Vert.
-cd ../..
+cd ..
 PICVERT_HOME=$(pwd)
 
 

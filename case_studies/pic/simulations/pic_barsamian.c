@@ -2,7 +2,7 @@
  * sim3d_aocosoa.c: PIC simulations in 3d.
  *
  * Compilation :
- *     Pic-Vert/scripts/3d_performance
+ *     Pic-Vert/scripts
  *
  * Contact:
  *   Yann Barsamian <ybarsamian@unistra.fr>
@@ -151,6 +151,7 @@ int main(int argc, char** argv) {
     double kmode_x = 0.5;  // Landau perturbation mode, x-axis
     double kmode_y = 0.5;  // Landau perturbation mode, y-axis
     double kmode_z = 0.5;  // Landau perturbation mode, z-axis
+    int seed = 0; // seed for particle initialization
 
     // Read parameters from file.
     if (argc >= 2) {
@@ -191,6 +192,11 @@ int main(int argc, char** argv) {
             kmode_y = parameters.kmode_y;
         if (parameters.kmode_z != DOUBLE_NOT_SET)
             kmode_z = parameters.kmode_z;
+        if (parameters.seed != INT_NOT_SET)
+            seed = parameters.seed;
+        if (seed < 0)  // if seed is not specified
+          seed = seed_64bits(0); // then use a different seed at each run
+
     } else
         printf("No parameter file was passed through the command line. I will use the default parameters.\n");
 
@@ -437,7 +443,11 @@ int main(int argc, char** argv) {
             printf("Read time (%ld particles) : %g sec\n", nb_particles, (double) (omp_get_wtime() - time_start));
     } else {
         // printf("Mpi_rank %d\n", mpi_rank); // prints zero
-        pic_vert_seed_double_RNG(mpi_rank);
+        pic_vert_seed_double_RNG(seed);
+        // LATER: if restoring MPI support, then need to
+        //  have one seed per mpi rank, e.g.
+        // pic_vert_seed_double_RNG(seed+mpi_rank);
+
 //         Different random numbers at each run.
 //         pic_vert_seed_double_RNG(seed_64bits(mpi_rank));
         // Creation of random particles and sorting.

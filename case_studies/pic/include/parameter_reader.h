@@ -61,6 +61,7 @@ struct simulation_parameters {
     double kmode_x; // Landau perturbation mode, x-axis
     double kmode_y; // Landau perturbation mode, y-axis
     double kmode_z; // Landau perturbation mode, z-axis
+    int seed; // Seed for particle initialization
 };
 
 simulation_parameters read_parameters_from_file(const char* filename, const char* sim_dimensions);
