@@ -227,11 +227,12 @@ void stepLeapFrog() {
   for (int idCell = 0; idCell < nbCells; idCell++) {
     // Consider the bag of particles in that cell
     bag* b = &bagsCur[idCell];
-    bag_iter bag_it;
     // Compute fields at corners of the cell
     vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
     // For each particle in that cell
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
+
+    bag_iter bag_it;
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, false)) {
         double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
         vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
@@ -251,8 +252,8 @@ void step() {
     bag* b = &bagsCur[idCell];
 
     bag_iter bag_it;
-    int k=0;
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_destructive(&bag_it)) {
+    // int k=0;
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
 
       // Interpolate the field based on the position relative to the corners of the cell
       double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
