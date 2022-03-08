@@ -440,7 +440,7 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value].
     This transformation is basically the same as the basic one except that this has a default value for the type argument.
 *)
-let insert ?(const : bool = false) ?(reparse : bool = false) ?(typ : typ = typ_auto ()) ~name:(name : string) ~value:(value : trm) : Target.Transfo.t =
+let insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ = typ_auto ()) ~name:(name : string) ~value:(value : trm) : Target.Transfo.t =
  Variable_basic.insert ~const ~reparse ~name ~typ ~value
 
 (* [insert_list ~const names typ values tg] expects the target [tg] to be poiting to a location in a sequence

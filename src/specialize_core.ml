@@ -8,22 +8,22 @@ open Ast
 
 (* [any_aux var t]: replace a function call t with a variable occurrence [var]
       params:
-        [var]: the variablee replacing the function call [t]
+        [e]: the expression replacing the call to function [ANY]
         [t]: ast of a call to function [ANY]
       return:
-        the ast of [var]
+        e
 *)
-let any_aux (array_index : var) (t : trm) : trm =
+let any_aux (e : trm) (t : trm) : trm =
   match t.desc with 
   | Trm_apps (f,_) ->
     begin match f.desc with
-    | Trm_var (_, any) when Tools.pattern_matches "ANY?." any ->  trm_var array_index
+    | Trm_var (_, any) when Tools.pattern_matches "ANY?." any ->  e
     | _ -> fail f.loc "any_aux: expected the special function ANY"
     end
   | _ -> fail t.loc "any_aux: expected a trm_var with ANY annotation"
 
-let any (array_index : var) : Target.Transfo.local =
-  Target.apply_on_path (any_aux array_index)
+let any (e : trm) : Target.Transfo.local =
+  Target.apply_on_path (any_aux e)
 
 (* [choose_aux  selelct_arg t]: replace the function call t with one of its arguments which statisfies
         the predicate select_arg

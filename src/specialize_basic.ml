@@ -2,11 +2,12 @@ open Ast
 open Target
 
 
-(*  [any array_index tg] expects [tg] to point to a call to the function [ANY] when a node needs to be 
-      be given a dummy value at some time an later needs to be specialized
-*)
-let any (var : var) : Target.Transfo.t =
-  Target.apply_on_targets (Specialize_core.any var)
+
+
+(* [any e tg] expects the target [tg] to be pointing to a call to the function [ANY] then it will replace it with [e]*)
+
+let any (e : trm) : Target.Transfo.t =
+  Target.apply_on_targets (Specialize_core.any e)
 
 (* [choose_fct select_arg] expects the target [tg] to point to a call to the function [CHOOSE] 
     which is used in the delocalize transformation (refer to Variable.delocalize).
