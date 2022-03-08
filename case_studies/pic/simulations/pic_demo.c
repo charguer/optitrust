@@ -70,9 +70,18 @@ double averageMassDensity;
 double particleCharge;
 double particleMass;
 int nbParticles;
-int seed; // determines initial particles
+
+// Parameters for randomized particle creation at t=0
+unsigned char sim_distrib; // type of pattern for the distribution
+double *params; // parameters for the distribution of positions
+double *speed_params; // parameters for the distribution of speeds
+int seed; // seed for random generator
+
 
 // --------- Data structures
+
+// Object describing the grid (used by particle initialization and poisson solver)
+cartesian_mesh_3d mesh;
 
 // Object describing the configuration of the Poisson solver
 poisson_3d_solver poisson;
@@ -290,119 +299,115 @@ void updateFieldUsingDeposit(double* deposit, vect* field) {
   resetCellIndexedArray(deposit);
 }
 
-// --------- Load parameters and create initial particles
+// --------- Load parameters
 
-void init(int argc, char** argv) {
-    TRACE("Initialization starts, using chunk size %d\n", CHUNK_SIZE);
- /****************************
-  * DO NOT CHANGE            *
-  * COPY/PASTE FROM PIC-VERT *
-  ****************************/
-    // Automatic values for the parameters.
-    unsigned char sim_distrib = INITIAL_DISTRIBUTION; // Physical test case (LANDAU_1D_PROJ3D, LANDAU_2D_PROJ3D, LANDAU_3D_SUM_OF_COS,
-                                                      // LANDAU_3D_PROD_OF_COS, LANDAU_3D_PROD_OF_ONE_PLUS_COS or DRIFT_VELOCITIES_3D).
-    int ncx               = NCX;                      // Number of grid points, x-axis
-    int ncy               = NCY;                      // Number of grid points, y-axis
-    int ncz               = NCZ;                      // Number of grid points, z-axis
-    long int nb_particles = NB_PARTICLE;              // Number of particles
-    int num_iteration     = NB_ITER;                  // Number of time steps
-    double delta_t        = DELTA_T;                  // Time step
-    double thermal_speed  = THERMAL_SPEED;            // Thermal speed
-    // DRIFT_VELOCITIES_3D only
-    double drift_velocity            = DRIFT_VELOCITY;            // Center of the second maxwellian
-    double proportion_fast_particles = PROPORTION_FAST_PARTICLES; // Proportions of the particles in the second maxwellian
-    // LANDAU_3D_PROD_OF_ONE_PLUS_COS only
-    double L = 22.;        // Length of the physical space
-    // LANDAU_XXX only
-    double alpha   = 0.05; // Landau perturbation amplitude
-    double kmode_x = 0.5;  // Landau perturbation mode, x-axis
-    double kmode_y = 0.5;  // Landau perturbation mode, y-axis
-    double kmode_z = 0.5;  // Landau perturbation mode, z-axis
+void loadParameters(int argc, char** argv) {
+  TRACE("Initialization starts, using chunk size %d\n", CHUNK_SIZE);
 
-    // Read parameters from file.
-    if (argc >= 2) {
+  // START OF "DO NOT CHANGE, THIS IS COPY PASTED FROM PIC-VERT"
+  // Automatic values for the parameters.
+  sim_distrib = INITIAL_DISTRIBUTION; // Physical test case (LANDAU_1D_PROJ3D, LANDAU_2D_PROJ3D, LANDAU_3D_SUM_OF_COS,
+                                                    // LANDAU_3D_PROD_OF_COS, LANDAU_3D_PROD_OF_ONE_PLUS_COS or DRIFT_VELOCITIES_3D).
+  int ncx               = NCX;                      // Number of grid points, x-axis
+  int ncy               = NCY;                      // Number of grid points, y-axis
+  int ncz               = NCZ;                      // Number of grid points, z-axis
+  long int nb_particles = NB_PARTICLE;              // Number of particles
+  int num_iteration     = NB_ITER;                  // Number of time steps
+  double delta_t        = DELTA_T;                  // Time step
+  double thermal_speed  = THERMAL_SPEED;            // Thermal speed
+  // DRIFT_VELOCITIES_3D only
+  double drift_velocity            = DRIFT_VELOCITY;            // Center of the second maxwellian
+  double proportion_fast_particles = PROPORTION_FAST_PARTICLES; // Proportions of the particles in the second maxwellian
+  // LANDAU_3D_PROD_OF_ONE_PLUS_COS only
+  double L = 22.;        // Length of the physical space
+  // LANDAU_XXX only
+  double alpha   = 0.05; // Landau perturbation amplitude
+  double kmode_x = 0.5;  // Landau perturbation mode, x-axis
+  double kmode_y = 0.5;  // Landau perturbation mode, y-axis
+  double kmode_z = 0.5;  // Landau perturbation mode, z-axis
+
+  // Read parameters from file.
+  if (argc >= 2) {
 #ifdef PRINTPARAMS
-        printf("Loading parameters from file %s\n", argv[1]);
+      printf("Loading parameters from file %s\n", argv[1]);
 #endif
-        simulation_parameters parameters = read_parameters_from_file(argv[1], "3D");
-        if (strcmp(parameters.sim_distrib_name, STRING_NOT_SET) == 0)
-            sim_distrib = parameters.sim_distrib;
-        if (parameters.ncx != INT_NOT_SET)
-            ncx             = parameters.ncx;
-        if (parameters.ncy != INT_NOT_SET)
-            ncy             = parameters.ncy;
-        if (parameters.ncz != INT_NOT_SET)
-            ncz             = parameters.ncz;
-        if (parameters.nb_particles != INT_NOT_SET)
-            nb_particles    = parameters.nb_particles;
-        if (parameters.num_iteration != INT_NOT_SET)
-            num_iteration   = parameters.num_iteration;
-        if (parameters.delta_t != DOUBLE_NOT_SET)
-            delta_t       = parameters.delta_t;
-        if (parameters.thermal_speed != DOUBLE_NOT_SET)
-            thermal_speed = parameters.thermal_speed;
-        // DRIFT_VELOCITIES_3D only
-        if (parameters.drift_velocity != DOUBLE_NOT_SET)
-            drift_velocity = parameters.drift_velocity;
-        if (parameters.proportion_fast_particles != DOUBLE_NOT_SET)
-            proportion_fast_particles = parameters.proportion_fast_particles;
-        // LANDAU_3D_PROD_OF_ONE_PLUS_COS only
-        if (parameters.L != DOUBLE_NOT_SET)
-            L = parameters.L;
-        // LANDAU_XXX only
-        if (parameters.alpha != DOUBLE_NOT_SET)
-            alpha   = parameters.alpha;
-        if (parameters.kmode_x != DOUBLE_NOT_SET)
-            kmode_x = parameters.kmode_x;
-        if (parameters.kmode_y != DOUBLE_NOT_SET)
-            kmode_y = parameters.kmode_y;
-        if (parameters.kmode_z != DOUBLE_NOT_SET)
-            kmode_z = parameters.kmode_z;
-        if (parameters.seed != INT_NOT_SET)
-            seed = parameters.seed;
-        if (seed < 0) // if seed is not specified
-          seed = seed_64bits(0); // then use a different seed at each run
+      simulation_parameters parameters = read_parameters_from_file(argv[1], "3D");
+      if (strcmp(parameters.sim_distrib_name, STRING_NOT_SET) == 0)
+          sim_distrib = parameters.sim_distrib;
+      if (parameters.ncx != INT_NOT_SET)
+          ncx             = parameters.ncx;
+      if (parameters.ncy != INT_NOT_SET)
+          ncy             = parameters.ncy;
+      if (parameters.ncz != INT_NOT_SET)
+          ncz             = parameters.ncz;
+      if (parameters.nb_particles != INT_NOT_SET)
+          nb_particles    = parameters.nb_particles;
+      if (parameters.num_iteration != INT_NOT_SET)
+          num_iteration   = parameters.num_iteration;
+      if (parameters.delta_t != DOUBLE_NOT_SET)
+          delta_t       = parameters.delta_t;
+      if (parameters.thermal_speed != DOUBLE_NOT_SET)
+          thermal_speed = parameters.thermal_speed;
+      // DRIFT_VELOCITIES_3D only
+      if (parameters.drift_velocity != DOUBLE_NOT_SET)
+          drift_velocity = parameters.drift_velocity;
+      if (parameters.proportion_fast_particles != DOUBLE_NOT_SET)
+          proportion_fast_particles = parameters.proportion_fast_particles;
+      // LANDAU_3D_PROD_OF_ONE_PLUS_COS only
+      if (parameters.L != DOUBLE_NOT_SET)
+          L = parameters.L;
+      // LANDAU_XXX only
+      if (parameters.alpha != DOUBLE_NOT_SET)
+          alpha   = parameters.alpha;
+      if (parameters.kmode_x != DOUBLE_NOT_SET)
+          kmode_x = parameters.kmode_x;
+      if (parameters.kmode_y != DOUBLE_NOT_SET)
+          kmode_y = parameters.kmode_y;
+      if (parameters.kmode_z != DOUBLE_NOT_SET)
+          kmode_z = parameters.kmode_z;
+      if (parameters.seed != INT_NOT_SET)
+          seed = parameters.seed;
+      if (seed < 0) // if seed is not specified
+        seed = seed_64bits(0); // then use a different seed at each run
 
-    } else
-        TRACE("No parameter file was passed through the command line. I will use the default parameters.\n");
+  } else
+      TRACE("No parameter file was passed through the command line. I will use the default parameters.\n");
 
-    // Spatial parameters for initial density function.
-    double *params;
-    if (sim_distrib == LANDAU_1D_PROJ3D) {
-        params = malloc(2 * sizeof(double));
-        params[0] = alpha;
-        params[1] = kmode_x;
-    } else if (sim_distrib == LANDAU_2D_PROJ3D) {
-        params = malloc(3 * sizeof(double));
-        params[0] = alpha;
-        params[1] = kmode_x;
-        params[2] = kmode_y;
-    } else if ((sim_distrib == LANDAU_3D_SUM_OF_COS) || (sim_distrib == LANDAU_3D_PROD_OF_COS)) {
-        params = malloc(4 * sizeof(double));
-        params[0] = alpha;
-        params[1] = kmode_x;
-        params[2] = kmode_y;
-        params[3] = kmode_z;
-    } else if (sim_distrib == LANDAU_3D_PROD_OF_ONE_PLUS_COS) {
-        params = malloc(4 * sizeof(double));
-        params[0] = alpha;
-        params[1] = 2 * PI / L;
-        params[2] = 2 * PI / L;
-        params[3] = 2 * PI / L;
-    }
+  // Spatial parameters for initial density function.
+  if (sim_distrib == LANDAU_1D_PROJ3D) {
+      params = malloc(2 * sizeof(double));
+      params[0] = alpha;
+      params[1] = kmode_x;
+  } else if (sim_distrib == LANDAU_2D_PROJ3D) {
+      params = malloc(3 * sizeof(double));
+      params[0] = alpha;
+      params[1] = kmode_x;
+      params[2] = kmode_y;
+  } else if ((sim_distrib == LANDAU_3D_SUM_OF_COS) || (sim_distrib == LANDAU_3D_PROD_OF_COS)) {
+      params = malloc(4 * sizeof(double));
+      params[0] = alpha;
+      params[1] = kmode_x;
+      params[2] = kmode_y;
+      params[3] = kmode_z;
+  } else if (sim_distrib == LANDAU_3D_PROD_OF_ONE_PLUS_COS) {
+      params = malloc(4 * sizeof(double));
+      params[0] = alpha;
+      params[1] = 2 * PI / L;
+      params[2] = 2 * PI / L;
+      params[3] = 2 * PI / L;
+  }
 
-    // Velocity parameters for initial density function.
-    double *speed_params;
-    if (sim_distrib == DRIFT_VELOCITIES_3D) {
-        params = malloc(3 * sizeof(double));
-        speed_params = malloc(3 * sizeof(double));
-        speed_params[0] = thermal_speed;
-        speed_params[1] = drift_velocity;
-        speed_params[2] = proportion_fast_particles;
-    } else {
-        speed_params = malloc(1 * sizeof(double));
-        speed_params[0] = thermal_speed;
-    }
+  // Velocity parameters for initial density function.
+  if (sim_distrib == DRIFT_VELOCITIES_3D) {
+      params = malloc(3 * sizeof(double));
+      speed_params = malloc(3 * sizeof(double));
+      speed_params[0] = thermal_speed;
+      speed_params[1] = drift_velocity;
+      speed_params[2] = proportion_fast_particles;
+  } else {
+      speed_params = malloc(1 * sizeof(double));
+      speed_params[0] = thermal_speed;
+  }
 
   // Mesh
   double x_min, y_min, z_min, x_max, y_max, z_max;
@@ -427,11 +432,10 @@ void init(int argc, char** argv) {
       z_max = 2 * PI / kmode_z;
   }
 
-  cartesian_mesh_3d mesh = create_mesh_3d(ncx, ncy, ncz, x_min, x_max, y_min, y_max, z_min, z_max);
+  mesh = create_mesh_3d(ncx, ncy, ncz, x_min, x_max, y_min, y_max, z_min, z_max);
   poisson = new_poisson_3d_fft_solver(mesh);
- /*********************
-  * END DO NOT CHANGE *
-  *********************/
+
+  // END OF "DO NOT CHANGE, THIS IS COPY PASTED FROM PIC-VERT"
 
   // Convert PIC_VERT variables to verified_transfo variables.
   stepDuration = delta_t;
@@ -460,29 +464,56 @@ void init(int argc, char** argv) {
   particleCharge = totalCharge / nbParticles; // = averageChargeDensity * nbCells * cellVolume / nb_particles
   particleMass = totalMass / nbParticles;
   // Note: (particleCharge / particleMass) = (totalCharge / totalMass) = (averageChargeDensity / averageMassDensity) = -1.0
+}
 
+
+// --------- Allocate and dellocate structures
+
+void allocateStructures() {
+  TRACE("Allocate\n");
   // Allocate and rho, Ex, Ey, Ez arrays used by the Poisson solver
   rho = allocate_3d_array(gridX, gridY, gridZ);
   Ex = allocate_3d_array(gridX, gridY, gridZ);
   Ey = allocate_3d_array(gridX, gridY, gridZ);
   Ez = allocate_3d_array(gridX, gridY, gridZ);
+
   // Allocate and reset array for deposit
   deposit = (double*) malloc(nbCells * sizeof(double));
   resetCellIndexedArray(deposit);
+
   // Allocate the field, not initialized in this function
   field = (vect*) malloc(nbCells * sizeof(vect));
 
-  // Later in optimizations: call an 'initialize' function in particle_chunk_alloc
-
-  TRACE("Filling particles on %d cells\n", nbCells);
-
-  // Initialize bagsNext and bagsCur with empty bags in every cell
+  // Allocate bagsNext and bagsCur with empty bags in every cell
   bagsCur = (bag*) malloc(nbCells * sizeof(bag));
   bagsNext = (bag*) malloc(nbCells * sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init_initial(&bagsCur[idCell]);
     bag_init_initial(&bagsNext[idCell]);
   }
+}  // Later in optimizations: call an 'initialize' function in particle_chunk_alloc
+
+
+void deallocateStructures() {
+  TRACE("Deallocate\n");
+  // Later in optimizations: call a 'finalize' function in particle_chunk_alloc
+
+  // Free the chunks
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    bag_free_initial(&bagsCur[idCell]);
+    bag_free_initial(&bagsNext[idCell]);
+  }
+
+  // Free arrays
+  free(bagsCur);
+  free(bagsNext);
+  free(field);
+}
+
+// --------- Create particles, and perform initial charge deposit
+
+void createParticles() {
+  TRACE("Filling particles on %d cells\n", nbCells);
 
 #ifdef PRINTPERF
   double timeInitStart = omp_get_wtime();
@@ -501,9 +532,9 @@ void init(int argc, char** argv) {
     const double y_range = mesh.y_max - mesh.y_min;
     const double z_range = mesh.z_max - mesh.z_min;
 
-    TRACE("Creating %ld particles\n", nb_particles);
+    TRACE("Creating %ld particles\n", nbParticles);
     // Create particles and push them into the bags.
-    for (int idParticle = 0; idParticle < nb_particles; idParticle++) {
+    for (int idParticle = 0; idParticle < nbParticles; idParticle++) {
         do {
             // x, y, z are offsets from mesh x/y/z/min
             x = x_range * pic_vert_next_random_double();
@@ -513,7 +544,7 @@ void init(int argc, char** argv) {
             evaluated_function = (*distrib_function)(params, x + mesh.x_min, y + mesh.y_min, z + mesh.z_min);
         } while (control_point > evaluated_function);
         (*speeds_generator)(speed_params, &vx, &vy, &vz);
-        // Modified from pic-vert
+        // The rest of the loop body is modified compared with pic-vert
         const vect pos = { x, y, z };
         const vect speed = { vx, vy, vz };
 #ifdef DEBUG_CREATION
@@ -533,41 +564,19 @@ void init(int argc, char** argv) {
   double timeInit = (double) (omp_get_wtime() - timeInitStart);
   printf("Creation time (including charge accumulation): %.3f sec\n", timeInit);
 #endif
-
-  TRACE("Computing initial poisson and leap-frog step\n");
-  // Poisson solver to compute field at time zero, and reset deposit
-  updateFieldUsingDeposit(deposit, field);
-
-#ifdef DEBUG_ACCEL
-  printf("nbParticles = %d\n", nbParticles);
-  printf("stepDuration = %g\n", stepDuration);
-  printf("particleCharge = %g\n", particleCharge);
-  printf("particleMass = %g\n", particleMass);
-#endif
 }
 
-void finalize(bag* bagsCur, bag* bagsNext, vect* field) {
-  TRACE("Finalize\n");
-  // Later in optimizations: call a 'finalize' function in particle_chunk_alloc
-
-  // Free the chunks
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag_free_initial(&bagsCur[idCell]);
-    bag_free_initial(&bagsNext[idCell]);
-  }
-
-  // Free arrays
-  free(bagsCur);
-  free(bagsNext);
-  free(field);
-}
 
 // --------- Steps
 
 // The Leaf-Frog method is used to obtain an order-2 interpolation for the
 // differential equation; it consists of precomputing, for half-of-step backwards,
 // the evolution of the particles speed.
-void applyLeapFrogStep() {
+void stepLeapFrog() {
+  // TRACE("Computing initial poisson and leap-frog step\n");
+  // Poisson solver to compute field at time zero, and reset deposit
+  updateFieldUsingDeposit(deposit, field);
+  // A leap-frog is half a step backwards
   double negHalfStepDuration = -0.5 * stepDuration;
   // For each cell from the grid
   for (int idCell = 0; idCell < nbCells; idCell++) {
@@ -586,7 +595,7 @@ void applyLeapFrogStep() {
   }
 }
 
-void applyStep() {
+void step() {
   // For each cell from the grid
   for (int idCell = 0; idCell < nbCells; idCell++) {
 
@@ -679,9 +688,13 @@ void reportParticlesState() {
 
 int main(int argc, char** argv) {
 
-  init(argc, argv);
+  loadParameters(argc, argv);
 
-  applyLeapFrogStep();
+  allocateStructures();
+
+  createParticles();
+
+  stepLeapFrog();
 
 #if defined(PRINTPERF) || defined(PRINTSTEPS)
   double timeStart = omp_get_wtime();
@@ -691,14 +704,14 @@ int main(int argc, char** argv) {
 #endif
 
   // Foreach time step
-  for (int step = 0; step < nbSteps; step++) {
+  for (int idStep = 0; idStep < nbSteps; idStep++) {
 #ifdef PRINTSTEPS
     if (omp_get_wtime() > nextReport) {
       nextReport += 1.0;
-      printf("Step %d\n", step);
+      printf("Step %d\n", idStep);
     }
 #endif
-    applyStep();
+    step();
   }
 
 #if defined(PRINTPERF)
@@ -709,6 +722,6 @@ int main(int argc, char** argv) {
   reportParticlesState();
 #endif
 
-  finalize(bagsCur, bagsNext, field);
+  deallocateStructures();
 }
 
