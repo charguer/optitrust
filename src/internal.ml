@@ -194,30 +194,28 @@ let get_trm_in_surrounding_loop (dl : path) : path * int =
 
 (* [get_surrounding_trm checker dl t] given the path [dl] that resolves to trm res find a predecessor of that trm
     that satisfies the predicate [checker]*)
-let get_surrounding_trm (checker : trm -> bool) (dl : path) (t : trm) : path = 
-  let res_trm, res_inter_trm_list = Path.resolve_path_and_ctx dl t in 
-  let list_trms = res_inter_trm_list @ [res_trm] in 
-  if List.length dl <> List.length list_trms then fail res_trm.loc "bad behaviour";
-  let rec aux (dl : path) (tl : trm list) : path = 
-    match dl, tl with 
-    | hd_p :: tl_p , hd_t :: tl_t -> 
-      if is_access hd_t then List.rev dl else aux tl_p tl_t
-    | _, _ -> fail None "get_surrouding_trm: could't find the surrounding trm that satisfies the give predicate"
-
-  in aux (List.rev dl) (List.rev list_trms)
+let get_surrounding_trm (checker : trm -> bool) (dl : path) (t : trm) : path list = 
+  let rec aux (acc : path list) (dl1 : path) : path list = 
+    match dl1 with 
+    | [] -> acc
+    | hd_p :: tl_p -> 
+      let res = Path.resolve_path (List.rev dl1) t in 
+        Printf.printf "Checking trm %s, matched:  %b\n" (AstC_to_c.ast_to_string res) (checker res);
+        if checker res then aux ((List.rev dl1) :: acc) tl_p else aux acc tl_p
+    in 
+  List.rev (aux [] (List.rev dl))
 
 (* [get_surrouding_access dl t] specialization of get_surrouding_trm for accesses*)
-let get_surrouding_access (dl : path) (t : trm) : path = 
+let get_surrouding_access (dl : path) (t : trm) : path list = 
   get_surrounding_trm is_access dl t
 
 (* [get_surrouding_access dl t] specialization of get_surrouding_trm for read operations*)
-let get_surrouding_read (dl : path) (t : trm) : path = 
+let get_surrouding_read (dl : path) (t : trm) : path list = 
   get_surrounding_trm is_get_operation dl t
 
 (* [get_surrouding_access dl t] specialization of get_surrouding_trm for write operations*)
-let get_surrouding_write (dl : path) (t : trm) : path = 
+let get_surrouding_write (dl : path) (t : trm) : path list = 
   get_surrounding_trm is_set_operation dl t
-
 
 (* [is_decl_body dl] checks if the full path points to a declaration body *)
 let is_decl_body (dl : path) : bool =

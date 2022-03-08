@@ -31,7 +31,6 @@ let delete : Target.Transfo.t =
 let copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:Target.target = []) (tg : Target.target) : unit =
   Target.apply_on_transformed_targets ~rev (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) ->
-      Printf.printf "I was here\n";
       let tg_dest_path_seq, dest_index = if dest = [] then p, i+1 else Target.resolve_target_between_exactly_one dest t in
       if tg_dest_path_seq <> p then fail None "move: the destination target should be unique and belong to the same block as the main targets";
       Instr_core.copy dest_index i delete t p

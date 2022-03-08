@@ -25,7 +25,8 @@ let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
       if is_set_operation t
         then {t with desc = Trm_apps (f ,[addr; f_set targ])}
         else fail t.loc "transform_aux: expected a set operation"
-  | _ -> fail t.loc "transform_aux: expected either a get or a set oepration"
+  (* | _ -> fail t.loc (Printf.sprintf "transform_aux: expected either a get or a set oepration got %s" (Ast_to_text.ast_to_string t)) *)
+  | _ -> fail t.loc "transform_aux: expected either a get or set operation"
 
 
 
