@@ -57,7 +57,7 @@ cp configuration_small.sh your_configuration.sh
 To configure the benchmark parameters, execute (and possibly edit the resulting file):
 
 ```
- cd scripts/3d_performance/
+ cd scripts/
  cp parameters_3d_small.txt parameters_3d.txt
 # or
  cp parameters_3d_medium.txt parameters_3d.txt
@@ -73,12 +73,14 @@ Make sure to recompile whenever you change the parameter file.
 
 # Compilation
 
-In the folder `scripts/3d_performance/`, execute:
+In the folder `scripts/`, execute:
 
 ```
 ./compile.sh pic_barsamian.c
 # or
 ./compile.sh pic_demo.c
+# or
+make -j2 progs
 ```
 
 This should create the binary and a copy of the parameters file in the folder:
@@ -94,7 +96,7 @@ This should create the binary and a copy of the parameters file in the folder:
 
 First, open `htop` is an auxiliary terminal, to visualize CPU utilization.
 
-Then, in the folder `scripts/3d_performance/`, execute:
+Then, in the folder `scripts/`, execute:
 
 ```
 ./run.sh pic_barsamian.c
@@ -147,7 +149,7 @@ Interesting is to compute the "Nb. particles / s / core" by dividing the value o
 
 # Combined script for compiling and executing
 
-`test.sh` invokes `compile.sh` then `run.sh` on the argument.
+In the folder `/script`, `test.sh` invokes `compile.sh` then `run.sh` on the argument.
 
 ```
 ./test.sh pic_barsamian.c
@@ -158,7 +160,7 @@ Interesting is to compute the "Nb. particles / s / core" by dividing the value o
 
 # Correctness checker
 
-`check.sh` measures the distance (max and mean, for positions and speeds)
+In the folder `/script`, `check.sh` measures the distance (absolute and relative, for positions and speeds)
 between the final state of particles associated with two simulations.
 
 ```
@@ -169,7 +171,7 @@ To achieve this, the simulations are compiled using a flag `CHECKER`,
 that adds an identifier information to every particle, and dumps the
 state of all particles in a file (in binary format) after the last step.
 The program `checker.c` implements a comparison function for two such
-binary output files.
+binary output files. This program is compiled by the `check.sh` script.
 
 
 

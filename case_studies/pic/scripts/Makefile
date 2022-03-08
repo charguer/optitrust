@@ -1,5 +1,5 @@
 
-DIR_ROOT=../..
+DIR_ROOT=..
 DIR_SIM=$(DIR_ROOT)/simulations
 DIR_PROGS=$(DIR_ROOT)/3d_runs/run1
 BINARIES=$(DIR_PROGS)/pic_demo.out $(DIR_PROGS)/pic_barsamian.out

@@ -11,13 +11,16 @@ TARGET1=$1
 TARGET2=$2
 CHECKER_OUTFILE1="`basename ${TARGET1} .c`.res"
 CHECKER_OUTFILE2="`basename ${TARGET2} .c`.res"
-DIR_OUTFILE=../../3d_runs/run1/
+DIR_ROOT=..
+DIR_OUTFILE=${DIR_ROOT}/3d_runs/run1/
 
 rm -f ${CHECKER_OUTFILE1} ${CHECKER_OUTFILE2}
 rm -f ${DIR_OUTFILE}/${CHECKER_OUTFILE1} ${DIR_OUTFILE}/${CHECKER_OUTFILE2}
 
 echo "====Compilation===="
-make -j3 all || exit 1
+# Note: the make command builds all the binaries, instead of the two binaries
+# requested, but for now it is equivalent
+make -j3 checker.out progs params || exit 1
 # make checker.out
 #./compile.sh ${TARGET1} ${CHECKER_OUTFILE1} || exit 1
 #./compile.sh ${TARGET2} ${CHECKER_OUTFILE2} || exit 1
