@@ -26,6 +26,19 @@ let delete : Target.Transfo.t =
   Sequence_basic.delete
 
 (* [move ~target tg] expects the target [tg] to point to the instruction which is
+    going to be copied to the relative target [where], if the original should be deleted
+    then ~delete:true should be passed as argument *)
+let copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:Target.target = []) (tg : Target.target) : unit =
+  Target.apply_on_transformed_targets ~rev (Internal.isolate_last_dir_in_seq)
+    (fun t (p,i) ->
+      Printf.printf "I was here\n";
+      let tg_dest_path_seq, dest_index = if dest = [] then p, i+1 else Target.resolve_target_between_exactly_one dest t in
+      if tg_dest_path_seq <> p then fail None "move: the destination target should be unique and belong to the same block as the main targets";
+      Instr_core.copy dest_index i delete t p
+    ) tg
+
+
+(* [move ~target tg] expects the target [tg] to point to the instruction which is
     going to be moved at the relative target [where]
 
    @correctness: Correct if the swapped instructions are parallelizable:
@@ -34,24 +47,18 @@ let delete : Target.Transfo.t =
    {H1 * H2 * H} instr1 {H1' * H2 * H} instr2 {H1' * H2' * H}
    we can build the same postcondition with
    {H1 * H2 * H} instr2 {H1 * H2' * H} instr1 {H1' * H2' * H}
-
+   
    This is sufficient but not necessary, a manual commutation proof can be used
    as well.
 *)
-let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target) : unit =
-  Target.apply_on_transformed_targets ~rev (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) ->
-      let tg_dest_path_seq, dest_index = Target.resolve_target_between_exactly_one where t in
-      if tg_dest_path_seq <> p then fail None "move: the destination target should be unique and belong to the same block as the main targets";
-      Instr_core.move dest_index i t p
-    ) tg
+let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target) : unit = 
+  copy ~rev ~delete:true ~dest:where tg
 
 (* [read_last_write ~write tg] expects the target [tg] to point to a read operation, then it
     replaces the trm corresponding to that read operation with the one at [write].
 
    @correctness: the read expression must be pure, and its evaluation must not
-   have changed since the write.
- *)
+   have changed since the write.*)
 
 let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
   let write_trm = Target.get_trm_at write in 
@@ -105,8 +112,4 @@ let view_subterms ?(constr:Constr.constr option) ?(rexp : Constr.rexp option) (t
   let stringreprs = Target.compute_stringreprs_and_update_ast (fun _ -> true) in
   (* for debug: AstC_to_c.print_stringreprs stringreprs; *)
   Target.apply_on_targets (Instr_core.view_subterms stringreprs ro) tg
-
-let copy : Target.Transfo.t = 
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p, i) -> Instr_core.copy i t p )
 

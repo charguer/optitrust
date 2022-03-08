@@ -514,7 +514,7 @@ let cReadOrWrite ?(addr : target = [cTrue]) () : constr =
 
 (* [cWriteVar x] matches a set operation for variable [x] *)
 let cWriteVar (x : var) : constr =
-  cWrite ~lhs:[cVar x] ()
+  cWrite ~lhs:[cStrictNew;cVar x] ()
 
 (* [cReadVar x] matches a read operation for variable [x] *)
 let cReadVar (x : var) : constr =

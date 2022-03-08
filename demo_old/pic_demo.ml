@@ -75,14 +75,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   bigstep "Low level iteration on chunks of particles";
   !! Sequence.intro ~mark:"loop" ~start:[main; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [main; cMark "loop"; cFor_c ""; dBody]; (* LATER: will be integrated in uninline *)
-  (*!! Variable.insert_and_fold ~name:"q" ~typ:(atyp "particle* const") ~value:(expr "(particle* const) p") [tBefore; main; cVarDef "iX0"];*)
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"] [main; cMark "loop"];
   !! Expr.replace_fun "bag_iter_ho_chunk" [main; cFun "bag_iter_ho_basic"];
   !! Function.inline [main; cFun "bag_iter_ho_chunk"]; (* LATER: uninline+replace+inline+beta *)
-  (*!! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0]; *)
   !! Function.beta ~indepth:true [main];
   (* LATER/ why is   show [nbMulti; main; cRead ~addr:[cVar "p"] ()];  not the same as show [nbMulti; main; cReadVar "p"] ? *)
-  (* !! Instr.inline_last_write ~write:[main; cVarDef "p"]  [nbMulti; main; cVar "p"]; *)  (*LATER: does not work, because access operations *)
   !! Variable.init_detach [main; cVarDef "p"];
   !! Instr.inline_last_write ~write:[main; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; main; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
   (* !! Variable.to_const [main; cVarDef "p"];  LATER: does not work, because write in p->pos *)
@@ -180,7 +177,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   !! Matrix.delocalize "nextCharge" ~into:"nextChargeCorners" ~last:true ~indices:["idCell"] ~init_zero:true
-     ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:"k" [cLabel "core"];
+     ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "k")) [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextCharge"] ~index:[] ~rhs:[cDouble 0.] ()]];
 
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
@@ -213,11 +210,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Sequence.insert (expr "#include \"omp.h\"") [tBefore; main];
   !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "8") [tBefore; main]; (* TODO: remove ~value, see comment in Variable.insert *)
-  !! Variable.insert ~name:"idThread" ~typ:(typ_int()) ~value:(expr "get_thread_num()") [tBefore; cLabel "charge" ];
+  !! Variable.insert ~const:false ~name:"idThread" ~typ:(typ_int()) ~value:(expr "omp_get_thread_num()") [tBefore; cLabel "charge" ];
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "nextChargeCorners" ~into:"nextChargeThreadCorners" ~indices:["idCell"; "idCorner"]
-      ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:"idThread" [cLabel "core"];
+      ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "idThread")) [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
 
   bigstep "Make the new matrices persistent across iterations"; (* LATER: would be cleaner to do earlier, near the corresponding delocalize *)
@@ -248,8 +245,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
+  !! Loop.hoist [main; cVarDef "idCell2"];
+  !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
+  (* !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "p2"]; [cVarDef "iX2"]]];
   !! Variable.to_const [main; cVarDef "nb"];
-  !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "p2"]; [cVarDef "iX2"]]];
+  !! Instr.move ~dest:[tAfter; main; cVarDef "iZ2"] [nbMulti; main; cVarDef ~regexp:true "r.1"];
+  !! Loop.hoist [main; cVarDef "idCell2"];
+  !! Instr.copy ~dest:[tBefore; cVarDef "co"] [main; cVarDef "idCell2"];
+  !! Loop.fission [nbMulti; tAfter; main; cWriteVar "idCell2"];
+   *)
 
   (* Discuss *)
   (* !! Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
@@ -266,15 +270,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: optimize chunk allocation *)  (* ARTHUR *)
 
 )
-
-
-(* TODO: generalize Specialize.any so that it takes a trm and not a string as argument.
-
-  TODO: Variable_core.delocalize_aux should take as argument a mark (possibly "", in which case it leaves no mark)
-  to annotate all the ANY that it introduces.  (use the modified trm_add_mark for this)
-
-  TODO: add an argument ?(use:trm) to (Variable and Matrix) delocalize to specialize the any on the fly;
-  if the argument is "Some t", then pass a fresh mark to delocalize_aux, then call Specialize.any on that mark with the trm t. *)
 
 (* LATER:
     define the function
@@ -300,13 +295,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
     For example, a scale on    sExpr "t[i]"  should operate on both the read and write in
       t[i] = t[i] + 1
 *)
-
-(* LATER:
-   instead of generating coefX0 and coefX1  using AddSuffix ${occ}
-   we could generate coefX and coefX2       using Pattern (fun i s -> if i = 0 then s else s ^ string_of_int (i+1))
-   this would avoid having "0" all around the place for redundant definitions. *)
-
-
 
 (* LATER:
     !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] ..
