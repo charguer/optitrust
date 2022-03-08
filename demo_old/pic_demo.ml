@@ -330,9 +330,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 (* LATER: cWrite has ~lhs and ~rhs, but cRead has ~addr, this is not coherent, cRead should have ~arg or cWrite should have ~addr and ~arg *)
 
-(* TODO:  Variable.insert ~const:true
-    we should make const:true the default
-    and possibly introduce Variable.insert_mut   as a shorthand for   insert ~const:false *)
 
 (*  LATER: compute should perform simplification recursively in atoms, see example of [w];
    to implement using trm_map. *)

@@ -1848,6 +1848,21 @@ let is_compound_assignment (t : trm) : bool =
   | Trm_apps ({ desc = Trm_val (Val_prim (Prim_compound_assgn_op _))}, _) -> true
   | _ -> false
 
+(* [is_access t] check if t is a struct or array access *)
+let is_access (t : trm) : bool = match t.desc with
+  | Trm_apps (f, _) -> 
+    begin match trm_prim_inv f with 
+    | Some p -> 
+      begin match p with 
+      | Prim_unop (Unop_struct_access _) | Prim_unop (Unop_struct_get _) | Prim_binop (Binop_array_access) | Prim_binop (Binop_array_get) -> true
+      | _ -> false
+      end
+    | None -> false
+    end
+  | _ -> false
+
+
+
 (* [get_operation_arg t] get the arg of a get operation *)
 let get_operation_arg (t : trm) : trm =
   match t.desc with
