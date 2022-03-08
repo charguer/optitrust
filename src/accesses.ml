@@ -13,10 +13,9 @@ include Accesses_basic
 let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm) : Target.Transfo.t =
    Target.reparse_after ~reparse (
      Target.apply_on_targets (fun t p -> 
-        let get_or_set_paths = Internal.get_surrounding_trm (fun t -> (is_get_operation t) || (is_set_operation t)) p t in 
-        if get_or_set_paths = [] then t else 
-        List.fold_left (fun t1 p1 -> Accesses_core.transform f_get  f_set t1 p1) t get_or_set_paths
-         ))
+        let get_or_set_path = Internal.get_surrounding_trm (fun t -> (is_get_operation t) || (is_set_operation t)) p t in 
+        if get_or_set_path = [] then t else 
+        Accesses_core.transform f_get  f_set t get_or_set_path ))
 
 (* [scale ~factor ~factor_ast tg] this transformation is an andvanced version of Accesses_basic.scale 
      This transformation expects the target [tg] to be pointing at a node that is na ancestor of a get or
