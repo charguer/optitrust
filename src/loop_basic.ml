@@ -55,7 +55,7 @@ let tile ?(index : var = "b${id}") ?(bound : tile_bound = TileBoundMin) (tile_si
     with name [name] right before the loop ex. int name[N] when N is the upper bound
     of the loop and make the targeted variable point to the array [name] at index i.
     ex. int x = name[i].
-    [x_step] - denotes the array name which is going to hoist all the values of the targetd variable
+    [x_step] - denotes the array name which is going to hoist all the values of the targeted variable
     for each index of the for loop.
 *)
 let hoist ? (name : var = "${var}_step") (tg : Target.target) : unit =
@@ -66,7 +66,7 @@ let hoist ? (name : var = "${var}_step") (tg : Target.target) : unit =
 (* [fission tg]: expects [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
 
-   @correctness: Reads in new second loop need to never depend on writes on 
+   @correctness: Reads in new second loop need to never depend on writes on
    first loop after index i. Writes in new second loop need to never overwrite
    writes in first loop after index i.
 *)
@@ -115,7 +115,7 @@ let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : Target.target
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets (Loop_core.unroll braces my_mark) tg)
 
-(* LATER: Implement a combi transformation that will check if the targeted instruction 
+(* LATER: Implement a combi transformation that will check if the targeted instruction
     is dependent on any local variable or the loop index.
 *)
 (* [move_out] expects the target [tg] to point to an instruction inside the loop
@@ -158,8 +158,8 @@ let to_unit_steps ?(index : var = "" ) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.to_unit_steps index)
 
 (* [fold ~direction index start stop step tg] expects the target [tg] to point to the first instruction in a sequence
-    and it assumes that the sequence containing the target [tg] is composed of a list of instructions which 
-    can be expressed into a single for loop with [index] [direction] [start] [nb_instructions] and [step] as loop 
+    and it assumes that the sequence containing the target [tg] is composed of a list of instructions which
+    can be expressed into a single for loop with [index] [direction] [start] [nb_instructions] and [step] as loop
     components.
 *)
 let fold ~index:(index : var) ~start:(start : int) ~step:(step : int) : Target.Transfo.t =

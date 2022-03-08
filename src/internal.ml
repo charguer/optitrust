@@ -298,8 +298,9 @@ let nb_inits (x : var) (t : trm) : int =
     in
     let _t = aux t in !counter
 
-(* Find the declaration of variable [x] if it exists in [t] where t usually is the full ast.*)
-let toplevel_decl (x : var) : trm option =
+(* Find the declaration of variable [x] if it exists in [t] where t usually is the full ast.
+   If [~require_body:true] is provided, then only definitions with a body are selected. *)
+let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
   let full_ast = Target.get_ast () in
   match full_ast.desc with
   | Trm_seq tl ->
@@ -310,7 +311,14 @@ let toplevel_decl (x : var) : trm option =
       | _ -> match t1.desc with
             | Trm_typedef td when td.typdef_tconstr = x -> Some t1
             | Trm_let (_, (y, _),_ ) when y = x -> Some t1
-            | Trm_let_fun (y, _, _, _) when y = x -> Some t1
+            | Trm_let_fun (y, _, _, body) when y = x ->
+              if require_body then begin
+                match body.desc with
+                | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
+                | _ -> None
+              end else begin
+                Some t1
+              end
             | _ -> None
   ) None tl
   | _ -> fail full_ast.loc "top_level_decl: the full ast starts with the main sequence which contains all the toplevel declarations"
@@ -589,42 +597,42 @@ let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
     if yes then assign its values otherwise do nothing
 *)
 (* LATER: open question: can this be implemented using onscope? *)
-let rec subst (tm : tmap) (t : trm) : trm = 
-  let aux (t : trm) : trm = 
-    subst tm t in 
-  (* make a recursive call by removing from the map 
+let rec subst (tm : tmap) (t : trm) : trm =
+  let aux (t : trm) : trm =
+    subst tm t in
+  (* make a recursive call by removing from the map
     the keys that satisfy [f] *)
-  let aux_filter (f : var -> bool)  (t : trm) : trm = 
-    let tm2 = Trm_map.filter (fun k v -> not (f k)) tm in 
-    subst tm2 t in  
-  match t.desc with 
+  let aux_filter (f : var -> bool)  (t : trm) : trm =
+    let tm2 = Trm_map.filter (fun k v -> not (f k)) tm in
+    subst tm2 t in
+  match t.desc with
   (* Hack to avoid unnecessary get operations when we substitute a variable occurrence with arbitrary code *)
-  | Trm_var (vk, x) -> 
-    begin match Trm_map.find_opt x tm with 
-    | Some t1 -> 
-      if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1 
+  | Trm_var (vk, x) ->
+    begin match Trm_map.find_opt x tm with
+    | Some t1 ->
+      if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1
     | _ -> t
     end
-  | Trm_seq ts -> 
-    let cur_tm = ref tm in 
-    let subst_item ti = 
-      begin match ti.desc with 
-      | Trm_let (_, (x, ty), tbody) -> 
-        let ti2 = subst !cur_tm ti in 
+  | Trm_seq ts ->
+    let cur_tm = ref tm in
+    let subst_item ti =
+      begin match ti.desc with
+      | Trm_let (_, (x, ty), tbody) ->
+        let ti2 = subst !cur_tm ti in
         cur_tm := Trm_map.filter (fun k _v -> k <> x) tm;
         ti2
-      | Trm_let_fun (f, __retty, targs, tbody) -> 
+      | Trm_let_fun (f, __retty, targs, tbody) ->
         cur_tm := Trm_map.filter (fun k _v -> k <> f) tm;
         subst !cur_tm ti
       | _ -> subst !cur_tm ti
       end
-      in 
-      let ts2 = Mlist.map subst_item ts in 
+      in
+      let ts2 = Mlist.map subst_item ts in
       { t with desc = Trm_seq ts2}
-  | Trm_for (index, _, _, _, _, _) -> 
+  | Trm_for (index, _, _, _, _, _) ->
     trm_map (aux_filter (fun x -> x = index)) t
-  | Trm_for_c (init, _, _, _) -> 
-    let vs = vars_bound_in_trm_init init in 
+  | Trm_for_c (init, _, _, _) ->
+    let vs = vars_bound_in_trm_init init in
     trm_map (aux_filter (fun x -> List.mem x vs)) t
   | _ -> trm_map aux t
 

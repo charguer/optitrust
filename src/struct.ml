@@ -54,9 +54,9 @@ let set_implicit (tg : Target.target) : unit =
 
 
 (* [rename_field field ~into tg] this is a specialization of the previous function
-      when one wants to rename only one field of a struct. [field] is the current field name 
-      [into] is the new name that is going to replace all the occurrences of field in the context of 
-      the targetd typedef struct.
+      when one wants to rename only one field of a struct. [field] is the current field name
+      [into] is the new name that is going to replace all the occurrences of field in the context of
+      the targeted typedef struct.
 *)
-let rename_field (field : field) ~into:(into : var): Target.Transfo.t = 
+let rename_field (field : field) ~into:(into : var): Target.Transfo.t =
   rename_fields (only_for field (fun _ -> into))

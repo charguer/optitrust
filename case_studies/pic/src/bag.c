@@ -2,6 +2,7 @@
 #define PARTICLE_CHUNK_H
 
 #include "bag.h"
+#include "bag_atomics.h"
 
 //==========================================================================
 // Representation of chunks
@@ -56,23 +57,6 @@
  *       |———————|    |———————|    ...   |———————|    |———————|
  *
  */
-
-
-//==========================================================================
-// Auxiliary tool
-
-/* [internal function]
- * Guarantee that the entire value of *p is read atomically.
- * No part of *p can change during the read operation.
- *
- * Taken from openmp-examples-4.5.0.pdf, Example atomic.2.c
- */
-chunk* atomic_read(chunk** p) {
-  chunk* value;
-  #pragma omp atomic read
-  value = *p;
-  return value;
-}
 
 
 //==========================================================================
@@ -226,8 +210,7 @@ void bag_add_front_chunk(bag* b) {
   // Solution: adding a memory fence (putting write c->size=0 when freeing a chunk, and not when adding it is not enough).
   c->size = 0;
   c->next = b->front;
-  #pragma omp atomic write
-  b->front = c;
+  atomic_write_chunk(&b->front, c);
 }
 
 /*
@@ -249,8 +232,7 @@ void bag_push_concurrent(bag* b, particle p) {
   while (true) { // Until success.
     c = b->front;
 
-    #pragma omp atomic capture
-    index = c->size++;
+    index = atomic_increment(&c->size);
 
     if (index < CHUNK_SIZE) {
       // The chunk is not full, we can write the particle.
@@ -268,7 +250,7 @@ void bag_push_concurrent(bag* b, particle p) {
       // First we have to cancel our additional "c->size++". This can be done
       // either with an "atomic c->size--", or just without atomics this way:
       c->size = CHUNK_SIZE;
-      while (atomic_read(&b->front) == c) {
+      while (atomic_read_chunk(&b->front) == c) {
         // Then we wait until the other thread extends the bag.
         // The atomic_read forces the thread to read the value in the
         // main memory, and not in its temporary view.
