@@ -51,20 +51,73 @@ let script (f : unit -> unit) : unit =
     Printf.eprintf "=======\nFailure: %s\n" s;
     exit 1
 
-let debug_inline_cpp = false
-
 (* [generated_source_with_inlined_header_cpp input_file inline output_file]
    takes a file [input_file] and produces a file [output_file] obtained by
    inlining in the source the "#include" corresponding to the files listed
-   in the list of filenames [inline]. *)
+   in the list of filenames [inline].
+  If an [#include "bar.h"] has already been substituted once, then the other occurrences are ignored.
+  If an item "bar.hc" (LATER or .hcpp) is provided in the list, then [#include "bar.h"] will be
+  intrepreted as [#include "bar.h"; #include "bar.cpp"], and the substitutions will be
+  performed as if the [~inline] argument contained ["bar.cpp"; "bar.h"].
+  If an item "bar.h-" is provided, then [#include "bar.h"] will be deleted. *)
+
+(* LATER type inline_include =
+  | Inline_include_todo
+  | Inline_include_with_header_and_impl
+  | Inline_include_already_done
+
+  (* We keep a map to record
+     - which headers have already been substituted,
+     - and for those that haven't yet been substituted, the information on what they should be substituted with. *)
+  let states : (string, inline_include) Hashtbl.t = Hashtbl.create (2 * List.length inline) in
+  (* First, we expand the ".hc" and ".hcpp" extension in the [inline] argument,
+     and recall the information that we want to substitute includes of headers
+     with both header and implementation contents. *)
+  let inline = List.map (fun f ->
+      let basename = Filename.basename filename in
+      let extension = Filename.extension basename in
+      if extension = ".hc" then begin
+        let f = basename ^ ".h" in
+        Hashtbl.add states f Inline_include_with_header_and_impl
+      else
+        Hashtbl.add states f Inline_include_todo
+    ) inline in
+*)
+
+let debug_inline_cpp = false
+
 let generated_source_with_inlined_header_cpp (input_file:string) (inline:string list) (output_file:string) : unit =
   let s = ref (Xfile.get_contents input_file) in
-  List.iter (fun file_to_inline ->
-      let include_instr = "#include \"" ^ file_to_inline ^ "\"" in
+  let perform_inline finline =
+      let include_instr = "#include \"" ^ finline ^ "\"" in
       if debug_inline_cpp then Printf.printf "Inlined %s\n" include_instr;
-      let contents = Xfile.get_contents file_to_inline in
-      s := Tools.string_subst include_instr contents !s)
-    inline;
+      let contents = Xfile.get_contents finline in
+      s := Tools.string_subst_first include_instr contents !s;
+      s := Tools.string_subst include_instr "" !s
+    in
+  let process_item finline =
+    let basename = Filename.basename finline in
+    let extension = Filename.extension finline in
+    if extension = ".hc" then begin
+      let corename = Filename.chop_extension basename in
+      let fheader = corename ^ ".h" in
+      let fimplem = corename ^ ".c" in
+      let include_instr = "#include \"" ^ fheader ^ "\"" in
+      let include_instr_new = "#include \"" ^ fheader ^ "\"\n#include \"" ^ fimplem ^ "\"" in
+      if debug_inline_cpp then Printf.printf "Prepare inline of implementation for %s\n" include_instr;
+      s := Tools.string_subst include_instr include_instr_new !s;
+      perform_inline fimplem;
+      perform_inline fheader;
+    end else if extension = ".h-" then begin
+      let corename = Filename.chop_extension basename in
+      let fheader = corename ^ ".h" in
+      let include_instr = "#include \"" ^ fheader ^ "\"" in
+      s := Tools.string_subst include_instr "" !s;
+    end else begin
+      perform_inline finline
+    end
+  in
+  List.iter process_item inline;
   Xfile.put_contents output_file !s
 
 (* [get_program_basename ()] returns the basename of the current binary program is used.
@@ -98,6 +151,7 @@ let get_program_basename () : string =
    - [~inline:["foo.cpp";"bar.h"]] allows to perform substitution of "#include" directives
      with the contents of the corresponding files; the substitutions are performed one after
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp".
+     See the specification of [generated_source_with_inlined_header_cpp] for additional features.
    - [~batching:filename] is a shorthand for [~filename:filename ~prefix:filename] and also it activates
      the printing of progress for batch mode; this is used by the "make batch" command for unit tests *)
 let script_cpp ?(batching : string = "") ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(parser : Parsers.cparser = Default) (f : unit -> unit) : unit =

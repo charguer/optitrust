@@ -314,6 +314,11 @@ let pattern_matches (pattern : string) (s : string) : bool =
 let string_subst (pattern : string) (replacement : string) (s : string) : string =
   Str.global_replace (Str.regexp_string pattern) replacement s
 
+(* [string_subst_first pattern replacement s] replace the first occurence of [pattern] inside [s]
+   with the string [replacement]. *)
+let string_subst_first (pattern : string) (replacement : string) (s : string) : string =
+  Str.replace_first (Str.regexp_string pattern) replacement s
+
 
 (*-----------Extensions for Time-------------*)
 
@@ -419,7 +424,7 @@ let ilset_funmap_union : ilset funmap -> ilset funmap -> ilset funmap =
 let (+@) = ilset_funmap_union
 
 (* convert a string to a boolean if s is "true" or "false" otherwise do nothing *)
-let bool_of_var (s : string) : bool option = 
+let bool_of_var (s : string) : bool option =
   try Some (bool_of_string s )
   with | Invalid_argument _ -> None
 

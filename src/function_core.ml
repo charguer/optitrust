@@ -25,12 +25,12 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
      let function_call = Path.resolve_path p_local instr in
      let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
      let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
-    
+
      let function_type = match function_call.typ with
      | Some typ -> typ
      | None -> typ_auto() in
-     let decl_to_change = Internal.change_trm function_call (trm_var_possibly_mut ~const ~typ:(Some function_type) fresh_name) instr in 
-    
+     let decl_to_change = Internal.change_trm function_call (trm_var_possibly_mut ~const ~typ:(Some function_type) fresh_name) instr in
+
      let function_call = trm_add_mark my_mark function_call in
      let decl_to_insert =
       if const
@@ -89,7 +89,7 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
   let t = aux true t in
   (t, !nb_gotos)
 
-(* [inline_aux index body_mark top_ast p_local t] replace a function call with the traslated body of the function called
+(* [inline_aux index body_mark top_ast p_local t] replace a function call with the translated body of the function called
     params:
       [index]: index of the instruction containing the function call
       [body_mark]: body_mark used for the traslated body of the function
@@ -111,7 +111,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
     | Trm_apps(tfun, fun_call_args) ->
       let fun_decl = begin match tfun.desc with
       | Trm_var (_, f) ->
-        begin match Internal.toplevel_decl f with
+        begin match Internal.toplevel_decl ~require_body:true f with
         | Some decl -> decl
         | _ -> fail tfun.loc "inline_aux: couldn't find the toplevel decl for the targeted function call"
         end
@@ -134,7 +134,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         let inlined_body =
          if is_type_unit(ty)
            then [marked_body; exit_label]
-           else 
+           else
             [trm_let_mut ~marks:fun_call.marks (name, ty) (trm_uninitialized ());
                 marked_body; exit_label]
            in
@@ -158,24 +158,24 @@ let inline (index: int) (body_mark : string option) (p_local : path) : Target.Tr
     return:
       ast of a binary compound operation
 *)
-let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm = 
-  match t.desc with 
+let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
+  match t.desc with
   | Trm_apps (f, [ls; rs]) when is_set_operation t ->
-    begin match rs.desc with 
+    begin match rs.desc with
     | Trm_apps (f1, [get_ls; arg]) ->
-      begin match trm_prim_inv f1 with 
+      begin match trm_prim_inv f1 with
       | Some p when is_infix_prim_fun p ->
-        let aux s = AstC_to_c.ast_to_string s in 
-        let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> fail f.loc "use_infix_ops_aux: this should never happen" in 
+        let aux s = AstC_to_c.ast_to_string s in
+        let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> fail f.loc "use_infix_ops_aux: this should never happen" in
         if not (aux ls = aux (get_operation_arg get_ls)) then trm_prim_compound ~marks:t.marks binop ls get_ls else  trm_prim_compound ~marks:t.marks binop ls arg
-      | _ -> 
+      | _ ->
         if allow_identity then t else
         fail f1.loc "use_infix_ops_aux: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
-      
-      end 
-    | _ -> if allow_identity then t else 
+
+      end
+    | _ -> if allow_identity then t else
            fail rs.loc "use_infix_ops_aux: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
-    end 
+    end
   | _-> if allow_identity then t else fail t.loc "use_infi_ops_aux: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
 
 
@@ -197,15 +197,15 @@ let uninline_aux (fct_decl : trm) (t : trm) : trm =
 let uninline (fct_decl : trm) : Target.Transfo.local =
   Target.apply_on_path (uninline_aux fct_decl)
 
-(* [rename_args_aux vl t] rename arguments of funciton [t] and replace all the 
+(* [rename_args_aux vl t] rename arguments of funciton [t] and replace all the
     occurrences of the args inside the body with the new names *)
-let rename_args_aux (vl : var list) (t : trm) : trm = 
-  match t.desc with 
+let rename_args_aux (vl : var list) (t : trm) : trm =
+  match t.desc with
   | Trm_let_fun (f, retty, args, body) ->
-    let renamed_args = List.map2 (fun v1 (arg1, ty1) -> if v1 <> "" then (v1, ty1) else (arg1, ty1)) vl args in 
-    let assoc_list = List.fold_left2 (fun acc v1 (arg1, _ty1) -> if v1 <> "" then (arg1, trm_var v1) ::  acc else acc) [] vl args in 
-    let tm = map_from_trm_var_assoc_list assoc_list in 
-    let new_body = Internal.subst tm body in 
+    let renamed_args = List.map2 (fun v1 (arg1, ty1) -> if v1 <> "" then (v1, ty1) else (arg1, ty1)) vl args in
+    let assoc_list = List.fold_left2 (fun acc v1 (arg1, _ty1) -> if v1 <> "" then (arg1, trm_var v1) ::  acc else acc) [] vl args in
+    let tm = map_from_trm_var_assoc_list assoc_list in
+    let new_body = Internal.subst tm body in
     trm_let_fun f retty renamed_args new_body
   | _ -> fail t.loc "rename_args_aux: expected a target to a function declaration"
 

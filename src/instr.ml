@@ -62,7 +62,7 @@ let inline_last_write ?(write : Target.target = []) (tg : Target.target) : unit 
 
 
 (* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location
-    or to a single instruction and [nb] the number of the instructions after the targetd instruction that need to be
+    or to a single instruction and [nb] the number of the instructions after the targeted instruction that need to be
     considered.
     Ex.
     int x;

@@ -51,7 +51,7 @@ let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
     | Trm_seq _ ->
       Variable.renames vars (Target.target_of_path p);
       Sequence_basic.elim (Target.target_of_path p)
-    | _ -> fail tg_trm.loc "elim_body: the targetd should be pointing to a sequence"
+    | _ -> fail tg_trm.loc "elim_body: the targeted should be pointing to a sequence"
   ) tg
 
 (* [bind ~fresh_name ~args tg] expectes the target [tg] to point to a function call, then
@@ -146,10 +146,10 @@ int f2() { // result of Funciton_basic.inline_cal
 // where p is the path to the englobing sequence.
 *)
 
-let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) (tg : Target.target) : unit = 
+let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) (tg : Target.target) : unit =
   Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-    (fun i t (path_to_seq, local_path, i1) -> 
-      let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in 
+    (fun i t (path_to_seq, local_path, i1) ->
+      let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in
       let resname = ref resname in
       if !resname = "" then resname := "__TEMP_Optitrust";
       let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
@@ -158,44 +158,44 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
 
-      let post_processing ?(deep_cleanup : bool = false)() : unit = 
-        let new_target = Target.cMark my_mark in 
+      let post_processing ?(deep_cleanup : bool = false)() : unit =
+        let new_target = Target.cMark my_mark in
         if not !mark_added then Marks.add my_mark (Target.target_of_path path_to_call);
         if args <> [] then bind_args args [new_target];
-        let body_mark = "__TEMP_BODY" ^ (string_of_int i) in 
+        let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
         Function_basic.inline ~body_mark [new_target];
         Accesses_basic.intro [Target.cMark body_mark];
         elim_body ~vars [Target.cMark body_mark];
         if deep_cleanup then begin
-          let success_attach = ref true in 
+          let success_attach = ref true in
             let _ = try Variable_basic.init_attach [new_target] with
                 | Variable_core.Init_attach_no_occurrences
                 | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
-                | e -> raise e in 
+                | e -> raise e in
              if !success_attach then begin
                 Variable.inline ~delete:true [new_target];
                 Variable.inline_and_rename [Target.nbAny; Target.cVarDef !resname];
                 try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> ();
                 Marks.remove "__inline_instruction" [Target.nbAny;Target.cMark "__inline_instruction" ] end
-             else if not keep_res then  
+             else if not keep_res then
                 try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> ();
             Marks.remove my_mark [Target.nbAny; new_target]
         end;
         Marks.remove my_mark [Target.nbAny; new_target];
         Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
-       in 
-      
-      begin match tg_out_trm.desc with  
-      | Trm_let _ -> 
+       in
+
+      begin match tg_out_trm.desc with
+      | Trm_let _ ->
         Marks.add "__inline_instruction" (Target.target_of_path path_to_instruction);
         Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call);
         mark_added := true;
         post_processing ~deep_cleanup:true ();
-      | Trm_apps (_, [ls; rs]) when is_set_operation tg_out_trm -> 
+      | Trm_apps (_, [ls; rs]) when is_set_operation tg_out_trm ->
         Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call);
         mark_added := true;
         post_processing ~deep_cleanup:true ()
-      | Trm_apps _ -> 
+      | Trm_apps _ ->
         post_processing ();
       | _ -> fail tg_out_trm.loc "inline: please be sure that you're tageting a proper function call"
       end
@@ -255,11 +255,11 @@ let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : Target.target)
     into x += a
 *)
 
-let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg : Target.target) : unit = 
-  let tg = if indepth 
-    then [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()] else tg in 
+let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg : Target.target) : unit =
+  let tg = if indepth
+    then [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()] else tg in
   Function_basic.use_infix_ops_at ~allow_identity tg
-  
+
 
 (* [uninline ~fxt tg] expects the target [tg] to be pointing at an instruction that is similar to the first instruction
     of the body of the function declared in [fct]. Let nb be the number of instruction on the body of [fct]. The transformation

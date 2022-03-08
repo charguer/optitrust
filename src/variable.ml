@@ -297,7 +297,7 @@ let renames (rename : rename) : Target.Transfo.t =
       on the next step, otherwise no mark needs to be created.
       We consider the following cases:
       1) If the targeted variable is mutable then we try to make it immutable by calling Variable.to_const.
-         WARNING: This step will fail in the case when there are any write operations on the targetd varibles.
+         WARNING: This step will fail in the case when there are any write operations on the targeted varibles.
       2) If the transformation didn't fail in the first step we are sure that we are trying to inline a const variable
          and we can call safely Variable_basic.unfold
       3) If the targeted variable is a struct type then call Struct_basic.simpl_proj to remove all the occurrences

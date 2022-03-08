@@ -64,7 +64,7 @@ if [ "${TARGET}" = "pic_barsamian.c" ]; then
     EXTRA_SPECIFIC_PRE="$PICVERT_HOME/src/particle_type_concurrent_chunkbags_of_soa_3d.c"
 fi
 if [ "${TARGET}" = "pic_demo.c" ]; then
-    EXTRA_SPECIFIC_PRE=" $PICVERT_HOME/src/optitrust.c $PICVERT_HOME/src/particle.c $PICVERT_HOME/src/bag.c $PICVERT_HOME/simulations/pic_demo_aux.c"
+    EXTRA_SPECIFIC_PRE=" $PICVERT_HOME/src/optitrust.c $PICVERT_HOME/src/particle.c $PICVERT_HOME/src/bag_atomics.c $PICVERT_HOME/src/bag.c $PICVERT_HOME/simulations/pic_demo_aux.c"
     # $PICVERT_HOME/simulations/pic_demo.h $PICVERT_HOME/simulations/pic_demo_aux.h
 fi
 if [ "${TARGET}" = "pic_optimized.c" ]; then

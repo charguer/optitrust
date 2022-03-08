@@ -27,7 +27,7 @@ let reorder_dims ?(rotate_n : int = 0) ?(order : int list = [])  (): Target.Tran
   Target.apply_on_targets (Matrix_core.reorder_dims rotate_n order)
 
 (* [insert_alloc_dim new_dim]: expects the target [tg] pointing to call to ALLOC functions, then it will
-      add a new arg at the begining of the list of args in the targetd call
+      add a new arg at the begining of the list of args in the targeted call
  *)
 let insert_alloc_dim (new_dim : trm) : Target.Transfo.t =
   Target.apply_on_targets (Matrix_core.insert_alloc_dim new_dim)

@@ -20,6 +20,7 @@ SOURCES := \
 	$(PICDIR)/include/optitrust.h \
 	$(PICDIR)/include/particle.h \
 	$(PICDIR)/include/bag.h \
+	$(PICDIR)/include/bag_atomics.h \
 	$(PICDIR)/include/mymacros.h \
 	$(PICDIR)/src/particle.c \
 	$(PICDIR)/src/bag.c \
