@@ -1,10 +1,8 @@
 
+#include "pic_demo.h"
 #include "pic_demo_aux.h"
 
-#include "pic_demo.h"
-
 // #include "particle_chunk_alloc.h"
-
 
 // --------- Grid coordinate functions
 

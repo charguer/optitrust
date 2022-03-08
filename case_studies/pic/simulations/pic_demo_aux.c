@@ -1,6 +1,27 @@
 #include "pic_demo.h"
 // #include "pic_demo_aux.h"
 
+#include <string.h>
+#include "initial_distributions.h" // types speeds_generator_3d, distribution_function_3d,
+  // max_distribution_function, variables speed_generators_3d, distribution_funs_3d,
+  // distribution_maxs_3d
+#include "parameters.h"  // constants PI, EPSILON, DBL_DECIMAL_DIG, FLT_DECIMAL_DIG, NB_PARTICLE
+#include "poisson_solvers.h"
+#include "random.h" // macros pic_vert_seed_double_RNG, pic_vert_free_RNG
+#include "matrix_functions.h" // functions allocate_3d_array, deallocate_3d_array
+#include "parameter_reader.h" // type simulation_parameters
+                              // constants STRING_NOT_SET, INT_NOT_SET, DOUBLE_NOT_SET
+                              // function  read_parameters_from_file
+
+// --------- Local objects
+
+// Object describing the grid (used by particle initialization and poisson solver)
+cartesian_mesh_3d mesh;
+
+// Object describing the configuration of the Poisson solver
+poisson_3d_solver poisson;
+
+
 // --------- Load parameters
 
 void loadParameters(int argc, char** argv) {
