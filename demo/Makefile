@@ -21,6 +21,7 @@ SOURCES := \
 	$(PICDIR)/include/particle.h \
 	$(PICDIR)/include/bag.h \
 	$(PICDIR)/include/mymacros.h \
+	$(PICDIR)/src/particle.c \
 	$(PICDIR)/src/bag.c \
 	$(PICDIR)/simulations/pic_demo.h \
 	$(PICDIR)/simulations/pic_demo_aux.h \
@@ -29,6 +30,9 @@ SOURCES := \
 import:
 	cp $(SOURCES) .
 	mv pic_demo.c pic_demo.cpp
+
+export:
+	cp pic_optimized.cpp $(PICDIR)/simulations/pic_optimized.c
 
 FILES := $(subst pic_demo.c,pic_demo.cpp,$(notdir $(SOURCES)))
 
