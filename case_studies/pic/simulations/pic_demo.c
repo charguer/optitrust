@@ -5,16 +5,7 @@ void addParticle(CHECKER_ONLY_COMMA(int idParticle) double x, double y, double z
 // forward declaration for a function used by computeFieldFromRho, which is defined in pic_demo_aux.c
 int cellOfCoord(int i, int j, int k);
 
-
-#include "pic_demo_aux.c"
-// the file 'pic_demo_aux' defines the following functions
-void loadParameters(int argc, char** argv);
-void allocateStructures();
-void deallocateStructures();
-void createParticles();
-void computeFieldFromRho();
-void reportPerformance(double timeStart);
-void reportParticlesState();
+#include "pic_demo_aux.h"
 
 
 // --------- Grid coordinate functions
