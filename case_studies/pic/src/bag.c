@@ -365,7 +365,7 @@ particle* bag_iter_next_destructive(bag_iter* it) {
 }
 
 // example of a basic iteration over a bag
-void bag_ho_iter_basic(bag* b, void body(particle*), bool destructive) {
+void bag_iter_ho_basic(bag* b, void body(particle*), bool destructive) {
   bag_iter it;
   for (particle* p = bag_iter_begin(&it, b); p != NULL; p = bag_iter_next_common(&it, destructive)) {
     body(p);
@@ -373,9 +373,9 @@ void bag_ho_iter_basic(bag* b, void body(particle*), bool destructive) {
 }
 
 // example of an iteration over a bag with the loop over the chunk items revealed
-void bag_ho_iter_chunk(bag* b, void body(particle*), bool destructive) {
+void bag_iter_ho_chunk(bag* b, void body(particle*), bool destructive) {
   for (chunk* c = b->front; c != NULL; c = chunk_next(c, destructive)) {
-    int nb = c->size;
+    const int nb = c->size;
     for (int i = 0; i < nb; i++) {
       particle* p = &c->items[i];
       body(p);

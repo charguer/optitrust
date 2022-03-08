@@ -6,6 +6,7 @@ open Ast
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
 let step = cFunDef "step"
+let stepLF = cFunDef "stepLeapFrog"
 let dims = ["X";"Y";"Z"]
 let nb_dims = List.length dims
 let iter_dims f = List.iter f dims
@@ -63,17 +64,15 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Instr.inline_last_write ~write:[sInstr "contribs.v[k] ="]
        [step; sInstr "+= contribs.v[k]"; sExpr "contribs.v[k]"];
 
-  (* TODO: Discuss with Arthur *)
   bigstep "Low level iteration on chunks of particles";
   !! Sequence.intro ~mark:"loop" ~start:[step; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [step; cMark "loop"; cFor_c ""; dBody]; 
-  !! Function_basic.uninline ~fct:[cFunDef "bag_ho_iter_basic"~body:[cVarDef "it"]] [step; cMark "loop"];
-  !! Expr.replace_fun "bag_ho_iter_chunk" [step; cFun "bag_ho_iter_basic"];
-  !! Function.inline [step; cFun "bag_ho_iter_chunk"]; 
+  !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [step; cMark "loop"];
+  !! Expr.replace_fun "bag_iter_ho_chunk" [step; cFun "bag_iter_ho_basic"];
+  !! Function.inline [step; cFun "bag_iter_ho_chunk"]; 
   !! Function.beta ~indepth:true [step];
   !! Variable.init_detach [step; cVarDef "p"];
   !! Instr.inline_last_write ~write:[step; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; step; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
-  !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
 
   

@@ -58,7 +58,7 @@ chunk* chunk_next(chunk* c, bool destructive);
 particle* bag_iter_next_common(bag_iter* it, bool destructive);
 particle* bag_iter_next(bag_iter* it);
 particle* bag_iter_next_destructive(bag_iter* it);
-void bag_ho_iter_basic(bag* b, void body(particle*), bool destructive);
-void bag_ho_iter_chunk(bag* b, void body(particle*), bool destructive);
+void bag_iter_ho_basic(bag* b, void body(particle*), bool destructive);
+void bag_iter_ho_chunk(bag* b, void body(particle*), bool destructive);
 
 #endif
