@@ -1,11 +1,9 @@
-#include "pic_demo.h"
-
-// forward declaration for a function used by createParticles, which is defined in pic_demo_aux.c
-void addParticle(CHECKER_ONLY_COMMA(int idParticle) double x, double y, double z, double vx, double vy, double vz);
-// forward declaration for a function used by computeFieldFromRho, which is defined in pic_demo_aux.c
-int cellOfCoord(int i, int j, int k);
 
 #include "pic_demo_aux.h"
+
+#include "pic_demo.h"
+
+// #include "particle_chunk_alloc.h"
 
 
 // --------- Grid coordinate functions

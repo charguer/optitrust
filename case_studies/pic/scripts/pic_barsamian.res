@@ -1,0 +1,1 @@
+../3d_runs/run1//pic_barsamian.res

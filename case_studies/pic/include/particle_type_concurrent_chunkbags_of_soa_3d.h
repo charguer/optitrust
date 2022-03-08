@@ -1,13 +1,7 @@
 #ifndef PIC_VERT_PARTICLE_TYPE_CONCURRENT_CHUNKBAGS_OF_SOA_3D
 #define PIC_VERT_PARTICLE_TYPE_CONCURRENT_CHUNKBAGS_OF_SOA_3D
 
-#ifdef CHECKER
-#define CHECKER_ONLY(X) X
-#define CHECKER_ONLY_COMMA(X) X,
-#else
-#define CHECKER_ONLY(X)
-#define CHECKER_ONLY_COMMA(X)
-#endif
+#include "mymacros.h"
 
 #include "meshes.h"     // type     cartesian_mesh_3d
 #include "parameters.h" // constant CHUNK_SIZE
