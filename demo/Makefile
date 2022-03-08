@@ -17,7 +17,7 @@ include ../tests/Common.Makefile
 PICDIR := ../case_studies/pic/
 
 import:
-	cp $(PICDIR)/simulations/pic_demo.cpp .
+	cp $(PICDIR)/simulations/pic_demo.c .
 	cp $(PICDIR)/include/pic_demo .
 	cp $(PICDIR)/src/pic_demo .
 

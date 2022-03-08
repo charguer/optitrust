@@ -157,6 +157,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       let tg_out_trm = Path.resolve_path path_to_instruction t in
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
+
       let post_processing ?(deep_cleanup : bool = false)() : unit = 
         let new_target = Target.cMark my_mark in 
         if not !mark_added then Marks.add my_mark (Target.target_of_path path_to_call);
@@ -183,6 +184,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
         Marks.remove my_mark [Target.nbAny; new_target];
         Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
        in 
+      
       begin match tg_out_trm.desc with  
       | Trm_let _ -> 
         Marks.add "__inline_instruction" (Target.target_of_path path_to_instruction);
