@@ -6,7 +6,7 @@ open Ast
    Begatim: we use base for array and struct accesses and we use addr for variables *)
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Accesses_basic.scale (trm_double 5.0) [cReadOrWrite ~addr:[cVar "x"] ()]
+    !! Accesses.scale (trm_double 5.0) [cVar "x"];
   )
 "
 int main() {
@@ -21,8 +21,6 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Accesses.scale (trm_double 5.0) [cTopFunDef "test_var"; cVar "x"];
   !! Accesses.scale (trm_double 5.0) [cTopFunDef "test_array"; sExpr "t[0]"];
-
-  (* show [cCellReadOrWrite ~base:[cVar "t"] ~index:[cVar "i"] ();cVar "t"]; *)
-  !! Accesses.scale (trm_double 5.0) [sInstr "t[i] ="; dRHS; cVar "t"];
+  !! Accesses.scale (trm_double 5.0) [cTopFunDef "main"; sExpr "t[i]"];
 
 )

@@ -194,27 +194,27 @@ let get_trm_in_surrounding_loop (dl : path) : path * int =
 
 (* [get_surrounding_trm checker dl t] given the path [dl] that resolves to trm res find a predecessor of that trm
     that satisfies the predicate [checker]*)
-let get_surrounding_trm (checker : trm -> bool) (dl : path) (t : trm) : path list =
-  let rec aux (acc : path list) (dl1 : path) : path list =
-    match dl1 with
-    | [] -> acc
-    | hd_p :: tl_p ->
-      let res = Path.resolve_path (List.rev dl1) t in
-        Printf.printf "Checking trm %s, matched:  %b\n" (AstC_to_c.ast_to_string res) (checker res);
-        if checker res then aux ((List.rev dl1) :: acc) tl_p else aux acc tl_p
-    in
-  List.rev (aux [] (List.rev dl))
+let get_surrounding_trm (checker : trm -> bool) (dl : path) (t : trm) : path = 
+  let rec aux (dl1 : path) : path = 
+    match dl1 with 
+    | [] -> []
+    | hd_p :: tl_p -> 
+      let res = Path.resolve_path (List.rev dl1) t in 
+        if checker res then (List.rev dl1) else aux tl_p
+    in 
+  aux (List.rev dl)
 
+(* Maybe we will need this later on *)
 (* [get_surrouding_access dl t] specialization of get_surrouding_trm for accesses*)
-let get_surrouding_access (dl : path) (t : trm) : path list =
+let get_surrouding_access (dl : path) (t : trm) : path = 
   get_surrounding_trm is_access dl t
 
 (* [get_surrouding_access dl t] specialization of get_surrouding_trm for read operations*)
-let get_surrouding_read (dl : path) (t : trm) : path list =
+let get_surrouding_read (dl : path) (t : trm) : path = 
   get_surrounding_trm is_get_operation dl t
 
 (* [get_surrouding_access dl t] specialization of get_surrouding_trm for write operations*)
-let get_surrouding_write (dl : path) (t : trm) : path list =
+let get_surrouding_write (dl : path) (t : trm) : path = 
   get_surrounding_trm is_set_operation dl t
 
 (* [is_decl_body dl] checks if the full path points to a declaration body *)
