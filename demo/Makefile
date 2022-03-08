@@ -16,9 +16,21 @@ include ../tests/Common.Makefile
 # 'make import' imports the source files from ../case_studies/pic/ 
 PICDIR := ../case_studies/pic/
 
+SOURCES := \
+	$(PICDIR)/include/optitrust.h \
+	$(PICDIR)/include/particle.h \
+	$(PICDIR)/include/bag.h \
+	$(PICDIR)/include/mymacros.h \
+	$(PICDIR)/src/bag.c \
+	$(PICDIR)/simulations/pic_demo.h \
+	$(PICDIR)/simulations/pic_demo_aux.h \
+	$(PICDIR)/simulations/pic_demo.c \
+
 import:
-	cp $(PICDIR)/simulations/pic_demo.c .
-	cp $(PICDIR)/include/pic_demo .
-	cp $(PICDIR)/src/pic_demo .
+	cp $(SOURCES) .
+	mv pic_demo.c pic_demo.cpp
 
+FILES := $(subst pic_demo.c,pic_demo.cpp,$(notdir $(SOURCES)))
 
+cleanfiles:
+	rm -f $(FILES)

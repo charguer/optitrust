@@ -13,6 +13,16 @@ DIRNAME=$1
 FILEBASE=$2
 DIFFFOR=$3   # this flag could be "" or "enc"
 
+
+CONTEXTSIZE="10"
+
+# Read options from optitrust_flags.sh
+# options: e.g., CONTEXTSIZE="100"
+if [ -f "optitrust_flags.sh" ]; then
+  source optitrust_flags.sh
+fi
+
+
 # Work in the file directory
 cd ${DIRNAME}
 
@@ -37,7 +47,6 @@ fi
 
 
 # Compute diff
-CONTEXTSIZE=100
 DIFFCODE=`git diff --ignore-all-space --no-index -U${CONTEXTSIZE} ${FILEBASE}_before${ENCOPT}.cpp ${FILEBASE}_after${ENCOPT}.cpp | base64 -w 0`
 
 
