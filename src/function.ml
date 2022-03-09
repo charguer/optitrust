@@ -257,7 +257,7 @@ let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : Target.target)
 
 let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg : Target.target) : unit =
   let tg = if indepth
-    then [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()] else tg in
+    then [Target.nbMulti] @ tg @ [Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()] else tg in
   Function_basic.use_infix_ops_at ~allow_identity tg
 
 
