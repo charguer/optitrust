@@ -245,6 +245,8 @@ void step() {
   // For each cell from the grid
   for (int idCell = 0; idCell < nbCells; idCell++) {
 
+    // Allocate array for deposit
+    deposit = (double*) malloc(nbCells * sizeof(double));
     // Read the electric field that applies to the corners of the cell considered
     vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
 
@@ -334,5 +336,6 @@ int main(int argc, char** argv) {
 #endif
 
   deallocateStructures();
+  free(deposit);
 }
 

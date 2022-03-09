@@ -124,7 +124,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Trace.reparse();
   
   !! Variable.inline [step; cVarDef "accel"];
- 
+  (* TODO: Simplification in depth *)
+  
  
 
   bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
@@ -143,7 +144,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
 
 
-  (* TODO: Simplification in depth *)
   bigstep "Enumerate grid cells by coordinates";
   !! Variable.to_const [nbMulti; cVarDef ~regexp:true "grid."];
   !! Label.add "core" [step; cFor "idCell" ~body:[cFor "k"]];
@@ -151,7 +151,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal of x/y/z *)
-  !! Matrix.intro_mops (var "nbCells") [step; cVarDef "nextCharge"];
-  !! Label.add "charge" [step; cFor "k" ~body:[cVar "nextCharge"]];
+  !! Matrix.intro_mindex (expr "nbCells") [step; cCellAccess ~base:[Target.cVar "deposit"] ()];
+  !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
   !! Variable.inline [step; cVarDef "indices"];
+
+  bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
+  !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
+     ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "k")) [cLabel "core"];
+  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "deposit"] ~index:[] ~rhs:[cDouble 0.] ()]];
+
 )

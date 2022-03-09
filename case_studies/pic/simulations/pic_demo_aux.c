@@ -218,9 +218,6 @@ void allocateStructures() {
 
   allocateStructuresForPoissonSolver();
 
-  // Allocate array for deposit
-  deposit = (double*) malloc(nbCells * sizeof(double));
-
   // Allocate the field, not initialized in this function
   field = (vect*) malloc(nbCells * sizeof(vect));
 

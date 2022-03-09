@@ -49,12 +49,14 @@ let biject (fun_name : string) : Target.Transfo.t =
       as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finaly we
       free up the memory.
  *)
-let local_name ?(my_mark : mark option) ?(indices : (var list) = []) (var : var) ~into:(into : var) (tg : Target.target) : unit =
+let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(is_detached : bool = false) (var : var) ~into:(into : var) (tg : Target.target) : unit =
   let vardef_trm = Target.get_trm_at [Target.cVarDef var] in
   let var_type = match trm_var_def_inv vardef_trm with
   | Some (_, _, ty, _) -> ty
   | _ -> fail vardef_trm.loc "local_name: make sure the name of the current var is entered correctly" in
-  let alloc_trm = Target.get_trm_at [Target.cVarDef var; Target.cFun ~regexp:true "M.ALLOC."] in
+  let alloc_tg = if not is_detached then  [Target.cVarDef var; Target.cFun ~regexp:true "M.ALLOC."] else [Target.cWriteVar var; Target.cFun ~regexp:true "M.ALLOC."] in 
+  let alloc_trm = Target.get_trm_at alloc_tg in 
+  (* let alloc_trm = Target.get_trm_at [Target.cVarDef var; Target.cFun ~regexp:true "M.ALLOC."] in *)
   let alloc_trms = match Matrix_core.alloc_inv alloc_trm with
   | Some (dims, sz, zero_init) -> (dims, sz, zero_init)
   | _ -> fail None "local_name: could not get the dimensions and the size of the matrix" in
