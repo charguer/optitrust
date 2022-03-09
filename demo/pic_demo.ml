@@ -26,7 +26,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Loop.fission ~split_between:true [ctx; cFor "k"];
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
-  !! Function.inline [step; cFun "matrix_vect_mul"];
+  !! Function.inline [nbMulti;cFun "matrix_vect_mul"];
 
   bigstep "Vectorization in [cornerInterpolationCoeff]";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
@@ -49,20 +49,23 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [step; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+  !! Function.inline [stepLF; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; step; cWrite ~typ:"vect" ()];
+  !! Struct.set_explicit [nbMulti; stepLF; cWrite ~typ:"vect" ()];
 
   bigstep "inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
   !! Function.inline [nbMulti; cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
   !! Function.inline [step; cFun "accumulateChargeAtCorners"];
   !! Function.inline ~vars:(AddSuffix "2") [step; cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "cornerInterpolationCoeff"];
-  !! Variable.elim_redundant [nbMulti; step; cVarDef ~regexp:true "..1"];
+  !! Function.inline ~vars:(AddSuffix "${occ}") [stepLF; cFun "cornerInterpolationCoeff"];
+  (* !! Variable.elim_redundant [nbMulti; step; cVarDef ~regexp:true "..1"]; *) (* Doesn't this break the code ? *)
 
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
   !! Loop.fusion_targets [cMark "fuse"];
   !! Instr.inline_last_write ~write:[sInstr "contribs.v[k] ="]
-       [step; sInstr "+= contribs.v[k]"; sExpr "contribs.v[k]"];
+       [step; sInstr "+= contribs.v[k]"; dRHS];
 
   bigstep "Low level iteration on chunks of particles";
   !! Sequence.intro ~mark:"loop" ~start:[step; cVarDef "bag_it"] ~nb:2 ();
@@ -74,7 +77,23 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Variable.init_detach [step; cVarDef "p"];
   !! Instr.inline_last_write ~write:[step; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; step; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
 
-
+  !! Sequence.intro ~mark:"loop" ~start:[stepLF; cVarDef "bag_it"] ~nb:2 ();
+  !! Sequence.intro_on_instr [stepLF; cMark "loop"; cFor_c ""; dBody]; 
+  !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [stepLF; cMark "loop"];
+  !! Expr.replace_fun "bag_iter_ho_chunk" [stepLF; cFun "bag_iter_ho_basic"];
+  !! Function.inline [stepLF; cFun "bag_iter_ho_chunk"]; 
+  !! Function.beta ~indepth:true [stepLF];
+  !! Variable.init_detach [stepLF; cVarDef "p"];
+  !! Instr.inline_last_write ~write:[stepLF; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; stepLF; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
   
+  !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
+  
+  bigstep "AOS-TO-SOA";
+  !! Struct.set_explicit [step; cVarDef "p2"];
+  !! Struct.set_explicit [nbMulti; step; sInstr "p2."];
+  show [cVarDef "particle"];
+  !! Function.inline [nbMulti; step; cFun "wrapAround"];
+  !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
+  !! Struct.inline "items" [cTypDef "chunk"];
 
 )
