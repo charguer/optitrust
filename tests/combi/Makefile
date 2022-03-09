@@ -13,6 +13,8 @@ TARGET_MAKE_ALL := check
 
 
 TESTS_WITH_DOC := \
+	accesses_scale.ml \
+	accesses_shift.ml \
 	instr_gather.ml \
 	instr_moveout.ml \
 	function_bind.ml \

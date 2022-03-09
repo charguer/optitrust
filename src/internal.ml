@@ -425,6 +425,7 @@ let move_fields_before (x : var) (local_l : vars) (l : (var * typ) list) : (var 
       in
     aux l
 
+
 let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) list) : (var * typ) list =
   match reorder_kind with
   | Reorder_after around -> move_fields_after around local_l sf

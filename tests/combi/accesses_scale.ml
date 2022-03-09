@@ -24,4 +24,3 @@ let _ = Run.script_cpp (fun _ ->
   !! Accesses.scale (trm_double 5.0) [cTopFunDef "main"; sExpr "t[i]"];
 
 )
-w

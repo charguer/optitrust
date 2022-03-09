@@ -124,8 +124,26 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Trace.reparse();
   
   !! Variable.inline [step; cVarDef "accel"];
+ 
+ 
+
+  bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
+  let citemsposi d = "c->itemsPos" ^ d ^ "[i]" in
+  !! iter_dims (fun d ->
+      Variable.bind ~const:true ("p" ^ d) [step; sInstr (citemsposi d ^ " = ("); dRHS]);
+  !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true "p[X-Z]"];
+  !! iter_dims (fun d ->
+      Accesses.shift ~neg:true ~factor:(var ("i" ^ d)) [step; cVarDef ("p" ^ d); sExpr (citemsposi d)]);
+  !! Instr.(gather_targets ~dest:(GatherAt [tAfter; step; cVarDef "pZ"])) [step; cVarDef ~regexp:true "i[X-Z]2"];
+  !! iter_dims (fun d ->
+      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; sInstr (citemsposi d ^ " = p")];
+      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; cVarDef ~regexp:true "r[X-Z]1"; cRead ~addr:[sExpr (citemsposi d)] ()];);
+  !! Arith.(simpl expand) [nbMulti; step; cVarDef ~regexp:true "r[X-Z]1"; dInit];
+  !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"];  (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
+  !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
+
+
   (* TODO: Simplification in depth *)
-  
   bigstep "Enumerate grid cells by coordinates";
   !! Variable.to_const [nbMulti; cVarDef ~regexp:true "grid."];
   !! Label.add "core" [step; cFor "idCell" ~body:[cFor "k"]];
