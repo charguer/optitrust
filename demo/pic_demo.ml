@@ -104,7 +104,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
          ["const double", "factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
        @ (map_dims (fun d -> "const double", ("factor" ^ d), expr ("factorC / cell" ^ d))))
      [tBefore; step; cVarDef "field_at_corners"];
-  !! Function.use_infix_ops ~indepth:true [step; dBody];
+  (* !! Function.use_infix_ops ~indepth:true [step; dBody]; *)
 
   bigstep "Scaling of electric field";
   !! iter_dims (fun d ->
@@ -114,22 +114,18 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   
   bigstep "Scaling of speed and positions";
+  !! iter_dims (fun d ->
+       Accesses.scale ~factor:(expr ("stepDuration / cell"^d))
+         [nbMulti; step; sInstrRegexp ~substr:true ("\\[i\\] = c->itemsSpeed" ^ d); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
   
   !! iter_dims (fun d ->
-       Accesses.scale ~factor:(expr ("stepDuration / cell" ^ d))
-         [nbMulti; step; cFieldReadOrWrite ~field:("itemsSpeed" ^ d) ()]);
-  !! iter_dims (fun d ->
-       Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
-  !! Trace.reparse(); (* required for the terms to be visible to the simplifier *)
+       Accesses.scale ~factor:(expr ("1 / cell"^d))
+         [nbMulti; step; sInstrRegexp ~substr:true ("\\[i\\] = c->itemsPos" ^ d); sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]);
+  !! Trace.reparse();
+  
   !! Variable.inline [step; cVarDef "accel"];
-  !! Arith.(simpl expand) [nbMulti; step; cFun "int_of_double"; dArg 0]; (* TODO: does nothing? *)
-  !! Arith.(simpl expand) [nbMulti; step; cVarDef ~regexp:true "r.."; dInit ];
-  !! Sequence.apply ~start:[tAfter; step; cWrite ~lhs:[cVar "fieldAtPosZ"]()]
-       ~stop:[tAfter; step; cVarDef "contribs"] (fun m ->
-       Arith.(simpl expand) [nbMulti; step; cMark m; cWrite(); dRHS; cStrictNew; Arith.constr];);
-       (* LATER: Function.use_infix_ops [cMark m] *)
-      (* ARTHUR: also missing simplifications in bag_push_concurrent *)
-
+  (* TODO: Simplification in depth *)
+  
   bigstep "Enumerate grid cells by coordinates";
   !! Variable.to_const [nbMulti; cVarDef ~regexp:true "grid."];
   !! Label.add "core" [step; cFor "idCell" ~body:[cFor "k"]];
