@@ -44,7 +44,7 @@ int main() {
 
   particle a = {0,{0,0},s};
   particle b = {0, p, s};
-  // particle c = {0, p.x, p.y, s};
+  particle c = {0, {p.x, p.y}, s};
   int nx = a.pos.x + a.speed.x;
   int ny = a.pos.y + a.speed.y;
 

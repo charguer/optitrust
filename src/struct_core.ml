@@ -183,43 +183,39 @@ let inline_struct_accesses (x : var) (t : trm) : trm =
       [field_index]: index of the field in the outer struct
       [t]: ast node located in the same level as the main struct declaration or deeper
     return:
-      updated ast nodes with the changed struct in struct initializations
-*)
+      updated ast nodes with the changed struct in struct initializations *)
+
 let inline_struct_initialization (struct_name : string) (field_list : field list) (field_index : int) (t : trm) : trm =
-  let rec aux (global_trm : trm) (t : trm) : trm =
-    match t.desc with
-    | Trm_struct term_list ->
-      begin match t.typ with
-      | Some { typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
-        let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives field_index term_list in
-        begin match trm_to_change.desc with
-        | Trm_struct sl ->
-           let new_sl = Mlist.merge lfront sl in
-           let new_sl = Mlist.merge new_sl lback in
-           trm_struct ~annot:t.annot ~marks:t.marks new_sl
-        | Trm_apps(_, [base]) ->
-          begin match base.desc with
-          | Trm_var (_, p) ->
-            let sl1  = List.map(fun x ->
-              trm_apps ~annot: [Access] (trm_unop (Unop_get))[
-                trm_apps (trm_unop (Unop_struct_access x)) [
-                  trm_var p
-                ]
-              ]
-            ) (List.rev field_list)
-            in
-            let new_sl = Mlist.merge lfront (Mlist.of_list sl1) in
-            let new_sl = Mlist.merge new_sl lback in
-            trm_struct new_sl
-          | _ -> fail base.loc "inline_struct_initialization: expected a heap allocated variable"
-          end
-        | _ -> trm_map (aux global_trm) t
+  let rec aux (t : trm) : trm = 
+    match t.desc with 
+    (* Searching for struct intialization lists of type typedef struct {} struct_name *)
+    | Trm_struct term_list -> 
+      begin match t.typ with 
+      | Some {typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
+        let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives field_index term_list in 
+        begin match trm_to_change.desc with 
+        | Trm_struct sl -> 
+          let new_term_list = Mlist.merge lfront sl in 
+          let new_term_list = Mlist.merge new_term_list lback  in 
+          trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
+        | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change -> 
+          let sl = List.map (fun f -> trm_get (trm_struct_access (trm_var ~typ:v.typ p) f)) (List.rev field_list ) in 
+          let new_term_list = Mlist.merge lfront (Mlist.of_list sl) in 
+          let new_term_list = Mlist.merge new_term_list lback in 
+          trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
+        
+        | Trm_var (_, p) -> 
+          let sl = List.map (fun f -> trm_get (trm_struct_access (trm_var ~typ:t.typ p) f)) (List.rev field_list ) in 
+          let new_term_list = Mlist.merge lfront (Mlist.of_list sl) in 
+          let new_term_list = Mlist.merge new_term_list lback in 
+          trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
+        
+        | _ -> fail trm_to_change.loc "inline_struct_initialization: struct intialization list not compatible with its struct definition"
         end
-      | _ -> trm_map (aux global_trm) t
+      | _ -> trm_map aux t
       end
-    | _ -> trm_map (aux global_trm) t
-  in
-  aux t t
+    | _ -> trm_map aux t
+  in aux t
 
 (* [inline_aux field_to_inline index t]: replace [field_to_inline] with a list of fields coming from
       the fields of the type of [field_to_inlne] which should be a typedef struct. Then it will change all

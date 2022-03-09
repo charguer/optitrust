@@ -1,15 +1,26 @@
 typedef struct {
-  int x[5];
-} int_5;
+    int x;
+    int y; }
+  vect;
 
-void test_pointer_arg(int* a, int b){
-  *a =b ;
-}
+typedef struct {
+    int weight;
+    vect pos; // vect to be inlined here
+    vect speed;
+  } particle;
 
-int main () {
+
+
+int main() {
+  vect v1 = {0,0};
+  vect v2 = {0,0};
+
+  particle p1 = {0,{0,0},v1};
+  particle p2 = {0, v1, v2};
+
+  particle p3; 
+  p3 = (particle) {0,{0,0},v1};
+  particle p4;
+  p4 = (particle){0, v1, v2};
   
-  int x = 10;
-  int y;
-  y = x;
-  return 0;
 }

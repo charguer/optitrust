@@ -1,10 +1,11 @@
 open Optitrust
 open Target
 
-let _ = Flags.dump_ast_details := true
+let _ = Run.script_cpp ~parser:Parsers.Menhir (fun _ ->
 
-let _ = Run.script_cpp ~parser:Parsers.Clang (fun _ ->
-   
-  show ~types:true [cWriteVar "y";dLHS];
+   !! Struct_basic.inline "pos" [cTypDef "particle"];
+   !! Struct_basic.inline "speed" [cTypDef "particle"];
+   !! Struct_basic.inline "items" [cTypDef "chunk"];
 )
- 
+
+(* LATER: at the combi level, combine struct_inline with struct-renaming-field *)

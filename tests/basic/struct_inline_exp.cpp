@@ -39,8 +39,9 @@ void test_chunk(chunk *c, particle p) {
 int main() {
   vect p = {0, 0};
   vect s = {0, 0};
-  particle a = {0, 0, 0, s};
-  particle b = {0, p.x, p.y, s};
+  particle a = {0, 0, 0, s.x, s.y};
+  particle b = {0, p.x, p.y, s.x, s.y};
+  particle c = {0, p.x, p.y, s.x, s.y};
   int nx = a.posX + a.speedX;
   int ny = a.posY + a.speedY;
   a.posX = 5;
