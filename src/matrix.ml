@@ -53,6 +53,18 @@ let intro_mmalloc : Target.Transfo.t =
         end
       | _ -> fail None "intro_mmalloc: the targeted variable should be initialized"
       end
+    | Trm_apps (_, [_lhs; rhs]) when is_set_operation tg_trm ->
+         begin match rhs.desc with 
+        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm]) ->
+          begin match malloc_trm.desc with
+          | Trm_apps ({desc = Trm_var (_, "malloc");_}, _) ->
+            Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
+          | _ -> fail rhs.loc "intro_mmalloc: could not find a call to malloc function"
+          end
+        | Trm_apps ({desc = Trm_var (_, "malloc");_},_) ->
+          Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
+        | _ -> fail rhs.loc "intro_mmalloc: couldn't find a call to malloc function"
+        end
     | _ -> fail None "intro_mmalloc: the target should be a variable declarartion allocated with alloc")
 
 
@@ -111,10 +123,10 @@ let intro_mops (dim : trm) : Target.Transfo.t =
   matrix_delocalize, this transformation first calls Matrix_basi.local_name to create the isolated environment where the delocalizing transformatino
   is going to be performed
 *)
-let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(last : bool = false)  ?(use : trm option = None) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string) ?(indices : string list = []) ~ops:(ops : delocalize_ops) (tg : Target.target) : unit =
+let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(last : bool = false)  ?(use : trm option = None) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string) ?(indices : string list = []) ~ops:(ops : delocalize_ops) ?(is_detached : bool = false) (tg : Target.target) : unit =
   let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
   let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
-  let acc = match acc with | Some s -> s | _ -> "s" in  Matrix_basic.local_name ~my_mark:middle_mark  var ~into ~indices tg;
+  let acc = match acc with | Some s -> s | _ -> "s" in  Matrix_basic.local_name ~my_mark:middle_mark ~is_detached var ~into ~indices tg;
   let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in 
   Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops [Target.cMark middle_mark];
   
