@@ -28,9 +28,9 @@ if [ -n "${WID}" ]; then
   xdotool key ctrl+r 
 
 else
-  echo "launch fresh window"
+  #echo "launch fresh window"
   ## Launch fresh browser
-  nohup chromium-browser --new-window ${FILEPATH} >/dev/null 2>&1
+  nohup ${BROWSER} --new-window ${FILEPATH} >/dev/null 2>&1
   
 fi
 
