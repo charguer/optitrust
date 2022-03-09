@@ -189,31 +189,36 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
   let rec aux (t : trm) : trm = 
     match t.desc with 
     (* Searching for struct intialization lists of type typedef struct {} struct_name *)
-    | Trm_struct term_list -> 
+    | Trm_struct term_list ->
       begin match t.typ with 
-      | Some {typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
-        let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives field_index term_list in 
-        begin match trm_to_change.desc with 
-        | Trm_struct sl -> 
-          let new_term_list = Mlist.merge lfront sl in 
-          let new_term_list = Mlist.merge new_term_list lback  in 
-          trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
-        | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change -> 
-          let sl = List.map (fun f -> trm_get (trm_struct_access (trm_var ~typ:v.typ p) f)) (List.rev field_list ) in 
-          let new_term_list = Mlist.merge lfront (Mlist.of_list sl) in 
-          let new_term_list = Mlist.merge new_term_list lback in 
-          trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
-        
-        | Trm_var (_, p) -> 
-          let sl = List.map (fun f -> trm_get (trm_struct_access (trm_var ~typ:t.typ p) f)) (List.rev field_list ) in 
-          let new_term_list = Mlist.merge lfront (Mlist.of_list sl) in 
-          let new_term_list = Mlist.merge new_term_list lback in 
-          trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
-        
-        | _ -> fail trm_to_change.loc "inline_struct_initialization: struct intialization list not compatible with its struct definition"
+      | Some ty -> 
+        let ty = get_inner_const_type ty in
+        begin match ty.typ_desc with 
+        | Typ_constr (y, _, _) when y = struct_name ->
+          let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives field_index term_list in 
+          begin match trm_to_change.desc with 
+          | Trm_struct sl -> 
+            let new_term_list = Mlist.merge lfront sl in 
+            let new_term_list = Mlist.merge new_term_list lback  in 
+            trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
+          | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change -> 
+            let sl = List.map (fun f -> trm_get (trm_struct_access (trm_var ~typ:v.typ p) f)) (List.rev field_list ) in 
+            let new_term_list = Mlist.merge lfront (Mlist.of_list sl) in 
+            let new_term_list = Mlist.merge new_term_list lback in 
+            trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
+
+          | Trm_var (_, p) -> 
+            let sl = List.map (fun f -> trm_struct_get (trm_var ~typ:t.typ p) f) (List.rev field_list ) in 
+            let new_term_list = Mlist.merge lfront (Mlist.of_list sl) in 
+            let new_term_list = Mlist.merge new_term_list lback in 
+            trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
+          
+          | _ -> fail t.loc "inline_struct_initialization: struct intialization list is not compatible with definition"  
+          end
+        | _ -> trm_map aux t
         end
-      | _ -> trm_map aux t
-      end
+      | _ -> fail t.loc "inline_struct_initialization: couldn't find the type of the struct intitialization type, try reparsing first"
+        end
     | _ -> trm_map aux t
   in aux t
 
