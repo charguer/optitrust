@@ -91,8 +91,44 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   bigstep "AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; step; sInstr "p2."];
-  !! Function.inline [nbMulti; step; cFun "wrapAround"];
+  !! Function.inline  ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapAround"];
+  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[x,y,z]."];
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
   !! Struct.inline "items" [cTypDef "chunk"];
+
+
+  bigstep "Prepare the stage for scaling (move definitions and introduce constants)";
+  !! Struct.to_variables [step; cVarDef "fieldAtPos"];
+  !! Struct.to_variables [stepLF; cVarDef "fieldAtPos"];
+  !! Variable.insert_list ~reparse:true ~defs:(
+         ["const double", "factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
+       @ (map_dims (fun d -> "const double", ("factor" ^ d), expr ("factorC / cell" ^ d))))
+     [tBefore; step; cVarDef "field_at_corners"];
+
+  bigstep "Scaling of electric field";
+  !! iter_dims (fun d ->
+       Accesses.scale ~factor:(var ("factor" ^ d)) [step; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation *)
+  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "factor."];
+  !! Arith.(simpl expand) [nbMulti; step; cVarDef "accel"; cStructInit; cStrict; Arith.constr];
+
+  bigstep "Scaling of speed and positions";
+  !! iter_dims (fun d ->
+       Accesses.scale ~factor:(expr ("stepDuration / cell" ^ d))
+         [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
+  !! iter_dims (fun d ->
+       Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
+  !! Trace.reparse(); (* required for the terms to be visible to the simplifier *)
+  !! Variable.inline [step; cVarDef "accel"];
+  !! Arith.(simpl expand) [nbMulti; step; cFun "int_of_double"; dArg 0]; (* TODO: does nothing? *)
+  !! Arith.(simpl expand) [nbMulti; step; cVarDef ~regexp:true "r.."; dInit ];
+  !! Sequence.apply ~start:[tAfter; step; cWrite ~lhs:[cVar "fieldAtPosZ"]()]
+       ~stop:[tAfter; step; cVarDef "contribs"] (fun m ->
+       Arith.(simpl expand) [nbMulti; step; cMark m; cWrite(); dRHS; cStrictNew; Arith.constr];);
+       (* LATER: Function.use_infix_ops [cMark m] *)
+      (* ARTHUR: also missing simplifications in bag_push_concurrent *)
+
+  bigstep "Enumerate grid cells by coordinates";
+  !! Label.add "core" [step; cFor "idCell" ~body:[cFor "k"]];
+  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];
 
 )
