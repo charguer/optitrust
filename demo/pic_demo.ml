@@ -157,7 +157,43 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
-     ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "k")) ~is_detached:true [cLabel "core"];
-  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "deposit"] ~index:[] ~rhs:[cDouble 0.] ()]];
+     ~dim:(expr "8") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "k")) ~is_detached:true [cLabel "core"];
 
+  bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
+  let mybij_def =
+      "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
+        coord coord = coordOfCell(idCell);
+        int iX = coord.iX;
+        int iY = coord.iY;
+        int iZ = coord.iZ;
+        int res[8] = {
+          cellOfCoord(iX, iY, iZ),
+          cellOfCoord(iX, iY, wrap(gridZ,iZ-1)),
+          cellOfCoord(iX, wrap(gridY,iY-1), iZ),
+          cellOfCoord(iX, wrap(gridY,iY-1), wrap(gridZ,iZ-1)),
+          cellOfCoord(wrap(gridX,iX-1), iY, iZ),
+          cellOfCoord(wrap(gridX,iX-1), iY, wrap(gridZ,iZ-1)),
+          cellOfCoord(wrap(gridX,iX-1), wrap(gridY,iY-1), iZ),
+          cellOfCoord(wrap(gridX,iX-1), wrap(gridY,iY-1), wrap(gridZ,iZ-1)),
+        };
+      return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
+      }" in (* LATER: menhir should support "res[]" syntax *)
+  !! Sequence.insert (stmt mybij_def) [tBefore; step];
+  !! Matrix.biject "mybij" [step; cVarDef "depositCorners"];
+  !! Instr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
+      [step; cLabel "charge"; cFun "mybij"];
+      (* LATER: use: sExpr "mybij(nbCorners, nbCells, indicesOfCorners(idCell2).v[k], k)" *)
+
+       (* ARTHUR: simplify mybij calls in the sum *)
+
+  bigstep "Duplicate the charge of a corner for each of the threads";
+  !! Sequence.insert (expr "#include \"omp.h\"") [tBefore; step];
+  !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "8") [tBefore; step]; (* TODO: remove ~value, see comment in Variable.insert *)
+  !! Variable.insert ~const:false ~name:"idThread" ~typ:(typ_int()) ~value:(expr "omp_get_thread_num()") [tBefore; cLabel "charge" ];
+
+  (* Checkpoint *)
+  bigstep "Duplicate the charge of a corner for each of the threads";
+  !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
+      ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "idThread")) [cLabel "core"];
+  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
 )

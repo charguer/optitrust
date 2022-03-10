@@ -3,7 +3,7 @@ open Target
 
 let _ = Flags.dump_ast_details := true
 
-let _ = Run.script_cpp ~parser:Parsers.Menhir (fun _ ->
+let _ = Run.script_cpp (fun _ ->
 
    
    show [cTypDef "vect"];
