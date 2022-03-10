@@ -268,7 +268,9 @@ let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg 
     everything went fine we can now eliminate the introduced sequence.
 *)
 let uninline ~fct:(fct : Target.target) : Target.Transfo.t =
-  let tg_fun_def = Target.get_trm_at fct in
+  let tg_fun_def = match Target.get_trm_at fct with 
+  | Some td -> td
+  | None -> fail None "uninline: fct target does point to any node" in
   Target.iter_on_targets (fun _ p ->
     let mark = Mark.next () in
     match tg_fun_def.desc with

@@ -211,42 +211,6 @@ void computeFieldFromRho() { // reads [double*** rho], writes [vect* field]
   }
 }
 
-// --------- Allocate and dellocate structures
-
-void allocateStructures() {
-  TRACE("Allocate\n");
-
-  allocateStructuresForPoissonSolver();
-
-  // Allocate the field, not initialized in this function
-  field = (vect*) malloc(nbCells * sizeof(vect));
-
-  // Allocate bagsNext and bagsCur with empty bags in every cell
-  bagsCur = (bag*) malloc(nbCells * sizeof(bag));
-  bagsNext = (bag*) malloc(nbCells * sizeof(bag));
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag_init_initial(&bagsCur[idCell]);
-    bag_init_initial(&bagsNext[idCell]);
-  }
-}
-
-void deallocateStructures() {
-  TRACE("Deallocate\n");
-
-  deallocateStructuresForPoissonSolver();
-
-  // Free the chunks
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag_free_initial(&bagsCur[idCell]);
-    bag_free_initial(&bagsNext[idCell]);
-  }
-
-  // Free arrays
-  free(bagsCur);
-  free(bagsNext);
-  free(field);
-}
-
 // --------- Particle Creation
 
 void createParticles() {

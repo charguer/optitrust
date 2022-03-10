@@ -178,7 +178,7 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
   let nb_vars = List.length pattern_vars in
   let all_values = Array.make_matrix nb_vars nb_paths (trm_unit ()) in
   Target.iteri_on_targets (fun id_path _ p ->
-    let inst = Trm_matching.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Target.get_trm_at (Target.target_of_path p)) in
+    let inst = Trm_matching.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Tools.unsome (Target.get_trm_at (Target.target_of_path p))) in
     let values = Trm_matching.tmap_to_list pattern_vars (Trm_matching.tmap_filter_keys pattern_vars inst) in
     List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v) values;
     let inst = List.map (fun (x, _) -> get_array_access (trm_var_possibly_mut ~const x) (trm_int id_path)) pattern_vars in

@@ -60,7 +60,9 @@ let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target
    have changed since the write.*)
 
 let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
-  let write_trm = Target.get_trm_at write in 
+  let write_trm = match Target.get_trm_at write with 
+  | Some wt -> wt
+  | None -> fail None "uninline: write target does point to any node" in
   let written_trm =  
   match write_trm.desc with 
     | Trm_apps (_, [_; rhs]) when is_set_operation write_trm -> rhs

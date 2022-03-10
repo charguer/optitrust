@@ -149,15 +149,17 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal of x/y/z *)
-  !! Label.add "core" [step; cFor_c "c"];
-  !! Matrix_basic.intro_mmalloc [step; cWriteVar "deposit";cFun "malloc"]; (* TODO: Fix the combi version *)
+  let alloc_tg = cChain [cFunDef "allocateStructures";cWriteVar "deposit"; cFun "malloc"] in
+  !! Label.add "core" [step; cFor "iX" ];
+  !! Matrix_basic.intro_mmalloc [nbMulti; alloc_tg]; (* TODO: Fix the combi version *)
   !! Matrix.intro_mindex (expr "nbCells") [step; cCellAccess ~base:[Target.cVar "deposit"] ()];
   !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
   !! Variable.inline [step; cVarDef "indices"];
 
+  let alloc_target = [cFunDef "allocateStructures";cWriteVar "deposit"; cFun "MMALLOC1"] in
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
-     ~dim:(expr "8") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "k")) ~is_detached:true [cLabel "core"];
+     ~dim:(expr "8") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "k")) ~alloc_target:[alloc_tg] [cLabel "core"];
 
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
   let mybij_def =

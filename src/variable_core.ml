@@ -256,10 +256,14 @@ let init_attach (const : bool) (index : int) : Target.Transfo.local =
 
 *)
 let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : trm =
-  let vardef_trm = Target.get_trm_at [Target.cVarDef curr_var] in
+  let vardef_trm = begin match Target.get_trm_at [Target.cVarDef curr_var] with 
+    | Some vt -> vt 
+    | None -> fail None "local_name_aux: couldn't find the variable provided as argument"
+    end in
   let var_type = match trm_var_def_inv vardef_trm with
-  | Some (_, _, ty, _) -> ty
-  | _ -> fail vardef_trm.loc "local_name: make sure the name of the current var is entered correctly" in
+    | Some (_, _, ty, _) -> ty
+    | _ -> fail vardef_trm.loc "local_name: make sure the name of the current var is entered correctly" 
+    in
   let fst_instr = trm_let_mut (local_var, var_type) (trm_var_possibly_mut ~typ:(Some var_type) curr_var) in
   let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_var_possibly_mut ~typ:(Some var_type) local_var) in
   let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in

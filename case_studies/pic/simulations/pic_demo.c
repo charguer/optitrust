@@ -181,6 +181,47 @@ void updateFieldUsingDeposit() { // reads [double* deposit], writes [vect* field
   resetDeposit();
 }
 
+// --------- Allocate and dellocate structures
+
+void allocateStructures() {
+  // TRACE("Allocate\n");
+
+  allocateStructuresForPoissonSolver();
+
+  // Allocate array for deposit
+  deposit = (double*) malloc(nbCells * sizeof(double));
+
+  // Allocate the field, not initialized in this function
+  field = (vect*) malloc(nbCells * sizeof(vect));
+
+  // Allocate bagsNext and bagsCur with empty bags in every cell
+  bagsCur = (bag*) malloc(nbCells * sizeof(bag));
+  bagsNext = (bag*) malloc(nbCells * sizeof(bag));
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    bag_init_initial(&bagsCur[idCell]);
+    bag_init_initial(&bagsNext[idCell]);
+  }
+}
+
+void deallocateStructures() {
+  // TRACE("Deallocate\n");
+
+  deallocateStructuresForPoissonSolver();
+
+  // Free the chunks
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    bag_free_initial(&bagsCur[idCell]);
+    bag_free_initial(&bagsNext[idCell]);
+  }
+
+  // Free arrays
+  free(bagsCur);
+  free(bagsNext);
+  free(field);
+}
+
+
+
 // --------- Initialization
 
 void computeConstants() {
@@ -245,8 +286,6 @@ void step() {
   // For each cell from the grid
   for (int idCell = 0; idCell < nbCells; idCell++) {
 
-    // Allocate array for deposit
-    deposit = (double*) malloc(nbCells * sizeof(double));
     // Read the electric field that applies to the corners of the cell considered
     vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
 
@@ -300,7 +339,9 @@ int main(int argc, char** argv) {
   loadParameters(argc, argv);
 
   computeConstants();
-
+ 
+  allocateStructuresForPoissonSolver();
+  
   allocateStructures();
 
   resetDeposit();
@@ -336,6 +377,9 @@ int main(int argc, char** argv) {
 #endif
 
   deallocateStructures();
+
+  deallocateStructuresForPoissonSolver();
+  
   free(deposit);
 }
 

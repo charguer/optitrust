@@ -386,8 +386,7 @@ val (!!^) : 'a -> 'a
 
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 
-val get_trm_at : target -> trm
-
+val get_trm_at : target -> trm option
 val get_ast : unit -> trm
 
 val var : ?annot:trm_annot list -> ?loc:location -> ?add:special_operator list -> ?typ:Ast.typ option -> ?attributes:attribute list -> ?ctx:ctx option -> ?marks:string list -> ?kind:varkind-> string -> trm

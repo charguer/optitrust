@@ -1109,17 +1109,19 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
     Note:
       Call this function only on targets which resolve to a unique ast node
 *)
-let get_trm_at (tg : target) : trm  =
-  let t_ast = ref (trm_unit ()) in
+let get_trm_at (tg : target) : trm option  =
+  let t_ast = ref None in
   Trace.call (fun t ->
-    let tg_path = resolve_target_exactly_one_with_stringreprs_available tg t in
-    t_ast := Path.resolve_path tg_path t
+    try 
+      let tg_path = resolve_target_exactly_one_with_stringreprs_available tg t in
+      t_ast := Some (Path.resolve_path tg_path t)
+    with | _ -> t_ast := None
   );
   !t_ast
 
 (* [get_ast ()] returns the full ast*)
 let get_ast () : trm =
-  get_trm_at []
+  Tools.unsome (get_trm_at [])
 
 
 
@@ -1134,7 +1136,10 @@ let get_ast () : trm =
 
 (* [get_function_name_at dl] get the name of the function that corresponds to [dl]*)
 let get_function_name_at (dl : path) : string option =
-  let fun_decl = get_trm_at (target_of_path dl) in
+  let fun_decl = match get_trm_at (target_of_path dl) with 
+    | Some fd -> fd
+    | None -> fail None "get_function_name_at: couldn't retrive the function name at the targeted path"
+   in
   match fun_decl.desc with
   | Trm_let_fun (f, _, _, _) -> Some f
   | _ -> None

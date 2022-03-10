@@ -50,6 +50,59 @@ let biject (fun_name : string) : Target.Transfo.t =
       free up the memory.
  *)
 
+let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : Target.target option = None) (v : var) ~into:(into : var) (tg : Target.target) : unit =
+  let remove = (my_mark = None) in 
+  let get_alloc_type_and_trms (t : trm) (tg1 : Target.target) : typ * (trms * trm * bool) = 
+    let var_type = begin match t.desc with 
+      | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty
+      | Trm_apps (_, [lhs; _rhs]) when is_set_operation t -> 
+        begin match lhs.typ with 
+        | Some ty -> ty
+        | None -> fail t.loc (Printf.sprintf "get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" v)
+        end
+      | _ -> fail t.loc (Printf.sprintf "get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr 
+          target doesn't point to a write operation or a variable declaration \n'" v)
+      end in 
+      let alloc_trms = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true "M.ALLOC."]) with 
+        | Some at -> 
+          begin match Matrix_core.alloc_inv at with 
+          | Some (dims, sz, zero_init) -> (dims, sz, zero_init) 
+          | _ -> fail t.loc "get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
+          end
+        | None -> fail None "get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
+        end in (var_type, alloc_trms)
+    in
+  Internal.nobrace_remove_after ~remove (fun _ -> 
+    Target.(apply_on_targets (fun t p -> 
+      let seq_p, _ = Internal.isolate_last_dir_in_seq p in
+      let seq_tg = Target.target_of_path seq_p in 
+      let var_target = cOr [[cVarDef v]; [cWriteVar v]] in 
+      begin match alloc_instr with 
+      | Some tg1 -> 
+        begin match get_trm_at tg1 with 
+        | Some t1 ->
+          let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in 
+          if not remove then Internal.nobrace_enter();
+          Matrix_core.local_name my_mark v into alloc_trms var_type indices t p
+        | None -> fail None "local_name: alloc_instr target does not match to any ast node"
+        end
+      | None -> 
+        begin match get_trm_at (seq_tg @ [var_target]) with 
+        | Some t1 ->
+          let tg1 = (seq_tg @ [var_target]) in
+          let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in 
+          if not remove then Internal.nobrace_enter();
+          Matrix_core.local_name my_mark v into alloc_trms var_type indices t p
+          
+        | None -> fail None "local_name: alloc_instr target does not match to any ast node"
+        end
+      end
+    ) tg)
+  
+  
+  )
+(* 
+
 let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_target : Target.target option = None) (v : var) ~into:(into : var) (tg : Target.target) : unit =
   let remove = (my_mark = None) in 
   Internal.nobrace_remove_after ~remove (fun _ -> 
@@ -58,7 +111,9 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_tar
         let seq_p, i = Internal.isolate_last_dir_in_seq p in
         let seq = Target.target_of_path seq_p in 
         let var_target = cOr [[cVarDef v];[cWriteVar v]] in 
-        let vardef_trm = Target.get_trm_at (seq @ [var_target]) in 
+        let vardef_trm = match Target.get_trm_at (seq @ [var_target]) with 
+        | Some vt -> vt
+        | None -> fail None "local_name: couldn't get the definition a variable" in
         let var_type = match vardef_trm.desc with 
           | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty 
           | Trm_apps (_, [lhs; _rhs]) when is_set_operation vardef_trm ->
@@ -68,9 +123,21 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_tar
             end
           | _ ->fail vardef_trm.loc "local_name: couldn't find the type of the targetd variable'"
         in 
-
-        let alloc_trm = if alloc_target <> None then Target.get_trm_at (Tools.unsome alloc_target)
-          else Target.(get_trm_at (seq @ [var_target; Target.cFun ~regexp:true "M.ALLOC."])) in 
+        
+        let alloc_trm = if alloc_target <> None then begin 
+          let tg_alloc = Target.get_trm_at (Tools.unsome alloc_target) in
+          if  tg_alloc <> None 
+            then Tools.unsome tg_alloc 
+          else fail None "local_name: "
+          end 
+          else
+           match Target.(get_trm_at (seq @ [var_target; Target.cFun ~regexp:true "M.ALLOC."])) with 
+            | Some mc -> mc
+            | None -> fail None "local_name: couldn't find the alloc trm"
+          in 
+            
+        (* let alloc_trm = if alloc_target <> None then Target.get_trm_at (Tools.unsome alloc_target)
+          else Target.(get_trm_at (seq @ [var_target; Target.cFun ~regexp:true "M.ALLOC."])) in  *)
         
         let alloc_trms = match Matrix_core.alloc_inv alloc_trm with
         | Some (dims, sz, zero_init) -> (dims, sz, zero_init)
@@ -79,28 +146,7 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_tar
         if not remove then Internal.nobrace_enter();
         Matrix_core.local_name my_mark v into alloc_trms var_type indices t p
      ) tg)
-  ) 
-
-
-
-let local_name1 ?(my_mark : mark option) ?(indices : (var list) = []) ?(is_detached : bool = false) (var : var) ~into:(into : var) (tg : Target.target) : unit =
-  let vardef_trm = Target.get_trm_at [Target.cVarDef var] in
-  let var_type = match trm_var_def_inv vardef_trm with
-  | Some (_, _, ty, _) -> ty
-  | _ -> fail vardef_trm.loc "local_name: make sure the name of the current var is entered correctly" in
-  let alloc_tg = if not is_detached then  [Target.cVarDef var; Target.cFun ~regexp:true "M.ALLOC."] else [Target.cWriteVar var; Target.cFun ~regexp:true "M.ALLOC."] in 
-  let alloc_trm = Target.get_trm_at alloc_tg in 
-  (* let alloc_trm = Target.get_trm_at [Target.cVarDef var; Target.cFun ~regexp:true "M.ALLOC."] in *)
-  let alloc_trms = match Matrix_core.alloc_inv alloc_trm with
-  | Some (dims, sz, zero_init) -> (dims, sz, zero_init)
-  | _ -> fail None "local_name: could not get the dimensions and the size of the matrix" in
-  begin match my_mark with
-  | Some _ -> Internal.nobrace_enter (); Target.apply_on_targets (Matrix_core.local_name my_mark var into alloc_trms var_type indices) tg
-  | _ ->
-  Internal.nobrace_remove_after (fun _ ->
-    Target.apply_on_targets (Matrix_core.local_name my_mark var into alloc_trms var_type indices ) tg
-  ) end
-
+  )  *)
 
 (* [delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops] a generalized version of variable_delocalize*)
 let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "")~dim:(dim : trm)  ~index:(index : string) ~ops:(dl_o : delocalize_ops) : Target.Transfo.t =

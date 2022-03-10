@@ -75,4 +75,9 @@ void addParticle(CHECKER_ONLY_COMMA(int idParticle) double x, double y, double z
 // forward declaration for a function used by computeFieldFromRho, which is defined in pic_demo_aux.c
 int cellOfCoord(int i, int j, int k);
 
+void allocateStructures();
+void allocateStructuresForPoissonSolver();
+void deallocateStructures();
+void deallocateStructuresForPoissonSolver();
+
 #endif
