@@ -3,15 +3,14 @@ open Target
 open Ast
 
 
-(* let _ = Run.doc_script_cpp (fun _ ->
-  !! Instr_basic.replace (lit "20") [sExpr "a * 4"];
+let _ = Run.doc_script_cpp (fun _ ->
+  !! Instr_basic.replace (lit "24") [sExpr "20"];
   )
 "
 int main() {
-  int a = 5;
-  int x = a * 4;
+  int x = 20;
 }
-" *)
+"
 
 let _ = Run.script_cpp (fun _ ->
   (* replace multiple occurrences of variable "a" with variable "b" *)
