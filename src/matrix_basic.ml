@@ -101,52 +101,6 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_ins
   
   
   )
-(* 
-
-let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_target : Target.target option = None) (v : var) ~into:(into : var) (tg : Target.target) : unit =
-  let remove = (my_mark = None) in 
-  Internal.nobrace_remove_after ~remove (fun _ -> 
-    Target.(apply_on_targets 
-     (fun t p -> 
-        let seq_p, i = Internal.isolate_last_dir_in_seq p in
-        let seq = Target.target_of_path seq_p in 
-        let var_target = cOr [[cVarDef v];[cWriteVar v]] in 
-        let vardef_trm = match Target.get_trm_at (seq @ [var_target]) with 
-        | Some vt -> vt
-        | None -> fail None "local_name: couldn't get the definition a variable" in
-        let var_type = match vardef_trm.desc with 
-          | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty 
-          | Trm_apps (_, [lhs; _rhs]) when is_set_operation vardef_trm ->
-            begin match lhs.typ with 
-            | Some ty -> ty
-            | None -> fail vardef_trm.loc "local_name: couldn't find the type of the targetd variable'"
-            end
-          | _ ->fail vardef_trm.loc "local_name: couldn't find the type of the targetd variable'"
-        in 
-        
-        let alloc_trm = if alloc_target <> None then begin 
-          let tg_alloc = Target.get_trm_at (Tools.unsome alloc_target) in
-          if  tg_alloc <> None 
-            then Tools.unsome tg_alloc 
-          else fail None "local_name: "
-          end 
-          else
-           match Target.(get_trm_at (seq @ [var_target; Target.cFun ~regexp:true "M.ALLOC."])) with 
-            | Some mc -> mc
-            | None -> fail None "local_name: couldn't find the alloc trm"
-          in 
-            
-        (* let alloc_trm = if alloc_target <> None then Target.get_trm_at (Tools.unsome alloc_target)
-          else Target.(get_trm_at (seq @ [var_target; Target.cFun ~regexp:true "M.ALLOC."])) in  *)
-        
-        let alloc_trms = match Matrix_core.alloc_inv alloc_trm with
-        | Some (dims, sz, zero_init) -> (dims, sz, zero_init)
-        | _ -> fail None "local_name: could not get the dimensions and the size of the matrix" in
-         
-        if not remove then Internal.nobrace_enter();
-        Matrix_core.local_name my_mark v into alloc_trms var_type indices t p
-     ) tg)
-  )  *)
 
 (* [delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops] a generalized version of variable_delocalize*)
 let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "")~dim:(dim : trm)  ~index:(index : string) ~ops:(dl_o : delocalize_ops) : Target.Transfo.t =

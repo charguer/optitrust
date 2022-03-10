@@ -156,10 +156,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
   !! Variable.inline [step; cVarDef "indices"];
 
-  let alloc_target = [cFunDef "allocateStructures";cWriteVar "deposit"; cFun "MMALLOC1"] in
+  let alloc_instr = [cFunDef "allocateStructures";cWriteVar "deposit"] in
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
-     ~dim:(expr "8") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "k")) ~alloc_target:[alloc_tg] [cLabel "core"];
+     ~dim:(expr "8") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "k")) ~alloc_instr [cLabel "core"];
 
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
   let mybij_def =
@@ -192,10 +192,34 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Sequence.insert (expr "#include \"omp.h\"") [tBefore; step];
   !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "8") [tBefore; step]; (* TODO: remove ~value, see comment in Variable.insert *)
   !! Variable.insert ~const:false ~name:"idThread" ~typ:(typ_int()) ~value:(expr "omp_get_thread_num()") [tBefore; cLabel "charge" ];
-
+  !! Trace.reparse();
   (* Checkpoint *)
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
       ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "idThread")) [cLabel "core"];
-  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
+  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
+  (* TODO: Move to allocate(deallocate)Structures malloc(free) instructions *)
+
+  bigstep "Coloring";
+  !! Variable.insert_list ~const:true ~defs:[("int","block",lit "2"); ("int","halfBlock",expr "block / 2")] [tBefore; cVarDef "nbCells"];
+  let colorize (tile : string) (color : string) (d:string) : unit =
+    let bd = "bi" ^ d in
+    Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [step; cFor ("i" ^ d)];
+    Loop.color (expr color) ~index:("ci"^d) [step; cFor bd]
+    in
+  !! iter_dims (fun d -> colorize "block" "block" d);
+  !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [step; cFor "ciX"];
+
+  bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
+  !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
+  !! Variable.bind "b2" ~const:true ~is_ptr:true [step; cFun "bag_push"; dArg 0];
+  !! Variable.insert ~const:true ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
+      ~value:(trm_ands (map_dims (fun d ->
+         expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
+      [tBefore; step; cVarDef "b2"];
+  !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") ~mark:"push" [step; cFun "bag_push"];
+  !! Expr.replace_fun "bag_push_serial" [cMark "push"; dThen; cFun "bag_push"];
+     Expr.replace_fun "bag_push_concurrent" [cMark "push"; dElse; cFun "bag_push"];
+     Marks.remove "push" [cMark "push"];
+
 )
