@@ -26,10 +26,9 @@ TESTS_WITH_DOC := \
 	loop_fission.ml \
 	\
 	struct_fields_reorder.ml \
-	aos_to_soa_sized_array__basic.ml \
 
 
-TESTS := 
+TESTS := $(filter-out %__basic.ml %__combi.ml,$(TESTS_WITH_DOC))
 
 redoc: optitrust cleanall mydoc
 
@@ -83,7 +82,7 @@ doc.html: $(DOCJS)
 	@echo Produced $@
 
 cleandoc::
-	rm -f *__basic_doc.js *__combi_doc.js doc.html
+	rm -f *_doc.js doc.html
 
 cleanall: clean
 	$(MAKE) -C $(BASICDIR) clean
