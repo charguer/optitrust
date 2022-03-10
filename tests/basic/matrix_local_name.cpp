@@ -1,6 +1,8 @@
 
 #include "../../include/optitrust.h"
 typedef int T;
+T* b; 
+
 int main(){
   const int N0 = 5;
   const int N1 = 10;
@@ -11,7 +13,6 @@ int main(){
     a[MINDEX3(N1,N2,N3,i,i+1,i+2)];
   }
 
-  T* b; 
   b = (T*) MCALLOC3 (N1, N2, N3, sizeof(T));
   for (int j = 0; j < 10; j++) {
     b[MINDEX3(N1,N2,N3,j,j+1,j+2)];

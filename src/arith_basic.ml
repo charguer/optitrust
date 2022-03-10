@@ -22,8 +22,8 @@ let apply (op : binary_op) (arg : trm) : Target.Transfo.t =
 (* [simpl f] applies a arithmetic rewriting method from the module Arith_core:
    - gather  for grouping and cancelling out similar expressions in sums and produts
    - expand  for expanding products involving sums. *)
-let simpl (f: (expr -> expr)) : Target.Transfo.t =
-  Target.apply_on_targets (Arith_core.simplify f)
+let simpl ?(indepth : bool = false) (f: (expr -> expr)) : Target.Transfo.t =
+  Target.apply_on_targets (Arith_core.simplify indepth f)
 
 let simplify : Target.Transfo.t =
   simpl Arith_core.gather_rec

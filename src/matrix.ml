@@ -123,19 +123,19 @@ let intro_mops (dim : trm) : Target.Transfo.t =
   matrix_delocalize, this transformation first calls Matrix_basi.local_name to create the isolated environment where the delocalizing transformatino
   is going to be performed
 *)
-let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(last : bool = false)  ?(use : trm option = None) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string) ?(indices : string list = []) ~ops:(ops : delocalize_ops) ?(is_detached : bool = false) (tg : Target.target) : unit =
+let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(last : bool = false)  ?(use : trm option = None) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string) ?(indices : string list = []) ~ops:(ops : delocalize_ops) ?(alloc_target : Target.target option) (tg : Target.target) : unit =
   let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
   let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
-  let acc = match acc with | Some s -> s | _ -> "s" in  Matrix_basic.local_name ~my_mark:middle_mark ~is_detached var ~into ~indices tg;
+  let acc = match acc with | Some s -> s | _ -> "s" in  Matrix_basic.local_name ~my_mark:middle_mark ~alloc_target ~into ~indices var tg;
+  
   let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in 
   Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops [Target.cMark middle_mark];
   
   if last then Matrix_basic.reorder_dims ~rotate_n:1 () [Target.nbAny; Target.cMark middle_mark; Target.cFun ~regexp:true "M.\\(NDEX\\|ALLOC\\)."] ;
   begin match use with 
-  | Some e ->   Specialize.any e [Target.nbAny; Target.cMark any_mark]
-  | None -> ()
+    | Some e ->   Specialize.any e [Target.nbAny; Target.cMark any_mark]
+    | None -> ()
   end;
-  
   begin match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> () end
 
 

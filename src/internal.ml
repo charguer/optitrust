@@ -567,9 +567,11 @@ let get_constr_from_target (tg : target) : constr =
 
 (* A wrapper for creating and deleting a nobrace sequence *)
 let nobrace_remove_after ?(remove : bool = true) (f : unit -> unit) : unit =
-  if remove then begin nobrace_enter();
-  f();
-  nobrace_remove_and_exit() end
+  if remove then 
+    begin nobrace_enter();
+       f();
+    nobrace_remove_and_exit() end
+  else f()
 
 (* In the cases when targeted sequences are labelled, this wrapper targets directly the sequence instead of the labeeld ast node *)
 let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (op_name:string) : trm->trm =

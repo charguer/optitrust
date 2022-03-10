@@ -28,6 +28,12 @@ int main() {
 
 
 let _ = Run.script_cpp (fun _ ->
+    
+    (* !! Arith_basic.(simpl ~indepth:false identity) [nbMulti; cFunDef "simpl_in_depth";cFun "g"];
+    !! Arith_basic.(simpl ~indepth:false identity) [nbMulti; cFunDef "simpl_in_depth";cFun "f"];
+    
+    !! Arith_basic.(simpl ~indepth:true identity) [nbMulti; cFunDef "simpl_in_depth";cFun "g"];
+    !! Arith_basic.(simpl ~indepth:true identity) [nbMulti; cFunDef "simpl_in_depth"]; *)
 
     !! Arith_basic.(simpl identity) [nbMulti; cWriteVar "x"; dRHS];
     !! Arith_basic.(simpl normalize) [nbMulti; cWriteVar "x"; dRHS];

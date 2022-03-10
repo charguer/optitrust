@@ -484,13 +484,33 @@ let expand = expand_common false
 let expand_rec = expand_common true (* Warning: quadratic, because normalize all and gather_rec at each step *)
 
 
-(* DEPRECATED? same as simplify_aux
-let trm_transfo (f : expr -> expr) (t : trm) : trm =
+(* [is_prim_arith p] check if [p] is a primitive arithmetic operation *)
+let is_prim_arith (p : prim) : bool =
+  match p with
+  | Prim_binop (Binop_add | Binop_sub | Binop_mul | Binop_div)
+  | Prim_unop Unop_neg ->
+      true
+  | _ -> false
+
+(* [map_on_arith_nodes tr t] apply arithmetic simplification [tr] in depth of [t]*)
+let rec map_on_arith_nodes (tr : trm -> trm) (t : trm): trm = 
+  match t.desc with 
+  | Trm_apps ({desc = Trm_val (Val_prim p);_}, args) when is_prim_arith p -> tr t
+  | _ -> trm_map (map_on_arith_nodes tr) t
+
+(* let simplify_aux1  (f : expr -> expr) (t : trm) : trm =
   let expr, atoms = trm_to_expr t in
   let expr2 = f expr in
   if debug then Tools.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
-  expr_to_trm atoms expr2
-*)
+  expr_to_trm atoms expr2 *)
+
+
+let simplify_at_node (indepth : bool) (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm = 
+  let expr, atoms = trm_to_expr t in 
+  let atoms2 = if indepth then Atom_map.map f_atom atoms else atoms in
+  let expr2 = f expr in 
+  if debug then Tools.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
+  expr_to_trm atoms2 expr2
 
 (* [simplify_aux f t] convert node [t] to an expression then apply the simplifier [f], then convert it back to a trm
       params:
@@ -499,16 +519,16 @@ let trm_transfo (f : expr -> expr) (t : trm) : trm =
       return:
         update t with the simplified expressions
 *)
-let simplify_aux  (f : expr -> expr) (t : trm) : trm =
-  let expr, atoms = trm_to_expr t in
-  let expr2 = f expr in
-  if debug then Tools.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
-  expr_to_trm atoms expr2
-
-let simplify (f : expr -> expr) : Target.Transfo.local =
-  Target.apply_on_path (simplify_aux f)
-
+let rec simplify_aux (indepth : bool) (f : expr -> expr) (t : trm) : trm =
+  if not indepth then begin 
+    let f_items = (fun ti -> ti) in 
+    simplify_at_node indepth f_items f t 
+  end else begin 
+    let f_items = simplify_aux indepth f in 
+    map_on_arith_nodes (simplify_at_node indepth f_items f) t end
 
 
 
+let simplify (indepth : bool) (f : expr -> expr) : Target.Transfo.local =
+  Target.apply_on_path (simplify_aux indepth f)
 

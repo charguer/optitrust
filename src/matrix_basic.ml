@@ -49,7 +49,41 @@ let biject (fun_name : string) : Target.Transfo.t =
       as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finaly we
       free up the memory.
  *)
-let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(is_detached : bool = false) (var : var) ~into:(into : var) (tg : Target.target) : unit =
+
+let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_target : Target.target option = None) (v : var) ~into:(into : var) (tg : Target.target) : unit =
+  let remove = (my_mark = None) in 
+  Internal.nobrace_remove_after ~remove (fun _ -> 
+    Target.(apply_on_targets 
+     (fun t p -> 
+        let seq_p, i = Internal.isolate_last_dir_in_seq p in
+        let seq = Target.target_of_path seq_p in 
+        let var_target = cOr [[cVarDef v];[cWriteVar v]] in 
+        let vardef_trm = Target.get_trm_at (seq @ [var_target]) in 
+        let var_type = match vardef_trm.desc with 
+          | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty 
+          | Trm_apps (_, [lhs; _rhs]) when is_set_operation vardef_trm ->
+            begin match lhs.typ with 
+            | Some ty -> ty
+            | None -> fail vardef_trm.loc "local_name: couldn't find the type of the targetd variable'"
+            end
+          | _ ->fail vardef_trm.loc "local_name: couldn't find the type of the targetd variable'"
+        in 
+
+        let alloc_trm = if alloc_target <> None then Target.get_trm_at (Tools.unsome alloc_target)
+          else Target.(get_trm_at (seq @ [var_target; Target.cFun ~regexp:true "M.ALLOC."])) in 
+        
+        let alloc_trms = match Matrix_core.alloc_inv alloc_trm with
+        | Some (dims, sz, zero_init) -> (dims, sz, zero_init)
+        | _ -> fail None "local_name: could not get the dimensions and the size of the matrix" in
+         
+        if not remove then Internal.nobrace_enter();
+        Matrix_core.local_name my_mark v into alloc_trms var_type indices t p
+     ) tg)
+  ) 
+
+
+
+let local_name1 ?(my_mark : mark option) ?(indices : (var list) = []) ?(is_detached : bool = false) (var : var) ~into:(into : var) (tg : Target.target) : unit =
   let vardef_trm = Target.get_trm_at [Target.cVarDef var] in
   let var_type = match trm_var_def_inv vardef_trm with
   | Some (_, _, ty, _) -> ty

@@ -429,3 +429,9 @@ let bool_of_var (s : string) : bool option =
   with | Invalid_argument _ -> None
 
 
+(* [unsome x_opt] extracts an objects outsied the optional trm its belongs to *)
+let unsome (x_opt : 'a option) : 'a = 
+  match x_opt with 
+  | Some x -> x
+  | None -> failwith "unsome: please check if the optional is different from none before calling this function"
+
