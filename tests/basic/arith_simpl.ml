@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-
+(*
 let _ = Run.doc_script_cpp (fun _ ->
     !! Arith_basic.(simpl gather) [cVarDef "a"; cInit ()];
     !! Arith_basic.(simpl gather) [cVarDef "b"; cInit ()];
@@ -16,8 +16,7 @@ int main() {
   int d = (a + b) * c;
 }
 "
-
-
+*)
 
 (* LATER: add a "compute" transformation to simplify
     - products of int
@@ -28,20 +27,22 @@ int main() {
 
 
 let _ = Run.script_cpp (fun _ ->
-    
-    (* !! Arith_basic.(simpl ~indepth:false identity) [nbMulti; cFunDef "simpl_in_depth";cFun "g"];
-    !! Arith_basic.(simpl ~indepth:false identity) [nbMulti; cFunDef "simpl_in_depth";cFun "f"];
-    
-    !! Arith_basic.(simpl ~indepth:true identity) [nbMulti; cFunDef "simpl_in_depth";cFun "g"];
-    !! Arith_basic.(simpl ~indepth:true identity) [nbMulti; cFunDef "simpl_in_depth"]; *)
+    (* !! Arith_basic.simplify ~indepth:true [dRoot]); *) (* Test of all at once: *)
 
-    !! Arith_basic.(simpl identity) [nbMulti; cWriteVar "x"; dRHS];
-    !! Arith_basic.(simpl normalize) [nbMulti; cWriteVar "x"; dRHS];
-    !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "y"; dRHS];
-    !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "z"; dRHS];
-    !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "t"; dRHS];
-    !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "u"; dRHS];
-    !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "v"; dRHS];
+  !! Arith_basic.simplify ~indepth:true [nbMulti; cFunDef "simpl_in_depth"; cVarDef "x"];
+  !! Arith_basic.simplify ~indepth:false [nbMulti; cFunDef "simpl_in_depth"]; (* do nothing *)
+  !! Arith_basic.simplify ~indepth:true [nbMulti; cFunDef "simpl_in_depth"];
+
+  !! Arith_basic.(simpl identity) [nbMulti; cWriteVar "x"; dRHS];
+  !! Arith_basic.(simpl normalize) [nbMulti; cWriteVar "x"; dRHS];
+  !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "y"; dRHS];
+  !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "z"; dRHS];
+  !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "t"; dRHS];
+  !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "u"; dRHS];
+  !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "v"; dRHS];
+
+)
+
 
 (* For testing one line, add a line in the source "r = ...;" and use:
     !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "r"; dRHS];
@@ -58,6 +59,3 @@ let _ = Run.script_cpp (fun _ ->
      Arith_basic.(simpl (apply_bottom_up_if_debug true true)) [occIndex i; cWriteVar "t"; dRHS];
      Arith_basic.(simpl apply_bottom_up_debug) [occIndex i; cWriteVar "t"; dRHS];
 *)
-
-
-)

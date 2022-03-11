@@ -12,9 +12,9 @@ let debug_rec = false
  *)
 
 
-type arith_op = 
+type arith_op =
   | Arith_shift
-  | Arith_scale 
+  | Arith_scale
 
 (* [shift_aux neg pre_cast post_cast u t]: shift or scale the right hand side of a set operation with term [u]
     params:
@@ -27,20 +27,20 @@ type arith_op =
     return:
       updated ast of the set operation
 *)
-let transform_aux (aop : arith_op) (inv : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) (t : trm) : trm = 
-  let binop_op = match aop with 
-  | Arith_shift -> if inv then Binop_sub else Binop_add 
-  | Arith_scale -> if inv then Binop_div else Binop_mul in 
-  let trm_apps_binop t1 t2 = trm_apps (trm_binop binop_op) [t1; t2] in 
-  match t.desc with 
+let transform_aux (aop : arith_op) (inv : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) (t : trm) : trm =
+  let binop_op = match aop with
+  | Arith_shift -> if inv then Binop_sub else Binop_add
+  | Arith_scale -> if inv then Binop_div else Binop_mul in
+  let trm_apps_binop t1 t2 = trm_apps (trm_binop binop_op) [t1; t2] in
+  match t.desc with
   | Trm_apps(f, [lhs; rhs]) when is_set_operation t ->
-    begin match pre_cast, post_cast with 
+    begin match pre_cast, post_cast with
     | None, None -> {t with desc = Trm_apps (f, [lhs; trm_apps_binop rhs u])}
     | None, Some ty -> {t with desc = Trm_apps (f, [lhs; trm_cast ty (trm_apps_binop rhs u)])}
     | Some ty, None -> {t with desc = Trm_apps (f, [lhs; trm_apps_binop (trm_cast ty rhs) u])}
     | _ -> fail t.loc "transform_aux: can't do both pre-casting and post-casting"
     end
-  | Trm_apps (_, [arg]) when is_get_operation t -> 
+  | Trm_apps (_, [arg]) when is_get_operation t ->
     begin match pre_cast, post_cast with
     | None , None -> trm_apps_binop t u
     | None, Some ty -> trm_cast ty (trm_apps_binop t u)
@@ -49,7 +49,7 @@ let transform_aux (aop : arith_op) (inv : bool) (pre_cast : typ option) (post_ca
     end
   | _ -> fail t.loc "transform_aux: expected a get or a set operation"
 
- 
+
 let transform (aop : arith_op)(inv : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) : Target.Transfo.local =
   Target.apply_on_path (transform_aux  aop inv pre_cast post_cast u)
 
@@ -197,7 +197,7 @@ let create_or_reuse_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
   let no_id = -1 in
   let occ = ref no_id in
   Atom_map.iter (fun id tid -> if !occ = no_id && Internal.same_trm t tid then occ := id) !atoms;
-  if !occ = no_id then begin 
+  if !occ = no_id then begin
     let new_id = next_id() in
     atoms := Atom_map.add new_id t !atoms;
     occ := new_id
@@ -209,7 +209,7 @@ let create_or_reuse_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
 let trm_to_naive_expr (t : trm) : expr * atom_map =
   let atoms = ref Atom_map.empty in
   let rec aux (t : trm) : expr =
-    let not_expression = Expr_atom (create_or_reuse_atom_for_trm atoms t) in
+    let not_expression() = Expr_atom (create_or_reuse_atom_for_trm atoms t) in
     match t.desc with
       | Trm_val (Val_lit (Lit_int n)) -> Expr_int n
       | Trm_val (Val_lit (Lit_double n)) -> Expr_double n
@@ -218,23 +218,23 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
         | Some (Prim_binop b) ->
           begin match b with
           | Binop_add | Binop_sub ->
-              let w = match  b with | Binop_add -> 1 | Binop_sub -> -1 | _ -> assert false in
+              let w = match b with | Binop_add -> 1 | Binop_sub -> -1 | _ -> assert false in
               Expr_sum [(1, aux t1); (w, aux t2)]
           | Binop_mul | Binop_div ->
-              let w = match  b with | Binop_mul -> 1 | Binop_div -> -1 | _ -> assert false in
+              let w = match b with | Binop_mul -> 1 | Binop_div -> -1 | _ -> assert false in
               Expr_prod [(1, aux t1); (w, aux t2)]
-          | _ -> not_expression
+          | _ -> not_expression()
           end
-        | _ -> not_expression
+        | _ -> not_expression()
         end
       | Trm_apps (f, [t1]) ->
         begin match trm_prim_inv f with
         | Some (Prim_unop Unop_neg) ->
           Expr_sum [(-1, aux t1)]
         | _ ->
-          not_expression
+          not_expression()
         end
-      | _ -> not_expression
+      | _ -> not_expression()
     in
     let res = aux t in
     res, !atoms
@@ -492,11 +492,17 @@ let is_prim_arith (p : prim) : bool =
       true
   | _ -> false
 
+(* [is_prim_arith_call t] checks if [t] is a function call to a primitive arithmetic operation *)
+let is_prim_arith_call (t : trm) : bool =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim p);_}, args) when is_prim_arith p -> true
+  | _ -> false
+
 (* [map_on_arith_nodes tr t] apply arithmetic simplification [tr] in depth of [t]*)
-let rec map_on_arith_nodes (tr : trm -> trm) (t : trm): trm = 
-  match t.desc with 
-  | Trm_apps ({desc = Trm_val (Val_prim p);_}, args) when is_prim_arith p -> tr t
-  | _ -> trm_map (map_on_arith_nodes tr) t
+let rec map_on_arith_nodes (tr : trm -> trm) (t : trm) : trm =
+  if is_prim_arith_call t
+    then tr t
+    else trm_map (map_on_arith_nodes tr) t
 
 (* let simplify_aux1  (f : expr -> expr) (t : trm) : trm =
   let expr, atoms = trm_to_expr t in
@@ -504,30 +510,47 @@ let rec map_on_arith_nodes (tr : trm -> trm) (t : trm): trm =
   if debug then Tools.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
   expr_to_trm atoms expr2 *)
 
+(* DEBUG let c = ref 0 *)
+let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
+  (* DEBUG incr c; if !c > 10 then failwith "max depth"; *)
+  let expr, atoms = trm_to_expr t in
 
-let simplify_at_node (indepth : bool) (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm = 
-  let expr, atoms = trm_to_expr t in 
-  let atoms2 = if indepth then Atom_map.map f_atom atoms else atoms in
-  let expr2 = f expr in 
+  (* DEBUG
+  let i = ref 0 in
+  Atom_map.iter (fun _i t ->
+    Printf.printf "simplify_at_node atoms <<%d>>: %s\n" !i (AstC_to_c.ast_to_string t); incr i) atoms;
+  Printf.printf "simplify_at_node expr: %s\n" (expr_to_string (Atom_map.mapi (fun i _t -> trm_var (Printf.sprintf "<<%d>>" i)) atoms) expr);
+  *)
+
+  let atoms2 =
+    (* If we could not extract any structure, then we don't process recursively the atoms
+       using [f_atom], else we would trigger an infinite loop when [indepth=true]. *)
+    match expr with
+    | Expr_atom _id -> atoms (* fail t.loc (Printf.sprintf "simplify_at_node: no progress going in depth in: %s" (AstC_to_c.ast_to_string t)) *)
+    | _ ->  Atom_map.map f_atom atoms
+      (*DEBUG Atom_map.map (fun t -> Printf.printf "simplify_at_node processing atom: %s\n" (AstC_to_c.ast_to_string t); f_atom t) atoms *)
+    in
+
+  let expr2 = f expr in
   if debug then Tools.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
   expr_to_trm atoms2 expr2
 
-(* [simplify_aux f t] convert node [t] to an expression then apply the simplifier [f], then convert it back to a trm
+(* [simplify_aux indepth f t] convert node [t] to an expression then apply the simplifier [f], then convert it back to a trm
       params:
         [f]: simplifier function
         [t]: the node on which the simplifications should be performed
       return:
         update t with the simplified expressions
+
+      LATER: should [simplify_aux false f t] fail if [t] is not an application of prim_arith?
 *)
 let rec simplify_aux (indepth : bool) (f : expr -> expr) (t : trm) : trm =
-  if not indepth then begin 
-    let f_items = (fun ti -> ti) in 
-    simplify_at_node indepth f_items f t 
-  end else begin 
-    let f_items = simplify_aux indepth f in 
-    map_on_arith_nodes (simplify_at_node indepth f_items f) t end
-
-
+  if not indepth then begin
+    let f_atom_identity = (fun ti -> ti) in
+    simplify_at_node f_atom_identity f t
+  end else begin
+    let f_atom_simplify = simplify_aux indepth f in
+    map_on_arith_nodes (simplify_at_node f_atom_simplify f) t end
 
 let simplify (indepth : bool) (f : expr -> expr) : Target.Transfo.local =
   Target.apply_on_path (simplify_aux indepth f)

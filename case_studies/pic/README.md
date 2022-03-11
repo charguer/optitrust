@@ -12,9 +12,9 @@ Unoptimized code, used as input to the OptiTrust script:
 	src/particle.c
 	src/bag.c
    src/bag_atomics.c
-	simulations/pic_demo_aux.h
-	simulations/pic_demo_aux.c
 	simulations/pic_demo.h
+	simulations/pic_demo_aux.h
+   simulations/pic_demo_aux.c
 	simulations/pic_demo.c
 ```
 

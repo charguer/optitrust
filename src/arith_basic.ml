@@ -25,8 +25,8 @@ let apply (op : binary_op) (arg : trm) : Target.Transfo.t =
 let simpl ?(indepth : bool = false) (f: (expr -> expr)) : Target.Transfo.t =
   Target.apply_on_targets (Arith_core.simplify indepth f)
 
-let simplify : Target.Transfo.t =
-  simpl Arith_core.gather_rec
+let simplify ?(indepth : bool = false) : Target.Transfo.t =
+  simpl ~indepth Arith_core.gather_rec
 
 (*
 let normalize : Target.Transfo.t =
