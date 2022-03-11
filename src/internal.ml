@@ -194,27 +194,27 @@ let get_trm_in_surrounding_loop (dl : path) : path * int =
 
 (* [get_surrounding_trm checker dl t] given the path [dl] that resolves to trm res find a predecessor of that trm
     that satisfies the predicate [checker]*)
-let get_surrounding_trm (checker : trm -> bool) (dl : path) (t : trm) : path = 
-  let rec aux (dl1 : path) : path = 
-    match dl1 with 
+let get_surrounding_trm (checker : trm -> bool) (dl : path) (t : trm) : path =
+  let rec aux (dl1 : path) : path =
+    match dl1 with
     | [] -> []
-    | hd_p :: tl_p -> 
-      let res = Path.resolve_path (List.rev dl1) t in 
+    | hd_p :: tl_p ->
+      let res = Path.resolve_path (List.rev dl1) t in
         if checker res then (List.rev dl1) else aux tl_p
-    in 
+    in
   aux (List.rev dl)
 
 (* Maybe we will need this later on *)
 (* [get_surrouding_access dl t] specialization of get_surrouding_trm for accesses*)
-let get_surrouding_access (dl : path) (t : trm) : path = 
+let get_surrouding_access (dl : path) (t : trm) : path =
   get_surrounding_trm is_access dl t
 
 (* [get_surrouding_access dl t] specialization of get_surrouding_trm for read operations*)
-let get_surrouding_read (dl : path) (t : trm) : path = 
+let get_surrouding_read (dl : path) (t : trm) : path =
   get_surrounding_trm is_get_operation dl t
 
 (* [get_surrouding_access dl t] specialization of get_surrouding_trm for write operations*)
-let get_surrouding_write (dl : path) (t : trm) : path = 
+let get_surrouding_write (dl : path) (t : trm) : path =
   get_surrounding_trm is_set_operation dl t
 
 (* [is_decl_body dl] checks if the full path points to a declaration body *)
@@ -567,7 +567,7 @@ let get_constr_from_target (tg : target) : constr =
 
 (* A wrapper for creating and deleting a nobrace sequence *)
 let nobrace_remove_after ?(remove : bool = true) (f : unit -> unit) : unit =
-  if remove then 
+  if remove then
     begin nobrace_enter();
        f();
     nobrace_remove_and_exit() end

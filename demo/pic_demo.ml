@@ -21,7 +21,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
   let ctx = cTopFunDef "matrix_vect_mul" in
-  !! Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+  !! Trace.time "step" (fun () -> Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]);
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
   !! Loop.fission ~split_between:true [ctx; cFor "k"];
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
@@ -69,25 +69,25 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Low level iteration on chunks of particles";
   !! Sequence.intro ~mark:"loop" ~start:[step; cVarDef "bag_it"] ~nb:2 ();
-  !! Sequence.intro_on_instr [step; cMark "loop"; cFor_c ""; dBody]; 
+  !! Sequence.intro_on_instr [step; cMark "loop"; cFor_c ""; dBody];
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [step; cMark "loop"];
   !! Expr.replace_fun "bag_iter_ho_chunk" [step; cFun "bag_iter_ho_basic"];
-  !! Function.inline [step; cFun "bag_iter_ho_chunk"]; 
+  !! Function.inline [step; cFun "bag_iter_ho_chunk"];
   !! Function.beta ~indepth:true [step];
   !! Variable.init_detach [step; cVarDef "p"];
   !! Instr.inline_last_write ~write:[step; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; step; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
 
   !! Sequence.intro ~mark:"loop" ~start:[stepLF; cVarDef "bag_it"] ~nb:2 ();
-  !! Sequence.intro_on_instr [stepLF; cMark "loop"; cFor_c ""; dBody]; 
+  !! Sequence.intro_on_instr [stepLF; cMark "loop"; cFor_c ""; dBody];
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [stepLF; cMark "loop"];
   !! Expr.replace_fun "bag_iter_ho_chunk" [stepLF; cFun "bag_iter_ho_basic"];
-  !! Function.inline [stepLF; cFun "bag_iter_ho_chunk"]; 
+  !! Function.inline [stepLF; cFun "bag_iter_ho_chunk"];
   !! Function.beta ~indepth:true [stepLF];
   !! Variable.init_detach [stepLF; cVarDef "p"];
   !! Instr.inline_last_write ~write:[stepLF; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; stepLF; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
-  
+
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
-  
+
   bigstep "AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; step; sInstr "p2."];
@@ -112,21 +112,21 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "factor."];
   !! Arith.(simpl expand) [nbMulti; step; cVarDef "accel"; cStructInit; cStrict; Arith.constr];
 
-  
+
   bigstep "Scaling of speed and positions";
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("stepDuration / cell"^d))
          [nbMulti; step; sInstrRegexp ~substr:true ("\\[i\\] = c->itemsSpeed" ^ d); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
-  
+
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("1 / cell"^d))
          [nbMulti; step; sInstrRegexp ~substr:true ("\\[i\\] = c->itemsPos" ^ d); sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]);
   !! Trace.reparse();
-  
+
   !! Variable.inline [step; cVarDef "accel"];
   (* TODO: Simplification in depth *)
-  
- 
+
+
 
   bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
   let citemsposi d = "c->itemsPos" ^ d ^ "[i]" in

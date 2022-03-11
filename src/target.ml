@@ -839,10 +839,12 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
         (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
         (* Tools.printf "Before applyin_marks: %s\n" (AstC_to_c.ast_to_string t); *)
         let t =
-            Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () ->
-              List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
+             Trace.time "applyi_on_transformed_targets add marks" (fun () ->
+              Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () ->
+              List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks)) in
         (* Tools.printf "After applying_marks: %s\n" (AstC_to_c.ast_to_string t); *)
         (* iterate over these marks *)
+        Trace.time "applyi_on_transformed_targets apply transfo" (fun () ->
         begin try
           Tools.fold_lefti (fun imark t m ->
             Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
@@ -862,7 +864,7 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
             )
           ) t marks
         with Interrupted_applyi_on_transformed_targets t -> t
-        end
+        end)
     ))
 
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
@@ -916,33 +918,42 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
     let ps = resolve_target tg t
       (* ALTERNATIVE with_stringreprs_available_for tg t (fun t2 -> resolve_target tg t2) *) in
     let ps = if rev then List.rev ps else ps in
-    let marks = List.map (fun _ -> Mark.next()) ps in
-    let _t_before = t in
-    (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
-    let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
-    Trace.set_ast t; (* Never use the function [set_ast] in another file! *)
-    (* iterate over these marks *)
-    try
-      List.iteri (fun imark m ->
-        let t = Trace.ast() in (* valid because inside the scope of [Trace.call] *)
-        match resolve_target [nbAny;cMark m] t with
-        | [p] ->
-            (* Here we don't call [Marks.remove] to avoid a circular dependency issue *)
-            let t = apply_on_path (trm_remove_mark m) t p in
-            Trace.set_ast t; (* Never use the function [set_ast] in another file! *)
-            tr imark t (transformer p)
-        | ps ->
-            let msg =
-              if ps <> []
-                then "iteri_on_transformed_targets: a mark was duplicated"
-                else (Tools.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
-              in
-            if debug_disappearing_mark
-              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-              else fail None msg
-      ) marks
-    with Interrupted_applyi_on_transformed_targets t -> Trace.set_ast t (* view the ast when the bug appears *)
-    ))
+    match ps with
+    | [] -> ()
+    | [p] -> tr 0 t (transformer p)
+    | _ ->
+      let marks = List.map (fun _ -> Mark.next()) ps in
+      let _t_before = t in
+      (* add marks for occurences -- could be implemented in a single pass, if optimization were needed *)
+      let t =
+        Trace.time "iteri_on_transformed_targets add marks" (fun () ->
+          List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
+      Trace.set_ast t; (* Never use the function [set_ast] in another file! *)
+      (* iterate over these marks *)
+      try
+        List.iteri (fun imark m ->
+          let t = Trace.ast() in (* valid because inside the scope of [Trace.call] *)
+          let ps = Trace.time "iteri_on_transformed_targets find marks" (fun () ->
+            resolve_target [nbAny; cMark m] t) in
+          Trace.time "iteri_on_transformed_targets perform transfo" (fun () ->
+          match ps with
+          | [p] ->
+              (* Here we don't call [Marks.remove] to avoid a circular dependency issue *)
+              let t = apply_on_path (trm_remove_mark m) t p in
+              Trace.set_ast t; (* Never use the function [set_ast] in another file! *)
+              tr imark t (transformer p)
+          | ps ->
+              let msg =
+                if ps <> []
+                  then "iteri_on_transformed_targets: a mark was duplicated"
+                  else (Tools.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
+                in
+              if debug_disappearing_mark
+                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+                else fail None msg
+        )) marks
+      with Interrupted_applyi_on_transformed_targets t -> Trace.set_ast t (* view the ast when the bug appears *)
+      ))
 
 (* Variants *)
 
@@ -971,28 +982,32 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
       (* ALTERNATIVE
       with_stringreprs_available_for tg t (fun t2 ->
         resolve_target_between tg t2) *) ) in
-  let marks = List.map (fun _ -> Mark.next ()) ps in
-  let t = Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () -> List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks) in
-  try
-    Tools.fold_lefti (fun imark t m ->
-      Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
-        match resolve_target [nbAny;cMark m] t with
-        | [p_to_seq] ->
-          let t_seq, _ = resolve_path_and_ctx p_to_seq t in
-          let i = begin match get_mark_index m t_seq with | Some i -> i | None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
-          let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
-          tr imark t (transformer (p_to_seq,i))
-        | ps ->
-          let msg =
-            if ps <> []
-              then "applyi_on_transformed_targets_between: a mark was duplicated"
-              else (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
-          if debug_disappearing_mark
-            then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-            else fail None msg
-      )) t marks
-    with Interrupted_applyi_on_transformed_targets t -> t
-  ))
+  match ps with
+  | [] -> t
+  | [p] -> tr 0 t (transformer p)
+  | _ ->
+    let marks = List.map (fun _ -> Mark.next ()) ps in
+    let t = Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () -> List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks) in
+    try
+      Tools.fold_lefti (fun imark t m ->
+        Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
+          match resolve_target [nbAny;cMark m] t with
+          | [p_to_seq] ->
+            let t_seq, _ = resolve_path_and_ctx p_to_seq t in
+            let i = begin match get_mark_index m t_seq with | Some i -> i | None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
+            let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
+            tr imark t (transformer (p_to_seq,i))
+          | ps ->
+            let msg =
+              if ps <> []
+                then "applyi_on_transformed_targets_between: a mark was duplicated"
+                else (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
+            if debug_disappearing_mark
+              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+              else fail None msg
+        )) t marks
+      with Interrupted_applyi_on_transformed_targets t -> t
+    ))
 
 (* [apply_on_transformed_targets_between ~replace_top transformer tr tg]:
     Same as [applyi_to_transformed_targets_between] except that here the index of the resolved_path is not considered.
@@ -1074,7 +1089,7 @@ let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
    There is no need for a prefix such as [!!] in front of the [show]
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
-let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (tg : target) : unit = 
+let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (tg : target) : unit =
   (* Automatically add [nbMulti] if there is no occurence constraint *)
   let tg = enable_multi_targets tg in
   if reparse then reparse_alias();
@@ -1094,7 +1109,7 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
     end else begin
       applyi_on_targets (fun i t p ->
         let m = mark_of_occurence i in
-        target_show_transfo ~types m t p) tg 
+        target_show_transfo ~types m t p) tg
     end;
     if should_exit
       then dump_diff_and_exit()
@@ -1112,7 +1127,7 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
 let get_trm_at (tg : target) : trm option  =
   let t_ast = ref None in
   Trace.call (fun t ->
-    try 
+    try
       let tg_path = resolve_target_exactly_one_with_stringreprs_available tg t in
       t_ast := Some (Path.resolve_path tg_path t)
     with | _ -> t_ast := None
@@ -1136,7 +1151,7 @@ let get_ast () : trm =
 
 (* [get_function_name_at dl] get the name of the function that corresponds to [dl]*)
 let get_function_name_at (dl : path) : string option =
-  let fun_decl = match get_trm_at (target_of_path dl) with 
+  let fun_decl = match get_trm_at (target_of_path dl) with
     | Some fd -> fd
     | None -> fail None "get_function_name_at: couldn't retrive the function name at the targeted path"
    in

@@ -16,15 +16,19 @@ DIFFFOR=$3   # this flag could be "" or "enc"
 
 CONTEXTSIZE="10"
 
+# Work in the file directory
+cd ${DIRNAME}
+
 # Read options from optitrust_flags.sh
-# options: e.g., CONTEXTSIZE="100"
+# options: e.g., CONTEXTSIZE="100", NODIFFDISPLAY="1"
 if [ -f "optitrust_flags.sh" ]; then
   source optitrust_flags.sh
 fi
 
-
-# Work in the file directory
-cd ${DIRNAME}
+if [ "${NODIFFDISPLAY}" = "1" ]; then
+  echo "NODIFFDISPLAY = 1, skipping diff display"
+  exit 0;
+fi
 
 TARGET="${FILEBASE}_diff.html"
 

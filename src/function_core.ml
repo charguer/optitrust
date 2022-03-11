@@ -149,7 +149,8 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
 
 
 let inline (index: int) (body_mark : string option) (p_local : path) : Target.Transfo.local =
-  Target.apply_on_path (inline_aux index body_mark p_local)
+  Trace.time "Function_core.inline" (fun () -> Target.apply_on_path (
+    Trace.time "Function_core.inline_aux" (fun () -> inline_aux index body_mark p_local)))
 
 (* [use_infix_ops_aux t] transforms a write operation into app and write operation in the case when
       the operator applied has the neccessary shape
@@ -166,9 +167,9 @@ let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
       begin match trm_prim_inv f1 with
       | Some p when is_infix_prim_fun p ->
         let aux s = AstC_to_c.ast_to_string s in
-        if aux ls <> aux (get_operation_arg get_ls) && aux ls <> aux (get_operation_arg arg) 
+        if aux ls <> aux (get_operation_arg get_ls) && aux ls <> aux (get_operation_arg arg)
           then t
-          else 
+          else
             let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> fail f.loc "use_infix_ops_aux: this should never happen" in
             if not (aux ls = aux (get_operation_arg get_ls)) then trm_prim_compound ~marks:t.marks binop ls get_ls else  trm_prim_compound ~marks:t.marks binop ls arg
       | _ ->

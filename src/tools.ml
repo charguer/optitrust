@@ -319,6 +319,9 @@ let string_subst (pattern : string) (replacement : string) (s : string) : string
 let string_subst_first (pattern : string) (replacement : string) (s : string) : string =
   Str.replace_first (Str.regexp_string pattern) replacement s
 
+(* [spaces nb] returns a string made of [nb] spaces *)
+let spaces (nb : int) : string =
+  String.make nb ' '
 
 (*-----------Extensions for Time-------------*)
 
@@ -430,8 +433,8 @@ let bool_of_var (s : string) : bool option =
 
 
 (* [unsome x_opt] extracts an objects outsied the optional trm its belongs to *)
-let unsome (x_opt : 'a option) : 'a = 
-  match x_opt with 
+let unsome (x_opt : 'a option) : 'a =
+  match x_opt with
   | Some x -> x
   | None -> failwith "unsome: please check if the optional is different from none before calling this function"
 
