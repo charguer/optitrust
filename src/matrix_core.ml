@@ -350,24 +350,62 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
               end in
               begin match set_inv set_instr with
               | Some (base, dims, indices, old_var_access) ->
-                
                 let new_dims = dim :: dims in
                 let new_indices = (trm_var index) :: indices in
                 let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc)] in
-                let init_val = match ops with 
-                  | Delocalize_arith (li, _) -> trm_lit li
-                  | Delocalize_obj (clean_f, _) -> trm_apps (trm_var clean_f) [] in
+                let new_access = access base new_dims new_indices in
+                let acc, acc_provided = match acc with
+                | Some s -> s, true
+                | None -> "s", false in
 
-                let new_body = if init_zero 
-                  then trm_seq_nomarks [set base new_dims new_indices init_val]
-                  else trm_seq_nomarks [
-                    set base new_dims((trm_int 0) :: indices) old_var_access;
-                    trm_for index (trm_int 1) DirUp  dim (Post_inc) (set base new_dims new_indices init_val;)]
+                let init_trm, acc_trm = match ops with 
+                  | Delocalize_arith (li, op) -> 
+                    let init = 
+                    let init_val = trm_lit li in 
+                    if init_zero 
+                      then trm_seq_nomarks [set base new_dims new_indices init_val]
+                      else trm_seq_nomarks [
+                        set base new_dims((trm_int 0) :: indices) old_var_access;
+                        trm_for index (trm_int 1) DirUp  dim (Post_inc) (set base new_dims new_indices init_val;)]
+                      in
+                    
+                    let op_fun (l_arg : trm) (r_arg : trm) = trm_prim_compound op l_arg r_arg in
+                    let acc_t  = 
+                    if acc_in_place 
+                      then 
+                      if acc_provided 
+                        then fail t.loc "delocalize_aux: if acc_in_place is set to true there is not need to provide an accumulator"
+                        else begin
+                          trm_seq_nomarks [
+                           set (trm_var "a") dims indices (access base new_dims ((trm_int 0) :: indices));
+                           trm_for index (trm_int 1) DirUp dim (Post_inc) ( op_fun old_var_access new_access)]
+                        end
+                      else 
+                        if not acc_provided then fail t.loc "delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
+                          (trm_seq_nomarks [
+                            trm_let_mut (acc, typ_int ()) (trm_int 0);
+                            trm_for index (trm_int 0) DirUp dim (Post_inc) (trm_seq_nomarks [
+                                op_fun (trm_var acc) (trm_get new_access)]);
+                            trm_set (get_operation_arg old_var_access) (trm_var_get acc)]) 
+                     
+                        in (init, acc_t)
+                  | Delocalize_obj (init_f, merge_f) -> 
+                      let merge_fun t1 t2 = trm_apps (trm_var merge_f) [t1; t2] in
+                      let init = 
+                        let init_obj = trm_for index (trm_int 1) DirUp dim (Post_inc) (trm_apps (trm_var init_f) [new_access];) in 
+                        if init_zero 
+                          then trm_seq_nomarks [init_obj] 
+                          else trm_seq_nomarks [init_obj; merge_fun new_access old_var_access]
+                        in 
+
+                      let acc_t = 
+                        trm_for index (trm_int 1) DirUp dim (Post_inc) (merge_fun old_var_access new_access;)
+                       in 
+                       (init, acc_t)
                   in
-                
                 let new_snd_instr = if init_zero 
-                  then trm_fors new_loop_range new_body 
-                  else trm_fors loop_range new_body in
+                  then trm_fors new_loop_range init_trm 
+                  else trm_fors loop_range init_trm in
                 
                 let thrd_instr = Mlist.nth tl 2 in
                 let ps2 = resolve_target tg thrd_instr in
@@ -375,38 +413,9 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   List.fold_left (fun acc p ->
                     apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var "ANY") [dim]))) acc p
                   ) thrd_instr ps2 in
-
-                let new_access = access base new_dims new_indices in
                 
-                let acc, acc_provided = match acc with
-                | Some s -> s, true
-                | None -> "s", false in
-                
-                let op_fun (l_arg : trm) (r_arg : trm) : trm  = match ops with 
-                  | Delocalize_arith (_, op) -> trm_prim_compound op l_arg r_arg
-                  | Delocalize_obj (_, transfer_f) -> trm_apps (trm_var transfer_f) [l_arg; r_arg] 
-                in
-                
-                let new_body = if acc_in_place then
-                  if acc_provided then fail t.loc "delocalize_aux: if acc_in_place is set to true there is not need to provide an accumulator"
-                  else 
-                  begin
-                    trm_seq_nomarks [
-                      set (trm_var "a") dims indices (access base new_dims ((trm_int 0) :: indices));
-                      trm_for index (trm_int 1) DirUp dim (Post_inc) (
-                        op_fun old_var_access new_access
-                      )
-                    ]
-                    end
-                  else 
-                    if not acc_provided then fail t.loc "delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
-                    (trm_seq_nomarks [
-                        trm_let_mut (acc, typ_int ()) (trm_int 0);
-                        trm_for index (trm_int 0) DirUp dim (Post_inc) (trm_seq_nomarks [
-                            op_fun (trm_var acc) (trm_get new_access)]);
-                        trm_set (get_operation_arg old_var_access) (trm_var_get acc)]) in
                 let new_frth_instr =
-                  trm_fors loop_range new_body in
+                  trm_fors loop_range acc_trm in
                     
                 let fifth_instr = Mlist.nth tl 4 in
                   trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_decl; new_snd_instr; new_thrd_instr; new_frth_instr; fifth_instr])
