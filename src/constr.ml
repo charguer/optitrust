@@ -575,12 +575,13 @@ let get_target_regexp_kinds (tgs : target list) : trm_kind list =
     | TrmKind_Any -> res := [TrmKind_Any]
     | _ -> if not (List.mem k !res) then res := k :: !res
     in
-  let rec explore (c : constr) : constr =
+  let rec explore (c : constr) : constr = (* LATER: optimize using a constr_iter instead of constr_map *)
     begin match c with
     | Constr_regexp r -> add r.rexp_trm_kind
     | _ -> ()
     end;
-    constr_map explore c
+    ignore (constr_map explore c);
+    c
     in
   let iter_in_target tg =
     List.iter (fun c -> ignore (explore c)) tg in
@@ -596,14 +597,18 @@ let get_target_regexp_kinds (tgs : target list) : trm_kind list =
 
 exception Topfuns_cannot_filter
 let get_target_regexp_topfuns_opt (tgs : target list) : constr_name list option =
-  let rec has_regexp (cs : constr list) : bool =
-    match cs with
-    | Constr_regexp r :: _ -> true
-    | _ :: cs2 -> has_regexp cs2
-    | [] -> false
-    in
+
+  let has_regexp (c : constr) : bool =
+    let answer = ref false in
+      let rec aux c = (* LATER: optimize using a constr_iter instead of constr_map *)
+        match c with
+        | Constr_regexp _ -> answer := true; c
+        | _ -> ignore (constr_map aux c); c
+        in
+      ignore (aux c);
+      !answer in
   (* Printf.printf "get_target_regexp_topfuns_opt %d\n" (List.length tgs); *)
-  let tgs = List.filter has_regexp tgs in
+  let tgs = List.filter (fun tg -> List.exists has_regexp tg) tgs in
   (*Printf.printf "get_target_regexp_topfuns_opt filter %d\n" (List.length tgs);*)
   try
     let constr_names : constr_name list ref = ref [] in

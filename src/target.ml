@@ -839,6 +839,13 @@ let resolve_target_exactly_one_with_stringreprs_available (tg : target) (t : trm
 let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm =
   with_stringreprs_available_for [target_of_path p] t (fun t2 -> resolve_path p t2)
 
+(* [resolve_target_mark_one_else_any] is a wrapper for calling [resolve_target] with
+   a mark for which we expect a single occurence. *)
+let resolve_target_mark_one_else_any (m : mark) (t : trm) : paths =
+    try resolve_target [nbExact 1; cMark m] t
+    with Ast.Resolve_target_failure _ ->
+        resolve_target [nbAny; cMark m] t
+
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
       params:
         transformer: change the resolved path so that more information about the context of the node is given
@@ -874,7 +881,8 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
         begin try
           Tools.fold_lefti (fun imark t m ->
             Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
-              match resolve_target [nbAny;cMark m] t with
+              let ps = resolve_target_mark_one_else_any m t in
+              match ps with
               | [p] ->
                   let t = apply_on_path (trm_remove_mark m) t p in
                   tr imark t (transformer p)
@@ -964,9 +972,8 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
       try
         List.iteri (fun imark m ->
           let t = Trace.ast() in (* valid because inside the scope of [Trace.call] *)
-          let ps = Trace.time "iteri_on_transformed_targets find marks" (fun () ->
-            resolve_target [nbAny; cMark m] t) in
-
+          let ps = Trace.time "iteri_on_transformed_targets find mark" (fun () ->
+            resolve_target_mark_one_else_any m t) in
           match ps with
           | [p] ->
               (* Here we don't call [Marks.remove] to avoid a circular dependency issue *)
@@ -1026,7 +1033,8 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
     try
       Tools.fold_lefti (fun imark t m ->
         Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
-          match resolve_target [nbAny;cMark m] t with
+          let ps = resolve_target_mark_one_else_any m t in
+          match ps with
           | [p_to_seq] ->
             let t_seq, _ = resolve_path_and_ctx p_to_seq t in
             let i = begin match get_mark_index m t_seq with | Some i -> i | None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in

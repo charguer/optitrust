@@ -76,7 +76,7 @@ TESTS_WITH_DOC := \
 	variable_subst.ml \
 	variable_to_const.ml \
 	variable_to_nonconst.ml \
-	
+
 
 TESTS_WORKING_NOTINDOC := \
 	specialize_choose.ml \
