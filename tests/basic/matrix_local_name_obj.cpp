@@ -48,24 +48,23 @@ int main() {
   bag* bagCur = (bag*) MMALLOC1(nbCells, sizeof(bag));
   bag_iter bag_it;
   
-  mark:{
-    bag* bagNext = (bag*) MMALLOC1(nbCells, sizeof(bag));
-    for (int idCell = 0; idCell < nbCells; idCell++){
-      bag_init(&bagNext[MINDEX1(nbCells,idCell)], 0, idCell);
-    }
-
-  
-    for (int idCell = 0; idCell < nbCells; i++){
-      for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
-        bag_push(&bagNext[MINDEX1(nbCells, idCell)],*p);
-      }
-    }
-    for (int idCell = 0; idCell < nbCells; idCell++){
-      bag_swap(&bagNext[MINDEX1(nbCells,idCell)], &bagCur[MINDEX1(nbCells,idCell)]);
-    }
-    
-    MFREE(bagNext);
+  bag* bagNext = (bag*) MMALLOC1(nbCells, sizeof(bag));
+  for (int idCell = 0; idCell < nbCells; idCell++){
+    bag_init(&bagNext[MINDEX1(nbCells,idCell)], 0, idCell);
   }
-
+  
+  for (int idCell = 0; idCell < nbCells; idCell++){
+    for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
+      bag_push(&bagNext[MINDEX1(nbCells, idCell)],*p);
+    }
+  }
+    
+  for (int idCell = 0; idCell < nbCells; idCell++){
+    bag_swap(&bagNext[MINDEX1(nbCells,idCell)], &bagCur[MINDEX1(nbCells,idCell)]);
+  }
+  MFREE(bagCur);
+  MFREE(bagNext);
+  
   return 0;
+
 }

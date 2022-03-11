@@ -301,7 +301,9 @@ let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.l
       ast of a hidden sequence which contains the updated instruction [t] and the other instructions
         used for copying the value from the current matrix to the local one
 *)
-let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (var list) ) (t : trm) : trm =
+
+
+let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (var list) )(local_ops : local_ops) (t : trm) : trm =
   let dims, size, zero_init = malloc_trms in
   let local_var_type = var_type in
   let init = if zero_init then Some (trm_int 0) else None in
@@ -310,8 +312,15 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_range = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp,  dim, Post_inc)) dims indices_list in
-  let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_access) [trm_var_get local_var; mindex dims indices]) (trm_get (trm_apps (trm_binop Binop_array_access) [trm_var_get var; mindex dims indices])) in
-  let write_on_var = trm_set (trm_apps (trm_binop Binop_array_access) [trm_var_get var; mindex dims indices]) (trm_get (trm_apps (trm_binop Binop_array_access) [trm_var_get local_var; mindex dims indices])) in
+  let write_on_local_var, write_on_var = begin match local_ops with 
+    | Local_arith -> 
+      trm_set (access (trm_var_get local_var) dims indices) (trm_get (access (trm_var_get var) dims indices)),
+      trm_set (access (trm_var_get var) dims indices) (trm_get (access (trm_var_get local_var) dims indices))
+    | Local_obj (init, swap) ->
+      trm_apps (trm_var init) [access (trm_var_get local_var) dims indices],
+      trm_apps (trm_var swap) [access (trm_var_get var) dims indices; access (trm_var_get local_var) dims indices]
+    end in 
+
   let snd_instr = trm_fors nested_loop_range write_on_local_var in
   let new_t = Internal.subst_var var (trm_var local_var) t in 
   let thrd_instr = trm_fors nested_loop_range write_on_var in
@@ -319,8 +328,8 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
   match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm
 
-let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : var list ) : Target.Transfo.local =
-  Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices)
+let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : var list ) (local_ops : local_ops) : Target.Transfo.local =
+  Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices local_ops)
 
 let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (index : string) (ops : delocalize_ops) (t : trm) : trm =
   match t.desc with

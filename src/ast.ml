@@ -2028,6 +2028,16 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
 
     trm_for_c ~annot ~loc ~add ~attributes ~ctx init cond step body
 
+
+(* type used for the transformation called local_name with objects *)
+type local_ops = 
+  | Local_arith 
+  | Local_obj of string * string
+
+
+
+
+(* type used for the transformation called delocalize *)
 type delocalize_ops =
   | Delocalize_arith of lit * binary_op
   | Delocalize_obj of string * string
