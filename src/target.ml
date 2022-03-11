@@ -355,6 +355,10 @@ let cTopFunDef
   ?(body : target = []) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false) (name : string) : constr =
   cChain [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp name ]
 
+(* toplevel declaration: for the moment only functions LATER: generalize *)
+let cTop ?(regexp : bool = false) (name : string) : constr =
+  cTopFunDef ~regexp name
+
 let cTypDef
   ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =
   let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
@@ -747,13 +751,33 @@ let applyp_on_path = Path.applyp_on_path
 let convert_stringreprs_from_documentation_to_string (m : AstC_to_c.stringreprs) : (stringreprid, string) Hashtbl.t =
   Tools.hashtbl_map_values (fun _id d -> Tools.document_to_string ~width:PPrint.infinity d) m
 
-let compute_stringreprs ?(optitrust_syntax:bool=false) (f : trm->bool) (t : trm) : trm * AstC_to_c.stringreprs =
+(* LATER: we should only compute stringreprs in toplevel functions that are
+   targeted by the targets; to that end, we need to hide the body of the
+   toplevel definitions that are not targeted) *)
+let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_name list option) (f : trm->bool) (t : trm) : trm * AstC_to_c.stringreprs =
+  (* DEBUG Printf.printf "compute_stringreprs %d\n" (match topfuns with
+    | None -> -1
+    | Some ts -> List.length ts); *)
   let t2 = Ast.label_subterms_with_fresh_stringreprids f t in
+  let t3 =
+    match topfuns with
+    | None -> t2 (* need string reprs for all toplevel functions *)
+    | Some topfuns_regexps -> (* need only for certain functions *)
+        (* Note: if topfuns_regexps = [], we need stringrepr for no functions at all *)
+        (* DEBUG Printf.printf "compute_stringreprs functions:\n";
+        List.iter (function
+          | None -> assert false
+          | Some rexp -> Printf.printf "-> %s\n" (rexp_to_string rexp)) topfuns_regexps; *)
+        let hidetopfun topfunname =
+          not (List.exists (fun rexp -> Constr.check_name rexp topfunname) topfuns_regexps) in
+        let t3, _ = Ast.hide_function_bodies hidetopfun t2 in
+        t3
+    in
   AstC_to_c.init_stringreprs();
-  let t2_c_syntax = Ast_fromto_AstC.cfeatures_intro t2 in
-  let _doc = AstC_to_c.ast_to_doc ~optitrust_syntax t2_c_syntax in (* fill in the [AstC_to_c.stringreprs] table, ignore the result *)
+  let t3_c_syntax = Ast_fromto_AstC.cfeatures_intro t3 in
+  let _doc = AstC_to_c.ast_to_doc ~optitrust_syntax t3_c_syntax in (* fill in the [AstC_to_c.stringreprs] table, ignore the result *)
   let m = AstC_to_c.get_and_clear_stringreprs() in
-  t2, m
+  t2, m (* we return t2, not t3, because t3 has hidden bodies *)
 
 (* Label subterms with fresh stringreprids, then build a table that maps stringreprids to the corresponding documents
    NOTE: this function will not work in the presence of multiple traces
@@ -789,7 +813,8 @@ let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a)
   let kinds = Constr.get_target_regexp_kinds tgs in
   (* for debug  List.iter (fun k -> Printf.printf "(kind:%s)" (Constr.trm_kind_to_string k)) kinds;
       Printf.printf "==end of kinds==\n"; *)
-  let t2, m = compute_stringreprs (Constr.match_regexp_trm_kinds kinds) t in
+  let topfuns = Constr.get_target_regexp_topfuns_opt tgs in
+  let t2, m = compute_stringreprs ?topfuns:topfuns (Constr.match_regexp_trm_kinds kinds) t in
   (* FOR DEBUG: AstC_to_c.trm_print_debug t2;*)
   (* AstC_to_c.print_stringreprs m; for debug *)
   let stringreprs = convert_stringreprs_from_documentation_to_string m in
@@ -823,6 +848,7 @@ let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm =
         unit
 *)
 let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
+  Trace.time "applyi_on_transformed_targets" (fun () ->
   let tg = fix_target tg in
   Trace.apply (fun t -> with_stringreprs_available_for [tg] t (fun t ->
       (* LATER: use apply_with_stringreprs
@@ -865,7 +891,7 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
           ) t marks
         with Interrupted_applyi_on_transformed_targets t -> t
         end)
-    ))
+    )))
 
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
     Same as [applyi_to_transformed_targets] except that here the index of the resolved_path is not considered
@@ -913,14 +939,19 @@ let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
    LATER: add timing measurements *)
 
 let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> unit) (tg : target) : unit =
+  Trace.time "iteri_on_transformed_targets" (fun () ->
   let tg = fix_target tg in
   Trace.call (fun t -> with_stringreprs_available_for [tg] t (fun t ->
-    let ps = resolve_target tg t
+    Trace.time "iteri_on_transformed_targets with_stringreprs_available" (fun () ->
+    let ps =
+      Trace.time "iteri_on_transformed_targets resolve_target" (fun () ->
+        resolve_target tg t)
       (* ALTERNATIVE with_stringreprs_available_for tg t (fun t2 -> resolve_target tg t2) *) in
     let ps = if rev then List.rev ps else ps in
     match ps with
     | [] -> ()
-    | [p] -> tr 0 t (transformer p)
+    | [p] -> Trace.time "iteri_on_transformed_targets transform one" (fun () ->
+          tr 0 t (transformer p))
     | _ ->
       let marks = List.map (fun _ -> Mark.next()) ps in
       let _t_before = t in
@@ -935,13 +966,17 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
           let t = Trace.ast() in (* valid because inside the scope of [Trace.call] *)
           let ps = Trace.time "iteri_on_transformed_targets find marks" (fun () ->
             resolve_target [nbAny; cMark m] t) in
-          Trace.time "iteri_on_transformed_targets perform transfo" (fun () ->
+
           match ps with
           | [p] ->
               (* Here we don't call [Marks.remove] to avoid a circular dependency issue *)
-              let t = apply_on_path (trm_remove_mark m) t p in
+              let t =
+                Trace.time "iteri_on_transformed_targets remove mark" (fun () ->
+                  apply_on_path (trm_remove_mark m) t p) in
               Trace.set_ast t; (* Never use the function [set_ast] in another file! *)
-              tr imark t (transformer p)
+              Trace.time (Printf.sprintf "iteri_on_transformed_targets perform transfo %d" imark) (fun () ->
+                  tr imark t (transformer p)
+              )
           | ps ->
               let msg =
                 if ps <> []
@@ -951,9 +986,9 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
               if debug_disappearing_mark
                 then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
                 else fail None msg
-        )) marks
+        ) marks
       with Interrupted_applyi_on_transformed_targets t -> Trace.set_ast t (* view the ast when the bug appears *)
-      ))
+      ))))
 
 (* Variants *)
 

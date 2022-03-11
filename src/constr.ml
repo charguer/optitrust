@@ -587,6 +587,43 @@ let get_target_regexp_kinds (tgs : target list) : trm_kind list =
   List.iter iter_in_target tgs;
   !res
 
+(* [get_target_regexp_kinds tgs] gets the list of the regexp characterizing
+   toplevel functions that appear in the targets that contain constraints based
+   on string representation. If one of the targets does not contain the subsequence
+   [cTop name] or [cTopFun name], which generate
+   [Constr_target [Constr_root; Constr_depth (DepthAt 1); Constr_decl_fun (Some rexp)]],
+   then the result will be [None]. *)
+
+exception Topfuns_cannot_filter
+let get_target_regexp_topfuns_opt (tgs : target list) : constr_name list option =
+  let rec has_regexp (cs : constr list) : bool =
+    match cs with
+    | Constr_regexp r :: _ -> true
+    | _ :: cs2 -> has_regexp cs2
+    | [] -> false
+    in
+  (* Printf.printf "get_target_regexp_topfuns_opt %d\n" (List.length tgs); *)
+  let tgs = List.filter has_regexp tgs in
+  (*Printf.printf "get_target_regexp_topfuns_opt filter %d\n" (List.length tgs);*)
+  try
+    let constr_names : constr_name list ref = ref [] in
+    let rec find_in_target (cs : constr list) : unit =
+      match cs with
+      | Constr_target [ Constr_root;
+                        Constr_depth (DepthAt 1);
+                        Constr_decl_fun (_, ((Some _) as constr_name), _, _) ]
+            :: _ ->
+          constr_names := constr_name :: !constr_names
+      | _ :: cs2 -> find_in_target cs2
+      | [] -> raise Topfuns_cannot_filter
+      in
+    List.iter find_in_target tgs;
+    (*Printf.printf "get_target_regexp_topfuns_opt Some %d\n" (List.length !constr_names);*)
+    Some !constr_names
+  with Topfuns_cannot_filter ->
+    (* Printf.printf "get_target_regexp_topfuns_opt None\n";*)
+    None
+
 
 (******************************************************************************)
 (*                        Preprocessing of targets before resolution          *)
@@ -921,7 +958,7 @@ and check_name (name : constr_name) (s : string) : bool =
   match name with
   | None -> true
   | Some r ->
-     match_regexp_str r  s
+     match_regexp_str r s
 
 and check_list ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trms) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
