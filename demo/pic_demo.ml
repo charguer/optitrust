@@ -113,10 +113,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("stepDuration / cell"^d))
          [nbMulti; step; sInstrRegexp ~substr:true ("\\[i\\] = c->itemsSpeed" ^ d); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
-<<<<<<< HEAD
-=======
-
->>>>>>> perfstudy
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("1 / cell"^d))
          [nbMulti; step; sInstrRegexp ~substr:true ("\\[i\\] = c->itemsPos" ^ d); sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]);
@@ -124,15 +120,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   !! Variable.inline [step; cVarDef "accel"];
   (* TODO: Simplification in depth *)
-<<<<<<< HEAD
-
-
-  (* TODO: Arthur, can you please fix this *)
-=======
 
 
 
->>>>>>> perfstudy
   bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
   let citemsposi d = "c->itemsPos" ^ d ^ "[i]" in
   !! iter_dims (fun d ->
