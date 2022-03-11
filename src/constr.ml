@@ -1136,7 +1136,10 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
     | Constr_dir d :: tr ->
         follow_dir d tr t
     | c :: p ->
-      let strict = match depth with DepthAt 0 -> true | _ -> false in
+      let strict = match depth with
+        | DepthAt 0 -> true
+        | _ when c = Constr_root -> true
+        | _ -> false in
       let skip_here = match depth with DepthAt n when n > 0 -> true | _ -> false in
       let res_deep =
         if strict
