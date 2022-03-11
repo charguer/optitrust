@@ -38,15 +38,15 @@ vect wrapAround(vect pos) {
 }
 
 double relativePosX(double x) {
-  int iX = int_of_double(x / cellX);
+  int iX = wrap(gridX, int_of_double(x / cellX));
   return (x - iX * cellX) / cellX;
 }
 double relativePosY(double y) {
-  int iY = int_of_double(y / cellY);
+  int iY = wrap(gridY, int_of_double(y / cellY));
   return (y - iY * cellY) / cellY;
 }
 double relativePosZ(double z) {
-  int iZ = int_of_double(z / cellZ);
+  int iZ = wrap(gridZ, int_of_double(z / cellZ));
   return (z -  iZ * cellZ) / cellZ;
 }
 

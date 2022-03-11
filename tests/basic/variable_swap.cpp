@@ -29,8 +29,7 @@ void test_array () {
 
   int x[3] = {1, 2, 3};
   int y[3] = {1, 2, 3};
-
-
-  f(x[0], y[0]);
+  int z;
+  z = f(x[0], y[0]);
 }
 
