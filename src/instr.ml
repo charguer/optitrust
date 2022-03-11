@@ -47,7 +47,7 @@ let read_last_write ?(write : Target.target = []) : Target.Transfo.t =
     these two transformations is that the later one deletes the write operation
 *)
 let inline_last_write ?(write : Target.target = []) (tg : Target.target) : unit =
-  Instr_basic.read_last_write ~write tg;
+  read_last_write ~write tg;
   if write <> [] then  Instr_basic.delete write
    (* TODO: it would be much nicer that delete gets executed every time.
     but to implement that we need a different strategy:
