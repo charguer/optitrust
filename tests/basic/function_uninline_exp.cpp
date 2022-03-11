@@ -46,16 +46,13 @@ void test_ho() {
   int s = 0;
   int m = 3;
 hobody:
-  iter_nat_for(
-      m, void body(int i) {
-        s += 2 * j;
-        s -= j;
-      });
+  iter_nat_for(m, void body(int i) {
+    s += 2 * j;
+    s -= j;
+  });
 }
 
-typedef struct {
-  int pos;
-} particle;
+typedef struct { int pos; } particle;
 
 typedef struct {
 } bag;

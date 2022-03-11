@@ -77,16 +77,26 @@ let measure_time (f : unit -> 'a) : 'a * int =
   let t1 = Unix.gettimeofday () in
   res, (Tools.milliseconds_between t0 t1)
 
+(* [timing_nesting] records the current level of nesting of calls to the
+   [timing] function. It is used for printing tabulations in the reports. *)
+let timing_nesting : int ref = ref 0
+
 (* [timing ~name f] writes the execution time of [f] in the timing log file *)
 let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
   if !Flags.analyse_time && cond then begin
+    incr timing_nesting;
     let res, time = measure_time f in
-    let msg = Printf.sprintf "%d\tms -- %s\n" time name in
+    decr timing_nesting;
+    let msg = Printf.sprintf "%s%d\tms -- %s\n" (Tools.spaces (2 * !timing_nesting)) time name in
     write_timing_log msg;
     res
   end else begin
     f()
   end
+
+(* [time name f] is a shorthand for [timing ~cond:!Flags.analyse_time_details ~name] *)
+let time (name : string) (f : unit -> 'a) : 'a =
+  timing ~cond:!Flags.analyse_time_details ~name f
 
 (* [start_time] stores the date at which the script execution started (before parsing). *)
 let start_time = ref (0.)

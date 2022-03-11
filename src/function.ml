@@ -45,12 +45,14 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
     that shoudl be assigned to all the declared variables.
 *)
 let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
-  Target.iter_on_targets ( fun t p ->
-    let tg_trm = Path.resolve_path p t in
+  Target.iter_on_targets (fun t p ->
+    let tg_trm = Trace.time "elim_body_resolve" (fun () -> Path.resolve_path p t) in
     match tg_trm.desc with
     | Trm_seq _ ->
-      Variable.renames vars (Target.target_of_path p);
-      Sequence_basic.elim (Target.target_of_path p)
+      Trace.time "elim_body_renames" (fun () ->
+        Variable.renames vars (Target.target_of_path p));
+      Trace.time "elim_body_elim" (fun () ->
+        Sequence_basic.elim (Target.target_of_path p));
     | _ -> fail tg_trm.loc "elim_body: the targeted should be pointing to a sequence"
   ) tg
 
@@ -147,6 +149,8 @@ int f2() { // result of Funciton_basic.inline_cal
 *)
 
 let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) (tg : Target.target) : unit =
+
+    Trace.time "iteri_on_transformed_targets" (fun () ->
   Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun i t (path_to_seq, local_path, i1) ->
       let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in
@@ -159,13 +163,17 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       let mark_added = ref false in
 
       let post_processing ?(deep_cleanup : bool = false)() : unit =
+      Trace.time "post_processing" (fun () ->
         let new_target = Target.cMark my_mark in
         if not !mark_added then Marks.add my_mark (Target.target_of_path path_to_call);
         if args <> [] then bind_args args [new_target];
         let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
-        Function_basic.inline ~body_mark [new_target];
-        Accesses_basic.intro [Target.cMark body_mark];
-        elim_body ~vars [Target.cMark body_mark];
+        Trace.time "inline" (fun () ->
+          Function_basic.inline ~body_mark [new_target];);
+        Trace.time "intro" (fun () ->
+          Accesses_basic.intro [Target.cMark body_mark];);
+        Trace.time "elim_body" (fun () ->
+          elim_body ~vars [Target.cMark body_mark];);
         if deep_cleanup then begin
           let success_attach = ref true in
             let _ = try Variable_basic.init_attach [new_target] with
@@ -183,23 +191,25 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
         end;
         Marks.remove my_mark [Target.nbAny; new_target];
         Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
-       in
+      )in
 
       begin match tg_out_trm.desc with
       | Trm_let _ ->
         Marks.add "__inline_instruction" (Target.target_of_path path_to_instruction);
-        Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call);
+        Trace.time "bind_intro1" (fun () ->
+          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call));
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | Trm_apps (_, [ls; rs]) when is_set_operation tg_out_trm ->
-        Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call);
+        Trace.time "bind_intro2" (fun () ->
+          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call));
         mark_added := true;
         post_processing ~deep_cleanup:true ()
       | Trm_apps _ ->
         post_processing ();
       | _ -> fail tg_out_trm.loc "inline: please be sure that you're tageting a proper function call"
       end
-    ) tg
+    ) tg)
 (*
 
 
@@ -268,7 +278,7 @@ let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg 
     everything went fine we can now eliminate the introduced sequence.
 *)
 let uninline ~fct:(fct : Target.target) : Target.Transfo.t =
-  let tg_fun_def = match Target.get_trm_at fct with 
+  let tg_fun_def = match Target.get_trm_at fct with
   | Some td -> td
   | None -> fail None "uninline: fct target does point to any node" in
   Target.iter_on_targets (fun _ p ->

@@ -575,17 +575,59 @@ let get_target_regexp_kinds (tgs : target list) : trm_kind list =
     | TrmKind_Any -> res := [TrmKind_Any]
     | _ -> if not (List.mem k !res) then res := k :: !res
     in
-  let rec explore (c : constr) : constr =
+  let rec explore (c : constr) : constr = (* LATER: optimize using a constr_iter instead of constr_map *)
     begin match c with
     | Constr_regexp r -> add r.rexp_trm_kind
     | _ -> ()
     end;
-    constr_map explore c
+    ignore (constr_map explore c);
+    c
     in
   let iter_in_target tg =
     List.iter (fun c -> ignore (explore c)) tg in
   List.iter iter_in_target tgs;
   !res
+
+(* [get_target_regexp_kinds tgs] gets the list of the regexp characterizing
+   toplevel functions that appear in the targets that contain constraints based
+   on string representation. If one of the targets does not contain the subsequence
+   [cTop name] or [cTopFun name], which generate
+   [Constr_target [Constr_root; Constr_depth (DepthAt 1); Constr_decl_fun (Some rexp)]],
+   then the result will be [None]. *)
+
+exception Topfuns_cannot_filter
+let get_target_regexp_topfuns_opt (tgs : target list) : constr_name list option =
+
+  let has_regexp (c : constr) : bool =
+    let answer = ref false in
+      let rec aux c = (* LATER: optimize using a constr_iter instead of constr_map *)
+        match c with
+        | Constr_regexp _ -> answer := true; c
+        | _ -> ignore (constr_map aux c); c
+        in
+      ignore (aux c);
+      !answer in
+  (* Printf.printf "get_target_regexp_topfuns_opt %d\n" (List.length tgs); *)
+  let tgs = List.filter (fun tg -> List.exists has_regexp tg) tgs in
+  (*Printf.printf "get_target_regexp_topfuns_opt filter %d\n" (List.length tgs);*)
+  try
+    let constr_names : constr_name list ref = ref [] in
+    let rec find_in_target (cs : constr list) : unit =
+      match cs with
+      | Constr_target [ Constr_root;
+                        Constr_depth (DepthAt 1);
+                        Constr_decl_fun (_, ((Some _) as constr_name), _, _) ]
+            :: _ ->
+          constr_names := constr_name :: !constr_names
+      | _ :: cs2 -> find_in_target cs2
+      | [] -> raise Topfuns_cannot_filter
+      in
+    List.iter find_in_target tgs;
+    (*Printf.printf "get_target_regexp_topfuns_opt Some %d\n" (List.length !constr_names);*)
+    Some !constr_names
+  with Topfuns_cannot_filter ->
+    (* Printf.printf "get_target_regexp_topfuns_opt None\n";*)
+    None
 
 
 (******************************************************************************)
@@ -921,7 +963,7 @@ and check_name (name : constr_name) (s : string) : bool =
   match name with
   | None -> true
   | Some r ->
-     match_regexp_str r  s
+     match_regexp_str r s
 
 and check_list ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trms) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
@@ -1094,7 +1136,10 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
     | Constr_dir d :: tr ->
         follow_dir d tr t
     | c :: p ->
-      let strict = match depth with DepthAt 0 -> true | _ -> false in
+      let strict = match depth with
+        | DepthAt 0 -> true
+        | _ when c = Constr_root -> true
+        | _ -> false in
       let skip_here = match depth with DepthAt n when n > 0 -> true | _ -> false in
       let res_deep =
         if strict

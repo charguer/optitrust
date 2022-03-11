@@ -15,9 +15,9 @@ open Ast
 *)
 (* let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : Target.target) : unit =
  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-  (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg 
+  (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
 
-   @correctness: correct if the new order of evaluation of expressions is 
+   @correctness: correct if the new order of evaluation of expressions is
    not changed or does not matter.
 *)
 let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : Target.target) : unit =
@@ -81,9 +81,14 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
 
 let inline ?(body_mark : mark option) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-   (fun  t (p, p_local, i) ->
-    Function_core.inline i body_mark p_local t p) tg)
+    Trace.time "inline apply_on_transformed_targets" (fun () ->
+    Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+     (fun  t (p, p_local, i) ->
+        Trace.time "inline call to Function_core.inline" (fun () ->
+          Function_core.inline i body_mark p_local t p
+        )
+      ) tg))
+
 
 (* [beta ~body_mark tg] the difference between using function_inline and function_beta lies inside the implementation
      basically beta is used in the cases when the declaration of the function call be founded at the targeted function call
@@ -113,5 +118,5 @@ let uninline ~fct:(fct : Target.target) (tg : Target.target) : unit =
       function f, if there are local variables declared inside the body of the function that have the same name as one of the function args
       then it will skip those variables an all their occurrences.
 *)
-let rename_args (new_args : var list)  : Target.Transfo.t = 
+let rename_args (new_args : var list)  : Target.Transfo.t =
   Target.apply_on_targets (Function_core.rename_args new_args)

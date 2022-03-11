@@ -1,5 +1,12 @@
 int f(int x) { return x; }
 
+int g(int x) { return x + 1; }
+
+void simpl_in_depth() {
+  int x;
+  x = g(1 + 2 + f(2 + 4)) + g(5) + g(5);
+}
+
 int main() {
   double a;
   double b;
