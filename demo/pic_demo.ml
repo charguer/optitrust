@@ -116,17 +116,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! iter_dims (fun d ->
       Variable.bind ~const:true ("p" ^ d) [step; sInstrRegexp (d ^ "\\[i\\] = fmod"); dRHS]);
   !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true "p[X-Z]"];
-  
   !! Instr.read_last_write [nbMulti; step; cFun "wrap"; cCellRead ~index:[cVar "i"] ()];
-   
   !! Instr.(gather_targets ~dest:(GatherAt [tAfter; step; cVarDef "pZ"])) [step; cVarDef ~regexp:true "i[X-Z]2"];
-  
   !! Instr.move ~dest:[tAfter; step;cVarDef "iZ2"] [step;cVarDef "idCell2"];
-
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [step; cFun "fmod"; sExpr (citemsposi d)];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; sInstr (citemsposi d ^ " = p")];);
-  
   !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p. - i.2"];
   !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
 
@@ -211,22 +206,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
   !! Loop.hoist [step; cVarDef "idCell2"];
-  !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
-  (* !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "p2"]; [cVarDef "iX2"]]];
-
-  !! Instr.move ~dest:[tAfter; step; cVarDef "iZ2"] [nbMulti; step; cVarDef ~regexp:true "r.1"];
-  !! Loop.hoist [step; cVarDef "idCell2"];
-  !! Instr.copy ~dest:[tBefore; cVarDef "co"] [step; cVarDef "idCell2"];
-  !! Loop.fission [nbMulti; tAfter; step; cWriteVar "idCell2"];
-   *)
-
-  (* Discuss *)
-  (* !! Instr.move ~dest:[tBefore; step; cVarDef "p2"] [step; cVarDef "idCell2"];
-  !! Loop.hoist [step; cVarDef "idCell2"];
-  !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
-  !! Variable.insert ~typ:(atyp "int&") ~name:"idCell2" ~value:(expr "idCell2_step[i]") [tBefore; step; cVarDef "p2"]; *)
-    (* TODO: above, we could use Instr.copy to improve the scipt, before the feature describe below gets implemented *)
-    (* LATER: fission should automatically do the duplication of references when necessary *)
+  !! Instr.move ~dest:[step; tAfter; cVarDef "p2"] [step; cVarDef "co"];
+  !! Instr.copy ~dest:[tAfter; step; cVarDef "p2"] [step;cVarDef "idCell2"];
+  !! Instr.copy ~dest:[tAfter; step; cVarDef "idThread"] [occFirst; step;cVarDef "idCell2"];
+  !! Loop.fission [nbMulti; tBefore; step; cOr[[cVarDef "p2"];[cVarDef "iX1"]]];
+  (* LATER: fission should automatically do the duplication of references when necessary *)
 
   bigstep "Parallelization";
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
