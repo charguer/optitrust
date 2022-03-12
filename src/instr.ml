@@ -34,8 +34,9 @@ let read_last_write ?(write_mark : mark option = None) ?(write : Target.target =
         begin match !write_index with
         | Some index ->
           let write =  (Target.target_of_path path_to_seq) @ [Target.dSeqNth index] in
-          Instr_basic.read_last_write ~write (Target.target_of_path p);
+          Instr_basic.read_last_write ~write  (Target.target_of_path p);
           begin match write_mark with | Some m -> Marks.add m write | _ -> () end
+          
         | None -> fail tg_trm.loc "read_last_write: couuldn't find a write operation for your targeted read operation"
         end
       | _ -> Instr_basic.read_last_write  ~write (Target.target_of_path p)
@@ -50,7 +51,7 @@ let read_last_write ?(write_mark : mark option = None) ?(write : Target.target =
 let inline_last_write ?(write : Target.target = []) ?(write_mark : mark = "__todelete__") (tg : Target.target) : unit =
   let write_mark = if write = [] then Some write_mark else None in 
   read_last_write ~write ~write_mark  tg;
-  if write <> [] then  Instr_basic.delete write else Instr_basic.delete [Target.cMark "__todelete__"]
+  if write <> [] then  Instr_basic.delete write else Instr_basic.delete [Target.nbMulti;Target.cMark "__todelete__"]
    (* TODO: it would be much nicer that delete gets executed every time.
     but to implement that we need a different strategy:
     0) define a mark "__todelete__"

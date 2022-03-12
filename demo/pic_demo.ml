@@ -98,7 +98,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "factor."];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef "accel"];
 
-
   bigstep "Scaling of speed and positions";
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("stepDuration / cell"^d))
@@ -106,30 +105,29 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("1 / cell"^d))
          [nbMulti; step; sInstrRegexp ~substr:true ("\\[i\\] = c->itemsPos" ^ d); sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]);
-
+  !! Trace.reparse();
   !! Variable.inline [step; cVarDef "accel"];
-  (* !! Arith.(simpl ~indepth:true expand) [nbMulti; step]; *)
-  
-  bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
-  !! Instr.inline_last_write [nbMulti; cFun "fmod"; cCellRead ~index:[cVar "i"] ()];
-  
-  (* show [cFun "fmod"; cRead ~addr:[sExpr "c->itemsPosX[i]"] ()]; *)
-  (* Instr.read_last_write [cFun "fmod"; sExpr "c->itemsPosX[i]"]; *)
-  
-  
+  !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cFor "i"; cCellWrite ~index:[cVar "i"] ()];
   
   bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
   let citemsposi d = "c->itemsPos" ^ d ^ "[i]" in
+  !! Instr.inline_last_write [nbMulti; cFun "fmod"; cCellRead ~index:[cVar "i"] ()];
+  !! Trace.reparse();
   !! iter_dims (fun d ->
-      Variable.bind ~const:true ("p" ^ d) [step; sInstr (citemsposi d ^ " = ("); dRHS]);
+      Variable.bind ~const:true ("p" ^ d) [step; sInstrRegexp (d ^ "\\[i\\] = fmod"); dRHS]);
   !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true "p[X-Z]"];
+  
+  !! Instr.read_last_write [nbMulti; step; cFun "wrap"; cCellRead ~index:[cVar "i"] ()];
+   
+  !! Instr.(gather_targets ~dest:(GatherAt [tAfter; step; cVarDef "pZ"])) [step; cVarDef ~regexp:true "i[X-Z]2"];
+  
+  !! Instr.move ~dest:[tAfter; step;cVarDef "iZ2"] [step;cVarDef "idCell2"];
+
   !! iter_dims (fun d ->
-      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [step; cVarDef ("p" ^ d); sExpr (citemsposi d)]);
-  !! Instr.(gather_targets ~dest:(GatherAt [tAfter; step; cVarDef "pZ"])) [step; cVarDef ~regexp:true "i[X-Z]1"];
-  !! iter_dims (fun d ->
-      Accesses.shift ~factor:(expr ("i" ^ d ^ "1")) [step; sInstr (citemsposi d ^ " = p")];);
-  !! Arith.(simpl expand) [nbMulti; step; cVarDef ~regexp:true "r[X-Z]1"; dInit];
-  !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p. \\+ i."];
+      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [step; cFun "fmod"; sExpr (citemsposi d)];
+      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; sInstr (citemsposi d ^ " = p")];);
+  
+  !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p. - i.2"];
   !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
 
 
