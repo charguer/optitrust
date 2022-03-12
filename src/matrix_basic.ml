@@ -50,7 +50,7 @@ let biject (fun_name : string) : Target.Transfo.t =
       free up the memory.
  *)
 
-let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : Target.target option = None) (v : var) ~into:(into : var) ?(local_ops : local_ops = Local_arith) (tg : Target.target) : unit =
+let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : Target.target option = None) (v : var) ~into:(into : var) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : Target.target) : unit =
   let remove = (my_mark = None) in 
   let get_alloc_type_and_trms (t : trm) (tg1 : Target.target) : typ * (trms * trm * bool) = 
     let var_type = begin match t.desc with 
@@ -103,5 +103,5 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_ins
   )
 
 (* [delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops] a generalized version of variable_delocalize*)
-let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "")~dim:(dim : trm)  ~index:(index : string) ~ops:(dl_o : delocalize_ops) : Target.Transfo.t =
+let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "")~dim:(dim : trm)  ~index:(index : string) ~ops:(dl_o : local_ops) : Target.Transfo.t =
     Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc any_mark index dl_o)

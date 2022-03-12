@@ -313,7 +313,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_range = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp,  dim, Post_inc)) dims indices_list in
   let write_on_local_var, write_on_var = begin match local_ops with 
-    | Local_arith -> 
+    | Local_arith _ -> 
       trm_set (access (trm_var_get local_var) dims indices) (trm_get (access (trm_var_get var) dims indices)),
       trm_set (access (trm_var_get var) dims indices) (trm_get (access (trm_var_get local_var) dims indices))
     | Local_obj (init, swap) ->
@@ -333,7 +333,8 @@ let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :
 
 
 (* TODO: Factorize me *)
-let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (index : string) (ops : delocalize_ops) (t : trm) : trm =
+(* TODO: Add docs  *)
+let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (index : string) (ops : local_ops) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl -> 
     if Mlist.length tl <> 5 then fail t.loc "delocalize_aux: the targeted  sequence does not have the correct shape";
@@ -364,7 +365,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                 | _ -> body
                 end in
                 begin match ops with 
-                | Delocalize_arith (li, op) -> 
+                | Local_arith (li, op) -> 
                   begin match set_inv set_instr with 
                   | Some (base, dims, indices, old_var_access) -> 
                     let acc, acc_provided = match acc with
@@ -418,16 +419,15 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   | _ -> fail set_instr.loc "delocalize_aux"
                   end
                   
-                | Delocalize_obj (_init_f, _merge_f) -> 
+                | Local_obj (_init_f, _merge_f) -> 
                   let ps1 = resolve_target tg body in 
                   let new_snd_instr =
                     let updated_mindex =
                     List.fold_left (fun acc p ->
-                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var "ANY") [dim]))) acc p
+                      apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
                     ) body ps1 in
                     (* TODO: Implement the case when init_zero = false *)
                     trm_fors new_loop_range updated_mindex in
-                  
                   
                   let thrd_instr = Mlist.nth tl 2 in
                   let ps2 = resolve_target tg thrd_instr in
@@ -440,7 +440,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let ps2 = resolve_target tg frth_instr in
                   let new_frth_instr =
                     List.fold_left (fun acc p ->
-                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var "ANY") [dim]))) acc p
+                      apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
                     ) frth_instr ps2 in
                   
                   let fifth_instr = Mlist.nth tl 4 in
@@ -461,6 +461,6 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
   |  _ -> fail t.loc "delocalize_aux: expected sequence which contains the mandatory instructions for applying the delocalize transformation"
 
 
-let delocalize (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (index : string) (ops : delocalize_ops): Target.Transfo.local =
+let delocalize (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (index : string) (ops : local_ops): Target.Transfo.local =
   Target.apply_on_path (delocalize_aux dim init_zero acc_in_place acc any_mark index ops)
 

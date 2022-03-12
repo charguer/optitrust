@@ -2031,18 +2031,8 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
 
 (* type used for the transformation called local_name with objects *)
 type local_ops = 
-  | Local_arith 
+  | Local_arith of lit * binary_op 
   | Local_obj of string * string
-
-
-
-
-(* type used for the transformation called delocalize *)
-type delocalize_ops =
-  | Delocalize_arith of lit * binary_op
-  | Delocalize_obj of string * string
-
-
 
 let get_include_filename (t : trm) : string  =
   let f_name = List.fold_left (fun acc x ->

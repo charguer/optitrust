@@ -123,7 +123,7 @@ let local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : Target.tar
    [ops]: the delocalize operation, it can be an arithmetic delocalization or an object delocalization
     of the array declared inside the block
 *)
-let delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : delocalize_ops) (tg : Target.target) : unit =
+let delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : local_ops) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
 
