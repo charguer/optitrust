@@ -1,6 +1,10 @@
 #ifndef PARTICLE_CHUNK_ALLOC_H
 #define PARTICLE_CHUNK_ALLOC_H
 
+#include <omp.h>
+
+#define NB_BAGS_PER_CELL 2
+
 //==========================================================================
 // Manual memory management for chunks
 
@@ -21,7 +25,7 @@ int* nb_free;
 chunk*** free_chunks;    // Freelists
 chunk** all_free_chunks; // Stores the free chunks during the initialization phase, before they are put into freelists
 int number_of_spare_chunks_per_parity; // Number of chunks needed to initialize each bag in the append phase.
-int** spare_chunks_ids;                // Bijection between [0 ; nb_bags_per_cell[ x [0 ; num_cells_3d[ and [0 ; number_of_spare_chunks_per_parity[
+int** spare_chunks_ids;                // Bijection between [0 ; NB_BAGS_PER_CELL[ x [0 ; num_cells_3d[ and [0 ; number_of_spare_chunks_per_parity[
 int num_threads;
 
 // Cumulative sum of the freelist sizes.
@@ -46,10 +50,11 @@ int** spare_chunk_location;
  * loop. During the append phase, the needed chunks should be found
  * in all the freelists, depending of the cumulative freelist sizes.
  *
- * @param[in] thread_id the index of the thread asking for a new chunk.
+ * @implicit_param[in] thread_id the index of the thread asking for a new chunk.
  * @return    a chunk almost ready to be filled with particles (set size to 0 before).
  */
-chunk* manual_chunk_alloc(int thread_id) {
+chunk* manual_chunk_alloc() {
+  int thread_id = omp_get_thread_num();
   if (FREE_INDEX(thread_id) > 0) {
     return free_chunks[thread_id][--FREE_INDEX(thread_id)];
   } else {
@@ -65,10 +70,11 @@ chunk* manual_chunk_alloc(int thread_id) {
  * called during the particle loop, on a chunk that has just been iterated on.
  * If that list is full, free the chunk.
  *
- * @param[in] c         the chunk to be put back in the freelist.
+ * @implicit_param[in] c         the chunk to be put back in the freelist.
  * @param[in] thread_id the index of the thread asking for this release.
  */
-void manual_chunk_free(chunk* c, int thread_id) {
+void manual_chunk_free(chunk* c) {
+  int thread_id = omp_get_thread_num();
   if (FREE_INDEX(thread_id) < FREELIST_SIZE) {
     free_chunks[thread_id][FREE_INDEX(thread_id)++] = c;
   } else {
@@ -99,9 +105,10 @@ void manual_chunk_free(chunk* c, int thread_id) {
  * @param[in] id_bag    the index of the bag (in [0 ; 9[) in which to put a chunk.
  * @param[in] id_cell   the index of the cell (in [0 ; ncx * ncy * ncz[) in which
  *                      to put a chunk.
- * @param[in] thread_id the index of the thread that asks for a chunk.
+ * @implicit_param[in] thread_id the index of the thread that asks for a chunk.
  */
-void locate_spare_chunk(int id_bag, int id_cell, int thread_id) {
+void locate_spare_chunk(int id_bag, int id_cell) {
+  int thread_id = omp_get_thread_num();
   int id_chunk = spare_chunks_ids[id_bag][id_cell];
   int k;
   for (k = num_threads - 1; k >= 0; k--)
@@ -139,7 +146,8 @@ chunk* manual_obtain_chunk_initial() {
  * Obtain a chunk from the free list; used by bag_init (i.e. outside of the particle loop)
  * ARTHUR: document this function
  */
-chunk* manual_obtain_chunk(int id_bag, int id_cell, int thread_id) {
+chunk* manual_obtain_chunk(int id_bag, int id_cell) {
+  int thread_id = omp_get_thread_num();
   if (thread_id == THREAD_INITIAL) {
     return manual_obtain_chunk_initial();
   }
@@ -234,4 +242,7 @@ void update_free_list_sizes() {
 // ARTHUR: document what is number_of_spare_chunks_per_parity
 // ARTHUR: cumulative_nb_chunks_per_cell -> would be nicer to have one extra cell
 
+
+// ALTERNATIVE:
+// [jemalloc]. Obtained via apt-get install libjemalloc-dev, apt-get install libjemalloc1 -ljemalloc
 #endif

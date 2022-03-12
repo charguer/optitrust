@@ -267,3 +267,13 @@ In case of missing opam packages, or incorrect opam switch loaded:
 ```
   Reason: /home/charguer/.opam/4.09.1+flambda/lib/ocaml/stublibs/dllunix.so: undefined symbol: caml_local_roots
 ```
+
+# JEmalloc
+
+
+
+- JEMALLOC:
+   export LD_PRELOAD=$LD_PRELOAD:/path/to/jemalloc-build/lib/jemalloc.so.1
+cc app.c -o app -L`jemalloc-config --libdir` -Wl,-rpath,`jemalloc-config --libdir` -ljemalloc `jemalloc-config --libs`
+
+

@@ -334,14 +334,14 @@ void step() {
 
 // --------- Main
 
-int main(int argc, char** argv) {
+  int main(int argc, char** argv) {
 
   loadParameters(argc, argv);
 
   computeConstants();
- 
+
   allocateStructuresForPoissonSolver();
-  
+
   allocateStructures();
 
   resetDeposit();
@@ -357,7 +357,7 @@ int main(int argc, char** argv) {
   double nextReport = timeStart + 1.0;
 #endif
 
-  // Foreach time step
+// Foreach time step
   for (int idStep = 0; idStep < nbSteps; idStep++) {
 #ifdef PRINTSTEPS
     if (omp_get_wtime() > nextReport) {
@@ -379,7 +379,7 @@ int main(int argc, char** argv) {
   deallocateStructures();
 
   deallocateStructuresForPoissonSolver();
-  
+
   free(deposit);
 }
 

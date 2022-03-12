@@ -60,6 +60,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
   !! Loop.fusion_targets [cMark "fuse"];
+  !! Trace.reparse(); (* TODO?*)
   !! Instr.inline_last_write ~write:[sInstr "contribs.v[k] ="]
        [step; sInstr "+= contribs.v[k]"; dRHS];
 
