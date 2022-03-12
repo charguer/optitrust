@@ -9,6 +9,7 @@
 
 - gcc (tested with version 5.5.0)
 - clang-format (tested with version 3.8.0)
+- jemalloc (libjemalloc system distribution suffices)
 
 - Visual Studio Code (tested with version 1.63.2)
 - Meld (tested with version 3.18.0)
@@ -18,7 +19,7 @@
 
 ```
    # Installation of system packages
-   sudo apt-get install clang-format meld libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev
+   sudo apt-get install clang-format meld libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev libjemalloc-dev
 
    # Installation of opam: https://opam.ocaml.org/doc/Install.html
    sudo apt-get install opam

@@ -22,6 +22,8 @@ source $PICVERT_HOME/your_configuration.sh
 #              run                #
 ###################################
 
+PRELOAD="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.1"
+
 run_one() {
   id_run=$1
 
@@ -40,6 +42,7 @@ run_one() {
 
   cd $PICVERT_HOME/3d_runs/run${id_run}
   export OMP_NUM_THREADS=$nb_threads
+  ${PRELOAD}
   mpirun -q --report-bindings --cpus-per-proc $nb_threads -np $nb_sockets ./${BASENAME}.out ./parameters_3d.txt | tee ./std_output_run${id_run}.txt
 }
 # LATER: remove -q to see the depreciation warnings
