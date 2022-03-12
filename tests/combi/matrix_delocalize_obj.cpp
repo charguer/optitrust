@@ -54,7 +54,7 @@ int main() {
   }
   
   for (int idCell = 0; idCell < nbCells; idCell++){
-  *  for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
+    for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
       bag_push(&bagNext[MINDEX1(nbCells, idCell)],*p);
     }
   }

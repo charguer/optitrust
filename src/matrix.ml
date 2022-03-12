@@ -126,7 +126,7 @@ let intro_mops (dim : trm) : Target.Transfo.t =
 let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(last : bool = false)  ?(use : trm option = None) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string) ?(indices : string list = []) ~ops:(ops : local_ops) ?(alloc_instr : Target.target option) (tg : Target.target) : unit =
   let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
   let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
-  let acc = match acc with | Some s -> s | _ -> "s" in  Matrix_basic.local_name ~my_mark:middle_mark ~alloc_instr ~into ~indices var tg;
+  let acc = match acc with | Some s -> s | _ -> "s" in  Matrix_basic.local_name ~my_mark:middle_mark ~alloc_instr ~into ~indices ~local_ops:ops var tg;
   
   let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in 
   Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops [Target.cMark middle_mark];
