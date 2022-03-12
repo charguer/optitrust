@@ -8,7 +8,7 @@ vect vect_add(vect v1, vect v2) {
   return {v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
 }
 
-vect vect_mul(int d, vect v) { return {d * (v.x), d * (v.y), d * (v.z)}; }
+vect vect_mul(int d, vect v) { return {d * v.x, d * v.y, d * v.z}; }
 
 int f(int x) {
   int a = x + x;
@@ -51,7 +51,7 @@ exit_body:;
   (*q)++;
   vect a = {0, 1, 2};
   vect b = {3, 4, 5};
-  vect c = {b.x + x * (a.x), b.y + x * (a.y), b.z + x * (a.z)};
+  vect c = {b.x + x * a.x, b.y + x * a.y, b.z + x * a.z};
   return 0;
 }
 
@@ -79,7 +79,7 @@ void test_const_ret() {
     z = 2;
   int s = y + z;
   const vect t = {0, 1};
-  const vect v = {t.x + x * (t.x), t.y + x * (t.y), t.z + x * (t.z)};
+  const vect v = {t.x + x * t.x, t.y + x * t.y, t.z + x * t.z};
   vect w;
   if (true) {
     {

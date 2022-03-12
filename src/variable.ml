@@ -134,7 +134,7 @@ let insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value : trm) 
     }
 *)
 
-let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) )
+let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
    (ov : var) ~into:(nv : var)
   ~array_size:(arrs : string) (tg : Target.target) : unit =
   let middle_mark = match mark with | None -> Mark.next () | Some m -> m in
@@ -150,7 +150,7 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocali
     namely for each index on variable, this variables should be given by the user through the labelled
     argument [vars].
 *)
-let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) )
+let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
    (ov : var) ~into:(nv : var)  ~array_size:(arrs : string)
   ~local_vars:(lv : vars) (tg : Target.target) : unit =
   Variable_basic.local_name ~mark ov ~into:nv tg;

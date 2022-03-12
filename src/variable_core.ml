@@ -287,7 +287,7 @@ let local_name (mark : mark) (curr_var : var) (local_var : var) : Target.Transfo
     return:
       the update ast of [t]
 *)
-let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string) (t : trm) : trm =
+let delocalize_aux (array_size : string) (ops : local_ops) (index : string) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     if Mlist.length tl <> 3 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
@@ -297,20 +297,20 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
     | Trm_let (vk, (x, tx), init) ->
       let local_var = x in
       let curr_var_trm = match get_init_val init with
-      | Some init1 -> init1
-      | _ -> fail def.loc "delocalize_aux: couldn't get the value of the current variable " in
+        | Some init1 -> init1
+        | _ -> fail def.loc "delocalize_aux: couldn't get the value of the current variable " in
       let curr_var_trm = get_operation_arg curr_var_trm in
       let var_type = (get_inner_ptr_type tx) in
       let init_trm, op = begin match ops with
-      | Delocalize_arith (li, op) ->
-          trm_lit li, (trm_prim_compound op
-                             curr_var_trm
-                              (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])))
-      | Delocalize_obj (clear_f, transfer_f) ->
-          trm_apps ~typ:(Some (typ_unit ())) (trm_var clear_f) [],
-          trm_apps ~typ:(Some (typ_unit())) (trm_var transfer_f)
-            [trm_get curr_var_trm ;
-            trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])]
+        | Local_arith (li, op) ->
+            trm_lit li, (trm_prim_compound op
+                               curr_var_trm
+                                (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])))
+        | Local_obj (clear_f, transfer_f) ->
+            trm_apps ~typ:(Some (typ_unit ())) (trm_var clear_f) [],
+            trm_apps ~typ:(Some (typ_unit())) (trm_var transfer_f)
+              [trm_get curr_var_trm ;
+              trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])]
       end in
       let new_first_trm = trm_seq_no_brace[
           trm_let_array vk (local_var, var_type) (Trm (trm_var array_size)) (trm_uninitialized ());
@@ -321,7 +321,6 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
       let new_snd_instr = Internal.subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_apps (trm_var "ANY") [trm_var array_size] ]) snd_instr  in
       let new_thrd_trm = trm_seq_no_brace [
                       trm_set (curr_var_trm) (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]));
-                      (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)
                       trm_for index (trm_int 1) DirUp (trm_var array_size) Post_inc
                         (trm_seq_nomarks [op])
                      ] in
@@ -334,7 +333,7 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
   | _ -> fail t.loc "delocalize_aux: expected the nobrace sequence"
 
 
-let delocalize (array_size : string) (ops : delocalize_ops) (index : string) : Target.Transfo.local =
+let delocalize (array_size : string) (ops : local_ops) (index : string) : Target.Transfo.local =
   Target.apply_on_path (delocalize_aux array_size ops index )
 
 

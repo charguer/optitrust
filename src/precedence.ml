@@ -18,18 +18,20 @@ let precedence_prim (p : prim) : precedence =
     end 
   | Prim_binop binop -> 
     begin match binop with 
-    | Binop_array_access | Binop_array_get | Binop_mul | Binop_div | Binop_mod -> (16, LtoR)
+    | Binop_array_access | Binop_array_get -> (16, LtoR)
+    | Binop_mul | Binop_div | Binop_mod -> (13, LtoR)
     | Binop_add | Binop_sub -> (12, LtoR)
     | Binop_shiftl | Binop_shiftr -> (11, LtoR)
     | Binop_lt | Binop_gt | Binop_le | Binop_ge -> (10, LtoR)
     | Binop_eq | Binop_neq -> (9, LtoR)
-    | Binop_and -> (8, LtoR)
+    | Binop_bitwise_and -> (8, LtoR)
     | Binop_xor -> (7, LtoR)
-    | Binop_or -> (6, LtoR)
-    | Binop_bitwise_and -> (5, LtoR)
     | Binop_bitwise_or -> (6, LtoR)
+    | Binop_and -> (5, LtoR)
+    | Binop_or -> (4, LtoR)
     | _ -> precedence_none
     end 
+  | Prim_conditional_op -> (3, RtoL)
   | Prim_compound_assgn_op binop -> 
     begin match binop with 
     | Binop_set | Binop_add | Binop_sub | Binop_mul | Binop_div 
@@ -37,7 +39,6 @@ let precedence_prim (p : prim) : precedence =
      | Binop_shiftr -> (2, RtoL)
     | _ -> precedence_none
     end
-  | Prim_conditional_op -> (3, RtoL)
   | _ -> precedence_none
 
 

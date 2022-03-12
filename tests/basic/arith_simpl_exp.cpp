@@ -3,8 +3,8 @@ int f(int x) { return x; }
 int g(int x) { return x + 1; }
 
 void simpl_in_depth() {
-  int x;
-  x = g(1 + 2 + f(2 + 4)) + g(5) + g(5);
+  int x = g(3 + f(6)) + 2 * g(5);
+  int y = g(3 + f(6)) + 2 * g(5);
 }
 
 int main() {
@@ -48,6 +48,6 @@ int main() {
   v = d;
   v = d;
   v = a + c;
-  w = a + a * 3 + f(b * (f(c + c)) / b);
+  w = a + a * 3 + f(b * f(c + c) / b);
   return 0;
 }

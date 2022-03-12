@@ -123,7 +123,7 @@ let local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : Target.tar
    [ops]: the delocalize operation, it can be an arithmetic delocalization or an object delocalization
     of the array declared inside the block
 *)
-let delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : delocalize_ops) (tg : Target.target) : unit =
+let delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : local_ops) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
 
@@ -187,3 +187,14 @@ let to_nonconst : Target.Transfo.t =
     or at the give target if [indepth] is false.*)
 let simpl_deref ?(indepth : bool = false) : Target.Transfo.t =
   Target.apply_on_targets (Variable_core.simpl_deref indepth)
+
+
+(* [swap var1 var2 tg] expects a target to an instruction that contains both the variable [var1] and [var2]
+    then it will try to swap all the occurrences of [var1] with [var2] *)
+let swap (v1 : var) (v2 : var) (tg : Target.target) : unit =
+  let tm = Trm_map.empty in 
+  let tm = Trm_map.add v1 (trm_var v2) tm in 
+  let tm = Trm_map.add v2 (trm_var v1) tm in 
+  Target.apply_on_targets (
+    Target.apply_on_path (fun t1 -> Internal.subst tm t1)) tg 
+

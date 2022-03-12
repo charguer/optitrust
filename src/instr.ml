@@ -6,7 +6,7 @@ include Instr_basic
     with that value, if [tg] doesn't point to a read operation then the transformation will fail
 *)
 
-let read_last_write ?(write : Target.target = []) : Target.Transfo.t =
+let read_last_write ?(write_mark : mark option = None) ?(write : Target.target = []) : Target.Transfo.t =
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
@@ -34,21 +34,23 @@ let read_last_write ?(write : Target.target = []) : Target.Transfo.t =
         begin match !write_index with
         | Some index ->
           let write =  (Target.target_of_path path_to_seq) @ [Target.dSeqNth index] in
-          Instr_basic.read_last_write ~write (Target.target_of_path p)
+          Instr_basic.read_last_write ~write (Target.target_of_path p);
+          begin match write_mark with | Some m -> Marks.add m write | _ -> () end
         | None -> fail tg_trm.loc "read_last_write: couuldn't find a write operation for your targeted read operation"
         end
       | _ -> Instr_basic.read_last_write  ~write (Target.target_of_path p)
       end
-    | _ -> fail tg_trm.loc "read_last_write: the main target should be a get operation"
+    | _ -> fail tg_trm.loc (Printf.sprintf "read_last_write: the main target should be a get operation, got %s\n" (AstC_to_c.ast_to_string tg_trm))
   )
 
 (* [inline_last_write ~write ~delete tg] this tranformation is a version of read last write, in fact it will call
     the basic read_last_write transformation and then it will delete the write operation. So the main difference between
     these two transformations is that the later one deletes the write operation
 *)
-let inline_last_write ?(write : Target.target = []) (tg : Target.target) : unit =
-  read_last_write ~write tg;
-  if write <> [] then  Instr_basic.delete write
+let inline_last_write ?(write : Target.target = []) ?(write_mark : mark = "__todelete__") (tg : Target.target) : unit =
+  let write_mark = if write = [] then Some write_mark else None in 
+  read_last_write ~write ~write_mark  tg;
+  if write <> [] then  Instr_basic.delete write else Instr_basic.delete [Target.cMark "__todelete__"]
    (* TODO: it would be much nicer that delete gets executed every time.
     but to implement that we need a different strategy:
     0) define a mark "__todelete__"

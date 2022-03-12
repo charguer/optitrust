@@ -73,7 +73,7 @@ let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
             and initialized variable declaration "
         end 
     | _ -> fail write_trm.loc "read_last_write: the targete write operation should be eithe a set operation or 
-            and initialized variable declaration " in
+            and initialized variable declaration " in  
   Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> written_trm) t p) tg
 
 

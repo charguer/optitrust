@@ -12,7 +12,7 @@ let nb_dims = List.length dims
 let iter_dims f = List.iter f dims
 let map_dims f = List.map f dims
 let idims = map_dims (fun d -> "i" ^ d)
-let delocalize_double_add = Delocalize_arith (Lit_double 0., Binop_add)
+let delocalize_double_add = Local_arith (Lit_double 0., Binop_add)
 
 let _ = Parsers.(select Menhir)
 

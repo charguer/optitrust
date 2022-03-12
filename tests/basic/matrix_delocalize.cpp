@@ -2,7 +2,6 @@
 
 typedef int T;
 
-
 int main() {
   int const N0 = 5;
   int const N1 = 10;
