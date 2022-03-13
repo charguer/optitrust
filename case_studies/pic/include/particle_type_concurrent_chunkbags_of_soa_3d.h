@@ -123,12 +123,19 @@
  *
  */
 
+
+#ifdef POSTYPEDOUBLE
+#define POSTYPE double
+#else
+#define POSTYPE float
+#endif
+
 typedef struct chunk {
   struct chunk* next;
   int size;                  // always updated
-  float  dx[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // x_mapped - index_x, a number in [0 ; 1[       (see the drawing above)
-  float  dy[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // y_mapped - index_y, a number in [0 ; 1[       (see the drawing above)
-  float  dz[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // z_mapped - index_z, a number in [0 ; 1[       (see the drawing above)
+  POSTYPE  dx[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // x_mapped - index_x, a number in [0 ; 1[       (see the drawing above)
+  POSTYPE  dy[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // y_mapped - index_y, a number in [0 ; 1[       (see the drawing above)
+  POSTYPE  dz[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // z_mapped - index_z, a number in [0 ; 1[       (see the drawing above)
   double vx[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // speed of the particle on the x-axis
   double vy[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // speed of the particle on the y-axis
   double vz[CHUNK_SIZE] __attribute__((aligned(VEC_ALIGN))); // speed of the particle on the z-axis
@@ -325,7 +332,7 @@ chunk* atomic_read(chunk** p);
  * @param[in, out] b
  * @param[in]      dx, dy, dz, vx, vy, vz
  */
-void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id) int thread_id);
+void bag_push_concurrent(bag* b, POSTYPE dx, POSTYPE dy, POSTYPE dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id) int thread_id);
 
 /*
  * Add a particle into a chunk bag. Add it into the first chunk,
@@ -337,7 +344,7 @@ void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double
  * @param[in, out] b
  * @param[in]      dx, dy, dz, vx, vy, vz
  */
-void bag_push_serial(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id)  int thread_id);
+void bag_push_serial(bag* b, POSTYPE dx, POSTYPE dy, POSTYPE dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id)  int thread_id);
 
 /*
  * In case of non-perfect tiling, computes the border_size for the contour tiles.
@@ -489,7 +496,7 @@ void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_
  * @param[out] particles[mesh.ncx * mesh.ncy * mesh.ncz] a newly allocated array of chunkbags of particles read from file.
  */
 void read_particle_array_3d(int mpi_world_size, unsigned int num_particle, cartesian_mesh_3d mesh,
-        float* weight, bag** particles);
+        double* weight, bag** particles);
 
 /*
  * Return an array of num_particle random particles following given distributions
@@ -505,7 +512,7 @@ void read_particle_array_3d(int mpi_world_size, unsigned int num_particle, carte
  * @param[out] particles[mesh.ncx * mesh.ncy * mesh.ncz] a newly allocated array of chunkbags of randomized particles.
  */
 void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, cartesian_mesh_3d mesh,
-        unsigned char sim_distrib, double* spatial_params, double* speed_params, float* weight,
+        unsigned char sim_distrib, double* spatial_params, double* speed_params, double* weight,
         bag** particles);
 
 #ifdef STDCHUNKALLOC

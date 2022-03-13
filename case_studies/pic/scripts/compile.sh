@@ -59,9 +59,12 @@ if [ ! -z "$DEBUGFLAGS" ]; then
   echo "COMPILING IN DEBUG MODE"
 fi
 
+# Use -DPOSTYPEDOUBLE to use double for positions in pic_barsamian.c
 if [ ! -z "$CHECKER_OUTFILE" ]; then
-  CHECKER="-DCHECKER=$CHECKER_OUTFILE "
+  CHECKER="-DPOSTYPEDOUBLE -DCHECKER=$CHECKER_OUTFILE "
 fi
+
+
 
 EXTRA_SPECIFIC_PRE=
 if [ "${TARGET}" = "pic_barsamian.c" ]; then

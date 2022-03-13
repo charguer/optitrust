@@ -437,7 +437,7 @@ int main(int argc, char** argv) {
      * physical particles than another numerical particle, even though in this
      * simulation it's not the case.
      */
-    float weight;
+    double weight;
     if (sim_initial == INIT_READ) {
         time_start = omp_get_wtime();
         read_particle_array_3d(mpi_world_size, nb_particles, mesh, &weight, &particles);

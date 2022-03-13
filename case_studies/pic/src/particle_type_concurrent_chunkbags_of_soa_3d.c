@@ -469,7 +469,7 @@ chunk* atomic_read(chunk** p) {
  * @param[in, out] b
  * @param[in]      dx, dy, dz, vx, vy, vz
  */
-void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id) int thread_id) {
+void bag_push_concurrent(bag* b, POSTYPE dx, POSTYPE dy, POSTYPE dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id) int thread_id) {
   chunk* c;
   int index;
   while (true) { // Until success.
@@ -519,7 +519,7 @@ void bag_push_concurrent(bag* b, float dx, float dy, float dz, double vx, double
  * @param[in, out] b
  * @param[in]      dx, dy, dz, vx, vy, vz
  */
-void bag_push_serial(bag* b, float dx, float dy, float dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id) int thread_id) {
+void bag_push_serial(bag* b, POSTYPE dx, POSTYPE dy, POSTYPE dz, double vx, double vy, double vz, CHECKER_ONLY_COMMA(int id) int thread_id) {
   chunk* c = b->front;
   int index = c->size++;
   c->dx[index] = dx;
@@ -564,7 +564,7 @@ void bag_init_initial(bag* b) {
   add_front_chunk_initial(b);
   b->back = b->front;
 }
-void bag_push_initial(bag* b, CHECKER_ONLY_COMMA(int id) float dx, float dy, float dz, double vx, double vy, double vz) {
+void bag_push_initial(bag* b, CHECKER_ONLY_COMMA(int id) POSTYPE dx, POSTYPE dy, POSTYPE dz, double vx, double vy, double vz) {
   chunk* c = b->front;
   int index = c->size++;
   c->dx[index] = dx;
@@ -964,7 +964,7 @@ void init_freelists() {
  * @param[out] particles[mesh.ncx * mesh.ncy * mesh.ncz] a newly allocated array of chunkbags of particles read from file.
  */
 void read_particle_array_3d(int mpi_world_size, unsigned int num_particle, cartesian_mesh_3d mesh,
-        float* weight, bag** particles) {
+        double* weight, bag** particles) {
     size_t i;
     char filename[30];
     int throw_that_number_x, throw_that_number_y, throw_that_number_z;
@@ -974,7 +974,7 @@ void read_particle_array_3d(int mpi_world_size, unsigned int num_particle, carte
     const int ncz = mesh.num_cell_z;
     const int num_cells_3d = ncx * ncy * ncz;
     int i_cell;
-    float dx, dy, dz;
+    POSTYPE dx, dy, dz;
     double vx, vy, vz;
 
     sprintf(filename, "initial_particles_%dkk.dat", num_particle / 1000000);
@@ -1004,7 +1004,8 @@ void read_particle_array_3d(int mpi_world_size, unsigned int num_particle, carte
         fprintf(stderr, "I expected num_particle = %d but found %d in the input file.\n", num_particle, throw_that_number_also);
         exit(EXIT_FAILURE);
     }
-    *weight = (float)(mesh.x_max - mesh.x_min) * (float)(mesh.y_max - mesh.y_min) * (float)(mesh.z_max - mesh.z_min) / ((float)mpi_world_size * (float)num_particle);
+    // DEPRECATED *weight = (float)(mesh.x_max - mesh.x_min) * (float)(mesh.y_max - mesh.y_min) * (float)(mesh.z_max - mesh.z_min) / ((float)mpi_world_size * (float)num_particle);
+    *weight = (double)(mesh.x_max - mesh.x_min) * (double)(mesh.y_max - mesh.y_min) * (double)(mesh.z_max - mesh.z_min) / ((double)mpi_world_size * (double)num_particle);
 
     // Initializes the bags with empty chunks.
     for (i = 0; i < num_cells_3d; i++)
@@ -1012,8 +1013,13 @@ void read_particle_array_3d(int mpi_world_size, unsigned int num_particle, carte
 
     // Read particles and push them into the bags.
     for (i = 0; i < num_particle; i++) {
+#ifdef POSTYPEDOUBLE
+          if (fscanf(file_read_particles, "%d %lf %lf %lf %lf %lf %lf", &i_cell,
+                &dx, &dy, &dz, &vx, &vy, &vz) < 7) {
+#else
         if (fscanf(file_read_particles, "%d %f %f %f %lf %lf %lf", &i_cell,
                 &dx, &dy, &dz, &vx, &vy, &vz) < 7) {
+#endif
             fprintf(stderr, "I expected %d particles but there are less in the input file.\n", num_particle);
             exit(EXIT_FAILURE);
         }
@@ -1039,7 +1045,7 @@ void read_particle_array_3d(int mpi_world_size, unsigned int num_particle, carte
  * @param[out] particles[mesh.ncx * mesh.ncy * mesh.ncz] a newly allocated array of chunkbags of randomized particles.
  */
 void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, cartesian_mesh_3d mesh,
-        unsigned char sim_distrib, double* spatial_params, double* speed_params, float* weight,
+        unsigned char sim_distrib, double* spatial_params, double* speed_params, double* weight,
         bag** particles) {
     size_t i, j;
     int i_cell;
@@ -1059,7 +1065,8 @@ void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, car
     const int icell_param2 = I_CELL_PARAM2_3D(ncx, ncy, ncz);
     const int num_cells_3d = ncx * ncy * ncz;
 
-    *weight = (float)x_range * (float)y_range * (float)z_range / ((float)mpi_world_size * (float)num_particle);
+    // DEPRECATED *weight = (float)x_range * (float)y_range * (float)z_range / ((float)mpi_world_size * (float)num_particle);
+    *weight = (double)x_range * (double)y_range * (double)z_range / ((double)mpi_world_size * (double)num_particle);
 
     // Initializes the bags with empty chunks.
     for (i = 0; i < num_cells_3d; i++)
@@ -1085,7 +1092,7 @@ void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, car
         printf("%lf %lf %lf \n", vx, vy, vz);
 #endif
         i_cell = COMPUTE_I_CELL_3D(icell_param1, icell_param2, (int)x, (int)y, (int)z);
-        bag_push_initial(&((*particles)[i_cell]), CHECKER_ONLY_COMMA(j) (float)(x - (int)x), (float)(y - (int)y), (float)(z - (int)z), vx, vy, vz);
+        bag_push_initial(&((*particles)[i_cell]), CHECKER_ONLY_COMMA(j) (POSTYPE)(x - (int)x), (POSTYPE)(y - (int)y), (POSTYPE)(z - (int)z), vx, vy, vz);
     }
 
     // Initializes the different freelists with the remaining free chunks.
