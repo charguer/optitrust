@@ -823,9 +823,9 @@ int main(int argc, char** argv) {
                                 ic_y = (int)y - (y < 0.);
                                 ic_z = (int)z - (z < 0.);
                                 i_cells[thread_id].array[i] = COMPUTE_I_CELL_3D(icell_param1, icell_param2, ic_x & ncxminusone, ic_y & ncyminusone, ic_z & nczminusone);
-                                my_chunk->dx[i] = (float)(x - ic_x);
-                                my_chunk->dy[i] = (float)(y - ic_y);
-                                my_chunk->dz[i] = (float)(z - ic_z);
+                                my_chunk->dx[i] = (POSTYPE)(x - ic_x);
+                                my_chunk->dy[i] = (POSTYPE)(y - ic_y);
+                                my_chunk->dz[i] = (POSTYPE)(z - ic_z);
                             }
                             for (i = 0; i < my_chunk->size; i++) {
                                 i_cell = i_cells[thread_id].array[i];
