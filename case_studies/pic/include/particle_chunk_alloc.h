@@ -3,7 +3,7 @@
 
 #include <omp.h>
 
-#define NB_BAGS_PER_CELL 2
+// #define NB_BAGS_PER_CELL 2 -> in pic_barsamian.c
 
 //==========================================================================
 // Manual memory management for chunks

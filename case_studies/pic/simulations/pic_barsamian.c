@@ -437,7 +437,7 @@ int main(int argc, char** argv) {
      * physical particles than another numerical particle, even though in this
      * simulation it's not the case.
      */
-    float weight;
+    double weight;
     if (sim_initial == INIT_READ) {
         time_start = omp_get_wtime();
         read_particle_array_3d(mpi_world_size, nb_particles, mesh, &weight, &particles);
@@ -823,9 +823,9 @@ int main(int argc, char** argv) {
                                 ic_y = (int)y - (y < 0.);
                                 ic_z = (int)z - (z < 0.);
                                 i_cells[thread_id].array[i] = COMPUTE_I_CELL_3D(icell_param1, icell_param2, ic_x & ncxminusone, ic_y & ncyminusone, ic_z & nczminusone);
-                                my_chunk->dx[i] = (float)(x - ic_x);
-                                my_chunk->dy[i] = (float)(y - ic_y);
-                                my_chunk->dz[i] = (float)(z - ic_z);
+                                my_chunk->dx[i] = (POSTYPE)(x - ic_x);
+                                my_chunk->dy[i] = (POSTYPE)(y - ic_y);
+                                my_chunk->dz[i] = (POSTYPE)(z - ic_z);
                             }
                             for (i = 0; i < my_chunk->size; i++) {
                                 i_cell = i_cells[thread_id].array[i];
@@ -997,6 +997,14 @@ int main(int argc, char** argv) {
     free(charge_accu);
     free(reduced_charge_accu);
     deallocate_aligned_int_array_array(i_cells, num_threads);
+
+#ifdef STDCHUNKALLOC
+  /*
+    for (int j = 0; j < num_cells_3d; j++) {
+      naive_bag_free(&particles[j]);
+    }*/
+    // do we need to free also bags from particlesNext? or are they invalid at this point?
+#endif
 
     free(send_buf);
     free(recv_buf);

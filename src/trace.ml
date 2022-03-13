@@ -997,7 +997,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
         end;
         (* Handle the reporting of the script excerpt associated with the __next__ step, which starts on the line number reported *)
         if !Flags.analyse_time then begin
-          let descr = get_excerpt line in
+          let descr = if line = -1 then "" else get_excerpt line in
           write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line descr);
         end;
         (* Handle progress report *)
