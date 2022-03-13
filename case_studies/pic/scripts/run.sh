@@ -29,7 +29,7 @@ VALGRIND=
 
 # JEMALLOC SUPPORT (check during a run using "lsof | grep malloc")
 JEMALLOC=
-#JEMALLOC="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.1"
+JEMALLOC="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.1"
 
 run_one() {
   id_run=$1
