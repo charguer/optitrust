@@ -44,7 +44,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Update particles in-place instead of in a local variable "; (* LATER: it might be possible to change the script to postpone this step *)
   !! Variable.reuse ~space:(expr "p->speed") [step; cVarDef "speed2" ];
-  !! Variable.reuse ~reparse:true ~space:(expr "p->pos") [step; cVarDef "pos2"];
+  !! Variable.reuse ~space:(expr "p->pos") [step; cVarDef "pos2"];
+  !! Variable.reuse ~reparse:false ~space:(expr "p2.pos") [step; cFun ""; sExpr "p->pos"];
 
   bigstep "Reveal write operations involved manipulation of particles and vectors";
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in

@@ -1,24 +1,6 @@
 open Ast
 open Target
 
-(* LATER: maybe move or duplicate "replace" and "map" to a module named Expr? *)
-
-(* [update f tg] applies the operation [f] to the targeted expressions *)
-let update ?(reparse: bool = false)  (f : trm -> trm) : Target.Transfo.t =
-  Target.reparse_after ~reparse (Target.apply_on_targets (Instr_core.update f))
-
-(* [replace node tg] expects the target to point at an instruction,
-    then it will replace this instruction with [node]. Note that [node] can be
-    also some code entered as string which is transformed into a trm through function code
-    then this node is merged into the ast by doing a reparse of the full ast.
-
-   @correctness: Needs local manual reproving that if an invariant in the
-   previous proof was { H } old_expr { Q } then { H } new_expr { Q } holds
-   as well.
-*)
-let replace ?(reparse : bool = false) (node : trm) : Target.Transfo.t =
-  update ~reparse (fun _t -> node)
-
 (* [delete tg] expects the target [tg] to point to an instruction inside a sequence
       then it will remove that instruciton from that sequence
 *)

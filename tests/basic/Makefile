@@ -14,6 +14,7 @@ TESTS_WITH_DOC := \
 	array_tile.ml \
 	array_to_variables.ml  \
 	cast_insert.ml \
+	expr_replace.ml \
 	expr_replace_fun.ml \
 	flow_insert_if.ml \
 	function_inline.ml \
@@ -24,7 +25,6 @@ TESTS_WITH_DOC := \
 	instr_accumulate.ml \
 	instr_read_last_write.ml \
 	instr_move.ml \
-	instr_replace.ml \
 	label_add.ml \
 	label_remove.ml \
 	loop_color.ml \
