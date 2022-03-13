@@ -266,7 +266,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 (* TODO:
     for (int biX = ciX * block; biX < gridX; biX += block * block) {
     I don't think this is right; it should be biX += 2*block  I think
-    I know we use block=2, but it's not quite the same.
+    I know we  block=2, but it's not quite the same.
     The coloring is always with parameter 2, whereas the tiling is with parameter block
 *)
 (* TODO
@@ -330,6 +330,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 (* TODO:
   all instructions involving bagNext (without s) can be deleted;
   at the very least, the malloc and the free and bag_init_initial(&bagsNext[idCell]);
+  *)
 (*
    TODO:
    the outler loop on idCell with     sum += depositThreadCorners
