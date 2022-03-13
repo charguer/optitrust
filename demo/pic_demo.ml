@@ -221,4 +221,5 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~use:(Some (lit "0"))~alloc_instr ~index:"i" ~ops:delocalize_obj [cLabel "core"];
   !! Variable.insert_list ~reparse:false ~defs:(
     ["const int", "PRIVATE", lit "0"; "const int", "SHARED", lit "1"]) [tBefore; step; cVarDef "field_at_corners"];
+  !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "i"];
 )
