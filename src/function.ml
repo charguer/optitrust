@@ -148,9 +148,10 @@ int f2() { // result of Funciton_basic.inline_cal
 // where p is the path to the englobing sequence.
 *)
 
-let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) (tg : Target.target) : unit =
-
+let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) ?(delete : bool = false) (tg : Target.target) : unit =
+    let function_name = ref "" in 
     Trace.time "iteri_on_transformed_targets" (fun () ->
+
   Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun i t (path_to_seq, local_path, i1) ->
       let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in
@@ -161,9 +162,18 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       let tg_out_trm = Path.resolve_path path_to_instruction t in
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
+      let call_trm = begin match Target.get_trm_at (Target.target_of_path path_to_call) with
+      | Some t1 -> t1
+      | None -> fail None "inline: this is never expected to happen" 
+      end in
+      begin match call_trm.desc with 
+        | Trm_apps ({desc = Trm_var (_, f)}, _) -> function_name := f
+        | _ -> fail t.loc "get_function_name_from_call: couldn't get the name of the called function" 
+      end;
 
       let post_processing ?(deep_cleanup : bool = false)() : unit =
       Trace.time "post_processing" (fun () ->
+        
         let new_target = Target.cMark my_mark in
         if not !mark_added then Marks.add my_mark (Target.target_of_path path_to_call);
         if args <> [] then bind_args args [new_target];
@@ -190,9 +200,10 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
             Marks.remove my_mark [Target.nbAny; new_target]
         end;
         Marks.remove my_mark [Target.nbAny; new_target];
-        Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
-      )in
-
+        Struct_basic.simpl_proj (Target.target_of_path path_to_seq);
+        
+      )
+        in
       begin match tg_out_trm.desc with
       | Trm_let _ ->
         Marks.add "__inline_instruction" (Target.target_of_path path_to_instruction);
@@ -209,7 +220,10 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
         post_processing ();
       | _ -> fail tg_out_trm.loc "inline: please be sure that you're tageting a proper function call"
       end
-    ) tg)
+    ) tg;
+    if delete then Instr.delete [Target.cTopFunDef !function_name]
+    )
+
 (*
 
 

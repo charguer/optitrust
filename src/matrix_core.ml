@@ -257,10 +257,10 @@ let reorder_dims (rotate_n : int ) (order : int list) : Target.Transfo.local =
       return:
         the updated ast of the call to ALLOC functions with the new arg [new_dim]
 *)
-let insert_alloc_dim_aux (new_dim : trm) (t : trm) : trm =
+let insert_alloc_dim_aux ?(last : bool = false) (new_dim : trm) (t : trm) : trm =
   match alloc_inv t with
   | Some (dims, size, zero_init) ->
-    let new_dims = new_dim :: dims in
+    let new_dims = if last then dims @ [new_dim] else new_dim :: dims in
     let init = if zero_init then Some (trm_int 0) else None in
     alloc ~init new_dims size
   | None -> fail t.loc "insert_alloc_dim_aux: expected a function call to MCALLOC"
@@ -278,11 +278,11 @@ let insert_alloc_dim (new_dim : trm) : Target.Transfo.local =
       return:
         the updated ast of the
 *)
-let insert_access_dim_index_aux (new_dim : trm) (new_index : trm) (t : trm) : trm =
+let insert_access_dim_index_aux ?(last : bool = false) (new_dim : trm) (new_index : trm) (t : trm) : trm =
   match access_inv t with
   | Some (base, dims, indices) ->
-    let new_dims = new_dim :: dims in
-    let new_indices = new_index :: indices in
+    let new_dims = if last then dims @ [new_dim] else new_dim :: dims in 
+    let new_indices = if last then indices @ [new_index] else new_index :: indices in
     access base new_dims new_indices
   | None -> fail t.loc "insert_access_dim_index_aux: expected an array access "
 
@@ -348,7 +348,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
           begin match alloc_inv alloc_trm with 
           | Some (dims, _, _) -> 
               let alloc_arity = List.length dims in
-              let new_alloc_trm = insert_alloc_dim_aux dim alloc_trm in
+              let new_alloc_trm = insert_alloc_dim_aux ~last:true dim alloc_trm in
               let new_decl = trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_cast (get_inner_ptr_type ty) new_alloc_trm) in
               let snd_instr = Mlist.nth tl 1 in 
               begin match trm_fors_inv alloc_arity snd_instr with 
@@ -433,7 +433,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let ps2 = resolve_target tg thrd_instr in
                   let new_thrd_instr =
                     List.fold_left (fun acc p ->
-                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var "ANY") [dim]))) acc p
+                      apply_on_path (insert_access_dim_index_aux ~last:true dim (trm_add_mark any_mark (trm_apps (trm_var "ANY") [dim]))) acc p
                     ) thrd_instr ps2 in
 
                   let frth_instr = Mlist.nth tl 3 in

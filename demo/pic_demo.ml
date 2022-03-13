@@ -16,6 +16,8 @@ let idims = map_dims (fun d -> "i" ^ d)
 let delocalize_double_add = Local_arith (Lit_double 0., Binop_add)
 let delocalize_obj = Local_obj ("bag_init_initial", "bag_append")
 
+let doublepos = true
+
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
@@ -25,7 +27,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Loop.fission ~split_between:true [ctx; cFor "k"];
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
-  !! Function.inline [nbMulti;cFun "matrix_vect_mul"];
+  !! Function.inline ~delete:true [nbMulti;cFun "matrix_vect_mul"];
 
   bigstep "Vectorization in [cornerInterpolationCoeff]";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
@@ -76,6 +78,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Instr.inline_last_write ~write:[stepLF; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; stepLF; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
+  bigstep "Turn positions into floats";
+  if not doublepos then begin 
+    !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p. - i.2"];
+    !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
+  end;
+  
   bigstep "AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; step; sInstr "p2."];
@@ -122,9 +130,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [step; cFun "fmod"; sExpr (citemsposi d)];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; sInstr (citemsposi d ^ " = p")];);
-  !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p. - i.2"];
-  !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
-
 
   bigstep "Enumerate grid cells by coordinates";
   !! Variable.to_const [nbMulti; cVarDef ~regexp:true "grid."];
@@ -172,7 +177,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Sequence.insert (expr "#include \"omp.h\"") [tBefore; step];
-  !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "8") [tBefore; step]; (* TODO: remove ~value, see comment in Variable.insert *)
+  !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(expr "omp_get_num_threads()")[tFirst; step; dBody]; 
   !! Variable.insert ~const:false ~name:"idThread" ~typ:(typ_int()) ~value:(expr "omp_get_thread_num()") [tBefore; cLabel "charge" ];
   !! Trace.reparse();
 
@@ -180,7 +185,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
       ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "idThread")) [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
-  (* TODO: Move to allocate(deallocate)Structures malloc(free) instructions *)
 
   bigstep "Coloring";
   !! Variable.insert_list ~const:true ~defs:[("int","block",lit "2"); ("int","halfBlock",expr "block / 2")] [tBefore; cVarDef "nbCells"];
@@ -189,19 +193,30 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
     Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [step; cFor ("i" ^ d)];
     Loop.color (expr color) ~index:("ci"^d) [step; cFor bd]
     in
-  !! iter_dims (fun d -> colorize "block" "block" d);
+  !! iter_dims (fun d -> colorize "block" "2" d);
   !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [step; cFor "ciX"];
 
+  bigstep "Delocalize objects";
+  let alloc_instr = [cFunDef "allocateStructures";cWriteVar "bagsNext"] in
+  !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~alloc_instr ~index:"bagsKind" ~ops:delocalize_obj [cLabel "core"];
+  !! Variable.insert_list ~reparse:false ~defs:(
+    ["const int", "PRIVATE", lit "0"; "const int", "SHARED", lit "1"]) [tBefore; step; cVarDef "field_at_corners"];
+  !! Instr.delete [step; cFor "idCell" ~body:[cFun "bag_swap"]];
+  !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "idCell"];
+
+   
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
-  !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
-  !! Variable.bind "b2" ~const:true ~is_ptr:true [step; cFun "bag_push"; dArg 0];
+  !! Variable.  insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
   !! Variable.insert ~const:true ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:(trm_ands (map_dims (fun d ->
          expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
-      [tBefore; step; cVarDef "b2"];
+      [tBefore; step; cFun "bag_push"];
   !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") ~mark:"push" [step; cFun "bag_push"];
+  !! Specialize.any (expr "PRIVATE") [cMark "push"; dThen; cAny];
+  !! Specialize.any (expr "SHARED") [cMark "push"; dElse; cAny];
+  !! Variable.bind "b2" ~const:true ~is_ptr:true [nbMulti; step; cFun "bag_push"; dArg 0];
   !! Expr.replace_fun "bag_push_serial" [cMark "push"; dThen; cFun "bag_push"];
-     Expr.replace_fun "bag_push_concurrent" [cMark "push"; dElse; cFun "bag_push"];
+  !! Expr.replace_fun "bag_push_concurrent" [cMark "push"; dElse; cFun "bag_push"];
      Marks.remove "push" [cMark "push"];
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
@@ -215,13 +230,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   bigstep "Parallelization";
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
   !! Omp.parallel_for [Shared ["bX";"bY";"bZ"]] [tBefore; cFor "biX"];
-
-  bigstep "Delocalize objects";
-  let alloc_instr = [cFunDef "allocateStructures";cWriteVar "bagsNext"] in
-  !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~use:(Some (lit "0"))~alloc_instr ~index:"i" ~ops:delocalize_obj [cLabel "core"];
-  !! Variable.insert_list ~reparse:false ~defs:(
-    ["const int", "PRIVATE", lit "0"; "const int", "SHARED", lit "1"]) [tBefore; step; cVarDef "field_at_corners"];
-  !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "i"];
 )
 
 (* TODO:
