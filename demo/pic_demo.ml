@@ -116,7 +116,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! iter_dims (fun d ->
       Variable.bind ~const:true ("p" ^ d) [step; sInstrRegexp (d ^ "\\[i\\] = fmod"); dRHS]);
   !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true "p[X-Z]"];
-  !! Instr.read_last_write [nbMulti; step; cFun "wrap"; cCellRead ~index:[cVar "i"] ()];
+  (* !! Instr.read_last_write [nbMulti; step; cFun "wrap"; cCellRead ~index:[cVar "i"] ()]; *)
   !! Instr.(gather_targets ~dest:(GatherAt [tAfter; step; cVarDef "pZ"])) [step; cVarDef ~regexp:true "i[X-Z]2"];
   !! Instr.move ~dest:[tAfter; step;cVarDef "iZ2"] [step;cVarDef "idCell2"];
   !! iter_dims (fun d ->

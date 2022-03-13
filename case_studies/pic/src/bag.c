@@ -131,13 +131,22 @@ void chunk_free(chunk* c) {
  *
  * @param[in, out] b the bag to initialize.
  */
-void bag_init(bag* b, int id_bag, int id_cell) {
+/* void bag_init(bag* b, int id_bag, int id_cell) {
   chunk* c = chunk_alloc();
   c->size = 0;
   c->next = NULL;
   b->front = c;
   b->back  = c;
 }
+ */
+void bag_init(bag* b) {
+  chunk* c = chunk_alloc();
+  c->size = 0;
+  c->next = NULL;
+  b->front = c;
+  b->back  = c;
+}
+
 
 /*
  * Merge other into b; other is re-initialized if not void,
@@ -146,13 +155,21 @@ void bag_init(bag* b, int id_bag, int id_cell) {
  * @param[in, out] b
  * @param[in, out] other
  */
-void bag_append(bag* b, bag* other, int id_bag, int id_cell) {
+/* void bag_append(bag* b, bag* other, int id_bag, int id_cell) {
   if (other->front) {
     b->back->next = other->front;
     b->back       = other->back;
     bag_init(other, id_bag, id_cell);
   }
+} */
+void bag_append(bag* b, bag* other) {
+  if (other->front) {
+    b->back->next = other->front;
+    b->back       = other->back;
+    bag_init(other);
+  }
 }
+
 
 /*
  * Nullify a bag (already allocated).
@@ -427,10 +444,14 @@ void bag_push_initial(bag* b, particle p) {
   bag_push_serial(b, p); // threadid=THREAD_INITIAL
 }
 
-void bag_init_initial(bag* b) {
+/* void bag_init_initial(bag* b) {
   bag_init(b, -1, -1); // threadid=THREAD_INITIAL
   // TODO: maybe put the thread_id argument before id_bag and id_cell (both are dummy values here)
+} */
+void bag_init_initial(bag* b) {
+  bag_init(b); 
 }
+
 
 // Free all the chunks in a bag
 void bag_free_initial(bag* b) {
