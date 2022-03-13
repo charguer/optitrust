@@ -14,7 +14,7 @@ let iter_dims f = List.iter f dims
 let map_dims f = List.map f dims
 let idims = map_dims (fun d -> "i" ^ d)
 let delocalize_double_add = Local_arith (Lit_double 0., Binop_add)
-
+let delocalize_obj = Local_obj ("bag_init_initial", "bag_append")
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
@@ -38,7 +38,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
       [nbMulti; ctx_rv; dRHS];
   !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
   !! Trace.reparse(); (* Note: when using menhir, !!! does not seem to work fine *)
-  !! Loop.fold_instrs ~index:"k" [sInstr "r.v"];
+  !! Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"];
 
   bigstep "Update particles in-place instead of in a local variable "; (* LATER: it might be possible to change the script to postpone this step *)
   !! Variable.reuse ~space:(expr "p->speed") [step; cVarDef "speed2" ];
@@ -131,10 +131,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal of x/y/z *)
-  let alloc_tg = cChain [cFunDef "allocateStructures";cWriteVar "deposit"; cFun "malloc"] in
   !! Label.add "core" [step; cFor "iX" ];
-  !! Matrix_basic.intro_mmalloc [nbMulti; alloc_tg]; (* TODO: Fix the combi version *)
-  !! Matrix.intro_mindex (expr "nbCells") [step; cCellAccess ~base:[Target.cVar "deposit"] ()];
+  !! Matrix_basic.intro_mmalloc [nbMulti; cFunDef "allocateStructures";cFun "malloc"]; 
+  !! Matrix.intro_mindex (expr "nbCells") [step; cCellAccess ~base:[cVar "deposit"] ()];
+  !! Matrix.intro_mindex (expr "nbCells") [nbMulti;step; cCellAccess ~base:[cVar "bagsNext"] ()];
   !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
   !! Variable.inline [step; cVarDef "indices"];
 
@@ -181,7 +181,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
       ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "idThread")) [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
   (* TODO: Move to allocate(deallocate)Structures malloc(free) instructions *)
-
+  
   bigstep "Coloring";
   !! Variable.insert_list ~const:true ~defs:[("int","block",lit "2"); ("int","halfBlock",expr "block / 2")] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
@@ -216,4 +216,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
   !! Omp.parallel_for [Shared ["bX";"bY";"bZ"]] [tBefore; cFor "biX"];
 
+  bigstep "Delocalize objects";
+  let alloc_instr = [cFunDef "allocateStructures";cWriteVar "bagsNext"] in
+  !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~use:(Some (lit "0"))~alloc_instr ~index:"i" ~ops:delocalize_obj [cLabel "core"];
+  !! Variable.insert_list ~reparse:false ~defs:(
+    ["const int", "PRIVATE", lit "0"; "const int", "SHARED", lit "1"]) [tBefore; step; cVarDef "field_at_corners"];
 )

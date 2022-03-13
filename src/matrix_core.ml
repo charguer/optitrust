@@ -437,11 +437,23 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     ) thrd_instr ps2 in
 
                   let frth_instr = Mlist.nth tl 3 in
-                  let ps2 = resolve_target tg frth_instr in
+                  let new_frth_instr = begin match trm_fors_inv alloc_arity frth_instr with
+                    | Some (loop_range, body) -> 
+                      let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc)] in 
+                      let ps2 = resolve_target tg body in
+                      let new_body =
+                          List.fold_left (fun acc p ->
+                        apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
+                      ) body ps2  in 
+                      trm_fors new_loop_range new_body
+                    | _ -> fail t.loc "delocalize_aux: expected the accumulation loop"
+                    end in 
+                  
+                  (* let ps2 = resolve_target tg frth_instr in
                   let new_frth_instr =
                     List.fold_left (fun acc p ->
                       apply_on_path (insert_access_dim_index_aux dim (trm_var index)) acc p
-                    ) frth_instr ps2 in
+                    ) frth_instr ps2 in *)
                   
                   let fifth_instr = Mlist.nth tl 4 in
                   trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_decl; new_snd_instr; new_thrd_instr; new_frth_instr; fifth_instr])
