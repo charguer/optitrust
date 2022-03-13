@@ -170,6 +170,11 @@ endif
 %_trace.js: %_with_lines.byte %.cpp %_with_lines.ml
 	$(V)OCAMLRUNPARAM=b ./$< -dump-trace $(FLAGS)
 
+# TODO MOVE
+# Rule for building the timing.log file describing the trace associated with a script
+%_timing_out.cpp: %_with_lines.byte %.cpp %_with_lines.ml
+	$(V)OCAMLRUNPARAM=b ./$< -dump-trace $(FLAGS)
+
 # Rule for producing the expected output file from the result
 # TODO: see if we can use $* instead of basename
 %.exp: %_out.cpp
