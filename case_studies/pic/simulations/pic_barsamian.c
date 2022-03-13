@@ -998,6 +998,14 @@ int main(int argc, char** argv) {
     free(reduced_charge_accu);
     deallocate_aligned_int_array_array(i_cells, num_threads);
 
+#ifdef STDCHUNKALLOC
+  /*
+    for (int j = 0; j < num_cells_3d; j++) {
+      naive_bag_free(&particles[j]);
+    }*/
+    // do we need to free also bags from particlesNext? or are they invalid at this point?
+#endif
+
     free(send_buf);
     free(recv_buf);
     free_poisson_3d(&solver);

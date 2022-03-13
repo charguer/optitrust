@@ -16,6 +16,33 @@
                                                           // variable  free_index, FREELIST_SIZE
 #include "random.h"                                       // function  pic_vert_next_random_double
 
+
+//==========================================================================
+// Naive chunk allocation operations
+
+#ifdef STDCHUNKALLOC
+// printf("init_all_chunks STDCHUNKALLOC flag\n");
+
+chunk* naive_chunk_alloc() {
+  return (chunk*) malloc(sizeof(chunk));
+}
+
+void naive_chunk_free(chunk* c) {
+  free(c);
+}
+
+// Free all the chunks in a bag
+void naive_bag_free(bag* b) {
+  chunk* c = b->front;
+  while (c != NULL) {
+    chunk* cnext = c->next;
+    naive_chunk_free(c);
+    c = cnext;
+  }
+}
+
+#endif // defined(STDCHUNKALLOC)
+
 /*****************************************************************************
  *                              Chunk bags                                   *
  *****************************************************************************/
@@ -71,6 +98,8 @@
  *
  */
 
+#ifndef STDCHUNKALLOC
+
 chunk*** free_chunks;    // Freelists
 chunk** all_free_chunks; // Stores the free chunks during the initialization phase, before they are put into freelists
 int number_of_spare_chunks_per_parity; // Number of chunks needed to initialize each bag in the append phase.
@@ -93,6 +122,8 @@ enum SPARE_CHUNK_LOCATION {
 int** spare_chunk_location;
 #endif
 
+#endif // defined(STDCHUNKALLOC)
+
 /*
  * Take a chunk from the freelist of thread_id. If the freelist is empty,
  * allocate a new one. This function should only be called during the particle
@@ -103,6 +134,10 @@ int** spare_chunk_location;
  * @return    a chunk almost ready to be filled with particles (set size to 0 before).
  */
 chunk* chunk_alloc(int thread_id) {
+#ifdef STDCHUNKALLOC
+  return naive_chunk_alloc();
+#else // defined(STDCHUNKALLOC)
+
   if (FREE_INDEX(thread_id) > 0) {
     return free_chunks[thread_id][--FREE_INDEX(thread_id)];
   } else {
@@ -111,6 +146,7 @@ chunk* chunk_alloc(int thread_id) {
 #endif
     return (chunk*) malloc(sizeof(chunk));
   }
+#endif // defined(STDCHUNKALLOC)
 }
 
 /*
@@ -122,6 +158,9 @@ chunk* chunk_alloc(int thread_id) {
  * @param[in] thread_id the index of the thread asking for this release.
  */
 void chunk_free(chunk* c, int thread_id) {
+#ifdef STDCHUNKALLOC
+  naive_chunk_free(c);
+#else // defined(STDCHUNKALLOC)
   if (FREE_INDEX(thread_id) < FREELIST_SIZE) {
     free_chunks[thread_id][FREE_INDEX(thread_id)++] = c;
   } else {
@@ -130,6 +169,7 @@ void chunk_free(chunk* c, int thread_id) {
 #endif
     free(c);
   }
+#endif // defined(STDCHUNKALLOC)
 }
 
 /*
@@ -165,6 +205,7 @@ void add_front_chunk(bag* b, int thread_id) {
  *            cumulative_free_indexes[i] = sum(j = 0; j < i) FREE_INDEX(j).
  */
 void compute_cumulative_free_list_sizes() {
+#ifndef STDCHUNKALLOC
   int k;
   cumulative_free_indexes[0] = 0;
   for (k = 1; k < num_threads; k++)
@@ -199,6 +240,7 @@ void compute_cumulative_free_list_sizes() {
       bag_last_spare_chunk_to_be_used = k;
       return;
   }
+#endif // defined(STDCHUNKALLOC)
 }
 
 /*
@@ -210,9 +252,11 @@ void compute_cumulative_free_list_sizes() {
  * the master thread.
  */
 void update_free_list_sizes() {
+#ifndef STDCHUNKALLOC
   for (int i = 0; i < bag_last_spare_chunk_to_be_used; i++)
     FREE_INDEX(i) = 0;
   FREE_INDEX(bag_last_spare_chunk_to_be_used) -= number_of_spare_chunks_per_parity - cumulative_free_indexes[bag_last_spare_chunk_to_be_used];
+#endif // defined(STDCHUNKALLOC)
 }
 
 #ifdef SPARE_LOC_OPTIMIZED
@@ -238,6 +282,7 @@ void update_free_list_sizes() {
  * @param[in] thread_id the index of the thread that asks for a chunk.
  */
 void locate_spare_chunk(int id_bag, int id_cell, int thread_id) {
+#ifndef STDCHUNKALLOC
   int id_chunk = spare_chunks_ids[id_bag][id_cell];
   int k;
   for (k = num_threads - 1; k >= 0; k--)
@@ -254,6 +299,7 @@ void locate_spare_chunk(int id_bag, int id_cell, int thread_id) {
     ? index + FREE_INDEX(k) - (number_of_spare_chunks_per_parity - cumulative_free_indexes[k])
     : index;
   spare_chunk_location[thread_id][SPARE_CHUNK_LOCATION_MAX_OFFSET] = FREE_INDEX(k);
+#endif // defined(STDCHUNKALLOC)
 }
 #endif
 
@@ -315,6 +361,9 @@ void locate_spare_chunk(int id_bag, int id_cell, int thread_id) {
  * @param[in, out] b the bag to initialize.
  */
 void bag_init(bag* b, int id_bag, int id_cell, int thread_id) {
+#ifdef STDCHUNKALLOC
+  chunk* c = naive_chunk_alloc();
+#else // defined(STDCHUNKALLOC)
 #ifdef SPARE_LOC_OPTIMIZED
   if (spare_chunk_location[thread_id][SPARE_CHUNK_LOCATION_OFFSET] >= spare_chunk_location[thread_id][SPARE_CHUNK_LOCATION_MAX_OFFSET])
     locate_spare_chunk(id_bag, id_cell, thread_id);
@@ -334,6 +383,7 @@ void bag_init(bag* b, int id_bag, int id_cell, int thread_id) {
   }
   chunk* c = free_chunks[k][FREE_INDEX(k) - 1 - offset];
 #endif
+#endif // defined(STDCHUNKALLOC)
   c->size = 0;
   c->next = (void*)0;
   b->front = c;
@@ -493,12 +543,16 @@ void bag_push_serial(bag* b, float dx, float dy, float dz, double vx, double vy,
  * they have to be split into one free list per thread.
  */
 void add_front_chunk_initial(bag* b) {
+#ifdef STDCHUNKALLOC
+  chunk* c = naive_chunk_alloc();
+#else // defined(STDCHUNKALLOC)
   // We are never too careful (-:
   if (FREE_INDEX(0) < 1) {
     fprintf(stderr, "Not enough chunks in all_free_chunks. Check its allocation.\n");
     exit(EXIT_FAILURE);
   }
   chunk* c = all_free_chunks[--FREE_INDEX(0)];
+#endif // defined(STDCHUNKALLOC)
   c->size = 0;
   c->next = b->front;
   b->front = c;
@@ -688,6 +742,7 @@ void set_borders_z(int iz_min, int normal_border_size, int* lower_z_border, int*
  *                              when using coloring scheme, <= tile_size / 2 otherwise).
  * @param[in,out] particlesNext
  */
+
 void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_mesh_3d mesh,
     int tile_size, int border_size, bag*** particlesNext) {
   const int ncx = mesh.num_cell_x;
@@ -695,6 +750,12 @@ void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_
   const int ncz = mesh.num_cell_z;
   const int id_shared_bag = nb_bags_per_cell - 1;
   const int num_cells_3d = ncx * ncy * ncz;
+#ifdef STDCHUNKALLOC
+    // Filling of particlesNext.
+  for (int i = 0; i < num_cells_3d; i++)
+    for (int j = 0; j < nb_bags_per_cell; j++)
+      bag_init_initial(&((*particlesNext)[j][i]));
+#else // defined(STDCHUNKALLOC)
   const int icell_param1 = I_CELL_PARAM1_3D(ncx, ncy, ncz);
   const int icell_param2 = I_CELL_PARAM2_3D(ncx, ncy, ncz);
   const int ncxminusone = ncx - 1;
@@ -857,6 +918,7 @@ void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_
     nb_free[i]   = 0;
   }
 #endif
+#endif // defined(STDCHUNKALLOC)
 }
 
 /*
@@ -867,6 +929,7 @@ void init_all_chunks(int nb_bags_per_cell, unsigned int num_particle, cartesian_
  * not make any difference.
  */
 void init_freelists() {
+#ifndef STDCHUNKALLOC
   int i;
   // We temporarily stored the number of free chunks inside the free_index of thread 0.
   int nb_free_chunks = FREE_INDEX(0);
@@ -888,6 +951,7 @@ void init_freelists() {
   }
   // We don't need all_free_chunks anymore, the rest of the code uses only freelists.
   free(all_free_chunks);
+#endif // defined(STDCHUNKALLOC)
 }
 
 /*

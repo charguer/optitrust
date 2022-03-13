@@ -340,8 +340,6 @@ void step() {
 
   computeConstants();
 
-  allocateStructuresForPoissonSolver();
-
   allocateStructures();
 
   resetDeposit();
@@ -377,8 +375,6 @@ void step() {
 #endif
 
   deallocateStructures();
-
-  deallocateStructuresForPoissonSolver();
 
   free(deposit);
 }

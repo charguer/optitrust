@@ -22,7 +22,14 @@ source $PICVERT_HOME/your_configuration.sh
 #              run                #
 ###################################
 
-PRELOAD="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.1"
+# VALGRIND SUPPORT (sudo apt install valgrind)
+VALGRIND=
+# Uncomment the line below to activate debugging using valgrind, and deactivate mpirun
+#VALGRIND="valgrind --track-origins=yes"
+
+# JEMALLOC SUPPORT (check during a run using "lsof | grep malloc")
+JEMALLOC=
+#JEMALLOC="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.1"
 
 run_one() {
   id_run=$1
@@ -42,8 +49,13 @@ run_one() {
 
   cd $PICVERT_HOME/3d_runs/run${id_run}
   export OMP_NUM_THREADS=$nb_threads
-  ${PRELOAD}
-  mpirun -q --report-bindings --cpus-per-proc $nb_threads -np $nb_sockets ./${BASENAME}.out ./parameters_3d.txt | tee ./std_output_run${id_run}.txt
+  ${JEMALLOC}
+  COMMAND="./${BASENAME}.out ./parameters_3d.txt | tee ./std_output_run${id_run}.txt"
+  if [ "${VALGRIND}" = "" ]; then
+    mpirun -q --report-bindings --cpus-per-proc $nb_threads -np $nb_sockets ${COMMAND}
+  else
+    ${VALGRIND} ${COMMAND}
+  fi
 }
 # LATER: remove -q to see the depreciation warnings
 

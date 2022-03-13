@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <float.h>
 
 double max (double a, double b) {
   return (a > b) ? a : b;
@@ -135,10 +136,10 @@ int main(int argc, char* argv[]) {
   }
   printf("Maximal dist speed relative to maximal speed: %g%%\n", 100. * sqrt(max_sqdist_speed) / sqrt(max_sqspeed));
 
-  // #include <float.h>
-  // int Digs = DECIMAL_DIG;
-  // printf("Maximal dist pos  : %.*e\n", Digs, sqrt(max_sqdist_pos));
-  // printf("Maximal dist speed: %.*e\n", Digs, sqrt(max_sqdist_speed));
+  //
+  int Digs = DECIMAL_DIG;
+  printf("Maximal dist pos  : %.*e\n", Digs, sqrt(max_sqdist_pos));
+  printf("Maximal dist speed: %.*e\n", Digs, sqrt(max_sqdist_speed));
 
   free(ps1);
   free(ps2);

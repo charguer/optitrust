@@ -508,5 +508,10 @@ void create_particle_array_3d(int mpi_world_size, unsigned int num_particle, car
         unsigned char sim_distrib, double* spatial_params, double* speed_params, float* weight,
         bag** particles);
 
+#ifdef STDCHUNKALLOC
+void naive_bag_free(bag* b);
+#endif // defined(STDCHUNKALLOC)
+
+
 #endif // ifndef PIC_VERT_PARTICLE_TYPE_CONCURRENT_CHUNKBAGS_OF_SOA_3D
 
