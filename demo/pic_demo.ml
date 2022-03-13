@@ -64,10 +64,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Low level iteration on chunks of particles";
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
-  !! Sequence.intro_on_instr [steps; cMark "loop"; cFor_c ""; dBody]; 
+  !! Sequence.intro_on_instr [steps; cMark "loop"; cFor_c ""; dBody];
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cMark "loop"];
   !! Expr.replace_fun "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
-  !! Function.inline [steps; cFun "bag_iter_ho_chunk"]; 
+  !! Function.inline [steps; cFun "bag_iter_ho_chunk"];
   (* Arthur: Why I can't use steps target? *)
   !! Function.beta ~indepth:true [step];
   !! Function.beta ~indepth:true [stepLF];
@@ -108,7 +108,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Trace.reparse();
   !! Variable.inline [step; cVarDef "accel"];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cFor "i"; cCellWrite ~index:[cVar "i"] ()];
-  
+
   bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
   let citemsposi d = "c->itemsPos" ^ d ^ "[i]" in
   !! Instr.inline_last_write [nbMulti; cFun "fmod"; cCellRead ~index:[cVar "i"] ()];
@@ -132,7 +132,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal of x/y/z *)
   !! Label.add "core" [step; cFor "iX" ];
-  !! Matrix_basic.intro_mmalloc [nbMulti; cFunDef "allocateStructures";cFun "malloc"]; 
+  !! Matrix_basic.intro_mmalloc [nbMulti; cFunDef "allocateStructures";cFun "malloc"];
   !! Matrix.intro_mindex (expr "nbCells") [step; cCellAccess ~base:[cVar "deposit"] ()];
   !! Matrix.intro_mindex (expr "nbCells") [nbMulti;step; cCellAccess ~base:[cVar "bagsNext"] ()];
   !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
@@ -181,7 +181,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
       ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "idThread")) [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
   (* TODO: Move to allocate(deallocate)Structures malloc(free) instructions *)
-  
+
   bigstep "Coloring";
   !! Variable.insert_list ~const:true ~defs:[("int","block",lit "2"); ("int","halfBlock",expr "block / 2")] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
@@ -223,3 +223,116 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
     ["const int", "PRIVATE", lit "0"; "const int", "SHARED", lit "1"]) [tBefore; step; cVarDef "field_at_corners"];
   !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "i"];
 )
+
+(* TODO:
+  instead of
+    const int nbThread = 8
+  we want to do:
+
+  int nbTread;
+
+  int main() {
+    num_threads = omp_get_num_threads();
+    ..
+  }
+*)
+(* TODO:
+  the transformation that introduces float for pos needs to take place before "AOS-TO-SOA" else we have double itemsPosX
+  Introduce before "aos-to-soa" a separate bigstep "Turn positions into float", and move there the
+   Cast.insert and the Struct.update_field.
+*)
+(* TODO
+  introduce a flag at the top of the file to deactivate the floating point positions
+   (this is used for the checker and to demonstrate conditional transformations)
+
+    let doublepos = false // I'll later make it a command line argument
+
+    then:
+
+    if not doublepos then begin
+      bigstep "Turn positions into float";
+      !! Cast.insert ..
+      !! Struct.update_field...
+    end
+
+*)
+(* TODO
+  !! Function.inline [nbMulti;cFun "matrix_vect_mul"];
+   could become
+   !! Function.inline ~delete:true [nbMulti;cFun "matrix_vect_mul"];
+   to delete the toplevel function definition, since we no longer need it (makes reparsing faster)
+*)
+
+(* TODO:
+    for (int biX = ciX * block; biX < gridX; biX += block * block) {
+    I don't think this is right; it should be biX += 2*block  I think
+    I know we use block=2, but it's not quite the same.
+    The coloring is always with parameter 2, whereas the tiling is with parameter block
+*)
+(* TODO
+      c->itemsSpeedX[i] / (cellX * cellX) + fieldAtPosX;
+    The factor used for scaling has been inversed. All the cellX are meant to cancel out.
+    See the scan that I sent the other day.
+    It it's not obvious how to fix, we'll discuss it.
+*)
+(* TODO
+    The split for the loops should be:
+    1) after c->itemsSpeedZ[i] =
+    2) after c->itemsPosZ[i]
+    There is no split between push and deposit.
+    There is a recomputation of coefs with respect to the corners of idCell2 that has vanished somehow
+    (we can reuse the coefs associated with idCell).
+
+*)
+(* TODO
+
+  bag *bagsNexts = ( bag * ) MMALLOC2(2, nbCells, sizeof(bag));
+  for (int i1 = 0; i1 < nbCells; i1++) {
+    for (int i = 0; i < 2; i++) {
+
+  it'd be better to make the dimension "2" be the last one.
+  The indices should be name "idCell" and "bagKind"
+*)
+(* TODO: the arbitrary if statement needs to apply to bag_push
+  before we name b2, so that we get:
+
+      if (isDistFromBlockLessThanHalfABlock) {
+        bag *const b2 = &bagsNexts[MINDEX2(2, nbCells, ANY(2), idCell2)];
+        bag_push(b2, p2);
+      } else {
+        bag *const b2 = &bagsNexts[MINDEX2(2, nbCells, ANY(2), idCell2)];
+        bag_push(b2, p2);
+      }
+
+  It the then branch, we specialize cAny to PRIVATE
+  It the else branch, we specialize cAny to SHARED
+
+  you need to introduce beforehand
+  const int PRIVATE = 0;
+  const int SHARED = 1;
+*)
+(* TODO
+     bag *bagsNexts = (bag* )MMALLOC2(2, nbCells, sizeof(bag));
+     and the initialization loop that follows
+  needs to be moved into the allocation function (eg at tLast)
+
+     MFREE(bagsNexts);
+  needs to be moved into the deallocation function (eg at tLast)
+*)
+(* TODO
+  because you do the variable.exchange for  bagCur and bagNext
+  you can delete the loop
+    for (int idCell = 0; idCell < nbCells; idCell++)
+      bag_swap(&bagsCur[idCell], &bagsNext[MINDEX1(nbCells, idCell)]);
+
+  as this is already done implicitly, now .
+*)
+(* TODO:
+  all instructions involving bagNext (without s) can be deleted;
+  at the very least, the malloc and the free and bag_init_initial(&bagsNext[idCell]);
+(*
+   TODO:
+   the outler loop on idCell with     sum += depositThreadCorners
+   and the outer loop on idCell (currently i1) with  bag_append
+   should be made parallel
+*)

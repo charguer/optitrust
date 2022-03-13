@@ -118,6 +118,11 @@ let report_time_of_step (timing : int) : unit =
     write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" timing);
   end
 
+(* [report_full_time ()] reports the time for the last step, and
+   for the full total. *)
+let report_full_time () : unit =
+  write_timing_log (Printf.sprintf "------------------------TOTAL TRANSFO TIME: %.3f s\n" (!last_time -. !start_time))
+
 (* [id_big_step] traces the number of big steps executed. This reference is used only
    when executing a script from the command line, because in this case the line numbers
    from the source script are not provided on calls to the [step] function. *)
@@ -878,10 +883,8 @@ let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
 (* LATER for mli: dump_diff_and_exit : unit -> unit *)
 let dump_diff_and_exit () : unit =
   if !Flags.analyse_time then begin
-     let timing = last_time_update() in
-     report_time_of_step timing;
-     write_timing_log (Printf.sprintf "------------------------TOTAL TRANSFO TIME: %.3f s\n" (!last_time -. !start_time));
-     write_timing_log (Printf.sprintf "------------START DUMP------------\n");
+    report_full_time();
+    write_timing_log (Printf.sprintf "------------START DUMP------------\n")
   end;
   timing ~name:"TOTAL for dump_diff_and_exit" (fun () ->
     print_info None "Exiting script\n";

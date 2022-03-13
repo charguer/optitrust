@@ -144,7 +144,12 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 #-----begin rules for non-batch mode------
 ifeq ($(BATCH),)
 
-%_out.cpp: %.$(PROGEXT) %.cpp %.ml
+# DEPREACTED
+# %_out.cpp: %.$(PROGEXT) %.cpp %.ml
+#	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS)
+#	@echo "Produced $@"
+
+%_out.cpp: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
 	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS)
 	@echo "Produced $@"
 
@@ -168,11 +173,6 @@ endif
 
 # Rule for building the js file describing the trace associated with a script
 %_trace.js: %_with_lines.byte %.cpp %_with_lines.ml
-	$(V)OCAMLRUNPARAM=b ./$< -dump-trace $(FLAGS)
-
-# TODO MOVE
-# Rule for building the timing.log file describing the trace associated with a script
-%_timing_out.cpp: %_with_lines.byte %.cpp %_with_lines.ml
 	$(V)OCAMLRUNPARAM=b ./$< -dump-trace $(FLAGS)
 
 # Rule for producing the expected output file from the result
