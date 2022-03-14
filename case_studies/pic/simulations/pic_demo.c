@@ -12,6 +12,8 @@ int int_of_double(double a) {
 
 int wrap(int gridSize, int a) {
   return (a % gridSize + gridSize) % gridSize;
+  // could also be implemented using a conditional:
+  // int r = (a % gridSize); return (r >= 0) ? r : (r + gridSize);
 }
 
 // --------- Grid Representation
@@ -23,7 +25,7 @@ int cellOfCoord(int i, int j, int k) {
 }
 
 // [idCellOfPos(pos)] computes the id of the cell that contains a position,
-// assumed to be inside the grid (wrapAround needs to be called first)
+// assumed to be inside the grid (wrapArea needs to be called first)
 int idCellOfPos(vect pos) {
   int iX = int_of_double(pos.x / cellX);
   int iY = int_of_double(pos.y / cellY);
@@ -31,11 +33,19 @@ int idCellOfPos(vect pos) {
   return cellOfCoord(iX, iY, iZ);
 }
 
-vect wrapAround(vect pos) {
-  // TODO ARTHUR: test if it is negative, althought with optimizations it's not needed
-  double x = fmod(pos.x + areaX, areaX);
-  double y = fmod(pos.y + areaY, areaY);
-  double z = fmod(pos.z + areaZ, areaZ);
+double fwrap(double gridWidth, double x) {
+  double r = fmod(x, gridWidth);
+  if (r >= 0) {
+    return r;
+  } else {
+    return r + gridWidth;
+  }
+}
+
+vect wrapArea(vect pos) {
+  double x = fwrap(areaX, pos.x);
+  double y = fwrap(areaY, pos.y);
+  double z = fwrap(areaZ, pos.z);
   return (vect) { x,y,z };
 }
 
@@ -309,7 +319,7 @@ void step() {
       // Compute the new speed and position for the particle.
       vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
       vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
-      pos2 = wrapAround(pos2);
+      pos2 = wrapArea(pos2);
       particle p2 = { pos2, speed2, CHECKER_ONLY(p->id) };
 
       // Compute the location of the cell that now contains the particle

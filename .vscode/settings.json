@@ -33,6 +33,8 @@
     "particle_chunk.h": "c",
     "particle_chunk_alloc.h": "c",
     "particle.h": "c",
-    "space_filling_curves.h": "c"
+    "space_filling_curves.h": "c",
+    "cmath": "cpp",
+    "typeinfo": "cpp"
   }
 }
