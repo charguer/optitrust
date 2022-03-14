@@ -34,7 +34,8 @@ particle* bag_iter_next_common(bag_iter* it, bool destructive);
 void bag_push(bag* b, particle p);
 void bag_init(bag* b, int id_bag, int id_cell);
 void bag_swap(bag* b1, bag* b2);
-
+void bag_merge(bag* b1, bag* b2);
+void bag_free(bag* b);
 
 int main() {
   int const nbCells = 100;
@@ -54,7 +55,7 @@ int main() {
   }
   
   for (int idCell = 0; idCell < nbCells; idCell++){
-  *  for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
+    for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
       bag_push(&bagNext[MINDEX1(nbCells, idCell)],*p);
     }
   }

@@ -14,7 +14,7 @@ let iter_dims f = List.iter f dims
 let map_dims f = List.map f dims
 let idims = map_dims (fun d -> "i" ^ d)
 let delocalize_double_add = Local_arith (Lit_double 0., Binop_add)
-let delocalize_obj = Local_obj ("bag_init_initial", "bag_append")
+let delocalize_obj = Local_obj ("bag_init_initial", "bag_append", "bag_free_initial")
 
 let doublepos = true
 
@@ -130,7 +130,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
   let citemsposi d = "c->itemsPos" ^ d ^ "[i]" in
-  !! Instr.inline_last_write [nbMulti; cFun "fmod"; cCellRead ~index:[cVar "i"] ()];
+  !! iter_dims (fun d -> 
+    Variable.reuse ~space:(var ("i" ^ d ^ "2")) [cVarDef ("i" ^ d ^ "1")];
+    Instr.delete [cWriteVar ("i" ^ d ^ "2")]);
+  (* !! Instr.inline_last_write [nbMulti; cFun "fmod"; cCellRead ~index:[cVar "i"] ()]; *)
   !! Trace.reparse();
   !! iter_dims (fun d ->
       Variable.bind ~const:true ("p" ^ d) [step; sInstrRegexp (d ^ "\\[i\\] = fmod"); dRHS]);

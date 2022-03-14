@@ -38,7 +38,7 @@ let _ = Run.script_cpp (fun () ->
   
   (* Delocalize of bagsNext *)
   !! Sequence.intro_between ~mark:"next" [tAfter; cVarDef "bagsNext"] [tBefore; cFor ~body:[cFun "bag_transfer"] "idCell"];
-  let ops = Ast.Local_obj ("bag_create", "bag_transfer") in
+  let ops = Ast.Local_obj ("bag_create", "bag_transfer", "bag_free_initial") in
   (* !! Variable.delocalize_in_vars  ~local_vars:["bagsNextPrivate";"bagsNextShared"]~old_var:"bagsNext" ~new_var:"bagsNextLocal" ~var_type:Ast.(typ_ptr Ptr_kind_mut (typ_constr "bag")) ~array_size:"N" ~ops:ops  [cMark "next"]; *)
   !! Sequence.elim [cMark "next"];
   !! Specialize.choose "bagsNextPrivate" [cFun "bag_push"; cChoose];

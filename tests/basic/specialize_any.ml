@@ -6,7 +6,7 @@ let _ = Run.doc_script_cpp (fun _ ->
       !! Specialize_basic.any (expr "i") [cAny];
   )
 "
-#include \"optitrust.h\"
+#include \"../../include/optitrust.h\"
 int ANY(int);
 int main() {
   int i = 0;

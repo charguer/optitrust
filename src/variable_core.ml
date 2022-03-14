@@ -306,7 +306,7 @@ let delocalize_aux (array_size : string) (ops : local_ops) (index : string) (t :
             trm_lit li, (trm_prim_compound op
                                curr_var_trm
                                 (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])))
-        | Local_obj (clear_f, transfer_f) ->
+        | Local_obj (clear_f, transfer_f, _) ->
             trm_apps ~typ:(Some (typ_unit ())) (trm_var clear_f) [],
             trm_apps ~typ:(Some (typ_unit())) (trm_var transfer_f)
               [trm_get curr_var_trm ;
