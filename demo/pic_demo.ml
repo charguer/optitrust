@@ -83,8 +83,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Instr.inline_last_write ~write:[stepLF; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; stepLF; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
-  bigstep "Turn positions into floats";
   if not doublepos then begin
+    bigstep "Turn positions into floats";
     !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p. - i.2"];
     !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
   end;
