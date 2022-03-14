@@ -60,7 +60,7 @@ if [ ! -z "$DEBUGFLAGS" ]; then
 fi
 
 # Use -DPOSTYPEDOUBLE to use double for positions in pic_barsamian.c, like in unoptimized pic_demo
-# DOUBLEPRECISION="-DPOSTYPEDOUBLE"
+DOUBLEPRECISION="-DPOSTYPEDOUBLE"
 
 if [ ! -z "$CHECKER_OUTFILE" ]; then
   CHECKER=" -DCHECKER=$CHECKER_OUTFILE "

@@ -22,34 +22,37 @@ int cellOfCoord(int i, int j, int k) {
   return MINDEX3(gridX,gridY,gridZ,i,j,k);
 }
 
-// [idCellOfPos(pos)] computes the id of the cell that contains a position.
+// [idCellOfPos(pos)] computes the id of the cell that contains a position,
+// assumed to be inside the grid (wrapAround needs to be called first)
 int idCellOfPos(vect pos) {
-  int iX = wrap(gridX, int_of_double(pos.x / cellX));
-  int iY = wrap(gridY, int_of_double(pos.y / cellY));
-  int iZ = wrap(gridZ, int_of_double(pos.z / cellZ));
+  int iX = int_of_double(pos.x / cellX);
+  int iY = int_of_double(pos.y / cellY);
+  int iZ = int_of_double(pos.z / cellZ);
   return cellOfCoord(iX, iY, iZ);
 }
 
 vect wrapAround(vect pos) {
+  // TODO ARTHUR: test if it is negative, althought with optimizations it's not needed
   double x = fmod(pos.x + areaX, areaX);
   double y = fmod(pos.y + areaY, areaY);
   double z = fmod(pos.z + areaZ, areaZ);
   return (vect) { x,y,z };
 }
 
+// relativePosX(x) computes the distance to the right-top-most
+// nearest corner, divided by the width of a cell
 double relativePosX(double x) {
-  int iX = wrap(gridX, int_of_double(x / cellX));
+  int iX = int_of_double(x / cellX);
   return (x - iX * cellX) / cellX;
 }
 double relativePosY(double y) {
-  int iY = wrap(gridY, int_of_double(y / cellY));
+  int iY = int_of_double(y / cellY);
   return (y - iY * cellY) / cellY;
 }
 double relativePosZ(double z) {
-  int iZ = wrap(gridZ, int_of_double(z / cellZ));
+  int iZ = int_of_double(z / cellZ);
   return (z -  iZ * cellZ) / cellZ;
 }
-
 typedef struct {
   int iX;
   int iY;

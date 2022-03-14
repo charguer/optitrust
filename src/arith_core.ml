@@ -498,11 +498,21 @@ let is_prim_arith_call (t : trm) : bool =
   | Trm_apps ({desc = Trm_val (Val_prim p);_}, args) when is_prim_arith p -> true
   | _ -> false
 
+let mark_dont_go_indepth =
+  "__dont_go_indepth__"
+
+let has_mark_dont_go_indepth (t : trm) : bool =
+  List.mem mark_dont_go_indepth t.marks
+  (* LATER Ast.trm_has_mark *)
+
 (* [map_on_arith_nodes tr t] apply arithmetic simplification [tr] in depth of [t]*)
 let rec map_on_arith_nodes (tr : trm -> trm) (t : trm) : trm =
   if is_prim_arith_call t
     then tr t
-    else trm_map (map_on_arith_nodes tr) t
+  else if has_mark_dont_go_indepth t
+    then t
+  else
+    trm_map (map_on_arith_nodes tr) t
 
 (* let simplify_aux1  (f : expr -> expr) (t : trm) : trm =
   let expr, atoms = trm_to_expr t in

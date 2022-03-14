@@ -65,7 +65,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
   !! Loop.fusion_targets [cMark "fuse"];
   !! Trace.reparse();
-  !! Instr.inline_last_write [step; cWrite (); cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()]; 
+  !! Instr.inline_last_write [step; cWrite (); cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
   bigstep "Low level iteration on chunks of particles";
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
@@ -84,11 +84,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
   bigstep "Turn positions into floats";
-  if not doublepos then begin 
+  if not doublepos then begin
     !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p. - i.2"];
     !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
   end;
-  
+
   bigstep "AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ()];
@@ -113,14 +113,20 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Scaling of speed and positions";
   !! iter_dims (fun d ->
-       Accesses.scale ~factor:(expr ("stepDuration / cell"^d))
-         [nbMulti; step; sInstrRegexp ~substr:true ("\\[i\\] = c->itemsSpeed" ^ d); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
+       Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
+         [nbMulti; step; (* sInstrRegexp ~substr:true ("\\[i\\] = c->itemsSpeed" ^ d); *)
+         cOr [ [ sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")] ;
+               [ sExpr ("p2.speed" ^d) ] ] ] );
   !! iter_dims (fun d ->
-       Accesses.scale ~factor:(expr ("1 / cell"^d))
-         [nbMulti; step; sInstrRegexp ~substr:true ("\\[i\\] = c->itemsPos" ^ d); sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]);
+       Accesses.scale ~factor:(expr ("(1 / cell"^d^")"))
+         [nbMulti; step; (*sInstrRegexp ~substr:true ("\\[i\\] = c->itemsPos" ^ d); *)cOr [
+            [sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")];
+            [sExpr ("p2.pos"^d)]
+          ] ]);
   !! Trace.reparse();
   !! Variable.inline [step; cVarDef "accel"];
-  !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cFor "i"; cCellWrite ~index:[cVar "i"] ()];
+  !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cFor "i"; cOr [ [cCellWrite ~index:[cVar "i"] ()]; [sInstr "p2."]; [cVarDef ~regexp:true "..[0-2]"] ] ];
+  !! Function.use_infix_ops ~indepth:true [step];
 
   bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
   let citemsposi d = "c->itemsPos" ^ d ^ "[i]" in
@@ -129,7 +135,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! iter_dims (fun d ->
       Variable.bind ~const:true ("p" ^ d) [step; sInstrRegexp (d ^ "\\[i\\] = fmod"); dRHS]);
   !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true "p[X-Z]"];
-  (* !! iter_dims (fun d -> 
+  (* !! iter_dims (fun d ->
     Instr.inline_last_write [step; cFieldWrite ~base:[cVar "p2"] (); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];); *)
   !! Instr.(gather_targets ~dest:(GatherAt [tBefore; step; cVarDef "pX"])) [step; cVarDef ~regexp:true "i[X-Z]2"];
   !! Instr.move ~dest:[tBefore; step;cVarDef "p2"] [step;cVarDef "idCell2"];
@@ -185,7 +191,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Sequence.insert (expr "#include \"omp.h\"") [tBefore; step];
-  !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(expr "omp_get_num_threads()")[tFirst; step; dBody]; 
+  !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(expr "omp_get_num_threads()")[tFirst; step; dBody];
   !! Variable.insert ~const:false ~name:"idThread" ~typ:(typ_int()) ~value:(expr "omp_get_thread_num()") [tBefore; cLabel "charge" ];
   !! Trace.reparse();
 
@@ -212,7 +218,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Instr.delete [step; cFor "idCell" ~body:[cFun "bag_swap"]];
   !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "idCell"];
 
-   
+
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Variable.  insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
   !! Variable.insert ~const:true ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
@@ -353,3 +359,17 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
    and the outer loop on idCell (currently i1) with  bag_append
    should be made parallel
 *)
+
+(* LATER:
+  const int idCell = (iX * gridY + iY) * gridZ + iZ;
+  could be
+  cellOfCoord(iX, iY, iZ)
+  if the user provides the name for this function
+*)
+(* TODO:
+  const int PRIVATE = 0;
+  at top level
+  *)
+(* TODO:
+  delete varDef "p"
+  *)
