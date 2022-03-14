@@ -27,14 +27,14 @@ int cellOfCoord(int i, int j, int k) {
 // [idCellOfPos(pos)] computes the id of the cell that contains a position,
 // assumed to be inside the grid (wrapArea needs to be called first)
 int idCellOfPos(vect pos) {
-  int iX = int_of_double(pos.x / cellX);
-  int iY = int_of_double(pos.y / cellY);
-  int iZ = int_of_double(pos.z / cellZ);
+  const int iX = int_of_double(pos.x / cellX);
+  const int iY = int_of_double(pos.y / cellY);
+  const int iZ = int_of_double(pos.z / cellZ);
   return cellOfCoord(iX, iY, iZ);
 }
 
 double fwrap(double gridWidth, double x) {
-  double r = fmod(x, gridWidth);
+  const double r = fmod(x, gridWidth);
   if (r >= 0) {
     return r;
   } else {
@@ -43,24 +43,24 @@ double fwrap(double gridWidth, double x) {
 }
 
 vect wrapArea(vect pos) {
-  double x = fwrap(areaX, pos.x);
-  double y = fwrap(areaY, pos.y);
-  double z = fwrap(areaZ, pos.z);
+  const double x = fwrap(areaX, pos.x);
+  const double y = fwrap(areaY, pos.y);
+  const double z = fwrap(areaZ, pos.z);
   return (vect) { x,y,z };
 }
 
 // relativePosX(x) computes the distance to the right-top-most
 // nearest corner, divided by the width of a cell
 double relativePosX(double x) {
-  int iX = int_of_double(x / cellX);
+  const int iX = int_of_double(x / cellX);
   return (x - iX * cellX) / cellX;
 }
 double relativePosY(double y) {
-  int iY = int_of_double(y / cellY);
+  const int iY = int_of_double(y / cellY);
   return (y - iY * cellY) / cellY;
 }
 double relativePosZ(double z) {
-  int iZ = int_of_double(z / cellZ);
+  const int iZ = int_of_double(z / cellZ);
   return (z -  iZ * cellZ) / cellZ;
 }
 typedef struct {
@@ -166,7 +166,7 @@ vect matrix_vect_mul(const double_nbCorners coeffs, const vect_nbCorners matrix)
 
 void computeRhoFromDeposit() { // reads [double* deposit], writes [double*** rho]
   // Each unit of particle in the deposit increases the charge density by 'factor'
-  double factor = averageChargeDensity * nbCells / nbParticles; // = particleCharge / cellVolume;
+  const double factor = averageChargeDensity * nbCells / nbParticles; // = particleCharge / cellVolume;
   for (int i = 0; i < gridX; i++) {
     for (int j = 0; j < gridY; j++) {
       for (int k = 0; k < gridZ; k++) {
@@ -276,7 +276,7 @@ void stepLeapFrog() {
   // Poisson solver to compute field at time zero, and reset deposit
   updateFieldUsingDeposit();
   // A leap-frog is half a step backwards
-  double negHalfStepDuration = -0.5 * stepDuration;
+  const double negHalfStepDuration = -0.5 * stepDuration;
   // For each cell from the grid
   for (int idCell = 0; idCell < nbCells; idCell++) {
     // Consider the bag of particles in that cell
@@ -323,7 +323,7 @@ void step() {
       particle p2 = { pos2, speed2, CHECKER_ONLY(p->id) };
 
       // Compute the location of the cell that now contains the particle
-      int idCell2 = idCellOfPos(pos2);
+      const int idCell2 = idCellOfPos(pos2);
 
       // Push the updated particle into the bag associated with its target cell
       bag_push(&bagsNext[idCell2], p2);
