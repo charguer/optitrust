@@ -6,10 +6,6 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [update f t]: replace an expression [t] with [f t]. *)
-let update (f : trm -> trm) : Target.Transfo.local =
-  Target.apply_on_path f
-
 (* [copy_aux index tg_index t]: copy instruction at [index] to [index_instr]
     in the sequence [t]
     params:

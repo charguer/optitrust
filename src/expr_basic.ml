@@ -5,7 +5,7 @@ open Target
 
 (* [update f tg] applies the operation [f] to the targeted expressions *)
 let update ?(reparse: bool = false)  (f : trm -> trm) : Target.Transfo.t =
-  Target.reparse_after ~reparse (Target.apply_on_targets (Instr_core.update f))
+  Target.reparse_after ~reparse (Target.apply_on_targets (Expr_core.update f))
 
 
 (* [replace node tg] expects the target to point at an instruction,

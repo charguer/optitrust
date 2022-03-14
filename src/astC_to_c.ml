@@ -664,8 +664,8 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
             let d2 = decorate_trm ~prec:prec2 t2 in
             begin match op with
              | Binop_set when !print_optitrust_syntax ->
-                equals ^^ parens (d1 ^^ comma ^^ d2)
-                (* string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")" *)
+                (* equals ^^ parens (d1 ^^ comma ^^ d2) *)
+                string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
              | Binop_array_access when !print_optitrust_syntax ->
                 string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
              (* LATER:
