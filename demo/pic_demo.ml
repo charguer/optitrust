@@ -14,7 +14,7 @@ let iter_dims f = List.iter f dims
 let map_dims f = List.map f dims
 let idims = map_dims (fun d -> "i" ^ d)
 let delocalize_double_add = Local_arith (Lit_double 0., Binop_add)
-let delocalize_obj = Local_obj ("bag_init_initial", "bag_append")
+let delocalize_obj = Local_obj ("bag_init_initial", "bag_append", "bag_free_initial")
 
 let doublepos = true
 
