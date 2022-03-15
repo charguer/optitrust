@@ -76,47 +76,55 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Elimination of pointer p, to prepare for aos-to-soa";
   !! Variable.init_detach [steps; cVarDef "p"];
+  !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
   !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[ cVar "p"] ()];
-  !! Instr.inline_last_write ~write:[step; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
+  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]0"];
+  !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
   !! Instr.delete [steps; cVarDef "p"];
 
   bigstep "AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ()];
-  !! Function.inline  ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
-  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[x,y,z]."];
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
   !! Struct.inline "items" [cTypDef "chunk"];
 
-  bigstep "Prepare the stage for scaling (move definitions and introduce constants)";
+  bigstep "Scaling for the electric field";
   !! Struct.to_variables [step; cVarDef "fieldAtPos"];
-  !! Variable.insert_list ~reparse:true ~defs:(
+  !! Variable.insert_list ~reparse:true ~defs:(List.rev ( (* TODO *)
          ["const double", "factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
-       @ (map_dims (fun d -> "const double", ("factor" ^ d), expr ("factorC / cell" ^ d))))
-     [tBefore; step; cVarDef "field_at_corners"];
-  (* !! Function.use_infix_ops ~indepth:true [step; dBody]; *)
-
-  bigstep "Scaling of electric field";
+       @ (map_dims (fun d -> "const double", ("factor" ^ d), expr ("factorC / cell" ^ d)))))
+     [tFirst; step; dBody];
+(* TODO:
+1) inline getFieldAtCorners in function step
+2) do a set explicit  field_at_corners.v[k] = field[indices.v[k]];
+3) replace
+  field_at_corners.v[k].x = field[indices.v[k]].x;
+with
+  field_at_corners.v[k].x = field[indices.v[k]].x * factorX;
+using
+  Accesses.scale ~neg:true ~factor:(var ("factor" ^ d))  [ cWrite ~base:[sExpr ("field_at_corners.v[k]." ^ d)] ]
+    ==> equiv to [sInstr "field_at_corners.v[k] = field[indices.v[k]]"]
+*)
   !! iter_dims (fun d ->
-       Accesses.scale ~factor:(var ("factor" ^ d)) [step; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation *)
+       Accesses.scale ~factor:(var ("factor" ^ d)) [step; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "factor."];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef "accel"];
 
   bigstep "Scaling of speed and positions";
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
-         [nbMulti; step; (* sInstrRegexp ~substr:true ("\\[i\\] = c->itemsSpeed" ^ d); *)
-         cOr [ [ sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")] ;
-               [ sExpr ("p2.speed" ^d) ] ] ] );
+         [nbMulti; step; cOr [ [ sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")] ;
+               [ sExpr ("p2.speed" ^ d) ] ] ] );
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("(1 / cell"^d^")"))
-         [nbMulti; step; (*sInstrRegexp ~substr:true ("\\[i\\] = c->itemsPos" ^ d); *)cOr [
-            [sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")];
-            [sExpr ("p2.pos"^d)]
+         [nbMulti; step; cOr [ [sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")];
+            [sExpr ("p2.pos" ^ d)]
           ] ]);
   !! Trace.reparse();
   !! Variable.inline [step; cVarDef "accel"];
-  !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cFor "i"; cOr [ [cCellWrite ~index:[cVar "i"] ()]; [sInstr "p2."]; [cVarDef ~regexp:true "..[0-2]"] ] ];
+  !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cFor "i"; cOr [
+      [cCellWrite ~index:[cVar "i"] ()]; [sInstr "p2."];
+      [cVarDef ~regexp:true "[ir][XYZ][0-2]"] ] ];
   (* !! Function.use_infix_ops ~indepth:true [step]; *)
 
   bigstep "Enumerate grid cells by coordinates";
@@ -246,6 +254,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
   !! Instr.delete [cOr[[cVarDef "bagsNext"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
+  (* !! Function.use_infix_ops ~indepth:true [step; dBody]; *)
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
   !! Variable.to_nonconst [step; cVarDef "idCell2"];
