@@ -71,8 +71,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cMark "loop"];
   !! Expr.replace_fun "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
   !! Function.inline [steps; cFun "bag_iter_ho_chunk"];
-  (* Arthur: Why I can't use steps target? *)
-  !! Function.beta ~indepth:true [step];
+  !! Function.beta ~indepth:true [step]; (* Using steps here fails for no obvious reasons *)
   !! Function.beta ~indepth:true [stepLF];
   !! Variable.init_detach [steps; cVarDef "p"];
   !! Struct.set_explicit [nbMulti;step; sInstr "p->pos ="];
@@ -125,19 +124,16 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
   
   bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
-  (* let citemsposi d = "c->itemsPos" ^ d ^ "[i]" in *)
   !! iter_dims (fun d ->
     Variable.reuse ~space:(var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
-  !! Trace.reparse();
   !! iter_dims (fun d ->
-      Variable.bind ~const:true ("p" ^ d ^ "2") [occLast;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS];
-      Variable.bind ~const:true ("p" ^ d ) [occFirst;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS]);
+      Variable.bind ~const:true ~typ:(Some (atyp "double")) ("p" ^ d ^ "2") [occLast;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS];
+      Variable.bind ~const:true ("p" ^ d ) ~typ:(Some (atyp "double")) [occFirst;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS]);
   !! iter_dims (fun d ->
     Instr.read_last_write [step; cVarDef ~regexp:true "i.2"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
     Instr.inline_last_write [step; cVarDef ~regexp:true "p.2"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
-  !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true "..2"];
-  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; step; cVarDef "p2"])) [step; cVarDef ~regexp:true "r.1"];
-  !! Instr.move ~dest:[tAfter; step; cVarDef "iZ2"][step; cVarDef "idCell2"]; (* TODO: Use regex *)
+  !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true ("\\(i.*2\\|p.2\\|i.2\\)")];
+  !! Instr.(gather_targets  ~dest:(GatherAt [tBefore; cVarDef "p2"])) [step; cVarDef ~regexp:true "r.1"];
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [step; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
@@ -200,13 +196,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Sequence.insert (expr "#include \"omp.h\"") [tBefore; step];
-  !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(expr "omp_get_num_threads()")[tFirst; step; dBody];
+  !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") [tBefore; cVarDef "nbCells"];
+  !! Sequence.insert (stmt "nbThreads = omp_get_num_threads();") [tFirst; step; dBody];
   !! Variable.insert ~const:false ~name:"idThread" ~typ:(typ_int()) ~value:(expr "omp_get_thread_num()") [tBefore; cLabel "charge" ];
   !! Trace.reparse();
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
-      ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "idThread")) [cLabel "core"];
+      ~init_zero:true ~dim:(expr "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "idThread")) [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
 
   bigstep "Coloring";
@@ -244,8 +241,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Cleanup";
   let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
-  (* !! Trace.reparse(); *)
-  !! Instr.move_out ~dest:[tAfter; cVarDef "nbCells"] [step; nbMulti; cVarDef "nbThreads"];
   !! Variable.init_detach [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true dep_and_bags];
@@ -267,10 +262,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   bigstep "Parallelization";
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
   !! Omp.parallel_for [Shared ["bX";"bY";"bZ"]] [tBefore; cFor "biX"];
-  !! Omp.simd [] [nbMulti; tBefore; step;cFor "i"]; (* TODO: Fix the issue with the last loop *)
+  (* !! Omp.simd [] [tBefore; step;cFor "i"]; *)(* TODO: Fix the issue with the last loop *)
+  !! Omp.simd [] [occFirst; tBefore; step;cFor "i"]; 
+  !! Omp.simd [] [occIndex 1; tBefore; step;cFor "i"];
+  !! Omp.simd [] [occLast; tBefore; step;cFor "i"];
 )
 
-(* TODO:
+(* DONE:
   instead of
     const int nbThread = 8
   we want to do:
