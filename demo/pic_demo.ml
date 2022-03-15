@@ -45,8 +45,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   bigstep "Update particles in-place instead of in a local variable "; (* LATER: it might be possible to change the script to postpone this step *)
   !! Variable.reuse ~space:(expr "p->speed") [step; cVarDef "speed2" ];
   !! Variable.reuse ~space:(expr "p->pos") [step; cVarDef "pos2"];
-  (* !! Expr.replace  (expr "p2.pos") [step; cFun "idCellOfPos"; dArg 0];
-  !! Expr.replace  (expr "p2.pos") [step; cVarDef "contribs"; cFun "cornerInterpolationCoeff"; dArg 0]; *) (* This causes problems later *)
 
   bigstep "Reveal write operations involved manipulation of particles and vectors";
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
@@ -126,31 +124,38 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Trace.reparse();
   !! Variable.inline [step; cVarDef "accel"];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cFor "i"; cOr [ [cCellWrite ~index:[cVar "i"] ()]; [sInstr "p2."]; [cVarDef ~regexp:true "..[0-2]"] ] ];
-  !! Function.use_infix_ops ~indepth:true [step];
-
-  bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
-  let citemsposi d = "c->itemsPos" ^ d ^ "[i]" in
-  !! iter_dims (fun d ->
-    Variable.reuse ~space:(var ("i" ^ d ^ "2")) [cVarDef ("i" ^ d ^ "1")];
-    Instr.delete [cWriteVar ("i" ^ d ^ "2")]);
-  (* !! Instr.inline_last_write [nbMulti; cFun "fmod"; cCellRead ~index:[cVar "i"] ()]; *)
-  !! Trace.reparse();
-  !! iter_dims (fun d ->
-      Variable.bind ~const:true ("p" ^ d) [step; sInstrRegexp (d ^ "\\[i\\] = fmod"); dRHS]);
-  !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true "p[X-Z]"];
-  (* !! iter_dims (fun d ->
-    Instr.inline_last_write [step; cFieldWrite ~base:[cVar "p2"] (); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];); *)
-  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; step; cVarDef "pX"])) [step; cVarDef ~regexp:true "i[X-Z]2"];
-  !! Instr.move ~dest:[tBefore; step;cVarDef "p2"] [step;cVarDef "idCell2"];
-  !! iter_dims (fun d ->
-      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; cFun "fmod"; sExpr (citemsposi d)];
-      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; sInstr (citemsposi d ^ " = p")];);
-  !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p. - i.2"];
-  !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
+  (* !! Function.use_infix_ops ~indepth:true [step]; *)
 
   bigstep "Enumerate grid cells by coordinates";
   !! Variable.to_const [nbMulti; cVarDef ~regexp:true "grid."];
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
+  
+  bigstep "Make positions relative and store them using float"; (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
+  (* let citemsposi d = "c->itemsPos" ^ d ^ "[i]" in *)
+  !! iter_dims (fun d ->
+    Variable.reuse ~space:(var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
+  !! Trace.reparse();
+  !! iter_dims (fun d ->
+      Variable.bind ~const:true ("p" ^ d ^ "2") [occLast;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS];
+      Variable.bind ~const:true ("p" ^ d ) [occFirst;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS]);
+  !! iter_dims (fun d ->
+    Instr.read_last_write [step; cVarDef ~regexp:true "i.2"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
+    Instr.inline_last_write [step; cVarDef ~regexp:true "p.2"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
+  !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true "..2"];
+  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; step; cVarDef "p2"])) [step; cVarDef ~regexp:true "r.1"];
+  !! Instr.move ~dest:[tAfter; step; cVarDef "iZ2"][step; cVarDef "idCell2"]; (* TODO: Use regex *)
+  !! iter_dims (fun d ->
+      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [step; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
+      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
+      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
+      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; cVarDef ("r" ^ d ^ "1"); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]); 
+  !! Trace.reparse();
+  !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef ~regexp:true "r.."; dInit];
+  !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.0"];
+  !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
+  !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p.2 - i.2"];
+  (* !! Struct.update_fields_type "itemsPos." (atyp "float") [cTypDef "chunk"]; *)
+
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal of x/y/z *)
   !! Label.add "core" [step; cFor "iX" ];
