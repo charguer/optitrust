@@ -50,9 +50,17 @@ let get_typid_from_trm (tv : typvar) : int  =
    | None -> -1
    end
 
+let tr_attribute (att : C.attribute) : attribute =
+  match att with
+  | C.AAlignas n -> Ast.Aligned (trm_int n)
+  | _ -> failwith "not yet supported attributes other than alignas and const"
+  (* LATER; support others *)
+
 (* [wrap_const ~const t] wrap the type [t] into a const typ if const is true *)
-let wrap_const (att : C.attributes)(ty : Ast.typ) : Ast.typ =
+let wrap_const (att : C.attributes) (ty : Ast.typ) : Ast.typ =
   let const = List.mem C.AConst att in
+  let att = List.filter (fun a -> a <> C.AConst) att in
+  let ty = { ty with typ_attributes = List.map tr_attribute att } in
   if const then typ_const ty else ty
 
 (* [tr_type ty] translate C.typ to Ast.typ *)
@@ -67,14 +75,14 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
     typ_ptr Ptr_kind_ref ty
   (* Only const arrays are supported for the moment *)
   | C.TArray (ty1, sz, att) ->
-    
+
     let ty = tr_type ty1 in
     begin match sz with
     | None -> wrap_const att (typ_array ty Undefined)
     | Some (_, e) -> wrap_const att (typ_array ty (Trm (tr_expr e)))
     end
   | C.TInt (ik, att) ->
-    let has_align_attribute (att : C.attributes) : bool = 
+    let has_align_attribute (att : C.attributes) : bool =
         List.exists (function |C.AAlignas _ -> true | _ -> false) att
         in
     Printf.printf "Has align_attribute: %s\n" (string_of_bool (has_align_attribute att));
@@ -90,7 +98,7 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
     | _ -> fail None "tr_type: ikind not supported for integers"
     end
   | C.TFloat (fk, att) ->
-    let has_align_attribute (att : C.attributes) : bool = 
+    let has_align_attribute (att : C.attributes) : bool =
       List.exists (function |C.AAlignas _ -> true | _ -> false) att
       in
     Printf.printf "Has align_attribute: %s\n" (string_of_bool (has_align_attribute att));

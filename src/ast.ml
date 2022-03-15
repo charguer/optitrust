@@ -301,7 +301,7 @@ and special_operator =
 (* We only need to support two specific attributes for the time being *)
 and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   | Identifier of var
-  | Aligned of trm
+  | Aligned of trm (* could be int_or_var *)
   | GeneratedTyp
 
 
@@ -1370,25 +1370,25 @@ let contains_decl (x : var) (t : trm) : bool =
 
 
 (* [contains_occurrence x t] check if [t] contains any occurrence of the variable [x]*)
-let contains_occurrence (x : var) (t : trm) : bool = 
-  let rec aux (t : trm) : bool = 
-    match t.desc with 
+let contains_occurrence (x : var) (t : trm) : bool =
+  let rec aux (t : trm) : bool =
+    match t.desc with
     | Trm_var (_, y) -> y = x
-    | Trm_apps (_, tl) -> List.fold_left (fun acc t1 -> acc || aux t1) false tl 
-    | _ -> false 
+    | Trm_apps (_, tl) -> List.fold_left (fun acc t1 -> acc || aux t1) false tl
+    | _ -> false
   in aux t
- 
+
 (* [contains_field_access f t] check if [t] contains an access on field [f]*)
-let contains_field_access (f : field) (t : trm) : bool = 
-  let rec aux (t : trm) : bool = 
-   match t.desc with 
-   | Trm_apps (f', tl) -> 
-      begin match f'.desc with 
+let contains_field_access (f : field) (t : trm) : bool =
+  let rec aux (t : trm) : bool =
+   match t.desc with
+   | Trm_apps (f', tl) ->
+      begin match f'.desc with
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access f1))) -> f = f1
       | Trm_val (Val_prim (Prim_unop (Unop_struct_get f1))) -> f = f1
-      | _ -> List.fold_left (fun acc t1 -> acc || aux t1) false tl 
+      | _ -> List.fold_left (fun acc t1 -> acc || aux t1) false tl
       end
-   | _ -> false  
+   | _ -> false
   in aux t
 
 (* return the name of the declared object as an optional type *)
@@ -1711,8 +1711,8 @@ let is_reference (ty : typ) : bool =
 
 (* check if the type is const or not *)
 let is_typ_const (t : typ) : bool =
-  match t.typ_desc with 
-  (* 
+  match t.typ_desc with
+  (*
   | Typ_array (tx, _) ->
     begin match tx.typ_desc with
     | Typ_const _ -> true
@@ -1850,10 +1850,10 @@ let is_compound_assignment (t : trm) : bool =
 
 (* [is_access t] check if t is a struct or array access *)
 let is_access (t : trm) : bool = match t.desc with
-  | Trm_apps (f, _) -> 
-    begin match trm_prim_inv f with 
-    | Some p -> 
-      begin match p with 
+  | Trm_apps (f, _) ->
+    begin match trm_prim_inv f with
+    | Some p ->
+      begin match p with
       | Prim_unop (Unop_struct_access _) | Prim_unop (Unop_struct_get _) | Prim_binop (Binop_array_access) | Prim_binop (Binop_array_get) -> true
       | _ -> false
       end
@@ -2030,8 +2030,8 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
 
 
 (* type used for the transformation called local_name with objects *)
-type local_ops = 
-  | Local_arith of lit * binary_op 
+type local_ops =
+  | Local_arith of lit * binary_op
   | Local_obj of string * string * string
 
 let get_include_filename (t : trm) : string  =
@@ -2284,9 +2284,9 @@ let is_nobrace_seq (t : trm) : bool =
   List.exists (function No_braces _ -> true | _ -> false) t.annot
 
 (* [is_struct_init t] check if [t] is struct_init or not*)
-let is_struct_init (t : trm) : bool = 
-  match t.desc with 
-  | Trm_struct _ -> true | _ -> false 
+let is_struct_init (t : trm) : bool =
+  match t.desc with
+  | Trm_struct _ -> true | _ -> false
 
 
 (* [is_same_binop op1 op2 ] check if two primitive operations are the same or not.
