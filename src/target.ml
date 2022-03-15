@@ -516,9 +516,11 @@ let cRead ?(addr : target = [cTrue]) () : constr =
 let cReadOrWrite ?(addr : target = [cTrue]) () : constr =
   cOr [[cWrite ~lhs:addr ()];[cRead ~addr ()]]
 
+
+
 (* [cWriteVar x] matches a set operation for variable [x] *)
-let cWriteVar (x : var) : constr =
-  cWrite ~lhs:[cStrictNew;cVar x] ()
+let cWriteVar ?(regexp : bool = false) ?(substr : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
+  cWrite ~lhs:[cStrictNew;cVar ~regexp ~substr ~trmkind ~typ ~typ_pred name] ()
 
 (* [cReadVar x] matches a read operation for variable [x] *)
 let cReadVar (x : var) : constr =
@@ -587,6 +589,21 @@ let cAny : constr =
 (* [cChoose] matches all the calls to function CHOOSE *)
 let cChoose : constr =
   cFun "CHOOSE"
+
+(* [cAlloc d] matches all calls to Optitrust MMALLOCI or MCALLOCI where I = d *)
+let cAlloc (d : int option) : constr = 
+  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in 
+  cFun ~regexp:true ("M.\\(NDEX\\|ALLOC\\)" ^ d)
+
+(* [cMalloc d] matches all calls to Optitrust MMALLOCI where I = d *)
+let cMalloc (d : int option) : constr = 
+  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in 
+  cFun ~regexp:true ("MMALLOC" ^ d)
+
+(* [cCalloc d] matches all calls to Optitrust MCALLOCI where I = d *)
+let cCalloc (d : int option) : constr = 
+  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in 
+  cFun ~regexp:true ("MMALLOC" ^ d)
 
 
 (* the empty list is interpreted as no constraint on the cases *)

@@ -1490,7 +1490,7 @@ let extract_last_dir (p : path) : path * int =
 let get_sequence_length (t : trm) : int =
   begin match t.desc with
   | Trm_seq tl -> Mlist.length tl
-  | _ -> fail t.loc "get_sequence_lenth: expected a sequence"
+  | _ -> fail t.loc "get_sequence_length: expected a sequence"
   end
 (* Get the number of instructions a sequence contains *)
 let get_arity_of_seq_at (p : path) (t : trm) : int =

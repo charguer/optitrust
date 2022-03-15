@@ -110,13 +110,19 @@ val cChain : constr list -> constr
 
 val cInclude : string -> constr
 
-val cWriteVar : string -> constr
+val cWriteVar : ?regexp:bool -> ?substr:bool -> ?trmkind:trm_kind -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
 
 val cReadVar : string -> constr
 
 val cAny : constr
 
 val cChoose : constr
+
+val cAlloc : int option -> constr
+
+val cMalloc : int option -> constr
+
+val cCalloc : int option -> constr
 
 val sInstr : ?substr:bool -> string -> constr
 

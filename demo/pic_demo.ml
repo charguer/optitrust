@@ -153,6 +153,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
     !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p.2 - i.2"];
     !! Struct.update_fields_type "itemsPos." (atyp "float") [cTypDef "chunk"];
   end;
+  
+
+  (* TODO: bigstep "Simplification of fwrap";
+  !! Rewrite.equiv_at "double a; double b; double c; double x; ==> fwrap(a,b*c) == fwrap(a/x, (b*c)/x)" [nbMulti; cVarDef "pX2"; cInit ()]; *)
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal of x/y/z *)
   !! Label.add "core" [step; cFor "iX" ];
@@ -166,7 +170,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
      ~dim:(expr "8") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "k")) ~alloc_instr [cLabel "core"];
-
+  
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
   let mybij_def =
       "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
@@ -222,6 +226,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
     ["const int", "PRIVATE", lit "0"; "const int", "SHARED", lit "1"]) [tBefore; step; cVarDef "field_at_corners"];
   !! Instr.delete [step; cFor "idCell" ~body:[cFun "bag_swap"]];
   !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "idCell"];
+  !! Instr.move_out ~dest:[tBefore; cTopFunDef "step"] [step; cOr [[cVarDef "PRIVATE"]; [cVarDef "SHARED"]]];
 
 
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
@@ -233,22 +238,36 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") ~mark:"push" [step; cFun "bag_push"];
   !! Specialize.any (expr "PRIVATE") [cMark "push"; dThen; cAny];
   !! Specialize.any (expr "SHARED") [cMark "push"; dElse; cAny];
-  (* !! Variable.bind "b2" ~const:true ~is_ptr:true [nbMulti; step; cFun "bag_push"; dArg 0]; *)
   !! Expr.replace_fun "bag_push_serial" [cMark "push"; dThen; cFun "bag_push"];
   !! Expr.replace_fun "bag_push_concurrent" [cMark "push"; dElse; cFun "bag_push"];
      Marks.remove "push" [cMark "push"];
 
+  bigstep "Cleanup";
+  let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
+  (* !! Trace.reparse(); *)
+  !! Instr.move_out ~dest:[tAfter; cVarDef "nbCells"] [step; nbMulti; cVarDef "nbThreads"];
+  !! Variable.init_detach [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
+  !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
+  !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true dep_and_bags];
+  !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
+  !! Instr.delete [cOr[[cVarDef "bagsNext"];[step; cVarDef "p"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
+
+
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
+  !! Variable.to_nonconst [step; cVarDef "idCell2"];
+  !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"];
   !! Loop.hoist [step; cVarDef "idCell2"];
   !! Instr.move ~dest:[step; tAfter; cVarDef "p2"] [step; cVarDef "co"];
   !! Instr.copy ~dest:[tAfter; step; cVarDef "p2"] [step;cVarDef "idCell2"];
-  !! Instr.copy ~dest:[tAfter; step; cVarDef "idThread"] [occFirst; step;cVarDef "idCell2"];
-  !! Loop.fission [nbMulti; tBefore; step; cOr[[cVarDef "iX2"];[cVarDef "p2"];[cVarDef "iX1"]]];
+  !! Loop.fission [nbMulti; tBefore; step; cOr[[cVarDef "pX"];[cVarDef "rX1"]]];
   (* LATER: fission should automatically do the duplication of references when necessary *)
+
+  
 
   bigstep "Parallelization";
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
   !! Omp.parallel_for [Shared ["bX";"bY";"bZ"]] [tBefore; cFor "biX"];
+  !! Omp.simd [] [nbMulti; tBefore; step;cFor "i"]; (* TODO: Fix the issue with the last loop *)
 )
 
 (* TODO:
@@ -263,12 +282,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
     ..
   }
 *)
-(* TODO:
+(* DONE:
   the transformation that introduces float for pos needs to take place before "AOS-TO-SOA" else we have double itemsPosX
   Introduce before "aos-to-soa" a separate bigstep "Turn positions into float", and move there the
    Cast.insert and the Struct.update_field.
 *)
-(* TODO
+(* DONE
   introduce a flag at the top of the file to deactivate the floating point positions
    (this is used for the checker and to demonstrate conditional transformations)
 
@@ -290,19 +309,19 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
    to delete the toplevel function definition, since we no longer need it (makes reparsing faster)
 *)
 
-(* TODO:
+(* DONE:
     for (int biX = ciX * block; biX < gridX; biX += block * block) {
     I don't think this is right; it should be biX += 2*block  I think
     I know we  block=2, but it's not quite the same.
     The coloring is always with parameter 2, whereas the tiling is with parameter block
 *)
-(* TODO
+(* DONE
       c->itemsSpeedX[i] / (cellX * cellX) + fieldAtPosX;
     The factor used for scaling has been inversed. All the cellX are meant to cancel out.
     See the scan that I sent the other day.
     It it's not obvious how to fix, we'll discuss it.
 *)
-(* TODO
+(* DONE
     The split for the loops should be:
     1) after c->itemsSpeedZ[i] =
     2) after c->itemsPosZ[i]
@@ -311,7 +330,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
     (we can reuse the coefs associated with idCell).
 
 *)
-(* TODO
+(* DONE
 
   bag *bagsNexts = ( bag * ) MMALLOC2(2, nbCells, sizeof(bag));
   for (int i1 = 0; i1 < nbCells; i1++) {
@@ -320,7 +339,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   it'd be better to make the dimension "2" be the last one.
   The indices should be name "idCell" and "bagKind"
 *)
-(* TODO: the arbitrary if statement needs to apply to bag_push
+(* DONE: the arbitrary if statement needs to apply to bag_push
   before we name b2, so that we get:
 
       if (isDistFromBlockLessThanHalfABlock) {
@@ -338,7 +357,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   const int PRIVATE = 0;
   const int SHARED = 1;
 *)
-(* TODO
+(* DONE
      bag *bagsNexts = (bag* )MMALLOC2(2, nbCells, sizeof(bag));
      and the initialization loop that follows
   needs to be moved into the allocation function (eg at tLast)
@@ -346,7 +365,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
      MFREE(bagsNexts);
   needs to be moved into the deallocation function (eg at tLast)
 *)
-(* TODO
+(* DONE
   because you do the variable.exchange for  bagCur and bagNext
   you can delete the loop
     for (int idCell = 0; idCell < nbCells; idCell++)
@@ -354,12 +373,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   as this is already done implicitly, now .
 *)
-(* TODO:
+(* DONE:
   all instructions involving bagNext (without s) can be deleted;
   at the very least, the malloc and the free and bag_init_initial(&bagsNext[idCell]);
   *)
 (*
-   TODO:
+   DONE:
    the outler loop on idCell with     sum += depositThreadCorners
    and the outer loop on idCell (currently i1) with  bag_append
    should be made parallel
@@ -371,10 +390,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   cellOfCoord(iX, iY, iZ)
   if the user provides the name for this function
 *)
-(* TODO:
+(* DONE:
   const int PRIVATE = 0;
   at top level
   *)
-(* TODO:
+(* DONE:
   delete varDef "p"
   *)

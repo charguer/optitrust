@@ -5,7 +5,7 @@ let _ = Flags.dump_ast_details := true
 
 let _ = Run.script_cpp (fun _ ->
 
-   !! Struct.update_fields_type "itemsPos." (atyp "float") [cTypDef "chunk"];
+   !! Rewrite.equiv_at "double x; double y; double z; double t; ==> fwrap(x,y*z) == fwrap(x/t, (y*z)/t)" [nbMulti; cVarDef "p"; cInit ()];
    
 )
 
