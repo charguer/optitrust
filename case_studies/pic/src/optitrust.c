@@ -1,8 +1,5 @@
 #include "optitrust.h"
 
-const bool false = 0;
-const bool true = 1;
-
 int MINDEX1(int N1, int i1) {
   return i1;
 }

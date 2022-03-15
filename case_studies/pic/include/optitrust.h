@@ -2,13 +2,8 @@
 #define OPTITRUST_H
 
 #include <stdlib.h>
+#include <stdbool.h>
 
-// C-->C++ additions
-
-typedef int bool;
-
-const bool false;
-const bool true;
 
 
 int MINDEX1(int N1, int i1);

@@ -144,8 +144,8 @@ and typ_to_doc (t : typ) : document =
   dattr ^^ dannot ^^ d
 
 and typed_var_to_doc (tx : typed_var) : document =
-  let (x, ty) = tx in 
-  let is_const = is_typ_const ty in 
+  let (x, ty) = tx in
+  let is_const = is_typ_const ty in
   let const_string = if is_const then blank 1 ^^ string " const " ^^ blank 1 else empty in
   let rec aux (t : typ) (s : size) : document * document list =
     let ds =
@@ -166,7 +166,7 @@ and typed_var_to_doc (tx : typed_var) : document =
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
   in
-  let ty = get_inner_const_type ty in 
+  let ty = get_inner_const_type ty in
   match ty.typ_desc with
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
@@ -175,7 +175,7 @@ and typed_var_to_doc (tx : typed_var) : document =
     let ret_type = typ_to_doc ty in
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ blank 1 ^^ string x ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
-  | Typ_ptr _ -> 
+  | Typ_ptr _ ->
      dattr ^^ typ_to_doc ty ^^ blank 2 ^^ const_string ^^ string x
   | _ -> const_string ^^ typ_to_doc ty ^^ blank 1 ^^ string x
 
@@ -301,14 +301,14 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_struct tl ->
        let tl = Mlist.to_list tl in
        let dl = List.map (decorate_trm ~print_struct_init_type:false ~semicolon) tl in
-       let init_type = if not print_struct_init_type then empty else 
-        begin match t.typ with 
-        | Some ty -> 
-          begin match ty.typ_desc with 
-          | Typ_constr (_, id, _) when id <> -1 -> parens(typ_to_doc ty) 
+       let init_type = if not print_struct_init_type then empty else
+        begin match t.typ with
+        | Some ty ->
+          begin match ty.typ_desc with
+          | Typ_constr (_, id, _) when id <> -1 -> parens(typ_to_doc ty)
           | _ -> empty
           end
-        | None -> empty 
+        | None -> empty
         end in
        dattr ^^ init_type ^^ braces (separate (comma ^^ blank 1) dl)
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
@@ -402,7 +402,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         | Ret t_o ->
            begin match t_o with
            | None -> dattr ^^ string "return" ^^ dsemi
-           | Some t -> dattr ^^ string "return " ^^ decorate_trm ~print_struct_init_type:false t ^^ dsemi
+           | Some t -> dattr ^^ string "return " ^^ decorate_trm ~print_struct_init_type:true t ^^ dsemi
            end
         | Break _ -> dattr ^^ string "break" ^^ dsemi
         | Continue _ -> dattr ^^ string "continue" ^^ dsemi
