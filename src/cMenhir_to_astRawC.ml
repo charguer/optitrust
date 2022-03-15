@@ -82,10 +82,6 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
     | Some (_, e) -> wrap_const att (typ_array ty (Trm (tr_expr e)))
     end
   | C.TInt (ik, att) ->
-    let has_align_attribute (att : C.attributes) : bool =
-        List.exists (function |C.AAlignas _ -> true | _ -> false) att
-        in
-    Printf.printf "Has align_attribute: %s\n" (string_of_bool (has_align_attribute att));
     begin match ik with
     | C.IBool ->  wrap_const att (typ_bool ())
     | C.IChar | C.ISChar | IUChar -> wrap_const att (typ_char ())
@@ -98,10 +94,6 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
     | _ -> fail None "tr_type: ikind not supported for integers"
     end
   | C.TFloat (fk, att) ->
-    let has_align_attribute (att : C.attributes) : bool =
-      List.exists (function |C.AAlignas _ -> true | _ -> false) att
-      in
-    Printf.printf "Has align_attribute: %s\n" (string_of_bool (has_align_attribute att));
     begin match fk with
     | FFloat -> wrap_const att (typ_float ())
     | FDouble -> wrap_const att (typ_double ())

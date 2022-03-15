@@ -2,27 +2,26 @@ open Optitrust
 open Target
 open Ast
 
-
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
 let step = cFunDef "step"
 let stepLF = cFunDef "stepLeapFrog"
-let steps = cOr [[step];[stepLF]]
-let dims = ["X";"Y";"Z"]
+let steps = cOr [[step]; [stepLF]]
+let dims = ["X"; "Y"; "Z"]
 let nb_dims = List.length dims
 let iter_dims f = List.iter f dims
 let map_dims f = List.map f dims
 let idims = map_dims (fun d -> "i" ^ d)
-let delocalize_double_add = Local_arith (Lit_double 0., Binop_add)
-let delocalize_obj = Local_obj ("bag_init_initial", "bag_append", "bag_free_initial")
+let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
+let delocalize_bag = Local_obj ("bag_init_initial", "bag_append", "bag_free_initial")
 
-let doublepos = true
+let doublepos = true (* LATER: ARTHUR make this command line argument *)
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
   let ctx = cTopFunDef "matrix_vect_mul" in
-  !! Trace.time "step" (fun () -> Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]);
+  !! Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
   !! Loop.fission ~split_between:true [ctx; cFor "k"];
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
@@ -42,7 +41,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Trace.reparse(); (* Note: when using menhir, !!! does not seem to work fine *)
   !! Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"];
 
-  bigstep "Update particles in-place instead of in a local variable "; (* LATER: it might be possible to change the script to postpone this step *)
+  bigstep "Update particles in-place instead of in a local variable ";
   !! Variable.reuse ~space:(expr "p->speed") [step; cVarDef "speed2" ];
   !! Variable.reuse ~space:(expr "p->pos") [step; cVarDef "pos2"];
 
@@ -56,8 +55,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Function.inline [nbMulti; cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
   !! Function.inline [step; cFun "accumulateChargeAtCorners"];
   !! Function.inline ~vars:(AddSuffix "2") [step; cFun "idCellOfPos"];
-  !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "cornerInterpolationCoeff"];
-  !! Function.inline ~vars:(AddSuffix "${occ}") [stepLF; cFun "cornerInterpolationCoeff"];
+  !! List.iter (fun f -> Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; f; cFun "cornerInterpolationCoeff"])
+    [stepLF; step];
 
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
@@ -71,14 +70,15 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cMark "loop"];
   !! Expr.replace_fun "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
   !! Function.inline [steps; cFun "bag_iter_ho_chunk"];
-  !! Function.beta ~indepth:true [step]; (* Using steps here fails for no obvious reasons *)
-  !! Function.beta ~indepth:true [stepLF];
-  !! Variable.init_detach [steps; cVarDef "p"];
-  !! Struct.set_explicit [nbMulti;step; sInstr "p->pos ="];
-  !! Struct.set_explicit [nbMulti;step; sInstr "p->speed ="];
-  !! Instr.inline_last_write ~write:[step; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; step; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
-  !! Instr.inline_last_write ~write:[stepLF; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; stepLF; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
+  (* LATER !! Function.beta ~indepth:true [dRoot]; try in a unit test with two beta reductions to do *)
+  !! List.iter (fun f -> Function.beta ~indepth:true [f]) [step; stepLF];
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
+
+  bigstep "Elimination of pointer p, to prepare for aos-to-soa";
+  !! Variable.init_detach [steps; cVarDef "p"];
+  !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[ cVar "p"] ()];
+  !! Instr.inline_last_write ~write:[step; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
+  !! Instr.delete [steps; cVarDef "p"];
 
   bigstep "AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
@@ -165,7 +165,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   let alloc_instr = [cFunDef "allocateStructures";cWriteVar "deposit"] in
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
-     ~dim:(expr "8") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "k")) ~alloc_instr [cLabel "core"];
+     ~dim:(expr "8") ~index:"k" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "k")) ~alloc_instr [cLabel "core"];
 
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
   let mybij_def =
@@ -203,7 +203,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
-      ~init_zero:true ~dim:(expr "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~use:(Some (expr "idThread")) [cLabel "core"];
+      ~init_zero:true ~dim:(expr "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "idThread")) [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
 
   bigstep "Coloring";
@@ -218,7 +218,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Delocalize objects";
   let alloc_instr = [cFunDef "allocateStructures";cWriteVar "bagsNext"] in
-  !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~alloc_instr ~index:"bagsKind" ~ops:delocalize_obj [cLabel "core"];
+  !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~alloc_instr ~index:"bagsKind" ~ops:delocalize_bag [cLabel "core"];
   !! Variable.insert_list ~reparse:false ~defs:(
     ["const int", "PRIVATE", lit "0"; "const int", "SHARED", lit "1"]) [tBefore; step; cVarDef "field_at_corners"];
   !! Instr.delete [step; cFor "idCell" ~body:[cFun "bag_swap"]];
@@ -245,8 +245,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
-  !! Instr.delete [cOr[[cVarDef "bagsNext"];[step; cVarDef "p"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
-
+  !! Instr.delete [cOr[[cVarDef "bagsNext"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
   !! Variable.to_nonconst [step; cVarDef "idCell2"];
@@ -268,115 +267,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Omp.simd [] [occLast; tBefore; step;cFor "i"];
 )
 
-(* DONE:
-  instead of
-    const int nbThread = 8
-  we want to do:
 
-  int nbTread;
 
-  int main() {
-    num_threads = omp_get_num_threads();
-    ..
-  }
-*)
-(* DONE:
-  the transformation that introduces float for pos needs to take place before "AOS-TO-SOA" else we have double itemsPosX
-  Introduce before "aos-to-soa" a separate bigstep "Turn positions into float", and move there the
-   Cast.insert and the Struct.update_field.
-*)
-(* DONE
-  introduce a flag at the top of the file to deactivate the floating point positions
-   (this is used for the checker and to demonstrate conditional transformations)
 
-    let doublepos = false // I'll later make it a command line argument
 
-    then:
-
-    if not doublepos then begin
-      bigstep "Turn positions into float";
-      !! Cast.insert ..
-      !! Struct.update_field...
-    end
-
-*)
-(* TODO
-  !! Function.inline [nbMulti;cFun "matrix_vect_mul"];
-   could become
-   !! Function.inline ~delete:true [nbMulti;cFun "matrix_vect_mul"];
-   to delete the toplevel function definition, since we no longer need it (makes reparsing faster)
-*)
-
-(* DONE:
-    for (int biX = ciX * block; biX < gridX; biX += block * block) {
-    I don't think this is right; it should be biX += 2*block  I think
-    I know we  block=2, but it's not quite the same.
-    The coloring is always with parameter 2, whereas the tiling is with parameter block
-*)
-(* DONE
-      c->itemsSpeedX[i] / (cellX * cellX) + fieldAtPosX;
-    The factor used for scaling has been inversed. All the cellX are meant to cancel out.
-    See the scan that I sent the other day.
-    It it's not obvious how to fix, we'll discuss it.
-*)
-(* DONE
-    The split for the loops should be:
-    1) after c->itemsSpeedZ[i] =
-    2) after c->itemsPosZ[i]
-    There is no split between push and deposit.
-    There is a recomputation of coefs with respect to the corners of idCell2 that has vanished somehow
-    (we can reuse the coefs associated with idCell).
-
-*)
-(* DONE
-
-  bag *bagsNexts = ( bag * ) MMALLOC2(2, nbCells, sizeof(bag));
-  for (int i1 = 0; i1 < nbCells; i1++) {
-    for (int i = 0; i < 2; i++) {
-
-  it'd be better to make the dimension "2" be the last one.
-  The indices should be name "idCell" and "bagKind"
-*)
-(* DONE: the arbitrary if statement needs to apply to bag_push
-  before we name b2, so that we get:
-
-      if (isDistFromBlockLessThanHalfABlock) {
-        bag *const b2 = &bagsNexts[MINDEX2(2, nbCells, ANY(2), idCell2)];
-        bag_push(b2, p2);
-      } else {
-        bag *const b2 = &bagsNexts[MINDEX2(2, nbCells, ANY(2), idCell2)];
-        bag_push(b2, p2);
-      }
-
-  It the then branch, we specialize cAny to PRIVATE
-  It the else branch, we specialize cAny to SHARED
-
-  you need to introduce beforehand
-  const int PRIVATE = 0;
-  const int SHARED = 1;
-*)
-(* DONE
-     bag *bagsNexts = (bag* )MMALLOC2(2, nbCells, sizeof(bag));
-     and the initialization loop that follows
-  needs to be moved into the allocation function (eg at tLast)
-
-     MFREE(bagsNexts);
-  needs to be moved into the deallocation function (eg at tLast)
-*)
-(* DONE
-  because you do the variable.exchange for  bagCur and bagNext
-  you can delete the loop
-    for (int idCell = 0; idCell < nbCells; idCell++)
-      bag_swap(&bagsCur[idCell], &bagsNext[MINDEX1(nbCells, idCell)]);
-
-  as this is already done implicitly, now .
-*)
-(* DONE:
-  all instructions involving bagNext (without s) can be deleted;
-  at the very least, the malloc and the free and bag_init_initial(&bagsNext[idCell]);
-  *)
 (*
-   DONE:
+   CHECK:
    the outler loop on idCell with     sum += depositThreadCorners
    and the outer loop on idCell (currently i1) with  bag_append
    should be made parallel
@@ -388,13 +284,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   cellOfCoord(iX, iY, iZ)
   if the user provides the name for this function
 *)
-(* DONE:
-  const int PRIVATE = 0;
-  at top level
-  *)
-(* DONE:
-  delete varDef "p"
-  *)
+(* LATER:
+  grid_enumerate on i<X*Y*Z
+*)
 
 (* TODO:
   #include <stdalign.h>
