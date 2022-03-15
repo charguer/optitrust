@@ -127,6 +127,7 @@ let wrap_const ?(const : bool = false) (t : typ) : typ =
 
 
 let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_record_types : bool = true) (d : type_desc) : typ =
+  
   match d with
   | Pointer q ->
     let t = tr_qual_type ~loc ~tr_record_types q in
@@ -139,6 +140,7 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
     let t = tr_qual_type ~loc ~tr_record_types q in
     wrap_const ~const (typ_ptr Ptr_kind_ref (typ_ptr Ptr_kind_ref t))
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
+    
     let t = tr_qual_type ~loc ~tr_record_types q in
     begin match eo with
       | None -> typ_array t (Const n)
