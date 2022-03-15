@@ -81,12 +81,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Instr.inline_last_write ~write:[stepLF; cWrite ~lhs:[cStrictNew; cVar "p"] ()] [nbMulti; stepLF; cRead ~addr:[cStrictNew; cVar "p"] ()]; (**)  (*LATER: does not work, because access operations *)
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
-  if not doublepos then begin
-    bigstep "Turn positions into floats";
-    !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p. - i.2"];
-    !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
-  end;
-
   bigstep "AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ()];
@@ -153,9 +147,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef ~regexp:true "r.."; dInit];
   !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.0"];
   !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
-  !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p.2 - i.2"];
-  (* !! Struct.update_fields_type "itemsPos." (atyp "float") [cTypDef "chunk"]; *)
-
+  
+  if not doublepos then begin
+    bigstep "Turn positions into floats";
+    !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "p.2 - i.2"];
+    !! Struct.update_fields_type "itemsPos." (atyp "float") [cTypDef "chunk"];
+  end;
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal of x/y/z *)
   !! Label.add "core" [step; cFor "iX" ];

@@ -497,8 +497,14 @@ let rename_fields (index : int) (rename : rename) : Target.Transfo.local =
 let update_fields_type_aux (pattern : string ) (ty : typ) (t : trm) : trm =
   match t.desc with
   | Trm_typedef ({typdef_body = Typdef_prod (tn, fl);_}  as td) ->
+      let rec update_type (ty_to_update : typ) : typ = 
+        match ty_to_update.typ_desc with 
+        | Typ_array _ | Typ_ptr _ 
+          | Typ_const _ -> typ_map update_type ty_to_update
+        | _ -> ty
+        in 
       let replace_type (s : string) (ty1 : typ) : typ =
-        if Tools.pattern_matches pattern s then ty else ty1 in
+        if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
       let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in
       trm_typedef ~annot:t.annot ~marks:t.marks {td with typdef_body = Typdef_prod (tn, new_fl)}
     | _ -> fail t.loc "reanme_fields_aux: expected a typedef declaration"
