@@ -261,6 +261,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
      Marks.remove "push" [cMark "push"];
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
+  !! Trace.reparse();
   !! Variable.to_nonconst [step; cVarDef "idCell2"];
   !! Loop.hoist ~array_size:(Some (expr "CHUNK_SIZE")) [step; cVarDef "idCell2"];
   let dest = [tBefore; step; cVarDef "isDistFromBlockLessThanHalfABlock"] in

@@ -1,3 +1,8 @@
+int f(int x){
+  return x + 1;
+}
+
+
 int main(){
 
   int p = 10;
@@ -6,9 +11,8 @@ int main(){
 
   int &x = p;
   x = x + 1;
+  int y = f(x) + 1;
 
-  int *y = &p;
-  *y = *y + 1;
 
   return 0;
 }
