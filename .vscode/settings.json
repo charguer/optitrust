@@ -35,6 +35,7 @@
     "particle.h": "c",
     "space_filling_curves.h": "c",
     "cmath": "cpp",
-    "typeinfo": "cpp"
+    "typeinfo": "cpp",
+    "parameters.h": "c"
   }
 }

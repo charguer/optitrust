@@ -18,15 +18,17 @@ source $PICVERT_HOME/your_configuration.sh
 ###################################
 #              gcc                #
 ###################################
+
+SIZE=200000000
 compile_gcc() {
-  gcc -DSTREAM_ARRAY_SIZE=$(expr $nb_threads \* 20000000) -O3 -fopenmp -march=native -mcmodel=medium $PICVERT_HOME/Stream-test/stream.c -o stream.out
+  gcc -DSTREAM_ARRAY_SIZE=$(expr $nb_threads \* $SIZE) -O3 -fopenmp -march=native -mcmodel=medium $PICVERT_HOME/Stream-test/stream.c -o stream.out
 }
 
 ###################################
 #              icc                #
 ###################################
 compile_icc() {
-  icc -DSTREAM_ARRAY_SIZE=$(expr $nb_threads \* 20000000) -O3 -qopenmp -march=native -mcmodel=medium $PICVERT_HOME/Stream-test/stream.c -o stream.out
+  icc -DSTREAM_ARRAY_SIZE=$(expr $nb_threads \* $SIZE) -O3 -qopenmp -march=native -mcmodel=medium $PICVERT_HOME/Stream-test/stream.c -o stream.out
 }
 
 ###################################

@@ -36,10 +36,10 @@ vect vect_add(vect v1, vect v2);
 vect vect_mul(double d, vect v);
 
 vect vect_add(vect v1, vect v2) {
-  return {v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
+  return (vect){v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
 }
 
-vect vect_mul(double d, vect v) { return {d * v.x, d * v.y, d * v.z}; }
+vect vect_mul(double d, vect v) { return (vect){d * v.x, d * v.y, d * v.z}; }
 
 const int CHUNK_SIZE = 128;
 
@@ -212,11 +212,11 @@ double areaY;
 
 double areaZ;
 
-int gridX;
+const int gridX;
 
-int gridY;
+const int gridY;
 
-int gridZ;
+const int gridZ;
 
 int nbThreads;
 
@@ -314,7 +314,7 @@ vect wrapArea(vect pos) {
   const double x = fwrap(areaX, pos.x);
   const double y = fwrap(areaY, pos.y);
   const double z = fwrap(areaZ, pos.z);
-  return {x, y, z};
+  return (vect){x, y, z};
 }
 
 double relativePosX(double x) {
@@ -343,14 +343,20 @@ coord coordOfCell(int idCell) {
   const int iXY = idCell / gridZ;
   const int iY = iXY % gridY;
   const int iX = iXY / gridY;
-  return {iX, iY, iZ};
+  return (coord){iX, iY, iZ};
 }
 
-typedef struct { int v[8]; } int_nbCorners;
+typedef struct {
+  int v[8];
+} int_nbCorners;
 
-typedef struct { double v[8]; } double_nbCorners;
+typedef struct {
+  double v[8];
+} double_nbCorners;
 
-typedef struct { vect v[8]; } vect_nbCorners;
+typedef struct {
+  vect v[8];
+} vect_nbCorners;
 
 int_nbCorners indicesOfCorners(int idCell) {
   const coord coord = coordOfCell(idCell);
@@ -360,10 +366,10 @@ int_nbCorners indicesOfCorners(int idCell) {
   const int x2 = wrap(gridX, x + 1);
   const int y2 = wrap(gridY, y + 1);
   const int z2 = wrap(gridZ, z + 1);
-  return {{cellOfCoord(x, y, z), cellOfCoord(x, y, z2), cellOfCoord(x, y2, z),
-           cellOfCoord(x, y2, z2), cellOfCoord(x2, y, z),
-           cellOfCoord(x2, y, z2), cellOfCoord(x2, y2, z),
-           cellOfCoord(x2, y2, z2)}};
+  return (int_nbCorners){{cellOfCoord(x, y, z), cellOfCoord(x, y, z2),
+                          cellOfCoord(x, y2, z), cellOfCoord(x, y2, z2),
+                          cellOfCoord(x2, y, z), cellOfCoord(x2, y, z2),
+                          cellOfCoord(x2, y2, z), cellOfCoord(x2, y2, z2)}};
 }
 
 vect_nbCorners getFieldAtCorners(int idCell, vect *field) {
@@ -557,14 +563,16 @@ int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
   return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
 }
 
-const int PRIVATE = 0;
-
 const int SHARED = 1;
+
+const int PRIVATE = 0;
 
 void step() {
   nbThreads = omp_get_num_threads();
+
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
+#pragma omp simd
       for (int k = 0; k < nbThreads; k++) {
         depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, k, idCell,
                                      idCorner)] = 0.;
@@ -590,8 +598,19 @@ core:
                 for (int iY = biY; iY < biY + block; iY++) {
                   for (int iZ = biZ; iZ < biZ + block; iZ++) {
                     const int idCell = (iX * gridY + iY) * gridZ + iZ;
-                    vect_nbCorners field_at_corners =
-                        getFieldAtCorners(idCell, field);
+                    const int_nbCorners indices = indicesOfCorners(idCell);
+                    vect_nbCorners res;
+                    for (int k = 0; k < 8; k++) {
+                      res.v[k].x = field[indices.v[k]].x *
+                                   (particleCharge * stepDuration *
+                                    stepDuration / particleMass / cellX);
+                      res.v[k].y = field[indices.v[k]].y *
+                                   (particleCharge * stepDuration *
+                                    stepDuration / particleMass / cellY);
+                      res.v[k].z = field[indices.v[k]].z *
+                                   (particleCharge * stepDuration *
+                                    stepDuration / particleMass / cellZ);
+                    }
                     bag *b = &bagsCur[idCell];
                     for (chunk *c = b->front; c != NULL;
                          c = chunk_next(c, true)) {
@@ -611,36 +630,33 @@ core:
                         double fieldAtPosX = 0.;
                         double fieldAtPosY = 0.;
                         double fieldAtPosZ = 0.;
-                        fieldAtPosX = fieldAtPosX +
-                                      (coeffs.v[0] * field_at_corners.v[0].x +
-                                       coeffs.v[1] * field_at_corners.v[1].x +
-                                       coeffs.v[2] * field_at_corners.v[2].x +
-                                       coeffs.v[3] * field_at_corners.v[3].x +
-                                       coeffs.v[4] * field_at_corners.v[4].x +
-                                       coeffs.v[5] * field_at_corners.v[5].x +
-                                       coeffs.v[6] * field_at_corners.v[6].x +
-                                       coeffs.v[7] * field_at_corners.v[7].x);
-                        fieldAtPosY = fieldAtPosY +
-                                      (coeffs.v[0] * field_at_corners.v[0].y +
-                                       coeffs.v[1] * field_at_corners.v[1].y +
-                                       coeffs.v[2] * field_at_corners.v[2].y +
-                                       coeffs.v[3] * field_at_corners.v[3].y +
-                                       coeffs.v[4] * field_at_corners.v[4].y +
-                                       coeffs.v[5] * field_at_corners.v[5].y +
-                                       coeffs.v[6] * field_at_corners.v[6].y +
-                                       coeffs.v[7] * field_at_corners.v[7].y);
-                        fieldAtPosZ = fieldAtPosZ +
-                                      (coeffs.v[0] * field_at_corners.v[0].z +
-                                       coeffs.v[1] * field_at_corners.v[1].z +
-                                       coeffs.v[2] * field_at_corners.v[2].z +
-                                       coeffs.v[3] * field_at_corners.v[3].z +
-                                       coeffs.v[4] * field_at_corners.v[4].z +
-                                       coeffs.v[5] * field_at_corners.v[5].z +
-                                       coeffs.v[6] * field_at_corners.v[6].z +
-                                       coeffs.v[7] * field_at_corners.v[7].z);
-                        c->itemsSpeedX[i] = c->itemsSpeedX[i] + fieldAtPosX;
-                        c->itemsSpeedY[i] = c->itemsSpeedY[i] + fieldAtPosY;
-                        c->itemsSpeedZ[i] = c->itemsSpeedZ[i] + fieldAtPosZ;
+                        fieldAtPosX += coeffs.v[0] * res.v[0].x +
+                                       coeffs.v[1] * res.v[1].x +
+                                       coeffs.v[2] * res.v[2].x +
+                                       coeffs.v[3] * res.v[3].x +
+                                       coeffs.v[4] * res.v[4].x +
+                                       coeffs.v[5] * res.v[5].x +
+                                       coeffs.v[6] * res.v[6].x +
+                                       coeffs.v[7] * res.v[7].x;
+                        fieldAtPosY += coeffs.v[0] * res.v[0].y +
+                                       coeffs.v[1] * res.v[1].y +
+                                       coeffs.v[2] * res.v[2].y +
+                                       coeffs.v[3] * res.v[3].y +
+                                       coeffs.v[4] * res.v[4].y +
+                                       coeffs.v[5] * res.v[5].y +
+                                       coeffs.v[6] * res.v[6].y +
+                                       coeffs.v[7] * res.v[7].y;
+                        fieldAtPosZ += coeffs.v[0] * res.v[0].z +
+                                       coeffs.v[1] * res.v[1].z +
+                                       coeffs.v[2] * res.v[2].z +
+                                       coeffs.v[3] * res.v[3].z +
+                                       coeffs.v[4] * res.v[4].z +
+                                       coeffs.v[5] * res.v[5].z +
+                                       coeffs.v[6] * res.v[6].z +
+                                       coeffs.v[7] * res.v[7].z;
+                        c->itemsSpeedX[i] += fieldAtPosX;
+                        c->itemsSpeedY[i] += fieldAtPosY;
+                        c->itemsSpeedZ[i] += fieldAtPosZ;
                       }
 #pragma omp simd
                       for (int i = 0; i < nb; i++) {
@@ -662,7 +678,6 @@ core:
                         c->itemsPosY[i] = (float)(pY2 - iY2);
                         c->itemsPosZ[i] = (float)(pZ2 - iZ2);
                       }
-#pragma omp simd
                       for (int i = 0; i < nb; i++) {
                         const double rX1 = c->itemsPosX[i];
                         const double rY1 = c->itemsPosY[i];
@@ -724,10 +739,10 @@ core:
       bag_free_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
     }
   }
-#pragma omp parallel for shared(idCell)
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
       int sum = 0;
+#pragma omp simd
       for (int k = 0; k < nbThreads; k++) {
         sum += depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, k, idCell,
                                             idCorner)];
@@ -735,14 +750,16 @@ core:
       depositCorners[MINDEX2(nbCells, 8, idCell, idCorner)] = sum;
     }
   }
+#pragma omp parallel for shared(idCell)
+#pragma omp parallel for shared(idCell)
   for (int idCell = 0; idCell < nbCells; idCell++) {
     int sum = 0;
+#pragma omp simd
     for (int k = 0; k < 8; k++) {
       sum += depositCorners[mybij(nbCells, 8, idCell, k)];
     }
     deposit[MINDEX1(nbCells, idCell)] = sum;
   }
-#pragma omp parallel for shared(idCell)
   updateFieldUsingDeposit();
 }
 
