@@ -35,6 +35,7 @@ import:
 
 export:
 	cp pic_optimized.cpp $(PICDIR)/simulations/pic_optimized.c
+	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized.c
 
 export_steps: pic_demo.bigsteps
 	cd bigsteps; sed "s/const int CHUNK_SIZE = 128;//" -i pic_demo_*_out.cpp
