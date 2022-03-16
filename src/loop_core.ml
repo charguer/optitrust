@@ -125,11 +125,12 @@ let tile (tile_index : var) (bound : tile_bound) (tile_size : var) : Target.Tran
     return:
       a nobrace sequence which contains the hoisted variable and the for loop
 *)
-let hoist_aux (name : var) (decl_index : int) (t : trm) : trm =
+let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, start, direction, stop, step, body) ->
     begin match body.desc with
     | Trm_seq tl ->
+      let stop_bd = begin match array_size with | Some arr_sz -> arr_sz | None -> stop end in 
       let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
@@ -139,7 +140,7 @@ let hoist_aux (name : var) (decl_index : int) (t : trm) : trm =
         let new_body = trm_seq (Mlist.insert_at decl_index new_decl new_tl) in
         let inner_typ = get_inner_ptr_type tx in
         trm_seq_no_brace [
-          trm_let_array Var_mutable (new_name, inner_typ) (Trm stop) (trm_uninitialized ());
+          trm_let_array Var_mutable (new_name, inner_typ) (Trm stop_bd) (trm_uninitialized ());
           trm_for index start direction stop step new_body ]
       | _ -> fail var_decl.loc "hoist_aux: expected a variable declaration"
       end
@@ -150,8 +151,8 @@ let hoist_aux (name : var) (decl_index : int) (t : trm) : trm =
   | _ -> fail t.loc "hoist_aux: only simple loops are supported"
 
 
-let hoist (name : var) (index : int): Target.Transfo.local =
-   Target.apply_on_path (hoist_aux name index)
+let hoist (name : var) (index : int) (array_size : trm option): Target.Transfo.local =
+   Target.apply_on_path (hoist_aux name index array_size)
 
 
 (* [fission_aux]: split a loop into two loops

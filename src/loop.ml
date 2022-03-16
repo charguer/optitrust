@@ -9,7 +9,7 @@ type rename = Variable.Rename.t
     the declaration is detached or not. If it is not detached then we call another
     transformation which does that for us. Otherwise just apply the basic hoist transformation.
 *)
-let hoist ?(name : var = "${var}_step") (tg : Target.target) : unit =
+let hoist ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
       let detach_first =
@@ -25,8 +25,8 @@ let hoist ?(name : var = "${var}_step") (tg : Target.target) : unit =
         match detach_first with
         | true ->
           Variable_basic.init_detach (Target.target_of_path p);
-          Loop_basic.hoist ~name (Target.target_of_path p);
-        | false -> Loop_basic.hoist ~name (Target.target_of_path p)
+          Loop_basic.hoist ~name ~array_size(Target.target_of_path p);
+        | false -> Loop_basic.hoist ~name ~array_size (Target.target_of_path p)
   ) tg
 
 (* [fusion nb tg] expects [tg] to point to a for loop followed by one or more

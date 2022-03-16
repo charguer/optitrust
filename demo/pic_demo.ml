@@ -94,7 +94,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
          ["const double", "factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
        @ (map_dims (fun d -> "const double", ("factor" ^ d), expr ("factorC / cell" ^ d)))))
      [tFirst; step; dBody];
-(* TODO:
+  !! Function.inline [step; cFun "getFieldAtCorners"];
+  !! Struct.set_explicit [step; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "res"] ()] ()];
+  !! iter_dims (fun d -> 
+      let d1 = String.lowercase_ascii d in
+      Accesses.scale ~factor:(var ("factor" ^ d)) [step; cFor "k"; cFieldWrite ~field:d1 ()]);
+(* DONE:
 1) inline getFieldAtCorners in function step
 2) do a set explicit  field_at_corners.v[k] = field[indices.v[k]];
 3) replace
@@ -171,7 +176,7 @@ using
   !! Matrix_basic.intro_mmalloc [nbMulti; cFunDef "allocateStructures";cFun "malloc"];
   !! Matrix.intro_mindex (expr "nbCells") [nbMulti; step; cCellAccess ~base:[cOr [[cVar "deposit"]; [cVar "bagsNext"]]]() ];
   !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
-  !! Variable.inline [step; cVarDef "indices"];
+  !! Variable.inline [occLast; step; cVarDef "indices"];
 
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "deposit"] in
@@ -206,7 +211,7 @@ using
        (* ARTHUR: simplify mybij calls in the sum *)
 
   bigstep "Duplicate the charge of a corner for each of the threads";
-  !! Sequence.insert (expr "#include \"omp.h\"") [tBefore; step]; (* TODO: Omp.header []   add the include to the top of the ast by default *)
+  !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot]; 
   !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") [tBefore; cVarDef "nbCells"]; (* TODO: Omp.declare_nb_threads "nbThreads" tg *)
   !! Sequence.insert (stmt "nbThreads = omp_get_num_threads();") [tFirst; step; dBody];  (* TODO: Omp.read_nb_threads "nbThreads" tg *)
   !! Variable.insert ~const:false ~name:"idThread" ~typ:(typ_int()) ~value:(expr "omp_get_thread_num()") [tBefore; cLabel "charge" ]; (* TODO: Omp.read_id_thread "idThread" tg *)
@@ -226,6 +231,7 @@ using
     in
   !! iter_dims (fun d -> colorize "block" "2" d);
   !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [step; cFor "ciX"];
+  !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"]; (* TODO: move this line at end of coloring transfo *)
 
   bigstep "Delocalize bags";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"]
@@ -233,7 +239,7 @@ using
     ~index:"bagsKind" ~ops:delocalize_bag [cLabel "core"];
     (* TODO: Variable.insert_list_same_type (typ "const int") [("PRIVATE", lit "0"); ("SHARED", lit "1")]] *)
   !! Variable.insert_list ~reparse:false ~defs:(
-    ["const int", "PRIVATE", lit "0"; "const int", "SHARED", lit "1"]) [tBefore; step; cVarDef "field_at_corners"];
+    ["const int", "PRIVATE", lit "0"; "const int", "SHARED", lit "1"]) [tFirst; step; dBody];
   !! Instr.delete [step; cFor "idCell" ~body:[cFun "bag_swap"]];
   !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "idCell"];
   !! Instr.move_out ~dest:[tBefore; cTopFunDef "step"] [step; cOr [[cVarDef "PRIVATE"]; [cVarDef "SHARED"]]];
@@ -248,7 +254,7 @@ using
   !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
-  (* TODO: try !! Function.use_infix_ops ~indepth:true [step; dBody]; *)
+  !! Function.use_infix_ops ~indepth:true [step; dBody];
 
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
@@ -265,8 +271,7 @@ using
 
   bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
   !! Variable.to_nonconst [step; cVarDef "idCell2"];
-  !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"]; (* TODO: move this line at end of coloring transfo *)
-  !! Loop.hoist [step; cVarDef "idCell2"]; (* TODO: ~array_size:CHUNK_SIZE *)
+  !! Loop.hoist ~array_size:(Some (expr "CHUNK_SIZE")) [step; cVarDef "idCell2"]; 
   let dest = [tBefore; step; cVarDef "isDistFromBlockLessThanHalfABlock"] in
   !! Instr.copy ~dest [step; cVarDef "idCell2"];
   !! Instr.move ~dest [step; cVarDef "co"];
@@ -274,12 +279,13 @@ using
   (* LATER: fission should automatically do the duplication of references when necessary *)
 
   bigstep "Parallelization";
-  !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
+  !! Omp.parallel_for [Shared ["idCell"]] [occFirst; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
+  !! Omp.parallel_for [Shared ["idCell"]] [occLast; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
   !! Omp.parallel_for [Shared ["bX";"bY";"bZ"]] [tBefore; cFor "biX"];
   (* !! Omp.simd [] [tBefore; step;cFor "i"]; *)(* TODO: Fix the issue with the last loop *)
   !! Omp.simd [] [occFirst; tBefore; step; cFor "i"]; (* TODO: occurences 0 and 1 for this line and the next *)
   !! Omp.simd [] [occIndex 1; tBefore; step; cFor "i"];
-  !! Omp.simd (* TODO: make optional*) [] [tBefore; step; cFor "k"]; (* TODO: add tBefore automatically *)
+  !! Omp.simd (* TODO: make optional*) [] [nbMulti; tBefore; step; cFor "idCell"; cFor "k"]; (* TODO: add tBefore automatically *)
 )
 
 
