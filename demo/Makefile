@@ -37,7 +37,9 @@ export:
 	cp pic_optimized.cpp $(PICDIR)/simulations/pic_optimized.c
 	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized.c
 
-export_steps: pic_demo.bigsteps
+export_steps: pic_demo.bigsteps export_bigsteps
+
+export_bigsteps:
 	cd bigsteps; sed "s/const int CHUNK_SIZE = 128;//" -i pic_demo_*_out.cpp
 	for x in bigsteps/*; do mv $$x bigsteps/"`basename $$x .cpp`.c"; done
 	rm -f $(PICDIR)/simulations/pic_demo_*_out.c

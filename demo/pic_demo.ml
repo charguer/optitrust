@@ -4,9 +4,9 @@ open Ast
 
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
-let step = cFunDef "step"
-let stepLF = cFunDef "stepLeapFrog"
-let steps = cOr [[step]; [stepLF]]
+let step = cTopFunDef "step"
+let stepLF = cTopFunDef "stepLeapFrog"
+
 let dims = ["X"; "Y"; "Z"]
 let nb_dims = List.length dims
 let iter_dims f = List.iter f dims
@@ -14,10 +14,20 @@ let map_dims f = List.map f dims
 let idims = map_dims (fun d -> "i" ^ d)
 let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
 let delocalize_bag = Local_obj ("bag_init_initial", "bag_append", "bag_free_initial")
+let align = 64
 
 let doublepos = true (* LATER: ARTHUR make this command line argument *)
+let use_checker = false (* LATER: ARTHUR make this command line argument *)
 
-let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
+let stepFuns =
+  (if use_checkert then [reportParticles] else [])
+  @ [stepLF; step]
+let steps = cOr [List.map (fun f -> [f]) stepFuns]
+
+let prepro = if use_checker then ["-DCHECKER"] else []
+
+let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro
+  ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
   let ctx = cTopFunDef "matrix_vect_mul" in
@@ -55,7 +65,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Function.inline [step; cFun "accumulateChargeAtCorners"];
   !! Function.inline ~vars:(AddSuffix "2") [step; cFun "idCellOfPos"];
   !! List.iter (fun f -> Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; f; cFun "cornerInterpolationCoeff"])
-    [stepLF; step];
+     stepFuns;
 
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
@@ -70,7 +80,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Expr.replace_fun "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
   !! Function.inline [steps; cFun "bag_iter_ho_chunk"];
   (* LATER !! Function.beta ~indepth:true [dRoot]; try in a unit test with two beta reductions to do *)
-  !! List.iter (fun f -> Function.beta ~indepth:true [f]) [step; stepLF];
+  !! List.iter (fun f -> Function.beta ~indepth:true [f]) stepFuns;
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
   bigstep "Elimination of pointer p, to prepare for aos-to-soa";
@@ -202,7 +212,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
-  !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") [tBefore; cVarDef "nbCells"]; 
+  !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") [tBefore; cVarDef "nbCells"];
   !! Omp.declare_num_threads "nbThreads";
   !! Omp.get_num_threads "nbThreads" [tFirst; step; dBody];
   !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"];
@@ -222,7 +232,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
     in
   !! iter_dims (fun d -> colorize "block" "2" d);
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
-  !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"]; 
+  !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"];
 
   bigstep "Delocalize bags";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"]
@@ -273,26 +283,25 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 
   bigstep "Parallelization";
   !! Omp.parallel_for [Collapse 3] [tBefore; cFor "bX"];
-  !! Omp.simd [Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], 64)] [tBefore; cLabel "charge"];
+  !! Omp.simd [Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; cLabel "charge"];
   !! Omp.parallel_for [] [occFirst; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
   !! Omp.parallel_for [] [occLast; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
-  
+
   (* !! Omp.simd [] [tBefore; step;cFor "i"]; *)(* TODO: Fix the issue with the last loop *)
-  !! Omp.simd [] [occFirst; tBefore; step; cFor "i"]; (* TODO: occurences 0 and 1 for this line and the next *)
+  !! Omp.simd [] [occFirst; tBefore; step; cFor "i"]; (* TODO: occIndices [0; 1] for this line and the next *)
   !! Omp.simd [] [occIndex 1; tBefore; step; cFor "i"];
-  
+
 )
 
 
 
-
-
 (*
-   CHECK:
-   the outler loop on idCell with     sum += depositThreadCorners
-   and the outer loop on idCell (currently i1) with  bag_append
-   should be made parallel
+TODO fuse 2 loops on idCell
+the first one ~body[cVar"bagsKind"]
+
 *)
+
+
 
 (* LATER:
   const int idCell = (iX * gridY + iY) * gridZ + iZ;
@@ -304,19 +313,33 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   grid_enumerate on i<X*Y*Z
 *)
 
+(* TODO
+  vect_nbCorners res; => rename => don't inline factor
+
+use unfold in
+!! Variable.inline [nbMulti; step; cVarDef ~regexp:true "factor."];
+  with a more precise target
+*)
+
 (* TODO:
   #include <stdalign.h>
   alignas(16)  print to front of type
+
+  alignas(16) int x = 4
+  alignas(16) int x = new (alignas(16) int) t
+
+
 *)
 (*
   Align.header => adds  #include <stdalign.h> to the top of the ast
   Align.assume "t" =>
-     t = __builtin_assume_aligned(t, VEC_ALIGN);
-  Align.def 16 [cVarDef "x"]
+     insert instruction
+     t = __builtin_assume_aligned(t, 64);
+  Align.def 64 [cVarDef "x"]
     => add the attribute to the type of the definition
 
 *)
-(* TODO
+(* LATER
   Flags.print_coumpound_expressions
 *)
 (* TODO =>
@@ -328,21 +351,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
 *)
 
 
-(*
-TODO
-#pragma omp parallel for collapse(3)
-
-bix -> bx
-cix -> cx
-
-DONE
- #pragma omp simd aligned(coeffs_x, coeffs_y, coeffs_z, signs_x, signs_y, signs_z:VEC_ALIGN)
- on the charge: loop
-
-
-#pragma omp parallel for
-on idcell
-*)
 (* ARTHUR
 
 #pragma omp parallel for
@@ -367,4 +375,21 @@ on idcell
                                         (coefZ[k] + signZ[k] * rZ0);
                         }
 
+*)
+
+(* TODO:
+  introduce
+    int id = *idCell2;
+  just before coordOfCell(*idCell2)
+    should fold3 occurences.
+
+    inline idCell2  everywhere
+*)
+
+(* TODO after other todos
+   move reportParticlesState()  into pic_demo.c
+   and try
+*)
+(* TODO:
+isDistFromBlockLessThanHalfABlock
 *)

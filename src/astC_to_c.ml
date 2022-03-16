@@ -421,7 +421,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         end  in
         dattr ^^ code_str
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
-     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r 
+     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
      | Trm_extern (lang, tl) ->
         begin match tl with
         | [t1] ->
