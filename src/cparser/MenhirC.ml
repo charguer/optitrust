@@ -19,7 +19,7 @@ let init_parser =
 
 (* Preprocessor *)
 
-let debug_preprocessor = true
+let debug_preprocessor = false
 
 let compcert_include_path =
   try Sys.getenv("OPTITRUST") ^ "src/cparser/include";
@@ -41,14 +41,17 @@ let preprocessor_command ifile =
     "-D__STDC_NO_COMPLEX__";
     "-D__STDC_NO_THREADS__";
     "-D__STDC_NO_VLA__";
-    "-I" ^ compcert_include_path;
-    ifile
-  ]
+    "-I" ^ compcert_include_path ]
+  @ !Clflags.prepro_options
+  @ [ ifile ]
+   (* (if !Clflags.use_standard_headers
+       then ["-I" ^ Filename.concat !Clflags.stdlib_path "include" ]
+        else []); *)
 
 let preprocess ifile ofile =
   let output = Some ofile in
   let cmd = preprocessor_command ifile in
-  if false && debug_preprocessor
+  if debug_preprocessor
     then Printf.eprintf "preprocessor command: %s\n" (String.concat " " cmd);
   let exc = command ?stdout:output cmd in
   if exc <> 0 then begin

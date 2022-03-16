@@ -4,8 +4,8 @@ open Ast
 
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
-let step = cFunDef "step"
-let stepLF = cFunDef "stepLeapFrog"
+let step = cTopFunDef "step"
+let stepLF = cTopFunDef "stepLeapFrog"
 let steps = cOr [[step]; [stepLF]]
 let dims = ["X"; "Y"; "Z"]
 let nb_dims = List.length dims
@@ -17,7 +17,11 @@ let delocalize_bag = Local_obj ("bag_init_initial", "bag_append", "bag_free_init
 
 let doublepos = true (* LATER: ARTHUR make this command line argument *)
 
-let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
+let use_checker = false (* LATER: ARTHUR make this command line argument *)
+let prepro = if use_checker then ["-DCHECKER"] else []
+
+let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro
+  ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
   let ctx = cTopFunDef "matrix_vect_mul" in
@@ -29,6 +33,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
   !! Function.inline ~delete:true [nbMulti;cFun "matrix_vect_mul"];
 
   bigstep "Vectorization in [cornerInterpolationCoeff]";
+  !! Instr.delete [cTopFunDef "main"; cFor "idStep"];
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   let ctx_rv = cChain [ctx; sInstr "r.v"] in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
@@ -286,7 +291,7 @@ using
   (* !! Omp.simd [] [tBefore; step;cFor "i"]; *)(* TODO: Fix the issue with the last loop *)
   !! Omp.simd [] [occFirst; tBefore; step; cFor "i"]; (* TODO: occurences 0 and 1 for this line and the next *)
   !! Omp.simd [] [occIndex 1; tBefore; step; cFor "i"];
-  
+
 )
 
 

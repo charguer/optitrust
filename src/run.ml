@@ -138,6 +138,13 @@ let get_program_basename () : string =
     then String.sub b 2 (String.length b - 2)
     else b
 
+(* [Run.stop()] raises an exception that skips the remainder of the script,
+   and dumps the output at that point. *)
+exception Stop
+
+let stop () : unit =
+  raise Stop
+
 (* [script_cpp f] is a specialized version of [script f] that:
    - automatically invokes [Trace.init "foo.cpp"] at start,
      where "foo" is the basename of the current script named "foo.ml"
@@ -154,7 +161,8 @@ let get_program_basename () : string =
      See the specification of [generated_source_with_inlined_header_cpp] for additional features.
    - [~batching:filename] is a shorthand for [~filename:filename ~prefix:filename] and also it activates
      the printing of progress for batch mode; this is used by the "make batch" command for unit tests *)
-let script_cpp ?(batching : string = "") ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(parser : Parsers.cparser = Default) (f : unit -> unit) : unit =
+let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(parser : Parsers.cparser = Default) (f : unit -> unit) : unit =
+  Clflags.prepro_options := prepro;
   let saved_parser = Parsers.get_selected() in
   Parsers.select_if_not_default parser;
   Target.show_next_id_reset();
@@ -197,7 +205,9 @@ let script_cpp ?(batching : string = "") ?(filename : string = "") ?(inline : st
     Trace.init ~prefix ~parser input_file;
     begin
       try f()
-      with e -> Printf.eprintf "===> Script failed: %s\n" prefix; raise e
+      with
+      | Stop -> ()
+      | e -> Printf.eprintf "===> Script failed: %s\n" prefix; raise e
     end;
     flush stdout;
     if check_exit_at_end && Flags.get_exit_line() <> None
