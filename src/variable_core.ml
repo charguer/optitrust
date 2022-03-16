@@ -560,3 +560,39 @@ let simpl_deref_aux (indepth : bool) (t : trm) : trm =
 
 let simpl_deref (indepth : bool) : Target.Transfo.local =
   Target.apply_on_path (simpl_deref_aux indepth)
+
+(* [ref_to_pointer_aux index t] targeted declaration from a reference to a poitner
+     all the occurrences of that variable will be embedded in a get operation
+    params:
+      [index] : index of that targeted declaration in its surrounding block
+      [t]: a node that represents the surrounding sequence of the targeted reference declaration
+    return:
+      update ast of the surrounding block*)
+let ref_to_pointer_aux (index : int) (t : trm) : trm = 
+  match t.desc with   
+  | Trm_seq tl -> 
+    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
+    let aux (new_lback : trm mlist) (dl : trm) : trm = 
+      let new_tl = Mlist.merge lfront new_lback in 
+      let new_tl = Mlist.insert_at index dl new_tl in
+      trm_seq ~annot:t.annot ~marks:t.marks new_tl
+    in 
+    begin match dl.desc with 
+    | Trm_let (vk, (x, tx), init) when trm_annot_has Reference dl -> 
+      (* Assumption: the targeted reference is not a const reference *)
+      let tx = get_inner_ptr_type tx in
+      let new_dl = trm_let_mut (x, typ_ptr_generated tx) init in 
+      let new_dl = trm_annot_remove Reference new_dl in 
+      let new_dl = trm_annot_add Stackvar new_dl in 
+      let new_lback = Mlist.map (Internal.subst_var x (trm_var_get x)) lback in 
+      aux new_lback new_dl
+
+    | _ -> fail dl.loc "ref_to_pointer_aux: expected the a target to the reference declaration"
+    end
+
+      
+  | _ -> fail t.loc "ref_to_pointer_aux: expected the surrounding sequence of the targeted reference declaration"
+
+let ref_to_pointer (index : int) : Target.Transfo.local = 
+  Target.apply_on_path (ref_to_pointer_aux index)
+

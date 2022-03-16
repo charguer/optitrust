@@ -9,3 +9,4 @@ let _ = Run.script_cpp (fun _ ->
    
 )
 
+(* LATER: at the combi level, combine struct_inline with struct-renaming-field *)
