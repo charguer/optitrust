@@ -271,10 +271,9 @@ In case of missing opam packages, or incorrect opam switch loaded:
 
 # JEmalloc
 
-
-
+Notes:
+```
 - JEMALLOC:
    export LD_PRELOAD=$LD_PRELOAD:/path/to/jemalloc-build/lib/jemalloc.so.1
-cc app.c -o app -L`jemalloc-config --libdir` -Wl,-rpath,`jemalloc-config --libdir` -ljemalloc `jemalloc-config --libs`
-
-
+  cc app.c -o app -L`jemalloc-config --libdir` -Wl,-rpath,`jemalloc-config --libdir` -ljemalloc `jemalloc-config --libs`
+```

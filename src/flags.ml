@@ -20,6 +20,13 @@ let dump_last : int ref = ref dump_last_default
 (* Call [Trace.dump_traces_to_js] in addition to [Trace.dump] at the end of the script. *)
 let dump_trace : bool ref = ref false
 
+(* Call [Trace.dump_big_steps] in addition to [Trace.dump] at the end of the script.
+   Files are generated in the subfolder [!dump_big_steps].  *)
+let dump_big_steps : string option ref = ref None
+
+let set_dump_big_steps (foldername : string) : unit =
+  dump_big_steps := Some foldername
+
 (* Flag to print the line numbers at which reparsing is triggered *)
 let debug_reparse : bool ref = ref false
 
@@ -96,11 +103,12 @@ let spec =
      ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-exit-line", Arg.Set_int exit_line, " specify the line after which a '!!' or '!!!' symbol should trigger an exit");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");
-     ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines");
+     ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines"); (* LATER: rename to: -exit-only-at-big-steps *)
      ("-debug-reparse", Arg.Set debug_reparse, " print on stdout the line number at which each reparse is performed");
      ("-reparse-at-big-steps", Arg.Set reparse_at_big_steps, " force reparsing at every big step (implies -debug-reparse)");
      ("-dump-trace", Arg.Set dump_trace, " produce a JS file with all the steps performed by the transformation script");
-     ("-dump-last", Arg.Set_int dump_last, " dump outputs the number of desired last steps; only for interactive mode");
+     ("-dump-big-steps", Arg.String set_dump_big_steps, " produce a distinct CPP file for each big-step");
+     ("-dump-last", Arg.Set_int dump_last, " dump outputs the number of desired last steps; only for interactive mode"); (* DEPRECATED *)
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
      ("-analyse-time", Arg.Set analyse_time, " produce a file reporting on the execution time");
      ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");

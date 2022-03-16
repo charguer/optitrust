@@ -273,6 +273,7 @@ using
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "rX1"]]];
   (* LATER: fission should automatically do the duplication of references when necessary *)
 
+(*
   bigstep "Parallelization";
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
   !! Omp.parallel_for [Shared ["bX";"bY";"bZ"]] [tBefore; cFor "biX"];
@@ -280,6 +281,7 @@ using
   !! Omp.simd [] [occFirst; tBefore; step; cFor "i"]; (* TODO: occurences 0 and 1 for this line and the next *)
   !! Omp.simd [] [occIndex 1; tBefore; step; cFor "i"];
   !! Omp.simd (* TODO: make optional*) [] [tBefore; step; cFor "k"]; (* TODO: add tBefore automatically *)
+*)
 )
 
 

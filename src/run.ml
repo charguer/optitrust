@@ -213,6 +213,10 @@ let script_cpp ?(batching : string = "") ?(filename : string = "") ?(inline : st
     if !Flags.dump_trace then begin
       Trace.dump_traces_to_js ~prefix ();
     end;
+    begin match !Flags.dump_big_steps with
+    | None -> ()
+    | Some foldername-> Trace.dump_big_steps ~prefix foldername
+    end;
     Trace.finalize();
   );
   Parsers.select saved_parser (* restore original parser *)

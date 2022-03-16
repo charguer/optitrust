@@ -702,6 +702,54 @@ let output_optitrust_ast_to_js ?(vars_declared : bool = false) (index : int) (pr
     close_out out_js;
     failwith s
 
+(* [get_history] extracts from the trace information about all steps:
+    prefix, ctx, and a list of pairs made of an ast and a stepdescr *)
+
+type history = string * context * ((trm*stepdescr) list)
+
+let get_history ?(prefix : string = "") () : history =
+  let extract (trace : trace) =
+    let ctx = trace.context in
+      let prefix =
+        if prefix = "" then ctx.directory ^ ctx.prefix else prefix in
+      if List.length trace.history <> List.length trace.stepdescrs
+        then failwith "get_history: invariant broken, stepdescrs should have the same length as history";
+      let hrev = List.combine trace.history trace.stepdescrs in
+      let hist = (* remove the ast associated with the input file *)
+        match List.rev hrev with
+        | _::hist -> hist
+        | _ -> failwith "dump_trace_to_js: empty history"
+        in
+      (prefix, ctx, hist)
+    in
+  match !traces with
+  | [] -> failwith "get_history: no trace"
+  | [tr] -> extract tr
+  | _ -> failwith "get_history: -dump-big-steps and -dump-trace currently do not support multiple traces"
+
+
+(* [dump_big_steps] writes into files called [`prefix`_$i_out.cpp] the
+   contents of each of the big steps, where [$i] denotes the index of
+   a big step. *)
+let dump_big_steps ?(prefix : string = "") (foldername : string) : unit =
+  ignore (Sys.command ("mkdir -p " ^ foldername));
+  let (prefix, ctx, hist_and_descr) = get_history ~prefix () in
+  let n = List.length hist_and_descr in
+  let id = ref 0 in
+  List.iteri (fun i (ast,stepdescr) ->
+    let isstartofbigstep =
+      match stepdescr.isbigstep with
+      | None -> false
+      | Some _descr -> true
+      in
+    let should_dump = (isstartofbigstep) || (i = n-1) in
+    if should_dump then begin
+      let prefixi = Printf.sprintf "%s/%s_%d_out" foldername prefix !id in
+      output_prog ctx prefixi ast;
+      incr id;
+    end;
+  ) hist_and_descr
+
 
 (* [dump_trace_to_js] writes into a file called [`prefix`.js] the
    contents of each of the steps record by the script, both for
@@ -729,7 +777,8 @@ let output_optitrust_ast_to_js ?(vars_declared : bool = false) (index : int) (pr
                   descr : window.atob("...") });
      // invariant: bigstep[j].stop = bigstep[j+1].start
    *)
-let dump_trace_to_js (ctx : context) (prefix : string) (history_and_descr : (trm*stepdescr) list) : unit =
+let dump_trace_to_js (history : history) : unit =
+  let (prefix, ctx, hist_and_descr) = history in
   let file_js = prefix ^ "_trace.js" in
   let out_js = open_out file_js in
   let out = output_string out_js in
@@ -748,7 +797,7 @@ let dump_trace_to_js (ctx : context) (prefix : string) (history_and_descr : (trm
   (* LATER: catch failures *)
   (* LATER: support other languages than C/C++ *)
   out "var codes = [];\nvar smallsteps = [];\nvar bigsteps = [];\n";
-  let n = List.length history_and_descr in
+  let n = List.length hist_and_descr in
   List.iteri (fun i (ast,stepdescr) ->
     (* obtain source code *)
     output_prog ctx "tmp_after" ast;
@@ -781,32 +830,15 @@ let dump_trace_to_js (ctx : context) (prefix : string) (history_and_descr : (trm
       | Some descr -> nextbigstep_descr := descr
       end;
     end
-  ) history_and_descr;
+  ) hist_and_descr;
   cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp tmp_big.cpp";
   close_out out_js
 
 (* LATER: later generalize to multiple traces, currently it would
     probably overwrite the same file over and over again *)
 let dump_traces_to_js ?(prefix : string = "") () : unit =
-   if List.length !traces > 1
-     then failwith "-dump-trace currently does not support multiple traces";
-   List.iter
-    (fun trace ->
-      let ctx = trace.context in
-      let prefix =
-        if prefix = "" then ctx.directory ^ ctx.prefix else prefix
-      in
-      if List.length trace.history <> List.length trace.stepdescrs
-        then failwith "dump_traces_to_js: invariant broken, stepdescrs should have the same length as history";
-      let hrev = List.combine trace.history trace.stepdescrs in
-      let h = (* remove the ast associated with the input file *)
-        match List.rev hrev with
-        | _::h -> h
-        | _ -> failwith "dump_trace_to_js: empty history"
-        in
-      dump_trace_to_js ctx prefix h
-    )
-    (!traces)
+  let history = get_history ~prefix () in
+  dump_trace_to_js history
 
 (*
   filename = prefix ^ "_trace.js"
