@@ -205,7 +205,7 @@ and val_to_doc (v : value) : document =
 and attr_to_doc (a : attribute) : document =
   match a with
   | Identifier x -> string x
-  | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
+  | Alignas t -> underscore ^^ string "alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
 
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document =

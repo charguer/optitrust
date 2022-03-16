@@ -52,7 +52,7 @@ let get_typid_from_trm (tv : typvar) : int  =
 
 let tr_attribute (att : C.attribute) : attribute =
   match att with
-  | C.AAlignas n -> Ast.Aligned (trm_int n)
+  | C.AAlignas n -> Ast.Alignas (trm_int n)
   | _ -> failwith "not yet supported attributes other than alignas and const"
   (* LATER; support others *)
 
