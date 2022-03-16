@@ -16,6 +16,8 @@
 
 #include "pic_demo_aux.h"
 
+int nbThreads;
+
 typedef struct {
   double x;
   double y;
@@ -451,12 +453,22 @@ void allocateStructures() {
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init_initial(&bagsCur[idCell]);
   }
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
+      bag_init_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
+    }
+  }
 }
 
 void deallocateStructures() {
   deallocateStructuresForPoissonSolver();
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_free_initial(&bagsCur[idCell]);
+  }
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
+      bag_free_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
+    }
   }
   free(bagsCur);
   free(field);
@@ -572,7 +584,6 @@ void step() {
 
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
-#pragma omp parallel for
       for (int k = 0; k < nbThreads; k++) {
         depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, k, idCell,
                                      idCorner)] = 0.;
@@ -580,23 +591,18 @@ void step() {
     }
   }
 
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_init_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
-    }
-  }
 core:
-  for (int ciX = 0; ciX < 2; ciX++) {
-    for (int ciY = 0; ciY < 2; ciY++) {
-      for (int ciZ = 0; ciZ < 2; ciZ++) {
-#pragma omp parallel for shared(biX, biY, biZ)
-        for (int biX = ciX * block; biX < gridX; biX += 2 * block) {
-          for (int biY = ciY * block; biY < gridY; biY += 2 * block) {
-            for (int biZ = ciZ * block; biZ < gridZ; biZ += 2 * block) {
+  for (int cX = 0; cX < 2; cX++) {
+    for (int cY = 0; cY < 2; cY++) {
+      for (int cZ = 0; cZ < 2; cZ++) {
+#pragma omp parallel for collapse(3)
+        for (int bX = cX * block; bX < gridX; bX += 2 * block) {
+          for (int bY = cY * block; bY < gridY; bY += 2 * block) {
+            for (int bZ = cZ * block; bZ < gridZ; bZ += 2 * block) {
               int idThread = omp_get_thread_num();
-              for (int iX = biX; iX < biX + block; iX++) {
-                for (int iY = biY; iY < biY + block; iY++) {
-                  for (int iZ = biZ; iZ < biZ + block; iZ++) {
+              for (int iX = bX; iX < bX + block; iX++) {
+                for (int iY = bY; iY < bY + block; iY++) {
+                  for (int iZ = bZ; iZ < bZ + block; iZ++) {
                     const int idCell = (iX * gridY + iY) * gridZ + iZ;
                     const int_nbCorners indices = indicesOfCorners(idCell);
                     vect_nbCorners res;
@@ -672,8 +678,8 @@ core:
                         const int iX2 = int_of_double(pX2);
                         const int iY2 = int_of_double(pY2);
                         const int iZ2 = int_of_double(pZ2);
-                        int &idCell2 = idCell2_step[i];
-                        idCell2 = cellOfCoord(iX2, iY2, iZ2);
+                        int *idCell2 = &idCell2_step[i];
+                        *idCell2 = cellOfCoord(iX2, iY2, iZ2);
                         c->itemsPosX[i] = (float)(pX2 - iX2);
                         c->itemsPosY[i] = (float)(pY2 - iY2);
                         c->itemsPosZ[i] = (float)(pZ2 - iZ2);
@@ -689,29 +695,30 @@ core:
                         p2.speedX = c->itemsSpeedX[i];
                         p2.speedY = c->itemsSpeedY[i];
                         p2.speedZ = c->itemsSpeedZ[i];
-                        int &idCell2 = idCell2_step[i];
-                        const coord co = coordOfCell(idCell2);
+                        int *idCell2 = &idCell2_step[i];
+                        const coord co = coordOfCell(*idCell2);
                         const bool isDistFromBlockLessThanHalfABlock =
-                            co.iX - biX >= -halfBlock &&
-                            co.iX - biX < block + halfBlock &&
-                            co.iY - biY >= -halfBlock &&
-                            co.iY - biY < block + halfBlock &&
-                            co.iZ - biZ >= -halfBlock &&
-                            co.iZ - biZ < block + halfBlock;
+                            co.iX - bX >= -halfBlock &&
+                            co.iX - bX < block + halfBlock &&
+                            co.iY - bY >= -halfBlock &&
+                            co.iY - bY < block + halfBlock &&
+                            co.iZ - bZ >= -halfBlock &&
+                            co.iZ - bZ < block + halfBlock;
                         if (isDistFromBlockLessThanHalfABlock) {
-                          bag_push_serial(
-                              &bagsNexts[MINDEX2(2, nbCells, PRIVATE, idCell2)],
-                              p2);
+                          bag_push_serial(&bagsNexts[MINDEX2(
+                                              2, nbCells, PRIVATE, *idCell2)],
+                                          p2);
                         } else {
                           bag_push_concurrent(
-                              &bagsNexts[MINDEX2(2, nbCells, SHARED, idCell2)],
+                              &bagsNexts[MINDEX2(2, nbCells, SHARED, *idCell2)],
                               p2);
                         }
                         double_nbCorners contribs;
+#pragma omp simd aligned(coefX, coefY, coefZ, signX, signY, signZ : 64)
                       charge:
                         for (int k = 0; k < 8; k++) {
-                          depositThreadCorners[MINDEX3(nbThreads, nbCells, 8,
-                                                       idThread, idCell2, k)] +=
+                          depositThreadCorners[MINDEX3(
+                              nbThreads, nbCells, 8, idThread, *idCell2, k)] +=
                               (coefX[k] + signX[k] * rX1) *
                               (coefY[k] + signY[k] * rY1) *
                               (coefZ[k] + signZ[k] * rZ1);
@@ -734,15 +741,11 @@ core:
                  &bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
     }
   }
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_free_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
-    }
-  }
+
+#pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
       int sum = 0;
-#pragma omp parallel for
       for (int k = 0; k < nbThreads; k++) {
         sum += depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, k, idCell,
                                             idCorner)];
@@ -750,11 +753,9 @@ core:
       depositCorners[MINDEX2(nbCells, 8, idCell, idCorner)] = sum;
     }
   }
-#pragma omp parallel for shared(idCell)
-#pragma omp parallel for shared(idCell)
+#pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     int sum = 0;
-#pragma omp parallel for
     for (int k = 0; k < 8; k++) {
       sum += depositCorners[mybij(nbCells, 8, idCell, k)];
     }

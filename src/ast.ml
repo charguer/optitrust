@@ -515,7 +515,7 @@ and clause =
   | Safelen of int
   | Collapse of int
   | Simdlen of int
-  | Aligned_c of vars * int
+  | Aligned of vars * int
   | Uniform of vars
   | Inbranch
   | NotInbranch

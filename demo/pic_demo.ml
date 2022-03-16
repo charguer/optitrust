@@ -4,8 +4,8 @@ open Ast
 
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
-let step = cTopFunDef "step"
-let stepLF = cTopFunDef "stepLeapFrog"
+let step = cFunDef "step"
+let stepLF = cFunDef "stepLeapFrog"
 let steps = cOr [[step]; [stepLF]]
 let dims = ["X"; "Y"; "Z"]
 let nb_dims = List.length dims
@@ -17,11 +17,7 @@ let delocalize_bag = Local_obj ("bag_init_initial", "bag_append", "bag_free_init
 
 let doublepos = true (* LATER: ARTHUR make this command line argument *)
 
-let use_checker = false (* LATER: ARTHUR make this command line argument *)
-let prepro = if use_checker then ["-DCHECKER"] else []
-
-let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro
-  ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
+let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
   let ctx = cTopFunDef "matrix_vect_mul" in
@@ -33,7 +29,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro
   !! Function.inline ~delete:true [nbMulti;cFun "matrix_vect_mul"];
 
   bigstep "Vectorization in [cornerInterpolationCoeff]";
-  !! Instr.delete [cTopFunDef "main"; cFor "idStep"];
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   let ctx_rv = cChain [ctx; sInstr "r.v"] in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
@@ -104,17 +99,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro
   !! iter_dims (fun d ->
       let d1 = String.lowercase_ascii d in
       Accesses.scale ~factor:(var ("factor" ^ d)) [step; cFor "k"; cFieldWrite ~field:d1 ()]);
-(* DONE:
-1) inline getFieldAtCorners in function step
-2) do a set explicit  field_at_corners.v[k] = field[indices.v[k]];
-3) replace
-  field_at_corners.v[k].x = field[indices.v[k]].x;
-with
-  field_at_corners.v[k].x = field[indices.v[k]].x * factorX;
-using
-  Accesses.scale ~neg:true ~factor:(var ("factor" ^ d))  [ cWrite ~base:[sExpr ("field_at_corners.v[k]." ^ d)] ]
-    ==> equiv to [sInstr "field_at_corners.v[k] = field[indices.v[k]]"]
-*)
+
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(var ("factor" ^ d)) [step; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "factor."];
@@ -266,7 +251,7 @@ using
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
   !! Variable.insert ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:(trm_ands (map_dims (fun d -> (* ARTHUR: add support for wraparound here *)
-         expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
+         expr ~vars:[d] "co.i${0} - b${0} >= - halfBlock && co.i${0} - b${0} < block + halfBlock")))
       [tBefore; step; cFun "bag_push"];
   !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") ~mark:"push" [step; cFun "bag_push"];
   !! Specialize.any (expr "PRIVATE") [cMark "push"; dThen; cAny];
@@ -282,16 +267,19 @@ using
   !! Instr.copy ~dest [step; cVarDef "idCell2"];
   !! Instr.move ~dest [step; cVarDef "co"];
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "rX1"]]];
+  !! Variable.ref_to_pointer [nbMulti; step; cVarDef "idCell2"];
   (* LATER: fission should automatically do the duplication of references when necessary *)
 
   bigstep "Parallelization";
-  !! Omp.parallel_for [Shared ["idCell"]] [occFirst; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
-  !! Omp.parallel_for [Shared ["idCell"]] [occLast; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
-  !! Omp.parallel_for [Shared ["biX";"biY";"biZ"]] [tBefore; cFor "biX"];
+  !! Omp.parallel_for [Collapse 3] [tBefore; cFor "bX"];
+  !! Omp.simd [Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], 64)] [tBefore; cLabel "charge"];
+  !! Omp.parallel_for [] [occFirst; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
+  !! Omp.parallel_for [] [occLast; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
+  
   (* !! Omp.simd [] [tBefore; step;cFor "i"]; *)(* TODO: Fix the issue with the last loop *)
   !! Omp.simd [] [occFirst; tBefore; step; cFor "i"]; (* TODO: occurences 0 and 1 for this line and the next *)
   !! Omp.simd [] [occIndex 1; tBefore; step; cFor "i"];
-
+  
 )
 
 
@@ -346,7 +334,7 @@ TODO
 bix -> bx
 cix -> cx
 
-TODO
+DONE
  #pragma omp simd aligned(coeffs_x, coeffs_y, coeffs_z, signs_x, signs_y, signs_z:VEC_ALIGN)
  on the charge: loop
 

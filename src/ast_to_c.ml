@@ -852,7 +852,7 @@ and clause_to_doc (cl : clause) : document =
   | Safelen i -> string "safelen" ^^ parens (string (string_of_int i))
   | Collapse i -> string "collapse" ^^ parens (string (string_of_int i))
   | Simdlen i -> string "simdlen" ^^ parens (string (string_of_int i))
-  | Aligned_c (vl, i) -> string "aligned" ^^ parens (string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl) ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int i))
+  | Aligned (vl, i) -> string "aligned" ^^ parens (string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl) ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int i))
   | Uniform vl -> string "uniform" ^^ string (Tools.list_to_string ~sep:"," ~bounds:["(";")"] vl)
   | Inbranch -> string "inbranch"
   | NotInbranch -> string "notinbranch"
