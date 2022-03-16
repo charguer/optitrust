@@ -25,7 +25,7 @@ source $PICVERT_HOME/your_configuration.sh
 # VALGRIND SUPPORT (sudo apt install valgrind)
 VALGRIND=
 # Uncomment the line below to activate debugging using valgrind, and deactivate mpirun
-# VALGRIND="valgrind --track-origins=yes"
+VALGRIND="valgrind --track-origins=yes"
 
 # JEMALLOC SUPPORT (check during a run using "lsof | grep malloc")
 JEMALLOC=
