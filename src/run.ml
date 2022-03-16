@@ -154,7 +154,8 @@ let get_program_basename () : string =
      See the specification of [generated_source_with_inlined_header_cpp] for additional features.
    - [~batching:filename] is a shorthand for [~filename:filename ~prefix:filename] and also it activates
      the printing of progress for batch mode; this is used by the "make batch" command for unit tests *)
-let script_cpp ?(batching : string = "") ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(parser : Parsers.cparser = Default) (f : unit -> unit) : unit =
+let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(parser : Parsers.cparser = Default) (f : unit -> unit) : unit =
+  Clflags.prepro_options := prepro;
   let saved_parser = Parsers.get_selected() in
   Parsers.select_if_not_default parser;
   Target.show_next_id_reset();

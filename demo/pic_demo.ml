@@ -17,7 +17,11 @@ let delocalize_bag = Local_obj ("bag_init_initial", "bag_append", "bag_free_init
 
 let doublepos = true (* LATER: ARTHUR make this command line argument *)
 
-let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
+let use_checker = true (* LATER: ARTHUR make this command line argument *)
+let prepro = if use_checker then ["-DCHECKER"] else []
+
+let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro
+  ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
   let ctx = cTopFunDef "matrix_vect_mul" in
@@ -285,7 +289,7 @@ using
   (* !! Omp.simd [] [tBefore; step;cFor "i"]; *)(* TODO: Fix the issue with the last loop *)
   !! Omp.simd [] [occFirst; tBefore; step; cFor "i"]; (* TODO: occurences 0 and 1 for this line and the next *)
   !! Omp.simd [] [occIndex 1; tBefore; step; cFor "i"];
-  
+
 )
 
 
