@@ -4,6 +4,7 @@
 
 TARGET_MAKE_ALL := transfo
 
+
 OPTITRUST := ..
 
 TESTS := pic_demo.ml
@@ -35,7 +36,24 @@ import:
 export:
 	cp pic_optimized.cpp $(PICDIR)/simulations/pic_optimized.c
 
+#change_steps:
+#	for x in bigsteps/*; do mv $x bigsteps/"`basename $x .cpp`.c"; done
+
+fix_steps:
+	cd bigsteps; sed "s/const int CHUNK_SIZE = 128;//" -i pic_demo_*_out.cpp 
+
+export_steps:
+	cp bigsteps/*.cpp $(PICDIR)/simulations/
+
+
+
+FLAGS=-dump-big-steps bigsteps
+
+
 FILES := $(subst pic_demo.c,pic_demo.cpp,$(notdir $(SOURCES)))
+
+clean::
+	rm -rf bigsteps
 
 cleanfiles:
 	rm -f $(FILES)
