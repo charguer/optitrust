@@ -38,8 +38,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];
   !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
-  !! Trace.reparse(); (* Note: when using menhir, !!! does not seem to work fine *)
-  !! Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"];
+  !! Loop.fold_instrs ~index:"k" [cTopFunDef "cornerInterpolationCoeff"; cCellWrite ~base:[cVar "r"] ()];
 
   bigstep "Update particles in-place instead of in a local variable ";
   !! Variable.reuse ~space:(expr "p->speed") [step; cVarDef "speed2" ];
@@ -94,6 +93,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~inline:["pic_demo.h";"bag.hc";"pa
          ["const double", "factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
        @ (map_dims (fun d -> "const double", ("factor" ^ d), expr ("factorC / cell" ^ d)))))
      [tFirst; step; dBody];
+  (* TODO: res should be field_at_corners *)
   !! Function.inline [step; cFun "getFieldAtCorners"];
   !! Struct.set_explicit [step; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "res"] ()] ()];
   !! iter_dims (fun d ->
@@ -212,9 +212,10 @@ using
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
-  !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") [tBefore; cVarDef "nbCells"]; (* TODO: Omp.declare_nb_threads "nbThreads" tg *)
-  !! Sequence.insert (stmt "nbThreads = omp_get_num_threads();") [tFirst; step; dBody];  (* TODO: Omp.read_nb_threads "nbThreads" tg *)
-  !! Variable.insert ~const:false ~name:"idThread" ~typ:(typ_int()) ~value:(expr "omp_get_thread_num()") [tBefore; cLabel "charge" ]; (* TODO: Omp.read_id_thread "idThread" tg *)
+  !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") [tBefore; cVarDef "nbCells"]; 
+  !! Omp.declare_num_threads "nbThreads";
+  !! Omp.get_num_threads "nbThreads" [tFirst; step; dBody];
+  !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"];
   !! Trace.reparse();
 
   bigstep "Duplicate the charge of a corner for each of the threads";
@@ -225,21 +226,19 @@ using
   bigstep "Coloring";
   !! Variable.insert_list ~const:true ~defs:[("int","block",lit "2"); ("int","halfBlock",expr "block / 2")] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
-    let bd = "bi" ^ d in
-    Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [step; cFor ("i" ^ d)];
-    Loop.color (expr color) ~index:("ci"^d) [step; cFor bd]
+    let bd = "b" ^ d in
+    Loop.tile tile ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i" ^ d)];
+    Loop.color (expr color) ~index:("c"^d) [step; cFor bd]
     in
   !! iter_dims (fun d -> colorize "block" "2" d);
-  !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [step; cFor "ciX"];
-  !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"]; (* TODO: move this line at end of coloring transfo *)
+  !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
+  !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"]; 
 
   bigstep "Delocalize bags";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"]
     ~alloc_instr:[cFunDef "allocateStructures"; cWriteVar "bagsNext"]
     ~index:"bagsKind" ~ops:delocalize_bag [cLabel "core"];
-    (* TODO: Variable.insert_list_same_type (typ "const int") [("PRIVATE", lit "0"); ("SHARED", lit "1")]] *)
-  !! Variable.insert_list ~reparse:false ~defs:(
-    ["const int", "PRIVATE", lit "0"; "const int", "SHARED", lit "1"]) [tFirst; step; dBody];
+  !! Variable.insert_list_same_type (atyp "const int") [("PRIVATE", lit "0"); ("SHARED", lit "1")] [tFirst; step; dBody];
   !! Instr.delete [step; cFor "idCell" ~body:[cFun "bag_swap"]];
   !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "idCell"];
   !! Instr.move_out ~dest:[tBefore; cTopFunDef "step"] [step; cOr [[cVarDef "PRIVATE"]; [cVarDef "SHARED"]]];
@@ -254,11 +253,13 @@ using
   !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
+  !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_init_initial"]];
+  !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_free_initial"]];
   !! Function.use_infix_ops ~indepth:true [step; dBody];
 
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
-  !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
-  !! Variable.insert ~const:true ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
+  !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
+  !! Variable.insert ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:(trm_ands (map_dims (fun d -> (* ARTHUR: add support for wraparound here *)
          expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
       [tBefore; step; cFun "bag_push"];
