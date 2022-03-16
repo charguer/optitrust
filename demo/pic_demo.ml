@@ -281,11 +281,11 @@ using
   bigstep "Parallelization";
   !! Omp.parallel_for [Shared ["idCell"]] [occFirst; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
   !! Omp.parallel_for [Shared ["idCell"]] [occLast; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
-  !! Omp.parallel_for [Shared ["bX";"bY";"bZ"]] [tBefore; cFor "biX"];
+  !! Omp.parallel_for [Shared ["biX";"biY";"biZ"]] [tBefore; cFor "biX"];
   (* !! Omp.simd [] [tBefore; step;cFor "i"]; *)(* TODO: Fix the issue with the last loop *)
   !! Omp.simd [] [occFirst; tBefore; step; cFor "i"]; (* TODO: occurences 0 and 1 for this line and the next *)
   !! Omp.simd [] [occIndex 1; tBefore; step; cFor "i"];
-  !! Omp.simd (* TODO: make optional*) [] [nbMulti; tBefore; step; cFor "idCell"; cFor "k"]; (* TODO: add tBefore automatically *)
+  
 )
 
 
