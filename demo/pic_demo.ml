@@ -17,7 +17,7 @@ let delocalize_bag = Local_obj ("bag_init_initial", "bag_append", "bag_free_init
 
 let doublepos = true (* LATER: ARTHUR make this command line argument *)
 
-let use_checker = true (* LATER: ARTHUR make this command line argument *)
+let use_checker = false (* LATER: ARTHUR make this command line argument *)
 let prepro = if use_checker then ["-DCHECKER"] else []
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro
@@ -32,16 +32,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
   !! Function.inline ~delete:true [nbMulti;cFun "matrix_vect_mul"];
 
-  bigstep "dummy";
-  !!();
-
   bigstep "Vectorization in [cornerInterpolationCoeff]";
   !! Instr.delete [cTopFunDef "main"; cFor "idStep"];
-
-  bigstep "final";
-  !!();
-  Run.stop();
-
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   let ctx_rv = cChain [ctx; sInstr "r.v"] in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
