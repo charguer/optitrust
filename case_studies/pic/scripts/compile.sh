@@ -52,11 +52,12 @@ fi
 # possible additional flags -DPRINTPARAMS -DDEBUG_CHECKER -DDEBUG_CHARGE -DDEBUG_FIELD -DDEBUG_ACCEL -DDEBUG_CREATION
 # more flags: -DPRINTPERF -DPRINTSTEPS
 
-DEBUGFLAGS="-g -fopt-info-missed"
+DEBUGFLAGS=""
+DEBUGFLAGS="-g"
 #  2> vect_info.txt -fopt-info-vec-missed -ftree-vectorize
 # -ftree-vectorize -fopt-info-vec-missed -fopt-info-all -fopt-info-vec-all
 # GENERATE ASSEMBLY -Wa,-adhln"
-PERFFLAGS=" -DPRINTPERF -DPRINTSTEPS -DPIC_VERT_OPENMP_4_0"
+PERFFLAGS=" -DPRINTPERF -DPRINTSTEPS"
 
 if [ ! -z "$DEBUGFLAGS" ]; then
   echo "COMPILING IN DEBUG MODE"

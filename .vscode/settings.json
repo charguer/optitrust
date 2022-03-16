@@ -36,6 +36,7 @@
     "space_filling_curves.h": "c",
     "cmath": "cpp",
     "typeinfo": "cpp",
-    "parameters.h": "c"
+    "parameters.h": "c",
+    "papi_handlers.h": "c"
   }
 }
