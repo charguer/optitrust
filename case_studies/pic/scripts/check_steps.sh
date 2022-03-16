@@ -18,15 +18,37 @@ DIR_OUTFILE=${DIR_ROOT}/3d_runs/run1/
 
 SOURCES=`ls ${DIR_ROOT}/simulations/${BASENAME}_*_out.c`
 
+TARGET1="${BASENAME}_0_out.c"
+BINARY1="${DIR_OUTFILE}`basename ${TARGET1} .c`.out"
+CHECKER_OUTFILE1="`basename ${TARGET1} .c`.res"
+
+echo "+++++++++++++++++++REFERENCE+++++++++++++++++++"
+make -j3 checker.out ${BINARY1} params || exit 1
+./run.sh ${TARGET1}
+OUT=$?
+if [ ${OUT} -ne 0 ];then
+  echo "Error: ${TARGET1} crashed"  #>> /dev/stderr
+  #exit 1
+fi
+
+
 for SOURCE in ${SOURCES}; do
   echo "+++++++++++++++++++CHECK FOR ${SOURCE}+++++++++++++++++++"
-  TARGET1="${BASENAME}_0_out.c"
   TARGET2=`basename ${SOURCE}`
-  ./check.sh ${TARGET1} ${TARGET2}
+  BINARY2="${DIR_OUTFILE}`basename ${TARGET2} .c`.out"
+  CHECKER_OUTFILE2="`basename ${TARGET2} .c`.res"
+  make ${BINARY2}
   OUT=$?
   if [ ${OUT} -ne 0 ]; then
     echo "FAILURE"  #>> /dev/stderr
     exit 1
   fi
+  ./run.sh ${TARGET2}
+  OUT=$?
+  if [ ${OUT} -ne 0 ];then
+    echo "Error: ${TARGET2} crashed"  #>> /dev/stderr
+  fi
+  echo "====Comparison: ./checker.out ${DIR_OUTFILE}/${CHECKER_OUTFILE1} ${DIR_OUTFILE}/${CHECKER_OUTFILE2}===="
+  ./checker.out  ${DIR_OUTFILE}/${CHECKER_OUTFILE1} ${DIR_OUTFILE}/${CHECKER_OUTFILE2}
 
 done

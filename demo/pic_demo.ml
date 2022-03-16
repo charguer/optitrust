@@ -4,8 +4,8 @@ open Ast
 
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
-let step = cFunDef "step"
-let stepLF = cFunDef "stepLeapFrog"
+let step = cTopFunDef "step"
+let stepLF = cTopFunDef "stepLeapFrog"
 let steps = cOr [[step]; [stepLF]]
 let dims = ["X"; "Y"; "Z"]
 let nb_dims = List.length dims
@@ -32,7 +32,16 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
   !! Function.inline ~delete:true [nbMulti;cFun "matrix_vect_mul"];
 
+  bigstep "dummy";
+  !!();
+
   bigstep "Vectorization in [cornerInterpolationCoeff]";
+  !! Instr.delete [cTopFunDef "main"; cFor "idStep"];
+
+  bigstep "final";
+  !!();
+  Run.stop();
+
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   let ctx_rv = cChain [ctx; sInstr "r.v"] in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];

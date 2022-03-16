@@ -6,6 +6,8 @@ val script_cpp : ?batching:string -> ?filename:string -> ?prepro:(string list) -
 
 val doc_script_cpp : ?batching:string -> ?parser:Parsers.cparser -> (unit -> unit) -> string -> unit
 
+val stop : unit -> unit
+
 (** Debugging *)
 
 val set_exn_backtrace : bool -> unit
