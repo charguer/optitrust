@@ -65,3 +65,7 @@ void MFREE2(int N1, int N2, void* p) {
 bool ANY_BOOL () {
   return true;
 }
+
+int ANY(int maxValue) {
+  return 0;
+}

@@ -154,7 +154,8 @@ let get_cpp_includes (filename : string) : string =
 let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
   let use_new_encodings = !Flags.use_new_encodings in
   let parser = Parsers.get_selected ~parser () in
-  Printf.printf "Parsing %s using %s\n" filename (Parsers.string_of_cparser parser);
+  if !Flags.debug_reparse
+    then Printf.printf "Parsing %s using %s\n" filename (Parsers.string_of_cparser parser);
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
   let command_line_include =

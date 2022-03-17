@@ -25,7 +25,8 @@ void MFREE(void* p);
 void MFREE1(int N1, void* p);
 void MFREE2(int N1, int N2, void* p);
 
-bool ANY_BOOL ();
+bool ANY_BOOL();
+int ANY(int maxValue);
 
 #endif
 

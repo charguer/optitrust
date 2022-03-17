@@ -125,3 +125,15 @@ h2 {
   float: right;
 }
 
+/*codemirror infinite height*/
+#source_code {
+  height: auto;
+}
+
+.CodeMirror {
+  border: 1px solid #eee;
+  height: auto;
+}
+
+.diffBefore {}
+.diffAfter {}

@@ -16,11 +16,15 @@ function initEditor() {
     extraKeys: {
       'N': function(cm) { console.log("pressed N in editor"); },
     },
+    // no codemirrror scroll bars, display full code
+    scrollbarStyle: null,
+    viewportMargin: Infinity,
   });
 
-  // Dimensions for codemirror window, if the code has more lines that the size of the window
-  // a scrollbar will appear
-  editor.setSize(700, 600);
+  // DEPRECATED:
+  // Dimensions for codemirror window, if the code has more lines that the
+  // size of the window a scrollbar will appear
+  // editor.setSize(700, 600);
 
   // CURRENTLY NOT USED
   // Add a "getSelectedLoc" function
@@ -37,6 +41,11 @@ function initEditor() {
 
 function scrollToLoc(loc) { // ({from: from, to: to});
   editor.scrollIntoView(loc, 100);
+}
+
+function scrollToLine(line) { // ({from: from, to: to});
+  var vMargin = 100; // pixels
+  editor.scrollIntoView(line, vMargin);
 }
 
 // hook for codemirror
@@ -71,14 +80,6 @@ var configuration = {
 // TODO: the horizontal scrollbars should not be needed if the diff contains no long lines.
 
 
-function loadDiffFromString(diffString) {
-   // this function should be called only after DOM contents is loaded
-  var targetElement = document.getElementById("diffDiv");
-  var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
-  diff2htmlUi.draw();
-  diff2htmlUi.highlightCode();
-}
-
 //---------------------------------------------------
 
 // Could use Underscore's _escape method.
@@ -103,6 +104,32 @@ var maxButtons = 10;
 var curSource = -1;
 var curSdiff = -1;
 var curBdiff = -1;
+var idSourceLeft = -1;
+var idSourceRight = -1;
+
+function openSourceAtLine(idSource, line) {
+  loadSource(idSource);
+  // TODO: autoscrolling does not work...
+  var delay = 1000; // milliseconds
+   setTimeout(function() { scrollToLine(line); },
+   delay);
+}
+
+function loadDiffFromString(diffString) {
+  // this function should be called only after DOM contents is loaded
+ var targetElement = document.getElementById("diffDiv");
+ var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
+ diff2htmlUi.draw();
+ diff2htmlUi.highlightCode();
+
+ // identify the two sides of the diff, and register handlers for click on the line numbers;
+ $('.d2h-file-side-diff').first().addClass('diffBefore');
+ $('.d2h-file-side-diff').last().addClass('diffAfter');
+ $('.diffBefore .d2h-code-side-linenumber').click(function(e) {
+     var line = e.target.outerText; openSourceAtLine(idSourceLeft, line); });
+ $('.diffAfter .d2h-code-side-linenumber').click(function(e) {
+     var line = e.target.outerText; openSourceAtLine(idSourceRight, line); });
+}
 
 function resetView() {
   $("#sourceDiv").hide();
@@ -138,7 +165,7 @@ function hideNoncoveredButtons(bdiffId) {
   var start = step.start;
   var stop = step.stop;
   for (var i = 0; i <= codes.length; i++) {
-    showOrHide($("#button_code_" + i), (start <= i && i <= stop));
+    // DEPRECATED showOrHide($("#button_code_" + i), (start <= i && i <= stop));
     if (i < smallsteps.length)
       showOrHide($("#button_sdiff_" + i), (start <= i && i < stop));
   }
@@ -160,7 +187,7 @@ function loadSource(id) {
   resetView();
   $("#sourceDiv").show();
   editor.setValue(codes[id]);
-  $("#button_code_" + id).addClass("ctrl-button-selected");
+  // DEPRECTED $("#button_code_" + id).addClass("ctrl-button-selected");
   showBdiffCovered(id);
   curSource = id;
 }
@@ -174,10 +201,12 @@ function loadSdiff(id) {
   var sTime = htmlSpan(step.exectime + "ms", "timing-info") + "<div style='clear: both'></div>";
   displayInfo(sStep + sTime);
   $("#button_sdiff_" + id).addClass("ctrl-button-selected");
-  $("#button_code_" + id).addClass("ctrl-button-covered");
-  $("#button_code_" + (id+1)).addClass("ctrl-button-covered");
+  // DEPRECATED $("#button_code_" + id).addClass("ctrl-button-covered");
+  // DEPRECATED $("#button_code_" + (id+1)).addClass("ctrl-button-covered");
   showBdiffCovered(id);
   curSdiff = id;
+  idSourceLeft = id;
+  idSourceRight = id+1;
 }
 
 function loadBdiff(id) {
@@ -192,6 +221,8 @@ function loadBdiff(id) {
   // $("#button_sdiff_" + bigsteps[id].start).addClass("ctrl-button-covered");
   hideNoncoveredButtons(id);
   curSdiff = bigsteps[id].start - 1; // -1 to anticipate for "next" being pressed
+  idSourceLeft = bigsteps[id].start;
+  idSourceRight =bigsteps[id].stop;
 }
 
 function nextSource() {
@@ -228,12 +259,14 @@ function initControls() {
   };
 
   // Code buttons
+  /* DEPRECATED
   var sCode = "";
   sCode += htmlButton("button_code_next", "next", "next-button", "nextSource()");
   for (var i = 0; i < codes.length; i++) {
     sCode += htmlButton("button_code_" + i, i, "ctrl-button", "loadSource(" + i + ")");
   }
   addRow("Source", sCode);
+  */
 
   // Small diff buttons
   var sSdiff = "";
@@ -260,6 +293,10 @@ document.addEventListener('DOMContentLoaded', function () {
   // editor.setValue("click on a button");
   // loadSource(codes.length-1);
   // loadSource(0);
-  loadBdiff(0);
+   loadBdiff(0);
+
 
 });
+
+// alternative:
+// but there could be many lines..

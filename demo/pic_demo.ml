@@ -20,11 +20,12 @@ let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
 let delocalize_bag = Local_obj ("bag_init_initial", "bag_append", "bag_free_initial")
 let align = 64
 
-let doublepos = true (* LATER: Arthur make this a command line command *)
 let use_checker = true (* LATER: Arthur make this a command line command *)
+let doublepos = false (* LATER: Arthur make this a command line command *)
+let doublepos = if use_checker then false else doublepos
 
-let stepFuns = 
-  (if use_checker then [repPart] else []) 
+let stepFuns =
+  (if use_checker then [repPart] else [])
      @ stepsl
 
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
@@ -102,7 +103,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Scaling for the electric field";
   !! Struct.to_variables [step; cVarDef "fieldAtPos"];
-  !! Variable.insert_list_same_type ~reparse:true (atyp "const double") (["factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"] 
+  !! Variable.insert_list_same_type ~reparse:true (atyp "const double") (["factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
       @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d)))))  [occFirst; tBefore; step; cFor "idCell"]; (* Will change this later when I fix the bug with variable_insert *)
   !! Function.inline [step; cFun "getFieldAtCorners"];
   !! Struct.set_explicit [step; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "res"] ()] ()];
@@ -155,13 +156,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.0"];
   !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
 
-  if  doublepos then begin
+  if not doublepos then begin
     bigstep "Turn positions into floats";
     !! Cast.insert (atyp "float") [sExprRegexp ~substr:true "p.2 - i.2"];
     !! Struct.update_fields_type "itemsPos." (atyp "float") [cTypDef "chunk"];
   end;
 
-    bigstep "Introduce matrix operations, and prepare loop on charge deposit"; 
+    bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
   !! Matrix_basic.intro_mmalloc [nbMulti; cFunDef "allocateStructures";cFun "malloc"];
   !! Matrix.intro_mindex (expr "nbCells") [nbMulti; step; cCellAccess ~base:[cOr [[cVar "deposit"]; [cVar "bagsNext"]]]() ];
@@ -191,8 +192,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
           cellOfCoord(wrap(gridX,iX-1), wrap(gridY,iY-1), wrap(gridZ,iZ-1)),
         };
       return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
-      }" in 
-      
+      }" in
+
   !! Sequence.insert (stmt mybij_def) [tBefore; step];
   !! Matrix.biject "mybij" [step; cVarDef "depositCorners"];
   !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
@@ -215,7 +216,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.insert_list_same_type (atyp "const int") [("block", lit "2"); ("halfBlock", expr "block/2")] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
-    Loop.tile tile ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i" ^ d)];
+    Loop.tile tile ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
     Loop.color (expr color) ~index:("c"^d) [step; cFor bd]
     (* Loop.color (expr color) ~index:("c"^d) [step; cFor ("i" ^ d)] *)
     in
@@ -233,7 +234,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move_out ~dest:[tBefore; cTopFunDef "step"] [step; cOr [[cVarDef "PRIVATE"]; [cVarDef "SHARED"]]];
   !! Instr.delete [cOr[[cVarDef "bagsNext"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
-  
+
   bigstep "Cleanup";
   let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
   !! Trace.reparse ();
@@ -248,7 +249,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
   !! Variable.insert ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
-      ~value:(trm_ands (map_dims (fun d -> 
+      ~value:(trm_ands (map_dims (fun d ->
          expr ~vars:[d] "co.i${0} - b${0} >= - halfBlock && co.i${0} - b${0} < block + halfBlock")))
       [tBefore; step; cFun "bag_push"];
   !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") ~mark:"push" [step; cFun "bag_push"];
@@ -267,7 +268,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move ~dest [step; cVarDef "co"];
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "rX1"]]];
   !! Variable.ref_to_pointer [nbMulti; step; cVarDef "idCell2"];
-  
+
 
   bigstep "Parallelization";
   !! Omp.parallel_for [Collapse 3] [tBefore; cFor "bX"];
@@ -399,7 +400,7 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
     LATER: type particle would need to be converted too
        const vect pos = {x, y, z};
        would need cast around the values
-   
+
   end; *)
 
   (* TODO: bigstep "Simplification of fwrap";
@@ -416,7 +417,7 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
 
        ARTHUR: simplify mybij calls in the sum *)
 
-  
+
   (* delocalize_bags *)
 
   (* LATER !! Instr.delete [cOr[[cVarDef "bagsNext"];[ cKindInstr; cVar "bagsNext"]]]; *)
@@ -450,3 +451,7 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
          ["const double", "factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
        @ (map_dims (fun d -> "const double", ("factor" ^ d), expr ("factorC / cell" ^ d)))))
      [tFirst; step; dBody]; *)
+
+(* LATER: rename pic_demo.c to pic_naive.c *)
+
+(* LATER: use case_studies optitrust.{h,c}  instead of ../include/optitrust.h *)
