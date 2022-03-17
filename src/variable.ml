@@ -459,5 +459,5 @@ let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (st
   let const = false in 
   Target.reparse_after ~reparse (fun tg ->
     List.iter (fun (name, value) ->
-      insert ~const ~name ~typ ~value tg) name_vals)
+      insert ~const ~name ~typ ~value tg) (List.rev name_vals))
 

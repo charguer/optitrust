@@ -98,11 +98,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Scaling for the electric field";
   !! Struct.to_variables [step; cVarDef "fieldAtPos"];
-  !! Variable.insert_list ~reparse:true ~defs:(List.rev ( 
-         ["const double", "factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
-       @ (map_dims (fun d -> "const double", ("factor" ^ d), expr ("factorC / cell" ^ d)))))
-     [tFirst; step; dBody];
-  
+  !! Variable.insert_list_same_type ~reparse:true (atyp "const double") (["factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"] 
+      @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d)))))  [tFirst; step; dBody];
   !! Function.inline [step; cFun "getFieldAtCorners"];
   !! Struct.set_explicit [step; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "res"] ()] ()];
   !! iter_dims (fun d ->
@@ -131,7 +128,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       [cVarDef ~regexp:true "[ir][XYZ][0-2]"] ] ];
 
   bigstep "Enumerate grid cells by coordinates";
-  !! Variable.to_const [nbMulti; cVarDef ~regexp:true "grid."];
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
 
   bigstep "Make positions relative to the cell corner";
@@ -212,7 +208,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
 
   bigstep "Coloring";
-  !! Variable.insert_list ~const:true ~defs:[("int","block",lit "2"); ("int","halfBlock",expr "block / 2")] [tBefore; cVarDef "nbCells"];
+  !! Variable.insert_list_same_type (atyp "const int") [("block", lit "2"); ("halfBlock", expr "block/2")] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i" ^ d)];
@@ -231,6 +227,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "idCell"];
   !! Instr.move_out ~dest:[tBefore; cTopFunDef "step"] [step; cOr [[cVarDef "PRIVATE"]; [cVarDef "SHARED"]]];
   !! Instr.delete [cOr[[cVarDef "bagsNext"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
+  !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
   
   bigstep "Cleanup";
   let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
@@ -277,13 +274,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.simd [] [occIndex 2; tBefore; step; cFor "i"];
   !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot];
   !! Align_basic.def (lit "64") [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
+  !! Align_basic.def (lit "64") [cVarDef "idCell2_step"];
   !! Label.remove [step; cLabel "charge"];
 )
 
 
 
 (*
-TODO fuse 2 loops on idCell
+DONE fuse 2 loops on idCell
 the first one ~body[cVar"bagsKind"]
 
 
@@ -305,7 +303,7 @@ use unfold in
 !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "factor."];
   with a more precise target
 
-  TODO:
+  DONE:
   #include <stdalign.h>
   alignas(16)  print to front of type
 
@@ -324,7 +322,7 @@ use unfold in
   LATER
   Flags.print_coumpound_expressions
 
-  TODO =>
+  DONE =>
   make optitrust
   make pic_demo_out.cpp
   cd ../case_study/pic/scripts
@@ -333,7 +331,7 @@ use unfold in
 
 
 ARTHUR
-
+j
 #pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
@@ -371,8 +369,6 @@ and try
 
  TODO:
 isDistFromBlockLessThanHalfABlock
-
-!! Variable.to_const [nbMulti; cVarDef ~regexp:true "grid."]; NOT OK 
 
 
 *)

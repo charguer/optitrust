@@ -771,9 +771,33 @@ int main(int argc, char **argv) {
   resetDeposit();
   createParticles();
   stepLeapFrog();
+  
+  #if defined(PRINTPERF) || defined(PRINTSTEPS)
+  double timeStart = omp_get_wtime();
+#endif
+#ifdef PRINTSTEPS
+  double nextReport = timeStart + 1.0;
+#endif
+
+// Foreach time step
   for (int idStep = 0; idStep < nbSteps; idStep++) {
+#ifdef PRINTSTEPS
+    if (omp_get_wtime() > nextReport) {
+      nextReport += 1.0;
+      printf("Step %d\n", idStep);
+    }
+#endif
     step();
   }
+
+#if defined(PRINTPERF)
+  reportPerformance(timeStart);
+#endif
+
+#ifdef CHECKER
+  reportParticlesState();
+#endif
+
   deallocateStructures();
   free(deposit);
 }
