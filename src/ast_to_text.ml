@@ -170,6 +170,7 @@ and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
      string "Alignas" ^^ blank 1 ^^ print_trm ~only_desc t
   | GeneratedTyp ->
     string "GeneratedTyp" ^^ blank 1
+  | Others -> empty
 and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   match t with
   | Trm_val v ->

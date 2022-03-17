@@ -7,6 +7,9 @@ let add_prefix (prefix : string) (indices : string list) : string list =
 
 let step = cFunDef "step"
 let stepLF = cFunDef "stepLeapFrog"
+let stepsl = [stepLF; step]
+let repPart = cFunDef "reportParticlesState"
+
 
 let dims = ["X"; "Y"; "Z"]
 let nb_dims = List.length dims
@@ -17,12 +20,13 @@ let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
 let delocalize_bag = Local_obj ("bag_init_initial", "bag_append", "bag_free_initial")
 let align = 64
 
-let doublepos = true 
-let use_checker = false 
+let doublepos = true (* LATER: Arthur make this a command line command *)
+let use_checker = true (* LATER: Arthur make this a command line command *)
 
-let stepFuns =
-  (if use_checker then [] else [])
-  @ [stepLF; step]
+let stepFuns = 
+  (if use_checker then [repPart] else []) 
+     @ stepsl
+
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = if use_checker then ["-DCHECKER"] else []
@@ -57,15 +61,16 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Reveal write operations involved manipulation of particles and vectors";
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
-  !! Function.inline [cOr [[cFunDef "stepLeapFrog"];[step]]; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-  !! Struct.set_explicit [nbMulti; steps; cWrite ~typ:"vect" ()];
+  !! Function.inline [steps; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+  !! Trace.reparse ();
+  !! Struct.set_explicit [nbMulti; steps; cFieldWrite ~base:[cVar "p"] ()];
 
   bigstep "inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
   !! Function.inline [nbMulti; cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
   !! Function.inline [step; cFun "accumulateChargeAtCorners"];
   !! Function.inline ~vars:(AddSuffix "2") [step; cFun "idCellOfPos"];
   !! List.iter (fun f -> Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; f; cFun "cornerInterpolationCoeff"])
-     stepFuns;
+     stepsl;
 
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
@@ -85,21 +90,20 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Elimination of pointer p, to prepare for aos-to-soa";
   !! Variable.init_detach [steps; cVarDef "p"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
-  !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[ cVar "p"] ()];
-  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]0"];
+  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."];
   !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
   !! Instr.delete [steps; cVarDef "p"];
 
   bigstep "AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
-  !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ()];
+  !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ~regexp:true ~field:"\\(speed\\|pos\\)" ()]; (* We need to use this target because p2.id will make the transformation fail *)
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
   !! Struct.inline "items" [cTypDef "chunk"];
 
   bigstep "Scaling for the electric field";
   !! Struct.to_variables [step; cVarDef "fieldAtPos"];
   !! Variable.insert_list_same_type ~reparse:true (atyp "const double") (["factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"] 
-      @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d)))))  [tFirst; step; dBody];
+      @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d)))))  [occFirst; tBefore; step; cFor "idCell"]; (* Will change this later when I fix the bug with variable_insert *)
   !! Function.inline [step; cFun "getFieldAtCorners"];
   !! Struct.set_explicit [step; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "res"] ()] ()];
   !! iter_dims (fun d ->
@@ -213,8 +217,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     let bd = "b" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i" ^ d)];
     Loop.color (expr color) ~index:("c"^d) [step; cFor bd]
+    (* Loop.color (expr color) ~index:("c"^d) [step; cFor ("i" ^ d)] *)
     in
-  !! iter_dims (fun d -> colorize "block" "2" d);
+  !! iter_dims (fun d -> colorize "2" "block" d);
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
   !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"];
 
@@ -231,6 +236,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   
   bigstep "Cleanup";
   let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
+  !! Trace.reparse ();
   !! Variable.init_detach [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true dep_and_bags];
@@ -363,7 +369,7 @@ j
     inline idCell2  everywhere
 
 
-TODO after other todos
+DONE after other todos
 move reportParticlesState()  into pic_demo.c
 and try
 
@@ -433,6 +439,7 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
 
   (* (if use_checker then [reportParticles] else []) *)
 
+(* TODO: Fix the bug with insertion of variables when using tBefore and tFirst *)
 
 (* let doublepos = true LATER: ARTHUR make this command line argument *)
 (* let use_checker = false LATER: ARTHUR make this command line argument *)

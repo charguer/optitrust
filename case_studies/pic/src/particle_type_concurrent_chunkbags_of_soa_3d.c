@@ -24,7 +24,14 @@
 // printf("init_all_chunks STDCHUNKALLOC flag\n");
 
 chunk* naive_chunk_alloc() {
-  return (chunk*) malloc(sizeof(chunk));
+  chunk* c;
+  // For an unknown reason, the chunks have to be allocated aligned (despite the __attribute__((aligned(VEC_ALIGN)))
+  // in the type declaration), else it causes a segfault because of unaligned memory if compiled with gcc.
+  if (posix_memalign((void**)&c, VEC_ALIGN, sizeof(chunk))) {
+      fprintf(stderr, "naive_chunk_alloc: posix_memalign failed to initialize memory.\n");
+      exit(EXIT_FAILURE);
+  }
+  return c;
 }
 
 void naive_chunk_free(chunk* c) {
@@ -144,7 +151,7 @@ chunk* chunk_alloc(int thread_id) {
 #ifdef PIC_VERT_TESTING
     nb_malloc[thread_id]++;
 #endif
-    return (chunk*) malloc(sizeof(chunk));
+    return naive_chunk_alloc();
   }
 #endif // defined(STDCHUNKALLOC)
 }
@@ -220,7 +227,7 @@ void compute_cumulative_free_list_sizes() {
     // there is enough indexes in that list to put all the new chunks here.
     int nb_allocated_chunks = 0;
     while (nb_allocated_chunks < nb_chunks_to_allocate) {
-      free_chunks[0][FREE_INDEX(0)++] = malloc(sizeof(chunk));
+      free_chunks[0][FREE_INDEX(0)++] = naive_chunk_alloc();
       nb_allocated_chunks++;
 #ifdef PIC_VERT_TESTING
       nb_malloc[0]++;

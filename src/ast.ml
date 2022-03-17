@@ -303,6 +303,7 @@ and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   | Identifier of var
   | Alignas of trm (* could be int_or_var *)
   | GeneratedTyp
+  | Others 
 
 
 and record_type =
