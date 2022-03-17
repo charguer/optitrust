@@ -228,7 +228,7 @@ let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : t
                         if i = 0 then let acc = trm_var ind in acc
                           else trm_apps (trm_binop Binop_add) [
                             trm_apps (trm_binop Binop_mul) [
-                              acc; trm_var bnd]
+                              acc; AstParser.expr bnd]
                               ; trm_var ind]
                     )  (trm_var "") index_and_bounds in
                     let old_loop_index_decl = trm_let_immut (index, typ_int ()) old_loop_index_val in
@@ -238,8 +238,8 @@ let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : t
                    end in
 
     Tools.fold_lefti (fun i acc (ind, bnd) ->
-      if i = 0 then  trm_for ind (trm_int 0) direction (trm_var bnd) (Post_inc) acc
-        else  trm_for ind (trm_int 0) DirUp (trm_var bnd) Post_inc (trm_seq_nomarks [acc])
+      if i = 0 then  trm_for ind (trm_int 0) direction (AstParser.expr bnd) (Post_inc) acc
+        else  trm_for ind (trm_int 0) DirUp (AstParser.expr bnd) Post_inc (trm_seq_nomarks [acc])
     ) new_body (List.rev index_and_bounds)
   | _ -> fail t.loc "grid_enumerate_aux: expected a simple loop"
 
