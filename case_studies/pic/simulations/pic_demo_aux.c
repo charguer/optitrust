@@ -270,34 +270,34 @@ void reportPerformance(double timeStart) {
 #endif
 }
 
-void reportParticlesState() {
-#ifdef CHECKER
-  // printf("NbParticles: %d\n", nbParticles);
-  FILE* f = fopen(CHECKER_FILENAME, "wb");
-  fwrite(&nbParticles, sizeof(int), 1, f);
-  fwrite(&areaX, sizeof(double), 1, f);
-  fwrite(&areaY, sizeof(double), 1, f);
-  fwrite(&areaZ, sizeof(double), 1, f);
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag* b = &bagsCur[idCell];
-    bag_iter bag_it;
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
-      fwrite(&(p->id), sizeof(int), 1, f);
-      fwrite(&(p->pos.x), sizeof(double), 1, f);
-      fwrite(&(p->pos.y), sizeof(double), 1, f);
-      fwrite(&(p->pos.z), sizeof(double), 1, f);
-      fwrite(&(p->speed.x), sizeof(double), 1, f);
-      fwrite(&(p->speed.y), sizeof(double), 1, f);
-      fwrite(&(p->speed.z), sizeof(double), 1, f);
-#ifdef DEBUG_CHECKER
-      printf("id=%d %lf %lf %lf %lf %lf %lf\n", p->id,
-        p->pos.x, p->pos.y, p->pos.z,
-        p->speed.x, p->speed.y, p->speed.z);
-#endif
-    }
-  }
-  fclose(f);
-#endif
-}
+// void reportParticlesState() {
+// #ifdef CHECKER
+//   // printf("NbParticles: %d\n", nbParticles);
+//   FILE* f = fopen(CHECKER_FILENAME, "wb");
+//   fwrite(&nbParticles, sizeof(int), 1, f);
+//   fwrite(&areaX, sizeof(double), 1, f);
+//   fwrite(&areaY, sizeof(double), 1, f);
+//   fwrite(&areaZ, sizeof(double), 1, f);
+//   for (int idCell = 0; idCell < nbCells; idCell++) {
+//     bag* b = &bagsCur[idCell];
+//     bag_iter bag_it;
+//     for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
+//       fwrite(&(p->id), sizeof(int), 1, f);
+//       fwrite(&(p->pos.x), sizeof(double), 1, f);
+//       fwrite(&(p->pos.y), sizeof(double), 1, f);
+//       fwrite(&(p->pos.z), sizeof(double), 1, f);
+//       fwrite(&(p->speed.x), sizeof(double), 1, f);
+//       fwrite(&(p->speed.y), sizeof(double), 1, f);
+//       fwrite(&(p->speed.z), sizeof(double), 1, f);
+// #ifdef DEBUG_CHECKER
+//       printf("id=%d %lf %lf %lf %lf %lf %lf\n", p->id,
+//         p->pos.x, p->pos.y, p->pos.z,
+//         p->speed.x, p->speed.y, p->speed.z);
+// #endif
+//     }
+//   }
+//   fclose(f);
+// #endif
+// }
 
 

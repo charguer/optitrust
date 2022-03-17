@@ -33,6 +33,7 @@ typedef struct {
   double speedX;
   double speedY;
   double speedZ;
+  int id;
 } particle;
 
 vect vect_add(vect v1, vect v2);
@@ -56,6 +57,7 @@ typedef struct chunk {
   double itemsSpeedX[CHUNK_SIZE];
   double itemsSpeedY[CHUNK_SIZE];
   double itemsSpeedZ[CHUNK_SIZE];
+  int itemsId[CHUNK_SIZE];
 } chunk;
 
 typedef struct {
@@ -156,6 +158,7 @@ void bag_push_concurrent(bag *b, particle p) {
       c->itemsSpeedX[index] = p.speedX;
       c->itemsSpeedY[index] = p.speedY;
       c->itemsSpeedZ[index] = p.speedZ;
+      c->itemsId[index] = p.id;
       if (index == CHUNK_SIZE - 1) {
         bag_add_front_chunk(b);
       }
@@ -178,6 +181,7 @@ void bag_push_serial(bag *b, particle p) {
   c->itemsSpeedX[index] = p.speedX;
   c->itemsSpeedY[index] = p.speedY;
   c->itemsSpeedZ[index] = p.speedZ;
+  c->itemsId[index] = p.id;
   if (index == CHUNK_SIZE - 1) {
     bag_add_front_chunk(b);
   }
@@ -216,11 +220,11 @@ double areaY;
 
 double areaZ;
 
-const int gridX;
+int gridX;
 
-const int gridY;
+int gridY;
 
-const int gridZ;
+int gridZ;
 
 int nbThreads;
 
@@ -278,7 +282,8 @@ double *depositCorners;
 
 bag *bagsCur;
 
-void addParticle(double x, double y, double z, double vx, double vy, double vz);
+void addParticle(int idParticle, double x, double y, double z, double vx,
+                 double vy, double vz);
 
 int cellOfCoord(int i, int j, int k);
 
@@ -469,6 +474,10 @@ void deallocateStructures() {
   }
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
+      bag_append(&bagsCur[MINDEX1(nbCells, idCell)],
+                 &bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
+    }
+    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
       bag_free_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
     }
   }
@@ -492,11 +501,12 @@ void computeConstants() {
   particleMass = totalMass / nbParticles;
 }
 
-void addParticle(double x, double y, double z, double vx, double vy,
-                 double vz) {
+void addParticle(int idParticle, double x, double y, double z, double vx,
+                 double vy, double vz) {
   const vect pos = {x, y, z};
   const vect speed = {vx, vy, vz};
-  const particle particle = {pos.x, pos.y, pos.z, speed.x, speed.y, speed.z};
+  const particle particle = {pos.x,   pos.y,   pos.z,     speed.x,
+                             speed.y, speed.z, idParticle};
   const int idCell = idCellOfPos(pos);
   bag_push_initial(&bagsCur[idCell], particle);
   double_nbCorners contribs = cornerInterpolationCoeff(pos);
@@ -581,6 +591,8 @@ const int SHARED = 1;
 
 const int PRIVATE = 0;
 
+int ANY();
+
 void step() {
   nbThreads = omp_get_num_threads();
   for (int idCell = 0; idCell < nbCells; idCell++) {
@@ -592,17 +604,17 @@ void step() {
     }
   }
 core:
-  for (int cX = 0; cX < 2; cX++) {
-    for (int cY = 0; cY < 2; cY++) {
-      for (int cZ = 0; cZ < 2; cZ++) {
+  for (int cX = 0; cX < block; cX++) {
+    for (int cY = 0; cY < block; cY++) {
+      for (int cZ = 0; cZ < block; cZ++) {
 #pragma omp parallel for collapse(3)
-        for (int bX = cX * block; bX < gridX; bX += 2 * block) {
-          for (int bY = cY * block; bY < gridY; bY += 2 * block) {
-            for (int bZ = cZ * block; bZ < gridZ; bZ += 2 * block) {
+        for (int bX = cX * 2; bX < gridX; bX += block * 2) {
+          for (int bY = cY * 2; bY < gridY; bY += block * 2) {
+            for (int bZ = cZ * 2; bZ < gridZ; bZ += block * 2) {
               int idThread = omp_get_thread_num();
-              for (int iX = bX; iX < bX + block; iX++) {
-                for (int iY = bY; iY < bY + block; iY++) {
-                  for (int iZ = bZ; iZ < bZ + block; iZ++) {
+              for (int iX = bX; iX < bX + 2; iX++) {
+                for (int iY = bY; iY < bY + 2; iY++) {
+                  for (int iZ = bZ; iZ < bZ + 2; iZ++) {
                     const int idCell = (iX * gridY + iY) * gridZ + iZ;
                     const int_nbCorners indices = indicesOfCorners(idCell);
                     vect_nbCorners res;
@@ -621,7 +633,7 @@ core:
                     for (chunk *c = b->front; c != NULL;
                          c = chunk_next(c, true)) {
                       const int nb = c->size;
-                      int idCell2_step[CHUNK_SIZE];
+                      alignas(64) int idCell2_step[CHUNK_SIZE];
 #pragma omp simd
                       for (int i = 0; i < nb; i++) {
                         const double rX0 = c->itemsPosX[i];
@@ -696,6 +708,7 @@ core:
                         p2.speedX = c->itemsSpeedX[i];
                         p2.speedY = c->itemsSpeedY[i];
                         p2.speedZ = c->itemsSpeedZ[i];
+                        p2.id = c->itemsId[i];
                         int *idCell2 = &idCell2_step[i];
                         const coord co = coordOfCell(*idCell2);
                         const bool isDistFromBlockLessThanHalfABlock =
@@ -715,7 +728,7 @@ core:
                               p2);
                         }
                         double_nbCorners contribs;
-#pragma simd aligned(coefX, coefY, coefZ, signX, signY, signZ : 64)
+#pragma omp simd aligned(coefX, coefY, coefZ, signX, signY, signZ : 64)
                         for (int k = 0; k < 8; k++) {
                           depositThreadCorners[MINDEX3(
                               nbThreads, nbCells, 8, idThread, *idCell2, k)] +=
@@ -733,13 +746,6 @@ core:
           }
         }
       }
-    }
-  }
-#pragma omp parallel for
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_append(&bagsCur[MINDEX1(nbCells, idCell)],
-                 &bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
     }
   }
 #pragma omp parallel for
@@ -764,6 +770,30 @@ core:
   updateFieldUsingDeposit();
 }
 
+void reportParticlesState() {
+  FILE *f = fopen("pic_optimized.res", "wb");
+  fwrite(&nbParticles, sizeof(int), 1, f);
+  fwrite(&areaX, sizeof(double), 1, f);
+  fwrite(&areaY, sizeof(double), 1, f);
+  fwrite(&areaZ, sizeof(double), 1, f);
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    bag *b = &bagsCur[idCell];
+    for (chunk *c = b->front; c != NULL; c = chunk_next(c, true)) {
+      const int nb = c->size;
+      for (int i = 0; i < nb; i++) {
+        fwrite(&c->itemsId[i], sizeof(int), 1, f);
+        fwrite(&c->itemsPosX[i], sizeof(double), 1, f);
+        fwrite(&c->itemsPosY[i], sizeof(double), 1, f);
+        fwrite(&c->itemsPosZ[i], sizeof(double), 1, f);
+        fwrite(&c->itemsSpeedX[i], sizeof(double), 1, f);
+        fwrite(&c->itemsSpeedY[i], sizeof(double), 1, f);
+        fwrite(&c->itemsSpeedZ[i], sizeof(double), 1, f);
+      }
+    }
+  }
+  fclose(f);
+}
+
 int main(int argc, char **argv) {
   loadParameters(argc, argv);
   computeConstants();
@@ -771,33 +801,10 @@ int main(int argc, char **argv) {
   resetDeposit();
   createParticles();
   stepLeapFrog();
-  
-  #if defined(PRINTPERF) || defined(PRINTSTEPS)
-  double timeStart = omp_get_wtime();
-#endif
-#ifdef PRINTSTEPS
-  double nextReport = timeStart + 1.0;
-#endif
-
-// Foreach time step
   for (int idStep = 0; idStep < nbSteps; idStep++) {
-#ifdef PRINTSTEPS
-    if (omp_get_wtime() > nextReport) {
-      nextReport += 1.0;
-      printf("Step %d\n", idStep);
-    }
-#endif
     step();
   }
-
-#if defined(PRINTPERF)
-  reportPerformance(timeStart);
-#endif
-
-#ifdef CHECKER
   reportParticlesState();
-#endif
-
   deallocateStructures();
   free(deposit);
 }

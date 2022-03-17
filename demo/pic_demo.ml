@@ -90,7 +90,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Elimination of pointer p, to prepare for aos-to-soa";
   !! Variable.init_detach [steps; cVarDef "p"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
-  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]0"];
+  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."];
   !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
   !! Instr.delete [steps; cVarDef "p"];
 
@@ -103,7 +103,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Scaling for the electric field";
   !! Struct.to_variables [step; cVarDef "fieldAtPos"];
   !! Variable.insert_list_same_type ~reparse:true (atyp "const double") (["factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"] 
-      @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d)))))  [tFirst; step; dBody];
+      @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d)))))  [occFirst; tBefore; step; cFor "idCell"]; (* Will change this later when I fix the bug with variable_insert *)
   !! Function.inline [step; cFun "getFieldAtCorners"];
   !! Struct.set_explicit [step; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "res"] ()] ()];
   !! iter_dims (fun d ->
@@ -217,8 +217,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     let bd = "b" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i" ^ d)];
     Loop.color (expr color) ~index:("c"^d) [step; cFor bd]
+    (* Loop.color (expr color) ~index:("c"^d) [step; cFor ("i" ^ d)] *)
     in
-  !! iter_dims (fun d -> colorize "block" "2" d);
+  !! iter_dims (fun d -> colorize "2" "block" d);
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
   !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"];
 
@@ -235,6 +236,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   
   bigstep "Cleanup";
   let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
+  !! Trace.reparse ();
   !! Variable.init_detach [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true dep_and_bags];
@@ -437,6 +439,7 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
 
   (* (if use_checker then [reportParticles] else []) *)
 
+(* TODO: Fix the bug with insertion of variables when using tBefore and tFirst *)
 
 (* let doublepos = true LATER: ARTHUR make this command line argument *)
 (* let use_checker = false LATER: ARTHUR make this command line argument *)
