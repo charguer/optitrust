@@ -193,6 +193,7 @@ function loadSource(id) {
 }
 
 function loadSdiff(id) {
+  $('#button_sdiff_next').focus();
   resetView();
   $("#diffDiv").show();
   var step = smallsteps[id];
@@ -210,6 +211,7 @@ function loadSdiff(id) {
 }
 
 function loadBdiff(id) {
+  $('#button_bdiff_next').focus();
   resetView();
   $("#diffDiv").show();
   var step = bigsteps[id];
@@ -225,6 +227,7 @@ function loadBdiff(id) {
   idSourceRight =bigsteps[id].stop;
 }
 
+// LATER: remove, as curSource is deprecated
 function nextSource() {
   if (curSource == -1 && curSdiff != -1) {
     curSource = curSdiff;
@@ -233,6 +236,7 @@ function nextSource() {
   loadSource(id);
 }
 
+// LATER: simplify, as curSource is deprecated
 function nextSdiff() {
   if (curSdiff == -1 && curSource != -1) {
     curSdiff = curSource - 1;
@@ -241,6 +245,7 @@ function nextSdiff() {
   loadSdiff(id);
 }
 
+// LATER: simplify, as curSource is deprecated
 function nextBdiff() {
   if (curBdiff == -1) {
     if (curSdiff == -1 && curSource != -1) {
@@ -294,8 +299,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // loadSource(codes.length-1);
   // loadSource(0);
    loadBdiff(0);
-
-
+  $('#button_bdiff_next').focus();
 });
 
 // alternative:

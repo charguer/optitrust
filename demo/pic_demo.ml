@@ -199,7 +199,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
       [step; cLabel "charge"; cFun "mybij"];
 
-  bigstep "Duplicate the charge of a corner for each of the threads";
+  bigstep "Introduce nbThreads and idThread";
   !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
   !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") [tBefore; cVarDef "nbCells"];
   !! Omp.declare_num_threads "nbThreads";
@@ -224,7 +224,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
   !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"];
 
-  bigstep "Delocalize bags";
+  bigstep "Introduce private and shared bags";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"]
     ~alloc_instr:[cFunDef "allocateStructures"; cWriteVar "bagsNext"]
     ~index:"bagsKind" ~ops:delocalize_bag [cLabel "core"];
@@ -235,7 +235,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.delete [cOr[[cVarDef "bagsNext"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
 
-  bigstep "Cleanup";
+  bigstep "Cleanup"; (* LATER: in cleanup separate ops on deposit from those on bagnexts *)
   let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
   !! Trace.reparse ();
   !! Variable.init_detach [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
@@ -244,7 +244,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_init_initial"]];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_free_initial"]];
-  !! Function.use_infix_ops ~indepth:true [step; dBody];
+  !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
 
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
@@ -259,7 +259,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Expr.replace_fun "bag_push_concurrent" [cMark "push"; dElse; cFun "bag_push"];
      Marks.remove "push" [cMark "push"];
 
-  bigstep "Loop splitting to separate processing of speeds, positions, and charge deposit";
+  bigstep "Loop splitting: process speeds, process positions, deposit particle and its charge";
   !! Trace.reparse();
   !! Variable.to_nonconst [step; cVarDef "idCell2"];
   !! Loop.hoist ~array_size:(Some (expr "CHUNK_SIZE")) [step; cVarDef "idCell2"];
@@ -276,9 +276,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.parallel_for [] [occIndex 1; tBefore; step; cFor "idCell"];
   !! Omp.parallel_for [] [occIndex 2; tBefore; step; cFor "idCell"];
   !! Omp.parallel_for [] [occIndex 3; tBefore; step; cFor "idCell"];
-  !! Omp.simd [] [occIndex 0; tBefore; step; cFor "i"];
+  !! Omp.simd [] [occIndex 0; tBefore; step; cFor "i"]; (* LATER: occIndices *)
   !! Omp.simd [] [occIndex 1; tBefore; step; cFor "i"];
-  !! Omp.simd [] [occIndex 2; tBefore; step; cFor "i"];
   !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot];
   !! Align_basic.def (lit "64") [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
   !! Align_basic.def (lit "64") [cVarDef "idCell2_step"];
