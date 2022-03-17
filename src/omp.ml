@@ -212,6 +212,12 @@ let get_num_threads (nb_threads : var) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.get_num_threads nb_threads i t p)
 
+
+let declare_num_threads ?(tg : Target.target = [Target.tFirst; Target.dRoot]) (nb_threads : var) : unit = 
+  Target.apply_on_targets_between (fun t (p, i) -> 
+    Omp_core.declare_num_threads nb_threads i t p) tg
+
+
 let get_max_threads (max_threads : var) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.get_max_threads max_threads i t p)

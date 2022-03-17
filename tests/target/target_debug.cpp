@@ -1,19 +1,15 @@
-typedef struct {
+void a(){
 
-  int x;
-  int y;
-
-} vect;
+  return;
+}
 
 
+void b(){
+  return;
+}
 
-int main () {
 
-  vect* v;
-
-  int y = v->x + 1;
-
-  y = 3;
+int main(){
 
   return 0;
 }

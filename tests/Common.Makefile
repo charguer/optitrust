@@ -156,6 +156,12 @@ ifeq ($(BATCH),)
 endif
 #-----end rules for non-batch mode------
 
+# Rule for building all the steps
+%.bigsteps: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
+	$(V)rm -rf bigsteps
+	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -dump-big-steps bigsteps
+	@echo "Produced bigsteps/*"
+
 # Rule for building the binary associated with a test
 %.$(PROGEXT): %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@

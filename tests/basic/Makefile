@@ -91,6 +91,7 @@ TESTS_TOCHECK := \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
 	function_rename_args.ml \
+	variable_ref_to_pointer.ml \
 
 # missing expected
 # matrix_insert_alloc_dim.ml \

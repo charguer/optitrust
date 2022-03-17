@@ -648,7 +648,7 @@ and tr_expr ?(is_statement : bool = false)
 
 and tr_attribute (loc : location) (a : Clang.Ast.attribute) : attribute =
   match a.desc with
-  | Aligned {spelling = _; alignment_expr = e} -> Aligned (tr_expr e)
+  | Aligned {spelling = _; alignment_expr = e} -> Alignas (tr_expr e)
   | _ -> fail loc "tr_attribute: unsupported attribute"
 
 and tr_decl_list (dl : decl list) : trms =

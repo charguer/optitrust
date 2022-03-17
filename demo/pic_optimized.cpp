@@ -16,6 +16,10 @@
 
 #include "pic_demo_aux.h"
 
+#include "stdalign.h"
+
+int nbThreads;
+
 typedef struct {
   double x;
   double y;
@@ -29,6 +33,7 @@ typedef struct {
   double speedX;
   double speedY;
   double speedZ;
+  int id;
 } particle;
 
 vect vect_add(vect v1, vect v2);
@@ -52,6 +57,7 @@ typedef struct chunk {
   double itemsSpeedX[CHUNK_SIZE];
   double itemsSpeedY[CHUNK_SIZE];
   double itemsSpeedZ[CHUNK_SIZE];
+  int itemsId[CHUNK_SIZE];
 } chunk;
 
 typedef struct {
@@ -152,6 +158,7 @@ void bag_push_concurrent(bag *b, particle p) {
       c->itemsSpeedX[index] = p.speedX;
       c->itemsSpeedY[index] = p.speedY;
       c->itemsSpeedZ[index] = p.speedZ;
+      c->itemsId[index] = p.id;
       if (index == CHUNK_SIZE - 1) {
         bag_add_front_chunk(b);
       }
@@ -174,6 +181,7 @@ void bag_push_serial(bag *b, particle p) {
   c->itemsSpeedX[index] = p.speedX;
   c->itemsSpeedY[index] = p.speedY;
   c->itemsSpeedZ[index] = p.speedZ;
+  c->itemsId[index] = p.id;
   if (index == CHUNK_SIZE - 1) {
     bag_add_front_chunk(b);
   }
@@ -212,11 +220,11 @@ double areaY;
 
 double areaZ;
 
-const int gridX;
+int gridX;
 
-const int gridY;
+int gridY;
 
-const int gridZ;
+int gridZ;
 
 int nbThreads;
 
@@ -274,7 +282,8 @@ double *depositCorners;
 
 bag *bagsCur;
 
-void addParticle(double x, double y, double z, double vx, double vy, double vz);
+void addParticle(int idParticle, double x, double y, double z, double vx,
+                 double vy, double vz);
 
 int cellOfCoord(int i, int j, int k);
 
@@ -389,17 +398,17 @@ void accumulateChargeAtCorners(double *deposit, int idCell,
   }
 }
 
-const double coefX[8] = {1., 1., 1., 1., 0., 0., 0., 0.};
+alignas(64) const double coefX[8] = {1., 1., 1., 1., 0., 0., 0., 0.};
 
-const double signX[8] = {-1., -1., -1., -1., 1., 1., 1., 1.};
+alignas(64) const double signX[8] = {-1., -1., -1., -1., 1., 1., 1., 1.};
 
-const double coefY[8] = {1., 1., 0., 0., 1., 1., 0., 0.};
+alignas(64) const double coefY[8] = {1., 1., 0., 0., 1., 1., 0., 0.};
 
-const double signY[8] = {-1., -1., 1., 1., -1., -1., 1., 1.};
+alignas(64) const double signY[8] = {-1., -1., 1., 1., -1., -1., 1., 1.};
 
-const double coefZ[8] = {1., 0., 1., 0., 1., 0., 1., 0.};
+alignas(64) const double coefZ[8] = {1., 0., 1., 0., 1., 0., 1., 0.};
 
-const double signZ[8] = {-1., 1., -1., 1., -1., 1., -1., 1.};
+alignas(64) const double signZ[8] = {-1., 1., -1., 1., -1., 1., -1., 1.};
 
 double_nbCorners cornerInterpolationCoeff(vect pos) {
   const int iX = int_of_double(pos.x / cellX);
@@ -451,12 +460,26 @@ void allocateStructures() {
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init_initial(&bagsCur[idCell]);
   }
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
+      bag_init_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
+    }
+  }
 }
 
 void deallocateStructures() {
   deallocateStructuresForPoissonSolver();
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_free_initial(&bagsCur[idCell]);
+  }
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
+      bag_append(&bagsCur[MINDEX1(nbCells, idCell)],
+                 &bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
+    }
+    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
+      bag_free_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
+    }
   }
   free(bagsCur);
   free(field);
@@ -478,11 +501,12 @@ void computeConstants() {
   particleMass = totalMass / nbParticles;
 }
 
-void addParticle(double x, double y, double z, double vx, double vy,
-                 double vz) {
+void addParticle(int idParticle, double x, double y, double z, double vx,
+                 double vy, double vz) {
   const vect pos = {x, y, z};
   const vect speed = {vx, vy, vz};
-  const particle particle = {pos.x, pos.y, pos.z, speed.x, speed.y, speed.z};
+  const particle particle = {pos.x,   pos.y,   pos.z,     speed.x,
+                             speed.y, speed.z, idParticle};
   const int idCell = idCellOfPos(pos);
   bag_push_initial(&bagsCur[idCell], particle);
   double_nbCorners contribs = cornerInterpolationCoeff(pos);
@@ -567,36 +591,30 @@ const int SHARED = 1;
 
 const int PRIVATE = 0;
 
+int ANY();
+
 void step() {
   nbThreads = omp_get_num_threads();
-
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
-#pragma omp parallel for
       for (int k = 0; k < nbThreads; k++) {
         depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, k, idCell,
                                      idCorner)] = 0.;
       }
     }
   }
-
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_init_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
-    }
-  }
 core:
-  for (int ciX = 0; ciX < 2; ciX++) {
-    for (int ciY = 0; ciY < 2; ciY++) {
-      for (int ciZ = 0; ciZ < 2; ciZ++) {
-#pragma omp parallel for shared(biX, biY, biZ)
-        for (int biX = ciX * block; biX < gridX; biX += 2 * block) {
-          for (int biY = ciY * block; biY < gridY; biY += 2 * block) {
-            for (int biZ = ciZ * block; biZ < gridZ; biZ += 2 * block) {
+  for (int cX = 0; cX < block; cX++) {
+    for (int cY = 0; cY < block; cY++) {
+      for (int cZ = 0; cZ < block; cZ++) {
+#pragma omp parallel for collapse(3)
+        for (int bX = cX * 2; bX < gridX; bX += block * 2) {
+          for (int bY = cY * 2; bY < gridY; bY += block * 2) {
+            for (int bZ = cZ * 2; bZ < gridZ; bZ += block * 2) {
               int idThread = omp_get_thread_num();
-              for (int iX = biX; iX < biX + block; iX++) {
-                for (int iY = biY; iY < biY + block; iY++) {
-                  for (int iZ = biZ; iZ < biZ + block; iZ++) {
+              for (int iX = bX; iX < bX + 2; iX++) {
+                for (int iY = bY; iY < bY + 2; iY++) {
+                  for (int iZ = bZ; iZ < bZ + 2; iZ++) {
                     const int idCell = (iX * gridY + iY) * gridZ + iZ;
                     const int_nbCorners indices = indicesOfCorners(idCell);
                     vect_nbCorners res;
@@ -615,7 +633,7 @@ core:
                     for (chunk *c = b->front; c != NULL;
                          c = chunk_next(c, true)) {
                       const int nb = c->size;
-                      int idCell2_step[CHUNK_SIZE];
+                      alignas(64) int idCell2_step[CHUNK_SIZE];
 #pragma omp simd
                       for (int i = 0; i < nb; i++) {
                         const double rX0 = c->itemsPosX[i];
@@ -672,12 +690,13 @@ core:
                         const int iX2 = int_of_double(pX2);
                         const int iY2 = int_of_double(pY2);
                         const int iZ2 = int_of_double(pZ2);
-                        int &idCell2 = idCell2_step[i];
-                        idCell2 = cellOfCoord(iX2, iY2, iZ2);
+                        int *idCell2 = &idCell2_step[i];
+                        *idCell2 = cellOfCoord(iX2, iY2, iZ2);
                         c->itemsPosX[i] = (float)(pX2 - iX2);
                         c->itemsPosY[i] = (float)(pY2 - iY2);
                         c->itemsPosZ[i] = (float)(pZ2 - iZ2);
                       }
+#pragma omp simd
                       for (int i = 0; i < nb; i++) {
                         const double rX1 = c->itemsPosX[i];
                         const double rY1 = c->itemsPosY[i];
@@ -689,29 +708,30 @@ core:
                         p2.speedX = c->itemsSpeedX[i];
                         p2.speedY = c->itemsSpeedY[i];
                         p2.speedZ = c->itemsSpeedZ[i];
-                        int &idCell2 = idCell2_step[i];
-                        const coord co = coordOfCell(idCell2);
+                        p2.id = c->itemsId[i];
+                        int *idCell2 = &idCell2_step[i];
+                        const coord co = coordOfCell(*idCell2);
                         const bool isDistFromBlockLessThanHalfABlock =
-                            co.iX - biX >= -halfBlock &&
-                            co.iX - biX < block + halfBlock &&
-                            co.iY - biY >= -halfBlock &&
-                            co.iY - biY < block + halfBlock &&
-                            co.iZ - biZ >= -halfBlock &&
-                            co.iZ - biZ < block + halfBlock;
+                            co.iX - bX >= -halfBlock &&
+                            co.iX - bX < block + halfBlock &&
+                            co.iY - bY >= -halfBlock &&
+                            co.iY - bY < block + halfBlock &&
+                            co.iZ - bZ >= -halfBlock &&
+                            co.iZ - bZ < block + halfBlock;
                         if (isDistFromBlockLessThanHalfABlock) {
-                          bag_push_serial(
-                              &bagsNexts[MINDEX2(2, nbCells, PRIVATE, idCell2)],
-                              p2);
+                          bag_push_serial(&bagsNexts[MINDEX2(
+                                              2, nbCells, PRIVATE, *idCell2)],
+                                          p2);
                         } else {
                           bag_push_concurrent(
-                              &bagsNexts[MINDEX2(2, nbCells, SHARED, idCell2)],
+                              &bagsNexts[MINDEX2(2, nbCells, SHARED, *idCell2)],
                               p2);
                         }
                         double_nbCorners contribs;
-                      charge:
+#pragma omp simd aligned(coefX, coefY, coefZ, signX, signY, signZ : 64)
                         for (int k = 0; k < 8; k++) {
-                          depositThreadCorners[MINDEX3(nbThreads, nbCells, 8,
-                                                       idThread, idCell2, k)] +=
+                          depositThreadCorners[MINDEX3(
+                              nbThreads, nbCells, 8, idThread, *idCell2, k)] +=
                               (coefX[k] + signX[k] * rX1) *
                               (coefY[k] + signY[k] * rY1) *
                               (coefZ[k] + signZ[k] * rZ1);
@@ -728,21 +748,10 @@ core:
       }
     }
   }
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_append(&bagsCur[MINDEX1(nbCells, idCell)],
-                 &bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
-    }
-  }
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_free_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
-    }
-  }
+#pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
       int sum = 0;
-#pragma omp parallel for
       for (int k = 0; k < nbThreads; k++) {
         sum += depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, k, idCell,
                                             idCorner)];
@@ -750,17 +759,39 @@ core:
       depositCorners[MINDEX2(nbCells, 8, idCell, idCorner)] = sum;
     }
   }
-#pragma omp parallel for shared(idCell)
-#pragma omp parallel for shared(idCell)
+#pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     int sum = 0;
-#pragma omp parallel for
     for (int k = 0; k < 8; k++) {
       sum += depositCorners[mybij(nbCells, 8, idCell, k)];
     }
     deposit[MINDEX1(nbCells, idCell)] = sum;
   }
   updateFieldUsingDeposit();
+}
+
+void reportParticlesState() {
+  FILE *f = fopen("pic_optimized.res", "wb");
+  fwrite(&nbParticles, sizeof(int), 1, f);
+  fwrite(&areaX, sizeof(double), 1, f);
+  fwrite(&areaY, sizeof(double), 1, f);
+  fwrite(&areaZ, sizeof(double), 1, f);
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    bag *b = &bagsCur[idCell];
+    for (chunk *c = b->front; c != NULL; c = chunk_next(c, true)) {
+      const int nb = c->size;
+      for (int i = 0; i < nb; i++) {
+        fwrite(&c->itemsId[i], sizeof(int), 1, f);
+        fwrite(&c->itemsPosX[i], sizeof(double), 1, f);
+        fwrite(&c->itemsPosY[i], sizeof(double), 1, f);
+        fwrite(&c->itemsPosZ[i], sizeof(double), 1, f);
+        fwrite(&c->itemsSpeedX[i], sizeof(double), 1, f);
+        fwrite(&c->itemsSpeedY[i], sizeof(double), 1, f);
+        fwrite(&c->itemsSpeedZ[i], sizeof(double), 1, f);
+      }
+    }
+  }
+  fclose(f);
 }
 
 int main(int argc, char **argv) {
@@ -773,6 +804,7 @@ int main(int argc, char **argv) {
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     step();
   }
+  reportParticlesState();
   deallocateStructures();
   free(deposit);
 }

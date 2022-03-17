@@ -904,7 +904,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
 
 and translate_attribute (loc : location) (a : Clang.Ast.attribute) : attribute =
   match a.desc with
-  | Aligned {spelling = _; alignment_expr = e} -> Aligned (translate_expr e)
+  | Aligned {spelling = _; alignment_expr = e} -> Alignas (translate_expr e)
   | _ -> fail loc "translate_attribute: unsupported attribute"
 
 and translate_decl_list (dl : decl list) : trms =

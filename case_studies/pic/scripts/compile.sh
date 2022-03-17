@@ -11,7 +11,9 @@
 # into the run folder
 
 TARGET=$1
-BASENAME=`basename ${TARGET} .c`
+# BASENAME=`basename ${TARGET} .c`
+BASENAME="${TARGET%%.*}"
+EXTENSION="${TARGET##*.}"
 CHECKER_OUTFILE=$2
 
 if [ "$CHECKER_OUTFILE" == "1" ]; then
@@ -52,6 +54,7 @@ fi
 # possible additional flags -DPRINTPARAMS -DDEBUG_CHECKER -DDEBUG_CHARGE -DDEBUG_FIELD -DDEBUG_ACCEL -DDEBUG_CREATION
 # more flags: -DPRINTPERF -DPRINTSTEPS
 
+DEBUGFLAGS=""
 DEBUGFLAGS="-g"
 #  2> vect_info.txt -fopt-info-vec-missed -ftree-vectorize
 # -ftree-vectorize -fopt-info-vec-missed -fopt-info-all -fopt-info-vec-all
@@ -72,22 +75,27 @@ fi
 EXTRA_SPECIFIC_PRE=
 if [ "${TARGET}" = "pic_barsamian.c" ]; then
     EXTRA_SPECIFIC_PRE="$PICVERT_HOME/src/particle_type_concurrent_chunkbags_of_soa_3d.c"
-fi
-if [ "${TARGET}" = "pic_barsamian_malloc.c" ]; then
+elif [ "${TARGET}" = "pic_barsamian_malloc.c" ]; then
     EXTRA_SPECIFIC_PRE="-DSTDCHUNKALLOC $PICVERT_HOME/src/particle_type_concurrent_chunkbags_of_soa_3d.c"
-fi
-if [ "${TARGET}" = "pic_demo.c" ]; then
+elif [ "${TARGET}" = "pic_demo.c" ]; then
     EXTRA_SPECIFIC_PRE=" $PICVERT_HOME/src/optitrust.c $PICVERT_HOME/src/particle.c $PICVERT_HOME/src/bag_atomics.c $PICVERT_HOME/src/bag.c $PICVERT_HOME/simulations/pic_demo_aux.c"
     # $PICVERT_HOME/simulations/pic_demo.h $PICVERT_HOME/simulations/pic_demo_aux.h
-fi
-if [ "${TARGET}" = "pic_optimized.c" ]; then
-    EXTRA_SPECIFIC_PRE=" $PICVERT_HOME/src/optitrust.c $PICVERT_HOME/src/bag.c $PICVERT_HOME/simulations/pic_demo_aux.c"
-    # $PICVERT_HOME/simulations/pic_demo.h $PICVERT_HOME/simulations/pic_demo_aux.h
+else # assume a version of pic_demo optimized by optitrust
+    EXTRA_SPECIFIC_PRE=" $PICVERT_HOME/src/optitrust.c  $PICVERT_HOME/src/bag_atomics.c  $PICVERT_HOME/simulations/pic_demo_aux.c"
+    # $PICVERT_HOME/simulations/pic_demo.h $PICVERT_HOME/simulations/pic_demo_aux.h  $PICVERT_HOME/src/bag.c
 fi
 
-CSTANDARD="-std=gnu11"
-COMPILE_ARGS="-I$PICVERT_HOME/include -I $PICVERT_HOME/simulations $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c  $EXTRA_SPECIFIC_PRE  $PICVERT_HOME/simulations/${BASENAME}.c  $EXTRA_SPECIFIC_POST -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $DOUBLEPRECISION $CHECKER $DEBUGFLAGS $PERFFLAGS -lfftw3 -lm -O3  -march=native ${CSTANDARD} "
+if [ "${EXTENSION}" = "c" ]; then
+  CSTANDARD="-std=gnu11"
+else
+  CSTANDARD="-xc++"
+  #-std=gnu++11
+fi
 
+
+COMPILE_ARGS="-I$PICVERT_HOME/include -I $PICVERT_HOME/simulations $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c  $EXTRA_SPECIFIC_PRE  $PICVERT_HOME/simulations/${BASENAME}.${EXTENSION} $EXTRA_SPECIFIC_POST -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $DOUBLEPRECISION $CHECKER $DEBUGFLAGS $PERFFLAGS -lfftw3 -lm -O3  -march=native ${CSTANDARD} "
+
+# echo "gcc ${COMPILE_ARGS}"
 
 # Depending on your version, you may change "export OMPI_CC=icc\n  mpicc" by just "mpiicc".
 compile_one() {

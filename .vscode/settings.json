@@ -37,6 +37,7 @@
     "cmath": "cpp",
     "typeinfo": "cpp",
     "parameters.h": "c",
-    "papi_handlers.h": "c"
+    "papi_handlers.h": "c",
+    "random.h": "c"
   }
 }

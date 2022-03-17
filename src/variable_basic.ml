@@ -199,3 +199,10 @@ let exchange (v1 : var) (v2 : var) (tg : Target.target) : unit =
   let tm = Trm_map.add v2 (trm_var v1) tm in 
   Target.apply_on_targets (
     Target.apply_on_path (fun t1 -> Internal.subst tm t1)) tg 
+
+(* [ref_to_pointer tg] expects thee target [tg] to be pointing at a reference declaration, then it will transform 
+    this reference into a pointer *)
+let ref_to_pointer : Target.Transfo.t = 
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun t (p, i) -> Variable_core.ref_to_pointer i t p)
+

@@ -453,3 +453,11 @@ let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : 
       (* This check is needed to avoid the parentheses in the case when the value of the vairbale is a simple expression  *)
       insert ~const ~name ~typ:(AstParser.atyp typ) ~value tg) (List.rev defs)
 )
+
+(* [insert_list_same_type typ name_vals tg] insert a list of variables with type [typ] and name and value give as argument in [name_vals]*)
+let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (string * trm) list) : Target.Transfo.t = 
+  let const = false in 
+  Target.reparse_after ~reparse (fun tg ->
+    List.iter (fun (name, value) ->
+      insert ~const ~name ~typ ~value tg) name_vals)
+

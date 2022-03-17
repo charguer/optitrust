@@ -254,8 +254,9 @@ and val_to_doc (v : value) : document =
 and attr_to_doc (a : attribute) : document =
   match a with
   | Identifier x -> string x
-  | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
+  | Alignas t -> string "alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
+  | Others -> empty
 
 and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_init_type : bool = true) (t : trm) : document =
   let parentheses = parentheses_needed ~prec t in
@@ -421,7 +422,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         end  in
         dattr ^^ code_str
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
-     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r ^^ semi
+     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
      | Trm_extern (lang, tl) ->
         begin match tl with
         | [t1] ->
@@ -776,7 +777,7 @@ and clause_to_doc (cl : clause) : document =
   | Safelen i -> string "safelen" ^^ parens (string (string_of_int i))
   | Collapse i -> string "collapse" ^^ parens (string (string_of_int i))
   | Simdlen i -> string "simdlen" ^^ parens (string (string_of_int i))
-  | Aligned_c (vl, i) -> string "aligned" ^^ parens (string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl) ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int i))
+  | Aligned (vl, i) -> string "aligned" ^^ parens (string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl) ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int i))
   | Uniform vl -> string "uniform" ^^ string (Tools.list_to_string ~sep:"," ~bounds:["(";")"] vl)
   | Inbranch -> string "inbranch"
   | NotInbranch -> string "notinbranch"

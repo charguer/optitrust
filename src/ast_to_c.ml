@@ -205,8 +205,9 @@ and val_to_doc (v : value) : document =
 and attr_to_doc (a : attribute) : document =
   match a with
   | Identifier x -> string x
-  | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
+  | Alignas t -> underscore ^^ string "alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
+  | Others -> blank 1 
 
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in
@@ -852,7 +853,7 @@ and clause_to_doc (cl : clause) : document =
   | Safelen i -> string "safelen" ^^ parens (string (string_of_int i))
   | Collapse i -> string "collapse" ^^ parens (string (string_of_int i))
   | Simdlen i -> string "simdlen" ^^ parens (string (string_of_int i))
-  | Aligned_c (vl, i) -> string "aligned" ^^ parens (string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl) ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int i))
+  | Aligned (vl, i) -> string "aligned" ^^ parens (string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl) ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int i))
   | Uniform vl -> string "uniform" ^^ string (Tools.list_to_string ~sep:"," ~bounds:["(";")"] vl)
   | Inbranch -> string "inbranch"
   | NotInbranch -> string "notinbranch"

@@ -34,7 +34,7 @@ particle* readfile(char* filename) {
   FILE* f = fopen(filename, "rb");
 
   if (f == NULL){
-    printf("Couldn't read from file!\n");
+    printf("Couldn't read from file %s!\n", filename);
     exit(0);
   }
 

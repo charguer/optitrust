@@ -83,14 +83,14 @@ let nbAny : constr =
 let nbExact (nb : int) : constr =
     Constr_occurrences (ExpectedNb nb)
 
-let tIndices ?(nb : int = -1) (indices : int list) : constr =
+let occIndices ?(nb : int = -1) (indices : int list) : constr =
   let expected_nb = match nb with
     | -1 -> None
     | _ -> Some nb in
   Constr_occurrences (ExpectedSelected (expected_nb, indices)  )
 
 let occIndex ?(nb : int = -1) (index : int) : constr =
-  tIndices ~nb [index]
+  occIndices ~nb [index]
 
 let occFirst : constr =
   Constr_occurrences FirstOcc

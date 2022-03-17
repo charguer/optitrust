@@ -166,10 +166,11 @@ and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
   match a with
   | Identifier x ->
      string "Identifier" ^^ blank 1 ^^ string x
-  | Aligned t ->
-     string "Aligned" ^^ blank 1 ^^ print_trm ~only_desc t
+  | Alignas t ->
+     string "Alignas" ^^ blank 1 ^^ print_trm ~only_desc t
   | GeneratedTyp ->
     string "GeneratedTyp" ^^ blank 1
+  | Others -> empty
 and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   match t with
   | Trm_val v ->

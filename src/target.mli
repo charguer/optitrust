@@ -48,7 +48,7 @@ val tFirst : constr
 
 val tLast : constr
 
-val tIndices  : ?nb:int -> int list -> constr
+val occIndices  : ?nb:int -> int list -> constr
 
 val occIndex : ?nb:int -> int -> constr
 
