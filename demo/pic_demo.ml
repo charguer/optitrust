@@ -213,7 +213,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
 
   bigstep "Coloring";
-  !! Variable.insert_list_same_type (atyp "const int") [("block", lit "2"); ("halfBlock", expr "block/2")] [tBefore; cVarDef "nbCells"];
+  !! Variable.insert_list_same_type (atyp "const int") [("block", lit "2"); ("halfBlock", (lit "1")] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
@@ -454,3 +454,4 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
 (* LATER: rename pic_demo.c to pic_naive.c *)
 
 (* LATER: use case_studies optitrust.{h,c}  instead of ../include/optitrust.h *)
+(*LATER halfBlock=expr "block/2"*)

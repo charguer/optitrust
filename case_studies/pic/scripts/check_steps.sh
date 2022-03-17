@@ -18,13 +18,14 @@ DIR_OUTFILE=${DIR_ROOT}/3d_runs/run1/
 
 SOURCES=`ls ${DIR_ROOT}/simulations/${BASENAME}_*_out.c`
 
-TARGET1="${BASENAME}_0_out.c"
+TARGET1="${BASENAME}_00_out.c"
 BINARY1="${DIR_OUTFILE}`basename ${TARGET1} .c`.out"
 CHECKER_OUTFILE1="`basename ${TARGET1} .c`.res"
 
 echo "+++++++++++++++++++REFERENCE+++++++++++++++++++"
 make -j3 checker.out ${BINARY1} params || exit 1
 ./run.sh ${TARGET1}
+mv ${DIR_OUTFILE}/1 ${DIR_OUTFILE}/${CHECKER_OUTFILE1} || echo ""
 OUT=$?
 if [ ${OUT} -ne 0 ];then
   echo "Error: ${TARGET1} crashed"  #>> /dev/stderr
@@ -43,7 +44,9 @@ for SOURCE in ${SOURCES}; do
     echo "FAILURE"  #>> /dev/stderr
     exit 1
   fi
+  echo "./run.sh ${TARGET2}"
   ./run.sh ${TARGET2}
+  mv ${DIR_OUTFILE}/1 ${DIR_OUTFILE}/${CHECKER_OUTFILE2} || echo ""
   OUT=$?
   if [ ${OUT} -ne 0 ];then
     echo "Error: ${TARGET2} crashed"  #>> /dev/stderr

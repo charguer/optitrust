@@ -745,7 +745,7 @@ let dump_big_steps ?(prefix : string = "") (foldername : string) : unit =
       in
     let should_dump = (isstartofbigstep) || (i = n-1) in
     if should_dump then begin
-      let prefixi = Printf.sprintf "%s/%s_%d_out" foldername prefix !id in
+      let prefixi = Printf.sprintf "%s/%s_%s%d_out" foldername prefix (if !id < 10 then "0" else "") !id in
       output_prog ctx prefixi ast;
       incr id;
     end;
@@ -1042,7 +1042,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
             incr id_big_step;
             Printf.printf "Executing big-step #%d\n" !id_big_step
           end else begin
-            Printf.printf "Executing big-step whose first command is at line %d\n" line
+            Printf.printf "Executing big-step at line %d\n" line
           end;
           flush stdout;
         end;
