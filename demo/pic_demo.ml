@@ -7,6 +7,9 @@ let add_prefix (prefix : string) (indices : string list) : string list =
 
 let step = cFunDef "step"
 let stepLF = cFunDef "stepLeapFrog"
+let stepsl = [stepLF; step]
+let repPart = cFunDef "reportParticlesState"
+
 
 let dims = ["X"; "Y"; "Z"]
 let nb_dims = List.length dims
@@ -17,12 +20,13 @@ let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
 let delocalize_bag = Local_obj ("bag_init_initial", "bag_append", "bag_free_initial")
 let align = 64
 
-let doublepos = true 
-let use_checker = false 
+let doublepos = true (* LATER: Arthur make this a command line command *)
+let use_checker = true (* LATER: Arthur make this a command line command *)
 
-let stepFuns =
-  (if use_checker then [] else [])
-  @ [stepLF; step]
+let stepFuns = 
+  (if use_checker then [repPart] else []) 
+     @ stepsl
+
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = if use_checker then ["-DCHECKER"] else []
@@ -57,15 +61,16 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Reveal write operations involved manipulation of particles and vectors";
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
-  !! Function.inline [cOr [[cFunDef "stepLeapFrog"];[step]]; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-  !! Struct.set_explicit [nbMulti; steps; cWrite ~typ:"vect" ()];
+  !! Function.inline [steps; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+  !! Trace.reparse ();
+  !! Struct.set_explicit [nbMulti; steps; cFieldWrite ~base:[cVar "p"] ()];
 
   bigstep "inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
   !! Function.inline [nbMulti; cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
   !! Function.inline [step; cFun "accumulateChargeAtCorners"];
   !! Function.inline ~vars:(AddSuffix "2") [step; cFun "idCellOfPos"];
   !! List.iter (fun f -> Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; f; cFun "cornerInterpolationCoeff"])
-     stepFuns;
+     stepsl;
 
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
@@ -363,7 +368,7 @@ j
     inline idCell2  everywhere
 
 
-TODO after other todos
+DONE after other todos
 move reportParticlesState()  into pic_demo.c
 and try
 

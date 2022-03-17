@@ -256,6 +256,7 @@ and attr_to_doc (a : attribute) : document =
   | Identifier x -> string x
   | Alignas t -> string "alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
+  | Others -> empty
 
 and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_init_type : bool = true) (t : trm) : document =
   let parentheses = parentheses_needed ~prec t in

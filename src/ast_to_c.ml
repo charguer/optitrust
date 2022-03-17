@@ -207,6 +207,7 @@ and attr_to_doc (a : attribute) : document =
   | Identifier x -> string x
   | Alignas t -> underscore ^^ string "alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
+  | Others -> blank 1 
 
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in

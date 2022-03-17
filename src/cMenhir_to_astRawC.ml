@@ -51,9 +51,20 @@ let get_typid_from_trm (tv : typvar) : int  =
    end
 
 let tr_attribute (att : C.attribute) : attribute =
-  match att with
+  (* DEBUG *)
+  (* let c_attribute_to_string (att : C.attribute) : string =
+    match att with 
+    | AConst -> "const"
+    | AVolatile -> "volatile"
+    | ARestrict -> "restrict"
+    | AAlignas _ -> "alignas"
+    | Attr _ -> "attr" in *)
+  match att with 
   | C.AAlignas n -> Ast.Alignas (trm_int n)
-  | _ -> failwith "not yet supported attributes other than alignas and const"
+  | _ -> 
+      (* DEBUG:Printf.printf "Warning unknown attributes passed to the parser, %s \n" (c_attribute_to_string att); *)
+      Others
+    
   (* LATER; support others *)
 
 (* [wrap_const ~const t] wrap the type [t] into a const typ if const is true *)
