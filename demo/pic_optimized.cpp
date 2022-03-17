@@ -16,6 +16,8 @@
 
 #include "pic_demo_aux.h"
 
+#include "stdalign.h"
+
 int nbThreads;
 
 typedef struct {
@@ -391,17 +393,17 @@ void accumulateChargeAtCorners(double *deposit, int idCell,
   }
 }
 
-const double coefX[8] = {1., 1., 1., 1., 0., 0., 0., 0.};
+alignas(64) const double coefX[8] = {1., 1., 1., 1., 0., 0., 0., 0.};
 
-const double signX[8] = {-1., -1., -1., -1., 1., 1., 1., 1.};
+alignas(64) const double signX[8] = {-1., -1., -1., -1., 1., 1., 1., 1.};
 
-const double coefY[8] = {1., 1., 0., 0., 1., 1., 0., 0.};
+alignas(64) const double coefY[8] = {1., 1., 0., 0., 1., 1., 0., 0.};
 
-const double signY[8] = {-1., -1., 1., 1., -1., -1., 1., 1.};
+alignas(64) const double signY[8] = {-1., -1., 1., 1., -1., -1., 1., 1.};
 
-const double coefZ[8] = {1., 0., 1., 0., 1., 0., 1., 0.};
+alignas(64) const double coefZ[8] = {1., 0., 1., 0., 1., 0., 1., 0.};
 
-const double signZ[8] = {-1., 1., -1., 1., -1., 1., -1., 1.};
+alignas(64) const double signZ[8] = {-1., 1., -1., 1., -1., 1., -1., 1.};
 
 double_nbCorners cornerInterpolationCoeff(vect pos) {
   const int iX = int_of_double(pos.x / cellX);
@@ -581,7 +583,6 @@ const int PRIVATE = 0;
 
 void step() {
   nbThreads = omp_get_num_threads();
-
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
       for (int k = 0; k < nbThreads; k++) {
@@ -590,7 +591,6 @@ void step() {
       }
     }
   }
-
 core:
   for (int cX = 0; cX < 2; cX++) {
     for (int cY = 0; cY < 2; cY++) {
@@ -684,6 +684,7 @@ core:
                         c->itemsPosY[i] = (float)(pY2 - iY2);
                         c->itemsPosZ[i] = (float)(pZ2 - iZ2);
                       }
+#pragma omp simd
                       for (int i = 0; i < nb; i++) {
                         const double rX1 = c->itemsPosX[i];
                         const double rY1 = c->itemsPosY[i];
@@ -715,7 +716,6 @@ core:
                         }
                         double_nbCorners contribs;
 #pragma omp simd aligned(coefX, coefY, coefZ, signX, signY, signZ : 64)
-                      charge:
                         for (int k = 0; k < 8; k++) {
                           depositThreadCorners[MINDEX3(
                               nbThreads, nbCells, 8, idThread, *idCell2, k)] +=
@@ -735,13 +735,13 @@ core:
       }
     }
   }
+#pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
       bag_append(&bagsCur[MINDEX1(nbCells, idCell)],
                  &bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
     }
   }
-
 #pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {

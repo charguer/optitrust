@@ -131,7 +131,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       [cVarDef ~regexp:true "[ir][XYZ][0-2]"] ] ];
 
   bigstep "Enumerate grid cells by coordinates";
-  
+  !! Variable.to_const [nbMulti; cVarDef ~regexp:true "grid."];
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
 
   bigstep "Make positions relative to the cell corner";
@@ -269,9 +269,15 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Parallelization";
   !! Omp.parallel_for [Collapse 3] [tBefore; cFor "bX"];
   !! Omp.simd [Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; cLabel "charge"];
-  !! Omp.parallel_for [] [occFirst; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
-  !! Omp.parallel_for [] [occLast; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
-  !! Omp.simd [] [occIndices [0;2]; step; cFor "i" ] ;
+  !! Omp.parallel_for [] [occIndex 1; tBefore; step; cFor "idCell"];
+  !! Omp.parallel_for [] [occIndex 2; tBefore; step; cFor "idCell"];
+  !! Omp.parallel_for [] [occIndex 3; tBefore; step; cFor "idCell"];
+  !! Omp.simd [] [occIndex 0; tBefore; step; cFor "i"];
+  !! Omp.simd [] [occIndex 1; tBefore; step; cFor "i"];
+  !! Omp.simd [] [occIndex 2; tBefore; step; cFor "i"];
+  !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot];
+  !! Align_basic.def (lit "64") [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
+  !! Label.remove [step; cLabel "charge"];
 )
 
 
