@@ -564,7 +564,7 @@ aligned_int_array* allocate_aligned_int_array_array(int nbCell) {
     // For an unknown reason, the array have to be allocated aligned (despite the __attribute__((aligned(VEC_ALIGN)))
     // in the type declaration), else it causes a segfault because of unaligned memory if compiled with gcc.
     if (posix_memalign((void**)&a, VEC_ALIGN, nbCell * sizeof(aligned_int_array))) {
-        fprintf(stderr, "init_all_chunks: posix_memalign failed to initialize memory.\n");
+        fprintf(stderr, "allocate_aligned_int_array_array: posix_memalign failed to initialize memory.\n");
         exit(EXIT_FAILURE);
     }
     return a;
