@@ -155,6 +155,11 @@ and constr =
   (* Constraint to match an struct initialization list  *)
   | Constr_struct_init
 
+(* LATER: optimize constr_of_path; should be recognized by resolution,
+   and processed more efficiently; checking that the start of the path
+   is the root, then reaching directly the position, assuming the path
+   is valid (option: raise an exception if the path is invalid). *)
+
 (* Constraint over types *)
 and typ_constraint = typ -> bool
 
