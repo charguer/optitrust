@@ -90,14 +90,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Elimination of pointer p, to prepare for aos-to-soa";
   !! Variable.init_detach [steps; cVarDef "p"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
-  !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[ cVar "p"] ()];
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]0"];
   !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
   !! Instr.delete [steps; cVarDef "p"];
 
   bigstep "AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
-  !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ()];
+  !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ~regexp:true ~field:"\\(speed\\|pos\\)" ()]; (* We need to use this target because p2.id will make the transformation fail *)
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
   !! Struct.inline "items" [cTypDef "chunk"];
 

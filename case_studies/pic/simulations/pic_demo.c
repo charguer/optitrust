@@ -355,7 +355,7 @@ void reportParticlesState() {
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag* b = &bagsCur[idCell];
     bag_iter bag_it;
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
       fwrite(&(p->id), sizeof(int), 1, f);
       fwrite(&(p->pos.x), sizeof(double), 1, f);
       fwrite(&(p->pos.y), sizeof(double), 1, f);
