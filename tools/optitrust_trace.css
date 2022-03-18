@@ -85,11 +85,11 @@ h2 {
 
 .row-title {
   display: inline-block;
-  width: 4em;
+  width: 5em;
 }
 
 .ctrl-button {
-  width: 2em;
+  min-width: 2em;
   margin: 3px;
   text-align: center;
 }
