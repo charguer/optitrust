@@ -113,34 +113,52 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(var ("factor" ^ d)) [step; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
-  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "factor."];
+  !! Variable.unfold ~at:[cVarDef "accel"] [nbMulti; step; cVarDef ~regexp:true "factor."];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef "accel"];
-
+  
+  bigstep "Scaling of speed and position in addParticle function";
+  let add_part = cFunDef "addParticle" in
+  !! Instr.move ~dest:[tBefore; add_part; cVarDef "p"] [add_part; cVarDef "idCell"];
+  !! Struct.set_explicit [add_part; cVarDef "p"];
+  !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; add_part; cVarDef "idCell"];
+  !! iter_dims (fun d -> 
+      Accesses.scale ~factor:(expr ("1/cell"^d)) [add_part; cFieldWrite ~field:("pos"^d) ()];
+      Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [add_part; cFieldWrite ~field:("pos"^d) ()];
+      Accesses.scale ~factor:(expr ("stepDuration/cell"^d)) [add_part; cFieldWrite ~field:("speed"^d) ()]);
+      
+  
   bigstep "Scaling of speed and positions";
+  (* !! Function.inline [cTopFunDef "addParticle"; cFun "idCellOfPos"]; *)
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
          [nbMulti; step; cOr [ [ sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")] ;
-               [ sExpr ("p2.speed" ^ d) ] ] ] ); (* TODO: target steps *)
+               [ sExpr ("p2.speed" ^ d) ] ] ] ); 
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("(1 / cell"^d^")"))
          [nbMulti; step; cOr [ [sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")];
             [sExpr ("p2.pos" ^ d)]
-          ] ]);  (* TODO: target steps *)
+          ] ]);  
   !! Trace.reparse();
   !! Variable.inline [step; cVarDef "accel"];
+  !! Variable.unfold [step; cVarDef "factorC"];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cFor "i"; cOr [
       [cCellWrite ~index:[cVar "i"] ()]; [sInstr "p2."];
       [cVarDef ~regexp:true "[ir][XYZ][0-2]"] ] ];
+  
+  if use_checker then begin 
+    bigstep "Scaling for function that reports particles";
+    !! !! Variable.init_detach [nbMulti; repPart; cVarDef ~regexp:true "\\(pos\\|speed\\)."];
+    !! iter_dims (fun d -> 
+        Accesses.shift ~factor:(expr ("co.i"^d)) [repPart; cWriteVar ("pos"^d)];
+        Accesses.scale ~factor:(expr ("cell"^d)) [repPart; cWriteVar ("pos"^d)];
+        Accesses.scale ~factor:(expr ("cell"^d^"/stepDuration")) [repPart; cWriteVar ("speed"^d)]
+    );
+  end; 
 
   bigstep "Enumerate grid cells by coordinates";
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
 
   bigstep "Make positions relative to the cell corner";
-  (* TODO
-      in reportParticles, need to add at tFirst in the loop
-        const coord co = coordOfCell(idCell);
-      for the read in itemsPosX[i], need to add  co.iX
-  *)
   !! iter_dims (fun d ->
     Variable.reuse ~space:(var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
   !! iter_dims (fun d ->
@@ -307,7 +325,7 @@ the first one ~body[cVar"bagsKind"]
   grid_enumerate on i<X*Y*Z
 
 
- TODO
+ DONE
   vect_nbCorners res; => rename => don't inline factor
 
 use unfold in
@@ -482,12 +500,14 @@ let Combi_Struct.align_field (align:int) (pattern : string) =
 
 *)
 
-
-
 (* TODO
+      in reportParticles, need to add at tFirst in the loop
+        const coord co = coordOfCell(idCell);
+      for the read in itemsPosX[i], need to add  co.iX
+
 
 in reportParticlesState
-    p->pos.x = (p->pos.x + ix) * cellX;
+    p->pos.x = (p->pos.x + co.ix) * cellX;
       p->speed.x = p->speed.x * cellX / stepDuration;
 
 in addParticle, before bag_push_initial, need to insert
@@ -495,8 +515,14 @@ in addParticle, before bag_push_initial, need to insert
   p = p
 
 setexplicit will generate
-  p.pos.x = p.pos.x;
-  p.speed.x = p.speed.x;
+  p.posX = p.pos.x;
+  p.posY = p.pos.y;
+  p.posZ = p.pos.z;
+
+  p.speedX = p.speed.x;
+  p.speedY = p.speed.y;
+  p.speedZ = p.speed.z;
+  
 
 then apply scaling to the writes (that is, the full instruction)
 
