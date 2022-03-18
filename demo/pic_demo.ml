@@ -114,28 +114,28 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
        Accesses.scale ~factor:(var ("factor" ^ d)) [step; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
   !! Variable.unfold ~at:[cVarDef "accel"] [nbMulti; step; cVarDef ~regexp:true "factor."];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef "accel"];
-  
+
   (* bigstep "Scaling of speed and position in addParticle function";
   let add_part = cFunDef "addParticle" in
   !! Instr.move ~dest:[tBefore; add_part; cVarDef "p"] [add_part; cVarDef "idCell"];
   !! Struct.set_explicit [add_part; cVarDef "p"];
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; add_part; cVarDef "idCell"];
-  !! iter_dims (fun d -> 
+  !! iter_dims (fun d ->
       Accesses.scale ~factor:(expr ("cell"^d)) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "pos"] ()];
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [add_part; cFieldWrite ~field:("pos"^d) ()];
       Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "speed"] ()]);
-      
-  
+
+
   bigstep "Scaling of speed and positions in step function";
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
          [nbMulti; step; cOr [ [ sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")] ;
-               [ sExpr ("p2.speed" ^ d) ] ] ] ); 
+               [ sExpr ("p2.speed" ^ d) ] ] ] );
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("(1 / cell"^d^")"))
          [nbMulti; step; cOr [ [sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")];
             [sExpr ("p2.pos" ^ d)]
-          ] ]);  
+          ] ]);
   !! Trace.reparse();
   !! Variable.inline [step; cVarDef "accel"];
   !! Variable.unfold [step; cVarDef "factorC"];
@@ -166,17 +166,17 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef ~regexp:true "r.."; dInit];
   !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.0"];
   !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
-  
-  if use_checker then begin 
+
+  if use_checker then begin
     bigstep "Scaling of speed and positions in reportParticlesState function";
     !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; repPart; cVarDef "b"];
     !! Variable.init_detach [nbMulti; repPart; cVarDef ~regexp:true "\\(pos\\|speed\\)."];
-    !! iter_dims (fun d -> 
+    !! iter_dims (fun d ->
         Accesses.shift ~factor:(expr ("co.i"^d)) [repPart; cWriteVar ("pos"^d)];
         Accesses.scale ~factor:(expr ("cell"^d)) [repPart; cWriteVar ("pos"^d)];
         Accesses.scale ~factor:(expr ("cell"^d^"/stepDuration")) [repPart; cWriteVar ("speed"^d)]
     );
-  end; 
+  end;
 
 
 
@@ -293,8 +293,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "rX1"]]];
   !! Variable.ref_to_pointer [nbMulti; step; cVarDef "idCell2"];
 
-
-  bigstep "Parallelization";
+  bigstep "Parallelization and vectorization";
   !! Omp.parallel_for [Collapse 3] [tBefore; cFor "bX"];
   !! Omp.simd [Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; cLabel "charge"];
   !! Omp.parallel_for [] [occIndex 1; tBefore; step; cFor "idCell"];
@@ -523,7 +522,7 @@ setexplicit will generate
   p.speedX = p.speed.x;
   p.speedY = p.speed.y;
   p.speedZ = p.speed.z;
-  
+
 
 then apply scaling to the writes (that is, the full instruction)
 
