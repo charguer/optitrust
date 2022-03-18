@@ -255,11 +255,11 @@ void addParticle(CHECKER_ONLY_COMMA(int idParticle) double x, double y, double z
   // Build the particle object
   const vect pos = { x, y, z };
   const vect speed = { vx, vy, vz };
-  const particle particle = { pos, speed, CHECKER_ONLY(idParticle) };
+  particle p = { pos, speed, CHECKER_ONLY(idParticle) };
 
   // Store the particle in the bag of the cell that contains the particle
   const int idCell = idCellOfPos(pos);
-  bag_push_initial(&bagsCur[idCell], particle);
+  bag_push_initial(&bagsCur[idCell], p);
 
   // Deposit the charge of the particle at the corners of the target cell
   double_nbCorners contribs = cornerInterpolationCoeff(pos);

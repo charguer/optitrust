@@ -484,3 +484,54 @@ let Combi_Struct.align_field (align:int) (pattern : string) =
 
 
 
+(* TODO
+
+in reportParticlesState
+    p->pos.x = (p->pos.x + ix) * cellX;
+      p->speed.x = p->speed.x * cellX / stepDuration;
+
+in addParticle, before bag_push_initial, need to insert
+  co = coordOfCell(idCell)
+  p = p
+
+setexplicit will generate
+  p.pos.x = p.pos.x;
+  p.speed.x = p.speed.x;
+
+then apply scaling to the writes (that is, the full instruction)
+
+    p.pos.x = (p.pos.x / cellX) - co.x;
+    p.speed.x = p.speed.x / (cellX / stepDuration);
+*)
+
+
+(* LATER
+
+
+// after createParticle, add applyScalingShifting(true)
+// after cFor "idStep" in main, add applyScalingShifting(false)
+void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
+ for (int idCell = 0; idCell < nbCells; idCell++) {
+    bag* b = &bagsCur[idCell];
+    bag_iter bag_it;
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, false)) {
+      p->pos.x = p->pos.x;
+      p->pos.y = p->pos.y;
+      p->pos.z = p->pos.z;
+      p->speed.x = p->speed.x;
+      p->speed.y = p->speed.y;
+      p->speed.z = p->speed.z;
+    }
+ }
+}
+/*
+      p->pos.x = (p->pos.x + ix) * cellX;
+      p->pos.y = p->pos.y;
+      p->pos.z = p->pos.z;
+      p->speed.x = p->speed.x * cellX / stepDuration;
+      p->speed.y = p->speed.y;
+      p->speed.z = p->speed.z;
+*/
+
+*)
+
