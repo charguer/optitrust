@@ -9,6 +9,15 @@
 
 TARGET1=$1
 TARGET2=$2
+
+if [ -z ${TARGET1} ]; then
+  TARGET1="pic_demo_00_out.c"
+fi
+if [ -z ${TARGET2} ]; then
+  TARGET2="pic_optimized.c"
+fi
+
+
 DIR_ROOT=..
 DIR_OUTFILE=${DIR_ROOT}/3d_runs/run1/
 BINARY1="${DIR_OUTFILE}`basename ${TARGET1} .c`.out"
@@ -30,6 +39,7 @@ make -j3 checker.out ${BINARY1} ${BINARY2} params || exit 1
 #./compile.sh ${TARGET2} ${CHECKER_OUTFILE2} || exit 1
 echo "====./run.sh ${TARGET1}===="
 ./run.sh ${TARGET1}
+mv ${DIR_OUTFILE}/particles.res ${DIR_OUTFILE}/${CHECKER_OUTFILE1}
 OUT=$?
 if [ ${OUT} -ne 0 ];then
   echo "Error: ${TARGET1} crashed"  #>> /dev/stderr
@@ -37,6 +47,7 @@ if [ ${OUT} -ne 0 ];then
 fi
 echo "====./run.sh ${TARGET2}===="
 ./run.sh ${TARGET2}
+mv ${DIR_OUTFILE}/particles.res ${DIR_OUTFILE}/${CHECKER_OUTFILE2}
 OUT=$?
 if [ ${OUT} -ne 0 ];then
   echo "Error: ${TARGET2} crashed"  #>> /dev/stderr

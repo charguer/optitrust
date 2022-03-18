@@ -120,12 +120,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
          [nbMulti; step; cOr [ [ sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")] ;
-               [ sExpr ("p2.speed" ^ d) ] ] ] );
+               [ sExpr ("p2.speed" ^ d) ] ] ] ); (* TODO: target steps *)
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("(1 / cell"^d^")"))
          [nbMulti; step; cOr [ [sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")];
             [sExpr ("p2.pos" ^ d)]
-          ] ]);
+          ] ]);  (* TODO: target steps *)
   !! Trace.reparse();
   !! Variable.inline [step; cVarDef "accel"];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cFor "i"; cOr [
@@ -136,6 +136,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
 
   bigstep "Make positions relative to the cell corner";
+  (* TODO
+      in reportParticles, need to add at tFirst in the loop
+        const coord co = coordOfCell(idCell);
+      for the read in itemsPosX[i], need to add  co.iX
+  *)
   !! iter_dims (fun d ->
     Variable.reuse ~space:(var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
   !! iter_dims (fun d ->
@@ -213,7 +218,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
 
   bigstep "Coloring";
-  !! Variable.insert_list_same_type (atyp "const int") [("block", lit "2"); ("halfBlock", (lit "1")] [tBefore; cVarDef "nbCells"];
+  !! Variable.insert_list_same_type (atyp "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
@@ -455,3 +460,27 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
 
 (* LATER: use case_studies optitrust.{h,c}  instead of ../include/optitrust.h *)
 (*LATER halfBlock=expr "block/2"*)
+
+(* TODO
+
+  struct vect {
+      alignas(64) double x;   pattern="x"     newtypetouse=(typ_update "double")
+      alignas(64) int y;
+      }
+let applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update : typ -> typ) : Target.Transfo.t =
+  Target.reparse_after ~reparse (Target.apply_on_targets (Struct_core.update_fields_type pattern ty))
+
+let update_fields_type ?(reparse : bool = false) (pattern : string) (ty : typ) : Target.Transfo.t =
+  applyto_fields_type pattern (fun _ -> ty)
+
+let Ast.typ_alignas (align:int) (ty : typ) =
+  same typ with attributes typ_alignas added
+
+
+let Combi_Struct.align_field (align:int) (pattern : string) =
+  Struct.applytofields_type (fun ty -> typ_alignas align ty)
+
+*)
+
+
+

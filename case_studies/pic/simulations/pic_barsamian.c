@@ -938,7 +938,7 @@ int main(int argc, char** argv) {
 #endif
     }
 #ifdef CHECKER
-    FILE* f = fopen(CHECKER_FILENAME, "wb");
+    FILE* f = fopen("particles.res", "wb");
     double areaX = x_max - x_min;
     double areaY = y_max - y_min;
     double areaZ = z_max - z_min;

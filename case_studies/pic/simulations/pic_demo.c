@@ -347,7 +347,7 @@ void step() {
 void reportParticlesState() {
 #ifdef CHECKER
   // printf("NbParticles: %d\n", nbParticles);
-  FILE* f = fopen(CHECKER_FILENAME, "wb");
+  FILE* f = fopen("particles.res", "wb");
   fwrite(&nbParticles, sizeof(int), 1, f);
   fwrite(&areaX, sizeof(double), 1, f);
   fwrite(&areaY, sizeof(double), 1, f);
@@ -356,18 +356,20 @@ void reportParticlesState() {
     bag* b = &bagsCur[idCell];
     bag_iter bag_it;
     for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, false)) {
-      fwrite(&(p->id), sizeof(int), 1, f);
-      fwrite(&(p->pos.x), sizeof(double), 1, f);
-      fwrite(&(p->pos.y), sizeof(double), 1, f);
-      fwrite(&(p->pos.z), sizeof(double), 1, f);
-      fwrite(&(p->speed.x), sizeof(double), 1, f);
-      fwrite(&(p->speed.y), sizeof(double), 1, f);
-      fwrite(&(p->speed.z), sizeof(double), 1, f);
-#ifdef DEBUG_CHECKER
-      printf("id=%d %lf %lf %lf %lf %lf %lf\n", p->id,
-        p->pos.x, p->pos.y, p->pos.z,
-        p->speed.x, p->speed.y, p->speed.z);
-#endif
+      int id = p->id;
+      double posX = p->pos.x;
+      double posY = p->pos.y;
+      double posZ = p->pos.z;
+      double speedX = p->speed.x;
+      double speedY = p->speed.y;
+      double speedZ = p->speed.z;
+      fwrite(&id, sizeof(int), 1, f);
+      fwrite(&posX, sizeof(double), 1, f);
+      fwrite(&posY, sizeof(double), 1, f);
+      fwrite(&posZ, sizeof(double), 1, f);
+      fwrite(&speedX, sizeof(double), 1, f);
+      fwrite(&speedY, sizeof(double), 1, f);
+      fwrite(&speedZ, sizeof(double), 1, f);
     }
   }
   fclose(f);

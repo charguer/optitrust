@@ -62,8 +62,17 @@
 //==========================================================================
 // Naive chunk allocation operations
 
+#define VEC_ALIGN 64
+
 chunk* chunk_alloc() {
-  return (chunk*) malloc(sizeof(chunk));
+  // non-aligned would fail: return (chunk*) malloc(sizeof(chunk));
+  chunk* c;
+  // we need chunks to be aligned
+  if (posix_memalign((void**)&c, VEC_ALIGN, sizeof(chunk))) {
+      fprintf(stderr, "chunk_alloc: posix_memalign.\n");
+      exit(EXIT_FAILURE);
+  }
+  return c;
 }
 
 void chunk_free(chunk* c) {
@@ -449,7 +458,7 @@ void bag_push_initial(bag* b, particle p) {
   // TODO: maybe put the thread_id argument before id_bag and id_cell (both are dummy values here)
 } */
 void bag_init_initial(bag* b) {
-  bag_init(b); 
+  bag_init(b);
 }
 
 

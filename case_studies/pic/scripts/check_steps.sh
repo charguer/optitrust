@@ -25,7 +25,7 @@ CHECKER_OUTFILE1="`basename ${TARGET1} .c`.res"
 echo "+++++++++++++++++++REFERENCE+++++++++++++++++++"
 make -j3 checker.out ${BINARY1} params || exit 1
 ./run.sh ${TARGET1}
-mv ${DIR_OUTFILE}/1 ${DIR_OUTFILE}/${CHECKER_OUTFILE1} || echo ""
+mv ${DIR_OUTFILE}/particles.res ${DIR_OUTFILE}/${CHECKER_OUTFILE1}
 OUT=$?
 if [ ${OUT} -ne 0 ];then
   echo "Error: ${TARGET1} crashed"  #>> /dev/stderr
@@ -46,7 +46,7 @@ for SOURCE in ${SOURCES}; do
   fi
   echo "./run.sh ${TARGET2}"
   ./run.sh ${TARGET2}
-  mv ${DIR_OUTFILE}/1 ${DIR_OUTFILE}/${CHECKER_OUTFILE2} || echo ""
+  mv ${DIR_OUTFILE}/particles.res ${DIR_OUTFILE}/${CHECKER_OUTFILE2}
   OUT=$?
   if [ ${OUT} -ne 0 ];then
     echo "Error: ${TARGET2} crashed"  #>> /dev/stderr
