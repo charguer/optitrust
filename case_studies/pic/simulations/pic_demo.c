@@ -253,8 +253,8 @@ void computeConstants() {
 
 void addParticle(CHECKER_ONLY_COMMA(int idParticle) double x, double y, double z, double vx, double vy, double vz) {
   // Build the particle object
-  const vect pos = { x, y, z };
-  const vect speed = { vx, vy, vz };
+  vect pos = { x, y, z };
+  vect speed = { vx, vy, vz };
   particle p = { pos, speed, CHECKER_ONLY(idParticle) };
 
   // Store the particle in the bag of the cell that contains the particle
