@@ -296,8 +296,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   (* Checkpoint *)
   bigstep "Parallelization and vectorization";
+  (* !! Omp.set_num_threads 4 [tBefore; cTopFunDef "main"; cFor "idStep"]; *)
   !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"];
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; cLabel "charge"];
+  !! Label.remove [step; cLabel "charge"];
   !! Omp.parallel_for [occIndex 1; tBefore; step; cFor "idCell"];
   !! Omp.parallel_for [occIndex 2; tBefore; step; cFor "idCell"];
   !! Omp.simd [occIndex 0; tBefore; step; cFor "i"]; (* LATER: occIndices *)
@@ -305,7 +307,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot];
   !! Align_basic.def (lit "64") [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
   !! Align_basic.def (lit "64") [step; cVarDef "idCell2_step"];
-  !! Label.remove [step; cLabel "charge"];
+  
 )
 
 

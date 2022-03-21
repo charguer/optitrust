@@ -422,7 +422,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         end  in
         dattr ^^ code_str
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
-     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
+     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r 
      | Trm_extern (lang, tl) ->
         begin match tl with
         | [t1] ->
@@ -874,7 +874,7 @@ and directive_to_doc (d : directive) : document =
 
 and routine_to_doc (r : omp_routine) : document =
   match r with
-  | Set_num_threads i -> string "omp_set_num_threads" ^^ parens (string (string_of_int i))
+  | Set_num_threads i -> string "omp_set_num_threads" ^^ parens (string (string_of_int i)) ^^ semi
   | Get_num_threads -> string "omp_get_num_threads" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_max_threads -> string "omp_get_max_threads" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_thread_num  -> string "omp_get_thread_num" ^^ lparen ^^ blank 1 ^^ rparen
