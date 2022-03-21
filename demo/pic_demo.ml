@@ -233,7 +233,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
   !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") [tBefore; cVarDef "nbCells"];
   !! Omp.declare_num_threads "nbThreads";
-  !! Omp.get_num_threads "nbThreads" [tFirst; step; dBody];
+  !! Omp.get_num_threads "nbThreads" [tFirst; cTopFunDef "main"; dBody];
   !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"];
   !! Trace.reparse();
   !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"];
@@ -274,12 +274,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
   !! Trace.reparse ();
   !! Variable.init_detach [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
-  (* TODO: Find out why moving out the allocation and deallocation terms crashes the program *)
-  (* !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
+  !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true dep_and_bags];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_init_initial"]];
-  !! Instr.move_out ~dest:[tBefore; cTopFunDef "deallocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_free_initial"]]; *)
+  !! Instr.move_out ~dest:[tBefore; cTopFunDef "deallocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_free_initial"]];
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
   !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
 
@@ -293,21 +292,22 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "rX1"]]];
   !! Variable.ref_to_pointer [nbMulti; step; cVarDef "idCell2"];
 
+   
+  
 
-  (* Checkpoint *)
-  bigstep "Parallelization and vectorization";
-  (* !! Omp.set_num_threads 4 [tBefore; cTopFunDef "main"; cFor "idStep"]; *)
-  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"];
+   bigstep "Parallelization and vectorization";
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];
   !! Omp.parallel_for [occIndex 1; tBefore; step; cFor "idCell"];
   !! Omp.parallel_for [occIndex 2; tBefore; step; cFor "idCell"];
-  !! Omp.simd [occIndex 0; tBefore; step; cFor "i"]; (* LATER: occIndices *)
-  !! Omp.simd [occIndex 1; tBefore; step; cFor "i"];
   !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot];
   !! Align_basic.def (lit "64") [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
   !! Align_basic.def (lit "64") [step; cVarDef "idCell2_step"];
-  
+  !! Omp.simd [occIndex 0; tBefore; step; cFor "i"]; (* LATER: occIndices *)
+  !! Omp.simd [occIndex 1; tBefore; step; cFor "i"];
+  (* Checkpoint *)
+  (* !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"]; *)
+
 )
 
 

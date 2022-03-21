@@ -281,6 +281,12 @@ vect *field;
 
 double *deposit;
 
+bag *bagsNexts;
+
+double *depositThreadCorners;
+
+double *depositCorners;
+
 bag *bagsCur;
 
 void addParticle(int idParticle, double x, double y, double z, double vx,
@@ -452,20 +458,37 @@ void updateFieldUsingDeposit() {
 void allocateStructures() {
   allocateStructuresForPoissonSolver();
   deposit = (double *)MMALLOC1(nbCells, sizeof(double));
+  bagsNexts = (bag *)MMALLOC2(nbCells, 2, sizeof(bag));
+  depositThreadCorners =
+      (double *)MMALLOC3(nbCells, 8, nbThreads, sizeof(double));
+  depositCorners = (double *)MMALLOC2(nbCells, 8, sizeof(double));
   field = (vect *)MMALLOC1(nbCells, sizeof(vect));
   bagsCur = (bag *)MMALLOC1(nbCells, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init_initial(&bagsCur[idCell]);
+  }
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
+      bag_init_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
+    }
   }
 }
 
 void deallocateStructures() {
   deallocateStructuresForPoissonSolver();
   for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
+      bag_free_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
+    }
+  }
+  for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_free_initial(&bagsCur[idCell]);
   }
   free(bagsCur);
   free(field);
+  MFREE(depositCorners);
+  MFREE(depositThreadCorners);
+  MFREE(bagsNexts);
 }
 
 void computeConstants() {
@@ -585,7 +608,6 @@ const int SHARED = 1;
 const int PRIVATE = 0;
 
 void step() {
-  nbThreads = omp_get_num_threads();
   const double factorC =
       particleCharge * (stepDuration * stepDuration) / particleMass;
   const double factorX =
@@ -594,11 +616,6 @@ void step() {
       particleCharge * (stepDuration * stepDuration) / particleMass / cellY;
   const double factorZ =
       particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
-  double *depositCorners;
-  depositCorners = (double *)MMALLOC2(nbCells, 8, sizeof(double));
-  double *depositThreadCorners;
-  depositThreadCorners =
-      (double *)MMALLOC3(nbCells, 8, nbThreads, sizeof(double));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
       for (int idThread = 0; idThread < nbThreads; idThread++) {
@@ -607,19 +624,10 @@ void step() {
       }
     }
   }
-  bag *bagsNexts;
-  bagsNexts = (bag *)MMALLOC2(nbCells, 2, sizeof(bag));
-#pragma omp parallel for
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_init_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
-    }
-  }
 core:
   for (int cX = 0; cX < block; cX++) {
     for (int cY = 0; cY < block; cY++) {
       for (int cZ = 0; cZ < block; cZ++) {
-#pragma omp parallel for collapse(3)
         for (int bX = cX * 2; bX < gridX; bX += block * 2) {
           for (int bY = cY * 2; bY < gridY; bY += block * 2) {
             for (int bZ = cZ * 2; bZ < gridZ; bZ += block * 2) {
@@ -759,12 +767,6 @@ core:
       bag_append(&bagsCur[MINDEX1(nbCells, idCell)],
                  &bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
     }
-    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_free_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
-    }
-  }
-  MFREE(bagsNexts);
-  for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
       double sum = 0.;
       for (int idThread = 0; idThread < nbThreads; idThread++) {
@@ -774,7 +776,7 @@ core:
       depositCorners[MINDEX2(nbCells, 8, idCell, idCorner)] = sum;
     }
   }
-  MFREE(depositThreadCorners);
+#pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     double sum = 0.;
     for (int k = 0; k < 8; k++) {
@@ -782,7 +784,6 @@ core:
     }
     deposit[MINDEX1(nbCells, idCell)] = sum;
   }
-  MFREE(depositCorners);
   updateFieldUsingDeposit();
 }
 
@@ -819,6 +820,7 @@ void reportParticlesState() {
 }
 
 int main(int argc, char **argv) {
+  nbThreads = omp_get_num_threads();
   loadParameters(argc, argv);
   computeConstants();
   allocateStructures();
