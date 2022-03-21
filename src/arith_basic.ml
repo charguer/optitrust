@@ -46,3 +46,17 @@ let is_prim_arith (p : prim) : bool =
 
 let constr = (* alias cPrimArith *)
   Target.cPrimPredFun is_prim_arith
+
+
+let clear_nosimpl (tg : Target.target) : unit =
+  Marks.remove Arith_core.mark_nosimpl [Target.nbMulti; Target.cMark Arith_core.mark_nosimpl]
+
+let nosimpl (tg : Target.target) : unit =
+  Marks.add Arith_core.mark_nosimpl tg
+
+let with_nosimpl (tg : Target.target) (f : unit -> unit) : unit =
+  nosimpl tg;
+  f();
+  clear_nosimpl tg
+
+  (* LATER: have a stack of different marks to avoid loosing the previously existing ones *)

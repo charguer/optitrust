@@ -137,11 +137,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! iter_dims (fun d ->
         Accesses.scale ~neg:true ~factor:(expr ("cell"^d)) [repPart; cVarDef ("pos"^d); cInit()]);
 
-  !!Trace.reparse();
-  (* LATER: missing one simplification, maybe *)
-        !! Variable.inline [steps; cVarDef "accel"];
-        !! Arith.(simpl ~indepth:true expand) [nbMulti; steps];
-
+  bigstep "Simplify arithmetic expressions after scaling and shifting";
+  !! Trace.reparse();
+  !! Variable.inline [steps; cVarDef "accel"];
+  !! Arith.with_nosimpl [nbMulti; steps; cFor "k"] (fun () ->
+       Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
 
 
 (*----

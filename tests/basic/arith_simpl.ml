@@ -29,7 +29,10 @@ int main() {
 let _ = Run.script_cpp (fun _ ->
     (* !! Arith_basic.simplify ~indepth:true [dRoot]); *) (* Test of all at once: *)
 
+  !! Arith_basic.nosimpl [nbMulti; cFunDef "simpl_in_depth"; cVarDef "x"; cFun "g"];
   !! Arith_basic.simplify ~indepth:true [nbMulti; cFunDef "simpl_in_depth"; cVarDef "x"];
+  !! Arith_basic.clear_nosimpl [];
+
   !! Arith_basic.simplify ~indepth:false [nbMulti; cFunDef "simpl_in_depth"]; (* do nothing *)
   !! Arith_basic.simplify ~indepth:true [nbMulti; cFunDef "simpl_in_depth"];
 

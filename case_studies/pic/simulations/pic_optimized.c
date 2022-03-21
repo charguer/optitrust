@@ -505,14 +505,9 @@ void stepLeapFrog() {
         const double rZ0 = c->itemsPosZ[i] - iZ0;
         double_nbCorners coeffs;
         for (int k = 0; k < 8; k++) {
-          coeffs.v[k] = coefX[k] * coefY[k] * coefZ[k] +
-                        coefX[k] * coefY[k] * signZ[k] * rZ0 +
-                        coefX[k] * signY[k] * rY0 * coefZ[k] +
-                        coefX[k] * signY[k] * rY0 * signZ[k] * rZ0 +
-                        signX[k] * rX0 * coefY[k] * coefZ[k] +
-                        signX[k] * rX0 * coefY[k] * signZ[k] * rZ0 +
-                        signX[k] * rX0 * signY[k] * rY0 * coefZ[k] +
-                        signX[k] * rX0 * signY[k] * rY0 * signZ[k] * rZ0;
+          coeffs.v[k] = (coefX[k] + signX[k] * rX0) *
+                        (coefY[k] + signY[k] * rY0) *
+                        (coefZ[k] + signZ[k] * rZ0);
         }
         vect fieldAtPos = {0., 0., 0.};
         fieldAtPos.x = fieldAtPos.x + coeffs.v[0] * field_at_corners.v[0].x +
@@ -585,14 +580,9 @@ void step() {
         const double rZ0 = c->itemsPosZ[i] - iZ0;
         double_nbCorners coeffs;
         for (int k = 0; k < 8; k++) {
-          coeffs.v[k] = coefX[k] * coefY[k] * coefZ[k] +
-                        coefX[k] * coefY[k] * signZ[k] * rZ0 +
-                        coefX[k] * signY[k] * rY0 * coefZ[k] +
-                        coefX[k] * signY[k] * rY0 * signZ[k] * rZ0 +
-                        signX[k] * rX0 * coefY[k] * coefZ[k] +
-                        signX[k] * rX0 * coefY[k] * signZ[k] * rZ0 +
-                        signX[k] * rX0 * signY[k] * rY0 * coefZ[k] +
-                        signX[k] * rX0 * signY[k] * rY0 * signZ[k] * rZ0;
+          coeffs.v[k] = (coefX[k] + signX[k] * rX0) *
+                        (coefY[k] + signY[k] * rY0) *
+                        (coefZ[k] + signZ[k] * rZ0);
         }
         double fieldAtPosX = 0.;
         double fieldAtPosY = 0.;
@@ -640,15 +630,9 @@ void step() {
         double_nbCorners contribs;
         const int_nbCorners indices = indicesOfCorners(idCell2);
         for (int k = 0; k < 8; k++) {
-          deposit[indices.v[k]] +=
-              coefX[k] * coefY[k] * coefZ[k] +
-              coefX[k] * coefY[k] * signZ[k] * rZ1 +
-              coefX[k] * signY[k] * rY1 * coefZ[k] +
-              coefX[k] * signY[k] * rY1 * signZ[k] * rZ1 +
-              signX[k] * rX1 * coefY[k] * coefZ[k] +
-              signX[k] * rX1 * coefY[k] * signZ[k] * rZ1 +
-              signX[k] * rX1 * signY[k] * rY1 * coefZ[k] +
-              signX[k] * rX1 * signY[k] * rY1 * signZ[k] * rZ1;
+          deposit[indices.v[k]] += (coefX[k] + signX[k] * rX1) *
+                                   (coefY[k] + signY[k] * rY1) *
+                                   (coefZ[k] + signZ[k] * rZ1);
         }
       }
     }
