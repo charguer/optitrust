@@ -32,6 +32,8 @@ let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = if use_checker then ["-DCHECKER"] else []
 
+let prepro = ["-DPRINTPERF"] @ prepro 
+
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
@@ -260,8 +262,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
   !! Variable.insert ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:(trm_ands (map_dims (fun d ->
-         expr ~vars:[d] "co.i${0} - b${0} >= - halfBlock && co.i${0} - b${0} < block + halfBlock")))
-      [tBefore; step; cFun "bag_push"];
+         expr ~vars:[d] "(co.i${0} - b${0} >= -halfBlock &&
+                            co.i${0} - b${0} < block + halfBlock) || (b${0} == 0 && co.i${0} >= grid${0} - halfBlock) || (b${0} == grid${0} - block && co.i${0} < halfBlock)"
+         )))[tBefore; step; cFun "bag_push"];
   !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") ~mark:"push" [step; cFun "bag_push"];
   !! Specialize.any (expr "PRIVATE") [cMark "push"; dThen; cAny];
   !! Specialize.any (expr "SHARED") [cMark "push"; dElse; cAny];
@@ -292,9 +295,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "rX1"]]];
   !! Variable.ref_to_pointer [nbMulti; step; cVarDef "idCell2"];
 
-   
-  
-
    bigstep "Parallelization and vectorization";
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];
@@ -306,7 +306,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.simd [occIndex 0; tBefore; step; cFor "i"]; (* LATER: occIndices *)
   !! Omp.simd [occIndex 1; tBefore; step; cFor "i"];
   (* Checkpoint *)
-  (* !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"]; *)
+  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"];
 
 )
 

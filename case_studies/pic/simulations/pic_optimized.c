@@ -726,11 +726,17 @@ core:
                         const coord co = coordOfCell(*idCell2);
                         const bool isDistFromBlockLessThanHalfABlock =
                             co.iX - bX >= -halfBlock &&
-                            co.iX - bX < block + halfBlock &&
-                            co.iY - bY >= -halfBlock &&
-                            co.iY - bY < block + halfBlock &&
-                            co.iZ - bZ >= -halfBlock &&
-                            co.iZ - bZ < block + halfBlock;
+                                co.iX - bX < block + halfBlock ||
+                            bX == 0 && co.iX >= gridX - halfBlock ||
+                            bX == gridX - block && co.iX < halfBlock &&
+                                (co.iY - bY >= -halfBlock &&
+                                 co.iY - bY < block + halfBlock) ||
+                            bY == 0 && co.iY >= gridY - halfBlock ||
+                            bY == gridY - block && co.iY < halfBlock &&
+                                (co.iZ - bZ >= -halfBlock &&
+                                 co.iZ - bZ < block + halfBlock) ||
+                            bZ == 0 && co.iZ >= gridZ - halfBlock ||
+                            bZ == gridZ - block && co.iZ < halfBlock;
                         if (isDistFromBlockLessThanHalfABlock) {
                           bag_push_serial(&bagsNexts[MINDEX2(
                                               nbCells, 2, *idCell2, PRIVATE)],
@@ -827,12 +833,12 @@ int main(int argc, char **argv) {
   resetDeposit();
   createParticles();
   stepLeapFrog();
+  double timeStart = omp_get_wtime();
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     step();
   }
-  reportParticlesState();
-  double timeStart = omp_get_wtime();
   reportPerformance(timeStart);
+  reportParticlesState();
   deallocateStructures();
   free(deposit);
 }
