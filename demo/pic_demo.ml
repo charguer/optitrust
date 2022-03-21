@@ -32,7 +32,7 @@ let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = if use_checker then ["-DCHECKER"] else []
 
-let prepro = ["-DPRINTPERF"] @ prepro 
+let prepro = ["-DPRINTPERF"] @ prepro
 
 let debug = true
 
@@ -240,7 +240,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.get_num_threads "nbThreads" [tFirst; cTopFunDef "main"; dBody];
   !! Omp.get_thread_num "idThread" [tBefore; cLabel "core"];
   !! Trace.reparse();
-  
+
   if not debug then begin
     bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "depositCorners" ~last:true ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
@@ -261,10 +261,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
-  
+
   let push_cond = if debug then trm_ands (map_dims (fun d ->
          expr ~vars:[d] "(co.i${0} - b${0} >= -halfBlock &&
-                            co.i${0} - b${0} < block + halfBlock) || (b${0} == 0 && co.i${0} >= grid${0} - halfBlock) || (b${0} == grid${0} - block && co.i${0} < halfBlock)")) else trm_lit (Lit_bool true) in 
+                            co.i${0} - b${0} < block + halfBlock) || (b${0} == 0 && co.i${0} >= grid${0} - halfBlock) || (b${0} == grid${0} - block && co.i${0} < halfBlock)")) else trm_lit (Lit_bool true) in
   !! Variable.insert ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:push_cond [tBefore; step; cFun "bag_push"];
   !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") ~mark:"push" [step; cFun "bag_push"];
@@ -286,8 +286,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
   !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
 
-  
-  (* if debug then begin 
+
+  (* if debug then begin
   !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"]; end; *)
 
   bigstep "Loop splitting: process speeds, process positions, deposit particle and its charge";

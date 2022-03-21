@@ -181,6 +181,8 @@ let stmt ~expr ?(decl = fun env decl -> assert false) env s =
       {s with sdesc = Sblock (List.map stm sl)}
   | Sdecl d ->
       {s with sdesc = Sdecl (decl env d)}
+  | Spragma(p, s1) ->
+      {s with sdesc = Spragma(p, stm s1)}
 
   in stm s
 

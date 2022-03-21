@@ -21,6 +21,7 @@ FILES="\
   cparser/Cutil.mli \
   cparser/Env.ml \
   cparser/Env.mli \
+  cparser/Transform.ml \
   cparser/pre_parser.ml \
   cparser/pre_parser.mli \
   cparser/pre_parser_aux.ml \

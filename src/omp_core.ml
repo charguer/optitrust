@@ -531,11 +531,11 @@ let get_num_threads_aux (nb_threads : var) (index : int) (t : trm) : trm =
 let get_num_threads (nb_threads : var) (index : int) : Target.Transfo.local =
   Target.apply_on_path (get_num_threads_aux nb_threads index)
 
-let declare_num_threads_aux (nb_threads : var) (index : int) (t : trm) : trm = 
-  match t.desc with 
-  | Trm_seq tl -> 
-    let new_dl = trm_let_mut (nb_threads, typ_int()) (trm_uninitialized()) in 
-    let new_tl = Mlist.insert_at index new_dl tl in 
+let declare_num_threads_aux (nb_threads : var) (index : int) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl ->
+    let new_dl = trm_let_mut (nb_threads, typ_int()) (trm_uninitialized()) in
+    let new_tl = Mlist.insert_at index new_dl tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "declare_num_threads_aux: expected the sequence where the call to the routine is going to be added"
 

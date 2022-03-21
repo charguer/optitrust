@@ -53,18 +53,18 @@ let get_typid_from_trm (tv : typvar) : int  =
 let tr_attribute (att : C.attribute) : attribute =
   (* DEBUG *)
   (* let c_attribute_to_string (att : C.attribute) : string =
-    match att with 
+    match att with
     | AConst -> "const"
     | AVolatile -> "volatile"
     | ARestrict -> "restrict"
     | AAlignas _ -> "alignas"
     | Attr _ -> "attr" in *)
-  match att with 
+  match att with
   | C.AAlignas n -> Ast.Alignas (trm_int n)
-  | _ -> 
+  | _ ->
       (* DEBUG:Printf.printf "Warning unknown attributes passed to the parser, %s \n" (c_attribute_to_string att); *)
       Others
-    
+
   (* LATER; support others *)
 
 (* [wrap_const ~const t] wrap the type [t] into a const typ if const is true *)
@@ -191,8 +191,16 @@ and tr_stmt (s : C.stmt) : trm =
     |_ -> trm_abort ~loc ~ctx (Ret None)
     end
   | Sblock sl ->
-    let tl = List.map tr_stmt sl in
-    trm_seq_nomarks ~loc ~ctx tl
+    (* LATER: put back naive code:
+    let tl = List.map tr_stmt sl in *)
+    let rec handle_pragma acc sl =
+      match sl with
+      | [] -> List.rev acc
+      | { C.sdesc = Spragma (p, s1); C.sloc = loc } :: sl1 ->
+          handle_pragma ((tr_stmt s1)::(tr_pragma ~loc:(loc_of_cloc loc) p)::acc) sl1
+      | s1 :: sl1 -> handle_pragma (tr_stmt s1 :: acc) sl1
+      in
+    trm_seq_nomarks ~loc ~ctx (handle_pragma [] sl)
   | Sdecl (_stor, {name = n; _}, ty, init_opt) ->
     let tt = tr_type ty in
     let te = begin match init_opt with
@@ -202,8 +210,19 @@ and tr_stmt (s : C.stmt) : trm =
       in
     let mut = if is_typ_const tt then Var_immutable else Var_mutable in
     trm_let ~loc ~is_statement:true mut (n, tt) te
-
   | _ -> fail loc "tr_stmt: statment not supported"
+   (* LATER: should not use catch all pattern, here and elsewhere *)
+
+and tr_pragma ?(loc : location = None) (p : string) : trm =
+  match p with
+  | "omp simd" -> trm_omp_directive (Simd [])
+  | "omp atomic" -> trm_omp_directive (Atomic None)
+  | "omp parallel for" -> trm_omp_directive (Parallel_for [])
+  | _ ->
+     try Scanf.sscanf p "omp parallel for collapse(%d)" (fun n ->
+       trm_omp_directive (Parallel_for [Collapse n]))
+     with Scanf.Scan_failure _ ->
+      fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p)
 
 (* [tr_init i] translate C.inti into optitrust ast*)
 and tr_init ?(loc : location = None) (i : C.init) : trm =
@@ -500,3 +519,4 @@ let tr_globdefs (gs : C.globdecl list) : trms =
 let tr_ast (tl : C.program) : trm =
   let tl = tr_globdefs tl in
   trm_seq_nomarks ~annot:[Main_file] tl
+

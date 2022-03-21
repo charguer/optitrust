@@ -3,198 +3,198 @@ open Ast
 (******************************************************************************)
 (*                            OpenMP directives                               *)
 (******************************************************************************)
-let atomic (ao : atomic_operation option) : Target.Transfo.t = 
+let atomic (ao : atomic_operation option) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.atomic ao i t p)
 
-let atomic_capture : Target.Transfo.t = 
+let atomic_capture : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.atomic_capture i t p)
 
-let barrier : Target.Transfo.t = 
+let barrier : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.barrier i t p)
 
-let cancel ?(clause : clause list = []) (construct_type_clause : clause) : Target.Transfo.t = 
+let cancel ?(clause : clause list = []) (construct_type_clause : clause) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.cancel construct_type_clause clause i t p)
 
-let cancelation_point ?(clause : clause list = []) (construct_type_clause : clause) : Target.Transfo.t = 
+let cancelation_point ?(clause : clause list = []) (construct_type_clause : clause) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.cancellation_point construct_type_clause clause i t p)
 
-let critical ?(hint : var = "") (v : var) : Target.Transfo.t = 
+let critical ?(hint : var = "") (v : var) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.critical v hint i t p)
 
-let declare_simd ?(clause : clause list = []) : Target.Transfo.t = 
+let declare_simd ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.declare_simd clause i t p)
 
-let declare_reduction (ri : reduction_identifier) (tl : typvars) (e : expression) (clause : clause) : Target.Transfo.t = 
+let declare_reduction (ri : reduction_identifier) (tl : typvars) (e : expression) (clause : clause) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.declare_reduction ri tl e clause i t p)
 
-let declare_target ?(clause : clause list = []): Target.Transfo.t = 
+let declare_target ?(clause : clause list = []): Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.declare_target clause i t p)
 
-let distribute ?(clause : clause list = []) : Target.Transfo.t = 
+let distribute ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.distribute clause i t p)
-  
-let distribute_parallel_for ?(clause : clause list = []) : Target.Transfo.t = 
+
+let distribute_parallel_for ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.distribute_parallel_for clause i t p)
 
-let distribute_parallel_for_simd ?(clause : clause list = []) : Target.Transfo.t = 
+let distribute_parallel_for_simd ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.distribute_parallel_for_simd clause i t p)
 
-let distribute_simd : Target.Transfo.t = 
+let distribute_simd : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.distribute_simd i t p)
 
-let end_declare_target : Target.Transfo.t = 
+let end_declare_target : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.end_declare_target i t p)
 
-let flush (vl : vars) : Target.Transfo.t = 
+let flush (vl : vars) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.flush vl i t p)
 
 (* We use here for_ instead of for because for is a keyword in Ocaml *)
-let for_ ?(clause : clause list = []) : Target.Transfo.t = 
+let for_ ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.for_ clause i t p)
 
-let for_simd ?(clause : clause list = []) : Target.Transfo.t = 
+let for_simd ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.for_simd clause i t p)
 
-let master : Target.Transfo.t = 
+let master : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.master i t p)
 
-let ordered ?(clause : clause list = []) : Target.Transfo.t = 
+let ordered ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.ordered clause i t p)
 
-let parallel ?(clause : clause list = []) : Target.Transfo.t = 
+let parallel ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.parallel clause i t p)
 
-let parallel_for ?(clause : clause list = []): Target.Transfo.t = 
+let parallel_for ?(clause : clause list = []): Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.parallel_for clause i t p)
 
-let parallel_for_simd ?(clause : clause list = []): Target.Transfo.t = 
+let parallel_for_simd ?(clause : clause list = []): Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.parallel_for_simd clause i t p)
 
-let parallel_sections ?(clause : clause list = []) : Target.Transfo.t = 
+let parallel_sections ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.parallel_sections clause i t p)
 
-let section : Target.Transfo.t = 
+let section : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.section i t p)
 
-let sections ?(clause : clause list = []) : Target.Transfo.t = 
+let sections ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.sections clause i t p)
 
-let simd ?(clause : clause list = []) : Target.Transfo.t = 
+let simd ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.simd clause i t p)
 
-let single ?(clause : clause list = []) : Target.Transfo.t = 
+let single ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.single clause i t p)
 
-let target ?(clause : clause list = []) : Target.Transfo.t = 
+let target ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.target clause i t p)
 
-let target_data ?(clause : clause list = []) : Target.Transfo.t = 
+let target_data ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.target_data clause i t p)
 
-let target_enter_data ?(clause : clause list = []) : Target.Transfo.t = 
+let target_enter_data ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.target_enter_data clause i t p)
 
-let target_exit_data ?(clause : clause list = []) : Target.Transfo.t = 
+let target_exit_data ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.target_exit_data clause i t p)
 
-let target_teams ?(clause : clause list = []) : Target.Transfo.t = 
+let target_teams ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.target_teams clause i t p)
 
-let target_teams_distribute ?(clause : clause list = []) : Target.Transfo.t = 
+let target_teams_distribute ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.target_teams_distribute clause i t p)
 
-let target_teams_distribute_parallel_for ?(clause : clause list = []) : Target.Transfo.t = 
+let target_teams_distribute_parallel_for ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.target_teams_distribute_parallel_for clause i t p)
 
-let target_teams_distribute_parallel_for_simd ?(clause : clause list = []) : Target.Transfo.t = 
+let target_teams_distribute_parallel_for_simd ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.target_teams_distribute_parallel_for_simd clause i t p)
 
-let target_teams_distribute_simd ?(clause : clause list = []) : Target.Transfo.t = 
+let target_teams_distribute_simd ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.target_teams_distribute_simd clause i t p)
 
-let target_update ?(clause : clause list = []) : Target.Transfo.t = 
+let target_update ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.target_update clause i t p)
 
-let task ?(clause : clause list = []) : Target.Transfo.t = 
+let task ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.task clause i t p)
 
-let taskgroup : Target.Transfo.t = 
+let taskgroup : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.taskgroup i t p)
 
-let taskloop ?(clause : clause list = []) : Target.Transfo.t = 
+let taskloop ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.taskloop clause i t p)
 
-let taskloop_simd ?(clause : clause list = []) : Target.Transfo.t = 
+let taskloop_simd ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
-    Omp_core.taskloop_simd clause i t p)    
+    Omp_core.taskloop_simd clause i t p)
 
-let taskwait : Target.Transfo.t = 
+let taskwait : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.taskwait i t p)
 
-let taskyield : Target.Transfo.t = 
+let taskyield : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.taskyield i t p)
 
-let teams ?(clause : clause list = []) : Target.Transfo.t = 
+let teams ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
-    Omp_core.teams clause i t p)    
+    Omp_core.teams clause i t p)
 
-let teams_distribute ?(clause : clause list = []) : Target.Transfo.t = 
+let teams_distribute ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
-    Omp_core.teams_distribute clause i t p)    
+    Omp_core.teams_distribute clause i t p)
 
-let teams_distribute_end ?(clause : clause list = []) : Target.Transfo.t = 
+let teams_distribute_end ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
-    Omp_core.teams_distribute_end clause i t p)    
+    Omp_core.teams_distribute_end clause i t p)
 
-let teams_distribute_parallel_for ?(clause : clause list = []) : Target.Transfo.t = 
+let teams_distribute_parallel_for ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
-    Omp_core.teams_distribute_parallel_for clause i t p)    
+    Omp_core.teams_distribute_parallel_for clause i t p)
 
-let teams_distribute_parallel_for_simd ?(clause : clause list = []) : Target.Transfo.t = 
+let teams_distribute_parallel_for_simd ?(clause : clause list = []) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
-    Omp_core.teams_distribute_parallel_for_simd clause i t p)    
+    Omp_core.teams_distribute_parallel_for_simd clause i t p)
 
 let threadprivate (vl : vars) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
@@ -213,8 +213,8 @@ let get_num_threads (nb_threads : var) : Target.Transfo.t =
     Omp_core.get_num_threads nb_threads i t p)
 
 
-let declare_num_threads ?(tg : Target.target = [Target.tFirst; Target.dRoot]) (nb_threads : var) : unit = 
-  Target.apply_on_targets_between (fun t (p, i) -> 
+let declare_num_threads ?(tg : Target.target = [Target.tFirst; Target.dRoot]) (nb_threads : var) : unit =
+  Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.declare_num_threads nb_threads i t p) tg
 
 
@@ -279,7 +279,7 @@ let get_level (level : var) : Target.Transfo.t =
     Omp_core.get_level level i t p)
 
 let get_ancestor_thread_num (thread_num : var) : Target.Transfo.t =
-  Target.apply_on_targets_between (fun t (p, i) -> 
+  Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.get_ancestor_thread_num thread_num i t p)
 
 let get_team_size (level : int) (size : var) : Target.Transfo.t =
@@ -298,11 +298,11 @@ let set_default_device (device_num : var) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.set_default_device device_num i t p)
 
-let get_default_device (default_device : var) : Target.Transfo.t = 
+let get_default_device (default_device : var) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.get_default_device default_device i t p)
 
-let get_proc_bind (proc_bind : var) : Target.Transfo.t = 
+let get_proc_bind (proc_bind : var) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.get_proc_bind  proc_bind i t p)
 

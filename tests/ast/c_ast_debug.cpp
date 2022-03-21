@@ -1,3 +1,24 @@
+int main(void)
+{
+  int count = 0;
+  #pragma omp parallel for
+  for (int n = 0; n < 8; n++) {
+    #pragma omp atomic
+    count++;
+  }
+  #pragma omp parallel for collapse(2)
+  for (int a = 0; a < 8; a++) {
+    for (int b = 0; b < 8; b++) {
+    #pragma omp atomic
+    count++;
+    }
+  }
+  return 0;
+}
+
+
+/*
+
 typedef struct { int x; int y; } vect;
 typedef struct { vect pos; } particle;
 
@@ -6,7 +27,7 @@ int main() {
   //vect v = { 2, 4 };
   // return v.x;
 }
-
+*/
 
 /*
 // TODO: move this to a unit test in ast/ folder on arrays

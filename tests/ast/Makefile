@@ -35,3 +35,6 @@ c_features.cpp: c_big.cpp
 	$(V)cp $< $@
 
 # LATER: use a makefile iteration to generate the above
+
+# 'make deb' for testing the deub file
+deb: c_ast_debug.out
