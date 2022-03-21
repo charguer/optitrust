@@ -112,6 +112,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.scale ~factor:(var ("factor" ^ d)) [step; cFor "k"; cFieldWrite ~field:d1 ()]);
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(var ("factor" ^ d)) [step; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
+  !! Variable.unfold [step; cVarDef  "factorC"];
   !! Variable.unfold ~at:[cVarDef "accel"] [nbMulti; step; cVarDef ~regexp:true "factor."];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef "accel"];
   
@@ -128,23 +129,17 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   
   !! iter_dims (fun d -> 
       Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "speed"] ()]);
-  
-  bigstep "Scaling of speed and positions in step and stepLF functions";
-  !! iter_dims (fun d -> 
-    Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
-      [nbMulti; cOr [[stepLF];[step]]; cCellReadOrWrite ~base:[cFieldRead ~field:("itemsSpeed"^d) ()] ()]);
-  (* !! iter_dims (fun d ->
+   
+  bigstep "Scaling of speed and positions in step function";
+  !! iter_dims (fun d ->
       Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
       [nbMulti; step;cOr [ [ sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")];
-               [ sExpr ("p2.speed" ^ d) ] ] ] );  *)
-  !! iter_dims (fun d -> 
-    Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
-      [nbMulti; cOr [[stepLF];[step]]; cCellReadOrWrite ~base:[cFieldRead ~field:("itemsPos"^d) ()] ()]);
-  (* !! iter_dims (fun d ->
+               [ sExpr ("p2.speed" ^ d) ] ] ] ); 
+  !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("(1 / cell"^d^")"))
          [nbMulti; step; cOr [ [sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")];
             [sExpr ("p2.pos" ^ d)]
-          ] ]);   *)
+          ] ]);  
   !! Trace.reparse();
   !! Variable.inline [step; cVarDef "accel"];
   !! Variable.unfold [step; cVarDef "factorC"];
@@ -175,27 +170,26 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef ~regexp:true "r.."; dInit];
   !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.0"];
   !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
-  
-  if use_checker then begin 
+   
+
+  if use_checker then begin
     bigstep "Scaling of speed and positions in reportParticlesState function";
     !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; repPart; cVarDef "b"];
     !! Variable.init_detach [nbMulti; repPart; cVarDef ~regexp:true "\\(pos\\|speed\\)."];
-    !! iter_dims (fun d -> 
+    !! iter_dims (fun d ->
         Accesses.shift ~factor:(expr ("co.i"^d)) [repPart; cWriteVar ("pos"^d)];
-        Accesses.scale ~factor:(expr ("cell"^d)) [repPart; cWriteVar ("pos"^d)];
-        Accesses.scale ~factor:(expr ("cell"^d^"/stepDuration")) [repPart; cWriteVar ("speed"^d)]
+        Accesses.scale ~factor:(expr ("cell"^d)) [repPart; cWriteVar ("pos"^d)]; 
+        Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cWriteVar ("speed"^d)]
     );
-  end; 
+  end;
 
-
-
-  if not doublepos then begin
+  if doublepos then begin
     bigstep "Turn positions into floats";
     !! Cast.insert (atyp "float") [sExprRegexp ~substr:true "p.2 - i.2"];
     !! Struct.update_fields_type "itemsPos." (atyp "float") [cTypDef "chunk"];
   end;
 
-    bigstep "Introduce matrix operations, and prepare loop on charge deposit";
+  bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
   !! Matrix_basic.intro_mmalloc [nbMulti; cFunDef "allocateStructures";cFun "malloc"];
   !! Matrix.intro_mindex (expr "nbCells") [nbMulti; step; cCellAccess ~base:[cOr [[cVar "deposit"]; [cVar "bagsNext"]]]() ];
@@ -245,13 +239,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       ~init_zero:true ~dim:(expr "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "idThread")) [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
 
+
   bigstep "Coloring";
   !! Variable.insert_list_same_type (atyp "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
     Loop.color (expr color) ~index:("c"^d) [step; cFor bd]
-    (* Loop.color (expr color) ~index:("c"^d) [step; cFor ("i" ^ d)] *)
     in
   !! iter_dims (fun d -> colorize "2" "block" d);
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
@@ -302,18 +296,16 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "rX1"]]];
   !! Variable.ref_to_pointer [nbMulti; step; cVarDef "idCell2"];
 
-
-  bigstep "Parallelization";
-  !! Omp.parallel_for [Collapse 3] [tBefore; cFor "bX"];
-  !! Omp.simd [Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; cLabel "charge"];
-  !! Omp.parallel_for [] [occIndex 1; tBefore; step; cFor "idCell"];
-  !! Omp.parallel_for [] [occIndex 2; tBefore; step; cFor "idCell"];
-  !! Omp.parallel_for [] [occIndex 3; tBefore; step; cFor "idCell"];
-  !! Omp.simd [] [occIndex 0; tBefore; step; cFor "i"]; (* LATER: occIndices *)
-  !! Omp.simd [] [occIndex 1; tBefore; step; cFor "i"];
+  bigstep "Parallelization and vectorization";
+  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"];
+  !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; cLabel "charge"];
+  !! Omp.parallel_for [occIndex 1; tBefore; step; cFor "idCell"];
+  !! Omp.parallel_for [occIndex 2; tBefore; step; cFor "idCell"];
+  !! Omp.simd [occIndex 0; tBefore; step; cFor "i"]; (* LATER: occIndices *)
+  !! Omp.simd [occIndex 1; tBefore; step; cFor "i"];
   !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot];
   !! Align_basic.def (lit "64") [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
-  !! Align_basic.def (lit "64") [cVarDef "idCell2_step"];
+  !! Align_basic.def (lit "64") [step; cVarDef "idCell2_step"];
   !! Label.remove [step; cLabel "charge"];
 )
 
@@ -421,7 +413,7 @@ isDistFromBlockLessThanHalfABlock
 let stepLF = cTopFunDef "stepLeapFrog" *)
 
 
-  (* LATER: simpl_rec an alias for simpl ~indepth:true *)
+  (* DONE: simpl_rec an alias for simpl ~indepth:true *)
 
 
 (* if not doublepos then begin
@@ -532,7 +524,7 @@ setexplicit will generate
   p.speedX = p.speed.x;
   p.speedY = p.speed.y;
   p.speedZ = p.speed.z;
-  
+
 
 then apply scaling to the writes (that is, the full instruction)
 

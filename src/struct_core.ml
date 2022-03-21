@@ -301,7 +301,6 @@ let inline (field_to_inline : field) (index : int) : Target.Transfo.local =
     return:
       updated ast of the typedef struct declaration
  *)
-
 let fields_reorder_aux (struct_fields: vars) (move_where : reorder) (t: trm) : trm =
   match t.desc with
   | Trm_typedef td ->
