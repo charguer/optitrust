@@ -229,7 +229,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
 
   bigstep "Introduce private and shared bags";
-  !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"]
+  !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
     ~alloc_instr:[cFunDef "allocateStructures"; cWriteVar "bagsNext"]
     ~index:"bagsKind" ~ops:delocalize_bag [cLabel "core"];
   !! Variable.insert_list_same_type (atyp "const int") [("PRIVATE", lit "0"); ("SHARED", lit "1")] [tFirst; step; dBody];
@@ -263,12 +263,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"];
 
 
-  (* Checkpoint *)
   bigstep "Duplicate the charge of a corner for each of the threads";
-  !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
-      ~init_zero:true ~dim:(expr "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "idThread")) [cLabel "core"];
+  !! Matrix.delocalize "depositCorners" ~last:true ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
+      ~init_zero:true ~dim:(expr "nbThreads") ~index:"idThread" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "idThread")) [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
 
+
+  (* Checkpoint *)
   bigstep "Cleanup"; (* LATER: in cleanup separate ops on deposit from those on bagnexts *)
   let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
   !! Trace.reparse ();
