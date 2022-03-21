@@ -34,6 +34,8 @@ let prepro = if use_checker then ["-DCHECKER"] else []
 
 let prepro = ["-DPRINTPERF"] @ prepro 
 
+let debug = true
+
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
@@ -236,16 +238,15 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") [tBefore; cVarDef "nbCells"];
   !! Omp.declare_num_threads "nbThreads";
   !! Omp.get_num_threads "nbThreads" [tFirst; cTopFunDef "main"; dBody];
-  !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"];
+  !! Omp.get_thread_num "idThread" [tBefore; cLabel "core"];
   !! Trace.reparse();
-  !! Instr.move_out ~dest:[step; tBefore; cFor "iX"] [step; cVarDef "idThread"];
-
-
-  bigstep "Duplicate the charge of a corner for each of the threads";
+  
+  if not debug then begin
+    bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "depositCorners" ~last:true ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
       ~init_zero:true ~dim:(expr "nbThreads") ~index:"idThread" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "idThread")) [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
-
+  end;
 
   bigstep "Introduce private and shared bags";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
@@ -260,11 +261,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
-  !! Variable.insert ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
-      ~value:(trm_ands (map_dims (fun d ->
+  
+  let push_cond = if debug then trm_ands (map_dims (fun d ->
          expr ~vars:[d] "(co.i${0} - b${0} >= -halfBlock &&
-                            co.i${0} - b${0} < block + halfBlock) || (b${0} == 0 && co.i${0} >= grid${0} - halfBlock) || (b${0} == grid${0} - block && co.i${0} < halfBlock)"
-         )))[tBefore; step; cFun "bag_push"];
+                            co.i${0} - b${0} < block + halfBlock) || (b${0} == 0 && co.i${0} >= grid${0} - halfBlock) || (b${0} == grid${0} - block && co.i${0} < halfBlock)")) else trm_lit (Lit_bool true) in 
+  !! Variable.insert ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
+      ~value:push_cond [tBefore; step; cFun "bag_push"];
   !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") ~mark:"push" [step; cFun "bag_push"];
   !! Specialize.any (expr "PRIVATE") [cMark "push"; dThen; cAny];
   !! Specialize.any (expr "SHARED") [cMark "push"; dElse; cAny];
@@ -272,7 +274,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Expr.replace_fun "bag_push_concurrent" [cMark "push"; dElse; cFun "bag_push"];
      Marks.remove "push" [cMark "push"];
 
-  
   bigstep "Cleanup"; (* LATER: in cleanup separate ops on deposit from those on bagnexts *)
   let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
   !! Trace.reparse ();
@@ -284,6 +285,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move_out ~dest:[tBefore; cTopFunDef "deallocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_free_initial"]];
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
   !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
+
+  
+  (* if debug then begin 
+  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"]; end; *)
 
   bigstep "Loop splitting: process speeds, process positions, deposit particle and its charge";
   !! Trace.reparse();
@@ -305,12 +310,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Align_basic.def (lit "64") [step; cVarDef "idCell2_step"];
   !! Omp.simd [occIndex 0; tBefore; step; cFor "i"]; (* LATER: occIndices *)
   !! Omp.simd [occIndex 1; tBefore; step; cFor "i"];
-  (* Checkpoint *)
   !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"];
-
 )
-
-
 
 (*
 DONE fuse 2 loops on idCell

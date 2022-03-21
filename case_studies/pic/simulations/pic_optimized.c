@@ -283,8 +283,6 @@ double *deposit;
 
 bag *bagsNexts;
 
-double *depositThreadCorners;
-
 double *depositCorners;
 
 bag *bagsCur;
@@ -459,8 +457,6 @@ void allocateStructures() {
   allocateStructuresForPoissonSolver();
   deposit = (double *)MMALLOC1(nbCells, sizeof(double));
   bagsNexts = (bag *)MMALLOC2(nbCells, 2, sizeof(bag));
-  depositThreadCorners =
-      (double *)MMALLOC3(nbCells, 8, nbThreads, sizeof(double));
   depositCorners = (double *)MMALLOC2(nbCells, 8, sizeof(double));
   field = (vect *)MMALLOC1(nbCells, sizeof(vect));
   bagsCur = (bag *)MMALLOC1(nbCells, sizeof(bag));
@@ -487,7 +483,6 @@ void deallocateStructures() {
   free(bagsCur);
   free(field);
   MFREE(depositCorners);
-  MFREE(depositThreadCorners);
   MFREE(bagsNexts);
 }
 
@@ -617,21 +612,19 @@ void step() {
   const double factorZ =
       particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int idCorner = 0; idCorner < 8; idCorner++) {
-      for (int idThread = 0; idThread < nbThreads; idThread++) {
-        depositThreadCorners[MINDEX3(nbCells, 8, nbThreads, idCell, idCorner,
-                                     idThread)] = 0.;
-      }
+    for (int k = 0; k < 8; k++) {
+      depositCorners[mybij(nbCells, 8, idCell, k)] = 0.;
     }
   }
+  int idThread = omp_get_thread_num();
 core:
   for (int cX = 0; cX < block; cX++) {
     for (int cY = 0; cY < block; cY++) {
       for (int cZ = 0; cZ < block; cZ++) {
+#pragma omp parallel for collapse(3)
         for (int bX = cX * 2; bX < gridX; bX += block * 2) {
           for (int bY = cY * 2; bY < gridY; bY += block * 2) {
             for (int bZ = cZ * 2; bZ < gridZ; bZ += block * 2) {
-              int idThread = omp_get_thread_num();
               for (int iX = bX; iX < bX + 2; iX++) {
                 for (int iY = bY; iY < bY + 2; iY++) {
                   for (int iZ = bZ; iZ < bZ + 2; iZ++) {
@@ -749,8 +742,7 @@ core:
                         double_nbCorners contribs;
 #pragma omp simd aligned(coefX, coefY, coefZ, signX, signY, signZ : 64)
                         for (int k = 0; k < 8; k++) {
-                          depositThreadCorners[MINDEX3(
-                              nbCells, 8, nbThreads, *idCell2, k, idThread)] +=
+                          depositCorners[MINDEX2(nbCells, 8, *idCell2, k)] +=
                               (coefX[k] + signX[k] * rX1) *
                               (coefY[k] + signY[k] * rY1) *
                               (coefZ[k] + signZ[k] * rZ1);
@@ -773,17 +765,6 @@ core:
       bag_append(&bagsCur[MINDEX1(nbCells, idCell)],
                  &bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
     }
-    for (int idCorner = 0; idCorner < 8; idCorner++) {
-      double sum = 0.;
-      for (int idThread = 0; idThread < nbThreads; idThread++) {
-        sum += depositThreadCorners[MINDEX3(nbCells, 8, nbThreads, idCell,
-                                            idCorner, idThread)];
-      }
-      depositCorners[MINDEX2(nbCells, 8, idCell, idCorner)] = sum;
-    }
-  }
-#pragma omp parallel for
-  for (int idCell = 0; idCell < nbCells; idCell++) {
     double sum = 0.;
     for (int k = 0; k < 8; k++) {
       sum += depositCorners[mybij(nbCells, 8, idCell, k)];
