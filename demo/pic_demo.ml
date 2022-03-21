@@ -32,7 +32,7 @@ let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = if use_checker then ["-DCHECKER"] else []
 
-let prepro = ["-DPRINTPERF"] @ prepro
+let prepro = ["-DPRINTPERF"; "-DDEBUG_ITER"] @ prepro
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
@@ -82,6 +82,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Trace.reparse();
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
+  (* ARTHUR TO FIX
   bigstep "Low level iteration on chunks of particles";
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [steps; cMark "loop"; cFor_c ""; dBody];
@@ -89,7 +90,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Expr.replace_fun "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
   !! Function.inline [steps; cFun "bag_iter_ho_chunk"];
   !! List.iter (fun f -> Function.beta ~indepth:true [f]) stepFuns;
+  *)
+
+
+
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
+
 
   bigstep "Elimination of pointer p, to prepare for aos-to-soa";
   !! Variable.init_detach [steps; cVarDef "p"];
@@ -138,7 +144,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Enumerate grid cells by coordinates";
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
 
-  bigstep "Shifting of positions";
+  (* Correct until here *)
+
+  bigstep "Shifting of positions"; (* TODO: fix *)
   !! Instr.move ~dest:[tBefore; addPart; cVarDef "p"] [addPart; cVarDef "idCell"];
   !! Struct.set_explicit [addPart; cVarDef "p"];
   (* TODO: Find a better target *)
@@ -146,7 +154,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tBefore; repPart; cFor "i"];
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [addPart; cFieldWrite ~field:("pos"^d) ()];);
-
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
     );
@@ -213,7 +220,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
         };
       return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
       }" in
-
   !! Sequence.insert (stmt mybij_def) [tBefore; step];
   !! Matrix.biject "mybij" [step; cVarDef "depositCorners"];
   !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
@@ -245,7 +251,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   (*!! Omp.parallel_for [tBefore; step; cFor "idCell"];*)
 
   Run.stop();
-
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "depositCorners" ~last:true ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
