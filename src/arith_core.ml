@@ -11,7 +11,11 @@ let debug_rec = false
  * transformation. That's why there is not need to document them.                     *
  *)
 
+let mark_nosimpl = "__arith_core_nosimpl"
 
+let has_mark_nosimpl (t : trm) : bool =
+  List.mem mark_nosimpl t.marks
+  (* LATER Ast.trm_has_mark *)
 type arith_op =
   | Arith_shift
   | Arith_scale
@@ -210,6 +214,7 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
   let atoms = ref Atom_map.empty in
   let rec aux (t : trm) : expr =
     let not_expression() = Expr_atom (create_or_reuse_atom_for_trm atoms t) in
+    if has_mark_nosimpl t then not_expression() else
     match t.desc with
       | Trm_val (Val_lit (Lit_int n)) -> Expr_int n
       | Trm_val (Val_lit (Lit_double n)) -> Expr_double n
@@ -498,19 +503,12 @@ let is_prim_arith_call (t : trm) : bool =
   | Trm_apps ({desc = Trm_val (Val_prim p);_}, args) when is_prim_arith p -> true
   | _ -> false
 
-let mark_dont_go_indepth =
-  "__dont_go_indepth__"
-
-let has_mark_dont_go_indepth (t : trm) : bool =
-  List.mem mark_dont_go_indepth t.marks
-  (* LATER Ast.trm_has_mark *)
-
 (* [map_on_arith_nodes tr t] apply arithmetic simplification [tr] in depth of [t]*)
 let rec map_on_arith_nodes (tr : trm -> trm) (t : trm) : trm =
-  if is_prim_arith_call t
-    then tr t
-  else if has_mark_dont_go_indepth t
+  if has_mark_nosimpl t
     then t
+  else if is_prim_arith_call t
+    then tr t
   else
     trm_map (map_on_arith_nodes tr) t
 

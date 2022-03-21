@@ -14,9 +14,10 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
 
    @correctness: correct modulo newly introduced overflows and potential precision loss
 *)
-let scale ?(reparse : bool = false) ~factor:(factor:trm) (tg : Target.target) : unit =
-  let f_get t = Arith_core.apply_aux Binop_div factor t in
-  let f_set t = Arith_core.apply_aux Binop_mul factor t in
+let scale ?(neg:bool=false) ?(reparse : bool = false) ~factor:(factor:trm) (tg : Target.target) : unit =
+  let op_get, op_set = if neg then (Binop_mul, Binop_div) else (Binop_div, Binop_mul) in
+  let f_get t = Arith_core.apply_aux op_get factor t in
+  let f_set t = Arith_core.apply_aux op_set factor t in
   transform ~reparse f_get f_set tg
 
 
@@ -32,8 +33,8 @@ let shift ?(neg:bool=false) ?(reparse : bool = false) ~factor:(factor : trm) (tg
  (* LATER: Define shift_access that applies to a target on accesses and calls shift on the parent path *)
 
 
-(* [intro tg] expects the target [tg] to be pointing at any node which could contain struct accesses, preferably a sequence 
+(* [intro tg] expects the target [tg] to be pointing at any node which could contain struct accesses, preferably a sequence
     then it will replace all the nodes with encoding as struct_get (get (t), f) -> get (struct_access (t, f))
 *)
-let intro : Target.Transfo.t = 
+let intro : Target.Transfo.t =
   Target.apply_on_targets (Accesses_core.intro )

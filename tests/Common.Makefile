@@ -98,7 +98,11 @@ compile: compile_src compile_out
 execute: $(EXECUTE:.ml=.exec)
 
 # 'make optitrust' rebuilds the library, and clean all local files
-optitrust: clean
+optitrust: clean optitrust_noclean
+
+# 'make optitrust_noclean' rebuilds the library, and clean all local files
+optitrust_noclean:
+	$(V)rm -rf *.byte _build
 	$(MAKE) -C $(OPTITRUST) install
 
 # 'make recheck' is a shorthand for 'make optitrust' followed with 'make check'

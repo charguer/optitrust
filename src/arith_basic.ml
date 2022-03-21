@@ -25,6 +25,10 @@ let apply (op : binary_op) (arg : trm) : Target.Transfo.t =
 let simpl ?(indepth : bool = false) (f: (expr -> expr)) : Target.Transfo.t =
   Target.apply_on_targets (Arith_core.simplify indepth f)
 
+(* [simpl_rec f tg] just an alias for simpl ~indepth:true tg *)
+let simpl_rec (f : (expr -> expr)) : Target.Transfo.t =
+  simpl ~indepth:true f
+
 let simplify ?(indepth : bool = false) : Target.Transfo.t =
   simpl ~indepth Arith_core.gather_rec
 
@@ -42,3 +46,17 @@ let is_prim_arith (p : prim) : bool =
 
 let constr = (* alias cPrimArith *)
   Target.cPrimPredFun is_prim_arith
+
+
+let clear_nosimpl (tg : Target.target) : unit =
+  Marks.remove Arith_core.mark_nosimpl [Target.nbMulti; Target.cMark Arith_core.mark_nosimpl]
+
+let nosimpl (tg : Target.target) : unit =
+  Marks.add Arith_core.mark_nosimpl tg
+
+let with_nosimpl (tg : Target.target) (f : unit -> unit) : unit =
+  nosimpl tg;
+  f();
+  clear_nosimpl tg
+
+  (* LATER: have a stack of different marks to avoid loosing the previously existing ones *)

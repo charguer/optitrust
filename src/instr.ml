@@ -52,18 +52,7 @@ let inline_last_write ?(write : Target.target = []) ?(write_mark : mark = "__tod
   let write_mark = if write = [] then Some write_mark else None in 
   read_last_write ~write ~write_mark  tg;
   if write <> [] then  Instr_basic.delete write else Instr_basic.delete [Target.nbMulti;Target.cMark "__todelete__"]
-   (* TODO: it would be much nicer that delete gets executed every time.
-    but to implement that we need a different strategy:
-    0) define a mark "__todelete__"
-    1) add a different mark on each of the targets tg
-    2) for each of these mark:
-        - find the path to the corresponding write operations in the same sequence
-        - at that path, i.e. on the write operation, add the mark "__todelete__" only if is not already there
-        - on the read operation, inline the value from the write operation
-    3) delete all the nodes with the mark "__todelete__" (they are in sequences)
-*)
-
-
+  
 (* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location
     or to a single instruction and [nb] the number of the instructions after the targeted instruction that need to be
     considered.
