@@ -43,7 +43,6 @@ TESTS_WITH_DOC := \
 	reference_fold.ml \
 	reference_unfold.ml \
 	rewrite_compute.ml \
-	rewrite_equiv_at.ml \
 	rewrite_compute_inside.ml \
 	sequence_delete.ml \
 	sequence_elim_on_instr.ml \
@@ -72,7 +71,6 @@ TESTS_WITH_DOC := \
 	variable_insert.ml \
 	variable_local_name.ml \
 	variable_rename.ml \
-	variable_simpl_deref.ml \
 	variable_subst.ml \
 	variable_to_const.ml \
 	variable_to_nonconst.ml \
@@ -100,7 +98,8 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	struct_simpl_proj.ml \
 	accesses_intro.ml \
-
+	rewrite_equiv_at.ml \
+	variable_simpl_deref.ml \
 
 NOT_NEEEDED_TO_FIX := \
 	arith_shift.ml \

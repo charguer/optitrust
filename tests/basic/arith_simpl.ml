@@ -1,7 +1,6 @@
 open Optitrust
 open Target
 
-(*
 let _ = Run.doc_script_cpp (fun _ ->
     !! Arith_basic.(simpl gather) [cVarDef "a"; cInit ()];
     !! Arith_basic.(simpl gather) [cVarDef "b"; cInit ()];
@@ -16,7 +15,6 @@ int main() {
   int d = (a + b) * c;
 }
 "
-*)
 
 (* LATER: add a "compute" transformation to simplify
     - products of int
