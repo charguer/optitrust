@@ -16,6 +16,8 @@
 
 #include "pic_demo_aux.h"
 
+int nbThreads;
+
 typedef struct {
   double x;
   double y;
@@ -233,6 +235,8 @@ const int block = 2;
 
 const int halfBlock = 1;
 
+int nbThreads;
+
 int nbCells;
 
 double cellX;
@@ -350,17 +354,11 @@ coord coordOfCell(int idCell) {
   return (coord){iX, iY, iZ};
 }
 
-typedef struct {
-  int v[8];
-} int_nbCorners;
+typedef struct { int v[8]; } int_nbCorners;
 
-typedef struct {
-  double v[8];
-} double_nbCorners;
+typedef struct { double v[8]; } double_nbCorners;
 
-typedef struct {
-  vect v[8];
-} vect_nbCorners;
+typedef struct { vect v[8]; } vect_nbCorners;
 
 int_nbCorners indicesOfCorners(int idCell) {
   const coord coord = coordOfCell(idCell);
@@ -540,18 +538,18 @@ void stepLeapFrog() {
                        coeffs.v[5] * field_at_corners.v[5].z +
                        coeffs.v[6] * field_at_corners.v[6].z +
                        coeffs.v[7] * field_at_corners.v[7].z;
-        c->itemsSpeedX[i] =
-            c->itemsSpeedX[i] + negHalfStepDuration * particleCharge /
-                                    particleMass * fieldAtPos.x * stepDuration /
-                                    cellX;
-        c->itemsSpeedY[i] =
-            c->itemsSpeedY[i] + negHalfStepDuration * particleCharge /
-                                    particleMass * fieldAtPos.y * stepDuration /
-                                    cellY;
-        c->itemsSpeedZ[i] =
-            c->itemsSpeedZ[i] + negHalfStepDuration * particleCharge /
-                                    particleMass * fieldAtPos.z * stepDuration /
-                                    cellZ;
+        c->itemsSpeedX[i] = c->itemsSpeedX[i] +
+                            negHalfStepDuration * particleCharge /
+                                particleMass * fieldAtPos.x * stepDuration /
+                                cellX;
+        c->itemsSpeedY[i] = c->itemsSpeedY[i] +
+                            negHalfStepDuration * particleCharge /
+                                particleMass * fieldAtPos.y * stepDuration /
+                                cellY;
+        c->itemsSpeedZ[i] = c->itemsSpeedZ[i] +
+                            negHalfStepDuration * particleCharge /
+                                particleMass * fieldAtPos.z * stepDuration /
+                                cellZ;
       }
     }
   }
@@ -562,17 +560,15 @@ int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
   int iX = coord.iX;
   int iY = coord.iY;
   int iZ = coord.iZ;
-  int res[8] = {
-      cellOfCoord(iX, iY, iZ),
-      cellOfCoord(iX, iY, wrap(gridZ, iZ - 1)),
-      cellOfCoord(iX, wrap(gridY, iY - 1), iZ),
-      cellOfCoord(iX, wrap(gridY, iY - 1), wrap(gridZ, iZ - 1)),
-      cellOfCoord(wrap(gridX, iX - 1), iY, iZ),
-      cellOfCoord(wrap(gridX, iX - 1), iY, wrap(gridZ, iZ - 1)),
-      cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1), iZ),
-      cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1),
-                  wrap(gridZ, iZ - 1)),
-  };
+  int res[8] = {cellOfCoord(iX, iY, iZ),
+                cellOfCoord(iX, iY, wrap(gridZ, iZ - 1)),
+                cellOfCoord(iX, wrap(gridY, iY - 1), iZ),
+                cellOfCoord(iX, wrap(gridY, iY - 1), wrap(gridZ, iZ - 1)),
+                cellOfCoord(wrap(gridX, iX - 1), iY, iZ),
+                cellOfCoord(wrap(gridX, iX - 1), iY, wrap(gridZ, iZ - 1)),
+                cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1), iZ),
+                cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1),
+                            wrap(gridZ, iZ - 1))};
   return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
 }
 
@@ -581,6 +577,7 @@ const int SHARED = 1;
 const int PRIVATE = 0;
 
 void step() {
+  nbThreads = omp_get_num_threads();
   const double factorC =
       particleCharge * (stepDuration * stepDuration) / particleMass;
   const double factorX =
@@ -591,10 +588,9 @@ void step() {
       particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
   double *depositCorners = (double *)MMALLOC2(nbCells, 8, sizeof(double));
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    depositCorners[mybij(nbCells, 8, idCell, 0)] =
-        deposit[MINDEX1(nbCells, idCell)];
-    for (int k = 1; k < 8; k++)
+    for (int k = 0; k < 8; k++) {
       depositCorners[mybij(nbCells, 8, idCell, k)] = 0.;
+    }
   }
   bag *bagsNexts = (bag *)MMALLOC2(2, nbCells, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
@@ -609,6 +605,7 @@ core:
         for (int bX = cX * 2; bX < gridX; bX += block * 2) {
           for (int bY = cY * 2; bY < gridY; bY += block * 2) {
             for (int bZ = cZ * 2; bZ < gridZ; bZ += block * 2) {
+              int idThread = omp_get_thread_num();
               for (int iX = bX; iX < bX + 2; iX++) {
                 for (int iY = bY; iY < bY + 2; iY++) {
                   for (int iZ = bZ; iZ < bZ + 2; iZ++) {
