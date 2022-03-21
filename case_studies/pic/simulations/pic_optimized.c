@@ -475,9 +475,9 @@ void addParticle(int idParticle, double x, double y, double z, double vx,
                  double vy, double vz) {
   vect pos = {x, y, z};
   vect speed = {vx, vy, vz};
-  particle p = {pos.x,
-                pos.y,
-                pos.z,
+  particle p = {pos.x / cellX,
+                pos.y / cellY,
+                pos.z / cellZ,
                 speed.x / (cellX / stepDuration),
                 speed.y / (cellY / stepDuration),
                 speed.z / (cellZ / stepDuration),
@@ -497,55 +497,60 @@ void stepLeapFrog() {
     for (chunk *c = b->front; c != NULL; c = chunk_next(c, false)) {
       const int nb = c->size;
       for (int i = 0; i < nb; i++) {
-        const int iX0 = int_of_double(c->itemsPosX[i] / cellX);
-        const double rX0 = (c->itemsPosX[i] - iX0 * cellX) / cellX;
-        const int iY0 = int_of_double(c->itemsPosY[i] / cellY);
-        const double rY0 = (c->itemsPosY[i] - iY0 * cellY) / cellY;
-        const int iZ0 = int_of_double(c->itemsPosZ[i] / cellZ);
-        const double rZ0 = (c->itemsPosZ[i] - iZ0 * cellZ) / cellZ;
+        const int iX0 = int_of_double(c->itemsPosX[i]);
+        const double rX0 = c->itemsPosX[i] - iX0;
+        const int iY0 = int_of_double(c->itemsPosY[i]);
+        const double rY0 = c->itemsPosY[i] - iY0;
+        const int iZ0 = int_of_double(c->itemsPosZ[i]);
+        const double rZ0 = c->itemsPosZ[i] - iZ0;
         double_nbCorners coeffs;
         for (int k = 0; k < 8; k++) {
-          coeffs.v[k] = (coefX[k] + signX[k] * rX0) *
-                        (coefY[k] + signY[k] * rY0) *
-                        (coefZ[k] + signZ[k] * rZ0);
+          coeffs.v[k] = coefX[k] * coefY[k] * coefZ[k] +
+                        coefX[k] * coefY[k] * signZ[k] * rZ0 +
+                        coefX[k] * signY[k] * rY0 * coefZ[k] +
+                        coefX[k] * signY[k] * rY0 * signZ[k] * rZ0 +
+                        signX[k] * rX0 * coefY[k] * coefZ[k] +
+                        signX[k] * rX0 * coefY[k] * signZ[k] * rZ0 +
+                        signX[k] * rX0 * signY[k] * rY0 * coefZ[k] +
+                        signX[k] * rX0 * signY[k] * rY0 * signZ[k] * rZ0;
         }
         vect fieldAtPos = {0., 0., 0.};
-        fieldAtPos.x = fieldAtPos.x + (coeffs.v[0] * field_at_corners.v[0].x +
-                                       coeffs.v[1] * field_at_corners.v[1].x +
-                                       coeffs.v[2] * field_at_corners.v[2].x +
-                                       coeffs.v[3] * field_at_corners.v[3].x +
-                                       coeffs.v[4] * field_at_corners.v[4].x +
-                                       coeffs.v[5] * field_at_corners.v[5].x +
-                                       coeffs.v[6] * field_at_corners.v[6].x +
-                                       coeffs.v[7] * field_at_corners.v[7].x);
-        fieldAtPos.y = fieldAtPos.y + (coeffs.v[0] * field_at_corners.v[0].y +
-                                       coeffs.v[1] * field_at_corners.v[1].y +
-                                       coeffs.v[2] * field_at_corners.v[2].y +
-                                       coeffs.v[3] * field_at_corners.v[3].y +
-                                       coeffs.v[4] * field_at_corners.v[4].y +
-                                       coeffs.v[5] * field_at_corners.v[5].y +
-                                       coeffs.v[6] * field_at_corners.v[6].y +
-                                       coeffs.v[7] * field_at_corners.v[7].y);
-        fieldAtPos.z = fieldAtPos.z + (coeffs.v[0] * field_at_corners.v[0].z +
-                                       coeffs.v[1] * field_at_corners.v[1].z +
-                                       coeffs.v[2] * field_at_corners.v[2].z +
-                                       coeffs.v[3] * field_at_corners.v[3].z +
-                                       coeffs.v[4] * field_at_corners.v[4].z +
-                                       coeffs.v[5] * field_at_corners.v[5].z +
-                                       coeffs.v[6] * field_at_corners.v[6].z +
-                                       coeffs.v[7] * field_at_corners.v[7].z);
-        vect accel = {particleCharge / particleMass * fieldAtPos.x,
-                      particleCharge / particleMass * fieldAtPos.y,
-                      particleCharge / particleMass * fieldAtPos.z};
-        c->itemsSpeedX[i] = (c->itemsSpeedX[i] / (stepDuration / cellX) +
-                             negHalfStepDuration * accel.x) *
-                            (stepDuration / cellX);
-        c->itemsSpeedY[i] = (c->itemsSpeedY[i] / (stepDuration / cellY) +
-                             negHalfStepDuration * accel.y) *
-                            (stepDuration / cellY);
-        c->itemsSpeedZ[i] = (c->itemsSpeedZ[i] / (stepDuration / cellZ) +
-                             negHalfStepDuration * accel.z) *
-                            (stepDuration / cellZ);
+        fieldAtPos.x = fieldAtPos.x + coeffs.v[0] * field_at_corners.v[0].x +
+                       coeffs.v[1] * field_at_corners.v[1].x +
+                       coeffs.v[2] * field_at_corners.v[2].x +
+                       coeffs.v[3] * field_at_corners.v[3].x +
+                       coeffs.v[4] * field_at_corners.v[4].x +
+                       coeffs.v[5] * field_at_corners.v[5].x +
+                       coeffs.v[6] * field_at_corners.v[6].x +
+                       coeffs.v[7] * field_at_corners.v[7].x;
+        fieldAtPos.y = fieldAtPos.y + coeffs.v[0] * field_at_corners.v[0].y +
+                       coeffs.v[1] * field_at_corners.v[1].y +
+                       coeffs.v[2] * field_at_corners.v[2].y +
+                       coeffs.v[3] * field_at_corners.v[3].y +
+                       coeffs.v[4] * field_at_corners.v[4].y +
+                       coeffs.v[5] * field_at_corners.v[5].y +
+                       coeffs.v[6] * field_at_corners.v[6].y +
+                       coeffs.v[7] * field_at_corners.v[7].y;
+        fieldAtPos.z = fieldAtPos.z + coeffs.v[0] * field_at_corners.v[0].z +
+                       coeffs.v[1] * field_at_corners.v[1].z +
+                       coeffs.v[2] * field_at_corners.v[2].z +
+                       coeffs.v[3] * field_at_corners.v[3].z +
+                       coeffs.v[4] * field_at_corners.v[4].z +
+                       coeffs.v[5] * field_at_corners.v[5].z +
+                       coeffs.v[6] * field_at_corners.v[6].z +
+                       coeffs.v[7] * field_at_corners.v[7].z;
+        c->itemsSpeedX[i] = c->itemsSpeedX[i] +
+                            negHalfStepDuration * particleCharge /
+                                particleMass * fieldAtPos.x * stepDuration /
+                                cellX;
+        c->itemsSpeedY[i] = c->itemsSpeedY[i] +
+                            negHalfStepDuration * particleCharge /
+                                particleMass * fieldAtPos.y * stepDuration /
+                                cellY;
+        c->itemsSpeedZ[i] = c->itemsSpeedZ[i] +
+                            negHalfStepDuration * particleCharge /
+                                particleMass * fieldAtPos.z * stepDuration /
+                                cellZ;
       }
     }
   }
@@ -553,13 +558,13 @@ void stepLeapFrog() {
 
 void step() {
   const double factorC =
-      particleCharge * stepDuration * stepDuration / particleMass;
+      particleCharge * (stepDuration * stepDuration) / particleMass;
   const double factorX =
-      particleCharge * stepDuration * stepDuration / particleMass / cellX;
+      particleCharge * (stepDuration * stepDuration) / particleMass / cellX;
   const double factorY =
-      particleCharge * stepDuration * stepDuration / particleMass / cellY;
+      particleCharge * (stepDuration * stepDuration) / particleMass / cellY;
   const double factorZ =
-      particleCharge * stepDuration * stepDuration / particleMass / cellZ;
+      particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
   for (int idCell = 0; idCell < nbCells; idCell++) {
     const int_nbCorners indices = indicesOfCorners(idCell);
     vect_nbCorners res;
@@ -572,60 +577,50 @@ void step() {
     for (chunk *c = b->front; c != NULL; c = chunk_next(c, true)) {
       const int nb = c->size;
       for (int i = 0; i < nb; i++) {
-        const int iX0 = int_of_double(c->itemsPosX[i] / cellX);
-        const double rX0 = (c->itemsPosX[i] - iX0 * cellX) / cellX;
-        const int iY0 = int_of_double(c->itemsPosY[i] / cellY);
-        const double rY0 = (c->itemsPosY[i] - iY0 * cellY) / cellY;
-        const int iZ0 = int_of_double(c->itemsPosZ[i] / cellZ);
-        const double rZ0 = (c->itemsPosZ[i] - iZ0 * cellZ) / cellZ;
+        const int iX0 = int_of_double(c->itemsPosX[i]);
+        const double rX0 = c->itemsPosX[i] - iX0;
+        const int iY0 = int_of_double(c->itemsPosY[i]);
+        const double rY0 = c->itemsPosY[i] - iY0;
+        const int iZ0 = int_of_double(c->itemsPosZ[i]);
+        const double rZ0 = c->itemsPosZ[i] - iZ0;
         double_nbCorners coeffs;
         for (int k = 0; k < 8; k++) {
-          coeffs.v[k] = (coefX[k] + signX[k] * rX0) *
-                        (coefY[k] + signY[k] * rY0) *
-                        (coefZ[k] + signZ[k] * rZ0);
+          coeffs.v[k] = coefX[k] * coefY[k] * coefZ[k] +
+                        coefX[k] * coefY[k] * signZ[k] * rZ0 +
+                        coefX[k] * signY[k] * rY0 * coefZ[k] +
+                        coefX[k] * signY[k] * rY0 * signZ[k] * rZ0 +
+                        signX[k] * rX0 * coefY[k] * coefZ[k] +
+                        signX[k] * rX0 * coefY[k] * signZ[k] * rZ0 +
+                        signX[k] * rX0 * signY[k] * rY0 * coefZ[k] +
+                        signX[k] * rX0 * signY[k] * rY0 * signZ[k] * rZ0;
         }
         double fieldAtPosX = 0.;
         double fieldAtPosY = 0.;
         double fieldAtPosZ = 0.;
-        fieldAtPosX =
-            fieldAtPosX + (coeffs.v[0] * res.v[0].x + coeffs.v[1] * res.v[1].x +
-                           coeffs.v[2] * res.v[2].x + coeffs.v[3] * res.v[3].x +
-                           coeffs.v[4] * res.v[4].x + coeffs.v[5] * res.v[5].x +
-                           coeffs.v[6] * res.v[6].x + coeffs.v[7] * res.v[7].x);
-        fieldAtPosY =
-            fieldAtPosY + (coeffs.v[0] * res.v[0].y + coeffs.v[1] * res.v[1].y +
-                           coeffs.v[2] * res.v[2].y + coeffs.v[3] * res.v[3].y +
-                           coeffs.v[4] * res.v[4].y + coeffs.v[5] * res.v[5].y +
-                           coeffs.v[6] * res.v[6].y + coeffs.v[7] * res.v[7].y);
-        fieldAtPosZ =
-            fieldAtPosZ + (coeffs.v[0] * res.v[0].z + coeffs.v[1] * res.v[1].z +
-                           coeffs.v[2] * res.v[2].z + coeffs.v[3] * res.v[3].z +
-                           coeffs.v[4] * res.v[4].z + coeffs.v[5] * res.v[5].z +
-                           coeffs.v[6] * res.v[6].z + coeffs.v[7] * res.v[7].z);
-        vect accel = {fieldAtPosX / (stepDuration * stepDuration) * cellX,
-                      fieldAtPosY / (stepDuration * stepDuration) * cellY,
-                      fieldAtPosZ / (stepDuration * stepDuration) * cellZ};
-        c->itemsSpeedX[i] = (c->itemsSpeedX[i] / (stepDuration / cellX) +
-                             stepDuration * accel.x) *
-                            (stepDuration / cellX);
-        c->itemsSpeedY[i] = (c->itemsSpeedY[i] / (stepDuration / cellY) +
-                             stepDuration * accel.y) *
-                            (stepDuration / cellY);
-        c->itemsSpeedZ[i] = (c->itemsSpeedZ[i] / (stepDuration / cellZ) +
-                             stepDuration * accel.z) *
-                            (stepDuration / cellZ);
-        c->itemsPosX[i] =
-            c->itemsPosX[i] +
-            stepDuration * (c->itemsSpeedX[i] / (stepDuration / cellX));
-        c->itemsPosY[i] =
-            c->itemsPosY[i] +
-            stepDuration * (c->itemsSpeedY[i] / (stepDuration / cellY));
-        c->itemsPosZ[i] =
-            c->itemsPosZ[i] +
-            stepDuration * (c->itemsSpeedZ[i] / (stepDuration / cellZ));
-        c->itemsPosX[i] = fwrap(areaX, c->itemsPosX[i]);
-        c->itemsPosY[i] = fwrap(areaY, c->itemsPosY[i]);
-        c->itemsPosZ[i] = fwrap(areaZ, c->itemsPosZ[i]);
+        fieldAtPosX = fieldAtPosX + coeffs.v[0] * res.v[0].x +
+                      coeffs.v[1] * res.v[1].x + coeffs.v[2] * res.v[2].x +
+                      coeffs.v[3] * res.v[3].x + coeffs.v[4] * res.v[4].x +
+                      coeffs.v[5] * res.v[5].x + coeffs.v[6] * res.v[6].x +
+                      coeffs.v[7] * res.v[7].x;
+        fieldAtPosY = fieldAtPosY + coeffs.v[0] * res.v[0].y +
+                      coeffs.v[1] * res.v[1].y + coeffs.v[2] * res.v[2].y +
+                      coeffs.v[3] * res.v[3].y + coeffs.v[4] * res.v[4].y +
+                      coeffs.v[5] * res.v[5].y + coeffs.v[6] * res.v[6].y +
+                      coeffs.v[7] * res.v[7].y;
+        fieldAtPosZ = fieldAtPosZ + coeffs.v[0] * res.v[0].z +
+                      coeffs.v[1] * res.v[1].z + coeffs.v[2] * res.v[2].z +
+                      coeffs.v[3] * res.v[3].z + coeffs.v[4] * res.v[4].z +
+                      coeffs.v[5] * res.v[5].z + coeffs.v[6] * res.v[6].z +
+                      coeffs.v[7] * res.v[7].z;
+        c->itemsSpeedX[i] = c->itemsSpeedX[i] + fieldAtPosX;
+        c->itemsSpeedY[i] = c->itemsSpeedY[i] + fieldAtPosY;
+        c->itemsSpeedZ[i] = c->itemsSpeedZ[i] + fieldAtPosZ;
+        c->itemsPosX[i] = c->itemsPosX[i] + c->itemsSpeedX[i];
+        c->itemsPosY[i] = c->itemsPosY[i] + c->itemsSpeedY[i];
+        c->itemsPosZ[i] = c->itemsPosZ[i] + c->itemsSpeedZ[i];
+        c->itemsPosX[i] = fwrap(areaX, c->itemsPosX[i] * cellX) / cellX;
+        c->itemsPosY[i] = fwrap(areaY, c->itemsPosY[i] * cellY) / cellY;
+        c->itemsPosZ[i] = fwrap(areaZ, c->itemsPosZ[i] * cellZ) / cellZ;
         particle p2;
         p2.posX = c->itemsPosX[i];
         p2.posY = c->itemsPosY[i];
@@ -634,23 +629,26 @@ void step() {
         p2.speedY = c->itemsSpeedY[i];
         p2.speedZ = c->itemsSpeedZ[i];
         p2.id = c->itemsId[i];
-        const int iX2 = int_of_double(c->itemsPosX[i] / cellX);
-        const int iY2 = int_of_double(c->itemsPosY[i] / cellY);
-        const int iZ2 = int_of_double(c->itemsPosZ[i] / cellZ);
+        const int iX2 = int_of_double(c->itemsPosX[i]);
+        const int iY2 = int_of_double(c->itemsPosY[i]);
+        const int iZ2 = int_of_double(c->itemsPosZ[i]);
         const int idCell2 = cellOfCoord(iX2, iY2, iZ2);
         bag_push(&bagsNext[idCell2], p2);
-        const int iX1 = int_of_double(c->itemsPosX[i] / cellX);
-        const double rX1 = (c->itemsPosX[i] - iX1 * cellX) / cellX;
-        const int iY1 = int_of_double(c->itemsPosY[i] / cellY);
-        const double rY1 = (c->itemsPosY[i] - iY1 * cellY) / cellY;
-        const int iZ1 = int_of_double(c->itemsPosZ[i] / cellZ);
-        const double rZ1 = (c->itemsPosZ[i] - iZ1 * cellZ) / cellZ;
+        const double rX1 = c->itemsPosX[i] - iX2;
+        const double rY1 = c->itemsPosY[i] - iY2;
+        const double rZ1 = c->itemsPosZ[i] - iZ2;
         double_nbCorners contribs;
         const int_nbCorners indices = indicesOfCorners(idCell2);
         for (int k = 0; k < 8; k++) {
-          deposit[indices.v[k]] += (coefX[k] + signX[k] * rX1) *
-                                   (coefY[k] + signY[k] * rY1) *
-                                   (coefZ[k] + signZ[k] * rZ1);
+          deposit[indices.v[k]] +=
+              coefX[k] * coefY[k] * coefZ[k] +
+              coefX[k] * coefY[k] * signZ[k] * rZ1 +
+              coefX[k] * signY[k] * rY1 * coefZ[k] +
+              coefX[k] * signY[k] * rY1 * signZ[k] * rZ1 +
+              signX[k] * rX1 * coefY[k] * coefZ[k] +
+              signX[k] * rX1 * coefY[k] * signZ[k] * rZ1 +
+              signX[k] * rX1 * signY[k] * rY1 * coefZ[k] +
+              signX[k] * rX1 * signY[k] * rY1 * signZ[k] * rZ1;
         }
       }
     }
@@ -674,12 +672,12 @@ void reportParticlesState() {
       const int nb = c->size;
       for (int i = 0; i < nb; i++) {
         int id = c->itemsId[i];
-        double posX = c->itemsPosX[i];
-        double posY = c->itemsPosY[i];
-        double posZ = c->itemsPosZ[i];
-        double speedX = c->itemsSpeedX[i] * (cellX / stepDuration);
-        double speedY = c->itemsSpeedY[i] * (cellY / stepDuration);
-        double speedZ = c->itemsSpeedZ[i] * (cellZ / stepDuration);
+        double posX = c->itemsPosX[i] * cellX;
+        double posY = c->itemsPosY[i] * cellY;
+        double posZ = c->itemsPosZ[i] * cellZ;
+        double speedX = c->itemsSpeedX[i] * cellX / stepDuration;
+        double speedY = c->itemsSpeedY[i] * cellY / stepDuration;
+        double speedZ = c->itemsSpeedZ[i] * cellZ / stepDuration;
         fwrite(&id, sizeof(int), 1, f);
         fwrite(&posX, sizeof(double), 1, f);
         fwrite(&posY, sizeof(double), 1, f);

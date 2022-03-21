@@ -72,6 +72,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Function.inline ~vars:(AddSuffix "2") [step; cFun "idCellOfPos"];
   !! List.iter (fun f -> Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; f; cFun "cornerInterpolationCoeff"])
      stepsl;
+  !! iter_dims (fun d -> Variable.reuse ~space:(var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
 
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
@@ -116,8 +117,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.unfold ~at:[cVarDef "accel"] [nbMulti; step; cVarDef ~regexp:true "factor."];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef "accel"];
 
-  bigstep "Scaling of speed values";
-  let add_part = cFunDef "addParticle" in
+  bigstep "Scaling of speeds";
+  let add_part = cFunDef "addParticle" in (* TODO: move to top of file *)
   !! iter_dims (fun d ->
       Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "speed"] ()]);
   !! iter_dims (fun d ->
@@ -126,9 +127,20 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! iter_dims (fun d ->
         Accesses.scale ~neg:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarDef ("speed"^d); cInit()]);
 
-  (* LATER: missing one simplification, maybe
+  bigstep "Scaling of positions";
+  let add_part = cFunDef "addParticle" in
+  !! iter_dims (fun d ->
+      Accesses.scale ~factor:(expr ("cell"^d)) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "pos"] ()]);
+  !! iter_dims (fun d ->
+     Accesses.scale ~neg:true ~factor:(expr ("cell"^d))
+         [nbMulti; steps; cOr [[sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]);
+  !! iter_dims (fun d ->
+        Accesses.scale ~neg:true ~factor:(expr ("cell"^d)) [repPart; cVarDef ("pos"^d); cInit()]);
+
+  !!Trace.reparse();
+  (* LATER: missing one simplification, maybe *)
         !! Variable.inline [steps; cVarDef "accel"];
-        !! Arith.(simpl ~indepth:true expand) [nbMulti; steps];*)
+        !! Arith.(simpl ~indepth:true expand) [nbMulti; steps];
 
 
 
