@@ -37,6 +37,10 @@ export:
 	cp pic_demo_out.cpp $(PICDIR)/simulations/pic_optimized.c
 	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized.c
 
+export_fast_before:
+	cp pic_demo_fast_before.cpp $(PICDIR)/simulations/pic_optimized.c
+	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized.c
+
 export_fast:
 	cp pic_demo_fast_after.cpp $(PICDIR)/simulations/pic_optimized.c
 	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized.c

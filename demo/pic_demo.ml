@@ -115,41 +115,61 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.unfold [step; cVarDef  "factorC"];
   !! Variable.unfold ~at:[cVarDef "accel"] [nbMulti; step; cVarDef ~regexp:true "factor."];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef "accel"];
-  
+
+  bigstep "Scaling of speed values";
+  let add_part = cFunDef "addParticle" in
+  !! iter_dims (fun d ->
+      Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "speed"] ()]);
+  !! iter_dims (fun d ->
+      Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
+      [nbMulti; steps; cFieldWrite ~base:[cVar "c"] (); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
+  !! iter_dims (fun d ->
+        Accesses.scale ~neg:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarDef ("speed"^d); cInit()]);
+
+  (* LATER: missing one simplification, maybe
+        !! Variable.inline [steps; cVarDef "accel"];
+        !! Arith.(simpl ~indepth:true expand) [nbMulti; steps];*)
+
+
+
+(*----
+
   bigstep "Scaling of speed and position in addParticle function";
   let add_part = cFunDef "addParticle" in
   !! Instr.move ~dest:[tBefore; add_part; cVarDef "p"] [add_part; cVarDef "idCell"];
   !! Struct.set_explicit [add_part; cVarDef "p"];
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; add_part; cVarDef "idCell"];
-  !! iter_dims (fun d -> 
+  !! iter_dims (fun d ->
       Accesses.scale ~factor:(expr ("cell"^d)) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "pos"] ()]);
-  
-  !! iter_dims (fun d -> 
+
+  !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [add_part; cFieldWrite ~field:("pos"^d) ()];);
-  
-  !! iter_dims (fun d -> 
+
+  !! iter_dims (fun d ->
       Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "speed"] ()]);
-   
+
   bigstep "Scaling of speed and positions in step function";
   !! iter_dims (fun d ->
       Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
       [nbMulti; step;cOr [ [ sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")];
-               [ sExpr ("p2.speed" ^ d) ] ] ] ); 
+               [ sExpr ("p2.speed" ^ d) ] ] ] );
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("(1 / cell"^d^")"))
          [nbMulti; step; cOr [ [sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")];
             [sExpr ("p2.pos" ^ d)]
-          ] ]);  
+          ] ]);
   !! Trace.reparse();
   !! Variable.inline [step; cVarDef "accel"];
   !! Variable.unfold [step; cVarDef "factorC"];
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cFor "i"; cOr [
       [cCellWrite ~index:[cVar "i"] ()]; [sInstr "p2."];
       [cVarDef ~regexp:true "[ir][XYZ][0-2]"] ] ];
- 
+
+*)
+
   bigstep "Enumerate grid cells by coordinates";
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
-  
+
   bigstep "Make positions relative to the cell corner";
   !! iter_dims (fun d ->
     Variable.reuse ~space:(var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
@@ -170,7 +190,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef ~regexp:true "r.."; dInit];
   !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.0"];
   !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
-   
+
 
   if use_checker then begin
     bigstep "Scaling of speed and positions in reportParticlesState function";
@@ -178,7 +198,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     !! Variable.init_detach [nbMulti; repPart; cVarDef ~regexp:true "\\(pos\\|speed\\)."];
     !! iter_dims (fun d ->
         Accesses.shift ~factor:(expr ("co.i"^d)) [repPart; cWriteVar ("pos"^d)];
-        Accesses.scale ~factor:(expr ("cell"^d)) [repPart; cWriteVar ("pos"^d)]; 
+        Accesses.scale ~factor:(expr ("cell"^d)) [repPart; cWriteVar ("pos"^d)];
         Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cWriteVar ("speed"^d)]
     );
   end;
