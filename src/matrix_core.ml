@@ -387,8 +387,8 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     | None -> "s", false 
                    in
                   let new_access = access base new_dims new_indices in 
+                  let init_val = trm_lit li in 
                   let init_trm = 
-                    let init_val = trm_lit li in 
                     if init_zero 
                       then trm_seq_nomarks [set base new_dims new_indices init_val]
                       else trm_seq_nomarks [
@@ -410,7 +410,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       else 
                         if not acc_provided then fail t.loc "delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
                           (trm_seq_nomarks [
-                            trm_let_mut (acc, typ_int ()) (trm_int 0);
+                            trm_let_mut (acc, typ_double ()) init_val;
                             trm_for index (trm_int 0) DirUp dim (Post_inc) (trm_seq_nomarks [
                                 op_fun (trm_var acc) (trm_get new_access)]);
                             trm_set (get_operation_arg old_var_access) (trm_var_get acc)]) in

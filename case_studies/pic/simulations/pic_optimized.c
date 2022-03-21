@@ -16,6 +16,8 @@
 
 #include "pic_demo_aux.h"
 
+int nbThreads;
+
 typedef struct {
   double x;
   double y;
@@ -228,6 +230,8 @@ int gridX;
 int gridY;
 
 int gridZ;
+
+int nbThreads;
 
 int nbCells;
 
@@ -559,7 +563,25 @@ void stepLeapFrog() {
   }
 }
 
+int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
+  coord coord = coordOfCell(idCell);
+  int iX = coord.iX;
+  int iY = coord.iY;
+  int iZ = coord.iZ;
+  int res[8] = {cellOfCoord(iX, iY, iZ),
+                cellOfCoord(iX, iY, wrap(gridZ, iZ - 1)),
+                cellOfCoord(iX, wrap(gridY, iY - 1), iZ),
+                cellOfCoord(iX, wrap(gridY, iY - 1), wrap(gridZ, iZ - 1)),
+                cellOfCoord(wrap(gridX, iX - 1), iY, iZ),
+                cellOfCoord(wrap(gridX, iX - 1), iY, wrap(gridZ, iZ - 1)),
+                cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1), iZ),
+                cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1),
+                            wrap(gridZ, iZ - 1))};
+  return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
+}
+
 void step() {
+  nbThreads = omp_get_num_threads();
   const double factorC =
       particleCharge * (stepDuration * stepDuration) / particleMass;
   const double factorX =
@@ -570,10 +592,22 @@ void step() {
       particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
   double *depositCorners = (double *)MMALLOC2(nbCells, 8, sizeof(double));
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    depositCorners[MINDEX2(nbCells, 8, idCell, 0)] =
+    depositCorners[mybij(nbCells, 8, idCell, 0)] =
         deposit[MINDEX1(nbCells, idCell)];
     for (int k = 1; k < 8; k++)
-      depositCorners[MINDEX2(nbCells, 8, idCell, k)] = 0.;
+      depositCorners[mybij(nbCells, 8, idCell, k)] = 0.;
+  }
+  double *depositThreadCorners =
+      (double *)MMALLOC3(nbThreads, nbCells, 8, sizeof(double));
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int idCorner = 0; idCorner < 8; idCorner++) {
+      depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, 0, idCell,
+                                   idCorner)] =
+          depositCorners[MINDEX2(nbCells, 8, idCell, idCorner)];
+      for (int k = 1; k < nbThreads; k++)
+        depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, k, idCell,
+                                     idCorner)] = 0.;
+    }
   }
 core:
   for (int iX = 0; iX < gridX; iX++) {
@@ -647,12 +681,13 @@ core:
             p2.id = c->itemsId[i];
             bag_push(&bagsNext[MINDEX1(nbCells, idCell2)], p2);
             double_nbCorners contribs;
+            int idThread = omp_get_thread_num();
           charge:
             for (int k = 0; k < 8; k++) {
-              depositCorners[MINDEX2(nbCells, 8, indicesOfCorners(idCell2).v[k],
-                                     k)] += (coefX[k] + signX[k] * rX1) *
-                                            (coefY[k] + signY[k] * rY1) *
-                                            (coefZ[k] + signZ[k] * rZ1);
+              depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, idThread,
+                                           idCell2, k)] +=
+                  (coefX[k] + signX[k] * rX1) * (coefY[k] + signY[k] * rY1) *
+                  (coefZ[k] + signZ[k] * rZ1);
             }
           }
         }
@@ -661,9 +696,20 @@ core:
     }
   }
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    int sum = 0;
+    for (int idCorner = 0; idCorner < 8; idCorner++) {
+      double sum = 0.;
+      for (int k = 0; k < nbThreads; k++) {
+        sum += depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, k, idCell,
+                                            idCorner)];
+      }
+      depositCorners[MINDEX2(nbCells, 8, idCell, idCorner)] = sum;
+    }
+  }
+  MFREE(depositThreadCorners);
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    double sum = 0.;
     for (int k = 0; k < 8; k++) {
-      sum += depositCorners[MINDEX2(nbCells, 8, idCell, k)];
+      sum += depositCorners[mybij(nbCells, 8, idCell, k)];
     }
     deposit[MINDEX1(nbCells, idCell)] = sum;
   }
