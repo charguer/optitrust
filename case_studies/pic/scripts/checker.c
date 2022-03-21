@@ -96,12 +96,15 @@ int main(int argc, char* argv[]) {
   particle* ps1 = readfile(argv[1]);
   particle* ps2 = readfile(argv[2]);
 
+  int maxprint = 10;
   double max_sqdist_pos = -1;
   double max_sqdist_speed = -1;
   double max_sqspeed = -1;
   for (int i = 0; i < nbParticles; i++){
     vect p1 = ps1[i].pos;
     vect p2 = ps2[i].pos;
+    vect v1 = ps1[i].speed;
+    vect v2 = ps2[i].speed;
 
     //if (p1.x != p2.x || p1.y != p2.y || p1.z != p2.z) {
     //  printf("%g %g %g %g %g %g\n", p1.x, p2.x, p1.y, p2.y, p1.z, p2.z);
@@ -109,7 +112,6 @@ int main(int argc, char* argv[]) {
 
     double dd = squareDist(ps1[i].pos, ps2[i].pos);
     max_sqdist_pos = max(max_sqdist_pos, dd);
-
     // printf("%g %g %g %g %g %g ==> %g\n", p1.x, p2.x, p1.y, p2.y, p1.z, p2.z, d);
     /*
     if (dd > 1. || p1.x < 0 || p1.x > areaX
@@ -124,6 +126,18 @@ int main(int argc, char* argv[]) {
     double dv = squareDist(ps1[i].speed, ps2[i].speed);
     max_sqdist_speed = max(max_sqdist_speed, dv);
 
+
+    if (maxprint > 0 && (dd > 1.)) {
+      printf("%d %g %g %g %g %g %g\n", i, p1.x, p2.x, p1.y, p2.y, p1.z, p2.z);
+      maxprint--;
+    }
+    if (maxprint > 0 && (sqrt(dv) > 0.0001)) {
+      printf("v%d %g %g %g %g %g %g  => dv = %g\n", i, v1.x, v2.x, v1.y, v2.y, v1.z, v2.z, dv);
+      int Digs = DECIMAL_DIG;
+      printf("v%d %.*e %.*e %.*e\n", i, Digs, (v1.x - v2.x), Digs , (v1.y - v2.y), Digs, (v1.z - v2.z));
+      maxprint--;
+    }
+
     double sqv = squareNorm(ps1[i].speed);
     max_sqspeed = max(max_sqspeed, sqv);
   }
@@ -136,8 +150,7 @@ int main(int argc, char* argv[]) {
   }
   printf("Maximal dist speed relative to maximal speed: %g%%\n", 100. * sqrt(max_sqdist_speed) / sqrt(max_sqspeed));
 
-  //
-  int Digs = DECIMAL_DIG;
+   int Digs = DECIMAL_DIG;
   printf("Maximal dist pos  : %.*e\n", Digs, sqrt(max_sqdist_pos));
   printf("Maximal dist speed: %.*e\n", Digs, sqrt(max_sqdist_speed));
 

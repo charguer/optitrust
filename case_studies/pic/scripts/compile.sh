@@ -55,7 +55,9 @@ fi
 # more flags: -DPRINTPERF -DPRINTSTEPS
 
 DEBUGFLAGS=""
-DEBUGFLAGS="-g"
+DEBUGFLAGS="-g -DSKIPLEAPFROG"
+DEBUGFLAGS="-g -DDEBUG_ITER"
+
 #  2> vect_info.txt -fopt-info-vec-missed -ftree-vectorize
 # -ftree-vectorize -fopt-info-vec-missed -fopt-info-all -fopt-info-vec-all
 # GENERATE ASSEMBLY -Wa,-adhln"

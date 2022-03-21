@@ -20,7 +20,7 @@
 //==========================================================================
 // Naive chunk allocation operations
 
-#ifdef STDCHUNKALLOC
+//#ifdef STDCHUNKALLOC
 // printf("init_all_chunks STDCHUNKALLOC flag\n");
 
 chunk* naive_chunk_alloc() {
@@ -48,7 +48,7 @@ void naive_bag_free(bag* b) {
   }
 }
 
-#endif // defined(STDCHUNKALLOC)
+//#endif // defined(STDCHUNKALLOC)
 
 /*****************************************************************************
  *                              Chunk bags                                   *

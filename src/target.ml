@@ -355,6 +355,11 @@ let cTopFunDef
   ?(body : target = []) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false) (name : string) : constr =
   cChain [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp name ]
 
+ let cTopFunDef2
+  ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default)
+  ?(body : target = []) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false) (name : string) : constr =
+  cChain [ dRoot; cStrictNew; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp name ]
+
 (* toplevel declaration: for the moment only functions LATER: generalize *)
 let cTop ?(regexp : bool = false) (name : string) : constr =
   cTopFunDef ~regexp name
@@ -591,18 +596,18 @@ let cChoose : constr =
   cFun "CHOOSE"
 
 (* [cAlloc d] matches all calls to Optitrust MMALLOCI or MCALLOCI where I = d *)
-let cAlloc (d : int option) : constr = 
-  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in 
+let cAlloc (d : int option) : constr =
+  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
   cFun ~regexp:true ("M.\\(NDEX\\|ALLOC\\)" ^ d)
 
 (* [cMalloc d] matches all calls to Optitrust MMALLOCI where I = d *)
-let cMalloc (d : int option) : constr = 
-  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in 
+let cMalloc (d : int option) : constr =
+  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
   cFun ~regexp:true ("MMALLOC" ^ d)
 
 (* [cCalloc d] matches all calls to Optitrust MCALLOCI where I = d *)
-let cCalloc (d : int option) : constr = 
-  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in 
+let cCalloc (d : int option) : constr =
+  let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
   cFun ~regexp:true ("MMALLOC" ^ d)
 
 

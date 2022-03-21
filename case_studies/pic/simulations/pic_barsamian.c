@@ -642,6 +642,7 @@ int main(int argc, char** argv) {
     printf("x_field_factor = %g\n", x_field_factor);
 #endif
 
+
     // Computes speeds half time-step backward (leap-frog method).
     // WARNING : starting from here, v doesn't represent the speed, but speed * dt / dx.
     #pragma omp parallel for private(i, j, chunkbag, my_chunk)
@@ -652,32 +653,11 @@ int main(int argc, char** argv) {
             #pragma omp simd
 #endif
             for (i = 0; i < my_chunk->size; i++) {
-#ifdef DEBUG_ACCEL
-              int idp = my_chunk->id[i];
-              if (idp == 0) {
-                double r = - q / x_field_factor;
-                printf("particle %d: topcorner_fieldx *(-q)/x_field_factor = %g\n", idp, r * E_field[j].field_x.left_front_down);
-                double fieldx = (
-                        (     my_chunk->dx[i]) * (     my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.right_back_top
-                      + (1. - my_chunk->dx[i]) * (     my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.left_back_top
-                      + (     my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.right_front_top
-                      + (1. - my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.left_front_top
-                      + (     my_chunk->dx[i]) * (     my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_x.right_back_down
-                      + (1. - my_chunk->dx[i]) * (     my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_x.left_back_down
-                      + (     my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_x.right_front_down
-                      + (1. - my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_x.left_front_down);
-                printf("particle %d: fieldx = %g\n", idp, fieldx);
-                printf("particle %d: fieldx *(-q)/x_field_factor = %g\n", idp, r * fieldx);
-                double delta_vx = - 0.5 * fieldx;
-                printf("particle %d: delta_vx = %g\n", idp, delta_vx);
-                printf("particle %d: delta_vx / (dt/dx) = %g\n", idp, delta_vx / dt_over_dx);
-                printf("particle %d: oldvx / dt_over_dx = %g\n", idp, my_chunk->vx[i]);
-                printf("particle %d: oldvx = %g\n", idp, my_chunk->vx[i] * dt_over_dx);
-                printf("particle %d: newvx = %g\n", idp, my_chunk->vx[i] * dt_over_dx + delta_vx);
-                printf("particle %d: newvx / (dt/dx) = %g\n", idp, (my_chunk->vx[i] * dt_over_dx + delta_vx) / dt_over_dx);
-              }
-#endif
-                my_chunk->vx[i] = my_chunk->vx[i] * dt_over_dx - 0.5 * (
+                my_chunk->vx[i] = my_chunk->vx[i] * dt_over_dx
+#ifdef SKIPLEAPFROG
+                ;
+#else
+                - 0.5 * (
                       (     my_chunk->dx[i]) * (     my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.right_back_top
                     + (1. - my_chunk->dx[i]) * (     my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.left_back_top
                     + (     my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (     my_chunk->dz[i]) * E_field[j].field_x.right_front_top
@@ -704,9 +684,11 @@ int main(int argc, char** argv) {
                     + (1. - my_chunk->dx[i]) * (     my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_z.left_back_down
                     + (     my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_z.right_front_down
                     + (1. - my_chunk->dx[i]) * (1. - my_chunk->dy[i]) * (1. - my_chunk->dz[i]) * E_field[j].field_z.left_front_down);
+#endif //SKIPLEAPFROG
             }
         }
     }
+
 
     /********************************************************************************************
      *                         Simulation with 8 corners data structure                         *
@@ -946,26 +928,20 @@ int main(int argc, char** argv) {
     fwrite(&areaX, sizeof(double), 1, f);
     fwrite(&areaY, sizeof(double), 1, f);
     fwrite(&areaZ, sizeof(double), 1, f);
+    int count = 0;
     //printf("negcheck\n");
     for (int j = 0; j < num_cells_3d; j++) {
       chunkbag = &particles[j];
       for (my_chunk = chunkbag->front; my_chunk; my_chunk = my_chunk->next) {
         for (i = 0; i < my_chunk->size; i++) {
+            count++;
             int ix = ((j / ncz) / ncy);
             int iy = ((j / ncz) & ncyminusone);
             int iz = (j & nczminusone);
             // printf("id=%d ix=%d iy=%d iz=%d dx=%f dy=%f dz=%f\n", my_chunk->id[i], ix, iy, iz, my_chunk->dx[i], my_chunk->dy[i], my_chunk->dz[i]);
-
-
             x = (ix + my_chunk->dx[i]) * mesh.delta_x + mesh.x_min;
             y = (iy + my_chunk->dy[i]) * mesh.delta_y + mesh.y_min;
             z = (iz + my_chunk->dz[i]) * mesh.delta_z + mesh.z_min;
-            if (my_chunk->dx[i] < 0) {
-              printf("negative dx: %g\n", my_chunk->dx[i]);
-            }
-           if (x < 0) {
-              printf("negative x: %g\n", x);
-            }
 
             double vx = my_chunk->vx[i] / dt_over_dx;
             double vy = my_chunk->vy[i] / dt_over_dy;
@@ -982,6 +958,9 @@ int main(int argc, char** argv) {
             fwrite(&vz, sizeof(double), 1, f);
        }
       }
+    }
+    if (count != nb_particles) {
+      printf("!!! ERROR: reportParticlesState: particles lost\n");
     }
     fclose(f);
 #endif

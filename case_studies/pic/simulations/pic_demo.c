@@ -285,14 +285,24 @@ void stepLeapFrog() {
     vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
     // For each particle in that cell
 
+#ifdef DEBUG_ITER
+    for (chunk* c = b->front; c != NULL; c = chunk_next(c, false)) {
+      const int nb = c->size;
+      for (int i = 0; i < nb; i++) {
+        particle* p = &c->items[i];
+#else
     bag_iter bag_it;
     for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, false)) {
+#endif
         double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
         vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
         p->speed = vect_add(p->speed, vect_mul(negHalfStepDuration, accel));
     }
   }
+#ifdef DEBUG_ITER
+    }
+#endif
 }
 
 void step() {
@@ -307,7 +317,14 @@ void step() {
 
     bag_iter bag_it;
     // int k=0;
+#ifdef DEBUG_ITER
+    for (chunk* c = b->front; c != NULL; c = chunk_next(c, false)) {
+      const int nb = c->size;
+      for (int i = 0; i < nb; i++) {
+        particle* p = &c->items[i];
+#else
     for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
+#endif
 
       // Interpolate the field based on the position relative to the corners of the cell
       double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
@@ -334,7 +351,9 @@ void step() {
     }
     bag_init_initial(b);
   }
-
+#ifdef DEBUG_ITER
+    }
+#endif
   // For the next time step, the contents of bagNext is moved into bagCur (which is empty)
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_swap(&bagsCur[idCell], &bagsNext[idCell]);
@@ -352,10 +371,19 @@ void reportParticlesState() {
   fwrite(&areaX, sizeof(double), 1, f);
   fwrite(&areaY, sizeof(double), 1, f);
   fwrite(&areaZ, sizeof(double), 1, f);
+  int count = 0;
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag* b = &bagsCur[idCell];
+#ifdef DEBUG_ITER
+    for (chunk* c = b->front; c != NULL; c = chunk_next(c, false)) {
+      const int nb = c->size;
+      for (int i = 0; i < nb; i++) {
+        particle* p = &c->items[i];
+#else
     bag_iter bag_it;
     for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, false)) {
+#endif
+      count++;
       int id = p->id;
       double posX = p->pos.x;
       double posY = p->pos.y;
@@ -371,6 +399,12 @@ void reportParticlesState() {
       fwrite(&speedY, sizeof(double), 1, f);
       fwrite(&speedZ, sizeof(double), 1, f);
     }
+  }
+#ifdef DEBUG_ITER
+    }
+#endif
+  if (count != nbParticles) {
+    printf("!!! ERROR: reportParticlesState: particles lost, remaining %d\n", count);
   }
   fclose(f);
 #endif
@@ -391,7 +425,9 @@ void reportParticlesState() {
 
   createParticles();
 
+#ifndef SKIPLEAPFROG
   stepLeapFrog();
+#endif
 
 #if defined(PRINTPERF) || defined(PRINTSTEPS)
   double timeStart = omp_get_wtime();

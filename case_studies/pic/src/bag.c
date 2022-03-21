@@ -229,7 +229,17 @@ int bag_size(bag* b) {
  *
  * @param[in, out] b the bag in which to put the new chunk.
  */
-void bag_add_front_chunk(bag* b) {
+void bag_add_front_chunk_serial(bag* b) {
+  chunk* c = chunk_alloc();
+  // Warning - TODO: the instruction c->size=0 might be viewd switched with b->front=c by other threads, which would lead to non-valid code.
+  // (e.g. on PowerPC, the present code is valid on Intel).
+  // Solution: adding a memory fence (putting write c->size=0 when freeing a chunk, and not when adding it is not enough).
+  c->size = 0;
+  c->next = b->front;
+  b->front = c;
+}
+
+void bag_add_front_chunk_concurrent(bag* b) {
   chunk* c = chunk_alloc();
   // Warning - TODO: the instruction c->size=0 might be viewd switched with b->front=c by other threads, which would lead to non-valid code.
   // (e.g. on PowerPC, the present code is valid on Intel).
@@ -238,6 +248,7 @@ void bag_add_front_chunk(bag* b) {
   c->next = b->front;
   atomic_write_chunk(&b->front, c);
 }
+
 
 /*
  * Add a particle into a chunk bag. Add it into the first chunk,
@@ -267,7 +278,7 @@ void bag_push_concurrent(bag* b, particle p) {
         // The chunk is now full, we extend the bag.
         // Inside bag_add_front_chunk, the update of the b->front
         // pointer is made atomic so that other threads see the update.
-        bag_add_front_chunk(b);
+        bag_add_front_chunk_concurrent(b);
       }
       return;
     } else {
@@ -303,7 +314,7 @@ void bag_push_serial(bag* b, particle p) {
   c->items[index] = p;
   if (index == CHUNK_SIZE - 1) {
     // chunk is full, we extend the bag
-    bag_add_front_chunk(b);
+    bag_add_front_chunk_serial(b);
     // TRACE("Extend bag %p\n", b);
   }
 }
