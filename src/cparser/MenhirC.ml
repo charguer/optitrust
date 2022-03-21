@@ -9,7 +9,9 @@ let set_options =
   Elab.generate_implicit_return_on_main := false;
   Elab.allow_generalized_constant_time_constants := true;
   Elab.allow_compound_initializer_in_return := true;
-  Elab.keep_for_loops_untransformed := true
+  Elab.keep_for_loops_untransformed := true;
+  Elab.dont_generate_redundant_forward_typedecl := true;
+  Elab.allow_pragma_inside_functions := true
 
 let init_parser =
   Machine.config := Machine.x86_64;

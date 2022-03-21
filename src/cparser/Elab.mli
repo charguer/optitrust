@@ -30,6 +30,12 @@ val allow_compound_initializer_in_return : bool ref
 val keep_for_loops_untransformed : bool ref
   (* This option disables on-the-fly transformations on for-loops *)
 
+val dont_generate_redundant_forward_typedecl : bool ref
+  (* This option disables redundant forward type declarations for structs *)
+
+val allow_pragma_inside_functions : bool ref
+  (* This option enables support for #pragma in the grammar of statements *)
+
 val elab_file : Cabs.definition list -> C.program
   (* This is the main entry point.  It transforms a list of toplevel
      definitions as produced by the parser into a program in C abstract

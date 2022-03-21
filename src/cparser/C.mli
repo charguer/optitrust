@@ -221,6 +221,7 @@ and stmt_desc =
   | Sblock of stmt list
   | Sdecl of decl
   | Sasm of attributes * string * asm_operand list * asm_operand list * string list
+  | Spragma of string * stmt
 
 and slabel =
   | Slabel of string

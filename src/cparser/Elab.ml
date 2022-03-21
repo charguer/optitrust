@@ -34,6 +34,10 @@ let allow_compound_initializer_in_return = ref false
 
 let keep_for_loops_untransformed = ref false
 
+let dont_generate_redundant_forward_typedecl = ref false
+
+let allow_pragma_inside_functions = ref false
+
 (** * Utility functions *)
 
 (* Error reporting  *)
@@ -1206,8 +1210,10 @@ and elab_struct_or_union ?(named:bool=true) only kind loc tag optmembers attrs e
       let (tag', env') = Env.enter_composite env tag ci1 in
       (* emit a declaration so that inner structs and unions can refer to it *)
       emit_elab env' loc (Gcompositedecl(kind, tag', attrs));
-      (* MODIF: we don't generate the declaration if the name does not occur recursively *)
-      if not named then top_declarations := List.tl !top_declarations;
+      (* skip the forward declaration if the name does not occur recursively *)
+      (* LATER: may need to be generalized *)
+      if !dont_generate_redundant_forward_typedecl && not named
+        then top_declarations := List.tl !top_declarations;
       (* elaborate the members *)
       let (ci2, env'') =
         elab_struct_or_union_info kind loc env' members attrs in
@@ -2972,7 +2978,7 @@ let elab_definition (for_loop: bool) (local: bool) (nonstatic_inline: bool)
   (* pragma *)
   | PRAGMA(s, loc) ->
       if local then
-        warning loc Unnamed "pragmas are ignored inside functions"
+          warning loc Unnamed "pragmas are ignored inside functions"
       else
         emit_elab env loc (Gpragma s);
       ([], env)
@@ -3056,6 +3062,7 @@ let check_switch_cases switch_body =
     | Sblock sl -> List.iter check sl
     | Sdecl _ -> ()
     | Sasm _ -> ()
+    | Spragma (_,s1) -> check s1
   in check switch_body
 
 (* Elaboration of statements *)
@@ -3282,6 +3289,15 @@ and elab_block_body env ctx sl =
   match sl with
   | [] ->
       [],env
+  | DEFINITION (PRAGMA(p,loc)) :: s :: sl1 when !allow_pragma_inside_functions ->
+      begin match s with
+      | DEFINITION _def ->
+          failwith "Warning pragma in front of a definition not yet supported"
+      | _ -> ()
+      end;
+      let s',env = elab_stmt env ctx s in
+      let sl1',env = elab_block_body env ctx sl1 in
+      { sdesc = Spragma (p,s'); sloc = elab_loc loc } :: sl1',env
   | DEFINITION def :: sl1 ->
       let (dcl, env') =
         elab_definition false true ctx.ctx_nonstatic_inline env def in
@@ -3329,7 +3345,7 @@ let elab_file prog =
   let elab_def env d = snd (elab_definition false false false env d) in
   ignore (List.fold_left elab_def env prog);
   let p = elaborated_program () in
-
-
-
+  
+  
+  
   p

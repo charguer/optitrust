@@ -499,6 +499,8 @@ let rec stmt pp s =
                  asm_operands outputs
                  asm_operands inputs
                  asm_flags flags
+  | Spragma(p, s1) ->
+      fprintf pp "#pragma %s@ %a" p stmt s1
 
 and slabel pp = function
   | Slabel s ->

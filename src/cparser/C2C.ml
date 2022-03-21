@@ -1,3 +1,4 @@
+
 module Configuration = struct let elf_target = false end
 
 (* *********************************************************************)
@@ -1088,6 +1089,7 @@ let rec contains_case s =
       unsupported "'case' statement not in 'switch' statement"
   | C.Slabeled(_,s) -> contains_case s
   | C.Sblock b -> List.iter contains_case b
+  | C.Spragma (_,s1) -> contains_case s1
 
 (** Annotations for line numbers *)
 
@@ -1163,6 +1165,8 @@ let rec convertStmt env s =
       if not !Clflags.option_finline_asm then
         unsupported "inline 'asm' statement (consider adding option [-finline-asm])";
       Csyntax.Sdo (convertAsm s.sloc env txt outputs inputs clobber)
+  | C.Spragma _ ->
+      unsupported "nested pragma in front of statements"; Csyntax.Sskip
 
 and convertSwitch env is_64 = function
   | [] ->

@@ -1286,6 +1286,8 @@ let rec subst_stmt phi s =
                List.map subst_asm_operand outputs,
                List.map subst_asm_operand inputs,
                clob)
+      | Spragma (p, s1) -> Spragma (p, subst_stmt phi s1)
+
   }
 
 let is_volatile_variable env exp =

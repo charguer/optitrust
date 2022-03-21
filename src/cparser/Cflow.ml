@@ -72,7 +72,7 @@ let join o1 o2 =
     ogoto = StringSet.union o1.ogoto o2.ogoto }
 
 (* Some elementary flows *)
-  
+
 let normal : flow = fun i ->
   { onormal = i.inormal;
     obreak = false; ocontinue = false; oreturn = false;
@@ -100,7 +100,7 @@ let goto lbl : flow = fun i ->
 let noflow : flow = fun i ->
   { onormal = false; obreak = false; ocontinue = false; oreturn = false;
     ogoto = StringSet.empty }
-  
+
 (* Some flow transformers *)
 
 (* Sequential composition *)
@@ -115,7 +115,7 @@ let seq (s1: flow) (s2: flow) : flow = fun i ->
     ogoto = StringSet.union o1.ogoto o2.ogoto }
 
 (* Nondeterministic choice *)
-  
+
 let either (s1: flow) (s2: flow) : flow = fun i ->
   join (s1 i) (s2 i)
 
@@ -154,14 +154,14 @@ let label lbl (s: flow) : flow = fun i ->
 (* For "case" and "default" labeled statements, we assume they can be
    entered normally as soon as the nearest enclosing "switch" can be
    entered normally. *)
-   
+
 let case (s: flow) : flow = fun i ->
   s { i with inormal = i.inormal || i.iswitch }
 
 let switch (s: flow) : flow = fun i ->
   s { i with inormal = false; iswitch = i.inormal }
-  
-(* This is the flow for an infinite loop with body [s].  
+
+(* This is the flow for an infinite loop with body [s].
    There is no fallthrough exit, but all other exits from [s] are preserved. *)
 
 let loop (s: flow) : flow = fun i ->
@@ -203,6 +203,7 @@ let rec contains_default s =
   | Sblock sl -> List.exists contains_default sl
   | Sdecl dcl -> false
   | Sasm _ -> false
+  | Spragma (_,s1) -> contains_default s1
 
 
 (* This is the main analysis function.  Given a C statement [s] it returns
@@ -263,6 +264,7 @@ let rec outcomes env s : flow =
       normal
   | Sasm _ ->
       normal
+  | Spragma (p, s1) -> outcomes env s1
 
 and outcomes_block env sl =
   match sl with

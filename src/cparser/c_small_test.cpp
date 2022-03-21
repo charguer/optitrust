@@ -1,4 +1,17 @@
+#include<omp.h>
 
+int main() {
+  int count = 0;
+  #pragma omp parallel for
+  for (int n=0;n<8;n++){
+      #pragma omp atomic
+     count++;
+  }
+  return 0;
+}
+
+
+/*
 typedef struct { int x; int y; } vect;
 
 typedef struct vect2 { int x; int y; } vect2;
@@ -8,7 +21,7 @@ typedef struct items { int head; struct items* tail; } items;
 int main() {
   return 0;
 }
-
+*/
 /* typedef struct { int x; int y; } vect;
 
 int main() {
