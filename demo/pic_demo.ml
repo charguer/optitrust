@@ -9,7 +9,7 @@ let step = cFunDef "step"
 let stepLF = cFunDef "stepLeapFrog"
 let stepsl = [stepLF; step]
 let repPart = cFunDef "reportParticlesState"
-
+let addPart = cFunDef "addParticle"
 
 let dims = ["X"; "Y"; "Z"]
 let nb_dims = List.length dims
@@ -118,9 +118,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef "accel"];
 
   bigstep "Scaling of speeds";
-  let add_part = cFunDef "addParticle" in (* TODO: move to top of file *)
   !! iter_dims (fun d ->
-      Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "speed"] ()]);
+      Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [addPart; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "speed"] ()]);
   !! iter_dims (fun d ->
       Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
       [nbMulti; steps; cFieldWrite ~base:[cVar "c"] (); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
@@ -128,63 +127,36 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
         Accesses.scale ~neg:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarDef ("speed"^d); cInit()]);
 
   bigstep "Scaling of positions";
-  let add_part = cFunDef "addParticle" in
   !! iter_dims (fun d ->
-      Accesses.scale ~factor:(expr ("cell"^d)) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "pos"] ()]);
+      Accesses.scale ~factor:(expr ("cell"^d)) [addPart; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "pos"] ()]);
   !! iter_dims (fun d ->
      Accesses.scale ~neg:true ~factor:(expr ("cell"^d))
          [nbMulti; steps; cOr [[sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]);
-  !! iter_dims (fun d ->
-        Accesses.scale ~neg:true ~factor:(expr ("cell"^d)) [repPart; cVarDef ("pos"^d); cInit()]);
 
+
+  bigstep "Enumerate grid cells by coordinates";
+  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
+
+  bigstep "Shifting of positions";
+  !! Instr.move ~dest:[tBefore; addPart; cVarDef "p"] [addPart; cVarDef "idCell"];
+  !! Struct.set_explicit [addPart; cVarDef "p"];
+  (* TODO: Find a better target *)
+  !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; addPart; cVarDef "idCell"];
+  !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tBefore; repPart; cFor "i"];
+  !! iter_dims (fun d ->
+      Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [addPart; cFieldWrite ~field:("pos"^d) ()];);
+  
+  !! iter_dims (fun d ->
+      Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
+    );
+  
   bigstep "Simplify arithmetic expressions after scaling and shifting";
   !! Trace.reparse();
   !! Variable.inline [steps; cVarDef "accel"];
   !! Arith.with_nosimpl [nbMulti; steps; cFor "k"] (fun () ->
        Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
-
-
-(*----
-
-  bigstep "Scaling of speed and position in addParticle function";
-  let add_part = cFunDef "addParticle" in
-  !! Instr.move ~dest:[tBefore; add_part; cVarDef "p"] [add_part; cVarDef "idCell"];
-  !! Struct.set_explicit [add_part; cVarDef "p"];
-  !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; add_part; cVarDef "idCell"];
-  !! iter_dims (fun d ->
-      Accesses.scale ~factor:(expr ("cell"^d)) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "pos"] ()]);
-
-  !! iter_dims (fun d ->
-      Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [add_part; cFieldWrite ~field:("pos"^d) ()];);
-
-  !! iter_dims (fun d ->
-      Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [add_part; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "speed"] ()]);
-
-  bigstep "Scaling of speed and positions in step function";
-  !! iter_dims (fun d ->
-      Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
-      [nbMulti; step;cOr [ [ sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")];
-               [ sExpr ("p2.speed" ^ d) ] ] ] );
-  !! iter_dims (fun d ->
-       Accesses.scale ~factor:(expr ("(1 / cell"^d^")"))
-         [nbMulti; step; cOr [ [sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")];
-            [sExpr ("p2.pos" ^ d)]
-          ] ]);
-  !! Trace.reparse();
-  !! Variable.inline [step; cVarDef "accel"];
-  !! Variable.unfold [step; cVarDef "factorC"];
-  !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cFor "i"; cOr [
-      [cCellWrite ~index:[cVar "i"] ()]; [sInstr "p2."];
-      [cVarDef ~regexp:true "[ir][XYZ][0-2]"] ] ];
-
-*)
-
-  bigstep "Enumerate grid cells by coordinates";
-  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
-
+  
   bigstep "Make positions relative to the cell corner";
-  !! iter_dims (fun d ->
-    Variable.reuse ~space:(var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
   !! iter_dims (fun d ->
       Variable.bind ~const:true ~typ:(Some (atyp "double")) ("p" ^ d ^ "2") [occLast;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS];
       Variable.bind ~const:true ("p" ^ d ) ~typ:(Some (atyp "double")) [occFirst;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS]);
@@ -203,18 +175,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.0"];
   !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
 
-
-  if use_checker then begin
-    bigstep "Scaling of speed and positions in reportParticlesState function";
-    !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; repPart; cVarDef "b"];
-    !! Variable.init_detach [nbMulti; repPart; cVarDef ~regexp:true "\\(pos\\|speed\\)."];
-    !! iter_dims (fun d ->
-        Accesses.shift ~factor:(expr ("co.i"^d)) [repPart; cWriteVar ("pos"^d)];
-        Accesses.scale ~factor:(expr ("cell"^d)) [repPart; cWriteVar ("pos"^d)];
-        Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cWriteVar ("speed"^d)]
-    );
-  end;
-
   if doublepos then begin
     bigstep "Turn positions into floats";
     !! Cast.insert (atyp "float") [sExprRegexp ~substr:true "p.2 - i.2"];
@@ -230,7 +190,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "deposit"] in
-  !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
+  !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:false
      ~dim:(expr "8") ~index:"k" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "k")) ~alloc_instr [cLabel "core"];
 
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
