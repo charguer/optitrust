@@ -592,14 +592,10 @@ void step() {
       particleCharge * (stepDuration * stepDuration) / particleMass / cellY;
   const double factorZ =
       particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
-  double *depositCorners = (double *)MMALLOC2(nbCells, 8, sizeof(double));
-  bag *bagsNexts = (bag *)MMALLOC2(nbCells, 2, sizeof(bag));
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_init_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
-    }
-  }
-  double *depositThreadCorners =
+  double *depositCorners;
+  depositCorners = (double *)MMALLOC2(nbCells, 8, sizeof(double));
+  double *depositThreadCorners;
+  depositThreadCorners =
       (double *)MMALLOC3(nbCells, 8, nbThreads, sizeof(double));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
@@ -609,10 +605,18 @@ void step() {
       }
     }
   }
+  bag *bagsNexts;
+  bagsNexts = (bag *)MMALLOC2(nbCells, 2, sizeof(bag));
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
+      bag_init_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
+    }
+  }
 core:
   for (int cX = 0; cX < block; cX++) {
     for (int cY = 0; cY < block; cY++) {
       for (int cZ = 0; cZ < block; cZ++) {
+#pragma omp parallel for collapse(3)
         for (int bX = cX * 2; bX < gridX; bX += block * 2) {
           for (int bY = cY * 2; bY < gridY; bY += block * 2) {
             for (int bZ = cZ * 2; bZ < gridZ; bZ += block * 2) {
@@ -632,6 +636,7 @@ core:
                     for (chunk *c = b->front; c != NULL;
                          c = chunk_next(c, true)) {
                       const int nb = c->size;
+                      int idCell2_step[CHUNK_SIZE];
                       for (int i = 0; i < nb; i++) {
                         const double rX0 = c->itemsPosX[i];
                         const double rY0 = c->itemsPosY[i];
@@ -669,9 +674,11 @@ core:
                                       coeffs.v[5] * res.v[5].z +
                                       coeffs.v[6] * res.v[6].z +
                                       coeffs.v[7] * res.v[7].z;
-                        c->itemsSpeedX[i] = c->itemsSpeedX[i] + fieldAtPosX;
-                        c->itemsSpeedY[i] = c->itemsSpeedY[i] + fieldAtPosY;
-                        c->itemsSpeedZ[i] = c->itemsSpeedZ[i] + fieldAtPosZ;
+                        c->itemsSpeedX[i] += fieldAtPosX;
+                        c->itemsSpeedY[i] += fieldAtPosY;
+                        c->itemsSpeedZ[i] += fieldAtPosZ;
+                      }
+                      for (int i = 0; i < nb; i++) {
                         const double pX =
                             c->itemsPosX[i] + iX + c->itemsSpeedX[i];
                         const double pY =
@@ -684,11 +691,13 @@ core:
                         const int iX2 = int_of_double(pX2);
                         const int iY2 = int_of_double(pY2);
                         const int iZ2 = int_of_double(pZ2);
-                        const int idCell2 = cellOfCoord(iX2, iY2, iZ2);
-                        const coord co = coordOfCell(idCell2);
+                        int *idCell2 = &idCell2_step[i];
+                        *idCell2 = cellOfCoord(iX2, iY2, iZ2);
                         c->itemsPosX[i] = pX2 - iX2;
                         c->itemsPosY[i] = pY2 - iY2;
                         c->itemsPosZ[i] = pZ2 - iZ2;
+                      }
+                      for (int i = 0; i < nb; i++) {
                         const double rX1 = c->itemsPosX[i];
                         const double rY1 = c->itemsPosY[i];
                         const double rZ1 = c->itemsPosZ[i];
@@ -700,6 +709,8 @@ core:
                         p2.speedY = c->itemsSpeedY[i];
                         p2.speedZ = c->itemsSpeedZ[i];
                         p2.id = c->itemsId[i];
+                        int *idCell2 = &idCell2_step[i];
+                        const coord co = coordOfCell(*idCell2);
                         const bool isDistFromBlockLessThanHalfABlock =
                             co.iX - bX >= -halfBlock &&
                             co.iX - bX < block + halfBlock &&
@@ -708,19 +719,19 @@ core:
                             co.iZ - bZ >= -halfBlock &&
                             co.iZ - bZ < block + halfBlock;
                         if (isDistFromBlockLessThanHalfABlock) {
-                          bag_push_serial(
-                              &bagsNexts[MINDEX2(nbCells, 2, idCell2, PRIVATE)],
-                              p2);
+                          bag_push_serial(&bagsNexts[MINDEX2(
+                                              nbCells, 2, *idCell2, PRIVATE)],
+                                          p2);
                         } else {
                           bag_push_concurrent(
-                              &bagsNexts[MINDEX2(nbCells, 2, idCell2, SHARED)],
+                              &bagsNexts[MINDEX2(nbCells, 2, *idCell2, SHARED)],
                               p2);
                         }
                         double_nbCorners contribs;
                       charge:
                         for (int k = 0; k < 8; k++) {
-                          depositThreadCorners[MINDEX3(nbCells, 8, nbThreads,
-                                                       idCell2, k, idThread)] +=
+                          depositThreadCorners[MINDEX3(
+                              nbCells, 8, nbThreads, *idCell2, k, idThread)] +=
                               (coefX[k] + signX[k] * rX1) *
                               (coefY[k] + signY[k] * rY1) *
                               (coefZ[k] + signZ[k] * rZ1);
@@ -738,6 +749,16 @@ core:
     }
   }
   for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
+      bag_append(&bagsCur[MINDEX1(nbCells, idCell)],
+                 &bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
+    }
+    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
+      bag_free_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
+    }
+  }
+  MFREE(bagsNexts);
+  for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
       double sum = 0.;
       for (int idThread = 0; idThread < nbThreads; idThread++) {
@@ -748,16 +769,6 @@ core:
     }
   }
   MFREE(depositThreadCorners);
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_append(&bagsCur[MINDEX1(nbCells, idCell)],
-                 &bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
-    }
-    for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_free_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
-    }
-  }
-  MFREE(bagsNexts);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     double sum = 0.;
     for (int k = 0; k < 8; k++) {
