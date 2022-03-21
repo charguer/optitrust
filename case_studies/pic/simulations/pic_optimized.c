@@ -577,7 +577,7 @@ const int SHARED = 1;
 const int PRIVATE = 0;
 
 void step() {
-  nbThreads = omp_get_num_threads();
+  printf("step\n");
   const double factorC =
       particleCharge * (stepDuration * stepDuration) / particleMass;
   const double factorX =
@@ -591,13 +591,29 @@ void step() {
     for (int k = 0; k < 8; k++) {
       depositCorners[mybij(nbCells, 8, idCell, k)] = 0.;
     }
+
   }
+    printf("1\n");
   bag *bagsNexts = (bag *)MMALLOC2(2, nbCells, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
       bag_init_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
     }
   }
+  double *depositThreadCorners =
+      (double *)MMALLOC3(nbThreads, nbCells, 8, sizeof(double));
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int idCorner = 0; idCorner < 8; idCorner++) {
+      for (int k = 0; k < nbThreads; k++) {
+        int i = MINDEX3(nbThreads, nbCells, 8, k, idCell,
+                                     idCorner);
+                                     printf("INIT %d %d %d %d\n", k, idCell, idCorner,i);
+        depositThreadCorners[i] = 0.;
+      }
+    }
+  }
+  printf("2\n");
+
 core:
   for (int cX = 0; cX < block; cX++) {
     for (int cY = 0; cY < block; cY++) {
@@ -708,7 +724,8 @@ core:
                         double_nbCorners contribs;
                       charge:
                         for (int k = 0; k < 8; k++) {
-                          depositCorners[MINDEX2(nbCells, 8, idCell2, k)] +=
+                          depositThreadCorners[MINDEX3(nbThreads, nbCells, 8,
+                                                       idThread, idCell2, k)] +=
                               (coefX[k] + signX[k] * rX1) *
                               (coefY[k] + signY[k] * rY1) *
                               (coefZ[k] + signZ[k] * rZ1);
@@ -725,6 +742,20 @@ core:
       }
     }
   }
+  printf("2bis\n");
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int idCorner = 0; idCorner < 8; idCorner++) {
+      double sum = 0.;
+      for (int k = 0; k < nbThreads; k++) {
+        sum += depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, k, idCell,
+                                            idCorner)];
+      }
+      depositCorners[MINDEX2(nbCells, 8, idCell, idCorner)] = sum;
+    }
+  }
+    printf("3\n");
+  MFREE(depositThreadCorners);
+    printf("4\n");
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
       bag_append(&bagsCur[MINDEX1(nbCells, idCell)],
@@ -734,7 +765,9 @@ core:
       bag_free_initial(&bagsNexts[MINDEX2(2, nbCells, bagsKind, idCell)]);
     }
   }
+  printf("5\n");
   MFREE(bagsNexts);
+  printf("6\n");
   for (int idCell = 0; idCell < nbCells; idCell++) {
     double sum = 0.;
     for (int k = 0; k < 8; k++) {
@@ -742,7 +775,9 @@ core:
     }
     deposit[MINDEX1(nbCells, idCell)] = sum;
   }
+  printf("7\n");
   MFREE(depositCorners);
+  printf("8\n");
   updateFieldUsingDeposit();
 }
 
@@ -779,8 +814,10 @@ void reportParticlesState() {
 }
 
 int main(int argc, char **argv) {
+  printf("start\n");
   loadParameters(argc, argv);
   computeConstants();
+  printf("alloc\n");
   allocateStructures();
   resetDeposit();
   createParticles();
