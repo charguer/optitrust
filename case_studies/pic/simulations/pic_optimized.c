@@ -831,6 +831,8 @@ int main(int argc, char **argv) {
     step();
   }
   reportParticlesState();
+  double timeStart = omp_get_wtime();
+  reportPerformance(timeStart);
   deallocateStructures();
   free(deposit);
 }
