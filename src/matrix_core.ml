@@ -365,16 +365,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
               let alloc_arity = List.length dims in
               let new_alloc_trm = insert_alloc_dim_aux dim alloc_trm in
               let new_decl = trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_cast (get_inner_ptr_type ty) new_alloc_trm) in
-              let new_fst_instr = 
-                if add_labels then begin 
-                  let label_to_add = List.nth labels 0 in 
-                  if label_to_add = "" 
-                    then new_decl 
-                    else trm_labelled label_to_add (trm_seq_no_brace [
-                      trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_uninitialized ()); 
-                      (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
-                   end
-                  else new_decl in
+              
               
               let snd_instr = Mlist.nth tl 1 in 
               begin match trm_fors_inv alloc_arity snd_instr with 
@@ -426,6 +417,17 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                             trm_for index (trm_int 0) DirUp dim (Post_inc) (trm_seq_nomarks [
                                 op_fun (trm_var acc) (trm_get new_access)]);
                             trm_set (get_operation_arg old_var_access) (trm_var_get acc)]) in
+                  let new_fst_instr = 
+                    if add_labels then begin 
+                      let label_to_add = List.nth labels 0 in 
+                        if label_to_add = "" 
+                        then new_decl 
+                        else trm_labelled label_to_add (trm_seq_no_brace [
+                          trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_uninitialized ()); 
+                          (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
+                      end
+                    else new_decl in
+                  
                   let new_snd_instr = if init_zero 
                     then trm_fors new_loop_range init_trm 
                     else trm_fors loop_range init_trm in
@@ -450,6 +452,18 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   | _ -> fail set_instr.loc "delocalize_aux"
                   end
                 | Local_obj (_init_f, _merge_f, free_f) -> 
+                  
+                  let new_fst_instr = 
+                    if add_labels then begin 
+                      let label_to_add = List.nth labels 0 in 
+                        if label_to_add = "" 
+                        then new_decl 
+                        else (trm_seq_no_brace [
+                          trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_uninitialized ()); 
+                          (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
+                      end
+                    else new_decl in
+                  
                   let ps1 = resolve_target tg body in 
                   let new_snd_instr =
                     let updated_mindex =
@@ -493,8 +507,19 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     end in 
 
                   let sixth_instr = Mlist.nth tl 5 in 
-                  
-                  trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_decl; new_snd_instr; new_thrd_instr; new_frth_instr; new_fifth_instr; sixth_instr])
+                    let final_groups = 
+                      if List.length labels = 0 then [new_fst_instr; new_snd_instr; new_thrd_instr; new_frth_instr; new_fifth_instr; sixth_instr]
+                       else List.mapi ( fun i lb ->
+                        let new_subsgroup = if i = 0 
+                          then trm_seq_no_brace [new_fst_instr; new_snd_instr]  
+                          else if i = 1 then trm_seq_no_brace [new_thrd_instr; new_frth_instr]
+                          else trm_seq_no_brace [new_fifth_instr; sixth_instr]
+                          in
+                        if lb = "" then new_subsgroup else trm_labelled lb new_subsgroup
+
+                       ) labels 
+                    in
+                  trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list final_groups)
                 end
 
               | _ -> fail snd_instr.loc "delocalize_aux: expected the nested loops where the local matrix initialization is done"

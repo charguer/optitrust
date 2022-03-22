@@ -29,6 +29,13 @@ typedef struct bag_iter {
 } bag_iter;
 
 
+const int nbCells = 100;
+const int N0 = 5;
+const int N1 = 10;
+const int N2 = 11;
+const int N3 = 12;
+
+
 particle* bag_iter_begin(bag_iter* it, bag* b);
 particle* bag_iter_next_common(bag_iter* it, bool destructive);
 void bag_push(bag* b, particle p);
@@ -37,13 +44,15 @@ void bag_swap(bag* b1, bag* b2);
 void bag_merge(bag* b1, bag* b2);
 void bag_free(bag* b);
 
-int main() {
-  int const nbCells = 100;
-  int const N0 = 5;
-  int const N1 = 10;
-  int const N2 = 11;
-  int const N3 = 12;
+bag* bagNext1;
 
+void allocate (){
+  bagNext1 = (bag*) MMALLOC1(nbCells, sizeof(bag));
+}
+
+
+int main() {
+  
 // Allocate bagsNext and bagsCur with empty bags in every cell
 
   bag* bagCur = (bag*) MMALLOC1(nbCells, sizeof(bag));
@@ -63,8 +72,20 @@ int main() {
   for (int idCell = 0; idCell < nbCells; idCell++){
     bag_swap(&bagNext[MINDEX1(nbCells,idCell)], &bagCur[MINDEX1(nbCells,idCell)]);
   }
+
+  for (int idCell = 0; idCell < nbCells; idCell++){
+    for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
+      bag_push(&bagNext1[MINDEX1(nbCells, idCell)],*p);
+    }
+  }
+
+  for (int idCell = 0; idCell < nbCells; idCell++){
+    bag_swap(&bagNext1[MINDEX1(nbCells,idCell)], &bagCur[MINDEX1(nbCells,idCell)]);
+  }
+
   MFREE(bagCur);
   MFREE(bagNext);
+  MFREE(bagNext1);
 
   return 0;
 
