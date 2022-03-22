@@ -1,8 +1,9 @@
 #!/bin/bash
 
+./vectmerge.sh
 #./compile.sh pic_demo.c 1
 
-./compile.sh pic_demo.c
+# ./compile.sh pic_demo.c
 
 #make test
 # ./check.sh pic_demo.c pic_barsamian.c
