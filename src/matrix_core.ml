@@ -105,6 +105,15 @@ let alloc ?(init : trm option = None) (dims : trms) (size : trm) : trm =
   | None ->
     trm_apps (trm_var ("MMALLOC" ^  (string_of_int n))) (dims @ [size])
 
+
+(* |alloc_aligned ~init dims size alignment] create a call to function MMALLOC_ALIGNED$(N) where [N] is the
+     number of dimensions and [size] is the size in bytes occupied by a single matrix element in
+     the memory and [alignment] is the alignment size *)
+let alloc_aligned (dims : trms) (size : trm) (alignment : trm)  : trm =
+  let n = List.length dims in
+  trm_apps (trm_var ("MMALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
+
+
 (* a boolean type used as flag to tell if the array cells should be initialized to zero or not *)
 type zero_initialized = bool
 
@@ -206,6 +215,23 @@ let intro_mindex_aux (dim : trm) (t : trm) : trm =
 let intro_mindex (dim : trm) : Target.Transfo.local =
   Target.apply_on_path (intro_mindex_aux dim)
 
+
+(* [alloc_to_alloc_aligned_aux alignment t] transform a malloc call to a malloc_aligned one
+    params:
+      [alignment]: the size of the alignemtn
+      [t]: the ast of the malloc call
+    return:
+      the ast of the malloc_aligned*)
+
+let malloc_to_alloc_aligned_aux (alignment : trm) (t : trm) : trm = 
+  match alloc_inv t with 
+  | Some (dims,size, zero_init) -> 
+    if zero_init then fail t.loc "malloc_to_malloc_aligned_aux: can't convert a call to calloc function to a callo_aligned one";
+    alloc_aligned dims size alignment 
+  | None -> fail t.loc "malloc_to_malloc_aligned_aux: expected a call to MMALLOC"
+
+let malloc_to_malloc_aligned (alignment : trm) : Target.Transfo.local = 
+  Target.apply_on_path (malloc_to_alloc_aligned_aux alignment )
 
 (* [reorder_dims_aux order t]: reorder the dimensions in a call to MCALLOC, MMALLOC or MINDEX
       params:
