@@ -239,15 +239,16 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Introduce nbThreads and idThread";
   !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
-  !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") [tBefore; cVarDef "nbCells"];
-  !! Omp.declare_num_threads "nbThreads";
+  !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "4") [tBefore; cVarDef "nbCells"];
+  (* !! Omp.declare_num_threads "nbThreads"; *) (* TEMPORARY *)
   !! Omp.get_num_threads "nbThreads" [tFirst; cTopFunDef "main"; dBody];
   !! Omp.get_thread_num "idThread" [tBefore; step; cFor "iX"]; (* BEAUTIFY: ~const:true should be by default, implying the line below *)
   !! Variable.to_const [step; cVarDef "idThread"];
   !! Trace.reparse();
 
   bigstep "Parallelize the code using concurrent operations (they are subsequently eliminated)";
-  !! Omp.atomic None [tBefore; step; cWrite ~lhs:[cVar "sum"] ()]; (* BEAUTIFY: Instr.set_atomic *)
+  !! Omp.atomic None [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
+  !! Omp.atomic None [tBefore; step; cWrite ~lhs:[cVar "sum"] ()];
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
   !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"];
   !! Omp.parallel_for [tBefore; step; cFor "idCell" ~body:[cVar "sum"]];
@@ -267,9 +268,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true "deposit.*Corners"];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true "deposit.*Corners"];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
-
     (* BEAUTIFY:  ~dest:[tLast; cTopFunDef "allocateStructures"; dBody]  *)
-
 
   bigstep "Introduce private and shared bags";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
@@ -283,19 +282,18 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
+  let pushop = cFun "bag_push_concurrent" in
   let force_concurrent_push = false in (* TEMPORARY *)
   let push_cond = if force_concurrent_push then trm_lit (Lit_bool false) else trm_ands (map_dims (fun d ->
-         expr ~vars:[d] "(co.i${0} - b${0} >= -halfBlock && co.i${0} - b${0} < block + halfBlock)
+         expr ~vars:[d] "(co.i${0} >= b${0} - halfBlock && co.i${0} < b${0} + block + halfBlock)
                       || (b${0} == 0 && co.i${0} >= grid${0} - halfBlock)
                       || (b${0} == grid${0} - block && co.i${0} < halfBlock)")) in
   !! Variable.insert ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
-      ~value:push_cond [tBefore; step; cFun "bag_push"];
-  !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") ~mark:"push" [step; cFun "bag_push"];
-  !! Specialize.any (expr "PRIVATE") [cMark "push"; dThen; cAny];
-  !! Specialize.any (expr "SHARED") [cMark "push"; dElse; cAny];
-  !! Expr.replace_fun "bag_push_serial" [cMark "push"; dThen; cFun "bag_push"];
-  !! Expr.replace_fun "bag_push_concurrent" [cMark "push"; dElse; cFun "bag_push"];
-     Marks.remove "push" [cMark "push"];
+      ~value:push_cond [tBefore; step; pushop];
+  !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") [step; pushop];
+  !! Specialize.any (expr "PRIVATE") [step; cIf(); dThen; pushop; cAny];
+  !! Specialize.any (expr "SHARED") [step; cIf(); dElse; pushop; cAny];
+  !! Expr.replace_fun "bag_push_serial" [step; cIf(); dThen; pushop];
 
   bigstep "Cleanup"; (* LATER: in cleanup separate ops on deposit from those on bagnexts *)
   let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
@@ -592,3 +590,8 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
 
   (* ARTHUR: fix bug with    cOr [[cTopFun "step"]]
   then change cFunDef for cTopFunDef *)
+  (* LATER
+   "(co.i${0} - b${0} >= -halfBlock && co.i${0} - b${0} < block + halfBlock)
+                      || (b${0} == 0 && co.i${0} >= grid${0} - halfBlock)
+                      || (b${0} == grid${0} - block && co.i${0} < halfBlock)"))
+                      *)
