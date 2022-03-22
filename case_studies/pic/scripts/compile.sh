@@ -84,7 +84,8 @@ elif [ "${TARGET}" = "pic_demo.c" ]; then
     EXTRA_SPECIFIC_PRE=" $PICVERT_HOME/src/optitrust.c $PICVERT_HOME/src/particle.c $PICVERT_HOME/src/bag_atomics.c $PICVERT_HOME/src/bag.c $PICVERT_HOME/simulations/pic_demo_aux.c"
     # $PICVERT_HOME/simulations/pic_demo.h $PICVERT_HOME/simulations/pic_demo_aux.h
 else # assume a version of pic_demo optimized by optitrust
-    EXTRA_SPECIFIC_PRE=" $PICVERT_HOME/src/optitrust.c  $PICVERT_HOME/src/bag_atomics.c  $PICVERT_HOME/simulations/pic_demo_aux.c"
+    #EXTRA_SPECIFIC_PRE=" $PICVERT_HOME/src/optitrust.c  $PICVERT_HOME/src/bag_atomics.c  $PICVERT_HOME/simulations/pic_demo_aux.c"
+    EXTRA_SPECIFIC_PRE=" $PICVERT_HOME/src/bag_atomics.c  $PICVERT_HOME/simulations/pic_demo_aux.c"
     # $PICVERT_HOME/simulations/pic_demo.h $PICVERT_HOME/simulations/pic_demo_aux.h  $PICVERT_HOME/src/bag.c
 fi
 

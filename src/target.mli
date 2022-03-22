@@ -124,6 +124,8 @@ val cMalloc : int option -> constr
 
 val cCalloc : int option -> constr
 
+val cMindex : ?d:int -> unit -> constr 
+
 val sInstr : ?substr:bool -> string -> constr
 
 val sExpr : ?substr:bool -> string -> constr

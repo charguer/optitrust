@@ -1349,7 +1349,7 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
-  | _ -> f ty
+  | _ -> ty
 
 (* [label_subterms_with_fresh_stringreprids f t] annotates all the subterms of [t]
    that satisfy the boolean predicate [f] with a fresh string representation identifier.

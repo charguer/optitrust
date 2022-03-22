@@ -36,7 +36,7 @@ let prepro = if use_checker then ["-DCHECKER"] else []
 
 let prepro = ["-DPRINTPERF" ; "-DDEBUG_ITER_DESTR" (*; "-DDEBUG_ITER" *)] @ prepro
 
-let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
+let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
   (* Part 1: sequential optimizations *)
 
@@ -331,12 +331,16 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot]; (* BEAUTIFY: Align.header [] *)
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];
-  !! Align.def (lit "64") [nbMulti; dRoot; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
 
-  !! Align.def (lit "64") [nbMulti; cOr [[dRoot; cStrictNew; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
-                                         [step; cVarDef "idCell2_step"]]];
+  !! Align.def (lit "64") [nbMulti; cOr [[cStrict; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
+                                         [step; cVarDef "idCell2_step"];
+                                         [cStrict; cVarDef ~substr:true "deposit"]]];
   !! Struct.align_field (lit "64") ("items.") [cTypDef "chunk"];
+
   !! List.iter (fun occ -> Omp.simd [occIndex occ; tBefore; step; cFor "i"]) [0;1]; (* BEAUTIFY: occIndices *)
+  !! Function.inline [step; cFun "cellOfCoord"];
+  !! Function.inline [step; sInstr "*idCell2 ="; cMindex ~d:3 ()];
+  !! Function.inline [nbMulti; step; cFor "k"; cMindex  ~d:3()];
 
 )
 

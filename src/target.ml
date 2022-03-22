@@ -605,6 +605,12 @@ let cMalloc (d : int option) : constr =
   let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
   cFun ~regexp:true ("MMALLOC" ^ d)
 
+(* [cMindex d]  matches all calls to Optitrust MINDEXI where I = d*)
+let cMindex ?(d : int  = 0) () : constr = 
+  let d = if d = 0 then string_of_int d else "." in 
+  cFun ~regexp:true ("MINDEX"^d)
+
+
 (* [cCalloc d] matches all calls to Optitrust MCALLOCI where I = d *)
 let cCalloc (d : int option) : constr =
   let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
