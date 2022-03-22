@@ -728,12 +728,17 @@ let cStructInit : constr =
   Constr_struct_init
 
 (* [cCell arary_size] matches all arrray cells in an array initialization *)
-let cCell ?(cell_index : int option = None) (): constr =
+let cCell ?(cell_index : int option = None) () : constr =
   match cell_index with
   | None -> cChain [cArrayInit; cStrict; cTrue]
   | Some i -> cChain [cArrayInit; dArrayNth i]
 
-
+let cOmp_match_all : directive->bool =
+  fun _ -> true
+let cOmp ?(pred : (directive->bool) = cOmp_match_all) () : constr =
+  let str =
+    if pred == cOmp_match_all then "cOmp_match_all" else "cOmp_custom_pred" in
+  Constr_omp (pred, str)
 
 (******************************************************************************)
 (*                          Target resolution                                 *)

@@ -248,7 +248,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Parallelize the code using concurrent operations (they are subsequently eliminated)";
   !! Omp.atomic None [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
-  !! Omp.atomic None [tBefore; step; cWrite ~lhs:[cVar "sum"] ()];
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
   !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"];
   !! Omp.parallel_for [tBefore; step; cFor "idCell" ~body:[cVar "sum"]];
@@ -271,6 +270,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     (* BEAUTIFY:  ~dest:[tLast; cTopFunDef "allocateStructures"; dBody]  *)
   (* TODO: parallelize the accumulation loop, which needs to be marked "depositSum" at the delocalize step
       !! Omp.parallel_for [tBefore; step; cMark "depositSum"]]; *)
+  !! Instr.delete [step; cLabel "charge"; cOmp()]; (* BEAUTIFY: Instr.set_nonatomic ; also cPragma is needed *)
 
   bigstep "Introduce private and shared bags";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
