@@ -64,5 +64,5 @@ let rename_field (field : field) ~into:(into : var): Target.Transfo.t =
 
 (* [align_field align pattern tg] expects the target [tg] to be pointing at a struct definition,
   then it will align all the fields that match [pattern] with [align] size *)
-let align_field (align : int) (pattern : string) : Target.Transfo.t = 
+let align_field (align : trm) (pattern : string) : Target.Transfo.t = 
   Struct_basic.applyto_fields_type pattern (fun ty -> typ_align align ty) 

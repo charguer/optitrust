@@ -65,6 +65,7 @@ TESTS_TOCHECK := \
 	matrix_delocalize_obj.ml \
 	matrix_intro_mops.ml \
 	loop_isolate_first_iteration.ml \
+	struct_align_field.ml \
 
 #variable_inline.ml \ TODO: Update variable_inline unit test
 

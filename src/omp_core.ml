@@ -564,7 +564,7 @@ let get_max_threads (max_threads : var) (index : int) : Target.Transfo.local =
   Target.apply_on_path (get_max_threads_aux max_threads index)
 
 
-let get_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm =
+let get_thread_num_aux (const : bool) (thread_num : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let find_prev_decl = Internal.local_decl thread_num t in
@@ -573,14 +573,16 @@ let get_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm =
     | Some _ ->
       trm_set (trm_var thread_num) (trm_omp_routine (Get_thread_num))
     | None ->
-      trm_let_mut (thread_num, typ_int()) (trm_omp_routine (Get_thread_num))
+      if const 
+        then trm_let_immut (thread_num, typ_int()) (trm_omp_routine (Get_thread_num)) 
+        else trm_let_mut (thread_num, typ_int()) (trm_omp_routine (Get_thread_num))
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_thread_num_aux: expected the sequence where the call to the routine is going to be added"
 
-let get_thread_num (thread_num : var) (index : int) (t : trm) (p : Path.path) : trm =
-  Target.apply_on_path (get_thread_num_aux thread_num index) t  p
+let get_thread_num (const : bool) (thread_num : var) (index : int) (t : trm) (p : Path.path) : trm =
+  Target.apply_on_path (get_thread_num_aux const thread_num index) t  p
 
 let get_num_procs_aux (num_procs : var) (index : int) (t : trm) : trm =
   match t.desc with

@@ -222,9 +222,9 @@ let get_max_threads (max_threads : var) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.get_max_threads max_threads i t p)
 
-let get_thread_num (thread_id : var) : Target.Transfo.t =
+let get_thread_num ?(const : bool = true) (thread_id : var) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_thread_num thread_id i t p)
+    Omp_core.get_thread_num const thread_id i t p)
 
 let get_num_procs (num_procs : var) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
