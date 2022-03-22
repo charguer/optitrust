@@ -66,13 +66,17 @@ let rename_fields (rename : rename) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Struct_core.rename_fields i rename t p)
 
+(* [applyto_fields_type ~reparse pattern typ_update tg] expects the target [ŧg] to be pointing at
+    struct definition, then it will update all the struct fields type whose identifier matches [pattern]*)
+let applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update: typ -> typ) : Target.Transfo.t =
+  Target.reparse_after ~reparse (Target.apply_on_targets (Struct_core.update_fields_type pattern typ_update))
+
 (* [update_fields_type pattern ty tg] expects [tg] to point to a struct declaration . 
     Then it will change the current type to [ty] of all the fields which are matched with [pattern].
 *)
 let update_fields_type ?(reparse : bool = false) (pattern : string) (ty : typ) : Target.Transfo.t =
-  Target.reparse_after ~reparse (Target.apply_on_targets (Struct_core.update_fields_type pattern ty))
+  applyto_fields_type ~reparse pattern (fun _ -> ty)
 
-  
 (* [simpl_proj tg] expects the target [tg] pointing to any node whose descendants can contain struct
  initialization list projections 
 *)

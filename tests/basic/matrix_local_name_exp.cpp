@@ -49,6 +49,6 @@ int main() {
     }
   }
   MFREE(y);
-  int y = 0;
+  int z = 0;
   return 0;
 }

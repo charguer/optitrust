@@ -5,10 +5,10 @@ typedef struct {
 } vect;
 
 vect vect_add(vect v1, vect v2) {
-  return {v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
+  return (vect){v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
 }
 
-vect vect_mul(int d, vect v) { return {d * v.x, d * v.y, d * v.z}; }
+vect vect_mul(int d, vect v) { return (vect){d * v.x, d * v.y, d * v.z}; }
 
 int f(int x) {
   int a = x + x;
@@ -89,8 +89,9 @@ void test_const_ret() {
   }
   w = v;
 exit_body:;
-  vect w2 = {0, 0};
-  w2.x = 1;
+  vect res = {0, 0};
+  res.x = 1;
+  vect w2 = res;
 }
 
 void test_const_arg() {

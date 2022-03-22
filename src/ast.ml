@@ -763,6 +763,7 @@ let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
 let typ_add_attribute (att : attribute)(ty : typ) : typ =
   {ty with typ_attributes = att :: ty.typ_attributes}
 
+
 (* function that fails with given error message and points location in file *)
 exception TransfoError of string
 
@@ -1348,7 +1349,7 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
-  | _ -> ty
+  | _ -> f ty
 
 (* [label_subterms_with_fresh_stringreprids f t] annotates all the subterms of [t]
    that satisfy the boolean predicate [f] with a fresh string representation identifier.
@@ -2658,3 +2659,7 @@ let get_struct_access_inv (t : trm) : (string * trm) option =
 let map_from_trm_var_assoc_list (al : (string * trm) list) : tmap =
   let tm = Trm_map.empty in
   List.fold_left (fun acc (k, v) -> Trm_map.add k v acc) tm al
+
+(* [typ_align align ty] add the alignas attribute to type ty *)
+let typ_align (align : int) (ty : typ) = 
+  typ_add_attribute (Alignas (trm_int align)) ty

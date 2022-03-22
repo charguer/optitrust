@@ -167,3 +167,11 @@ let fold ~index:(index : var) ~start:(start : int) ~step:(step : int) : Target.T
     Loop_core.fold index start step
 )
 
+(* [split_range nb cut tg] expects the target [tg] to be pointing at a simple loop 
+    then based on the arguments nb or cut it will split the loop into two loops.
+    *)
+let split_range ?(nb : int = 0) ?(cut : trm = trm_unit()) (tg : Target.target) : unit =
+  Internal.nobrace_remove_after( fun _ ->
+    Target.apply_on_targets (Loop_core.split_range nb cut) tg )
+
+

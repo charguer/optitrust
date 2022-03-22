@@ -3,7 +3,7 @@ typedef struct {
   int y;
 } vect;
 
-vect f(int a) { return {a - 1, a}; }
+vect f(int a) { return (vect){a - 1, a}; }
 
 int g(vect v) { return v.x + v.y; }
 

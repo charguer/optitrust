@@ -401,7 +401,7 @@ let to_unit_steps (new_index : var) : Target.Transfo.local =
     then you can Generic.replace at these marks *)
 
 
-(* [loop_fold_aux index start step t]: transform a sequence of instrucitons into a
+(* [loop_fold_aux index start step t]: transform a sequence of instructions into a
     single loop with components [index], [start], [nb_instr], [step] and [t].
     params:
       [index]: index of the for generated for loop
@@ -429,3 +429,31 @@ let fold_aux (index : var) (start : int) (step : int) (t : trm) : trm =
   | _ -> fail t.loc "fold_aux: expected a sequence of instructions"
 let fold (index : var) (start : int) (step : int) : Target.Transfo.local =
   Target.apply_on_path (fold_aux index start step)
+
+
+(* [split_range_aux nb cut]: split a loop into two loops, the spliting will be based on the range  
+     params:
+      [nb]: by default this argument has value 0, if provided it means that it will split the loop at start + nb iteration
+      [cut]: by default this argument has value tmr_unit(), if provided then the loop will be splited at that iteration
+      [t]: ast of the loop 
+     return:
+      the ast of the two loops
+   *)
+let split_range_aux (nb : int)(cut : trm)(t : trm) : trm = 
+  match t.desc with 
+  | Trm_for (index, start, direction, stop, step, body) -> 
+     let split_index = 
+     begin match nb, cut with 
+     | 0, {desc = Trm_val (Val_lit (Lit_unit )); _} -> fail t.loc "split_range_aux: one of the args nb or cut should be set "
+     | 0, _ -> cut
+     | _, {desc = Trm_val (Val_lit (Lit_unit ));_} -> trm_add (trm_var index) (trm_lit (Lit_int nb))
+     | n, c -> fail t.loc "split_range_aux: can't provide both the nb and cut args"
+     end in 
+     trm_seq_no_brace [
+       trm_for index (start) direction split_index step body;
+       trm_for index (split_index) direction stop step body]
+     
+  | _ -> fail t.loc "split_range_aux: expected a target to a simple for loop"
+
+let split_range (nb : int) (cut : trm) : Target.Transfo.local =
+  Target.apply_on_path (split_range_aux nb cut)

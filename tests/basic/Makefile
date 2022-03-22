@@ -60,8 +60,6 @@ TESTS_WITH_DOC := \
 	struct_update_fields_type.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
-	typedef_fold.ml \
-	typedef_unfold.ml \
 	variable_bind.ml \
 	variable_fold.ml \
 	variable_unfold.ml \
@@ -83,6 +81,7 @@ TESTS_WORKING_NOTINDOC := \
 
 TESTS_TOCHECK := \
 	matrix_delocalize.ml \
+	matrix_delocalize_obj.ml \
 	matrix_intro_mcalloc.ml \
 	matrix_intro_mindex.ml \
 	matrix_intro_mmalloc.ml \
@@ -90,6 +89,7 @@ TESTS_TOCHECK := \
 	matrix_reorder_dims.ml \
 	function_rename_args.ml \
 	variable_ref_to_pointer.ml \
+	loop_split_range.ml \
 
 # missing expected
 # matrix_insert_alloc_dim.ml \
@@ -100,6 +100,10 @@ TESTS_TO_FIX := \
 	accesses_intro.ml \
 	rewrite_equiv_at.ml \
 	variable_simpl_deref.ml \
+	typedef_fold.ml \
+	typedef_unfold.ml \
+
+
 
 NOT_NEEEDED_TO_FIX := \
 	arith_shift.ml \
