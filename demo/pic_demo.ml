@@ -37,6 +37,8 @@ let prepro = ["-DPRINTPERF" ; "-DDEBUG_ITER_DESTR" (*; "-DDEBUG_ITER" *)] @ prep
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
+  (* Part 1 : sequential optimizations *)
+
   bigstep "Optimization and inlining of [matrix_vect_mul]";
   let ctx = cTopFunDef "matrix_vect_mul" in
   !! Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
@@ -225,6 +227,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
       [step; cLabel "charge"; cFun "mybij"];
 
+  (* Part 2 : parallelization *)
+
   bigstep "Coloring";
   !! Variable.insert_list_same_type (atyp "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
@@ -298,7 +302,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   (* if debug then begin
   !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"]; end; *)
 
-
+  (* Part 3 : Vectorization *)
 
   bigstep "Loop splitting: process speeds, process positions, deposit particle and its charge";
   !! Trace.reparse();
