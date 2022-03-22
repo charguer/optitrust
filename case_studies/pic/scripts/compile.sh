@@ -62,7 +62,8 @@ DEBUGFLAGS=""
 #  2> vect_info.txt -fopt-info-vec-missed -ftree-vectorize
 # -ftree-vectorize -fopt-info-vec-missed -fopt-info-all -fopt-info-vec-all
 # GENERATE ASSEMBLY -Wa,-adhln"
-PERFFLAGS=" -DPRINTPERF -DPRINTSTEPS"
+VECTINFOS=" -fopt-info-vec-all"
+PERFFLAGS=" -DPRINTPERF -DPRINTSTEPS -ftree-vectorize"
 
 if [ ! -z "$DEBUGFLAGS" ]; then
   echo "COMPILING IN DEBUG MODE"
@@ -97,7 +98,7 @@ else
 fi
 
 
-COMPILE_ARGS="-I$PICVERT_HOME/include -I $PICVERT_HOME/simulations $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c  $EXTRA_SPECIFIC_PRE  $PICVERT_HOME/simulations/${BASENAME}.${EXTENSION} $EXTRA_SPECIFIC_POST -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $DOUBLEPRECISION $CHECKER $DEBUGFLAGS $PERFFLAGS -lfftw3 -lm -O3  -march=native ${CSTANDARD} "
+COMPILE_ARGS="-I$PICVERT_HOME/include -I $PICVERT_HOME/simulations $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c  $EXTRA_SPECIFIC_PRE  $PICVERT_HOME/simulations/${BASENAME}.${EXTENSION} $EXTRA_SPECIFIC_POST -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $DOUBLEPRECISION $CHECKER $DEBUGFLAGS $PERFFLAGS -lfftw3 -lm -O3 ${VECTINFOS} -march=native ${CSTANDARD} "
 
 # echo "gcc ${COMPILE_ARGS}"
 
@@ -109,7 +110,12 @@ compile_one() {
   cp $PICVERT_HOME/scripts/parameters_3d.txt run${id_run}/
   if [ "${compiler}" = "gcc" ]; then
     export OMPI_CC=gcc
-    mpicc ${COMPILE_ARGS} -fopenmp -o run${id_run}/${BASENAME}.out
+    #if [ -z "$VECTINFOS" ]; then
+      mpicc ${COMPILE_ARGS} -fopenmp -o run${id_run}/${BASENAME}.out ${REDIRECTOUTPUT}
+    #else
+    #  echo "${BASENAME}.info"
+    #  mpicc ${COMPILE_ARGS} -fopenmp -o run${id_run}/${BASENAME}.out ${REDIRECTOUTPUT}
+    #fi
   elif [ "${compiler}" = "icc" ]; then
     export OMPI_CC=icc
     mpicc ${COMPILE_ARGS} -qopenmp -o run${id_run}/${BASENAME}.out
