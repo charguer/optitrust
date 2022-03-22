@@ -1,5 +1,7 @@
 #include "optitrust.h"
 
+/* declared inline in the .h
+
 int MINDEX1(int N1, int i1) {
   return i1;
 }
@@ -15,6 +17,8 @@ int MINDEX3(int N1, int N2, int N3, int i1, int i2, int i3) {
 int MINDEX4(int N1, int N2, int N3, int N4, int i1, int i2, int i3, int i4) {
   return i1 * N2 * N3 * N4 + i2 * N3 * N4 + i3 * N4 + i4;
 }
+
+*/
 
 void* MCALLOC1(int N1, size_t bytes_per_item) {
   return calloc(N1, bytes_per_item);

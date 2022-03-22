@@ -315,7 +315,9 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
        dattr ^^ init_type ^^ braces (separate (comma ^^ blank 1) dl)
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl
-    | Trm_let_fun (f, r, tvl, b) -> dattr ^^ trm_let_fun_to_doc ~semicolon f r tvl b
+    | Trm_let_fun (f, r, tvl, b) ->
+        let inline = trm_annot_has Fun_inline t in
+        dattr ^^ trm_let_fun_to_doc ~semicolon inline f r tvl b
     | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
     | Trm_if (b, then_, else_) ->
        let db = decorate_trm ~semicolon:false b in
@@ -500,15 +502,16 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
   dtx  ^^ blank 1 ^^ Tools.list_to_doc ~sep:comma dtl ~bounds:[empty; empty] ^^ dsemi
 
 
-and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
+and trm_let_fun_to_doc ?(semicolon : bool = true)(inline : bool) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
-  let f = Tools.string_subst "overloaded" "operator" f in
+  let dinline = if inline then [string "inline"] else [] in
+  let f = Tools.string_subst "overloaded" "operator" f in (* LATER: this is problematic if the user has a function name that contains "overloaded" as substring *)
   let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
   begin match b.desc with
   | Trm_val (Val_lit Lit_uninitialized) ->
-     separate (blank 1) [dr; string f; parens argd] ^^ dsemi
-  | _ -> separate (blank 1) [dr; string f; parens argd; decorate_trm b]
+     separate (blank 1) (dinline @ [dr; string f; parens argd]) ^^ dsemi
+  | _ -> separate (blank 1) (dinline @ [dr; string f; parens argd; decorate_trm b])
   end
 
 and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =

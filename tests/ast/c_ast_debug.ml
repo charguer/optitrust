@@ -6,7 +6,6 @@ let _ =
   Flags.dump_ast_details := true
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir (fun () ->
-
-  (*show [cVarDef "v"];*)
+  show [cFunDef "f"];
   !! Trace.reparse ~parser:Parsers.Menhir  ()
   )

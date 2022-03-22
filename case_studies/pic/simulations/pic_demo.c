@@ -6,11 +6,11 @@
 
 // --------- Grid coordinate functions
 
-int int_of_double(double a) {
+inline int int_of_double(double a) {
   return (int) a - (a < 0.);
 }
 
-int wrap(int gridSize, int a) {
+inline int wrap(int gridSize, int a) {
   return (a % gridSize + gridSize) % gridSize;
   // could also be implemented using a conditional:
   // int r = (a % gridSize); return (r >= 0) ? r : (r + gridSize);
@@ -20,7 +20,7 @@ int wrap(int gridSize, int a) {
 
 #define nbCorners 8 // const int nbCorners = 8;
 
-int cellOfCoord(int i, int j, int k) {
+inline int cellOfCoord(int i, int j, int k) {
   return MINDEX3(gridX,gridY,gridZ,i,j,k);
 }
 
@@ -51,25 +51,26 @@ vect wrapArea(vect pos) {
 
 // relativePosX(x) computes the distance to the right-top-most
 // nearest corner, divided by the width of a cell
-double relativePosX(double x) {
+inline double relativePosX(double x) {
   const int iX = int_of_double(x / cellX);
   return (x - iX * cellX) / cellX;
 }
-double relativePosY(double y) {
+inline double relativePosY(double y) {
   const int iY = int_of_double(y / cellY);
   return (y - iY * cellY) / cellY;
 }
-double relativePosZ(double z) {
+inline double relativePosZ(double z) {
   const int iZ = int_of_double(z / cellZ);
   return (z -  iZ * cellZ) / cellZ;
 }
+
 typedef struct {
   int iX;
   int iY;
   int iZ;
 } coord;
 
-coord coordOfCell(int idCell) {
+inline coord coordOfCell(int idCell) {
   const int iZ = idCell % gridZ;
   const int iXY = idCell / gridZ;
   const int iY = iXY % gridY;

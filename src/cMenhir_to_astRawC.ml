@@ -418,9 +418,10 @@ and tr_globdef (d : C.globdecl) : trm =
   | C.Gfundef {fd_storage = _; fd_inline = inline; fd_name = {name = n;_}; fd_attrib = _att; fd_ret = ty; fd_params = po; fd_body = bo; _} ->
     let tt = tr_type ty in
     let tb = tr_stmt bo in
+    let annot = if inline then [Fun_inline] else [] in
     begin match po with
     | [] ->
-      trm_let_fun n tt [] tb
+      trm_let_fun ~annot n tt [] tb
     | _ ->
       let get_args (tv : C.ident * C.typ) : (var * typ) =
         let (id, ty) = tv in
@@ -428,7 +429,7 @@ and tr_globdef (d : C.globdecl) : trm =
         (id.name, ty)
        in
       let args = List.map get_args po in
-      trm_let_fun ~loc ~ctx n tt args tb
+      trm_let_fun ~annot ~loc ~ctx n tt args tb
     end
   | C.Genumdef ({C.name = tn}, att, enum_list) ->
     let el = List.map (fun ({C.name = constant_name; }, _, exp_opt) ->

@@ -176,7 +176,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_val v ->
      let dv = print_val ~only_desc v in
      print_node "Trm_val" ^^ parens dv
-  | Trm_var (vk, x) -> 
+  | Trm_var (vk, x) ->
     let var_kind_str = match vk with | Var_immutable -> string "Var_immutable" | Var_mutable -> string "Var_mutable" in
     string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ string x ^^ rparen
   | Trm_array tl ->
@@ -406,6 +406,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Reference -> string "Reference"
     | Stackvar -> string "Stackvar"
     | Annot_stringreprid s -> string "Annot_stringreprid" ^^ string (string_of_int s)
+    | Fun_inline -> string "Fun_inline"
     in
 
   if only_desc then ddesc

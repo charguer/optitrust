@@ -291,6 +291,7 @@ and trm_annot =
   | Reference (* Used to encode references as pointers with annotation Reference *)
   | Stackvar (* Used to encode stack variables *)
   | Annot_stringreprid of stringreprid (* Memoization id for the string representation of this node *)
+  | Fun_inline (* Inline attribute for a function *)
 
 
 (* symbols to add while printing a C++ program.*)
@@ -2661,5 +2662,5 @@ let map_from_trm_var_assoc_list (al : (string * trm) list) : tmap =
   List.fold_left (fun acc (k, v) -> Trm_map.add k v acc) tm al
 
 (* [typ_align align ty] add the alignas attribute to type ty *)
-let typ_align (align : trm) (ty : typ) = 
+let typ_align (align : trm) (ty : typ) =
   typ_add_attribute (Alignas align) ty

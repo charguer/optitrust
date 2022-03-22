@@ -36,7 +36,7 @@ let prepro = if use_checker then ["-DCHECKER"] else []
 
 let prepro = ["-DPRINTPERF" ; "-DDEBUG_ITER_DESTR" (*; "-DDEBUG_ITER" *)] @ prepro
 
-let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.hc";"bag_atomics.h";"bag.h-"] (fun () ->
+let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.h";"bag_atomics.h";"bag.h-"] (fun () ->
 
   (* Part 1: sequential optimizations *)
 
@@ -339,8 +339,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   !! List.iter (fun occ -> Omp.simd [occIndex occ; tBefore; step; cFor "i"]) [0;1]; (* BEAUTIFY: occIndices *)
   !! Function.inline [step; cFun "cellOfCoord"];
-  !! Function.inline [step; sInstr "*idCell2 ="; cMindex ~d:3 ()];
-  !! Function.inline [nbMulti; step; cFor "k"; cMindex  ~d:3()];
+  (*!! Function.inline [step; sInstr "*idCell2 ="; cMindex ~d:3 ()];
+  !! Function.inline [nbMulti; step; cFor "k"; cMindex  ~d:3()]; *)
 
 )
 
