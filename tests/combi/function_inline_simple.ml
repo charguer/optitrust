@@ -10,7 +10,7 @@ let _ = Run.script_cpp (fun _ ->
   (* !! Function.inline ~vars:(AddSuffix "${occ}") [occFirst;cFun "f?"]; *)
   !! Function.inline [nbMulti; cFun "vect_mul"];
   !! Function.inline [nbMulti; cFun "vect_add"];
-  !! Function.inline [nbMulti; cFun "vect_op"];
+  !! Function.inline  [nbMulti; cFun "vect_op"];
   (* TODO
    vect r;
   if (true) {
@@ -22,7 +22,7 @@ let _ = Run.script_cpp (fun _ ->
 const vect w = r
 *)
 
-  !! Function.inline [nbMulti; cFun "vect_op2"];
+  !! Function.inline ~keep_res:true [nbMulti; cFun "vect_op2"];
   (* LATER: have an option to function inline for keeping "res" and not eliminating it ==> deactivate the final step
     vect res = {0,0};
     res.x = 1;

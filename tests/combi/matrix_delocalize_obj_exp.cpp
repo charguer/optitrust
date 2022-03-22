@@ -54,27 +54,27 @@ int main() {
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init(&bagNext[MINDEX1(nbCells, idCell)]);
   }
-  bag *bagNexts = (bag *)MMALLOC2(N0, nbCells, sizeof(bag));
+  bag *bagNexts = (bag *)MMALLOC2(nbCells, N0, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagKind = 0; bagKind < N0; bagKind++) {
-      bag_init(&bagNexts[MINDEX2(N0, nbCells, bagKind, idCell)]);
+      bag_init(&bagNexts[MINDEX2(nbCells, N0, idCell, bagKind)]);
     }
   }
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (particle *p = bag_iter_begin(&bag_it, NULL); p != NULL;
          p = bag_iter_next_common(&bag_it, true)) {
-      bag_push(&bagNexts[MINDEX2(N0, nbCells, ANY(N0), idCell)], *p);
+      bag_push(&bagNexts[MINDEX2(nbCells, N0, idCell, ANY(N0))], *p);
     }
   }
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagKind = 0; bagKind < N0; bagKind++) {
       bag_merge(&bagNext[MINDEX1(nbCells, idCell)],
-                &bagNexts[MINDEX2(N0, nbCells, bagKind, idCell)]);
+                &bagNexts[MINDEX2(nbCells, N0, idCell, bagKind)]);
     }
   }
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagKind = 0; bagKind < N0; bagKind++) {
-      bag_free(&bagNexts[MINDEX2(N0, nbCells, bagKind, idCell)]);
+      bag_free(&bagNexts[MINDEX2(nbCells, N0, idCell, bagKind)]);
     }
   }
   MFREE(bagNexts);

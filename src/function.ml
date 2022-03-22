@@ -193,7 +193,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
              if !success_attach then begin
                 Variable.inline ~delete:true [new_target];
                 Variable.inline_and_rename [Target.nbAny; Target.cVarDef !resname];
-                try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> ();
+                if not keep_res then begin try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> () end;
                 Marks.remove "__inline_instruction" [Target.nbAny;Target.cMark "__inline_instruction" ] end
              else if not keep_res then
                 try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> ();
