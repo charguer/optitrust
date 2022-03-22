@@ -91,11 +91,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Function.inline [steps; cFun "bag_iter_ho_chunk"];
   !! List.iter (fun f -> Function.beta ~indepth:true [f]) stepFuns;
   *)
-
-
-
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
-
 
   bigstep "Elimination of pointer p, to prepare for aos-to-soa";
   !! Variable.init_detach [steps; cVarDef "p"];
