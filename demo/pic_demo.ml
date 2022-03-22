@@ -241,7 +241,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
   !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "4") [tBefore; cVarDef "nbCells"];
   (* !! Omp.declare_num_threads "nbThreads"; *) (* TEMPORARY *)
-  !! Omp.get_num_threads "nbThreads" [tFirst; cTopFunDef "main"; dBody];
+  (* !! Omp.get_num_threads "nbThreads" [tFirst; cTopFunDef "main"; dBody]; *)
   !! Omp.get_thread_num "idThread" [tBefore; step; cFor "iX"]; (* BEAUTIFY: ~const:true should be by default, implying the line below *)
   !! Variable.to_const [step; cVarDef "idThread"];
   !! Trace.reparse();
