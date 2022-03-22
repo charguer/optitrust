@@ -28,6 +28,16 @@ typedef struct bag_iter {
   int index;
 } bag_iter;
 
+const int nbCells = 100;
+
+const int N0 = 5;
+
+const int N1 = 10;
+
+const int N2 = 11;
+
+const int N3 = 12;
+
 particle *bag_iter_begin(bag_iter *it, bag *b);
 
 particle *bag_iter_next_common(bag_iter *it, bool destructive);
@@ -42,12 +52,22 @@ void bag_merge(bag *b1, bag *b2);
 
 void bag_free(bag *b);
 
+bag *bagNext1;
+
+bag *bagNexts1;
+
+void allocate() {
+  bagNext1 = (bag *)MMALLOC1(nbCells, sizeof(bag));
+alloc:
+  bagNexts1 = (bag *)MMALLOC2(N0, nbCells, sizeof(bag));
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int bagKind = 0; bagKind < N0; bagKind++) {
+      bag_init(&bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
+    }
+  }
+}
+
 int main() {
-  const int nbCells = 100;
-  const int N0 = 5;
-  const int N1 = 10;
-  const int N2 = 11;
-  const int N3 = 12;
   bag *bagCur = (bag *)MMALLOC1(nbCells, sizeof(bag));
   bag_iter bag_it;
   bag *bagNext = (bag *)MMALLOC1(nbCells, sizeof(bag));
@@ -82,7 +102,31 @@ int main() {
     bag_swap(&bagNext[MINDEX1(nbCells, idCell)],
              &bagCur[MINDEX1(nbCells, idCell)]);
   }
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (particle *p = bag_iter_begin(&bag_it, NULL); p != NULL;
+         p = bag_iter_next_common(&bag_it, true)) {
+      bag_push(&bagNexts1[MINDEX2(nbCells, N0, idCell, ANY(N0))], *p);
+    }
+  }
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int bagKind = 0; bagKind < N0; bagKind++) {
+      bag_merge(&bagNext1[MINDEX1(nbCells, idCell)],
+                &bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
+    }
+  }
+dealloc:
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int bagKind = 0; bagKind < N0; bagKind++) {
+      bag_free(&bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
+    }
+  }
+  MFREE(bagNexts1);
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    bag_swap(&bagNext1[MINDEX1(nbCells, idCell)],
+             &bagCur[MINDEX1(nbCells, idCell)]);
+  }
   MFREE(bagCur);
   MFREE(bagNext);
+  MFREE(bagNext1);
   return 0;
 }
