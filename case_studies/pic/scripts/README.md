@@ -87,6 +87,20 @@ cd src/case_studies/pic
 ./test.sh pic_demo.c
 ```
 
+# Vectorization information
+
+```
+./vectinfo.sh pic_barsamian.c
+./vectinfo.sh pic_optimized.c
+```
+
+# Correctness checking
+
+```
+./check.sh pic_barsamian.c pic_demo.c
+./check.sh pic_demo.c pic_optimized.c
+```
+
 
 # Additional notes
 ```

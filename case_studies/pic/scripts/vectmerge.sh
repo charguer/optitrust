@@ -1,31 +1,37 @@
 #!/bin/bash
-LINE="pic_optimized.c:105:8: note: not vectorized: not enough data-refs in basic block."
 
-PATTERN=':([0-9]*)'
+TARGET=$1
+BASENAME="${TARGET%%.*}"
 
+readarray -t SRCLINES < ../simulations/${TARGET}
 
-readarray -t SRCLINES < ../simulations/pic_optimized.c
-
-INPUT="pic_optimized_infos.txt"
-
-OUTPUT="pic_optimized_infos.c"
+INPUT="${BASENAME}_infos.txt"
+OUTPUT="${BASENAME}_infos.c"
 
 echo "" > ${OUTPUT}
 
-LASTLINE=0
+PATTERN=':([0-9]*)'
+PATTERNVEC='loop vectorized'
+
+LASTLINE=-1
 while read p; do
   THELINE="$p"
-  [[ $THELINE =~ $PATTERN ]] # $pat must be unquoted
+  [[ $THELINE =~ $PATTERN ]]
   REFLINENB="${BASH_REMATCH[1]}"
   REFLINENB=$((REFLINENB-1))
-  echo "${THELINE}" >> ${OUTPUT}
 
-  if [ ${REFLINENB} != ${LASTLINE} ]; then
-    echo "${SRCLINES[REFLINENB]}" >> ${OUTPUT}
+  if [[ $THELINE =~ $PATTERNVEC ]]; then
+    echo "CODE:   ${SRCLINES[REFLINENB]}" >> ${OUTPUT}
+  fi
+
+  if [ ${LASTLINE} != -1 ] && [ ${REFLINENB} != ${LASTLINE} ]; then
+    echo "CODE:   ${SRCLINES[LASTLINE]}" >> ${OUTPUT}
     echo "" >> ${OUTPUT}
   fi
   LASTLINE=${REFLINENB}
+  echo "${THELINE}" >> ${OUTPUT}
 
 done < ${INPUT}
 
-echo "${OUTPUT} produced"
+echo "CODE:   ${SRCLINES[LASTLINE]}" >> ${OUTPUT}
+echo "Produced ${OUTPUT}"

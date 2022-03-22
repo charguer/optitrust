@@ -51,6 +51,8 @@ fi
 #              compilation        #
 ###################################
 
+# uses VECTINFOS from the environment, see vectinfo.sh
+
 # possible additional flags -DPRINTPARAMS -DDEBUG_CHECKER -DDEBUG_CHARGE -DDEBUG_FIELD -DDEBUG_ACCEL -DDEBUG_CREATION
 # more flags: -DPRINTPERF -DPRINTSTEPS
 
@@ -59,10 +61,6 @@ DEBUGFLAGS=""
 # DEBUGFLAGS="-g -DDEBUG_ITER"
 #DEBUGFLAGS="-g"
 
-#  2> vect_info.txt -fopt-info-vec-missed -ftree-vectorize
-# -ftree-vectorize -fopt-info-vec-missed -fopt-info-all -fopt-info-vec-all
-# GENERATE ASSEMBLY -Wa,-adhln"
-VECTINFOS=" -fopt-info-vec-all"
 PERFFLAGS=" -DPRINTPERF -DPRINTSTEPS -ftree-vectorize"
 
 if [ ! -z "$DEBUGFLAGS" ]; then
