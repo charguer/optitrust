@@ -5,11 +5,11 @@ open Ast
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
 
-let step = cFunDef "step"
-let stepLF = cFunDef "stepLeapFrog"
+let step = cTopFunDef "step"
+let stepLF = cTopFunDef "stepLeapFrog"
 let stepsl = [stepLF; step]
-let repPart = cFunDef "reportParticlesState"
-let addPart = cFunDef "addParticle"
+let repPart = cTopFunDef "reportParticlesState"
+let addPart = cTopFunDef "addParticle"
 
 let dims = ["X"; "Y"; "Z"]
 let nb_dims = List.length dims
@@ -35,9 +35,6 @@ let prepro = if use_checker then ["-DCHECKER"] else []
 let prepro = ["-DPRINTPERF"; "-DDEBUG_ITER"] @ prepro
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
-
-show [dRoot; cTopFunDef "step"];
-  show [cOr [[cTopFunDef "step"]]];
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
   let ctx = cTopFunDef "matrix_vect_mul" in

@@ -1077,7 +1077,7 @@ and check_target ?(depth : depth = DepthAny) (tr : target) (t : trm) : bool =
   sort_unique
  *)
 
-and debug_resolution = true
+and debug_resolution = false
 
 and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t : trm) : paths =
   let epl =
