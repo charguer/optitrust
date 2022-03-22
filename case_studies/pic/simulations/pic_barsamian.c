@@ -607,6 +607,42 @@ int main(int argc, char** argv) {
 
     accumulate_field_3d(Ex, Ey, Ez, ncx, ncy, ncz, x_field_factor, y_field_factor, z_field_factor, E_field);
 
+#ifdef DEBUG_FIELD
+    for (int i = 0; i < ncx; i++) {
+        for (int j = 0; j < ncy; j++) {
+            for (int k = 0; k < ncz; k++) {
+                //if (! (i == 0 && j == 0 && k ==0))
+                //  break;
+                i_cell = COMPUTE_I_CELL_3D(icell_param1, icell_param2, i, j, k);
+                double r = - q; // / nb_particles / charge_factor; // /nbParticles/charge_factor
+                printf("E_field<%d>[%d][%d][%d].left_front_down *(-q)/xyz_field_factor = %g %g %g\n", i_cell, i, j, k,
+                  r/x_field_factor * E_field[i_cell].field_x.left_front_down,
+                  r/y_field_factor * E_field[i_cell].field_y.left_front_down,
+                  r/z_field_factor * E_field[i_cell].field_z.left_front_down);
+            }
+        }
+    }
+#endif
+
+#ifdef DEBUG_ACCEL
+    printf("nb_particles = %ld\n", nb_particles);
+    printf("delta_t = %g\n", delta_t);
+    printf("q = %g\n", q);
+    printf("m = %g\n", m);
+    printf("xrange = %g\n", mesh.x_max - mesh.x_min);
+    printf("yrange = %g\n", mesh.y_max - mesh.y_min);
+    printf("zrange = %g\n", mesh.z_max - mesh.z_min);
+    printf("dx = %g\n", mesh.delta_x);
+    printf("dy = %g\n", mesh.delta_y);
+    printf("dz = %g\n", mesh.delta_z);
+    printf("dt_over_dx = %g\n", dt_over_dx);
+    printf("dt_q_over_m = %g\n", dt_q_over_m);
+    printf("weight = %g\n", weight);
+    printf("charge_factor = %g\n", charge_factor);
+    printf("x_field_factor = %g\n", x_field_factor);
+#endif
+
+
     // Computes speeds half time-step backward (leap-frog method).
     // WARNING : starting from here, v doesn't represent the speed, but speed * dt / dx.
     #pragma omp parallel for private(i, j, chunkbag, my_chunk)

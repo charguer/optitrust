@@ -8,12 +8,13 @@ readarray -t SRCLINES < ../simulations/${TARGET}
 INPUT="${BASENAME}_infos.txt"
 OUTPUT="${BASENAME}_infos.c"
 
-echo "" > ${OUTPUT}
+# clear file
+> ${OUTPUT}
 
 PATTERN=':([0-9]*)'
 PATTERNVEC='loop vectorized'
 
-LASTLINE=-1
+LASTLINE=0
 while read p; do
   THELINE="$p"
   [[ $THELINE =~ $PATTERN ]]
@@ -24,14 +25,19 @@ while read p; do
     echo "CODE:   ${SRCLINES[REFLINENB]}" >> ${OUTPUT}
   fi
 
-  if [ ${LASTLINE} != -1 ] && [ ${REFLINENB} != ${LASTLINE} ]; then
-    echo "CODE:   ${SRCLINES[LASTLINE]}" >> ${OUTPUT}
-    echo "" >> ${OUTPUT}
+  if [ ${REFLINENB} != ${LASTLINE} ]; then
+    while [[ ${LASTLINE} < ${REFLINENB} ]]; do
+      echo "${SRCLINES[LASTLINE]}" >> ${OUTPUT}
+      LASTLINE=$((LASTLINE+1))
+    done;
+    #echo "" >> ${OUTPUT}
   fi
   LASTLINE=${REFLINENB}
   echo "${THELINE}" >> ${OUTPUT}
 
 done < ${INPUT}
 
-echo "CODE:   ${SRCLINES[LASTLINE]}" >> ${OUTPUT}
 echo "Produced ${OUTPUT}"
+echo "View using:"
+COMMAND="meld ../simulations/${TARGET} ${OUTPUT}"
+${COMMAND} &

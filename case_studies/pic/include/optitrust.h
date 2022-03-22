@@ -4,8 +4,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-
-
 int MINDEX1(int N1, int i1);
 int MINDEX2(int N1, int N2, int i1, int i2);
 int MINDEX3(int N1, int N2, int N3, int i1, int i2, int i3);

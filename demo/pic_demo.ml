@@ -99,7 +99,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Elimination of the pointer on a particle, to prepare for aos-to-soa";
   !! Variable.init_detach [steps; cVarDef "p"];
-  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];  
+  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."];  (* BEAUTIFY: move elsewhere? *)
   !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
   !! Instr.delete [steps; cVarDef "p"];
@@ -113,7 +113,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Apply scaling factors on the electric field";
   !! Struct.to_variables [step; cVarDef "fieldAtPos"];
   !! Variable.insert_list_same_type ~reparse:true (atyp "const double") (["factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
-      @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d)))))  [occFirst; tBefore; step; cFor "idCell";
+      @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d))))) [occFirst; tBefore; step; cFor "idCell"];
   !! Function.inline [step; cFun "getFieldAtCorners"];
   !! Struct.set_explicit [step; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "res"] ()] ()];
   !! iter_dims (fun d ->
@@ -126,9 +126,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef "accel"];
 
   bigstep "Applying a scaling factor on speeds";
-  !! Struct.set_explicit [addPart; cVarDef "p"]; 
+  !! Struct.set_explicit [addPart; cVarDef "p"];
   !! iter_dims (fun d ->
-      let d_lc = String.lowercase_ascii d in 
+      let d_lc = String.lowercase_ascii d in
       Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [addPart; cFieldRead ~field:d_lc ~base:[cVar "speed"] ()]);
   !! iter_dims (fun d ->
       Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
@@ -138,7 +138,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Applying a scaling factor on positions";
   !! iter_dims (fun d ->
-      let d_lc = String.lowercase_ascii d in 
+      let d_lc = String.lowercase_ascii d in
       Accesses.scale ~factor:(expr ("cell"^d)) [addPart; cFieldRead ~field:d_lc ~base:[cVar "pos"] ()]);
   !! iter_dims (fun d ->
      Accesses.scale ~neg:true ~factor:(expr ("cell"^d))
@@ -246,7 +246,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "4") [tBefore; cVarDef "nbCells"];
   (* !! Omp.declare_num_threads "nbThreads"; *) (* TEMPORARY *)
   (* !! Omp.get_num_threads "nbThreads" [tFirst; cTopFunDef "main"; dBody]; *)
-  !! Omp.get_thread_num "idThread" [tBefore; step; cFor "iX"]; 
+  !! Omp.get_thread_num "idThread" [tBefore; step; cFor "iX"];
   !! Trace.reparse();
 
   bigstep "Parallelize the code using concurrent operations (they are subsequently eliminated)";
@@ -274,7 +274,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   (* TODO: parallelize the accumulation loop, which needs to be marked "depositSum" at the delocalize step
       !! Omp.parallel_for [tBefore; step; cMark "depositSum"]]; *)
   !! Instr.delete [step; cLabel "charge"; cOmp()]; (* BEAUTIFY: Instr.set_nonatomic ; also cPragma is needed *)
-  
+
   bigstep "Introduce private and shared bags";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
     ~alloc_instr:[cFunDef "allocateStructures"; cWriteVar "bagsNext"]
@@ -332,7 +332,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];
   !! Align.def (lit "64") [nbMulti; dRoot; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
-                                         
+
   !! Align.def (lit "64") [nbMulti; cOr [[dRoot; cStrictNew; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
                                          [step; cVarDef "idCell2_step"]]];
   !! Struct.align_field (lit "64") ("items.") [cTypDef "chunk"];

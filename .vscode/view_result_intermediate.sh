@@ -138,7 +138,7 @@ fi
 # Execute the transformation program
 
 # Execute with backtrace activated, and specifying the -exit-line value
-OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS}
+OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS} -report-big-steps
 # echo "./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}"
 
 OUT=$?
