@@ -254,7 +254,8 @@ and val_to_doc (v : value) : document =
 and attr_to_doc (a : attribute) : document =
   match a with
   | Identifier x -> string x
-  | Alignas t -> string "_Alignas" ^^ parens (decorate_trm t)
+  (* | Alignas t -> string "_Alignas" ^^ parens (decorate_trm t) *)
+  | Alignas t -> string "alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
   | Others -> empty
 

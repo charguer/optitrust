@@ -493,23 +493,28 @@ let rename_fields (index : int) (rename : rename) : Target.Transfo.local =
     return:
       the updated ast of the struct declaration
 *)
-let update_fields_type_aux (pattern : string ) (ty : typ) (t : trm) : trm =
+let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : trm) : trm =
   match t.desc with
   | Trm_typedef ({typdef_body = Typdef_prod (tn, fl);_}  as td) ->
-      let rec update_type (ty_to_update : typ) : typ = 
+      
+      let update_type ty = typ_map typ_update ty in 
+      
+      (* let rec update_type (ty_to_update : typ) : typ = 
         match ty_to_update.typ_desc with 
         | Typ_array _ | Typ_ptr _ 
           | Typ_const _ -> typ_map update_type ty_to_update
         | _ -> ty
-        in 
+        in  *)
       let replace_type (s : string) (ty1 : typ) : typ =
         if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
       let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in
       trm_typedef ~annot:t.annot ~marks:t.marks {td with typdef_body = Typdef_prod (tn, new_fl)}
     | _ -> fail t.loc "reanme_fields_aux: expected a typedef declaration"
 
-let update_fields_type (pattern : string) (ty : typ) : Target.Transfo.local =
-  Target.apply_on_path (update_fields_type_aux pattern ty)
+let update_fields_type (pattern : string) (typ_update : typ -> typ) : Target.Transfo.local =
+  Target.apply_on_path (update_fields_type_aux pattern typ_update )
+
+
 (* [simpl_proj_aux t] transform all expression of the form {1, 2, 3}.f into the trm it projects to
     params:
       [t]: ast of the node whose descendants can contain struct initialization list projections

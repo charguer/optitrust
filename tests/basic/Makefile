@@ -60,8 +60,6 @@ TESTS_WITH_DOC := \
 	struct_update_fields_type.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
-	typedef_fold.ml \
-	typedef_unfold.ml \
 	variable_bind.ml \
 	variable_fold.ml \
 	variable_unfold.ml \
@@ -102,6 +100,10 @@ TESTS_TO_FIX := \
 	accesses_intro.ml \
 	rewrite_equiv_at.ml \
 	variable_simpl_deref.ml \
+	typedef_fold.ml \
+	typedef_unfold.ml \
+
+
 
 NOT_NEEEDED_TO_FIX := \
 	arith_shift.ml \
