@@ -420,7 +420,7 @@ let rec constr_to_string (c : constr) : string =
   | Constr_occurrences oc -> target_occurrences_to_string oc
   | Constr_target cl ->
     let string_cl = List.map constr_to_string cl in
-    list_to_string string_cl
+    "Target" ^ list_to_string string_cl
   | Constr_bool b -> if b then "True" else "False"
   | Constr_root -> "Root"
   | Constr_prim _ -> "Prim"
@@ -1077,24 +1077,36 @@ and check_target ?(depth : depth = DepthAny) (tr : target) (t : trm) : bool =
   sort_unique
  *)
 
+and debug_resolution = true
+
 and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t : trm) : paths =
   let epl =
     match trs with
     | [] -> [[]]
+    | Constr_target tl :: trest -> (* LATER: see if we can flatten recursively in targets before we start *)
+       resolve_target_simple ~depth (tl @ trest) t
+
     | Constr_or tl :: trest -> (* LATER: maybe we'll add an option to enforce that each target from the list tl resolves to at least one solution *)
         let all_targets_must_resolve = false in
-        List.fold_left (fun acc tr ->
-          let potential_targets = resolve_target_simple (tr @ trest) t in
+        let res = List.fold_left (fun acc tr ->
+          let potential_targets = resolve_target_simple ~depth (tr @ trest) t in
           begin match potential_targets with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
           | _ ->
             Path.union acc potential_targets
-          end ) [] tl
+          end ) [] tl in
+       if debug_resolution then begin
+          printf "resolve_target_simple[Constr_or]\n  ~target:%s\n  ~term:%s\n  ~res:%s\n"
+            (target_to_string trs)
+            (AstC_to_c.ast_to_string  t)
+            (paths_to_string ~sep:"\n   " res)
+        end;
+        res
     | Constr_diff (tl1 , tl2) :: [] ->
       let all_targets_must_resolve = false in
       let targets_to_keep =
       List.fold_left (fun acc tr ->
-          let potential_targets = resolve_target_simple tr t in
+          let potential_targets = resolve_target_simple ~depth tr t in
           begin match potential_targets with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
           | _ ->
@@ -1143,7 +1155,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
     | c :: p ->
       let strict = match depth with
         | DepthAt 0 -> true
-        | _ when c = Constr_root -> true
+        | _ when c = Constr_root -> true (* useless to search for the root in depth *)
         | _ -> false in
       let skip_here = match depth with DepthAt n when n > 0 -> true | _ -> false in
       let res_deep =
@@ -1156,13 +1168,14 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
            else (resolve_constraint c p t) in
 
       (* DEBUG *)
-        (* printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
+      if debug_resolution then begin
+         printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
           (if strict then "true" else "false")
           (target_to_string trs)
-          (AstC_to_c.ast_to_string ~ast_decode:false t)
+          (AstC_to_c.ast_to_string  t)
           (paths_to_string ~sep:"\n   " res_deep)
-          (paths_to_string ~sep:"\n   " res_here); *)
-
+          (paths_to_string ~sep:"\n   " res_here);
+      end;
         (* Tools.printf " ~deep:%s\n  ~here:%s\n"
           (paths_to_string ~sep:"\n   " res_deep)
           (paths_to_string ~sep:"\n   " res_here); *)
@@ -1212,6 +1225,7 @@ and resolve_target_exactly_one (tg : target) (t : trm) : path =
 and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   let loc = t.loc in
   match c with
+  | Constr_target _ -> fail t.loc "resolve_constraint should not reach a Constr_target"
   (*
     do not resolve in included files, except if the constraint is Constr_include
    *)

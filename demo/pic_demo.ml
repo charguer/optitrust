@@ -36,6 +36,9 @@ let prepro = ["-DPRINTPERF"; "-DDEBUG_ITER"] @ prepro
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
+show [dRoot; cTopFunDef "step"];
+  show [cOr [[cTopFunDef "step"]]];
+
   bigstep "Optimization and inlining of [matrix_vect_mul]";
   let ctx = cTopFunDef "matrix_vect_mul" in
   !! Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
@@ -142,20 +145,20 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   (* Correct until here *)
 
-  bigstep "Shifting of positions"; 
+  bigstep "Shifting of positions";
      (* Shifting of particle positions in when they have been added *)
   !! Instr.move ~dest:[tBefore; addPart; cVarDef "p"] [addPart; cVarDef "idCell"];
   !! Struct.set_explicit [addPart; cVarDef "p"];
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; addPart; cVarDef "idCell"];(* TODO: Find a better target *)
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [addPart; cFieldWrite ~field:("pos"^d) ()];);
-  
+
      (* Shifting of particle positions in when they have been printed *)
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tBefore; repPart; cFor "i"];
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
     );
-  
+
      (* Shifting of particle positions for each iteration step *)
   !! iter_dims (fun d ->
       Variable.bind ~const:true ~typ:(Some (atyp "double")) ("p" ^ d ^ "2") [occLast;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS];
