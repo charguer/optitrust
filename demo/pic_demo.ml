@@ -28,6 +28,7 @@ let stepFuns =
   (if use_checker then [repPart] else [])
      @ stepsl
 
+let stepsReal = cOr (List.map (fun f -> [f]) stepsl) (* LATER: rename *)
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = if use_checker then ["-DCHECKER"] else []
@@ -137,39 +138,52 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
      Accesses.scale ~neg:true ~factor:(expr ("cell"^d))
          [nbMulti; steps; cOr [[sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]);
 
+  bigstep "Simplify arithmetic expressions after scaling";
+  !! Trace.reparse();
+  !! Variable.inline [steps; cVarDef "accel"];
+  !! Arith.with_nosimpl [nbMulti; steps; cFor "k"] (fun () ->
+       Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
+
   bigstep "Enumerate grid cells by coordinates";
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
 
   (* Correct until here *)
 
-  bigstep "Shifting of positions";
-     (* Shifting of particle positions in when they have been added *)
-  !! Instr.move ~dest:[tBefore; addPart; cVarDef "p"] [addPart; cVarDef "idCell"];
-  !! Struct.set_explicit [addPart; cVarDef "p"];
-  !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; addPart; cVarDef "idCell"];(* TODO: Find a better target *)
-  !! iter_dims (fun d ->
-      Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [addPart; cFieldWrite ~field:("pos"^d) ()];);
-
-     (* Shifting of particle positions in when they have been printed *)
-  !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tBefore; repPart; cFor "i"];
-  !! iter_dims (fun d ->
-      Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
-    );
-
-     (* Shifting of particle positions for each iteration step *)
+  bigstep "Code cleanup in preparation for shifting of positions";
   !! iter_dims (fun d ->
       Variable.bind ~const:true ~typ:(Some (atyp "double")) ("p" ^ d ^ "2") [occLast;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS];
       Variable.bind ~const:true ("p" ^ d ) ~typ:(Some (atyp "double")) [occFirst;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS]);
   !! iter_dims (fun d ->
-    Instr.read_last_write [step; cVarDef ~regexp:true "i.2"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
-    Instr.inline_last_write [step; cVarDef ~regexp:true "p.2"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
-  !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true ("\\(i.*2\\|p.2\\|i.2\\)")];
-  !! Instr.(gather_targets  ~dest:(GatherAt [tBefore; cVarDef "p2"])) [step; cVarDef ~regexp:true "r.1"];
+      Instr.inline_last_write [step; cVarDef ~regexp:true "p.2"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
   !! iter_dims (fun d ->
-      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [steps; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
+      Instr.read_last_write [step; cVarDef ~regexp:true "i.2"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
+  !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true ("\\(i.*2\\|p.2\\|i.2\\)")];
+  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; cVarDef "p2"])) [step; cVarDef ~regexp:true "r.1"];
+
+  bigstep "Shifting of positions";
+  !! Struct.set_explicit [addPart; cVarDef "p"]; (* BEAUTIFY: this step should be done earlier, as it makes the scaling targets easier *)
+  (* Shifting of particles at input and output *)
+  !! Instr.move ~dest:[tBefore; addPart; cVarDef "p"] [addPart; cVarDef "idCell"];
+  !! List.iter (fun tg ->
+      Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") tg)
+      [ [tAfter; addPart; cVarDef "idCell"]; [tFirst; repPart; cFor "idCell"; dBody]; ]; (* LATER: make cOr work for targetBetweens (hard) *)
+  !! iter_dims (fun d ->
+      Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [cOr [
+        [addPart; cFieldWrite ~field:("pos"^d) ()];
+        [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()] ]]);
+  (* Shifting of particle positions for each iteration step *)
+  !! iter_dims (fun d ->
+      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [stepsReal; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; cVarDef ("r" ^ d ^ "1"); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
+
+  bigstep "Simplify arithmetic expressions after shifting";
+  !! Trace.reparse();
+  !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "k"] (fun () ->
+       Arith.(simpl ~indepth:true expand) [nbMulti; stepsReal]);
+  !! Instr.delete [nbMulti; stepsReal; cVarDef ~regexp:true "i.0"];
+  !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
 
   bigstep "Simplify arithmetic expressions after scaling and shifting";
   !! Trace.reparse();
