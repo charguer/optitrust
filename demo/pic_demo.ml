@@ -269,6 +269,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true "deposit.*Corners"];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
     (* BEAUTIFY:  ~dest:[tLast; cTopFunDef "allocateStructures"; dBody]  *)
+  (* TODO: parallelize the accumulation loop, which needs to be marked "depositSum" at the delocalize step
+      !! Omp.parallel_for [tBefore; step; cMark "depositSum"]]; *)
 
   bigstep "Introduce private and shared bags";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
@@ -295,20 +297,20 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Specialize.any (expr "SHARED") [step; cIf(); dElse; pushop; cAny];
   !! Expr.replace_fun "bag_push_serial" [step; cIf(); dThen; pushop];
 
-  bigstep "Cleanup"; (* LATER: in cleanup separate ops on deposit from those on bagnexts *)
-  let dep_and_bags = "\\(deposit.*\\|bagsNexts\\)" in
+  bigstep "Cleanup";
   !! Trace.reparse ();
-  !! Variable.init_detach [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
-  !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true dep_and_bags];
-  !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true dep_and_bags];
+  !! Variable.init_detach [nbMulti; step; cVarDef "bagsNexts"]; (*BEAUTIFY: attach to the delocalize op *)
+  !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef "bagsNexts"];
+  !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar "bagsNexts"];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_init_initial"]];
   !! Instr.move_out ~dest:[tBefore; cTopFunDef "deallocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_free_initial"]];
+
+  bigstep "Parallelize and optimize loops that process bags";
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
+  !! Omp.parallel_for [tBefore; occIndex 1; step; cFor "idCell"]; (* BEAUTIFY: use label to refer to the loop *)
   !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
 
-  (* if debug then begin
-  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"]; end; *)
 
   (* Part 4: Vectorization *)
 
