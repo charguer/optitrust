@@ -1,4 +1,6 @@
 open Ast
+open Target
+
 include Loop_basic
 
 type rename = Variable.Rename.t
@@ -425,3 +427,12 @@ let fold_instrs ~index:(index : var) ?(start : int = 0) ?(step : int = 1) (tg : 
   if !nb_targets < 1 then fail None "fold_instrs: expected at least 1 instruction";
   fold ~index ~start ~step !nb_targets first_target;
   Variable.fold ~nonconst:true [Target.nbAny;Target.cVarDef "" ~body:[Target.cInt !nb_targets]]
+
+(* [isolate_first_iteration tg] expects the target [tg] to be pointing at a simple loop, then it will
+   split that loop into two loops by calling split_range transformation. Finally it will unroll the first 
+   loop *)
+let isolate_first_iteration (tg : Target.target) : unit = 
+  Loop_basic.split_range ~nb:1 tg;
+  unroll ([occFirst] @ tg)
+
+

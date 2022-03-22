@@ -4,7 +4,7 @@ typedef struct {
 
 int_5 test() {
   const int a[5] = {0, 1, 2, 3, 4};
-  return {a};
+  return (int_5){a};
 }
 
 void pointer_arg(int *a, int b) { *a = b; }

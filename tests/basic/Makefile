@@ -83,6 +83,7 @@ TESTS_WORKING_NOTINDOC := \
 
 TESTS_TOCHECK := \
 	matrix_delocalize.ml \
+	matrix_delocalize_obj.ml \
 	matrix_intro_mcalloc.ml \
 	matrix_intro_mindex.ml \
 	matrix_intro_mmalloc.ml \
@@ -90,6 +91,7 @@ TESTS_TOCHECK := \
 	matrix_reorder_dims.ml \
 	function_rename_args.ml \
 	variable_ref_to_pointer.ml \
+	loop_split_range.ml \
 
 # missing expected
 # matrix_insert_alloc_dim.ml \

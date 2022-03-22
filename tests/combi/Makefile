@@ -62,7 +62,9 @@ TESTS_TOCHECK := \
 	function_uninline.ml \
 	instr_accumulate_targets.ml \
 	matrix_delocalize.ml \
+	matrix_delocalize_obj.ml \
 	matrix_intro_mops.ml \
+	loop_isolate_first_iteration.ml \
 
 #variable_inline.ml \ TODO: Update variable_inline unit test
 

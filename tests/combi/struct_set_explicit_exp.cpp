@@ -9,7 +9,7 @@ typedef struct {
   vect speed;
 } obj;
 
-vect f() { return {1, 1}; }
+vect f() { return (vect){1, 1}; }
 
 int main() {
   vect p;
