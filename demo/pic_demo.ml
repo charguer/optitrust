@@ -189,8 +189,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     !! Struct.update_fields_type "itemsPos." (atyp "float") [cTypDef "chunk"];
   end;
 
-  (* Correct until here *)
-
   bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
   !! Matrix_basic.intro_mmalloc [nbMulti; cFunDef "allocateStructures";cFun "malloc"];
@@ -229,7 +227,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   (* Part 2 : parallelization *)
 
-  bigstep "Coloring";
+  bigstep "Decompose the loop to allow for parallelization per blocks";
   !! Variable.insert_list_same_type (atyp "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
@@ -248,11 +246,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.to_const [step; cVarDef "idThread"];
   !! Trace.reparse();
 
-  bigstep "Parallelization using concurrent operations, which are subsequently eliminated";
-  !! Omp.atomic None [tBefore; step; cWrite ~lhs:[cVar "sum"] ()];
-  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"];
+  bigstep "Parallelize the code using concurrent operations (they are subsequently eliminated)";
+  !! Omp.atomic None [tBefore; step; cWrite ~lhs:[cVar "sum"] ()]; (* BEAUTIFY: Instr.set_atomic *)
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
-  (*!! Omp.parallel_for [tBefore; step; cFor "idCell"];*)
+  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"];
+  !! Omp.parallel_for [tBefore; step; cFor "idCell" ~body:[cVar "sum"]];
 
   Run.stop();
 
