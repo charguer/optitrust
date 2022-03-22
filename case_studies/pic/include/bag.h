@@ -30,6 +30,7 @@ typedef struct {
 
 // First-order iterator
 typedef struct bag_iter {
+  bool destructive;
   chunk* iter_chunk;
   int size;
   int index;
@@ -51,13 +52,16 @@ void bag_push_initial(bag* b, particle p);
 void bag_init_initial(bag* b);
 void bag_free_initial(bag* b);
 
+chunk* chunk_next(chunk* c, bool destructive);
+
 void bag_iter_load_chunk(bag_iter* it, chunk* c);
-void bag_iter_init(bag_iter* it, bag* b);
+void bag_iter_init(bag_iter* it, bag* b, bool destructive);
 particle* bag_iter_get(bag_iter* it);
 chunk* bag_iter_get_chunk(bag_iter* it);
 particle* bag_iter_begin(bag_iter* it, bag* b);
-chunk* chunk_next(chunk* c, bool destructive);
-particle* bag_iter_next_common(bag_iter* it, bool destructive);
+particle* bag_iter_destructive_begin(bag_iter* it, bag* b);
+
+particle* bag_iter_next_common(bag_iter* it);
 particle* bag_iter_next(bag_iter* it);
 particle* bag_iter_next_destructive(bag_iter* it);
 void bag_iter_ho_basic(bag* b, void body(particle*), bool destructive);

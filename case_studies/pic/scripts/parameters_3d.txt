@@ -12,10 +12,10 @@
 // Values for the parameters.
 sim_distrib = LANDAU_3D_PROD_OF_ONE_PLUS_COS; // Physical test case (LANDAU_1D_PROJ3D, LANDAU_2D_PROJ3D, LANDAU_3D_SUM_OF_COS,
                                              // LANDAU_3D_PROD_OF_COS, LANDAU_3D_PROD_OF_ONE_PLUS_COS or DRIFT_VELOCITIES_3D).
-nb_cells_x    = 32;                           // Number of grid points, x-axis
-nb_cells_y    = 32;                           // Number of grid points, y-axis
-nb_cells_z    = 32;                           // Number of grid points, z-axis
-nb_particles  = 50000000;                // Number of particles. As example, 2 billions is a maximum for 96 GB of memory.
+nb_cells_x    = 64;                           // Number of grid points, x-axis
+nb_cells_y    = 64;                           // Number of grid points, y-axis
+nb_cells_z    = 64;                           // Number of grid points, z-axis
+nb_particles  = 5000000;                // Number of particles. As example, 2 billions is a maximum for 96 GB of memory.
 nb_iterations = 10;                          // Number of time steps
 delta_t       = 0.05;                         // Time step
 thermal_speed = 1.;                           // Thermal speed

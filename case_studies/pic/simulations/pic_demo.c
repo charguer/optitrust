@@ -292,7 +292,7 @@ void stepLeapFrog() {
         particle* p = &c->items[i];
 #else
     bag_iter bag_it;
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, false)) {
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
 #endif
         double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
@@ -323,7 +323,7 @@ void step() {
       for (int i = 0; i < nb; i++) {
         particle* p = &c->items[i];
 #else
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
+    for (particle* p = bag_iter_destructive_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
 #endif
 
       // Interpolate the field based on the position relative to the corners of the cell
@@ -381,7 +381,7 @@ void reportParticlesState() {
         particle* p = &c->items[i];
 #else
     bag_iter bag_it;
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, false)) {
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
 #endif
       count++;
       int id = p->id;
