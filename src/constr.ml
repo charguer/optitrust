@@ -154,6 +154,8 @@ and constr =
   | Constr_array_init
   (* Constraint to match an struct initialization list  *)
   | Constr_struct_init
+  (* Constraint to match an omp directive *)
+  | Constr_omp of (directive->bool) * string
 
 (* LATER: optimize constr_of_path; should be recognized by resolution,
    and processed more efficiently; checking that the start of the path
@@ -432,6 +434,7 @@ let rec constr_to_string (c : constr) : string =
   | Constr_hastype _ -> "<Constr_hastype>"
   | Constr_array_init -> "Array_init "
   | Constr_struct_init -> "Struct_init"
+  | Constr_omp (_, str) -> "Omp (" ^ str ^ ")"
 
 and target_to_string (tg : target) : string =
   list_to_string (List.map constr_to_string tg)
@@ -565,6 +568,7 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_hastype _ -> c
   | Constr_array_init -> c
   | Constr_struct_init -> c
+  | Constr_omp _ -> c
 
 (* [get_target_regexp_kinds tgs] gets the list of trm_kinds of the terms
    for which we would potentially need to use the string representation,
@@ -961,6 +965,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_hastype pred t
      | Constr_array_init, Trm_array _ -> true
      | Constr_struct_init, Trm_struct _ -> true
+     | Constr_omp (pred, _), Trm_omp_directive d ->
+         pred d
      | _ -> false
      end
 

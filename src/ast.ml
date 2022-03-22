@@ -303,7 +303,7 @@ and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   | Identifier of var
   | Alignas of trm (* could be int_or_var *)
   | GeneratedTyp
-  | Others 
+  | Others
 
 
 and record_type =
@@ -760,7 +760,7 @@ let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
   {typ_annot = annot; typ_desc = Typ_arbitrary s ; typ_attributes}
 
 (* [typ_add_attribute att ty] adds the attribute [att] to the type [ty] *)
-let typ_add_attribute (att : attribute)(ty : typ) : typ = 
+let typ_add_attribute (att : attribute)(ty : typ) : typ =
   {ty with typ_attributes = att :: ty.typ_attributes}
 
 (* function that fails with given error message and points location in file *)
@@ -794,7 +794,7 @@ let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
 let trm_annot_remove (annot : trm_annot) (t : trm) : trm =
   { t with annot = Tools.list_remove annot t.annot }
 
-let trm_attr_add (att : attribute) (t : trm) : trm = 
+let trm_attr_add (att : attribute) (t : trm) : trm =
   {t with attributes = att :: t.attributes}
 
 let trm_get_stringreprid (t : trm) : stringreprid option =
