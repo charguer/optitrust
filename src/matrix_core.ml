@@ -348,10 +348,11 @@ let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :
 
 (* TODO: Factorize me *)
 (* TODO: Add docs  *)
-let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (index : string) (ops : local_ops) (t : trm) : trm =
+let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (labels : label list) (index : string) (ops : local_ops) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl -> 
     if Mlist.length tl < 5 then fail t.loc "delocalize_aux: the targeted  sequence does not have the correct shape";
+    let add_labels = List.length labels = 3 in 
     let decl = Mlist.nth tl 0 in 
     begin match decl.desc with 
     | Trm_let (_, (local_var, ty), init) -> 
@@ -364,6 +365,17 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
               let alloc_arity = List.length dims in
               let new_alloc_trm = insert_alloc_dim_aux dim alloc_trm in
               let new_decl = trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_cast (get_inner_ptr_type ty) new_alloc_trm) in
+              let new_fst_instr = 
+                if add_labels then begin 
+                  let label_to_add = List.nth labels 0 in 
+                  if label_to_add = "" 
+                    then new_decl 
+                    else trm_labelled label_to_add (trm_seq_no_brace [
+                      trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_uninitialized ()); 
+                      (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
+                   end
+                  else new_decl in
+              
               let snd_instr = Mlist.nth tl 1 in 
               begin match trm_fors_inv alloc_arity snd_instr with 
               | Some (loop_range, body) -> 
@@ -429,10 +441,14 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     trm_fors loop_range acc_trm in
                     
                   let fifth_instr = Mlist.nth tl 4 in
-                    trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_decl; new_snd_instr; new_thrd_instr; new_frth_instr; fifth_instr])
+                  let new_fifth_instr = if add_labels then 
+                     let label_to_add = List.nth labels 2 in                             
+                     if label_to_add = "" then fifth_instr else trm_labelled label_to_add fifth_instr 
+                      else fifth_instr in  
+                  
+                    trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_fst_instr; new_snd_instr; new_thrd_instr; new_frth_instr; new_fifth_instr])
                   | _ -> fail set_instr.loc "delocalize_aux"
                   end
-                  
                 | Local_obj (_init_f, _merge_f, free_f) -> 
                   let ps1 = resolve_target tg body in 
                   let new_snd_instr =
@@ -495,6 +511,6 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
   |  _ -> fail t.loc "delocalize_aux: expected sequence which contains the mandatory instructions for applying the delocalize transformation"
 
 
-let delocalize (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (index : string) (ops : local_ops): Target.Transfo.local =
-  Target.apply_on_path (delocalize_aux dim init_zero acc_in_place acc any_mark index ops)
+let delocalize (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (labels : label list) (index : string) (ops : local_ops): Target.Transfo.local =
+  Target.apply_on_path (delocalize_aux dim init_zero acc_in_place acc any_mark labels index ops)
 

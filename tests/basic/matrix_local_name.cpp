@@ -18,6 +18,6 @@ int main(){
     b[MINDEX3(N1,N2,N3,j,j+1,j+2)];
   }
 
-  int y = 0;
+  int z = 0;
   return 0;
 }

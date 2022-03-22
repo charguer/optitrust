@@ -124,21 +124,43 @@ let intro_mops (dim : trm) : Target.Transfo.t =
   matrix_delocalize, this transformation first calls Matrix_basi.local_name to create the isolated environment where the delocalizing transformatino
   is going to be performed
 *)
-let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(last : bool = false)  ?(use : trm option = None) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string) ?(indices : string list = []) ~ops:(ops : local_ops) ?(alloc_instr : Target.target option) (tg : Target.target) : unit =
-  let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
-  let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
-  let acc = match acc with | Some s -> s | _ -> "s" in  Matrix_basic.local_name ~my_mark:middle_mark ~alloc_instr ~into ~indices ~local_ops:ops var tg;
+let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) 
+  ?(last : bool = false)  ?(use : trm option = None) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string) 
+  ?(indices : string list = []) ~ops:(ops : local_ops) ?(alloc_instr : Target.target option) ?(labels : label list = []) ?(dealloc_tg : target option = None) (tg : Target.target) : unit =
+    
+    let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
+    let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
+    let acc = match acc with | Some s -> s | _ -> "s" in  Matrix_basic.local_name ~my_mark:middle_mark ~alloc_instr ~into ~indices ~local_ops:ops var tg;
   
-  let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in 
-  Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops [Target.cMark middle_mark];
+    let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in 
+    Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [Target.cMark middle_mark];
   
-  let tg_decl_access = Target.cOr [[Target.cVarDef into];[Target.cCellAccess ~base:[Target.cVar into] ()]] in
-  if last then Matrix_basic.reorder_dims ~rotate_n:1 () [Target.nbAny; Target.cMark middle_mark; tg_decl_access ;Target.cFun ~regexp:true "M.\\(NDEX\\|ALLOC\\)."] ;
-  begin match use with 
-    | Some e ->   Specialize.any e [Target.nbAny; Target.cMark any_mark]
-    | None -> ()
-  end;
-  begin match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> () end
+    let tg_decl_access = Target.cOr [[Target.cVarDef into];[Target.cCellAccess ~base:[Target.cVar into] ()]] in
+    if last then Matrix_basic.reorder_dims ~rotate_n:1 () [Target.nbAny; Target.cMark middle_mark; tg_decl_access ;Target.cFun ~regexp:true "M.\\(NDEX\\|ALLOC\\)."] ;
+    begin match use with 
+      | Some e ->   Specialize.any e [Target.nbAny; Target.cMark any_mark]
+      | None -> ()
+    end;
+    begin match labels with 
+    | [] -> () (* labels argument was not used by the user *)
+    | _ -> 
+      begin match alloc_instr with 
+      | Some alloc  ->
+         let nb_labels = List.length labels in 
+         if nb_labels <> 3 then ();
+         let label_alloc = List.nth labels 0 in 
+         if label_alloc <> "" then begin Instr.move_out ~dest:[tAfter;cChain alloc] [cLabel label_alloc]; Instr.move_out ~dest:[tBefore; cFunDef "" ~body:[cLabel label_alloc]] [cLabel label_alloc; cVarDef into] end;
+         let label_dealloc = List.nth labels 2 in 
+         if label_dealloc <> "" then begin match dealloc_tg with 
+          | Some da_tg -> Instr.move_out ~dest:[tAfter; cChain da_tg] [cLabel label_dealloc]
+          | None -> ()
+          end
+          else ()
+      | None -> () (* No need to move allocation trms because the allocation trm blongs to the same sequence as [tg] *)
+
+      end
+    end;
+    begin match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> () end
 
 
 (* [reorder_dims ~rotate_n ~order tg] expects the target [tg] to be pointing at a matrix declaration, then it will find the occurrences of ALLOC and INDEX functions  
