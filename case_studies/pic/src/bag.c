@@ -332,6 +332,16 @@ void bag_swap(bag* b1, bag* b2) {
   *b2 = temp;
 }
 
+// Return the next chunk in the chain, possibly NULL;
+// Deallocate the argument [c] if [destructive] is true
+chunk* chunk_next(chunk* c, bool destructive) {
+  chunk* cnext = c->next;
+  if (destructive) {
+    chunk_free(c);
+  }
+  return cnext;
+}
+
 //==========================================================================
 // Iteration
 
@@ -342,46 +352,69 @@ void bag_iter_load_chunk(bag_iter* it, chunk* c) {
   it->index = 0;
 }
 
-void bag_iter_init(bag_iter* it, bag* b) {
+void bag_iter_skip_empty_chunks(bag_iter* it) {
+  // Note: the first few chunks could be empty even if there are full chunks behind
+  chunk* c0 = it->iter_chunk;
+  chunk* c = c0;
+  while (c != NULL && c->size == 0) {
+    c = chunk_next(c, it->destructive);
+  }
+  if (c != c0) { // if there were some empty chunks to skip over
+    if (c == NULL) {
+      // iteration completed
+      it->iter_chunk = NULL;
+      it->size = 0;
+      it->index = 0;
+    } else {
+      bag_iter_load_chunk(it, c);
+    }
+  }
+  // here we have the guarantee that  if c->iter_chunk != NULL, then c->size > 0
+}
+
+void bag_iter_init(bag_iter* it, bag* b, bool destructive) {
+  it->destructive = destructive;
   bag_iter_load_chunk(it, b->front);
+  // note: this functiond  es not skip empty chunks
 }
 
 particle* bag_iter_get(bag_iter* it) {
   //TRACE("bag iter get at index %d of size %d in chunksize %d\n", it->index, it->size, it->iter_chunk->size);
   if (it->size == 0) {
-    return NULL;
-  } else {
-    return &(it->iter_chunk->items[it->index]);
+    bag_iter_skip_empty_chunks(it); // works even if it->iter_chunk is already null
+    if (it->iter_chunk == NULL || it->size == 0) { // iteration completed (the two conditions might be redundant)
+      return NULL;
+    }
   }
+  // here we should have it->index < it->size
+  return &(it->iter_chunk->items[it->index]);
 }
 
 chunk* bag_iter_get_chunk(bag_iter* it) {
   return it->iter_chunk;
 }
 
-particle* bag_iter_begin(bag_iter* it, bag* b) {
-  bag_iter_init(it, b);
+particle* bag_iter_begin_common(bag_iter* it, bag* b, bool destructive) {
+  bag_iter_init(it, b, destructive);
   return bag_iter_get(it);
 }
 
-// Return the next chunk in the chain, possibly Null;
-// Deallocate the argument [c] if [destructive] is true
-chunk* chunk_next(chunk* c, bool destructive) {
-  chunk* cnext = c->next;
-  if (destructive) {
-    chunk_free(c);
-  }
-  return cnext;
+particle* bag_iter_begin(bag_iter* it, bag* b) {
+  return bag_iter_begin_common(it, b, false);
+}
+
+particle* bag_iter_destructive_begin(bag_iter* it, bag* b) {
+  return bag_iter_begin_common(it, b, true);
 }
 
 // Return the next particle, or NULL if at the end
 // (we cannot return one-past-the-end pointer because chunks are deallocated)
-particle* bag_iter_next_common(bag_iter* it, bool destructive) {
+particle* bag_iter_next(bag_iter* it) {
   //TRACE("bag iter next from index %d in size %d\n", it->index, it->size);
   it->index++;
   if (it->index == it->size) {
     chunk* c = it->iter_chunk;
-    chunk* cnext = chunk_next(c, destructive);
+    chunk* cnext = chunk_next(c, it->destructive);
     if (cnext == NULL) {
       //TRACE("bag iter next reached the end\n");
       return NULL;
@@ -393,18 +426,11 @@ particle* bag_iter_next_common(bag_iter* it, bool destructive) {
   return bag_iter_get(it);
 }
 
-particle* bag_iter_next(bag_iter* it) {
-  return bag_iter_next_common(it, false);
-}
-
-particle* bag_iter_next_destructive(bag_iter* it) {
-  return bag_iter_next_common(it, true);
-}
 
 // example of a basic iteration over a bag
 void bag_iter_ho_basic(bag* b, void body(particle*), bool destructive) {
   bag_iter it;
-  for (particle* p = bag_iter_begin(&it, b); p != NULL; p = bag_iter_next_common(&it, destructive)) {
+  for (particle* p = bag_iter_begin_common(&it, b, destructive); p != NULL; p = bag_iter_next(&it)) {
     body(p);
   }
 }

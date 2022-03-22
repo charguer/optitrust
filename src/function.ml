@@ -149,7 +149,7 @@ int f2() { // result of Funciton_basic.inline_cal
 *)
 
 let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) ?(delete : bool = false) (tg : Target.target) : unit =
-    let function_name = ref "" in 
+    let function_name = ref "" in
     Trace.time "iteri_on_transformed_targets" (fun () ->
 
   Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
@@ -164,16 +164,16 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       let mark_added = ref false in
       let call_trm = begin match Target.get_trm_at (Target.target_of_path path_to_call) with
       | Some t1 -> t1
-      | None -> fail None "inline: this is never expected to happen" 
+      | None -> fail None "inline: this is never expected to happen"
       end in
-      begin match call_trm.desc with 
+      begin match call_trm.desc with
         | Trm_apps ({desc = Trm_var (_, f)}, _) -> function_name := f
-        | _ -> fail t.loc "get_function_name_from_call: couldn't get the name of the called function" 
+        | _ -> fail t.loc "get_function_name_from_call: couldn't get the name of the called function"
       end;
 
       let post_processing ?(deep_cleanup : bool = false)() : unit =
       Trace.time "post_processing" (fun () ->
-        
+
         let new_target = Target.cMark my_mark in
         if not !mark_added then Marks.add my_mark (Target.target_of_path path_to_call);
         if args <> [] then bind_args args [new_target];
@@ -201,7 +201,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
         end;
         Marks.remove my_mark [Target.nbAny; new_target];
         Struct_basic.simpl_proj (Target.target_of_path path_to_seq);
-        
+
       )
         in
       begin match tg_out_trm.desc with

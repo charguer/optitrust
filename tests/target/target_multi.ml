@@ -29,6 +29,10 @@ let _ = Run.script_cpp (fun () ->
   (* Or constraint *)
   show [ nbExact 3; cOr [[cReturn]; [cTypDef "vect"]; [cFunDef "main"; cFor "i"]]];
 
+  (* TopFun *)
+  show [ nbExact 1; cTopFunDef "f" ];
+  show [ nbExact 2; cOr[ [cTopFunDef "f"]; [cTopFunDef "main"] ]];
+
   (* Nested *)
   show [ nbMulti; cFor "" ];
 )

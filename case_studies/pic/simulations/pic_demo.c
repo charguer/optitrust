@@ -291,8 +291,13 @@ void stepLeapFrog() {
       for (int i = 0; i < nb; i++) {
         particle* p = &c->items[i];
 #else
+#ifdef DEBUG_ITER_DESTR
     bag_iter bag_it;
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, false)) {
+    for (particle* p = bag_iter_begin_common(&bag_it, b, false); p != NULL; p = bag_iter_next(&bag_it)) {
+#else
+    bag_iter bag_it;
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
+#endif
 #endif
         double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
@@ -315,7 +320,6 @@ void step() {
     // Consider the bag of particles in that cell
     bag* b = &bagsCur[idCell];
 
-    bag_iter bag_it;
     // int k=0;
 #ifdef DEBUG_ITER
     for (chunk* c = b->front; c != NULL; c = chunk_next(c, false)) {
@@ -323,7 +327,13 @@ void step() {
       for (int i = 0; i < nb; i++) {
         particle* p = &c->items[i];
 #else
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, true)) {
+#ifdef DEBUG_ITER_DESTR
+    bag_iter bag_it;
+    for (particle* p = bag_iter_begin_common(&bag_it, b, true); p != NULL; p = bag_iter_next(&bag_it)) {
+#else
+    bag_iter bag_it;
+    for (particle* p = bag_iter_destructive_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
+#endif
 #endif
 
       // Interpolate the field based on the position relative to the corners of the cell
@@ -380,8 +390,13 @@ void reportParticlesState() {
       for (int i = 0; i < nb; i++) {
         particle* p = &c->items[i];
 #else
+#ifdef DEBUG_ITER_DESTR
     bag_iter bag_it;
-    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next_common(&bag_it, false)) {
+    for (particle* p = bag_iter_begin_common(&bag_it, b, false); p != NULL; p = bag_iter_next(&bag_it)) {
+#else
+    bag_iter bag_it;
+    for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
+#endif
 #endif
       count++;
       int id = p->id;
