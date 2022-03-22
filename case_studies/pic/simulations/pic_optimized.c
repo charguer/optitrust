@@ -445,10 +445,10 @@ void updateFieldUsingDeposit() {
 
 void allocateStructures() {
   allocateStructuresForPoissonSolver();
-  deposit = (double *)malloc(nbCells * sizeof(double));
-  field = (vect *)malloc(nbCells * sizeof(vect));
-  bagsCur = (bag *)malloc(nbCells * sizeof(bag));
-  bagsNext = (bag *)malloc(nbCells * sizeof(bag));
+  deposit = (double *)MMALLOC1(nbCells, sizeof(double));
+  field = (vect *)MMALLOC1(nbCells, sizeof(vect));
+  bagsCur = (bag *)MMALLOC1(nbCells, sizeof(bag));
+  bagsNext = (bag *)MMALLOC1(nbCells, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init_initial(&bagsCur[idCell]);
     bag_init_initial(&bagsNext[idCell]);
@@ -558,6 +558,24 @@ void stepLeapFrog() {
   }
 }
 
+int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
+  coord coord = coordOfCell(idCell);
+  int iX = coord.iX;
+  int iY = coord.iY;
+  int iZ = coord.iZ;
+  int res[8] = {
+      cellOfCoord(iX, iY, iZ), cellOfCoord(iX, iY, wrap(gridZ, iZ - 1)),
+      cellOfCoord(iX, wrap(gridY, iY - 1), iZ),
+      cellOfCoord(iX, wrap(gridY, iY - 1), wrap(gridZ, iZ - 1)),
+      cellOfCoord(wrap(gridX, iX - 1), iY, iZ),
+      cellOfCoord(wrap(gridX, iX - 1), iY, wrap(gridZ, iZ - 1)),
+      cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1), iZ),
+      cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1),
+                  wrap(gridZ, iZ - 1)),
+  };
+  return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
+}
+
 void step() {
   const double factorC =
       particleCharge * (stepDuration * stepDuration) / particleMass;
@@ -567,6 +585,13 @@ void step() {
       particleCharge * (stepDuration * stepDuration) / particleMass / cellY;
   const double factorZ =
       particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
+  double *depositCorners = (double *)MMALLOC2(nbCells, 8, sizeof(double));
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int k = 0; k < 8; k++) {
+      depositCorners[mybij(nbCells, 8, idCell, k)] = 0.;
+    }
+  }
+core:
   for (int iX = 0; iX < gridX; iX++) {
     for (int iY = 0; iY < gridY; iY++) {
       for (int iZ = 0; iZ < gridZ; iZ++) {
@@ -636,13 +661,13 @@ void step() {
             p2.speedY = c->itemsSpeedY[i];
             p2.speedZ = c->itemsSpeedZ[i];
             p2.id = c->itemsId[i];
-            bag_push(&bagsNext[idCell2], p2);
+            bag_push(&bagsNext[MINDEX1(nbCells, idCell2)], p2);
             double_nbCorners contribs;
-            const int_nbCorners indices = indicesOfCorners(idCell2);
+          charge:
             for (int k = 0; k < 8; k++) {
-              deposit[indices.v[k]] += (coefX[k] + signX[k] * rX1) *
-                                       (coefY[k] + signY[k] * rY1) *
-                                       (coefZ[k] + signZ[k] * rZ1);
+              depositCorners[MINDEX2(nbCells, 8, idCell2, k)] +=
+                  (coefX[k] + signX[k] * rX1) * (coefY[k] + signY[k] * rY1) *
+                  (coefZ[k] + signZ[k] * rZ1);
             }
           }
         }
@@ -651,7 +676,15 @@ void step() {
     }
   }
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag_swap(&bagsCur[idCell], &bagsNext[idCell]);
+    double sum = 0.;
+    for (int k = 0; k < 8; k++) {
+      sum += depositCorners[mybij(nbCells, 8, idCell, k)];
+    }
+    deposit[MINDEX1(nbCells, idCell)] = sum;
+  }
+  MFREE(depositCorners);
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    bag_swap(&bagsCur[idCell], &bagsNext[MINDEX1(nbCells, idCell)]);
   }
   updateFieldUsingDeposit();
 }
