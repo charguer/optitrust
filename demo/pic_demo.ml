@@ -147,8 +147,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Enumerate grid cells by coordinates";
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
 
-  (* Correct until here *)
-
   bigstep "Code cleanup in preparation for shifting of positions";
   !! iter_dims (fun d ->
       Variable.bind ~const:true ~typ:(Some (atyp "double")) ("p" ^ d ^ "2") [occLast;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS];
@@ -162,7 +160,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Shifting of positions";
   !! Struct.set_explicit [addPart; cVarDef "p"]; (* BEAUTIFY: this step should be done earlier, as it makes the scaling targets easier *)
-  (* Shifting of particles at input and output *)
   !! Instr.move ~dest:[tBefore; addPart; cVarDef "p"] [addPart; cVarDef "idCell"];
   !! List.iter (fun tg ->
       Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") tg)
@@ -171,7 +168,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [cOr [
         [addPart; cFieldWrite ~field:("pos"^d) ()];
         [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()] ]]);
-  (* Shifting of particle positions for each iteration step *)
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [stepsReal; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
@@ -185,19 +181,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.delete [nbMulti; stepsReal; cVarDef ~regexp:true "i.0"];
   !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
 
-  bigstep "Simplify arithmetic expressions after scaling and shifting";
-  !! Trace.reparse();
-  !! Variable.inline [steps; cVarDef "accel"];
-  !! Arith.with_nosimpl [nbMulti; steps; cFor "k"] (fun () ->
-       Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
-  !! Instr.delete [nbMulti; steps; cVarDef ~regexp:true "i.0"];
-  !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
-
   if doublepos then begin
     bigstep "Turn positions into floats";
     !! Cast.insert (atyp "float") [sExprRegexp ~substr:true "p.2 - i.2"];
     !! Struct.update_fields_type "itemsPos." (atyp "float") [cTypDef "chunk"];
   end;
+
+  (* Correct until here *)
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
