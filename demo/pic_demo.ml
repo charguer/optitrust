@@ -24,6 +24,7 @@ let use_checker = true (* LATER: Arthur make this a command line command *)
 let doublepos = false (* LATER: Arthur make this a command line command *)
 let doublepos = if use_checker then false else doublepos
 
+
 let stepFuns =
   (if use_checker then [repPart] else [])
      @ stepsl
@@ -98,7 +99,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Elimination of the pointer on a particle, to prepare for aos-to-soa";
   !! Variable.init_detach [steps; cVarDef "p"];
-  !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];  (* BEAUTIFY: move elsewhere? *)
+  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];  
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."];  (* BEAUTIFY: move elsewhere? *)
   !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
   !! Instr.delete [steps; cVarDef "p"];
@@ -125,8 +126,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef "accel"];
 
   bigstep "Applying a scaling factor on speeds";
+  !! Struct.set_explicit [addPart; cVarDef "p"]; 
   !! iter_dims (fun d ->
-      Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [addPart; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "speed"] ()]);
+      let d_lc = String.lowercase_ascii d in 
+      Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [addPart; cFieldRead ~field:d_lc ~base:[cVar "speed"] ()]);
   !! iter_dims (fun d ->
       Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
       [nbMulti; steps; cFieldWrite ~base:[cVar "c"] (); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
@@ -135,7 +138,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Applying a scaling factor on positions";
   !! iter_dims (fun d ->
-      Accesses.scale ~factor:(expr ("cell"^d)) [addPart; cFieldRead ~field:(String.lowercase_ascii d) ~base:[cVar "pos"] ()]);
+      let d_lc = String.lowercase_ascii d in 
+      Accesses.scale ~factor:(expr ("cell"^d)) [addPart; cFieldRead ~field:d_lc ~base:[cVar "pos"] ()]);
   !! iter_dims (fun d ->
      Accesses.scale ~neg:true ~factor:(expr ("cell"^d))
          [nbMulti; steps; cOr [[sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]);
@@ -161,7 +165,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.(gather_targets ~dest:(GatherAt [tBefore; cVarDef "p2"])) [step; cVarDef ~regexp:true "r.1"];
 
   bigstep "Shifting of positions: make positions relative to the containing cell";
-  !! Struct.set_explicit [addPart; cVarDef "p"]; (* BEAUTIFY: this step should be done earlier, as it makes the scaling targets easier *)
   !! Instr.move ~dest:[tBefore; addPart; cVarDef "p"] [addPart; cVarDef "idCell"];
   !! List.iter (fun tg ->
       Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") tg)
@@ -199,6 +202,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "deposit"] in
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
+     (* ~labels:["alloc"; ""; "dealloc"] ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""]) *)
      ~dim:(expr "8") ~index:"k" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "k")) ~alloc_instr [cLabel "core"];
 
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
@@ -242,8 +246,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "4") [tBefore; cVarDef "nbCells"];
   (* !! Omp.declare_num_threads "nbThreads"; *) (* TEMPORARY *)
   (* !! Omp.get_num_threads "nbThreads" [tFirst; cTopFunDef "main"; dBody]; *)
-  !! Omp.get_thread_num "idThread" [tBefore; step; cFor "iX"]; (* BEAUTIFY: ~const:true should be by default, implying the line below *)
-  !! Variable.to_const [step; cVarDef "idThread"];
+  !! Omp.get_thread_num "idThread" [tBefore; step; cFor "iX"]; 
   !! Trace.reparse();
 
   bigstep "Parallelize the code using concurrent operations (they are subsequently eliminated)";
@@ -271,7 +274,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   (* TODO: parallelize the accumulation loop, which needs to be marked "depositSum" at the delocalize step
       !! Omp.parallel_for [tBefore; step; cMark "depositSum"]]; *)
   !! Instr.delete [step; cLabel "charge"; cOmp()]; (* BEAUTIFY: Instr.set_nonatomic ; also cPragma is needed *)
-
+  
   bigstep "Introduce private and shared bags";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
     ~alloc_instr:[cFunDef "allocateStructures"; cWriteVar "bagsNext"]
@@ -328,8 +331,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot]; (* BEAUTIFY: Align.header [] *)
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];
+  !! Align.def (lit "64") [nbMulti; dRoot; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
+                                         
   !! Align.def (lit "64") [nbMulti; cOr [[dRoot; cStrictNew; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
                                          [step; cVarDef "idCell2_step"]]];
+  !! Struct.align_field (lit "64") ("items.") [cTypDef "chunk"];
   !! List.iter (fun occ -> Omp.simd [occIndex occ; tBefore; step; cFor "i"]) [0;1]; (* BEAUTIFY: occIndices *)
 
 )

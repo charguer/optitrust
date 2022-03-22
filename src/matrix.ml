@@ -79,6 +79,8 @@ let biject (fun_bij : string) : Target.Transfo.t =
     match tg_trm.desc with
     | Trm_let (_, (p, _), _) ->
       Expr.replace_fun fun_bij ((Target.target_of_path path_to_seq) @ [Target.nbAny; Target.cCellAccess ~base:[Target.cVar p] ~index:[Target.cFun ""] (); Target.cFun ~regexp:true "MINDEX."])
+    | Trm_apps (_, [{desc = Trm_var (_, p)}; _])  when is_set_operation tg_trm -> 
+      Expr.replace_fun fun_bij ((Target.target_of_path path_to_seq) @ [Target.nbAny; Target.cCellAccess ~base:[Target.cVar p] ~index:[Target.cFun ""] (); Target.cFun ~regexp:true "MINDEX."])
     | _ -> fail tg_trm.loc "biject: expected a variable declaration"
 
 )
