@@ -511,3 +511,21 @@ static double case_6 (void){
 #endif
 }
 
+/*
+ * Returns a 64-bit seed from time, process ID and host ID.
+ * Also uses mpi_rank for the probable case where different MPI processes
+ * are launched on the same machine.
+ *
+ * One could alternatively use bits from /dev/(u)random
+ */
+unsigned long int seed_64bits(int mpi_rank) {
+    struct timeval tv;
+    gettimeofday(&tv, (void*)0);
+    unsigned long int time_value1 = (unsigned long int)tv.tv_sec;
+    unsigned long int time_value2 = (unsigned long int)tv.tv_usec;
+    unsigned long int process_id  = (unsigned long int)getpid();
+    unsigned long int host_id     = (unsigned long int)gethostid() + (unsigned long int)mpi_rank;
+    unsigned long long int  low_32bits = (unsigned long long int)mix(time_value1, process_id, host_id);
+    unsigned long long int high_32bits = (unsigned long long int)mix(time_value2, process_id, host_id);
+    return low_32bits | (high_32bits << 32);
+}

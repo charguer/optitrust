@@ -142,25 +142,21 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   (* Correct until here *)
 
-  bigstep "Shifting of positions"; (* TODO: fix *)
+  bigstep "Shifting of positions"; 
+     (* Shifting of particle positions in when they have been added *)
   !! Instr.move ~dest:[tBefore; addPart; cVarDef "p"] [addPart; cVarDef "idCell"];
   !! Struct.set_explicit [addPart; cVarDef "p"];
-  (* TODO: Find a better target *)
-  !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; addPart; cVarDef "idCell"];
-  !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tBefore; repPart; cFor "i"];
+  !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tAfter; addPart; cVarDef "idCell"];(* TODO: Find a better target *)
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [addPart; cFieldWrite ~field:("pos"^d) ()];);
+  
+     (* Shifting of particle positions in when they have been printed *)
+  !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") [tBefore; repPart; cFor "i"];
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
     );
-
-  bigstep "Simplify arithmetic expressions after scaling and shifting";
-  !! Trace.reparse();
-  !! Variable.inline [steps; cVarDef "accel"];
-  !! Arith.with_nosimpl [nbMulti; steps; cFor "k"] (fun () ->
-       Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
-
-  bigstep "Make positions relative to the cell corner";
+  
+     (* Shifting of particle positions for each iteration step *)
   !! iter_dims (fun d ->
       Variable.bind ~const:true ~typ:(Some (atyp "double")) ("p" ^ d ^ "2") [occLast;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS];
       Variable.bind ~const:true ("p" ^ d ) ~typ:(Some (atyp "double")) [occFirst;step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] (); dRHS]);
@@ -170,13 +166,17 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.(gather_targets ~dest:GatherAtFirst) [step; cVarDef ~regexp:true ("\\(i.*2\\|p.2\\|i.2\\)")];
   !! Instr.(gather_targets  ~dest:(GatherAt [tBefore; cVarDef "p2"])) [step; cVarDef ~regexp:true "r.1"];
   !! iter_dims (fun d ->
-      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [step; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
+      Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [steps; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; cVarDef ("r" ^ d ^ "1"); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
+
+  bigstep "Simplify arithmetic expressions after scaling and shifting";
   !! Trace.reparse();
-  !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef ~regexp:true "r.."; dInit];
-  !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.0"];
+  !! Variable.inline [steps; cVarDef "accel"];
+  !! Arith.with_nosimpl [nbMulti; steps; cFor "k"] (fun () ->
+       Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
+  !! Instr.delete [nbMulti; steps; cVarDef ~regexp:true "i.0"];
   !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
 
   if doublepos then begin
