@@ -256,8 +256,20 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "depositCorners" ~last:true ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
-      ~init_zero:true ~dim:(expr "nbThreads") ~index:"idThread" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "idThread")) [cLabel "core"];
+      ~init_zero:true ~dim:(expr "nbThreads") ~index:"idThread" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "idThread"))
+      [cLabel "core"];
+      (* BEAUTIFY:
+      ~decl_target:[tAfter; dRoot; cStrict; cVarDef "deposit"]
+      ~alloc_target:(Some [tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"])
+      ~dealloc_target:(Some[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"])*)
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
+  !! Variable.init_detach [nbMulti; step; cVarDef ~regexp:true "deposit.*Corners"];
+  !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true "deposit.*Corners"];
+  !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true "deposit.*Corners"];
+  !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
+
+    (* BEAUTIFY:  ~dest:[tLast; cTopFunDef "allocateStructures"; dBody]  *)
+
 
   bigstep "Introduce private and shared bags";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
