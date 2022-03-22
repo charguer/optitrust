@@ -394,17 +394,17 @@ chunk* bag_iter_get_chunk(bag_iter* it) {
   return it->iter_chunk;
 }
 
-particle* bag_iter_common_begin(bag_iter* it, bag* b, bool destructive) {
+particle* bag_iter_begin_common(bag_iter* it, bag* b, bool destructive) {
   bag_iter_init(it, b, destructive);
   return bag_iter_get(it);
 }
 
 particle* bag_iter_begin(bag_iter* it, bag* b) {
-  return bag_iter_common_begin(it, b, false);
+  return bag_iter_begin_common(it, b, false);
 }
 
 particle* bag_iter_destructive_begin(bag_iter* it, bag* b) {
-  return bag_iter_common_begin(it, b, true);
+  return bag_iter_begin_common(it, b, true);
 }
 
 // Return the next particle, or NULL if at the end
@@ -430,7 +430,7 @@ particle* bag_iter_next(bag_iter* it) {
 // example of a basic iteration over a bag
 void bag_iter_ho_basic(bag* b, void body(particle*), bool destructive) {
   bag_iter it;
-  for (particle* p = bag_iter_common_begin(&it, b, destructive); p != NULL; p = bag_iter_next(&it)) {
+  for (particle* p = bag_iter_begin_common(&it, b, destructive); p != NULL; p = bag_iter_next(&it)) {
     body(p);
   }
 }

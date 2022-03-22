@@ -32,7 +32,7 @@ let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = if use_checker then ["-DCHECKER"] else []
 
-let prepro = ["-DPRINTPERF"; "-DDEBUG_ITER"] @ prepro
+let prepro = ["-DPRINTPERF" ; "-DDEBUG_ITER_DESTR" (*; "-DDEBUG_ITER" *)] @ prepro
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"bag_atomics.h";"bag.h-"] (fun () ->
 
@@ -82,15 +82,15 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Trace.reparse();
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
-  (* ARTHUR TO FIX
   bigstep "Low level iteration on chunks of particles";
+  (* LATER: deactivate -DDEBUG_ITER_DESTR and debug this line
+      !! Function.inline [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];*)
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [steps; cMark "loop"; cFor_c ""; dBody];
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cMark "loop"]; (* TODO Calling Function.uninline loops *)
   !! Expr.replace_fun "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
   !! Function.inline [steps; cFun "bag_iter_ho_chunk"];
   !! List.iter (fun f -> Function.beta ~indepth:true [f]) stepFuns;
-  *)
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
   bigstep "Elimination of pointer p, to prepare for aos-to-soa";

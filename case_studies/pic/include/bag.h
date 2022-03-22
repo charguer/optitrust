@@ -58,6 +58,7 @@ void bag_iter_load_chunk(bag_iter* it, chunk* c);
 void bag_iter_init(bag_iter* it, bag* b, bool destructive);
 particle* bag_iter_get(bag_iter* it);
 chunk* bag_iter_get_chunk(bag_iter* it);
+particle* bag_iter_begin_common(bag_iter* it, bag* b, bool destructive);
 particle* bag_iter_begin(bag_iter* it, bag* b);
 particle* bag_iter_destructive_begin(bag_iter* it, bag* b);
 
