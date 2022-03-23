@@ -77,14 +77,34 @@ Check: `run.sh`
 # should have PRINTPERF, and optionally DPRINTSTEPS to see the progress
 PERFFLAGS=" -DPRINTPERF -DPRINTSTEPS"
 ```
+The value of these parameters are printed by `run.sh` and `compile.sh`.
 
+
+# Compilation
+
+```
+cd src/case_studies/pic
+./compile.sh pic_optimized.c
+# to compile with the checker activated
+./compile.sh pic_optimized.c 1
+```
 
 # Execution
 
 ```
 cd src/case_studies/pic
+./run.sh pic_optimized.c
+# to overwrite the number of threads from your_configuration.sh
+P=2 ./run.sh pic_optimized.c
+```
+
+
+# Combined compilation and execution
+
+```
+cd src/case_studies/pic
 ./test.sh pic_barsamian.c
-./test.sh pic_demo.c
+P=2 ./test.sh pic_demo.c
 ```
 
 # Vectorization information
@@ -99,6 +119,23 @@ cd src/case_studies/pic
 ```
 ./check.sh pic_barsamian.c pic_demo.c
 ./check.sh pic_demo.c pic_optimized.c
+```
+
+# Performance comparison
+
+```
+# compare with one thread
+P=1 ./perf.sh pic_demo.c pic_optimized.c
+
+# compare with 2 threads
+P=2 ./perf.sh pic_barsamian.c pic_demo.c
+
+# compare with the number of threads specified in your_configuration.sh, or e.g. `export P=4`
+./perf.sh pic_barsamian.c pic_demo.c
+
+# Compare against the version of pic_barsamian without the custom memory allocator for chunks
+./perf.sh pic_barsamian_malloc.c pic_demo.c
+
 ```
 
 

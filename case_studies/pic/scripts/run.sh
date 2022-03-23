@@ -1,10 +1,19 @@
 #!/bin/bash
 
-# Usage:  ./compile.sh ${TARGET}
-#  where ${TARGET} is a C filename from the folder simulations/
+# Usage:  ./run.sh ${TARGET}
+#  where ${TARGET} is either a C filename from the folder simulations/
+#  or the name of a binary in the 3d_runs/run1 folder (either with or without the full path)
 
 TARGET=$1
-BASENAME=`basename ${TARGET} .c`
+TARGET=`basename ${TARGET}`
+BASENAME="${TARGET%%.*}"
+EXTENSION="${TARGET##*.}"
+
+if [ ${EXTENSION} = "c" ]; then
+  BINARY="${BASENAME}.out"
+else
+  BINARY="${TARGET}"
+fi
 
 # Home path for Pic-Vert.
 cd ..
@@ -29,7 +38,22 @@ VALGRIND=
 
 # JEMALLOC SUPPORT (check during a run using "lsof | grep malloc")
 JEMALLOC=
-#JEMALLOC="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.1"
+JEMALLOC="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.1"
+
+# read nb threads from environment variable, est from your_configuration.sh
+NBTHREADS="${nb_threads}"
+if [ ! -z "${P}" ]; then
+  NBTHREADS="${P}"
+fi
+
+RUNINFOS="Run ./${BINARY} NBTHREADS=${NBTHREADS}"
+if [ ! -z "${VALGRIND}" ]; then
+  RUNINFOS+=", with VALGRIND"
+fi
+if [ ! -z "${JEMALLOC}" ]; then
+  RUNINFOS+=", with JEMALLOC"
+fi
+echo "${RUNINFOS}"
 
 run_one() {
   id_run=$1
@@ -50,9 +74,9 @@ run_one() {
   cd $PICVERT_HOME/3d_runs/run${id_run}
   export OMP_NUM_THREADS=$nb_threads
   ${JEMALLOC}
-  COMMAND="./${BASENAME}.out ./parameters_3d.txt | tee ./std_output_run${id_run}.txt"
-  if [ "${VALGRIND}" = "" ]; then
-    mpirun -q --report-bindings --cpus-per-proc $nb_threads -np $nb_sockets ${COMMAND}
+  COMMAND="./${BINARY} ./parameters_3d.txt | tee ./std_output_run${id_run}.txt"
+  if [ -z "${VALGRIND}" ]; then
+    mpirun -q --report-bindings --cpus-per-proc ${NBTHREADS} -np $nb_sockets ${COMMAND}
   else
     ${VALGRIND} ${COMMAND}
   fi

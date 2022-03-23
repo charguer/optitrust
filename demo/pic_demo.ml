@@ -194,7 +194,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Simplification of fwrap function";
   !! Rewrite.equiv_at ~glob_defs:"double fwrap(double, double);\n" "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDef ~regexp:true "p.2"; cInit()];
-  !! iter_dims (fun d -> 
+  !! iter_dims (fun d ->
       Instr.read_last_write ~write:[cTopFunDef "computeConstants"; cWriteVar ("cell"^d)] [nbMulti;step; cFun "fwrap";cReadVar ("cell"^d)];);
   !! Arith.(simpl_rec expand) [nbMulti; step; cVarDef ~regexp:true "p.2"];
    let fwrapInt = "double fwrapInt(int m, double v) {
@@ -202,19 +202,19 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       const double r = v - q;
       const int j = wrap(m, q);
       return j + r;
-    }" in 
+    }" in
   !! Sequence.insert ~reparse:true (stmt fwrapInt) [tBefore; step];
   !! Expr.replace_fun "fwrapInt" [nbMulti;step; cFun "fwrap"];
-  !! iter_dims (fun d -> 
+  !! iter_dims (fun d ->
       Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"];
       );
   !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.2"];
-  !! iter_dims (fun d -> 
+  !! iter_dims (fun d ->
       Variable.rename ~into:("i"^d^"2")[step;cVarDef ("j"^d)];);
 
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];
-     let wrapPow_def = "int wrapPowersOfTwo(int gridSize, int a) {return a & (gridSize - 1);}" in 
+     let wrapPow_def = "int wrapPowersOfTwo(int gridSize, int a) {return a & (gridSize - 1);}" in
   !! Sequence.insert ~reparse:true (stmt wrapPow_def) [tBefore; step];
   !! Expr.replace_fun "wrapPowersOfTwo" [nbMulti; step; cFun "wrap"];
   !! Function.inline [nbMulti; step; cFun "wrapPowersOfTwo"];
@@ -356,10 +356,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.ref_to_pointer [nbMulti; step; cVarDef "idCell2"];
 
   bigstep "Vectorization";
-  
+  (* LATER
   !! Loop.unroll [occFirst; step; cFor "i"; cFor "k"];
   !! Loop.unroll [stepLF; cFor "k"]; (* Trying to enable vectorization by unrolling looops *)
-  
+  *)
+
   !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot]; (* BEAUTIFY: Align.header [] *)
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];
@@ -372,7 +373,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! List.iter (fun occ -> Omp.simd [occIndex occ; tBefore; step; cFor "i"]) [0;1]; (* BEAUTIFY: occIndices *)
   !! Function.inline [step; cFun "cellOfCoord"];
   !! Align.alloc (lit "64") [nbMulti; cTopFunDef "allocateStructures"; cMalloc ()];
-  
+
 )
 
 (*

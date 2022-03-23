@@ -54,8 +54,8 @@ particle* readfile(char* filename) {
   particle* ps = (particle*) malloc(nbParticles * sizeof(particle));
 
   for (int i = 0; i < nbParticles; i++) {
-    if (i > 0 && i % 100000 == 0)
-       printf("reading particle: %d\n", i);
+    if (i > 0 && i % 1000000 == 0)
+       printf("...comparing particle: %d\n", i);
     int id;
     fread(&id, sizeof(int), 1, f);
     fread(&(ps[id].pos.x), sizeof(double), 1, f);

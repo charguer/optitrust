@@ -20,8 +20,11 @@ params: $(DIR_PROGS)/parameters_3d.txt
 $(DIR_PROGS)/parameters_3d.txt: parameters_3d.txt
 	cp $< $@
 
-$(DIR_PROGS)/%.out: $(DEPENDENCIES)
+$(DIR_PROGS)/%_checker.out: $(DEPENDENCIES)
 	./compile.sh $*.c 1
+
+$(DIR_PROGS)/%.out: $(DEPENDENCIES)
+	./compile.sh $*.c
 
 clean:
 	rm -f checker.out *.res $(DIR_PROGS)/*.out
