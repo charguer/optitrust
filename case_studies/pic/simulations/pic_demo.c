@@ -2,7 +2,6 @@
 #include "pic_demo.h"
 #include "pic_demo_aux.h"
 #include "optitrust.h"
-// #include "particle_chunk_alloc.h"
 
 // --------- Grid coordinate functions
 
@@ -12,7 +11,8 @@ inline int int_of_double(double a) {
 
 inline int wrap(int gridSize, int a) {
   return (a % gridSize + gridSize) % gridSize;
-  // could also be implemented using a conditional:
+  // could also be implemented in other ways:
+  // return (a & (gridSize-1));
   // int r = (a % gridSize); return (r >= 0) ? r : (r + gridSize);
 }
 
@@ -135,6 +135,25 @@ void accumulateChargeAtCorners(double* deposit, int idCell, double_nbCorners cha
 // compute the coefficient for interpolation at each corner;
 // the value for one corner is proportional to the volume between the particle
 // and the opposite corner.
+
+double_nbCorners cornerInterpolationCoeff_original(vect pos) { // TEMPORARY
+  const double rX = relativePosX(pos.x);
+  const double rY = relativePosY(pos.y);
+  const double rZ = relativePosZ(pos.z);
+  const double cX = 1. + -1. * rX;
+  const double cY = 1. + -1. * rY;
+  const double cZ = 1. + -1. * rZ;
+  double_nbCorners r;
+  r.v[0] = cX * cY * cZ;
+  r.v[1] = cX * cY * rZ;
+  r.v[2] = cX * rY * cZ;
+  r.v[3] = cX * rY * rZ;
+  r.v[4] = rX * cY * cZ;
+  r.v[5] = rX * cY * rZ;
+  r.v[6] = rX * rY * cZ;
+  r.v[7] = rX * rY * rZ;
+  return r;
+}
 
 double_nbCorners cornerInterpolationCoeff(vect pos) {
   const double rX = relativePosX(pos.x);
