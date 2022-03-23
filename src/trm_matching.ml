@@ -9,9 +9,7 @@ open Ast
       (a + k * b) == (b * k + a)
     }
 *)
-let parse_pattern (str : string) : (typed_vars * typed_vars *trm) =
-
-
+let parse_pattern ?(glob_defs : string = "") (str : string) : (typed_vars * typed_vars *trm) =
   let fix_pattern_args (var_decls : string) : string =
   let aux (var_decl : string) : string =
     let args_decl_list = Str.split (Str.regexp_string ",") var_decl in
@@ -38,13 +36,14 @@ let parse_pattern (str : string) : (typed_vars * typed_vars *trm) =
   let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else fix_pattern_args aux_var_decls in
 
   let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
-  let file_content = "int f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
+  let file_content = glob_defs ^ "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
   Xfile.put_contents output_file file_content;
   let _, ast_of_file = Trace.parse output_file in
   match ast_of_file.desc with
   | Trm_seq tl when (List.mem Main_file ast_of_file.annot) ->
     if Mlist.length tl = 0 then fail ast_of_file.loc "parse_pattern; couldn't parse pattern";
-    let main_fun = Mlist.nth tl 0 in
+    let (_, main_fun)= Tools.unlast (Mlist.to_list tl) in
+    
     begin match main_fun.desc with
     | Trm_let_fun (_, _, args, body) ->
       begin match body.desc with
@@ -73,8 +72,8 @@ let parse_pattern (str : string) : (typed_vars * typed_vars *trm) =
 (* [parse_rule str]: for a given pattern [str] return a rewrite rule which is a record containing the
     the list of variables used in that rule, the rule itself and the result after applying that rule.
 *)
-let parse_rule (str : string) : rewrite_rule =
-  let pattern_vars, aux_vars, pattern_instr = parse_pattern str in
+let parse_rule ?(glob_defs : string = "") (str : string) : rewrite_rule =
+  let pattern_vars, aux_vars, pattern_instr = parse_pattern ~glob_defs str in
   match pattern_instr.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_eq));_},[t1; t2]) ->
     {rule_vars = pattern_vars; rule_aux_vars = aux_vars; rule_from = t1; rule_to = t2}

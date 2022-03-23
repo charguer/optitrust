@@ -1,7 +1,7 @@
 (* [equiv_at rule]: apply rule [rule]  on target [tg]*)
-let equiv_at (rule : string) : Target.Transfo.t = 
+let equiv_at ?(glob_defs : string = "")(rule : string) : Target.Transfo.t = 
   Target.reparse_after ~reparse:true (
-  let rule_descr = Trm_matching.parse_rule rule in
+  let rule_descr = Trm_matching.parse_rule ~glob_defs rule in
   Target.apply_on_targets (Rewrite_core.apply_rule rule_descr))
 
 (* [compute tg]: expects the target [tg] to point to an arithmetic operation

@@ -1,18 +1,16 @@
-int f(int x){
-  return x + 1;
+double fmap(double a, double b){
+   
+   return a + b;
 }
 
 
 int main(){
 
-  int p = 10;
-  int q = p;
-  q = p;
-
-  int &x = p;
-  x = x + 1;
-  int y = f(x) + 1;
-
+  double a;
+  double b;
+  double c;
+  
+  const double p = fmap(a, c)/b;
 
   return 0;
 }
