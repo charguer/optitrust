@@ -98,9 +98,9 @@ let get_exit_line () : int option =
 let only_big_steps : bool ref = ref false
 
 (* List of options *)
-let spec =
-  Arg.align [
-     ("-verbose", Arg.Set verbose, " activates debug printing");
+type cmdline_args = (string * Arg.spec * string) list
+let spec : cmdline_args =
+   [ ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-exit-line", Arg.Set_int exit_line, " specify the line after which a '!!' or '!!!' symbol should trigger an exit");
      ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");
      ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines"); (* LATER: rename to: -exit-only-at-big-steps *)
@@ -125,6 +125,14 @@ let spec =
 let fix_flags () =
   if !analyse_time_details then analyse_time := true;
   if !reparse_at_big_steps then debug_reparse := true
+
+(* LATER: doc *)
+let process_cmdline_args ?(args : cmdline_args = []) () : unit =
+  Arg.parse
+    (Arg.align (spec @ args))
+    (fun _ -> raise (Arg.Bad "Error: no argument expected"))
+    ("usage: no argument expected, only options");
+  fix_flags()
 
 (* Flag used for a hack used by function [doc_script_cpp], for generating the output
    associated with the documentation of a unit test, before running the main contents

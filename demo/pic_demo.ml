@@ -20,23 +20,32 @@ let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
 let delocalize_bag = Local_obj ("bag_init_initial", "bag_append", "bag_free_initial")
 let align = 64
 
-let use_checker = true (* LATER: Arthur make this a command line command *)
-let doublepos = false (* LATER: Arthur make this a command line command *)
-let doublepos = if use_checker then false else doublepos
+(* Grab the "usechecker" flag from the command line *)
+let usechecker = ref false
+let _= Run.process_cmdline_args
+  [("-usechecker", Arg.Set usechecker, " use -DCHECKER as preprocessor flag")]
+  (* LATER: use a generic -D flag for optitrust *)
+let usechecker = !usechecker
 
+let onlychecker p = if usechecker then [p] else []
+let doublepos = false (* LATER: Arthur make this a command line command *)
+let doublepos = if usechecker then false else doublepos
 
 let stepFuns =
-  (if use_checker then [repPart] else [])
+  (if usechecker then [repPart] else [])
      @ stepsl
 
 let stepsReal = cOr (List.map (fun f -> [f]) stepsl) (* LATER: rename *)
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
-let prepro = if use_checker then ["-DCHECKER"] else []
-
+let prepro = onlychecker "-DCHECKER"
 let prepro = ["-DPRINTPERF" ; "-DDEBUG_ITER_DESTR" (*; "-DDEBUG_ITER" *)] @ prepro
 
-let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.h";"bag_atomics.h";"bag.h-"] (fun () ->
+let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
+
+let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~prefix ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.h";"bag_atomics.h";"bag.h-"] (fun () ->
+
+  Printf.printf "CHECKER=%d\n" (if usechecker then 1 else 0);
 
   (* Part 1: sequential optimizations *)
 
@@ -87,7 +96,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
   bigstep "Low level iteration on chunks of particles";
-  (* LATER: deactivate -DDEBUG_ITER_DESTR and debug this line
+  (* BEAUTIFY: deactivate -DDEBUG_ITER_DESTR and debug this line
       !! Function.inline [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];*)
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [steps; cMark "loop"; cFor_c ""; dBody];
@@ -133,8 +142,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! iter_dims (fun d ->
       Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
       [nbMulti; steps; cFieldWrite ~base:[cVar "c"] (); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
-  !! iter_dims (fun d ->
-        Accesses.scale ~neg:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarDef ("speed"^d); cInit()]);
+  if usechecker then (!! iter_dims (fun d ->
+        Accesses.scale ~neg:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarDef ("speed"^d); cInit()]));
 
   bigstep "Applying a scaling factor on positions";
   !! iter_dims (fun d ->
@@ -168,11 +177,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move ~dest:[tBefore; addPart; cVarDef "p"] [addPart; cVarDef "idCell"];
   !! List.iter (fun tg ->
       Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") tg)
-      [ [tAfter; addPart; cVarDef "idCell"]; [tFirst; repPart; cFor "idCell"; dBody]; ]; (* LATER: make cOr work for targetBetweens (hard) *)
+      ([ [tAfter; addPart; cVarDef "idCell"] ] @ onlychecker [tFirst; repPart; cFor "idCell"; dBody]); (* LATER: make cOr work for targetBetweens (hard) *)
   !! iter_dims (fun d ->
-      Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [cOr [
-        [addPart; cFieldWrite ~field:("pos"^d) ()];
-        [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()] ]]);
+      Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [cOr (
+        [[addPart; cFieldWrite ~field:("pos"^d) ()]] @
+        (onlychecker [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] ()]) )] );
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [stepsReal; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
@@ -527,12 +536,12 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
 
   (* !! Omp.simd [] [tBefore; step;cFor "i"]; *)(* TODO: Fix the issue with the last loop *)
 
-  (* (if use_checker then [reportParticles] else []) *)
+
 
 (* TODO: Fix the bug with insertion of variables when using tBefore and tFirst *)
 
 (* let doublepos = true LATER: ARTHUR make this command line argument *)
-(* let use_checker = false LATER: ARTHUR make this command line argument *)
+(* let usechecker = false LATER: ARTHUR make this command line argument *)
 
 
 
@@ -637,3 +646,13 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
                       *)
 
                        (* BEAUTIFY  insert_list_same_type *)
+(* BEAUTIFY
+  missing spaces in:
+    return (vect){d * v.x, d * v.y, d * v.z};
+  should be
+   return (vect) { d * v.x, d * v.y, d * v.z };
+
+  too many spaces in:
+    const  double cellVolume = cellX * cellY * cellZ;
+  probably due to the way you print aliasas attributes
+   *)

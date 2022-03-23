@@ -62,3 +62,18 @@ clean::
 
 cleanfiles:
 	rm -f $(FILES)
+
+perf: pic_demo_out.cpp 
+	$(MAKE) export
+	cd $(PICDIR)/scripts; ./perf.sh
+
+%_checker_out.cpp: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
+	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -usechecker
+	@echo "Produced $@"
+
+chk: pic_demo_checker_out.cpp
+	cp pic_demo_checker_out.cpp $(PICDIR)/simulations/pic_optimized_checker.c
+	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized_checker.c
+	cd $(PICDIR)/scripts; ./check.sh pic_barsamian.c pic_optimized_checker.c
+
+# LATER: build different output files depending on the usechecker flag

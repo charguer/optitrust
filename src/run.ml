@@ -28,15 +28,15 @@ let _ =
 (*                              Run                                           *)
 (******************************************************************************)
 
+(* [add_cmdline_args] register additional command line flags; see Flags.ml *)
+let process_cmdline_args (args : Flags.cmdline_args) : unit =
+   Flags.process_cmdline_args ~args ()
+
 (* [script f] serves as "main" function for an Optitrust script. It cakes care
    of parsing the command line arguments and handling the errors, in addition
    to running the function [f] provided. *)
 let script (f : unit -> unit) : unit =
-  Arg.parse
-    Flags.spec
-    (fun _ -> raise (Arg.Bad "Error: no argument expected"))
-    ("usage: no argument expected, only options");
-  Flags.fix_flags();
+  Flags.process_cmdline_args();
   try
     let t0 = Unix.gettimeofday() in
     f ();

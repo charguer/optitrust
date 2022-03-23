@@ -11,7 +11,7 @@ TARGET1=$1
 TARGET2=$2
 
 if [ -z ${TARGET1} ]; then
-  TARGET1="pic_demo.c"
+  TARGET1="pic_barsamian.c"
 fi
 if [ -z ${TARGET2} ]; then
   TARGET2="pic_optimized.c"
@@ -22,14 +22,15 @@ DIR_ROOT=..
 DIR_OUTFILE=${DIR_ROOT}/3d_runs/run1/
 BINARY1="${DIR_OUTFILE}`basename ${TARGET1} .c`_checker.out"
 BINARY2="${DIR_OUTFILE}`basename ${TARGET2} .c`_checker.out"
-CHECKER_OUTFILE1="`basename ${TARGET1} .c`.res"
-CHECKER_OUTFILE2="`basename ${TARGET2} .c`.res"
+CHECKER_OUTFILE1="`basename ${TARGET1} .c`_checker.res"
+CHECKER_OUTFILE2="`basename ${TARGET2} .c`_checker.res"
 
 rm -f ${DIR_OUTFILE}/${CHECKER_OUTFILE1} ${DIR_OUTFILE}/${CHECKER_OUTFILE2}
 
 echo "====Compilation===="
 # Note: the make command builds all the binaries, instead of the two binaries
 # requested, but for now it is equivalent
+echo "make -j3 checker.out ${BINARY1} ${BINARY2} params"
 make -j3 checker.out ${BINARY1} ${BINARY2} params || exit 1
 echo "====./run.sh ${TARGET1}===="
 ./run.sh ${BINARY1}

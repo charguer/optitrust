@@ -1040,9 +1040,9 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
         if is_start_of_bigstep && !Flags.report_big_steps then begin
           if line = -1 then begin
             incr id_big_step;
-            Printf.printf "Executing big-step #%d\n" !id_big_step
+            Printf.printf "Executing bigstep #%d\n" !id_big_step
           end else begin
-            Printf.printf "Executing big-step at line %d\n" line
+            Printf.printf "Executing bigstep at line %d\n" line
           end;
           flush stdout;
         end;
