@@ -29,23 +29,37 @@ Details of what this performs:
    chromium-browser pic_demo_trace.html &
 ```
 
-
-# Compilation of the demo
+# Execution of the transformation script
 
 ```
-
-   # execute the transformation script
    make pic_demo.out
+```
 
+
+# Compilation of the output of the transformation script
+
+```
+   # execute the transformation script and
    # copy output file to ../case_studies/pic/simulations/pic_optimized.c
-   make export
+   make optim
 
    # compile the output file
    cd ../case_studies/pic/scripts
    ./compile.sh pic_optimized.c
 
-   # check correctness against non-optimized code
-   ./check.sh pic_demo.c pic_optimized.c
+   # get information about vectorization (uses meld)
+   ./vectinfo.sh pic_optimized.c
+```
+
+# To evaluate performance
+
+```
+   make perf
+
+   # equivalent to
+   make optim
+   cd ../case_studies/pic/scripts
+   ./perf.sh
 ```
 
 
@@ -54,6 +68,10 @@ Details of what this performs:
 ```
    make chk
 ```
+
+
+./vectinfo.sh pic_barsamian.c
+
 
 # To run the checker at a given point obtained by the F7 shortcut
 
@@ -64,7 +82,7 @@ Details of what this performs:
 #   let usechecker = !usechecker || true
    make export_fast
    cd ../case_studies/pic/scripts
-   ./check.sh pic_demo.c pic_demo_checker.c
+   ./check.sh pic_barsamian.c pic_demo_checker.c
 ```
 
 # To run the checker on all steps

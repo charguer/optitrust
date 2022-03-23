@@ -38,6 +38,6 @@ while read p; do
 done < ${INPUT}
 
 echo "Produced ${OUTPUT}"
-echo "View using:"
 COMMAND="meld ../simulations/${TARGET} ${OUTPUT}"
+echo "View gectorization information using:\n ${COMMAND}"
 ${COMMAND} &

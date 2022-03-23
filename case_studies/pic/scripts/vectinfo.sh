@@ -9,13 +9,17 @@ OUTPUT="${BASENAME}_infos.txt"
 export VECTINFOS=" -fopt-info-vec-all"
 #export VECTINFOS=" -fopt-info-vec-missed"
 
-./compile.sh ${TARGET} 2> ${BASENAME}_infos.txt
+./compile.sh ${TARGET} 2> ${OUTPUT}
 sed -i 's/^.*case_studies\/pic\/[^\/]*\///' ${OUTPUT}
-sed -i '/^\(pic_optimized.c\)/!d' ${OUTPUT}
+PATTERN='/^\('
+PATTERN+="${TARGET}"
+PATTERN+='\)/!d'
+echo ${PATTERN};
+sed -i ${PATTERN} ${OUTPUT}
 sort -o ${OUTPUT} ${OUTPUT}
-sort pic_optimized_infos.txt | uniq -u > __temp.txt
+sort ${OUTPUT} | uniq -u > __temp.txt
 mv __temp.txt ${OUTPUT}
-# echo "Produced ${BASENAME}_infos.txt"
+echo "Produced ${OUTPUT}"
 ./vectmerge.sh ${TARGET}
 
 

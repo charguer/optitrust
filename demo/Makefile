@@ -55,9 +55,11 @@ clean::
 cleanfiles:
 	rm -f $(FILES)
 
-perf: pic_demo_out.cpp 
+optim: pic_demo_out.cpp 
 	cp pic_demo_out.cpp $(PICDIR)/simulations/pic_optimized.c
 	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized.c
+
+perf: optim
 	cd $(SCRIPTDIR); ./perf.sh
 
 %_checker_out.cpp: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
