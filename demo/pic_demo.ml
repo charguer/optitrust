@@ -229,10 +229,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];
+  !! Function.inline [nbMulti; step; cFun "wrap"];
+  (* LATER: keep this code, it might be useful in the future
      let wrapPow_def = "int wrapPowersOfTwo(int gridSize, int a) {return a & (gridSize - 1);}" in
   !! Sequence.insert ~reparse:true (stmt wrapPow_def) [tBefore; step];
   !! Expr.replace_fun "wrapPowersOfTwo" [nbMulti; step; cFun "wrap"];
-  !! Function.inline [nbMulti; step; cFun "wrapPowersOfTwo"];
+  !! Function.inline [nbMulti; step; cFun "wrapPowersOfTwo"];*)
 
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit";
