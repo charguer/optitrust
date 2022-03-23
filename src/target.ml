@@ -601,7 +601,7 @@ let cAlloc (d : int option) : constr =
   cFun ~regexp:true ("M.\\(NDEX\\|ALLOC\\)" ^ d)
 
 (* [cMalloc d] matches all calls to Optitrust MMALLOCI where I = d *)
-let cMalloc (d : int option) : constr =
+let cMalloc ?(d : int option = None) () : constr =
   let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
   cFun ~regexp:true ("MMALLOC" ^ d)
 

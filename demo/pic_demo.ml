@@ -339,6 +339,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   !! List.iter (fun occ -> Omp.simd [occIndex occ; tBefore; step; cFor "i"]) [0;1]; (* BEAUTIFY: occIndices *)
   !! Function.inline [step; cFun "cellOfCoord"];
+  !! Align.alloc (lit "64") [nbMulti; cTopFunDef "allocateStructures"; cMalloc ()];
 
 )
 

@@ -120,7 +120,7 @@ val cChoose : constr
 
 val cAlloc : int option -> constr
 
-val cMalloc : int option -> constr
+val cMalloc : ?d:int option -> unit -> constr
 
 val cCalloc : int option -> constr
 

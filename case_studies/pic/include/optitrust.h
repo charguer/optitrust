@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 /* now declared inlined
 int MINDEX1(int N1, int i1);
@@ -36,6 +37,15 @@ void* MMALLOC1(int N1, size_t bytes_per_item);
 void* MMALLOC2(int N1, int N2, size_t bytes_per_item);
 void* MMALLOC3(int N1, int N2, int N3, size_t bytes_per_item);
 void* MMALLOC4(int N1, int N2, int N3, int N4, size_t bytes_per_item);
+
+
+void* MMALLOC_ALIGNED1(int N1, size_t bytes_per_item, size_t alignment);
+
+void* MMALLOC_ALIGNED2(int N1, int N2, size_t bytes_per_item, size_t alignment);
+
+void* MMALLOC_ALIGNED3(int N1, int N2, int N3, size_t bytes_per_item, size_t alignment);
+
+void* MMALLOC_ALIGNED4(int N1, int N2, int N3, int N4, size_t bytes_per_item, size_t alignment);
 
 void MFREE(void* p);
 void MFREE1(int N1, void* p);

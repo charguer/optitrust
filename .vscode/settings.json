@@ -40,6 +40,7 @@
     "papi_handlers.h": "c",
     "random.h": "c",
     "initial_distributions.h": "c",
-    "algorithm": "c"
+    "algorithm": "c",
+    "optitrust.h": "c"
   }
 }
