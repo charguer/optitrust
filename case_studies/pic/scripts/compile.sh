@@ -61,19 +61,21 @@ DEBUGFLAGS=""
 # DEBUGFLAGS="-g -DDEBUG_ITER"
 #DEBUGFLAGS="-g"
 
-PERFFLAGS=" -DPRINTPERF -DPRINTSTEPS -ftree-vectorize"
+# -ftree-vectorize
+PERFFLAGS=" -DPRINTPERF -DPRINTSTEPS"
 
-if [ ! -z "$DEBUGFLAGS" ]; then
-  echo "COMPILING IN DEBUG MODE"
-fi
-
-# Use -DPOSTYPEDOUBLE to use double for positions in pic_barsamian.c, like in unoptimized pic_demo
-DOUBLEPRECISION="-DPOSTYPEDOUBLE"
+BINARY="${BASENAME}.out"
 
 if [ ! -z "$CHECKER_OUTFILE" ]; then
   CHECKER=" -DCHECKER=$CHECKER_OUTFILE "
-  echo "COMPILING WITH CHECKER"
+  BINARY="${BASENAME}_checker.out"
 fi
+
+COMPILEINFOS="Build ${BINARY} ${DEBUGFLAGS} ${PERFFLAGS} ${CHECKER}"
+
+# Use -DPOSTYPEDOUBLE to use double for positions in pic_barsamian.c, like in unoptimized pic_demo
+DOUBLEPRECISION="-DPOSTYPEDOUBLE"
+echo ${COMPILEINFOS}
 
 EXTRA_SPECIFIC_PRE=
 if [ "${TARGET}" = "pic_barsamian.c" ]; then
@@ -109,12 +111,7 @@ compile_one() {
   cp $PICVERT_HOME/scripts/parameters_3d.txt run${id_run}/
   if [ "${compiler}" = "gcc" ]; then
     export OMPI_CC=gcc
-    #if [ -z "$VECTINFOS" ]; then
-      mpicc ${COMPILE_ARGS} -fopenmp -o run${id_run}/${BASENAME}.out ${REDIRECTOUTPUT}
-    #else
-    #  echo "${BASENAME}.info"
-    #  mpicc ${COMPILE_ARGS} -fopenmp -o run${id_run}/${BASENAME}.out ${REDIRECTOUTPUT}
-    #fi
+    mpicc ${COMPILE_ARGS} -fopenmp -o run${id_run}/${BINARY}
   elif [ "${compiler}" = "icc" ]; then
     #export OMPI_CC=/opt/intel/oneapi/compiler/latest/linux/bin/intel64/icc
     mpiicc ${COMPILE_ARGS} -qopenmp -o run${id_run}/${BASENAME}.out

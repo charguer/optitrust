@@ -52,19 +52,18 @@ void* MMALLOC4(int N1, int N2, int N3, int N4, size_t bytes_per_item) {
   return malloc(N1 * N2 * N3 * N4 * bytes_per_item);
 }
 
-// void* malloc_aligned(size_t nb, size_t bytes_per_item, size_t alignment) { 
+// void* malloc_aligned(size_t nb, size_t bytes_per_item, size_t alignment) {
 //   void* c;
 //   if (posix_memalign((void**)&c, alignment, nb * bytes_per_item)) {
 //    fprintf(stderr, "posix_memalign failure.\n");
 //    exit(1);
 //   }
-  
+
 //   return c;
 // }
 void* malloc_aligned (size_t nb, size_t bytes_per_item, size_t alignment){
   return aligned_alloc(alignment, nb * bytes_per_item);
 }
-
 
 void* MMALLOC_ALIGNED1(size_t N1, size_t bytes_per_item, size_t alignment) {
   return malloc_aligned(N1, bytes_per_item, alignment);
