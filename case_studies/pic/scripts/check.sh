@@ -14,7 +14,7 @@ if [ -z ${TARGET1} ]; then
   TARGET1="pic_barsamian.c"
 fi
 if [ -z ${TARGET2} ]; then
-  TARGET2="pic_optimized.c"
+  TARGET2="pic_optimized_checker.c"
 fi
 
 

@@ -27,6 +27,11 @@ let _= Run.process_cmdline_args
   (* LATER: use a generic -D flag for optitrust *)
 let usechecker = !usechecker
 
+
+(* UNCOMMENT THIS LINE FOR WORKING ON THE VERSION WITH THE CHECKER
+let usechecker = true *)
+
+
 let onlychecker p = if usechecker then [p] else []
 let doublepos = false (* LATER: Arthur make this a command line command *)
 let doublepos = if usechecker then false else doublepos
@@ -41,9 +46,10 @@ let steps = cOr (List.map (fun f -> [f]) stepFuns)
 let prepro = onlychecker "-DCHECKER"
 let prepro = ["-DPRINTPERF" ; "-DDEBUG_ITER_DESTR" (*; "-DDEBUG_ITER" *)] @ prepro
 
-let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
+(* LATER let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
+   ~prefix *)
 
-let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~prefix ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.h";"bag_atomics.h";"bag.h-"] (fun () ->
+let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.h";"bag_atomics.h";"bag.h-"] (fun () ->
 
   Printf.printf "CHECKER=%d\n" (if usechecker then 1 else 0);
 

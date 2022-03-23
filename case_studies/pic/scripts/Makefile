@@ -11,7 +11,7 @@ DEPENDENCIES=$(wildcard $(DIR_ROOT)/simulations/* $(DIR_ROOT)/src/* $(DIR_ROOT)/
 all: checker.out progs params
 
 checker.out: checker.c
-	gcc $< -o $@  -lm
+	gcc -g $< -o $@  -lm
 
 progs: $(BINARIES)
 
