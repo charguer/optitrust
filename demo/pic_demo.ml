@@ -357,8 +357,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Vectorization";
   
+  (* Trying to enable vectorization by unrolling looops *)
   !! Loop.unroll [occFirst; step; cFor "i"; cFor "k"];
-  !! Loop.unroll [stepLF; cFor "k"]; (* Trying to enable vectorization by unrolling looops *)
+  !! Loop.unroll [stepLF; cFor "k"]; 
   
   !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot]; (* BEAUTIFY: Align.header [] *)
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];

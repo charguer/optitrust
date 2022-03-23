@@ -52,7 +52,16 @@ run_one() {
   ${JEMALLOC}
   COMMAND="./${BASENAME}.out ./parameters_3d.txt | tee ./std_output_run${id_run}.txt"
   if [ "${VALGRIND}" = "" ]; then
-    mpirun -q --report-bindings --cpus-per-proc $nb_threads -np $nb_sockets ${COMMAND}
+    if [ "${compiler}" = "gcc" ]; then
+      mpirun -q --report-bindings --cpus-per-proc $nb_threads -np $nb_sockets ${COMMAND}   
+    
+    elif [ "${compiler}" = "icc" ]; then
+      mpiexec.hydra -n $nb_sockets ${COMMAND}   
+    else 
+      echo "invalid compiler parameter: ${compiler}."
+      exit 1
+    fi
+
   else
     ${VALGRIND} ${COMMAND}
   fi

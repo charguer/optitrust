@@ -116,8 +116,8 @@ compile_one() {
     #  mpicc ${COMPILE_ARGS} -fopenmp -o run${id_run}/${BASENAME}.out ${REDIRECTOUTPUT}
     #fi
   elif [ "${compiler}" = "icc" ]; then
-    export OMPI_CC=icc
-    mpicc ${COMPILE_ARGS} -qopenmp -o run${id_run}/${BASENAME}.out
+    #export OMPI_CC=/opt/intel/oneapi/compiler/latest/linux/bin/intel64/icc
+    mpiicc ${COMPILE_ARGS} -qopenmp -o run${id_run}/${BASENAME}.out
   else
     echo "invalid compiler parameter: ${compiler}."
     exit 1
