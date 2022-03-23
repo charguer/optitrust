@@ -74,9 +74,18 @@ run_one() {
   cd $PICVERT_HOME/3d_runs/run${id_run}
   export OMP_NUM_THREADS=$nb_threads
   ${JEMALLOC}
-  COMMAND="./${BINARY} ./parameters_3d.txt | tee ./std_output_run${id_run}.txt"
-  if [ -z "${VALGRIND}" ]; then
-    mpirun -q --report-bindings --cpus-per-proc ${NBTHREADS} -np $nb_sockets ${COMMAND}
+  COMMAND="./${BASENAME}.out ./parameters_3d.txt | tee ./std_output_run${id_run}.txt"
+  if [ "${VALGRIND}" = "" ]; then
+    if [ "${compiler}" = "gcc" ]; then
+      mpirun -q --report-bindings --cpus-per-proc $nb_threads -np $nb_sockets ${COMMAND}   
+    
+    elif [ "${compiler}" = "icc" ]; then
+      mpiexec.hydra -n $nb_sockets ${COMMAND}   
+    else 
+      echo "invalid compiler parameter: ${compiler}."
+      exit 1
+    fi
+
   else
     ${VALGRIND} ${COMMAND}
   fi
