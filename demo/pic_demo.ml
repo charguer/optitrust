@@ -518,11 +518,7 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
   struct vect {
       alignas(64) double x;   pattern="x"     newtypetouse=(typ_update "double")
       alignas(64) int y;
-      }
-let applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update : typ -> typ) : Target.Transfo.t =
-  Target.reparse_after ~reparse (Target.apply_on_targets (Struct_core.update_fields_type pattern ty))
-
-let update_fields_type ?(reparse : bool = false) (pattern : string) (ty : typ) : Target.Transfo.t =
+      }int : typ) : Target.Transfo.t =
   applyto_fields_type pattern (fun _ -> ty)
 
 let Ast.typ_alignas (align:int) (ty : typ) =
