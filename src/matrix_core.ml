@@ -215,24 +215,6 @@ let intro_mindex_aux (dim : trm) (t : trm) : trm =
 let intro_mindex (dim : trm) : Target.Transfo.local =
   Target.apply_on_path (intro_mindex_aux dim)
 
-
-(* [alloc_to_alloc_aligned_aux alignment t] transform a malloc call to a malloc_aligned one
-    params:
-      [alignment]: the size of the alignemtn
-      [t]: the ast of the malloc call
-    return:
-      the ast of the malloc_aligned*)
-
-let malloc_to_alloc_aligned_aux (alignment : trm) (t : trm) : trm = 
-  match alloc_inv t with 
-  | Some (dims,size, zero_init) -> 
-    if zero_init then fail t.loc "malloc_to_malloc_aligned_aux: can't convert a call to calloc function to a callo_aligned one";
-    alloc_aligned dims size alignment 
-  | None -> fail t.loc "malloc_to_malloc_aligned_aux: expected a call to MMALLOC"
-
-let malloc_to_malloc_aligned (alignment : trm) : Target.Transfo.local = 
-  Target.apply_on_path (malloc_to_alloc_aligned_aux alignment )
-
 (* [reorder_dims_aux order t]: reorder the dimensions in a call to MCALLOC, MMALLOC or MINDEX
       params:
         [order]: a list of indices based on which the elements in dims should be ordered

@@ -216,3 +216,19 @@ let rename_args_aux (vl : var list) (t : trm) : trm =
 let rename_args (vl : var list) : Target.Transfo.local =
   Target.apply_on_path (rename_args_aux vl)
 
+(* [replace_with_change_args_aux new_fun_name arg_mapper t] change the name of the called function and the its args
+     params:
+      [new_fun_name]: the new name that is going to replace the current one
+      [arg_mapper]: a function to change the args
+     return:
+       the ast of the update function call *)
+       
+let replace_with_change_args_aux (new_fun_name : string) (arg_mapper : trms -> trms) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_apps (f, args) -> {t with desc = Trm_apps (trm_var new_fun_name, arg_mapper args)}
+  | _ -> fail t.loc "replace_with_change_args_aux: expected a target to a function call"
+
+
+let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) : Target.Transfo.local =
+  Target.apply_on_path (replace_with_change_args_aux new_fun_name arg_mapper)
+

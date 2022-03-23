@@ -1,4 +1,5 @@
 open Ast
+open Target
 
 (* [bind_intro ~fresh_name ~constr tg]  expects tg to point to a function call.
         Then it will generate a new variable declaration named as [fresh_name]
@@ -120,3 +121,7 @@ let uninline ~fct:(fct : Target.target) (tg : Target.target) : unit =
 *)
 let rename_args (new_args : var list)  : Target.Transfo.t =
   Target.apply_on_targets (Function_core.rename_args new_args)
+
+
+let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) (tg : target) : unit = 
+   apply_on_targets (Function_core.replace_with_change_args new_fun_name arg_mapper) tg

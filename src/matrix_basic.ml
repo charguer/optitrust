@@ -105,8 +105,3 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_ins
 (* [delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops] a generalized version of variable_delocalize*)
 let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "") ?(labels : label list = []) ~dim:(dim : trm)  ~index:(index : string) ~ops:(dl_o : local_ops) : Target.Transfo.t =
     Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc any_mark labels index dl_o)
-
-(* [malloc_to_malloc_aligned alignment tg] expects the target [tg] to be pointing at a MMALLOC call  then it will
-    transform it into a MMALLOC_ALIGNED one *)
-let malloc_to_malloc_aligned (alignment : trm) : Target.Transfo.t = 
-  Target.apply_on_targets(Matrix_core.malloc_to_malloc_aligned alignment)
