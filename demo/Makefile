@@ -70,7 +70,7 @@ vectview: optim
 
 %_checker_out.cpp: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
 	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -usechecker
-	$(V)cp $*_out.cpp $*_checker_out.cpp
+	$(V)mv $*_out.cpp $*_checker_out.cpp
 	@echo "Produced $@"
 
 chk: pic_demo_checker_out.cpp

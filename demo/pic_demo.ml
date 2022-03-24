@@ -44,7 +44,7 @@ let stepsReal = cOr (List.map (fun f -> [f]) stepsl) (* LATER: rename *)
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = onlychecker "-DCHECKER"
-let prepro = ["-DPRINTPERF" (* ; "-DDEBUG_ITER_DESTR" *) (*; "-DDEBUG_ITER" *)] @ prepro
+let prepro = ["-DPRINTPERF"] @ prepro
 
 (* LATER let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
    ~prefix *)
@@ -67,6 +67,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Optimization in [cornerInterpolationCoeff], before it is inlined";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   let ctx_rv = cChain [ctx; sInstr "r.v"] in (* LATER rewrite pour cX *)
+  (* BEAUTIFY
+    in pic_demo.c
+    in double_nbCorners cornerInterpolationCoeff(vect pos)
+      const double cX = 1. + -1. * rX;
+    should be replaced with
+      const double cX = 1. - rX;
+    and we should use a rewrite rule to obtain the previous code.
+  *)
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
@@ -107,7 +115,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
   !! Function.inline [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
   !! Variable.inline [steps; cVarDef "bag_iter"];
-  
+
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [steps; cMark "loop"; cFor_c ""; dBody];
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cMark "loop"]; (* TODO Calling Function.uninline loops *)
@@ -170,6 +178,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
        Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
 
   bigstep "Enumerate grid cells by coordinates";
+  (* BEAUTIFY: inline nbCells, then call grid_enumerate, which should parse the product automatically i<X*Y*Z *)
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
 
   bigstep "Code cleanup in preparation for shifting of positions";
@@ -211,7 +220,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     !! Struct.update_fields_type "itemsPos." (atyp "float") [cTypDef "chunk"];
   end;
 
-  bigstep "Simplification of fwrap function";
+  bigstep "Replacement of the wrap-around operation on doubles with a bitwise operation, assuming grid sizes to be powers of 2";
   !! Rewrite.equiv_at ~glob_defs:"double fwrap(double, double);\n" "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDef ~regexp:true "p.2"; cInit()];
   !! iter_dims (fun d ->
       Instr.read_last_write ~write:[cTopFunDef "computeConstants"; cWriteVar ("cell"^d)] [nbMulti;step; cFun "fwrap";cReadVar ("cell"^d)];);
@@ -225,21 +234,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Sequence.insert ~reparse:true (stmt fwrapInt) [tBefore; step];
   !! Expr.replace_fun "fwrapInt" [nbMulti;step; cFun "fwrap"];
   !! iter_dims (fun d ->
-      Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"];
-      );
+      Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"]);
   !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.2"];
   !! iter_dims (fun d ->
-      Variable.rename ~into:("i"^d^"2")[step;cVarDef ("j"^d)];);
-
+      Variable.rename ~into:("i"^d^"2") [step;cVarDef ("j"^d)];);
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];
-  !! Function.inline [nbMulti; step; cFun "wrap"];
-  (* LATER: keep this code, it might be useful in the future
-     let wrapPow_def = "int wrapPowersOfTwo(int gridSize, int a) {return a & (gridSize - 1);}" in
-  !! Sequence.insert ~reparse:true (stmt wrapPow_def) [tBefore; step];
-  !! Expr.replace_fun "wrapPowersOfTwo" [nbMulti; step; cFun "wrap"];
-  !! Function.inline [nbMulti; step; cFun "wrapPowersOfTwo"];*)
-
+  !! Expr.replace_fun "wrapPowerof2" [nbMulti; step; cFun "wrap"];
+  !! Function.inline [nbMulti; step; cFun "wrapPowerof2"];
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
@@ -398,8 +400,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 )
 
 (*
-DONE fuse 2 loops on idCell
-the first one ~body[cVar"bagsKind"]
 
 
   LATER:
@@ -409,26 +409,14 @@ the first one ~body[cVar"bagsKind"]
   if the user provides the name for this function
 
 
- LATER:
-  grid_enumerate on i<X*Y*Z
 
-
- DONE
-  vect_nbCorners res; => rename => don't inline factor
-
+??
 use unfold in
 !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "factor."];
   with a more precise target
 
-  DONE:
-  #include <stdalign.h>
-  alignas(16)  print to front of type
 
-  alignas(16) int x = 4
-  alignas(16) int x = new (alignas(16) int) t
-
-
-
+  LATER: keep in mind
   Align.header => adds  #include <stdalign.h> to the top of the ast
   Align.assume "t" =>
      insert instruction
@@ -439,36 +427,6 @@ use unfold in
   LATER
   Flags.print_coumpound_expressions
 
-  DONE =>
-  make optitrust
-  make pic_demo_out.cpp
-  cd ../case_study/pic/scripts
-  ./compile.sh pic_optimized.c
-  ./check.sh pic_demo.c pic_optimized.c
-
-
-ARTHUR
-j
-#pragma omp parallel for
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int idCorner = 0; idCorner < 8; idCorner++) {
-      int sum = 0;
-      for (int k = 0; k < nbThreads; k++) {
-        sum += depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, k, idCell,
-                                            idCorner)];
-      }
-      depositCorners[MINDEX2(nbCells, 8, idCell, idCorner)] = sum;
-    }
-  }
-  TODO
-
-  eliminate the loop
-                          double_nbCorners coeffs;
-                        for (int k = 0; k < 8; k++) {
-                          coeffs.v[k] = (coefX[k] + signX[k] * rX0) *
-                                        (coefY[k] + signY[k] * rY0) *
-                                        (coefZ[k] + signZ[k] * rZ0);
-                        }
 
 
  TODO:
@@ -480,55 +438,35 @@ j
     inline idCell2  everywhere
 
 
-DONE after other todos
-move reportParticlesState()  into pic_demo.c
-and try
-
- TODO:
-isDistFromBlockLessThanHalfABlock
-
-
 *)
 (* LATER !! Function.beta ~indepth:true [dRoot]; try in a unit test with two beta reductions to do *)
+
 (* TODO: res should be field_at_corners *)
 
-
-
-(* TODO: Use these when bug with cOr and toplevel is fixed *)
-(* let step = cTopFunDef "step"
-let stepLF = cTopFunDef "stepLeapFrog" *)
-
-
-  (* DONE: simpl_rec an alias for simpl ~indepth:true *)
 
 
 (* if not doublepos then begin
     bigstep "Turn positions into floats";
     !! Cast.insert (atyp "float") [sExprRegexp ~substr:true "p.2 - i.2"];
-        LATER: target the [sRexegp "c->itemsPos[[.]] = ")  or iter_dims  or   ==>best: cOr (map_dims .. )
+    LATER: target the [sRexegp "c->itemsPos[[.]] = ")  or iter_dims  or   ==>best: cOr (map_dims .. )
     !! Struct.update_fields_type "itemsPos." (atyp "float") [cTypDef "chunk"];
     LATER: type particle would need to be converted too
        const vect pos = {x, y, z};
        would need cast around the values
-
-  end; *)
-
-  (* TODO: bigstep "Simplification of fwrap";
-  !! Rewrite.equiv_at "double a; double b; double c; double x; ==> fwrap(a,b*c) == fwrap(a/x, (b*c)/x)" [nbMulti; cVarDef "pX2"; cInit ()]; *)
+  end;
+*)
 
 
-  (* bigstep "Introduce matrix operations, and prepare loop on charge deposit"; LATER: might be useful to group this next to the reveal of x/y/z *)
+  (* LATER: bigstep "Introduce matrix operations, and prepare loop on charge deposit";
+   might be useful to group this next to the reveal of x/y/z *)
 
   (* LATER: menhir should support "res[]" syntax *)
 
-  (* !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
-      [step; cLabel "charge"; cFun "mybij"];
-      LATER: use: sExpr "mybij(nbCorners, nbCells, indicesOfCorners(idCell2).v[k], k)"
-
+  (* LATER: !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
+           [step; cLabel "charge"; cFun "mybij"];
+      instead use: sExpr "mybij(nbCorners, nbCells, indicesOfCorners(idCell2).v[k], k)"
        ARTHUR: simplify mybij calls in the sum *)
 
-
-  (* delocalize_bags *)
 
   (* LATER !! Instr.delete [cOr[[cVarDef "bagsNext"];[ cKindInstr; cVar "bagsNext"]]]; *)
   (* LATER !! Variable.delete [cVarDef "bagsNext"] ==> shorthand for above *)
@@ -539,22 +477,14 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
   (* TODO: move allocBagsNext and deallocBagsNext labelled blocks *)
 
 
-  (* !! Variable.insert ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
-      ~value:(trm_ands (map_dims (fun d -> ARTHUR: add support for wraparound here
-         expr ~vars:[d] "co.i${0} - b${0} >= - halfBlock && co.i${0} - b${0} < block + halfBlock")))
-      [tBefore; step; cFun "bag_push"]; *)
 
   (* LATER: fission should automatically do the duplication of references when necessary *)
 
-  (* !! Omp.simd [] [tBefore; step;cFor "i"]; *)(* TODO: Fix the issue with the last loop *)
-
+  (*  BEAUTIFY: the Omp operations should  add a tBefore themselves
+    !! Omp.simd [] [tBefore; step;cFor "i"]; *)(* TODO: Fix the issue with the last loop *)
 
 
 (* TODO: Fix the bug with insertion of variables when using tBefore and tFirst *)
-
-(* let doublepos = true LATER: ARTHUR make this command line argument *)
-(* let usechecker = false LATER: ARTHUR make this command line argument *)
-
 
 
 (* !! Variable.insert_list ~reparse:true ~defs:(List.rev ( TODO
@@ -564,7 +494,6 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
 
 (* LATER: rename pic_demo.c to pic_naive.c *)
 
-(* LATER: use case_studies optitrust.{h,c}  instead of ../include/optitrust.h *)
 (*LATER halfBlock=expr "block/2"*)
 
 (* TODO
@@ -578,45 +507,13 @@ let stepLF = cTopFunDef "stepLeapFrog" *)
 let Ast.typ_alignas (align:int) (ty : typ) =
   same typ with attributes typ_alignas added
 
-
 let Combi_Struct.align_field (align:int) (pattern : string) =
   Struct.applytofields_type (fun ty -> typ_alignas align ty)
 
 *)
 
-(* DONE
-      in reportParticles, need to add at tFirst in the loop
-        const coord co = coordOfCell(idCell);
-      for the read in itemsPosX[i], need to add  co.iX
-
-
-in reportParticlesState
-    p->pos.x = (p->pos.x + co.ix) * cellX;
-      p->speed.x = p->speed.x * cellX / stepDuration;
-
-in addParticle, before bag_push_initial, need to insert
-  co = coordOfCell(idCell)
-  p = p
-
-setexplicit will generate
-  p.posX = p.pos.x;
-  p.posY = p.pos.y;
-  p.posZ = p.pos.z;
-
-  p.speedX = p.speed.x;
-  p.speedY = p.speed.y;
-  p.speedZ = p.speed.z;
-
-
-then apply scaling to the writes (that is, the full instruction)
-
-    p.pos.x = (p.pos.x / cellX) - co.x;
-    p.speed.x = p.speed.x / (cellX / stepDuration);
-*)
-
 
 (* LATER
-
 
 // after createParticle, add applyScalingShifting(true)
 // after cFor "idStep" in main, add applyScalingShifting(false)
@@ -649,15 +546,10 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
   !! List.iter (fun occ -> Omp.parallel_for [occIndex occ; tBefore; step; cFor "idCell"]) [0(*;2*)]; (* BEAUTIFY: occIndices *)
   *)
 
-  (* ARTHUR: fix bug with    cOr [[cTopFun "step"]]
-  then change cFunDef for cTopFunDef *)
-  (* LATER
-   "(co.i${0} - b${0} >= -halfBlock && co.i${0} - b${0} < block + halfBlock)
-                      || (b${0} == 0 && co.i${0} >= grid${0} - halfBlock)
-                      || (b${0} == grid${0} - block && co.i${0} < halfBlock)"))
-                      *)
 
-                       (* BEAUTIFY  insert_list_same_type *)
+
+(* BEAUTIFY implement and use: insert_list_same_type *)
+
 (* BEAUTIFY
   missing spaces in:
     return (vect){d * v.x, d * v.y, d * v.z};
@@ -668,3 +560,17 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
     const  double cellVolume = cellX * cellY * cellZ;
   probably due to the way you print aliasas attributes
    *)
+
+
+(* LATER: keep this code, it might be useful in the future
+     let wrapPow_def = "int wrapPowersOfTwo(int gridSize, int a) {return a & (gridSize - 1);}" in
+  !! Sequence.insert ~reparse:true (stmt wrapPow_def) [tBefore; step];
+  !! Function.inline [nbMulti; step; cFun "wrapPowersOfTwo"];*)
+
+
+(* LATER: the C standard parses
+      x & y - 1
+  as
+     x & (y - 1)
+  but this is very confusing, so we should always put parentheses around nontrivial arguments of & and | operators.
+  *)

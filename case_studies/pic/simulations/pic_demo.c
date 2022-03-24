@@ -1,4 +1,3 @@
-
 #include "pic_demo.h"
 #include "pic_demo_aux.h"
 #include "optitrust.h"
@@ -10,10 +9,11 @@ inline int int_of_double(double a) {
 }
 
 inline int wrap(int gridSize, int a) {
+  return (a % gridSize + gridSize) % gridSize;
+}
+
+inline int wrapPowerof2(int gridSize, int a) {
   return a & (gridSize - 1);
-  // could also be implemented in other ways:
-  // return (a % gridSize + gridSize) % gridSize;
-  // int r = (a % gridSize); return (r >= 0) ? r : (r + gridSize);
 }
 
 // --------- Grid Representation
@@ -172,9 +172,6 @@ void computeRhoFromDeposit() { // reads [double* deposit], writes [double*** rho
     for (int j = 0; j < gridY; j++) {
       for (int k = 0; k < gridZ; k++) {
         rho[i][j][k] = factor * deposit[cellOfCoord(i,j,k)];
-#ifdef DEBUG_CHARGE
-        printf("rho[%d][%d][%d] = %lf\n", i, j, k, rho[i][j][k]);
-#endif
       }
     }
   }
@@ -285,30 +282,14 @@ void stepLeapFrog() {
     // Compute fields at corners of the cell
     vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
     // For each particle in that cell
-
-#ifdef DEBUG_ITER
-    for (chunk* c = b->front; c != NULL; c = chunk_next(c, false)) {
-      const int nb = c->size;
-      for (int i = 0; i < nb; i++) {
-        particle* p = &c->items[i];
-#else
-#ifdef DEBUG_ITER_DESTR
-    bag_iter bag_it;
-    for (particle* p = bag_iter_begin_common(&bag_it, b, false); p != NULL; p = bag_iter_next(&bag_it)) {
-#else
     bag_iter bag_it;
     for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
-#endif
-#endif
         double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
         vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
         p->speed = vect_add(p->speed, vect_mul(negHalfStepDuration, accel));
     }
   }
-#ifdef DEBUG_ITER
-    }
-#endif
 }
 
 void step() {
@@ -320,22 +301,8 @@ void step() {
 
     // Consider the bag of particles in that cell
     bag* b = &bagsCur[idCell];
-
-    // int k=0;
-#ifdef DEBUG_ITER
-    for (chunk* c = b->front; c != NULL; c = chunk_next(c, false)) {
-      const int nb = c->size;
-      for (int i = 0; i < nb; i++) {
-        particle* p = &c->items[i];
-#else
-#ifdef DEBUG_ITER_DESTR
-    bag_iter bag_it;
-    for (particle* p = bag_iter_begin_common(&bag_it, b, true); p != NULL; p = bag_iter_next(&bag_it)) {
-#else
     bag_iter bag_it;
     for (particle* p = bag_iter_destructive_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
-#endif
-#endif
 
       // Interpolate the field based on the position relative to the corners of the cell
       double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
@@ -362,9 +329,6 @@ void step() {
     }
     bag_init_initial(b);
   }
-#ifdef DEBUG_ITER
-    }
-#endif
   // For the next time step, the contents of bagNext is moved into bagCur (which is empty)
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_swap(&bagsCur[idCell], &bagsNext[idCell]);
@@ -374,8 +338,8 @@ void step() {
   updateFieldUsingDeposit();
 }
 
-void reportParticlesState() {
 #ifdef CHECKER
+void reportParticlesState() {
   // printf("NbParticles: %d\n", nbParticles);
   FILE* f = fopen("particles.res", "wb");
   fwrite(&nbParticles, sizeof(int), 1, f);
@@ -385,20 +349,8 @@ void reportParticlesState() {
   int count = 0;
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag* b = &bagsCur[idCell];
-#ifdef DEBUG_ITER
-    for (chunk* c = b->front; c != NULL; c = chunk_next(c, false)) {
-      const int nb = c->size;
-      for (int i = 0; i < nb; i++) {
-        particle* p = &c->items[i];
-#else
-#ifdef DEBUG_ITER_DESTR
-    bag_iter bag_it;
-    for (particle* p = bag_iter_begin_common(&bag_it, b, false); p != NULL; p = bag_iter_next(&bag_it)) {
-#else
     bag_iter bag_it;
     for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
-#endif
-#endif
       count++;
       int id = p->id;
       double posX = p->pos.x;
@@ -416,16 +368,12 @@ void reportParticlesState() {
       fwrite(&speedZ, sizeof(double), 1, f);
     }
   }
-#ifdef DEBUG_ITER
-    }
-#endif
   if (count != nbParticles) {
-    printf("!!! ERROR: reportParticlesState: particles lost, remaining %d\n", count);
+    printf("ERROR: reportParticlesState: particles were lost, remaining %d\n", count);
   }
   fclose(f);
-#endif
 }
-
+#endif
 
 // --------- Main
 
@@ -463,7 +411,7 @@ void reportParticlesState() {
     step();
   }
 
-#if defined(PRINTPERF)
+#ifdef PRINTPERF
   reportPerformance(timeStart);
 #endif
 
