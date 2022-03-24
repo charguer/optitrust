@@ -1,16 +1,13 @@
-double fmap(double a, double b){
-   
-   return a + b;
+int f (int x){
+
+  return x + 1;
 }
 
 
 int main(){
-
-  double a;
-  double b;
-  double c;
   
-  const double p = fmap(a, c)/b;
-
-  return 0;
+  int b = 0;
+  for (int a = f(b); a != 10; a++){
+    a = a + 1;
+  }
 }
