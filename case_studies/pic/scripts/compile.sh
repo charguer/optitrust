@@ -51,6 +51,13 @@ fi
 #              compilation        #
 ###################################
 
+# read compiler name from environment variable, else from your_configuration.sh
+COMPILER="${compiler}"
+if [ ! -z "${COMP}" ]; then
+  COMPILER="${COMP}"
+fi
+
+
 # uses VECTINFOS from the environment, see vectinfo.sh
 
 # possible additional flags -DPRINTPARAMS -DDEBUG_CHECKER -DDEBUG_CHARGE -DDEBUG_FIELD -DDEBUG_ACCEL -DDEBUG_CREATION
@@ -71,7 +78,7 @@ if [ ! -z "$CHECKER_OUTFILE" ]; then
   BINARY="${BASENAME}_checker.out"
 fi
 
-COMPILEINFOS="Build ${BINARY} ${DEBUGFLAGS} ${PERFFLAGS} ${CHECKER}"
+COMPILEINFOS="Build ${BINARY} with ${COMPILER} ${DEBUGFLAGS} ${PERFFLAGS} ${CHECKER}"
 
 # Use -DPOSTYPEDOUBLE to use double for positions in pic_barsamian.c, like in unoptimized pic_demo
 DOUBLEPRECISION="-DPOSTYPEDOUBLE"
@@ -109,14 +116,14 @@ compile_one() {
   cd $PICVERT_HOME/3d_runs
   mkdir -p run${id_run}
   cp $PICVERT_HOME/scripts/parameters_3d.txt run${id_run}/
-  if [ "${compiler}" = "gcc" ]; then
+  if [ "${COMPILER}" = "gcc" ]; then
     export OMPI_CC=gcc
     mpicc ${COMPILE_ARGS} -fopenmp -o run${id_run}/${BINARY}
-  elif [ "${compiler}" = "icc" ]; then
+  elif [ "${COMPILER}" = "icc" ]; then
     #export OMPI_CC=/opt/intel/oneapi/compiler/latest/linux/bin/intel64/icc
     mpiicc ${COMPILE_ARGS} -qopenmp -o run${id_run}/${BASENAME}.out
   else
-    echo "invalid compiler parameter: ${compiler}."
+    echo "invalid compiler parameter: ${COMPILER}."
     exit 1
   fi
 }

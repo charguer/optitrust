@@ -40,7 +40,7 @@ VALGRIND=
 JEMALLOC=
 JEMALLOC="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.1"
 
-# read nb threads from environment variable, est from your_configuration.sh
+# read nb threads from environment variable, else from your_configuration.sh
 NBTHREADS="${nb_threads}"
 if [ ! -z "${P}" ]; then
   NBTHREADS="${P}"
@@ -77,11 +77,11 @@ run_one() {
   COMMAND="./${BASENAME}.out ./parameters_3d.txt | tee ./std_output_run${id_run}.txt"
   if [ "${VALGRIND}" = "" ]; then
     if [ "${compiler}" = "gcc" ]; then
-      mpirun -q --report-bindings --cpus-per-proc $nb_threads -np $nb_sockets ${COMMAND}   
-    
+      mpirun -q --report-bindings --cpus-per-proc $nb_threads -np $nb_sockets ${COMMAND}
+
     elif [ "${compiler}" = "icc" ]; then
-      mpiexec.hydra -n $nb_sockets ${COMMAND}   
-    else 
+      mpiexec.hydra -n $nb_sockets ${COMMAND}
+    else
       echo "invalid compiler parameter: ${compiler}."
       exit 1
     fi
