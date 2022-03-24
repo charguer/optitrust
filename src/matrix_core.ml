@@ -394,7 +394,8 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   begin match set_inv set_instr with 
                   | Some (base, dims, indices, old_var_access) -> 
                     let acc, acc_provided = match acc with
-                    | Some s -> s, true
+                    | Some s -> 
+                      if s = "" then "s",false else s,true
                     | None -> "s", false 
                    in
                   let new_access = access base new_dims new_indices in 
@@ -415,8 +416,8 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         then fail t.loc "delocalize_aux: if acc_in_place is set to true there is not need to provide an accumulator"
                         else begin
                           trm_seq_nomarks [
-                           set (trm_var "a") dims indices (access base new_dims ((trm_int 0) :: indices));
-                           trm_for index (trm_int 1) DirUp dim (Post_inc) ( op_fun old_var_access new_access)]
+                           trm_set (get_operation_arg old_var_access) (trm_get (access (base) new_dims ((trm_int 0) :: indices)));
+                           trm_for index (trm_int 1) DirUp dim (Post_inc) ( op_fun (get_operation_arg old_var_access) (trm_get new_access))]
                         end
                       else 
                         if not acc_provided then fail t.loc "delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
