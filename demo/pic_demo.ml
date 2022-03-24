@@ -308,6 +308,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Trace.reparse();
 
   bigstep "Parallelize the code using concurrent operations (they are subsequently eliminated)";
+  (* BEAUTIFY: should be integrated earlier with "Decompose the loop to allow for parallelization per blocks";*)
   !! Omp.atomic None [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
   !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; cFor "bX"];
@@ -333,7 +334,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       !! Omp.parallel_for [tBefore; step; cMark "depositSum"]]; *)
   !! Instr.delete [step; cLabel "charge"; cOmp()]; (* BEAUTIFY: Instr.set_nonatomic ; also cPragma is needed *)
 
-  bigstep "Introduce private and shared bags";
+  bigstep "Introduce private and shared bags, and use shared ones only for particles moving more than one cell away";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
     ~alloc_instr:[cFunDef "allocateStructures"; cWriteVar "bagsNext"]
     ~index:"bagsKind" ~ops:delocalize_bag [cLabel "core"];
@@ -342,8 +343,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "idCell"];
   !! Instr.move_out ~dest:[tBefore; cTopFunDef "step"] [step; cOr [[cVarDef "PRIVATE"]; [cVarDef "SHARED"]]];
   !! Instr.delete [cOr[[cVarDef "bagsNext"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
-
-  bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
   !! Variable.insert ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
   let pushop = cFun "bag_push_concurrent" in
   let force_concurrent_push = false in (* TEMPORARY *)
@@ -357,8 +356,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Specialize.any (expr "PRIVATE") [step; cIf(); dThen; pushop; cAny];
   !! Specialize.any (expr "SHARED") [step; cIf(); dElse; pushop; cAny];
   !! Expr.replace_fun "bag_push_serial" [step; cIf(); dThen; pushop];
-
-  bigstep "Cleanup";
   !! Trace.reparse ();
   !! Variable.init_detach [nbMulti; step; cVarDef "bagsNexts"]; (*BEAUTIFY: attach to the delocalize op *)
   !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef "bagsNexts"];
