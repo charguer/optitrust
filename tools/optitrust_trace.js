@@ -79,6 +79,15 @@ var configuration = {
 
 // TODO: the horizontal scrollbars should not be needed if the diff contains no long lines.
 
+var hiddenLines = false;
+function hideLines() {
+  hiddenLines = true;
+  $(".d2h-code-side-line").css("padding", "0");
+  $(".d2h-code-side-linenumber").css("display", "none");
+//   $(".d2h-code-side-linenumber").html("");
+//  $(".d2h-code-side-linenumber").css("width", "0em");
+}
+
 
 //---------------------------------------------------
 
@@ -129,6 +138,11 @@ function loadDiffFromString(diffString) {
      var line = e.target.outerText; openSourceAtLine(idSourceLeft, line); });
  $('.diffAfter .d2h-code-side-linenumber').click(function(e) {
      var line = e.target.outerText; openSourceAtLine(idSourceRight, line); });
+
+  // if hideLines() has been called once, call it again
+  if (hiddenLines) {
+    hideLines();
+  }
 }
 
 function resetView() {

@@ -29,7 +29,7 @@ let usechecker = !usechecker
 
 
 (* UNCOMMENT THIS LINE FOR WORKING ON THE VERSION WITH THE CHECKER*)
-let usechecker = true 
+let usechecker = true
 
 
 let onlychecker p = if usechecker then [p] else []
@@ -366,17 +366,22 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
   !! Omp.parallel_for [tBefore; occIndex 1; step; cFor "idCell"]; (* BEAUTIFY: use label to refer to the loop *)
   !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
+
   (* Part 4: Vectorization *)
 
   bigstep "Loop splitting: process speeds, process positions, deposit particle and its charge";
   (* Unrolling coeff computation loops and inlining coeff writes *)
   !! Loop.unroll [occFirst; step; cFor "i"; cFor "k"];
-  !! Loop.unroll [stepLF; cFor "i"; cFor "k"]; 
+  !! Loop.unroll [stepLF; cFor "i"; cFor "k"];
   !! Instr.inline_last_write [nbMulti; steps; cCellRead ~base:[cFieldRead ~base:[cVar "coeffs"] ()] ()];
-  !! iter_dims (fun d -> 
+  !! iter_dims (fun d ->
        Instr.inline_last_write [steps; cCellWrite ~base:[cFieldRead ~field:("itemsSpeed"^d) ()] (); cReadVar ("fieldAtPos"^d)];);
   !! Variable.inline [nbMulti; steps; cVarDef ~regexp:true "fieldAt.*"];
-  
+  (* BEAUTIFY: arith simpl should remove the  0. + .. *)
+  (* BEAUTIFY: in the printing functions we have things like
+        ToBuffer.pretty 0.9 80 b (ast_to_doc t);
+     we should replace 80 with (!Flags.code_print_width),
+     so that we can customize it, e.g. to 120 for pic_demo.ml *)
   !! Trace.reparse();
   !! Variable.to_nonconst [step; cVarDef "idCell2"];
   !! Loop.hoist ~array_size:(Some (expr "CHUNK_SIZE")) [step; cVarDef "idCell2"];
@@ -386,6 +391,21 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "rX1"]]];
   !! Variable.ref_to_pointer [occFirst; step; cVarDef "idCell2"];
   !! Variable.ref_to_var [occLast; step; cVarDef "idCell2"];
+
+  (* BEAUTIFY
+      int *idCell2 = &idCell2_step[i];
+      *idCell2 = MINDEX3(gridX, gridY, gridZ, iX2, iY2, iZ2);
+    YES THIS one you can replace with
+       idCell2_step[i] = MINDEX3(gridX, gridY, gridZ, iX2, iY2, iZ2);
+      just by doing the variable inlining (cancellation of *& should be done on the fly
+      by variable inline)
+  *)
+
+  (* BEAUTIFY:
+    (double [star])MMALLOC_ALIGNED1(nbCells, sizeof(double), 64);
+    SHOULD BE
+    (double[star]) MMALLOC_ALIGNED1(nbCells, sizeof(double), 64);
+    there are two spaces to modify *)
 
   bigstep "Vectorization";
   (* TODO: Clean up  *)
@@ -586,3 +606,5 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
      x & (y - 1)
   but this is very confusing, so we should always put parentheses around nontrivial arguments of & and | operators.
   *)
+
+
