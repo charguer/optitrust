@@ -21,11 +21,16 @@ Details of what this performs:
 ```
 
 
-# To build the trace
+# To build the HTML file for navigating through all diffs
 
 ```
-   make pic_demo_trace.html
+   make trace
 
+   # or
+   make traceview
+
+   # which is equivalent to
+   make pic_demo_trace.html
    chromium-browser pic_demo_trace.html &
 ```
 

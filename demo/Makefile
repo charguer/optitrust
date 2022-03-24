@@ -91,5 +91,14 @@ chksteps:
 
 init: optitrust import 
 
+trace: pic_demo_trace.html
+
+traceview: trace
+	$(V)chromium-browser pic_demo_trace.html &
+
 
 # LATER: build different output files depending on the usechecker flag
+
+
+
+
