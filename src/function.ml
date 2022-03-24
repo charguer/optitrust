@@ -163,10 +163,11 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       let tg_out_trm = Path.resolve_path path_to_instruction t in
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
-      let call_trm = begin match Target.get_trm_at (Target.target_of_path path_to_call) with
+      let call_trm = Path.get_trm_at_path path_to_call t in 
+      (* let call_trm = begin match Target.get_trm_at (Target.target_of_path path_to_call) with
       | Some t1 -> t1
       | None -> fail None "inline: this is never expected to happen"
-      end in
+      end in *)
       begin match call_trm.desc with
         | Trm_apps ({desc = Trm_var (_, f)}, _) -> function_name := f
         | _ -> fail t.loc "get_function_name_from_call: couldn't get the name of the called function"
@@ -219,6 +220,11 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
         post_processing ~deep_cleanup:true ()
       | Trm_apps _ ->
         post_processing ();
+      | Trm_for _ | Trm_for_c _ -> 
+        Trace.time "bind_intro2" (fun () ->
+          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call));
+        mark_added := true;
+        post_processing ~deep_cleanup:false ();
       | _ -> fail tg_out_trm.loc "inline: please be sure that you're tageting a proper function call"
       end
     ) tg;

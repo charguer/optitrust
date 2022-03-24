@@ -44,7 +44,7 @@ let stepsReal = cOr (List.map (fun f -> [f]) stepsl) (* LATER: rename *)
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = onlychecker "-DCHECKER"
-let prepro = ["-DPRINTPERF" ; "-DDEBUG_ITER_DESTR" (*; "-DDEBUG_ITER" *)] @ prepro
+let prepro = ["-DPRINTPERF" (* ; "-DDEBUG_ITER_DESTR" *) (*; "-DDEBUG_ITER" *)] @ prepro
 
 (* LATER let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
    ~prefix *)
@@ -102,8 +102,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
   bigstep "Low level iteration on chunks of particles";
-  (* BEAUTIFY: deactivate -DDEBUG_ITER_DESTR and debug this line
-      !! Function.inline [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];*)
+  (* Since function inline transformation was not designed to work with calls in for loops, here we need
+      first to bind a variable to that call then inline that function call and finally inline the binding variable *)
+  !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
+  !! Function.inline [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
+  !! Variable.inline [steps; cVarDef "bag_iter"];
+  
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [steps; cMark "loop"; cFor_c ""; dBody];
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cMark "loop"]; (* TODO Calling Function.uninline loops *)
