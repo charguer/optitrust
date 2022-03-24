@@ -28,9 +28,9 @@ let _= Run.process_cmdline_args
 let usechecker = !usechecker
 
 
-(* UNCOMMENT THIS LINE FOR WORKING ON THE VERSION WITH THE CHECKER*)
+(* UNCOMMENT THIS LINE FOR WORKING ON THE VERSION WITH THE CHECKER
 let usechecker = true
-
+*)
 
 let onlychecker p = if usechecker then [p] else []
 let doublepos = false (* LATER: Arthur make this a command line command *)
@@ -126,12 +126,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Elimination of the pointer on a particle, to prepare for aos-to-soa";
   !! Variable.init_detach [steps; cVarDef "p"];
-  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
+  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"]; (* BEAUTIFY: move elsewhere *)
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."];  (* BEAUTIFY: move elsewhere? *)
   !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
   !! Instr.delete [steps; cVarDef "p"];
 
   bigstep "AOS-TO-SOA";
+  (* BEAUTIFY: discuss how the first 2 operations could be gathered with the
+     "Reveal write operations involved" step *)
   !! Struct.set_explicit [step; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ~regexp:true ~field:"\\(speed\\|pos\\)" ()];
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
@@ -170,13 +172,15 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.scale ~factor:(expr ("cell"^d)) [addPart; cFieldRead ~field:d_lc ~base:[cVar "pos"] ()]);
   !! iter_dims (fun d ->
      Accesses.scale ~neg:true ~factor:(expr ("cell"^d))
-         [nbMulti; steps; cOr [[sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]);
+         [nbMulti; steps; cOr [[sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]); (* BEAUTIFY: why is the subst:true needed above? *)
 
   bigstep "Simplify arithmetic expressions after scaling";
   !! Trace.reparse();
   !! Variable.inline [steps; cVarDef "accel"];
   !! Arith.with_nosimpl [nbMulti; steps; cFor "k"] (fun () ->
        Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
+       (* BEAUTIFY: remind me why we can't do a infixop just here? it would be very pretty;
+          (even if we have to undo it later) *)
 
   bigstep "Enumerate grid cells by coordinates";
   (* BEAUTIFY: inline nbCells, then call grid_enumerate, which should parse the product automatically i<X*Y*Z *)
@@ -214,6 +218,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
        Arith.(simpl ~indepth:true expand) [nbMulti; stepsReal]);
   !! Instr.delete [nbMulti; stepsReal; cVarDef ~regexp:true "i.0"];
   !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
+  !! Rewrite.equiv_at ~glob_defs:"double fwrap(double, double);\n" "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDef ~regexp:true "p.2"; cInit()];
+  !! iter_dims (fun d ->
+      Instr.read_last_write ~write:[cTopFunDef "computeConstants"; cWriteVar ("cell"^d)] [nbMulti;step; cFun "fwrap";cReadVar ("cell"^d)];);
+  !! Arith.(simpl_rec expand) [nbMulti; step; cVarDef ~regexp:true "p.2"];
+  (* BEAUTIFY: can we factorize the two calls to simpl_rec in this big step ?*)
 
   if doublepos then begin
     bigstep "Turn positions into floats, decreasing precision but allowing to fit a larger number of particles";
@@ -222,10 +231,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   end;
 
   bigstep "Replacement of the wrap-around operation on doubles with a bitwise operation, assuming grid sizes to be powers of 2";
-  !! Rewrite.equiv_at ~glob_defs:"double fwrap(double, double);\n" "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDef ~regexp:true "p.2"; cInit()];
-  !! iter_dims (fun d ->
-      Instr.read_last_write ~write:[cTopFunDef "computeConstants"; cWriteVar ("cell"^d)] [nbMulti;step; cFun "fwrap";cReadVar ("cell"^d)];);
-  !! Arith.(simpl_rec expand) [nbMulti; step; cVarDef ~regexp:true "p.2"];
    let fwrapInt = "double fwrapInt(int m, double v) {
       const int q = int_of_double(v);
       const double r = v - q;
@@ -236,6 +241,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Expr.replace_fun "fwrapInt" [nbMulti;step; cFun "fwrap"];
   !! iter_dims (fun d ->
       Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"]);
+      (* BEAUTIFY the next two steps need to be performed differently, see the paper *)
   !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.2"];
   !! iter_dims (fun d ->
       Variable.rename ~into:("i"^d^"2") [step;cVarDef ("j"^d)];);

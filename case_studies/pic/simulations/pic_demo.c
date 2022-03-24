@@ -302,7 +302,9 @@ void step() {
     // Consider the bag of particles in that cell
     bag* b = &bagsCur[idCell];
     bag_iter bag_it;
-    for (particle* p = bag_iter_destructive_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
+    for (particle* p = bag_iter_destructive_begin(&bag_it, b);
+         p != NULL;
+         p = bag_iter_next(&bag_it)) {
 
       // Interpolate the field based on the position relative to the corners of the cell
       double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
