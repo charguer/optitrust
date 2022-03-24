@@ -39,16 +39,16 @@ Details of what this performs:
 # Compilation of the output of the transformation script
 
 ```
-   # execute the transformation script and
-   # copy output file to ../case_studies/pic/simulations/pic_optimized.c
+   # for basic information about vectorized loops
+   make vect
+
+   # to see more detailed information
+   make vectview
+
+   # This is equivalent to:
    make optim
-
-   # compile the output file
    cd ../case_studies/pic/scripts
-   ./compile.sh pic_optimized.c
-
-   # get information about vectorization (uses meld)
-   ./vectinfo.sh pic_optimized.c
+   ./vectinfo.sh pic_optimized.c light
 ```
 
 # To evaluate performance

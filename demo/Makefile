@@ -50,41 +50,46 @@ export_fast:
 FILES := $(subst pic_demo.c,pic_demo.cpp,$(notdir $(SOURCES)))
 
 clean::
-	rm -rf bigsteps
+	$(V)rm -rf bigsteps
 
 cleanfiles:
-	rm -f $(FILES)
+	$(V)rm -f $(FILES)
 
 optim: pic_demo_out.cpp 
-	cp pic_demo_out.cpp $(PICDIR)/simulations/pic_optimized.c
-	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized.c
+	$(V)cp pic_demo_out.cpp $(PICDIR)/simulations/pic_optimized.c
+	$(V)sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized.c
 
 perf: optim
-	cd $(SCRIPTDIR); ./perf.sh
+	$(V)cd $(SCRIPTDIR); ./perf.sh
+
+vect: optim
+	$(V)cd $(SCRIPTDIR); ./vectinfo.sh pic_optimized.c light
+
+vectview: optim
+	$(V)cd $(SCRIPTDIR); ./vectinfo.sh pic_optimized.c view
 
 %_checker_out.cpp: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
 	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -usechecker
-	cp $*_out.cpp $*_checker_out.cpp
+	$(V)cp $*_out.cpp $*_checker_out.cpp
 	@echo "Produced $@"
 
 chk: pic_demo_checker_out.cpp
-	cp pic_demo_checker_out.cpp $(PICDIR)/simulations/pic_optimized_checker.c
-	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized_checker.c
-	cd $(SCRIPTDIR); ./check.sh pic_barsamian.c pic_optimized_checker.c
+	$(V)cp pic_demo_checker_out.cpp $(PICDIR)/simulations/pic_optimized_checker.c
+	$(V)sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized_checker.c
+	$(V)cd $(SCRIPTDIR); ./check.sh pic_barsamian.c pic_optimized_checker.c
 
 chk_fast: export_fast
-	cd $(SCRIPTDIR); ./check.sh pic_barsamian.c pic_fast_checker.c
+	$(V)cd $(SCRIPTDIR); ./check.sh pic_barsamian.c pic_fast_checker.c
 
 chksteps:
-	FLAGS="-usechecker" $(MAKE) pic_demo.bigsteps
-	cd bigsteps; sed "s/const int CHUNK_SIZE = 128;//" -i pic_demo_checker_*_out.cpp
-	for x in bigsteps/*; do mv $$x bigsteps/"`basename $$x .cpp`.c"; done
-	rm -f $(PICDIR)/simulations/pic_demo_checker_*_out.c
-	cp bigsteps/*.c $(PICDIR)/simulations/
-	cd ../case_studies/pic/scripts; ./check_steps.sh pic_demo_checker
+	$(V)FLAGS="-usechecker" $(MAKE) pic_demo.bigsteps
+	$(V)cd bigsteps; sed "s/const int CHUNK_SIZE = 128;//" -i pic_demo_checker_*_out.cpp
+	$(V)for x in bigsteps/*; do mv $$x bigsteps/"`basename $$x .cpp`.c"; done
+	$(V)rm -f $(PICDIR)/simulations/pic_demo_checker_*_out.c
+	$(V)cp bigsteps/*.c $(PICDIR)/simulations/
+	$(V)cd ../case_studies/pic/scripts; ./check_steps.sh pic_demo_checker
 
 init: optitrust import 
-
 
 
 # LATER: build different output files depending on the usechecker flag
