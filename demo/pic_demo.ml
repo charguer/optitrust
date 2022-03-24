@@ -110,7 +110,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
   bigstep "Low level iteration on chunks of particles";
-  (* Since function inline transformation was not designed to work with calls in for loops, here we need
+  (* Since function inline transformation was not designed to work with calls inside for loops, here we need
       first to bind a variable to that call then inline that function call and finally inline the binding variable *)
   !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
   !! Function.inline [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
@@ -261,7 +261,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "deposit"] in
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
      (* ~labels:["alloc"; ""; "dealloc"] ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""]) *)
-     ~dim:(expr "8") ~index:"k" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "k")) ~alloc_instr [cLabel "core"];
+     ~dim:(expr "8") ~index:"idCorner" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "k")) ~alloc_instr [cLabel "core"];
 
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
   let mybij_def =
@@ -329,7 +329,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true "deposit.*Corners"];
   !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
     (* BEAUTIFY:  ~dest:[tLast; cTopFunDef "allocateStructures"; dBody]  *)
-  (* TODO: parallelize the accumulation loop, which needs to be marked "depositSum" at the delocalize step
+  (* TODO: mark the accumulation loop as "depositSum" at the delocalize step
       !! Omp.parallel_for [tBefore; step; cMark "depositSum"]]; *)
   !! Instr.delete [step; cLabel "charge"; cOmp()]; (* BEAUTIFY: Instr.set_nonatomic ; also cPragma is needed *)
 
@@ -414,9 +414,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     there are two spaces to modify *)
 
   bigstep "Vectorization";
+  (* TODO: Clean up  *)
   !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot]; (* BEAUTIFY: Align.header [] *)
   !! Loop.fission [tBefore; occLast; step; cFor "idCell"; cFor "idCorner"; cFor "idThread"];
-  !! Loop.swap [occLast; cFor "idCell"; cFor "idCorner"];
+  !! Loop.swap [occLast; cFor "idCell"; cFor "idCorner" ~body:[cFor "idThread"]];
   !! Omp.simd [nbMulti; tBefore;cFor "idCell" ~body:[cFor "bagsKind"]; cFor "idCorner"];
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
   !! Omp.simd [tBefore; stepLF; cFor "i"];
@@ -425,13 +426,17 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
                                          [step; cVarDef "idCell2_step"];
                                          [cStrict; cVarDef ~substr:true "deposit"]]];
   !! Struct.align_field (lit "64") ("items.") [cTypDef "chunk"];
-
   !! List.iter (fun occ -> Omp.simd [occIndex occ; tBefore; step; cFor "i"]) [0;1]; (* BEAUTIFY: occIndices *)
   !! Function.inline [step; cFun "cellOfCoord"];
   !! Align.alloc (lit "64") [nbMulti; cTopFunDef "allocateStructures"; cMalloc ()];
-
+  !! Function.inline [nbMulti; step; cFor "idCorner" ~body:[cVar "depositCorners"]; cMindex ~d:2 ()];
+  !! Instr.inline_last_write [step; cFor "idThread"; cReadVar "__TEMP_Optitrust"];
+  !! Instr.delete [step; cVarDef "__TEMP_Optitrust"];
+  !! Function.inline [nbMulti; step; cFor "idCorner" ~body:[cVar "depositCorners"]; cMindex ~d:3 ()];
+  !! Variable.init_attach [step; cVarDef "__TEMP_Optitrust"];
+  !! Variable.inline [step; cVarDef "__TEMP_Optitrust"];
+  !! Function.inline [nbMulti; step; cFor "k"; cMindex ~d:3 ()];
 )
-
 (*
 
 
