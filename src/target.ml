@@ -607,7 +607,7 @@ let cMalloc ?(d : int option = None) () : constr =
 
 (* [cMindex d]  matches all calls to Optitrust MINDEXI where I = d*)
 let cMindex ?(d : int  = 0) () : constr = 
-  let d = if d = 0 then string_of_int d else "." in 
+  let d = if d <> 0 then string_of_int d else "." in 
   cFun ~regexp:true ("MINDEX"^d)
 
 
