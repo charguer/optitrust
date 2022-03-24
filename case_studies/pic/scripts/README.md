@@ -112,6 +112,11 @@ P=2 ./test.sh pic_demo.c
 ```
 ./vectinfo.sh pic_barsamian.c
 ./vectinfo.sh pic_optimized.c
+
+# for more detailed information, in a GUI view
+./vectinfo.sh pic_optimized.c view
+# for more detailed information, as an output file
+./vectinfo.sh pic_optimized.c full
 ```
 
 # Correctness checking

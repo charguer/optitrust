@@ -1,8 +1,20 @@
 #!/bin/bash
+
+# usage: ./vectinfo.sh filename.c mode
+#  - the filename.c is searched for in the ../simulations folder
+#  - the mode is described in vectmerge.sh
+
+
 TARGET=$1
-if [ -z "$TARGET" ]; then
+MODE=$2
+
+if [ -z "${TARGET}" ]; then
   TARGET="pic_optimized.c"
 fi
+if [ -z "${MODE}" ]; then
+  MODE="light"
+fi
+
 BASENAME="${TARGET%%.*}"
 
 OUTPUT="${BASENAME}_infos.txt"
@@ -20,7 +32,7 @@ sort -o ${OUTPUT} ${OUTPUT}
 sort ${OUTPUT} | uniq -u > __temp.txt
 mv __temp.txt ${OUTPUT}
 echo "Produced ${OUTPUT}"
-./vectmerge.sh ${TARGET}
+./vectmerge.sh ${TARGET} ${MODE}
 
 
 # 2> vect_info.txt -fopt-info-vec-missed -ftree-vectorize
