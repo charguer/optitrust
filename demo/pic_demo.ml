@@ -28,8 +28,8 @@ let _= Run.process_cmdline_args
 let usechecker = !usechecker
 
 
-(* UNCOMMENT THIS LINE FOR WORKING ON THE VERSION WITH THE CHECKER
-let usechecker = true *)
+(* UNCOMMENT THIS LINE FOR WORKING ON THE VERSION WITH THE CHECKER*)
+let usechecker = true 
 
 
 let onlychecker p = if usechecker then [p] else []
@@ -138,11 +138,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Struct.inline "items" [cTypDef "chunk"];
 
   bigstep "Apply scaling factors on the electric field";
-  !! Struct.to_variables [step; cVarDef "fieldAtPos"];
+  !! Struct.to_variables [steps; cVarDef "fieldAtPos"];
   !! Variable.insert_list_same_type ~reparse:true (atyp "const double") (["factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
       @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d))))) [occFirst; tBefore; step; cFor "idCell"];
-  !! Function.inline [step; cFun "getFieldAtCorners"];
-  !! Struct.set_explicit [step; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "res"] ()] ()];
+  !! Function.inline [steps; cFun "getFieldAtCorners"];
+  !! Variable.rename ~into:"field_at_corners" [step; cVarDef "res"];
+  !! Struct.set_explicit [step; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "field_at_corners"] ()] ()];
   !! iter_dims (fun d ->
       let d1 = String.lowercase_ascii d in
       Accesses.scale ~factor:(var ("factor" ^ d)) [step; cFor "k"; cFieldWrite ~field:d1 ()]);
@@ -365,10 +366,18 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
   !! Omp.parallel_for [tBefore; occIndex 1; step; cFor "idCell"]; (* BEAUTIFY: use label to refer to the loop *)
   !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
-
+  
   (* Part 4: Vectorization *)
 
   bigstep "Loop splitting: process speeds, process positions, deposit particle and its charge";
+  (* Unrolling coeff computation loops and inlining coeff writes *)
+  !! Loop.unroll [occFirst; step; cFor "i"; cFor "k"];
+  !! Loop.unroll [stepLF; cFor "i"; cFor "k"]; 
+  !! Instr.inline_last_write [nbMulti; steps; cCellRead ~base:[cFieldRead ~base:[cVar "coeffs"] ()] ()];
+  !! iter_dims (fun d -> 
+       Instr.inline_last_write [steps; cCellWrite ~base:[cFieldRead ~field:("itemsSpeed"^d) ()] (); cReadVar ("fieldAtPos"^d)];);
+  !! Variable.inline [nbMulti; steps; cVarDef ~regexp:true "fieldAt.*"];
+  
   !! Trace.reparse();
   !! Variable.to_nonconst [step; cVarDef "idCell2"];
   !! Loop.hoist ~array_size:(Some (expr "CHUNK_SIZE")) [step; cVarDef "idCell2"];
@@ -376,14 +385,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.copy ~dest [step; cVarDef "idCell2"];
   !! Instr.move ~dest [step; cVarDef "co"];
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "rX1"]]];
-  !! Variable.ref_to_pointer [nbMulti; step; cVarDef "idCell2"];
+  !! Variable.ref_to_pointer [occFirst; step; cVarDef "idCell2"];
+  !! Variable.ref_to_var [occLast; step; cVarDef "idCell2"];
+  
+
+  
 
   bigstep "Vectorization";
-  (* LATER
-  !! Loop.unroll [occFirst; step; cFor "i"; cFor "k"];
-  !! Loop.unroll [stepLF; cFor "k"]; (* Trying to enable vectorization by unrolling looops *)
-  *)
-
   !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot]; (* BEAUTIFY: Align.header [] *)
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];
@@ -396,7 +404,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! List.iter (fun occ -> Omp.simd [occIndex occ; tBefore; step; cFor "i"]) [0;1]; (* BEAUTIFY: occIndices *)
   !! Function.inline [step; cFun "cellOfCoord"];
   !! Align.alloc (lit "64") [nbMulti; cTopFunDef "allocateStructures"; cMalloc ()];
-
+  !! Omp.simd [tBefore; stepLF; cFor "i"];
 )
 
 (*

@@ -206,3 +206,7 @@ let ref_to_pointer : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Variable_core.ref_to_pointer i t p)
 
+(* [ref_to_var tg] expects the target [tg] to be pointing at a refernce declaration,
+     then it will convert it into a simple variable declaration *)
+let ref_to_var : Transfo.t = 
+  apply_on_targets (Variable_core.ref_to_var)

@@ -596,3 +596,21 @@ let ref_to_pointer_aux (index : int) (t : trm) : trm =
 let ref_to_pointer (index : int) : Target.Transfo.local = 
   Target.apply_on_path (ref_to_pointer_aux index)
 
+(* [ref_to_var_aux t] convert a reference variable to a simple stack var variable
+     pararms:
+      [t]: ast of the refernce declaration
+     return:
+      ast of the converted variable *)
+let ref_to_var_aux (t : trm) : trm = 
+  match t.desc with
+  | Trm_let (vk, (x, tx), init) when trm_annot_has Reference t -> 
+    let t_annot = trm_annot_remove Reference t in 
+    let t_annot = trm_annot_add Stackvar t_annot in 
+    (trm_let ~annot:t_annot.annot ~marks:t.marks vk (x, tx) (trm_new (get_inner_ptr_type tx) (trm_get init)))
+
+  | _ -> fail t.loc "ref_to_var_aux: expected a target to a reference declaration"
+
+let ref_to_var : Target.Transfo.local = 
+  Target.apply_on_path (ref_to_var_aux )
+
+
