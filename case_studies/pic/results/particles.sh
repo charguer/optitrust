@@ -1,11 +1,14 @@
 #!/bin/bash
 
+# Reports the number of million particles that can be fit on a given RAM size.
+#
 # usage: ./particles.sh ram_in_gb
+# usage: V=1 ./particles.sh
+#
 # - where `ram_in_gb` denotes the number of GB of RAM available on the machine
 #   if not provided, it will be reported automatically
 #
-# Use VERBOSE=1 ./particles.sh ram_in_gb
-# for computation details
+#  - V=1 option is to display computation details, and pretty printed output
 
 MEMBOUND=$1
 
@@ -18,8 +21,10 @@ MARGIN="0.9"
 
 if [ -z "${MEMBOUND}" ]; then
   MEMBOUND=`grep MemTotal /proc/meminfo | awk '{print $2 / 1024 / 1024}'`
-  echo "Memory bound not provided; reading it from /proc/meminfo:"
-  echo "   Total memory available: ${MEMBOUND} GB"
+  if [ ! -z "${v}" ]; then
+    echo "Memory bound not provided; reading it from /proc/meminfo:"
+    echo "   Total memory available: ${MEMBOUND} GB"
+  fi
 fi
 
 
@@ -31,14 +36,19 @@ GRIDEXTRAMEM=`echo "scale=3; 4 * ${NBCELLS} * ${CHUNKMEM} / 1024 / 1024 / 1024" 
 # PARTICLESMEM in GB
 PARTICLESMEM=`echo "scale=3; ${MEMBOUND} - ${GRIDEXTRAMEM}" | bc`
 # PARTICLES in millions
-PARTICLES=`echo "${MARGIN} * 1000 * ${PARTICLESMEM} / ${PARTICLESIZE}" | bc`
+PARTICLESMILLIONS=`echo "${MARGIN} * 1000 * ${PARTICLESMEM} / ${PARTICLESIZE}" | bc`
+# PARTICLES in units
+PARTICLES=`echo "${PARTICLESMILLIONS} * 1000 * 1000" | bc`
 
-if [ ! -z "${VERBOSE}" ]; then
+if [ ! -z "${v}" ]; then
   echo "NBCELLS = ${NBCELLS}"
   echo "CHUNKMEM = ${CHUNKMEM}"
   echo "GRIDEXTRAMEM = ${GRIDEXTRAMEM}"
   echo "PARTICLESMEM = ${PARTICLESMEM}"
+  echo "PARTICLESMILLIONS = ${PARTICLESMILLIONS}"
   echo "PARTICLES = ${PARTICLES}"
+  echo "For ${MEMBOUND} GB of RAM, Maximal number of particles: ${PARTICLES} million"
 fi
 
-echo "For ${MEMBOUND} GB of RAM, Maximal number of particles: ${PARTICLES} million"
+echo ${PARTICLES}
+

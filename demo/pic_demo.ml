@@ -66,7 +66,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Optimization in [cornerInterpolationCoeff], before it is inlined";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
-  let ctx_rv = cChain [ctx; sInstr "r.v"] in 
+  let ctx_rv = cChain [ctx; sInstr "r.v"] in
   !! Rewrite.equiv_at "double a; ==> 1. - a == (1. + -1. * a)" [nbMulti; ctx; cVarDef ~regexp:true "c."; cInit()];
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
@@ -103,7 +103,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
   bigstep "Low level iteration on chunks of particles";
-  !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]]; 
+  !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
   !! Function.inline [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
   !! Variable.inline [steps; cVarDef "bag_iter"];
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
@@ -170,7 +170,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Arith.with_nosimpl [nbMulti; steps; cFor "k"] (fun () ->
        Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
   (* !! Function.use_infix_ops ~indepth:true [step; dBody]; *)
-   
+
       (* BEAUTIFY: remind me why we can't do a infixop just here? it would be very pretty;
           (even if we have to undo it later) *)
 
@@ -198,7 +198,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [cOr (
         [[addPart; cFieldWrite ~field:("pos"^d) ()]] @
         (onlychecker [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] ()]) )] );
-  
+
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [stepsReal; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
@@ -209,7 +209,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Rewrite.equiv_at ~glob_defs:"double fwrap(double, double);\n" "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDef ~regexp:true "p.2"; cInit()];
   !! iter_dims (fun d ->
       Instr.read_last_write ~write:[cTopFunDef "computeConstants"; cWriteVar ("cell"^d)] [nbMulti;step; cFun "fwrap";cReadVar ("cell"^d)];);
-  
+
   !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "k"] (fun () ->
        Arith.(simpl ~indepth:true expand) [nbMulti; stepsReal]);
   !! Variable.inline [stepsReal; cVarDef ~regexp:true "r.."];
@@ -232,10 +232,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Expr.replace_fun "fwrapInt" [nbMulti;step; cFun "fwrap"];
   !! iter_dims (fun d ->
       Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"]);
-  
+
   !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarDef ("i"^d^"2");cInit()];);
   !! Variable.inline_and_rename [nbMulti; step; cVarDef ~regexp:true "i.2" ];
-  
+
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];
   !! Expr.replace_fun "wrapPowerof2" [nbMulti; step; cFun "wrap"];
@@ -248,6 +248,21 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
   !! Variable.inline [occLast; step; cVarDef "indices"];
 
+  (* BEGIN HIDE *)
+  if false then begin (* only for paper illustration purpose, not meant to work beyond this step *)
+    bigstep "For paper illustration purpose, introduce nbTreads";
+    !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
+    !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "4") [tBefore; cVarDef "nbCells"];
+    !! Trace.reparse();
+    (* TODO: fix this line, or possibly the one below if it is easier ; For this, replace "if false" with "if true" above. *)
+    (*!! Matrix.delocalize "deposit" ~into:"depositThread" ~indices:["idCell"]
+        init_zero:true ~dim:(var "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (var "idThread"))
+        [cLabel "core"];*)
+    (* !! Matrix_basic.delocalize ~acc_in_place:true ~dim:(var "nbThreads") ~index:"idThread" ~acc:"sum" ~ops:delocalize_sum [cLabelBody "core"]; *)
+  end;
+  (* END HIDE *)
+
+  (* BEAUTIFY: rename function atyp to ty *)
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "deposit"] in
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
@@ -308,7 +323,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
       ~init_zero:true ~dim:(expr "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (expr "idThread"))
-      [cLabel "core"];
+      [cLabel "core"]; (* BEAUTIFY: above and elsewhere, (expr "myvar") should be replaced with (var "myvar"), to avoid reparsing *)
       (* BEAUTIFY:
       ~decl_target:[tAfter; dRoot; cStrict; cVarDef "deposit"]
       ~alloc_target:(Some [tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"])
@@ -599,3 +614,42 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
   but this is very confusing, so we should always put parentheses around nontrivial arguments of & and | operators.
   *)
 
+<<<<<<< HEAD
+=======
+
+
+
+(* LATER:
+
+We have in the top of the step function
+
+ for (int idCell = 0; idCell < nbCells; idCell++) {
+    for (int idCorner = 0; idCorner < 8; idCorner++) {
+      for (int idThread = 0; idThread < nbThreads; idThread++) {
+        depositThreadCorners[MINDEX3(nbCells, 8, nbThreads, idCell, idCorner,
+                                     idThread)] = 0.;
+      }
+    }
+  }
+
+
+at the very least this needs to be done using omp parallel on the outer loop.
+
+
+Another possibility is to move the reset of depositThreadCorners into the allocate function,
+and to simply modify the line
+
+      for (int idThread = 0; idThread < nbThreads; idThread++) {
+        sum += depositThreadCorners[MINDEX3(nbCells, 8, nbThreads, idCell, idCorner, idThread)];
+      }
+
+into
+
+      for (int idThread = 0; idThread < nbThreads; idThread++) {
+        sum += depositThreadCorners[MINDEX3(nbCells, 8, nbThreads, idCell,idCorner, idThread)];
+        depositThreadCorners[MINDEX3(nbCells, 8, nbThreads, idCell,idCorner, idThread)] = 0;
+      }
+
+
+*)
+>>>>>>> 3388efaade9728f56a6b6dff41a7d2856e3e6f82

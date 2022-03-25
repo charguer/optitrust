@@ -1,33 +1,46 @@
 #!/bin/bash
 
-# usage: ./bench.sh  machine action
-# - where machine is the machine name, for which config_machine.sh must be available
+# Execute PIC benchmarks.
 
+# usage: ./bench.sh [action]
+#
+# where action can be one of: clean, params, hard, run
+
+# The environment variable MACHINE can be used to use config_${MACHINE}.sh
+#   instead of config_`hostname`.sh
 # The environment variable FAST=1 can be used to request a smaller simulation
 # The environment variable NOSEQ=1 can be used to skip sequential runs
+# The environment variable NOPAR=1 can be used to skip parallel runs
+# The environment variable PROG=pic_demo.c can be used to benchmark only one code
+# The environment variable COMP=gcc can be used to benchmark only one compiler
 
-MACHINE=$1
-ACTION=$2
+# Example:  FAST=1 ./bench.sh
+# Example:  FAST=1 COMP=gcc PROG=pic_demo.c ./bench.sh run
 
 
-
-if [ -z "${MACHINE}" ]; then
-  echo "Bench: missing machine name"
-  exit 1
-fi
+ACTION=$1
 
 if [ -z "${ACTION}" ]; then
   ACTION="all"
 fi
 
+if [ -z "${MACHINE}" ]; then
+  MACHINE=`hostname`
+fi
+
+CURDIR=`pwd`
 ROOTDIR=".."
-SCRIPTDIR="${ROOTDIR}/scripts "
+SCRIPTDIR="${ROOTDIR}/scripts"
+STREAMDIR="${ROOTDIR}/Stream-test"
 MACHINEDIR="${MACHINE}"
 
 # use 20 million (array cells per core) for the stream test
 STREAMSIZE="20000000"
 
-PROGS="pic_demo.c pic_optimized.c pic_barsamian.c pic_barsamian_malloc.c"
+# use 2 million particles for a fast run
+FASTNBPARTICLES="2000000"
+
+PROGRAMS="pic_demo.c pic_optimized.c pic_barsamian.c pic_barsamian_malloc.c"
 
 #--------------------------------------------------------------------------------
 # Load machine configuration
@@ -48,29 +61,7 @@ mkdir -p ${MACHINEDIR}
 
 if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "clean" ]; then
   rm -f ${MACHINE}/*
-  echo "Clear folder ${MACHINE}/"
-fi
-
-#--------------------------------------------------------------------------------
-# Parameters
-
-if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "params" ]; then
-
-  CONFIGFILE="${ROOTDIR}/your_configuration.sh"
-  cp template_your_configuration.sh ${CONFIGFILE}
-  echo "nb_threads=${nb_threads}" >> ${CONFIGFILE}
-  echo "Generated ${CONFIGFILE}"
-
-  PARAMSFILE="${SCRIPTDIR}/parameters_3d.txt"
-  if [ ! -z "${FAST}" ]; then
-    PARAMSTEMPLATE="template_parameters_3d.txt"
-  else
-    PARAMSTEMPLATE="template_parameters_3d_fast.txt"
-  fi
-  cp template_parameters_3d.txt ${PARAMSFILE}
-  echo "nb_particles = ${nb_particles};" >> ${PARAMSFILE}
-  echo "Generated ${PARAMSFILE}"
-
+  echo "Cleaned folder ${MACHINE}/"
 fi
 
 #--------------------------------------------------------------------------------
@@ -83,30 +74,91 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "hard" ]; then
     || (echo "warning: lstopo not available, try apt-get install hwloc")
   lstopo --of pdf > ${MACHINEDIR}/lstopo.pdf || (echo "")
   for COMPILER in ${compilers}; do
-    ${ROOTDIR}/Stream-test/stream.sh ${COMPILER} ${STREAMSIZE} > ${MACHINEDIR}/stream_${COMPILER}.txt
+    OUTPUT="${MACHINEDIR}/stream_${COMPILER}_p${nb_cores}.txt"
+    ${STREAMDIR}/stream.sh ${COMPILER} ${STREAMSIZE} ${nb_cores} > ${OUTPUT}
+    echo "Generated ${OUTPUT}"
   done
 
 fi
 
 #--------------------------------------------------------------------------------
-# Sequential runs
+# Parameters (updated if action=run, to allow updating FAST=1 on the command line)
+
+if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ] || [ "${ACTION}" = "params" ]; then
+
+  CONFIGFILE="${ROOTDIR}/your_configuration.sh"
+  cp template_your_configuration.sh ${CONFIGFILE}
+  echo "nb_threads=${nb_cores}" >> ${CONFIGFILE}
+  DEFAULTCOMPILER="${compilers%% *}"
+  echo "compiler=\"${DEFAULTCOMPILER}\"" >> ${CONFIGFILE}
+  echo "Generated ${CONFIGFILE}       with nb_cores=${nb_cores}"
+
+  PARAMSFILE="${SCRIPTDIR}/parameters_3d.txt"
+  if [ -z "${FAST}" ]; then
+    PARAMSTEMPLATE="template_parameters_3d.txt"
+    NBPARTICLES="$nb_particles"
+  else
+    PARAMSTEMPLATE="template_parameters_3d_fast.txt"
+    NBPARTICLES="${FASTNBPARTICLES}"
+  fi
+  cp ${PARAMSTEMPLATE} ${PARAMSFILE}
+  echo "nb_particles = ${NBPARTICLES};" >> ${PARAMSFILE}
+  echo "Generated ${PARAMSFILE}   with nb_particles=${NBPARTICLES}"
+
+fi
+
+#--------------------------------------------------------------------------------
+# Runs
+
+cd ${SCRIPTDIR}
 
 if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
 
   for COMPILER in ${compilers}; do
-    for PROG in ${PROGS}; do
-      COMP=${COMPILER} ${SCRIPTDIR}/compile.sh ${PROG}
+    if [ ! -z "${COMP}" ] && [ "${COMPILER}" != "${COMP}" ]; then
+      continue;
+    fi
+    for PROGRAM in ${PROGRAMS}; do
+      if [ ! -z "${PROG}" ] && [ "${PROGRAM}" != "${PROG}" ]; then
+        continue;
+      fi
+      BASENAME="${PROGRAM%.*}"
+      COMP=${COMPILER} ${SCRIPTDIR}/compile.sh ${PROGRAM}
       OUT=$?
       if [ ${OUT} -ne 0 ];then
-        echo "Error: could not compile the program ${PROG} using ${COMPILER}"
+        echo "Error: could not compile the program ${PROGRAM} using ${COMPILER}"
         exit 1
       fi
       if [ -z "${NOSEQ}" ]; then
-        ./run.sh ${PROG} > ${MACHINEDIR}/${PROG}_${COMPILER}_p1.txt || echo "Failure in  ./run.sh ${PROG}, using ${COMPILER}"
+        OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p1.txt"
+        echo "P=1 ./run.sh ${PROGRAM} > ${OUTFILE}"
+        P=1 ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+        # for quiet output:
+        # ./run.sh ${PROGRAM} > ${CURDIR}/${OUTFILE} || echo "Failure in run"
       fi
-      P=${nb_cores} ./run.sh ${PROG} >  ${MACHINEDIR}/${PROG}_${COMPILER}_p${nb_cores}.txt || echo "Failure in P=${nb_cores} ./run.sh ${PROG}, using ${COMPILER}"
+      if [ -z "${NOPAR}" ]; then
+        OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p${nb_cores}.txt"
+        echo "P=${nb_cores} ./run.sh ${PROGRAM} > ${OUTFILE}"
+        P=${nb_cores} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+      fi
     done
   done
 
 fi
 
+#--------------------------------------------------------------------------------
+# Summary
+
+cd ${CURDIR}
+
+if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ]; then
+
+  echo "====Summary : Exectime / Throughput / Program / Compiler / Cores ====="
+  for FILE in ${MACHINEDIR}/pic_*.txt; do
+    # RES=$(sed '/^\(Throughput\)/!d' ${FILE})
+    THROUGHPUT=$(cat ${FILE} | grep ^Throughput* | awk '{print $2}')
+    EXECTIME=$(cat ${FILE} | grep ^Exectime* | awk '{print $2}')
+
+    echo -e "${EXECTIME}\t${THROUGHPUT}\t${FILE}"
+  done
+fi

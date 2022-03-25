@@ -3,14 +3,31 @@
 
 This folder contains the experimental results for the PIC case study.
 
-There is one folder per machine used. Each folder contains the following data.
+In a rush:
+```
+# Gather machine dependent parameters
+./autoconfig.sh
+# Small-scale simulation
+FAST=1 ./bench.sh`
+# Large-scale simulation
+./bench.sh
+```
 
-Execute `./bench.sh foo` to run the full benchmark on machine `foo`.
-The file `config_foo.sh` needs to exist, to describe the machine parameters.
-The contents of folder `foo` will be erased.
+There is one folder per machine used, named after the hostname.
+Each folder contains the following data.
 
-Execute `./bench.sh foo action` to run only a subset of the benchmark actions.
-Execute `FAST=1 ./bench.sh foo` to use smaller parameters for faster simulation.
+The file `config_HOSTNAME.sh` needs to exist, to describe the machine parameters
+(nb_cores, compilers, nb_particles).
+This file can be generated using `./autoconfig.sh foo`, and then possibly modified by hand.
+
+Execute `./bench.sh action` to run only a subset of the benchmark actions.
+Execute `FAST=1 ./bench.sh` to use smaller parameters for faster simulation.
+
+The contents of result folder HOSTNAME will be cleared, unless a specific action
+is provided to the bench script.
+
+
+Here is an overview of how it works.
 
 
 ## Information about the hardware
@@ -21,6 +38,7 @@ Execute `FAST=1 ./bench.sh foo` to use smaller parameters for faster simulation.
 
 
 ## Parameters used for the evaluation in `config_foo.sh`
+
 - `nb_cores` stores the number of cores available on the hardware
 - `compilers` stores the list of available compilers on the hardware (e.g., "gcc icc")
 - `nb_particles` storing the number of particles close to the maximum that the RAM can accomodate
