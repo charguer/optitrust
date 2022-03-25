@@ -248,6 +248,21 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
   !! Variable.inline [occLast; step; cVarDef "indices"];
 
+  (* BEGIN HIDE *)
+  if false then begin (* only for paper illustration purpose, not meant to work beyond this step *)
+    bigstep "For paper illustration purpose, introduce nbTreads";
+    !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
+    !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "4") [tBefore; cVarDef "nbCells"];
+    !! Trace.reparse();
+    (* TODO: fix this line, or possibly the one below if it is easier ; For this, replace "if false" with "if true" above. *)
+    (*!! Matrix.delocalize "deposit" ~into:"depositThread" ~indices:["idCell"]
+        init_zero:true ~dim:(var "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (var "idThread"))
+        [cLabel "core"];*)
+    (* !! Matrix_basic.delocalize ~acc_in_place:true ~dim:(var "nbThreads") ~index:"idThread" ~acc:"sum" ~ops:delocalize_sum [cLabelBody "core"]; *)
+  end;
+  (* END HIDE *)
+
+  (* BEAUTIFY: rename function atyp to ty *)
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "deposit"] in
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
@@ -308,7 +323,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
       ~init_zero:true ~dim:(expr "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (expr "idThread"))
-      [cLabel "core"];
+      [cLabel "core"]; (* BEAUTIFY: above and elsewhere, (expr "myvar") should be replaced with (var "myvar"), to avoid reparsing *)
       (* BEAUTIFY:
       ~decl_target:[tAfter; dRoot; cStrict; cVarDef "deposit"]
       ~alloc_target:(Some [tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"])
