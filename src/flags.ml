@@ -1,3 +1,6 @@
+(* Flag to choose the width of the printed code *)
+let code_print_width = ref 80
+
 (* Flag to activate the printing of debug information -- NOT SUPPORTED YET *)
 let verbose : bool ref = ref false
 

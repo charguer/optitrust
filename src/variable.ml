@@ -325,7 +325,7 @@ let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
           then Variable_basic.inline ~mark ~accept_functions tg_decl
           else Variable_basic.unfold ~mark ~accept_functions tg_decl
       | Var_mutable ->
-        Variable_basic.to_const tg_decl;
+        if not (trm_annot_has Reference tg_trm) then Variable_basic.to_const tg_decl;
         if delete
           then Variable_basic.inline ~mark ~accept_functions tg_decl
           else Variable_basic.unfold ~mark ~accept_functions tg_decl

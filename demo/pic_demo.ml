@@ -599,4 +599,3 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
   but this is very confusing, so we should always put parentheses around nontrivial arguments of & and | operators.
   *)
 
-

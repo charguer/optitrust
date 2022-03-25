@@ -974,7 +974,7 @@ let ast_to_string ?(optitrust_syntax : bool = false) (t : trm) : string =
 
 let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in
-  ToBuffer.pretty 0.9 80 b (typ_to_doc ty);
+  ToBuffer.pretty 0.9 (!Flags.code_print_width) b (typ_to_doc ty);
   Buffer.contents b
 
 let trm_print_debug (t : trm) : unit =
