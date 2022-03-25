@@ -14,6 +14,7 @@
 # The environment variable PROG=pic_demo.c can be used to benchmark only one code
 # The environment variable COMP=gcc can be used to benchmark only one compiler
 
+# Example:  FAST=1 ./bench.sh
 # Example:  FAST=1 COMP=gcc PROG=pic_demo.c ./bench.sh run
 
 
@@ -145,3 +146,17 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
 
 fi
 
+#--------------------------------------------------------------------------------
+# Summary
+
+cd ${CURDIR}
+
+if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ]; then
+
+  echo "==========Summary=========="
+  for FILE in ${MACHINEDIR}/pic_*.txt; do
+
+    sed '/^\(Run\|Throughput\)/!d' ${FILE}
+
+  done
+fi
