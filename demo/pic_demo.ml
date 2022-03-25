@@ -245,22 +245,18 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Label.add "core" [step; cFor "iX" ];
   !! Matrix_basic.intro_mmalloc [nbMulti; cFunDef "allocateStructures";cFun "malloc"];
   !! Matrix.intro_mindex (expr "nbCells") [nbMulti; step; cCellAccess ~base:[cOr [[cVar "deposit"]; [cVar "bagsNext"]]]() ];
+  (* BEAUTIFY: we could rename MMALLOC1  to MALLOC1 , and same for CALLOC1; we keep MINDEX *)
+  (* BEAUTIFY: we should use intro_mops directly if possible *)
+  (* BEAUTIFY: Matrix.intro_mops should be generalized to work when the variable declaration and
+    the variable initialization are separated, even if we only target the cVarDef, as long
+    as there is a unique write in that variable.
+    On a related note, we could make the size automatically found by intro_mindex,
+    it should look for either the var_def with an initialization, or for a write in the variable;
+    to search for such expressions, define an auxiliary function "var_init_or_unique_write" which
+    retrieves the initializer; for array allocations, it will be the allocation operation;
+    from it, you can get the size, like intro_mmalloc is able to do. *)
   !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
   !! Variable.inline [occLast; step; cVarDef "indices"];
-
-  (* BEGIN HIDE *)
-  if false then begin (* only for paper illustration purpose, not meant to work beyond this step *)
-    bigstep "For paper illustration purpose, introduce nbTreads";
-    !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
-    !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "4") [tBefore; cVarDef "nbCells"];
-    !! Trace.reparse();
-    (* TODO: fix this line, or possibly the one below if it is easier ; For this, replace "if false" with "if true" above. *)
-    (*!! Matrix.delocalize "deposit" ~into:"depositThread" ~indices:["idCell"]
-        init_zero:true ~dim:(var "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (var "idThread"))
-        [cLabel "core"];*)
-    (* !! Matrix_basic.delocalize ~acc_in_place:true ~dim:(var "nbThreads") ~index:"idThread" ~acc:"sum" ~ops:delocalize_sum [cLabelBody "core"]; *)
-  end;
-  (* END HIDE *)
 
   (* BEAUTIFY: rename function atyp to ty *)
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
@@ -291,7 +287,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Sequence.insert (stmt mybij_def) [tBefore; step];
   !! Matrix.biject "mybij" [step; cVarDef "depositCorners"];
   !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
-      [step; cLabel "charge"; cFun "mybij"];
+      [step; sExpr "mybij(nbCells, 8, indicesOfCorners(idCell2).v[k], k)"];
+  (* DEPRECATED
+  !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
+      [step; cLabel "charge"; cFun "mybij"]; *)
+
+
+
 
   (* Part 2: parallelization *)
 
@@ -650,3 +652,18 @@ into
 
 
 *)
+
+
+  (* ARTHUR NOTES
+  if false then begin (* only for paper illustration purpose, not meant to work beyond this step *)
+    bigstep "For paper illustration purpose, introduce nbTreads";
+    !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
+    !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "4") [tBefore; cVarDef "nbCells"];
+    !! Trace.reparse();
+    (* fix this line, or possibly the one below if it is easier ; For this, replace "if false" with "if true" above. *)
+    (*!! Matrix.delocalize "deposit" ~into:"depositThread" ~indices:["idCell"]
+        init_zero:true ~dim:(var "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (var "idThread"))
+        [cLabel "core"];*)
+    (* !! Matrix_basic.delocalize ~acc_in_place:true ~dim:(var "nbThreads") ~index:"idThread" ~acc:"sum" ~ops:delocalize_sum [cLabelBody "core"]; *)
+  end;
+ *)

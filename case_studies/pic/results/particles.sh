@@ -15,8 +15,9 @@ MEMBOUND=$1
 # LATER: take as arguments these values
 GRIDSIDE="64"
 CHUNKSIZE="256"
-# PARTICLESIZE in bytes
-PARTICLESIZE="36"
+# PARTICLESIZE in bytes if using float: 36
+PARTICLESIZE="96"
+
 MARGIN="0.9"
 
 if [ -z "${MEMBOUND}" ]; then

@@ -129,17 +129,18 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
         echo "Error: could not compile the program ${PROGRAM} using ${COMPILER}"
         exit 1
       fi
+      # LATER:RUNCMD TO FACTORIZE
       if [ -z "${NOSEQ}" ]; then
         OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p1.txt"
         echo "P=1 ./run.sh ${PROGRAM} > ${OUTFILE}"
-        P=1 ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+        P=1 COMP=${COMPILER} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
         # for quiet output:
         # ./run.sh ${PROGRAM} > ${CURDIR}/${OUTFILE} || echo "Failure in run"
       fi
       if [ -z "${NOPAR}" ]; then
         OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p${nb_cores}.txt"
         echo "P=${nb_cores} ./run.sh ${PROGRAM} > ${OUTFILE}"
-        P=${nb_cores} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+        P=${nb_cores} COMP=${COMPILER} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
       fi
     done
   done
