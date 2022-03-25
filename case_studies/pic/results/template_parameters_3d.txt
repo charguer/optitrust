@@ -15,5 +15,5 @@ kmode_z = 0.5;  // Landau perturbation mode, z-axis
 seed = 0;
 
 // to be added:
-// nb_particles  = 10000000;
+   // nb_particles  = 10000000;
 

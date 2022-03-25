@@ -1,4 +1,4 @@
-charg
+#!/bin/bash
 
 nb_cores=2
 compilers="gcc"

@@ -21,9 +21,9 @@ Execute `FAST=1 ./bench.sh foo` to use smaller parameters for faster simulation.
 
 
 ## Parameters used for the evaluation in `config_foo.sh`
-- `$nb_cores` stores the number of cores available on the hardware
-- `$compilers` stores the list of available compilers on the hardware
-- `$nb_particles` storing the number of particles close to the maximum that the RAM can accomodate
+- `nb_cores` stores the number of cores available on the hardware
+- `compilers` stores the list of available compilers on the hardware (e.g., "gcc icc")
+- `nb_particles` storing the number of particles close to the maximum that the RAM can accomodate
 
 This file is used to generate `your_configuration.sh` and `parameters_3d.txt`
 which the compilation and execution scripts do rely on.
