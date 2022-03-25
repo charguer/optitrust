@@ -1,0 +1,19 @@
+sim_distrib = LANDAU_3D_PROD_OF_ONE_PLUS_COS;
+nb_cells_x    = 8;                           // Number of grid points, x-axis
+nb_cells_y    = 8;                           // Number of grid points, y-axis
+nb_cells_z    = 8;                           // Number of grid points, z-axis
+nb_iterations = 20;                          // Number of time steps
+delta_t       = 0.05;                         // Time step
+thermal_speed = 1.;                           // Thermal speed
+drift_velocity            = 11.;  // Center of the second maxwellian
+proportion_fast_particles = 0.02; // Proportions of the particles in the second maxwellian
+L = 22.;        // Length of the physical space
+alpha   = 0.05; // Landau perturbation amplitude
+kmode_x = 0.5;  // Landau perturbation mode, x-axis
+kmode_y = 0.5;  // Landau perturbation mode, y-axis
+kmode_z = 0.5;  // Landau perturbation mode, z-axis
+seed = 0;
+
+// to be added:
+// nb_particles  = 10000000;
+

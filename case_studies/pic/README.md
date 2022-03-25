@@ -53,8 +53,8 @@ Versions known to work
 
 ```
   cd Stream-test
-   ./a_compile_Stream.sh
-   ./b_run_Stream.sh
+   ./stream.sh gcc 50000000
+   ./stream.sh icc 50000000
   cd ..
 ```
 
@@ -210,7 +210,7 @@ wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCT
 # add signed entry to apt sources and configure the APT client to use Intel repository:
 echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
 
-sudo apt update 
+sudo apt update
 
 sudo apt upgrade
 

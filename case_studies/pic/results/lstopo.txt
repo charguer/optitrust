@@ -1,0 +1,20 @@
+Machine (16GB)
+  Package L#0 + L3 L#0 (4096KB)
+    L2 L#0 (256KB) + L1d L#0 (32KB) + L1i L#0 (32KB) + Core L#0
+      PU L#0 (P#0)
+      PU L#1 (P#2)
+    L2 L#1 (256KB) + L1d L#1 (32KB) + L1i L#1 (32KB) + Core L#1
+      PU L#2 (P#1)
+      PU L#3 (P#3)
+  HostBridge L#0
+    PCI 8086:1916
+      GPU L#0 "renderD128"
+      GPU L#1 "controlD64"
+      GPU L#2 "card0"
+    PCI 8086:9d03
+      Block(Disk) L#3 "sda"
+    PCIBridge
+      PCI 8086:24f3
+        Net L#4 "wlp1s0"
+    PCI 8086:156f
+      Net L#5 "enp0s31f6"
