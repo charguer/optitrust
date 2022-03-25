@@ -49,6 +49,8 @@ let prepro = ["-DPRINTPERF"] @ prepro
 (* LATER let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
    ~prefix *)
 
+(* let _ = Flags.code_print_width := 120 *)
+
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.h";"bag_atomics.h";"bag.h-"] (fun () ->
 
   Printf.printf "CHECKER=%d\n" (if usechecker then 1 else 0);
@@ -121,11 +123,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
   !! Instr.delete [steps; cVarDef "p"];
 
-  bigstep "AOS-TO-SOA";
-  (* BEAUTIFY: discuss how the first 2 operations could be gathered with the
-     "Reveal write operations involved" step *)
+  bigstep "Preparation for AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ~regexp:true ~field:"\\(speed\\|pos\\)" ()];
+  
+  bigstep "AOS-TO-SOA";
   !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
   !! Struct.inline "items" [cTypDef "chunk"];
 
@@ -384,29 +386,15 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! iter_dims (fun d ->
        Instr.inline_last_write [steps; cCellWrite ~base:[cFieldRead ~field:("itemsSpeed"^d) ()] (); cReadVar ("fieldAtPos"^d)];);
   !! Variable.inline [nbMulti; steps; cVarDef ~regexp:true "fieldAt.*"];
-  (* BEAUTIFY: arith simpl should remove the  0. + .. *)
-  (* BEAUTIFY: in the printing functions we have things like
-        ToBuffer.pretty 0.9 80 b (ast_to_doc t);
-     we should replace 80 with (!Flags.code_print_width),
-     so that we can customize it, e.g. to 120 for pic_demo.ml *)
-  !! Trace.reparse();
+  !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "k"] (fun () ->
+       Arith.(simpl ~indepth:true expand) [nbMulti; stepsReal; cFor "i"]);
   !! Variable.to_nonconst [step; cVarDef "idCell2"];
   !! Loop.hoist ~array_size:(Some (expr "CHUNK_SIZE")) [step; cVarDef "idCell2"];
      let dest = [tBefore; step; cVarDef "isDistFromBlockLessThanHalfABlock"] in
   !! Instr.copy ~dest [step; cVarDef "idCell2"];
   !! Instr.move ~dest [step; cVarDef "co"];
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
-  !! Variable.ref_to_pointer [occFirst; step; cVarDef "idCell2"];
-  !! Variable.ref_to_var [occLast; step; cVarDef "idCell2"];
-
-  (* BEAUTIFY
-      int *idCell2 = &idCell2_step[i];
-      *idCell2 = MINDEX3(gridX, gridY, gridZ, iX2, iY2, iZ2);
-    YES THIS one you can replace with
-       idCell2_step[i] = MINDEX3(gridX, gridY, gridZ, iX2, iY2, iZ2);
-      just by doing the variable inlining (cancellation of *& should be done on the fly
-      by variable inline)
-  *)
+  !! Variable.inline [nbMulti; step; cVarDef "idCell2"];
 
   (* BEAUTIFY:
     (double [star])MMALLOC_ALIGNED1(nbCells, sizeof(double), 64);
@@ -414,15 +402,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     (double[star]) MMALLOC_ALIGNED1(nbCells, sizeof(double), 64);
     there are two spaces to modify *)
 
-  bigstep "Vectorization";
-  (* TODO: Clean up  *)
-  !! Sequence.insert (expr "#include \"stdalign.h\"") [tFirst; dRoot]; (* BEAUTIFY: Align.header [] *)
-  !! Loop.fission [tBefore; occLast; step; cFor "idCell"; cFor "idCorner"; cFor "idThread"];
-  !! Loop.swap [occLast; cFor "idCell"; cFor "idCorner" ~body:[cFor "idThread"]];
-  !! Omp.simd [nbMulti; tBefore;cFor "idCell" ~body:[cFor "bagsKind"]; cFor "idCorner"];
-  !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
-  !! Omp.simd [tBefore; stepLF; cFor "i"];
-  !! Label.remove [step; cLabel "charge"];
+  bigstep "Data alignment";
   !! Align.def (lit "64") [nbMulti; cOr [[cStrict; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
                                          [step; cVarDef "idCell2_step"];
                                          [cStrict; cVarDef ~substr:true "deposit"]]];
@@ -430,13 +410,22 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! List.iter (fun occ -> Omp.simd [occIndex occ; tBefore; step; cFor "i"]) [0;1]; (* BEAUTIFY: occIndices *)
   !! Function.inline [step; cFun "cellOfCoord"];
   !! Align.alloc (lit "64") [nbMulti; cTopFunDef "allocateStructures"; cMalloc ()];
-  !! Function.inline [nbMulti; step; cFor "idCorner" ~body:[cVar "depositCorners"]; cMindex ~d:2 ()];
-  !! Instr.inline_last_write [step; cFor "idThread"; cReadVar "__TEMP_Optitrust"];
-  !! Instr.delete [step; cVarDef "__TEMP_Optitrust"];
-  !! Function.inline [nbMulti; step; cFor "idCorner" ~body:[cVar "depositCorners"]; cMindex ~d:3 ()];
-  !! Variable.init_attach [step; cVarDef "__TEMP_Optitrust"];
-  !! Variable.inline [step; cVarDef "__TEMP_Optitrust"];
-  !! Function.inline [nbMulti; step; cFor "k"; cMindex ~d:3 ()];
+  
+  bigstep "Function inlining on loops to be vectorized"; 
+  let ctx = cFor "idCorner" ~body:[cVar "depositCorners"] in 
+  !! Function.bind_intro ~fresh_name:"temp_var_${occ}" [nbMulti; ctx; cMindex ()];
+  !! Function.inline [nbMulti; ctx; cMindex ()];
+  !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "temp_var_."];
+
+  bigstep "Vectorization";
+  !! Align.header ();
+  !! Loop.fission [tBefore; occLast; step; cFor "idCell"; cFor "idCorner"; cFor "idThread"];
+  !! Loop.swap [occLast; cFor "idCell"; cFor "idCorner" ~body:[cFor "idThread"]];
+  !! Omp.simd [nbMulti; tBefore;cFor "idCell" ~body:[cFor "bagsKind"]; cFor "idCorner"];
+  !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
+  !! Omp.simd [tBefore; stepLF; cFor "i"];
+  !! Label.remove [step; cLabel "charge"];
+  
 )
 (*
 
@@ -614,8 +603,6 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
   but this is very confusing, so we should always put parentheses around nontrivial arguments of & and | operators.
   *)
 
-<<<<<<< HEAD
-=======
 
 
 
@@ -652,4 +639,3 @@ into
 
 
 *)
->>>>>>> 3388efaade9728f56a6b6dff41a7d2856e3e6f82
