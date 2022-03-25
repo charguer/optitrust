@@ -140,9 +140,14 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   const double rX = relativePosX(pos.x);
   const double rY = relativePosY(pos.y);
   const double rZ = relativePosZ(pos.z);
-  const double cX = 1. + -1. * rX;
-  const double cY = 1. + -1. * rY;
-  const double cZ = 1. + -1. * rZ;
+  
+  const double cX = 1. - rX;
+  const double cY = 1. - rY;
+  const double cZ = 1. - rZ;
+
+  // const double cX = 1. + -1. * rX;
+  // const double cY = 1. + -1. * rY;
+  // const double cZ = 1. + -1. * rZ;
   double_nbCorners r;
   r.v[0] = cX * cY * cZ;
   r.v[1] = cX * cY * rZ;

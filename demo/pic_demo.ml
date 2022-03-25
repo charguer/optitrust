@@ -67,14 +67,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Optimization in [cornerInterpolationCoeff], before it is inlined";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   let ctx_rv = cChain [ctx; sInstr "r.v"] in (* LATER rewrite pour cX *)
-  (* BEAUTIFY
-    in pic_demo.c
-    in double_nbCorners cornerInterpolationCoeff(vect pos)
-      const double cX = 1. + -1. * rX;
-    should be replaced with
-      const double cX = 1. - rX;
-    and we should use a rewrite rule to obtain the previous code.
-  *)
+  !! Rewrite.equiv_at "double a; ==> 1. - a == (1. + -1. * a)" [nbMulti; ctx; cVarDef ~regexp:true "c."; cInit()];
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
