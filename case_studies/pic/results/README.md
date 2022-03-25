@@ -6,11 +6,15 @@ This folder contains the experimental results for the PIC case study.
 There is one folder per machine used. Each folder contains the following data.
 
 Execute `./bench.sh foo` to run the full benchmark on machine `foo`.
-The file `config_foo.sh` needs to exist, to describe the machine parameters.
-The contents of folder `foo` will be erased.
+
+The file `config_foo.sh` needs to exist, to describe the machine parameters
+(nb_cores, compilers, nb_particles).
+This file can be generated using `./autoconfig.sh foo`, and then possibly modified by hand.
 
 Execute `./bench.sh foo action` to run only a subset of the benchmark actions.
 Execute `FAST=1 ./bench.sh foo` to use smaller parameters for faster simulation.
+
+The contents of folder `foo` will be cleared, unless specific actions are specified.
 
 
 ## Information about the hardware

@@ -1,23 +1,24 @@
 #!/bin/bash
 
-# usage: ./bench.sh  machine action
-# - where machine is the machine name, for which config_machine.sh must be available
+# Execute PIC benchmarks.
 
+# usage: ./bench.sh [action]
+#
+# where action can be one of: clean, params, hard, run
+
+# The environment variable MACHINE can be used to use config_${MACHINE}.sh
+#   instead of config_`hostname`.sh
 # The environment variable FAST=1 can be used to request a smaller simulation
 # The environment variable NOSEQ=1 can be used to skip sequential runs
 
-MACHINE=$1
-ACTION=$2
-
-
-
-if [ -z "${MACHINE}" ]; then
-  echo "Bench: missing machine name"
-  exit 1
-fi
+ACTION=$1
 
 if [ -z "${ACTION}" ]; then
   ACTION="all"
+fi
+
+if [ -z "${MACHINE}" ]; then
+  MACHINE=`hostname`
 fi
 
 ROOTDIR=".."
