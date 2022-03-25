@@ -17,6 +17,7 @@
 # Example:  FAST=1 ./bench.sh
 # Example:  FAST=1 COMP=gcc PROG=pic_demo.c ./bench.sh run
 
+# Example COMP=gcc PROG=pic_barsamian.c ./bench.sh run
 
 ACTION=$1
 
@@ -34,11 +35,11 @@ SCRIPTDIR="${ROOTDIR}/scripts"
 STREAMDIR="${ROOTDIR}/Stream-test"
 MACHINEDIR="${MACHINE}"
 
-# use 20 million (array cells per core) for the stream test
-STREAMSIZE="20000000"
+# use 10 million (array cells per core) for the stream test
+STREAMSIZE="10000000"
 
 # use 2 million particles for a fast run
-FASTNBPARTICLES="2000000"
+FASTNBPARTICLES="1000000"
 
 PROGRAMS="pic_demo.c pic_optimized.c pic_barsamian.c pic_barsamian_malloc.c"
 

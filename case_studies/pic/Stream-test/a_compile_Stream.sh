@@ -31,6 +31,7 @@ compile_gcc() {
 #              icc                #
 ###################################
 compile_icc() {
+  source /opt/intel/oneapi/setvars.sh > /dev/null 
   icc -DSTREAM_ARRAY_SIZE=$(expr $nb_threads \* $SIZE) -O3 -qopenmp -march=native -mcmodel=medium $PICVERT_HOME/Stream-test/stream.c -o stream.out
 }
 

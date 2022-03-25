@@ -38,7 +38,7 @@ VALGRIND=
 
 # JEMALLOC SUPPORT (check during a run using "lsof | grep malloc")
 JEMALLOC=
-JEMALLOC="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.1"
+JEMALLOC="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so"
 
 # read nb threads from environment variable, else from your_configuration.sh
 NBTHREADS="${nb_threads}"
@@ -65,9 +65,10 @@ run_one() {
     export OMP_PLACES=cores
     export OMP_PROC_BIND=close
   elif [ "${compiler}" = "icc" ]; then
+    source /opt/intel/oneapi/setvars.sh > /dev/null 
     export LD_LIBRARY_PATH=$INTEL_OPENMP_DYNAMIC_LIBRARY_PATH:$LD_LIBRARY_PATH
     #Threads-to-cores binding.
-    export KMP_AFFINITY=granularity=fine,compact,1,0,verbose
+    export KMP_AFFINITY=granularity=fine,compact,1,0,verbose 
   else
     echo "invalid compiler parameter: ${compiler}."
     exit 1
