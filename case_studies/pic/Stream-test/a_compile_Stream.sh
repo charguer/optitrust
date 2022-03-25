@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Usage: ./a_compile_Stream compiler size
+# Usage: ./a_compile_Stream.sh compiler size
 # - compiler is the name of the compiler to use, gcc or icc
 # - size is the number of array cells per core, to use for the benchmark
 

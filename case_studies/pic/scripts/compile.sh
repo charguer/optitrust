@@ -115,6 +115,8 @@ compile_one() {
   id_run=$1
   cd $PICVERT_HOME/3d_runs
   mkdir -p run${id_run}
+
+  # copy of parameters is redundant with that done in run.sh but nevermind
   cp $PICVERT_HOME/scripts/parameters_3d.txt run${id_run}/
   if [ "${COMPILER}" = "gcc" ]; then
     export OMPI_CC=gcc

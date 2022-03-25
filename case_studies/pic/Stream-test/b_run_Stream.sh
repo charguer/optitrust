@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Usage: ./b_run_Stream.sh compiler nbcores
+# - compiler is the name of the compiler to use, gcc or icc
+# - nbcores is the number of openmp threads to use
+
+COMPILER=$1
+NBCORES=$2
+
 #Home path for Pic-Vert.
 cd ..
 PICVERT_HOME=$(pwd)
@@ -17,7 +24,7 @@ run_gcc() {
   #Threads-to-cores binding.
   export OMP_PLACES=cores
   export OMP_PROC_BIND=close
-  
+
   export OMP_NUM_THREADS=$nb_threads
   ./stream.out | tee ./std_output.txt
 }
@@ -29,7 +36,7 @@ export LD_LIBRARY_PATH=$INTEL_OPENMP_DYNAMIC_LIBRARY_PATH:$LD_LIBRARY_PATH
 run_icc() {
   #Threads-to-cores binding.
   export KMP_AFFINITY=granularity=fine,compact,1,0,verbose
-  
+
   export OMP_NUM_THREADS=$nb_threads
   ./stream.out | tee ./std_output.txt
 }
@@ -38,5 +45,6 @@ run_icc() {
 #     Launching the software      #
 ###################################
 cd $PICVERT_HOME/Stream_runs
-run_$compiler $nb_threads
+run_$COMPILER $NBCORES
+
 
