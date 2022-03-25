@@ -19,13 +19,19 @@ fi
 cd ..
 PICVERT_HOME=$(pwd)
 
-
 ###################################
 #        Your configuration       #
 ###################################
 
 # All your architecture and setup parameters have to be modified in $PICVERT_HOME/your_configuration.sh
 source $PICVERT_HOME/your_configuration.sh
+
+# read compiler name from environment variable, else from your_configuration.sh
+COMPILER="${compiler}"
+if [ ! -z "${COMP}" ]; then
+  COMPILER="${COMP}"
+fi
+
 
 ###################################
 #              run                #
@@ -60,17 +66,18 @@ echo "${RUNINFOS}"
 run_one() {
   id_run=$1
 
-  if [ "${compiler}" = "gcc" ]; then
+  if [ "${COMPILER}" = "gcc" ]; then
     #Threads-to-cores binding.
     export OMP_PLACES=cores
     export OMP_PROC_BIND=close
-  elif [ "${compiler}" = "icc" ]; then
+
+  elif [ "${COMPILER}" = "icc" ]; then
     source /opt/intel/oneapi/setvars.sh > /dev/null 
     export LD_LIBRARY_PATH=$INTEL_OPENMP_DYNAMIC_LIBRARY_PATH:$LD_LIBRARY_PATH
     #Threads-to-cores binding.
     export KMP_AFFINITY=granularity=fine,compact,1,0,verbose 
   else
-    echo "invalid compiler parameter: ${compiler}."
+    echo "invalid compiler parameter: ${COMPILER}."
     exit 1
   fi
 
@@ -83,13 +90,13 @@ run_one() {
   ${JEMALLOC}
   COMMAND="./${BASENAME}.out ./parameters_3d.txt | tee ./std_output_run${id_run}.txt"
   if [ "${VALGRIND}" = "" ]; then
-    if [ "${compiler}" = "gcc" ]; then
+    if [ "${COMPILER}" = "gcc" ]; then
       mpirun -q --report-bindings --cpus-per-proc ${NBTHREADS} -np $nb_sockets ${COMMAND}
 
-    elif [ "${compiler}" = "icc" ]; then
+    elif [ "${COMPILER}" = "icc" ]; then
       mpiexec.hydra -n $nb_sockets ${COMMAND}
     else
-      echo "invalid compiler parameter: ${compiler}."
+      echo "invalid compiler parameter: ${COMPILER}."
       exit 1
     fi
 
