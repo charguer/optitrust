@@ -13,11 +13,13 @@
 # The environment variable NOPAR=1 can be used to skip parallel runs
 # The environment variable PROG=pic_demo.c can be used to benchmark only one code
 # The environment variable COMP=gcc can be used to benchmark only one compiler
+# The environment variable DRY=1 can be used to make dry runs
 
 # Example:  FAST=1 ./bench.sh
 # Example:  FAST=1 COMP=gcc PROG=pic_demo.c ./bench.sh run
 
 # Example COMP=gcc PROG=pic_barsamian.c ./bench.sh run
+# Example NOPAR=1 COMP=gcc PROG=pic_demo.c ./bench.sh run
 
 ACTION=$1
 
@@ -38,10 +40,18 @@ MACHINEDIR="${MACHINE}"
 # use 10 million (array cells per core) for the stream test
 STREAMSIZE="10000000"
 
-# use 2 million particles for a fast run
+# use 1 million particles for a fast run
 FASTNBPARTICLES="1000000"
 
-PROGRAMS="pic_demo.c pic_optimized.c pic_barsamian.c pic_barsamian_malloc.c"
+# use 10 million particles for a mid-size run
+MIDNBPARTICLES="10000000"
+
+
+PROGRAMS="pic_optimized.c pic_barsamian.c pic_barsamian_malloc.c"
+if [ ! -z "${PROG}" ]; then
+  PROGRAMS=${PROG}
+fi
+
 
 #--------------------------------------------------------------------------------
 # Load machine configuration
@@ -53,6 +63,12 @@ if [ ! -f ${CONFIGMACHINE} ]; then
   echo "${CONFIGMACHINE} not found"
 fi
 source ${CONFIGMACHINE}
+
+
+COMPILERS="${compilers}"
+if [ ! -z "${COMP}" ]; then
+  COMPILERS=${COMP}
+fi
 
 
 #--------------------------------------------------------------------------------
@@ -98,9 +114,15 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ] || [ "${ACTION}" = "params
   if [ -z "${FAST}" ]; then
     PARAMSTEMPLATE="template_parameters_3d.txt"
     NBPARTICLES="$nb_particles"
-  else
+  elif [ "${FAST}" = "1" ]; then
     PARAMSTEMPLATE="template_parameters_3d_fast.txt"
     NBPARTICLES="${FASTNBPARTICLES}"
+  elif [ "${FAST}" = "2" ]; then
+    PARAMSTEMPLATE="template_parameters_3d_mid.txt"
+    NBPARTICLES="${MIDNBPARTICLES}"
+  else
+    echo "Invalid value for parameter FAST"
+    exit 1
   fi
   cp ${PARAMSTEMPLATE} ${PARAMSFILE}
   echo "nb_particles = ${NBPARTICLES};" >> ${PARAMSFILE}
@@ -114,17 +136,12 @@ fi
 cd ${SCRIPTDIR}
 
 if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
-
-  for COMPILER in ${compilers}; do
-    if [ ! -z "${COMP}" ] && [ "${COMPILER}" != "${COMP}" ]; then
-      continue;
-    fi
+  for COMPILER in ${COMPILERS}; do
     for PROGRAM in ${PROGRAMS}; do
-      if [ ! -z "${PROG}" ] && [ "${PROGRAM}" != "${PROG}" ]; then
-        continue;
-      fi
       BASENAME="${PROGRAM%.*}"
-      COMP=${COMPILER} ${SCRIPTDIR}/compile.sh ${PROGRAM}
+      if [ -z ${DRY} ]; then
+        COMP=${COMPILER} ${SCRIPTDIR}/compile.sh ${PROGRAM}
+      fi
       OUT=$?
       if [ ${OUT} -ne 0 ];then
         echo "Error: could not compile the program ${PROGRAM} using ${COMPILER}"
@@ -134,14 +151,18 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
       if [ -z "${NOSEQ}" ]; then
         OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p1.txt"
         echo "P=1 ./run.sh ${PROGRAM} > ${OUTFILE}"
-        P=1 COMP=${COMPILER} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+        if [ -z ${DRY} ]; then
+          P=1 COMP=${COMPILER} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+        fi
         # for quiet output:
         # ./run.sh ${PROGRAM} > ${CURDIR}/${OUTFILE} || echo "Failure in run"
       fi
       if [ -z "${NOPAR}" ]; then
         OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p${nb_cores}.txt"
         echo "P=${nb_cores} ./run.sh ${PROGRAM} > ${OUTFILE}"
-        P=${nb_cores} COMP=${COMPILER} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+        if [ -z ${DRY} ]; then
+          P=${nb_cores} COMP=${COMPILER} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+        fi
       fi
     done
   done
