@@ -155,8 +155,8 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ]; then
 
   echo "==========Summary=========="
   for FILE in ${MACHINEDIR}/pic_*.txt; do
-
-    sed '/^\(Run\|Throughput\)/!d' ${FILE}
-
+    # RES=$(sed '/^\(Throughput\)/!d' ${FILE})
+    RES=$(cat ${FILE} | grep ^Throughput* | awk '{print $2}')
+    echo -e "${RES}\t${FILE}"
   done
 fi
