@@ -14,6 +14,7 @@
 # The environment variable PROG=pic_demo.c can be used to benchmark only one code
 # The environment variable COMP=gcc can be used to benchmark only one compiler
 # The environment variable DRY=1 can be used to make dry runs
+# The environment variable NB=100 to use 100 million particles
 
 # Example:  FAST=1 ./bench.sh
 # Example:  FAST=1 COMP=gcc PROG=pic_demo.c ./bench.sh run
@@ -45,7 +46,6 @@ FASTNBPARTICLES="1000000"
 
 # use 10 million particles for a mid-size run
 MIDNBPARTICLES="10000000"
-
 
 PROGRAMS="pic_optimized.c pic_barsamian.c pic_barsamian_malloc.c"
 if [ ! -z "${PROG}" ]; then
@@ -82,9 +82,9 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "clean" ]; then
 fi
 
 #--------------------------------------------------------------------------------
-# Hardware topology
+# Hardware topology (not performed by default)
 
-if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "hard" ]; then
+if [ "${ACTION}" = "hard" ]; then
 
   cat /proc/cpuinfo > ${MACHINEDIR}/cpuinfo.txt
   lstopo-no-graphics > ${MACHINEDIR}/lstopo.txt \
@@ -124,6 +124,10 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ] || [ "${ACTION}" = "params
     echo "Invalid value for parameter FAST"
     exit 1
   fi
+  if [ ! -z "${NB}" ]; then
+    NBPARTICLES=$((${NB} * 1000 * 1000))
+  fi
+
   cp ${PARAMSTEMPLATE} ${PARAMSFILE}
   echo "nb_particles = ${NBPARTICLES};" >> ${PARAMSFILE}
   echo "Generated ${PARAMSFILE}   with nb_particles=${NBPARTICLES}"
@@ -174,7 +178,7 @@ fi
 
 cd ${CURDIR}
 
-if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ]; then
+if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ] || [ "${ACTION}" = "run" ]; then
 
   echo "====Summary : Exectime / Throughput / Program / Compiler / Cores ====="
   for FILE in ${MACHINEDIR}/pic_*.txt; do

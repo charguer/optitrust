@@ -7,8 +7,10 @@ In a rush:
 ```
 # Gather machine dependent parameters
 ./autoconfig.sh
+# Gather machine topology information
+./bench.sh hard
 # Small-scale simulation
-FAST=1 ./bench.sh`
+FAST=1 ./bench.sh
 # Large-scale simulation
 ./bench.sh
 ```
