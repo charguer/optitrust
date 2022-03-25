@@ -66,7 +66,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Optimization in [cornerInterpolationCoeff], before it is inlined";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
-  let ctx_rv = cChain [ctx; sInstr "r.v"] in (* LATER rewrite pour cX *)
+  let ctx_rv = cChain [ctx; sInstr "r.v"] in 
   !! Rewrite.equiv_at "double a; ==> 1. - a == (1. + -1. * a)" [nbMulti; ctx; cVarDef ~regexp:true "c."; cInit()];
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
@@ -103,12 +103,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
   bigstep "Low level iteration on chunks of particles";
-  (* Since function inline transformation was not designed to work with calls inside for loops, here we need
-      first to bind a variable to that call then inline that function call and finally inline the binding variable *)
-  !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
+  !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]]; 
   !! Function.inline [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
   !! Variable.inline [steps; cVarDef "bag_iter"];
-
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [steps; cMark "loop"; cFor_c ""; dBody];
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cMark "loop"]; (* TODO Calling Function.uninline loops *)
@@ -135,18 +132,18 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Apply scaling factors on the electric field";
   !! Struct.to_variables [steps; cVarDef "fieldAtPos"];
   !! Variable.insert_list_same_type ~reparse:true (atyp "const double") (["factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
-      @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d))))) [occFirst; tBefore; step; cFor "idCell"];
+      @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d))))) [tBefore; steps; cFor "idCell" ~body:[cFor "i"]];
   !! Function.inline ~delete:true [steps; cFun "getFieldAtCorners"];
   !! Variable.rename ~into:"field_at_corners" [step; cVarDef "res"];
-  !! Struct.set_explicit [step; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "field_at_corners"] ()] ()];
+  !! Struct.set_explicit [steps; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "field_at_corners"] ()] ()];
   !! iter_dims (fun d ->
       let d1 = String.lowercase_ascii d in
-      Accesses.scale ~factor:(var ("factor" ^ d)) [step; cFor "k"; cFieldWrite ~field:d1 ()]);
+      Accesses.scale ~factor:(var ("factor" ^ d)) [steps; cFor "k"; cFieldWrite ~field:d1 ()]);
   !! iter_dims (fun d ->
-       Accesses.scale ~factor:(var ("factor" ^ d)) [step; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
+       Accesses.scale ~factor:(var ("factor" ^ d)) [steps; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
   !! Variable.unfold [step; cVarDef  "factorC"];
   !! Variable.unfold ~at:[cVarDef "accel"] [nbMulti; step; cVarDef ~regexp:true "factor."];
-  !! Arith.(simpl ~indepth:true expand) [nbMulti; step; cVarDef "accel"];
+  !! Arith.(simpl ~indepth:true expand) [nbMulti; steps; cVarDef "accel"];
 
   bigstep "Applying a scaling factor on speeds";
   !! Struct.set_explicit [addPart; cVarDef "p"];
@@ -172,7 +169,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.inline [steps; cVarDef "accel"];
   !! Arith.with_nosimpl [nbMulti; steps; cFor "k"] (fun () ->
        Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
-       (* BEAUTIFY: remind me why we can't do a infixop just here? it would be very pretty;
+  (* !! Function.use_infix_ops ~indepth:true [step; dBody]; *)
+   
+      (* BEAUTIFY: remind me why we can't do a infixop just here? it would be very pretty;
           (even if we have to undo it later) *)
 
   bigstep "Enumerate grid cells by coordinates";
@@ -199,6 +198,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [cOr (
         [[addPart; cFieldWrite ~field:("pos"^d) ()]] @
         (onlychecker [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] ()]) )] );
+  
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "0")) [stepsReal; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
@@ -206,16 +206,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.shift ~neg:true ~factor:(expr ("i" ^ d ^ "2")) [step; cVarDef ("r" ^ d ^ "1"); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
 
   bigstep "Simplify arithmetic expressions after shifting of positions";
-  !! Trace.reparse();
-  !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "k"] (fun () ->
-       Arith.(simpl ~indepth:true expand) [nbMulti; stepsReal]);
-  !! Instr.delete [nbMulti; stepsReal; cVarDef ~regexp:true "i.0"];
-  !! Variable.fold ~at:[cFieldWrite ~base:[cVar "p2"] ()] [nbMulti; step; cVarDef ~regexp:true "r.1"];
   !! Rewrite.equiv_at ~glob_defs:"double fwrap(double, double);\n" "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDef ~regexp:true "p.2"; cInit()];
   !! iter_dims (fun d ->
       Instr.read_last_write ~write:[cTopFunDef "computeConstants"; cWriteVar ("cell"^d)] [nbMulti;step; cFun "fwrap";cReadVar ("cell"^d)];);
-  !! Arith.(simpl_rec expand) [nbMulti; step; cVarDef ~regexp:true "p.2"];
-  (* BEAUTIFY: can we factorize the two calls to simpl_rec in this big step ?*)
+  
+  !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "k"] (fun () ->
+       Arith.(simpl ~indepth:true expand) [nbMulti; stepsReal]);
+  !! Variable.inline [stepsReal; cVarDef ~regexp:true "r.."];
+  !! Instr.delete [nbMulti; stepsReal; cVarDef ~regexp:true "i.0"];
 
   if doublepos then begin
     bigstep "Turn positions into floats, decreasing precision but allowing to fit a larger number of particles";
@@ -234,14 +232,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Expr.replace_fun "fwrapInt" [nbMulti;step; cFun "fwrap"];
   !! iter_dims (fun d ->
       Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"]);
-      (* BEAUTIFY the next two steps need to be performed differently, see the paper *)
-  !! Instr.delete [nbMulti; step; cVarDef ~regexp:true "i.2"];
-  !! iter_dims (fun d ->
-      Variable.rename ~into:("i"^d^"2") [step;cVarDef ("j"^d)];);
+  
+  !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarDef ("i"^d^"2");cInit()];);
+  !! Variable.inline_and_rename [nbMulti; step; cVarDef ~regexp:true "i.2" ];
+  
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];
   !! Expr.replace_fun "wrapPowerof2" [nbMulti; step; cFun "wrap"];
-  !! Function.inline [nbMulti; step; cFun "wrapPowerof2"];
+  !! Function.inline ~delete:true [nbMulti; step; cFun "wrapPowerof2"];
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
@@ -295,8 +293,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Introduce nbThreads and idThread";
   !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
   !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "4") [tBefore; cVarDef "nbCells"];
-  (* !! Omp.declare_num_threads "nbThreads"; *) (* TEMPORARY *)
-  (* !! Omp.get_num_threads "nbThreads" [tFirst; cTopFunDef "main"; dBody]; *)
   !! Omp.get_thread_num "idThread" [tBefore; step; cFor "iX"];
   !! Trace.reparse();
 
@@ -384,7 +380,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
      let dest = [tBefore; step; cVarDef "isDistFromBlockLessThanHalfABlock"] in
   !! Instr.copy ~dest [step; cVarDef "idCell2"];
   !! Instr.move ~dest [step; cVarDef "co"];
-  !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "rX1"]]];
+  !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
   !! Variable.ref_to_pointer [occFirst; step; cVarDef "idCell2"];
   !! Variable.ref_to_var [occLast; step; cVarDef "idCell2"];
 
