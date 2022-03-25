@@ -153,10 +153,12 @@ cd ${CURDIR}
 
 if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ]; then
 
-  echo "==========Summary=========="
+  echo "====Summary : Exectime / Throughput / Program / Compiler / Cores ====="
   for FILE in ${MACHINEDIR}/pic_*.txt; do
     # RES=$(sed '/^\(Throughput\)/!d' ${FILE})
-    RES=$(cat ${FILE} | grep ^Throughput* | awk '{print $2}')
-    echo -e "${RES}\t${FILE}"
+    THROUGHPUT=$(cat ${FILE} | grep ^Throughput* | awk '{print $2}')
+    EXECTIME=$(cat ${FILE} | grep ^Exectime* | awk '{print $2}')
+
+    echo -e "${EXECTIME}\t${THROUGHPUT}\t${FILE}"
   done
 fi
