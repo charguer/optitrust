@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Typedef_basic.insert "uchar" (Typdef_alias (atyp "unsigned char" )) [tAfter; cVarDef "a"];
+    !! Typedef_basic.insert "uchar" (Typdef_alias (ty "unsigned char" )) [tAfter; cVarDef "a"];
   )
 "
 int a = 0;
@@ -16,7 +16,7 @@ let _ = Run.script_cpp (fun _ ->
         ("x", Ast.typ_int ());
         ("y", Ast.typ_int ())] in
     !! Typedef_basic.insert "vect" td [tAfter; cVarDef "M"];
-    !! Typedef_basic.insert "myvect" (Typdef_alias (atyp "vect" )) [tAfter; cTypDef "vect"];
+    !! Typedef_basic.insert "myvect" (Typdef_alias (ty "vect" )) [tAfter; cTypDef "vect"];
 
     (* NOTE: see also [sequence_insert.ml] for inserting plain code *)
 

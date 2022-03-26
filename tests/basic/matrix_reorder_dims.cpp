@@ -6,7 +6,7 @@ int main () {
   const int N1 = 10; 
   const int N2 = 10; 
   const int N3 = 10; 
-  int* p = (int*) MCALLOC3(N1, N2, N3, sizeof(int));
+  int* p = (int*) CALLOC3(N1, N2, N3, sizeof(int));
   p[MINDEX3(N1,N2,N3,i1,i2,i3)];
   return 0;
 }

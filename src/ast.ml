@@ -2508,7 +2508,7 @@ module AstParser = struct
 
   let lit l = code (Lit l)
 
-  let atyp ty = typ_str (Atyp ty)
+  let ty ty = typ_str (Atyp ty)
 
   let subst_dollar_number (inst : string list) (s : string) : string =
   Tools.fold_lefti (fun i acc insti ->

@@ -142,8 +142,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Arith.(simpl expand) [nbMulti; main; cVarDef ~regexp:true "r[X-Z]1"; dInit];
 
   (* Part: Convert storage of relative locations to float *)
-  !^ Cast.insert (atyp "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
-  !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
+  !^ Cast.insert (ty "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
+  !! Struct.update_fields_type "pos." (ty "float") [cTypDef "particle"];
   (* !! Trace.reparse (); *)
 
   (* Part: AOS-to-SOA *) (* LATER: might be useful to group this next to the reveal of x/y/z *)

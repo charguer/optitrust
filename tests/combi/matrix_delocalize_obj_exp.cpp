@@ -57,8 +57,8 @@ bag *bagNext1;
 bag *bagNexts1;
 
 void allocate() {
-  bagNext1 = (bag *)MMALLOC1(nbCells, sizeof(bag));
-  bagNexts1 = (bag *)MMALLOC2(N0, nbCells, sizeof(bag));
+  bagNext1 = (bag *)MALLOC1(nbCells, sizeof(bag));
+  bagNexts1 = (bag *)MALLOC2(N0, nbCells, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagKind = 0; bagKind < N0; bagKind++) {
       bag_init(&bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
@@ -67,13 +67,13 @@ void allocate() {
 }
 
 int main() {
-  bag *bagCur = (bag *)MMALLOC1(nbCells, sizeof(bag));
+  bag *bagCur = (bag *)MALLOC1(nbCells, sizeof(bag));
   bag_iter bag_it;
-  bag *bagNext = (bag *)MMALLOC1(nbCells, sizeof(bag));
+  bag *bagNext = (bag *)MALLOC1(nbCells, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init(&bagNext[MINDEX1(nbCells, idCell)]);
   }
-  bag *bagNexts = (bag *)MMALLOC2(nbCells, N0, sizeof(bag));
+  bag *bagNexts = (bag *)MALLOC2(nbCells, N0, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagKind = 0; bagKind < N0; bagKind++) {
       bag_init(&bagNexts[MINDEX2(nbCells, N0, idCell, bagKind)]);

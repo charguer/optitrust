@@ -595,15 +595,15 @@ let cAny : constr =
 let cChoose : constr =
   cFun "CHOOSE"
 
-(* [cAlloc d] matches all calls to Optitrust MMALLOCI or MCALLOCI where I = d *)
+(* [cAlloc d] matches all calls to Optitrust MALLOCI or CALLOCI where I = d *)
 let cAlloc (d : int option) : constr =
   let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
   cFun ~regexp:true ("M.\\(NDEX\\|ALLOC\\)" ^ d)
 
-(* [cMalloc d] matches all calls to Optitrust MMALLOCI where I = d *)
+(* [cMalloc d] matches all calls to Optitrust MALLOCI where I = d *)
 let cMalloc ?(d : int option = None) () : constr =
   let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
-  cFun ~regexp:true ("MMALLOC" ^ d)
+  cFun ~regexp:true ("MALLOC" ^ d)
 
 (* [cMindex d]  matches all calls to Optitrust MINDEXI where I = d*)
 let cMindex ?(d : int  = 0) () : constr = 
@@ -611,10 +611,10 @@ let cMindex ?(d : int  = 0) () : constr =
   cFun ~regexp:true ("MINDEX"^d)
 
 
-(* [cCalloc d] matches all calls to Optitrust MCALLOCI where I = d *)
+(* [cCalloc d] matches all calls to Optitrust CALLOCI where I = d *)
 let cCalloc (d : int option) : constr =
   let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
-  cFun ~regexp:true ("MMALLOC" ^ d)
+  cFun ~regexp:true ("MALLOC" ^ d)
 
 
 (* the empty list is interpreted as no constraint on the cases *)

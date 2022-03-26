@@ -82,9 +82,9 @@ TESTS_WORKING_NOTINDOC := \
 TESTS_TOCHECK := \
 	matrix_delocalize.ml \
 	matrix_delocalize_obj.ml \
-	matrix_intro_mcalloc.ml \
+	matrix_intro_calloc.ml \
 	matrix_intro_mindex.ml \
-	matrix_intro_mmalloc.ml \
+	matrix_intro_malloc.ml \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
 	function_rename_args.ml \

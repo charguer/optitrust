@@ -12,12 +12,12 @@ const int N3 = 10;
 
 void allocate () {
   
-  b = (T*) MCALLOC3 (N1, N2, N3, sizeof(T));
+  b = (T*) CALLOC3 (N1, N2, N3, sizeof(T));
 }
 
 int main(){
   
-  T* a = (T*) MCALLOC3 (N1, N2, N3, sizeof(T));
+  T* a = (T*) CALLOC3 (N1, N2, N3, sizeof(T));
   for (int i = 0; i < 10; i++) {
     int t = a[MINDEX3(N1,N2,N3,i,i+1,i+2)];
     a[MINDEX3(N1,N2,N3,i,i+1,i+2)] = t + 5;

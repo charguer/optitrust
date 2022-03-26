@@ -371,7 +371,7 @@ let insert (index : int) (const : bool) (name : string) (typ : typ) (value : trm
       the updated ast of the sequence which contains the declaration
 *)
 let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
-  let new_type = atyp new_type in
+  let new_type = ty new_type in
   match t.desc with
   | Trm_seq tl ->
     let lfront, decl, lback = Internal.get_trm_and_its_relatives index tl in

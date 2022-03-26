@@ -3,11 +3,11 @@ open Target
 include Matrix_basic
 
 
-(* [intro_mcalloc tg] expects the target [tg] pointing to a variable declaration
+(* [intro_calloc tg] expects the target [tg] pointing to a variable declaration
     then it will check its body for a call to calloc. On this extended path it will call
-    the basic intro_mcalloc transformation
+    the basic intro_calloc transformation
 *)
-let intro_mcalloc : Target.Transfo.t =
+let intro_calloc : Target.Transfo.t =
   Target.iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with
@@ -18,23 +18,23 @@ let intro_mcalloc : Target.Transfo.t =
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[calloc_trm]) ->
           begin match calloc_trm.desc with
           | Trm_apps ({desc = Trm_var (_, "calloc");_}, _) ->
-            Matrix_basic.intro_mcalloc ((Target.target_of_path p) @ [Target.cFun "calloc"])
-          | _ -> fail t1.loc "intro_mcalloc: couldn't find the call to calloc function"
+            Matrix_basic.intro_calloc ((Target.target_of_path p) @ [Target.cFun "calloc"])
+          | _ -> fail t1.loc "intro_calloc: couldn't find the call to calloc function"
           end
         | Trm_apps ({desc = Trm_var (_, "calloc");_},_) ->
-          Matrix_basic.intro_mcalloc ((Target.target_of_path p) @ [Target.cFun "calloc"])
-        | _ -> fail t1.loc "intro_mcalloc: couldn't find the call to calloc function'"
+          Matrix_basic.intro_calloc ((Target.target_of_path p) @ [Target.cFun "calloc"])
+        | _ -> fail t1.loc "intro_calloc: couldn't find the call to calloc function'"
         end
-      | _ -> fail None "intro_mcalloc: the targeted variable should be initialized"
+      | _ -> fail None "intro_calloc: the targeted variable should be initialized"
       end
 
-    | _ -> fail None "intro_mcalloc: the target should be a variable declarartion allocated with alloc")
+    | _ -> fail None "intro_calloc: the target should be a variable declarartion allocated with alloc")
 
-(* [intro_mmalloc tg] expects the target [tg] pointing to a variable declaration
+(* [intro_malloc tg] expects the target [tg] pointing to a variable declaration
     then it will check its body for a call to malloc. On this extended path it will call
-    the basic intro_mmalloc transformation
+    the basic intro_malloc transformation
 *)
-let intro_mmalloc : Target.Transfo.t =
+let intro_malloc : Target.Transfo.t =
   Target.iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with
@@ -45,28 +45,28 @@ let intro_mmalloc : Target.Transfo.t =
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm]) ->
           begin match malloc_trm.desc with
           | Trm_apps ({desc = Trm_var (_, "malloc");_}, _) ->
-            Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
-          | _ -> fail t1.loc "intro_mmalloc: could not find a call to malloc function"
+            Matrix_basic.intro_malloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
+          | _ -> fail t1.loc "intro_malloc: could not find a call to malloc function"
           end
         | Trm_apps ({desc = Trm_var (_, "malloc");_},_) ->
-          Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
-        | _ -> fail t1.loc "intro_mmalloc: couldn't find a call to malloc function"
+          Matrix_basic.intro_malloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
+        | _ -> fail t1.loc "intro_malloc: couldn't find a call to malloc function"
         end
-      | _ -> fail None "intro_mmalloc: the targeted variable should be initialized"
+      | _ -> fail None "intro_malloc: the targeted variable should be initialized"
       end
     | Trm_apps (_, [_lhs; rhs]) when is_set_operation tg_trm ->
          begin match rhs.desc with
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm]) ->
           begin match malloc_trm.desc with
           | Trm_apps ({desc = Trm_var (_, "malloc");_}, _) ->
-            Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
-          | _ -> fail rhs.loc "intro_mmalloc: could not find a call to malloc function"
+            Matrix_basic.intro_malloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
+          | _ -> fail rhs.loc "intro_malloc: could not find a call to malloc function"
           end
         | Trm_apps ({desc = Trm_var (_, "malloc");_},_) ->
-          Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
-        | _ -> fail rhs.loc "intro_mmalloc: couldn't find a call to malloc function"
+          Matrix_basic.intro_malloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
+        | _ -> fail rhs.loc "intro_malloc: couldn't find a call to malloc function"
         end
-    | _ -> fail None "intro_mmalloc: the target should be a variable declarartion allocated with alloc")
+    | _ -> fail None "intro_malloc: the target should be a variable declarartion allocated with alloc")
 
 
 (* [biject fun_bij tg] expects the target [tg] to be pointing at a matrix declaration , then it will search for all the occurrences
@@ -86,7 +86,7 @@ let biject (fun_bij : string) : Target.Transfo.t =
 )
 
 (* [intro_mops dims] expects the target [tg] pointing to an array declaration allocated with
-      calloc or malloc, then it will apply intro_mcalloc or intor_mmaloc based on the type of
+      calloc or malloc, then it will apply intro_calloc or intor_mmaloc based on the type of
       the current allocation used. Then it will search for all accesses and apply intro_mindex
 *)
 let intro_mops (dim : trm) : Target.Transfo.t =
@@ -102,24 +102,24 @@ let intro_mops (dim : trm) : Target.Transfo.t =
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm]) ->
           begin match malloc_trm.desc with
           | Trm_apps ({desc = Trm_var (_, "calloc");_}, _) ->
-            intro_mcalloc [Target.cVarDef x];
+            intro_calloc [Target.cVarDef x];
             Matrix_basic.intro_mindex dim tg_occs
           | Trm_apps ({desc = Trm_var (_, "malloc");_}, _) ->
-            Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"]);
+            Matrix_basic.intro_malloc ((Target.target_of_path p) @ [Target.cFun "malloc"]);
             Matrix_basic.intro_mindex dim tg_occs
           | _ -> fail t1.loc "intro_mops: couldn't find a call to calloc/malloc function"
           end
         | Trm_apps ({desc = Trm_var (_, "calloc");_}, _) ->
-            Matrix_basic.intro_mcalloc ((Target.target_of_path p) @ [Target.cFun "calloc"]);
+            Matrix_basic.intro_calloc ((Target.target_of_path p) @ [Target.cFun "calloc"]);
             Matrix_basic.intro_mindex dim tg_occs
         | Trm_apps ({desc = Trm_var (_, "malloc");_}, _) ->
-            Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"]);
+            Matrix_basic.intro_malloc ((Target.target_of_path p) @ [Target.cFun "malloc"]);
             Matrix_basic.intro_mindex dim tg_occs
-        | _ -> fail t1.loc "intro_mmalloc:"
+        | _ -> fail t1.loc "intro_malloc:"
         end
-      | _ -> fail None "intro_mmalloc: the targeted variable should be initialized"
+      | _ -> fail None "intro_malloc: the targeted variable should be initialized"
       end
-    | _ -> fail None "intro_mmalloc: the target should be a variable declarartion allocated with alloc")
+    | _ -> fail None "intro_malloc: the target should be a variable declarartion allocated with alloc")
 
 
 (* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg] this is a combi varsion of
@@ -138,7 +138,7 @@ let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place 
     Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [Target.cMark middle_mark];
 
     let tg_decl_access = Target.cOr [[Target.cVarDef into];[Target.cCellAccess ~base:[Target.cVar into] ()]] in
-    if last then Matrix_basic.reorder_dims ~rotate_n:1 () [Target.nbAny; Target.cMark middle_mark; tg_decl_access ;Target.cFun ~regexp:true "M.\\(NDEX\\|ALLOC\\)."] ;
+    if last then Matrix_basic.reorder_dims ~rotate_n:1 () [Target.nbAny; Target.cMark middle_mark; tg_decl_access ;Target.cFun ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
     begin match use with
       | Some e ->   Specialize.any e [Target.nbAny; Target.cMark any_mark]
       | None -> ()

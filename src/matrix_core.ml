@@ -93,7 +93,7 @@ let set_inv (t : trm) : (trm * trms * trms * trm)  option =
     end
   | _ -> None
 
-(* |alloc ~init dims size] create a call to function MMALLOC$(N) and MCALLOC$(N) where [N] is the
+(* |alloc ~init dims size] create a call to function MALLOC$(N) and CALLOC$(N) where [N] is the
      number of dimensions and [size] is the size in bytes occupied by a single matrix element in
      the memeory
 *)
@@ -101,17 +101,17 @@ let alloc ?(init : trm option = None) (dims : trms) (size : trm) : trm =
   let n = List.length dims in
   match init with
   | Some _ ->
-    trm_apps (trm_var ("MCALLOC" ^  (string_of_int n))) (dims @ [size])
+    trm_apps (trm_var ("CALLOC" ^  (string_of_int n))) (dims @ [size])
   | None ->
-    trm_apps (trm_var ("MMALLOC" ^  (string_of_int n))) (dims @ [size])
+    trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size])
 
 
-(* |alloc_aligned ~init dims size alignment] create a call to function MMALLOC_ALIGNED$(N) where [N] is the
+(* |alloc_aligned ~init dims size alignment] create a call to function MALLOC_ALIGNED$(N) where [N] is the
      number of dimensions and [size] is the size in bytes occupied by a single matrix element in
      the memory and [alignment] is the alignment size *)
 let alloc_aligned (dims : trms) (size : trm) (alignment : trm)  : trm =
   let n = List.length dims in
-  trm_apps (trm_var ("MMALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
+  trm_apps (trm_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
 
 
 (* a boolean type used as flag to tell if the array cells should be initialized to zero or not *)
@@ -125,8 +125,8 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
     begin match f.desc with
     | Trm_var (_, f_name) ->
       let dims , size = Tools.unlast args in
-      if (Tools.pattern_matches "MCALLOC" f_name) then Some (dims, size, true)
-        else if (Tools.pattern_matches "MMALLOC" f_name) then Some (dims, size, false)
+      if (Tools.pattern_matches "CALLOC" f_name) then Some (dims, size, true)
+        else if (Tools.pattern_matches "MALLOC" f_name) then Some (dims, size, false)
         else None
     | _ -> None
     end
@@ -161,38 +161,38 @@ let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) 
 (*                        Core transformations on C matrices                                        *)
 (****************************************************************************************************)
 
-(* [intro_mcalloc_aux t]: replace a call to calloc with a call to MCALLOC
+(* [intro_calloc_aux t]: replace a call to calloc with a call to CALLOC
       params:
        [t]: ast of the call to alloc
       return:
         the updated ast of the function call
 *)
-let intro_mcalloc_aux (t : trm) : trm =
+let intro_calloc_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_var (_, "calloc");_},[dim; size]) ->
     alloc ~init:(Some (trm_int 0)) [dim] size
-  | _ -> fail t.loc "intro_mcalloc_aux: expected a function call to mcalloc"
+  | _ -> fail t.loc "intro_calloc_aux: expected a function call to calloc"
 
 
-let intro_mcalloc : Target.Transfo.local =
-  Target.apply_on_path (intro_mcalloc_aux)
+let intro_calloc : Target.Transfo.local =
+  Target.apply_on_path (intro_calloc_aux)
 
 
-(* [intro_mmalloc_aux t]: replace a call to calloc with a call to MMALLOC
+(* [intro_malloc_aux t]: replace a call to calloc with a call to MALLOC
       params:
        [t]: ast of the call to alloc
       return:
         the updated ast of the function call
 *)
-let intro_mmalloc_aux (t : trm) : trm =
+let intro_malloc_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_var (_, "malloc");_},[{desc = Trm_apps (_,[dim ;size]);_}]) ->
     alloc ~init:None [dim] size
-  | _ -> fail t.loc "intro_mmalloc: expected a function call to mmalloc"
+  | _ -> fail t.loc "intro_malloc: expected a function call to malloc"
 
 
-let intro_mmalloc : Target.Transfo.local =
-  Target.apply_on_path (intro_mmalloc_aux)
+let intro_malloc : Target.Transfo.local =
+  Target.apply_on_path (intro_malloc_aux)
 
 
 (* [intro_mindex_aux dim t] replace an array access at index [i] with an array access at MINDEX([dim],i)
@@ -215,10 +215,10 @@ let intro_mindex_aux (dim : trm) (t : trm) : trm =
 let intro_mindex (dim : trm) : Target.Transfo.local =
   Target.apply_on_path (intro_mindex_aux dim)
 
-(* [reorder_dims_aux order t]: reorder the dimensions in a call to MCALLOC, MMALLOC or MINDEX
+(* [reorder_dims_aux order t]: reorder the dimensions in a call to CALLOC, MALLOC or MINDEX
       params:
         [order]: a list of indices based on which the elements in dims should be ordered
-        [t]: ast of the call to MCALLOC, MMALLOC, MINDEX
+        [t]: ast of the call to CALLOC, MALLOC, MINDEX
       return:
         the updated ast of the call with reordered args
 *)
@@ -252,7 +252,7 @@ let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
     let reordered_dims = Tools.list_reorder order dims in
     let init = if zero_init then Some (trm_int 0 ) else None in
     alloc ~init reordered_dims size
-  | _ -> fail t.loc "reorder_dims_aux: expected  a function call to MCALLOC or MINDEX"
+  | _ -> fail t.loc "reorder_dims_aux: expected  a function call to CALLOC or MINDEX"
 
 let reorder_dims (rotate_n : int ) (order : int list) : Target.Transfo.local =
   Target.apply_on_path (reorder_dims_aux rotate_n order)
@@ -260,7 +260,7 @@ let reorder_dims (rotate_n : int ) (order : int list) : Target.Transfo.local =
 
 (* [insert_alloc_dim_aux new_dim t]: add a new dimension at the beginning of the list of dimension
       params:
-        [new_dim]: the new dimension which is goin to be inserted into the list of dims in call to MCALLOC or MMALLOC
+        [new_dim]: the new dimension which is goin to be inserted into the list of dims in call to CALLOC or MALLOC
         [t]: ast of the call to ALLOC functions
       return:
         the updated ast of the call to ALLOC functions with the new arg [new_dim]
@@ -271,7 +271,7 @@ let insert_alloc_dim_aux ?(last : bool = false) (new_dim : trm) (t : trm) : trm 
     let new_dims = if last then dims @ [new_dim] else new_dim :: dims in
     let init = if zero_init then Some (trm_int 0) else None in
     alloc ~init new_dims size
-  | None -> fail t.loc "insert_alloc_dim_aux: expected a function call to MCALLOC"
+  | None -> fail t.loc "insert_alloc_dim_aux: expected a function call to CALLOC"
 
 let insert_alloc_dim (new_dim : trm) : Target.Transfo.local =
   Target.apply_on_path (insert_alloc_dim_aux new_dim)

@@ -21,7 +21,7 @@ const int nbCells = 10;
 const int nbSteps = 100;
 
 int demo() {
-  double* deposit = (double*) MMALLOC1(nbCells, sizeof(int));
+  double* deposit = (double*) MALLOC1(nbCells, sizeof(int));
   for (int idStep = 0; idStep < nbSteps; idStep++) {
     for (int idCell = 0; idCell < nbCells; idCell++) {
       const int nb = nbParticlesInCell(idCell);

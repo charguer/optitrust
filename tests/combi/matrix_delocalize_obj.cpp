@@ -47,7 +47,7 @@ void bag_free(bag* b);
 bag* bagNext1;
 
 void allocate (){
-  bagNext1 = (bag*) MMALLOC1(nbCells, sizeof(bag));
+  bagNext1 = (bag*) MALLOC1(nbCells, sizeof(bag));
 }
 
 
@@ -55,10 +55,10 @@ int main() {
   
 // Allocate bagsNext and bagsCur with empty bags in every cell
 
-  bag* bagCur = (bag*) MMALLOC1(nbCells, sizeof(bag));
+  bag* bagCur = (bag*) MALLOC1(nbCells, sizeof(bag));
   bag_iter bag_it;
 
-  bag* bagNext = (bag*) MMALLOC1(nbCells, sizeof(bag));
+  bag* bagNext = (bag*) MALLOC1(nbCells, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++){
     bag_init(&bagNext[MINDEX1(nbCells,idCell)]);
   }

@@ -144,8 +144,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
         Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [main; cVarDef ~regexp:true "r[X-Z]1"; cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d)] ()];
         );
     !! Arith.(simpl expand) [nbMulti; main; cVarDef ~regexp:true "r[X-Z]1"; dInit];
-    !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
-    !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
+    !! Cast.insert (ty "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
+    !! Struct.update_fields_type "pos." (ty "float") [cTypDef "particle"];
     (* !! Trace.reparse (); *)
   *)
   (* TEMPORARY ARTHUR WIP
@@ -163,8 +163,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
               Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [main; cVarDef ~regexp:true "r[X-Z]1"; cRead ~addr:[sExpr (citemsposi d)] ()];
               ); *)
           !! Arith.(simpl expand) [nbMulti; main; cVarDef ~regexp:true "r[X-Z]1"; dInit];
-          (* TODO FIX !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"]; *) (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
-          !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
+          (* TODO FIX !! Cast.insert (ty "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"]; *) (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
+          !! Struct.update_fields_type "pos." (ty "float") [cTypDef "particle"];
           (* !! Trace.reparse ();  LATER: needed? *)
   *)
 
@@ -209,7 +209,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Duplicate the charge of a corner for each of the threads";
   !! Sequence.insert (expr "#include \"omp.h\"") [tBefore; main];
-  !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(atyp "int") ~value:(lit "8") [tBefore; main]; (* TODO: remove ~value, see comment in Variable.insert *)
+  !! Variable.insert ~const:true ~name:"nbThreads" ~typ:(ty "int") ~value:(lit "8") [tBefore; main]; (* TODO: remove ~value, see comment in Variable.insert *)
   !! Variable.insert ~const:false ~name:"idThread" ~typ:(typ_int()) ~value:(expr "omp_get_thread_num()") [tBefore; cLabel "charge" ];
 
   bigstep "Duplicate the charge of a corner for each of the threads";
@@ -232,9 +232,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.reorder ~order:((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims) [main; cFor "ciX"];
 
   bigstep "Introduce atomic push operations, but only for particles moving more than one cell away";
-  !! Variable.insert ~const:true ~typ:(atyp "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
+  !! Variable.insert ~const:true ~typ:(ty "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
   !! Variable.bind "b2" ~const:true ~is_ptr:true [main; cFun "bag_push"; dArg 0];
-  !! Variable.insert ~const:true ~typ:(atyp "bool") ~name:"isDistFromBlockLessThanHalfABlock"
+  !! Variable.insert ~const:true ~typ:(ty "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:(trm_ands (map_dims (fun d ->
          expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
       [tBefore; main; cVarDef "b2"];
@@ -260,7 +260,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* !! Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
   !! Loop.hoist [main; cVarDef "idCell2"];
   !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
-  !! Variable.insert ~typ:(atyp "int&") ~name:"idCell2" ~value:(expr "idCell2_step[i]") [tBefore; main; cVarDef "p2"]; *)
+  !! Variable.insert ~typ:(ty "int&") ~name:"idCell2" ~value:(expr "idCell2_step[i]") [tBefore; main; cVarDef "p2"]; *)
     (* TODO: above, we could use Instr.copy to improve the scipt, before the feature describe below gets implemented *)
     (* LATER: fission should automatically do the duplication of references when necessary *)
 

@@ -3,7 +3,7 @@ open Target
 open Ast
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Struct_basic.update_fields_type "x" (atyp "float") [cTypDef "vect"];
+    !! Struct_basic.update_fields_type "x" (ty "float") [cTypDef "vect"];
   )
 "
 typedef struct {

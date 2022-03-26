@@ -1,16 +1,16 @@
 open Ast
 
-(* [intro_mcalloc tg] expects the target [tg] pointing to a call to funciton alloc
-      then it will replace this call with a call to MCALLOC
+(* [intro_calloc tg] expects the target [tg] pointing to a call to funciton alloc
+      then it will replace this call with a call to CALLOC
 *)
-let intro_mcalloc : Target.Transfo.t =
-  Target.apply_on_targets (Matrix_core.intro_mcalloc)
+let intro_calloc : Target.Transfo.t =
+  Target.apply_on_targets (Matrix_core.intro_calloc)
 
-(* [intro_mmalloc tg] expects the target [tg] pointing to a call to funciton malloc
-      then it will replace this call with a call to MMALLOC
+(* [intro_malloc tg] expects the target [tg] pointing to a call to funciton malloc
+      then it will replace this call with a call to MALLOC
 *)
-let intro_mmalloc : Target.Transfo.t =
-  Target.apply_on_targets (Matrix_core.intro_mmalloc)
+let intro_malloc : Target.Transfo.t =
+  Target.apply_on_targets (Matrix_core.intro_malloc)
 
 (* [intro_mindex dim tg] expects the target [tg] pointing to an array access
     then it will replace that access to let say index i with an access at
@@ -63,7 +63,7 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_ins
       | _ -> fail t.loc (Printf.sprintf "get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr 
           target doesn't point to a write operation or a variable declaration \n'" v)
       end in 
-      let alloc_trms = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true "M.ALLOC."]) with 
+      let alloc_trms = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with 
         | Some at -> 
           begin match Matrix_core.alloc_inv at with 
           | Some (dims, sz, zero_init) -> (dims, sz, zero_init) 
