@@ -30,6 +30,7 @@ TESTS_WITH_DOC := \
 	loop_fold.ml \
 	loop_fusion.ml \
 	loop_fusion_targets.ml \
+	loop_grid_enumerate.ml \
 	loop_hoist.ml \
 	loop_moveout.ml \
 	loop_reorder.ml \

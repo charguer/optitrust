@@ -16,7 +16,6 @@ T *y;
 
 void allocate() {
   b = (T *)MCALLOC3(N1, N2, N3, sizeof(T));
-alloc:
   y = (T *)MCALLOC4(N0, N1, N2, N3, sizeof(T));
 }
 
@@ -71,7 +70,6 @@ int main() {
       }
     }
   }
-dealloc:
   MFREE(y);
   int z = 0;
   return 0;

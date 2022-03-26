@@ -1054,6 +1054,16 @@ let trm_double (d : float) : trm = trm_lit (Lit_double d)
 (* convert an integer to an ast node *)
 let trm_bool (b : bool) : trm = trm_lit (Lit_bool b)
 
+(* [trm_prod_inv t] get a the list of factors involved in a multiplication*)
+let trm_prod_inv (t : trm) : trm list =
+  let rec aux (indepth : bool) (acc : trm list) (t : trm) : trm list = 
+    match t.desc with 
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_mul))); _}, [l; r]) ->
+      (aux true acc l) @ (aux true acc r)
+    | _ -> if indepth then acc @ [t] else acc
+  in aux false [] t
+
+
 (* ********************************************************************************************************************* *)
 
 (* for target betweens marks are stored on the parent sequence,

@@ -99,7 +99,7 @@ let fusion_on_block ?(keep_label : bool = false) : Target.Transfo.t =
                                             }
                                           }
 *)
-let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.t =
+let grid_enumerate (index_and_bounds : (string * trm) list) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.grid_enumerate index_and_bounds)
 
 

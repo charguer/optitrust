@@ -58,7 +58,6 @@ bag *bagNexts1;
 
 void allocate() {
   bagNext1 = (bag *)MMALLOC1(nbCells, sizeof(bag));
-alloc:
   bagNexts1 = (bag *)MMALLOC2(N0, nbCells, sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagKind = 0; bagKind < N0; bagKind++) {
@@ -114,7 +113,6 @@ int main() {
                 &bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
     }
   }
-dealloc:
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagKind = 0; bagKind < N0; bagKind++) {
       bag_free(&bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);

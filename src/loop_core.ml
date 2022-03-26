@@ -211,15 +211,15 @@ let fusion_on_block_aux (t : trm) : trm =
 let fusion_on_block (keep_label : bool): Target.Transfo.local =
   Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence ~keep_label (fusion_on_block_aux) "fussion")
 
-(* [grid_enumerate_aux index_and_bounds t]: transform a loop over a grid into ndested loops over each dimension
+(* [grid_enumerate_aux indices_and_bounds t]: transform a loop over a grid into nested loops over each dimension
       of the grid
     params:
-      [index_and_bounds]: a list of pairs representing the index and the bound of the loop over each dimesnion
+      [indices_and_bounds]: a list of pairs representing the index and the bound for each dimension
       [t]: ast of the loop
     return:
       the transformed loop
 *)
-let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : trm =
+let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, _start, direction,_stop, _step, body) ->
     let new_body = begin match body.desc with
@@ -228,9 +228,9 @@ let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : t
                         if i = 0 then let acc = trm_var ind in acc
                           else trm_apps (trm_binop Binop_add) [
                             trm_apps (trm_binop Binop_mul) [
-                              acc; AstParser.expr bnd]
+                              acc; bnd]
                               ; trm_var ind]
-                    )  (trm_var "") index_and_bounds in
+                    )  (trm_unit ()) indices_and_bounds in
                     let old_loop_index_decl = trm_let_immut (index, typ_int ()) old_loop_index_val in
                     let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
                     trm_seq new_tl
@@ -238,16 +238,13 @@ let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : t
                    end in
 
     Tools.fold_lefti (fun i acc (ind, bnd) ->
-      if i = 0 then  trm_for ind (trm_int 0) direction (AstParser.expr bnd) (Post_inc) acc
-        else  trm_for ind (trm_int 0) DirUp (AstParser.expr bnd) Post_inc (trm_seq_nomarks [acc])
-    ) new_body (List.rev index_and_bounds)
+      if i = 0 then  trm_for ind (trm_int 0) direction bnd (Post_inc) acc
+        else  trm_for ind (trm_int 0) DirUp bnd Post_inc (trm_seq_nomarks [acc])
+    ) new_body (List.rev indices_and_bounds)
   | _ -> fail t.loc "grid_enumerate_aux: expected a simple loop"
 
-
-let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.local =
-  Target.apply_on_path (grid_enumerate_aux index_and_bounds)
-
-
+let grid_enumerate (indices_and_bounds : (string * trm) list) : Target.Transfo.local =
+  Target.apply_on_path (grid_enumerate_aux indices_and_bounds)
 
 (* [unroll_aux index t]: extract the body of the loop as a list of list of instructions
     params:

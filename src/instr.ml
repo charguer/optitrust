@@ -6,43 +6,48 @@ include Instr_basic
     with that value, if [tg] doesn't point to a read operation then the transformation will fail
 *)
 
-let read_last_write ?(write_mark : mark option = None) ?(write : Target.target = []) : Target.Transfo.t =
-  Target.iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
-    match tg_trm.desc with
-    | Trm_apps (_, [arg]) when is_get_operation tg_trm ->
-      begin match write with
-      | [] ->
-        let path_to_seq, _, index = Internal.get_instruction_in_surrounding_sequence p in
-        let seq_trm = Path.resolve_path path_to_seq t in
-        let write_index = ref None in
-        begin match seq_trm.desc with
-        | Trm_seq tl ->
-          Mlist.iteri (fun i t1 ->
-            if i >= index
-              then ()
-              else begin match t1.desc with
-                   | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
-                     if Internal.same_trm ls arg then write_index := Some i else ()
-                   | Trm_let (_, (x, _), _ ) when Internal.same_trm (trm_var x) arg ->
-                      write_index := Some i
-                   | _ -> ()
-                   end
-          ) tl
-        | _ -> fail seq_trm.loc (Printf.sprintf "read_last_write: expected the sequence which contains the targeted get operation got %s" (AstC_to_c.ast_to_string seq_trm))
-        end;
-        begin match !write_index with
-        | Some index ->
-          let write =  (Target.target_of_path path_to_seq) @ [Target.dSeqNth index] in
-          Instr_basic.read_last_write ~write  (Target.target_of_path p);
-          begin match write_mark with | Some m -> Marks.add m write | _ -> () end
-          
-        | None -> fail tg_trm.loc "read_last_write: couuldn't find a write operation for your targeted read operation"
-        end
-      | _ -> Instr_basic.read_last_write  ~write (Target.target_of_path p)
-      end
-    | _ -> fail tg_trm.loc (Printf.sprintf "read_last_write: the main target should be a get operation, got %s\n" (AstC_to_c.ast_to_string tg_trm))
-  )
+let read_last_write ?(write_mark : mark option = None) ?(write : Target.target = []) (tg : Target.target) : unit =
+  if write <>  [] 
+    then Instr_basic.read_last_write ~write tg 
+    else begin
+      Target.iter_on_targets (fun t p ->
+        let tg_trm = Path.resolve_path p t in
+        match tg_trm.desc with
+        | Trm_apps (_, [arg]) when is_get_operation tg_trm ->
+          begin match write with
+          | [] ->
+            let path_to_seq, _, index = Internal.get_instruction_in_surrounding_sequence p in
+            let seq_trm = Path.resolve_path path_to_seq t in
+            let write_index = ref None in
+            begin match seq_trm.desc with
+            | Trm_seq tl ->
+              Mlist.iteri (fun i t1 ->
+                if i >= index
+                  then ()
+                  else begin match t1.desc with
+                       | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
+                         if Internal.same_trm ls arg then write_index := Some i else ()
+                       | Trm_let (_, (x, _), _ ) when Internal.same_trm (trm_var x) arg ->
+                          write_index := Some i
+                       | _ -> ()
+                       end
+              ) tl
+            | _ -> fail seq_trm.loc (Printf.sprintf "read_last_write: expected the sequence which contains the targeted get operation got %s" (AstC_to_c.ast_to_string seq_trm))
+            end;
+            begin match !write_index with
+            | Some index ->
+              let write =  (Target.target_of_path path_to_seq) @ [Target.dSeqNth index] in
+              Instr_basic.read_last_write ~write  (Target.target_of_path p);
+              begin match write_mark with | Some m -> Marks.add m write | _ -> () end
+
+            | None -> fail tg_trm.loc "read_last_write: couuldn't find a write operation for your targeted read operation"
+            end
+          | _ -> 
+              Printf.printf "I was here\n";
+              Instr_basic.read_last_write  ~write (Target.target_of_path p)
+          end
+        | _ -> fail tg_trm.loc (Printf.sprintf "read_last_write: the main target should be a get operation, got %s\n" (AstC_to_c.ast_to_string tg_trm))
+    ) tg end
 
 (* [inline_last_write ~write ~delete tg] this tranformation is a version of read last write, in fact it will call
     the basic read_last_write transformation and then it will delete the write operation. So the main difference between

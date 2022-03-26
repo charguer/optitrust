@@ -177,8 +177,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
           (even if we have to undo it later) *)
 
   bigstep "Enumerate grid cells by coordinates";
-  (* BEAUTIFY: inline nbCells, then call grid_enumerate, which should parse the product automatically i<X*Y*Z *)
-  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [step; cFor "idCell" ~body:[cFor "k"]];
+  !! Instr.read_last_write ~write:[cWriteVar "nbCells"] [occFirst; step; cFor "idCell"; cReadVar "nbCells"];
+  !! Loop.grid_enumerate ~indices:(map_dims (fun d -> "i"^d)) [step; cFor "idCell" ~body:[cFor "k"]];
 
   bigstep "Code cleanup in preparation for shifting of positions";
   !! iter_dims (fun d ->
@@ -456,19 +456,9 @@ use unfold in
 
   LATER
   Flags.print_coumpound_expressions
+  *)
 
 
-
- TODO:
-  introduce
-    int id = *idCell2;
-  just before coordOfCell( *idCell2)
-    should fold3 occurences.
-
-    inline idCell2  everywhere
-
-
-*)
 (* LATER !! Function.beta ~indepth:true [dRoot]; try in a unit test with two beta reductions to do *)
 
 (* TODO: res should be field_at_corners *)
