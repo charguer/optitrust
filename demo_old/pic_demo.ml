@@ -86,15 +86,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* LATER: read_last_write/inline_last_write should be able to target the write in an initialization, this would avoid the detach *)
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
-  bigstep "Struct inline";
+  bigstep "Struct.reveal";
   (* !! Variable.inline [main; cVarDef "p"]; *)
   (* !! Variable.simpl_deref [main]; *)
   !! Struct.set_explicit [main; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
-  !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
+  !! List.iter (fun f -> Struct.reveal f [cTypDef "particle"]) ["speed"; "pos"];
 
   bigstep "Aos-to-soa";
-  !! Struct.inline "items" [cTypDef "chunk"];
+  !! Struct.reveal "items" [cTypDef "chunk"];
 
   bigstep "Prepare the stage for scaling (move definitions and introduce constants)";
   !! Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push.*"];

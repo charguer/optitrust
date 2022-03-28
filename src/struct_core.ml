@@ -222,7 +222,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
     | _ -> trm_map aux t
   in aux t
 
-(* [inline_aux field_to_inline index t]: replace [field_to_inline] with a list of fields coming from
+(* [reveal_aux field_to_inline index t]: replace [field_to_inline] with a list of fields coming from
       the fields of the type of [field_to_inlne] which should be a typedef struct. Then it will change all
        the accesses of this field to accesses of the field.
     params:
@@ -232,7 +232,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
     return:
       updated ast with the inline struct in struct and changed all struct accesses
 *)
-let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
+let reveal_aux (field_to_inline : field) (index : int) (t : trm ) =
   match t.desc with
   | Trm_seq tl ->
     let lfront, td, lback =  Internal.get_trm_and_its_relatives index tl in
@@ -250,9 +250,9 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        | Typ_array (ty1, _) ->
         begin match ty1.typ_desc with
         | Typ_constr (_, tid, _) -> tid
-        | _ -> fail t.loc "inline_aux: expected a typ_constr"
+        | _ -> fail t.loc "reveal_aux: expected a typ_constr"
         end
-       | _ -> fail t.loc  "inline_aux: expected a typ_constr"
+       | _ -> fail t.loc  "reveal_aux: expected a typ_constr"
        end
        in
        let struct_def =
@@ -264,7 +264,7 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        in
        let inner_type_field_list = begin match struct_def.typdef_body with
         | Typdef_prod (_, s) -> s
-        | _ -> fail t.loc "inline_aux: the field wanted to inline should have also a struct typedef"
+        | _ -> fail t.loc "reveal_aux: the field wanted to inline should have also a struct typedef"
         end
        in
        let inner_type_field_list = List.map (fun (x, typ) ->
@@ -281,14 +281,14 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        let new_tl = Mlist.merge lfront lback in
        let new_tl = Mlist.insert_at index new_trm new_tl in
        { t with desc = Trm_seq new_tl}
-      | _ -> fail t.loc "inline_aux: expected a struct "
+      | _ -> fail t.loc "reveal_aux: expected a struct "
       end
-    | _ -> fail t.loc "inline_aux: expected a trm_typedef"
+    | _ -> fail t.loc "reveal_aux: expected a trm_typedef"
     end
-  | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "reveal_aux: expected the surrounding sequence"
 
-let inline (field_to_inline : field) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (inline_aux field_to_inline index)
+let reveal (field_to_inline : field) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (reveal_aux field_to_inline index)
 
 
 

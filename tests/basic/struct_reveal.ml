@@ -3,7 +3,7 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Struct_basic.inline "pos" [cTypDef "obj"];
+    !! Struct_basic.reveal "pos" [cTypDef "obj"];
   )
 "
 typedef struct {
@@ -19,9 +19,9 @@ typedef struct {
 
 let _ = Run.script_cpp (fun _ ->
 
-   !! Struct_basic.inline "pos" [cTypDef "particle"];
-   !! Struct_basic.inline "speed" [cTypDef "particle"];
-   !! Struct_basic.inline "items" [cTypDef "chunk"];
+   !! Struct_basic.reveal "pos" [cTypDef "particle"];
+   !! Struct_basic.reveal "speed" [cTypDef "particle"];
+   !! Struct_basic.reveal "items" [cTypDef "chunk"];
 )
 
 (* LATER: at the combi level, combine struct_inline with struct-renaming-field *)

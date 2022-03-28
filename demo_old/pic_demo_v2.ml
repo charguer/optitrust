@@ -55,8 +55,8 @@ let _ = Run.script_cpp (fun () ->
   !!! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
 
   (* AOS-TO-SOA *)
-  !! Struct.inline "pos" [cTypDef "particle"];
-  !! Struct.inline "speed" [cTypDef "particle"];
+  !! Struct.reveal "pos" [cTypDef "particle"];
+  !! Struct.reveal "speed" [cTypDef "particle"];
   
   (* Relative positions *)
     (* let shift_coord d = 
@@ -67,7 +67,7 @@ let _ = Run.script_cpp (fun () ->
   !! List.iter shift_coord dims;
 
 
-  !! Struct.inline "items" [cTypDef "bag"]; *)
+  !! Struct.reveal "items" [cTypDef "bag"]; *)
   
   (* Renaming struct fields *)
   !! Struct.(rename_fields Rename.(only_for "pos_." (fun x ->  "rel_" ^ x))) [cTypDef "particle"];

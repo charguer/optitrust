@@ -128,8 +128,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ~regexp:true ~field:"\\(speed\\|pos\\)" ()];
   
   bigstep "AOS-TO-SOA";
-  !! List.iter (fun f -> Struct.inline f [cTypDef "particle"]) ["speed"; "pos"];
-  !! Struct.inline "items" [cTypDef "chunk"];
+  !! List.iter (fun f -> Struct.reveal f [cTypDef "particle"]) ["speed"; "pos"];
+  !! Struct.reveal "items" [cTypDef "chunk"];
 
   bigstep "Apply scaling factors on the electric field";
   !! Struct.to_variables [steps; cVarDef "fieldAtPos"];
@@ -245,20 +245,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
-  !! Matrix_basic.intro_malloc [nbMulti; cFunDef "allocateStructures";cFun "malloc"];
-  !! Matrix.intro_mindex (expr "nbCells") [nbMulti; step; cCellAccess ~base:[cOr [[cVar "deposit"]; [cVar "bagsNext"]]]() ];
-  (* BEAUTIFY: we should use intro_mops directly if possible *)
-  (* BEAUTIFY: Matrix.intro_mops should be generalized to work when the variable declaration and
-    the variable initialization are separated, even if we only target the cVarDef, as long
-    as there is a unique write in that variable.
-    On a related note, we could make the size automatically found by intro_mindex,
-    it should look for either the var_def with an initialization, or for a write in the variable;
-    to search for such expressions, define an auxiliary function "var_init_or_unique_write" which
-    retrieves the initializer; for array allocations, it will be the allocation operation;
-    from it, you can get the size, like intro_mmalloc is able to do. *)
+  !! Matrix.intro_mops (expr "nbCells")[nbMulti; cVarDef ~regexp:true "\\(deposit\\|bagsNext\\)"];
   !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
   !! Variable.inline [occLast; step; cVarDef "indices"];
-
+ 
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "deposit"] in
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
@@ -432,20 +422,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
 
 
-??
-use unfold in
-!! Variable.inline [nbMulti; step; cVarDef ~regexp:true "factor."];
-  with a more precise target
-
-
-  LATER: keep in mind
-  Align.header => adds  #include <stdalign.h> to the top of the ast
-  Align.assume "t" =>
-     insert instruction
-     t = __builtin_assume_aligned(t, 64);
-  Align.def 64 [cVarDef "x"]
-    => add the attribute to the type of the definition
-
+  
   LATER
   Flags.print_coumpound_expressions
   *)

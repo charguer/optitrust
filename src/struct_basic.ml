@@ -38,15 +38,15 @@ let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struc
     end in
   Target.apply_on_targets (Struct_core.fields_reorder struct_fields move_where) tg
 
-(* [inline field_to_inline tg] expects [tg] to point to a typedef struct
-    it then will find [field_to_inline] and it's underlying type. It will
-    replace [field_to_inline] with a list of fields rename comming from the underlying type
-    renamed with the following the prefix "field_to_inline_".
+(* [reveal field_to_reveal tg] expects [tg] to point to a typedef struct
+    it then will find [field_to_reveal] and it's underlying type. It will
+    replace [field_to_reveal] with a list of fields rename comming from the underlying type
+    renamed with the following the prefix "field_to_reveal_".
 *)
-let inline ?(reparse:bool=false) (field_to_inline : field) : Target.Transfo.t =
+let reveal ?(reparse:bool=false) (field_to_reveal : field) : Target.Transfo.t =
   Target.reparse_after ~reparse
     (Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-      (fun t (p, i) -> Struct_core.inline field_to_inline i t p))
+      (fun t (p, i) -> Struct_core.reveal field_to_reveal i t p))
 
 (* [to_variables tg] expects [tg] to point to a variable declaration of type typedef struct.
     Then it will transform this declaration into a list of variable declarations where the type
