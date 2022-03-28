@@ -1267,7 +1267,7 @@ let get_relative_type (tg : target) : target_relative option =
 
 (* [reparse_after tr] is a wrapper to invoke for forcing the reparsing
     after a transformation. For example because it modifies type definitions.
-    See example in [Struct.inline]. The argument [~reparse:false] can be
+    See example in [Struct.reveal]. The argument [~reparse:false] can be
     specified to deactivate the reparsing.
 *)
 let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =

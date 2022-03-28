@@ -65,7 +65,7 @@ TESTS_TOCHECK := \
 	matrix_delocalize.ml \
 	matrix_delocalize_obj.ml \
 	matrix_intro_calloc.ml \
-	matrix_into_malloc.ml \
+	matrix_intro_malloc.ml \
 	matrix_intro_mindex.ml \
 	matrix_intro_mops.ml \
 	loop_isolate_first_iteration.ml \
