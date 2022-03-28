@@ -24,6 +24,12 @@
 # Example COMP=gcc PROG=pic_barsamian.c ./bench.sh run
 # Example NOPAR=1 COMP=gcc PROG=pic_demo.c ./bench.sh run
 
+# Example to evaluate noise:
+#    RUNS=8 SEED=3 PROG=pic_optimized.c FAST=2 NOSEQ=1 ./bench.sh
+# Example to evaluate seed effect:
+#    RUNS=8 PROG=pic_optimized.c FAST=2 NOSEQ=1 ./bench.sh
+
+
 ACTION=$1
 
 if [ -z "${ACTION}" ]; then
