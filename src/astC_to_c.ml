@@ -176,7 +176,7 @@ and typed_var_to_doc (tx : typed_var) : document =
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ blank 1 ^^ string x ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
   | Typ_ptr _ ->
-     dattr ^^ typ_to_doc ty ^^ blank 2 ^^ const_string ^^ string x
+     dattr ^^ typ_to_doc ty ^^ blank 1 ^^ const_string ^^ string x
   | _ -> const_string ^^ typ_to_doc ty ^^ blank 1 ^^ string x
 
 and lit_to_doc (l : lit) : document =
@@ -312,7 +312,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
           end
         | None -> empty
         end in
-       dattr ^^ init_type ^^ braces (separate (comma ^^ blank 1) dl)
+       dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl
     | Trm_let_fun (f, r, tvl, b) ->
@@ -962,7 +962,7 @@ let ast_to_doc ?(optitrust_syntax:bool=false) (t : trm) : document =
   d
 
 let ast_to_outchannel ?(optitrust_syntax:bool=false) (out : out_channel) (t : trm) : unit =
-  ToChannel.pretty 0.9 80 out (ast_to_doc ~optitrust_syntax t)
+  ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc ~optitrust_syntax t)
 
 let ast_to_file ?(optitrust_syntax:bool=false) (filename : string) (t : trm) : unit =
   let out = open_out filename in

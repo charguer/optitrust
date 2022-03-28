@@ -91,6 +91,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
   !! Trace.reparse ();
   !! Struct.set_explicit [nbMulti; stepsReal; cFieldWrite ~base:[cVar "p"] ()];
+  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"]; 
+  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."]; 
 
   bigstep "Inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
   !! Function.inline [nbMulti; cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
@@ -99,6 +101,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! List.iter (fun f -> Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; f; cFun "cornerInterpolationCoeff"])
      stepsl;
   !! iter_dims (fun d -> Variable.reuse ~space:(var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
+  
 
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
@@ -120,8 +123,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Elimination of the pointer on a particle, to prepare for aos-to-soa";
   !! Variable.init_detach [steps; cVarDef "p"];
-  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"]; (* BEAUTIFY: move elsewhere *)
-  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."];  (* BEAUTIFY: move elsewhere? *)
   !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
   !! Instr.delete [steps; cVarDef "p"];
 
@@ -304,7 +305,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.atomic None [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
   !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; step; cFor "bX"];
-  !! Omp.parallel_for [tBefore; step; cFor "idCell" ~body:[cVar "sum"]];
 
   (* Part 3: refinement of the parallelization to eliminate atomic operations *)
 
@@ -359,7 +359,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Parallelize and optimize loops that process bags";
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
-  !! Omp.parallel_for [tBefore; occIndex 1; step; cFor "idCell"]; (* BEAUTIFY: use label to refer to the loop *)
+  !! Omp.parallel_for [nbMulti; tBefore; step; cFor "idCell"]; 
   !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
 
   (* Part 4: Vectorization *)
@@ -382,12 +382,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
   !! Variable.inline [nbMulti; step; cVarDef "idCell2"];
 
-  (* BEAUTIFY:
-    (double [star])MALLOC_ALIGNED1(nbCells, sizeof(double), 64);
-    SHOULD BE
-    (double[star]) MALLOC_ALIGNED1(nbCells, sizeof(double), 64);
-    there are two spaces to modify *)
-
   bigstep "Data alignment";
   !! Align.def (lit "64") [nbMulti; cOr [[cStrict; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
                                          [step; cVarDef "idCell2_step"];
@@ -406,8 +400,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Align.header ();
   !! Loop.fission [tBefore; occLast; step; cFor "idCell"; cFor "idCorner"; cFor "idThread"];
   !! Loop.swap [occLast; cFor "idCell"; cFor "idCorner" ~body:[cFor "idThread"]];
-  !! Omp.simd [nbMulti; tBefore; cOr [[cFor "idCell" ~body:[cFor "bagsKind"]; cFor "idCorner"];[stepLF; cFor "i"]]];
-  !! Omp.simd [occIndices [0;1]; tBefore; step; cFor "i" ];
+  !! Omp.simd [nbMulti; tBefore; cOr [
+    [cFor "idCell" ~body:[cFor "bagsKind"]; cFor "idCorner"];
+    [stepLF; cFor "i"];
+    [cDiff [[step; cFor "i"]] [[step; cFor "i"  ~body:[cFor "k"]]] ]; (* A / B logic *)
+    ]];
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];
 )
@@ -469,9 +466,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   (* LATER: fission should automatically do the duplication of references when necessary *)
 
-  (*  BEAUTIFY: the Omp operations should  add a tBefore themselves
-    !! Omp.simd [] [tBefore; step;cFor "i"]; *)(* TODO: Fix the issue with the last loop *)
-
 
 (* TODO: Fix the bug with insertion of variables when using tBefore and tFirst *)
 
@@ -515,7 +509,7 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
 *)
 
 
-(* BEAUTIFY
+(* BEAUTIFY (clang-format issue)
   missing spaces in:
     return (vect){d * v.x, d * v.y, d * v.z};
   should be
@@ -543,7 +537,7 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
 
 
 
-(* LATER:
+(* DONE:
 
 We have in the top of the step function
 
