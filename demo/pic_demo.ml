@@ -166,7 +166,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.scale ~factor:(expr ("cell"^d)) [addPart; cFieldRead ~field:d_lc ~base:[cVar "pos"] ()]);
   !! iter_dims (fun d ->
      Accesses.scale ~neg:true ~factor:(expr ("cell"^d))
-         [nbMulti; steps; cOr [[sExprRegexp ~substr:true ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]); (* BEAUTIFY: why is the subst:true needed above? *)
+         [nbMulti; steps; cOr [[sExprRegexp ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]); 
 
   bigstep "Simplify arithmetic expressions after scaling";
   !! Trace.reparse();
@@ -514,13 +514,6 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
 
 *)
 
-(* LATER
-  !! List.iter (fun occ -> Omp.parallel_for [occIndex occ; tBefore; step; cFor "idCell"]) [0(*;2*)]; (* BEAUTIFY: occIndices *)
-  *)
-
-
-
-(* BEAUTIFY implement and use: insert_list_same_type *)
 
 (* BEAUTIFY
   missing spaces in:

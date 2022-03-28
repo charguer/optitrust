@@ -585,7 +585,7 @@ let check_recover_original () : unit =
    priorities to determine when parentheses are required. *)
 let cleanup_cpp_file_using_clang_format (filename : string) : unit =
   timing ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
-    ignore (Sys.command ("clang-format -i " ^ filename)))
+    ignore (Sys.command ("clang-format -style:\"LLVM\" -i " ^ filename)))
 
 (* [output_prog ctx prefix ast] writes the program described by the term [ast]
    in several files:
