@@ -1,19 +1,10 @@
-int f (int x){
-
-  return x + 1;
-}
-
-int N;
-
-void setN(){
-  N = 10;
-}
-
-
 int main(){
   
+  int a = 0;
+  a = 10;
   int b = 0;
-  for (int a = 0; a < N; a++){
-    a = a + 1;
-  }
+  b = 20;
+  int c = 0;
+  c = 30;
+  return 0;
 }

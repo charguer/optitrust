@@ -420,6 +420,7 @@ void wait_non_blocking_reduce_rho_3d(int mpi_world_size, double* recv_buf,
  */
 void reset_charge_3d_accumulator(int ncx, int ncy, int ncz,
         int num_threads, double* charge_accu) {
+    #pragma omp parallel for
     for (size_t i = 0; i < ncx * ncy * ncz * NB_CORNERS_3D * num_threads; i++)
         charge_accu[i] = 0.;
 }

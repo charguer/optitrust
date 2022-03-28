@@ -55,12 +55,23 @@ let remove_mark (m : mark) (ml : 'a t) : 'a t =
   let new_marks = List.map (fun ms -> List.filter (fun x -> x <> m) ms) ml.marks in
   { ml with marks = new_marks }
 
-let split ?(left_bias : bool = true) (index : int) (ml : 'a t) : 'a t * 'a t=
+let marks_to_string (ml : 'a t) : string =
+  "[" ^ List.fold_left (fun acc x -> (Tools.list_to_string x) ^ acc ) "" (List.rev ml.marks) ^ "]"
+
+let split ?(left_bias : bool = true) ?(only_one : bool = false) (index : int) (ml : 'a t) : 'a t * 'a t=
   let items1, items2 = Tools.split_list_at index ml.items in
   let marks1a, marks2a = Tools.split_list_at (index + if left_bias then 1 else 0) ml.marks in
-  let marks1 = if left_bias then marks1a else marks1a @ [] in
-  let marks2 = if left_bias then [] :: marks2a else marks2a in
-  ({items = items1; marks = marks1}, {items = items2; marks = marks2})
+  let marks1 = if only_one
+       then marks1a 
+       else begin if left_bias then marks1a else marks1a @ [] end in
+  let marks2 = if only_one
+       then marks2a 
+       else begin if left_bias then [] :: marks2a else marks2a end in
+  (* let marks1 = 
+  let marks2 = if left_bias then [] :: marks2a else marks2a in *)
+  (* let marks1 = marks1a in *)
+  (* let marks2 = marks2a in *)
+  ({items = items1; marks = marks1}, {items = items2; marks = marks2}) 
 
 let merge (ml1 : 'a t) (ml2 : 'a t) : 'a t =
   let marks1, tmp_marks1 = Tools.unlast ml1.marks in
@@ -77,17 +88,17 @@ let extract ?(start_left_bias : bool = true) ?(stop_left_bias : bool = true) (st
 let remove (start : int) (nb : int) (ml : 'a t) : 'a t =
   fst (extract start nb ml)
 
-let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
+let insert_sublist_at ?(only_one : bool = false) (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
    let sz = length ml in
    assert (0 <= index && index <= sz);
-   let lfront, lback = split index ml in
+   let lfront, lback = split ~only_one index ml in
    let empty_marks = List.map (fun _ -> []) sl in
    let x = {items = sl; marks = empty_marks} in
    let new_ml = merge lfront x in
    merge new_ml lback
 
 let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
-  insert_sublist_at index [x] ml
+  insert_sublist_at ~only_one:false index [x] ml
 
 let rev (ml : 'a t) : 'a t =
   { items = List.rev ml.items;
@@ -96,5 +107,8 @@ let rev (ml : 'a t) : 'a t =
 let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =
   { ml with items = Tools.update_nth n transfo ml.items }
 
-let marks_to_string (ml : 'a t) : string =
-  "[" ^ List.fold_left (fun acc x -> (Tools.list_to_string x) ^ acc ) "" (List.rev ml.marks) ^ "]"
+
+
+
+
+

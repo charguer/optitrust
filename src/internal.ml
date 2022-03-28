@@ -480,7 +480,7 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
         end
       ) (Mlist.to_list tl)) in
       let new_tl = Mlist.map aux tl in
-
+     
       let new_tl =
         if indices_list <> [] then
           List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list)

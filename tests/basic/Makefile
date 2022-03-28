@@ -53,7 +53,7 @@ TESTS_WITH_DOC := \
 	sequence_partition.ml \
 	sequence_split.ml \
 	struct_fields_reorder.ml \
-	struct_inline.ml \
+	struct_reveal.ml \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \

@@ -437,4 +437,3 @@ let unsome (x_opt : 'a option) : 'a =
   match x_opt with
   | Some x -> x
   | None -> failwith "unsome: please check if the optional is different from none before calling this function"
-

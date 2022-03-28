@@ -10,7 +10,8 @@ let add_between (m : mark) (tg : Target.target) : unit =
   if m = "" then () 
     else
       Target.apply_on_targets_between( 
-        fun t (p,i) -> Target.apply_on_path (fun t -> trm_add_mark_between i m t) t p) tg
+        fun t (p,i) -> 
+         Target.apply_on_path (fun t -> trm_add_mark_between i m t) t p) tg
 
 (* [remove m] removes mark m from node t *)
 let remove (m : mark) : Target.Transfo.t =

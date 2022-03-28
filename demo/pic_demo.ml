@@ -178,7 +178,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Enumerate grid cells by coordinates";
   !! Instr.read_last_write ~write:[cWriteVar "nbCells"] [steps; cFor "idCell" ~body:[cFor "i"]; cReadVar "nbCells"];
-  !! Loop.grid_enumerate ~indices:(map_dims (fun d -> "i"^d)) [steps; cFor "idCell" ~body:[cFor "k"]];
+  !! Loop.grid_enumerate ~indices:(map_dims (fun d -> "i"^d)) [step; cFor "idCell" ~body:[cFor "k"]];
 
   bigstep "Code cleanup in preparation for shifting of positions";
   !! iter_dims (fun d ->
@@ -245,7 +245,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
-  !! Matrix.intro_mops (expr "nbCells")[nbMulti; cVarDef ~regexp:true "\\(deposit\\|bagsNext\\)"];
+  !! Matrix.intro_mops (expr "nbCells") [nbMulti; cVarDef ~regexp:true "\\(deposit\\|bagsNext\\)"];
   !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
   !! Variable.inline [occLast; step; cVarDef "indices"];
  

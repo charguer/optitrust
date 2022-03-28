@@ -348,11 +348,11 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
           let counter = ref (-1) in
           let dl = List.map (decorate_trm ~semicolon:true) tl in
           let dl = Tools.fold_lefti (fun i acc m ->
-           if m <> [] then
-             let () = incr counter in
+           if m <> [] then begin
+             incr counter;
              let m = Tools.list_to_string ~sep:"," m in
              let s = string ("/*@" ^ m ^ "@*/") in
-             Tools.insert_at i s acc
+             Tools.insert_at (i + !counter) s acc end
            else acc
           ) dl tl_m in
           counter := -1;

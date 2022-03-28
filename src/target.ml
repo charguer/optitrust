@@ -879,6 +879,13 @@ let resolve_target_mark_one_else_any (m : mark) (t : trm) : paths =
     with Ast.Resolve_target_failure _ ->
         resolve_target [nbAny; cMark m] t
 
+(* [resolve_target_between_mark_one_else_any] is a wrapper for calling [resolve_target] with
+   a mark for which we expect a single occurence. *)
+let resolve_target_between_mark_one_else_any (m : mark) (t : trm) : (path * int) list =
+    try resolve_target_between [nbExact 1; cMark m] t
+    with Ast.Resolve_target_failure _ ->
+        resolve_target_between [nbAny; cMark m] t
+
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
       params:
         transformer: change the resolved path so that more information about the context of the node is given
