@@ -98,8 +98,6 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_ins
         end
       end
     ) tg)
-  
-  
   )
 
 (* [delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops] a generalized version of variable_delocalize*)

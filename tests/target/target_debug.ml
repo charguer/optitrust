@@ -16,8 +16,8 @@ let _ = Flags.dump_ast_details := true
 
 let _ = Run.script_cpp (fun () ->
 
-
-  show [cOr [[cTopFunDef "a"]; [cTopFunDef "b"]]];
+  show [cOr [[cVarDef "a"];[cVarDef "b"];[cVarDef "c"];[cVarDef "d"]]];
+  show [cVarDefs ["a";"b";"c";"d"]];
   (*show [cTopFunDef "a"];
   (* !! Instr.view_subterms [dRoot]; *)
   (* !! Instr.view_subterms ~constr:(sInstr "+= 2") [dRoot]; *)

@@ -258,6 +258,12 @@ let cVarDef
   let ty_pred = make_typ_constraint ~typ ~typ_pred () in
   Constr_decl_var (ty_pred, ro, body)
 
+
+let cVarDefs (vars : vars) : constr = 
+  let vardefs = List.map (fun v -> [cVarDef v]) vars in
+  cOr vardefs
+
+
 let cFor ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
   Constr_for (ro, start, direction, stop, step, body)
@@ -470,6 +476,11 @@ let cCall ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_
 (* [cFun] matches a function by its name; it cannot match primitive functions *)
 let cFun ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) ?(regexp : bool = false) (name:string) : constr =
   cCall ~fun_ ~args ~args_pred ~accept_encoded:false ~regexp name
+
+(* [cFuns funs] matches a list of function calls [whose name can be found in [funs]] *)
+let cFuns (funs : var list) : constr =
+  let funcalls = List.map (fun f -> [cFun f]) funs in 
+  cOr funcalls
 
 (* [cPrimPred f_pred] matches all primitives which satisfy the predicated [f_pred]*)
 let cPrimPred (f_pred : prim -> bool) : constr =

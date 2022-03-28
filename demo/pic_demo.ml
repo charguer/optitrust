@@ -60,7 +60,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Optimization and inlining of [matrix_vect_mul]";
   let ctx = cTopFunDef "matrix_vect_mul" in
-  !! Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+  !! Function.inline [ctx; cFuns ["vect_mul"; "vect_add"]];
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
   !! Loop.fission ~split_between:true [ctx; cFor "k"];
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
@@ -77,18 +77,20 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];
+  (* !! Instr.move_out ~dest:[tBefore; ctx] [ctx; cVarDefs ""] *)
   !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
   !! Loop.fold_instrs ~index:"k" [cTopFunDef "cornerInterpolationCoeff"; cCellWrite ~base:[cVar "r"] ()];
 
   bigstep "Update particles in-place instead of in a local variable ";
   !! Variable.reuse ~space:(expr "p->speed") [step; cVarDef "speed2" ];
   !! Variable.reuse ~space:(expr "p->pos") [step; cVarDef "pos2"];
+
   bigstep "Reveal write operations involved in the manipulation of particles and vectors";
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
-  !! Function.inline [steps; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+  !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
   !! Trace.reparse ();
-  !! Struct.set_explicit [nbMulti; steps; cFieldWrite ~base:[cVar "p"] ()];
+  !! Struct.set_explicit [nbMulti; stepsReal; cFieldWrite ~base:[cVar "p"] ()];
 
   bigstep "Inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
   !! Function.inline [nbMulti; cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
@@ -105,8 +107,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
   bigstep "Low level iteration on chunks of particles";
-  !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
-  !! Function.inline [steps; cOr [[cFun "bag_iter_begin"]; [cFun "bag_iter_destructive_begin"]]];
+  !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
+  !! Function.inline [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
   !! Variable.inline [steps; cVarDef "bag_iter"];
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [steps; cMark "loop"; cFor_c ""; dBody];
@@ -177,7 +179,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
           (even if we have to undo it later) *)
 
   bigstep "Enumerate grid cells by coordinates";
-  !! Instr.read_last_write ~write:[cWriteVar "nbCells"] [steps; cFor "idCell" ~body:[cFor "i"]; cReadVar "nbCells"];
+  !! Instr.read_last_write ~write:[cWriteVar "nbCells"] [step; cFor "idCell" ~body:[cFor "i"]; cReadVar "nbCells"];
   !! Loop.grid_enumerate ~indices:(map_dims (fun d -> "i"^d)) [step; cFor "idCell" ~body:[cFor "k"]];
 
   bigstep "Code cleanup in preparation for shifting of positions";
@@ -331,7 +333,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.insert_list_same_type (ty "const int") [("PRIVATE", lit "0"); ("SHARED", lit "1")] [tFirst; step; dBody];
   !! Instr.delete [step; cFor "idCell" ~body:[cFun "bag_swap"]];
   !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "idCell"];
-  !! Instr.move_out ~dest:[tBefore; cTopFunDef "step"] [step; cOr [[cVarDef "PRIVATE"]; [cVarDef "SHARED"]]];
+  !! Instr.move_out ~dest:[tBefore; cTopFunDef "step"] [step; cVarDefs ["PRIVATE";"SHARED"]];
   !! Instr.delete [cOr[[cVarDef "bagsNext"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
   !! Variable.insert ~typ:(ty "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
   let pushop = cFun "bag_push_concurrent" in
@@ -391,7 +393,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
                                          [step; cVarDef "idCell2_step"];
                                          [cStrict; cVarDef ~substr:true "deposit"]]];
   !! Struct.align_field (lit "64") ("items.") [cTypDef "chunk"];
-  !! List.iter (fun occ -> Omp.simd [occIndex occ; tBefore; step; cFor "i"]) [0;1]; (* BEAUTIFY: occIndices *)
+  !! Omp.simd [occIndices [0;1]; tBefore; step; cFor "i" ];
   !! Function.inline [step; cFun "cellOfCoord"];
   !! Align.alloc (lit "64") [nbMulti; cTopFunDef "allocateStructures"; cMalloc ()];
 
@@ -405,9 +407,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Align.header ();
   !! Loop.fission [tBefore; occLast; step; cFor "idCell"; cFor "idCorner"; cFor "idThread"];
   !! Loop.swap [occLast; cFor "idCell"; cFor "idCorner" ~body:[cFor "idThread"]];
-  !! Omp.simd [nbMulti; tBefore;cFor "idCell" ~body:[cFor "bagsKind"]; cFor "idCorner"];
+  !! Omp.simd [nbMulti; tBefore; cOr [[cFor "idCell" ~body:[cFor "bagsKind"]; cFor "idCorner"];[stepLF; cFor "i"]]];
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
-  !! Omp.simd [tBefore; stepLF; cFor "i"];
   !! Label.remove [step; cLabel "charge"];
 )
 (*

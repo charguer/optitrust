@@ -17,7 +17,6 @@ int main() {
   return 0;
 }
 "
-(* TODO: above, fix the code if nbCells is not a const *)
 
 let _ = Run.script_cpp (fun _ ->
   !! Matrix.intro_mops (trm_var "N") [cVarDef "p"];
