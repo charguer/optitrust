@@ -13,7 +13,7 @@ enum SPACE_FILLING_CURVES {
     NB_CURVES // Always has to be last if you update this enum !
 };
 
-char space_filling_curves_names[NB_CURVES][30];
+extern char space_filling_curves_names[NB_CURVES][30];
 
 /*
  * Parameters :
@@ -162,9 +162,9 @@ char space_filling_curves_names[NB_CURVES][30];
  * http://www.cs.indiana.edu/~dswise/Arcee/castingDilated-comb.pdf
  */
 
-const unsigned short int dilate_tab2[256];
-const unsigned char undilate_tab2[256];
-const unsigned char dilate_tab3[256];
+extern const unsigned short int dilate_tab2[256];
+extern const unsigned char undilate_tab2[256];
+extern const unsigned char dilate_tab3[256];
 
 /*
  * The two following algorithms use bitwise inclusive-or | to sum bit patterns.
@@ -481,10 +481,10 @@ static unsigned char curveOrder(int num_cells) {
  *    https://hal.inria.fr/INRIA/hal-01504645v3                              *
  *****************************************************************************/
 
-const int tile_precalc_128x128_8[128];
-const int tile_precalc_128x128_4[128];
-const int tile_precalc_128x128_16[128];
-const int tile_precalc_512x512_8[512];
+extern const int tile_precalc_128x128_8[128];
+extern const int tile_precalc_128x128_4[128];
+extern const int tile_precalc_128x128_16[128];
+extern const int tile_precalc_512x512_8[512];
 
 
 

@@ -73,13 +73,13 @@ enum RNG {
     NB_RNG // Always has to be last if you update this enum !
 };
 
-char rng_names[NB_RNG][99];
-next_random_double next_random_doubles[NB_RNG];
-seed_double_RNG_ULL seed_double_RNG_ULLs[NB_RNG];
-seed_double_RNG_UL  seed_double_RNG_ULs [NB_RNG];
-seed_double_RNG_U   seed_double_RNG_Us  [NB_RNG];
-seed_double_RNG_L   seed_double_RNG_Ls  [NB_RNG];
-delete_double_RNG delete_double_RNGs[NB_RNG];
+extern char rng_names[NB_RNG][99];
+extern next_random_double next_random_doubles[NB_RNG];
+extern seed_double_RNG_ULL seed_double_RNG_ULLs[NB_RNG];
+extern seed_double_RNG_UL  seed_double_RNG_ULs [NB_RNG];
+extern seed_double_RNG_U   seed_double_RNG_Us  [NB_RNG];
+extern seed_double_RNG_L   seed_double_RNG_Ls  [NB_RNG];
+extern delete_double_RNG delete_double_RNGs[NB_RNG];
 
 
 // Change the following line to change the RNG used in Pic-Vert

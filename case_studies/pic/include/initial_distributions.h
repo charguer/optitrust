@@ -49,10 +49,10 @@ enum TEST_CASES_1D {
     NB_TEST_CASE_1D // Always has to be last if you update this enum !
 };
 
-char distribution_names_1d[NB_TEST_CASE_1D][42];
-speeds_generator_1d speed_generators_1d[NB_TEST_CASE_1D];
-distribution_function_1d distribution_funs_1d[NB_TEST_CASE_1D];
-max_distribution_function distribution_maxs_1d[NB_TEST_CASE_1D];
+extern char distribution_names_1d[NB_TEST_CASE_1D][42];
+extern speeds_generator_1d speed_generators_1d[NB_TEST_CASE_1D];
+extern distribution_function_1d distribution_funs_1d[NB_TEST_CASE_1D];
+extern max_distribution_function distribution_maxs_1d[NB_TEST_CASE_1D];
 
 
 
@@ -138,10 +138,10 @@ enum TEST_CASES_3D {
     NB_TEST_CASE_3D // Always has to be last if you update this enum !
 };
 
-char distribution_names_3d[NB_TEST_CASE_3D][42];
-speeds_generator_3d speed_generators_3d[NB_TEST_CASE_3D];
-distribution_function_3d distribution_funs_3d[NB_TEST_CASE_3D];
-max_distribution_function distribution_maxs_3d[NB_TEST_CASE_3D];
+extern char distribution_names_3d[NB_TEST_CASE_3D][42];
+extern speeds_generator_3d speed_generators_3d[NB_TEST_CASE_3D];
+extern distribution_function_3d distribution_funs_3d[NB_TEST_CASE_3D];
+extern max_distribution_function distribution_maxs_3d[NB_TEST_CASE_3D];
 
 
 

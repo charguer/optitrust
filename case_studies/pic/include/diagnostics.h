@@ -32,7 +32,7 @@ struct hashmap {
 
 #define MAP_SIZE 100
 
-hashmap* hashtable[MAP_SIZE];
+extern hashmap* hashtable[MAP_SIZE];
 
 /*
  * Form hash value in [|0 ; MAP_SIZE|[ for a given kmode.
