@@ -91,8 +91,14 @@ void loadParameters(int argc, char** argv) {
           kmode_z = parameters.kmode_z;
       if (parameters.seed != INT_NOT_SET)
           seed = parameters.seed;
-      if (seed < 0) // if seed is not specified
-        seed = seed_64bits(0); // then use a different seed at each run
+      if (seed < 0) { // if seed is not specified
+        // seed = seed_64bits(0); // then use a different seed at each run
+        printf("Missing seed from parameters_3d.txt");
+        exit(1);
+      }
+#ifdef DEBUG_SEED
+      printf("seed = %d\n", seed);
+#endif
 
   } else
       TRACE("No parameter file was passed through the command line. I will use the default parameters.\n");

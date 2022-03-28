@@ -66,7 +66,8 @@ fi
 DEBUGFLAGS=""
 # DEBUGFLAGS="-g -DSKIPLEAPFROG"
 # DEBUGFLAGS="-g -DDEBUG_ITER"
-#DEBUGFLAGS="-g"
+# DEBUGFLAGS="-g"
+DEBUGFLAGS="-DDEBUG_SEED"
 
 # -ftree-vectorize
 PERFFLAGS=" -DPRINTPERF -DPRINTSTEPS"
@@ -123,8 +124,8 @@ compile_one() {
     mpicc ${COMPILE_ARGS} -fopenmp -o run${id_run}/${BINARY}
   elif [ "${COMPILER}" = "icc" ]; then
     #export OMPI_CC=/opt/intel/oneapi/compiler/latest/linux/bin/intel64/icc
-    source /opt/intel/oneapi/setvars.sh > /dev/null 
-    #-qopt-report=vec -qopt-report=1 
+    source /opt/intel/oneapi/setvars.sh > /dev/null
+    #-qopt-report=vec -qopt-report=1
     mpiicc ${COMPILE_ARGS} -qopenmp -o run${id_run}/${BASENAME}.out
   else
     echo "invalid compiler parameter: ${COMPILER}."

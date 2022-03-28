@@ -12,10 +12,11 @@
 # The environment variable NOSEQ=1 can be used to skip sequential runs
 # The environment variable NOPAR=1 can be used to skip parallel runs
 # The environment variable PROG=pic_demo.c can be used to benchmark only one code
-# The environment variable COMP=gcc can be used to benchmark only one compiler
+# The environment variable COMP=gcc can be used to benchmark only one compiler (here gcc)
 # The environment variable DRY=1 can be used to make dry runs
 # The environment variable NB=100 to use 100 million particles
 # The environment variable RUNS=2 to perform more than 1 run
+# The environment variable SEED=42 to provide the seed 42 (default is to use the RUN_ID)
 
 # Example:  FAST=1 ./bench.sh
 # Example:  FAST=1 COMP=gcc PROG=pic_demo.c ./bench.sh run
@@ -36,6 +37,7 @@ fi
 if [ -z "${RUNS}" ]; then
   RUNS="1"
 fi
+
 
 
 CURDIR=`pwd`
@@ -158,25 +160,30 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
         exit 1
       fi
       # LATER:RUNCMD TO FACTORIZE
-      for RUN in {0..$((RUNS-1))} do
+      for ((RUN=0; RUN<RUNS; RUN++)); do
+        if [ ! -z "${SEED}" ]; then
+          RUNSEED=${SEED}
+        else
+          RUNSEED=${RUN}
+        fi
+
         if [ -z "${NOSEQ}" ]; then
-          OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p1.txt"
-          SSEED="SEED=${RUN} "
-          echo "P=1 ${SSEED}./run.sh ${PROGRAM} > ${OUTFILE}"
+          OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p1_run${RUN}.txt"
+          echo "P=1 SEED=${RUNSEED}./run.sh ${PROGRAM} > ${OUTFILE}"
           if [ -z ${DRY} ]; then
-            P=1 COMP=${COMPILER} ${SSEED}./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+            P=1 COMP=${COMPILER} SEED=${RUNSEED} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
           fi
           # for quiet output:
           # ./run.sh ${PROGRAM} > ${CURDIR}/${OUTFILE} || echo "Failure in run"
         fi
         if [ -z "${NOPAR}" ]; then
-          OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p${nb_cores}.txt"
-          echo "P=${nb_cores} ${SSEED}./run.sh ${PROGRAM} > ${OUTFILE}"
+          OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p${nb_cores}_run${RUN}.txt"
+          echo "P=${nb_cores} SEED=${RUNSEED} ./run.sh ${PROGRAM} > ${OUTFILE}"
           if [ -z ${DRY} ]; then
-            P=${nb_cores} COMP=${COMPILER} ${SSEED}./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+            P=${nb_cores} COMP=${COMPILER} SEED=${RUNSEED} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
           fi
         fi
-      fi
+      done
     done
   done
 
@@ -188,13 +195,16 @@ fi
 cd ${CURDIR}
 
 if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ] || [ "${ACTION}" = "run" ]; then
+  if [ ! -z ${DRY} ]; then
+    echo "====No summary in dry run mode===="
+  else
+    echo "====Summary : Exectime / Throughput / Program / Compiler / Cores ====="
+    for FILE in ${MACHINEDIR}/pic_*.txt; do
+      # RES=$(sed '/^\(Throughput\)/!d' ${FILE})
+      THROUGHPUT=$(cat ${FILE} | grep ^Throughput* | awk '{print $2}')
+      EXECTIME=$(cat ${FILE} | grep ^Exectime* | awk '{print $2}')
 
-  echo "====Summary : Exectime / Throughput / Program / Compiler / Cores ====="
-  for FILE in ${MACHINEDIR}/pic_*.txt; do
-    # RES=$(sed '/^\(Throughput\)/!d' ${FILE})
-    THROUGHPUT=$(cat ${FILE} | grep ^Throughput* | awk '{print $2}')
-    EXECTIME=$(cat ${FILE} | grep ^Exectime* | awk '{print $2}')
-
-    echo -e "${EXECTIME}\t${THROUGHPUT}\t${FILE}"
-  done
+      echo -e "${EXECTIME}\t${THROUGHPUT}\t${FILE}"
+    done
+  fi
 fi

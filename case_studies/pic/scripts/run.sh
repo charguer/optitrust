@@ -4,6 +4,9 @@
 #  where ${TARGET} is either a C filename from the folder simulations/
 #  or the name of a binary in the 3d_runs/run1 folder (either with or without the full path)
 
+# OPTIONS:  a SEED value can be passed, e.g. SEED=0 ./run.sh ${TARGET} ; it should not already be defined in parameters_3d.txt
+# OPTIONS:  a COMP value can be passed, e.g. COMP=gcc ./run.sh ${TARGET}
+
 TARGET=$1
 TARGET=`basename ${TARGET}`
 BASENAME="${TARGET%%.*}"
@@ -14,6 +17,7 @@ if [ ${EXTENSION} = "c" ]; then
 else
   BINARY="${TARGET}"
 fi
+
 
 # Home path for Pic-Vert.
 cd ..
@@ -31,7 +35,6 @@ COMPILER="${compiler}"
 if [ ! -z "${COMP}" ]; then
   COMPILER="${COMP}"
 fi
-
 
 ###################################
 #              run                #
@@ -59,8 +62,12 @@ fi
 if [ ! -z "${JEMALLOC}" ]; then
   RUNINFOS+=", with JEMALLOC"
 fi
-echo "${RUNINFOS}"
 
+if [ ! -z "${SEED}" ]; then
+  RUNINFOS+=", SEED=${SEED}"
+fi
+
+echo "${RUNINFOS}"
 
 
 run_one() {
@@ -72,10 +79,10 @@ run_one() {
     export OMP_PROC_BIND=close
 
   elif [ "${COMPILER}" = "icc" ]; then
-    source /opt/intel/oneapi/setvars.sh > /dev/null 
+    source /opt/intel/oneapi/setvars.sh > /dev/null
     export LD_LIBRARY_PATH=$INTEL_OPENMP_DYNAMIC_LIBRARY_PATH:$LD_LIBRARY_PATH
     #Threads-to-cores binding.
-    export KMP_AFFINITY=granularity=fine,compact,1,0,verbose 
+    export KMP_AFFINITY=granularity=fine,compact,1,0,verbose
   else
     echo "invalid compiler parameter: ${COMPILER}."
     exit 1
@@ -85,16 +92,20 @@ run_one() {
 
   # Make sure to copy up to date version of parameters
   cp $PICVERT_HOME/scripts/parameters_3d.txt .
+  # include in the parameters the seed value, if provided
+  if [ ! -z "${SEED}" ]; then
+    echo "seed=${SEED};" >> parameters_3d.txt
+  fi
 
   export OMP_NUM_THREADS=${NBTHREADS}
   ${JEMALLOC}
   COMMAND="./${BASENAME}.out ./parameters_3d.txt | tee ./std_output_run${id_run}.txt"
   if [ "${VALGRIND}" = "" ]; then
     if [ "${COMPILER}" = "gcc" ]; then
-      mpirun -q --report-bindings --cpus-per-proc ${NBTHREADS} -np $nb_sockets ${COMMAND}
+      mpirun -q --report-bindings --cpus-per-proc ${NBTHREADS} -np $nb_sockets ${COMMAND} | sed 's/MCW rank 0 is not bound//'
 
     elif [ "${COMPILER}" = "icc" ]; then
-      mpiexec.hydra -n $nb_sockets ${COMMAND}
+      mpiexec.hydra -n $nb_sockets ${COMMAND} | sed 's/MCW rank 0 is not bound//'
     else
       echo "invalid compiler parameter: ${COMPILER}."
       exit 1

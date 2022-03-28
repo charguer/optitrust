@@ -20,6 +20,12 @@ Details of what this performs:
    make import
 ```
 
+# Generate optimized code
+
+```
+   make optim
+```
+
 
 # To build the HTML file for navigating through all diffs
 
