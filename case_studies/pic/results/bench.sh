@@ -15,6 +15,7 @@
 # The environment variable COMP=gcc can be used to benchmark only one compiler
 # The environment variable DRY=1 can be used to make dry runs
 # The environment variable NB=100 to use 100 million particles
+# The environment variable RUNS=2 to perform more than 1 run
 
 # Example:  FAST=1 ./bench.sh
 # Example:  FAST=1 COMP=gcc PROG=pic_demo.c ./bench.sh run
@@ -31,6 +32,11 @@ fi
 if [ -z "${MACHINE}" ]; then
   MACHINE=`hostname`
 fi
+
+if [ -z "${RUNS}" ]; then
+  RUNS="1"
+fi
+
 
 CURDIR=`pwd`
 ROOTDIR=".."
@@ -152,20 +158,23 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
         exit 1
       fi
       # LATER:RUNCMD TO FACTORIZE
-      if [ -z "${NOSEQ}" ]; then
-        OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p1.txt"
-        echo "P=1 ./run.sh ${PROGRAM} > ${OUTFILE}"
-        if [ -z ${DRY} ]; then
-          P=1 COMP=${COMPILER} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+      for RUN in {0..$((RUNS-1))} do
+        if [ -z "${NOSEQ}" ]; then
+          OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p1.txt"
+          SSEED="SEED=${RUN} "
+          echo "P=1 ${SSEED}./run.sh ${PROGRAM} > ${OUTFILE}"
+          if [ -z ${DRY} ]; then
+            P=1 COMP=${COMPILER} ${SSEED}./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+          fi
+          # for quiet output:
+          # ./run.sh ${PROGRAM} > ${CURDIR}/${OUTFILE} || echo "Failure in run"
         fi
-        # for quiet output:
-        # ./run.sh ${PROGRAM} > ${CURDIR}/${OUTFILE} || echo "Failure in run"
-      fi
-      if [ -z "${NOPAR}" ]; then
-        OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p${nb_cores}.txt"
-        echo "P=${nb_cores} ./run.sh ${PROGRAM} > ${OUTFILE}"
-        if [ -z ${DRY} ]; then
-          P=${nb_cores} COMP=${COMPILER} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+        if [ -z "${NOPAR}" ]; then
+          OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p${nb_cores}.txt"
+          echo "P=${nb_cores} ${SSEED}./run.sh ${PROGRAM} > ${OUTFILE}"
+          if [ -z ${DRY} ]; then
+            P=${nb_cores} COMP=${COMPILER} ${SSEED}./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+          fi
         fi
       fi
     done
