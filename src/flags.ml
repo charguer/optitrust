@@ -26,9 +26,14 @@ let dump_trace : bool ref = ref false
 (* Call [Trace.dump_big_steps] in addition to [Trace.dump] at the end of the script.
    Files are generated in the subfolder [!dump_big_steps].  *)
 let dump_big_steps : string option ref = ref None
-
 let set_dump_big_steps (foldername : string) : unit =
   dump_big_steps := Some foldername
+
+(* LATER: document *)
+let dump_small_steps : string option ref = ref None
+let set_dump_small_steps (foldername : string) : unit =
+  dump_small_steps := Some foldername
+
 
 (* Flag to print the line numbers at which reparsing is triggered *)
 let debug_reparse : bool ref = ref false
@@ -110,7 +115,8 @@ let spec : cmdline_args =
      ("-debug-reparse", Arg.Set debug_reparse, " print on stdout the line number at which each reparse is performed");
      ("-reparse-at-big-steps", Arg.Set reparse_at_big_steps, " force reparsing at every big step (implies -debug-reparse)");
      ("-dump-trace", Arg.Set dump_trace, " produce a JS file with all the steps performed by the transformation script");
-     ("-dump-big-steps", Arg.String set_dump_big_steps, " produce a distinct CPP file for each big-step");
+     ("-dump-small-steps", Arg.String set_dump_small_steps, " produce a distinct CPP file for each small step");
+     ("-dump-big-steps", Arg.String set_dump_big_steps, " produce a distinct CPP file for each big step");
      ("-dump-last", Arg.Set_int dump_last, " dump outputs the number of desired last steps; only for interactive mode"); (* DEPRECATED *)
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
      ("-analyse-time", Arg.Set analyse_time, " produce a file reporting on the execution time");

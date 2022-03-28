@@ -729,10 +729,10 @@ let get_history ?(prefix : string = "") () : history =
   | _ -> failwith "get_history: -dump-big-steps and -dump-trace currently do not support multiple traces"
 
 
-(* [dump_big_steps] writes into files called [`prefix`_$i_out.cpp] the
+(* [dump_steps] writes into files called [`prefix`_$i_out.cpp] the
    contents of each of the big steps, where [$i] denotes the index of
    a big step. *)
-let dump_big_steps ?(prefix : string = "") (foldername : string) : unit =
+let dump_steps ?(onlybig : bool = false) ?(prefix : string = "") (foldername : string) : unit =
   ignore (Sys.command ("mkdir -p " ^ foldername));
   let (prefix, ctx, hist_and_descr) = get_history ~prefix () in
   let n = List.length hist_and_descr in
@@ -743,7 +743,7 @@ let dump_big_steps ?(prefix : string = "") (foldername : string) : unit =
       | None -> false
       | Some _descr -> true
       in
-    let should_dump = (isstartofbigstep) || (i = n-1) in
+    let should_dump = if onlybig then ((isstartofbigstep) || (i = n-1)) else true in
     if should_dump then begin
       let prefixi = Printf.sprintf "%s/%s_%s%d_out" foldername prefix (if !id < 10 then "0" else "") !id in
       output_prog ctx prefixi ast;

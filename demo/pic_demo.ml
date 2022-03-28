@@ -22,11 +22,12 @@ let align = 64
 
 (* Grab the "usechecker" flag from the command line *)
 let usechecker = ref false
-let _= Run.process_cmdline_args 
+let _= Run.process_cmdline_args
   [("-usechecker", Arg.Set usechecker, " use -DCHECKER as preprocessor flag")]
   (* LATER: use a generic -D flag for optitrust *)
 let usechecker = !usechecker
 
+(* let _ = Printf.printf "usechecker=%d\n" (if usechecker then 1 else 0) *)
 
 (* UNCOMMENT THIS LINE FOR WORKING ON THE VERSION WITH THE CHECKER
 let usechecker = true *)
@@ -82,7 +83,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Update particles in-place instead of in a local variable ";
   !! Variable.reuse ~space:(expr "p->speed") [step; cVarDef "speed2" ];
   !! Variable.reuse ~space:(expr "p->pos") [step; cVarDef "pos2"];
-
   bigstep "Reveal write operations involved in the manipulation of particles and vectors";
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
@@ -126,7 +126,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Preparation for AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ~regexp:true ~field:"\\(speed\\|pos\\)" ()];
-  
+
   bigstep "AOS-TO-SOA";
   !! List.iter (fun f -> Struct.reveal f [cTypDef "particle"]) ["speed"; "pos"];
   !! Struct.reveal "items" [cTypDef "chunk"];
@@ -248,7 +248,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Matrix.intro_mops (expr "nbCells")[nbMulti; cVarDef ~regexp:true "\\(deposit\\|bagsNext\\)"];
   !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
   !! Variable.inline [occLast; step; cVarDef "indices"];
- 
+
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "deposit"] in
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
@@ -278,7 +278,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Matrix.biject "mybij" [step; cVarDef "depositCorners"];
   !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
       [step; sExpr "mybij(nbCells, 8, indicesOfCorners(idCell2).v[k], k)"];
- 
+
   (* Part 2: parallelization *)
 
   bigstep "Decompose the loop to allow for parallelization per blocks";
@@ -394,9 +394,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! List.iter (fun occ -> Omp.simd [occIndex occ; tBefore; step; cFor "i"]) [0;1]; (* BEAUTIFY: occIndices *)
   !! Function.inline [step; cFun "cellOfCoord"];
   !! Align.alloc (lit "64") [nbMulti; cTopFunDef "allocateStructures"; cMalloc ()];
-  
-  bigstep "Function inlining on loops to be vectorized"; 
-  let ctx = cFor "idCorner" ~body:[cVar "depositCorners"] in 
+
+  bigstep "Function inlining on loops to be vectorized";
+  let ctx = cFor "idCorner" ~body:[cVar "depositCorners"] in
   !! Function.bind_intro ~fresh_name:"temp_var_${occ}" [nbMulti; ctx; cMindex ()];
   !! Function.inline [nbMulti; ctx; cMindex ()];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "temp_var_."];
@@ -409,7 +409,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
   !! Omp.simd [tBefore; stepLF; cFor "i"];
   !! Label.remove [step; cLabel "charge"];
-  
 )
 (*
 
@@ -422,7 +421,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
 
 
-  
+
   LATER
   Flags.print_coumpound_expressions
   *)

@@ -225,7 +225,11 @@ let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : st
     end;
     begin match !Flags.dump_big_steps with
     | None -> ()
-    | Some foldername-> Trace.dump_big_steps ~prefix foldername
+    | Some foldername-> Trace.dump_steps ~onlybig:true ~prefix foldername
+    end;
+    begin match !Flags.dump_small_steps with
+    | None -> ()
+    | Some foldername-> Trace.dump_steps ~prefix foldername
     end;
     Trace.finalize();
   );

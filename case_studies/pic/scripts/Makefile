@@ -23,6 +23,9 @@ $(DIR_PROGS)/parameters_3d.txt: parameters_3d.txt
 # The 1 below means the particles need to be dumped in "particle.res"
 $(DIR_PROGS)/%_checker.out: $(DEPENDENCIES)
 	./compile.sh $*.c 1
+#$(DIR_PROGS)/checker_%.out: $(DEPENDENCIES)
+#	./compile.sh $*.c 1
+
 
 $(DIR_PROGS)/%.out: $(DEPENDENCIES)
 	./compile.sh $*.c

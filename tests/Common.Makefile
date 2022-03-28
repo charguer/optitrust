@@ -160,7 +160,13 @@ ifeq ($(BATCH),)
 endif
 #-----end rules for non-batch mode------
 
-# Rule for building all the steps
+# Rule for building all the small steps
+%.smallsteps: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
+	$(V)rm -rf smallsteps
+	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -dump-small-steps smallsteps
+	@echo "Produced smallsteps/*"
+
+# Rule for building all the big steps
 %.bigsteps: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
 	$(V)rm -rf bigsteps
 	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -dump-big-steps bigsteps
