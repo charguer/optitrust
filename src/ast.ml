@@ -1498,8 +1498,9 @@ let rec get_init_val (t : trm) : trm option =
         | Trm_val (Val_prim (Prim_new _)) -> Some base
         | _ -> Some t
         end
-  | Trm_val (Val_prim (Prim_new _)) -> None
-  | _ -> Some t
+  | Trm_val (Val_prim (Prim_new _))  -> None
+  | _ -> 
+      Some t
 
 
 

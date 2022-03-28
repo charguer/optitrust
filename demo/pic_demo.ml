@@ -22,15 +22,15 @@ let align = 64
 
 (* Grab the "usechecker" flag from the command line *)
 let usechecker = ref false
-let _= Run.process_cmdline_args
+let _= Run.process_cmdline_args 
   [("-usechecker", Arg.Set usechecker, " use -DCHECKER as preprocessor flag")]
   (* LATER: use a generic -D flag for optitrust *)
 let usechecker = !usechecker
 
 
 (* UNCOMMENT THIS LINE FOR WORKING ON THE VERSION WITH THE CHECKER
-let usechecker = true
-*)
+let usechecker = true *)
+
 
 let onlychecker p = if usechecker then [p] else []
 let doublepos = false (* LATER: Arthur make this a command line command *)
@@ -507,23 +507,6 @@ use unfold in
 (* LATER: rename pic_demo.c to pic_naive.c *)
 
 (*LATER halfBlock=expr "block/2"*)
-
-(* TODO
-
-  struct vect {
-      alignas(64) double x;   pattern="x"     newtypetouse=(typ_update "double")
-      alignas(64) int y;
-      }int : typ) : Target.Transfo.t =
-  applyto_fields_type pattern (fun _ -> ty)
-
-let Ast.typ_alignas (align:int) (ty : typ) =
-  same typ with attributes typ_alignas added
-
-let Combi_Struct.align_field (align:int) (pattern : string) =
-  Struct.applytofields_type (fun ty -> typ_alignas align ty)
-
-*)
-
 
 (* LATER
 

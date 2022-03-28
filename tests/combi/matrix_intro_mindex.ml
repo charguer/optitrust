@@ -1,7 +1,9 @@
 open Optitrust
 open Target
+open Ast
 
 let _ = Run.script_cpp (fun _ ->
 
-    !! Matrix_basic.intro_calloc [nbMulti; cFun "calloc"];
+  !! Matrix.intro_mindex (var "N") [cVarDef "p"];
+  
 )
