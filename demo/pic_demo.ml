@@ -303,7 +303,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   (* BEAUTIFY: should be integrated earlier with "Decompose the loop to allow for parallelization per blocks";*)
   !! Omp.atomic None [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
-  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; steps; cFor "bX"];
+  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; step; cFor "bX"];
   !! Omp.parallel_for [tBefore; step; cFor "idCell" ~body:[cVar "sum"]];
 
   (* Part 3: refinement of the parallelization to eliminate atomic operations *)
@@ -393,7 +393,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
                                          [step; cVarDef "idCell2_step"];
                                          [cStrict; cVarDef ~substr:true "deposit"]]];
   !! Struct.align_field (lit "64") ("items.") [cTypDef "chunk"];
-  !! Omp.simd [occIndices [0;1]; tBefore; step; cFor "i" ];
   !! Function.inline [step; cFun "cellOfCoord"];
   !! Align.alloc (lit "64") [nbMulti; cTopFunDef "allocateStructures"; cMalloc ()];
 
@@ -408,6 +407,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fission [tBefore; occLast; step; cFor "idCell"; cFor "idCorner"; cFor "idThread"];
   !! Loop.swap [occLast; cFor "idCell"; cFor "idCorner" ~body:[cFor "idThread"]];
   !! Omp.simd [nbMulti; tBefore; cOr [[cFor "idCell" ~body:[cFor "bagsKind"]; cFor "idCorner"];[stepLF; cFor "i"]]];
+  !! Omp.simd [occIndices [0;1]; tBefore; step; cFor "i" ];
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];
 )
