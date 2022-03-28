@@ -104,7 +104,7 @@ Details of what this performs:
    # set parameters_3d.txt to a small grid and nbparticles, else it takes a long time
 
    # build one cpp file per bigstep
-   make chksteps
+   make chkbigsteps
 
    # this exports the output C files into:
    # ../case_studies/pic/simulations/pic_demo_checker_$i_out.c

@@ -9,7 +9,7 @@ OPTITRUST := ..
 
 TESTS := pic_demo.ml
 
-FLAGS_MAKEFILE := -report-big-steps -serialized-input none
+FLAGS_MAKEFILE ?= -report-big-steps -serialized-input none
 
 include ../tests/Common.Makefile
 
@@ -81,13 +81,30 @@ chk: pic_demo_checker_out.cpp
 chk_fast: export_fast
 	$(V)cd $(SCRIPTDIR); ./check.sh pic_barsamian.c pic_fast_checker.c
 
-chksteps:
-	$(V)FLAGS="-usechecker" $(MAKE) pic_demo.bigsteps
-	$(V)cd bigsteps; sed "s/const int CHUNK_SIZE = 128;//" -i pic_demo_checker_*_out.cpp
-	$(V)for x in bigsteps/*; do mv $$x bigsteps/"`basename $$x .cpp`.c"; done
-	$(V)rm -f $(PICDIR)/simulations/pic_demo_checker_*_out.c
-	$(V)cp bigsteps/*.c $(PICDIR)/simulations/
-	$(V)cd ../case_studies/pic/scripts; ./check_steps.sh pic_demo_checker
+chksteps_run:
+	$(V)cd steps; sed "s/const int CHUNK_SIZE = 128;//" -i pic_demo_*_out.cpp
+	$(V)for x in steps/*; do mv $$x steps/checker_"`basename $$x .cpp`.c"; done
+	$(V)rm -f $(PICDIR)/simulations/checker_pic_demo_*_out.c
+	$(V)cp steps/*.c $(PICDIR)/simulations/
+	$(V)cp template_parameters_3d_checker.txt $(PICDIR)/scripts/parameters_3d.txt
+	$(V)cd ../case_studies/pic/scripts; ./check_steps.sh checker_pic_demo
+
+#	$(V)NB=`source $(PICDIR)/your_configuration.sh; $$nb_threads`; if [[ $${NB} < 2 ]]; then echo "ERROR: you should use multiple threads in your_configuration.sh to run the checker"; exit 1; fi
+# alternative: $(V)cp template_configuration_checker.sh $(PICDIR)/simulations/scripts/parameters_3d.txt
+
+bigsteps_gen:
+	$(V)FLAGS_MAKEFILE="-usechecker" $(MAKE) pic_demo.bigsteps
+	$(V)rm -rf steps
+	$(V)mv bigsteps steps
+
+smallsteps_gen:
+	$(V)FLAGS_MAKEFILE="-usechecker" $(MAKE) pic_demo.smallsteps
+	$(V)rm -rf steps
+	$(V)mv smallsteps steps
+
+chkbigsteps: bigsteps_gen chksteps_run
+
+chksmallsteps: smallsteps_gen chksteps_run
 
 init: optitrust import 
 
