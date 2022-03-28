@@ -20,6 +20,8 @@
 ```
    # Installation of system packages
    sudo apt-get install clang-format meld libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev libjemalloc-dev
+   # optional
+   sudo apt-get valgrind
 
    # Installation of opam: https://opam.ocaml.org/doc/Install.html
    sudo apt-get install opam
