@@ -90,8 +90,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
   !! Trace.reparse ();
   !! Struct.set_explicit [nbMulti; stepsReal; cFieldWrite ~base:[cVar "p"] ()];
-  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"]; 
-  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."]; 
+  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
+  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."];
 
   bigstep "Inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
   !! Function.inline [nbMulti; cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
@@ -100,7 +100,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! List.iter (fun f -> Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; f; cFun "cornerInterpolationCoeff"])
      stepsl;
   !! iter_dims (fun d -> Variable.reuse ~space:(var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
-  
+
 
   bigstep "Optimization of charge accumulation";
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
@@ -166,7 +166,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.scale ~factor:(expr ("cell"^d)) [addPart; cFieldRead ~field:d_lc ~base:[cVar "pos"] ()]);
   !! iter_dims (fun d ->
      Accesses.scale ~neg:true ~factor:(expr ("cell"^d))
-         [nbMulti; steps; cOr [[sExprRegexp ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]); 
+         [nbMulti; steps; cOr [[sExprRegexp ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]);
 
   bigstep "Simplify arithmetic expressions after scaling";
   !! Trace.reparse();
@@ -225,7 +225,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     !! Struct.update_fields_type "itemsPos." (ty "float") [cTypDef "chunk"];
   end;
 
-  bigstep "Replacement of the wrap-around operation on doubles with a bitwise operation, assuming grid sizes to be powers of 2";
+  bigstep "Replacement of the floating-point wrap-around operation with a bitwise operation, assuming grid sizes to be powers of 2";
    let fwrapInt = "double fwrapInt(int m, double v) {
       const int q = int_of_double(v);
       const double r = v - q;
@@ -236,10 +236,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Expr.replace_fun "fwrapInt" [nbMulti;step; cFun "fwrap"];
   !! iter_dims (fun d ->
       Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"]);
+  !! Expr.replace_fun "wrapPowerof2" [nbMulti; step; cFun "wrap"];
+  !! Function.inline ~delete:true [nbMulti; step; cFun "wrapPowerof2"];
 
+  bigstep "Simplification of computations for positions and destination cell";
   !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarDef ("i"^d^"2");cInit()];);
   !! Variable.inline_and_rename [nbMulti; step; cVarDef ~regexp:true "i.2" ];
-
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];
   !! Expr.replace_fun ~inline:true ~delete:true "wrapPowerof2" [nbMulti; step; cFun "wrap"];
@@ -301,10 +303,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   
   bigstep "Duplicate the charge of a corner for each of the threads";
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "depositCorners"] in
-  !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"] 
-      ~init_zero:true ~dim:(expr "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (expr "idThread")) 
+  !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
+      ~init_zero:true ~dim:(expr "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (expr "idThread"))
       ~labels:["alloc"; ""; "dealloc"] ~alloc_instr ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
-      [cLabel "core"]; 
+      [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
   !! Instr.delete [step; cLabel "charge"; cOmp()]; (* BEAUTIFY: Instr.set_nonatomic ; also cPragma is needed *)
 
@@ -334,7 +336,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Parallelize and optimize loops that process bags";
   !! Trace.reparse();
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
-  !! Omp.parallel_for [nbMulti; tBefore; stepsReal; cFor "idCell"]; 
+  !! Omp.parallel_for [nbMulti; tBefore; stepsReal; cFor "idCell"];
   !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
 
   (* Part 4: Vectorization *)

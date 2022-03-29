@@ -26,10 +26,11 @@
    # Installation of opam: https://opam.ocaml.org/doc/Install.html
    sudo apt-get install opam
 
+   opam init
    opam switch create 4.12.0
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
-   opam install dune clangml pprint menhir menhirLib base64
+   opam install dune clangml pprint menhir menhirLib base64 ocamlbuild
    # (optional but recommended for vscode)
    opam install merlin ocp-indent user-setup
    # (includes ocaml-lsp-server)
@@ -42,6 +43,21 @@
    sudo make install_compcert_stdlib
 
 ```
+
+# Path to optitrust libraries
+
+Either: (make sure to adapt the paths)
+
+```
+export OPTITRUST=~/verified_transfo/src/
+```
+
+or
+
+```
+ sudo mkdir -p /usr/local/lib/compcert; cp ~/verified_transfo/src/src/cparser/include/* /usr/local/lib/compcert"
+```
+
 
 # VScode customization
 
