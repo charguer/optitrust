@@ -421,6 +421,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         | Lit l -> string l
         | Expr e -> string e
         | Stmt s -> string s
+        | Instr s -> string s ^^ semi
         | _ -> fail t.loc "trm_to_doc: arbitrary code should be entered by using Lit, Expr and Stmt only"
         end  in
         dattr ^^ code_str

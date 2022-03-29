@@ -218,6 +218,8 @@ and tr_pragma ?(loc : location = None) (p : string) : trm =
   | "omp simd" -> trm_omp_directive (Simd [])
   | "omp atomic" -> trm_omp_directive (Atomic None)
   | "omp parallel for" -> trm_omp_directive (Parallel_for [])
+  | "omp parallel" -> trm_omp_directive (Parallel [])
+  | "omp single" -> trm_omp_directive (Single [])
   | _ ->
      try Scanf.sscanf p "omp parallel for collapse(%d)" (fun n ->
        trm_omp_directive (Parallel_for [Collapse n]))
