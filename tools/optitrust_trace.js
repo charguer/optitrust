@@ -93,11 +93,13 @@ function hideLines() {
 
 // Could use Underscore's _escape method.
 function escapeHTML(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return s.replaceAll(/&/g,'&amp;')
+          .replaceAll(/</g,'&lt;')
+          .replaceAll(/>/g,'&gt;');
 }
 
 function newlinetobr(s) {
-  return s.replace("\n", "<br/>");
+  return s.trim().replaceAll("\n", "<br/>");
 }
 
 function htmlButton(id, label, css, onclick) {
