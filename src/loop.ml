@@ -373,7 +373,7 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
   let order = cs @ bs @ ds in
   let tile = string_of_int tile_size in
   let color = string_of_int color_size in
-  List.iter2 (fun d b -> Loop_basic.tile tile ~index:b (tg @ [Target.cFor d])) ds bs;
+  List.iter2 (fun d b -> Loop_basic.tile (AstParser.expr tile) ~index:b (tg @ [Target.cFor d])) ds bs;
   List.iter2 (fun b c -> Loop_basic.color (AstParser.expr color) ~index:c (tg @ [Target.cFor b])) bs cs;
   reorder ~order [Target.cFor first_cs]
 
