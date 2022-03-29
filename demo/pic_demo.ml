@@ -29,8 +29,8 @@ let usechecker = !usechecker
 
 (* let _ = Printf.printf "usechecker=%d\n" (if usechecker then 1 else 0) *)
 
-(* UNCOMMENT THIS LINE FOR WORKING ON THE VERSION WITH THE CHECKER
-let usechecker = true *)
+(* UNCOMMENT THE LINE BELOW FOR WORKING ON THE VERSION WITH THE CHECKER *)
+(* let usechecker = true  *)
 
 
 let onlychecker p = if usechecker then [p] else []
@@ -77,7 +77,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];
-  (* !! Instr.move_out ~dest:[tBefore; ctx] [ctx; cVarDefs ""] *)
   !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
   !! Loop.fold_instrs ~index:"k" [cTopFunDef "cornerInterpolationCoeff"; cCellWrite ~base:[cVar "r"] ()];
 
@@ -255,7 +254,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "deposit"] in
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
-     (* ~labels:["alloc"; ""; "dealloc"] ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""]) *)
+     ~labels:["alloc"; ""; "dealloc"] ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
      ~dim:(expr "8") ~index:"idCorner" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "k")) ~alloc_instr [cLabel "core"];
 
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
@@ -278,7 +277,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
       }" in
   !! Sequence.insert (stmt mybij_def) [tBefore; step];
-  !! Matrix.biject "mybij" [step; cVarDef "depositCorners"];
+  (* !! Matrix.biject "mybij" [step; cVarDef "depositCorners"]; *)
+  !! Matrix.biject "mybij" [cVarDef "depositCorners"];
   !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
       [step; sExpr "mybij(nbCells, 8, indicesOfCorners(idCell2).v[k], k)"];
 
@@ -309,26 +309,18 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   (* Part 3: refinement of the parallelization to eliminate atomic operations *)
 
   bigstep "Duplicate the charge of a corner for each of the threads";
-  !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
-      ~init_zero:true ~dim:(expr "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (expr "idThread"))
-      [cLabel "core"]; (* BEAUTIFY: above and elsewhere, (expr "myvar") should be replaced with (var "myvar"), to avoid reparsing *)
-      (* BEAUTIFY:
-      ~decl_target:[tAfter; dRoot; cStrict; cVarDef "deposit"]
-      ~alloc_target:(Some [tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"])
-      ~dealloc_target:(Some[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"])*)
+  let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "depositCorners"] in
+  !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"] 
+      ~init_zero:true ~dim:(expr "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (expr "idThread")) 
+      ~labels:["alloc"; ""; "dealloc"] ~alloc_instr ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
+      [cLabel "core"]; 
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
-  !! Variable.init_detach [nbMulti; step; cVarDef ~regexp:true "deposit.*Corners"];
-  !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true "deposit.*Corners"];
-  !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true "deposit.*Corners"];
-  !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
-    (* BEAUTIFY:  ~dest:[tLast; cTopFunDef "allocateStructures"; dBody]  *)
-  (* TODO: mark the accumulation loop as "depositSum" at the delocalize step
-      !! Omp.parallel_for [tBefore; step; cMark "depositSum"]]; *)
   !! Instr.delete [step; cLabel "charge"; cOmp()]; (* BEAUTIFY: Instr.set_nonatomic ; also cPragma is needed *)
 
   bigstep "Introduce private and shared bags, and use shared ones only for particles moving more than one cell away";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
     ~alloc_instr:[cFunDef "allocateStructures"; cWriteVar "bagsNext"]
+    ~labels:["alloc"; ""; "dealloc"] ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
     ~index:"bagsKind" ~ops:delocalize_bag [cLabel "core"];
   !! Variable.insert_list_same_type (ty "const int") [("PRIVATE", lit "0"); ("SHARED", lit "1")] [tFirst; step; dBody];
   !! Instr.delete [step; cFor "idCell" ~body:[cFun "bag_swap"]];
@@ -348,18 +340,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Specialize.any (expr "PRIVATE") [step; cIf(); dThen; pushop; cAny];
   !! Specialize.any (expr "SHARED") [step; cIf(); dElse; pushop; cAny];
   !! Expr.replace_fun "bag_push_serial" [step; cIf(); dThen; pushop];
-  !! Trace.reparse ();
-  !! Variable.init_detach [nbMulti; step; cVarDef "bagsNexts"]; (*BEAUTIFY: attach to the delocalize op *)
-  !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef "bagsNexts"];
-  !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar "bagsNexts"];
-  !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
-  !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_init_initial"]];
-  !! Instr.move_out ~dest:[tBefore; cTopFunDef "deallocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_free_initial"]];
-  !! Instr.delete [step; cVarDef "contribs"];
 
   bigstep "Parallelize and optimize loops that process bags";
+  !! Trace.reparse();
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
-  !! Omp.parallel_for [nbMulti; tBefore; step; cFor "idCell"]; 
+  !! Omp.parallel_for [nbMulti; tBefore; stepsReal; cFor "idCell"]; 
   !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
 
   (* Part 4: Vectorization *)
@@ -381,6 +366,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move ~dest [step; cVarDef "co"];
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
   !! Variable.inline [nbMulti; step; cVarDef "idCell2"];
+  !! Instr.delete [step; cVarDef "contribs"];
+
 
   bigstep "Data alignment";
   !! Align.def (lit "64") [nbMulti; cOr [[cStrict; cVarDef ~regexp:true "\\(coef\\|sign\\)."];

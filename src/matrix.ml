@@ -136,8 +136,8 @@ let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place 
     let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in
     Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [cMark middle_mark];
 
-    let tg_decl_access = cOr [[cVarDef into];[cCellAccess ~base:[cVar into] ()]] in
-    if last then Matrix_basic.reorder_dims ~rotate_n:1 () [nbAny; cMark middle_mark; tg_decl_access ;cFun ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
+    let tg_decl_access = cOr [[cVarDef into];[cWriteVar into]; [cCellAccess ~base:[cVar into] ()]] in
+    if last then Matrix_basic.reorder_dims ~rotate_n:1 () [nbAny; tg_decl_access; cFun ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
     begin match use with
       | Some e ->   Specialize.any e [nbAny; cMark any_mark]
       | None -> ()

@@ -1,25 +1,11 @@
-#include <omp.h> // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
-
-#include <stdlib.h>
-
-#include <stdio.h>
-
 #include <math.h>
-
-#include "mymacros.h"
-
-#include "mymacros.h"
-
+#include <omp.h>  // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
+#include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 
-#include <stdbool.h>
-
-#include <stdio.h>
-
-#include <stdio.h>
-
+#include "mymacros.h"
 #include "pic_demo_aux.h"
-
 #include "stdalign.h"
 
 inline int MINDEX1(int N1, int i1) { return i1; }
@@ -35,38 +21,38 @@ inline int MINDEX4(int N1, int N2, int N3, int N4, int i1, int i2, int i3,
   return i1 * N2 * N3 * N4 + i2 * N3 * N4 + i3 * N4 + i4;
 }
 
-void *CALLOC1(int N1, size_t bytes_per_item);
+void* CALLOC1(int N1, size_t bytes_per_item);
 
-void *CALLOC2(int N1, int N2, size_t bytes_per_item);
+void* CALLOC2(int N1, int N2, size_t bytes_per_item);
 
-void *CALLOC3(int N1, int N2, int N3, size_t bytes_per_item);
+void* CALLOC3(int N1, int N2, int N3, size_t bytes_per_item);
 
-void *CALLOC4(int N1, int N2, int N3, int N4, size_t bytes_per_item);
+void* CALLOC4(int N1, int N2, int N3, int N4, size_t bytes_per_item);
 
-void *MALLOC1(int N1, size_t bytes_per_item);
+void* MALLOC1(int N1, size_t bytes_per_item);
 
-void *MALLOC2(int N1, int N2, size_t bytes_per_item);
+void* MALLOC2(int N1, int N2, size_t bytes_per_item);
 
-void *MALLOC3(int N1, int N2, int N3, size_t bytes_per_item);
+void* MALLOC3(int N1, int N2, int N3, size_t bytes_per_item);
 
-void *MALLOC4(int N1, int N2, int N3, int N4, size_t bytes_per_item);
+void* MALLOC4(int N1, int N2, int N3, int N4, size_t bytes_per_item);
 
-void *MALLOC_ALIGNED1(size_t N1, size_t bytes_per_item, size_t alignment);
+void* MALLOC_ALIGNED1(size_t N1, size_t bytes_per_item, size_t alignment);
 
-void *MALLOC_ALIGNED2(size_t N1, size_t N2, size_t bytes_per_item,
+void* MALLOC_ALIGNED2(size_t N1, size_t N2, size_t bytes_per_item,
                       size_t alignment);
 
-void *MALLOC_ALIGNED3(size_t N1, size_t N2, size_t N3, size_t bytes_per_item,
+void* MALLOC_ALIGNED3(size_t N1, size_t N2, size_t N3, size_t bytes_per_item,
                       size_t alignment);
 
-void *MALLOC_ALIGNED4(size_t N1, size_t N2, size_t N3, size_t N4,
+void* MALLOC_ALIGNED4(size_t N1, size_t N2, size_t N3, size_t N4,
                       size_t bytes_per_item, size_t alignment);
 
-void MFREE(void *p);
+void MFREE(void* p);
 
-void MFREE1(int N1, void *p);
+void MFREE1(int N1, void* p);
 
-void MFREE2(int N1, int N2, void *p);
+void MFREE2(int N1, int N2, void* p);
 
 bool ANY_BOOL();
 
@@ -97,10 +83,10 @@ vect vect_add(vect v1, vect v2) {
 
 vect vect_mul(double d, vect v) { return (vect){d * v.x, d * v.y, d * v.z}; }
 
-
+const int CHUNK_SIZE = 128;
 
 typedef struct chunk {
-  struct chunk *next;
+  struct chunk* next;
   int size;
   alignas(64) double itemsPosX[CHUNK_SIZE];
   alignas(64) double itemsPosY[CHUNK_SIZE];
@@ -111,69 +97,69 @@ typedef struct chunk {
 } chunk;
 
 typedef struct {
-  chunk *front;
-  chunk *back;
+  chunk* front;
+  chunk* back;
 } bag;
 
 typedef struct bag_iter {
   bool destructive;
-  chunk *iter_chunk;
+  chunk* iter_chunk;
   int size;
   int index;
 } bag_iter;
 
-void bag_init(bag *b);
+void bag_init(bag* b);
 
-void bag_append(bag *b, bag *other);
+void bag_append(bag* b, bag* other);
 
-void bag_nullify(bag *b);
+void bag_nullify(bag* b);
 
-int bag_size(bag *b);
+int bag_size(bag* b);
 
-void bag_add_front_chunk(bag *b);
+void bag_add_front_chunk(bag* b);
 
-void bag_push_concurrent(bag *b, particle p);
+void bag_push_concurrent(bag* b, particle p);
 
-void bag_push_serial(bag *b, particle p);
+void bag_push_serial(bag* b, particle p);
 
-void bag_push(bag *b, particle p);
+void bag_push(bag* b, particle p);
 
-void bag_swap(bag *b1, bag *b2);
+void bag_swap(bag* b1, bag* b2);
 
-void bag_push_initial(bag *b, particle p);
+void bag_push_initial(bag* b, particle p);
 
-void bag_init_initial(bag *b);
+void bag_init_initial(bag* b);
 
-void bag_free_initial(bag *b);
+void bag_free_initial(bag* b);
 
-chunk *chunk_next(chunk *c, bool destructive);
+chunk* chunk_next(chunk* c, bool destructive);
 
-chunk *atomic_read_chunk(chunk **p);
+chunk* atomic_read_chunk(chunk** p);
 
-void atomic_write_chunk(chunk **p, chunk *v);
+void atomic_write_chunk(chunk** p, chunk* v);
 
-int atomic_increment(int *size);
+int atomic_increment(int* size);
 
-chunk *chunk_alloc() {
-  chunk *c;
-  if (posix_memalign((void **)&c, 64, sizeof(chunk))) {
+chunk* chunk_alloc() {
+  chunk* c;
+  if (posix_memalign((void**)&c, 64, sizeof(chunk))) {
     fprintf(stderr, "chunk_alloc: posix_memalign.\n");
     exit(1);
   }
   return c;
 }
 
-void chunk_free(chunk *c) { free(c); }
+void chunk_free(chunk* c) { free(c); }
 
-void bag_init(bag *b) {
-  chunk *c = chunk_alloc();
+void bag_init(bag* b) {
+  chunk* c = chunk_alloc();
   c->size = 0;
   c->next = NULL;
   b->front = c;
   b->back = c;
 }
 
-void bag_append(bag *b, bag *other) {
+void bag_append(bag* b, bag* other) {
   if (other->front) {
     b->back->next = other->front;
     b->back = other->back;
@@ -181,13 +167,13 @@ void bag_append(bag *b, bag *other) {
   }
 }
 
-void bag_nullify(bag *b) {
+void bag_nullify(bag* b) {
   b->front = NULL;
   b->back = NULL;
 }
 
-int bag_size(bag *b) {
-  chunk *c = b->front;
+int bag_size(bag* b) {
+  chunk* c = b->front;
   int size = 0;
   while (c) {
     size += c->size;
@@ -196,22 +182,22 @@ int bag_size(bag *b) {
   return size;
 }
 
-void bag_add_front_chunk_serial(bag *b) {
-  chunk *c = chunk_alloc();
+void bag_add_front_chunk_serial(bag* b) {
+  chunk* c = chunk_alloc();
   c->size = 0;
   c->next = b->front;
   b->front = c;
 }
 
-void bag_add_front_chunk_concurrent(bag *b) {
-  chunk *c = chunk_alloc();
+void bag_add_front_chunk_concurrent(bag* b) {
+  chunk* c = chunk_alloc();
   c->size = 0;
   c->next = b->front;
   atomic_write_chunk(&b->front, c);
 }
 
-void bag_push_concurrent(bag *b, particle p) {
-  chunk *c;
+void bag_push_concurrent(bag* b, particle p) {
+  chunk* c;
   int index;
   while (true) {
     c = b->front;
@@ -235,8 +221,8 @@ void bag_push_concurrent(bag *b, particle p) {
   }
 }
 
-void bag_push_serial(bag *b, particle p) {
-  chunk *c = b->front;
+void bag_push_serial(bag* b, particle p) {
+  chunk* c = b->front;
   int index = c->size;
   c->size++;
   c->itemsPosX[index] = p.posX;
@@ -250,28 +236,28 @@ void bag_push_serial(bag *b, particle p) {
   }
 }
 
-void bag_push(bag *b, particle p) { bag_push_serial(b, p); }
+void bag_push(bag* b, particle p) { bag_push_serial(b, p); }
 
-void bag_swap(bag *b1, bag *b2) {
+void bag_swap(bag* b1, bag* b2) {
   bag temp = *b1;
   *b1 = *b2;
   *b2 = temp;
 }
 
-chunk *chunk_next(chunk *c, bool destructive) {
-  chunk *cnext = c->next;
+chunk* chunk_next(chunk* c, bool destructive) {
+  chunk* cnext = c->next;
   if (destructive) {
     chunk_free(c);
   }
   return cnext;
 }
 
-void bag_push_initial(bag *b, particle p) { bag_push_serial(b, p); }
+void bag_push_initial(bag* b, particle p) { bag_push_serial(b, p); }
 
-void bag_init_initial(bag *b) { bag_init(b); }
+void bag_init_initial(bag* b) { bag_init(b); }
 
-void bag_free_initial(bag *b) {
-  chunk *c = b->front;
+void bag_free_initial(bag* b) {
+  chunk* c = b->front;
   while (c != NULL) {
     c = chunk_next(c, true);
   }
@@ -319,31 +305,31 @@ int nbParticles;
 
 char sim_distrib;
 
-double *params;
+double* params;
 
-double *speed_params;
+double* speed_params;
 
 int seed;
 
-double ***rho;
+double*** rho;
 
-double ***Ex;
+double*** Ex;
 
-double ***Ey;
+double*** Ey;
 
-double ***Ez;
+double*** Ez;
 
-vect *field;
+vect* field;
 
-alignas(64) double *deposit;
+alignas(64) double* deposit;
 
-bag *bagsNexts;
+bag* bagsNexts;
 
-alignas(64) double *depositThreadCorners;
+alignas(64) double* depositThreadCorners;
 
-alignas(64) double *depositCorners;
+alignas(64) double* depositCorners;
 
-bag *bagsCur;
+bag* bagsCur;
 
 void addParticle(double x, double y, double z, double vx, double vy, double vz);
 
@@ -438,7 +424,7 @@ int_nbCorners indicesOfCorners(int idCell) {
                           cellOfCoord(x2, y2, z), cellOfCoord(x2, y2, z2)}};
 }
 
-void accumulateChargeAtCorners(double *deposit, int idCell,
+void accumulateChargeAtCorners(double* deposit, int idCell,
                                double_nbCorners charges) {
   const int_nbCorners indices = indicesOfCorners(idCell);
   for (int k = 0; k < 8; k++) {
@@ -498,13 +484,13 @@ void updateFieldUsingDeposit() {
 
 void allocateStructures() {
   allocateStructuresForPoissonSolver();
-  deposit = (double *)MALLOC_ALIGNED1(nbCells, sizeof(double), 64);
-  bagsNexts = (bag *)MALLOC_ALIGNED2(nbCells, 2, sizeof(bag), 64);
+  deposit = (double*)MALLOC_ALIGNED1(nbCells, sizeof(double), 64);
+  bagsNexts = (bag*)MALLOC_ALIGNED2(nbCells, 2, sizeof(bag), 64);
   depositThreadCorners =
-      (double *)MALLOC_ALIGNED3(nbThreads, nbCells, 8, sizeof(double), 64);
-  depositCorners = (double *)MALLOC_ALIGNED2(nbCells, 8, sizeof(double), 64);
-  field = (vect *)malloc(nbCells * sizeof(vect));
-  bagsCur = (bag *)malloc(nbCells * sizeof(bag));
+      (double*)MALLOC_ALIGNED3(nbThreads, nbCells, 8, sizeof(double), 64);
+  depositCorners = (double*)MALLOC_ALIGNED2(nbCells, 8, sizeof(double), 64);
+  field = (vect*)malloc(nbCells * sizeof(vect));
+  bagsCur = (bag*)malloc(nbCells * sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init_initial(&bagsCur[idCell]);
   }
@@ -571,8 +557,9 @@ void stepLeapFrog() {
   const double factorX = factorC / cellX;
   const double factorY = factorC / cellY;
   const double factorZ = factorC / cellZ;
+#pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag *b = &bagsCur[idCell];
+    bag* b = &bagsCur[idCell];
     const int_nbCorners indices = indicesOfCorners(idCell);
     vect_nbCorners field_at_corners;
     for (int k = 0; k < 8; k++) {
@@ -580,7 +567,7 @@ void stepLeapFrog() {
       field_at_corners.v[k].y = field[indices.v[k]].y * factorY;
       field_at_corners.v[k].z = field[indices.v[k]].z * factorZ;
     }
-    for (chunk *c = b->front; c != NULL; c = chunk_next(c, false)) {
+    for (chunk* c = b->front; c != NULL; c = chunk_next(c, false)) {
       const int nb = c->size;
 #pragma omp simd
       for (int i = 0; i < nb; i++) {
@@ -735,6 +722,7 @@ void step() {
       particleCharge * (stepDuration * stepDuration) / particleMass / cellY;
   const double factorZ =
       particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
+#pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < 8; idCorner++) {
       for (int idThread = 0; idThread < nbThreads; idThread++) {
@@ -763,8 +751,8 @@ core:
                       field_at_corners.v[k].y = field[indices.v[k]].y * factorY;
                       field_at_corners.v[k].z = field[indices.v[k]].z * factorZ;
                     }
-                    bag *b = &bagsCur[idCell];
-                    for (chunk *c = b->front; c != NULL;
+                    bag* b = &bagsCur[idCell];
+                    for (chunk* c = b->front; c != NULL;
                          c = chunk_next(c, true)) {
                       const int nb = c->size;
                       alignas(64) int idCell2_step[CHUNK_SIZE];
@@ -977,7 +965,7 @@ core:
   updateFieldUsingDeposit();
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   loadParameters(argc, argv);
   computeConstants();
   allocateStructures();

@@ -5,7 +5,7 @@ let _ = Flags.dump_ast_details := true
 
 let _ = Run.script_cpp (fun _ ->
 
-   !! Sequence.insert (stmt "printf(\"Hello\n\")") [tBefore; cVarDef ""];
+   !! Instr.move_out ~dest:[tFirst; cTopFunDef "test";dBody] [cVarDef "a"];
    
 )
  
