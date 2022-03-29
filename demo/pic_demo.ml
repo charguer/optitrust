@@ -237,19 +237,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Expr.replace_fun "fwrapInt" [nbMulti; step; cFun "fwrap"];
   !! iter_dims (fun d ->
       Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"]);
-
-  bigstep "Replacement of the bitwise operation, assuming grid sizes to be powers of 2";
-  if grid_dims_power_of_2 then begin
-    !! Expr.replace_fun "wrapPowerof2" [nbMulti; step; cFun "wrap"];
-    !! Function.inline ~delete:true [nbMulti; step; cFun "wrapPowerof2"];
-  end;
+  if grid_dims_power_of_2 then
+    !! Expr.replace_fun ~inline:true ~delete:true "wrapPowerof2" [nbMulti; step; cFun "wrap"];
 
   bigstep "Simplification of computations for positions and destination cell";
   !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarDef ("i"^d^"2");cInit()];);
   !! Variable.inline_and_rename [nbMulti; step; cVarDef ~regexp:true "i.2" ];
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];
-  !! Expr.replace_fun ~inline:true ~delete:true "wrapPowerof2" [nbMulti; step; cFun "wrap"];
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
