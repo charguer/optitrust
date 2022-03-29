@@ -109,14 +109,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
   bigstep "Low level iteration on chunks of particles";
+   (* TODO: Fix the issue with function inlining inside for loops *)
   !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
   !! Function.inline [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
   !! Variable.inline [steps; cVarDef "bag_iter"];
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [steps; cMark "loop"; cFor_c ""; dBody];
   !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cMark "loop"]; (* TODO Calling Function.uninline loops *)
-  !! Expr.replace_fun "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
-  !! Function.inline [steps; cFun "bag_iter_ho_chunk"];
+  !! Expr.replace_fun ~inline:true "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
   !! List.iter (fun f -> Function.beta ~indepth:true [f]) stepFuns;
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
@@ -242,8 +242,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];
-  !! Expr.replace_fun "wrapPowerof2" [nbMulti; step; cFun "wrap"];
-  !! Function.inline ~delete:true [nbMulti; step; cFun "wrapPowerof2"];
+  !! Expr.replace_fun ~inline:true ~delete:true "wrapPowerof2" [nbMulti; step; cFun "wrap"];
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
@@ -277,7 +276,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
       }" in
   !! Sequence.insert (stmt mybij_def) [tBefore; step];
-  (* !! Matrix.biject "mybij" [step; cVarDef "depositCorners"]; *)
   !! Matrix.biject "mybij" [cVarDef "depositCorners"];
   !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
       [step; sExpr "mybij(nbCells, 8, indicesOfCorners(idCell2).v[k], k)"];
@@ -286,13 +284,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Decompose the loop to allow for parallelization per blocks";
   !! Variable.insert_list_same_type (ty "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
-  let colorize (tile : string) (color : string) (d:string) : unit =
-    let bd = "b" ^ d in
-    Loop.tile tile ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
-    Loop.color (expr color) ~index:("c"^d) [step; cFor bd]
-    in
-  !! iter_dims (fun d -> colorize "2" "block" d);
+  !! iter_dims (fun d -> let bd = "b"^d in 
+      Loop.tile (lit "2") ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
+      Loop.color (expr "block") ~index:("c"^d) [step; cFor bd] );
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
+  !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
+  !! Omp.atomic None [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
+  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; step; cFor "bX"];
 
   bigstep "Introduce nbThreads and idThread";
   !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
@@ -300,12 +298,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.get_thread_num "idThread" [tBefore; step; cFor "iX"];
   !! Omp.set_num_threads ("nbThreads") [tFirst; cTopFunDef "main"; dBody];
   !! Trace.reparse();
-
-  bigstep "Parallelize the code using concurrent operations (they are subsequently eliminated)";
-  (* BEAUTIFY: should be integrated earlier with "Decompose the loop to allow for parallelization per blocks";*)
-  !! Omp.atomic None [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
-  !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
-  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; step; cFor "bX"];
   
   bigstep "Duplicate the charge of a corner for each of the threads";
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "depositCorners"] in

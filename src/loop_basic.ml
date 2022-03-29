@@ -42,7 +42,7 @@ let color (nb_colors : trm) ?(index : var option) : Target.Transfo.t =
    [for (int index = 0; index < stop; index += tile_size) {
       for (int i = index; i < min(X, bx+B); i++) { body }].
 *)
-let tile ?(index : var = "b${id}") ?(bound : tile_bound = TileBoundMin) (tile_size : string_trm) : Target.Transfo.t =
+let tile ?(index : var = "b${id}") ?(bound : tile_bound = TileBoundMin) (tile_size : trm) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.tile index bound tile_size)
 
 (* [hoist x_step tg]: expects [tg] to point to a variable declaration inside a
