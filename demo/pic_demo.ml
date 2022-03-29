@@ -495,18 +495,6 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
 *)
 
 
-(* BEAUTIFY (clang-format issue)
-  missing spaces in:
-    return (vect){d * v.x, d * v.y, d * v.z};
-  should be
-   return (vect) { d * v.x, d * v.y, d * v.z };
-
-  too many spaces in:
-    const  double cellVolume = cellX * cellY * cellZ;
-  probably due to the way you print aliasas attributes
-   *)
-
-
 (* LATER: keep this code, it might be useful in the future
      let wrapPow_def = "int wrapPowersOfTwo(int gridSize, int a) {return a & (gridSize - 1);}" in
   !! Sequence.insert ~reparse:true (stmt wrapPow_def) [tBefore; step];
