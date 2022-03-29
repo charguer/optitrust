@@ -279,7 +279,7 @@ const int block = 2;
 
 const int halfBlock = 1;
 
-int nbThreads = 4;
+int nbThreads;
 
 int nbCells;
 
@@ -322,12 +322,6 @@ double*** Ez;
 vect* field;
 
 alignas(64) double* deposit;
-
-bag* bagsNexts;
-
-alignas(64) double* depositThreadCorners;
-
-alignas(64) double* depositCorners;
 
 bag* bagsCur;
 
@@ -482,40 +476,46 @@ void updateFieldUsingDeposit() {
   resetDeposit();
 }
 
+alignas(64) double* depositCorners;
+
+alignas(64) double* depositThreadCorners;
+
+bag* bagsNexts;
+
 void allocateStructures() {
   allocateStructuresForPoissonSolver();
   deposit = (double*)MALLOC_ALIGNED1(nbCells, sizeof(double), 64);
-  bagsNexts = (bag*)MALLOC_ALIGNED2(nbCells, 2, sizeof(bag), 64);
+  depositCorners = (double*)MALLOC_ALIGNED2(nbCells, 8, sizeof(double), 64);
   depositThreadCorners =
       (double*)MALLOC_ALIGNED3(nbThreads, nbCells, 8, sizeof(double), 64);
-  depositCorners = (double*)MALLOC_ALIGNED2(nbCells, 8, sizeof(double), 64);
   field = (vect*)malloc(nbCells * sizeof(vect));
   bagsCur = (bag*)malloc(nbCells * sizeof(bag));
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag_init_initial(&bagsCur[idCell]);
-  }
+  bagsNexts = (bag*)MALLOC_ALIGNED2(nbCells, 2, sizeof(bag), 64);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
       bag_init_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
     }
+  }
+  for (int idCell = 0; idCell < nbCells; idCell++) {
+    bag_init_initial(&bagsCur[idCell]);
   }
 }
 
 void deallocateStructures() {
   deallocateStructuresForPoissonSolver();
   for (int idCell = 0; idCell < nbCells; idCell++) {
+    bag_free_initial(&bagsCur[idCell]);
+  }
+  for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
       bag_free_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
     }
   }
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag_free_initial(&bagsCur[idCell]);
-  }
+  MFREE(bagsNexts);
+  MFREE(depositThreadCorners);
+  MFREE(depositCorners);
   free(bagsCur);
   free(field);
-  MFREE(bagsNexts);
-  MFREE(depositCorners);
-  MFREE(depositThreadCorners);
 }
 
 void computeConstants() {
@@ -709,9 +709,9 @@ int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
   return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
 }
 
-const int SHARED = 1;
-
 const int PRIVATE = 0;
+
+const int SHARED = 1;
 
 void step() {
   const double factorC =
@@ -966,6 +966,11 @@ core:
 }
 
 int main(int argc, char** argv) {
+#pragma omp parallel
+  {
+#pragma omp single
+    nbThreads = omp_get_num_threads();
+  }
   loadParameters(argc, argv);
   computeConstants();
   allocateStructures();

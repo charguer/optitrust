@@ -418,6 +418,8 @@ val atypexpr : string -> typ
 
 val stmt : string -> trm
 
+val instr : string -> trm 
+
 val get_relative_type : target -> target_relative option
 
 (* Other *)
