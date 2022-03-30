@@ -289,13 +289,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Loop.color (lit "2") ~index:("c"^d) [step; cFor bd] );
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
-  !! Omp.atomic [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
-  !! Omp.parallel_for ~collapse:3 [tBefore; step; cFor "bX"];
+  !! Omp.atomic [step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
+  !! Omp.parallel_for ~collapse:3 [step; cFor "bX"];
 
   bigstep "Introduce nbThreads and idThread";
   !! Omp.header ();
   !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(ty "int") [tBefore; cVarDef "nbCells"];
-  !! Omp.get_thread_num "idThread" [tBefore; step; cFor "iX"];
+  !! Omp.get_thread_num "idThread" [step; cFor "iX"];
   !! Omp.set_num_threads ("nbThreads") [tFirst; cTopFunDef "main"; dBody];
   !! Trace.reparse();
 
@@ -334,7 +334,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Parallelize and optimize loops that process bags";
   !! Trace.reparse();
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
-  !! Omp.parallel_for [nbMulti; tBefore; stepsReal; cFor "idCell"];
+  !! Omp.parallel_for [nbMulti;stepsReal; cFor "idCell"];
   !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
 
   (* Part 4: Vectorization *)
@@ -377,12 +377,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Align.header ();
   !! Loop.fission [tBefore; occLast; step; cFor "idCell"; cFor "idCorner"; cFor "idThread"];
   !! Loop.swap [occLast; cFor "idCell"; cFor "idCorner" ~body:[cFor "idThread"]];
-  !! Omp.simd [nbMulti; tBefore; cOr [
+  !! Omp.simd [nbMulti; cOr [
     [cFor "idCell" ~body:[cFor "bagsKind"]; cFor "idCorner"];
     [stepLF; cFor "i"];
     [cDiff [[step; cFor "i"]] [[step; cFor "i"  ~body:[cFor "idCorner"]]] ]; (* A / B logic *)
     ]];
-  !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
+  !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [step; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];
 
 )
