@@ -1,11 +1,25 @@
-#include <math.h>
 #include <omp.h>  // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
-#include <stdbool.h>
-#include <stdio.h>
+
 #include <stdlib.h>
 
+#include <stdio.h>
+
+#include <math.h>
+
 #include "mymacros.h"
+
+#include "mymacros.h"
+
+#include <stdlib.h>
+
+#include <stdbool.h>
+
+#include <stdio.h>
+
+#include <stdio.h>
+
 #include "pic_demo_aux.h"
+
 #include "stdalign.h"
 
 inline int MINDEX1(int N1, int i1) { return i1; }
@@ -110,6 +124,8 @@ typedef struct bag_iter {
 
 void bag_init(bag* b);
 
+void bag_append_noinit(bag* b, bag* other);
+
 void bag_append(bag* b, bag* other);
 
 void bag_nullify(bag* b);
@@ -126,11 +142,11 @@ void bag_push(bag* b, particle p);
 
 void bag_swap(bag* b1, bag* b2);
 
-void bag_push_initial(bag* b, particle p);
+void bag_push(struct bag* b, struct particle p);
 
-void bag_init_initial(bag* b);
+void bag_init(struct bag* b);
 
-void bag_free_initial(bag* b);
+void bag_free(bag* b);
 
 chunk* chunk_next(chunk* c, bool destructive);
 
@@ -252,11 +268,7 @@ chunk* chunk_next(chunk* c, bool destructive) {
   return cnext;
 }
 
-void bag_push_initial(bag* b, particle p) { bag_push_serial(b, p); }
-
-void bag_init_initial(bag* b) { bag_init(b); }
-
-void bag_free_initial(bag* b) {
+void bag_free(bag* b) {
   chunk* c = b->front;
   while (c != NULL) {
     c = chunk_next(c, true);
@@ -394,17 +406,11 @@ inline coord coordOfCell(int idCell) {
   return (coord){iX, iY, iZ};
 }
 
-typedef struct {
-  int v[8];
-} int_nbCorners;
+typedef struct { int v[8]; } int_nbCorners;
 
-typedef struct {
-  double v[8];
-} double_nbCorners;
+typedef struct { double v[8]; } double_nbCorners;
 
-typedef struct {
-  vect v[8];
-} vect_nbCorners;
+typedef struct { vect v[8]; } vect_nbCorners;
 
 int_nbCorners indicesOfCorners(int idCell) {
   const coord coord = coordOfCell(idCell);
@@ -497,22 +503,22 @@ void allocateStructures() {
   bagsNexts = (bag*)MALLOC_ALIGNED2(nbCells, 2, sizeof(bag), 64);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_init_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
+      bag_init(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
     }
   }
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag_init_initial(&bagsCur[idCell]);
+    bag_init(&bagsCur[idCell]);
   }
 }
 
 void deallocateStructures() {
   deallocateStructuresForPoissonSolver();
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag_free_initial(&bagsCur[idCell]);
+    bag_free(&bagsCur[idCell]);
   }
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
-      bag_free_initial(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
+      bag_free(&bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
     }
   }
   MFREE(bagsNexts);
@@ -548,7 +554,7 @@ void addParticle(double x, double y, double z, double vx, double vy,
   p.speedX = speed.x / (cellX / stepDuration);
   p.speedY = speed.y / (cellY / stepDuration);
   p.speedZ = speed.z / (cellZ / stepDuration);
-  bag_push_initial(&bagsCur[idCell], p);
+  bag_push(&bagsCur[idCell], p);
   double_nbCorners contribs = cornerInterpolationCoeff(pos);
   accumulateChargeAtCorners(deposit, idCell, contribs);
 }
@@ -937,7 +943,7 @@ core:
                         }
                       }
                     }
-                    bag_init_initial(b);
+                    bag_init(b);
                   }
                 }
               }

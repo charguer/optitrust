@@ -17,7 +17,7 @@ let iter_dims f = List.iter f dims
 let map_dims f = List.map f dims
 let idims = map_dims (fun d -> "i" ^ d)
 let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
-let delocalize_bag = Local_obj ("bag_init_initial", "bag_append", "bag_free_initial")
+let delocalize_bag = Local_obj ("bag_init", "bag_append", "bag_free")
 let align = 64
 
 (* Grab the "usechecker" flag from the command line *)
@@ -114,7 +114,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Function.inline [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
   !! Variable.inline [steps; cVarDef "bag_iter"];
   !! Sequence.intro_on_instr [steps; cFor_c ""; dBody];
-  !! Function.uninline ~fct:[cTopFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cVarDef "bag_it"]; 
+  !! Function.uninline ~fct:[cTopFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cVarDef "bag_it"];
   !! Expr.replace_fun ~inline:true "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
   !! List.iter (fun f -> Function.beta ~indepth:true [f]) stepFuns;
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
@@ -282,12 +282,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Decompose the loop to allow for parallelization per blocks";
   !! Variable.insert_list_same_type (ty "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
-  !! iter_dims (fun d -> let bd = "b"^d in 
+  !! iter_dims (fun d -> let bd = "b"^d in
       Loop.tile (var ~mut:true "block") ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
       Loop.color (lit "2") ~index:("c"^d) [step; cFor bd] );
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
-  !! Instr.set_atomic [step; cLabel "charge"; cWrite ()]; 
+  !! Instr.set_atomic [step; cLabel "charge"; cWrite ()];
   !! Omp.parallel_for ~collapse:3 [step; cFor "bX"];
 
   bigstep "Introduce nbThreads and idThread";

@@ -38,9 +38,8 @@ typedef struct bag_iter {
 
 
 void bag_init(bag* b);
-// void bag_init(bag* b, int id_bag, int id_cell);
+void bag_append_noinit(bag* b, bag* other);
 void bag_append(bag* b, bag* other);
-// void bag_append(bag* b, bag* other, int id_bag, int id_cell);
 void bag_nullify(bag* b);
 int bag_size(bag* b);
 void bag_add_front_chunk(bag* b);
@@ -48,9 +47,9 @@ void bag_push_concurrent(bag* b, particle p);
 void bag_push_serial(bag* b, particle p);
 void bag_push(bag* b, particle p);
 void bag_swap(bag* b1, bag* b2);
-void bag_push_initial(bag* b, particle p);
-void bag_init_initial(bag* b);
-void bag_free_initial(bag* b);
+void bag_push(bag* b, particle p);
+void bag_init(bag* b);
+void bag_free(bag* b);
 
 chunk* chunk_next(chunk* c, bool destructive);
 

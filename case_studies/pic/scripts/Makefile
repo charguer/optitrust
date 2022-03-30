@@ -31,7 +31,7 @@ $(DIR_PROGS)/%.out: $(DEPENDENCIES)
 	./compile.sh $*.c
 
 clean:
-	rm -f checker.out *.res $(DIR_PROGS)/*.out $(DIR_PROGS)/*.res
+	rm -f checker.out *.res $(DIR_PROGS)/*.out $(DIR_PROGS)/*.res checks.log
 
 test: checker.out
 	./$< 
