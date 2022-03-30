@@ -14,7 +14,7 @@
 #include "particle.h"
 #include "bag.h"
 
-// --------- Simulation parameters
+// --------- Simulation parameters // LATER: these parameters should be declared "extern"
 
 // Physical space in which particles move
 double areaX;

@@ -79,6 +79,111 @@ void chunk_free(chunk* c) {
   free(c);
 }
 
+//==========================================================================
+// Bag chunk allocation operations, naive versions
+
+#ifndef CUSTOM_BAG_CHUNK_ALLOC
+
+chunk* bag_chunk_alloc() {
+  return chunk_alloc();
+}
+
+void bag_chunk_free(chunk* c) {
+  chunk_free(c);
+}
+
+#endif
+
+//==========================================================================
+// Bag chunk allocation operations, custom allocator for pic_demo.c
+
+#ifdef CUSTOM_BAG_CHUNK_ALLOC
+
+// ----- functions to get nbThreads and idThread
+
+#include <omp.h>
+
+void get_num_threads() {
+  int nbThreads;
+  #pragma omp parallel
+  {
+    #pragma omp single
+    nbThreads = omp_get_num_threads();
+  }
+  return nbThreads;
+}
+
+void get_id_thread() {
+  int idThread;
+  #pragma omp parallel
+  {
+    #pragma omp single
+    idThread = omp_get_thread_num();
+  }
+  return idThread;
+}
+
+// ----- free lists data structure
+
+typedef struct {
+  int nb;
+  int padding[7]; // alternative is to put alignas
+  chunk* items; // of size freelist_capacity = 2*nbCells
+} chunks_freelist;
+
+chunks_freelist* chunk_freelists; // of size nbThreads
+int freelist_capacity; // = 2*nbCells
+
+void init_freelists(int nbCells) {
+  const int nbThreads = get_num_threads();
+  freelist_capacity = 2 * nbCells;
+  chunk_freelists = (chunk_free_list*) malloc(nbThreads * sizeof(chunks_freelist));
+  for (int idThread = 0; idThread < nbThreads; idThread++) {
+    chunk_freelist* cf = &chunk_freelists[idThread];
+    cf->nb = 0;
+    cf->items = malloc(freelist_capacity * sizeof(chunk*));
+  }
+}
+
+void release_freelists() {
+  const int nbThreads = get_num_threads();
+  for (int idThread = 0; idThread < nbThreads; idThread++) {
+    chunk_freelist* cf = &chunk_freelists[idThread];
+    for (int i = 0; i < cf->nb; i++) {
+      chunk_free(cf->items[i]);
+      free(cf->items);
+    }
+  }
+  free(chunk_freelists);
+}
+
+// ----- custom implementation of chunk alloc and free
+
+chunk* bag_chunk_alloc() {
+  const int idThread = get_id_thread();
+  chunk_freelist* cf = &chunk_freelists[idThread];
+  if (cf->nb > 0) {
+    // pop from nonempty free list
+    cf->nb--;
+    return cf->items[cf->nb];
+  } else {
+    return chunk_alloc();
+  }
+}
+
+void bag_chunk_free(chunk* c) {
+  const int idThread = get_id_thread();
+  chunk_freelist* cf = &chunk_freelists[idThread];
+  if (cf->nb < freelist_capacity) {
+    // push in nonfull freelist
+    cf->items[cf->nb] = c;
+    cf->nb++;
+  } else {
+    chunk_free(c);
+  }
+}
+
+#endif
 
 //==========================================================================
 // External chunk operations
@@ -140,22 +245,18 @@ void chunk_free(chunk* c) {
  *
  * @param[in, out] b the bag to initialize.
  */
-/* void bag_init(bag* b, int id_bag, int id_cell) {
-  chunk* c = chunk_alloc();
-  c->size = 0;
-  c->next = NULL;
-  b->front = c;
-  b->back  = c;
-}
- */
-void bag_init(bag* b) {
-  chunk* c = chunk_alloc();
+
+void bag_init_using(bag* b, chunk* c) {
   c->size = 0;
   c->next = NULL;
   b->front = c;
   b->back  = c;
 }
 
+void bag_init(bag* b) {
+  chunk* c = bag_chunk_alloc();
+  bag_init_using(b, c);
+}
 
 /*
  * Merge other into b; other is re-initialized if not void,
@@ -164,13 +265,6 @@ void bag_init(bag* b) {
  * @param[in, out] b
  * @param[in, out] other
  */
-/* void bag_append(bag* b, bag* other, int id_bag, int id_cell) {
-  if (other->front) {
-    b->back->next = other->front;
-    b->back       = other->back;
-    bag_init(other, id_bag, id_cell);
-  }
-} */
 void bag_append(bag* b, bag* other) {
   if (other->front) {
     b->back->next = other->front;
@@ -230,7 +324,7 @@ int bag_size(bag* b) {
  * @param[in, out] b the bag in which to put the new chunk.
  */
 void bag_add_front_chunk_serial(bag* b) {
-  chunk* c = chunk_alloc();
+  chunk* c = bag_chunk_alloc();
   // Warning - TODO: the instruction c->size=0 might be viewd switched with b->front=c by other threads, which would lead to non-valid code.
   // (e.g. on PowerPC, the present code is valid on Intel).
   // Solution: adding a memory fence (putting write c->size=0 when freeing a chunk, and not when adding it is not enough).
@@ -240,7 +334,7 @@ void bag_add_front_chunk_serial(bag* b) {
 }
 
 void bag_add_front_chunk_concurrent(bag* b) {
-  chunk* c = chunk_alloc();
+  chunk* c = bag_chunk_alloc();
   // Warning - TODO: the instruction c->size=0 might be viewd switched with b->front=c by other threads, which would lead to non-valid code.
   // (e.g. on PowerPC, the present code is valid on Intel).
   // Solution: adding a memory fence (putting write c->size=0 when freeing a chunk, and not when adding it is not enough).
@@ -337,7 +431,7 @@ void bag_swap(bag* b1, bag* b2) {
 chunk* chunk_next(chunk* c, bool destructive) {
   chunk* cnext = c->next;
   if (destructive) {
-    chunk_free(c);
+    bag_chunk_free(c);
   }
   return cnext;
 }

@@ -37,6 +37,7 @@ typedef struct bag_iter {
 } bag_iter;
 
 
+void bag_init_using(bag* b, chunk* c);
 void bag_init(bag* b);
 void bag_append_noinit(bag* b, bag* other);
 void bag_append(bag* b, bag* other);
