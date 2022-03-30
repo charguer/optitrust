@@ -86,7 +86,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.reuse ~space:(expr "p->pos") [step; cVarDef "pos2"];
 
   bigstep "Reveal write operations involved in the manipulation of particles and vectors";
-  let ctx = cTopFunDefs ["bag_push_serial";"bag_push_concurrent"] in 
+  let ctx = cTopFunDefs ["bag_push_serial";"bag_push_concurrent"] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
   !! Trace.reparse ();
@@ -121,7 +121,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
   bigstep "Elimination of the pointer on a particle, to prepare for aos-to-soa";
-  !! !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
+  !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
 
   bigstep "Preparation for AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
@@ -283,7 +283,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Decompose the loop to allow for parallelization per blocks";
   !! Variable.insert_list_same_type (ty "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
-  !! iter_dims (fun d -> let bd = "b"^d in 
+  !! iter_dims (fun d -> let bd = "b"^d in
       Loop.tile (expr "block") ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
       Loop.color (lit "2") ~index:("c"^d) [step; cFor bd] );
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
