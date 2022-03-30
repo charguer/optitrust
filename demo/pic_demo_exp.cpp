@@ -343,6 +343,8 @@ inline int wrap(int gridSize, int a) {
   return (a % gridSize + gridSize) % gridSize;
 }
 
+const int nbCorners = 8;
+
 inline int cellOfCoord(int i, int j, int k) {
   return MINDEX3(gridX, gridY, gridZ, i, j, k);
 }
@@ -421,7 +423,7 @@ int_nbCorners indicesOfCorners(int idCell) {
 void accumulateChargeAtCorners(double* deposit, int idCell,
                                double_nbCorners charges) {
   const int_nbCorners indices = indicesOfCorners(idCell);
-  for (int idCorner = 0; idCorner < 8; idCorner++) {
+  for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
     deposit[MINDEX1(nbCells, indices.v[idCorner])] += charges.v[idCorner];
   }
 }
@@ -446,7 +448,7 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   const int iZ = int_of_double(pos.z / cellZ);
   const double rZ = (pos.z - iZ * cellZ) / cellZ;
   double_nbCorners r;
-  for (int idCorner = 0; idCorner < 8; idCorner++) {
+  for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
     r.v[idCorner] = (coefX[idCorner] + signX[idCorner] * rX) *
                     (coefY[idCorner] + signY[idCorner] * rY) *
                     (coefZ[idCorner] + signZ[idCorner] * rZ);
@@ -486,9 +488,10 @@ bag* bagsNexts;
 void allocateStructures() {
   allocateStructuresForPoissonSolver();
   deposit = (double*)MALLOC_ALIGNED1(nbCells, sizeof(double), 64);
-  depositCorners = (double*)MALLOC_ALIGNED2(nbCells, 8, sizeof(double), 64);
-  depositThreadCorners =
-      (double*)MALLOC_ALIGNED3(nbThreads, nbCells, 8, sizeof(double), 64);
+  depositCorners =
+      (double*)MALLOC_ALIGNED2(nbCells, nbCorners, sizeof(double), 64);
+  depositThreadCorners = (double*)MALLOC_ALIGNED3(nbThreads, nbCells, nbCorners,
+                                                  sizeof(double), 64);
   field = (vect*)malloc(nbCells * sizeof(vect));
   bagsCur = (bag*)malloc(nbCells * sizeof(bag));
   bagsNexts = (bag*)MALLOC_ALIGNED2(nbCells, 2, sizeof(bag), 64);
@@ -563,7 +566,7 @@ void stepLeapFrog() {
     bag* b = &bagsCur[idCell];
     const int_nbCorners indices = indicesOfCorners(idCell);
     vect_nbCorners field_at_corners;
-    for (int idCorner = 0; idCorner < 8; idCorner++) {
+    for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
       field_at_corners.v[idCorner].x = field[indices.v[idCorner]].x * factorX;
       field_at_corners.v[idCorner].y = field[indices.v[idCorner]].y * factorY;
       field_at_corners.v[idCorner].z = field[indices.v[idCorner]].z * factorZ;
@@ -725,10 +728,10 @@ void step() {
       particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
 #pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int idCorner = 0; idCorner < 8; idCorner++) {
+    for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
       for (int idThread = 0; idThread < nbThreads; idThread++) {
-        depositThreadCorners[MINDEX3(nbThreads, nbCells, 8, idThread, idCell,
-                                     idCorner)] = 0.;
+        depositThreadCorners[MINDEX3(nbThreads, nbCells, nbCorners, idThread,
+                                     idCell, idCorner)] = 0.;
       }
     }
   }
@@ -747,7 +750,7 @@ core:
                     const int idCell = (iX * gridY + iY) * gridZ + iZ;
                     const int_nbCorners indices = indicesOfCorners(idCell);
                     vect_nbCorners field_at_corners;
-                    for (int idCorner = 0; idCorner < 8; idCorner++) {
+                    for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
                       field_at_corners.v[idCorner].x =
                           field[indices.v[idCorner]].x * factorX;
                       field_at_corners.v[idCorner].y =
@@ -920,10 +923,11 @@ core:
                               p2);
                         }
 #pragma omp simd aligned(coefX, coefY, coefZ, signX, signY, signZ : 64)
-                        for (int idCorner = 0; idCorner < 8; idCorner++) {
+                        for (int idCorner = 0; idCorner < nbCorners;
+                             idCorner++) {
                           depositThreadCorners[MINDEX3(
-                              nbThreads, nbCells, 8, idThread, idCell2_step[i],
-                              idCorner)] +=
+                              nbThreads, nbCells, nbCorners, idThread,
+                              idCell2_step[i], idCorner)] +=
                               (coefX[idCorner] +
                                signX[idCorner] * c->itemsPosX[i]) *
                               (coefY[idCorner] +
@@ -950,23 +954,24 @@ core:
                  &bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
     }
 #pragma omp simd
-    for (int idCorner = 0; idCorner < 8; idCorner++) {
-      depositCorners[idCell * 8 + idCorner] =
-          depositThreadCorners[0 * nbCells * 8 + idCell * 8 + idCorner];
+    for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
+      depositCorners[idCell * nbCorners + idCorner] =
+          depositThreadCorners[0 * nbCells * nbCorners + idCell * nbCorners +
+                               idCorner];
     }
     for (int idThread = 1; idThread < nbThreads; idThread++) {
 #pragma omp simd
-      for (int idCorner = 0; idCorner < 8; idCorner++)
-        depositCorners[idCell * 8 + idCorner] +=
-            depositThreadCorners[idThread * nbCells * 8 + idCell * 8 +
-                                 idCorner];
+      for (int idCorner = 0; idCorner < nbCorners; idCorner++)
+        depositCorners[idCell * nbCorners + idCorner] +=
+            depositThreadCorners[idThread * nbCells * nbCorners +
+                                 idCell * nbCorners + idCorner];
     }
   }
 #pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     double sum = 0.;
-    for (int idCorner = 0; idCorner < 8; idCorner++) {
-      sum += depositCorners[bij(nbCells, 8, idCell, idCorner)];
+    for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
+      sum += depositCorners[bij(nbCells, nbCorners, idCell, idCorner)];
     }
     deposit[MINDEX1(nbCells, idCell)] = sum;
   }
