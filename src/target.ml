@@ -366,6 +366,11 @@ let cTopFunDef
   ?(body : target = []) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false) (name : string) : constr =
   cChain [ dRoot; cStrictNew; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp name ]
 
+
+(* target multiple toplevel function declarations at the same time *)
+let cTopFunDefs (names : var list) : constr = 
+  cOr (List.map (fun name -> [cTopFunDef name]) names)
+
 (* toplevel declaration: for the moment only functions LATER: generalize *)
 let cTop ?(regexp : bool = false) (name : string) : constr =
   cTopFunDef ~regexp name

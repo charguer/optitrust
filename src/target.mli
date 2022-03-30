@@ -175,6 +175,9 @@ val cVarDefs : var list -> constr
 val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool ->string -> constr
 
 val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> string -> constr
+
+val cTopFunDefs : var list -> constr
+
 val cTopFunDef2 : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> string -> constr
 
 val cTop : ?regexp:bool -> string -> constr

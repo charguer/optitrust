@@ -12,10 +12,6 @@ inline int wrap(int gridSize, int a) {
   return (a % gridSize + gridSize) % gridSize;
 }
 
-inline int wrapPowerof2(int gridSize, int a) {
-  return a & (gridSize - 1);
-}
-
 // --------- Grid Representation
 
 #define nbCorners 8 // const int nbCorners = 8;

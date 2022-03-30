@@ -27,3 +27,9 @@ let parallel_for ?(clause : clause list = []) ?(collapse : int = 0) : Target.Tra
       Omp_basic.parallel_for ~clause:[Collapse(3)]
   else 
       Omp_basic.parallel_for ~clause
+
+
+(* [header ()] inserts omp.h header at top of the file *)
+let header () : unit = 
+  !! Sequence.insert (stmt "#include \"omp.h\"") [tFirst; dRoot];
+
