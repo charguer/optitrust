@@ -853,6 +853,7 @@ int main(int argc, char** argv) {
                 particles[j] = particlesNext[ID_SHARED_BAG][j];
                 bag_init(&(particlesNext[ID_SHARED_BAG][j]), ID_SHARED_BAG, j, thread_id);
                 bag_append(&(particles[j]), &(particlesNext[ID_PRIVATE_BAG][j]), ID_PRIVATE_BAG, j, thread_id);
+                #pragma omp simd
                 for (corner = 0; corner < NB_CORNERS_3D; corner++)
                     reduced_charge_accu[NB_CORNERS_3D * j + corner] = charge_accu[NB_CORNERS_3D * j + corner];
                 for (i = 1; i < num_threads; i++) {
