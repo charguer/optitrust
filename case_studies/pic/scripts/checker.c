@@ -143,16 +143,16 @@ int main(int argc, char* argv[]) {
   }
 
   printf("Compared %d particles\n", nbParticles);
-  printf("Maximal dist pos  : %g\n", sqrt(max_sqdist_pos));
-  printf("Maximal dist speed: %g\n", sqrt(max_sqdist_speed));
+  printf("Maximal dist pos: %g\n", sqrt(max_sqdist_pos));
   if (areaX == areaY && areaX == areaZ) {
-    printf("Maximal dist pos relative to area width : %g%%\n", 100. * sqrt(max_sqdist_pos) / areaX);
+    printf("Maximal dist pos relative to area width: %g\n", sqrt(max_sqdist_pos) / areaX);
   }
-  printf("Maximal dist speed relative to maximal speed: %g%%\n", 100. * sqrt(max_sqdist_speed) / sqrt(max_sqspeed));
+  printf("Maximal dist speed: %g\n", sqrt(max_sqdist_speed));
+  printf("Maximal dist speed relative to maximal speed: %g\n", sqrt(max_sqdist_speed) / sqrt(max_sqspeed));
 
-   int Digs = DECIMAL_DIG;
-  printf("Maximal dist pos  : %.*e\n", Digs, sqrt(max_sqdist_pos));
-  printf("Maximal dist speed: %.*e\n", Digs, sqrt(max_sqdist_speed));
+  //int Digs = DECIMAL_DIG;
+  //printf("Maximal dist pos  : %.*e\n", Digs, sqrt(max_sqdist_pos));
+  //printf("Maximal dist speed: %.*e\n", Digs, sqrt(max_sqdist_speed));
 
   free(ps1);
   free(ps2);

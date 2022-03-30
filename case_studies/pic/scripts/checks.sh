@@ -23,7 +23,7 @@
 # Example usage:
 #   DRY=1 NOSEQ=1 NB=1 STEPS=1000 RUNS=20 ./checks.sh pic_barsamian.c pic_optimized_checker.c
 #   cat parameters_3d.txt
-#   NOSEQ=1 NB=1 STEPS=1000 RUNS=20 ./checks.sh pic_barsamian.c pic_optimized_checker.c | tee checks.log
+#   NOSEQ=1 NB=1 STEPS=1000 RUNS=20 ./checks.sh pic_barsamian.c pic_optimized_checker.c
 
 
 #--------------------------------------------------------------------------------
@@ -59,6 +59,11 @@ fi
 
 DIR=`pwd`
 
+LOGFILE="checks.log"
+
+# Clear log file
+> ${LOGFILE}
+
 #--------------------------------------------------------------------------------
 
 cd ../results
@@ -66,6 +71,7 @@ NB=${NB} FAST=${FAST} STEPS=${STEPS} ./bench.sh params
 cd ${DIR}
 
 #--------------------------------------------------------------------------------
+# Run
 
 for ((RUN=0; RUN<RUNS; RUN++)); do
   if [ ! -z "${SEED}" ]; then
@@ -79,13 +85,19 @@ for ((RUN=0; RUN<RUNS; RUN++)); do
   if [ -z "${NOSEQ}" ]; then
     echo "P=1 SEED=${RUNSEED} ${COMMAND}"
     if [ -z ${DRY} ]; then
-      P=1 SEED=${RUNSEED} ${COMMAND} || echo "Failure in run"
+      P=1 SEED=${RUNSEED} ${COMMAND} | tee -a ${LOGFILE} || echo "Failure in run"
     fi
   fi
   if [ -z "${NOPAR}" ]; then
     echo "P=${P} SEED=${RUNSEED} ${COMMAND}"
     if [ -z ${DRY} ]; then
-       P=${P} SEED=${RUNSEED} ${COMMAND} || echo "Failure in run"
+       P=${P} SEED=${RUNSEED} ${COMMAND} | tee -a ${LOGFILE} || echo "Failure in run"
     fi
   fi
 done
+
+#--------------------------------------------------------------------------------
+# Summary
+
+echo "================Summary for checks.sh==================="
+cat ${LOGFILE} | grep "^Maximal dist pos relative to area width"
