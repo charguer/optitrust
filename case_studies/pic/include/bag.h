@@ -48,8 +48,6 @@ void bag_push_concurrent(bag* b, particle p);
 void bag_push_serial(bag* b, particle p);
 void bag_push(bag* b, particle p);
 void bag_swap(bag* b1, bag* b2);
-void bag_push(bag* b, particle p);
-void bag_init(bag* b);
 void bag_free(bag* b);
 
 chunk* chunk_next(chunk* c, bool destructive);
