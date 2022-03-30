@@ -236,15 +236,13 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Expr.replace_fun "fwrapInt" [nbMulti;step; cFun "fwrap"];
   !! iter_dims (fun d ->
       Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"]);
-  !! Expr.replace_fun "wrapPowerof2" [nbMulti; step; cFun "wrap"];
-  !! Function.inline ~delete:true [nbMulti; step; cFun "wrapPowerof2"];
+  !! Expr.replace_fun ~inline:true ~delete:true "wrapPowerof2" [nbMulti; step; cFun "wrap"];
 
   bigstep "Simplification of computations for positions and destination cell";
   !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarDef ("i"^d^"2");cInit()];);
   !! Variable.inline_and_rename [nbMulti; step; cVarDef ~regexp:true "i.2" ];
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];
-  !! Expr.replace_fun ~inline:true ~delete:true "wrapPowerof2" [nbMulti; step; cFun "wrap"];
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
@@ -287,12 +285,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Decompose the loop to allow for parallelization per blocks";
   !! Variable.insert_list_same_type (ty "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
   !! iter_dims (fun d -> let bd = "b"^d in 
-      Loop.tile (lit "2") ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
-      Loop.color (expr "block") ~index:("c"^d) [step; cFor bd] );
+      Loop.tile (expr "block") ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
+      Loop.color (lit "2") ~index:("c"^d) [step; cFor bd] );
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
-  !! Omp.atomic None [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
-  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; step; cFor "bX"];
+  !! Omp.atomic [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
+  !! Omp.parallel_for ~collapse:3 [tBefore; step; cFor "bX"];
 
   bigstep "Introduce nbThreads and idThread";
   !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];

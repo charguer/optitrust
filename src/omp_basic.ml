@@ -3,7 +3,7 @@ open Ast
 (******************************************************************************)
 (*                            OpenMP directives                               *)
 (******************************************************************************)
-let atomic (ao : atomic_operation option) : Target.Transfo.t =
+let atomic ?(ao : atomic_operation option = None) : Target.Transfo.t =
   Target.apply_on_targets_between (fun t (p, i) ->
     Omp_core.atomic ao i t p)
 

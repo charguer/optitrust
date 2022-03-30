@@ -18,3 +18,12 @@ let set_num_threads (threadnum : var) (tg : target) : unit =
   Omp_basic.parallel [tBefore;cSeq ~args:[[cMark mark]] ()];
   Omp_basic.single [tBefore; cMark mark];
   Marks_basic.clean [cMark mark]
+
+
+(* [parallel_for ~clause ~collapse tg] when collapse is provided as argument then 
+     clause will not be taken into account*)
+let parallel_for ?(clause : clause list = []) ?(collapse : int = 0) : Target.Transfo.t = 
+  if collapse <> 0 then 
+      Omp_basic.parallel_for ~clause:[Collapse(3)]
+  else 
+      Omp_basic.parallel_for ~clause

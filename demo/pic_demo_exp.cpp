@@ -732,17 +732,17 @@ void step() {
     }
   }
 core:
-  for (int cX = 0; cX < 2; cX++) {
-    for (int cY = 0; cY < 2; cY++) {
-      for (int cZ = 0; cZ < 2; cZ++) {
+  for (int cX = 0; cX < block; cX++) {
+    for (int cY = 0; cY < block; cY++) {
+      for (int cZ = 0; cZ < block; cZ++) {
 #pragma omp parallel for collapse(3)
-        for (int bX = cX * block; bX < gridX; bX += 2 * block) {
-          for (int bY = cY * block; bY < gridY; bY += 2 * block) {
-            for (int bZ = cZ * block; bZ < gridZ; bZ += 2 * block) {
+        for (int bX = cX * 2; bX < gridX; bX += block * 2) {
+          for (int bY = cY * 2; bY < gridY; bY += block * 2) {
+            for (int bZ = cZ * 2; bZ < gridZ; bZ += block * 2) {
               const int idThread = omp_get_thread_num();
-              for (int iX = bX; iX < bX + block; iX++) {
-                for (int iY = bY; iY < bY + block; iY++) {
-                  for (int iZ = bZ; iZ < bZ + block; iZ++) {
+              for (int iX = bX; iX < bX + 2; iX++) {
+                for (int iY = bY; iY < bY + 2; iY++) {
+                  for (int iZ = bZ; iZ < bZ + 2; iZ++) {
                     const int idCell = (iX * gridY + iY) * gridZ + iZ;
                     const int_nbCorners indices = indicesOfCorners(idCell);
                     vect_nbCorners field_at_corners;
