@@ -203,17 +203,20 @@ fi
 
 cd ${CURDIR}
 
+
 if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ] || [ "${ACTION}" = "run" ]; then
   if [ ! -z ${DRY} ]; then
     echo "====No summary in dry run mode===="
   else
-    echo "====Summary : Exectime / Throughput / Program / Compiler / Cores ====="
+    FINAL_RES="${MACHINEDIR}/output.txt"
+    echo "====Summary : Exectime / Throughput / Program / Compiler / Cores =====" | tee >> ${FINAL_RES}
     for FILE in ${MACHINEDIR}/pic_*.txt; do
       # RES=$(sed '/^\(Throughput\)/!d' ${FILE})
       THROUGHPUT=$(cat ${FILE} | grep ^Throughput* | awk '{print $2}')
       EXECTIME=$(cat ${FILE} | grep ^Exectime* | awk '{print $2}')
 
-      echo -e "${EXECTIME}\t${THROUGHPUT}\t${FILE}"
+      echo -e "${EXECTIME}\t${THROUGHPUT}\t${FILE}" | tee >> ${FINAL_RES}
     done
+    CAT_OUTPUT=`cat ${FINAL_RES}`
   fi
 fi

@@ -22,7 +22,7 @@ FILES=`ls *.ml`
 NBFILES=`ls *.ml | wc -l`
 echo "${NBFILES} files in ml"
 
-NBLINES=`wc -l  ${FILES}`
+NBLINES=`wc -l  ${FILES} | tail -1`
 echo "${NBLINES} lines of code"
 
 
