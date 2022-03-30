@@ -78,12 +78,15 @@ if [ ! -f ${CONFIGMACHINE} ]; then
 fi
 source ${CONFIGMACHINE}
 
-
 COMPILERS="${compilers}"
 if [ ! -z "${COMP}" ]; then
-  COMPILERS=${COMP}
+  COMPILERS="${COMP}"
 fi
 
+NBCORES="${nb_cores}"
+if [ ! -z "${P}" ]; then
+  NBCORES="${P}"
+fi
 
 #--------------------------------------------------------------------------------
 # Create folder, and clear it if needed
@@ -105,8 +108,8 @@ if [ "${ACTION}" = "hard" ]; then
     || (echo "warning: lstopo not available, try apt-get install hwloc")
   lstopo --of pdf > ${MACHINEDIR}/lstopo.pdf || (echo "")
   for COMPILER in ${compilers}; do
-    OUTPUT="${MACHINEDIR}/stream_${COMPILER}_p${nb_cores}.txt"
-    ${STREAMDIR}/stream.sh ${COMPILER} ${STREAMSIZE} ${nb_cores} > ${OUTPUT}
+    OUTPUT="${MACHINEDIR}/stream_${COMPILER}_p${NBCORES}.txt"
+    ${STREAMDIR}/stream.sh ${COMPILER} ${STREAMSIZE} ${NBCORES} > ${OUTPUT}
     echo "Generated ${OUTPUT}"
   done
 
@@ -119,10 +122,10 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ] || [ "${ACTION}" = "params
 
   CONFIGFILE="${ROOTDIR}/your_configuration.sh"
   cp template_your_configuration.sh ${CONFIGFILE}
-  echo "nb_threads=${nb_cores}" >> ${CONFIGFILE}
+  echo "nb_threads=${NBCORES}" >> ${CONFIGFILE}
   DEFAULTCOMPILER="${compilers%% *}"
   echo "compiler=\"${DEFAULTCOMPILER}\"" >> ${CONFIGFILE}
-  echo "Generated ${CONFIGFILE}       with nb_cores=${nb_cores}"
+  echo "Generated ${CONFIGFILE}       with nb_cores=${NBCORES}"
 
   PARAMSFILE="${SCRIPTDIR}/parameters_3d.txt"
   if [ -z "${FAST}" ]; then
@@ -174,7 +177,7 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
         fi
 
         if [ -z "${NOSEQ}" ]; then
-          OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p1_run${RUN}.txt"
+          OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p1_seed${RUNSEED}_run${RUN}.txt"
           echo "P=1 SEED=${RUNSEED}./run.sh ${PROGRAM} > ${OUTFILE}"
           if [ -z ${DRY} ]; then
             P=1 COMP=${COMPILER} SEED=${RUNSEED} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
@@ -183,10 +186,10 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
           # ./run.sh ${PROGRAM} > ${CURDIR}/${OUTFILE} || echo "Failure in run"
         fi
         if [ -z "${NOPAR}" ]; then
-          OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p${nb_cores}_run${RUN}.txt"
-          echo "P=${nb_cores} SEED=${RUNSEED} ./run.sh ${PROGRAM} > ${OUTFILE}"
+          OUTFILE="${MACHINEDIR}/${BASENAME}_${COMPILER}_p${NBCORES}_seed${RUNSEED}_run${RUN}.txt"
+          echo "P=${NBCORES} SEED=${RUNSEED} ./run.sh ${PROGRAM} > ${OUTFILE}"
           if [ -z ${DRY} ]; then
-            P=${nb_cores} COMP=${COMPILER} SEED=${RUNSEED} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+            P=${NBCORES} COMP=${COMPILER} SEED=${RUNSEED} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
           fi
         fi
       done

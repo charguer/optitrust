@@ -1,4 +1,5 @@
 open Ast
+open Target
 open Path
 
 include Function_basic
@@ -12,8 +13,8 @@ type rename = Variable.Rename.t
       of the function call. If one doesn't want to bind the argument at index i
       then it just leaves it as an empty string "". Basically this transformation is
       just an aplication of bind_intro n times. Where n is the numer of string inside
-      [fresh_names] different from "".
-*)
+      [fresh_names] different from "". *)
+
 let bind_args (fresh_names : vars) : Target.Transfo.t =
  let counter = ref (-1) in
  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
@@ -43,8 +44,8 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
     sequence containing the marked sequence. But before doing that, first a change of all the declared
     variables inside this sequence is performed. [vars] tells for the way the reanming is done.
     Either the user can give a list of variables together with their new names, or he can give the postfix
-    that shoudl be assigned to all the declared variables.
-*)
+    that shoudl be assigned to all the declared variables. *)
+
 let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let tg_trm = Trace.time "elim_body_resolve" (fun () -> Path.resolve_path p t) in
@@ -59,8 +60,8 @@ let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
 
 (* [bind ~fresh_name ~args tg] expectes the target [tg] to point to a function call, then
     it will just call bind args and bind_intro. Basically this function is used to save the user from
-    entering both of them.
-*)
+    entering both of them. *)
+
 let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : Target.target) : unit =
   bind_args args tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
@@ -146,8 +147,7 @@ int f2() { // result of Funciton_basic.inline_cal
 // TODO: Explain in detail the last step
 // NOTE: if we want to optimize, we could instead of
 // using ~[cMark mymark] use ~((target_of_path p)++[cMark mymark])
-// where p is the path to the englobing sequence.
-*)
+// where p is the path to the englobing sequence.*)
 
 let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) ?(delete : bool = false) (tg : Target.target) : unit =
     let function_name = ref "" in
@@ -164,13 +164,9 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
       let call_trm = Path.get_trm_at_path path_to_call t in 
-      (* let call_trm = begin match Target.get_trm_at (Target.target_of_path path_to_call) with
-      | Some t1 -> t1
-      | None -> fail None "inline: this is never expected to happen"
-      end in *)
       begin match call_trm.desc with
         | Trm_apps ({desc = Trm_var (_, f)}, _) -> function_name := f
-        | _ -> fail t.loc "get_function_name_from_call: couldn't get the name of the called function"
+        | _ ->  fail t.loc "get_function_name_from_call: couldn't get the name of the called function"
       end;
 
       let post_processing ?(deep_cleanup : bool = false)() : unit =
@@ -257,12 +253,11 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
   The combi transformation has prototype:
       Function.beta ?(target:target=[]) ()
   when target is not provided, we use the target [cApp ~base:[cFunDef()]]
-  to indicate that we are looking for any application of a function definition through the AST.
-
-*)
+  to indicate that we are looking for any application of a function definition through the AST. *)
 
 (* [beta ~indepth tg] applies beta-reduction on candidate functions calls that appear
     either "exactly at" or "anywhere in depth" in the target [tg], depending on the value of ~indepth. *)
+
 let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : Target.target) : unit =
   let tg = if indepth
     then tg @ [Target.cFun ~fun_:[Target.cFunDef ""] ""]
@@ -283,8 +278,7 @@ let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : Target.target)
   ) tg
 
 (* [use_infix_ops ~tg_ops] by default it targets all the instructions of the form x = x + a or x = a + x an transforms them
-    into x += a
-*)
+    into x += a *)
 
 let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg : Target.target) : unit =
   let tg = if indepth
@@ -296,8 +290,8 @@ let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg 
     of the body of the function declared in [fct]. Let nb be the number of instruction on the body of [fct]. The transformation
     will put the targeted instruction together with the following (nb -1) instructions into a sequence marked with a mark.
     Now the stage is ready for applying the basic version of uninline. After calling that transformation and assuming that
-    everything went fine we can now eliminate the introduced sequence.
-*)
+    everything went fine we can now eliminate the introduced sequence.*)
+
 let uninline ~fct:(fct : Target.target) : Target.Transfo.t =
   let tg_fun_def = match Target.get_trm_at fct with
   | Some td -> td
@@ -316,3 +310,8 @@ let uninline ~fct:(fct : Target.target) : Target.Transfo.t =
     | _ -> fail tg_fun_def.loc "uinline: fct arg should point to a a function declaration"
 
 )
+(* [insert decl tg] expects the relative target [tg] pointing before or after an instruction.
+     then in till insert the function declaration [decl] given as a string argument*)
+
+let insert ?(reparse : bool = false) (decl : string) : Target.Transfo.t = 
+  Sequence.insert ~reparse (stmt decl) 

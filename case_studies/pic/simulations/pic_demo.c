@@ -12,10 +12,6 @@ inline int wrap(int gridSize, int a) {
   return (a % gridSize + gridSize) % gridSize;
 }
 
-inline int wrapPowerof2(int gridSize, int a) {
-  return a & (gridSize - 1);
-}
-
 // --------- Grid Representation
 
 #define nbCorners 8 // const int nbCorners = 8;
@@ -115,8 +111,8 @@ int_nbCorners indicesOfCorners(int idCell) {
 vect_nbCorners getFieldAtCorners(int idCell, vect* field) {
   const int_nbCorners indices = indicesOfCorners(idCell);
   vect_nbCorners res;
-  for (int k = 0; k < nbCorners; k++) {
-    res.v[k] = field[indices.v[k]];
+  for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
+    res.v[idCorner] = field[indices.v[idCorner]];
   }
   return res;
 }
@@ -126,8 +122,8 @@ vect_nbCorners getFieldAtCorners(int idCell, vect* field) {
 
 void accumulateChargeAtCorners(double* deposit, int idCell, double_nbCorners charges) {
   const int_nbCorners indices = indicesOfCorners(idCell);
-  for (int k = 0; k < nbCorners; k++) {
-    deposit[indices.v[k]] += charges.v[k];
+  for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
+    deposit[indices.v[idCorner]] += charges.v[idCorner];
   }
 }
 
@@ -162,8 +158,8 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
 
 vect matrix_vect_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {
   vect res = { 0., 0., 0. };
-  for (int k = 0; k < nbCorners; k++) {
-    res = vect_add(res, vect_mul(coeffs.v[k], matrix.v[k]));
+  for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
+    res = vect_add(res, vect_mul(coeffs.v[idCorner], matrix.v[idCorner]));
   }
   return res;
 }

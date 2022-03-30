@@ -119,6 +119,7 @@ and code_kind =
   | Expr of string
   | Atypexpr of string
   | Stmt of string
+  | Instr of string 
 
 
 
@@ -934,8 +935,8 @@ let trm_prim ?(annot = []) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) 
   trm_val ~annot:annot ~loc ~add ~ctx (Val_prim p)
 
 let trm_set ?(annot = []) ?(loc = None) ?(is_statement : bool = false) ?(add = []) ?(ctx : ctx option = None)
-  ?(typ : typ option = Some (typ_unit ())) (t1 : trm) (t2 : trm) : trm =
-  trm_apps ~annot:annot ~loc ~is_statement ~add ~ctx ~typ
+  ?(typ : typ option = Some (typ_unit ()))?(marks : mark list = [])  (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~annot:annot ~marks ~loc ~is_statement ~add ~ctx ~typ
     (trm_binop Binop_set) [t1; t2]
 
 let trm_neq ?(annot = []) ?(loc = None) ?(is_statement : bool = false) ?(add = []) ?(ctx : ctx option = None)
@@ -2502,6 +2503,7 @@ let code_to_str (code : code_kind) : string =
   | Expr e -> e
   | Atypexpr tye -> tye
   | Stmt s -> s
+  | Instr s -> s
 
 module AstParser = struct
 
@@ -2523,6 +2525,8 @@ module AstParser = struct
   let atypexpr tye = typ_str (Atypexpr tye)
 
   let stmt s = code (Stmt s)
+
+  let instr s = code (Instr s)
 
 end
 

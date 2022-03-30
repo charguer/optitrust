@@ -17,6 +17,7 @@ TESTS_WITH_DOC := \
 	accesses_shift.ml \
 	instr_gather.ml \
 	instr_moveout.ml \
+	expr_replace_fun.ml \
 	function_bind.ml \
 	function_bind_args.ml \
 	function_elim_body.ml \

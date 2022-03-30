@@ -29,9 +29,10 @@ let usechecker = !usechecker
 
 (* let _ = Printf.printf "usechecker=%d\n" (if usechecker then 1 else 0) *)
 
-(* UNCOMMENT THIS LINE FOR WORKING ON THE VERSION WITH THE CHECKER
-let usechecker = true *)
+(* UNCOMMENT THE LINE BELOW FOR WORKING ON THE VERSION WITH THE CHECKER *)
+(* let usechecker = true  *)
 
+let grid_dims_power_of_2 = true
 
 let onlychecker p = if usechecker then [p] else []
 let doublepos = false (* LATER: Arthur make this a command line command *)
@@ -62,8 +63,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   let ctx = cTopFunDef "matrix_vect_mul" in
   !! Function.inline [ctx; cFuns ["vect_mul"; "vect_add"]];
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
-  !! Loop.fission ~split_between:true [ctx; cFor "k"];
-  !! Loop.unroll [nbMulti; ctx; cFor "k"];
+  !! Loop.fission ~split_between:true [ctx; cFor "idCorner"];
+  !! Loop.unroll [nbMulti; ctx; cFor "idCorner"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
   !! Function.inline ~delete:true [nbMulti;cFun "matrix_vect_mul"];
 
@@ -77,54 +78,50 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx_rv; dRHS];
-  (* !! Instr.move_out ~dest:[tBefore; ctx] [ctx; cVarDefs ""] *)
   !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
-  !! Loop.fold_instrs ~index:"k" [cTopFunDef "cornerInterpolationCoeff"; cCellWrite ~base:[cVar "r"] ()];
+  !! Loop.fold_instrs ~index:"idCorner" [cTopFunDef "cornerInterpolationCoeff"; cCellWrite ~base:[cVar "r"] ()];
 
-  bigstep "Update particles in-place instead of in a local variable ";
+  bigstep "Eliminate an intermediate storage by reusing an existing one";
   !! Variable.reuse ~space:(expr "p->speed") [step; cVarDef "speed2" ];
   !! Variable.reuse ~space:(expr "p->pos") [step; cVarDef "pos2"];
 
   bigstep "Reveal write operations involved in the manipulation of particles and vectors";
-  let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
+  let ctx = cTopFunDefs ["bag_push_serial";"bag_push_concurrent"] in 
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
   !! Trace.reparse ();
   !! Struct.set_explicit [nbMulti; stepsReal; cFieldWrite ~base:[cVar "p"] ()];
-  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"]; 
-  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."]; 
+  !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
+  !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."];
 
   bigstep "Inlining of [cornerInterpolationCoeff] and [accumulateChargeAtCorners]";
-  !! Function.inline [nbMulti; cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
+  !! Function.inline [nbMulti; cTopFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
   !! Function.inline [step; cFun "accumulateChargeAtCorners"];
   !! Function.inline ~vars:(AddSuffix "2") [step; cFun "idCellOfPos"];
   !! List.iter (fun f -> Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; f; cFun "cornerInterpolationCoeff"])
      stepsl;
   !! iter_dims (fun d -> Variable.reuse ~space:(var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
-  
+  !! Trace.reparse();
 
-  bigstep "Optimization of charge accumulation";
+  bigstep "Simplification of the deposit of charge";
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
   !! Loop.fusion_targets [cMark "fuse"];
-  !! Trace.reparse();
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
   bigstep "Low level iteration on chunks of particles";
+   (* TODO: Fix the issue with function inlining inside for loops *)
   !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
   !! Function.inline [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
   !! Variable.inline [steps; cVarDef "bag_iter"];
   !! Sequence.intro ~mark:"loop" ~start:[steps; cVarDef "bag_it"] ~nb:2 ();
   !! Sequence.intro_on_instr [steps; cMark "loop"; cFor_c ""; dBody];
-  !! Function_basic.uninline ~fct:[cFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cMark "loop"]; (* TODO Calling Function.uninline loops *)
-  !! Expr.replace_fun "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
-  !! Function.inline [steps; cFun "bag_iter_ho_chunk"];
+  !! Function_basic.uninline ~fct:[cTopFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cMark "loop"]; (* TODO Calling Function.uninline loops *)
+  !! Expr.replace_fun ~inline:true "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
   !! List.iter (fun f -> Function.beta ~indepth:true [f]) stepFuns;
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
   bigstep "Elimination of the pointer on a particle, to prepare for aos-to-soa";
-  !! Variable.init_detach [steps; cVarDef "p"];
-  !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
-  !! Instr.delete [steps; cVarDef "p"];
+  !! !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
 
   bigstep "Preparation for AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
@@ -140,10 +137,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d))))) [tBefore; steps; cFor "idCell" ~body:[cFor "i"]];
   !! Function.inline ~delete:true [steps; cFun "getFieldAtCorners"];
   !! Variable.rename ~into:"field_at_corners" [step; cVarDef "res"];
-  !! Struct.set_explicit [steps; cFor "k"; cCellWrite ~base:[cFieldRead ~base:[cVar "field_at_corners"] ()] ()];
+  !! Struct.set_explicit [steps; cFor "idCorner"; cCellWrite ~base:[cFieldRead ~base:[cVar "field_at_corners"] ()] ()];
   !! iter_dims (fun d ->
       let d1 = String.lowercase_ascii d in
-      Accesses.scale ~factor:(var ("factor" ^ d)) [steps; cFor "k"; cFieldWrite ~field:d1 ()]);
+      Accesses.scale ~factor:(var ("factor" ^ d)) [steps; cFor "idCorner"; cFieldWrite ~field:d1 ()]);
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(var ("factor" ^ d)) [steps; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
   !! Variable.unfold [step; cVarDef  "factorC"];
@@ -167,12 +164,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.scale ~factor:(expr ("cell"^d)) [addPart; cFieldRead ~field:d_lc ~base:[cVar "pos"] ()]);
   !! iter_dims (fun d ->
      Accesses.scale ~neg:true ~factor:(expr ("cell"^d))
-         [nbMulti; steps; cOr [[sExprRegexp ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]); 
+         [nbMulti; steps; cOr [[sExprRegexp ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]);
 
   bigstep "Simplify arithmetic expressions after scaling";
   !! Trace.reparse();
   !! Variable.inline [steps; cVarDef "accel"];
-  !! Arith.with_nosimpl [nbMulti; steps; cFor "k"] (fun () ->
+  !! Arith.with_nosimpl [nbMulti; steps; cFor "idCorner"] (fun () ->
        Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
   (* !! Function.use_infix_ops ~indepth:true [step; dBody]; *)
 
@@ -181,7 +178,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Enumerate grid cells by coordinates";
   !! Instr.read_last_write ~write:[cWriteVar "nbCells"] [step; cFor "idCell" ~body:[cFor "i"]; cReadVar "nbCells"];
-  !! Loop.grid_enumerate ~indices:(map_dims (fun d -> "i"^d)) [step; cFor "idCell" ~body:[cFor "k"]];
+  !! Loop.grid_enumerate ~indices:(map_dims (fun d -> "i"^d)) [step; cFor "idCell" ~body:[cFor "idCorner"]];
 
   bigstep "Code cleanup in preparation for shifting of positions";
   !! iter_dims (fun d ->
@@ -215,7 +212,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! iter_dims (fun d ->
       Instr.read_last_write ~write:[cTopFunDef "computeConstants"; cWriteVar ("cell"^d)] [nbMulti;step; cFun "fwrap";cReadVar ("cell"^d)];);
 
-  !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "k"] (fun () ->
+  !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "idCorner"] (fun () ->
        Arith.(simpl ~indepth:true expand) [nbMulti; stepsReal]);
   !! Variable.inline [stepsReal; cVarDef ~regexp:true "r.."];
   !! Instr.delete [nbMulti; stepsReal; cVarDef ~regexp:true "i.0"];
@@ -226,41 +223,41 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     !! Struct.update_fields_type "itemsPos." (ty "float") [cTypDef "chunk"];
   end;
 
-  bigstep "Replacement of the wrap-around operation on doubles with a bitwise operation, assuming grid sizes to be powers of 2";
+  bigstep "Replacement of the floating-point wrap-around operation with an integer wrap-around";
    let fwrapInt = "double fwrapInt(int m, double v) {
       const int q = int_of_double(v);
       const double r = v - q;
       const int j = wrap(m, q);
       return j + r;
     }" in
-  !! Sequence.insert ~reparse:true (stmt fwrapInt) [tBefore; step];
-  !! Expr.replace_fun "fwrapInt" [nbMulti;step; cFun "fwrap"];
+  !! Function.insert ~reparse:true fwrapInt [tBefore; step];
+  !! Expr.replace_fun "fwrapInt" [nbMulti; step; cFun "fwrap"];
   !! iter_dims (fun d ->
       Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"]);
+  if grid_dims_power_of_2 then
+    !! Rewrite.equiv_at ~glob_defs:"int wrap(int, int);\n" "int a, b; ==> wrap(a,b) == (b & (a -1))" [nbMulti; step; cFun "wrap"];
 
+  bigstep "Simplification of computations for positions and destination cell";
   !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarDef ("i"^d^"2");cInit()];);
   !! Variable.inline_and_rename [nbMulti; step; cVarDef ~regexp:true "i.2" ];
-
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];
-  !! Expr.replace_fun "wrapPowerof2" [nbMulti; step; cFun "wrap"];
-  !! Function.inline ~delete:true [nbMulti; step; cFun "wrapPowerof2"];
 
   bigstep "Introduce matrix operations, and prepare loop on charge deposit";
   !! Label.add "core" [step; cFor "iX" ];
   !! Matrix.intro_mops (expr "nbCells") [nbMulti; cVarDef ~regexp:true "\\(deposit\\|bagsNext\\)"];
-  !! Label.add "charge" [step; cFor "k" ~body:[cVar "deposit"]];
+  !! Label.add "charge" [step; cFor "idCorner" ~body:[cVar "deposit"]];
   !! Variable.inline [occLast; step; cVarDef "indices"];
 
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
-  let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "deposit"] in
+  let alloc_instr = [cTopFunDef "allocateStructures"; cWriteVar "deposit"] in
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
-     (* ~labels:["alloc"; ""; "dealloc"] ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""]) *)
-     ~dim:(expr "8") ~index:"idCorner" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "k")) ~alloc_instr [cLabel "core"];
+     ~labels:["alloc"; ""; "dealloc"] ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
+     ~dim:(expr "8") ~index:"idCorner" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (expr "idCorner")) ~alloc_instr [cLabel "core"];
 
   bigstep "Apply a bijection on the array storing charge to vectorize charge deposit";
-  let mybij_def =
-      "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
+  let bij_def =
+      "int bij(int nbCells, int nbCorners, int idCell, int idCorner) {
         coord coord = coordOfCell(idCell);
         int iX = coord.iX;
         int iY = coord.iY;
@@ -277,63 +274,47 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
         };
       return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
       }" in
-  !! Sequence.insert (stmt mybij_def) [tBefore; step];
-  !! Matrix.biject "mybij" [step; cVarDef "depositCorners"];
-  !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, k)")
-      [step; sExpr "mybij(nbCells, 8, indicesOfCorners(idCell2).v[k], k)"];
+  !! Function.insert bij_def [tBefore; step];
+  !! Matrix.biject "bij" [cVarDef "depositCorners"];
+  !! Expr.replace ~reparse:false (expr "MINDEX2(nbCells, 8, idCell2, idCorner)")
+      [step; sExpr "bij(nbCells, 8, indicesOfCorners(idCell2).v[idCorner], idCorner)"];
 
   (* Part 2: parallelization *)
 
   bigstep "Decompose the loop to allow for parallelization per blocks";
   !! Variable.insert_list_same_type (ty "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
-  let colorize (tile : string) (color : string) (d:string) : unit =
-    let bd = "b" ^ d in
-    Loop.tile tile ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
-    Loop.color (expr color) ~index:("c"^d) [step; cFor bd]
-    in
-  !! iter_dims (fun d -> colorize "2" "block" d);
+  !! iter_dims (fun d -> let bd = "b"^d in 
+      Loop.tile (expr "block") ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
+      Loop.color (lit "2") ~index:("c"^d) [step; cFor bd] );
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
+  !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
+  !! Omp.atomic [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
+  !! Omp.parallel_for ~collapse:3 [tBefore; step; cFor "bX"];
 
   bigstep "Introduce nbThreads and idThread";
-  !! Sequence.insert (expr "#include \"omp.h\"") [tFirst; dRoot];
-  !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(ty "int") ~value:(lit "4") [tBefore; cVarDef "nbCells"];
+  !! Omp.header ();
+  !! Variable.insert ~const:false ~name:"nbThreads" ~typ:(ty "int") [tBefore; cVarDef "nbCells"];
   !! Omp.get_thread_num "idThread" [tBefore; step; cFor "iX"];
+  !! Omp.set_num_threads ("nbThreads") [tFirst; cTopFunDef "main"; dBody];
   !! Trace.reparse();
 
-  bigstep "Parallelize the code using concurrent operations (they are subsequently eliminated)";
-  (* BEAUTIFY: should be integrated earlier with "Decompose the loop to allow for parallelization per blocks";*)
-  !! Omp.atomic None [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
-  !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
-  !! Omp.parallel_for ~clause:[Collapse 3] [tBefore; step; cFor "bX"];
-
-  (* Part 3: refinement of the parallelization to eliminate atomic operations *)
-
   bigstep "Duplicate the charge of a corner for each of the threads";
+  let alloc_instr = [cTopFunDef "allocateStructures"; cWriteVar "depositCorners"] in
   !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
       ~init_zero:true ~dim:(expr "nbThreads") ~index:"idThread" ~acc_in_place:true ~ops:delocalize_sum ~use:(Some (expr "idThread"))
-      [cLabel "core"]; (* BEAUTIFY: above and elsewhere, (expr "myvar") should be replaced with (var "myvar"), to avoid reparsing *)
-      (* BEAUTIFY:
-      ~decl_target:[tAfter; dRoot; cStrict; cVarDef "deposit"]
-      ~alloc_target:(Some [tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"])
-      ~dealloc_target:(Some[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"])*)
+      ~labels:["alloc"; ""; "dealloc"] ~alloc_instr ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
+      [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
-  !! Variable.init_detach [nbMulti; step; cVarDef ~regexp:true "deposit.*Corners"];
-  !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef ~regexp:true "deposit.*Corners"];
-  !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar ~regexp:true "deposit.*Corners"];
-  !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
-    (* BEAUTIFY:  ~dest:[tLast; cTopFunDef "allocateStructures"; dBody]  *)
-  (* TODO: mark the accumulation loop as "depositSum" at the delocalize step
-      !! Omp.parallel_for [tBefore; step; cMark "depositSum"]]; *)
   !! Instr.delete [step; cLabel "charge"; cOmp()]; (* BEAUTIFY: Instr.set_nonatomic ; also cPragma is needed *)
 
   bigstep "Introduce private and shared bags, and use shared ones only for particles moving more than one cell away";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
-    ~alloc_instr:[cFunDef "allocateStructures"; cWriteVar "bagsNext"]
+    ~alloc_instr:[cTopFunDef "allocateStructures"; cWriteVar "bagsNext"]
+    ~labels:["alloc"; ""; "dealloc"] ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
     ~index:"bagsKind" ~ops:delocalize_bag [cLabel "core"];
-  !! Variable.insert_list_same_type (ty "const int") [("PRIVATE", lit "0"); ("SHARED", lit "1")] [tFirst; step; dBody];
+  !! Variable.insert_list_same_type (ty "const int") [("PRIVATE", lit "0"); ("SHARED", lit "1")] [tBefore; cTopFunDef "step"];
   !! Instr.delete [step; cFor "idCell" ~body:[cFun "bag_swap"]];
   !! Variable.exchange "bagsNext" "bagsCur" [nbMulti; step; cFor "idCell"];
-  !! Instr.move_out ~dest:[tBefore; cTopFunDef "step"] [step; cVarDefs ["PRIVATE";"SHARED"]];
   !! Instr.delete [cOr[[cVarDef "bagsNext"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
   !! Variable.insert ~typ:(ty "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
   let pushop = cFun "bag_push_concurrent" in
@@ -348,31 +329,24 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Specialize.any (expr "PRIVATE") [step; cIf(); dThen; pushop; cAny];
   !! Specialize.any (expr "SHARED") [step; cIf(); dElse; pushop; cAny];
   !! Expr.replace_fun "bag_push_serial" [step; cIf(); dThen; pushop];
-  !! Trace.reparse ();
-  !! Variable.init_detach [nbMulti; step; cVarDef "bagsNexts"]; (*BEAUTIFY: attach to the delocalize op *)
-  !! Instr.move_out ~dest:[tAfter; cVarDef "deposit"] [nbMulti; step; cVarDef "bagsNexts"];
-  !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cWriteVar "deposit"] [nbMulti; cWriteVar "bagsNexts"];
-  !! Instr.move_out ~dest:[tAfter; cTopFunDef "deallocateStructures"; cFun "free" ~args:[[cVar "field"]]] [nbMulti; step; cFun "MFREE"];
-  !! Instr.move_out ~dest:[tAfter; cTopFunDef "allocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_init_initial"]];
-  !! Instr.move_out ~dest:[tBefore; cTopFunDef "deallocateStructures"; cFor ""] [nbMulti;step; cFor "idCell" ~body:[cFun "bag_free_initial"]];
-  !! Instr.delete [step; cVarDef "contribs"];
 
   bigstep "Parallelize and optimize loops that process bags";
+  !! Trace.reparse();
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
-  !! Omp.parallel_for [nbMulti; tBefore; step; cFor "idCell"]; 
+  !! Omp.parallel_for [nbMulti; tBefore; stepsReal; cFor "idCell"];
   !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
 
   (* Part 4: Vectorization *)
 
   bigstep "Loop splitting: process speeds, process positions, deposit particle and its charge";
   (* Unrolling coeff computation loops and inlining coeff writes *)
-  !! Loop.unroll [occFirst; step; cFor "i"; cFor "k"];
-  !! Loop.unroll [stepLF; cFor "i"; cFor "k"];
+  !! Loop.unroll [occFirst; step; cFor "i"; cFor "idCorner"];
+  !! Loop.unroll [stepLF; cFor "i"; cFor "idCorner"];
   !! Instr.inline_last_write [nbMulti; steps; cCellRead ~base:[cFieldRead ~base:[cVar "coeffs"] ()] ()];
   !! iter_dims (fun d ->
        Instr.inline_last_write [steps; cCellWrite ~base:[cFieldRead ~field:("itemsSpeed"^d) ()] (); cReadVar ("fieldAtPos"^d)];);
   !! Variable.inline [nbMulti; steps; cVarDef ~regexp:true "fieldAt.*"];
-  !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "k"] (fun () ->
+  !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "idCorner"] (fun () ->
        Arith.(simpl ~indepth:true expand) [nbMulti; stepsReal; cFor "i"]);
   !! Variable.to_nonconst [step; cVarDef "idCell2"];
   !! Loop.hoist ~array_size:(Some (expr "CHUNK_SIZE")) [step; cVarDef "idCell2"];
@@ -381,6 +355,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move ~dest [step; cVarDef "co"];
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
   !! Variable.inline [nbMulti; step; cVarDef "idCell2"];
+  !! Instr.delete [step; cVarDef "contribs"];
+
 
   bigstep "Data alignment";
   !! Align.def (lit "64") [nbMulti; cOr [[cStrict; cVarDef ~regexp:true "\\(coef\\|sign\\)."];
@@ -403,10 +379,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.simd [nbMulti; tBefore; cOr [
     [cFor "idCell" ~body:[cFor "bagsKind"]; cFor "idCorner"];
     [stepLF; cFor "i"];
-    [cDiff [[step; cFor "i"]] [[step; cFor "i"  ~body:[cFor "k"]]] ]; (* A / B logic *)
+    [cDiff [[step; cFor "i"]] [[step; cFor "i"  ~body:[cFor "idCorner"]]] ]; (* A / B logic *)
     ]];
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [tBefore; step; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];
+
 )
 (*
 
@@ -507,18 +484,6 @@ void applyScalingShifting(bool dir) { // dir=true at entry, dir=false at exit
 */
 
 *)
-
-
-(* BEAUTIFY (clang-format issue)
-  missing spaces in:
-    return (vect){d * v.x, d * v.y, d * v.z};
-  should be
-   return (vect) { d * v.x, d * v.y, d * v.z };
-
-  too many spaces in:
-    const  double cellVolume = cellX * cellY * cellZ;
-  probably due to the way you print aliasas attributes
-   *)
 
 
 (* LATER: keep this code, it might be useful in the future

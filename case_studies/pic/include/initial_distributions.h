@@ -108,10 +108,10 @@ enum TEST_CASES_2D {
     NB_TEST_CASE_2D // Always has to be last if you update this enum !
 };
 
-char distribution_names_2d[NB_TEST_CASE_2D][42];
-speeds_generator_2d speed_generators_2d[NB_TEST_CASE_2D];
-distribution_function_2d distribution_funs_2d[NB_TEST_CASE_2D];
-max_distribution_function distribution_maxs_2d[NB_TEST_CASE_2D];
+extern char distribution_names_2d[NB_TEST_CASE_2D][42];
+extern speeds_generator_2d speed_generators_2d[NB_TEST_CASE_2D];
+extern distribution_function_2d distribution_funs_2d[NB_TEST_CASE_2D];
+extern max_distribution_function distribution_maxs_2d[NB_TEST_CASE_2D];
 
 
 
@@ -171,12 +171,12 @@ enum TEST_CASES_2D3V {
     NB_TEST_CASE_2D3V           // Always has to be last if you update this enum !
 };
 
-char distribution_names_2d3v[NB_TEST_CASE_2D3V][42];
-speeds_generator_2d speed_generators_2d3v_vyvz[NB_TEST_CASE_2D3V];
-distribution_function_3d distribution_funs_2d3v_xyvx[NB_TEST_CASE_2D3V];
-speeds_generator_3d speed_generators_2d3v_vxvyvz[NB_TEST_CASE_2D3V];
-distribution_function_2d distribution_funs_2d3v_xy[NB_TEST_CASE_2D3V];
-max_distribution_function distribution_maxs_2d3v[NB_TEST_CASE_2D3V];
+extern char distribution_names_2d3v[NB_TEST_CASE_2D3V][42];
+extern speeds_generator_2d speed_generators_2d3v_vyvz[NB_TEST_CASE_2D3V];
+extern distribution_function_3d distribution_funs_2d3v_xyvx[NB_TEST_CASE_2D3V];
+extern speeds_generator_3d speed_generators_2d3v_vxvyvz[NB_TEST_CASE_2D3V];
+extern distribution_function_2d distribution_funs_2d3v_xy[NB_TEST_CASE_2D3V];
+extern max_distribution_function distribution_maxs_2d3v[NB_TEST_CASE_2D3V];
 
 #endif // ifndef PIC_VERT_INITIAL_DISTRIBUTIONS
 
