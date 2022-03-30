@@ -217,5 +217,6 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ] || [ "${ACTION}" = "ru
 
       echo -e "${EXECTIME}\t${THROUGHPUT}\t${FILE}" | tee >> ${FINAL_RES}
     done
+    CAT_OUTPUT=`cat ${FINAL_RES}`
   fi
 fi
