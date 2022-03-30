@@ -124,6 +124,8 @@ typedef struct bag_iter {
 
 void bag_init(bag* b);
 
+void bag_append_noinit(bag* b, bag* other);
+
 void bag_append(bag* b, bag* other);
 
 void bag_nullify(bag* b);
@@ -266,11 +268,7 @@ chunk* chunk_next(chunk* c, bool destructive) {
   return cnext;
 }
 
-void bag_push_initial(bag* b, particle p) { bag_push_serial(b, p); }
-
-void bag_init_initial(bag* b) { bag_init(b); }
-
-void bag_free_initial(bag* b) {
+void bag_free(bag* b) {
   chunk* c = b->front;
   while (c != NULL) {
     c = chunk_next(c, true);

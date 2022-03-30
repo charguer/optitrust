@@ -38,9 +38,8 @@ typedef struct bag_iter {
 
 
 void bag_init(bag* b);
-// void bag_init(bag* b, int id_bag, int id_cell);
+void bag_append_noinit(bag* b, bag* other);
 void bag_append(bag* b, bag* other);
-// void bag_append(bag* b, bag* other, int id_bag, int id_cell);
 void bag_nullify(bag* b);
 int bag_size(bag* b);
 void bag_add_front_chunk(bag* b);

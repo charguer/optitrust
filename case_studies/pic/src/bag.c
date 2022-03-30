@@ -342,6 +342,14 @@ chunk* chunk_next(chunk* c, bool destructive) {
   return cnext;
 }
 
+// Free all the chunks in a bag
+void bag_free(bag* b) {
+  chunk* c = b->front;
+  while (c != NULL) {
+    c = chunk_next(c, true);
+  }
+}
+
 //==========================================================================
 // Iteration
 
@@ -472,39 +480,5 @@ void bag_iter_ho_chunk(bag* b, void body(particle*), bool destructive) {
         }
 */
 
-
-//==========================================================================
-// Initial, sequential manipulation of bags
-
-// TODO: inline this functions in the main initialization code
-
-/*
- * The following functions do the same thing as their counterparts
- * without "_initial" in their names, except here they are used only in
- * the initialization of the particles, and not in the rest of the simulation.
- * All the free chunks are in only one list. At the end of the initialization,
- * they have to be split into one free list per thread.
- */
-
-void bag_push_initial(bag* b, particle p) {
-  bag_push_serial(b, p); // threadid=THREAD_INITIAL
-}
-
-/* void bag_init_initial(bag* b) {
-  bag_init(b, -1, -1); // threadid=THREAD_INITIAL
-  // TODO: maybe put the thread_id argument before id_bag and id_cell (both are dummy values here)
-} */
-void bag_init_initial(bag* b) {
-  bag_init(b);
-}
-
-
-// Free all the chunks in a bag
-void bag_free_initial(bag* b) {
-  chunk* c = b->front;
-  while (c != NULL) {
-    c = chunk_next(c, true);
-  }
-}
 
 #endif
