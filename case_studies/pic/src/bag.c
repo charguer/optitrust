@@ -159,6 +159,40 @@ void release_freelists() {
 
 // ----- custom implementation of chunk alloc and free
 
+chunk* freelist_try_pop(int idThread) {
+  chunk_freelist* cf = &chunk_freelists[idThread];
+  if (cf->nb > 0) {
+    cf->nb--;
+    return cf->items[cf->nb];
+  } else {
+    return NULL;
+  }
+}
+
+// initialize a collection of bags, using all freelists, from a single-threaded context
+void bag_init_array(bag** bags, int nb) {
+  // LATER: this could be done in parallel (requires prefix sums and tiling to balance the load)
+  const int nbThreads = get_num_threads();
+  int idThread = 0;
+  chunk_freelist* cf = &chunk_freelists[idThread];
+  for (int i = 0; i < nb; i++) {
+    chunk* c = freelist_try_pop(idThread);
+    if (c == NULL) {
+      idThread++;
+      if (idThread == nbThreads) { // complete using alloc
+        for (; i < nb; i++) {
+          bag_init_using(bags[i], chunk_alloc());
+        }
+        return;
+      }
+      i--; // restart the iteration with another thread
+      continue;
+    } else {
+      bag_init_using(bags[i], c);
+    }
+  }
+}
+
 chunk* bag_chunk_alloc() {
   const int idThread = get_id_thread();
   chunk_freelist* cf = &chunk_freelists[idThread];
