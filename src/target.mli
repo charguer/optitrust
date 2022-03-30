@@ -332,6 +332,8 @@ val filter_constr_occurrence : target -> target
 
 val enable_multi_targets : target -> target
 
+val relative_target : target -> target
+
 val compute_stringreprs_and_update_ast : ?optitrust_syntax:bool -> (trm->bool) -> AstC_to_c.stringreprs
 
 (* Target resolution *)
@@ -409,7 +411,7 @@ val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 val get_trm_at : target -> trm option
 val get_ast : unit -> trm
 
-val var : ?annot:trm_annot list -> ?loc:location -> ?add:special_operator list -> ?typ:Ast.typ option -> ?attributes:attribute list -> ?ctx:ctx option -> ?marks:string list -> ?kind:varkind-> string -> trm
+val var : ?mut:bool -> string  -> trm
 
 val lit : string -> trm
 

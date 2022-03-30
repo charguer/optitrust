@@ -14,7 +14,7 @@ inline int wrap(int gridSize, int a) {
 
 // --------- Grid Representation
 
-#define nbCorners 8 // const int nbCorners = 8;
+const int nbCorners = 8;
 
 inline int cellOfCoord(int i, int j, int k) {
   return MINDEX3(gridX,gridY,gridZ,i,j,k);
@@ -75,15 +75,15 @@ inline coord coordOfCell(int idCell) {
 }
 
 typedef struct {
-  int v[nbCorners];
+  int v[8];
 } int_nbCorners;
 
 typedef struct {
-  double v[nbCorners];
+  double v[8];
 } double_nbCorners;
 
 typedef struct {
-  vect v[nbCorners];
+  vect v[8];
 } vect_nbCorners;
 
 int_nbCorners indicesOfCorners(int idCell) {

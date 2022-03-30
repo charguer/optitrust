@@ -229,3 +229,4 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ] || [ "${ACTION}" = "ru
     CAT_OUTPUT=`cat ${FINAL_RES}`
   fi
 fi
+

@@ -783,6 +783,15 @@ let enable_multi_targets (tg : target) : target =
       then tg
       else nbMulti::tg
 
+
+(* [relative_target tg] if tg is not a relative target, then this function will convert it 
+     to a relative one by adding a tBefore in front of tg *)
+let relative_target (tg : target) : target = 
+  if List.exists (function Constr_relative _ -> true | _ -> false) tg 
+    then tg 
+    else tBefore :: tg
+
+
 (******************************************************************************)
 (*                          Apply on target operations                        *)
 (******************************************************************************)

@@ -153,3 +153,8 @@ let move_out ?(rev : bool = false) ~dest:(dest : Target.target) : Target.Transfo
     Sequence_basic.insert ~reparse:false tg_trm dest;
     Instr_basic.delete [Target.cMark "instr_move_out"]
 )
+
+(* [set_atomic tg] just an alias to Omp.atomic tg, please refer to omp_basic.ml  line 9*)
+let set_atomic : Target.Transfo.t = 
+  Omp_basic.atomic 
+
