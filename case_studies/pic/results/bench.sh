@@ -17,6 +17,7 @@
 # The environment variable NB=100 to use 100 million particles
 # The environment variable RUNS=2 to perform more than 1 run
 # The environment variable SEED=42 to provide the seed 42 (default is to use the RUN_ID)
+# The environment variable STEPS=100 to provide the number of steps
 
 # Example:  FAST=1 ./bench.sh
 # Example:  FAST=1 COMP=gcc PROG=pic_demo.c ./bench.sh run
@@ -147,7 +148,15 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ] || [ "${ACTION}" = "params
 
   cp ${PARAMSTEMPLATE} ${PARAMSFILE}
   echo "nb_particles = ${NBPARTICLES};" >> ${PARAMSFILE}
-  echo "Generated ${PARAMSFILE}   with nb_particles=${NBPARTICLES}"
+  if [ ! -z ${STEPS} ]; then
+    sed -i '/^nb_iterations/d' ${PARAMSFILE}
+    echo "nb_iterations = ${STEPS};" >> ${PARAMSFILE}
+    STEPMSG=", nb_iterations=${STEPS}"
+  else
+    STEPMSG=""
+  fi
+
+  echo "Generated ${PARAMSFILE}   with nb_particles=${NBPARTICLES}${STEPMSG}"
 
 fi
 

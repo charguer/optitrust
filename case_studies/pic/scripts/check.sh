@@ -3,9 +3,7 @@
 # Script to execute compile.sh and run.sh
 
 # Usage:  ./check.sh ${TARGET1} ${TARGET2}
-#  where ${TARGET} is a C filename from the folder simulations/
-#  where ${CHECKER_OUTFILE} is an optional filename argument,
-#        where to output particles in the final state
+#  where ${TARGET1} and ${TARGET2} are filenames from the folder simulations/
 
 TARGET1=$1
 TARGET2=$2
