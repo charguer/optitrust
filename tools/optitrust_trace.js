@@ -1,4 +1,6 @@
 
+var displayTime = false;
+
 //---------------------------------------------------
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
@@ -215,7 +217,10 @@ function loadSdiff(id) {
   var step = smallsteps[id];
   loadDiffFromString(step.diff);
   var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
-  var sTime = htmlSpan(step.exectime + "ms", "timing-info") + "<div style='clear: both'></div>";
+  if (displayTime) {
+    var sTime = htmlSpan(step.exectime + "ms", "timing-info") + "<div style='clear: both'></div>";
+    sStep += sTime;
+  }
   displayInfo(sStep + sTime);
   $("#button_sdiff_" + id).addClass("ctrl-button-selected");
   // DEPRECATED $("#button_code_" + id).addClass("ctrl-button-covered");

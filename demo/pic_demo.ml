@@ -86,7 +86,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.reuse ~space:(expr "p->pos") [step; cVarDef "pos2"];
 
   bigstep "Reveal write operations involved in the manipulation of particles and vectors";
-  let ctx = cTopFunDefs ["bag_push_serial";"bag_push_concurrent"] in 
+  let ctx = cTopFunDefs ["bag_push_serial";"bag_push_concurrent"] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
   !! Trace.reparse ();
@@ -107,6 +107,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
   !! Loop.fusion_targets [cMark "fuse"];
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
+  (* !! Omp.simd [tBefore; step; cFor "idCorner" ~body:[cVar "deposit"]]; --FOR PAPER; actually done further *)
 
   bigstep "Low level iteration on chunks of particles";
    (* TODO: Fix the issue with function inlining inside for loops *)
@@ -121,7 +122,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
   bigstep "Elimination of the pointer on a particle, to prepare for aos-to-soa";
-  !! !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
+  !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
 
   bigstep "Preparation for AOS-TO-SOA";
   !! Struct.set_explicit [step; cVarDef "p2"];
