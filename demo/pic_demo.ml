@@ -107,6 +107,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
   !! Loop.fusion_targets [cMark "fuse"];
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
+  (* !! Omp.simd [tBefore; step; cFor "idCorner" ~body:[cVar "deposit"]]; --FOR PAPER; actually done further *)
 
   bigstep "Low level iteration on chunks of particles";
    (* TODO: Fix the issue with function inlining inside for loops *)
