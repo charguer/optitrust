@@ -113,6 +113,8 @@ chksmallsteps: smallsteps_gen chksteps_run
 init: optitrust import 
 
 trace: pic_demo_trace.html
+	sed -i "s/<script>/<script>hideLines();/" pic_demo_trace.html 
+	
 
 traceview: trace
 	$(V)chromium-browser pic_demo_trace.html &

@@ -32,6 +32,7 @@ let usechecker = !usechecker
 (* UNCOMMENT THE LINE BELOW FOR WORKING ON THE VERSION WITH THE CHECKER *)
 (* let usechecker = true  *)
 
+let grid_dims_power_of_2 = true
 
 let onlychecker p = if usechecker then [p] else []
 let doublepos = false (* LATER: Arthur make this a command line command *)
@@ -225,7 +226,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     !! Struct.update_fields_type "itemsPos." (ty "float") [cTypDef "chunk"];
   end;
 
-  bigstep "Replacement of the floating-point wrap-around operation with a bitwise operation, assuming grid sizes to be powers of 2";
+  bigstep "Replacement of the floating-point wrap-around operation with an integer wrap-around";
    let fwrapInt = "double fwrapInt(int m, double v) {
       const int q = int_of_double(v);
       const double r = v - q;
@@ -233,10 +234,15 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       return j + r;
     }" in
   !! Sequence.insert ~reparse:true (stmt fwrapInt) [tBefore; step];
-  !! Expr.replace_fun "fwrapInt" [nbMulti;step; cFun "fwrap"];
+  !! Expr.replace_fun "fwrapInt" [nbMulti; step; cFun "fwrap"];
   !! iter_dims (fun d ->
       Function.inline ~vars:(AddSuffix d) [step; cVarDef ("p"^d^"2"); cFun "fwrapInt"]);
+<<<<<<< HEAD
   !! Expr.replace_fun ~inline:true ~delete:true "wrapPowerof2" [nbMulti; step; cFun "wrap"];
+=======
+  if grid_dims_power_of_2 then
+    !! Expr.replace_fun ~inline:true ~delete:true "wrapPowerof2" [nbMulti; step; cFun "wrap"];
+>>>>>>> a04f2bf4a777a36fc2cf26706cf707b369f7d451
 
   bigstep "Simplification of computations for positions and destination cell";
   !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarDef ("i"^d^"2");cInit()];);
@@ -284,9 +290,15 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Decompose the loop to allow for parallelization per blocks";
   !! Variable.insert_list_same_type (ty "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
+<<<<<<< HEAD
   !! iter_dims (fun d -> let bd = "b"^d in 
       Loop.tile (expr "block") ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
       Loop.color (lit "2") ~index:("c"^d) [step; cFor bd] );
+=======
+  !! iter_dims (fun d -> let bd = "b"^d in
+      Loop.tile (lit "2") ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
+      Loop.color (expr "block") ~index:("c"^d) [step; cFor bd] );
+>>>>>>> a04f2bf4a777a36fc2cf26706cf707b369f7d451
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
   !! Omp.atomic [tBefore; step; cLabel "charge"; cWrite ()]; (* BEAUTIFY: Instr.set_atomic, and use cOR *)
@@ -298,7 +310,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.get_thread_num "idThread" [tBefore; step; cFor "iX"];
   !! Omp.set_num_threads ("nbThreads") [tFirst; cTopFunDef "main"; dBody];
   !! Trace.reparse();
-  
+
   bigstep "Duplicate the charge of a corner for each of the threads";
   let alloc_instr = [cFunDef "allocateStructures"; cWriteVar "depositCorners"] in
   !! Matrix.delocalize "depositCorners" ~into:"depositThreadCorners" ~indices:["idCell"; "idCorner"]
