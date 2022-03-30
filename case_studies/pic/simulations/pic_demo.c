@@ -136,7 +136,7 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   const double rX = relativePosX(pos.x);
   const double rY = relativePosY(pos.y);
   const double rZ = relativePosZ(pos.z);
-  
+
   const double cX = 1. - rX;
   const double cY = 1. - rY;
   const double cZ = 1. - rZ;
@@ -210,8 +210,8 @@ void allocateStructures() {
   bagsCur = (bag*) malloc(nbCells * sizeof(bag));
   bagsNext = (bag*) malloc(nbCells * sizeof(bag));
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag_init_initial(&bagsCur[idCell]);
-    bag_init_initial(&bagsNext[idCell]);
+    bag_init(&bagsCur[idCell]);
+    bag_init(&bagsNext[idCell]);
   }
 }
 
@@ -222,8 +222,8 @@ void deallocateStructures() {
 
   // Free the chunks
   for (int idCell = 0; idCell < nbCells; idCell++) {
-    bag_free_initial(&bagsCur[idCell]);
-    bag_free_initial(&bagsNext[idCell]);
+    bag_free(&bagsCur[idCell]);
+    bag_free(&bagsNext[idCell]);
   }
 
   // Free arrays
@@ -231,8 +231,6 @@ void deallocateStructures() {
   free(bagsNext);
   free(field);
 }
-
-
 
 // --------- Initialization
 
@@ -258,7 +256,7 @@ void addParticle(CHECKER_ONLY_COMMA(int idParticle) double x, double y, double z
 
   // Store the particle in the bag of the cell that contains the particle
   const int idCell = idCellOfPos(pos);
-  bag_push_initial(&bagsCur[idCell], p);
+  bag_push(&bagsCur[idCell], p);
 
   // Deposit the charge of the particle at the corners of the target cell
   double_nbCorners contribs = cornerInterpolationCoeff(pos);
@@ -330,7 +328,7 @@ void step() {
       double_nbCorners contribs = cornerInterpolationCoeff(pos2);
       accumulateChargeAtCorners(deposit, idCell2, contribs);
     }
-    bag_init_initial(b);
+    bag_init(b);
   }
   // For the next time step, the contents of bagNext is moved into bagCur (which is empty)
   for (int idCell = 0; idCell < nbCells; idCell++) {
