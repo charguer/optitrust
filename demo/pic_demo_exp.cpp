@@ -1,25 +1,12 @@
-#include <omp.h>  // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
-
-#include <stdlib.h>
-
-#include <stdio.h>
-
 #include <math.h>
-
-#include "mymacros.h"
-
-#include "mymacros.h"
-
+#include <omp.h>  // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
+#include <omp.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 
-#include <stdbool.h>
-
-#include <stdio.h>
-
-#include <stdio.h>
-
+#include "mymacros.h"
 #include "pic_demo_aux.h"
-
 #include "stdalign.h"
 
 inline int MINDEX1(int N1, int i1) { return i1; }
@@ -122,6 +109,8 @@ typedef struct bag_iter {
   int index;
 } bag_iter;
 
+void bag_init_using(bag* b, chunk* c);
+
 void bag_init(bag* b);
 
 void bag_append_noinit(bag* b, bag* other);
@@ -141,10 +130,6 @@ void bag_push_serial(bag* b, particle p);
 void bag_push(bag* b, particle p);
 
 void bag_swap(bag* b1, bag* b2);
-
-// void bag_push(struct bag* b, struct particle p);
-
-// void bag_init(struct bag* b);
 
 void bag_free(bag* b);
 
@@ -167,12 +152,20 @@ chunk* chunk_alloc() {
 
 void chunk_free(chunk* c) { free(c); }
 
-void bag_init(bag* b) {
-  chunk* c = chunk_alloc();
+chunk* bag_chunk_alloc() { return chunk_alloc(); }
+
+void bag_chunk_free(chunk* c) { chunk_free(c); }
+
+void bag_init_using(bag* b, chunk* c) {
   c->size = 0;
   c->next = NULL;
   b->front = c;
   b->back = c;
+}
+
+void bag_init(bag* b) {
+  chunk* c = bag_chunk_alloc();
+  bag_init_using(b, c);
 }
 
 void bag_append(bag* b, bag* other) {
@@ -199,14 +192,14 @@ int bag_size(bag* b) {
 }
 
 void bag_add_front_chunk_serial(bag* b) {
-  chunk* c = chunk_alloc();
+  chunk* c = bag_chunk_alloc();
   c->size = 0;
   c->next = b->front;
   b->front = c;
 }
 
 void bag_add_front_chunk_concurrent(bag* b) {
-  chunk* c = chunk_alloc();
+  chunk* c = bag_chunk_alloc();
   c->size = 0;
   c->next = b->front;
   atomic_write_chunk(&b->front, c);
@@ -263,7 +256,7 @@ void bag_swap(bag* b1, bag* b2) {
 chunk* chunk_next(chunk* c, bool destructive) {
   chunk* cnext = c->next;
   if (destructive) {
-    chunk_free(c);
+    bag_chunk_free(c);
   }
   return cnext;
 }
@@ -406,11 +399,17 @@ inline coord coordOfCell(int idCell) {
   return (coord){iX, iY, iZ};
 }
 
-typedef struct { int v[8]; } int_nbCorners;
+typedef struct {
+  int v[8];
+} int_nbCorners;
 
-typedef struct { double v[8]; } double_nbCorners;
+typedef struct {
+  double v[8];
+} double_nbCorners;
 
-typedef struct { vect v[8]; } vect_nbCorners;
+typedef struct {
+  vect v[8];
+} vect_nbCorners;
 
 int_nbCorners indicesOfCorners(int idCell) {
   const coord coord = coordOfCell(idCell);
