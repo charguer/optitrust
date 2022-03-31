@@ -159,7 +159,6 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       if !resname = "" then resname := "__TEMP_Optitrust";
       let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
       let path_to_call = path_to_instruction @ local_path in
-      Printf.printf "I was here\n";
       let tg_out_trm = Path.resolve_path path_to_instruction t in
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
