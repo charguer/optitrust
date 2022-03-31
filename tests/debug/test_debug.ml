@@ -1,11 +1,12 @@
 open Optitrust
 open Target
+open Path
 
-let _ = Run.script_cpp  (fun _ ->
+let _ = Run.script_cpp  ~parser:(Parsers.Menhir) (fun _ ->
 
-   show [cFun "test"];
-   (* Function.inline [cFun "test"]; *)
-
+   (* !! Function.inline [cVarDef "x"; cFun "test"]; *)
+   
+   !! Function.inline [nbMulti; cFun "test"];
    
 )
  

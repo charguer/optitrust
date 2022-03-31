@@ -159,6 +159,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       if !resname = "" then resname := "__TEMP_Optitrust";
       let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
       let path_to_call = path_to_instruction @ local_path in
+      
       let tg_out_trm = Path.resolve_path path_to_instruction t in
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
@@ -216,10 +217,9 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       | Trm_apps _ ->
         post_processing ();
       | Trm_for _ | Trm_for_c _ -> 
-        Trace.time "bind_intro2" (fun () ->
-          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call));
+          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call) ;
         mark_added := true;
-        post_processing ~deep_cleanup:false ();
+        post_processing ~deep_cleanup:true ();
       | _ -> fail tg_out_trm.loc "inline: please be sure that you're tageting a proper function call"
       end
     ) tg;
