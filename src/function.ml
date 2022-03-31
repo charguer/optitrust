@@ -149,7 +149,7 @@ int f2() { // result of Funciton_basic.inline_cal
 // using ~[cMark mymark] use ~((target_of_path p)++[cMark mymark])
 // where p is the path to the englobing sequence.*)
 
-let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) ?(delete : bool = false) (tg : Target.target) : unit =
+let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) ?(delete : bool = false) ?(debug : bool = false) (tg : Target.target) : unit =
     let function_name = ref "" in
     Trace.time "iteri_on_transformed_targets" (fun () ->
   Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
@@ -159,6 +159,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       if !resname = "" then resname := "__TEMP_Optitrust";
       let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
       let path_to_call = path_to_instruction @ local_path in
+      
       let tg_out_trm = Path.resolve_path path_to_instruction t in
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
@@ -216,10 +217,10 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       | Trm_apps _ ->
         post_processing ();
       | Trm_for _ | Trm_for_c _ -> 
-        Trace.time "bind_intro2" (fun () ->
-          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call));
+          if debug then Printf.printf "Full_path to the call: %s\n" (Path.path_to_string path_to_call);
+          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call) ;
         mark_added := true;
-        post_processing ~deep_cleanup:false ();
+        post_processing ~deep_cleanup:true ();
       | _ -> fail tg_out_trm.loc "inline: please be sure that you're tageting a proper function call"
       end
     ) tg;
@@ -289,9 +290,10 @@ let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg 
     of the body of the function declared in [fct]. Let nb be the number of instruction on the body of [fct]. The transformation
     will put the targeted instruction together with the following (nb -1) instructions into a sequence marked with a mark.
     Now the stage is ready for applying the basic version of uninline. After calling that transformation and assuming that
-    everything went fine we can now eliminate the introduced sequence.*)
+    everything went fine we can now eliminate the introduced sequence. The arg [with_for_loop] should be set to true if the 
+    original function declaration contains a for loop.*)
 
-let uninline ~fct:(fct : Target.target) : Target.Transfo.t =
+let uninline ?(contains_for_loop : bool = false) ~fct:(fct : Target.target) : Target.Transfo.t =
   let tg_fun_def = match Target.get_trm_at fct with
   | Some td -> td
   | None -> fail None "uninline: fct target does point to any node" in
@@ -303,6 +305,7 @@ let uninline ~fct:(fct : Target.target) : Target.Transfo.t =
       | Trm_seq tl ->
         let nb = Mlist.length tl in
         Sequence_basic.intro nb ~mark (Target.target_of_path p);
+        if contains_for_loop then Sequence_basic.intro_on_instr [cMark mark; cFor_c "";dBody];
         Function_basic.uninline ~fct [Target.cMark mark]
       | _ -> fail tg_fun_def.loc "uninline: weird function declaration "
       end
