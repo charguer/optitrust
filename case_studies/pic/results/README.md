@@ -77,6 +77,10 @@ FAST=1 is an alias for GRID=8
 FAST=2 is an alias for GRID=32
 
 ```
+# for fast run just to check everything
+NOSEQ=1 RUNS=2 SEED=0 FAST=1 NB=2 STEPS=50 ./bench.sh
+NOSEQ=1 RUNS=3 SEED=0 FAST=1 NB=10 STEPS=50 ./bench.sh
+
 # for parallel runs only
 NOSEQ=1 RUNS=3 SEED=0 FAST=2 NB=10 STEPS=50 ./bench.sh
 
