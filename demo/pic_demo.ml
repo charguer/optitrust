@@ -82,11 +82,17 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fold_instrs ~index:"idCorner" [cTopFunDef "cornerInterpolationCoeff"; cCellWrite ~base:[cVar "r"] ()];
 
   bigstep "Eliminate an intermediate storage by reusing an existing one";
+  (* TODO: beautify to
+     Variable.reuse (expr "p->speed") [step; cVarDef "speed2" ];
+     *)
   !! Variable.reuse ~space:(expr "p->speed") [step; cVarDef "speed2" ];
   !! Variable.reuse ~space:(expr "p->pos") [step; cVarDef "pos2"];
 
   bigstep "Reveal write operations involved in the manipulation of particles and vectors";
   let ctx = cTopFunDefs ["bag_push_serial";"bag_push_concurrent"] in
+  (* TODO: why does this not work for explicit on p->pos?
+  !! Trace.reparse ();
+  !! List.iter (fun typ -> Struct.set_explicit [nbMulti; cOr [[ctx]; [steps]]; cWrite ~typ ()]) ["particle"; "vect"]; *)
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
   !! Trace.reparse ();
@@ -159,6 +165,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       [nbMulti; steps; cFieldWrite ~base:[cVar "c"] (); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
   if usechecker then (!! iter_dims (fun d ->
         Accesses.scale ~neg:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarDef ("speed"^d); cInit()]));
+        (* TODO: everywhere, replace ~neg by ~inv *)
 
   bigstep "Applying a scaling factor on positions";
   !! iter_dims (fun d ->
@@ -173,10 +180,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.inline [steps; cVarDef "accel"];
   !! Arith.with_nosimpl [nbMulti; steps; cFor "idCorner"] (fun () ->
        Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
-  (* !! Function.use_infix_ops ~indepth:true [step; dBody]; *)
-
-      (* BEAUTIFY: remind me why we can't do a infixop just here? it would be very pretty;
-          (even if we have to undo it later) *)
+  (* !! Function.use_infix_ops ~indepth:true [step; dBody]; PAPER ONLY, else done further *)
 
   bigstep "Enumerate grid cells by coordinates";
   !! Instr.read_last_write ~write:[cWriteVar "nbCells"] [step; cFor "idCell" ~body:[cFor "i"]; cReadVar "nbCells"];
@@ -202,7 +206,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [cOr (
         [[addPart; cFieldWrite ~field:("pos"^d) ()]] @
         (onlychecker [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] ()]) )] );
-
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "0")) [stepsReal; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(var ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
@@ -285,9 +288,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Decompose the loop to allow for parallelization per blocks";
   !! Variable.insert_list_same_type (ty "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
-  !! iter_dims (fun d -> let bd = "b"^d in
-      Loop.tile (var ~mut:true "block") ~bound:TileBoundDivides ~index:("b"^d) [step; cFor ("i"^d)];
-      Loop.color (lit "2") ~index:("c"^d) [step; cFor bd] );
+  !! iter_dims (fun d -> let index = "b"^d in
+      Loop.tile (var ~mut:true "block") ~bound:TileBoundDivides ~index [step; cFor ("i"^d)];
+      Loop.color (lit "2") ~index:("c"^d) [step; cFor index] );
   !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
   !! Instr.set_atomic [step; cLabel "charge"; cWrite ()];
