@@ -73,8 +73,17 @@ program executed using 2 cores.
 
 ## Experiments
 
+FAST=1 is an alias for GRID=8
 FAST=2 is an alias for GRID=32
 
 ```
-NOSEQ=1 RUNS=1 SEED=0 FAST=2 NB=100 STEPS=100 ./bench.sh
+# for parallel runs only
+NOSEQ=1 RUNS=3 SEED=0 FAST=2 NB=10 STEPS=50 ./bench.sh
+
+# for sequential runs only
+NOPAR=1 RUNS=1 SEED=0 FAST=2 NB=10 STEPS=50 ./bench.sh
+
+# for big-machine only
+NOSEQ=1 RUNS=3 SEED=0 FAST=2 NB=100 STEPS=100 ./bench.sh
+NOSEQ=1 RUNS=3 SEED=0        NB=100 STEPS=100 ./bench.sh
 ```

@@ -220,7 +220,7 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ] || [ "${ACTION}" = "ru
     echo "====No summary in dry run mode===="
   else
     FINAL_RES="${MACHINEDIR}/output.txt"
-    echo "$BASH_SOURCE FAST=${FAST} NOSEQ=${NOSEQ} NOPAR=${NOPAR} PROG=${PROG} COMP=${COMP} DRY=${DRY} NB=${NB} RUNS=${RUNS} SEED=${SEED} STEPS=${STEPS}" > ${FINAL_RES}
+    echo "FAST=${FAST} NOSEQ=${NOSEQ} NOPAR=${NOPAR} PROG=${PROG} COMP=${COMP} DRY=${DRY} NB=${NB} RUNS=${RUNS} SEED=${SEED} STEPS=${STEPS} $BASH_SOURCE" > ${FINAL_RES}
     echo "====Summary : Exectime / Throughput / Program / Compiler / Cores =====" | tee >> ${FINAL_RES}
     for FILE in ${MACHINEDIR}/pic_*.txt; do
       # RES=$(sed '/^\(Throughput\)/!d' ${FILE})

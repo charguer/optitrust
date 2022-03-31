@@ -10,4 +10,9 @@ fi
 
 TIME=$(date '+%Y-%m-%d_%H-%M-%S');
 
-cp ${MACHINE}/output.txt saved/${MACHINE}_${TIME}.txt
+TARGET="saved/${MACHINE}_${TIME}.txt"
+cp ${MACHINE}/output.txt ${TARGET}
+
+git add ${TARGET}
+
+echo "Generated ${TARGET} and added it to git"
