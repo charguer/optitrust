@@ -7,7 +7,7 @@ int test(int a){
 int main(){
   
   int x = test(10);
-  for (int i = test(10); i < 10 ; i++){
+  for (int i = test(10); i != 10 ; i++){
     i += 10;
   }
   return 0;

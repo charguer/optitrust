@@ -20,7 +20,7 @@ let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
 let delocalize_bag = Local_obj ("bag_init", "bag_append", "bag_free")
 let align = 64
 
-(* Grab the "usechecker" flag from the command line **)
+(* Grab the "usechecker" flag from the command line *)
 let usechecker = ref false
 let _= Run.process_cmdline_args
   [("-usechecker", Arg.Set usechecker, " use -DCHECKER as preprocessor flag")]
@@ -46,12 +46,12 @@ let stepsReal = cOr (List.map (fun f -> [f]) stepsl) (* LATER: rename *)
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = onlychecker "-DCHECKER"
-let prepro = ["-DPRINTPERF"; "-DPRINTSTEPS"] @ prepro
+let prepro = ["-DPRINTPERF"] @ prepro
 
 (* LATER let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
    ~prefix *)
 
-(* let _ = Flags.code_print_width := 120 **)
+(* let _ = Flags.code_print_width := 120 *)
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.h";"bag_atomics.h";"bag.h-"] (fun () ->
 
@@ -110,7 +110,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Low level iteration on chunks of particles";
   !! Function.inline [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
-  !! Variable.inline [steps; cVarDef "bag_iter"];
   !! Sequence.intro_on_instr [steps; cFor_c ""; dBody];
   !! Function.uninline ~fct:[cTopFunDef "bag_iter_ho_basic"] [steps; cVarDef "bag_it"];
   !! Expr.replace_fun ~inline:true "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];

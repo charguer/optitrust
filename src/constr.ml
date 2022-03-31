@@ -1417,7 +1417,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
     | Dir_body, Trm_labelled (_, body) ->
      add_dir Dir_body (aux body)
   | Dir_for_c_init, Trm_for_c (init, _, _, _) ->
-     add_dir Dir_for_c_step (aux init)
+     add_dir Dir_for_c_init (aux init)
   | Dir_for_c_step, Trm_for_c (_, _, step, _) ->
      add_dir Dir_for_c_step (aux step)
   | Dir_for_start, Trm_for (_, start,  _, _, _, _) ->

@@ -149,7 +149,7 @@ int f2() { // result of Funciton_basic.inline_cal
 // using ~[cMark mymark] use ~((target_of_path p)++[cMark mymark])
 // where p is the path to the englobing sequence.*)
 
-let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) ?(delete : bool = false) (tg : Target.target) : unit =
+let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) ?(delete : bool = false) ?(debug : bool = false) (tg : Target.target) : unit =
     let function_name = ref "" in
     Trace.time "iteri_on_transformed_targets" (fun () ->
   Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
@@ -217,6 +217,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       | Trm_apps _ ->
         post_processing ();
       | Trm_for _ | Trm_for_c _ -> 
+          if debug then Printf.printf "Full_path to the call: %s\n" (Path.path_to_string path_to_call);
           Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call) ;
         mark_added := true;
         post_processing ~deep_cleanup:true ();
