@@ -89,6 +89,7 @@ COMPILEINFOS="Build ${BINARY} with ${COMPILER} ${OPTIMLEVEL} ${DEBUGFLAGS} ${PER
 
 # Use -DPOSTYPEDOUBLE to use double for positions in pic_barsamian.c, like in unoptimized pic_demo
 DOUBLEPRECISION="-DPOSTYPEDOUBLE"
+
 echo ${COMPILEINFOS}
 
 EXTRA_SPECIFIC_PRE=

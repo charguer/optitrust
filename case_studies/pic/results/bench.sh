@@ -124,6 +124,7 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ] || [ "${ACTION}" = "params
   CONFIGFILE="${ROOTDIR}/your_configuration.sh"
   cp template_your_configuration.sh ${CONFIGFILE}
   echo "nb_threads=${NBCORES}" >> ${CONFIGFILE}
+  echo "cpulist=\"${cpulist}\"" >> ${CONFIGFILE}
   DEFAULTCOMPILER="${compilers%% *}"
   echo "compiler=\"${DEFAULTCOMPILER}\"" >> ${CONFIGFILE}
   echo "Generated ${CONFIGFILE}       with nb_cores=${NBCORES}"

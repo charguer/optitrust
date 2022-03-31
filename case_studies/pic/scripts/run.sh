@@ -18,6 +18,7 @@ else
   BINARY="${TARGET}"
 fi
 
+#HOSTNAME=`hostname`
 
 # Home path for Pic-Vert.
 cd ..
@@ -35,6 +36,18 @@ COMPILER="${compiler}"
 if [ ! -z "${COMP}" ]; then
   COMPILER="${COMP}"
 fi
+
+REPORTBINDINGS=""
+if [ ! -z "${BIND}" ]; then
+  REPORTBINDINGS="--report-bindings"
+fi
+
+CPULIST="${cpulist}"
+if [ -z ${CPULIST} ]; then
+  echo "need to specify CPULIST"
+  exit 1
+fi
+
 
 ###################################
 #              run                #
@@ -103,11 +116,15 @@ run_one() {
   if [ "${VALGRIND}" = "" ]; then
     if [ "${COMPILER}" = "gcc" ]; then
       export OMP_NUM_THREADS=$NBTHREADS
-      echo "mpirun -q --report-bindings -np $nb_sockets ${COMMAND}"
-      mpirun -q --report-bindings  -np $nb_sockets ${COMMAND} | sed 's/MCW rank 0 is not bound//'
-
+      echo ">>> OMP_NUM_THREADS=${OMP_NUM_THREADS} OMP_PLACES=${OMP_PLACES} OMP_PROC_BIND=${OMP_PROC_BIND}"
+      CMDFILE="__cmd.sh"
+      echo ">>> mpirun ${REPORTBINDINGS} -np $nb_sockets ${COMMAND} > ${CMDFILE}"
+      echo "mpirun ${REPORTBINDINGS} -np $nb_sockets ${COMMAND}" > ${CMDFILE}
+      echo "taskset --cpu-list ${CPULIST} ./${CMDFILE}"
+      chmod +x ${CMDFILE}
+      taskset --cpu-list ${CPULIST} ./${CMDFILE}
     elif [ "${COMPILER}" = "icc" ]; then
-      mpiexec.hydra -n $nb_sockets ${COMMAND} | sed 's/MCW rank 0 is not bound//'
+      mpiexec.hydra -n $nb_sockets ${COMMAND}
     else
       echo "invalid compiler parameter: ${COMPILER}."
       exit 1
@@ -118,7 +135,7 @@ run_one() {
   fi
 }
 # LATER: remove -q to see the depreciation warnings
-
+# --cpus-per-proc ${NBTHREADS} | sed 's/MCW rank 0 is not bound//'
 
 ###################################
 #     Launching the software      #
@@ -127,4 +144,6 @@ for run_id in $(seq 1 $nb_runs)
 do
     run_one $run_id
 done
+
+
 

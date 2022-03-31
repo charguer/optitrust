@@ -69,3 +69,12 @@ number of hardware threads (excluding hyperthreading).
 
 The naming pattern is, e.g., `pic_optimized_gcc_p2.txt` for a `gcc` compiled
 program executed using 2 cores.
+
+
+## Experiments
+
+FAST=2 is an alias for GRID=32
+
+```
+NOSEQ=1 RUNS=1 SEED=0 FAST=2 NB=100 STEPS=100 ./bench.sh
+```

@@ -46,7 +46,7 @@ let stepsReal = cOr (List.map (fun f -> [f]) stepsl) (* LATER: rename *)
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = onlychecker "-DCHECKER"
-let prepro = ["-DPRINTPERF"] @ prepro
+let prepro = ["-DPRINTPERF"; "-DPRINTSTEPS"] @ prepro
 
 (* LATER let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
    ~prefix *)
@@ -108,11 +108,11 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fusion_targets [cMark "fuse"];
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
-  
+
   bigstep "Preparation for low level iteration , TODO: Fix me";
    (* LATER: Fix the issue with function inlining inside for loops *)
   !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
-  
+
   bigstep "Low level iteration on chunks of particles";
   !! Function.inline [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
   !! Variable.inline [steps; cVarDef "bag_iter"];
