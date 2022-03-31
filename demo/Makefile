@@ -11,6 +11,8 @@ TESTS := pic_demo.ml
 
 FLAGS_MAKEFILE ?= -report-big-steps -serialized-input none
 
+PROGEXT := native
+
 include ../tests/Common.Makefile
 
 

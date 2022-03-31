@@ -3,7 +3,7 @@
   (public_name optitrust)
 
   (libraries menhirLib clangml refl pprint str base64)
-  (modes byte)
+  (modes native)
   (modules_without_implementation parse))
 
 (include_subdirs unqualified)
