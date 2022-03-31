@@ -21,7 +21,7 @@ OUTPUT="${BASENAME}_infos.txt"
 export VECTINFOS=" -fopt-info-vec-all"
 #export VECTINFOS=" -fopt-info-vec-missed"
 
-./compile.sh ${TARGET} 2> ${OUTPUT}
+./compile.sh ${COMP} ${TARGET} 2> ${OUTPUT}
 
 # remove the long paths
 sed -i 's/^.*case_studies\/pic\/[^\/]*\///' ${OUTPUT}

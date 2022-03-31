@@ -1,21 +1,15 @@
 
-void test();
+int test(int a){
+  return a + 1;
+
+};
 
 int main(){
   
-  int a = 0;
-  a = 10;
-  int b = 0;
-  b = 20;
-  int c = 0;
-  c = 30;
+  for (int i = test(10); i < 10 ; i++){
+    i += 10;
+  }
   return 0;
+  
 }
 
-void test(){
-
-   int a = 10;
-   a = 20;
-
-   return;
-}

@@ -1,11 +1,11 @@
 open Optitrust
 open Target
 
-let _ = Flags.dump_ast_details := true
+let _ = Run.script_cpp  (fun _ ->
 
-let _ = Run.script_cpp (fun _ ->
+   show [cFun "test"];
+   (* Function.inline [cFun "test"]; *)
 
-   show [cTopFunDef "test"];
    
 )
  
