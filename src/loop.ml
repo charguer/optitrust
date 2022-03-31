@@ -461,8 +461,8 @@ let grid_enumerate ?(indices : string list = []) : Transfo.t =
     | _ -> fail tg_trm.loc "grid_enumerate: expected a target to a simple loop"
   )
 
-(* [change_iteration iterator_function main_loop_function tg] *)
-let change_iteration ~iterator_function:(it_fun : var) ~loop_function:(loop_fun : var) (tg : target) : unit = 
+(* [change_iter iterator_function main_loop_function tg] *)
+let change_iter ~iterator_function:(it_fun : var) ~loop_function:(loop_fun : var) (tg : target) : unit = 
   iter_on_transformed_targets (Internal.isolate_last_dir_in_seq)
   (fun t (p, i) -> 
     let tg_instr = target_of_path (p @ [Path.Dir_seq_nth i]) in 
