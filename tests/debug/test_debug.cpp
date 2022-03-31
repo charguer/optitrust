@@ -1,11 +1,5 @@
 
-void test(){
-
-  int x = 1;
-  x = 2;
-
-}
-
+void test();
 
 int main(){
   
@@ -16,4 +10,12 @@ int main(){
   int c = 0;
   c = 30;
   return 0;
+}
+
+void test(){
+
+   int a = 10;
+   a = 20;
+
+   return;
 }

@@ -117,11 +117,10 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Function.inline [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
   !! Variable.inline [steps; cVarDef "bag_iter"];
   !! Sequence.intro_on_instr [steps; cFor_c ""; dBody];
-  show [cTopFunDef "bag_iter_ho_basic"];
-  !! Function.uninline ~fct:[cTopFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cVarDef "bag_it"];
+  !! Function.uninline ~fct:[cTopFunDef "bag_iter_ho_basic"] [steps; cVarDef "bag_it"];
   !! Expr.replace_fun ~inline:true "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
   !! List.iter (fun f -> Function.beta ~indepth:true [f]) stepFuns;
-  !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
+  !! Instr.delete [nbMulti; cTopFunDefAndDecl ~regexp:true "bag_iter.*"];
 
   bigstep "Elimination of the pointer on a particle, to prepare for aos-to-soa";
   !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
