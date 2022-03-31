@@ -142,9 +142,9 @@ void bag_push(bag* b, particle p);
 
 void bag_swap(bag* b1, bag* b2);
 
-void bag_push(struct bag* b, struct particle p);
+// void bag_push(struct bag* b, struct particle p);
 
-void bag_init(struct bag* b);
+// void bag_init(struct bag* b);
 
 void bag_free(bag* b);
 

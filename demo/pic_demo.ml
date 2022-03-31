@@ -108,12 +108,16 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fusion_targets [cMark "fuse"];
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
-  bigstep "Low level iteration on chunks of particles";
-   (* TODO: Fix the issue with function inlining inside for loops *)
+  
+  bigstep "Preparation for low level iteration , TODO: Fix me";
+   (* LATER: Fix the issue with function inlining inside for loops *)
   !! Function.bind_intro ~fresh_name:"bag_iter" [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
+  
+  bigstep "Low level iteration on chunks of particles";
   !! Function.inline [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
   !! Variable.inline [steps; cVarDef "bag_iter"];
   !! Sequence.intro_on_instr [steps; cFor_c ""; dBody];
+  show [cTopFunDef "bag_iter_ho_basic"];
   !! Function.uninline ~fct:[cTopFunDef "bag_iter_ho_basic"~body:[cVarDef "it"]] [steps; cVarDef "bag_it"];
   !! Expr.replace_fun ~inline:true "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
   !! List.iter (fun f -> Function.beta ~indepth:true [f]) stepFuns;
