@@ -6,7 +6,5 @@ void allocateStructures();
 void deallocateStructures();
 void createParticles();
 void computeFieldFromRho();
-void reportPerformance(double timeStart);
-// void reportParticlesState();
 
 #endif

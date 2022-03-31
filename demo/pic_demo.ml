@@ -180,10 +180,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.inline [steps; cVarDef "accel"];
   !! Arith.with_nosimpl [nbMulti; steps; cFor "idCorner"] (fun () ->
        Arith.(simpl ~indepth:true expand) [nbMulti; steps]);
-  (* !! Function.use_infix_ops ~indepth:true [step; dBody]; *)
-
-      (* BEAUTIFY: remind me why we can't do a infixop just here? it would be very pretty;
-          (even if we have to undo it later) *)
+  (* !! Function.use_infix_ops ~indepth:true [step; dBody]; PAPER ONLY, else done further *)
 
   bigstep "Enumerate grid cells by coordinates";
   !! Instr.read_last_write ~write:[cWriteVar "nbCells"] [step; cFor "idCell" ~body:[cFor "i"]; cReadVar "nbCells"];
@@ -209,7 +206,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [cOr (
         [[addPart; cFieldWrite ~field:("pos"^d) ()]] @
         (onlychecker [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] ()]) )] );
-
   !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "0")) [stepsReal; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
       Accesses.shift ~neg:true ~factor:(var ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];

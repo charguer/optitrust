@@ -88,6 +88,5 @@ NOSEQ=1 RUNS=3 SEED=0 FAST=2 NB=10 STEPS=50 ./bench.sh
 NOPAR=1 RUNS=1 SEED=0 FAST=2 NB=10 STEPS=50 ./bench.sh
 
 # for big-machine only
-NOSEQ=1 RUNS=3 SEED=0 FAST=2 NB=100 STEPS=50 ./bench.sh
-NOSEQ=1 RUNS=3 SEED=0        NB=100 STEPS=50 ./bench.sh
+NOSEQ=1 RUNS=5 SEED=0 NB=300 STEPS=50 ./bench.sh
 ```
