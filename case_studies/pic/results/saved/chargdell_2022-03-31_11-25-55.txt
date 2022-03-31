@@ -1,0 +1,12 @@
+./bench.sh FAST=2 NOSEQ=1 NOPAR= PROG= COMP= DRY= NB=10 RUNS=5 SEED=0 STEPS=50
+====Summary : Exectime / Throughput / Program / Compiler / Cores =====
+30.766	16.3	chargdell/pic_barsamian_malloc_gcc_p4_seed0_run0.txt
+30.810	16.2	chargdell/pic_barsamian_malloc_gcc_p4_seed0_run1.txt
+31.356	15.9	chargdell/pic_barsamian_malloc_gcc_p4_seed0_run2.txt
+31.201	16.0	chargdell/pic_barsamian_malloc_gcc_p4_seed0_run3.txt
+31.271	16.0	chargdell/pic_barsamian_malloc_gcc_p4_seed0_run4.txt
+30.117	16.6	chargdell/pic_optimized_gcc_p4_seed0_run0.txt
+30.266	16.5	chargdell/pic_optimized_gcc_p4_seed0_run1.txt
+30.686	16.3	chargdell/pic_optimized_gcc_p4_seed0_run2.txt
+30.613	16.3	chargdell/pic_optimized_gcc_p4_seed0_run3.txt
+30.510	16.4	chargdell/pic_optimized_gcc_p4_seed0_run4.txt
