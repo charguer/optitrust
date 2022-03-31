@@ -104,6 +104,12 @@ fi
 
 if [ "${ACTION}" = "hard" ]; then
 
+  VERSION="${MACHINEDIR}/versions.txt"
+  uname -mrs > ${VERSION}
+  echo "------------------------------" >> ${VERSION}
+  gcc --version >> ${VERSION}
+  echo "------------------------------" >> ${VERSION}
+  mpirun --version >> ${VERSION}
   cat /proc/cpuinfo > ${MACHINEDIR}/cpuinfo.txt
   lstopo-no-graphics > ${MACHINEDIR}/lstopo.txt \
     || (echo "warning: lstopo not available, try apt-get install hwloc")
