@@ -51,7 +51,7 @@ let prepro = ["-DPRINTPERF"; "-DPRINTSTEPS"] @ prepro
 (* LATER let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
    ~prefix *)
 
-(* let _ = Flags.code_print_width := 120 *)
+(* let _ = Flags.code_print_width := 120 **)
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.h";"bag_atomics.h";"bag.h-"] (fun () ->
 

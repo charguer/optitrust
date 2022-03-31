@@ -413,7 +413,10 @@ void reportParticlesState() {
   }
 
 #ifdef PRINTPERF
-  reportPerformance(timeStart);
+  double timeTotal = (double) (omp_get_wtime() - timeStart);
+  printf("Exectime: %.3f sec\n", timeTotal);
+  printf("ParticlesMoved: %.1f billion particles\n", ((double) nbParticles * nbSteps) / 1000 / 1000 / 1000);
+  printf("Throughput: %.1f million particles/sec\n", ((double) nbParticles * nbSteps) / timeTotal / 1000 / 1000);
 #endif
 
 #ifdef CHECKER

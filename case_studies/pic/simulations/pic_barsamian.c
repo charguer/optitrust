@@ -924,7 +924,8 @@ int main(int argc, char** argv) {
     } else {
 #ifdef PRINTPERF
       printf("Exectime: %.3f sec\n", time_simu);
-      printf("Throughput: %.1f million particles/sec\n", nb_particles * num_iteration / time_simu / 1000000);
+      printf("ParticlesMoved: %.1f billion particles\n", ((double) nb_particles * num_iteration) / 1000 / 1000 / 1000);
+      printf("Throughput: %.1f million particles/sec\n", ((double) nb_particles * num_iteration) / time_simu / 1000 / 1000);
 #endif
     }
 #ifdef CHECKER
