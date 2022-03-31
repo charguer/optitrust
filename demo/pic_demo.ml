@@ -20,6 +20,8 @@ let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
 let delocalize_bag = Local_obj ("bag_init", "bag_append", "bag_free")
 let align = 64
 
+let _ = Flags.dump_ast_details := true
+
 (* Grab the "usechecker" flag from the command line *)
 let usechecker = ref false
 let _= Run.process_cmdline_args
@@ -84,16 +86,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Eliminate an intermediate storage by reusing an existing one";
   !! Variable.reuse (expr "p->speed") [step; cVarDef "speed2" ];
   !! Variable.reuse (expr "p->pos") [step; cVarDef "pos2"];
-
+  
   bigstep "Reveal write operations involved in the manipulation of particles and vectors";
   let ctx = cTopFunDefs ["bag_push_serial";"bag_push_concurrent"] in
-  (* TODO: why does this not work for explicit on p->pos?
-  !! Trace.reparse ();
-  !! List.iter (fun typ -> Struct.set_explicit [nbMulti; cOr [[ctx]; [steps]]; cWrite ~typ ()]) ["particle"; "vect"]; *)
-  !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
+  !! Trace.reparse();
   !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
-  !! Trace.reparse ();
-  !! Struct.set_explicit [nbMulti; stepsReal; cFieldWrite ~base:[cVar "p"] ()];
+  !! List.iter (fun typ -> Struct.set_explicit [nbMulti; cOr [[ctx]; [steps]]; cWrite ~typ ()]) ["particle"; "vect"]; 
   !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
   !! Variable.inline [nbMulti; step; cVarDef ~regexp:true "[xyz]."];
 
@@ -152,15 +150,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
       [nbMulti; steps; cFieldWrite ~base:[cVar "c"] (); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
   if usechecker then (!! iter_dims (fun d ->
-        Accesses.scale ~neg:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarDef ("speed"^d); cInit()]));
-        (* TODO: everywhere, replace ~neg by ~inv *)
+        Accesses.scale ~inv:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarDef ("speed"^d); cInit()]));
 
   bigstep "Applying a scaling factor on positions";
   !! iter_dims (fun d ->
       let d_lc = String.lowercase_ascii d in
       Accesses.scale ~factor:(var ~mut:true ("cell"^d)) [addPart; cFieldRead ~field:d_lc ~base:[cVar "pos"] ()]);
   !! iter_dims (fun d ->
-     Accesses.scale ~neg:true ~factor:(var ~mut:true ("cell"^d))
+     Accesses.scale ~inv:true ~factor:(var ~mut:true ("cell"^d))
          [nbMulti; steps; cOr [[sExprRegexp ("c->itemsPos" ^ d ^ "\\[i\\]")]; [cFieldWrite ~field:("pos"^d)()]]]);
 
   bigstep "Simplify arithmetic expressions after scaling";
@@ -191,14 +188,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Variable.insert ~typ:(ty "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") tg)
       ([ [tAfter; addPart; cVarDef "idCell"] ] @ onlychecker [tFirst; repPart; cFor "idCell"; dBody]); (* LATER: make cOr work for targetBetweens (hard) *)
   !! iter_dims (fun d ->
-      Accesses.shift ~neg:true ~factor:(expr ("co.i"^d)) [cOr (
+      Accesses.shift ~inv:true ~factor:(expr ("co.i"^d)) [cOr (
         [[addPart; cFieldWrite ~field:("pos"^d) ()]] @
         (onlychecker [repPart; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()] ()]) )] );
   !! iter_dims (fun d ->
-      Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "0")) [stepsReal; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
-      Accesses.shift ~neg:true ~factor:(var ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
-      Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
-      Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [step; cVarDef ("r" ^ d ^ "1"); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
+      Accesses.shift ~inv:true ~factor:(var ("i" ^ d ^ "0")) [stepsReal; cVarDef ~regexp:true "r.0"; cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
+      Accesses.shift ~inv:true ~factor:(var ("i" ^ d)) [step; cVarDef ~regexp:true ("p" ^ d); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
+      Accesses.shift ~inv:true ~factor:(var ("i" ^ d ^ "2")) [step; cCellWrite ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()];
+      Accesses.shift ~inv:true ~factor:(var ("i" ^ d ^ "2")) [step; cVarDef ("r" ^ d ^ "1"); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
 
   bigstep "Simplify arithmetic expressions after shifting of positions";
   !! Rewrite.equiv_at ~glob_defs:"double fwrap(double, double);\n" "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDef ~regexp:true "p.2"; cInit()];

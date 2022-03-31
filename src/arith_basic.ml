@@ -2,12 +2,12 @@ open Ast
 include Arith_core
 
 
-(* [shift ~neg ~pre_cast ~post_cast u] *)
+(* [shift ~inv ~pre_cast ~post_cast u] *)
 let shift ?(reparse : bool = false) ?(neg : bool = false) ?(pre_cast : typ option) ?(post_cast : typ option) (u : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (
     Target.apply_on_targets (Arith_core.transform Arith_shift neg pre_cast post_cast u ) )
 
-(* [scale ~neg ~pre_cast ~post_cast u] *)
+(* [scale ~inv ~pre_cast ~post_cast u] *)
 let scale ?(reparse : bool = false) ?(inv : bool = false) ?(pre_cast : typ option) ?(post_cast : typ option) (u : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (
     Target.apply_on_targets (Arith_core.transform Arith_scale inv pre_cast post_cast u ) )
