@@ -996,7 +996,12 @@ int main(int argc, char** argv) {
   createParticles();
   stepLeapFrog();
   double timeStart = omp_get_wtime();
+  double nextReport = timeStart + 1.;
   for (int idStep = 0; idStep < nbSteps; idStep++) {
+    if (omp_get_wtime() > nextReport) {
+      nextReport += 1.;
+      printf("Step %d\n", idStep);
+    }
     step();
   }
   reportPerformance(timeStart);

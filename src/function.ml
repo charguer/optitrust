@@ -152,7 +152,6 @@ int f2() { // result of Funciton_basic.inline_cal
 let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) ?(delete : bool = false) (tg : Target.target) : unit =
     let function_name = ref "" in
     Trace.time "iteri_on_transformed_targets" (fun () ->
-
   Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun i t (path_to_seq, local_path, i1) ->
       let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in
@@ -160,6 +159,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       if !resname = "" then resname := "__TEMP_Optitrust";
       let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
       let path_to_call = path_to_instruction @ local_path in
+      Printf.printf "I was here\n";
       let tg_out_trm = Path.resolve_path path_to_instruction t in
       let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
       let mark_added = ref false in
@@ -315,3 +315,7 @@ let uninline ~fct:(fct : Target.target) : Target.Transfo.t =
 
 let insert ?(reparse : bool = false) (decl : string) : Target.Transfo.t = 
   Sequence.insert ~reparse (stmt decl) 
+
+
+(* please find a proper name for this function *)
+(* let magic_transfo () *)
