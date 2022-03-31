@@ -168,19 +168,19 @@ cd ${SCRIPTDIR}
 
 if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
   for COMPILER in ${COMPILERS}; do
-   for ((RUN=0; RUN<RUNS; RUN++)); do
-
-    for PROGRAM in ${PROGRAMS}; do
-      BASENAME="${PROGRAM%.*}"
-      if [ -z ${DRY} ]; then
-        COMP=${COMPILER} ${SCRIPTDIR}/compile.sh ${PROGRAM}
-      fi
-      OUT=$?
-      if [ ${OUT} -ne 0 ];then
-        echo "Error: could not compile the program ${PROGRAM} using ${COMPILER}"
-        exit 1
-      fi
-      # LATER:RUNCMD TO FACTORIZE
+    for ((RUN=0; RUN<RUNS; RUN++)); do
+      echo "****************** RUN ${RUN} ******************************"
+      for PROGRAM in ${PROGRAMS}; do
+        BASENAME="${PROGRAM%.*}"
+        if [ -z ${DRY} ]; then
+          COMP=${COMPILER} ${SCRIPTDIR}/compile.sh ${PROGRAM}
+        fi
+        OUT=$?
+        if [ ${OUT} -ne 0 ];then
+          echo "Error: could not compile the program ${PROGRAM} using ${COMPILER}"
+          exit 1
+        fi
+        # LATER:RUNCMD TO FACTORIZE
         if [ ! -z "${SEED}" ]; then
           RUNSEED=${SEED}
         else
