@@ -110,12 +110,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Low level iteration on chunks of particles";
   !! Function.inline [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
-  !! Sequence.intro_on_instr [steps; cFor_c ""; dBody];
-  !! Function.uninline ~fct:[cTopFunDef "bag_iter_ho_basic"] [steps; cVarDef "bag_it"];
-  !! Expr.replace_fun ~inline:true "bag_iter_ho_chunk" [steps; cFun "bag_iter_ho_basic"];
-  !! List.iter (fun f -> Function.beta ~indepth:true [f]) stepFuns;
+  !! Loop.change_iteration ~iterator_function:"bag_iter_ho_basic" ~loop_function:"bag_iter_ho_chunk" [steps; cVarDef "bag_it"];
   !! Instr.delete [nbMulti; cTopFunDefAndDecl ~regexp:true "bag_iter.*"];
-
+  
   bigstep "Elimination of the pointer on a particle, to prepare for aos-to-soa";
   !! Instr.inline_last_write [nbMulti; steps; cRead ~addr:[cStrictNew; cVar "p"] ()];
 

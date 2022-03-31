@@ -290,9 +290,10 @@ let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg 
     of the body of the function declared in [fct]. Let nb be the number of instruction on the body of [fct]. The transformation
     will put the targeted instruction together with the following (nb -1) instructions into a sequence marked with a mark.
     Now the stage is ready for applying the basic version of uninline. After calling that transformation and assuming that
-    everything went fine we can now eliminate the introduced sequence.*)
+    everything went fine we can now eliminate the introduced sequence. The arg [with_for_loop] should be set to true if the 
+    original function declaration contains a for loop.*)
 
-let uninline ~fct:(fct : Target.target) : Target.Transfo.t =
+let uninline ?(contains_for_loop : bool = false) ~fct:(fct : Target.target) : Target.Transfo.t =
   let tg_fun_def = match Target.get_trm_at fct with
   | Some td -> td
   | None -> fail None "uninline: fct target does point to any node" in
@@ -304,6 +305,7 @@ let uninline ~fct:(fct : Target.target) : Target.Transfo.t =
       | Trm_seq tl ->
         let nb = Mlist.length tl in
         Sequence_basic.intro nb ~mark (Target.target_of_path p);
+        if contains_for_loop then Sequence_basic.intro_on_instr [cMark mark; cFor_c "";dBody];
         Function_basic.uninline ~fct [Target.cMark mark]
       | _ -> fail tg_fun_def.loc "uninline: weird function declaration "
       end
