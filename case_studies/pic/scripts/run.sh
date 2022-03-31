@@ -103,7 +103,8 @@ run_one() {
   if [ "${VALGRIND}" = "" ]; then
     if [ "${COMPILER}" = "gcc" ]; then
       export OMP_NUM_THREADS=$NBTHREADS
-      mpirun -q --report-bindings --cpus-per-proc ${NBTHREADS} -np $nb_sockets ${COMMAND} | sed 's/MCW rank 0 is not bound//'
+      echo "mpirun -q --report-bindings -np $nb_sockets ${COMMAND}"
+      mpirun -q --report-bindings  -np $nb_sockets ${COMMAND} | sed 's/MCW rank 0 is not bound//'
 
     elif [ "${COMPILER}" = "icc" ]; then
       mpiexec.hydra -n $nb_sockets ${COMMAND} | sed 's/MCW rank 0 is not bound//'

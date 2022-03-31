@@ -62,7 +62,7 @@ FASTNBPARTICLES="1000000"
 # use 10 million particles for a mid-size run
 MIDNBPARTICLES="10000000"
 
-PROGRAMS="pic_optimized.c pic_barsamian.c pic_barsamian_malloc.c"
+PROGRAMS="pic_optimized.c pic_barsamian_malloc.c"
 if [ ! -z "${PROG}" ]; then
   PROGRAMS=${PROG}
 fi
@@ -167,6 +167,8 @@ cd ${SCRIPTDIR}
 
 if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
   for COMPILER in ${COMPILERS}; do
+   for ((RUN=0; RUN<RUNS; RUN++)); do
+
     for PROGRAM in ${PROGRAMS}; do
       BASENAME="${PROGRAM%.*}"
       if [ -z ${DRY} ]; then
@@ -178,7 +180,6 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
         exit 1
       fi
       # LATER:RUNCMD TO FACTORIZE
-      for ((RUN=0; RUN<RUNS; RUN++)); do
         if [ ! -z "${SEED}" ]; then
           RUNSEED=${SEED}
         else
