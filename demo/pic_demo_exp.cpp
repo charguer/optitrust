@@ -1,12 +1,27 @@
-#include <math.h>
 #include <omp.h>  // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
-#include <omp.h>
-#include <stdbool.h>
-#include <stdio.h>
+
 #include <stdlib.h>
 
+#include <stdio.h>
+
+#include <math.h>
+
 #include "mymacros.h"
+
+#include "mymacros.h"
+
+#include <stdlib.h>
+
+#include <stdbool.h>
+
+#include <stdio.h>
+
+#include <stdio.h>
+
+#include <omp.h>
+
 #include "pic_demo_aux.h"
+
 #include "stdalign.h"
 
 inline int MINDEX1(int N1, int i1) { return i1; }
@@ -399,17 +414,11 @@ inline coord coordOfCell(int idCell) {
   return (coord){iX, iY, iZ};
 }
 
-typedef struct {
-  int v[8];
-} int_nbCorners;
+typedef struct { int v[8]; } int_nbCorners;
 
-typedef struct {
-  double v[8];
-} double_nbCorners;
+typedef struct { double v[8]; } double_nbCorners;
 
-typedef struct {
-  vect v[8];
-} vect_nbCorners;
+typedef struct { vect v[8]; } vect_nbCorners;
 
 int_nbCorners indicesOfCorners(int idCell) {
   const coord coord = coordOfCell(idCell);
@@ -1004,7 +1013,12 @@ int main(int argc, char** argv) {
     }
     step();
   }
-  reportPerformance(timeStart);
+  double timeTotal = (double)(omp_get_wtime() - timeStart);
+  printf("Exectime: %.3f sec\n", timeTotal);
+  printf("ParticlesMoved: %.1f billion particles\n",
+         (double)nbParticles * nbSteps / 1000 / 1000 / 1000);
+  printf("Throughput: %.1f million particles/sec\n",
+         (double)nbParticles * nbSteps / timeTotal / 1000 / 1000);
   deallocateStructures();
   free(deposit);
 }
