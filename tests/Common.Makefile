@@ -60,9 +60,6 @@ BROWSER ?= chromium-browser
 FLAGS ?=
 FLAGS := $(FLAGS) $(FLAGS_MAKEFILE)
 
-# Choose between native or bytecode compilation ("native" or "byte")
-PROGEXT ?= byte
-
 #######################################################
 # Targets
 
@@ -148,12 +145,7 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 #-----begin rules for non-batch mode------
 ifeq ($(BATCH),)
 
-# DEPREACTED
-# %_out.cpp: %.$(PROGEXT) %.cpp %.ml
-#	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS)
-#	@echo "Produced $@"
-
-%_out.cpp: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
+%_out.cpp: %_with_lines.native %.cpp %.ml %_with_lines.ml
 	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS)
 	@echo "Produced $@"
 
@@ -161,19 +153,21 @@ endif
 #-----end rules for non-batch mode------
 
 # Rule for building all the small steps
-%.smallsteps: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
+%.smallsteps: %_with_lines.native %.cpp %.ml %_with_lines.ml
 	$(V)rm -rf smallsteps
 	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -dump-small-steps smallsteps
 	@echo "Produced smallsteps/*"
 
 # Rule for building all the big steps
-%.bigsteps: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
+%.bigsteps: %_with_lines.native %.cpp %.ml %_with_lines.ml
 	$(V)rm -rf bigsteps
 	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -dump-big-steps bigsteps
 	@echo "Produced bigsteps/*"
 
 # Rule for building the binary associated with a test
-%.$(PROGEXT): %.ml $(OPTITRUSTLIB)
+%.native: %.ml $(OPTITRUSTLIB)
+	$(V)$(BUILD) $@
+%.byte: %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@
 
 # Rule for building the html file to display the trace associated with a script

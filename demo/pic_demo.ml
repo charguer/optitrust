@@ -20,7 +20,7 @@ let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
 let delocalize_bag = Local_obj ("bag_init", "bag_append", "bag_free")
 let align = 64
 
-(* Grab the "usechecker" flag from the command line *)
+(* Grab the "usechecker" flag from the command line **)
 let usechecker = ref false
 let _= Run.process_cmdline_args
   [("-usechecker", Arg.Set usechecker, " use -DCHECKER as preprocessor flag")]
