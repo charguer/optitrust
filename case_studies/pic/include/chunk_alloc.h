@@ -5,7 +5,6 @@
 
 /*
 
-
 chunk* chunk_next(chunk* c, bool destructive) {
   chunk* cnext = c->next;
   if (destructive) {
