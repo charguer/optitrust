@@ -3,7 +3,7 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-  !! Variable.reuse ~space:(var "x") [cVarDef "y"];
+  !! Variable.reuse (var "x") [cVarDef "y"];
   )
 "
 int main() {
@@ -16,6 +16,6 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Variable.reuse ~space:(var "x") [cVarDef "y"];
+  !! Variable.reuse (var "x") [cVarDef "y"];
 
 )

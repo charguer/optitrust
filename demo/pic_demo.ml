@@ -82,11 +82,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fold_instrs ~index:"idCorner" [cTopFunDef "cornerInterpolationCoeff"; cCellWrite ~base:[cVar "r"] ()];
 
   bigstep "Eliminate an intermediate storage by reusing an existing one";
-  (* TODO: beautify to
-     Variable.reuse (expr "p->speed") [step; cVarDef "speed2" ];
-     *)
-  !! Variable.reuse ~space:(expr "p->speed") [step; cVarDef "speed2" ];
-  !! Variable.reuse ~space:(expr "p->pos") [step; cVarDef "pos2"];
+  !! Variable.reuse (expr "p->speed") [step; cVarDef "speed2" ];
+  !! Variable.reuse (expr "p->pos") [step; cVarDef "pos2"];
 
   bigstep "Reveal write operations involved in the manipulation of particles and vectors";
   let ctx = cTopFunDefs ["bag_push_serial";"bag_push_concurrent"] in
@@ -106,7 +103,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Function.inline ~vars:(AddSuffix "2") [step; cFun "idCellOfPos"];
   !! List.iter (fun f -> Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; f; cFun "cornerInterpolationCoeff"])
      stepsl;
-  !! iter_dims (fun d -> Variable.reuse ~space:(var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
+  !! iter_dims (fun d -> Variable.reuse (var ("i" ^ d ^ "2")) [step; cVarDef ("i" ^ d ^ "1")]);
   !! Trace.reparse();
 
   bigstep "Simplification of the deposit of charge";

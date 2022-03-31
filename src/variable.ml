@@ -217,7 +217,7 @@ let detach_if_needed (tg : Target.target) : unit =
 
    @correctness: correct if the previous variable space was never read after the reuse point.
 *)
-let reuse ~space:(space : trm) ?(reparse : bool = false) : Target.Transfo.t =
+let reuse ?(reparse : bool = false) (space : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (Target.iter_on_targets (fun t p ->
       let decl_t = Path.resolve_path p t in
       begin match decl_name decl_t with
