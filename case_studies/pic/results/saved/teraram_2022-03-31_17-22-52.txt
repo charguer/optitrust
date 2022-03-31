@@ -1,0 +1,12 @@
+FAST= NOSEQ=1 NOPAR= PROG= COMP= DRY= NB=300 RUNS=5 SEED=0 STEPS=50 ./bench.sh
+====Summary : Exectime / Throughput / Program / Compiler / Cores =====
+300.606	49.9	teraram/pic_barsamian_malloc_gcc_p10_seed0_run0.txt
+298.859	50.2	teraram/pic_barsamian_malloc_gcc_p10_seed0_run1.txt
+306.180	49.0	teraram/pic_barsamian_malloc_gcc_p10_seed0_run2.txt
+302.156	49.6	teraram/pic_barsamian_malloc_gcc_p10_seed0_run3.txt
+306.992	48.9	teraram/pic_barsamian_malloc_gcc_p10_seed0_run4.txt
+238.933	62.8	teraram/pic_optimized_gcc_p10_seed0_run0.txt
+241.568	62.1	teraram/pic_optimized_gcc_p10_seed0_run1.txt
+238.914	62.8	teraram/pic_optimized_gcc_p10_seed0_run2.txt
+244.732	61.3	teraram/pic_optimized_gcc_p10_seed0_run3.txt
+242.398	61.9	teraram/pic_optimized_gcc_p10_seed0_run4.txt

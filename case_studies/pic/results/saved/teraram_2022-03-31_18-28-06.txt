@@ -1,0 +1,22 @@
+FAST=2 NOSEQ=1 NOPAR= PROG= COMP= DRY= NB=50 RUNS=10 SEED= STEPS=50 ./bench.sh
+====Summary : Exectime / Throughput / Program / Compiler / Cores =====
+39.453	63.4	teraram/pic_barsamian_malloc_gcc_p10_seed0_run0.txt
+39.617	63.1	teraram/pic_barsamian_malloc_gcc_p10_seed1_run1.txt
+39.510	63.3	teraram/pic_barsamian_malloc_gcc_p10_seed2_run2.txt
+39.509	63.3	teraram/pic_barsamian_malloc_gcc_p10_seed3_run3.txt
+40.183	62.2	teraram/pic_barsamian_malloc_gcc_p10_seed4_run4.txt
+38.974	64.1	teraram/pic_barsamian_malloc_gcc_p10_seed5_run5.txt
+39.545	63.2	teraram/pic_barsamian_malloc_gcc_p10_seed6_run6.txt
+39.828	62.8	teraram/pic_barsamian_malloc_gcc_p10_seed7_run7.txt
+39.122	63.9	teraram/pic_barsamian_malloc_gcc_p10_seed8_run8.txt
+39.463	63.4	teraram/pic_barsamian_malloc_gcc_p10_seed9_run9.txt
+30.863	81.0	teraram/pic_optimized_gcc_p10_seed0_run0.txt
+30.852	81.0	teraram/pic_optimized_gcc_p10_seed1_run1.txt
+30.700	81.4	teraram/pic_optimized_gcc_p10_seed2_run2.txt
+30.886	80.9	teraram/pic_optimized_gcc_p10_seed3_run3.txt
+30.785	81.2	teraram/pic_optimized_gcc_p10_seed4_run4.txt
+30.690	81.5	teraram/pic_optimized_gcc_p10_seed5_run5.txt
+30.897	80.9	teraram/pic_optimized_gcc_p10_seed6_run6.txt
+30.816	81.1	teraram/pic_optimized_gcc_p10_seed7_run7.txt
+30.758	81.3	teraram/pic_optimized_gcc_p10_seed8_run8.txt
+30.841	81.1	teraram/pic_optimized_gcc_p10_seed9_run9.txt
