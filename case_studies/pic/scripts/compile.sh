@@ -139,7 +139,7 @@ compile_one() {
   cp $PICVERT_HOME/scripts/parameters_3d.txt run${id_run}/
   if [ "${COMPILER}" = "gcc" ]; then
     export OMPI_CC=gcc
-    mpicc ${COMPILE_ARGS} -fopenmp -o run${id_run}/${BINARY}
+    mpicc ${COMPILE_ARGS} -fopenmp -fcommon -o run${id_run}/${BINARY}
   elif [ "${COMPILER}" = "icc" ]; then
     #export OMPI_CC=/opt/intel/oneapi/compiler/latest/linux/bin/intel64/icc
     source /opt/intel/oneapi/setvars.sh > /dev/null
