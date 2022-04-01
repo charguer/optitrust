@@ -108,6 +108,15 @@ Keep in mind that:
 
 Then:
 ```
+
+#--------------Real runs
+
+
+CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=64 NB=200 STEPS=100 RUNS=5 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+
+
+
+
 #--------------Laptop
 
 # To get hardware info
@@ -143,6 +152,11 @@ CORES=1 CPULIST="1" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=1 PROG="pic_barsamian
 
 
 #--------------Server
+# alternative CPULIST="0,2,4,6,8,10,12,14,16,18"
+# alternative CPULIST="1,3,5,7,9,11,13,15,17,19"
+
+# To get hardware info
+CORES=10 CPULIST="0,2,4,6,8,10,12,14,16,18" COMP=gcc ./bench.sh hard
 
 # for a mid-size run
 CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
@@ -154,6 +168,8 @@ CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=32 NB=200 STEPS=100
 CORES=1 CPULIST="1" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c pic_barsamian_freelist_single.c" ./bench.sh
 
 # for a huge-size run on a big server (not needed to make more steps)
+CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=64 NB=333 STEPS=50 RUNS=8 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+#  pic_barsamian_freelist_single.c
 CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=64 NB=500 STEPS=50 RUNS=1 PROG="pic_barsamian_single.c pic_optimized_single.c pic_barsamian_freelist_single.c" ./bench.sh
 ```
 

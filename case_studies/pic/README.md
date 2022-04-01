@@ -215,8 +215,8 @@ sudo apt update
 sudo apt upgrade
 
 sudo apt install intel-basekit
-
 sudo apt install intel-hpckit
+
 
 
 
