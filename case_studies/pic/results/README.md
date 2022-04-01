@@ -85,6 +85,10 @@ lstopo
 
 Then:
 ```
+# To get hardware info
+CORES=4 CPULIST="0,1,2,3" COMP=gcc ./bench.sh hard
+
+
 # for a fast run just to check everything is ok
 CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=8 NB=2 STEPS=20 RUNS=2 SEED=0 PROG="pic_barsamian.c pic_optimized.c" ./bench.sh
 

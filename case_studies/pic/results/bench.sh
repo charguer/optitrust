@@ -93,7 +93,8 @@ STREAMDIR="${ROOTDIR}/Stream-test"
 MACHINEDIR="${MACHINE}"
 
 # use 10 million (array cells per core) for the stream test
-STREAMSIZE="10000000"
+STREAMSIZEMILLION="10"
+STREAMSIZE=$((STREAMSIZEMILLION * 1000 * 1000))
 
 
 #--------------------------------------------------------------------------------
@@ -134,8 +135,8 @@ if [ "${ACTION}" = "hard" ]; then
     || (echo "warning: lstopo not available, try apt-get install hwloc")
   lstopo --of pdf > ${MACHINEDIR}/lstopo.pdf || (echo "")
   for COMPILER in ${COMPILERS}; do
-    OUTPUT="${MACHINEDIR}/stream_${COMPILER}_p${NBCORES}.txt"
-    ${STREAMDIR}/stream.sh ${COMPILER} ${STREAMSIZE} ${NBCORES} > ${OUTPUT}
+    OUTPUT="${MACHINEDIR}/stream_${COMPILER}_cores${NBCORES}_size${STREAMSIZEMILLION}.txt"
+    COMP=${COMPILER} SIZE=${STREAMSIZE} CORES=${NBCORES} CPULIST=${CPULIST} ${STREAMDIR}/stream.sh > ${OUTPUT}
     echo "Generated ${OUTPUT}"
   done
 
