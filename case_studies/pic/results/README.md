@@ -131,6 +131,12 @@ CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=1 PROG="pic_barsa
 # for a large-size run
 CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c pic_barsamian_freelist_single.c" ./bench.sh
 
+# to check that more steps don't change the results
+CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=100 STEPS=500 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+
+# tro try more particles
+CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=200 STEPS=100 RUNS=5 PROG="pic_barsamian_single.c pic_optimized_single.c pic_barsamian_freelist_single.c" ./bench.sh
+
 # for a large-size sequential run
 CORES=1 CPULIST="1" COMP=gcc GRID=8  NB=100 STEPS=100 RUNS=1 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
 CORES=1 CPULIST="1" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=1 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
