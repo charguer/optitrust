@@ -7,7 +7,7 @@
 //==========================================================================
 
 #ifndef CHUNK_SIZE
-  const int CHUNK_SIZE = 128; // we might prefer to raise an error if CHUNK_SIZE is undef (?)
+  const int CHUNK_SIZE = 256; // we might prefer to raise an error if CHUNK_SIZE is undef (?)
 #endif
 
 

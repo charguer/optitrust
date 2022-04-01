@@ -1,3 +1,6 @@
+// This version is meant to be compiled in double precision (-DPOSTYPEDOUBLE)
+// without freelists of chunks (-DSTDCHUNKALLOC)
+
 /**
  * sim3d_aocosoa.c: PIC simulations in 3d.
  *
