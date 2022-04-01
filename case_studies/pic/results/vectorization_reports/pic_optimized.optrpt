@@ -1,0 +1,83 @@
+Intel(R) Advisor can now assist with vectorization and show optimization
+  report messages with your source code.
+See "https://software.intel.com/en-us/intel-advisor-xe" for details.
+
+===========================================================================
+
+Begin optimization report for: step()
+
+    Report from: Vector optimizations [vec]
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(737,7)
+   remark #15300: LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(758,21)
+   remark #15300: LOOP WAS VECTORIZED
+LOOP END
+            
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(772,23)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(875,23)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(933,27)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(969,7)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(963,7)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+===========================================================================
+
+Begin optimization report for: stepLeapFrog()
+
+    Report from: Vector optimizations [vec]
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(574,5)
+   remark #15300: LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(582,7)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+===========================================================================
+
+Begin optimization report for: cornerInterpolationCoeff(vect)
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(456,3)
+   remark #15300: LOOP WAS VECTORIZED
+LOOP END
+===========================================================================
+
+Begin optimization report for: computeRhoFromDeposit()
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(468,7)
+   remark #15300: LOOP WAS VECTORIZED
+LOOP END
+
+===========================================================================
+
+Begin optimization report for: resetDeposit()
+
+    Report from: Vector optimizations [vec]
+
+   LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_optimized.c(476,3)
+      remark #15300: LOOP WAS VECTORIZED
+   LOOP END
+===========================================================================
