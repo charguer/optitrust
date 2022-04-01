@@ -126,11 +126,9 @@ CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=8 NB=5 STEPS=20 RUNS=3 PROG="pic_barsami
 
 # for a mid-size run
 CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
-
 CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=1 PROG="pic_barsamian_single.c pic_optimized_single.c pic_barsamian_freelist_single.c" ./bench.sh
 
-
-# for a large-size run, including freelist
+# for a large-size run
 CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c pic_barsamian_freelist_single.c" ./bench.sh
 
 # for a large-size sequential run
@@ -144,13 +142,13 @@ CORES=1 CPULIST="1" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=1 PROG="pic_barsamian
 CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
 
 # for a large-size run
-CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=32 NB=200 STEPS=100 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c pic_barsamian_freelist_single.c" ./bench.sh
 
-temp
-CORES=1 CPULIST="3" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=1 PROG="pic_barsamian_single.c" ./bench.sh
+# for one single core run, to see the speedup
+CORES=1 CPULIST="1" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c pic_barsamian_freelist_single.c" ./bench.sh
 
-# for a huge-size run on a big server
-CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=64 NB=500 STEPS=500 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+# for a huge-size run on a big server (not needed to make more steps)
+CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=64 NB=500 STEPS=50 RUNS=1 PROG="pic_barsamian_single.c pic_optimized_single.c pic_barsamian_freelist_single.c" ./bench.sh
 ```
 
 ## Discussion
@@ -169,19 +167,9 @@ Barsamian's results:
 // Intel Xeon Platinum 8160 @ 2.1 GHz (Skylake),
 // with 96 GB of RAM, 6 memory channels, and 24 cores
 
-Teraram results:
-- GRID=32 NB=100 STEPS=100
-- ParticlesMoved: 10.0 billion particles
-- Exectime: 88.533 sec
-- Throughput: 113.0 million particles/sec
-- Per core: 11,36
-
-with freelists:
-   Exectime: 73.161 sec
-   ParticlesMoved: 10.0 billion particles
-   Throughput: 136.7 million particles/sec
 
 
+- teraram on 10 cores: The Stream benchmark [15] provides the measure 22.2 GB/s
 
 
 # eliminate warning => find any relevant network interfaces
