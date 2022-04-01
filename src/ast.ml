@@ -2507,7 +2507,9 @@ let code_to_str (code : code_kind) : string =
 
 module AstParser = struct
 
-  let var ?(mut : bool = false) v = if mut then trm_var_get v else trm_var v
+  let var v = trm_var v
+  
+  let var_mut v = trm_var_get v
 
   let lit l = code (Lit l)
 
