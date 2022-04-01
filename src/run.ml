@@ -123,7 +123,8 @@ let generated_source_with_inlined_header_cpp (input_file:string) (inline:string 
 (* [get_program_basename ()] returns the basename of the current binary program is used.
     It takes care to remove the leading './' and takes care to remove the "with_lines" suffix. *)
 let get_program_basename () : string =
-  let basename = Filename.chop_extension Sys.argv.(0) in
+  Flags.process_program_name();
+  let basename = Filename.chop_extension (!Flags.program_name) in
   (* remove the "_with_lines" suffix *)
   let suffix = "_with_lines" in
   let nsuffix = String.length suffix in

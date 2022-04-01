@@ -105,6 +105,10 @@ let get_exit_line () : int option =
    consider big steps ('!^'). *)
 let only_big_steps : bool ref = ref false
 
+(* Name of the currently executed transformation script. 
+   By default it is Sys.argv.(0) but it can be different in case of dynamic loading. *)
+let program_name : string ref = ref ""
+
 (* List of options *)
 type cmdline_args = (string * Arg.spec * string) list
 let spec : cmdline_args =
@@ -130,13 +134,20 @@ let spec : cmdline_args =
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
 
+(* Remember the name of the currently executed script *)
+let process_program_name () =
+  if !program_name = "" then program_name := Sys.argv.(!Arg.current)
+
 (* Processing of flags than imply other flags *)
 let fix_flags () =
   if !analyse_time_details then analyse_time := true;
   if !reparse_at_big_steps then debug_reparse := true
 
-(* LATER: doc *)
+(* Read and process the flags on the command line.
+   If args are given, add them to the list of possible flags.
+   This function has no effect if it was already called before. *)
 let process_cmdline_args ?(args : cmdline_args = []) () : unit =
+  process_program_name();
   Arg.parse
     (Arg.align (spec @ args))
     (fun _ -> raise (Arg.Bad "Error: no argument expected"))
