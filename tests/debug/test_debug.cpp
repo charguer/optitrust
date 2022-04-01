@@ -6,15 +6,13 @@ int test(int a){
 
 int main(){
   
-  int x = test(10);
-  for (int i = test(10); i != 10 ; i++){
-    i += 10;
-  }
-  return 0;
+  
+  const int x = 10;
+  test(x);
+  const int y = 20;
+  test(y);
 
-  for (int j = test(10); j < 10 ; j++){
-    j += 10;
-  }
+  return 0;
   
 }
 
