@@ -1,0 +1,3 @@
+====Summary : Exectime / Throughput / Run =====
+241.549	41.4	chargdell/results_cores1_gcc_grid8_nb100_steps100_seed0_run0_pic_barsamian_single.txt
+210.638	47.5	chargdell/results_cores1_gcc_grid8_nb100_steps100_seed0_run0_pic_optimized_single.txt

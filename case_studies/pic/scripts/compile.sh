@@ -9,17 +9,21 @@
 
 # Note: this script also takes care of copying the "parameters_3d.txt" file
 # into the run folder
+# Option VERBOSE=1
 
 TARGET=$1
 # BASENAME=`basename ${TARGET} .c`
 BASENAME="${TARGET%%.*}"
 EXTENSION="${TARGET##*.}"
 CHECKER_OUTFILE=$2
-echo $CHECKER_OUTFILE
-
-if [ "$CHECKER_OUTFILE" == "1" ]; then
-  CHECKER_OUTFILE="${BASENAME}.res"
+if [ ! -z "$CHECKER_OUTFILE" ]; then
+  echo "Building with CHECKER_OUTFILE specified"
 fi
+
+# DEPRECATED
+#if [ "$CHECKER_OUTFILE" == "1" ]; then
+#  CHECKER_OUTFILE="${BASENAME}.res"
+#fi
 
 #Home path for Pic-Vert.
 cd ..
@@ -87,23 +91,27 @@ fi
 
 COMPILEINFOS="Build ${BINARY} with ${COMPILER} ${OPTIMLEVEL} ${DEBUGFLAGS} ${PERFFLAGS} ${CHECKER}"
 
-# Use -DPOSTYPEDOUBLE to use double for positions in pic_barsamian.c, like in unoptimized pic_demo
-DOUBLEPRECISION="-DPOSTYPEDOUBLE"
-
 echo ${COMPILEINFOS}
 
 EXTRA_SPECIFIC_PRE=
+
+# Barsiamian's code
+BARSAMIAN_COMMON="$PICVERT_HOME/src/particle_type_concurrent_chunkbags_of_soa_3d.c"
 if [ "${TARGET}" = "pic_barsamian.c" ]; then
-    EXTRA_SPECIFIC_PRE="$PICVERT_HOME/src/particle_type_concurrent_chunkbags_of_soa_3d.c"
-elif [ "${TARGET}" = "pic_barsamian_malloc.c" ]; then
-    EXTRA_SPECIFIC_PRE="-DSTDCHUNKALLOC $PICVERT_HOME/src/particle_type_concurrent_chunkbags_of_soa_3d.c"
+    EXTRA_SPECIFIC_PRE="${BARSAMIAN_COMMON} -DPOSTYPEDOUBLE -DSTDCHUNKALLOC"
+elif [ "${TARGET}" = "pic_barsamian_freelist.c" ]; then
+    EXTRA_SPECIFIC_PRE="${BARSAMIAN_COMMON} -DPOSTYPEDOUBLE"
+elif [ "${TARGET}" = "pic_barsamian_single.c" ]; then
+    EXTRA_SPECIFIC_PRE="${BARSAMIAN_COMMON} -DSTDCHUNKALLOC"
+elif [ "${TARGET}" = "pic_barsamian_freelist_single.c" ]; then
+    EXTRA_SPECIFIC_PRE="${BARSAMIAN_COMMON}"
+
+# Compilation of naive code (pic_demo.c)
 elif [ "${TARGET}" = "pic_demo.c" ]; then
     EXTRA_SPECIFIC_PRE=" $PICVERT_HOME/src/optitrust.c $PICVERT_HOME/src/particle.c $PICVERT_HOME/src/bag_atomics.c $PICVERT_HOME/src/bag.c $PICVERT_HOME/simulations/pic_demo_aux.c"
-    # $PICVERT_HOME/simulations/pic_demo.h $PICVERT_HOME/simulations/pic_demo_aux.h
-else # assume a version of pic_demo optimized by optitrust
-    #EXTRA_SPECIFIC_PRE=" $PICVERT_HOME/src/optitrust.c  $PICVERT_HOME/src/bag_atomics.c  $PICVERT_HOME/simulations/pic_demo_aux.c"
+else
+# Compilation of a version of pic_demo.c produced by OptiTrust
     EXTRA_SPECIFIC_PRE="  $PICVERT_HOME/src/optitrust.c $PICVERT_HOME/src/bag_atomics.c  $PICVERT_HOME/simulations/pic_demo_aux.c"
-    # $PICVERT_HOME/simulations/pic_demo.h $PICVERT_HOME/simulations/pic_demo_aux.h  $PICVERT_HOME/src/bag.c
 fi
 
 if [ "${EXTENSION}" = "c" ]; then
@@ -114,9 +122,12 @@ else
 fi
 
 
-COMPILE_ARGS="-I$PICVERT_HOME/include -I $PICVERT_HOME/simulations $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c  $EXTRA_SPECIFIC_PRE  $PICVERT_HOME/simulations/${BASENAME}.${EXTENSION} $EXTRA_SPECIFIC_POST -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $DOUBLEPRECISION $CHECKER $DEBUGFLAGS $PERFFLAGS -lfftw3 -lm ${OPTIMLEVEL} ${VECTINFOS} -march=native ${CSTANDARD} "
+COMPILE_ARGS="-I$PICVERT_HOME/include -I $PICVERT_HOME/simulations $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c  $EXTRA_SPECIFIC_PRE  $PICVERT_HOME/simulations/${BASENAME}.${EXTENSION} $EXTRA_SPECIFIC_POST -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $CHECKER $DEBUGFLAGS $PERFFLAGS -lfftw3 -lm ${OPTIMLEVEL} ${VECTINFOS} -march=native ${CSTANDARD} "
 
-#echo "gcc ${COMPILE_ARGS}"
+if [ ! -z "${VERBOSE}" ]; then
+  echo "EXTRA_SPECIFIC_PRE=${EXTRA_SPECIFIC_PRE}"
+  echo "gcc ${COMPILE_ARGS}"
+fi
 
 # Depending on your version, you may change "export OMPI_CC=icc\n  mpicc" by just "mpiicc".
 compile_one() {

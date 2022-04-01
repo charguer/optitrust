@@ -41,17 +41,17 @@ import:
 export:
 	echo "ONLY FOR USE WITH let usechecker = true (CHECKER=1)"
 	cp pic_demo_out.cpp $(PICDIR)/simulations/pic_optimized_checker.c
-	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized_checker.c
+	sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_optimized_checker.c
 	cd $(SCRIPTDIR); ./check.sh pic_barsamian.c pic_optimized_checker.c
 
 export_fast:
 	echo "ONLY FOR USE WITH let usechecker = true (CHECKER=1)"
 	cp pic_demo_fast_after.cpp $(PICDIR)/simulations/pic_fast_checker.c
-	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_fast_checker.c
+	sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_fast_checker.c
 
 export_exp:
 	cp pic_demo_exp.cpp $(PICDIR)//simulations/pic_optimized.c
-	sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized.c
+	sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_optimized.c
 
 FILES := $(subst pic_demo.c,pic_demo.cpp,$(notdir $(SOURCES)))
 
@@ -62,8 +62,19 @@ cleanfiles:
 	$(V)rm -f $(FILES)
 
 optim: pic_demo_out.cpp 
-	$(V)cp pic_demo_out.cpp $(PICDIR)/simulations/pic_optimized.c
-	$(V)sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized.c
+	$(V)cp $< $(PICDIR)/simulations/pic_optimized.c
+	$(V)sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_optimized.c
+	@echo "Produced $(PICDIR)/simulations/pic_optimized.c"
+
+%_single_out.cpp: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
+	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -usesingle
+	$(V)mv $*_out.cpp $*_single_out.cpp
+	@echo "Produced $@"
+
+optim_single: pic_demo_single_out.cpp 
+	$(V)cp $< $(PICDIR)/simulations/pic_optimized_single.c
+	$(V)sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_optimized_single.c
+	echo "Produced $(PICDIR)/simulations/pic_optimized_single.c"
 
 perf: optim
 	$(V)cd $(SCRIPTDIR); ./perf.sh
@@ -80,15 +91,16 @@ vectview: optim
 	@echo "Produced $@"
 
 chk: pic_demo_checker_out.cpp
-	$(V)cp pic_demo_checker_out.cpp $(PICDIR)/simulations/pic_optimized_checker.c
-	$(V)sed "s/const int CHUNK_SIZE = 128;//" -i $(PICDIR)/simulations/pic_optimized_checker.c
+	$(V)cp $< $(PICDIR)/simulations/pic_optimized_checker.c
+	$(V)sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_optimized_checker.c
+	$(V)cp template_parameters_3d_checker.txt $(PICDIR)/scripts/parameters_3d.txt
 	$(V)cd $(SCRIPTDIR); ./check.sh pic_barsamian.c pic_optimized_checker.c
 
 chk_fast: export_fast
 	$(V)cd $(SCRIPTDIR); ./check.sh pic_barsamian.c pic_fast_checker.c
 
 chksteps_run:
-	$(V)cd steps; sed "s/const int CHUNK_SIZE = 128;//" -i pic_demo_*_out.cpp
+	$(V)cd steps; sed "s/const int CHUNK_SIZE = 256;//" -i pic_demo_*_out.cpp
 	$(V)for x in steps/*; do mv $$x steps/checker_"`basename $$x .cpp`.c"; done
 	$(V)rm -f $(PICDIR)/simulations/checker_pic_demo_*_out.c
 	$(V)cp steps/*.c $(PICDIR)/simulations/

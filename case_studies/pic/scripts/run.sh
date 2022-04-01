@@ -42,7 +42,7 @@ if [ ! -z "${BIND}" ]; then
   REPORTBINDINGS="--report-bindings"
 fi
 
-CPULIST="${cpulist}"
+CPULIST="${CPULIST}"
 if [ -z ${CPULIST} ]; then
   echo "need to specify CPULIST"
   exit 1
@@ -64,8 +64,8 @@ JEMALLOC="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so"
 
 # read nb threads from environment variable, else from your_configuration.sh
 NBTHREADS="${nb_threads}"
-if [ ! -z "${P}" ]; then
-  NBTHREADS="${P}"
+if [ ! -z "${CORES}" ]; then
+  NBTHREADS="${CORES}"
 fi
 
 RUNINFOS="Run ./${BINARY} NBTHREADS=${NBTHREADS}"
@@ -118,11 +118,14 @@ run_one() {
       export OMP_NUM_THREADS=$NBTHREADS
       echo ">>> OMP_NUM_THREADS=${OMP_NUM_THREADS} OMP_PLACES=${OMP_PLACES} OMP_PROC_BIND=${OMP_PROC_BIND}"
       CMDFILE="__cmd.sh"
-      echo ">>> mpirun ${REPORTBINDINGS} -np $nb_sockets ${COMMAND} > ${CMDFILE}"
-      echo "mpirun ${REPORTBINDINGS} -np $nb_sockets ${COMMAND}" > ${CMDFILE}
-      echo "taskset --cpu-list ${CPULIST} ./${CMDFILE}"
-      chmod +x ${CMDFILE}
-      taskset --cpu-list ${CPULIST} ./${CMDFILE}
+      # echo ">>> mpirun ${REPORTBINDINGS} -np $nb_sockets ${COMMAND} > ${CMDFILE}"
+      # echo "mpirun ${REPORTBINDINGS} -np $nb_sockets ${COMMAND}" > ${CMDFILE}
+
+      # echo "${COMMAND}" > ${CMDFILE}
+      # echo "taskset --cpu-list ${CPULIST} ./${CMDFILE}"
+      # chmod +x ${CMDFILE}
+      # taskset --cpu-list ${CPULIST} ./${CMDFILE}
+      stdbuf -i0 -o0 -e0  taskset --cpu-list ${CPULIST} ./${BASENAME}.out ./parameters_3d.txt
     elif [ "${COMPILER}" = "icc" ]; then
       mpiexec.hydra -n $nb_sockets ${COMMAND}
     else

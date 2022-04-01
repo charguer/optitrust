@@ -23,10 +23,17 @@ let align = 64
 
 (* Grab the "usechecker" flag from the command line *)
 let usechecker = ref false
+let usesingle = ref false
 let _= Run.process_cmdline_args
-  [("-usechecker", Arg.Set usechecker, " use -DCHECKER as preprocessor flag")]
+  [("-usechecker", Arg.Set usechecker, " use -DCHECKER as preprocessor flag");
+   ("-usesingle", Arg.Set usesingle, " make positions single precision")]
   (* LATER: use a generic -D flag for optitrust *)
 let usechecker = !usechecker
+let usesingle = !usesingle
+let _ =
+  if usesingle && usechecker then failwith "-usingle and -usechecker are incompatible";
+  Printf.printf "CHECKER=%d\n" (if usechecker then 1 else 0);
+  Printf.printf "SINGLE=%d\n" (if usesingle then 1 else 0)
 
 (* let _ = Printf.printf "usechecker=%d\n" (if usechecker then 1 else 0) *)
 
@@ -36,8 +43,7 @@ let usechecker = !usechecker
 let grid_dims_power_of_2 = true
 
 let onlychecker p = if usechecker then [p] else []
-let doublepos = false (* LATER: Arthur make this a command line command *)
-let doublepos = if usechecker then false else doublepos
+
 
 let stepFuns =
   (if usechecker then [repPart] else [])
@@ -47,7 +53,7 @@ let stepsReal = cOr (List.map (fun f -> [f]) stepsl) (* LATER: rename *)
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = onlychecker "-DCHECKER"
-let prepro = ["-DPRINTPERF"] @ prepro
+let prepro = ["-DPRINTPERF"; "-DPRINTSTEPS"] @ prepro
 
 (* LATER let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
    ~prefix *)
@@ -55,8 +61,6 @@ let prepro = ["-DPRINTPERF"] @ prepro
 (* let _ = Flags.code_print_width := 120 *)
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.h";"bag_atomics.h";"bag.h-"] (fun () ->
-
-  Printf.printf "CHECKER=%d\n" (if usechecker then 1 else 0);
 
   (* Part 1: sequential optimizations *)
 
@@ -86,12 +90,12 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Eliminate an intermediate storage by reusing an existing one";
   !! Variable.reuse (expr "p->speed") [step; cVarDef "speed2" ];
   !! Variable.reuse (expr "p->pos") [step; cVarDef "pos2"];
-  
+
   bigstep "Reveal write operations involved in the manipulation of particles and vectors";
   let ctx = cTopFunDefs ["bag_push_serial";"bag_push_concurrent"] in
   !! Trace.reparse();
   !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
-  !! List.iter (fun typ -> Struct.set_explicit [nbMulti; cOr [[ctx]; [steps]]; cWrite ~typ ()]) ["particle"; "vect"]; 
+  !! List.iter (fun typ -> Struct.set_explicit [nbMulti; cOr [[ctx]; [steps]]; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
   !! Variable.inline [nbMulti; step; cVarDefReg "[xyz]."];
 
@@ -113,7 +117,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Function.inline [steps; cFuns ["bag_iter_begin"; "bag_iter_destructive_begin"]];
   !! Loop.change_iter ~src:"bag_iter_ho_basic" ~dst:"bag_iter_ho_chunk" [steps; cVarDef "bag_it"];
   !! Instr.delete [nbMulti; cTopFunDefAndDecl ~regexp:true "bag_iter.*"];
-  
+
   bigstep "Elimination of the pointer on a particle, to prepare for aos-to-soa";
   !! Instr.inline_last_write [nbMulti; steps; cReadVar "p"];
 
@@ -201,7 +205,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Variable.inline [stepsReal; cVarDefReg "r.."];
   !! Instr.delete [nbMulti; stepsReal; cVarDefReg "i.0"];
 
-  if doublepos then begin
+  if usesingle then begin
     bigstep "Turn positions into floats, decreasing precision but allowing to fit a larger number of particles";
     !! Cast.insert (ty "float") [sExprRegexp ~substr:true "p.2 - i.2"];
     !! Struct.update_fields_type "itemsPos." (ty "float") [cTypDef "chunk"];
