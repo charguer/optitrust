@@ -1,0 +1,7 @@
+====Summary : Exectime / Throughput / Program / Compiler / Cores =====
+7.609	52.6	teraram/results_cores10_gcc_grid32_nb20_steps20_seed0_run0_pic_barsamian_single.txt
+8.320	48.1	teraram/results_cores10_gcc_grid32_nb20_steps20_seed0_run0_pic_optimized_single.txt
+7.483	53.5	teraram/results_cores10_gcc_grid32_nb20_steps20_seed1_run1_pic_barsamian_single.txt
+8.342	48.0	teraram/results_cores10_gcc_grid32_nb20_steps20_seed1_run1_pic_optimized_single.txt
+7.476	53.5	teraram/results_cores10_gcc_grid32_nb20_steps20_seed2_run2_pic_barsamian_single.txt
+8.345	47.9	teraram/results_cores10_gcc_grid32_nb20_steps20_seed2_run2_pic_optimized_single.txt

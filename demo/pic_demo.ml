@@ -73,6 +73,22 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
   !! Function.inline ~delete:true [nbMulti;cFun "matrix_vect_mul"];
 
+  bigstep "Optimization in [cornerInterpolationCoeff] debug";
+  let ctx = cTopFunDef "cornerInterpolationCoeff" in
+  let ctx_rv = cChain [ctx; sInstr "r.v"] in
+  !! Rewrite.equiv_at "double a; ==> 1. - a == (1. + (-1.) * a)" [nbMulti; ctx; cVarDefReg "c."; cInit()];
+  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; cWrite(); cVarReg "r[X-Z]"];
+  !! Variable.inline [nbMulti; ctx; cVarDefReg "c."];
+  !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
+      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
+      ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
+      [nbMulti; ctx_rv; dRHS];
+  (* !! Instr.move_out_of_fun [nbMulti; ctx; cVarDefReg "\\(coef\\|sign\\)."]; *) (* TODO: Fix me *)
+  !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDefReg "\\(coef\\|sign\\)."];
+  !! Loop.fold_instrs ~index:"idCorner" [ctx; cWrite()];
+
+
+
   bigstep "Optimization in [cornerInterpolationCoeff], before it is inlined";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   let ctx_rv = cChain [ctx; sInstr "r.v"] in

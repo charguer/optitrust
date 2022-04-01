@@ -435,6 +435,24 @@ let isolate_first_iteration (tg : target) : unit =
   Loop_basic.split_range ~nb:1 tg;
   unroll ([occFirst] @ tg)
 
+
+(* [unfold_bound tg] inlines the bound of the targeted loop if that loop is a simple for loop and if that bound is a variable and 
+    not a complex expression*)
+let unfold_bound (tg : target) : unit = 
+  iter_on_targets( fun t p -> 
+    let tg_trm = Path.resolve_path p t in 
+    match tg_trm.desc with 
+    | Trm_for (_, _, _, stop, _, _) ->
+      begin match stop.desc with 
+      | Trm_var (_, x) ->
+        Variable.unfold ~at:(target_of_path p) [cVarDef x]
+      | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation stop -> 
+        Variable.unfold ~at:(target_of_path p) [cVarDef x]
+      | _ -> fail tg_trm.loc "unfold_bound: can't unfold loop bounds that are not variables"
+      end
+    | _ -> fail tg_trm.loc "unfold_bound: expected a target to a simple for loop"
+  ) tg
+
 (* [grid_enumerate  ~indices tg] similar to Loop_basic.grid_enumerate but this one computes the bounds automatically
      under the assumption that the bound of the targeted loop is given as a product of the bounds for each dimension *)
 let grid_enumerate ?(indices : string list = []) : Transfo.t = 

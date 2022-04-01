@@ -1,0 +1,4 @@
+====Summary : Exectime / Throughput / Run =====
+204.678	122.1	teraram/results_cores10_gcc_grid64_nb500_steps50_seed0_run0_pic_barsamian_freelist_single.txt
+304.286	82.2	teraram/results_cores10_gcc_grid64_nb500_steps50_seed0_run0_pic_barsamian_single.txt
+268.233	93.2	teraram/results_cores10_gcc_grid64_nb500_steps50_seed0_run0_pic_optimized_single.txt

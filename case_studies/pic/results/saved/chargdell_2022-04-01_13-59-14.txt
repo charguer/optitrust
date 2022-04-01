@@ -1,0 +1,7 @@
+====Summary : Exectime / Throughput / Run =====
+449.766	111.2	chargdell/results_cores4_gcc_grid32_nb100_steps500_seed0_run0_pic_barsamian_single.txt
+405.633	123.3	chargdell/results_cores4_gcc_grid32_nb100_steps500_seed0_run0_pic_optimized_single.txt
+462.500	108.1	chargdell/results_cores4_gcc_grid32_nb100_steps500_seed1_run1_pic_barsamian_single.txt
+433.702	115.3	chargdell/results_cores4_gcc_grid32_nb100_steps500_seed1_run1_pic_optimized_single.txt
+458.690	109.0	chargdell/results_cores4_gcc_grid32_nb100_steps500_seed2_run2_pic_barsamian_single.txt
+414.209	120.7	chargdell/results_cores4_gcc_grid32_nb100_steps500_seed2_run2_pic_optimized_single.txt
