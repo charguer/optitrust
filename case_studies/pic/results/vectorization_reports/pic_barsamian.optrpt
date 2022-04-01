@@ -1,0 +1,44 @@
+Intel(R) Advisor can now assist with vectorization and show optimization
+  report messages with your source code.
+See "https://software.intel.com/en-us/intel-advisor-xe" for details.
+
+================================================================
+Begin optimization report for: main(int, char **)
+
+    Report from: Vector optimizations [vec]
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_barsamian.c(555,21)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_barsamian.c(665,13)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_barsamian.c(778,29)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_barsamian.c(810,29)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_barsamian.c(810,29)
+<Remainder loop for vectorization>
+   remark #15301: REMAINDER LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_barsamian.c(833,33)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_barsamian.c(867,21)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+LOOP BEGIN at /home/begi-inria/Desktop/verified_transfo/src/case_studies/pic/simulations/pic_barsamian.c(861,71)
+   remark #15301: SIMD LOOP WAS VECTORIZED
+LOOP END
+
+===========================================================================
