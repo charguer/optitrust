@@ -44,6 +44,9 @@ echo "${NBSTEPS} steps in all unit tests"
 cd ${CURDIR}/demo
 FILE="pic_demo.ml"
 NBSTEPS=`grep -o '!!' ${FILE} | wc -l`
+
+NB_REPARSE=`grep -o 'reparse()' ${FILE} | wc -l`
+
 echo "${NBSTEPS} steps in demo"
 
 NB_BIGSTEPS=`grep -o 'bigstep' ${FILE} | wc -l`

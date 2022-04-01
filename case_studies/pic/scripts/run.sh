@@ -127,7 +127,8 @@ run_one() {
       # taskset --cpu-list ${CPULIST} ./${CMDFILE}
       stdbuf -i0 -o0 -e0  taskset --cpu-list ${CPULIST} ./${BASENAME}.out ./parameters_3d.txt
     elif [ "${COMPILER}" = "icc" ]; then
-      mpiexec.hydra -n $nb_sockets ${COMMAND}
+      stdbuf -i0 -o0 -e0  taskset --cpu-list ${CPULIST} ./${BASENAME}.out ./parameters_3d.txt
+      #mpiexec.hydra -n $nb_sockets ${COMMAND}
     else
       echo "invalid compiler parameter: ${COMPILER}."
       exit 1
