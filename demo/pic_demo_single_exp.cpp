@@ -89,9 +89,9 @@ const int CHUNK_SIZE = 256;
 typedef struct chunk {
   struct chunk* next;
   int size;
-  alignas(64) double itemsPosX[CHUNK_SIZE];
-  alignas(64) double itemsPosY[CHUNK_SIZE];
-  alignas(64) double itemsPosZ[CHUNK_SIZE];
+  alignas(64) float itemsPosX[CHUNK_SIZE];
+  alignas(64) float itemsPosY[CHUNK_SIZE];
+  alignas(64) float itemsPosZ[CHUNK_SIZE];
   alignas(64) double itemsSpeedX[CHUNK_SIZE];
   alignas(64) double itemsSpeedY[CHUNK_SIZE];
   alignas(64) double itemsSpeedZ[CHUNK_SIZE];
@@ -890,9 +890,9 @@ core:
                         const int iZ2 = qZ & gridZ + -1;
                         idCell2_step[i] =
                             MINDEX3(gridX, gridY, gridZ, iX2, iY2, iZ2);
-                        c->itemsPosX[i] = rX;
-                        c->itemsPosY[i] = rY;
-                        c->itemsPosZ[i] = rZ;
+                        c->itemsPosX[i] = (float)rX;
+                        c->itemsPosY[i] = (float)rY;
+                        c->itemsPosZ[i] = (float)rZ;
                       }
                       for (int i = 0; i < nb; i++) {
                         particle p2;

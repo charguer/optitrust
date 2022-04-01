@@ -53,6 +53,10 @@ export_exp:
 	cp pic_demo_exp.cpp $(PICDIR)//simulations/pic_optimized.c
 	sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_optimized.c
 
+export_exp_single:
+	cp pic_demo_single_exp.cpp $(PICDIR)//simulations/pic_optimized_single.c
+	sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_optimized_single.c
+
 FILES := $(subst pic_demo.c,pic_demo.cpp,$(notdir $(SOURCES)))
 
 clean::

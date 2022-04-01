@@ -5,6 +5,7 @@
 
 cd ../../../demo
 make init
-make optim optim_single
 
+make optim
+make optim_single
 

@@ -172,6 +172,8 @@ val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> ?typ:string -> ?ty
 
 val cVarDefs : var list -> constr
 
+val cVarDefReg : string -> constr
+
 val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> string -> constr
 
 val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> string -> constr
@@ -192,6 +194,8 @@ val cEnum : ?name:string -> ?substr:bool -> ?constants:((string * target) list) 
 val cSeq : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
 
 val cVar : ?regexp:bool -> ?substr:bool -> ?trmkind:trm_kind -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
+
+val cVarReg : string -> constr
 
 val cLitPred : (lit -> bool) -> constr
 
@@ -412,7 +416,9 @@ val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 val get_trm_at : target -> trm option
 val get_ast : unit -> trm
 
-val var : ?mut:bool -> string  -> trm
+val var : string  -> trm
+
+val var_mut : string -> trm
 
 val lit : string -> trm
 

@@ -263,6 +263,8 @@ let cVarDefs (vars : vars) : constr =
   let vardefs = List.map (fun v -> [cVarDef v]) vars in
   cOr vardefs
 
+let cVarDefReg (reg : string) : constr = 
+  cVarDef ~regexp:true reg
 
 let cFor ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
@@ -410,6 +412,9 @@ let cVar ?(regexp : bool = false) ?(substr : bool = false) ?(trmkind : trm_kind 
   if typ = "" && typ_pred == typ_constraint_default then c else (* this line is just an optimization *)
   Constr_target (with_type ~typ ~typ_pred [c])
 
+let cVarReg (reg : string) : constr = 
+  cVar ~regexp:true reg
+
 (* [cLitPred pred_l] matches all the literals that statisfy the predicate [pred_l] *)
 let cLitPred (pred_l : lit -> bool) : constr =
   Constr_lit pred_l
@@ -546,7 +551,7 @@ let cWriteVar ?(regexp : bool = false) ?(substr : bool = false) ?(trmkind : trm_
 
 (* [cReadVar x] matches a read operation for variable [x] *)
 let cReadVar (x : var) : constr =
-  cRead ~addr:[cVar x] ()
+  cRead ~addr:[cStrictNew; cVar x] ()
 
 (* [cMark m] matches all the ast nodes with annotation Mark m*)
 let cMark (m : mark) : constr =
