@@ -84,7 +84,7 @@ vect vect_add(vect v1, vect v2) {
 
 vect vect_mul(double d, vect v) { return (vect){d * v.x, d * v.y, d * v.z}; }
 
-const int CHUNK_SIZE = 128;
+const int CHUNK_SIZE = 256;
 
 typedef struct chunk {
   struct chunk* next;
@@ -996,7 +996,12 @@ int main(int argc, char** argv) {
   createParticles();
   stepLeapFrog();
   double timeStart = omp_get_wtime();
+  double nextReport = timeStart + 1.;
   for (int idStep = 0; idStep < nbSteps; idStep++) {
+    if (omp_get_wtime() > nextReport) {
+      nextReport += 1.;
+      printf("Step %d\n", idStep);
+    }
     step();
   }
   double timeTotal = (double)(omp_get_wtime() - timeStart);
