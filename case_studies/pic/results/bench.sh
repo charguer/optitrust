@@ -16,6 +16,8 @@
 # The environment variable SEED=42 to provide the seed 42 (default is to use the RUN_ID)
 # The environment variable CPULIST="0,2" to specify processing units to use
 
+# The environment variable SEEDOFFSET=5 to specify SEED to be SEEDOFFSET+RUN_ID
+
 # The environment variable DRY=1 can be used to make dry runs
 
 
@@ -34,6 +36,12 @@ fi
 if [ -z "${MACHINE}" ]; then
   MACHINE=`hostname`
 fi
+
+if [ -z "${SEEDOFFSET}" ]; then
+  SEEDOFFSET=0
+fi
+
+
 
 if [ "${ACTION}" != "summary" ]; then
 
@@ -196,7 +204,7 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
         if [ ! -z "${SEED}" ]; then
           RUNSEED=${SEED}
         else
-          RUNSEED=${RUN}
+          RUNSEED=$((SEEDOFFSET + RUN))
         fi
         OUTFILE="${MACHINEDIR}/results_cores${NBCORES}_${COMPILER}_grid${GRID}_nb${NB}_steps${STEPS}_seed${RUNSEED}_run${RUN}_${BASENAME}.txt"
         echo "P=${NBCORES} SEED=${RUNSEED} ./run.sh ${PROGRAM} > ${OUTFILE}"
