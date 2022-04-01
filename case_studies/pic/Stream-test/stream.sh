@@ -68,11 +68,11 @@ fi
 ###############################################################
 # Execution
 
-if [ -z "${CPULIST}"]; then
+if [ -z "${CPULIST}" ]; then
   echo "Warning: running stream.sh without taskset and CPULIST"
   ./stream.out
 else
-  taskset $--cpu-list ${CPULIST} ./stream.out
+  taskset --cpu-list ${CPULIST} ./stream.out
 fi
 
 

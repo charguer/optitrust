@@ -138,6 +138,7 @@ if [ "${ACTION}" = "hard" ]; then
     COMP=${COMPILER} SIZE=${STREAMSIZE} CORES=${NBCORES} CPULIST=${CPULIST} ${STREAMDIR}/stream.sh > ${OUTPUT}
     echo "Generated ${OUTPUT}"
   done
+  grep "^\(Function\|Copy:\|Scale:\|Add:\)" ${OUTPUT}
 
 fi
 
