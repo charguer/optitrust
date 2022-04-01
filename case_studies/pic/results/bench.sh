@@ -96,7 +96,6 @@ MACHINEDIR="${MACHINE}"
 STREAMSIZEMILLION="10"
 STREAMSIZE=$((STREAMSIZEMILLION * 1000 * 1000))
 
-
 #--------------------------------------------------------------------------------
 # Load machine configuration
 
