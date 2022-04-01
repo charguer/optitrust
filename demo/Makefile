@@ -64,6 +64,7 @@ cleanfiles:
 optim: pic_demo_out.cpp 
 	$(V)cp $< $(PICDIR)/simulations/pic_optimized.c
 	$(V)sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_optimized.c
+	@echo "Produced $(PICDIR)/simulations/pic_optimized.c"
 
 %_single_out.cpp: %_with_lines.$(PROGEXT) %.cpp %.ml %_with_lines.ml
 	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -usesingle
@@ -73,6 +74,7 @@ optim: pic_demo_out.cpp
 optim_single: pic_demo_single_out.cpp 
 	$(V)cp $< $(PICDIR)/simulations/pic_optimized_single.c
 	$(V)sed "s/const int CHUNK_SIZE = 256;//" -i $(PICDIR)/simulations/pic_optimized_single.c
+	echo "Produced $(PICDIR)/simulations/pic_optimized_single.c"
 
 perf: optim
 	$(V)cd $(SCRIPTDIR); ./perf.sh

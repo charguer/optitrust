@@ -83,21 +83,129 @@ lstopo
 # On NUMA machines make sure to use only one socket.
 ```
 
+Keep in mind that:
+
+- The number of parallel tasks is GRID^3/8/8  (because 8 phases, with blocs of size 8)
+  for GRID=32; this gives 512 tasks. The number of tasks should be at least 10*CORES
+  for decent parallelism.
+
+- The number of particles should be at least GRID^3 * 256 * 10,
+  to have on average 10 chunks per cell.
+  For GRID=32, this gives 84 million particles.
+  For GRID=64, this gives 670 million particles.
+  because CHUNK_SIZE=256, and the code is optimized for processing several chunks per cell.
+
+- The number of time steps should be at least 20, to tame cache warm-up artefacts;
+  Larger values make simulations more realistic, but don't fundamentally change the results.
+
+- The space needed to represent the grid is GRID^3*256*36*4 (factor 4 for spare chunks)
+  (factor 36 is the size of a particle with single-precision positions---48 with double precision).
+  For GRID=32, this gives 1.2GB. For GRID=64, this gives 10GB.
+
+- The space needed to represent the particles is NB*36 (MB) (36 bytes per particle)
+  (ignoring the chunk size headers). For NB=100 (million particles), this gives 3.6GB.
+  Round it up to account for chunk overheads, and the auxiliary data structures.
+
 Then:
 ```
+#--------------Laptop
+
 # To get hardware info
 CORES=4 CPULIST="0,1,2,3" COMP=gcc ./bench.sh hard
 
-
 # for a fast run just to check everything is ok
-CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=8 NB=2 STEPS=20 RUNS=2 SEED=0 PROG="pic_barsamian.c pic_optimized.c" ./bench.sh
+CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=8 NB=2 STEPS=20 RUNS=2 PROG="pic_barsamian.c pic_optimized.c" ./bench.sh
 
-# for a mid-size run on a laptop
-CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=3 SEED=0 PROG="pic_barsamian.c pic_optimized.c" ./bench.sh
-CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=3 SEED=0 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+# to check variance for a fixed seed (add SEED=0 to the front)
+SEED=0 CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=3 PROG="pic_barsamian.c pic_optimized.c" ./bench.sh
 
-# for a large-size run on a laptop
+# to check the speedups
+CORES=1 CPULIST="1" COMP=gcc GRID=8 NB=5 STEPS=20 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=8 NB=5 STEPS=20 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
 
-# for a large-size run on a big server
-NOSEQ=1 RUNS=5 SEED=0 NB=300 STEPS=50 ./bench.sh
+
+# for a mid-size run
+CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+
+CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=1 PROG="pic_barsamian_single.c pic_optimized_single.c pic_barsamian_freelist_single.c" ./bench.sh
+
+
+# for a large-size run, including freelist
+CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c pic_barsamian_freelist_single.c" ./bench.sh
+
+# for a large-size sequential run
+CORES=1 CPULIST="1" COMP=gcc GRID=8  NB=100 STEPS=100 RUNS=1 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+CORES=1 CPULIST="1" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=1 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+
+
+#--------------Server
+
+# for a mid-size run
+CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+
+# for a large-size run
+CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+
+temp
+CORES=1 CPULIST="3" COMP=gcc GRID=32 NB=100 STEPS=100 RUNS=1 PROG="pic_barsamian_single.c" ./bench.sh
+
+# for a huge-size run on a big server
+CORES=10 CPULIST="3,7,11,15,19,23,27,31,35,39" COMP=gcc GRID=64 NB=500 STEPS=500 RUNS=3 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
+```
+
+## Discussion
+
+Barsamian's results:
+- 740 million particles per second using 24 cores
+- 30.8 million particles per second per core
+- The theoretical peak advertised by the manufacturer is 127.99 GB/s.
+- The Stream benchmark [15] provides the measure 98.2 GB/s
+- The memory bandwidth achieved is 53.6 GB/s.
+  The bandwidth is obtained by multiplying the size of a particle, 36 bytes
+  (plus 64/256=0.25 bytes to account for chunk headers, we ignore this)
+  multiplied by the number of particle processed per second (740 million),
+  and multiplied by a factor 2 (one read plus one write).
+
+// Intel Xeon Platinum 8160 @ 2.1 GHz (Skylake),
+// with 96 GB of RAM, 6 memory channels, and 24 cores
+
+Teraram results:
+- GRID=32 NB=100 STEPS=100
+- ParticlesMoved: 10.0 billion particles
+- Exectime: 88.533 sec
+- Throughput: 113.0 million particles/sec
+- Per core: 11,36
+
+with freelists:
+   Exectime: 73.161 sec
+   ParticlesMoved: 10.0 billion particles
+   Throughput: 136.7 million particles/sec
+
+
+
+
+# eliminate warning => find any relevant network interfaces
+# --mca btl_base_warn_component_unused 0
+
+
+# Debugging:
+
+
+```
+nb_particles = 10000000;
+nb_iterations = 100;
+nb_cells_x = 8;
+nb_cells_y = 8;
+nb_cells_z = 8;
+```
+
+```
+cd pic/scripts
+CORES=1 CPULIST="1"       COMP=gcc ./run.sh pic_barsamian.c
+CORES=4 CPULIST="0,1,2,3" COMP=gcc ./run.sh pic_barsamian.c
+
+cd pic/3d_runs/run1
+OMP_NUM_THREADS=4 ./pic_barsamian.out parameters_3d.txt
+OMP_NUM_THREADS=4 taskset --cpu-list 0,1,2,3 ./pic_barsamian.out parameters_3d.txt
+
 ```

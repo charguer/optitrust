@@ -54,7 +54,7 @@ let stepsReal = cOr (List.map (fun f -> [f]) stepsl) (* LATER: rename *)
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = onlychecker "-DCHECKER"
-let prepro = ["-DPRINTPERF"] @ prepro
+let prepro = ["-DPRINTPERF"; "-DPRINTSTEPS"] @ prepro
 
 (* LATER let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
    ~prefix *)

@@ -153,7 +153,8 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ] || [ "${ACTION}" = "params
   echo "cpulist=\"${CPULIST}\"" >> ${CONFIGFILE}
   DEFAULTCOMPILER="${COMPILERS%% *}"
   echo "compiler=\"${DEFAULTCOMPILER}\"" >> ${CONFIGFILE}
-  echo "Generated ${CONFIGFILE}       with nb_cores=${NBCORES}"
+  # DEPRECATED: in fact this file is not used at all by our call to run
+  # echo "Generated ${CONFIGFILE}       with nb_cores=${NBCORES}"
 
   PARAMSTEMPLATE="template_parameters_3d.txt"
   PARAMSFILE="${SCRIPTDIR}/parameters_3d.txt"
@@ -200,7 +201,8 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "run" ]; then
         OUTFILE="${MACHINEDIR}/results_cores${NBCORES}_${COMPILER}_grid${GRID}_nb${NB}_steps${STEPS}_seed${RUNSEED}_run${RUN}_${BASENAME}.txt"
         echo "P=${NBCORES} SEED=${RUNSEED} ./run.sh ${PROGRAM} > ${OUTFILE}"
         if [ -z ${DRY} ]; then
-          CORES=${NBCORES} COMP=${COMPILER} SEED=${RUNSEED} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE} || echo "Failure in run"
+          CORES=${NBCORES} COMP=${COMPILER} SEED=${RUNSEED} ./run.sh ${PROGRAM} | tee ${CURDIR}/${OUTFILE}
+          # || echo "Failure in run"
         fi
       done
     done
@@ -219,7 +221,8 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ] || [ "${ACTION}" = "ru
     echo "====No summary in dry run mode===="
   else
     FINAL_RES="${MACHINEDIR}/output.txt"
-    echo "====Summary : Exectime / Throughput / Program / Compiler / Cores =====" | tee >> ${FINAL_RES}
+    > ${FINAL_RES}
+    echo "====Summary : Exectime / Throughput / Run =====" | tee >> ${FINAL_RES}
     for FILE in ${MACHINEDIR}/results_*.txt; do
       # RES=$(sed '/^\(Throughput\)/!d' ${FILE})
       THROUGHPUT=$(cat ${FILE} | grep ^Throughput* | awk '{print $2}')
