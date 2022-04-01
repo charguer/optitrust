@@ -16,11 +16,14 @@ TARGET=$1
 BASENAME="${TARGET%%.*}"
 EXTENSION="${TARGET##*.}"
 CHECKER_OUTFILE=$2
-echo $CHECKER_OUTFILE
-
-if [ "$CHECKER_OUTFILE" == "1" ]; then
-  CHECKER_OUTFILE="${BASENAME}.res"
+if [ ! -z "$CHECKER_OUTFILE" ]; then
+  echo "Building with CHECKER_OUTFILE specified"
 fi
+
+# DEPRECATED
+#if [ "$CHECKER_OUTFILE" == "1" ]; then
+#  CHECKER_OUTFILE="${BASENAME}.res"
+#fi
 
 #Home path for Pic-Vert.
 cd ..

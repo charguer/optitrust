@@ -64,8 +64,8 @@ JEMALLOC="export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so"
 
 # read nb threads from environment variable, else from your_configuration.sh
 NBTHREADS="${nb_threads}"
-if [ ! -z "${P}" ]; then
-  NBTHREADS="${P}"
+if [ ! -z "${CORES}" ]; then
+  NBTHREADS="${CORES}"
 fi
 
 RUNINFOS="Run ./${BINARY} NBTHREADS=${NBTHREADS}"

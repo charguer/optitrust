@@ -73,20 +73,27 @@ program executed using 2 cores.
 
 ## Experiments
 
-FAST=1 is an alias for GRID=8
-FAST=2 is an alias for GRID=32
-
+To figure out what CPULIST to use, do:
 ```
-# for fast run just to check everything
-NOSEQ=1 RUNS=2 SEED=0 FAST=1 NB=2 STEPS=50 ./bench.sh
-NOSEQ=1 RUNS=3 SEED=0 FAST=1 NB=10 STEPS=50 ./bench.sh
+sudo apt-get install hwloc
+lstopo
+# This shows each socket, with each core, with 1 or 2 PUs (processing unit) depending on hyperthreading
+# Read the label of the first PU of each core, only for the first socket, and write them in the list
+# e.g. CORES=4 CPULIST="0,1,2,3"
+# On NUMA machines make sure to use only one socket.
+```
 
-# for parallel runs only
-NOSEQ=1 RUNS=3 SEED=0 FAST=2 NB=10 STEPS=50 ./bench.sh
+Then:
+```
+# for a fast run just to check everything is ok
+CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=8 NB=2 STEPS=20 RUNS=2 SEED=0 PROG="pic_barsamian.c pic_optimized.c" ./bench.sh
 
-# for sequential runs only
-NOPAR=1 RUNS=1 SEED=0 FAST=2 NB=10 STEPS=50 ./bench.sh
+# for a mid-size run on a laptop
+CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=3 SEED=0 PROG="pic_barsamian.c pic_optimized.c" ./bench.sh
+CORES=4 CPULIST="0,1,2,3" COMP=gcc GRID=32 NB=20 STEPS=20 RUNS=3 SEED=0 PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
 
-# for big-machine only
+# for a large-size run on a laptop
+
+# for a large-size run on a big server
 NOSEQ=1 RUNS=5 SEED=0 NB=300 STEPS=50 ./bench.sh
 ```
