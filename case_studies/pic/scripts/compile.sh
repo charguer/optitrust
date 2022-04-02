@@ -72,10 +72,16 @@ DEBUGFLAGS=""
 # DEBUGFLAGS="-g -DSKIPLEAPFROG"
 # DEBUGFLAGS="-g -DDEBUG_ITER"
 # DEBUGFLAGS="-g"
-DEBUGFLAGS="-DDEBUG_SEED"
+#DEBUGFLAGS="-DDEBUG_SEED"
 
 # -ftree-vectorize
 PERFFLAGS=" -DPRINTPERF -DPRINTSTEPS"
+
+
+if   [ "${TARGET}" = "pic_optimized_single_instr.c" ] \
+  || [ "${TARGET}" = "pic_barsamian_single_instr.c" ]; then
+  PERFFLAGS+=" -DANALYZEPERF"
+fi
 
 BINARY="${BASENAME}.out"
 
@@ -101,7 +107,7 @@ if [ "${TARGET}" = "pic_barsamian.c" ]; then
     EXTRA_SPECIFIC_PRE="${BARSAMIAN_COMMON} -DPOSTYPEDOUBLE -DSTDCHUNKALLOC"
 elif [ "${TARGET}" = "pic_barsamian_freelist.c" ]; then
     EXTRA_SPECIFIC_PRE="${BARSAMIAN_COMMON} -DPOSTYPEDOUBLE"
-elif [ "${TARGET}" = "pic_barsamian_single.c" ]; then
+elif [ "${TARGET}" = "pic_barsamian_single.c" ] || [ "${TARGET}" = "pic_barsamian_single_instr.c" ]; then
     EXTRA_SPECIFIC_PRE="${BARSAMIAN_COMMON} -DSTDCHUNKALLOC"
 elif [ "${TARGET}" = "pic_barsamian_freelist_single.c" ]; then
     EXTRA_SPECIFIC_PRE="${BARSAMIAN_COMMON}"
