@@ -778,14 +778,16 @@ void contrib_report(double total, int nbReports) {
 #define CONTRIB_PUSH_LOOP 4
 #define CONTRIB_REDUCE 5
 #define CONTRIB_POISSON 6
-#define CONTRIB_NONATOMIC_PUSH 7
-#define CONTRIB_ATOMIC_PUSH 8
+#define CONTRIB_STEP1 7
+#define CONTRIB_STEP2 8
+#define CONTRIB_STEP3 9
+#define CONTRIB_NONATOMIC_PUSH 10
+#define CONTRIB_ATOMIC_PUSH 11
 
 //===========================================================================
 
 void step() {
-  //#pragma omp parallel
-  {
+  double contrib_time_00 = omp_get_wtime();
   double contrib_time_8 = omp_get_wtime();
   const double factorC =
       particleCharge * (stepDuration * stepDuration) / particleMass;
@@ -1030,6 +1032,8 @@ core:
       }
     }
   }
+  double contrib_time_01 = omp_get_wtime();
+
   double contrib_time_4 = omp_get_wtime();
 #pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
@@ -1061,11 +1065,17 @@ core:
   }
   double contrib_time_5 = omp_get_wtime();
   CONTRIB_TIME(0, CONTRIB_REDUCE, nbThreads * (contrib_time_5 - contrib_time_4));
+
+  double contrib_time_02 = omp_get_wtime();
+
   double contrib_time_6 = omp_get_wtime();
   updateFieldUsingDeposit();
   double contrib_time_7 = omp_get_wtime();
   CONTRIB_TIME(0, CONTRIB_POISSON, nbThreads * (contrib_time_7 - contrib_time_6));
-}
+  double contrib_time_03 = omp_get_wtime();
+  CONTRIB_TIME(0, CONTRIB_STEP1, nbThreads * (contrib_time_01 - contrib_time_00));
+  CONTRIB_TIME(0, CONTRIB_STEP2, nbThreads * (contrib_time_02 - contrib_time_01));
+  CONTRIB_TIME(0, CONTRIB_STEP3, nbThreads * (contrib_time_03 - contrib_time_02));
 }
 
 //#include <time.h>
