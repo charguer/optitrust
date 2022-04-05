@@ -11,6 +11,9 @@
 # into the run folder
 # Option VERBOSE=1
 
+# Example command to get assembly code:
+#    ASM=1 ./compile.sh pic_barsamian.c > pic_barsamian.s
+
 TARGET=$1
 # BASENAME=`basename ${TARGET} .c`
 BASENAME="${TARGET%%.*}"
@@ -95,9 +98,22 @@ if [ ! -z "$COMPOPT" ]; then
   OPTIMLEVEL="$COMPOPT"
 fi
 
-COMPILEINFOS="Build ${BINARY} with ${COMPILER} ${OPTIMLEVEL} ${DEBUGFLAGS} ${PERFFLAGS} ${CHECKER}"
+VIEWASM=""
+if [ ! -z "$ASM" ]; then
+  if [ "${COMPILER}" = "gcc" ]; then
+    VIEWASM="-Wa,-adhln -g"
+    #VIEWASM="-S"
+  elif [ "${COMPILER}" = "icc" ]; then
+    VIEWASM="-S -fsource-asm"
+  else
+    echo "unsupported compiler ${COMPILER}$"
+  fi
+fi
+
+COMPILEINFOS="Build ${BINARY} with ${COMPILER} ${OPTIMLEVEL} ${DEBUGFLAGS} ${PERFFLAGS} ${CHECKER} ${VIEWASM}"
 
 echo ${COMPILEINFOS}
+
 
 EXTRA_SPECIFIC_PRE=
 
@@ -128,7 +144,7 @@ else
 fi
 
 
-COMPILE_ARGS="-I$PICVERT_HOME/include -I $PICVERT_HOME/simulations $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c  $EXTRA_SPECIFIC_PRE  $PICVERT_HOME/simulations/${BASENAME}.${EXTENSION} $EXTRA_SPECIFIC_POST -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $CHECKER $DEBUGFLAGS $PERFFLAGS -lfftw3 -lm ${OPTIMLEVEL} ${VECTINFOS} -march=native ${CSTANDARD} "
+COMPILE_ARGS="-I$PICVERT_HOME/include -I $PICVERT_HOME/simulations $PICVERT_HOME/src/matrix_functions.c $PICVERT_HOME/src/meshes.c $PICVERT_HOME/src/output.c $PICVERT_HOME/src/parameter_reader.c $PICVERT_HOME/src/random.c $PICVERT_HOME/src/space_filling_curves.c $PICVERT_HOME/src/diagnostics.c $PICVERT_HOME/src/fields.c $PICVERT_HOME/src/initial_distributions.c $PICVERT_HOME/src/poisson_solvers.c $PICVERT_HOME/src/rho.c  $EXTRA_SPECIFIC_PRE  $PICVERT_HOME/simulations/${BASENAME}.${EXTENSION} $EXTRA_SPECIFIC_POST -DSPARE_LOC_OPTIMIZED -DOMP_TILE_SIZE=2 -DCHUNK_SIZE=$CHUNK_SIZE $CHECKER $DEBUGFLAGS $PERFFLAGS -lfftw3 -lm ${OPTIMLEVEL} ${VECTINFOS} -march=native ${CSTANDARD} ${VIEWASM}"
 
 if [ ! -z "${VERBOSE}" ]; then
   echo "EXTRA_SPECIFIC_PRE=${EXTRA_SPECIFIC_PRE}"
