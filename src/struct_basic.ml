@@ -38,20 +38,20 @@ let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struc
     end in
   apply_on_targets (Struct_core.fields_reorder struct_fields move_where) tg
 
-(* [reveal field_to_reveal tg] expects [tg] to point to a typedef struct
-    it then will find [field_to_reveal] and it's underlying type. It will
-    replace [field_to_reveal] with a list of fields rename comming from the underlying type
-    renamed with the following the prefix "field_to_reveal_".
+(* [reveal_field field_to_reveal_field tg] expects [tg] to point to a typedef struct
+    it then will find [field_to_reveal_field] and it's underlying type. It will
+    replace [field_to_reveal_field] with a list of fields rename comming from the underlying type
+    renamed with the following the prefix "field_to_reveal_field_".
 *)
-let reveal ?(reparse:bool=false) (field_to_reveal : field) : Transfo.t =
+let reveal_field ?(reparse:bool=false) (field_to_reveal_field : field) : Transfo.t =
   reparse_after ~reparse
     (apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-      (fun t (p, i) -> Struct_core.reveal field_to_reveal i t p))
+      (fun t (p, i) -> Struct_core.reveal_field field_to_reveal_field i t p))
 
-(* [reveal_multi fields_to_reveal tg] an extension to the reveal transformation but this one 
+(* [reveal_fields fields_to_reveal_field tg] an extension to the reveal_field transformation but this one 
      is applied on multiple struct fields *)
-let reveal_multi ?(reparse : bool = false) (fields_to_reveal : fields) (tg : target) : unit =
-  List.iter (fun f ->  reveal f tg) fields_to_reveal
+let reveal_fields ?(reparse : bool = false) (fields_to_reveal_field : fields) (tg : target) : unit =
+  List.iter (fun f ->  reveal_field f tg) fields_to_reveal_field
 
 
 (* [to_variables tg] expects [tg] to point to a variable declaration of type typedef struct.

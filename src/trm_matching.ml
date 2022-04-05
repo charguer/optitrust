@@ -1,15 +1,19 @@
 open Ast
 
-(* [parse_pattern str]: for a given pattern [str] return the list of variables used in that pattern
-      and the ast of the pattern
+(* [parse_pattern pattern globdefs ctx ]: for a given pattern [pattern] return the list of variables used in that pattern
+      and the ast of the pattern. 
+      [globdefs]: is the code entered as string that contains all the functions used in the pattern
+      [ctx]: if set to true than the user doesn't need to provide declarations of the functions used in pattern 
+          insted the function will take the current ast and dump it just before the pattern.
+          this way all the functions used inside the pattern all well defined.
     Example:
-    str = "double a; double b; double c; (a + k * b) == (b * k + a)"
+    pattern = "double a; double b; double c; (a + k * b) == (b * k + a)"
     Then this string will be splitted parsed as
     void f (double a, double b, double c) {
       (a + k * b) == (b * k + a)
     }
 *)
-let parse_pattern ?(glob_defs : string = "") (str : string) : (typed_vars * typed_vars *trm) =
+let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : string) : (typed_vars * typed_vars *trm) =
   let fix_pattern_args (var_decls : string) : string =
   let aux (var_decl : string) : string =
     let args_decl_list = Str.split (Str.regexp_string ",") var_decl in
@@ -25,7 +29,7 @@ let parse_pattern ?(glob_defs : string = "") (str : string) : (typed_vars * type
    in
 
   let output_file = "tmp_rule.cpp" in
-  let splitted_pattern = Str.split (Str.regexp_string "==>") str in
+  let splitted_pattern = Str.split (Str.regexp_string "==>") pattern in
   if List.length splitted_pattern < 2 then fail None "parse_pattern : could not split the given pattern, make sure that you are using ==> as a separator
     for the declaration of variables used in the pattern and the rule itself" ;
   let var_decls = String.trim (List.nth splitted_pattern 0) in
@@ -36,8 +40,12 @@ let parse_pattern ?(glob_defs : string = "") (str : string) : (typed_vars * type
   let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else fix_pattern_args aux_var_decls in
 
   let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
+  
+  if ctx then Trace.dump ~prefix:output_file ();
+  
   let file_content = glob_defs ^ "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
   Xfile.put_contents output_file file_content;
+  
   let _, ast_of_file = Trace.parse output_file in
   match ast_of_file.desc with
   | Trm_seq tl when (List.mem Main_file ast_of_file.annot) ->
@@ -69,11 +77,11 @@ let parse_pattern ?(glob_defs : string = "") (str : string) : (typed_vars * type
   | _ -> fail ast_of_file.loc "parse_pattern: expected the main sequence of tmp_rule.cpp"
 
 
-(* [parse_rule str]: for a given pattern [str] return a rewrite rule which is a record containing the
+(* [parse_rule pattern]: for a given pattern [pattern] return a rewrite rule which is a record containing the
     the list of variables used in that rule, the rule itself and the result after applying that rule.
 *)
-let parse_rule ?(glob_defs : string = "") (str : string) : rewrite_rule =
-  let pattern_vars, aux_vars, pattern_instr = parse_pattern ~glob_defs str in
+let parse_rule ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : string) : rewrite_rule =
+  let pattern_vars, aux_vars, pattern_instr = parse_pattern ~glob_defs ~ctx pattern in
   match pattern_instr.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_eq));_},[t1; t2]) ->
     {rule_vars = pattern_vars; rule_aux_vars = aux_vars; rule_from = t1; rule_to = t2}

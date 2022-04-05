@@ -30,7 +30,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: vectorization in [cornerInterpolationCoeff] *)
   let ctxf = cTopFunDef "cornerInterpolationCoeff" in
-  let ctx = cChain [ctxf; sInstr "r.v"] in
+  let ctx = cTarget [ctxf; sInstr "r.v"] in
   !^ Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ;"
@@ -43,7 +43,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !^ Variable.reuse ~space:(expr "p->speed") [main; cVarDef "speed2" ];
   !! Variable.reuse ~space:(expr "p->pos") [main; cVarDef "pos2"];
 
-  (* Part: reveal write operations involved manipulation of particles and vectors *)
+  (* Part: reveal_field write operations involved manipulation of particles and vectors *)
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !^ Trace.reparse();
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
@@ -88,7 +88,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !^ Struct.set_explicit [main; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
   !! Trace.reparse(); (* required to get the types right *)
-  !! List.iter (fun f -> Struct.reveal f [cTypDef "particle"]) ["speed"; "pos"];
+  !! List.iter (fun f -> Struct.reveal_field f [cTypDef "particle"]) ["speed"; "pos"];
 
   (* Part: prepare the stage for scaling (move definitions and introduce constants) *)
   !^ Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push.*"];
@@ -146,8 +146,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.update_fields_type "pos." (ty "float") [cTypDef "particle"];
   (* !! Trace.reparse (); *)
 
-  (* Part: AOS-to-SOA *) (* LATER: might be useful to group this next to the reveal of x/y/z *)
-  !! Struct.reveal "items" [cTypDef "chunk"];
+  (* Part: AOS-to-SOA *) (* LATER: might be useful to group this next to the reveal_field of x/y/z *)
+  !! Struct.reveal_field "items" [cTypDef "chunk"];
 
   (* Part: introduce matrix operations, and prepare loop on charge deposit *)
   !^ Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];

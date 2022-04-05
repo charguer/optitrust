@@ -80,9 +80,15 @@ val dElse : constr
 
 val dBody : constr
 
-val dForInit : constr
+val dForStart : constr 
 
-val dStep : constr
+val dForStop : constr 
+
+val dForStep : constr 
+
+val dForCInit : constr
+
+val dForCStep : constr
 
 val dArg : int -> constr
 
@@ -106,7 +112,7 @@ val cInDepth : constr
 
 val cStrictNew : constr
 
-val cChain : constr list -> constr
+val cTarget : constr list -> constr
 
 val cInclude : string -> constr
 
@@ -182,6 +188,9 @@ val cTopFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:ta
 
 val cTopFunDefs : var list -> constr
 
+val cTopFunDefReg : string -> constr 
+
+val cTopFunDefAndDeclReg : string -> constr 
 
 val cTop : ?regexp:bool -> string -> constr
 

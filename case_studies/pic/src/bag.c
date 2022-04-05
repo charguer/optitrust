@@ -571,7 +571,7 @@ void bag_iter_ho_basic(bag* b, void body(particle*), bool destructive) {
   }
 }
 
-// example of an iteration over a bag with the loop over the chunk items revealed
+// example of an iteration over a bag with the loop over the chunk items reveal_fielded
 void bag_iter_ho_chunk(bag* b, void body(particle*), bool destructive) {
   for (chunk* c = b->front; c != NULL; c = chunk_next(c, destructive)) {
     const int nb = c->size;

@@ -706,16 +706,16 @@ int bij(int nbCells, int nbCorners, int idCell, int idCorner) {
   int iX = coord.iX;
   int iY = coord.iY;
   int iZ = coord.iZ;
-  int res[8] = {cellOfCoord(iX, iY, iZ),
-                cellOfCoord(iX, iY, wrap(gridZ, iZ - 1)),
-                cellOfCoord(iX, wrap(gridY, iY - 1), iZ),
-                cellOfCoord(iX, wrap(gridY, iY - 1), wrap(gridZ, iZ - 1)),
-                cellOfCoord(wrap(gridX, iX - 1), iY, iZ),
-                cellOfCoord(wrap(gridX, iX - 1), iY, wrap(gridZ, iZ - 1)),
-                cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1), iZ),
-                cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1),
-                            wrap(gridZ, iZ - 1))};
-  return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
+  int bijection[8] = {cellOfCoord(iX, iY, iZ),
+                      cellOfCoord(iX, iY, wrap(gridZ, iZ - 1)),
+                      cellOfCoord(iX, wrap(gridY, iY - 1), iZ),
+                      cellOfCoord(iX, wrap(gridY, iY - 1), wrap(gridZ, iZ - 1)),
+                      cellOfCoord(wrap(gridX, iX - 1), iY, iZ),
+                      cellOfCoord(wrap(gridX, iX - 1), iY, wrap(gridZ, iZ - 1)),
+                      cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1), iZ),
+                      cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1),
+                                  wrap(gridZ, iZ - 1))};
+  return MINDEX2(nbCells, nbCorners, bijection[idCorner], idCorner);
 }
 
 const int PRIVATE = 0;

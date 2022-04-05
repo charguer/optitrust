@@ -51,7 +51,7 @@ let cStrict : constr =
 let cInDepth : constr =
   Constr_depth DepthAny
 
-let cChain (cstrs : constr list) : constr =
+let cTarget (cstrs : constr list) : constr =
   Constr_target cstrs
 
 (******************************************************************************)
@@ -130,10 +130,19 @@ let dElse : constr =
 let dBody : constr =
   Constr_dir Dir_body
 
-let dForInit : constr =
+let dForStart : constr = 
+  Constr_dir Dir_for_start
+
+let dForStop : constr = 
+  Constr_dir Dir_for_stop 
+
+let dForStep : constr = 
+  Constr_dir Dir_for_step 
+
+let dForCInit : constr =
     Constr_dir Dir_for_c_init
 
-let dStep : constr =
+let dForCStep : constr =
     Constr_dir Dir_for_c_step
 
 let dName : constr =
@@ -361,7 +370,7 @@ let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_
 let cTopFunDef
   ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default)
   ?(body : target = []) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false) ?(is_def : bool = true)(name : string) : constr =
-  cChain [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name ]
+  cTarget [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name ]
 
 (* toplevel fun definition and declaration *)
 let cTopFunDefAndDecl
@@ -370,9 +379,18 @@ let cTopFunDefAndDecl
   let topfund (is_def : bool) = cTopFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name in
   cOr [[topfund true ]; [topfund false]]
 
+(* toplevel fun definitions and declarations using regular expressions *)
+let cTopFunDefAndDeclReg (reg : string) : constr = 
+  cTopFunDefAndDecl ~regexp:true reg
+
 (* target multiple toplevel function declarations at the same time *)
 let cTopFunDefs (names : var list) : constr = 
   cOr (List.map (fun name -> [cTopFunDef name]) names)
+
+(* target all toplevel declarations that can be match with the regular expression [reg]*)
+let cTopFunDefReg (reg : string) : constr = 
+  cTopFunDef ~regexp:true reg
+
 
 (* toplevel declaration: for the moment only functions LATER: generalize *)
 let cTop ?(regexp : bool = false) (name : string) : constr =
@@ -515,7 +533,7 @@ let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_p
 let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) () : constr =
   cPrimPredFun ~args ~args_pred (fun p2 -> (is_arith_fun p2))
 
-(* [let cPrimNew ~arg ()] matches all the encode new primitive operations*)
+(* [let cPrimNew ~arg ()] matches all the encoded new primitive operations*)
 let cPrimNew ?(arg : target = []) () : constr =
   cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false)
 
@@ -525,7 +543,7 @@ let cInit ?(arg:target = []) () : constr =
 
 (* [dInit] similar to cInit  but this one doesn't match on depth *)
 let dInit : constr =
-  cChain [cStrict; cInit ()]
+  cTarget [cStrict; cInit ()]
 
 (* [cWrite ~lhs ~rhs ()] matches write operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.
@@ -576,7 +594,7 @@ let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = fals
 
 (* [cLabelBdoy ~substr ~body ~regexp label] matches C label bodys*)
 let cLabelBody ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
-  cChain [cLabel ~substr ~body ~regexp label; dBody]
+  cTarget [cLabel ~substr ~body ~regexp label; dBody]
 
 let cGoto ?(label : string = "")
   ?(substr : bool = false) ?(regexp : bool = false) (_ : unit) : constr =
@@ -658,10 +676,10 @@ let cCase ?(value : target = []) (_ : unit) : case_kind =
 let cDefault : case_kind = Case_default
 
 let dLHS : constr =
-  cChain [cWrite(); dArg 0]
+  cTarget [cWrite(); dArg 0]
 
 let dRHS : constr =
-  cChain [cWrite (); dArg 1]
+  cTarget [cWrite (); dArg 1]
 
 let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
@@ -758,8 +776,8 @@ let cStructInit : constr =
 (* [cCell arary_size] matches all arrray cells in an array initialization *)
 let cCell ?(cell_index : int option = None) () : constr =
   match cell_index with
-  | None -> cChain [cArrayInit; cStrict; cTrue]
-  | Some i -> cChain [cArrayInit; dArrayNth i]
+  | None -> cTarget [cArrayInit; cStrict; cTrue]
+  | Some i -> cTarget [cArrayInit; dArrayNth i]
 
 let cOmp_match_all : directive->bool =
   fun _ -> true
@@ -1305,7 +1323,7 @@ let get_relative_type (tg : target) : target_relative option =
 
 (* [reparse_after tr] is a wrapper to invoke for forcing the reparsing
     after a transformation. For example because it modifies type definitions.
-    See example in [Struct.reveal]. The argument [~reparse:false] can be
+    See example in [Struct.reveal_field]. The argument [~reparse:false] can be
     specified to deactivate the reparsing.
 *)
 let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =

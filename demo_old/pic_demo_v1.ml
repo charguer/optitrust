@@ -55,9 +55,9 @@ let _ = Run.script_cpp (fun () ->
   !!! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
 
   (* Part: AOS-TO-SOA *)
-  !!! Struct.reveal "pos" [cTypDef "particle"];
-  !!! Struct.reveal "speed" [cTypDef "particle"];
-  !!! Struct.reveal "items" [cTypDef "bag"];
+  !!! Struct.reveal_field "pos" [cTypDef "particle"];
+  !!! Struct.reveal_field "speed" [cTypDef "particle"];
+  !!! Struct.reveal_field "items" [cTypDef "bag"];
 
    (* Part: Splitting the loop, with hoisting *)
    !! Struct.to_variables [cVarDef "speed2"];

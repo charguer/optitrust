@@ -563,7 +563,7 @@ let is_struct_type (t : typ) : bool =
 let get_constr_from_target (tg : target) : constr =
   match tg with
   | [cnst] -> cnst
-  | _ -> cChain tg
+  | _ -> cTarget tg
 
 (* A wrapper for creating and deleting a nobrace sequence *)
 let nobrace_remove_after ?(remove : bool = true) (f : unit -> unit) : unit =

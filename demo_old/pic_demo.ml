@@ -29,7 +29,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   bigstep "Vectorization in [cornerInterpolationCoeff]";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
-  let ctx_rv = cChain [ctx; sInstr "r.v"] in
+  let ctx_rv = cTarget [ctx; sInstr "r.v"] in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; ctx_rv; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
@@ -44,7 +44,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.reuse ~space:(expr "p->speed") [main; cVarDef "speed2" ];
   !! Variable.reuse ~reparse:true ~space:(expr "p->pos") [main; cVarDef "pos2"];
 
-  bigstep "Reveal write operations involved manipulation of particles and vectors";
+  bigstep "reveal_field write operations involved manipulation of particles and vectors";
   let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
@@ -86,15 +86,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* LATER: read_last_write/inline_last_write should be able to target the write in an initialization, this would avoid the detach *)
   !! Instr.delete [nbMulti; cTopFunDef ~regexp:true "bag_iter.*"];
 
-  bigstep "Struct.reveal";
+  bigstep "Struct.reveal_field";
   (* !! Variable.inline [main; cVarDef "p"]; *)
   (* !! Variable.simpl_deref [main]; *)
   !! Struct.set_explicit [main; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
-  !! List.iter (fun f -> Struct.reveal f [cTypDef "particle"]) ["speed"; "pos"];
+  !! List.iter (fun f -> Struct.reveal_field f [cTypDef "particle"]) ["speed"; "pos"];
 
   bigstep "Aos-to-soa";
-  !! Struct.reveal "items" [cTypDef "chunk"];
+  !! Struct.reveal_field "items" [cTypDef "chunk"];
 
   bigstep "Prepare the stage for scaling (move definitions and introduce constants)";
   !! Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push.*"];
@@ -170,7 +170,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 
 
-  bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal of x/y/z *)
+  bigstep "Introduce matrix operations, and prepare loop on charge deposit"; (* LATER: might be useful to group this next to the reveal_field of x/y/z *)
   !! Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];
   !! Label.add "charge" [main; cFor "k" ~body:[cVar "nextCharge"]];
   !! Variable.inline [main; cVarDef "indices"];
