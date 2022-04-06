@@ -143,17 +143,22 @@ let move_multiple ~destinations:(destinations : target list) ~targets:(targets :
   if List.length destinations <> List.length targets then fail None "move_multiple: each destination corresponds to a single target and vice-versa";
   List.iter2(fun dest tg1 -> Instr_basic.move ~dest tg1) destinations targets
 
-(* [move_out dest tg] move the invariant [tg] to destination [dest]
+(* [move dest tg] move the invariant [tg] to destination [dest]
+    the oht
    Note: The transformation does not check if [tg] points to some invariant code or not
    LATER: Check if [tg] is dependent on other instructions of the same scope
 *)
-let move_out ?(rev : bool = false) ~dest:(dest : target) : Transfo.t =
-  iter_on_targets ~rev (fun t p ->
+let move ~dest:(dest : target) : Transfo.t =
+  iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     Marks.add "instr_move_out" (target_of_path p);
     Sequence_basic.insert ~reparse:false tg_trm dest;
     Instr_basic.delete [cMark "instr_move_out"]
 )
+
+(* [move_out ~dest tg] this is just an alias for transformation move *)
+let move_out ~dest:(dest : target) : Transfo.t = 
+  move ~rev ~dest
 
 (* [move_out_of_fun tg] moves the instruction targeted by [tg] before the toplevel function it belongs to *)
 let move_out_of_fun (tg : target) : unit =

@@ -637,9 +637,9 @@ and tr_expr ?(is_statement : bool = false)
     print_info loc "tr_expr: implicit initial value\n";
     trm_lit ~loc ~ctx Lit_uninitialized
   | UnknownExpr (GNUNullExpr, GNUNullExpr) -> trm_null ~loc ~ctx () (* sometimes Null is translated like this *) (* LATER: in which condition? *)
-  | UnknownExpr (CompoundLiteralExpr, CompoundLiteralExpr) -> trm_null ~loc ~ctx () (* TODO: should raise a warning, and possibly display a mark around null *)
-
-  (* | UnknownExpr (CompoundStrinLiteral, _) -> fail loc "I failed here\n" *)
+  | UnknownExpr (CompoundLiteralExpr, CompoundLiteralExpr) -> 
+      Printf.printf "WARNING: Unknown expressions are parse as null pointers";
+      trm_add_mark "unknown_expr" (trm_null ~loc ~ctx () )
   | ImplicitValueInit _ -> trm_lit ~loc ~ctx Lit_uninitialized
   | _ ->
     fail loc

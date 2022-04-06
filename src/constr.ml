@@ -347,21 +347,7 @@ let rec constr_to_string (c : constr) : string =
      sprintf "Seq (%s)" spred
   | Constr_var name ->
      "Var " ^ (match name with | None -> "_" | Some r -> rexp_to_string r)
-  | Constr_lit _ ->
-     "Lit todo"
-     (* let s =
-       begin match l with
-       | Some l1 -> begin match l1 with
-            | Lit_unit ->  "()"
-            | Lit_uninitialized -> "?"
-            | Lit_bool b -> string_of_bool b
-            | Lit_int n -> string_of_int n
-            | Lit_double d -> string_of_float d
-            | Lit_string s -> s
-            end
-       | None -> "Any"
-       end
-     in "Lit " ^ s *)
+  | Constr_lit _ -> "Lit" 
   | Constr_app (p_fun, tgt_list_pred, accept_encoded) ->
     let spred = tgt_list_pred.target_list_pred_to_string() in
     let s_fun = target_to_string p_fun in

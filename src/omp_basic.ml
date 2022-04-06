@@ -4,12 +4,9 @@ open Target
 (******************************************************************************)
 (*                            OpenMP directives                               *)
 (******************************************************************************)
-(* TODO:  Add the feature of making targets relative to other transformations that 
-   are not used currently in the demo *)
-let atomic ?(ao : atomic_operation option = None) (tg : target) : unit =  
-  let tg = relative_target tg in 
+let atomic ?(ao : atomic_operation option = None) : Transfo.t =  
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.atomic ao i t p) tg
+    Omp_core.atomic ao i t p) 
 
 let atomic_capture : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
@@ -88,10 +85,9 @@ let parallel ?(clause : clause list = []) : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
     Omp_core.parallel clause i t p)
 
-let parallel_for ?(clause : clause list = []) (tg : target) : unit =
-  let tg = relative_target tg in 
+let parallel_for ?(clause : clause list = []) : Transfo.t=
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.parallel_for clause i t p) tg
+    Omp_core.parallel_for clause i t p)
 
 let parallel_for_simd ?(clause : clause list = []): Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
@@ -105,15 +101,13 @@ let section : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
     Omp_core.section i t p)
 
-let sections ?(clause : clause list = []) (tg : target) : unit =
-  let tg = relative_target tg in 
+let sections ?(clause : clause list = []) : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.sections clause i t p) tg
+    Omp_core.sections clause i t p)
 
-let simd ?(clause : clause list = []) (tg : target) : unit =
-  let tg = relative_target tg in
+let simd ?(clause : clause list = []) : Transfo.t=
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.simd clause i t p) tg
+    Omp_core.simd clause i t p)
 
 let single ?(clause : clause list = []) : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
@@ -211,10 +205,9 @@ let threadprivate (vl : vars) : Transfo.t =
 (******************************************************************************)
 (*                             OpenMP routines                                *)
 (******************************************************************************)
-let set_num_threads (nb_threads : int) (tg : target) : unit =
-  let tg = relative_target tg in 
+let set_num_threads (nb_threads : int) : Transfo.t=
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.set_num_threads nb_threads i t p) tg
+    Omp_core.set_num_threads nb_threads i t p)
 
 let get_num_threads (nb_threads : var) : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
@@ -230,10 +223,9 @@ let get_max_threads (max_threads : var) : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
     Omp_core.get_max_threads max_threads i t p)
 
-let get_thread_num ?(const : bool = true) (thread_id : var) (tg : target) : unit =
-  let tg = relative_target tg in 
+let get_thread_num ?(const : bool = true) (thread_id : var) : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_thread_num const thread_id i t p) tg
+    Omp_core.get_thread_num const thread_id i t p)
 
 let get_num_procs (num_procs : var) : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->

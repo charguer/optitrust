@@ -66,9 +66,6 @@ or
      - GitLens
      - OCaml and Reason IDE (see below for details)
 
-     ?TODO Highlight
-     ?TODO marks
-
    # Disable option   C_Cpp: Dim Inactive Regions   in the settings
 
    # OCaml syntax highlighting

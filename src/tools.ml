@@ -275,12 +275,7 @@ let fresh_generator ?(init : bool = false) () : (unit -> int) =
   fun () ->
     if init then n := 0 else incr n;
     !n
-
-(* [reset_generator ()] reset the generator to avoid id clashes when reparsing *)
-let reset_generator () : unit =
-  let _x = fresh_generator ~init:true () in ()
-(* TODO: this function is boggus remove it *)
-
+    
 (* [resetable_fresh_generator()] returns a pair of a generator and its reset function *)
 let resetable_fresh_generator () : (unit -> int) * (unit -> unit) =
   let n = ref 0 in

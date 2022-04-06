@@ -1174,6 +1174,8 @@ let applyi_on_targets_between (tr : int -> trm -> path * int -> trm) (tg : targe
         unit
 *)
 let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
+  (* TRICK: If tg is not a relative target then the following line makes it relative, this is used only for OpenMP pragmas *)
+  let tg = relative_target tg in 
   applyi_on_targets_between (fun _i t pk -> tr t pk) tg
 
 
