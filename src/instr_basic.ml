@@ -36,28 +36,32 @@ let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target
   copy ~rev ~delete:true ~dest:where tg
 
 (* [read_last_write ~write tg] expects the target [tg] to point to a read operation, then it
-    replaces the trm corresponding to that read operation with the one at [write].
+    replaces the trm corresponding to that read operation with the one at [write]. 
+    If the given target doesn't point to a get operation then the transformation will move the 
+    target to the first ancestor node it find that is a get operation.
 
    @correctness: the read expression must be pure, and its evaluation must not
    have changed since the write.*)
 
-let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
+let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit = 
   let write_trm = match Target.get_trm_at write with 
   | Some wt -> wt
-  | None -> fail None "uninline: write target does point to any node" in
-  let written_trm =  
-  match write_trm.desc with 
-    | Trm_apps (_, [_; rhs]) when is_set_operation write_trm -> rhs
+  | None -> fail None "uninline: write target does point to any node" in 
+  let written_trm = 
+    match write_trm.desc with 
+    | Trm_apps (_, [_;rhs]) when is_set_operation write_trm -> rhs
     | Trm_let (_, _, init) -> 
-        begin match get_init_val init with
-        | Some init -> init
-        | None -> fail write_trm.loc "read_last_write: the targete write operation should be eithe a set operation or 
-            and initialized variable declaration "
-        end 
-    | _ -> fail write_trm.loc "read_last_write: the targete write operation should be eithe a set operation or 
-            and initialized variable declaration " in  
-  Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> written_trm) t p) tg
-
+      begin match get_init_val init with 
+      | Some init -> init
+      | None -> fail write_trm.loc "read_last_write: the targeted write operation should be either a set operation or
+           or an initialized variable declaration"
+      end
+    | _ -> fail write_trm.loc "read_last_write: the targeted write operation should be either a set operation or 
+      an initialized variable declaration" in 
+  Target.apply_on_targets (fun t p -> 
+    let get_op_path = Internal.get_surrounding_trm (fun t -> (is_get_operation t)) p t in 
+    if get_op_path = [] then t else 
+    Target.apply_on_path (fun _ -> written_trm) t p) tg
 
 (* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location
     then it will do an acumulation of those trms .

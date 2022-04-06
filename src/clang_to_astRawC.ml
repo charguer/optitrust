@@ -974,7 +974,6 @@ let dump_clang_file = "clang_ast.ml"
 
 let tr_ast (t : translation_unit) : trm =
   (* Initialize id_counter *)
-  init_typconstrid ();
   let {decoration = _; desc = {filename = filename; items = dl}} = t in
   print_info None "tr_ast: translating %s's AST...\n" filename;
   let (include_map, file_decls) = filter_out_include filename dl in

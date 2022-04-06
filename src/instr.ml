@@ -4,7 +4,9 @@ include Instr_basic
 
 (* [read_last_write ~write tg] expects the target [tg] to be pointing at a read operation
     then it will take the value of the write operation [write] and replace the current read operation
-    with that value, if [tg] doesn't point to a read operation then the transformation will fail
+    with that value, write argument is optional, if not provided then the transformation will find the last write 
+    automatically. If it doesn't find a write it will fail.
+    Node: [tg] is a mandatory argument so it should always be passed as argument to the transformation read_last_write
 *)
 
 let read_last_write ?(write_mark : mark option = None) ?(write : target = []) (tg : target) : unit =
@@ -13,8 +15,7 @@ let read_last_write ?(write_mark : mark option = None) ?(write : target = []) (t
     else begin
       iter_on_targets (fun t p ->
         let tg_trm = Path.resolve_path p t in
-        match tg_trm.desc with
-        | Trm_apps (_, [arg]) when is_get_operation tg_trm ->
+        let arg = get_operation_arg tg_trm in 
           begin match write with
           | [] ->
             let path_to_seq, _, index = Internal.get_instruction_in_surrounding_sequence p in
@@ -47,7 +48,6 @@ let read_last_write ?(write_mark : mark option = None) ?(write : target = []) (t
               Printf.printf "I was here\n";
               Instr_basic.read_last_write  ~write (target_of_path p)
           end
-        | _ -> fail tg_trm.loc (Printf.sprintf "read_last_write: the main target should be a get operation, got %s\n" (AstC_to_c.ast_to_string tg_trm))
     ) tg end
 
 (* [inline_last_write ~write ~delete tg] this tranformation is a version of read last write, in fact it will call
@@ -158,7 +158,7 @@ let move ~dest:(dest : target) : Transfo.t =
 
 (* [move_out ~dest tg] this is just an alias for transformation move *)
 let move_out ~dest:(dest : target) : Transfo.t = 
-  move ~rev ~dest
+  move ~dest
 
 (* [move_out_of_fun tg] moves the instruction targeted by [tg] before the toplevel function it belongs to *)
 let move_out_of_fun (tg : target) : unit =

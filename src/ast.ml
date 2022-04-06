@@ -53,10 +53,6 @@ type typconstrid = int
 let next_typconstrid : (unit -> typconstrid) =
   Tools.fresh_generator ()
 
-(* [init_typconstrid ()] reset the id generator for type constructors *)
-let init_typconstrid (): unit =
-  Tools.reset_generator ()
-
 (* unique identifier used as keys for memoization of string representation of subterms *)
 type stringreprid = int
 
@@ -1889,7 +1885,7 @@ let is_access (t : trm) : bool = match t.desc with
 let get_operation_arg (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) -> t1
-  | _ -> t (* fail t.loc "get_operation_arg: this function should be called only on get operations " *)
+  | _ -> t 
 
 (* [trm_let_mut ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating mutable variable declarations *)
 let trm_let_mut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
