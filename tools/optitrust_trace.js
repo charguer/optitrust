@@ -221,7 +221,7 @@ function loadSdiff(id) {
     var sTime = htmlSpan(step.exectime + "ms", "timing-info") + "<div style='clear: both'></div>";
     sStep += sTime;
   }
-  displayInfo(sStep + sTime);
+  displayInfo(sStep);
   $("#button_sdiff_" + id).addClass("ctrl-button-selected");
   // DEPRECATED $("#button_code_" + id).addClass("ctrl-button-covered");
   // DEPRECATED $("#button_code_" + (id+1)).addClass("ctrl-button-covered");

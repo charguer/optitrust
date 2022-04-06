@@ -13,6 +13,8 @@ FLAGS_MAKEFILE ?= -report-big-steps -serialized-input none
 
 PROGEXT := native
 
+TRACEFLAGS := -usesingle
+
 include ../tests/Common.Makefile
 
 
