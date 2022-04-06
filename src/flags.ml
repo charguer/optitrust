@@ -54,9 +54,6 @@ let verbose_mode : bool ref = ref false
    toplevel functions that are not affected by the transformation. *)
 let use_light_diff : bool ref = ref false
 
-(* Flag for using only raw ast, when parsing and printing *)
-let use_new_encodings : bool ref = ref true
-
 (* Flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them *)
 let bypass_cfeatures : bool ref = ref false
 
@@ -125,7 +122,6 @@ let spec : cmdline_args =
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
      ("-cparser", Arg.String Parsers.select_by_string, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
-     ("-use-old-encodings", Arg.Clear use_new_encodings, "FOR DEV ONLY");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]

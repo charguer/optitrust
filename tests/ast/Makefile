@@ -5,7 +5,6 @@ FLAGS := -dump-ast-details
 #debug_enc: c_ast_debug.enc
 
 TESTS := \
-	c_ast.ml \
 	c_address.ml \
 	c_stackvar.ml \
 	c_features.ml \

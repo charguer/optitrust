@@ -2002,55 +2002,6 @@ let trm_for_of_trm_for_c (t : trm) : trm =
     end
   | _ -> fail t.loc "trm_for_of_trm_for_c: expected a for loop"
 
-(* DEPRECATED: Remove it after removing ast_to_c.ml *)
-(* before printing a simple loop first it should be converted to complex loop *)
-let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
-  (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
-  let init = trm_let Var_mutable (index, typ_int()) start in
-  let cond = begin match direction with
-    | DirUp ->
-      (trm_apps (trm_binop Binop_lt) [trm_var index;stop])
-    | DirUpEq ->
-      (trm_apps (trm_binop Binop_le) [trm_var index;stop])
-    | DirDown ->
-      (trm_apps (trm_binop Binop_gt) [trm_var index;stop])
-    | DirDownEq ->
-      (trm_apps (trm_binop Binop_ge) [trm_var index;stop])
-   end in
-  let step =
-    begin match direction with
-    | DirUp | DirUpEq ->
-      begin match step with
-      | Pre_inc ->
-        trm_apps (trm_unop Unop_pre_inc) [trm_var index]
-      | Post_inc ->
-        trm_apps (trm_unop Unop_post_inc) [trm_var index]
-      | Step st ->
-        trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_add)
-          [
-            trm_var index;
-            trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [st]])
-      | _ -> fail body.loc "trm_for_to_trm_for_c: can't use decrementing operators for upper bounded for loops"
-      end
-    | DirDown | DirDownEq ->
-      begin match step with
-      | Pre_dec ->
-        trm_apps (trm_unop Unop_pre_dec) [trm_var index]
-      | Post_dec ->
-        trm_apps (trm_unop Unop_post_dec) [trm_var index]
-      | Step st ->
-        trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_sub)
-          [
-            trm_var index;
-            trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [st]])
-      | _ -> fail body.loc "trm_for_to_trm_for_c: can't use decrementing operators for upper bounded for loops"
-      end
-
-    end in
-
-    trm_for_c ~annot ~loc ~add ~attributes ~ctx init cond step body
-
-
 (* type used for the transformation called local_name with objects *)
 type local_ops =
   | Local_arith of lit * binary_op

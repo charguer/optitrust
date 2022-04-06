@@ -152,7 +152,6 @@ let get_cpp_includes (filename : string) : string =
 (* [parse filename] returns (1) a list of filenames corresponding to the '#include',
    and the OptiTrust AST. *)
 let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
-  let use_new_encodings = !Flags.use_new_encodings in
   let parser = Parsers.get_selected ~parser () in
   if !Flags.debug_reparse
     then Printf.printf "Parsing %s using %s\n" filename (Parsers.string_of_cparser parser);
@@ -166,52 +165,36 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
 
   let t =
     timing ~name:"tr_ast" (fun () ->
-      if use_new_encodings then begin
-        let parse_clang () =
-          Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename) in
-        let parse_menhir () =
-          CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename) in
-        let rawAst = match parser with
-          | Parsers.Default -> assert false (* see def of parser; !dParsers.default_cparser should not be Default *)
-          | Parsers.Clang -> parse_clang()
-          | Parsers.Menhir -> parse_menhir()
-          | Parsers.All ->
-             let rawAstClang = parse_clang() in
-             let rawAtMenhir = parse_menhir() in
-             let strAstClang = AstC_to_c.ast_to_string rawAstClang in
-             let strAstMenhir = AstC_to_c.ast_to_string rawAtMenhir in
-             if strAstClang <> strAstMenhir then begin
-               (* LATER: we could add a prefix based on the filename, but this is only for debug *)
-               Xfile.put_contents "ast_clang.cpp" strAstClang;
-               Xfile.put_contents "ast_menhir.cpp" strAstMenhir;
-              fail None "parse: [-cparser all] option detected discrepencies;\n meld ast_clang.cpp ast_menhir.cpp";
-             end else
-             (* If the two ast match, we can use any one of them (only locations might differ); let's use the one from the default parser. *)
-               if Parsers.default_cparser = Parsers.Clang then rawAstClang else rawAtMenhir
-            in
-          if !Flags.bypass_cfeatures
-            then rawAst
-            else Ast_fromto_AstC.cfeatures_elim rawAst
-      end else
-        Clang_to_ast.translate_ast (Clang.Ast.parse_file ~command_line_args filename)
+      let parse_clang () =
+        Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename) in
+      let parse_menhir () =
+        CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename) in
+      let rawAst = match parser with
+        | Parsers.Default -> assert false (* see def of parser; !dParsers.default_cparser should not be Default *)
+        | Parsers.Clang -> parse_clang()
+        | Parsers.Menhir -> parse_menhir()
+        | Parsers.All ->
+           let rawAstClang = parse_clang() in
+           let rawAtMenhir = parse_menhir() in
+           let strAstClang = AstC_to_c.ast_to_string rawAstClang in
+           let strAstMenhir = AstC_to_c.ast_to_string rawAtMenhir in
+           if strAstClang <> strAstMenhir then begin
+             (* LATER: we could add a prefix based on the filename, but this is only for debug *)
+             Xfile.put_contents "ast_clang.cpp" strAstClang;
+             Xfile.put_contents "ast_menhir.cpp" strAstMenhir;
+            fail None "parse: [-cparser all] option detected discrepencies;\n meld ast_clang.cpp ast_menhir.cpp";
+           end else
+           (* If the two ast match, we can use any one of them (only locations might differ); let's use the one from the default parser. *)
+             if Parsers.default_cparser = Parsers.Clang then rawAstClang else rawAtMenhir
+          in
+        if !Flags.bypass_cfeatures
+          then rawAst
+          else Ast_fromto_AstC.cfeatures_elim rawAst
     )
   in
-  (*  *)
-  (* let ast =
-    timing ~name:"parse_file" (fun () ->
-      Clang.Ast.parse_file ~command_line_args filename
-      ) in *)
-
-  (* DEBUG: Format.eprintf "%a@."
-       (Clang.Ast.format_diagnostics Clang.not_ignored_diagnostics) ast; *)
+  
   print_info None "Parsing Done.\n";
   print_info None "Translating Done...\n";
-
-  (* let t =
-    timing ~name:"translate_ast" (fun () ->
-      if use_new_encodings
-        then Clang_to_astRawC.tr_ast ast
-        else Clang_to_ast.translate_ast ast) in *)
 
   print_info None "Translation done.\n";
   (includes, t)
@@ -610,7 +593,6 @@ let get_language () =
   | t::_ -> language_of_extension t.context.extension
 
 let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
-  let use_new_encodings = !Flags.use_new_encodings in
   let file_prog = prefix ^ ctx.extension in
   let out_prog = open_out file_prog in
   begin try
@@ -619,12 +601,9 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
     (* LATER: try to find a way to put the includes in the AST so we can do simply ast_to_file *)
     output_string out_prog ctx.includes;
-    if use_new_encodings then begin
-      if !Flags.bypass_cfeatures
-        then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
-        else AstC_to_c.ast_to_outchannel out_prog (Ast_fromto_AstC.cfeatures_intro ast)
-    end else
-      AstC_to_c.ast_to_outchannel out_prog ast;
+    if !Flags.bypass_cfeatures
+      then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
+      else AstC_to_c.ast_to_outchannel out_prog (Ast_fromto_AstC.cfeatures_intro ast);
     output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->
@@ -649,9 +628,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
       end;
       (* print the non-decoded ast *)
       output_string out_enc ctx.includes;
-      if use_new_encodings
-        then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_enc ast
-        else Ast_to_c.ast_to_undecoded_doc out_enc ast;
+      AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_enc ast;
       output_string out_enc "\n";
       close_out out_enc;
       if beautify && !Flags.use_clang_format

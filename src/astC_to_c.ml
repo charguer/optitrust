@@ -288,8 +288,6 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
     in
-  (* For printing C code, we have (see explanations in [clang_to_ast.ml],
-     search for [Address_operator] and [Star_operator]. *)
   let d =
     begin match t.desc with
     | Trm_val v ->
