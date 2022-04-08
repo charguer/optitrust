@@ -192,7 +192,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
           else Ast_fromto_AstC.cfeatures_elim rawAst
     )
   in
-  
+
   print_info None "Parsing Done.\n";
   print_info None "Translating Done...\n";
 
@@ -566,9 +566,12 @@ let check_recover_original () : unit =
    reformat a CPP file using the clang format tool.
    LATER: find a way to remove extra parentheses in ast_to_doc, by using
    priorities to determine when parentheses are required. *)
-let cleanup_cpp_file_using_clang_format (filename : string) : unit =
+let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (filename : string) : unit =
   timing ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
-    ignore (Sys.command ("clang-format -style=\"Google\" -i " ^ filename)))
+    ignore (Sys.command ("clang-format -style=\"Google\" -i " ^ filename));
+    if uncomment_pragma
+      then ignore (Sys.command ("sed -i 's@//#pragma@#pragma@' " ^ filename))
+  )
 
 (* [output_prog ctx prefix ast] writes the program described by the term [ast]
    in several files:
@@ -593,6 +596,7 @@ let get_language () =
   | t::_ -> language_of_extension t.context.extension
 
 let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
+  let use_clang_format = beautify && !Flags.use_clang_format in
   let file_prog = prefix ^ ctx.extension in
   let out_prog = open_out file_prog in
   begin try
@@ -603,7 +607,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     output_string out_prog ctx.includes;
     if !Flags.bypass_cfeatures
       then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
-      else AstC_to_c.ast_to_outchannel out_prog (Ast_fromto_AstC.cfeatures_intro ast);
+      else AstC_to_c.ast_to_outchannel ~comment_pragma:use_clang_format out_prog (Ast_fromto_AstC.cfeatures_intro ast);
     output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->
@@ -611,8 +615,8 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     failwith s
   end;
   (* beautify the C++ code --comment out for debug *)
-  if beautify && !Flags.use_clang_format
-    then cleanup_cpp_file_using_clang_format file_prog;
+  if use_clang_format
+    then cleanup_cpp_file_using_clang_format ~uncomment_pragma:use_clang_format file_prog;
   (* ast and enc *)
   if ast_and_enc && !Flags.dump_ast_details then begin
     let file_ast = prefix ^ ".ast" in
@@ -631,7 +635,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
       AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_enc ast;
       output_string out_enc "\n";
       close_out out_enc;
-      if beautify && !Flags.use_clang_format
+      if use_clang_format
         then cleanup_cpp_file_using_clang_format file_enc;
     with | Failure s ->
       close_out out_ast;

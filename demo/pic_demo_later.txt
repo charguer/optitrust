@@ -182,3 +182,10 @@ bigstep "Simplify arithmetic expressions after scaling";
       (* Arthur: check A / B logic *)
 
         (* LATER: use a generic -D flag for optitrust *)
+
+
+        Makefile
+        # LATER: build different output files depending on the usechecker flag
+
+#	$(V)NB=`source $(PICDIR)/your_configuration.sh; $$nb_threads`; if [[ $${NB} < 2 ]]; then echo "ERROR: you should use multiple threads in your_configuration.sh to run the checker"; exit 1; fi
+# alternative: $(V)cp template_configuration_checker.sh $(PICDIR)/simulations/scripts/parameters_3d.txt

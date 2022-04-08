@@ -1,12 +1,27 @@
-#include <math.h>
 #include <omp.h>  // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
-#include <omp.h>
-#include <stdbool.h>
-#include <stdio.h>
+
 #include <stdlib.h>
 
+#include <stdio.h>
+
+#include <math.h>
+
 #include "mymacros.h"
+
+#include "mymacros.h"
+
+#include <stdlib.h>
+
+#include <stdbool.h>
+
+#include <stdio.h>
+
+#include <stdio.h>
+
+#include <omp.h>
+
 #include "pic_demo_aux.h"
+
 #include "stdalign.h"
 
 inline int MINDEX1(int N1, int i1) { return i1; }
@@ -399,17 +414,11 @@ inline coord coordOfCell(int idCell) {
   return (coord){iX, iY, iZ};
 }
 
-typedef struct {
-  int v[8];
-} int_nbCorners;
+typedef struct { int v[8]; } int_nbCorners;
 
-typedef struct {
-  double v[8];
-} double_nbCorners;
+typedef struct { double v[8]; } double_nbCorners;
 
-typedef struct {
-  vect v[8];
-} vect_nbCorners;
+typedef struct { vect v[8]; } vect_nbCorners;
 
 int_nbCorners indicesOfCorners(int idCell) {
   const coord coord = coordOfCell(idCell);
@@ -566,7 +575,7 @@ void stepLeapFrog() {
   const double factorX = factorC / cellX;
   const double factorY = factorC / cellY;
   const double factorZ = factorC / cellZ;
-#pragma omp parallel for
+  #pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag* b = &bagsCur[idCell];
     const int_nbCorners indices = indicesOfCorners(idCell);
@@ -578,7 +587,7 @@ void stepLeapFrog() {
     }
     for (chunk* c = b->front; c != NULL; c = chunk_next(c, false)) {
       const int nb = c->size;
-#pragma omp simd
+      #pragma omp simd
       for (int i = 0; i < nb; i++) {
         double_nbCorners coeffs;
         c->itemsSpeedX[i] = c->itemsSpeedX[i] +
@@ -706,16 +715,16 @@ int bij(int nbCells, int nbCorners, int idCell, int idCorner) {
   int iX = coord.iX;
   int iY = coord.iY;
   int iZ = coord.iZ;
-  int res[8] = {cellOfCoord(iX, iY, iZ),
-                cellOfCoord(iX, iY, wrap(gridZ, iZ - 1)),
-                cellOfCoord(iX, wrap(gridY, iY - 1), iZ),
-                cellOfCoord(iX, wrap(gridY, iY - 1), wrap(gridZ, iZ - 1)),
-                cellOfCoord(wrap(gridX, iX - 1), iY, iZ),
-                cellOfCoord(wrap(gridX, iX - 1), iY, wrap(gridZ, iZ - 1)),
-                cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1), iZ),
-                cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1),
-                            wrap(gridZ, iZ - 1))};
-  return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
+  int bijection[8] = {cellOfCoord(iX, iY, iZ),
+                      cellOfCoord(iX, iY, wrap(gridZ, iZ - 1)),
+                      cellOfCoord(iX, wrap(gridY, iY - 1), iZ),
+                      cellOfCoord(iX, wrap(gridY, iY - 1), wrap(gridZ, iZ - 1)),
+                      cellOfCoord(wrap(gridX, iX - 1), iY, iZ),
+                      cellOfCoord(wrap(gridX, iX - 1), iY, wrap(gridZ, iZ - 1)),
+                      cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1), iZ),
+                      cellOfCoord(wrap(gridX, iX - 1), wrap(gridY, iY - 1),
+                                  wrap(gridZ, iZ - 1))};
+  return MINDEX2(nbCells, nbCorners, bijection[idCorner], idCorner);
 }
 
 const int PRIVATE = 0;
@@ -731,7 +740,7 @@ void step() {
       particleCharge * (stepDuration * stepDuration) / particleMass / cellY;
   const double factorZ =
       particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
-#pragma omp parallel for
+  #pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
       for (int idThread = 0; idThread < nbThreads; idThread++) {
@@ -744,7 +753,7 @@ core:
   for (int cX = 0; cX < 2; cX++) {
     for (int cY = 0; cY < 2; cY++) {
       for (int cZ = 0; cZ < 2; cZ++) {
-#pragma omp parallel for collapse(3)
+        #pragma omp parallel for collapse(3)
         for (int bX = cX * block; bX < gridX; bX += 2 * block) {
           for (int bY = cY * block; bY < gridY; bY += 2 * block) {
             for (int bZ = cZ * block; bZ < gridZ; bZ += 2 * block) {
@@ -768,7 +777,7 @@ core:
                          c = chunk_next(c, true)) {
                       const int nb = c->size;
                       alignas(64) int idCell2_step[CHUNK_SIZE];
-#pragma omp simd
+                      #pragma omp simd
                       for (int i = 0; i < nb; i++) {
                         double_nbCorners coeffs;
                         c->itemsSpeedX[i] +=
@@ -871,7 +880,7 @@ core:
                                 (coefZ[7] + signZ[7] * c->itemsPosZ[i]) *
                                 field_at_corners.v[7].z;
                       }
-#pragma omp simd
+                      #pragma omp simd
                       for (int i = 0; i < nb; i++) {
                         const double pX =
                             c->itemsPosX[i] + iX + c->itemsSpeedX[i];
@@ -927,7 +936,8 @@ core:
                                                  SHARED)],
                               p2);
                         }
-#pragma omp simd aligned(coefX, coefY, coefZ, signX, signY, signZ : 64)
+                        #pragma omp simd aligned(coefX, coefY, coefZ, signX,
+                        //signY, signZ : 64)
                         for (int idCorner = 0; idCorner < nbCorners;
                              idCorner++) {
                           depositThreadCorners[MINDEX3(
@@ -952,27 +962,27 @@ core:
       }
     }
   }
-#pragma omp parallel for
+  #pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int bagsKind = 0; bagsKind < 2; bagsKind++) {
       bag_append(&bagsCur[MINDEX1(nbCells, idCell)],
                  &bagsNexts[MINDEX2(nbCells, 2, idCell, bagsKind)]);
     }
-#pragma omp simd
+    #pragma omp simd
     for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
       depositCorners[idCell * nbCorners + idCorner] =
           depositThreadCorners[0 * nbCells * nbCorners + idCell * nbCorners +
                                idCorner];
     }
     for (int idThread = 1; idThread < nbThreads; idThread++) {
-#pragma omp simd
+      #pragma omp simd
       for (int idCorner = 0; idCorner < nbCorners; idCorner++)
         depositCorners[idCell * nbCorners + idCorner] +=
             depositThreadCorners[idThread * nbCells * nbCorners +
                                  idCell * nbCorners + idCorner];
     }
   }
-#pragma omp parallel for
+  #pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     double sum = 0.;
     for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
@@ -984,9 +994,9 @@ core:
 }
 
 int main(int argc, char** argv) {
-#pragma omp parallel
+  #pragma omp parallel
   {
-#pragma omp single
+    #pragma omp single
     nbThreads = omp_get_num_threads();
   }
   loadParameters(argc, argv);

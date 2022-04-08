@@ -6,6 +6,9 @@ open Precedence
 (* only for internal use *)
 let print_optitrust_syntax = ref false
 
+(* only for internal use *)
+let print_commented_pragma = ref false
+
 (* only for debugging purposes *)
 let print_stringreprids = ref false
 
@@ -423,7 +426,9 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         | _ -> fail t.loc "trm_to_doc: arbitrary code should be entered by using Lit, Expr and Stmt only"
         end  in
         dattr ^^ code_str
-     | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
+     | Trm_omp_directive d ->
+          let intro = if !print_commented_pragma then string "//" else empty in
+          dattr ^^ intro ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
      | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
      | Trm_extern (lang, tl) ->
         begin match tl with
@@ -954,14 +959,16 @@ and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_d
     end in
     trm_for_c  ~loc init cond step body
 
-let ast_to_doc ?(optitrust_syntax:bool=false) (t : trm) : document =
+let ast_to_doc ?(comment_pragma : bool = false) ?(optitrust_syntax:bool=false) (t : trm) : document =
+  if comment_pragma then print_commented_pragma := true;
   if optitrust_syntax then print_optitrust_syntax := true;
   let d = decorate_trm t in
   if optitrust_syntax then print_optitrust_syntax := false;
+  if comment_pragma then print_commented_pragma := false;
   d
 
-let ast_to_outchannel ?(optitrust_syntax:bool=false) (out : out_channel) (t : trm) : unit =
-  ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc ~optitrust_syntax t)
+let ast_to_outchannel ?(comment_pragma : bool = false) ?(optitrust_syntax:bool=false) (out : out_channel) (t : trm) : unit =
+  ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc ~comment_pragma ~optitrust_syntax t)
 
 let ast_to_file ?(optitrust_syntax:bool=false) (filename : string) (t : trm) : unit =
   let out = open_out filename in

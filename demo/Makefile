@@ -113,9 +113,6 @@ chksteps_run:
 	$(V)cp template_parameters_3d_checker.txt $(PICDIR)/scripts/parameters_3d.txt
 	$(V)cd ../case_studies/pic/scripts; ./check_steps.sh checker_pic_demo
 
-#	$(V)NB=`source $(PICDIR)/your_configuration.sh; $$nb_threads`; if [[ $${NB} < 2 ]]; then echo "ERROR: you should use multiple threads in your_configuration.sh to run the checker"; exit 1; fi
-# alternative: $(V)cp template_configuration_checker.sh $(PICDIR)/simulations/scripts/parameters_3d.txt
-
 bigsteps_gen:
 	$(V)FLAGS_MAKEFILE="-usechecker" $(MAKE) pic_demo.bigsteps
 	$(V)rm -rf steps
@@ -140,7 +137,6 @@ traceview: trace
 	$(V)chromium-browser pic_demo_trace.html &
 
 
-# LATER: build different output files depending on the usechecker flag
 
 
 
