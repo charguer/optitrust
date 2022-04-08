@@ -60,6 +60,9 @@ BROWSER ?= chromium-browser
 FLAGS ?=
 FLAGS := $(FLAGS) $(FLAGS_MAKEFILE)
 
+# Flags to use for the trace construction
+TRACEFLAGS ?=
+
 #######################################################
 # Targets
 
@@ -183,7 +186,7 @@ endif
 
 # Rule for building the js file describing the trace associated with a script
 %_trace.js: %_with_lines.byte %.cpp %_with_lines.ml
-	$(V)OCAMLRUNPARAM=b ./$< -dump-trace $(FLAGS)
+	$(V)OCAMLRUNPARAM=b ./$< -dump-trace $(FLAGS) $(TRACEFLAGS)
 
 # Rule for producing the expected output file from the result
 # TODO: see if we can use $* instead of basename

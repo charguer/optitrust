@@ -152,3 +152,5 @@ into
  (* !! Instr.move_out_of_fun [nbMulti; ctx; cVarDefReg "\\(coef\\|sign\\)."]; *) (* TODO: Fix me *)
 
  % !! TOO COMPLEX Loop.grid_enumerate ~unfold_bound:true ~indices:(map_dims (fun d -> "i"^d); [step; cLabel "core"; cFor "idCell"];
+
+ (* let _ = Flags.code_print_width := 120 *)

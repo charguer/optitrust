@@ -21,7 +21,7 @@ let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
 let delocalize_bag = Local_obj ("bag_init", "bag_append", "bag_free")
 let align = 64
 
-(* Grab the "usechecker" flag from the command line *)
+(* Grab the "usechecker" and "usesingle" flag from the command line *)
 let usechecker = ref false
 let usesingle = ref false
 let _= Run.process_cmdline_args
@@ -35,30 +35,19 @@ let _ =
   Printf.printf "CHECKER=%d\n" (if usechecker then 1 else 0);
   Printf.printf "SINGLE=%d\n" (if usesingle then 1 else 0)
 
-(* let _ = Printf.printf "usechecker=%d\n" (if usechecker then 1 else 0) *)
-
-(* UNCOMMENT THE LINE BELOW FOR WORKING ON THE VERSION WITH THE CHECKER *)
-(* let usechecker = true  *)
-
 let grid_dims_power_of_2 = true
 
 let onlychecker p = if usechecker then [p] else []
-
 
 let stepFuns =
   (if usechecker then [repPart] else [])
      @ stepsl
 
-let stepsReal = cOr (List.map (fun f -> [f]) stepsl) (* LATER: rename *)
+let stepsReal = cOr (List.map (fun f -> [f]) stepsl)
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
 let prepro = onlychecker "-DCHECKER"
 let prepro = ["-DPRINTPERF"; "-DPRINTSTEPS"] @ prepro
-
-(* LATER let prefix = if usechecker then "pic_demo_checker" else "pic_demo"
-   ~prefix *)
-
-(* let _ = Flags.code_print_width := 120 *)
 
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.h";"bag_atomics.h";"bag.h-"] (fun () ->
 
@@ -154,7 +143,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! iter_dims (fun d ->
       Accesses.scale ~factor:(var_mut ("cell"^d)) [addPart; cFieldRead ~field:(lowercase_ascii d) ~base:[cVar "pos"] ()];
       Accesses.scale ~inv:true ~factor:(var_mut ("cell"^d)) [nbMulti; steps; cOr [
-        [sExprRegexp ("c->itemsPos" ^ d ^ "\\[i\\]")]; 
+        [sExprRegexp ("c->itemsPos" ^ d ^ "\\[i\\]")];
         [cFieldWrite ~field:("pos"^d)()]]]);
 
   bigstep "Simplify arithmetic expressions after scaling";
@@ -345,7 +334,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Loop.fission [nbMulti; tBefore; step; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
   !! Variable.inline [nbMulti; step; cVarDef "idCell2"];
   !! Instr.delete [step; cVarDef "contribs"];
-
 
   bigstep "Data alignment";
   !! Align.def (lit "64") [nbMulti; cOr [[cStrict; cVarDefReg "\\(coef\\|sign\\)."];
