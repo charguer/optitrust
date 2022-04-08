@@ -37,7 +37,9 @@ PICVERT_HOME=$(pwd)
 #        Your configuration       #
 ###################################
 # All your architecture and setup parameters have to be modified in $PICVERT_HOME/your_configuration.sh
-source $PICVERT_HOME/your_configuration.sh
+if [ -f "$PICVERT_HOME/your_configuration.sh" ]; then
+  source $PICVERT_HOME/your_configuration.sh
+fi
 
 ###################################
 #      Simulation parameters      #
