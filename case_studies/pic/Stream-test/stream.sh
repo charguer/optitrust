@@ -2,7 +2,7 @@
 
 # Usage: ./stream.sh compiler size nbcores
 
-# Example:   COMP=gcc SIZE=20000000 CORES=2 CPULIST="0,1,2,3" ./stream.sh
+# Example:   COMP=gcc SIZE=20000000 CORES=4 CPULIST="0,1,2,3" ./stream.sh
 #
 # - COMP is the compiler
 # - SIZE is the number of array cells per core, to use for the benchmark; e.g. `20000000` (20 million)
