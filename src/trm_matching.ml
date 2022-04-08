@@ -1,9 +1,9 @@
 open Ast
 
 (* [parse_pattern pattern globdefs ctx ]: for a given pattern [pattern] return the list of variables used in that pattern
-      and the ast of the pattern. 
+      and the ast of the pattern.
       [globdefs]: is the code entered as string that contains all the functions used in the pattern
-      [ctx]: if set to true than the user doesn't need to provide declarations of the functions used in pattern 
+      [ctx]: if set to true than the user doesn't need to provide declarations of the functions used in pattern
           insted the function will take the current ast and dump it just before the pattern.
           this way all the functions used inside the pattern all well defined.
     Example:
@@ -40,18 +40,35 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
   let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else fix_pattern_args aux_var_decls in
 
   let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
-  
+
   if ctx then Trace.dump ~prefix:output_file ();
-  
+  (*
+    let ast = Trace.ast() in
+    let ast2 = trm_seq_add_last ast (trm_arbitrary "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}") in
+    output_prog output_file ast2;
+    let _, ast_of_file = Trace.parse output_file in
+    let defs = trm_main_get_toplevel_defs ast_of_file
+    let (_, main_fun) = Tools.unlast () in
+
+where
+    let trm_main_inv_toplevel_defs (ast : trm) : trm list =   --in ast
+      match ast_of_file.desc with
+      | Trm_seq tl ->
+         if not (List.mem Main_file ast_of_file.annot) then fail "not a main ast";
+         if tl = [] then fail ast_of_file.loc "parse_pattern; couldn't parse pattern";
+         Mlist.to_list tl
+      | _ -> fail
+
+  *)
   let file_content = glob_defs ^ "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
   Xfile.put_contents output_file file_content;
-  
+
   let _, ast_of_file = Trace.parse output_file in
   match ast_of_file.desc with
   | Trm_seq tl when (List.mem Main_file ast_of_file.annot) ->
     if Mlist.length tl = 0 then fail ast_of_file.loc "parse_pattern; couldn't parse pattern";
     let (_, main_fun)= Tools.unlast (Mlist.to_list tl) in
-    
+
     begin match main_fun.desc with
     | Trm_let_fun (_, _, args, body) ->
       begin match body.desc with

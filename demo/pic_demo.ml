@@ -3,52 +3,51 @@ open Target
 open Ast
 open String
 
-let add_prefix (prefix : string) (indices : string list) : string list =
-    List.map (fun x -> prefix ^ x) indices
-
-let step = cTopFunDef "step"
-let stepLF = cTopFunDef "stepLeapFrog"
-let stepsl = [stepLF; step]
-let repPart = cTopFunDef "reportParticlesState"
-let addPart = cTopFunDef "addParticle"
-
-let dims = ["X"; "Y"; "Z"]
-let nb_dims = List.length dims
-let iter_dims f = List.iter f dims
-let map_dims f = List.map f dims
-let idims = map_dims (fun d -> "i" ^ d)
-let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
-let delocalize_bag = Local_obj ("bag_init", "bag_append", "bag_free")
-let align = 64
-
-(* Grab the "usechecker" and "usesingle" flag from the command line *)
+(* Parameters from the command line:
+   "-usechecker": for enabling checker code
+   "-usesingle": for enabling single precision of positions *)
 let usechecker = ref false
 let usesingle = ref false
 let _= Run.process_cmdline_args
   [("-usechecker", Arg.Set usechecker, " use -DCHECKER as preprocessor flag");
    ("-usesingle", Arg.Set usesingle, " make positions single precision")]
-  (* LATER: use a generic -D flag for optitrust *)
 let usechecker = !usechecker
 let usesingle = !usesingle
-let _ =
+let onlychecker p = if usechecker then [p] else []
+let _ = (* Print the values of the flags passed *)
   if usesingle && usechecker then failwith "-usingle and -usechecker are incompatible";
   Printf.printf "CHECKER=%d\n" (if usechecker then 1 else 0);
   Printf.printf "SINGLE=%d\n" (if usesingle then 1 else 0)
 
+(* Other parameters  *)
+let align = 64
 let grid_dims_power_of_2 = true
 
-let onlychecker p = if usechecker then [p] else []
-
-let stepFuns =
-  (if usechecker then [repPart] else [])
-     @ stepsl
-
+(* Short names for top level functions *)
+let step = cTopFunDef "step"
+let stepLF = cTopFunDef "stepLeapFrog"
+let repPart = cTopFunDef "reportParticlesState"
+let addPart = cTopFunDef "addParticle"
+let stepsl = [stepLF; step]
+let stepFuns = (if usechecker then [repPart] else []) @ stepsl
 let stepsReal = cOr (List.map (fun f -> [f]) stepsl)
 let steps = cOr (List.map (fun f -> [f]) stepFuns)
 
+(* Operations for iterating over dimensions *)
+let dims = ["X"; "Y"; "Z"]
+let nb_dims = List.length dims
+let iter_dims f = List.iter f dims
+let map_dims f = List.map f dims
+let idims = map_dims (fun d -> "i" ^ d)
+
+(* Definition of the monoids used for the "delocalize" operations *)
+let delocalize_sum = Local_arith (Lit_double 0., Binop_add)
+let delocalize_bag = Local_obj ("bag_init", "bag_append", "bag_free")
+
+(* Part 0: parsing the input files, with inlining of a specific subset of the auxiliary headers and sources *)
+
 let prepro = onlychecker "-DCHECKER"
 let prepro = ["-DPRINTPERF"; "-DPRINTSTEPS"] @ prepro
-
 let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag.hc";"particle.hc";"optitrust.h";"bag_atomics.h";"bag.h-"] (fun () ->
 
   (* Part 1: sequential optimizations *)
@@ -77,9 +76,9 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Eliminate an intermediate storage by reusing an existing one";
   !! Variable.reuse (expr "p->speed") [step; cVarDef "speed2" ];
   !! Variable.reuse (expr "p->pos") [step; cVarDef "pos2"];
+  !! Trace.reparse();
 
   bigstep "reveal_field write operations involved in the manipulation of particles and vectors";
-  !! Trace.reparse();
   !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
   let tg = cOr [[steps]; [cTopFunDefReg "bag_push_.*"]] in
   !! List.iter (fun typ -> Struct.set_explicit [nbMulti; tg; cWrite ~typ ()]) ["particle"; "vect"];
@@ -145,18 +144,16 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.scale ~inv:true ~factor:(var_mut ("cell"^d)) [nbMulti; steps; cOr [
         [sExprRegexp ("c->itemsPos" ^ d ^ "\\[i\\]")];
         [cFieldWrite ~field:("pos"^d)()]]]);
+  !! Trace.reparse();
 
   bigstep "Simplify arithmetic expressions after scaling";
-  !! Trace.reparse();
   !! Variable.inline [steps; cVarDef "accel"];
   !! Arith.with_nosimpl [nbMulti; steps; cFor "idCorner"] (fun () ->
        Arith.(simpl_rec expand) [nbMulti; steps]);
-  (* !! Function.use_infix_ops ~indepth:true [step; dBody]; PAPER ONLY, else done further *)
 
   bigstep "Enumerate grid cells by coordinates";
-  let tg = cTarget [step; cFor "idCell" ~body:[cFor "i"]] in 
+  let tg = cTarget [step; cFor "idCell" ~body:[cFor "i"]] in
   !! Instr.read_last_write ~write:[cWriteVar "nbCells"] [tg; dForStop; cReadVar "nbCells"];
-  (* !! Instr.read_last_write ~write:[cWriteVar "nbCells"] [step; cFor "idCell" ~body:[cFor "i"]; cReadVar "nbCells"]; *)
   !! Loop.grid_enumerate ~indices:(map_dims (fun d -> "i"^d)) [step; cFor "idCell" ~body:[cFor "idCorner"]];
 
   bigstep "Code cleanup in preparation for shifting of positions";
@@ -174,7 +171,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.move ~dest:[tBefore; addPart; cVarDef "p"] [addPart; cVarDef "idCell"];
   !! List.iter (fun tg ->
       Variable.insert ~typ:(ty "coord") ~name:"co" ~value:(expr "coordOfCell(idCell)") tg)
-      ([ [tAfter; addPart; cVarDef "idCell"] ] @ onlychecker [tFirst; repPart; cFor "idCell"; dBody]); (* LATER: make cOr work for targetBetweens (hard) *)
+      ([ [tAfter; addPart; cVarDef "idCell"] ] @ onlychecker [tFirst; repPart; cFor "idCell"; dBody]);
   !! iter_dims (fun d ->
       Accesses.shift ~inv:true ~factor:(expr ("co.i"^d)) [cOr (
         [[addPart; cFieldWrite ~field:("pos"^d) ()]] @
@@ -228,7 +225,6 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Duplicate the charge of a corner for the 8 surrounding cells";
   let alloc_instr = [cTopFunDef "allocateStructures"; cWriteVar "deposit"] in
-  (* TODO: Hide labels argument *)
   !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
      ~labels:["alloc"; ""; "dealloc"] ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
      ~dim:(var "nbCorners") ~index:"idCorner" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (var "idCorner")) ~alloc_instr [cLabel "core"];
@@ -264,7 +260,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! iter_dims (fun d -> let index = "b"^d in
       Loop.tile (var_mut "block") ~bound:TileBoundDivides ~index [step; cFor ("i"^d)];
       Loop.color (lit "2") ~index:("c"^d) [step; cFor index] );
-  !! Loop.reorder ~order:((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
+  !! Loop.reorder ~order:Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
   !! Instr.set_atomic [step; cLabel "charge"; cWrite ()];
   !! Omp.parallel_for ~collapse:3 [step; cFor "bX"];
@@ -283,7 +279,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       ~labels:["alloc"; ""; "dealloc"] ~alloc_instr ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
       [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
-  !! Instr.delete [step; cLabel "charge"; cOmp()]; (* BEAUTIFY: Instr.set_nonatomic ; also cPragma is needed *)
+  !! Instr.delete [step; cLabel "charge"; cOmp()];
 
   bigstep "Introduce private and shared bags, and use shared ones only for particles moving more than one cell away";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true
@@ -296,8 +292,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.delete [cOr[[cVarDef "bagsNext"];[cWriteVar "bagsNext"];[cFun ~regexp:true "\\(free\\|bag.*\\)" ~args:[[cVar "bagsNext"]]]]];
   !! Variable.insert ~typ:(ty "coord") ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; step; cVarDef "idCell2"];
   let pushop = cFun "bag_push_concurrent" in
-  let force_concurrent_push = false in (* TEMPORARY *)
-  let push_cond = if force_concurrent_push then trm_lit (Lit_bool false) else trm_ands (map_dims (fun d ->
+  let push_cond = trm_ands (map_dims (fun d ->
          expr ~vars:[d] "(co.i${0} >= b${0} - halfBlock && co.i${0} < b${0} + block + halfBlock)
                       || (b${0} == 0 && co.i${0} >= grid${0} - halfBlock)
                       || (b${0} == grid${0} - block && co.i${0} < halfBlock)")) in
@@ -307,17 +302,16 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Specialize.any (var_mut "PRIVATE") [step; cIf(); dThen; pushop; cAny];
   !! Specialize.any (var_mut "SHARED") [step; cIf(); dElse; pushop; cAny];
   !! Expr.replace_fun "bag_push_serial" [step; cIf(); dThen; pushop];
+  !! Trace.reparse();
 
   bigstep "Parallelize and optimize loops that process bags";
-  !! Trace.reparse();
   !! Loop.fusion ~nb:2 [step; cFor "idCell" ~body:[cFun "bag_append"]];
   !! Omp.parallel_for [nbMulti;stepsReal; cFor "idCell"];
-  !! Function.use_infix_ops ~indepth:true [step; dBody]; (* LATER: move to the end of an earlier bigstep *)
+  !! Function.use_infix_ops ~indepth:true [step; dBody];
 
   (* Part 4: Vectorization *)
 
   bigstep "Loop splitting: process speeds, process positions, deposit particle and its charge";
-  (* Unrolling coeff computation loops and inlining coeff writes *)
   !! Loop.unroll [occFirst; step; cFor "i"; cFor "idCorner"];
   !! Loop.unroll [stepLF; cFor "i"; cFor "idCorner"];
   !! Instr.inline_last_write [nbMulti; steps; cCellRead ~base:[cFieldRead ~base:[cVar "coeffs"] ()] ()];
@@ -356,7 +350,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Omp.simd [nbMulti; cOr [
     [cFor "idCell" ~body:[cFor "bagsKind"]; cFor "idCorner"];
     [stepLF; cFor "i"];
-    [cDiff [[step; cFor "i"]] [[step; cFor "i"  ~body:[cFor "idCorner"]]] ]; (* A / B logic *)
+    [cDiff [[step; cFor "i"]] [[step; cFor "i"  ~body:[cFor "idCorner"]]] ];
     ]];
   !! Omp.simd ~clause:[Aligned (["coefX"; "coefY"; "coefZ"; "signX"; "signY"; "signZ"], align)] [step; cLabel "charge"];
   !! Label.remove [step; cLabel "charge"];

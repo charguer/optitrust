@@ -154,3 +154,31 @@ into
  % !! TOO COMPLEX Loop.grid_enumerate ~unfold_bound:true ~indices:(map_dims (fun d -> "i"^d); [step; cLabel "core"; cFor "idCell"];
 
  (* let _ = Flags.code_print_width := 120 *)
+
+
+
+
+in
+bigstep "Simplify arithmetic expressions after scaling";
+  (* !! Function.use_infix_ops ~indepth:true [step; dBody]; PAPER ONLY, else done further *)
+
+
+  let tg = cTarget [step; cFor "idCell" ~body:[cFor "i"]] in
+  => call it the "main" loop using a label
+
+
+  LATER: make labels like marks: not an extra node in AST.
+
+  (* LATER: make cOr work for targetBetweens (hard) *)
+
+   (* TODO: Hide labels argument *)
+  !! Matrix.delocalize "deposit" ~into:"depositCorners" ~last:true ~indices:["idCell"] ~init_zero:true
+     ~labels:["alloc"; ""; "dealloc"] ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
+     ~dim:(var "nbCorners") ~index:"idCorner" ~acc:"sum" ~ops:delocalize_sum ~use:(Some (var "idCorner")) ~alloc_instr [cLabel "core"];
+
+
+      !! Instr.delete [step; cLabel "charge"; cOmp()]; (* BEAUTIFY: Instr.set_nonatomic ; also cPragma is needed *)
+
+      (* Arthur: check A / B logic *)
+
+        (* LATER: use a generic -D flag for optitrust *)

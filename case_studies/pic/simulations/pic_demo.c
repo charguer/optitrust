@@ -17,7 +17,7 @@ inline int wrap(int gridSize, int a) {
 const int nbCorners = 8;
 
 inline int cellOfCoord(int i, int j, int k) {
-  return MINDEX3(gridX,gridY,gridZ,i,j,k);
+  return MINDEX3(gridX, gridY, gridZ, i, j, k);
 }
 
 // [idCellOfPos(pos)] computes the id of the cell that contains a position,
@@ -196,8 +196,6 @@ void updateFieldUsingDeposit() { // reads [double* deposit], writes [vect* field
 // --------- Allocate and dellocate structures
 
 void allocateStructures() {
-  // TRACE("Allocate\n");
-
   allocateStructuresForPoissonSolver();
 
   // Allocate array for deposit
@@ -216,8 +214,6 @@ void allocateStructures() {
 }
 
 void deallocateStructures() {
-  // TRACE("Deallocate\n");
-
   deallocateStructuresForPoissonSolver();
 
   // Free the chunks
@@ -269,7 +265,6 @@ void addParticle(CHECKER_ONLY_COMMA(int idParticle) double x, double y, double z
 // differential equation; it consists of precomputing, for half-of-step backwards,
 // the evolution of the particles speed.
 void stepLeapFrog() {
-  // TRACE("Computing initial poisson and leap-frog step\n");
   // Poisson solver to compute field at time zero, and reset deposit
   updateFieldUsingDeposit();
   // A leap-frog is half a step backwards
@@ -283,10 +278,10 @@ void stepLeapFrog() {
     // For each particle in that cell
     bag_iter bag_it;
     for (particle* p = bag_iter_begin(&bag_it, b); p != NULL; p = bag_iter_next(&bag_it)) {
-        double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
-        vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
-        vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
-        p->speed = vect_add(p->speed, vect_mul(negHalfStepDuration, accel));
+      double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
+      vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
+      vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
+      p->speed = vect_add(p->speed, vect_mul(negHalfStepDuration, accel));
     }
   }
 }
@@ -404,6 +399,7 @@ void reportParticlesState() {
 // Foreach time step
   for (int idStep = 0; idStep < nbSteps; idStep++) {
 #ifdef PRINTSTEPS
+    // Report on progress during the execution
     if (omp_get_wtime() > nextReport) {
       nextReport += 1.0;
       printf("Step %d\n", idStep);

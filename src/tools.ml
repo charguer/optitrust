@@ -275,7 +275,7 @@ let fresh_generator ?(init : bool = false) () : (unit -> int) =
   fun () ->
     if init then n := 0 else incr n;
     !n
-    
+
 (* [resetable_fresh_generator()] returns a pair of a generator and its reset function *)
 let resetable_fresh_generator () : (unit -> int) * (unit -> unit) =
   let n = ref 0 in
@@ -317,6 +317,10 @@ let string_subst_first (pattern : string) (replacement : string) (s : string) : 
 (* [spaces nb] returns a string made of [nb] spaces *)
 let spaces (nb : int) : string =
   String.make nb ' '
+
+(* [add_prefix prefix ss] adds [prefix] to all the strings in the list [ss] *)
+let add_prefix (prefix : string) (indices : string list) : string list =
+    List.map (fun x -> prefix ^ x) indices
 
 (*-----------Extensions for Time-------------*)
 
