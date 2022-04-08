@@ -230,13 +230,15 @@ if [ "${ACTION}" = "all" ] || [ "${ACTION}" = "summary" ] || [ "${ACTION}" = "ru
   else
     FINAL_RES="${MACHINEDIR}/output.txt"
     > ${FINAL_RES}
-    echo "====Summary : Exectime / Throughput / Run =====" | tee >> ${FINAL_RES}
+    echo "====Summary : Exectime / Throughput / ThroughputPerCore / Run =====" | tee >> ${FINAL_RES}
     for FILE in ${MACHINEDIR}/results_*.txt; do
       # RES=$(sed '/^\(Throughput\)/!d' ${FILE})
       THROUGHPUT=$(cat ${FILE} | grep ^Throughput* | awk '{print $2}')
       EXECTIME=$(cat ${FILE} | grep ^Exectime* | awk '{print $2}')
 
-      echo -e "${EXECTIME}\t${THROUGHPUT}\t${FILE}" | tee >> ${FINAL_RES}
+      THROUGHPUTPERCORE=`echo "scale=1; ${THROUGHPUT} / ${CORES}" | bc`
+
+      echo -e "${EXECTIME}\t${THROUGHPUT}\t${THROUGHPUTPERCORE}\t${FILE}" | tee >> ${FINAL_RES}
     done
     CAT_OUTPUT=`cat ${FINAL_RES}`
     echo "${CAT_OUTPUT}"

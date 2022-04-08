@@ -960,6 +960,7 @@ and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_d
     trm_for_c  ~loc init cond step body
 
 let ast_to_doc ?(comment_pragma : bool = false) ?(optitrust_syntax:bool=false) (t : trm) : document =
+  let comment_pragma = false in (* temporary *)
   if comment_pragma then print_commented_pragma := true;
   if optitrust_syntax then print_optitrust_syntax := true;
   let d = decorate_trm t in

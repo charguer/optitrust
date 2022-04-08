@@ -569,7 +569,7 @@ let check_recover_original () : unit =
 let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (filename : string) : unit =
   timing ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
     ignore (Sys.command ("clang-format -style=\"Google\" -i " ^ filename));
-    if uncomment_pragma
+    if (* temporary *) false && uncomment_pragma
       then ignore (Sys.command ("sed -i 's@//#pragma@#pragma@' " ^ filename))
   )
 
