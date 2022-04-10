@@ -154,7 +154,7 @@ On a laptop with 4 physical cores and 32GB of ram, we invoke on the command line
 
 Here is a sample output:
 
-![Numa architecture \label{numa}](img/lstopo.png){width=60% height=50%}
+![Numa architecture \label{numa}](sc_artifact_lstopo.png){width=60% height=50%}
 
 In Figure \ref{numa}, we can read the ids of the processing units (PU)
 that we want to use: `CPULIST="0,2,4,6"`.
