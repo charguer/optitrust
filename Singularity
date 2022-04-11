@@ -1,5 +1,5 @@
 Bootstrap: library
-From: ubuntu:18.04
+From: ubuntu:20.04
 
 %post:
 apt-get update && apt-get -y upgrade
