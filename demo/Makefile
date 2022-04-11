@@ -66,6 +66,7 @@ clean::
 
 cleanfiles:
 	$(V)rm -f $(FILES)
+	cd $(PICDIR)/simulations/ && rm -rf *_out.c
 
 optim: pic_demo_out.cpp 
 	$(V)cp $< $(PICDIR)/simulations/pic_optimized.c

@@ -63,6 +63,48 @@ and on the ability to pin the physical cores being used (with `taskset`).
 
 ## Dependency installation
 
+
+### Installation of singularity
+
+```
+  sudo apt-get update
+  sudo apt-get install -y build-essential libssl-dev uuid-dev libgpgme11-dev \
+    squashfs-tools libseccomp-dev wget pkg-config git cryptsetup debootstrap
+
+```
+
+### Installation of go lang
+
+```
+  wget https://dl.google.com/go/go1.13.linux-amd64.tar.gz
+
+  sudo tar --directory=/usr/local -xzvf go1.13.linux-amd64.tar.gz
+
+  export PATH=/usr/local/go/bin:$PATH
+
+
+```
+
+### Installation of singularity
+
+```
+  wget https://github.com/singularityware/singularity/releases/download/v3.5.3/singularity-3.5.3.tar.gz
+
+  tar -xzvf singularity-3.5.3.tar.gz
+
+  cd singularity
+
+  ./mconfig
+
+  cd builddir
+
+  make
+
+  sudo make install
+
+```
+
+
 ### Installation of Intel openAPI toolkit (for the ICC compiler)
 
 (Note: does not work on Ubuntu 16.04, which is too old.)
@@ -137,7 +179,7 @@ To that end, we use `lstopo` to view the machine architecture, and we can
 read on the image the identifier of the first processing unit associated
 with each core, from only one NUMA node (in case there are several).
 
-The goal is to produce a list, such as `CPULIST="0,2,4,6"`.
+The goal is to produce a list, such as `CPULIST="0,1,2,3"`.
 
 Note: we certainly don't want to simulate more particles than what we can fit in the RAM. During the simulation, make sure to use `htop` to keep track of the memory consumption.
 
@@ -157,7 +199,7 @@ Here is a sample output:
 ![Numa architecture \label{numa}](sc_artifact_lstopo.png){width=60% height=50%}
 
 In Figure \ref{numa}, we can read the ids of the processing units (PU)
-that we want to use: `CPULIST="0,2,4,6"`.
+that we want to use: `CPULIST="0,1,2,3"`.
 
 
 ## Selection of the grid size and number of particles
