@@ -14,6 +14,14 @@ https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAP
 add-apt-repository universe
 apt-get update && apt-get -y upgrade
 apt-get install intel-basekit intel-hpckit libfftw3-dev libjemalloc-dev hwloc
+apt-get install opam
+opam init
+opam update && opam upgrade && eval $(opam env)
+opam switch install 4.12.0
+eval $(opam env)
+opam pin add menhirLib 20210419 -y
+opam pin add pprint 20220103 -y
+opam install dune clangml pprint menhir menhirLib base64 ocamlbuild
 
 %runscript
 
