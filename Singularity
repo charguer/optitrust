@@ -15,9 +15,11 @@ From: ubuntu:20.04
   https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list
 
   add-apt-repository universe
+  add-apt-repository ppa:saiarcot895/chromium-beta 
   apt-get update && apt-get -y upgrade
   apt install debconf-utils -y
   echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+  apt-get install chromium-browser xdotool
   apt-get install -y binutils binutils-common binutils-x86-64-linux-gnu build-essential cmake  \
   cmake-data cpp cpp-9 dpkg-dev fakeroot g++ g++-9 gcc gcc-9 gcc-9-base  \
   intel-hpckit-getting-started  \
@@ -61,7 +63,8 @@ From: ubuntu:20.04
   echo "Container was created!"
 
 %help
-  This is a container used to reproduce OptiTrust benchmarks and run OptiTrust interactively.
+  This container contains everything you need to run OptiTrust and its benchmarks.
+
 
 
 
