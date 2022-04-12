@@ -50,7 +50,7 @@ processors,” in 24th International Conference on Parallel and Dis-
 
 ## Investment
 
-We expect that some basic performance results can be reproduced in 1 hour.
+We expect that some basic performance results can be reproduce in 1 hour.
 About 15 minutes to read the present documentation, 15 minutes to install
 the required software, then performing 3 runs of less than 10 minutes each.
 
@@ -63,7 +63,8 @@ and on the ability to pin the physical cores being used (with `taskset`).
 
 ## Dependency installation
 
-### Installation of dependencies needed for installing singularity
+
+### Installation of singularity
 
 ```
   sudo apt-get update
@@ -76,8 +77,11 @@ and on the ability to pin the physical cores being used (with `taskset`).
 
 ```
   wget https://dl.google.com/go/go1.13.linux-amd64.tar.gz
+
   sudo tar --directory=/usr/local -xzvf go1.13.linux-amd64.tar.gz
+
   export PATH=/usr/local/go/bin:$PATH
+
 
 ```
 
@@ -85,40 +89,84 @@ and on the ability to pin the physical cores being used (with `taskset`).
 
 ```
   wget https://github.com/singularityware/singularity/releases/download/v3.5.3/singularity-3.5.3.tar.gz
+
   tar -xzvf singularity-3.5.3.tar.gz
+
   cd singularity
+
   ./mconfig
+
   cd builddir
+
   make
+
   sudo make install
 
 ```
 
+
+### Installation of Intel openAPI toolkit (for the ICC compiler)
+
+(Note: does not work on Ubuntu 16.04, which is too old.)
+
+```
+   wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
+   | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+
+   echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] \
+   https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+
+   sudo apt update
+
+   sudo apt upgrade
+
+   sudo apt install intel-basekit
+
+   # optional
+   sudo apt install intel-hpckit
+```
+
+### Installation of OpenMPI (only for GCC compiler, which is not needed to reproduce results)
+
+```
+   sudo apt-get install libopenmpi-dev openmpi-bin
+```
+
+### Installation of FFTW (used for the Poison solver, which is part of the PIC simulation)
+
+```
+   sudo apt-get install libfftw3-dev
+```
+
+### Installation of jemalloc (for fast multi-thread allocation)
+
+```
+   sudo apt install libjemalloc-dev
+```
+
+### Installation of hwloc (strongly recommanded to check your machine topology)
+
+The package `hwloc` provides the command `lstopo` used later on.
+
+```
+   sudo apt install hwloc
+```
+
+
 ## Benchmarking using a cached copy of our output program:
-Assuming that singularity was installed successfully, the next step is to download our container:
-```
-  singularity pull library://begatim01/bench/bench_optitrust.sif:1.0.1
 
-```
-Then open a shell inside the container by running:
-
-```
-  singularity shell bench_optitrust.sif
-```
-This will open a shell on the current directory but with all the libraries being loaded from the container. Make sure to navigate to the OptiTrust root directory and run:
-
+First of all, run:
 ```
    # Save the path to the root of the OptiTrust directory
    export OPTITRUST=`pwd`
-
-   eval $(opam env)
 
    cd ${OPTITRUST}/case_studies/pic/results
 
    ./update_by_copy.sh
 ```
 
-The effect is to load all the libraries needed for building and installing OptiTrust(only inside the container). Then it will generate the file pic_optimized_single.c inside `${OPTITRUST}/case_studies/pic/simulations` directory.
+The effect is to copy our cached file `${OPTITRUST}/demo/pic_demo_single_exp.cpp`
+into the file `${OPTITRUST}/case_studies/pic/simulations`.
 
 ## Figure out the IDs of the cores that should be assigned to the execution
 
@@ -143,7 +191,7 @@ Note: for multi-socket machines we use only the memory dedicated to one socket, 
 On a laptop with 4 physical cores and 32GB of ram, we invoke on the command line:
 
 ```
-   lstopo -p
+   lstopo
 ```
 
 Here is a sample output:
