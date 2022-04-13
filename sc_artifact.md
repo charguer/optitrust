@@ -55,7 +55,7 @@ About 15 minutes to read the present documentation, 15 minutes to install
 the required software, then performing 3 runs of less than 10 minutes each.
 
 Full-scale experiments can take several hours to run, but can be executed
-in the background, on a multicore server.
+in the background, on a multicore server(with Singularity already installed).
 
 Disclaimer: No significant performance dropout is expected when the benchmark 
 script is executed from the container shell.
@@ -98,13 +98,13 @@ and on the ability to pin the physical cores being used (with `taskset`). -->
 ```
 
 ## Benchmarking using a cached copy of our output program:
-Let's start by downloading and extracting the archive the contains the source code and the benchmark scripts:
+Let's start by downloading and extracting the archive that contains the source code and the benchmark scripts:
 
 ```
-Arthur is going to add here two lines after he uploads the archive in his webpage
+Arthur is going to add here two lines after he uploads the archive in his website
 ```
-
-On the same directory where the archive was extracted,assuming that singularity was installed successfully, the next step is to download our singularity image:
+Assuming that singularity was installed, on the same directory where the archive 
+was extracted, download our singularity image by running:
 ```
   singularity pull library://begatim01/bench/optitrust.sif:1.0.3
 
@@ -114,10 +114,13 @@ Then open a shell inside the container:
 ```
   singularity shell optitrust.sif
 ```
-This will open a shell on the current directory but with all the libraries being loaded from the container. If the image is not on the same  
+This will open a shell on the current directory but with all the libraries being loaded from the container. If the image is not on the same directory as `optitrust` folder then you will need to export the path to the `optitrust` directory:
 
 ```
-   # Navigate to the benchmark directory
+  export OPTITRUST=PATH_TO_OPTITRUST
+```
+then navigate to the benchmark directory:
+```
    cd ${OPTITRUST}/case_studies/pic/results
 
    ./update_by_copy.sh
@@ -127,13 +130,11 @@ This will open a shell on the current directory but with all the libraries being
 The effect is to copy our cached file ${OPTITRUST}/demo/pic_demo_single_exp.cpp into the file
 ${OPTITRUST}/case_studies/pic/simulations
 
-<!-- The effect is to load all the libraries needed for building and installing OptiTrust(only inside the container). Then it will generate the file pic_optimized_single.c in `${OPTITRUST}/case_studies/pic/simulations` directory. -->
-
 ## Figure out the IDs of the cores that should be assigned to the execution
 
 ### Objectives
 
-The goal is to perform the execution by assigning each OMP thread to one
+The goal is to perform the execution by assigning each OpenMP thread to one
 fixed physical core, ignoring hyperthreading processing units.
 
 To that end, we use `lstopo` to view the machine architecture, and we can
@@ -339,6 +340,17 @@ grid become negligeable.
 # Part 2: Execution of the transformation scripts
 
 # Introduction
+Before you move on we would suggest to try running OptiTrust interactively from the container.
+To do that you could skip the instructions for installing OptiTrust on your machine and just run the following inside the container shell:
+
+```
+  eval $(opam env)
+  cd $OPTITRUST
+  make install
+
+```
+this command will load the `opam` environment that contains all the libraries needed to run `OptiTrust`.
+Navigate to the optitrust directory and install it inside the container. Finally VSCode should be installed and configured as documented on the next step. If that doesn't work then you will have to install OptiTrust with all its dependencies in your operating system(Ubuntu 18.04 and later).
 
 In this second part, we explain how to install the tooling for generating,
 using OptiTrust, our `pic_optimized` program, starting from the totally
