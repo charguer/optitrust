@@ -95,12 +95,12 @@ and on the ability to pin the physical cores being used (with `taskset`).
 ```
 
 ## Benchmarking using a cached copy of our output program:
-Assuming that singularity was installed successfully, the next step is to download our container:
+Assuming that singularity was installed successfully, the next step is to download our singularity image:
 ```
   singularity pull library://begatim01/bench/bench_optitrust.sif:1.0.1
 
 ```
-Then open a shell inside the container by running:
+Then open a shell inside the container:
 
 ```
   singularity shell bench_optitrust.sif
@@ -118,7 +118,7 @@ This will open a shell on the current directory but with all the libraries being
    ./update_by_copy.sh
 ```
 
-The effect is to load all the libraries needed for building and installing OptiTrust(only inside the container). Then it will generate the file pic_optimized_single.c inside `${OPTITRUST}/case_studies/pic/simulations` directory.
+The effect is to load all the libraries needed for building and installing OptiTrust(only inside the container). Then it will generate the file pic_optimized_single.c in `${OPTITRUST}/case_studies/pic/simulations` directory.
 
 ## Figure out the IDs of the cores that should be assigned to the execution
 

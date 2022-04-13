@@ -60,10 +60,10 @@ From: ubuntu:20.04
   eval $(opam env)
   
 %runscript
-  echo "Container was created!"
+  echo "Welcome to OptiTrust!"
 
 %help
-  This container contains everything you need to run OptiTrust and its benchmarks.
+  This container contains everything you need to be able to run OptiTrust and its benchmarks.
 
 
 
