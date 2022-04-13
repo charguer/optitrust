@@ -57,13 +57,16 @@ the required software, then performing 3 runs of less than 10 minutes each.
 Full-scale experiments can take several hours to run, but can be executed
 in the background, on a multicore server.
 
-Disclaimer: Running in a virtual machine might have impact on performance,
-and on the ability to pin the physical cores being used (with `taskset`).
+Disclaimer: No significant performance dropout is expected when the benchmark 
+script is executed from the container shell.
 
+
+<!-- Disclaimer: Running in a virtual machine might have impact on performance,
+and on the ability to pin the physical cores being used (with `taskset`). -->
 
 ## Dependency installation
 
-### Installation of dependencies needed for installing singularity
+### Installation of dependencies needed for installing Singularity
 
 ```
   sudo apt-get update
@@ -72,7 +75,7 @@ and on the ability to pin the physical cores being used (with `taskset`).
 
 ```
 
-### Installation of go lang
+### Installation of Go lang
 
 ```
   wget https://dl.google.com/go/go1.13.linux-amd64.tar.gz
@@ -81,7 +84,7 @@ and on the ability to pin the physical cores being used (with `taskset`).
 
 ```
 
-### Installation of singularity
+### Installation of Singularity
 
 ```
   wget https://github.com/singularityware/singularity/releases/download/v3.5.3/singularity-3.5.3.tar.gz
@@ -95,30 +98,36 @@ and on the ability to pin the physical cores being used (with `taskset`).
 ```
 
 ## Benchmarking using a cached copy of our output program:
-Assuming that singularity was installed successfully, the next step is to download our singularity image:
+Let's start by downloading and extracting the archive the contains the source code and the benchmark scripts:
+
 ```
-  singularity pull library://begatim01/bench/bench_optitrust.sif:1.0.1
+Arthur is going to add here two lines after he uploads the archive in his webpage
+```
+
+On the same directory where the archive was extracted,assuming that singularity was installed successfully, the next step is to download our singularity image:
+```
+  singularity pull library://begatim01/bench/optitrust.sif:1.0.3
 
 ```
 Then open a shell inside the container:
 
 ```
-  singularity shell bench_optitrust.sif
+  singularity shell optitrust.sif
 ```
-This will open a shell on the current directory but with all the libraries being loaded from the container. Make sure to navigate to the OptiTrust root directory and run:
+This will open a shell on the current directory but with all the libraries being loaded from the container. If the image is not on the same  
 
 ```
-   # Save the path to the root of the OptiTrust directory
-   export OPTITRUST=`pwd`
-
-   eval $(opam env)
-
+   # Navigate to the benchmark directory
    cd ${OPTITRUST}/case_studies/pic/results
 
    ./update_by_copy.sh
 ```
+<!-- TODO: If building optitrust works then we can replace update_by_copy.sh with update.sh -->
 
-The effect is to load all the libraries needed for building and installing OptiTrust(only inside the container). Then it will generate the file pic_optimized_single.c in `${OPTITRUST}/case_studies/pic/simulations` directory.
+The effect is to copy our cached file ${OPTITRUST}/demo/pic_demo_single_exp.cpp into the file
+${OPTITRUST}/case_studies/pic/simulations
+
+<!-- The effect is to load all the libraries needed for building and installing OptiTrust(only inside the container). Then it will generate the file pic_optimized_single.c in `${OPTITRUST}/case_studies/pic/simulations` directory. -->
 
 ## Figure out the IDs of the cores that should be assigned to the execution
 

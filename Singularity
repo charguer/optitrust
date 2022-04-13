@@ -3,6 +3,8 @@ From: ubuntu:20.04
 
 %environment
   export LC_ALL=C
+  export OPTITRUST=`pwd`/optitrust
+  eval $(opam env)
 
 %post
   apt-get update && apt-get -y upgrade
@@ -19,7 +21,7 @@ From: ubuntu:20.04
   apt-get update && apt-get -y upgrade
   apt install debconf-utils -y
   echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
-  apt-get install chromium-browser xdotool
+  apt-get install chromium-browser xdotool -y
   apt-get install -y binutils binutils-common binutils-x86-64-linux-gnu build-essential cmake  \
   cmake-data cpp cpp-9 dpkg-dev fakeroot g++ g++-9 gcc gcc-9 gcc-9-base  \
   intel-hpckit-getting-started  \
@@ -57,15 +59,9 @@ From: ubuntu:20.04
   opam pin add menhirLib 20210419 -y
   opam pin add pprint 20220103 -y
   opam install dune clangml pprint menhir menhirLib base64 ocamlbuild -y
-  eval $(opam env)
   
 %runscript
   echo "Welcome to OptiTrust!"
 
 %help
   This container contains everything you need to be able to run OptiTrust and its benchmarks.
-
-
-
-
-
