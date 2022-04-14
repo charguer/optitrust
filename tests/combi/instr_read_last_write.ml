@@ -4,6 +4,8 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
    !! Instr.read_last_write [cVarDef "y"; cVar "x"];
+
+)
 "
 int main() {
   int x = 0;
