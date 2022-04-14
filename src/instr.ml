@@ -173,6 +173,6 @@ let move_out_of_fun (tg : target) : unit =
   Marks.remove mark [cMark mark]
 
 (* [set_atomic tg] just an alias to Omp.atomic tg, please refer to omp_basic.ml  line 9*)
-(* let set_atomic : Transfo.t = 
-  Omp_basic.atomic  *)
+let set_atomic : Transfo.t = 
+  Omp_basic.atomic 
 

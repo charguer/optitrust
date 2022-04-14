@@ -1,11 +1,11 @@
 open Ast
 
 
-(* [isnert_aux ty t] add a type in front of [t]
+(* [insert_aux ty t] add a type in front of [t]
     to cast its current type to [ty]
     params:
       [ty]:the type on which [t] is going to be casted to
-      [t]: any ast node which allows casting
+      [t]: any ast node that allows casting
     return:
       the ast of a casting operation containing [t]
 *)
