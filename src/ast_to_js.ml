@@ -1,9 +1,12 @@
 open Ast
 open Ast_to_text
 open PPrint
+
+
 module Json = struct
   open PPrint
-  (* Representation of a json object *)
+  
+  (* Representation of a json object *)  
   type t =
     | Str of string
     | Int of int
@@ -18,13 +21,13 @@ module Json = struct
   let strquote x = Str (quote x)
 
 
-  (* Printing functions *)
   let typ_to_json(typ : typ) : t =
     Str (Tools.document_to_string (bquotes (AstC_to_c.typ_to_doc typ)) )
 
   let typdef_to_json(td : typedef) : t =
     Str (Tools.document_to_string (bquotes (AstC_to_c.typedef_to_doc td)))
 
+  
   let print_object (dl : document list) : document =
     surround 2 1 lbrace (separate (comma ^^ break 1) dl) rbrace
 
@@ -36,25 +39,13 @@ module Json = struct
     | List l -> Tools.print_list ~sep:"," (List.map json_to_doc l)
     | Object o -> Tools.print_object (List.map (fun (k,j) -> json_to_doc k ^^ string ": " ^^ json_to_doc j) o)
 
-  (* let json_to_js_1 ?(index : int = (-1)) (j : t) : document =
-   let json_ast = json_to_doc j in
-
-   match index with
-   | -1 ->  string "contents" ^^ equals ^^ json_ast ^^ semi ^^ hardline
-   | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi ^^ hardline *)
-
+  (* create a javascript variable of type json object from ast [j] *)
   let json_to_js (index : int) (j : t) : document =
    let json_ast = json_to_doc j in
    string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi ^^ hardline
 
 
-  (* let code_to_js (out : out_channel) (index : int) (src : string) : unit =
-    let doc = match index with
-      | -1 -> string "source"  ^^ equals ^^ bquotes (string src) ^^ hardline
-      | _ -> string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src) ^^ hardline
-      in
-    ToChannel.pretty 0.9 80 out doc
-   *)
+  (* create a javascript variable of type string representing the source code src *)
   let code_to_js (out : out_channel) (index : int) (src : string) : unit =
     let doc = string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src) ^^ hardline in
     ToChannel.pretty 0.9 80 out doc
@@ -72,6 +63,7 @@ let nodeid_invalid = (-1)
 let void =
   Json.Object []
 
+(* loc_to_json t *)
 let loc_to_json (t : trm) : json =
   begin match t.loc with
   | None -> strquote ""

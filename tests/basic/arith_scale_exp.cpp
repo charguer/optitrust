@@ -1,10 +1,8 @@
 #include <stdio.h>
 
-const int N = 5;
-
-double t[N];
-
 int main() {
+  const int N = 5;
+  double t[N];
   for (int i = 0; i < N; i++) {
     t[i] = (i + 3.14) / i;
   }
@@ -15,12 +13,13 @@ int main() {
   printf("%d\n", s);
 }
 
-float *u;
+float* u;
 
 int other() {
+  const int N = 5;
   for (int i = 0; i < N; i++) {
-    double a = ((double)u[i]) * i;
+    double a = (double)u[i] * i;
     double b = 3.14 * a + 0.68;
-    u[i] = (float)b * i;
+    u[i] = (float)(b * i);
   }
 }

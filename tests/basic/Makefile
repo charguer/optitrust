@@ -10,6 +10,8 @@ TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	arith_simpl.ml \
+	arith_scale.ml \
+	arith_shift.ml \
 	array_set_explicit.ml \
 	array_tile.ml \
 	array_to_variables.ml  \

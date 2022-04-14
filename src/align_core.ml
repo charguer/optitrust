@@ -1,7 +1,11 @@
 open Ast
 
-
-
+(* [deg_aux vec_align t]: def_aux vec_align t: add the alignas attribute to the declaration [t]
+    params:
+      [vec_align]: alignment size
+      [t]: ast of the declaration
+    return:
+      ast of the update declaration with the new attribute added *)
 let def_aux (vec_align : trm) (t : trm) : trm =
   match t.desc with
   | Trm_let (vk, (x, tx), init) ->

@@ -13,8 +13,7 @@ open Ast
 
   t.f  where t is not a get(.)    -> struct_get(t,"f")
 
-   Recall: struct_get(t,f)  means  trm_apps (Prim_unop (unop_struct_get "f")) [t]
-*)
+   Recall: struct_get(t,f)  means  trm_apps (Prim_unop (unop_struct_get "f")) [t] *)
 (* environment for storing the mutability of all the variables *)
 type env = varkind String_map.t
 
@@ -163,8 +162,7 @@ let stackvar_elim (t : trm) : trm =
     (as a simplification to [*(&a)])
     For references, [<annotation:reference> int* b = a] becomes [int& b = a],
       as a simplification of b = *(&a), where &a is obtained after translating a.
-    and [<annotation:reference> int* x = &t[i]] becomes [int& x = t[i]], where t has type [const int*] as a simplification of x = *(&t[i])
-*)
+    and [<annotation:reference> int* x = &t[i]] becomes [int& x = t[i]], where t has type [const int*] as a simplification of x = *(&t[i]) *)
 let stackvar_intro (t : trm) : trm =
   let env = create_env () in
   let rec aux (t : trm) : trm =
@@ -227,8 +225,7 @@ let stackvar_intro (t : trm) : trm =
 
     This transformation is implemented as [caddress_elim_aux lvalue t], where the
     boolean [lvalue] indicates whether we are currently translating a l-value
-    or a normal instruction or expression (r-value).
-*)
+    or a normal instruction or expression (r-value). *)
 let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
   let aux t = caddress_elim_aux false t in (* recursive calls for rvalues *)
   let access t = caddress_elim_aux true t in (* recursive calls for lvalues *)
@@ -295,8 +292,7 @@ let is_access (t : trm) : bool =
     [get(t1)  becomes ][* t1]
     [set(t1, t2)] becomes as [* t1 = t2]
     [Trm_apps (Prim_struct_access "f", [t])] becomes [t.f] as lvalue
-    [get(Trm_apps (Prim_struct_access "f", [t]))] becomes [t.f] as rlvalue
- *)
+    [get(Trm_apps (Prim_struct_access "f", [t]))] becomes [t.f] as rlvalue *)
 let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
   let aux t = caddress_intro_aux false t in  (* recursive calls for rvalues *)
   let access t = caddress_intro_aux true t in (* recursive calls for lvalues *)

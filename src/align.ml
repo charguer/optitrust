@@ -2,8 +2,8 @@ open Ast
 open Target
 include Align_basic
 
-(* [alloc vec_align tg] expects the target [tg] to be pointing at call to optitrust MALLOC functions, 
-     then it will convert it to a alloc_aligned one *)
+(* [alloc vec_align tg] expects the target [tg] to be pointing at a call to OptiTrust MALLOC macros, 
+     then it will convert it to an aligned one *)
 let alloc (vec_align : trm) : Target.Transfo.t =
   Target.iter_on_targets (fun t p -> 
     let tg_trm = Path.get_trm_at_path p t in 

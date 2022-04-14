@@ -2,8 +2,7 @@ open Ast
 
 (* [check test_name t1 t2] checks if [t1] and [t2] are equal or not, if not
     this function will print both the C code and the Optitrust ast.
-    into files with prefix [test_name]
-*)
+    into files with prefix [test_name] *)
 let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
   (* LATER: see if we can have a ast comparison function *)
   let success = Ast_to_text.ast_to_string t1 = Ast_to_text.ast_to_string t2 in

@@ -8,8 +8,8 @@ let debug_rec = false
 (* ***********************************************************************************
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
  * have only one purpose, and that is targeting the trm in which we want to apply the *
- * transformation. That's why there is not need to document them.                     *
- *)
+ * transformation. That's why there is not need to document them.                     * 
+*)
 
 let mark_nosimpl = "__arith_core_nosimpl"
 
@@ -22,15 +22,14 @@ type arith_op =
 
 (* [shift_aux neg pre_cast post_cast u t]: shift or scale the right hand side of a set operation with term [u]
     params:
-      [aop]: a flag to decide if the arithmetic operation should be a scale or a shift
-      [neg]: a flag for the sine of shifting
+      [aop]: a flag to decide if the arithmetic operation, should be Arith_scale or Arith_shift
+      [neg]: a flag for the sign(plus or minus) of shifting
       [pre_cast]: casting of type [pre_cast] performed on the right hand side of the set operation before shifting is applied
       [post_cast]: casting of type [post_cast] performed after shifting is done
       [u]: shift size
       [t]: the ast of teh set operation
     return:
-      updated ast of the set operation
-*)
+      updated ast of the set operation *)
 let transform_aux (aop : arith_op) (inv : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) (t : trm) : trm =
   let binop_op = match aop with
   | Arith_shift -> if inv then Binop_sub else Binop_add
@@ -58,14 +57,13 @@ let transform (aop : arith_op)(inv : bool) (pre_cast : typ option) (post_cast : 
   Target.apply_on_path (transform_aux  aop inv pre_cast post_cast u)
 
 
-(* [apply_aux op arg t]: apply binary_operation op on [t] with the second arguement of the operation being [arg]
+(* [apply_aux op arg t]: apply binary_operation [op] on [t] with the second arguement of the operation being [arg]
     params:
       [op]: the binary operation going to be applied
       [arg]: the second argument after [t] in the performed operation
       [t]: the first argument in the performed operation
     return:
-      the ast of the binary operation
-*)
+      the ast of the binary operation *)
 let apply_aux (op : binary_op) (arg : trm) (t : trm) : trm =
   trm_apps (trm_binop op) [t; arg]
 
@@ -422,12 +420,10 @@ let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr
   apply_bottom_up_if recurse cleanup f e
 
 
-
+(* LATER: Use a map instead of a list *)
 (* [gather_one e] regroups similar expression that appear inside a same product or sum
       For example, [2 * e1 + (-1)*e1] simplifies to [e1]
-      and [e1 * e2 * e1^(-1)] simplifies to [e2].
- *)
-(* LATER: Use a map instead of a list *)
+      and [e1 * e2 * e1^(-1)] simplifies to [e2]. *)
 let gather_one (e : expr) : expr =
   let rec insert (acc : wexprs) ((w,e) : wexpr) : wexprs =
       match acc with
@@ -488,21 +484,6 @@ let expand_common (recurse : bool) (e : expr) : expr =
 let expand = expand_common false
 let expand_rec = expand_common true (* Warning: quadratic, because normalize all and gather_rec at each step *)
 
-
-(* [is_prim_arith p] check if [p] is a primitive arithmetic operation *)
-let is_prim_arith (p : prim) : bool =
-  match p with
-  | Prim_binop (Binop_add | Binop_sub | Binop_mul | Binop_div)
-  | Prim_unop Unop_neg ->
-      true
-  | _ -> false
-
-(* [is_prim_arith_call t] checks if [t] is a function call to a primitive arithmetic operation *)
-let is_prim_arith_call (t : trm) : bool =
-  match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim p);_}, args) when is_prim_arith p -> true
-  | _ -> false
-
 (* [map_on_arith_nodes tr t] apply arithmetic simplification [tr] in depth of [t]*)
 let rec map_on_arith_nodes (tr : trm -> trm) (t : trm) : trm =
   if has_mark_nosimpl t
@@ -550,8 +531,7 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
       return:
         update t with the simplified expressions
 
-      LATER: should [simplify_aux false f t] fail if [t] is not an application of prim_arith?
-*)
+      LATER: should [simplify_aux false f t] fail if [t] is not an application of prim_arith? *)
 let rec simplify_aux (indepth : bool) (f : expr -> expr) (t : trm) : trm =
   if not indepth then begin
     let f_atom_identity = (fun ti -> ti) in
