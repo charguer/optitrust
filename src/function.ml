@@ -7,7 +7,7 @@ include Function_basic
 type rename = Variable.Rename.t
 
 
-(*  [bind_args fresh_names tg] expets the target [tg] to point to a function call.
+(*  [bind_args fresh_names tg] expets the target [tg] to point at a function call.
       Then it takes [fresh_names] which is a list of strings where the string
       at index i represents the variable going to be binded to the argument i
       of the function call. If one doesn't want to bind the argument at index i
@@ -39,7 +39,7 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
      fail call_trm.loc "bind_args: expected a function call as target"
    end)
 
-(* [elim_body ~vars tg] expects the target [tg] to point to the marked sequence.Then it will
+(* [elim_body ~vars tg] expects the target [tg] to point atthe marked sequence.Then it will
     remove this sequence and its mark and merge the trms inside this sequence with te ones of the
     sequence containing the marked sequence. But before doing that, first a change of all the declared
     variables inside this sequence is performed. [vars] tells for the way the reanming is done.
@@ -58,7 +58,7 @@ let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
     | _ -> fail tg_trm.loc "elim_body: the targeted should be pointing to a sequence"
   ) tg
 
-(* [bind ~fresh_name ~args tg] expectes the target [tg] to point to a function call, then
+(* [bind ~fresh_name ~args tg] expectes the target [tg] to point at a function call, then
     it will just call bind args and bind_intro. Basically this function is used to save the user from
     entering both of them. *)
 
@@ -67,7 +67,7 @@ let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : Target.target)
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
 (* [inline ~resname ~body_mark ~vars ~args  tg]
-      expects the target tg to point to point to a function call. And automates completely the process
+      expects the target tg to point atpoint to a function call. And automates completely the process
       of function call inlining.
 
       Example:

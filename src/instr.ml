@@ -4,11 +4,9 @@ include Instr_basic
 
 (* [read_last_write ~write tg] expects the target [tg] to be pointing at a read operation
     then it will take the value of the write operation [write] and replace the current read operation
-    with that value, write argument is optional, if not provided then the transformation will find the last write 
-    automatically. If it doesn't find a write it will fail.
-    Node: [tg] is a mandatory argument so it should always be passed as argument to the transformation read_last_write
-*)
-
+    with that value. [write] argument is optional, if not provided then the transformation will try to find the last write 
+    automatically. If it doesn't find a write, it will fail.
+    Node: [tg] is a mandatory argument so it should always be passed as argument to the transformation read_last_write *)
 let read_last_write ?(write_mark : mark option = None) ?(write : target = []) (tg : target) : unit =
   if write <>  [] 
     then Instr_basic.read_last_write ~write tg 
@@ -52,14 +50,13 @@ let read_last_write ?(write_mark : mark option = None) ?(write : target = []) (t
 
 (* [inline_last_write ~write ~delete tg] this tranformation is a version of read last write, in fact it will call
     the basic read_last_write transformation and then it will delete the write operation. So the main difference between
-    these two transformations is that the later one deletes the write operation
-*)
+    these two transformations is that the latter deletes the write operation *)
 let inline_last_write ?(write : target = []) ?(write_mark : mark = "__todelete__") (tg : target) : unit =
   let write_mark = if write = [] then Some write_mark else None in 
   read_last_write ~write ~write_mark  tg;
   if write <> [] then  Instr_basic.delete write else Instr_basic.delete [nbMulti;cMark "__todelete__"]
   
-(* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location
+(* [accumulate tg] expects the target [tg] to point at a block of write operations in the same memory location
     or to a single instruction and [nb] the number of the instructions after the targeted instruction that need to be
     considered.
     Ex.
@@ -69,8 +66,7 @@ let inline_last_write ?(write : target = []) ?(write_mark : mark = "__todelete__
       x += 2;
       x += 3;
     }
-    is transformed to x += 1+2+3
-*)
+    is transformed to x += 1+2+3 *)
 let accumulate ?(nb : int option) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -81,16 +77,16 @@ let accumulate ?(nb : int option) : Transfo.t =
       | Some n ->
         Sequence_basic.intro ~mark:"temp_MARK" n (target_of_path p);
         Instr_basic.accumulate [cMark "temp_MARK"]
-      | _ -> fail t.loc "accumulate: if the given target is a write operation please provide me the number [nb] of instructions to consider in the accumulation"
+      | _ -> fail t.loc "accumulate: if the given target is a write operation please
+           provide me the number [nb] of instructions to consider in the accumulation"
       end
     | _ -> fail t.loc "accumulate: expected a target to a sequence or a target to an instruction and the number of instructions to consider too"
     end
   )
 
 
-(* [accummulate_targets tg] similar to accummulate but here one can target multiple consecutive targets at the same time, and the number of
-    targets is not needed.
-*)
+(* [accummulate_targets tg] similar to accummulate but here one can target multiple consecutive targets 
+      at the same time, and the number of targets is not needed. *)
 let accumulate_targets (tg : target) : unit =
   let mark = Mark.next() in
   Sequence.intro_targets ~mark tg;
@@ -102,8 +98,7 @@ type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of target
 
 (* [gather_targets ~dest tg] expects the target [tg] pointing to a list to multiple nodes belonging to the
     same sequence. Then it will move all those targets to the given destination.
-    NOTE: No need to write explicitly nbMulti before the main target
-*)
+    NOTE: No need to write explicitly nbMulti before the main target *)
 let gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : unit =
   let tg = filter_constr_occurrence tg in
   let tg_dest = ref [] in
@@ -137,8 +132,7 @@ let gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : unit =
 
 
 (* [move_multiple ~targets tgs] expects a list of destinations and a list of targets to be movet at those
-    destinations, the map is based on the indices, ex target and index 1 will be move at the destination 1 and so on.
-*)
+    destinations, the map is based on the indices, ex: target and index 1 will be move at the destination 1 and so on. *)
 let move_multiple ~destinations:(destinations : target list) ~targets:(targets : target list) : unit =
   if List.length destinations <> List.length targets then fail None "move_multiple: each destination corresponds to a single target and vice-versa";
   List.iter2(fun dest tg1 -> Instr_basic.move ~dest tg1) destinations targets
@@ -146,8 +140,7 @@ let move_multiple ~destinations:(destinations : target list) ~targets:(targets :
 (* [move dest tg] move the invariant [tg] to destination [dest]
     the oht
    Note: The transformation does not check if [tg] points to some invariant code or not
-   LATER: Check if [tg] is dependent on other instructions of the same scope
-*)
+   LATER: Check if [tg] is dependent on other instructions of the same scope *)
 let move ~dest:(dest : target) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in

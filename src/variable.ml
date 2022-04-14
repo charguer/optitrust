@@ -27,7 +27,7 @@ let map f = function
 | Rename.Renamefn g -> Rename.Renamefn (fun x -> f (g x))
 
 
-(* [fold ~at ~nonconst tg] expects [tg] to point to a variable declaration
+(* [fold ~at ~nonconst tg] expects [tg] to point at a variable declaration
     [at] - denotes a list of targets where the fold_lefting is done. If empty the
       fold_lefting operation is performed on all the ast nodes in the same level as the
       declaration or deeper, by default [at] = [].
@@ -67,7 +67,7 @@ let fold ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.targ
     | _ -> fail tg_trm.loc "fold: expected a variable declaration"
 ) tg
 
-(* [insert_and_fold] expects [tg] to point to relative location, then it inserts a new variable declaration at that location.
+(* [insert_and_fold] expects [tg] to point atrelative location, then it inserts a new variable declaration at that location.
     The new declared variable is [name] with typ [typ] and value [value]. This variable will be folded everywhere on the ast nodes
     which come after the declared variable.
 *)
@@ -76,7 +76,7 @@ let insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value : trm) 
   Variable_basic.fold [Target.cVarDef name]
 
 (* [delocalize var ~into ~mark ~arr_size ~neutral_element fold_operation tg]
-    expects the target [tg] to point to a for loop. Then it will surround this loop with a @nobrace
+    expects the target [tg] to point at a for loop. Then it will surround this loop with a @nobrace
     sequence. After that it will apply another transformation called local other name. Which as the name
     suggests it will declare a new variable inside the targeted block and replace the current one with t he new one.
     Finally a last instruction is added to save all the changes to the old variable. Now the stage is
@@ -230,7 +230,7 @@ let reuse ?(reparse : bool = false) (space : trm) : Target.Transfo.t =
       | None -> fail decl_t.loc "reuse: could not match the declaration"
       end
       ))
-(* [renames rename tg] expects [tg] to point to a sequence.
+(* [renames rename tg] expects [tg] to point at a sequence.
     [rename] can be either ByList l where l denotes a list of pairs where
     each pair has the current variable and the one which is going to replace it.
     Or AddSuffix s, if this is the case then all the variables declared inside the targeted sequencev
@@ -436,7 +436,7 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
   )
 
 
-(* [insert ~constr name typ value tg] expects the target [tg] to point to a location in a sequence
+(* [insert ~constr name typ value tg] expects the target [tg] to point at a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value].
     This transformation is basically the same as the basic one except that this has a default value for the type argument.
 *)

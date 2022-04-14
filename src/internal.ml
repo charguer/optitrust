@@ -1,4 +1,3 @@
-
 open Ast
 open Target
 
@@ -45,9 +44,7 @@ let same_val (v1 : value) (v2 : value) : bool =
 
 
 (* Replaces all the occurrences of t_before in the ast [t] with t_after.
-    If the user does not want to target the full ast but just some specific locations,
-    then he can enter the targeted locations in [change_at].
-*)
+    To apply swap only some specific locations argument [change_at] can be used. *)
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
@@ -81,9 +78,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
 
 
 (* Replaces all the occurrences of types ty_before in the ast [t] with ty_after.
-    If the user does not want to target the full ast but just some specific locations,
-    then he can enter the targeted locations in [change_at].
-*)
+    To apply the swap only on some specifi locations argument [change_at] can be used.*)
 let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   (ty_after : typ) (t : trm) : trm =
   (* change all occurences of ty_before in ty *)
@@ -157,22 +152,17 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
     change_at
 
 
-(* For an ast node with path [dl] this function returns back the path ot the sequence
-     containing that trm together with the index of that trm in the surrounding sequence.
-*)
+(* [isolate_last_dir_in_seq dl] for an ast node with path [dl] this function returns back the path ot the sequence
+     containing that trm together with the index of that trm in the surrounding sequence. *)
 let isolate_last_dir_in_seq (dl : path) : path * int =
   match List.rev dl with
   | Dir_seq_nth i :: dl' -> (List.rev dl',i)
   | _ -> fail None "isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
-
-
-
-(* For nodes whose parent node is not a sequence, return the path to the sequence containing the instructions
-    which contains the node at path [dl], the index of that instuction into the surronding sequence and the
-    local path from the instruction at index [i] to the node with the initial path [dl]
-*)
+(* [get_instruction_in_surrounding_sequence dl ] for an ast node with path [dl], this function returns the path 
+    to the sequence that contains the parent instruction of that node and the index of that instruction in 
+    the surrounding sequence *)
 let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
   let rec aux (acc : path) (dl : path) =
     match dl with
@@ -182,15 +172,13 @@ let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
   in aux [] (List.rev dl)
 
 
-(* For an ast node with path [dl] where the node is a children of the body of a for loop, this function returns
-    the path to the for loop contining that node together with the index of the instruction in the body sequence
-    of the for loop.
-*)
+(* [get_trm_in_surrounding_loop dl] for an ast node with path [dl] that is an instruction inside a for loop, this function returns
+    the path to the for loop containing that node together with the index of that instruction in the
+     body sequence of that for loop *)
 let get_trm_in_surrounding_loop (dl : path) : path * int =
     match List.rev dl with
     | Dir_seq_nth i :: Dir_body :: dl' -> (List.rev dl', i)
     | _ -> fail None "get_trm_in_surrounding_loop: empty path"
-
 
 (* [get_surrounding_trm checker dl t] given the path [dl] that resolves to trm res find a predecessor of that trm
     that satisfies the predicate [checker]*)
@@ -204,7 +192,6 @@ let get_surrounding_trm (checker : trm -> bool) (dl : path) (t : trm) : path =
     in
   aux (List.rev dl)
 
-(* Maybe we will need this later on *)
 (* [get_surrouding_access dl t] specialization of get_surrouding_trm for accesses*)
 let get_surrouding_access (dl : path) (t : trm) : path =
   get_surrounding_trm is_access dl t
@@ -223,25 +210,22 @@ let is_decl_body (dl : path) : bool =
   | Dir_body :: _ -> true
   | _ -> false
 
-
-
-(* Rename all the occurrences of a variable by adding an underscore as prefix*)
+(* [fresh_args t] rename all the occurrences of a variable by adding an underscore as prefix *)
 let fresh_args (t : trm) : trm =
   match t.desc with
   | Trm_var (kind, x) -> trm_var ~kind ("_" ^ x)
   | _ -> t
 
-(* In the case of typedef struct give back the list of struct fields *)
+(* [get_field_list td] in the case of typedef struct give back the list of struct fields *)
 let get_field_list (td : typedef) : (var * typ) list =
   begin match td.typdef_body with
   | Typdef_prod (_, s) -> List.rev s
   | _ -> fail None "get_field_lists: expected a Typedef_prod"
   end
 
-(* Checks if typ is a constructed type or it is a composed type, if it is a constructed type then return its id.
-    If it is a composed type go in depth and check if it contains a constructed type and return it id.
-    Else return -1 meaning that the type [t] is not a constructed type.
-*)
+(* [get_typid_from_typ t] checks if typ is a constructed type or if it is a composed type, if it is a constructed type then return its id.
+    If it is a composed type go in depth and check if it contains a constructed type and return its id.
+    Otherwise return -1 meaning that the type [t] is not a constructed type. *)
 let rec get_typid_from_typ (t : typ) : int =
   match t.typ_desc with
   | Typ_constr (_, id, _) -> id
@@ -252,9 +236,8 @@ let rec get_typid_from_typ (t : typ) : int =
   | Typ_fun (_, ty) -> get_typid_from_typ ty
   | _ -> -1
 
-(* For an ast node [t] check if its type is a constructed type. If this is the case then return its id
-    Else return -1. Meaning that node [t] has a different type.
- *)
+(* [get_typid_from_trm ~first_martch t] for an ast node [t] check if its type is a constructed type. If this is the case then return its id
+    Else return -1. Meaning that node [t] has a different type. *)
 let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
   match t.desc with
   | Trm_apps (_,[base]) ->
@@ -284,21 +267,7 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
       end
   | _ -> -1
 
-
-let nb_inits (x : var) (t : trm) : int =
-  let counter = ref 0 in
-  let rec aux (t : trm) : trm =
-    match t.desc with
-    | Trm_apps (_,[ls; _]) ->
-      begin match ls.desc with
-      | Trm_var (_, y) when y = x -> incr counter; ls
-      | _ -> ls
-      end
-    | _ -> trm_map aux t
-    in
-    let _t = aux t in !counter
-
-(* Find the declaration of variable [x] if it exists in [t] where t usually is the full ast.
+(* [toplevel_drecl ~require_body x] find the declaration of variable [x] if it exists in [t] where t usually is the full ast.
    If [~require_body:true] is provided, then only definitions with a body are selected. *)
 let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
   let full_ast = Target.get_ast () in
@@ -346,9 +315,8 @@ let rec local_decl (x : var) (t : trm) : trm option =
   | _ -> None
 
 
-(* If node [t] represents a loop nest then go through all of them an return an
-    ordered list of their indices where the order is the depth order
-*)
+(* [get_loop_nest_indices t] if node [t] represents a loop nest then go through all of them an return an
+    ordered list of their indices where the order is the depth order *)
 let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
   | Trm_for (index, _, _, _, _, body) ->
@@ -370,8 +338,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
 
 (* For loop [t] return a pair of function and trm. Where the function takes trm b
     and gives a loop with the same components as loop [t] but with body b. And the trm
-    is the body of the loop [t].
-*)
+    is the body of the loop [t]. *)
 let extract_loop (t : trm) : ((trm -> trm) * trm) option =
   match t.desc with
   | Trm_for_c (init, cond, step, body) ->
@@ -382,8 +349,7 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
     fail t.loc "extract_loop: expected a loop"
 
 (* For a struct field with name [field] and  [fields] being the list of fields of the
-    same struct return back the index of field [field] in the list of fields [fields].
-*)
+    same struct return back the index of field [field] in the list of fields [fields]. *)
 let get_field_index (field : field) (fields : (var * typ) list) : int =
   let rec aux field fields c = match fields with
     | [] -> failwith "get_field_index: empty list"
@@ -399,7 +365,8 @@ let get_field_index (field : field) (fields : (var * typ) list) : int =
 (* *) let remove_pairs (ys : vars) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys (* *)
 (* ************************************************************************************************************************)
 
-(* Move struct fields with names [local_l] after field [x] *)
+(* [move_fields_after x local_l l ] reorder fields list [l] by moving all the pairs whose first eleement is
+     in [local_l] after field [x] *)
 let move_fields_after (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ ) list=
   let fins = List.flatten (get_pairs local_l l )in
   let l = remove_pairs local_l l in
@@ -412,7 +379,8 @@ let move_fields_after (x : var) (local_l : vars) (l : (var * typ) list) : (var *
       in
     aux l
 
-(* Move struct fields with names [local_l] before field [x] *)
+(* [move_fields_before x local_l l ] reorder fields list [l] by moving all the pairs whose first eleement is
+     in [local_l] before field [x] *)
 let move_fields_before (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ) list =
   let fins = List.flatten (get_pairs local_l l) in
   let l = remove_pairs local_l l in
@@ -425,7 +393,7 @@ let move_fields_before (x : var) (local_l : vars) (l : (var * typ) list) : (var 
       in
     aux l
 
-
+(* [reorder_fields reorder_kind local_l sf] reorder all fields that belong to [local_l] based on [reorder_kind] *)
 let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) list) : (var * typ) list =
   match reorder_kind with
   | Reorder_after around -> move_fields_after around local_l sf
@@ -440,10 +408,8 @@ let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) l
         ) (List.rev local_l)
     end
 
-(* For a trm t with index [index] in its surrounding sequence return that the list of trms before t,
-    t itself and the list of trms behind t.
-*)
-
+(* For a trm t with index [index] in its surrounding sequence return the list of trms before t,
+    t itself and the list of trms that come after t. *)
 let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
   let lfront, lback = Mlist.split index trms in
   let element, lback = Mlist.split 1 lback in
@@ -455,8 +421,7 @@ let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * tr
   (lfront, element, lback)
 
 (* In the case of nested sequence, nested initialization lists for arrays and structs, this function
-    can be used to inline the sublist at index [index] into the main list
-*)
+    can be used to inline the sublist at [index] into the main list *)
 let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
   let lfront, st, lback  = get_trm_and_its_relatives index ml in
   match st.desc with
@@ -466,8 +431,7 @@ let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
 
 
 (* Remove all the sequences from ast with annotation No_braces if [all] is equal to true
-    otherwise remove only those sequence with id [id].
-*)
+    otherwise remove only those sequence with id [id]. *)
 let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
@@ -496,8 +460,7 @@ let nobrace_remove_and_exit () =
 
 
 (* Called when there is generated a no brace sequence from a transformation, this is needed
-    to generate a unique id for that nobrace sequence.
-*)
+    to generate a unique id for that nobrace sequence. *)
 let nobrace_enter () =
   Nobrace.enter()
 

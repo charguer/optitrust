@@ -1,7 +1,7 @@
 open Ast
 open Target
 
-(* [fold ~at tg] expects [tg] to point to a typedef declaration.
+(* [fold ~at tg] expects [tg] to point at a typedef declaration.
     [at] - denotes a target where fold_lefting is done. If empty
       the fold_lefting operation is performed on all the ast nodes in the same 
       level as the declaration or deeper
@@ -10,7 +10,7 @@ let fold ?(at : target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Typedef_core.fold at i t p) tg
   
-(* [unfold ~delete ~at tg] expects [tg] to point to a typedef declaration
+(* [unfold ~delete ~at tg] expects [tg] to point at a typedef declaration
     [delete] - denotes a flag for telling if the declaration should be kept or no
     [at] - denotes a target where inlining is done, 
     if empty the inlining operation is performed on all the ast nodes in the 
@@ -22,7 +22,7 @@ let unfold ?(delete : bool = false) ?(at : target = []) (tg : target) : unit =
       Typedef_core.unfold delete at i t p) tg
 
 
-(* [insert_copy name tg] expects [tg] to point to a typedef declaration it then copies the content 
+(* [insert_copy name tg] expects [tg] to point at a typedef declaration it then copies the content 
       of the body of typedef at gives to it the name [name]
 *)
 let insert_copy (name : string) (tg : Target.target) : unit =

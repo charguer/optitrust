@@ -12,8 +12,7 @@ open Ast
       [index]: index where the instr should be copied to
       [tg_index]: the current index of the targeted instruction
     return:
-      the updated [t]
-*)
+      the updated [t] *)
 let copy_aux (dest_index : int) (index : int) (delete : bool) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -34,8 +33,7 @@ let copy (dest_index : int) (index : int) (delete : bool) : Target.Transfo.local
     return:
       the ast of the single write instruction where the value that is written into
       is the accumulated trm from all the initial write instructions, the operation used for
-      the accumulation is the one used in each write operation
- *)
+      the accumulation is the one used in each write operation *)
 (* LATER: Factorize me! *)
 let accumulate_aux (t : trm) : trm =
   match t.desc with

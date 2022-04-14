@@ -146,9 +146,7 @@ let documentation_save_file_at_first_check = ref ""
 
 
 (*
-
   Note: to see a diff at the level of the OptiTrust AST, use:
     -dump-ast-details
-  and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp]
-
+  and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp] 
 *)

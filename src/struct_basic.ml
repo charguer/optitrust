@@ -3,14 +3,14 @@ open Target
 include Struct_core
 include Struct_core.Rename
 
-(* [set_explicit tg] expects [tg] to point to a set instruction where one struct
+(* [set_explicit tg] expects [tg] to point at a set instruction where one struct
     instance has been assigned anothe struct instance.
 *)
 let set_explicit (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
   apply_on_targets(Struct_core.set_explicit) tg)
 
-(*  [set_implicit tg] expects [tg] to point to a sequence containing
+(*  [set_implicit tg] expects [tg] to point at a sequence containing
       a list of struct set assignments. And transorms it into a single
       struct assignment. So it is the inverse of set_explicit.
 *)
@@ -18,7 +18,7 @@ let set_implicit ?(keep_label : bool = true) : Transfo.t =
   apply_on_targets (Struct_core.set_implicit keep_label)
 
 (* [fields_reorder ?move_before ?move_after struct_fields tg] expects [tg]
-    to point to typedef struct. It then switches the order of the fields of
+    to point attypedef struct. It then switches the order of the fields of
     the targeted struct.
     [move_before] - field before which all the fields in [struct_fields] will be moved
     [move_after] - field after which all the fields in [struct_fields] will be moved
@@ -38,7 +38,7 @@ let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struc
     end in
   apply_on_targets (Struct_core.fields_reorder struct_fields move_where) tg
 
-(* [reveal_field field_to_reveal_field tg] expects [tg] to point to a typedef struct
+(* [reveal_field field_to_reveal_field tg] expects [tg] to point at a typedef struct
     it then will find [field_to_reveal_field] and it's underlying type. It will
     replace [field_to_reveal_field] with a list of fields rename comming from the underlying type
     renamed with the following the prefix "field_to_reveal_field_".
@@ -54,7 +54,7 @@ let reveal_fields ?(reparse : bool = false) (fields_to_reveal_field : fields) (t
   List.iter (fun f ->  reveal_field f tg) fields_to_reveal_field
 
 
-(* [to_variables tg] expects [tg] to point to a variable declaration of type typedef struct.
+(* [to_variables tg] expects [tg] to point at a variable declaration of type typedef struct.
     Then it will transform this declaration into a list of variable declarations where the type
     of these variables is inherited from the type of the struct definition. All the struct_accesses
     are going to be changed to variable occurrences.
@@ -63,7 +63,7 @@ let to_variables : Transfo.t =
   reparse_after ~reparse:false (apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Struct_core.to_variables i t p) )
 
-(* [rename_fields rename tg] expects [tg] to point to a struct declaration 
+(* [rename_fields rename tg] expects [tg] to point at a struct declaration 
     then it will rename all the fields which are matched when applying the type rename
     which can be a function to renam all the struct fields or only those which 
     are matched by the patter given as argument when the function [only_for] is used.
@@ -77,7 +77,7 @@ let rename_fields (rename : rename) : Transfo.t =
 let applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update: typ -> typ) : Transfo.t =
   reparse_after ~reparse (apply_on_targets (Struct_core.update_fields_type pattern typ_update))
 
-(* [update_fields_type pattern ty tg] expects [tg] to point to a struct declaration . 
+(* [update_fields_type pattern ty tg] expects [tg] to point at a struct declaration . 
     Then it will change the current type to [ty] of all the fields which are matched with [pattern].
 *)
 let update_fields_type ?(reparse : bool = false) (pattern : string) (ty : typ) : Transfo.t =

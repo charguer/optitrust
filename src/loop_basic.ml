@@ -4,7 +4,7 @@ open Ast
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
  * have only one purpose, and that is targeting the trm in which we want to apply the *
  * transformation. That's why there is not need to document them.                     *
- * All the follwing transformations expects target to point to a simple loop,         *
+ * All the follwing transformations expects target to point at a simple loop,         *
  * say [for (int i = start; i < stop; i += step) { body } ].
  *)
 
@@ -13,7 +13,7 @@ open Ast
 let swap : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.swap)
 
-(* [color nb_colors i_color tg]: expects [tg] to point to a simple loop,
+(* [color nb_colors i_color tg]: expects [tg] to point at a simple loop,
    say [for (int i = start; i < stop; i += step) { body } ].
    [nb_colors] - an expression denoting the number of colors (e.g., ["2"]),
    [index] - denotes a fresh name to use as index for iterating over colors.
@@ -28,7 +28,7 @@ let color (nb_colors : trm) ?(index : var option) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.color nb_colors index)
 
 
-(* [tile tile_size index tg]: expects [tg] to point to a simple loop,
+(* [tile tile_size index tg]: expects [tg] to point at a simple loop,
    say [for (int i = start; i < stop; i += step) { body } ].
    divides - denotes a flag to know if tile_size divides the size of the array or not
    [tile_size] - denotes the width of the tile (e.g., ["2"])
@@ -45,7 +45,7 @@ let color (nb_colors : trm) ?(index : var option) : Target.Transfo.t =
 let tile ?(index : var = "b${id}") ?(bound : tile_bound = TileBoundMin) (tile_size : trm) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.tile index bound tile_size)
 
-(* [hoist x_step tg]: expects [tg] to point to a variable declaration inside a
+(* [hoist x_step tg]: expects [tg] to point at a variable declaration inside a
     simple loop. Let's say for {int i ...} {
         int x; [tg]
         ...
@@ -75,7 +75,7 @@ let fission (tg : Target.target) : unit =
     Target.apply_on_transformed_targets_between (fun (p,i) -> Internal.get_trm_in_surrounding_loop (p @ [Dir_seq_nth i]))
     (fun t (p, i) -> Loop_core.fission i t p) tg )
 
-(* [fusion_on_block tg] expects [tg] to point to a sequence containing two loops
+(* [fusion_on_block tg] expects [tg] to point at a sequence containing two loops
     with the same range, start step and bound but different body.
     Then it's going to append the body of to the body ot the first loop and of course
     remove the second loop from the ast.
@@ -83,7 +83,7 @@ let fission (tg : Target.target) : unit =
 let fusion_on_block ?(keep_label : bool = false) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.fusion_on_block keep_label)
 
-(* [grid_enumerate index_and_bounds tg] expects tg to point to loop iterating over
+(* [grid_enumerate index_and_bounds tg] expects tg to point atloop iterating over
     a grid. The grid can be of any dimension. Loop  [tg] is transformed into nested loops
     where the number of nested loops is equal to the number of dimensions.
       [index_and_bounds] - is a list of pairs, where each pair denotes the index and the bound
@@ -103,7 +103,7 @@ let grid_enumerate (index_and_bounds : (string * trm) list) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.grid_enumerate index_and_bounds)
 
 
-(* [unroll] expects the target to point to a simple loop of the shape
+(* [unroll] expects the target to point at a simple loop of the shape
     for (int i = a; i < a + C; i++) or for (int i = 0; i < C; i++)
       then it will move the instructions out of the loop by replacing
       the index i occurrence with a + j in and j in the second case where
@@ -118,7 +118,7 @@ let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : Target.target
 (* LATER: Implement a combi transformation that will check if the targeted instruction
     is dependent on any local variable or the loop index.
 *)
-(* [move_out] expects the target [tg] to point to an instruction inside the loop
+(* [move_out] expects the target [tg] to point at an instruction inside the loop
     which is not dependent on the index of the loop or any local variable.
     Then it will take it outside the loop.
 *)
@@ -127,7 +127,7 @@ let move_out (tg : Target.target) : unit =
   Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
     (fun t (p, i) -> Loop_core.move_out i t p ) tg)
 
-(* [unswitch tg] expects the target [tg] to point to an if statement inside the loop
+(* [unswitch tg] expects the target [tg] to point at an if statement inside the loop
      with a constant condition (not dependent on loop index or local variables)
      Then it will take the if statment outside the loop.
 
@@ -139,7 +139,7 @@ let unswitch (tg : Target.target) : unit =
     (fun t (p, i) -> Loop_core.unswitch i t p) tg)
 
 
-(* [to_unit_steps index tg] expects target [tg] to point to a for loop
+(* [to_unit_steps index tg] expects target [tg] to point at a for loop
     [index] - denotes the new index for the transformed loop
         by default is an empty string. The reason for that is to check if the user
         gave the name of the new index of not. If not then [index] = unit_index
@@ -157,7 +157,7 @@ let unswitch (tg : Target.target) : unit =
 let to_unit_steps ?(index : var = "" ) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.to_unit_steps index)
 
-(* [fold ~direction index start stop step tg] expects the target [tg] to point to the first instruction in a sequence
+(* [fold ~direction index start stop step tg] expects the target [tg] to point atthe first instruction in a sequence
     and it assumes that the sequence containing the target [tg] is composed of a list of instructions which
     can be expressed into a single for loop with [index] [direction] [start] [nb_instructions] and [step] as loop
     components.

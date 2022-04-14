@@ -1,6 +1,6 @@
 open Ast
 
-(* [transform f_get f_set]: expects the target [tg] to point to a node inside a set or a get operation.
+(* [transform f_get f_set]: expects the target [tg] to point at a node inside a set or a get operation.
       Then the transformation will search for the first get or set operation and call the transform core transformation
       on that node.
       if is a get operation then f_get will be applied on the node represented by target [tg]. Otherwise

@@ -9,7 +9,7 @@ open Target
 let any (e : trm) : Target.Transfo.t =
   Target.apply_on_targets (Specialize_core.any e)
 
-(* [choose_fct select_arg] expects the target [tg] to point to a call to the function [CHOOSE] 
+(* [choose_fct select_arg] expects the target [tg] to point at a call to the function [CHOOSE] 
     which is used in the delocalize transformation (refer to Variable.delocalize).
     then it will replaces that call with one of its arguments which satisfies the predicate
     [select_arg].

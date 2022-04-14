@@ -1,13 +1,12 @@
 open Ast
 open Target
 
-(* [delete tg] expects the target [tg] to point to an instruction inside a sequence
-      then it will remove that instruciton from that sequence
-*)
+(* [delete tg] expects the target [tg] to point at an instruction inside a sequence
+      then it will remove that instruciton from that sequence *)
 let delete : Target.Transfo.t =
   Sequence_basic.delete
 
-(* [move ~target tg] expects the target [tg] to point to the instruction which is
+(* [move ~target tg] expects the target [tg] to point at the instruction which is
     going to be copied to the relative target [where], if the original should be deleted
     then ~delete:true should be passed as argument *)
 let copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:Target.target = []) (tg : Target.target) : unit =
@@ -19,7 +18,7 @@ let copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:Target.target = [
     ) tg
 
 
-(* [move ~target tg] expects the target [tg] to point to the instruction which is
+(* [move ~target tg] expects the target [tg] to point atthe instruction which is
     going to be moved at the relative target [where]
 
    @correctness: Correct if the swapped instructions are parallelizable:
@@ -30,12 +29,11 @@ let copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:Target.target = [
    {H1 * H2 * H} instr2 {H1 * H2' * H} instr1 {H1' * H2' * H}
    
    This is sufficient but not necessary, a manual commutation proof can be used
-   as well.
-*)
+   as well. *)
 let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target) : unit = 
   copy ~rev ~delete:true ~dest:where tg
 
-(* [read_last_write ~write tg] expects the target [tg] to point to a read operation, then it
+(* [read_last_write ~write tg] expects the target [tg] to point at a read operation, then it
     replaces the trm corresponding to that read operation with the one at [write]. 
     If the given target doesn't point to a get operation then the transformation will move the 
     target to the first ancestor node it find that is a get operation.
@@ -63,7 +61,7 @@ let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
     if get_op_path = [] then t else 
     Target.apply_on_path (fun _ -> written_trm) t p) tg
 
-(* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location
+(* [accumulate tg] expects the target [tg] to point at a block of write operations in the same memory location
     then it will do an acumulation of those trms .
     Ex.
     int x;
@@ -72,8 +70,7 @@ let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
       x += 2;
       x += 3;
     }
-    is transformed to x += 1+2+3
-*)
+    is transformed to x += 1+2+3 *)
 let accumulate : Target.Transfo.t =
   Target.apply_on_targets (Instr_core.accumulate)
 

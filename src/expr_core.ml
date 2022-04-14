@@ -6,20 +6,18 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [update f t]: replace an expression [t] with [f t]. *)
+(* [update f t]: replaces an expression [t] with [f t]. *)
 let update (f : trm -> trm) : Target.Transfo.local =
   Target.apply_on_path f
 
 
-(* [replace_fun name t]: change the current function call
-      to another function call where the name has been changed
-      to [name]
+(* [replace_fun name t]: change the current function call to another 
+      function call where the name has been changed to [name]
     params:
       [name]: name of the function replacing the targeted one
       [t]: ast of the function call trm
     return:
-      updated ast with the replaced trm
- *)
+      updated ast with the replaced trm *)
 
 let replace_fun_aux (name : string) (t : trm) : trm =
   match t.desc with

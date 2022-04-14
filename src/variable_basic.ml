@@ -2,7 +2,7 @@ open Target
 open Ast
 
 
-(* [fold ~at tg] expects the target [tg] to point to a variable declaration
+(* [fold ~at tg] expects the target [tg] to point at a variable declaration
     [at] - denotes a target where the fold_lefting is done. If empty the
       fold_lefting operation is performed on all the ast nodes in the same level as the
       declaration or deeper, by default [at] = []
@@ -48,7 +48,7 @@ let rename ~into:(new_name : var) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.rename new_name i t p)
 
-(* [init_detach tg] expects the target [tg] to point to a variable initialization.
+(* [init_detach tg] expects the target [tg] to point at a variable initialization.
    It then splits the instruction into a variable declaration and a set operation.
 *)
 let init_detach (tg : Target.target) : unit =
@@ -56,7 +56,7 @@ let init_detach (tg : Target.target) : unit =
     Target.apply_on_targets (Variable_core.init_detach) tg
   )
 
-(* [init_attach const tg] expects the target [tg] to point to a variable declaration,
+(* [init_attach const tg] expects the target [tg] to point at a variable declaration,
     Then it will search inside the sequence which contains the variable declaration
     for an unique assigment. Then it will replace that assignment with a new initialized
     variable declaration.
@@ -128,7 +128,7 @@ let delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_
     Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
 
 
-(* [change_type new_type tg] expects [tg] to point to variable declaration
+(* [change_type new_type tg] expects [tg] to point atvariable declaration
     then it will change the type of that variable with [new_type].
 *)
 let change_type (new_type : typvar) : Target.Transfo.t =
@@ -136,14 +136,14 @@ let change_type (new_type : typvar) : Target.Transfo.t =
     (fun t (p, i) -> Variable_core.change_type new_type i t p)
 
 
-(* [insert ~constr ~name ~typ ~value tg] expects the target [tg] to point to a location in a sequence
+(* [insert ~constr ~name ~typ ~value tg] expects the target [tg] to point at a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value] if provided if not it will be left without an intialization value
 *)
 let insert ?(const : bool = false) ?(reparse : bool = false) ?(value : trm = trm_lit (Lit_uninitialized)) ~name:(name : string) ~typ:(typ : typ) : Target.Transfo.t =
   Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p))
 
 
-(* [subst name ~space tg]] expects the target [tg] to point to any node ast which could contain
+(* [subst name ~space tg]] expects the target [tg] to point at any node ast which could contain
     an occurrence of the variable [name], then it will check for occurrences of the variable [subst] and replace is  with [put].
 *)
 let subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Target.Transfo.t =

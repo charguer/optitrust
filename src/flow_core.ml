@@ -6,16 +6,14 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [insert_if single_branch index cond t]: take one or two instructions and create an if statement
-      or an if else statment if [single_brnach] is true.
+(* [insert_if single_branch index cond t]: takes one or two instructions and create an if statement
+      or an if else statment when [single_brnach] is true.
     params:
-      [cond]: condition of the if statement given as string code
+      [cond]: condition of the if statement given as string as a trm
       [t]: ast of the outer sequence containing the instruction
     return:
-      updated ast of the surrounding sequence with the added if statement
- *)
+      updated ast of the surrounding sequence with the added if statement *)
 let insert_if_aux (cond : trm) (mark : mark) (t : trm) : trm =
-  
   begin match t.desc with 
   | Trm_seq _ -> trm_add_mark mark (trm_if cond t t) 
   | _ -> trm_add_mark mark (trm_if cond (trm_seq_nomarks [t]) (trm_seq_nomarks [t])) 

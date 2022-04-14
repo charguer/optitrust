@@ -9,7 +9,7 @@ let insert ?(reparse : bool = false) (code : trm) : Target.Transfo.t =
     Sequence_core.insert i code t p) )
 
 
-(* [delete index nb tg] expects the target [tg] to point to an instruction.
+(* [delete index nb tg] expects the target [tg] to point at an instruction.
      [nb] denotes the number of instructions to delete starting from the targeted trm.
 
    @correctness: correct if nothing modified by the instruction was observed
@@ -27,7 +27,7 @@ let iter_delete (tgl : target list) : unit =
  List.fold_left (fun () x ->
     delete x ) () tgl
 
-(* [intro i nb tg] expects the target to point to an instruction inside a sequence.
+(* [intro i nb tg] expects the target to point at an instruction inside a sequence.
     [mark] denotes a mark which add into the generated sub-sequence, in case the user decides to have one.
    [visible] denotes the visibility of a sequence. This means the that the the sequence is
         used only for internal purposes.                     }
@@ -117,7 +117,7 @@ let intro_on_instr ?(mark : mark = "") ?(visible : bool = true) : Target.Transfo
    Target.apply_on_targets (Sequence_core.intro_on_instr visible mark)
 
 
-(* [elim_on_instr tg] expects the target [tg] to point to a instruction surrounded by a sequence..
+(* [elim_on_instr tg] expects the target [tg] to point at a instruction surrounded by a sequence..
  It moves this trm to the outer sequence*)
 let elim_on_instr (tg : Target.target) : unit =
    Internal.nobrace_remove_after ( fun _ ->
@@ -135,7 +135,7 @@ let split (tg : Target.target) : unit =
       let is_fun_body = Internal.is_decl_body p in 
       Sequence_core.split i is_fun_body t p) tg)
  
-(* [partition ~braces blocks tg] expects the target tg to point to a sequence, this transformations will split that sequence
+(* [partition ~braces blocks tg] expects the target tg to point at a sequence, this transformations will split that sequence
       into blocks where the sizes of the blocks are given by [blocks].
         [blocks] denotes the sizes for each block inside the sequence. By default it should be empty, otherwise the sum of
           integers inside [blocks] should sum up to the number of instructions of the targeted sequence.
@@ -146,7 +146,7 @@ let partition ?(braces : bool = false) (blocks : int list) : Target.Transfo.t =
   if not braces then Internal.nobrace_enter();
   Target.apply_on_targets (Sequence_core.partition blocks braces)
 
-(* [shuffle tg] expects the target [tg] to point to a sequence of blocks, this transformation will transpose the block structure
+(* [shuffle tg] expects the target [tg] to point at a sequence of blocks, this transformation will transpose the block structure
     think about a sequence of blocks as a matrix.
     {
       {{t11};{t12};{t13}};

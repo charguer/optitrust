@@ -1,7 +1,7 @@
 open Ast
 open Target
 
-(* [bind_intro ~fresh_name ~constr tg]  expects tg to point to a function call.
+(* [bind_intro ~fresh_name ~constr tg]  expects tg to point at a function call.
         Then it will generate a new variable declaration named as [fresh_name]
         and with an initial value equal to the trm targeted by [tg]. If [const] is
         true then the binded variable will be declared as a immutable variable otherwise immutable.
@@ -28,7 +28,7 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
     Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
 
 
-(* [inline ~body_mark tg] - expects the target [tg] to point to a function call inside a declaration
+(* [inline ~body_mark tg] - expects the target [tg] to point at a function call inside a declaration
     or inside a sequence in case the function is of void type. Example:
           int r = g(a);
       or  g(a);

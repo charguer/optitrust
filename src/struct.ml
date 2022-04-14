@@ -1,7 +1,7 @@
 open Ast
 include Struct_basic
 
-(* [set_explicit tg] expects [tg] to point to a set instruction where one struct
+(* [set_explicit tg] expects [tg] to point at a set instruction where one struct
     instance has been assigned to another struct instance. Or a variable declaration of type struct
     with initialization. If this is the case then first a detachement is performed.
 *)
@@ -19,7 +19,7 @@ let set_explicit (tg : Target.target) : unit =
 
   ) tg
 
-(*  [set_implicit tg] expects [tg] to point to a struct set operation, with the assumption
+(*  [set_implicit tg] expects [tg] to point at a struct set operation, with the assumption
       that this instruction is folowed by all the other set instruction for the same
       struct set operation. The trasnformation is going to find the type of the instruction
       and then consider (n - 1) instructions after the targeted instruction. Where n is the number

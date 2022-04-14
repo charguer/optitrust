@@ -31,7 +31,7 @@ let hoist ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : 
         | false -> Loop_basic.hoist ~name ~array_size (target_of_path p)
   ) tg
 
-(* [fusion nb tg] expects [tg] to point to a for loop followed by one or more
+(* [fusion nb tg] expects [tg] to point at a for loop followed by one or more
     for loops with the same range, start step and bound but different body.
     Then it's going to merge bodies of all those loops into a single loop.
     [nb] - denotes the number of loops to consider. *)
@@ -263,7 +263,7 @@ STEP 1 (BASIC): ONLY UNROLL
 *)
 
 
-(* [unroll] expects the target to point to a loop. Then it checks if the loop
+(* [unroll] expects the target to point at a loop. Then it checks if the loop
     is of the form for(int i = a; i < a + C; i++){..} then it will move the
     the instructions out of the loop and the loop will be removed. It works also
     in the case when C = 0 and a is a constant variable. To get the number of steps
@@ -328,7 +328,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
     | _ -> fail tg_loop_trm.loc "unroll: expected a loop to unroll"
   )) tg
 
-(* [reorder order]  expects the target [tg] to point to the first loop included in the [order]
+(* [reorder order]  expects the target [tg] to point atthe first loop included in the [order]
     list, then it will find all the nested loops starting from the targeted loop [tg] and
     reorder them based on [oder].
     Assumption:
@@ -356,7 +356,7 @@ let reorder ?(order : vars = []) (tg : target) : unit =
 
 (* LATER: tg should be a target on the outer loop, not on its context.
    I think using [tg @ [cForNestedAtDepth i]] would work for targeting the loop at depth i  *)
-(* [pic_coloring tile_size color_size ds tg] expects the target [tg] to point to the first loop
+(* [pic_coloring tile_size color_size ds tg] expects the target [tg] to point atthe first loop
       on which tiling(refer to Loop_basic.tile ) is going to be applied. Then on the loop comming right after the target [tg]
       coloring transformation (refer to Loop_basic.color).
       Finally a reorder is going to be applied by using reorder transformation (refer to reorder).
