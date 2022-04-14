@@ -104,7 +104,7 @@ Let's start by downloading and extracting the archive that contains the source c
 Arthur is going to add here two lines after he uploads the archive in his website
 ```
 Assuming that singularity was installed, on the same directory where the archive 
-was extracted, download our singularity image by running:
+was extracted, our singularity image can be downloaded by running:
 ```
   singularity pull library://begatim01/bench/optitrust.sif:1.0.3
 
@@ -127,15 +127,15 @@ then navigate to the benchmark directory:
 ```
 <!-- TODO: If building optitrust works then we can replace update_by_copy.sh with update.sh -->
 
-The effect is to copy our cached file ${OPTITRUST}/demo/pic_demo_single_exp.cpp into the file
-${OPTITRUST}/case_studies/pic/simulations
+The effect is to copy our cached file `${OPTITRUST}/demo/pic_demo_single_exp.cpp` into the file
+`${OPTITRUST}/case_studies/pic/simulations`
 
 ## Figure out the IDs of the cores that should be assigned to the execution
 
 ### Objectives
 
 The goal is to perform the execution by assigning each OpenMP thread to one
-fixed physical core, ignoring hyperthreading processing units.
+fixed physical core, ignoring hyper-threading processing units.
 
 To that end, we use `lstopo` to view the machine architecture, and we can
 read on the image the identifier of the first processing unit associated
@@ -143,9 +143,9 @@ with each core, from only one NUMA node (in case there are several).
 
 The goal is to produce a list, such as `CPULIST="0,1,2,3"`.
 
-Note: we certainly don't want to simulate more particles than what we can fit in the RAM. During the simulation, make sure to use `htop` to keep track of the memory consumption.
+**Note:** we certainly don't want to simulate more particles than what we can fit in the RAM. During the simulation, make sure to use `htop` to keep track of the memory consumption.
 
-Note: for multi-socket machines we use only the memory dedicated to one socket, as the intention of the original code is to have separate MPI processes for each socket.
+**Note:** for multi-socket machines we use only the memory dedicated to one socket, as the intention of the original code is to have separate MPI processes for each socket.
 
 
 ### Using lstopo to find the CPULIST to use
@@ -191,7 +191,7 @@ The combinations of paramters used in the paper are:
 
 
 ## Execution of the benchmark script
-
+**Note:** benchmarks script should be ran from a container shell, otherwise the code will not compile.
 Runs are executed from the `results` folder:
 ```
    cd ${OPTITRUST}/case_studies/pic/results
@@ -200,7 +200,7 @@ Runs are executed from the `results` folder:
 An example command line, just to make sure that everything runs fine.
 
 ```
-   CORES=4 CPULIST="0,2,4,6" COMP=icc GRID=8 NB=2 STEPS=10 RUNS=2 \
+   CORES=4 CPULIST="0,1,2,3" COMP=icc GRID=8 NB=2 STEPS=10 RUNS=2 \
     PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
 ```
 
@@ -237,7 +237,7 @@ You can reduce to RUNS=3. Possibly set an arbitrary seed, e.g. SEED=42.
 A run typically takes less than 10 minutes.
 
 ```
-   CORES=4 CPULIST="0,2,4,6" COMP=icc GRID=64 NB=200 STEPS=100 RUNS=10 \
+   CORES=4 CPULIST="0,1,2,3" COMP=icc GRID=64 NB=200 STEPS=100 RUNS=10 \
     PROG="pic_barsamian_single.c pic_optimized_single.c" ./bench.sh
 ```
 
@@ -340,6 +340,8 @@ grid become negligeable.
 # Part 2: Execution of the transformation scripts
 
 # Introduction
+<!-- 
+UNFORTUNATELY: IT'S NOT CONSISTENT ENOUGH 
 Before you move on we would suggest to try running OptiTrust interactively from the container.
 To do that you could skip the instructions for installing OptiTrust on your machine and just run the following inside the container shell:
 
@@ -350,7 +352,7 @@ To do that you could skip the instructions for installing OptiTrust on your mach
 
 ```
 this command will load the `opam` environment that contains all the libraries needed to run `OptiTrust`.
-Navigate to the optitrust directory and install it inside the container. Finally VSCode should be installed and configured as documented on the next step. If that doesn't work then you will have to install OptiTrust with all its dependencies in your operating system(Ubuntu 18.04 and later).
+Navigate to the optitrust directory and install it inside the container. Finally VSCode should be installed and configured as documented on the next step. If that doesn't work then you will have to install OptiTrust with all its dependencies in your operating system(Ubuntu 18.04 and later). -->
 
 In this second part, we explain how to install the tooling for generating,
 using OptiTrust, our `pic_optimized` program, starting from the totally
@@ -361,6 +363,8 @@ It takes about 30 minutes to install the required OCaml software.
 Then, running the transformation script and checking its output should
 take no more than 2 minutes.
 
+**Note:** we pushed really hard to provide a container with OptiTrust and its dependencies already installed but things didn't work out well. Because containers are not designed to work GUI apps we experienced some un-consistent behaviour of the program.
+Hence, to reproduce the same diffs as the ones in the paper installing OptiTrust is mandatory.
 
 We first list the OCaml packages required, and then detail further on the instructions
 for installing those packages using opam, the package manager for OCaml.

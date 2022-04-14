@@ -4,8 +4,7 @@ From: ubuntu:20.04
 %environment
   export LC_ALL=C
   export OPTITRUST=`pwd`/optitrust
-  eval $(opam env)
-
+  
 %post
   apt-get update && apt-get -y upgrade
   apt -y install software-properties-common rsync wget gpg bc
@@ -65,3 +64,8 @@ From: ubuntu:20.04
 
 %help
   This container contains everything you need to be able to run OptiTrust and its benchmarks.
+
+
+
+
+
