@@ -5,8 +5,7 @@ open Ast
 (* [fold ~at tg] expects the target [tg] to point at a variable declaration
     [at] - denotes a target where the fold_lefting is done. If empty the
       fold_lefting operation is performed on all the ast nodes in the same level as the
-      declaration or deeper, by default [at] = []
-*)
+      declaration or deeper, by default [at] = [] *)
 let fold ?(at : target = []) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.fold at i t p)
@@ -30,8 +29,7 @@ let fold ?(at : target = []) : Target.Transfo.t =
      }
 
      Assumption:
-      The targeted variable is a const variable,
-*)
+      The targeted variable is a const variable, *)
 let unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : Target.target = []) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.unfold false accept_functions mark at i t p)
@@ -42,15 +40,13 @@ let inline ?(mark : mark = "") ?(accept_functions : bool = true) : Target.Transf
     (fun t (p, i) -> Variable_core.unfold true accept_functions mark [] i t p)
 
 (* [rename ~into tg] expects the target [tg] to be pointing at a declaration, then it will
-    rename its declaration and all its occurrences
-*)
+    rename its declaration and all its occurrences *)
 let rename ~into:(new_name : var) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.rename new_name i t p)
 
 (* [init_detach tg] expects the target [tg] to point at a variable initialization.
-   It then splits the instruction into a variable declaration and a set operation.
-*)
+   It then splits the instruction into a variable declaration and a set operation. *)
 let init_detach (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
     Target.apply_on_targets (Variable_core.init_detach) tg
@@ -60,8 +56,7 @@ let init_detach (tg : Target.target) : unit =
     Then it will search inside the sequence which contains the variable declaration
     for an unique assigment. Then it will replace that assignment with a new initialized
     variable declaration.
-    [const] -denotes a booleean to decide if the new declaration is constant or not.
-*)
+    [const] -denotes a booleean to decide if the new declaration is constant or not. *)
 let init_attach ?(const : bool = false) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.init_attach const i t p )
@@ -81,7 +76,7 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
           }                                       x++;
        }@nobrace                                }
                                                 a = x;
-                                              }@nobrace
+                                              }@nobrace 
 *)
 let local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : Target.target) : unit =
   Internal.nobrace_enter();

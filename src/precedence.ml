@@ -1,12 +1,15 @@
 open Ast 
 
+(* type for the associativity of primitive operations *)
 type associativity = LtoR | RtoL | NA 
 
-
+(* precedence is a pair of precedence value and associativity type *)
 type precedence = int * associativity
 
+(* no precedence *)
 let precedence_none : precedence = (0, NA)
 
+(* [precedence_prim p] computes the precedence of primitive [p] *)
 let precedence_prim (p : prim) : precedence =
   match p with 
   | Prim_unop unop -> 
@@ -42,7 +45,7 @@ let precedence_prim (p : prim) : precedence =
   | _ -> precedence_none
 
 
-
+(* [precedence_trm t] computes precedence of trm [t] *)
 let precedence_trm (t : trm) : precedence = 
   match t.desc with 
   | Trm_apps (f, _) -> 
@@ -56,6 +59,8 @@ let precedence_trm (t : trm) : precedence =
   | Trm_arbitrary _ -> (100, NA)
   | _ -> precedence_none
 
+(* [parentheses_needed ~prec t] based on the precedence value of the parent trm, decide 
+      if paretheses are needed *)
 let parentheses_needed ?(prec : int = 0)  (t : trm) = 
   let (prec', assoc) = precedence_trm t in 
   prec' < prec

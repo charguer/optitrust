@@ -11,8 +11,7 @@ open Ast
         [e]: the expression replacing the call to function [ANY]
         [t]: ast of a call to function [ANY]
       return:
-        e
-*)
+        e *)
 let any_aux (e : trm) (t : trm) : trm =
   match t.desc with 
   | Trm_apps (f,_) ->
@@ -31,8 +30,7 @@ let any (e : trm) : Target.Transfo.local =
         [select_arg]: a predicate on the index of the argument which should be choosed
         [t]: ast of the call to function choose
       return:
-        the variable occurrence of the selected argument
-*)
+        the variable occurrence of the selected argument *)
 let choose_aux (select_arg : string list -> int) (t : trm) : trm =
   match t.desc with 
   | Trm_apps (_f, argnb :: args)  -> 

@@ -39,7 +39,7 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
      fail call_trm.loc "bind_args: expected a function call as target"
    end)
 
-(* [elim_body ~vars tg] expects the target [tg] to point atthe marked sequence.Then it will
+(* [elim_body ~vars tg] expects the target [tg] to point at the marked sequence.Then it will
     remove this sequence and its mark and merge the trms inside this sequence with te ones of the
     sequence containing the marked sequence. But before doing that, first a change of all the declared
     variables inside this sequence is performed. [vars] tells for the way the reanming is done.

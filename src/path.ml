@@ -59,6 +59,8 @@ and enum_const_dir =
    we let [paths] be a shorthand for such type. *)
 type paths = path list
 
+
+(* [dir_to_string d] print the directory [d]*)
 let dir_to_string (d : dir) : string =
   match d with
   | Dir_array_nth n -> "Dir_array_nth " ^ (string_of_int n)
@@ -91,9 +93,12 @@ let dir_to_string (d : dir) : string =
      in
      "Dir_enum_const (" ^ (string_of_int n) ^ ", " ^ s_ecd ^ ")"
 
+(* [path_to_string dl] print the path [dl] *)
 let path_to_string (dl : path) : string =
   list_to_string (List.map dir_to_string dl)
 
+
+(* [paths_to_string ~sep dls] print the list of paths [dls] *)
 let paths_to_string ?(sep:string="; ") (dls : paths) : string =
   list_to_string ~sep (List.map path_to_string dls)
 
@@ -164,6 +169,8 @@ let compare_dir (d : dir) (d' : dir) : int =
   | Dir_case _, _ -> -1
   | _, Dir_case _ -> 1
 
+(* [compare_path dl dl'] compare paths [dl] and [dl'] based on function 
+     compare_dir *)
 let rec compare_path (dl : path) (dl' : path) : int =
   match dl, dl' with
   | [], [] -> 0
@@ -173,7 +180,7 @@ let rec compare_path (dl : path) (dl' : path) : int =
      let cd = compare_dir d d' in
      if cd = 0 then compare_path dl dl' else cd
 
-
+(* a set module used for storing unique paths *)
 module Path_set = Set.Make(
   struct
   let compare = compare_path
@@ -194,14 +201,14 @@ let filter_duplicates (ps : paths) : paths =
   Path_set.elements sp
 
 
-(* Compute the intersection of two resolved paths *)
+(* [intersect p1 p2] compute the intersection of two resolved paths *)
 let intersect (p1 : paths) (p2 : paths) : paths =
   let set_of_p1 = set_of_paths p1 in
   let set_of_p2 = set_of_paths p2 in
   let inter_p1_p2 = Path_set.inter set_of_p1 set_of_p2 in
   Path_set.elements inter_p1_p2
 
-(* Compute the union of two resolved paths and remove duplicates *)
+(* [union p1 p2] compute the union of two resolved paths and remove duplicates *)
 let union (p1 : paths) (p2 : paths) : paths =
   let set_of_p1 = Path_set.empty in
   let set_of_p2 = Path_set.empty in
@@ -210,7 +217,7 @@ let union (p1 : paths) (p2 : paths) : paths =
   let union_p1_p2 = Path_set.union set_of_p1 set_of_p2 in
   Path_set.elements union_p1_p2
 
-(* Compute the the diff of two resolved paths and remove duplicates *)
+(* [diff p1 p2] compute the the diff of two resolved paths and remove duplicates *)
 let diff (p1 : paths) (p2 : paths) : paths =
   let set_of_p1 = set_of_paths p1 in
   let set_of_p2 = set_of_paths p2 in
@@ -222,7 +229,7 @@ let diff (p1 : paths) (p2 : paths) : paths =
 (*                                  Auxiliary functions                       *)
 (******************************************************************************)
 
-(* applies a continuation to the nth element of l if it exists *)
+(* [app_to_nth loc l n cont] applies a continuation to the nth element of l if it exists *)
 let app_to_nth (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =
   try
     match List.nth_opt l n with
@@ -237,6 +244,7 @@ let app_to_nth (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =
   | Invalid_argument _ ->
      fail loc "app_to_nth: index must be non-negative"
 
+(* [app_to_nth_dflt] loc l n*)
 let app_to_nth_dflt (loc : location) (l : 'a list) (n : int)
   (cont : 'a -> 'b list) : 'b list =
   try app_to_nth loc l n cont with
@@ -372,6 +380,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
   in
   aux_on_path_rec dl t
 
+
 let applyp_on_path (transfo : path -> trm -> trm) (t : trm) (dl : path) : trm =
   apply_on_path (transfo dl) t dl
 
@@ -380,9 +389,7 @@ let applyp_on_path (transfo : path -> trm -> trm) (t : trm) (dl : path) : trm =
 (*                         Explicit path resolution                           *)
 (******************************************************************************)
 
-(*
-  follow the explicit path and return the corresponding subterm and its context
- *)
+(* [resolve_path_and_ctx dl t] follow the explicit path and return the corresponding subterm and its context *)
 let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
   let rec aux_on_path_rec (dl : path) (t : trm) (ctx : trm list) : trm * (trm list) =
     match dl with
@@ -515,8 +522,10 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
   in
   aux_on_path_rec dl t []
 
+(* [resolve_path dl t] resolve get the trm that corresponds to path [dl] *)
 let resolve_path (dl : path) (t : trm) : trm  =
   fst (resolve_path_and_ctx dl t )
 
+(* [get_trm_at_path dl ] alias for resolve_path *)
 let get_trm_at_path (dl : path) (t : trm) : trm = 
   resolve_path dl t 

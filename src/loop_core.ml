@@ -6,13 +6,12 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [swap_aux t]: swap the order of two nested loops, the targeted loop
+(* [swap_aux t]: swap the order of two nested loops, the targeted loop and 
       the immediate inner loop
     params:
       [t]: ast of the targeted loop
     return:
-      updated ast with swapped loops
- *)
+      updated ast with swapped loops *)
 let swap_aux (t : trm) : trm =
   match Internal.extract_loop t with
   | Some (loop1, body1) ->
@@ -33,7 +32,6 @@ let swap_aux (t : trm) : trm =
 let swap : Target.Transfo.local =
   Target.apply_on_path (swap_aux)
 
-
 (*  [color_aux nb_colors i_color t]: transform a loop into two nested loops based
         on the coloring pattern
       params:
@@ -41,9 +39,7 @@ let swap : Target.Transfo.local =
         [i_color]: a variable representing the index used of the new outer loop
         [t]: ast of the loop
       return:
-        the transformed loop
-*)
-
+        the transformed loop *)
 let color_aux (nb_colors : trm) (i_color : var option) (t : trm) : trm =
   match t.desc with
   | Trm_for (index , start, direction, stop, step, body) ->
@@ -76,9 +72,7 @@ let color (nb_colors : trm) (i_color : var option ) : Target.Transfo.local =
         [tile_index]: string used to represent the index used for the new outer loop
         [t]: ast of the loop going to be tiled
       return:
-        the tiled loop
-*)
-
+        the tiled loop *)
 let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, start, direction, stop, step, body) ->
@@ -116,15 +110,14 @@ let tile (tile_index : var) (bound : tile_bound) (tile_size : trm) : Target.Tran
 
 
 (* [hoist_aux name t]: extract a loop variable inside the loop as an array with size equal
-      to (loop_bound - 1), the change all the occurrences of the variable with an array access
-      with index same as the index of the loop
+      to (loop_bound - 1), then change all the occurrences of that variable with an array access
+      with the index being the same as the index of the loop
     params:
-      [name]: a pattern of the form ${var}_something for the name entered by the user otherwise used the dafault pattern
-        ${var}_step
+      [name]: pattern of the form ${var}_something for the name entered by the user, if not
+        entered by the user, the dafault pattern ${var}_step is used.
       [t]: ast of the loop
     return:
-      a nobrace sequence which contains the hoisted variable and the for loop
-*)
+      ast of a nobrace sequence which contains the hoisted variable and the for loop *)
 let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, start, direction, stop, step, body) ->
@@ -160,8 +153,7 @@ let hoist (name : var) (index : int) (array_size : trm option): Target.Transfo.l
       [index]: index of the splitting point inside the body of the loop
       [t]: ast of the loop
     return
-      the splitted loop
- *)
+      the splitted loop *)
  let fission_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (loop_index, start, direction, stop, step, body) ->
@@ -185,9 +177,7 @@ let hoist (name : var) (index : int) (array_size : trm option): Target.Transfo.l
     params:
       [t]: ast of the sequence containing the loops
     return
-      merged loops
- *)
-
+      merged loops *)
 let fusion_on_block_aux (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -217,8 +207,7 @@ let fusion_on_block (keep_label : bool): Target.Transfo.local =
       [indices_and_bounds]: a list of pairs representing the index and the bound for each dimension
       [t]: ast of the loop
     return:
-      the transformed loop
-*)
+      the transformed loop *)
 let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, _start, direction,_stop, _step, body) ->
@@ -253,9 +242,7 @@ let grid_enumerate (indices_and_bounds : (string * trm) list) : Target.Transfo.l
       [my_mark]: a mark left on the top generated sequence
       [t]: ast of the loop
     return:
-      a sequence of sequences
-*)
-
+      a sequence of sequences *)
 let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, start, _direction, stop, _step, body) ->
@@ -297,14 +284,12 @@ let unroll (braces : bool)(my_mark : mark) : Target.Transfo.local =
   Target.apply_on_path (unroll_aux braces my_mark)
 
 
-(* [move_out_aux trm_index t]: take a constant term inside the body of the loop
-      in outside the loop.
+(* [move_out_aux trm_index t]: move a constant term from inside the body of the loop
+      before that loop.
     params:
       [trm_index]: index of the constant trm inside the body of the loop
       [t]: ast of the loop
-    return:
-
-*)
+    return: *)
 let move_out_aux (trm_index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, start, direction, stop, step, _) ->
@@ -322,14 +307,13 @@ let move_out_aux (trm_index : int) (t : trm) : trm =
 let move_out (trm_index : int) : Target.Transfo.local =
   Target.apply_on_path (move_out_aux trm_index)
 
-(* [unswitch_aux trm_index t]: extract and if statement inside the loop which is not
-        dependent on the index of the loop ofr any local variables outside the loop.
+(* [unswitch_aux trm_index t]: extract an if statement inside the loop that is not
+        dependent on the index of the loop or any local variables outside the loop.
       params:
         [trm_index]: index of the if statement inside the body of the loop
          [t]: ast of the for loop to be transformed
       return:
-        updated ast with the extracted if statement
-*)
+        updated ast with the extracted if statement *)
 let unswitch_aux (trm_index : int) (t : trm) : trm =
   let tl = for_loop_body_trms t in
   let if_stmt = Mlist.nth tl trm_index in
@@ -350,8 +334,7 @@ let unswitch (trm_index : int) : Target.Transfo.local =
       [new_index]: a string representing the new index for the transformed loop
       [t]: ast of the loop to be transformed
      return:
-      updated ast with the transformed loop
-*)
+      updated ast with the transformed loop *)
 let to_unit_steps_aux (new_index : var) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, start, direction, stop, step, _) ->
@@ -401,14 +384,12 @@ let to_unit_steps (new_index : var) : Target.Transfo.local =
 (* [loop_fold_aux index start step t]: transform a sequence of instructions into a
     single loop with components [index], [start], [nb_instr], [step] and [t].
     params:
-      [index]: index of the for generated for loop
+      [index]: index of the generated for loop
       [start]: starting value for the index of the generated for loop
       [step]: step of the generated for loop
       [t]: the ast of the sequence with a list of instructions
     return:
-      the ast of the for loop
-
-*)
+      the ast of the for loop *)
 let fold_aux (index : var) (start : int) (step : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -434,8 +415,7 @@ let fold (index : var) (start : int) (step : int) : Target.Transfo.local =
       [cut]: by default this argument has value tmr_unit(), if provided then the loop will be splited at that iteration
       [t]: ast of the loop 
      return:
-      the ast of the two loops
-   *)
+      the ast of the two loops *)
 let split_range_aux (nb : int)(cut : trm)(t : trm) : trm = 
   match t.desc with 
   | Trm_for (index, start, direction, stop, step, body) -> 

@@ -4,13 +4,12 @@ open Target
 include Loop_basic
 
 type rename = Variable.Rename.t
-(* [hoist x_step tg] - expects target to point inside the declaration of the variable
+(* [hoist x_step tg] - expects the target [tg] to point at the declaration of a variable inside a for loop.
     [x_step] - denotes the variable going to be hoisted outside the loop.
     This transformation is similar to the basic one except that it supports also
     undetached declarations contrary to the basic one. This is done by first checking if
     the declaration is detached or not. If it is not detached then we call another
-    transformation which does that for us. Otherwise just apply the basic hoist transformation.
-*)
+    transformation that does the detachment for us. *)
 let hoist ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -46,9 +45,7 @@ let fusion ?(nb : int = 2) (tg : target) : unit =
 
     Assumptions:
       The loops inside the sequence satisfy the same assumption as in fusion_in_block transformation
-      All the instructions in-between loops should not depend on the index of the loop.
-*)
-
+      All the instructions in-between loops should not depend on the index of the loop. *)
 let fusion_targets (tg : target) : unit =
   let non_loop_indices = ref [] in
   iter_on_targets (fun t p ->
@@ -76,10 +73,9 @@ let fusion_targets (tg : target) : unit =
   Loop_basic.fusion_on_block tg
 
 
-(* [move_out ~upto  tg] expects the target [tg] pointing to an instruction inside a for loop
+(* [move_out ~upto  tg] expects the target [tg] pointing at an instruction inside a for loop
     then it will move that instruction outside that loop. In the case of nested loops the user
-    can specify before which loop with index [upto] wants the instruction to be moved to.
-*)
+    can specify before which loop with index [upto] wants the instruction to be moved to. *)
 let move_out ?(upto : string = "") (tg : target) : unit =
   Internal.nobrace_remove_after( fun _ ->
   iter_on_targets (fun t exp ->
@@ -116,8 +112,7 @@ let move_out ?(upto : string = "") (tg : target) : unit =
       [loop_to_move] before another loop then it should use this default argument with the
       value the quoted loop index
     [after] - similar to [before] but now is the index of the loop after whom
-      we want to move [loop_to_move]
-*)
+      we want to move [loop_to_move] *)
 let move ?(before : target = []) ?(after : target = []) (loop_to_move : target) : unit =
   Trace.call (fun t ->
    let loop_to_move_path = resolve_target_exactly_one_with_stringreprs_available loop_to_move t in
@@ -328,14 +323,13 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
     | _ -> fail tg_loop_trm.loc "unroll: expected a loop to unroll"
   )) tg
 
-(* [reorder order]  expects the target [tg] to point atthe first loop included in the [order]
+(* [reorder order]  expects the target [tg] to point at the first loop included in the [order]
     list, then it will find all the nested loops starting from the targeted loop [tg] and
     reorder them based on [oder].
     Assumption:
       All loops have as bodies blocks of code(sequences)
 
-    @correctness: correct if loops are parallelizable
-*)
+    @correctness: correct if loops are parallelizable *)
 let reorder ?(order : vars = []) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_loop = Path.resolve_path p t in
@@ -356,13 +350,12 @@ let reorder ?(order : vars = []) (tg : target) : unit =
 
 (* LATER: tg should be a target on the outer loop, not on its context.
    I think using [tg @ [cForNestedAtDepth i]] would work for targeting the loop at depth i  *)
-(* [pic_coloring tile_size color_size ds tg] expects the target [tg] to point atthe first loop
+(* [pic_coloring tile_size color_size ds tg] expects the target [tg] to point at the first loop
       on which tiling(refer to Loop_basic.tile ) is going to be applied. Then on the loop comming right after the target [tg]
       coloring transformation (refer to Loop_basic.color).
       Finally a reorder is going to be applied by using reorder transformation (refer to reorder).
       Assumption:
-        The target should be a nested loop
-*)
+        The target should be a nested loop *)
 let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : target) : unit =
   let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
@@ -378,8 +371,7 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : t
   reorder ~order [cFor first_cs]
 
 (* [fission tg] if [split_between] is false then this function just calls Loop_basic.fission otherwise
-    it will split the targeted loop into unit instructions
-*)
+    it will split the targeted loop into unit instructions *)
 let fission ?(split_between : bool = false) (tg : target) : unit =
   if not split_between
     then Loop_basic.fission tg
@@ -401,8 +393,7 @@ let fission ?(split_between : bool = false) (tg : target) : unit =
       which could be expressed into a single for loop with [index], [start], [nb_instr] and [step] as its components.
 
    @correctness: always correct, as we can map all intermediate predicates
-   to numbered predicates on the loop
- *)
+   to numbered predicates on the loop *)
 let fold  ?(start : int = 0) ?(step : int = 1) ~index:(index : var) (nb_instr : int) (tg : target) : unit =
   let mark = "opti_fold" in
   Sequence_basic.intro ~mark nb_instr tg;
@@ -412,8 +403,7 @@ let fold  ?(start : int = 0) ?(step : int = 1) ~index:(index : var) (nb_instr : 
 (* [fold_instrs ~index ~start ~step tg] expects the target [tg] pointing to more than one instructions in a sequence
     all this instructions shoudl be consecutive ones. Then it will find the number of targeted instructions and it will call
     the previous transformation [fold]. The difference here is that the number of instructions is computed automatically.
-    LATER: Merge this two functions into one
-*)
+    LATER: Merge this two functions into one *)
 let fold_instrs ~index:(index : var) ?(start : int = 0) ?(step : int = 1) (tg : target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in
@@ -429,8 +419,7 @@ let fold_instrs ~index:(index : var) ?(start : int = 0) ?(step : int = 1) (tg : 
   Variable.fold ~nonconst:true [nbAny;cVarDef "" ~body:[cInt !nb_targets]]
 
 (* [isolate_first_iteration tg] expects the target [tg] to be pointing at a simple loop, then it will
-   split that loop into two loops by calling split_range transformation. Finally it will unroll the first 
-   loop *)
+   split that loop into two loops by calling split_range transformation. Finally it will unroll the first loop *)
 let isolate_first_iteration (tg : target) : unit = 
   Loop_basic.split_range ~nb:1 tg;
   unroll ([occFirst] @ tg)

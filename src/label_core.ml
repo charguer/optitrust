@@ -11,8 +11,7 @@ open Ast
       label: a string representing the label 
       t: an ast node
     return:
-      the updated ast with new labelled term
-*)
+      the updated ast with new labelled term *)
 let add_aux (label : string) (t : trm) : trm =
   trm_labelled label t
 
@@ -23,8 +22,7 @@ let add (label : string) : Target.Transfo.local =
     params:
       t: ast node of the labelled t
     return:
-      the updated ast
-*)
+      the updated ast *)
 let remove_aux (t : trm) : trm =
   match t.desc with
   | Trm_labelled (_, tbody) -> tbody

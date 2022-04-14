@@ -1,5 +1,3 @@
-
-
 (* List of parsers available *)
 type cparser =
   | Clang (* use Clang parser, via its ClangML interface *)
@@ -7,6 +5,7 @@ type cparser =
   | Default (* use [default_cparser], define below *)
   | All (* use all parsers, and ensure consistency of the results *)
 
+(* [cparser_of_string s] return the parser that matches string [s] *)
 let cparser_of_string (s : string) : cparser =
    match s with
     | "clang" -> Clang
@@ -15,13 +14,13 @@ let cparser_of_string (s : string) : cparser =
     | "default" -> Default
     | _ -> failwith "cparser_of_string: please chhose one of the following options, 'clang', 'Menhir', 'All'"
 
+(* [string_of_cparser p] print parser [p] *)
 let string_of_cparser (p : cparser) : string =
    match p with
     | Clang -> "clang"
     | Menhir -> "menhir"
     | All -> "all"
     | Default -> "default"
-
 
 (* Default parser to use when no indication is provided,
    neither via the command line, nor via [Parsers.select],

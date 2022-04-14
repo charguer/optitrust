@@ -11,8 +11,7 @@ open Ast
       [m]: the mark which is addded
       [t]: the ast of the trm where the mark is added to
     return:
-      trm [t] with mark m
-*)
+      trm [t] with mark m *)
 let add_aux (m : mark) (t : trm) : trm =
   trm_add_mark m t
 
@@ -23,11 +22,10 @@ let add (m : mark) : Target.Transfo.local =
 (* [add_between_aux index m t] add mark m at [index] in sequence [t]
     params:
       [index]: the relative index where the mark should be added
-      [m]: the mark which is addded
+      [m]: the mark that is addded
       [t]: the ast of the trm where the mark is added to
     return:
-      trm [t] with mark m
-*)
+      trm [t] with mark m *)
 let add_between_aux (index : int) (m : mark) (t : trm) : trm =
   trm_add_mark_between index m t
 
@@ -39,8 +37,7 @@ let add_between (index : int) (m : mark) : Target.Transfo.local =
       [m]: the mark which is removed
       [t]: the ast of the trm where the mark is removed
     return:
-      trm [t] without the mark m
-*)
+      trm [t] without the mark m *)
 let remove_aux (m : mark) (t : trm) : trm =
   trm_remove_mark (m) t
 
@@ -51,8 +48,7 @@ let remove (m : mark) : Target.Transfo.local =
     params:
       [t]: the ast where the marks are removed from
     return:
-      trm [t] without any mark
-*)
+      trm [t] without any mark *)
 let clean_aux (t : trm) : trm =
   trm_remove_marks t
 

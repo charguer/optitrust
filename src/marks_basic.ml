@@ -1,7 +1,7 @@
 open Ast
 
 (* [add m ] adds marks m to node t 
-    if m = "" then do nothing *)
+    if m = "" then does nothing *)
 let add (m : mark) (tg : Target.target) : unit = 
   if m = "" then () else Target.apply_on_targets (Marks_core.add m) tg
 

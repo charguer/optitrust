@@ -2,8 +2,7 @@ open Ast
 open Target
 
 (* [insert tg ts] expects the relative target [tg] pointing before or after an instruction.
-  [code] denotes the arbitrary code to be inserted inside the sequence
-*)
+  [code] denotes the trm that is going to be inserted inside the sequence *)
 let insert ?(reparse : bool = false) (code : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) ->
     Sequence_core.insert i code t p) )
@@ -15,8 +14,7 @@ let insert ?(reparse : bool = false) (code : trm) : Target.Transfo.t =
    @correctness: correct if nothing modified by the instruction was observed
    later.
    If the next instructions need an invariant H' and { H } del_instr { H'' }
-   we need both H ==> H' and H'' ==> H'.
-*)
+   we need both H ==> H' and H'' ==> H'. *)
 let delete ?(nb : int = 1) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Sequence_core.delete i nb t p)
@@ -41,16 +39,16 @@ let iter_delete (tgl : target list) : unit =
         int x = 5;      { int x = 5}
         iny y = 6;      int y = 6;
         return 0;       return 0;
-      }                }
+      }                } 
+      
 *)
 let intro ?(mark : string = "") ?(label : label = "") (nb : int) (tg : Target.target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
   (fun t (p, i) -> Sequence_core.intro mark label i nb t p) tg
 
 
-(* [intro_after ~marks ~label tg] same as intro but this function will include in the sequence all the instructions
-    which come after the targeted instruction and belong to the same scope.
- *)
+(* [intro_after ~marks ~label tg] same as intro but this transformation will include in the sequence all the instructions
+    that come after the targeted instruction and belong to the same scope. *)
 let intro_after ?(mark : mark = "") ? (label : label = "") (tg : Target.target) : unit =
   Target.apply_on_targets (fun t p ->
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
@@ -63,8 +61,7 @@ let intro_after ?(mark : mark = "") ? (label : label = "") (tg : Target.target) 
   ) tg
 
 (* [intro_before ~marks ~label tg] same as intro but this function will include in the sequence all the instructions
-    which come before the targeted instruction and belong to the same scope.
-*)
+    which come before the targeted instruction and belong to the same scope. *)
 let intro_before ?(mark : mark = "") ? (label : label = "") (tg : Target.target) : unit =
   Target.apply_on_targets (fun t p ->
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
@@ -79,8 +76,7 @@ let intro_before ?(mark : mark = "") ? (label : label = "") (tg : Target.target)
 (* [intro_between tg_beg tg_end]: this transformation is an advanced version of intro.
    The difference is that instead of giving the number of instructions one want's to put
    inside a sub-sequence, the first and the last trm of the on-coming sub-sequence are given.
-   All the intermediate trms are also included inside the sub-sequence.
-*)
+   All the intermediate trms are also included inside the sub-sequence. *)
 let intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : target) (tg_end : target) : unit =
   Internal.nobrace_remove_after ( fun  _ ->
   Trace.apply (fun t ->
@@ -110,15 +106,14 @@ let elim (tg : Target.target) : unit =
     [visible] denotes the visibility of a sequence. This means the that the the sequence is
         used only for internal purposes.
     [mark] denotes the mark of the sub-sequence. Targeting sequences can be challanging hence having
-          them marked before can make the apllication of the transformations easier.
-*)
+          them marked before can make the apllication of the transformations easier. *)
 let intro_on_instr ?(mark : mark = "") ?(visible : bool = true) : Target.Transfo.t =
    if not visible then Internal.nobrace_enter();
    Target.apply_on_targets (Sequence_core.intro_on_instr visible mark)
 
 
 (* [elim_on_instr tg] expects the target [tg] to point at a instruction surrounded by a sequence..
- It moves this trm to the outer sequence*)
+ It moves this trm to the outer sequence *)
 let elim_on_instr (tg : Target.target) : unit =
    Internal.nobrace_remove_after ( fun _ ->
     Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
@@ -127,8 +122,7 @@ let elim_on_instr (tg : Target.target) : unit =
 
 (* [split tg] expects target [tg] to point around another target in a sequence meaning, before or after another target
     It will split the sequence which contains that target into two parts, depending on the fact that the entered target
-    is of type before or after the first part will include (exclude) the target.
-*)
+    is of type before or after the first part will include (exclude) the target. *)
 let split (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets_between (fun t (p, i) -> 
@@ -140,8 +134,7 @@ let split (tg : Target.target) : unit =
         [blocks] denotes the sizes for each block inside the sequence. By default it should be empty, otherwise the sum of
           integers inside [blocks] should sum up to the number of instructions of the targeted sequence.
         [braces] denotes a flag for the visibility of the blocks meaning that this block partition will be meaningful only for
-          other transformations which call explicitly the partition transformation.
-*)
+          other transformations which call explicitly the partition transformation. *)
 let partition ?(braces : bool = false) (blocks : int list) : Target.Transfo.t =
   if not braces then Internal.nobrace_enter();
   Target.apply_on_targets (Sequence_core.partition blocks braces)
@@ -158,7 +151,6 @@ let partition ?(braces : bool = false) (blocks : int list) : Target.Transfo.t =
       {{t11};{t21};{t31}};
       {{t12};{t22};{t32}};
       {{t13};{t23};{t33}};
-    }
-*)
+    } *)
 let shuffle ?(braces : bool = false) : Target.Transfo.t =
   Target.apply_on_targets (Sequence_core.shuffle braces)

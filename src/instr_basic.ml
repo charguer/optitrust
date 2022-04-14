@@ -18,7 +18,7 @@ let copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:Target.target = [
     ) tg
 
 
-(* [move ~target tg] expects the target [tg] to point atthe instruction which is
+(* [move ~target tg] expects the target [tg] to point at the instruction which is
     going to be moved at the relative target [where]
 
    @correctness: Correct if the swapped instructions are parallelizable:

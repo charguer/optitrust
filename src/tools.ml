@@ -21,7 +21,7 @@ let range ?(rev : bool = false) (a : int) (b : int) : int list =
     in
   if rev then List.rev res else res
 
-(*-----------Extensions to lists-------------*)
+(*------------------Extensions to lists----------------*)
 
 (* LATER: create a module Xlist with all these functions,
    and remove the prefix [list_] for functions that have them. *)

@@ -11,8 +11,7 @@ include Sequence_basic
       argument the number of instruction to include comming after [start] or [end]. If used with [start] the sign
       of [nb] should be poistive otherwise it should be negative.
     [on] - denotes a single target to be isolated inside the sub-sequence. When [on] i used all the other
-      except mark and visible shoold be left empty
-*)
+      except mark and visible shoold be left empty *)
 let intro ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int = 0)
   ?(on : Target.target = []) ?(mark : string = "") ?(visible : bool = true) () : unit =
   match on with
@@ -34,8 +33,7 @@ let intro ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int 
 
 
 (* [intro_targets tg] expects the target [tg] to be pointing at one or more consecutive instuctions
-      then it will introduce a sequence that contains those instructions.
-*)
+      then it will introduce a sequence that contains those instructions. *)
 let intro_targets ?(mark : string = "")(tg : Target.target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in

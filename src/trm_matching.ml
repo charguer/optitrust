@@ -11,7 +11,7 @@ open Ast
     Then this string will be splitted parsed as
     void f (double a, double b, double c) {
       (a + k * b) == (b * k + a)
-    }
+    } 
 *)
 let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : string) : (typed_vars * typed_vars *trm) =
   let fix_pattern_args (var_decls : string) : string =

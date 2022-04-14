@@ -9,8 +9,7 @@ open Target
    It could be the case that OptiTrust features too kinds of labels
    that is   Trm_label of string * trm option
    - label as a standalone instruction (=> currently encoded as Trm_label ("foo", trm_unit))
-   - or label around an instruction.
-*)
+   - or label around an instruction. *)
 
 (* [add label tg] adds a C-label named [label] to the front of the
    terms matching the target [tg].

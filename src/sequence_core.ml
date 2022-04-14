@@ -5,14 +5,13 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [insert_aux index ts t]: insert an arbitrary trm after or before a targeted trm
+(* [insert_aux index ts t]: insert a trm [code] at index [index]
     params:
-      [index]: an integer in range 0 .. (nbinstr-1)
-      [ts]: a list of trms which the inner sequence will contain
+      [index]: a valied [index] where the instruction can be added
+      [code]: instruction that is going to be added at [index] on the sequence [t]
       [t]: ast of the outer sequence where the insertion will be performed.
     return: 
-      the equence with the augmented new trm
-*)
+      the sequence with the augmented new trm *)
 let insert_aux (index : int) (code : trm) (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
@@ -29,8 +28,7 @@ let insert (index : int) (code : trm) : Target.Transfo.local =
       [nb]: number of instructions to delete
       [t]: ast of the outer sequence where the deletion is performed.
     return: 
-      the sequence woithout the deleted instructions
-*)
+      the sequence woithout the deleted instructions *)
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
@@ -45,16 +43,15 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
 (* [intro_aux index nb t]: inside a sequence, move all the trms with index falling in a range 
       from [index] to [index] + [nb] into a sub-sequence.
     params:
-      |mark]: mark to insert on the new sequence
-      [label]: a label to insert on the new sequence
+      |mark]: mark to insert on the new sub-sequence
+      [label]: a label to insert on the new sub-sequence
       [index]: index where the grouping is performed
       [ts]: a list of ast nodes
       [t]: ast of the outer sequence where the insertion is performed
     
     Note: if both the mark and the label are given then transformation will fail
     
-    return: the sequence with the inserted nodes
-*)
+    return: the sequence with the inserted nodes *)
 
 let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm) : trm =
   if mark <> "" && label <> "" then fail t.loc "intro_aux: can't insert both the label and the mark at the same time";
@@ -75,12 +72,11 @@ let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm)
 let intro (mark : string) (label : label) (index : int) (nb_instr : int) : Target.Transfo.local =
   Target.apply_on_path (intro_aux mark label index nb_instr)
 
-(*[elim_aux index t]: inline an inner sequence into an outer sequence.
+(* [elim_aux index t]: inline an inner sequence into the outer one.
     params:
-      [t]: ast of the sequence wanted to remove
+      [t]: ast of the sequence to be removed
     return: 
-      a hiden sequence which is going to be merged witht the outer sequence on the next step
-*)
+      a hidden sequence that is going to be merged within the outer sequence on the next step *)
 let elim_aux (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -92,11 +88,10 @@ let elim : Target.Transfo.local =
 
 (* [intro_on_instr_aux visible mark t]: replacing t with a sequence that contains t .
    params:
-    (mark]: add a mark around the sequence
-    [visible]: a flag on the visibility of the added sequence
+    [mark]: mark to be added on the introduced sequence
+    [visible]: a flag on the visibility of the introduced sequence
    return: 
-    the outer sequence with wrapped node t
- *)
+    the outer sequence with the wrapped trm t *)
 let intro_on_instr_aux (mark : mark) (visible : bool) (t : trm) : trm =
   let wrapped_seq = if visible then trm_seq (Mlist.of_list [t]) else trm_seq_no_brace [t] in
   trm_add_mark mark wrapped_seq 
@@ -108,8 +103,7 @@ let intro_on_instr (visible : bool) (mark : mark) : Target.Transfo.local=
    params:
     [t]: a term that corresponds to a sequence with a single item in t
    return:
-    the udated the ast where the trm inside the sequence has been extracted
- *)
+      udated the ast where the trm inside the sequence has been extracted *)
 let unwrap_aux (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
@@ -125,8 +119,7 @@ let unwrap : Target.Transfo.local =
       [index]: the location where the splitting is done 
       [t] : a term that corresponds to the the targeted sequence
     return:
-      a nobrace sequence containing the splitted sequence
-*)
+      a nobrace sequence containing the splitted sequence *)
 let split_aux (index : int) (is_fun_body : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
@@ -145,8 +138,7 @@ let split (index : int) (is_fun_body : bool) : Target.Transfo.local =
       [braces]: denotes a flag on the visibility of the added sequences
       [t]: the ast of the sequence to be partitioned
     return:
-      the partitioned sequence
-*)
+      the partitioned sequence *)
 let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl -> 
@@ -181,8 +173,7 @@ let partition (blocks : int list) (braces : bool): Target.Transfo.local =
       [braces]: denotes a flag on the visibility of the added sequences
       [t]: the ast of the complex sequence of blocks
     return:
-      the updated ast
-*)
+      the updated ast *)
 let shuffle_aux (braces : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
