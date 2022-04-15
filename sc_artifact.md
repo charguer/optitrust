@@ -563,7 +563,7 @@ To compile and install OptiTrust
 ### Execution of our transformation script
 
 This command generates `pic_demo_single_out.cpp`, which should be the same
-as `pic_demo_single_exp.cpp`, which used for benchmarking under the name
+as `pic_demo_single_exp.cpp`, which we used for benchmarking under the name
 `pic_optimized_single.c` in the `pic/simulation/` folder.
 
 ```
@@ -597,7 +597,7 @@ Use buttons to navigate in the big-steps, on in the small steps.
 
 It will probably take about 20 minutes to install and configure VScode.
 Feel free to skip this part, which is mostly about setting keybindings,
-and has little scientific interest.
+and has very little scientific interest.
 
 
 ### Installation of chromium-browser
@@ -742,7 +742,7 @@ Sample output:
    Maximal dist speed relative to maximal speed: 2.5524e-16
 ```
 
-Simulation parameters are controlled `template_parameters_3d_checker.txt`,
+Simulation parameters are controlled by the file `template_parameters_3d_checker.txt`,
 where you can increase the grid size, the number of particles, or
 the number iterations as desired.
 
