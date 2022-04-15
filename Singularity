@@ -3,9 +3,17 @@ From: ubuntu:20.04
 
 %environment
   export LC_ALL=C
+  HOME=/container
+  export HOME
   export OPTITRUST=`pwd`/optitrust
-  
+
+%files
+  /optitrust/ /container/optitrust
+
 %post
+  chmod 777 /container
+  HOME=/container
+  export HOME
   apt-get update && apt-get -y upgrade
   apt -y install software-properties-common rsync wget gpg bc
 
@@ -16,11 +24,9 @@ From: ubuntu:20.04
   https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list
 
   add-apt-repository universe
-  add-apt-repository ppa:saiarcot895/chromium-beta 
   apt-get update && apt-get -y upgrade
   apt install debconf-utils -y
   echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
-  apt-get install chromium-browser xdotool -y
   apt-get install -y binutils binutils-common binutils-x86-64-linux-gnu build-essential cmake  \
   cmake-data cpp cpp-9 dpkg-dev fakeroot g++ g++-9 gcc gcc-9 gcc-9-base  \
   intel-hpckit-getting-started  \
@@ -52,20 +58,18 @@ From: ubuntu:20.04
   linux-libc-dev make manpages manpages-dev netbase patch perl  \
   perl-modules-5.30 libfftw3-dev libjemalloc-dev hwloc clang-format meld libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev 
   apt-get install opam -y
-  opam init
-  opam update -y && opam upgrade -y 
-  opam switch install 4.12.0 -y
+  opam init -y --auto-setup --root /container/.opam
+  opam update 
+  opam switch create 4.12.0 -y
   opam pin add menhirLib 20210419 -y
   opam pin add pprint 20220103 -y
+  eval `opam config env`
   opam install dune clangml pprint menhir menhirLib base64 ocamlbuild -y
+  cd $HOME/optitrust && make install
   
 %runscript
-  echo "Welcome to OptiTrust!"
+	eval `opam config env`
+	if [ $# = 0 ] ; then exec bash; else exec "$@"; fi
 
 %help
   This container contains everything you need to be able to run OptiTrust and its benchmarks.
-
-
-
-
-
