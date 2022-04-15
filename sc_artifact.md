@@ -100,7 +100,7 @@ using the container shell, compared with not using a container.
 
 ```
   sudo apt-get update
-  sudo apt-get install -y build-essential libssl-dev uuid-dev libgpgme11-dev \
+  sudo apt-get install build-essential libssl-dev uuid-dev libgpgme11-dev \
     squashfs-tools libseccomp-dev wget pkg-config git cryptsetup debootstrap
 
 ```
@@ -193,13 +193,13 @@ Assuming that singularity was installed, on the same directory where the archive
 was extracted, our singularity image can be downloaded by running:
 
 ```
-  singularity pull library://begatim01/bench/optitrust.sif:1.0.3
+   singularity pull library://begatim01/bench/optitrust.sif:1.0.5
 ```
 
 Then open a shell inside the container:
 
 ```
-  singularity shell optitrust.sif
+  singularity shell optitrust.sif_1.0.5.sif
 ```
 
 This will open a shell on the current directory but with all the libraries being loaded from the container. Then navigate to the benchmark directory:
