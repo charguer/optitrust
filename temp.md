@@ -33,3 +33,49 @@ particle manipulation, and not that related to the manipulations on the grid.
 To observe a higher percentage closer to 55%, one needs to run simulations
 with 2 million particles, so that the time spent on manipulations of the
 grid become negligeable.
+
+
+
+
+
+
+
+Now we are ready to open vscode and open pic_demo.ml file to generate the diffs similar to the ones on our paper.
+
+<!--
+UNFORTUNATELY: IT'S NOT CONSISTENT ENOUGH
+Before you move on we would suggest to try running OptiTrust interactively from the container.
+To do that you could skip the instructions for installing OptiTrust on your machine and just run the following inside the container shell:
+
+```
+  eval $(opam env)
+  cd $OPTITRUST
+  make install
+```
+
+this command will load the `opam` environment that contains all the libraries needed to run `OptiTrust`.
+Navigate to the optitrust directory and install it inside the container. Finally VSCode should be installed and configured as documented on the next step. If that doesn't work then you will have to install OptiTrust with all its dependencies in your operating system(Ubuntu 18.04 and later). -->
+
+**Note:** This part can be skipped if you used the VM to run and test OptiTrust.
+
+In this second part, we explain how to install the tooling for generating,
+using OptiTrust, our `pic_optimized` program, starting from the totally
+unoptimized code, which corresponds to the file
+`${OPTITRUST}/case_studies/pic/simulations/pic_demo.c`.
+
+It takes about 30 minutes to install the required OCaml software.
+Then, running the transformation script and checking its output should
+take no more than 2 minutes.
+
+**Note:** we pushed really hard to provide a container with OptiTrust and its dependencies already installed but things didn't work out well. Because containers are not designed to work GUI apps we experienced some un-consistent behaviour of the program.
+Hence, to reproduce the same diffs as the ones in the paper installing OptiTrust is mandatory.
+
+We first list the OCaml packages required, and then detail further on the instructions
+for installing those packages using opam, the package manager for OCaml.
+
+
+Besides, we also require:
+
+- several system packages that are needed by the OCaml package (they are listed further on)
+- gcc (tested with version 9.4.0, but any version should work)
+- clang-format (tested with version 10.0.0, but any version should work)

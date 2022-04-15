@@ -451,85 +451,55 @@ would not compromise the conclusions of the paper.
 
 ## Introduction
 
+In this part we explain how to execute our transformation script, to transform the
+unoptimized C code into the optimized C code.
+
+This part can be achieved either using the singularity package, or using the
+VirtualBox VM which we have prepared for interactive usage with VScode, or using
+system packages.
 
 
+## Installation
 
-To run OptiTrust interactively we have prepared a VM that can be downloaded by running:
+### Option 1: installation using Singularity
 
-```
-  wget http://www.chargueraud.org/research/2022/sc_optitrust/OptiTrust.ova
-```
+Use the same image as in the previous section.
 
-To install VirtualBox it in Ubuntu just run:
+### Option 2: installation using the VM
+
+Install VirtualBox:
 
 ```
   sudo apt-get install virtualbox
 ```
 
-**Note:** Skip the following instructions if you're already familiar with VirtualBox.
-
-To run our VM just open VirtualBox then navigate to File, Import Appliance .. , find OptiTrust.ova. Then specify the CPU-s and RAM that you want to be allocated for the VM and click Import button. Finally, after a successful import you can run the VM by clicking start
-
-After the VM has started run first the script `install.sh` and then the script `watch.sh`.
-The first one will download OptiTrust and the second one will enable the watch.
-Now we are ready to open vscode and open pic_demo.ml file to generate the diffs similar to the ones on our paper.
-
-<!--
-UNFORTUNATELY: IT'S NOT CONSISTENT ENOUGH
-Before you move on we would suggest to try running OptiTrust interactively from the container.
-To do that you could skip the instructions for installing OptiTrust on your machine and just run the following inside the container shell:
+Download our image:
 
 ```
-  eval $(opam env)
-  cd $OPTITRUST
-  make install
+  wget http://www.chargueraud.org/research/2022/sc_optitrust/OptiTrust.ova
 ```
 
-this command will load the `opam` environment that contains all the libraries needed to run `OptiTrust`.
-Navigate to the optitrust directory and install it inside the container. Finally VSCode should be installed and configured as documented on the next step. If that doesn't work then you will have to install OptiTrust with all its dependencies in your operating system(Ubuntu 18.04 and later). -->
+Then, open VirtualBox, navigate to file, using `Import Appliance ..`,
+load the file `OptiTrust.ova`.
+Specify the CPU-s and RAM that you want to be allocated for the VM,
+and click the Import button. Finally, click the Start button.
 
-**Note:** This part can be skipped if you used the VM to run and test OptiTrust.
+Inside the VM, execute the script `install.sh` to download and install OptiTrust.
 
-In this second part, we explain how to install the tooling for generating,
-using OptiTrust, our `pic_optimized` program, starting from the totally
-unoptimized code, which corresponds to the file
-`${OPTITRUST}/case_studies/pic/simulations/pic_demo.c`.
+Optional: execute the script `watch.sh` and leave it open in a separate terminal.
+The "watch" script is used to support keybindings in VScode.
+
+
+### Option 3: installation using system packages
 
 It takes about 30 minutes to install the required OCaml software.
-Then, running the transformation script and checking its output should
-take no more than 2 minutes.
-
-**Note:** we pushed really hard to provide a container with OptiTrust and its dependencies already installed but things didn't work out well. Because containers are not designed to work GUI apps we experienced some un-consistent behaviour of the program.
-Hence, to reproduce the same diffs as the ones in the paper installing OptiTrust is mandatory.
-
-We first list the OCaml packages required, and then detail further on the instructions
-for installing those packages using opam, the package manager for OCaml.
-
-- OCaml compiler (tested with version 4.12.0)
-- dune (tested with version 2.9.1)
-- clangml (https://gitlab.inria.fr/tmartine/clangml) (tested with version
-  4.5.0)
-- [pprint](https://github.com/fpottier/pprint) (tested with version 20220103)
-- menhir and menhirLib (must be version 20210419, otherwise it won't work)
-
-Besides, we also require:
-
-- several system packages that are needed by the OCaml package (they are listed further on)
-- gcc (tested with version 9.4.0, but any version should work)
-- clang-format (tested with version 10.0.0, but any version should work)
 
 
-# Installation steps
-
-### Installation of system packages
+Installation of system packages:
 
 ```
    sudo apt-get install clang-format meld libclang-dev llvm-dev libomp-dev pkg-config zlib1g-dev
 ```
-
-### Installation and configuration of opam (OCaml packet managers)
-
-(For explanations, see https://opam.ocaml.org/doc/Install.html )
 
 Unfortunately, this takes a little while (typically 15-20 minutes), because the opam
 package manager compiles the OCaml compiler and all its packages from sources.
@@ -541,32 +511,49 @@ package manager compiles the OCaml compiler and all its packages from sources.
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
    opam install dune clangml pprint menhir menhirLib base64 ocamlbuild
+   eval $(opam env)
 ```
 
-### Compilation and installation of OptiTrust, and copy of the pic-demo source files
+In case of trouble, the installation of opam is explained on this page:
+https://opam.ocaml.org/doc/Install.html
 
-It is necessary to export the path to the OptiTrust folder.
+Remark about versions:
+
+- OCaml compiler (tested with version 4.12.0)
+- dune (tested with version 2.9.1)
+- clangml (https://gitlab.inria.fr/tmartine/clangml) (tested with version
+  4.5.0)
+- [pprint](https://github.com/fpottier/pprint) (tested with version 20220103)
+- menhir and menhirLib (must be version 20210419, otherwise it won't work)
+
+
+## Compilation and installation of OptiTrust, and copy of the pic-demo source files
+
+If you have not done it before, or if you use another shell,
+you need to export the path to the OptiTrust folder.
 
 ```
    # From the root folder of OptiTrust
    export OPTITRUST=`pwd`
 ```
 
-All the commands from the following steps are to be executed in the `/demo` folder.
+All the commands in the following steps are to be executed in the `/demo` folder.
 
 ```
    cd demo
 ```
 
-To compile and install OptiTrust
+In this folder, you can compile and install the OptiTrust library, and
+copy the source code over from the `../case_studies/pic` folder using the
+command:
 
 ```
    make init
 ```
 
-### Execution of our transformation script
+## Execution of our transformation script
 
-This command generates `pic_demo_single_out.cpp`, which should be the same
+The command below generates `pic_demo_single_out.cpp`, which should be the same
 as `pic_demo_single_exp.cpp`, which we used for benchmarking under the name
 `pic_optimized_single.c` in the `pic/simulation/` folder.
 
@@ -582,7 +569,9 @@ To check that the file produced matches the one used, you can use the command:
    diff --ignore-blank-lines --ignore-all-space pic_demo_single_out.cpp pic_demo_single_exp.cpp
 ```
 
-### Generation of the HTML page to browse through the steps
+## Generation of the HTML page to browse through the steps
+
+To build the interactive trace, execute the command:
 
 ```
    make trace
@@ -591,10 +580,11 @@ To check that the file produced matches the one used, you can use the command:
 Then open the output file:
 
 ```
-   chromium-browser pic_demo_trace.html
+   chromium-browser pic_demo_trace.html &
 ```
 
-Use buttons to navigate in the big-steps, on in the small steps.
+You can use the buttons to navigate in the big steps, on in the small steps that
+constitute the big steps.
 
 
 # Part 3: Interactive usage of OptiTrust
@@ -608,6 +598,15 @@ development of the tranformation script: F6 shows the diff for a step,
 ALT+F6 shows the diff for a group of steps (a "big step"). The key bindings
 F7 and ALT+F7 are similar but work with respect to a checkpoint previously
 saved using CTRL+F7.
+
+You can use either the VirtualBox VM described in the previous section,
+or use system packages.
+
+## Option 1: installation using the VM
+
+See previous section.
+
+## Option 2: installation using system packages
 
 ### Installation of chromium-browser
 
