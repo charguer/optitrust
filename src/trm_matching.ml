@@ -1,4 +1,5 @@
 open Ast
+open Ast.AstParser
 
 (* [parse_pattern pattern globdefs ctx ]: for a given pattern [pattern] return the list of variables used in that pattern
       and the ast of the pattern.
@@ -39,70 +40,56 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
 
   let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else fix_pattern_args aux_var_decls in
 
-  let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
+  let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in  
+  
+  let main_fun_str = "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
+  if ctx 
+    then 
+      let ast = Target.get_ast() in 
+      let ast2 = trm_seq_add_last (stmt main_fun_str) ast in
+      let prefix = Filename.remove_extension output_file in
+      Trace.output_prog (Trace.get_context ()) prefix ast2;
+      (* AstC_to_c.ast_to_file output_file ast2; *)
+    else
+      Xfile.put_contents output_file main_fun_str;
 
-  if ctx then Trace.dump ~prefix:output_file ();
-  (*
-    let ast = Trace.ast() in
-    let ast2 = trm_seq_add_last ast (trm_arbitrary "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}") in
-    output_prog output_file ast2;
-    let _, ast_of_file = Trace.parse output_file in
-    let defs = trm_main_get_toplevel_defs ast_of_file
-    let (_, main_fun) = Tools.unlast () in
+  let _, ast_of_file = Trace.parse output_file in 
 
-where
-    let trm_main_inv_toplevel_defs (ast : trm) : trm list =   --in ast
-      match ast_of_file.desc with
-      | Trm_seq tl ->
-         if not (List.mem Main_file ast_of_file.annot) then fail "not a main ast";
-         if tl = [] then fail ast_of_file.loc "parse_pattern; couldn't parse pattern";
-         Mlist.to_list tl
-      | _ -> fail
-
-  *)
-  let file_content = glob_defs ^ "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
-  Xfile.put_contents output_file file_content;
-
-  let _, ast_of_file = Trace.parse output_file in
-  match ast_of_file.desc with
-  | Trm_seq tl when (List.mem Main_file ast_of_file.annot) ->
-    if Mlist.length tl = 0 then fail ast_of_file.loc "parse_pattern; couldn't parse pattern";
-    let (_, main_fun)= Tools.unlast (Mlist.to_list tl) in
-
-    begin match main_fun.desc with
-    | Trm_let_fun (_, _, args, body) ->
-      begin match body.desc with
-      | Trm_seq tl1 ->
-        if Mlist.length tl1 < 1 then fail body.loc "parse_pattern: please enter a pattern of the shape var_decls ==> rule_to_apply";
-        let pattern_instr_ret = Mlist.nth tl1 0 in
-        let pattern_instr =
-        begin match pattern_instr_ret.desc with
-        | Trm_abort (Ret r1) ->
-          begin match  r1 with
-          | Some t1 -> t1
-          | _ -> fail pattern_instr_ret.loc "parse_pattern: this should never appear"
-          end
-        | _ -> pattern_instr_ret
-        end in
-        let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x aux_var_decls then Some (x, ty) else None ) args in
-        let pattern_vars = List.filter (fun (x, ty) -> not (List.mem (x, ty) aux_vars ) ) args in
-        (pattern_vars, aux_vars, pattern_instr)
-      | _ -> fail body.loc ("parse_pattern: body of the function f should be a sequence " ^ (AstC_to_c.ast_to_string body))
+  let defs = trm_main_inv_toplevel_defs ast_of_file in 
+  if defs = [] then fail ast_of_file.loc "parse_pattern: couldn't parse pattern";
+  let (_, main_fun) = Tools.unlast defs in 
+  match main_fun.desc with
+  | Trm_let_fun (_, _, args, body) ->
+    begin match body.desc with
+    | Trm_seq tl1 ->
+      if Mlist.length tl1 < 1 then fail body.loc "parse_pattern: please enter a pattern of the shape var_decls ==> rule_to_apply";
+      let pattern_instr_ret = Mlist.nth tl1 0 in
+      let pattern_instr =
+      begin match pattern_instr_ret.desc with
+      | Trm_abort (Ret r1) ->
+        begin match  r1 with
+        | Some t1 -> t1
+        | _ -> fail pattern_instr_ret.loc "parse_pattern: this should never appear"
+        end
+      | _ -> pattern_instr_ret
+      end in
+      let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x aux_var_decls then Some (x, ty) else None ) args in
+      let pattern_vars = List.filter (fun (x, ty) -> not (List.mem (x, ty) aux_vars ) ) args in
+      (pattern_vars, aux_vars, pattern_instr)
+    | _ -> fail body.loc ("parse_pattern: body of the function f should be a sequence " ^ (AstC_to_c.ast_to_string body))
       end
-    | _ -> fail main_fun.loc "parse_pattern: the pattern was not entered correctly"
-    end
-  | _ -> fail ast_of_file.loc "parse_pattern: expected the main sequence of tmp_rule.cpp"
+  | _ -> fail main_fun.loc "parse_pattern: the pattern was not entered correctly"
 
 
 (* [parse_rule pattern]: for a given pattern [pattern] return a rewrite rule which is a record containing the
-    the list of variables used in that rule, the rule itself and the result after applying that rule.
-*)
+    the list of variables used in that rule, the rule itself and the result after applying that rule. *)
 let parse_rule ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : string) : rewrite_rule =
   let pattern_vars, aux_vars, pattern_instr = parse_pattern ~glob_defs ~ctx pattern in
   match pattern_instr.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_eq));_},[t1; t2]) ->
     {rule_vars = pattern_vars; rule_aux_vars = aux_vars; rule_from = t1; rule_to = t2}
-  | _ -> fail pattern_instr.loc "parse_rule: could not parse the given rule"
+  | _ -> 
+    fail pattern_instr.loc "parse_rule: could not parse the given rule"
 
 
 exception Rule_mismatch

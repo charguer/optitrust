@@ -1842,6 +1842,21 @@ end
 let trm_seq_no_brace ?(marks : mark list = [])(tl : trms) : trm=
     trm_annot_add (No_braces (Nobrace.current())) (trm_seq ~marks (Mlist.of_list tl))
 
+(* [trm_main_inv_toplevel_defs ast ] returns a list of all toplevel declarations *)
+let trm_main_inv_toplevel_defs (ast : trm) : trm list = 
+  match ast.desc with 
+  | Trm_seq tl when trm_annot_has Main_file ast -> Mlist.to_list tl
+  | _ -> fail ast.loc "trm_main_inv_toplevel_defs: expected the ast of the main file"
+
+(* [trm_seq_add_last t_insert t] append [t_insert] at the end of the sequence [t] *)
+let trm_seq_add_last (t_insert : trm) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl ->
+     let new_tl = Mlist.insert_at (Mlist.length tl) t_insert tl in 
+     trm_seq ~marks:t.marks ~annot:t.annot new_tl
+  | _ -> fail t.loc "trm_seq_add_last: expected a sequence"
+
+
 (* get the id of the sequence annotated as No_braces *)
 let get_nobrace_id (t : trm) : int option =
   let rec aux l = match l with
