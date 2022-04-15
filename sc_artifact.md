@@ -1,12 +1,11 @@
 
-This document explains how to reproduce results form the paper submission entitled
-"OptiTrust: an Interactive Framework for Source-to-Source Transformations"
-
-A clean PDF version of this document is availble from:
+A clean PDF version of this document is available from:
 http://www.chargueraud.org/research/2022/sc_optitrust/
 
+This document explains how to reproduce results form the paper submission entitled
+"OptiTrust: an Interactive Framework for Source-to-Source Transformations".
 
-# Part 1: Reproduce performance comparison
+# Part 1: Reproduction of the performance comparison
 
 ## Objectives
 
@@ -16,19 +15,18 @@ transformation script, rather than by writing optimized code by hand.
 As a sanity check for our case study, we verified that the performance
 of our generated code is comparable or better than the performance of
 the corresponding manually optimized code, which we call the baseline,
-and comes from Barsamian et al. [30].
+and which comes from Barsamian et al. [30].
 
 **The purpose of the artifact evaluation should thus be
 to assess whether our generated code is at least as performant as its
-baseline.** The fact that we discovered additional optimizations is
-nice, but it is not the matter of our paper. We would have been
-perfectly happy with producing code with exactly the same performance
-as the baseline.
+baseline.**
 
-We ran experiments with the same parameters as Barsamian et al.,
-however these simulations run for hours. However, the claim that our code
-is at least as performant as its baseline can be checked on mid-size
-simulations that run for just a few minutes.
+We ran experiments with the same simulation parameters as Barsamian et al.
+However, running those simulations take several hours.
+The artifact reviewer may not have access to such a hardware, or may
+not be ready to invest that much time. Fortunately, if needed, the claim that
+our code is at least as performant as its baseline can be checked on a
+modern laptop, using mid-size simulations that run for just a few minutes.
 
 The benchmark results which we obtained on our test machines suggest
 that the most critical loop from our code runs faster than in the baseline.
@@ -36,12 +34,16 @@ In the performance evaluation section of the paper, we explain the source of
 the performance improvement. Essentially, our code loads the particle data
 before a conditional, whereas the baseline code loads the data after
 the conditional, in each of the two branches.
+The fact that we discovered additional optimizations is
+nice, but it is not the matter of our paper. We would have been
+perfectly happy with producing code with exactly the same performance
+as the baseline.
 
 The more particles are involved in the simulation, the more visible the
 performance difference will appear. Reviewers will need to consider
 sufficiently large values of the number of particles for reproducing the
 performance gains that we report in the paper. However, smaller number
-of particles could suffice to verify our claim that our code is at
+of particles should suffice to verify our claim that our code is at
 least as performant as the baseline.
 
 **Reference [30]:**
@@ -62,10 +64,10 @@ For machine #3, the results that we reported in the submission are:
 We realized after the deadline that for this machine we had not been using
 the right `--cpu-list` argument to `taskset`. Indeed, a coauthor had been
 confused by the new version of `lstopo` which, unlike previous versions,
-displays by default to the the front , for each processing unit, the
+displays to the the front for each processing unit the
 logical identifier instead of the physical identifier. We re-ran the
 experiment using the appropriate `--cpu-list` and obtained faster executions,
-as expected. The updated results are:
+as expected. The updated results that we measured are:
 
 - Orig: 24.5 million particles per second per core,
 - Ours: 27.7, which corresponds to a 13.4% improvement.
@@ -75,8 +77,12 @@ for which we report 23.2 and 27.6 million particles per second per core,
 for Orig. and Ours, respectively, (for the same grid, but with more particles).
 
 The fact that our initial throughput figures were lower does not affect
-the conclusions of our experiments: our optimized code is at least as
-performant as the baseline code.
+the conclusions of our experiments. Our optimized code remains at least as
+performant as the baseline code. The fact that the relative gap is slighly
+reduced (from 16.5% down to 13.4%) does not matter here. It can be explained
+by the fact that when two programs run faster, the memory bus becomes more
+of a bottleneck for both programs, hence the relative performance between
+the two programes reduces.
 
 Please feel free to share the above explanations with the paper reviewers,
 if deemed appropriate.
@@ -84,37 +90,62 @@ if deemed appropriate.
 
 ## Investment
 
-We expect that some basic performance results can be reproduced in 1 hour.
-About 15 minutes to read the present documentation, 15 minutes to install
-the required software, then performing 3 runs of less than 10 minutes each.
+We expect that some basic performance results can be reproduced in less than
+1 hour. About 15 minutes to read the present documentation, 15 minutes to
+install the required software, then performing 3 runs of less than 10 minutes each.
+
+We provide two ways of installing the required software: either using a
+Singularity container, or by installing system packages. The first option
+requires downloading a 4GB image. The second option involves a slighly
+larger number of commands, but could be appealing especially if a good share
+of the required software (ICC, openmpi, hwloc, jemalloc) is already available
+on the reviewer's machine.
 
 Full-scale experiments can take several hours to run, but can be executed
-in the background, on a multicore server, with Singularity already installed.
+in the background, on a multicore server.
 We do not expect a significant performance dropout when executing the programs
 using the container shell, compared with not using a container.
 
 
-## Dependency installation, using Singularity
 
-### Installation of dependencies needed for installing Singularity
+## First option: dependency installation using Singularity
+
+### Installation of Singularity using system packages
+
+Try the following commands to install Go and Singularity.
+If they don't work for you, you can get them from sources as detailed further below.
+
+```
+   sudo apt-get install golang-go
+
+   sudo wget -O- http://neuro.debian.net/lists/xenial.us-ca.full \
+    | sudo tee /etc/apt/sources.list.d/neurodebian.sources.list
+   sudo apt-key adv --recv-keys --keyserver hkp://pool.sks-keyservers.net:80 0xA5D32F012649A5A9
+   sudo apt-get update
+
+   sudo apt-get install singularity-container
+```
+
+
+### Alternative: installation of Singularity from sources
+
+Installation of system packages required for Singularity:
 
 ```
   sudo apt-get update
   sudo apt-get install build-essential libssl-dev uuid-dev libgpgme11-dev \
     squashfs-tools libseccomp-dev wget pkg-config git cryptsetup debootstrap
-
 ```
 
-### Installation of Go lang
+Installation of Go lang from sources:
 
 ```
   wget https://dl.google.com/go/go1.13.linux-amd64.tar.gz
   sudo tar --directory=/usr/local -xzvf go1.13.linux-amd64.tar.gz
   export PATH=/usr/local/go/bin:$PATH
-
 ```
 
-### Installation of Singularity
+Installation of Singularity from sources:
 
 ```
   wget https://github.com/singularityware/singularity/releases/download/v3.5.3/singularity-3.5.3.tar.gz
@@ -124,15 +155,14 @@ using the container shell, compared with not using a container.
   cd builddir
   make
   sudo make install
-
 ```
 
 
-## Dependency installation, without Singularity
+## Second option: dependency installation without Singularity
 
-### Installation of Intel openAPI toolkit (for the ICC compiler)
+### Installation of ICC
 
-(Note: does not work on Ubuntu 16.04, which is too old.)
+ICC is provided by Intel openAPI toolkit.
 
 ```
    wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
@@ -141,80 +171,94 @@ using the container shell, compared with not using a container.
    echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] \
    https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
 
-   sudo apt update && sudo apt upgrade -y
+   sudo apt update
 
-
-   sudo apt install -y intel-hpckit 
+   sudo apt install intel-hpckit
 ```
 
-### Installation of OpenMPI (only for GCC compiler, which is not needed to reproduce results)
+Note: the above commands do not work on Ubuntu 16.04, which is too old.
+
+### Installation of FFTW
+
+This library is used by the Poison solver, which is part of the case study.
 
 ```
-   sudo apt-get install libopenmpi-dev openmpi-bin
+   sudo apt-get install libfftw3-dev
 ```
 
-### Installation of FFTW (used for the Poison solver, which is part of the PIC simulation)
+### Installation of jemalloc
+
+Jemalloc is an alternative to standard malloc, for fast multi-thread allocation.
 
 ```
-   sudo apt-get install -y libfftw3-dev
+   sudo apt install libjemalloc-dev
 ```
 
-### Installation of jemalloc (for fast multi-thread allocation)
+### Installation of hwloc
 
-```
-   sudo apt install -y libjemalloc-dev
-```
-
-### Installation of hwloc (strongly recommanded to check your machine topology)
-
-The package `hwloc` provides the command `lstopo` used later on.
+The package `hwloc` provides the command `lstopo` used later on
+for viewing your machine topology, and gather the identifiers
+of the cores to use for the execution.
 
 ```
    sudo apt install -y hwloc
 ```
 
-## Benchmarking using a cached copy of our output program:
+### Optional: installation of OpenMPI
 
-Let's start by downloading and extracting the archive that contains the source code and the benchmark scripts:
+In case you are not able to install ICC, you can compile the code
+using GCC. We observed, however, poorer performance when using GCC.
+
+```
+   sudo apt-get install libopenmpi-dev openmpi-bin
+```
+
+
+## Set up OptiTrust and the benchmark program
+
+Make sure to execute all the commands using the same shell,
+else you will need to rebind the environment variable OPTITRUST.
+
+First of all, download and extract the archive that contains the source code
+and the benchmark scripts:
 
 ```
    wget http://www.chargueraud.org/research/2022/sc_optitrust/optitrust.tar.gz
    tar -xzf optitrust.tar.gz
 ```
 
-Then make sure to set the environment variable for the rest of the experiments.
+Then, set the environment variable for the rest of the experiments:
 
 ```
    cd optitrust
-   export OPTITRUST=`pwd`
 ```
 
-Assuming that singularity was installed, on the same directory where the archive
-was extracted, our singularity image can be downloaded by running:
+Then, in this `optitrust` folder, if you wish to use our Singularity image
+that packages the necessary dependencies, download our singularity image,
+and launch a shell for our singularity container.
 
 ```
    singularity pull library://begatim01/bench/optitrust.sif:1.0.5
+   singularity shell optitrust.sif_1.0.5.sif
 ```
 
-Then open a shell inside the container:
+Regardless of whether you use Singularity or not, execute the following
+instructions to set the environment variable, navigate to the benchmark
+directory.
 
 ```
-  singularity shell optitrust.sif_1.0.5.sif
-```
-
-This will open a shell on the current directory but with all the libraries being loaded from the container.
-Then navigate to the benchmark directory:
-
-```
+   export OPTITRUST=`pwd`
    cd ${OPTITRUST}/case_studies/pic/results
+```
+
+There remains to copy our cached file `${OPTITRUST}/demo/pic_demo_single_exp.cpp`
+into the file `${OPTITRUST}/case_studies/pic/simulations`. This command allows
+benchmarking our generated code independently of the process of generating
+our code (this process is explained further on).
+
+```
    ./update_by_copy.sh
 ```
-
-The effect of the above command is to copy our cached file `${OPTITRUST}/demo/pic_demo_single_exp.cpp` into the file
-`${OPTITRUST}/case_studies/pic/simulations`.
-
-We show further on how to generate the file that corresponds
-to the optimized program, instead of using the cached copy.
 
 
 ## Figure out the IDs of the cores that should be assigned to the execution
@@ -237,29 +281,30 @@ The goal is to produce a list, such as `CPULIST="0,1,2,3"`.
 
 ### Using lstopo to find the CPULIST to use
 
-On a laptop with 4 physical cores and 32GB of ram, we invoke on the command line:
+Execute the following command (in the Singularity shell, if you use it):
 
 ```
    lstopo -p
 ```
 
-Here is a sample output:
+Figure \ref{numa} gives a sample output, produced on a laptop with 4 physical cores and 32GB of ram.
+We are interested in picking the first processing units (PU) of each
+physical core (the second one is associated with hyperthreading),
+and consider only the cores associated with the first socket
+(NUMA machines have more than one socket).
+On the figure, we can read the ids of the PU
+that we would use on our laptop: `CPULIST="0,1,2,3"`.
 
 ![Sample output of lstopo \label{numa}](sc_artifact_lstopo.png){width=60% height=50%}
-
-In Figure \ref{numa}, we can read the ids of the processing units (PU)
-that we want to use: `CPULIST="0,1,2,3"`.
 
 
 ## Selection of the grid size and number of particles
 
 The size of the simulation grid is controlled by the parameter `GRID`,
-which denotes the size of each of the sides of the grid.
-E.g. `GRID=32` or `GRID=64`.
+which denotes the size of each of the sides of the grid, e.g. `GRID=32` or `GRID=64`.
 
 The number of particles simulated is controlled by the parameter `NB`,
-which denotes the number of million particles.
-E.g. `NB=200` or `NB=2000`.
+which denotes the number of million particles, e.g. `NB=200` or `NB=2000`.
 
 
 The simulation parameters may be bounded by the capabilities of your hardware.
@@ -268,25 +313,32 @@ The simulation parameters may be bounded by the capabilities of your hardware.
 - If you have >= 32GB of RAM, you should use GRID=64.
 
 - If you have 16GB or 32GB of RAM, you should use NB=200.
-- If you have 96GB of RAM or more, you can use NB=1000 or NB=2000.
+- If you have 96GB of RAM or more, you should be able to use NB=2000,
+assuming that your current memory load is no more than a couple GB.
 
 The combinations of paramters used in the paper are:
 
-- GRID=64 NB=2000 (machine #1)
-- GRID=32 NB=200 (machine #2)
-- GRID=64 NB=200 (machine #3)
+- for machine #1: GRID=64 NB=2000
+- for machine #2: GRID=32 NB=200
+- for machine #3: GRID=64 NB=200
+
+At least one of these combination of parameters should suit your machine.
+If you have an intermediate machine, we would recommand trying first
+GRID=64 NB=200, then GRID=64 NB=500.
 
 
 ## Execution of the benchmark script
 
-**Note:** benchmarks script should be ran from a container shell, otherwise the code will not compile.
-Runs are executed from the `results` folder:
+**Note:** if you are using the Singularity container, make sure to
+use the Singularity shell set up previously.
+
+First, reach the results folder, which contains our benchmarking script.
 
 ```
    cd ${OPTITRUST}/case_studies/pic/results
 ```
 
-An example command line, just to make sure that everything runs fine.
+As example command line, just to make sure that everything runs fine, try:
 
 ```
    CORES=4 CPULIST="0,1,2,3" COMP=icc GRID=8 NB=2 STEPS=10 RUNS=2 \
@@ -303,7 +355,7 @@ where:
 - `SEED` if you want to use the same random seed for every run, as opposed to using a different one for each run (e.g. `SEED=0`).
 
 
-Note that our code, like Barsamian's code, initializes particles using a single core.
+Remark: our code, like Barsamian's code, initializes particles using a single core.
 Overall, the initialization process generally takes the same order of magnitude of
 time as the parallel processing of the particles.
 
@@ -315,14 +367,15 @@ Make sure to adjust the CPULIST as explained previously.
 You can adjust the number of runs.
 You can also reduce the number of particles, if you RAM is limited.
 
-As explained further on, throughput results can vary very significantly
-from a machine to the next.
+Throughput results can vary very significantly from a machine to the next.
 Larger number of particles lead to better throughput, because the time
 needed to process the grid at each time step becomes relatively smaller.
 
 
 Machine #3: Example command line for a 4-core laptop with 32GB RAM or more.
-You can reduce to RUNS=3. Possibly set an arbitrary seed, e.g. SEED=42.
+You can reduce to RUNS=3. Possibly set an arbitrary seed, e.g. SEED=42, if
+you want to fix the initial distribution of particles, and measure the
+variance of the execution time for a same simulation.
 A run typically takes less than 10 minutes.
 
 ```
@@ -342,7 +395,8 @@ Machine #1:
 Example command line for a 36-core chip, with 2 NUMA nodes of 18 cores each.
 With `NB=2000`, a single evaluation can take an hour.
 With 10 runs it can take a full day.
-You can reduce to RUNS=3. Possibly set an arbitrary seed, e.g. SEED=42.
+You can reduce to RUNS=3 or even RUNS=1.
+Possibly set an arbitrary seed, e.g. SEED=42.
 
 ```
    CORES=18 CPULIST="1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35" \
@@ -365,8 +419,9 @@ Each row contains four columns:
 - the simulation arguments, and the program name: `pic_barsamian` is the baseline, `pic_optimized` is ours.
 
 
-```
+Here is an example summary:
 
+```
 ====Summary : Exectime / Throughput / ThroughputPerCore / Run =====
 189.376	105.6	26.4	beg/results_cores4_icc_grid64_nb200_steps100_seed0_run0_pic_barsamian_single.txt
 170.756	117.1	29.2	beg/results_cores4_icc_grid64_nb200_steps100_seed0_run0_pic_optimized_single.txt
@@ -412,7 +467,7 @@ To install VirtualBox it in Ubuntu just run:
 To run our VM just open VirtualBox then navigate to File, Import Appliance .. , find OptiTrust.ova. Then specify the CPU-s and RAM that you want to be allocated for the VM and click Import button. Finally, after a successful import you can run the VM by clicking start
 
 After the VM has started run first the script `install.sh` and then the script `watch.sh`.
-The first one will download OptiTrust and the second one will enable the watch. 
+The first one will download OptiTrust and the second one will enable the watch.
 Now we are ready to open vscode and open pic_demo.ml file to generate the diffs similar to the ones on our paper.
 
 <!--
