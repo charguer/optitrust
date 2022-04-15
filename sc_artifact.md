@@ -48,6 +48,37 @@ processors,” in 24th International Conference on Parallel and Dis-
    tributed Computing (Euro-Par), ser. Lecture Notes in Computer Science,
    vol. 11014. Springer, Cham, 2018, pp. 749–763
 
+
+## Updated results for machine (3)
+
+For machine #3, the results that we reported in the submission are:
+
+- Orig: 18.2 million particles per second per core,
+- Ours: 21.2, which corresponds to a 16.5% improvement.
+
+We realized after the deadline that for this machine we had not been using
+the right `--cpu-list` argument to `taskset`. Indeed, a coauthor had been
+confused by the new version of `lstopo` which, unlike previous versions,
+displays by default to the the front , for each processing unit, the
+logical identifier instead of the physical identifier. We re-ran the
+experiment using the appropriate `--cpu-list` and obtained faster executions,
+as expected. The updated results are:
+
+- Orig: 24.3 million particles per second per core,
+- Ours: 27.6, which corresponds to a 13.7% improvement.
+
+Note that these throughput values are very close to the results from machine (1),
+for which we report 23.2 and 27.6 million particles per second per core,
+for Orig. and Ours, respectively, (for the same grid, but with more particles).
+
+The fact that our initial throughput figures were lower does not affect
+the conclusions of our experiments: our optimized code is at least as
+performant as the baseline code.
+
+Please feel free to share the above explanations with the paper reviewers,
+if deemed appropriate.
+
+
 ## Investment
 
 We expect that some basic performance results can be reproduced in 1 hour.
@@ -98,11 +129,20 @@ and on the ability to pin the physical cores being used (with `taskset`). -->
 ```
 
 ## Benchmarking using a cached copy of our output program:
+
 Let's start by downloading and extracting the archive that contains the source code and the benchmark scripts:
 
 ```
-Arthur is going to add here two lines after he uploads the archive in his website
+   wget http://www.chargueraud.org/research/2022/sc_optitrust/optitrust.tar.gz
+   tar -xzf optitrust.tar.gz
 ```
+
+Then make sure to set the environment variable for the rest of the experiments.
+```
+   cd optitrust
+   export OPTITRUST=`pwd`
+```
+
 Assuming that singularity was installed, on the same directory where the archive
 was extracted, our singularity image can be downloaded by running:
 ```
@@ -114,21 +154,20 @@ Then open a shell inside the container:
 ```
   singularity shell optitrust.sif
 ```
-This will open a shell on the current directory but with all the libraries being loaded from the container. If the image is not on the same directory as `optitrust` folder then you will need to export the path to the `optitrust` directory:
 
-```
-  export OPTITRUST=PATH_TO_OPTITRUST
-```
-then navigate to the benchmark directory:
+This will open a shell on the current directory but with all the libraries being loaded from the container. Then navigate to the benchmark directory:
 ```
    cd ${OPTITRUST}/case_studies/pic/results
 
    ./update_by_copy.sh
 ```
-<!-- TODO: If building optitrust works then we can replace update_by_copy.sh with update.sh -->
 
-The effect is to copy our cached file `${OPTITRUST}/demo/pic_demo_single_exp.cpp` into the file
-`${OPTITRUST}/case_studies/pic/simulations`
+The effect of the above command is to copy our cached file `${OPTITRUST}/demo/pic_demo_single_exp.cpp` into the file
+`${OPTITRUST}/case_studies/pic/simulations`.
+
+We show further on how to generate the file that corresponds
+to the optimized program, instead of using the cached copy.
+
 
 ## Figure out the IDs of the cores that should be assigned to the execution
 
@@ -639,4 +678,9 @@ The socket hosts a Intel(R) Core(TM) i7-8665U CPU, running at 1.90GHz, with 32GB
 
 The system is Ubuntu 20.04.4 LTS(focal), 5.4.0-80-generic.
 The version of ICC is 2021.5.0.
+
+
+
+
+
 
