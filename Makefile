@@ -51,3 +51,13 @@ clean:
 
 watch:
 	nohup .vscode/watch.sh >/dev/null 2>&1
+
+
+PDFS := $(patsubst %.md, %.pdf, $(wildcard *.md))
+
+md: $(PDFS)	
+
+%.pdf: %.md
+	pandoc -V geometry:margin=1in $< -o $@
+
+artifact: sc_artifact.pdf
