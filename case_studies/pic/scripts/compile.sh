@@ -172,7 +172,7 @@ compile_one() {
     #export OMPI_CC=/opt/intel/oneapi/compiler/latest/linux/bin/intel64/icc
     source /opt/intel/oneapi/setvars.sh > /dev/null
     #-qopt-report=vec -qopt-report=1
-    mpiicc ${COMPILE_ARGS} -qopenmp -o run${id_run}/${BASENAME}.out
+    mpiicc ${COMPILE_ARGS} -no-multibyte-chars -qopenmp -o run${id_run}/${BASENAME}.out
   else
     echo "invalid compiler parameter: ${COMPILER}."
     exit 1

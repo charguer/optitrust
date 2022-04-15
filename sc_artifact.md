@@ -156,7 +156,8 @@ Then open a shell inside the container:
   singularity shell optitrust.sif_1.0.5.sif
 ```
 
-This will open a shell on the current directory but with all the libraries being loaded from the container. Then navigate to the benchmark directory:
+This will open a shell on the current directory but with all the libraries being loaded from the container.
+Then navigate to the benchmark directory:
 
 ```
    cd ${OPTITRUST}/case_studies/pic/results
@@ -198,7 +199,7 @@ On a laptop with 4 physical cores and 32GB of ram, we invoke on the command line
 
 Here is a sample output:
 
-![Numa architecture \label{numa}](sc_artifact_lstopo.png){width=60% height=50%}
+![Sample output of lstopo \label{numa}](sc_artifact_lstopo.png){width=60% height=50%}
 
 In Figure \ref{numa}, we can read the ids of the processing units (PU)
 that we want to use: `CPULIST="0,1,2,3"`.
@@ -225,12 +226,13 @@ The simulation parameters may be bounded by the capabilities of your hardware.
 
 The combinations of paramters used in the paper are:
 
-- GRID=32 NB=200
-- GRID=64 NB=200
-- GRID=64 NB=2000
+- GRID=64 NB=2000 (machine #1)
+- GRID=32 NB=200 (machine #2)
+- GRID=64 NB=200 (machine #3)
 
 
 ## Execution of the benchmark script
+
 **Note:** benchmarks script should be ran from a container shell, otherwise the code will not compile.
 Runs are executed from the `results` folder:
 
@@ -304,6 +306,9 @@ You can reduce to RUNS=3. Possibly set an arbitrary seed, e.g. SEED=42.
 
 
 ## Sample output
+
+During the runs, the programs output only the execution time and the raw throughput (million particles
+per seconds), but not the throughput per core.
 
 At the end, the bench script displays a summary of the results.
 Each row contains four columns:
