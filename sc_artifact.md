@@ -449,7 +449,11 @@ would not compromise the conclusions of the paper.
 
 # Part 2: Execution of the transformation scripts
 
-# Introduction
+## Introduction
+
+
+
+
 To run OptiTrust interactively we have prepared a VM that can be downloaded by running:
 
 ```
@@ -595,14 +599,19 @@ Use buttons to navigate in the big-steps, on in the small steps.
 
 # Part 3: Interactive usage of OptiTrust
 
-It will probably take about 20 minutes to install and configure VScode.
 Feel free to skip this part, which is mostly about setting keybindings,
 and has very little scientific interest.
 
+It will probably take about 20 minutes to install and configure VScode.
+The only point is to check that our keybindings allow for interactive
+development of the tranformation script: F6 shows the diff for a step,
+ALT+F6 shows the diff for a group of steps (a "big step"). The key bindings
+F7 and ALT+F7 are similar but work with respect to a checkpoint previously
+saved using CTRL+F7.
 
 ### Installation of chromium-browser
 
-Our scripts assume this browser, which opens up pages very fast.
+Our scripts assume the Chromium browser, which opens up pages very fast.
 
 ```
    sudo apt-get install chromium-browser
@@ -611,11 +620,12 @@ Our scripts assume this browser, which opens up pages very fast.
 
 ### Installation of VSCode
 
-Click [here](https://go.microsoft.com/fwlink/?LinkID=760868 "Download vscode") file
-and then move to the directory that contains the file and run:
+Download VScode from https://go.microsoft.com/fwlink/?LinkID=760868
+
+Install the .deb package using a commande of the form:
 
 ```
-   sudo dpkg -i code_something.deb
+   sudo dpkg -i code_xxx.deb
 ```
 
 We used Visual Studio Code version 1.63.2, but any recent version should work.
@@ -627,10 +637,16 @@ We provide key bindings for Visual Studio Code (VSCode).
 
 To execute a VSCode task, one may use a keyboard shortcut. This shortcut triggers a
 task defined in `.vscode/tasks.json`, which is part of the repository, unlike
-`keybindings.json`, where bindigs are defined, and which is a user-specific
+`keybindings.json`, where bindings are defined, and which is a user-specific
 configuration file.
 
-In the root folder of OptiTrust, run `code . &` to open VSCode.
+In the root folder of OptiTrust, open VSCode with:
+
+```
+   cd ${OPTITRUST}
+   code . &
+```
+
 To edit the `keybindings.json` file from Visual Studio Code,
 type `Ctrl + Shift + P` to access the command panel and then choose
 "Preferences: Open Keyboard Shortcuts (JSON)". There, replace the empty
@@ -705,8 +721,9 @@ Here is how to open our transformation script:
 
 ### Instructions on how to use the script interactively
 
-To execute a given step, select a line starting with '!!' among the
-first few ones, type `F6` on this should open a browser with the diff.
+To execute a given step, place the cursor on a line starting with '!!' among
+the first few ones, type `F6` on this should open a browser with the diff.
+Type `ALT+F6` to see the diff for the big step containing the cursor.
 
 To work on a selected big-step from the script, it is useful to
 save a local checkpoint. To that end, select a line starting with
