@@ -127,6 +127,52 @@ using the container shell, compared with not using a container.
 
 ```
 
+
+## Dependency installation, without Singularity
+
+### Installation of Intel openAPI toolkit (for the ICC compiler)
+
+(Note: does not work on Ubuntu 16.04, which is too old.)
+
+```
+   wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
+   | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+
+   echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] \
+   https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+
+   sudo apt update && sudo apt upgrade -y
+
+
+   sudo apt install -y intel-hpckit 
+```
+
+### Installation of OpenMPI (only for GCC compiler, which is not needed to reproduce results)
+
+```
+   sudo apt-get install libopenmpi-dev openmpi-bin
+```
+
+### Installation of FFTW (used for the Poison solver, which is part of the PIC simulation)
+
+```
+   sudo apt-get install -y libfftw3-dev
+```
+
+### Installation of jemalloc (for fast multi-thread allocation)
+
+```
+   sudo apt install -y libjemalloc-dev
+```
+
+### Installation of hwloc (strongly recommanded to check your machine topology)
+
+The package `hwloc` provides the command `lstopo` used later on.
+
+```
+   sudo apt install -y hwloc
+```
+
 ## Benchmarking using a cached copy of our output program:
 
 Let's start by downloading and extracting the archive that contains the source code and the benchmark scripts:
@@ -344,6 +390,26 @@ would not compromise the conclusions of the paper.
 # Part 2: Execution of the transformation scripts
 
 # Introduction
+To run OptiTrust interactively we have prepared a VM that can be downloaded by running:
+
+```
+  wget http://www.chargueraud.org/research/2022/sc_optitrust/OptiTrust.ova
+```
+
+To install VirtualBox it in Ubuntu just run:
+
+```
+  sudo apt-get install virtualbox
+```
+
+**Note:** Skip the following instructions if you're already familiar with VirtualBox.
+
+To run our VM just open VirtualBox then navigate to File, Import Appliance .. , find OptiTrust.ova. Then specify the CPU-s and RAM that you want to be allocated for the VM and click Import button. Finally, after a successful import you can run the VM by clicking start
+
+After the VM has started run first the script `install.sh` and then the script `watch.sh`.
+The first one will download OptiTrust and the second one will enable the watch. 
+Now we are ready to open vscode and open pic_demo.ml file to generate the diffs similar to the ones on our paper.
+
 <!--
 UNFORTUNATELY: IT'S NOT CONSISTENT ENOUGH
 Before you move on we would suggest to try running OptiTrust interactively from the container.
@@ -357,6 +423,8 @@ To do that you could skip the instructions for installing OptiTrust on your mach
 
 this command will load the `opam` environment that contains all the libraries needed to run `OptiTrust`.
 Navigate to the optitrust directory and install it inside the container. Finally VSCode should be installed and configured as documented on the next step. If that doesn't work then you will have to install OptiTrust with all its dependencies in your operating system(Ubuntu 18.04 and later). -->
+
+**Note:** This part can be skipped if you used the VM to run and test OptiTrust.
 
 In this second part, we explain how to install the tooling for generating,
 using OptiTrust, our `pic_optimized` program, starting from the totally
