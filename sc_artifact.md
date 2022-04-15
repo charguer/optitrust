@@ -57,7 +57,7 @@ the required software, then performing 3 runs of less than 10 minutes each.
 Full-scale experiments can take several hours to run, but can be executed
 in the background, on a multicore server(with Singularity already installed).
 
-Disclaimer: No significant performance dropout is expected when the benchmark 
+Disclaimer: No significant performance dropout is expected when the benchmark
 script is executed from the container shell.
 
 
@@ -103,7 +103,7 @@ Let's start by downloading and extracting the archive that contains the source c
 ```
 Arthur is going to add here two lines after he uploads the archive in his website
 ```
-Assuming that singularity was installed, on the same directory where the archive 
+Assuming that singularity was installed, on the same directory where the archive
 was extracted, our singularity image can be downloaded by running:
 ```
   singularity pull library://begatim01/bench/optitrust.sif:1.0.3
@@ -300,48 +300,11 @@ to the manually optimized code. Technically, even small negative values, e.g. -3
 would not compromise the conclusions of the paper.
 
 
-## Stream benchmark performance
-
-The PIC simulation is memory bound. Hence, to interpret the performance, Barsamian et al.
-compare the throughput of the program relative to the peak memory bandwidth that can be
-achieved in practice. They report achieving 55% of that "practical peak".
-
-Here is how to run the stream benchmark. It takes only a few seconds.
-
-```
-   cd ${OPTITRUST}/case_studies/pic/Stream-test
-   COMP=icc SIZE=20000000 CORES=4 CPULIST="0,1,2,3" ./stream.sh
-```
-
-Sample output:
-
-```
-Function    Best Rate MB/s  Avg time     Min time     Max time
-Copy:           24197.4     0.053340     0.052898     0.055104
-Scale:          16835.2     0.076476     0.076031     0.077138
-Add:            19053.1     0.101586     0.100771     0.103492
-Triad:          18918.7     0.102154     0.101487     0.103861
-```
-
-Reading, e.g., the first value for "Add" gives 19GB/s, using 4-cores.
-Consider, on the same machine, a simulation with 4 cores that achieves a
-total throughput of 100 million particles per second. Because each particle
-takes 36 bytes, and needs to be read and written at least once at each
-step, the throughput is at least 72*100m = 7.2GB/s, which amounts to 38%
-of the practical peak.
-
-Note that here we only take into account memory bandwidth associated with
-particle manipulation, and not that related to the manipulations on the grid.
-To observe a higher percentage closer to 55%, one needs to run simulations
-with 2 million particles, so that the time spent on manipulations of the
-grid become negligeable.
-
-
 # Part 2: Execution of the transformation scripts
 
 # Introduction
-<!-- 
-UNFORTUNATELY: IT'S NOT CONSISTENT ENOUGH 
+<!--
+UNFORTUNATELY: IT'S NOT CONSISTENT ENOUGH
 Before you move on we would suggest to try running OptiTrust interactively from the container.
 To do that you could skip the instructions for installing OptiTrust on your machine and just run the following inside the container shell:
 
@@ -657,8 +620,8 @@ It includes, for programs compiled using icc:
 Machine #1 is a 36-core machine, with two sockets.
 Each socket hosts a 18-core Intel Xeon Gold 6240 chip, running at 2.60GHz, with 96GB of RAM.
 
-The system is CentOS Linux release 7.6.1810 (Core), 3.10.0-957.el7.x86_64
-The version of ICC is icc version 19.0.4.243
+The system is CentOS Linux release 7.6.1810 (Core), 3.10.0-957.el7.x86_64.
+The version of ICC is 19.0.4.243
 
 
 ## Machine (2), with a 10-core socket.
@@ -666,14 +629,14 @@ The version of ICC is icc version 19.0.4.243
 Machine #2 is a 20-core machines, with two sockets.
 Each sockets hosts a 10-core Intel(R) Xeon(R) CPU E5-2650 v3 chip, running at 2.30GHz, with 16GB of RAM per socket.
 
-The system is Ubuntu 18.04.6 LTS (binonic), 4.15.0-143-generic
-The version of ICC is icc version 2021.5.0 (gcc version 11.1.0 compatibility).
+The system is Ubuntu 18.04.6 LTS (binonic), 4.15.0-143-generic.
+The version of ICC is 2021.5.0.
 
 ## Machine (3), with a 4-core socket.
 
 Machine #3 is a 4-core laptop, with a single socket.
 The socket hosts a Intel(R) Core(TM) i7-8665U CPU, running at 1.90GHz, with 32GB of RAM.
 
-The system is Ubuntu 20.04.4 LTS(focal), 5.4.0-80-generic
+The system is Ubuntu 20.04.4 LTS(focal), 5.4.0-80-generic.
 The version of ICC is 2021.5.0.
 
