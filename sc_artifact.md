@@ -2,6 +2,9 @@
 This document explains how to reproduce results form the paper submission entitled
 "OptiTrust: an Interactive Framework for Source-to-Source Transformations"
 
+A clean PDF version of this document is availble from:
+http://www.chargueraud.org/research/2022/sc_optitrust/
+
 
 # Part 1: Reproduce performance comparison
 
@@ -49,7 +52,7 @@ processors,” in 24th International Conference on Parallel and Dis-
    vol. 11014. Springer, Cham, 2018, pp. 749–763
 
 
-## Updated results for machine (3)
+## Updated results for machine #3
 
 For machine #3, the results that we reported in the submission are:
 
@@ -64,8 +67,8 @@ logical identifier instead of the physical identifier. We re-ran the
 experiment using the appropriate `--cpu-list` and obtained faster executions,
 as expected. The updated results are:
 
-- Orig: 24.3 million particles per second per core,
-- Ours: 27.6, which corresponds to a 13.7% improvement.
+- Orig: 24.5 million particles per second per core,
+- Ours: 27.7, which corresponds to a 13.4% improvement.
 
 Note that these throughput values are very close to the results from machine (1),
 for which we report 23.2 and 27.6 million particles per second per core,
@@ -86,16 +89,12 @@ About 15 minutes to read the present documentation, 15 minutes to install
 the required software, then performing 3 runs of less than 10 minutes each.
 
 Full-scale experiments can take several hours to run, but can be executed
-in the background, on a multicore server(with Singularity already installed).
+in the background, on a multicore server, with Singularity already installed.
+We do not expect a significant performance dropout when executing the programs
+using the container shell, compared with not using a container.
 
-Disclaimer: No significant performance dropout is expected when the benchmark
-script is executed from the container shell.
 
-
-<!-- Disclaimer: Running in a virtual machine might have impact on performance,
-and on the ability to pin the physical cores being used (with `taskset`). -->
-
-## Dependency installation
+## Dependency installation, using Singularity
 
 ### Installation of dependencies needed for installing Singularity
 
@@ -138,6 +137,7 @@ Let's start by downloading and extracting the archive that contains the source c
 ```
 
 Then make sure to set the environment variable for the rest of the experiments.
+
 ```
    cd optitrust
    export OPTITRUST=`pwd`
@@ -145,10 +145,11 @@ Then make sure to set the environment variable for the rest of the experiments.
 
 Assuming that singularity was installed, on the same directory where the archive
 was extracted, our singularity image can be downloaded by running:
-```
-  singularity pull library://begatim01/bench/optitrust.sif:1.0.3
 
 ```
+  singularity pull library://begatim01/bench/optitrust.sif:1.0.3
+```
+
 Then open a shell inside the container:
 
 ```
@@ -156,9 +157,9 @@ Then open a shell inside the container:
 ```
 
 This will open a shell on the current directory but with all the libraries being loaded from the container. Then navigate to the benchmark directory:
+
 ```
    cd ${OPTITRUST}/case_studies/pic/results
-
    ./update_by_copy.sh
 ```
 
@@ -232,6 +233,7 @@ The combinations of paramters used in the paper are:
 ## Execution of the benchmark script
 **Note:** benchmarks script should be ran from a container shell, otherwise the code will not compile.
 Runs are executed from the `results` folder:
+
 ```
    cd ${OPTITRUST}/case_studies/pic/results
 ```
@@ -315,17 +317,17 @@ Each row contains four columns:
 ```
 
 ====Summary : Exectime / Throughput / ThroughputPerCore / Run =====
-255.789	78.2	19.5 host/results_cores4_icc_grid64_nb200_steps100_seed0_run0_pic_barsamian_single.txt
-220.433	90.7	22.7 host/results_cores4_icc_grid64_nb200_steps100_seed0_run0_pic_optimized_single.txt
-264.873	75.5	18.9 host/results_cores4_icc_grid64_nb200_steps100_seed1_run1_pic_barsamian_single.txt
-225.921	88.5	22.1 host/results_cores4_icc_grid64_nb200_steps100_seed1_run1_pic_optimized_single.txt
-270.197	74.0	18.5 host/results_cores4_icc_grid64_nb200_steps100_seed2_run2_pic_barsamian_single.txt
-229.249	87.2	21.8 host/results_cores4_icc_grid64_nb200_steps100_seed2_run2_pic_optimized_single.txt
+189.376	105.6	26.4	beg/results_cores4_icc_grid64_nb200_steps100_seed0_run0_pic_barsamian_single.txt
+170.756	117.1	29.2	beg/results_cores4_icc_grid64_nb200_steps100_seed0_run0_pic_optimized_single.txt
+196.828	101.6	25.4	beg/results_cores4_icc_grid64_nb200_steps100_seed1_run1_pic_barsamian_single.txt
+174.462	114.6	28.6	beg/results_cores4_icc_grid64_nb200_steps100_seed1_run1_pic_optimized_single.txt
+205.451	97.3	24.3	beg/results_cores4_icc_grid64_nb200_steps100_seed2_run2_pic_barsamian_single.txt
+177.209	112.9	28.2	beg/results_cores4_icc_grid64_nb200_steps100_seed2_run2_pic_optimized_single.txt
 
 ```
 
 On the sample results above, between the first two runs, the throughput increases from
-78.2 to 90.7, a 16% improvement.
+105.6 to 117.1, a 16% improvement.
 
 The execution time values are highly dependent on the hardware used. Likewise for the throughput values.
 The relative difference between the two code might also vary, depending on the relative
@@ -351,8 +353,8 @@ To do that you could skip the instructions for installing OptiTrust on your mach
   eval $(opam env)
   cd $OPTITRUST
   make install
-
 ```
+
 this command will load the `opam` environment that contains all the libraries needed to run `OptiTrust`.
 Navigate to the optitrust directory and install it inside the container. Finally VSCode should be installed and configured as documented on the next step. If that doesn't work then you will have to install OptiTrust with all its dependencies in your operating system(Ubuntu 18.04 and later). -->
 
@@ -654,7 +656,7 @@ It includes, for programs compiled using icc:
 ```
 
 
-## Machine (1), with a 18-core socket.
+## Machine #1, with a 18-core socket.
 
 Machine #1 is a 36-core machine, with two sockets.
 Each socket hosts a 18-core Intel Xeon Gold 6240 chip, running at 2.60GHz, with 96GB of RAM.
@@ -663,7 +665,7 @@ The system is CentOS Linux release 7.6.1810 (Core), 3.10.0-957.el7.x86_64.
 The version of ICC is 19.0.4.243
 
 
-## Machine (2), with a 10-core socket.
+## Machine #2, with a 10-core socket.
 
 Machine #2 is a 20-core machines, with two sockets.
 Each sockets hosts a 10-core Intel(R) Xeon(R) CPU E5-2650 v3 chip, running at 2.30GHz, with 16GB of RAM per socket.
@@ -671,7 +673,7 @@ Each sockets hosts a 10-core Intel(R) Xeon(R) CPU E5-2650 v3 chip, running at 2.
 The system is Ubuntu 18.04.6 LTS (binonic), 4.15.0-143-generic.
 The version of ICC is 2021.5.0.
 
-## Machine (3), with a 4-core socket.
+## Machine #3, with a 4-core socket.
 
 Machine #3 is a 4-core laptop, with a single socket.
 The socket hosts a Intel(R) Core(TM) i7-8665U CPU, running at 1.90GHz, with 32GB of RAM.

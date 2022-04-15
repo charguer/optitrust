@@ -60,4 +60,4 @@ md: $(PDFS)
 %.pdf: %.md
 	pandoc -V geometry:margin=1in $< -o $@
 
-artifact: sc_artifact_backup.pdf
+artifact: sc_artifact.pdf
