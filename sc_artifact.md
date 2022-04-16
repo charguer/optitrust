@@ -535,6 +535,7 @@ you need to export the path to the OptiTrust folder.
 ```
    # From the root folder of OptiTrust
    export OPTITRUST=`pwd`
+   eval $(opam env)
 ```
 
 All the commands in the following steps are to be executed in the `/demo` folder.
@@ -555,7 +556,6 @@ Then copy the input source files over from the `../case_studies/pic` folder usin
 command:
 
 ```
-   eval $(opam env)
    make import 
 ```
 
