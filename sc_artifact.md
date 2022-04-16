@@ -2,7 +2,7 @@
 A clean PDF version of this document is available from:
 http://www.chargueraud.org/research/2022/sc_optitrust/
 
-This document explains how to reproduce results form the paper submission entitled
+This document explains how to reproduce results from the paper submission entitled
 "OptiTrust: an Interactive Framework for Source-to-Source Transformations".
 
 # Part 1: Reproduction of the performance comparison
@@ -238,8 +238,8 @@ that packages the necessary dependencies, download our singularity image,
 and launch a shell for our singularity container.
 
 ```
-   singularity pull library://begatim01/bench/optitrust.sif:1.0.5
-   singularity shell optitrust.sif_1.0.5.sif
+   singularity pull library://begatim01/bench/optitrust.sif:latest
+   singularity shell optitrust.sif_latest.sif
 ```
 
 Regardless of whether you use Singularity or not, execute the following
@@ -548,7 +548,8 @@ copy the source code over from the `../case_studies/pic` folder using the
 command:
 
 ```
-   make init
+   eval $(opam env)
+   make import 
 ```
 
 ## Execution of our transformation script
