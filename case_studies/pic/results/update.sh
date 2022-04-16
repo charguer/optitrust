@@ -4,7 +4,7 @@
 #   recompiles the pic_optimized.c file
 
 cd ../../../demo
-make init
+make import
 
 make optim
 make optim_single

@@ -241,6 +241,13 @@ and launch a shell for our singularity container.
    singularity pull library://begatim01/bench/optitrust.sif:latest
    singularity shell optitrust.sif_latest.sif
 ```
+alternatively:
+
+```
+  wget http://www.chargueraud.org/research/2022/sc_optitrust/optitrust.sif_latest.sif  
+  singularity shell optitrust.sif_latest.sif
+
+```
 
 Regardless of whether you use Singularity or not, execute the following
 instructions to set the environment variable, navigate to the benchmark
@@ -248,6 +255,7 @@ directory.
 
 ```
    export OPTITRUST=`pwd`
+   eval $(opam env)
    cd ${OPTITRUST}/case_studies/pic/results
 ```
 
@@ -257,7 +265,7 @@ benchmarking our generated code independently of the process of generating
 our code (this process is explained further on).
 
 ```
-   ./update_by_copy.sh
+   ./update.sh
 ```
 
 
