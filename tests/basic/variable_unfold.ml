@@ -11,16 +11,18 @@ int main() {
   int r = a + a + b;
 }
 "
-
 let _ = Run.script_cpp (fun _ ->
 
   (* for variables *)
   !! Variable_basic.unfold ~at:[cVarDef "b"] [cVarDef "a"];
+  
+  (* for references *)
+  !! Variable_basic.unfold [cVarDef "e"];
 
   (* for functions *)
   !! Variable_basic.unfold [cFunDef "f"];
 
-  (* failutre for non const variables *)
+  (* failure for non const variables *)
   !! Tools.failure_expected (fun () ->
             Variable_basic.unfold [cVarDef "c"];)
 )

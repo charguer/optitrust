@@ -189,7 +189,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
                 | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
                 | e -> raise e in
              if !success_attach then begin
-                Variable.inline ~delete:true [new_target];
+                Variable.inline [new_target];
                 Variable.inline_and_rename [Target.nbAny; Target.cVarDef !resname];
                 if not keep_res then begin try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> () end;
                 Marks.remove "__inline_instruction" [Target.nbAny;Target.cMark "__inline_instruction" ] end

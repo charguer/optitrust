@@ -1,4 +1,5 @@
 open Ast
+open Target
 
 include Variable_basic
 
@@ -42,8 +43,8 @@ let map f = function
     { H } expr { fun r' => [r' = r] * H } with H beeing the local invariant
     If applied on non const variable, the variable must additionaly not have
     been mutated between the replacement point and its initialization. *)
-let fold ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.target) : unit =
-  Target.iter_on_targets (fun t p ->
+let fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : unit =
+  iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_let (vk, (_, tx), _) ->
@@ -51,12 +52,12 @@ let fold ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.targ
       begin match ty.typ_desc with
       (* If the declared variable has a refernce type checking its mutability is not needed*)
       | Typ_ptr _ when trm_annot_has Reference tg_trm ->
-        Variable_basic.fold ~at (Target.target_of_path p)
+        Variable_basic.fold ~at (target_of_path p)
       (* In other cases we need to check the mutability of the variable *)
       | _ -> begin match vk with
-            | Var_immutable -> Variable_basic.fold ~at (Target.target_of_path p)
+            | Var_immutable -> Variable_basic.fold ~at (target_of_path p)
             | _ -> if nonconst = true
-                then Variable_basic.fold ~at (Target.target_of_path p)
+                then Variable_basic.fold ~at (target_of_path p)
                 else
                   fail tg_trm.loc "fold: if you want to use fold for mutable variables you should set
                             ~nonconst to true when calling this transformation"
@@ -68,9 +69,9 @@ let fold ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.targ
 (* [insert_and_fold] expects [tg] to point at a relative location, then it inserts a new variable declaration at that location.
     The new declared variable is [name] with typ [typ] and value [value]. This variable will be folded everywhere on the ast nodes
     that come after the declared variable. *)
-let insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value : trm) (tg : Target.target) : unit =
+let insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value : trm) (tg : target) : unit =
   Variable_basic.insert ~reparse:true ~name ~typ ~value tg;
-  Variable_basic.fold [Target.cVarDef name]
+  Variable_basic.fold [cVarDef name]
 
 (* [delocalize var ~into ~mark ~arr_size ~neutral_element fold_operation tg]
     expects the target [tg] to point at a for loop. Then it will surround this loop with a @nobrace
@@ -132,12 +133,12 @@ let insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value : trm) 
 
 let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
    (ov : var) ~into:(nv : var)
-  ~array_size:(arrs : string) (tg : Target.target) : unit =
+  ~array_size:(arrs : string) (tg : target) : unit =
   let middle_mark = match mark with | None -> Mark.next () | Some m -> m in
   Variable_basic.local_name ~mark:middle_mark ov ~into:nv tg;
-  Variable_basic.delocalize ~index ~array_size:arrs ~ops [Target.cMark middle_mark];
+  Variable_basic.delocalize ~index ~array_size:arrs ~ops [cMark middle_mark];
   begin
-   match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> ()
+   match mark with | None -> Marks.remove middle_mark [cMark middle_mark] | _ -> ()
   end
 
 (* [delocalize ~var ~into ~index ~mark ~ops ~array_size ~intos tg]
@@ -147,25 +148,25 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : local_op
     argument [vars]. *)
 let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
    (ov : var) ~into:(nv : var)  ~array_size:(arrs : string)
-  ~local_vars:(lv : vars) (tg : Target.target) : unit =
+  ~local_vars:(lv : vars) (tg : target) : unit =
   Variable_basic.local_name ~mark ov ~into:nv tg;
-  Variable_basic.delocalize ~index ~array_size:arrs ~ops [Target.cMark mark];
-  Variable_basic.unfold ~at:[Target.cFor index] [Target.nbAny;Target.cVarDef arrs];
-  Loop_basic.unroll ~braces:false [Target.nbMulti ;Target.cFor index];
-  Arrays.to_variables  lv [Target.cVarDef nv];
-  Marks.remove "section_of_interest" [Target.cMark "section_of_interest"]
+  Variable_basic.delocalize ~index ~array_size:arrs ~ops [cMark mark];
+  Variable_basic.unfold ~at:[cFor index] [nbAny;cVarDef arrs];
+  Loop_basic.unroll ~braces:false [nbMulti ;cFor index];
+  Arrays.to_variables  lv [cVarDef nv];
+  Marks.remove "section_of_interest" [cMark "section_of_interest"]
 
 
 (* [intro_pattern_array ~pattern_aux_vars ~const ~pattern_vars ~pattern tg] expects the target [tg] to be pointing to expressions of the form [pattern],
      then it will create an array of coefficients for each [pattern_vars] and replace the current coefficients with array accesses *)
-let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false) ~pattern_vars:(pattern_vars : string ) ~pattern:(pattern : string) (tg : Target.target) : unit =
+let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false) ~pattern_vars:(pattern_vars : string ) ~pattern:(pattern : string) (tg : target) : unit =
   Trace.call (fun t ->
   (* Temporary hack till Arthur enables the usage of the new parser *)
   let str = pattern_vars ^ "==>" ^ pattern_aux_vars ^ "==> " ^ pattern in
   let minimal_index = ref 10000 in (* 10000 is considered as infinity, we assume here that there will no block of code with 10k instructions *)
   let (pattern_vars, pattern_aux_vars, pattern_instr) = Trm_matching.parse_pattern str in
   let path_to_surrounding_seq = ref [] in
-  let paths = Target.resolve_target_with_stringreprs_available tg t in
+  let paths = resolve_target_with_stringreprs_available tg t in
   List.iteri (fun _i p ->
     let path_to_seq, _ , index  = Internal.get_instruction_in_surrounding_sequence p in
     if !path_to_surrounding_seq = [] then path_to_surrounding_seq := path_to_seq
@@ -175,26 +176,26 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
   let nb_paths = List.length paths in
   let nb_vars = List.length pattern_vars in
   let all_values = Array.make_matrix nb_vars nb_paths (trm_unit ()) in
-  Target.iteri_on_targets (fun id_path _ p ->
-    let inst = Trm_matching.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Tools.unsome (Target.get_trm_at (Target.target_of_path p))) in
+  iteri_on_targets (fun id_path _ p ->
+    let inst = Trm_matching.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Tools.unsome (get_trm_at (target_of_path p))) in
     let values = Trm_matching.tmap_to_list pattern_vars (Trm_matching.tmap_filter_keys pattern_vars inst) in
     List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v) values;
     let inst = List.map (fun (x, _) -> get_array_access (trm_var_possibly_mut ~const x) (trm_int id_path)) pattern_vars in
     let new_inst = Trm_map.empty in
     let new_inst = List.fold_left2 (fun acc (x, _) y -> Trm_map.add x y acc) new_inst pattern_vars inst in
     let new_t = Internal.subst new_inst pattern_instr in
-    Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> new_t) t p) (Target.target_of_path p)
+    apply_on_targets (fun t p -> apply_on_path (fun _ -> new_t) t p) (target_of_path p)
   ) tg;
   let vk = if const then Var_immutable else Var_mutable in
   let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array vk (x, typ_double ()) (Const nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
   Internal.nobrace_remove_after (fun _ ->
-    Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tBefore] @ (Target.target_of_path !path_to_surrounding_seq) @ [Target.dSeqNth !minimal_index]))
+    Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([tBefore] @ (target_of_path !path_to_surrounding_seq) @ [dSeqNth !minimal_index]))
   )
 
 (* [detach_if_needed tg] expects the target [tg] to be pointing at a variable declaration, then it will check if was 
     already initialized or not, if that's the case than it will deatch that declaration, otherwise no change is applied*)
-let detach_if_needed (tg : Target.target) : unit =
-  Target.iter_on_targets (fun t p ->
+let detach_if_needed (tg : target) : unit =
+  iter_on_targets (fun t p ->
     let decl_t  = Path.resolve_path p t in
     match decl_t.desc with
     | Trm_let(vk,(_, _), init) ->
@@ -203,7 +204,7 @@ let detach_if_needed (tg : Target.target) : unit =
       | _ ->
         begin match init.desc with
         | Trm_apps (_,[_init]) ->
-          Variable_basic.init_detach (Target.target_of_path p)
+          Variable_basic.init_detach (target_of_path p)
         | _ -> ()
         end
       end
@@ -214,16 +215,16 @@ let detach_if_needed (tg : Target.target) : unit =
     remove that declaration and replace all its occurrences with [space]
 
    @correctness: correct if the previous variable space was never read after the reuse point. *)
-let reuse ?(reparse : bool = false) (space : trm) : Target.Transfo.t =
-  Target.reparse_after ~reparse (Target.iter_on_targets (fun t p ->
+let reuse ?(reparse : bool = false) (space : trm) : Transfo.t =
+  reparse_after ~reparse (iter_on_targets (fun t p ->
       let decl_t = Path.resolve_path p t in
       begin match decl_name decl_t with
       | Some x ->
         let _path_to_seq, _,_ = Internal.get_instruction_in_surrounding_sequence p in
-        Marks.add "reuse_mark" (Target.target_of_path p);
-        detach_if_needed [Target.cMark "reuse_mark"];
-        Instr_basic.delete [Target.cMark "reuse_mark"];
-        Variable_basic.subst ~subst:x ~put:space (Target.target_of_path _path_to_seq)
+        Marks.add "reuse_mark" (target_of_path p);
+        detach_if_needed [cMark "reuse_mark"];
+        Instr_basic.delete [cMark "reuse_mark"];
+        Variable_basic.subst ~subst:x ~put:space (target_of_path _path_to_seq)
       | None -> fail decl_t.loc "reuse: could not match the declaration"
       end
       ))
@@ -232,8 +233,8 @@ let reuse ?(reparse : bool = false) (space : trm) : Target.Transfo.t =
     each pair has the current variable and the one that is going to replace it.
     Or AddSuffix s, in this case all the variables declared inside the targeted sequence
      are going to be renamed by adding the suffix [s] at the end of its current name. *)
-let renames (rename : rename) : Target.Transfo.t =
-  Target.iter_on_targets (fun t p ->
+let renames (rename : rename) : Transfo.t =
+  iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_seq tl ->
@@ -252,9 +253,38 @@ let renames (rename : rename) : Target.Transfo.t =
           end) decl_vars
 
       end in
-      List.iter2 (fun d into -> Variable_basic.rename ~into ((Target.target_of_path p) @  [Target.cVarDef d])) decl_vars new_decl_vars
+      List.iter2 (fun d into -> Variable_basic.rename ~into ((target_of_path p) @  [cVarDef d])) decl_vars new_decl_vars
 
     | _ -> fail tg_trm.loc "renames: the target should be pointing at a sequence" )
+
+
+(*
+  Documentation at basic level of Variable.unfold
+    Applies to a definition [T a = e;]
+    Fails if the definition is not a const or a reference.
+    Replaces [a] with [e] at the desired targets (or everywhere).
+
+
+  Documentation at combi level of Variable.unfold
+
+  1)   T& a = e;
+       Replace all occurences of a with e  (in the scope).
+       (This transformation is always correct, no matter
+       if T is const or not.)
+
+  2)   T const a = e;
+       Replace all occurences of a with e  (in the scope).
+       (This transformation is correct if e makes no side effects,
+        else it's more complicated; it's user responsability.)
+
+  3)   T a = e;
+       We call Variable.to_const beforehand, to make it "T const a = e"
+       (This works if variable a is not modified after its definition,
+       else conversion to const would fail.)
+
+  Documentation at combi level of Variable.inline
+    It is Variable.unfold + delete declaration
+*)
 
 
 (* VERY MUCH LATER: do some checks
@@ -288,7 +318,7 @@ let renames (rename : rename) : Target.Transfo.t =
       int b = f(x++,a);
       => not safe to inline a
     *)
-(* [inline ~accept_functions ~simple_deref ~delete tg] expects the target [tg] to be pointing at a variable declaration.
+(* [unfold ~accept_functions ~simple_deref ~delete tg] expects the target [tg] to be pointing at a variable declaration.
     If the variable has a struct type then a mark is created and passed as an argument to Variable_basic.unfold
       on the next step, otherwise no mark needs to be created.
       We consider the following cases:
@@ -301,10 +331,10 @@ let renames (rename : rename) : Target.Transfo.t =
           Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is non valid C code.
           After calling Struct_basic.simpl_proj {0, 1}.x becomes 0 .
           Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them. *)
-let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(delete : bool = true): Target.Transfo.t =
-  Target.iter_on_targets (fun t p ->
+let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(delete : bool = true) ?(at : target = []): Transfo.t =
+  iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
-    let tg_decl = Target.target_of_path p in
+    let tg_decl = target_of_path p in
     match tg_trm.desc with
     | Trm_let (vk, (x, _tx), init) ->
 
@@ -313,26 +343,30 @@ let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
           if is_struct_init init then Mark.next() else ""
       | _ -> fail tg_trm.loc "inline: you should never try to inline uninitialized variables"
       end in
-
       begin match vk with
       | Var_immutable ->
         if delete
           then Variable_basic.inline ~mark ~accept_functions tg_decl
-          else Variable_basic.unfold ~mark ~accept_functions tg_decl
+          else Variable_basic.unfold ~mark ~accept_functions ~at tg_decl
       | Var_mutable ->
         if not (trm_annot_has Reference tg_trm) then Variable_basic.to_const tg_decl;
-        if delete
+        if trm_annot_has Reference tg_trm 
           then Variable_basic.inline ~mark ~accept_functions tg_decl
-          else Variable_basic.unfold ~mark ~accept_functions tg_decl
+          else if delete
+            then Variable_basic.inline ~mark ~accept_functions tg_decl
+          else Variable_basic.unfold ~mark ~accept_functions ~at tg_decl
       end;
      if mark <> "" then begin
-       Struct_basic.simpl_proj [Target.nbAny; Target.cFieldAccess ~base:[Target.cMark mark] ()];
+       Struct_basic.simpl_proj [nbAny; cFieldAccess ~base:[cMark mark] ()];
        if simpl_deref
-         then Variable_basic.simpl_deref [Target.nbAny; Target.cRead ~addr:[Target.cMark mark] ()];
-       Marks.remove mark [Target.nbAny; Target.cMark mark]
+         then Variable_basic.simpl_deref [nbAny; cRead ~addr:[cMark mark] ()];
+       Marks.remove mark [nbAny; cMark mark]
      end
     | _ -> fail t.loc "inline: expected a target to a variable declaration"
   )
+
+let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) : Transfo.t =
+  unfold ~accept_functions ~simpl_deref ~delete:true 
 
 
 (* [inline_and_rename tg] expects the target [tg] to be poiting at a variable declaration with an initial value
@@ -343,14 +377,14 @@ let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
     Assumption:
       if the target [tg] points to the following instruction int y = x; then
       no occurrence of x appears after that instruction *)
-let inline_and_rename : Target.Transfo.t =
-  Target.iter_on_targets (fun t p ->
+let inline_and_rename : Transfo.t =
+  iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
-    let tg_scope = Target.target_of_path path_to_seq in
+    let tg_scope = target_of_path path_to_seq in
     match tg_trm.desc with
     | Trm_let (vk, (y, ty), init) ->
-        let spec_target = tg_scope @ [Target.cVarDef y] in
+        let spec_target = tg_scope @ [cVarDef y] in
         begin match get_init_val init with
         | Some v ->
           begin match v.desc with
@@ -387,8 +421,8 @@ let inline_and_rename : Target.Transfo.t =
 (* [elim_redundant ~source tg] expects the target [tg] to be pointing at a variable declaration with an initial value being
     the same as the variable declaration where [source] points to. Then it will fold the variable at [source] into
     the variable declaration [tg] and inline the declaration in [tg] *)
-let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
-  Target.iteri_on_targets (fun i t p ->
+let elim_redundant ?(source : target = []) : Transfo.t =
+  iteri_on_targets (fun i t p ->
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
     let seq_trm = Path.resolve_path path_to_seq t in
@@ -412,7 +446,7 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
           end
        else
         begin
-          let source_paths = Target.resolve_target source t in
+          let source_paths = resolve_target source t in
           let source_decl_trm = match List.nth_opt source_paths i with
             | Some p -> Path.resolve_path p t
             | None -> fail t.loc "elim_redundant: the number of source targets  should be equal to the number of the main targets" in
@@ -421,8 +455,8 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
             source_var := y
           | _ -> fail source_decl_trm.loc "elim_redundant: the soource target should point to a variable declaration"
         end;
-        Variable_basic.fold ~at:([Target.cVarDef x]) ((Target.target_of_path path_to_seq) @ [Target.cVarDef !source_var]);
-        inline ~delete:true ((Target.target_of_path path_to_seq) @ [Target.cVarDef x])
+        Variable_basic.fold ~at:([cVarDef x]) ((target_of_path path_to_seq) @ [cVarDef !source_var]);
+        inline ((target_of_path path_to_seq) @ [cVarDef x])
     | _ -> fail tg_trm.loc "elim_redundant: the main target should point to the declaration of the variable you want to eliminate"
 
   )
@@ -431,23 +465,23 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
 (* [insert ~constr name typ value tg] expects the target [tg] to point at a location in a sequence
     then it wil insert a new variable declaration with name: [name] and type:[typ] and initialization value [value].
     This transformation is basically the same as the basic one except that this has a default value for the type argument. *)
-let insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ = typ_auto ()) ~name:(name : string) ?(value : trm = trm_uninitialized()) : Target.Transfo.t =
+let insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ = typ_auto ()) ~name:(name : string) ?(value : trm = trm_uninitialized()) : Transfo.t =
  Variable_basic.insert ~const ~reparse ~name ~typ ~value
 
 (* [insert_list ~const names typ values tg] expects the target [tg] to be poiting to a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value] *)
-let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) : Target.Transfo.t =
+let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) : Transfo.t =
   let defs = List.rev defs in
-  Target.reparse_after ~reparse (fun tg ->
+  reparse_after ~reparse (fun tg ->
     List.iter (fun (typ, name, value) ->
       (* This check is needed to avoid the parentheses in the case when the value of the vairbale is a simple expression  *)
       insert ~const ~name ~typ:(AstParser.ty typ) ~value tg) (List.rev defs)
 )
 
 (* [insert_list_same_type typ name_vals tg] insert a list of variables with type [typ] and name and value give as argument in [name_vals]*)
-let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (string * trm) list) : Target.Transfo.t = 
+let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (string * trm) list) : Transfo.t = 
   let const = false in 
-  Target.reparse_after ~reparse (fun tg ->
+  reparse_after ~reparse (fun tg ->
     List.iter (fun (name, value) ->
       insert ~const ~name ~typ ~value tg) name_vals)
 

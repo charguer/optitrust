@@ -1,27 +1,12 @@
-#include <omp.h>  // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
-
-#include <stdlib.h>
-
-#include <stdio.h>
-
 #include <math.h>
-
-#include "mymacros.h"
-
-#include "mymacros.h"
-
+#include <omp.h>  // functions omp_get_wtime, omp_get_num_threads, omp_get_thread_num
+#include <omp.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 
-#include <stdbool.h>
-
-#include <stdio.h>
-
-#include <stdio.h>
-
-#include <omp.h>
-
+#include "mymacros.h"
 #include "pic_demo_aux.h"
-
 #include "stdalign.h"
 
 inline int MINDEX1(int N1, int i1) { return i1; }
@@ -414,11 +399,17 @@ inline coord coordOfCell(int idCell) {
   return (coord){iX, iY, iZ};
 }
 
-typedef struct { int v[8]; } int_nbCorners;
+typedef struct {
+  int v[8];
+} int_nbCorners;
 
-typedef struct { double v[8]; } double_nbCorners;
+typedef struct {
+  double v[8];
+} double_nbCorners;
 
-typedef struct { vect v[8]; } vect_nbCorners;
+typedef struct {
+  vect v[8];
+} vect_nbCorners;
 
 int_nbCorners indicesOfCorners(int idCell) {
   const coord coord = coordOfCell(idCell);
@@ -732,14 +723,6 @@ const int PRIVATE = 0;
 const int SHARED = 1;
 
 void step() {
-  const double factorC =
-      particleCharge * (stepDuration * stepDuration) / particleMass;
-  const double factorX =
-      particleCharge * (stepDuration * stepDuration) / particleMass / cellX;
-  const double factorY =
-      particleCharge * (stepDuration * stepDuration) / particleMass / cellY;
-  const double factorZ =
-      particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
 #pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
@@ -766,11 +749,17 @@ core:
                     vect_nbCorners field_at_corners;
                     for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
                       field_at_corners.v[idCorner].x =
-                          field[indices.v[idCorner]].x * factorX;
+                          field[indices.v[idCorner]].x *
+                          (particleCharge * stepDuration * stepDuration /
+                           particleMass / cellX);
                       field_at_corners.v[idCorner].y =
-                          field[indices.v[idCorner]].y * factorY;
+                          field[indices.v[idCorner]].y *
+                          (particleCharge * stepDuration * stepDuration /
+                           particleMass / cellY);
                       field_at_corners.v[idCorner].z =
-                          field[indices.v[idCorner]].z * factorZ;
+                          field[indices.v[idCorner]].z *
+                          (particleCharge * stepDuration * stepDuration /
+                           particleMass / cellZ);
                     }
                     bag* b = &bagsCur[idCell];
                     for (chunk* c = b->front; c != NULL;

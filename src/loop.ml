@@ -434,9 +434,9 @@ let unfold_bound (tg : target) : unit =
     | Trm_for (_, _, _, stop, _, _) ->
       begin match stop.desc with 
       | Trm_var (_, x) ->
-        Variable.unfold ~at:(target_of_path p) [cVarDef x]
+        Variable_basic.unfold ~at:(target_of_path p) [cVarDef x]
       | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation stop -> 
-        Variable.unfold ~at:(target_of_path p) [cVarDef x]
+        Variable_basic.unfold ~at:(target_of_path p) [cVarDef x]
       | _ -> fail tg_trm.loc "unfold_bound: can't unfold loop bounds that are not variables"
       end
     | _ -> fail tg_trm.loc "unfold_bound: expected a target to a simple for loop"
