@@ -33,11 +33,11 @@ let _ = Run.script_cpp (fun () ->
   show [ nbExact 1; cVarDef ~typ_pred:ty_double "" ];
 
   (* Type of arguments *)
-  show [ nbExact 2; cWrite ~typ:"int" () ];
+  show [ nbExact 1; cWrite ~typ:"int" () ];
   show [ nbExact 1; cWrite ~typ:"double" () ];
   show [ nbExact 0; cWrite ~typ:"bool" () ];
   
-  show [ nbExact 2; cPrimFun ~args:[[cHasType "int"]; []] (Prim_binop Binop_set) ];
+  show [ nbExact 1; cPrimFun ~args:[[cHasType "int"]; []] (Prim_binop Binop_set) ];
   show [ nbExact 2; cPrimFun ~args:[[cAnd [[]; [cHasType "int"]]]; []] (Prim_binop Binop_set) ];
 
   show [ nbExact 1; cFunDef ~args:[ [cArg ~typ:"int" ""]; [cArg ""] ] "" ];

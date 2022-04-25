@@ -31,7 +31,7 @@ let _ = Run.script_cpp (fun () ->
 
   show [ nbAny; cFor "i"; sExpr "i++" ];
 
-  show [ nbAny; cFor "i"; dStep; sInstr "i++" ];
+  show [ nbAny; cFor "i"; dForStep; sInstr "i++" ];
 
   show [ nbAny; cFor "i"; sInstr "i++" ];
 

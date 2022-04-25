@@ -11,6 +11,7 @@ TESTS_WORKING := \
 	target_combi.ml \
 	target_multi.ml \
 	target_between.ml \
+	target_type.ml \
 
 NOT_A_TEST := \
 	target_regexp.ml \
@@ -18,7 +19,7 @@ NOT_A_TEST := \
 
 TESTS_TO_FIX := \
 	target_one.ml \
-	target_type.ml \
+	
 
 TESTS := $(TESTS_WORKING)
 
