@@ -249,7 +249,7 @@ let cHasTypeAst (ty : typ) : constr =
 let cHasType (typ : string) : constr =
   cHasTypePred (make_typ_constraint ~typ ())
 
-let with_type ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default)  (tg : target) : target =
+let with_type ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (tg : target) : target =
   if typ = "" && typ_pred == typ_constraint_default 
     then tg
     else begin 
@@ -558,8 +558,7 @@ let dInit : constr =
 *)
 let cWrite ?(lhs : target = [cTrue]) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
   let lhs_typed = with_type ~typ ~typ_pred lhs in
-  let rhs_typed = with_type ~typ ~typ_pred rhs in
-  cPrimPredFun ~args:[lhs_typed; rhs_typed] (fun p -> match p with | Prim_binop Binop_set | Prim_compound_assgn_op _ -> true | _ -> false)
+  cPrimPredFun ~args:[lhs_typed; rhs] (fun p -> match p with | Prim_binop Binop_set | Prim_compound_assgn_op _ -> true | _ -> false)
 
 (* [cRead] matches all the get operations on mutable variables *)
 let cRead ?(addr : target = [cTrue]) () : constr =
@@ -1261,6 +1260,7 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
       else applyi_on_targets (fun _i t _p -> t) tg
   end
 
+(* TODO: Fix me *)
 (* [show_type ~line ~reparse tg] an alias for show with the argument [types] set to true *)
 let show_type ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit = 
   show ~line ~reparse ~types:true tg

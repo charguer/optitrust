@@ -8,7 +8,7 @@ let ty_bool : typ_constraint =
   function { typ_desc = Typ_bool; _ } -> true | _ -> false
 
 
-let _ = Flags.dump_ast_details := false
+let _ = Flags.execute_show_even_in_batch_mode := true
 
 let _ = Run.script_cpp (fun () ->
 
@@ -33,25 +33,13 @@ let _ = Run.script_cpp (fun () ->
   show [ nbExact 1; cVarDef ~typ_pred:ty_double "" ];
 
   (* Type of arguments *)
-  show ~types:true  [ nbExact 7; cVar ~typ:"int" "" ];
-  show_type  [ nbExact 7; cVar ~typ:"int" "" ];
-  show_type [ nbExact 3; cVar ~typ:"double" "" ];
-  show ~types:true  [ nbMulti; cVar ~typ:"bool" "" ];
+  show [ nbExact 2; cWrite ~typ:"int" () ];
+  show [ nbExact 1; cWrite ~typ:"double" () ];
+  show [ nbExact 0; cWrite ~typ:"bool" () ];
   
-  show ~types:true [ nbExact 3; cWrite () ];
-  show ~types:true [ nbExact 5; cWrite (); cHasType "int" ];
-  show [ nbExact 3; cWrite (); cStrict; cHasType "int" ];
-  show [ nbExact 3; cPrimFun ~args:[[]; []] (Prim_binop Binop_set) ];
-
-  (* LATER: fixme  show [ nbExact 3; cPrimFun ~args:[[cVar ""]; []] (Prim_binop Binop_set) ];*)
-  show [ nbExact 2; cPrimFun ~args:[[cVar "i"]; []] (Prim_binop Binop_set) ];
   show [ nbExact 2; cPrimFun ~args:[[cHasType "int"]; []] (Prim_binop Binop_set) ];
   show [ nbExact 2; cPrimFun ~args:[[cAnd [[]; [cHasType "int"]]]; []] (Prim_binop Binop_set) ];
 
-  show [ nbExact 1; cWrite ~typ:"int" () ];
-  show [ nbExact 1; cWrite ~typ_pred:ty_double () ];
-
-  (* Type of arguments *)
   show [ nbExact 1; cFunDef ~args:[ [cArg ~typ:"int" ""]; [cArg ""] ] "" ];
   show [ nbExact 2; cFunDef ~args_pred:(target_list_one_st [ cArg ~typ:"double" "" ]) "" ];
 
