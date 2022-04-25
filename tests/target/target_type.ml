@@ -7,30 +7,37 @@ let ty_double : typ_constraint =
 let ty_bool : typ_constraint =
   function { typ_desc = Typ_bool; _ } -> true | _ -> false
 
-(* TODO: Debug this file *)
+
+let _ = Flags.dump_ast_details := false
 
 let _ = Run.script_cpp (fun () ->
 
   (* This is a demo for the [hasType] constraints and variants *)
 
   (* Type of terms *)
-  show [cFor ""];
-  show [ nbMulti; cFor "j"; cHasType "int" ];  (*LATER: ARTHUR: at some step it says "mark disappears"..*)
+  show [ nbExact 3; cFor ""; cVar "";cHasType "int" ];
+  show [ nbExact 2; cFor "j"; cVar "";cHasType "int" ];
   show [ nbExact 5; cHasTypePred ty_double ];
 
   (* Type of variables occurrence *)
-  show [ nbMulti; cAnd [ [cVar ""]; [ cHasType "int" ] ] ];
-  (* show [ nbExact 5; cVar ~typ:"int" "" ];
-  show [ nbExact 3; cVar ~typ_pred:ty_double "" ]; *)
+  show [ nbExact 7; cVar ""; cHasType "int" ]; (* use cHasType to find all trms of type int *)
+  show [ nbExact 7; cVar ~typ:"int" ""]; (* use named argument ~typ for variable occurrences to replace cHasType *)
+  
+  show [ nbExact 3; cVar ""; cHasTypePred ty_double]; (* use cHasTypePred to find all trms whose type satisfies a given predicate*)
+  show [ nbExact 3; cVar ~typ_pred:ty_double "" ]; (* use named argument ~typ_pred for variable occurrences to replace cHasTypPred *)
+  (* Note: If you pass both ~typ and ~typ_pred arguments to the constructor cVar, the target resolution will fail *)
 
   (* Type of variables definitions *)
-
   show [ nbExact 3; cVarDef "" ];
   show [ nbExact 1; cVarDef ~typ:"double" "" ];
   show [ nbExact 1; cVarDef ~typ_pred:ty_double "" ];
 
   (* Type of arguments *)
-  show ~types:true [ nbMulti; cVar "r" ];
+  show ~types:true  [ nbExact 7; cVar ~typ:"int" "" ];
+  show_type  [ nbExact 7; cVar ~typ:"int" "" ];
+  show_type [ nbExact 3; cVar ~typ:"double" "" ];
+  show ~types:true  [ nbMulti; cVar ~typ:"bool" "" ];
+  
   show ~types:true [ nbExact 3; cWrite () ];
   show ~types:true [ nbExact 5; cWrite (); cHasType "int" ];
   show [ nbExact 3; cWrite (); cStrict; cHasType "int" ];

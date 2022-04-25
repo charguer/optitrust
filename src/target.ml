@@ -250,9 +250,17 @@ let cHasType (typ : string) : constr =
   cHasTypePred (make_typ_constraint ~typ ())
 
 let with_type ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default)  (tg : target) : target =
-  if typ = "" && typ_pred == typ_constraint_default
+  if typ = "" && typ_pred == typ_constraint_default 
     then tg
-    else [cAnd [tg; [cStrictNew; Constr_hastype (make_typ_constraint ~typ ~typ_pred ())]]]
+    else begin 
+      if typ <> "" && typ_pred == typ_constraint_default 
+        then [cAnd [tg; [cHasType typ] ]]
+      else if typ = "" && not (typ_pred == typ_constraint_default) 
+        
+        then [cAnd [tg; [cHasTypePred typ_pred]]] 
+      else 
+        fail None "with_type: type targets should be used with the type or a predicated on the type but not both at the same time"
+    end
 
 let cArgPred ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (pred : string -> bool) : constr =
   Constr_arg (pred, make_typ_constraint ~typ ~typ_pred ())
@@ -560,7 +568,6 @@ let cRead ?(addr : target = [cTrue]) () : constr =
 (* [cReadOrWrite] *)
 let cReadOrWrite ?(addr : target = [cTrue]) () : constr =
   cOr [[cWrite ~lhs:addr ()];[cRead ~addr ()]]
-
 
 
 (* [cWriteVar x] matches a set operation for variable [x] *)
@@ -1253,6 +1260,11 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
       then applyi_on_targets_between (fun _i t (_p,_k) -> t) tg
       else applyi_on_targets (fun _i t _p -> t) tg
   end
+
+(* [show_type ~line ~reparse tg] an alias for show with the argument [types] set to true *)
+let show_type ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit = 
+  show ~line ~reparse ~types:true tg
+
 
 (* [get_trm_at] returns that trm that corresponds to the target [tg]
     Note:
