@@ -545,13 +545,16 @@ let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_l
 let cPrimNew ?(arg : target = []) () : constr =
   cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false)
 
-(* [cInit ~arg ()] matches all the initialization values of variable declarations *)
+(* [cInit] matches a variable initialization value *)
+(* let cInit : constr = 
+  cTarget [cStrictNew; Constr_var_init] *)
+
 let cInit ?(arg:target = []) () : constr =
   cOr [[ cPrimNew ~arg (); dArg 0 ]; [dBody]]
 
-(* [dInit] similar to cInit  but this one doesn't match on depth *)
+(* [dInit] alias to dBody used for variable initializations *)
 let dInit : constr =
-  cTarget [cStrict; cInit ()]
+  dBody
 
 (* [cWrite ~lhs ~rhs ()] matches write operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.

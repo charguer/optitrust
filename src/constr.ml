@@ -150,6 +150,8 @@ and constr =
   | Constr_arg of var_constraint * typ_constraint
   (* Constraint to match ast nodes of types that satisfy the type predicate *)
   | Constr_hastype of typ_constraint
+  (* Constraint to match variable initialization value *)
+  | Constr_var_init 
   (* Constraint to match an array initialization list *)
   | Constr_array_init
   (* Constraint to match an struct initialization list  *)
@@ -419,6 +421,7 @@ let rec constr_to_string (c : constr) : string =
   | Constr_diff (tl1, tl2) -> "Diff (" ^ Tools.list_to_string (List.map target_to_string tl1) ^ "," ^ Tools.list_to_string (List.map target_to_string tl2) ^ ")"
   | Constr_arg _ -> "<Constr_args>"
   | Constr_hastype _ -> "<Constr_hastype>"
+  | Constr_var_init -> "Var_init"
   | Constr_array_init -> "Array_init "
   | Constr_struct_init -> "Struct_init"
   | Constr_omp (_, str) -> "Omp (" ^ str ^ ")"
@@ -553,6 +556,7 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
       Constr_diff (s_tl1, s_tl2)
   | Constr_arg _ -> c
   | Constr_hastype _ -> c
+  | Constr_var_init -> c
   | Constr_array_init -> c
   | Constr_struct_init -> c
   | Constr_omp _ -> c
@@ -954,6 +958,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         end
      | Constr_hastype pred , _ ->
         check_hastype pred t
+     | Constr_var_init , Trm_apps ({desc = Trm_val (Val_prim (Prim_new _)); _}, [arg]) -> false
+     | Constr_var_init, Trm_val (Val_lit (Lit_uninitialized)) -> false
+     | Constr_var_init , _ -> true
      | Constr_array_init, Trm_array _ -> true
      | Constr_struct_init, Trm_struct _ -> true
      | Constr_omp (pred, _), Trm_omp_directive d ->
