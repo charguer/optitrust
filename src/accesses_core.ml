@@ -19,7 +19,7 @@ let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
   | _ -> fail t.loc "Accessses_core.transform_aux: expected either a get or set operation"
 
 
-(* [transform f_get f_set t p]: applies [transform_aux] at the trm [t] with path [p] *)
+(* [transform f_get f_set t p]: applies [transform_aux] at the trm with path [p] *)
 let transform (f_get : trm -> trm) (f_set : trm -> trm) : Target.Transfo.local = 
   Target.apply_on_path (transform_aux f_get f_set)
 

@@ -1,17 +1,16 @@
 open Ast
 
-(* [deg_aux vec_align t]: def_aux vec_align t: add the alignas attribute to the declaration [t]
+(* [deg_aux vec_align t]: def_aux vec_align t: add the alignas attribute to the 
+      declaration [t]
     params:
       [vec_align]: alignment size
-      [t]: ast of the declaration
-    return:
-      ast of the update declaration with the new attribute added *)
+      [t]: ast of the declaration *)
 let def_aux (vec_align : trm) (t : trm) : trm =
   match t.desc with
   | Trm_let (vk, (x, tx), init) ->
     let tx2 = typ_map (fun ty -> typ_align vec_align ty) (get_inner_ptr_type tx) in 
     { t with desc = Trm_let (vk, (x, typ_ptr_generated tx2), init) }
-  | _ -> fail t.loc "def_aux: expected a variable declaration as a target"
+  | _ -> fail t.loc "Align_core.def_aux: expected a variable declaration as a target"
 
 let def (vec_align : trm) : Target.Transfo.local =
   Target.apply_on_path (def_aux vec_align)

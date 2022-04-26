@@ -1,15 +1,10 @@
 
 open Ast
 open PPrint
+open Target
 
 let debug = false
 let debug_rec = false
-
-(* ***********************************************************************************
- * Note: All the intermediate functions which are called from [sequence.ml] file      *
- * have only one purpose, and that is targeting the trm in which we want to apply the *
- * transformation. That's why there is not need to document them.                     * 
-*)
 
 let mark_nosimpl = "__arith_core_nosimpl"
 
@@ -20,46 +15,52 @@ type arith_op =
   | Arith_shift
   | Arith_scale
 
-(* [shift_aux neg pre_cast post_cast u t]: shift or scale the right hand side of a set operation with term [u]
-    params:
-      [aop]: a flag to decide if the arithmetic operation, should be Arith_scale or Arith_shift
-      [neg]: a flag for the sign(plus or minus) of shifting
-      [pre_cast]: casting of type [pre_cast] performed on the right hand side of the set operation before shifting is applied
-      [post_cast]: casting of type [post_cast] performed after shifting is done
-      [u]: shift size
-      [t]: the ast of teh set operation
-    return:
-      updated ast of the set operation *)
-let transform_aux (aop : arith_op) (inv : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) (t : trm) : trm =
+(* [transform_aux aop inv pre_cast post_cast u t]: shift or scale the right hand 
+    side of a set operation with term [u]
+   params:
+    [aop]: a flag to decide if the arithmetic operation should be Arith_scale or Arith_shift
+    [inv]: a flag for the sign(plus or minus) of shifting
+    [pre_cast]: casting of type [pre_cast] performed on the right hand side of the 
+      set operation before shifting 
+    [post_cast]: casting of type [post_cast] performed after shifting 
+    [u]: shift size
+    [t]: the ast of the set operation *)
+let transform_aux (aop : arith_op) (inv : bool) (pre_cast : typ option) (post_cast : typ option) 
+  (u : trm) (t : trm) : trm =
   let binop_op = match aop with
-  | Arith_shift -> if inv then Binop_sub else Binop_add
-  | Arith_scale -> if inv then Binop_div else Binop_mul in
+    | Arith_shift -> if inv then Binop_sub else Binop_add
+    | Arith_scale -> if inv then Binop_div else Binop_mul 
+    in
   let trm_apps_binop t1 t2 = trm_apps (trm_binop binop_op) [t1; t2] in
+  
   match t.desc with
   | Trm_apps(f, [lhs; rhs]) when is_set_operation t ->
     begin match pre_cast, post_cast with
-    | None, None -> {t with desc = Trm_apps (f, [lhs; trm_apps_binop rhs u])}
-    | None, Some ty -> {t with desc = Trm_apps (f, [lhs; trm_cast ty (trm_apps_binop rhs u)])}
-    | Some ty, None -> {t with desc = Trm_apps (f, [lhs; trm_apps_binop (trm_cast ty rhs) u])}
-    | _ -> fail t.loc "transform_aux: can't do both pre-casting and post-casting"
+     | None, None -> {t with desc = Trm_apps (f, [lhs; trm_apps_binop rhs u])}
+     | None, Some ty -> {t with desc = Trm_apps (f, [lhs; trm_cast ty (trm_apps_binop rhs u)])}
+     | Some ty, None -> {t with desc = Trm_apps (f, [lhs; trm_apps_binop (trm_cast ty rhs) u])}
+     | _ -> fail t.loc "Arith_core.transform_aux: can't apply both pre-casting and post-casting"
     end
   | Trm_apps (_, [arg]) when is_get_operation t ->
     begin match pre_cast, post_cast with
-    | None , None -> trm_apps_binop t u
-    | None, Some ty -> trm_cast ty (trm_apps_binop t u)
-    | Some ty, None -> trm_apps_binop (trm_cast ty t)  u
-    | _ -> fail t.loc "transfom_aux: can'd do both pre-casting and post-casting"
+     | None , None -> trm_apps_binop t u
+     | None, Some ty -> trm_cast ty (trm_apps_binop t u)
+     | Some ty, None -> trm_apps_binop (trm_cast ty t)  u
+     | _ -> fail t.loc "Arith_core.transfom_aux: can't apply both pre-casting and post-casting"
     end
-  | _ -> fail t.loc "transform_aux: expected a get or a set operation"
+  | _ -> fail t.loc "Arith_core.transform_aux: expected a get or a set operation"
 
 
-let transform (aop : arith_op)(inv : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) : Target.Transfo.local =
-  Target.apply_on_path (transform_aux  aop inv pre_cast post_cast u)
+(* [transform aop inv pre_cast post_cast u t p] applies [transform_aux] at the trm with path [p] *)
+let transform (aop : arith_op)(inv : bool) (pre_cast : typ option) (post_cast : typ option) 
+  (u : trm) : Transfo.local =
+  apply_on_path (transform_aux  aop inv pre_cast post_cast u)
 
 
-(* [apply_aux op arg t]: apply binary_operation [op] on [t] with the second arguement of the operation being [arg]
+(* [apply_aux op arg t]: applies binary_operation [op] on [t] with the second 
+     argument of the operation being [arg]
     params:
-      [op]: the binary operation going to be applied
+      [op]: the binary operation to appy
       [arg]: the second argument after [t] in the performed operation
       [t]: the first argument in the performed operation
     return:
@@ -67,8 +68,8 @@ let transform (aop : arith_op)(inv : bool) (pre_cast : typ option) (post_cast : 
 let apply_aux (op : binary_op) (arg : trm) (t : trm) : trm =
   trm_apps (trm_binop op) [t; arg]
 
-let apply (op : binary_op) (arg : trm) : Target.Transfo.local =
-  Target.apply_on_path (apply_aux op arg)
+let apply (op : binary_op) (arg : trm) : Transfo.local =
+  apply_on_path (apply_aux op arg)
 
 
 
@@ -540,6 +541,6 @@ let rec simplify_aux (indepth : bool) (f : expr -> expr) (t : trm) : trm =
     let f_atom_simplify = simplify_aux indepth f in
     map_on_arith_nodes (simplify_at_node f_atom_simplify f) t end
 
-let simplify (indepth : bool) (f : expr -> expr) : Target.Transfo.local =
-  Target.apply_on_path (simplify_aux indepth f)
+let simplify (indepth : bool) (f : expr -> expr) : Transfo.local =
+  apply_on_path (simplify_aux indepth f)
 
