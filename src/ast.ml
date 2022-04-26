@@ -1080,6 +1080,10 @@ let trm_remove_mark_between (m : mark) (t : trm) : trm =
   | _ -> fail t.loc "trm_remove_mark_between: expected a sequence"
 
 
+(* [trm_has_mark m t]: checks if trm [t] has mark [m] *)
+let trm_has_mark (m : mark) (t : trm) : bool =
+  List.mem m t.marks 
+
 (* [trm_vardef_get_trm_varse] get the singleton declaration variable in the case when [t] is a variable declaration or a list of variable in the case when
     we have multiple variable declarations in one line *)
 let rec trm_vardef_get_vars (t : trm) : var list =
