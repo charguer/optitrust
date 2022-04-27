@@ -350,7 +350,6 @@ let annot_to_string (t_ann : trm_annot) : string =
      | Include h -> "Include" ^ " " ^ h
      | Main_file -> "Main_file"
      | Postfix_set -> "Postfix_set"
-     | Mutable_var_get -> "Mutable_var_get"
      | Display_no_arrow -> "Display_no_arrow"
      | Reference -> "Reference"
      | Stackvar -> "Stackvar"

@@ -489,11 +489,11 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
                    (* TODO ARTHUR *)
 
                   let base'  = match base'.desc with
-                  | Trm_apps (_, [base'']) when List.mem Mutable_var_get base'.annot  -> base''
+                  | Trm_apps (_, [base'']) when is_get_operation base'  -> base''
                   | _ -> base'
                    in
                   let index  = match index.desc with
-                  | Trm_apps (_, [index']) when List.mem Mutable_var_get index.annot -> index'
+                  | Trm_apps (_, [index']) when is_get_operation index -> index'
                   | _ -> index
                    in
                   begin match base'.typ with

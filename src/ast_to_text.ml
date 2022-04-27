@@ -407,7 +407,6 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Include h -> string "Include" ^^ blank 1 ^^ string h
     | Main_file -> string "Main_file"
     | Postfix_set -> string "Postfix_set"
-    | Mutable_var_get -> string "Mutable_var_get"
     | Display_no_arrow -> string "Display_no_arrow"
     | Reference -> string "Reference"
     | Stackvar -> string "Stackvar"

@@ -123,7 +123,6 @@ and trm_annot_to_doc (t_annot : trm_annot list) : document =
   | App_and_set -> string "App_and_set"
   | Main_file -> string "Main_file"
   | Postfix_set -> string "Postfix_set"
-  | Mutable_var_get -> string "Mutable_var_get"
   | Annot_stringreprid id -> string "Annot_stringreprid" ^^ string (string_of_int id)
   | _ -> empty
   in
