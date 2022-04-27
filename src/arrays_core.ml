@@ -66,7 +66,7 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
           trm_let_mut ~annot:d.annot (x, typ_constr y ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
        | Typ_var (y, tid) ->
         List.map(fun x ->
-          trm_let_mut ~annot:d.annot (x, typ_var y tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
+          trm_let_mut ~annot:d.annot (x, typ_constr y ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
        | _ ->
         List.map(fun x ->
           trm_let_mut ~annot:d.annot (x, t_var) (trm_uninitialized ~loc:init.loc ())) new_vars
@@ -207,7 +207,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
                     typdef_body = Typdef_alias (typ_array ty (Trm (trm_var block_size)))};
                   trm_typedef{
                     td with typdef_tconstr = td.typdef_tconstr;
-                    typdef_body = Typdef_alias (typ_array (typ_var block_name tid) (Trm n_div_b))}]
+                    typdef_body = Typdef_alias (typ_array (typ_constr block_name ~tid) (Trm n_div_b))}]
            | Trm t' ->
               let t'' = trm_apps (trm_binop Binop_div) [t'; trm_var block_size] in
               let tid = next_typconstrid () in
@@ -219,7 +219,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
 
                   trm_typedef {
                     td with typdef_tconstr = td.typdef_tconstr;
-                    typdef_body = Typdef_alias (typ_array (typ_var block_name tid) (Trm t''))}]
+                    typdef_body = Typdef_alias (typ_array (typ_constr block_name ~tid) (Trm t''))}]
            end
         | _ -> fail t.loc "tile_aux: expected array or pointer type declaration"
         end

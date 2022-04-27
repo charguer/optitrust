@@ -1233,7 +1233,7 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
        included file
       *)
      resolve_target_simple p {t with annot = []}
-  | _ when is_included t ->
+  | _ when is_include t ->
      print_info loc "resolve_constraint: not an include constraint\n";
      []
   (* target constraints first *)
