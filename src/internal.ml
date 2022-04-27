@@ -101,26 +101,26 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
     let rec aux (t : trm) : trm =
       match t.desc with
       | Trm_val (Val_prim (Prim_new ty)) ->
-         trm_prim ~annot:t.annot ~loc:t.loc ~add:t.add
+         trm_prim ~annot:t.annot ~loc:t.loc
            (Prim_new (change_typ ty))
       | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
-         trm_unop ~annot:t.annot ~loc:t.loc ~add:t.add
+         trm_unop ~annot:t.annot ~loc:t.loc
            (Unop_cast (change_typ ty))
       | Trm_let (vk,(y,ty),init) ->
-        trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add vk (y,change_typ ty) (aux init)
+        trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement vk (y,change_typ ty) (aux init)
       | Trm_let_fun (f, ty, args, body) ->
-         trm_let_fun ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
+         trm_let_fun ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
            ~attributes:t.attributes f (change_typ ty)
                      (List.map (fun (y, ty) -> (y, change_typ ty)) args)
                      (aux body)
       | Trm_typedef td ->
         begin match td.typdef_body with
         | Typdef_alias ty ->
-          trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
+          trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~attributes:t.attributes
            { td with typdef_body = Typdef_alias (change_typ ty)}
         | Typdef_prod (b, s) ->
            let s = List.map (fun (lb, x) -> (lb, change_typ x)) s in
-           trm_typedef ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
+           trm_typedef ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~attributes:t.attributes
            { td with typdef_body = Typdef_prod (b, s)}
         | _ -> trm_map aux t
         end
@@ -556,7 +556,7 @@ let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
   | Trm_var (_, y') when y' = y ->
-    trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_constr  x )) y
+    trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (typ_constr  x )) y
   | _ -> trm_map (replace_type_with x y) t
 
 (* find all the occurrences of variables in [t] and check if they are key in map [tm]
@@ -729,7 +729,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
   let rec label_aux (i : int) (t : trm) : trm =
     match t.desc with
     | Trm_labelled (l, body) ->
-       trm_labelled ~annot:t.annot ~loc:t.loc ~add:t.add
+       trm_labelled ~annot:t.annot ~loc:t.loc
          ~attributes:t.attributes (name l ^ "_" ^ string_of_int i)
          (label_aux i body)
     | _ -> trm_map (label_aux i) t

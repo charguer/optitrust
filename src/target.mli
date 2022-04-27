@@ -437,8 +437,6 @@ val ty : string -> typ
 
 val expr : ?vars:string list -> string -> trm
 
-val atypexpr : string -> typ
-
 val stmt : string -> trm
 
 val instr : string -> trm 

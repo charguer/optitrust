@@ -6,7 +6,9 @@ open Ast
 let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
   (* LATER: see if we can have a ast comparison function *)
   let success = Ast_to_text.ast_to_string t1 = Ast_to_text.ast_to_string t2 in
-  Printf.printf "Checking %s: %s\n" test_name (if success then "succcess" else Printf.sprintf "failure (see %s_ast_{1,2}.{ast,cpp})" test_name);
+  Printf.printf "Checking %s: %s\n" test_name (if success 
+    then "succcess" 
+    else Printf.sprintf "failure (see %s_ast_{1,2}.{ast,cpp})" test_name);
   if not success then begin
       AstC_to_c.ast_to_file (test_name ^ "_ast_1.cpp") t1;
       AstC_to_c.ast_to_file (test_name ^ "_ast_2.cpp") t2;

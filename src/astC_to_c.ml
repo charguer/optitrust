@@ -108,8 +108,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   | Typ_arbitrary a_kind ->
         begin match a_kind with
         | Atyp ty -> string ty
-        | Atypexpr tye -> parens (string tye)
-        | _ -> fail None "typ_to_doc: arbitrary types entered as string should be entered by using either Atyp or Atypexpr"
+        | _ -> fail None "typ_to_doc: arbitrary types entered as string should be entered by using Atyp"
         end
 
 and typ_annot_to_doc (a : typ_annot) : document =
@@ -120,13 +119,11 @@ and typ_annot_to_doc (a : typ_annot) : document =
 
 and trm_annot_to_doc (t_annot : trm_annot list) : document =
   let aux t_annot = match t_annot with
-  | Access -> string "Access"
   | Multi_decl -> string "Multi_dec"
   | App_and_set -> string "App_and_set"
   | Main_file -> string "Main_file"
   | Postfix_set -> string "Postfix_set"
   | Mutable_var_get -> string "Mutable_var_get"
-  | As_left_value -> string "As_left_value"
   | Annot_stringreprid id -> string "Annot_stringreprid" ^^ string (string_of_int id)
   | _ -> empty
   in
@@ -256,7 +253,6 @@ and val_to_doc (v : value) : document =
 
 and attr_to_doc (a : attribute) : document =
   match a with
-  | Identifier x -> string x
   (* | Alignas t -> string "_Alignas" ^^ parens (decorate_trm t) *)
   | Alignas t -> string "alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1

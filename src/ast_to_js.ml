@@ -344,7 +344,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
 let annot_to_string (t_ann : trm_annot) : string =
   match t_ann with
      | No_braces _ -> "No_braces"
-     | Access -> "Access"
      | Multi_decl -> "Multi_decl"
      | Empty_cond -> "Empty_cond"
      | App_and_set -> "App_and_set"
@@ -352,8 +351,6 @@ let annot_to_string (t_ann : trm_annot) : string =
      | Main_file -> "Main_file"
      | Postfix_set -> "Postfix_set"
      | Mutable_var_get -> "Mutable_var_get"
-     | As_left_value -> "As_left_value"
-     | Non_local_index -> "Non_local_index"
      | Display_no_arrow -> "Display_no_arrow"
      | Reference -> "Reference"
      | Stackvar -> "Stackvar"
@@ -362,12 +359,6 @@ let annot_to_string (t_ann : trm_annot) : string =
 
   let annot_list_to_string (t : trm) : string =
     Tools.list_to_string ((List.map annot_to_string) t.annot)
-
-
-let add_to_string (add : special_operator) =
-      match add with
-      | Address_operator -> quote "Address_operator"
-      | Star_operator -> quote "Star_operator"
 
 let ast_to_json (trm_root : trm) : json =
   (* node id generator *)
@@ -388,7 +379,6 @@ let ast_to_json (trm_root : trm) : json =
       (strquote "typ",  (( match t.typ with
                           | None -> strquote "<no type information>"
                           | Some typ -> Json.typ_to_json typ )));
-      (strquote "add", Json.List (List.map Json.str (List.map add_to_string t.add)));
       (strquote "is_statement", Json.Boolean t.is_statement);
       (strquote "annot", strquote (annot_list_to_string t) );
       (strquote "loc", loc_to_json t);

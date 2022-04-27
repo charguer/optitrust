@@ -171,8 +171,6 @@ and print_val ?(only_desc : bool = false) (v : value) : document =
 (* print attributes *)
 and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
   match a with
-  | Identifier x ->
-     string "Identifier" ^^ blank 1 ^^ string x
   | Alignas t ->
      string "Alignas" ^^ blank 1 ^^ print_trm ~only_desc t
   | GeneratedTyp ->
@@ -403,7 +401,6 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let print_annot (t_ann : trm_annot) : document =
     match t_ann with
     | No_braces i -> string "No_braces " ^^ string (string_of_int i)
-    | Access -> string "Access"
     | Multi_decl -> string "Multi_decl"
     | Empty_cond -> string "Empty_cond"
     | App_and_set -> string "App_and_set"
@@ -411,8 +408,6 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Main_file -> string "Main_file"
     | Postfix_set -> string "Postfix_set"
     | Mutable_var_get -> string "Mutable_var_get"
-    | As_left_value -> string "As_left_value"
-    | Non_local_index -> string "Non_local_index"
     | Display_no_arrow -> string "Display_no_arrow"
     | Reference -> string "Reference"
     | Stackvar -> string "Stackvar"
@@ -433,15 +428,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
       end
     in
     let dinstr = string (string_of_bool t.is_statement) in
-    let add_to_doc (add : special_operator) =
-      match add with
-      | Address_operator -> string "Address_operator"
-      | Star_operator -> string "Star_operator"
-    in
-    let dadd =
-      brackets (List.fold_left (fun d add -> d ^^ semi ^//^ add_to_doc add)
-                  empty t.add)
-    in
+    
     let dtyp =
       match t.typ with
       | None -> underscore
@@ -455,7 +442,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
                                 ddesc ^^ semi ^//^ string "loc"; equals;
                                 dloc ^^ semi ^//^ string "is_statement"; equals;
                                 dinstr ^^ semi ^//^ string "add"; equals;
-                                dadd ^^ semi ^//^ string "typ"; equals;
+                                string "typ"; equals;
                                 dtyp ^^ semi ^//^ string "attributes"; equals;
                                 dattr])
 
