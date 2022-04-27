@@ -1,20 +1,12 @@
 open Ast
 
-(* ***********************************************************************************
- * Note: All the intermediate functions which are called from [sequence.ml] file      *
- * have only one purpose, and that is targeting the trm in which we want to apply the *
- * transformation. That's why there is not need to document them.                     *
- *)
-
-
 (* [inline_array_access array_var new_vars t]: change all the occurences of the array to variables,
     params:
       [array_var]: array_variable  to apply changes on
       [new_vars]: a list of variables, the variables at index i replaces and occurence of [array_var[i]]
       [t]: ast node located in the same level or deeper as the array declaration
     return:
-        updated ast with the replaced array accesses to variable references.
-*)
+        updated ast with the replaced array accesses to variable references. *)
 
 let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
   let rec aux (t : trm) : trm =
@@ -287,91 +279,6 @@ let rec apply_swapping (x : typvar) (t : trm) : trm =
       | None -> trm_map aux t
       end
   | _ -> trm_map aux t
-
- (* let rec apply_swapping1 (x : typvar) (t : trm) : trm =
-  match t.desc with
-  | Trm_apps (f, tl) ->
-     begin match f.desc with
-     (* array accesses… *)
-     | Trm_val (Val_prim (Prim_binop Binop_array_access))
-       | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
-        begin match tl with
-        | [base; index] ->
-           begin match base.desc with
-           | Trm_apps (f', tl') ->
-              begin match f'.desc with
-              (* we look for two successive accesses to an array of type x *)
-              | Trm_val (Val_prim (Prim_binop Binop_array_access))
-                | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
-                 begin match tl' with
-                 | [base'; index'] ->
-
-                    begin match base'.typ with
-                    (* if we find such accesses, we swap the two indices *)
-                    | Some {typ_desc = Typ_constr (x', _, _); _} when x' = x ->
-                       (* x might also be the type of arrays in indices… *)
-                       let swapped_index = apply_swapping x index in
-                       let swapped_index' = apply_swapping x index' in
-                       trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
-                         ~typ:t.typ f
-                         [
-                           trm_apps ~annot:base.annot ~loc:base.loc
-                             ~is_statement:base.is_statement ~typ:base.typ f'
-                             [
-                               base';
-                               swapped_index
-                             ];
-                           swapped_index'
-                         ]
-                    (*
-                      otherwise we recursively call apply_swapping after removing
-                      one dimension
-                     *)
-                    | _ ->
-                       let swapped_l = List.map (apply_swapping x) tl in
-                       trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
-                         ~typ:t.typ f swapped_l
-                    end
-                 | _ ->
-                    fail f'.loc ("swap_coordinates: array accesses should " ^
-                                   "have 2 arguments");
-                 end
-              (*
-                again, if we do not find two successive accesses, we
-                recursively call apply_swapping
-               *)
-              | _ ->
-                 let swapped_l = List.map (apply_swapping x) tl in
-                 trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement f
-                   ~typ:t.typ swapped_l
-              end
-           (* again, … *)
-           | _ ->
-              let swapped_l = List.map (apply_swapping x) tl in
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement f
-                ~typ:t.typ swapped_l
-           end
-        | _ -> fail f.loc ("swap_coordinates: array accesses should have 2 " ^
-                             "arguments");
-        end
-     (*
-         for most other terms we only recursively call apply_swapping
-         note: arrays of type x might appear in f now
-      *)
-     | _ ->
-        let swapped_f = apply_swapping x f in
-        let swapped_l = List.map (apply_swapping x) tl in
-        trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ
-          swapped_f swapped_l
-     end
-
-  (*
-     remaining cases: val, var, array, struct, if, seq, while, for, switch,
-     abort, labelled
-     inside values, array accesses may only happen in array sizes in types
-     LATER: currently ignored, is it reasonable to expect such things to happen?
-   *)
-  | _ -> trm_map (apply_swapping x) t *)
 
 
 (* [swap_aux index t]: transform an array declaration to a swaped one, Basically the bounds will swap

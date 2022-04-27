@@ -53,10 +53,9 @@ let nosimpl (tg : target) : unit =
   
 (* LATER: have a stack of different marks to avoid loosing the previously existing ones *)
 
-(* [with_nosimpl tg f]: after marking all the nodes targeted by [tg] with mark 
-    "__arith_core_with_nosimpl", applies the transformation [f] on all the nodes 
-      matched  by [tg], after the transformation has been applied succesfully, 
-      it will clean all the introduced marks *)
+(* [with_nosimpl tg f]: after marking all the nodes targeted by [tg] with mark "__arith_core_with_nosimpl", applies the
+    transformation [f] on all the nodes matched  by [tg], after the transformation has been applied succesfully, 
+    it will clean all the introduced marks *)
 let with_nosimpl (tg : target) (f : unit -> unit) : unit =
   nosimpl tg;
   f();
