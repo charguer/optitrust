@@ -6,11 +6,9 @@ typedef struct {
 
 int main() {
   vect p = {0,0};
-  p.x = 0;
-  p.y = 10;
-
-  p.x = p.x + 1;
-  p.y = p.y + 2;
-  
-
+  p.x = 5;
+  p.y = 6;
+  const int a = p.x;
+  const int b = p.y;
+  p.x = p.x + 7;
 }

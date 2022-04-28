@@ -599,30 +599,33 @@ end
       [struct_name]: used for checking the type of the struct access
       [arg]: see Struct_modif module
       [t]: AST of the surrounding sequence of the targeted typedef *)
-let modif_accesses (struct_name : var) (arg : Struct_modif.arg) (t : trm) : trm = 
-  let rec aux (t : trm) : trm = 
-    let default () = trm_map aux t in 
-    match set_struct_access_inv t with 
-    | Some (_field, base, _rhs) -> 
-            if is_typ_struct struct_name base.typ 
-              then arg.f_set Fun.id t
+let modif_accesses (struct_name : var) (arg : Struct_modif.arg) (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    let default () = trm_map aux t in
+    let is_target_typ base =
+      is_typ_struct struct_name base.typ in
+
+    match set_struct_access_inv t with
+    | Some (_field, base, _rhs) -> (* LATER: use when clause? *)
+            if is_target_typ base
+              then arg.f_set aux t
               else default()
-    | None -> 
-      begin match get_struct_access_inv t with 
-      | Some (_field, base) -> 
-        if is_typ_struct struct_name base.typ 
+    | None ->
+      begin match get_struct_access_inv t with
+      | Some (_field, base) ->
+        if is_target_typ base
           then arg.f_get aux t
           else default()
-      | None -> 
-        begin match struct_access_inv t with 
-        | Some (_field, base) -> 
-          if is_typ_struct struct_name base.typ 
+      | None ->
+        begin match struct_access_inv t with
+        | Some (_field, base) ->
+          if is_target_typ base
             then arg.f_access aux t
             else default()
-        | None -> 
-          begin match struct_get_inv t with 
-          | Some (_field, base) -> 
-            if is_typ_struct struct_name base.typ 
+        | None ->
+          begin match struct_get_inv t with
+          | Some (_field, base) ->
+            if is_typ_struct struct_name base.typ
               then arg.f_struct_get aux t
               else default()
           | None -> default()
@@ -639,8 +642,8 @@ let modif_accesses (struct_name : var) (arg : Struct_modif.arg) (t : trm) : trm 
 let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let tdef = begin match Mlist.nth_opt tl index with 
-    | Some t1 -> t1 
+    let tdef = begin match Mlist.nth_opt tl index with
+    | Some t1 -> t1
     | None -> assert false end in
     begin match tdef.desc with
     | Trm_typedef td ->
@@ -650,14 +653,14 @@ let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
          let new_fields = arg.f_fields field_list in
          let new_typdef = {td with typdef_body = Typdef_prod (t_names, new_fields)} in
          let new_td = trm_typedef ~marks:tdef.marks new_typdef in
-         let f_update = fun t -> new_td in 
-         let f_update_further = fun t -> modif_accesses struct_name arg t in 
-         let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in 
+         let f_update = fun t -> new_td in
+         let f_update_further = fun t -> modif_accesses struct_name arg t in
+         let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
          {t with desc = Trm_seq new_tl}
       | _ -> fail tdef.loc "Struct_core.struct_modif: expected a struct definition"
       end
     | _ -> fail tdef.loc "Struct_core.struct_modif: expected a target to a typedef struct definition"
-    end 
+    end
   | _ -> fail t.loc "Struct_core.struct_modif: exepcted the surrounding sequence of the typedef "
 
 let struct_modif (arg : Struct_modif.arg) (index : int) : Transfo.local =
