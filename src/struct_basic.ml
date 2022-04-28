@@ -48,7 +48,7 @@ let reveal_field ?(reparse:bool=false) (field_to_reveal_field : field) : Transfo
     (apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
       (fun t (p, i) -> Struct_core.reveal_field field_to_reveal_field i t p))
 
-(* [reveal_fields fields_to_reveal_field tg] an extension to the reveal_field transformation but this one 
+(* [reveal_fields fields_to_reveal_field tg] an extension to the reveal_field transformation but this one
      is applied on multiple struct fields *)
 let reveal_fields ?(reparse : bool = false) (fields_to_reveal_field : fields) (tg : target) : unit =
   List.iter (fun f ->  reveal_field f tg) fields_to_reveal_field
@@ -63,9 +63,9 @@ let to_variables : Transfo.t =
   reparse_after ~reparse:false (apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Struct_core.to_variables i t p) )
 
-(* [rename_fields rename tg] expects [tg] to point at a struct declaration 
+(* [rename_fields rename tg] expects [tg] to point at a struct declaration
     then it will rename all the fields which are matched when applying the type rename
-    which can be a function to renam all the struct fields or only those which 
+    which can be a function to renam all the struct fields or only those which
     are matched by the patter given as argument when the function [only_for] is used.
 *)
 let rename_fields (rename : rename) : Transfo.t =
@@ -77,26 +77,39 @@ let rename_fields (rename : rename) : Transfo.t =
 let applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update: typ -> typ) : Transfo.t =
   reparse_after ~reparse (apply_on_targets (Struct_core.update_fields_type pattern typ_update))
 
-(* [update_fields_type pattern ty tg] expects [tg] to point at a struct declaration . 
+(* [update_fields_type pattern ty tg] expects [tg] to point at a struct declaration .
     Then it will change the current type to [ty] of all the fields which are matched with [pattern].
 *)
 let update_fields_type ?(reparse : bool = false) (pattern : string) (ty : typ) : Transfo.t =
   applyto_fields_type ~reparse pattern (fun _ -> ty)
 
 (* [simpl_proj tg] expects the target [tg] pointing to any node whose descendants can contain struct
- initialization list projections 
+ initialization list projections
 *)
 let simpl_proj : Transfo.t =
   apply_on_targets (Struct_core.simpl_proj)
 
-(* [struct_modif new_fields f_get f_set use_annot_of tg]: expects the target [tg] to point at a typedef struct, 
-    then it will replace its current fields with [new_fields]. After modifying the fields it will search for 
-    accesses of the targeted struct and modify them, if they are surrounded by a set operation it will apply 
+(* [struct_modif new_fields f_get f_set use_annot_of tg]: expects the target [tg] to point at a typedef struct,
+    then it will replace its current fields with [new_fields]. After modifying the fields it will search for
+    accesses of the targeted struct and modify them, if they are surrounded by a set operation it will apply
     [f_set] on that access otherwise [f_get] is going to be applied
   *)
 
-let struct_modif ?(use_annot_of : bool = false) ?(new_fields : (label * typ) list = []) ~f_get:(f_get : trm -> trm) 
-  ~f_set:(f_set : trm -> trm) : Transfo.t = 
+let struct_modif (arg : Struct_modif.arg) : Transfo.t =
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-  (fun t (p, i) -> Struct_core.struct_modif new_fields f_get f_set use_annot_of i t p)
+  (fun t (p, i) -> Struct_core.struct_modif arg i t p)
 
+
+
+
+(* FUTURE
+let struct_modif_simple ?(use_annot_of : bool = false) ?(new_fields : (label * typ) list = [])       ~ ?f_get:(f_get : (trm -> trm) option) ?f_set:(f_set : (trm -> trm) option) : Transfo.t =
+  struct_modif {
+    f_get = (match f_get with Some f ->
+         (fun aux t -> let t' = f aux t in
+            if use_annot_of then { t' with annot = t.annot })
+      | None -> (fun _ _ -> assert false));
+    f_set: modif;
+    f_struct_get: modif:
+    f_access: modif;
+ *)
