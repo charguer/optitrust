@@ -204,8 +204,8 @@ let is_access (t : trm) : bool =
   | _ -> false
 
 (* [caddress_intro_aux false t] is the inverse of [caddress_elim]
-    [get(t1)  becomes ][* t1]
-    [set(t1, t2)] becomes as [* t1 = t2]
+    [get(t + offset(f))] becomes [get(t).f]
+    [get(t °)]
     [Trm_apps (Prim_struct_access "f", [t])] becomes [t.f] as lvalue
     [get(Trm_apps (Prim_struct_access "f", [t]))] becomes [t.f] as rlvalue *)
 

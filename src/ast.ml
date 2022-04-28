@@ -1770,6 +1770,23 @@ let is_typ_fun (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_fun _ -> true | _ -> false
 
+(* [is_typ_struct struct_name ty]: check if [ty] is a constructed struct type *)
+let is_typ_struct (struct_name : var) (ty_opt : typ option) : bool =
+  match ty_opt with 
+  | Some ty -> 
+    begin match ty.typ_desc with 
+    | Typ_constr (sn, _, _) -> sn = struct_name
+    | _ -> false
+    end
+  | None -> false
+  
+  
+  
+  
+  
+
+
+
 (* [is_get_operation t]: check if [t] is a get operation(read operation) *)
 let is_get_operation (t : trm) : bool =
   match t.desc with

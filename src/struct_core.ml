@@ -554,3 +554,54 @@ let simpl_proj_aux (t : trm) : trm =
 
 let simpl_proj : Target.Transfo.local =
   Target.apply_on_path (simpl_proj_aux)
+
+(* [modif_accesses struct_name f_get f_set t]: if [t] is a set access operation on a field of struct [struct_name]
+     then apply [f_set] on [t] otherwise apply [f_get] on [t] *)
+let modif_accesses (struct_name : var) (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm = 
+  let rec aux (t : trm) : trm = 
+    if is_get_operation t 
+      then match get_struct_access_inv t with 
+      | Some (field, base) -> 
+          if is_typ_struct struct_name base.typ
+            then f_get t
+            else trm_map aux t
+      | None -> trm_map aux t
+    else if is_set_operation t then trm_map aux t
+
+    else if is_access t then 
+      begin match t.desc with 
+      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base]) ->
+        f_get t
+      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [base]) ->
+        assert false
+      | _ -> trm_map aux t
+      end 
+    else trm_map aux t
+
+  in aux t
+
+let struct_modif (new_fields : (label * typ) list) (f_get : trm -> trm) (f_set : trm -> trm) (index : int) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl -> 
+    let lfront, tdef, lback = Internal.get_trm_and_its_relatives index tl in
+    begin match tdef.desc with 
+    | Trm_typedef td -> 
+      begin match td.typdef_body with 
+      | Typdef_prod (t_names, field_list) -> 
+         let struct_name = td.typdef_tconstr in 
+         let new_typdef = {td with typdef_body = Typdef_prod (t_names, new_fields)} in 
+         let new_td = trm_typedef ~marks:tdef.marks new_typdef in
+         let lback = Mlist.map (modif_accesses struct_name f_get f_set) lback in 
+         let new_tl = Mlist.merge lfront lback in 
+         let new_tl = Mlist.insert_at index new_td new_tl in 
+         {t with desc = Trm_seq new_tl}
+      | _ -> fail tdef.loc "Struct_core.struct_modif: expected a struct definition"
+
+      end
+    | _ -> fail tdef.loc "Struct_core.struct_modif: expected a target to a typedef struct definition"
+    end
+  | _ -> fail t.loc "Struct_core.struct_modif: exepcted the surrounding sequence of the typedef "
+
+
+
+
