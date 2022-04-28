@@ -584,7 +584,8 @@ let modif_accesses (struct_name : var) (f_get : trm -> trm) (f_set : trm -> trm)
           then add_annot t.annot (f_get t)
           else trm_map aux t
       | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [base]) ->
-        assert false
+        (* assert false *)
+        trm_map aux t
       | _ -> trm_map aux t
       end 
     else trm_map aux t
