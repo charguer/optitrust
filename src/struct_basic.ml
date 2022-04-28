@@ -88,3 +88,13 @@ let update_fields_type ?(reparse : bool = false) (pattern : string) (ty : typ) :
 *)
 let simpl_proj : Transfo.t =
   apply_on_targets (Struct_core.simpl_proj)
+
+(* [struct_modif new_fields f_get f_set use_annot_of tg]: expects the target [tg] to point at a typedef struct, 
+    then it will replace its current fields with [new_fields]. After modifying the fields it will search for 
+    accesses of the targeted struct and modify them, if they are surrounded by a set operation it will apply 
+    [f_set] on that access otherwise [f_get] is going to be applied
+  *)
+let struct_modif ?(use_annot_of : bool = false) ?(new_fields : (label * typ) list = []) ?(f_get : trm -> trm = fun t -> t) ?(f_set : trm -> trm = fun t -> t) : Transfo.t = 
+  apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+  (fun t (p, i) -> Struct_core.struct_modif new_fields f_get f_set use_annot_of i t p)
+

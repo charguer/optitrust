@@ -1,4 +1,5 @@
 open Ast
+open Target
 
 (* ***********************************************************************************
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
@@ -65,8 +66,8 @@ let set_explicit_aux (t : trm) : trm =
 
   | _ -> fail t.loc "set_explicit_aux: expected a set operation"
 
-let set_explicit : Target.Transfo.local =
-  Target.apply_on_path(set_explicit_aux )
+let set_explicit : Transfo.local =
+  apply_on_path(set_explicit_aux )
 
 
 (* [set_implicit t] transform a sequence with a list of explicit assignments into
@@ -131,8 +132,8 @@ let set_implicit_aux (t: trm) : trm =
     end
   | _ -> fail t.loc "set_implicit_aux: sequence which contains the set instructions was not matched"
 
-let set_implicit (keep_label : bool) : Target.Transfo.local =
-  Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence ~keep_label (set_implicit_aux) "set_implicit")
+let set_implicit (keep_label : bool) : Transfo.local =
+  apply_on_path (Internal.apply_on_path_targeting_a_sequence ~keep_label (set_implicit_aux) "set_implicit")
 
 
 (* [inline_struct_accesses x t]: change all the occurrences of the struct accesses to a field into a field
@@ -287,8 +288,8 @@ let reveal_field_aux (field_to_inline : field) (index : int) (t : trm ) =
     end
   | _ -> fail t.loc "reveal_field_aux: expected the surrounding sequence"
 
-let reveal_field (field_to_inline : field) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (reveal_field_aux field_to_inline index)
+let reveal_field (field_to_inline : field) (index : int) : Transfo.local =
+  apply_on_path (reveal_field_aux field_to_inline index)
 
 
 
@@ -313,8 +314,8 @@ let fields_reorder_aux (struct_fields: vars) (move_where : reorder) (t: trm) : t
   | _ -> fail t.loc "fields_reorder_aux: expected a typedef definiton"
 
 (* [fields_reorder struct_fields move_where around t p] *)
-let fields_reorder (struct_fields : vars) (move_where : reorder) : Target.Transfo.local =
-  Target.apply_on_path(fields_reorder_aux struct_fields move_where)
+let fields_reorder (struct_fields : vars) (move_where : reorder) : Transfo.local =
+  apply_on_path(fields_reorder_aux struct_fields move_where)
 
 (* [inline_struct_accesses name field t] transform a specifi struct access into a variable
       occurrence.
@@ -400,8 +401,8 @@ let to_variables_aux (index : int) (t : trm) : trm =
   | _ -> fail t.loc "struct_to_variables_aux: expected the surrounding sequence"
 
 
-let to_variables (index : int) : Target.Transfo.local =
-  Target.apply_on_path (to_variables_aux index)
+let to_variables (index : int) : Transfo.local =
+  apply_on_path (to_variables_aux index)
 
 
 (* a module used for renaming the struct fields *)
@@ -482,8 +483,8 @@ let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
     end
   | _ -> fail t.loc "rename_fields_aux: expected the sequence which contains the typedef declaration"
 
-let rename_fields (index : int) (rename : rename) : Target.Transfo.local =
-  Target.apply_on_path (rename_fields_aux index rename)
+let rename_fields (index : int) (rename : rename) : Transfo.local =
+  apply_on_path (rename_fields_aux index rename)
 
 (* [update_fields_type_aux pattern ty t]: change the current type to [ŧy] for all the struct fields
       which are matched with [pattern] for the struct declaration [t]
@@ -511,8 +512,8 @@ let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : tr
       trm_typedef ~annot:t.annot ~marks:t.marks {td with typdef_body = Typdef_prod (tn, new_fl)}
     | _ -> fail t.loc "reanme_fields_aux: expected a typedef declaration"
 
-let update_fields_type (pattern : string) (typ_update : typ -> typ) : Target.Transfo.local =
-  Target.apply_on_path (update_fields_type_aux pattern typ_update )
+let update_fields_type (pattern : string) (typ_update : typ -> typ) : Transfo.local =
+  apply_on_path (update_fields_type_aux pattern typ_update )
 
 
 (* [simpl_proj_aux t] transform all expression of the form {1, 2, 3}.f into the trm it projects to
@@ -552,26 +553,36 @@ let simpl_proj_aux (t : trm) : trm =
 
 (* LATER: perhaps we want to expose a nonrecursive version of the function simpl_proj *)
 
-let simpl_proj : Target.Transfo.local =
-  Target.apply_on_path (simpl_proj_aux)
+let simpl_proj : Transfo.local =
+  apply_on_path (simpl_proj_aux)
 
 (* [modif_accesses struct_name f_get f_set t]: if [t] is a set access operation on a field of struct [struct_name]
      then apply [f_set] on [t] otherwise apply [f_get] on [t] *)
-let modif_accesses (struct_name : var) (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm = 
+let modif_accesses (struct_name : var) (f_get : trm -> trm) (f_set : trm -> trm) (use_annot_of : bool) (t : trm) : trm = 
+  let add_annot (annot : trm_annot list) (t : trm) = if use_annot_of then {t with annot = annot} else t in
   let rec aux (t : trm) : trm = 
     if is_get_operation t 
       then match get_struct_access_inv t with 
       | Some (field, base) -> 
           if is_typ_struct struct_name base.typ
-            then f_get t
+            then add_annot t.annot (f_get t)
             else trm_map aux t
       | None -> trm_map aux t
-    else if is_set_operation t then trm_map aux t
-
+    else if is_set_operation t then
+      match set_inv t with 
+      | Some (lhs, rhs) -> 
+        let new_lhs = trm_map aux lhs in 
+        let new_rhs = trm_map aux rhs in 
+        if (lhs <> new_lhs) || (rhs <> new_rhs) then 
+          f_set t
+        else trm_map aux t
+      | None -> trm_map aux t
     else if is_access t then 
       begin match t.desc with 
       | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base]) ->
-        f_get t
+        if is_typ_struct struct_name base.typ 
+          then add_annot t.annot (f_get t)
+          else trm_map aux t
       | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [base]) ->
         assert false
       | _ -> trm_map aux t
@@ -580,7 +591,16 @@ let modif_accesses (struct_name : var) (f_get : trm -> trm) (f_set : trm -> trm)
 
   in aux t
 
-let struct_modif (new_fields : (label * typ) list) (f_get : trm -> trm) (f_set : trm -> trm) (index : int) (t : trm) : trm = 
+(* [struct_modif_aux new_fields f_get f_set use_annot_of index t]:
+    params:
+      [new_fields]: new struct fields replacing the current ones
+      [f_get]: function to be applied on all read accesses
+      [f_set]: function to be applied on all write accesses
+      [use_annot_of]: if true the value generated by f_set or f_get [inhertis] the annotation of [t]
+      [index]: index of the typedef on its surrounding sequence
+      [t]: ast of the main sequence containing the typedef definition *)
+let struct_modif_aux (new_fields : (label * typ) list) (f_get : trm -> trm) (f_set : trm -> trm) (use_annot_of : bool)
+ (index : int)  (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl -> 
     let lfront, tdef, lback = Internal.get_trm_and_its_relatives index tl in
@@ -589,9 +609,10 @@ let struct_modif (new_fields : (label * typ) list) (f_get : trm -> trm) (f_set :
       begin match td.typdef_body with 
       | Typdef_prod (t_names, field_list) -> 
          let struct_name = td.typdef_tconstr in 
+         let new_fields = if new_fields = [] then field_list else new_fields in 
          let new_typdef = {td with typdef_body = Typdef_prod (t_names, new_fields)} in 
          let new_td = trm_typedef ~marks:tdef.marks new_typdef in
-         let lback = Mlist.map (modif_accesses struct_name f_get f_set) lback in 
+         let lback = Mlist.map (modif_accesses struct_name f_get f_set use_annot_of) lback in 
          let new_tl = Mlist.merge lfront lback in 
          let new_tl = Mlist.insert_at index new_td new_tl in 
          {t with desc = Trm_seq new_tl}
@@ -603,5 +624,6 @@ let struct_modif (new_fields : (label * typ) list) (f_get : trm -> trm) (f_set :
   | _ -> fail t.loc "Struct_core.struct_modif: exepcted the surrounding sequence of the typedef "
 
 
-
+let struct_modif (new_fields : (label * typ) list) (f_get : trm -> trm) (f_set : trm -> trm) (use_annot_of : bool) (index : int) : Transfo.local =
+  apply_on_path (struct_modif_aux new_fields f_get f_set use_annot_of index)
 

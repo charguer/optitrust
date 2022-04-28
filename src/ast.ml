@@ -2517,6 +2517,14 @@ let get_struct_access_inv (t : trm) : (string * trm) option =
     end
   | _ -> None
 
+(* [set_inv t]: get the lhs and the rhs of a set(write) operation *)
+let set_inv (t : trm) : (trm * trm) option = 
+  match t.desc with 
+  | Trm_apps (_, [lhs; rhs]) when is_set_operation  t-> Some (lhs, rhs)
+  | _ -> None
+
+
+
 
 (* [trm_var_assoc_list to_map al] creat a map from an association list wher keys are string and values are trms *)
 let map_from_trm_var_assoc_list (al : (string * trm) list) : tmap =
