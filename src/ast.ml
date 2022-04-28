@@ -2536,6 +2536,13 @@ let set_struct_access_inv (t : trm) : (field * trm * trm ) option =
    end
   | _ -> None
 
+(* [struct_init_inv t]: get struct initialization list trms *)
+let struct_init_inv (t : trm) : trm mlist option = 
+  match t.desc with 
+  | Trm_struct sl -> Some sl
+  | _ -> None
+
+
 (* [set_inv t]: get the lhs and the rhs of a set(write) operation *)
 let set_inv (t : trm) : (trm * trm) option =
   match t.desc with

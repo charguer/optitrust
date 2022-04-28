@@ -579,6 +579,7 @@ module Struct_modif = struct
     f_set: modif;
     f_struct_get: modif;
     f_access: modif;
+    f_alloc: modif;
   }
 
   let arg_must_not_happen : modif =
@@ -628,7 +629,14 @@ let modif_accesses (struct_name : var) (arg : Struct_modif.arg) (t : trm) : trm 
             if is_typ_struct struct_name base.typ
               then arg.f_struct_get aux t
               else default()
-          | None -> default()
+          | None -> 
+            begin match struct_init_inv t with 
+            | Some sl -> 
+              if is_typ_struct struct_name t.typ 
+                then arg.f_alloc aux t
+                else default()
+            | None -> default ()
+            end
           end
         end
       end

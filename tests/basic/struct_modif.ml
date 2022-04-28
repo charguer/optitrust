@@ -34,7 +34,13 @@ let mytransfo tg =
                trm_set (struct_access field base) (set_mul_by_factor rhs)
              end
         ) in
-      { f_fields = Fun.id; f_get; f_set; f_struct_get; f_access; }) in
+      let f_alloc = arg_keep_annot (fun _aux t ->
+        match struct_init_inv t with 
+        | None -> assert false
+        | Some sl -> 
+            trm_struct (Mlist.map set_mul_by_factor sl)
+        ) in
+      { f_fields = Fun.id; f_get; f_set; f_struct_get; f_access; f_alloc}) in
   Struct_basic.struct_modif arg tg
 
 let _ = Run.script_cpp (fun _ ->
