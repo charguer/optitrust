@@ -565,7 +565,7 @@ let modif_accesses (struct_name : var) (f_get : trm -> trm) (f_set : trm -> trm)
       then match get_struct_access_inv t with 
       | Some (field, base) -> 
           if is_typ_struct struct_name base.typ
-            then add_annot t.annot (f_get t)
+            then add_annot t.annot (f_get t) 
             else trm_map aux t
       | None -> trm_map aux t
     else if is_set_operation t then

@@ -5,10 +5,9 @@ open Ast
     the transform core transformation on that trm. If the first founded operation was a get operation then [f_get] 
     will be applied on the node represented by target [tg]. If it was a set operation then [f_set] will be applied
     on the second argument of the targeted node. *)
-let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm) 
-  : Target.Transfo.t =
+let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm) : Target.Transfo.t =
      Target.apply_on_targets (fun t p -> let get_or_set_path = Internal.get_surrounding_trm (fun t -> 
-         (is_get_operation t) || (is_set_operation t)) p t in
+        (is_get_operation t) || (is_set_operation t)) p t in
         if get_or_set_path = [] 
           then t 
           else Accesses_core.transform f_get f_set t get_or_set_path )
