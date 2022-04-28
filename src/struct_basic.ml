@@ -99,9 +99,6 @@ let struct_modif (arg : Struct_modif.arg) : Transfo.t =
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
   (fun t (p, i) -> Struct_core.struct_modif arg i t p)
 
-
-
-
 (* FUTURE
 let struct_modif_simple ?(use_annot_of : bool = false) ?(new_fields : (label * typ) list = [])       ~ ?f_get:(f_get : (trm -> trm) option) ?f_set:(f_set : (trm -> trm) option) : Transfo.t =
   struct_modif {

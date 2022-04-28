@@ -203,11 +203,10 @@ let is_access (t : trm) : bool =
     end
   | _ -> false
 
-(* [caddress_intro_aux false t] is the inverse of [caddress_elim]
+(* [caddress_intro_aux false t] is the inverse of [caddress_elim], hence if applies the following changes:
     [get(t + offset(f))] becomes [get(t).f]
-    [get(t °)]
-    [Trm_apps (Prim_struct_access "f", [t])] becomes [t.f] as lvalue
-    [get(Trm_apps (Prim_struct_access "f", [t]))] becomes [t.f] as rlvalue *)
+    
+    *)
 
 let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
   let aux t = caddress_intro_aux false t in  (* recursive calls for rvalues *)

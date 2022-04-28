@@ -2506,15 +2506,34 @@ let struct_access (f : field) (base : trm) : trm =
 let get_struct_access (f : field) (base : trm) : trm =
   trm_get (struct_access f base)
 
-(* [get_struct_access_inv t]: returns tSome(base, index) of an struct_access if [t] is of the form 
-   get(struct_access(base, index) otherwise None *)
+(* [struct_access_inv]: if [t] is  a struct access then return its base and the accessed field *)
+let struct_access_inv (t : trm) : (field * trm) option = 
+  match t.desc with 
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)));_}, [base]) -> Some (f, base)
+  | _ -> None
+
+(* [struct_get_inv]: if [t] is a struct get then return its base and the accesses field *)
+let struct_get_inv (t : trm) : (field * trm) option =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_}, [base]) -> Some (f, base)
+  | _ -> None
+
+(* [get_struct_access_inv t]: if [t] is of the form get(struct_access (f, base)) return (f,base) *)
 let get_struct_access_inv (t : trm) : (string * trm) option =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) ->
-    begin match arg.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)));_}, [base]) -> Some (f, base)
-    | _ -> None
-    end
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) -> struct_access_inv t
+  | _ -> None
+
+
+(* [set_struct_access_inv t]: if [t] is a write on a struct access, then return the base, the field of that access 
+    and the value that has been assigned to *)
+let set_struct_access_inv (t : trm) : (field * trm * trm ) option =
+  match t.desc with 
+  | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
+   begin match struct_access_inv lhs with 
+   | Some (f, base) -> Some (f, base, rhs)
+   | _ -> None
+   end
   | _ -> None
 
 (* [set_inv t]: get the lhs and the rhs of a set(write) operation *)
@@ -2522,9 +2541,6 @@ let set_inv (t : trm) : (trm * trm) option =
   match t.desc with 
   | Trm_apps (_, [lhs; rhs]) when is_set_operation  t-> Some (lhs, rhs)
   | _ -> None
-
-
-
 
 (* [trm_var_assoc_list to_map al] creat a map from an association list wher keys are string and values are trms *)
 let map_from_trm_var_assoc_list (al : (string * trm) list) : tmap =
