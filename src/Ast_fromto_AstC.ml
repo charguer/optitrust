@@ -14,110 +14,74 @@ open Ast
   t.f  where t is not a get(.)    -> struct_get(t,"f")
 
    Recall: struct_get(t,f)  means  trm_apps (Prim_unop (unop_struct_get "f")) [t] *)
-(* environment for storing the mutability of all the variables *)
+
+(* [env]: a map for storing all the variables as keys, and their mutability as values *)
 type env = varkind String_map.t
 
-(* empty environment *)
+(* [env_empty]: empty environment *)
 let env_empty =
   String_map.empty
 
-(* [get_varkind env x] get mutability of variable [x] *)
+(* [get_varkind env x]: get the mutability of variable [x] 
+   Note: Functions that come from an external library are set to immutable by default *)
 let get_varkind (env : env) (x : var) : varkind =
   match String_map.find_opt x env with
   | Some m -> m
-  | _ -> Var_immutable (* Functions that come from an external library are set to immutable by default *)
+  | _ -> Var_immutable 
 
-(* [is_var_mutable env x] check if variable [x] is mutable or not *)
+(* [is_var_mutable env x]: check if variable [x] is mutable or not *)
 let is_var_mutable (env : env) (x : var) : bool =
   get_varkind env x = Var_mutable
 
-(* [env_extend env e varkind] add variable [e] into environment [env] *)
+(* [env_extend env e varkind]: add variable [e] into environment [env] *)
 let env_extend (env : env) (e : var) (varkind : varkind) : env =
   String_map.add e varkind env
 
-(* [add_var env x xm] add variable [x] into environemnt [env] with value [xm] *)
+(* [add_var env x xm]: add variable [x] into environemnt [env] with value [xm] *)
 let add_var (env : env ref) (x : var) (xm : varkind) : unit =
   env := env_extend !env x xm
 
-(* OPTIMIZATION (keep this code)
-(* [trm_address_of ~simplify t] adds the address operator before [t].
-    if [simplify] is true and [t] is of the form [*u] then it will return just [u] *)
-let trm_address_of ?(simplify : bool = false) (t : trm) : trm =
-  let aux t1 = trm_apps (trm_unop Unop_address) [t1] in
-  if not simplify then  aux t
-    else match t.desc with
-    | Trm_apps (f, [t1]) ->
-      begin match trm_prim_inv f with
-      | Some (Prim_unop Unop_get) -> t1
-      | _ -> aux t
-      end
-    | _ -> aux t
-
-(* [trm_get ~simplify t] adds the star operator before [t].
-   if [simplify] is true and [t] is of the form [&u] then it will return just [u] *)
-let trm_get ?(simplify : bool = false) (t : trm) : trm =
-  let aux t1 = trm_apps (trm_unop Unop_get) [t1] in
-  if not simplify then aux t
-    else match t.desc with
-    | Trm_apps (f, [t1]) ->
-      begin match trm_prim_inv f with
-      | Some (Prim_unop Unop_address) -> t1
-      | _ -> aux t
-      end
-    | _ -> aux t
-*)
-
-let trm_address_of ?(simplify : bool = false) (t : trm) : trm =
-  assert (simplify);
+(* [trm_address_of t]: add the "&" operator before [t]
+    Note: if for example t = *a then [trm_address_of t] = &( *a) = a *)
+let trm_address_of (t : trm) : trm =
   let u = trm_apps ~typ:t.typ (trm_unop Unop_address) [t] in
   trm_simplify_addressof_and_get u
 
-let trm_get ?(simplify : bool = false) (t : trm) : trm =
-  assert (simplify);
+(* [trm_get t]: add the "*" operator before [t]
+    Note: if for example t = &a then [trm_get t] = *( &a) = a *)
+let trm_get (t : trm) : trm =
   let u = trm_apps ~typ:t.typ (trm_unop Unop_get) [t] in
   trm_simplify_addressof_and_get u
 
-
-(* [onscope env t f] save the current environment before entering a new scope,
-    the revert back to the saved env after leaving the scope.
-
-    Usage:Global variables stay always in the environment but local variables like function args, loop indices etc are added before entering the scope
-    and removed when leaving the scope *)
+(* [onscope env t f]: apply function [f] on [t] without loosing [env] *)
 let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
     let saved_env = !env in
     let res = f t in
     env := saved_env;
     res
 
-(* [create_env] creates an empty environment *)
+(* [create_env]: create an empty environment *)
 let create_env () = ref env_empty
 
 
-(* [stackvar_elim t] replaces
-    [int a = 5] with [<annotation:stackvar> int* a = new int(5)]
-      and a variable occurrence [a] becomes [ * a]
-   The transformation leaves [const int c = 5] unchanged.
-
-   This transformation introduces many [*] operators. This may lead to the production of
-   [&*p] patterns. They are simplified into [p] on the fly.
-
-   For references, [int& b = a] becomes [<annotation:reference> int* b = a] as a simplification of [b = &*a]
-   and [int& x = t[i]] becomes [<annotation:reference> int* x = &(t[i])] if t has type [const int*].
-
-   Here, the "reference" annotation is added to allow decoding.
-   LATER: Support references on constants. *)
+(* [stackvar_elim t]: apply the following changes:
+    - [int a = 5] with [<annotation:stackvar> int* a = new int(5)] and a variable occurrence [a] becomes [ * a]
+    - [const int c = 5] remains unchange
+    - simplify patterns of the form [&*p] into [p].
+    - [int& b = a] becomes [<annotation:reference> int* b = a] as a simplification of [b = &*a]
+    - [int& x = t[i]] becomes [<annotation:reference> int* x = &(t[i])] if t has type [const int*].
+   
+   Note: "reference" annotation is added to allow decoding *)
 let stackvar_elim (t : trm) : trm =
   let env = create_env () in
   let rec aux (t : trm) : trm =
     trm_simplify_addressof_and_get
     begin match t.desc with
     | Trm_var (_, x) ->
-      (* x when x is mutable becomes *x, where the ' * 'is used only for encoding purposes, hence not visible to the user *)
       if is_var_mutable !env x
-        then trm_get ~simplify:true {t with desc = Trm_var (Var_mutable, x)}
+        then trm_get {t with desc = Trm_var (Var_mutable, x)}
         else { t with desc = Trm_var (Var_immutable, x) }
     | Trm_let (_, (x, ty), tbody) ->
-      (* mutability is deducted from the declaration of the variable, by checking if it has a const type or not *)
       let xm = if is_typ_const ty then Var_immutable else Var_mutable in
       add_var env x xm;
       begin match typ_ref_inv ty with
@@ -125,7 +89,7 @@ let stackvar_elim (t : trm) : trm =
         begin match xm with
         | Var_immutable -> fail t.loc "stackvar_elim: unsupported references on const variables"
         | _ ->
-          trm_annot_add Reference {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of ~simplify:true (aux tbody))}
+          trm_annot_add Reference {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of (aux tbody))}
         end
       | None ->
         begin match xm with
@@ -146,23 +110,18 @@ let stackvar_elim (t : trm) : trm =
         onscope env t (fun t -> add_var env index Var_immutable; trm_map aux t)
     | Trm_for_c _ ->
         onscope env t (fun t -> trm_map aux t)
-    (* OPTIMIZATION Simplification of [&*p] patterns
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _} as op, [t1]) ->
-        let u1 = aux t1 in
-        begin match u1.desc with
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [u11]) -> u11
-        | _ -> { t with desc = Trm_apps (op, [u1]) }
-        end *)
     | _ -> trm_map aux t
    end in
    aux t
 
-(* [stackvar_intro t] is the reciprocal to [stackvar_elim]. It replaces [<annotation:stackvar> int *a = new int(5)] with [int a = 5]
-    and a variable occurrence [*a] becomes [a] if it corresponds to a stack variable
-    (as a simplification to [*(&a)])
-    For references, [<annotation:reference> int* b = a] becomes [int& b = a],
-      as a simplification of b = *(&a), where &a is obtained after translating a.
-    and [<annotation:reference> int* x = &t[i]] becomes [int& x = t[i]], where t has type [const int*] as a simplification of x = *(&t[i]) *)
+
+(* [stackvar_intro t]: is the inverse of [stackvar_elim], hence it applies the following changes:
+     - [<annotation:stackvar> int *a = new int(5)] with [int a = 5]
+     - [const int c = 5] remains unchanged
+     - [<annotation:reference> int* b = a] becomes [int& b = a], as a simplification of b = *(&a) 
+        where &a is obtained after translating [a]
+     - [<annotation:reference> int* x = &t[i]] becomes [int& x = t[i]], where t has type [const int*] 
+       as a simplification of x = *(&t[i]) *)
 let stackvar_intro (t : trm) : trm =
   let env = create_env () in
   let rec aux (t : trm) : trm =
@@ -170,7 +129,7 @@ let stackvar_intro (t : trm) : trm =
     begin match t.desc with
     | Trm_var (_, x) ->
       if is_var_mutable !env x
-        then trm_address_of ~simplify:true {t with desc = Trm_var (Var_mutable, x)} 
+        then trm_address_of {t with desc = Trm_var (Var_mutable, x)} 
         else t
     | Trm_let (_, (x, tx), tbody) ->
       let vk = if is_typ_const tx then Var_immutable else Var_mutable in
@@ -185,7 +144,7 @@ let stackvar_intro (t : trm) : trm =
       else if List.mem Reference t.annot then
         begin match tx.typ_desc with
         | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1} ->
-          trm_annot_remove Reference { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get ~simplify:true (aux tbody))}
+          trm_annot_remove Reference { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get (aux tbody))}
         | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
         end
       else
@@ -198,58 +157,27 @@ let stackvar_intro (t : trm) : trm =
       List.iter (fun (x, _tx) -> let mut = Var_immutable in (add_var env x mut)) targs; trm_map aux t)
     | Trm_for (index, _, _, _, _, _) ->
       onscope env t (fun t -> begin add_var env index Var_immutable; trm_map aux t end)
-    | Trm_for_c _ ->
-      onscope env t (fun t -> trm_map aux t)
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_var_mutable !env x  -> t1
-    (* OPTIMIZATION Simplification of [*&p] patterns
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op, [t1]) ->
-        let u1 = aux t1 in
-        begin match u1.desc with
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _}, [u11]) -> u11
-        | _ -> { t with desc = Trm_apps (op, [u1]) }
-        end *)
+    | Trm_for_c _ -> onscope env t (fun t -> trm_map aux t)
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_var_mutable !env x  -> t1
     | _ -> trm_map aux t
     end in
    aux t
 
-(* [caddress_elim_aux false t] eliminates the use of l-values in the AST
-    [* t1]  becomes [get(t1)]
-    [* t1 = t2] becomes as [set(t1, t2)]
-    [t[i] = t[i] + 1] is encoded as [set(t+i, get(t+i) + 1)]
-    [t.f = t.f + 1] is encoded as [set(t+offset(f), get(t + offset(f)) + 1)]
-    [( * p).f.x] is encoded as [get(p+offset(f)+ offset(x))]
-    [( * p).f.x = 3] is encoded as [set(p+offset(f) + offset(x), 3)]
-    [( * p) [ i ] ]  is encoded as [get(p+i)]
-    [t+i] is represented in optitrust as [Trm_apps (Prim_array_acces, [t;i])] in the AST
-    [t+offset(f)] is represented in optitrust as [Trm_apps (Prim_struct_access "f", [t])]
 
-    This transformation is implemented as [caddress_elim_aux lvalue t], where the
-    boolean [lvalue] indicates whether we are currently translating a l-value
-    or a normal instruction or expression (r-value). *)
-let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
-  let aux t = caddress_elim_aux false t in (* recursive calls for rvalues *)
-  let access t = caddress_elim_aux true t in (* recursive calls for lvalues *)
+(* [caddress_elim t]: applies the following changes
+     - [get(t).f] becomes get(t + offset f)
+     - [get(t) + offset(f)] becomes get(t + offset(f))
+     - [get(t)[i] ] becomes [get (t + i)]
+       
+     Note: [t + i] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_array_access, [t; i])))]
+           [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[ŧ])] *)
+let rec caddress_elim (t : trm) : trm =
+  let aux t = caddress_elim t in (* recursive calls for rvalues *)
   let mk ?(annot = []) td = {t with desc = td; annot = annot} in
   trm_simplify_addressof_and_get
-  begin if lvalue then begin
-    match t.desc with
-     (* [t.f] is translated to [struct_access(access t, f)] *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t1]) ->
-      let u1 = access t1 in
-      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u1]))
-      (* [t[i]] is translated to [array_access(access t, aux i)] *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_} as op, [t1; t2]) ->
-      let u1 = aux t1 in
-      let u2 = aux t2 in
-      mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2]))
-      (* *t1 becomes to [*(aux t1)] if '*' is not a hidden get operation, otherwise it becomes  [aux t1] *)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as _op, [t1]) -> aux t1
-    | Trm_var (_, x) -> fail t.loc (Printf.sprintf "caddress_elim: const variable '%s' cannot appear as lvalue (mutation of function arguments is not supported in OptiTrust)" x)
-    | _ -> fail t.loc (Printf.sprintf "caddress_elim: invalid lvalue, %s\n------------\n%s\n" (AstC_to_c.ast_to_string t) (Ast_to_text.ast_to_string t))
-  end else begin
+  begin 
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
-      (* LATER ARTHUR: just call simpl_struct_get_get afterwards *)
       let u1 = aux t1 in
       begin match u1.desc with
       | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _} as op1, [u11])  ->
@@ -258,27 +186,14 @@ let rec caddress_elim_aux (lvalue : bool) (t : trm) : trm =
         mk ~annot:u1.annot (Trm_apps (op1, [mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [u11]))]))
       | _ -> mk (Trm_apps (op, [u1]))
       end
-
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get))); _} as _op, [t1; t2]) ->
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get))); _} as _op, [t1; t2]) ->
         let u1 = aux t1 in
         let u2 = aux t2 in
-        trm_get ~simplify:true { t with desc = Trm_apps ({ t with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2]) }
-
-    (* OPTIMIZATION Simplification of [&*p] patterns
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_address)); _} as op, [t1]) ->
-      let u1 = aux t1 in
-      begin match u1.desc with
-      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [u11]) -> u11
-      | _ -> { t with desc = Trm_apps (op, [u1]) }
-      end *)
+        trm_get { t with desc = Trm_apps ({ t with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2]) }
     | _ -> trm_map aux t
     end
-  end
 
-let caddress_elim = caddress_elim_aux false
-
-
-(* [is_access t] check if trm t is a struct access or an array access *)
+(* [is_access t]: check if trm [t] is a struct access or an array access *)
 let is_access (t : trm) : bool =
   match t.desc with
   | Trm_apps (tprim, _) ->
@@ -293,12 +208,13 @@ let is_access (t : trm) : bool =
     [set(t1, t2)] becomes as [* t1 = t2]
     [Trm_apps (Prim_struct_access "f", [t])] becomes [t.f] as lvalue
     [get(Trm_apps (Prim_struct_access "f", [t]))] becomes [t.f] as rlvalue *)
-let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
+
+let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
   let aux t = caddress_intro_aux false t in  (* recursive calls for rvalues *)
   let access t = caddress_intro_aux true t in (* recursive calls for lvalues *)
   let mk td = {t with desc = td} in
   trm_simplify_addressof_and_get (* Note: might not be needed *)
-  begin if lvalue then begin
+  begin if is_access_t then begin
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _} as op, [t1]) ->
       (* struct_access (f, t1) is reverted to struct_get (f, access t1) *)
@@ -309,13 +225,13 @@ let rec caddress_intro_aux (lvalue : bool) (t : trm) : trm =
       let u1 = aux t1 in
       let u2 = aux t2 in
       mk (Trm_apps ({op with desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)))}, [u1; u2]))
-    | _ -> trm_get ~simplify:true (aux t)
+    | _ -> trm_get (aux t)
     end
     else begin
     match t.desc with
     | _ when is_access t ->
       (* [access(..)] becomes [& ...] *)
-        trm_address_of ~simplify:true (access t)
+        trm_address_of (access t)
     | _ -> trm_map aux t
     end
   end
@@ -345,11 +261,11 @@ let infix_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr]) ->
-     {t with desc = Trm_apps(op, [trm_address_of ~simplify:true tl; tr])}
+     {t with desc = Trm_apps(op, [trm_address_of tl; tr])}
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base]) when is_postfix_unary unop ->
-      {t with desc = Trm_apps(op, [trm_address_of ~simplify:true base])}
+      {t with desc = Trm_apps(op, [trm_address_of base])}
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set))} as op, [tl; tr]) ->
-      {t with desc = Trm_apps (op, [trm_address_of ~simplify:true tl;tr])}
+      {t with desc = Trm_apps (op, [trm_address_of tl;tr])}
     | _ -> trm_map aux t
   in aux t
 
@@ -361,11 +277,11 @@ let infix_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr]) ->
-     {t with desc = Trm_apps(op, [trm_get ~simplify:true tl; tr])}
+     {t with desc = Trm_apps(op, [trm_get tl; tr])}
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base]) when is_postfix_unary unop ->
-      {t with desc = Trm_apps(op, [trm_get ~simplify:true base])}
+      {t with desc = Trm_apps(op, [trm_get base])}
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set))} as op, [tl; tr]) ->
-      {t with desc = Trm_apps (op, [trm_get ~simplify:true tl;tr])}
+      {t with desc = Trm_apps (op, [trm_get tl;tr])}
     | _ -> trm_map aux t
   in aux t
 
