@@ -631,18 +631,17 @@ let modif_accesses (struct_name : var) (arg : Struct_modif.arg) (t : trm) : trm 
       end
     in aux t
 
-
 (* [struct_modif_aux new_fields f_get f_set use_annot_of index t]:
     params:
       [arg]: Struct_modif type
       [index]: index of the typedef on its surrounding sequence
       [t]: ast of the main sequence containing the typedef definition *)
-
 let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
   match t.desc with
-   (* TODO: MList.update_at_index_and_fix_beyond (f_update_at:trm->trm) (f_update_further:trm->trm) = *)
   | Trm_seq tl ->
-    let lfront, tdef, lback = Internal.get_trm_and_its_relatives index tl in
+    let tdef = begin match Mlist.nth_opt tl index with 
+    | Some t1 -> t1 
+    | None -> assert false end in
     begin match tdef.desc with
     | Trm_typedef td ->
       begin match td.typdef_body with
@@ -651,15 +650,14 @@ let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
          let new_fields = arg.f_fields field_list in
          let new_typdef = {td with typdef_body = Typdef_prod (t_names, new_fields)} in
          let new_td = trm_typedef ~marks:tdef.marks new_typdef in
-         let lback = Mlist.map (modif_accesses struct_name arg) lback in
-         let new_tl = Mlist.merge lfront lback in
-         let new_tl = Mlist.insert_at index new_td new_tl in
+         let f_update = fun t -> new_td in 
+         let f_update_further = fun t -> modif_accesses struct_name arg t in 
+         let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in 
          {t with desc = Trm_seq new_tl}
       | _ -> fail tdef.loc "Struct_core.struct_modif: expected a struct definition"
-
       end
     | _ -> fail tdef.loc "Struct_core.struct_modif: expected a target to a typedef struct definition"
-    end
+    end 
   | _ -> fail t.loc "Struct_core.struct_modif: exepcted the surrounding sequence of the typedef "
 
 let struct_modif (arg : Struct_modif.arg) (index : int) : Transfo.local =

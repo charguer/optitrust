@@ -42,6 +42,9 @@ let fold_left (acc_f : 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
 let nth (ml : 'a t) (index : int) : 'a =
   List.nth ml.items index
 
+let nth_opt (ml : 'a t) (index : int) : 'a option = 
+  List.nth_opt ml.items index
+  
 let fold_lefti (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
   Tools.fold_lefti acc_f acc ml.items
 
@@ -113,8 +116,10 @@ let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
 let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =
   { ml with items = Tools.update_nth n transfo ml.items }
 
-
-
-
-
-
+(* [update_at_index_and_fix_beyond index f_update_at f_update_further ml]: apply [f_update_at] on the element 
+    at [index] and modify accordingly all the elements that come after using [f_update_further] *)
+let update_at_index_and_fix_beyond (index : int) (f_update_at : 'a -> 'a) (f_update_further : 'a -> 'a) (ml : 'a t) : 'a t = 
+  let lfront, lback = split index ml in 
+  let lback = update_nth 0 f_update_at lback in 
+  let lback = map f_update_further lback in 
+  merge lfront lback

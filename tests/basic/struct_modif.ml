@@ -23,5 +23,4 @@ let _ = Run.script_cpp (fun _ ->
         ) in
       { f_fields = Fun.id; f_get; f_set; f_struct_get; f_access; }) in
    !! Struct_basic.struct_modif arg [cTypDef "vect"];
-
 )
