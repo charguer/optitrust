@@ -160,8 +160,8 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
   | _ -> fail None "isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
-(* [get_instruction_in_surrounding_sequence dl ] for an ast node with path [dl], this function returns the path 
-    to the sequence that contains the parent instruction of that node and the index of that instruction in 
+(* [get_instruction_in_surrounding_sequence dl ] for an ast node with path [dl], this function returns the path
+    to the sequence that contains the parent instruction of that node and the index of that instruction in
     the surrounding sequence *)
 let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
   let rec aux (acc : path) (dl : path) =
@@ -219,7 +219,7 @@ let fresh_args (t : trm) : trm =
 (* [get_field_list td] in the case of typedef struct give back the list of struct fields *)
 let get_field_list (td : typedef) : (var * typ) list =
   begin match td.typdef_body with
-  | Typdef_prod (_, s) -> List.rev s
+  | Typdef_prod (_, s) -> s
   | _ -> fail None "get_field_lists: expected a Typedef_prod"
   end
 
@@ -444,7 +444,7 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
         end
       ) (Mlist.to_list tl)) in
       let new_tl = Mlist.map aux tl in
-     
+
       let new_tl =
         if indices_list <> [] then
           List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list)

@@ -2506,6 +2506,9 @@ let struct_access (f : field) (base : trm) : trm =
 let get_struct_access (f : field) (base : trm) : trm =
   trm_get (struct_access f base)
 
+(* TODO: return the trm before the field in every function below *)
+(* TODO: struct_access does not have the arguments in the same order as struct_get *)
+
 (* [struct_access_inv t]: if [t] is  a struct access then return its base and the accessed field; else Npone *)
 let struct_access_inv (t : trm) : (field * trm) option =
   match t.desc with

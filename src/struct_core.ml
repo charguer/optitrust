@@ -241,8 +241,8 @@ let reveal_field_aux (field_to_inline : field) (index : int) (t : trm ) =
     | Trm_typedef td ->
       begin match td.typdef_body with
       | Typdef_prod (t_names, field_list) ->
-       let field_index = Internal.get_field_index field_to_inline (List.rev field_list) in
-       let lfront1, lback1 = Tools.split_list_at field_index (List.rev field_list) in
+       let field_index = Internal.get_field_index field_to_inline field_list in
+       let lfront1, lback1 = Tools.split_list_at field_index field_list in
        let field_to_inline1, lback1 = if List.length lback1 = 1 then (lback1, []) else
         Tools.split_list_at 1 lback1 in
        let _ ,field_type = List.nth field_to_inline1 0 in
@@ -274,11 +274,11 @@ let reveal_field_aux (field_to_inline : field) (index : int) (t : trm ) =
             | Typ_array (_, size) -> (new_field, (typ_array typ size))
             | _ -> (new_field, typ)) inner_type_field_list in
 
-       let field_list = List.rev  (lfront1 @ (List.rev inner_type_field_list) @ lback1) in
+       let field_list = (lfront1 @ inner_type_field_list @ lback1) in
        let new_typedef = {td with typdef_body =  Typdef_prod (t_names, field_list)} in
        let new_trm = trm_typedef new_typedef in
        let lback = Mlist.map (inline_struct_accesses field_to_inline) lback in
-       let lback = Mlist.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Internal.get_field_list struct_def)))) field_index) lback in
+       let lback = Mlist.map (inline_struct_initialization td.typdef_tconstr (fst (List.split (Internal.get_field_list struct_def))) field_index) lback in
        let new_tl = Mlist.merge lfront lback in
        let new_tl = Mlist.insert_at index new_trm new_tl in
        { t with desc = Trm_seq new_tl}

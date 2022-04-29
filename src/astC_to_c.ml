@@ -567,7 +567,7 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
          | [] -> acc
          | (lb, t) :: tl ->
             aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in
-        aux [] s in
+        aux [] (List.rev s) (* LATER: process without accumulator *) in
       let dl = get_document_list s in
       let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
       let second_name = if tn then td.typdef_tconstr else "" in

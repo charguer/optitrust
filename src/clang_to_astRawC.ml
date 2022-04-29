@@ -637,7 +637,7 @@ and tr_expr ?(is_statement : bool = false)
     print_info loc "tr_expr: implicit initial value\n";
     trm_lit ~loc ~ctx Lit_uninitialized
   | UnknownExpr (GNUNullExpr, GNUNullExpr) -> trm_null ~loc ~ctx () (* sometimes Null is translated like this *) (* LATER: in which condition? *)
-  | UnknownExpr (CompoundLiteralExpr, CompoundLiteralExpr) -> 
+  | UnknownExpr (CompoundLiteralExpr, CompoundLiteralExpr) ->
       Printf.printf "WARNING: Unknown expressions are parse as null pointers";
       trm_add_mark "unknown_expr" (trm_null ~loc ~ctx () )
   | ImplicitValueInit _ -> trm_lit ~loc ~ctx Lit_uninitialized
@@ -728,7 +728,7 @@ and tr_decl_list (dl : decl list) : trms =
           typdef_typid = tid;
           typdef_tconstr = tn;
           typdef_vars = [];
-          typdef_body = Typdef_prod (two_names, (List.rev prod_list))
+          typdef_body = Typdef_prod (two_names, prod_list)
           } in
         ctx_typedef_add tn tid td;
         let trm_td = trm_typedef ~loc ~ctx:(Some (get_ctx())) td in
