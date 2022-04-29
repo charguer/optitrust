@@ -1,6 +1,6 @@
 open Ast
 
-(* [typid_to_typedef tid ] Get the declaration of a typedef with id [tid]*)
+(* [typid_to_typedef tid ]: Get the declaration of a typedef with id [tid]*)
 let typid_to_typedef (tid : typconstrid) : typedef option =
   let t_root = Target.get_ast () in
   match t_root.desc with 
@@ -11,4 +11,4 @@ let typid_to_typedef (tid : typconstrid) : typedef option =
         when tid = tid1 -> Some td
       | _ -> None
       end) tl
-  | _ -> fail t_root.loc "typid_to_typedef: expected the ast of the main file"
+  | _ -> fail t_root.loc "Context.typid_to_typedef: expected the ast of the main file"

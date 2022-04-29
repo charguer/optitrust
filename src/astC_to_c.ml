@@ -442,7 +442,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         | Expr e -> string e
         | Stmt s -> string s
         | Instr s -> string s ^^ semi
-        | _ -> fail t.loc "trm_to_doc: arbitrary code should be entered by using Lit, Expr and Stmt only"
+        | _ -> fail t.loc "AstC_to_c.trm_to_doc: arbitrary code should be entered by using Lit, Expr and Stmt only"
         end  in
         dattr ^^ code_str
      | Trm_omp_directive d ->
@@ -489,7 +489,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
             | Some t1 -> typ_to_doc ty ^^ blank 1 ^^ string n ^^ equals ^^ trm_to_doc t1
             | None -> typ_to_doc ty ^^ blank 1 ^^ string n
             end
-          | Template _ -> fail None "template_param_kind_to_doc: nested templates are not supported"
+          | Template _ -> fail None "AstC_to_c.template_param_kind_to_doc: nested templates are not supported"
 
         ) tpl in
         string "template" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl ^^ semi
@@ -574,7 +574,7 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       string "typedef " ^^ string "struct" ^^ blank 1 ^^ string second_name ^^ blank 1 ^^ sbody ^^ blank 1 
       ^^ string td.typdef_tconstr ^^ semi
   | Typdef_sum _ ->
-      fail None "typedef_to_doc: sum types are not supported in C/C++"
+      fail None "AstC_to_c.typedef_to_doc: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
       let const_doc_l =
         List.map
@@ -605,15 +605,15 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
       end
     end
   | Trm_typedef _ -> string ""
-  | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
+  | _ -> fail loc "AstC_to_c.multi_decl_to_doc: only variables declarations allowed"
   end
  in
  let dnames = separate (comma ^^ blank 1) (List.map get_info tl) in
   begin match tl with
-  | [] -> fail loc "multi_deco_to_doc: empty multiple declaration"
+  | [] -> fail loc "AstC_to_c.multi_deco_to_doc: empty multiple declaration"
   | [d] -> begin match d.desc with
            | Trm_typedef td -> typedef_to_doc td
-           | _ -> fail loc "multi_decl_to_doc: expected a typedef"
+           | _ -> fail loc "AstC_to_c.multi_decl_to_doc: expected a typedef"
            end
   | hd :: _ ->
     match hd.desc with
@@ -625,7 +625,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
             | _ -> typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
             end
        end
-  | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
+  | _ -> fail loc "AstC_to_c.multi_decl_to_doc: expected a trm_let"
   end
 (* [apps_to_doc ~prec f tl]: convert a function call to pprint document *)
 and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
@@ -683,7 +683,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
                  parens dty ^^ blank 1 ^^ d
               end
            | _ ->
-              fail f.loc "apps_to_doc: unary operators must have one argument"
+              fail f.loc "AstC_to_c.apps_to_doc: unary operators must have one argument"
            end
         | Prim_binop op ->
           let (prec1, prec2) =
@@ -706,7 +706,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
                 d1 ^^ brackets (d2)
              | _ -> separate (blank 1) [d1; op_d; d2]
              end
-          | _ -> fail f.loc "apps_to_doc: binary_operators must have two arguments"
+          | _ -> fail f.loc "AstC_to_c.apps_to_doc: binary_operators must have two arguments"
           end
         | (Prim_compound_assgn_op _ | Prim_overloaded_op _) as p_b ->
            begin match tl with
@@ -717,7 +717,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
               if !print_optitrust_syntax
                 then op_d ^^ parens (d1 ^^ comma ^^ d2)
                 else separate (blank 1) [d1; op_d; d2]
-          | _ -> fail f.loc "apps_to_doc: binary operators must have two arguments"
+          | _ -> fail f.loc "AstC_to_c.apps_to_doc: binary operators must have two arguments"
           end
         | Prim_conditional_op ->
            begin match tl with
@@ -735,11 +735,11 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
           let value = List.hd tl in
           string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
         end
-     | _ -> fail f.loc (Printf.sprintf "apps_to_doc: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
+     | _ -> fail f.loc (Printf.sprintf "AstC_to_c.apps_to_doc: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
      end
    | _ ->
       Ast_to_text.print_ast ~only_desc:true stdout f;
-      fail f.loc "apps_to_doc: only functions may be applied"
+      fail f.loc "AstC_to_c.apps_to_doc: only functions may be applied"
 
 (* [mode_to_doc m]: OpenMP mode to pprint document *)
 and mode_to_doc (m : mode) : document =
@@ -974,7 +974,7 @@ and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_d
         trm_apps (trm_unop Unop_post_inc) [trm_var index]
       | Step st ->
         trm_apps (trm_prim (Prim_compound_assgn_op Binop_add) ) [trm_var index; st]
-      | _ -> fail body.loc "unpack_trm_for: can't use decrementing operators for upper bounded for loops"
+      | _ -> fail body.loc "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
       end
     | DirDown | DirDownEq ->
       begin match step with
@@ -984,7 +984,7 @@ and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_d
         trm_apps (trm_unop Unop_post_dec) [trm_var index]
       | Step st ->
         trm_apps (trm_prim (Prim_compound_assgn_op Binop_sub) ) [trm_var index; st]
-      | _ -> fail body.loc "unpack_trm_for: can't use decrementing operators for upper bounded for loops"
+      | _ -> fail body.loc "AstC_to_c.unpack_trm_for: can't use decrementing operators for upper bounded for loops"
       end
 
     end in

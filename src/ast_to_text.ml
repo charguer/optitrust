@@ -172,7 +172,7 @@ and print_val ?(only_desc : bool = false) (v : value) : document =
      print_node "Val_lit" ^^ parens dl
   | Val_ptr l ->
      if l = 0 then string "NULL"
-     else fail None "print_val: pointers not implemented"
+     else fail None "Ast_to_text.print_val: pointers not implemented"
   | Val_prim p ->
      let dp = print_prim ~only_desc p in
      print_node "Val_prim" ^^ parens dp
@@ -382,7 +382,7 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
     print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
      [string tname; string (string_of_int tid); print_list dtl ])
   | Typdef_sum _ ->
-    fail None "print_typedef: sum types are not supported in C/C++"
+    fail None "Ast_to_text.print_typedef: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
      let denum_const_l =
        print_list

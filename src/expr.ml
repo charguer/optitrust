@@ -1,13 +1,12 @@
 open Target
 include Expr_basic
 
-(* [replace_fun code tg] expects the target to point at a function call,
-    then it replaces the name of the function call with the one entered
-    by the user
+(* [replace_fun code tg]: expects the target [tg] to point at a function call,
+    then it replaces the name of the function call with the one entered by the user
 
     Assumption:
-      [name] is the name of an already defined function which has the same
-      signature as function whose call is targeted by [tg] *)
+      [name] is the name of an already defined function which has the same signature 
+      as function whose call is targeted by [tg] *)
 let replace_fun ?(inline : bool = false) (name : string) ?(delete : bool = false) (tg : target) : unit =
   iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun i t (path_to_seq, local_path, i1) -> 

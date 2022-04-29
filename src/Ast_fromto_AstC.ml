@@ -88,7 +88,7 @@ let stackvar_elim (t : trm) : trm =
       begin match typ_ref_inv ty with
       | Some ty1 ->
         begin match xm with
-        | Var_immutable -> fail t.loc "stackvar_elim: unsupported references on const variables"
+        | Var_immutable -> fail t.loc "Ast_fromto_AstC.tackvar_elim: unsupported references on const variables"
         | _ ->
           trm_annot_add Reference {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of (aux tbody))}
         end

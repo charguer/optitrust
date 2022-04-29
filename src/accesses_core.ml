@@ -11,7 +11,7 @@ let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
   | Trm_apps (_, [_addr]) -> 
     if is_get_operation t 
       then f_get t 
-      else fail t.loc "transform_aux: expected a get operation"
+      else fail t.loc "Accesses_core.transform_aux: expected a get operation"
   | Trm_apps (f, [addr; targ]) ->
       if is_set_operation t
         then {t with desc = Trm_apps (f ,[addr; f_set targ])}

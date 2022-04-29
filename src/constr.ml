@@ -242,7 +242,7 @@ let depth_pred (d : depth) : depth =
   match d with
   | DepthAny -> DepthAny
   | DepthAt n ->
-      if n <= 0 then fail None "depth_pred: argument of DepthAt is not positive";
+      if n <= 0 then fail None "Constr.depth_pred: argument of DepthAt is not positive";
       DepthAt (n-1)
 
 (******************************************************************************)
@@ -682,7 +682,7 @@ let target_to_target_struct (tr : target) : target_struct =
     | Constr_occurrences oc ->
       begin match !occurences with
       | None -> occurences := Some oc;
-      | _ -> fail None "Constr_occurrences provided twice in path"
+      | _ -> fail None "Constr.Constr_occurrences provided twice in path"
       end
     | _ -> ()
     in
@@ -792,7 +792,7 @@ let stringreprs : (stringreprid, string) Hashtbl.t option ref = ref None
 (* [print_stringreprs ()]: for debugging purpose *)
 let print_stringreprs () : unit =
   match !stringreprs with
-  | None -> fail None "print_stringreprs: no table registered"
+  | None -> fail None "Constr.print_stringreprs: no table registered"
   | Some m ->
       let pr id s =
         Printf.printf "stringreprs[%d] = %s\n----\n" id s in
@@ -804,7 +804,7 @@ let print_stringreprs () : unit =
    or an empty string otherwise *)
 let get_stringrepr (t : trm) : string =
     match !stringreprs with
-    | None -> fail t.loc (Printf.sprintf "get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
+    | None -> fail t.loc (Printf.sprintf "Constr.get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
     | Some m ->
         match Ast.trm_get_stringreprid t with
         | Some id ->
@@ -857,7 +857,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
       *)
      begin match t.desc with
      | Trm_seq tl -> List.mem true (List.map (check_constraint c) (Mlist.to_list tl))
-     | _ -> fail t.loc "check_constraint: bad multi_decl annotation"
+     | _ -> fail t.loc "Constr.check_constraint: bad multi_decl annotation"
      end
   else
 
@@ -1014,10 +1014,10 @@ and check_arg (tg:arg_constraint) ((var_name, var_typ) : typed_var) : bool =
            | Constr_bool true -> true
            | Constr_arg (var_constraint, typ_constraint) ->
               var_constraint var_name && typ_constraint var_typ
-           | _ -> fail None "check_arg: target expressing constraints on arguments must be of 
+           | _ -> fail None "Constr.check_arg: target expressing constraints on arguments must be of 
                              the form [cArg...] or [cTrue]."
           end
-  | _ -> fail None "check_arg: target expressing constraints on arguments must be list with at most one item."
+  | _ -> fail None "Constr.check_arg: target expressing constraints on arguments must be list with at most one item."
 
 
 (* [check_accesses ~inner_accesses ca al]: check if [al] is matched by [ca] *)
@@ -1124,7 +1124,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
         let res = List.fold_left (fun acc tr ->
           let potential_targets = resolve_target_simple ~depth (tr @ trest) t in
           begin match potential_targets with
-          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
+          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "Constr.resolve_target_simple: for Constr_and all targets should match a trm"
           | _ ->
             Path.union acc potential_targets
           end ) [] tl in
@@ -1141,7 +1141,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
       List.fold_left (fun acc tr ->
           let potential_targets = resolve_target_simple ~depth tr t in
           begin match potential_targets with
-          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
+          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "Constr.resolve_target_simple: for Constr_and all targets should match a trm"
           | _ ->
             Path.union acc potential_targets
           end ) [] tl1 in
@@ -1162,7 +1162,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
         Tools.fold_lefti (fun i acc tr ->
           let targetsi = resolve_target_simple (tr @ trest) t in
           begin match targetsi with
-          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
+          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "Constr.resolve_target_simple: for Constr_and all targets should match a trm"
           | _ ->
             if i = 0
               (* First step, initalize the acc *)
@@ -1172,7 +1172,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           end) [] tl
 
     | Constr_diff (_ , _) :: _ ->
-        fail t.loc "cDiff can only appear at last item in a target"
+        fail t.loc "Constr.cDiff can only appear at last item in a target"
 
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
@@ -1242,22 +1242,22 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
 and resolve_target (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in
   if tgs.target_relative <> TargetAt
-    then fail None "resolve_target: this target should not contain a tBefore/tAfter/tFirst/tLast";
+    then fail None "Constr.resolve_target: this target should not contain a tBefore/tAfter/tFirst/tLast";
   try resolve_target_struct tgs t
   with Resolve_target_failure (_loc_opt,str) ->
-    fail None (str ^ "\n" ^ (target_to_string tg))
+    fail None ("Constr." ^ str ^ "\n" ^ (target_to_string tg))
 
 (* [resolve_target_exactly_one tg t]: similar to [resolve_target] but this one fails if the target resolves to more than one path *)
 and resolve_target_exactly_one (tg : target) (t : trm) : path =
   match resolve_target tg t with
   | [p] -> p
-  | _ -> fail t.loc "resolve_target_exactly_one: obtained several targets."
+  | _ -> fail t.loc "Constr.resolve_target_exactly_one: obtained several targets."
 
 (* [resolve_constraint c p t]: check [c] against [t] and in case of success continue with [p] *)
 and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   let loc = t.loc in
   match c with
-  | Constr_target _ -> fail t.loc "resolve_constraint should not reach a Constr_target"
+  | Constr_target _ -> fail t.loc "Constr.resolve_constraint should not reach a Constr_target"
   (*
     do not resolve in included files, except if the constraint is Constr_include
    *)
@@ -1302,7 +1302,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      begin match t.desc with
      | Trm_seq tl ->
         explore_list (Mlist.to_list tl) (fun i -> Dir_seq_nth i) (explore_in_depth p)
-     | _ -> fail loc "explore_in_depth: bad multi_decl annotation"
+     | _ -> fail loc "Constr.explore_in_depth: bad multi_decl annotation"
      end
   else
      begin match t.desc with
@@ -1545,21 +1545,21 @@ let extract_last_dir (p : path) : path * int =
   | d :: p' ->
     begin match d with
     | Dir_seq_nth i -> (List.rev p', i)
-    | _ -> fail None "extract_last_dir: expected a directory in a sequence"
+    | _ -> fail None "Constr.extract_last_dir: expected a directory in a sequence"
     end
 
 (* [get_sequence_length t]: get the number of instructions on a sequence *)
 let get_sequence_length (t : trm) : int =
   begin match t.desc with
   | Trm_seq tl -> Mlist.length tl
-  | _ -> fail t.loc "get_sequence_length: expected a sequence"
+  | _ -> fail t.loc "Constr.get_sequence_length: expected a sequence"
   end
 
 (* [get_arity_of_seq_at]: get the arity of a sequence at path [p] *)
 let get_arity_of_seq_at (p : path) (t : trm) : int =
   let (d,p') =
     try extract_last_path_item p
-    with Not_found -> fail None "get_arity_of_seq_at: expected a nonempty path"
+    with Not_found -> fail None "Constr.get_arity_of_seq_at: expected a nonempty path"
     in
   match d with
   | Dir_seq_nth _ ->
@@ -1568,12 +1568,12 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
   | Dir_then | Dir_else | Dir_body  ->
       let seq_trm = Path.resolve_path p t in
       get_sequence_length seq_trm
-  | _ -> fail None "get_arity_of_seq_at: expected a Dir_seq_nth, Dir_then, Dir_else or Dir_body as last direction"
+  | _ -> fail None "Constr.get_arity_of_seq_at: expected a Dir_seq_nth, Dir_then, Dir_else or Dir_body as last direction"
 
 (* [compute_relative_index rel t p]: compute the relative index for relative targets different from [TargetAt] *)
 let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
   match rel with
-  | TargetAt -> fail None "compute_relative_index: Didn't expect a TargetAt"
+  | TargetAt -> fail None "Constr.compute_relative_index: Didn't expect a TargetAt"
   | TargetFirst -> (p, 0)
   | TargetLast -> (p, get_arity_of_seq_at p t)
   | TargetBefore | TargetAfter ->
@@ -1585,17 +1585,17 @@ let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path *
          in
       let (d,p') =
         try extract_last_path_item p
-        with Not_found -> fail None "compute_relative_index: expected a nonempty path"
+        with Not_found -> fail None "Constr.compute_relative_index: expected a nonempty path"
         in
       match d with
       | Dir_seq_nth i -> (p', i + shift)
-      | _ -> fail None "compute_relative_index: expected a Dir_seq_nth as last direction"
+      | _ -> fail None "Constr.compute_relative_index: expected a Dir_seq_nth as last direction"
 
 (* [resolve_target_between tg t]: resolve a target that points before or after an instruction *)
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   let tgs = target_to_target_struct tg in
   if tgs.target_relative = TargetAt
-    then fail None "resolve_target_between:this target should contain a tBefore, tAfter, tFirst, or tLast";
+    then fail None "Constr.resolve_target_between:this target should contain a tBefore, tAfter, tFirst, or tLast";
   let res = resolve_target_struct tgs t in
   List.map (compute_relative_index tgs.target_relative t) res
 
@@ -1604,4 +1604,4 @@ let resolve_target_between (tg : target) (t : trm) : (path * int) list =
 let resolve_target_between_exactly_one (tg : target) (t : trm) : (path * int) =
   match resolve_target_between tg t with
   | [(p,i)] -> (p,i)
-  | _ -> fail t.loc "resolve_target_between_exactly_one: obtainer several targets"
+  | _ -> fail t.loc "Constr.resolve_target_between_exactly_one: obtainer several targets"

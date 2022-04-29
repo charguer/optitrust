@@ -1,10 +1,11 @@
-(* naming policy used for string concatentation *)
+(* [naming_policy]: naming policy used for string concatentation *)
 type naming_policy = Naming_capitalize | Naming_underscore
 
-(* by default the second string is capitalized *)
+(* [default_naming_policy]: by default the second string is capitalized *)
 let default_naming_policy = ref Naming_capitalize
 
-(* [name_app ~policy s1 s2] concatenate string [s1] and [s2] using [policy] *)
+
+(* [name_app ~policy s1 s2]: concatenate string [s1] and [s2] using [policy] *)
 let name_app ?(policy:naming_policy option) (s1 : string) (s2 : string) : string =
   let policy =
     match policy with
