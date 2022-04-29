@@ -9,9 +9,11 @@ let fieldtochange =
 let factor =
   trm_int 2
 let get_div_by_factor t =
-  Arith_core.apply_aux Binop_div factor t
+  trm_div t factor
+  (* variant: trm_shiftr t (trm_int 1) *)
+
 let set_mul_by_factor t =
-  Arith_core.apply_aux Binop_mul factor t
+  trm_mul t factor
 
 let myscaling tg =
   let arg = Struct_basic.Struct_modif.(
@@ -87,7 +89,7 @@ let mysuffix (suffix : string) tg =
       let sl = struct_init_inv_some t in
       assert (Mlist.length sl = List.length oldfields); (* else trm_struct could not have the targeted type *)
       let fix_field i ti =
-        let (field,_typ_field) = List.nth oldfields i in (* not needed here *)
+        let (_field,_typ_field) = List.nth oldfields i in (* not needed here *)
         aux ti in
       reuse_annot_of t (trm_struct (Mlist.mapi fix_field sl)) in
 
