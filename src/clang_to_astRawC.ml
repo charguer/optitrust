@@ -3,24 +3,28 @@ open Clang.Bindings
 open Ast
 open Tools
 
-(* [loc_of_node n] get location of node [n]*)
+(* [loc_of_node n]: get the location of node [n] *)
 let loc_of_node (n : 'a node) : location =
   let start_location_of_node = Clang.get_range_start (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n))in
   let end_location_of_node = Clang.get_range_end (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n )) in
   let (filename, start_row,start_column) = Clang.get_presumed_location start_location_of_node in
   let (_, end_row,end_column) = Clang.get_presumed_location end_location_of_node in
-  Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}}
+  Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; 
+                             loc_end = {pos_line = end_row; pos_col = end_column}}
 
 
-(* [loc_from_to start_l end_l] returns the location from the begining of [start_l] to [end_l]
-    if one of the locations is unknown then it will return [None]*)
+(* [loc_from_to start_l end_l]: get the location from the begining of [start_l] to [end_l]
+    if one of the locations is unknown then it will return [None] *)
 let loc_from_to (start_l : location) (end_l : location) : location =
   match start_l, end_l with
-  | Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; _}, Some {loc_start = {pos_line = start_row2; pos_col = start_column2};_} ->
-    Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; loc_end = {pos_line = start_row2; pos_col = start_column2}}
+  | Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; _}, 
+    Some {loc_start = {pos_line = start_row2; pos_col = start_column2};_} ->
+      let loc_start = {pos_line = start_row1; pos_col = start_column1} in 
+      let loc_end = {pos_line = start_row2; pos_col = start_column2} in 
+      Some {loc_file = file; loc_start; loc_end } 
   | _ -> None
 
-(* file which contains the node *)
+(* [file_of_node n]: filename that contains node [n] *)
 let file_of_node (n : 'a node) : string =
   match loc_of_node n with
   | Some {loc_file = filename; _} -> filename
@@ -30,8 +34,7 @@ let file_of_node (n : 'a node) : string =
   map from variables to their type
   used for loops that do not declare their counter
   heap allocated variables are mapped to the type of the variables if they were
-  not heap allocated
- *)
+  not heap allocated *)
 
 (* For the context, see the documentation of type [ctx] in [ast.ml]. *)
 
@@ -50,36 +53,48 @@ let file_of_node (n : 'a node) : string =
   We can set the ctx_var separately in another function, using an
   environment like done in stackelim. *)
 
+
+(* [ctx_var]: a map for storing variable types *)
 let ctx_var : typ varmap ref = ref String_map.empty
 
+(* [ctx_tconstr]: a map for storing constructed types based on their ids *)
 let ctx_tconstr : typconstrid varmap ref = ref String_map.empty
 
+(* [ctx_typedef]: a map for storing typedefs based on the types they define *)
 let ctx_typedef : typedef typmap ref = ref Typ_map.empty
 
+(* [ctx_label]: a map for storing labels based on their ids *)
 let ctx_label : typconstrid varmap ref = ref String_map.empty
 
+(* ctx_constr]: a map for storing ids !! *)
 let ctx_constr : typconstrid varmap ref = ref String_map.empty
 
+(* [debug_typedefs]: flag for debugging typedefs *)
 let debug_typedefs = false
 
+(* [ctx_var_add tv]: add variable [tv] with type [t] in map [ctx_var] *)
 let ctx_var_add (tv : typvar) (t : typ) : unit =
   ctx_var := String_map.add tv t (!ctx_var)
 
+(* [ctx_tconstr_add tn tid]: add constructed type [tv] with id [tid] in map [ctx_tconstr] *)
 let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
   if debug_typedefs then printf "Type %s has been added into map with typconstrid %d\n" tn tid;
   ctx_tconstr := String_map.add tn tid (!ctx_tconstr)
 
+(* [ctx_typedef_add tn tid td]: add typedef [td] with id [tid] in map [ctx_typedef] *)
 let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =
   if debug_typedefs then printf "Typedef for %s has been registered\n" tn;
   ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
+(* [ctx_label_add lb tid]: add label [lb] with id [tid] in map [ctx_label] *)
 let ctx_label_add (lb : label) (tid : typconstrid) : unit =
   ctx_label := String_map.add lb tid (!ctx_label)
 
+(* [ctx_constr_add c tid]: add constr [c] with id [tid] in map [ctx_constr_add] *)
 let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
   ctx_constr := String_map.add c tid (!ctx_constr)
 
-(* [get_ctx] returns the current context *)
+(* [get_ctx]: get the current context *)
 let get_ctx () : ctx =
   { ctx_var = !ctx_var;
     ctx_tconstr = !ctx_tconstr;
@@ -87,15 +102,15 @@ let get_ctx () : ctx =
     ctx_label = !ctx_label;
     ctx_constr = !ctx_constr; }
 
-(* [get_typid_from_trm ty] *)
-let get_typid_from_trm (tv : typvar) : int  =
+(* [get_typid_for_type ty]: get the type id for type [tv]*)
+let get_typid_for_type (tv : typvar) : int  =
    let tid = String_map.find_opt tv !ctx_tconstr in
    begin match tid with
    | Some id -> id
    | None -> -1
    end
 
-(* names for overloaded operators (later matched for printing) *)
+(* [string_of_overloaded_op ~loc op]: get names of overloaded operators (later matched for printing) *)
  let string_of_overloaded_op ?(loc : location = None)
     (op : clang_ext_overloadedoperatorkind) : string =
   match op with
@@ -108,7 +123,7 @@ let get_typid_from_trm (tv : typvar) : int  =
   | StarEqual -> "*="
   | _ -> fail loc "string_of_overloaded_op: non supported operator"
 
-(* names for overloaded operators (later matched for printing) *)
+(* [overload_op ~loc ~ctx op]: get the primitive operation associated with the overloaded operator [op] *)
  let overloaded_op ?(loc : location = None) ?(ctx : ctx option = None) (op : clang_ext_overloadedoperatorkind) : trm =
   match op with
   | Plus -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_add))
@@ -121,13 +136,14 @@ let get_typid_from_trm (tv : typvar) : int  =
   | StarEqual -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_compound_assgn_op Binop_mul))
   | _ -> fail loc "overloaded_op: non supported operator"
 
-(* [wrap_const ~const t] wrap type [t] into a const type if [const] = true *)
+(* [wrap_const ~const t]: wrap type [t] into a const type if [const] is true *)
 let wrap_const ?(const : bool = false) (t : typ) : typ =
   if const then typ_const t else t
 
-
+(* [tr_type_desc ~loc ~const ~tr_record_types]: translate ClanML C/C++ type decriptions to OptiTrust type descriptions, 
+    [loc] gives the location of the type in the file that has been translated,
+    if [const] is true then it means [d] is a const type, similarly if [const] is false then [d] is not a const type *)
 let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_record_types : bool = true) (d : type_desc) : typ =
-
   match d with
   | Pointer q ->
     let t = tr_qual_type ~loc ~tr_record_types q in
@@ -140,7 +156,6 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
     let t = tr_qual_type ~loc ~tr_record_types q in
     wrap_const ~const (typ_ptr Ptr_kind_ref (typ_ptr Ptr_kind_ref t))
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
-
     let t = tr_qual_type ~loc ~tr_record_types q in
     begin match eo with
       | None -> typ_array t (Const n)
@@ -193,7 +208,7 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n)  in
+        let typ_to_add = typ_constr n ~tid:(get_typid_for_type n)  in
         wrap_const ~const typ_to_add
       | _ -> fail loc ("tr_type_desc: only identifiers are allowed in type definitions")
     end
@@ -207,26 +222,29 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         typ_constr n ~tid:(get_typid_from_trm n)
+         typ_constr n ~tid:(get_typid_for_type n)
       | _ -> fail loc ("tr_type_desc: only identifiers are allowed in records")
     end
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         typ_constr n ~tid:(get_typid_from_trm n)
+         typ_constr n ~tid:(get_typid_for_type n)
       | _ -> fail loc ("tr_type_desc: only identifiers are allowed in enums")
     end
   | TemplateTypeParm name ->
     typ_template_param name
   | _ -> fail loc "tr_type_desc: not implemented"
 
+(* [is_qual_type_const q]: check if [q] is a const type or not *)
 and is_qual_type_const (q : qual_type) : bool =
   let {const;_} = q in const
 
+(* [tr_qual_type ~loc ~tr_record_types q]: translate  ClanML C/C++ types into OptiTrust types *)
 and tr_qual_type ?(loc : location = None) ?(tr_record_types : bool = true) (q : qual_type) : typ =
   let ({desc = d; const = c; _} : qual_type) = q in
   tr_type_desc ~loc ~const:c ~tr_record_types d
 
+(* [tr_ident id]: translate identifier [id] into a string *)
 and tr_ident (id : ident_ref node) : string =
   let {decoration = _; desc = {nested_name_specifier = _; name = n; _}} = id in
   match n with
@@ -235,6 +253,7 @@ and tr_ident (id : ident_ref node) : string =
     let loc = loc_of_node id in
     fail loc "tr_ident_ref: not implemented"
 
+(* [tr_stmt s]: translate statement [s] into an OptiTrust trm *)
 and tr_stmt (s : stmt) : trm =
   let loc = loc_of_node s in
   let ctx = Some (get_ctx ()) in
@@ -320,15 +339,14 @@ and tr_stmt (s : stmt) : trm =
     fail loc ("tr_stmt: the following statement is unsupported: " ^
               Clang.Stmt.show s)
 
-(*
-  translation of switch statements:
+(* [tr_switch s]: translate switch statement [s] into an OptiTrust trm 
+    translation of switch statements:
   - nested cases: only full sharing allowed
       case bla: case bli: … break allowed
       case bla: …; case bli: … break forbidden
   - warning about clangml ast:
       case bla: instr1; instr2; break represented as
-      Case {lhs = bla; body = instr1}; instr2; break in case list
- *)
+      Case {lhs = bla; body = instr1}; instr2; break in case list *)
 and tr_switch (loc : location) (cond : expr) (cases : stmt list) : trm =
   let t = tr_expr cond in
   let rec aux (loc : location) = function
@@ -348,10 +366,8 @@ and tr_switch (loc : location) (cond : expr) (cases : stmt list) : trm =
   in
   trm_switch ~loc ~ctx:(Some (get_ctx ())) t  (aux loc cases)
 
-(*
-  compute the list of nested cases described by s in reverse order and the first
-  instruction of their body
- *)
+(* [compute_cases case_acc s]: compute a list of nested cases described by s in reverse order 
+    and the first instruction of their body *)
 and compute_cases (case_acc : trms) (s : stmt) : trms * stmt =
   let loc = loc_of_node s in
   match s.desc with
@@ -363,13 +379,13 @@ and compute_cases (case_acc : trms) (s : stmt) : trms * stmt =
     fail loc "compute_cases: please replace nested cases with default only"
   | _ -> (List.rev case_acc, s)
 
-(*
-  compute the body of a (nested) case starting from the beginning of the list
-  stop at first break or fail if none
-  return the rest of the case list too
-  to find the first break, cases must be written without compound statements
-    -> no variable declaration in cases
-*)
+
+
+(* [compute_body loc body_acc]: compute the body of a (nested) case starting from the beginning
+    of the list , stop at first break or fail if none
+    return the rest of the case list too
+    to find the first break, cases must be written without compound statements
+     -> no variable declaration in case *)
 and compute_body (loc : location) (body_acc : trms)
     (sl : stmt list) : trm * (stmt list) =
   match sl with
@@ -388,6 +404,7 @@ and compute_body (loc : location) (body_acc : trms)
         compute_body loc (t :: body_acc) sl
     end
 
+(* [tr_expr ~is_statement e]: translate expression [e] into an OptiTrust trm *)
 and tr_expr ?(is_statement : bool = false)
     (e : expr) : trm =
   (* let aux = tr_expr *)
@@ -646,11 +663,13 @@ and tr_expr ?(is_statement : bool = false)
       ("tr_expr: the following expression is unsupported: " ^
        Clang.Expr.show e)
 
+(* [tr_attribute loc a]: translate an attribute [a] to an OptiTrust attribute *)
 and tr_attribute (loc : location) (a : Clang.Ast.attribute) : attribute =
   match a.desc with
   | Aligned {spelling = _; alignment_expr = e} -> Alignas (tr_expr e)
   | _ -> fail loc "tr_attribute: unsupported attribute"
 
+(* [tr_decl_list dl]: translate a list of declarations *)
 and tr_decl_list (dl : decl list) : trms =
   let loc =
     (* some recursive calls might be on the empty list *)
@@ -742,6 +761,7 @@ and tr_decl_list (dl : decl list) : trms =
     let tl = tr_decl_list (d' :: dl) in
     td :: tl
 
+(* [tr_decl d]: translate declaration [d] *)
 and tr_decl (d : decl) : trm =
   let loc = loc_of_node d in
   let ctx = Some (get_ctx ()) in
@@ -935,9 +955,12 @@ and tr_decl (d : decl) : trm =
 
   | _ -> fail loc "tr_decl: not implemented" in
      res
+
+(* [Include_map]: module useed for storing inclued files and their AST-s *)
 module Include_map = Map.Make(String)
 type 'a imap = 'a Include_map.t
 
+(* [filter_out_include filename dl]: filter out all the declarations that are in fact include directives *)
 let filter_out_include (filename : string)
     (dl : decl list) : ((decl list) imap) * (decl list) =
   let rec aux (include_map : (decl list) imap) (dl : decl list) =
@@ -966,12 +989,14 @@ let filter_out_include (filename : string)
   in
   aux (Include_map.empty) dl
 
-(* For debugging: set this variable to true for obtaining a file where to
-   see the clang AST that gets passed as input to the conversion to our AST. *)
+(* [dump_clang_ast]: only for debugging ,set this variable to true for obtaining a file where to
+   see the clang AST that gets passed as input to the conversion to our AST.  *)
 let dump_clang_ast = false
 
+(* [dump_clang_file]: alias for the main ClanML module that contains all the functions needed for translating AST-s  *)
 let dump_clang_file = "clang_ast.ml"
 
+(* [tr_ast t]: transalate [t] into OptiTrust AST *)
 let tr_ast (t : translation_unit) : trm =
   (* Initialize id_counter *)
   let {decoration = _; desc = {filename = filename; items = dl}} = t in
@@ -998,4 +1023,3 @@ let tr_ast (t : translation_unit) : trm =
          trm_seq_nomarks ~annot:[Include h] (tr_decl_list dl))
       include_map in
     trm_seq_nomarks ~loc ~annot:[Main_file] ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ tr_decl_list file_decls)
-
