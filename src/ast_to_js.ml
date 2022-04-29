@@ -2,11 +2,11 @@ open Ast
 open Ast_to_text
 open PPrint
 
-
+(* [Json]: A module for creating a json view of OptiTrust ast *)
 module Json = struct
   open PPrint
   
-  (* Representation of a json object *)  
+  (* [t]: representation of a json object *)  
   type t =
     | Str of string
     | Int of int
@@ -15,22 +15,29 @@ module Json = struct
     | Object of (t * t) list
 
   (* Smart constructors *)
-
+  (* [quote x]: add quotes around string x *)
   let quote x = "\"" ^ x ^ "\""
+
+  (* [str x]: create a Json.String *)
   let str x = Str x
+
+  (* [strquote x]: create a quoted Json.String *)
   let strquote x = Str (quote x)
 
 
+  (* [typ_to_json typ]: convert an OptiTrust type to a Json object  *)
   let typ_to_json(typ : typ) : t =
     Str (Tools.document_to_string (bquotes (AstC_to_c.typ_to_doc typ)) )
 
+  (* [typdef_to_json td]: convert an OptiTrust typedef to a json object *)
   let typdef_to_json(td : typedef) : t =
     Str (Tools.document_to_string (bquotes (AstC_to_c.typedef_to_doc td)))
 
-  
+  (* [print_object dl]: print a list of documents in a  JavaScript Json datastructure *)
   let print_object (dl : document list) : document =
     surround 2 1 lbrace (separate (comma ^^ break 1) dl) rbrace
 
+  (* [json_to_doc j]: convert a Json type to a pprint document *)
   let rec json_to_doc (j : t) : document =
     match j with
     | Str s -> string s
@@ -39,31 +46,39 @@ module Json = struct
     | List l -> Tools.print_list ~sep:"," (List.map json_to_doc l)
     | Object o -> Tools.print_object (List.map (fun (k,j) -> json_to_doc k ^^ string ": " ^^ json_to_doc j) o)
 
-  (* create a javascript variable of type json object from ast [j] *)
+  (* [json_to_js]: create a javascript variable of type json object from ast [j] *)
   let json_to_js (index : int) (j : t) : document =
    let json_ast = json_to_doc j in
    string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi ^^ hardline
 
 
-  (* create a javascript variable of type string representing the source code src *)
+  (* [code_to_js]: create a javascript variable of type string representing the source code src *)
   let code_to_js (out : out_channel) (index : int) (src : string) : unit =
     let doc = string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src) ^^ hardline in
     ToChannel.pretty 0.9 80 out doc
 
 end
 
+(* [json]: alias for Json type *)
 type json = Json.t
+
+(* [quote]: alias for Json.quote *)
 let quote = Json.quote
+
+(* [strquote]: alias for Json.strquote *)
 let strquote = Json.strquote
 
+(* [nodeid]: IDs to be assigned to each ast trm *)
 type nodeid = int
+
+(* [nodeid_invalid]: ID assigned to the root of the ast *)
 let nodeid_invalid = (-1)
 
-(* The void object is [{}]. *)
+(* [void]: the void object is defined as [{}]. *)
 let void =
   Json.Object []
 
-(* loc_to_json t *)
+(* [loc_to_json t]: convert trm location to a Json object *)
 let loc_to_json (t : trm) : json =
   begin match t.loc with
   | None -> strquote ""
@@ -77,25 +92,34 @@ let loc_to_json (t : trm) : json =
            (strquote "col", Json.Int end_column)] )]
   end
 
+(* [typd_var_lis_to_json ty]: convert a list of typed vars to a Json object *)
 let typed_var_list_to_json (tv : typed_vars) : json =
   Json.Object (List.map (fun (v,typ) -> (strquote v, Json.typ_to_json typ)) tv)
 
+
+(* [child_to_json label child_id]: auxiliary function for converting trm child nodes to Json objects *)
 let child_to_json (label : string) (child_id : nodeid) : json =
   Json.Object [ ((strquote "label"), strquote label);
                 ((strquote "id", Json.Int child_id)) ]
 
+(* [ichild_to_json ~prefix i child_id]: similar to [child_to_json] but this one adds labels based on the child indicces *)
 let ichild_to_json ?(prefix:string="") (i : int) (child_id : nodeid) : json =
   child_to_json (prefix ^ string_of_int i) (child_id)
 
+
+(* [childre_to_field children]: convert a list of children to a json field  *)
 let children_to_field (children: json list) : (json * json) =
   (strquote "children", Json.List children)
 
+(* [kind_to_field kind]: convert a trm kind to a json field *)
 let kind_to_field (kind : string) : json * json =
   (strquote "kind", strquote kind)
 
+(* [value_to_field value]: convert an OptiTrust [value] to a json field *)
 let value_to_field (value : string) : json * json =
   (strquote "value", strquote value)
 
+(* [directive_to_json directive]: convert an OptiTrust OpenMP directive to a json field *)
 let directive_to_json (directive : directive) : json * json =
   let directive_js =
   match directive with
@@ -150,6 +174,8 @@ let directive_to_json (directive : directive) : json * json =
   | Threadprivate _ -> strquote "Threadprivate"
   in (strquote "directive", directive_js)
 
+
+(* [directive_to_json directive]: convert an OptiTrust OpenMP routine to a json field *)
 let routine_to_json (routine : omp_routine) : json * json =
   let routine_js =
   match routine with
@@ -195,7 +221,9 @@ let routine_to_json (routine : omp_routine) : json * json =
   | Get_wtick -> strquote "Get_wtick"
   in (strquote "routine", routine_js)
 
-(* Here, [aux] is to be applied for processing children *)
+
+(* [node_to_js aux t]: based on the description of [t] convert [t] to a pair of json objects(field, value),
+     [aux] is goign to be applied for processing chidlren nodes *)
 let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     match t.desc with
     | Trm_val v ->
@@ -341,6 +369,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
       [ kind_to_field "template";
           children_to_field [child_to_json "template" (aux t)]]
 
+(* [annot_to_string t_ann]: convert trm_annot to string *)
 let annot_to_string (t_ann : trm_annot) : string =
   match t_ann with
      | No_braces _ -> "No_braces"
@@ -356,9 +385,11 @@ let annot_to_string (t_ann : trm_annot) : string =
      | Annot_stringreprid id -> "Annot_stringreprid(" ^ string_of_int id ^ ")"
      | Fun_inline -> "Fun_inline"
 
-  let annot_list_to_string (t : trm) : string =
-    Tools.list_to_string ((List.map annot_to_string) t.annot)
+(* [annot_list_to_string t]: for trm [t] convert its list of annotations to string *)
+let annot_list_to_string (t : trm) : string =
+  Tools.list_to_string ((List.map annot_to_string) t.annot)
 
+(* [ast_to_json trm_root]: convert a full ast to a Json object *)
 let ast_to_json (trm_root : trm) : json =
   (* node id generator *)
   let nextid = ref (-1) in
@@ -390,12 +421,12 @@ let ast_to_json (trm_root : trm) : json =
   assert (id_of_root = 0);
   Json.Object (!result)
 
-
+(* [ast_json_to_doc out t]: prints OptiTrust ast to a json using the channel [out] *)
 let ast_json_to_doc (out : out_channel) (t : trm) : unit =
   ToChannel.pretty 0.9 80 out (Json.json_to_doc (ast_to_json t))
 
-(* Convert ast into a json format then print it as a javascript variable inside a javascript file
-  the index represents the state of the ast after applying i-th transformation
-*)
+
+(* [ast_to_js out index t]: prints OptiTrust ast to an out_channel(usually a .js file) as an array called [contents], see function json_to_js
+    [index] represents the state of the ast after applying i-th transformation *)
 let ast_to_js (out : out_channel) (index : int) (t : trm) : unit =
   ToChannel.pretty 0.9 80 out (Json.json_to_js index (ast_to_json t)  )
