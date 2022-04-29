@@ -63,6 +63,10 @@ FLAGS := $(FLAGS) $(FLAGS_MAKEFILE)
 # Flags to use for the trace construction
 TRACEFLAGS ?=
 
+# native or byte mode (currently only used by batch mode)
+PROGEXT ?= native
+
+
 #######################################################
 # Targets
 
