@@ -12,5 +12,6 @@ let def_aux (vec_align : trm) (t : trm) : trm =
     { t with desc = Trm_let (vk, (x, typ_ptr_generated tx2), init) }
   | _ -> fail t.loc "Align_core.def_aux: expected a variable declaration as a target"
 
+(* [def vec_align t p]: apply [def_aux] at the trm with path [p] *)
 let def (vec_align : trm) : Target.Transfo.local =
   Target.apply_on_path (def_aux vec_align)

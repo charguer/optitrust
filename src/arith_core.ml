@@ -547,5 +547,6 @@ let rec simplify_aux (indepth : bool) (f : expr -> expr) (t : trm) : trm =
      let f_atom_simplify = simplify_aux indepth f in
      map_on_arith_nodes (simplify_at_node f_atom_simplify f) t end
 
+(* [simplify indepth f t p]: apply [simplify_aux] at the trm with path [p] *)
 let simplify (indepth : bool) (f : expr -> expr) : Transfo.local =
   apply_on_path (simplify_aux indepth f)

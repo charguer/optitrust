@@ -1,11 +1,5 @@
 open Ast
 
-(* ***********************************************************************************
- * Note: All the intermediate functions which a called from [sequence.ml] file      *
- * have only one purpose, and that is targeting the trm in which we want to apply the *
- * transformation. That's why there is not need to document them.                     *
- *)
-
 (* [update f t]: replaces an expression [t] with [f t]. *)
 let update (f : trm -> trm) : Target.Transfo.local =
   Target.apply_on_path f
@@ -26,5 +20,6 @@ let replace_fun_aux (name : string) (t : trm) : trm =
   | _ -> fail t.loc "replace_fun: expected a function call"
 
 
+(* [replace_fun name t p]: apply [replace_fun_aux] at trm [t] with path [p] *)
 let replace_fun (name : string) : Target.Transfo.local =
   Target.apply_on_path (replace_fun_aux name)
