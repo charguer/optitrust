@@ -2,8 +2,13 @@ open PPrint
 open Ast
 open Tools
 
-(* [print_typ_desc only_desc t] print types as a record, if [only_desc] is set to true then it's going to print 
-    only its description *)
+
+(*  Note: This module is used mainly for debugging purposes.
+    The ast is printed in such a way so that it mimics its actual OCaml structure.
+    All the ast components are first converted to pprint document. 
+    [only_desc] to print only the description field an avoid the other ones *)
+
+(* [print_typ_desc only_desc t]: convert type descriptions to pprint document *)
 let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   match t with
   | Typ_const t ->
@@ -13,7 +18,8 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
     print_node "Typ_var" ^^ parens ( separate (comma ^^ break 1) [string x; string (string_of_int tid)])
   | Typ_constr (tv, tid, tl) ->
     let tl = List.map (print_typ ~only_desc) tl in
-    print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1) [string tv; string (string_of_int tid); print_list tl])
+    print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1) 
+      [string tv; string (string_of_int tid); print_list tl])
   | Typ_auto -> string "Typ_auto"
   | Typ_unit -> string "Typ_unit"
   | Typ_int -> string "Typ_int"
@@ -52,12 +58,15 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
     print_node "Typ_template_param" ^^ parens (string name)
   | Typ_arbitrary s -> string (code_to_str s)
 
+
+(* [print_typ_annot a]:  convert type annotations to pprint document *)
 and print_typ_annot (a : typ_annot) : document =
   match a with
   | Unsigned -> string "Unsigned"
   | Long -> string "Long"
   | Short -> string "Short"
 
+(* [print_typ ~only_desc t]: convert type records to pprint document *)
 and print_typ ?(only_desc : bool = false) (t : typ) : document =
   let ddesc = print_typ_desc ~only_desc t.typ_desc in
   if only_desc then ddesc
@@ -73,7 +82,7 @@ and print_typ ?(only_desc : bool = false) (t : typ) : document =
                                 dannot ^^ semi ^//^ string "desc"; equals;
                                 ddesc ^^ semi ^//^ string "attributes"; equals;
                                 dattr])
-(* print unary operators *)
+(* [print_unop ~only_desc op]: convert unary operators to pprint document *)
 and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
   match op with
   | Unop_get -> string "Unop_get"
@@ -92,7 +101,7 @@ and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
      let dt = print_typ ~only_desc t in
      print_node "Unop_cast" ^^ dt
 
-(* print binary operators *)
+(* [print_binop]: convert binary operators to pprint document *)
 and print_binop (op : binary_op) : document =
   match op with
   | Binop_set -> string "Binop_set"
@@ -117,14 +126,14 @@ and print_binop (op : binary_op) : document =
   | Binop_shiftr -> string "Binop_shiftr"
   | Binop_xor -> string "Binop_xor"
 
-(* print OpenMP consistency model *)
+(* [print_consistency cm]: convert OpenMP memory consistency model to pprint document *)
 and print_consistency (cm : consistency_mode) : document =
   match cm with
   | Sequentially_consistent -> string "Sequentially_consistent"
   | Release -> string "Release"
   | Acquire -> string "Acquire"
 
-(* print primitives *)
+(* [print_primt ~only_desc p]: convert primitive operatios to pprint document *)
 and print_prim ?(only_desc : bool = false) (p : prim) : document =
   match p with
   | Prim_unop op ->
@@ -144,7 +153,7 @@ and print_prim ?(only_desc : bool = false) (p : prim) : document =
      print_node "Prim_new" ^^ dt
   | Prim_conditional_op -> print_node "Prim_conditional_op"
 
-(* print literals *)
+(* [print_lit l]: convert literals to pprint document *)
 and print_lit (l : lit) : document =
   match l with
   | Lit_unit -> string "Lit_unit"
@@ -155,7 +164,7 @@ and print_lit (l : lit) : document =
   | Lit_string s ->
      print_node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
 
-(* print value *)
+(* [print_val ~only_desc v]: convert values to pprint document *)
 and print_val ?(only_desc : bool = false) (v : value) : document =
   match v with
   | Val_lit l ->
@@ -168,7 +177,7 @@ and print_val ?(only_desc : bool = false) (v : value) : document =
      let dp = print_prim ~only_desc p in
      print_node "Val_prim" ^^ parens dp
 
-(* print attributes *)
+(* [print_attribute ~only_desc a]: convert attribute [a] to pprint document *)
 and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
   match a with
   | Alignas t ->
@@ -176,6 +185,8 @@ and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
   | GeneratedTyp ->
     string "GeneratedTyp" ^^ blank 1
   | Others -> empty
+
+(* [print_trm_desc ~only_desc t]: convert the description of trm [t] to pprint document *)
 and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   match t with
   | Trm_val v ->
@@ -337,25 +348,17 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let drt = print_record_type rt in
     print_node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
       [string name; drt; print_list dtl; dt])
-  (*
-   DEPRECATED
-   | Trm_let_record (name, rt, tl, t1) ->
-    let dt = print_trm ~only_desc t1 in
-    let dtl = List.map (print_trm ~only_desc) tl in
-    let drt = print_record_type rt in
-    print_node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
-      [string name; drt; print_list dtl; dt]) *)
   | Trm_template _ -> string ""
 
 
-(* print record types *)
+(* [print_record_type rt]: convert record types to pprint document *)
 and print_record_type (rt : record_type) : document =
   match rt with
   | Struct -> string "struct"
   | Union -> string "union"
   | Class -> string "class"
 
-(* print typedefs *)
+(* [print_typedef ~only_desc td]: convert typedef to pprint document *)
 and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
   let tid = td.typdef_typid in
   let tname = td.typdef_tconstr in
@@ -395,7 +398,7 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
      print_node "Typedef_enum" ^^ print_pair (string tname) denum_const_l
 
 
-(* print ast nodes,  *)
+(* [print_trm ~only_desc t]: convert trm [t] to pprint document *)
 and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let ddesc = print_trm_desc ~only_desc t.desc in
   let print_annot (t_ann : trm_annot) : document =
@@ -445,6 +448,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
                                 dtyp ^^ semi ^//^ string "attributes"; equals;
                                 dattr])
 
+(* [print_atomic_operation ao]: convert OpenMP atomic operations to pprint document *)
 (* print openmp atomic operations *)
 and print_atomic_operation (ao : atomic_operation option) : document =
   match ao with
@@ -457,7 +461,7 @@ and print_atomic_operation (ao : atomic_operation option) : document =
     | Capture -> string "Capture"
     end
 
-(* print OpenMP directives *)
+(* [print_directive directive]: convert OpenMP atomic directives to pprint document *)
 and print_directive (directive : directive) : document =
   match directive with
   | Atomic ao -> string "Atomic" ^^ blank 1 ^^ print_atomic_operation ao
@@ -510,7 +514,7 @@ and print_directive (directive : directive) : document =
   | Teams_distribute_parallel_for_simd _ -> string "Teams_distribute_parallel_for_simd"
   | Threadprivate _ -> string "Threadprivate"
 
-(* print OpenMP routines *)
+(* [print_routine routine]: convert OpenMP routine to pprint document *)
 and print_routine (routine : omp_routine) : document =
   match routine with
   | Set_num_threads _ -> string "Set_num_threads"
@@ -554,41 +558,30 @@ and print_routine (routine : omp_routine) : document =
   | Get_wtime -> string "Get_wtime"
   | Get_wtick -> string "Get_wtick"
 
-(* print trm_accesses *)
-let trm_access_to_string (ta : trm_access) : string =
-  let aux (ta : trm_access) : document =
-  match ta with
-  | Array_access_get i -> string "arr_at " ^^ print_trm ~only_desc:true i
-  | Array_access_addr i -> string "arr_at " ^^ print_trm ~only_desc:true i
-  | Struct_access_get f -> string "struct_at " ^^ string f
-  | Struct_access_addr f -> string "struct_at " ^^ string f
-  in
-  document_to_string (aux ta)
 
-
-(* [print_ast ~only_desc out t] print the ast [t] with the full information or not depending on [only_desc] flag,
+(* [print_ast ~only_desc out t]: print the ast [t] with the full information or not depending on [only_desc] flag,
       on an outer channel [out] *)
 let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
   let d = print_trm ~only_desc t in
   ToChannel.pretty 0.9 80 out d
 
-(* [ast_to_file filename t] print ast [t] into file [filename] *)
+(* [ast_to_file filename t]: print ast [t] into file [filename] *)
 let ast_to_file (filename : string) (t : trm) : unit =
   let out = open_out filename in
   print_ast out t;
   close_out out
 
-(* [ast_to_string ~only_desc t] conver ast [t] to a string *)
+(* [ast_to_string ~only_desc t]: convert ast [t] to a string *)
 let ast_to_string ?(only_desc : bool = false) (t : trm) : string =
   let d = print_trm ~only_desc t in
   document_to_string d
 
-(* [typedef_to_string ~only_desc td] convert typdef [td] to a string *)
+(* [typedef_to_string ~only_desc td]: convert typdef [td] to a string *)
 let typedef_to_string ?(only_desc : bool = false) (td : typedef) : string =
   let d = print_typedef ~only_desc td in
   document_to_string d
 
-(* [typ_to_string ~only_desc t] convert type [t] to a string  *)
+(* [typ_to_string ~only_desc t]: convert type [t] to a string  *)
 let typ_to_string ?(only_desc : bool = false) (t : typ) : string =
   let d = print_typ ~only_desc t in
   document_to_string d
