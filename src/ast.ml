@@ -2506,28 +2506,45 @@ let struct_access (f : field) (base : trm) : trm =
 let get_struct_access (f : field) (base : trm) : trm =
   trm_get (struct_access f base)
 
-(* [struct_access_inv]: if [t] is  a struct access then return its base and the accessed field *)
+(* [struct_access_inv t]: if [t] is  a struct access then return its base and the accessed field; else Npone *)
 let struct_access_inv (t : trm) : (field * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)));_}, [base]) -> Some (f, base)
   | _ -> None
 
-(* [struct_get_inv]: if [t] is a struct get then return its base and the accesses field *)
+(* [struct_access_inv_some t]: if [t] is  a struct access then return its base and the accessed field *)
+let struct_access_inv_some (t : trm) : (field * trm) =
+  match struct_access_inv t with
+  | None -> assert false
+  | Some r -> r
+
+(* [struct_get_inv t]: if [t] is a struct get then return its base and the accesses field; else none *)
 let struct_get_inv (t : trm) : (field * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_}, [base]) -> Some (f, base)
   | _ -> None
 
-(* [get_struct_access_inv t]: if [t] is of the form get(struct_access (f, base)) return (f,base) *)
+(* [struct_get_inv_some t]: if [t] is a struct get then return its base and the accesses field *)
+let struct_get_inv_some (t : trm) : (field * trm) =
+  match struct_get_inv t with
+  | None -> assert false
+  | Some r -> r
+
+(* [get_struct_access_inv t]: if [t] is of the form get(struct_access (f, base)) returns Some (f,base); else None *)
 let get_struct_access_inv (t : trm) : (string * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) -> struct_access_inv arg
   | _ -> None
 
+(* [get_struct_access_inv_some t]: if [t] is of the form get(struct_access (f, base)) returns (f,base) *)
+let get_struct_access_inv_some (t : trm) : (string * trm) =
+  match get_struct_access_inv t with
+  | None -> assert false
+  | Some r -> r
 
 (* [set_struct_access_inv t]: if [t] is a write on a struct access, then return the base, the field of that access
-    and the value that has been assigned to *)
-let set_struct_access_inv (t : trm) : (field * trm * trm ) option =
+    and the value that has been assigned to; else None *)
+let set_struct_access_inv (t : trm) : (field * trm * trm) option =
   match t.desc with
   | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
    begin match struct_access_inv lhs with
@@ -2536,12 +2553,24 @@ let set_struct_access_inv (t : trm) : (field * trm * trm ) option =
    end
   | _ -> None
 
-(* [struct_init_inv t]: get struct initialization list trms *)
-let struct_init_inv (t : trm) : trm mlist option = 
-  match t.desc with 
+(* [set_struct_access_inv t]: if [t] is a write on a struct access, then return the base, the field of that access
+    and the value that has been assigned to *)
+let set_struct_access_inv_some (t : trm) : (field * trm * trm) =
+  match set_struct_access_inv t with
+  | None -> assert false
+  | Some r -> r
+
+(* [struct_init_inv t]: if is t is a struct initialization, get the list of terms; else None *)
+let struct_init_inv (t : trm) : trm mlist option =
+  match t.desc with
   | Trm_struct sl -> Some sl
   | _ -> None
 
+(* [struct_init_inv_some t]: get struct initialization list trms *)
+let struct_init_inv_some (t : trm) : trm mlist =
+ match struct_init_inv t with
+  | None -> assert false
+  | Some r -> r
 
 (* [set_inv t]: get the lhs and the rhs of a set(write) operation *)
 let set_inv (t : trm) : (trm * trm) option =

@@ -5,7 +5,7 @@ typedef struct {
 
 
 int main() {
-  vect p = {0,0};
+  vect p = {7,8};
   p.x = 5;
   p.y = 6;
   const int a = p.x;

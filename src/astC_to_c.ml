@@ -71,15 +71,15 @@ let print_stringreprs (m : stringreprs) : unit =
 (*----------------------------------------------------------------------------------*)
 
 
-(* To print back ast to C/C++ code, we convert all the ast components into  pprint documents.  
-   As a result, a well structured code will be generated. For further improving the printing 
+(* To print back ast to C/C++ code, we convert all the ast components into  pprint documents.
+   As a result, a well structured code will be generated. For further improving the printing
    one can use clang-format  *)
 
 (* **********************************************************************************************************
  * Note: to convert the OptiTrust ast to C/C++ code, we convert all the ast components into pprint documents.
  * As as result, a well structured code will be generated. One can apply clang-format to restructure the code
- * based on well known conventions. 
- 
+ * based on well known conventions.
+
 **************************************************************************************************************)
 
 (* [typ_desc_to_doc t]: convert ast type descriptions to pprint documents *)
@@ -278,8 +278,8 @@ and attr_to_doc (a : attribute) : document =
   | GeneratedTyp -> blank 1
   | Others -> empty
 
-(* [decorate_trm ~semicolon ~prec ~print_struct_init_type t]: 
-    - if [prec] is greater than the precedence of [t] then decorate [t] with parentheses 
+(* [decorate_trm ~semicolon ~prec ~print_struct_init_type t]:
+    - if [prec] is greater than the precedence of [t] then decorate [t] with parentheses
     - if [t.marks <> []] then decorate [t] with those marks.
     - if t is struct initialization list outside a variable declaration, then decorate [t] with a cast in front
     - if [semicolon] is true then decorate [t] with a semicolon at the end *)
@@ -495,7 +495,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         string "template" ^^ blank 1 ^^ (Tools.list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl ^^ semi
      end in
   (* Save the result in the optional stringreprs table, before returning the document *)
-  add_stringreprs_entry t d; 
+  add_stringreprs_entry t d;
   d
 
 (* [record_type_to_doc rt]: convert a C++ record type to a pprint document *)
@@ -532,7 +532,7 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
 and trm_let_fun_to_doc ?(semicolon : bool = true)(inline : bool) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dinline = if inline then [string "inline"] else [] in
-  let f = Tools.string_subst "overloaded" "operator" f in 
+  let f = Tools.string_subst "overloaded" "operator" f in
   let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
   begin match b.desc with
@@ -563,15 +563,15 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       end
   | Typdef_prod (tn, s) ->
       let get_document_list s =
-      let rec aux acc = function
+        let rec aux acc = function
          | [] -> acc
          | (lb, t) :: tl ->
             aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in
-            aux [] s in
+        aux [] s in
       let dl = get_document_list s in
       let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
       let second_name = if tn then td.typdef_tconstr else "" in
-      string "typedef " ^^ string "struct" ^^ blank 1 ^^ string second_name ^^ blank 1 ^^ sbody ^^ blank 1 
+      string "typedef " ^^ string "struct" ^^ blank 1 ^^ string second_name ^^ blank 1 ^^ sbody ^^ blank 1
       ^^ string td.typdef_tconstr ^^ semi
   | Typdef_sum _ ->
       fail None "typedef_to_doc: sum types are not supported in C/C++"
