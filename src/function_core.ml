@@ -1,24 +1,14 @@
 open Ast
 open Path
 
-(* ***********************************************************************************
- * Note: All the intermediate functions which are called from [sequence.ml] file      *
- * have only one purpose, and that is targeting the trm in which we want to apply the *
- * transformation. That's why there is not need to document them.                     *
- *)
-
-(* [bind_intro_aux index fresh_name const p_local t]: bind the variable [fresh_name] to the function_call
+(* [bind_intro_aux my_mark index fresh_name vonst p_local t]: bind the variable [fresh_name] to the targeted function call 
     params:
-      [index]: index of the instruction containing the targeted function call
-      [fresh_name]: name of the variable which going to be binded to the function call
-      [const]: a flag for the mutability of the binded variable
-      [p_local]: the local path from the instruction containing the targeted function call
-        to the targeted function call
-      [t]: ast of the sequence containing the targeted function call
-    return:
-      the updated sequence with the new generated binding
-*)
-let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : bool) (p_local : path) (_path : path) (t : trm) : trm =
+      [my_mark]: put a mark on the targeted function call 
+      [index]: index of the instruction that contains the targeted function call on its surrouding sequence
+      [const]: flag for the mutability of the binded variable
+      [p_local]: path from the instruction containing the function call to the function call itself
+      [t]: ast of the sequence that contains the targeted function call *)
+let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
      let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
@@ -29,7 +19,8 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
      let function_type = match function_call.typ with
      | Some typ -> typ
      | None -> typ_auto() in
-     let decl_to_change = Internal.change_trm function_call (trm_var_possibly_mut ~const ~typ:(Some function_type) fresh_name) instr in
+     let change_with = (trm_var_possibly_mut ~const ~typ:(Some function_type) fresh_name) in
+     let decl_to_change = Internal.change_trm function_call change_with instr in
 
      let function_call = trm_add_mark my_mark function_call in
      let decl_to_insert =
@@ -41,21 +32,18 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
      let new_tl = Mlist.merge new_tl lback in
      let res = trm_seq ~annot:t.annot ~marks:t.marks new_tl in
      res
-  | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "Function_core.bind_intro_aux: expected the surrounding sequence"
 
+(* [bind_intro ~my_mark index fresh_name const p_local]: apply [bind_intro_aux] at the trm with path [p] *)
 let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
-  Target.applyp_on_path (bind_intro_aux my_mark index fresh_name const p_local)
+  Target.apply_on_path (bind_intro_aux my_mark index fresh_name const p_local)
 
-(* [replace_return exit_label r t] remove all the return statemns from the body of a function declaration.
-      these return statements will be replaced either by set operations if the return statment are not terminal
-       then an additional goto statement is added.
+
+(* [replace_return exit_label r t]: remove all the return statements from the body of a function declaration
     params:
-      [exit_label]: this label is generated only if the body contains non terminal return instructions
+      [exit_label]: generated only if [t] is the is a sequence that contains not terminal instructions
       [r]: the name of the variable replacing the return statement
-      [t]: the ast of the body of the function
-    returns:
-      the updated ast of the body of the function with the replaced all return statements
-*)
+      [t]: ast of the body of the function *)
 let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm * int) =
   let nb_gotos = ref 0 in
   let rec aux (is_terminal : bool) (t : trm) : trm =
@@ -68,13 +56,11 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
           let t1' = (aux false t2) in
           let t_assign = if r = "" then t2 else trm_set (trm_var r) t1' in
           if is_terminal
-            then
-              t_assign
-            else
-              begin
-              incr nb_gotos;
-              trm_seq_nomarks [t_assign; trm_goto exit_label]
-              end
+            then t_assign
+            else begin 
+                 incr nb_gotos;
+                 trm_seq_nomarks [t_assign; trm_goto exit_label]
+                 end
         | _ ->
             incr nb_gotos;
             trm_goto exit_label
@@ -89,16 +75,13 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
   let t = aux true t in
   (t, !nb_gotos)
 
-(* [inline_aux index body_mark top_ast p_local t] replace a function call with the translated body of the function called
-    params:
+(* [inline_aux index body_mark p_local t]: inline a function call 
+     params:
       [index]: index of the instruction containing the function call
-      [body_mark]: body_mark used for the traslated body of the function
-      [top_ast]: the main ast of the file, this is used to check if ome variable is defined before or not
-      [p_local]: path from the instruction containing the function call to the call
-      [t]: ast of the sequence containing the instruction with the function call
-    returns:
-      the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
-*)
+      [body_mark]: mark usef for the transflated body of the function
+      [p_local]: path from the instructions that contains the function call to the function call itself
+      [t]: ast of the sequence containing the function call *)
+
 (* LATER: inlining of f(3) could be ideally implemented as  variable.inline + function.beta,
    but for now we implement a function that covers both beta and inline at once, as it is simpler *)
 
@@ -141,24 +124,21 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         let new_tl = Mlist.merge lfront (Mlist.of_list inlined_body) in
         let new_tl = Mlist.merge new_tl lback in
       trm_seq ~annot:t.annot ~marks:t.marks new_tl
-     | _ -> fail fun_decl.loc "inline_aux: failed to find the top level declaration of the function"
+     | _ -> fail fun_decl.loc "Function_core.inline_aux: failed to find the top level declaration of the function"
      end
-    | _ -> fail fun_call.loc "inline_aux: expected a target to a function call"
+    | _ -> fail fun_call.loc "Function_core.inline_aux: expected a target to a function call"
     end
-  | _ -> fail t.loc "inline_aux: the targeted function call should be contained into an instuction that belongs to a local or global scope"
+  | _ -> fail t.loc "Function_core.inline_aux: the targeted function call should be contained into an instuction that belongs to a local or global scope"
 
-
+(* [inline index body_mark p_local t p]: apply [inline_aux] at the trm [t] with path [p] *)
 let inline (index: int) (body_mark : string option) (p_local : path) : Target.Transfo.local =
   Trace.time "Function_core.inline" (fun () -> Target.apply_on_path (
     Trace.time "Function_core.inline_aux" (fun () -> inline_aux index body_mark p_local)))
 
-(* [use_infix_ops_aux t] transforms a write operation into app and write operation in the case when
-      the operator applied has the neccessary shape
+(* [use_infix_ops_aux allow_identity t]: transform an explicit write operation to an implicit one
     params:
-      [t]: the ast of the write operation
-    return:
-      ast of a binary compound operation
-*)
+      [allow_identity]: if true then the transformation will never fail 
+      [t]: ast of the write operation *)
 let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, [ls; rs]) when is_set_operation t ->
@@ -174,19 +154,19 @@ let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
             if not (aux ls = aux (get_operation_arg get_ls)) then trm_prim_compound ~marks:t.marks binop ls get_ls else  trm_prim_compound ~marks:t.marks binop ls arg
       | _ ->
         if allow_identity then t else
-        fail f1.loc "use_infix_ops_aux: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
+        fail f1.loc "Function_core.use_infix_ops_aux: expected a write operation of the form x = f(get(x), arg) or x = f(arg, get(x) where f is a binary operator that can be written in an infix form"
 
       end
     | _ -> if allow_identity then t else
-           fail rs.loc "use_infix_ops_aux: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
+           fail rs.loc "Function_core.use_infix_ops_aux: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
     end
-  | _-> if allow_identity then t else fail t.loc "use_infi_ops_aux: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
+  | _-> if allow_identity then t else fail t.loc "Function_core.use_infi_ops_aux: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
 
-
+(* [use_infix_ops allow_identity t p]: apply [use_infix_ops_aux] at the trm [t] with path [p] *)
 let use_infix_ops (allow_identity: bool) : Target.Transfo.local =
   Target.apply_on_path (use_infix_ops_aux allow_identity)
 
-(* [uninline_aux fct_decl t] takes a function declaration [fct_decl], for example
+(* [uninline_aux fct_decl t]: take a function declaration [fct_decl], for example
    [void gtwice(int x) { g(x, x); }], and expects a term [t] that matches the body
    of the function, for example [g(3,3)]. It performs some matching to resolve [x]
    and returns the term [gtwice(3)], which is equivalent to [t] up to inlining. *)
@@ -196,13 +176,18 @@ let uninline_aux (fct_decl : trm) (t : trm) : trm =
       let inst = Trm_matching.rule_match ~higher_order_inst:true targs body t in
       let args = Ast.tmap_to_list (List.map fst targs) inst in
       trm_apps (trm_var name) args
-  | _ -> fail fct_decl.loc "uninline: fct argument should target a function definition"
+  | _ -> fail fct_decl.loc "Function_core.uninline: fct argument should target a function definition"
 
+
+(* [uninline fct_decl t p]: apply uninline_aux] at the trm [t] with path [p] *)
 let uninline (fct_decl : trm) : Target.Transfo.local =
   Target.apply_on_path (uninline_aux fct_decl)
 
-(* [rename_args_aux vl t] rename arguments of funciton [t] and replace all the
-    occurrences of the args inside the body with the new names *)
+(* [rename_args_aux vl t]: rename arguments of function [t] and replace all the occurrences of its
+    arguments of the args inside its body with the new names provided as arguments
+    params:
+      [vl]: new arguments
+      [t]: ast of the function declaration whose arguments are going to be altered *)
 let rename_args_aux (vl : var list) (t : trm) : trm =
   match t.desc with
   | Trm_let_fun (f, retty, args, body) ->
@@ -213,22 +198,22 @@ let rename_args_aux (vl : var list) (t : trm) : trm =
     trm_let_fun f retty renamed_args new_body
   | _ -> fail t.loc "rename_args_aux: expected a target to a function declaration"
 
+(* [rename_args vl t p]: apply [rename_aux] at trm [t] with path [p] *)
 let rename_args (vl : var list) : Target.Transfo.local =
   Target.apply_on_path (rename_args_aux vl)
 
-(* [replace_with_change_args_aux new_fun_name arg_mapper t] change the name of the called function and the its args
+
+
+(* [replace_with_change_args_aux new_fun_name arg_mapper t]: change the name of the called function and its arguments
      params:
       [new_fun_name]: the new name that is going to replace the current one
-      [arg_mapper]: a function to change the args
-     return:
-       the ast of the update function call *)
-       
+      [arg_mapper]: a function to change the arguments *)       
 let replace_with_change_args_aux (new_fun_name : string) (arg_mapper : trms -> trms) (t : trm) : trm = 
   match t.desc with 
   | Trm_apps (f, args) -> {t with desc = Trm_apps (trm_var new_fun_name, arg_mapper args)}
   | _ -> fail t.loc "replace_with_change_args_aux: expected a target to a function call"
 
 
+(* [replace_with_change_args new_fun_name arg_mapper t p]: apply [replace_with_change_args_aux] at trm [t] with path [p] *)
 let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) : Target.Transfo.local =
   Target.apply_on_path (replace_with_change_args_aux new_fun_name arg_mapper)
-

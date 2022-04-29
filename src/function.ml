@@ -1,18 +1,17 @@
 open Ast
 open Target
 open Path
-
 include Function_basic
 
+(* [rename]: instantiation of Rename module *)
 type rename = Variable.Rename.t
 
-
-(*  [bind_args fresh_names tg] expets the target [tg] to point at a function call.
+(*  [bind_args fresh_names tg]: expects the target [tg] to point at a function call.
       Then it takes [fresh_names] which is a list of strings where the string
       at index i represents the variable going to be binded to the argument i
       of the function call. If one doesn't want to bind the argument at index i
       then it just leaves it as an empty string "". Basically this transformation is
-      just an aplication of bind_intro n times. Where n is the numer of string inside
+      just an aplication of bind_intro n times. Where n is the numer of strings inside
       [fresh_names] different from "". *)
 
 let bind_args (fresh_names : vars) : Target.Transfo.t =
@@ -39,13 +38,12 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
      fail call_trm.loc "bind_args: expected a function call as target"
    end)
 
-(* [elim_body ~vars tg] expects the target [tg] to point at the marked sequence.Then it will
-    remove this sequence and its mark and merge the trms inside this sequence with te ones of the
-    sequence containing the marked sequence. But before doing that, first a change of all the declared
-    variables inside this sequence is performed. [vars] tells for the way the reanming is done.
-    Either the user can give a list of variables together with their new names, or he can give the postfix
-    that shoudl be assigned to all the declared variables. *)
 
+
+(* [elim_body ~vars tg]: expects the target [tg] to point at a marked sequence.
+     Then it will change all the declaraed variables inside that sequence  based on [vars] 
+     Either the user can give a list of variables together with their new names, or he can give the postifx 
+     that's going to be assigned to all the declared vairables. *)
 let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let tg_trm = Trace.time "elim_body_resolve" (fun () -> Path.resolve_path p t) in
@@ -58,13 +56,25 @@ let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
     | _ -> fail tg_trm.loc "elim_body: the targeted should be pointing to a sequence"
   ) tg
 
-(* [bind ~fresh_name ~args tg] expectes the target [tg] to point at a function call, then
-    it will just call bind args and bind_intro. Basically this function is used to save the user from
-    entering both of them. *)
-
+(* [bind ~fresh_name ~args tg]: expects the target [tg] to point at a function call, 
+    Then it will just call bind args and bind_intro. 
+    Basically this tranasformation just binds a variable to the targeted function call 
+    and its arguments.*)
 let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : Target.target) : unit =
   bind_args args tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
+
+(* [inline ~rename ~body_mark ~vars ~args tg]: expects the target [ŧg] to point at a function call
+    This transformation just tries to automate the process of function inlining.
+
+
+
+
+
+
+
+ *)
+
 
 (* [inline ~resname ~body_mark ~vars ~args  tg]
       expects the target tg to point atpoint to a function call. And automates completely the process
@@ -277,6 +287,7 @@ let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : Target.target)
     | _ -> fail t.loc "beta: this transformation expects a target to a function call"
   ) tg
 
+
 (* [use_infix_ops ~tg_ops] by default it targets all the instructions of the form x = x + a or x = a + x an transforms them
     into x += a *)
 
@@ -286,13 +297,12 @@ let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg 
   Function_basic.use_infix_ops_at ~allow_identity tg
 
 
-(* [uninline ~fxt tg] expects the target [tg] to be pointing at an instruction that is similar to the first instruction
+(* [uninline ~fxt tg]: expects the target [tg] to be pointing at an instruction that is similar to the first instruction
     of the body of the function declared in [fct]. Let nb be the number of instruction on the body of [fct]. The transformation
     will put the targeted instruction together with the following (nb -1) instructions into a sequence marked with a mark.
     Now the stage is ready for applying the basic version of uninline. After calling that transformation and assuming that
     everything went fine we can now eliminate the introduced sequence. The arg [with_for_loop] should be set to true if the 
     original function declaration contains a for loop.*)
-
 let uninline ?(contains_for_loop : bool = false) ~fct:(fct : Target.target) : Target.Transfo.t =
   let tg_fun_def = match Target.get_trm_at fct with
   | Some td -> td
@@ -312,12 +322,9 @@ let uninline ?(contains_for_loop : bool = false) ~fct:(fct : Target.target) : Ta
     | _ -> fail tg_fun_def.loc "uinline: fct arg should point to a a function declaration"
 
 )
-(* [insert decl tg] expects the relative target [tg] pointing before or after an instruction.
-     then in till insert the function declaration [decl] given as a string argument*)
 
+(* [insert ~reparse decl tg]: expects the relative target [t] to point before or after an instruction,
+     then it will insert the function declaration [decl] on that location.
+     To integrate the new declaration with the current AST [reparse] should be set to true. *)
 let insert ?(reparse : bool = false) (decl : string) : Target.Transfo.t = 
   Sequence.insert ~reparse (stmt decl) 
-
-
-(* please find a proper name for this function *)
-(* let magic_transfo () *)
