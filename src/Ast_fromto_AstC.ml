@@ -53,7 +53,8 @@ let trm_get (t : trm) : trm =
   let u = trm_apps ~typ:t.typ (trm_unop Unop_get) [t] in
   trm_simplify_addressof_and_get u
 
-(* [onscope env t f]: apply function [f] on [t] without loosing [env] *)
+(* [onscope env t f]: apply function [f] on [t] without loosing [env] 
+   Note: This function is used for keeping track of opened scopes *)
 let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
     let saved_env = !env in
     let res = f t in
@@ -64,7 +65,7 @@ let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
 let create_env () = ref env_empty
 
 
-(* [stackvar_elim t]: apply the following changes:
+(* [stackvar_elim t]: apply the following encodings
     - [int a = 5] with [<annotation:stackvar> int* a = new int(5)] and a variable occurrence [a] becomes [ * a]
     - [const int c = 5] remains unchange
     - simplify patterns of the form [&*p] into [p].
@@ -115,7 +116,7 @@ let stackvar_elim (t : trm) : trm =
    aux t
 
 
-(* [stackvar_intro t]: is the inverse of [stackvar_elim], hence it applies the following changes:
+(* [stackvar_intro t]: is the inverse of [stackvar_elim], hence it applies the following decodings:
      - [<annotation:stackvar> int *a = new int(5)] with [int a = 5]
      - [const int c = 5] remains unchanged
      - [<annotation:reference> int* b = a] becomes [int& b = a], as a simplification of b = *(&a) 
@@ -164,11 +165,11 @@ let stackvar_intro (t : trm) : trm =
    aux t
 
 
-(* [caddress_elim t]: applies the following changes
+(* [caddress_elim t]: apply the following encodings
      - [get(t).f] becomes get(t + offset f)
-     - [get(t) + offset(f)] becomes get(t + offset(f))
+     - [t.f] becomes t + offset(f)
      - [get(t)[i] ] becomes [get (t + i)]
-       
+     - [t[i]] becomes [t + i] 
      Note: [t + i] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_array_access, [t; i])))]
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[ŧ])] *)
 let rec caddress_elim (t : trm) : trm =
@@ -203,11 +204,14 @@ let is_access (t : trm) : bool =
     end
   | _ -> false
 
-(* [caddress_intro_aux false t] is the inverse of [caddress_elim], hence if applies the following changes:
-    [get(t + offset(f))] becomes [get(t).f]
+(* [caddress_intro_aux false t]: is the inverse of [caddress_elim], hence if applies the following decodings:
+     - [get(t + offset(f))] becomes [get(t).f]
+     - [t + offset(f)] becomes [t.f]
+     - [get (t + i)] becomes [get(t)[i]]
+     - [t + i] becomes [t[i]]
     
-    *)
-
+     Note: [t + i] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_array_access, [t; i])))]
+           [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[ŧ])] *)
 let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
   let aux t = caddress_intro_aux false t in  (* recursive calls for rvalues *)
   let access t = caddress_intro_aux true t in (* recursive calls for lvalues *)
@@ -237,7 +241,7 @@ let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
 
 let caddress_intro = caddress_intro_aux false
 
-(* [cseq_items_void_type t] updates [t] in such a way that all instructions appearing in sequences
+(* [cseq_items_void_type t]: update [t] in such a way that all instructions appearing in sequences
    have type [Typ_unit]. This might not be the case, for example on [x += 2;], Menhir provides an
    [int] type, whereas [Clang] provides a [void] type. *)
 let rec cseq_items_void_type (t : trm) : trm =
@@ -252,10 +256,10 @@ let rec cseq_items_void_type (t : trm) : trm =
       { t2 with desc = Trm_seq (Mlist.map enforce_unit ts) }
   | _ -> t2
 
-(* [iinfix_elim t] updates [t] special encodings for compound_assign operations, set operations and postfix  operations
-    [x++] becomes ++(&x)
-    x = y becomes =(&x, y)
-    x += y becomes +=(&x,y)*)
+(* [infix_elim t]: encode unary and binary operators as OCaml functions, for instance
+    - [x++] becomes ++(&x)
+    - x = y becomes =(&x, y)
+    - x += y becomes +=(&x,y) *)
 let infix_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
@@ -268,7 +272,7 @@ let infix_elim (t : trm) : trm =
     | _ -> trm_map aux t
   in aux t
 
-(* [infix_intro t] updates [t] clean special encodings for compound_assign operations, set operations and postfix unary operations
+(* [infix_intro t]: decode unary and binary oeprators back to C++ unary and binary operators
     [++(&x)] becomes [++x]
     [+=(&x, y)] becomes [x += y]
     [=(&x, y)] becomes [x = y]*)
@@ -284,7 +288,7 @@ let infix_intro (t : trm) : trm =
     | _ -> trm_map aux t
   in aux t
 
-(* Main entry points *)
+(***************************************  Main entry points *********************************************)
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
