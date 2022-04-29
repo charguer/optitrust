@@ -2,7 +2,8 @@ open! Ast
 open Tools
 
 
-(* [loc_of_node cloc ] transforms a C.location into Ast.location
+(* [loc_of_node cloc ]: transform a C.location into Ast.location
+    
     Note: For the moment only the line of the node is known, hence the
     start column and end column are set to 0 *)
 let loc_of_cloc (cloc : C.location) : location =
@@ -10,31 +11,41 @@ let loc_of_cloc (cloc : C.location) : location =
   | ("", -1) -> None
   | (file, line) -> Some {loc_file = file; loc_start = {pos_line = line; pos_col = 0}; loc_end = {pos_line = line; pos_col = 0}} (* LATER: Find the correct location *)
 
+
+(* [ctx_tconstr]: a map for storing constructed types based on their ids *)
 let ctx_tconstr : typconstrid varmap ref = ref String_map.empty
 
+(* [ctx_typedef]: a map for storing typedefs based on the types they define *)
 let ctx_typedef : typedef typmap ref = ref Typ_map.empty
 
+(* [ctx_label]: a map for storing labels based on their ids *)
 let ctx_label : typconstrid varmap ref = ref String_map.empty
 
+(* ctx_constr]: a map for storing ids !! *)
 let ctx_constr : typconstrid varmap ref = ref String_map.empty
 
+(* [debug_typedefs]: flag for debugging typedefs *)
 let debug_typedefs = false
 
+(* [ctx_tconstr_add tn tid]: add constructed type [tv] with id [tid] in map [ctx_tconstr] *)
 let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
   if debug_typedefs then printf "Type %s has been added into map with typconstrid %d\n" tn tid;
   ctx_tconstr := String_map.add tn tid (!ctx_tconstr)
 
+(* [ctx_typedef_add tn tid td]: add typedef [td] with id [tid] in map [ctx_typedef] *)
 let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =
   if debug_typedefs then printf "Typedef for %s has been registered\n" tn;
   ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
+(* [ctx_label_add lb tid]: add label [lb] with id [tid] in map [ctx_label] *)
 let ctx_label_add (lb : label) (tid : typconstrid) : unit =
   ctx_label := String_map.add lb tid (!ctx_label)
 
+(* [ctx_constr_add c tid]: add constr [c] with id [tid] in map [ctx_constr_add] *)
 let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
   ctx_constr := String_map.add c tid (!ctx_constr)
 
-(* [get_ctx] returns the current context *)
+(* [get_ctx]: get the current context *)
 let get_ctx () : ctx =
   { ctx_var = String_map.empty;
     ctx_tconstr = !ctx_tconstr;
@@ -42,7 +53,7 @@ let get_ctx () : ctx =
     ctx_label = !ctx_label;
     ctx_constr = !ctx_constr; }
 
-(* [get_typid_from_trm ty] *)
+(* [get_typid_for_type ty]: get the type id for type [tv]*)
 let get_typid_from_trm (tv : typvar) : int  =
    let tid = String_map.find_opt tv !ctx_tconstr in
    begin match tid with
@@ -50,6 +61,7 @@ let get_typid_from_trm (tv : typvar) : int  =
    | None -> -1
    end
 
+(* [tr_attribute att]: translate Menhir attribute [att] to OptiTrust attribute *)
 let tr_attribute (att : C.attribute) : attribute =
   (* DEBUG *)
   (* let c_attribute_to_string (att : C.attribute) : string =
@@ -67,14 +79,14 @@ let tr_attribute (att : C.attribute) : attribute =
 
   (* LATER; support others *)
 
-(* [wrap_const ~const t] wrap the type [t] into a const typ if const is true *)
+(* [wrap_const att ty]: wrap type [ty] into a const type if const is one of the attributes *)
 let wrap_const (att : C.attributes) (ty : Ast.typ) : Ast.typ =
   let const = List.mem C.AConst att in
   let att = List.filter (fun a -> a <> C.AConst) att in
   let ty = { ty with typ_attributes = List.map tr_attribute att } in
   if const then typ_const ty else ty
 
-(* [tr_type ty] translate C.typ to Ast.typ *)
+(* [tr_type ty]: translate C.typ to Ast.typ *)
 let rec tr_type  (ty : C.typ) : Ast.typ =
   match ty with
   | C.TPtr (ty1, att) ->
@@ -131,7 +143,7 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
   | C.TVoid _ -> typ_unit ()
 
 
-(* [tr_stmt s] translate C.stms to Ast.stmt *)
+(* [tr_stmt s]: translate C.stms to Ast.stmt *)
 and tr_stmt (s : C.stmt) : trm =
   let loc = loc_of_cloc s.sloc in
   let ctx = Some (get_ctx ()) in
@@ -213,6 +225,7 @@ and tr_stmt (s : C.stmt) : trm =
   | _ -> fail loc "tr_stmt: statment not supported"
    (* LATER: should not use catch all pattern, here and elsewhere *)
 
+(* [tr_pragma ~loc p]: translate C.pragma into OptiTrust pragmas *)
 and tr_pragma ?(loc : location = None) (p : string) : trm =
   match p with
   | "omp simd" -> trm_omp_directive (Simd [])
@@ -226,7 +239,7 @@ and tr_pragma ?(loc : location = None) (p : string) : trm =
      with Scanf.Scan_failure _ ->
       fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p)
 
-(* [tr_init i] translate C.inti into optitrust ast*)
+(* [tr_init i]: translate C.inti into OptiTrust trm *)
 and tr_init ?(loc : location = None) (i : C.init) : trm =
   match i with
   | Init_single e -> tr_expr e
@@ -236,7 +249,7 @@ and tr_init ?(loc : location = None) (i : C.init) : trm =
     trm_struct ~loc ~typ:(Some ty) (Mlist.of_list (List.map (fun (_, init) -> tr_init init) il))
   | Init_union _ -> fail loc "tr_init: union not supported yet"
 
-(* [tr_constant c] translate C.constant into Optitrust ast*)
+(* [tr_constant c]: translate C.constant into OptiTrust trm *)
 and tr_constant ?(loc : location = None) ?(is_boolean : bool = false) (c : C.constant) : trm =
   match c with
   | C.CInt (i, ik, s)->
@@ -266,7 +279,7 @@ and tr_constant ?(loc : location = None) ?(is_boolean : bool = false) (c : C.con
     trm_lit ~loc (Lit_string s)
   | _  -> fail loc "tr_const: constant expression is not supported"
 
-(* [tr_expr ~is_stement e] translate C.exp into Optitrust ast *)
+(* [tr_expr ~is_stement e]: translate C.exp into OptiTrust trm *)
 and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.exp) : trm =
   let loc = loc_of_cloc e.eloc in
   let typ = Some (tr_type e.etyp) in
@@ -385,7 +398,7 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     | _ -> trm_apps ~loc ~ctx ~is_statement ~typ tf (List.map tr_expr el)
     end
 
-(* [tr_globdef d] transalte C.globdecl into OptiTrust ast *)
+(* [tr_globdef d]: transalte C.globdecl into OptiTrust trm *)
 and tr_globdef (d : C.globdecl) : trm =
   let loc = loc_of_cloc d.gloc in
   let ctx = Some (get_ctx ()) in
@@ -485,7 +498,7 @@ let tr_typedef struct_is_named loc sn fl ty =
   trm_typedef ~loc ~ctx td
 
 
-(* [tr_globdefs gs] translates a list of global declarations *)
+(* [tr_globdefs gs]: translates a list of C.globdefs into a list of OptiTrust declarations *)
 let tr_globdefs (gs : C.globdecl list) : trms =
   let rec aux acc gs =
     match gs with
@@ -518,7 +531,7 @@ let tr_globdefs (gs : C.globdecl list) : trms =
   in
     List.rev( aux [] gs)
 
-(* [tr_ast tl] translate a C.program into Optitrust ast *)
+(* [tr_ast tl]: translate a C.program into OptiTrust AST *)
 let tr_ast (tl : C.program) : trm =
   let tl = tr_globdefs tl in
   trm_seq_nomarks ~annot:[Main_file] tl
