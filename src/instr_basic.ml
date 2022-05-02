@@ -19,7 +19,7 @@ let copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:Target.target = [
 
 (* [move ~rev ~dest tg]: expects the target [tg] to point at the instruction that is
     going to be moved at the relative target [where]. In case the target [tg] points to 
-    more than one instructions to keep the original order of the instructions [rev] should be set to true
+    more than one instructions, to keep the original order of the instructions [rev] should be set to true
 
    @correctness: Correct if the swapped instructions are parallelizable:
    {H1 * H} instr1 {H1' * H} and {H2 * H} instr2 {H2' * H}
@@ -30,8 +30,8 @@ let copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:Target.target = [
    
    This is sufficient but not necessary, a manual commutation proof can be used
    as well. *)
-let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target) : unit = 
-  copy ~rev ~del
+let move ?(rev : bool = false) ~dest:(dest : Target.target) (tg : Target.target) : unit = 
+  copy ~rev ~delete:true ~dest tg
   
 
 (* [read_last_write ~write tg]: expects the target [tg] to point at a read operation, 
@@ -56,7 +56,7 @@ let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
     | _ -> fail write_trm.loc "Instr_basic.read_last_write: the targeted write operation should be either a set operation or 
       an initialized variable declaration" in 
   Target.apply_on_targets (fun t p -> 
-    let get_op_path = Internal.get_surrounding_trm (fun t -> (is_get_operation t)) p t in 
+    let get_op_path = Internal.get_ascendant_path (fun t -> (is_get_operation t)) p t in 
     if get_op_path = [] then t else 
     Target.apply_on_path (fun _ -> written_trm) t p) tg
 

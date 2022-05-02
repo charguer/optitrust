@@ -6,7 +6,7 @@ open Ast
     will be applied on the node represented by target [tg]. If it was a set operation then [f_set] will be applied
     on the second argument of the targeted node. *)
 let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm) : Target.Transfo.t =
-     Target.apply_on_targets (fun t p -> let get_or_set_path = Internal.get_surrounding_trm (fun t -> 
+     Target.apply_on_targets (fun t p -> let get_or_set_path = Internal.get_ascendant_path (fun t -> 
         (is_get_operation t) || (is_set_operation t)) p t in
         if get_or_set_path = [] 
           then t 
