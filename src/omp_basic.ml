@@ -1,6 +1,7 @@
 open Ast
 open Target
 
+
 (******************************************************************************)
 (*                            OpenMP directives                               *)
 (******************************************************************************)
@@ -64,7 +65,7 @@ let flush (vl : vars) : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
     Omp_core.flush vl i t p)
 
-(* We use here for_ instead of for because for is a keyword in Ocaml *)
+(* [for_] is used instead of [for] because [for] is a keyword in Ocaml *)
 let for_ ?(clause : clause list = []) : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
     Omp_core.for_ clause i t p)
@@ -370,4 +371,3 @@ let get_wtime (wtime : var) : Transfo.t =
 let get_wtick (wtick : var) : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->
     Omp_core.get_wtick wtick i t p)
-
