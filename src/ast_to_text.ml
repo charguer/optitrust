@@ -376,7 +376,7 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
       | (lb, t) :: tl  ->
         let dt = print_typ ~only_desc t in
         aux (print_pair (string lb) dt :: acc) tl in
-      aux [] s
+      aux [] (List.rev s) (* LATER: process without accumulator *)
      in
     let dtl = get_document_list s in
     print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
@@ -430,7 +430,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
       end
     in
     let dinstr = string (string_of_bool t.is_statement) in
-    
+
     let dtyp =
       match t.typ with
       | None -> underscore

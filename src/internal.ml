@@ -169,8 +169,6 @@ let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
     | dir :: dl' -> aux (dir :: acc) dl'
   in aux [] (List.rev dl)
 
-
-
 (* [get_trm_in_surrounding_loop dl]: for a trm with path [dl] return the path to surrouding sequence of the loop
     that contains that trm , and the index of that loop on that sequence *)
 let get_trm_in_surrounding_loop (dl : path) : path * int =
@@ -217,8 +215,13 @@ let fresh_args (t : trm) : trm =
 (* [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
 let get_field_list (td : typedef) : (var * typ) list =
   begin match td.typdef_body with
+<<<<<<< HEAD
   | Typdef_prod (_, s) -> List.rev s
   | _ -> fail None "Internal.get_field_lists: expected a Typedef_prod"
+=======
+  | Typdef_prod (_, s) -> s
+  | _ -> fail None "get_field_lists: expected a Typedef_prod"
+>>>>>>> struct_modif
   end
 
 (* [get_typid_from_typ t]: check if typ is a constructed type or a composed type
@@ -442,7 +445,7 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
         end
       ) (Mlist.to_list tl)) in
       let new_tl = Mlist.map aux tl in
-     
+
       let new_tl =
         if indices_list <> [] then
           List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list)

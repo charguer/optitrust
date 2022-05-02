@@ -241,8 +241,8 @@ let reveal_field_aux (field_to_inline : field) (index : int) (t : trm ) =
     | Trm_typedef td ->
       begin match td.typdef_body with
       | Typdef_prod (t_names, field_list) ->
-       let field_index = Internal.get_field_index field_to_inline (List.rev field_list) in
-       let lfront1, lback1 = Tools.split_list_at field_index (List.rev field_list) in
+       let field_index = Internal.get_field_index field_to_inline field_list in
+       let lfront1, lback1 = Tools.split_list_at field_index field_list in
        let field_to_inline1, lback1 = if List.length lback1 = 1 then (lback1, []) else
         Tools.split_list_at 1 lback1 in
        let _ ,field_type = List.nth field_to_inline1 0 in
@@ -274,11 +274,11 @@ let reveal_field_aux (field_to_inline : field) (index : int) (t : trm ) =
             | Typ_array (_, size) -> (new_field, (typ_array typ size))
             | _ -> (new_field, typ)) inner_type_field_list in
 
-       let field_list = List.rev  (lfront1 @ (List.rev inner_type_field_list) @ lback1) in
+       let field_list = (lfront1 @ inner_type_field_list @ lback1) in
        let new_typedef = {td with typdef_body =  Typdef_prod (t_names, field_list)} in
        let new_trm = trm_typedef new_typedef in
        let lback = Mlist.map (inline_struct_accesses field_to_inline) lback in
-       let lback = Mlist.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Internal.get_field_list struct_def)))) field_index) lback in
+       let lback = Mlist.map (inline_struct_initialization td.typdef_tconstr (fst (List.split (Internal.get_field_list struct_def))) field_index) lback in
        let new_tl = Mlist.merge lfront lback in
        let new_tl = Mlist.insert_at index new_trm new_tl in
        { t with desc = Trm_seq new_tl}
@@ -562,36 +562,39 @@ module Struct_modif = struct
   (* Fields of a struct *)
   type fields = (label * typ) list
 
+  let fields_identity :  fields -> fields =
+    Fun.id
+
   (* [modif] is the type of a function such as [f_get],
      which is meant to be called as [f_get aux t], where
      [aux] is the function for recursively processing subterms. *)
-  type modif = (trm->trm) -> trm -> trm
+  type recmodif = (trm->trm)
 
   (* Arguments for [struct_modif]:
      - [f_fields] is for modifying struct fields
      - [f_get] is for [get(access(base,f))]
      - [f_set] is for [set(access(base, f), rhs)]
      - [f_struct_get] is for [struct_get(base, f)]
-     - [f_access] is for [struct_access(base, f)] *)
+     - [f_access] is for [struct_access(base, f)]
+     - [f_alloc] is for [trm_struct ls]; the function is provided with the
+       old list and the new list of fields, with names and types. *)
   type arg = {
     f_fields : fields -> fields;
-    f_get: modif;
-    f_set: modif;
-    f_struct_get: modif;
-    f_access: modif;
-    f_alloc: modif;
+    f_get: recmodif -> trm -> trm;
+    f_set: recmodif -> trm -> trm;
+    f_struct_get: recmodif -> trm -> trm;
+    f_access: recmodif -> trm -> trm;
+    f_alloc: (fields*fields) -> recmodif -> trm -> trm;
   }
 
-  let arg_must_not_happen : modif =
+  let arg_must_not_happen : recmodif -> trm -> trm =
     (fun _ _ -> assert false)
 
-  let arg_identity : modif =
+  let arg_identity : recmodif -> trm -> trm =
     (fun _aux t -> t)
 
-  let arg_keep_annot (f : modif) : modif =
-      fun aux t ->
-        let t' = f aux t in
-        { t' with annot = t.annot; marks = t.marks }
+  let reuse_annot_of (tsrc : trm) (t : trm) : trm =
+    { t with  annot = tsrc.annot; marks = tsrc.marks }
 
 end
 
@@ -600,7 +603,7 @@ end
       [struct_name]: used for checking the type of the struct access
       [arg]: see Struct_modif module
       [t]: AST of the surrounding sequence of the targeted typedef *)
-let modif_accesses (struct_name : var) (arg : Struct_modif.arg) (t : trm) : trm =
+let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fields) (struct_name : var) (arg : Struct_modif.arg) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     let default () = trm_map aux t in
     let is_target_typ base =
@@ -629,11 +632,11 @@ let modif_accesses (struct_name : var) (arg : Struct_modif.arg) (t : trm) : trm 
             if is_typ_struct struct_name base.typ
               then arg.f_struct_get aux t
               else default()
-          | None -> 
-            begin match struct_init_inv t with 
-            | Some sl -> 
-              if is_typ_struct struct_name t.typ 
-                then arg.f_alloc aux t
+          | None ->
+            begin match struct_init_inv t with
+            | Some sl ->
+              if is_typ_struct struct_name t.typ
+                then arg.f_alloc old_and_new_fields aux t
                 else default()
             | None -> default ()
             end
@@ -656,13 +659,13 @@ let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
     begin match tdef.desc with
     | Trm_typedef td ->
       begin match td.typdef_body with
-      | Typdef_prod (t_names, field_list) ->
+      | Typdef_prod (t_names, old_fields) ->
          let struct_name = td.typdef_tconstr in
-         let new_fields = arg.f_fields field_list in
+         let new_fields = arg.f_fields old_fields in
          let new_typdef = {td with typdef_body = Typdef_prod (t_names, new_fields)} in
          let new_td = trm_typedef ~marks:tdef.marks new_typdef in
          let f_update = fun t -> new_td in
-         let f_update_further = fun t -> modif_accesses struct_name arg t in
+         let f_update_further = fun t -> modif_accesses (old_fields, new_fields) struct_name arg t in
          let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
          {t with desc = Trm_seq new_tl}
       | _ -> fail tdef.loc "Struct_core.struct_modif: expected a struct definition"
