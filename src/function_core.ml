@@ -96,10 +96,10 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
       | Trm_var (_, f) ->
         begin match Internal.toplevel_decl ~require_body:true f with
         | Some decl -> decl
-        | _ -> fail tfun.loc "inline_aux: couldn't find the toplevel decl for the targeted function call"
+        | _ -> fail tfun.loc "Function_core.inline_aux: couldn't find the toplevel decl for the targeted function call"
         end
       | Trm_let_fun _ -> tfun
-      | _ -> fail tfun.loc "inline_aux: expected either a function call or a beta function call"
+      | _ -> fail tfun.loc "Function_core.inline_aux: expected either a function call or a beta function call"
       end in
      begin match fun_decl.desc with
      | Trm_let_fun (_f, ty, args, body) ->
@@ -150,7 +150,7 @@ let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
         if aux ls <> aux (get_operation_arg get_ls) && aux ls <> aux (get_operation_arg arg)
           then t
           else
-            let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> fail f.loc "use_infix_ops_aux: this should never happen" in
+            let binop = match get_binop_from_prim p with | Some binop -> binop | _ -> fail f.loc "Function_core.use_infix_ops_aux: this should never happen" in
             if not (aux ls = aux (get_operation_arg get_ls)) then trm_prim_compound ~marks:t.marks binop ls get_ls else  trm_prim_compound ~marks:t.marks binop ls arg
       | _ ->
         if allow_identity then t else
@@ -160,7 +160,7 @@ let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
     | _ -> if allow_identity then t else
            fail rs.loc "Function_core.use_infix_ops_aux: expeted a write operation of the form x = f(get(x), arg) or x = f(arg, get(x))"
     end
-  | _-> if allow_identity then t else fail t.loc "Function_core.use_infi_ops_aux: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
+  | _-> if allow_identity then t else fail t.loc "Function_core.use_infix_ops_aux: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
 
 (* [use_infix_ops allow_identity t p]: apply [use_infix_ops_aux] at the trm [t] with path [p] *)
 let use_infix_ops (allow_identity: bool) : Target.Transfo.local =
@@ -196,7 +196,7 @@ let rename_args_aux (vl : var list) (t : trm) : trm =
     let tm = map_from_trm_var_assoc_list assoc_list in
     let new_body = Internal.subst tm body in
     trm_let_fun f retty renamed_args new_body
-  | _ -> fail t.loc "rename_args_aux: expected a target to a function declaration"
+  | _ -> fail t.loc "Function_core.rename_args_aux: expected a target to a function declaration"
 
 (* [rename_args vl t p]: apply [rename_aux] at trm [t] with path [p] *)
 let rename_args (vl : var list) : Target.Transfo.local =
@@ -211,7 +211,7 @@ let rename_args (vl : var list) : Target.Transfo.local =
 let replace_with_change_args_aux (new_fun_name : string) (arg_mapper : trms -> trms) (t : trm) : trm = 
   match t.desc with 
   | Trm_apps (f, args) -> {t with desc = Trm_apps (trm_var new_fun_name, arg_mapper args)}
-  | _ -> fail t.loc "replace_with_change_args_aux: expected a target to a function call"
+  | _ -> fail t.loc "Function_core.replace_with_change_args_aux: expected a target to a function call"
 
 
 (* [replace_with_change_args new_fun_name arg_mapper t p]: apply [replace_with_change_args_aux] at trm [t] with path [p] *)

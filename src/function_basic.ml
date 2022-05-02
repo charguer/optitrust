@@ -72,9 +72,7 @@ let inline ?(body_mark : mark option) (tg : Target.target) : unit =
     Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
      (fun  t (p, p_local, i) ->
         Trace.time "inline call to Function_core.inline" (fun () ->
-          Function_core.inline i body_mark p_local t p
-        )
-      ) tg))
+          Function_core.inline i body_mark p_local t p)) tg))
 
 
 (* [beta ~body_mark tg]: similar to [function_inline] the main difference is that [beta] is used in the cases 
@@ -85,7 +83,7 @@ let beta ?(body_mark : var = "") (tg : Target.target) : unit =
 
 
 (* [use_infix_ops_at tg]: expects the target [tg] to point at an explicit set operation of the form x = x (op) a,
-    then it will transform that instruction into x (op)= a. *)
+    then it will transform that instruction into x (op)= a. Ex: x = x + 1 --> x += 1 *)
 let use_infix_ops_at ?(allow_identity : bool = true) : Target.Transfo.t =
   Target.apply_on_targets (Function_core.use_infix_ops allow_identity)
 
