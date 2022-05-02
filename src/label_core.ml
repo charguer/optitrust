@@ -1,33 +1,23 @@
 open Ast
 
-(* *********************************************************************************** 
- * Note: All the intermediate functions which are called from [sequence.ml] file      *
- * have only one purpose, and that is targeting the trm in which we want to apply the *
- * transformation. That's why there is not need to document them.                     *
- *)
-
-(* [add_aux label t]: add a lable around term t
+(* [add_aux label t]: add label [label] to trm [t]
     params:
-      label: a string representing the label 
-      t: an ast node
-    return:
-      the updated ast with new labelled term *)
+      label: label that is going to label trm [t]
+      t: a trm *)
 let add_aux (label : string) (t : trm) : trm =
   trm_labelled label t
 
+(* [add_label label t p]: apply [add_aux] at the trm [t] with path [p] *)
 let add (label : string) : Target.Transfo.local =
   Target.apply_on_path (add_aux label)
 
-(* remove_aux: remove the label from a labelled trm
+(* remove_aux: convert the labelled trm [t] to a simple trm
     params:
-      t: ast node of the labelled t
-    return:
-      the updated ast *)
+      t: ast node of the labelled trm *)
 let remove_aux (t : trm) : trm =
   match t.desc with
   | Trm_labelled (_, tbody) -> tbody
-  | _ -> fail t.loc "label_rem_aux: label was not matched, make sure the path is correct"
+  | _ -> fail t.loc "Label_core.label_rem_aux: label was not matched, make sure the path is correct"
 
 let remove : Target.Transfo.local =
   Target.apply_on_path (remove_aux)
-
