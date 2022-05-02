@@ -2320,7 +2320,7 @@ let trm_ineq (ineq_sgn : loop_dir) (t1 : trm) (t2 : trm) : trm =
 let trm_and ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_and) [t1;t2]
 
-(* [trm_bit_and t1 t2]: generate t1 && t2 *)
+(* [trm_bit_and t1 t2]: generate t1 & t2 *)
 let trm_bit_and ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_bitwise_and) [t1;t2]
 
@@ -2328,7 +2328,7 @@ let trm_bit_and ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm
 let trm_or ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_or) [t1;t2]
 
-(* [trm_bit_or t1 t2]: generate t1 || t2 *)
+(* [trm_bit_or t1 t2]: generate t1 | t2 *)
 let trm_bit_or ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_bitwise_or) [t1;t2]
 

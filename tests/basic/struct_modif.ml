@@ -74,12 +74,12 @@ let mysuffix (suffix : string) tg =
       let base = aux base in
       reuse_annot_of t (trm_struct_get base (field^suffix)) in
 
-    let f_get aux t = (* t is [get(access(base,field))] *)
+    let f_get aux t = (* t is [get(access(base,field))]   that is   "base.field" *)
       let (field, base) = get_struct_access_inv_some t in
       let base = aux base in
       reuse_annot_of t (trm_get (struct_access (field^suffix) base)) in
 
-    let f_set aux t = (* t is [set(access(base,field), rhs)] *)
+    let f_set aux t = (* t is [set(access(base,field), rhs)]  that is   "base.field = rhs"   *)
       let (field, base, rhs) = set_struct_access_inv_some t in
       let base = aux base in
       let rhs = aux rhs in
