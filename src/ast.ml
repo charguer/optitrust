@@ -1205,7 +1205,8 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
      trm_labelled ~annot ~marks ~loc l (f false body)
   | _ -> t
 
-(* TODO:
+(* TODO ARTHUR: think about how to factorize this.
+
   trm_map (f: bool -> trm -> trm) (t : trm) : trm =
 
   trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =

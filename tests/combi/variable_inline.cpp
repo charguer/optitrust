@@ -43,8 +43,6 @@ typedef struct {
   chunk *back;
 } bag;
 
-
-
 int main() {
 
   bag *b = (bag*) malloc (100 * sizeof (bag));

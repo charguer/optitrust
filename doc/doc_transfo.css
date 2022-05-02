@@ -96,3 +96,11 @@ h2 {
   margin: 5px 5px 5px 5px;
   width: 85%; /* hack to avoid the scrollbar showing up all the time */
 }
+
+.d2h-code-line ins, .d2h-code-side-line ins {
+    background-color: inherit;
+}
+
+.d2h-code-line del, .d2h-code-side-line del {
+    background-color: inherit;
+}

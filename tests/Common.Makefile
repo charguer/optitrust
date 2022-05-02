@@ -305,10 +305,11 @@ DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 # including the source code, and the full input/output diff
 # (first remove leading white lines in _doc.cpp)
 #  LATER:  $(V)(test -f $*_doc.cpp) || (echo "ERROR: no script_doc for $*")
+# Note: to hide the documentation of transformations in the %_doc.js, add:
+# @echo "" > $*_doc_spec.txt
+
 %_doc.js: %_out.cpp %_doc.txt %_doc_spec.txt %_doc.cpp # %_doc_out.cpp
 	$(V)sed -i '/./,$$!d' $*_doc.cpp
-	# Uncomment the line below to hide the documentation of transformations in the %_doc.js
-	echo "" > $*_doc_spec.txt
 	@echo "function get_diff_$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
 	@echo "function get_src_$*() { return window.atob(\"`cat $*_doc.txt | base64 -w 0`\"); }" >> $@
 	@echo "function get_spec_$*() { return window.atob(\"`cat $*_doc_spec.txt | base64 -w 0`\"); }" >> $@
