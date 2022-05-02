@@ -1,11 +1,12 @@
 open Ast
 
-(* [add m ] adds marks m to node t 
-    if m = "" then does nothing *)
+(* [add m tg]: add mark [m] to the trm that correpsonds to target [tg]
+   NOTE: if m = "" then does nothing. *)
 let add (m : mark) (tg : Target.target) : unit = 
   if m = "" then () else Target.apply_on_targets (Marks_core.add m) tg
 
-(* [add_between m ] adds mark m at he location of the relative target [tg] *)
+(* [add_between m]: add mark [m] at the location of the relative target [tg]
+   NOTE: if m = "" then does nothing. *)
 let add_between (m : mark) (tg : Target.target) : unit =
   if m = "" then () 
     else
@@ -13,10 +14,10 @@ let add_between (m : mark) (tg : Target.target) : unit =
         fun t (p,i) -> 
          Target.apply_on_path (fun t -> trm_add_mark_between i m t) t p) tg
 
-(* [remove m] removes mark m from node t *)
+(* [remove m tg]: removes mark m from the trm that corresponds to target [tg] *)
 let remove (m : mark) : Target.Transfo.t =
   Target.apply_on_targets (Marks_core.remove m)
 
-(* [clean] cleans all marks from node t *)
+(* [clean tg]: clean all the marks from the trm that corresponds to target [tg] *)
 let clean : Target.Transfo.t = 
   Target.apply_on_targets (Marks_core.clean)
