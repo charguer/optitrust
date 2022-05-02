@@ -203,13 +203,13 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
             let new_term_list = Mlist.merge new_term_list lback  in
             trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
           | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change ->
-            let sl = List.map (fun f -> trm_get (trm_struct_access (trm_var ~typ:v.typ p) f)) (List.rev field_list ) in
+            let sl = List.map (fun f -> trm_get (trm_struct_access (trm_var ~typ:v.typ p) f)) field_list in
             let new_term_list = Mlist.merge lfront (Mlist.of_list sl) in
             let new_term_list = Mlist.merge new_term_list lback in
             trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
 
           | Trm_var (_, p) ->
-            let sl = List.map (fun f -> trm_struct_get (trm_var ~typ:t.typ p) f) (List.rev field_list ) in
+            let sl = List.map (fun f -> trm_struct_get (trm_var ~typ:t.typ p) f) field_list in
             let new_term_list = Mlist.merge lfront (Mlist.of_list sl) in
             let new_term_list = Mlist.merge new_term_list lback in
             trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
@@ -387,10 +387,11 @@ let to_variables_aux (index : int) (t : trm) : trm =
           | [] -> trm_let_mut (new_name, ty) (trm_uninitialized ())
           | _ -> trm_let_mut (new_name, ty) (List.nth struct_init_list i)
       ) field_list in
+      (* LATER: Optimize, a single pass over lback.items *)
       let lback = Mlist.map (fun t1 ->
         List.fold_left (fun t2 f1 ->
           inline_struct_accesses x f1 t2
-        ) t1 (List.rev (fst (List.split field_list)))
+        ) t1 (fst (List.split field_list))
       ) lback in
       let new_tl = Mlist.merge lfront (Mlist.of_list var_decls) in
       let new_tl = Mlist.merge new_tl lback in

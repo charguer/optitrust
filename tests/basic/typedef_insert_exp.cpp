@@ -1,8 +1,8 @@
 const int M = 20;
 
 typedef struct {
-  int y;
   int x;
+  int y;
 } vect;
 
 typedef vect myvect;

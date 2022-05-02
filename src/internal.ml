@@ -215,13 +215,8 @@ let fresh_args (t : trm) : trm =
 (* [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
 let get_field_list (td : typedef) : (var * typ) list =
   begin match td.typdef_body with
-<<<<<<< HEAD
-  | Typdef_prod (_, s) -> List.rev s
-  | _ -> fail None "Internal.get_field_lists: expected a Typedef_prod"
-=======
   | Typdef_prod (_, s) -> s
-  | _ -> fail None "get_field_lists: expected a Typedef_prod"
->>>>>>> struct_modif
+  | _ -> fail None "Internal.get_field_lists: expected a Typedef_prod"
   end
 
 (* [get_typid_from_typ t]: check if typ is a constructed type or a composed type
@@ -405,8 +400,7 @@ let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) l
     | true -> List.map (fun x ->
         match List.assoc_opt x sf with
       | Some d -> (x,d)
-      | None -> fail None (Tools.sprintf "Internal.reorder_fields: field %s doest not exist" x)
-        ) (List.rev local_l)
+      | None -> fail None (Tools.sprintf "Internal.reorder_fields: field %s doest not exist" x)) local_l
     end
 
 (* [get_trm_and_its_relatives index trms]: for a trm [t] with index [index] in its surrounding sequence return 
