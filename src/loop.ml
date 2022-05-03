@@ -5,7 +5,7 @@ include Loop_basic
 (* [rename]: instantiation of Rename module *)
 type rename = Variable.Rename.t
 
-(* [hoist ~name ~array_size tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this 
+(* [hoist ~name ~array_size tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
     transformation supports also undetached declarations contrary to the basic one. This is done by first checking if
     the declaration is detached or not. If it is not detached then we call another transformation that does the detachment for us. *)
 let hoist ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
@@ -40,7 +40,7 @@ let fusion ?(nb : int = 2) (tg : target) : unit =
 (* [fusion_targets tg]: similar to [fusion] except that this transformation assumes that [tg] points to multiple
     not neccessarily consecutive for loops. This transformation regroups all this loops into a single sequence
     an calls [Loops_basic.fusion_on_block]
-    
+
     Assumptions:
       The loops inside the sequence satisfy the same assumptions as in [Loop_basic.fusion_in_block] transformation
       All the instructions in-between loops should not depend on the index of the loop. *)
@@ -64,7 +64,7 @@ let fusion_targets (tg : target) : unit =
       | Trm_seq tl -> aux tl
       | _ -> fail t.loc "Loop.fusion_targets: expected a labelled sequence or a direct target to a sequence"
       end
-    | _ -> fail tg_trm.loc "Loop.fusion_targets: expected a target pointing to the sequence that contains 
+    | _ -> fail tg_trm.loc "Loop.fusion_targets: expected a target pointing to the sequence that contains
                             the potential loops to be fused"
 
   ) tg;
@@ -72,8 +72,8 @@ let fusion_targets (tg : target) : unit =
   Loop_basic.fusion_on_block tg
 
 (* [move_out ~upto tg]: expects the target [tg] to point at an instruction inside a for loop,
-    then it will move that instruction outside the for loop that it belongs to. 
-    In case of nested loops the user can specify the index of the upmost loop before which 
+    then it will move that instruction outside the for loop that it belongs to.
+    In case of nested loops the user can specify the index of the upmost loop before which
     the instructions is going to be moved to.*)
 let move_out ?(upto : string = "") (tg : target) : unit =
   Internal.nobrace_remove_after( fun _ ->
@@ -161,7 +161,7 @@ let move ?(before : target = []) ?(after : target = []) (loop_to_move : target) 
 
 (*
 DETAILS for [unroll]
- 
+
 
 *)
 
@@ -177,7 +177,7 @@ DETAILS for [unroll]
 
     [shuffle]: shuffle blocks
 
-    Assumption: C should be a literal or a constant variable 
+    Assumption: C should be a literal or a constant variable
     -------------------------------------------------------------------------------------------------------
     Ex:
     Let [tg] target the following loop
@@ -269,7 +269,7 @@ DETAILS for [unroll]
       cmd3(i+1)
       cmd3(i+2)
     }
-    
+
     LATER: This transformation should be factorized, that may change the docs. *)
 let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : target) : unit =
   reparse_after ~reparse:(not braces) (iteri_on_targets (fun i t p ->
@@ -326,7 +326,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
 (* [reorder ~order tg]:  expects the target [tg] to point at the first loop included in the [order]
     list, then it will find all the nested loops starting from the targeted loop [tg] and
     reorder them based on [oder].
-    
+
     Assumption:
       All loops have as bodies blocks of code(sequences)
 
@@ -349,7 +349,7 @@ let reorder ?(order : vars = []) (tg : target) : unit =
   ) tg
 
 (* [fission ~split_between tg]: similar to [Loop_basic.fission](see loop_basic.ml) except that this one has an additional feature.
-    If [split_between] is true then it's going to split the loop into [N] loops, where [N] is the number of instructions 
+    If [split_between] is true then it's going to split the loop into [N] loops, where [N] is the number of instructions
     of the loop [tg]. *)
 let fission ?(split_between : bool = false) (tg : target) : unit =
   if not split_between
@@ -367,9 +367,9 @@ let fission ?(split_between : bool = false) (tg : target) : unit =
           end
         | _ -> fail t.loc "Loop.fission_aux: only simple loops are supported") tg)
 
-(* [fold ~index ~start ~sstep ~nb_instr tg]: similar to [Loop_basic.fold] (see loop_basic.ml) except that 
-    this one doesn't ask the user to prepare the sequence of instructions. But asks for the first instructions and 
-    the number of consecutive instructions [nb_instr] that can be converted into a single loop. 
+(* [fold ~index ~start ~sstep ~nb_instr tg]: similar to [Loop_basic.fold] (see loop_basic.ml) except that
+    this one doesn't ask the user to prepare the sequence of instructions. But asks for the first instructions and
+    the number of consecutive instructions [nb_instr] that can be converted into a single loop.
    @correctness: always correct, as we can map all intermediate predicates
    to numbered predicates on the loop *)
 let fold  ?(start : int = 0) ?(step : int = 1) ~index:(index : var) (nb_instr : int) (tg : target) : unit =
@@ -396,22 +396,22 @@ let fold_instrs ~index:(index : var) ?(start : int = 0) ?(step : int = 1) (tg : 
 
 (* [isolate_first_iteration tg]: expects the target [tg] to be pointing at a simple loop, then it will
    split that loop into two loops by calling split_range transformation. Finally it will unroll the first loop *)
-let isolate_first_iteration (tg : target) : unit = 
+let isolate_first_iteration (tg : target) : unit =
   Loop_basic.split_range ~nb:1 tg;
   unroll ([occFirst] @ tg)
 
 
-(* [unfold_bound tg]: inlines the bound of the targeted loop if that loop is a simple for loop and if that bound 
+(* [unfold_bound tg]: inlines the bound of the targeted loop if that loop is a simple for loop and if that bound
     is a variable and not a complex expression *)
-let unfold_bound (tg : target) : unit = 
-  iter_on_targets( fun t p -> 
-    let tg_trm = Path.resolve_path p t in 
-    match tg_trm.desc with 
+let unfold_bound (tg : target) : unit =
+  iter_on_targets( fun t p ->
+    let tg_trm = Path.resolve_path p t in
+    match tg_trm.desc with
     | Trm_for (_, _, _, stop, _, _) ->
-      begin match stop.desc with 
+      begin match stop.desc with
       | Trm_var (_, x) ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x]
-      | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation stop -> 
+      | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation stop ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x]
       | _ -> fail tg_trm.loc "Loop.unfold_bound: can't unfold loop bounds that are not variables"
       end
@@ -419,24 +419,24 @@ let unfold_bound (tg : target) : unit =
   ) tg
 
 (* [grid_enumerate  ~indices tg]: similar to [Loop_basic.grid_enumerate](see loop_basic.ml) but this one computes
-     the bounds automatically under the assumption that the bound of the targeted loop is given as a product of 
+     the bounds automatically under the assumption that the bound of the targeted loop is given as a product of
     the bounds for each dimension *)
-let grid_enumerate ?(indices : string list = []) : Transfo.t = 
-  iter_on_targets (fun t p -> 
+let grid_enumerate ?(indices : string list = []) : Transfo.t =
+  iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
-    match tg_trm.desc with 
+    match tg_trm.desc with
     | Trm_for (index, _, _, stop, _, _) ->
-      begin match trm_prod_inv stop with 
-      | [] -> fail tg_trm.loc "Loop.grid_enumerate: the bound of the targeted loop should be a product of the bounds of each dimension" 
-      | bounds -> 
-        let indices_and_bounds = 
-        if indices = [] then 
-          let indices = List.mapi (fun i _ -> index ^ (string_of_int i)) bounds in 
+      begin match trm_prod_inv stop with
+      | [] -> fail tg_trm.loc "Loop.grid_enumerate: the bound of the targeted loop should be a product of the bounds of each dimension"
+      | bounds ->
+        let indices_and_bounds =
+        if indices = [] then
+          let indices = List.mapi (fun i _ -> index ^ (string_of_int i)) bounds in
           List.combine indices bounds
         else begin
-          if List.length indices <> List.length bounds then fail tg_trm.loc "Loop.grid_enumerate: the provided list of indices does 
+          if List.length indices <> List.length bounds then fail tg_trm.loc "Loop.grid_enumerate: the provided list of indices does
             not correspond to the shape of the targeted loop bound";
-          List.combine indices bounds 
+          List.combine indices bounds
           end
           in
         Loop_basic.grid_enumerate indices_and_bounds (target_of_path p)
@@ -444,15 +444,15 @@ let grid_enumerate ?(indices : string list = []) : Transfo.t =
     | _ -> fail tg_trm.loc "Loop.grid_enumerate: expected a target to a simple loop"
   )
 
-(* [change_iter iterator_function main_loop_function tg]: TODO: Arthur *)
-let change_iter ~src:(it_fun : var) ~dst:(loop_fun : var) (tg : target) : unit = 
+(* [change_iter iterator_function main_loop_function tg]:  TODO ARTHUR spec *)
+let change_iter ~src:(it_fun : var) ~dst:(loop_fun : var) (tg : target) : unit =
   iter_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-  (fun t (p, i) -> 
-    let tg_instr = target_of_path (p @ [Path.Dir_seq_nth i]) in 
+  (fun t (p, i) ->
+    let tg_instr = target_of_path (p @ [Path.Dir_seq_nth i]) in
     (* First mark the top level function that contains the target tg *)
-    let mark = "loop_change_iter_mark" in 
+    let mark = "loop_change_iter_mark" in
     Marks.add mark (target_of_path p);
-    let mark_tg = cMark mark in 
+    let mark_tg = cMark mark in
     Function.uninline ~contains_for_loop:true ~fct:[cTopFunDef it_fun] tg_instr;
     Expr.replace_fun ~inline:true loop_fun [mark_tg; cFun it_fun];
     Function.beta ~indepth:true [mark_tg];

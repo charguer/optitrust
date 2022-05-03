@@ -3,7 +3,7 @@ open Target
 
 
 
-(* TODO: Fix the issue with cInit *)
+(* TODO: Fix the issue with cInit -- is it fixed now? *)
 let _ = Run.doc_script_cpp (fun _ ->
   !! Rewrite_basic.equiv_at "int x, k, l; ==> k + x * l == l * x + k" [cVarDef "b"; cInit()];
   )

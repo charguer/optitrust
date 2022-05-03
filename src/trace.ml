@@ -978,7 +978,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
       bigstep descr; (* this call must be performed after reading [!nextstep_isbigstep] above;
         it saves the big-step information to be used at the next call to [check_exit_and_step] *)
     end;
-    let isbigstep = !nextstep_isbigstep in (* TODO: rename this variable/fieldname *)
+    let isbigstep = !nextstep_isbigstep in (* TODO ARTHUR: rename this variable/fieldname *)
     let is_start_of_bigstep = isbigstep <> None in
     let ignore_step = !Flags.only_big_steps && not is_start_of_bigstep in
     (*Printf.printf "line=%d  istartbigstep=%d  ignore_step=%d\n"
