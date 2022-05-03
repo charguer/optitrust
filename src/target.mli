@@ -370,8 +370,6 @@ val resolve_path_with_stringreprs_available : path -> trm -> trm
 
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
 
-val applyp_on_path : (path -> trm -> trm) -> trm -> path -> trm
-
 val applyi_on_targets : (int -> trm -> path -> trm) -> target -> unit
 
 val apply_on_targets : (trm -> path -> trm) -> target -> unit

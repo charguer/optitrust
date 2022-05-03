@@ -9,58 +9,59 @@ open Tools
     of directions through the nodes from that AST. *)
 type path = dir list
 
+(* [dir]: direction type *)
 and dir =
-  (* nth: go to nth element in a struct initialization *)
+  (* nth: direction to nth element in a struct initialization *)
   | Dir_struct_nth of int
-  (* nth: go to nth element in a array initialization *)
+  (* nth: direction to nth element in a array initialization *)
   | Dir_array_nth of int
-  (* nth: go to nth element in seq*)
+  (* nth: direction to nth element in sequence *)
   | Dir_seq_nth of int
-  (* cond: used for if, loops and switch *)
+  (* cond: direction to condition of an if, for_c, while and do while loop, or switch statement *)
   | Dir_cond
-  (* if *)
+  (* then: direction to then branch of an if statement *)
   | Dir_then
+  (* else: direction to else branch of an if statement *) 
   | Dir_else
-  (*
-    body: used for loops, definitions, return, labelled terms or switch case
-      -> directions for while loop: cond and body
-   *)
+  (* body: direction to body of a definition, loop, then or else branche, or switch case *)
   | Dir_body
-  (* for *)
+  (* for start: direction to initialization trm of a simple for loop *)
   | Dir_for_start
+  (* for stop: direction to bound trm of a simple loop *)
   | Dir_for_stop
+  (* for step: direction to step trm of a simple loop *)
   | Dir_for_step
-  (* for_c *)
+  (* for_c init: direction to initialization trm of a for_c loop  *)
   | Dir_for_c_init
+  (* for_c step: direction to step trm of a for_c loop  *)
   | Dir_for_c_step
-  (* app *)
+  (* app_fun: direction to function call  *)
   | Dir_app_fun
-  (* arg for fun application and declaration *)
+  (* arg: direction to nth function argument, both on calls and declarations *)
   | Dir_arg_nth of int
-  (* name of declared var/fun or label *)
+  (* name: direction to name of declared var/fun or label *)
   | Dir_name
-  (*
-    case group in switch
-    Dir_case (n, d) = follow d in nth case group
-   *)
+  (* case: direction to case group in switch, Dir_case (n, d) = follow d in nth case group *)
   | Dir_case of int * case_dir
-  (* constant in enum declaration *)
+  (* enum_const: direction to constant in enum declaration *)
   | Dir_enum_const of int * enum_const_dir
 
+(* [case_dir]: direction to a switch case *)
 and case_dir =
   | Case_name of int
   | Case_body
 
+(* [enum_const_dir]: direction to a const enum declaration *)
 and enum_const_dir =
   | Enum_const_name
   | Enum_const_val
 
-(* The resolution of a target produces a list of [path] (explicit list of directions),
-   we let [paths] be a shorthand for such type. *)
+(* [paths]: target resolutions produces a list of paths(explicit list of directions),
+            we let [paths] be a shorthand for such type. *)
 type paths = path list
 
 
-(* [dir_to_string d] print the directory [d]*)
+(* [dir_to_string d]: print direction [d]*)
 let dir_to_string (d : dir) : string =
   match d with
   | Dir_array_nth n -> "Dir_array_nth " ^ (string_of_int n)
@@ -93,12 +94,12 @@ let dir_to_string (d : dir) : string =
      in
      "Dir_enum_const (" ^ (string_of_int n) ^ ", " ^ s_ecd ^ ")"
 
-(* [path_to_string dl] print the path [dl] *)
+(* [path_to_string dl]: print the path [dl] *)
 let path_to_string (dl : path) : string =
   list_to_string (List.map dir_to_string dl)
 
 
-(* [paths_to_string ~sep dls] print the list of paths [dls] *)
+(* [paths_to_string ~sep dls]: print the list of paths [dls] *)
 let paths_to_string ?(sep:string="; ") (dls : paths) : string =
   list_to_string ~sep (List.map path_to_string dls)
 
@@ -106,12 +107,9 @@ let paths_to_string ?(sep:string="; ") (dls : paths) : string =
 (******************************************************************************)
 (*                                  Compare path                              *)
 (******************************************************************************)
-(*
-  comparison functions for path sorting
-  the order between directions does not matter
-  only constraint: when one path is the prefix of the other, it must be
-  considered "greater"
- *)
+
+(* [compare_dir d d']: comparison functions for path sorting the order between direction does not matter.
+    When one path is the prefix of the other, it must be considered "greater" *)
 let compare_dir (d : dir) (d' : dir) : int =
   match d, d' with
   | Dir_array_nth n, Dir_array_nth m -> compare n m
@@ -169,8 +167,7 @@ let compare_dir (d : dir) (d' : dir) : int =
   | Dir_case _, _ -> -1
   | _, Dir_case _ -> 1
 
-(* [compare_path dl dl'] compare paths [dl] and [dl'] based on function 
-     compare_dir *)
+(* [compare_path dl dl']: compare paths [dl] and [dl'] based on function compare_dir *)
 let rec compare_path (dl : path) (dl' : path) : int =
   match dl, dl' with
   | [], [] -> 0
@@ -180,7 +177,7 @@ let rec compare_path (dl : path) (dl' : path) : int =
      let cd = compare_dir d d' in
      if cd = 0 then compare_path dl dl' else cd
 
-(* a set module used for storing unique paths *)
+(* [Path_set]: a set module used for storing paths *)
 module Path_set = Set.Make(
   struct
   let compare = compare_path
@@ -188,18 +185,15 @@ module Path_set = Set.Make(
   end
 )
 
-(* [set_of_paths p1] create a set of paths *)
+(* [set_of_paths p1]: create a set of paths *)
 let set_of_paths (p1 : paths) : Path_set.t =
   let set_of_p1 = Path_set.empty in
   List.fold_left (fun acc x -> Path_set.add x acc) set_of_p1 p1
 
-
-
-(* [filter_duplicates p1] remove all the duplicate paths from p1 *)
+(* [filter_duplicates p1]: remove all the duplicate paths from p1 *)
 let filter_duplicates (ps : paths) : paths =
   let sp = set_of_paths ps in
   Path_set.elements sp
-
 
 (* [intersect p1 p2] compute the intersection of two resolved paths *)
 let intersect (p1 : paths) (p2 : paths) : paths =
@@ -208,7 +202,7 @@ let intersect (p1 : paths) (p2 : paths) : paths =
   let inter_p1_p2 = Path_set.inter set_of_p1 set_of_p2 in
   Path_set.elements inter_p1_p2
 
-(* [union p1 p2] compute the union of two resolved paths and remove duplicates *)
+(* [union p1 p2]: compute the union of two resolved paths and remove duplicates *)
 let union (p1 : paths) (p2 : paths) : paths =
   let set_of_p1 = Path_set.empty in
   let set_of_p2 = Path_set.empty in
@@ -217,19 +211,18 @@ let union (p1 : paths) (p2 : paths) : paths =
   let union_p1_p2 = Path_set.union set_of_p1 set_of_p2 in
   Path_set.elements union_p1_p2
 
-(* [diff p1 p2] compute the the diff of two resolved paths and remove duplicates *)
+(* [diff p1 p2]: compute the the diff of two resolved paths and remove duplicates *)
 let diff (p1 : paths) (p2 : paths) : paths =
   let set_of_p1 = set_of_paths p1 in
   let set_of_p2 = set_of_paths p2 in
   let diff_p1_p2 = Path_set.diff set_of_p1 set_of_p2 in
   Path_set.elements diff_p1_p2
 
+(***********************************************************************************)
+(*                               Auxiliary functions                               *)
+(***********************************************************************************)
 
-(******************************************************************************)
-(*                                  Auxiliary functions                       *)
-(******************************************************************************)
-
-(* [app_to_nth loc l n cont] applies a continuation to the nth element of l if it exists *)
+(* [app_to_nth loc l n cont]: apply a continuation to the nth element of [l] if it exists *)
 let app_to_nth (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =
   try
     match List.nth_opt l n with
@@ -237,29 +230,24 @@ let app_to_nth (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =
        fail loc
          ("app_to_nth: not enough elements (>= " ^ (string_of_int (n + 1)) ^
             " expected)")
-        (* LATER: report a better error message when using dArg 1 on a function
-           with only 1 argument, for example *)
+        (* LATER: report a better error message when using dArg 1 on a function with only 1 argument, for example *)
     | Some a -> cont a
   with
   | Invalid_argument _ ->
-     fail loc "app_to_nth: index must be non-negative"
+     fail loc "Path.app_to_nth: index must be non-negative"
 
-(* [app_to_nth_dflt] loc l n*)
-let app_to_nth_dflt (loc : location) (l : 'a list) (n : int)
-  (cont : 'a -> 'b list) : 'b list =
-  try app_to_nth loc l n cont with
-  | Failure s ->
-     print_info loc "%s\n" s;
-     []
+(* [app_to_nth_dflt]: similar to [app_to_nth] except that this function returns an empty list in case there 
+   is an exception raised*)
+let app_to_nth_dflt (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b list) : 'b list =
+  try app_to_nth loc l n cont with | Failure s -> print_info loc "%s\n" s; []
 
 
 
-(******************************************************************************)
-(*                                  Apply on path                             *)
-(******************************************************************************)
+(***********************************************************************************)
+(*                                 Apply on path                                   *)
+(***********************************************************************************)
 
-
-(* follow an explicit target to apply a function on the corresponding subterm *)
+(* [apply_on_path transfo t dl]: follow an explicit path to apply a function on the corresponding subterm *)
 let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
   let rec aux_on_path_rec (dl : path) (t : trm) : trm =
     match dl with
@@ -329,8 +317,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
                 match t'.desc with
                 | Trm_var (_, x') -> (x', tx)
                 | _ ->
-                   fail t.loc ("apply_on_path: transformation " ^
-                               "must preserve fun arguments")
+                   fail t.loc ("Path.apply_on_path: transformation must preserve fun arguments")
               )
               txl
           in
@@ -339,23 +326,21 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           let t' = aux (trm_var ~loc:t.loc x) in
           begin match t'.desc with
           | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x', tx), body)}
-          | _ -> fail t.loc ("apply_on_path: transformation " ^ "must preserve names(variable)")
+          | _ -> fail t.loc "Path.apply_on_path: transformation must preserve variable names"
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body) ->
           let t' = aux (trm_var ~loc:t.loc x) in
           begin match t'.desc with
           | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body)}
           | _ ->
-             fail t.loc ("apply_on_path: transformation " ^
-                         "must preserve names(function)")
+             fail t.loc "Path.apply_on_path: transformation must preserve names(function)"
           end
        | Dir_name, Trm_labelled (l, body) ->
           let t' = aux (trm_var ~loc:t.loc l) in
           begin match t'.desc with
           | Trm_var (_, l') -> { t with desc = Trm_labelled (l', body)}
           | _ ->
-             fail t.loc ("apply_on_path: transformation " ^
-                         "must preserve names(label)")
+             fail t.loc "Path.apply_on_path: transformation must preserve names(label)"
           end
 
        | Dir_case (n, cd), Trm_switch (cond, cases) ->
@@ -371,7 +356,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
             ) in {t with desc = Trm_switch (cond, updated_cases)}
         | _, _ ->
            let s = dir_to_string d in
-           fail t.loc (Printf.sprintf "apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
+           fail t.loc (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
 
        end in
         { newt with typ = None; ctx = None }
@@ -380,16 +365,11 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
   in
   aux_on_path_rec dl t
 
+(***********************************************************************************)
+(*                           Explicit path resolution                              *)
+(***********************************************************************************)
 
-let applyp_on_path (transfo : path -> trm -> trm) (t : trm) (dl : path) : trm =
-  apply_on_path (transfo dl) t dl
-
-
-(******************************************************************************)
-(*                         Explicit path resolution                           *)
-(******************************************************************************)
-
-(* [resolve_path_and_ctx dl t] follow the explicit path and return the corresponding subterm and its context *)
+(* [resolve_path_and_ctx dl t]: follow the explicit path and return the corresponding subterm and its context *)
 let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
   let rec aux_on_path_rec (dl : path) (t : trm) (ctx : trm list) : trm * (trm list) =
     match dl with
@@ -403,17 +383,15 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           let decl_before (n : int) (tl : trm list) =
             Tools.fold_lefti
               (fun i acc (t : trm) ->
-                if i >= n then acc
-                else
-                  match t.desc with
-                  | Trm_let _ -> t :: acc
-                  | Trm_let_fun _ -> t :: acc
-                  | Trm_typedef _ -> t :: acc
-                  | _ -> acc
-              )
-              []
-              tl
-          in
+                if i >= n 
+                  then acc
+                  else
+                    match t.desc with
+                    | Trm_let _ -> t :: acc
+                    | Trm_let_fun _ -> t :: acc
+                    | Trm_typedef _ -> t :: acc
+                    | _ -> acc) [] tl
+            in
           app_to_nth loc tl n
             (fun nth_t -> aux nth_t ((decl_before n tl)@ctx))
        | Dir_array_nth n, Trm_array tl ->
@@ -517,15 +495,16 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
        | _, _ ->
           let s = dir_to_string d in
           let s_t = AstC_to_c.ast_to_string t in
-          fail loc (Tools.sprintf "resolve_path_and_ctx: direction  %s does not match with the following term %s" s s_t )
+          fail loc (Printf.sprintf "Path.resolve_path_and_ctx: direction  %s does not match with the following term %s" s s_t )
        end
   in
   aux_on_path_rec dl t []
 
-(* [resolve_path dl t] resolve get the trm that corresponds to path [dl] *)
+(* [resolve_path dl t]: resolve get the trm that corresponds to path [dl] *)
 let resolve_path (dl : path) (t : trm) : trm  =
   fst (resolve_path_and_ctx dl t )
 
-(* [get_trm_at_path dl ] alias for resolve_path *)
+(* [get_trm_at_path dl]: alias for resolve_path *)
 let get_trm_at_path (dl : path) (t : trm) : trm = 
   resolve_path dl t 
+  

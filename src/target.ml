@@ -838,7 +838,6 @@ module Transfo = struct
 end
 
 let apply_on_path = Path.apply_on_path
-let applyp_on_path = Path.applyp_on_path
 
 let convert_stringreprs_from_documentation_to_string (m : AstC_to_c.stringreprs) : (stringreprid, string) Hashtbl.t =
   Tools.hashtbl_map_values (fun _id d -> Tools.document_to_string ~width:PPrint.infinity d) m
