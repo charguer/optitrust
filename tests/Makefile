@@ -32,6 +32,7 @@ check:
 	$(MAKE) -C combi batch_check
 	$(MAKE) -C target batch_check
 	$(MAKE) -C ast batch_check
+	$(MAKE) -C ../demo import
 	$(MAKE) -C ../demo pic_demo.chk
 
 clean:
@@ -39,6 +40,7 @@ clean:
 	$(MAKE) -C combi clean
 	$(MAKE) -C target clean
 	$(MAKE) -C ast clean
+	$(MAKE) -C ../demo cleanfiles
 
 # "make all" and "make clean" can be run in parallel on all directories.
 

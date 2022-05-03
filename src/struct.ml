@@ -1,10 +1,9 @@
 open Ast
 include Struct_basic
 
-(* [set_explicit tg] expects [tg] to point at a set instruction where one struct
-    instance has been assigned to another struct instance. Or a variable declaration of type struct
-    with initialization. If this is the case then first a detachement is performed.
-*)
+(* [set_explicit tg]: an extension to [Struct_basic.set_explicit](see struct_basic.ml), contrary to the basic 
+    on this transformation supports automatic variable declaration detachment.
+    vect v = {0,0}; becomes vect v; v.x = 0; v.y = 0; *)
 let set_explicit (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let surrounding_seq,_ = Internal.isolate_last_dir_in_seq p in
@@ -19,12 +18,9 @@ let set_explicit (tg : Target.target) : unit =
 
   ) tg
 
-(*  [set_implicit tg] expects [tg] to point at a struct set operation, with the assumption
-      that this instruction is folowed by all the other set instruction for the same
-      struct set operation. The trasnformation is going to find the type of the instruction
-      and then consider (n - 1) instructions after the targeted instruction. Where n is the number
-      of struct fields of the type of the instruction.
-*)
+(* [set_implicit tg]: an extension to [Struct_basic.set_implicit](see struct_basic.ml), contrary to the basic one
+     this one expects that the target [tg] matches all the write operations that can be converted to a single 
+     write operation *)
 let set_implicit (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -48,21 +44,20 @@ let set_implicit (tg : Target.target) : unit =
       let nb = List.length field_list in
       Sequence_basic.intro ~mark:"__SEQUENCE_MARK" nb tg;
       Struct_basic.set_implicit [Target.cMark "__SEQUENCE_MARK"];
-    | _ -> fail tg_trm.loc "set_implicit: expected a set operation"
+    | _ -> fail tg_trm.loc "Struct.set_implicit: expected a set operation"
 
 ) tg
 
 
-(* [rename_field field ~into tg] this is a specialization of the previous function
+(* [rename_field field ~into tg]: this is a specialization of [Struct_basic.rename_fields] 
       when one wants to rename only one field of a struct. [field] is the current field name
       [into] is the new name that is going to replace all the occurrences of field in the context of
-      the targeted typedef struct.
-*)
+      the targeted typedef struct. *)
 let rename_field (field : field) ~into:(into : var): Target.Transfo.t =
   rename_fields (only_for field (fun _ -> into))
 
 
-(* [align_field align pattern tg] expects the target [tg] to be pointing at a struct definition,
-  then it will align all the fields that match [pattern] with [align] size *)
+(* [align_field align pattern tg]: expects the target [tg] to be pointing at a typedef struct definition,
+   then it will align all the fields that match [pattern] with [align] size. *)
 let align_field (align : trm) (pattern : string) : Target.Transfo.t = 
   Struct_basic.applyto_fields_type pattern (fun ty -> typ_align align ty) 

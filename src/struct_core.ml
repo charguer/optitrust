@@ -1,18 +1,10 @@
 open Ast
 open Target
 
-(* ***********************************************************************************
- * Note: All the intermediate functions which are called from [sequence.ml] file      *
- * have only one purpose, and that is targeting the trm in which we want to apply the *
- * transformation. That's why there is not need to document them.                     *
- *)
 
-(* [set_explicit_aux field_list t]: transform an assigment into a list of field assignments
-    params:
-      [t]: ast of the assignment
-    return:
-      the ast of nobrace sequence which is going to contain the added set operations
- *)
+(* [set_explicit_aux t]: transform an assigment into a list of field assignments
+    params: 
+     [t]: ast of the assignment *)
 let set_explicit_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, [lt; rt]) ->
@@ -29,17 +21,16 @@ let set_explicit_aux (t : trm) : trm =
       | -1, _ -> tid_l
       | _, -1 -> tid_r
       | _, _ -> if tid_r = tid_l then tid_r
-                  else fail t.loc "set_explicit_aux: different types in an assignment"
+                  else fail t.loc "Struct_core.set_explicit_aux: different types in an assignment"
       in
       let struct_def =
         if tid <> -1 then
           match Context.typid_to_typedef tid with
           | Some td -> td
-          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef"
+          | _ -> fail t.loc "Struct_core.set_explicit_aux: could not get the declaration of typedef"
         else begin
-          (* Tools.printf "%s\n" (Ast_to_text.ast_to_string t); *)
-          Tools.printf "%s\n" (AstC_to_c.ast_to_string t);
-          fail t.loc "set_explicit_aux: explicit assignment cannot operate on unknown types"
+          Printf.printf "%s\n" (AstC_to_c.ast_to_string t);
+          fail t.loc "Struct_core.set_explicit_aux: explicit assignment cannot operate on unknown types"
         end
       in
       let field_list = Internal.get_field_list struct_def in
@@ -61,22 +52,17 @@ let set_explicit_aux (t : trm) : trm =
          trm_set (trm_struct_access ~typ:(Some ty) lt sf) (trm_struct_get ~typ:(Some ty) rt sf)
          ) field_list in
          trm_seq_no_brace exp_assgn
-      (* | _ -> fail rt.loc "set_explicit_aux: expected a set instruction of the form v1 = v2 or v1 = {0,1}" *)
       end
+  | _ -> fail t.loc "Struct_core.set_explicit_aux: expected a set operation"
 
-  | _ -> fail t.loc "set_explicit_aux: expected a set operation"
-
+(* [set_explicit t p]: apply [set_explicit_aux] at trm [t] with path [p] *)
 let set_explicit : Transfo.local =
   apply_on_path(set_explicit_aux )
 
 
-(* [set_implicit t] transform a sequence with a list of explicit assignments into
-      a single assignment.
+(* [set_implicit t]: transform a sequence with a list of explicit field assignments into a single assignment.
     pararms:
-      [t]: ast of the sequence containing the assignments
-    return:
-      ast of a struct instance set operation
-*)
+      [t]: ast of the sequence containing the assignments *)
 let set_implicit_aux (t: trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -93,18 +79,18 @@ let set_implicit_aux (t: trm) : trm =
                | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
                | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))->
                   [trm_get rt]
-               | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
+               | _ -> fail f'.loc "Struct_core.set_implicit_aux: expected a struct acces on the right hand side of the assignment"
                end
-              | _ -> fail f'.loc "set_implicit_aux: expected a trm_apps"
+              | _ -> fail f'.loc "Struct_core.set_implicit_aux: expected a trm_apps"
             end
             | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
             | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))->
                   [rt]
-            | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
+            | _ -> fail f'.loc "Struct_core.set_implicit_aux: expected a struct acces on the right hand side of the assignment"
            end
           | _ -> acc @ [rhs]
           end
-      | _ -> fail t.loc "set_implicit_aux: expected a set operation"
+      | _ -> fail t.loc "Struct_core.set_implicit_aux: expected a set operation"
     ) [] tl in
     let first_instruction = Mlist.nth tl 0 in
     begin match first_instruction.desc with
@@ -116,22 +102,23 @@ let set_implicit_aux (t: trm) : trm =
               begin match f'.desc with
               | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
               | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))-> lt
-              | _ -> fail f'.loc "set_implicit_aux: expected a struct access on the left hand side of the assignment"
+              | _ -> fail f'.loc "Struct_core.set_implicit_aux: expected a struct access on the left hand side of the assignment"
               end
-            | _ -> fail lhs.loc "set_implicit_aux: expected a struct access"
+            | _ -> fail lhs.loc "Struct_core.set_implicit_aux: expected a struct access"
             end
             in
             begin match rhs_trms with
             | [rhs1] -> trm_set lt rhs1
             | _ -> trm_set lt (trm_struct (Mlist.of_list rhs_trms))
             end
-          | _ -> fail f.loc "set_explicit_aux: expected an assignment instruction"
+          | _ -> fail f.loc "Struct_core.set_explicit_aux: expected an assignment instruction"
           end
-      | _ -> fail t.loc "set_implicit_aux: expected a sequence with all explicit assignments"
+      | _ -> fail t.loc "Struct_core.set_implicit_aux: expected a sequence with all explicit assignments"
 
     end
-  | _ -> fail t.loc "set_implicit_aux: sequence which contains the set instructions was not matched"
+  | _ -> fail t.loc "Struct_core.set_implicit_aux: sequence which contains the set instructions was not matched"
 
+(* [set_implicit keep_label t p]: apply [set_implicit_aux] at trm [t] with path [p] *)
 let set_implicit (keep_label : bool) : Transfo.local =
   apply_on_path (Internal.apply_on_path_targeting_a_sequence ~keep_label (set_implicit_aux) "set_implicit")
 
@@ -139,11 +126,7 @@ let set_implicit (keep_label : bool) : Transfo.local =
 (* [inline_struct_accesses x t]: change all the occurrences of the struct accesses to a field into a field
     params:
       [x]: the name of the field for which the transformation is applied
-      [t]: ast node located in the same level as the stract declaration or deeper
-    return:
-      updated ast node with the transformed field accesses
-    example p.pos.x to p.pos_x
-*)
+      [t]: ast node located in the same level as the stract declaration or deeper *)
 let inline_struct_accesses (x : var) (t : trm) : trm =
   let rec aux (outer_field : string) (t : trm) : trm =
     match t.desc with
@@ -158,7 +141,7 @@ let inline_struct_accesses (x : var) (t : trm) : trm =
               let updated_field = Convention.name_app z outer_field in
               trm_struct_access base' updated_field
             else trm_map (aux "") t
-        | _ -> fail f.loc "inline_struct_access: suspicious struct access"
+        | _ -> fail f.loc "Struct_core.inline_struct_access: suspicious struct access"
         end
       | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) ->
         begin match base with
@@ -169,7 +152,7 @@ let inline_struct_accesses (x : var) (t : trm) : trm =
               let updated_field = Convention.name_app z outer_field in
               trm_struct_get base' updated_field
             else trm_map (aux "") t
-        | _ -> fail f.loc "inline_struct_access: suspicious struct access"
+        | _ -> fail f.loc "Struct_core.inline_struct_access: suspicious struct access"
         end
       | _ -> trm_map (aux outer_field) t
       end
@@ -179,13 +162,10 @@ let inline_struct_accesses (x : var) (t : trm) : trm =
 
 (* [inline_struct_initialization struct_name field_list field_index t]: change all struct in struct initializations
     params:
-      [struct_name]: the type of the struct which is being inlined
+      [struct_name]: the type of the struct that is being inlined
       [field_list]: a list of fields from the original type of the struct
       [field_index]: index of the field in the outer struct
-      [t]: ast node located in the same level as the main struct declaration or deeper
-    return:
-      updated ast nodes with the changed struct in struct initializations *)
-
+      [t]: ast node located in the same level as the main struct declaration or deeper *)
 let inline_struct_initialization (struct_name : string) (field_list : field list) (field_index : int) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
@@ -214,26 +194,22 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
             let new_term_list = Mlist.merge new_term_list lback in
             trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
 
-          | _ -> fail t.loc "inline_struct_initialization: struct intialization list is not compatible with definition"
+          | _ -> fail t.loc "Struct_core.inline_struct_initialization: struct intialization list is not compatible with definition"
           end
         | _ -> trm_map aux t
         end
-      | _ -> fail t.loc "inline_struct_initialization: couldn't find the type of the struct intitialization type, try reparsing first"
+      | _ -> fail t.loc "Struct_core.inline_struct_initialization: couldn't find the type of the struct intitialization type, try reparsing first"
         end
     | _ -> trm_map aux t
   in aux t
 
-(* [reveal_field_aux field_to_inline index t]: replace [field_to_inline] with a list of fields coming from
-      the fields of the type of [field_to_inlne] which should be a typedef struct. Then it will change all
-       the accesses of this field to accesses of the field.
+(* [reveal_field_aux field_to_reveal index t]: reveal field [field_to_reveal] on its typedef struct definition
+     update all the initializations and accesses according to this change
     params:
-      [field_to_inline]: field which is going to be inlined
-      [index]: index of the struct declaration inside the sequence it belongs
-      [t]: ast of the struct declaration
-    return:
-      updated ast with the inline struct in struct and changed all struct accesses
-*)
-let reveal_field_aux (field_to_inline : field) (index : int) (t : trm ) =
+      [field_to_reveal]: field that is going to be revealed
+      [index]: index of the struct declaration inside the sequence it belongs to
+      [t]: trm corresponding to a typedef struct definition *)
+let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm ) =
   match t.desc with
   | Trm_seq tl ->
     let lfront, td, lback =  Internal.get_trm_and_its_relatives index tl in
@@ -241,7 +217,7 @@ let reveal_field_aux (field_to_inline : field) (index : int) (t : trm ) =
     | Trm_typedef td ->
       begin match td.typdef_body with
       | Typdef_prod (t_names, field_list) ->
-       let field_index = Internal.get_field_index field_to_inline field_list in
+       let field_index = Internal.get_field_index field_to_reveal field_list in
        let lfront1, lback1 = Tools.split_list_at field_index field_list in
        let field_to_inline1, lback1 = if List.length lback1 = 1 then (lback1, []) else
         Tools.split_list_at 1 lback1 in
@@ -251,25 +227,25 @@ let reveal_field_aux (field_to_inline : field) (index : int) (t : trm ) =
        | Typ_array (ty1, _) ->
         begin match ty1.typ_desc with
         | Typ_constr (_, tid, _) -> tid
-        | _ -> fail t.loc "reveal_field_aux: expected a typ_constr"
+        | _ -> fail t.loc "Struct_core.reveal_field_aux: expected a typ_constr"
         end
-       | _ -> fail t.loc  "reveal_field_aux: expected a typ_constr"
+       | _ -> fail t.loc "Struct_core.reveal_field_aux: expected a typ_constr"
        end
        in
        let struct_def =
         if tyid <> -1 then match Context.typid_to_typedef tyid with
           | Some td -> td
-          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef"
+          | _ -> fail t.loc "Struct_core.set_explicit_aux: could not get the declaration of typedef"
         else
-          fail t.loc "set_explicit_aux: explicit assignment is supported only for struct types"
+          fail t.loc "Struct_core.set_explicit_aux: explicit assignment is supported only for struct types"
        in
        let inner_type_field_list = begin match struct_def.typdef_body with
         | Typdef_prod (_, s) -> s
-        | _ -> fail t.loc "reveal_field_aux: the field wanted to inline should have also a struct typedef"
+        | _ -> fail t.loc "Struct_core.reveal_field_aux: the field wanted to inline should have also a struct typedef"
         end
        in
        let inner_type_field_list = List.map (fun (x, typ) ->
-            let new_field = Convention.name_app field_to_inline x in
+            let new_field = Convention.name_app field_to_reveal x in
             match field_type.typ_desc with
             | Typ_array (_, size) -> (new_field, (typ_array typ size))
             | _ -> (new_field, typ)) inner_type_field_list in
@@ -277,31 +253,27 @@ let reveal_field_aux (field_to_inline : field) (index : int) (t : trm ) =
        let field_list = (lfront1 @ inner_type_field_list @ lback1) in
        let new_typedef = {td with typdef_body =  Typdef_prod (t_names, field_list)} in
        let new_trm = trm_typedef new_typedef in
-       let lback = Mlist.map (inline_struct_accesses field_to_inline) lback in
+       let lback = Mlist.map (inline_struct_accesses field_to_reveal) lback in
        let lback = Mlist.map (inline_struct_initialization td.typdef_tconstr (fst (List.split (Internal.get_field_list struct_def))) field_index) lback in
        let new_tl = Mlist.merge lfront lback in
        let new_tl = Mlist.insert_at index new_trm new_tl in
        { t with desc = Trm_seq new_tl}
-      | _ -> fail t.loc "reveal_field_aux: expected a struct "
+      | _ -> fail t.loc "Struct_core.reveal_field_aux: expected a struct "
       end
-    | _ -> fail t.loc "reveal_field_aux: expected a trm_typedef"
+    | _ -> fail t.loc "Struct_core.reveal_field_aux: expected a trm_typedef"
     end
-  | _ -> fail t.loc "reveal_field_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "Struct_core.reveal_field_aux: expected the surrounding sequence"
 
-let reveal_field (field_to_inline : field) (index : int) : Transfo.local =
-  apply_on_path (reveal_field_aux field_to_inline index)
-
-
+(* [reveal_field field_to_reveal index t p]: apply [reveal_field] at trm [t] with path [p] *)
+let reveal_field (field_to_reveal : field) (index : int) : Transfo.local =
+  apply_on_path (reveal_field_aux field_to_reveal index)
 
 (* [fields_reorder_aux struct_fields move_where around t]: reorder fields of a struct
-    params:
-      [struct_fields]: a list of fields to move
-      [move_where]: a string which is equal either to before or after
-      [around]: the target field where fields are going to move
-      [t]: ast of the typedef struct
-    return:
-      updated ast of the typedef struct declaration
- *)
+     params:
+       [struct_fields]: a list of fields to move
+       [move_where]: a string which is equal either "before" or "after"
+       [around]: the target field where fields are going to be moved to
+       [t]: ast of the typedef struct *)
 let fields_reorder_aux (struct_fields: vars) (move_where : reorder) (t: trm) : trm =
   match t.desc with
   | Trm_typedef td ->
@@ -309,23 +281,19 @@ let fields_reorder_aux (struct_fields: vars) (move_where : reorder) (t: trm) : t
    | Typdef_prod (tn, fs) ->
     let field_list = Internal.reorder_fields move_where struct_fields fs in
    trm_typedef {td with typdef_body = Typdef_prod (tn, field_list)}
-  | _ -> fail t.loc "fields_reorder_aux: expected a typdef_prod"
+  | _ -> fail t.loc "Struct_core.fields_reorder_aux: expected a typdef_prod"
   end
-  | _ -> fail t.loc "fields_reorder_aux: expected a typedef definiton"
+  | _ -> fail t.loc "Struct_core.fields_reorder_aux: expected a typedef definiton"
 
-(* [fields_reorder struct_fields move_where around t p] *)
+(* [fields_reorder struct_fields move_where around t p]: apply [fields_reorder_aux] at trm [t] with path [p] *)
 let fields_reorder (struct_fields : vars) (move_where : reorder) : Transfo.local =
   apply_on_path(fields_reorder_aux struct_fields move_where)
 
-(* [inline_struct_accesses name field t] transform a specifi struct access into a variable
-      occurrence.
+(* [inline_struct_accesses name field t]: transform a specific struct access into a variable occurrence
     params:
-      [name]: name of the variable to replace teh struct access
-      [field]: struct accesses on this field are going to be replaced with name
-      [t]: ast node located in the same level as the variable declaration
-    return:
-      updated ast node with all the struct accesses changed to variable occurrences
-*)
+      [name]: name of the variable to replace the struct access
+      [field]: struct accesses on this field are going to be replaced with [name]
+      [t]: ast node located in the same level as the variable declaration *)
 let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     begin match t.desc with
@@ -344,15 +312,11 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
     end
    in aux t
 
-
-(* [to_variables_aux index t] change a variable declaration of type typedef struct into a list
+(* [to_variables_aux index t]: change a variable declaration of type typedef struct into a list
       of variable declarations with types inherited from the fields of the underlying type.
     params:
-      [index]: index of the declaration inside the sequence it belongs to.
-      [t]: ast of the surrounding sequence of the variable declarations
-    return:
-      updated surrounding sequence
-*)
+      [index]: index of the declaration inside the sequence it belongs to
+      [t]: ast of the surrounding sequence of the variable declarations *)
 let to_variables_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -362,21 +326,21 @@ let to_variables_aux (index : int) (t : trm) : trm =
 
       let typid = begin match (get_inner_ptr_type tx).typ_desc with
                   | Typ_constr (_, tid, _) -> tid
-                  | _ -> fail t.loc "struct_to_variables_aux: expected a struct type"
+                  | _ -> fail t.loc "Struct_core.struct_to_variables_aux: expected a struct type"
                   end in
       let struct_def =
         if typid <> -1 then match Context.typid_to_typedef typid with
           | Some td -> td
-          | _ -> fail t.loc "to_variables_aux: could not get the declaration of typedef"
+          | _ -> fail t.loc "Struct_core.to_variables_aux: could not get the declaration of typedef"
         else
-          fail t.loc "to_variables_aux: explicit assignment is supported only for struct types"
+          fail t.loc "Struct_core.to_variables_aux: explicit assignment is supported only for struct types"
        in
       let field_list = Internal.get_field_list struct_def in
       let struct_init_list = begin match init.desc with
                              | Trm_apps(_, [base]) ->
                               begin match base.desc with
                               | Trm_struct ls -> (Mlist.to_list ls)
-                              | _ -> fail init.loc "struct_to_variables_aux: expected a struct initialisation"
+                              | _ -> fail init.loc "Struct_core.struct_to_variables_aux: expected a struct initialisation"
                               end
                              | Trm_struct ls -> (Mlist.to_list ls)
                              | _ -> []
@@ -397,17 +361,15 @@ let to_variables_aux (index : int) (t : trm) : trm =
       let new_tl = Mlist.merge new_tl lback in
       trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
-   | _ -> fail trm_to_change.loc "struct_to_variables_aux: expected a variable declaration"
+   | _ -> fail trm_to_change.loc "Struct_core.struct_to_variables_aux: expected a variable declaration"
     end
-  | _ -> fail t.loc "struct_to_variables_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "Struct_core.struct_to_variables_aux: expected the surrounding sequence"
 
-
+(* [to_variables index t p]: apply [to_variables_aux] at trm [t] with path [p] *)
 let to_variables (index : int) : Transfo.local =
   apply_on_path (to_variables_aux index)
 
-
-(* a module used for renaming the struct fields *)
-
+(* [Rename]: a module used for renaming the struct fields *)
 module Rename = struct
   type t = string -> string
   let add_prefix (s : string) : t =
@@ -418,17 +380,14 @@ module Rename = struct
       if Tools.pattern_matches pattern s then tr s else s
 end
 
+(* [rename]: instantiation of module [Rename] *)
 type rename = Rename.t
 
-
-(* [rename_struct_accesses struct_name renam t]: rename all the struct accesses based on [rename]
+(* [rename_struct_accesses struct_name renam t]: rename all struct accesses based on [rename]
     params:
       [struct_name]: the constructed type whose fields are going to be renamed
       [rename]: a type used to rename the struct fields
-      [t]: any node in the same level as the struct declaration
-    return:
-      updated ast nodes which are in the same level as the typedef declaration
-*)
+      [t]: any node in the same level as the struct declaration *)
 let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     begin match t.desc with
@@ -460,14 +419,11 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
     end
    in aux t t
 
-(* [rename_fields_aux index rename t]: rename the struct fields in the struct declaration
+(* [rename_fields_aux index rename t]: rename struct fields in the typedef struct definitions
     params:
       [index]: the index of the struct declaration in the sequence [t]
-      [rename]: a type used to rename
-      [t]: the ast of the sequence which contains the struct declaration
-    return:
-      the updated ast of the struct declaration and all its field accesses
-*)
+      [rename]: a type used to rename the fields
+      [t]: the ast of the sequence which contains the struct declaration *)
 let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -480,21 +436,20 @@ let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
         let new_tl = Mlist.merge lfront lback in
         let new_tl = Mlist.insert_at index new_tdef new_tl in
         trm_seq ~annot:t.annot ~marks:t.marks new_tl
-    | _ -> fail tdef.loc "reanme_fields_aux: expected a typedef declaration"
+    | _ -> fail tdef.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
     end
-  | _ -> fail t.loc "rename_fields_aux: expected the sequence which contains the typedef declaration"
+  | _ -> fail t.loc "Struct_core.rename_fields_aux: expected the sequence which contains the typedef declaration"
 
+(* [rename_fields index rename t p]: apply [rename_aux] at trm [t] with path [p] *)
 let rename_fields (index : int) (rename : rename) : Transfo.local =
   apply_on_path (rename_fields_aux index rename)
 
-(* [update_fields_type_aux pattern ty t]: change the current type to [ŧy] for all the struct fields
-      which are matched with [pattern] for the struct declaration [t]
+(* [update_fields_type_aux pattern ty t]: change the current type for all the struct fields
+      that are matched with [pattern] and whose type can be changed by [typ_update]
     params:
-      [rename]: a type used to rename
-      [t]: the ast of the typedef declaration
-    return:
-      the updated ast of the struct declaration
-*)
+      [pattern]: regular expression to match struct fields
+      [typ_update]: function that modifies only specific types
+      [t]: the ast of the typedef definition *)
 let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : trm) : trm =
   match t.desc with
   | Trm_typedef ({typdef_body = Typdef_prod (tn, fl);_}  as td) ->
@@ -511,18 +466,16 @@ let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : tr
         if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
       let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in
       trm_typedef ~annot:t.annot ~marks:t.marks {td with typdef_body = Typdef_prod (tn, new_fl)}
-    | _ -> fail t.loc "reanme_fields_aux: expected a typedef declaration"
+    | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
 
+(* [update_fields_type pattern typ_update t p]: apply [update_fields_type_aux] at trm [t] with path [p] *)
 let update_fields_type (pattern : string) (typ_update : typ -> typ) : Transfo.local =
   apply_on_path (update_fields_type_aux pattern typ_update )
 
 
-(* [simpl_proj_aux t] transform all expression of the form {1, 2, 3}.f into the trm it projects to
+(* [simpl_proj_aux t]: transform all expression of the form {1, 2, 3}.f into the trm it projects to
     params:
-      [t]: ast of the node whose descendants can contain struct initialization list projections
-    return:
-      the updated ast with all the simplified projections
-*)
+      [t]: ast of the node whose descendants can contain struct initialization list projections *)
 let simpl_proj_aux (t : trm) : trm =
   (* Tools.printf "%s\n" (Ast_to_text.ast_to_string t); *)
   let rec aux (t : trm) : trm =
@@ -536,7 +489,7 @@ let simpl_proj_aux (t : trm) : trm =
             if tid <> -1 then begin
               let struct_def = match Context.typid_to_typedef tid with
               | Some td -> td
-              | _ -> fail struct_list.loc "simpl_proj_aux: couldn't retrieve the the struct declaration" in
+              | _ -> fail struct_list.loc "Struct_core.simpl_proj_aux: couldn't retrieve the the struct declaration" in
               let field_list = Internal.get_field_list struct_def in
               let field_vars = fst (List.split field_list) in
               match Tools.index_of x field_vars  with
@@ -552,13 +505,12 @@ let simpl_proj_aux (t : trm) : trm =
     | _ -> trm_map aux t
    in aux t
 
-(* LATER: perhaps we want to expose a nonrecursive version of the function simpl_proj *)
-
+(* [simpl_proj t p]: apply [simpl_proj_aux] at trm [t] with path [p] *)
 let simpl_proj : Transfo.local =
   apply_on_path (simpl_proj_aux)
 
 
-
+(* [Struct_modif]: a module for defining struct modifications *)
 module Struct_modif = struct
   (* Fields of a struct *)
   type fields = (label * typ) list
@@ -601,9 +553,10 @@ end
 
 (* [modif_accesses struct_name arg t]: modify struct accesses
     params:
+      [old_and_new_fields]: used to replace some specific fields
       [struct_name]: used for checking the type of the struct access
       [arg]: see Struct_modif module
-      [t]: AST of the surrounding sequence of the targeted typedef *)
+      [t]: trm corresponding to the surrounding sequence of the targeted typedef *)
 let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fields) (struct_name : var) (arg : Struct_modif.arg) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     let default () = trm_map aux t in
@@ -669,12 +622,11 @@ let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
          let f_update_further = fun t -> modif_accesses (old_fields, new_fields) struct_name arg t in
          let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
          {t with desc = Trm_seq new_tl}
-      | _ -> fail tdef.loc "Struct_core.struct_modif: expected a struct definition"
+      | _ -> fail tdef.loc "Struct_core.Struct_core.struct_modif: expected a struct definition"
       end
-    | _ -> fail tdef.loc "Struct_core.struct_modif: expected a target to a typedef struct definition"
+    | _ -> fail tdef.loc "Struct_core.Struct_core.struct_modif: expected a target to a typedef struct definition"
     end
-  | _ -> fail t.loc "Struct_core.struct_modif: exepcted the surrounding sequence of the typedef "
+  | _ -> fail t.loc "Struct_core.Struct_core.struct_modif: exepcted the surrounding sequence of the typedef "
 
 let struct_modif (arg : Struct_modif.arg) (index : int) : Transfo.local =
   apply_on_path (struct_modif_aux arg index)
-
