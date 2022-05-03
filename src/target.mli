@@ -80,11 +80,11 @@ val dElse : constr
 
 val dBody : constr
 
-val dForStart : constr 
+val dForStart : constr
 
-val dForStop : constr 
+val dForStop : constr
 
-val dForStep : constr 
+val dForStep : constr
 
 val dForCInit : constr
 
@@ -130,7 +130,7 @@ val cMalloc : ?d:int option -> unit -> constr
 
 val cCalloc : int option -> constr
 
-val cMindex : ?d:int -> unit -> constr 
+val cMindex : ?d:int -> unit -> constr
 
 val sInstr : ?substr:bool -> string -> constr
 
@@ -188,9 +188,9 @@ val cTopFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:ta
 
 val cTopFunDefs : var list -> constr
 
-val cTopFunDefReg : string -> constr 
+val cTopFunDefReg : string -> constr
 
-val cTopFunDefAndDeclReg : string -> constr 
+val cTopFunDefAndDeclReg : string -> constr
 
 val cTop : ?regexp:bool -> string -> constr
 
@@ -395,6 +395,8 @@ val applyi_on_transformed_targets_between : (path * int -> 'a) -> (int -> trm ->
 
 val apply_on_transformed_targets_between : (path * int -> 'a) -> (trm -> 'a -> trm) -> target -> unit
 
+val check : target -> unit
+
 val show : ?line:int -> ?reparse:bool -> ?types:bool -> target -> unit
 
 val show_type : ?line:int -> ?reparse:bool -> target -> unit
@@ -437,7 +439,7 @@ val expr : ?vars:string list -> string -> trm
 
 val stmt : string -> trm
 
-val instr : string -> trm 
+val instr : string -> trm
 
 val get_relative_type : target -> target_relative option
 

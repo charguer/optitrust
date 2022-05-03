@@ -8,10 +8,10 @@ open Path
 (*                        Data structure for targets                          *)
 (******************************************************************************)
 
-(* [trm_kind]: type to classify trms into four main classes 
+(* [trm_kind]: type to classify trms into four main classes
     1) Structuring statements
-    2) Instructions 
-    3) Expression 
+    2) Instructions
+    3) Expression
     4) others  *)
 type trm_kind =
   | TrmKind_Typedef (* type definition that appears in the AST *)
@@ -139,7 +139,7 @@ and constr =
   (* Constraint to match ast nodes of types that satisfy the type predicate *)
   | Constr_hastype of typ_constraint
   (* Constraint to match variable initialization value *)
-  | Constr_var_init 
+  | Constr_var_init
   (* Constraint to match an array initialization list *)
   | Constr_array_init
   (* Constraint to match an struct initialization list  *)
@@ -178,9 +178,9 @@ and constr_accesses = (constr_access list) option
      the full list should be considered as matching or not.
    - a string that explains what was the user intention *)
 
-(* [target_list_pred]: predicate for expressing constraints over a list of stubterms. It consists of 
+(* [target_list_pred]: predicate for expressing constraints over a list of stubterms. It consists of
     - a function that produces the constraints for the i-th subterm
-    - a function that takes a list of booleans indicating which of the subterms match their respective constraint, 
+    - a function that takes a list of booleans indicating which of the subterms match their respective constraint,
         and returns a boolean indicatin whether the full list should be considered as matching or not
     - a string that explains what was the user intention *)
 and target_list_pred =
@@ -222,7 +222,7 @@ type target_simple = target
 
 
 
-(* [target_struct]: structured representation of a [target] that decomposes the special constructors 
+(* [target_struct]: structured representation of a [target] that decomposes the special constructors
    such as Constr_relative, Constr_occurrences, Constr_target from the [target_simple]. *)
 type target_struct = {
    target_path : target_simple; (* this path contains no nbMulti/nbEx/tBefore/etc.., only cStrict can be there *)
@@ -360,7 +360,7 @@ let rec constr_to_string (c : constr) : string =
      sprintf "Seq (%s)" spred
   | Constr_var name ->
      "Var " ^ (match name with | None -> "_" | Some r -> rexp_to_string r)
-  | Constr_lit _ -> "Lit" 
+  | Constr_lit _ -> "Lit"
   | Constr_app (p_fun, tgt_list_pred, accept_encoded) ->
     let spred = tgt_list_pred.target_list_pred_to_string() in
     let s_fun = target_to_string p_fun in
@@ -584,7 +584,7 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
    for resolving the targets [tgs]. The result is either a list of kinds
    without [TrmKind_Any], or a singleton list made of [TrmKind_Any]. *)
 let get_target_regexp_kinds (tgs : target list) : trm_kind list =
-  
+
   (* LATER: could be optimize by avoiding the construction of a copy of c;
      but this should be done automatically when constr_map is optimized *)
   (* Note: we use lists, but this is fine because the lists are very short *)
@@ -696,6 +696,20 @@ let target_to_target_struct (tr : target) : target_struct =
 let is_target_between (tr : target) : bool =
    let tgs = target_to_target_struct tr in
    tgs.target_relative <> TargetAt
+
+(******************************************************************************)
+(*               Performance Counters for Target resolution                   *)
+
+(* [resolve_target_steps()] returns the number of AST nodes visited during
+   the target resolution steps, then resets the counter. *)
+
+let resolve_target_steps_counter = ref 0
+
+let resolve_target_steps () : int =
+  let nb = !resolve_target_steps_counter in
+  resolve_target_steps_counter := 0;
+  nb
+
 
 (******************************************************************************)
 (*                              Target resolution                             *)
@@ -905,8 +919,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_body body
      | Constr_decl_fun (ty_pred, name, cl_args, p_body,is_def),
        Trm_let_fun (x, tx, args, body) ->
-        let body_check = 
-          let is_body_unit = is_trm_uninitialized body in 
+        let body_check =
+          let is_body_unit = is_trm_uninitialized body in
           if is_def then (check_target p_body body && not (is_body_unit))
            else is_body_unit in
         ty_pred tx &&
@@ -1005,7 +1019,7 @@ and check_args (lpred : target_list_pred) (txl : typed_vars) : bool =
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i tx -> check_arg (ith_target i) tx) txl)
 
-(* [check_arg tg tx]: check if the typed-variable [tx] satisfies the argument-constraint [tg]. 
+(* [check_arg tg tx]: check if the typed-variable [tx] satisfies the argument-constraint [tg].
    An argument constraint is a singleton constraint, of the form [cArg ..] or [cTrue]. *)
 and check_arg (tg:arg_constraint) ((var_name, var_typ) : typed_var) : bool =
   match tg with
@@ -1014,7 +1028,7 @@ and check_arg (tg:arg_constraint) ((var_name, var_typ) : typed_var) : bool =
            | Constr_bool true -> true
            | Constr_arg (var_constraint, typ_constraint) ->
               var_constraint var_name && typ_constraint var_typ
-           | _ -> fail None "Constr.check_arg: target expressing constraints on arguments must be of 
+           | _ -> fail None "Constr.check_arg: target expressing constraints on arguments must be of
                              the form [cArg...] or [cTrue]."
           end
   | _ -> fail None "Constr.check_arg: target expressing constraints on arguments must be list with at most one item."
@@ -1113,6 +1127,7 @@ and debug_resolution = false
      [trs]: a clean target t
      [t]: ast  *)
 and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t : trm) : paths =
+  incr resolve_target_steps_counter;
   let epl =
     match trs with
     | [] -> [[]]
@@ -1210,7 +1225,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
       res_deep@res_here  (* put deeper nodes first *) in
   List.sort_uniq compare_path epl
 
-(* [resolve_target_struct tgs t]: resolves the structured target [tgs] over trm [t] 
+(* [resolve_target_struct tgs t]: resolves the structured target [tgs] over trm [t]
     This function gets the result from [resolve_target_simple] and checks if it matches
     the given requirements. If one of the requirements is not fulfilled the target resolution will fail. *)
 and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
@@ -1230,7 +1245,7 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
       if n <> nb then error (sprintf "resolve_target_struct: expected %d matches, got %d" n nb)
         else
           Tools.filter_selected i_selected res;
-    | None -> if nb = 0 
+    | None -> if nb = 0
                 then error (sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb)
                 else Tools.filter_selected i_selected res;
     end
@@ -1517,7 +1532,7 @@ and explore_list (tl : trms) (d : int -> dir)
   d: function that gives the direction to add depending on the index
  *)
 
-(* [explore_list_ind tl d dom cont]: call [cont] on each element of the list, 
+(* [explore_list_ind tl d dom cont]: call [cont] on each element of the list,
    [index] is in the domain and gather results
    [d] is a fucntion that gives direction to add depending on the [index] *)
 and explore_list_ind (tl : trms) (d : int -> dir) (dom : int list)

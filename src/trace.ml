@@ -112,10 +112,12 @@ let last_time_update () : int =
   last_time := t;
   Tools.milliseconds_between t0 t
 
-(* [report_time_of_step()] reports the total duration of the last step *)
+(* [report_time_of_step()] reports the total duration of the last step.
+   As bonus, reports the number of steps in target resolution *)
 let report_time_of_step (timing : int) : unit =
   if !Flags.analyse_time then begin
     write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" timing);
+    write_timing_log (Printf.sprintf "     TARGETS: %d nodes visited for target resolution\n" (Constr.resolve_target_steps()));
   end
 
 (* [report_full_time ()] reports the time for the last step, and
