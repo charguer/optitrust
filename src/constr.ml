@@ -357,7 +357,7 @@ let rec constr_to_string (c : constr) : string =
      "Decl_enum (" ^ s_name ^ ", " ^ s_const ^ ")"
   | Constr_seq tgt_list_pred ->
      let spred = tgt_list_pred.target_list_pred_to_string() in
-     sprintf "Seq (%s)" spred
+     Printf.sprintf "Seq (%s)" spred
   | Constr_var name ->
      "Var " ^ (match name with | None -> "_" | Some r -> rexp_to_string r)
   | Constr_lit _ -> "Lit"
@@ -457,14 +457,14 @@ and target_occurrences_to_string (occ : target_occurrences) =
   | FirstOcc -> "FirstOcc"
   | LastOcc -> "LastOcc"
   | ExpectedOne -> "ExpectedOne"
-  | ExpectedNb n -> sprintf "ExpectedNb(%d)" n
+  | ExpectedNb n -> Printf.sprintf "ExpectedNb(%d)" n
   | ExpectedMulti -> "ExpectedMulti"
   | ExpectedAnyNb -> "ExpectedAnyNb"
   | ExpectedSelected (ex_opt, il) ->
     let exact_nb_s = match ex_opt with
     | None -> "None"
     | Some i -> "Some " ^ (string_of_int i) in
-    sprintf "ExpectedSelect(%s, %s)" exact_nb_s (Tools.list_to_string (List.map (string_of_int) il))
+    Printf.sprintf "ExpectedSelect(%s, %s)" exact_nb_s (Tools.list_to_string (List.map (string_of_int) il))
 
 (* [target_relative_to_string rel]: pretty print the relative target [rel] *)
 and target_relative_to_string (rel : target_relative) =
@@ -1144,7 +1144,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
             Path.union acc potential_targets
           end ) [] tl in
        if debug_resolution then begin
-          printf "resolve_target_simple[Constr_or]\n  ~target:%s\n  ~term:%s\n  ~res:%s\n"
+          Printf.printf "resolve_target_simple[Constr_or]\n  ~target:%s\n  ~term:%s\n  ~res:%s\n"
             (target_to_string trs)
             (AstC_to_c.ast_to_string  t)
             (paths_to_string ~sep:"\n   " res)
@@ -1174,7 +1174,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
         (* LATER: ARTHUR : optimize resolution by resolving the targets only by exploring
           through the paths that are candidates; using e.g. path_satisfies_target *)
         let all_targets_must_resolve = false in
-        Tools.fold_lefti (fun i acc tr ->
+        Xlist.fold_lefti (fun i acc tr ->
           let targetsi = resolve_target_simple (tr @ trest) t in
           begin match targetsi with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "Constr.resolve_target_simple: for Constr_and all targets should match a trm"
@@ -1211,14 +1211,14 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
 
       (* DEBUG *)
       if debug_resolution then begin
-         printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
+         Printf.printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
           (if strict then "true" else "false")
           (target_to_string trs)
           (AstC_to_c.ast_to_string  t)
           (paths_to_string ~sep:"\n   " res_deep)
           (paths_to_string ~sep:"\n   " res_here);
       end;
-        (* Tools.printf " ~deep:%s\n  ~here:%s\n"
+        (* Printf.printf " ~deep:%s\n  ~here:%s\n"
           (paths_to_string ~sep:"\n   " res_deep)
           (paths_to_string ~sep:"\n   " res_here); *)
 
@@ -1235,18 +1235,18 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   let error s =
     raise (Resolve_target_failure (None, s)) in
   begin match tgs.target_occurrences with
-  | ExpectedOne -> if nb <> 1 then error (sprintf "resolve_target_struct: expected exactly one match, got %d." nb); res
-  | ExpectedNb n -> if nb <> n then error (sprintf "resolve_target_struct: expected %d matches, got %d." n nb); res
-  | ExpectedMulti -> if nb = 0 then error (sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb); res
+  | ExpectedOne -> if nb <> 1 then error (Printf.sprintf "resolve_target_struct: expected exactly one match, got %d." nb); res
+  | ExpectedNb n -> if nb <> n then error (Printf.sprintf "resolve_target_struct: expected %d matches, got %d." n nb); res
+  | ExpectedMulti -> if nb = 0 then error (Printf.sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb); res
   | ExpectedAnyNb -> res
   | ExpectedSelected (n_opt, i_selected) ->
     begin match n_opt with
     | Some n ->
-      if n <> nb then error (sprintf "resolve_target_struct: expected %d matches, got %d" n nb)
+      if n <> nb then error (Printf.sprintf "resolve_target_struct: expected %d matches, got %d" n nb)
         else
           Tools.filter_selected i_selected res;
     | None -> if nb = 0
-                then error (sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb)
+                then error (Printf.sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb)
                 else Tools.filter_selected i_selected res;
     end
   | FirstOcc -> [fst (Tools.uncons res)]
@@ -1329,7 +1329,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
       begin match td.typdef_body with
       | Typdef_enum xto_l ->
         let (il, tl) =
-          fold_lefti
+          Xlist.fold_lefti
             (fun n (il, tl) (_, t_o) ->
               match t_o with
               | None -> (il, tl)
@@ -1397,7 +1397,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         add_dir Dir_body (aux body)
      | Trm_switch (cond, cases) ->
         (add_dir Dir_cond (aux cond)) @
-        (fold_lefti (fun i epl case -> epl@explore_case depth i case p) [] cases)
+        (Xlist.fold_lefti (fun i epl case -> epl@explore_case depth i case p) [] cases)
      | _ ->
         print_info loc "explore_in_depth: cannot find a subterm to explore\n";
         []
@@ -1417,7 +1417,7 @@ and explore_case (depth : depth) (i : int) (case : trms * trm) (p : target_simpl
   | [] ->
      add_dir (Dir_case (i, Case_body)) (aux body)
   | _ ->
-     (fold_lefti
+     (Xlist.fold_lefti
         (fun j epl t ->
           epl @
           (add_dir (Dir_case (i, Case_name j)) (aux t))
@@ -1524,7 +1524,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
    [d] is the function that gives the direction to add depending on the index *)
 and explore_list (tl : trms) (d : int -> dir)
   (cont : trm -> paths) : paths =
-  fold_lefti (fun i epl t -> epl@add_dir (d i) (cont t)) [] tl
+  Xlist.fold_lefti (fun i epl t -> epl@add_dir (d i) (cont t)) [] tl
 
 (*
   call cont on each element of the list whose index is in the domain and
@@ -1537,7 +1537,7 @@ and explore_list (tl : trms) (d : int -> dir)
    [d] is a fucntion that gives direction to add depending on the [index] *)
 and explore_list_ind (tl : trms) (d : int -> dir) (dom : int list)
   (cont : trm -> paths) : paths =
-  fold_lefti
+  Xlist.fold_lefti
     (fun i epl t ->
       if List.mem i dom then epl@add_dir (d i) (cont t) else epl)
     []

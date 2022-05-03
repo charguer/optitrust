@@ -131,7 +131,7 @@ let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
     let blocks = if blocks = [] then [nb] else blocks in
     let sum_blocks = List.fold_left (+) 0 blocks in
     if sum_blocks <> nb 
-      then fail t.loc (Tools.sprintf "Sequence_core.partition: the partition entered is not correct, 
+      then fail t.loc (Printf.sprintf "Sequence_core.partition: the partition entered is not correct, 
                 the list length is %d, while the sum of the block size is %d" (Mlist.length tl) sum_blocks)
       else
         let current_list = ref tl in

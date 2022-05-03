@@ -400,7 +400,7 @@ let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) l
     | true -> List.map (fun x ->
         match List.assoc_opt x sf with
       | Some d -> (x,d)
-      | None -> fail None (Tools.sprintf "Internal.reorder_fields: field %s doest not exist" x)) local_l
+      | None -> fail None (Printf.sprintf "Internal.reorder_fields: field %s doest not exist" x)) local_l
     end
 
 (* [get_trm_and_its_relatives index trms]: for a trm [t] with index [index] in its surrounding sequence return 

@@ -53,13 +53,9 @@ let nth (ml : 'a t) (index : int) : 'a =
 let nth_opt (ml : 'a t) (index : int) : 'a option = 
   List.nth_opt ml.items index
 
-(* [fold_lefti acc_f acc ml]: apply Tools.fold_lefti to ml.items *)
+(* [fold_lefti acc_f acc ml]: apply Xlist.fold_lefti to ml.items *)
 let fold_lefti (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
-  Tools.fold_lefti acc_f acc ml.items
-
-(* [fold_righti acc_f acc ml]: apply Tools.fold_righti to ml.items *)
-let fold_righti (acc_f : int -> 'a -> 'b -> 'b)  (ml : 'a t) (acc : 'b) : 'b =
-  Tools.fold_righti acc_f ml.items acc
+  Xlist.fold_lefti acc_f acc ml.items
 
 (* [for_all2 p ml1 ml2]: apply List.for_all2 to ml1.items and ml2.items *)
 let for_all2 p ml1 ml2 =
@@ -88,8 +84,8 @@ let remove_mark (m : mark) (ml : 'a t) : 'a t =
 (* [split ~left_bias index ml]: split mlist [ml] at [index]
     [left_bias]: if true then the boundary marks will go with the first part of the mlist *)
 let split ?(left_bias : bool = true) (index : int) (ml : 'a t) : 'a t * 'a t=
-  let items1, items2 = Tools.split_list_at index ml.items in
-  let marks1a, marks2a = Tools.split_list_at (index + if left_bias then 1 else 0) ml.marks in
+  let items1, items2 = Xlist.split_at index ml.items in
+  let marks1a, marks2a = Xlist.split_at (index + if left_bias then 1 else 0) ml.marks in
   let marks1 = if left_bias then marks1a else marks1a @ [] in
   let marks2 = if left_bias then [] :: marks2a else marks2a in
   ({items = items1; marks = marks1}, {items = items2; marks = marks2}) 

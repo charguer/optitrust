@@ -346,10 +346,10 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
 let trm_to_expr (t : trm) : expr * atom_map =
   let expr, atoms = trm_to_naive_expr t in
   if debug 
-    then Tools.printf "Expr after conversion: %s\n" (expr_to_string atoms expr);
+    then Printf.printf "Expr after conversion: %s\n" (expr_to_string atoms expr);
   let res = normalize expr in
   if debug 
-    then Tools.printf "Expr after normalization: %s\n" (expr_to_string atoms res);
+    then Printf.printf "Expr after normalization: %s\n" (expr_to_string atoms res);
   res, atoms
 
 (* [expr_to_trm atoms e]: converts expr [e] to trm  *)
@@ -360,7 +360,7 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
     | Expr_double n -> trm_double n
     | Expr_sum we ->
       if we = [] then failwith "expr_to_trm: assumes a normalized term";
-      Tools.fold_lefti (fun i acc (w, e) ->
+      Xlist.fold_lefti (fun i acc (w, e) ->
         let (w, e) = match (w,e) with (n,Expr_int 1) -> (1,Expr_int n) | _ -> (w,e) in
         let c = if i = 0 then w else abs w in
         let y = aux e in
@@ -383,7 +383,7 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
           else if n = 1 then t
           else trm_apps (trm_binop Binop_mul) [t; power t (n-1)]
         in
-      Tools.fold_lefti (fun i acc (w,e) ->
+      Xlist.fold_lefti (fun i acc (w,e) ->
         if i = 0 
           then power (aux e) w 
           else trm_apps (trm_binop (if w > 0
@@ -412,7 +412,7 @@ let apply_bottom_up_if (recurse : bool) (cleanup : bool) (f : expr -> expr)
     let e2 = f e1 in
     let e3 = (if cleanup then normalize_one else identity) e2 in
     if debug_rec 
-      then Tools.printf "Step:\n\t%s\n\t%s\n\t%s\n" (expr_to_string no_atoms e) 
+      then Printf.printf "Step:\n\t%s\n\t%s\n\t%s\n" (expr_to_string no_atoms e) 
         (expr_to_string no_atoms e2) (expr_to_string no_atoms e3);
     e3 in
   if recurse
@@ -422,7 +422,7 @@ let apply_bottom_up_if (recurse : bool) (cleanup : bool) (f : expr -> expr)
 (* function used only for debugging purposes *)
 let apply_bottom_up_debug (e : expr) : expr =
   let f ei =
-    if debug then Tools.printf "Bottom-up %s\n" (expr_to_string no_atoms ei);
+    if debug then Printf.printf "Bottom-up %s\n" (expr_to_string no_atoms ei);
     ei in
   apply_bottom_up f e
 
@@ -431,7 +431,7 @@ let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr
   let f ei =
     let ej = (if cleanup then normalize_one else identity) ei in
     if debug 
-      then Tools.printf "Bottom-up-if:\n\t%s\n\t%s\n" 
+      then Printf.printf "Bottom-up-if:\n\t%s\n\t%s\n" 
             (expr_to_string no_atoms ei) (expr_to_string no_atoms ej); ej 
     in
   apply_bottom_up_if recurse cleanup f e
@@ -526,7 +526,7 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
     | _ ->  Atom_map.map f_atom atoms
     in
   let expr2 = f expr in
-  if debug then Tools.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
+  if debug then Printf.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
   expr_to_trm atoms2 expr2
 
 (* [simplify_aux indepth f t]: converts node [t] to an expression, then applies the

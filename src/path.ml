@@ -379,7 +379,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
        | Dir_seq_nth n, Trm_seq tl ->
           let tl = Mlist.to_list tl in
           let decl_before (n : int) (tl : trm list) =
-            Tools.fold_lefti
+            Xlist.fold_lefti
               (fun i acc (t : trm) ->
                 if i >= n 
                   then acc

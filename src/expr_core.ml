@@ -41,7 +41,7 @@ let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp op
       match Ast.trm_get_stringreprid t with
       | Some id ->
         begin match Hashtbl.find_opt stringreprs id with
-        | None -> Printf.sprintf "<no_stringrepr_for:%d>" id
+        | None -> sprintf "<no_stringrepr_for:%d>" id
         | Some d -> Tools.document_to_string ~width:PPrint.infinity d
         end
       | None -> "<no_stringreprid>"

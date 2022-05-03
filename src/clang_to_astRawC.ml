@@ -78,12 +78,12 @@ let ctx_var_add (tv : typvar) (t : typ) : unit =
 
 (* [ctx_tconstr_add tn tid]: add constructed type [tv] with id [tid] in map [ctx_tconstr] *)
 let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
-  if debug_typedefs then printf "Type %s has been added into map with typconstrid %d\n" tn tid;
+  if debug_typedefs then Printf.printf "Type %s has been added into map with typconstrid %d\n" tn tid;
   ctx_tconstr := String_map.add tn tid (!ctx_tconstr)
 
 (* [ctx_typedef_add tn tid td]: add typedef [td] with id [tid] in map [ctx_typedef] *)
 let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =
-  if debug_typedefs then printf "Typedef for %s has been registered\n" tn;
+  if debug_typedefs then Printf.printf "Typedef for %s has been registered\n" tn;
   ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
 (* [ctx_label_add lb tid]: add label [lb] with id [tid] in map [ctx_label] *)
@@ -717,7 +717,7 @@ and tr_decl_list (dl : decl list) : trms =
         (* typedef struct rn { int x,y; } tn;
            is only allowed if rn is empty or same as tn. *)
         if rn <> "" && rn <> tn
-          then fail loc (sprintf "Clang_to_astRawC.Typedef-struct: the struct name (%s) must match the typedef name (%s).\n" tn rn);
+          then fail loc (Printf.sprintf "Clang_to_astRawC.Typedef-struct: the struct name (%s) must match the typedef name (%s).\n" tn rn);
 
         (* First add the constructor name to the context, needed for recursive types *)
         let tid = next_typconstrid () in

@@ -110,9 +110,9 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
         if Ast.is_trm_uninitialized t0 then
           inst := Trm_map.add x (ty,u) !inst
         else if not (Internal.same_trm ~ast_decode:false t0 u) then begin
-          Tools.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x (AstC_to_c.ast_to_string ~optitrust_syntax:true t0) (AstC_to_c.ast_to_string ~optitrust_syntax:true u);
-          Tools.printf "Witout encodings: '%s' is not identical to '%s'.\n" (AstC_to_c.ast_to_string t0) (AstC_to_c.ast_to_string  u);
-          Tools.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
+          Printf.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x (AstC_to_c.ast_to_string ~optitrust_syntax:true t0) (AstC_to_c.ast_to_string ~optitrust_syntax:true u);
+          Printf.printf "Witout encodings: '%s' is not identical to '%s'.\n" (AstC_to_c.ast_to_string t0) (AstC_to_c.ast_to_string  u);
+          Printf.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
           raise Rule_mismatch
         end
     in
@@ -134,8 +134,8 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
 
   let rec aux (t1 : trm) (t2 : trm) : unit =
     let mismatch ?(t1:trm=t1) ?(t2:trm=t2) () : unit =
-      Tools.printf "Mismatch on subterm, comparing '%s' with '%s'.\n" (AstC_to_c.ast_to_string t1) (AstC_to_c.ast_to_string t2);
-      Tools.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t1.loc) (Ast.loc_to_string t2.loc);
+      Printf.printf "Mismatch on subterm, comparing '%s' with '%s'.\n" (AstC_to_c.ast_to_string t1) (AstC_to_c.ast_to_string t2);
+      Printf.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t1.loc) (Ast.loc_to_string t2.loc);
       raise Rule_mismatch
       in
     let aux_list (ts1 : trms) (ts2 : trms) : unit =
@@ -151,7 +151,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
       | ({ desc = Trm_let (_vk1, (x1,t1), init1); _ } as dt1) :: tr1,
         ({ desc = Trm_let (_vk2, (x2,t2), init2); _ } as dt2) :: tr2 ->
            if not (same_types  (get_inner_ptr_type t1) (get_inner_ptr_type t2)) then begin
-            Tools.printf "Type mismatch on trm_let\n";
+            Printf.printf "Type mismatch on trm_let\n";
             mismatch ~t1:dt1 ~t2:dt2 ()
           end;
           aux init1 init2;
@@ -224,7 +224,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
     in
   begin try aux pat t
   with Rule_mismatch ->
-    Tools.printf "Mismatch comparing\n------\n%s\n------\n%s\n------\n" (AstC_to_c.ast_to_string ~optitrust_syntax:true pat) (AstC_to_c.ast_to_string ~optitrust_syntax:true t);
+    Printf.printf "Mismatch comparing\n------\n%s\n------\n%s\n------\n" (AstC_to_c.ast_to_string ~optitrust_syntax:true pat) (AstC_to_c.ast_to_string ~optitrust_syntax:true t);
     raise Rule_mismatch
   end;
   Trm_map.map (fun (_ty,t) -> t) !inst

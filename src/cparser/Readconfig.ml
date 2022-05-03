@@ -655,9 +655,9 @@ let _ =
   begline (Lexing.from_channel stdin);
   Hashtbl.iter
     (fun key value ->
-      printf "%s =" key;
-      List.iter (fun v -> printf " |%s|" v) value;
-      printf "\n")
+      Printf.printf "%s =" key;
+      List.iter (fun v -> Printf.printf " |%s|" v) value;
+      Printf.printf "\n")
     key_val_tbl
 *)
 

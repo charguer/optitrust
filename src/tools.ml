@@ -1,12 +1,8 @@
 open PPrint
 
-let printf = Printf.printf
-let sprintf = Printf.sprintf
-
-
 (*-----------Extensions for List of integers------------*)
 
-(* [range a b] returns the list of integers between [a] and [b] inclusive.
+(* [range ~rev a b]: return the list of integers between [a] and [b] inclusive.
    If [a > b] then it returns the list [a (a-1) .. (b+1) b].*)
 let range ?(rev : bool = false) (a : int) (b : int) : int list =
   let rec aux a b =
@@ -25,42 +21,6 @@ let range ?(rev : bool = false) (a : int) (b : int) : int list =
 
 (* LATER: create a module Xlist with all these functions,
    and remove the prefix [list_] for functions that have them. *)
-
-(* [fold_lefti f a xs] is a [List.fold_left] with access to the indices.
-   It computes, e.g., [f 2 (f 1 (f 0 a x0) x1) x2)]. *)
-let fold_lefti (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
-  let (_, res) = List.fold_left (fun (i, a) b -> (i + 1, f i a b)) (0, a) bl in
-  res
-
-(* [fold_righti f a xs] is a [List.fold_right] with access to the indices.
-   It computes, e.g. [f 0 (f 1 (f 2 a x2) x1) x0)]. *)
-let fold_righti (f : int -> 'b -> 'a -> 'a) (bl : 'b list) (a : 'a) : 'a =
-  let (_, res) = List.fold_right (fun b (i,a) -> (i + 1, f i b a)) bl (0, a) in
-  res
-
-let iteri2 (f : int -> 'a -> 'b -> unit) (al : 'a list) (bl : 'b list) : unit =
-  ignore (List.fold_left2 (fun i a b -> f i a b; i+1) 0 al bl)
-
-(* [fold_lefti2] is a [List.fold_left2] with access to the indices. *)
-let fold_lefti2 (f : int -> 'a -> 'b -> 'c -> 'a) (a : 'a) (bl : 'b list) (cl : 'c list) : 'a =
-  let (_, res) = List.fold_left2 (fun (i, a) b c -> (i + 1, f i a b c)) (0, a) bl cl in
-  res
-
-(* [list_all_true bl] returns [true] if all the booleans in the list [bl] are [true]. *)
-let list_all_true (bl : bool list) : bool =
-  List.for_all (fun b -> b = true) bl
-
-(* [split_list_at n l] splits the list [l] just before the element at index [n],
-   and returns the two sublists (which could be empty). *)
-let split_list_at (i : int) (l : 'a list) : ('a list) * ('a list) =
-  if i < 0 then failwith "split_list_at: negative index";
-  let rec aux i acc l =
-    match i, l with
-    | 0, l -> (List.rev acc, l)
-    | _, [] ->  failwith "split_list_at: index out of bound"
-    | _, x::t -> aux (i-1) (x::acc) t
-    in
-  aux i [] l
 
 (* [update_nth f l i] returns a copy of the list [l] where the element
    [x] at index [i] is replaced with [f x]. The index [i] must be valid. *)
@@ -115,7 +75,7 @@ let insert_sublist_at (i : int) (el : 'a list) (l : 'a list) : 'a list =
   else if i = List.length l
     then l @ el
   else
-    let first_part, last_part = split_list_at i l in
+    let first_part, last_part = Xlist.split_at i l in
     first_part @ el @ last_part
 
 (* [insert_at i e l] inserts an element [e] at index [i] in the list [l].
@@ -150,7 +110,7 @@ let find_map f t =
 (* [index_of x l] returns the [Some i], where [i] is the index of element
    [x] in list [l], or [None] if [x] does not belong to the list. *)
 let index_of (x : 'a) (l : 'a list) : int option =
-  fold_lefti (fun i acc y -> if x = y then Some i else acc) None l
+  Xlist.fold_lefti (fun i acc y -> if x = y then Some i else acc) None l
 
 exception Invalid_permutation
 
@@ -179,7 +139,7 @@ let list_reorder (order : int list) (l : 'a list) : 'a list =
 let list_rotate (n : int) (l : 'a list) : 'a list =
   if n > List.length l
    then failwith "list_rotate: the number of elements to rotate should not exceed the length of the input list.";
-  let ls, rs = split_list_at n l in
+  let ls, rs = Xlist.split_at n l in
   rs @ ls
 
 

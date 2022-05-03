@@ -1044,7 +1044,7 @@ let trm_prod_inv (t : trm) : trm list =
 let get_mark_index (m : mark) (t : trm) : int option =
   match t.desc with
   | Trm_seq tl ->
-    Tools.fold_lefti (fun i acc ml ->
+    Xlist.fold_lefti (fun i acc ml ->
       match acc with
       | Some _ -> acc
       | None ->
@@ -2351,7 +2351,7 @@ let trm_xor ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t
 
 (* [trm_ands ts] generalized version of trm_and *)
 let trm_ands (ts : trm list) : trm =
-  Tools.fold_lefti (fun i acc t1 ->
+  Xlist.fold_lefti (fun i acc t1 ->
     if i = 0 then t1 else trm_and acc t1
   ) (trm_bool true) ts
 
@@ -2380,7 +2380,7 @@ module AstParser = struct
   let ty ty = typ_str (Atyp ty)
 
   let subst_dollar_number (inst : string list) (s : string) : string =
-  Tools.fold_lefti (fun i acc insti ->
+  Xlist.fold_lefti (fun i acc insti ->
     Tools.string_subst ("${"^(string_of_int i) ^ "}") insti acc
   ) s inst
 

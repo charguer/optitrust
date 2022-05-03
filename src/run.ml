@@ -40,7 +40,7 @@ let script (f : unit -> unit) : unit =
     f ();
     let t1 = Unix.gettimeofday() in
     if !Flags.analyse_time
-      then Tools.printf "Script execution time: %d ms\n" (Tools.milliseconds_between t0 t1);
+      then Printf.printf "Script execution time: %d ms\n" (Tools.milliseconds_between t0 t1);
   with | Failure s | Ast.TransfoError s ->
     Trace.finalize();
     (* failwith s *)

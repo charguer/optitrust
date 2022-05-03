@@ -223,7 +223,7 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
       let nb_occs = List.length ps in
       if nb_occs = 0 then raise Init_attach_no_occurrences
        else if nb_occs >= 2 then raise Init_attach_occurrence_below_control;
-      Tools.fold_lefti (fun i acc p ->
+      Xlist.fold_lefti (fun i acc p ->
         if i = 0 then begin
         apply_on_path (fun t1 ->
           begin match t1.desc with

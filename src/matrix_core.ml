@@ -31,7 +31,7 @@ let mindex_inv (t : trm) : (trms * trms) option =
     | Trm_var (_, f_name) when (Tools.pattern_matches "MINDEX" f_name) ->
       let n = List.length dims_and_indices in
       if (n mod 2 = 0) then
-        Some (Tools.split_list_at (n/2) dims_and_indices)
+        Some (Xlist.split_at (n/2) dims_and_indices)
       else None
     | _ -> None
     end

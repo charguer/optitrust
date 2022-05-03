@@ -29,12 +29,12 @@ let debug_typedefs = false
 
 (* [ctx_tconstr_add tn tid]: add constructed type [tv] with id [tid] in map [ctx_tconstr] *)
 let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
-  if debug_typedefs then printf "Type %s has been added into map with typconstrid %d\n" tn tid;
+  if debug_typedefs then Printf.printf "Type %s has been added into map with typconstrid %d\n" tn tid;
   ctx_tconstr := String_map.add tn tid (!ctx_tconstr)
 
 (* [ctx_typedef_add tn tid td]: add typedef [td] with id [tid] in map [ctx_typedef] *)
 let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =
-  if debug_typedefs then printf "Typedef for %s has been registered\n" tn;
+  if debug_typedefs then Printf.printf "Typedef for %s has been registered\n" tn;
   ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
 (* [ctx_label_add lb tid]: add label [lb] with id [tid] in map [ctx_label] *)

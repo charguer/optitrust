@@ -130,8 +130,8 @@ let rec print_tree p = function
 
 let compile_switch modulus default table =
   let t = compile_switch modulus default table in
-  printf "@[<v 0>-------------@ ";
-  printf "Initial problem:@ %a@ " print_table (table, default);
-  printf "Decision tree:@ %a@ @]@." print_tree t;
+  Printf.printf "@[<v 0>-------------@ ";
+  Printf.printf "Initial problem:@ %a@ " print_table (table, default);
+  Printf.printf "Decision tree:@ %a@ @]@." print_tree t;
   t
 **)

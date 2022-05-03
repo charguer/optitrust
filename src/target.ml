@@ -420,7 +420,7 @@ let target_list_simpl (args : targets) : target_list_pred =
   let n = List.length args in
   make_target_list_pred
     (fun i -> if i < n then List.nth args i else [cStrict;cFalse])
-    (fun bs -> List.length bs = n && list_all_true bs)
+    (fun bs -> List.length bs = n && Xlist.all_true bs)
     (fun () -> "target_list_simpl(" ^ (list_to_string (List.map target_to_string args) ^ ")"))
 
 (* NOTE: the "_st" suffix means that the argument is a constraint and not a target
@@ -447,7 +447,7 @@ let target_list_all_st (tg : target) : target_list_pred = (* LATER: KEEP ONLY TH
 let target_list_pred_default : target_list_pred =
   make_target_list_pred
     (fun _i -> [cTrue])
-    list_all_true
+    Xlist.all_true
     (fun () -> "target_list_pred_default")
 
 (* [combine_args args args_pred]: takes [args] as a [target_list_simpl] if it is nonempty,
@@ -1172,17 +1172,17 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
     | _ ->
         let marks = List.map (fun _ -> Mark.next()) ps in
         (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
-        (* Tools.printf "Before applyin_marks: %s\n" (AstC_to_c.ast_to_string t); *)
+        (* Printf.printf "Before applyin_marks: %s\n" (AstC_to_c.ast_to_string t); *)
         let t =
              Trace.time "applyi_on_transformed_targets add marks" (fun () ->
               Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () ->
               List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks)) in
-        (* Tools.printf "After applying_marks: %s\n" (AstC_to_c.ast_to_string t); *)
+        (* Printf.printf "After applying_marks: %s\n" (AstC_to_c.ast_to_string t); *)
         (* iterate over these marks *)
         Trace.time "applyi_on_transformed_targets apply transfo" (fun () ->
         begin try
-          Tools.fold_lefti (fun imark t m ->
-            Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
+          Xlist.fold_lefti (fun imark t m ->
+            Trace.timing ~cond:!Flags.analyse_time_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
               let ps = resolve_target_mark_one_else_any m t in
               match ps with
               | [p] ->
@@ -1192,7 +1192,7 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
                   let msg =
                     if ps <> []
                       then "applyi_on_transformed_targets: a mark was duplicated"
-                      else (*failwith*) (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
+                      else (*failwith*) (Printf.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
                     in
                   if debug_disappearing_mark
                     then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
@@ -1277,7 +1277,7 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
               let msg =
                 if ps <> []
                   then "iteri_on_transformed_targets: a mark was duplicated"
-                  else (Tools.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
+                  else (Printf.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
                 in
               if debug_disappearing_mark
                 then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
@@ -1330,8 +1330,8 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
     let t = Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () -> 
       List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks) in
     try
-      Tools.fold_lefti (fun imark t m ->
-        Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
+      Xlist.fold_lefti (fun imark t m ->
+        Trace.timing ~cond:!Flags.analyse_time_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
           let ps = resolve_target_mark_one_else_any m t in
           match ps with
           | [p_to_seq] ->
@@ -1345,7 +1345,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
             let msg =
               if ps <> []
                 then "applyi_on_transformed_targets_between: a mark was duplicated"
-                else (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
+                else (Printf.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
             if debug_disappearing_mark
               then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
               else fail None msg
@@ -1428,8 +1428,8 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
   let marks_base = show_next_id() in
   let mark_of_occurence (i:int) : string =
     if batch_mode && !Flags.execute_show_even_in_batch_mode
-      then sprintf "%d_%d" marks_base i
-      else sprintf "%d" i
+      then Printf.sprintf "%d_%d" marks_base i
+      else Printf.sprintf "%d" i
     in
   if should_exit || (!Flags.execute_show_even_in_batch_mode && batch_mode) then begin
     if Constr.is_target_between tg then begin

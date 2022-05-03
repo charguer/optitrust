@@ -433,7 +433,7 @@ let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
   (* Close logs: new logs will be opened in every branch. *)
   close_logs ();
   let list_of_traces =
-    Tools.fold_lefti
+    Xlist.fold_lefti
       (fun i tr f ->
         let branch_id = i + 1 in
         if only_branch = 0 || branch_id = only_branch then
@@ -672,9 +672,9 @@ let output_optitrust_ast_to_js ?(vars_declared : bool = false) (index : int) (pr
       | Language_ocaml -> "\'" ^ "text/x-Ocaml" ^ "\'", ".ml" in
     if not vars_declared
       then begin
-      output_string out_js (Tools.sprintf "var source = %s\n" "new Array();");
-      output_string out_js (Tools.sprintf "var contents = %s\n" "new Array();");
-      output_string out_js (Tools.sprintf "var language = %s\n" lang);
+      output_string out_js (Printf.sprintf "var source = %s\n" "new Array();");
+      output_string out_js (Printf.sprintf "var contents = %s\n" "new Array();");
+      output_string out_js (Printf.sprintf "var language = %s\n" lang);
       end else ();
     let src = Xfile.get_contents (prefix ^ "_before" ^ extension) in
     Ast_to_js.Json.code_to_js out_js index src;

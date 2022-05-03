@@ -23,11 +23,11 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
    begin match call_trm.desc with
    | Trm_apps (_, tl) ->
     if List.length fresh_names = 0
-      then begin Tools.printf "bind_args: no arguments to bind, no changes to be done\n"; t end (* LATER: check this *)
+      then begin Printf.printf "bind_args: no arguments to bind, no changes to be done\n"; t end (* LATER: check this *)
       else if List.length tl <> List.length fresh_names then
         fail call_trm.loc "Function.bind_args: for each argument of the function call, there should be associated either an empty string or a variable to be bounded to"
       else begin
-           Tools.fold_lefti (fun n t fresh_name ->
+           Xlist.fold_lefti (fun n t fresh_name ->
             if fresh_name <> "" then
             let () = incr counter in
             Function_core.bind_intro (i + !counter) fresh_name false (p_local @ [Dir_arg_nth n]) t p

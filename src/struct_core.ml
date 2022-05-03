@@ -218,9 +218,9 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm ) =
       begin match td.typdef_body with
       | Typdef_prod (t_names, field_list) ->
        let field_index = Internal.get_field_index field_to_reveal field_list in
-       let lfront1, lback1 = Tools.split_list_at field_index field_list in
+       let lfront1, lback1 = Xlist.split_at field_index field_list in
        let field_to_inline1, lback1 = if List.length lback1 = 1 then (lback1, []) else
-        Tools.split_list_at 1 lback1 in
+        Xlist.split_at 1 lback1 in
        let _ ,field_type = List.nth field_to_inline1 0 in
        let tyid = begin match field_type.typ_desc with
        | Typ_constr (_, tid , _) -> tid
@@ -477,7 +477,7 @@ let update_fields_type (pattern : string) (typ_update : typ -> typ) : Transfo.lo
     params:
       [t]: ast of the node whose descendants can contain struct initialization list projections *)
 let simpl_proj_aux (t : trm) : trm =
-  (* Tools.printf "%s\n" (Ast_to_text.ast_to_string t); *)
+  (* Printf.printf "%s\n" (Ast_to_text.ast_to_string t); *)
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, [struct_list]) ->

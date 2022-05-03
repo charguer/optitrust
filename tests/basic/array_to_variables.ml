@@ -24,6 +24,6 @@ let _ = Run.script_cpp ~parser:Parsers.Clang (fun () ->
 )
 
  (* LATER: should support patterns, such as
-    Arrays_basic.to_variables (fun base i -> sprintf "%s%d" base i)
+    Arrays_basic.to_variables (fun base i -> Printf.sprintf "%s%d" base i)
   *)
 

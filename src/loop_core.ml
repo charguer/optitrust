@@ -169,7 +169,7 @@ let fusion_on_block_aux (t : trm) : trm =
     | Trm_for (index, start, direction, stop, step, _) ->
       let fusioned_body = Mlist.fold_lefti (
         fun i acc loop ->
-          if not (Internal.is_trm_loop loop) then fail loop.loc (Tools.sprintf "Loop_core.fusion_on_block_aux: cannot fuse %d loops as requested only %d where found" n (i+1))
+          if not (Internal.is_trm_loop loop) then fail loop.loc (Printf.sprintf "Loop_core.fusion_on_block_aux: cannot fuse %d loops as requested only %d where found" n (i+1))
            else
           acc @ (Mlist.to_list (for_loop_body_trms loop))
       ) [] tl in
@@ -192,7 +192,7 @@ let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : tr
   | Trm_for (index, _start, direction,_stop, _step, body) ->
     let new_body = begin match body.desc with
                    | Trm_seq tl ->
-                      let old_loop_index_val = Tools.fold_lefti (fun i acc (ind, bnd) ->
+                      let old_loop_index_val = Xlist.fold_lefti (fun i acc (ind, bnd) ->
                         if i = 0 then let acc = trm_var ind in acc
                           else trm_apps (trm_binop Binop_add) [
                             trm_apps (trm_binop Binop_mul) [
@@ -205,7 +205,7 @@ let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : tr
                    | _ -> fail body.loc "Loop_core.grid_enumerate_aux: the body of the loop should be a sequence"
                    end in
 
-    Tools.fold_lefti (fun i acc (ind, bnd) ->
+    Xlist.fold_lefti (fun i acc (ind, bnd) ->
       if i = 0 then  trm_for ind (trm_int 0) direction bnd (Post_inc) acc
         else  trm_for ind (trm_int 0) DirUp bnd Post_inc (trm_seq_nomarks [acc])
     ) new_body (List.rev indices_and_bounds)

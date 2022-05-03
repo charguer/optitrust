@@ -367,7 +367,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
        else
           let counter = ref (-1) in
           let dl = List.map (decorate_trm ~semicolon:true) tl in
-          let dl = Tools.fold_lefti (fun i acc m ->
+          let dl = Xlist.fold_lefti (fun i acc m ->
            if m <> [] then begin
              incr counter;
              let m = Tools.list_to_string ~sep:"," m in
