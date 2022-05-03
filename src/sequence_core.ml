@@ -10,7 +10,7 @@ let insert_aux (index : int) (code : trm) (t : trm) : trm =
     | Trm_seq tl ->
       let new_tl = Mlist.insert_at index code tl in
       trm_seq ~annot:t.annot ~marks:t.marks new_tl
-    | _ -> fail t.loc "Sequence.insert_aux: expected the sequence on where insertion is performed"
+    | _ -> fail t.loc "Sequence_core.insert_aux: expected the sequence on where insertion is performed"
 
 (* [insert index code t p]: apply [insert_aux] at trm [t] with path [p] *)
 let insert (index : int) (code : trm) : Target.Transfo.local =
@@ -26,26 +26,22 @@ let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
       trm_seq ~annot:t.annot ~marks:t.marks (Mlist.remove index nb_instr tl)
-    | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
+    | _ -> fail t.loc "Sequence_core.delete_aux: expected the sequence on which the trms are deleted"
 
-
+(* [delete index nb_instr t p]: apply [delete_aux] at trm [t] with path [p] *)
 let delete (index : int) (nb_instr : int) : Target.Transfo.local =
   Target.apply_on_path (delete_aux index nb_instr)
 
-
-(* [intro_aux index nb t]: inside a sequence, move all the trms with index falling in a range 
-      from [index] to [index] + [nb] into a sub-sequence.
-    params:
-      |mark]: mark to insert on the new sub-sequence
-      [label]: a label to insert on the new sub-sequence
-      [index]: index where the grouping is performed
-      [ts]: a list of ast nodes
-      [t]: ast of the outer sequence where the insertion is performed
+(* [intro_aux index nb t]: regroup instructions with indices falling in the range [index, index + nb) 
+    into a sub-sequence
+     params:
+       [mark]: mark to insert on the new sub-sequence
+       [label]: a label to insert on the new sub-sequence
+       [index]: index where the grouping is performed
+       [nb]: number of instructions to consider
+       [t]: ast of the outer sequence where the insertion is performed
     
-    Note: if both the mark and the label are given then transformation will fail
-    
-    return: the sequence with the inserted nodes *)
-
+    Note: if both the mark and the label are given then transformation will fail. *)
 let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm) : trm =
   if mark <> "" && label <> "" then fail t.loc "intro_aux: can't insert both the label and the mark at the same time";
   match t.desc with
@@ -58,61 +54,58 @@ let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm)
                           else if label <> "" then trm_labelled label intro_seq 
                           else intro_seq in
         let index = if nb < 0 then (index + nb + 1) else index in
-        (* let index = if nb < 0 then index -1 else index in *)
          trm_seq  ~annot:t.annot ~marks:t.marks (Mlist.insert_at index intro_seq tl1)
-    | _ -> fail t.loc "intro_aux: expected the sequence on which the grouping is performed"
+    | _ -> fail t.loc "Sequence_core.intro_aux: expected the sequence on which the grouping is performed"
 
-let intro (mark : string) (label : label) (index : int) (nb_instr : int) : Target.Transfo.local =
-  Target.apply_on_path (intro_aux mark label index nb_instr)
+(* [intro mark label index nb t p]: apply [intro_aux] at trm [t] with path [p] *)
+let intro (mark : string) (label : label) (index : int) (nb : int) : Target.Transfo.local =
+  Target.apply_on_path (intro_aux mark label index nb)
 
 (* [elim_aux index t]: inline an inner sequence into the outer one.
     params:
-      [t]: ast of the sequence to be removed
-    return: 
-      a hidden sequence that is going to be merged within the outer sequence on the next step *)
+      [t]: ast of the sequence to be removed  *)
 let elim_aux (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
      trm_seq_no_brace (Mlist.to_list tl)
-  | _ -> fail t.loc "elim_aux: expected the sequence to be deleteds"
+  | _ -> fail t.loc "Sequenc_core.elim_aux: expected the sequence to be deleteds"
 
+(* [elim t p]: apply [elim_aux] at trm [t] with path [p] *)
 let elim : Target.Transfo.local =
   Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence (elim_aux) ~keep_label:false "elim")
 
-(* [intro_on_instr_aux visible mark t]: replacing t with a sequence that contains t .
+(* [intro_on_instr_aux visible mark t]: surround [t] with a sequence 
    params:
     [mark]: mark to be added on the introduced sequence
-    [visible]: a flag on the visibility of the introduced sequence
-   return: 
-    the outer sequence with the wrapped trm t *)
+    [visible]: a flag on the visibility of the introduced sequence 
+    [t]: any trm *)
 let intro_on_instr_aux (mark : mark) (visible : bool) (t : trm) : trm =
   let wrapped_seq = if visible then trm_seq (Mlist.of_list [t]) else trm_seq_no_brace [t] in
   trm_add_mark mark wrapped_seq 
  
+(* [intro_on_instr visible mark t p]: apply [intro_on_instr_aux] at trm [t] with path [p] *)
 let intro_on_instr (visible : bool) (mark : mark) : Target.Transfo.local=
   Target.apply_on_path (intro_on_instr_aux mark visible)
 
-(* [unrwap_aux t]: replacing a sequence that contains a single item t with t.
+(* [unwrap_aux t]: the opposite of [intro_on_instr_aux] 
    params:
-    [t]: a term that corresponds to a sequence with a single item in t
-   return:
-      udated the ast where the trm inside the sequence has been extracted *)
+    [t]: a term that corresponds to a sequence with a single item in t *)
 let unwrap_aux (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
       if Mlist.length tl = 1 then Mlist.nth tl 0 
-        else fail t.loc "unwrap_aux: can only unwrap a sequence with exactly one item"
-    | _ -> fail t.loc "unwrap_aux: expected to operate on a sequence"
+        else fail t.loc "Sequence_core.unwrap_aux: can only unwrap a sequence with exactly one item"
+    | _ -> fail t.loc "Sequence_core.unwrap_aux: expected to operate on a sequence"
 
+(* [unwrap t p]: apply [unwrap_aux] at trm [t] with path [p] *)
 let unwrap : Target.Transfo.local =
   Target.apply_on_path (unwrap_aux)
 
-(* [split_aux index t ]: splitting a sequence in two sequences
+(* [split_aux index t ]: splitting sequence [t] into two sequences
     params:
       [index]: the location where the splitting is done 
-      [t] : a term that corresponds to the the targeted sequence
-    return:
-      a nobrace sequence containing the splitted sequence *)
+      [is_fun_body]: flag used when splitting function bodies
+      [t] : trm that corresponds to the the targeted sequence *)
 let split_aux (index : int) (is_fun_body : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
@@ -120,18 +113,17 @@ let split_aux (index : int) (is_fun_body : bool) (t : trm) : trm =
     let res = 
     trm_seq_no_brace [trm_seq first_part; trm_seq last_part] in 
     if is_fun_body then trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [res]) else res
-  | _ -> fail t.loc "split_aux: expected a sequence, containing the location where it is going to be splitted"
+  | _ -> fail t.loc "Sequence_core.split_aux: expected a sequence, containing the location where it is going to be splitted"
 
+(* [split index is_fun_body t p]: apply [split_aux] at trm [t] with path [p] *)
 let split (index : int) (is_fun_body : bool) : Target.Transfo.local =
   Target.apply_on_path (split_aux index is_fun_body)
 
-(* [partition blocks braces]: partition a sequence into a list of sequences
+(* [partition blocks braces]: partition sequence [t] into a list of sequences
     params:
-      [blocks]: a list of integers denoting the size of the partition blocks
-      [braces]: denotes a flag on the visibility of the added sequences
-      [t]: the ast of the sequence to be partitioned
-    return:
-      the partitioned sequence *)
+      [blocks]: a list of integers, where each integer denotes the size of the partition blocks
+      [braces]: flag on the visibility of the generated sequences
+      [t]: trm corresponding to a sequence *)
 let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl -> 
@@ -139,7 +131,8 @@ let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
     let blocks = if blocks = [] then [nb] else blocks in
     let sum_blocks = List.fold_left (+) 0 blocks in
     if sum_blocks <> nb 
-      then fail t.loc (Tools.sprintf "partition: the partition entered is not correct, the list length is %d, while the sum of the block size is %d" (Mlist.length tl) sum_blocks)
+      then fail t.loc (Tools.sprintf "Sequence_core.partition: the partition entered is not correct, 
+                the list length is %d, while the sum of the block size is %d" (Mlist.length tl) sum_blocks)
       else
         let current_list = ref tl in
         let partition = List.fold_left (fun acc x -> 
@@ -156,7 +149,7 @@ let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
         
         if not braces then trm_seq_no_brace ~marks:t.marks (Mlist.to_list new_tl) else trm_seq ~annot:t.annot ~marks:t.marks new_tl
         
-  | _ -> fail t.loc "partial_aux: expected a sequence to partition"
+  | _ -> fail t.loc "Sequence_core.partial_aux: expected a sequence to partition"
 
 let partition (blocks : int list) (braces : bool): Target.Transfo.local =
   Target.apply_on_path (partition_aux blocks braces)
@@ -164,31 +157,30 @@ let partition (blocks : int list) (braces : bool): Target.Transfo.local =
 (* [shiffle_aux braces t]: transpose a a list of partitioned sequences
     params:
       [braces]: denotes a flag on the visibility of the added sequences
-      [t]: the ast of the complex sequence of blocks
-    return:
-      the updated ast *)
+      [t]: the ast of the complex sequence of blocks *)
 let shuffle_aux (braces : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
-    if Mlist.length tl < 1 then fail t.loc "shuffle_aux:can't shuffle an empty mlist";
+    if Mlist.length tl < 1 then fail t.loc "Sequence_core.shuffle_aux:can't shuffle an empty mlist";
     let first_row = Mlist.nth tl 0 in
     begin match first_row.desc with 
     | Trm_seq tl1 ->
       let loop_bound = Mlist.length tl1 in
-      if loop_bound < 2 then fail t.loc "shuffle_aux: expected a row of length at least 2";
+      if loop_bound < 2 then fail t.loc "Sequence_core.shuffle_aux: expected a row of length at least 2";
       let global_acc = ref [] in
       for i = 0 to loop_bound-1 do
         let local_acc = Mlist.fold_left (fun acc t1 -> 
             begin match t1.desc with 
             | Trm_seq tl2 ->
-              if Mlist.length tl2 <> loop_bound then fail t1.loc "shuffle_aux: all the subgroups should be of the same size";
+              if Mlist.length tl2 <> loop_bound then fail t1.loc "Sequence_core.shuffle_aux: all the subgroups 
+                                                                  should be of the same size";
               let temp_el = Mlist.nth tl2 i in
               let temp_el = 
               if braces 
                 then Internal.remove_nobrace_if_sequence temp_el 
                 else Internal.set_nobrace_if_sequence temp_el in
             temp_el :: acc
-            | _ -> fail t1.loc "shuffle_aux: all the elements of the blocks should be sequences"
+            | _ -> fail t1.loc "Sequence_core.shuffle_aux: all the elements of the blocks should be sequences"
             end
             
           ) [] tl in
@@ -197,9 +189,10 @@ let shuffle_aux (braces : bool) (t : trm) : trm =
       done;
        trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list (List.rev !global_acc))
 
-    | _ -> fail first_row.loc "shuffle_aux: shuffle can be applied only on sequences"
+    | _ -> fail first_row.loc "Sequence_core.shuffle_aux: shuffle can be applied only on sequences"
     end
-  | _ -> fail t.loc "shuffle_aux: expected the sequence with blocks to reorder"
+  | _ -> fail t.loc "Sequence_core.shuffle_aux: expected the sequence with blocks to reorder"
 
+(* [shuffle braces t p]: apply [shuffle_aux] at trm [t] with path [p] *)
 let shuffle (braces : bool) : Target.Transfo.local = 
   Target.apply_on_path (shuffle_aux braces) 

@@ -32,7 +32,7 @@ let intro ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int 
          end
 
 
-(* [intro_targets tg] expects the target [tg] to be pointing at one or more consecutive instuctions
+(* [intro_targets tg]: expects the target [tg] to point at one or more consecutive instuctions
       then it will introduce a sequence that contains those instructions. *)
 let intro_targets ?(mark : string = "")(tg : Target.target) : unit =
   let nb_targets = ref 0 in
@@ -52,7 +52,7 @@ let intro_targets ?(mark : string = "")(tg : Target.target) : unit =
   Sequence_basic.intro ~mark !nb_targets first_target
 
 
-(* [apply ~start ~stop ~nb f] invokes [f mark] where the [mark] is attached to a temporary sequence created
+(* [apply ~start ~stop ~nb f]: invokes [f mark] where the [mark] is attached to a temporary sequence created
    by [Sequence.intro ~start ~stop ~nb]. This sequence is eliminated immediately afterwards. *)
 let apply ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int = 0) (f : mark -> unit) : unit =
   let mark = Mark.next () in
