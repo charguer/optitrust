@@ -116,7 +116,7 @@ val cTarget : constr list -> constr
 
 val cInclude : string -> constr
 
-val cWriteVar : ?regexp:bool -> ?substr:bool -> ?trmkind:trm_kind -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
+val cWriteVar : ?regexp:bool -> ?substr:bool -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
 
 val cReadVar : string -> constr
 
@@ -202,7 +202,7 @@ val cEnum : ?name:string -> ?substr:bool -> ?constants:((string * target) list) 
 
 val cSeq : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
 
-val cVar : ?regexp:bool -> ?substr:bool -> ?trmkind:trm_kind -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
+val cVar : ?regexp:bool -> ?substr:bool -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
 
 val cVarReg : string -> constr
 
