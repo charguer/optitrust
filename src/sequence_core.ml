@@ -1,34 +1,27 @@
 open Ast
-(* *********************************************************************************** 
- * Note: All the intermediate functions which are called from [sequence.ml] file      *
- * have only one purpose, and that is targeting the trm in which we want to apply the *
- * transformation. That's why there is not need to document them.                     *
- *)
 
-(* [insert_aux index ts t]: insert a trm [code] at index [index]
+(* [insert_aux index code t]: insert trm [code] at index [index] in sequence [t]
     params:
-      [index]: a valied [index] where the instruction can be added
-      [code]: instruction that is going to be added at [index] on the sequence [t]
-      [t]: ast of the outer sequence where the insertion will be performed.
-    return: 
-      the sequence with the augmented new trm *)
+      [index]: a valid index where the instruction can be added
+      [code]: instruction to be added as an arbitrary trm
+      [t]: ast of the outer sequence where the insertion will be performed *)
 let insert_aux (index : int) (code : trm) (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
       let new_tl = Mlist.insert_at index code tl in
       trm_seq ~annot:t.annot ~marks:t.marks new_tl
-    | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
+    | _ -> fail t.loc "Sequence.insert_aux: expected the sequence on where insertion is performed"
 
+(* [insert index code t p]: apply [insert_aux] at trm [t] with path [p] *)
 let insert (index : int) (code : trm) : Target.Transfo.local =
   Target.apply_on_path (insert_aux index code)
 
 (* [delete_aux index nb_instr t]: delete a number of instructions inside the sequence starting 
-      from index [index] and ending at ([index] + [nb])
+      from [index] and ending at ([index] + [nb])
     params:
+      [index]: starting index
       [nb]: number of instructions to delete
-      [t]: ast of the outer sequence where the deletion is performed.
-    return: 
-      the sequence woithout the deleted instructions *)
+      [t]: ast of the outer sequence where the deletion is performed *)
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->

@@ -108,7 +108,7 @@ let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : Target.target)
         Mark the instruction that contains the function call as "__inline_instruction"
 
       Step 2:
-        Bind [resname] variable to the function the call, if [resname] was not provided by the user then "__TEMP_Optitrust" is going to be
+        Bind [resname] variable to the function call, if [resname] was not provided by the user then "__TEMP_Optitrust" is going to be
         used as a temporary variable.
 
       Step 3:
@@ -124,7 +124,7 @@ let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : Target.target)
 
       Step 6:
         Function arguments are encoded as const variables and that's different from the encodings of declared variables.
-        This introduces wrong struct and array access. To fix this [Accesses.intro]  with target being the marked boyd genereated
+        This introduces wrong struct and array accesses. To fix this [Accesses.intro] with target being the marked body genereated
         from [Step 5] is called.
 
       Step 7:
@@ -294,8 +294,8 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
     if delete then Instr.delete [Target.cTopFunDef !function_name]
     )
 
-(* [beta ~indepth tg]: exepcts the target [tg] to be pointing at a function call or function declaration whose
-     parent is a function call. If its the first case then it will just call Function_basic.beta.
+(* [beta ~indepth tg]: expects the target [tg] to be pointing at a function call or a function declaration whose
+     parent trm is a function call. If its the first case then it will just call Function_basic.beta.
      If its the second case then this transformation will just redirect the target to the parent function call
      and then call Function_basic.beta.
      [indepth]: if true it will apply the beta reduction to all the descendants of [tg].

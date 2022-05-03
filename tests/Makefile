@@ -32,6 +32,7 @@ check:
 	$(MAKE) -C combi batch_check
 	$(MAKE) -C target batch_check
 	$(MAKE) -C ast batch_check
+	$(MAKE) -C ../demo pic_demo.chk
 
 clean:
 	$(MAKE) -C basic clean
