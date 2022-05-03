@@ -130,14 +130,14 @@ let dElse : constr =
 let dBody : constr =
   Constr_dir Dir_body
 
-let dForStart : constr = 
+let dForStart : constr =
   Constr_dir Dir_for_start
 
-let dForStop : constr = 
-  Constr_dir Dir_for_stop 
+let dForStop : constr =
+  Constr_dir Dir_for_stop
 
-let dForStep : constr = 
-  Constr_dir Dir_for_step 
+let dForStep : constr =
+  Constr_dir Dir_for_step
 
 let dForCInit : constr =
     Constr_dir Dir_for_c_init
@@ -250,15 +250,15 @@ let cHasType (typ : string) : constr =
   cHasTypePred (make_typ_constraint ~typ ())
 
 let with_type ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (tg : target) : target =
-  if typ = "" && typ_pred == typ_constraint_default 
+  if typ = "" && typ_pred == typ_constraint_default
     then tg
-    else begin 
-      if typ <> "" && typ_pred == typ_constraint_default 
+    else begin
+      if typ <> "" && typ_pred == typ_constraint_default
         then [cAnd [tg; [cHasType typ] ]]
-      else if typ = "" && not (typ_pred == typ_constraint_default) 
-        
-        then [cAnd [tg; [cHasTypePred typ_pred]]] 
-      else 
+      else if typ = "" && not (typ_pred == typ_constraint_default)
+
+        then [cAnd [tg; [cHasTypePred typ_pred]]]
+      else
         fail None "with_type: type targets should be used with the type or a predicated on the type but not both at the same time"
     end
 
@@ -276,11 +276,11 @@ let cVarDef
   Constr_decl_var (ty_pred, ro, body)
 
 
-let cVarDefs (vars : vars) : constr = 
+let cVarDefs (vars : vars) : constr =
   let vardefs = List.map (fun v -> [cVarDef v]) vars in
   cOr vardefs
 
-let cVarDefReg (reg : string) : constr = 
+let cVarDefReg (reg : string) : constr =
   cVarDef ~regexp:true reg
 
 let cFor ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
@@ -388,15 +388,15 @@ let cTopFunDefAndDecl
   cOr [[topfund true ]; [topfund false]]
 
 (* toplevel fun definitions and declarations using regular expressions *)
-let cTopFunDefAndDeclReg (reg : string) : constr = 
+let cTopFunDefAndDeclReg (reg : string) : constr =
   cTopFunDefAndDecl ~regexp:true reg
 
 (* target multiple toplevel function declarations at the same time *)
-let cTopFunDefs (names : var list) : constr = 
+let cTopFunDefs (names : var list) : constr =
   cOr (List.map (fun name -> [cTopFunDef name]) names)
 
 (* target all toplevel declarations that can be match with the regular expression [reg]*)
-let cTopFunDefReg (reg : string) : constr = 
+let cTopFunDefReg (reg : string) : constr =
   cTopFunDef ~regexp:true reg
 
 
@@ -438,7 +438,7 @@ let cVar ?(regexp : bool = false) ?(substr : bool = false) ?(trmkind : trm_kind 
   if typ = "" && typ_pred == typ_constraint_default then c else (* this line is just an optimization *)
   Constr_target (with_type ~typ ~typ_pred [c])
 
-let cVarReg (reg : string) : constr = 
+let cVarReg (reg : string) : constr =
   cVar ~regexp:true reg
 
 (* [cLitPred pred_l] matches all the literals that statisfy the predicate [pred_l] *)
@@ -516,7 +516,7 @@ let cFun ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_p
 
 (* [cFuns funs] matches a list of function calls [whose name can be found in [funs]] *)
 let cFuns (funs : var list) : constr =
-  let funcalls = List.map (fun f -> [cFun f]) funs in 
+  let funcalls = List.map (fun f -> [cFun f]) funs in
   cOr funcalls
 
 (* [cPrimPred f_pred] matches all primitives which satisfy the predicated [f_pred]*)
@@ -546,7 +546,7 @@ let cPrimNew ?(arg : target = []) () : constr =
   cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false)
 
 (* [cInit] matches a variable initialization value *)
-(* let cInit : constr = 
+(* let cInit : constr =
   cTarget [cStrictNew; Constr_var_init] *)
 
 let cInit ?(arg:target = []) () : constr =
@@ -656,8 +656,8 @@ let cMalloc ?(d : int option = None) () : constr =
   cFun ~regexp:true ("MALLOC" ^ d)
 
 (* [cMindex d]  matches all calls to Optitrust MINDEXI where I = d*)
-let cMindex ?(d : int  = 0) () : constr = 
-  let d = if d <> 0 then string_of_int d else "." in 
+let cMindex ?(d : int  = 0) () : constr =
+  let d = if d <> 0 then string_of_int d else "." in
   cFun ~regexp:true ("MINDEX"^d)
 
 
@@ -805,6 +805,10 @@ let resolve_target = Constr.resolve_target
 let resolve_target_between = Constr.resolve_target_between
 *)
 
+(* [Target.check tg] can be used as a debugging step. *)
+let check (tg : target) : unit =
+  Trace.call (fun t -> ignore (resolve_target tg t))
+
 (* [filter_constr_occurrence tg] *)
 let filter_constr_occurrence (tg : target) : target =
   List.filter (function Constr_occurrences _ -> false | _ -> true ) tg
@@ -818,11 +822,11 @@ let enable_multi_targets (tg : target) : target =
       else nbMulti::tg
 
 
-(* [relative_target tg] if tg is not a relative target, then this function will convert it 
+(* [relative_target tg] if tg is not a relative target, then this function will convert it
      to a relative one by adding a tBefore in front of tg *)
-let relative_target (tg : target) : target = 
-  if List.exists (function Constr_relative _ -> true | _ -> false) tg 
-    then tg 
+let relative_target (tg : target) : target =
+  if List.exists (function Constr_relative _ -> true | _ -> false) tg
+    then tg
     else tBefore :: tg
 
 
@@ -1184,7 +1188,7 @@ let applyi_on_targets_between (tr : int -> trm -> path * int -> trm) (tg : targe
 *)
 let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
   (* TRICK: If tg is not a relative target then the following line makes it relative, this is used only for OpenMP pragmas *)
-  let tg = relative_target tg in 
+  let tg = relative_target tg in
   applyi_on_targets_between (fun _i t pk -> tr t pk) tg
 
 
@@ -1265,7 +1269,7 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
 
 (* TODO: Fix me *)
 (* [show_type ~line ~reparse tg] an alias for show with the argument [types] set to true *)
-let show_type ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit = 
+let show_type ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
   show ~line ~reparse ~types:true tg
 
 
