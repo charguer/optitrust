@@ -227,9 +227,7 @@ let app_to_nth (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =
   try
     match List.nth_opt l n with
     | None ->
-       fail loc
-         ("app_to_nth: not enough elements (>= " ^ (string_of_int (n + 1)) ^
-            " expected)")
+       fail loc ("Path.app_to_nth: not enough elements (>= " ^ (string_of_int (n + 1)) ^ " expected)")
         (* LATER: report a better error message when using dArg 1 on a function with only 1 argument, for example *)
     | Some a -> cont a
   with
@@ -484,12 +482,12 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
                   begin match t_o with
                   | None ->
                      fail loc
-                       "resolve_path_and_ctx: no value for enum constant"
+                       "Path.resolve_path_and_ctx: no value for enum constant"
                   | Some t ->
                      aux t ctx
                   end
              )
-          | _ -> fail loc ("resolving_path: direction")
+          | _ -> fail loc "Path.resolving_path: direction"
           end
 
        | _, _ ->
