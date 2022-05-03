@@ -723,14 +723,6 @@ const int PRIVATE = 0;
 const int SHARED = 1;
 
 void step() {
-  const double factorC =
-      particleCharge * (stepDuration * stepDuration) / particleMass;
-  const double factorX =
-      particleCharge * (stepDuration * stepDuration) / particleMass / cellX;
-  const double factorY =
-      particleCharge * (stepDuration * stepDuration) / particleMass / cellY;
-  const double factorZ =
-      particleCharge * (stepDuration * stepDuration) / particleMass / cellZ;
 #pragma omp parallel for
   for (int idCell = 0; idCell < nbCells; idCell++) {
     for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
@@ -757,11 +749,17 @@ core:
                     vect_nbCorners field_at_corners;
                     for (int idCorner = 0; idCorner < nbCorners; idCorner++) {
                       field_at_corners.v[idCorner].x =
-                          field[indices.v[idCorner]].x * factorX;
+                          field[indices.v[idCorner]].x *
+                          (particleCharge * stepDuration * stepDuration /
+                           particleMass / cellX);
                       field_at_corners.v[idCorner].y =
-                          field[indices.v[idCorner]].y * factorY;
+                          field[indices.v[idCorner]].y *
+                          (particleCharge * stepDuration * stepDuration /
+                           particleMass / cellY);
                       field_at_corners.v[idCorner].z =
-                          field[indices.v[idCorner]].z * factorZ;
+                          field[indices.v[idCorner]].z *
+                          (particleCharge * stepDuration * stepDuration /
+                           particleMass / cellZ);
                     }
                     bag* b = &bagsCur[idCell];
                     for (chunk* c = b->front; c != NULL;
