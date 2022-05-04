@@ -1,21 +1,12 @@
 open Ast
 open Target
 
-(* *********************************************************************************** 
- * Note: All the intermediate functions which are called from [sequence.ml] file      *
- * have only one purpose, and that is targeting the trm in which we want to apply the *
- * transformation. That's why it's not needed to document them.                     *
- *)
-
-(* [fold_aux as_reference fold_at]: replace all the occurrences of the typedef underlying type
-      with the defined type
-    params:
-      [fold_at]: targets where fold_lefting should be performed, if left empty then fold_lefting 
-        on all the nodes of the same sequence t belongs to.
-      [t]: ast of the typedef declaration
-    return:
-      the updated ast with the folded type declared at [t]
-*)
+(* [fold_aux fold_at index]: replaces occurrences of the typedef underlying type with the defined type.
+     params:
+       [fold_at]: targets where folding should be performed, if left empty then folding is applied recursively
+                 on all the trms that belong to the same sequence as typedef
+       [index]: index of the typedef on its surrounding sequence
+       [t]: ast of the sequence that contains the targeted typedef *)
 let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
@@ -29,28 +20,23 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
         let new_tl = Mlist.merge lfront lback in
         let new_tl = Mlist.insert_at index d new_tl in
         trm_seq ~annot:t.annot ~marks:t.marks new_tl
-       | _ -> fail t.loc "fold_decl: expected a typedef"
+       | _ -> fail t.loc "Typedef_core.fold_decl: expected a typedef"
        end
-     | _ -> fail t.loc "fold_decl: expected a type definition"
+     | _ -> fail t.loc "Typedef_core.fold_decl: expected a type definition"
      end
+  | _ -> fail t.loc "Typedef_core.fold_aux: expected the surrounding sequence"
 
-
-  | _ -> fail t.loc "fold_aux: expected the surrounding sequence"
-
+(* [fold fold_at index t p]: applies [fold_aux] at trm [t] with path [p] *)
 let fold (fold_at : target) (index) : Target.Transfo.local =
   Target.apply_on_path(fold_aux fold_at index)
 
 
-(* [unfold_aux unfold_at]: replace all the occurrences of the defined type with
-        its underlying type
+(* [unfold_aux unfold_at]: replace occurrences of the defined type with its underlying type
     params:
       [delete]: a flag for deciding if we should delete or not the typedef declaration
-      [unfold_at]: targets where inlining should be performed, if empty inlining is applied
-        on all the ast nodes in the same level as the typedef declaration
-      [t]: ast subterm
-    return:
-      updated ast with the typedef occurrences unfolded
-*)
+      [unfold_at]: targets where unfolding should be performed, if empty unfolding is applied
+                   on all the trms that are with in the same level as the targeted typedef 
+      [t]: ast of the sequence that contains the targeted typedef *)
 let unfold_aux (delete : bool) (unfold_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -66,31 +52,29 @@ let unfold_aux (delete : bool) (unfold_at : target) (index : int) (t : trm) : tr
       if delete then tl else Mlist.insert_at index dl tl
       in
       trm_seq ~annot:t.annot ~marks:t.marks new_tl
-     | _ -> fail t.loc "unfold_aux: expected a typdef_alias"
+     | _ -> fail t.loc "Typedef_core.unfold_aux: expected a typdef_alias"
      end
-    | _ -> fail t.loc "unfold_aux: expected a typedef declaration"
+    | _ -> fail t.loc "Typedef_core.unfold_aux: expected a typedef declaration"
     end
-  | _ -> fail t.loc "unfold_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "Typedef_core.unfold_aux: expected the surrounding sequence"
 
 
+(* [unfold delete unfold_at index]: applies [unfold] at trm [t] with path [p] *)
 let unfold (delete : bool) (unfold_at : target) (index : int) : Target.Transfo.local =
   Target.apply_on_path (unfold_aux delete unfold_at index)
 
-(* [insert_copy_aux name index t]: create a copy of a typedef with a new name
+(* [insert_copy_aux name index t]: creates a copy of the targeted typedef
     params:
       [name]: new typ name
-      [t]: ast of the surrounding sequence of the original declaration
-    return:
-      the updated sequence with the newly inserted typedef with the smae structure ast the one
-          at index [index] but name [name]
-*)
+      [t]: ast of the surrounding sequence of the targeted typedef *)
 let insert_copy_aux (name : string) (t : trm) : trm =
   match t.desc with 
   | Trm_typedef td ->
     let td_copy = trm_typedef {td with typdef_tconstr = name} in
     trm_seq_no_brace [t; td_copy]
-  | _ -> fail t.loc "insert_copy_aux: expected a typedef declaration" 
+  | _ -> fail t.loc "Typedef_core.insert_copy_aux: expected a typedef declaration" 
 
+(* [insert_copy name t p]: applies [insert_copy_aux] at trm [t] with path [p] *)
 let insert_copy (name : string) : Target.Transfo.local =
   Target.apply_on_path (insert_copy_aux name )
 
@@ -98,10 +82,7 @@ let insert_copy (name : string) : Target.Transfo.local =
     params:
       [name]: new type name
       [td_body]: body of the new type definition
-      [index]: location where the typedef should be inserted inside a sequence
-    return:
-      updated surrounding sequence with added typedef definition
-*)
+      [index]: location where the typedef should be inserted inside a sequence *)
 let insert_aux (name : string) (td_body : typdef_body) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
@@ -109,10 +90,8 @@ let insert_aux (name : string) (td_body : typdef_body) (index : int) (t : trm) :
      let trm_to_insert = trm_typedef {typdef_typid = tid; typdef_tconstr = name; typdef_body = td_body;typdef_vars = [];typdef_loc = None} in
      let new_tl = Mlist.insert_at index trm_to_insert tl in
      trm_seq ~annot:t.annot ~marks:t.marks new_tl
-  | _ -> fail t.loc "insert_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "Typedef_core.insert_aux: expected the surrounding sequence"
 
+(* [|insert_name td_body index]: applies [insert_aux] at trm [t] with path [p] *)
 let insert (name : string) (td_body : typdef_body) (index : int) : Target.Transfo.local =
   Target.apply_on_path (insert_aux name td_body index)
-
-
-
