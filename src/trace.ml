@@ -1,7 +1,7 @@
 open Ast
 
 
-(* [line_of_last_step]: store the line number from the source script at which a step
+(* [line_of_last_step]: stores the line number from the source script at which a step
     ('!!' or '!^') was last processed. *)
 let line_of_last_step = ref (-1)
 
@@ -40,12 +40,12 @@ let init_logs directory prefix =
   logs := timing_log :: clog :: [];
   clog
 
-(* [write_log clog msg] writes the string [msg] to the channel [clog]. *)
+(* [write_log clog msg]: writes the string [msg] to the channel [clog]. *)
 let write_log (clog : out_channel) (msg : string) : unit =
   output_string clog msg;
   flush clog
 
-(* [trm_to_log clog styp t] writes in the channel [clog] the term [t],
+(* [trm_to_log clog styp t]: writes in the channel [clog] the term [t],
    and its typing information described by the string [styp]. *)
 let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
   let sloc =
@@ -61,15 +61,15 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
 (*                             Timing logs                                    *)
 (******************************************************************************)
 
-(* [write_timing_log msg] writes a message in the timing log file. *)
+(* [write_timing_log msg]: writes a message in the timing log file. *)
 let write_timing_log (msg : string) : unit =
   let timing_log = match !timing_log_handle with
     | Some log -> log
-    | None -> failwith "uninitialized timing log"
+    | None -> failwith "Trace.uninitialized timing log"
    in
    write_log timing_log msg
 
-(* [measure_time f] returns a pair made of the result of [f()] and
+(* [measure_time f]: returns a pair made of the result of [f()] and
    of the number of milliseconds taken by that call. *)
 let measure_time (f : unit -> 'a) : 'a * int =
   let t0 = Unix.gettimeofday () in
@@ -77,11 +77,11 @@ let measure_time (f : unit -> 'a) : 'a * int =
   let t1 = Unix.gettimeofday () in
   res, (Tools.milliseconds_between t0 t1)
 
-(* [timing_nesting] records the current level of nesting of calls to the
+(* [timing_nesting]: records the current level of nesting of calls to the
    [timing] function. It is used for printing tabulations in the reports. *)
 let timing_nesting : int ref = ref 0
 
-(* [timing ~name f] writes the execution time of [f] in the timing log file *)
+(* [timing ~name f]: writes the execution time of [f] in the timing log file *)
 let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
   if !Flags.analyse_time && cond then begin
     incr timing_nesting;
@@ -94,17 +94,17 @@ let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
     f()
   end
 
-(* [time name f] is a shorthand for [timing ~cond:!Flags.analyse_time_details ~name] *)
+(* [time name f]: is a shorthand for [timing ~cond:!Flags.analyse_time_details ~name] *)
 let time (name : string) (f : unit -> 'a) : 'a =
   timing ~cond:!Flags.analyse_time_details ~name f
 
-(* [start_time] stores the date at which the script execution started (before parsing). *)
+(* [start_time]: stores the date at which the script execution started (before parsing). *)
 let start_time = ref (0.)
 
-(* [last_time] stores the date at which the execution of the current step started. *)
+(* [last_time]: stores the date at which the execution of the current step started. *)
 let last_time = ref (0.)
 
-(* [last_time_update()] updates [last_time] and returns the delay
+(* [last_time_update()]: updates [last_time] and returns the delay
    since last call -- LATER: find a better name *)
 let last_time_update () : int =
   let t0 = !last_time in
@@ -112,7 +112,7 @@ let last_time_update () : int =
   last_time := t;
   Tools.milliseconds_between t0 t
 
-(* [report_time_of_step()] reports the total duration of the last step.
+(* [report_time_of_step()]: reports the total duration of the last step.
    As bonus, reports the number of steps in target resolution *)
 let report_time_of_step (timing : int) : unit =
   if !Flags.analyse_time then begin
@@ -120,12 +120,12 @@ let report_time_of_step (timing : int) : unit =
     write_timing_log (Printf.sprintf "     TARGETS: %d nodes visited for target resolution\n" (Constr.resolve_target_steps()));
   end
 
-(* [report_full_time ()] reports the time for the last step, and
+(* [report_full_time ()]: reports the time for the last step, and
    for the full total. *)
 let report_full_time () : unit =
   write_timing_log (Printf.sprintf "------------------------TOTAL TRANSFO TIME: %.3f s\n" (!last_time -. !start_time))
 
-(* [id_big_step] traces the number of big steps executed. This reference is used only
+(* [id_big_step]: traces the number of big steps executed. This reference is used only
    when executing a script from the command line, because in this case the line numbers
    from the source script are not provided on calls to the [step] function. *)
 let id_big_step = ref 0
@@ -135,7 +135,7 @@ let id_big_step = ref 0
 (*                             File input                                     *)
 (******************************************************************************)
 
-(* [get_cpp_includes filename] get list of file includes syntactically visible
+(* [get_cpp_includes filename]: gets the list of file includes syntactically visible
    on the first lines of a CPP file -- this implementation is quite restrictive. *)
 let get_cpp_includes (filename : string) : string =
   (* make sure the include list is clean *)
@@ -151,7 +151,7 @@ let get_cpp_includes (filename : string) : string =
   with
   | End_of_file -> close_in c_in; !includes
 
-(* [parse filename] returns (1) a list of filenames corresponding to the '#include',
+(* [parse filename]: returns (1) a list of filenames corresponding to the '#include',
    and the OptiTrust AST. *)
 let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
   let parser = Parsers.get_selected ~parser () in
@@ -184,7 +184,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
              (* LATER: we could add a prefix based on the filename, but this is only for debug *)
              Xfile.put_contents "ast_clang.cpp" strAstClang;
              Xfile.put_contents "ast_menhir.cpp" strAstMenhir;
-            fail None "parse: [-cparser all] option detected discrepencies;\n meld ast_clang.cpp ast_menhir.cpp";
+            fail None "Trace.parse: [-cparser all] option detected discrepencies;\n meld ast_clang.cpp ast_menhir.cpp";
            end else
            (* If the two ast match, we can use any one of them (only locations might differ); let's use the one from the default parser. *)
              if Parsers.default_cparser = Parsers.Clang then rawAstClang else rawAtMenhir
@@ -205,7 +205,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
 (*                             Trace management                               *)
 (******************************************************************************)
 
-(* A context contains general information about:
+(* [context]: contains general information about:
    - the source code that was loaded initially using [set_init_file],
    - the prefix of the filenames in which to output the final result using [dump]
    - the log file to report on the transformation performed. *)
@@ -216,6 +216,7 @@ type context =
     includes : string;
     clog : out_channel; }
 
+(* [contex_dummy]: used for [trace_dummy] *)
 let context_dummy : context =
   { extension = ".cpp";
     directory = "";
@@ -223,17 +224,18 @@ let context_dummy : context =
     includes = "";
     clog = stdout; }
 
+(* [stepdescr]: description of a script step *)
 type stepdescr = {
   mutable isbigstep : string option; (* if the step is the beginning of a big step,
                                         then the value is [Some descr] *)
   mutable script : string; (* excerpt from the transformation script, or "" *)
   mutable exectime : int; } (* number of milliseconds, -1 if unknown *)
 
-(* [stepdescr_for_interactive_step] is a dummy stepdescr used for interactive steps such as [show] *)
+(* [stepdescr_for_interactive_step]: dummy stepdescr used for interactive steps such as [show] *)
 let stepdescr_for_interactive_step =
   { isbigstep = None; script = ""; exectime = 0; }
 
-(* A trace is made of a context, a current AST, and a list of ASTs that were
+(* [trace]: a record made of a context, a current AST, and a list of ASTs that were
    saved as "interesting intermediate steps", via the [Trace.save] function.
    Any call to the [step] function adds a copy of [cur_ast] into [history]. *)
 type trace = {
@@ -242,9 +244,11 @@ type trace = {
   mutable history : trms;
   mutable stepdescrs : stepdescr list } (* same length as the history field *)
 
+(* [trm_dummy]: dummy trm *)
 let trm_dummy : trm =
   trm_val (Val_lit Lit_unit)
 
+(* [trace_dummy]: an initial trace made of dummy context and dummy trm *)
 let trace_dummy : trace =
   { context = context_dummy;
     cur_ast = trm_dummy; (* dummy *)
@@ -253,33 +257,34 @@ let trace_dummy : trace =
       (* LATER: could improve the storage of bigsteps *)
     }
 
-(* [traces] denotes the internal state of Optitrust. It consists of a list of traces,
+(* [traces]: denotes the internal state of Optitrust. It consists of a list of traces,
    because Optitrust supports a [switch] command that allows branching in the
    transformation script, thus producing several possible traces. *)
 type traces = trace list
 
+(* [traces]: list of traces *)
 let traces : traces ref =
   ref [trace_dummy]
 
 
-(* [is_traces_dummy()] returns whether the trace was never initialized. *)
+(* [is_traces_dummy()]: returns whether the trace was never initialized. *)
 let is_traces_dummy () : bool =
   match !traces with
   | [tr] -> (tr == trace_dummy)
   | _ -> false
 
-(* [reset()] restores the global state (object [traces]) in its uninitialized state,
+(* [reset()]: restores the global state (object [traces]) in its uninitialized state,
    like at the start of the program. This operation is automatically called by [Trace.init]. *)
 let reset () : unit =
   close_logs();
   traces := [trace_dummy]
 
-(* [ml_file_excerpts] maps line numbers to the corresponding sections in-between [!!] marks in
+(* [ml_file_excerpts]: maps line numbers to the corresponding sections in-between [!!] marks in
    the source file. Line numbers are counted from 1 in that map. *)
 module Int_map = Map.Make(Int)
 let ml_file_excerpts = ref Int_map.empty
 
-(* [compute_ml_file_excerpts lines] is a function for grouping lines according to the [!!] symbols. *)
+(* [compute_ml_file_excerpts lines]: is a function for grouping lines according to the [!!] symbols. *)
 let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   let r = ref Int_map.empty in
   let start = ref 0 in
@@ -308,7 +313,14 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   push();
   !r
 
-let get_initial_ast ?(parser : Parsers.cparser = Parsers.Default) (ser_mode : Flags.serialized_mode) (ser_file : string) (filename : string) : (string * trm) =
+(* [get_initial_ast ~parser ser_mode ser_file filename]: get the initial ast before applying any trasfnrmations
+     [parser] - choose which parser to use for parsing the source code
+     [ser_mode] - serialization mode 
+     [ser_file] - if serialization is used for the initial ast, the filename of the serialized version 
+                  of the source code is needed
+     [filename] - filename of the source code  *)
+let get_initial_ast ?(parser : Parsers.cparser = Parsers.Default) (ser_mode : Flags.serialized_mode) (ser_file : string)
+  (filename : string) : (string * trm) =
   (* LATER if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
   let includes = get_cpp_includes filename in
   let ser_file_exists = Sys.file_exists ser_file in
@@ -318,9 +330,9 @@ let get_initial_ast ?(parser : Parsers.cparser = Parsers.Default) (ser_mode : Fl
    || ser_mode = Serialized_Make
    || auto_use_ser) then begin
     if not ser_file_exists
-      then fail None "get_initial_ast: please generate a serialized file first";
+      then fail None "Trace.get_initial_ast: please generate a serialized file first";
     if not ser_file_more_recent
-      then fail None (Printf.sprintf "get_initial_ast: serialized file is out of date with respect to %s\n" filename);
+      then fail None (Printf.sprintf "Trace.get_initial_ast: serialized file is out of date with respect to %s\n" filename);
     let ast = unserialize_from_file ser_file in
     if auto_use_ser
       then Printf.printf "Loaded ast from %s.\n" ser_file;
@@ -329,7 +341,8 @@ let get_initial_ast ?(parser : Parsers.cparser = Parsers.Default) (ser_mode : Fl
   else
     parse ~parser filename
 
-(* [get_excerpt line] returns the piece of transformation script that starts on the given line. Currently returns the "" in case [compute_ml_file_excerpts] was never called. LATER: make it fail in that case. *)
+(* [get_excerpt line]: returns the piece of transformation script that starts on the given line. Currently returns the "" 
+    in case [compute_ml_file_excerpts] was never called. LATER: make it fail in that case. *)
 let get_excerpt (line : int) : string =
   if line = - 1 then failwith "get_excerpt: requires a valid line number";
   if !ml_file_excerpts = Int_map.empty then "" else begin (* should "" be failure? *)
@@ -338,7 +351,7 @@ let get_excerpt (line : int) : string =
     | None -> (*LATER: failwith? *) Printf.sprintf "<unable to retrieve line %d from script>" line
   end
 
-(* [init f] initialize the trace with the contents of the file [f].
+(* [init f]: initializes the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
    The history is initialized with the initial AST.
    [~prefix:"foo"] allows to use a custom prefix for all output files,
@@ -382,12 +395,12 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (
     then exit 0;
   print_info None "Starting script execution...\n"
 
-(* [finalize()] should be called at the end of the script, to properly close the log files
+(* [finalize()]: should be called at the end of the script, to properly close the log files
     created by the call to [init]. *)
 let finalize () : unit =
   close_logs()
 
-(* [alternative f] executes the script [f] in the original state that
+(* [alternative f]: executes the script [f] in the original state that
    was available just after the call to [init].
    After the call, all the actions performed are discarded.
 
@@ -401,12 +414,12 @@ let finalize () : unit =
 let alternative (f : unit->unit) : unit =
   let saved_traces = !traces in
   let trace = match !traces with
-    | [] -> fail None "alternative: the trace is empty"
+    | [] -> fail None "Trace.alternative: the trace is empty"
     | [trace] -> trace
-    | _ -> fail None "alternative: incompatible with the use of switch"
+    | _ -> fail None "Trace.alternative: incompatible with the use of switch"
     in
   if trace.history = [] || trace.stepdescrs = []
-    then fail None "alternative: the history is empty";
+    then fail None "Trace.alternative: the history is empty";
   let _,init_ast = Xlist.unlast trace.history in
   let _,init_stepdescr = Xlist.unlast trace.stepdescrs in
   let init_trace = { trace with
@@ -417,7 +430,7 @@ let alternative (f : unit->unit) : unit =
   f();
   traces := saved_traces
 
-(* [switch cases] allows to introduce a branching point in a script.
+(* [switch cases]: allows to introduce a branching point in a script.
    The [cases] argument gives a list of possible continuations (branches).
    Each of the branches can terminate with a [dump] operation to produce
    its output in a specific file. Alternatively, there could be further
@@ -472,10 +485,10 @@ let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
   in
   traces := List.flatten (List.rev list_of_traces)
 
-(* For dynamic checks: keep track of the number of nested calls to [Trace.call] *)
+(* [call_depth]: for dynamic checks, keep track of the number of nested calls to [Trace.call] *)
 let call_depth = ref 0
 
-(* [apply f] applies the transformation [f] to the current AST,
+(* [apply f]: applies the transformation [f] to the current AST,
    and updates the current ast with the result of that transformation.
    If there are several active trace (e.g., after a [switch]),
    then [f] is applied to each of the traces. During the execution of [f]
@@ -494,7 +507,7 @@ let apply (f : trm -> trm) : unit =
   traces := cur_traces; (* restoring the original view on all traces *)
   decr call_depth
 
-(* [call f] is similar to [apply] except that it applies to a function [f]
+(* [call f]: is similar to [apply] except that it applies to a function [f]
    with unit return type: [f] is meant to update the [cur_ast] by itself
    through calls to [apply].
    If there are several active trace (e.g., after a [switch]),
@@ -514,7 +527,7 @@ let call (f : trm -> unit) : unit =
   traces := cur_traces; (* restoring the original view on all traces *)
   decr call_depth
 
-(* [nextstep_isbigstep] is a reference that stores a [Some descr]
+(* [nextstep_isbigstep]: is a reference that stores a [Some descr]
    when the function [bigstep] is called. This reference is reset
    to [None] after the [step] function is called. It is initialized
    to false, for proper reporting in scripts that don't start with
@@ -522,13 +535,13 @@ let call (f : trm -> unit) : unit =
 let nextstep_isbigstep : (string option) ref =
   ref (Some "Start of the script")
 
-(* [bigstep s] announces that the next step is a bigstep, and registers
+(* [bigstep s]: announces that the next step is a bigstep, and registers
    a string description for that step. *)
 (* LATER: add the line argument *)
 let bigstep (s : string) : unit =
   nextstep_isbigstep := Some s
 
-(* [step()] takes the current AST and adds it to the history.
+(* [step()]: takes the current AST and adds it to the history.
    If there are several traces, it does so in every branch. *)
 let step (stepdescr : stepdescr) : unit =
   (* LATER: recording the step_descr as done here does not
@@ -538,13 +551,13 @@ let step (stepdescr : stepdescr) : unit =
     trace.stepdescrs <- stepdescr::trace.stepdescrs)
     !traces
 
-(* [check_recover_original()] checks that the AST obtained so far
+(* [check_recover_original()]: checks that the AST obtained so far
    is identical to the input AST, obtained from parsing. If not,
    it raises an error. *)
 let check_recover_original () : unit =
   let check_same ast1 ast2 =
     if AstC_to_c.ast_to_string ast1 <> AstC_to_c.ast_to_string ast2
-      then fail None "check_recover_original: the current AST is not identical to the original one."
+      then fail None "Trace.check_recover_original: the current AST is not identical to the original one."
       else () (* FOR DEBUG: Printf.printf "check_recover_original: successful" *)
     in
   let check_trace trace =
@@ -559,12 +572,11 @@ let check_recover_original () : unit =
   List.iter check_trace !traces
 
 
-
 (******************************************************************************)
 (*                                   Output                                   *)
 (******************************************************************************)
 
-(* [cleanup_cpp_file_using_clang_format filename] makes a system call to
+(* [cleanup_cpp_file_using_clang_format filename]: makes a system call to
    reformat a CPP file using the clang format tool.
    LATER: find a way to remove extra parentheses in ast_to_doc, by using
    priorities to determine when parentheses are required. *)
@@ -575,28 +587,29 @@ let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (file
       then ignore (Sys.command ("sed -i 's@//#pragma@#pragma@' " ^ filename))
   )
 
-(* [output_prog ctx prefix ast] writes the program described by the term [ast]
-   in several files:
-   - one describing the raw AST ("prefix.ast")
-   - one describing the internal AST ("prefix_enc.cpp")
-   - one describing the CPP code ("prefix.cpp").
-   The CPP code is automatically formatted using clang-format. *)
-
-
+(* [language]: choose the programming language of the source code. *)
 type language = | Language_cpp | Language_rust | Language_ocaml
 
+(* [language_of_extension extension]: based on the extension of a file choose the language *)
 let language_of_extension (extension:string) : language =
   match extension with
   | ".cpp" -> Language_cpp
   | ".rs" -> Language_rust
   | ".ml" -> Language_ocaml
-  | _ -> fail None ("unknown extension " ^ extension)
+  | _ -> fail None ("Trace.language_of_extension: unknown extension " ^ extension)
 
+(* [get_language ()]: get the language *)
 let get_language () =
   match !traces with
-  | [] -> fail None "cannot detect language -- trace should not be empty"
+  | [] -> fail None "Trace.get_language: cannot detect language -- trace should not be empty"
   | t::_ -> language_of_extension t.context.extension
 
+(* [output_prog ctx prefix ast]: writes the program described by the term [ast]
+   in several files:
+   - one describing the raw AST ("prefix.ast")
+   - one describing the internal AST ("prefix_enc.cpp")
+   - one describing the CPP code ("prefix.cpp").
+   The CPP code is automatically formatted using clang-format. *)
 let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   let use_clang_format = beautify && !Flags.use_clang_format in
   let file_prog = prefix ^ ctx.extension in
@@ -646,7 +659,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     end
   end
 
-(* [output_prog_check_empty ?ast_and_enc ctx prefix ast_opt] is similar to [output_prog], but it
+(* [output_prog_check_empty ~ast_and_enc ctx prefix ast_opt]: similar to [output_prog], but it
    generates an empty file in case the [ast] is an empty ast. *)
 let output_prog_check_empty ?(ast_and_enc : bool = true) (ctx : context) (prefix : string) (ast_opt : trm) : unit =
   match ast_opt.desc with
@@ -656,41 +669,12 @@ let output_prog_check_empty ?(ast_and_enc : bool = true) (ctx : context) (prefix
       let out_prog = open_out file_prog in
       close_out out_prog
 
-(* CURRENTLY NOT MAINTAINTED
-  [output_optitrust_ast_to_js] index cpp_filename prefix _ast] Produces a javascript file used for viewing the ast in interactive mode
-   This javascript file contains an array of source codes and an array of ast's. Where the entry at index i contains the state
-   of the source and ast after applying transformation i.
-*)
-let output_optitrust_ast_to_js ?(vars_declared : bool = false) (index : int) (prefix : string) (ast : trm) : unit =
-  let file_js = prefix ^ ".js" in
-  let out_js = open_out file_js in
-  try
-    (* Dump the description of the AST nodes *)
-    let lang, extension = match get_language () with
-      | Language_cpp -> "\'" ^ "text/x-c++src" ^ "\'", ".cpp"
-      | Language_rust -> "\'" ^ "text/x-rustsrc" ^ "\'", ".rs"
-      | Language_ocaml -> "\'" ^ "text/x-Ocaml" ^ "\'", ".ml" in
-    if not vars_declared
-      then begin
-      output_string out_js (Printf.sprintf "var source = %s\n" "new Array();");
-      output_string out_js (Printf.sprintf "var contents = %s\n" "new Array();");
-      output_string out_js (Printf.sprintf "var language = %s\n" lang);
-      end else ();
-    let src = Xfile.get_contents (prefix ^ "_before" ^ extension) in
-    Ast_to_js.Json.code_to_js out_js index src;
-    output_string out_js "\n";
-    Ast_to_js.ast_to_js out_js index ast;
-    output_string out_js "\n";
-    close_out out_js;
-  with | Failure s ->
-    close_out out_js;
-    failwith s
 
-(* [get_history] extracts from the trace information about all steps:
+(* [history]: history type used for storing all the trace information about all steps
     prefix, ctx, and a list of pairs made of an ast and a stepdescr *)
-
 type history = string * context * ((trm*stepdescr) list)
 
+(* [get_history]: gets history from trace *)
 let get_history ?(prefix : string = "") () : history =
   let extract (trace : trace) =
     let ctx = trace.context in
@@ -702,19 +686,18 @@ let get_history ?(prefix : string = "") () : history =
       let hist = (* remove the ast associated with the input file *)
         match List.rev hrev with
         | _::hist -> hist
-        | _ -> failwith "dump_trace_to_js: empty history"
+        | _ -> failwith "Trace.get_history: empty history"
         in
       (prefix, ctx, hist)
     in
   match !traces with
-  | [] -> failwith "get_history: no trace"
+  | [] -> failwith "Trace.get_history: no trace"
   | [tr] -> extract tr
-  | _ -> failwith "get_history: -dump-big-steps and -dump-trace currently do not support multiple traces"
+  | _ -> failwith "Trace.get_history: -dump-big-steps and -dump-trace currently do not support multiple traces"
 
 
-(* [dump_steps] writes into files called [`prefix`_$i_out.cpp] the
-   contents of each of the big steps, where [$i] denotes the index of
-   a big step. *)
+(* [dump_steps]: writes into files called [`prefix`_$i_out.cpp] the contents of each of the big steps, 
+    where [$i] denotes the index of a big step. *)
 let dump_steps ?(onlybig : bool = false) ?(prefix : string = "") (foldername : string) : unit =
   ignore (Sys.command ("mkdir -p " ^ foldername));
   let (prefix, ctx, hist_and_descr) = get_history ~prefix () in
@@ -735,7 +718,7 @@ let dump_steps ?(onlybig : bool = false) ?(prefix : string = "") (foldername : s
   ) hist_and_descr
 
 
-(* [dump_trace_to_js] writes into a file called [`prefix`.js] the
+(* [dump_trace_to_js]: writes into a file called [`prefix`.js] the
    contents of each of the steps record by the script, both for
    small steps and big steps, including the diffs and the excerpts
    of proof scripts associated with each step.
@@ -818,8 +801,10 @@ let dump_trace_to_js (history : history) : unit =
   cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp tmp_big.cpp";
   close_out out_js
 
-(* LATER: later generalize to multiple traces, currently it would
-    probably overwrite the same file over and over again *)
+
+(* [dump_traces_to_js]: dump all traces to js.
+    LATER: later generalize to multiple traces, currently it would
+       probably overwrite the same file over and over again. *)
 let dump_traces_to_js ?(prefix : string = "") () : unit =
   let history = get_history ~prefix () in
   dump_trace_to_js history
@@ -848,7 +833,7 @@ let dump_traces_to_js ?(prefix : string = "") () : unit =
 (*                                   Reparse                                  *)
 (******************************************************************************)
 
-(* [reparse_trm ctx ast] print [ast] in a temporary file and reparses it using Clang. *)
+(* [reparse_trm ctx ast]: prints [ast] in a temporary file and reparses it using Clang. *)
 let reparse_trm ?(info : string = "") ?(parser = Parsers.Default) (ctx : context) (ast : trm) : trm =
   if !Flags.debug_reparse then begin
     let info = if info <> "" then info else "of a term during the step starting at" in
@@ -862,7 +847,7 @@ let reparse_trm ?(info : string = "") ?(parser = Parsers.Default) (ctx : context
   (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
   t
 
-(* [reparse()] function takes the current AST, prints it to a file, and parses it
+(* [reparse()]: function takes the current AST, prints it to a file, and parses it
    as if it was a fresh input. Doing so ensures in particular that all the type
    information is properly set up. WARNING: reparsing discards all the marks in the AST. *)
 let reparse ?(info : string = "") ?(parser = Parsers.Default) () : unit =
@@ -880,7 +865,7 @@ let reparse_alias = reparse
 (*                                   Dump                                     *)
 (******************************************************************************)
 
-(* [light_diff astBefore astAfter] finds all the functions that have not change after
+(* [light_diff astBefore astAfter]: find all the functions that have not change after
     applying a transformation and hides their body for a more robust view diff. *)
 let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
     let topfun_before = top_level_fun_bindings astBefore in
@@ -891,7 +876,7 @@ let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
     let new_astAfter = filter_common astAfter in
     (new_astBefore, new_astAfter)
 
-(* [dump_diff_and_exit()] invokes [output_prog] on the current AST an also on the
+(* [dump_diff_and_exit()]: invokes [output_prog] on the current AST an also on the
    last item from the history, then it interrupts the execution of the script.
    This function is useful for interactively studying the effect of one particular
    transformation from the script.
@@ -906,9 +891,10 @@ let dump_diff_and_exit () : unit =
     print_info None "Exiting script\n";
     let trace =
       match !traces with
-      | [] -> fail None "No trace"
+      | [] -> fail None "Trace.dump_diff_and_exit: NO TRACE"
       | [tr] -> tr
-      | trs -> Printf.eprintf "Warning: considering the last branch of all switches.\n";
+      | trs -> Printf.eprintf "Trace.dump_diff_and_exit: 
+                               WARNING: considering the last branch of all switches.\n";
               List.hd (List.rev trs)
       in
     let ctx = trace.context in
@@ -952,7 +938,7 @@ let dump_diff_and_exit () : unit =
   close_logs ();
   exit 0
 
-(* [check_exit_and_step()] performs a call to [check_exit], to check whether
+(* [check_exit_and_step()]: performs a call to [check_exit], to check whether
    the program execution should be interrupted based on the command line argument
    [-exit-line], then it performas a call to [step], to save the current AST
    in the history, allowing for a visualizing the diff if the next call to
@@ -969,7 +955,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
     let trace =
       match !traces with
       | [trace] -> trace
-      | _ -> fail None "doc_script_cpp: does not support the use of [switch]"
+      | _ -> fail None "Trace.check_exit_and_step: does not support the use of [switch]"
       in
     let ctx = trace.context in
     output_prog ctx !Flags.documentation_save_file_at_first_check (trace.cur_ast)
@@ -1042,7 +1028,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
   line_of_last_step := line
 
 
-(* [!!] is a prefix notation for the operation [check_exit_and_step].
+(* [!!]: is a prefix notation for the operation [check_exit_and_step].
    By default, it performs only [step]. The preprocessor of the OCaml script file
    can add the [line] argument to the call to [check_exit_and_step], in order
    to allow for checking the exit line. Concretely, if the user has the cursor
@@ -1056,25 +1042,25 @@ let (!!) (x:'a) : 'a =
   check_exit_and_step ~is_small_step:true ~reparse:false ();
   x
 
-(* [!^] is similar to [!!] but indicates the start of a big step in the transformation script. *)
+(* [!^]: is similar to [!!] but indicates the start of a big step in the transformation script. *)
 (* WILL PROBABLY BE DEPREACTED IN THE FUTURE *)
 let (!^) (x:'a) : 'a =
   check_exit_and_step ~is_small_step:false ~reparse:false ();
   x
 
-(* [!!!] is similar to [!!] but forces a [reparse] prior to the [step] operation.
+(* [!!!]: is similar to [!!] but forces a [reparse] prior to the [step] operation.
    ONLY FOR DEVELOPMENT PURPOSE. *)
 let (!!!) (x : 'a) : 'a =
   check_exit_and_step ~is_small_step:true ~reparse:true ();
   x
 
-(* [!!^] is forces reparse before a big step.
+(* [!!^]: is forces reparse before a big step.
    ONLY FOR DEVELOPMENT PURPOSE. *)
 let (!!^) (x : 'a) : 'a =
   check_exit_and_step ~is_small_step:false ~reparse:true ();
   x
 
-(* [dump ~prefix] invokes [output_prog] to write the contents of the current AST.
+(* [dump ~prefix]: invokes [output_prog] to write the contents of the current AST.
    If there are several traces (e.g., due to a [switch]), it writes one file for each.
    If the prefix is not provided, the input file basename is used as prefix,
    and in any case "_out" is appended to the prefix.
@@ -1101,7 +1087,7 @@ let dump ?(prefix : string = "") () : unit =
     )
     (!traces)
 
-(* [only_interactive_step line f] invokes [f] only if the argument [line]
+(* [only_interactive_step line f]: invokes [f] only if the argument [line]
    matches the command line argument [-exit-line]. If so, it calls the
    [step] function to save the current AST, then calls [f] (for example
    to add decorators to the AST in the case of function [show]), then
@@ -1121,7 +1107,7 @@ let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> un
     f()
     end
 
-(* [ast()] returns the current ast; this function should only be called within the
+(* [ast()]: returns the current ast; this function should only be called within the
    scope of a call to [Trace.apply] or [Trace.call]. For example:
    [Trace.call (fun t -> ...  let t = ast() in ...) ].
    Note that in most cases, this function is not needed because the argument of
@@ -1132,25 +1118,23 @@ let ast () : trm =
    match !traces with
    | [tr] -> tr.cur_ast
    | [] -> assert false (* [!traces] can never be empty *)
-   | _ -> failwith "[get_the_ast] can only be invoked inside a call to [Trace.call] and not after a switch."
+   | _ -> failwith "Trace.as: can only be invoked inside a call to [Trace.call] and not after a switch."
 
-(* INTERNAL FUNCTION.
-   [set_ast] is used for implementing [iteri_on_transformed_targets]. Don't use it elsewhere. *)
+(* [set_ast]: is used for implementing [iteri_on_transformed_targets]. Don't use it elsewhere.
+   NOTE: INTERNAL FUNCTION. *)
 let set_ast (t:trm) : unit =
   assert (!call_depth > 0);
   match !traces with
   | [tr] -> tr.cur_ast <- t
   | _ -> assert false
 
-(* [get_context ()] returns the current context. Like [ast()], it should only be called
+(* [get_context ()]: returns the current context. Like [ast()], it should only be called
    within the scope of [Trace.apply] or [Trace.call]. *)
 let get_context () : context =
   match !traces with
   | [tr] -> tr.context
-  | _ -> fail None "get_context: couldn't get the current context"
+  | _ -> fail None "Trace.get_context: couldn't get the current context"
 
 
 (* LATER:  need to reparse to hide spurious parentheses *)
 (* LATER: add a mechanism for automatic simplifications after every step *)
-
-

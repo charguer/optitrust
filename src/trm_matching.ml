@@ -5,15 +5,14 @@ open Ast.AstParser
       and the ast of the pattern.
       [globdefs]: is the code entered as string that contains all the functions used in the pattern
       [ctx]: if set to true than the user doesn't need to provide declarations of the functions used in pattern
-          insted the function will take the current ast and dump it just before the pattern.
-          this way all the functions used inside the pattern all well defined.
+             insted the function will take the current ast and dump it just before the pattern.
+             this way all the functions used inside the pattern all well defined.
     Example:
     pattern = "double a; double b; double c; (a + k * b) == (b * k + a)"
     Then this string will be splitted parsed as
     void f (double a, double b, double c) {
       (a + k * b) == (b * k + a)
-    } 
-*)
+    } *)
 let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : string) : (typed_vars * typed_vars *trm) =
   let fix_pattern_args (var_decls : string) : string =
   let aux (var_decl : string) : string =
