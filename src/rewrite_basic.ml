@@ -5,12 +5,12 @@ let equiv_at ?(glob_defs : string = "") ?(ctx : bool = false) (rule : string) : 
   let rule_descr = Trm_matching.parse_rule ~ctx ~glob_defs rule in
   Target.apply_on_targets (Rewrite_core.apply_rule rule_descr))
 
-(* [compute tg]: expects the target [tg] to point at an arithmetic operation then it will try to simlplify it *)
+(* [compute tg]: expects the target [tg] to point at an arithmetic operation then it will try to simlplify it. *)
 let compute : Target.Transfo.t = 
   Target.apply_on_targets (Rewrite_core.compute)
 
 (* [compute_inside tg]: expects the target [tg] to point at any trm in the ast that could contain some inner 
-   arithmetic operations, then it will try to simplify them by calling [compute] on that trm *)
+   arithmetic operations, then it will try to simplify them by calling [compute] on that trm. *)
 let compute_inside (tg : Target.target) : unit = 
   let tg =
     if List.exists (function Constr.Constr_occurrences _ -> true | _ -> false) tg

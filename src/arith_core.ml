@@ -20,17 +20,16 @@ type arith_op =
   | Arith_shift
   | Arith_scale
 
-(* [transform_aux aop inv pre_cast post_cast u t]: shift or scale the right hand 
+(* [transform_aux aop inv pre_cast post_cast u t]: shifts or scale the right hand 
     side of a set operation with term [u]
-   params:
-    [aop]: a flag to decide if the arithmetic operation should be Arith_scale
+    [aop] - a flag to decide if the arithmetic operation should be Arith_scale
        or Arith_shift
-    [inv]: a flag for the sign(plus or minus) of shifting
-    [u]: shift size
-    [pre_cast]: casting of type [pre_cast] performed on the right hand side of the 
+    [inv] - a flag for the sign(plus or minus) of shifting
+    [u] - shift size
+    [pre_cast] - casting of type [pre_cast] performed on the right hand side of the 
       set operation before shifting 
-    [post_cast]: casting of type [post_cast] performed after shifting 
-    [t]: the ast of the set operation *)
+    [post_cast] - casting of type [post_cast] performed after shifting 
+    [t] - the ast of the set operation *)
 let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option) 
   (post_cast : typ option)(t : trm) : trm =
   let binop_op = match aop with
@@ -59,28 +58,22 @@ let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option
     end
   | _ -> fail t.loc "Arith_core.transform_aux: expected a get or a set operation"
 
-(* [transform aop inv pre_cast post_cast u t p] applies [transform_aux] at the 
-    trm with path [p]. *)
+(* [transform aop inv pre_cast post_cast u t p: applies [transform_aux] at the trm with path [p]. *)
 let transform (aop : arith_op)(inv : bool) (u : trm) (pre_cast : typ option) 
   (post_cast : typ option) : Transfo.local =
   apply_on_path (transform_aux aop inv u pre_cast post_cast )
 
 
-(* [apply_aux op arg t]: applies binary_operation [op] on [t] with the second 
-     argument of the operation being [arg]
-    params:
-      [op]: the binary operation to apply
-      [arg]: the second operand of [op]
-      [t]: the first argument in the performed operation
-    return:
-      the ast of the binary operation *)
+(* [apply_aux op arg t]: applies binary_operation [op] on [t] with the second  argument of the operation being [arg],
+    [op] -the binary operation to apply.
+    [arg] - the second operand of [op].
+    [t] - the first argument in the performed operation. *)
 let apply_aux (op : binary_op) (arg : trm) (t : trm) : trm =
   trm_apps (trm_binop op) [t; arg]
 
+(* [apply op arg t p]: applies [transform_aux] at the trm [t] with path [p]. *)
 let apply (op : binary_op) (arg : trm) : Transfo.local =
   apply_on_path (apply_aux op arg)
-
-
 
 (******************************************************************************)
 (*                          Simplifier                                        *)
@@ -92,8 +85,7 @@ type id = int
 (* generate a new id *)
 let next_id = Tools.fresh_generator ()
 
-(* expr type, it may be a literal expression, an atom expression or an arithmetic
-   expression *)
+(* [expr]: expression type, it may be a literal expression, an atom expression or an arithmetic expression *)
 type expr =
   | Expr_int of int
   | Expr_double of float
@@ -101,49 +93,52 @@ type expr =
   | Expr_sum of wexprs
   | Expr_prod of wexprs
 
-(* list of expressions *)
+(* [exprs]: list of expressions *)
 and exprs = expr list
 
-(* weighted list of expressions *)
+(* [wexprs]: weighted list of expressions *)
 and wexprs = wexpr list
 
-(* weighted expression *)
+(* [wexpr]: weighted expression *)
 and wexpr = (int * expr)
 
-(* a map from atom ids to the corresponding terms *)
+(* [Atom_map]: a map from atom ids to the corresponding terms *)
 module Atom_map = Map.Make(Int)
 
-
+(* [atom_map]: atom map for storing atoms *)
 type atom_map = trm Atom_map.t
 
+(* [no_atoms]: empty atom map *)
 let no_atoms = Atom_map.empty
 
 (******************************************************************************)
 (*                          Smart constructors                                *)
 (******************************************************************************)
 
-(* [expr_mul we1 e]  *)
+(* [expr_mul we1 e]: multiplication expression  *)
 let expr_mul (we1 : wexprs) (e : expr) : expr =
   match e with
   | Expr_prod [_,Expr_int 1] -> Expr_prod we1
   | Expr_prod wes -> Expr_prod (we1 @ wes)
   | _ -> Expr_prod  ((1,e) :: we1)
 
-(* [expr_add we1 e]  *)
+(* [expr_add we1 e]: addition expression  *)
 let expr_add (we1 : wexprs) (e : expr) : expr =
   match e with
   | Expr_sum [_,Expr_int 0] -> Expr_sum we1
   | Expr_sum wes -> Expr_sum (we1 @ wes)
   | _ -> Expr_sum ((1, e) :: we1)
 
+(* [expr_sum_nonweighted es]: nonweighted sum expression *)
 let expr_sum_nonweighted (es : exprs) : expr =
    Expr_sum (List.map (fun e -> (1,e)) es)
 
+(* [expr_prod_nonweighted es]: nonweighted prod expression *)
 let expr_prod_nonweighted (es : exprs) : expr =
    Expr_prod (List.map (fun e -> (1,e)) es)
 
 
-(* [apply_bottom_up] is a combinator that takes a transformation and applies it recursively,
+(* [apply_bottom_up]: is a combinator that takes a transformation and applies it recursively,
    bottom up through a term. *)
 let rec apply_bottom_up (f : expr -> expr) (e : expr) : expr =
   let apply_wexprs (wes : wexprs) : wexprs =
@@ -157,7 +152,7 @@ let rec apply_bottom_up (f : expr -> expr) (e : expr) : expr =
 let identity (e : expr) : expr =
   e
 
-(* [normalize_one e]
+(* [normalize_one e]:
    - collapses nested sums onto a single sum, and likewise for nested products
    - turns a product of an expression with a constant integer as a weighted 
      expression in the parent sum
@@ -217,7 +212,7 @@ let create_or_reuse_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
       end;
   !occ
 
-(* Conversion of a trm from the AST into an expr, plus a map that for each atom gives 
+(* [trm_to_naive_expr]: conversion of a trm from the AST into an expr, plus a map that for each atom gives 
     the corresponding term *)
 let trm_to_naive_expr (t : trm) : expr * atom_map =
   let atoms = ref Atom_map.empty in
@@ -261,7 +256,7 @@ let is_one (e : expr) : bool =
 let parens_if_neg (n:int) (d:document) : document =
   if n < 0 then parens d else d
 
-(* [expr_to_string atoms e] convert an expression to a string, in AST form *)
+(* [expr_to_string atoms e]: convert an expression to a string, in AST form *)
 let expr_to_string (atoms : atom_map) (e : expr) : string =
   let rec aux (e : expr) : document =
     let auxw ((w,e) : wexpr) : document =
@@ -295,8 +290,7 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
   Tools.document_to_string (aux e)
 
 
-(* [expr_to_math_string atoms e]: converts an expression to a string, using 
-    mathematical notations *)
+(* [expr_to_math_string atoms e]: converts an expression to a string, using mathematical notations *)
 let expr_to_math_string (atoms : atom_map) (e : expr) : string =
   let power_to_doc (base : document) (power : int) : document =
      base ^^ string "^" ^^ string (string_of_int power)
@@ -307,7 +301,7 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
     | Expr_double n -> string (string_of_float n)
     | Expr_sum we ->
       begin match we with
-      | [] -> Printf.printf "expr: Expr_sum [] should never appear";
+      | [] -> Printf.printf "Arith_core.expr: Expr_sum [] should never appear";
         (string (string_of_int 0))
       | _ ->
         let we_l = List.map (fun (w, e) ->
@@ -324,7 +318,7 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
       end
     | Expr_prod we ->
       begin match we with
-      | [] -> Printf.printf "expr: Expr_prod [] should never appear";
+      | [] -> Printf.printf "Arith_core.expr: Expr_prod [] should never appear";
         string (string_of_int 1)
       | _ ->
         let we_l = List.map (fun (w, e) ->
@@ -342,7 +336,7 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
   Tools.document_to_string (aux e)
 
 
-(* [trm_to_expr t] convert trm [t] to an expression*)
+(* [trm_to_expr t]: convert trm [t] to an expression*)
 let trm_to_expr (t : trm) : expr * atom_map =
   let expr, atoms = trm_to_naive_expr t in
   if debug 
@@ -398,13 +392,18 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
     in
   aux e
 
-(* [apply_bottom_up_if] is a combinator for either applying a transformation recursively
+
+(* [cleanup_true]: perform cleanup *)
+let cleanup_true = true
+
+(* [cleanup_false]: don't perform cleanup *)
+let cleanup_false = false
+
+
+(* [apply_bottom_up_if]: is a combinator for either applying a transformation recursively
    or applying it only at the top level, according to the [recurse] argument.
    If the [cleanup] argument is true, then after each call to the transformation,
    the operation [normalize_one] is called. *)
-let cleanup_true = true
-let cleanup_false = false
-
 let apply_bottom_up_if (recurse : bool) (cleanup : bool) (f : expr -> expr) 
   (e : expr) : expr =
   let f_with_cleanup e =
@@ -419,14 +418,14 @@ let apply_bottom_up_if (recurse : bool) (cleanup : bool) (f : expr -> expr)
     then apply_bottom_up f_with_cleanup e
     else f_with_cleanup e
 
-(* function used only for debugging purposes *)
+(* [apply_bottom_up_debug e]: function used only for debugging purposes *)
 let apply_bottom_up_debug (e : expr) : expr =
   let f ei =
     if debug then Printf.printf "Bottom-up %s\n" (expr_to_string no_atoms ei);
     ei in
   apply_bottom_up f e
 
-(* function used only for debugging purposes *)
+(* [apply_bottom_up_if_debug]: function used only for debugging purposes *)
 let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr =
   let f ei =
     let ej = (if cleanup then normalize_one else identity) ei in
@@ -437,7 +436,7 @@ let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr
   apply_bottom_up_if recurse cleanup f e
 
 (* LATER: Use a map instead of a list *)
-(* [gather_one e] regroups similar expression that appear inside a same product 
+(* [gather_one e]: regroups similar expression that appear inside a same product 
     or sum. For example, [2 * e1 + (-1)*e1] simplifies to [e1] and 
     [e1 * e2 * e1^(-1)] simplifies to [e2]. *)
 let gather_one (e : expr) : expr =
@@ -456,7 +455,7 @@ let gather_one (e : expr) : expr =
   | Expr_prod wes -> Expr_prod (gather_wexprs wes)
   | _ -> e
 
-(* [gather_common recurse_bool e] apply gather one in a full expression 
+(* [gather_common recurse_bool e]: apply gather one in a full expression 
     if recurse is set to true *)
 let gather_common (recurse : bool) (e : expr) : expr =
   apply_bottom_up_if recurse cleanup_true gather_one e
@@ -464,11 +463,10 @@ let gather_common (recurse : bool) (e : expr) : expr =
 let gather = gather_common false
 let gather_rec = gather_common true
 
-(* [expand_one e] expands sums that appear inside product.
+(* [expand_one e]: expands sums that appear inside product.
     For example, [e1 * (e2 + e3)] becomes [e1 * e2 + e1 * e3]
     The function is equeal to the identity if no expansion can be performed.
     At the very end it will apply [normalize] to the result.*)
-
 let expand_one (e : expr) : expr =
   (* [acc] corresponds to the list of terms in the current sum;
      [e^w] is the term to distribute over the sum described by [acc].
@@ -494,7 +492,7 @@ let expand_one (e : expr) : expr =
     in
   normalize r
 
-(* [expand] calls [expand_one] recursively, calling the [gather] operations 
+(* [expand_common recurse e]: calls [expand_one] recursively, calling the [gather] operations 
     after each step. *)
 let expand_common (recurse : bool) (e : expr) : expr =
   let tr (ei : expr) : expr =
@@ -505,7 +503,7 @@ let expand = expand_common false
 let expand_rec = expand_common true (* Warning: quadratic, because normalize 
                                         all and gather_rec at each step *)
 
-(* [map_on_arith_nodes tr t] apply arithmetic simplification [tr] in depth of [t]*)
+(* [map_on_arith_nodes tr t]: applies arithmetic simplification [tr] in depth of [t]*)
 let rec map_on_arith_nodes (tr : trm -> trm) (t : trm) : trm =
   if has_mark_nosimpl t
     then t
@@ -547,6 +545,6 @@ let rec simplify_aux (indepth : bool) (f : expr -> expr) (t : trm) : trm =
      let f_atom_simplify = simplify_aux indepth f in
      map_on_arith_nodes (simplify_at_node f_atom_simplify f) t end
 
-(* [simplify indepth f t p]: apply [simplify_aux] at the trm with path [p] *)
+(* [simplify indepth f t p]: applies [simplify_aux] at the trm with path [p] *)
 let simplify (indepth : bool) (f : expr -> expr) : Transfo.local =
   apply_on_path (simplify_aux indepth f)

@@ -31,27 +31,27 @@ let stringreprs : stringreprs option ref = ref None
 let clear_stringreprs () =
   stringreprs := None
 
-(* [get_stringreprs ()]: get the current string representations *)
+(* [get_stringreprs ()]: gets the current string representations *)
 let get_stringreprs () : stringreprs =
   match !stringreprs with
   | Some m -> m
   | None -> fail None "AstC_to_c.get_stringreprs: must call init_stringreprs or set_stringreprs first"
 
-(* [get_and_clear_stringreprs ()]: get the current string representations and delete them *)
+(* [get_and_clear_stringreprs ()]: gets the current string representations and delete them *)
 let get_and_clear_stringreprs () : stringreprs =
   let m = get_stringreprs() in
   stringreprs := None;
   m
 
-(* [set_stringreprs t]: replace the current string representations with [t] *)
+(* [set_stringreprs t]: replaces the current string representations with [t] *)
 let set_stringreprs (t : stringreprs) : unit =
   stringreprs := Some t
 
-(* [init_string_reprs]: create the hashtable used for storing the string representations *)
+(* [init_string_reprs]: creates the hashtable used for storing the string representations *)
 let init_stringreprs () =
   stringreprs := Some (Hashtbl.create 100)
 
-(* [add_stringreprs_entry t d]: add trm [t] into the table of representations *)
+(* [add_stringreprs_entry t d]: adds trm [t] into the table of representations *)
 let add_stringreprs_entry (t : trm) (d : document) : unit =
   match !stringreprs with
   | None -> ()
@@ -82,7 +82,7 @@ let print_stringreprs (m : stringreprs) : unit =
 
 **************************************************************************************************************)
 
-(* [typ_desc_to_doc t]: convert ast type descriptions to pprint documents *)
+(* [typ_desc_to_doc t]: converts ast type descriptions to pprint documents *)
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
   | Typ_const t when is_typ_ptr t -> typ_to_doc t ^^ string " const"
@@ -124,14 +124,14 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
         | _ -> fail None "AstC_to_c.typ_to_doc: arbitrary types entered as string should be entered by using Atyp"
         end
 
-(* [typ_annot_to_doc]: convert type annotations to pprint document *)
+(* [typ_annot_to_doc]: converts type annotations to pprint document *)
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with
   | Unsigned -> string "unsigned"
   | Long -> string "long"
   | Short -> string "short"
 
-(* [trm_annot_to_doc]: convert trm annotations to pprint document *)
+(* [trm_annot_to_doc]: converts trm annotations to pprint document *)
 and trm_annot_to_doc (t_annot : trm_annot list) : document =
   let aux t_annot = match t_annot with
   | Multi_decl -> string "Multi_dec"
@@ -144,7 +144,7 @@ and trm_annot_to_doc (t_annot : trm_annot list) : document =
   if t_annot = [] then empty else
   Tools.list_to_doc ~sep:comma (List.map aux t_annot)
 
-(* [typ_to_doc]: convert ast types to pprint document *)
+(* [typ_to_doc]: converts ast types to pprint document *)
 and typ_to_doc (t : typ) : document =
   let d = typ_desc_to_doc t.typ_desc in
   let dannot =
@@ -195,7 +195,7 @@ and typed_var_to_doc (tx : typed_var) : document =
      dattr ^^ typ_to_doc ty ^^ blank 1 ^^ const_string ^^ string x
   | _ -> const_string ^^ typ_to_doc ty ^^ blank 1 ^^ string x
 
-(* [lit_to_doc l]: convert literals to pprint documents *)
+(* [lit_to_doc l]: converts literals to pprint documents *)
 and lit_to_doc (l : lit) : document =
   match l with
   | Lit_unit -> semi
@@ -205,7 +205,7 @@ and lit_to_doc (l : lit) : document =
   | Lit_double f -> string (string_of_float f)
   | Lit_string s -> dquotes (separate (backslash ^^ string "n") (lines s))
 
-(* [unop_to_doc op]: convert unary operators to pprint documents *)
+(* [unop_to_doc op]: converts unary operators to pprint documents *)
 and unop_to_doc (op : unary_op) : document =
   match op with
   | Unop_get -> star
@@ -222,7 +222,7 @@ and unop_to_doc (op : unary_op) : document =
      let dt = typ_to_doc t in
      string "static_cast" ^^ langle ^^ dt ^^ rangle
 
-(* [binop_to_doc op]: convert binary operators to pprint documents *)
+(* [binop_to_doc op]: converts binary operators to pprint documents *)
 and binop_to_doc (op : binary_op) : document =
   match op with
   | Binop_set -> equals
@@ -247,7 +247,7 @@ and binop_to_doc (op : binary_op) : document =
   | Binop_shiftr -> twice rangle
   | Binop_xor -> caret
 
-(* [prim_to_doc p]: convert primitives to pprint documents *)
+(* [prim_to_doc p]: converts primitives to pprint documents *)
 and prim_to_doc (p : prim) : document =
   match p with
   | Prim_unop op -> unop_to_doc op
@@ -257,7 +257,7 @@ and prim_to_doc (p : prim) : document =
   | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
   | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
 
-(* [val_to_doc v]: convert values to pprint documents *)
+(* [val_to_doc v]: converts values to pprint documents *)
 and val_to_doc (v : value) : document =
   match v with
   | Val_lit l -> lit_to_doc l
@@ -270,7 +270,7 @@ and val_to_doc (v : value) : document =
        end
   | Val_prim p -> prim_to_doc p
 
-(* [attr_to_doc a]: convert attributes to pprint documents *)
+(* [attr_to_doc a]: converts attributes to pprint documents *)
 and attr_to_doc (a : attribute) : document =
   match a with
   (* | Alignas t -> string "_Alignas" ^^ parens (decorate_trm t) *)
@@ -303,7 +303,7 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
       sleft ^^ dt ^^ sright
       end
 
-(* [trm_to_doc ~semicolon ~prec ~print_struct_init_type  t]: convert [t] to a pprint document *)
+(* [trm_to_doc ~semicolon ~prec ~print_struct_init_type  t]: converts [t] to a pprint document *)
 and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false)  (t : trm) : document =
   let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
@@ -498,7 +498,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
   add_stringreprs_entry t d;
   d
 
-(* [record_type_to_doc rt]: convert a C++ record type to a pprint document *)
+(* [record_type_to_doc rt]: converts a C++ record type to a pprint document *)
 and record_type_to_doc (rt : record_type) : document =
   match rt with
   | Struct -> string "struct"
@@ -506,7 +506,7 @@ and record_type_to_doc (rt : record_type) : document =
   | Class -> string "class"
 
 
-(* [trm_let_to_doc ~semicolon tv init]: convert a variable declaration to print document *)
+(* [trm_let_to_doc ~semicolon tv init]: converts a variable declaration to print document *)
 and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dtx = typed_var_to_doc tv in
@@ -516,7 +516,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
   end in
     dtx ^^ blank 1 ^^ dinit
 
-(* [trm_let_mult_to_doc ~semicolon tv vl tl]: convert multiple variable declarations to pprint document *)
+(* [trm_let_mult_to_doc ~semicolon tv vl tl]: converts multiple variable declarations to pprint document *)
 and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (tl : trm list) : document =
   let dsemi = if semicolon then semi else empty in
   let dtx = typ_to_doc ty in
@@ -528,7 +528,7 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
   dtx  ^^ blank 1 ^^ Tools.list_to_doc ~sep:comma dtl ~bounds:[empty; empty] ^^ dsemi
 
 
-(* [trm_let_fun_to_doc ~semicolon inline f r tvl b]: convert a function declaration to pprint document *)
+(* [trm_let_fun_to_doc ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
 and trm_let_fun_to_doc ?(semicolon : bool = true)(inline : bool) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dinline = if inline then [string "inline"] else [] in
@@ -541,7 +541,7 @@ and trm_let_fun_to_doc ?(semicolon : bool = true)(inline : bool) (f : var) (r : 
   | _ -> separate (blank 1) (dinline @ [dr; string f; parens argd; decorate_trm b])
   end
 
-(* [typedef_to_doc ~semicolon td]: convert a type definition to pprint document *)
+(* [typedef_to_doc ~semicolon td]: converts a type definition to pprint document *)
 and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
   let dsemi = if semicolon then semi else empty in
   let tname = td.typdef_tconstr in
@@ -587,7 +587,7 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       separate (blank 1) [string "enum"; string tname;
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
-(* [multi_decl_to_doc loc tl]: convert a sequence with multiple variable declarations into a single multi variable declaration *)
+(* [multi_decl_to_doc loc tl]: converts a sequence with multiple variable declarations into a single multi variable declaration *)
 and multi_decl_to_doc (loc : location) (tl : trms) : document =
  let get_info (t : trm) : document =
   begin match t.desc with
@@ -627,7 +627,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
        end
   | _ -> fail loc "AstC_to_c.multi_decl_to_doc: expected a trm_let"
   end
-(* [apps_to_doc ~prec f tl]: convert a function call to pprint document *)
+(* [apps_to_doc ~prec f tl]: converts a function call to pprint document *)
 and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
   let (prec, assoc) = precedence_trm f in
   let aux_arguments f_as_doc =
@@ -953,7 +953,7 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_wtime -> string "get_wtime" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_wtick -> string "get_wtich" ^^ lparen ^^ blank 1 ^^ rparen
 
-(* [unpack_trm_for ~loc index start direction stop step body]: convert a simple for loop to a complex one before converting it to a pprint document *)
+(* [unpack_trm_for ~loc index start direction stop step body]: converts a simple for loop to a complex one before converting it to a pprint document *)
 and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
   let init = trm_let Var_mutable (index, typ_int()) start  in
   let cond = begin match direction with
@@ -990,7 +990,7 @@ and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_d
     end in
     trm_for_c  ~loc init cond step body
 
-(* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: convert a full OptiTrust ast to a pprint document.
+(* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
     If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)
 let ast_to_doc ?(comment_pragma : bool = false) ?(optitrust_syntax:bool=false) (t : trm) : document =
   let comment_pragma = false in (* temporary *)
@@ -1011,11 +1011,11 @@ let ast_to_file ?(optitrust_syntax:bool=false) (filename : string) (t : trm) : u
   ast_to_outchannel ~optitrust_syntax out t;
   close_out out
 
-(* [ast_to_string ~optitrust_syntax t]: convert ast [t] to string *)
+(* [ast_to_string ~optitrust_syntax t]: converts ast [t] to string *)
 let ast_to_string ?(optitrust_syntax : bool = false) (t : trm) : string =
   Tools.document_to_string (ast_to_doc t)
 
-(* [typ_to_string ty]: convert type [ty] to string *)
+(* [typ_to_string ty]: converts type [ty] to string *)
 let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in
   ToBuffer.pretty 0.9 (!Flags.code_print_width) b (typ_to_doc ty);

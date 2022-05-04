@@ -1,6 +1,6 @@
 open Ast
 
-(* [insert_if cond tg] expects the target [tg] to point at an instruction
+(* [insert_if cond tg]: expects the target [tg] to point at an instruction
     inside a sequence. Then it will create an if statement with the condition entered by the user
       and both its "then" and "else" branches will contain the same instruction.
     [cond] - denotes a string representing the code which will appear as the condition in the

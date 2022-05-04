@@ -2,9 +2,8 @@ open Ast
 open Target
 include Align_basic
 
-(* [alloc vec_align tg] expects the target [tg] to point at a call at a
-    OptiTrust MALLOC macro, then them will convert it to an aligned one
-    with alignment size [vec_align]. *)
+(* [alloc vec_align tg]: expects the target [tg] to point at a call at a OptiTrust MALLOC macro,
+    then them will convert it to an aligned one with alignment size [vec_align]. *)
 let alloc (vec_align : trm) : Target.Transfo.t =
   iter_on_targets (fun t p -> 
     let tg_trm = Path.get_trm_at_path p t in 
@@ -19,4 +18,3 @@ let alloc (vec_align : trm) : Target.Transfo.t =
     | None -> fail tg_trm.loc "Align.alloc: expected a call to MALLOC function "
     end
 )
-  

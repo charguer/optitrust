@@ -16,4 +16,3 @@ let replace_fun ?(inline : bool = false) (name : string) ?(delete : bool = false
         if inline then Function.inline tg_to_call;
     ) tg;
   if delete then Instr.delete [cTopFunDef name];
-

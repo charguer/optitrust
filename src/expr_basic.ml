@@ -3,7 +3,7 @@ open Target
 
 
 
-(* [update f tg]: apply the operation [f] at the target [tg] *)
+(* [update f tg]: applies the operation [f] at the target [tg] *)
 let update ?(reparse: bool = false)  (f : trm -> trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (Target.apply_on_targets (Expr_core.update f))
 
@@ -30,7 +30,7 @@ let replace_fun (name : string) (tg : target) : unit =
   Target.apply_on_targets (Expr_core.replace_fun name) tg
   
 
-(* [view_subterms tg] displays on stdout all the subterms of the targeted term.
+(* [view_subterms tg]: displays on stdout all the subterms of the targeted term.
    For viewing on stdout all subterms of a program, use:
      Expr.view_subterms [];
    which is like

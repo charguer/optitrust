@@ -77,18 +77,18 @@ let inline ?(body_mark : mark option) (tg : Target.target) : unit =
 
 (* [beta ~body_mark tg]: similar to [function_inline] the main difference is that [beta] is used in the cases 
     when the decaration of the function call can be founded at the targeted function call contrary to [inline]
-    which will need to find first the toplevel declaration  *)
+    which will need to find first the toplevel declaration.  *)
 let beta ?(body_mark : var = "") (tg : Target.target) : unit =
   inline ~body_mark tg
 
 
 (* [use_infix_ops_at tg]: expects the target [tg] to point at an explicit set operation of the form x = x (op) a,
-    then it will transform that instruction into x (op)= a. Ex: x = x + 1 --> x += 1 *)
+    then it will transform that instruction into x (op)= a. Ex: x = x + 1 --> x += 1. *)
 let use_infix_ops_at ?(allow_identity : bool = true) : Target.Transfo.t =
   Target.apply_on_targets (Function_core.use_infix_ops allow_identity)
 
 (* [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similar to what Function_basic.inline generates
-    Then it will replace that sequence with a call to the fuction with declaration targeted by [fct] *)
+    Then it will replace that sequence with a call to the fuction with declaration targeted by [fct]. *)
 let uninline ~fct:(fct : Target.target) (tg : Target.target) : unit =
   Trace.call (fun t ->
     let fct_path = Target.resolve_target_exactly_one_with_stringreprs_available fct t in
@@ -104,6 +104,6 @@ let rename_args (new_args : var list)  : Target.Transfo.t =
 
 
 (* [replace_with_change_args new_fun_name arg_mapper tg]: expects the target [tg] to point at a function call, then it will
-    replace the name of the called function with [new_fun_name] and apply [arrg_mapper] to its arguments *)
+    replace the name of the called function with [new_fun_name] and apply [arrg_mapper] to its arguments. *)
 let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) (tg : target) : unit = 
    apply_on_targets (Function_core.replace_with_change_args new_fun_name arg_mapper) tg

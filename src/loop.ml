@@ -39,7 +39,7 @@ let fusion ?(nb : int = 2) (tg : target) : unit =
 
 (* [fusion_targets tg]: similar to [fusion] except that this transformation assumes that [tg] points to multiple
     not neccessarily consecutive for loops. This transformation regroups all this loops into a single sequence
-    an calls [Loops_basic.fusion_on_block]
+    an calls [Loops_basic.fusion_on_block].
 
     Assumptions:
       The loops inside the sequence satisfy the same assumptions as in [Loop_basic.fusion_in_block] transformation
@@ -110,7 +110,7 @@ let move_out ?(upto : string = "") (tg : target) : unit =
      [before] - a default argument given as empty string, if the user wants to move
      [loop_to_move]: before another loop then it should use this default argument with the
                      value the quoted loop index
-     [after] - similar to [before] but now is the index of the loop after whom we want to move [loop_to_move] *)
+     [after] - similar to [before] but now is the index of the loop after whom we want to move [loop_to_move]. *)
 let move ?(before : target = []) ?(after : target = []) (loop_to_move : target) : unit =
   Trace.call (fun t ->
    let loop_to_move_path = resolve_target_exactly_one_with_stringreprs_available loop_to_move t in
@@ -328,9 +328,9 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
     reorder them based on [oder].
 
     Assumption:
-      All loops have as bodies blocks of code(sequences)
+      All loops have as bodies blocks of code(sequences).
 
-    @correctness: correct if loops are parallelizable *)
+    @correctness: correct if loops are parallelizable. *)
 let reorder ?(order : vars = []) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_loop = Path.resolve_path p t in
@@ -371,7 +371,7 @@ let fission ?(split_between : bool = false) (tg : target) : unit =
     this one doesn't ask the user to prepare the sequence of instructions. But asks for the first instructions and
     the number of consecutive instructions [nb_instr] that can be converted into a single loop.
    @correctness: always correct, as we can map all intermediate predicates
-   to numbered predicates on the loop *)
+   to numbered predicates on the loop. *)
 let fold  ?(start : int = 0) ?(step : int = 1) ~index:(index : var) (nb_instr : int) (tg : target) : unit =
   let mark = "opti_fold" in
   Sequence_basic.intro ~mark nb_instr tg;
@@ -379,7 +379,7 @@ let fold  ?(start : int = 0) ?(step : int = 1) ~index:(index : var) (nb_instr : 
 
 
 (* [fold_instrs ~index ~start ~step tg]: similar to [fold] except that this one asks the user to provide a generic target
-     that can match all the instructions that can be converted into a single loop *)
+     that can match all the instructions that can be converted into a single loop. *)
 let fold_instrs ~index:(index : var) ?(start : int = 0) ?(step : int = 1) (tg : target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in
@@ -395,14 +395,14 @@ let fold_instrs ~index:(index : var) ?(start : int = 0) ?(step : int = 1) (tg : 
   Variable.fold ~nonconst:true [nbAny;cVarDef "" ~body:[cInt !nb_targets]]
 
 (* [isolate_first_iteration tg]: expects the target [tg] to be pointing at a simple loop, then it will
-   split that loop into two loops by calling split_range transformation. Finally it will unroll the first loop *)
+   split that loop into two loops by calling split_range transformation. Finally it will unroll the first loop. *)
 let isolate_first_iteration (tg : target) : unit =
   Loop_basic.split_range ~nb:1 tg;
   unroll ([occFirst] @ tg)
 
 
 (* [unfold_bound tg]: inlines the bound of the targeted loop if that loop is a simple for loop and if that bound
-    is a variable and not a complex expression *)
+    is a variable and not a complex expression. *)
 let unfold_bound (tg : target) : unit =
   iter_on_targets( fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -420,7 +420,7 @@ let unfold_bound (tg : target) : unit =
 
 (* [grid_enumerate  ~indices tg]: similar to [Loop_basic.grid_enumerate](see loop_basic.ml) but this one computes
      the bounds automatically under the assumption that the bound of the targeted loop is given as a product of
-    the bounds for each dimension *)
+    the bounds for each dimension. *)
 let grid_enumerate ?(indices : string list = []) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in

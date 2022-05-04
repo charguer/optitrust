@@ -249,7 +249,7 @@ let depth_pred (d : depth) : depth =
 (*                        Pretty-printing of targets                          *)
 (******************************************************************************)
 
-(* [trm_kind_to_string k]: pretty print trm kind [k] *)
+(* [trm_kind_to_string k]: pretty prints trm kind [k] *)
 let trm_kind_to_string (k : trm_kind) : string =
   match k with
   | TrmKind_Typedef -> "Typedef"
@@ -258,19 +258,19 @@ let trm_kind_to_string (k : trm_kind) : string =
   | TrmKind_Expr -> "Expr"
   | TrmKind_Any -> "Any"
 
-(* [rexp_to_string r]: pretty print rexp [r] *)
+(* [rexp_to_string r]: pretty prints rexp [r] *)
 let rexp_to_string (r : rexp) : string =
   (trm_kind_to_string r.rexp_trm_kind) ^ "-" ^
   (if r.rexp_substr then "Sub" else "Exact") ^ "-" ^
   r.rexp_desc
 
-(* [depth_to_string depth]: pretty print depth [depth] *)
+(* [depth_to_string depth]: pretty prints depth [depth] *)
 let depth_to_string (depth : depth) : string =
   match depth with
   | DepthAny -> "DepthAny"
   | DepthAt n -> "DepthAt " ^ string_of_int n
 
-(* [constr_to_string c]: pretty print constraint [c] *)
+(* [constr_to_string c]: pretty prints constraint [c] *)
 let rec constr_to_string (c : constr) : string =
   match c with
   | Constr_depth depth -> "Depth " ^ (depth_to_string depth)
@@ -439,19 +439,19 @@ let rec constr_to_string (c : constr) : string =
 
 
 
-(* [target_to_string tg]: pretty print target [tg] *)
+(* [target_to_string tg]: pretty prints target [tg] *)
 and target_to_string (tg : target) : string =
   list_to_string (List.map constr_to_string tg)
 
 
-(* [target_struct_to_string tgs]: pretty print target struct [tgs] *)
+(* [target_struct_to_string tgs]: pretty prints target struct [tgs] *)
 and target_struct_to_string (tgs : target_struct) : string =
   "TargetStruct(" ^
     target_relative_to_string tgs.target_relative ^ ", " ^
     target_occurrences_to_string tgs.target_occurrences ^ ", " ^
     target_to_string tgs.target_path ^ ")"
 
-(* [target_occurrences_to_string occ]: pretty print target_occurrences [occ] *)
+(* [target_occurrences_to_string occ]: pretty prints target_occurrences [occ] *)
 and target_occurrences_to_string (occ : target_occurrences) =
   match occ with
   | FirstOcc -> "FirstOcc"
@@ -466,7 +466,7 @@ and target_occurrences_to_string (occ : target_occurrences) =
     | Some i -> "Some " ^ (string_of_int i) in
     Printf.sprintf "ExpectedSelect(%s, %s)" exact_nb_s (Tools.list_to_string (List.map (string_of_int) il))
 
-(* [target_relative_to_string rel]: pretty print the relative target [rel] *)
+(* [target_relative_to_string rel]: pretty prints the relative target [rel] *)
 and target_relative_to_string (rel : target_relative) =
   match rel with
   | TargetAt -> "TargetAt"
@@ -475,7 +475,7 @@ and target_relative_to_string (rel : target_relative) =
   | TargetBefore -> "TargetBefore"
   | TargetAfter -> "TargetAfter"
 
-(* [access_to_string ca]: pretty print access [ca] *)
+(* [access_to_string ca]: pretty prints access [ca] *)
 and access_to_string (ca : constr_access) : string =
   match ca with
   | Array_access p_index ->
@@ -488,7 +488,7 @@ and access_to_string (ca : constr_access) : string =
      "Struct_access " ^ s_field
   | Any_access -> "Any_access"
 
-(* [constr_map f c]: apply [f] recursively on constraint [c] *)
+(* [constr_map f c]: applies [f] recursively on constraint [c] *)
 let constr_map (f : constr -> constr) (c : constr) : constr =
   (* LATER: optimize using identity reconstruction, like trm_map with optim *)
   let aux (cs:target) : target =
@@ -579,7 +579,7 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_struct_init -> c
   | Constr_omp _ -> c
 
-(* [get_target_regexp_kinds tgs]: get the list of trm_kinds of the terms
+(* [get_target_regexp_kinds tgs]: gets the list of trm_kinds of the terms
    for which we would potentially need to use the string representation,
    for resolving the targets [tgs]. The result is either a list of kinds
    without [TrmKind_Any], or a singleton list made of [TrmKind_Any]. *)
@@ -607,7 +607,7 @@ let get_target_regexp_kinds (tgs : target list) : trm_kind list =
   List.iter iter_in_target tgs;
   !res
 
-(* [get_target_regexp_kinds tgs: get the list of the regexp characterizing
+(* [get_target_regexp_kinds tgs: gets the list of the regexp characterizing
    toplevel functions that appear in the targets that contain constraints based
    on string representation. If one of the targets does not contain the subsequence
    [cTop name] or [cTopFun name], which generate
@@ -653,7 +653,7 @@ let get_target_regexp_topfuns_opt (tgs : target list) : constr_name list option 
 (*                        Preprocessing of targets before resolution          *)
 (******************************************************************************)
 
-(* [target_flatten tg]: flatten all the constraints of type Constr_target *)
+(* [target_flatten tg]: flattens all the constraints of type Constr_target *)
 let target_flatten (tg : target) : target =
     let rec aux (cs : target) : target =
       match cs with
@@ -667,7 +667,7 @@ let target_flatten (tg : target) : target =
       in
     aux tg
 
-(* [target_to_target_struct]: convert a target into a target struct  *)
+(* [target_to_target_struct]: converts a target into a target struct  *)
 let target_to_target_struct (tr : target) : target_struct =
   let tr = target_flatten tr in
   let relative = ref None in
@@ -692,7 +692,7 @@ let target_to_target_struct (tr : target) : target_struct =
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
     target_occurrences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; } in
   tgs
-(* [is_target_between tr]: check if [tr] contains a relative constraint different from TargetAt *)
+(* [is_target_between tr]: checks if [tr] contains a relative constraint different from TargetAt *)
 let is_target_between (tr : target) : bool =
    let tgs = target_to_target_struct tr in
    tgs.target_relative <> TargetAt
@@ -700,7 +700,7 @@ let is_target_between (tr : target) : bool =
 (******************************************************************************)
 (*               Performance Counters for Target resolution                   *)
 
-(* [resolve_target_steps()] returns the number of AST nodes visited during
+(* [resolve_target_steps()]: returns the number of AST nodes visited during
    the target resolution steps, then resets the counter. *)
 
 let resolve_target_steps_counter = ref 0
@@ -740,11 +740,11 @@ let resolve_target_steps () : int =
   should be locally applied to the patterns described above
  *)
 
-(* [add_dir d dll]: extend current explicit paths with a direction *)
+(* [add_dir d dll]: extends current explicit paths with a direction *)
 let add_dir (d : dir) (dll : paths) : paths =
   List.map (fun dl -> d :: dl) dll
 
-(* [is_equal_lit l l']: compare literals l and l' based on their values *)
+(* [is_equal_lit l l']: compares literals l and l' based on their values *)
 let is_equal_lit (l : lit) (l' : lit) =
   match l, l' with
   | Lit_unit, Lit_unit -> true
@@ -755,7 +755,7 @@ let is_equal_lit (l : lit) (l' : lit) =
   | Lit_string s, Lit_string s' when s = s' -> true
   | _ -> false
 
-(* [get_trm_kind t]: get the kind of trm [t] *)
+(* [get_trm_kind t]: gets the kind of trm [t] *)
 (* LATER: we may want to save the kind inside the term? *)
 let rec get_trm_kind (t : trm) : trm_kind =
    let is_unit = begin match t.typ with
@@ -782,7 +782,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_omp_directive _ | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ -> TrmKind_Any
 
 
-(* [match_regexp_str r s]: check if [s] can be matched with [r] *)
+(* [match_regexp_str r s]: checks if [s] can be matched with [r] *)
 let match_regexp_str (r : rexp) (s : string) : bool =
   (*if s = "x" then incr Debug.counter;
   if !Debug.counter = 2 then raise Debug.Breakpoint; *)
@@ -814,7 +814,7 @@ let print_stringreprs () : unit =
       Hashtbl.iter pr m;
       Printf.printf "====</constr.stringreprs>====\n"
 
-(* [get_stringrepr t]: return the string representation saved in table [stringreprs],
+(* [get_stringrepr t]: returns the string representation saved in table [stringreprs],
    or an empty string otherwise *)
 let get_stringrepr (t : trm) : string =
     match !stringreprs with
@@ -831,15 +831,15 @@ let get_stringrepr (t : trm) : string =
           end
         | None -> ""
 
-(* [match_regexp_trm_kind k t]: check if [t] is of kind [k] *)
+(* [match_regexp_trm_kind k t]: checks if [t] is of kind [k] *)
 let match_regexp_trm_kind (k : trm_kind) (t : trm) : bool =
   (k = TrmKind_Any) || (get_trm_kind t = k)
 
-(* [match_regexp_trm_kinds ks t]: check if [t] is of one of the kinds in [ks] *)
+(* [match_regexp_trm_kinds ks t]: checks if [t] is of one of the kinds in [ks] *)
 let match_regexp_trm_kinds (ks : trm_kind list) (t : trm) : bool =
   List.mem (get_trm_kind t) ks
 
-(* [match_regexp_trm r t]: check if the string representation of [t] can be matched with [r] *)
+(* [match_regexp_trm r t]: checks if the string representation of [t] can be matched with [r] *)
 let match_regexp_trm (r : rexp) (t : trm) : bool =
   if not (match_regexp_trm_kind r.rexp_trm_kind t) then false else begin
     let s = get_stringrepr t in
@@ -848,12 +848,12 @@ let match_regexp_trm (r : rexp) (t : trm) : bool =
     (* If the stringrepr is not available, we return false *)
   end
 
-(* [is_constr_regexp c]: check if [c] is a regexp constraint *)
+(* [is_constr_regexp c]: checks if [c] is a regexp constraint *)
 let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 
 
-(* [check_hastype pred t]: test whether [t] carries a type
+(* [check_hastype pred t]: tests whether [t] carries a type
    that satisfies [pred]. If [t] does not carry a type information,
    then the return value is [false]. For constraints to work properly,
    one may want to check that types are up to date (e.g. by reparsing). *)
@@ -862,7 +862,7 @@ let check_hastype (pred : typ->bool) (t : trm) : bool =
     | Some ty -> pred ty
     | None -> false
 
-(* [check_constraint c]: check if constraint c is satisfied by trm t *)
+(* [check_constraint c]: checks if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
    if List.mem Multi_decl t.annot then
      (*
@@ -1000,26 +1000,26 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | _ -> false
      end
 
-(* [check_name name s]: check if constraint [name] matches string [s] *)
+(* [check_name name s]: checks if constraint [name] matches string [s] *)
 and check_name (name : constr_name) (s : string) : bool =
   match name with
   | None -> true
   | Some r ->
      match_regexp_str r s
 
-(* [check_list ~depth lpred tl]: check if [tl] satisfy the predicate [lpred] *)
+(* [check_list ~depth lpred tl]: checks if [tl] satisfy the predicate [lpred] *)
 and check_list ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trms) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i t -> check_target ~depth (ith_target i) t) tl)
 
-(* [check_args lpred tx]: check if [txl] satisfy the predicate [lpred] *)
+(* [check_args lpred tx]: checks if [txl] satisfy the predicate [lpred] *)
 and check_args (lpred : target_list_pred) (txl : typed_vars) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i tx -> check_arg (ith_target i) tx) txl)
 
-(* [check_arg tg tx]: check if the typed-variable [tx] satisfies the argument-constraint [tg].
+(* [check_arg tg tx]: checks if the typed-variable [tx] satisfies the argument-constraint [tg].
    An argument constraint is a singleton constraint, of the form [cArg ..] or [cTrue]. *)
 and check_arg (tg:arg_constraint) ((var_name, var_typ) : typed_var) : bool =
   match tg with
@@ -1034,7 +1034,7 @@ and check_arg (tg:arg_constraint) ((var_name, var_typ) : typed_var) : bool =
   | _ -> fail None "Constr.check_arg: target expressing constraints on arguments must be list with at most one item."
 
 
-(* [check_accesses ~inner_accesses ca al]: check if [al] is matched by [ca] *)
+(* [check_accesses ~inner_accesses ca al]: checks if [al] is matched by [ca] *)
 and check_accesses ?(inner_accesses : bool = true) (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
     match cal, al with
@@ -1063,7 +1063,7 @@ and check_accesses ?(inner_accesses : bool = true) (ca : constr_accesses) (al : 
   | None -> true
   | Some cal -> aux cal al
 
-(* [check_cases cc cases]: check if [cases] are matched by [cc] *)
+(* [check_cases cc cases]: checks if [cases] are matched by [cc] *)
 and check_cases (cc : constr_cases) (cases : (trms * trm) list) : bool =
   let rec aux (cl : (case_kind * target) list)
     (cases : (trms * trm) list) : bool =
@@ -1079,7 +1079,7 @@ and check_cases (cc : constr_cases) (cases : (trms * trm) list) : bool =
   | None -> true
   | Some cl -> aux cl cases
 
-(* [check_kind k tl]: check if [tl] are of kind [k] *)
+(* [check_kind k tl]: checks if [tl] are of kind [k] *)
 and check_kind (k : case_kind) (tl : trms) : bool =
   match k, tl with
   | Case_any, _ -> true
@@ -1089,7 +1089,7 @@ and check_kind (k : case_kind) (tl : trms) : bool =
      List.mem true (List.map (check_target p_val) tl)
   | _ -> false
 
-(* [check_enum_const cec xto_l]: check if [xto_l] are matched by constraint [cec] *)
+(* [check_enum_const cec xto_l]: checks if [xto_l] are matched by constraint [cec] *)
 and check_enum_const (cec : constr_enum_const)
   (xto_l : (string * (trm option)) list) : bool =
   match cec with
@@ -1106,7 +1106,7 @@ and check_enum_const (cec : constr_enum_const)
        cnp_l
        xto_l
 
-(* [check_target ~depth tr t]: check if target tr leads to at least one subterm of t *)
+(* [check_target ~depth tr t]: checks if target tr leads to at least one subterm of t *)
 and check_target ?(depth : depth = DepthAny) (tr : target) (t : trm) : bool =
   match resolve_target_simple ~depth tr t with
   | [] -> false
@@ -1253,7 +1253,7 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   | LastOcc ->  [snd (Xlist.unlast res)]
   end
 
-(* [resolve_target tg]: resolve the target [tg] *)
+(* [resolve_target tg]: resolves the target [tg] *)
 and resolve_target (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in
   if tgs.target_relative <> TargetAt
@@ -1268,7 +1268,7 @@ and resolve_target_exactly_one (tg : target) (t : trm) : path =
   | [p] -> p
   | _ -> fail t.loc "Constr.resolve_target_exactly_one: obtained several targets."
 
-(* [resolve_constraint c p t]: check [c] against [t] and in case of success continue with [p] *)
+(* [resolve_constraint c p t]: checks [c] against [t] and in case of success continue with [p] *)
 and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   let loc = t.loc in
   match c with
@@ -1298,7 +1298,7 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
        (constr_to_string c);
      []
 
-(* [explore_in_depth ~depth p t]: call resolve_target_simple on subterms of t if possible *)
+(* [explore_in_depth ~depth p t]: calls resolve_target_simple on subterms of t if possible *)
 and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) : paths =
   (* By default, traversing a node decreases the depth *)
   let aux = resolve_target_simple ~depth:(depth_pred depth) p in
@@ -1407,7 +1407,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
   call resolve_target_simple on given case name and body
   i is the index of the case in its switch
  *)
-(* [explore_case depth i case p]: call resolve_target_simple on given case name and body,
+(* [explore_case depth i case p]: calls resolve_target_simple on given case name and body,
     [i] is the index of the case in its switch satement *)
 and explore_case (depth : depth) (i : int) (case : trms * trm) (p : target_simple) : paths =
   let aux = resolve_target_simple ~depth p in
@@ -1427,7 +1427,7 @@ and explore_case (depth : depth) (i : int) (case : trms * trm) (p : target_simpl
      ) @
      add_dir (Dir_case (i, Case_body)) (aux body)
 
-(* [follow_dir d p t]: follow the direction [d] in [t] and call resolve_target_simple on [p] *)
+(* [follow_dir d p t]: follows the direction [d] in [t] and call resolve_target_simple on [p] *)
 and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   let aux = resolve_target_simple p in
   let loc = t.loc in
@@ -1468,7 +1468,6 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_for_start (aux start)
   | Dir_for_stop, Trm_for (_, _, _, stop, _, _) ->
      add_dir Dir_for_stop (aux stop)
-
   | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (aux f)
   | Dir_arg_nth n, Trm_apps (_, tl) ->
      app_to_nth_dflt loc tl n (fun nth_t ->
@@ -1519,7 +1518,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
        (dir_to_string d);
      []
 
-(* [explore_list tl d cont]: call [cont] on each element of the list and gathers the results
+(* [explore_list tl d cont]: calls [cont] on each element of the list and gathers the results
     used for seq, array, struct, and fun arguments
    [d] is the function that gives the direction to add depending on the index *)
 and explore_list (tl : trms) (d : int -> dir)
@@ -1532,7 +1531,7 @@ and explore_list (tl : trms) (d : int -> dir)
   d: function that gives the direction to add depending on the index
  *)
 
-(* [explore_list_ind tl d dom cont]: call [cont] on each element of the list,
+(* [explore_list_ind tl d dom cont]: calls [cont] on each element of the list,
    [index] is in the domain and gather results
    [d] is a fucntion that gives direction to add depending on the [index] *)
 and explore_list_ind (tl : trms) (d : int -> dir) (dom : int list)
@@ -1547,13 +1546,13 @@ and explore_list_ind (tl : trms) (d : int -> dir) (dom : int list)
 (******************************************************************************)
 (*                          Target-between resolution                         *)
 (******************************************************************************)
-(* [extract_last_path_item p]: extract the last direction from a nonempty path *)
+(* [extract_last_path_item p]: extracts the last direction from a nonempty path *)
 let extract_last_path_item (p : path) : dir * path =
   match List.rev p with
   | [] -> raise Not_found
   | d :: p' -> (d, List.rev p')
 
-(* [extract_last_dir p]: extract the last direction on a sequence *)
+(* [extract_last_dir p]: extracts the last direction on a sequence *)
 let extract_last_dir (p : path) : path * int =
   match List.rev p with
   | [] -> raise Not_found
@@ -1563,14 +1562,14 @@ let extract_last_dir (p : path) : path * int =
     | _ -> fail None "Constr.extract_last_dir: expected a directory in a sequence"
     end
 
-(* [get_sequence_length t]: get the number of instructions on a sequence *)
+(* [get_sequence_length t]: gets the number of instructions on a sequence *)
 let get_sequence_length (t : trm) : int =
   begin match t.desc with
   | Trm_seq tl -> Mlist.length tl
   | _ -> fail t.loc "Constr.get_sequence_length: expected a sequence"
   end
 
-(* [get_arity_of_seq_at]: get the arity of a sequence at path [p] *)
+(* [get_arity_of_seq_at]: gets the arity of a sequence at path [p] *)
 let get_arity_of_seq_at (p : path) (t : trm) : int =
   let (d,p') =
     try extract_last_path_item p
@@ -1585,7 +1584,7 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
       get_sequence_length seq_trm
   | _ -> fail None "Constr.get_arity_of_seq_at: expected a Dir_seq_nth, Dir_then, Dir_else or Dir_body as last direction"
 
-(* [compute_relative_index rel t p]: compute the relative index for relative targets different from [TargetAt] *)
+(* [compute_relative_index rel t p]: computes the relative index for relative targets different from [TargetAt] *)
 let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
   match rel with
   | TargetAt -> fail None "Constr.compute_relative_index: Didn't expect a TargetAt"
@@ -1606,7 +1605,7 @@ let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path *
       | Dir_seq_nth i -> (p', i + shift)
       | _ -> fail None "Constr.compute_relative_index: expected a Dir_seq_nth as last direction"
 
-(* [resolve_target_between tg t]: resolve a target that points before or after an instruction *)
+(* [resolve_target_between tg t]: resolves a target that points before or after an instruction *)
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   let tgs = target_to_target_struct tg in
   if tgs.target_relative = TargetAt

@@ -22,38 +22,38 @@ type env = varkind String_map.t
 let env_empty =
   String_map.empty
 
-(* [get_varkind env x]: get the mutability of variable [x] 
+(* [get_varkind env x]: gets the mutability of variable [x] 
    Note: Functions that come from an external library are set to immutable by default *)
 let get_varkind (env : env) (x : var) : varkind =
   match String_map.find_opt x env with
   | Some m -> m
   | _ -> Var_immutable 
 
-(* [is_var_mutable env x]: check if variable [x] is mutable or not *)
+(* [is_var_mutable env x]: checks if variable [x] is mutable or not *)
 let is_var_mutable (env : env) (x : var) : bool =
   get_varkind env x = Var_mutable
 
-(* [env_extend env e varkind]: add variable [e] into environment [env] *)
+(* [env_extend env e varkind]: adds variable [e] into environment [env] *)
 let env_extend (env : env) (e : var) (varkind : varkind) : env =
   String_map.add e varkind env
 
-(* [add_var env x xm]: add variable [x] into environemnt [env] with value [xm] *)
+(* [add_var env x xm]: adds variable [x] into environemnt [env] with value [xm] *)
 let add_var (env : env ref) (x : var) (xm : varkind) : unit =
   env := env_extend !env x xm
 
-(* [trm_address_of t]: add the "&" operator before [t]
+(* [trm_address_of t]: adds the "&" operator before [t]
     Note: if for example t = *a then [trm_address_of t] = &( *a) = a *)
 let trm_address_of (t : trm) : trm =
   let u = trm_apps ~typ:t.typ (trm_unop Unop_address) [t] in
   trm_simplify_addressof_and_get u
 
-(* [trm_get t]: add the "*" operator before [t]
+(* [trm_get t]: adds the "*" operator before [t]
     Note: if for example t = &a then [trm_get t] = *( &a) = a *)
 let trm_get (t : trm) : trm =
   let u = trm_apps ~typ:t.typ (trm_unop Unop_get) [t] in
   trm_simplify_addressof_and_get u
 
-(* [onscope env t f]: apply function [f] on [t] without loosing [env] 
+(* [onscope env t f]: applies function [f] on [t] without loosing [env] 
    Note: This function is used for keeping track of opened scopes *)
 let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
     let saved_env = !env in
@@ -61,11 +61,11 @@ let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
     env := saved_env;
     res
 
-(* [create_env]: create an empty environment *)
+(* [create_env]: creates an empty environment *)
 let create_env () = ref env_empty
 
 
-(* [stackvar_elim t]: apply the following encodings
+(* [stackvar_elim t]: applies the following encodings
     - [int a = 5] with [<annotation:stackvar> int* a = new int(5)] and a variable occurrence [a] becomes [ * a]
     - [const int c = 5] remains unchange
     - simplify patterns of the form [&*p] into [p].
@@ -165,7 +165,7 @@ let stackvar_intro (t : trm) : trm =
    aux t
 
 
-(* [caddress_elim t]: apply the following encodings
+(* [caddress_elim t]: applies the following encodings
      - [get(t).f] becomes get(t + offset f)
      - [t.f] becomes t + offset(f)
      - [get(t)[i] ] becomes [get (t + i)]
@@ -194,7 +194,7 @@ let rec caddress_elim (t : trm) : trm =
     | _ -> trm_map aux t
     end
 
-(* [is_access t]: check if trm [t] is a struct access or an array access *)
+(* [is_access t]: checks if trm [t] is a struct access or an array access *)
 let is_access (t : trm) : bool =
   match t.desc with
   | Trm_apps (tprim, _) ->
@@ -241,7 +241,7 @@ let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
 
 let caddress_intro = caddress_intro_aux false
 
-(* [cseq_items_void_type t]: update [t] in such a way that all instructions appearing in sequences
+(* [cseq_items_void_type t]: updates [t] in such a way that all instructions appearing in sequences
    have type [Typ_unit]. This might not be the case, for example on [x += 2;], Menhir provides an
    [int] type, whereas [Clang] provides a [void] type. *)
 let rec cseq_items_void_type (t : trm) : trm =
@@ -272,7 +272,7 @@ let infix_elim (t : trm) : trm =
     | _ -> trm_map aux t
   in aux t
 
-(* [infix_intro t]: decode unary and binary oeprators back to C++ unary and binary operators
+(* [infix_intro t]: decodes unary and binary oeprators back to C++ unary and binary operators
     [++(&x)] becomes [++x]
     [+=(&x, y)] becomes [x += y]
     [=(&x, y)] becomes [x = y]*)

@@ -7,7 +7,6 @@ open Ast
       [t]: ast node located in the same level or deeper as the array declaration
     return:
         updated ast with the replaced array accesses to variable references. *)
-
 let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with

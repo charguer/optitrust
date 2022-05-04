@@ -1,17 +1,17 @@
 open Ast
 
-(* [apply_rule rule t]: apply rule [rule] on trm [t] *)
+(* [apply_rule rule t]: applies rule [rule] on trm [t]. *)
 let apply_rule_aux (rule : rewrite_rule) (t : trm) : trm =
   let inst : tmap = Trm_matching.rule_match (rule.rule_vars  @ rule.rule_aux_vars) rule.rule_from t in
   let rule_before = rule.rule_to in
   let rule_after = Internal.subst inst rule_before in
   rule_after
 
-(* [apply_rule rule t p]: apply [apply_rule_aux] at trm [t] with path [p] *)
+(* [apply_rule rule t p]: applies [apply_rule_aux] at trm [t] with path [p]. *)
 let apply_rule (rule : rewrite_rule) : Target.Transfo.local =
   Target.apply_on_path (apply_rule_aux rule)
 
-(* [compute_aux t]: apply arithmetic simplifications on trm [t] *)
+(* [compute_aux t]: applies arithmetic simplifications on trm [t]. *)
 let compute_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, ts) ->
@@ -39,6 +39,6 @@ let compute_aux (t : trm) : trm =
     end
   | _ -> t
 
-(* [compute  t p]: apply trm [t] with path [p] *)
+(* [compute  t p]: applies trm [t] with path [p]. *)
 let compute : Target.Transfo.local =
   Target.apply_on_path (compute_aux)

@@ -215,7 +215,8 @@ int f2() { // result of Funciton_basic.inline_cal
   _exit:;
   int s = r;
 } *)
-let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) ?(delete : bool = false) ?(debug : bool = false) (tg : Target.target) : unit =
+let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) 
+    ?(delete : bool = false) ?(debug : bool = false) (tg : Target.target) : unit =
     (* variable for storing the function name, in case if [delete] is true it will use this name to target the declaration and delete it *)
     let function_name = ref "" in
     Trace.time "iteri_on_transformed_targets" (fun () ->
@@ -304,7 +305,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
 
      Note: If [tg] points to a function call then similar to Function_basic.beta, this transformation can be considered as an
      alias of Function_basic.inline. If that's not the case then transformation will do something as the similar to the following:
-     int a = (void f(int x) {return x})(3) --> int a = 3; *)
+     int a = (void f(int x) {return x})(3) --> int a = 3;.*)
 
 (* [beta ~indepth tg]: applies beta-reduction on candidate function calls that appear
     either "exactly at" or "anywhere in depth" in the target [tg], depending on the value of ~indepth. *)

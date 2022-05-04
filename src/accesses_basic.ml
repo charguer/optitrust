@@ -12,7 +12,7 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
           then t 
           else Accesses_core.transform f_get f_set t get_or_set_path )
 
-(* [scale ~inv ~factor tg] this transformation just calls the [transform] function  with [f_get] and [f_set] args 
+(* [scale ~inv ~factor tg]: this transformation just calls the [transform] function  with [f_get] and [f_set] args 
    defined as a multiplication and a division operation respectively. If [inv] is set to true then these two 
    operations will be swapped. *)
 let scale ?(inv:bool=false) ~factor:(factor:trm) (tg : Target.target) : unit =
@@ -21,7 +21,7 @@ let scale ?(inv:bool=false) ~factor:(factor:trm) (tg : Target.target) : unit =
   let f_set t = Arith_core.apply_aux op_set factor t in
   transform f_get f_set tg
 
-(* [shift ~inv ~factor tg] this transformation just calls the [transform] function with [f_get] and [f_set] args
+(* [shift ~inv ~factor tg]: this transformation just calls the [transform] function with [f_get] and [f_set] args
    defined as a multiplication and a division respectively. If [inv] is set to true then these two operations 
    will be swapped. *)
 let shift ?(inv:bool=false) ~factor:(factor : trm) (tg : Target.target) : unit =
@@ -30,7 +30,7 @@ let shift ?(inv:bool=false) ~factor:(factor : trm) (tg : Target.target) : unit =
   let f_set t = Arith_core.apply_aux op_set factor t in
   transform f_get f_set tg
 
-(* [intro tg] expects the target [tg] to be pointing at any node that could contain struct accesses, preferably 
+(* [intro tg]: expects the target [tg] to be pointing at any node that could contain struct accesses, preferably 
    a sequence, then it will transform all the encodings of the form struct_get (get (t), f) to 
    get (struct_access (t, f)) . *)
 let intro : Target.Transfo.t =

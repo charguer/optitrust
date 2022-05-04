@@ -8,7 +8,7 @@ include Instr_basic
      [write_mark]: a mark used by the transformation [inline_last_write] to mark the instruction that needs to 
                    be deleted
      [write]: optional explicit target to the last write instruction 
-     Note: This transformation will fail in case it doesn't find a write to to the address that it reads from *)
+     Note: This transformation will fail in case it doesn't find a write to to the address that it reads from. *)
 let read_last_write ?(write_mark : mark option = None) ?(write : target = []) (tg : target) : unit =
   if write <>  [] 
     then Instr_basic.read_last_write ~write tg 
@@ -50,7 +50,7 @@ let read_last_write ?(write_mark : mark option = None) ?(write : target = []) (t
     ) tg end
 
 (* [inline_last_write ~write ~write_mark tg]: similar to [read_last_write] except that this one 
-    deletes the last write operation *)
+    deletes the last write operation. *)
 let inline_last_write ?(write : target = []) ?(write_mark : mark = "__todelete__") (tg : target) : unit =
   let write_mark = if write = [] then Some write_mark else None in 
   read_last_write ~write ~write_mark  tg;
@@ -58,7 +58,7 @@ let inline_last_write ?(write : target = []) ?(write_mark : mark = "__todelete__
   
 (* [accumulate tg]: similar to [Instr_basic.accumulate], however this transformation requires the user to use a 
     different target. For this transformation the user needs to provide a target to the first instruction 
-    and the number [nb] of consecutive instructions that can be accumulated into a single one *)
+    and the number [nb] of consecutive instructions that can be accumulated into a single one. *)
 let accumulate ?(nb : int option) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -78,7 +78,7 @@ let accumulate ?(nb : int option) : Transfo.t =
 
 (* [accumulate_targets tg]: similar to [Instr_basic.accumulate], the main difference is that this transformation
      expects the target [tg] to point to multiple instructions instead of a sequence that consists of multiple
-     instructions that can be reduced to a single one. Here the regrouping is done automatically *)
+     instructions that can be reduced to a single one. Here the regrouping is done automatically. *)
 let accumulate_targets (tg : target) : unit =
   let mark = Mark.next() in
   Sequence.intro_targets ~mark tg;
@@ -91,7 +91,7 @@ type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of target
     it will move this instructions just before the instruction targeted by [dest].
     
     Note: This transformation assumes that [tg]  is going to be pointing at multiple instructions,
-    hence no need to provide the occurrecen target [nbMulti] before the main target *)
+    hence no need to provide the occurrecen target [nbMulti] before the main target. *)
 let gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : unit =
   let tg = filter_constr_occurrence tg in
   let tg_dest = ref [] in
@@ -125,7 +125,7 @@ let gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : unit =
 
 
 (* [move_multiple ~destinations ~targets]: expects [targets] and definitions both to be a list of targets, such th at
-     to each target there exists a unique destination where it's going to be moved *)
+     to each target there exists a unique destination where it's going to be moved. *)
 let move_multiple ~destinations:(destinations : target list) ~targets:(targets : target list) : unit =
   if List.length destinations <> List.length targets then fail None "Instr.move_multiple: each destination corresponds to a single target and vice-versa";
   List.iter2(fun dest tg1 -> Instr_basic.move ~dest tg1) destinations targets
@@ -146,7 +146,7 @@ let move_out ~dest:(dest : target) : Transfo.t =
 
 (* TODO: Debug *)
 (* [move_out_of_fun tg]: moves the instruction targeted by [tg] just befor the toplevel declaration function 
-    that it belongs to *)
+    that it belongs to. *)
 let move_out_of_fun (tg : target) : unit =
   let mark = "move_out_of_fun" in 
   Marks.add mark [cTopFunDef ~body:tg ""];
@@ -157,7 +157,6 @@ let move_out_of_fun (tg : target) : unit =
   ) tg;
   Marks.remove mark [cMark mark]
 
-(* [set_atomic tg]: just an alias to Omp.atomic tg, please refer to omp_basic.ml  line 9*)
+(* [set_atomic tg]: just an alias to Omp.atomic tg, please refer to omp_basic.ml  line 9 *)
 let set_atomic : Transfo.t = 
   Omp_basic.atomic 
-

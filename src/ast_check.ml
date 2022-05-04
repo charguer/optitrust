@@ -1,6 +1,6 @@
 open Ast
 
-(* [check test_name t1 t2] checks if [t1] and [t2] are equal or not, if not
+(* [check test_name t1 t2]: checks if [t1] and [t2] are equal or not, if not
     this function will print both the C code and the Optitrust ast.
     into files with prefix [test_name] *)
 let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
@@ -16,7 +16,7 @@ let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
       Ast_to_text.ast_to_file (test_name ^ "_ast_2.ast") t2;
   end
 
-(* [check_transfo_is_identity ~test f t] check if ft = t *)
+(* [check_transfo_is_identity ~test f t]: checks if ft = t *)
 let check_transfo_is_identity ?(test : string = "") (f : trm -> trm) (t : trm) : unit =
   let t1 = f t in
   check test t t1

@@ -1,11 +1,10 @@
 open Ast
 
-(* [copy_aux dest_index index t]: copies instruction with [index] to the [dest_index] 
-    params:
-     [dest_index]: the relative [index] where the target instruction will be copied
-     [index]: index of the targeted instruction 
-     [delete]: if true then the original instruction will be deleted
-     [t]: ast of the surrounding sequence of the targeted instruction. *)
+(* [copy_aux dest_index index t]: copies instruction with [index] to the [dest_index],
+     [dest_index] - the relative [index] where the target instruction will be copied,
+     [index] - index of the targeted instruction,
+     [delete] - if true then the original instruction will be deleted,
+     [t] - ast of the surrounding sequence of the targeted instruction. *)
 let copy_aux (dest_index : int) (index : int) (delete : bool) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -20,9 +19,8 @@ let copy_aux (dest_index : int) (index : int) (delete : bool) (t : trm) : trm =
 let copy (dest_index : int) (index : int) (delete : bool) : Target.Transfo.local =
   Target.apply_on_path (copy_aux dest_index index delete)
 
-(* [accumulate_aux t]: transform a list of write instructions into a single instruction
-    params:
-      [t]: the ast of the sequence containing the instructions *)
+(* [accumulate_aux t]: transform a list of write instructions into a single instruction,
+      [t] - the ast of the sequence containing the instructions. *)
 (* LATER: Factorize me! *)
 let accumulate_aux (t : trm) : trm =
   match t.desc with
@@ -67,6 +65,6 @@ let accumulate_aux (t : trm) : trm =
 
   | _ -> fail t.loc "Instr_core.accumulate_aux: expected a block of instructions"
 
-(* [accumulate t p]: apply [accumulate_aux] at the trm [t] with path [p] *)
+(* [accumulate t p]: applies [accumulate_aux] at the trm [t] with path [p]. *)
 let accumulate : Target.Transfo.local =
   Target.apply_on_path (accumulate_aux)

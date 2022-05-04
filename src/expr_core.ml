@@ -4,15 +4,10 @@ open Ast
 let update (f : trm -> trm) : Target.Transfo.local =
   Target.apply_on_path f
 
-
-(* [replace_fun name t]: change the current function call to another 
-      function call where the name has been changed to [name]
-    params:
-      [name]: name of the function replacing the targeted one
-      [t]: ast of the function call trm
-    return:
-      updated ast with the replaced trm *)
-
+(* [replace_fun_aux name t]: changes the current function call to another function call where the name has 
+      been changed to [name],
+      [name] - name of the function replacing the targeted one,
+      [t] - ast of the function call trm. *)
 let replace_fun_aux (name : string) (t : trm) : trm =
   match t.desc with
   | Trm_apps (_, args) ->
@@ -20,11 +15,11 @@ let replace_fun_aux (name : string) (t : trm) : trm =
   | _ -> fail t.loc "replace_fun: expected a function call"
 
 
-(* [replace_fun name t p]: apply [replace_fun_aux] at trm [t] with path [p] *)
+(* [replace_fun name t p]: applies [replace_fun_aux] at trm [t] with path [p] *)
 let replace_fun (name : string) : Target.Transfo.local =
   Target.apply_on_path (replace_fun_aux name)
 
-(* [view_subterms_aux stringreprs ro]: print the string representations of all the subterms of [t]  *)
+(* [view_subterms_aux stringreprs ro]: prints the string representations of all the subterms of [t]  *)
 let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp option) (t : trm) : trm =
   let sprintf = Printf.sprintf in
   let rec aux t =
@@ -93,7 +88,7 @@ let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp op
     in
   aux t
 
-(* [view_subterms]: assume terms to carry [Annot_stringreprid], using the ids from the table [stringreprs].
+(* [view_subterms]: assumes terms to carry [Annot_stringreprid], using the ids from the table [stringreprs].
    See [Expr_basic.view_subterms] for details on how this is achieved. *)
 let view_subterms (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp option) : Target.Transfo.local =
   Target.apply_on_path (view_subterms_aux stringreprs ro)
