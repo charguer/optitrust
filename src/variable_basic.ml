@@ -39,7 +39,7 @@ let unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : Target.t
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.unfold false accept_functions mark at i t p)
 
-(* [inline] documentation *)
+(* [inline]: similar to [unfold] but this one deletes the targeted declaration *)
 let inline ?(mark : mark = "") ?(accept_functions : bool = true) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Variable_core.unfold true accept_functions mark [] i t p)
@@ -50,14 +50,14 @@ let rename ~into:(new_name : var) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.rename new_name i t p)
 
-(* [init_detach tg] expects the target [tg] to point at a variable initialization.
+(* [init_detach tg]: expects the target [tg] to point at a variable initialization.
    It then splits the instruction into a variable declaration and a set operation. *)
 let init_detach (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
     Target.apply_on_targets (Variable_core.init_detach) tg
   )
 
-(* [init_attach const tg] expects the target [tg] to point at a variable declaration,
+(* [init_attach const tg]: expects the target [tg] to point at a variable declaration,
     Then it will search inside the sequence which contains the variable declaration
     for an unique assigment. Then it will replace that assignment with a new initialized
     variable declaration.
@@ -67,7 +67,7 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
     (fun t (p,i) -> Variable_core.init_attach const i t p )
 
 
-(* [local_name var_type ~mark var ~into tg]: expectes target [tg] to point at a marked
+(* [local_name var_type ~mark var ~into tg]: expects the target [tg] to point at a marked
       sequence. Then it will declare a new variable with name [new_name] and replace all
       the occurences of [var] with [into]. 
       If the arg [mark] is provided then after the transformation the local scope will be marked

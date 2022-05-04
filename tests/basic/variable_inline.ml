@@ -11,8 +11,6 @@ int main() {
   int r = a + a + b;
 }
 "
-
-
 let _ = Run.script_cpp (fun _ ->
 
    (* for variables *)
@@ -28,7 +26,4 @@ let _ = Run.script_cpp (fun _ ->
    (* tranformation fails for non const variables *)
    Tools.failure_expected (fun () ->
    !! Variable_basic.inline [cVarDef "c"];)
-
-   
-
 )
