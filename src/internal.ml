@@ -394,7 +394,7 @@ let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) l
   match reorder_kind with
   | Reorder_after around -> move_fields_after around local_l sf
   | Reorder_before around -> move_fields_before around local_l sf
-  | Reorder_all -> let check = (List.length (Tools.list_remove_duplicates local_l) = List.length sf) in
+  | Reorder_all -> let check = (List.length (Xlist.remove_duplicates local_l) = List.length sf) in
     begin match check with
     | false -> fail None "Internal.reorder_fields: list of fields entered contains duplicates"
     | true -> List.map (fun x ->

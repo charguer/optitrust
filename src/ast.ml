@@ -943,7 +943,7 @@ let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
 
 (* [trm_annot_remove annot t]: remove annotation [annot] from trm [t] *)
 let trm_annot_remove (annot : trm_annot) (t : trm) : trm =
-  { t with annot = Tools.list_remove annot t.annot }
+  { t with annot = Xlist.remove annot t.annot }
 
 (* [trm_attr_add att t]: add attribute [att] to trm [t] *)
 let trm_attr_add (att : attribute) (t : trm) : trm =
@@ -2435,11 +2435,11 @@ let get_mutability (t : trm) : varkind option =
 
 (* [serialize_to_file filename t]: writes a serialized version of the AST [t] into the file [filename] *)
 let serialize_to_file (filename : string) (t : trm) : unit =
-  Tools.serialize_to_file filename t
+  Xfile.serialize_to_file filename t
 
 (* [unserialize_from_file filename]: reads a serialized AST from the file [filename]. *)
 let unserialize_from_file (filename : string) : trm =
-  Tools.unserialize_from_file filename
+  Xfile.unserialize_from_file filename
 
 (* [empty_ast]: generate {} *)
 let empty_ast : trm =

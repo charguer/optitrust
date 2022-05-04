@@ -124,7 +124,7 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
   | Trm_apps (f, args) ->
     begin match f.desc with
     | Trm_var (_, f_name) ->
-      let dims , size = Tools.unlast args in
+      let dims , size = Xlist.unlast args in
       if (Tools.pattern_matches "CALLOC" f_name) then Some (dims, size, true)
         else if (Tools.pattern_matches "MALLOC" f_name) then Some (dims, size, false)
         else None
@@ -227,29 +227,29 @@ let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
   | Some (dims, indices), None ->
     let nb = List.length dims in
     let order = if rotate_n <> 0 
-      then let id_perm = Tools.range 0 (nb - 1) in
-           Tools.list_rotate rotate_n id_perm
+      then let id_perm = Xlist.range 0 (nb - 1) in
+           Xlist.rotate rotate_n id_perm
       else 
         begin match order with 
       | [] -> fail t.loc "reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
       | _ -> order
       end in
-    begin try Tools.check_permutation nb order with | Tools.Invalid_permutation -> fail t.loc "order is not a permutation of indices" end;
-    let reordered_dims = Tools.list_reorder order dims in
-    let reordered_indices = Tools.list_reorder order indices in
+    begin try Xlist.check_permutation nb order with | Xlist.Invalid_permutation -> fail t.loc "order is not a permutation of indices" end;
+    let reordered_dims = Xlist.reorder order dims in
+    let reordered_indices = Xlist.reorder order indices in
     mindex (reordered_dims) (reordered_indices)
   | None, Some (dims, size, zero_init) ->
     let nb = List.length dims in
     let order = if rotate_n <> 0 
-      then let id_perm = Tools.range 0 (nb - 1) in
-           Tools.list_rotate rotate_n id_perm
+      then let id_perm = Xlist.range 0 (nb - 1) in
+           Xlist.rotate rotate_n id_perm
       else 
         begin match order with 
       | [] -> fail t.loc "reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
       | _ -> order
       end in
-    begin try Tools.check_permutation nb order with | Tools.Invalid_permutation -> fail t.loc "order is not a permutation of indices" end;
-    let reordered_dims = Tools.list_reorder order dims in
+    begin try Xlist.check_permutation nb order with | Xlist.Invalid_permutation -> fail t.loc "order is not a permutation of indices" end;
+    let reordered_dims = Xlist.reorder order dims in
     let init = if zero_init then Some (trm_int 0 ) else None in
     alloc ~init reordered_dims size
   | _ -> fail t.loc "reorder_dims_aux: expected  a function call to CALLOC or MINDEX"

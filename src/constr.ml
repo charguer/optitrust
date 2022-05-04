@@ -1244,13 +1244,13 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
     | Some n ->
       if n <> nb then error (Printf.sprintf "resolve_target_struct: expected %d matches, got %d" n nb)
         else
-          Tools.filter_selected i_selected res;
+          Xlist.filter_selected i_selected res;
     | None -> if nb = 0
                 then error (Printf.sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb)
-                else Tools.filter_selected i_selected res;
+                else Xlist.filter_selected i_selected res;
     end
-  | FirstOcc -> [fst (Tools.uncons res)]
-  | LastOcc ->  [snd (Tools.unlast res)]
+  | FirstOcc -> [fst (Xlist.uncons res)]
+  | LastOcc ->  [snd (Xlist.unlast res)]
   end
 
 (* [resolve_target tg]: resolve the target [tg] *)

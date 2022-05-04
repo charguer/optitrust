@@ -228,13 +228,13 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
         | Trm_apps(_,[_; bnd]) ->
            begin match bnd.desc with
            | Trm_val (Val_lit (Lit_int bnd)) ->
-             Tools.range 0 (bnd - 1)
+             Xlist.range 0 (bnd - 1)
            | _ -> fail bnd.loc "Loop_core.unroll_aux: expected a literal trm"
            end
          | Trm_val (Val_lit (Lit_int bnd)) ->
              begin match start.desc with
              | Trm_val (Val_lit (Lit_int strt)) ->
-               Tools.range 0 (bnd - 1 - strt)
+               Xlist.range 0 (bnd - 1 - strt)
              | _ -> fail start.loc "Loop_core.unroll_aux: expected a "
              end
         | _ -> fail t.loc "Loop_core.unroll_aux: the loop which is going to be unrolled shoudl have a bound which is a sum of a variable and a literal"
@@ -362,7 +362,7 @@ let fold_aux (index : var) (start : int) (step : int) (t : trm) : trm =
     let nb = Mlist.length tl in
     if nb = 0
       then fail t.loc "Loop_core.fold_aux: expected a non-empty list of instructions";
-    let first_instr, other_instr  = Tools.uncons (Mlist.to_list tl) in
+    let first_instr, other_instr  = Xlist.uncons (Mlist.to_list tl) in
     let loop_body = Internal.change_trm (trm_int start) (trm_var index) first_instr in
     List.iteri( fun i t1 ->
       let local_body = Internal.change_trm (trm_int (i+1)) (trm_var index) t1 in

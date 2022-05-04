@@ -1,8 +1,8 @@
 open Ast
 
 
-(* [line_of_last_step] stores the line number from the source script at which a step
-   ('!!' or '!^') was last processed. *)
+(* [line_of_last_step]: store the line number from the source script at which a step
+    ('!!' or '!^') was last processed. *)
 let line_of_last_step = ref (-1)
 
 
@@ -11,7 +11,7 @@ let line_of_last_step = ref (-1)
 (*                             Debugging tools                                *)
 (******************************************************************************)
 
-(* [Trace.report "mymessage" t] can be used for debugging *)
+(* [report "mymessage" t]: can be used for debugging *)
 let report (msg : string) (t : trm) : unit =
   Printf.printf "%s: %s\n" msg (AstC_to_c.ast_to_string t)
 
@@ -19,18 +19,18 @@ let report (msg : string) (t : trm) : unit =
 (*                             Logging management                             *)
 (******************************************************************************)
 
-(* [timing_log] is a handle on the channel for writing timing reports. *)
+(* [timing_log]: is a handle on the channel for writing timing reports. *)
 let timing_log_handle = ref None
 
-(* [logs] is a reference on the list of open log channels. *)
+(* [logs]: is a reference on the list of open log channels. *)
 let logs : (out_channel list) ref = ref []
 
-(* [close_logs] closes all open log channels. *)
+(* [close_logs]: closes all open log channels. *)
 let close_logs () : unit =
   List.iter (fun log -> close_out log) !logs;
   logs := []
 
-(* [init_logs] initializes the log files. It closes any existing logs.
+(* [init_logs]: initializes the log files. It closes any existing logs.
    Returns the one log created. *)
 let init_logs directory prefix =
   close_logs();
@@ -312,7 +312,7 @@ let get_initial_ast ?(parser : Parsers.cparser = Parsers.Default) (ser_mode : Fl
   (* LATER if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
   let includes = get_cpp_includes filename in
   let ser_file_exists = Sys.file_exists ser_file in
-  let ser_file_more_recent = if (not ser_file_exists) then false else Tools.is_file_newer_than ser_file filename in
+  let ser_file_more_recent = if (not ser_file_exists) then false else Xfile.is_newer_than ser_file filename in
   let auto_use_ser = (ser_mode = Serialized_Auto && ser_file_more_recent) in
   if (ser_mode = Serialized_Use
    || ser_mode = Serialized_Make
@@ -407,8 +407,8 @@ let alternative (f : unit->unit) : unit =
     in
   if trace.history = [] || trace.stepdescrs = []
     then fail None "alternative: the history is empty";
-  let _,init_ast = Tools.unlast trace.history in
-  let _,init_stepdescr = Tools.unlast trace.stepdescrs in
+  let _,init_ast = Xlist.unlast trace.history in
+  let _,init_stepdescr = Xlist.unlast trace.stepdescrs in
   let init_trace = { trace with
     cur_ast = init_ast;
     history = [init_ast];
@@ -553,7 +553,7 @@ let check_recover_original () : unit =
     | [] -> failwith "check_recover_original: no history"
     | astLast :: [] -> () (* no operation performed, nothing to check *)
     | astLast :: astsBefore ->
-        let _,astInit = Tools.unlast astsBefore in
+        let _,astInit = Xlist.unlast astsBefore in
         check_same astLast astInit
     in
   List.iter check_trace !traces

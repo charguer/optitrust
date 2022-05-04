@@ -318,7 +318,7 @@ let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : Target.target)
     | Trm_apps _ ->
       Function_basic.beta ~body_mark tg
     | Trm_let_fun (_f, _, _, _) ->
-      let parent_path, _ = Tools.unlast p in
+      let parent_path, _ = Xlist.unlast p in
       let parent_node = Path.resolve_path parent_path t in
       begin match parent_node.desc with
       | Trm_apps (_, _args) -> Function_basic.beta ~body_mark (Target.target_of_path parent_path)

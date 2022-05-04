@@ -492,7 +492,7 @@ let simpl_proj_aux (t : trm) : trm =
               | _ -> fail struct_list.loc "Struct_core.simpl_proj_aux: couldn't retrieve the the struct declaration" in
               let field_list = Internal.get_field_list struct_def in
               let field_vars = fst (List.split field_list) in
-              match Tools.index_of x field_vars  with
+              match Xlist.index_of x field_vars  with
               | Some i ->
                 Mlist.nth tl i
               | _ -> t

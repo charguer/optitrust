@@ -20,7 +20,7 @@ let choose_id (id : int) : Target.Transfo.t =
     when applying function [choose_fct]. *)
 let choose (choice : string) (tg : target) : unit =
   choose_fct (fun xs -> 
-    match Tools.index_of choice xs with 
+    match Xlist.index_of choice xs with 
     | None -> fail None "choose: the argument is not part of the choices"
     | Some id -> id) tg
   

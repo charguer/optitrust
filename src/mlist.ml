@@ -37,9 +37,9 @@ let iteri (f : int -> 'a -> unit) (ml : 'a t) : unit =
 let iter (f : 'a -> unit) (ml : 'a t) : unit =
   iteri (fun _i x -> f x) ml
 
-(* [find_map f ml]: apply Tools.find_map f to ml.items *)
+(* [find_map f ml]: apply Xlist.find_map f to ml.items *)
 let find_map (f : 'a -> 'b option) (ml : 'a t) : 'b option =
-  Tools.find_map f ml.items (* LATER: now in the List stdlib module *)
+  Xlist.find_map f ml.items (* LATER: now in the List stdlib module *)
 
 (* [fold_left acc_f acc ml]: apply List.fold_left to ml.items *)
 let fold_left (acc_f : 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
@@ -70,11 +70,11 @@ let rev (ml : 'a t) : 'a t =
 
 (* [replace_at index x ml]: replace the item at [index] in [ml] with element [x] *)
 let replace_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
-  { ml with items = Tools.update_nth index (fun _ -> x) ml.items }
+  { ml with items = Xlist.update_nth index (fun _ -> x) ml.items }
 
 (* [insert_at index m ml]: insert at [index] in ml mark m *)
 let insert_mark_at (index : int) (m : mark) (ml : 'a t) : 'a t =
-  { ml with marks = Tools.update_nth index (fun ms -> m :: ms) ml.marks}
+  { ml with marks = Xlist.update_nth index (fun ms -> m :: ms) ml.marks}
 
 (* [remove_at index m ml]: remove at [index] in ml mark m *)
 let remove_mark (m : mark) (ml : 'a t) : 'a t =
@@ -92,8 +92,8 @@ let split ?(left_bias : bool = true) (index : int) (ml : 'a t) : 'a t * 'a t=
 
 (* [merge ml1 ml2]: merge mlists [ml1] and [ml2] *)
 let merge (ml1 : 'a t) (ml2 : 'a t) : 'a t =
-  let marks1, tmp_marks1 = Tools.unlast ml1.marks in
-  let tmp_marks2, marks2 = Tools.uncons ml2.marks in
+  let marks1, tmp_marks1 = Xlist.unlast ml1.marks in
+  let tmp_marks2, marks2 = Xlist.uncons ml2.marks in
   let merged_marks = [tmp_marks1 @ tmp_marks2] in
   { items = ml1.items @ ml2.items; marks = marks1 @ merged_marks @ marks2 }
 
@@ -123,7 +123,7 @@ let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
 
 (* [update_nth n transfo ml]: apply function [transfo] at the item with index [n] in mlist [ml] *)
 let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =
-  { ml with items = Tools.update_nth n transfo ml.items }
+  { ml with items = Xlist.update_nth n transfo ml.items }
 
 (* [update_at_index_and_fix_beyond index f_update_at f_update_further ml]: apply [f_update_at] on the element 
     at [index] and modify accordingly all the elements that come after using [f_update_further] *)

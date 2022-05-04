@@ -126,13 +126,13 @@ let move ?(before : target = []) ?(after : target = []) (loop_to_move : target) 
     let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in
     if List.mem targeted_loop_index loop_to_move_nested_indices
       then begin
-           let choped_indices = Tools.list_chop_after targeted_loop_index loop_to_move_nested_indices in
+           let choped_indices = Xlist.chop_after targeted_loop_index loop_to_move_nested_indices in
            List.iter (fun _ -> Loop_basic.swap loop_to_move) choped_indices
            end
       else if List.mem loop_to_move_index targeted_loop_nested_indices then
         begin
-        let choped_indices = Tools.list_chop_after loop_to_move_index targeted_loop_nested_indices in
-        let choped_indices = Tools.list_chop_after targeted_loop_index (List.rev choped_indices) in
+        let choped_indices = Xlist.chop_after loop_to_move_index targeted_loop_nested_indices in
+        let choped_indices = Xlist.chop_after targeted_loop_index (List.rev choped_indices) in
         List.iter (fun x -> Loop_basic.swap [cFor x]) choped_indices
         end
       else fail loop_to_move_trm.loc "Loop.move: the given targets are not correct"
@@ -144,13 +144,13 @@ let move ?(before : target = []) ?(after : target = []) (loop_to_move : target) 
     let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in
     if List.mem targeted_loop_index loop_to_move_nested_indices
       then begin
-           let choped_indices = Tools.list_chop_after targeted_loop_index loop_to_move_nested_indices in
-           let choped_indices = Tools.list_chop_after loop_to_move_index (List.rev choped_indices) in
+           let choped_indices = Xlist.chop_after targeted_loop_index loop_to_move_nested_indices in
+           let choped_indices = Xlist.chop_after loop_to_move_index (List.rev choped_indices) in
            List.iter (fun _ -> Loop_basic.swap loop_to_move) (List.rev choped_indices)
            end
       else if List.mem loop_to_move_index targeted_loop_nested_indices then
         begin
-        let choped_indices = Tools.list_chop_after loop_to_move_index targeted_loop_nested_indices in
+        let choped_indices = Xlist.chop_after loop_to_move_index targeted_loop_nested_indices in
         List.iter (fun x -> Loop_basic.swap [cFor x]) (List.rev choped_indices)
         end
       else fail loop_to_move_trm.loc "Loop.move: the given targets are not correct"
@@ -311,7 +311,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       end
         in
       Loop_basic.unroll ~braces:true ~my_mark [cMark my_mark];
-      let block_list = Tools.range 0 (nb_instr-1) in
+      let block_list = Xlist.range 0 (nb_instr-1) in
       List.iter (fun x ->
         Variable.renames (AddSuffix (string_of_int x)) ([occIndex ~nb:nb_instr x; cMark my_mark;cSeq ()])
       ) block_list;
@@ -343,7 +343,7 @@ let reorder ?(order : vars = []) (tg : target) : unit =
     else if nb_order = 1 && List.nth order 0 <> List.nth indices 0
       then fail tg_loop.loc "[Loop.reorder]: the single index in the argument [order] should match the name of the targeted loop."
     else
-    let _, targeted_loop_index = Tools.unlast order in
+    let _, targeted_loop_index = Xlist.unlast order in
     (*  LATER: use more precise targets, to avoid targeting deeply-nested loops that resue the same index *)
     List.iter (fun x -> move (target_of_path p @ [cFor x]) ~before:(target_of_path p @ [cFor targeted_loop_index])) order
   ) tg

@@ -18,8 +18,8 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
   let fix_pattern_args (var_decls : string) : string =
   let aux (var_decl : string) : string =
     let args_decl_list = Str.split (Str.regexp_string ",") var_decl in
-    let first_var, other_vars = Tools.uncons args_decl_list in
-    let var_type, _ =  Tools.unlast (Str.split (Str.regexp_string " ") first_var) in
+    let first_var, other_vars = Xlist.uncons args_decl_list in
+    let var_type, _ =  Xlist.unlast (Str.split (Str.regexp_string " ") first_var) in
     let var_type = List.fold_left (^) "" var_type in
     let other_vars = List.map (fun x -> var_type ^ " " ^ x) other_vars in
     let var_decl_list = first_var :: other_vars in
@@ -57,7 +57,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
 
   let defs = trm_main_inv_toplevel_defs ast_of_file in 
   if defs = [] then fail ast_of_file.loc "parse_pattern: couldn't parse pattern";
-  let (_, main_fun) = Tools.unlast defs in 
+  let (_, main_fun) = Xlist.unlast defs in 
   match main_fun.desc with
   | Trm_let_fun (_, _, args, body) ->
     begin match body.desc with

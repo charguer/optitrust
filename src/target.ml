@@ -1541,7 +1541,7 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
     if reparse then begin
       if !Flags.use_light_diff then
       let fun_names = List.map get_toplevel_function_name_containing tg_paths in
-      let fun_names = Tools.list_remove_duplicates (List.filter_map (fun d -> d) fun_names) in
+      let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
       reparse_only fun_names
       else Trace.reparse();
     end

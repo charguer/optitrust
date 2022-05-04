@@ -372,7 +372,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
              incr counter;
              let m = Tools.list_to_string ~sep:"," m in
              let s = string ("/*@" ^ m ^ "@*/") in
-             Tools.insert_at (i + !counter) s acc end
+             Xlist.insert_at (i + !counter) s acc end
            else acc
           ) dl tl_m in
           counter := -1;

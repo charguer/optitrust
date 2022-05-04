@@ -1,3 +1,19 @@
+
+(* [range ~rev a b]: return the list of integers between [a] and [b] inclusive.
+   If [a > b] then it returns the list [a (a-1) .. (b+1) b].*)
+let range ?(rev : bool = false) (a : int) (b : int) : int list =
+  let rec aux a b =
+    if a > b
+      then []
+      else a :: aux (a + 1) b
+    in
+  let res =
+  if a > b
+    then List.rev (aux b a)
+    else aux a b
+    in
+  if rev then List.rev res else res
+
 (* [fold_lefti f a xs]: similar to [List.fold_left] but with access to the indices.
     It computes, e.g., [f 2 (f 1 (f 0 a x0) x1) x2)]. *)
 let fold_lefti (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
@@ -23,3 +39,121 @@ let split_at (i : int) (l : 'a list) : ('a list) * ('a list) =
     | _, x::t -> aux (i-1) (x::acc) t
     in
   aux i [] l
+
+(* [filteri p l]: implementation of [List.filteri], to be removed soon *)
+let list_filteri (p : int -> 'a -> bool ) (l : 'a list) : 'a list =
+  let rec aux i acc = function
+  | [] -> List.rev acc
+  | x::l -> aux (i + 1) (if p i x then x::acc else acc) l
+  in
+  aux 0 [] l
+
+(* [filter_selected indices l]: keep only the elements from [l] whose indices belong to the list [indices]. *)
+let filter_selected (indices : int list) (l : 'a list) : 'a list =
+  list_filteri (fun i _ -> List.mem i indices) l
+
+(* [remove x xs]: remove item [x] from list [xs] *)
+let remove (x : 'a) (xs : 'a list) : 'a list =
+  List.filter (fun y -> y <> x) xs
+
+(* [remove_duplicates xs]: remove duplicates from list [xs] *)
+let remove_duplicates (lst : 'a list) =
+  let unique_set = Hashtbl.create (List.length lst) in
+  List.iter (fun x -> Hashtbl.replace unique_set x ()) lst;
+  Hashtbl.fold (fun x () xs -> x :: xs) unique_set []
+
+(* [update_nth f l i]: return a copy of the list [l] where the element [x] at index [i] is replaced with [f x].
+   NOTE: The index [i] must be valid. *)
+let update_nth (i : int) (f : 'a -> 'a) (l : 'a list) : 'a list =
+  List.mapi (fun j a -> if j = i then f a else a) l
+
+
+
+(* [chop_after x xs]: get a prefix of [xs] where all the elemenets after the item [x] are removed, including [x].
+    If [x] does not occur in the list, then a copy of [xs] is returned *)
+let rec chop_after (x : 'a) (xs : 'a list) : 'a list =
+  match xs with
+  | [] -> []
+  | y::tl -> if y = x then [] else y:: chop_after x tl
+
+
+(* [insert_sublist_at i l' l]: insert the elements of [l'] at [l] starting from index [i].
+     The index [i] should be in the range [0] to [length l], inclusive.
+     The current item at index [i] in list [l] will have index equal to [i + length l'].
+     One can insert a sublist also at index [length l] then the result will be [l @ l']. *)
+let insert_sublist_at (i : int) (el : 'a list) (l : 'a list) : 'a list =
+  if i = 0 
+    then el @ l
+    else if i = List.length l
+      then l @ el
+    else
+      let first_part, last_part = split_at i l in
+      first_part @ el @ last_part
+
+(* [insert_at i e l]: insert an element [e] at index [i] in the list [l].
+   The [index] should be in the range [0] to [length l], inclusive.
+   In particular, if [index = length l], then the operation returns [l @ [e]]. *)
+let insert_at (i : int) (e : 'a) (l : 'a list) : 'a list =
+  insert_sublist_at i [e] l
+
+(* [uncons l]: return [(x,l')] such that [l = x::l']. 
+    NOTE: fails on empty lists. *)
+let uncons (l : 'a list) : 'a * 'a list =
+  match l with
+  | [] -> failwith "Xlist.uncons: the input list should not be empty."
+  | x::l' -> (x,l')
+
+
+(* [unlast l] returns [(l',x)] such that [l = l'@[x]]. 
+    NOTE: fails on empty lists. *)
+let unlast (l : 'a list) : 'a list * 'a =
+  match List.rev l with
+  | [] -> failwith "Xlist.unlast: the input list should not be empty."
+  | x::l' -> (List.rev l', x)
+
+(* [find_map f t]: implementation of [List.find_map], to be removed *)
+let find_map (f : 'a -> 'b option) (t : 'a list) : 'b option =
+  let rec loop = function
+    | [] -> None
+    | x :: l ->
+        match f x with
+        | None -> loop l
+        | Some _ as r -> r
+  in
+  loop t
+
+(* [index_of x l]: return [Some i], where [i] is the index of element [x] in list [l], 
+    or [None] if [x] does not belong to the list. *)
+let index_of (x : 'a) (l : 'a list) : int option =
+  fold_lefti (fun i acc y -> if x = y then Some i else acc) None l
+
+(* [Invalid_permutation]: exception raised by [check_permutation] *)
+exception Invalid_permutation
+
+(* [check_permutation nb order]: check if the list [order] is a permutation of the range list [0,nb].
+     If that's not the case then this transformation will raise [Invalid_permutation]. *)
+
+let check_permutation (nb : int) (order : int list) : unit =
+  if List.length order <> nb then raise Invalid_permutation;
+  List.iter (fun k -> if not (List.mem k order) then raise Invalid_permutation) (range 0 (nb -1))
+
+(* [reorder order l]: reorder the list [l] based on the permutation of indices [order].
+   The i-th item from the output list corresponds to the j-th item from
+   the input list, where [j] is the [i-th] item from the list [order].
+   In other words, the output list is (using the bracket notation for nth):
+   [ l[order[0]] ; l[order[1]]; ... l[order[length l-1]].
+   The list [order] must have the same length as [l].
+   All the values in the list [order] must be in the range [0 <= .. < length l]. *)
+let reorder (order : int list) (l : 'a list) : 'a list =
+  List.map (fun k -> match List.nth_opt l k with
+              | None -> failwith "Xlist.reorder: invalid index."
+              | Some v -> v) order
+
+(* [rotate n l]: return a copy of list where the [n] elements from the end
+   of the list are moved to the front. If [l = l1 ++ l2] with [length l2 = n],
+   then the output list is [l2 ++ l1]. *)
+let rotate (n : int) (l : 'a list) : 'a list =
+  if n > List.length l
+   then failwith "Xlist.rotate: the number of elements to rotate should not exceed the length of the input list.";
+  let ls, rs = split_at n l in
+  rs @ ls

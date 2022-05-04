@@ -306,10 +306,10 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
            *)
           { t with desc = Trm_apps (aux f, tl)}
        | Dir_arg_nth n, Trm_apps (f, tl) ->
-          { t with desc = Trm_apps (f, Tools.update_nth n aux tl)}
+          { t with desc = Trm_apps (f, Xlist.update_nth n aux tl)}
        | Dir_arg_nth n, Trm_let_fun (x, tx, txl, body) ->
           let txl' =
-            Tools.update_nth n
+            Xlist.update_nth n
               (fun (x, tx) ->
                 let t' = aux (trm_var ~loc:t.loc x) in
                 match t'.desc with
@@ -343,12 +343,12 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
 
        | Dir_case (n, cd), Trm_switch (cond, cases) ->
           let updated_cases =
-            (Tools.update_nth n
+            (Xlist.update_nth n
                (fun (tl, body) ->
                  match cd with
                  | Case_body -> (tl, aux body)
                  | Case_name i ->
-                    (Tools.update_nth i (fun ith_t -> aux ith_t) tl , body)
+                    (Xlist.update_nth i (fun ith_t -> aux ith_t) tl , body)
                )
                cases
             ) in {t with desc = Trm_switch (cond, updated_cases)}
