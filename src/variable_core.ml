@@ -13,10 +13,10 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
     begin match d.desc with
     | Trm_let (vk, (x, tx), dx) ->
         (* check if the declaration is of the form int*x = &y *)
-        let as_reference = is_typ_ptr (get_inner_ptr_type tx) && not (trm_annot_has Reference d) in
+        let as_reference = is_typ_ptr (get_inner_ptr_type tx) && not (trm_has_cstyle Reference d) in
         let t_x =
           if as_reference then trm_var_get x
-          else if trm_annot_has Stackvar d then trm_var_get x
+          else if trm_has_cstyle Stackvar d then trm_var_get x
           else trm_var x
         in
         let def_x =
@@ -71,7 +71,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
         end
          in aux new_lback
 
-      | Var_mutable -> if trm_annot_has Reference dl then
+      | Var_mutable -> if trm_has_cstyle Reference dl then
           let new_lback = begin match unfold_at with
           | [] -> Mlist.map (Internal.subst_var x init) lback
           | _ -> Mlist.map (Internal.change_trm ~change_at:[unfold_at] (trm_var x) init) lback
@@ -448,7 +448,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
           end
 
        | Var_mutable ->
-        if trm_annot_has Reference dl then fail dl.loc "Variable_core.from_to_const_aux: const reference are not supported"
+        if trm_has_cstyle Reference dl then fail dl.loc "Variable_core.from_to_const_aux: const reference are not supported"
           else if not to_const then t
           else begin
             (* Search if there are any write operations on variable x *)
@@ -507,12 +507,12 @@ let ref_to_pointer_aux (index : int) (t : trm) : trm =
       trm_seq ~annot:t.annot ~marks:t.marks new_tl
     in 
     begin match dl.desc with 
-    | Trm_let (vk, (x, tx), init) when trm_annot_has Reference dl -> 
+    | Trm_let (vk, (x, tx), init) when trm_has_cstyle Reference dl -> 
       (* Assumption: the targeted reference is not a const reference *)
       let tx = get_inner_ptr_type tx in
       let new_dl = trm_let_mut (x, typ_ptr_generated tx) init in 
-      let new_dl = trm_annot_remove Reference new_dl in 
-      let new_dl = trm_annot_add Stackvar new_dl in 
+      let new_dl = trm_rem_cstyle Reference new_dl in 
+      let new_dl = trm_add_cstyle Stackvar new_dl in 
       let new_lback = Mlist.map (Internal.subst_var x (trm_var_get x)) lback in 
       aux new_lback new_dl
     | _ -> fail dl.loc "Variable_core.ref_to_pointer_aux: expected the a target to the reference declaration"
@@ -528,9 +528,9 @@ let ref_to_pointer (index : int) : Target.Transfo.local =
       [t]: ast of the refernce declaration *)
 let ref_to_var_aux (t : trm) : trm = 
   match t.desc with
-  | Trm_let (vk, (x, tx), init) when trm_annot_has Reference t -> 
-    let t_annot = trm_annot_remove Reference t in 
-    let t_annot = trm_annot_add Stackvar t_annot in 
+  | Trm_let (vk, (x, tx), init) when trm_has_cstyle Reference t -> 
+    let t_annot = trm_rem_cstyle Reference t in 
+    let t_annot = trm_add_cstyle Stackvar t_annot in 
     (trm_let ~annot:t_annot.annot ~marks:t.marks vk (x, tx) (trm_new (get_inner_ptr_type tx) (trm_get init)))
   | _ -> fail t.loc "Variable_core.ref_to_var_aux: expected a target to a reference declaration"
 

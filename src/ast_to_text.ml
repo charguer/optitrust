@@ -401,25 +401,10 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
 (* [print_trm ~only_desc t]: converts trm [t] to pprint document *)
 and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let ddesc = print_trm_desc ~only_desc t.desc in
-  let print_annot (t_ann : trm_annot) : document =
-    match t_ann with
-    | No_braces i -> string "No_braces " ^^ string (string_of_int i)
-    | Multi_decl -> string "Multi_decl"
-    | Empty_cond -> string "Empty_cond"
-    | App_and_set -> string "App_and_set"
-    | Include h -> string "Include" ^^ blank 1 ^^ string h
-    | Main_file -> string "Main_file"
-    | Postfix_set -> string "Postfix_set"
-    | Display_no_arrow -> string "Display_no_arrow"
-    | Reference -> string "Reference"
-    | Stackvar -> string "Stackvar"
-    | Annot_stringreprid s -> string "Annot_stringreprid" ^^ string (string_of_int s)
-    | Fun_inline -> string "Fun_inline"
-    in
 
   if only_desc then ddesc
     else
-      let dannot = Tools.list_to_doc (List.map print_annot t.annot)
+      let dannot = Tools.list_to_doc (List.map print_annot [])(* TODO: Addapt to the new annotation type *)
     in
     let dloc =
       begin match t.loc with

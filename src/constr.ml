@@ -864,7 +864,7 @@ let check_hastype (pred : typ->bool) (t : trm) : bool =
 
 (* [check_constraint c]: checks if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
-   if List.mem Multi_decl t.annot then
+   if trm_has_cstyle Multi_decl t then
      (*
        check the constraint on each element of the seq and return true if one
        is true
@@ -941,7 +941,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | _ -> false
         end
      | Constr_seq cl, Trm_seq tl when
-        not ((List.exists (function No_braces _ -> true | _ -> false) t.annot) || List.mem Main_file t.annot)->
+        not ((List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle) || List.mem Main_file t.annot.trm_annot_files)->
         check_list ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
         in constra_app *)
      | Constr_var name, Trm_var (_, x) ->
@@ -978,8 +978,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_cases cc cases
      | Constr_bool b, _ -> b
-     | Constr_root, _ ->
-        List.mem Main_file t.annot
+     | Constr_root, _ -> trm_is_mainfile t
+        
      | Constr_prim pred, Trm_val (Val_prim p1) ->
         pred p1
      | Constr_mark (pred, _m), _ ->
@@ -1276,7 +1276,7 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   (*
     do not resolve in included files, except if the constraint is Constr_include
    *)
-  | Constr_include h when List.mem (Include h) t.annot ->
+  | Constr_include h when trm_is_include t
      (*
        remove the include annotation for target resolution to proceed in the
        included file
@@ -1308,11 +1308,11 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
 
   let loc = t.loc in
   (* no exploration in depth in included files *)
-  if  (List.exists (function Include _ -> true | _ -> false) t.annot) then begin
-     print_info loc "explore_in_depth: no exploration in included files\n";
+  if trm_is_include t then begin
+     print_info loc "Constr.explore_in_depth: no exploration in included files\n";
      []
      end
-  else if List.mem Multi_decl t.annot then
+  else if trm_has_cstyle Multi_decl t then
      (* explore each declaration in the seq *)
      begin match t.desc with
      | Trm_seq tl ->

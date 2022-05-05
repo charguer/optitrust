@@ -48,7 +48,7 @@ let fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : unit =
       let ty = get_inner_ptr_type tx in
       begin match ty.typ_desc with
       (* If the declared variable has a refernce type checking its mutability is not needed*)
-      | Typ_ptr _ when trm_annot_has Reference tg_trm ->
+      | Typ_ptr _ when trm_has_cstyle Reference tg_trm ->
         Variable_basic.fold ~at (target_of_path p)
       (* In other cases we need to check the mutability of the variable *)
       | _ -> begin match vk with
@@ -346,8 +346,8 @@ let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
           then Variable_basic.inline ~mark ~accept_functions tg_decl
           else Variable_basic.unfold ~mark ~accept_functions ~at tg_decl
       | Var_mutable ->
-        if not (trm_annot_has Reference tg_trm) then Variable_basic.to_const tg_decl;
-        if trm_annot_has Reference tg_trm 
+        if not (trm_has_cstyle Reference tg_trm) then Variable_basic.to_const tg_decl;
+        if trm_has_cstyle Reference tg_trm 
           then Variable_basic.inline ~mark ~accept_functions tg_decl
           else if delete
             then Variable_basic.inline ~mark ~accept_functions tg_decl

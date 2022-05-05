@@ -534,4 +534,4 @@ let tr_globdefs (gs : C.globdecl list) : trms =
 (* [tr_ast tl]: translates a C.program into OptiTrust AST *)
 let tr_ast (tl : C.program) : trm =
   let tl = tr_globdefs tl in
-  trm_seq_nomarks ~annot:[Main_file] tl
+  trm_set_mainfile (trm_seq_nomarks tl)

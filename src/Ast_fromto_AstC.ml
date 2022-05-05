@@ -89,13 +89,13 @@ let stackvar_elim (t : trm) : trm =
       | Some ty1 ->
         begin match xm with
         | Var_immutable -> fail t.loc "Ast_fromto_AstC.tackvar_elim: unsupported references on const variables"
-        | _ ->
-          trm_annot_add Reference {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of (aux tbody))}
+        | _ -> 
+          trm_add_cstyle Reference {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of (aux tbody))}
         end
       | None ->
         begin match xm with
         | Var_mutable ->
-          trm_annot_add Stackvar {t with desc = Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) )}
+          trm_add_cstyle Stackvar {t with desc = Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) )}
         | Var_immutable ->
           trm_map aux t
         end
@@ -135,17 +135,17 @@ let stackvar_intro (t : trm) : trm =
     | Trm_let (_, (x, tx), tbody) ->
       let vk = if is_typ_const tx then Var_immutable else Var_mutable in
       add_var env x vk;
-      if trm_annot_has Stackvar t
+      if trm_has_cstyle Stackvar t
         then
           begin match tx.typ_desc , tbody.desc with
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_new _));_}, [tbody1])  ->
-              trm_annot_remove Stackvar {t with desc = Trm_let (vk, (x, tx1), aux tbody1)}
+              trm_rem_cstyle Stackvar {t with desc = Trm_let (vk, (x, tx1), aux tbody1)}
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
           end
       else if List.mem Reference t.annot then
         begin match tx.typ_desc with
         | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1} ->
-          trm_annot_remove Reference { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get (aux tbody))}
+          trm_rem_cstyle Reference { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get (aux tbody))}
         | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
         end
       else

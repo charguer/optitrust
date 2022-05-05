@@ -469,7 +469,7 @@ let set_nobrace_if_sequence (t : trm) : trm =
 let is_nobrace (t : trm) : bool =
   match t.desc with
   | Trm_seq _ ->
-    List.exists (function No_braces _ -> true | _ -> false) t.annot
+    List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle
   | _ -> false
 
 
@@ -477,7 +477,7 @@ let is_nobrace (t : trm) : bool =
 let remove_nobrace_if_sequence (t : trm) : trm =
   match t.desc with
   | Trm_seq _ ->
-    if is_nobrace t then trm_annot_filter (function No_braces _ -> true | _ -> false) t else t
+    if is_nobrace t then trm_filter_cstyle (function No_braces _ -> true | _ -> false) t else t
   | _ -> t
 
 

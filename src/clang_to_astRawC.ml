@@ -290,7 +290,7 @@ and tr_stmt (s : stmt) : trm =
     let cond =
       match condo with
       (* no condition is equivalent to true *)
-      | None -> trm_lit ~annot:[Empty_cond] ~loc ~ctx (Lit_bool true)
+      | None -> trm_add_cstyle Empty_cond (trm_lit ~loc ~ctx (Lit_bool true))
       | Some e -> tr_expr e
     in
     let step = tr_stmt_opt stepo in
@@ -397,7 +397,7 @@ and compute_body (loc : location) (body_acc : trms)
       | Break ->
         begin match List.rev body_acc with
           | [t] -> (t, sl)
-          | tl -> (trm_seq_nomarks ~annot:[No_braces (Nobrace.current ())] ~loc ~ctx:(Some (get_ctx ())) tl, sl)
+          | tl -> trm_add_cstyle (No_braces (Nobrace.current ())) (trm_seq_nomarks ~loc ~ctx:(Some (get_ctx ())) tl, sl)
         end
       | _ ->
         let t = tr_stmt s in
@@ -1017,6 +1017,6 @@ let tr_ast (t : translation_unit) : trm =
   let tinclude_map =
     Include_map.mapi
       (fun h dl ->
-         trm_seq_nomarks ~annot:[Include h] (tr_decl_list dl))
+         trm_set_include h (trm_seq_nomarks (tr_decl_list dl)))
       include_map in
-    trm_seq_nomarks ~loc ~annot:[Main_file] ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ tr_decl_list file_decls)
+    trm_set_mainfile (trm_seq_nomarks ~loc  ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ tr_decl_list file_decls))

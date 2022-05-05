@@ -131,19 +131,6 @@ and typ_annot_to_doc (a : typ_annot) : document =
   | Long -> string "long"
   | Short -> string "short"
 
-(* [trm_annot_to_doc]: converts trm annotations to pprint document *)
-and trm_annot_to_doc (t_annot : trm_annot list) : document =
-  let aux t_annot = match t_annot with
-  | Multi_decl -> string "Multi_dec"
-  | App_and_set -> string "App_and_set"
-  | Main_file -> string "Main_file"
-  | Postfix_set -> string "Postfix_set"
-  | Annot_stringreprid id -> string "Annot_stringreprid" ^^ string (string_of_int id)
-  | _ -> empty
-  in
-  if t_annot = [] then empty else
-  Tools.list_to_doc ~sep:comma (List.map aux t_annot)
-
 (* [typ_to_doc]: converts ast types to pprint document *)
 and typ_to_doc (t : typ) : document =
   let d = typ_desc_to_doc t.typ_desc in
@@ -315,8 +302,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
   let d =
     begin match t.desc with
     | Trm_val v ->
-       if List.mem Empty_cond t.annot then empty
-         else dattr ^^ val_to_doc v
+       if trm_has_cstyle Empty_cond t then else dattr ^^ val_to_doc v
     | Trm_var (_, x) ->
            dattr ^^ string x
     | Trm_array tl -> let tl = Mlist.to_list tl in
@@ -338,7 +324,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl
     | Trm_let_fun (f, r, tvl, b) ->
-        let inline = trm_annot_has Fun_inline t in
+        let inline = trm_has_cstyle Fun_inline t in
         dattr ^^ trm_let_fun_to_doc ~semicolon inline f r tvl b
     | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
     | Trm_if (b, then_, else_) ->
@@ -356,13 +342,14 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
        let tl_m = tl.marks in
        let tl = Mlist.to_list tl in
 
-       if List.mem Multi_decl t.annot
+       if trm_cstyle_has Multi_decl t
          then dattr ^^ multi_decl_to_doc loc tl
-       else if List.exists (function No_braces _ -> true | _ -> false) t.annot
+       else if List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle
          then
           let dl = List.map (decorate_trm ~semicolon:true) tl in
           dattr ^^ separate hardline dl
-       else if List.exists (function Include _ -> true | _ -> false) t.annot then
+       else if trm_is_include 
+       else if List.exists (function Include _ -> true | _ -> false) t.annot.trm_annot_cstyle then
          empty
        else
           let counter = ref (-1) in
@@ -376,7 +363,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
            else acc
           ) dl tl_m in
           counter := -1;
-          let res = if trm_annot_has Main_file t then (separate (twice hardline) dl) else surround 2 1 lbrace (separate hardline dl) rbrace in
+          let res = if trm_is_mainfile t then (separate (twice hardline) dl) else surround 2 1 lbrace (separate hardline dl) rbrace in
           dattr ^^ res
     | Trm_apps (f, tl) ->
            dattr ^^ apps_to_doc ~prec f tl ^^ dsemi

@@ -369,26 +369,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
       [ kind_to_field "template";
           children_to_field [child_to_json "template" (aux t)]]
 
-(* [annot_to_string t_ann]: converts trm_annot to string *)
-let annot_to_string (t_ann : trm_annot) : string =
-  match t_ann with
-     | No_braces _ -> "No_braces"
-     | Multi_decl -> "Multi_decl"
-     | Empty_cond -> "Empty_cond"
-     | App_and_set -> "App_and_set"
-     | Include h -> "Include" ^ " " ^ h
-     | Main_file -> "Main_file"
-     | Postfix_set -> "Postfix_set"
-     | Display_no_arrow -> "Display_no_arrow"
-     | Reference -> "Reference"
-     | Stackvar -> "Stackvar"
-     | Annot_stringreprid id -> "Annot_stringreprid(" ^ string_of_int id ^ ")"
-     | Fun_inline -> "Fun_inline"
-
-(* [annot_list_to_string t]: for trm [t] convert its list of annotations to string *)
-let annot_list_to_string (t : trm) : string =
-  Tools.list_to_string ((List.map annot_to_string) t.annot)
-
 (* [ast_to_json trm_root]: converts a full ast to a Json object *)
 let ast_to_json (trm_root : trm) : json =
   (* node id generator *)
@@ -410,7 +390,7 @@ let ast_to_json (trm_root : trm) : json =
                           | None -> strquote "<no type information>"
                           | Some typ -> Json.typ_to_json typ )));
       (strquote "is_statement", Json.Boolean t.is_statement);
-      (strquote "annot", strquote (annot_list_to_string t) );
+      (* (strquote "annot", strquote (annot_list_to_string t) ); *) (* Fix me! *)
       (strquote "loc", loc_to_json t);
       (strquote "attributes", Json.List (List.map Json.str (List.map Tools.document_to_string
                                  (List.map print_attribute t.attributes))))
