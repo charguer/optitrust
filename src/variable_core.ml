@@ -32,7 +32,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
 
         let new_tl = Mlist.merge lfront lback in
         let new_tl = Mlist.insert_at index d new_tl in
-        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+        trm_seq ~annot:t.annot new_tl
 
      | _ -> fail t.loc "Variable_core.fold_decl: expected a variable declaration"
      end
@@ -58,7 +58,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
     let aux (new_lback : trm mlist) : trm =
         let new_tl = Mlist.merge lfront new_lback in
         let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
-        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+        trm_seq ~annot:t.annot new_tl
       in
     begin match dl.desc with
     | Trm_let (vk, (x, _), init) ->
@@ -109,10 +109,10 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
         | _ -> trm_map aux t
        in
       let lback = Mlist.map aux lback in
-      let new_dl = trm_let ~annot:dl.annot  ~marks:dl.marks vk (new_name, tx) init in
+      let new_dl = trm_let ~annot:dl.annot vk (new_name, tx) init in
       let new_tl = Mlist.merge lfront lback in
       let new_tl = Mlist.insert_at index new_dl new_tl in
-      trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      trm_seq ~annot:t.annot new_tl
     | _ -> fail t.loc "Variable_core.rename_aux: expected a declaration"
     end
   | _ -> fail t.loc "Variable_core.rename_aux: expected the surrounding sequence of the targeted declaration"
@@ -148,7 +148,7 @@ let init_detach_aux  (t : trm) : trm =
           | _ -> fail t.loc "init_detach_aux: can't detach an uninitialized declaration"
           end in
         let var_type = get_inner_ptr_type tx in
-        let var_decl = trm_let_mut ~marks:t.marks ~annot:t.annot (x, var_type) (trm_uninitialized ()) in
+        let var_decl = trm_let_mut ~annot:t.annot (x, var_type) (trm_uninitialized ()) in
         (* Check if variable was declared as a reference *)
         let var_assgn = trm_set (trm_var ~typ:(Some var_type) x) {init with typ = (Some var_type)} in
         trm_seq_no_brace [var_decl; var_assgn]
@@ -181,7 +181,7 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
     | Trm_let (_, (x, tx), _) ->
       let tg = [nbAny;cSeq (); cStrict;cWriteVar x] in
       let new_tl = Mlist.merge lfront lback in
-      let new_t = trm_seq ~annot:t.annot ~marks:t.marks new_tl in
+      let new_t = trm_seq ~annot:t.annot new_tl in
       let ps = resolve_target tg new_t in
       let nb_occs = List.length ps in
       if nb_occs = 0 then raise Init_attach_no_occurrences
@@ -191,7 +191,8 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
         apply_on_path (fun t1 ->
           begin match t1.desc with
           | Trm_apps (_, [_;rs]) ->
-            if const then trm_let_immut ~marks:trm_to_change.marks (x,tx) rs else trm_let_mut ~marks:trm_to_change.marks (x, (get_inner_ptr_type tx)) rs
+            let decl = if const then trm_let_immut (x, tx) rs else trm_let_mut (x, get_inner_ptr_type tx) rs in 
+            trm_pass_marks trm_to_change decl
           | _ -> t1
           end
         ) acc p
@@ -276,7 +277,7 @@ let delocalize_aux (array_size : string) (ops : local_ops) (index : string) (t :
                      ] in
       let new_tl = (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) in
       { t with desc = Trm_seq new_tl}
-      (* trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) *)
+      (* trm_seq ~annot:t.annot (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) *)
 
     | _ -> fail t.loc "Variable_core.delocalize_aux: first instruction in the sequence should be the declaration of local variable"
     end
@@ -301,7 +302,7 @@ let insert_aux (index : int) (const : bool) (name : string) (typ : typ) (value :
   | Trm_seq tl ->
     let new_decl = if const then trm_let_immut (name, typ) value else trm_let_mut (name, typ) value in
     let new_tl = Mlist.insert_at index new_decl tl in
-    trm_seq ~annot:t.annot ~marks:t.marks new_tl
+    trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "Variable_core.insert_aux: expected the sequence where the declaration is oing to be inserted"
 
 (* [insert index const name typ value t p]: applies [insert_aux] at trm [t] with path [p]. *)
@@ -323,7 +324,7 @@ let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
       let lback = Mlist.map (Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[Target.cVar x]]) lback in
       let tl = Mlist.merge lfront lback in
       let tl = Mlist.insert_at index new_decl tl in
-      trm_seq ~annot:t.annot ~marks:t.marks tl
+      trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "Variable_core.change_type_aux: expected a variable or a function declaration"
     end
   | _ -> fail t.loc "Variable_core.change_type_aux: expected the surrounding sequence"
@@ -375,7 +376,7 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (i
       end in
       let new_tl = Mlist.merge lfront (Mlist.of_list ([decl_to_insert] @ [node_to_change])) in
       let new_tl = Mlist.merge new_tl lback in
-      trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "Variable_core.bind_aux: expected the surrounding sequence"
 
 (* [bind my_mark index fresh_name const is_ptr typ p_local t p]: applies [bind_aux] at trm [t] with path [p]. *)
@@ -430,7 +431,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
       let update_seq (new_dl : trm) (new_lback : trm mlist) (new_lfront : trm mlist) : trm =
         let new_tl = Mlist.merge lfront new_lback in
         let new_tl = Mlist.insert_at index new_dl new_tl in
-        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+        trm_seq ~annot:t.annot new_tl
       in
 
        begin match vk with
@@ -442,7 +443,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
             | _ -> fail dl.loc "Variable_core.to_const_aux: const variables should always be initialized"
               in
             let init_type = get_inner_const_type tx in
-            let new_dl = trm_let_mut ~marks:dl.marks (x, init_type) init_val in
+            let new_dl = trm_pass_marks dl (trm_let_mut (x, init_type) init_val) in
             let new_lback = Mlist.map (Internal.subst_var x (trm_var_possibly_mut ~typ:(Some init_type) x)) lback in
             update_seq new_dl new_lback lfront
           end
@@ -469,7 +470,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
             | _ -> fail dl.loc "Variable_core.to_const_aux: can't convert to const a non intialized variable"
               in
             let init_type = get_inner_ptr_type tx in
-            let new_dl = trm_let_immut ~marks:dl.marks (x, init_type) init_val in
+            let new_dl = trm_pass_marks dl (trm_let_mut (x, init_type) init_val) in
             let new_lback = Mlist.map (fun t1 -> remove_get_operations_on_var x t1) lback in
             update_seq new_dl new_lback lfront
             end
@@ -504,7 +505,7 @@ let ref_to_pointer_aux (index : int) (t : trm) : trm =
     let aux (new_lback : trm mlist) (dl : trm) : trm = 
       let new_tl = Mlist.merge lfront new_lback in 
       let new_tl = Mlist.insert_at index dl new_tl in
-      trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      trm_seq ~annot:t.annot new_tl
     in 
     begin match dl.desc with 
     | Trm_let (vk, (x, tx), init) when trm_has_cstyle Reference dl -> 
@@ -531,7 +532,7 @@ let ref_to_var_aux (t : trm) : trm =
   | Trm_let (vk, (x, tx), init) when trm_has_cstyle Reference t -> 
     let t_annot = trm_rem_cstyle Reference t in 
     let t_annot = trm_add_cstyle Stackvar t_annot in 
-    (trm_let ~annot:t_annot.annot ~marks:t.marks vk (x, tx) (trm_new (get_inner_ptr_type tx) (trm_get init)))
+    (trm_let ~annot:t_annot.annot vk (x, tx) (trm_new (get_inner_ptr_type tx) (trm_get init)))
   | _ -> fail t.loc "Variable_core.ref_to_var_aux: expected a target to a reference declaration"
 
 

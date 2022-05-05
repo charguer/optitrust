@@ -58,7 +58,7 @@ let intro_after ?(mark : mark = "") ?(label : label = "") (tg : Target.target) :
     | _ -> fail seq_trm.loc "Sequence_basic.intro_after: the targeted instruction should belong to a sequence"
   ) tg
 
-(* [intro_before ~marks ~label tg]: similar to [intro] but this transformation will include in the sequence all the 
+(* [intro_before ~mark ~label tg]: similar to [intro] but this transformation will include in the sequence all the 
     instructions that come before the targeted instruction and belong to the same scope. *)
 let intro_before ?(mark : mark = "") ? (label : label = "") (tg : Target.target) : unit =
   Target.apply_on_targets (fun t p ->

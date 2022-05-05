@@ -42,12 +42,12 @@ let simplify ?(indepth : bool = false) : Transfo.t =
 let constr = 
   cPrimPredFun is_prim_arith
 
-(* [clear_nosimpl tg] clearn all the marks on all the instructions that where 
+(* [clear_nosimpl tg]: clears all the marks on all the instructions that where 
     skipped by the simplifier *)
 let clear_nosimpl (tg : target) : unit =
   Marks.remove Arith_core.mark_nosimpl [nbMulti; cMark Arith_core.mark_nosimpl]
 
-(* [nosimplf tg] mark all the instructions targeted by [tg] as "__arith_core_nosimpl" *)
+(* [nosimplf tg]: mark all the instructions targeted by [tg] as "__arith_core_nosimpl" *)
 let nosimpl (tg : target) : unit =
   Marks.add Arith_core.mark_nosimpl tg
   

@@ -11,7 +11,7 @@ include Omp_basic
      } *)
 let set_num_threads (threadnum : var) (tg : target) : unit =
   let mark = "threadnum_set_mark" in 
-  let instr_to_insert = trm_set ~marks:[mark] (trm_var threadnum) (trm_omp_routine Get_num_threads) in 
+  let instr_to_insert = trm_add_mark mark (trm_set (trm_var threadnum) (trm_omp_routine Get_num_threads)) in 
   Sequence.insert instr_to_insert tg;
   Sequence.intro_on_instr [cMark mark];
   Omp_basic.parallel [tBefore;cSeq ~args:[[cMark mark]] ()];

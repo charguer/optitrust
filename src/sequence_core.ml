@@ -8,7 +8,7 @@ let insert_aux (index : int) (code : trm) (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
       let new_tl = Mlist.insert_at index code tl in
-      trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      trm_seq ~annot:t.annot new_tl
     | _ -> fail t.loc "Sequence_core.insert_aux: expected the sequence on where insertion is performed"
 
 (* [insert index code t p]: applies [insert_aux] at trm [t] with path [p]. *)
@@ -23,7 +23,7 @@ let insert (index : int) (code : trm) : Target.Transfo.local =
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      trm_seq ~annot:t.annot ~marks:t.marks (Mlist.remove index nb_instr tl)
+      trm_seq ~annot:t.annot (Mlist.remove index nb_instr tl)
     | _ -> fail t.loc "Sequence_core.delete_aux: expected the sequence on which the trms are deleted"
 
 (* [delete index nb_instr t p]: applies [delete_aux] at trm [t] with path [p].*)
@@ -50,7 +50,7 @@ let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm)
                           else if label <> "" then trm_labelled label intro_seq 
                           else intro_seq in
         let index = if nb < 0 then (index + nb + 1) else index in
-         trm_seq  ~annot:t.annot ~marks:t.marks (Mlist.insert_at index intro_seq tl1)
+         trm_seq  ~annot:t.annot (Mlist.insert_at index intro_seq tl1)
     | _ -> fail t.loc "Sequence_core.intro_aux: expected the sequence on which the grouping is performed"
 
 (* [intro mark label index nb t p]: applies [intro_aux] at trm [t] with path [p]. *)
@@ -104,7 +104,7 @@ let split_aux (index : int) (is_fun_body : bool) (t : trm) : trm =
     let first_part,last_part = Mlist.split index tl in
     let res = 
     trm_seq_no_brace [trm_seq first_part; trm_seq last_part] in 
-    if is_fun_body then trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [res]) else res
+    if is_fun_body then trm_seq ~annot:t.annot (Mlist.of_list [res]) else res
   | _ -> fail t.loc "Sequence_core.split_aux: expected a sequence, containing the location where it is going to be splitted"
 
 (* [split index is_fun_body t p]: applies [split_aux] at trm [t] with path [p]. *)
@@ -137,9 +137,8 @@ let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
             then Mlist.of_list (List.map trm_seq (List.rev partition))
             else Mlist.of_list (List.map (fun x -> trm_seq_no_brace (Mlist.to_list x)) (List.rev partition))
             in
-        
-        if not braces then trm_seq_no_brace ~marks:t.marks (Mlist.to_list new_tl) else trm_seq ~annot:t.annot ~marks:t.marks new_tl
-        
+          let seq = if not braces then trm_seq_no_brace (Mlist.to_list tl) else trm_seq new_tl in        
+          trm_pass_marks t seq
   | _ -> fail t.loc "Sequence_core.partial_aux: expected a sequence to partition"
 
 (* [partition blocks braces t p]: applies [partition_aux] at trm [t] with path [p]. *)
@@ -178,7 +177,7 @@ let shuffle_aux (braces : bool) (t : trm) : trm =
         let local_acc = List.rev local_acc in
         global_acc := (if braces then trm_seq (Mlist.of_list local_acc) else trm_seq_no_brace local_acc) :: !global_acc
       done;
-       trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list (List.rev !global_acc))
+       trm_seq ~annot:t.annot (Mlist.of_list (List.rev !global_acc))
 
     | _ -> fail first_row.loc "Sequence_core.shuffle_aux: shuffle can be applied only on sequences"
     end

@@ -283,7 +283,9 @@ and files_annot =
 (* [cpragma]: alias type for directives *)
 and cpragma = directive
 
+(* [marks]: a list of marks *)
 and marks = mark list
+
 (* [trm_annot]: a record containing all kinds of annotations used on the AST of OptiTrust. *)
 and trm_annot = {
     trm_annot_marks : marks;
@@ -308,7 +310,6 @@ and record_type =
 (* [trm] is a record representing an ast node *)
 and trm =
  { annot : trm_annot;
-   marks : marks;
    desc : trm_desc;
    loc : location;
    is_statement : bool;
@@ -722,143 +723,143 @@ let trm_annot_default = {
 
 (* [trm_val ~annot ~loc ~typ ~attributes ~ctx y]: value *)
 let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
-  {annot; marks = []; desc = Trm_val v; loc = loc; is_statement = false; typ; attributes; ctx}
+  {annot; desc = Trm_val v; loc = loc; is_statement = false; typ; attributes; ctx}
 
-(* [trm_var ~annot ~loc ~typ ~attributes ~ctx ~marks ~kind x]: variable occurrence *)
+(* [trm_var ~annot ~loc ~typ ~attributes ~ctx ~kind x]: variable occurrence *)
 let trm_var ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None)
-  ?(marks : mark list = []) ?(kind : varkind = Var_mutable) (x : var) : trm =
-  {annot; marks; desc = Trm_var (kind,x); loc = loc; is_statement = false; typ;
+  ?(kind : varkind = Var_mutable) (x : var) : trm =
+  {annot; desc = Trm_var (kind,x); loc = loc; is_statement = false; typ;
     attributes; ctx}
 
-(* [trm_array ~annot ~loc ~typ ~attributes ~ctx ~marks tl]: array initialization list *)
+(* [trm_array ~annot ~loc ~typ ~attributes ~ctx tl]: array initialization list *)
 let trm_array ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None)
-  ?(marks : mark list = []) (tl : trm mlist) : trm =
-  {annot; marks; desc = Trm_array tl; loc = loc; is_statement = false; typ; attributes; ctx}
-
-(* [trm_struct ~annot ~loc ~typ ~attributes ~ctx ~marks tl]: struct initialization list *)
-let trm_struct ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None)
-  ?(marks : mark list = []) (tl : trm mlist) : trm =
-  {annot; marks; desc = Trm_struct tl; loc = loc; is_statement = false; typ; attributes; ctx}
-
-(* [trm_let ~annot ~loc ~attributes ~ctx ~marks kind typed_var init]: variable declaration *)
-let trm_let ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(attributes = []) ?(ctx : ctx option = None)
-  ?(marks : mark list = []) (kind : varkind) (typed_var : typed_var) (init : trm): trm =
-  {annot; marks; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; typ = Some (typ_unit ()); attributes; ctx}
-
-(* [trm_let ~annot ~loc ~attributes ~ctx ~marks kind ty vl tl]: multiple variable declarations *)
-let trm_let_mult ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
-  ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind)
-   (ty : typ) (vl : var list) (tl : trms) : trm =
-  {annot; marks; desc = Trm_let_mult (kind, ty, vl, tl); loc = loc; is_statement; typ = Some (typ_unit ()); attributes; ctx}
-
-(* [trm_let ~annot ~loc ~attributes ~ctx ~marks name ret_typ args body]: function definition *)
-let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(attributes = []) ?(ctx : ctx option = None)
-  ?(marks : mark list = []) (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
-  {annot; marks; desc = Trm_let_fun (name,ret_typ,args,body); loc = loc; is_statement; typ = Some (typ_unit ()); attributes; ctx}
-
-(* [trm_typedef ~annot ~loc ~attributes ~ctx ~marks def_typ]: type definition *)
-let trm_typedef ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(attributes = []) ?(ctx : ctx option = None)
-  ?(marks : mark list = []) (def_typ : typedef): trm =
-  {annot; marks; desc = Trm_typedef def_typ; loc = loc; is_statement; typ = Some (typ_unit ()); attributes; ctx}
-
-(* [trm_if ~annot ~loc ~attributes ~ctx ~marks cond tb eb]: if statement *)
-let trm_if ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (cond : trm)
-  (tb : trm) (eb : trm) : trm =
-  {annot; marks; desc = Trm_if (cond, tb, eb); loc = loc; is_statement = false; typ = Some (typ_unit ()); attributes; ctx}
-
-(* [trm_seq ~annot ~loc ~attributes ~ctx ~marks tl]: block statement *)
-let trm_seq ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
   (tl : trm mlist) : trm =
-  {annot; marks; desc = Trm_seq tl; loc = loc; is_statement = false;typ = Some (typ_unit ()); attributes; ctx}
+  {annot; desc = Trm_array tl; loc = loc; is_statement = false; typ; attributes; ctx}
 
-(* [trm_apps ~annot ~loc ~is_statement ~typ ~attributes ~ctx ~marks f args]: function call *)
+(* [trm_struct ~annot ~loc ~typ ~attributes ~ctx tl]: struct initialization list *)
+let trm_struct ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None)
+  (tl : trm mlist) : trm =
+  {annot; desc = Trm_struct tl; loc = loc; is_statement = false; typ; attributes; ctx}
+
+(* [trm_let ~annot ~loc ~attributes ~ctx kind typed_var init]: variable declaration *)
+let trm_let ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(attributes = []) ?(ctx : ctx option = None)
+  (kind : varkind) (typed_var : typed_var) (init : trm): trm =
+  {annot; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; typ = Some (typ_unit ()); attributes; ctx}
+
+(* [trm_let ~annot ~loc ~attributes ~ctx kind ty vl tl]: multiple variable declarations *)
+let trm_let_mult ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
+  ?(attributes = []) ?(ctx : ctx option = None) (kind : varkind)
+   (ty : typ) (vl : var list) (tl : trms) : trm =
+  {annot; desc = Trm_let_mult (kind, ty, vl, tl); loc = loc; is_statement; typ = Some (typ_unit ()); attributes; ctx}
+
+(* [trm_let ~annot ~loc ~attributes ~ctx name ret_typ args body]: function definition *)
+let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(attributes = []) ?(ctx : ctx option = None)
+  (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
+  {annot; desc = Trm_let_fun (name,ret_typ,args,body); loc = loc; is_statement; typ = Some (typ_unit ()); attributes; ctx}
+
+(* [trm_typedef ~annot ~loc ~attributes ~ctx def_typ]: type definition *)
+let trm_typedef ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(attributes = []) ?(ctx : ctx option = None)
+  (def_typ : typedef): trm =
+  {annot; desc = Trm_typedef def_typ; loc = loc; is_statement; typ = Some (typ_unit ()); attributes; ctx}
+
+(* [trm_if ~annot ~loc ~attributes ~ctx cond tb eb]: if statement *)
+let trm_if ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) (cond : trm)
+  (tb : trm) (eb : trm) : trm =
+  {annot; desc = Trm_if (cond, tb, eb); loc = loc; is_statement = false; typ = Some (typ_unit ()); attributes; ctx}
+
+(* [trm_seq ~annot ~loc ~attributes ~ctx tl]: block statement *)
+let trm_seq ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
+  (tl : trm mlist) : trm =
+  {annot; desc = Trm_seq tl; loc = loc; is_statement = false;typ = Some (typ_unit ()); attributes; ctx}
+
+(* [trm_apps ~annot ~loc ~is_statement ~typ ~attributes ~ctx f args]: function call *)
 let trm_apps ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(typ = None) ?(attributes = [])
-  ?(ctx : ctx option = None) ?(marks : mark list = []) (f : trm) (args : trms) : trm =
-  {annot; marks; desc = Trm_apps (f, args); loc = loc; is_statement; typ; attributes; ctx}
+  ?(ctx : ctx option = None) (f : trm) (args : trms) : trm =
+  {annot; desc = Trm_apps (f, args); loc = loc; is_statement; typ; attributes; ctx}
 
-(* [trm_while ~annot ~loc ~attributes ~ctx ~marks cond body]: while loop *)
-let trm_while ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
+(* [trm_while ~annot ~loc ~attributes ~ctx cond body]: while loop *)
+let trm_while ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
   (cond : trm) (body : trm) : trm =
-  {annot; marks; desc = Trm_while (cond, body); loc = loc; is_statement = false;
+  {annot; desc = Trm_while (cond, body); loc = loc; is_statement = false;
    typ = Some (typ_unit ()); attributes; ctx}
 
-(* [trm_do_while ~annot ~loc ~attributes ~ctx ~marks cond body]: do while loop *)
-let trm_do_while ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
+(* [trm_do_while ~annot ~loc ~attributes ~ctx cond body]: do while loop *)
+let trm_do_while ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
   (body : trm) (cond : trm) : trm =
-  {annot; marks; desc = Trm_do_while (body, cond); loc = loc; is_statement = false; typ = Some (typ_unit ()); attributes; ctx}
+  {annot; desc = Trm_do_while (body, cond); loc = loc; is_statement = false; typ = Some (typ_unit ()); attributes; ctx}
 
-(* [trm_for_c ~annot ~loc ~attributes ~ctx ~marks init cond step body]: for loop *)
-let trm_for_c?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
+(* [trm_for_c ~annot ~loc ~attributes ~ctx init cond step body]: for loop *)
+let trm_for_c?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
   (init : trm) (cond : trm) (step : trm) (body : trm) : trm =
-  {annot; marks; desc = Trm_for_c (init, cond, step, body); loc; is_statement = false;
+  {annot; desc = Trm_for_c (init, cond, step, body); loc; is_statement = false;
    typ = Some (typ_unit ()); attributes; ctx}
 
-(* [trm_switch ~annot ~loc ~attributes ~ctx ~marks cond cases]: switch statement *)
-let trm_switch ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
+(* [trm_switch ~annot ~loc ~attributes ~ctx cond cases]: switch statement *)
+let trm_switch ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
   (cond : trm) (cases : (trms * trm) list) : trm =
-  {annot; marks; desc = Trm_switch (cond, cases); loc; is_statement = false; typ = Some (typ_unit ()); attributes; ctx}
+  {annot; desc = Trm_switch (cond, cases); loc; is_statement = false; typ = Some (typ_unit ()); attributes; ctx}
 
-(* [trm_abort ~annot ~loc ~attributes ~ctx ~marks a]: abort instruction *)
-let trm_abort ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
+(* [trm_abort ~annot ~loc ~attributes ~ctx a]: abort instruction *)
+let trm_abort ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
   (a : abort) : trm =
-  {annot; marks; desc = Trm_abort a; loc = loc; is_statement = true; typ = Some (typ_unit ()); attributes; ctx}
+  {annot; desc = Trm_abort a; loc = loc; is_statement = true; typ = Some (typ_unit ()); attributes; ctx}
 
-(* [trm_labelled ~annot ~loc ~attributes ~ctx ~marks l t]: labelled instruction *)
-let trm_labelled ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
+(* [trm_labelled ~annot ~loc ~attributes ~ctx l t]: labelled instruction *)
+let trm_labelled ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
   (l : label) (t : trm) : trm =
-  {annot; marks; desc = Trm_labelled (l, t); loc; is_statement = false; typ = Some (typ_unit ()); attributes; ctx}
+  {annot; desc = Trm_labelled (l, t); loc; is_statement = false; typ = Some (typ_unit ()); attributes; ctx}
 
-(* [trm_goto ~annot ~loc ~attributes ~ctx ~marks l]: goto statement *)
-let trm_goto ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
+(* [trm_goto ~annot ~loc ~attributes ~ctx l]: goto statement *)
+let trm_goto ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
   (l : label) : trm =
-  {annot; marks; desc = Trm_goto l; loc; is_statement = true; typ = Some (typ_unit ()); attributes; ctx}
+  {annot; desc = Trm_goto l; loc; is_statement = true; typ = Some (typ_unit ()); attributes; ctx}
 
 (* [trm_uninitialized ~annot ~loc ~attributes ~ctx ()]: used for variable declarations without initialization
     and function declarations *)
 let trm_uninitialized ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) () : trm =
-  {annot; marks = []; desc = Trm_val (Val_lit Lit_uninitialized); loc = loc; is_statement=false; typ = None; attributes; ctx}
+  {annot; desc = Trm_val (Val_lit Lit_uninitialized); loc = loc; is_statement=false; typ = None; attributes; ctx}
 
-(* [trm_for ~annot ~loc ~attributes ~ctx ~marks index start direction stop step body]: simple for loop *)
-let trm_for ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (index : var)
+(* [trm_for ~annot ~loc ~attributes ~ctx index start direction stop step body]: simple for loop *)
+let trm_for ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) (index : var)
   (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
-  { annot; marks; desc = Trm_for (index, start, direction, stop, step, body); loc; is_statement = false;
+  { annot; desc = Trm_for (index, start, direction, stop, step, body); loc; is_statement = false;
    typ = Some (typ_unit ()); attributes; ctx}
 
 (* [code code_str ]: arbitrary code entered by the user *)
 let code (code_str : code_kind) : trm =
-  {annot = trm_annot_default; marks = []; desc = Trm_arbitrary code_str ; loc = None; is_statement=false; typ = None;
+  {annot = trm_annot_default; desc = Trm_arbitrary code_str ; loc = None; is_statement=false; typ = None;
   attributes = []; ctx = None}
 
-(* [trm_omp_directive ~loc ~marks]: OpenMP directive *)
-let trm_omp_directive ?(loc = None) ?(marks : mark list = []) (directive : directive) : trm =
-  {annot = trm_annot_default; marks = []; desc = Trm_omp_directive directive; loc = loc; is_statement = false;
+(* [trm_omp_directive ~loc ]: OpenMP directive *)
+let trm_omp_directive ?(loc = None) (directive : directive) : trm =
+  {annot = trm_annot_default; desc = Trm_omp_directive directive; loc = loc; is_statement = false;
    typ = None; attributes = []; ctx = None}
 
-(* [trm_omp_routine ~loc ~marks omp_routine] OpenMP routine *)
-let trm_omp_routine ?(loc = None) ?(marks : mark list = []) (omp_routine : omp_routine) : trm =
-  {annot = trm_annot_default; marks; desc = Trm_omp_routine omp_routine; loc = loc; is_statement = true; typ = None;
+(* [trm_omp_routine ~loc omp_routine] OpenMP routine *)
+let trm_omp_routine ?(loc = None) (omp_routine : omp_routine) : trm =
+  {annot = trm_annot_default; desc = Trm_omp_routine omp_routine; loc = loc; is_statement = true; typ = None;
     attributes = []; ctx = None}
 
-(* [extern ~loc ~marks ~lang tl]: extern *)
-let trm_extern ?(loc = None) ?(marks : mark list = []) (lang : string) (tl : trms) : trm =
-  {annot = trm_annot_default; marks; desc = Trm_extern (lang, tl); loc = loc; is_statement = false; typ = None;
+(* [extern ~loc ~lang tl]: extern *)
+let trm_extern ?(loc = None) (lang : string) (tl : trms) : trm =
+  {annot = trm_annot_default; desc = Trm_extern (lang, tl); loc = loc; is_statement = false; typ = None;
    attributes = []; ctx = None}
 
-(* [trm_namespace ~loc ~ctx ~marks name t inline ]: namespace *)
+(* [trm_namespace ~loc ~ctx name t inline ]: namespace *)
 let trm_namespace ?(loc = None) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
-  ?(marks : mark list = []) (name : string) (t : trm ) (inline : bool) : trm =
-  {annot = trm_annot_default; marks; desc = Trm_namespace (name, t, inline); loc = loc; is_statement = false; typ; attributes; ctx}
+  (name : string) (t : trm ) (inline : bool) : trm =
+  {annot = trm_annot_default; desc = Trm_namespace (name, t, inline); loc = loc; is_statement = false; typ; attributes; ctx}
 
-(* [trm_let_record ~loc ~ctx ~marks name rt lt t]: rectod declaration and definition *)
+(* [trm_let_record ~loc ~ctx name rt lt t]: rectod declaration and definition *)
 let trm_let_record ?(loc = None) ?(ctx : ctx option = None)
-  ?(marks : mark list = []) (name : string) (rt : record_type ) (lt : (label * typ) list) (t : trm) : trm =
-  {annot = trm_annot_default; marks; desc = Trm_let_record (name, rt, lt, t); loc = loc; is_statement = true;
+  (name : string) (rt : record_type ) (lt : (label * typ) list) (t : trm) : trm =
+  {annot = trm_annot_default; desc = Trm_let_record (name, rt, lt, t); loc = loc; is_statement = true;
     typ = None; attributes = []; ctx}
 
-(* [trm_template ~loc ~typ ~attributes ~ctx ~marks tpl t]: template statemented *)
+(* [trm_template ~loc ~typ ~attributes ~ctx tpl t]: template statemented *)
 let trm_template ?(annot = trm_annot_default) ?(loc = None) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
-  ?(marks : mark list = []) (tpl : template_parameter_list) (t : trm ) : trm =
-  {annot; marks; desc = Trm_template (tpl, t); loc = loc; is_statement = true; typ; attributes; ctx}
+  (tpl : template_parameter_list) (t : trm ) : trm =
+  {annot; desc = Trm_template (tpl, t); loc = loc; is_statement = true; typ; attributes; ctx}
 
 
 (* ********************************** Auxiliary functions ************************************ *)
@@ -867,11 +868,11 @@ let trm_template ?(annot = trm_annot_default) ?(loc = None) ?(typ=None) ?(attrib
 let trm_null ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =
   trm_val ~annot ~loc ~ctx  (Val_ptr 0)
 
-(* [trm_unop ~annot ~loc ~ctx ~marks p]: unary operator *)
+(* [trm_unop ~annot ~loc ~ctx p]: unary operator *)
 let trm_unop ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (p : unary_op) : trm =
   trm_val ~annot ~loc ~ctx (Val_prim (Prim_unop p))
 
-(* [trm_biop ~annot ~loc ~ctx ~marks p]: binary operator *)
+(* [trm_biop ~annot ~loc ~ctx p]: binary operator *)
 let trm_binop ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (p : binary_op) : trm =
   trm_val ~annot:annot ~loc ~ctx (Val_prim (Prim_binop p))
 
@@ -898,17 +899,17 @@ let trm_lit ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None
 let trm_prim ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (p : prim) : trm =
   trm_val ~annot:annot ~loc ~ctx (Val_prim p)
 
-(* [trm_set ~annot ~loc ~is_statement ~ctx marks t1 t2] *)
+(* [trm_set ~annot ~loc ~is_statement ~ctx t1 t2] *)
 let trm_set ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None)
-  ?(typ : typ option = Some (typ_unit ())) ?(marks : mark list = [])  (lhs : trm) (rhs : trm) : trm =
-  trm_apps ~annot:annot ~marks ~loc ~is_statement ~ctx ~typ (trm_binop Binop_set) [lhs; rhs]
+  ?(typ : typ option = Some (typ_unit ()))  (lhs : trm) (rhs : trm) : trm =
+  trm_apps ~annot:annot ~loc ~is_statement ~ctx ~typ (trm_binop Binop_set) [lhs; rhs]
 
-(* [trm_set ~annot ~loc ~is_statement ~ctx marks t1 t2] *)
+(* [trm_set ~annot ~loc ~is_statement ~ctx t1 t2] *)
 let trm_neq ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None)
   (t1 : trm) (t2 : trm) : trm =
   trm_apps ~annot:annot ~loc ~is_statement ~ctx ~typ:(Some (typ_unit ())) (trm_binop Binop_neq) [t1; t2]
 
-(* [trm_seq_nomarks ~annot ~loc ~attributes ~ctx ~marks tl]: hidden block statement *)
+(* [trm_seq_nomarks ~annot ~loc ~attributes ~ctx tl]: hidden block statement *)
 let trm_seq_nomarks ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) (tl : trms) : trm =
   trm_seq ~annot ~loc ~attributes ~ctx (Mlist.of_list tl)
 
@@ -958,28 +959,57 @@ let apply_on_marks (f : marks -> marks) (t : trm) : trm =
   let t_annot = {t.annot with trm_annot_marks=t_annot_marks} in 
   {t with annot = t_annot}
 
-(* [trm_add_annot_mark m]: adds mark [m] to the trm [t] *)
-let trm_add_annot_mark (m : mark) (t : trm) : trm = 
+(* [trm_add_mark m]: adds mark [m] to the trm [t] *)
+let trm_add_mark (m : mark) (t : trm) : trm = 
   if m = "" then t else apply_on_marks (fun marks -> m :: marks) t
 
-(* [trm_filter_annot_mark m t]: filters all marks that satisfy the predicate [pred]. *)
-let trm_filter_annot_mark (pred : mark -> bool) (t : trm): trm =
+(* [trm_filter_mark m t]: filters all marks that satisfy the predicate [pred]. *)
+let trm_filter_mark (pred : mark -> bool) (t : trm): trm =
   apply_on_marks (fun marks -> List.filter (fun m -> pred m) marks) t
 
-(* [trm_remove_annot_mark m t]: removes mark [m] from trm [t]. *)
-let trm_rem_annot_mark (m : mark) (t : trm) : trm =
-  trm_filter_annot_mark (fun m1 -> m <> m1) t
+(* [trm_rem_mark m t]: removes mark [m] from trm [t]. *)
+let trm_rem_mark (m : mark) (t : trm) : trm =
+  trm_filter_mark (fun m1 -> m <> m1) t
 
-(* TODO: *)
 (* [trm_add_mark_between index m t]: adds mark [m] at [index] in the mlist of [t], where [t] should be a sequence. *)
+let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl -> 
+    let new_tl = Mlist.insert_mark_at index m tl in 
+    trm_seq ~annot:t.annot new_tl
+  | _ -> fail t.loc "Ast.trm_add_mark_between: expected a sequence"
 
-(* [trm_has_annot_mark m t]: checks if trm [t] has mark [m]. *)
-let trm_has_annot_mark (m : mark) (t : trm) : bool = 
+
+(* [trm_remove_marks t]: removes all the marks from trm [t] *)
+let trm_remove_marks (t : trm) : trm =
+  let res = 
+  match t.desc with
+  (* In the case of sequences, special treatment is needed for in between marks*)
+  | Trm_seq tl -> {t with desc = Trm_seq {items = tl.items; marks = []}}
+  | _ -> t in
+  trm_filter_mark (fun _ -> true) res
+
+(* [trm_rem_mark_between m t]: removes the between mark [m] from trm [t] *)
+let trm_rem_mark_between (m : mark) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl ->
+    let new_tl = Mlist.remove_mark m tl in
+    trm_seq ~annot:t.annot new_tl
+  | _ -> fail t.loc "Ast.trm_rem_mark_between: expected a sequence"
+
+(* [trm_has_mark m t]: checks if trm [t] has mark [m]. *)
+let trm_has_mark (m : mark) (t : trm) : bool = 
   List.mem m t.annot.trm_annot_marks
 
-(* [trm_get_annot_marks t]: returns all the marks of [t]. *)
-let trm_get_annot_marks (t : trm) : marks =
+(* [trm_get_marks t]: returns all the marks of [t]. *)
+let trm_get_marks (t : trm) : marks =
   t.annot.trm_annot_marks
+
+(* [trm_pass_marks t1 t2]: passes the marks of trm [t1] to trm [t2]. *)
+let trm_pass_marks (t1 : trm) (t2 : trm) : trm =
+  let t1_marks = trm_get_marks t1 in 
+  let t2_annot = {t2.annot with trm_annot_marks = t1_marks} in 
+  {t2 with annot = t2_annot}
 
 (* [trm_set_stringreprid id t]: sets the string representation id [t] to [id]. *)
 let trm_set_stringreprid (id : stringreprid) (t : trm) : trm =
@@ -1065,62 +1095,17 @@ let trm_attr_add (att : attribute) (t : trm) : trm =
 
 (* ********************************************************************************************** *)
 
-(* [trm_add_mark m t]: adds mark [m] to trm [t] *)
-let trm_add_mark (m : mark) (t : trm) : trm =
-  if m = "" then t else {t with marks = m :: t.marks}
-
-(* [trm_filter_mark m t]: filters all marks that satisfy the predicate [pred]. *)
-let trm_filter_mark (pred : mark -> bool) (t : trm) : trm =
-  {t with marks = List.filter (fun m -> pred m) t.marks}
-  
-(* [trm_remove_mark m t]: removes mark [m] from trm [t]. *)
-let trm_remove_mark (m : mark) (t : trm) : trm =
-  trm_filter_mark (fun m1 -> m <> m1) t
-
-(* [trm_add_mark_between index m t]: adds mark [m] at [index] in the mlist of [t], where [t] should be a sequence. *)
-let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
-  match t.desc with
-  | Trm_seq tl ->
-    let new_tl = Mlist.insert_mark_at index m tl in
-    trm_seq ~annot:t.annot ~marks:t.marks new_tl
-  | _ -> fail t.loc "Ast.trm_add_mark_between: expected a sequence"
-  
-(* [trm_remove_marks t]: removes all the marks from trm [t] *)
-let trm_remove_marks (t : trm) : trm =
-  match t.desc with
-  (* In the case of sequences, special treatment is needed for in between marks*)
-  | Trm_seq tl -> {t with desc = Trm_seq {items = tl.items; marks = []}; marks = []}
-  | _ -> {t with marks = []}
-
-
-(* [trm_remove_mark_between m t] removes the between mark [m] from trm [t] *)
-let trm_remove_mark_between (m : mark) (t : trm) : trm =
-  match t.desc with
-  | Trm_seq tl ->
-    let new_tl = Mlist.remove_mark m tl in
-    trm_seq ~annot:t.annot ~marks:t.marks new_tl
-  | _ -> fail t.loc "Ast.trm_remove_mark_between: expected a sequence"
-
-
-(* [trm_has_mark m t]: checks if trm [t] has mark [m]. *)
-let trm_has_mark (m : mark) (t : trm) : bool =
-  List.mem m t.marks
-
-
-
 (* [trm_vardef_get_trm_varse]: gets the singleton declaration variable in the case when [t] is a variable declaration
     or a list of variable in the case when we have multiple variable declarations in one line *)
-
-
 let rec trm_vardef_get_vars (t : trm) : var list =
   match t.desc with
   | Trm_let (_, (x, _), _) -> [x]
   | Trm_seq tl when trm_has_cstyle Multi_decl t -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl))
   | _ -> []
 
-(* [trm_ret ~annot ~marks a]; special trm_abort case, used for return statements *)
-let trm_ret ?(annot = trm_annot_default) ?(loc = None) ?(marks : mark list = []) (a : trm option) : trm =
-  trm_abort ~annot ~loc ~marks (Ret a)
+(* [trm_ret ~annot a]; special trm_abort case, used for return statements *)
+let trm_ret ?(annot = trm_annot_default) ?(loc = None) (a : trm option) : trm =
+  trm_abort ~annot ~loc (Ret a)
 
 (* [trm_prim_inv t]: gets the primitive operation *)
 let trm_prim_inv (t : trm) : prim option =
@@ -1251,32 +1236,31 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
   let loc = t.loc in
   let is_statement = t.is_statement in
   let typ = t.typ in
-  let marks = t.marks in
   match t.desc with
   | Trm_array tl ->
     let tl' = Mlist.map (f false) tl in
-    trm_array ~annot ~loc ~typ ~marks tl'
+    trm_array ~annot ~loc ~typ tl'
   | Trm_struct tl ->
     let tl' = Mlist.map (f false) tl in
-    trm_struct ~annot ~loc ~typ ~marks tl'
+    trm_struct ~annot ~loc ~typ tl'
   | Trm_let (vk, tv, init) ->
     let init' = f false init in
-    trm_let ~annot ~marks ~loc ~is_statement vk tv init'
+    trm_let ~annot ~loc ~is_statement vk tv init'
   | Trm_let_fun (f', res, args, body) ->
     let body' = f false body in
-    trm_let_fun ~annot ~marks ~loc ~is_statement f' res args body'
+    trm_let_fun ~annot ~loc ~is_statement f' res args body'
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
     let else_' = f is_terminal else_ in
-    trm_if ~annot ~marks ~loc cond' then_' else_'
+    trm_if ~annot ~loc cond' then_' else_'
   | Trm_seq tl ->
     let n = Mlist.length tl in
     let tl' = Mlist.mapi(fun i tsub ->
       let sub_is_terminal = is_terminal && i == n-1 in
       f sub_is_terminal tsub
     ) tl in
-    trm_seq ~annot ~marks ~loc tl'
+    trm_seq ~annot ~loc tl'
   | Trm_apps (f', args) ->
     let f'' = f false f' in
     let args' = List.map (f false) args in
@@ -1284,17 +1268,17 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
        warning: f'' may have different type
        -> print and reparse to have the right type
       *)
-    trm_apps ~annot ~loc ~is_statement ~typ ~marks f'' args'
+    trm_apps ~annot ~loc ~is_statement ~typ f'' args'
   | Trm_while (cond, body) ->
      let cond' = f false cond in
      let body' = f false body in
-     trm_while ~annot ~marks ~loc cond' body'
+     trm_while ~annot ~loc cond' body'
   | Trm_for_c (init, cond, step, body) ->
      let init' = f false init in
      let cond' = f false cond in
      let step' = f false step in
      let body' = f is_terminal body in
-     trm_for_c ~annot ~marks ~loc init' cond' step' body'
+     trm_for_c ~annot ~loc init' cond' step' body'
   | Trm_for (index, start, direction, stop, step, body) ->
     let m_step = match step with
     | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
@@ -1303,19 +1287,19 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
     let start' = f false start in
     let stop' = f false stop in
     let body' = f is_terminal body in
-    trm_for ~annot ~marks ~loc index start' direction stop' m_step body'
+    trm_for ~annot ~loc index start' direction stop' m_step body'
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, f is_terminal body)) cases in
-     trm_switch ~annot ~marks ~loc cond' cases'
+     trm_switch ~annot ~loc cond' cases'
   | Trm_abort a ->
      begin match a with
-     | Ret (Some t') -> trm_ret ~annot ~marks ~loc (Some (f false t'))
+     | Ret (Some t') -> trm_ret ~annot ~loc (Some (f false t'))
      (* return without value, continue, break *)
      | _ -> t
      end
   | Trm_labelled (l, body) ->
-     trm_labelled ~annot ~marks ~loc l (f false body)
+     trm_labelled ~annot ~loc l (f false body)
   | _ -> t
 
 (* TODO ARTHUR: think about how to factorize this.
@@ -1331,7 +1315,6 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   let loc = t.loc in
   let is_statement = t.is_statement in
   let typ = t.typ in
-  let marks = t.marks in
   let aux = f is_terminal in
 
   (* [ret nochange t'] evaluates the condition [nochange]; if is true,
@@ -1353,25 +1336,25 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   | Trm_array tl ->
     let tl' = fmlist false tl in
     ret (tl' == tl)
-        (trm_array ~annot ~loc ~typ ~marks tl')
+        (trm_array ~annot ~loc ~typ tl')
   | Trm_struct tl ->
     let tl' = fmlist false tl in
     ret (tl' == tl)
-        (trm_struct ~annot ~loc ~typ ~marks tl')
+        (trm_struct ~annot ~loc ~typ tl')
   | Trm_let (vk, tv, init) ->
     let init' = f false init in
     ret (init' == init)
-        (trm_let ~annot ~marks ~loc ~is_statement vk tv init')
+        (trm_let ~annot ~loc ~is_statement vk tv init')
   | Trm_let_fun (f', res, args, body) ->
     let body' = f false body in
     ret (body' == body)
-        (trm_let_fun ~annot ~marks ~loc ~is_statement f' res args body')
+        (trm_let_fun ~annot ~loc ~is_statement f' res args body')
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = aux then_ in
     let else_' = aux else_ in
     ret (cond' == cond && then_' == then_ && else_' == else_)
-        (trm_if ~annot ~marks ~loc cond' then_' else_')
+        (trm_if ~annot ~loc cond' then_' else_')
   | Trm_seq tl ->
     let n = Mlist.length tl in
     let tl' = Mlist.mapi (fun i tsub ->
@@ -1379,23 +1362,23 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
         f sub_is_terminal tsub
       ) tl in
     ret (Mlist.for_all2 (==) tl tl')
-        (trm_seq ~annot ~marks ~loc tl')
+        (trm_seq ~annot ~loc tl')
   | Trm_apps (func, args) ->
     let func' = f false func in
     let args' = flist args in
     ret (func' == func && args' == args)
-      (trm_apps ~annot ~loc ~is_statement ~typ ~marks func' args')
+      (trm_apps ~annot ~loc ~is_statement ~typ func' args')
   | Trm_while (cond, body) ->
     let cond' = f false cond in
     let body' = f false body in
-    trm_while ~annot ~marks ~loc cond' body'
+    trm_while ~annot ~loc cond' body'
   | Trm_for_c (init, cond, step, body) ->
      let init' = f false init in
      let cond' = f false cond in
      let step' = f false step in
      let body' = aux body in
      ret (init' == init && cond' == cond && step' == step && body' == body)
-         (trm_for_c ~annot ~marks ~loc init' cond' step' body')
+         (trm_for_c ~annot ~loc init' cond' step' body')
   | Trm_for (index, start, direction, stop, step, body) ->
     let start' = f false start in
     let stop' = f false stop in
@@ -1405,20 +1388,20 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
       in
     let body' = aux body in
     ret (step' == step && start' == start && stop' == stop && body' == body)
-        (trm_for ~annot ~marks ~loc index start' direction stop' step' body')
+        (trm_for ~annot ~loc index start' direction stop' step' body')
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, aux body)) cases in
      ret (cond' == cond && List.for_all2 (fun (_tl1,body1) (_tl2,body2) -> body1 == body2) cases' cases)
-         (trm_switch ~annot ~marks ~loc cond' cases')
+         (trm_switch ~annot ~loc cond' cases')
   | Trm_abort a ->
     begin match a with
-    | Ret (Some t') -> trm_ret ~annot ~marks ~loc (Some (f false t'))
+    | Ret (Some t') -> trm_ret ~annot ~loc (Some (f false t'))
     | _ -> t
     end
   | Trm_labelled (l, body) ->
     let body' = f false body in
-    trm_labelled ~annot ~marks ~loc l body'
+    trm_labelled ~annot ~loc l body'
   | _ -> t
 
 
@@ -1821,9 +1804,9 @@ module Nobrace = struct
         id
 end
 
-(* [trm_seq_no_brace ~marks tl]: genereates a no_brace sequence with a fresh id *)
-let trm_seq_no_brace ?(marks : mark list = [])(tl : trms) : trm=
-    trm_add_cstyle (No_braces (Nobrace.current())) (trm_seq ~marks (Mlist.of_list tl))
+(* [trm_seq_no_brace tl]: genereates a no_brace sequence with a fresh id *)
+let trm_seq_no_brace (tl : trms) : trm=
+    trm_add_cstyle (No_braces (Nobrace.current())) (trm_seq (Mlist.of_list tl))
 
 (* [trm_main_inv_toplevel_defs ast]: returns a list of all toplevel declarations *)
 let trm_main_inv_toplevel_defs (ast : trm) : trm list =
@@ -1836,7 +1819,7 @@ let trm_seq_add_last (t_insert : trm) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
      let new_tl = Mlist.insert_at (Mlist.length tl) t_insert tl in
-     trm_seq ~marks:t.marks ~annot:t.annot new_tl
+     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "Ast.trm_seq_add_last: expected a sequence"
 
 (* [get_nobrace_id t]: gets the id of the sequence annotated as No_braces *)
@@ -1947,41 +1930,41 @@ let get_operation_arg (t : trm) : trm =
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) -> t1
   | _ -> t
 
-(* [trm_let_mut ~annot ~is_statement ~attributes ~ctx ~marks typed_var init]: an extension of trm_let for
+(* [trm_let_mut ~annot ~is_statement ~attributes ~ctx typed_var init]: an extension of trm_let for
     creating mutable variable declarations *)
 let trm_let_mut ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
-  ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
+  ?(attributes = []) ?(ctx : ctx option = None) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr_generated var_type in
-  let t_let = trm_let ~loc ~is_statement ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init]) in
+  let t_let = trm_let ~loc ~is_statement ~attributes ~ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init]) in
   trm_add_cstyle Stackvar t_let
 
-(* [trm_let_ref ~annot ~is_statement ~attributes ~ctx ~marks typed_var init]: an extension of trm_let for creating references *)
+(* [trm_let_ref ~annot ~is_statement ~attributes ~ctx typed_var init]: an extension of trm_let for creating references *)
 let trm_let_ref ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
-  ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
+  ?(attributes = []) ?(ctx : ctx option = None) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr_generated var_type in
-  let t_let = trm_let ~loc ~is_statement ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) init in
+  let t_let = trm_let ~loc ~is_statement ~attributes ~ctx Var_mutable (var_name, var_type_ptr) init in
   trm_add_cstyle Reference t_let
 
 
-(* [trm_let_IMmut ~annot ~is_statement ~attributes ~ctx ~marks typed_var init]: an extension of trm_let for
+(* [trm_let_IMmut ~annot ~is_statement ~attributes ~ctx typed_var init]: an extension of trm_let for
     creating immutable variable declarations *)
 let trm_let_immut ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
-  ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
+  ?(attributes = []) ?(ctx : ctx option = None) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type = typ_const var_type in
-  trm_let ~annot ~loc ~is_statement ~attributes ~ctx ~marks Var_immutable (var_name, var_type) (init)
+  trm_let ~annot ~loc ~is_statement ~attributes ~ctx Var_immutable (var_name, var_type) (init)
 
-(* [trm_let_array ~annot ~is_statement ~attributes ~ctx ~marks typed_var sz init]: an extension of trm_let
+(* [trm_let_array ~annot ~is_statement ~attributes ~ctx typed_var sz init]: an extension of trm_let
     for creating array variable declarations *)
 let trm_let_array ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
-  ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var)
+  ?(attributes = []) ?(ctx : ctx option = None) (kind : varkind )(typed_var : typed_var)
    (sz : size)(init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type = if kind = Var_immutable then typ_const (typ_array var_type sz) else typ_ptr_generated (typ_array var_type sz) in
   let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
-  let res = trm_let ~annot ~loc ~is_statement  ~attributes ~ctx ~marks kind (var_name, var_type) var_init in
+  let res = trm_let ~annot ~loc ~is_statement  ~attributes ~ctx kind (var_name, var_type) var_init in
   if kind = Var_mutable then trm_add_cstyle Stackvar res else res
 
 
@@ -2213,7 +2196,7 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
       | Trm_let_fun (f,ty, tv, _) ->
         if f_pred f then begin
           t_map := Trm_map.add f t !t_map;
-         trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) end
+         trm_let_fun ~annot:t.annot f ty tv (trm_lit  Lit_uninitialized) end
         else t
       | _ -> trm_map aux t
       in
@@ -2241,7 +2224,7 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
         | _ -> def
         end
       |_ ->  def
-    ) tl in trm_seq ~annot:chopped_ast.annot ~marks:chopped_ast.marks new_tl
+    ) tl in trm_seq ~annot:chopped_ast.annot new_tl
   | _ -> fail chopped_ast.loc "Ast.update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
 
 
@@ -2459,8 +2442,8 @@ let trm_ands (ts : trm list) : trm =
   ) (trm_bool true) ts
 
 (* [trm_prim_compound ~annot ~ctx ~is_statement  ~loc ~typ binop t1 t2]: generates a compound operation, ex t1+=t2*)
-let trm_prim_compound ?(annot : trm_annot = trm_annot_default) ?(ctx : ctx option = None) ?(loc = None) ?(is_statement : bool = false) ?(marks : mark list = []) ?(typ = None) (binop : binary_op) (t1 : trm) (t2 : trm) : trm =
-  trm_apps ~loc ~is_statement ~annot ~typ ~marks (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
+let trm_prim_compound ?(annot : trm_annot = trm_annot_default) ?(ctx : ctx option = None) ?(loc = None) ?(is_statement : bool = false) ?(typ = None) (binop : binary_op) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~is_statement ~annot ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
 
 (* [code_to_str]: extracts the code from the trms that contain the arbitrary code*)
 let code_to_str (code : code_kind) : string =

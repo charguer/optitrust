@@ -1185,7 +1185,7 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
               let ps = resolve_target_mark_one_else_any m t in
               match ps with
               | [p] ->
-                  let t = apply_on_path (trm_remove_mark m) t p in
+                  let t = apply_on_path (trm_rem_mark m) t p in
                   tr imark t (transformer p)
               | ps ->
                   let msg =
@@ -1267,7 +1267,7 @@ let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
               (* Here we don't call [Marks.remove] to avoid a circular dependency issue. *)
               let t =
                 Trace.time "iteri_on_transformed_targets remove mark" (fun () ->
-                  apply_on_path (trm_remove_mark m) t p) in
+                  apply_on_path (trm_rem_mark m) t p) in
               Trace.set_ast t; (* Never use the function [set_ast] in another file!. *)
               Trace.time (Printf.sprintf "iteri_on_transformed_targets perform transfo %d" imark) (fun () ->
                   tr imark t (transformer p)
@@ -1338,7 +1338,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
             let i = begin match get_mark_index m t_seq with 
              | Some i -> i |
               None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
-            let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
+            let t = apply_on_path (trm_rem_mark_between m) t p_to_seq in
             tr imark t (transformer (p_to_seq,i))
           | ps ->
             let msg =

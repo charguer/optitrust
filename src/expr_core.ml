@@ -11,7 +11,7 @@ let update (f : trm -> trm) : Target.Transfo.local =
 let replace_fun_aux (name : string) (t : trm) : trm =
   match t.desc with
   | Trm_apps (_, args) ->
-    trm_apps ~annot:t.annot ~marks:t.marks ~typ:t.typ (trm_var name) args
+    trm_apps ~annot:t.annot ~typ:t.typ (trm_var name) args
   | _ -> fail t.loc "replace_fun: expected a function call"
 
 

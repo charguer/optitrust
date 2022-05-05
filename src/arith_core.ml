@@ -12,7 +12,7 @@ let mark_nosimpl = "__arith_core_nosimpl"
 
 (* [has_mark_nosimplf t]: check if [t] should be skipped by the simplifier or not.*)
 let has_mark_nosimpl (t : trm) : bool =
-  List.mem mark_nosimpl t.marks
+  trm_has_mark mark_nosimpl t
   (* LATER Ast.trm_has_mark *)
 
 (* arithmetic operation type *)

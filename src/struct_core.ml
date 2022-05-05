@@ -177,18 +177,18 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
           | Trm_struct sl ->
             let new_term_list = Mlist.merge lfront sl in
             let new_term_list = Mlist.merge new_term_list lback  in
-            trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
+            trm_struct ~annot:t.annot ~typ:t.typ new_term_list
           | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change ->
             let sl = List.map (fun f -> trm_get (trm_struct_access (trm_var ~typ:v.typ p) f)) field_list in
             let new_term_list = Mlist.merge lfront (Mlist.of_list sl) in
             let new_term_list = Mlist.merge new_term_list lback in
-            trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
+            trm_struct ~annot:t.annot ~typ:t.typ new_term_list
 
           | Trm_var (_, p) ->
             let sl = List.map (fun f -> trm_struct_get (trm_var ~typ:t.typ p) f) field_list in
             let new_term_list = Mlist.merge lfront (Mlist.of_list sl) in
             let new_term_list = Mlist.merge new_term_list lback in
-            trm_struct ~annot:t.annot ~typ:t.typ ~marks:t.marks new_term_list
+            trm_struct ~annot:t.annot ~typ:t.typ new_term_list
 
           | _ -> fail t.loc "Struct_core.inline_struct_initialization: struct intialization list is not compatible with definition"
           end
@@ -351,7 +351,7 @@ let to_variables_aux (index : int) (t : trm) : trm =
       ) lback in
       let new_tl = Mlist.merge lfront (Mlist.of_list var_decls) in
       let new_tl = Mlist.merge new_tl lback in
-      trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      trm_seq ~annot:t.annot new_tl
 
    | _ -> fail trm_to_change.loc "Struct_core.struct_to_variables_aux: expected a variable declaration"
     end
@@ -389,7 +389,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
           | Some ty ->
             begin match ty.typ_desc with
             | Typ_constr (x, _, _) when x = struct_name->
-              trm_apps ~annot:t.annot ~typ:t.typ ~marks:t.marks ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))})  [base]
+              trm_apps ~annot:t.annot ~typ:t.typ ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))})  [base]
             | _ -> trm_map (aux global_trm) t
             end
           | None -> trm_map (aux global_trm) t
@@ -399,7 +399,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
           | Some ty ->
             begin match ty.typ_desc with
             | Typ_constr (x, _, _) when x = struct_name->
-              trm_apps ~annot:t.annot ~typ:t.typ ~marks:t.marks ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))})  [base]
+              trm_apps ~annot:t.annot ~typ:t.typ ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))})  [base]
             | _ -> trm_map (aux global_trm) t
             end
           | None -> trm_map (aux global_trm) t
@@ -421,11 +421,11 @@ let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
     begin match tdef.desc with
     | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_prod (tn, fl);_}  as td) ->
         let new_fl = List.map (fun (x, ty) -> (rename x, ty)) fl in
-        let new_tdef = trm_typedef ~annot:tdef.annot ~marks:tdef.marks {td with typdef_body = Typdef_prod (tn, new_fl)} in
+        let new_tdef = trm_typedef ~annot:tdef.annot {td with typdef_body = Typdef_prod (tn, new_fl)} in
         let lback = Mlist.map (fun t1 -> rename_struct_accesses name rename t1) lback in
         let new_tl = Mlist.merge lfront lback in
         let new_tl = Mlist.insert_at index new_tdef new_tl in
-        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+        trm_seq ~annot:t.annot new_tl
     | _ -> fail tdef.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
     end
   | _ -> fail t.loc "Struct_core.rename_fields_aux: expected the sequence which contains the typedef declaration"
@@ -454,7 +454,7 @@ let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : tr
       let replace_type (s : string) (ty1 : typ) : typ =
         if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
       let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in
-      trm_typedef ~annot:t.annot ~marks:t.marks {td with typdef_body = Typdef_prod (tn, new_fl)}
+      trm_typedef ~annot:t.annot {td with typdef_body = Typdef_prod (tn, new_fl)}
     | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
 
 (* [update_fields_type pattern typ_update t p]: applies [update_fields_type_aux] at trm [t] with path [p]. *)
@@ -535,7 +535,7 @@ module Struct_modif = struct
     (fun _aux t -> t)
 
   let reuse_annot_of (tsrc : trm) (t : trm) : trm =
-    { t with  annot = tsrc.annot; marks = tsrc.marks }
+    { t with  annot = tsrc.annot}
 
 end
 
@@ -603,7 +603,7 @@ let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
          let struct_name = td.typdef_tconstr in
          let new_fields = arg.f_fields old_fields in
          let new_typdef = {td with typdef_body = Typdef_prod (t_names, new_fields)} in
-         let new_td = trm_typedef ~marks:tdef.marks new_typdef in
+         let new_td = trm_typedef ~annot:tdef.annot new_typdef in
          let f_update = fun t -> new_td in
          let f_update_further = fun t -> modif_accesses (old_fields, new_fields) struct_name arg t in
          let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in

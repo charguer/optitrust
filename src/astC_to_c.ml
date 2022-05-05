@@ -267,14 +267,15 @@ and attr_to_doc (a : attribute) : document =
 
 (* [decorate_trm ~semicolon ~prec ~print_struct_init_type t]:
     - if [prec] is greater than the precedence of [t] then decorate [t] with parentheses
-    - if [t.marks <> []] then decorate [t] with those marks.
+    - if [t] is marked,then decorate [t] with those marks.
     - if t is struct initialization list outside a variable declaration, then decorate [t] with a cast in front
     - if [semicolon] is true then decorate [t] with a semicolon at the end *)
 and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_init_type : bool = true) (t : trm) : document =
   let parentheses = parentheses_needed ~prec t in
   let dt = trm_to_doc ~semicolon ~prec ~print_struct_init_type t in
   let dt = if parentheses then parens (dt) else dt in
-  if t.marks = [] && not !print_stringreprids
+  let t_marks = trm_get_marks t in 
+  if t_marks = [] && not !print_stringreprids
     then dt
     else
       begin
@@ -284,7 +285,8 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
         | None -> "[-]"
         | Some id -> Printf.sprintf "[%d]" id
         end in
-      let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t.marks in
+      
+      let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t_marks in
       let sleft = string ("/*@" ^ sid ^ m ^ "*/") in
       let sright =  string ("/*" ^ sid ^ m ^ "@*/") in
       sleft ^^ dt ^^ sright

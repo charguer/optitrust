@@ -12,7 +12,7 @@ let copy_aux (dest_index : int) (index : int) (delete : bool) (t : trm) : trm =
     let index_to_remove = if dest_index <= index then index + 1 else index in
     let new_tl = Mlist.insert_at dest_index instr_to_copy tl in
     let new_tl = if not delete then new_tl else Mlist.remove index_to_remove  1 new_tl in
-    trm_seq ~annot:t.annot ~marks:t.marks new_tl
+    trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "Instr_core.copy_aux: expected the surrounding sequence of the targeted instructions"
 
 (* [copy dest_index index delete t p]: apply [copy_aux] at trm [t] with path [p] *)

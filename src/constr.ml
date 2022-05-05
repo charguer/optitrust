@@ -983,10 +983,11 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_prim pred, Trm_val (Val_prim p1) ->
         pred p1
      | Constr_mark (pred, _m), _ ->
+        let t_marks = trm_get_marks t in
         begin match t.desc with
         | Trm_seq tl | Trm_array tl | Trm_struct tl->
-          (List.exists pred t.marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
-        | _ -> List.exists pred t.marks
+          (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
+        | _ -> List.exists pred t_marks
         end
      | Constr_hastype pred , _ ->
         check_hastype pred t

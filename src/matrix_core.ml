@@ -179,7 +179,7 @@ let intro_mindex_aux (dim : trm) (t : trm) : trm =
   | Trm_apps (f, [base;index]) ->
     begin match trm_prim_inv f with
     | Some (Prim_binop Binop_array_access) ->
-      trm_apps ~annot:t.annot ~marks:t.marks f [base; mindex [dim] [index]]
+      trm_apps ~annot:t.annot f [base; mindex [dim] [index]]
     | _ -> fail t.loc "Matrix_core.intro_mindex_aux: expected a primitive array access operation"
     end
   | _ -> fail t.loc "Matrix_core.intro_mindex_aux: expected an array access trm got %s"
@@ -414,7 +414,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                      if label_to_add = "" then fifth_instr else trm_labelled label_to_add fifth_instr 
                       else fifth_instr in  
                   
-                    trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_fst_instr; new_snd_instr; new_thrd_instr; new_frth_instr; new_fifth_instr])
+                    trm_seq ~annot:t.annot (Mlist.of_list [new_fst_instr; new_snd_instr; new_thrd_instr; new_frth_instr; new_fifth_instr])
                   | _ -> fail set_instr.loc "Matrix_core.delocalize_aux"
                   end
                 | Local_obj (_init_f, _merge_f, free_f) -> 
@@ -485,7 +485,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
 
                        ) labels 
                     in
-                  trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list final_groups)
+                  trm_seq ~annot:t.annot (Mlist.of_list final_groups)
                 end
 
               | _ -> fail snd_instr.loc "Matrix_core.delocalize_aux: expected the nested loops where the local matrix initialization is done"
