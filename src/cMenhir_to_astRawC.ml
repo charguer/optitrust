@@ -326,8 +326,9 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     | Opostdecr ->
       trm_apps1 Unop_post_dec t
     | Odot s ->
-      let annot = if is_get_operation t then [Display_no_arrow] else [] in
-      trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~annot (Unop_struct_get s)) [t]
+      let get_op = trm_unop ~loc (Unop_struct_get s) in
+      let get_op = if is_get_operation t then trm_add_cstyle Display_no_arrow get_op else get_op in
+      trm_apps ~loc ~ctx ~typ get_op [t]
     | Oarrow s ->
       trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get s) ) [trm_get t]
     end
@@ -433,19 +434,20 @@ and tr_globdef (d : C.globdecl) : trm =
   | C.Gfundef {fd_storage = _; fd_inline = inline; fd_name = {name = n;_}; fd_attrib = _att; fd_ret = ty; fd_params = po; fd_body = bo; _} ->
     let tt = tr_type ty in
     let tb = tr_stmt bo in
-    let annot = if inline then [Fun_inline] else [] in
-    begin match po with
-    | [] ->
-      trm_let_fun ~annot n tt [] tb
-    | _ ->
-      let get_args (tv : C.ident * C.typ) : (var * typ) =
-        let (id, ty) = tv in
-        let ty = tr_type ty in
-        (id.name, ty)
-       in
-      let args = List.map get_args po in
-      trm_let_fun ~annot ~loc ~ctx n tt args tb
-    end
+    let res =
+      begin match po with
+      | [] ->
+        trm_let_fun n tt [] tb
+      | _ ->
+        let get_args (tv : C.ident * C.typ) : (var * typ) =
+          let (id, ty) = tv in
+          let ty = tr_type ty in
+          (id.name, ty)
+         in
+        let args = List.map get_args po in
+        trm_let_fun ~loc ~ctx n tt args tb
+      end in 
+    if inline then trm_add_cstyle Fun_inline res else res
   | C.Genumdef ({C.name = tn}, att, enum_list) ->
     let el = List.map (fun ({C.name = constant_name; }, _, exp_opt) ->
       match exp_opt with

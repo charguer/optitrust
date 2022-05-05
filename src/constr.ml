@@ -1276,14 +1276,12 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   (*
     do not resolve in included files, except if the constraint is Constr_include
    *)
-  | Constr_include h when trm_is_include t
-     (*
-       remove the include annotation for target resolution to proceed in the
-       included file
-      *)
-     resolve_target_simple p {t with annot = []}
-  | _ when is_include t ->
-     print_info loc "resolve_constraint: not an include constraint\n";
+  | Constr_include h when trm_is_include t ->
+     (* remove the include annotation for target resolution to proceed in the
+       included file *)
+     resolve_target_simple p {t with annot = trm_annot_default}
+  | _ when trm_is_include t ->
+     print_info loc "Constr.resolve_constraint: not an include constraint\n";
      []
   (* target constraints first *)
   (* following directions *)
@@ -1294,7 +1292,7 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
    *)
   | c when check_constraint c t -> resolve_target_simple p t
   | _ ->
-     print_info loc "resolve_constraint: constraint %s does not hold\n"
+     print_info loc "Constr.resolve_constraint: constraint %s does not hold\n"
        (constr_to_string c);
      []
 

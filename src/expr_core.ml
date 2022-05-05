@@ -62,8 +62,8 @@ let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp op
         in
       Str.global_replace (Str.regexp "\n") " " s
       in
-    let sannot =
-      Tools.document_to_string (AstC_to_c.trm_annot_to_doc t.annot) in
+    let sannot = "" in
+      (* Tools.document_to_string (AstC_to_c.trm_annot_to_doc t.annot) in *) (* TODO: Printing of new annot type *)
     let tkind = Constr.get_trm_kind t in
     let skind = Constr.trm_kind_to_string tkind in
     let sreg =

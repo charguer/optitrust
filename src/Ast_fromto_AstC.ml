@@ -100,7 +100,7 @@ let stackvar_elim (t : trm) : trm =
           trm_map aux t
         end
       end
-    | Trm_seq _ when not (is_nobrace_seq t) -> onscope env t (trm_map aux)
+    | Trm_seq _ when not (trm_is_nobrace_seq t) -> onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
       (* function names are by default immutable *)
       add_var env f Var_immutable;
@@ -142,7 +142,7 @@ let stackvar_intro (t : trm) : trm =
               trm_rem_cstyle Stackvar {t with desc = Trm_let (vk, (x, tx1), aux tbody1)}
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
           end
-      else if List.mem Reference t.annot then
+      else if trm_has_cstyle Reference t then
         begin match tx.typ_desc with
         | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1} ->
           trm_rem_cstyle Reference { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get (aux tbody))}
@@ -150,7 +150,7 @@ let stackvar_intro (t : trm) : trm =
         end
       else
         {t with desc = Trm_let (vk, (x, tx), aux tbody)}
-    | Trm_seq _ when not (is_nobrace_seq t) ->
+    | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
       add_var env f Var_immutable;
@@ -174,7 +174,7 @@ let stackvar_intro (t : trm) : trm =
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[ŧ])] *)
 let rec caddress_elim (t : trm) : trm =
   let aux t = caddress_elim t in (* recursive calls for rvalues *)
-  let mk ?(annot = []) td = {t with desc = td; annot = annot} in
+  let mk ?(annot = trm_annot_default) td = {t with desc = td; annot = annot} in
   trm_simplify_addressof_and_get
   begin 
     match t.desc with

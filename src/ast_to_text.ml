@@ -404,7 +404,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
 
   if only_desc then ddesc
     else
-      let dannot = Tools.list_to_doc (List.map print_annot [])(* TODO: Addapt to the new annotation type *)
+      let dannot = empty (* TODO: Addapt to the new annotation type *)
     in
     let dloc =
       begin match t.loc with

@@ -263,23 +263,13 @@ and value =
 (* [trm_annot]: annotations are used to decorate this AST when it is built from
     the Clang AST in such a way to be able to print back the AST like
     the original C code.*)
-and trm_annot_old =
- | Include of string (* to avoid printing content of included files *)
- | Display_no_arrow  (* Used for struct accesses of the form ( *p ).x or p -> x,
-                        with this annotation the arrow syntax sugar is not used *)
- | Reference         (* Used to encode references as pointers with annotation Reference *)
- | Stackvar          (* Used to encode stack variables *)
- | Annot_stringreprid of stringreprid (* Memoization id for the string representation of
-                                         this node *)
- | Fun_inline        (* Inline attribute for a function *)
-
 
 (* [cstyle_annot]: annotations used for encodings and decodings. *)
 and cstyle_annot = 
   | Display_no_arrow 
   | Empty_cond      (* used for loops with empty conditions *)
   | Fun_inline 
-  | Nobraces of int (* LATER: Add another category *)
+  | No_braces of int (* LATER: Add another category *)
   | Multi_decl      (* annotation for encoding mutiple one line declarations *)
   | Postfix_set     (* annotates all x++ and x-- unary operations aswrite operations *)
   | Reference 
@@ -293,6 +283,7 @@ and files_annot =
 (* [cpragma]: alias type for directives *)
 and cpragma = directive
 
+and marks = mark list
 (* [trm_annot]: a record containing all kinds of annotations used on the AST of OptiTrust. *)
 and trm_annot = {
     trm_annot_marks : marks;
@@ -317,7 +308,7 @@ and record_type =
 (* [trm] is a record representing an ast node *)
 and trm =
  { annot : trm_annot;
-   marks : mark list;
+   marks : marks;
    desc : trm_desc;
    loc : location;
    is_statement : bool;
@@ -964,7 +955,7 @@ let fail (loc : location) (err : string) : 'a =
 (* [apply_on_marks f t]: applies [f] on the marks of [t]. *)
 let apply_on_marks (f : marks -> marks) (t : trm) : trm =
   let t_annot_marks = f (t.annot.trm_annot_marks) in
-  let t_annot = {t_annot with trm_annot_marks=t_annot_marks} in 
+  let t_annot = {t.annot with trm_annot_marks=t_annot_marks} in 
   {t with annot = t_annot}
 
 (* [trm_add_annot_mark m]: adds mark [m] to the trm [t] *)
@@ -992,17 +983,18 @@ let trm_get_annot_marks (t : trm) : marks =
 
 (* [trm_set_stringreprid id t]: sets the string representation id [t] to [id]. *)
 let trm_set_stringreprid (id : stringreprid) (t : trm) : trm =
-  let t_annot = {t.annot with t.annot.trm_annot_stringrepr = id} in 
+  let t_annot = {t.annot with trm_annot_stringrepr = id} in
   {t with annot = t_annot}
 
 (* [trm_get_stringreprid t]: gets the string representation of trm [t]. *)
 let trm_get_stringreprid (t : trm) : stringreprid option =
-  List.find_map (function Annot_stringreprid id -> Some id | _ -> None ) t.annot.trm_annot_stringrepr
+  let id = t.annot.trm_annot_stringrepr in 
+  if id = -1 then None else Some id
 
 (* [apply_on_pragmas f t]: applies [f] on the pragma directives associated with [t]. *)
 let apply_on_pragmas (f : cpragma list -> cpragma list) (t : trm) : trm =
-  let t_annot_pragmas = f (t.annot.trm_annot_pragmas) in
-  let t_annot = {t_annot with trm_annot_pragma = t_annot_pragmas} in 
+  let t_annot_pragmas = f (t.annot.trm_annot_pragma) in
+  let t_annot = {t.annot with trm_annot_pragma = t_annot_pragmas} in 
   {t with annot = t_annot}
 
 (* [trm_add_pragma p t]: adds the pragma [p] into [t]. *)
@@ -1019,40 +1011,40 @@ let trm_rem_pragma (p : cpragma) (t : trm) : trm =
 
 (* [trm_get_pragmas t]: returns all the pragmas annotated to [t]. *)
 let trm_get_pragmas (t : trm) : cpragma list =
-  t.annot.trm_annot_pragmas
+  t.annot.trm_annot_pragma
 
 (* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)
 let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
   let t_annot_cstyle = f (t.annot.trm_annot_cstyle) in
-  let t_annot = {t_annot with trm_annot_cstyle=t_annot_cstyle} in 
+  let t_annot = {t.annot with trm_annot_cstyle=t_annot_cstyle} in 
   {t with annot = t_annot}
 
-(* [trm_add_cstyle cs t]: add [cstyle] annotation to trm [t]. *)
-let trm_add_cstyle (cs : cstyle) (t : trm) : trm =
+(* [trm_add_cstyle cs t]: adds [cs] cstyle annotation to trm [t]. *)
+let trm_add_cstyle (cs : cstyle_annot) (t : trm) : trm =
   apply_on_cstyles (fun cstyles -> cs :: cstyles) t
 
 (* [trm_filter_cstyle pred t]: filters all the pragmas that satisfy the predicate [pred]. *)
-let trm_filter_cstyle (pred : cstyle -> bool) (t : trm) : trm =
+let trm_filter_cstyle (pred : cstyle_annot -> bool) (t : trm) : trm =
   apply_on_cstyles (fun cstyles -> List.filter (fun cs -> pred cs) cstyles) t
 
-(* [trm_rem_cstyle cs t]: removes the cstyle annotation [cs] from trm [t]. *)
-let trm_rem_cstyle (cs : cstyle) (t : trm) : trm =
+(* [trm_rem_cstyle cs t]: removes the cstyle_annot annotation [cs] from trm [t]. *)
+let trm_rem_cstyle (cs : cstyle_annot) (t : trm) : trm =
   trm_filter_cstyle (fun cs1 -> cs <> cs1) t
 
 (* [trm_has_cstyle cs t]: checks if [t] has the [cs] cstyle annotation. *)
-let trm_has_cstyle (cs : cstyle) (t : trm) : bool = 
+let trm_has_cstyle (cs : cstyle_annot) (t : trm) : bool = 
   List.mem cs t.annot.trm_annot_cstyle
 
 (* [trm_set_mainfile]: adds [Main_file] annotation to trm [t]. *)
 let trm_set_mainfile (t : trm) : trm =
    let t_annot_files = Main_file :: t.annot.trm_annot_files in 
-   let t_annot = {t_annot with trm_annot_files=t_annot_files} in 
+   let t_annot = {t.annot with trm_annot_files=t_annot_files} in 
    {t with annot = t_annot}
 
 (* [trm_set_include filename t]: add [Include filename] annotation to trm [t]. *)
 let trm_set_include (filename : string) (t : trm) : trm =
   let t_annot_files = Include filename :: t.annot.trm_annot_files in
-  let t_annot = {t_annot with trm_annot_files = t_annot_files} in 
+  let t_annot = {t.annot with trm_annot_files = t_annot_files} in 
   {t with annot = t_annot}
 
 (* [trm_is_mainfile t]: checks if [t] contains the [Main_file] annotation. *)
@@ -1062,6 +1054,10 @@ let trm_is_mainfile (t : trm) : bool =
 (* [trm_is_include]: checks if [t] contains the [Include f] annotation. *)
 let trm_is_include (t : trm) : bool =
   List.exists (function |Include _ -> true | _ -> false) t.annot.trm_annot_files
+
+(* [trm_is_nobrace_seq t]: checks if [t] is a visible sequence or not *)
+let trm_is_nobrace_seq (t : trm) : bool =
+  List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle
 
 (* [trm_attr_add att t]: adds attribute [att] to trm [t] *)
 let trm_attr_add (att : attribute) (t : trm) : trm =
@@ -1114,10 +1110,12 @@ let trm_has_mark (m : mark) (t : trm) : bool =
 
 (* [trm_vardef_get_trm_varse]: gets the singleton declaration variable in the case when [t] is a variable declaration
     or a list of variable in the case when we have multiple variable declarations in one line *)
+
+
 let rec trm_vardef_get_vars (t : trm) : var list =
   match t.desc with
   | Trm_let (_, (x, _), _) -> [x]
-  | Trm_seq tl when List.mem Multi_decl t.annot -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl))
+  | Trm_seq tl when trm_has_cstyle Multi_decl t -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl))
   | _ -> []
 
 (* [trm_ret ~annot ~marks a]; special trm_abort case, used for return statements *)
@@ -1170,10 +1168,6 @@ let get_mark_index (m : mark) (t : trm) : int option =
         if List.mem m ml then Some i else None
     ) None tl.marks
   | _ -> fail t.loc "Ast.get_mark_index: expected a sequence trm"
-
-(* [is_include t]: checks if t is an include directive *)
-let is_include (t : trm) : bool =
- List.exists (function Include _ -> true | _ -> false) t.annot.trm_annot_cstyle
 
 (* [print_info loc]: computes a function that prints information related to some location in file only if the verbose
    flag is activated *)
@@ -1457,8 +1451,7 @@ let rec label_subterms_with_fresh_stringreprids (f : trm -> bool) (t : trm) : tr
   let t2 =
     if not (f t) then t else begin
       let id = next_stringreprid () in
-      let keep_annot = List.filter (function Annot_stringreprid _ -> false | _ -> true) t.annot in
-       { t with annot = (Annot_stringreprid id)::keep_annot }
+      trm_set_stringreprid id t 
     end in
   trm_map (label_subterms_with_fresh_stringreprids f) t2
 
@@ -1960,14 +1953,16 @@ let trm_let_mut ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool
   ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr_generated var_type in
-  trm_let ~annot:(Stackvar :: annot) ~loc ~is_statement ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
+  let t_let = trm_let ~loc ~is_statement ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init]) in
+  trm_add_cstyle Stackvar t_let
 
 (* [trm_let_ref ~annot ~is_statement ~attributes ~ctx ~marks typed_var init]: an extension of trm_let for creating references *)
 let trm_let_ref ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
   ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr_generated var_type in
-  trm_let ~annot:(Reference :: annot) ~loc ~is_statement ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) init
+  let t_let = trm_let ~loc ~is_statement ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) init in
+  trm_add_cstyle Reference t_let
 
 
 (* [trm_let_IMmut ~annot ~is_statement ~attributes ~ctx ~marks typed_var init]: an extension of trm_let for
@@ -2060,7 +2055,7 @@ let get_include_filename (t : trm) : string  =
     match x with
     | Include s -> Some s
     | _ -> acc
-  ) None t.annot.trm_annot_cstyle in
+  ) None t.annot.trm_annot_files in
   match f_name with
   | Some s -> s
   | _ -> fail t.loc "Ast.get_include_filename: couldn't get the requested filename"
@@ -2298,10 +2293,6 @@ let is_prim_arith_call (t : trm) : bool =
   | Trm_apps ({desc = Trm_val (Val_prim p);_}, args) when is_prim_arith p -> true
   | _ -> false
 
-(* [is_nobrace_seq t]: checks if [t] is a visible sequence or not *)
-let is_nobrace_seq (t : trm) : bool =
-  List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle
-
 (* [is_struct_init t]: checks if [t] is struct_init *)
 let is_struct_init (t : trm) : bool =
   match t.desc with
@@ -2468,7 +2459,7 @@ let trm_ands (ts : trm list) : trm =
   ) (trm_bool true) ts
 
 (* [trm_prim_compound ~annot ~ctx ~is_statement  ~loc ~typ binop t1 t2]: generates a compound operation, ex t1+=t2*)
-let trm_prim_compound ?(annot :trm_annot list = []) ?(ctx : ctx option = None) ?(loc = None) ?(is_statement : bool = false) ?(marks : mark list = []) ?(typ = None) (binop : binary_op) (t1 : trm) (t2 : trm) : trm =
+let trm_prim_compound ?(annot : trm_annot = trm_annot_default) ?(ctx : ctx option = None) ?(loc = None) ?(is_statement : bool = false) ?(marks : mark list = []) ?(typ = None) (binop : binary_op) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~is_statement ~annot ~typ ~marks (trm_prim ~loc ~ctx (Prim_compound_assgn_op binop)) [t1; t2]
 
 (* [code_to_str]: extracts the code from the trms that contain the arbitrary code*)
@@ -2555,7 +2546,7 @@ let unserialize_from_file (filename : string) : trm =
 
 (* [empty_ast]: generates {} *)
 let empty_ast : trm =
-  trm_set_main_file (trm_seq_nomarks [])
+  trm_set_mainfile (trm_seq_nomarks [])
 
 (* [trm_simplify_addressof_and_get t]: simplifies [&*t] and [*&t] to [t] *)
 let trm_simplify_addressof_and_get (t : trm) : trm =

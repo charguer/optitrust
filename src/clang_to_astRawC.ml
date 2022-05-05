@@ -397,7 +397,7 @@ and compute_body (loc : location) (body_acc : trms)
       | Break ->
         begin match List.rev body_acc with
           | [t] -> (t, sl)
-          | tl -> trm_add_cstyle (No_braces (Nobrace.current ())) (trm_seq_nomarks ~loc ~ctx:(Some (get_ctx ())) tl, sl)
+          | tl -> trm_add_cstyle (No_braces (Nobrace.current ())) (trm_seq_nomarks ~loc ~ctx:(Some (get_ctx ())) tl), sl
         end
       | _ ->
         let t = tr_stmt s in
@@ -593,8 +593,9 @@ and tr_expr ?(is_statement : bool = false)
         if has_arrow then
           trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get f) ) [trm_get base]
         else
-          let annot = if is_get_operation base then [Display_no_arrow] else [] in
-          trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~annot (Unop_struct_get f) ) [base]
+          let get_op = trm_unop ~loc (Unop_struct_get f) in 
+          let get_op = if is_get_operation base then trm_add_cstyle Display_no_arrow get_op else get_op in
+          trm_apps ~loc ~ctx ~typ get_op [base]
       | _ -> fail loc "Clang_to_astRawC.tr_expr: fields should be accessed by names"
       end
     end

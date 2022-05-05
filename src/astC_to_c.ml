@@ -302,7 +302,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
   let d =
     begin match t.desc with
     | Trm_val v ->
-       if trm_has_cstyle Empty_cond t then else dattr ^^ val_to_doc v
+       if trm_has_cstyle Empty_cond t then empty else dattr ^^ val_to_doc v
     | Trm_var (_, x) ->
            dattr ^^ string x
     | Trm_array tl -> let tl = Mlist.to_list tl in
@@ -341,30 +341,27 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_seq tl ->
        let tl_m = tl.marks in
        let tl = Mlist.to_list tl in
-
-       if trm_cstyle_has Multi_decl t
-         then dattr ^^ multi_decl_to_doc loc tl
-       else if List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle
-         then
-          let dl = List.map (decorate_trm ~semicolon:true) tl in
-          dattr ^^ separate hardline dl
-       else if trm_is_include 
-       else if List.exists (function Include _ -> true | _ -> false) t.annot.trm_annot_cstyle then
-         empty
-       else
-          let counter = ref (-1) in
-          let dl = List.map (decorate_trm ~semicolon:true) tl in
-          let dl = Xlist.fold_lefti (fun i acc m ->
-           if m <> [] then begin
-             incr counter;
-             let m = Tools.list_to_string ~sep:"," m in
-             let s = string ("/*@" ^ m ^ "@*/") in
-             Xlist.insert_at (i + !counter) s acc end
-           else acc
-          ) dl tl_m in
-          counter := -1;
-          let res = if trm_is_mainfile t then (separate (twice hardline) dl) else surround 2 1 lbrace (separate hardline dl) rbrace in
-          dattr ^^ res
+       if trm_has_cstyle Multi_decl t 
+          then dattr ^^ multi_decl_to_doc loc tl
+          else if trm_is_nobrace_seq t
+            then
+            let dl = List.map (decorate_trm ~semicolon:true) tl in
+            dattr ^^ separate hardline dl
+          else if trm_is_include t then empty
+          else
+            let counter = ref (-1) in
+            let dl = List.map (decorate_trm ~semicolon:true) tl in
+            let dl = Xlist.fold_lefti (fun i acc m ->
+             if m <> [] then begin
+               incr counter;
+               let m = Tools.list_to_string ~sep:"," m in
+               let s = string ("/*@" ^ m ^ "@*/") in
+               Xlist.insert_at (i + !counter) s acc end
+             else acc
+            ) dl tl_m in
+            counter := -1;
+            let res = if trm_is_mainfile t then (separate (twice hardline) dl) else surround 2 1 lbrace (separate hardline dl) rbrace in
+            dattr ^^ res
     | Trm_apps (f, tl) ->
            dattr ^^ apps_to_doc ~prec f tl ^^ dsemi
      | Trm_while (b, t) ->
@@ -657,7 +654,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
               | (Unop_struct_get f1 | Unop_struct_access f1) ->
                  if is_get_operation t then
-                    if List.mem Display_no_arrow f.annot
+                    if trm_has_cstyle Display_no_arrow f
                       then
                         d ^^ dot ^^ string f1
                       else
