@@ -27,7 +27,7 @@ let _ =
 (*                                 Run                                        *)
 (******************************************************************************)
 
-(* [add_cmdline_args]: register additional command line flags; see Flags.ml *)
+(* [add_cmdline_args]: registers additional command line flags; see Flags.ml *)
 let process_cmdline_args (args : Flags.cmdline_args) : unit =
    Flags.process_cmdline_args ~args ()
 
@@ -99,7 +99,7 @@ let generated_source_with_inlined_header_cpp (input_file:string) (inline:string 
   List.iter process_item inline;
   Xfile.put_contents output_file !s
 
-(* [get_program_basename ()]: return the basename of the current binary program being used.
+(* [get_program_basename ()]: returns the basename of the current binary program being used.
     It takes care to remove the leading './' and takes care to remove the "with_lines" suffix. *)
 let get_program_basename () : string =
   let basename = Filename.chop_extension Sys.argv.(0) in
@@ -120,7 +120,7 @@ let get_program_basename () : string =
 (* [Stop]: exception for stopping the execution of the script *)
 exception Stop
 
-(* [stop ()]: raise exception Stop *)
+(* [stop ()]: raises exception Stop *)
 let stop () : unit =
   raise Stop
 

@@ -138,10 +138,9 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : local_op
    match mark with | None -> Marks.remove middle_mark [cMark middle_mark] | _ -> ()
   end
 
-(* [delocalize ~var ~into ~index ~mark ~ops ~array_size ~intos tg]:
-    It's a continuation to the [delocalize] transformation that will unroll all the introduced loops
-    from the basic delocalize transformation and convert the newly declared array to a list of variables
-    namely for each index on variable, this variables should be given by the user through the labelled
+(* [delocalize ~var ~into ~index ~mark ~ops ~array_size ~intos tg]: it's a continuation to the [delocalize] transformation
+    that will unroll all the introduced loops from the basic delocalize transformation and convert the newly declared array 
+    to a list of variables namely for each index on variable, this variables should be given by the user through the labelled
     argument [vars]. *)
 let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
    (ov : var) ~into:(nv : var)  ~array_size:(arrs : string)
@@ -156,7 +155,7 @@ let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_in
 
 (* [intro_pattern_array ~pattern_aux_vars ~const ~pattern_vars ~pattern tg]: expects the target [tg] to be 
      pointing to expressions of the form [pattern], then it will create an array of coefficients for each 
-    [pattern_vars] and replace the current coefficients with array accesses *)
+    [pattern_vars] and replace the current coefficients with array accesses. *)
 let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false) ~pattern_vars:(pattern_vars : string ) ~pattern:(pattern : string) (tg : target) : unit =
   Trace.call (fun t ->
   (* Temporary hack till Arthur enables the usage of the new parser *)
@@ -192,7 +191,7 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
 
 (* [detach_if_needed tg]: expects the target [tg] to be pointing at a variable declaration, then it will 
     check if that declaration was already initialized or not, if that's the case than it will deatch that 
-    declaration, otherwise no change is applied *)
+    declaration, otherwise no change is applied. *)
 let detach_if_needed (tg : target) : unit =
   iter_on_targets (fun t p ->
     let decl_t  = Path.resolve_path p t in
@@ -364,7 +363,7 @@ let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
   )
 
 (* [inline ~accept_functions ~simpl_deref tg]: similar to [unfold] except that this transformation
-     deletes the targeted declaration by default *)
+     deletes the targeted declaration by default. *)
 let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) : Transfo.t =
   unfold ~accept_functions ~simpl_deref ~delete:true 
 
@@ -376,8 +375,7 @@ let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) : Tr
     
     Assumption:
       if the target [tg] points to the following instruction int y = x; then
-      no occurrence of x appears after that instruction
-    *)
+      no occurrence of x appears after that instruction *)
 let inline_and_rename : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -421,7 +419,7 @@ let inline_and_rename : Transfo.t =
 
 (* [elim_redundant ~source tg]: expects the target [tg] to be point at a variable declaration with an initial value being
     the same as the variable declaration where [source] points to. Then it will fold the variable at [source] into
-    the variable declaration [tg] and inline the declaration in [tg] *)
+    the variable declaration [tg] and inline the declaration in [tg]. *)
 let elim_redundant ?(source : target = []) : Transfo.t =
   iteri_on_targets (fun i t p ->
     let tg_trm = Path.resolve_path p t in
@@ -478,7 +476,7 @@ let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : 
       insert ~const ~name ~typ:(AstParser.ty typ) ~value tg) (List.rev defs)
 )
 
-(* [insert_list_same_type typ name_vals tg]: inserts a list of variables with type [typ] and name and value give as argument in [name_vals]*)
+(* [insert_list_same_type typ name_vals tg]: inserts a list of variables with type [typ] and name and value give as argument in [name_vals]. *)
 let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (string * trm) list) : Transfo.t = 
   let const = false in 
   reparse_after ~reparse (fun tg ->

@@ -1,9 +1,8 @@
 open Ast
 
-(* [any_aux e t]: replace function call [t] with [e]
-      params:
-        [e]: the expression replacing the call to function [ANY]
-        [t]: ast of a call to function [ANY] *)
+(* [any_aux e t]: replaces the function call [t] with [e]
+      [e] - the expression replacing the call to function [ANY],
+      [t] - ast of a call to function [ANY]. *)
 let any_aux (e : trm) (t : trm) : trm =
   match t.desc with 
   | Trm_apps (f,_) ->
@@ -13,15 +12,14 @@ let any_aux (e : trm) (t : trm) : trm =
     end
   | _ -> fail t.loc "Specialize_core.any_aux: expected a trm_var with ANY annotation"
 
-(* [any e t p]: apply [any_aux] at trm [t] with path [p] *)
+(* [any e t p]: applies [any_aux] at trm [t] with path [p]. *)
 let any (e : trm) : Target.Transfo.local =
   Target.apply_on_path (any_aux e)
 
-(* [choose_aux  selelct_arg t]: replace the function call [t] with one of its arguments that satisfies
-        the predicate  [select_arg]
-      params:
-        [select_arg]: a predicate on the index of the argument that should be choosed
-        [t]: ast of the call to function choose *)
+(* [choose_aux  selelct_arg t]: replaces the function call [t] with one of its arguments that satisfies
+     the predicate  [select_arg],
+      [select_arg] - a predicate on the index of the argument that should be choosed,
+      [t] - ast of the call to function choose. *)
 let choose_aux (select_arg : string list -> int) (t : trm) : trm =
   match t.desc with 
   | Trm_apps (_f, argnb :: args)  -> 
@@ -47,6 +45,8 @@ let choose_aux (select_arg : string list -> int) (t : trm) : trm =
    
   | _ -> fail t.loc "Specialize_core.choose_aux: expected a call to funtion choose"
 
+
+(* [choose select_arg t p]: applies [choose_aux] at trm [t] with path [p]. *)
 let choose (select_arg : string list -> int) : Target.Transfo.local =
   Target.apply_on_path (choose_aux select_arg)
   

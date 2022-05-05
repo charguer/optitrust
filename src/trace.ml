@@ -11,7 +11,7 @@ let line_of_last_step = ref (-1)
 (*                             Debugging tools                                *)
 (******************************************************************************)
 
-(* [report "mymessage" t]: can be used for debugging *)
+(* [report "mymessage" t]: can be used for debugging. *)
 let report (msg : string) (t : trm) : unit =
   Printf.printf "%s: %s\n" msg (AstC_to_c.ast_to_string t)
 
@@ -81,7 +81,7 @@ let measure_time (f : unit -> 'a) : 'a * int =
    [timing] function. It is used for printing tabulations in the reports. *)
 let timing_nesting : int ref = ref 0
 
-(* [timing ~name f]: writes the execution time of [f] in the timing log file *)
+(* [timing ~name f]: writes the execution time of [f] in the timing log file. *)
 let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
   if !Flags.analyse_time && cond then begin
     incr timing_nesting;
@@ -94,7 +94,7 @@ let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
     f()
   end
 
-(* [time name f]: is a shorthand for [timing ~cond:!Flags.analyse_time_details ~name] *)
+(* [time name f]: is a shorthand for [timing ~cond:!Flags.analyse_time_details ~name]. *)
 let time (name : string) (f : unit -> 'a) : 'a =
   timing ~cond:!Flags.analyse_time_details ~name f
 
@@ -105,7 +105,7 @@ let start_time = ref (0.)
 let last_time = ref (0.)
 
 (* [last_time_update()]: updates [last_time] and returns the delay
-   since last call -- LATER: find a better name *)
+   since last call -- LATER: find a better name. *)
 let last_time_update () : int =
   let t0 = !last_time in
   let t = Unix.gettimeofday() in
@@ -113,15 +113,14 @@ let last_time_update () : int =
   Tools.milliseconds_between t0 t
 
 (* [report_time_of_step()]: reports the total duration of the last step.
-   As bonus, reports the number of steps in target resolution *)
+   As bonus, reports the number of steps in target resolution. *)
 let report_time_of_step (timing : int) : unit =
   if !Flags.analyse_time then begin
     write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" timing);
     write_timing_log (Printf.sprintf "     TARGETS: %d nodes visited for target resolution\n" (Constr.resolve_target_steps()));
   end
 
-(* [report_full_time ()]: reports the time for the last step, and
-   for the full total. *)
+(* [report_full_time ()]: reports the time for the last step, and for the full total. *)
 let report_full_time () : unit =
   write_timing_log (Printf.sprintf "------------------------TOTAL TRANSFO TIME: %.3f s\n" (!last_time -. !start_time))
 
@@ -216,7 +215,7 @@ type context =
     includes : string;
     clog : out_channel; }
 
-(* [contex_dummy]: used for [trace_dummy] *)
+(* [contex_dummy]: used for [trace_dummy]. *)
 let context_dummy : context =
   { extension = ".cpp";
     directory = "";
@@ -224,14 +223,14 @@ let context_dummy : context =
     includes = "";
     clog = stdout; }
 
-(* [stepdescr]: description of a script step *)
+(* [stepdescr]: description of a script step. *)
 type stepdescr = {
   mutable isbigstep : string option; (* if the step is the beginning of a big step,
                                         then the value is [Some descr] *)
   mutable script : string; (* excerpt from the transformation script, or "" *)
   mutable exectime : int; } (* number of milliseconds, -1 if unknown *)
 
-(* [stepdescr_for_interactive_step]: dummy stepdescr used for interactive steps such as [show] *)
+(* [stepdescr_for_interactive_step]: dummy stepdescr used for interactive steps such as [show]. *)
 let stepdescr_for_interactive_step =
   { isbigstep = None; script = ""; exectime = 0; }
 
@@ -244,11 +243,11 @@ type trace = {
   mutable history : trms;
   mutable stepdescrs : stepdescr list } (* same length as the history field *)
 
-(* [trm_dummy]: dummy trm *)
+(* [trm_dummy]: dummy trm. *)
 let trm_dummy : trm =
   trm_val (Val_lit Lit_unit)
 
-(* [trace_dummy]: an initial trace made of dummy context and dummy trm *)
+(* [trace_dummy]: an initial trace made of dummy context and dummy trm. *)
 let trace_dummy : trace =
   { context = context_dummy;
     cur_ast = trm_dummy; (* dummy *)
@@ -262,7 +261,7 @@ let trace_dummy : trace =
    transformation script, thus producing several possible traces. *)
 type traces = trace list
 
-(* [traces]: list of traces *)
+(* [traces]: list of traces. *)
 let traces : traces ref =
   ref [trace_dummy]
 
@@ -313,7 +312,7 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   push();
   !r
 
-(* [get_initial_ast ~parser ser_mode ser_file filename]: get the initial ast before applying any trasfnrmations
+(* [get_initial_ast ~parser ser_mode ser_file filename]: gets the initial ast before applying any trasfnrmations
      [parser] - choose which parser to use for parsing the source code
      [ser_mode] - serialization mode 
      [ser_file] - if serialization is used for the initial ast, the filename of the serialized version 

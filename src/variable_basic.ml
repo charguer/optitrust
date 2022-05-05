@@ -2,10 +2,10 @@ open Target
 open Ast
 
 
-(* [fold ~at tg]: expects the target [tg] to point at a variable declaration
+(* [fold ~at tg]: expects the target [tg] to point at a variable declaration,
       [at] - denotes a target where the folding is done. If empty the folding operation
              is performed on all the ast nodes in the same level as the
-             declaration or deeper, by default [at] = [] *)
+             declaration or deeper, by default [at] = []. *)
 let fold ?(at : target = []) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.fold at i t p)
@@ -14,11 +14,11 @@ let fold ?(at : target = []) : Target.Transfo.t =
 (* [unfold ~mark ~accept_functions ~at tg]: expects the target [tg] to be pointing at an initialized
      variable declaration, then it will find all the occurrences of that variable and replace them with its
      initial value. 
-     [mark] - the initialization value
+     [mark] - the initialization value,
      [at] - denotes a target where the unfolding is done. If empty the operation
              is performed on all the ast nodes in the same level as the
-             targeted declaration or deeper, by default [at] = []
-     [accept_functions] - if true it will inline functions too
+             targeted declaration or deeper, by default [at] = [],
+     [accept_functions] - if true it will inline functions too,
      
      beta way. Ex Suppose we have
      void f(int x) { ... }
@@ -34,18 +34,18 @@ let fold ?(at : target = []) : Target.Transfo.t =
        ...
      }
 
-     NOTE: the targeted variable must be a const variable, *)
+     NOTE: the targeted variable must be a const variable. *)
 let unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : Target.target = []) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.unfold false accept_functions mark at i t p)
 
-(* [inline]: similar to [unfold] but this one deletes the targeted declaration *)
+(* [inline]: similar to [unfold] but this one deletes the targeted declaration. *)
 let inline ?(mark : mark = "") ?(accept_functions : bool = true) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Variable_core.unfold true accept_functions mark [] i t p)
 
 (* [rename ~into tg]: expects the target [tg] to be pointing at a declaration, then it will
-    rename its declaration and all its occurrences *)
+    rename its declaration and all its occurrences. *)
 let rename ~into:(new_name : var) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.rename new_name i t p)
@@ -120,7 +120,7 @@ let local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : Target.tar
    [index] - denotes the index of the two added loops
    [array_size] - denotes the size of the array inside the block
    [ops] - the delocalize operation, it can be an arithmetic delocalization or an object delocalization
-    of the array declared inside the block *)
+    of the array declared inside the block. *)
 let delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : local_ops) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
@@ -134,12 +134,12 @@ let change_type (new_type : typvar) : Target.Transfo.t =
 
 
 (* [insert ~constr ~name ~typ ~value tg]: expects the target [tg] to point at any relative location in a sequence
-     then it will insert a variable declaration on that location
-     [const] - if true, then the inserted variable is going to be immutable, otherwise mutable
-     [reparse] - if true it will reparse the full ast after applying the trasnformation
-     [value] - initial value of the inserted variable
-     [name] - name of the inserted variable
-     [typ] - typ of the inserted variable
+     then it will insert a variable declaration on that location,
+     [const] - if true, then the inserted variable is going to be immutable, otherwise mutable,
+     [reparse] - if true it will reparse the full ast after applying the trasnformation,
+     [value] - initial value of the inserted variable,
+     [name] - name of the inserted variable,
+     [typ] - typ of the inserted variable;.
 
     NOTE: if initialization [value] is not provided then the declaration will be un-initialized. *)
 let insert ?(const : bool = false) ?(reparse : bool = false) ?(value : trm = trm_lit (Lit_uninitialized)) ~name:(name : string) ~typ:(typ : typ) : Target.Transfo.t =
@@ -156,10 +156,10 @@ let subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Targe
 (* [bind ~const ~mark fresh_name tg]: expects the target [tg] to be pointing at any trm, then it will insert a variable declaration
       with name [fresh_name] just before the instruction that contains the target [tg], and replace the targeted trm with an occurrence
       of the variable [fresh_name]. 
-      [const] - if true the binded variable will be immutable, otherwise mutable
-      [mark] - mark used for marking the targeted trm
-      [typ] - type of the binded variable, needed when the type can't be deducted from the targeted trm
-      [fresh_name] - name of the binded variable *)
+      [const] - if true the binded variable will be immutable, otherwise mutable,
+      [mark] - mark used for marking the targeted trm,
+      [typ] - type of the binded variable, needed when the type can't be deducted from the targeted trm,
+      [fresh_name] - name of the binded variable. *)
 let bind ?(const : bool = false) ?(mark : mark = "") ?(is_ptr : bool = false) ?(typ : typ option = None) (fresh_name : var) : Target.Transfo.t =
   Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) ->

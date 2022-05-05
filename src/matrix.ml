@@ -3,11 +3,9 @@ open Target
 include Matrix_basic
 
 
-(* [intro_calloc tg] expects the target [tg] pointing to a variable declaration
+(* [intro_calloc tg]: expects the target [tg] to point at a variable declaration
     then it will check its body for a call to calloc. On this extended path it will call
-    the basic intro_calloc transformation
-*)
-
+    the [Matrix_basic.intro_calloc] transformation *)
 let intro_calloc : Transfo.t =
   iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
@@ -38,8 +36,8 @@ let intro_calloc : Transfo.t =
     | _ -> fail None "intro_calloc: the target should be a variable declarartion allocated with alloc")
 
 
-(* [intro_mindex dim] expects the target [tg] to be pointing at a matrix declaration, then it will change
-     all its occurrence accesses into Optitrust MINDEX accesses *)
+(* [intro_mindex dim]; expects the target [tg] to point at at a matrix declaration, then it will change
+     all its occurrence accesses into Optitrust MINDEX accesses. *)
 let intro_mindex (dim : trm) : Target.Transfo.t = 
   iter_on_targets (fun t p ->
     let tg_trm = Path.get_trm_at_path p t in 
@@ -51,10 +49,9 @@ let intro_mindex (dim : trm) : Target.Transfo.t =
 
 
 
-(* [intro_malloc tg] expects the target [tg] pointing to a variable declaration
+(* [intro_malloc tg]: expects the target [tg] to point at a variable declaration
     then it will check its body for a call to malloc. On this extended path it will call
-    the basic intro_malloc transformation
-*)
+    the [Matrix_basic.intro_malloc] transformation. *)
 let intro_malloc : Transfo.t =
   iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
@@ -85,9 +82,8 @@ let intro_malloc : Transfo.t =
     | _ -> fail None "intro_malloc: the target should be a variable declarartion allocated with alloc")
 
 
-(* [biject fun_bij tg] expects the target [tg] to be pointing at a matrix declaration , then it will search for all the occurrences
-    of the matrix access, and replace MINDEX function with [fun_bij]
-*)
+(* [biject fun_bij tg]: expects the target [tg] to point at at a matrix declaration , then it will search for all its
+    acccesses and replace MINDEX with  [fun_bij]. *)
 let biject (fun_bij : string) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -98,13 +94,11 @@ let biject (fun_bij : string) : Transfo.t =
     | Trm_apps (_, [{desc = Trm_var (_, p)}; _])  when is_set_operation tg_trm -> 
       Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
     | _ -> fail tg_trm.loc "biject: expected a variable declaration"
-
 )
 
-(* [intro_mops dims] expects the target [tg] pointing to an array declaration allocated with
+(* [intro_mops dims]: expects the target [tg] to point at an array declaration allocated with
       calloc or malloc, then it will apply intro_calloc or intor_mmaloc based on the type of
-      the current allocation used. Then it will search for all accesses and apply intro_mindex
-*)
+      the current allocation used. Then it will search for all accesses and apply intro_mindex. *)
 let intro_mops (dim : trm) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.get_trm_at_path p t in
@@ -121,10 +115,9 @@ let intro_mops (dim : trm) : Transfo.t =
   
   )
 
-(* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg] this is a combi varsion of
-  matrix_delocalize, this transformation first calls Matrix_basi.local_name to create the isolated environment where the delocalizing transformatino
-  is going to be performed
-*)
+(* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi 
+   varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated 
+    environment where the delocalizing transformatino is going to be performed *)
 let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
   ?(last : bool = false)  ?(use : trm option = None) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string)
   ?(indices : string list = []) ~ops:(ops : local_ops) ?(alloc_instr : target option) ?(labels : label list = []) ?(dealloc_tg : target option = None) (tg : target) : unit =
@@ -165,9 +158,8 @@ let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place 
     begin match mark with | None -> Marks.remove middle_mark [cMark middle_mark] | _ -> () end
 
 
-(* [reorder_dims ~rotate_n ~order tg] expects the target [tg] to be pointing at a matrix declaration, then it will find the occurrences of ALLOC and INDEX functions
-      and apply the reordering of the dimensions.
-*)
+(* [reorder_dims ~rotate_n ~order tg] expects the target [tg] to point at at a matrix declaration, then it will find the occurrences of ALLOC and INDEX functions
+      and apply the reordering of the dimensions. *)
 let reorder_dims ?(rotate_n : int option) ?(order : int list = []) () (tg : target) : unit =
   let rotate_n = match rotate_n with Some n -> n | None -> 0  in
   iter_on_targets (fun t p ->

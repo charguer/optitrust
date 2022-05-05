@@ -12,7 +12,7 @@ open Ast.AstParser
     void f (double a, double b, double c) {
       (a + k * b) == (b * k + a)
     } 
-    Then the function returns ["a";"k";"b"] [] ((a + k * b) == (b * k + a)) *)
+    Then the function returns ["a";"k";"b"] [] ((a + k * b) == (b * k + a)). *)
 let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : string) : (typed_vars * typed_vars *trm) =
   let fix_pattern_args (var_decls : string) : string =
   let aux (var_decl : string) : string =

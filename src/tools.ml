@@ -30,7 +30,7 @@ end
 
 exception Failure_expected_did_not_fail
 
-(* [failure_expected f] executes the unit function [f], and checks that
+(* [failure_expected f]: executes the unit function [f], and checks that
    it raises the exception [Failure_expected_did_not_fail]. If it does
    not, then an error is triggered. *)
 let failure_expected (f : unit -> unit) : unit =
@@ -46,15 +46,15 @@ let failure_expected (f : unit -> unit) : unit =
 (*                          Extensions to Pprint                              *)
 (******************************************************************************)
 
-(* [print_node s]: convert string [s] to pprint document and add a trailing space *)
+(* [print_node s]: converts string the [s] to pprint document and add a trailing space *)
 let print_node (s : string) : document =
   string s ^^ blank 1
 
-(* [parens d]: add parentheses around a pprint document *)
+(* [parens d]: adds parentheses around a pprint document. *)
 let parens (d : document) : document =
   soft_surround 2 1 lparen d rparen
 
-(* [print_list ~sep dl]: display a list of items, separated with [sep] and a space. By default, [sep] is a semicolon. *)
+(* [print_list ~sep dl]: displays a list of items, separated with [sep] and a space. By default, [sep] is a semicolon. *)
 let print_list ?(sep : string = ";") (dl : document list) : document =
   surround 2 1 lbracket (separate (string sep ^^ break 1) dl) rbracket
 
@@ -68,15 +68,15 @@ let list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds
   in
   (List.nth bounds 0) ^^ aux l ^^ (List.nth bounds 1)
 
-(* [print_object dl]: print a list of documents in the form [{x, y, z}]. *)
+(* [print_object dl]: prints a list of documents in the form [{x, y, z}]. *)
 let print_object (dl : document list) : document =
   surround 2 1 lbrace (separate (comma ^^ break 1) dl) rbrace
 
-(* [print_pair dl]: print documents [d1] and [d2] in the form [(d1,d2)]. *)
+(* [print_pair dl]: prints documents [d1] and [d2] in the form [(d1,d2)]. *)
 let print_pair (d1 : document) (d2 : document) : document =
   parens (d1 ^^ comma ^/^ d2)
 
-(* [document_to_string d]: convert a document into a string *)
+(* [document_to_string d]: converts a document into a string. *)
 let document_to_string ?(width:PPrint.requirement=80) (d : document) : string =
   let b = Buffer.create 15 in (* the vast majority of string representation have less than 15 chars *)
   ToBuffer.pretty 0.9 width b d;
@@ -86,7 +86,7 @@ let document_to_string ?(width:PPrint.requirement=80) (d : document) : string =
 (*                 Extensions for fresh name generation                       *)
 (******************************************************************************)
 
-(* [fresh_generator()]: generate a function that can be used to return
+(* [fresh_generator()]: generates a function that can be used to return
    the next integer at each invokation. *)
 (* LATER: this option ?init seems boggus, because it resets the generator at every call...  *)
 let fresh_generator ?(init : bool = false) () : (unit -> int) =
@@ -95,7 +95,7 @@ let fresh_generator ?(init : bool = false) () : (unit -> int) =
     if init then n := 0 else incr n;
     !n
 
-(* [resetable_fresh_generator()] returns a pair of a generator and its reset function *)
+(* [resetable_fresh_generator()]: returns a pair of a generator and its reset function *)
 let resetable_fresh_generator () : (unit -> int) * (unit -> unit) =
   let n = ref 0 in
   (fun () -> incr n; !n), (fun () -> n := 0)
@@ -119,26 +119,26 @@ let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"]) (l : stri
   in
   bl ^ aux l ^ br
 
-(* [pattern_matches pattern s]: check whether the string [s] matches the regexp [pattern]. *)
+(* [pattern_matches pattern s]: checks whether the string [s] matches the regexp [pattern]. *)
 let pattern_matches (pattern : string) (s : string) : bool =
   try let _ = Str.search_forward (Str.regexp pattern) s 0 in true
   with Not_found -> false
 
-(* [string_subst pattern replacement s]: replace all occurences of [pattern] inside [s]
+(* [string_subst pattern replacement s]: replaces all occurences of [pattern] inside [s]
    with the string [replacement]. *)
 let string_subst (pattern : string) (replacement : string) (s : string) : string =
   Str.global_replace (Str.regexp_string pattern) replacement s
 
-(* [string_subst_first pattern replacement s]: replace the first occurence of [pattern] inside [s]
+(* [string_subst_first pattern replacement s]: replaces the first occurence of [pattern] inside [s]
    with the string [replacement]. *)
 let string_subst_first (pattern : string) (replacement : string) (s : string) : string =
   Str.replace_first (Str.regexp_string pattern) replacement s
 
-(* [spaces nb]: return a string made of [nb] spaces *)
+(* [spaces nb]: returns a string made of [nb] spaces *)
 let spaces (nb : int) : string =
   String.make nb ' '
 
-(* [add_prefix prefix ss]: add [prefix] to all the strings in the list [ss] *)
+(* [add_prefix prefix ss]: adds [prefix] to all the strings in the list [ss] *)
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
 
@@ -146,7 +146,7 @@ let add_prefix (prefix : string) (indices : string list) : string list =
 (*                          Extensions for Time                               *)
 (******************************************************************************)
 
-(* [miliseconds_between t0 t1]: compute the difference between the dates
+(* [miliseconds_between t0 t1]: computes the difference between the dates
    [t0] and [t1], as measured by [Unix.time], and returns the result in
    the form of an integer number of miliseconds. *)
 let milliseconds_between (t0 : float) (t1 : float) : int =
@@ -157,14 +157,14 @@ let milliseconds_between (t0 : float) (t1 : float) : int =
 (*                        Extensions for Pervasives                           *)
 (******************************************************************************)
 
-(* [int_to_bool i]: convert an integer (only 0 or 1) into a boolean. *)
+(* [int_to_bool i]: converts an integer (only 0 or 1) into a boolean. *)
 let int_to_bool (i : int) : bool =
   match i with
   | 0 -> false
   | 1 -> true
   | _ -> failwith "Tools.int_to_bool: converts only 0 and 1 to boolean values"
 
-(* [bool_of_var s]: convert a string to a boolean if [s] is "true" or "false" otherwise do nothing *)
+(* [bool_of_var s]: converts a string to a boolean if [s] is "true" or "false" otherwise do nothing *)
 let bool_of_var (s : string) : bool option =
   try Some (bool_of_string s )
   with | Invalid_argument _ -> None
@@ -174,14 +174,14 @@ let bool_of_var (s : string) : bool option =
 (*                          Extensions to Option                              *)
 (******************************************************************************)
 
-(* [option_map]: apply [f] on optional objects *)
+(* [option_map]: applies [f] on optional objects *)
 let option_map (f : 'a -> 'b) (o : 'a option) : 'b option =
   match o with
   | None -> None
   | Some v -> Some (f v)
 
 
-(* [unsome x_opt]: extract the underlying object of [x_opt] is there is one such object. *)
+(* [unsome x_opt]: extracts the underlying object of [x_opt] is there is one such object. *)
 let unsome (x_opt : 'a option) : 'a =
   match x_opt with
   | Some x -> x
@@ -193,11 +193,8 @@ let unsome (x_opt : 'a option) : 'a =
 (******************************************************************************)
 
 
-(* [hashtbl_map_values f h]: apply [f] on the values of hashtable [h]. *)
+(* [hashtbl_map_values f h]: applies [f] on the values of hashtable [h]. *)
 let hashtbl_map_values (f : 'a -> 'b -> 'c) (h : ('a,'b) Hashtbl.t) : ('a,'c) Hashtbl.t =
   let r = Hashtbl.create (Hashtbl.length h) in
   Hashtbl.iter (fun k v -> Hashtbl.add r k (f k v)) h;
   r
-
-
-

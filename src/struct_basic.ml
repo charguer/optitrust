@@ -42,7 +42,7 @@ let reveal_field ?(reparse:bool=false) (field_to_reveal_field : field) : Transfo
       (fun t (p, i) -> Struct_core.reveal_field field_to_reveal_field i t p))
 
 (* [reveal_fields fields_to_reveal_field tg]: an extension to the reveal_field transformation, this one
-     is applied on multiple struct fields *)
+     is applied on multiple struct fields. *)
 let reveal_fields ?(reparse : bool = false) (fields_to_reveal_field : fields) (tg : target) : unit =
   List.iter (fun f ->  reveal_field f tg) fields_to_reveal_field
 
@@ -64,7 +64,7 @@ let rename_fields (rename : rename) : Transfo.t =
     (fun t (p, i) -> Struct_core.rename_fields i rename t p)
 
 (* [applyto_fields_type ~reparse pattern typ_update tg]: expects the target [ŧg] to point at a
-    struct definition, then it will update all the struct field types whose identifier matches [pattern] *)
+    struct definition, then it will update all the struct field types whose identifier matches [pattern]. *)
 let applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update: typ -> typ) : Transfo.t =
   reparse_after ~reparse (apply_on_targets (Struct_core.update_fields_type pattern typ_update))
 
@@ -74,14 +74,14 @@ let update_fields_type ?(reparse : bool = false) (pattern : string) (ty : typ) :
   applyto_fields_type ~reparse pattern (fun _ -> ty)
 
 (* [simpl_proj tg]: expects the target [tg] to point at any node whose descendants can contain struct 
-    initialization list projections *)
+    initialization list projections. *)
 let simpl_proj : Transfo.t =
   apply_on_targets (Struct_core.simpl_proj)
 
 (* [struct_modif new_fields f_get f_set use_annot_of tg]: expects the target [tg] to point at a typedef struct,
     then it will replace its current fields with [new_fields]. After modifying the fields it will search for
     accesses of the targeted struct and modify them, if they are surrounded by a set operation it will apply
-    [f_set] on that access otherwise [f_get] is going to be applied *)
+    [f_set] on that access otherwise [f_get] is going to be applied. *)
 let struct_modif (arg : Struct_modif.arg) : Transfo.t =
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
   (fun t (p, i) -> Struct_core.struct_modif arg i t p)

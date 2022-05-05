@@ -11,7 +11,7 @@ let any (e : trm) : Target.Transfo.t =
 let choose_fct (select_arg : string list -> int) : Target.Transfo.t =
   Target.apply_on_targets (Specialize_core.choose select_arg)
 
-(* [choose_id id tg]: choose the id of the arguments of the function [CHOOSE], then this id is used
+(* [choose_id id tg]: chooses the id of the arguments of the function [CHOOSE], then this id is used
     by the function [choose_fct]. *)
 let choose_id (id : int) : Target.Transfo.t =
   choose_fct (fun _xs -> id)

@@ -2,9 +2,8 @@ open Ast
 open Target
 
 
-(* [set_explicit_aux t]: transform an assigment into a list of field assignments
-    params: 
-     [t]: ast of the assignment *)
+(* [set_explicit_aux t]: transforms an assigment into a list of field assignments,
+     [t] - ast of the assignment. *)
 let set_explicit_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, [lt; rt]) ->
@@ -55,14 +54,13 @@ let set_explicit_aux (t : trm) : trm =
       end
   | _ -> fail t.loc "Struct_core.set_explicit_aux: expected a set operation"
 
-(* [set_explicit t p]: apply [set_explicit_aux] at trm [t] with path [p] *)
+(* [set_explicit t p]: applies [set_explicit_aux] at trm [t] with path [p]. *)
 let set_explicit : Transfo.local =
   apply_on_path(set_explicit_aux )
 
 
-(* [set_implicit t]: transform a sequence with a list of explicit field assignments into a single assignment.
-    pararms:
-      [t]: ast of the sequence containing the assignments *)
+(* [set_implicit t]: transform a sequence with a list of explicit field assignments into a single assignment,
+      [t] - ast of the sequence containing the assignments. *)
 let set_implicit_aux (t: trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -118,15 +116,14 @@ let set_implicit_aux (t: trm) : trm =
     end
   | _ -> fail t.loc "Struct_core.set_implicit_aux: sequence which contains the set instructions was not matched"
 
-(* [set_implicit keep_label t p]: apply [set_implicit_aux] at trm [t] with path [p] *)
+(* [set_implicit keep_label t p]: applies [set_implicit_aux] at trm [t] with path [p]. *)
 let set_implicit (keep_label : bool) : Transfo.local =
   apply_on_path (Internal.apply_on_path_targeting_a_sequence ~keep_label (set_implicit_aux) "set_implicit")
 
 
-(* [inline_struct_accesses x t]: change all the occurrences of the struct accesses to a field into a field
-    params:
-      [x]: the name of the field for which the transformation is applied
-      [t]: ast node located in the same level as the stract declaration or deeper *)
+(* [inline_struct_accesses x t]: changes all the occurrences of the struct accesses to a field into a field,
+      [x] - the name of the field for which the transformation is applied,
+      [t] - ast node located in the same level as the stract declaration or deeper. *)
 let inline_struct_accesses (x : var) (t : trm) : trm =
   let rec aux (outer_field : string) (t : trm) : trm =
     match t.desc with
@@ -160,12 +157,11 @@ let inline_struct_accesses (x : var) (t : trm) : trm =
 
    in aux "" t
 
-(* [inline_struct_initialization struct_name field_list field_index t]: change all struct in struct initializations
-    params:
-      [struct_name]: the type of the struct that is being inlined
-      [field_list]: a list of fields from the original type of the struct
-      [field_index]: index of the field in the outer struct
-      [t]: ast node located in the same level as the main struct declaration or deeper *)
+(* [inline_struct_initialization struct_name field_list field_index t]: changes all struct in struct initializations,
+      [struct_name] - the type of the struct that is being inlined,
+      [field_list] - a list of fields from the original type of the struct,
+      [field_index] - index of the field in the outer struct,
+      [t] - ast node located in the same level as the main struct declaration or deeper. *)
 let inline_struct_initialization (struct_name : string) (field_list : field list) (field_index : int) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
@@ -203,12 +199,11 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
     | _ -> trm_map aux t
   in aux t
 
-(* [reveal_field_aux field_to_reveal index t]: reveal field [field_to_reveal] on its typedef struct definition
-     update all the initializations and accesses according to this change
-    params:
-      [field_to_reveal]: field that is going to be revealed
-      [index]: index of the struct declaration inside the sequence it belongs to
-      [t]: trm corresponding to a typedef struct definition *)
+(* [reveal_field_aux field_to_reveal index t]: reveals field [field_to_reveal] on its typedef struct definition,
+     update all the initializations and accesses according to this change,
+      [field_to_reveal] - field that is going to be revealed,
+      [index] - index of the struct declaration inside the sequence it belongs to,
+      [t] - trm corresponding to a typedef struct definition. *)
 let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm ) =
   match t.desc with
   | Trm_seq tl ->
@@ -264,16 +259,15 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm ) =
     end
   | _ -> fail t.loc "Struct_core.reveal_field_aux: expected the surrounding sequence"
 
-(* [reveal_field field_to_reveal index t p]: apply [reveal_field] at trm [t] with path [p] *)
+(* [reveal_field field_to_reveal index t p]: applies [reveal_field] at trm [t] with path [p]. *)
 let reveal_field (field_to_reveal : field) (index : int) : Transfo.local =
   apply_on_path (reveal_field_aux field_to_reveal index)
 
-(* [fields_reorder_aux struct_fields move_where around t]: reorder fields of a struct
-     params:
-       [struct_fields]: a list of fields to move
-       [move_where]: a string which is equal either "before" or "after"
-       [around]: the target field where fields are going to be moved to
-       [t]: ast of the typedef struct *)
+(* [fields_reorder_aux struct_fields move_where around t]: reorders fields of a struct,
+     [struct_fields] - a list of fields to move,
+     [move_where] - a string which is equal either "before" or "after",
+     [around] - the target field where fields are going to be moved to,
+     [t] - ast of the typedef struct. *)
 let fields_reorder_aux (struct_fields: vars) (move_where : reorder) (t: trm) : trm =
   match t.desc with
   | Trm_typedef td ->
@@ -285,15 +279,14 @@ let fields_reorder_aux (struct_fields: vars) (move_where : reorder) (t: trm) : t
   end
   | _ -> fail t.loc "Struct_core.fields_reorder_aux: expected a typedef definiton"
 
-(* [fields_reorder struct_fields move_where around t p]: apply [fields_reorder_aux] at trm [t] with path [p] *)
+(* [fields_reorder struct_fields move_where around t p]: applies [fields_reorder_aux] at trm [t] with path [p]. *)
 let fields_reorder (struct_fields : vars) (move_where : reorder) : Transfo.local =
   apply_on_path(fields_reorder_aux struct_fields move_where)
 
-(* [inline_struct_accesses name field t]: transform a specific struct access into a variable occurrence
-    params:
-      [name]: name of the variable to replace the struct access
-      [field]: struct accesses on this field are going to be replaced with [name]
-      [t]: ast node located in the same level as the variable declaration *)
+(* [inline_struct_accesses name field t]: transforms a specific struct access into a variable occurrence,
+    [name] - name of the variable to replace the struct access,
+    [field] - struct accesses on this field are going to be replaced with [name],
+    [t] - ast node located in the same level as the variable declaration. *)
 let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     begin match t.desc with
@@ -312,11 +305,10 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
     end
    in aux t
 
-(* [to_variables_aux index t]: change a variable declaration of type typedef struct into a list
-      of variable declarations with types inherited from the fields of the underlying type.
-    params:
-      [index]: index of the declaration inside the sequence it belongs to
-      [t]: ast of the surrounding sequence of the variable declarations *)
+(* [to_variables_aux index t]: changes a variable declaration of type typedef struct into a list
+      of variable declarations with types inherited from the fields of the underlying type,
+      [index] - index of the declaration inside the sequence it belongs to,
+      [t] - ast of the surrounding sequence of the variable declarations. *)
 let to_variables_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -365,11 +357,11 @@ let to_variables_aux (index : int) (t : trm) : trm =
     end
   | _ -> fail t.loc "Struct_core.struct_to_variables_aux: expected the surrounding sequence"
 
-(* [to_variables index t p]: apply [to_variables_aux] at trm [t] with path [p] *)
+(* [to_variables index t p]: applies [to_variables_aux] at trm [t] with path [p]. *)
 let to_variables (index : int) : Transfo.local =
   apply_on_path (to_variables_aux index)
 
-(* [Rename]: a module used for renaming the struct fields *)
+(* [Rename]: a module used for renaming the struct fields. *)
 module Rename = struct
   type t = string -> string
   let add_prefix (s : string) : t =
@@ -380,14 +372,13 @@ module Rename = struct
       if Tools.pattern_matches pattern s then tr s else s
 end
 
-(* [rename]: instantiation of module [Rename] *)
+(* [rename]: instantiation of module [Rename]. *)
 type rename = Rename.t
 
-(* [rename_struct_accesses struct_name renam t]: rename all struct accesses based on [rename]
-    params:
-      [struct_name]: the constructed type whose fields are going to be renamed
-      [rename]: a type used to rename the struct fields
-      [t]: any node in the same level as the struct declaration *)
+(* [rename_struct_accesses struct_name renam t]: renames all struct accesses based on [rename],
+      [struct_name] - the constructed type whose fields are going to be renamed,
+      [rename] - a type used to rename the struct fields,
+      [t] - any node in the same level as the struct declaration.*)
 let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     begin match t.desc with
@@ -419,11 +410,10 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
     end
    in aux t t
 
-(* [rename_fields_aux index rename t]: rename struct fields in the typedef struct definitions
-    params:
-      [index]: the index of the struct declaration in the sequence [t]
-      [rename]: a type used to rename the fields
-      [t]: the ast of the sequence which contains the struct declaration *)
+(* [rename_fields_aux index rename t]: renames struct fields in the typedef struct definitions,
+      [index] - the index of the struct declaration in the sequence [t],
+      [rename] - a type used to rename the fields,
+      [t] - the ast of the sequence which contains the struct declaration. *)
 let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -440,16 +430,15 @@ let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
     end
   | _ -> fail t.loc "Struct_core.rename_fields_aux: expected the sequence which contains the typedef declaration"
 
-(* [rename_fields index rename t p]: apply [rename_aux] at trm [t] with path [p] *)
+(* [rename_fields index rename t p]: applies [rename_aux] at trm [t] with path [p]. *)
 let rename_fields (index : int) (rename : rename) : Transfo.local =
   apply_on_path (rename_fields_aux index rename)
 
-(* [update_fields_type_aux pattern ty t]: change the current type for all the struct fields
-      that are matched with [pattern] and whose type can be changed by [typ_update]
-    params:
-      [pattern]: regular expression to match struct fields
-      [typ_update]: function that modifies only specific types
-      [t]: the ast of the typedef definition *)
+(* [update_fields_type_aux pattern ty t]: changes the current type for all the struct fields,
+      that are matched with [pattern] and whose type can be changed by [typ_update].
+      [pattern] - regular expression to match struct fields,
+      [typ_update] - function that modifies only specific types,
+      [t] - the ast of the typedef definition. *)
 let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : trm) : trm =
   match t.desc with
   | Trm_typedef ({typdef_body = Typdef_prod (tn, fl);_}  as td) ->
@@ -468,14 +457,13 @@ let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : tr
       trm_typedef ~annot:t.annot ~marks:t.marks {td with typdef_body = Typdef_prod (tn, new_fl)}
     | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
 
-(* [update_fields_type pattern typ_update t p]: apply [update_fields_type_aux] at trm [t] with path [p] *)
+(* [update_fields_type pattern typ_update t p]: applies [update_fields_type_aux] at trm [t] with path [p]. *)
 let update_fields_type (pattern : string) (typ_update : typ -> typ) : Transfo.local =
   apply_on_path (update_fields_type_aux pattern typ_update )
 
 
-(* [simpl_proj_aux t]: transform all expression of the form {1, 2, 3}.f into the trm it projects to
-    params:
-      [t]: ast of the node whose descendants can contain struct initialization list projections *)
+(* [simpl_proj_aux t]: transforms all expression of the form {1, 2, 3}.f into the trm it projects to,
+      [t] - ast of the node whose descendants can contain struct initialization list projections. *)
 let simpl_proj_aux (t : trm) : trm =
   (* Printf.printf "%s\n" (Ast_to_text.ast_to_string t); *)
   let rec aux (t : trm) : trm =
@@ -505,12 +493,12 @@ let simpl_proj_aux (t : trm) : trm =
     | _ -> trm_map aux t
    in aux t
 
-(* [simpl_proj t p]: apply [simpl_proj_aux] at trm [t] with path [p] *)
+(* [simpl_proj t p]: applies [simpl_proj_aux] at trm [t] with path [p]. *)
 let simpl_proj : Transfo.local =
   apply_on_path (simpl_proj_aux)
 
 
-(* [Struct_modif]: a module for defining struct modifications *)
+(* [Struct_modif]: a module for defining struct modifications. *)
 module Struct_modif = struct
   (* Fields of a struct *)
   type fields = (label * typ) list
@@ -551,12 +539,11 @@ module Struct_modif = struct
 
 end
 
-(* [modif_accesses struct_name arg t]: modify struct accesses
-    params:
-      [old_and_new_fields]: used to replace some specific fields
-      [struct_name]: used for checking the type of the struct access
-      [arg]: see Struct_modif module
-      [t]: trm corresponding to the surrounding sequence of the targeted typedef *)
+(* [modif_accesses struct_name arg t]: modify struct accesses,
+    [old_and_new_fields] - used to replace some specific fields,
+    [struct_name] - used for checking the type of the struct access,
+    [arg] - see Struct_modif module,
+    [t] - trm corresponding to the surrounding sequence of the targeted typedef. *)
 let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fields) (struct_name : var) (arg : Struct_modif.arg) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     let default () = trm_map aux t in
@@ -599,11 +586,10 @@ let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fiel
       end
     in aux t
 
-(* [struct_modif_aux new_fields f_get f_set use_annot_of index t]:
-    params:
-      [arg]: Struct_modif type
-      [index]: index of the typedef on its surrounding sequence
-      [t]: ast of the main sequence containing the typedef definition *)
+(* [struct_modif_aux new_fields f_get f_set use_annot_of index t],
+     [arg] - Struct_modif type,
+     [index] - index of the typedef on its surrounding sequence,
+     [t] - ast of the main sequence containing the typedef definition. *)
 let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->

@@ -1,14 +1,14 @@
 open Ast
 open Target
 
-(* [insert ~reparse code tg]: expects the target [tg] to point at a relative position(in between two instructoins) 
-     [code]: the instruction that is going to be added, provided by the user as an arbitrary trm *)
+(* [insert ~reparse code tg]: expects the target [tg] to point at a relative position(in between two instructoins), 
+     [code] - the instruction that is going to be added, provided by the user as an arbitrary trm. *)
 let insert ?(reparse : bool = false) (code : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) ->
     Sequence_core.insert i code t p) )
 
 
-(* [delete index nb tg]: expects the target [tg] to point at an instruction.
+(* [delete index nb tg]: expects the target [tg] to point at an instruction,
      [nb] - denotes the number of instructions to delete starting from the targeted trm.
 
    @correctness: correct if nothing modified by the instruction was observed
@@ -20,7 +20,7 @@ let delete ?(nb : int = 1) : Target.Transfo.t =
     (fun t (p, i) -> Sequence_core.delete i nb t p)
 
 
-(* [iter_delete tgl]: just iterate over the list of targeted trms to be deleted. *)
+(* [iter_delete tgl]: just iterates over the list of targeted trms to be deleted. *)
 let iter_delete (tgl : target list) : unit =
  List.fold_left (fun () x ->
     delete x ) () tgl
@@ -72,7 +72,7 @@ let intro_before ?(mark : mark = "") ? (label : label = "") (tg : Target.target)
 
 (* [intro_between ~mark ~label tg_beg tg_end]: this transformation is an advanced version of [intro].
      Here, the user can specify explicitly the targets to the first and the last instructions that 
-     are going to be isolated into a sequence *)
+     are going to be isolated into a sequence. *)
 let intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : target) (tg_end : target) : unit =
   Internal.nobrace_remove_after ( fun  _ ->
   Trace.apply (fun t ->
@@ -107,7 +107,7 @@ let intro_on_instr ?(mark : mark = "") ?(visible : bool = true) : Target.Transfo
 
 
 (* [elim_on_instr tg]: expects the target [tg] to point at a sequence that contains a single instruction,
-    then it removes that sequence *)
+    then it removes that sequence. *)
 let elim_on_instr (tg : Target.target) : unit =
    Internal.nobrace_remove_after ( fun _ ->
     Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
@@ -115,7 +115,7 @@ let elim_on_instr (tg : Target.target) : unit =
    )
 
 (* [split tg]: expects the target [tg] to point in between two instructions, then it will split the sequence 
-     that contains that location into two sequences*)
+     that contains that location into two sequences. *)
 let split (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets_between (fun t (p, i) -> 

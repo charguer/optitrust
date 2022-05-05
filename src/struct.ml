@@ -20,7 +20,7 @@ let set_explicit (tg : Target.target) : unit =
 
 (* [set_implicit tg]: an extension to [Struct_basic.set_implicit](see struct_basic.ml), contrary to the basic one
      this one expects that the target [tg] matches all the write operations that can be converted to a single 
-     write operation *)
+     write operation. *)
 let set_implicit (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in

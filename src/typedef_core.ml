@@ -1,12 +1,11 @@
 open Ast
 open Target
 
-(* [fold_aux fold_at index]: replaces occurrences of the typedef underlying type with the defined type.
-     params:
-       [fold_at]: targets where folding should be performed, if left empty then folding is applied recursively
-                 on all the trms that belong to the same sequence as typedef
-       [index]: index of the typedef on its surrounding sequence
-       [t]: ast of the sequence that contains the targeted typedef *)
+(* [fold_aux fold_at index]: replaces occurrences of the typedef underlying type with the defined type,
+       [fold_at] - targets where folding should be performed, if left empty then folding is applied recursively
+                 on all the trms that belong to the same sequence as typedef,
+       [index] - index of the typedef on its surrounding sequence,
+       [t] - ast of the sequence that contains the targeted typedef. *)
 let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
@@ -26,17 +25,16 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
      end
   | _ -> fail t.loc "Typedef_core.fold_aux: expected the surrounding sequence"
 
-(* [fold fold_at index t p]: applies [fold_aux] at trm [t] with path [p] *)
+(* [fold fold_at index t p]: applies [fold_aux] at trm [t] with path [p]. *)
 let fold (fold_at : target) (index) : Target.Transfo.local =
   Target.apply_on_path(fold_aux fold_at index)
 
 
-(* [unfold_aux unfold_at]: replace occurrences of the defined type with its underlying type
-    params:
-      [delete]: a flag for deciding if we should delete or not the typedef declaration
-      [unfold_at]: targets where unfolding should be performed, if empty unfolding is applied
-                   on all the trms that are with in the same level as the targeted typedef 
-      [t]: ast of the sequence that contains the targeted typedef *)
+(* [unfold_aux unfold_at]: replaces occurrences of the defined type with its underlying type,
+      [delete] - a flag for deciding if we should delete or not the typedef declaration,
+      [unfold_at] - targets where unfolding should be performed, if empty unfolding is applied
+                   on all the trms that are with in the same level as the targeted typedef,
+      [t] - ast of the sequence that contains the targeted typedef. *)
 let unfold_aux (delete : bool) (unfold_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -59,7 +57,7 @@ let unfold_aux (delete : bool) (unfold_at : target) (index : int) (t : trm) : tr
   | _ -> fail t.loc "Typedef_core.unfold_aux: expected the surrounding sequence"
 
 
-(* [unfold delete unfold_at index]: applies [unfold] at trm [t] with path [p] *)
+(* [unfold delete unfold_at index]: applies [unfold] at trm [t] with path [p]. *)
 let unfold (delete : bool) (unfold_at : target) (index : int) : Target.Transfo.local =
   Target.apply_on_path (unfold_aux delete unfold_at index)
 
@@ -78,11 +76,10 @@ let insert_copy_aux (name : string) (t : trm) : trm =
 let insert_copy (name : string) : Target.Transfo.local =
   Target.apply_on_path (insert_copy_aux name )
 
-(* [insert_aux name td_body index]: insert a new type definition
-    params:
-      [name]: new type name
-      [td_body]: body of the new type definition
-      [index]: location where the typedef should be inserted inside a sequence *)
+(* [insert_aux name td_body index]: inserts a new type definition,
+      [name] - new type name,
+      [td_body] - body of the new type definition,
+      [index] - location where the typedef should be inserted inside a sequence. *)
 let insert_aux (name : string) (td_body : typdef_body) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
@@ -92,6 +89,6 @@ let insert_aux (name : string) (td_body : typdef_body) (index : int) (t : trm) :
      trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "Typedef_core.insert_aux: expected the surrounding sequence"
 
-(* [|insert_name td_body index]: applies [insert_aux] at trm [t] with path [p] *)
+(* [|insert_name td_body index]: applies [insert_aux] at trm [t] with path [p]. *)
 let insert (name : string) (td_body : typdef_body) (index : int) : Target.Transfo.local =
   Target.apply_on_path (insert_aux name td_body index)
