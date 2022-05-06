@@ -45,7 +45,7 @@ let color_aux (nb_colors : trm) (i_color : var option) (t : trm) : trm =
     trm_for (i_color, start, direction, nb_colors, (Post_inc), is_parallel) (
       trm_seq_nomarks [
         trm_for (index, (if is_step_one then trm_var i_color else trm_apps (trm_binop Binop_mul) [trm_var i_color; loop_step_to_trm step]), direction, stop,
-          (if is_step_one then Step nb_colors else Step (trm_apps (trm_binop Binop_mul) [nb_colors; loop_step_to_trm step])), false) body
+          (if is_step_one then Step nb_colors else Step (trm_apps (trm_binop Binop_mul) [nb_colors; loop_step_to_trm step])), is_parallel) body
       ]
     )
   | _ -> fail t.loc "Loop_core.color_aux: only_simple loops are supported"
@@ -71,9 +71,9 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
      | TileBoundMin ->
        let tile_bound =
        trm_apps (trm_var "min") [stop; tile_bound] in
-       trm_for (index, (trm_var tile_index), direction, (tile_bound), step, false) body
+       trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
      | TileBoundDivides ->
-       trm_for (index, (trm_var tile_index), direction, (tile_bound), step, false) body
+       trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
      | TileBoundAnd ->
        let init = trm_let_mut (index, typ_int ()) (trm_var tile_index) in
        let cond = trm_and (trm_ineq direction (trm_var_get index)

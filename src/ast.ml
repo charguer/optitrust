@@ -287,7 +287,7 @@ and files_annot =
   | Include of string
   | Main_file
   
-(* [cpragma]: alias type for directives *)
+(* [cpragma]: type alias for directives *)
 and cpragma = directive
 
 (* [marks]: a list of marks *)
