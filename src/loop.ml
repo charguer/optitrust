@@ -315,7 +315,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       List.iter (fun x ->
         Variable.renames (AddSuffix (string_of_int x)) ([occIndex ~nb:nb_instr x; cMark my_mark;cSeq ()])
       ) block_list;
-      List.iter (fun x ->
+       List.iter (fun x ->
          Sequence_basic.partition ~braces blocks [cMark my_mark; dSeqNth x]
       ) block_list;
       if shuffle then Sequence_basic.shuffle ~braces [cMark my_mark];
