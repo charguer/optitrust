@@ -449,7 +449,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
           end
 
        | Var_mutable ->
-        if trm_has_cstyle Reference dl then fail dl.loc "Variable_core.from_to_const_aux: const reference are not supported"
+        if trm_has_cstyle Reference dl then fail dl.loc "Variable_core.from_to_const_aux: const references are not supported"
           else if not to_const then t
           else begin
             (* Search if there are any write operations on variable x *)
@@ -458,7 +458,8 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
               begin match t1.desc with
               | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
                 begin match ls.desc with
-                | Trm_var (_, y) when y = x -> fail ls.loc "Variable_core.to_const_aux: can't convert a variable to a const variable if there are other write operations besides the first initalization"
+                | Trm_var (_, y) when y = x -> fail ls.loc "Variable_core.to_const_aux: variables with 
+                                     one or more write operations can't be converted to immutable ones"
                 | _ -> ()
                 end
               | _ -> ()
@@ -466,11 +467,11 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
             ) lback;
           (* replace all get(x) with x *)
             let init_val = match get_init_val init with
-            | Some init1 -> init1
+            | Some init1 -> init1 
             | _ -> fail dl.loc "Variable_core.to_const_aux: can't convert to const a non intialized variable"
               in
             let init_type = get_inner_ptr_type tx in
-            let new_dl = trm_pass_marks dl (trm_let_mut (x, init_type) init_val) in
+            let new_dl = trm_pass_marks dl (trm_let_immut (x, init_type) init_val) in
             let new_lback = Mlist.map (fun t1 -> remove_get_operations_on_var x t1) lback in
             update_seq new_dl new_lback lfront
             end
