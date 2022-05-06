@@ -114,7 +114,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
          if is_type_unit(ty)
            then [marked_body; exit_label]
            else
-            [trm_let_mut ~annot:fun_call.annot (name, ty) (trm_uninitialized ());
+            [trm_pass_marks fun_call (trm_let_mut (name, ty) (trm_uninitialized ()));
                 marked_body; exit_label]
            in
         let new_tl = Mlist.merge lfront (Mlist.of_list inlined_body) in

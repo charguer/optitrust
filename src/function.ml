@@ -239,7 +239,6 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
 
       let post_processing ?(deep_cleanup : bool = false)() : unit =
       Trace.time "post_processing" (fun () ->
-
         let new_target = Target.cMark my_mark in
         if not !mark_added then Marks.add my_mark (Target.target_of_path path_to_call);
         if args <> [] then bind_args args [new_target];
@@ -256,6 +255,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
                 | Variable_core.Init_attach_no_occurrences
                 | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
                 | e -> raise e in
+             
              if !success_attach then begin
                 Variable.inline [new_target];
                 Variable.inline_and_rename [Target.nbAny; Target.cVarDef !resname];

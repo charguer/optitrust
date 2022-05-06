@@ -1008,7 +1008,8 @@ let trm_get_marks (t : trm) : marks =
 (* [trm_pass_marks t1 t2]: passes the marks of trm [t1] to trm [t2]. *)
 let trm_pass_marks (t1 : trm) (t2 : trm) : trm =
   let t1_marks = trm_get_marks t1 in 
-  let t2_annot = {t2.annot with trm_annot_marks = t1_marks} in 
+  let t2_marks = trm_get_marks t2 in 
+  let t2_annot = {t2.annot with trm_annot_marks = t2_marks @ t1_marks} in 
   {t2 with annot = t2_annot}
 
 (* [trm_set_stringreprid id t]: sets the string representation id [t] to [id]. *)
