@@ -148,7 +148,7 @@ let init_detach_aux  (t : trm) : trm =
           | _ -> fail t.loc "init_detach_aux: can't detach an uninitialized declaration"
           end in
         let var_type = get_inner_ptr_type tx in
-        let var_decl = trm_let_mut ~annot:t.annot (x, var_type) (trm_uninitialized ()) in
+        let var_decl = trm_pass_marks t (trm_let_mut ~annot:t.annot (x, var_type) (trm_uninitialized ())) in
         (* Check if variable was declared as a reference *)
         let var_assgn = trm_set (trm_var ~typ:(Some var_type) x) {init with typ = (Some var_type)} in
         trm_seq_no_brace [var_decl; var_assgn]
