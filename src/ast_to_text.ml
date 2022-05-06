@@ -262,7 +262,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let dbody = print_trm ~only_desc body in
      print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
-  | Trm_for (index, start, direction, stop, step, body) ->
+  | Trm_for ((index, start, direction, stop, step), body) ->
     let dstart = print_trm ~only_desc start in
     let dstop = print_trm ~only_desc stop in
     let ddir  = match direction with

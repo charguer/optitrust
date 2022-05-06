@@ -204,8 +204,8 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 
-    | Trm_for (index1, start1, _direction1, stop1, step1, body1),
-      Trm_for (index2, start2, _direction2, stop2, step2, body2) ->
+    | Trm_for ((index1, start1, _direction1, stop1, step1), body1),
+      Trm_for ((index2, start2, _direction2, stop2, step2), body2) ->
         aux start1 start2;
         aux stop1 stop2;
         begin match step1, step2 with

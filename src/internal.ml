@@ -316,7 +316,7 @@ let rec local_decl (x : var) (t : trm) : trm option =
     ordered list of their indices where the order is the depth order *)
 let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
-  | Trm_for (index, _, _, _, _, body) ->
+  | Trm_for ((index, _, _, _, _), body) ->
     begin match body.desc with
     | Trm_seq tl when Mlist.length tl = 1  ->
       let f_loop = Mlist.nth tl 0 in
@@ -339,8 +339,8 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
   match t.desc with
   | Trm_for_c (init, cond, step, body) ->
     Some ((fun b -> trm_for_c init cond step b), body)
-  | Trm_for (index, start, direction, stop, step, body) ->
-    Some ((fun b -> trm_for index start direction stop step b), body)
+  | Trm_for (l_range, body) ->
+    Some ((fun b -> trm_for l_range b), body)
   | _ ->
     fail t.loc "Internal.extract_loop: expected a loop"
 
@@ -484,8 +484,8 @@ let remove_nobrace_if_sequence (t : trm) : trm =
 (* [change_loop_body loop body]: change the current body of loop [loop] with [body] *)
 let change_loop_body (loop : trm) (body : trm) : trm =
   match loop.desc with
-  | Trm_for (index , start, direction, stop, step, _) ->
-    trm_for index start direction stop step body
+  | Trm_for (l_range, _) ->
+    trm_for l_range body
   | Trm_for_c (init, cond, step, _) ->
     trm_for_c init cond step body
   | _-> fail loop.loc "Internal.change_loop_body: expected for loop"
@@ -589,7 +589,7 @@ let rec subst (tm : tmap) (t : trm) : trm =
       in
       let ts2 = Mlist.map subst_item ts in
       { t with desc = Trm_seq ts2}
-  | Trm_for (index, _, _, _, _, _) ->
+  | Trm_for ((index, _, _, _, _), _) ->
     trm_map (aux_filter (fun x -> x = index)) t
   | Trm_for_c (init, _, _, _) ->
     let vs = vars_bound_in_trm_init init in

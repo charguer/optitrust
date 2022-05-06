@@ -362,7 +362,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       then trm_seq_nomarks [set base new_dims new_indices init_val]
                       else trm_seq_nomarks [
                         set base new_dims((trm_int 0) :: indices) old_var_access;
-                        trm_for index (trm_int 1) DirUp  dim (Post_inc) (set base new_dims new_indices init_val;)]
+                        trm_for (index, (trm_int 1), DirUp, dim, (Post_inc)) (set base new_dims new_indices init_val;)]
                       in
                     
                     let op_fun (l_arg : trm) (r_arg : trm) = trm_prim_compound op l_arg r_arg in
@@ -374,13 +374,13 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         else begin
                           trm_seq_nomarks [
                            trm_set (get_operation_arg old_var_access) (trm_get (access (base) new_dims ((trm_int 0) :: indices)));
-                           trm_for index (trm_int 1) DirUp dim (Post_inc) ( op_fun (get_operation_arg old_var_access) (trm_get new_access))]
+                           trm_for (index, (trm_int 1), DirUp, dim, (Post_inc)) ( op_fun (get_operation_arg old_var_access) (trm_get new_access))]
                         end
                       else 
                         if not acc_provided then fail t.loc "Matrix_core.delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
                           (trm_seq_nomarks [
                             trm_let_mut (acc, typ_double ()) init_val;
-                            trm_for index (trm_int 0) DirUp dim (Post_inc) (trm_seq_nomarks [
+                            trm_for (index, (trm_int 0), DirUp, dim, (Post_inc)) (trm_seq_nomarks [
                                 op_fun (trm_var acc) (trm_get new_access)]);
                             trm_set (get_operation_arg old_var_access) (trm_var_get acc)]) in
                   let new_fst_instr = 

@@ -186,6 +186,10 @@ and typed_var = var * typ
 (* [typed_vars]: a list of typed_var *)
 and typed_vars = typed_var list
 
+
+(* [loop_range]: a type for representing  for loops *)
+and loop_range = var * trm * loop_dir * trm * loop_step
+
 (* [unary_op]: unary operators *)
 and unary_op =
   | Unop_get                     (* the "*" operator as in *p  *)
@@ -289,7 +293,7 @@ and marks = mark list
 (* [trm_annot]: a record containing all kinds of annotations used on the AST of OptiTrust. *)
 and trm_annot = {
     trm_annot_marks : marks;
-    trm_annot_stringrepr : stringreprid;
+    trm_annot_stringrepr : stringreprid option;
     trm_annot_pragma : cpragma list;
     trm_annot_cstyle : cstyle_annot list;
     trm_annot_files : files_annot list;
@@ -346,7 +350,8 @@ and trm_desc =
   | Trm_seq of trm mlist      (* { st1; st2; st3 } *)
   | Trm_apps of trm * (trms)  (* f(t1, t2) *)
   | Trm_while of trm * trm    (* while (t1) { t2 } *)
-  | Trm_for of var * trm * loop_dir * trm * loop_step  * trm
+  (* | Trm_for of var * trm * loop_dir * trm * loop_step  * trm *)
+  | Trm_for of loop_range  * trm
   | Trm_for_c of trm * trm * trm * trm
   | Trm_do_while of trm * trm
   (* Remark: in the AST, arguments of cases that are enum labels
@@ -715,11 +720,15 @@ let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
 (* [trm_annot_default]: default trm annotation *)
 let trm_annot_default = {
   trm_annot_marks = [];
-  trm_annot_stringrepr = -1;
+  trm_annot_stringrepr = None;
   trm_annot_pragma = [];
   trm_annot_cstyle = [];
   trm_annot_files = [];
 }
+
+
+
+
 
 (* [trm_val ~annot ~loc ~typ ~attributes ~ctx y]: value *)
 let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
@@ -820,9 +829,9 @@ let trm_uninitialized ?(annot = trm_annot_default) ?(loc = None) ?(attributes = 
   {annot; desc = Trm_val (Val_lit Lit_uninitialized); loc = loc; is_statement=false; typ = None; attributes; ctx}
 
 (* [trm_for ~annot ~loc ~attributes ~ctx index start direction stop step body]: simple for loop *)
-let trm_for ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) (index : var)
-  (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
-  { annot; desc = Trm_for (index, start, direction, stop, step, body); loc; is_statement = false;
+let trm_for ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None)
+  (loop_range : loop_range) (body : trm) : trm =
+  { annot; desc = Trm_for (loop_range, body); loc; is_statement = false;
    typ = Some (typ_unit ()); attributes; ctx}
 
 (* [code code_str ]: arbitrary code entered by the user *)
@@ -1014,14 +1023,13 @@ let trm_pass_marks (t1 : trm) (t2 : trm) : trm =
 
 (* [trm_set_stringreprid id t]: sets the string representation id [t] to [id]. *)
 let trm_set_stringreprid (id : stringreprid) (t : trm) : trm =
-  let t_annot = {t.annot with trm_annot_stringrepr = id} in
+  let t_annot = {t.annot with trm_annot_stringrepr = Some id} in
   {t with annot = t_annot}
 
 (* [trm_get_stringreprid t]: gets the string representation of trm [t]. *)
 let trm_get_stringreprid (t : trm) : stringreprid option =
-  let id = t.annot.trm_annot_stringrepr in 
-  if id = -1 then None else Some id
-
+  t.annot.trm_annot_stringrepr 
+  
 (* [apply_on_pragmas f t]: applies [f] on the pragma directives associated with [t]. *)
 let apply_on_pragmas (f : cpragma list -> cpragma list) (t : trm) : trm =
   let t_annot_pragmas = f (t.annot.trm_annot_pragma) in
@@ -1280,7 +1288,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
      let step' = f false step in
      let body' = f is_terminal body in
      trm_for_c ~annot ~loc init' cond' step' body'
-  | Trm_for (index, start, direction, stop, step, body) ->
+  | Trm_for ((index, start, direction, stop, step), body) ->
     let m_step = match step with
     | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
     | Step sp -> Step (f is_terminal sp)
@@ -1288,7 +1296,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
     let start' = f false start in
     let stop' = f false stop in
     let body' = f is_terminal body in
-    trm_for ~annot ~loc index start' direction stop' m_step body'
+    trm_for ~annot ~loc (index, start', direction, stop', m_step) body'
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, f is_terminal body)) cases in
@@ -1380,7 +1388,7 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
      let body' = aux body in
      ret (init' == init && cond' == cond && step' == step && body' == body)
          (trm_for_c ~annot ~loc init' cond' step' body')
-  | Trm_for (index, start, direction, stop, step, body) ->
+  | Trm_for ((index, start, direction, stop, step), body) ->
     let start' = f false start in
     let stop' = f false stop in
     let step' = match step with
@@ -1389,7 +1397,7 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
       in
     let body' = aux body in
     ret (step' == step && start' == start && stop' == stop && body' == body)
-        (trm_for ~annot ~loc index start' direction stop' step' body')
+        (trm_for ~annot ~loc (index, start', direction, stop', step') body')
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, aux body)) cases in
@@ -1446,7 +1454,7 @@ let contains_decl (x : var) (t : trm) : bool =
     match t.desc with
     | Trm_let (_, (y, _), _) when y = x -> true
     | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl
-    | Trm_for (y, _, _, _, _,body) -> y = x || aux body
+    | Trm_for ((y, _, _, _, _),body) -> y = x || aux body
     | Trm_let_fun (_, _, _, body) -> aux body
     | Trm_for_c (init, _, _, body) -> aux init || aux body
     | _ -> false
@@ -1554,7 +1562,7 @@ let rec get_init_val (t : trm) : trm option =
 (* [for_loop_index t]: returns the index of the loop [t] *)
 let for_loop_index (t : trm) : var =
   match t.desc with
-  | Trm_for (index, _, _, _, _,  _) -> index
+  | Trm_for ((index, _, _, _, _),  _) -> index
   | Trm_for_c (init, _, _, _) ->
      (* covered cases:
         - for (i = …; …)
@@ -1685,7 +1693,7 @@ let for_loop_nb_iter (t : trm) : trm =
 (* [for_loop_body_trms t]: gets the list of trms from the body of the loop *)
 let for_loop_body_trms (t : trm) : trm mlist =
   match t.desc with
-  | Trm_for (_, _, _, _, _, body) ->
+  | Trm_for ((_, _, _, _, _), body) ->
     begin match body.desc with
     | Trm_seq tl -> tl
     | _ -> fail body.loc "Ast.for_loop_body_trms: body of a simple loop should be a sequence"
@@ -2023,7 +2031,7 @@ let trm_for_of_trm_for_c (t : trm) : trm =
     let step_ops = trm_for_c_inv_simple_step step in
     begin match init_ops, bound_ops, step_ops with
     | Some (index, start), Some (direction, stop), Some step ->
-      trm_for index start direction stop step body
+      trm_for (index, start, direction, stop, step) body
     | _ -> t
     end
   | _ -> fail t.loc "Ast.trm_for_of_trm_for_c: expected a for loop"
@@ -2096,13 +2104,10 @@ let rec trm_is_val_or_var (t : trm) : bool =
   | Trm_apps (_, [var_occ]) when is_get_operation t -> trm_is_val_or_var var_occ
   | _ -> false
 
-(* [loop_range]: a type for representing  for loops *)
-type loop_range = var * trm * loop_dir * trm * loop_step
-
 (* [trm_for_inv t]: gets the loop range from loop [t] *)
 let trm_for_inv (t : trm) : (loop_range * trm)  option =
   match t.desc with
-  | Trm_for (index, start, direction, stop, step, body) -> Some ((index, start, direction,stop ,step), body)
+  | Trm_for ((index, start, direction, stop, step), body) -> Some ((index, start, direction,stop ,step), body)
   | _ -> None
 
 (* [is_trm_seq t]: checks if [t] is a sequence. *)
@@ -2113,9 +2118,8 @@ let is_trm_seq (t : trm) : bool =
 (* [trm_fors rgs tbody]: creates nested loops with the main body [tbody] each nested loop
    takes its components from [rgs] *)
 let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
-  List.fold_right (fun x acc ->
-    let index, start, direction,stop, step = x in
-    trm_for index start direction stop step (if (is_trm_seq acc) then acc else trm_seq_nomarks [acc])
+  List.fold_right (fun l_range acc ->
+    trm_for l_range (if (is_trm_seq acc) then acc else trm_seq_nomarks [acc])
   ) rgs tbody
 
 
@@ -2134,7 +2138,7 @@ let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
   let body_to_return  = ref (trm_int 0) in
   let rec aux (t : trm) : loop_range list =
     match t.desc with
-    | Trm_for (index, start, direction, stop, step, body) ->
+    | Trm_for ((index, start, direction, stop, step), body) ->
       incr nb_loops;
       begin match body.desc with
       | Trm_seq tl when Mlist.length tl = 1 ->

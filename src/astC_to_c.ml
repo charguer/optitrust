@@ -382,7 +382,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         dattr ^^ string "for" ^^ blank 1 ^^
           parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
             blank 1 ^^ dbody
-     | Trm_for (index, start, direction, stop, step, body) ->
+     | Trm_for ((index, start, direction, stop, step), body) ->
        let full_loop = unpack_trm_for ~loc:t.loc index start direction stop step body in
        decorate_trm full_loop
      | Trm_switch (cond, cases) ->

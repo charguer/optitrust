@@ -291,7 +291,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           | _ -> fail t.loc "Loop.unroll: could not get the number of steps to unroll"
       in
     match tg_loop_trm.desc with
-    | Trm_for (_index, start, _direction, stop, _, _) ->
+    | Trm_for ((_index, start, _direction, stop, _), _) ->
       let nb_instr = begin match stop.desc with
       | Trm_apps (_, [_;bnd]) ->
         begin match bnd.desc with
@@ -358,11 +358,11 @@ let fission ?(split_between : bool = false) (tg : target) : unit =
       apply_on_targets (fun t p ->
         let tg_trm = Path.resolve_path p t in
         match tg_trm.desc with
-        | Trm_for (loop_index, start, direction, stop, step, body) ->
+        | Trm_for (l_range, body) ->
           begin match body.desc with
           | Trm_seq tl ->
             let body_lists = List.map (fun t1 -> trm_seq_nomarks [t1] ) (Mlist.to_list tl) in
-            apply_on_path (fun t -> trm_seq_no_brace (List.map (fun t1 -> trm_for loop_index start direction stop step t1) body_lists)) t p
+            apply_on_path (fun t -> trm_seq_no_brace (List.map (fun t1 -> trm_for l_range t1) body_lists)) t p
           | _ -> fail t.loc "Loop.fission_aux: expected the sequence inside the loop body"
           end
         | _ -> fail t.loc "Loop.fission_aux: only simple loops are supported") tg)
@@ -407,7 +407,7 @@ let unfold_bound (tg : target) : unit =
   iter_on_targets( fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_for (_, _, _, stop, _, _) ->
+    | Trm_for ((_, _, _, stop, _), _) ->
       begin match stop.desc with
       | Trm_var (_, x) ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x]
@@ -425,7 +425,7 @@ let grid_enumerate ?(indices : string list = []) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_for (index, _, _, stop, _, _) ->
+    | Trm_for ((index, _, _, stop, _), _) ->
       begin match trm_prod_inv stop with
       | [] -> fail tg_trm.loc "Loop.grid_enumerate: the bound of the targeted loop should be a product of the bounds of each dimension"
       | bounds ->
