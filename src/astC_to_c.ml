@@ -382,8 +382,8 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         dattr ^^ string "for" ^^ blank 1 ^^
           parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
             blank 1 ^^ dbody
-     | Trm_for ((index, start, direction, stop, step), body) ->
-       let full_loop = unpack_trm_for ~loc:t.loc index start direction stop step body in
+     | Trm_for (l_range, body) ->
+       let full_loop = unpack_trm_for ~loc:t.loc l_range body in
        decorate_trm full_loop
      | Trm_switch (cond, cases) ->
         let dcond = decorate_trm cond in
@@ -940,7 +940,8 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_wtick -> string "get_wtich" ^^ lparen ^^ blank 1 ^^ rparen
 
 (* [unpack_trm_for ~loc index start direction stop step body]: converts a simple for loop to a complex one before converting it to a pprint document *)
-and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
+and unpack_trm_for ?(loc = None) (l_range : loop_range) (body : trm) : trm =
+  let (index, start, direction, stop, step, _is_parallel ) = l_range in
   let init = trm_let Var_mutable (index, typ_int()) start  in
   let cond = begin match direction with
     | DirUp -> trm_apps (trm_binop Binop_lt) [trm_var index;stop]
@@ -974,7 +975,7 @@ and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_d
       end
 
     end in
-    trm_for_c  ~loc init cond step body
+    trm_for_c ~loc init cond step body
 
 (* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
     If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)

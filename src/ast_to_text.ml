@@ -262,7 +262,8 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let dbody = print_trm ~only_desc body in
      print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
-  | Trm_for ((index, start, direction, stop, step), body) ->
+  | Trm_for (l_range, body) ->
+    let (index, start, direction, stop, step, is_parallel) = l_range in
     let dstart = print_trm ~only_desc start in
     let dstop = print_trm ~only_desc stop in
     let ddir  = match direction with
@@ -278,9 +279,10 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     | Pre_dec -> string "Pre_dec"
     | Step st -> string "Step " ^^ parens (print_trm ~only_desc st)
     in
+    let dparallel = string (string_of_bool is_parallel) in
     let dbody = print_trm ~only_desc body in
     print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
-      [string index; dstart; ddir; dstop; dstep; dbody])
+      [string index; dstart; ddir; dstop; dstep; dparallel; dbody])
   | Trm_switch (cond, cases) ->
      let dcond = print_trm ~only_desc cond in
      let dcases =

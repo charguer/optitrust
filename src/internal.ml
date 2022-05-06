@@ -316,7 +316,8 @@ let rec local_decl (x : var) (t : trm) : trm option =
     ordered list of their indices where the order is the depth order *)
 let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
-  | Trm_for ((index, _, _, _, _), body) ->
+  | Trm_for (l_range, body) ->
+    let (index, _, _, _, _, _) = l_range in
     begin match body.desc with
     | Trm_seq tl when Mlist.length tl = 1  ->
       let f_loop = Mlist.nth tl 0 in
@@ -589,7 +590,8 @@ let rec subst (tm : tmap) (t : trm) : trm =
       in
       let ts2 = Mlist.map subst_item ts in
       { t with desc = Trm_seq ts2}
-  | Trm_for ((index, _, _, _, _), _) ->
+  | Trm_for (l_range, _) ->
+    let (index, _, _, _, _, _) = l_range in
     trm_map (aux_filter (fun x -> x = index)) t
   | Trm_for_c (init, _, _, _) ->
     let vs = vars_bound_in_trm_init init in

@@ -187,8 +187,11 @@ and typed_var = var * typ
 and typed_vars = typed_var list
 
 
+(* [loop_parallel]: for parallel loops this flag is set to true *)
+and loop_parallel = bool
+
 (* [loop_range]: a type for representing  for loops *)
-and loop_range = var * trm * loop_dir * trm * loop_step
+and loop_range = var * trm * loop_dir * trm * loop_step * loop_parallel
 
 (* [unary_op]: unary operators *)
 and unary_op =
@@ -350,7 +353,6 @@ and trm_desc =
   | Trm_seq of trm mlist      (* { st1; st2; st3 } *)
   | Trm_apps of trm * (trms)  (* f(t1, t2) *)
   | Trm_while of trm * trm    (* while (t1) { t2 } *)
-  (* | Trm_for of var * trm * loop_dir * trm * loop_step  * trm *)
   | Trm_for of loop_range  * trm
   | Trm_for_c of trm * trm * trm * trm
   | Trm_do_while of trm * trm
@@ -1288,7 +1290,8 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
      let step' = f false step in
      let body' = f is_terminal body in
      trm_for_c ~annot ~loc init' cond' step' body'
-  | Trm_for ((index, start, direction, stop, step), body) ->
+  | Trm_for (l_range, body) ->
+    let (index, start, direction, stop, step, is_parallel) = l_range in
     let m_step = match step with
     | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
     | Step sp -> Step (f is_terminal sp)
@@ -1296,7 +1299,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
     let start' = f false start in
     let stop' = f false stop in
     let body' = f is_terminal body in
-    trm_for ~annot ~loc (index, start', direction, stop', m_step) body'
+    trm_for ~annot ~loc (index, start', direction, stop', m_step, is_parallel) body'
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, f is_terminal body)) cases in
@@ -1388,7 +1391,8 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
      let body' = aux body in
      ret (init' == init && cond' == cond && step' == step && body' == body)
          (trm_for_c ~annot ~loc init' cond' step' body')
-  | Trm_for ((index, start, direction, stop, step), body) ->
+  | Trm_for (l_range, body) ->
+    let (index, start, direction, stop, step, is_parallel) = l_range in
     let start' = f false start in
     let stop' = f false stop in
     let step' = match step with
@@ -1397,7 +1401,7 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
       in
     let body' = aux body in
     ret (step' == step && start' == start && stop' == stop && body' == body)
-        (trm_for ~annot ~loc (index, start', direction, stop', step') body')
+        (trm_for ~annot ~loc (index, start', direction, stop', step', is_parallel) body')
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, aux body)) cases in
@@ -1454,7 +1458,9 @@ let contains_decl (x : var) (t : trm) : bool =
     match t.desc with
     | Trm_let (_, (y, _), _) when y = x -> true
     | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || aux t) false tl
-    | Trm_for ((y, _, _, _, _),body) -> y = x || aux body
+    | Trm_for (l_range, body) -> 
+        let (y, _, _, _, _, _) = l_range in
+        y = x || aux body
     | Trm_let_fun (_, _, _, body) -> aux body
     | Trm_for_c (init, _, _, body) -> aux init || aux body
     | _ -> false
@@ -1562,7 +1568,9 @@ let rec get_init_val (t : trm) : trm option =
 (* [for_loop_index t]: returns the index of the loop [t] *)
 let for_loop_index (t : trm) : var =
   match t.desc with
-  | Trm_for ((index, _, _, _, _),  _) -> index
+  | Trm_for (l_range,  _) -> 
+     let (index, _, _, _, _, _) = l_range in
+     index
   | Trm_for_c (init, _, _, _) ->
      (* covered cases:
         - for (i = …; …)
@@ -1693,7 +1701,7 @@ let for_loop_nb_iter (t : trm) : trm =
 (* [for_loop_body_trms t]: gets the list of trms from the body of the loop *)
 let for_loop_body_trms (t : trm) : trm mlist =
   match t.desc with
-  | Trm_for ((_, _, _, _, _), body) ->
+  | Trm_for (_, body) ->
     begin match body.desc with
     | Trm_seq tl -> tl
     | _ -> fail body.loc "Ast.for_loop_body_trms: body of a simple loop should be a sequence"
@@ -2029,9 +2037,11 @@ let trm_for_of_trm_for_c (t : trm) : trm =
     let init_ops = trm_for_c_inv_simple_init init in
     let bound_ops = trm_for_c_inv_simple_stop cond in
     let step_ops = trm_for_c_inv_simple_step step in
+    let t_pragmas = trm_get_pragmas t in 
+    let is_parallel = List.exists (function | Parallel_for _ -> true | _ -> false) t_pragmas in 
     begin match init_ops, bound_ops, step_ops with
     | Some (index, start), Some (direction, stop), Some step ->
-      trm_for (index, start, direction, stop, step) body
+      trm_for (index, start, direction, stop, step, is_parallel ) body
     | _ -> t
     end
   | _ -> fail t.loc "Ast.trm_for_of_trm_for_c: expected a for loop"
@@ -2107,7 +2117,7 @@ let rec trm_is_val_or_var (t : trm) : bool =
 (* [trm_for_inv t]: gets the loop range from loop [t] *)
 let trm_for_inv (t : trm) : (loop_range * trm)  option =
   match t.desc with
-  | Trm_for ((index, start, direction, stop, step), body) -> Some ((index, start, direction,stop ,step), body)
+  | Trm_for (l_range, body) -> Some (l_range, body)
   | _ -> None
 
 (* [is_trm_seq t]: checks if [t] is a sequence. *)
@@ -2138,19 +2148,17 @@ let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
   let body_to_return  = ref (trm_int 0) in
   let rec aux (t : trm) : loop_range list =
     match t.desc with
-    | Trm_for ((index, start, direction, stop, step), body) ->
+    | Trm_for (l_range, body) ->
       incr nb_loops;
       begin match body.desc with
       | Trm_seq tl when Mlist.length tl = 1 ->
         if !nb_loops = nb
           then begin
             body_to_return := body;
-            (index, start, direction, stop, step) :: []
+            l_range :: []
             end
-          else
-            (index, start, direction, stop, step) :: aux (Mlist.nth tl 0)
-      | _ ->
-        (index, start, direction, stop, step) :: []
+          else l_range :: aux (Mlist.nth tl 0)
+      | _ ->  l_range :: []
       end
 
     | _ -> []
