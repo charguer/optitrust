@@ -203,16 +203,17 @@ and tr_stmt (s : C.stmt) : trm =
     |_ -> trm_abort ~loc ~ctx (Ret None)
     end
   | Sblock sl ->
-    (* LATER: put back naive code:
-    let tl = List.map tr_stmt sl in *)
-    let rec handle_pragma acc sl =
+    (* LATER: put back naive code:*)
+    let tl = List.map tr_stmt sl in 
+    (* let rec handle_pragma acc sl =
       match sl with
       | [] -> List.rev acc
       | { C.sdesc = Spragma (p, s1); C.sloc = loc } :: sl1 ->
           handle_pragma ((tr_stmt s1)::(tr_pragma ~loc:(loc_of_cloc loc) p)::acc) sl1
       | s1 :: sl1 -> handle_pragma (tr_stmt s1 :: acc) sl1
       in
-    trm_seq_nomarks ~loc ~ctx (handle_pragma [] sl)
+    trm_seq_nomarks ~loc ~ctx (handle_pragma [] sl) *)
+    trm_seq_nomarks ~loc ~ctx tl
   | Sdecl (_stor, {name = n; _}, ty, init_opt) ->
     let tt = tr_type ty in
     let te = begin match init_opt with
@@ -222,11 +223,28 @@ and tr_stmt (s : C.stmt) : trm =
       in
     let mut = if is_typ_const tt then Var_immutable else Var_mutable in
     trm_let ~loc ~is_statement:true mut (n, tt) te
+  | Spragma (p, s1) -> 
+    (* pragmas are parsed as annotations to the proceeding instruction *)
+    let tp = tr_pragma p in 
+    let ts1 = tr_stmt s1 in 
+    trm_add_pragma tp ts1
   | _ -> fail loc "CMenhir_to_astRawC.tr_stmt: statment not supported"
    (* LATER: should not use catch all pattern, here and elsewhere *)
 
 (* [tr_pragma ~loc p]: translates C.pragma into OptiTrust pragmas *)
-and tr_pragma ?(loc : location = None) (p : string) : trm =
+and tr_pragma ?(loc : location = None) (p : string) : cpragma =
+  match p with 
+  | "omp_simd" -> Simd []
+  | "omp atomic" -> Atomic None
+  | "omp parallel for" -> Parallel_for []
+  | "omp parallel" -> Parallel []
+  | "omp single" -> Single []
+  | _ -> 
+    try Scanf.sscanf p "omp parallel for collapse(%d)" (fun n -> (Parallel_for [Collapse n]))
+     with Scanf.Scan_failure _ ->
+      fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p)
+
+(* and tr_pragma1 ?(loc : location = None) (p : string) : trm =
   match p with
   | "omp simd" -> trm_omp_directive (Simd [])
   | "omp atomic" -> trm_omp_directive (Atomic None)
@@ -237,7 +255,7 @@ and tr_pragma ?(loc : location = None) (p : string) : trm =
      try Scanf.sscanf p "omp parallel for collapse(%d)" (fun n ->
        trm_omp_directive (Parallel_for [Collapse n]))
      with Scanf.Scan_failure _ ->
-      fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p)
+      fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p) *)
 
 (* [tr_init i]: translates C.inti into OptiTrust trm *)
 and tr_init ?(loc : location = None) (i : C.init) : trm =

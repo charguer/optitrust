@@ -25,7 +25,6 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_labelled _, Trm_labelled _ -> true
   | Trm_goto _, Trm_goto _ -> true
   | Trm_arbitrary _, Trm_arbitrary _ -> true
-  | Trm_omp_directive  _, Trm_omp_directive _ -> true
   | Trm_omp_routine _ , Trm_omp_routine _ -> true
   | Trm_extern _, Trm_extern _ -> true
   | Trm_namespace _, Trm_namespace _ -> true

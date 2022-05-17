@@ -378,7 +378,6 @@ and trm_desc =
   | Trm_labelled of label * trm                   (* foo: st *)
   | Trm_goto of label                             (* goto foo *)
   | Trm_arbitrary of code_kind                    (* "int x = 10" *)
-  | Trm_omp_directive of directive                (* #pragma omp parallel *)
   | Trm_omp_routine of omp_routine                (* get_thread_id *)
   | Trm_extern of string * trms                   (* extern keyword *)
   | Trm_namespace of string * trm * bool          (* namespaces *)
@@ -841,11 +840,6 @@ let code (code_str : code_kind) : trm =
   {annot = trm_annot_default; desc = Trm_arbitrary code_str ; loc = None; is_statement=false; typ = None;
   attributes = []; ctx = None}
 
-(* [trm_omp_directive ~loc ]: OpenMP directive *)
-let trm_omp_directive ?(loc = None) (directive : directive) : trm =
-  {annot = trm_annot_default; desc = Trm_omp_directive directive; loc = loc; is_statement = false;
-   typ = None; attributes = []; ctx = None}
-
 (* [trm_omp_routine ~loc omp_routine] OpenMP routine *)
 let trm_omp_routine ?(loc = None) (omp_routine : omp_routine) : trm =
   {annot = trm_annot_default; desc = Trm_omp_routine omp_routine; loc = loc; is_statement = true; typ = None;
@@ -1054,6 +1048,10 @@ let trm_rem_pragma (p : cpragma) (t : trm) : trm =
 let trm_get_pragmas (t : trm) : cpragma list =
   t.annot.trm_annot_pragma
 
+(* [trm_has_pragma pred t]: check if [t] has pragmas that satisfy [pred]. *)
+let trm_has_pragma (pred : cpragma -> bool) (t : trm) : bool =
+  let t_pragmas = trm_get_pragmas t in
+  List.exists pred t_pragmas
 
 (* [trm_pass_pragmas t1 t2]: pass pragmas of trm [t1] to trm [t2]. *)
 let trm_pass_pragmas (t1 : trm) (t2 : trm) : trm =

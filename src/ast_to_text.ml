@@ -325,8 +325,6 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_arbitrary s ->
     let code_str = code_to_str s in
     print_node "Trm_arbitrary" ^^ parens (string code_str)
-  | Trm_omp_directive directive ->
-    print_node "Trm_omp_directive" ^^ parens (print_directive directive)
   | Trm_omp_routine routine->
     print_node "Trm_omp_routine" ^^ parens (print_routine routine)
   | Trm_extern (lang, decls) ->

@@ -160,3 +160,7 @@ let move_out_of_fun (tg : target) : unit =
 (* [set_atomic tg]: just an alias to Omp.atomic tg, please refer to omp_basic.ml  line 9 *)
 let set_atomic : Transfo.t = 
   Omp_basic.atomic 
+
+(* [unset_atomic ty]: the opposite of [set_atomic]. *)
+let unset_atomic : Transfo.t = 
+  apply_on_targets (apply_on_path (trm_filter_pragma (function | Atomic _ -> false | _ -> true)))
