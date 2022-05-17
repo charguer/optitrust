@@ -399,15 +399,34 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
      in
      print_node "Typedef_enum" ^^ print_pair (string tname) denum_const_l
 
-
 (* [print_trm ~only_desc t]: converts trm [t] to pprint document *)
 and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let ddesc = print_trm_desc ~only_desc t.desc in
+  let t_marks = trm_get_marks t in 
+  let dmarks = print_list (List.map string t_marks) in
+
+  let dstringrepr = begin match trm_get_stringreprid t with | Some id -> string "Some " ^^ string (string_of_int id) | None -> string "None" end in 
+  let t_pragmas = trm_get_pragmas t in
+  let t_pragmas_str = List.map print_directive t_pragmas in
+  let dpragmas = print_list t_pragmas_str in
+  
+  let cstyle_annot = trm_get_cstyles t in
+  let cstyle_annot_str = List.map print_cstyle_annot cstyle_annot in
+  let dcstyle = print_list cstyle_annot_str in
+
+  let files_annot = trm_get_files_annot t in
+  let dfiles_str = List.map print_files_annot files_annot in
+  let dfiles = print_list dfiles_str in
 
   if only_desc then ddesc
     else
-      let dannot = empty (* TODO: Addapt to the new annotation type *)
-    in
+      let dannot = braces (separate (blank 1) [string "trm_annot_marks"; equals;
+                                                dmarks ^^ semi ^//^ string "trm_annot_stringrepr"; equals;
+                                                dstringrepr ^^ semi ^//^ string "trm_annot_pragma"; equals;
+                                                dpragmas ^^ semi ^//^ string "trm_annot_cstyle"; equals;
+                                                dcstyle ^^ semi ^//^ string "trm_annot_files"; equals;
+                                                dfiles])
+     in
     let dloc =
       begin match t.loc with
       | None -> underscore
@@ -434,6 +453,24 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
                                 string "typ"; equals;
                                 dtyp ^^ semi ^//^ string "attributes"; equals;
                                 dattr])
+
+(* [print_files_annot ann]: prints as string files annotation [ann] *)
+and print_files_annot (ann : files_annot) : document =
+  match ann with 
+  | Include s -> string ("Include" ^ s)
+  | Main_file -> string "Main_file"
+
+(* [print_cstyle_annot ann]: prints as string cstyle annotation [ann]. *)
+and print_cstyle_annot (ann : cstyle_annot) : document =
+ match ann with 
+ | Display_no_arrow -> string "Display_no_arrow"
+ | Empty_cond -> string "Empty_cond"
+ | Fun_inline -> string "Fun_inline"
+ | No_braces id -> string ("No_braces " ^ string_of_int id)
+ | Multi_decl -> string "Multi_decl"
+ | Postfix_set -> string "Postfix_set"
+ | Reference -> string "Reference"
+ | Stackvar -> string "Stackvar"
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =

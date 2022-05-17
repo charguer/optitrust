@@ -1054,9 +1054,13 @@ let trm_rem_pragma (p : cpragma) (t : trm) : trm =
 let trm_get_pragmas (t : trm) : cpragma list =
   t.annot.trm_annot_pragma
 
+(* [trm_get_cstyles t]: returns all cstyle annotations of trm [t]. *)
+let trm_get_cstyles (t : trm) : cstyle_annot list =
+  t.annot.trm_annot_cstyle
+
 (* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)
 let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
-  let t_annot_cstyle = f (t.annot.trm_annot_cstyle) in
+  let t_annot_cstyle = f (trm_get_cstyles t) in
   let t_annot = {t.annot with trm_annot_cstyle=t_annot_cstyle} in 
   {t with annot = t_annot}
 
@@ -1074,27 +1078,36 @@ let trm_rem_cstyle (cs : cstyle_annot) (t : trm) : trm =
 
 (* [trm_has_cstyle cs t]: checks if [t] has the [cs] cstyle annotation. *)
 let trm_has_cstyle (cs : cstyle_annot) (t : trm) : bool = 
-  List.mem cs t.annot.trm_annot_cstyle
+  let cstyles = trm_get_cstyles t in
+  List.mem cs cstyles
+
+(* [trm_get_files_annot t]: returns all file annotations of trm [t]. *)
+let trm_get_files_annot (t : trm) : files_annot list =
+  t.annot.trm_annot_files 
 
 (* [trm_set_mainfile]: adds [Main_file] annotation to trm [t]. *)
 let trm_set_mainfile (t : trm) : trm =
-   let t_annot_files = Main_file :: t.annot.trm_annot_files in 
+   let t_files = trm_get_files_annot t in
+   let t_annot_files = Main_file :: t_files in 
    let t_annot = {t.annot with trm_annot_files=t_annot_files} in 
    {t with annot = t_annot}
 
 (* [trm_set_include filename t]: add [Include filename] annotation to trm [t]. *)
 let trm_set_include (filename : string) (t : trm) : trm =
-  let t_annot_files = Include filename :: t.annot.trm_annot_files in
+  let t_files = trm_get_files_annot t in
+  let t_annot_files = Include filename :: t_files in
   let t_annot = {t.annot with trm_annot_files = t_annot_files} in 
   {t with annot = t_annot}
 
 (* [trm_is_mainfile t]: checks if [t] contains the [Main_file] annotation. *)
 let trm_is_mainfile (t : trm) : bool =
-  List.mem Main_file t.annot.trm_annot_files
+  let t_files = trm_get_files_annot t in
+  List.mem Main_file t_files
 
 (* [trm_is_include]: checks if [t] contains the [Include f] annotation. *)
 let trm_is_include (t : trm) : bool =
-  List.exists (function |Include _ -> true | _ -> false) t.annot.trm_annot_files
+  let t_files = trm_get_files_annot t in
+  List.exists (function |Include _ -> true | _ -> false) t_files
 
 (* [trm_is_nobrace_seq t]: checks if [t] is a visible sequence or not *)
 let trm_is_nobrace_seq (t : trm) : bool =
