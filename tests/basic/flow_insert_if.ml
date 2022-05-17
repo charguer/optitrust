@@ -27,5 +27,4 @@ let _ = Run.script_cpp (fun _ ->
       !! Flow_basic.insert_if ~cond:(expr "x > 0") [cMark "new_block"];
       !!();
   )
-        
 )

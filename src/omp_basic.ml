@@ -2,6 +2,9 @@ open Ast
 open Target
 
 
+(* Module for generating OpenMP directives and routines. Directives are just annotations inserted to the trm before which 
+   the directive is going to appear. Routines are trms, so they are inserted as instructions. *)
+
 (******************************************************************************)
 (*                            OpenMP directives                               *)
 (******************************************************************************)
@@ -164,7 +167,6 @@ let get_num_threads (nb_threads : var) : Transfo.t =
 let declare_num_threads ?(tg : target = [tFirst; dRoot]) (nb_threads : var) : unit =
   apply_on_targets_between (fun t (p, i) ->
     Omp_core.declare_num_threads nb_threads i t p) tg
-
 
 let get_max_threads (max_threads : var) : Transfo.t =
   apply_on_targets_between (fun t (p, i) ->

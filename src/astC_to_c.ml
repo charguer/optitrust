@@ -3,13 +3,13 @@ open Ast
 open Precedence
 
 
-(* [print_optitrust_syntax]: only for internal use *)
+(* [print_optitrust_syntax]: only for internal use. *)
 let print_optitrust_syntax = ref false
 
-(* [print_commented_pragma]: only for internal use *)
+(* [print_commented_pragma]: only for internal use. *)
 let print_commented_pragma = ref false
 
-(* [print_stringreprids]: only for debugging purposes *)
+(* [print_stringreprids]: only for debugging purposes. *)
 let print_stringreprids = ref false
 
 (*----------------------------------------------------------------------------------*)
@@ -21,37 +21,37 @@ let print_stringreprids = ref false
    AST being printed, and preferably to reinitialize the stringreprs
    table before starting. *)
 
-(* [stringreprids]: Hashtable for storing the string representation of trm *)
+(* [stringreprids]: Hashtable for storing the string representation of trm. *)
 type stringreprs = (Ast.stringreprid, document) Hashtbl.t
 
-(* [stringreprs]: string representations are stored only when the user uses string matching targets *)
+(* [stringreprs]: string representations are stored only when the user uses string matching targets. *)
 let stringreprs : stringreprs option ref = ref None
 
-(* [clear_string_reprs ()]: clearn all the stored string representations *)
+(* [clear_string_reprs ()]: clearn all the stored string representations. *)
 let clear_stringreprs () =
   stringreprs := None
 
-(* [get_stringreprs ()]: gets the current string representations *)
+(* [get_stringreprs ()]: gets the current string representations. *)
 let get_stringreprs () : stringreprs =
   match !stringreprs with
   | Some m -> m
   | None -> fail None "AstC_to_c.get_stringreprs: must call init_stringreprs or set_stringreprs first"
 
-(* [get_and_clear_stringreprs ()]: gets the current string representations and delete them *)
+(* [get_and_clear_stringreprs ()]: gets the current string representations and delete them. *)
 let get_and_clear_stringreprs () : stringreprs =
   let m = get_stringreprs() in
   stringreprs := None;
   m
 
-(* [set_stringreprs t]: replaces the current string representations with [t] *)
+(* [set_stringreprs t]: replaces the current string representations with [t]. *)
 let set_stringreprs (t : stringreprs) : unit =
   stringreprs := Some t
 
-(* [init_string_reprs]: creates the hashtable used for storing the string representations *)
+(* [init_string_reprs]: creates the hashtable used for storing the string representations. *)
 let init_stringreprs () =
   stringreprs := Some (Hashtbl.create 100)
 
-(* [add_stringreprs_entry t d]: adds trm [t] into the table of representations *)
+(* [add_stringreprs_entry t d]: adds trm [t] into the table of representations. *)
 let add_stringreprs_entry (t : trm) (d : document) : unit =
   match !stringreprs with
   | None -> ()
@@ -60,7 +60,7 @@ let add_stringreprs_entry (t : trm) (d : document) : unit =
       | None -> ()
       | Some id -> Hashtbl.add m id d
 
-(* [print_stringreprs m]: for debugging purposes *)
+(* [print_stringreprs m]: for debugging purposes. *)
 let print_stringreprs (m : stringreprs) : unit =
   let pr id d =
     Printf.printf "stringreprs[%d] = %s\n----\n" id (Tools.document_to_string d) in
@@ -73,7 +73,7 @@ let print_stringreprs (m : stringreprs) : unit =
 
 (* To print back ast to C/C++ code, we convert all the ast components into  pprint documents.
    As a result, a well structured code will be generated. For further improving the printing
-   one can use clang-format  *)
+   one can use clang-format.  *)
 
 (* **********************************************************************************************************
  * Note: to convert the OptiTrust ast to C/C++ code, we convert all the ast components into pprint documents.
@@ -82,7 +82,7 @@ let print_stringreprs (m : stringreprs) : unit =
 
 **************************************************************************************************************)
 
-(* [typ_desc_to_doc t]: converts ast type descriptions to pprint documents *)
+(* [typ_desc_to_doc t]: converts ast type descriptions to pprint documents. *)
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
   | Typ_const t when is_typ_ptr t -> typ_to_doc t ^^ string " const"
@@ -124,14 +124,14 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
         | _ -> fail None "AstC_to_c.typ_to_doc: arbitrary types entered as string should be entered by using Atyp"
         end
 
-(* [typ_annot_to_doc]: converts type annotations to pprint document *)
+(* [typ_annot_to_doc]: converts type annotations to pprint document. *)
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with
   | Unsigned -> string "unsigned"
   | Long -> string "long"
   | Short -> string "short"
 
-(* [typ_to_doc]: converts ast types to pprint document *)
+(* [typ_to_doc]: converts ast types to pprint document. *)
 and typ_to_doc (t : typ) : document =
   let d = typ_desc_to_doc t.typ_desc in
   let dannot =
@@ -145,7 +145,7 @@ and typ_to_doc (t : typ) : document =
   in
   dattr ^^ dannot ^^ d
 
-(* [typed_var_to_doc tx]: pairs (x, int) are printed as int x *)
+(* [typed_var_to_doc tx]: pairs like (x, int) are printed as int x. *)
 and typed_var_to_doc (tx : typed_var) : document =
   let (x, ty) = tx in
   let is_const = is_typ_const ty in
@@ -182,7 +182,7 @@ and typed_var_to_doc (tx : typed_var) : document =
      dattr ^^ typ_to_doc ty ^^ blank 1 ^^ const_string ^^ string x
   | _ -> const_string ^^ typ_to_doc ty ^^ blank 1 ^^ string x
 
-(* [lit_to_doc l]: converts literals to pprint documents *)
+(* [lit_to_doc l]: converts literals to pprint documents. *)
 and lit_to_doc (l : lit) : document =
   match l with
   | Lit_unit -> semi
@@ -192,7 +192,7 @@ and lit_to_doc (l : lit) : document =
   | Lit_double f -> string (string_of_float f)
   | Lit_string s -> dquotes (separate (backslash ^^ string "n") (lines s))
 
-(* [unop_to_doc op]: converts unary operators to pprint documents *)
+(* [unop_to_doc op]: converts unary operators to pprint documents. *)
 and unop_to_doc (op : unary_op) : document =
   match op with
   | Unop_get -> star
@@ -209,7 +209,7 @@ and unop_to_doc (op : unary_op) : document =
      let dt = typ_to_doc t in
      string "static_cast" ^^ langle ^^ dt ^^ rangle
 
-(* [binop_to_doc op]: converts binary operators to pprint documents *)
+(* [binop_to_doc op]: converts binary operators to pprint documents. *)
 and binop_to_doc (op : binary_op) : document =
   match op with
   | Binop_set -> equals
@@ -234,7 +234,7 @@ and binop_to_doc (op : binary_op) : document =
   | Binop_shiftr -> twice rangle
   | Binop_xor -> caret
 
-(* [prim_to_doc p]: converts primitives to pprint documents *)
+(* [prim_to_doc p]: converts primitives to pprint documents. *)
 and prim_to_doc (p : prim) : document =
   match p with
   | Prim_unop op -> unop_to_doc op
@@ -244,7 +244,7 @@ and prim_to_doc (p : prim) : document =
   | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
   | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
 
-(* [val_to_doc v]: converts values to pprint documents *)
+(* [val_to_doc v]: converts values to pprint documents. *)
 and val_to_doc (v : value) : document =
   match v with
   | Val_lit l -> lit_to_doc l
@@ -257,10 +257,10 @@ and val_to_doc (v : value) : document =
        end
   | Val_prim p -> prim_to_doc p
 
-(* [attr_to_doc a]: converts attributes to pprint documents *)
+(* [attr_to_doc a]: converts attributes to pprint documents. *)
 and attr_to_doc (a : attribute) : document =
   match a with
-  (* | Alignas t -> string "_Alignas" ^^ parens (decorate_trm t) *)
+  (* | Alignas t -> string "_Alignas" ^^ parens (decorate_trm t). *)
   | Alignas t -> string "alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
   | Others -> empty
@@ -273,8 +273,21 @@ and attr_to_doc (a : attribute) : document =
 and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_init_type : bool = true) (t : trm) : document =
   let parentheses = parentheses_needed ~prec t in
   let dt = trm_to_doc ~semicolon ~prec ~print_struct_init_type t in
-  let dt = if parentheses then parens (dt) else dt in
+  
+  let t_pragmas = trm_get_pragmas t in
+  let dpragmas = if t_pragmas = [] 
+    then empty 
+    else 
+      let t_pragmas_str = List.map (fun d -> 
+        let intro = if !print_commented_pragma then string "//" else empty in
+          intro ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
+        ) t_pragmas in
+      
+  Tools.list_to_doc ~sep:(string "\n") ~bounds:[empty; hardline] t_pragmas_str in
+  let dt = if parentheses then parens (dt) else dpragmas ^^ dt in
+  
   let t_marks = trm_get_marks t in 
+  
   if t_marks = [] && not !print_stringreprids
     then dt
     else

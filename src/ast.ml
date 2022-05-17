@@ -1054,6 +1054,14 @@ let trm_rem_pragma (p : cpragma) (t : trm) : trm =
 let trm_get_pragmas (t : trm) : cpragma list =
   t.annot.trm_annot_pragma
 
+
+(* [trm_pass_pragmas t1 t2]: pass pragmas of trm [t1] to trm [t2]. *)
+let trm_pass_pragmas (t1 : trm) (t2 : trm) : trm =
+  let t1_pragmas = trm_get_pragmas t1 in
+  let t2_pragmas = trm_get_pragmas t2 in
+  let t2_annot = {t2.annot with trm_annot_pragma = t1_pragmas @ t2_pragmas} in
+  {t2 with annot = t2_annot}
+
 (* [trm_get_cstyles t]: returns all cstyle annotations of trm [t]. *)
 let trm_get_cstyles (t : trm) : cstyle_annot list =
   t.annot.trm_annot_cstyle

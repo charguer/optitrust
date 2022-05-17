@@ -14,7 +14,7 @@ let add (label : string) : Target.Transfo.local =
       [t] - ast node of the labelled trm *)
 let remove_aux (t : trm) : trm =
   match t.desc with
-  | Trm_labelled (_, tbody) -> tbody
+  | Trm_labelled (_, tbody) -> trm_pass_pragmas t tbody
   | _ -> fail t.loc "Label_core.label_rem_aux: label was not matched, make sure the path is correct"
 
 (* [remove t p]: applies [remove_aux] at trm [t] with path [p]. *)
