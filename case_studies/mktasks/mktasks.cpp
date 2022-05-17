@@ -1,6 +1,6 @@
 
 int g(int a, int b) {
-  return a + b;
+  return a + b + a;
 }
 
 int f() {
