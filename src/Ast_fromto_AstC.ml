@@ -22,12 +22,12 @@ type env = varkind String_map.t
 let env_empty =
   String_map.empty
 
-(* [get_varkind env x]: gets the mutability of variable [x] 
+(* [get_varkind env x]: gets the mutability of variable [x]
    Note: Functions that come from an external library are set to immutable by default *)
 let get_varkind (env : env) (x : var) : varkind =
   match String_map.find_opt x env with
   | Some m -> m
-  | _ -> Var_immutable 
+  | _ -> Var_immutable
 
 (* [is_var_mutable env x]: checks if variable [x] is mutable or not *)
 let is_var_mutable (env : env) (x : var) : bool =
@@ -53,7 +53,7 @@ let trm_get (t : trm) : trm =
   let u = trm_apps ~typ:t.typ (trm_unop Unop_get) [t] in
   trm_simplify_addressof_and_get u
 
-(* [onscope env t f]: applies function [f] on [t] without loosing [env] 
+(* [onscope env t f]: applies function [f] on [t] without loosing [env]
    Note: This function is used for keeping track of opened scopes *)
 let onscope (env : env ref) (t : trm) (f : trm -> trm) : trm =
     let saved_env = !env in
@@ -71,7 +71,7 @@ let create_env () = ref env_empty
     - simplify patterns of the form [&*p] into [p].
     - [int& b = a] becomes [<annotation:reference> int* b = a] as a simplification of [b = &*a]
     - [int& x = t[i]] becomes [<annotation:reference> int* x = &(t[i])] if t has type [const int*].
-   
+
    Note: "reference" annotation is added to allow decoding *)
 let stackvar_elim (t : trm) : trm =
   let env = create_env () in
@@ -119,9 +119,9 @@ let stackvar_elim (t : trm) : trm =
 (* [stackvar_intro t]: is the inverse of [stackvar_elim], hence it applies the following decodings:
      - [<annotation:stackvar> int *a = new int(5)] with [int a = 5]
      - [const int c = 5] remains unchanged
-     - [<annotation:reference> int* b = a] becomes [int& b = a], as a simplification of b = *(&a) 
+     - [<annotation:reference> int* b = a] becomes [int& b = a], as a simplification of b = *(&a)
         where &a is obtained after translating [a]
-     - [<annotation:reference> int* x = &t[i]] becomes [int& x = t[i]], where t has type [const int*] 
+     - [<annotation:reference> int* x = &t[i]] becomes [int& x = t[i]], where t has type [const int*]
        as a simplification of x = *(&t[i]) *)
 let stackvar_intro (t : trm) : trm =
   let env = create_env () in
@@ -130,7 +130,7 @@ let stackvar_intro (t : trm) : trm =
     begin match t.desc with
     | Trm_var (_, x) ->
       if is_var_mutable !env x
-        then trm_address_of {t with desc = Trm_var (Var_mutable, x)} 
+        then trm_address_of {t with desc = Trm_var (Var_mutable, x)}
         else t
     | Trm_let (_, (x, tx), tbody) ->
       let vk = if is_typ_const tx then Var_immutable else Var_mutable in
@@ -169,14 +169,14 @@ let stackvar_intro (t : trm) : trm =
      - [get(t).f] becomes get(t + offset f)
      - [t.f] becomes t + offset(f)
      - [get(t)[i] ] becomes [get (t + i)]
-     - [t[i]] becomes [t + i] 
+     - [t[i]] becomes [t + i]
      Note: [t + i] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_array_access, [t; i])))]
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[ŧ])] *)
 let rec caddress_elim (t : trm) : trm =
   let aux t = caddress_elim t in (* recursive calls for rvalues *)
   let mk ?(annot = []) td = {t with desc = td; annot = annot} in
   trm_simplify_addressof_and_get
-  begin 
+  begin
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _} as op, [t1]) ->
       let u1 = aux t1 in
@@ -209,7 +209,7 @@ let is_access (t : trm) : bool =
      - [t + offset(f)] becomes [t.f]
      - [get (t + i)] becomes [get(t)[i]]
      - [t + i] becomes [t[i]]
-    
+
      Note: [t + i] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_array_access, [t; i])))]
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[ŧ])] *)
 let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
