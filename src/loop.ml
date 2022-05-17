@@ -39,12 +39,43 @@ let fusion ?(nb : int = 2) (tg : target) : unit =
 
 (* [fusion_targets tg]: similar to [fusion] except that this transformation assumes that [tg] points to multiple
     not neccessarily consecutive for loops. This transformation regroups all this loops into a single sequence
-    an calls [Loops_basic.fusion_on_block].
+    and then it calls [Loops_basic.fusion_on_block].
 
     Assumptions:
       The loops inside the sequence satisfy the same assumptions as in [Loop_basic.fusion_in_block] transformation
       All the instructions in-between loops should not depend on the index of the loop. *)
-let fusion_targets (tg : target) : unit =
+
+let fusion_targets (tg : target) : unit = 
+  
+  let aux (tl : trm mlist) : trm mlist =
+    Mlist.map (fun t1 ->
+      match t1.desc with 
+      | Trm_for _ -> t1
+      | _ -> trm_add_mark "fusion_targets" t1
+    
+    ) tl in
+  apply_on_targets ( apply_on_path (fun t -> 
+    match t.desc with 
+    | Trm_seq tl -> {t with desc = Trm_seq (aux tl)}
+    | Trm_labelled (l, t1) ->
+      begin match t1.desc with 
+      | Trm_seq tl -> {t with desc = Trm_labelled (l, {t1 with desc = Trm_seq (aux tl)})}
+      | _ -> fail t.loc "Loop.fusion_targets: expected a labelled sequence or a direct target to a sequence"
+      end
+    | _ -> fail t.loc "Loop.fusion_targets: expected a target pointin to the sequence that contains the potential 
+                       loops to be fused."
+  
+  )) tg
+
+
+
+
+
+
+
+
+
+let fusion_targets1 (tg : target) : unit =
   let non_loop_indices = ref [] in
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -68,6 +99,7 @@ let fusion_targets (tg : target) : unit =
                             the potential loops to be fused"
 
   ) tg;
+  Printf.printf "I was here\n";
   List.iteri (fun i index -> Instr.move_out ~dest:([tBefore] @ tg) (tg @ [dSeqNth (index-i)])) (List.rev !non_loop_indices);
   Loop_basic.fusion_on_block tg
 

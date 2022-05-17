@@ -551,25 +551,25 @@ let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fiel
       is_typ_struct struct_name base.typ in
 
     match set_struct_access_inv t with
-    | Some (_field, base, _rhs) -> (* LATER: use when clause? *)
+    | Some (base, _field, _rhs) -> (* LATER: use when clause? *)
             if is_target_typ base
               then arg.f_set aux t
               else default()
     | None ->
       begin match get_struct_access_inv t with
-      | Some (_field, base) ->
+      | Some (base, _field) ->
         if is_target_typ base
           then arg.f_get aux t
           else default()
       | None ->
         begin match struct_access_inv t with
-        | Some (_field, base) ->
+        | Some (base, _field) ->
           if is_target_typ base
             then arg.f_access aux t
             else default()
         | None ->
           begin match struct_get_inv t with
-          | Some (_field, base) ->
+          | Some (base, _field) ->
             if is_typ_struct struct_name base.typ
               then arg.f_struct_get aux t
               else default()
