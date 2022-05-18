@@ -198,6 +198,12 @@ let get_ascendant_read_path (dl : path) (t : trm) : path =
 let get_ascendant_write_path (dl : path) (t : trm) : path =
   get_ascendant_path is_set_operation dl t
 
+(* [get_parent_path dl]: returns the parent path of [dl]. *)
+let get_parent_path (dl : path) : path =
+  match List.rev dl with 
+  | _ :: dl' -> List.rev dl'
+  | _ -> dl
+
 (* [is_decl_body dl]: check if [dl] points to a declaration body *)
 let is_decl_body (dl : path) : bool =
   match List.rev dl with

@@ -229,11 +229,33 @@ let dsp_def_aux (index : int) (arg : var) (func : var) (t : trm) : trm =
         let new_fun_def = trm_let_fun ~annot:fun_def.annot new_fun (typ_unit()) new_args new_body in
         let new_tl = Mlist.insert_at (index+1) new_fun_def tl in 
         trm_seq ~annot:t.annot new_tl
-     | _ -> fail fun_def.loc "Function_core.dsp_def_aux: expected a target to a function definition"
+     | _ -> fail fun_def.loc "Function_core.dsp_def_aux: expected a target to a function definition."
      end
-  | _ -> fail t.loc "Function_core.dsp_def_aux: expected the surrouding sequence of the targeted function definition"
+  | _ -> fail t.loc "Function_core.dsp_def_aux: expected the surrouding sequence of the targeted function definition."
 
 
 (* [dsp_def index arg func t p]: applies [dsp_def_aux] at trm [t] with path [p]. *)
   let dsp_def (index : int) (arg : var) (func : var) : Transfo.local =
   apply_on_path (dsp_def_aux index arg func)
+
+(* [dsp_call_aux dps t]: changes a write operation with lhs a function call to a function call,
+    [dsp] - the name of the function call,
+    [t] - ast of the write operation. *)
+let dsp_call_aux (dsp : var option) (t : trm) : trm =
+  match t.desc with 
+  | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
+    begin match rhs.desc with 
+    | Trm_apps ({desc = Trm_var (_, f); _}, args) -> 
+      begin match dsp with 
+      | Some dsp_n -> 
+        trm_apps (trm_var dsp_n) (args @ [lhs])
+      | None -> 
+        trm_apps (trm_var (f ^ "_dsp")) (args @ [lhs])
+      end
+    | _ -> fail rhs.loc "Function_core.dsp_call_aux: expected a target to a function call."
+    end
+  | _ -> fail t.loc "Function_core.dsp_call_aux: expected a target to a function call, whose parent is a write operation."
+
+(* [dsp_call dsp t p]: applies [dsp_call_aux] at trm [t] with path [p]. *)
+let dsp_call (dsp : var option) : Transfo.local =
+  apply_on_path (dsp_call_aux dsp)

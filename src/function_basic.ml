@@ -134,3 +134,9 @@ let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms)
 let dsp_def ?(arg : var = "res") ?(func : var = "dsp") : Transfo.t = 
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Function_core.dsp_def i arg func t p)
+
+
+(* [] *)
+let dsp_call ?(dsp : var option = None) : Transfo.t =
+  apply_on_transformed_targets (Internal.get_parent_path)
+    (fun t p -> Function_core.dsp_call dsp t p)
