@@ -2276,7 +2276,7 @@ let get_binop_from_prim (p : prim) : binary_op option =
   match p with
   | Prim_compound_assgn_op binop -> Some binop
   | Prim_binop binop -> Some binop
-  | _ -> None
+  | _ -> None 
 
 (* [is_postfix_unary unop]: checks if [unop] is a postfix unary operator *)
 let is_postfix_unary (unop : unary_op) : bool =

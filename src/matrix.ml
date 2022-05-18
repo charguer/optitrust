@@ -143,10 +143,10 @@ let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place 
          let nb_labels = List.length labels in
          if nb_labels <> 3 then ();
          let label_alloc = List.nth labels 0 in
-         if label_alloc <> "" then begin Instr.move_out ~dest:[tAfter;cTarget alloc] [cLabel label_alloc]; Instr.move_out ~dest:[tBefore; cFunDef "" ~body:[cLabel label_alloc]] [cLabel label_alloc; cVarDef into] end;
+         if label_alloc <> "" then begin Instr.move ~dest:[tAfter;cTarget alloc] [cLabel label_alloc]; Instr.move ~dest:[tBefore; cFunDef "" ~body:[cLabel label_alloc]] [cLabel label_alloc; cVarDef into] end;
          let label_dealloc = List.nth labels 2 in
          if label_dealloc <> "" then begin match dealloc_tg with
-          | Some da_tg -> Instr.move_out ~dest:[tAfter; cTarget da_tg] [cLabel label_dealloc]
+          | Some da_tg -> Instr.move ~dest:[tAfter; cTarget da_tg] [cLabel label_dealloc]
           | None -> ()
           end
           else ();

@@ -1,4 +1,5 @@
 open Ast
+open Target
 
 (* [insert_aux index code t]: inserts trm [code] at index [index] in sequence [t],
     [index] - a valid index where the instruction can be added,
@@ -12,8 +13,8 @@ let insert_aux (index : int) (code : trm) (t : trm) : trm =
     | _ -> fail t.loc "Sequence_core.insert_aux: expected the sequence on where insertion is performed"
 
 (* [insert index code t p]: applies [insert_aux] at trm [t] with path [p]. *)
-let insert (index : int) (code : trm) : Target.Transfo.local =
-  Target.apply_on_path (insert_aux index code)
+let insert (index : int) (code : trm) : Transfo.local =
+  apply_on_path (insert_aux index code)
 
 (* [delete_aux index nb_instr t]: deletes a number of instructions inside the sequence starting 
       from [index] and ending at ([index] + [nb]),
@@ -27,8 +28,8 @@ let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
     | _ -> fail t.loc "Sequence_core.delete_aux: expected the sequence on which the trms are deleted"
 
 (* [delete index nb_instr t p]: applies [delete_aux] at trm [t] with path [p].*)
-let delete (index : int) (nb_instr : int) : Target.Transfo.local =
-  Target.apply_on_path (delete_aux index nb_instr)
+let delete (index : int) (nb_instr : int) : Transfo.local =
+  apply_on_path (delete_aux index nb_instr)
 
 (* [intro_aux index nb t]: regroups instructions with indices falling in the range [index, index + nb) into a sub-sequence,
        [mark] - mark to insert on the new sub-sequence,
@@ -54,8 +55,8 @@ let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm)
     | _ -> fail t.loc "Sequence_core.intro_aux: expected the sequence on which the grouping is performed"
 
 (* [intro mark label index nb t p]: applies [intro_aux] at trm [t] with path [p]. *)
-let intro (mark : string) (label : label) (index : int) (nb : int) : Target.Transfo.local =
-  Target.apply_on_path (intro_aux mark label index nb)
+let intro (mark : string) (label : label) (index : int) (nb : int) : Transfo.local =
+  apply_on_path (intro_aux mark label index nb)
 
 (* [elim_aux index t]: inlines an inner sequence into the outer one,
       [t] - ast of the sequence to be removed.  *)
@@ -66,8 +67,8 @@ let elim_aux (t : trm) : trm =
   | _ -> fail t.loc "Sequenc_core.elim_aux: expected the sequence to be deleteds"
 
 (* [elim t p]: applies [elim_aux] at trm [t] with path [p. *)
-let elim : Target.Transfo.local =
-  Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence (elim_aux) ~keep_label:false "elim")
+let elim : Transfo.local =
+  apply_on_path(Internal.apply_on_path_targeting_a_sequence (elim_aux) ~keep_label:false "elim")
 
 (* [intro_on_instr_aux visible mark t]: surround [t] with a sequence,
     [mark] - mark to be added on the introduced sequence,
@@ -78,8 +79,8 @@ let intro_on_instr_aux (mark : mark) (visible : bool) (t : trm) : trm =
   trm_add_mark mark wrapped_seq 
  
 (* [intro_on_instr visible mark t p]: applies [intro_on_instr_aux] at trm [t] with path [p]. *)
-let intro_on_instr (visible : bool) (mark : mark) : Target.Transfo.local=
-  Target.apply_on_path (intro_on_instr_aux mark visible)
+let intro_on_instr (visible : bool) (mark : mark) : Transfo.local=
+  apply_on_path (intro_on_instr_aux mark visible)
 
 (* [unwrap_aux t]: the opposite of [intro_on_instr_aux] 
      [t] - a term that corresponds to a sequence with a single item in t. *)
@@ -91,8 +92,8 @@ let unwrap_aux (t : trm) : trm =
     | _ -> fail t.loc "Sequence_core.unwrap_aux: expected to operate on a sequence"
 
 (* [unwrap t p]: applies [unwrap_aux] at trm [t] with path [p]. *)
-let unwrap : Target.Transfo.local =
-  Target.apply_on_path (unwrap_aux)
+let unwrap : Transfo.local =
+  apply_on_path (unwrap_aux)
 
 (* [split_aux index t ]: splitts [t] into two sequences,
       [index] - the location where the splitting is done,
@@ -108,8 +109,8 @@ let split_aux (index : int) (is_fun_body : bool) (t : trm) : trm =
   | _ -> fail t.loc "Sequence_core.split_aux: expected a sequence, containing the location where it is going to be splitted"
 
 (* [split index is_fun_body t p]: applies [split_aux] at trm [t] with path [p]. *)
-let split (index : int) (is_fun_body : bool) : Target.Transfo.local =
-  Target.apply_on_path (split_aux index is_fun_body)
+let split (index : int) (is_fun_body : bool) : Transfo.local =
+  apply_on_path (split_aux index is_fun_body)
 
 (* [partition blocks braces]: partitions sequence [t] into a list of sequences,
       [blocks] -  a list of integers, where each integer denotes the size of the partition blocks,
@@ -142,8 +143,8 @@ let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
   | _ -> fail t.loc "Sequence_core.partial_aux: expected a sequence to partition"
 
 (* [partition blocks braces t p]: applies [partition_aux] at trm [t] with path [p]. *)
-let partition (blocks : int list) (braces : bool): Target.Transfo.local =
-  Target.apply_on_path (partition_aux blocks braces)
+let partition (blocks : int list) (braces : bool): Transfo.local =
+  apply_on_path (partition_aux blocks braces)
 
 (* [shiffle_aux braces t]: transposes a a list of partitioned sequences,
       [braces] - denotes a flag on the visibility of the added sequences,
@@ -184,5 +185,5 @@ let shuffle_aux (braces : bool) (t : trm) : trm =
   | _ -> fail t.loc "Sequence_core.shuffle_aux: expected the sequence with blocks to reorder"
 
 (* [shuffle braces t p]: applies [shuffle_aux] at trm [t] with path [p]. *)
-let shuffle (braces : bool) : Target.Transfo.local = 
-  Target.apply_on_path (shuffle_aux braces) 
+let shuffle (braces : bool) : Transfo.local = 
+  apply_on_path (shuffle_aux braces) 

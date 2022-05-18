@@ -45,37 +45,34 @@ let fusion ?(nb : int = 2) (tg : target) : unit =
       The loops inside the sequence satisfy the same assumptions as in [Loop_basic.fusion_in_block] transformation
       All the instructions in-between loops should not depend on the index of the loop. *)
 
-let fusion_targets (tg : target) : unit = 
-  
-  let aux (tl : trm mlist) : trm mlist =
-    Mlist.map (fun t1 ->
-      match t1.desc with 
-      | Trm_for _ -> t1
-      | _ -> trm_add_mark "fusion_targets" t1
-    
-    ) tl in
-  apply_on_targets ( apply_on_path (fun t -> 
-    match t.desc with 
-    | Trm_seq tl -> {t with desc = Trm_seq (aux tl)}
-    | Trm_labelled (l, t1) ->
-      begin match t1.desc with 
-      | Trm_seq tl -> {t with desc = Trm_labelled (l, {t1 with desc = Trm_seq (aux tl)})}
-      | _ -> fail t.loc "Loop.fusion_targets: expected a labelled sequence or a direct target to a sequence"
-      end
-    | _ -> fail t.loc "Loop.fusion_targets: expected a target pointin to the sequence that contains the potential 
-                       loops to be fused."
-  
-  )) tg
+(* TODO: Optimize mark processing *)
+let fusion_targets : Transfo.t =
+  iteri_on_targets (fun i t p -> 
+    Marks.add "mark_seq" (target_of_path p);
+    let mark = "mark_to_move" ^ (string_of_int i) in 
+    let tg_trm = Path.resolve_path p t in 
+    let aux (tl : trm mlist) : unit = 
+      Mlist.iteri( fun i1 t1 ->
+        match t1.desc with 
+        | Trm_for _ -> ()
+        | _ -> Marks_basic.add mark (target_of_path (p @ [Dir_seq_nth i1]))
+      
+      ) tl in
+     begin match tg_trm.desc with 
+     | Trm_seq tl -> aux tl 
+     | Trm_labelled (_, t1) -> 
+        begin match t1.desc with 
+        | Trm_seq tl -> aux tl
+        | _ -> fail t1.loc "Loop.fusion_targets: expected a labelled sequence or a direct target to a sequence"
+        end
+     | _ -> fail tg_trm.loc "Loop.fusion_targets: expected a target pointin to a marked sequence or a labelled sequence"
+     end;
+     Instr.move_out [nbMulti; cMark mark];
+     Marks.remove mark [nbMulti; cMark mark];
+     Loop_basic.fusion_on_block [cMark "mark_seq"]
+  )
 
-
-
-
-
-
-
-
-
-let fusion_targets1 (tg : target) : unit =
+(* let fusion_targets1 (tg : target) : unit =
   let non_loop_indices = ref [] in
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
@@ -100,8 +97,9 @@ let fusion_targets1 (tg : target) : unit =
 
   ) tg;
   Printf.printf "I was here\n";
+  
   List.iteri (fun i index -> Instr.move_out ~dest:([tBefore] @ tg) (tg @ [dSeqNth (index-i)])) (List.rev !non_loop_indices);
-  Loop_basic.fusion_on_block tg
+  Loop_basic.fusion_on_block tg *)
 
 (* [move_out ~upto tg]: expects the target [tg] to point at an instruction inside a for loop,
     then it will move that instruction outside the for loop that it belongs to.

@@ -123,13 +123,6 @@ let gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : unit =
   let tg = enable_multi_targets tg in
   Instr_basic.move ~rev:!reverse ~dest:!tg_dest tg
 
-
-(* [move_multiple ~destinations ~targets]: expects [targets] and definitions both to be a list of targets, such th at
-     to each target there exists a unique destination where it's going to be moved. *)
-let move_multiple ~destinations:(destinations : target list) ~targets:(targets : target list) : unit =
-  if List.length destinations <> List.length targets then fail None "Instr.move_multiple: each destination corresponds to a single target and vice-versa";
-  List.iter2(fun dest tg1 -> Instr_basic.move ~dest tg1) destinations targets
-
 (* [move dest tg]: move the invariant [tg] to destination [dest] 
    Note: The transformation does not check if [tg] points to some invariant code or not
    LATER: Check if [tg] is dependent on other instructions of the same scope *)
@@ -140,9 +133,15 @@ let move ~dest:(dest : target) : Transfo.t =
     Sequence_basic.insert tg_trm dest;
     Instr_basic.delete [cMark "instr_move_out"])
 
-(* [move_out ~dest tg]: this is just an alias for transformation [move] *)
-let move_out ~dest:(dest : target) : Transfo.t = 
-  move ~dest
+(* [move_out tg]: moves the instruction targeted by [tg], just before its surrouding sequence. *)
+let move_out : Transfo.t =
+  iter_on_targets (fun t p -> 
+    let (seq, _) = try Internal.isolate_last_dir_in_seq p with | TransfoError _ -> 
+      fail None "Instr.move_out: only instructions can be targeted" in
+    let tg_seq = target_of_path seq in
+    let tg_instr = target_of_path p in 
+    move ~dest:tg_seq tg_instr
+  )
 
 (* TODO: Debug *)
 (* [move_out_of_fun tg]: moves the instruction targeted by [tg] just befor the toplevel declaration function 
@@ -153,11 +152,12 @@ let move_out_of_fun (tg : target) : unit =
   iter_on_targets 
   ( fun t p -> 
      let tg_instr = target_of_path p in 
-     move_out ~dest:[cMark mark] tg_instr
+     move ~dest:[cMark mark] tg_instr
   ) tg;
   Marks.remove mark [cMark mark]
 
 (* [set_atomic tg]: just an alias to Omp.atomic tg, please refer to omp_basic.ml  line 9 *)
+
 let set_atomic : Transfo.t = 
   Omp_basic.atomic 
 

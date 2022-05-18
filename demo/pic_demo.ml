@@ -70,7 +70,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx; cWrite(); dRHS];
-  !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDefReg "\\(coef\\|sign\\)."];
+  !! Instr.move ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDefReg "\\(coef\\|sign\\)."];
   !! Loop.fold_instrs ~index:"idCorner" [ctx; cWrite()];
 
   bigstep "Eliminate an intermediate storage by reusing an existing one";
