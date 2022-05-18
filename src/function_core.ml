@@ -1,5 +1,6 @@
 open Ast
 open Path
+open Target
 
 (* [bind_intro_aux my_mark index fresh_name vonst p_local t]: bind the variable [fresh_name] to the targeted function call, 
       [my_mark] - put a mark on the targeted function call, 
@@ -34,8 +35,8 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
   | _ -> fail t.loc "Function_core.bind_intro_aux: expected the surrounding sequence"
 
 (* [bind_intro ~my_mark index fresh_name const p_local]: applies [bind_intro_aux] at the trm with path [p]. *)
-let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
-  Target.apply_on_path (bind_intro_aux my_mark index fresh_name const p_local)
+let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const : bool) (p_local : path) : Transfo.local =
+  apply_on_path (bind_intro_aux my_mark index fresh_name const p_local)
 
 
 (* [replace_return exit_label r t]: removes all the return statements from the body of a function declaration,
@@ -127,8 +128,8 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
   | _ -> fail t.loc "Function_core.inline_aux: the targeted function call should be contained into an instuction that belongs to a local or global scope"
 
 (* [inline index body_mark p_local t p]: applies [inline_aux] at the trm [t] with path [p]. *)
-let inline (index: int) (body_mark : string option) (p_local : path) : Target.Transfo.local =
-  Trace.time "Function_core.inline" (fun () -> Target.apply_on_path (
+let inline (index: int) (body_mark : string option) (p_local : path) : Transfo.local =
+  Trace.time "Function_core.inline" (fun () -> apply_on_path (
     Trace.time "Function_core.inline_aux" (fun () -> inline_aux index body_mark p_local)))
 
 (* [use_infix_ops_aux allow_identity t]: transforms an explicit write operation to an implicit one
@@ -158,8 +159,8 @@ let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
   | _-> if allow_identity then t else fail t.loc "Function_core.use_infix_ops_aux: expected an infix operation of the form x = f(x,a) or x = f(a,x)"
 
 (* [use_infix_ops allow_identity t p]: applies [use_infix_ops_aux] at the trm [t] with path [p]. *)
-let use_infix_ops (allow_identity: bool) : Target.Transfo.local =
-  Target.apply_on_path (use_infix_ops_aux allow_identity)
+let use_infix_ops (allow_identity: bool) : Transfo.local =
+  apply_on_path (use_infix_ops_aux allow_identity)
 
 (* [uninline_aux fct_decl t]: takes a function declaration [fct_decl], for example
    [void gtwice(int x) { g(x, x); }], and expects a term [t] that matches the body
@@ -175,8 +176,8 @@ let uninline_aux (fct_decl : trm) (t : trm) : trm =
 
 
 (* [uninline fct_decl t p]: applies [uninline_aux] at the trm [t] with path [p]. *)
-let uninline (fct_decl : trm) : Target.Transfo.local =
-  Target.apply_on_path (uninline_aux fct_decl)
+let uninline (fct_decl : trm) : Transfo.local =
+  apply_on_path (uninline_aux fct_decl)
 
 (* [rename_args_aux vl t]: renames arguments of function [t] and replace all the occurrences of its
     arguments of the args inside its body with the new names provided as arguments,
@@ -193,8 +194,8 @@ let rename_args_aux (vl : var list) (t : trm) : trm =
   | _ -> fail t.loc "Function_core.rename_args_aux: expected a target to a function declaration"
 
 (* [rename_args vl t p]: apply [rename_aux] at trm [t] with path [p] *)
-let rename_args (vl : var list) : Target.Transfo.local =
-  Target.apply_on_path (rename_args_aux vl)
+let rename_args (vl : var list) : Transfo.local =
+  apply_on_path (rename_args_aux vl)
 
 
 
@@ -208,5 +209,30 @@ let replace_with_change_args_aux (new_fun_name : string) (arg_mapper : trms -> t
 
 
 (* [replace_with_change_args new_fun_name arg_mapper t p]: applies [replace_with_change_args_aux] at trm [t] with path [p]. *)
-let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) : Target.Transfo.local =
-  Target.apply_on_path (replace_with_change_args_aux new_fun_name arg_mapper)
+let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) : Transfo.local =
+  apply_on_path (replace_with_change_args_aux new_fun_name arg_mapper)
+
+(* [dsp_def_aux index arg func t]: changes the destination pasing style,
+     [index] - index of the targeted function definition on its surrounding sequence,
+     [arg] - the new argument to be added on the new function definition,
+     [func] - name of the newly added function definition,
+     [t] - ast of the original function definition. *)
+let dsp_def_aux (index : int) (arg : var) (func : var) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl -> 
+     let _, fun_def, _ = Internal.get_trm_and_its_relatives index tl in
+     begin match fun_def.desc with 
+     | Trm_let_fun (var, ret_ty, tvl, body) ->
+      let new_body, _ = process_return_in_inlining "exit_label" arg body in 
+      let new_args = tvl @ [(arg, typ_ptr Ptr_kind_mut ret_ty)] in
+      let new_fun_def = trm_let_fun ~annot:fun_def.annot func (typ_unit()) new_args new_body in
+      let new_tl = Mlist.insert_at index new_fun_def tl in 
+      trm_seq ~annot:t.annot new_tl
+     | _ -> fail fun_def.loc "Function_core.dsp_def_aux: expected a target to a function definition"
+     end
+  | _ -> fail t.loc "Function_core.dsp_def_aux: expected the surrouding sequence of the targeted function definition"
+
+
+(* [dsp_def index arg func t p]: applies [dsp_def_aux] at trm [t] with path [p]. *)
+  let dsp_def (index : int) (arg : var) (func : var) : Transfo.local =
+  apply_on_path (dsp_def_aux index arg func)

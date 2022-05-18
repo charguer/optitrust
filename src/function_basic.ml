@@ -9,8 +9,8 @@ open Target
      
      @correctness: correct if the new order of evaluation of expressions is
       not changed or does not matter. *)
-let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : Target.target) : unit =
-  Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : target) : unit =
+  applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ t (p, p_local, i)  ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
     Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
@@ -66,10 +66,10 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
    @correctness: always work, and also need to instantiate variables in the
    local invariants in the body. *)
 
-let inline ?(body_mark : mark option) (tg : Target.target) : unit =
+let inline ?(body_mark : mark option) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Trace.time "inline apply_on_transformed_targets" (fun () ->
-    Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+    apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
      (fun  t (p, p_local, i) ->
         Trace.time "inline call to Function_core.inline" (fun () ->
           Function_core.inline i body_mark p_local t p)) tg))
@@ -78,28 +78,28 @@ let inline ?(body_mark : mark option) (tg : Target.target) : unit =
 (* [beta ~body_mark tg]: similar to [function_inline] the main difference is that [beta] is used in the cases 
     when the decaration of the function call can be founded at the targeted function call contrary to [inline]
     which will need to find first the toplevel declaration.  *)
-let beta ?(body_mark : var = "") (tg : Target.target) : unit =
+let beta ?(body_mark : var = "") (tg : target) : unit =
   inline ~body_mark tg
 
 
 (* [use_infix_ops_at tg]: expects the target [tg] to point at an explicit set operation of the form x = x (op) a,
     then it will transform that instruction into x (op)= a. Ex: x = x + 1 --> x += 1. *)
-let use_infix_ops_at ?(allow_identity : bool = true) : Target.Transfo.t =
-  Target.apply_on_targets (Function_core.use_infix_ops allow_identity)
+let use_infix_ops_at ?(allow_identity : bool = true) : Transfo.t =
+  apply_on_targets (Function_core.use_infix_ops allow_identity)
 
 (* [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similar to what Function_basic.inline generates
     Then it will replace that sequence with a call to the fuction with declaration targeted by [fct]. *)
-let uninline ~fct:(fct : Target.target) (tg : Target.target) : unit =
+let uninline ~fct:(fct : target) (tg : target) : unit =
   Trace.call (fun t ->
-    let fct_path = Target.resolve_target_exactly_one_with_stringreprs_available fct t in
+    let fct_path = resolve_target_exactly_one_with_stringreprs_available fct t in
     let fct_decl = Path.resolve_path fct_path t in
-    Target.apply_on_targets (Function_core.uninline fct_decl) tg)
+    apply_on_targets (Function_core.uninline fct_decl) tg)
 
 (* [rename_args new_args tg]: expects the target [tg] to point at a function declaration, then it will rename the args of 
      that function. If there are local variables declared inside the body of the function that have the same name as one 
      of the function args then it will skip those variables on all their occurrences. *)
-let rename_args (new_args : var list)  : Target.Transfo.t =
-  Target.apply_on_targets (Function_core.rename_args new_args)
+let rename_args (new_args : var list)  : Transfo.t =
+  apply_on_targets (Function_core.rename_args new_args)
 
 
 
@@ -107,3 +107,8 @@ let rename_args (new_args : var list)  : Target.Transfo.t =
     replace the name of the called function with [new_fun_name] and apply [arrg_mapper] to its arguments. *)
 let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) (tg : target) : unit = 
    apply_on_targets (Function_core.replace_with_change_args new_fun_name arg_mapper) tg
+
+(* [dsp_def ~arg ~func tg] *)
+let  dsp_def ?(arg : var = "res") ?(func : var = "dsp") : Transfo.t = 
+  apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun t (p,i) -> Function_core.dsp_def i arg func t p)
