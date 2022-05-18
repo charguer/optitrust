@@ -767,14 +767,6 @@ let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = fals
   let p_body = body in
   Constr_label (ro, p_body)
 
-(* [cLabel ~substr ~body ~regexp label]:  match a C label body
-    [substr] - match label name partially
-    [body] - match based on the trm the label is labelling
-    [regep] - match based on regexp
-    [label] - match based on label name. *)
-let cLabelBody ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
-  cTarget [cLabel ~substr ~body ~regexp label; dBody]
-
 (* [cGoto ~label ~substr ~regexp ()]: matches a goto statement 
     [label] - match based on the label it points to
     [substr] - match label name partially

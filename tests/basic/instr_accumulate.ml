@@ -2,9 +2,8 @@ open Optitrust
 open Target
 
 
-
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Instr_basic.accumulate [cLabelBody "fuse"];
+    !! Instr_basic.accumulate [cLabel "fuse"];
   )
 "
 int main() {
@@ -19,7 +18,7 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Instr_basic.accumulate [cLabelBody "test1"];
-  !! Instr_basic.accumulate [cLabelBody "test2"];
+  !! Instr_basic.accumulate [cLabel "test1"];
+  !! Instr_basic.accumulate [cLabel "test2"];
 
 )

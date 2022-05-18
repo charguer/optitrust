@@ -30,7 +30,7 @@ let _ = Run.script_cpp (fun _ ->
 
   (* apply operations to multiple groups *)
   !! Trace.alternative (fun () ->
-    Struct_basic.set_implicit [nbMulti; cLabel ~regexp:true "group."; dBody];
+    Struct_basic.set_implicit [nbMulti; cLabel ~regexp:true "group."];
     !!(););
   
   (* apply operation using a more complex target *)

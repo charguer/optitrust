@@ -106,8 +106,8 @@ let set_implicit_aux (t: trm) : trm =
             end
             in
             begin match rhs_trms with
-            | [rhs1] -> trm_set lt rhs1
-            | _ -> trm_set lt (trm_struct (Mlist.of_list rhs_trms))
+            | [rhs1] -> trm_pass_labels t (trm_set lt rhs1)
+            | _ -> trm_pass_labels t (trm_set lt (trm_struct (Mlist.of_list rhs_trms)))
             end
           | _ -> fail f.loc "Struct_core.set_explicit_aux: expected an assignment instruction"
           end

@@ -42,12 +42,12 @@ let color_aux (nb_colors : trm) (i_color : var option) (t : trm) : trm =
       | _ -> false
       end in
    let nb_colors = nb_colors in 
-    trm_for (i_color, start, direction, nb_colors, (Post_inc), is_parallel) (
+    trm_pass_labels t (trm_for (i_color, start, direction, nb_colors, (Post_inc), is_parallel) (
       trm_seq_nomarks [
         trm_for (index, (if is_step_one then trm_var i_color else trm_apps (trm_binop Binop_mul) [trm_var i_color; loop_step_to_trm step]), direction, stop,
           (if is_step_one then Step nb_colors else Step (trm_apps (trm_binop Binop_mul) [nb_colors; loop_step_to_trm step])), is_parallel) body
       ]
-    )
+    ))
   | _ -> fail t.loc "Loop_core.color_aux: only_simple loops are supported"
 
 (* [color nb_colors i_color t p]: applies [color_aux] at trm [t] with path [p] *)
@@ -86,9 +86,9 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
        let new_body = Internal.change_trm (trm_var index) (trm_var_get index) body in
        trm_for_c init cond step new_body
      end in
-     trm_for (tile_index, start, direction, stop, (if is_step_one step then Step tile_size else Step (trm_mul tile_size (loop_step_to_trm step))), is_parallel) (
+     trm_pass_labels t (trm_for (tile_index, start, direction, stop, (if is_step_one step then Step tile_size else Step (trm_mul tile_size (loop_step_to_trm step))), is_parallel) (
        trm_seq_nomarks [inner_loop]
-     )
+     ))
   | _ -> fail t.loc "Loop_core.tile_aux: only simple loop are supported "
 
 
@@ -365,7 +365,7 @@ let fold_aux (index : var) (start : int) (step : int) (t : trm) : trm =
       if not (Internal.same_trm loop_body local_body)
         then fail t1.loc "Loop_core.fold_aux: all the instructions should have the same shape but differ by the index";
     ) other_instr;
-    trm_for (index, (trm_int start), DirUp, (trm_int nb), (if step = 1 then Post_inc else Step (trm_int step)), false) (trm_seq_nomarks [loop_body])
+    trm_pass_labels t (trm_for (index, (trm_int start), DirUp, (trm_int nb), (if step = 1 then Post_inc else Step (trm_int step)), false) (trm_seq_nomarks [loop_body]))
   | _ -> fail t.loc "Loop_core.fold_aux: expected a sequence of instructions"
 
 (* [fold index start step t p]: applies [fold_aux] at trm [t] with path [p]. *)

@@ -1014,7 +1014,6 @@ let trm_pass_marks (t1 : trm) (t2 : trm) : trm =
   let t2_annot = {t2.annot with trm_annot_marks = t2_marks @ t1_marks} in 
   {t2 with annot = t2_annot}
 
-
 (**** Labels  ****)
 
 (* [trm_get_labels t]: gets all the labels of trm [t]. *)
@@ -1042,12 +1041,19 @@ let trm_rem_label (l : label) (t : trm) : trm =
 
 (* [trm_rem_labels t]: removes all the labels from trm [t]. *)
 let trm_rem_labels (t : trm) : trm =
-  trm_filter_label (fun _ -> true) t
+  apply_on_labels (fun _ -> []) t
 
 (* [trm_has_label l t]: checks if trm [t] has label [l]. *)
 let trm_has_label (l : label) (t : trm) : bool =
   let t_labels = trm_get_labels t in
   List.mem l t_labels
+
+(* [trm_pass_labels t1 t2]: passes the labels of trm [t1] to trm [t2]. *)
+let trm_pass_labels (t1 : trm) (t2 : trm) : trm =
+  let t1_labels = trm_get_labels t1 in 
+  let t2_labels = trm_get_labels t2 in 
+  let t2_annot = {t2.annot with trm_annot_labels = t2_labels @ t1_labels} in 
+  {t2 with annot = t2_annot}
 
 (**** Stringrepr  ****)
 

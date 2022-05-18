@@ -39,8 +39,8 @@ let accumulate_aux (t : trm) : trm =
               let acc = trm_apps f [acc; rs1] in
               let acc_trm = trm_apps f [ls1; acc] in
               if !is_infix_op
-                then trm_prim_compound binop ls acc_trm
-                else trm_set ls acc_trm
+                then trm_pass_labels t (trm_prim_compound binop ls acc_trm)
+                else trm_pass_labels t (trm_set ls acc_trm)
           else
             (trm_apps f [acc; rs1])
         | _ when is_compound_assignment t1->
@@ -51,7 +51,7 @@ let accumulate_aux (t : trm) : trm =
              else if i = nb_instr - 1
               then 
                 let acc_trm = trm_apps (trm_binop binop) [acc; rs] in 
-                trm_prim_compound binop ls acc_trm
+                trm_pass_labels t (trm_prim_compound binop ls acc_trm)
              else 
               trm_apps (trm_binop binop) [acc; rs]
            | _ -> fail t.loc "Instr_core.accumulate_aux: this should never happen"

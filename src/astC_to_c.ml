@@ -283,8 +283,19 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
           intro ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
         ) t_pragmas in
       
+  
+  
   Tools.list_to_doc ~sep:(string "\n") ~bounds:[empty; hardline] t_pragmas_str in
-  let dt = if parentheses then parens (dt) else dpragmas ^^ dt in
+  
+  let t_labels = trm_get_labels t in 
+  let dlabels = if t_labels = [] 
+    then empty 
+    else 
+      let t_labels_str = List.map string t_labels in
+      Tools.list_to_doc ~sep:(colon ^^ blank 1) ~bounds:[empty; colon] t_labels_str
+    in
+  
+  let dt = if parentheses then parens (dt) else dpragmas ^^ dlabels ^^ dt in
   
   let t_marks = trm_get_marks t in 
   

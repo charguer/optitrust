@@ -258,8 +258,6 @@ val cMarkAny : constr
 
 val cLabel : ?substr:bool -> ?body:target -> ?regexp:bool -> string -> constr
 
-val cLabelBody : ?substr:bool -> ?body:target -> ?regexp:bool -> string -> constr
-
 val cGoto : ?label:string -> ?substr:bool -> ?regexp:bool -> unit -> constr
 
 val cReturn_target : ?res:target -> unit -> constr

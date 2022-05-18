@@ -3,7 +3,7 @@ open Target
 
 (* TODO: Fix the issue when using labels instead of marks*)
 (* let _ = Run.doc_script_cpp (fun _ ->
-  !! Loop.fusion_targets [cLabelBody "block"];
+  !! Loop.fusion_targets [cLabel "block"];
   )
 "
 int main() {

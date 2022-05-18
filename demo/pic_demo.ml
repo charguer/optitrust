@@ -261,6 +261,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Loop.tile (var_mut "block") ~bound:TileBoundDivides ~index [step; cFor ("i"^d)];
       Loop.color (lit "2") ~index:("c"^d) [step; cFor index] );
   !! Loop.reorder ~order:Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
+  (* TODO: Fix thes issue with label passing *)
+  !! Label.add "core" [step; cFor "cX"];
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
   !! Instr.set_atomic [step; cLabel "charge"; cWrite ()];
   !! Omp.parallel_for ~collapse:3 [step; cFor "bX"];

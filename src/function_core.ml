@@ -170,7 +170,7 @@ let uninline_aux (fct_decl : trm) (t : trm) : trm =
   | Trm_let_fun (name, _rettype, targs, body) ->
       let inst = Trm_matching.rule_match ~higher_order_inst:true targs body t in
       let args = Ast.tmap_to_list (List.map fst targs) inst in
-      trm_apps (trm_var name) args
+      trm_pass_labels t (trm_apps (trm_var name) args)
   | _ -> fail fct_decl.loc "Function_core.uninline: fct argument should target a function definition"
 
 

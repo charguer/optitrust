@@ -63,10 +63,10 @@ let intro (mark : string) (label : label) (index : int) (nb : int) : Transfo.loc
 let elim_aux (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-     trm_seq_no_brace (Mlist.to_list tl)
+     trm_pass_labels t (trm_seq_no_brace (Mlist.to_list tl))
   | _ -> fail t.loc "Sequenc_core.elim_aux: expected the sequence to be deleteds"
 
-(* [elim t p]: applies [elim_aux] at trm [t] with path [p. *)
+(* [elim t p]: applies [elim_aux] at trm [t] with path [p]. *)
 let elim : Transfo.local =
   apply_on_path(elim_aux)
 
