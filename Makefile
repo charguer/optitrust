@@ -4,7 +4,7 @@ THIS := optitrust
 INSTALL_TARGET=`opam config var prefix`/lib/$(THIS)
 
 
-all: install tests
+all: install runner tests
 
 library:
 	dune build @install
@@ -41,6 +41,9 @@ show_install:
 #   type: open Optitrust;;
 #   type: #show "Run";;
 #   type: exit 0;;
+
+runner: install
+	$(MAKE) -C runner
 
 tests: install
 	$(MAKE) -C tests/ast debug

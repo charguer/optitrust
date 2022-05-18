@@ -40,7 +40,9 @@ fi
 # Run make update in working folder if requested
 if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ]; then
   echo "recompile lib"
-  make optitrust
+  # FIXME: This is very fragile since it requires that the Makefile in 
+  # the transformation script directory have an optitrust target properly configured
+  make optitrust 
   OUT=$?
   if [ ${OUT} -ne 0 ]; then
     echo "Could not compile lib"  >> /dev/stderr
@@ -49,7 +51,9 @@ if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ]; then
 fi
 
 
-PROG="${FILEBASE}_with_lines.byte"
+PROG="${FILEBASE}_with_lines.cmxs"
+# TODO: Install optitrust_runner and use the installed version
+RUNNER="${SRCFOLDER}/runner/optitrust_runner.native"
 
 # First we create the source code for the transformation program
 # ---DEPRECATED:
@@ -79,8 +83,8 @@ fi
 
 
 if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ] || [ "${PROGNEEDSREBUILD}" = "needsrebuild" ]; then
-  echo "ocamlbuild -tag debug -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}"
-  ocamlbuild -tag debug -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}
+  ocamlbuild -use-ocamlfind -r -tags "debug,package(clangml),package(refl),package(pprint),package(str),package(optitrust)" ${PROG}
+  ln -sf _build/${PROG} ${PROG}
 fi
 
 # LATER: capture the output error message
@@ -113,8 +117,8 @@ else
 
   # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp, unless mode is view_trace
   # For that run, we activate the backtrace
-  echo "OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS}"
-  OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS}
+  echo "OCAMLRUNPARAM=b ${RUNNER} ${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS}"
+  OCAMLRUNPARAM=b ${RUNNER} ${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS}
 
   # DEBUG: echo "cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS}"
   # DEPREACTED | tee stdoutput.txt
