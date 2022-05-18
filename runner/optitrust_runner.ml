@@ -14,6 +14,7 @@ let () =
         Printf.printf "OptiTrust runner did not find the compiled script file: %s\n" plugin_name;
         exit 1
       )
-  ) else
-    Printf.eprintf "Error: Expected a transformation script plugin as first argument\n";;
+  ) else (
+    Printf.eprintf "Error: Expected a transformation script plugin as first argument\n";
     exit 1
+  )

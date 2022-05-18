@@ -129,7 +129,7 @@ expected: $(TESTS:.ml=.exp)
 DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 
 # The build command for compiling a script
-BUILD := ocamlbuild -use-ocamlfind -r -quiet -tags "debug,package(clangml),package(refl),package(pprint),package(str),package(optitrust)"
+BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -use-ocamlfind -r -quiet -tags "debug,package(clangml),package(refl),package(pprint),package(str),package(optitrust)"
 
 # Instruction to keep intermediate files
 .PRECIOUS: %.cmxs %.native %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_trace.js %_doc_out.cpp %_with_lines.ml
@@ -159,7 +159,6 @@ BUILD := ocamlbuild -use-ocamlfind -r -quiet -tags "debug,package(clangml),packa
 ifeq ($(BATCH),)
 
 %_out.cpp: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml
-	ls $<
 	$(V)OCAMLRUNPARAM=b $(OPTITRUSTRUN) ./$< $(FLAGS)
 	@echo "Produced $@"
 
@@ -185,9 +184,7 @@ endif
 	$(V)$(BUILD) $@
 %.cmxs: %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@
-	cp _build/$@ $@
-
-#	ln -sf _build/$@ $@
+	$(V)ln -sf _build/$@ $@
 
 # Rule for building the html file to display the trace associated with a script
 # (copy a template, and substitute the JS file name)
