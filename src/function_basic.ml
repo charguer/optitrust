@@ -109,34 +109,20 @@ let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms)
    apply_on_targets (Function_core.replace_with_change_args new_fun_name arg_mapper) tg
 
 (* [dsp_def ~arg ~func tg]: expects the target [tg] to point at a function definition, then it will 
-     insert a new version of that definition whose return type is void.
-     Example:
-      input:
-       int f(int x) {
-        if (x > 0) {
-            return x;
-        } else {
-            return -x;
-        }
-      }
-      output:
-      void f_dsp(int x, int* r) {
-        if (x > 0) {
-          *r = x;
-         } else {
-          *r = -x;
-        }
-      } .
+     inserts a new version of that definition whose return type is void.
     [arg] - is the name of the argument that's going to be inserted,
-    [func] - the name of the new function that's going to be inserted.
-     
-*)
+    [func] - the name of the new function that's going to be inserted. *)
 let dsp_def ?(arg : var = "res") ?(func : var = "dsp") : Transfo.t = 
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Function_core.dsp_def i arg func t p)
 
 
-(* [] *)
+(* [dsp_call ~dsp tg]: expects the target [tg] to point at a function call whose parent trm is a write operation
+    then it will convert that write operation into a a function call.
+    Let's say that the targeted function call is r = f(x, y);
+    If [dsp] is None then the new function call will be [f_dsp(x, y, &r)] otherwise  it will be [dsp(x, y, &r)].
+
+    Note: This transformation assumes that dsp_def has been already applied to the definition of the called function. *)
 let dsp_call ?(dsp : var option = None) : Transfo.t =
   apply_on_transformed_targets (Internal.get_parent_path)
     (fun t p -> Function_core.dsp_call dsp t p)

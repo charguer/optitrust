@@ -92,6 +92,8 @@ TESTS_TOCHECK := \
 	function_rename_args.ml \
 	variable_ref_to_pointer.ml \
 	loop_split_range.ml \
+	function_dsp_def.ml \
+	function_dsp_call.ml \
 
 # missing expected
 # matrix_insert_alloc_dim.ml \

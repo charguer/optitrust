@@ -1,4 +1,3 @@
-
 int f(int x) {
   if (x > 0) {
     return x;
@@ -14,7 +13,6 @@ void f_dsp(int x, int* res) {
     *res = -x;
   }
 }
-
 
 int g(int x, int y) {
   if (x > 0) {
@@ -32,23 +30,17 @@ void g_dsp(int x, int y, int* res) {
   }
 }
 
-
-
-void test_one_arg (){
-
+void test_one_arg() {
   int r;
   int x = 1;
-  r = f(x);
-
+  f_dsp(x, &r);
 }
 
-void test_two_args (){
-
+void test_two_args() {
   int r;
   int x = 1;
   int y = 2;
-  r = g(x, y);
+  g_dsp(x, y, &r);
 }
-
 
 int main() { return 0; }
