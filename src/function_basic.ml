@@ -108,7 +108,29 @@ let rename_args (new_args : var list)  : Transfo.t =
 let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) (tg : target) : unit = 
    apply_on_targets (Function_core.replace_with_change_args new_fun_name arg_mapper) tg
 
-(* [dsp_def ~arg ~func tg] *)
-let  dsp_def ?(arg : var = "res") ?(func : var = "dsp") : Transfo.t = 
+(* [dsp_def ~arg ~func tg]: expects the target [tg] to point at a function definition, then it will 
+     insert a new version of that definition whose return type is void.
+     Example:
+      input:
+       int f(int x) {
+        if (x > 0) {
+            return x;
+        } else {
+            return -x;
+        }
+      }
+      output:
+      void f_dsp(int x, int* r) {
+        if (x > 0) {
+          *r = x;
+         } else {
+          *r = -x;
+        }
+      } .
+    [arg] - is the name of the argument that's going to be inserted,
+    [func] - the name of the new function that's going to be inserted.
+     
+*)
+let dsp_def ?(arg : var = "res") ?(func : var = "dsp") : Transfo.t = 
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Function_core.dsp_def i arg func t p)

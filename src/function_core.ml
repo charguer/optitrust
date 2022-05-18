@@ -43,7 +43,7 @@ let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const
       [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
       [r] - the name of the variable replacing the return statement,
       [t] - ast of the body of the function. *)
-let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm * int) =
+let replace_return_with_assign (exit_label : label) (r : var) (t : trm) : (trm * int) =
   let nb_gotos = ref 0 in
   let rec aux (is_terminal : bool) (t : trm) : trm =
     match t.desc with
@@ -105,7 +105,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
         let name = match trm_to_change.desc with | Trm_let (vk, (x, _), _) -> x| _ -> ""  in
-        let processed_body, nb_gotos = process_return_in_inlining "exit_body" name fun_decl_body in
+        let processed_body, nb_gotos = replace_return_with_assign "exit_body" name fun_decl_body in
         let marked_body = begin match body_mark with
         | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body
         | _ -> Internal.set_nobrace_if_sequence processed_body
@@ -222,12 +222,13 @@ let dsp_def_aux (index : int) (arg : var) (func : var) (t : trm) : trm =
   | Trm_seq tl -> 
      let _, fun_def, _ = Internal.get_trm_and_its_relatives index tl in
      begin match fun_def.desc with 
-     | Trm_let_fun (var, ret_ty, tvl, body) ->
-      let new_body, _ = process_return_in_inlining "exit_label" arg body in 
-      let new_args = tvl @ [(arg, typ_ptr Ptr_kind_mut ret_ty)] in
-      let new_fun_def = trm_let_fun ~annot:fun_def.annot func (typ_unit()) new_args new_body in
-      let new_tl = Mlist.insert_at index new_fun_def tl in 
-      trm_seq ~annot:t.annot new_tl
+     | Trm_let_fun (f, ret_ty, tvl, body) ->
+        let new_body, _ = replace_return_with_assign "exit_label" arg body in 
+        let new_args = tvl @ [(arg, typ_ptr Ptr_kind_mut ret_ty)] in
+        let new_fun = if func = "dsp" then f ^ "_dsp" else func in 
+        let new_fun_def = trm_let_fun ~annot:fun_def.annot new_fun (typ_unit()) new_args new_body in
+        let new_tl = Mlist.insert_at (index+1) new_fun_def tl in 
+        trm_seq ~annot:t.annot new_tl
      | _ -> fail fun_def.loc "Function_core.dsp_def_aux: expected a target to a function definition"
      end
   | _ -> fail t.loc "Function_core.dsp_def_aux: expected the surrouding sequence of the targeted function definition"
