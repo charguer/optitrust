@@ -48,7 +48,7 @@ let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm)
         let intro_seq = trm_seq tl2 in
         let intro_seq = if mark <> "" 
                           then trm_add_mark mark intro_seq 
-                          else if label <> "" then trm_labelled label intro_seq 
+                          else if label <> "" then trm_add_label label intro_seq 
                           else intro_seq in
         let index = if nb < 0 then (index + nb + 1) else index in
          trm_seq  ~annot:t.annot (Mlist.insert_at index intro_seq tl1)
@@ -68,7 +68,7 @@ let elim_aux (t : trm) : trm =
 
 (* [elim t p]: applies [elim_aux] at trm [t] with path [p. *)
 let elim : Transfo.local =
-  apply_on_path(Internal.apply_on_path_targeting_a_sequence (elim_aux) ~keep_label:false "elim")
+  apply_on_path(elim_aux)
 
 (* [intro_on_instr_aux visible mark t]: surround [t] with a sequence,
     [mark] - mark to be added on the introduced sequence,

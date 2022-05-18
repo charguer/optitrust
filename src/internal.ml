@@ -22,7 +22,6 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_do_while _, Trm_do_while _ -> true
   | Trm_switch _, Trm_switch _ -> true
   | Trm_abort _, Trm_abort _ -> true
-  | Trm_labelled _, Trm_labelled _ -> true
   | Trm_goto _, Trm_goto _ -> true
   | Trm_arbitrary _, Trm_arbitrary _ -> true
   | Trm_omp_routine _ , Trm_omp_routine _ -> true
@@ -531,21 +530,6 @@ let nobrace_remove_after ?(remove : bool = true) (f : unit -> unit) : unit =
     nobrace_remove_and_exit() end
   else f()
 
-(* [apply_on_path_targeting_a_sequence ~keep_label tr op_name]: in the cases when targeted sequences are labelled, 
-    this wrapper targets directly the sequence instead of the labeeld ast node *)
-let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (op_name:string) : trm->trm =
-  fun (t:trm) ->
-    match t.desc with
-    | Trm_seq _ -> tr t
-    | Trm_labelled (l, t1) ->
-        begin match t1.desc with
-        | Trm_seq _ ->
-          if keep_label
-          then trm_labelled l (tr t1)
-          else tr t1
-        | _ -> fail t.loc ("Internal." ^ op_name ^ ": expected a labelled sequence")
-        end
-    | _ -> fail t.loc ("Internal." ^ op_name ^ ": expected a sequence or a labelled sequence")
 
 (* [repalce_type_with x y]: replace the current type of variable [y] to [typ_constr x] *)
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =

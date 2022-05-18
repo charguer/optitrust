@@ -79,6 +79,9 @@ type 'a varmap = 'a String_map.t
 (* [label]: labels (for records) *)
 type label = string
 
+(* [labels]: a list of labels. *)
+type labels = label list
+
 (* [string_trm]: description of a term as a string (convenient for the user) *)
 type string_trm = string
 
@@ -296,6 +299,7 @@ and marks = mark list
 (* [trm_annot]: a record containing all kinds of annotations used on the AST of OptiTrust. *)
 and trm_annot = {
     trm_annot_marks : marks;
+    trm_annot_labels : labels;
     trm_annot_stringrepr : stringreprid option;
     trm_annot_pragma : cpragma list;
     trm_annot_cstyle : cstyle_annot list;
@@ -375,7 +379,6 @@ and trm_desc =
    *)
   | Trm_switch of trm * ((trms * trm) list)
   | Trm_abort of abort                            (* return or break or continue *)
-  | Trm_labelled of label * trm                   (* foo: st *)
   | Trm_goto of label                             (* goto foo *)
   | Trm_arbitrary of code_kind                    (* "int x = 10" *)
   | Trm_omp_routine of omp_routine                (* get_thread_id *)
@@ -721,14 +724,12 @@ let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
 (* [trm_annot_default]: default trm annotation *)
 let trm_annot_default = {
   trm_annot_marks = [];
+  trm_annot_labels = [];
   trm_annot_stringrepr = None;
   trm_annot_pragma = [];
   trm_annot_cstyle = [];
   trm_annot_files = [];
 }
-
-
-
 
 
 (* [trm_val ~annot ~loc ~typ ~attributes ~ctx y]: value *)
@@ -813,11 +814,6 @@ let trm_switch ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(c
 let trm_abort ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
   (a : abort) : trm =
   {annot; desc = Trm_abort a; loc = loc; is_statement = true; typ = Some (typ_unit ()); attributes; ctx}
-
-(* [trm_labelled ~annot ~loc ~attributes ~ctx l t]: labelled instruction *)
-let trm_labelled ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
-  (l : label) (t : trm) : trm =
-  {annot; desc = Trm_labelled (l, t); loc; is_statement = false; typ = Some (typ_unit ()); attributes; ctx}
 
 (* [trm_goto ~annot ~loc ~attributes ~ctx l]: goto statement *)
 let trm_goto ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
@@ -958,6 +954,8 @@ let fail (loc : location) (err : string) : 'a =
 
 (* ********************************** Annotation manipulation ************************************ *)
 
+(**** Marks  ****)
+
 (* [apply_on_marks f t]: applies [f] on the marks of [t]. *)
 let apply_on_marks (f : marks -> marks) (t : trm) : trm =
   let t_annot_marks = f (t.annot.trm_annot_marks) in
@@ -983,7 +981,6 @@ let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
     let new_tl = Mlist.insert_mark_at index m tl in 
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "Ast.trm_add_mark_between: expected a sequence"
-
 
 (* [trm_remove_marks t]: removes all the marks from trm [t] *)
 let trm_remove_marks (t : trm) : trm =
@@ -1017,6 +1014,43 @@ let trm_pass_marks (t1 : trm) (t2 : trm) : trm =
   let t2_annot = {t2.annot with trm_annot_marks = t2_marks @ t1_marks} in 
   {t2 with annot = t2_annot}
 
+
+(**** Labels  ****)
+
+(* [trm_get_labels t]: gets all the labels of trm [t]. *)
+let trm_get_labels (t : trm) = 
+ t.annot.trm_annot_labels
+
+(* [apply_on_labels f t]: applies [f] on the labels of [t]. *)
+let apply_on_labels (f : marks -> marks) (t : trm) : trm =
+  let t_labels = trm_get_labels t in 
+  let t_annot_labels = f t_labels in
+  let t_annot = {t.annot with trm_annot_labels = t_annot_labels} in 
+  {t with annot = t_annot}
+
+(* [trm_add_label l]: adds label [l] to trm [t]. *)
+let trm_add_label (l : label) (t : trm) : trm =
+  apply_on_labels (fun labels -> l :: labels) t
+
+(* [trm_filter_label pred t]: filters all labels that satisfy predicate [pred]. *)
+let trm_filter_label (pred : label -> bool) (t : trm) : trm =
+  apply_on_labels (fun labels -> List.filter (fun l -> pred l) labels) t
+
+(* [trm_rem_label l t]: removes label [l] from trm [t]. *)
+let trm_rem_label (l : label) (t : trm) : trm =
+  trm_filter_label (fun l1 -> l <> l1) t
+
+(* [trm_rem_labels t]: removes all the labels from trm [t]. *)
+let trm_rem_labels (t : trm) : trm =
+  trm_filter_label (fun _ -> true) t
+
+(* [trm_has_label l t]: checks if trm [t] has label [l]. *)
+let trm_has_label (l : label) (t : trm) : bool =
+  let t_labels = trm_get_labels t in
+  List.mem l t_labels
+
+(**** Stringrepr  ****)
+
 (* [trm_set_stringreprid id t]: sets the string representation id [t] to [id]. *)
 let trm_set_stringreprid (id : stringreprid) (t : trm) : trm =
   let t_annot = {t.annot with trm_annot_stringrepr = Some id} in
@@ -1025,7 +1059,10 @@ let trm_set_stringreprid (id : stringreprid) (t : trm) : trm =
 (* [trm_get_stringreprid t]: gets the string representation of trm [t]. *)
 let trm_get_stringreprid (t : trm) : stringreprid option =
   t.annot.trm_annot_stringrepr 
-  
+
+
+(**** CPragmas  ****)
+
 (* [apply_on_pragmas f t]: applies [f] on the pragma directives associated with [t]. *)
 let apply_on_pragmas (f : cpragma list -> cpragma list) (t : trm) : trm =
   let t_annot_pragmas = f (t.annot.trm_annot_pragma) in
@@ -1064,6 +1101,9 @@ let trm_pass_pragmas (t1 : trm) (t2 : trm) : trm =
 let trm_get_cstyles (t : trm) : cstyle_annot list =
   t.annot.trm_annot_cstyle
 
+
+(**** CStyle  ****)
+
 (* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)
 let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
   let t_annot_cstyle = f (trm_get_cstyles t) in
@@ -1086,6 +1126,9 @@ let trm_rem_cstyle (cs : cstyle_annot) (t : trm) : trm =
 let trm_has_cstyle (cs : cstyle_annot) (t : trm) : bool = 
   let cstyles = trm_get_cstyles t in
   List.mem cs cstyles
+
+
+(**** Files  ****)
 
 (* [trm_get_files_annot t]: returns all file annotations of trm [t]. *)
 let trm_get_files_annot (t : trm) : files_annot list =
@@ -1329,8 +1372,6 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
      (* return without value, continue, break *)
      | _ -> t
      end
-  | Trm_labelled (l, body) ->
-     trm_labelled ~annot ~loc l (f false body)
   | _ -> t
 
 (* TODO ARTHUR: think about how to factorize this.
@@ -1431,9 +1472,6 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
     | Ret (Some t') -> trm_ret ~annot ~loc (Some (f false t'))
     | _ -> t
     end
-  | Trm_labelled (l, body) ->
-    let body' = f false body in
-    trm_labelled ~annot ~loc l body'
   | _ -> t
 
 

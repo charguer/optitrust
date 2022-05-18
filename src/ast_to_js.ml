@@ -336,10 +336,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
             [ kind_to_field "continue";
               children_to_field [] ]
         end
-    | Trm_labelled (label,t) ->
-        [ kind_to_field "labelled";
-          value_to_field label;
-          children_to_field [child_to_json "labelled" (aux t)]]
     | Trm_goto label ->
         [ kind_to_field "goto";
           (strquote "target", strquote label);

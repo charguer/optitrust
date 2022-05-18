@@ -60,46 +60,12 @@ let fusion_targets : Transfo.t =
       ) tl in
      begin match tg_trm.desc with 
      | Trm_seq tl -> aux tl 
-     | Trm_labelled (_, t1) -> 
-        begin match t1.desc with 
-        | Trm_seq tl -> aux tl
-        | _ -> fail t1.loc "Loop.fusion_targets: expected a labelled sequence or a direct target to a sequence"
-        end
      | _ -> fail tg_trm.loc "Loop.fusion_targets: expected a target pointin to a marked sequence or a labelled sequence"
      end;
      Instr.move_out [nbMulti; cMark mark];
      Marks.remove mark [nbMulti; cMark mark];
      Loop_basic.fusion_on_block [cMark "mark_seq"]
   )
-
-(* let fusion_targets1 (tg : target) : unit =
-  let non_loop_indices = ref [] in
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
-
-    let aux (tl : trm mlist) : unit =
-      Mlist.iteri (fun i t1 ->
-        match t1.desc with
-        | Trm_for _ -> ()
-        | _ -> non_loop_indices := i :: !non_loop_indices
-      ) tl
-     in
-    match tg_trm.desc with
-    | Trm_seq tl ->
-      aux tl
-    | Trm_labelled (l, t1) ->
-      begin match t1.desc with
-      | Trm_seq tl -> aux tl
-      | _ -> fail t.loc "Loop.fusion_targets: expected a labelled sequence or a direct target to a sequence"
-      end
-    | _ -> fail tg_trm.loc "Loop.fusion_targets: expected a target pointing to the sequence that contains
-                            the potential loops to be fused"
-
-  ) tg;
-  Printf.printf "I was here\n";
-  
-  List.iteri (fun i index -> Instr.move_out ~dest:([tBefore] @ tg) (tg @ [dSeqNth (index-i)])) (List.rev !non_loop_indices);
-  Loop_basic.fusion_on_block tg *)
 
 (* [move_out ~upto tg]: expects the target [tg] to point at an instruction inside a for loop,
     then it will move that instruction outside the for loop that it belongs to.

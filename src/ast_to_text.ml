@@ -317,9 +317,6 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
           end
        end in
      print_node "Trm_abort" ^^ parens da
-  | Trm_labelled (l, t) ->
-     let dt = print_trm ~only_desc t in
-     print_node "Trm_labelled" ^^ parens (string l ^^ comma ^/^ dt)
   | Trm_goto l ->
      print_node "Trm_goto" ^^ string l
   | Trm_arbitrary s ->

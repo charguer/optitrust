@@ -178,7 +178,7 @@ let fusion_on_block_aux (t : trm) : trm =
 
 (* [fusion_on_block keep_label t p]: applies [fusion_on_block_aux t p] at trm [t] with path [p]. *)
 let fusion_on_block (keep_label : bool): Transfo.local =
-  apply_on_path (Internal.apply_on_path_targeting_a_sequence ~keep_label (fusion_on_block_aux) "fussion")
+  apply_on_path (fusion_on_block_aux)
 
 (* [grid_enumerate_aux indices_and_bounds t]: transforms a loop over a grid into nested loops over 
     each dimension of that grid,

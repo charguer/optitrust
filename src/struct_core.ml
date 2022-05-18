@@ -118,8 +118,7 @@ let set_implicit_aux (t: trm) : trm =
 
 (* [set_implicit keep_label t p]: applies [set_implicit_aux] at trm [t] with path [p]. *)
 let set_implicit (keep_label : bool) : Transfo.local =
-  apply_on_path (Internal.apply_on_path_targeting_a_sequence ~keep_label (set_implicit_aux) "set_implicit")
-
+  apply_on_path (set_implicit_aux)
 
 (* [inline_struct_accesses x t]: changes all the occurrences of the struct accesses to a field into a field,
       [x] - the name of the field for which the transformation is applied,

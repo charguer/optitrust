@@ -190,7 +190,7 @@ and tr_stmt (s : C.stmt) : trm =
     begin match label with
     | Slabel lb ->
       let t = tr_stmt body in
-      trm_labelled ~loc ~ctx lb t
+      trm_add_label lb t
     | _ -> fail loc "CMenhir_to_astRawC.tr_stmt: switch clauses are not yet supported in OptiTrust"
     end
   | Sgoto lb ->

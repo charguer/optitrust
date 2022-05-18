@@ -757,7 +757,7 @@ let is_equal_lit (l : lit) (l' : lit) =
 
 (* [get_trm_kind t]: gets the kind of trm [t] *)
 (* LATER: we may want to save the kind inside the term? *)
-let rec get_trm_kind (t : trm) : trm_kind =
+let get_trm_kind (t : trm) : trm_kind =
    let is_unit = begin match t.typ with
                  | Some ty ->
                     begin match ty.typ_desc with
@@ -778,7 +778,6 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_seq _ -> TrmKind_Ctrl
    | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
-   | Trm_labelled (_, t) -> get_trm_kind t
    | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ -> TrmKind_Any
 
 
@@ -959,9 +958,10 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         else
           check_target p_fun f &&
           check_list ~depth:(DepthAny) cl_args args
-     | Constr_label (so, p_body), Trm_labelled (l, body) ->
-        check_name so l &&
-        check_target p_body body
+     | Constr_label (so, p_body), _ ->
+        let t_labels = trm_get_labels t in 
+        List.fold_left (fun acc l -> check_name so l || acc) false t_labels &&
+        check_target p_body t
      | Constr_goto so, Trm_goto l ->
         check_name so l
      | Constr_return p_res, Trm_abort (Ret (Some res)) ->
@@ -1391,9 +1391,6 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
      | Trm_struct tl ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_struct_nth n) (aux)
-     | Trm_labelled (l, body) ->
-        add_dir Dir_name (aux (trm_var ~loc l)) @
-        add_dir Dir_body (aux body)
      | Trm_switch (cond, cases) ->
         (add_dir Dir_cond (aux cond)) @
         (Xlist.fold_lefti (fun i epl case -> epl@explore_case depth i case p) [] cases)
@@ -1456,8 +1453,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
     | Dir_body, Trm_for (_, body)
     | Dir_body, Trm_while (_, body)
     | Dir_body, Trm_do_while (body, _)
-    | Dir_body, Trm_abort (Ret (Some body))
-    | Dir_body, Trm_labelled (_, body) ->
+    | Dir_body, Trm_abort (Ret (Some body)) ->
      add_dir Dir_body (aux body)
   | Dir_for_c_init, Trm_for_c (init, _, _, _) ->
      add_dir Dir_for_c_init (aux init)
@@ -1481,7 +1477,6 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr))
   | Dir_name, Trm_let (_,(x,_),_)
     | Dir_name, Trm_let_fun (x, _, _, _)
-    | Dir_name, Trm_labelled (x, _)
     | Dir_name, Trm_goto x ->
      add_dir Dir_name (aux (trm_var ~loc x))
   | Dir_case (n, cd), Trm_switch (_, cases) ->

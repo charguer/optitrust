@@ -325,7 +325,7 @@ and tr_stmt (s : stmt) : trm =
   | Expr e -> tr_expr ~is_statement:true e
   | Label {label = l; body = s} ->
     let t = tr_stmt s in
-    trm_labelled ~loc ~ctx l t
+    trm_add_label l t
   | Null -> trm_lit ~loc ~ctx Lit_unit
   | Switch {init = None; condition_variable = None; cond = c; body = s} ->
     begin match s.desc with

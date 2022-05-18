@@ -388,7 +388,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                       let label_to_add = List.nth labels 0 in 
                         if label_to_add = "" 
                         then new_decl 
-                        else trm_labelled label_to_add (trm_seq_no_brace [
+                        else trm_add_label label_to_add (trm_seq_no_brace [
                           trm_let_mut (local_var, (get_inner_ptr_type ty)) (trm_uninitialized ()); 
                           (trm_set (trm_var local_var) ((trm_cast (get_inner_ptr_type ty) new_alloc_trm)))])
                       end
@@ -411,7 +411,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let fifth_instr = Mlist.nth tl 4 in
                   let new_fifth_instr = if add_labels then 
                      let label_to_add = List.nth labels 2 in                             
-                     if label_to_add = "" then fifth_instr else trm_labelled label_to_add fifth_instr 
+                     if label_to_add = "" then fifth_instr else trm_add_label label_to_add fifth_instr 
                       else fifth_instr in  
                   
                     trm_seq ~annot:t.annot (Mlist.of_list [new_fst_instr; new_snd_instr; new_thrd_instr; new_frth_instr; new_fifth_instr])
@@ -481,7 +481,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                           else if i = 1 then trm_seq_no_brace [new_thrd_instr; new_frth_instr]
                           else trm_seq_no_brace [new_fifth_instr; sixth_instr]
                           in
-                        if lb = "" then new_subsgroup else trm_labelled lb new_subsgroup
+                        if lb = "" then new_subsgroup else trm_add_label lb new_subsgroup
 
                        ) labels 
                     in

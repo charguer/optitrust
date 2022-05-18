@@ -287,8 +287,6 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           {t with desc = Trm_do_while (aux body, cond)}
        | Dir_body, Trm_abort (Ret (Some body)) ->
           { t with desc = Trm_abort (Ret (Some (aux body)))}
-       | Dir_body, Trm_labelled (l, body) ->
-          { t with desc = Trm_labelled (l, aux body)}
        | Dir_for_start, Trm_for ((index, start, direction, stop, step,is_parallel), body) ->
           { t with desc = Trm_for ((index, aux start, direction, stop, step, is_parallel), body)}
        | Dir_for_stop, Trm_for ((index, start, direction, stop, step, is_parallel), body) ->
@@ -333,14 +331,6 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           | _ ->
              fail t.loc "Path.apply_on_path: transformation must preserve names(function)"
           end
-       | Dir_name, Trm_labelled (l, body) ->
-          let t' = aux (trm_var ~loc:t.loc l) in
-          begin match t'.desc with
-          | Trm_var (_, l') -> { t with desc = Trm_labelled (l', body)}
-          | _ ->
-             fail t.loc "Path.apply_on_path: transformation must preserve names(label)"
-          end
-
        | Dir_case (n, cd), Trm_switch (cond, cases) ->
           let updated_cases =
             (Xlist.update_nth n
@@ -431,8 +421,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
        | Dir_body, Trm_let (_,(_,_), body)
          | Dir_body, Trm_while (_, body)
          | Dir_body, Trm_do_while (body, _)
-         | Dir_body, Trm_abort (Ret (Some body))
-         | Dir_body, Trm_labelled (_, body) ->
+         | Dir_body, Trm_abort (Ret (Some body)) ->
           aux body ctx
        | Dir_for_start, Trm_for (l_range, _) ->
           let (_, start, _, _, _, _) = l_range in
@@ -461,7 +450,6 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
             (fun (x, _) -> aux (trm_var ~loc x) ctx)
        | Dir_name , Trm_let (_,(x,_),_)
          | Dir_name, Trm_let_fun (x, _, _, _)
-         | Dir_name, Trm_labelled (x, _)
          | Dir_name, Trm_goto x ->
           aux (trm_var ~loc x) ctx
        | Dir_name, Trm_typedef td ->
