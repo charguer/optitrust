@@ -7,10 +7,11 @@ let () =
     let plugin_name = Sys.argv.(!Arg.current) in
     try
       Dynlink.loadfile plugin_name
-    with 
+    with
       Dynlink.Error err -> (
-        let sbt = Printexc.get_backtrace() in
-        Printf.eprintf "Error loading %s: %s\n%s" plugin_name (Dynlink.error_message err) sbt;
+        (*let sbt = Printexc.get_backtrace() in
+        Printf.eprintf "Error loading %s: %s\n%s" plugin_name (Dynlink.error_message err) sbt; *)
+        Printf.printf "OptiTrust runner did not find the compiled script file: %s\n" plugin_name;
         exit 1
       )
   ) else

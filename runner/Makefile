@@ -1,8 +1,13 @@
 # TODO: Be more clever about when to rebuild
-build: clean
+
+all: build
+
+build:
 	ocamlbuild -use-ocamlfind optitrust_runner.native
 
+rebuild: clean build
+
 clean:
-	rm -r _build
+	rm -rf _build
 
 .PHONY: build clean
