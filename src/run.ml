@@ -199,7 +199,7 @@ let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : st
          in this case, record the last step in the history *)
       if !Flags.dump_trace || !Flags.analyse_time then begin
         Trace.check_exit_and_step ~is_small_step:false ();
-        Trace.report_full_time();
+        (* Trace.report_full_time(); *) (* TODO: *)
       end;
       if !Flags.dump_trace then begin
         Trace.dump_traces_to_js ~prefix ();

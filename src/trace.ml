@@ -114,11 +114,11 @@ let last_time_update () : int =
 
 (* [report_time_of_step()]: reports the total duration of the last step.
    As bonus, reports the number of steps in target resolution. *)
-let report_time_of_step (timing : int) : unit =
+(* let report_time_of_step (timing : int) : unit =
   if !Flags.analyse_time then begin
     write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" timing);
     write_timing_log (Printf.sprintf "     TARGETS: %d nodes visited for target resolution\n" (Constr.resolve_target_steps()));
-  end
+  end *)
 
 (* [report_full_time ()]: reports the time for the last step, and for the full total. *)
 let report_full_time () : unit =
@@ -975,7 +975,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
     if not ignore_step then begin
       (* Processing of a regular step, which is not ignored by the [-only-big-steps flag] *)
       let exectime = last_time_update() in
-      report_time_of_step exectime;
+      (* report_time_of_step exectime; *)
       (* Handle exit of script *)
       let should_exit =
         match Flags.get_exit_line() with

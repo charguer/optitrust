@@ -698,20 +698,6 @@ let is_target_between (tr : target) : bool =
    tgs.target_relative <> TargetAt
 
 (******************************************************************************)
-(*               Performance Counters for Target resolution                   *)
-
-(* [resolve_target_steps()]: returns the number of AST nodes visited during
-   the target resolution steps, then resets the counter. *)
-
-let resolve_target_steps_counter = ref 0
-
-let resolve_target_steps () : int =
-  let nb = !resolve_target_steps_counter in
-  resolve_target_steps_counter := 0;
-  nb
-
-
-(******************************************************************************)
 (*                              Target resolution                             *)
 (******************************************************************************)
 
@@ -1127,7 +1113,7 @@ and debug_resolution = false
      [trs]: a clean target t
      [t]: ast  *)
 and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t : trm) : paths =
-  incr resolve_target_steps_counter;
+  Stats.incr_target_resolution_steps ();
   let epl =
     match trs with
     | [] -> [[]]

@@ -732,54 +732,85 @@ let trm_annot_default = {
   trm_annot_files = [];
 }
 
+(* [trm_build ~annot ~loc ~is_statement ~typ ~ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
+let trm_build ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(typ = None)
+  ?(ctx : ctx option = None) ~desc:(desc : trm_desc) () : trm =
+  let t = {annot; loc; is_statement; typ; desc; ctx} in 
+  Stats.incr_trm_alloc ();
+  t
+
+(* [is_statement_of_desc t_desc]: checks if t_tesc corresponds to a statement or not  *)
+let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
+  match t_desc with 
+  | Trm_let _ | Trm_let_mult _ | Trm_let_fun _ | Trm_typedef _ | Trm_if _ | Trm_seq _ | Trm_while _ 
+  | Trm_do_while _ | Trm_for_c _ | Trm_for _ | Trm_switch _ | Trm_abort _ | Trm_goto _  -> true 
+  | Trm_apps _ -> 
+    begin match ty with 
+    | Some {typ_desc = Typ_unit ; _} -> true
+    | _ -> false
+    end
+  | _ -> false
+  
+
+(* [trm_make ~annot ~loc ~is_statement ~typ ~ctx ] *)
+let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc = None) ?(is_statement : bool option) 
+    ?(typ : typ option = None) ?(ctx : ctx option = None) (desc : trm_desc) : trm =
+   let is_statement =
+     match is_statement with
+     | Some b -> b
+     | None -> is_statement_of_desc typ desc
+     in
+   trm_build ~annot ~desc ~loc ~is_statement ~typ ~ctx ()
+
+
 
 (* [trm_val ~annot ~loc ~typ ~ctx y]: value *)
-let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
+let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (v : value) : trm =
   {annot; desc = Trm_val v; loc = loc; is_statement = false; typ; ctx}
 
 (* [trm_var ~annot ~loc ~typ ~ctx ~kind x]: variable occurrence *)
-let trm_var ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_var ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
   ?(kind : varkind = Var_mutable) (x : var) : trm =
   {annot; desc = Trm_var (kind,x); loc = loc; is_statement = false; typ; ctx}
 
 (* [trm_array ~annot ~loc ~typ ~ctx tl]: array initialization list *)
-let trm_array ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_array ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
   (tl : trm mlist) : trm =
   {annot; desc = Trm_array tl; loc = loc; is_statement = false; typ; ctx}
 
 (* [trm_struct ~annot ~loc ~typ ~ctx tl]: struct initialization list *)
-let trm_struct ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_struct ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
   (tl : trm mlist) : trm =
   {annot; desc = Trm_struct tl; loc = loc; is_statement = false; typ; ctx}
 
 (* [trm_let ~annot ~loc ~ctx kind typed_var init]: variable declaration *)
-let trm_let ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_let ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None)
   (kind : varkind) (typed_var : typed_var) (init : trm): trm =
   {annot; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; typ = Some (typ_unit ()); ctx}
 
 (* [trm_let ~annot ~loc ~ctx kind ty vl tl]: multiple variable declarations *)
 let trm_let_mult ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
-  ?(attributes = []) ?(ctx : ctx option = None) (kind : varkind)
+  ?(ctx : ctx option = None) (kind : varkind)
    (ty : typ) (vl : var list) (tl : trms) : trm =
   {annot; desc = Trm_let_mult (kind, ty, vl, tl); loc = loc; is_statement; typ = Some (typ_unit ()); ctx}
 
 (* [trm_let ~annot ~loc ~ctx name ret_typ args body]: function definition *)
-let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None)
   (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
   {annot; desc = Trm_let_fun (name,ret_typ,args,body); loc = loc; is_statement; typ = Some (typ_unit ()); ctx}
 
 (* [trm_typedef ~annot ~loc ~ctx def_typ]: type definition *)
-let trm_typedef ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_typedef ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(ctx : ctx option = None)
   (def_typ : typedef): trm =
   {annot; desc = Trm_typedef def_typ; loc = loc; is_statement; typ = Some (typ_unit ()); ctx}
 
 (* [trm_if ~annot ~loc ~ctx cond tb eb]: if statement *)
-let trm_if ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) (cond : trm)
+let trm_if ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (cond : trm)
   (tb : trm) (eb : trm) : trm =
   {annot; desc = Trm_if (cond, tb, eb); loc = loc; is_statement = false; typ = Some (typ_unit ()); ctx}
 
 (* [trm_seq ~annot ~loc ~ctx tl]: block statement *)
-let trm_seq ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
+let trm_seq ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) 
   (tl : trm mlist) : trm =
   {annot; desc = Trm_seq tl; loc = loc; is_statement = false;typ = Some (typ_unit ()); ctx}
 
@@ -789,44 +820,44 @@ let trm_apps ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = 
   {annot; desc = Trm_apps (f, args); loc = loc; is_statement; typ; ctx}
 
 (* [trm_while ~annot ~loc ~ctx cond body]: while loop *)
-let trm_while ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
+let trm_while ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) 
   (cond : trm) (body : trm) : trm =
   {annot; desc = Trm_while (cond, body); loc = loc; is_statement = false;
    typ = Some (typ_unit ()); ctx}
 
 (* [trm_do_while ~annot ~loc ~ctx cond body]: do while loop *)
-let trm_do_while ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
+let trm_do_while ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) 
   (body : trm) (cond : trm) : trm =
   {annot; desc = Trm_do_while (body, cond); loc = loc; is_statement = false; typ = Some (typ_unit ()); ctx}
 
 (* [trm_for_c ~annot ~loc ~ctx init cond step body]: for loop *)
-let trm_for_c?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
+let trm_for_c?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) 
   (init : trm) (cond : trm) (step : trm) (body : trm) : trm =
   {annot; desc = Trm_for_c (init, cond, step, body); loc; is_statement = false;
    typ = Some (typ_unit ()); ctx}
 
 (* [trm_switch ~annot ~loc ~ctx cond cases]: switch statement *)
-let trm_switch ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
+let trm_switch ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) 
   (cond : trm) (cases : (trms * trm) list) : trm =
   {annot; desc = Trm_switch (cond, cases); loc; is_statement = false; typ = Some (typ_unit ()); ctx}
 
 (* [trm_abort ~annot ~loc ~ctx a]: abort instruction *)
-let trm_abort ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
+let trm_abort ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) 
   (a : abort) : trm =
   {annot; desc = Trm_abort a; loc = loc; is_statement = true; typ = Some (typ_unit ()); ctx}
 
 (* [trm_goto ~annot ~loc ~ctx l]: goto statement *)
-let trm_goto ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) 
+let trm_goto ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) 
   (l : label) : trm =
   {annot; desc = Trm_goto l; loc; is_statement = true; typ = Some (typ_unit ()); ctx}
 
 (* [trm_uninitialized ~annot ~loc ~ctx ()]: used for variable declarations without initialization
     and function declarations *)
-let trm_uninitialized ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) () : trm =
+let trm_uninitialized ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) () : trm =
   {annot; desc = Trm_val (Val_lit Lit_uninitialized); loc = loc; is_statement=false; typ = None; ctx}
 
 (* [trm_for ~annot ~loc ~ctx index start direction stop step body]: simple for loop *)
-let trm_for ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_for ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
   (loop_range : loop_range) (body : trm) : trm =
   { annot; desc = Trm_for (loop_range, body); loc; is_statement = false;
    typ = Some (typ_unit ()); ctx}
@@ -844,7 +875,7 @@ let trm_extern ?(loc = None) (lang : string) (tl : trms) : trm =
   {annot = trm_annot_default; desc = Trm_extern (lang, tl); loc = loc; is_statement = false; typ = None; ctx = None}
 
 (* [trm_namespace ~loc ~ctx name t inline ]: namespace *)
-let trm_namespace ?(loc = None) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_namespace ?(loc = None) ?(typ=None) ?(ctx : ctx option = None)
   (name : string) (t : trm ) (inline : bool) : trm =
   {annot = trm_annot_default; desc = Trm_namespace (name, t, inline); loc = loc; is_statement = false; typ; ctx}
 
@@ -854,7 +885,7 @@ let trm_let_record ?(loc = None) ?(ctx : ctx option = None)
   {annot = trm_annot_default; desc = Trm_let_record (name, rt, lt, t); loc = loc; is_statement = true; typ = None; ctx}
 
 (* [trm_template ~loc ~typ ~ctx tpl t]: template statemented *)
-let trm_template ?(annot = trm_annot_default) ?(loc = None) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_template ?(annot = trm_annot_default) ?(loc = None) ?(typ=None) ?(ctx : ctx option = None)
   (tpl : template_parameter_list) (t : trm ) : trm =
   {annot; desc = Trm_template (tpl, t); loc = loc; is_statement = true; typ; ctx}
 
@@ -907,7 +938,7 @@ let trm_neq ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = f
   trm_apps ~annot:annot ~loc ~is_statement ~ctx ~typ:(Some (typ_unit ())) (trm_binop Binop_neq) [t1; t2]
 
 (* [trm_seq_nomarks ~annot ~loc ~ctx tl]: hidden block statement *)
-let trm_seq_nomarks ?(annot = trm_annot_default) ?(loc = None) ?(attributes = []) ?(ctx : ctx option = None) (tl : trms) : trm =
+let trm_seq_nomarks ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (tl : trms) : trm =
   trm_seq ~annot ~loc ~ctx (Mlist.of_list tl)
 
 (* [typ_ref_inv ty]: get the inner type of a reference *)
@@ -2071,7 +2102,7 @@ let new_operation_inv (t : trm) : (typ * trm) option =
 (* [trm_let_mut ~annot ~is_statement ~ctx typed_var init]: an extension of trm_let for
     creating mutable variable declarations *)
 let trm_let_mut ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
-  ?(attributes = []) ?(ctx : ctx option = None) (typed_var : typed_var) (init : trm): trm =
+  ?(ctx : ctx option = None) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr_generated var_type in
   let t_let = trm_let ~loc ~is_statement ~ctx Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init]) in
@@ -2079,7 +2110,7 @@ let trm_let_mut ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool
 
 (* [trm_let_ref ~annot ~is_statement ~ctx typed_var init]: an extension of trm_let for creating references *)
 let trm_let_ref ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
-  ?(attributes = []) ?(ctx : ctx option = None) (typed_var : typed_var) (init : trm): trm =
+  ?(ctx : ctx option = None) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr_generated var_type in
   let t_let = trm_let ~loc ~is_statement ~ctx Var_mutable (var_name, var_type_ptr) init in
@@ -2089,7 +2120,7 @@ let trm_let_ref ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool
 (* [trm_let_IMmut ~annot ~is_statement ~ctx typed_var init]: an extension of trm_let for
     creating immutable variable declarations *)
 let trm_let_immut ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
-  ?(attributes = []) ?(ctx : ctx option = None) (typed_var : typed_var) (init : trm): trm =
+  ?(ctx : ctx option = None) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type = typ_const var_type in
   trm_let ~annot ~loc ~is_statement ~ctx Var_immutable (var_name, var_type) (init)
@@ -2097,7 +2128,7 @@ let trm_let_immut ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bo
 (* [trm_let_array ~annot ~is_statement ~ctx typed_var sz init]: an extension of trm_let
     for creating array variable declarations *)
 let trm_let_array ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false)
-  ?(attributes = []) ?(ctx : ctx option = None) (kind : varkind )(typed_var : typed_var)
+  ?(ctx : ctx option = None) (kind : varkind )(typed_var : typed_var)
    (sz : size)(init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type = if kind = Var_immutable then typ_const (typ_array var_type sz) else typ_ptr_generated (typ_array var_type sz) in
