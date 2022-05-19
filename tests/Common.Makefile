@@ -140,7 +140,7 @@ DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -use-ocamlfind -r -quiet -tags "debug,package(clangml),package(refl),package(pprint),package(str),package(optitrust)"
 
 # Instruction to keep intermediate files
-.PRECIOUS: %.cmxs %.native %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_trace.js %_doc_out.cpp %_with_lines.ml
+.PRECIOUS: %.cmxs %.native %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_doc.js %_trace.js %_doc_out.cpp %_with_lines.ml %_with_lines.cmxs
 
 # Rule for viewing the encoding of an output
 %.enc: %_out.cpp
@@ -166,7 +166,8 @@ BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -us
 #-----begin rules for non-batch mode------
 ifeq ($(BATCH),)
 
-%_out.cpp: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml $(RUNNER)
+# $(RUNNER) as dependency?
+%_out.cpp: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml 
 	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< $(FLAGS)
 	@echo "Produced $@"
 
@@ -190,7 +191,9 @@ endif
 	$(V)$(BUILD) $@
 %.byte: %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@
-%.cmxs: %.ml $(OPTITRUSTLIB) $(RUNNER)
+
+# $(RUNNER) as dependency?
+%.cmxs: %.ml $(OPTITRUSTLIB) 
 	$(V)$(BUILD) $@
 	$(V)ln -sf _build/$@ $@
 

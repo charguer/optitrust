@@ -19,21 +19,11 @@ TESTS_WITH_DOC := \
 	instr_move.ml \
 	instr_moveout.ml \
 	expr_replace_fun.ml \
-	function_bind.ml \
-	function_bind_args.ml \
-	function_elim_body.ml \
-	function_use_infix_ops.ml \
-	function_inline_complex.ml \
-	function_inline_simple.ml \
-	function_inline_struct.ml \
-	instr_accumulate.ml \
 	instr_inline_last_write.ml \
 	instr_read_last_write.ml \
 	loop_fold.ml \
 	loop_fusion.ml \
-	loop_fusion_targets.ml \
 	loop_grid_enumerate.ml \
-	loop_hoist.ml \
 	loop_moveout.ml \
 	loop_reorder.ml \
 	loop_unroll.ml \
@@ -43,22 +33,32 @@ TESTS_WITH_DOC := \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
   struct_rename_field.ml \
-	variable_inline_and_rename.ml \
-	variable_insert.ml \
 	variable_insert_list.ml \
 	variable_insert_and_fold.ml \
-  variable_intro_pattern_array.ml \
 	variable_renames.ml \
 	variable_reuse.ml \
 
 TESTS_WITHOUT_DOC := \
+	loop_hoist.ml \
+	loop_fusion_targets.ml \
+	instr_accumulate.ml \
+	function_bind.ml \
+	function_inline_complex.ml \
+	function_inline_simple.ml \
+	function_inline_struct.ml \
+	function_bind_args.ml \
+	function_elim_body.ml \
+	function_use_infix_ops.ml \
 	loop_move.ml \
 	loop_fission.ml \
 	loop_fold_instrs.ml \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_elim_redundant.ml \
-  
+  	variable_inline_and_rename.ml \
+	variable_insert.ml \
+  variable_intro_pattern_array.ml \
+
 
 TESTS_TOCHECK := \
 	function_beta.ml \

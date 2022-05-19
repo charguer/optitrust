@@ -110,7 +110,7 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
    var srcContents = eval(targetJsFunctionSrc + "()");
    if (typeof hide_basic !== 'undefined' && hide_basic) { // hack to handle inclusion of basic tests in the combi folder
      srcContents = srcContents.replace("_basic.", ".");
-   } else
+   }
    var srcHTML = "<pre><code class='ocaml'>"+escapeHTML(shrinkSrc(srcContents))+"</code></pre>";
    var srcWarning = "";
    if (enableWarning && sWarning) {

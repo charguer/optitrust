@@ -6,13 +6,13 @@ TARGET_MAKE_ALL := check
 
 FLAGS := -dump-ast-details
 
+
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	arith_simpl.ml \
 	arith_scale.ml \
 	arith_shift.ml \
-	array_set_explicit.ml \
 	array_tile.ml \
 	array_to_variables.ml  \
 	cast_insert.ml \
@@ -77,6 +77,7 @@ TESTS_WITH_DOC := \
 
 
 TESTS_WORKING_NOTINDOC := \
+	array_set_explicit.ml \
 	specialize_choose.ml \
 	specialize_any.ml \
 
