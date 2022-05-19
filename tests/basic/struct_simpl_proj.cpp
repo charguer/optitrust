@@ -4,20 +4,11 @@ typedef struct {
   int z;
 } vect;
 
-vect vect_add (vect v1, vect v2) {
-  return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
-}
+int main(){
 
-vect vect_mul(int i, vect v) {
-  return { i * v.x, i * v.y, i * v.z };
-}
-
-
-int main()
-{
-  vect a = {0,1};
+  vect a = {0,1,2};
   int x = 1;
   vect b = {3,4,5};
-  vect c = vect_add (b, vect_mul(x, a));
+  vect c = {b.x + (vect){x * a.x, x * a.y, x * a.z}.x, b.y + (vect){x * a.x, x * a.y, x * a.z}.y, b.z + (vect){x * a.x, x * a.y, x * a.z}.z};
   return 0;
 }

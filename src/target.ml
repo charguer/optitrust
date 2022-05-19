@@ -701,7 +701,7 @@ let cPrimNew ?(arg : target = []) () : constr =
 
 (* [cInit ~arg ()]: matches a variable initialization value 
      [arg] - match based on the arg of the "new" primitive. *)
-let cInit ?(arg:target = []) () : constr =
+let cInit ?(arg : target = []) () : constr =
   cOr [[ cPrimNew ~arg (); dArg 0 ]; [dBody]]
 
 (* [dInit]: alias to dBody used for variable initializations. *)
