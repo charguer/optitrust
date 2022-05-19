@@ -388,8 +388,6 @@ let ast_to_json (trm_root : trm) : json =
       (strquote "is_statement", Json.Boolean t.is_statement);
       (* (strquote "annot", strquote (annot_list_to_string t) ); *) (* Fix me! *)
       (strquote "loc", loc_to_json t);
-      (strquote "attributes", Json.List (List.map Json.str (List.map Tools.document_to_string
-                                 (List.map print_attribute t.attributes))))
       ]) in
     result := (Json.Int id, json) :: !result;
     id in

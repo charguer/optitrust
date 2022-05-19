@@ -394,9 +394,11 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
      in
      print_node "Typedef_enum" ^^ print_pair (string tname) denum_const_l
 
-(* [print_trm ~only_desc t]: converts trm [t] to pprint document *)
-and print_trm ?(only_desc : bool = false) (t : trm) : document =
-  let ddesc = print_trm_desc ~only_desc t.desc in
+and print_trm_annot (t : trm) : document =
+  
+  let t_attributes = trm_get_attr t in 
+  let dattr = print_list (List.map (print_attribute ) t_attributes) in
+  
   let t_marks = trm_get_marks t in 
   let dmarks = print_list (List.map string t_marks) in
 
@@ -412,42 +414,43 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let files_annot = trm_get_files_annot t in
   let dfiles_str = List.map print_files_annot files_annot in
   let dfiles = print_list dfiles_str in
+  braces (separate (blank 1) [string "trm_annot_attributes"; equals;
+    dattr ^^ semi ^//^ string "trm_annot_marks"; equals;
+    dmarks ^^ semi ^//^ string "trm_annot_stringrepr"; equals;
+    dstringrepr ^^ semi ^//^ string "trm_annot_pragma"; equals;
+    dpragmas ^^ semi ^//^ string "trm_annot_cstyle"; equals;
+    dcstyle ^^ semi ^//^ string "trm_annot_files"; equals;
+    dfiles])
 
+
+(* [print_trm ~only_desc t]: converts trm [t] to pprint document *)
+and print_trm ?(only_desc : bool = false) (t : trm) : document =
+  let ddesc = print_trm_desc ~only_desc t.desc in
   if only_desc then ddesc
     else
-      let dannot = braces (separate (blank 1) [string "trm_annot_marks"; equals;
-                                                dmarks ^^ semi ^//^ string "trm_annot_stringrepr"; equals;
-                                                dstringrepr ^^ semi ^//^ string "trm_annot_pragma"; equals;
-                                                dpragmas ^^ semi ^//^ string "trm_annot_cstyle"; equals;
-                                                dcstyle ^^ semi ^//^ string "trm_annot_files"; equals;
-                                                dfiles])
-     in
-    let dloc =
-      begin match t.loc with
-      | None -> underscore
-      | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
-         print_pair (string filename) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column) )
+      let dannot = print_trm_annot t in
+      
+      let dloc =
+        begin match t.loc with
+        | None -> underscore
+        | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
+           print_pair (string filename) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column) )
+        end
+      in
+      let dinstr = string (string_of_bool t.is_statement) in
 
-      end
-    in
-    let dinstr = string (string_of_bool t.is_statement) in
-
-    let dtyp =
-      match t.typ with
-      | None -> underscore
-      | Some ty -> print_typ ~only_desc ty
-    in
-    let dattr =
-      print_list (List.map (print_attribute ~only_desc) t.attributes)
-    in
-    braces (separate (blank 1) [string "annot"; equals;
+      let dtyp =
+        match t.typ with
+        | None -> underscore
+        | Some ty -> print_typ ~only_desc ty
+      in
+      braces (separate (blank 1) [string "annot"; equals;
                                 dannot ^^ semi ^//^ string "desc"; equals;
                                 ddesc ^^ semi ^//^ string "loc"; equals;
                                 dloc ^^ semi ^//^ string "is_statement"; equals;
                                 dinstr ^^ semi ^//^ string "add"; equals;
                                 string "typ"; equals;
-                                dtyp ^^ semi ^//^ string "attributes"; equals;
-                                dattr])
+                                dtyp])
 
 (* [print_files_annot ann]: prints as string files annotation [ann] *)
 and print_files_annot (ann : files_annot) : document =

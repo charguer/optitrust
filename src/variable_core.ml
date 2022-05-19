@@ -418,7 +418,7 @@ exception Variable_to_const_abort
 
 (* [from_to_const_aux index t]: changes the mutability of a variable without explicit writes,
       [to_const] - if true, then the transformation will try to transform the targeted variable
-        into a const variable otherwise into a non const variable,
+        into a const variable and vice versa,
       [index] - the index of the targeted declaration inside its surrounding sequence,
       [t] - ast of the sequence that contains the targeted declaration. *)
 let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =

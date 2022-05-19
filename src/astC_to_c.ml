@@ -320,8 +320,9 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
 and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false)  (t : trm) : document =
   let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
+  let t_attributes = trm_get_attr t in 
   let dattr =
-    match t.attributes with
+    match t_attributes with
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
     in
