@@ -72,6 +72,7 @@ TESTS_TOCHECK := \
 	matrix_intro_mops.ml \
 	loop_isolate_first_iteration.ml \
 	struct_align_field.ml \
+	instr_moveout_of_fun.ml \
 
 #variable_inline.ml \ TODO: Update variable_inline unit test
 

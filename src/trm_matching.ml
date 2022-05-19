@@ -193,7 +193,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
           then fail t2.loc (Printf.sprintf "Trm_matching.rule_match: the function call does not have the same number of arguments
                                             as the higher-order function variable %s" x);
         let targs = List.combine xargs typ_args in
-        (* TODO ARTHUR: we need to replace "get p" by "p" for each argument "p" that did not have type const *)
+        (* LATER ARTHUR: we need to replace "get p" by "p" for each argument "p" that did not have type const *)
         (* let body = t2 in *)
         let body = List.fold_left (fun tacc x ->
           Variable_core.remove_get_operations_on_var_temporary x tacc) t2 xargs in

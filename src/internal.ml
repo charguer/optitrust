@@ -204,6 +204,14 @@ let get_parent_path (dl : path) : path =
   | _ :: dl' -> List.rev dl'
   | _ -> dl
 
+
+(* [get_ascendant_topfun_path dl]: returns the path to the toplevel function that contains 
+     the trm where the path [dl] points to. *)
+let get_ascendant_topfun_path (dl : path) : path option =
+  match dl with 
+  | Dir_seq_nth i :: Dir_body :: _ -> Some [Dir_seq_nth i]
+  | _ -> None
+
 (* [is_decl_body dl]: check if [dl] points to a declaration body *)
 let is_decl_body (dl : path) : bool =
   match List.rev dl with

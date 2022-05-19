@@ -143,21 +143,24 @@ let move_out : Transfo.t =
     move ~dest:tg_seq tg_instr
   )
 
-(* TODO: Debug *)
 (* [move_out_of_fun tg]: moves the instruction targeted by [tg] just befor the toplevel declaration function 
     that it belongs to. *)
 let move_out_of_fun (tg : target) : unit =
-  let mark = "move_out_of_fun" in 
-  Marks.add mark [cTopFunDef ~body:tg ""];
-  iter_on_targets 
-  ( fun t p -> 
-     let tg_instr = target_of_path p in 
-     move ~dest:[cMark mark] tg_instr
-  ) tg;
-  Marks.remove mark [cMark mark]
+  iteri_on_targets (fun i t p ->
+    let path_to_topfun = Internal.get_ascendant_topfun_path p in 
+    let mark = "move_out_fun" ^ (string_of_int i) in 
+    match path_to_topfun with 
+    | Some pf -> begin
+      Marks.add mark (target_of_path pf);
+      let tg_instr = target_of_path p in 
+      move ~dest:[cMark mark] tg_instr;
+      Marks.remove mark [cMark mark]
+      end
+    | None -> fail None "Instr.move_out_of_fun: can't move toplevel instructions"
+    
+  ) tg
 
 (* [set_atomic tg]: just an alias to Omp.atomic tg, please refer to omp_basic.ml  line 9 *)
-
 let set_atomic : Transfo.t = 
   Omp_basic.atomic 
 
