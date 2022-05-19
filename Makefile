@@ -1,8 +1,8 @@
 # The project's name.
 THIS := optitrust
 
-INSTALL_TARGET=`opam config var prefix`/lib/$(THIS)
-
+OPTITRUST_PREFIX := `opam config var prefix`
+INSTALL_TARGET := $(OPTITRUST_PREFIX)/lib/$(THIS)
 
 all: install tests
 
@@ -21,7 +21,7 @@ install_compcert_stdlib:
 	install -m 0644 $(COMPCERT_STDLIB_DIR_SRC)/*.h $(COMPCERT_STDLIB_DIR_DST)
 
 
-install: install_lib
+install: install_lib runner
 	mkdir -p $(INSTALL_TARGET)/tools
 	install -m755 tools/*.* $(INSTALL_TARGET)/tools
 
@@ -41,6 +41,12 @@ show_install:
 #   type: open Optitrust;;
 #   type: #show "Run";;
 #   type: exit 0;;
+
+force:
+
+runner: force
+	$(MAKE) -C runner build
+	install -m755 runner/optitrust_runner.native $(OPTITRUST_PREFIX)/bin/
 
 tests: install
 	$(MAKE) -C tests/ast debug

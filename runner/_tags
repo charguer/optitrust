@@ -1,0 +1,2 @@
+true: debug
+<optitrust_runner.*>: linkall, linkpkg, package(clangml), package(refl), package(pprint), package(str), package(optitrust), package(dynlink)
