@@ -63,7 +63,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Optimization in [cornerInterpolationCoeff] debug";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
-  !! Rewrite.equiv_at "double a; ==> 1. - a == (1. + (-1.) * a)" [nbMulti; ctx; cVarDefReg "c."; cInit()];
+  !! Rewrite.equiv_at "double a; ==> 1. - a == (1. + (-1.) * a)" [nbMulti; ctx; cVarDefReg "c."; dVarInit];
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; cWrite(); cVarReg "r[X-Z]"];
   !! Variable.inline [nbMulti; ctx; cVarDefReg "c."];
   !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
@@ -136,7 +136,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
       [nbMulti; steps; cFieldWrite ~base:[cVar "c"] (); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
   if usechecker then (!! iter_dims (fun d ->
-        Accesses.scale ~inv:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarDef ("speed"^d); cInit()]));
+        Accesses.scale ~inv:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarInit ("speed"^d)]));
 
   bigstep "Applying a scaling factor on positions";
   !! iter_dims (fun d ->
@@ -183,7 +183,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.shift ~inv:true ~factor:(var ("i" ^ d ^ "2")) [step; cVarDef ("r" ^ d ^ "1"); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
 
   bigstep "Simplify arithmetic expressions after shifting of positions";
-  !! Rewrite.equiv_at ~ctx:true "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDefReg "p.2"; cInit()];
+  !! Rewrite.equiv_at ~ctx:true "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDefReg "p.2"; dVarInit];
   !! iter_dims (fun d ->
       Instr.read_last_write ~write:[cTopFunDef "computeConstants"; cWriteVar ("cell"^d)] [nbMulti;step; cFun "fwrap";cReadVar ("cell"^d)];);
   !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "idCorner"] (fun () ->
@@ -212,7 +212,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     !! Rewrite.equiv_at ~ctx:true "int a, b; ==> wrap(a,b) == (b & (a -1))" [nbMulti; step; cFun "wrap"];
 
   bigstep "Simplification of computations for positions and destination cell";
-  !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarDef ("i"^d^"2");cInit()];);
+  !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarInit ("i"^d^"2")];);
   !! Variable.inline_and_rename [nbMulti; step; cVarDefReg "i.2" ];
   !! Variable.inline [nbMulti; step; cVarDefReg "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];

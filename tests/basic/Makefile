@@ -94,15 +94,17 @@ TESTS_TOCHECK := \
 	loop_split_range.ml \
 	function_dsp_def.ml \
 	function_dsp_call.ml \
+	struct_simpl_proj.ml \
+	rewrite_equiv_at.ml \
+
+
 
 # missing expected
 # matrix_insert_alloc_dim.ml \
 #	matrix_insert_access_dim_index.ml \
 
 TESTS_TO_FIX := \
-	struct_simpl_proj.ml \
 	accesses_intro.ml \
-	rewrite_equiv_at.ml \
 	variable_simpl_deref.ml \
 	typedef_fold.ml \
 	typedef_unfold.ml \

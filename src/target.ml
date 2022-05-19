@@ -154,6 +154,10 @@ let dElse : constr =
 let dBody : constr =
   Constr_dir Dir_body
 
+(* [dVarBody]: matches the body of a variable definition, bypassing the new operation. *)
+let dVarBody : constr =
+  Constr_dir Dir_var_body
+
 (* [dForStart]: matches the initialization value of a simple loop. *)
 let dForStart : constr =
   Constr_dir Dir_for_start
@@ -350,6 +354,10 @@ let cVarDefs (vars : vars) : constr =
 (* [cVarDefReg reg]: matches variable definitions using regexp. *)
 let cVarDefReg (reg : string) : constr =
   cVarDef ~regexp:true reg
+
+(* [cVarInit var]: matches the initialization value of a variable defintioon with name [var]. *)
+let cVarInit (var : string) : constr =
+  cTarget [cVarDef var; dVarBody]
 
 (* [cFor ~start ~direction ~stop ~step ~body index] matches simple for loops
      [start] - match based on the initial value trm
@@ -699,14 +707,14 @@ let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_l
 let cPrimNew ?(arg : target = []) () : constr =
   cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false)
 
-(* [cInit ~arg ()]: matches a variable initialization value 
-     [arg] - match based on the arg of the "new" primitive. *)
-let cInit ?(arg : target = []) () : constr =
-  cOr [[ cPrimNew ~arg (); dArg 0 ]; [dBody]]
+(* [dVarInit: alias to dVarBody. *)
+let dVarInit : constr =
+   dVarBody
 
 (* [dInit]: alias to dBody used for variable initializations. *)
 let dInit : constr =
   dBody
+
 (* [cWrite ~lhs ~rhs ~typ ~typ_pred ()]: matches a write(set) operation
      [lhs] - match based on the left operand
      [rhs] - match based on the right operand  

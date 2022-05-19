@@ -180,6 +180,8 @@ val cVarDefs : var list -> constr
 
 val cVarDefReg : string -> constr
 
+val cVarInit : string -> constr 
+
 val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> string -> constr
 
 val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> string -> constr
@@ -244,7 +246,7 @@ val cPrimFunArith : ?args:targets -> ?args_pred:target_list_pred -> unit -> cons
 
 val cPrimNew : ?arg:target -> unit -> constr
 
-val cInit : ?arg:target -> unit -> constr
+val dVarInit : constr
 
 val dInit : constr
 

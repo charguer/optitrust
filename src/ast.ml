@@ -1881,6 +1881,7 @@ let get_inner_const_type (ty : typ) : typ =
   | Typ_const ty -> ty
   | _ -> ty
 
+
 (* [is_reference]: checks if the type is a reference type or not *)
 let is_reference (ty : typ) : bool =
   let ty = get_inner_ptr_type ty in
@@ -2044,11 +2045,25 @@ let is_access (t : trm) : bool = match t.desc with
     end
   | _ -> false
 
-(* [get_operation_arg t]: gets the arg of a get operation *)
+(* [get_operation_arg t]: gets the arg of a get operation. *)
 let get_operation_arg (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t1]) -> t1
   | _ -> t
+
+(* [new_operation_arg t]: get the argument of the encoded new operation. *)
+let new_operation_arg (t : trm) : trm = 
+  match t.desc with 
+  | Trm_apps (_, [arg]) when is_new_operation t -> arg
+  | _ -> t
+
+
+(* [new_operation_inv t]: returns the type and the argument of the new operation [t]. *)
+let new_operation_inv (t : trm) : (typ * trm) option =
+  match t.desc with 
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_new ty))}, [arg]) -> Some (ty, arg)
+  | _ -> None
+
 
 (* [trm_let_mut ~annot ~is_statement ~attributes ~ctx typed_var init]: an extension of trm_let for
     creating mutable variable declarations *)

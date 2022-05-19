@@ -23,8 +23,10 @@ and dir =
   | Dir_then
   (* else: direction to else branch of an if statement *) 
   | Dir_else
-  (* body: direction to body of a definition, loop, then or else branche, or switch case *)
+  (* body: direction to the body of a function definition, loop, then or else branche, or switch case *)
   | Dir_body
+  (* var_body: direction to the body of a variable, similar to Dir_body but this one bypasses the encoded new operation  *)
+  | Dir_var_body
   (* for start: direction to initialization trm of a simple for loop *)
   | Dir_for_start
   (* for stop: direction to bound trm of a simple loop *)
@@ -69,8 +71,9 @@ let dir_to_string (d : dir) : string =
   | Dir_seq_nth n-> "Dir_seq_nth " ^ (string_of_int n)
   | Dir_cond -> "Dir_cond"
   | Dir_then -> "Dir_then"
-  | Dir_else -> "Dir_else"
+  | Dir_else -> "Dir_else" 
   | Dir_body -> "Dir_body"
+  | Dir_var_body -> "Dir_var_body"
   | Dir_for_start -> "Dir_for_start"
   | Dir_for_stop -> "Dir_for_stop"
   | Dir_for_step -> "Dir_for_step"
@@ -148,6 +151,8 @@ let compare_dir (d : dir) (d' : dir) : int =
   | _, Dir_else -> 1
   | Dir_body, _ -> -1
   | _, Dir_body -> 1
+  | Dir_var_body, _ -> -1
+  | _, Dir_var_body -> 1
   | Dir_for_start, _ -> -1
   | _, Dir_for_start -> 1
   | Dir_for_stop, _ -> -1
@@ -273,8 +278,15 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_if (cond, aux then_t, else_t)}
        | Dir_else, Trm_if (cond, then_t, else_t) ->
           { t with desc = Trm_if (cond, then_t, aux else_t) }
-       | Dir_body, Trm_let (vk,tx,body) ->
-          { t with desc = Trm_let (vk, tx, aux body)}
+       | Dir_var_body, Trm_let (vk,tx,body) ->
+          let body = 
+          begin match new_operation_inv body with 
+          | Some (ty, arg) -> trm_new ty (aux arg)
+          | None -> aux body
+          end in
+          { t with desc = Trm_let (vk, tx, body)}
+       | Dir_body, Trm_let (vk, tx, body) ->
+          {t with desc = Trm_let (vk, tx, aux body)}
        | Dir_body, Trm_let_fun (x, tx, txl, body) ->
           { t with desc = Trm_let_fun (x, tx, txl, aux body)}
        | Dir_body, Trm_for (l_range, body) ->
@@ -418,7 +430,10 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           end
        | Dir_body, Trm_for (_, body) ->
           aux body ctx
-       | Dir_body, Trm_let (_,(_,_), body)
+       | Dir_var_body, Trm_let (_, _, body) ->
+          let new_op_arg = new_operation_arg body in 
+          if is_new_operation body then aux new_op_arg (body :: ctx) else aux body ctx
+       | Dir_body, Trm_let (_, _, body)
          | Dir_body, Trm_while (_, body)
          | Dir_body, Trm_do_while (body, _)
          | Dir_body, Trm_abort (Ret (Some body)) ->

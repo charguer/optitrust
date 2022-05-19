@@ -1447,7 +1447,10 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_then (aux then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (aux else_t)
-  | Dir_body, Trm_let (_,(_,_),body)
+  | Dir_var_body, Trm_let (_, _, body) -> 
+     let new_op_arg = new_operation_arg body in 
+     add_dir Dir_var_body (aux new_op_arg)
+  | Dir_body, Trm_let (_, _,body)
     | Dir_body, Trm_let_fun (_, _, _, body)
     | Dir_body, Trm_for_c (_, _, _, body)
     | Dir_body, Trm_for (_, body)
