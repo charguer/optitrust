@@ -1490,6 +1490,46 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
   trm_map_with_terminal false (fun _is_terminal t -> f t) t
 
 
+(* [trm_iter f t]: similar to [trm_map] but this one doesn't return a trm at the end. *)
+let trm_iter (f : trm -> unit) (t : trm) : unit =
+  match t.desc with 
+  | Trm_array tl -> 
+    Mlist.iter f tl
+  | Trm_struct tl -> 
+    Mlist.iter f tl
+  | Trm_let (vk, tv, init) -> 
+    f init
+  | Trm_let_fun (f', res, args, body) -> 
+    f body
+  | Trm_if (cond, then_, else_) -> 
+    f cond;  f then_ ; f else_ 
+  | Trm_seq tl -> 
+    Mlist.iter f tl
+  | Trm_apps (func, args) -> 
+    f func; List.iter f args
+  | Trm_while (cond, body) -> 
+    f cond; f body
+  | Trm_for_c (init, cond, step, body) -> 
+    f init; f cond; f step; f body
+  | Trm_for (l_range, body) ->
+    let (index, start, direction, stop, step, is_parallel) = l_range in
+    f start; f stop;
+    begin match step with 
+     | Post_inc | Post_dec | Pre_inc | Pre_dec -> ()
+     | Step sp -> f sp
+    end;
+    f body 
+  | Trm_switch (cond, cases) ->
+     f cond;
+     List.iter (fun (tl, body) -> f body) cases
+  | Trm_abort a ->
+    begin match a with
+    | Ret (Some t') -> f t'
+    | _ -> f t
+    end
+  | _ -> f t
+
+
 (* [typ_map f ty]: applies f on type ty recursively *)
 let typ_map (f : typ -> typ) (ty : typ) : typ =
   let annot = ty.typ_annot in
