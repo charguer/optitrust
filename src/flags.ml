@@ -84,7 +84,7 @@ type serialized_mode =
 (* [serialized_mode]: mode of serialization, by default AST is not serialized. *)
 let serialized_mode : serialized_mode ref = ref Serialized_None
 
-(* [process_serialized_input mode]: based on the mode the serialized input is going to be processed 
+(* [process_serialized_input mode]: based on the mode the serialized input is going to be processed
     in different ways. *)
 let process_serialized_input (mode : string) : unit =
   serialized_mode := match mode with
@@ -107,6 +107,12 @@ let get_exit_line () : int option =
 (* [only_big_steps]: flag for the treatment of the exit line to ignore the small steps ('!!') and only
    consider big steps ('!^'). *)
 let only_big_steps : bool ref = ref false
+
+(* Name of the currently executed transformation script.
+   By default it is Sys.argv.(0) but it can be different in case of dynamic loading. *)
+let program_name : string ref = ref ""
+
+(* List of options *)
 
 (* [cmdline_args]: a list of possible command line arguments. *)
 type cmdline_args = (string * Arg.spec * string) list
@@ -134,13 +140,20 @@ let spec : cmdline_args =
      (* LATER: a -dev flag to activate a combination of dump *)
   ]
 
+(* Remember the name of the currently executed script *)
+let process_program_name () =
+  if !program_name = "" then program_name := Sys.argv.(!Arg.current)
+
 (* [fix_flags ()]: processes flags than implies other flags. *)
 let fix_flags () =
   if !analyse_time_details then analyse_time := true;
   if !reparse_at_big_steps then debug_reparse := true
 
-(* [process_cmdline_args ~args ()]: processes all the command line arguments used during the script executioni. *)
+(* [process_cmdline_args ~args ()]: processes all the command line arguments used during the script execution.
+   If args are given, add them to the list of possible flags.
+   This function has no effect if it was already called before. *)
 let process_cmdline_args ?(args : cmdline_args = []) () : unit =
+  process_program_name();
   Arg.parse
     (Arg.align (spec @ args))
     (fun _ -> raise (Arg.Bad "Error: no argument expected"))
@@ -155,5 +168,5 @@ let documentation_save_file_at_first_check = ref ""
 (* *************************************************************************************************************
   Note: to see a diff at the level of the OptiTrust AST, use:
     -dump-ast-details
-  and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp] 
+  and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp]
 ***************************************************************************************************************)

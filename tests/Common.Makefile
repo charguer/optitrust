@@ -38,7 +38,7 @@ TESTS ?= $(filter-out $(wildcard *with_lines.ml), $(filter-out $(EXCLUDE_TESTS),
 TESTS_WITH_DOC ?= $(TESTS)
 
 # List of ml files for which the cpp files should be compiled
-COMPILE ?= $(TESTS)
+COMPILE ?= $(TESTS)f
 
 # List of ml files for which the cpp files should be executed for comparison
 EXECUTE ?= $(COMPILE)
@@ -66,6 +66,11 @@ TRACEFLAGS ?=
 # native or byte mode (currently only used by batch mode)
 PROGEXT ?= native
 
+# path of installed OptiTrust libraries and binaries
+OPTITRUST_PREFIX := $(shell echo `opam config var prefix`)
+
+# Command for executing an OptiTrust script
+RUNNER="$(OPTITRUST_PREFIX)/bin/optitrust_runner.native"
 
 #######################################################
 # Targets
@@ -104,9 +109,9 @@ execute: $(EXECUTE:.ml=.exec)
 # 'make optitrust' rebuilds the library, and clean all local files
 optitrust: clean optitrust_noclean
 
-# 'make optitrust_noclean' rebuilds the library, and clean all local files
+# 'make optitrust_noclean' rebuilds the library and the runner, and clean all local files
 optitrust_noclean:
-	$(V)rm -rf *.byte _build
+	$(V)rm -rf *.byte *.native _build
 	$(MAKE) -C $(OPTITRUST) install
 
 # 'make recheck' is a shorthand for 'make optitrust' followed with 'make check'
@@ -114,6 +119,15 @@ recheck: optitrust check
 
 # 'make expected' produces all the '_exp.cpp' files
 expected: $(TESTS:.ml=.exp)
+
+# Do nothing to build the runner: assume that it exists
+$(RUNNER):
+
+# Rule for building the runner
+runner: 
+	$(MAKE) -C $(OPTITRUST) runner
+	@echo Produced $(RUNNER)
+
 
 
 #######################################################
@@ -123,10 +137,10 @@ expected: $(TESTS:.ml=.exp)
 DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 
 # The build command for compiling a script
-BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
+BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -use-ocamlfind -r -quiet -tags "debug,package(clangml),package(refl),package(pprint),package(str),package(optitrust)"
 
 # Instruction to keep intermediate files
-.PRECIOUS: %.native %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_trace.js %_doc_out.cpp %_with_lines.ml
+.PRECIOUS: %.cmxs %.native %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_trace.js %_doc_out.cpp %_with_lines.ml
 
 # Rule for viewing the encoding of an output
 %.enc: %_out.cpp
@@ -152,23 +166,23 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 #-----begin rules for non-batch mode------
 ifeq ($(BATCH),)
 
-%_out.cpp: %_with_lines.native %.cpp %.ml %_with_lines.ml
-	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS)
+%_out.cpp: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml $(RUNNER)
+	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< $(FLAGS)
 	@echo "Produced $@"
 
 endif
 #-----end rules for non-batch mode------
 
 # Rule for building all the small steps
-%.smallsteps: %_with_lines.native %.cpp %.ml %_with_lines.ml
+%.smallsteps: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml
 	$(V)rm -rf smallsteps
-	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -dump-small-steps smallsteps
+	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< $(FLAGS) -dump-small-steps smallsteps
 	@echo "Produced smallsteps/*"
 
 # Rule for building all the big steps
-%.bigsteps: %_with_lines.native %.cpp %.ml %_with_lines.ml
+%.bigsteps: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml
 	$(V)rm -rf bigsteps
-	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS) -dump-big-steps bigsteps
+	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< $(FLAGS) -dump-big-steps bigsteps
 	@echo "Produced bigsteps/*"
 
 # Rule for building the binary associated with a test
@@ -176,6 +190,9 @@ endif
 	$(V)$(BUILD) $@
 %.byte: %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@
+%.cmxs: %.ml $(OPTITRUSTLIB) $(RUNNER)
+	$(V)$(BUILD) $@
+	$(V)ln -sf _build/$@ $@
 
 # Rule for building the html file to display the trace associated with a script
 # (copy a template, and substitute the JS file name)
@@ -189,8 +206,8 @@ endif
 	$(V)$(OPTITRUST)/.vscode/add_lines.sh $< $@
 
 # Rule for building the js file describing the trace associated with a script
-%_trace.js: %_with_lines.byte %.cpp %_with_lines.ml
-	$(V)OCAMLRUNPARAM=b ./$< -dump-trace $(FLAGS) $(TRACEFLAGS)
+%_trace.js: %_with_lines.cmxs %.cpp %_with_lines.ml
+	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< -dump-trace $(FLAGS) $(TRACEFLAGS)
 
 # Rule for producing the expected output file from the result
 # TODO: see if we can use $* instead of basename
@@ -261,9 +278,9 @@ ifeq ($(BATCH), 1)
 batch.ml: $(OPTITRUST)/tests/batch_tests.sh $(TESTS)
 	$(V) $^ > $@
 
-# Produce all '_out.cpp' files at once by running 'batch.byte' (obtained by compiling 'batch.ml')
+# Produce all '_out.cpp' files at once by running 'batch.cmxs' (obtained by compiling 'batch.ml')
 $(TESTS:.ml=_out.cpp): batch.$(PROGEXT) $(TESTS:.ml=.cpp)
-	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS)
+	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< $(FLAGS)
 	@echo "Executed batch.$(PROGEXT) to produce all output files"
 
 endif
@@ -368,7 +385,7 @@ cleandoc::
 	@echo "Clean documentation"
 
 clean:: cleandoc
-	$(V)rm -f *.js *_out.cpp *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_trace.js *_trace.html *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml *.ser *.i *_inlined.cpp
+	$(V)rm -f *.js *_out.cpp *.cmxs *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_trace.js *_trace.html *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml *.ser *.i *_inlined.cpp
 
 	$(V)rm -rf _build
 	@echo "Clean successful"
