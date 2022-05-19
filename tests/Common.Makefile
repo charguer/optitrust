@@ -63,9 +63,6 @@ FLAGS := $(FLAGS) $(FLAGS_MAKEFILE)
 # Flags to use for the trace construction
 TRACEFLAGS ?=
 
-# native or byte mode (currently only used by batch mode)
-PROGEXT ?= native
-
 # path of installed OptiTrust libraries and binaries
 OPTITRUST_PREFIX := $(shell echo `opam config var prefix`)
 
@@ -282,9 +279,9 @@ batch.ml: $(OPTITRUST)/tests/batch_tests.sh $(TESTS)
 	$(V) $^ > $@
 
 # Produce all '_out.cpp' files at once by running 'batch.cmxs' (obtained by compiling 'batch.ml')
-$(TESTS:.ml=_out.cpp): batch.$(PROGEXT) $(TESTS:.ml=.cpp)
+$(TESTS:.ml=_out.cpp): batch.cmxs $(TESTS:.ml=.cpp)
 	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< $(FLAGS)
-	@echo "Executed batch.$(PROGEXT) to produce all output files"
+	@echo "Executed batch.ml to produce all output files"
 
 endif
 
@@ -301,7 +298,6 @@ CURDIR := $(shell basename `pwd`)
 OPTITRUST_SRC := $(wildcard $(OPTITRUST)/src/*.ml)
 
 # CHECKS contains the list of targets to be produced for the documentation
-DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 
 # Generate an OCaml file containing the script executed by the demo
 %_doc.txt: %.ml
