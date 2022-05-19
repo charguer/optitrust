@@ -46,7 +46,7 @@ let fusion ?(nb : int = 2) (tg : target) : unit =
       All the instructions in-between loops should not depend on the index of the loop. *)
 
 (* TODO: Optimize mark processing *)
-let fusion_targets : Transfo.t =
+let fusion_targets ?(keep_label : bool = true) : Transfo.t =
   iteri_on_targets (fun i t p -> 
     Marks.add "mark_seq" (target_of_path p);
     let mark = "mark_to_move" ^ (string_of_int i) in 
@@ -64,7 +64,7 @@ let fusion_targets : Transfo.t =
      end;
      Instr.move_out [nbMulti; cMark mark];
      Marks.remove mark [nbMulti; cMark mark];
-     Loop_basic.fusion_on_block [cMark "mark_seq"]
+     Loop_basic.fusion_on_block ~keep_label [cMark "mark_seq"]
   )
 
 (* [move_out ~upto tg]: expects the target [tg] to point at an instruction inside a for loop,

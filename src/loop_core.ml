@@ -156,7 +156,7 @@ let fission (index : int) : Transfo.local=
 
 (* [fusion_on_block_aux t]: merges two or more loops with the same components except the body,
       [t] - ast of the sequence containing the loops. *)
-let fusion_on_block_aux (t : trm) : trm =
+let fusion_on_block_aux (keep_label : bool) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let n = Mlist.length tl in
@@ -171,14 +171,15 @@ let fusion_on_block_aux (t : trm) : trm =
            else
           acc @ (Mlist.to_list (for_loop_body_trms loop))
       ) [] tl in
-      trm_for l_range (trm_seq_nomarks fusioned_body)
+      let res = trm_for l_range (trm_seq_nomarks fusioned_body) in 
+      if keep_label then trm_pass_labels t res else res
     | _ -> fail t.loc "Loop_core.fusion_on_block_aux: all loops should be simple loops"
     end
   | _ -> fail t.loc "Loop_core.fission_aux: expected a sequence of for loops"
 
 (* [fusion_on_block keep_label t p]: applies [fusion_on_block_aux t p] at trm [t] with path [p]. *)
 let fusion_on_block (keep_label : bool): Transfo.local =
-  apply_on_path (fusion_on_block_aux)
+  apply_on_path (fusion_on_block_aux keep_label)
 
 (* [grid_enumerate_aux indices_and_bounds t]: transforms a loop over a grid into nested loops over 
     each dimension of that grid,
