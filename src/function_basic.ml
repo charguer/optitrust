@@ -5,8 +5,8 @@ open Target
      Then it will generate a new variable declaration named as [fresh_name] with type being the same
      as the one of the function call, and initialized to the function call itself.
      If [const] is true the the binded variable will be declraed as an immutable variable otherwise immutable.
-     Then it will fold the newly declared variable. 
-     
+     Then it will fold the newly declared variable.
+
      @correctness: correct if the new order of evaluation of expressions is
       not changed or does not matter. *)
 let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : target) : unit =
@@ -21,7 +21,7 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
       or  g(a);
 
     Then it will replace that instruction with a nobrace sequence which is a sequence visible on the ast level.
-    This sequence will be marked with [body_mark] and it will contain the body of the declaration of the called 
+    This sequence will be marked with [body_mark] and it will contain the body of the declaration of the called
     function targeted with [tg].
     Transformation steps:
        1) generate in that sequence the binding "int r", in case it is needed
@@ -75,7 +75,7 @@ let inline ?(body_mark : mark option) (tg : target) : unit =
           Function_core.inline i body_mark p_local t p)) tg))
 
 
-(* [beta ~body_mark tg]: similar to [function_inline] the main difference is that [beta] is used in the cases 
+(* [beta ~body_mark tg]: similar to [function_inline] the main difference is that [beta] is used in the cases
     when the decaration of the function call can be founded at the targeted function call contrary to [inline]
     which will need to find first the toplevel declaration.  *)
 let beta ?(body_mark : var = "") (tg : target) : unit =
@@ -95,8 +95,8 @@ let uninline ~fct:(fct : target) (tg : target) : unit =
     let fct_decl = Path.resolve_path fct_path t in
     apply_on_targets (Function_core.uninline fct_decl) tg)
 
-(* [rename_args new_args tg]: expects the target [tg] to point at a function declaration, then it will rename the args of 
-     that function. If there are local variables declared inside the body of the function that have the same name as one 
+(* [rename_args new_args tg]: expects the target [tg] to point at a function declaration, then it will rename the args of
+     that function. If there are local variables declared inside the body of the function that have the same name as one
      of the function args then it will skip those variables on all their occurrences. *)
 let rename_args (new_args : var list)  : Transfo.t =
   apply_on_targets (Function_core.rename_args new_args)
@@ -105,14 +105,14 @@ let rename_args (new_args : var list)  : Transfo.t =
 
 (* [replace_with_change_args new_fun_name arg_mapper tg]: expects the target [tg] to point at a function call, then it will
     replace the name of the called function with [new_fun_name] and apply [arrg_mapper] to its arguments. *)
-let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) (tg : target) : unit = 
+let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) (tg : target) : unit =
    apply_on_targets (Function_core.replace_with_change_args new_fun_name arg_mapper) tg
 
-(* [dsp_def ~arg ~func tg]: expects the target [tg] to point at a function definition, then it will 
+(* [dsp_def ~arg ~func tg]: expects the target [tg] to point at a function definition, then it will
      inserts a new version of that definition whose return type is void.
     [arg] - is the name of the argument that's going to be inserted,
     [func] - the name of the new function that's going to be inserted. *)
-let dsp_def ?(arg : var = "res") ?(func : var = "dsp") : Transfo.t = 
+let dsp_def ?(arg : var = "res") ?(func : var = "dsp") : Transfo.t =
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Function_core.dsp_def i arg func t p)
 
@@ -120,9 +120,8 @@ let dsp_def ?(arg : var = "res") ?(func : var = "dsp") : Transfo.t =
 (* [dsp_call ~dsp tg]: expects the target [tg] to point at a function call whose parent trm is a write operation
     then it will convert that write operation into a a function call.
     Let's say that the targeted function call is r = f(x, y);
-    If [dsp] is None then the new function call will be [f_dsp(x, y, &r)] otherwise  it will be [dsp(x, y, &r)].
-
+    If [dsp] is the empty string, then "f_dsp" will be used as name based on the original name "f".
     Note: This transformation assumes that dsp_def has been already applied to the definition of the called function. *)
-let dsp_call ?(dsp : var option = None) : Transfo.t =
+let dsp_call ?(dsp : var = "") : Transfo.t =
   apply_on_transformed_targets (Internal.get_parent_path)
     (fun t p -> Function_core.dsp_call dsp t p)
