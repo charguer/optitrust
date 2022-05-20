@@ -169,6 +169,7 @@ exception Init_attach_occurrence_below_control
 
 (* [init_attach_aux t]: attaches a variable declaration to its unique write operation,
       [const] - a boolean to decide if the attached variable should be mutable or not,
+      [index] - index of the targeted instruction inside its surrounding sequence,
       [t] - ast of the surrounding sequence of the variable declaration.
     
     NOTE: if no set operation on the targeted variable was found then Init_attach_no_occurrences is raised

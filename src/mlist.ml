@@ -19,6 +19,11 @@ let of_list (l : 'a list) : 'a t =
 let to_list (ml : 'a t) : 'a list =
   ml.items
 
+(* [empty] : empty mlist. *)
+let empty : 'a t =
+  {items = [];
+   marks = [[]]}
+
 (*********************** List module equivalent functions *********************)
 (* [mapi f ml]: applies List.mapi f to ml.items. *)
 let mapi (f : int -> 'a -> 'b) (ml : 'a t) : 'b t =
@@ -96,6 +101,10 @@ let merge (ml1 : 'a t) (ml2 : 'a t) : 'a t =
   let tmp_marks2, marks2 = Xlist.uncons ml2.marks in
   let merged_marks = [tmp_marks1 @ tmp_marks2] in
   { items = ml1.items @ ml2.items; marks = marks1 @ merged_marks @ marks2 }
+
+(* [merge_list mll]: converts a list of mlists into a single mlist. *)
+let merge_list (mll : 'a t list) : 'a t =
+  List.fold_left (fun acc ml -> merge acc ml) empty mll
 
 (* [extract ~start_left_bias ~stop_left_bias start nb ml]: extracts mlist from index [start] to [start + nb]. *)
 let extract ?(start_left_bias : bool = true) ?(stop_left_bias : bool = true) (start : int) (nb : int) (ml : 'a t) : 'a t * 'a t =
