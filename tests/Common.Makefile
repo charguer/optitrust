@@ -50,7 +50,7 @@ OPTITRUST ?= ../..
 TARGET_MAKE_ALL ?= check compile
 
 # Path to the OptiTrust installed library
-OPTITRUSTLIB ?= $(shell command -v ocamlfind && ocamlfind query optitrust)
+OPTITRUSTLIB ?= $(shell command -v ocamlfind > /dev/null && ocamlfind query optitrust)
 
 # Browser for opening documentation
 BROWSER ?= chromium-browser

@@ -13,13 +13,13 @@ let fold ?(at : target = []) : Target.Transfo.t =
 
 (* [unfold ~mark ~accept_functions ~at tg]: expects the target [tg] to be pointing at an initialized
      variable declaration, then it will find all the occurrences of that variable and replace them with its
-     initial value. 
+     initial value.
      [mark] - the initialization value,
      [at] - denotes a target where the unfolding is done. If empty the operation
              is performed on all the ast nodes in the same level as the
              targeted declaration or deeper, by default [at] = [],
      [accept_functions] - if true it will inline functions too,
-     
+
      beta way. Ex Suppose we have
      void f(int x) { ... }
      int main () {
@@ -69,7 +69,7 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
 
 (* [local_name var_type ~mark var ~into tg]: expects the target [tg] to point at a marked
       sequence. Then it will declare a new variable with name [new_name] and replace all
-      the occurences of [var] with [into]. 
+      the occurences of [var] with [into].
       If the arg [mark] is provided then after the transformation the local scope will be marked
       with that mark.
 
@@ -126,7 +126,7 @@ let delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_
     Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
 
 
-(* [change_type new_type tg]: expects [tg] to point a variable declaration, then it will change the type of 
+(* [change_type new_type tg]: expects [tg] to point a variable declaration, then it will change the type of
     that variable with [new_type]. *)
 let change_type (new_type : typvar) : Target.Transfo.t =
  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
@@ -146,7 +146,7 @@ let insert ?(const : bool = false) ?(reparse : bool = false) ?(value : trm = trm
   Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p))
 
 
-(* [subst name ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the 
+(* [subst name ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
     variable [name], then it will check for occurrences of the variable [subst] and replace is with [put]. *)
 let subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (
@@ -155,7 +155,7 @@ let subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Targe
 
 (* [bind ~const ~mark fresh_name tg]: expects the target [tg] to be pointing at any trm, then it will insert a variable declaration
       with name [fresh_name] just before the instruction that contains the target [tg], and replace the targeted trm with an occurrence
-      of the variable [fresh_name]. 
+      of the variable [fresh_name].
       [const] - if true the binded variable will be immutable, otherwise mutable,
       [mark] - mark used for marking the targeted trm,
       [typ] - type of the binded variable, needed when the type can't be deducted from the targeted trm,
@@ -166,8 +166,8 @@ let bind ?(const : bool = false) ?(mark : mark = "") ?(is_ptr : bool = false) ?(
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
       Variable_core.bind mark i fresh_name const is_ptr typ p_local t p)
 
-(* [to_const tg]: expects the target [tg] to be point at a variable declaration, then it will search inside 
-      the same scope if there are any write operations on that variable. 
+(* [to_const tg]: expects the target [tg] to be point at a variable declaration, then it will search inside
+      the same scope if there are any write operations on that variable.
       If that's the case then the tranformation will fail(for safety reasons).
       Otherwise, first switch the mutability of that variable and then replace all get operations on that variable with its intialization
       value.
@@ -176,7 +176,7 @@ let to_const : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
      ( fun t (p, i) -> Variable_core.from_to_const true i t p)
 
-(* [to_nonconst tg]: expects the target [tg] to be point at a variable declaration, 
+(* [to_nonconst tg]: expects the target [tg] to be point at a variable declaration,
       If the variable is mutable then does nothing, otherwise change the mutability of the targeted variable to a mutable one,
       and replace all the variable occurrences with a get operation containing that occurrence. *)
 let to_nonconst : Target.Transfo.t =
@@ -189,22 +189,22 @@ let to_nonconst : Target.Transfo.t =
 let simpl_deref ?(indepth : bool = false) : Target.Transfo.t =
   Target.apply_on_targets (Variable_core.simpl_deref indepth)
 
-(* [exchange var1 var2 tg]: expects the target [tg] to point at an instruction that contains both the 
+(* [exchange var1 var2 tg]: expects the target [tg] to point at an instruction that contains both the
     variable [var1] and [var2], then it will try to swap all the occurrences of [var1] with [var2]. *)
 let exchange (v1 : var) (v2 : var) (tg : Target.target) : unit =
-  let tm = Trm_map.empty in 
-  let tm = Trm_map.add v1 (trm_var v2) tm in 
-  let tm = Trm_map.add v2 (trm_var v1) tm in 
+  let tm = Trm_map.empty in
+  let tm = Trm_map.add v1 (trm_var v2) tm in
+  let tm = Trm_map.add v2 (trm_var v1) tm in
   Target.apply_on_targets (
-    Target.apply_on_path (fun t1 -> Internal.subst tm t1)) tg 
+    Target.apply_on_path (fun t1 -> Internal.subst tm t1)) tg
 
 (* [ref_to_pointer tg]: expects thee target [tg] to be pointing at a reference declaration, then it will convert
     this reference into a pointer. *)
-let ref_to_pointer : Target.Transfo.t = 
+let ref_to_pointer : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Variable_core.ref_to_pointer i t p)
 
 (* [ref_to_var tg]: expects the target [tg] to point at a refernce declaration,
      then it will convert it into a simple variable declaration. *)
-let ref_to_var : Transfo.t = 
+let ref_to_var : Transfo.t =
   apply_on_targets (Variable_core.ref_to_var)
