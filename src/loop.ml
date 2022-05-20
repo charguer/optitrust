@@ -49,17 +49,17 @@ let fusion ?(nb : int = 2) (tg : target) : unit =
 let fusion_targets ?(keep_label : bool = true) : Transfo.t =
   iteri_on_targets (fun i t p -> 
     Marks.add "mark_seq" (target_of_path p);
-    let mark = "mark_to_move" ^ (string_of_int i) in 
-    let tg_trm = Path.resolve_path p t in 
-    let aux (tl : trm mlist) : unit = 
+    let mark = "mark_to_move" ^ (string_of_int i) in
+    let tg_trm = Path.resolve_path p t in
+    let aux (tl : trm mlist) : unit =
       Mlist.iteri( fun i1 t1 ->
-        match t1.desc with 
+        match t1.desc with
         | Trm_for _ -> ()
         | _ -> Marks_basic.add mark (target_of_path (p @ [Dir_seq_nth i1]))
-      
+
       ) tl in
-     begin match tg_trm.desc with 
-     | Trm_seq tl -> aux tl 
+     begin match tg_trm.desc with
+     | Trm_seq tl -> aux tl
      | _ -> fail tg_trm.loc "Loop.fusion_targets: expected a target pointin to a marked sequence or a labelled sequence"
      end;
      Instr.move_out [nbMulti; cMark mark];
@@ -158,21 +158,6 @@ let move ?(before : target = []) ?(after : target = []) (loop_to_move : target) 
 (*
 DETAILS for [unroll]
 
-
-*)
-
-(* [unroll ~braces ~blocks ~shuffle tg]: expects the target to point at a loop. Then it checks if the loop
-    is of the form for(int i = a; i < a + C; i++){..} then it will move the
-    the instructions out of the loop and the loop will be removed. It works also
-    in the case when C = 0 and a is a constant variable. To get the number of steps
-    a is first inlined.
-
-    [braces]: a flag on the visiblity of blocks created during the unroll process
-
-    [blocks]: a list of integers describing the partition type of the targeted sequence
-
-    [shuffle]: shuffle blocks
-
     Assumption: C should be a literal or a constant variable
     -------------------------------------------------------------------------------------------------------
     Ex:
@@ -267,6 +252,18 @@ DETAILS for [unroll]
     }
 
     LATER: This transformation should be factorized, that may change the docs. *)
+
+(* [unroll ~braces ~blocks ~shuffle tg]: expects the target to point at a loop. Then it checks if the loop
+    is of the form for(int i = a; i < a + C; i++){..} then it will move the
+    the instructions out of the loop and the loop will be removed. It works also
+    in the case when C = 0 and a is a constant variable. To get the number of steps
+    a is first inlined.
+
+    [braces]: a flag on the visiblity of blocks created during the unroll process
+
+    [blocks]: a list of integers describing the partition type of the targeted sequence
+
+    [shuffle]: shuffle blocks  *)
 let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : target) : unit =
   reparse_after ~reparse:(not braces) (iteri_on_targets (fun i t p ->
     let my_mark = "__unroll_" ^ string_of_int i in
@@ -424,7 +421,7 @@ let grid_enumerate ?(indices : string list = []) : Transfo.t =
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_for (l_range, _) ->
-      let (index, _, _, stop, _, _) = l_range in  
+      let (index, _, _, stop, _, _) = l_range in
       begin match trm_prod_inv stop with
       | [] -> fail tg_trm.loc "Loop.grid_enumerate: the bound of the targeted loop should be a product of the bounds of each dimension"
       | bounds ->

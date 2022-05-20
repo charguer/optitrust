@@ -63,9 +63,6 @@ FLAGS := $(FLAGS) $(FLAGS_MAKEFILE)
 # Flags to use for the trace construction
 TRACEFLAGS ?=
 
-# native or byte mode (currently only used by batch mode)
-PROGEXT ?= native
-
 # path of installed OptiTrust libraries and binaries
 OPTITRUST_PREFIX := $(shell echo `opam config var prefix`)
 
@@ -140,7 +137,7 @@ DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -use-ocamlfind -r -quiet -tags "debug,package(clangml),package(refl),package(pprint),package(str),package(optitrust)"
 
 # Instruction to keep intermediate files
-.PRECIOUS: %.cmxs %.native %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_trace.js %_doc_out.cpp %_with_lines.ml
+.PRECIOUS: %.cmxs %.native %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_doc.js %_trace.js %_doc_out.cpp %_with_lines.ml %_with_lines.cmxs
 
 # Rule for viewing the encoding of an output
 %.enc: %_out.cpp
@@ -166,7 +163,8 @@ BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -us
 #-----begin rules for non-batch mode------
 ifeq ($(BATCH),)
 
-%_out.cpp: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml $(RUNNER)
+# $(RUNNER) as dependency?
+%_out.cpp: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml 
 	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< $(FLAGS)
 	@echo "Produced $@"
 
@@ -190,7 +188,9 @@ endif
 	$(V)$(BUILD) $@
 %.byte: %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@
-%.cmxs: %.ml $(OPTITRUSTLIB) $(RUNNER)
+
+# $(RUNNER) as dependency?
+%.cmxs: %.ml $(OPTITRUSTLIB) 
 	$(V)$(BUILD) $@
 	$(V)ln -sf _build/$@ $@
 
@@ -279,9 +279,9 @@ batch.ml: $(OPTITRUST)/tests/batch_tests.sh $(TESTS)
 	$(V) $^ > $@
 
 # Produce all '_out.cpp' files at once by running 'batch.cmxs' (obtained by compiling 'batch.ml')
-$(TESTS:.ml=_out.cpp): batch.$(PROGEXT) $(TESTS:.ml=.cpp)
+$(TESTS:.ml=_out.cpp): batch.cmxs $(TESTS:.ml=.cpp)
 	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< $(FLAGS)
-	@echo "Executed batch.$(PROGEXT) to produce all output files"
+	@echo "Executed batch.ml to produce all output files"
 
 endif
 
@@ -298,7 +298,6 @@ CURDIR := $(shell basename `pwd`)
 OPTITRUST_SRC := $(wildcard $(OPTITRUST)/src/*.ml)
 
 # CHECKS contains the list of targets to be produced for the documentation
-DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 
 # Generate an OCaml file containing the script executed by the demo
 %_doc.txt: %.ml
