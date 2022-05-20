@@ -762,8 +762,6 @@ let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc = None) ?(is_stateme
      in
    trm_build ~annot ~desc ~loc ~is_statement ~typ ~ctx ()
 
-
-
 (* [trm_val ~annot ~loc ~typ ~ctx y]: value *)
 let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (v : value) : trm =
   {annot; desc = Trm_val v; loc = loc; is_statement = false; typ; ctx}

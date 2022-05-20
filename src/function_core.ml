@@ -11,27 +11,30 @@ open Target
 let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-     let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
-     let function_call = Path.resolve_path p_local instr in
-     let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
-     let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
+     
+     let f_update (t : trm) : trm =
+        let function_call = Path.resolve_path p_local t in
+        let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
+        let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
 
-     let function_type = match function_call.typ with
-     | Some typ -> typ
-     | None -> typ_auto() in
-     let change_with = (trm_var_possibly_mut ~const ~typ:(Some function_type) fresh_name) in
-     let decl_to_change = Internal.change_trm function_call change_with instr in
+        let function_type = match function_call.typ with
+        | Some typ -> typ
+        |  None -> typ_auto() in
+        let change_with = (trm_var_possibly_mut ~const ~typ:(Some function_type) fresh_name) in
+        let decl_to_change = Internal.change_trm function_call change_with t in
 
-     let function_call = trm_add_mark my_mark function_call in
-     let decl_to_insert =
-      if const
-        then trm_let_immut (fresh_name, function_type) function_call
-        else trm_let_mut (fresh_name, function_type) function_call
-      in
-     let new_tl = Mlist.merge lfront (Mlist.of_list ([decl_to_insert] @ [decl_to_change])) in
-     let new_tl = Mlist.merge new_tl lback in
-     let res = trm_seq ~annot:t.annot new_tl in
-     res
+        let function_call = trm_add_mark my_mark function_call in
+        let decl_to_insert =
+        if const
+          then trm_let_immut (fresh_name, function_type) function_call
+          else trm_let_mut (fresh_name, function_type) function_call
+        in
+        trm_seq_no_brace [decl_to_insert; decl_to_change] 
+       in
+     
+     let new_tl = Mlist.update_nth index f_update tl in
+     trm_seq ~annot:t.annot new_tl 
+     
   | _ -> fail t.loc "Function_core.bind_intro_aux: expected the surrounding sequence"
 
 (* [bind_intro ~my_mark index fresh_name const p_local]: applies [bind_intro_aux] at the trm with path [p]. *)
@@ -85,46 +88,48 @@ let replace_return_with_assign (exit_label : label) (r : var) (t : trm) : (trm *
 let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
-    let fun_call = Path.resolve_path p_local trm_to_change in
-    begin match fun_call.desc with
-    | Trm_apps(tfun, fun_call_args) ->
-      let fun_decl = begin match tfun.desc with
-      | Trm_var (_, f) ->
-        begin match Internal.toplevel_decl ~require_body:true f with
-        | Some decl -> decl
-        | _ -> fail tfun.loc "Function_core.inline_aux: couldn't find the toplevel decl for the targeted function call"
+    let f_update (t : trm) : trm =
+      let fun_call = Path.resolve_path p_local t in
+      begin match fun_call.desc with
+      | Trm_apps(tfun, fun_call_args) ->
+        let fun_decl = begin match tfun.desc with
+        | Trm_var (_, f) ->
+          begin match Internal.toplevel_decl ~require_body:true f with
+          | Some decl -> decl
+          | _ -> fail tfun.loc "Function_core.inline_aux: couldn't find the toplevel decl for the targeted function call"
+          end
+        | Trm_let_fun _ -> tfun
+        | _ -> fail tfun.loc "Function_core.inline_aux: expected either a function call or a beta function call"
+        end in
+        begin match fun_decl.desc with
+        | Trm_let_fun (_f, ty, args, body) ->
+          let fun_decl_arg_vars = fst (List.split args) in
+          let fresh_args = List.map Internal.fresh_args fun_call_args in
+          let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in
+          let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
+          let name = match t.desc with | Trm_let (vk, (x, _), _) -> x| _ -> ""  in
+          let processed_body, nb_gotos = replace_return_with_assign "exit_body" name fun_decl_body in
+          let marked_body = begin match body_mark with
+          | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body
+          | _ -> Internal.set_nobrace_if_sequence processed_body
+          end  in
+          let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
+          let inlined_body =
+            if is_type_unit(ty)
+              then [marked_body; exit_label]
+              else
+                [trm_pass_marks fun_call (trm_let_mut (name, ty) (trm_uninitialized ()));marked_body; exit_label]
+            in 
+          trm_seq_no_brace inlined_body
+         
+        | _ -> fail fun_decl.loc "Function_core.inline_aux: failed to find the top level declaration of the function"
         end
-      | Trm_let_fun _ -> tfun
-      | _ -> fail tfun.loc "Function_core.inline_aux: expected either a function call or a beta function call"
-      end in
-     begin match fun_decl.desc with
-     | Trm_let_fun (_f, ty, args, body) ->
-        let fun_decl_arg_vars = fst (List.split args) in
-        let fresh_args = List.map Internal.fresh_args fun_call_args in
-        let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in
-        let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
-        let name = match trm_to_change.desc with | Trm_let (vk, (x, _), _) -> x| _ -> ""  in
-        let processed_body, nb_gotos = replace_return_with_assign "exit_body" name fun_decl_body in
-        let marked_body = begin match body_mark with
-        | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body
-        | _ -> Internal.set_nobrace_if_sequence processed_body
-        end  in
-        let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
-        let inlined_body =
-         if is_type_unit(ty)
-           then [marked_body; exit_label]
-           else
-            [trm_pass_marks fun_call (trm_let_mut (name, ty) (trm_uninitialized ()));
-                marked_body; exit_label]
-           in
-        let new_tl = Mlist.merge lfront (Mlist.of_list inlined_body) in
-        let new_tl = Mlist.merge new_tl lback in
+      | _ -> fail fun_call.loc "Function_core.inline_aux: expected a target to a function call"
+      end
+      in  
+      let new_tl = Mlist.update_nth index f_update tl in 
       trm_seq ~annot:t.annot new_tl
-     | _ -> fail fun_decl.loc "Function_core.inline_aux: failed to find the top level declaration of the function"
-     end
-    | _ -> fail fun_call.loc "Function_core.inline_aux: expected a target to a function call"
-    end
+    
   | _ -> fail t.loc "Function_core.inline_aux: the targeted function call should be contained into an instuction that belongs to a local or global scope"
 
 (* [inline index body_mark p_local t p]: applies [inline_aux] at the trm [t] with path [p]. *)

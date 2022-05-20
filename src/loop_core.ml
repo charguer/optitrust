@@ -108,19 +108,21 @@ let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm
     | Trm_seq tl ->
       let (index, _, _, stop, _, _) = l_range in
       let stop_bd = begin match array_size with | Some arr_sz -> arr_sz | None -> stop end in 
-      let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
-      begin match var_decl.desc with
-      | Trm_let (vk, (x, tx), _) ->
-        let new_name = Tools.string_subst "${var}" x name in
-        let new_decl = trm_let_ref (x, (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var_get new_name; trm_var index] ) in
-        let new_tl = Mlist.merge lfront lback in
-        let new_body = trm_seq (Mlist.insert_at decl_index new_decl new_tl) in
-        let inner_typ = get_inner_ptr_type tx in
+      let ty = ref (typ_auto()) in
+      let new_name = ref "" in
+      let f_update (t : trm) : trm =
+        match t.desc with 
+        | Trm_let (vk, (x, tx), _) -> 
+          new_name := Tools.string_subst "${var}" x name;
+          ty := get_inner_ptr_type tx;
+          trm_let_ref (x, (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var_get !new_name; trm_var index] ) 
+        | _ -> fail t.loc "Loop_core.hoist_aux: expected a variable declaration"
+        in
+      let new_tl = Mlist.update_nth decl_index f_update tl in 
+      let new_body = trm_seq new_tl in 
         trm_seq_no_brace [
-          trm_let_array Var_mutable (new_name, inner_typ) (Trm stop_bd) (trm_uninitialized ());
+          trm_let_array Var_mutable (!new_name, !ty) (Trm stop_bd) (trm_uninitialized ());
           trm_for l_range new_body ]
-      | _ -> fail var_decl.loc "Loop_core.hoist_aux: expected a variable declaration"
-      end
     | _ -> fail t.loc "Loop_core.hoist_aux: body of the loop should be a sequence"
     end
   | _ -> fail t.loc "Loop_core.hoist_aux: only simple loops are supported"

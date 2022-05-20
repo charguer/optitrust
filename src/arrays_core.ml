@@ -31,48 +31,53 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
 (* [to_variables_aux new_vars t]: tansform an array declaration into a list of variable declarations
       the list of variables should be entered by the user. The number of variables should correspond to
       the size of the arrys. The variable at index i in [new_vars] will replace the array occurrence
-      at index i
-    params:
-      (new_vars]: a list of strings of length equal to the size of the array
-      [index]: index of the instruction inside the sequence
-      [t]: ast of the surrounding sequence of the array declaration
-    return:
-      updated ast of the outer sequence with the replaced declarations and all changed accesses.
-*)
+      at index i.
+      (new_vars] - a list of strings of length equal to the size of the array,
+      [index] - index of the instruction inside the sequence,
+      [t] - ast of the surrounding sequence of the array declaration. *)
 let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
-    let array_name = begin match (decl_name d) with
-                     | Some nm -> nm
-                     | None -> fail t.loc "to_variables_aux: could don't find the name of the array declaration"
-                     end in
-    let var_decls = begin match d.desc with
-    | Trm_let (_, (_ , tx), init) ->
-      begin match (get_inner_ptr_type tx).typ_desc with
-      | Typ_array (t_var,_) ->
-       begin match t_var.typ_desc with
-       | Typ_constr (y, tid, _) ->
-        List.map(fun x ->
-          trm_let_mut ~annot:d.annot (x, typ_constr y ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
-       | Typ_var (y, tid) ->
-        List.map(fun x ->
-          trm_let_mut ~annot:d.annot (x, typ_constr y ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars
-       | _ ->
-        List.map(fun x ->
-          trm_let_mut ~annot:d.annot (x, t_var) (trm_uninitialized ~loc:init.loc ())) new_vars
-       end
-      | _ -> fail t.loc "to_variables_aux: expected an array type"
-      end
-    | _ -> fail t.loc "to_variables_aux: expected a variable declaration"
-    end
-    in
-    let lback = Mlist.map (inline_array_access array_name new_vars) lback in
-    let new_tl = Mlist.merge lfront lback in
-    let tl = Mlist.insert_sublist_at index var_decls new_tl in
-    trm_seq ~annot:t.annot ~loc:t.loc tl
-  | _ -> fail t.loc "to_variables_aux: expected the outer sequence of the targeted trm"
+    let f_update_at (t : trm) : trm =
+      begin match t.desc with
+        | Trm_let (_, (_ , tx), init) ->
+          begin match (get_inner_ptr_type tx).typ_desc with
+          | Typ_array (t_var,_) ->
+            begin match t_var.typ_desc with
+            | Typ_constr (y, tid, _) ->
+              trm_seq_no_brace (
+                List.map(fun x ->
+                trm_let_mut ~annot:t.annot (x, typ_constr y ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars)
+            | Typ_var (y, tid) ->
+              trm_seq_no_brace (
+                 List.map(fun x ->
+                 trm_let_mut ~annot:t.annot (x, typ_constr y ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars)
+            | _ ->
+              trm_seq_no_brace (
+              List.map(fun x ->
+              trm_let_mut ~annot:t.annot (x, t_var) (trm_uninitialized ~loc:init.loc ())) new_vars)
+            end
+          | _ -> fail t.loc "Arrays_core.to_variables_aux: expected an array type"
+          end
+        | _ -> fail t.loc "Arrays_core.to_variables_aux: expected a variable declaration"
+        end
+      in
+    let array_name = begin match (decl_name t) with 
+        | Some nm -> nm
+        | None -> fail t.loc "Arrays_core.to_variables_aux: couldn't find the name of the array declaration"
+        end in
 
+    let f_update_further (t : trm) : trm =
+      inline_array_access array_name new_vars t 
+      in
+    let new_tl = Mlist.update_at_index_and_fix_beyond index f_update_at f_update_further tl in 
+
+    trm_seq ~annot:t.annot ~loc:t.loc new_tl
+    
+  | _ -> fail t.loc "Arrays_core.to_variables_aux: expected the outer sequence of the targeted trm"
+
+
+(* [to_variables new_vars index t p]: applies [to_variables_aux] at trm [t] with path [p]. *)
 let to_variables (new_vars : vars) (index : int): Target.Transfo.local =
   Target.apply_on_path (to_variables_aux new_vars index)
 
