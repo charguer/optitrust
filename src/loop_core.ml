@@ -261,23 +261,22 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
 let unroll (braces : bool)(my_mark : mark) : Transfo.local =
   apply_on_path (unroll_aux braces my_mark)
 
-(* [move_out_aux trm_index t]: moves an invariant instruction just before loop [t]
-    params:
-      [trm_index]: index of that instruction on its surrouding sequence
-      [t]: ast of the for loop *)
+(* [move_out_aux trm_index t]: moves an invariant instruction just before loop [t],
+    [trm_index] - index of that instruction on its surrouding sequence,
+    [t] - ast of the for loop. *)
 let move_out_aux (trm_index : int) (t : trm) : trm =
-  match t.desc with
+  let tl = try for_loop_body_trms t with | TransfoError _ -> fail t.loc "Loop_core.move_out_aux: expected a for loop" in 
+  let lfront, trm_inv, lback = Internal.get_trm_and_its_relatives trm_index tl in 
+  let new_tl = Mlist.merge lfront lback in
+  let loop = 
+  match t.desc with 
   | Trm_for (l_range, _) ->
-    let tl = for_loop_body_trms t in
-    let lfront, trm_inv, lback = Internal.get_trm_and_its_relatives trm_index tl in
-    trm_seq_no_brace ([trm_inv] @ [
-      trm_for l_range (trm_seq (Mlist.merge lfront lback))])
-  | Trm_for_c (init, cond, step, _) ->
-    let tl = for_loop_body_trms t in
-    let lfront, trm_inv, lback = Internal.get_trm_and_its_relatives trm_index tl in
-    trm_seq_no_brace  ([trm_inv] @ [
-      trm_for_c init cond step (trm_seq (Mlist.merge lfront lback))])
-  | _ -> fail t.loc "Loop_core.move_out_aux: expected a loop"
+    trm_for l_range (trm_seq new_tl)
+  | Trm_for_c (init, cond, step, _) -> 
+    trm_for_c init cond step (trm_seq new_tl)
+  | _ -> fail t.loc "Loop_core.move_out_aux: expected a loop" in
+  trm_seq_no_brace [trm_inv; loop]
+
 
 (* [move_out trm_index t p]: applies [move_out_aux] at trm [t] with path [p] *)
 let move_out (trm_index : int) : Transfo.local =

@@ -733,7 +733,7 @@ let trm_annot_default = {
 }
 
 (* [trm_build ~annot ~loc ~is_statement ~typ ~ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
-let trm_build ?(annot = trm_annot_default) ?(loc = None) ?(is_statement : bool = false) ?(typ = None)
+let trm_build ?(annot = trm_annot_default) ?(loc : location = None) ?(is_statement : bool = false) ?(typ : typ option = None)
   ?(ctx : ctx option = None) ~desc:(desc : trm_desc) () : trm =
   let t = {annot; loc; is_statement; typ; desc; ctx} in 
   Stats.incr_trm_alloc ();
@@ -753,14 +753,43 @@ let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
   
 
 (* [trm_make ~annot ~loc ~is_statement ~typ ~ctx ] *)
-let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc = None) ?(is_statement : bool option) 
+let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location = None) ?(is_statement : bool option) 
     ?(typ : typ option = None) ?(ctx : ctx option = None) (desc : trm_desc) : trm =
    let is_statement =
      match is_statement with
      | Some b -> b
-     | None -> is_statement_of_desc typ desc
+     | None -> is_statement_of_desc typ desc  
      in
    trm_build ~annot ~desc ~loc ~is_statement ~typ ~ctx ()
+
+(* [trm_alter ~annot ~loc ~is_statement ~typ ~ctx ~desc t]: alters any of the fields of [t] that was provided as argument. *)
+let trm_alter ?(annot : trm_annot option) ?(loc : location = None) ?(is_statement : bool option)
+       ?(typ : typ option = None) ?(ctx : ctx option = None) ?(desc : trm_desc option = None) (t : trm) : trm =
+    let annot = match annot with Some x -> x | None -> t.annot in
+    let is_statement = match is_statement with
+      | Some x -> x
+      | None -> match desc with
+                | Some d -> is_statement_of_desc typ d
+                | None -> t.is_statement
+      in
+    let typ = match typ with | None -> t.typ | _ -> typ in
+    let ctx = match ctx with | None -> t.ctx | _ -> ctx in
+    let desc = match desc with | Some x -> x | None -> t.desc in
+    trm_build ~annot ~desc ~loc ~is_statement ~typ ~ctx ()
+
+(* [trm_replace ~annot ~loc ~is_statement ~typ ~ctx t desc]:  *)
+(* let trm_replace
+       ?(annot : trm_annot option)
+       ?(loc : loc option)
+       ?(is_statement : bool option)
+       ?(typ : typ option)
+       ?(ctx : ctx option)
+       (t : trm)
+       (desc : trm_desc)
+       : trm =
+    trm_alter ~annot ~loc ~is_statement ~typ ~ctx ~desc t *)
+
+
 
 (* [trm_val ~annot ~loc ~typ ~ctx y]: value *)
 let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (v : value) : trm =
