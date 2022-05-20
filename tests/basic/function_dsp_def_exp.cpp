@@ -1,5 +1,7 @@
 int test_simpl(int x) { return x; }
 
+void my_test_simpl(int x, int* my_res) { *my_res = x; }
+
 void test_simpl_dsp(int x, int* res) { *res = x; }
 
 int test_one_branch(int x) {
