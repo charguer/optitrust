@@ -1942,6 +1942,13 @@ let get_inner_const_type (ty : typ) : typ =
   | Typ_const ty -> ty
   | _ -> ty
 
+(* [decl_type t]: returns the type of declaration [t]. *)
+let decl_type (t : trm) : typ option = 
+  match t.desc with 
+  | Trm_let (_, (_, tx), _) -> Some (get_inner_ptr_type tx)
+  | Trm_let_fun (_, ty, _, _) -> Some ty
+  | _ -> None
+
 
 (* [is_reference]: checks if the type is a reference type or not *)
 let is_reference (ty : typ) : bool =
