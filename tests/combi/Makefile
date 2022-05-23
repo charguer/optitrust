@@ -38,23 +38,24 @@ TESTS_WITH_DOC := \
 	variable_reuse.ml \
 
 TESTS_WITHOUT_DOC := \
-	instr_moveout.ml \
-	loop_hoist.ml \
-	loop_fusion_targets.ml \
-	instr_accumulate.ml \
+	function_bind.ml \
+	function_bind_args.ml \
+	function_elim_body.ml \
 	function_inline_complex.ml \
 	function_inline_simple.ml \
 	function_inline_struct.ml \
-	function_bind_args.ml \
-	function_elim_body.ml \
 	function_use_infix_ops.ml \
+	instr_moveout.ml \
+	instr_accumulate.ml \
 	loop_move.ml \
 	loop_fission.ml \
 	loop_fold_instrs.ml \
+	loop_hoist.ml \
+	loop_fusion_targets.ml \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_elim_redundant.ml \
-  	variable_inline_and_rename.ml \
+  variable_inline_and_rename.ml \
 	variable_insert.ml \
   variable_intro_pattern_array.ml \
 
@@ -63,23 +64,20 @@ TESTS_TOCHECK := \
 	function_beta.ml \
 	function_uninline.ml \
 	instr_accumulate_targets.ml \
+	instr_moveout_of_fun.ml \
+	loop_isolate_first_iteration.ml \
 	matrix_delocalize.ml \
 	matrix_delocalize_obj.ml \
 	matrix_intro_calloc.ml \
 	matrix_intro_malloc.ml \
 	matrix_intro_mindex.ml \
 	matrix_intro_mops.ml \
-	loop_isolate_first_iteration.ml \
 	struct_align_field.ml \
-	instr_moveout_of_fun.ml \
 
 #variable_inline.ml \ TODO: Update variable_inline unit test
 
 TESTS_TO_FIX := \
-	function_bind.ml \
-
 	
-
 NOT_NEEEDED_TO_FIX := \
 	aos_to_soa.ml \
 

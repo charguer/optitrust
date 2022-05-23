@@ -140,7 +140,5 @@ let update_at_index_and_fix_beyond ?(delete : bool = false) (index : int) (f_upd
   let lfront, lback = split index ml in 
   let element, lback = split 1 lback in 
   let element = if delete then empty else update_nth 0 f_update_at element in
-  
   let lback = map f_update_further lback in
-
   merge_list [lfront; element; lback]

@@ -508,14 +508,22 @@ let simpl_deref (indepth : bool) : Transfo.local =
 let ref_to_pointer_aux (index : int) (t : trm) : trm = 
   match t.desc with   
   | Trm_seq tl -> 
+    let var_name = ref "" in
     let f_update (t : trm) : trm =
       match t.desc with 
       | Trm_let (vk,( x, tx), init) when trm_has_cstyle Reference t ->
+        var_name := x;
         let tx = get_inner_ptr_type tx in
         trm_let_mut (x, typ_ptr_generated tx) init 
       | _ -> fail t.loc "Variable_core.ref_to_pointer_aux: expected a target to a variable declaration"
       in 
-    let new_tl = Mlist.update_nth index f_update tl in
+    
+    let f_update_further (t : trm) : trm =
+      Internal.subst_var !var_name (trm_var_get !var_name) t
+    in
+    
+    let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
+
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "Variable_core.ref_to_pointer_aux: expected the surrounding sequence of the targeted reference declaration"
 

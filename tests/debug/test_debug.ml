@@ -7,6 +7,6 @@ let _ = Flags.dump_ast_details := true
 
 let _ = Run.script_cpp (fun _ -> 
 
-   show [cVarInit ""];
+   show [cFun "f"; dArg 2];
 )
  
