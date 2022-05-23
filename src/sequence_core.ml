@@ -75,8 +75,8 @@ let elim : Transfo.local =
     [visible] - a flag on the visibility of the introduced sequence, 
     [t] - any trm. *)
 let intro_on_instr_aux (mark : mark) (visible : bool) (t : trm) : trm =
-  let wrapped_seq = if visible then trm_seq (Mlist.of_list [t]) else trm_seq_no_brace [t] in
-  trm_add_mark mark wrapped_seq 
+  let wrapped_seq = if visible then trm_seq_nomarks [t] else trm_seq_no_brace [t] in
+  if mark <> "" then trm_add_mark mark wrapped_seq  else wrapped_seq
  
 (* [intro_on_instr visible mark t p]: applies [intro_on_instr_aux] at trm [t] with path [p]. *)
 let intro_on_instr (visible : bool) (mark : mark) : Transfo.local=
