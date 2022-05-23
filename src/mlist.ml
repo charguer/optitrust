@@ -138,6 +138,9 @@ let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =
     at [index] and modify accordingly all the elements that come after using [f_update_further]. *)
 let update_at_index_and_fix_beyond ?(delete : bool = false) (index : int) (f_update_at : 'a -> 'a) (f_update_further : 'a -> 'a) (ml : 'a t) : 'a t = 
   let lfront, lback = split index ml in 
-  let lback = if delete then remove 0 1 lback else update_nth 0 f_update_at lback in 
-  let lback = map f_update_further lback in 
-  merge lfront lback
+  let element, lback = split 1 lback in 
+  let element = if delete then empty else update_nth 0 f_update_at element in
+  
+  let lback = map f_update_further lback in
+
+  merge_list [lfront; element; lback]

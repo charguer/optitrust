@@ -38,9 +38,11 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
 let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
+    let array_name = ref "" in
     let f_update_at (t : trm) : trm =
       begin match t.desc with
-        | Trm_let (_, (_ , tx), init) ->
+        | Trm_let (_, (x , tx), init) ->
+          array_name := x;
           begin match (get_inner_ptr_type tx).typ_desc with
           | Typ_array (t_var,_) ->
             begin match t_var.typ_desc with
@@ -62,13 +64,9 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
         | _ -> fail t.loc "Arrays_core.to_variables_aux: expected a variable declaration"
         end
       in
-    let array_name = begin match (decl_name t) with 
-        | Some nm -> nm
-        | None -> fail t.loc "Arrays_core.to_variables_aux: couldn't find the name of the array declaration"
-        end in
 
     let f_update_further (t : trm) : trm =
-      inline_array_access array_name new_vars t 
+      inline_array_access !array_name new_vars t 
       in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update_at f_update_further tl in 
 

@@ -9,15 +9,16 @@ open Target
 let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
-    let f_update (t : trm) : trm = t in 
-    let f_update_further (t : trm) : trm =
-      match t.desc with 
+    let f_update (t1 : trm) : trm = t1 in 
+    let f_update_further (t1 : trm) : trm =
+      let t_dl = Mlist.nth tl index in
+      match t_dl.desc with 
       | Trm_let (vk, (x, tx), dx) ->
         (* check if the declaration is of the form int*x = &y *)
-        let as_reference = is_typ_ptr (get_inner_ptr_type tx) && not (trm_has_cstyle Reference t) in
+        let as_reference = is_typ_ptr (get_inner_ptr_type tx) && not (trm_has_cstyle Reference t_dl) in
         let t_x =
           if as_reference then trm_var_get x
-          else if trm_has_cstyle Stackvar t then trm_var_get x
+          else if trm_has_cstyle Stackvar t_dl then trm_var_get x
           else trm_var x
         in
         let def_x =
@@ -28,9 +29,9 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
                    | _ -> dx
                    end
             end in
-        Internal.change_trm ~change_at:[fold_at] def_x t_x t
-      | _ -> fail t.loc "Variable_core.fold_decl: expected a variable declaration"
-      in
+        Internal.change_trm ~change_at:[fold_at] def_x t_x t1
+      | _ -> fail t_dl.loc "Variable_core.fold_decl: expected a variable declaration"
+       in
       let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
       trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "Variable_core.fold_aux: expected the surrounding sequence"

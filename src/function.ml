@@ -13,31 +13,33 @@ type rename = Variable.Rename.t
       then it just leaves it as an empty string "". Basically this transformation is
       just an aplication of bind_intro n times. Where n is the numer of strings inside
       [fresh_names] different from "". *)
-
-let bind_args (fresh_names : vars) : Target.Transfo.t =
+let bind_args (fresh_names : vars) (tg : target) : unit =
  let counter = ref (-1) in
- Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-  (fun t (p, p_local, i) ->
-   let path_to_call = p @ [Dir_seq_nth i] @ p_local in
-   let call_trm = Path.resolve_path path_to_call t in
-   begin match call_trm.desc with
-   | Trm_apps (_, tl) ->
-    if List.length fresh_names = 0
-      then begin Printf.printf "bind_args: no arguments to bind, no changes to be done\n"; t end (* LATER: check this *)
-      else if List.length tl <> List.length fresh_names then
-        fail call_trm.loc "Function.bind_args: for each argument of the function call, there should be associated either an empty string or a variable to be bounded to"
-      else begin
-           Xlist.fold_lefti (fun n t fresh_name ->
-            if fresh_name <> "" then
-            let () = incr counter in
-            Function_core.bind_intro (i + !counter) fresh_name false (p_local @ [Dir_arg_nth n]) t p
-            else t) t fresh_names
-            end
-   | _ ->
-     Ast_to_text.print_ast ~only_desc:true stdout call_trm;
-     fail call_trm.loc "Function.bind_args: expected a function call as target"
-   end)
-
+ Internal.nobrace_remove_after (fun _ -> 
+  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+   (fun t (p, p_local, i) ->
+    let path_to_call = p @ [Dir_seq_nth i] @ p_local in
+    let call_trm = Path.resolve_path path_to_call t in
+    begin match call_trm.desc with
+    | Trm_apps (_, tl) ->
+     if List.length fresh_names = 0
+       then begin Printf.printf "bind_args: no arguments to bind, no changes to be done\n"; t end (* LATER: check this *)
+       else if List.length tl <> List.length fresh_names then
+         fail call_trm.loc "Function.bind_args: for each argument of the function call, there should be associated either an empty string or a variable to be bounded to"
+       else begin
+            Xlist.fold_lefti (fun n t fresh_name ->
+             if fresh_name <> "" then
+             let () = incr counter in
+             Function_core.bind_intro (i + !counter) fresh_name false (p_local @ [Dir_arg_nth n]) t p
+             else t) t fresh_names
+             end
+    | _ ->
+      Ast_to_text.print_ast ~only_desc:true stdout call_trm;
+      fail call_trm.loc "Function.bind_args: expected a function call as target"
+    end) tg
+ )
+  
+  
 (* [elim_body ~vars tg]: expects the target [tg] to point at a marked sequence.
      Then it will change all the declaraed variables inside that sequence  based on [vars]
      Either the user can give a list of variables together with their new names, or he can give the postifx
@@ -58,9 +60,9 @@ let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
     Then it will just call bind args and bind_intro.
     Basically this tranasformation just binds a variable to the targeted function call
     and its arguments.*)
-
 let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : Target.target) : unit =
   bind_args args tg;
+  Printf.printf "I was here\n";
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
 (* [inline ~resname ~vars ~args ~keep_res ~delete ~debug tg]: expects the target [ŧg] to point at a function call

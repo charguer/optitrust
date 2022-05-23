@@ -42,7 +42,6 @@ TESTS_WITHOUT_DOC := \
 	loop_hoist.ml \
 	loop_fusion_targets.ml \
 	instr_accumulate.ml \
-	function_bind.ml \
 	function_inline_complex.ml \
 	function_inline_simple.ml \
 	function_inline_struct.ml \
@@ -77,6 +76,8 @@ TESTS_TOCHECK := \
 #variable_inline.ml \ TODO: Update variable_inline unit test
 
 TESTS_TO_FIX := \
+	function_bind.ml \
+
 	
 
 NOT_NEEEDED_TO_FIX := \
