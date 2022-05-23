@@ -733,8 +733,8 @@ let trm_annot_default = {
 }
 
 (* [trm_build ~annot ~loc ~is_statement ~typ ~ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
-let trm_build ?(annot = trm_annot_default) ?(loc : location = None) ?(is_statement : bool = false) ?(typ : typ option = None)
-  ?(ctx : ctx option = None) ~desc:(desc : trm_desc) () : trm =
+let trm_build ~(annot : trm_annot) ~(loc : location) ~(is_statement : bool) ~(typ : typ option)
+  ~(ctx : ctx option) ~(desc : trm_desc) () : trm =
   let t = {annot; loc; is_statement; typ; desc; ctx} in 
   Stats.incr_trm_alloc ();
   t
@@ -752,7 +752,8 @@ let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
   | _ -> false
   
 
-(* [trm_make ~annot ~loc ~is_statement ~typ ~ctx ] *)
+(* [trm_make ~annot ~loc ~is_statement ~typ ~ctx desc]: builds trm [t] with description [desc] and other fields given 
+    as default ones. *)
 let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location = None) ?(is_statement : bool option) 
     ?(typ : typ option = None) ?(ctx : ctx option = None) (desc : trm_desc) : trm =
    let is_statement =
@@ -763,9 +764,10 @@ let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location = None) ?
    trm_build ~annot ~desc ~loc ~is_statement ~typ ~ctx ()
 
 (* [trm_alter ~annot ~loc ~is_statement ~typ ~ctx ~desc t]: alters any of the fields of [t] that was provided as argument. *)
-let trm_alter ?(annot : trm_annot option) ?(loc : location = None) ?(is_statement : bool option)
-       ?(typ : typ option = None) ?(ctx : ctx option = None) ?(desc : trm_desc option = None) (t : trm) : trm =
+let trm_alter ?(annot : trm_annot option = None) ?(loc : location option = None) ?(is_statement : bool option = None) 
+ ?(typ : typ option = None) ?(ctx : ctx option = None) ?(desc : trm_desc option = None) (t : trm) : trm =
     let annot = match annot with Some x -> x | None -> t.annot in
+    let loc = match loc with Some x -> x | None -> t.loc in
     let is_statement = match is_statement with
       | Some x -> x
       | None -> match desc with
@@ -776,6 +778,10 @@ let trm_alter ?(annot : trm_annot option) ?(loc : location = None) ?(is_statemen
     let ctx = match ctx with | None -> t.ctx | _ -> ctx in
     let desc = match desc with | Some x -> x | None -> t.desc in
     trm_build ~annot ~desc ~loc ~is_statement ~typ ~ctx ()
+
+(* [trm_replace ~anot ~loc ~is_statement ~typ ¢tx desc t]: an alias of [trm_alter] to alter only the descriptiong of [t]. *)
+let trm_replace (desc : trm_desc) (t : trm) : trm =
+  trm_alter ~desc:(Some desc ) t
 
 (* [trm_replace ~annot ~loc ~is_statement ~typ ~ctx t desc]:  *)
 (* let trm_replace

@@ -13,7 +13,8 @@ let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
       else fail t.loc "Accesses_core.transform_aux: expected a get operation"
   | Trm_apps (f, [addr; targ]) ->
       if is_set_operation t
-        then {t with desc = Trm_apps (f ,[addr; f_set targ])}
+        then trm_replace (Trm_apps (f ,[addr; f_set targ])) t
+        (* then {t with desc = Trm_apps (f ,[addr; f_set targ])} *)
         else fail t.loc "Accesses_core.transform_aux: expected a set operation"
   | _ -> fail t.loc "Accessses_core.transform_aux: expected either a get or set operation"
 
