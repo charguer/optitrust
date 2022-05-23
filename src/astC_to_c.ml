@@ -273,32 +273,32 @@ and attr_to_doc (a : attribute) : document =
 and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_init_type : bool = true) (t : trm) : document =
   let parentheses = parentheses_needed ~prec t in
   let dt = trm_to_doc ~semicolon ~prec ~print_struct_init_type t in
-  
+
   let t_pragmas = trm_get_pragmas t in
-  let dpragmas = if t_pragmas = [] 
-    then empty 
-    else 
-      let t_pragmas_str = List.map (fun d -> 
+  let dpragmas = if t_pragmas = []
+    then empty
+    else
+      let t_pragmas_str = List.map (fun d ->
         let intro = if !print_commented_pragma then string "//" else empty in
           intro ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
         ) t_pragmas in
-      
-  
-  
+
+
+
   Tools.list_to_doc ~sep:(string "\n") ~bounds:[empty; hardline] t_pragmas_str in
-  
-  let t_labels = trm_get_labels t in 
-  let dlabels = if t_labels = [] 
-    then empty 
-    else 
+
+  let t_labels = trm_get_labels t in
+  let dlabels = if t_labels = []
+    then empty
+    else
       let t_labels_str = List.map string t_labels in
       Tools.list_to_doc ~sep:(colon ^^ blank 1) ~bounds:[empty; colon] t_labels_str
     in
-  
+
   let dt = if parentheses then parens (dt) else dpragmas ^^ dlabels ^^ dt in
-  
-  let t_marks = trm_get_marks t in 
-  
+
+  let t_marks = trm_get_marks t in
+
   if t_marks = [] && not !print_stringreprids
     then dt
     else
@@ -309,7 +309,7 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
         | None -> "[-]"
         | Some id -> Printf.sprintf "[%d]" id
         end in
-      
+
       let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t_marks in
       let sleft = string ("/*@" ^ sid ^ m ^ "*/") in
       let sright =  string ("/*" ^ sid ^ m ^ "@*/") in
@@ -367,7 +367,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_seq tl ->
        let tl_m = tl.marks in
        let tl = Mlist.to_list tl in
-       if trm_has_cstyle Multi_decl t 
+       if trm_has_cstyle Multi_decl t
           then dattr ^^ multi_decl_to_doc loc tl
           else if trm_is_nobrace_seq t
             then
