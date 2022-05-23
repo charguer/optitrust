@@ -231,7 +231,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
         (* lhs should have type x *)
         begin match lhs.typ with
         | Some {typ_desc = Typ_constr (y, _, _); _} when y = base_type_name ->
-           trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
+           trm_apps ~annot:t.annot ~loc:t.loc 
              ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
         | _ -> trm_map (apply_tiling base_type block_name (trm_var block_size) base_type_name) t
         end
@@ -346,8 +346,7 @@ let swap_aux (index : int) (t : trm) : trm =
             | _ -> fail None ("swap_type: must be an array")
           in
         let new_decl =
-        trm_typedef ~annot: t.annot ~loc: t.loc ~is_statement:t.is_statement
-          {td with typdef_body = Typdef_alias (swap_type ty)}
+        trm_typedef ~annot: t.annot ~loc: t.loc {td with typdef_body = Typdef_alias (swap_type ty)}
         in
         let lback = Mlist.map (apply_swapping td.typdef_tconstr) lback in
         let new_tl = Mlist.merge lfront lback in
@@ -410,23 +409,20 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
                      let base' = aux global_trm base' in
                      let index = aux global_trm index in
                      (* keep outer annotations *)
-                     trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
-                       ~typ:t.typ f' [trm_apps f [base']; index]
+                     trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
                   | Some {typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
                      (* x might appear both in index and in base' *)
                      let base' = aux global_trm base' in
                      let index = aux global_trm index in
                      (* keep outer annotations *)
-                     trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
-                       ~typ:t.typ f' [trm_apps f [base']; index]
+                     trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
                   | Some {typ_desc = Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _}; _};_}
                        when y = struct_name ->
                      (* x might appear both in index and in base' *)
                      let base' = aux global_trm base' in
                      let index = aux global_trm index in
                      (* keep outer annotations *)
-                     trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
-                       ~typ:t.typ f' [trm_apps f [base']; index]
+                     trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
                   | _ -> trm_map (aux global_trm) t
                   end
 

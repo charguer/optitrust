@@ -103,20 +103,20 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
          trm_unop ~annot:t.annot ~loc:t.loc
            (Unop_cast (change_typ ty))
       | Trm_let (vk,(y,ty),init) ->
-        trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement vk (y,change_typ ty) (aux init)
+        trm_let ~annot:t.annot ~loc:t.loc vk (y,change_typ ty) (aux init)
       | Trm_let_fun (f, ty, args, body) ->
-         trm_let_fun ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
+         trm_let_fun ~annot:t.annot ~loc:t.loc
             f (change_typ ty)
             (List.map (fun (y, ty) -> (y, change_typ ty)) args)
             (aux body)
       | Trm_typedef td ->
         begin match td.typdef_body with
         | Typdef_alias ty ->
-          trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement 
+          trm_typedef  ~annot:t.annot ~loc:t.loc 
            { td with typdef_body = Typdef_alias (change_typ ty)}
         | Typdef_prod (b, s) ->
            let s = List.map (fun (lb, x) -> (lb, change_typ x)) s in
-           trm_typedef ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement 
+           trm_typedef ~annot:t.annot ~loc:t.loc 
            { td with typdef_body = Typdef_prod (b, s)}
         | _ -> trm_map aux t
         end

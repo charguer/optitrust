@@ -23,7 +23,7 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Sequence_basic.intro [cFor "i"];
+  !! Sequence_basic.intro 2 [cFor "i"];
   !! Sequence_basic.intro_between [tBefore; cVarDef "y"] [tAfter; cVarDef "t"];
   !! Sequence_basic.intro_after [cVarDef "u"];
   !! Trace.alternative (fun _ ->

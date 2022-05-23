@@ -57,7 +57,6 @@ let elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
     and its arguments.*)
 let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : target) : unit =
   bind_args args tg;
-  Printf.printf "I was here\n";
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
 (* [inline ~resname ~vars ~args ~keep_res ~delete ~debug tg]: expects the target [ŧg] to point at a function call

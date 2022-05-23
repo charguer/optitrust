@@ -222,7 +222,7 @@ and tr_stmt (s : C.stmt) : trm =
              end
       in
     let mut = if is_typ_const tt then Var_immutable else Var_mutable in
-    trm_let ~loc ~is_statement:true mut (n, tt) te
+    trm_let ~loc mut (n, tt) te
   | Spragma (p, s1) -> 
     (* pragmas are parsed as annotations to the proceeding instruction *)
     let tp = tr_pragma p in 
@@ -298,7 +298,7 @@ and tr_constant ?(loc : location = None) ?(is_boolean : bool = false) (c : C.con
   | _  -> fail loc "CMenhir_to_astRawC.tr_const: constant expression is not supported"
 
 (* [tr_expr ~is_stement e]: translates C.exp into OptiTrust trm *)
-and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.exp) : trm =
+and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
   let loc = loc_of_cloc e.eloc in
   let typ = Some (tr_type e.etyp) in
   let ctx = Some (get_ctx()) in
@@ -320,7 +320,7 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
 
   | EUnop (unop, e) ->
     let t = tr_expr e in
-    let trm_apps1 unop t1 = trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc unop) [t1] in
+    let trm_apps1 unop t1 = trm_apps ~loc ~typ ~ctx (trm_unop ~loc unop) [t1] in
     begin match unop with
     | Ominus ->
       trm_apps1 Unop_minus t
@@ -354,7 +354,7 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     let tl = tr_expr le in
     let tr = tr_expr re in
     let trm_prim_c binop tl tr =
-       trm_prim_compound ~loc ~is_statement ~ctx binop  tl tr in
+       trm_prim_compound ~loc ~ctx binop  tl tr in
     begin match binop with
     | Oadd -> trm_add ~loc ~ctx ~typ tl tr
     | Osub -> trm_sub ~loc ~ctx ~typ  tl tr
@@ -379,7 +379,7 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     | Ole -> trm_le ~loc ~ctx ~typ  tl tr
     | Oge -> trm_ge ~loc ~ctx ~typ  tl tr
     | Oindex -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx (Binop_array_get) ) [tl; tr]
-    | Oassign -> trm_set ~loc ~ctx ~is_statement tl tr
+    | Oassign -> trm_set ~loc ~ctx tl tr
     | Oadd_assign -> trm_prim_c Binop_add tl tr
     | Osub_assign -> trm_prim_c Binop_sub tl tr
     | Omul_assign -> trm_prim_c Binop_mul tl tr
@@ -398,7 +398,7 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     let t_cond = tr_expr cond in
     let t_then = tr_expr then_ in
     let t_else = tr_expr else_ in
-    trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op) [t_cond; t_then; t_else]
+    trm_apps ~loc ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op) [t_cond; t_then; t_else]
   | ECast (ty, e1) ->
     let ty = tr_type ty in
     let te = tr_expr e1 in
@@ -411,10 +411,10 @@ and tr_expr ?(is_statement : bool = false) ?(is_boolean : bool = false) (e : C.e
     begin match tf.desc with
     | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
       begin match el with
-      | [tl; tr] -> trm_set ~loc ~ctx ~is_statement (tr_expr tl) (tr_expr tr)
+      | [tl; tr] -> trm_set ~loc ~ctx (tr_expr tl) (tr_expr tr)
       | _ -> fail loc "CMenhir_to_astRawC.tr_expr: overloaded= expects two arguments"
       end
-    | _ -> trm_apps ~loc ~ctx ~is_statement ~typ tf (List.map tr_expr el)
+    | _ -> trm_apps ~loc ~ctx ~typ tf (List.map tr_expr el)
     end
 
 (* [tr_globdef d]: transaltes C.globdecl into OptiTrust trm *)
@@ -448,7 +448,7 @@ and tr_globdef (d : C.globdecl) : trm =
       end
       else
         let mut = if is_typ_const tt then Var_immutable else Var_mutable in
-        trm_let ~loc ~ctx ~is_statement:true mut (n, tt) te
+        trm_let ~loc ~ctx mut (n, tt) te
   | C.Gfundef {fd_storage = _; fd_inline = inline; fd_name = {name = n;_}; fd_attrib = _att; fd_ret = ty; fd_params = po; fd_body = bo; _} ->
     let tt = tr_type ty in
     let tb = tr_stmt bo in

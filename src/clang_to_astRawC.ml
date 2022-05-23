@@ -322,7 +322,7 @@ and tr_stmt (s : stmt) : trm =
        )([],typ_unit(), []) dls in
        trm_let_mult ~loc ~ctx Var_mutable ty (List.rev var_list) (List.rev init_list)
     end
-  | Expr e -> tr_expr ~is_statement:true e
+  | Expr e -> tr_expr e
   | Label {label = l; body = s} ->
     let t = tr_stmt s in
     trm_add_label l t
@@ -404,9 +404,8 @@ and compute_body (loc : location) (body_acc : trms)
         compute_body loc (t :: body_acc) sl
     end
 
-(* [tr_expr ~is_statement e]: translates expression [e] into an OptiTrust trm *)
-and tr_expr ?(is_statement : bool = false)
-    (e : expr) : trm =
+(* [tr_expr e]: translates expression [e] into an OptiTrust trm *)
+and tr_expr (e : expr) : trm =
   (* let aux = tr_expr *)
   let loc = loc_of_node e in
   let typ : typ option =
@@ -424,7 +423,7 @@ and tr_expr ?(is_statement : bool = false)
     let t_cond = tr_expr cond in
     let t_then = tr_expr e_then in
     let t_else = tr_expr e_else in
-    trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op)
+    trm_apps ~loc ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op)
       [t_cond; t_then; t_else]
   | ConditionalOperator _ ->
     fail loc
@@ -482,9 +481,9 @@ and tr_expr ?(is_statement : bool = false)
            for example, [int p = 3; f(&p)]. In our AST, [p] represents
            the address of the cell at which [3] is stored, thus the
            call is actually [f(p)]. In other words we drop the [&] operator. *)
-        trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop Unop_address) [t]
+        trm_apps ~loc ~typ ~ctx (trm_unop Unop_address) [t]
       | _ ->
-        let trm_apps1 unop t1 = trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc unop) [t1] in
+        let trm_apps1 unop t1 = trm_apps ~loc ~typ ~ctx (trm_unop ~loc unop) [t1] in
         begin match k with
           | PostInc -> trm_apps1 Unop_post_inc t
           | PostDec -> trm_apps1 Unop_post_dec t
@@ -503,10 +502,10 @@ and tr_expr ?(is_statement : bool = false)
     let tr = tr_expr re in
     let tl = tr_expr le in
     let trm_prim_c binop tl tr =
-       trm_prim_compound ~loc ~is_statement ~ctx binop tl tr in
+       trm_prim_compound ~loc ~ctx binop tl tr in
     begin match k with
       | Assign ->
-        trm_set ~loc ~ctx ~is_statement tl tr
+        trm_set ~loc ~ctx tl tr
       | AddAssign ->
         trm_prim_c Binop_add tl tr
       | SubAssign ->
@@ -555,10 +554,10 @@ and tr_expr ?(is_statement : bool = false)
     begin match tf.desc with
     | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
         begin match el with
-        | [tl;tr] -> trm_set ~loc ~ctx  ~is_statement (tr_expr tl) (tr_expr tr)
+        | [tl;tr] -> trm_set ~loc ~ctx (tr_expr tl) (tr_expr tr)
         | _ -> fail loc "Clang_to_astRawC.tr_expr: overloaded= expects two arguments"
         end
-    | _-> trm_apps ~loc ~ctx  ~is_statement ~typ tf (List.map tr_expr el)
+    | _-> trm_apps ~loc ~ctx ~typ tf (List.map tr_expr el)
     end
   | DeclRef {nested_name_specifier = _; name = n; _} -> (* Occurrence of a variable *)
     begin match n with
@@ -619,7 +618,7 @@ and tr_expr ?(is_statement : bool = false)
   | Construct {qual_type = _; args = el} ->
     (* only known use case: return of a struct variable *)
     begin match el with
-      | [e] -> tr_expr ~is_statement  e
+      | [e] -> tr_expr e
       | _ -> fail loc "Clang_to_astRawC.tr_expr: unsupported construct"
     end
   | Cast {kind = k; qual_type = q; operand = e'} ->
@@ -871,7 +870,7 @@ and tr_decl (d : decl) : trm =
     ctx_var_add n tt;
     (* dummy value used for variable mutability *)
     let mut = if is_typ_const tt then Var_immutable else Var_mutable  in
-    trm_let ~loc ~is_statement:true mut (n,tt) te
+    trm_let ~loc mut (n,tt) te
   | TypedefDecl {name = tn; underlying_type = q} ->
     let tid = next_typconstrid () in
     ctx_tconstr_add tn tid;
