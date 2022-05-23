@@ -80,8 +80,8 @@ let stackvar_elim (t : trm) : trm =
     begin match t.desc with
     | Trm_var (_, x) ->
       if is_var_mutable !env x
-        then trm_get {t with desc = Trm_var (Var_mutable, x)}
-        else { t with desc = Trm_var (Var_immutable, x) }
+        then trm_get (trm_replace (Trm_var (Var_mutable, x)) t)
+        else trm_replace (Trm_var (Var_immutable, x)) t
     | Trm_let (_, (x, ty), tbody) ->
       let xm = if is_typ_const ty then Var_immutable else Var_mutable in
       add_var env x xm;
@@ -89,13 +89,12 @@ let stackvar_elim (t : trm) : trm =
       | Some ty1 ->
         begin match xm with
         | Var_immutable -> fail t.loc "Ast_fromto_AstC.tackvar_elim: unsupported references on const variables"
-        | _ -> 
-          trm_add_cstyle Reference {t with desc = Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of (aux tbody))}
+        | _ -> trm_add_cstyle Reference (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of (aux tbody))) t)
         end
       | None ->
         begin match xm with
         | Var_mutable ->
-          trm_add_cstyle Stackvar {t with desc = Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) )}
+          trm_add_cstyle Stackvar (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) )) t)
         | Var_immutable ->
           trm_map aux t
         end
@@ -131,7 +130,7 @@ let stackvar_intro (t : trm) : trm =
     begin match t.desc with
     | Trm_var (_, x) ->
       if is_var_mutable !env x
-        then trm_address_of {t with desc = Trm_var (Var_mutable, x)} 
+        then trm_address_of (trm_replace (Trm_var (Var_mutable, x)) t)
         else t
     | Trm_let (_, (x, tx), tbody) ->
       let vk = if is_typ_const tx then Var_immutable else Var_mutable in
@@ -140,7 +139,7 @@ let stackvar_intro (t : trm) : trm =
         then
           begin match tx.typ_desc , tbody.desc with
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_new _));_}, [tbody1])  ->
-              trm_rem_cstyle Stackvar {t with desc = Trm_let (vk, (x, tx1), aux tbody1)}
+              trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody1)) t)
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
           end
       else if trm_has_cstyle Reference t then
@@ -149,8 +148,7 @@ let stackvar_intro (t : trm) : trm =
           trm_rem_cstyle Reference { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get (aux tbody))}
         | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
         end
-      else
-        {t with desc = Trm_let (vk, (x, tx), aux tbody)}
+      else trm_replace (Trm_let (vk, (x, tx), aux tbody)) t
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
@@ -176,7 +174,7 @@ let stackvar_intro (t : trm) : trm =
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[ŧ])] *)
 let rec caddress_elim (t : trm) : trm =
   let aux t = caddress_elim t in (* recursive calls for rvalues *)
-  let mk ?(annot = trm_annot_default) td = {t with desc = td; annot = annot} in
+  let mk ?(annot = trm_annot_default) td = trm_alter ~desc:(Some td) ~annot:(Some annot) t in
   trm_simplify_addressof_and_get
   begin 
     match t.desc with
@@ -217,7 +215,7 @@ let is_access (t : trm) : bool =
 let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
   let aux t = caddress_intro_aux false t in  (* recursive calls for rvalues *)
   let access t = caddress_intro_aux true t in (* recursive calls for lvalues *)
-  let mk td = {t with desc = td} in
+  let mk td = trm_alter ~desc:(Some td) t in
   trm_simplify_addressof_and_get (* Note: might not be needed *)
   begin if is_access_t then begin
     match t.desc with
@@ -266,11 +264,11 @@ let infix_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr]) ->
-     {t with desc = Trm_apps(op, [trm_address_of tl; tr])}
+      trm_replace (Trm_apps(op, [trm_address_of tl; tr])) t
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base]) when is_postfix_unary unop ->
-      {t with desc = Trm_apps(op, [trm_address_of base])}
+      trm_replace (Trm_apps(op, [trm_address_of base])) t
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set))} as op, [tl; tr]) ->
-      {t with desc = Trm_apps (op, [trm_address_of tl;tr])}
+      trm_replace (Trm_apps (op, [trm_address_of tl;tr])) t
     | _ -> trm_map aux t
   in aux t
 
@@ -282,11 +280,11 @@ let infix_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr]) ->
-     {t with desc = Trm_apps(op, [trm_get tl; tr])}
+      trm_replace (Trm_apps(op, [trm_get tl; tr])) t
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base]) when is_postfix_unary unop ->
-      {t with desc = Trm_apps(op, [trm_get base])}
+      trm_replace (Trm_apps(op, [trm_get base])) t
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set))} as op, [tl; tr]) ->
-      {t with desc = Trm_apps (op, [trm_get tl;tr])}
+      trm_replace (Trm_apps (op, [trm_get tl;tr])) t
     | _ -> trm_map aux t
   in aux t
 

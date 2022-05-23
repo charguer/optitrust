@@ -617,7 +617,7 @@ let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
          let f_update = fun t -> new_td in
          let f_update_further = fun t -> modif_accesses (old_fields, new_fields) struct_name arg t in
          let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
-         {t with desc = Trm_seq new_tl}
+         trm_replace (Trm_seq new_tl) t
       | _ -> fail tdef.loc "Struct_core.Struct_core.struct_modif: expected a struct definition"
       end
     | _ -> fail tdef.loc "Struct_core.Struct_core.struct_modif: expected a target to a typedef struct definition"

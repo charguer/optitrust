@@ -110,7 +110,7 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
       end in
       let rec aux (t1 : trm) : trm =
         match t1.desc with 
-        | Trm_var (vk, y) when y = x -> {t with desc = Trm_var (vk, new_name)}
+        | Trm_var (vk, y) when y = x -> trm_replace (Trm_var (vk, new_name)) t
         | _ -> trm_map aux t1
       in aux t  
     in

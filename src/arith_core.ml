@@ -40,11 +40,12 @@ let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option
   match t.desc with
   | Trm_apps(f, [lhs; rhs]) when is_set_operation t ->
     begin match pre_cast, post_cast with
-     | None, None -> {t with desc = Trm_apps (f, [lhs; trm_apps_binop rhs u])}
-     | None, Some ty -> {t with desc = Trm_apps (f, [lhs; 
-                    trm_cast ty (trm_apps_binop rhs u)])}
-     | Some ty, None -> {t with desc = Trm_apps (f, [lhs; 
-                    trm_apps_binop (trm_cast ty rhs) u])}
+     | None, None -> trm_replace (Trm_apps (f, [lhs; trm_apps_binop rhs u])) t
+     
+     | None, Some ty -> trm_replace (Trm_apps (f, [lhs;trm_cast ty (trm_apps_binop rhs u)])) t
+     
+     | Some ty, None -> trm_replace (Trm_apps (f, [lhs; 
+                    trm_apps_binop (trm_cast ty rhs) u])) t
      | _ -> fail t.loc "Arith_core.transform_aux: can't apply both pre-casting 
                         and post-casting"
     end

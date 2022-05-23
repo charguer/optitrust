@@ -286,7 +286,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           end in
           { t with desc = Trm_let (vk, tx, body)}
        | Dir_body, Trm_let (vk, tx, body) ->
-          {t with desc = Trm_let (vk, tx, aux body)}
+          trm_replace (Trm_let (vk, tx, aux body)) t
        | Dir_body, Trm_let_fun (x, tx, txl, body) ->
           { t with desc = Trm_let_fun (x, tx, txl, aux body)}
        | Dir_body, Trm_for (l_range, body) ->
@@ -296,7 +296,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_body, Trm_while (cond, body) ->
           { t with desc = Trm_while (cond, aux body)}
        | Dir_body, Trm_do_while (body, cond) ->
-          {t with desc = Trm_do_while (aux body, cond)}
+          trm_replace (Trm_do_while (aux body, cond)) t
        | Dir_body, Trm_abort (Ret (Some body)) ->
           { t with desc = Trm_abort (Ret (Some (aux body)))}
        | Dir_for_start, Trm_for ((index, start, direction, stop, step,is_parallel), body) ->
@@ -329,7 +329,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
               )
               txl
           in
-          {t with desc = Trm_let_fun (x, tx, txl', body)}
+          trm_replace (Trm_let_fun (x, tx, txl', body)) t
         | Dir_name , Trm_let (vk,(x,tx),body) ->
           let t' = aux (trm_var ~loc:t.loc x) in
           begin match t'.desc with
@@ -353,7 +353,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
                     (Xlist.update_nth i (fun ith_t -> aux ith_t) tl , body)
                )
                cases
-            ) in {t with desc = Trm_switch (cond, updated_cases)}
+            ) in trm_replace (Trm_switch (cond, updated_cases)) t
         | _, _ ->
            let s = dir_to_string d in
            fail t.loc (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))

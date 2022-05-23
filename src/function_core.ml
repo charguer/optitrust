@@ -209,7 +209,7 @@ let rename_args (vl : var list) : Transfo.local =
       [arg_mapper] - a function to change the arguments. *)
 let replace_with_change_args_aux (new_fun_name : string) (arg_mapper : trms -> trms) (t : trm) : trm =
   match t.desc with
-  | Trm_apps (f, args) -> {t with desc = Trm_apps (trm_var new_fun_name, arg_mapper args)}
+  | Trm_apps (f, args) -> trm_replace (Trm_apps (trm_var new_fun_name, arg_mapper args)) t
   | _ -> fail t.loc "Function_core.replace_with_change_args_aux: expected a target to a function call"
 
 

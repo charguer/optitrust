@@ -86,10 +86,10 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   in
   let rec replace_type_annot (t : trm) : trm =
     let t =
-      {t with typ = match t.typ with
-                    | None -> None
-                    | Some ty' -> Some (change_typ ty')
-      }
+      let typ = match t.typ with 
+      | None -> None 
+      | Some ty' -> Some (change_typ ty') in
+      trm_alter ~typ t
     in
     trm_map replace_type_annot t
   in
@@ -457,7 +457,7 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
         if indices_list <> [] then
           List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list)
         else new_tl in
-      {t with desc = Trm_seq new_tl}
+      trm_replace (Trm_seq new_tl) t
     | _ -> trm_map aux t
    in aux t
 

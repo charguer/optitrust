@@ -1002,7 +1002,7 @@ let trm_get_attr (t : trm) : attribute list =
 let trm_attr_add (att : attribute) (t : trm) : trm =
   let t_annot_attributes = t.annot.trm_annot_attributes in 
   let t_annot = {t.annot with trm_annot_attributes = att :: t_annot_attributes} in
-  {t with annot = t_annot}
+  trm_alter ~annot:(Some t_annot) t
 
 (**** Marks  ****)
 
@@ -1010,7 +1010,7 @@ let trm_attr_add (att : attribute) (t : trm) : trm =
 let apply_on_marks (f : marks -> marks) (t : trm) : trm =
   let t_annot_marks = f (t.annot.trm_annot_marks) in
   let t_annot = {t.annot with trm_annot_marks=t_annot_marks} in 
-  {t with annot = t_annot}
+  trm_alter ~annot:(Some t_annot) t
 
 (* [trm_add_mark m]: adds mark [m] to the trm [t] *)
 let trm_add_mark (m : mark) (t : trm) : trm = 
@@ -1037,7 +1037,7 @@ let trm_remove_marks (t : trm) : trm =
   let res = 
   match t.desc with
   (* In the case of sequences, special treatment is needed for in between marks*)
-  | Trm_seq tl -> {t with desc = Trm_seq {items = tl.items; marks = []}}
+  | Trm_seq tl -> trm_replace (Trm_seq {items = tl.items; marks = []}) t
   | _ -> t in
   trm_filter_mark (fun _ -> true) res
 
@@ -1062,7 +1062,7 @@ let trm_pass_marks (t1 : trm) (t2 : trm) : trm =
   let t1_marks = trm_get_marks t1 in 
   let t2_marks = trm_get_marks t2 in 
   let t2_annot = {t2.annot with trm_annot_marks = t2_marks @ t1_marks} in 
-  {t2 with annot = t2_annot}
+  trm_alter ~annot:(Some t2_annot) t2
 
 (**** Labels  ****)
 
@@ -1075,7 +1075,7 @@ let apply_on_labels (f : marks -> marks) (t : trm) : trm =
   let t_labels = trm_get_labels t in 
   let t_annot_labels = f t_labels in
   let t_annot = {t.annot with trm_annot_labels = t_annot_labels} in 
-  {t with annot = t_annot}
+  trm_alter ~annot:(Some t_annot) t
 
 (* [trm_add_label l]: adds label [l] to trm [t]. *)
 let trm_add_label (l : label) (t : trm) : trm =
@@ -1110,7 +1110,7 @@ let trm_pass_labels (t1 : trm) (t2 : trm) : trm =
 (* [trm_set_stringreprid id t]: sets the string representation id [t] to [id]. *)
 let trm_set_stringreprid (id : stringreprid) (t : trm) : trm =
   let t_annot = {t.annot with trm_annot_stringrepr = Some id} in
-  {t with annot = t_annot}
+  trm_alter ~annot:(Some t_annot) t
 
 (* [trm_get_stringreprid t]: gets the string representation of trm [t]. *)
 let trm_get_stringreprid (t : trm) : stringreprid option =
@@ -1123,7 +1123,7 @@ let trm_get_stringreprid (t : trm) : stringreprid option =
 let apply_on_pragmas (f : cpragma list -> cpragma list) (t : trm) : trm =
   let t_annot_pragmas = f (t.annot.trm_annot_pragma) in
   let t_annot = {t.annot with trm_annot_pragma = t_annot_pragmas} in 
-  {t with annot = t_annot}
+  trm_alter ~annot:(Some t_annot) t
 
 (* [trm_add_pragma p t]: adds the pragma [p] into [t]. *)
 let trm_add_pragma (p : cpragma) (t : trm) : trm = 
@@ -1164,7 +1164,7 @@ let trm_get_cstyles (t : trm) : cstyle_annot list =
 let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
   let t_annot_cstyle = f (trm_get_cstyles t) in
   let t_annot = {t.annot with trm_annot_cstyle=t_annot_cstyle} in 
-  {t with annot = t_annot}
+  trm_alter ~annot:(Some t_annot) t
 
 (* [trm_add_cstyle cs t]: adds [cs] cstyle annotation to trm [t]. *)
 let trm_add_cstyle (cs : cstyle_annot) (t : trm) : trm =
@@ -1195,14 +1195,14 @@ let trm_set_mainfile (t : trm) : trm =
    let t_files = trm_get_files_annot t in
    let t_annot_files = Main_file :: t_files in 
    let t_annot = {t.annot with trm_annot_files=t_annot_files} in 
-   {t with annot = t_annot}
+   trm_alter ~annot:(Some t_annot) t
 
 (* [trm_set_include filename t]: add [Include filename] annotation to trm [t]. *)
 let trm_set_include (filename : string) (t : trm) : trm =
   let t_files = trm_get_files_annot t in
   let t_annot_files = Include filename :: t_files in
   let t_annot = {t.annot with trm_annot_files = t_annot_files} in 
-  {t with annot = t_annot}
+  trm_alter ~annot:(Some t_annot) t
 
 (* [trm_is_mainfile t]: checks if [t] contains the [Main_file] annotation. *)
 let trm_is_mainfile (t : trm) : bool =

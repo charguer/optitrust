@@ -1265,7 +1265,7 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   | Constr_include h when trm_is_include t ->
      (* remove the include annotation for target resolution to proceed in the
        included file *)
-     resolve_target_simple p {t with annot = trm_annot_default}
+     resolve_target_simple p (trm_alter ~annot:(Some trm_annot_default) t)
   | _ when trm_is_include t ->
      print_info loc "Constr.resolve_constraint: not an include constraint\n";
      []
