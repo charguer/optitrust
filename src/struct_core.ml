@@ -174,7 +174,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
           let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives field_index term_list in
           begin match trm_to_change.desc with
           | Trm_struct sl ->
-            let new_term_list = Mlist.merge_list [lfron; sl; lback] in 
+            let new_term_list = Mlist.merge_list [lfront; sl; lback] in 
             trm_struct ~annot:t.annot ~typ:t.typ new_term_list
           | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change ->
             let sl = List.map (fun f -> trm_get (trm_struct_access (trm_var ~typ:v.typ p) f)) field_list in
