@@ -4,9 +4,9 @@ open Ast
 
 let _ = Run.doc_script_cpp (fun _ ->
 
-    !! Loop_basic.tile (lit "3") ~index:"bi" ~bound:TileBoundDivides [cFor "i"];
-       Loop_basic.tile (lit "3") ~index:"bj" ~bound:TileBoundMin [cFor "j"];
-       Loop_basic.tile (lit "3") ~index:"bk" ~bound:TileBoundAnd [cFor "k"];
+  !! Loop_basic.tile (lit "3") ~index:"bi" ~bound:TileBoundDivides [cFor "i"];
+  !! Loop_basic.tile (lit "3") ~index:"bj" ~bound:TileBoundMin [cFor "j"];
+  !! Loop_basic.tile (lit "3") ~index:"bk" ~bound:TileBoundAnd [cFor "k"];
 
 )
 

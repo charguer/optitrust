@@ -3,7 +3,9 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Arrays_basic.to_variables ["ta";"tb";"tc"] [cVarDef "t"];
+  
+  !! Arrays_basic.to_variables ["ta";"tb";"tc"] [cVarDef "t"];
+
 )
 
 "
@@ -20,8 +22,10 @@ int main() {
 *)
 
 let _ = Run.script_cpp ~parser:Parsers.Clang (fun () ->
+
   !! Arrays_basic.to_variables ["ua";"ub"] [cVarDef "u"];
   !! Arrays_basic.to_variables ["va";"vb"] [cVarDef "v"];
+
 )
 
 (* LATER: should support patterns, such as

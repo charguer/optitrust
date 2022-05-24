@@ -17,7 +17,7 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-    !! Sequence_basic.elim_on_instr [cVarDef "x"];
-    !! Sequence_basic.elim_on_instr [cVarDef "y"];
+  !! Sequence_basic.elim_on_instr [cVarDef "x"];
+  !! Sequence_basic.elim_on_instr [cVarDef "y"];
 
 )

@@ -4,7 +4,7 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
 
-    !! Loop_basic.unroll [cFor "i"];
+  !! Loop_basic.unroll [cFor "i"];
 
 )
 

@@ -3,8 +3,11 @@ open Target
 open Ast
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Accesses_basic.scale (trm_double 5.0) [cReadOrWrite ~addr:[cVar "x"] ()]
+
+  !! Accesses_basic.scale (trm_double 5.0) [cReadOrWrite ~addr:[cVar "x"] ()]
+
 )
+
 "
 int main() {
   int x = 2;

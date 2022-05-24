@@ -65,7 +65,7 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
           }
         }
 
-   @correctness: always work, and also need to instantiate variables in the
+   @correctness: always works, and also needs to instantiate variables in the
    local invariants in the body. *)
 
 let inline ?(body_mark : mark option) (tg : target) : unit =

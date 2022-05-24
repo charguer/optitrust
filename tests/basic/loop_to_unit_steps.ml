@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
 
-    !! Loop_basic.to_unit_steps ~index:"s" [cFor "i"];
+  !! Loop_basic.to_unit_steps ~index:"s" [cFor "i"];
 
 )
 
@@ -16,12 +16,14 @@ int main() {
 "
 
 let _ = Run.script_cpp (fun _ ->
+  
   !! Loop_basic.to_unit_steps ~index:"j" [cFor "i"];
   (* if not provided, the new index name is generated from the original one *)
   !! Trace.alternative (fun () ->
     !! Loop_basic.to_unit_steps [cFor "i"];
     !!(); )
-  )
+
+)
 
 (* LATER: we will one day need the transformation
 

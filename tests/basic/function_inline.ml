@@ -3,8 +3,10 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
+
   !! Function_basic.inline [cFun "sq"];
-  )
+
+)
 
 "
 int sq(int x) { return (x * x); }

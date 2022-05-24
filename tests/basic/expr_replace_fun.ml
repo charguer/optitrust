@@ -3,7 +3,9 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Expr_basic.replace_fun "g" [cFun "f"];
+  
+  !! Expr_basic.replace_fun "g" [cFun "f"];
+
 )
 
 "

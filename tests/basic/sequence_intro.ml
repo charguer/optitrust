@@ -3,9 +3,9 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
     
-    !! Sequence_basic.intro 2 [cVarDef "a"];
-       Sequence_basic.intro_between [tBefore; cVarDef "d1"] [tAfter; cVarDef "d3"];
-       Sequence_basic.intro_after [cVarDef "f"];
+  !! Sequence_basic.intro 2 [cVarDef "a"];
+  !! Sequence_basic.intro_between [tBefore; cVarDef "d1"] [tAfter; cVarDef "d3"];
+  !! Sequence_basic.intro_after [cVarDef "f"];
 
 )
 

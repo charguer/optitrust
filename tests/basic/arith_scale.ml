@@ -4,7 +4,9 @@ open Ast
 open Parsers
 
 let _ = Run.doc_script_cpp (fun _ ->
+
   !! Arith_basic.scale (lit "4") [cReadVar "x"];
+
 )
 
 "

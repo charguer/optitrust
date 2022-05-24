@@ -2,7 +2,9 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Loop_basic.hoist [cVarDef "x"];
+
+  !! Loop_basic.hoist [cVarDef "x"];
+
 )
 
 "

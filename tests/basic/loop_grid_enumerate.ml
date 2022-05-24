@@ -4,7 +4,7 @@ open Ast
 
 let _ = Run.doc_script_cpp (fun _ ->
 
-    !! Loop_basic.grid_enumerate [("x", lit "3"); ("y", lit "4")] [cFor "c"];
+  !! Loop_basic.grid_enumerate [("x", lit "3"); ("y", lit "4")] [cFor "c"];
   
 )
 
@@ -21,6 +21,6 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-   !! Loop_basic.grid_enumerate [("x", expr "X"); ("y", expr "Y"); ("z", expr "Z")] [cFor "idCell"];
+  !! Loop_basic.grid_enumerate [("x", expr "X"); ("y", expr "Y"); ("z", expr "Z")] [cFor "idCell"];
 
 )

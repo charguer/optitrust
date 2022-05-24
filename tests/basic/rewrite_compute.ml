@@ -4,6 +4,7 @@ open Target
 let _ = Run.doc_script_cpp (fun _ ->
 
   !! Rewrite_basic.compute [cPrimFun (Prim_binop Binop_add)];
+
 )
 
 "

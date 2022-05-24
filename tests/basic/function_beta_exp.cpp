@@ -9,5 +9,6 @@ int main() {
   int s = 0;
   s += 2 * i;
   s -= i;
+
   return 0;
 }

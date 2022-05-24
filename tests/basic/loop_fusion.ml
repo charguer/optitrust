@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Loop_basic.fusion_on_block [cLabel "tofuse"];
-  )
+  
+  !! Loop_basic.fusion_on_block [cLabel "tofuse"];
+  
+)
+
 "
 int main() {
   int x;
@@ -23,4 +26,5 @@ int main() {
 let _ = Run.script_cpp ( fun _ ->
 
   !! Loop_basic.fusion_on_block [cLabel "tofuse"];
+
 )

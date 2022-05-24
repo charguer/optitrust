@@ -3,8 +3,10 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-     !! Flow_basic.insert_if ~cond:(expr "x > 0") [sInstr "x++"];
-  )
+
+  !! Flow_basic.insert_if ~cond:(expr "x > 0") [sInstr "x++"];
+  
+)
 
 "
 int main() {
@@ -26,6 +28,6 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.alternative (fun () ->
       !! Sequence_basic.intro ~mark:"new_block" 2 [sInstr "x = 5"];
       !! Flow_basic.insert_if ~cond:(expr "x > 0") [cMark "new_block"];
-      !!();
-  )
+      !!();)
+
 )

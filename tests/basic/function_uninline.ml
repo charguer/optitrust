@@ -9,11 +9,12 @@ open Target
    in the future, we may want to introduce an annotation to allow preserving the presentation
   used by the original code in case it involves a star. *)
 
-let _ = Flags.dump_ast_details := true
-
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Function_basic.uninline ~fct:[cFunDef "g"] [cLabel "body"];
-  )
+    
+   !! Function_basic.uninline ~fct:[cFunDef "g"] [cLabel "body"];
+
+)
+
 "
 void f(int x);
 

@@ -47,9 +47,9 @@ TESTS_WITH_DOC := \
 	rewrite_compute.ml \
 	rewrite_compute_inside.ml \
 	sequence_delete.ml \
+	sequence_elim.ml \
 	sequence_elim_on_instr.ml \
 	sequence_intro_on_instr.ml \
-	sequence_elim.ml \
 	sequence_insert.ml \
 	sequence_intro.ml \
 	sequence_partition.ml \
