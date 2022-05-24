@@ -24,5 +24,5 @@ int main() {
 let _ = Run.script_cpp ( fun _ ->
 
   !! Loop.fusion_targets [cLabel "block"];
-  
+
 )

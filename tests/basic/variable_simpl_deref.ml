@@ -22,15 +22,15 @@ let _ = Run.script_cpp (fun _ ->
   !! Variable_basic.simpl_deref [cRead ~addr:[cVar "a"] ()];
 
 
-  Trace.alternative ( fun () -> 
+  Trace.alternative ( fun () ->
     !! Variable_basic.simpl_deref ~indepth:true [];
     !! ();
   )
 
 )
 
-(* 
-  
+(*
+
   New convention: all functions named with "simpl_"  take an ~indepth whose default value in false.
   => beta should be renamed to simpl_beta, and take indepth with true as default
   => infix_ops should follow the same scheme as suggested above for simple_defer

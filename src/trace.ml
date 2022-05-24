@@ -23,7 +23,7 @@ let report (msg : string) (t : trm) : unit =
 let timing_log_handle = ref None
 
 (* [stats_log_handle]: is a handle on the channel for writing stats reports. *)
-let stats_log_handle = ref None 
+let stats_log_handle = ref None
 
 (* [logs]: is a reference on the list of open log channels. *)
 let logs : (out_channel list) ref = ref []
@@ -43,7 +43,7 @@ let init_logs directory prefix =
   let stats_log = open_out ("stats.log") in
   stats_log_handle := Some stats_log;
   logs := timing_log :: stats_log :: clog :: [];
-  clog  
+  clog
 
 (* [write_log clog msg]: writes the string [msg] to the channel [clog]. *)
 let write_log (clog : out_channel) (msg : string) : unit =
@@ -318,8 +318,8 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
 
 (* [get_initial_ast ~parser ser_mode ser_file filename]: gets the initial ast before applying any trasfnrmations
      [parser] - choose which parser to use for parsing the source code
-     [ser_mode] - serialization mode 
-     [ser_file] - if serialization is used for the initial ast, the filename of the serialized version 
+     [ser_mode] - serialization mode
+     [ser_file] - if serialization is used for the initial ast, the filename of the serialized version
                   of the source code is needed
      [filename] - filename of the source code  *)
 let get_initial_ast ?(parser : Parsers.cparser = Parsers.Default) (ser_mode : Flags.serialized_mode) (ser_file : string)
@@ -344,7 +344,7 @@ let get_initial_ast ?(parser : Parsers.cparser = Parsers.Default) (ser_mode : Fl
   else
     parse ~parser filename
 
-(* [get_excerpt line]: returns the piece of transformation script that starts on the given line. Currently returns the "" 
+(* [get_excerpt line]: returns the piece of transformation script that starts on the given line. Currently returns the ""
     in case [compute_ml_file_excerpts] was never called. LATER: make it fail in that case. *)
 let get_excerpt (line : int) : string =
   if line = - 1 then failwith "get_excerpt: requires a valid line number";
@@ -380,13 +380,13 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (
   let mode = !Flags.serialized_mode in
   start_stats := get_cur_stats ();
   last_stats := !start_stats;
-  
+
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
   let ser_file = basename ^ ".ser" in
-  
+
   let (includes, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser mode ser_file filename) in
-  
+
   let context = { extension; directory; prefix; includes; clog } in
   let stepdescr = { isbigstep = None;
                     script = "Result of parsing";
@@ -702,7 +702,7 @@ let get_history ?(prefix : string = "") () : history =
   | _ -> failwith "Trace.get_history: -dump-big-steps and -dump-trace currently do not support multiple traces"
 
 
-(* [dump_steps]: writes into files called [`prefix`_$i_out.cpp] the contents of each of the big steps, 
+(* [dump_steps]: writes into files called [`prefix`_$i_out.cpp] the contents of each of the big steps,
     where [$i] denotes the index of a big step. *)
 let dump_steps ?(onlybig : bool = false) ?(prefix : string = "") (foldername : string) : unit =
   ignore (Sys.command ("mkdir -p " ^ foldername));
@@ -899,7 +899,7 @@ let dump_diff_and_exit () : unit =
       match !traces with
       | [] -> fail None "Trace.dump_diff_and_exit: NO TRACE"
       | [tr] -> tr
-      | trs -> Printf.eprintf "Trace.dump_diff_and_exit: 
+      | trs -> Printf.eprintf "Trace.dump_diff_and_exit:
                                WARNING: considering the last branch of all switches.\n";
               List.hd (List.rev trs)
       in
@@ -986,7 +986,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
       write_stats_log execstats_str;
 
       let exectime = int_of_float (execstats.stats_time) in
-      
+
       (* Handle exit of script *)
       let should_exit =
         match Flags.get_exit_line() with

@@ -11,7 +11,7 @@ open Target
    - label as a standalone instruction (=> currently encoded as Trm_label ("foo", trm_unit))
    - or label around an instruction. *)
 
-(* [add label tg]: adds a C-label named [label] to the front of the terms 
+(* [add label tg]: adds a C-label named [label] to the front of the terms
    matching the target [tg].
 
    @correctness: always correct. *)

@@ -21,7 +21,7 @@ and dir =
   | Dir_cond
   (* then: direction to then branch of an if statement *)
   | Dir_then
-  (* else: direction to else branch of an if statement *) 
+  (* else: direction to else branch of an if statement *)
   | Dir_else
   (* body: direction to the body of a function definition, loop, then or else branche, or switch case *)
   | Dir_body
@@ -71,7 +71,7 @@ let dir_to_string (d : dir) : string =
   | Dir_seq_nth n-> "Dir_seq_nth " ^ (string_of_int n)
   | Dir_cond -> "Dir_cond"
   | Dir_then -> "Dir_then"
-  | Dir_else -> "Dir_else" 
+  | Dir_else -> "Dir_else"
   | Dir_body -> "Dir_body"
   | Dir_var_body -> "Dir_var_body"
   | Dir_for_start -> "Dir_for_start"
@@ -239,7 +239,7 @@ let app_to_nth (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =
   | Invalid_argument _ ->
      fail loc "Path.app_to_nth: index must be non-negative"
 
-(* [app_to_nth_dflt]: similar to [app_to_nth] except that this function returns an empty list in case there 
+(* [app_to_nth_dflt]: similar to [app_to_nth] except that this function returns an empty list in case there
    is an exception raised*)
 let app_to_nth_dflt (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b list) : 'b list =
   try app_to_nth loc l n cont with | Failure s -> print_info loc "%s\n" s; []
@@ -279,8 +279,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_else, Trm_if (cond, then_t, else_t) ->
           { t with desc = Trm_if (cond, then_t, aux else_t) }
        | Dir_var_body, Trm_let (vk,tx,body) ->
-          let body = 
-          begin match new_operation_inv body with 
+          let body =
+          begin match new_operation_inv body with
           | Some (ty, arg) -> trm_new ty (aux arg)
           | None -> aux body
           end in
@@ -383,7 +383,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           let decl_before (n : int) (tl : trm list) =
             Xlist.fold_lefti
               (fun i acc (t : trm) ->
-                if i >= n 
+                if i >= n
                   then acc
                   else
                     match t.desc with
@@ -431,7 +431,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
        | Dir_body, Trm_for (_, body) ->
           aux body ctx
        | Dir_var_body, Trm_let (_, _, body) ->
-          let new_op_arg = new_operation_arg body in 
+          let new_op_arg = new_operation_arg body in
           if is_new_operation body then aux new_op_arg (body :: ctx) else aux body ctx
        | Dir_body, Trm_let (_, _, body)
          | Dir_body, Trm_while (_, body)
@@ -509,6 +509,5 @@ let resolve_path (dl : path) (t : trm) : trm  =
   fst (resolve_path_and_ctx dl t )
 
 (* [get_trm_at_path dl]: alias for resolve_path *)
-let get_trm_at_path (dl : path) (t : trm) : trm = 
-  resolve_path dl t 
-  
+let get_trm_at_path (dl : path) (t : trm) : trm =
+  resolve_path dl t

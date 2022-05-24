@@ -9,9 +9,9 @@ let update ?(reparse: bool = false)  (f : trm -> trm) : Target.Transfo.t =
 
 
 (* [replace node tg]: expects the target to point at an instruction, then it will replace this
-    instruction with [node]. Note that [node] can be also some code entered as string if that is 
+    instruction with [node]. Note that [node] can be also some code entered as string if that is
     the case then to integrate it on the current ast this transformation shoudl be called with the flag ~reparse:true
-   
+
    @correctness: Needs local manual reproving that if an invariant in the
    previous proof was { H } old_expr { Q } then { H } new_expr { Q } holds
    as well *)
@@ -28,7 +28,7 @@ let replace ?(reparse : bool = false) (node : trm) : Target.Transfo.t =
       signature as function whose call is targeted by [tg] *)
 let replace_fun (name : string) (tg : target) : unit =
   Target.apply_on_targets (Expr_core.replace_fun name) tg
-  
+
 
 (* [view_subterms tg]: displays on stdout all the subterms of the targeted term.
    For viewing on stdout all subterms of a program, use:

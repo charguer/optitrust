@@ -1,5 +1,5 @@
 # 17 "cparser/Lexer.mll"
- 
+
 open Lexing
 open Pre_parser
 open Pre_parser_aux
@@ -3495,7 +3495,7 @@ and __ocaml_lex_singleline_comment_rec lexbuf __ocaml_lex_state =
 ;;
 
 # 439 "cparser/Lexer.mll"
- 
+
   open Parser.MenhirLibParser.Inter
 
   (* This is the main entry point to the lexer. *)

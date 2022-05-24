@@ -1,5 +1,5 @@
 # 17 "lib/Readconfig.mll"
- 
+
 
 (* Recording key=val bindings *)
 
@@ -631,7 +631,7 @@ let
 ;;
 
 # 96 "lib/Readconfig.mll"
- 
+
 
 (* The entry point *)
 

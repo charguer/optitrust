@@ -8,4 +8,3 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.parallel_for [Reduction(Plus, ["sum0"])] [tBefore; occIndex ~nb:2 0;cFor "i"];
   !! Omp.parallel_for [Reduction(Plus, ["sum1"])] [tBefore; occIndex ~nb:2 1;cFor "i"];
 )
- 

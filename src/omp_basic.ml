@@ -2,7 +2,7 @@ open Ast
 open Target
 
 
-(* Module for generating OpenMP directives and routines. Directives are just annotations inserted to the trm before which 
+(* Module for generating OpenMP directives and routines. Directives are just annotations inserted to the trm before which
    the directive is going to appear. Routines are trms, so they are inserted as instructions. *)
 
 (******************************************************************************)
@@ -25,10 +25,10 @@ let cancellation_point ?(clause : clause list = []) (construct_type_clause : cla
 
 let critical ?(hint : var = "") (v : var) : Transfo.t =
   transfo_on_targets (trm_add_pragma (Critical (v, hint)))
-  
+
 let declare_simd ?(clause : clause list = []) : Transfo.t =
   transfo_on_targets (trm_add_pragma (Declare_simd clause ))
-  
+
 let declare_reduction (ri : reduction_identifier) (tl : typvars) (e : expression) (clause : clause) : Transfo.t =
   transfo_on_targets (trm_add_pragma (Declare_reduction (ri, tl, e, clause)))
 

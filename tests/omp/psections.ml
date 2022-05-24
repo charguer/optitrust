@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Run.script_cpp (fun _ -> 
+let _ = Run.script_cpp (fun _ ->
   !! Sequence_basic.intro 3 [cFun "XAXIS"];
   !! Omp.section [tBefore; cFun "XAXIS"];
   !! Omp.section [tBefore; cFun "YAXIS"];

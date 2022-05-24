@@ -33,7 +33,7 @@ let accumulate_aux (t : trm) : trm =
       | Trm_apps (f, [ls; rs])  ->
         begin match rs.desc with
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop binop))} as f, [ls1; rs1]) ->
-          if i = 0 then rs1 
+          if i = 0 then rs1
           else if i = nb_instr - 1
             then
               let acc = trm_apps f [acc; rs1] in
@@ -44,15 +44,15 @@ let accumulate_aux (t : trm) : trm =
           else
             (trm_apps f [acc; rs1])
         | _ when is_compound_assignment t1->
-           let _ = is_infix_op := true in 
-           begin match trm_prim_inv f with 
-           | Some (Prim_compound_assgn_op binop) -> 
-             if i = 0 then rs 
+           let _ = is_infix_op := true in
+           begin match trm_prim_inv f with
+           | Some (Prim_compound_assgn_op binop) ->
+             if i = 0 then rs
              else if i = nb_instr - 1
-              then 
-                let acc_trm = trm_apps (trm_binop binop) [acc; rs] in 
+              then
+                let acc_trm = trm_apps (trm_binop binop) [acc; rs] in
                 trm_pass_labels t (trm_prim_compound binop ls acc_trm)
-             else 
+             else
               trm_apps (trm_binop binop) [acc; rs]
            | _ -> fail t.loc "Instr_core.accumulate_aux: this should never happen"
            end

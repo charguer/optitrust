@@ -8,10 +8,10 @@ let _ = Run.doc_script_cpp (fun _ ->
   )
 "
 int main(){
-  
+
   int x = 10;
   int y = x;
-  
+
   return 0;
 }
 "

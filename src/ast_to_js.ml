@@ -5,8 +5,8 @@ open PPrint
 (* [Json]: A module for creating a json view of OptiTrust ast *)
 module Json = struct
   open PPrint
-  
-  (* [t]: representation of a json object *)  
+
+  (* [t]: representation of a json object *)
   type t =
     | Str of string
     | Int of int
@@ -274,7 +274,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "app";
           children_to_field children]
     | Trm_for (l_range, body) ->
-      let (index, start, _, stop, step, _) = l_range in 
+      let (index, start, _, stop, step, _) = l_range in
       [ kind_to_field "simple_for";
           (strquote "index", strquote index);
           children_to_field [

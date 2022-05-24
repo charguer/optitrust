@@ -11,4 +11,3 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.parallel_for [Private ["i"]] [tBefore; cFor "i"];
   !! Omp.task [Depend (In ["p"])] [tBefore; cFun "output"];
 )
- 

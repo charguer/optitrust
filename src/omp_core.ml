@@ -76,8 +76,8 @@ let get_thread_num_aux (const : bool) (thread_num : var) (index : int) (t : trm)
     | Some _ ->
       trm_set (trm_var thread_num) (trm_omp_routine (Get_thread_num))
     | None ->
-      if const 
-        then trm_let_immut (thread_num, typ_int()) (trm_omp_routine (Get_thread_num)) 
+      if const
+        then trm_let_immut (thread_num, typ_int()) (trm_omp_routine (Get_thread_num))
         else trm_let_mut (thread_num, typ_int()) (trm_omp_routine (Get_thread_num))
     end in
     let new_tl = Mlist.insert_at index new_trm tl in

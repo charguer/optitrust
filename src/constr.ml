@@ -945,7 +945,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           check_target p_fun f &&
           check_list ~depth:(DepthAny) cl_args args
      | Constr_label (so, p_body), _ ->
-        let t_labels = trm_get_labels t in 
+        let t_labels = trm_get_labels t in
         List.fold_left (fun acc l -> check_name so l || acc) false t_labels &&
         check_target p_body t
      | Constr_goto so, Trm_goto l ->
@@ -965,7 +965,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_cases cc cases
      | Constr_bool b, _ -> b
      | Constr_root, _ -> trm_is_mainfile t
-        
+
      | Constr_prim pred, Trm_val (Val_prim p1) ->
         pred p1
      | Constr_mark (pred, _m), _ ->
@@ -1433,8 +1433,8 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_then (aux then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (aux else_t)
-  | Dir_var_body, Trm_let (_, _, body) -> 
-     let new_op_arg = new_operation_arg body in 
+  | Dir_var_body, Trm_let (_, _, body) ->
+     let new_op_arg = new_operation_arg body in
      add_dir Dir_var_body (aux new_op_arg)
   | Dir_body, Trm_let (_, _,body)
     | Dir_body, Trm_let_fun (_, _, _, body)

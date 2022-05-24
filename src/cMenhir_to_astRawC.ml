@@ -3,7 +3,7 @@ open Tools
 
 
 (* [loc_of_node cloc ]: transforms a C.location into Ast.location
-    
+
     Note: For the moment only the line of the node is known, hence the
     start column and end column are set to 0 *)
 let loc_of_cloc (cloc : C.location) : location =
@@ -204,7 +204,7 @@ and tr_stmt (s : C.stmt) : trm =
     end
   | Sblock sl ->
     (* LATER: put back naive code:*)
-    let tl = List.map tr_stmt sl in 
+    let tl = List.map tr_stmt sl in
     (* let rec handle_pragma acc sl =
       match sl with
       | [] -> List.rev acc
@@ -223,23 +223,23 @@ and tr_stmt (s : C.stmt) : trm =
       in
     let mut = if is_typ_const tt then Var_immutable else Var_mutable in
     trm_let ~loc mut (n, tt) te
-  | Spragma (p, s1) -> 
+  | Spragma (p, s1) ->
     (* pragmas are parsed as annotations to the proceeding instruction *)
-    let tp = tr_pragma p in 
-    let ts1 = tr_stmt s1 in 
+    let tp = tr_pragma p in
+    let ts1 = tr_stmt s1 in
     trm_add_pragma tp ts1
   | _ -> fail loc "CMenhir_to_astRawC.tr_stmt: statment not supported"
    (* LATER: should not use catch all pattern, here and elsewhere *)
 
 (* [tr_pragma ~loc p]: translates C.pragma into OptiTrust pragmas *)
 and tr_pragma ?(loc : location = None) (p : string) : cpragma =
-  match p with 
+  match p with
   | "omp_simd" -> Simd []
   | "omp atomic" -> Atomic None
   | "omp parallel for" -> Parallel_for []
   | "omp parallel" -> Parallel []
   | "omp single" -> Single []
-  | _ -> 
+  | _ ->
     try Scanf.sscanf p "omp parallel for collapse(%d)" (fun n -> (Parallel_for [Collapse n]))
      with Scanf.Scan_failure _ ->
       fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p)
@@ -464,7 +464,7 @@ and tr_globdef (d : C.globdecl) : trm =
          in
         let args = List.map get_args po in
         trm_let_fun ~loc ~ctx n tt args tb
-      end in 
+      end in
     if inline then trm_add_cstyle Fun_inline res else res
   | C.Genumdef ({C.name = tn}, att, enum_list) ->
     let el = List.map (fun ({C.name = constant_name; }, _, exp_opt) ->

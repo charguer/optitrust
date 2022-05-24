@@ -1,6 +1,6 @@
 type mark = Mark.t
 
-(* ['a t]: mlist is a record of two fields, items is the list of objects it contains 
+(* ['a t]: mlist is a record of two fields, items is the list of objects it contains
    and marks is the list of marks for each in-between location. *)
 type 'a t =
   { items : 'a list;
@@ -55,7 +55,7 @@ let nth (ml : 'a t) (index : int) : 'a =
   List.nth ml.items index
 
 (* [nth_opt ml index]: get the nth item from [ml]. *)
-let nth_opt (ml : 'a t) (index : int) : 'a option = 
+let nth_opt (ml : 'a t) (index : int) : 'a option =
   List.nth_opt ml.items index
 
 (* [fold_lefti acc_f acc ml]: applies Xlist.fold_lefti to ml.items. *)
@@ -93,7 +93,7 @@ let split ?(left_bias : bool = true) (index : int) (ml : 'a t) : 'a t * 'a t=
   let marks1a, marks2a = Xlist.split_at (index + if left_bias then 1 else 0) ml.marks in
   let marks1 = if left_bias then marks1a else marks1a @ [] in
   let marks2 = if left_bias then [] :: marks2a else marks2a in
-  ({items = items1; marks = marks1}, {items = items2; marks = marks2}) 
+  ({items = items1; marks = marks1}, {items = items2; marks = marks2})
 
 (* [merge ml1 ml2]: merges mlists [ml1] and [ml2]. *)
 let merge (ml1 : 'a t) (ml2 : 'a t) : 'a t =
@@ -122,7 +122,7 @@ let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
    let sz = length ml in
    assert (0 <= index && index <= sz);
    let lfront, lback = split index ml in
-   let x = of_list sl in 
+   let x = of_list sl in
    let new_ml = merge lfront x in
    merge new_ml lback
 
@@ -134,11 +134,11 @@ let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
 let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =
   { ml with items = Xlist.update_nth n transfo ml.items }
 
-(* [update_at_index_and_fix_beyond index f_update_at f_update_further ml]: applies [f_update_at] on the element 
+(* [update_at_index_and_fix_beyond index f_update_at f_update_further ml]: applies [f_update_at] on the element
     at [index] and modify accordingly all the elements that come after using [f_update_further]. *)
-let update_at_index_and_fix_beyond ?(delete : bool = false) (index : int) (f_update_at : 'a -> 'a) (f_update_further : 'a -> 'a) (ml : 'a t) : 'a t = 
-  let lfront, lback = split index ml in 
-  let element, lback = split 1 lback in 
+let update_at_index_and_fix_beyond ?(delete : bool = false) (index : int) (f_update_at : 'a -> 'a) (f_update_further : 'a -> 'a) (ml : 'a t) : 'a t =
+  let lfront, lback = split index ml in
+  let element, lback = split 1 lback in
   let element = if delete then empty else update_nth 0 f_update_at element in
   let lback = map f_update_further lback in
   merge_list [lfront; element; lback]

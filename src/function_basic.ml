@@ -10,13 +10,13 @@ open Target
      @correctness: correct if the new order of evaluation of expressions is
       not changed or does not matter. *)
 let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : target) : unit =
-  Internal.nobrace_remove_after ( fun _ -> 
+  Internal.nobrace_remove_after ( fun _ ->
     applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ t (p, p_local, i)  ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
     Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
   )
-  
+
 (* [inline ~body_mark tg]: expects the target [tg] to point at a function call inside a declaration
     or inside a sequence in case the function is of void type. Example:
           int r = g(a);

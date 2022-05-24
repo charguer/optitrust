@@ -5,7 +5,7 @@ open Tools
 
 (*  Note: This module is used mainly for debugging purposes.
     The ast is printed in such a way so that it mimics its actual OCaml structure.
-    All the ast components are first converted to pprint document. 
+    All the ast components are first converted to pprint document.
     [only_desc] to print only the description field an avoid the other ones *)
 
 (* [print_typ_desc only_desc t]: converts type descriptions to pprint document *)
@@ -18,7 +18,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
     print_node "Typ_var" ^^ parens ( separate (comma ^^ break 1) [string x; string (string_of_int tid)])
   | Typ_constr (tv, tid, tl) ->
     let tl = List.map (print_typ ~only_desc) tl in
-    print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1) 
+    print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1)
       [string tv; string (string_of_int tid); print_list tl])
   | Typ_auto -> string "Typ_auto"
   | Typ_unit -> string "Typ_unit"
@@ -395,18 +395,18 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
      print_node "Typedef_enum" ^^ print_pair (string tname) denum_const_l
 
 and print_trm_annot (t : trm) : document =
-  
-  let t_attributes = trm_get_attr t in 
+
+  let t_attributes = trm_get_attr t in
   let dattr = print_list (List.map (print_attribute ) t_attributes) in
-  
-  let t_marks = trm_get_marks t in 
+
+  let t_marks = trm_get_marks t in
   let dmarks = print_list (List.map string t_marks) in
 
-  let dstringrepr = begin match trm_get_stringreprid t with | Some id -> string "Some " ^^ string (string_of_int id) | None -> string "None" end in 
+  let dstringrepr = begin match trm_get_stringreprid t with | Some id -> string "Some " ^^ string (string_of_int id) | None -> string "None" end in
   let t_pragmas = trm_get_pragmas t in
   let t_pragmas_str = List.map print_directive t_pragmas in
   let dpragmas = print_list t_pragmas_str in
-  
+
   let cstyle_annot = trm_get_cstyles t in
   let cstyle_annot_str = List.map print_cstyle_annot cstyle_annot in
   let dcstyle = print_list cstyle_annot_str in
@@ -429,7 +429,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
   if only_desc then ddesc
     else
       let dannot = print_trm_annot t in
-      
+
       let dloc =
         begin match t.loc with
         | None -> underscore
@@ -454,13 +454,13 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
 
 (* [print_files_annot ann]: prints as string files annotation [ann] *)
 and print_files_annot (ann : files_annot) : document =
-  match ann with 
+  match ann with
   | Include s -> string ("Include" ^ s)
   | Main_file -> string "Main_file"
 
 (* [print_cstyle_annot ann]: prints as string cstyle annotation [ann]. *)
 and print_cstyle_annot (ann : cstyle_annot) : document =
- match ann with 
+ match ann with
  | Display_no_arrow -> string "Display_no_arrow"
  | Empty_cond -> string "Empty_cond"
  | Fun_inline -> string "Fun_inline"

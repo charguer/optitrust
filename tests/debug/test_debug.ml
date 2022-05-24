@@ -5,8 +5,7 @@ open Path
 
 let _ = Flags.dump_ast_details := true
 
-let _ = Run.script_cpp (fun _ -> 
+let _ = Run.script_cpp (fun _ ->
 
    show [cFun "f"; dArg 2];
 )
- 

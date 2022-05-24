@@ -77,7 +77,7 @@ let _ = Run.script_cpp (fun () ->
   show [sInstr "g("];
   show [sExpr "f("];
   (* Regexp *)
- 
+
   (* We can match only inside the body of the loop now*)
   show [sInstr "+= 2"];
   show [nbExact 0; sExpr ~substr:false "+= 2"];

@@ -7,12 +7,12 @@ open Target
       the length of this list is equal to one less than this size of the array.
 *)
 let to_variables (new_vars : vars) (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ -> 
+  Internal.nobrace_remove_after (fun _ ->
     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Arrays_core.to_variables new_vars i t p
   ) tg
   )
-  
+
 
 (* [tile name block_name b x tg] TODO: fix doc
    expects the target [tg] to point at an array declaration.

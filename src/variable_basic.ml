@@ -167,9 +167,9 @@ let bind ?(const : bool = false) ?(mark : mark = "") ?(is_ptr : bool = false) ?(
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
       Variable_core.bind mark i fresh_name const is_ptr typ p_local t p) tg
   )
-  
-(* [to_const tg]: expects the target [tg] to be point at a variable declaration, then it will search inside 
-      the same scope if there are any write operations on that variable. 
+
+(* [to_const tg]: expects the target [tg] to be point at a variable declaration, then it will search inside
+      the same scope if there are any write operations on that variable.
       If that's the case then the tranformation will fail(for safety reasons).
       Otherwise, first switch the mutability of that variable and then replace all get operations on that variable with its intialization
       value.

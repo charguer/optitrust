@@ -174,7 +174,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
           let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives field_index term_list in
           begin match trm_to_change.desc with
           | Trm_struct sl ->
-            let new_term_list = Mlist.merge_list [lfront; sl; lback] in 
+            let new_term_list = Mlist.merge_list [lfront; sl; lback] in
             trm_struct ~annot:t.annot ~typ:t.typ new_term_list
           | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change ->
             let sl = List.map (fun f -> trm_get (trm_struct_access (trm_var ~typ:v.typ p) f)) field_list in
@@ -201,43 +201,43 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
       [index] - index of the struct declaration inside the sequence it belongs to,
       [t] - trm corresponding to a typedef struct definition. *)
 let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
     let td_name = ref "" in
-    let f_list = ref [] in 
+    let f_list = ref [] in
     let field_index = ref 0 in
     let f_update (t : trm) : trm =
-      match t.desc with 
+      match t.desc with
       | Trm_typedef td ->
-        begin match td.typdef_body with 
+        begin match td.typdef_body with
         | Typdef_prod (t_names, field_list) ->
           field_index := Internal.get_field_index field_to_reveal field_list;
           let lfront1, lback1 = Xlist.split_at !field_index field_list in
-          let field_to_inline1, lback1 = if List.length lback1 = 1 then (lback1, []) else 
+          let field_to_inline1, lback1 = if List.length lback1 = 1 then (lback1, []) else
             Xlist.split_at 1 lback1 in
           let _, field_type = List.nth field_to_inline1 0 in
-          let tyid = begin match field_type.typ_desc with 
+          let tyid = begin match field_type.typ_desc with
           | Typ_constr (_, tid, _) -> tid
           | Typ_array (ty1, _) ->
-            begin match ty1.typ_desc with 
+            begin match ty1.typ_desc with
             | Typ_constr (_, tid, _) -> tid
             | _ -> fail t.loc "Struct_core.reveal_field_aux: expected a type constr"
             end
           | _ -> fail t.loc "Struct_core.reveal_field_aux: expected a typ_constr"
           end in
           let struct_def =
-            if tyid <> -1 
-              then match Context.typid_to_typedef tyid with 
+            if tyid <> -1
+              then match Context.typid_to_typedef tyid with
                 | Some td -> td
                 | _ -> fail t.loc "Struct_core.reveal_field_aux: could not get the declaration of typedef"
               else
                 fail t.loc "Struct_core.reveal_field_aux: field revealing is supported only for struct type"
             in
-          let inner_type_field_list = begin match struct_def.typdef_body with 
+          let inner_type_field_list = begin match struct_def.typdef_body with
           | Typdef_prod (_, s) -> s
           | _ -> fail t.loc "Struct_core.reveal_field_aux: the field wanted to inline should also be of struct type"
           end in
-          
+
           let inner_type_field_list = List.map (fun (x, typ) ->
           let new_field = Convention.name_app field_to_reveal x in
            match field_type.typ_desc with
@@ -247,10 +247,10 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
           let field_list = (lfront1 @ inner_type_field_list @ lback1) in
           td_name := td.typdef_tconstr;
           f_list := fst (List.split (Internal.get_field_list struct_def));
-          
+
           let new_typedef = {td with typdef_body = Typdef_prod (t_names, field_list)} in
           trm_typedef new_typedef
-            
+
         | _ -> fail t.loc "Struct_core.reveal_field_aux: expected a struct definition"
         end
       | _ -> fail t.loc "Struct_core.reveal_field_aux: expected a target to a type definition"
@@ -317,18 +317,18 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
 let to_variables_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let field_list = ref [] in 
-    let var_name = ref "" in 
+    let field_list = ref [] in
+    let var_name = ref "" in
     let f_update (t : trm) : trm =
-      match t.desc with 
-      | Trm_let (_, (x, tx), init) -> 
+      match t.desc with
+      | Trm_let (_, (x, tx), init) ->
         var_name := x;
-        let typid = begin match (get_inner_ptr_type tx).typ_desc with 
+        let typid = begin match (get_inner_ptr_type tx).typ_desc with
           | Typ_constr (_, tid, _) -> tid
           | _ -> fail t.loc "Struct_core.struct_to_variables_aux: expected a struct type"
           end in
         let struct_def =
-        if typid <> -1 
+        if typid <> -1
           then match Context.typid_to_typedef typid with
             | Some td -> td
             | _ -> fail t.loc "Struct_core.to_variables_aux: could not get the declaration of typedef"
@@ -345,16 +345,16 @@ let to_variables_aux (index : int) (t : trm) : trm =
                              | Trm_struct ls -> (Mlist.to_list ls)
                              | _ -> []
                              end in
-        let var_decls = List.mapi(fun i (sf, ty) -> 
+        let var_decls = List.mapi(fun i (sf, ty) ->
           let new_name = Convention.name_app x sf in
-          match struct_init_list with 
+          match struct_init_list with
           | [] -> trm_let_mut (new_name, ty) (trm_uninitialized ())
           | _ -> trm_let_mut (new_name, ty) (List.nth struct_init_list i)
-        
+
         ) !field_list in
         trm_seq_no_brace var_decls
      | _ -> fail t.loc "Struct_core.struct_to_variables_aux: expected a variable declaration"
-     in 
+     in
   let f_update_further (t : trm) : trm =
     List.fold_left (fun t2 f1 ->
           inline_struct_accesses !var_name f1 t2
@@ -426,11 +426,11 @@ let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
   | Trm_seq tl ->
     let struct_name = ref "" in
     let f_update (t : trm) : trm =
-      match t.desc with 
+      match t.desc with
       | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_prod (tn, fl);_}  as td) ->
         struct_name := name;
         let new_fl = List.map (fun (x, ty) -> (rename x, ty)) fl in
-        trm_typedef ~annot:t.annot {td with typdef_body = Typdef_prod (tn, new_fl)} 
+        trm_typedef ~annot:t.annot {td with typdef_body = Typdef_prod (tn, new_fl)}
      | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
      in
     let f_update_further (t : trm) : trm =

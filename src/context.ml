@@ -3,11 +3,11 @@ open Ast
 (* [typid_to_typedef tid ]: gets the declaration of a typedef with id [tid]*)
 let typid_to_typedef (tid : typconstrid) : typedef option =
   let t_root = Target.get_ast () in
-  match t_root.desc with 
+  match t_root.desc with
   | Trm_seq tl ->
     Mlist.find_map (function t ->
-      begin match t.desc with 
-      | Trm_typedef ({typdef_typid = tid1;_} as td)  
+      begin match t.desc with
+      | Trm_typedef ({typdef_typid = tid1;_} as td)
         when tid = tid1 -> Some td
       | _ -> None
       end) tl

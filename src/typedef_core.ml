@@ -11,21 +11,21 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
   | Trm_seq tl ->
     let f_update (t : trm) : trm = t in
     let f_update_further (t : trm) : trm =
-      let d = Mlist.nth tl index in 
+      let d = Mlist.nth tl index in
       let dx, ty_x =
-      begin match d.desc with 
-      | Trm_typedef td -> 
-        begin match td.typdef_body with 
+      begin match d.desc with
+      | Trm_typedef td ->
+        begin match td.typdef_body with
         | Typdef_alias dx ->
-           let ty_x = typ_constr td.typdef_tconstr ~tid:td.typdef_typid in 
+           let ty_x = typ_constr td.typdef_tconstr ~tid:td.typdef_typid in
            dx, ty_x
         | _ -> fail d.loc "Typedef_core.fold_aux: expected a type definition"
         end
       | _ -> fail d.loc "Typedef_core.fold_aux: expected a typedef"
-      end in 
+      end in
 
-      Internal.change_typ ~change_at:[fold_at] dx ty_x t 
-      in 
+      Internal.change_typ ~change_at:[fold_at] dx ty_x t
+      in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "Typedef_core.fold_aux: expected the surrounding sequence"
@@ -43,22 +43,22 @@ let fold (fold_at : target) (index) : Target.Transfo.local =
 let unfold_aux (delete : bool) (unfold_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let f_update (t : trm) : trm = t in 
+    let f_update (t : trm) : trm = t in
     let f_update_further (t : trm) : trm =
-      let d = Mlist.nth tl index in 
+      let d = Mlist.nth tl index in
       let dx, ty_x =
-      begin match d.desc with 
+      begin match d.desc with
       | Trm_typedef td ->
-        begin match td.typdef_body with 
-        | Typdef_alias dx -> 
-          let ty_x = typ_constr td.typdef_tconstr ~tid:td.typdef_typid in 
+        begin match td.typdef_body with
+        | Typdef_alias dx ->
+          let ty_x = typ_constr td.typdef_tconstr ~tid:td.typdef_typid in
           dx, ty_x
         | _ -> fail d.loc "Typedef_core.unfold_aux: expected a typedef alias"
         end
       | _ -> fail d.loc "Typedef_core.unfold_aux: expected a typdef_alias"
-      end in 
-      Internal.change_typ ~change_at:[unfold_at] ty_x dx t 
-    in 
+      end in
+      Internal.change_typ ~change_at:[unfold_at] ty_x dx t
+    in
     let new_tl = Mlist.update_at_index_and_fix_beyond ~delete index f_update f_update_further tl in
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "Typedef_core.unfold_aux: expected the surrounding sequence"
@@ -73,11 +73,11 @@ let unfold (delete : bool) (unfold_at : target) (index : int) : Target.Transfo.l
       [name]: new typ name
       [t]: ast of the surrounding sequence of the targeted typedef *)
 let insert_copy_aux (name : string) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_typedef td ->
     let td_copy = trm_typedef {td with typdef_tconstr = name} in
     trm_seq_no_brace [t; td_copy]
-  | _ -> fail t.loc "Typedef_core.insert_copy_aux: expected a typedef declaration" 
+  | _ -> fail t.loc "Typedef_core.insert_copy_aux: expected a typedef declaration"
 
 (* [insert_copy name t p]: applies [insert_copy_aux] at trm [t] with path [p] *)
 let insert_copy (name : string) : Target.Transfo.local =
@@ -88,7 +88,7 @@ let insert_copy (name : string) : Target.Transfo.local =
       [td_body] - body of the new type definition,
       [index] - location where the typedef should be inserted inside a sequence. *)
 let insert_aux (name : string) (td_body : typdef_body) (index : int) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
      let tid = next_typconstrid () in
      let trm_to_insert = trm_typedef {typdef_typid = tid; typdef_tconstr = name; typdef_body = td_body;typdef_vars = [];typdef_loc = None} in

@@ -30,14 +30,14 @@ let map f = function
 | Rename.Renamefn g -> Rename.Renamefn (fun x -> f (g x))
 
 
-(* [fold ~at ~nonconst tg]: similar to [Variable_basic.fold] but this one can be forced 
+(* [fold ~at ~nonconst tg]: similar to [Variable_basic.fold] but this one can be forced
      to non-const variables by setting [nonconst] flag to true.
     @correctness: The folded expression should have no observable side-effect.
     Moreover, the expression should produce the same value as when it was
     evaluated the first time.
     Exists r such that for initialization and all replacement points we have
     { H } expr { fun r' => [r' = r] * H } with H beeing the local invariant
-    
+
     NOTE: if applied on non const variable, the variable must additionaly not have
     been mutated between the replacement point and its initialization. *)
 let fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : unit =
@@ -63,8 +63,8 @@ let fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : unit =
     | _ -> fail tg_trm.loc "Variable.fold: expected a variable declaration"
 ) tg
 
-(* [insert_and_fold]: expects the target [tg] to point at a relative location, then it inserts a new variable 
-     declaration at that location. The new declared variable is [name] with [typ] and [value]. 
+(* [insert_and_fold]: expects the target [tg] to point at a relative location, then it inserts a new variable
+     declaration at that location. The new declared variable is [name] with [typ] and [value].
      This variable will be folded on all the ast nodes that come after the declared variable. *)
 let insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value : trm) (tg : target) : unit =
   Variable_basic.insert ~reparse:true ~name ~typ ~value tg;
@@ -139,7 +139,7 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : local_op
   end
 
 (* [delocalize ~var ~into ~index ~mark ~ops ~array_size ~intos tg]: it's a continuation to the [delocalize] transformation
-    that will unroll all the introduced loops from the basic delocalize transformation and convert the newly declared array 
+    that will unroll all the introduced loops from the basic delocalize transformation and convert the newly declared array
     to a list of variables namely for each index on variable, this variables should be given by the user through the labelled
     argument [vars]. *)
 let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
@@ -153,8 +153,8 @@ let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_in
   Marks.remove "section_of_interest" [cMark "section_of_interest"]
 
 
-(* [intro_pattern_array ~pattern_aux_vars ~const ~pattern_vars ~pattern tg]: expects the target [tg] to be 
-     pointing to expressions of the form [pattern], then it will create an array of coefficients for each 
+(* [intro_pattern_array ~pattern_aux_vars ~const ~pattern_vars ~pattern tg]: expects the target [tg] to be
+     pointing to expressions of the form [pattern], then it will create an array of coefficients for each
     [pattern_vars] and replace the current coefficients with array accesses. *)
 let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false) ~pattern_vars:(pattern_vars : string ) ~pattern:(pattern : string) (tg : target) : unit =
   Trace.call (fun t ->
@@ -189,8 +189,8 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
     Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([tBefore] @ (target_of_path !path_to_surrounding_seq) @ [dSeqNth !minimal_index]))
   )
 
-(* [detach_if_needed tg]: expects the target [tg] to be pointing at a variable declaration, then it will 
-    check if that declaration was already initialized or not, if that's the case than it will deatch that 
+(* [detach_if_needed tg]: expects the target [tg] to be pointing at a variable declaration, then it will
+    check if that declaration was already initialized or not, if that's the case than it will deatch that
     declaration, otherwise no change is applied. *)
 let detach_if_needed (tg : target) : unit =
   iter_on_targets (fun t p ->
@@ -347,7 +347,7 @@ let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
           else Variable_basic.unfold ~mark ~accept_functions ~at tg_decl
       | Var_mutable ->
         if not (trm_has_cstyle Reference tg_trm) then Variable_basic.to_const tg_decl;
-        if trm_has_cstyle Reference tg_trm 
+        if trm_has_cstyle Reference tg_trm
           then Variable_basic.inline ~mark ~accept_functions tg_decl
           else if delete
             then Variable_basic.inline ~mark ~accept_functions tg_decl
@@ -365,14 +365,14 @@ let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
 (* [inline ~accept_functions ~simpl_deref tg]: similar to [unfold] except that this transformation
      deletes the targeted declaration by default. *)
 let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) : Transfo.t =
-  unfold ~accept_functions ~simpl_deref ~delete:true 
+  unfold ~accept_functions ~simpl_deref ~delete:true
 
 
 
 (* [inline_and_rename]: expects the target [tg] to point at a variable declaration with an initial value
-    being another variable. Then it will inline the targeted variable. And rename variable that was the 
-    initialization value to the one we inlined 
-    
+    being another variable. Then it will inline the targeted variable. And rename variable that was the
+    initialization value to the one we inlined
+
     Assumption:
       if the target [tg] points to the following instruction int y = x; then
       no occurrence of x appears after that instruction *)
@@ -477,8 +477,8 @@ let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : 
 )
 
 (* [insert_list_same_type typ name_vals tg]: inserts a list of variables with type [typ] and name and value give as argument in [name_vals]. *)
-let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (string * trm) list) : Transfo.t = 
-  let const = false in 
+let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (string * trm) list) : Transfo.t =
+  let const = false in
   reparse_after ~reparse (fun tg ->
     List.iter (fun (name, value) ->
       insert ~const ~name ~typ ~value tg) name_vals)

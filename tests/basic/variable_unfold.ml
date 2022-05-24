@@ -15,7 +15,7 @@ let _ = Run.script_cpp (fun _ ->
 
   (* for variables *)
   !! Variable_basic.unfold ~at:[cVarDef "b"] [cVarDef "a"];
-  
+
   (* for references *)
   !! Variable_basic.unfold [cVarDef "e"];
 

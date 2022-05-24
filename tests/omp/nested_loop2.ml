@@ -9,5 +9,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.for_ [] [tBefore; cFor "j"];
   !! Omp.parallel [Default Shared_m] [tBefore; cSeq ~args:[[cFor "i"]] ()];
   !! Omp.for_ [] [tBefore; cFor "i"];
-  
+
 )

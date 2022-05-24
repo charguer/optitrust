@@ -9,7 +9,7 @@ let loc_of_node (n : 'a node) : location =
   let end_location_of_node = Clang.get_range_end (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n )) in
   let (filename, start_row,start_column) = Clang.get_presumed_location start_location_of_node in
   let (_, end_row,end_column) = Clang.get_presumed_location end_location_of_node in
-  Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; 
+  Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column};
                              loc_end = {pos_line = end_row; pos_col = end_column}}
 
 
@@ -17,11 +17,11 @@ let loc_of_node (n : 'a node) : location =
     if one of the locations is unknown then it will return [None] *)
 let loc_from_to (start_l : location) (end_l : location) : location =
   match start_l, end_l with
-  | Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; _}, 
+  | Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; _},
     Some {loc_start = {pos_line = start_row2; pos_col = start_column2};_} ->
-      let loc_start = {pos_line = start_row1; pos_col = start_column1} in 
-      let loc_end = {pos_line = start_row2; pos_col = start_column2} in 
-      Some {loc_file = file; loc_start; loc_end } 
+      let loc_start = {pos_line = start_row1; pos_col = start_column1} in
+      let loc_end = {pos_line = start_row2; pos_col = start_column2} in
+      Some {loc_file = file; loc_start; loc_end }
   | _ -> None
 
 (* [file_of_node n]: gets the filename that contains node [n] *)
@@ -140,7 +140,7 @@ let get_typid_for_type (tv : typvar) : int  =
 let wrap_const ?(const : bool = false) (t : typ) : typ =
   if const then typ_const t else t
 
-(* [tr_type_desc ~loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions, 
+(* [tr_type_desc ~loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
     [loc] gives the location of the type in the file that has been translated,
     if [const] is true then it means [d] is a const type, similarly if [const] is false then [d] is not a const type *)
 let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_record_types : bool = true) (d : type_desc) : typ =
@@ -339,7 +339,7 @@ and tr_stmt (s : stmt) : trm =
     fail loc ("Clang_to_astRawC.tr_stmt: the following statement is unsupported: " ^
               Clang.Stmt.show s)
 
-(* [tr_switch s]: translates switch statement [s] into an OptiTrust trm 
+(* [tr_switch s]: translates switch statement [s] into an OptiTrust trm
     translation of switch statements:
   - nested cases: only full sharing allowed
       case bla: case bli: … break allowed
@@ -366,7 +366,7 @@ and tr_switch (loc : location) (cond : expr) (cases : stmt list) : trm =
   in
   trm_switch ~loc ~ctx:(Some (get_ctx ())) t  (aux loc cases)
 
-(* [compute_cases case_acc s]: computes a list of nested cases described by s in reverse order 
+(* [compute_cases case_acc s]: computes a list of nested cases described by s in reverse order
     and the first instruction of their body *)
 and compute_cases (case_acc : trms) (s : stmt) : trms * stmt =
   let loc = loc_of_node s in
@@ -592,7 +592,7 @@ and tr_expr (e : expr) : trm =
         if has_arrow then
           trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get f) ) [trm_get base]
         else
-          let get_op = trm_unop ~loc (Unop_struct_get f) in 
+          let get_op = trm_unop ~loc (Unop_struct_get f) in
           let get_op = if is_get_operation base then trm_add_cstyle Display_no_arrow get_op else get_op in
           trm_apps ~loc ~ctx ~typ get_op [base]
       | _ -> fail loc "Clang_to_astRawC.tr_expr: fields should be accessed by names"

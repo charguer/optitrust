@@ -3,7 +3,7 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Sequence_basic.partition ~braces:true [2;3] [cFunDef "main"; dBody]; 
+    !! Sequence_basic.partition ~braces:true [2;3] [cFunDef "main"; dBody];
   )
 "
 int main() {

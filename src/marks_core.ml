@@ -39,4 +39,3 @@ let clean_aux (t : trm) : trm =
 (* [clean t p]: applies [clean_aux] at trm [t] with path [p]. *)
 let clean : Target.Transfo.local =
   Target.apply_on_path (clean_aux)
-  

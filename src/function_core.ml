@@ -11,7 +11,7 @@ open Target
 let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-     
+
      let f_update (t : trm) : trm =
         let function_call = Path.resolve_path p_local t in
         let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
@@ -29,12 +29,12 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
           then trm_let_immut (fresh_name, function_type) function_call
           else trm_let_mut (fresh_name, function_type) function_call
         in
-        trm_seq_no_brace [decl_to_insert; decl_to_change] 
+        trm_seq_no_brace [decl_to_insert; decl_to_change]
        in
-     
+
      let new_tl = Mlist.update_nth index f_update tl in
-     trm_seq ~annot:t.annot new_tl 
-     
+     trm_seq ~annot:t.annot new_tl
+
   | _ -> fail t.loc "Function_core.bind_intro_aux: expected the surrounding sequence"
 
 (* [bind_intro ~my_mark index fresh_name const p_local]: applies [bind_intro_aux] at the trm with path [p]. *)
@@ -119,17 +119,17 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
               then [marked_body; exit_label]
               else
                 [trm_pass_marks fun_call (trm_let_mut (name, ty) (trm_uninitialized ()));marked_body; exit_label]
-            in 
+            in
           trm_seq_no_brace inlined_body
-         
+
         | _ -> fail fun_decl.loc "Function_core.inline_aux: failed to find the top level declaration of the function"
         end
       | _ -> fail fun_call.loc "Function_core.inline_aux: expected a target to a function call"
       end
-      in  
-      let new_tl = Mlist.update_nth index f_update tl in 
+      in
+      let new_tl = Mlist.update_nth index f_update tl in
       trm_seq ~annot:t.annot new_tl
-    
+
   | _ -> fail t.loc "Function_core.inline_aux: the targeted function call should be contained into an instuction that belongs to a local or global scope"
 
 (* [inline index body_mark p_local t p]: applies [inline_aux] at the trm [t] with path [p]. *)

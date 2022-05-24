@@ -47,7 +47,7 @@ let fusion ?(nb : int = 2) (tg : target) : unit =
 
 (* TODO: Optimize mark processing *)
 let fusion_targets ?(keep_label : bool = true) : Transfo.t =
-  iteri_on_targets (fun i t p -> 
+  iteri_on_targets (fun i t p ->
     Marks.add "mark_seq" (target_of_path p);
     let mark = "mark_to_move" ^ (string_of_int i) in
     let tg_trm = Path.resolve_path p t in

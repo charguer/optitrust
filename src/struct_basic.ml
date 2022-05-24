@@ -10,7 +10,7 @@ let set_explicit (tg : target) : unit =
   apply_on_targets(Struct_core.set_explicit) tg)
 
 (*  [set_implicit tg]: expects the target [tg] to point at a sequence containing
-      a list of struct set assignments. And transforms it into a single struct assignment. 
+      a list of struct set assignments. And transforms it into a single struct assignment.
       So it is the inverse of set_explicit. *)
 let set_implicit ?(keep_label : bool = true) : Transfo.t =
   apply_on_targets (Struct_core.set_implicit keep_label)
@@ -73,7 +73,7 @@ let applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update
 let update_fields_type ?(reparse : bool = false) (pattern : string) (ty : typ) : Transfo.t =
   applyto_fields_type ~reparse pattern (fun _ -> ty)
 
-(* [simpl_proj tg]: expects the target [tg] to point at any node whose descendants can contain struct 
+(* [simpl_proj tg]: expects the target [tg] to point at any node whose descendants can contain struct
     initialization list projections. *)
 let simpl_proj : Transfo.t =
   apply_on_targets (Struct_core.simpl_proj)
@@ -97,4 +97,3 @@ let struct_modif_simple ?(use_annot_of : bool = false) ?(new_fields : (label * t
     f_struct_get: modif:
     f_access: modif;
  *)
- 

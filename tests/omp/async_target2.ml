@@ -12,4 +12,3 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.parallel_for [] [tBefore; cFor "i"];
   !! Omp.taskwait [tAfter; cSeq ~args_pred:(Target.target_list_one_st [cFor "i"]) ()];
 )
- 

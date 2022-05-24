@@ -66,12 +66,12 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
       in
 
     let f_update_further (t : trm) : trm =
-      inline_array_access !array_name new_vars t 
+      inline_array_access !array_name new_vars t
       in
-    let new_tl = Mlist.update_at_index_and_fix_beyond index f_update_at f_update_further tl in 
+    let new_tl = Mlist.update_at_index_and_fix_beyond index f_update_at f_update_further tl in
 
     trm_seq ~annot:t.annot ~loc:t.loc new_tl
-    
+
   | _ -> fail t.loc "Arrays_core.to_variables_aux: expected the outer sequence of the targeted trm"
 
 
@@ -231,7 +231,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
         (* lhs should have type x *)
         begin match lhs.typ with
         | Some {typ_desc = Typ_constr (y, _, _); _} when y = base_type_name ->
-           trm_apps ~annot:t.annot ~loc:t.loc 
+           trm_apps ~annot:t.annot ~loc:t.loc
              ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
         | _ -> trm_map (apply_tiling base_type block_name (trm_var block_size) base_type_name) t
         end

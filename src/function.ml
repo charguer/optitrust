@@ -14,27 +14,27 @@ type rename = Variable.Rename.t
       just an aplication of bind_intro n times. Where n is the numer of strings inside
       [fresh_names] different from "". *)
 let bind_args (fresh_names : vars) (tg : target) : unit =
-  iter_on_targets (fun t p -> 
-    let call_trm = get_trm_at_path p t in 
+  iter_on_targets (fun t p ->
+    let call_trm = get_trm_at_path p t in
     let call_mark = "bind_args_mark" in
-    let nb_fresh_names = List.length fresh_names in 
-    match call_trm.desc with 
-    | Trm_apps ({desc = Trm_var (_, f)}, tl) -> 
-        if nb_fresh_names = 0 
+    let nb_fresh_names = List.length fresh_names in
+    match call_trm.desc with
+    | Trm_apps ({desc = Trm_var (_, f)}, tl) ->
+        if nb_fresh_names = 0
           then ()
-          else if List.length tl <> nb_fresh_names then 
+          else if List.length tl <> nb_fresh_names then
             fail call_trm.loc "Function.bind_args: each argument should be binded to a variable or the empty string. "
           else begin
             Marks.add call_mark (target_of_path p);
             List.iteri (fun ind fresh_name ->
-              if fresh_name = "" 
+              if fresh_name = ""
                 then ()
                 else Function_basic.bind_intro ~fresh_name ~const:false [cMark call_mark; dArg ind]
             ) fresh_names;
             Marks.remove call_mark [cMark call_mark] end
     | _ -> fail call_trm.loc "Function_bind_args: expected a target to a function call"
 ) tg
-  
+
 (* [elim_body ~vars tg]: expects the target [tg] to point at a marked sequence.
      Then it will change all the declaraed variables inside that sequence  based on [vars]
      Either the user can give a list of variables together with their new names, or he can give the postifx
@@ -211,7 +211,7 @@ int f2() { // result of Funciton_basic.inline_cal
   _exit:;
   int s = r;
 } *)
-let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) 
+let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
     ?(delete : bool = false) ?(debug : bool = false) (tg : target) : unit =
     (* variable for storing the function name, in case if [delete] is true it will use this name to target the declaration and delete it *)
     let function_name = ref "" in
@@ -251,7 +251,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
                 | Variable_core.Init_attach_no_occurrences
                 | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
                 | e -> raise e in
-             
+
              if !success_attach then begin
                 Variable.inline [new_target];
                 Variable.inline_and_rename [nbAny; cVarDef !resname];
