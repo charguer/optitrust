@@ -41,12 +41,12 @@ let bind_args (fresh_names : vars) (tg : target) : unit =
      that's going to be assigned to all the declared vairables. *)
 let elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
   iter_on_targets (fun t p ->
-    let tg_trm = Trace.time "elim_body_resolve" (fun () -> Path.resolve_path p t) in
+    let tg_trm = Stats.comp_stats "elim_body_resolve" (fun () -> Path.resolve_path p t) in
     match tg_trm.desc with
     | Trm_seq _ ->
-      Trace.time "elim_body_renames" (fun () ->
+      Stats.comp_stats "elim_body_renames" (fun () ->
         Variable.renames vars (target_of_path p));
-      Trace.time "elim_body_elim" (fun () ->
+      Stats.comp_stats "elim_body_elim" (fun () ->
         Sequence_basic.elim (target_of_path p));
     | _ -> fail tg_trm.loc "Function.elim_body: the targeted should be pointing to a sequence"
   ) tg
@@ -215,7 +215,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
     ?(delete : bool = false) ?(debug : bool = false) (tg : target) : unit =
     (* variable for storing the function name, in case if [delete] is true it will use this name to target the declaration and delete it *)
     let function_name = ref "" in
-    Trace.time "iteri_on_transformed_targets" (fun () ->
+    Stats.comp_stats "iteri_on_transformed_targets" (fun () ->
   iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun i t (path_to_seq, local_path, i1) ->
       let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in
@@ -234,16 +234,16 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       end;
 
       let post_processing ?(deep_cleanup : bool = false)() : unit =
-      Trace.time "post_processing" (fun () ->
+      Stats.comp_stats "post_processing" (fun () ->
         let new_target = cMark my_mark in
         if not !mark_added then Marks.add my_mark (target_of_path path_to_call);
         if args <> [] then bind_args args [new_target];
         let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
-        Trace.time "inline" (fun () ->
+        Stats.comp_stats "inline" (fun () ->
           Function_basic.inline ~body_mark [new_target];);
-        Trace.time "intro" (fun () ->
+        Stats.comp_stats "intro" (fun () ->
           Accesses_basic.intro [cMark body_mark];);
-        Trace.time "elim_body" (fun () ->
+        Stats.comp_stats "elim_body" (fun () ->
           elim_body ~vars [cMark body_mark];);
         if deep_cleanup then begin
           let success_attach = ref true in
@@ -269,12 +269,12 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       begin match tg_out_trm.desc with
       | Trm_let _ ->
         Marks.add "__inline_instruction" (target_of_path path_to_instruction);
-        Trace.time "bind_intro1" (fun () ->
+        Stats.comp_stats "bind_intro1" (fun () ->
           Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call));
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | Trm_apps (_, [ls; rs]) when is_set_operation tg_out_trm ->
-        Trace.time "bind_intro2" (fun () ->
+        Stats.comp_stats "bind_intro2" (fun () ->
           Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call));
         mark_added := true;
         post_processing ~deep_cleanup:true ()

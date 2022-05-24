@@ -41,8 +41,7 @@ let script (f : unit -> unit) : unit =
     let stats1 = Stats.get_cur_stats () in
     if !Flags.analyse_time
       then 
-        let stats_diff = Stats.stats_diff stats0 stats1 in 
-        let stats_str = Stats.stats_to_string stats_diff in 
+        let stats_str = Stats.stats_diff_str stats0 stats1 in 
         Printf.printf "%s\n" stats_str;
   with | Failure s | Ast.TransfoError s ->
     Trace.finalize();

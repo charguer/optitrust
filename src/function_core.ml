@@ -134,8 +134,8 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
 
 (* [inline index body_mark p_local t p]: applies [inline_aux] at the trm [t] with path [p]. *)
 let inline (index: int) (body_mark : string option) (p_local : path) : Transfo.local =
-  Trace.time "Function_core.inline" (fun () -> apply_on_path (
-    Trace.time "Function_core.inline_aux" (fun () -> inline_aux index body_mark p_local)))
+  Stats.comp_stats "Function_core.inline" (fun () -> apply_on_path (
+    Stats.comp_stats "Function_core.inline_aux" (fun () -> inline_aux index body_mark p_local)))
 
 (* [use_infix_ops_aux allow_identity t]: transforms an explicit write operation to an implicit one
       [allow_identity] - if true then the transformation will never fail

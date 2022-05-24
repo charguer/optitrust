@@ -19,8 +19,11 @@ let report (msg : string) (t : trm) : unit =
 (*                             Logging management                             *)
 (******************************************************************************)
 
-(* [timing_log]: is a handle on the channel for writing timing reports. *)
+(* [timing_log_handle]: is a handle on the channel for writing timing reports. *)
 let timing_log_handle = ref None
+
+(* [stats_log_handle]: is a handle on the channel for writing stats reports. *)
+let stats_log_handle = ref None 
 
 (* [logs]: is a reference on the list of open log channels. *)
 let logs : (out_channel list) ref = ref []
@@ -37,7 +40,9 @@ let init_logs directory prefix =
   let clog = open_out (directory ^ prefix ^ ".log") in
   let timing_log = open_out ("timing.log") in
   timing_log_handle := Some timing_log;
-  logs := timing_log :: clog :: [];
+  let stats_log = open_out ("stats.log") in
+  stats_log_handle := Some stats_log;
+  logs := stats_log :: timing_log :: clog :: [];
   clog
 
 (* [write_log clog msg]: writes the string [msg] to the channel [clog]. *)
@@ -80,6 +85,7 @@ let measure_time (f : unit -> 'a) : 'a * int =
   let t1 = Unix.gettimeofday () in
   res, (Tools.milliseconds_between t0 t1)
 
+(* DEPRECATED *)
 (* [timing_nesting]: records the current level of nesting of calls to the
    [timing] function. It is used for printing tabulations in the reports. *)
 let timing_nesting : int ref = ref 0
@@ -97,6 +103,7 @@ let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
     f()
   end
 
+(* DEPRECATED *)
 (* [time name f]: is a shorthand for [timing ~cond:!Flags.analyse_time_details ~name]. *)
 let time (name : string) (f : unit -> 'a) : 'a =
   timing ~cond:!Flags.analyse_time_details ~name f
@@ -107,6 +114,7 @@ let start_time = ref (0.)
 (* [last_time]: stores the date at which the execution of the current step started. *)
 let last_time = ref (0.)
 
+(* DEPRECATED *)
 (* [last_time_update()]: updates [last_time] and returns the delay
    since last call -- LATER: find a better name. *)
 let last_time_update () : int =
@@ -115,14 +123,16 @@ let last_time_update () : int =
   last_time := t;
   Tools.milliseconds_between t0 t
 
+(* DEPRECATED *)
 (* [report_time_of_step()]: reports the total duration of the last step.
    As bonus, reports the number of steps in target resolution. *)
 (* let report_time_of_step (timing : int) : unit =
   if !Flags.analyse_time then begin
     write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" timing);
     write_timing_log (Printf.sprintf "     TARGETS: %d nodes visited for target resolution\n" (Constr.resolve_target_steps()));
-  end *)  
+  end   *)
 
+(* DEPRECATED *)
 (* [report_full_time ()]: reports the time for the last step, and for the full total. *)
 let report_full_time () : unit =
   write_timing_log (Printf.sprintf "------------------------TOTAL TRANSFO TIME: %.3f s\n" (!last_time -. !start_time))
@@ -168,7 +178,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
   let command_line_args = command_line_warnings @ command_line_include in
 
   let t =
-    timing ~name:"tr_ast" (fun () ->
+    stats ~name:"tr_ast" (fun () ->
       let parse_clang () =
         Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename) in
       let parse_menhir () =
@@ -377,8 +387,9 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (
     end;
   end;
   let mode = !Flags.serialized_mode in
-  start_time := Unix.gettimeofday ();
-  last_time := !start_time;
+  start_stats := get_cur_stats ();
+  last_stats := !start_stats;
+  
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
   let ser_file = basename ^ ".ser" in
@@ -585,7 +596,7 @@ let check_recover_original () : unit =
    LATER: find a way to remove extra parentheses in ast_to_doc, by using
    priorities to determine when parentheses are required. *)
 let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (filename : string) : unit =
-  timing ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
+  stats ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
     ignore (Sys.command ("clang-format -style=\"Google\" -i " ^ filename));
     if (* temporary *) false && uncomment_pragma
       then ignore (Sys.command ("sed -i 's@//#pragma@#pragma@' " ^ filename))
@@ -888,10 +899,10 @@ let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
 (* LATER for mli: dump_diff_and_exit : unit -> unit *)
 let dump_diff_and_exit () : unit =
   if !Flags.analyse_time then begin
-    report_full_time();
+    report_full_stats();
     write_timing_log (Printf.sprintf "------------START DUMP------------\n")
   end;
-  timing ~name:"TOTAL for dump_diff_and_exit" (fun () ->
+  stats ~name:"TOTAL for dump_diff_and_exit" (fun () ->
     print_info None "Exiting script\n";
     let trace =
       match !traces with
@@ -979,8 +990,12 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
       (if ignore_step then 1 else 0);*)
     if not ignore_step then begin
       (* Processing of a regular step, which is not ignored by the [-only-big-steps flag] *)
-      let exectime = last_time_update() in
-      (* report_time_of_step exectime; *)
+      let execstats = last_stats_update() in
+      let execstats_str = stats_to_string execstats in
+      write_stats_log execstats_str;
+
+      let exectime = int_of_float (execstats.stats_time) in
+      
       (* Handle exit of script *)
       let should_exit =
         match Flags.get_exit_line() with

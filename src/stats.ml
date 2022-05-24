@@ -5,11 +5,9 @@
 (******************************************************************************)
 (* [write_stats_log msg]: writes a message in the timing log file. *)
 let write_stats_log (msg : string) : unit =
-  let stats_log = open_out ("timing.log") in
+  let stats_log = open_out ("stats.log") in
   output_string stats_log msg;
   flush stats_log
-
-
 
 (* [stats_nesting]: records the current level of nesting of calls to the [stats] function. It is used
      for printing tabulations in the reports. *)
@@ -69,6 +67,15 @@ let stats_to_string (stats : stats) : string =
      stats.stats_trm_alloc
      stats.stats_target_resolution_steps
 
+(* [stats_diff_str start_stats end_stats]: similar to [stats_diff] but this one returns diff as string. *)
+let stats_diff_str (start_stats : stats) (end_stats : stats) : string =
+  let stats_dff = stats_diff start_stats end_stats in 
+  stats_to_string stats_dff
+
+(* [report_full_stats ()]: reports the stats for the last step, and for the full total *)
+let report_full_stats () : unit =
+  let full_stats_str = stats_diff_str !start_stats !last_stats in
+  write_stats_log (Printf.sprintf "------------------------FULL STATS: %s\n" full_stats_str)
 
 (* [measure_stats f]: computes the difference of stats before and after applying function [f]. 
     Then it returns the result of [f] and the computed stats. *)
@@ -92,3 +99,7 @@ let stats ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
       res
     end 
     else f()
+
+(* [comp_stats name f ]: an alias to [stats] with the default condition being [!Flags.analyse_time_details] *)
+let comp_stats (name : string) (f : unit -> 'a) : 'a =
+  stats ~cond:!Flags.analyse_time_details ~name f

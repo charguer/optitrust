@@ -70,10 +70,10 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
 
 let inline ?(body_mark : mark option) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    Trace.time "inline apply_on_transformed_targets" (fun () ->
+    Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
     apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
      (fun  t (p, p_local, i) ->
-        Trace.time "inline call to Function_core.inline" (fun () ->
+        Stats.comp_stats "inline call to Function_core.inline" (fun () ->
           Function_core.inline i body_mark p_local t p)) tg))
 
 
