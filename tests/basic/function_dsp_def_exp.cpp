@@ -13,10 +13,7 @@ int test_one_branch(int x) {
 
 void test_one_branch_dsp(int x, int* res) {
   if (x < 0) {
-    {
-      *res = -x;
-      goto exit_label;
-    }
+    *res = -x;
   }
   *res = x;
 }

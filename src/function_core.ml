@@ -46,7 +46,7 @@ let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const
       [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
       [r] - the name of the variable replacing the return statement,
       [t] - ast of the body of the function. *)
-let replace_return_with_assign (exit_label : label) (r : var) (t : trm) : (trm * int) =
+let replace_return_with_assign ?(exit_label : label = "") (r : var) (t : trm) : (trm * int) =
   let nb_gotos = ref 0 in
   let rec aux (is_terminal : bool) (t : trm) : trm =
     match t.desc with
@@ -61,15 +61,15 @@ let replace_return_with_assign (exit_label : label) (r : var) (t : trm) : (trm *
             then t_assign
             else begin
                  incr nb_gotos;
-                 trm_seq_nomarks [t_assign; trm_goto exit_label]
+                 if exit_label = "" then t_assign else trm_seq_nomarks [t_assign; trm_goto exit_label]
                  end
         | _ ->
             incr nb_gotos;
-            trm_goto exit_label
+            if exit_label = "" then trm_unit () else trm_goto exit_label
         end
       | _ ->
           incr nb_gotos;
-          trm_goto exit_label
+          if exit_label = "" then trm_unit () else trm_goto exit_label
       end
     | Trm_let_fun _ -> t (* do not recurse through local function definitions *)
     | _-> trm_map_with_terminal is_terminal aux t
@@ -108,7 +108,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
           let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in
           let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
           let name = match t.desc with | Trm_let (vk, (x, _), _) -> x| _ -> ""  in
-          let processed_body, nb_gotos = replace_return_with_assign "exit_body" name fun_decl_body in
+          let processed_body, nb_gotos = replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
           let marked_body = begin match body_mark with
           | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body
           | _ -> Internal.set_nobrace_if_sequence processed_body
@@ -212,7 +212,6 @@ let replace_with_change_args_aux (new_fun_name : string) (arg_mapper : trms -> t
   | Trm_apps (f, args) -> trm_replace (Trm_apps (trm_var new_fun_name, arg_mapper args)) t
   | _ -> fail t.loc "Function_core.replace_with_change_args_aux: expected a target to a function call"
 
-
 (* [replace_with_change_args new_fun_name arg_mapper t p]: applies [replace_with_change_args_aux] at trm [t] with path [p]. *)
 let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) : Transfo.local =
   apply_on_path (replace_with_change_args_aux new_fun_name arg_mapper)
@@ -228,7 +227,7 @@ let dsp_def_aux (index : int) (arg : var) (func : var) (t : trm) : trm =
      let _, fun_def, _ = Internal.get_trm_and_its_relatives index tl in
      begin match fun_def.desc with
      | Trm_let_fun (f, ret_ty, tvl, body) ->
-        let new_body, _ = replace_return_with_assign "exit_label" arg body in
+        let new_body, _ = replace_return_with_assign arg body in
         let new_args = tvl @ [(arg, typ_ptr Ptr_kind_mut ret_ty)] in
         let new_fun = if func = "dsp" then f ^ "_dsp" else func in
         let new_fun_def = trm_let_fun ~annot:fun_def.annot new_fun (typ_unit()) new_args new_body in
