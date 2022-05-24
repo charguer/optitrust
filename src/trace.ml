@@ -92,7 +92,7 @@ let timing_nesting : int ref = ref 0
 
 (* [timing ~name f]: writes the execution time of [f] in the timing log file. *)
 let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
-  if !Flags.analyse_time && cond then begin
+  if !Flags.analyse_stats && cond then begin
     incr timing_nesting;
     let res, time = measure_time f in
     decr timing_nesting;
@@ -104,9 +104,9 @@ let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
   end
 
 (* DEPRECATED *)
-(* [time name f]: is a shorthand for [timing ~cond:!Flags.analyse_time_details ~name]. *)
+(* [time name f]: is a shorthand for [timing ~cond:!Flags.analyse_stats_details ~name]. *)
 let time (name : string) (f : unit -> 'a) : 'a =
-  timing ~cond:!Flags.analyse_time_details ~name f
+  timing ~cond:!Flags.analyse_stats_details ~name f
 
 (* [start_time]: stores the date at which the script execution started (before parsing). *)
 let start_time = ref (0.)
@@ -122,15 +122,6 @@ let last_time_update () : int =
   let t = Unix.gettimeofday() in
   last_time := t;
   Tools.milliseconds_between t0 t
-
-(* DEPRECATED *)
-(* [report_time_of_step()]: reports the total duration of the last step.
-   As bonus, reports the number of steps in target resolution. *)
-(* let report_time_of_step (timing : int) : unit =
-  if !Flags.analyse_time then begin
-    write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" timing);
-    write_timing_log (Printf.sprintf "     TARGETS: %d nodes visited for target resolution\n" (Constr.resolve_target_steps()));
-  end   *)
 
 (* DEPRECATED *)
 (* [report_full_time ()]: reports the time for the last step, and for the full total. *)
@@ -379,7 +370,7 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (
     if Tools.pattern_matches "_inlined" default_prefix
       then List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0
       else default_prefix in
-  if !Flags.analyse_time || !Flags.dump_trace then begin
+  if !Flags.analyse_stats || !Flags.dump_trace then begin
     let src_file = (ml_file_name ^ ".ml") in
     if Sys.file_exists src_file then begin
       let lines = Xfile.get_lines src_file in
@@ -898,7 +889,7 @@ let light_diff (astBefore : trm) (astAfter : trm) : trm * trm  =
    If option [-dump-last nb] was provided, output files are produced for the last [nb] step. *)
 (* LATER for mli: dump_diff_and_exit : unit -> unit *)
 let dump_diff_and_exit () : unit =
-  if !Flags.analyse_time then begin
+  if !Flags.analyse_stats then begin
     report_full_stats();
     write_timing_log (Printf.sprintf "------------START DUMP------------\n")
   end;
@@ -1003,7 +994,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
         | _ -> false
         in
       if should_exit then begin
-        if !Flags.analyse_time then begin
+        if !Flags.analyse_stats then begin
           write_timing_log (Printf.sprintf "------------------------\n");
         end;
         dump_diff_and_exit();
@@ -1012,12 +1003,12 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
         if reparse || (!Flags.reparse_at_big_steps && is_start_of_bigstep) then begin
           let info = if reparse then "the code on demand at" else "the code just before the big step at" in
           let _, reparse_stats = Stats.measure_stats (fun () -> reparse_alias ~info ()) in
-          if !Flags.analyse_time then
+          if !Flags.analyse_stats then
             let reparse_stats_str = Stats.stats_to_string reparse_stats in
             Stats.write_stats_log (Printf.sprintf "------------------------\nREPARSE: %s\n" reparse_stats_str );
         end;
         (* Handle the reporting of the script excerpt associated with the __next__ step, which starts on the line number reported *)
-        if !Flags.analyse_time then begin
+        if !Flags.analyse_stats then begin
           let descr = if line = -1 then "" else get_excerpt line in
           Stats.write_stats_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line descr);
         end;
@@ -1089,7 +1080,7 @@ let (!!^) (x : 'a) : 'a =
    function writes all the ASTs from the history into javascript files. *)
 (* LATER for mli: val dump : ?prefix:string -> unit -> unit *)
 let dump ?(prefix : string = "") () : unit =
-  if !Flags.analyse_time then begin
+  if !Flags.analyse_stats then begin
       write_timing_log (Printf.sprintf "------------START DUMP------------\n");
   end;
   (* Dump final result, for every [switch] branch *)

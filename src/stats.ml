@@ -86,10 +86,10 @@ let measure_stats (f : unit -> 'a) : 'a * stats =
   let stats = stats_diff stats_start stats_stop in 
   res, stats
 
-(* TODO: Change Flags.analyse_time to Flags.compute_stats. *)
-(* [stats ~cond ~name f]: computes and prints stats only if [Flags.analyse_time] is set to true. *)
+
+(* [stats ~cond ~name f]: computes and prints stats only if [Flags.analyse_stats] is set to true. *)
 let stats ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
-  if !Flags.analyse_time && cond 
+  if !Flags.analyse_stats && cond 
     then begin 
       incr stats_nesting;
       let res, stats = measure_stats f in 
@@ -100,6 +100,6 @@ let stats ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
     end 
     else f()
 
-(* [comp_stats name f ]: an alias to [stats] with the default condition being [!Flags.analyse_time_details] *)
+(* [comp_stats name f ]: an alias to [stats] with the default condition being [!Flags.analyse_stats_details] *)
 let comp_stats (name : string) (f : unit -> 'a) : 'a =
-  stats ~cond:!Flags.analyse_time_details ~name f
+  stats ~cond:!Flags.analyse_stats_details ~name f

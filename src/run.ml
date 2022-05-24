@@ -39,7 +39,7 @@ let script (f : unit -> unit) : unit =
     let stats0 = Stats.get_cur_stats () in
     f();
     let stats1 = Stats.get_cur_stats () in
-    if !Flags.analyse_time
+    if !Flags.analyse_stats
       then 
         let stats_str = Stats.stats_diff_str stats0 stats1 in 
         Printf.printf "%s\n" stats_str;
@@ -199,9 +199,9 @@ let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : st
       Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
       (* Dump full trace if [-dump-trace] option was provided;
          in this case, record the last step in the history *)
-      if !Flags.dump_trace || !Flags.analyse_time then begin
+      if !Flags.dump_trace || !Flags.analyse_stats then begin
         Trace.check_exit_and_step ~is_small_step:false ();
-        (* Trace.report_full_time(); *) (* TODO: *)
+        Stats.report_full_stats ();
       end;
       if !Flags.dump_trace then begin
         Trace.dump_traces_to_js ~prefix ();

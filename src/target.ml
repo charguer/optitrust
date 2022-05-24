@@ -1162,7 +1162,7 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
       (* LATER: use apply_with_stringreprs
                            and take an optional list of auxiliary targets as argument. *)
     let ps =
-      Stats.stats ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
+      Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_targets" (fun () ->
           resolve_target tg t) in
     let ps = if rev then List.rev ps else ps in
     match ps with
@@ -1174,14 +1174,14 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
         (* Printf.printf "Before applyin_marks: %s\n" (AstC_to_c.ast_to_string t);. *)
         let t =
              Stats.comp_stats "applyi_on_transformed_targets add marks" (fun () ->
-              Stats.stats ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () ->
+              Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_add_mark" (fun () ->
               List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks)) in
         (* Printf.printf "After applying_marks: %s\n" (AstC_to_c.ast_to_string t);. *)
         (* iterate over these marks. *)
         Stats.comp_stats "applyi_on_transformed_targets apply transfo" (fun () ->
         begin try
           Xlist.fold_lefti (fun imark t m ->
-            Stats.stats ~cond:!Flags.analyse_time_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
+            Stats.stats ~cond:!Flags.analyse_stats_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
               let ps = resolve_target_mark_one_else_any m t in
               match ps with
               | [p] ->
@@ -1317,7 +1317,7 @@ let iter_on_targets ?(rev : bool = false) (tr : trm -> path -> unit) (tg : targe
 let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply (fun t -> with_stringreprs_available_for [tg] t (fun t ->
   let ps =
-    Stats.stats ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () -> resolve_target_between tg t
+    Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_targets" (fun () -> resolve_target_between tg t
       (* ALTERNATIVE
       with_stringreprs_available_for tg t (fun t2 ->
         resolve_target_between tg t2). *) ) in
@@ -1326,11 +1326,11 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   | [p] -> tr 0 t (transformer p)
   | _ ->
     let marks = List.map (fun _ -> Mark.next ()) ps in
-    let t = Stats.stats ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () -> 
+    let t = Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_add_mark" (fun () -> 
       List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks) in
     try
       Xlist.fold_lefti (fun imark t m ->
-        Stats.stats ~cond:!Flags.analyse_time_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
+        Stats.stats ~cond:!Flags.analyse_stats_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
           let ps = resolve_target_mark_one_else_any m t in
           match ps with
           | [p_to_seq] ->
