@@ -59,7 +59,6 @@ TESTS_WITH_DOC := \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
-	struct_update_fields_type.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
 	variable_bind.ml \
@@ -109,7 +108,7 @@ TESTS_TO_FIX := \
 	variable_simpl_deref.ml \
 	typedef_fold.ml \
 	typedef_unfold.ml \
-
+  struct_update_fields_type.ml \
 
 
 NOT_NEEEDED_TO_FIX := \

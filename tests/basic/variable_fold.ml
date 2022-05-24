@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Variable_basic.fold  ~at:[cVarDef "r"] [cVarDef "a" ];
-  )
+
+  !! Variable_basic.fold  ~at:[cVarDef "r"] [cVarDef "a" ];
+
+)
+
 "
 int main() {
   int x, y;
@@ -14,5 +17,7 @@ int main() {
 "
 
 let _ = Run.script_cpp (fun _ ->
+  
   !! Variable_basic.fold ~at:[cVarDef "r1"] [cVarDef "s1" ];
+  
 )

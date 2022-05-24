@@ -4,14 +4,14 @@ open Ast
 
 
 let _ = Run.doc_script_cpp (fun _ ->
+
     !! Arith_basic.shift (lit "4") [cReadVar "x"];
-  )
+)
 "
 int x;
 
 int y = x;
 "
-
 
 let _ = Run.script_cpp (fun () ->
 

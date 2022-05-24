@@ -7,8 +7,11 @@ open Target
 *)
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Variable_basic.rename ~into:"z" [cVarDef "x"];
-  )
+  
+  !! Variable_basic.rename ~into:"z" [cVarDef "x"];
+
+)
+
 "
 int main() {
   int x = 0;

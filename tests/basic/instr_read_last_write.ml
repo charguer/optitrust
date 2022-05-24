@@ -3,7 +3,8 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
     !! Instr_basic.read_last_write ~write:[cWrite ~rhs:[cInt 7] ()] [cRead ~addr:[cVar "x" ] ()];
-  )
+)
+
 "
 int main() {
   int x = 4;

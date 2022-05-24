@@ -2,8 +2,11 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Typedef_basic.insert "uchar" (Typdef_alias (ty "unsigned char" )) [tAfter; cVarDef "a"];
-  )
+
+  !! Typedef_basic.insert "uchar" (Typdef_alias (ty "unsigned char" )) [tAfter; cVarDef "a"];
+
+)
+
 "
 int a = 0;
 "
@@ -21,4 +24,5 @@ let _ = Run.script_cpp (fun _ ->
     (* NOTE: see also [sequence_insert.ml] for inserting plain code *)
 
     (* ARTHUR :think about the policy for maintaining IDs..*)
+
 )

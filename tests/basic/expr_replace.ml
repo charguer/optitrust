@@ -4,8 +4,11 @@ open Ast
 
 
 let _ = Run.doc_script_cpp (fun _ ->
+
   !! Expr_basic.replace (lit "24") [sExpr "20"];
-  )
+
+)
+
 "
 int main() {
   int x = 20;

@@ -4,7 +4,8 @@ open Ast
 
 let _ = Run.doc_script_cpp (fun _ ->
     !! Function_basic.use_infix_ops_at [cWriteVar "x"];
-  )
+)
+
 "
 int main() {
   int x = 2;

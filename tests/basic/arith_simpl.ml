@@ -6,7 +6,8 @@ let _ = Run.doc_script_cpp (fun _ ->
     !! Arith_basic.(simpl gather) [cVarInit "b"];
        Arith_basic.(simpl gather) [cVarInit "c"];
        Arith_basic.(simpl expand) [cVarInit "d"];
-  )
+)
+
 "
 int main() {
   int a = 2 + 3;

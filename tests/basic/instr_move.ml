@@ -3,7 +3,9 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
   !! Instr_basic.move ~dest:[tAfter; cVarDef "b"] [cVarDef "c"];
-  )
+  
+)
+
 "
 int main() {
   int a = 2;
@@ -11,7 +13,6 @@ int main() {
   int b = a;
 }
 "
-
 
 let _ = Run.script_cpp (fun _ ->
 

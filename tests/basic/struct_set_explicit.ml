@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
+
     !! Struct_basic.set_explicit [sInstr "a = b"];
-  )
+
+)
+
 "
 typedef struct {
   int x;

@@ -107,6 +107,8 @@ let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit
     that is not dependent on the index of the loop or any local variable.
     Then it will move it outside the loop.
 
+    NOTE:: currently, there is no check that the transformation is legitimate.
+      
     LATER: Implement a combi transformation that will check if the targeted instruction
     is dependent on any local variable or the loop index. *)
 let move_out (tg : target) : unit =
