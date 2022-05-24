@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Cast_basic.insert Ast.(typ_double ()) [cReadVar "a"];
-  )
+  
+  !! Cast_basic.insert Ast.(typ_double ()) [cReadVar "a"];
+  
+)
+
 "
 int main() {
   float a = 1.;

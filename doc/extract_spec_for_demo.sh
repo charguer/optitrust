@@ -37,8 +37,28 @@ if [ ! -f "${SRC_PATH}" ]; then
   exit 1;
 fi
 
+SRC_PATH_BASIC="${SRC_PATH%.*}_basic.ml"
+
 # echo "${OPTITRUST_PATH}/doc/extract_spec.sh ${SRC_PATH} ${FCT} > ${OUTPUT}"
-${OPTITRUST_PATH}/doc/extract_spec.sh ${SRC_PATH} ${FCT} > ${OUTPUT}
+
+# Search first in the main source file, then in the _basic version of the file.
+${OPTITRUST_PATH}/doc/extract_spec.sh ${SRC_PATH} ${FCT} > ${OUTPUT} 2>/dev/null
+OUT=$?
+if [ ${OUT} -ne 0 ]; then
+  if [ ! -f "${SRC_PATH_BASIC}" ]; then
+    echo "extract_spec_for_demo: could not find spec for ${FCT} in ${SRC_PATH}."  >> /dev/stderr
+    exit 1;
+  else
+    ${OPTITRUST_PATH}/doc/extract_spec.sh ${SRC_PATH_BASIC} ${FCT} > ${OUTPUT} 2>/dev/null
+    OUT2=$?
+    if [ ${OUT2} -ne 0 ]; then
+      echo "extract_spec_for_demo: could not find spec for ${FCT} in ${SRC_PATH} or in ${SRC_PATH_BASIC}." >> /dev/stderr
+      exit 1;
+    fi
+  fi
+fi
+
+
 
 # cat ${OUTPUT}
 

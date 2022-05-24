@@ -8,5 +8,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.parallel [] [tFirst; cFunDef "main";dBody];
   !! Omp.single [] [tBefore;cSeq ~args:[[cSeq ~args:[[cFor "i"]] ()]] ()];
   !! Omp.task [Untied] [tBefore;cSeq ~args:[[cFor "i"]] ()];
-  !! Omp.task [] [tBefore; cFun "process"]; 
+  !! Omp.task [] [tBefore; cFun "process"];
 )

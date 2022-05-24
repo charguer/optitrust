@@ -5070,7 +5070,7 @@ module Gram =
          let (wide, s) = p0 in ASMOPERAND (n, wide, s, (fst e)))
      | Prod'asm_op_name'1 ->
        Obj.magic box (Coq_asm_op_name'nt, ((T RBRACK't) :: ((T
-         OTHER_NAME't) :: ((T LBRACK't) :: [])))) (fun _ n _ -> Some 
+         OTHER_NAME't) :: ((T LBRACK't) :: [])))) (fun _ n _ -> Some
          (fst n))
      | Prod'asm_op_name'0 -> Obj.magic box (Coq_asm_op_name'nt, []) None
      | Prod'asm_flags'1 ->

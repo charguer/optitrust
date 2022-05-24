@@ -698,20 +698,6 @@ let is_target_between (tr : target) : bool =
    tgs.target_relative <> TargetAt
 
 (******************************************************************************)
-(*               Performance Counters for Target resolution                   *)
-
-(* [resolve_target_steps()]: returns the number of AST nodes visited during
-   the target resolution steps, then resets the counter. *)
-
-let resolve_target_steps_counter = ref 0
-
-let resolve_target_steps () : int =
-  let nb = !resolve_target_steps_counter in
-  resolve_target_steps_counter := 0;
-  nb
-
-
-(******************************************************************************)
 (*                              Target resolution                             *)
 (******************************************************************************)
 
@@ -757,7 +743,7 @@ let is_equal_lit (l : lit) (l' : lit) =
 
 (* [get_trm_kind t]: gets the kind of trm [t] *)
 (* LATER: we may want to save the kind inside the term? *)
-let rec get_trm_kind (t : trm) : trm_kind =
+let get_trm_kind (t : trm) : trm_kind =
    let is_unit = begin match t.typ with
                  | Some ty ->
                     begin match ty.typ_desc with
@@ -778,8 +764,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_seq _ -> TrmKind_Ctrl
    | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
-   | Trm_labelled (_, t) -> get_trm_kind t
-   | Trm_omp_directive _ | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ -> TrmKind_Any
+   | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ -> TrmKind_Any
 
 
 (* [match_regexp_str r s]: checks if [s] can be matched with [r] *)
@@ -864,7 +849,7 @@ let check_hastype (pred : typ->bool) (t : trm) : bool =
 
 (* [check_constraint c]: checks if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
-   if List.mem Multi_decl t.annot then
+   if trm_has_cstyle Multi_decl t then
      (*
        check the constraint on each element of the seq and return true if one
        is true
@@ -892,8 +877,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_target p_step step &&
         check_target p_body body
-     | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body),
-        Trm_for(index, start, direction, stop, step, body) ->
+     | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body), Trm_for(l_range, body) ->
+        let (index, start, direction, stop, step, _is_parallel) = l_range in
         let direction_match = match p_direction with
         | None -> true
         | Some d -> d = direction in
@@ -941,7 +926,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | _ -> false
         end
      | Constr_seq cl, Trm_seq tl when
-        not ((List.exists (function No_braces _ -> true | _ -> false) t.annot) || List.mem Main_file t.annot)->
+        not ((List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle) || List.mem Main_file t.annot.trm_annot_files)->
         check_list ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
         in constra_app *)
      | Constr_var name, Trm_var (_, x) ->
@@ -959,9 +944,10 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         else
           check_target p_fun f &&
           check_list ~depth:(DepthAny) cl_args args
-     | Constr_label (so, p_body), Trm_labelled (l, body) ->
-        check_name so l &&
-        check_target p_body body
+     | Constr_label (so, p_body), _ ->
+        let t_labels = trm_get_labels t in
+        List.fold_left (fun acc l -> check_name so l || acc) false t_labels &&
+        check_target p_body t
      | Constr_goto so, Trm_goto l ->
         check_name so l
      | Constr_return p_res, Trm_abort (Ret (Some res)) ->
@@ -978,15 +964,16 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_cases cc cases
      | Constr_bool b, _ -> b
-     | Constr_root, _ ->
-        List.mem Main_file t.annot
+     | Constr_root, _ -> trm_is_mainfile t
+
      | Constr_prim pred, Trm_val (Val_prim p1) ->
         pred p1
      | Constr_mark (pred, _m), _ ->
+        let t_marks = trm_get_marks t in
         begin match t.desc with
         | Trm_seq tl | Trm_array tl | Trm_struct tl->
-          (List.exists pred t.marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
-        | _ -> List.exists pred t.marks
+          (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
+        | _ -> List.exists pred t_marks
         end
      | Constr_hastype pred , _ ->
         check_hastype pred t
@@ -995,8 +982,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_var_init , _ -> true
      | Constr_array_init, Trm_array _ -> true
      | Constr_struct_init, Trm_struct _ -> true
-     | Constr_omp (pred, _), Trm_omp_directive d ->
-         pred d
+     | Constr_omp (pred, _), _ -> trm_has_pragma pred t
      | _ -> false
      end
 
@@ -1127,7 +1113,7 @@ and debug_resolution = false
      [trs]: a clean target t
      [t]: ast  *)
 and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t : trm) : paths =
-  incr resolve_target_steps_counter;
+  Stats.incr_target_resolution_steps ();
   let epl =
     match trs with
     | [] -> [[]]
@@ -1276,14 +1262,12 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   (*
     do not resolve in included files, except if the constraint is Constr_include
    *)
-  | Constr_include h when List.mem (Include h) t.annot ->
-     (*
-       remove the include annotation for target resolution to proceed in the
-       included file
-      *)
-     resolve_target_simple p {t with annot = []}
-  | _ when is_include t ->
-     print_info loc "resolve_constraint: not an include constraint\n";
+  | Constr_include h when trm_is_include t ->
+     (* remove the include annotation for target resolution to proceed in the
+       included file *)
+     resolve_target_simple p (trm_alter ~annot:(Some trm_annot_default) t)
+  | _ when trm_is_include t ->
+     print_info loc "Constr.resolve_constraint: not an include constraint\n";
      []
   (* target constraints first *)
   (* following directions *)
@@ -1294,7 +1278,7 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
    *)
   | c when check_constraint c t -> resolve_target_simple p t
   | _ ->
-     print_info loc "resolve_constraint: constraint %s does not hold\n"
+     print_info loc "Constr.resolve_constraint: constraint %s does not hold\n"
        (constr_to_string c);
      []
 
@@ -1308,11 +1292,11 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
 
   let loc = t.loc in
   (* no exploration in depth in included files *)
-  if  (List.exists (function Include _ -> true | _ -> false) t.annot) then begin
-     print_info loc "explore_in_depth: no exploration in included files\n";
+  if trm_is_include t then begin
+     print_info loc "Constr.explore_in_depth: no exploration in included files\n";
      []
      end
-  else if List.mem Multi_decl t.annot then
+  else if trm_has_cstyle Multi_decl t then
      (* explore each declaration in the seq *)
      begin match t.desc with
      | Trm_seq tl ->
@@ -1349,7 +1333,8 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
       end
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (aux body)
-     | Trm_for ( _, start, _, stop, step, body) ->
+     | Trm_for (l_range, body) ->
+        let ( _, start, _, stop, step, is_parallel) = l_range in
         let step_t = loop_step_to_trm step in
         (add_dir Dir_for_start (aux start)) @
         (add_dir Dir_for_stop (aux stop)) @
@@ -1392,9 +1377,6 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
      | Trm_struct tl ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_struct_nth n) (aux)
-     | Trm_labelled (l, body) ->
-        add_dir Dir_name (aux (trm_var ~loc l)) @
-        add_dir Dir_body (aux body)
      | Trm_switch (cond, cases) ->
         (add_dir Dir_cond (aux cond)) @
         (Xlist.fold_lefti (fun i epl case -> epl@explore_case depth i case p) [] cases)
@@ -1451,22 +1433,26 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_then (aux then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (aux else_t)
-  | Dir_body, Trm_let (_,(_,_),body)
+  | Dir_var_body, Trm_let (_, _, body) ->
+     let new_op_arg = new_operation_arg body in
+     add_dir Dir_var_body (aux new_op_arg)
+  | Dir_body, Trm_let (_, _,body)
     | Dir_body, Trm_let_fun (_, _, _, body)
     | Dir_body, Trm_for_c (_, _, _, body)
-    | Dir_body, Trm_for (_, _, _, _, _, body)
+    | Dir_body, Trm_for (_, body)
     | Dir_body, Trm_while (_, body)
     | Dir_body, Trm_do_while (body, _)
-    | Dir_body, Trm_abort (Ret (Some body))
-    | Dir_body, Trm_labelled (_, body) ->
+    | Dir_body, Trm_abort (Ret (Some body)) ->
      add_dir Dir_body (aux body)
   | Dir_for_c_init, Trm_for_c (init, _, _, _) ->
      add_dir Dir_for_c_init (aux init)
   | Dir_for_c_step, Trm_for_c (_, _, step, _) ->
      add_dir Dir_for_c_step (aux step)
-  | Dir_for_start, Trm_for (_, start,  _, _, _, _) ->
+  | Dir_for_start, Trm_for (l_range, _) ->
+     let (_, start,  _, _, _, _) = l_range in
      add_dir Dir_for_start (aux start)
-  | Dir_for_stop, Trm_for (_, _, _, stop, _, _) ->
+  | Dir_for_stop, Trm_for (l_range, _) ->
+     let (_, _, _, stop, _, _) = l_range in
      add_dir Dir_for_stop (aux stop)
   | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (aux f)
   | Dir_arg_nth n, Trm_apps (_, tl) ->
@@ -1480,7 +1466,6 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr))
   | Dir_name, Trm_let (_,(x,_),_)
     | Dir_name, Trm_let_fun (x, _, _, _)
-    | Dir_name, Trm_labelled (x, _)
     | Dir_name, Trm_goto x ->
      add_dir Dir_name (aux (trm_var ~loc x))
   | Dir_case (n, cd), Trm_switch (_, cases) ->

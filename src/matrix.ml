@@ -22,14 +22,14 @@ let intro_calloc : Transfo.t =
           end
         | Trm_apps ({desc = Trm_var (_, "calloc");_},_) ->
           Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
-        | _ -> try Matrix_basic.intro_calloc [cWriteVar x; cFun "calloc"] 
-          with | TransfoError _ -> fail tg_trm.loc "intro_calloc: couldn't find the calloc 
+        | _ -> try Matrix_basic.intro_calloc [cWriteVar x; cFun "calloc"]
+          with | TransfoError _ -> fail tg_trm.loc "intro_calloc: couldn't find the calloc
             opertion on the targeted variable"
         end
-      
-      | _ -> 
-         try Matrix_basic.intro_calloc [cWriteVar x; cFun "calloc"] 
-          with | TransfoError _ -> fail tg_trm.loc "intro_calloc: couldn't find the calloc 
+
+      | _ ->
+         try Matrix_basic.intro_calloc [cWriteVar x; cFun "calloc"]
+          with | TransfoError _ -> fail tg_trm.loc "intro_calloc: couldn't find the calloc
             opertion on the targeted variable"
       end
 
@@ -38,13 +38,13 @@ let intro_calloc : Transfo.t =
 
 (* [intro_mindex dim]; expects the target [tg] to point at at a matrix declaration, then it will change
      all its occurrence accesses into Optitrust MINDEX accesses. *)
-let intro_mindex (dim : trm) : Target.Transfo.t = 
+let intro_mindex (dim : trm) : Target.Transfo.t =
   iter_on_targets (fun t p ->
-    let tg_trm = Path.get_trm_at_path p t in 
-    match tg_trm.desc with 
-    | Trm_let (_, (x, _), _) -> 
+    let tg_trm = Path.get_trm_at_path p t in
+    match tg_trm.desc with
+    | Trm_let (_, (x, _), _) ->
       Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVar x] ()]
-    | _ -> fail tg_trm.loc "intro_mindex: the target should point to a  matrix declaration" 
+    | _ -> fail tg_trm.loc "intro_mindex: the target should point to a  matrix declaration"
   )
 
 
@@ -68,15 +68,15 @@ let intro_malloc : Transfo.t =
           end
         | Trm_apps ({desc = Trm_var (_, "malloc");_},_) ->
           Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
-        | _ -> 
-         try Matrix_basic.intro_malloc [cWriteVar x; cFun "malloc"] 
-          with | TransfoError _ -> fail tg_trm.loc "intro_malloc: couldn't find the malloc 
+        | _ ->
+         try Matrix_basic.intro_malloc [cWriteVar x; cFun "malloc"]
+          with | TransfoError _ -> fail tg_trm.loc "intro_malloc: couldn't find the malloc
             operation on the targeted variable"
         end
-      
-      | _ -> 
-         try Matrix_basic.intro_malloc [cWriteVar x; cFun "malloc"] 
-          with | TransfoError _ -> fail tg_trm.loc "intro_malloc: couldn't find the malloc 
+
+      | _ ->
+         try Matrix_basic.intro_malloc [cWriteVar x; cFun "malloc"]
+          with | TransfoError _ -> fail tg_trm.loc "intro_malloc: couldn't find the malloc
             opertion on the targeted variable"
       end
     | _ -> fail None "intro_malloc: the target should be a variable declarartion allocated with alloc")
@@ -91,7 +91,7 @@ let biject (fun_bij : string) : Transfo.t =
     match tg_trm.desc with
     | Trm_let (_, (p, _), _) ->
       Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVar p] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."]
-    | Trm_apps (_, [{desc = Trm_var (_, p)}; _])  when is_set_operation tg_trm -> 
+    | Trm_apps (_, [{desc = Trm_var (_, p)}; _])  when is_set_operation tg_trm ->
       Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
     | _ -> fail tg_trm.loc "biject: expected a variable declaration"
 )
@@ -102,21 +102,21 @@ let biject (fun_bij : string) : Transfo.t =
 let intro_mops (dim : trm) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.get_trm_at_path p t in
-    match tg_trm.desc with 
+    match tg_trm.desc with
     | Trm_let (_, (x, _), _) -> begin
         intro_mindex dim (target_of_path p);
-        try intro_malloc (target_of_path p) with | TransfoError _ -> 
-          begin 
-            try intro_calloc (target_of_path p) with | TransfoError _ -> fail tg_trm.loc "intro_mops: the targeted matrix was not allocated with malloc or calloc" 
+        try intro_malloc (target_of_path p) with | TransfoError _ ->
+          begin
+            try intro_calloc (target_of_path p) with | TransfoError _ -> fail tg_trm.loc "intro_mops: the targeted matrix was not allocated with malloc or calloc"
           end
         end
-      
+
     | _ -> fail tg_trm.loc "intro_mops: the target should be pointing at a matrix declaration"
-  
+
   )
 
-(* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi 
-   varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated 
+(* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi
+   varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated
     environment where the delocalizing transformatino is going to be performed *)
 let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
   ?(last : bool = false)  ?(use : trm option = None) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string)
@@ -143,10 +143,10 @@ let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place 
          let nb_labels = List.length labels in
          if nb_labels <> 3 then ();
          let label_alloc = List.nth labels 0 in
-         if label_alloc <> "" then begin Instr.move_out ~dest:[tAfter;cTarget alloc] [cLabel label_alloc]; Instr.move_out ~dest:[tBefore; cFunDef "" ~body:[cLabel label_alloc]] [cLabel label_alloc; cVarDef into] end;
+         if label_alloc <> "" then begin Instr.move ~dest:[tAfter;cTarget alloc] [cLabel label_alloc]; Instr.move ~dest:[tBefore; cFunDef "" ~body:[cLabel label_alloc]] [cLabel label_alloc; cVarDef into] end;
          let label_dealloc = List.nth labels 2 in
          if label_dealloc <> "" then begin match dealloc_tg with
-          | Some da_tg -> Instr.move_out ~dest:[tAfter; cTarget da_tg] [cLabel label_dealloc]
+          | Some da_tg -> Instr.move ~dest:[tAfter; cTarget da_tg] [cLabel label_dealloc]
           | None -> ()
           end
           else ();

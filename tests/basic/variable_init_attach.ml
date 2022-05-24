@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
+  
   !! Variable_basic.init_attach [cVarDef "a"];
-  )
+  
+)
+
 "
 int main() {
   int a;
@@ -16,6 +19,7 @@ int main() {
 let _ = Run.script_cpp (fun _ ->
 
   !! Variable_basic.init_attach [cVarDef "x"];
-  !! Tools.failure_expected (fun _ -> 
+  !! Tools.failure_expected (fun _ ->
       Variable_basic.init_attach [cVarDef "z"])
+
 )

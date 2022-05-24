@@ -1,5 +1,5 @@
 # 19 "lib/Responsefile.mll"
- 
+
 (* To accumulate the characters in a word or quoted string *)
 let buf = Buffer.create 32
 
@@ -213,7 +213,7 @@ and __ocaml_lex_gnu_double_quote_rec lexbuf __ocaml_lex_state =
 ;;
 
 # 69 "lib/Responsefile.mll"
- 
+
 
 let re_responsefile = Str.regexp "@\\(.*\\)$"
 

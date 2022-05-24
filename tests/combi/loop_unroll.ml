@@ -16,7 +16,7 @@ int main() {
 let _ = Run.script_cpp (fun _ ->
 
   (* With partitioning *)
-  !! Loop.unroll ~shuffle:true ~blocks:[2;1;2] [cFor "i"];
+  !! Loop.unroll ~braces:false ~shuffle:true ~blocks:[2;1;2] [cFor "i"];
   !! Loop.unroll  [cFor "j"];
 
   (* Without partitioning *)
@@ -29,4 +29,3 @@ let _ = Run.script_cpp (fun _ ->
     !! Loop.unroll ~braces:false [cFor "i"];
     !!())
 )
-

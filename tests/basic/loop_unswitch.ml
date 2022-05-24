@@ -2,8 +2,11 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-   !! Loop_basic.unswitch [cIf ~cond:[sExpr "b"] ()];
-  )
+
+  !! Loop_basic.unswitch [cIf ~cond:[sExpr "b"] ()];
+
+)
+
 "
 #include <stdbool.h>
 bool b;

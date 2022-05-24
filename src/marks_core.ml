@@ -25,7 +25,7 @@ let add_between (index : int) (m : mark) : Target.Transfo.local =
       [m] - the mark which is removed,
       [t] - the ast of the trm where the mark is removed. *)
 let remove_aux (m : mark) (t : trm) : trm =
-  trm_remove_mark (m) t
+  trm_rem_mark m t
 
 (* [remove m t p]: applies [remove_aux] at trm [t] with path [p]. *)
 let remove (m : mark) : Target.Transfo.local =
@@ -39,4 +39,3 @@ let clean_aux (t : trm) : trm =
 (* [clean t p]: applies [clean_aux] at trm [t] with path [p]. *)
 let clean : Target.Transfo.local =
   Target.apply_on_path (clean_aux)
-  

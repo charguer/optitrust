@@ -9,11 +9,12 @@ open Target
    in the future, we may want to introduce an annotation to allow preserving the presentation
   used by the original code in case it involves a star. *)
 
-let _ = Flags.dump_ast_details := true
-
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Function_basic.uninline ~fct:[cFunDef "g"] [cLabelBody "body"];
-  )
+    
+   !! Function_basic.uninline ~fct:[cFunDef "g"] [cLabel "body"];
+
+)
+
 "
 void f(int x);
 
@@ -32,16 +33,16 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-    !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabelBody "gtwice_body"];
-    !! Function_basic.uninline ~fct:[cFunDef "f"] [nbMulti; cLabelBody "fbody"];
-    !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabelBody "hobody"];
+    !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabel "gtwice_body"];
+    !! Function_basic.uninline ~fct:[cFunDef "f"] [nbMulti; cLabel "fbody"];
+    !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabel "hobody"];
 
-    !! Function_basic.uninline ~fct:[cFunDef "iter_bag2"] [cLabelBody "bagbody2"];
+    !! Function_basic.uninline ~fct:[cFunDef "iter_bag2"] [cLabel "bagbody2"];
     (* Test to undo the action of the unlining: *)
       !! Function_basic.inline [cFun "iter_bag2"];
       !! Function_basic.beta [cTopFunDef "test_bag2"; cFor_c ""; dBody; cFun""];
 
-    !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabelBody "bagbody"];
+    !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabel "bagbody"];
     (* LATER: bug if iter_bag uses variable name "it" instead of "iter", the variable
        is considered as non-const; maybe this will be fixed when encodings are reimplemented *)
     (* ARTHUR: the issue is related to the fact that the matching function does

@@ -87,7 +87,7 @@ let unserialize_from_file (filename : string) : 'a =
   let in_file = open_in filename in
   Marshal.from_channel in_file
 
-(* [is_newer_than filename1 filename2]: checks if the file [filename1] has a modification date greater 
+(* [is_newer_than filename1 filename2]: checks if the file [filename1] has a modification date greater
     than that of the file [filename2]. *)
 let is_newer_than (filename1 : string) (filename2 : string) : bool =
   let t_f1 = Unix.((stat filename1).st_mtime) in

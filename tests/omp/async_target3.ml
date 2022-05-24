@@ -8,4 +8,3 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.target_teams_distribute_parallel_for [Nowait] [tBefore; cFor "i"];
   !! Omp.for_ [Schedule (Dynamic, "chunk")] [tBefore; cFor "j"];
 )
- 

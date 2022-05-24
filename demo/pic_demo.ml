@@ -63,14 +63,14 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Optimization in [cornerInterpolationCoeff] debug";
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
-  !! Rewrite.equiv_at "double a; ==> 1. - a == (1. + (-1.) * a)" [nbMulti; ctx; cVarDefReg "c."; cInit()];
+  !! Rewrite.equiv_at "double a; ==> 1. - a == (1. + (-1.) * a)" [nbMulti; ctx; cVarDefReg "c."; dVarInit];
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti; cWrite(); cVarReg "r[X-Z]"];
   !! Variable.inline [nbMulti; ctx; cVarDefReg "c."];
   !! Variable.intro_pattern_array ~const:true ~pattern_aux_vars:"double rX, rY, rZ"
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ)"
       [nbMulti; ctx; cWrite(); dRHS];
-  !! Instr.move_out ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDefReg "\\(coef\\|sign\\)."];
+  !! Instr.move ~dest:[tBefore; ctx] [nbMulti; ctx; cVarDefReg "\\(coef\\|sign\\)."];
   !! Loop.fold_instrs ~index:"idCorner" [ctx; cWrite()];
 
   bigstep "Eliminate an intermediate storage by reusing an existing one";
@@ -96,7 +96,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
 
   bigstep "Simplification of the deposit of charge";
   !! Sequence.intro ~mark:"fuse" ~start:[step; cVarDef "contribs"] ();
-  !! Loop.fusion_targets [cMark "fuse"];
+  !! Loop.fusion_targets [cMark "fuse"]; (* TODO: Fix this *)
   !! Instr.inline_last_write [step; cCellRead ~base:[cFieldRead ~base:[cVar "contribs"] ()] ()];
 
   bigstep "Low level iteration on chunks of particles";
@@ -136,7 +136,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
       [nbMulti; steps; cFieldWrite ~base:[cVar "c"] (); sExprRegexp ~substr:true ("c->itemsSpeed" ^ d ^ "\\[i\\]")]);
   if usechecker then (!! iter_dims (fun d ->
-        Accesses.scale ~inv:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarDef ("speed"^d); cInit()]));
+        Accesses.scale ~inv:true ~factor:(expr ("(cell"^d^"/stepDuration)")) [repPart; cVarInit ("speed"^d)]));
 
   bigstep "Applying a scaling factor on positions";
   !! iter_dims (fun d ->
@@ -183,7 +183,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Accesses.shift ~inv:true ~factor:(var ("i" ^ d ^ "2")) [step; cVarDef ("r" ^ d ^ "1"); cCellRead ~base:[cFieldRead ~field:("itemsPos" ^ d) ()]()]);
 
   bigstep "Simplify arithmetic expressions after shifting of positions";
-  !! Rewrite.equiv_at ~ctx:true "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDefReg "p.2"; cInit()];
+  !! Rewrite.equiv_at ~ctx:true "double x, y, z; ==> (fwrap(x,y)/z) == (fwrap(x/z, y/z))" [cVarDefReg "p.2"; dVarInit];
   !! iter_dims (fun d ->
       Instr.read_last_write ~write:[cTopFunDef "computeConstants"; cWriteVar ("cell"^d)] [nbMulti;step; cFun "fwrap";cReadVar ("cell"^d)];);
   !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "idCorner"] (fun () ->
@@ -212,7 +212,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
     !! Rewrite.equiv_at ~ctx:true "int a, b; ==> wrap(a,b) == (b & (a -1))" [nbMulti; step; cFun "wrap"];
 
   bigstep "Simplification of computations for positions and destination cell";
-  !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarDef ("i"^d^"2");cInit()];);
+  !! iter_dims (fun d -> Expr_basic.replace (var ("j"^d)) [step; cVarInit ("i"^d^"2")];);
   !! Variable.inline_and_rename [nbMulti; step; cVarDefReg "i.2" ];
   !! Variable.inline [nbMulti; step; cVarDefReg "p.2"];
   !! Arith.(simpl_rec expand) [nbMulti; step; cCellWrite ~base:[cFieldRead ~regexp:true ~field:("itemsPos.") ()] ()];
@@ -261,6 +261,8 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       Loop.tile (var_mut "block") ~bound:TileBoundDivides ~index [step; cFor ("i"^d)];
       Loop.color (lit "2") ~index:("c"^d) [step; cFor index] );
   !! Loop.reorder ~order:Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
+  (* TODO: Fix thes issue with label passing *)
+  !! Label.add "core" [step; cFor "cX"];
   !! Expr.replace_fun "bag_push_concurrent" [step; cFun "bag_push"];
   !! Instr.set_atomic [step; cLabel "charge"; cWrite ()];
   !! Omp.parallel_for ~collapse:3 [step; cFor "bX"];
@@ -279,7 +281,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
       ~labels:["alloc"; ""; "dealloc"] ~alloc_instr ~dealloc_tg:(Some [cTopFunDef ~regexp:true "dealloc.*"; cFor ""])
       [cLabel "core"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "depositCorners"] ~rhs:[cDouble 0.] ()]];
-  !! Instr.delete [step; cLabel "charge"; cOmp()];
+  !! Instr.unset_atomic [step; cLabel "charge"; cOmp()];
 
   bigstep "Introduce private and shared bags, and use shared ones only for particles moving more than one cell away";
   !! Matrix.delocalize "bagsNext" ~into:"bagsNexts" ~dim:(lit "2") ~indices:["idCell"] ~last:true

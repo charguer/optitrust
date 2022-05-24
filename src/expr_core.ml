@@ -4,14 +4,14 @@ open Ast
 let update (f : trm -> trm) : Target.Transfo.local =
   Target.apply_on_path f
 
-(* [replace_fun_aux name t]: changes the current function call to another function call where the name has 
+(* [replace_fun_aux name t]: changes the current function call to another function call where the name has
       been changed to [name],
       [name] - name of the function replacing the targeted one,
       [t] - ast of the function call trm. *)
 let replace_fun_aux (name : string) (t : trm) : trm =
   match t.desc with
   | Trm_apps (_, args) ->
-    trm_apps ~annot:t.annot ~marks:t.marks ~typ:t.typ (trm_var name) args
+    trm_apps ~annot:t.annot ~typ:t.typ (trm_var name) args
   | _ -> fail t.loc "replace_fun: expected a function call"
 
 
@@ -62,8 +62,7 @@ let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp op
         in
       Str.global_replace (Str.regexp "\n") " " s
       in
-    let sannot =
-      Tools.document_to_string (AstC_to_c.trm_annot_to_doc t.annot) in
+    let sannot = Tools.document_to_string (Ast_to_text.print_trm_annot t) in
     let tkind = Constr.get_trm_kind t in
     let skind = Constr.trm_kind_to_string tkind in
     let sreg =

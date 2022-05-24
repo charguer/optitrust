@@ -1,13 +1,10 @@
-FLAGS := -dump-ast-details # -analyse-time-details
+FLAGS := -dump-ast-details # -analyse-stats-details
 
 TARGET_MAKE_ALL := mine
 include ../Common.Makefile
 
 
 CURRENT := test_debug_function_inline
-
-
-
 
 mine: test_debug_function_inline_out.cpp
 	cat test_debug_function_inline_out_enc.cpp

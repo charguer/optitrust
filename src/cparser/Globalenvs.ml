@@ -37,7 +37,7 @@ module Senv =
 module Genv =
  struct
   type ('f, 'v) t = { genv_public : ident list; genv_symb : block PTree.t;
-                      genv_defs : ('f, 'v) globdef PTree.t; genv_next : 
+                      genv_defs : ('f, 'v) globdef PTree.t; genv_next :
                       block }
 
   (** val genv_public : ('a1, 'a2) t -> ident list **)

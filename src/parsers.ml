@@ -22,7 +22,7 @@ let string_of_cparser (p : cparser) : string =
     | All ->     "all"
     | Default -> "default"
 
-(* []default_cparser]: default parser to use when no indication is provided, neither via the command line, nor via 
+(* []default_cparser]: default parser to use when no indication is provided, neither via the command line, nor via
     [Parsers.select], nor via the [~parser] option provided by functions such as [Run.script_cpp] or [Trace.reparse]. *)
 let default_cparser = Clang
 

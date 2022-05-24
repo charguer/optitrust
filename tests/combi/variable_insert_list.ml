@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Ast 
+open Ast
 
 let _ = Run.doc_script_cpp (fun _ ->
   !! Variable.insert_list  ~defs:[("int","c",lit "3"); ("int","d",lit "4")] [tAfter; cVarDef "b"]

@@ -3,13 +3,13 @@ open Ast
 open Precedence
 
 
-(* [print_optitrust_syntax]: only for internal use *)
+(* [print_optitrust_syntax]: only for internal use. *)
 let print_optitrust_syntax = ref false
 
-(* [print_commented_pragma]: only for internal use *)
+(* [print_commented_pragma]: only for internal use. *)
 let print_commented_pragma = ref false
 
-(* [print_stringreprids]: only for debugging purposes *)
+(* [print_stringreprids]: only for debugging purposes. *)
 let print_stringreprids = ref false
 
 (*----------------------------------------------------------------------------------*)
@@ -21,37 +21,37 @@ let print_stringreprids = ref false
    AST being printed, and preferably to reinitialize the stringreprs
    table before starting. *)
 
-(* [stringreprids]: Hashtable for storing the string representation of trm *)
+(* [stringreprids]: Hashtable for storing the string representation of trm. *)
 type stringreprs = (Ast.stringreprid, document) Hashtbl.t
 
-(* [stringreprs]: string representations are stored only when the user uses string matching targets *)
+(* [stringreprs]: string representations are stored only when the user uses string matching targets. *)
 let stringreprs : stringreprs option ref = ref None
 
-(* [clear_string_reprs ()]: clearn all the stored string representations *)
+(* [clear_string_reprs ()]: clearn all the stored string representations. *)
 let clear_stringreprs () =
   stringreprs := None
 
-(* [get_stringreprs ()]: gets the current string representations *)
+(* [get_stringreprs ()]: gets the current string representations. *)
 let get_stringreprs () : stringreprs =
   match !stringreprs with
   | Some m -> m
   | None -> fail None "AstC_to_c.get_stringreprs: must call init_stringreprs or set_stringreprs first"
 
-(* [get_and_clear_stringreprs ()]: gets the current string representations and delete them *)
+(* [get_and_clear_stringreprs ()]: gets the current string representations and delete them. *)
 let get_and_clear_stringreprs () : stringreprs =
   let m = get_stringreprs() in
   stringreprs := None;
   m
 
-(* [set_stringreprs t]: replaces the current string representations with [t] *)
+(* [set_stringreprs t]: replaces the current string representations with [t]. *)
 let set_stringreprs (t : stringreprs) : unit =
   stringreprs := Some t
 
-(* [init_string_reprs]: creates the hashtable used for storing the string representations *)
+(* [init_string_reprs]: creates the hashtable used for storing the string representations. *)
 let init_stringreprs () =
   stringreprs := Some (Hashtbl.create 100)
 
-(* [add_stringreprs_entry t d]: adds trm [t] into the table of representations *)
+(* [add_stringreprs_entry t d]: adds trm [t] into the table of representations. *)
 let add_stringreprs_entry (t : trm) (d : document) : unit =
   match !stringreprs with
   | None -> ()
@@ -60,7 +60,7 @@ let add_stringreprs_entry (t : trm) (d : document) : unit =
       | None -> ()
       | Some id -> Hashtbl.add m id d
 
-(* [print_stringreprs m]: for debugging purposes *)
+(* [print_stringreprs m]: for debugging purposes. *)
 let print_stringreprs (m : stringreprs) : unit =
   let pr id d =
     Printf.printf "stringreprs[%d] = %s\n----\n" id (Tools.document_to_string d) in
@@ -73,7 +73,7 @@ let print_stringreprs (m : stringreprs) : unit =
 
 (* To print back ast to C/C++ code, we convert all the ast components into  pprint documents.
    As a result, a well structured code will be generated. For further improving the printing
-   one can use clang-format  *)
+   one can use clang-format.  *)
 
 (* **********************************************************************************************************
  * Note: to convert the OptiTrust ast to C/C++ code, we convert all the ast components into pprint documents.
@@ -82,7 +82,7 @@ let print_stringreprs (m : stringreprs) : unit =
 
 **************************************************************************************************************)
 
-(* [typ_desc_to_doc t]: converts ast type descriptions to pprint documents *)
+(* [typ_desc_to_doc t]: converts ast type descriptions to pprint documents. *)
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
   | Typ_const t when is_typ_ptr t -> typ_to_doc t ^^ string " const"
@@ -124,27 +124,14 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
         | _ -> fail None "AstC_to_c.typ_to_doc: arbitrary types entered as string should be entered by using Atyp"
         end
 
-(* [typ_annot_to_doc]: converts type annotations to pprint document *)
+(* [typ_annot_to_doc]: converts type annotations to pprint document. *)
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with
   | Unsigned -> string "unsigned"
   | Long -> string "long"
   | Short -> string "short"
 
-(* [trm_annot_to_doc]: converts trm annotations to pprint document *)
-and trm_annot_to_doc (t_annot : trm_annot list) : document =
-  let aux t_annot = match t_annot with
-  | Multi_decl -> string "Multi_dec"
-  | App_and_set -> string "App_and_set"
-  | Main_file -> string "Main_file"
-  | Postfix_set -> string "Postfix_set"
-  | Annot_stringreprid id -> string "Annot_stringreprid" ^^ string (string_of_int id)
-  | _ -> empty
-  in
-  if t_annot = [] then empty else
-  Tools.list_to_doc ~sep:comma (List.map aux t_annot)
-
-(* [typ_to_doc]: converts ast types to pprint document *)
+(* [typ_to_doc]: converts ast types to pprint document. *)
 and typ_to_doc (t : typ) : document =
   let d = typ_desc_to_doc t.typ_desc in
   let dannot =
@@ -158,7 +145,7 @@ and typ_to_doc (t : typ) : document =
   in
   dattr ^^ dannot ^^ d
 
-(* [typed_var_to_doc tx]: pairs (x, int) are printed as int x *)
+(* [typed_var_to_doc tx]: pairs like (x, int) are printed as int x. *)
 and typed_var_to_doc (tx : typed_var) : document =
   let (x, ty) = tx in
   let is_const = is_typ_const ty in
@@ -195,7 +182,7 @@ and typed_var_to_doc (tx : typed_var) : document =
      dattr ^^ typ_to_doc ty ^^ blank 1 ^^ const_string ^^ string x
   | _ -> const_string ^^ typ_to_doc ty ^^ blank 1 ^^ string x
 
-(* [lit_to_doc l]: converts literals to pprint documents *)
+(* [lit_to_doc l]: converts literals to pprint documents. *)
 and lit_to_doc (l : lit) : document =
   match l with
   | Lit_unit -> semi
@@ -205,7 +192,7 @@ and lit_to_doc (l : lit) : document =
   | Lit_double f -> string (string_of_float f)
   | Lit_string s -> dquotes (separate (backslash ^^ string "n") (lines s))
 
-(* [unop_to_doc op]: converts unary operators to pprint documents *)
+(* [unop_to_doc op]: converts unary operators to pprint documents. *)
 and unop_to_doc (op : unary_op) : document =
   match op with
   | Unop_get -> star
@@ -222,7 +209,7 @@ and unop_to_doc (op : unary_op) : document =
      let dt = typ_to_doc t in
      string "static_cast" ^^ langle ^^ dt ^^ rangle
 
-(* [binop_to_doc op]: converts binary operators to pprint documents *)
+(* [binop_to_doc op]: converts binary operators to pprint documents. *)
 and binop_to_doc (op : binary_op) : document =
   match op with
   | Binop_set -> equals
@@ -247,7 +234,7 @@ and binop_to_doc (op : binary_op) : document =
   | Binop_shiftr -> twice rangle
   | Binop_xor -> caret
 
-(* [prim_to_doc p]: converts primitives to pprint documents *)
+(* [prim_to_doc p]: converts primitives to pprint documents. *)
 and prim_to_doc (p : prim) : document =
   match p with
   | Prim_unop op -> unop_to_doc op
@@ -257,7 +244,7 @@ and prim_to_doc (p : prim) : document =
   | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
   | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
 
-(* [val_to_doc v]: converts values to pprint documents *)
+(* [val_to_doc v]: converts values to pprint documents. *)
 and val_to_doc (v : value) : document =
   match v with
   | Val_lit l -> lit_to_doc l
@@ -270,24 +257,49 @@ and val_to_doc (v : value) : document =
        end
   | Val_prim p -> prim_to_doc p
 
-(* [attr_to_doc a]: converts attributes to pprint documents *)
+(* [attr_to_doc a]: converts attributes to pprint documents. *)
 and attr_to_doc (a : attribute) : document =
   match a with
-  (* | Alignas t -> string "_Alignas" ^^ parens (decorate_trm t) *)
+  (* | Alignas t -> string "_Alignas" ^^ parens (decorate_trm t). *)
   | Alignas t -> string "alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp -> blank 1
   | Others -> empty
 
 (* [decorate_trm ~semicolon ~prec ~print_struct_init_type t]:
     - if [prec] is greater than the precedence of [t] then decorate [t] with parentheses
-    - if [t.marks <> []] then decorate [t] with those marks.
+    - if [t] is marked,then decorate [t] with those marks.
     - if t is struct initialization list outside a variable declaration, then decorate [t] with a cast in front
     - if [semicolon] is true then decorate [t] with a semicolon at the end *)
 and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_init_type : bool = true) (t : trm) : document =
   let parentheses = parentheses_needed ~prec t in
   let dt = trm_to_doc ~semicolon ~prec ~print_struct_init_type t in
-  let dt = if parentheses then parens (dt) else dt in
-  if t.marks = [] && not !print_stringreprids
+
+  let t_pragmas = trm_get_pragmas t in
+  let dpragmas = if t_pragmas = []
+    then empty
+    else
+      let t_pragmas_str = List.map (fun d ->
+        let intro = if !print_commented_pragma then string "//" else empty in
+          intro ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
+        ) t_pragmas in
+
+
+
+  Tools.list_to_doc ~sep:(string "\n") ~bounds:[empty; hardline] t_pragmas_str in
+
+  let t_labels = trm_get_labels t in
+  let dlabels = if t_labels = []
+    then empty
+    else
+      let t_labels_str = List.map string t_labels in
+      Tools.list_to_doc ~sep:(colon ^^ blank 1) ~bounds:[empty; colon] t_labels_str
+    in
+
+  let dt = if parentheses then parens (dt) else dpragmas ^^ dlabels ^^ dt in
+
+  let t_marks = trm_get_marks t in
+
+  if t_marks = [] && not !print_stringreprids
     then dt
     else
       begin
@@ -297,7 +309,8 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
         | None -> "[-]"
         | Some id -> Printf.sprintf "[%d]" id
         end in
-      let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t.marks in
+
+      let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t_marks in
       let sleft = string ("/*@" ^ sid ^ m ^ "*/") in
       let sright =  string ("/*" ^ sid ^ m ^ "@*/") in
       sleft ^^ dt ^^ sright
@@ -307,16 +320,16 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
 and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false)  (t : trm) : document =
   let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
+  let t_attributes = trm_get_attr t in
   let dattr =
-    match t.attributes with
+    match t_attributes with
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
     in
   let d =
     begin match t.desc with
     | Trm_val v ->
-       if List.mem Empty_cond t.annot then empty
-         else dattr ^^ val_to_doc v
+       if trm_has_cstyle Empty_cond t then empty else dattr ^^ val_to_doc v
     | Trm_var (_, x) ->
            dattr ^^ string x
     | Trm_array tl -> let tl = Mlist.to_list tl in
@@ -338,7 +351,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl
     | Trm_let_fun (f, r, tvl, b) ->
-        let inline = trm_annot_has Fun_inline t in
+        let inline = trm_has_cstyle Fun_inline t in
         dattr ^^ trm_let_fun_to_doc ~semicolon inline f r tvl b
     | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
     | Trm_if (b, then_, else_) ->
@@ -355,29 +368,27 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_seq tl ->
        let tl_m = tl.marks in
        let tl = Mlist.to_list tl in
-
-       if List.mem Multi_decl t.annot
-         then dattr ^^ multi_decl_to_doc loc tl
-       else if List.exists (function No_braces _ -> true | _ -> false) t.annot
-         then
-          let dl = List.map (decorate_trm ~semicolon:true) tl in
-          dattr ^^ separate hardline dl
-       else if List.exists (function Include _ -> true | _ -> false) t.annot then
-         empty
-       else
-          let counter = ref (-1) in
-          let dl = List.map (decorate_trm ~semicolon:true) tl in
-          let dl = Xlist.fold_lefti (fun i acc m ->
-           if m <> [] then begin
-             incr counter;
-             let m = Tools.list_to_string ~sep:"," m in
-             let s = string ("/*@" ^ m ^ "@*/") in
-             Xlist.insert_at (i + !counter) s acc end
-           else acc
-          ) dl tl_m in
-          counter := -1;
-          let res = if trm_annot_has Main_file t then (separate (twice hardline) dl) else surround 2 1 lbrace (separate hardline dl) rbrace in
-          dattr ^^ res
+       if trm_has_cstyle Multi_decl t
+          then dattr ^^ multi_decl_to_doc loc tl
+          else if trm_is_nobrace_seq t
+            then
+            let dl = List.map (decorate_trm ~semicolon:true) tl in
+            dattr ^^ separate hardline dl
+          else if trm_is_include t then empty
+          else
+            let counter = ref (-1) in
+            let dl = List.map (decorate_trm ~semicolon:true) tl in
+            let dl = Xlist.fold_lefti (fun i acc m ->
+             if m <> [] then begin
+               incr counter;
+               let m = Tools.list_to_string ~sep:"," m in
+               let s = string ("/*@" ^ m ^ "@*/") in
+               Xlist.insert_at (i + !counter) s acc end
+             else acc
+            ) dl tl_m in
+            counter := -1;
+            let res = if trm_is_mainfile t then (separate (twice hardline) dl) else surround 2 1 lbrace (separate hardline dl) rbrace in
+            dattr ^^ res
     | Trm_apps (f, tl) ->
            dattr ^^ apps_to_doc ~prec f tl ^^ dsemi
      | Trm_while (b, t) ->
@@ -396,8 +407,8 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         dattr ^^ string "for" ^^ blank 1 ^^
           parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
             blank 1 ^^ dbody
-     | Trm_for (index, start, direction, stop, step, body) ->
-       let full_loop = unpack_trm_for ~loc:t.loc index start direction stop step body in
+     | Trm_for (l_range, body) ->
+       let full_loop = unpack_trm_for ~loc:t.loc l_range body in
        decorate_trm full_loop
      | Trm_switch (cond, cases) ->
         let dcond = decorate_trm cond in
@@ -431,9 +442,6 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         | Break _ -> dattr ^^ string "break" ^^ dsemi
         | Continue _ -> dattr ^^ string "continue" ^^ dsemi
         end
-     | Trm_labelled (l, t) ->
-        let dt = decorate_trm  ~semicolon t in
-        dattr ^^ string l ^^ colon ^^ nest 2 (hardline ^^ dt)
      | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
      | Trm_arbitrary a_kind  ->
         let code_str =
@@ -445,9 +453,6 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         | _ -> fail t.loc "AstC_to_c.trm_to_doc: arbitrary code should be entered by using Lit, Expr and Stmt only"
         end  in
         dattr ^^ code_str
-     | Trm_omp_directive d ->
-          let intro = if !print_commented_pragma then string "//" else empty in
-          dattr ^^ intro ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
      | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
      | Trm_extern (lang, tl) ->
         begin match tl with
@@ -670,7 +675,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
               | (Unop_struct_get f1 | Unop_struct_access f1) ->
                  if is_get_operation t then
-                    if List.mem Display_no_arrow f.annot
+                    if trm_has_cstyle Display_no_arrow f
                       then
                         d ^^ dot ^^ string f1
                       else
@@ -954,7 +959,8 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_wtick -> string "get_wtich" ^^ lparen ^^ blank 1 ^^ rparen
 
 (* [unpack_trm_for ~loc index start direction stop step body]: converts a simple for loop to a complex one before converting it to a pprint document *)
-and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
+and unpack_trm_for ?(loc = None) (l_range : loop_range) (body : trm) : trm =
+  let (index, start, direction, stop, step, _is_parallel ) = l_range in
   let init = trm_let Var_mutable (index, typ_int()) start  in
   let cond = begin match direction with
     | DirUp -> trm_apps (trm_binop Binop_lt) [trm_var index;stop]
@@ -988,7 +994,7 @@ and unpack_trm_for ?(loc = None) (index : var) (start : trm) (direction : loop_d
       end
 
     end in
-    trm_for_c  ~loc init cond step body
+    trm_for_c ~loc init cond step body
 
 (* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
     If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)

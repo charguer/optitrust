@@ -9,7 +9,7 @@ open Target
   *)
 
 let test_raw_ast () =
-  
+
   let clang_ast = Clang.Ast.parse_file "c_raw.cpp" in
   let raw_ast = Clang_to_astRawC.tr_ast clang_ast in
   AstC_to_c.ast_to_file "c_raw_out.cpp" raw_ast
