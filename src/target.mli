@@ -374,6 +374,8 @@ val applyi_on_targets : (int -> trm -> path -> trm) -> target -> unit
 
 val apply_on_targets : (trm -> path -> trm) -> target -> unit
 
+val transfo_on_targets : (trm -> trm) -> target -> unit 
+
 val applyi_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (int -> trm -> 'a -> trm) -> target -> unit
 
 val apply_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (trm -> 'a -> trm) -> target -> unit
