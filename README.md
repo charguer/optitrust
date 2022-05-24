@@ -76,31 +76,27 @@ or
 
    # As explained in https://www.cosmiccode.blog/blog/vscode-for-ocaml/
    # for merlin to work well you need to update settings.json (global VS code settings)
+
+
+
    # go to file/ preferences / settings, type "settings.json", then at the very bottom click "edit".
-  # with (make sure to get the path right depending on opam's version)
+   # to edit the file ~/.config/Code/User/settings.json
+   # with (make sure to get the path right depending on opam's version),
+
 ```
-       {
-
-         // ... other stuff
-
-
-        "reason.path.ocamlmerlin": "bash -ic ~/.opam/4.12.0/bin/ocamlmerlin",
-        "reason.path.ocamlfind": "bash -ic ~/.opam/4.12.0/bin/ocamlfind",
-        "reason.path.ocpindent": "bash -ic ~/.opam/4.12.0/bin/ocp-indent",
-        "reason.diagnostics.tools": [
-            "merlin"
-          ],
-       }
+{
+     "reason.path.ocamlmerlin": "bash -ic ~/.opam/4.13.1/bin/ocamlmerlin",
+     "reason.path.ocamlfind": "bash -ic ~/.opam/4.13.1/bin/ocamlfind",
+     "reason.path.ocpindent": "bash -ic ~/.opam/4.13.1/bin/ocp-indent",
+     "reason.diagnostics.tools": [ "merlin" ],
+     "files.associations": {
+       "*.ml": "ocaml",
+       "*.mli": "ocaml",
+       "*.json": "jsonc"
+     },
+     // ... possibly other stuff
+}
 ```
-
-In that same file, include:
-```
-    "files.associations": {
-      "*.ml": "ocaml",
-      "*.mli": "ocaml",
-      "*.json": "jsonc"
-	},
-``
 
 Useful entries for `keybindings.json`
 ```
