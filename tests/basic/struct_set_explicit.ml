@@ -4,7 +4,7 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
 
-    !! Struct_basic.set_explicit [sInstr "a = b"];
+  !! Struct_basic.set_explicit [sInstr "a = b"];
 
 )
 
@@ -37,4 +37,5 @@ let _ = Run.script_cpp ( fun _ ->
     !! Struct_basic.set_explicit [sInstr "c = a"];
     !! Struct_basic.set_explicit [nbMulti;cOr [[sInstr "c.pos ="]; [sInstr "c.speed ="]]];
     !! ());
+
 )

@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Struct_basic.set_implicit ~keep_label:false [cLabel "fuse"];
-  )
+  
+  !! Struct_basic.set_implicit ~keep_label:false [cLabel "fuse"];
+  
+)
+
 "
 typedef struct {
   int x;
@@ -38,4 +41,5 @@ let _ = Run.script_cpp (fun _ ->
     let tg = [cSeq ~args_pred:(Target.target_list_one_st [cFieldWrite ~base:[cVar "b"] ()]) ()] in
     !! Struct_basic.set_implicit tg;
     !!(););
+
 )

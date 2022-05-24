@@ -13,6 +13,7 @@ TESTS_WITH_DOC := \
 	arith_simpl.ml \
 	arith_scale.ml \
 	arith_shift.ml \
+	array_set_explicit.ml \
 	array_tile.ml \
 	array_to_variables.ml  \
 	cast_insert.ml \
@@ -41,6 +42,10 @@ TESTS_WITH_DOC := \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
+	matrix_intro_calloc.ml \
+	matrix_intro_malloc.ml \
+	matrix_intro_mindex.ml \
+	matrix_reorder_dims.ml \
 	pointer_fold.ml \
 	reference_fold.ml \
 	reference_unfold.ml \
@@ -54,7 +59,7 @@ TESTS_WITH_DOC := \
 	sequence_intro.ml \
 	sequence_partition.ml \
 	sequence_split.ml \
-	struct_fields_reorder.ml \
+	struct_reorder_fields.ml \
 	struct_reveal_field.ml \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
@@ -76,7 +81,6 @@ TESTS_WITH_DOC := \
 
 
 TESTS_WORKING_NOTINDOC := \
-	array_set_explicit.ml \
 	specialize_choose.ml \
 	specialize_any.ml \
 
@@ -84,11 +88,7 @@ TESTS_WORKING_NOTINDOC := \
 TESTS_TOCHECK := \
 	matrix_delocalize.ml \
 	matrix_delocalize_obj.ml \
-	matrix_intro_calloc.ml \
-	matrix_intro_mindex.ml \
-	matrix_intro_malloc.ml \
 	matrix_local_name.ml \
-	matrix_reorder_dims.ml \
 	function_rename_args.ml \
 	variable_ref_to_pointer.ml \
 	loop_split_range.ml \

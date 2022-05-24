@@ -268,25 +268,25 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
 let reveal_field (field_to_reveal : field) (index : int) : Transfo.local =
   apply_on_path (reveal_field_aux field_to_reveal index)
 
-(* [fields_reorder_aux struct_fields move_where around t]: reorders fields of a struct,
+(* [reorder_fields_aux struct_fields move_where around t]: reorders fields of a struct,
      [struct_fields] - a list of fields to move,
      [move_where] - a string which is equal either "before" or "after",
      [around] - the target field where fields are going to be moved to,
      [t] - ast of the typedef struct. *)
-let fields_reorder_aux (struct_fields: vars) (move_where : reorder) (t: trm) : trm =
+let reorder_fields_aux (struct_fields: vars) (move_where : reorder) (t: trm) : trm =
   match t.desc with
   | Trm_typedef td ->
    begin match td.typdef_body with
    | Typdef_prod (tn, fs) ->
     let field_list = Internal.reorder_fields move_where struct_fields fs in
    trm_typedef {td with typdef_body = Typdef_prod (tn, field_list)}
-  | _ -> fail t.loc "Struct_core.fields_reorder_aux: expected a typdef_prod"
+  | _ -> fail t.loc "Struct_core.reorder_fields_aux: expected a typdef_prod"
   end
-  | _ -> fail t.loc "Struct_core.fields_reorder_aux: expected a typedef definiton"
+  | _ -> fail t.loc "Struct_core.reorder_fields_aux: expected a typedef definiton"
 
-(* [fields_reorder struct_fields move_where around t p]: applies [fields_reorder_aux] at trm [t] with path [p]. *)
-let fields_reorder (struct_fields : vars) (move_where : reorder) : Transfo.local =
-  apply_on_path(fields_reorder_aux struct_fields move_where)
+(* [reorder_fields struct_fields move_where around t p]: applies [reorder_fields_aux] at trm [t] with path [p]. *)
+let reorder_fields (struct_fields : vars) (move_where : reorder) : Transfo.local =
+  apply_on_path(reorder_fields_aux struct_fields move_where)
 
 (* [inline_struct_accesses name field t]: transforms a specific struct access into a variable occurrence,
     [name] - name of the variable to replace the struct access,
