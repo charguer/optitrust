@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Loop_basic.unroll [cFor "i"];
-  )
+
+  !! Loop_basic.unroll [cFor "i"];
+
+)
+
 "
 int main() {
   int s = 0;
@@ -12,8 +15,11 @@ int main() {
     s += i;
   }
 }
+
 "
 
 let _ = Run.script_cpp (fun _ ->
+
   !! Loop_basic.unroll ~braces:true [cFor "i"];
+
 )

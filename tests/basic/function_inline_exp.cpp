@@ -11,12 +11,11 @@ int g(int x) {
 }
 
 int h(int x) {
-  if (x > 0)
-    return 1;
+  if (x > 0) return 1;
   return 2;
 }
 
-void m(int *p) { (*p)++; }
+void m(int* p) { (*p)++; }
 
 int k(int a, int b) { return a + b; }
 
@@ -41,7 +40,7 @@ int main() {
     u = 2;
   } /*bodyh@*/
 exit_body:;
-  int *q;
+  int* q;
   (*q)++;
   int result;
   /*@bodyk*/ { result = result + 4; } /*bodyk@*/

@@ -12,7 +12,7 @@ let _ = Run.script_cpp (fun () ->
   !! Label.add "r0" [cVarDef "a"];
 
   (* NOTE: manually comment/uncomment the ~only_branch argument
-     - use only_branch to use the interactive mode 
+     - use only_branch to use the interactive mode
      - comment it out for generating all output programs *)
   Trace.switch ~only_branch:1 [
     (fun () ->

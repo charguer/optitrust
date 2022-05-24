@@ -6,6 +6,7 @@ TARGET_MAKE_ALL := check
 
 FLAGS := -dump-ast-details
 
+
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
@@ -41,25 +42,28 @@ TESTS_WITH_DOC := \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
+	matrix_intro_calloc.ml \
+	matrix_intro_malloc.ml \
+	matrix_intro_mindex.ml \
+	matrix_reorder_dims.ml \
 	pointer_fold.ml \
 	reference_fold.ml \
 	reference_unfold.ml \
 	rewrite_compute.ml \
 	rewrite_compute_inside.ml \
 	sequence_delete.ml \
+	sequence_elim.ml \
 	sequence_elim_on_instr.ml \
 	sequence_intro_on_instr.ml \
-	sequence_elim.ml \
 	sequence_insert.ml \
 	sequence_intro.ml \
 	sequence_partition.ml \
 	sequence_split.ml \
-	struct_fields_reorder.ml \
+	struct_reorder_fields.ml \
 	struct_reveal_field.ml \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
-	struct_update_fields_type.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
 	variable_bind.ml \
@@ -84,27 +88,27 @@ TESTS_WORKING_NOTINDOC := \
 TESTS_TOCHECK := \
 	matrix_delocalize.ml \
 	matrix_delocalize_obj.ml \
-	matrix_intro_calloc.ml \
-	matrix_intro_mindex.ml \
-	matrix_intro_malloc.ml \
 	matrix_local_name.ml \
-	matrix_reorder_dims.ml \
 	function_rename_args.ml \
 	variable_ref_to_pointer.ml \
 	loop_split_range.ml \
+	function_dsp_def.ml \
+	function_dsp_call.ml \
+	struct_simpl_proj.ml \
+	rewrite_equiv_at.ml \
+
+
 
 # missing expected
 # matrix_insert_alloc_dim.ml \
 #	matrix_insert_access_dim_index.ml \
 
 TESTS_TO_FIX := \
-	struct_simpl_proj.ml \
 	accesses_intro.ml \
-	rewrite_equiv_at.ml \
 	variable_simpl_deref.ml \
 	typedef_fold.ml \
 	typedef_unfold.ml \
-
+  struct_update_fields_type.ml \
 
 
 NOT_NEEEDED_TO_FIX := \

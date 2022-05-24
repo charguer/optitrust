@@ -33,7 +33,7 @@ cd ${DIRNAME}
 if [ "${VIEW}" = "view_diff" ]; then
 
   # Read options from optitrust_flags.sh
-  # options: e.g., FLAGS="-dump-ast-details -analyse-time-details -debug-reparse"
+  # options: e.g., FLAGS="-dump-ast-details -analyse-stats-details -debug-reparse"
   if [ -f "optitrust_flags.sh" ]; then
     source optitrust_flags.sh
   fi

@@ -22,7 +22,7 @@ let _ = Run.script_cpp (fun () ->
   (* Type of variables occurrence *)
   show [ nbExact 7; cVar ""; cHasType "int" ]; (* use cHasType to find all trms of type int *)
   show [ nbExact 7; cVar ~typ:"int" ""]; (* use named argument ~typ for variable occurrences to replace cHasType *)
-  
+
   show [ nbExact 3; cVar ""; cHasTypePred ty_double]; (* use cHasTypePred to find all trms whose type satisfies a given predicate*)
   show [ nbExact 3; cVar ~typ_pred:ty_double "" ]; (* use named argument ~typ_pred for variable occurrences to replace cHasTypPred *)
   (* Note: If you pass both ~typ and ~typ_pred arguments to the constructor cVar, the target resolution will fail *)
@@ -36,7 +36,7 @@ let _ = Run.script_cpp (fun () ->
   show [ nbExact 1; cWrite ~typ:"int" () ];
   show [ nbExact 1; cWrite ~typ:"double" () ];
   show [ nbExact 0; cWrite ~typ:"bool" () ];
-  
+
   show [ nbExact 1; cPrimFun ~args:[[cHasType "int"]; []] (Prim_binop Binop_set) ];
   show [ nbExact 2; cPrimFun ~args:[[cAnd [[]; [cHasType "int"]]]; []] (Prim_binop Binop_set) ];
 

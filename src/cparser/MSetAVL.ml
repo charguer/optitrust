@@ -438,13 +438,13 @@ module MakeRaw =
   type coq_R_min_elt =
   | R_min_elt_0 of tree
   | R_min_elt_1 of tree * I.t * tree * X.t * tree
-  | R_min_elt_2 of tree * I.t * tree * X.t * tree * I.t * tree * X.t * 
+  | R_min_elt_2 of tree * I.t * tree * X.t * tree * I.t * tree * X.t *
      tree * elt option * coq_R_min_elt
 
   type coq_R_max_elt =
   | R_max_elt_0 of tree
   | R_max_elt_1 of tree * I.t * tree * X.t * tree
-  | R_max_elt_2 of tree * I.t * tree * X.t * tree * I.t * tree * X.t * 
+  | R_max_elt_2 of tree * I.t * tree * X.t * tree * I.t * tree * X.t *
      tree * elt option * coq_R_max_elt
 
   module L = MakeListOrdering(X)
@@ -474,35 +474,35 @@ module MakeRaw =
   type coq_R_merge =
   | R_merge_0 of tree * tree
   | R_merge_1 of tree * tree * I.t * tree * X.t * tree
-  | R_merge_2 of tree * tree * I.t * tree * X.t * tree * I.t * tree * 
+  | R_merge_2 of tree * tree * I.t * tree * X.t * tree * I.t * tree *
      X.t * tree * t * elt
 
   type coq_R_concat =
   | R_concat_0 of tree * tree
   | R_concat_1 of tree * tree * I.t * tree * X.t * tree
-  | R_concat_2 of tree * tree * I.t * tree * X.t * tree * I.t * tree * 
+  | R_concat_2 of tree * tree * I.t * tree * X.t * tree * I.t * tree *
      X.t * tree * t * elt
 
   type coq_R_inter =
   | R_inter_0 of tree * tree
   | R_inter_1 of tree * tree * I.t * tree * X.t * tree
-  | R_inter_2 of tree * tree * I.t * tree * X.t * tree * I.t * tree * 
+  | R_inter_2 of tree * tree * I.t * tree * X.t * tree * I.t * tree *
      X.t * tree * t * bool * t * tree * coq_R_inter * tree * coq_R_inter
-  | R_inter_3 of tree * tree * I.t * tree * X.t * tree * I.t * tree * 
+  | R_inter_3 of tree * tree * I.t * tree * X.t * tree * I.t * tree *
      X.t * tree * t * bool * t * tree * coq_R_inter * tree * coq_R_inter
 
   type coq_R_diff =
   | R_diff_0 of tree * tree
   | R_diff_1 of tree * tree * I.t * tree * X.t * tree
-  | R_diff_2 of tree * tree * I.t * tree * X.t * tree * I.t * tree * 
+  | R_diff_2 of tree * tree * I.t * tree * X.t * tree * I.t * tree *
      X.t * tree * t * bool * t * tree * coq_R_diff * tree * coq_R_diff
-  | R_diff_3 of tree * tree * I.t * tree * X.t * tree * I.t * tree * 
+  | R_diff_3 of tree * tree * I.t * tree * X.t * tree * I.t * tree *
      X.t * tree * t * bool * t * tree * coq_R_diff * tree * coq_R_diff
 
   type coq_R_union =
   | R_union_0 of tree * tree
   | R_union_1 of tree * tree * I.t * tree * X.t * tree
-  | R_union_2 of tree * tree * I.t * tree * X.t * tree * I.t * tree * 
+  | R_union_2 of tree * tree * I.t * tree * X.t * tree * I.t * tree *
      X.t * tree * t * bool * t * tree * coq_R_union * tree * coq_R_union
  end
 

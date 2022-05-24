@@ -1,16 +1,27 @@
 
-int a = 5;
-int b = 6;
+void test_decl (){
 
-int * t;
-int main(){
-  for (int i = 0; i < 10; i++) {
-    int r = i;
-    for (int j = 0; j < 10; j++) {
-      int s = i;
-      int x = a + b;
-      t[i] = i;
+   {
+    int a;
+    int b = 2;
+    int c = 5;
+    int d = 6;
+    int e = 7;
+   }
+
+
+}
+
+void test_loop(){
+  int a = 0; 
+  {
+    int g = 10;
+    for(int i = 0; i < 10; i++){
+      i = i + 1;
     }
   }
+}
+
+int main() {
   return 0;
 }

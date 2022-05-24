@@ -1,14 +1,12 @@
 open Optitrust
 open Target
 
-
-
-let _ = Flags.dump_ast_details := true
-
-
 let _ = Run.doc_script_cpp (fun _ ->
+
   !! Rewrite_basic.compute_inside [];
-  )
+  
+)
+
 "
 #include <stdbool.h>
 int f(int x) { return x + (2 + 3); }
@@ -21,8 +19,8 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Rewrite_basic.compute_inside [ cLabelBody "block1"];
-  !! Rewrite_basic.compute_inside [ cLabelBody "block2"];
-  !! Rewrite_basic.compute_inside [ cLabelBody "block3"];
+  !! Rewrite_basic.compute_inside [ cLabel "block1"];
+  !! Rewrite_basic.compute_inside [ cLabel "block2"];
+  !! Rewrite_basic.compute_inside [ cLabel "block3"];
 
 )

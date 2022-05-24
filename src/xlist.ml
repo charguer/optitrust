@@ -82,7 +82,7 @@ let rec chop_after (x : 'a) (xs : 'a list) : 'a list =
      The current item at index [i] in list [l] will have index equal to [i + length l'].
      One can insert a sublist also at index [length l] then the result will be [l @ l']. *)
 let insert_sublist_at (i : int) (el : 'a list) (l : 'a list) : 'a list =
-  if i = 0 
+  if i = 0
     then el @ l
     else if i = List.length l
       then l @ el
@@ -96,7 +96,7 @@ let insert_sublist_at (i : int) (el : 'a list) (l : 'a list) : 'a list =
 let insert_at (i : int) (e : 'a) (l : 'a list) : 'a list =
   insert_sublist_at i [e] l
 
-(* [uncons l]: returns [(x,l')] such that [l = x::l']. 
+(* [uncons l]: returns [(x,l')] such that [l = x::l'].
     NOTE: fails on empty lists. *)
 let uncons (l : 'a list) : 'a * 'a list =
   match l with
@@ -104,7 +104,7 @@ let uncons (l : 'a list) : 'a * 'a list =
   | x::l' -> (x,l')
 
 
-(* [unlast l] returns [(l',x)] such that [l = l'@[x]]. 
+(* [unlast l] returns [(l',x)] such that [l = l'@[x]].
     NOTE: fails on empty lists. *)
 let unlast (l : 'a list) : 'a list * 'a =
   match List.rev l with
@@ -122,7 +122,7 @@ let find_map (f : 'a -> 'b option) (t : 'a list) : 'b option =
   in
   loop t
 
-(* [index_of x l]: returns [Some i], where [i] is the index of element [x] in list [l], 
+(* [index_of x l]: returns [Some i], where [i] is the index of element [x] in list [l],
     or [None] if [x] does not belong to the list. *)
 let index_of (x : 'a) (l : 'a list) : int option =
   fold_lefti (fun i acc y -> if x = y then Some i else acc) None l

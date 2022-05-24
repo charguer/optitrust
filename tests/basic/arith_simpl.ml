@@ -2,11 +2,14 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Arith_basic.(simpl gather) [cVarDef "a"; cInit ()];
-    !! Arith_basic.(simpl gather) [cVarDef "b"; cInit ()];
-       Arith_basic.(simpl gather) [cVarDef "c"; cInit ()];
-       Arith_basic.(simpl expand) [cVarDef "d"; cInit ()];
-  )
+  
+  !! Arith_basic.(simpl gather) [cVarInit "a"];
+  !! Arith_basic.(simpl gather) [cVarInit "b"];
+  !! Arith_basic.(simpl gather) [cVarInit "c"];
+  !! Arith_basic.(simpl expand) [cVarInit "d"];
+
+)
+
 "
 int main() {
   int a = 2 + 3;
@@ -25,7 +28,8 @@ int main() {
 
 
 let _ = Run.script_cpp (fun _ ->
-    (* !! Arith_basic.simplify ~indepth:true [dRoot]); *) (* Test of all at once: *)
+  
+  (* !! Arith_basic.simplify ~indepth:true [dRoot]); *) (* Test of all at once: *)
 
   !! Arith_basic.nosimpl [nbMulti; cFunDef "simpl_in_depth"; cVarDef "x"; cFun "g"];
   !! Arith_basic.simplify ~indepth:true [nbMulti; cFunDef "simpl_in_depth"; cVarDef "x"];

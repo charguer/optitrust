@@ -6,7 +6,7 @@
 open Optitrust
 open Target
 
-let _ = Flags.analyse_time_details := true
+let _ = Flags.analyse_stats_details := true
 
 let _ = Run.script_cpp (fun () ->
 

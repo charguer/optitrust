@@ -1,7 +1,7 @@
 open Ast
 include Struct_basic
 
-(* [set_explicit tg]: an extension to [Struct_basic.set_explicit](see struct_basic.ml), contrary to the basic 
+(* [set_explicit tg]: an extension to [Struct_basic.set_explicit](see struct_basic.ml), contrary to the basic
     on this transformation supports automatic variable declaration detachment.
     vect v = {0,0}; becomes vect v; v.x = 0; v.y = 0; *)
 let set_explicit (tg : Target.target) : unit =
@@ -19,7 +19,7 @@ let set_explicit (tg : Target.target) : unit =
   ) tg
 
 (* [set_implicit tg]: an extension to [Struct_basic.set_implicit](see struct_basic.ml), contrary to the basic one
-     this one expects that the target [tg] matches all the write operations that can be converted to a single 
+     this one expects that the target [tg] matches all the write operations that can be converted to a single
      write operation. *)
 let set_implicit (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
@@ -49,7 +49,7 @@ let set_implicit (tg : Target.target) : unit =
 ) tg
 
 
-(* [rename_field field ~into tg]: this is a specialization of [Struct_basic.rename_fields] 
+(* [rename_field field ~into tg]: this is a specialization of [Struct_basic.rename_fields]
       when one wants to rename only one field of a struct. [field] is the current field name
       [into] is the new name that is going to replace all the occurrences of field in the context of
       the targeted typedef struct. *)
@@ -59,5 +59,5 @@ let rename_field (field : field) ~into:(into : var): Target.Transfo.t =
 
 (* [align_field align pattern tg]: expects the target [tg] to be pointing at a typedef struct definition,
    then it will align all the fields that match [pattern] with [align] size. *)
-let align_field (align : trm) (pattern : string) : Target.Transfo.t = 
-  Struct_basic.applyto_fields_type pattern (fun ty -> typ_align align ty) 
+let align_field (align : trm) (pattern : string) : Target.Transfo.t =
+  Struct_basic.applyto_fields_type pattern (fun ty -> typ_align align ty)

@@ -1,7 +1,7 @@
 open Ast
 open Target
 
-(* [insert ~reparse code tg]: expects the target [tg] to point at a relative position(in between two instructoins), 
+(* [insert ~reparse code tg]: expects the target [tg] to point at a relative position(in between two instructoins),
      [code] - the instruction that is going to be added, provided by the user as an arbitrary trm. *)
 let insert ?(reparse : bool = false) (code : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) ->
@@ -45,7 +45,7 @@ let intro ?(mark : string = "") ?(label : label = "") (nb : int) (tg : Target.ta
   (fun t (p, i) -> Sequence_core.intro mark label i nb t p) tg
 
 
-(* [intro_after ~mark ~label tg]: same as [intro] but this transformation will include in the sequence all the 
+(* [intro_after ~mark ~label tg]: same as [intro] but this transformation will include in the sequence all the
     instructions that come after the targeted instruction and belong to the same scope. *)
 let intro_after ?(mark : mark = "") ?(label : label = "") (tg : Target.target) : unit =
   Target.apply_on_targets (fun t p ->
@@ -58,7 +58,7 @@ let intro_after ?(mark : mark = "") ?(label : label = "") (tg : Target.target) :
     | _ -> fail seq_trm.loc "Sequence_basic.intro_after: the targeted instruction should belong to a sequence"
   ) tg
 
-(* [intro_before ~marks ~label tg]: similar to [intro] but this transformation will include in the sequence all the 
+(* [intro_before ~mark ~label tg]: similar to [intro] but this transformation will include in the sequence all the
     instructions that come before the targeted instruction and belong to the same scope. *)
 let intro_before ?(mark : mark = "") ? (label : label = "") (tg : Target.target) : unit =
   Target.apply_on_targets (fun t p ->
@@ -71,7 +71,7 @@ let intro_before ?(mark : mark = "") ? (label : label = "") (tg : Target.target)
   ) tg
 
 (* [intro_between ~mark ~label tg_beg tg_end]: this transformation is an advanced version of [intro].
-     Here, the user can specify explicitly the targets to the first and the last instructions that 
+     Here, the user can specify explicitly the targets to the first and the last instructions that
      are going to be isolated into a sequence. *)
 let intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : target) (tg_end : target) : unit =
   Internal.nobrace_remove_after ( fun  _ ->
@@ -88,7 +88,7 @@ let intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : target) 
       (p1, i1, i2 - i1)) ps_beg ps_end in
     List.fold_left (fun t (p,i,nb) -> Sequence_core.intro mark label i nb t p) t pis))
 
-(* [elim tg]: expects the target [tg] to point at a sequence that appears nested inside another sequence, 
+(* [elim tg]: expects the target [tg] to point at a sequence that appears nested inside another sequence,
     e.g., points at [{t2;t3}] inside [{ t1; { t2; t3 }; t4 }]. It "elims" the contents of the inner sequence,
     producing e.g., [{ t1; t2; t3; t3}]. *)
 let elim (tg : Target.target) : unit =
@@ -114,14 +114,14 @@ let elim_on_instr (tg : Target.target) : unit =
     (fun t (p, _) -> Sequence_core.elim t p) tg
    )
 
-(* [split tg]: expects the target [tg] to point in between two instructions, then it will split the sequence 
+(* [split tg]: expects the target [tg] to point in between two instructions, then it will split the sequence
      that contains that location into two sequences. *)
 let split (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    Target.apply_on_targets_between (fun t (p, i) -> 
-      let is_fun_body = Internal.is_decl_body p in 
+    Target.apply_on_targets_between (fun t (p, i) ->
+      let is_fun_body = Internal.is_decl_body p in
       Sequence_core.split i is_fun_body t p) tg)
- 
+
 (* [partition ~braces blocks tg]: expects the target tg to point at a sequence, this transformations will split that sequence
       into blocks where the sizes of the blocks should be provided by the user.
         [blocks] - denotes the sizes for each block inside the sequence. By default it is empty, otherwise the sum of
@@ -133,7 +133,7 @@ let partition ?(braces : bool = false) (blocks : int list) : Target.Transfo.t =
   Target.apply_on_targets (Sequence_core.partition blocks braces)
 
 (* [shuffle ~braces tg]: expects the target [tg] to point at a sequence of blocks, this transformation will transpose the block structure
-    
+
     think about a sequence of blocks as a matrix.
     {
       {{t11};{t12};{t13}};

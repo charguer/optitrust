@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-  
+
   !! Omp.init_lock "lock" [tAfter; cVarDef "lock"];
   !! Omp.parallel [] [tBefore; cSeq ~args:[[cFor "i"]] ()];
   !! Omp.for_ [] [tBefore;cFor "i"];

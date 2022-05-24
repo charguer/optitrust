@@ -109,14 +109,14 @@ module SplayHeapSet =
     | R_deleteMin_0 of heap
     | R_deleteMin_1 of heap * heap * E.t * heap
     | R_deleteMin_2 of heap * heap * E.t * heap * heap * E.t * heap
-    | R_deleteMin_3 of heap * heap * E.t * heap * heap * E.t * heap * 
+    | R_deleteMin_3 of heap * heap * E.t * heap * heap * E.t * heap *
        heap * E.t * heap * heap * coq_R_deleteMin
 
     type coq_R_deleteMax =
     | R_deleteMax_0 of heap
     | R_deleteMax_1 of heap * heap * E.t * heap
     | R_deleteMax_2 of heap * heap * E.t * heap * heap * E.t * heap
-    | R_deleteMax_3 of heap * heap * E.t * heap * heap * E.t * heap * 
+    | R_deleteMax_3 of heap * heap * E.t * heap * heap * E.t * heap *
        heap * E.t * heap * heap * coq_R_deleteMax
    end
 

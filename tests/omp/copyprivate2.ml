@@ -8,5 +8,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.barrier [tBefore; sInstr "return_val ="];
   !! Omp.barrier [tAfter; sInstr "return_val ="];
   !! Omp.single [Nowait] [tBefore; cSeq ~args_pred:(Target.target_list_one_st [cFun "free"]) ()];
-  
+
 )

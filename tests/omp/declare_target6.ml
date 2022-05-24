@@ -11,4 +11,3 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.target [Map_c (To, ["sv1";"sv2"]); Map_c (From, ["sp"])] [tAfter; cFun "s_init"];
   !! Omp.target [Map_c (To, ["dv1";"dv2"]); Map_c (From, ["dp"])] [tAfter; cFun "d_init"];
 )
- 

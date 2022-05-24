@@ -39,37 +39,33 @@ let fusion ?(nb : int = 2) (tg : target) : unit =
 
 (* [fusion_targets tg]: similar to [fusion] except that this transformation assumes that [tg] points to multiple
     not neccessarily consecutive for loops. This transformation regroups all this loops into a single sequence
-    an calls [Loops_basic.fusion_on_block].
+    and then it calls [Loops_basic.fusion_on_block].
 
     Assumptions:
       The loops inside the sequence satisfy the same assumptions as in [Loop_basic.fusion_in_block] transformation
       All the instructions in-between loops should not depend on the index of the loop. *)
-let fusion_targets (tg : target) : unit =
-  let non_loop_indices = ref [] in
-  iter_on_targets (fun t p ->
-    let tg_trm = Path.resolve_path p t in
 
+(* TODO: Optimize mark processing *)
+let fusion_targets ?(keep_label : bool = true) : Transfo.t =
+  iteri_on_targets (fun i t p ->
+    Marks.add "mark_seq" (target_of_path p);
+    let mark = "mark_to_move" ^ (string_of_int i) in
+    let tg_trm = Path.resolve_path p t in
     let aux (tl : trm mlist) : unit =
-      Mlist.iteri (fun i t1 ->
+      Mlist.iteri( fun i1 t1 ->
         match t1.desc with
         | Trm_for _ -> ()
-        | _ -> non_loop_indices := i :: !non_loop_indices
-      ) tl
-     in
-    match tg_trm.desc with
-    | Trm_seq tl ->
-      aux tl
-    | Trm_labelled (l, t1) ->
-      begin match t1.desc with
-      | Trm_seq tl -> aux tl
-      | _ -> fail t.loc "Loop.fusion_targets: expected a labelled sequence or a direct target to a sequence"
-      end
-    | _ -> fail tg_trm.loc "Loop.fusion_targets: expected a target pointing to the sequence that contains
-                            the potential loops to be fused"
+        | _ -> Marks_basic.add mark (target_of_path (p @ [Dir_seq_nth i1]))
 
-  ) tg;
-  List.iteri (fun i index -> Instr.move_out ~dest:([tBefore] @ tg) (tg @ [dSeqNth (index-i)])) (List.rev !non_loop_indices);
-  Loop_basic.fusion_on_block tg
+      ) tl in
+     begin match tg_trm.desc with
+     | Trm_seq tl -> aux tl
+     | _ -> fail tg_trm.loc "Loop.fusion_targets: expected a target pointin to a marked sequence or a labelled sequence"
+     end;
+     Instr.move_out [nbMulti; cMark mark];
+     Marks.remove mark [nbMulti; cMark mark];
+     Loop_basic.fusion_on_block ~keep_label [cMark "mark_seq"]
+  )
 
 (* [move_out ~upto tg]: expects the target [tg] to point at an instruction inside a for loop,
     then it will move that instruction outside the for loop that it belongs to.
@@ -161,21 +157,6 @@ let move ?(before : target = []) ?(after : target = []) (loop_to_move : target) 
 
 (*
 DETAILS for [unroll]
-
-
-*)
-
-(* [unroll ~braces ~blocks ~shuffle tg]: expects the target to point at a loop. Then it checks if the loop
-    is of the form for(int i = a; i < a + C; i++){..} then it will move the
-    the instructions out of the loop and the loop will be removed. It works also
-    in the case when C = 0 and a is a constant variable. To get the number of steps
-    a is first inlined.
-
-    [braces]: a flag on the visiblity of blocks created during the unroll process
-
-    [blocks]: a list of integers describing the partition type of the targeted sequence
-
-    [shuffle]: shuffle blocks
 
     Assumption: C should be a literal or a constant variable
     -------------------------------------------------------------------------------------------------------
@@ -271,6 +252,18 @@ DETAILS for [unroll]
     }
 
     LATER: This transformation should be factorized, that may change the docs. *)
+
+(* [unroll ~braces ~blocks ~shuffle tg]: expects the target to point at a loop. Then it checks if the loop
+    is of the form for(int i = a; i < a + C; i++){..} then it will move the
+    the instructions out of the loop and the loop will be removed. It works also
+    in the case when C = 0 and a is a constant variable. To get the number of steps
+    a is first inlined.
+
+    [braces]: a flag on the visiblity of blocks created during the unroll process
+
+    [blocks]: a list of integers describing the partition type of the targeted sequence
+
+    [shuffle]: shuffle blocks  *)
 let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : target) : unit =
   reparse_after ~reparse:(not braces) (iteri_on_targets (fun i t p ->
     let my_mark = "__unroll_" ^ string_of_int i in
@@ -291,7 +284,8 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           | _ -> fail t.loc "Loop.unroll: could not get the number of steps to unroll"
       in
     match tg_loop_trm.desc with
-    | Trm_for (_index, start, _direction, stop, _, _) ->
+    | Trm_for (l_range, _) ->
+      let (_, start, _, stop, _, _) = l_range in
       let nb_instr = begin match stop.desc with
       | Trm_apps (_, [_;bnd]) ->
         begin match bnd.desc with
@@ -315,7 +309,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       List.iter (fun x ->
         Variable.renames (AddSuffix (string_of_int x)) ([occIndex ~nb:nb_instr x; cMark my_mark;cSeq ()])
       ) block_list;
-      List.iter (fun x ->
+       List.iter (fun x ->
          Sequence_basic.partition ~braces blocks [cMark my_mark; dSeqNth x]
       ) block_list;
       if shuffle then Sequence_basic.shuffle ~braces [cMark my_mark];
@@ -358,11 +352,11 @@ let fission ?(split_between : bool = false) (tg : target) : unit =
       apply_on_targets (fun t p ->
         let tg_trm = Path.resolve_path p t in
         match tg_trm.desc with
-        | Trm_for (loop_index, start, direction, stop, step, body) ->
+        | Trm_for (l_range, body) ->
           begin match body.desc with
           | Trm_seq tl ->
             let body_lists = List.map (fun t1 -> trm_seq_nomarks [t1] ) (Mlist.to_list tl) in
-            apply_on_path (fun t -> trm_seq_no_brace (List.map (fun t1 -> trm_for loop_index start direction stop step t1) body_lists)) t p
+            apply_on_path (fun t -> trm_seq_no_brace (List.map (fun t1 -> trm_for l_range t1) body_lists)) t p
           | _ -> fail t.loc "Loop.fission_aux: expected the sequence inside the loop body"
           end
         | _ -> fail t.loc "Loop.fission_aux: only simple loops are supported") tg)
@@ -407,7 +401,8 @@ let unfold_bound (tg : target) : unit =
   iter_on_targets( fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_for (_, _, _, stop, _, _) ->
+    | Trm_for (l_range, _) ->
+      let (_, _, _, stop, _, _) = l_range in
       begin match stop.desc with
       | Trm_var (_, x) ->
         Variable_basic.unfold ~at:(target_of_path p) [cVarDef x]
@@ -425,7 +420,8 @@ let grid_enumerate ?(indices : string list = []) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_for (index, _, _, stop, _, _) ->
+    | Trm_for (l_range, _) ->
+      let (index, _, _, stop, _, _) = l_range in
       begin match trm_prod_inv stop with
       | [] -> fail tg_trm.loc "Loop.grid_enumerate: the bound of the targeted loop should be a product of the bounds of each dimension"
       | bounds ->

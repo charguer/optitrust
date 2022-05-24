@@ -11,7 +11,7 @@ open Ast.AstParser
     Then this string will be parsed as
     void f (double a, double b, double c) {
       (a + k * b) == (b * k + a)
-    } 
+    }
     Then the function returns ["a";"k";"b"] [] ((a + k * b) == (b * k + a)). *)
 let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : string) : (typed_vars * typed_vars *trm) =
   let fix_pattern_args (var_decls : string) : string =
@@ -39,12 +39,12 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
 
   let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else fix_pattern_args aux_var_decls in
 
-  let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in  
-  
+  let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
+
   let main_fun_str = "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
-  if ctx 
-    then 
-      let ast = Target.get_ast() in 
+  if ctx
+    then
+      let ast = Target.get_ast() in
       let ast2 = trm_seq_add_last (stmt main_fun_str) ast in
       let prefix = Filename.remove_extension output_file in
       Trace.output_prog (Trace.get_context ()) prefix ast2;
@@ -52,16 +52,16 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
     else
       Xfile.put_contents output_file main_fun_str;
 
-  let _, ast_of_file = Trace.parse output_file in 
+  let _, ast_of_file = Trace.parse output_file in
 
-  let defs = trm_main_inv_toplevel_defs ast_of_file in 
+  let defs = trm_main_inv_toplevel_defs ast_of_file in
   if defs = [] then fail ast_of_file.loc "Trm_matching.parse_pattern: couldn't parse pattern";
-  let (_, main_fun) = Xlist.unlast defs in 
+  let (_, main_fun) = Xlist.unlast defs in
   match main_fun.desc with
   | Trm_let_fun (_, _, args, body) ->
     begin match body.desc with
     | Trm_seq tl1 ->
-      if Mlist.length tl1 < 1 then fail body.loc "Trm_matching.parse_pattern: please enter a pattern 
+      if Mlist.length tl1 < 1 then fail body.loc "Trm_matching.parse_pattern: please enter a pattern
                                                   of the shape var_decls ==> rule_to_apply";
       let pattern_instr_ret = Mlist.nth tl1 0 in
       let pattern_instr =
@@ -81,14 +81,14 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
   | _ -> fail main_fun.loc "Trm_matching.parse_pattern: the pattern was not entered correctly"
 
 
-(* [parse_rule pattern]: returns a rewrite rule derived from [pattern](see [parse_pattern] ) which is a record containing 
+(* [parse_rule pattern]: returns a rewrite rule derived from [pattern](see [parse_pattern] ) which is a record containing
     the the list of  variables used in that rule,  the rule itself and the result after applying that rule. *)
 let parse_rule ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : string) : rewrite_rule =
   let pattern_vars, aux_vars, pattern_instr = parse_pattern ~glob_defs ~ctx pattern in
   match pattern_instr.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_eq));_},[t1; t2]) ->
     {rule_vars = pattern_vars; rule_aux_vars = aux_vars; rule_from = t1; rule_to = t2}
-  | _ -> 
+  | _ ->
     fail pattern_instr.loc "Trm_matching.parse_rule: could not parse the given rule"
 
 (* [Rule_mismatch]: exception raised by [rule_match] *)
@@ -112,7 +112,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
         if Ast.is_trm_uninitialized t0 then
           inst := Trm_map.add x (ty,u) !inst
         else if not (Internal.same_trm ~ast_decode:false t0 u) then begin
-          Printf.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x 
+          Printf.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x
             (AstC_to_c.ast_to_string ~optitrust_syntax:true t0) (AstC_to_c.ast_to_string ~optitrust_syntax:true u);
           Printf.printf "Witout encodings: '%s' is not identical to '%s'.\n" (AstC_to_c.ast_to_string t0) (AstC_to_c.ast_to_string  u);
           Printf.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
@@ -179,7 +179,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
           | Some ({typ_desc = Typ_fun (typ_args, typ_ret); _}) -> typ_args, typ_ret
           | _ -> fail t1.loc (Printf.sprintf "Trm_matching.rule_match: the variable %s is used as a function but does not have a function type" x)
           in
-        let msg1 i ti = fail None (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s 
+        let msg1 i ti = fail None (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s
                                      is not a variable.  It is the term: %s" i x (Ast_to_text.ast_to_string ti)) in
         let xargs = List.mapi (fun i ti -> match ti.desc with
           | Trm_var (_, x)
@@ -193,7 +193,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
           then fail t2.loc (Printf.sprintf "Trm_matching.rule_match: the function call does not have the same number of arguments
                                             as the higher-order function variable %s" x);
         let targs = List.combine xargs typ_args in
-        (* TODO ARTHUR: we need to replace "get p" by "p" for each argument "p" that did not have type const *)
+        (* LATER ARTHUR: we need to replace "get p" by "p" for each argument "p" that did not have type const *)
         (* let body = t2 in *)
         let body = List.fold_left (fun tacc x ->
           Variable_core.remove_get_operations_on_var_temporary x tacc) t2 xargs in
@@ -204,8 +204,8 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 
-    | Trm_for (index1, start1, _direction1, stop1, step1, body1),
-      Trm_for (index2, start2, _direction2, stop2, step2, body2) ->
+    | Trm_for ((index1, start1, _direction1, stop1, step1, _is_parallel1), body1),
+      Trm_for ((index2, start2, _direction2, stop2, step2, _is_parallel2), body2) ->
         aux start1 start2;
         aux stop1 stop2;
         begin match step1, step2 with
@@ -229,7 +229,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
     in
   begin try aux pat t
   with Rule_mismatch ->
-    Printf.printf "Mismatch comparing\n------\n%s\n------\n%s\n------\n" (AstC_to_c.ast_to_string ~optitrust_syntax:true pat) 
+    Printf.printf "Mismatch comparing\n------\n%s\n------\n%s\n------\n" (AstC_to_c.ast_to_string ~optitrust_syntax:true pat)
           (AstC_to_c.ast_to_string ~optitrust_syntax:true t);
     raise Rule_mismatch
   end;

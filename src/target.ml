@@ -1,4 +1,4 @@
-open Ast
+<open Ast
 open Tools
 open Path
 
@@ -153,6 +153,10 @@ let dElse : constr =
 (* [dBody]: matches the body of a definition, if or else branches etc. *)
 let dBody : constr =
   Constr_dir Dir_body
+
+(* [dVarBody]: matches the body of a variable definition, bypassing the new operation. *)
+let dVarBody : constr =
+  Constr_dir Dir_var_body
 
 (* [dForStart]: matches the initialization value of a simple loop. *)
 let dForStart : constr =
@@ -350,6 +354,10 @@ let cVarDefs (vars : vars) : constr =
 (* [cVarDefReg reg]: matches variable definitions using regexp. *)
 let cVarDefReg (reg : string) : constr =
   cVarDef ~regexp:true reg
+
+(* [cVarInit var]: matches the initialization value of a variable defintioon with name [var]. *)
+let cVarInit (var : string) : constr =
+  cTarget [cVarDef var; dVarBody]
 
 (* [cFor ~start ~direction ~stop ~step ~body index] matches simple for loops
      [start] - match based on the initial value trm
@@ -699,14 +707,14 @@ let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_l
 let cPrimNew ?(arg : target = []) () : constr =
   cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false)
 
-(* [cInit ~arg ()]: matches a variable initialization value
-     [arg] - match based on the arg of the "new" primitive. *)
-let cInit ?(arg:target = []) () : constr =
-  cOr [[ cPrimNew ~arg (); dArg 0 ]; [dBody]]
+(* [dVarInit: alias to dVarBody. *)
+let dVarInit : constr =
+   dVarBody
 
 (* [dInit]: alias to dBody used for variable initializations. *)
 let dInit : constr =
   dBody
+
 (* [cWrite ~lhs ~rhs ~typ ~typ_pred ()]: matches a write(set) operation
      [lhs] - match based on the left operand
      [rhs] - match based on the right operand
@@ -766,14 +774,6 @@ let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = fals
   let ro = string_to_rexp_opt regexp substr label TrmKind_Expr in
   let p_body = body in
   Constr_label (ro, p_body)
-
-(* [cLabel ~substr ~body ~regexp label]:  match a C label body
-    [substr] - match label name partially
-    [body] - match based on the trm the label is labelling
-    [regep] - match based on regexp
-    [label] - match based on label name. *)
-let cLabelBody ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
-  cTarget [cLabel ~substr ~body ~regexp label; dBody]
 
 (* [cGoto ~label ~substr ~regexp ()]: matches a goto statement
     [label] - match based on the label it points to
@@ -1156,13 +1156,13 @@ let resolve_target_between_mark_one_else_any (m : mark) (t : trm) : (path * int)
      [tr] - transformation to be applied at the nodes corresponding at target [tg],
      [tg] - target. *)
 let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
-  Trace.time "applyi_on_transformed_targets" (fun () ->
+  Stats.comp_stats "applyi_on_transformed_targets" (fun () ->
   let tg = fix_target tg in
   Trace.apply (fun t -> with_stringreprs_available_for [tg] t (fun t ->
       (* LATER: use apply_with_stringreprs
                            and take an optional list of auxiliary targets as argument. *)
     let ps =
-      Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
+      Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_targets" (fun () ->
           resolve_target tg t) in
     let ps = if rev then List.rev ps else ps in
     match ps with
@@ -1173,19 +1173,19 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
         (* add marks for occurences -- could be implemented in a single path, if optimization were needed. *)
         (* Printf.printf "Before applyin_marks: %s\n" (AstC_to_c.ast_to_string t);. *)
         let t =
-             Trace.time "applyi_on_transformed_targets add marks" (fun () ->
-              Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () ->
+             Stats.comp_stats "applyi_on_transformed_targets add marks" (fun () ->
+              Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_add_mark" (fun () ->
               List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks)) in
         (* Printf.printf "After applying_marks: %s\n" (AstC_to_c.ast_to_string t);. *)
         (* iterate over these marks. *)
-        Trace.time "applyi_on_transformed_targets apply transfo" (fun () ->
+        Stats.comp_stats "applyi_on_transformed_targets apply transfo" (fun () ->
         begin try
           Xlist.fold_lefti (fun imark t m ->
-            Trace.timing ~cond:!Flags.analyse_time_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
+            Stats.stats ~cond:!Flags.analyse_stats_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
               let ps = resolve_target_mark_one_else_any m t in
               match ps with
               | [p] ->
-                  let t = apply_on_path (trm_remove_mark m) t p in
+                  let t = apply_on_path (trm_rem_mark m) t p in
                   tr imark t (transformer p)
               | ps ->
                   let msg =
@@ -1226,7 +1226,7 @@ let applyi_on_targets (tr : int -> trm -> path -> trm) (tg : target) : unit =
 let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_targets (fun _i t dl -> tr t dl) tg
 
-(* [transfo_on_targets tr tg] applies a simple transformation on all occurences of the target *)
+(* [transfo_on_targets tr tg]: similar to [apply_on_targets] but this one is applies [tr] on the fly. *)
 let transfo_on_targets (tr : trm -> trm) (tg : target) : unit =
   apply_on_targets (fun t dl -> apply_on_path tr t dl) tg
 
@@ -1239,41 +1239,41 @@ let transfo_on_targets (tr : trm -> trm) (tg : target) : unit =
      LATER: try to better factorize the code.
      LATER: add timing measurements. *)
 let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> unit) (tg : target) : unit =
-  Trace.time "iteri_on_transformed_targets" (fun () ->
+  Stats.comp_stats "iteri_on_transformed_targets" (fun () ->
   let tg = fix_target tg in
   Trace.call (fun t -> with_stringreprs_available_for [tg] t (fun t ->
-    Trace.time "iteri_on_transformed_targets with_stringreprs_available" (fun () ->
+    Stats.comp_stats "iteri_on_transformed_targets with_stringreprs_available" (fun () ->
     let ps =
-      Trace.time "iteri_on_transformed_targets resolve_target" (fun () ->
+      Stats.comp_stats "iteri_on_transformed_targets resolve_target" (fun () ->
         resolve_target tg t)
       (* ALTERNATIVE with_stringreprs_available_for tg t (fun t2 -> resolve_target tg t2). *) in
     let ps = if rev then List.rev ps else ps in
     match ps with
     | [] -> ()
-    | [p] -> Trace.time "iteri_on_transformed_targets transform one" (fun () ->
+    | [p] -> Stats.comp_stats "iteri_on_transformed_targets transform one" (fun () ->
           tr 0 t (transformer p))
     | _ ->
       let marks = List.map (fun _ -> Mark.next()) ps in
       let _t_before = t in
       (* add marks for occurences -- could be implemented in a single pass, if optimization were needed. *)
       let t =
-        Trace.time "iteri_on_transformed_targets add marks" (fun () ->
+        Stats.comp_stats "iteri_on_transformed_targets add marks" (fun () ->
           List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
       Trace.set_ast t; (* Never use the function [set_ast] in another file!. *)
       (* iterate over these marks *)
       try
         List.iteri (fun imark m ->
           let t = Trace.ast() in (* valid because inside the scope of [Trace.call]. *)
-          let ps = Trace.time "iteri_on_transformed_targets find mark" (fun () ->
+          let ps = Stats.comp_stats "iteri_on_transformed_targets find mark" (fun () ->
             resolve_target_mark_one_else_any m t) in
           match ps with
           | [p] ->
               (* Here we don't call [Marks.remove] to avoid a circular dependency issue. *)
               let t =
-                Trace.time "iteri_on_transformed_targets remove mark" (fun () ->
-                  apply_on_path (trm_remove_mark m) t p) in
+                Stats.comp_stats "iteri_on_transformed_targets remove mark" (fun () ->
+                  apply_on_path (trm_rem_mark m) t p) in
               Trace.set_ast t; (* Never use the function [set_ast] in another file!. *)
-              Trace.time (Printf.sprintf "iteri_on_transformed_targets perform transfo %d" imark) (fun () ->
+              Stats.comp_stats (Printf.sprintf "iteri_on_transformed_targets perform transfo %d" imark) (fun () ->
                   tr imark t (transformer p)
               )
           | ps ->
@@ -1321,7 +1321,7 @@ let iter_on_targets ?(rev : bool = false) (tr : trm -> path -> unit) (tg : targe
 let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply (fun t -> with_stringreprs_available_for [tg] t (fun t ->
   let ps =
-    Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () -> resolve_target_between tg t
+    Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_targets" (fun () -> resolve_target_between tg t
       (* ALTERNATIVE
       with_stringreprs_available_for tg t (fun t2 ->
         resolve_target_between tg t2). *) ) in
@@ -1330,11 +1330,11 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   | [p] -> tr 0 t (transformer p)
   | _ ->
     let marks = List.map (fun _ -> Mark.next ()) ps in
-    let t = Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_mark" (fun () ->
+    let t = Stats.stats ~cond:!Flags.analyse_stats_details ~name:"resolve_add_mark" (fun () ->
       List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks) in
     try
       Xlist.fold_lefti (fun imark t m ->
-        Trace.timing ~cond:!Flags.analyse_time_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
+        Stats.stats ~cond:!Flags.analyse_stats_details ~name:(Printf.sprintf "process target %d" imark) (fun () ->
           let ps = resolve_target_mark_one_else_any m t in
           match ps with
           | [p_to_seq] ->
@@ -1342,7 +1342,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
             let i = begin match get_mark_index m t_seq with
              | Some i -> i |
               None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
-            let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
+            let t = apply_on_path (trm_rem_mark_between m) t p_to_seq in
             tr imark t (transformer (p_to_seq,i))
           | ps ->
             let msg =

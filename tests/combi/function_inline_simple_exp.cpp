@@ -23,12 +23,11 @@ int g(int x) {
 }
 
 int h(int x) {
-  if (x > 0)
-    return 1;
+  if (x > 0) return 1;
   return 2;
 }
 
-void m(int *p) { (*p)++; }
+void m(int* p) { (*p)++; }
 
 int main() {
   int x = 3;
@@ -47,7 +46,7 @@ int main() {
   }
   u = 2;
 exit_body:;
-  int *q;
+  int* q;
   (*q)++;
   vect a = {0, 1, 2};
   vect b = {3, 4, 5};

@@ -12,7 +12,7 @@ let copy_aux (dest_index : int) (index : int) (delete : bool) (t : trm) : trm =
     let index_to_remove = if dest_index <= index then index + 1 else index in
     let new_tl = Mlist.insert_at dest_index instr_to_copy tl in
     let new_tl = if not delete then new_tl else Mlist.remove index_to_remove  1 new_tl in
-    trm_seq ~annot:t.annot ~marks:t.marks new_tl
+    trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "Instr_core.copy_aux: expected the surrounding sequence of the targeted instructions"
 
 (* [copy dest_index index delete t p]: apply [copy_aux] at trm [t] with path [p] *)
@@ -33,26 +33,26 @@ let accumulate_aux (t : trm) : trm =
       | Trm_apps (f, [ls; rs])  ->
         begin match rs.desc with
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop binop))} as f, [ls1; rs1]) ->
-          if i = 0 then rs1 
+          if i = 0 then rs1
           else if i = nb_instr - 1
             then
               let acc = trm_apps f [acc; rs1] in
               let acc_trm = trm_apps f [ls1; acc] in
               if !is_infix_op
-                then trm_prim_compound binop ls acc_trm
-                else trm_set ls acc_trm
+                then trm_pass_labels t (trm_prim_compound binop ls acc_trm)
+                else trm_pass_labels t (trm_set ls acc_trm)
           else
             (trm_apps f [acc; rs1])
         | _ when is_compound_assignment t1->
-           let _ = is_infix_op := true in 
-           begin match trm_prim_inv f with 
-           | Some (Prim_compound_assgn_op binop) -> 
-             if i = 0 then rs 
+           let _ = is_infix_op := true in
+           begin match trm_prim_inv f with
+           | Some (Prim_compound_assgn_op binop) ->
+             if i = 0 then rs
              else if i = nb_instr - 1
-              then 
-                let acc_trm = trm_apps (trm_binop binop) [acc; rs] in 
-                trm_prim_compound binop ls acc_trm
-             else 
+              then
+                let acc_trm = trm_apps (trm_binop binop) [acc; rs] in
+                trm_pass_labels t (trm_prim_compound binop ls acc_trm)
+             else
               trm_apps (trm_binop binop) [acc; rs]
            | _ -> fail t.loc "Instr_core.accumulate_aux: this should never happen"
            end

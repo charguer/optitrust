@@ -6,7 +6,7 @@ let _ = Run.doc_script_cpp (fun _ ->
   !! Function_basic.inline [cFun "f"];
   )
 "
-int f(int x) { 
+int f(int x) {
     if (x < 0) return 0;
     return x * x;
 }

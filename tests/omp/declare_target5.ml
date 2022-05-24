@@ -10,4 +10,3 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.parallel_for [Reduction (Plus, ["tmp"])] [tBefore;cFor "i"];
   !! Omp.parallel_for [Reduction (Plus, ["tmp1"])] [tBefore;cFor "k"];
 )
- 

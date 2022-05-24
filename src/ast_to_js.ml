@@ -5,8 +5,8 @@ open PPrint
 (* [Json]: A module for creating a json view of OptiTrust ast *)
 module Json = struct
   open PPrint
-  
-  (* [t]: representation of a json object *)  
+
+  (* [t]: representation of a json object *)
   type t =
     | Str of string
     | Int of int
@@ -273,7 +273,8 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         let children = (child_to_json "fun" (aux f)) :: args_children in
         [ kind_to_field "app";
           children_to_field children]
-    | Trm_for (index, start, _, stop, step, body) ->
+    | Trm_for (l_range, body) ->
+      let (index, start, _, stop, step, _) = l_range in
       [ kind_to_field "simple_for";
           (strquote "index", strquote index);
           children_to_field [
@@ -335,10 +336,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
             [ kind_to_field "continue";
               children_to_field [] ]
         end
-    | Trm_labelled (label,t) ->
-        [ kind_to_field "labelled";
-          value_to_field label;
-          children_to_field [child_to_json "labelled" (aux t)]]
     | Trm_goto label ->
         [ kind_to_field "goto";
           (strquote "target", strquote label);
@@ -347,7 +344,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
        let code_str = code_to_str a_kind in
       [kind_to_field "arbitrary code";
       value_to_field code_str]
-    | Trm_omp_directive d -> [directive_to_json d]
     | Trm_omp_routine r -> [routine_to_json r]
     | Trm_extern (_, l) ->
       [ kind_to_field "extern";
@@ -368,26 +364,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_template (_, t) ->
       [ kind_to_field "template";
           children_to_field [child_to_json "template" (aux t)]]
-
-(* [annot_to_string t_ann]: converts trm_annot to string *)
-let annot_to_string (t_ann : trm_annot) : string =
-  match t_ann with
-     | No_braces _ -> "No_braces"
-     | Multi_decl -> "Multi_decl"
-     | Empty_cond -> "Empty_cond"
-     | App_and_set -> "App_and_set"
-     | Include h -> "Include" ^ " " ^ h
-     | Main_file -> "Main_file"
-     | Postfix_set -> "Postfix_set"
-     | Display_no_arrow -> "Display_no_arrow"
-     | Reference -> "Reference"
-     | Stackvar -> "Stackvar"
-     | Annot_stringreprid id -> "Annot_stringreprid(" ^ string_of_int id ^ ")"
-     | Fun_inline -> "Fun_inline"
-
-(* [annot_list_to_string t]: for trm [t] convert its list of annotations to string *)
-let annot_list_to_string (t : trm) : string =
-  Tools.list_to_string ((List.map annot_to_string) t.annot)
 
 (* [ast_to_json trm_root]: converts a full ast to a Json object *)
 let ast_to_json (trm_root : trm) : json =
@@ -410,10 +386,8 @@ let ast_to_json (trm_root : trm) : json =
                           | None -> strquote "<no type information>"
                           | Some typ -> Json.typ_to_json typ )));
       (strquote "is_statement", Json.Boolean t.is_statement);
-      (strquote "annot", strquote (annot_list_to_string t) );
+      (* (strquote "annot", strquote (annot_list_to_string t) ); *) (* Fix me! *)
       (strquote "loc", loc_to_json t);
-      (strquote "attributes", Json.List (List.map Json.str (List.map Tools.document_to_string
-                                 (List.map print_attribute t.attributes))))
       ]) in
     result := (Json.Int id, json) :: !result;
     id in
