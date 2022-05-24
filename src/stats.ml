@@ -3,11 +3,11 @@
 (******************************************************************************)
 (*                                 Stats                                      *)
 (******************************************************************************)
-(* [write_timing_log msg]: writes a message in the timing log file. *)
-let write_timing_log (msg : string) : unit =
-  let timing_log = open_out ("timing.log") in
-  output_string timing_log msg;
-  flush timing_log
+(* [write_stats_log msg]: writes a message in the timing log file. *)
+let write_stats_log (msg : string) : unit =
+  let stats_log = open_out ("timing.log") in
+  output_string stats_log msg;
+  flush stats_log
 
 
 
@@ -47,12 +47,28 @@ let stats_diff (stats_start : stats) (stats_stop : stats) : stats = {
     stats_target_resolution_steps = stats_stop.stats_target_resolution_steps - stats_start.stats_target_resolution_steps;
 }
 
+
+(* [start_stats]: stores the stats before starting the script execution (before parsing). *)
+let start_stats = ref cur_stats
+
+(* [last_stats]: stores the stats after the execution of the current step. *)
+let last_stats = ref cur_stats
+
+
+(* [last_stats_update ()]: updates [last_stats] and returns the difference *)
+let last_stats_update () : stats =
+  let stats0 = !last_stats in 
+  let stats1 = get_cur_stats () in
+  last_stats := stats1;
+  stats_diff stats0 stats1
+
 (* [stats_to_string stats]: prints [stats]. *)
 let stats_to_string (stats : stats) : string =
   Printf.sprintf "%dms;\t%d trm_allocations;\t%d target_resolution_steps"
      (int_of_float (1000. *. stats.stats_time))
      stats.stats_trm_alloc
      stats.stats_target_resolution_steps
+
 
 (* [measure_stats f]: computes the difference of stats before and after applying function [f]. 
     Then it returns the result of [f] and the computed stats. *)
@@ -72,8 +88,7 @@ let stats ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
       let res, stats = measure_stats f in 
       decr stats_nesting;
       let msg = Printf.sprintf "%s%s\t -- %s\n" (Tools.spaces (2 * !stats_nesting)) (stats_to_string stats) name in
-      (* let msg = Printf.sprintf "%s -- %s\n" (stats_to_string stats) name in  *)
-      write_timing_log msg;
+      write_stats_log msg;
       res
     end 
     else f()

@@ -1,5 +1,5 @@
 open Ast
-
+open Stats
 
 (* [line_of_last_step]: stores the line number from the source script at which a step
     ('!!' or '!^') was last processed. *)
@@ -61,6 +61,7 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
 (*                             Timing logs                                    *)
 (******************************************************************************)
 
+(* DEPRECATED *)
 (* [write_timing_log msg]: writes a message in the timing log file. *)
 let write_timing_log (msg : string) : unit =
   let timing_log = match !timing_log_handle with
@@ -69,6 +70,8 @@ let write_timing_log (msg : string) : unit =
    in
    write_log timing_log msg
 
+
+(* DEPRECATED *)
 (* [measure_time f]: returns a pair made of the result of [f()] and
    of the number of milliseconds taken by that call. *)
 let measure_time (f : unit -> 'a) : 'a * int =
@@ -379,11 +382,13 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
   let ser_file = basename ^ ".ser" in
-  let (includes, cur_ast), timing_parse = measure_time (fun () ->get_initial_ast ~parser mode ser_file filename) in
+  
+  let (includes, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser mode ser_file filename) in
+  
   let context = { extension; directory; prefix; includes; clog } in
   let stepdescr = { isbigstep = None;
                     script = "Result of parsing";
-                    exectime = timing_parse; } in
+                    exectime = int_of_float(stats_parse.stats_time); } in
   let trace = { context; cur_ast;
                 history = [cur_ast];
                 stepdescrs = [stepdescr] } in
@@ -991,18 +996,15 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true) ?(repa
         (* Handle reparse of code *)
         if reparse || (!Flags.reparse_at_big_steps && is_start_of_bigstep) then begin
           let info = if reparse then "the code on demand at" else "the code just before the big step at" in
-          reparse_alias ~info ();
+          let _, reparse_stats = Stats.measure_stats (fun () -> reparse_alias ~info ()) in
           if !Flags.analyse_time then
-            let duration_of_reparse = last_time_update () in
-            write_timing_log (Printf.sprintf "------------------------\nREPARSE: %d\tms\n" duration_of_reparse);
-            (* LATER: reparsing chould be included in the time of the next step,
-               by using a measure_time function around the call to reparse_alias,
-               instead of calling last_time_update *)
+            let reparse_stats_str = Stats.stats_to_string reparse_stats in
+            Stats.write_stats_log (Printf.sprintf "------------------------\nREPARSE: %s\n" reparse_stats_str );
         end;
         (* Handle the reporting of the script excerpt associated with the __next__ step, which starts on the line number reported *)
         if !Flags.analyse_time then begin
           let descr = if line = -1 then "" else get_excerpt line in
-          write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line descr);
+          Stats.write_stats_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line descr);
         end;
         (* Handle progress report *)
         if is_start_of_bigstep && !Flags.report_big_steps then begin

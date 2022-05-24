@@ -36,11 +36,14 @@ let process_cmdline_args (args : Flags.cmdline_args) : unit =
 let script (f : unit -> unit) : unit =
   Flags.process_cmdline_args();
   try
-    let t0 = Unix.gettimeofday() in
-    f ();
-    let t1 = Unix.gettimeofday() in
+    let stats0 = Stats.get_cur_stats () in
+    f();
+    let stats1 = Stats.get_cur_stats () in
     if !Flags.analyse_time
-      then Printf.printf "Script execution time: %d ms\n" (Tools.milliseconds_between t0 t1);
+      then 
+        let stats_diff = Stats.stats_diff stats0 stats1 in 
+        let stats_str = Stats.stats_to_string stats_diff in 
+        Printf.printf "%s\n" stats_str;
   with | Failure s | Ast.TransfoError s ->
     Trace.finalize();
     (* failwith s *)
