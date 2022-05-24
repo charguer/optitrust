@@ -256,7 +256,7 @@ You can create a file called `optitrust_flags.sh` in the working directory,
 to define the variable `FLAGS`. Examples include:
 
 ```
-# generation of timing.log
+# generation of stats.log
 FLAGS="-analyse-stats"
 FLAGS="-analyse-stats-details"
 

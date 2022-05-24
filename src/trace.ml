@@ -42,8 +42,8 @@ let init_logs directory prefix =
   timing_log_handle := Some timing_log;
   let stats_log = open_out ("stats.log") in
   stats_log_handle := Some stats_log;
-  logs := stats_log :: timing_log :: clog :: [];
-  clog
+  logs := timing_log :: stats_log :: clog :: [];
+  clog  
 
 (* [write_log clog msg]: writes the string [msg] to the channel [clog]. *)
 let write_log (clog : out_channel) (msg : string) : unit =

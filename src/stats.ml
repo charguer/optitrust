@@ -42,7 +42,7 @@ let get_cur_stats () : stats =
 let stats_diff (stats_start : stats) (stats_stop : stats) : stats = {
     stats_time = stats_stop.stats_time -. stats_start.stats_time;
     stats_trm_alloc = stats_stop.stats_trm_alloc - stats_start.stats_trm_alloc;
-    stats_target_resolution_steps = stats_stop.stats_target_resolution_steps - stats_start.stats_target_resolution_steps;
+    stats_target_resolution_steps = stats_stop.stats_target_resolution_steps;
 }
 
 
