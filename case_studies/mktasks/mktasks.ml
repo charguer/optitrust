@@ -2,31 +2,41 @@ open Optitrust
 open Target
 open Ast
 
-type adj = (var, var list) Hashtbl.t
+include Omp_basic
+
+
+(*
+type adj = (var, var list) Hashtbl.t;;
 
 let adj_add adj f g =
   let gs = try Hashtbl.find adj f
            with Not_found -> [] in
   Hashtbl.replace adj f (g::gs)
 
+
+
 let graphdep (t : trm) : adj =
   let adj = Hashtbl.create 10 in
   let rec aux (curf : var option) (t : trm) : unit =
     match t.desc with
+    (* Function definition *)
     | Trm_let_fun (f, rettyp, targs, body) ->
         if (curf <> None) then failwith "nested functions";
         if Hashtbl.mem adj f then failwith "function occurs several time";
         Hashtbl.add adj f [];
         aux (Some f) body
+    (* Function application, i.e CallExpr *)
     | Trm_apps (g, args) ->
         begin match curf with
         | None -> failwith "function call not inside a function def"
-        | Some f -> adj_add f g
+        | Some f -> adj_add adj f g
         end
     | _ -> trm_iter aux t
     in
   aux None t;
   adj
+
+
 
 type proto = {
   proto_rettype : typ;
@@ -76,21 +86,28 @@ let add_const_marks (funisconst : (var, bool) Hashtbl.t) (t : trm) : trm =
     in
   aux t
 
+*)
+
+(*
 let assign_unique_ids_to_variables // binding points and occurences
+*)
 
-let make_malloc =
-  Target.transfo_on_targets (Ast.trm_annot_remove Stackvar)
-
-
+(*
 
 let add_possible_const () =
   let g = graphdep (ast()) in
   let tbl = canbeconst g in
   set_const tbl
+*)
+
+let make_malloc =
+  Target.transfo_on_targets (Ast.trm_annot_remove Stackvar)
 
 let _ = Run.script_cpp (fun () ->
 
-  !! add_possible_const ();
+(*  !! add_possible_const (); *)
+
+  !! Omp.header ();
 
   show [cVarDef "x"];
 
