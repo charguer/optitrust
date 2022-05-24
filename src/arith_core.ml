@@ -62,7 +62,7 @@ let transform_aux (aop : arith_op) (inv : bool) (u : trm) (pre_cast : typ option
 (* [transform aop inv pre_cast post_cast u t p: applies [transform_aux] at the trm with path [p]. *)
 let transform (aop : arith_op)(inv : bool) (u : trm) (pre_cast : typ option)
   (post_cast : typ option) : Transfo.local =
-  apply_on_path (transform_aux aop inv u pre_cast post_cast )
+  apply_on_path (transform_aux aop inv u pre_cast post_cast)
 
 
 (* [apply_aux op arg t]: applies binary_operation [op] on [t] with the second  argument of the operation being [arg],
