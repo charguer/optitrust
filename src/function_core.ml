@@ -172,11 +172,10 @@ let use_infix_ops (allow_identity: bool) : Transfo.local =
    and returns the term [gtwice(3)], which is equivalent to [t] up to inlining. *)
 let uninline_aux (fct_decl : trm) (t : trm) : trm =
   let error = "Function_core.uninline: fct argument should target a function definition" in
-  let (f, _, targs, body) = trm_inv ~error ~loc:fct_decl.loc trm_let_fun_inv t in
+  let (f, _, targs, body) = trm_inv ~error ~loc:fct_decl.loc trm_let_fun_inv fct_decl in
   let inst = Trm_matching.rule_match ~higher_order_inst:true targs body t in
   let args = Ast.tmap_to_list (List.map fst targs) inst in
   trm_pass_labels t (trm_apps (trm_var f) args)
-
 
 (* [uninline fct_decl t p]: applies [uninline_aux] at the trm [t] with path [p]. *)
 let uninline (fct_decl : trm) : Transfo.local =

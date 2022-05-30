@@ -6,14 +6,13 @@ open Ast
      [delete] - if true then the original instruction will be deleted,
      [t] - ast of the surrounding sequence of the targeted instruction. *)
 let copy_aux (dest_index : int) (index : int) (delete : bool) (t : trm) : trm =
-  match t.desc with
-  | Trm_seq tl ->
-    let instr_to_copy = Mlist.nth tl index in
-    let index_to_remove = if dest_index <= index then index + 1 else index in
-    let new_tl = Mlist.insert_at dest_index instr_to_copy tl in
-    let new_tl = if not delete then new_tl else Mlist.remove index_to_remove  1 new_tl in
-    trm_seq ~annot:t.annot new_tl
-  | _ -> fail t.loc "Instr_core.copy_aux: expected the surrounding sequence of the targeted instructions"
+  let error = "Instr_core.copy_aux: expected the surrounding sequence of the targeted instructions." in
+  let tl = trm_inv ~error trm_seq_inv t in 
+  let instr_to_copy = Mlist.nth tl index in
+  let index_to_remove = if dest_index <= index then index + 1 else index in
+  let new_tl = Mlist.insert_at dest_index instr_to_copy tl in
+  let new_tl = if not delete then new_tl else Mlist.remove index_to_remove  1 new_tl in
+  trm_seq ~annot:t.annot new_tl
 
 (* [copy dest_index index delete t p]: apply [copy_aux] at trm [t] with path [p] *)
 let copy (dest_index : int) (index : int) (delete : bool) : Target.Transfo.local =

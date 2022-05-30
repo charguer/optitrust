@@ -42,7 +42,7 @@ let elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Stats.comp_stats "elim_body_resolve" (fun () -> Path.resolve_path p t) in
     let error = "Function.elim_body: the given target should point at a sequence." in 
-    let _ = trm_inv ~error trm_seq_inv t in 
+    let _ = trm_inv ~error trm_seq_inv tg_trm in 
     Stats.comp_stats "elim_body_renames" (fun () ->
       Variable.renames vars (target_of_path p));
     Stats.comp_stats "elim_body_elim" (fun () ->
