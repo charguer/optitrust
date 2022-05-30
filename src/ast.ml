@@ -1245,6 +1245,23 @@ let trm_lit_inv (t : trm) : lit option =
   | Trm_val (Val_lit v) -> Some v
   | _ -> None
 
+
+(* [trm_inv ~arror k t]: returns the results of applying [k] on t, if the result is [None] thne 
+     then function fails with error [error]. *)
+let trm_inv ?(error : string = "") (k : trm -> 'a option) (t : trm) : 'a =
+  match k t with 
+  | None -> if error = "" then assert false else fail None error
+  | Some r -> r
+
+
+(* [trm_let_inv t]: returns the components of a variable declaration if [t] is a declaration.
+     otherwise nothing. *)
+let trm_let_inv (t : trm) : (varkind * var * typ * trm) option =
+  match t.desc with 
+  | Trm_let (vk, (x, tx), init) -> Some (vk, x, tx, init)
+  | _ -> None
+
+
 (* [trm_int n]: converts an integer to trm *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)
 
