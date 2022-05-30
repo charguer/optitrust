@@ -11,7 +11,6 @@ open Target
 let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-
      let f_update (t : trm) : trm =
         let function_call = Path.resolve_path p_local t in
         let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in

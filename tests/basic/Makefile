@@ -86,6 +86,7 @@ TESTS_WORKING_NOTINDOC := \
 
 
 TESTS_TOCHECK := \
+	align_def.ml \
 	matrix_delocalize.ml \
 	matrix_delocalize_obj.ml \
 	matrix_local_name.ml \
@@ -96,6 +97,7 @@ TESTS_TOCHECK := \
 	function_dsp_call.ml \
 	struct_simpl_proj.ml \
 	rewrite_equiv_at.ml \
+
 
 
 

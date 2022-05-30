@@ -1248,19 +1248,33 @@ let trm_lit_inv (t : trm) : lit option =
 
 (* [trm_inv ~arror k t]: returns the results of applying [k] on t, if the result is [None] thne 
      then function fails with error [error]. *)
-let trm_inv ?(error : string = "") (k : trm -> 'a option) (t : trm) : 'a =
+let trm_inv ?(error : string = "") ?(loc : location = None) (k : trm -> 'a option) (t : trm) : 'a =
+  let loc = if loc = None then t.loc else loc in
   match k t with 
-  | None -> if error = "" then assert false else fail None error
+  | None -> if error = "" then assert false else fail loc error
   | Some r -> r
 
 
-(* [trm_let_inv t]: returns the components of a variable declaration if [t] is a declaration.
-     otherwise nothing. *)
+(* [trm_let_inv t]: returns the components of a [trm_let] constructor if [t] is a let declaration.
+     Otherwise it returns a [None]. *)
 let trm_let_inv (t : trm) : (varkind * var * typ * trm) option =
   match t.desc with 
   | Trm_let (vk, (x, tx), init) -> Some (vk, x, tx, init)
   | _ -> None
 
+(* [trm_apps_inv t]: returns the components of a [trm_apps] constructor in case [t] is function application.
+    Otherwise it returns a [None]. *)
+let trm_apps_inv (t : trm) : (trm * trm list) option = 
+  match t.desc with 
+  | Trm_apps (f, tl) -> Some (f, tl)
+  | _ -> None
+
+(* [trm_seq_inv t]: returns the components of a [trm_seq] constructor when [t] is a sequence.
+    Otherwise it returns a [None]. *)
+let trm_seq_inv (t : trm) : (trm mlist) option =
+  match t.desc with 
+  | Trm_seq tl ->  Some tl
+  | _ -> None
 
 (* [trm_int n]: converts an integer to trm *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)
@@ -2476,6 +2490,9 @@ let is_struct_init (t : trm) : bool =
   match t.desc with
   | Trm_struct _ -> true | _ -> false
 
+(* [is_trm_seq t]: checks if [t] has [Trm_seq tl] description. *)
+let is_trm_seq (t : trm) : bool =
+  match t.desc with | Trm_seq _ -> true | _ -> false
 
 (* [is_same_binop op1 op2 ]: checks if two primitive operations are the same *)
 let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool =

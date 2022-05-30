@@ -6,16 +6,17 @@ open Ast
       [f_set] - the set operation that is going to be applied,
       [t] - the ast of the node where the operation is applied to. *)
 let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
-  match t.desc with
-  | Trm_apps (_, [_addr]) ->
-    if is_get_operation t
-      then f_get t
-      else fail t.loc "Accesses_core.transform_aux: expected a get operation"
-  | Trm_apps (f, [addr; targ]) ->
-      if is_set_operation t
-        then trm_replace (Trm_apps (f ,[addr; f_set targ])) t
-        else fail t.loc "Accesses_core.transform_aux: expected a set operation"
-  | _ -> fail t.loc "Accessses_core.transform_aux: expected either a get or set operation"
+  let error = "Accesses_core.transform_aux: expected either a get or a set operation" in
+  let (f,args) = trm_inv ~error ~loc:t.loc trm_apps_inv t in
+  if is_get_operation t 
+    then f_get t
+    else if is_set_operation t
+     then begin match args with 
+      | [addr; targ] -> 
+        trm_replace (Trm_apps (f, [addr; f_set targ])) t
+      | _ -> fail t.loc "Accesses_core.transform_aux: expected either a get or a set operation"
+      end
+    else fail t.loc "Accesses_core.transform_aux: expected a get operation"
 
 
 (* [transform f_get f_set t p]: applies [transform_aux] at the trm with path [p] *)
