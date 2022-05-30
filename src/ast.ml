@@ -348,8 +348,7 @@ and trm_desc =
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_struct of trm mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
-  | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c;
-                                                           ONLY FOR RAW AST! *)
+  | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c; ONLY FOR RAW AST! *)
   | Trm_let_fun of var * typ * (typed_vars) * trm
   | Trm_let_record of string * record_type * (label * typ) list * trm
   | Trm_typedef of typedef
@@ -1262,6 +1261,14 @@ let trm_let_inv (t : trm) : (varkind * var * typ * trm) option =
   | Trm_let (vk, (x, tx), init) -> Some (vk, x, tx, init)
   | _ -> None
 
+(* [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration. 
+     Otherwise it returns a [Noen]. *)
+let trm_let_fun_inv (t : trm) : (var * typ * typed_vars * trm) option =
+  match t.desc with 
+  | Trm_let_fun (f, ret_ty, args, body) -> Some (f, ret_ty, args, body)
+  | _ -> None
+
+
 (* [trm_apps_inv t]: returns the components of a [trm_apps] constructor in case [t] is function application.
     Otherwise it returns a [None]. *)
 let trm_apps_inv (t : trm) : (trm * trm list) option = 
@@ -1275,6 +1282,14 @@ let trm_seq_inv (t : trm) : (trm mlist) option =
   match t.desc with 
   | Trm_seq tl ->  Some tl
   | _ -> None
+
+(* [trm_var_inv t]: returns the components of a [trm_var] constructor when [t] is a variable occurrence.
+    Otherwise if returns a [None]. *)
+let trm_var_inv (t : trm) : (varkind * var) option =
+  match t.desc with 
+  | Trm_var (vk, x) -> Some (vk, x)
+  | _ -> None
+
 
 (* [trm_int n]: converts an integer to trm *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)

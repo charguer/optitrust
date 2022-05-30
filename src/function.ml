@@ -18,21 +18,20 @@ let bind_args (fresh_names : vars) (tg : target) : unit =
     let call_trm = get_trm_at_path p t in
     let call_mark = "bind_args_mark" in
     let nb_fresh_names = List.length fresh_names in
-    match call_trm.desc with
-    | Trm_apps ({desc = Trm_var (_, f)}, tl) ->
-        if nb_fresh_names = 0
-          then ()
-          else if List.length tl <> nb_fresh_names then
-            fail call_trm.loc "Function.bind_args: each argument should be binded to a variable or the empty string. "
-          else begin
-            Marks.add call_mark (target_of_path p);
-            List.iteri (fun ind fresh_name ->
-              if fresh_name = ""
-                then ()
-                else Function_basic.bind_intro ~fresh_name ~const:false [cMark call_mark; dArg ind]
-            ) fresh_names;
-            Marks.remove call_mark [cMark call_mark] end
-    | _ -> fail call_trm.loc "Function_bind_args: expected a target to a function call"
+    let error = "Function.bind_args: expected a target to a function call." in 
+    let _, tl = trm_inv ~error trm_apps_inv call_trm in 
+    if nb_fresh_names = 0
+      then ()
+      else if List.length tl <> nb_fresh_names then
+        fail call_trm.loc "Function.bind_args: each argument should be binded to a variable or the empty string. "
+      else begin
+        Marks.add call_mark (target_of_path p);
+        List.iteri (fun ind fresh_name ->
+          if fresh_name = ""
+            then ()
+            else Function_basic.bind_intro ~fresh_name ~const:false [cMark call_mark; dArg ind]
+        ) fresh_names;
+        Marks.remove call_mark [cMark call_mark] end
 ) tg
 
 (* [elim_body ~vars tg]: expects the target [tg] to point at a marked sequence.
@@ -42,13 +41,12 @@ let bind_args (fresh_names : vars) (tg : target) : unit =
 let elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Stats.comp_stats "elim_body_resolve" (fun () -> Path.resolve_path p t) in
-    match tg_trm.desc with
-    | Trm_seq _ ->
-      Stats.comp_stats "elim_body_renames" (fun () ->
-        Variable.renames vars (target_of_path p));
-      Stats.comp_stats "elim_body_elim" (fun () ->
-        Sequence_basic.elim (target_of_path p));
-    | _ -> fail tg_trm.loc "Function.elim_body: the targeted should be pointing to a sequence"
+    let error = "Function.elim_body: the given target should point at a sequence." in 
+    let _ = trm_inv ~error trm_seq_inv t in 
+    Stats.comp_stats "elim_body_renames" (fun () ->
+      Variable.renames vars (target_of_path p));
+    Stats.comp_stats "elim_body_elim" (fun () ->
+      Sequence_basic.elim (target_of_path p));
   ) tg
 
 (* [bind ~fresh_name ~args tg]: expects the target [tg] to point at a function call,
