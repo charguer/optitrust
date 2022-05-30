@@ -1586,9 +1586,9 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
   | Trm_abort a ->
     begin match a with
     | Ret (Some t') -> f t'
-    | _ -> f t
+    | _ -> ()
     end
-  | _ -> f t
+  | _ -> ()
 
 
 (* [typ_map f ty]: applies f on type ty recursively *)
