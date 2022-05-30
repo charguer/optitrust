@@ -41,13 +41,9 @@ let intro_calloc : Transfo.t =
 let intro_mindex (dim : trm) : Target.Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.get_trm_at_path p t in
-    match tg_trm.desc with
-    | Trm_let (_, (x, _), _) ->
-      Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVar x] ()]
-    | _ -> fail tg_trm.loc "intro_mindex: the target should point to a  matrix declaration"
-  )
-
-
+    let error = "Matrix.intro_mindex: the target should point at matrix declaration." in
+    let (_, x, _, _) = trm_inv ~error trm_let_inv tg_trm in
+    Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVar x] ()])
 
 (* [intro_malloc tg]: expects the target [tg] to point at a variable declaration
     then it will check its body for a call to malloc. On this extended path it will call
@@ -102,18 +98,14 @@ let biject (fun_bij : string) : Transfo.t =
 let intro_mops (dim : trm) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.get_trm_at_path p t in
-    match tg_trm.desc with
-    | Trm_let (_, (x, _), _) -> begin
-        intro_mindex dim (target_of_path p);
-        try intro_malloc (target_of_path p) with | TransfoError _ ->
-          begin
-            try intro_calloc (target_of_path p) with | TransfoError _ -> fail tg_trm.loc "intro_mops: the targeted matrix was not allocated with malloc or calloc"
-          end
-        end
-
-    | _ -> fail tg_trm.loc "intro_mops: the target should be pointing at a matrix declaration"
-
-  )
+    let error = "Matrix.intro_mops: the target should be pointing at a matrix declaration" in 
+    let _ = trm_inv ~error trm_let_inv tg_trm in
+    intro_mindex dim (target_of_path p);
+    try intro_malloc (target_of_path p) with | TransfoError _ ->
+      begin
+        try intro_calloc (target_of_path p) with | TransfoError _ -> fail tg_trm.loc "intro_mops: the targeted matrix was not allocated with malloc or calloc"
+      end
+    )
 
 (* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi
    varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated
@@ -165,8 +157,7 @@ let reorder_dims ?(rotate_n : int option) ?(order : int list = []) () (tg : targ
   iter_on_targets (fun t p ->
     let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in
     let tg_trm = Path.resolve_path p t in
-    match tg_trm.desc with
-    | Trm_let (_, (x, _), _) ->
-        Matrix_basic.reorder_dims ~rotate_n ~order () ((target_of_path path_to_seq) @ [cOr [[cVarDef x; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x] (); cFun ~regexp:true "MINDEX."]]])
-    | _ -> fail tg_trm.loc "reorder_dims: expected a target to variable declaration"
+    let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
+    let (_, x, _, _) = trm_inv ~error trm_let_inv tg_trm in
+    Matrix_basic.reorder_dims ~rotate_n ~order () ((target_of_path path_to_seq) @ [cOr [[cVarDef x; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x] (); cFun ~regexp:true "MINDEX."]]])
   ) tg

@@ -4,13 +4,12 @@ open Ast
       [e] - the expression replacing the call to function [ANY],
       [t] - ast of a call to function [ANY]. *)
 let any_aux (e : trm) (t : trm) : trm =
-  match t.desc with
-  | Trm_apps (f,_) ->
-    begin match f.desc with
-    | Trm_var (_, any) when Tools.pattern_matches "ANY?." any ->  e
-    | _ -> fail f.loc "Specialize_core.any_aux: expected the special function ANY"
-    end
-  | _ -> fail t.loc "Specialize_core.any_aux: expected a trm_var with ANY annotation"
+  let error = "Specialize_core.any_aux: expected a trm_var with ANY annotation."  in
+  let (f, _) = trm_inv ~error trm_apps_inv t in
+  let (_, any) = trm_inv ~error trm_var_inv f in
+  if Tools.pattern_matches "ANY?." any 
+    then  e
+    else fail f.loc "Specialize_core.any_aux: expected the special function ANY"
 
 (* [any e t p]: applies [any_aux] at trm [t] with path [p]. *)
 let any (e : trm) : Target.Transfo.local =
@@ -42,7 +41,6 @@ let choose_aux (select_arg : string list -> int) (t : trm) : trm =
         trm_var_get (List.nth choices id )
     | _ -> fail argnb.loc "Specialize_core.choose_aux: expected a literel trm"
     end
-
   | _ -> fail t.loc "Specialize_core.choose_aux: expected a call to funtion choose"
 
 

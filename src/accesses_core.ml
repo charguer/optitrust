@@ -7,7 +7,7 @@ open Ast
       [t] - the ast of the node where the operation is applied to. *)
 let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
   let error = "Accesses_core.transform_aux: expected either a get or a set operation" in
-  let (f,args) = trm_inv ~error ~loc:t.loc trm_apps_inv t in
+  let (f,args) = trm_inv ~error trm_apps_inv t in
   if is_get_operation t 
     then f_get t
     else if is_set_operation t

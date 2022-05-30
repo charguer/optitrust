@@ -84,10 +84,8 @@ let set_inv (t : trm) : (trm * trms * trms * trm)  option =
 let alloc ?(init : trm option = None) (dims : trms) (size : trm) : trm =
   let n = List.length dims in
   match init with
-  | Some _ ->
-    trm_apps (trm_var ("CALLOC" ^  (string_of_int n))) (dims @ [size])
-  | None ->
-    trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size])
+  | Some _ -> trm_apps (trm_var ("CALLOC" ^  (string_of_int n))) (dims @ [size])
+  | None -> trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size])
 
 
 (* |alloc_aligned ~init dims size alignment] create a call to function MALLOC_ALIGNED$(N) where [N] is the
@@ -151,7 +149,6 @@ let intro_calloc_aux (t : trm) : trm =
   | Trm_apps ({desc = Trm_var (_, "calloc");_},[dim; size]) ->
     alloc ~init:(Some (trm_int 0)) [dim] size
   | _ -> fail t.loc "Matrix_core.intro_calloc_aux: expected a function call to calloc"
-
 
 let intro_calloc : Target.Transfo.local =
   Target.apply_on_path (intro_calloc_aux)
