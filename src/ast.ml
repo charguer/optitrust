@@ -1297,6 +1297,12 @@ let trm_if_inv (t : trm) : (trm * trm * trm) option =
   | Trm_if (cond, then_, else_) -> Some (cond, then_, else_)
   | _ -> None
 
+(* [trm_typedef_inv t]: returns the components of a [trm_typedef] constructor when [t] is a type definition. *)
+let trm_typedef_inv (t : trm) : typedef option = 
+  match t.desc with 
+  | Trm_typedef td -> Some td
+  | _ -> None
+
 
 (* [trm_int n]: converts an integer to trm *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)

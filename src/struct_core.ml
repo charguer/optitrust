@@ -274,15 +274,14 @@ let reveal_field (field_to_reveal : field) (index : int) : Transfo.local =
      [around] - the target field where fields are going to be moved to,
      [t] - ast of the typedef struct. *)
 let reorder_fields_aux (struct_fields: vars) (move_where : reorder) (t: trm) : trm =
-  match t.desc with
-  | Trm_typedef td ->
+  let error = "Struct_core.reorder_fields_aux: expected a typedef definiton" in
+  let td = trm_inv ~error trm_typedef_inv t in
    begin match td.typdef_body with
    | Typdef_prod (tn, fs) ->
-    let field_list = Internal.reorder_fields move_where struct_fields fs in
-   trm_typedef {td with typdef_body = Typdef_prod (tn, field_list)}
-  | _ -> fail t.loc "Struct_core.reorder_fields_aux: expected a typdef_prod"
-  end
-  | _ -> fail t.loc "Struct_core.reorder_fields_aux: expected a typedef definiton"
+     let field_list = Internal.reorder_fields move_where struct_fields fs in
+      trm_typedef {td with typdef_body = Typdef_prod (tn, field_list)}
+   | _ -> fail t.loc "Struct_core.reorder_fields_aux: expected a typdef_prod"
+   end
 
 (* [reorder_fields struct_fields move_where around t p]: applies [reorder_fields_aux] at trm [t] with path [p]. *)
 let reorder_fields (struct_fields : vars) (move_where : reorder) : Transfo.local =
@@ -315,45 +314,44 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
       [index] - index of the declaration inside the sequence it belongs to,
       [t] - ast of the surrounding sequence of the variable declarations. *)
 let to_variables_aux (index : int) (t : trm) : trm =
-  match t.desc with
-  | Trm_seq tl ->
-    let field_list = ref [] in
-    let var_name = ref "" in
-    let f_update (t : trm) : trm =
-      match t.desc with
-      | Trm_let (_, (x, tx), init) ->
-        var_name := x;
-        let typid = begin match (get_inner_ptr_type tx).typ_desc with
-          | Typ_constr (_, tid, _) -> tid
-          | _ -> fail t.loc "Struct_core.struct_to_variables_aux: expected a struct type"
-          end in
-        let struct_def =
-        if typid <> -1
-          then match Context.typid_to_typedef typid with
-            | Some td -> td
-            | _ -> fail t.loc "Struct_core.to_variables_aux: could not get the declaration of typedef"
-          else
-            fail t.loc "Struct_core.to_variables_aux: explicit assignment is supported only for struct types"
-         in
-        field_list := Internal.get_field_list struct_def;
-        let struct_init_list = begin match init.desc with
-                             | Trm_apps(_, [base]) ->
-                              begin match base.desc with
-                              | Trm_struct ls -> (Mlist.to_list ls)
-                              | _ -> fail init.loc "Struct_core.struct_to_variables_aux: expected a struct initialisation"
-                              end
-                             | Trm_struct ls -> (Mlist.to_list ls)
-                             | _ -> []
-                             end in
-        let var_decls = List.mapi(fun i (sf, ty) ->
-          let new_name = Convention.name_app x sf in
-          match struct_init_list with
-          | [] -> trm_let_mut (new_name, ty) (trm_uninitialized ())
-          | _ -> trm_let_mut (new_name, ty) (List.nth struct_init_list i)
+  let error = "Struct_core.struct_to_variables_aux: expected the surrounding sequence." in
+  let tl = trm_inv ~error trm_seq_inv t in
+  let field_list = ref [] in
+  let var_name = ref "" in
+  let f_update (t : trm) : trm =
+    let error = "Struct_core.struct_to_variables_aux: expected a variable declaration." in
+    let (_, x, tx, init) = trm_inv ~error trm_let_inv t in
+      var_name := x;
+      let typid = begin match (get_inner_ptr_type tx).typ_desc with
+        | Typ_constr (_, tid, _) -> tid
+        | _ -> fail t.loc "Struct_core.struct_to_variables_aux: expected a struct type"
+        end in
+      let struct_def =
+      if typid <> -1
+        then match Context.typid_to_typedef typid with
+          | Some td -> td
+          | _ -> fail t.loc "Struct_core.to_variables_aux: could not get the declaration of typedef"
+        else
+          fail t.loc "Struct_core.to_variables_aux: explicit assignment is supported only for struct types"
+       in
+      field_list := Internal.get_field_list struct_def;
+      let struct_init_list = begin match init.desc with
+                           | Trm_apps(_, [base]) ->
+                            begin match base.desc with
+                            | Trm_struct ls -> (Mlist.to_list ls)
+                            | _ -> fail init.loc "Struct_core.struct_to_variables_aux: expected a struct initialisation"
+                            end
+                           | Trm_struct ls -> (Mlist.to_list ls)
+                           | _ -> []
+                           end in
+      let var_decls = List.mapi(fun i (sf, ty) ->
+        let new_name = Convention.name_app x sf in
+        match struct_init_list with
+        | [] -> trm_let_mut (new_name, ty) (trm_uninitialized ())
+        | _ -> trm_let_mut (new_name, ty) (List.nth struct_init_list i)
 
         ) !field_list in
         trm_seq_no_brace var_decls
-     | _ -> fail t.loc "Struct_core.struct_to_variables_aux: expected a variable declaration"
      in
   let f_update_further (t : trm) : trm =
     List.fold_left (fun t2 f1 ->
@@ -362,7 +360,6 @@ let to_variables_aux (index : int) (t : trm) : trm =
     in
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
-| _ -> fail t.loc "Struct_core.struct_to_variables_aux: expected the surrounding sequence"
 
 (* [to_variables index t p]: applies [to_variables_aux] at trm [t] with path [p]. *)
 let to_variables (index : int) : Transfo.local =
@@ -422,23 +419,22 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
       [rename] - a type used to rename the fields,
       [t] - the ast of the sequence which contains the struct declaration. *)
 let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
-  match t.desc with
-  | Trm_seq tl ->
-    let struct_name = ref "" in
-    let f_update (t : trm) : trm =
-      match t.desc with
-      | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_prod (tn, fl);_}  as td) ->
-        struct_name := name;
-        let new_fl = List.map (fun (x, ty) -> (rename x, ty)) fl in
-        trm_typedef ~annot:t.annot {td with typdef_body = Typdef_prod (tn, new_fl)}
-     | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
-     in
-    let f_update_further (t : trm) : trm =
-      rename_struct_accesses !struct_name rename t
-     in
-    let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
-    trm_seq ~annot:t.annot new_tl
-  | _ -> fail t.loc "Struct_core.rename_fields_aux: expected the sequence which contains the typedef declaration"
+  let error = "Struct_core.rename_fields_aux: expected the sequence which contains the typedef declaration." in
+  let tl = trm_inv ~error trm_seq_inv t in
+  let struct_name = ref "" in
+  let f_update (t : trm) : trm =
+    match t.desc with
+    | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_prod (tn, fl);_}  as td) ->
+      struct_name := name;
+      let new_fl = List.map (fun (x, ty) -> (rename x, ty)) fl in
+      trm_typedef ~annot:t.annot {td with typdef_body = Typdef_prod (tn, new_fl)}
+   | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
+   in
+  let f_update_further (t : trm) : trm =
+    rename_struct_accesses !struct_name rename t
+   in
+  let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
+  trm_seq ~annot:t.annot new_tl
 
 (* [rename_fields index rename t p]: applies [rename_aux] at trm [t] with path [p]. *)
 let rename_fields (index : int) (rename : rename) : Transfo.local =
@@ -452,20 +448,18 @@ let rename_fields (index : int) (rename : rename) : Transfo.local =
 let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : trm) : trm =
   match t.desc with
   | Trm_typedef ({typdef_body = Typdef_prod (tn, fl);_}  as td) ->
-
-      let update_type ty = typ_map typ_update ty in
-
-      (* let rec update_type (ty_to_update : typ) : typ =
-        match ty_to_update.typ_desc with
-        | Typ_array _ | Typ_ptr _
-          | Typ_const _ -> typ_map update_type ty_to_update
-        | _ -> ty
-        in  *)
-      let replace_type (s : string) (ty1 : typ) : typ =
-        if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
-      let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in
-      trm_typedef ~annot:t.annot {td with typdef_body = Typdef_prod (tn, new_fl)}
-    | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
+    let update_type ty = typ_map typ_update ty in
+    (* let rec update_type (ty_to_update : typ) : typ =
+      match ty_to_update.typ_desc with
+      | Typ_array _ | Typ_ptr _
+        | Typ_const _ -> typ_map update_type ty_to_update
+      | _ -> ty
+      in  *)
+    let replace_type (s : string) (ty1 : typ) : typ =
+      if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
+    let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in
+    trm_typedef ~annot:t.annot {td with typdef_body = Typdef_prod (tn, new_fl)}
+  | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
 
 (* [update_fields_type pattern typ_update t p]: applies [update_fields_type_aux] at trm [t] with path [p]. *)
 let update_fields_type (pattern : string) (typ_update : typ -> typ) : Transfo.local =
