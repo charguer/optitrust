@@ -1303,7 +1303,6 @@ let trm_typedef_inv (t : trm) : typedef option =
   | Trm_typedef td -> Some td
   | _ -> None
 
-
 (* [trm_int n]: converts an integer to trm *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)
 

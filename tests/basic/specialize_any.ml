@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-      !! Specialize_basic.any (expr "i") [cAny];
-  )
+
+    !! Specialize_basic.any (expr "i") [cAny];
+
+)
+
 "
 #include \"../../include/optitrust.h\"
 int ANY(int);
@@ -16,9 +19,8 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-
-
   !! Specialize_basic.any (lit "2") [sInstr "corners"; cAny];
 
   !! Specialize_basic.any (var "i") [cAny];
+
 )

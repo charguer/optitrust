@@ -104,7 +104,6 @@ let rename_args (new_args : var list)  : Transfo.t =
   apply_on_targets (Function_core.rename_args new_args)
 
 
-
 (* [replace_with_change_args new_fun_name arg_mapper tg]: expects the target [tg] to point at a function call, then it will
     replace the name of the called function with [new_fun_name] and apply [arrg_mapper] to its arguments. *)
 let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) (tg : target) : unit =

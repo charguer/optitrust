@@ -2,7 +2,9 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp ~parser:Parsers.Menhir (fun _ ->
+  
   !! Struct_basic.simpl_proj [cVarDefs ["a"; "b"]];
+
 )
 "
 typedef struct {
@@ -19,4 +21,5 @@ int main() {
 let _ = Run.script_cpp ~parser:Parsers.Menhir (fun _ ->
 
   !! Struct_basic.simpl_proj [cFunDef "main"];
+
 )
