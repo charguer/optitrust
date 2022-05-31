@@ -19,13 +19,16 @@ TESTS_WITH_DOC := \
 	function_inline_complex.ml \
 	function_inline_simple.ml \
 	function_inline_struct.ml \
+	function_uninline.ml \
 	function_use_infix_ops.ml \
 	instr_accumulate.ml \
+	instr_accumulate_targets.ml \
 	instr_inline_last_write.ml \
 	instr_gather.ml \
 	instr_read_last_write.ml \
 	instr_move.ml \
 	instr_moveout.ml \
+	instr_moveout_of_fun.ml \
 	loop_fission.ml \
 	loop_fold.ml \
 	loop_fold_instrs.ml \
@@ -33,6 +36,7 @@ TESTS_WITH_DOC := \
 	loop_fusion_targets.ml \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
+	loop_isolate_first_iteration.ml \
 	loop_move.ml \
 	loop_moveout.ml \
 	loop_reorder.ml \
@@ -58,11 +62,6 @@ TESTS_WITHOUT_DOC := \
 
 
 TESTS_TOCHECK := \
-	function_beta.ml \
-	function_uninline.ml \
-	instr_accumulate_targets.ml \
-	instr_moveout_of_fun.ml \
-	loop_isolate_first_iteration.ml \
 	matrix_delocalize.ml \
 	matrix_delocalize_obj.ml \
 	matrix_intro_calloc.ml \

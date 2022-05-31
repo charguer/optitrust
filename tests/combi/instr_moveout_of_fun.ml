@@ -7,6 +7,7 @@ let _ = Run.doc_script_cpp (fun _ ->
   !! Instr.move_out_of_fun [cVarDef "x"];
 
 )
+
 "
 int main(){
   int x = 10;
