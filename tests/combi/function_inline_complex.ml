@@ -1,6 +1,27 @@
 open Optitrust
 open Target
 
+
+let _ = Run.doc_script_cpp (fun () -> 
+
+  !! Function.inline [cFun "g"];
+
+)
+
+"
+int f (int x){ 
+  return x + 1;
+}
+int g(int x){
+  return x - 1;
+}
+
+int main(){
+  int a = 10;
+  int t = f(g(a));
+}
+"
+
 let _ = Run.script_cpp (fun _ ->
 
     !! Function.inline ~resname:"r" ~args:["a";"";"b";""] [cFun "g"];

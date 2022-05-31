@@ -19,5 +19,6 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-    !! Function_basic.use_infix_ops_at [nbMulti; cWriteVar "x"];
+  !! Function_basic.use_infix_ops_at [nbMulti; cWriteVar "x"];
+
 )

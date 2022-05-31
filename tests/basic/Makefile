@@ -100,11 +100,6 @@ TESTS_WITH_DOC := \
 TESTS_TOCHECK := \
 	matrix_delocalize_obj.ml \
 
-
-# missing expected
-# matrix_insert_alloc_dim.ml \
-#	matrix_insert_access_dim_index.ml \
-
 TESTS_TO_FIX := \
   struct_update_fields_type.ml \
 	matrix_insert_access_dim_index.ml \
@@ -116,8 +111,6 @@ NOT_NEEEDED_TO_FIX := \
 	aos_to_soa_sized_array.ml \
 	variable_change_type.ml \
 
-
-# TODO: script for vscode opening
 
 TESTS := $(TESTS_WITH_DOC) $(TESTS_TOCHECK)
 

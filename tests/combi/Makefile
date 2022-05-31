@@ -15,11 +15,20 @@ TARGET_MAKE_ALL := check
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
-	instr_gather.ml \
-	instr_move.ml \
+	align_alloc.ml \
 	expr_replace_fun.ml \
+	function_beta.ml \
+	function_bind.ml \
+	function_bind_args.ml \
+	function_elim_body.ml \
+	function_inline_complex.ml \
+	function_inline_simple.ml \
+	function_inline_struct.ml \
+	function_use_infix_ops.ml \
 	instr_inline_last_write.ml \
+	instr_gather.ml \
 	instr_read_last_write.ml \
+	instr_move.ml \
 	loop_fold.ml \
 	loop_fusion.ml \
 	loop_grid_enumerate.ml \
@@ -38,13 +47,6 @@ TESTS_WITH_DOC := \
 	variable_reuse.ml \
 
 TESTS_WITHOUT_DOC := \
-	function_bind.ml \
-	function_bind_args.ml \
-	function_elim_body.ml \
-	function_inline_complex.ml \
-	function_inline_simple.ml \
-	function_inline_struct.ml \
-	function_use_infix_ops.ml \
 	instr_moveout.ml \
 	instr_accumulate.ml \
 	loop_move.ml \
