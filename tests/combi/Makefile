@@ -6,11 +6,6 @@ TARGET_MAKE_ALL := check
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
-# TESTS_WITH_DOC_INCLUDING_BASIC := \
-#  instr_moveout.ml \
-#	 label_add__basic.ml \
-#  LATER: define TESTS_WITH_DOC  as a filter of TESTS_WITH_DOC_INCLUDING_BASIC by removing *__basic.ml from the list
-
 
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
@@ -25,13 +20,20 @@ TESTS_WITH_DOC := \
 	function_inline_simple.ml \
 	function_inline_struct.ml \
 	function_use_infix_ops.ml \
+	instr_accumulate.ml \
 	instr_inline_last_write.ml \
 	instr_gather.ml \
 	instr_read_last_write.ml \
 	instr_move.ml \
+	instr_moveout.ml \
+	loop_fission.ml \
 	loop_fold.ml \
+	loop_fold_instrs.ml \
 	loop_fusion.ml \
+	loop_fusion_targets.ml \
 	loop_grid_enumerate.ml \
+	loop_hoist.ml \
+	loop_move.ml \
 	loop_moveout.ml \
 	loop_reorder.ml \
 	loop_unroll.ml \
@@ -47,13 +49,6 @@ TESTS_WITH_DOC := \
 	variable_reuse.ml \
 
 TESTS_WITHOUT_DOC := \
-	instr_moveout.ml \
-	instr_accumulate.ml \
-	loop_move.ml \
-	loop_fission.ml \
-	loop_fold_instrs.ml \
-	loop_hoist.ml \
-	loop_fusion_targets.ml \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_elim_redundant.ml \

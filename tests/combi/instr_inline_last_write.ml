@@ -5,8 +5,11 @@ open Target
    from the doc script. *)
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Instr.inline_last_write [cReadVar "x"];
-  )
+  
+  !! Instr.inline_last_write [cReadVar "x"];
+
+)
+
 "
 int main() {
   int x = 0;
@@ -17,5 +20,6 @@ int main() {
 
 let _ = Run.script_cpp (fun _->
 
-    !! Instr.inline_last_write [cReadVar "x"];
+  !! Instr.inline_last_write [cReadVar "x"];
+
 )

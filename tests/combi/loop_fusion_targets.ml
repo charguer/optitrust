@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
+  
   !! Loop.fusion_targets [cLabel "block"];
-  )
+
+)
+
 "
 int main() {
   block: {

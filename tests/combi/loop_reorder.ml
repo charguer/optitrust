@@ -4,8 +4,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
+  
   !! Loop.reorder ~order:["c";"b";"a"] [cFor "a"];
-  )
+
+)
+
 "
 int main() {
   for (int a = 0; a < 4; a++) {
@@ -16,8 +19,6 @@ int main() {
   }
 }
 "
-
-
 
 let _ = Run.script_cpp (fun _ ->
 
@@ -38,4 +39,5 @@ let _ = Run.script_cpp (fun _ ->
     !! Tools.failure_expected (fun () ->
        Loop.reorder ~order:["e"; "f"] [cFor "e"];)
     );
+
 )

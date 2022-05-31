@@ -2,8 +2,11 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Loop.fusion [occIndex 0; cFor "i"]
-  )
+
+  !! Loop.fusion [occIndex 0; cFor "i"]
+
+)
+
 "
 int main() {
   int s;
@@ -30,4 +33,5 @@ let _ = Run.script_cpp ( fun _ ->
     !! Sequence_basic.intro ~mark:"tofuse" 3 [cFunDef "fusion_on_block"; cFor "i" ~body:[sInstr "t[i]"]];
     !! Loop_basic.fusion_on_block [cMark "tofuse"];
     !!());
+
 )
