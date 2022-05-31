@@ -8,6 +8,7 @@ FLAGS := -dump-ast-details
 
 
 TESTS_WITH_DOC := \
+	accesses_intro.ml \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	align_def.ml \
@@ -21,17 +22,17 @@ TESTS_WITH_DOC := \
 	expr_replace.ml \
 	expr_replace_fun.ml \
 	flow_insert_if.ml \
-	function_inline.ml \
-	function_uninline.ml \
 	function_beta.ml \
 	function_bind_intro.ml \
 	function_dsp_call.ml \
 	function_dsp_def.ml \
+	function_inline.ml \
 	function_rename_args.ml \
+	function_uninline.ml \
 	function_use_infix_ops.ml \
 	instr_accumulate.ml \
-	instr_read_last_write.ml \
 	instr_move.ml \
+	instr_read_last_write.ml \
 	label_add.ml \
 	label_remove.ml \
 	loop_color.ml \
@@ -47,9 +48,12 @@ TESTS_WITH_DOC := \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
+	matrix_delocalize.ml \
 	matrix_intro_calloc.ml \
 	matrix_intro_malloc.ml \
 	matrix_intro_mindex.ml \
+	matrix_local_name.ml \
+	matrix_local_name_obj.ml \
 	matrix_reorder_dims.ml \
 	pointer_fold.ml \
 	reference_fold.ml \
@@ -75,6 +79,8 @@ TESTS_WITH_DOC := \
 	struct_simpl_proj.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
+	typedef_fold.ml \
+	typedef_unfold.ml \
 	variable_bind.ml \
 	variable_fold.ml \
 	variable_unfold.ml \
@@ -91,11 +97,7 @@ TESTS_WITH_DOC := \
 
 
 TESTS_TOCHECK := \
-	matrix_delocalize.ml \
 	matrix_delocalize_obj.ml \
-	matrix_local_name.ml \
-
-
 
 
 # missing expected
@@ -103,10 +105,6 @@ TESTS_TOCHECK := \
 #	matrix_insert_access_dim_index.ml \
 
 TESTS_TO_FIX := \
-	accesses_intro.ml \
-	variable_simpl_deref.ml \
-	typedef_fold.ml \
-	typedef_unfold.ml \
   struct_update_fields_type.ml \
 
 
@@ -115,6 +113,7 @@ NOT_NEEEDED_TO_FIX := \
 	aos_to_soa_typedef.ml \
 	aos_to_soa_sized_array.ml \
 	variable_change_type.ml \
+
 
 # TODO: script for vscode opening
 

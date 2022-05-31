@@ -448,13 +448,16 @@ let rename_fields (index : int) (rename : rename) : Transfo.local =
 let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : trm) : trm =
   match t.desc with
   | Trm_typedef ({typdef_body = Typdef_prod (tn, fl);_}  as td) ->
-    let update_type ty = typ_map typ_update ty in
-    (* let rec update_type (ty_to_update : typ) : typ =
+    (* LATER: FIX ME! *)
+    (* let update_type ty = typ_map typ_update ty in *)
+    
+    let rec update_type (ty_to_update : typ) : typ =
       match ty_to_update.typ_desc with
       | Typ_array _ | Typ_ptr _
         | Typ_const _ -> typ_map update_type ty_to_update
-      | _ -> ty
-      in  *)
+      | _ -> ty_to_update
+      in 
+    
     let replace_type (s : string) (ty1 : typ) : typ =
       if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
     let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in
