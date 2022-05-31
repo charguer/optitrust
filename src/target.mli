@@ -128,7 +128,7 @@ val cAlloc : int option -> constr
 
 val cMalloc : ?d:int option -> unit -> constr
 
-val cCalloc : int option -> constr
+val cCalloc : ?d:int option -> unit -> constr
 
 val cMindex : ?d:int -> unit -> constr
 

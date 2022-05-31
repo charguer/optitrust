@@ -49,6 +49,7 @@ TESTS_WITH_DOC := \
 	loop_unroll.ml \
 	loop_unswitch.ml \
 	matrix_delocalize.ml \
+	matrix_insert_alloc_dim.ml \
 	matrix_intro_calloc.ml \
 	matrix_intro_malloc.ml \
 	matrix_intro_mindex.ml \
@@ -106,6 +107,7 @@ TESTS_TOCHECK := \
 
 TESTS_TO_FIX := \
   struct_update_fields_type.ml \
+	matrix_insert_access_dim_index.ml \
 
 
 NOT_NEEEDED_TO_FIX := \

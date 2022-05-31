@@ -840,11 +840,10 @@ let cMindex ?(d : int  = 0) () : constr =
   cFun ~regexp:true ("MINDEX"^d)
 
 
-(* [cCalloc d]: matches a call to Optitrust CALLOCI where I = d. *)
-let cCalloc (d : int option) : constr =
+(* [cCalloc ~d ()]: matches a call to Optitrust CALLOCI where I = d. *)
+let cCalloc ?(d : int option = None) () : constr =
   let d = begin match d with | Some d -> string_of_int d | _ -> "." end in
   cFun ~regexp:true ("MALLOC" ^ d)
-
 
 (* [cSwitch ~cond ~cases ()]: matches a switch statement
     [cond] - match based on the condition

@@ -1,3 +1,7 @@
+#include <stdlib.h>
+
+#include "../../include/optitrust.h"
+
 int main() {
   const int N = 5;
   int p[5] = {0, 1, 2, 3, 4};
