@@ -41,35 +41,34 @@ TESTS_WITH_DOC := \
 	loop_moveout.ml \
 	loop_reorder.ml \
 	loop_unroll.ml \
-	variable_fold.ml \
+	matrix_delocalize.ml \
+	matrix_intro_calloc.ml \
+	matrix_intro_malloc.ml \
+	matrix_intro_mindex.ml \
+	matrix_intro_mops.ml \
 	sequence_intro.ml \
 	sequence_intro_targets.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
   struct_rename_field.ml \
-	variable_insert_list.ml \
-	variable_insert_and_fold.ml \
-	variable_renames.ml \
-	variable_reuse.ml \
-
-TESTS_WITHOUT_DOC := \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_elim_redundant.ml \
-  variable_inline_and_rename.ml \
+	variable_fold.ml \
+	variable_inline_and_rename.ml \
 	variable_insert.ml \
+	variable_insert_list.ml \
+	variable_insert_and_fold.ml \
   variable_intro_pattern_array.ml \
+	variable_renames.ml \
+	variable_reuse.ml \
 
 
-TESTS_TOCHECK := \
-	matrix_delocalize.ml \
+TESTS_WITHOUT_DOC := \
 	matrix_delocalize_obj.ml \
-	matrix_intro_calloc.ml \
-	matrix_intro_malloc.ml \
-	matrix_intro_mindex.ml \
-	matrix_intro_mops.ml \
 	struct_align_field.ml \
 
+	
 #variable_inline.ml \ TODO: Update variable_inline unit test
 
 TESTS_TO_FIX := \
@@ -79,7 +78,7 @@ NOT_NEEEDED_TO_FIX := \
 
 
 
-TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC) $(TESTS_TOCHECK)
+TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC) 
 
 
 #---------------------------------------------------------------------

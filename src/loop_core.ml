@@ -230,7 +230,7 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
                Xlist.range 0 (bnd - 1 - strt)
              | _ -> fail start.loc "Loop_core.unroll_aux: expected a "
              end
-        | _ -> fail t.loc "Loop_core.unroll_aux: the loop which is going to be unrolled shoudl have a bound which is a sum of a variable and a literal"
+        | _ -> fail t.loc "Loop_core.unroll_aux: the loop that is going to be unrolled should have a bound which is a sum of a variable and a literal"
         end in
       let unrolled_body = List.fold_left ( fun acc i1 ->
         let new_index =

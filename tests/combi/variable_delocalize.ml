@@ -2,6 +2,29 @@ open Optitrust
 open Target
 open Ast
 
+let _ = Run.doc_script_cpp (fun () -> 
+
+  !! Variable.delocalize "a" ~into:"x" ~index:"k" ~mark:"A" ~array_size:"N" ~ops:(Local_arith (Lit_int 0, Binop_add) ) [cFor "i"];
+
+)
+"
+#include \"../../include/optitrust.h\"
+typedef int T;
+
+int main(){
+  const int N = 2;
+  T a;
+  for (int i = 0; i < N; i++){
+     a++;
+  }
+  for (int j = 0; j < N; j++){
+     a++;
+  }
+  return 0;
+}
+"
+
+
 
 let _ =  Run.script_cpp ( fun () ->
   
