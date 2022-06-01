@@ -10,7 +10,8 @@ let _ = Run.doc_script_cpp (fun () ->
 
 "
 void g(int x, int y) {
-  return x + y;
+   int z;
+   z = x + y;
 }
 
 void f(int x) {

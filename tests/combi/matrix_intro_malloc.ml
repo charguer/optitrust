@@ -10,7 +10,7 @@ let _ = Run.doc_script_cpp (fun () ->
 
 "
 #include <stdlib.h>
-#include \"../../include/optiturst.h\"
+#include \"../../include/optitrust.h\"
 
 int main() {
   const int N = 10;

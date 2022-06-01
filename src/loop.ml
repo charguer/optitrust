@@ -45,7 +45,6 @@ let fusion ?(nb : int = 2) (tg : target) : unit =
       The loops inside the sequence satisfy the same assumptions as in [Loop_basic.fusion_in_block] transformation
       All the instructions in-between loops should not depend on the index of the loop. *)
 
-(* TODO: Optimize mark processing *)
 let fusion_targets ?(keep_label : bool = true) : Transfo.t =
   iteri_on_targets (fun i t p ->
     Marks.add "mark_seq" (target_of_path p);

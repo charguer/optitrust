@@ -10,6 +10,7 @@ let _ = Run.doc_script_cpp (fun _ ->
 
 "
 int main (){
+  int x = 0;
   for (int i = 0; i < 10; i++){
     x += i;
   }

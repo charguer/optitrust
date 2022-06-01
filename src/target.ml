@@ -1453,7 +1453,7 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
       else applyi_on_targets (fun _i t _p -> t) tg
   end
 
-(* TODO: Fix me *)
+(* LATER: Fix me *)
 (* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
 let show_type ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
   show ~line ~reparse ~types:true tg
