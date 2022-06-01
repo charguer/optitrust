@@ -829,7 +829,7 @@ and clause_to_doc (cl : clause) : document =
   | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ (if i = "" then empty else comma ^^ blank 1 ^^ string i))
   | Dist_schedule (st, i) -> string "dist_schedule" ^^ parens (sched_type_to_doc st ^^ (if i = "" then empty else comma ^^ blank 1 ^^ string i))
   | Parallel_c -> string "parallel"
-  | Sections_c -> string "sections"
+  | Section_c -> string "section"
   | For_c -> string "for"
   | Taskgroup_c -> string "taskgroup"
   | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)

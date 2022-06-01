@@ -489,7 +489,7 @@ and clause =
   | Schedule of sched_type * var
   | Dist_schedule of sched_type * var
   | Parallel_c
-  | Sections_c
+  | Section_c
   | For_c
   | Taskgroup_c
   | Proc_bind of proc_bind

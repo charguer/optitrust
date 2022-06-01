@@ -62,7 +62,7 @@ let for_simd ?(clause : clause list = []) : Transfo.t =
 let master : Transfo.t =
   transfo_on_targets (trm_add_pragma (Master))
 
-let oredered ?(clause : clause list = []) : Transfo.t =
+let ordered ?(clause : clause list = []) : Transfo.t =
   transfo_on_targets (trm_add_pragma (Ordered clause))
 
 let parallel ?(clause : clause list = []) : Transfo.t =
@@ -77,8 +77,8 @@ let parallel_for_simd ?(clause : clause list = []) : Transfo.t =
 let parallel_sections ?(clause : clause list = []) : Transfo.t =
   transfo_on_targets (trm_add_pragma (Parallel_sections clause))
 
-let sections ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Sections clause))
+let section : Transfo.t =
+  transfo_on_targets (trm_add_pragma Section)
 
 let simd ?(clause : clause list = []) : Transfo.t =
   transfo_on_targets (trm_add_pragma (Simd clause))

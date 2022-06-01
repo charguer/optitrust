@@ -1,8 +1,8 @@
 #include <omp.h>
-int main()
-{
+#include <stdio.h>
+int main(){
   {
-    /* do work here */
+    printf("do work here\n");
   }
   return 0;
 }

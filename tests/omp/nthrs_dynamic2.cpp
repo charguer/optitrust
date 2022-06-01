@@ -1,8 +1,10 @@
 #include <omp.h>
+#include <stdio.h>
+
 int main()
 {
   {
-    /* do work here */
+    printf("do work here\n");
   }
   return 0;
 }
