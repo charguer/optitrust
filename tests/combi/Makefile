@@ -6,84 +6,79 @@ TARGET_MAKE_ALL := check
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
-# TESTS_WITH_DOC_INCLUDING_BASIC := \
-#  instr_moveout.ml \
-#	 label_add__basic.ml \
-#  LATER: define TESTS_WITH_DOC  as a filter of TESTS_WITH_DOC_INCLUDING_BASIC by removing *__basic.ml from the list
-
 
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
-	instr_gather.ml \
-	instr_move.ml \
+	align_alloc.ml \
 	expr_replace_fun.ml \
+	function_beta.ml \
+	function_bind.ml \
+	function_bind_args.ml \
+	function_elim_body.ml \
+	function_inline_complex.ml \
+	function_inline_simple.ml \
+	function_inline_struct.ml \
+	function_uninline.ml \
+	function_use_infix_ops.ml \
+	instr_accumulate.ml \
+	instr_accumulate_targets.ml \
 	instr_inline_last_write.ml \
+	instr_gather.ml \
 	instr_read_last_write.ml \
+	instr_move.ml \
+	instr_moveout.ml \
+	instr_moveout_of_fun.ml \
+	loop_fission.ml \
 	loop_fold.ml \
+	loop_fold_instrs.ml \
 	loop_fusion.ml \
+	loop_fusion_targets.ml \
 	loop_grid_enumerate.ml \
+	loop_hoist.ml \
+	loop_isolate_first_iteration.ml \
+	loop_move.ml \
 	loop_moveout.ml \
 	loop_reorder.ml \
 	loop_unroll.ml \
-	variable_fold.ml \
+	matrix_delocalize.ml \
+	matrix_intro_calloc.ml \
+	matrix_intro_malloc.ml \
+	matrix_intro_mindex.ml \
+	matrix_intro_mops.ml \
 	sequence_intro.ml \
 	sequence_intro_targets.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
   struct_rename_field.ml \
-	variable_insert_list.ml \
-	variable_insert_and_fold.ml \
-	variable_renames.ml \
-	variable_reuse.ml \
-
-TESTS_WITHOUT_DOC := \
-	instr_moveout.ml \
-	loop_hoist.ml \
-	loop_fusion_targets.ml \
-	instr_accumulate.ml \
-	function_bind.ml \
-	function_inline_complex.ml \
-	function_inline_simple.ml \
-	function_inline_struct.ml \
-	function_bind_args.ml \
-	function_elim_body.ml \
-	function_use_infix_ops.ml \
-	loop_move.ml \
-	loop_fission.ml \
-	loop_fold_instrs.ml \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_elim_redundant.ml \
-  	variable_inline_and_rename.ml \
+	variable_fold.ml \
+	variable_inline_and_rename.ml \
 	variable_insert.ml \
+	variable_insert_list.ml \
+	variable_insert_and_fold.ml \
   variable_intro_pattern_array.ml \
+	variable_renames.ml \
+	variable_reuse.ml \
 
 
-TESTS_TOCHECK := \
-	function_beta.ml \
-	function_uninline.ml \
-	instr_accumulate_targets.ml \
-	matrix_delocalize.ml \
+TESTS_WITHOUT_DOC := \
 	matrix_delocalize_obj.ml \
-	matrix_intro_calloc.ml \
-	matrix_intro_malloc.ml \
-	matrix_intro_mindex.ml \
-	matrix_intro_mops.ml \
-	loop_isolate_first_iteration.ml \
 	struct_align_field.ml \
 
+	
 #variable_inline.ml \ TODO: Update variable_inline unit test
 
 TESTS_TO_FIX := \
 	
-
 NOT_NEEEDED_TO_FIX := \
 	aos_to_soa.ml \
 
 
 
-TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC) $(TESTS_TOCHECK)
+TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC) 
 
 
 #---------------------------------------------------------------------

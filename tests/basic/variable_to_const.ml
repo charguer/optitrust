@@ -2,8 +2,11 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
+
   !! Variable_basic.to_const [cVarDef "x"];
-  )
+
+)
+
 "
 int main() {
   int x = 3;
@@ -26,9 +29,7 @@ let _ = Run.script_cpp (fun _ ->
      => performs simpl_deref on the sequence that contains varDef q *)
   (*!! Variable_basic.simpl_deref ~indepth:true [cVarDef "r"];*)
   !! Variable_basic.to_const [cVarDef "r"];
-
-
-
+  
 )
 
 (* Note: recall that currently const references are not supported,

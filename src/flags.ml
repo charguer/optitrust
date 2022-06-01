@@ -4,15 +4,23 @@ let code_print_width = ref 80
 (* [verbose]: flag to activate the printing of debug information -- NOT SUPPORTED YET .*)
 let verbose : bool ref = ref false
 
-(* [analyse_time]: flag to meansure the time taken by each transformation. *)
-let analyse_time : bool ref = ref false
+(* [analyse_stats]: flag to meansure the time taken by each transformation. *)
+let analyse_stats : bool ref = ref false
 
-(* [analyse_time_details]: flags to meansure the time taken by each step within a transformation
+(* [analyse_stats_details]: flags to meansure the time taken by each step within a transformation
    (in particular, time to resolve targets, to set up marks, etc). *)
-let analyse_time_details : bool ref = ref false
+let analyse_stats_details : bool ref = ref false
 
 (* [dump_ast_details]: flag to dump OptiTrust AST, both in the form of a '.ast' and '_enc.cpp' files. *)
 let dump_ast_details : bool ref = ref false
+
+
+(* [dump_clang_ast]: flag to dump the AST as produced by clang into a specific file,
+   by default "clang_ast.ml".  *)
+let dump_clang_ast = ref None
+
+let set_dump_clang_ast () : unit =
+  dump_clang_ast := Some "clang_ast.ml"
 
 (* DEPRECATED? Flag to call [Trace.dump_last !dump_last] instead of [Trace.dump].
    Note: incompatible with the use of [switch] in scripts, currently. *)
@@ -130,8 +138,9 @@ let spec : cmdline_args =
      ("-dump-big-steps", Arg.String set_dump_big_steps, " produce a distinct CPP file for each big step");
      ("-dump-last", Arg.Set_int dump_last, " dump outputs the number of desired last steps; only for interactive mode"); (* DEPRECATED *)
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
-     ("-analyse-time", Arg.Set analyse_time, " produce a file reporting on the execution time");
-     ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
+     ("-dump-clang-ast", Arg.Unit set_dump_clang_ast, " produce clang_ast.ml with the AST obtained by ClangML");
+     ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
+     ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
      ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
@@ -146,7 +155,7 @@ let process_program_name () =
 
 (* [fix_flags ()]: processes flags than implies other flags. *)
 let fix_flags () =
-  if !analyse_time_details then analyse_time := true;
+  if !analyse_stats_details then analyse_stats := true;
   if !reparse_at_big_steps then debug_reparse := true
 
 (* [process_cmdline_args ~args ()]: processes all the command line arguments used during the script execution.

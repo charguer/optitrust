@@ -10,10 +10,12 @@ open Target
      @correctness: correct if the new order of evaluation of expressions is
       not changed or does not matter. *)
 let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : target) : unit =
-  applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+  Internal.nobrace_remove_after ( fun _ ->
+    applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ t (p, p_local, i)  ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
     Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
+  )
 
 (* [inline ~body_mark tg]: expects the target [tg] to point at a function call inside a declaration
     or inside a sequence in case the function is of void type. Example:
@@ -63,15 +65,15 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
           }
         }
 
-   @correctness: always work, and also need to instantiate variables in the
+   @correctness: always works, and also needs to instantiate variables in the
    local invariants in the body. *)
 
 let inline ?(body_mark : mark option) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    Trace.time "inline apply_on_transformed_targets" (fun () ->
+    Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
     apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
      (fun  t (p, p_local, i) ->
-        Trace.time "inline call to Function_core.inline" (fun () ->
+        Stats.comp_stats "inline call to Function_core.inline" (fun () ->
           Function_core.inline i body_mark p_local t p)) tg))
 
 
@@ -102,7 +104,6 @@ let rename_args (new_args : var list)  : Transfo.t =
   apply_on_targets (Function_core.rename_args new_args)
 
 
-
 (* [replace_with_change_args new_fun_name arg_mapper tg]: expects the target [tg] to point at a function call, then it will
     replace the name of the called function with [new_fun_name] and apply [arrg_mapper] to its arguments. *)
 let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) (tg : target) : unit =
@@ -112,11 +113,11 @@ let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms)
      inserts a new version of that definition whose return type is void.
     [arg] - is the name of the argument that's going to be inserted,
     [func] - the name of the new function that's going to be inserted. *)
-let dsp_def ?(arg : var = "res") ?(func : var = "dsp") : Transfo.t =
-  apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Function_core.dsp_def i arg func t p)
-
-
+let dsp_def ?(arg : var = "res") ?(func : var = "dsp") (tg : target) : unit =
+  Internal.nobrace_remove_after (fun _ -> 
+    apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun t (p,i) -> Function_core.dsp_def i arg func t p) tg)
+  
 (* [dsp_call ~dsp tg]: expects the target [tg] to point at a function call whose parent trm is a write operation
     then it will convert that write operation into a a function call.
     Let's say that the targeted function call is r = f(x, y);

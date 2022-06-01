@@ -160,11 +160,13 @@ let subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Targe
       [mark] - mark used for marking the targeted trm,
       [typ] - type of the binded variable, needed when the type can't be deducted from the targeted trm,
       [fresh_name] - name of the binded variable. *)
-let bind ?(const : bool = false) ?(mark : mark = "") ?(is_ptr : bool = false) ?(typ : typ option = None) (fresh_name : var) : Target.Transfo.t =
-  Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+let bind ?(const : bool = false) ?(mark : mark = "") ?(is_ptr : bool = false) ?(typ : typ option = None) (fresh_name : var) (tg : target) : unit =
+  Internal.nobrace_remove_after ( fun _ ->
+    Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
-      Variable_core.bind mark i fresh_name const is_ptr typ p_local t p)
+      Variable_core.bind mark i fresh_name const is_ptr typ p_local t p) tg
+  )
 
 (* [to_const tg]: expects the target [tg] to be point at a variable declaration, then it will search inside
       the same scope if there are any write operations on that variable.

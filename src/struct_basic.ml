@@ -10,12 +10,12 @@ let set_explicit (tg : target) : unit =
   apply_on_targets(Struct_core.set_explicit) tg)
 
 (*  [set_implicit tg]: expects the target [tg] to point at a sequence containing
-      a list of struct set assignments. And transforms it into a single struct assignment. 
+      a list of struct set assignments. And transforms it into a single struct assignment.
       So it is the inverse of set_explicit. *)
 let set_implicit ?(keep_label : bool = true) : Transfo.t =
   apply_on_targets (Struct_core.set_implicit keep_label)
 
-(* [fields_reorder ~move_before ~move_after struct_fields tg]: expects the target [tg]
+(* [reorder_fields ~move_before ~move_after struct_fields tg]: expects the target [tg]
     to point at a typedef struct, then it switches the order of the fields of the targeted struct.
     [move_before] - field before which all the fields in [struct_fields] will be moved
     [move_after] - field after which all the fields in [struct_fields] will be moved
@@ -23,15 +23,15 @@ let set_implicit ?(keep_label : bool = true) : Transfo.t =
 
    @correctness: Correct if pointer arithmetic to field is replaced everywhere,
    might be impossible to prove in case of casts between types. *)
-let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : vars) (tg : target) : unit =
+let reorder_fields ?(move_before : field = "") ?(move_after : field = "") (struct_fields : vars) (tg : target) : unit =
   let move_where =
     begin match move_before, move_after with
     | "", "" -> Reorder_all
     | "", _ -> Reorder_after move_after
     | _, "" -> Reorder_before move_before
-    | _,_-> fail None "Struct_basic.fields_reorder: cannot provide both move_before and move_after"
+    | _,_-> fail None "Struct_basic.reorder_fields: cannot provide both move_before and move_after"
     end in
-  apply_on_targets (Struct_core.fields_reorder struct_fields move_where) tg
+  apply_on_targets (Struct_core.reorder_fields struct_fields move_where) tg
 
 (* [reveal_field ~reparse field_to_reveal_field tg]: expects the target [tg] to point at a typedef struct,
     then it will find [field_to_reveal_field] and it's underlying type and it will
@@ -73,7 +73,7 @@ let applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update
 let update_fields_type ?(reparse : bool = false) (pattern : string) (ty : typ) : Transfo.t =
   applyto_fields_type ~reparse pattern (fun _ -> ty)
 
-(* [simpl_proj tg]: expects the target [tg] to point at any node whose descendants can contain struct 
+(* [simpl_proj tg]: expects the target [tg] to point at any node whose descendants can contain struct
     initialization list projections. *)
 let simpl_proj : Transfo.t =
   apply_on_targets (Struct_core.simpl_proj)
@@ -97,4 +97,3 @@ let struct_modif_simple ?(use_annot_of : bool = false) ?(new_fields : (label * t
     f_struct_get: modif:
     f_access: modif;
  *)
- 

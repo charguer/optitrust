@@ -13,53 +13,47 @@ type rename = Variable.Rename.t
       then it just leaves it as an empty string "". Basically this transformation is
       just an aplication of bind_intro n times. Where n is the numer of strings inside
       [fresh_names] different from "". *)
-
-let bind_args (fresh_names : vars) : Target.Transfo.t =
- let counter = ref (-1) in
- Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-  (fun t (p, p_local, i) ->
-   let path_to_call = p @ [Dir_seq_nth i] @ p_local in
-   let call_trm = Path.resolve_path path_to_call t in
-   begin match call_trm.desc with
-   | Trm_apps (_, tl) ->
-    if List.length fresh_names = 0
-      then begin Printf.printf "bind_args: no arguments to bind, no changes to be done\n"; t end (* LATER: check this *)
-      else if List.length tl <> List.length fresh_names then
-        fail call_trm.loc "Function.bind_args: for each argument of the function call, there should be associated either an empty string or a variable to be bounded to"
+let bind_args (fresh_names : vars) (tg : target) : unit =
+  iter_on_targets (fun t p ->
+    let call_trm = get_trm_at_path p t in
+    let call_mark = "bind_args_mark" in
+    let nb_fresh_names = List.length fresh_names in
+    let error = "Function.bind_args: expected a target to a function call." in 
+    let _, tl = trm_inv ~error trm_apps_inv call_trm in 
+    if nb_fresh_names = 0
+      then ()
+      else if List.length tl <> nb_fresh_names then
+        fail call_trm.loc "Function.bind_args: each argument should be binded to a variable or the empty string. "
       else begin
-           Xlist.fold_lefti (fun n t fresh_name ->
-            if fresh_name <> "" then
-            let () = incr counter in
-            Function_core.bind_intro (i + !counter) fresh_name false (p_local @ [Dir_arg_nth n]) t p
-            else t) t fresh_names
-            end
-   | _ ->
-     Ast_to_text.print_ast ~only_desc:true stdout call_trm;
-     fail call_trm.loc "Function.bind_args: expected a function call as target"
-   end)
+        Marks.add call_mark (target_of_path p);
+        List.iteri (fun ind fresh_name ->
+          if fresh_name = ""
+            then ()
+            else Function_basic.bind_intro ~fresh_name ~const:false [cMark call_mark; dArg ind]
+        ) fresh_names;
+        Marks.remove call_mark [cMark call_mark] end
+) tg
 
 (* [elim_body ~vars tg]: expects the target [tg] to point at a marked sequence.
      Then it will change all the declaraed variables inside that sequence  based on [vars]
      Either the user can give a list of variables together with their new names, or he can give the postifx
      that's going to be assigned to all the declared vairables. *)
-let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
-  Target.iter_on_targets (fun t p ->
-    let tg_trm = Trace.time "elim_body_resolve" (fun () -> Path.resolve_path p t) in
-    match tg_trm.desc with
-    | Trm_seq _ ->
-      Trace.time "elim_body_renames" (fun () ->
-        Variable.renames vars (Target.target_of_path p));
-      Trace.time "elim_body_elim" (fun () ->
-        Sequence_basic.elim (Target.target_of_path p));
-    | _ -> fail tg_trm.loc "Function.elim_body: the targeted should be pointing to a sequence"
+let elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
+  iter_on_targets (fun t p ->
+    let tg_trm = Stats.comp_stats "elim_body_resolve" (fun () -> Path.resolve_path p t) in
+    let error = "Function.elim_body: the given target should point at a sequence." in 
+    let _ = trm_inv ~error trm_seq_inv tg_trm in 
+    Stats.comp_stats "elim_body_renames" (fun () ->
+      Variable.renames vars (target_of_path p));
+    Stats.comp_stats "elim_body_elim" (fun () ->
+      Sequence_basic.elim (target_of_path p));
   ) tg
 
 (* [bind ~fresh_name ~args tg]: expects the target [tg] to point at a function call,
     Then it will just call bind args and bind_intro.
     Basically this tranasformation just binds a variable to the targeted function call
     and its arguments.*)
-
-let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : Target.target) : unit =
+let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : target) : unit =
   bind_args args tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
@@ -215,12 +209,12 @@ int f2() { // result of Funciton_basic.inline_cal
   _exit:;
   int s = r;
 } *)
-let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false) 
-    ?(delete : bool = false) ?(debug : bool = false) (tg : Target.target) : unit =
+let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
+    ?(delete : bool = false) ?(debug : bool = false) (tg : target) : unit =
     (* variable for storing the function name, in case if [delete] is true it will use this name to target the declaration and delete it *)
     let function_name = ref "" in
-    Trace.time "iteri_on_transformed_targets" (fun () ->
-  Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+    Stats.comp_stats "iteri_on_transformed_targets" (fun () ->
+  iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun i t (path_to_seq, local_path, i1) ->
       let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in
       let resname = ref resname in
@@ -238,61 +232,61 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       end;
 
       let post_processing ?(deep_cleanup : bool = false)() : unit =
-      Trace.time "post_processing" (fun () ->
-        let new_target = Target.cMark my_mark in
-        if not !mark_added then Marks.add my_mark (Target.target_of_path path_to_call);
+      Stats.comp_stats "post_processing" (fun () ->
+        let new_target = cMark my_mark in
+        if not !mark_added then Marks.add my_mark (target_of_path path_to_call);
         if args <> [] then bind_args args [new_target];
         let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
-        Trace.time "inline" (fun () ->
+        Stats.comp_stats "inline" (fun () ->
           Function_basic.inline ~body_mark [new_target];);
-        Trace.time "intro" (fun () ->
-          Accesses_basic.intro [Target.cMark body_mark];);
-        Trace.time "elim_body" (fun () ->
-          elim_body ~vars [Target.cMark body_mark];);
+        Stats.comp_stats "intro" (fun () ->
+          Accesses_basic.intro [cMark body_mark];);
+        Stats.comp_stats "elim_body" (fun () ->
+          elim_body ~vars [cMark body_mark];);
         if deep_cleanup then begin
           let success_attach = ref true in
             let _ = try Variable_basic.init_attach [new_target] with
                 | Variable_core.Init_attach_no_occurrences
                 | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
                 | e -> raise e in
-             
+
              if !success_attach then begin
                 Variable.inline [new_target];
-                Variable.inline_and_rename [Target.nbAny; Target.cVarDef !resname];
-                if not keep_res then begin try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> () end;
-                Marks.remove "__inline_instruction" [Target.nbAny;Target.cMark "__inline_instruction" ] end
+                Variable.inline_and_rename [nbAny; cVarDef !resname];
+                if not keep_res then begin try Variable.inline_and_rename [nbAny; cMark "__inline_instruction"] with | TransfoError _ -> () end;
+                Marks.remove "__inline_instruction" [nbAny;cMark "__inline_instruction" ] end
              else if not keep_res then
-                try Variable.inline_and_rename [Target.nbAny; Target.cMark "__inline_instruction"] with | TransfoError _ -> ();
-            Marks.remove my_mark [Target.nbAny; new_target]
+                try Variable.inline_and_rename [nbAny; cMark "__inline_instruction"] with | TransfoError _ -> ();
+            Marks.remove my_mark [nbAny; new_target]
         end;
-        Marks.remove my_mark [Target.nbAny; new_target];
-        Struct_basic.simpl_proj (Target.target_of_path path_to_seq);
+        Marks.remove my_mark [nbAny; new_target];
+        Struct_basic.simpl_proj (target_of_path path_to_seq);
 
       )
         in
       begin match tg_out_trm.desc with
       | Trm_let _ ->
-        Marks.add "__inline_instruction" (Target.target_of_path path_to_instruction);
-        Trace.time "bind_intro1" (fun () ->
-          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call));
+        Marks.add "__inline_instruction" (target_of_path path_to_instruction);
+        Stats.comp_stats "bind_intro1" (fun () ->
+          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call));
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | Trm_apps (_, [ls; rs]) when is_set_operation tg_out_trm ->
-        Trace.time "bind_intro2" (fun () ->
-          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call));
+        Stats.comp_stats "bind_intro2" (fun () ->
+          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call));
         mark_added := true;
         post_processing ~deep_cleanup:true ()
       | Trm_apps _ ->
         post_processing ();
       | Trm_for _ | Trm_for_c _ ->
           if debug then Printf.printf "Full_path to the call: %s\n" (Path.path_to_string path_to_call);
-          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (Target.target_of_path path_to_call) ;
+          Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call) ;
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | _ -> fail tg_out_trm.loc "Function.inline: please be sure that you're tageting a proper function call"
       end
     ) tg;
-    if delete then Instr.delete [Target.cTopFunDef !function_name]
+    if delete then Instr.delete [cTopFunDef !function_name]
     )
 
 (* [beta ~indepth tg]: expects the target [tg] to be pointing at a function call or a function declaration whose
@@ -309,11 +303,11 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
 
 (* [beta ~indepth tg]: applies beta-reduction on candidate function calls that appear
     either "exactly at" or "anywhere in depth" in the target [tg], depending on the value of ~indepth. *)
-let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : Target.target) : unit =
+let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : target) : unit =
   let tg = if indepth
-    then tg @ [Target.cFun ~fun_:[Target.cFunDef ""] ""]
+    then tg @ [cFun ~fun_:[cFunDef ""] ""]
     else tg in
-  Target.iter_on_targets (fun t p ->
+  iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_apps _ ->
@@ -322,7 +316,7 @@ let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : Target.target)
       let parent_path, _ = Xlist.unlast p in
       let parent_node = Path.resolve_path parent_path t in
       begin match parent_node.desc with
-      | Trm_apps (_, _args) -> Function_basic.beta ~body_mark (Target.target_of_path parent_path)
+      | Trm_apps (_, _args) -> Function_basic.beta ~body_mark (target_of_path parent_path)
       | _ -> ()
       end
     | _ -> fail t.loc "Function.beta: this transformation expects a target to a function call"
@@ -332,9 +326,9 @@ let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : Target.target)
      an infix form, for example x = x + 1 can be converted to x += 1,
     [indepth]: if true then it will check all the descendants of [t] if there are any write operations to be transformed
     [allow_identity]: if true it stops the transformation from failing when it finds nodes that can't be transformed.*)
-let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg : Target.target) : unit =
+let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg : target) : unit =
   let tg = if indepth
-    then [Target.nbMulti] @ tg @ [Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()] else tg in
+    then [nbMulti] @ tg @ [cWrite ~rhs:[cPrimPredFun is_infix_prim_fun] ()] else tg in
   Function_basic.use_infix_ops_at ~allow_identity tg
 
 
@@ -344,20 +338,20 @@ let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg 
     Now the stage is ready for applying the basic version of uninline. After calling that transformation and assuming that
     everything went fine we can now eliminate the introduced sequence. The arg [with_for_loop] should be set to true if the
     original function declaration contains a for loop.*)
-let uninline ?(contains_for_loop : bool = false) ~fct:(fct : Target.target) : Target.Transfo.t =
-  let tg_fun_def = match Target.get_trm_at fct with
+let uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) : Transfo.t =
+  let tg_fun_def = match get_trm_at fct with
   | Some td -> td
   | None -> fail None "Function.uninline: fct target does point to any node" in
-  Target.iter_on_targets (fun _ p ->
+  iter_on_targets (fun _ p ->
     let mark = Mark.next () in
     match tg_fun_def.desc with
     | Trm_let_fun (_, _, _, body) ->
       begin match body.desc with
       | Trm_seq tl ->
         let nb = Mlist.length tl in
-        Sequence_basic.intro nb ~mark (Target.target_of_path p);
+        Sequence_basic.intro nb ~mark (target_of_path p);
         if contains_for_loop then Sequence_basic.intro_on_instr [cMark mark; cFor_c "";dBody];
-        Function_basic.uninline ~fct [Target.cMark mark]
+        Function_basic.uninline ~fct [cMark mark]
       | _ -> fail tg_fun_def.loc "Function.uninline: weird function declaration "
       end
     | _ -> fail tg_fun_def.loc "Function.uinline: fct arg should point to a a function declaration"
@@ -367,5 +361,5 @@ let uninline ?(contains_for_loop : bool = false) ~fct:(fct : Target.target) : Ta
 (* [insert ~reparse decl tg]: expects the relative target [t] to point before or after an instruction,
      then it will insert the function declaration [decl] on that location.
      To integrate the new declaration with the current AST [reparse] should be set to true. *)
-let insert ?(reparse : bool = false) (decl : string) : Target.Transfo.t =
+let insert ?(reparse : bool = false) (decl : string) : Transfo.t =
   Sequence.insert ~reparse (stmt decl)

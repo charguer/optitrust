@@ -4,7 +4,24 @@ TARGET_MAKE_ALL := check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
 TESTS_WORKING := \
-	affinity.ml \
+	collapse1.ml \
+	collapse2.ml \
+	collapse3.ml \
+	fpriv_sections.ml \
+	linear_in_loop.ml \
+	master.ml \
+	nowait1.ml \
+	nowait2.ml \
+	nthrs_dynamic1.ml \
+	nthrs_dynamic2.ml \
+  parallel.ml \
+	parallel_1.ml \
+	psections.ml \
+	single.ml \
+	
+
+TESTS_TOCHECK := \
+  affinity.ml \
 	array_sections1.ml \
 	array_sections2.ml \
 	array_sections3.ml \
@@ -19,9 +36,6 @@ TESTS_WORKING := \
 	atomic_restrict1.ml \
 	atomic_restrict2.ml \
 	barrier_regions.ml \
-	collapse1.ml \
-	collapse2.ml \
-	collapse3.ml \
 	copyin.ml \
 	copyprivate1.ml \
 	copyprivate2.ml \
@@ -43,12 +57,9 @@ TESTS_WORKING := \
 	doacross3.ml \
 	doacross4.ml \
 	flush_nolist.ml \
-	fpriv_sections.ml \
 	get_nthrs.ml \
 	icv.ml \
 	lastprivate.ml \
-	linear_in_loop.ml \
-	master.ml \
 	mem_model1.ml \
 	mem_model2.ml \
 	mem_model3.ml \
@@ -60,20 +71,14 @@ TESTS_WORKING := \
 	nesting_restrict4.ml \
 	nesting_restrict5.ml \
 	nesting_restrict6.ml \
-	nowait1.ml \
-	nowait2.ml \
-	nthrs_dynamic1.ml \
-	nthrs_dynamic2.ml \
 	nthrs_nesting.ml \
 	ordered1.ml \
 	ordered2.ml \
 	ordered3.ml \
-	parallel.ml \
 	ploop1.ml \
 	private1.ml \
 	private2.ml \
 	private3.ml \
-	psections.ml \
 	reduction1.ml \
 	reduction2.ml \
 	reduction3.ml \
@@ -86,7 +91,6 @@ TESTS_WORKING := \
 	simd6.ml \
 	simd7.ml \
 	simd8.ml \
-	single.ml \
 	standalone.ml \
 	target1.ml \
 	target2.ml \
@@ -131,8 +135,6 @@ TESTS_WORKING := \
 	threadprivate1.ml \
 	threadprivate2.ml \
 	worksharing_critical.ml \
-
-TESTS_TOCHECK := \
 	taskgroup.ml \
 
 TESTS := $(TESTS_WORKING)

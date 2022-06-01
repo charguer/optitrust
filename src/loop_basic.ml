@@ -10,11 +10,11 @@ let swap : Transfo.t =
    let's say [for (int i = start; i < stop; i += step) { body } ].
    [nb_colors] - an expression denoting the number of colors (e.g., ["2"]),
    [index] - denotes a fresh name to use as index for iterating over colors.
-   
+
    In case [step = 1]:
    [for (int index = 0; index < nb_color; index++) {
       for (int i = index; i < stop; i += nb_color) { body }].
-   
+
    In the general case, it produces:
    [for (int index = 0; index < nb_color; index++) {
       for (int i = index*step; i < stop; i += step*nb_color) { body }]. *)
@@ -46,9 +46,9 @@ let tile ?(index : var = "b${id}") ?(bound : tile_bound = TileBoundMin) (tile_si
     The targeted declaration should be detached, then the transformation it's going to introduce
     an array declaration right before the for loop that contains the targeted declaration.
     The declared array will have name [name], type the same as the one targeted by [tg] and the size
-    of the array it's going to be equal to the [loop_bound -1]. All the variable occurrences are 
+    of the array it's going to be equal to the [loop_bound -1]. All the variable occurrences are
     going to be replaced with array accesses at index the index of the for loop.
-  
+
     [x_step] - denotes the array name that is going to hoist all the values of the targeted variable
     for each index of the for loop. *)
 let hoist ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
@@ -74,7 +74,7 @@ let fusion_on_block ?(keep_label : bool = false) : Transfo.t =
   apply_on_targets (Loop_core.fusion_on_block keep_label)
 
 (* [grid_enumerate index_and_bounds tg]: expects the target [tg] to point at a loop iterating over
-    a grid. The grid can be of any dimension. 
+    a grid. The grid can be of any dimension.
     Loop  [tg] then is transformed into nested loops
     where the number of nested loops is equal to the number of dimensions.
       [index_and_bounds] - is a list of pairs, where each pair denotes the index and the bound
@@ -107,6 +107,8 @@ let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit
     that is not dependent on the index of the loop or any local variable.
     Then it will move it outside the loop.
 
+    NOTE:: currently, there is no check that the transformation is legitimate.
+      
     LATER: Implement a combi transformation that will check if the targeted instruction
     is dependent on any local variable or the loop index. *)
 let move_out (tg : target) : unit =
@@ -130,7 +132,7 @@ let unswitch (tg : target) : unit =
         by default is an empty string. The reason for that is to check if the user
         gave the name of the new index of not. If not then [index] = unit_index
         where index is the index of the targeted loop.
-    
+
     Assumption:
       The targeted loop should be of the form:
         for (int i = a; i < b; i+=B){ s += i },
@@ -152,7 +154,7 @@ let fold ~index:(index : var) ~start:(start : int) ~step:(step : int) : Transfo.
     Loop_core.fold index start step
 )
 
-(* [split_range nb cut tg]: expects the target [tg] to point at a simple loop 
+(* [split_range nb cut tg]: expects the target [tg] to point at a simple loop
     then based on the arguments nb or cut it will split the loop into two loops. *)
 let split_range ?(nb : int = 0) ?(cut : trm = trm_unit()) (tg : target) : unit =
   Internal.nobrace_remove_after( fun _ ->

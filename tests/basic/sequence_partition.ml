@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Sequence_basic.partition ~braces:true [2;3] [cFunDef "main"; dBody]; 
-  )
+
+  !! Sequence_basic.partition ~braces:true [2;3] [cFunDef "main"; dBody];
+
+)
+
 "
 int main() {
   int a = 0;
@@ -16,10 +19,9 @@ int main() {
 "
 
 let _ = Run.script_cpp (fun _ ->
-  (* LATER: ARTHUR why is this giving 2 results?
-     show [ cFunDef "main"; cSeq(); cSeq()];
-   *)
-  let tg = [cSeq ~args_pred:(Target.target_list_one_st [cVarDef "a"]) ()] in (* LATER: simplify *)
+  
+  (* LATER: ARTHUR why is this giving 2 results? show [ cFunDef "main"; cSeq(); cSeq()]; *)
+  let tg = [cSeq ~args_pred:(target_list_one_st [cVarDef "a"]) ()] in (* LATER: simplify *)
   !! Sequence_basic.partition ~braces:true [2;3;2] tg;
 
 

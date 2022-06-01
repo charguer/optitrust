@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Arrays_basic.swap [cTypDef "T"];
-  )
+  
+  !! Arrays_basic.swap [cTypDef "T"];
+
+)
+
 "
 typedef int T[2][3];
 
@@ -16,5 +19,7 @@ int main() {
 
 
 let _ = Run.script_cpp (fun _ ->
-    !! Arrays_basic.swap [cTypDef "T"];
+  
+  !! Arrays_basic.swap [cTypDef "T"];
+
 )

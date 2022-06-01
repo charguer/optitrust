@@ -58,7 +58,7 @@ let parens (d : document) : document =
 let print_list ?(sep : string = ";") (dl : document list) : document =
   surround 2 1 lbracket (separate (string sep ^^ break 1) dl) rbracket
 
-(* [list_to_doc]: advanced version of [print_list] that supports special treatment for empty lists. 
+(* [list_to_doc]: advanced version of [print_list] that supports special treatment for empty lists.
     LATER: merge with [print_list], making [empty] an optional argument? *)
 let list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds:document list = [string "["; string "]"]) (l : document list) : document =
   let rec aux = function

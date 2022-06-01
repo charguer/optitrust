@@ -2,10 +2,13 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Sequence_basic.intro 2 [cVarDef "a"];
-       Sequence_basic.intro_between [tBefore; cVarDef "d1"] [tAfter; cVarDef "d3"];
-       Sequence_basic.intro_after [cVarDef "f"];
-  )
+    
+  !! Sequence_basic.intro 2 [cVarDef "a"];
+  !! Sequence_basic.intro_between [tBefore; cVarDef "d1"] [tAfter; cVarDef "d3"];
+  !! Sequence_basic.intro_after [cVarDef "f"];
+
+)
+
 "
 int main() {
   int a = 0;
@@ -35,4 +38,5 @@ let _ = Run.script_cpp (fun _ ->
        Sequence_basic.intro_between [tAfter; cVarDef "z"] [tBefore; cVarDef "z"]);
   !! Tools.failure_expected (fun () ->
        Sequence_basic.intro_between [tAfter; cVarDef "z"] [tAfter; cVarDef "z"]);
+
 )

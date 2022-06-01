@@ -32,12 +32,14 @@ void m(int* p) { (*p)++; }
 int main() {
   int x = 3;
   int a0 = x + x;
+
   int y = a0 + a0;
   int z;
   if (x > 0)
     z = 1;
   else
     z = 2;
+
   int s = y + z;
   int u;
   if (x > 0) {
@@ -48,8 +50,10 @@ int main() {
 exit_body:;
   int* q;
   (*q)++;
+
   vect a = {0, 1, 2};
   vect b = {3, 4, 5};
+
   vect c = {b.x + x * a.x, b.y + x * a.y, b.z + x * a.z};
   return 0;
 }
@@ -70,14 +74,17 @@ vect vect_op2(vect v) {
 void test_const_ret() {
   int x = 3;
   int a1 = x + x;
+
   const int y = a1 + a1;
   int z;
   if (x > 0)
     z = 1;
   else
     z = 2;
+
   int s = y + z;
   const vect t = {0, 1};
+
   const vect v = {t.x + x * t.x, t.y + x * t.y, t.z + x * t.z};
   vect w;
   if (true) {
@@ -90,12 +97,14 @@ void test_const_ret() {
 exit_body:;
   vect res = {0, 0};
   res.x = 1;
+
   vect w2 = res;
 }
 
 void test_const_arg() {
   const int x = 3;
   int a2 = x + x;
+
   int y = a2 + a2;
   int z = g(x);
   int s = y + z;

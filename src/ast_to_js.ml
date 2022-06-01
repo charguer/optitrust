@@ -5,8 +5,8 @@ open PPrint
 (* [Json]: A module for creating a json view of OptiTrust ast *)
 module Json = struct
   open PPrint
-  
-  (* [t]: representation of a json object *)  
+
+  (* [t]: representation of a json object *)
   type t =
     | Str of string
     | Int of int
@@ -274,7 +274,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "app";
           children_to_field children]
     | Trm_for (l_range, body) ->
-      let (index, start, _, stop, step, _) = l_range in 
+      let (index, start, _, stop, step, _) = l_range in
       [ kind_to_field "simple_for";
           (strquote "index", strquote index);
           children_to_field [
@@ -388,8 +388,6 @@ let ast_to_json (trm_root : trm) : json =
       (strquote "is_statement", Json.Boolean t.is_statement);
       (* (strquote "annot", strquote (annot_list_to_string t) ); *) (* Fix me! *)
       (strquote "loc", loc_to_json t);
-      (strquote "attributes", Json.List (List.map Json.str (List.map Tools.document_to_string
-                                 (List.map print_attribute t.attributes))))
       ]) in
     result := (Json.Int id, json) :: !result;
     id in

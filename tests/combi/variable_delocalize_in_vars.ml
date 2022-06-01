@@ -2,7 +2,33 @@ open Optitrust
 open Target
 open Ast
 
+let _ = Run.doc_script_cpp (fun () -> 
+
+  !! Variable.delocalize_in_vars "a" ~into:"x" ~index:"k" ~mark:"section_of_interest" ~array_size:"N" ~ops:(Local_arith (Lit_int 0, Binop_add) ) ~local_vars:["xa";"xb"] [cFor "i"];
+
+)
+
+"
+#include \"../../include/optitrust.h\"
+
+typedef int T;
+
+T CHOOSE (int nb, T b1, T b2) {return b1;}
+
+int main() {
+  const int N = 2;
+  T a;
+  for (int i = 0; i < 2; i++){
+    a++;
+  }
+  int y = 0;
+  return 0;
+}
+"
+
+
 let _ =  Run.script_cpp ( fun () ->
+
   !! Variable.delocalize_in_vars "a" ~into:"x" ~index:"k" ~mark:"section_of_interest" ~array_size:"N" ~ops:(Local_arith (Lit_int 0, Binop_add) ) ~local_vars:["xa";"xb"] [cFor "i"];
   !! Trace.alternative (fun () ->
     !! Variable.local_name  "a" ~into:"x" ~mark:"section_of_interest" [cFor "i"];
@@ -12,4 +38,5 @@ let _ =  Run.script_cpp ( fun () ->
     !! Arrays_basic.to_variables ["xa";"xb"] [cVarDef "x"];
     !! Marks_basic.remove "section_of_interest"  [cMark "section_of_interest"];
     !! ());
+
 )

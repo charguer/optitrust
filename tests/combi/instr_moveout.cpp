@@ -1,6 +1,5 @@
 
 void test_decl (){
-
    {
     int a;
     int b = 2;
@@ -8,8 +7,6 @@ void test_decl (){
     int d = 6;
     int e = 7;
    }
-
-
 }
 
 void test_loop(){

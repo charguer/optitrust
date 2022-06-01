@@ -244,7 +244,7 @@ and launch a shell for our singularity container.
 alternatively:
 
 ```
-  wget http://www.chargueraud.org/research/2022/sc_optitrust/optitrust.sif_latest.sif  
+  wget http://www.chargueraud.org/research/2022/sc_optitrust/optitrust.sif_latest.sif
   singularity shell optitrust.sif_latest.sif
 
 ```
@@ -513,7 +513,13 @@ Unfortunately, this takes a little while (typically 15-20 minutes), because the 
 package manager compiles the OCaml compiler and all its packages from sources.
 
 ```
-   sudo apt-get install opam
+  bash -c "sh <(curl -fsSL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh)"
+or
+  sudo apt-get install opam
+```
+
+Then:
+```
    opam init
    opam switch create 4.12.0
    opam pin add menhirLib 20210419
@@ -564,7 +570,7 @@ Then copy the input source files over from the `../case_studies/pic` folder usin
 command:
 
 ```
-   make import 
+   make import
 ```
 
 ## Execution of our transformation script

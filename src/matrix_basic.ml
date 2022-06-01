@@ -1,6 +1,6 @@
 open Ast
 
-(* [intro_calloc tg]: expects the target [tg] to point at  a call to funciton alloc then it will 
+(* [intro_calloc tg]: expects the target [tg] to point at  a call to funciton alloc then it will
     replace this call with a call to CALLOC. *)
 let intro_calloc : Target.Transfo.t =
   Target.apply_on_targets (Matrix_core.intro_calloc)
@@ -43,49 +43,49 @@ let biject (fun_name : string) : Target.Transfo.t =
       as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finally we
       free up the memory. *)
 let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : Target.target option = None) (v : var) ~into:(into : var) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : Target.target) : unit =
-  let remove = (my_mark = None) in 
-  let get_alloc_type_and_trms (t : trm) (tg1 : Target.target) : typ * (trms * trm * bool) = 
-    let var_type = begin match t.desc with 
+  let remove = (my_mark = None) in
+  let get_alloc_type_and_trms (t : trm) (tg1 : Target.target) : typ * (trms * trm * bool) =
+    let var_type = begin match t.desc with
       | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty
-      | Trm_apps (_, [lhs; _rhs]) when is_set_operation t -> 
-        begin match lhs.typ with 
+      | Trm_apps (_, [lhs; _rhs]) when is_set_operation t ->
+        begin match lhs.typ with
         | Some ty -> ty
         | None -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" v)
         end
-      | _ -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr 
+      | _ -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr
           target doesn't point to a write operation or a variable declaration \n'" v)
-      end in 
-      let alloc_trms = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with 
-        | Some at -> 
-          begin match Matrix_core.alloc_inv at with 
-          | Some (dims, sz, zero_init) -> (dims, sz, zero_init) 
+      end in
+      let alloc_trms = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with
+        | Some at ->
+          begin match Matrix_core.alloc_inv at with
+          | Some (dims, sz, zero_init) -> (dims, sz, zero_init)
           | _ -> fail t.loc "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
           end
         | None -> fail None "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
         end in (var_type, alloc_trms)
     in
-  Internal.nobrace_remove_after ~remove (fun _ -> 
-    Target.(apply_on_targets (fun t p -> 
+  Internal.nobrace_remove_after ~remove (fun _ ->
+    Target.(apply_on_targets (fun t p ->
       let seq_p, _ = Internal.isolate_last_dir_in_seq p in
-      let seq_tg = Target.target_of_path seq_p in 
-      let var_target = cOr [[cVarDef v]; [cWriteVar v]] in 
-      begin match alloc_instr with 
-      | Some tg1 -> 
-        begin match get_trm_at tg1 with 
+      let seq_tg = Target.target_of_path seq_p in
+      let var_target = cOr [[cVarDef v]; [cWriteVar v]] in
+      begin match alloc_instr with
+      | Some tg1 ->
+        begin match get_trm_at tg1 with
         | Some t1 ->
-          let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in 
+          let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
           if not remove then Internal.nobrace_enter();
           Matrix_core.local_name my_mark v into alloc_trms var_type indices local_ops t p
         | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
         end
-      | None -> 
-        begin match get_trm_at (seq_tg @ [var_target]) with 
+      | None ->
+        begin match get_trm_at (seq_tg @ [var_target]) with
         | Some t1 ->
           let tg1 = (seq_tg @ [var_target]) in
-          let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in 
+          let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
           if not remove then Internal.nobrace_enter();
           Matrix_core.local_name my_mark v into alloc_trms var_type indices local_ops t p
-          
+
         | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
         end
       end

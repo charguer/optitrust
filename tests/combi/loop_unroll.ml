@@ -2,8 +2,11 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
+
   !! Loop.unroll [cFor "a"];
-  )
+
+)
+
 "
 int main() {
   int r = 10;
@@ -28,4 +31,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.alternative (fun () ->
     !! Loop.unroll ~braces:false [cFor "i"];
     !!())
+
 )

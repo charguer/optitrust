@@ -45,4 +45,3 @@ let _ =
       Printf.printf "rexp%d(%s)\tstr%d(%s)\t-> %s\n" i (Constr.rexp_to_string r) j s (if b then "true" else "false");
      ) strs) rexps
 
-

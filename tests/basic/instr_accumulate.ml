@@ -3,8 +3,11 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Instr_basic.accumulate [cLabel "fuse"];
-  )
+  
+  !! Instr_basic.accumulate [cLabel "fuse"];
+
+)
+
 "
 int main() {
   int x = 0;

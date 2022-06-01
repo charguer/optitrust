@@ -320,8 +320,9 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
 and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false)  (t : trm) : document =
   let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
+  let t_attributes = trm_get_attr t in
   let dattr =
-    match t.attributes with
+    match t_attributes with
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
     in
@@ -828,7 +829,7 @@ and clause_to_doc (cl : clause) : document =
   | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ (if i = "" then empty else comma ^^ blank 1 ^^ string i))
   | Dist_schedule (st, i) -> string "dist_schedule" ^^ parens (sched_type_to_doc st ^^ (if i = "" then empty else comma ^^ blank 1 ^^ string i))
   | Parallel_c -> string "parallel"
-  | Sections_c -> string "sections"
+  | Section_c -> string "section"
   | For_c -> string "for"
   | Taskgroup_c -> string "taskgroup"
   | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)
@@ -917,12 +918,12 @@ and directive_to_doc (d : directive) : document =
 and routine_to_doc (r : omp_routine) : document =
   match r with
   | Set_num_threads i -> string "omp_set_num_threads" ^^ parens (string (string_of_int i)) ^^ semi
-  | Get_num_threads -> string "omp_get_num_threads" ^^ lparen ^^ blank 1 ^^ rparen
-  | Get_max_threads -> string "omp_get_max_threads" ^^ lparen ^^ blank 1 ^^ rparen
-  | Get_thread_num  -> string "omp_get_thread_num" ^^ lparen ^^ blank 1 ^^ rparen
-  | Get_num_procs  -> string "omp_get_num_procs" ^^ lparen ^^ blank 1 ^^ rparen
-  | In_parallel  -> string "omp_in_parallel" ^^ lparen ^^ blank 1 ^^ rparen
-  | Set_dynamic i -> string "omp_set_dynamic" ^^ parens (string (string_of_int i))
+  | Get_num_threads -> string "omp_get_num_threads" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
+  | Get_max_threads -> string "omp_get_max_threads" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
+  | Get_thread_num  -> string "omp_get_thread_num" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
+  | Get_num_procs  -> string "omp_get_num_procs" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
+  | In_parallel  -> string "omp_in_parallel" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
+  | Set_dynamic i -> string "omp_set_dynamic" ^^ parens (string (string_of_int i)) ^^ semi
   | Get_dynamic  -> string "omp_get_dynamic" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_cancellation  -> string "omp_get_cancellation"
   | Set_nested i -> string "omp_set_nested" ^^ parens (string (string_of_int i))

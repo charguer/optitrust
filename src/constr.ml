@@ -698,20 +698,6 @@ let is_target_between (tr : target) : bool =
    tgs.target_relative <> TargetAt
 
 (******************************************************************************)
-(*               Performance Counters for Target resolution                   *)
-
-(* [resolve_target_steps()]: returns the number of AST nodes visited during
-   the target resolution steps, then resets the counter. *)
-
-let resolve_target_steps_counter = ref 0
-
-let resolve_target_steps () : int =
-  let nb = !resolve_target_steps_counter in
-  resolve_target_steps_counter := 0;
-  nb
-
-
-(******************************************************************************)
 (*                              Target resolution                             *)
 (******************************************************************************)
 
@@ -959,7 +945,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           check_target p_fun f &&
           check_list ~depth:(DepthAny) cl_args args
      | Constr_label (so, p_body), _ ->
-        let t_labels = trm_get_labels t in 
+        let t_labels = trm_get_labels t in
         List.fold_left (fun acc l -> check_name so l || acc) false t_labels &&
         check_target p_body t
      | Constr_goto so, Trm_goto l ->
@@ -979,7 +965,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_cases cc cases
      | Constr_bool b, _ -> b
      | Constr_root, _ -> trm_is_mainfile t
-        
+
      | Constr_prim pred, Trm_val (Val_prim p1) ->
         pred p1
      | Constr_mark (pred, _m), _ ->
@@ -1127,7 +1113,7 @@ and debug_resolution = false
      [trs]: a clean target t
      [t]: ast  *)
 and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t : trm) : paths =
-  incr resolve_target_steps_counter;
+  Stats.incr_target_resolution_steps ();
   let epl =
     match trs with
     | [] -> [[]]
@@ -1279,7 +1265,7 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   | Constr_include h when trm_is_include t ->
      (* remove the include annotation for target resolution to proceed in the
        included file *)
-     resolve_target_simple p {t with annot = trm_annot_default}
+     resolve_target_simple p (trm_alter ~annot:(Some trm_annot_default) t)
   | _ when trm_is_include t ->
      print_info loc "Constr.resolve_constraint: not an include constraint\n";
      []
@@ -1447,7 +1433,10 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_then (aux then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (aux else_t)
-  | Dir_body, Trm_let (_,(_,_),body)
+  | Dir_var_body, Trm_let (_, _, body) ->
+     let new_op_arg = new_operation_arg body in
+     add_dir Dir_var_body (aux new_op_arg)
+  | Dir_body, Trm_let (_, _,body)
     | Dir_body, Trm_let_fun (_, _, _, body)
     | Dir_body, Trm_for_c (_, _, _, body)
     | Dir_body, Trm_for (_, body)

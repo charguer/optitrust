@@ -38,11 +38,11 @@ let _ = Run.script_cpp (fun () ->
   show [ cVarDef "r" ];
   show [ cVarDef "r" ; cPrimNew() ];
   show [ cVarDef "r" ; cPrimNew(); dArg 0 ];
-  show [ cVarDef "r" ; cInit () ];
-  show [ cVarDef "r" ; dInit ];
-  show [ cInit () ];
+  show [ cVarInit "r"];
+  show [ cVarInit "r"];
+  (* show [ cInit () ]; *)
   show [ cVarDef ""; cInit ~arg:[cStrict; cLit] () ];
-  show [ cVarDef ""; cStrict; cInit ~arg:[ cStrict; cLit] () ];
+  (* show [ cVarDef ""; cStrict; cInit ~arg:[ cStrict; cLit] () ]; *)
 
   (* Loops *)
   show [ cFor "i" ];
@@ -77,7 +77,7 @@ let _ = Run.script_cpp (fun () ->
   show [sInstr "g("];
   show [sExpr "f("];
   (* Regexp *)
- 
+
   (* We can match only inside the body of the loop now*)
   show [sInstr "+= 2"];
   show [nbExact 0; sExpr ~substr:false "+= 2"];

@@ -86,10 +86,10 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   in
   let rec replace_type_annot (t : trm) : trm =
     let t =
-      {t with typ = match t.typ with
-                    | None -> None
-                    | Some ty' -> Some (change_typ ty')
-      }
+      let typ = match t.typ with
+      | None -> None
+      | Some ty' -> Some (change_typ ty') in
+      trm_alter ~typ t
     in
     trm_map replace_type_annot t
   in
@@ -103,20 +103,20 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
          trm_unop ~annot:t.annot ~loc:t.loc
            (Unop_cast (change_typ ty))
       | Trm_let (vk,(y,ty),init) ->
-        trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement vk (y,change_typ ty) (aux init)
+        trm_let ~annot:t.annot ~loc:t.loc vk (y,change_typ ty) (aux init)
       | Trm_let_fun (f, ty, args, body) ->
-         trm_let_fun ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
-           ~attributes:t.attributes f (change_typ ty)
-                     (List.map (fun (y, ty) -> (y, change_typ ty)) args)
-                     (aux body)
+         trm_let_fun ~annot:t.annot ~loc:t.loc
+            f (change_typ ty)
+            (List.map (fun (y, ty) -> (y, change_typ ty)) args)
+            (aux body)
       | Trm_typedef td ->
         begin match td.typdef_body with
         | Typdef_alias ty ->
-          trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~attributes:t.attributes
+          trm_typedef  ~annot:t.annot ~loc:t.loc
            { td with typdef_body = Typdef_alias (change_typ ty)}
         | Typdef_prod (b, s) ->
            let s = List.map (fun (lb, x) -> (lb, change_typ x)) s in
-           trm_typedef ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~attributes:t.attributes
+           trm_typedef ~annot:t.annot ~loc:t.loc
            { td with typdef_body = Typdef_prod (b, s)}
         | _ -> trm_map aux t
         end
@@ -156,7 +156,7 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
   | _ -> fail None "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
-(* [get_instruction_in_surrounding_sequence dl]: for a trm with path [dl] return the path to the surrouding sequence 
+(* [get_instruction_in_surrounding_sequence dl]: for a trm with path [dl] return the path to the surrouding sequence
      of the instruction that contains that trm, the path from that instruction to the trm itself and the index of that
      instruction on that sequence. *)
 let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
@@ -200,9 +200,17 @@ let get_ascendant_write_path (dl : path) (t : trm) : path =
 
 (* [get_parent_path dl]: returns the parent path of [dl]. *)
 let get_parent_path (dl : path) : path =
-  match List.rev dl with 
+  match List.rev dl with
   | _ :: dl' -> List.rev dl'
   | _ -> dl
+
+
+(* [get_ascendant_topfun_path dl]: returns the path to the toplevel function that contains
+     the trm where the path [dl] points to. *)
+let get_ascendant_topfun_path (dl : path) : path option =
+  match dl with
+  | Dir_seq_nth i :: Dir_body :: _ -> Some [Dir_seq_nth i]
+  | _ -> None
 
 (* [is_decl_body dl]: check if [dl] points to a declaration body *)
 let is_decl_body (dl : path) : bool =
@@ -237,7 +245,7 @@ let rec get_typid_from_typ (t : typ) : int =
   | Typ_fun (_, ty) -> get_typid_from_typ ty
   | _ -> -1
 
-(* [get_typid_from_trm ~first_martch t]: for trm [t] check if its type is a constructed type. 
+(* [get_typid_from_trm ~first_martch t]: for trm [t] check if its type is a constructed type.
    If that's the case then return its id, otherwise return -1, meaning that trm [t] has a different typ. *)
 let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
   match t.desc with
@@ -408,7 +416,7 @@ let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) l
       | None -> fail None (Printf.sprintf "Internal.reorder_fields: field %s doest not exist" x)) local_l
     end
 
-(* [get_trm_and_its_relatives index trms]: for a trm [t] with index [index] in its surrounding sequence return 
+(* [get_trm_and_its_relatives index trms]: for a trm [t] with index [index] in its surrounding sequence return
     the list of trms before t, t itself and the list of trms that come after t. *)
 let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
   let lfront, lback = Mlist.split index trms in
@@ -449,7 +457,7 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
         if indices_list <> [] then
           List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list)
         else new_tl in
-      {t with desc = Trm_seq new_tl}
+      trm_replace (Trm_seq new_tl) t
     | _ -> trm_map aux t
    in aux t
 
@@ -502,7 +510,7 @@ let is_trm_loop (t : trm) : bool =
   | _ -> false
 
 (* [is_struct_type t]: check if [t] is type struct or not
-    
+
     Note: The current infrastructure of Optitrust supports only
       struct declared via typedefs, later we will add support for
       struct types not declared via a typedef. *)

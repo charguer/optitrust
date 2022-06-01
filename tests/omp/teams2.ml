@@ -7,6 +7,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.teams [Num_teams "num_teams";Thread_limit "block_threads";Reduction (Plus,["sum"])] [tBefore; cFor "i0"];
   !! Omp.distribute [] [tBefore; cFor "i0"];
   !! Omp.parallel_for [Reduction(Plus, ["sum"])] [tBefore;cFor "i"];
-  
+
 )
- 

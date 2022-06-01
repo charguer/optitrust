@@ -4,8 +4,11 @@ open Ast
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Matrix.intro_mops (var "nbCells") [cVarDef "deposit"];
-  )
+
+  !! Matrix.intro_mops (var "nbCells") [cVarDef "deposit"];
+  
+)
+
 "
 #include <stdlib.h>
 int main() {
@@ -19,6 +22,8 @@ int main() {
 "
 
 let _ = Run.script_cpp (fun _ ->
+
   !! Matrix.intro_mops (trm_var "N") [cVarDef "p"];
   !! Matrix.intro_mops (trm_var "N") [cVarDef "q"];
+
 )

@@ -6,5 +6,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.simd [] [tBefore; cFunDef "myaddint"; cFor "i"];
   !! Omp.declare_simd [Linear (["p"], 1); Inbranch] [tBefore; cFunDef "goo"];
   !! Omp.simd [] [tBefore; cFunDef "myaddfloat"; cFor "i"];
-  
+
 )

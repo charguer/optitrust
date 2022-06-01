@@ -352,10 +352,10 @@ module Raw =
 
     type 'elt coq_R_mem =
     | R_mem_0 of 'elt tree
-    | R_mem_1 of 'elt tree * 'elt tree * key * 'elt * 'elt tree * I.t * 
+    | R_mem_1 of 'elt tree * 'elt tree * key * 'elt * 'elt tree * I.t *
        bool * 'elt coq_R_mem
     | R_mem_2 of 'elt tree * 'elt tree * key * 'elt * 'elt tree * I.t
-    | R_mem_3 of 'elt tree * 'elt tree * key * 'elt * 'elt tree * I.t * 
+    | R_mem_3 of 'elt tree * 'elt tree * key * 'elt * 'elt tree * I.t *
        bool * 'elt coq_R_mem
 
     (** val coq_R_mem_rect :
@@ -440,20 +440,20 @@ module Raw =
 
     type 'elt coq_R_bal =
     | R_bal_0 of 'elt tree * key * 'elt * 'elt tree
-    | R_bal_1 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key * 
+    | R_bal_1 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key *
        'elt * 'elt tree * I.t
-    | R_bal_2 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key * 
+    | R_bal_2 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key *
        'elt * 'elt tree * I.t
-    | R_bal_3 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key * 
-       'elt * 'elt tree * I.t * 'elt tree * key * 'elt * 'elt tree * 
+    | R_bal_3 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key *
+       'elt * 'elt tree * I.t * 'elt tree * key * 'elt * 'elt tree *
        I.t
     | R_bal_4 of 'elt tree * key * 'elt * 'elt tree
-    | R_bal_5 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key * 
+    | R_bal_5 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key *
        'elt * 'elt tree * I.t
-    | R_bal_6 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key * 
+    | R_bal_6 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key *
        'elt * 'elt tree * I.t
-    | R_bal_7 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key * 
-       'elt * 'elt tree * I.t * 'elt tree * key * 'elt * 'elt tree * 
+    | R_bal_7 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * key *
+       'elt * 'elt tree * I.t * 'elt tree * key * 'elt * 'elt tree *
        I.t
     | R_bal_8 of 'elt tree * key * 'elt * 'elt tree
 
@@ -577,7 +577,7 @@ module Raw =
 
     type 'elt coq_R_remove_min =
     | R_remove_min_0 of 'elt tree * key * 'elt * 'elt tree
-    | R_remove_min_1 of 'elt tree * key * 'elt * 'elt tree * 'elt tree * 
+    | R_remove_min_1 of 'elt tree * key * 'elt * 'elt tree * 'elt tree *
        key * 'elt * 'elt tree * I.t * ('elt tree * (key * 'elt))
        * 'elt coq_R_remove_min * 'elt tree * (key * 'elt)
 
@@ -647,10 +647,10 @@ module Raw =
 
     type 'elt coq_R_remove =
     | R_remove_0 of 'elt tree
-    | R_remove_1 of 'elt tree * 'elt tree * key * 'elt * 'elt tree * 
+    | R_remove_1 of 'elt tree * 'elt tree * key * 'elt * 'elt tree *
        I.t * 'elt tree * 'elt coq_R_remove
     | R_remove_2 of 'elt tree * 'elt tree * key * 'elt * 'elt tree * I.t
-    | R_remove_3 of 'elt tree * 'elt tree * key * 'elt * 'elt tree * 
+    | R_remove_3 of 'elt tree * 'elt tree * key * 'elt * 'elt tree *
        I.t * 'elt tree * 'elt coq_R_remove
 
     (** val coq_R_remove_rect :
@@ -775,10 +775,10 @@ module Raw =
 
     type ('elt, 'x) coq_R_map_option =
     | R_map_option_0 of 'elt tree
-    | R_map_option_1 of 'elt tree * 'elt tree * key * 'elt * 'elt tree * 
+    | R_map_option_1 of 'elt tree * 'elt tree * key * 'elt * 'elt tree *
        I.t * 'x * 'x tree * ('elt, 'x) coq_R_map_option * 'x tree
        * ('elt, 'x) coq_R_map_option
-    | R_map_option_2 of 'elt tree * 'elt tree * key * 'elt * 'elt tree * 
+    | R_map_option_2 of 'elt tree * 'elt tree * key * 'elt * 'elt tree *
        I.t * 'x tree * ('elt, 'x) coq_R_map_option * 'x tree
        * ('elt, 'x) coq_R_map_option
 

@@ -36,11 +36,13 @@ let process_cmdline_args (args : Flags.cmdline_args) : unit =
 let script (f : unit -> unit) : unit =
   Flags.process_cmdline_args();
   try
-    let t0 = Unix.gettimeofday() in
-    f ();
-    let t1 = Unix.gettimeofday() in
-    if !Flags.analyse_time
-      then Printf.printf "Script execution time: %d ms\n" (Tools.milliseconds_between t0 t1);
+    let stats0 = Stats.get_cur_stats () in
+    f();
+    let stats1 = Stats.get_cur_stats () in
+    if !Flags.analyse_stats
+      then
+        let stats_str = Stats.stats_diff_str stats0 stats1 in
+        Printf.printf "%s\n" stats_str;
   with | Failure s | Ast.TransfoError s ->
     Trace.finalize();
     (* failwith s *)
@@ -125,9 +127,9 @@ exception Stop
 let stop () : unit =
   raise Stop
 
-(* [script_cpp ~batching ~filename ~prepro ~inline ~check_exit_at_end ~prefix ~parser f]: 
+(* [script_cpp ~batching ~filename ~prepro ~inline ~check_exit_at_end ~prefix ~parser f]:
      is a specialized version of [script f] that:
-   - automatically invokes [Trace.init "foo.cpp"] at start, where "foo" is the basename of 
+   - automatically invokes [Trace.init "foo.cpp"] at start, where "foo" is the basename of
      the current script named "foo.ml" (alternatively, this name can be specified using the ~filename argument).
    - automatically invokes [Trace.dump] at the end of the script;
      (the main output file is named "foo_out.cpp").
@@ -197,9 +199,9 @@ let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : st
       Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
       (* Dump full trace if [-dump-trace] option was provided;
          in this case, record the last step in the history *)
-      if !Flags.dump_trace || !Flags.analyse_time then begin
+      if !Flags.dump_trace || !Flags.analyse_stats then begin
         Trace.check_exit_and_step ~is_small_step:false ();
-        Trace.report_full_time();
+        Stats.report_full_stats ();
       end;
       if !Flags.dump_trace then begin
         Trace.dump_traces_to_js ~prefix ();
@@ -217,7 +219,7 @@ let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : st
     Parsers.select saved_parser (* restore original parser *)
     (* Printf.printf "END  %s\n" basename *)
 
-(* [doc_script_cpp ~batching ~parser f src]: is a variant of [script_cpp] that takes as input a piece of source code [src] 
+(* [doc_script_cpp ~batching ~parser f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
     as a string, and stores this contents into [foo_doc.cpp], where [foo.ml] is the name of the current file. It then
     executes the transformation [f] using [script_cpp ~batching:"foo_doc.ml"]  *)
 let doc_script_cpp ?(batching : string = "") ?(parser : Parsers.cparser = Parsers.Default) (f : unit -> unit) (src : string) : unit =

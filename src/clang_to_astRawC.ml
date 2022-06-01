@@ -9,7 +9,7 @@ let loc_of_node (n : 'a node) : location =
   let end_location_of_node = Clang.get_range_end (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n )) in
   let (filename, start_row,start_column) = Clang.get_presumed_location start_location_of_node in
   let (_, end_row,end_column) = Clang.get_presumed_location end_location_of_node in
-  Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; 
+  Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column};
                              loc_end = {pos_line = end_row; pos_col = end_column}}
 
 
@@ -17,11 +17,11 @@ let loc_of_node (n : 'a node) : location =
     if one of the locations is unknown then it will return [None] *)
 let loc_from_to (start_l : location) (end_l : location) : location =
   match start_l, end_l with
-  | Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; _}, 
+  | Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; _},
     Some {loc_start = {pos_line = start_row2; pos_col = start_column2};_} ->
-      let loc_start = {pos_line = start_row1; pos_col = start_column1} in 
-      let loc_end = {pos_line = start_row2; pos_col = start_column2} in 
-      Some {loc_file = file; loc_start; loc_end } 
+      let loc_start = {pos_line = start_row1; pos_col = start_column1} in
+      let loc_end = {pos_line = start_row2; pos_col = start_column2} in
+      Some {loc_file = file; loc_start; loc_end }
   | _ -> None
 
 (* [file_of_node n]: gets the filename that contains node [n] *)
@@ -140,7 +140,7 @@ let get_typid_for_type (tv : typvar) : int  =
 let wrap_const ?(const : bool = false) (t : typ) : typ =
   if const then typ_const t else t
 
-(* [tr_type_desc ~loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions, 
+(* [tr_type_desc ~loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
     [loc] gives the location of the type in the file that has been translated,
     if [const] is true then it means [d] is a const type, similarly if [const] is false then [d] is not a const type *)
 let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_record_types : bool = true) (d : type_desc) : typ =
@@ -322,7 +322,7 @@ and tr_stmt (s : stmt) : trm =
        )([],typ_unit(), []) dls in
        trm_let_mult ~loc ~ctx Var_mutable ty (List.rev var_list) (List.rev init_list)
     end
-  | Expr e -> tr_expr ~is_statement:true e
+  | Expr e -> tr_expr e
   | Label {label = l; body = s} ->
     let t = tr_stmt s in
     trm_add_label l t
@@ -339,7 +339,7 @@ and tr_stmt (s : stmt) : trm =
     fail loc ("Clang_to_astRawC.tr_stmt: the following statement is unsupported: " ^
               Clang.Stmt.show s)
 
-(* [tr_switch s]: translates switch statement [s] into an OptiTrust trm 
+(* [tr_switch s]: translates switch statement [s] into an OptiTrust trm
     translation of switch statements:
   - nested cases: only full sharing allowed
       case bla: case bli: … break allowed
@@ -366,7 +366,7 @@ and tr_switch (loc : location) (cond : expr) (cases : stmt list) : trm =
   in
   trm_switch ~loc ~ctx:(Some (get_ctx ())) t  (aux loc cases)
 
-(* [compute_cases case_acc s]: computes a list of nested cases described by s in reverse order 
+(* [compute_cases case_acc s]: computes a list of nested cases described by s in reverse order
     and the first instruction of their body *)
 and compute_cases (case_acc : trms) (s : stmt) : trms * stmt =
   let loc = loc_of_node s in
@@ -404,9 +404,8 @@ and compute_body (loc : location) (body_acc : trms)
         compute_body loc (t :: body_acc) sl
     end
 
-(* [tr_expr ~is_statement e]: translates expression [e] into an OptiTrust trm *)
-and tr_expr ?(is_statement : bool = false)
-    (e : expr) : trm =
+(* [tr_expr e]: translates expression [e] into an OptiTrust trm *)
+and tr_expr (e : expr) : trm =
   (* let aux = tr_expr *)
   let loc = loc_of_node e in
   let typ : typ option =
@@ -424,7 +423,7 @@ and tr_expr ?(is_statement : bool = false)
     let t_cond = tr_expr cond in
     let t_then = tr_expr e_then in
     let t_else = tr_expr e_else in
-    trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op)
+    trm_apps ~loc ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op)
       [t_cond; t_then; t_else]
   | ConditionalOperator _ ->
     fail loc
@@ -482,9 +481,9 @@ and tr_expr ?(is_statement : bool = false)
            for example, [int p = 3; f(&p)]. In our AST, [p] represents
            the address of the cell at which [3] is stored, thus the
            call is actually [f(p)]. In other words we drop the [&] operator. *)
-        trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop Unop_address) [t]
+        trm_apps ~loc ~typ ~ctx (trm_unop Unop_address) [t]
       | _ ->
-        let trm_apps1 unop t1 = trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc unop) [t1] in
+        let trm_apps1 unop t1 = trm_apps ~loc ~typ ~ctx (trm_unop ~loc unop) [t1] in
         begin match k with
           | PostInc -> trm_apps1 Unop_post_inc t
           | PostDec -> trm_apps1 Unop_post_dec t
@@ -503,10 +502,10 @@ and tr_expr ?(is_statement : bool = false)
     let tr = tr_expr re in
     let tl = tr_expr le in
     let trm_prim_c binop tl tr =
-       trm_prim_compound ~loc ~is_statement ~ctx binop tl tr in
+       trm_prim_compound ~loc ~ctx binop tl tr in
     begin match k with
       | Assign ->
-        trm_set ~loc ~ctx ~is_statement tl tr
+        trm_set ~loc ~ctx tl tr
       | AddAssign ->
         trm_prim_c Binop_add tl tr
       | SubAssign ->
@@ -555,10 +554,10 @@ and tr_expr ?(is_statement : bool = false)
     begin match tf.desc with
     | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
         begin match el with
-        | [tl;tr] -> trm_set ~loc ~ctx  ~is_statement (tr_expr tl) (tr_expr tr)
+        | [tl;tr] -> trm_set ~loc ~ctx (tr_expr tl) (tr_expr tr)
         | _ -> fail loc "Clang_to_astRawC.tr_expr: overloaded= expects two arguments"
         end
-    | _-> trm_apps ~loc ~ctx  ~is_statement ~typ tf (List.map tr_expr el)
+    | _-> trm_apps ~loc ~ctx ~typ tf (List.map tr_expr el)
     end
   | DeclRef {nested_name_specifier = _; name = n; _} -> (* Occurrence of a variable *)
     begin match n with
@@ -593,7 +592,7 @@ and tr_expr ?(is_statement : bool = false)
         if has_arrow then
           trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get f) ) [trm_get base]
         else
-          let get_op = trm_unop ~loc (Unop_struct_get f) in 
+          let get_op = trm_unop ~loc (Unop_struct_get f) in
           let get_op = if is_get_operation base then trm_add_cstyle Display_no_arrow get_op else get_op in
           trm_apps ~loc ~ctx ~typ get_op [base]
       | _ -> fail loc "Clang_to_astRawC.tr_expr: fields should be accessed by names"
@@ -619,7 +618,7 @@ and tr_expr ?(is_statement : bool = false)
   | Construct {qual_type = _; args = el} ->
     (* only known use case: return of a struct variable *)
     begin match el with
-      | [e] -> tr_expr ~is_statement  e
+      | [e] -> tr_expr e
       | _ -> fail loc "Clang_to_astRawC.tr_expr: unsupported construct"
     end
   | Cast {kind = k; qual_type = q; operand = e'} ->
@@ -871,7 +870,7 @@ and tr_decl (d : decl) : trm =
     ctx_var_add n tt;
     (* dummy value used for variable mutability *)
     let mut = if is_typ_const tt then Var_immutable else Var_mutable  in
-    trm_let ~loc ~is_statement:true mut (n,tt) te
+    trm_let ~loc mut (n,tt) te
   | TypedefDecl {name = tn; underlying_type = q} ->
     let tid = next_typconstrid () in
     ctx_tconstr_add tn tid;
@@ -987,32 +986,27 @@ let filter_out_include (filename : string)
   in
   aux (Include_map.empty) dl
 
-(* [dump_clang_ast]: only for debugging ,set this variable to true for obtaining a file where to
-   see the clang AST that gets passed as input to the conversion to our AST.  *)
-let dump_clang_ast = false
-
-(* [dump_clang_file]: alias for the main ClanML module that contains all the functions needed for translating AST-s  *)
-let dump_clang_file = "clang_ast.ml"
-
 (* [tr_ast t]: transalate [t] into OptiTrust AST *)
 let tr_ast (t : translation_unit) : trm =
   (* Initialize id_counter *)
   let {decoration = _; desc = {filename = filename; items = dl}} = t in
   print_info None "tr_ast: translating %s's AST...\n" filename;
   let (include_map, file_decls) = filter_out_include filename dl in
-  if dump_clang_ast then begin
-    let out_ast = open_out dump_clang_file in
-    Include_map.iter
-      (fun h dl ->
-         Printf.fprintf out_ast "(* Include %s: *)\n" h;
-         List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
-           dl
-      )
-      include_map;
-    Printf.fprintf out_ast "(* Main file: *)\n";
-    List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
-      file_decls;
-    close_out out_ast;
+  begin match !Flags.dump_clang_ast with
+  | None -> ()
+  | Some dump_clang_file ->
+      let out_ast = open_out dump_clang_file in
+      Include_map.iter
+        (fun h dl ->
+           Printf.fprintf out_ast "(* Include %s: *)\n" h;
+           List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
+             dl
+        )
+        include_map;
+      Printf.fprintf out_ast "(* Main file: *)\n";
+      List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
+        file_decls;
+      close_out out_ast;
   end;
   let loc = loc_of_node t in
   let tinclude_map =

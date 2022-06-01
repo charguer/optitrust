@@ -12,3 +12,18 @@ int main() {
   vect c = a + b;
 }
 // TODO: add support for return (vect) { a.x + b.x, a.y + b.y };
+
+
+template<class A>
+class queue {
+  A item;
+};
+
+class test {
+  static void Partition (int* outPivot, queue<int> data)
+  {
+    return;
+  }
+
+};
+
