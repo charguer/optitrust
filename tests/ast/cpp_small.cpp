@@ -39,7 +39,7 @@ public:
   */
 
   bool test_this() {
-    return this.x == x;
+    return this->x == x;
   }
 
 };
@@ -76,9 +76,25 @@ int test_iterator(std::vector<int> v) {
   return r;
 }
 
-int test_lambda(std::vector<int> v) {
+void test_lambda(std::vector<int> v) {
+  int r = 0;
+  auto f = [&](int const& x) -> void { // we only support arguments by references [&]
+     r += x; }; // trm_fun
+  std::for_each(std::begin(v), std::end(v), f);
+}
+
+int test_lambda_inline(std::vector<int> v) {
   int r = 0;
   std::for_each(std::begin(v), std::end(v), [&](int const& x) { // we only support arguments by references [&]
      r += x; }); // trm_fun
   return r;
 }
+
+using namespace std;
+
+void test_using() {
+  vector<int> v;
+  v.push_back(3);
+}
+
+
