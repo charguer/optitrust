@@ -355,11 +355,15 @@ OPTITRUST_SRC := $(wildcard $(OPTITRUST)/src/*.ml)
 	@echo "---------------------"
 	$(V)git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | tail -n +5
 
-# 'make docs' to build all the auxililary *_doc.html
+
+
+DOCJS := $(TESTS:.ml=_doc.js)
+
+# 'make docs' to build all the auxililary *_doc.js
 docs: $(DOCJS)
 
 # 'make doc' to build the documentation for all $(TESTS_WITH_DOC) in doc.html
-doc: doc.html
+doc: doc.html docs
 	$(V)$(BROWSER) $<
 
 # Rule for building 'doc.html', unless it's already defined in an ad-hoc way (e.g. tests/combi/Makefile)

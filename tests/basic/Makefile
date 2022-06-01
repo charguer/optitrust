@@ -7,8 +7,9 @@ TARGET_MAKE_ALL := check
 FLAGS := -dump-ast-details
 
 
+#	accesses_intro.ml \
+
 TESTS_WITH_DOC := \
-	accesses_intro.ml \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	align_def.ml \
@@ -55,7 +56,6 @@ TESTS_WITH_DOC := \
 	matrix_intro_malloc.ml \
 	matrix_intro_mindex.ml \
 	matrix_local_name.ml \
-	matrix_local_name_obj.ml \
 	matrix_reorder_dims.ml \
 	pointer_fold.ml \
 	reference_fold.ml \
@@ -98,8 +98,9 @@ TESTS_WITH_DOC := \
 	variable_to_nonconst.ml \
 
 
-TESTS_TOCHECK := \
+TESTS_NODOC := \
 	matrix_delocalize_obj.ml \
+	matrix_local_name_obj.ml \
 
 TESTS_TO_FIX := \
   struct_update_fields_type.ml \
