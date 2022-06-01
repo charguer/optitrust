@@ -1245,11 +1245,11 @@ let trm_lit_inv (t : trm) : lit option =
   | _ -> None
 
 
-(* [trm_inv ~arror k t]: returns the results of applying [k] on t, if the result is [None] thne 
+(* [trm_inv ~arror k t]: returns the results of applying [k] on t, if the result is [None] thne
      then function fails with error [error]. *)
 let trm_inv ?(error : string = "") ?(loc : location = None) (k : trm -> 'a option) (t : trm) : 'a =
   let loc = if loc = None then t.loc else loc in
-  match k t with 
+  match k t with
   | None -> if error = "" then assert false else fail loc error
   | Some r -> r
 
@@ -1257,49 +1257,49 @@ let trm_inv ?(error : string = "") ?(loc : location = None) (k : trm -> 'a optio
 (* [trm_let_inv t]: returns the components of a [trm_let] constructor if [t] is a let declaration.
      Otherwise it returns [None]. *)
 let trm_let_inv (t : trm) : (varkind * var * typ * trm) option =
-  match t.desc with 
+  match t.desc with
   | Trm_let (vk, (x, tx), init) -> Some (vk, x, tx, init)
   | _ -> None
 
-(* [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration. 
+(* [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration.
      Otherwise it returns a [Noen]. *)
 let trm_let_fun_inv (t : trm) : (var * typ * typed_vars * trm) option =
-  match t.desc with 
+  match t.desc with
   | Trm_let_fun (f, ret_ty, args, body) -> Some (f, ret_ty, args, body)
   | _ -> None
 
 
 (* [trm_apps_inv t]: returns the components of a [trm_apps] constructor in case [t] is function application.
     Otherwise it returns [None]. *)
-let trm_apps_inv (t : trm) : (trm * trm list) option = 
-  match t.desc with 
+let trm_apps_inv (t : trm) : (trm * trm list) option =
+  match t.desc with
   | Trm_apps (f, tl) -> Some (f, tl)
   | _ -> None
 
 (* [trm_seq_inv t]: returns the components of a [trm_seq] constructor when [t] is a sequence.
     Otherwise it returns [None]. *)
 let trm_seq_inv (t : trm) : (trm mlist) option =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->  Some tl
   | _ -> None
 
 (* [trm_var_inv t]: returns the components of a [trm_var] constructor when [t] is a variable occurrence.
     Otherwise it returns [None]. *)
 let trm_var_inv (t : trm) : (varkind * var) option =
-  match t.desc with 
+  match t.desc with
   | Trm_var (vk, x) -> Some (vk, x)
   | _ -> None
 
 (* [trm_if_inv t]: returns the components of a [trm_if] constructor when [t] is an if statement.
     Otherwise it returns [None]. *)
 let trm_if_inv (t : trm) : (trm * trm * trm) option =
-  match t.desc with 
+  match t.desc with
   | Trm_if (cond, then_, else_) -> Some (cond, then_, else_)
   | _ -> None
 
 (* [trm_typedef_inv t]: returns the components of a [trm_typedef] constructor when [t] is a type definition. *)
-let trm_typedef_inv (t : trm) : typedef option = 
-  match t.desc with 
+let trm_typedef_inv (t : trm) : typedef option =
+  match t.desc with
   | Trm_typedef td -> Some td
   | _ -> None
 
