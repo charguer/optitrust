@@ -69,6 +69,7 @@ TESTS_WORKING := \
 	ordered2.ml \
 	ordered3.ml \
 	parallel.ml \
+	parallel_1.ml \
 	ploop1.ml \
 	private1.ml \
 	private2.ml \

@@ -21,10 +21,9 @@ let set_num_threads (threadnum : var) (tg : target) : unit =
 (* [parallel_for ~clause ~collapse tg]: when collapse is provided as argument then
      clause will not be taken into account*)
 let parallel_for ?(clause : clause list = []) ?(collapse : int = 0) : Target.Transfo.t =
-  if collapse <> 0 then
-      Omp_basic.parallel_for ~clause:[Collapse(3)]
-  else
-      Omp_basic.parallel_for ~clause
+  if collapse <> 0 
+    then Omp_basic.parallel_for ~clause:[Collapse(3)]
+    else Omp_basic.parallel_for ~clause
 
 (* [header ()]: insert omp.h header at top of the file *)
 let header () : unit =

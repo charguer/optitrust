@@ -16,12 +16,12 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
         begin match index.desc with
         | Trm_val (Val_lit (Lit_int i)) ->
           if i >= List.length new_vars
-            then fail index.loc "inline_array_access: the number of variable provided should be consistent with the size of the targeted array"
+            then fail index.loc "Arrays_core.inline_array_access: the number of variable provided should be consistent with the size of the targeted array"
             else (trm_var (List.nth new_vars i))
         | Trm_apps ({desc = Trm_var (_, "ANY"); _}, _) ->
           let nb_vars = List.length new_vars in
           trm_address_of (trm_apps (trm_var "CHOOSE") ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var_get new_vars)))
-        | _ -> fail index.loc "inline_array_access: only integer indices are supported"
+        | _ -> fail index.loc "Arrays_core.inline_array_access: only integer indices are supported"
         end
       | _ ->  trm_map aux t
       end
@@ -79,21 +79,18 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
 let to_variables (new_vars : vars) (index : int): Target.Transfo.local =
   Target.apply_on_path (to_variables_aux new_vars index)
 
-(* [apply_tiling base_type block_name b x]: Change all the occurences of the array to the tiled form
-    params:
-      [base_type]: type of the array
-      [block_name]: new name for the array
-      [b]: the size of the tile
-      [x]: typvar
-      [t]: ast node located in the same level or deeper as the array declaration
+(* [apply_tiling base_type block_name b x]: changes all the occurences of the array to the tiled form,
+      [base_type] - type of the array
+      [block_name] - new name for the array
+      [b] - the size of the tile
+      [x] - typvar
+      [t] - ast node located in the same level or deeper as the array declaration
+    
     assumptions:
     - if x is ty*, each array of type x is allocated through a custom function:
       x a = my_alloc(nb_elements, size_element)
     - x is not used in function definitions, but only in var declarations
-    - for now: in any case, the number of elements is divisible by b
-   return:
-      updated ast nodes which are in the same level with the array declaration or deeper.
-*)
+    - for now: in any case, the number of elements is divisible by b. *)
 let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar) (t : trm) : trm =
   let aux = apply_tiling base_type block_name b x in
   match t.desc with
@@ -112,17 +109,14 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
 
 (* [tile_aux: name block_name b x t]: transform an array declaration from a normal shape into a tiled one,
     then call apply_tiling to change all the array occurrences into the correct form.
-    params:
-      [block_name]: the name of the arrays representing one tile
-      [block_size]: the size of the tile
-      [index]: the index of the instruction inside the sequence
-      [t]: ast of the outer sequence containing the array declaration
-    return:
-      updated ast of the surrounding sequence with the new tiled declaration and correct array accesses based on the new tiled form.
+      [block_name] - the name of the arrays representing one tile,
+      [block_size] - the size of the tile,
+      [index] - the index of the instruction inside the sequence,
+      [t] - ast of the outer sequence containing the array declaration.
 
+   Ex:
     t[N] -> t[N/B][B]  where t has the targeted type
-    t[i] -> t[i/B][i%B]
-*)
+    t[i] -> t[i/B][i%B] *)
 let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -135,18 +129,15 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
         begin match typ.typ_desc with
         | Typ_ptr {inner_typ = ty;_} -> td.typdef_tconstr, ty
         | Typ_array(ty, _) -> td.typdef_tconstr, ty
-        | _ -> fail d.loc "tile_aux: expected array or pointer type"
+        | _ -> fail d.loc "Arrays_core.tile_aux: expected array or pointer type"
         end
-      | _ -> fail d.loc "tile_aux: expected a typedef abbrevation"
+      | _ -> fail d.loc "Arrays_core.tile_aux: expected a typedef abbrevation"
       end
-    | _ -> fail d.loc "tile_aux: expected a trm_typedef"
+    | _ -> fail d.loc "Arrays_core.tile_aux: expected a trm_typedef"
     end
     in
     let block_name = if block_name = "" then base_type_name ^ "_BLOCK" else block_name in
-    (*
-    replace sizeof(base_type) with sizeof(block_name)
-    if another term is used for size: use b * t_size
-   *)
+    (* replace sizeof(base_type) with sizeof(block_name) if another term is used for size: use b * t_size *)
     let new_size (t_size : trm) : trm =
       if AstC_to_c.ast_to_string t_size =
          "sizeof(" ^ AstC_to_c.typ_to_string base_type ^ ")"
@@ -168,7 +159,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
          let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; trm_var block_size] in
          let t_size_elt = new_size t_size_elt in
          trm_apps t_cast [trm_apps t_alloc_fun [t_nb_elts; t_size_elt]]
-      | _ -> fail t.loc "new_alloc: expected array allocation"
+      | _ -> fail t.loc "Arrays_core.tile_aux: expected array allocation"
     in
     let array_decl = begin match d.desc with
     | Trm_typedef td ->
@@ -188,7 +179,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
         | Typ_array (ty, s) ->
            (* ty[s] becomes ty[s/b][b] *)
            begin match s with
-           | Undefined -> fail t.loc "tile_aux: array size must be provided"
+           | Undefined -> fail t.loc "Arrays_core.tile_aux: array size must be provided"
            | Const n ->
               let n_div_b =
                 trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); trm_var block_size]
@@ -215,16 +206,16 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
                     td with typdef_tconstr = td.typdef_tconstr;
                     typdef_body = Typdef_alias (typ_array (typ_constr block_name ~tid) (Trm t''))}]
            end
-        | _ -> fail t.loc "tile_aux: expected array or pointer type declaration"
+        | _ -> fail t.loc "Arrays_core.tile_aux: expected array or pointer type declaration"
         end
-      | _ -> fail t.loc "tile_aux: no enums expected"
+      | _ -> fail t.loc "Arrays_core.tile_aux: no enums expected"
       end
 
     | Trm_let (Var_mutable, (y,ty), init) when y = base_type_name ->
         begin match ty.typ_desc with
         | Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _};_} when y = base_type_name ->
           trm_let Var_mutable ~annot:d.annot (y, ty) init
-        | _ -> fail t.loc "tile_aux: expected a pointer because of heap allocation"
+        | _ -> fail t.loc "Arrays_core.tile_aux: expected a pointer because of heap allocation"
         end
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
               [lhs; rhs]) ->
@@ -235,29 +226,23 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
              ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
         | _ -> trm_map (apply_tiling base_type block_name (trm_var block_size) base_type_name) t
         end
-    | _-> fail t.loc "tile_aux: expected a declaration"
+    | _-> fail t.loc "Arrays_core.tile_aux: expected a declaration"
       end
-
     in
     let lback = Mlist.map (apply_tiling base_type block_name (trm_var block_size) base_type_name) lback in
     let new_tl = Mlist.merge lfront lback in
     let new_tl = Mlist.insert_at index array_decl new_tl in
     trm_seq ~annot:t.annot new_tl
 
-  | _ -> fail t.loc "tile_aux: expected the surrounding sequence of the targeted trm"
+  | _ -> fail t.loc "Arrays_core.tile_aux: expected the surrounding sequence of the targeted trm"
 
 let tile (block_name : typvar) (block_size : var) (index : int) : Target.Transfo.local =
   Target.apply_on_path (tile_aux block_name block_size index)
 
 
-(* [apply_swapping x t]: change all the occurrences of the array to the swapped form.
-    params:
-      [x]: typvar
-      [t]: an ast node which on the same level as the array declaration or deeper.
-    return:
-      updated ast nodes which are in the same level with the array declaration or deeper.
- *)
-
+(* [apply_swapping x t]: swaps all array accesses that have type [t],
+      [x] - typvar,
+      [t] - an ast node which on the same level as the array declaration or deeper. *)
 let rec apply_swapping (x : typvar) (t : trm) : trm =
   let aux = apply_swapping x in
   match t.desc with
@@ -284,9 +269,6 @@ let rec apply_swapping (x : typvar) (t : trm) : trm =
       | None -> trm_map aux t
       end
   | _ -> trm_map aux t
-
-
-
 
 
 (* [swpa_aux index t]: swap the dimensions of an array declaration,
