@@ -1225,7 +1225,6 @@ let applyi_on_targets (tr : int -> trm -> path -> trm) (tg : target) : unit =
 let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_targets (fun _i t dl -> tr t dl) tg
 
-
 (* [transfo_on_targets tr tg]: similar to [apply_on_targets] but this one is applies [tr] on the fly. *)
 let transfo_on_targets (tr : trm -> trm) (tg : target) : unit =
   apply_on_targets (fun t dl -> apply_on_path tr t dl) tg

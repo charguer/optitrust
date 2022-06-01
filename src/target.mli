@@ -180,7 +180,7 @@ val cVarDefs : var list -> constr
 
 val cVarDefReg : string -> constr
 
-val cVarInit : string -> constr 
+val cVarInit : string -> constr
 
 val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> string -> constr
 
@@ -374,7 +374,7 @@ val applyi_on_targets : (int -> trm -> path -> trm) -> target -> unit
 
 val apply_on_targets : (trm -> path -> trm) -> target -> unit
 
-val transfo_on_targets : (trm -> trm) -> target -> unit 
+val transfo_on_targets : (trm -> trm) -> target -> unit
 
 val applyi_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (int -> trm -> 'a -> trm) -> target -> unit
 
