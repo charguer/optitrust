@@ -5,14 +5,22 @@ open Ast
 include Omp_basic
 
 
-(*
-type adj = (var, var list) Hashtbl.t;;
+
+type adj = (var, var list) Hashtbl.t
 
 let adj_add adj f g =
   let gs = try Hashtbl.find adj f
            with Not_found -> [] in
   Hashtbl.replace adj f (g::gs)
 
+open Printf
+
+let print_adj (adj : adj) : unit =
+  Hashtbl.iter (fun f gs ->
+    printf "%s: " f;
+    List.iter (fun g -> printf "%s, " g) gs;
+    printf "\n")
+   adj
 
 
 let graphdep (t : trm) : adj =
@@ -26,15 +34,19 @@ let graphdep (t : trm) : adj =
         Hashtbl.add adj f [];
         aux (Some f) body
     (* Function application, i.e CallExpr *)
-    | Trm_apps (g, args) ->
+    | Trm_apps ({ desc = Trm_var (_, g); _ }, args) ->
         begin match curf with
         | None -> failwith "function call not inside a function def"
         | Some f -> adj_add adj f g
-        end
-    | _ -> trm_iter aux t
+        end;
+        trm_iter (aux curf) t
+    | _ -> trm_iter (aux curf) t
     in
   aux None t;
   adj
+ (**)
+
+(*
 
 
 
@@ -98,23 +110,27 @@ let add_possible_const () =
   let g = graphdep (ast()) in
   let tbl = canbeconst g in
   set_const tbl
-*)
+
 
 let make_malloc =
   Target.transfo_on_targets (Ast.trm_annot_remove Stackvar)
-
+*)
 let _ = Run.script_cpp (fun () ->
 
 (*  !! add_possible_const (); *)
 
-  !! Omp.header ();
+  (*!! Omp.header (); *)
+  Trace.call (fun t ->
+    let adj = graphdep t in
+    print_adj adj);
 
   show [cVarDef "x"];
 
+(*
   !! make_malloc [cVarDef "y"];
 
   !! Variable_basic.bind "u" [nbMulti; cTopFunDef "f"; cFun "g"; dArg 1];
-
+*)
 )
 
 

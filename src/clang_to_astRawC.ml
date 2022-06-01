@@ -986,32 +986,27 @@ let filter_out_include (filename : string)
   in
   aux (Include_map.empty) dl
 
-(* [dump_clang_ast]: only for debugging ,set this variable to true for obtaining a file where to
-   see the clang AST that gets passed as input to the conversion to our AST.  *)
-let dump_clang_ast = false
-
-(* [dump_clang_file]: alias for the main ClanML module that contains all the functions needed for translating AST-s  *)
-let dump_clang_file = "clang_ast.ml"
-
 (* [tr_ast t]: transalate [t] into OptiTrust AST *)
 let tr_ast (t : translation_unit) : trm =
   (* Initialize id_counter *)
   let {decoration = _; desc = {filename = filename; items = dl}} = t in
   print_info None "tr_ast: translating %s's AST...\n" filename;
   let (include_map, file_decls) = filter_out_include filename dl in
-  if dump_clang_ast then begin
-    let out_ast = open_out dump_clang_file in
-    Include_map.iter
-      (fun h dl ->
-         Printf.fprintf out_ast "(* Include %s: *)\n" h;
-         List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
-           dl
-      )
-      include_map;
-    Printf.fprintf out_ast "(* Main file: *)\n";
-    List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
-      file_decls;
-    close_out out_ast;
+  begin match !Flags.dump_clang_ast with
+  | None -> ()
+  | Some dump_clang_file ->
+      let out_ast = open_out dump_clang_file in
+      Include_map.iter
+        (fun h dl ->
+           Printf.fprintf out_ast "(* Include %s: *)\n" h;
+           List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
+             dl
+        )
+        include_map;
+      Printf.fprintf out_ast "(* Main file: *)\n";
+      List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
+        file_decls;
+      close_out out_ast;
   end;
   let loc = loc_of_node t in
   let tinclude_map =

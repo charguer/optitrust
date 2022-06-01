@@ -10,6 +10,10 @@ int f() {
   g(x, g(y, z));
 }
 
+int h() {
+  int a = g(f(), f());
+}
+
 
 int main() {
   f();
