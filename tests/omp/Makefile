@@ -7,13 +7,17 @@ TESTS_WORKING := \
 	collapse1.ml \
 	collapse2.ml \
 	collapse3.ml \
+	fpriv_sections.ml \
 	linear_in_loop.ml \
+	master.ml \
 	nowait1.ml \
 	nowait2.ml \
 	nthrs_dynamic1.ml \
 	nthrs_dynamic2.ml \
   parallel.ml \
 	parallel_1.ml \
+	psections.ml \
+	single.ml \
 	
 
 TESTS_TOCHECK := \
@@ -53,11 +57,9 @@ TESTS_TOCHECK := \
 	doacross3.ml \
 	doacross4.ml \
 	flush_nolist.ml \
-	fpriv_sections.ml \
 	get_nthrs.ml \
 	icv.ml \
 	lastprivate.ml \
-	master.ml \
 	mem_model1.ml \
 	mem_model2.ml \
 	mem_model3.ml \
@@ -77,7 +79,6 @@ TESTS_TOCHECK := \
 	private1.ml \
 	private2.ml \
 	private3.ml \
-	psections.ml \
 	reduction1.ml \
 	reduction2.ml \
 	reduction3.ml \
@@ -90,7 +91,6 @@ TESTS_TOCHECK := \
 	simd6.ml \
 	simd7.ml \
 	simd8.ml \
-	single.ml \
 	standalone.ml \
 	target1.ml \
 	target2.ml \

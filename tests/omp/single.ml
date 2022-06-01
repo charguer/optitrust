@@ -2,8 +2,9 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-  !! Omp.parallel [] [tBefore; occIndex ~nb:2 0; cFunDef "single_example"; dBody; cSeq ()];
-  !! Omp.single [] [tFirst;occIndex ~nb:2 0; cFunDef "single_example"; dBody; cSeq ()];
-  !! Omp.single [] [tAfter; cFun "work1"];
-  !! Omp.single [Nowait] [tAfter; cFun "work2"];
+  
+  !! Omp.single [occIndices [0;1]; cFun "printf"];
+  !! Omp.single ~clause:[Nowait] [occIndex 2; cFun "printf"];
+  !! Omp.parallel [cSeq ~args_pred:(target_list_one_st [cFun "printf"]) ()];
+
 )
