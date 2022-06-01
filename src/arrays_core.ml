@@ -277,85 +277,69 @@ let rec apply_swapping (x : typvar) (t : trm) : trm =
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));_}, [base; index]) ->
       begin match get_array_access_inv base with
       | Some (base1, index1) ->
-        array_access (get_array_access base1 index) index1
+        begin match base1.typ with 
+        | Some {typ_desc = Typ_constr (y, _, _)} when y = x -> array_access (get_array_access base1 index) index1
+        | _ -> trm_map aux t
+        end
       | None -> trm_map aux t
       end
   | _ -> trm_map aux t
 
 
-(* [swap_aux index t]: transform an array declaration to a swaped one, Basically the bounds will swap
-     places in the array declaration, and the indices will swap places on all the array occurrences.
-    params:
-      [index]: used to find the instruction inside the sequence
-      [t]: ast of the surrounding sequence if the array declaration
-    assumption: the name of the array is not used in fun declarations
-      -> to swap the first dimensions of a function argument, use swap_coordinates
-      on the array on which the function is called: a new function with the
-      appropriate type is generated
-      function copies are named with name
-    return: updated outer sequence with the replaced declarations and all swapped accesses.
 
-    TODO: doc should say something like
-     aiming for typedef t[N][M] foo;
-     and changing   v[i][j]  where v has type foo
-      with v[j][i]
-*)
+
+
+(* [swpa_aux index t]: swap the dimensions of an array declaration,
+     [index] - index of the array declaration on its surrouding sequence,
+     [t] - AST of the surrouding sequence of the targeted array declaration. *)
 let swap_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    (* TODO:
-       let trm_seq_update_def_and_rest tseq index (f_def : trm->trm) (f_rest : trm->trm) =
-          trm_seq_updates_def_and_rest tseq index (fun t -> [f_def t]) f_rest
 
-       let trm_seq_updates_def_and_rest tseq index (f_def : trm->trm list) (f_rest : trm->trm)
-         f_def applies to the item at index in tseq and produces one or several terms,
-         f_rest applies to all the items past this one
-         the output is thus the trm:
-            Trm_seq (front_items @ f_def def_item @ List.map f_rest back_items)
-
-            how to use:
-        let process_def t = ..
-        let process_inscope t = ..
-        trm_seq_update_def_and_rest ...
-    *)
-    let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
-    begin match d.desc with
-      | Trm_typedef td -> (* TODO: trm_typedef_inv and trm_typedef_alias_inv *)
-        begin match td.typdef_body with
-        | Typdef_alias ty ->
-           let rec swap_type (ty : typ) : typ =
-            match ty.typ_desc with
-            | Typ_array ({typ_desc = Typ_array (ty', s'); typ_annot; typ_attributes},
-                        s) ->
-              begin match ty'.typ_desc with
-              (* we look for the 2 first coordinates… *)
-              | Typ_array _ ->
-                  let t' =
-                    swap_type {typ_desc = Typ_array (ty', s'); typ_annot; (* TODO: why rec call? *)
-                              typ_attributes}
-                  in
-                  {typ_desc = Typ_array (t', s); typ_annot = ty.typ_annot;
-                  typ_attributes = ty.typ_attributes}
-              (* once we reach them, we swap them *)
-              | _ ->
-                  {typ_desc = Typ_array ({typ_desc = Typ_array (ty', s);
-                                        typ_annot = ty.typ_annot;
-                                        typ_attributes = ty.typ_attributes}, s');
-                  typ_annot; typ_attributes}
-              end
-            | _ -> fail None ("swap_type: must be an array")
-          in
-        let new_decl =
-        trm_typedef ~annot: t.annot ~loc: t.loc {td with typdef_body = Typdef_alias (swap_type ty)}
-        in
-        let lback = Mlist.map (apply_swapping td.typdef_tconstr) lback in
-        let new_tl = Mlist.merge lfront lback in
-        let new_tl = Mlist.insert_at index new_decl new_tl in
-        trm_seq ~annot:t.annot new_tl
-        | _ -> fail t.loc "swap_aux: expected a declaration"
+    let rec swap_type (ty : typ) : typ =
+      match ty.typ_desc with
+      | Typ_array ({typ_desc = Typ_array (ty', s'); typ_annot; typ_attributes},
+                  s) ->
+        begin match ty'.typ_desc with
+        (* we look for the 2 first coordinates… *)
+        | Typ_array _ ->
+            let t' =
+              swap_type {typ_desc = Typ_array (ty', s'); typ_annot; 
+                        typ_attributes}
+            in
+            {typ_desc = Typ_array (t', s); typ_annot = ty.typ_annot;
+            typ_attributes = ty.typ_attributes}
+        (* once we reach them, we swap them *)
+        | _ ->
+            {typ_desc = Typ_array ({typ_desc = Typ_array (ty', s);
+                                  typ_annot = ty.typ_annot;
+                                  typ_attributes = ty.typ_attributes}, s');
+            typ_annot; typ_attributes}
         end
-      | _ -> fail t.loc "swap_aux: expected the typedef"
-    end
+      | _ -> fail None "Arrays_core.swap_type: the main target should point an an array declaration"
+      in
+    
+    let f_update (t : trm) : trm = 
+      match t.desc with
+      | Trm_typedef td -> 
+        begin match td.typdef_body with 
+        | Typdef_alias ty ->
+          trm_typedef ~annot:t.annot ~loc:t.loc {td with typdef_body = Typdef_alias (swap_type ty)}
+        | _ -> fail t.loc "Arrays_core.swap_aux: expected a type alias definition."
+        end
+      | _ -> fail t.loc "Arrays_core.swap_aux: expected the typedef instruction."
+      
+      in 
+        
+    let f_update_further (t : trm) : trm =
+      let td = Mlist.nth tl index in 
+      match td.desc with 
+      | Trm_typedef td -> apply_swapping td.typdef_tconstr t
+      | _ -> fail t.loc "Arrays_core.swap_aux: expected a target to a type definition"
+      in
+    let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
+    trm_seq ~annot:t.annot new_tl
+
   | _ -> fail t.loc "swap_aux: expected the surrounding sequence of the targeted trm"
 
 let swap (index : int) : Target.Transfo.local =

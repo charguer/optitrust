@@ -16,6 +16,7 @@ TESTS_WITH_DOC := \
 	arith_scale.ml \
 	arith_shift.ml \
 	array_set_explicit.ml \
+	array_swap.ml \
 	array_tile.ml \
 	array_to_variables.ml  \
 	cast_insert.ml \
@@ -106,7 +107,6 @@ TESTS_TO_FIX := \
 
 
 NOT_NEEEDED_TO_FIX := \
-	array_swap.ml \
 	aos_to_soa_typedef.ml \
 	aos_to_soa_sized_array.ml \
 	variable_change_type.ml \
