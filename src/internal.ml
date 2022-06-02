@@ -114,10 +114,13 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
         | Typdef_alias ty ->
           trm_typedef  ~annot:t.annot ~loc:t.loc
            { td with typdef_body = Typdef_alias (change_typ ty)}
-        | Typdef_record (b, s) ->
-           let s = List.map (fun (lb, x) -> (lb, change_typ x)) s in
-           trm_typedef ~annot:t.annot ~loc:t.loc
-           { td with typdef_body = Typdef_record (b, s)}
+        | Typdef_record rf ->
+           let rf = List.map (fun (rf, rf_annot) -> 
+            match tf with 
+            | Record_field_memeber (lb, ty) -> (Record_field_memeber (lb, change_type ty), rf_annot)
+            | Record_field_method t -> (Recorf_field_method (aux t), rf_annot)
+           ) rf in 
+           trm_typedef ~annot:t.annot ~loc:t.loc { td with typdef_body = Typdef_record rf}
         | _ -> trm_map aux t
         end
        | Trm_var (_, x) ->
@@ -227,8 +230,13 @@ let fresh_args (t : trm) : trm =
 (* [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
 let get_field_list (td : typedef) : (var * typ) list =
   begin match td.typdef_body with
-  | Typdef_record (_, s) -> s
-  | _ -> fail None "Internal.get_field_lists: expected a Typedef_prod"
+  | Typdef_record rfl ->
+    List.map (fun (rf, _) -> 
+      match rf with 
+      | Record_field_member (lb, ty) -> (lb, ty)
+      | _ -> fail None "Internal.get_field_list: expected a struct without methods"/
+    )
+  | _ -> fail None "Internal.get_field_list: expected a Typedef_prod"
   end
 
 (* [get_typid_from_typ t]: check if typ is a constructed type or a composed type
@@ -359,11 +367,15 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
 
 (* [get_field_index field fields]: for a struct field with name [field] and [fields] being the list of fields of the
     same struct, return back the index of field [field] in the list of fields [fields]. *)
-let get_field_index (field : field) (fields : (var * typ) list) : int =
+let get_field_index (field : field) (fields : record_fields) : int =
   let rec aux field fields c = match fields with
     | [] -> failwith "Internal.get_field_index: empty list"
-    | (f, _) :: tl ->
-      if (f = field) then c else aux field tl (c+1)
+    | (rf, _) :: tl ->
+      begin match rf with 
+      | Record_field_memeber (f, _) -> 
+        if f = field then c else aux field tl (c + 1)
+      | _ -> aux field tl (c+1)
+      end
     in
   aux field fields 0
 

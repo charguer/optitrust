@@ -709,17 +709,31 @@ and tr_decl_list (dl : decl list) : trms =
         let al = List.map (tr_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
         (fn, ty)
+      | {decoration = _ ; desc = CXXMethod dl;_} ->
+        let tdl = tr_decl dl in 
+        (Record_field_method tdl, Access_public)
+        (* TODO: Deal with the access specification *)
       | _ ->
         fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
     ) fl in
-      let kw = match k with
-      | Struct -> Struct
-      | Union -> Union
-      | Class -> Class
-      | _ -> fail loc "Clang_to_astRawC.tr_decl_list: special records are not supported" in
-      let tl' = tr_decl_list dl' in
-      trm_let_record rn kw (List.rev prod_list) (tr_decl d1) :: tl'
-
+      
+      let td = {
+          typdef_loc = loc;
+          typdef_typid = tid;
+          typdef_tconstr = tn;
+          typdef_vars = [];
+          typdef_body = Typdef_record prod_list
+          } in
+        ctx_typedef_add tn tid td;
+      let trm_td = 
+      begin match k with 
+      | Struct -> trm_add_cstyle Is_struct (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) in
+      | Class -> trm_add_cstyle Is_class (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) in
+      | _ -> fail loc "Clang_to_astRawC.tr_decl_list: only classes and structs are supported." 
+      end in
+      let tl' = trd_decl_list dl' in 
+      trm_td :: tl'
+  
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
@@ -764,7 +778,7 @@ and tr_decl_list (dl : decl list) : trms =
         ctx_typedef_add tn tid td;
         let trm_td = trm_typedef ~loc ~ctx:(Some (get_ctx())) td in
         let annot_to_add = if is_rec_type then Is_rec_struct else Is_struct in
-        let trm_td = if two_names then trm_add_cstyle annot_to_add trm_td else 
+        let trm_td = trm_add_cstyle annot_to_add trm_td in 
         let tl' = tr_decl_list dl' in
         trm_td :: tl'
 

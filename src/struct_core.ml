@@ -213,7 +213,7 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
       match t.desc with
       | Trm_typedef td ->
         begin match td.typdef_body with
-        | Typdef_record (t_names, field_list) ->
+        | Typdef_record field_list ->
           field_index := Internal.get_field_index field_to_reveal field_list;
           let lfront1, lback1 = Xlist.split_at !field_index field_list in
           let field_to_inline1, lback1 = if List.length lback1 = 1 then (lback1, []) else
@@ -242,10 +242,11 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
           end in
 
           let inner_type_field_list = List.map (fun (x, typ) ->
-          let new_field = Convention.name_app field_to_reveal x in
-           match field_type.typ_desc with
-           | Typ_array (_, size) -> (new_field, (typ_array typ size))
-           | _ -> (new_field, typ)) inner_type_field_list in
+            let new_field = Convention.name_app field_to_reveal x in
+              match field_type.typ_desc with
+              | Typ_array (_, size) -> (new_field, typ_array typ size)
+              | _ -> (new_field, typ)
+          ) inner_type_field_list in
 
           let field_list = (lfront1 @ inner_type_field_list @ lback1) in
           td_name := td.typdef_tconstr;
