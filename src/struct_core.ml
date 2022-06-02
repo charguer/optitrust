@@ -281,9 +281,10 @@ let reorder_fields_aux (struct_fields: vars) (move_where : reorder) (t: trm) : t
   let error = "Struct_core.reorder_fields_aux: expected a typedef definiton" in
   let td = trm_inv ~error trm_typedef_inv t in
    begin match td.typdef_body with
-   | Typdef_record (tn, fs) ->
-     let field_list = Internal.reorder_fields move_where struct_fields fs in
-      trm_typedef {td with typdef_body = Typdef_record (tn, field_list)}
+   | Typdef_record fs ->
+     let member_list = typedef_get_members t in 
+     let field_list = Internal.reorder_fields move_where struct_fields member_list in
+     trm_typedef {td with typdef_body = Typdef_record (tn, field_list)}
    | _ -> fail t.loc "Struct_core.reorder_fields_aux: expected a typdef_record"
    end
 

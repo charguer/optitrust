@@ -2933,3 +2933,45 @@ let map_from_trm_var_assoc_list (al : (string * trm) list) : tmap =
 (* [typ_align align ty]: adds the alignas attribute to type ty *)
 let typ_align (align : trm) (ty : typ) =
   typ_add_attribute (Alignas align) ty
+
+(* [typedef_get_members ~access t]: returns all the memebers of typedef [t]. If [access] is provided as an argument
+     then only members with the specified access_control are returned. *)
+let typedef_get_members ?(access : access_control option) (t : trm) : (label * typ) list =
+  match t.desc with 
+  | Trm_typedef td ->
+    begin match td.typdef_body with
+    | Typdef_record rf -> 
+      List.fold_left (fun acc (rf, rf_ann) -> 
+        match rf with 
+        | Record_field_member (lb, ty) -> 
+          begin match access with
+          | Some accs -> if accss = rf_ann then (lb, ty) :: acc else acc
+          | None -> (lb, ty) :: acc 
+          end 
+        | Record_field_method _ -> acc
+      ) [] (List.rev rf)
+    | _ -> fail t.loc "Ast.typdef_get_members: this function should be called only for typedef structs and classes"
+    end
+  | _ -> fail t.loc "Ast.typedef_get_members: can't get members of a trm that's not a type definition."
+
+
+(* [typedef_get_methods ~access t]: returns all the methods of typedef [t]. If [access] is provided as an argument
+      then only methods with the specified access_control are returned. *)
+let typedef_get_methods ?(access : access_control option) (t : trm) : trm =
+  match t.desc with
+  | Trm_typedef td ->
+    begin match td.typdef_body with 
+    | Typdef_record rf ->
+      List.fold_left (fun acc (rf, rf_ann) -> 
+        match rf with 
+        | Record_field_member _ ->  acc
+        | Record_field_method trm -> 
+          begin match access with 
+          | Some accss -> if accss = rf_ann then trm :: acc else acc
+          | None -> trm :: acc
+          end
+          trm :: acc
+      ) [] (List.rev rf)
+    | _ -> fail t.loc "Ast.typdef_get_methods: this function should be called only for typedef structs and classes."
+    end
+  | _ -> fail t.loc "Ast.typedef_get_methods: can't get methods of a trm that's not a type definition. "
