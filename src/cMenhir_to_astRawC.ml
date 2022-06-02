@@ -511,7 +511,7 @@ let tr_typedef struct_is_named loc sn fl ty =
     typdef_typid = tid;
     typdef_tconstr = sn;
     typdef_vars = [];
-    typdef_body = Typdef_prod (struct_is_named, prod_list)
+    typdef_body = Typdef_record (struct_is_named, prod_list)
   } in
   let ctx = Some (get_ctx ()) in
   ctx_typedef_add sn tid td;

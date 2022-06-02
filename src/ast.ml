@@ -172,11 +172,27 @@ and typedef = {
                             i.e. the description of [...] *)
 }
 
+
+(* [record_fields]: fields representation for classes, structs and unions. *)
+and record_fields = (record_field * record_field_annot) list 
+
+and record_field = 
+  | Record_field_memeber of (label * typ) 
+  | Recorf_field_method of trm
+
+and record_field_annot = access_control
+
+and access_control = 
+  | Access_public
+  | Access_private
+  | Access_protected
+
+
 (* [typedef_body]: typedef kinds *)
 and typdef_body =
   | Typdef_alias of typ   (* for abbreviations, e.g. [type 'a t = ('a * 'a)
                           list] or [typdef vect t] *)
-  | Typdef_prod of bool * (label * typ) list (* for records / struct,
+  | Typdef_record of bool * (label * typ) list (* for records / struct,
                                       e.g. [type 'a t = { f : 'a; g : int } *)
   | Typdef_sum of (constrname * typ) list (* for algebraic definitions / enum,
                                              e.g. [type 'a t = A | B of 'a] *)
@@ -711,7 +727,7 @@ let typ_ptr_generated (ty : typ) : typ =
 
 (* [typedef_prod ~recursive field_list]: typedef kind constructor *)
 let typdef_prod ?(recursive:bool=false) (field_list : (label * typ) list) : typdef_body =
-  Typdef_prod (recursive, field_list)
+  Typdef_record (recursive, field_list)
 
 (* [typ_str ~annot ~typ_attributes s] *)
 let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
@@ -1966,7 +1982,7 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
      | Some td ->
          begin match td.typdef_body with
         | Typdef_alias ty1 -> get_typ_kind ctx ty1
-        | Typdef_prod _ -> Typ_kind_prod
+        | Typdef_record _ -> Typ_kind_prod
         | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum
         end
      end

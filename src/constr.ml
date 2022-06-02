@@ -915,7 +915,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_decl_type name, Trm_typedef td ->
         let is_new_typ = begin match td.typdef_body with
         | Typdef_alias _ -> true
-        | Typdef_prod _ -> true
+        | Typdef_record _ -> true
         | _ -> false
         end in
         let x = td.typdef_tconstr in

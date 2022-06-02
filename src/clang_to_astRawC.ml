@@ -759,7 +759,7 @@ and tr_decl_list (dl : decl list) : trms =
           typdef_typid = tid;
           typdef_tconstr = tn;
           typdef_vars = [];
-          typdef_body = Typdef_prod (two_names, prod_list)
+          typdef_body = Typdef_record (two_names, prod_list)
           } in
         ctx_typedef_add tn tid td;
         let trm_td = trm_typedef ~loc ~ctx:(Some (get_ctx())) td in

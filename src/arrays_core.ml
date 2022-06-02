@@ -404,9 +404,9 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
 
     | Trm_typedef td when td.typdef_tconstr = struct_name ->
       begin match td.typdef_body with
-      | Typdef_prod (tn, s) ->
+      | Typdef_record (tn, s) ->
         let s = List.map( fun (x, typ) -> (x, typ_array (typ) (Trm (trm_var sz)))) s in
-        trm_typedef {td with typdef_body = Typdef_prod (tn, s)}
+        trm_typedef {td with typdef_body = Typdef_record (tn, s)}
       | Typdef_alias ty ->
           begin match ty.typ_desc with
           | Typ_array (a, _)->

@@ -369,7 +369,7 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
     let dt = print_typ ~only_desc t in
     print_node "Typedef_alias" ^^ parens ( separate (comma ^^ break 1)
      [string tname; string (string_of_int tid); dt ])
-  | Typdef_prod (_, s) ->
+  | Typdef_record (_, s) ->
     let get_document_list s =
       let rec aux acc = function
       | [] -> acc

@@ -213,7 +213,7 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
       match t.desc with
       | Trm_typedef td ->
         begin match td.typdef_body with
-        | Typdef_prod (t_names, field_list) ->
+        | Typdef_record (t_names, field_list) ->
           field_index := Internal.get_field_index field_to_reveal field_list;
           let lfront1, lback1 = Xlist.split_at !field_index field_list in
           let field_to_inline1, lback1 = if List.length lback1 = 1 then (lback1, []) else
@@ -237,7 +237,7 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
                 fail t.loc "Struct_core.reveal_field_aux: field revealing is supported only for struct type"
             in
           let inner_type_field_list = begin match struct_def.typdef_body with
-          | Typdef_prod (_, s) -> s
+          | Typdef_record (_, s) -> s
           | _ -> fail t.loc "Struct_core.reveal_field_aux: the field wanted to inline should also be of struct type"
           end in
 
@@ -251,7 +251,7 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
           td_name := td.typdef_tconstr;
           f_list := fst (List.split (Internal.get_field_list struct_def));
 
-          let new_typedef = {td with typdef_body = Typdef_prod (t_names, field_list)} in
+          let new_typedef = {td with typdef_body = Typdef_record (t_names, field_list)} in
           trm_typedef new_typedef
 
         | _ -> fail t.loc "Struct_core.reveal_field_aux: expected a struct definition"
@@ -280,9 +280,9 @@ let reorder_fields_aux (struct_fields: vars) (move_where : reorder) (t: trm) : t
   let error = "Struct_core.reorder_fields_aux: expected a typedef definiton" in
   let td = trm_inv ~error trm_typedef_inv t in
    begin match td.typdef_body with
-   | Typdef_prod (tn, fs) ->
+   | Typdef_record (tn, fs) ->
      let field_list = Internal.reorder_fields move_where struct_fields fs in
-      trm_typedef {td with typdef_body = Typdef_prod (tn, field_list)}
+      trm_typedef {td with typdef_body = Typdef_record (tn, field_list)}
    | _ -> fail t.loc "Struct_core.reorder_fields_aux: expected a typdef_prod"
    end
 
@@ -427,10 +427,10 @@ let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
   let struct_name = ref "" in
   let f_update (t : trm) : trm =
     match t.desc with
-    | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_prod (tn, fl);_}  as td) ->
+    | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_record (tn, fl);_}  as td) ->
       struct_name := name;
       let new_fl = List.map (fun (x, ty) -> (rename x, ty)) fl in
-      trm_typedef ~annot:t.annot {td with typdef_body = Typdef_prod (tn, new_fl)}
+      trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record (tn, new_fl)}
    | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
    in
   let f_update_further (t : trm) : trm =
@@ -450,7 +450,7 @@ let rename_fields (index : int) (rename : rename) : Transfo.local =
       [t] - the ast of the typedef definition. *)
 let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : trm) : trm =
   match t.desc with
-  | Trm_typedef ({typdef_body = Typdef_prod (tn, fl);_}  as td) ->
+  | Trm_typedef ({typdef_body = Typdef_record (tn, fl);_}  as td) ->
     (* LATER: FIX ME! *)
     (* let update_type ty = typ_map typ_update ty in *)
     
@@ -464,7 +464,7 @@ let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : tr
     let replace_type (s : string) (ty1 : typ) : typ =
       if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
     let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in
-    trm_typedef ~annot:t.annot {td with typdef_body = Typdef_prod (tn, new_fl)}
+    trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record (tn, new_fl)}
   | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
 
 (* [update_fields_type pattern typ_update t p]: applies [update_fields_type_aux] at trm [t] with path [p]. *)
@@ -608,10 +608,10 @@ let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
     begin match tdef.desc with
     | Trm_typedef td ->
       begin match td.typdef_body with
-      | Typdef_prod (t_names, old_fields) ->
+      | Typdef_record (t_names, old_fields) ->
          let struct_name = td.typdef_tconstr in
          let new_fields = arg.f_fields old_fields in
-         let new_typdef = {td with typdef_body = Typdef_prod (t_names, new_fields)} in
+         let new_typdef = {td with typdef_body = Typdef_record (t_names, new_fields)} in
          let new_td = trm_typedef ~annot:tdef.annot new_typdef in
          let f_update = fun t -> new_td in
          let f_update_further = fun t -> modif_accesses (old_fields, new_fields) struct_name arg t in

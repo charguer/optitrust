@@ -114,10 +114,10 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
         | Typdef_alias ty ->
           trm_typedef  ~annot:t.annot ~loc:t.loc
            { td with typdef_body = Typdef_alias (change_typ ty)}
-        | Typdef_prod (b, s) ->
+        | Typdef_record (b, s) ->
            let s = List.map (fun (lb, x) -> (lb, change_typ x)) s in
            trm_typedef ~annot:t.annot ~loc:t.loc
-           { td with typdef_body = Typdef_prod (b, s)}
+           { td with typdef_body = Typdef_record (b, s)}
         | _ -> trm_map aux t
         end
        | Trm_var (_, x) ->
@@ -227,7 +227,7 @@ let fresh_args (t : trm) : trm =
 (* [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
 let get_field_list (td : typedef) : (var * typ) list =
   begin match td.typdef_body with
-  | Typdef_prod (_, s) -> s
+  | Typdef_record (_, s) -> s
   | _ -> fail None "Internal.get_field_lists: expected a Typedef_prod"
   end
 
@@ -520,7 +520,7 @@ let is_struct_type (t : typ) : bool =
     begin match Context.typid_to_typedef tid with
     | Some td ->
       begin match td.typdef_body with
-      | Typdef_prod _ -> true
+      | Typdef_record _ -> true
       | _ -> false
       end
     | _ -> false

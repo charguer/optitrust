@@ -573,7 +573,7 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       | _ ->
          separate (blank 1) [string "typedef"; typ_to_doc t; string tname] ^^ dsemi
       end
-  | Typdef_prod (tn, s) ->
+  | Typdef_record (tn, s) ->
       let get_document_list s =
         let rec aux acc = function
          | [] -> acc
