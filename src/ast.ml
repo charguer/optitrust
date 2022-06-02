@@ -192,12 +192,12 @@ and access_control =
 and typdef_body =
   | Typdef_alias of typ   (* for abbreviations, e.g. [type 'a t = ('a * 'a)
                           list] or [typdef vect t] *)
-  | Typdef_record of bool * (label * typ) list (* for records / struct,
-                                      e.g. [type 'a t = { f : 'a; g : int } *)
+  | Typdef_record of record_fields
+  (* | Typdef_record of bool * (label * typ) list  *)
+    (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
   | Typdef_sum of (constrname * typ) list (* for algebraic definitions / enum,
                                              e.g. [type 'a t = A | B of 'a] *)
   | Typdef_enum of (var * (trm option)) list (* for C/C++ enums *)
-
 
 (* [typed_var]: used for function arguments *)
 and typed_var = var * typ
@@ -300,6 +300,10 @@ and cstyle_annot =
   | Postfix_set     (* annotates all x++ and x-- unary operations aswrite operations *)
   | Reference
   | Stackvar
+  | Is_struct
+  | Is_rec_struct
+  | Is_class
+  | Static
 
 (* [files_annot]: file annotation *)
 and files_annot =
@@ -726,8 +730,8 @@ let typ_ptr_generated (ty : typ) : typ =
   typ_ptr ~typ_attributes:[GeneratedTyp] Ptr_kind_mut ty
 
 (* [typedef_prod ~recursive field_list]: typedef kind constructor *)
-let typdef_prod ?(recursive:bool=false) (field_list : (label * typ) list) : typdef_body =
-  Typdef_record (recursive, field_list)
+let typdef_record (fields : record_fields) : typdef_body =
+  Typdef_record fields
 
 (* [typ_str ~annot ~typ_attributes s] *)
 let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
@@ -1941,7 +1945,7 @@ type typ_kind =
   | Typ_kind_reference
   | Typ_kind_array
   | Typ_kind_sum
-  | Typ_kind_prod
+  | Typ_kind_record
   | Typ_kind_basic of typ_desc
   | Typ_kind_fun
   | Typ_kind_var
@@ -1953,7 +1957,7 @@ let typ_kind_to_string (tpk : typ_kind) : string =
   | Typ_kind_reference -> "reference"
   | Typ_kind_array -> "array"
   | Typ_kind_sum -> "sum"
-  | Typ_kind_prod -> "prod"
+  | Typ_kind_record -> "prod"
   | Typ_kind_basic _ -> "basic"
   | Typ_kind_fun -> "fun"
   | Typ_kind_var -> "var"
@@ -1982,7 +1986,7 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
      | Some td ->
          begin match td.typdef_body with
         | Typdef_alias ty1 -> get_typ_kind ctx ty1
-        | Typdef_record _ -> Typ_kind_prod
+        | Typdef_record _ -> Typ_kind_record
         | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum
         end
      end

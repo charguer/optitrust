@@ -369,18 +369,23 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
     let dt = print_typ ~only_desc t in
     print_node "Typedef_alias" ^^ parens ( separate (comma ^^ break 1)
      [string tname; string (string_of_int tid); dt ])
-  | Typdef_record (_, s) ->
-    let get_document_list s =
-      let rec aux acc = function
+  | Typdef_record rfl ->
+    let get_document_list (rf : record_fields) : document list =
+      let rec aux acc = function 
       | [] -> acc
-      | (lb, t) :: tl  ->
-        let dt = print_typ ~only_desc t in
-        aux (print_pair (string lb) dt :: acc) tl in
-      aux [] (List.rev s) (* LATER: process without accumulator *)
-     in
-    let dtl = get_document_list s in
-    print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
-     [string tname; string (string_of_int tid); print_list dtl ])
+      | rf :: tl -> 
+        begin match rf with 
+        | Record_field_memeber (lb, ty) -> 
+          let dt = print_typ ~only_desc ty in 
+          aux (print_pair (string lb) dt :: acc) tl
+        | Record_fields_method t1 ->
+          let dt = print_trm ~only_desc t1 in
+          aux (dt :: acc) tl  
+        end
+        in 
+      let dtl = get_document_list rfl in 
+     print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
+      [string tname; string (string_of_int tid); print_list dtl ])
   | Typdef_sum _ ->
     fail None "Ast_to_text.print_typedef: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
@@ -472,6 +477,10 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Postfix_set -> string "Postfix_set"
  | Reference -> string "Reference"
  | Stackvar -> string "Stackvar"
+ | Is_struct -> string "Is_struct"
+ | Is_rec_struct -> string "Is_rec_struct"
+ | Is_class -> string "Is_class"
+ | Static -> strign "Static"
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =

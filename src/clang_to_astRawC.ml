@@ -412,7 +412,7 @@ and tr_init_list ?(loc : location = None) ?(ctx : ctx option = None) (ty : typ) 
   | Typ_kind_array -> 
      let tl = List.map tr_expr el in
      trm_array ~loc ~ctx ~typ:(Some ty) (Mlist.of_list tl)
-  | Typ_kind_prod | Typ_kind_undefined -> 
+  | Typ_kind_record | Typ_kind_undefined -> 
      let tl = List.map (fun (e : expr) -> 
       match e.desc with 
       | DesignatedInit {designators = dl; init = e } ->
@@ -748,26 +748,29 @@ and tr_decl_list (dl : decl list) : trms =
             let ft = tr_qual_type ~loc q in
             let al = List.map (tr_attribute loc) al in
             let ty = {ft with typ_attributes = al} in
-            (fn, ty)
+            (Record_field_member (fn, ty), Access_public)
           | _ -> fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in struct declaration"
 
         ) fl in
         (* Third, add the typedef to the context *)
-        let two_names = if rn = "" then false else true in
+        let is_rec_type = if rn = "" then false else true in
         let td = {
           typdef_loc = loc;
           typdef_typid = tid;
           typdef_tconstr = tn;
           typdef_vars = [];
-          typdef_body = Typdef_record (two_names, prod_list)
+          typdef_body = Typdef_record prod_list
           } in
         ctx_typedef_add tn tid td;
         let trm_td = trm_typedef ~loc ~ctx:(Some (get_ctx())) td in
+        let annot_to_add = if is_rec_type then Is_rec_struct else Is_struct in
+        let trm_td = if two_names then trm_add_cstyle annot_to_add trm_td else 
         let tl' = tr_decl_list dl' in
         trm_td :: tl'
 
       | _ -> fail loc "Clang_to_astRawC.tr_decl_list: only struct records are allowed"
     end
+  
   | d :: d' :: dl ->
     let td = tr_decl d in
     let tl = tr_decl_list (d' :: dl) in
