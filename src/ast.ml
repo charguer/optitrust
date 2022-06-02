@@ -346,7 +346,7 @@ and trm_desc =
   | Trm_val of value
   | Trm_var of varkind * var
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
-  | Trm_struct of trm mlist (* { 4, 5.3 } as a record *)
+  | Trm_struct of (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c; ONLY FOR RAW AST! *)
   | Trm_let_fun of var * typ * (typed_vars) * trm
@@ -798,7 +798,7 @@ let trm_array ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : c
 
 (* [trm_struct ~annot ~loc ~typ ~ctx tl]: struct initialization list *)
 let trm_struct ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
-  (tl : trm mlist) : trm =
+  (tl : (label option * trm) mlist) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_struct tl)
 
 (* [trm_let ~annot ~loc ~ctx kind typed_var init]: variable declaration *)
@@ -1423,7 +1423,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
     let tl' = Mlist.map (f false) tl in
     trm_array ~annot ~loc ~typ tl'
   | Trm_struct tl ->
-    let tl' = Mlist.map (f false) tl in
+    let tl' = Mlist.map (fun (lb, t) -> (lb, f false t)) tl in
     trm_struct ~annot ~loc ~typ tl'
   | Trm_let (vk, tv, init) ->
     let init' = f false init in
@@ -1518,7 +1518,8 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
     ret (tl' == tl)
         (trm_array ~annot ~loc ~typ tl')
   | Trm_struct tl ->
-    let tl' = fmlist false tl in
+    let tl' = Mlist.map (fun (lb, t) -> (lb, f false t)) tl in
+    let tl' = if Mlist.for_all2 (==) tl tl' then tl else tl' in
     ret (tl' == tl)
         (trm_struct ~annot ~loc ~typ tl')
   | Trm_let (vk, tv, init) ->
@@ -1598,7 +1599,7 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
   | Trm_array tl ->
     Mlist.iter f tl
   | Trm_struct tl ->
-    Mlist.iter f tl
+    Mlist.iter (function (_, t) -> f t) tl
   | Trm_let (vk, tv, init) ->
     f init
   | Trm_let_fun (f', res, args, body) ->
@@ -2887,13 +2888,13 @@ let set_struct_access_inv_some (t : trm) : (trm * field * trm) =
   | Some r -> r
 
 (* [struct_init_inv t]: if is t is a struct initialization, get the list of terms; else None *)
-let struct_init_inv (t : trm) : trm mlist option =
+let struct_init_inv (t : trm) : (label option * trm) mlist option =
   match t.desc with
   | Trm_struct sl -> Some sl
   | _ -> None
 
 (* [struct_init_inv_some t]: gets struct initialization list trms *)
-let struct_init_inv_some (t : trm) : trm mlist =
+let struct_init_inv_some (t : trm) : (label option * trm) mlist =
  match struct_init_inv t with
   | None -> assert false
   | Some r -> r

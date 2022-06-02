@@ -263,6 +263,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_seq_nth n, Trm_seq tl ->
           { t with desc = Trm_seq (Mlist.update_nth n aux tl) }
        | Dir_struct_nth n, Trm_struct tl ->
+          let aux (lb, t1) = (lb, aux t1) in
           { t with desc = Trm_struct (Mlist.update_nth n aux tl)}
        | Dir_cond, Trm_if (cond, then_t, else_t) ->
           { t with desc = Trm_if (aux cond, then_t, else_t)}
@@ -397,7 +398,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
        | Dir_array_nth n, Trm_array tl ->
           app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux nth_t ctx)
        | Dir_struct_nth n, Trm_struct tl ->
-          app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux nth_t ctx)
+          app_to_nth loc (Xlist.split_pairs_snd (Mlist.to_list tl)) n (fun nth_t -> aux nth_t ctx)
        | Dir_cond, Trm_if (cond, _, _)
          | Dir_cond, Trm_while (cond, _)
          | Dir_cond, Trm_do_while (_, cond)

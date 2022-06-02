@@ -38,7 +38,7 @@ TESTS_TOCHECK := \
 	barrier_regions.ml \
 	copyin.ml \
 	copyprivate1.ml \
-	copyprivate2.ml \
+	copypsprivate2.ml \
 	copyprivate3.ml \
 	critical1.ml \
 	critical2.ml \

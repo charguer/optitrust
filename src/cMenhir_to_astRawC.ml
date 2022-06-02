@@ -264,7 +264,7 @@ and tr_init ?(loc : location = None) (i : C.init) : trm =
   | Init_array il -> trm_array ~loc (Mlist.of_list (List.map tr_init il))
   | Init_struct ((id, ty), il) ->
     let ty = tr_type ty in
-    trm_struct ~loc ~typ:(Some ty) (Mlist.of_list (List.map (fun (_, init) -> tr_init init) il))
+    trm_struct ~loc ~typ:(Some ty) (Mlist.of_list (List.map (fun (_, init) -> (None, tr_init init)) il))
   | Init_union _ -> fail loc "CMenhir_to_astRawC.tr_init: union not supported yet"
 
 (* [tr_constant c]: translates C.constant into OptiTrust trm *)

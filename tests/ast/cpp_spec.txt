@@ -271,3 +271,27 @@ NOW: just add Trm_fun
 LATER: eliminate trm_let_fun
 
 
+
+let example = {|
+  struct {
+    int a;
+    int b;
+  } s = { .a = 1, .b = 2 };
+|}
+
+let () =
+  check_pattern quote_stmt_list parse_statement_list example
+  [%pattern?
+    [{ desc = Decl [
+      { desc = RecordDecl _; _ };
+      { desc = Var {
+          var_name = "s";
+          var_init = Some { desc = InitList [
+             { desc = DesignatedInit {
+                designators = [FieldDesignator "a"];
+                init = { desc = IntegerLiteral (Int 1) }}};
+             { desc = DesignatedInit {
+                designators = [FieldDesignator "b"];
+                init = { desc = IntegerLiteral (Int 2) }}}] }}}] }]]
+    ]}*)
+

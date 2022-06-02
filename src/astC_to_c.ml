@@ -337,16 +337,23 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
        dattr ^^ braces (separate (comma ^^ blank 1) dl)
     | Trm_struct tl ->
        let tl = Mlist.to_list tl in
-       let dl = List.map (decorate_trm ~print_struct_init_type:false ~semicolon) tl in
-       let init_type = if not print_struct_init_type then empty else
-        begin match t.typ with
-        | Some ty ->
-          begin match ty.typ_desc with
-          | Typ_constr (_, id, _) when id <> -1 -> parens(typ_to_doc ty)
-          | _ -> empty
-          end
-        | None -> empty
-        end in
+       let dec_trm (t : trm) = decorate_trm ~print_struct_init_type:false ~semicolon t in
+       let dl = List.map (fun (lb_opt, t1) -> 
+        match lb_opt with 
+        | Some lb -> dot ^^ string lb ^^ equals  ^^ dec_trm t1
+        | None -> dec_trm t1
+       ) tl in
+       let init_type = if not print_struct_init_type 
+          then empty 
+          else begin match t.typ with 
+          | Some ty ->
+            begin match ty.typ_desc with 
+            | Typ_constr (_, id, _) when id <> -1 -> parens(typ_to_doc ty)
+            | _ -> empty
+            end
+          | None -> empty
+          end 
+        in
        dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl

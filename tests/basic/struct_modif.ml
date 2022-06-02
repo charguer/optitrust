@@ -46,11 +46,10 @@ let myscaling tg =
     let f_alloc (oldfields,_newfields) aux t : trm = (* t is [trm_struct[t1;..;tn]] *)
       let sl = struct_init_inv_some t in
       assert (Mlist.length sl = List.length oldfields); (* else trm_struct could not have the targeted type *)
-      let fix_field i ti =
+      let fix_field i (lb, ti) =
         let (field,_typ_field) = List.nth oldfields i in
         let ti = aux ti in
-        if field = fieldtochange then set_mul_by_factor ti else ti
-        in
+        if field = fieldtochange then (lb, set_mul_by_factor ti) else (lb, ti) in
       trm_struct (Mlist.mapi fix_field sl) in
 
     { f_fields; f_get; f_set; f_struct_get; f_access; f_alloc }) in
@@ -88,9 +87,10 @@ let mysuffix (suffix : string) tg =
     let f_alloc (oldfields,_newfields) aux t : trm = (* t is [trm_struct[t1;..;tn]] *)
       let sl = struct_init_inv_some t in
       assert (Mlist.length sl = List.length oldfields); (* else trm_struct could not have the targeted type *)
-      let fix_field i ti =
+      let fix_field i (lb, ti) =
         let (_field,_typ_field) = List.nth oldfields i in (* not needed here *)
-        aux ti in
+         (lb, aux ti) 
+       in
       reuse_annot_of t (trm_struct (Mlist.mapi fix_field sl)) in
 
     { f_fields; f_get; f_set; f_struct_get; f_access; f_alloc }) in

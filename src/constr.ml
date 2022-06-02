@@ -1376,7 +1376,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_seq tl ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
      | Trm_struct tl ->
-        explore_list (Mlist.to_list tl) (fun n -> Dir_struct_nth n) (aux)
+        explore_list (split_pairs_snd (Mlist.to_list tl)) (fun n -> Dir_struct_nth n) (aux)
      | Trm_switch (cond, cases) ->
         (add_dir Dir_cond (aux cond)) @
         (Xlist.fold_lefti (fun i epl case -> epl@explore_case depth i case p) [] cases)
@@ -1421,7 +1421,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
     app_to_nth_dflt loc (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
   | Dir_struct_nth n, Trm_struct tl ->
-     app_to_nth_dflt loc (Mlist.to_list tl) n
+     app_to_nth_dflt loc (split_pairs_snd (Mlist.to_list tl)) n
        (fun nth_t -> add_dir (Dir_struct_nth n) (aux nth_t))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)

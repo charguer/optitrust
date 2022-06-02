@@ -404,6 +404,28 @@ and compute_body (loc : location) (body_acc : trms)
         compute_body loc (t :: body_acc) sl
     end
 
+
+(* [tr_init_list ~loc ~ctx ty el]: translates [el] into a trm, based on type [ty] the initialization list kind
+     is determined. *)
+and tr_init_list ?(loc : location = None) ?(ctx : ctx option = None) (ty : typ) (el : expr list) : trm = 
+  match get_typ_kind (get_ctx()) ty with
+  | Typ_kind_array -> 
+     let tl = List.map tr_expr el in
+     trm_array ~loc ~ctx ~typ:(Some ty) (Mlist.of_list tl)
+  | Typ_kind_prod | Typ_kind_undefined -> 
+     let tl = List.map (fun {desc = d} -> 
+      match d with 
+      | DesignatedInit {designators = dl; init = e } ->
+        begin match dl with 
+        | [FieldDesignator f] ->
+          (Some f, tr_expr e)
+        | _ -> fail loc "Clang_to_astRawC.tr_init_list: struct initialization with multiple designators per field are not supported"
+        end
+      | _ -> (None, tr_expr e)) el in
+        trm_struct ~loc ~ctx ~typ:(Some ty) (Mlist.of_list tl)
+  | _ -> fail loc "Clang_to_astRawC.tr_init_list: initialisation lists only allowed for struct and array"
+
+
 (* [tr_expr e]: translates expression [e] into an OptiTrust trm *)
 and tr_expr (e : expr) : trm =
   (* let aux = tr_expr *)
@@ -449,16 +471,8 @@ and tr_expr (e : expr) : trm =
       | None -> fail loc ("unable to obtain type of an initialization list")
       | Some ty -> ty
     in
-    let tl = List.map tr_expr el in
-    let tl = Mlist.of_list tl in
-    begin match get_typ_kind (get_ctx()) tt with
-    | Typ_kind_array -> trm_array ~loc ~ctx ~typ:(Some tt) tl
-    | Typ_kind_prod -> trm_struct ~loc ~ctx ~typ:(Some tt) tl
-    | Typ_kind_undefined -> trm_struct ~loc ~ctx ~typ:(Some tt) tl
-    | _ ->
-        fail loc ("Clang_to_astRawC.tr_decl: initialisation lists only " ^
-                  "allowed for struct and array")
-    end
+    tr_init_list ~loc ~ctx tt el
+    
   | UnaryExpr {kind = k; argument = a} ->
     begin match k with
       | SizeOf ->
@@ -854,15 +868,7 @@ and tr_decl (d : decl) : trm =
       | Some e ->
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
-          let tl = List.map tr_expr el in
-          let tl = Mlist.of_list tl in
-          begin match get_typ_kind (get_ctx()) tt with
-          | Typ_kind_array -> trm_array ~loc ~typ:(Some tt) tl
-          | Typ_kind_prod -> trm_struct ~loc ~typ:(Some tt) tl
-          | Typ_kind_undefined -> trm_struct ~loc ~typ:(Some tt) tl
-          | _ -> fail loc "Clang_to_astRawC.tr_decl: initialisation lists only allowed for struct and array"
-          end
-
+          tr_init_list ~loc ~ctx tt el
         | _ -> tr_expr e
         end
       end

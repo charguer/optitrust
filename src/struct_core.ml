@@ -40,7 +40,7 @@ let set_explicit_aux (t : trm) : trm =
          ) field_list in
          trm_seq_no_brace exp_assgn
       | Trm_struct st ->
-        let st = Mlist.to_list st in
+        let st = split_pairs_snd (Mlist.to_list st) in
         let exp_assgn = List.mapi (fun i (sf, ty) ->
           trm_set (trm_struct_access ~typ:(Some ty) lt sf) (List.nth st i)
         ) field_list
@@ -107,7 +107,9 @@ let set_implicit_aux (t: trm) : trm =
             in
             begin match rhs_trms with
             | [rhs1] -> trm_pass_labels t (trm_set lt rhs1)
-            | _ -> trm_pass_labels t (trm_set lt (trm_struct (Mlist.of_list rhs_trms)))
+            | _ -> 
+              let rhs_trms = List.map (fun t1 -> (None, t1)) rhs_trms in
+              trm_pass_labels t (trm_set lt (trm_struct (Mlist.of_list rhs_trms)))
             end
           | _ -> fail f.loc "Struct_core.set_explicit_aux: expected an assignment instruction"
           end
@@ -176,13 +178,14 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
           | Trm_struct sl ->
             let new_term_list = Mlist.merge_list [lfront; sl; lback] in
             trm_struct ~annot:t.annot ~typ:t.typ new_term_list
+          
           | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change ->
-            let sl = List.map (fun f -> trm_get (trm_struct_access (trm_var ~typ:v.typ p) f)) field_list in
+            let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ~typ:v.typ p) f))) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
             trm_struct ~annot:t.annot ~typ:t.typ new_term_list
 
           | Trm_var (_, p) ->
-            let sl = List.map (fun f -> trm_struct_get (trm_var ~typ:t.typ p) f) field_list in
+            let sl = List.map (fun f -> (None, trm_struct_get (trm_var ~typ:t.typ p) f)) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
             trm_struct ~annot:t.annot ~typ:t.typ new_term_list
 
@@ -338,10 +341,10 @@ let to_variables_aux (index : int) (t : trm) : trm =
       let struct_init_list = begin match init.desc with
                            | Trm_apps(_, [base]) ->
                             begin match base.desc with
-                            | Trm_struct ls -> (Mlist.to_list ls)
+                            | Trm_struct ls -> split_pairs_snd (Mlist.to_list ls)
                             | _ -> fail init.loc "Struct_core.struct_to_variables_aux: expected a struct initialisation"
                             end
-                           | Trm_struct ls -> (Mlist.to_list ls)
+                           | Trm_struct ls -> split_pairs_snd (Mlist.to_list ls)
                            | _ -> []
                            end in
       let var_decls = List.mapi(fun i (sf, ty) ->
@@ -489,7 +492,7 @@ let simpl_proj_aux (t : trm) : trm =
               let field_vars = fst (List.split field_list) in
               match Xlist.index_of x field_vars  with
               | Some i ->
-                Mlist.nth tl i
+                snd (Mlist.nth tl) i
               | _ -> t
               end
               else  t

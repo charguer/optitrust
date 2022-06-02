@@ -157,3 +157,12 @@ let rotate (n : int) (l : 'a list) : 'a list =
    then failwith "Xlist.rotate: the number of elements to rotate should not exceed the length of the input list.";
   let ls, rs = split_at n l in
   rs @ ls
+
+
+(* [split_pairs_fst l]: returns the first element of the pair generated after calling [List.split] on [l]. *)
+let split_pairs_fst (l : ('a * 'b) list) : 'a list =
+  fst (List.split l)
+
+(* [split_pairs_fst l]: returns the second element of the pair generated after calling [List.split] on [l]. *)
+let split_pairs_snd (l : ('a * 'b) list) : 'b list =
+  snd (List.split l)

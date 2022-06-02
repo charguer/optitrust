@@ -200,7 +200,10 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let dtl = List.map (print_trm ~only_desc) tl in
      print_node "Trm_array" ^^ print_list dtl
   | Trm_struct tl ->
-     let dtl = List.map (print_trm ~only_desc) (Mlist.to_list tl) in
+     let tl = Mlist.to_list tl in
+     let dtl = List.map (fun (lb, t) ->
+      let td = print_trm ~only_desc t in 
+      match lb with Some lb -> parens (string lb ^^ comma ^^blank 1 ^^ td) | None -> td) tl in
      print_node "Trm_struct" ^^ print_list dtl
   | Trm_let (vk,(x,tx),t) ->
     let dvk = match vk with

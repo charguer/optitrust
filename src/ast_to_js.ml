@@ -236,7 +236,8 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [] ]
     | Trm_struct l ->
         [ kind_to_field  "struct";
-          children_to_field (List.mapi ichild_to_json (List.map aux(Mlist.to_list l))) ]
+          (* TODO: Temporary hack for labelled struct inits. *)
+          children_to_field (List.mapi ichild_to_json (List.map aux(Xlist.split_pairs_snd (Mlist.to_list l)))) ]
     | Trm_array l ->
         [ kind_to_field "array";
           children_to_field (List.mapi ichild_to_json (List.map aux (Mlist.to_list l))) ]
