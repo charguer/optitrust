@@ -39,8 +39,8 @@ let set_explicit_aux (t : trm) : trm =
           trm_set (trm_struct_access ~typ:(Some ty) lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:(Some ty) rt1 sf]); typ = Some ty}
          ) field_list in
          trm_seq_no_brace exp_assgn
-      | Trm_struct st ->
-        let st = split_pairs_snd (Mlist.to_list st) in
+      | Trm_record st ->
+        let st = Xlist.split_pairs_snd (Mlist.to_list st) in
         let exp_assgn = List.mapi (fun i (sf, ty) ->
           trm_set (trm_struct_access ~typ:(Some ty) lt sf) (List.nth st i)
         ) field_list
@@ -109,7 +109,7 @@ let set_implicit_aux (t: trm) : trm =
             | [rhs1] -> trm_pass_labels t (trm_set lt rhs1)
             | _ -> 
               let rhs_trms = List.map (fun t1 -> (None, t1)) rhs_trms in
-              trm_pass_labels t (trm_set lt (trm_struct (Mlist.of_list rhs_trms)))
+              trm_pass_labels t (trm_set lt (trm_record (Mlist.of_list rhs_trms)))
             end
           | _ -> fail f.loc "Struct_core.set_explicit_aux: expected an assignment instruction"
           end
@@ -167,27 +167,27 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
   let rec aux (t : trm) : trm =
     match t.desc with
     (* Searching for struct intialization lists of type typedef struct {} struct_name *)
-    | Trm_struct term_list ->
+    | Trm_record term_list ->
       begin match t.typ with
       | Some ty ->
         let ty = get_inner_const_type ty in
         begin match ty.typ_desc with
         | Typ_constr (y, _, _) when y = struct_name ->
-          let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives field_index term_list in
+          let lfront, (_,trm_to_change) , lback = Internal.get_item_and_its_relatives field_index term_list in
           begin match trm_to_change.desc with
-          | Trm_struct sl ->
+          | Trm_record sl ->
             let new_term_list = Mlist.merge_list [lfront; sl; lback] in
-            trm_struct ~annot:t.annot ~typ:t.typ new_term_list
+            trm_record ~annot:t.annot ~typ:t.typ new_term_list
           
           | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change ->
             let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ~typ:v.typ p) f))) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
-            trm_struct ~annot:t.annot ~typ:t.typ new_term_list
+            trm_record ~annot:t.annot ~typ:t.typ new_term_list
 
           | Trm_var (_, p) ->
             let sl = List.map (fun f -> (None, trm_struct_get (trm_var ~typ:t.typ p) f)) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
-            trm_struct ~annot:t.annot ~typ:t.typ new_term_list
+            trm_record ~annot:t.annot ~typ:t.typ new_term_list
 
           | _ -> fail t.loc "Struct_core.inline_struct_initialization: struct intialization list is not compatible with definition"
           end
@@ -341,10 +341,10 @@ let to_variables_aux (index : int) (t : trm) : trm =
       let struct_init_list = begin match init.desc with
                            | Trm_apps(_, [base]) ->
                             begin match base.desc with
-                            | Trm_struct ls -> split_pairs_snd (Mlist.to_list ls)
+                            | Trm_record ls -> Xlist.split_pairs_snd (Mlist.to_list ls)
                             | _ -> fail init.loc "Struct_core.struct_to_variables_aux: expected a struct initialisation"
                             end
-                           | Trm_struct ls -> split_pairs_snd (Mlist.to_list ls)
+                           | Trm_record ls -> Xlist.split_pairs_snd (Mlist.to_list ls)
                            | _ -> []
                            end in
       let var_decls = List.mapi(fun i (sf, ty) ->
@@ -482,7 +482,7 @@ let simpl_proj_aux (t : trm) : trm =
       begin match trm_prim_inv f with
       | Some (Prim_unop (Unop_struct_get x)) | Some (Prim_unop (Unop_struct_access x))->
         begin match struct_list.desc with
-        | Trm_struct tl ->
+        | Trm_record tl ->
           let tid = Internal.get_typid_from_trm struct_list in
             if tid <> -1 then begin
               let struct_def = match Context.typid_to_typedef tid with
@@ -491,8 +491,7 @@ let simpl_proj_aux (t : trm) : trm =
               let field_list = Internal.get_field_list struct_def in
               let field_vars = fst (List.split field_list) in
               match Xlist.index_of x field_vars  with
-              | Some i ->
-                snd (Mlist.nth tl) i
+              | Some i -> snd (Mlist.nth tl i)
               | _ -> t
               end
               else  t
@@ -527,7 +526,7 @@ module Struct_modif = struct
      - [f_set] is for [set(access(base, f), rhs)]
      - [f_struct_get] is for [struct_get(base, f)]
      - [f_access] is for [struct_access(base, f)]
-     - [f_alloc] is for [trm_struct ls]; the function is provided with the
+     - [f_alloc] is for [trm_record ls]; the function is provided with the
        old list and the new list of fields, with names and types. *)
   type arg = {
     f_fields : fields -> fields;

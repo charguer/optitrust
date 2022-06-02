@@ -8,7 +8,7 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_var _, Trm_var _ -> true
   | Trm_var _, Trm_apps _  when is_get_operation t2 -> true
   | Trm_array _, Trm_array _ ->  true
-  | Trm_struct _, Trm_struct _ -> true
+  | Trm_record _, Trm_record _ -> true
   | Trm_let _, Trm_let _ -> true
   | Trm_let_fun _, Trm_let_fun _ -> true
   | Trm_let_record _, Trm_let_record _ -> true
@@ -258,7 +258,7 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
       end
     | None -> get_typid_from_trm base
     end
-  | Trm_struct _ ->
+  | Trm_record _ ->
     begin match t.typ with
     | Some typ ->
       begin match typ.typ_desc with
@@ -416,25 +416,25 @@ let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) l
       | None -> fail None (Printf.sprintf "Internal.reorder_fields: field %s doest not exist" x)) local_l
     end
 
-(* [get_trm_and_its_relatives index trms]: for a trm [t] with index [index] in its surrounding sequence return
-    the list of trms before t, t itself and the list of trms that come after t. *)
-let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
-  let lfront, lback = Mlist.split index trms in
+
+(* [get_item_and_its_relatives index trms]: for an  item [t] with index [index] in the mlist its belongs to,
+    returns the list of items before [t], [t] itself and the list of items that come after [t]. *)
+let get_item_and_its_relatives (index : int) (items : 'a mlist) : ('a mlist * 'a * 'a mlist) =
+  let lfront, lback = Mlist.split index items in
   let element, lback = Mlist.split 1 lback in
   let element =
     if Mlist.length element = 1
       then Mlist.nth element 0
-      else fail None "Internal.get_element_and_its_relatives: expected a list with a single element"
+      else fail None "Internal.get_item_and_its_relatives: expected a list with a single element"
   in
   (lfront, element, lback)
 
 (* [inline_sublist_at index ml]: in the case of nested sequence, nested initialization lists for arrays and structs,
     this function can be used to inline the sublist at [index] into the main list *)
 let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
-  let lfront, st, lback  = get_trm_and_its_relatives index ml in
+  let lfront, st, lback  = get_item_and_its_relatives index ml in
   match st.desc with
-  | Trm_seq tl | Trm_array tl | Trm_struct tl ->
-    Mlist.merge (Mlist.merge lfront tl) lback
+  | Trm_seq tl -> Mlist.merge (Mlist.merge lfront tl) lback
   | _ -> fail st.loc "Internal.inline_sublist_at: expected an ast node which taks a mlist as parameter"
 
 

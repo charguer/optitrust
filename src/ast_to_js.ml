@@ -234,7 +234,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "var";
           value_to_field x;
           children_to_field [] ]
-    | Trm_struct l ->
+    | Trm_record l ->
         [ kind_to_field  "struct";
           (* TODO: Temporary hack for labelled struct inits. *)
           children_to_field (List.mapi ichild_to_json (List.map aux(Xlist.split_pairs_snd (Mlist.to_list l)))) ]

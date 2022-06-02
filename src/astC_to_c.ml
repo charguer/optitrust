@@ -335,7 +335,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_array tl -> let tl = Mlist.to_list tl in
        let dl = List.map (decorate_trm ~semicolon ~print_struct_init_type:false) tl in
        dattr ^^ braces (separate (comma ^^ blank 1) dl)
-    | Trm_struct tl ->
+    | Trm_record tl ->
        let tl = Mlist.to_list tl in
        let dec_trm (t : trm) = decorate_trm ~print_struct_init_type:false ~semicolon t in
        let dl = List.map (fun (lb_opt, t1) -> 

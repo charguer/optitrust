@@ -756,7 +756,7 @@ let get_trm_kind (t : trm) : trm_kind =
    match t.desc with
    | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_var _ -> TrmKind_Expr
-   | Trm_struct _ | Trm_array _ -> TrmKind_Expr
+   | Trm_record _ | Trm_array _ -> TrmKind_Expr
    | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
    | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
    | Trm_typedef _ | Trm_let_record _-> TrmKind_Typedef
@@ -971,8 +971,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_mark (pred, _m), _ ->
         let t_marks = trm_get_marks t in
         begin match t.desc with
-        | Trm_seq tl | Trm_array tl | Trm_struct tl->
+        | Trm_seq tl | Trm_array tl ->
           (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
+        | Trm_record tl -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
         | _ -> List.exists pred t_marks
         end
      | Constr_hastype pred , _ ->
@@ -981,7 +982,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_var_init, Trm_val (Val_lit (Lit_uninitialized)) -> false
      | Constr_var_init , _ -> true
      | Constr_array_init, Trm_array _ -> true
-     | Constr_struct_init, Trm_struct _ -> true
+     | Constr_struct_init, Trm_record _ -> true
      | Constr_omp (pred, _), _ -> trm_has_pragma pred t
      | _ -> false
      end
@@ -1375,8 +1376,8 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
      | Trm_seq tl ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
-     | Trm_struct tl ->
-        explore_list (split_pairs_snd (Mlist.to_list tl)) (fun n -> Dir_struct_nth n) (aux)
+     | Trm_record tl ->
+        explore_list (Xlist.split_pairs_snd (Mlist.to_list tl)) (fun n -> Dir_struct_nth n) (aux)
      | Trm_switch (cond, cases) ->
         (add_dir Dir_cond (aux cond)) @
         (Xlist.fold_lefti (fun i epl case -> epl@explore_case depth i case p) [] cases)
@@ -1420,8 +1421,8 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   | Dir_seq_nth n, Trm_seq tl ->
     app_to_nth_dflt loc (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
-  | Dir_struct_nth n, Trm_struct tl ->
-     app_to_nth_dflt loc (split_pairs_snd (Mlist.to_list tl)) n
+  | Dir_struct_nth n, Trm_record tl ->
+     app_to_nth_dflt loc (Xlist.split_pairs_snd (Mlist.to_list tl)) n
        (fun nth_t -> add_dir (Dir_struct_nth n) (aux nth_t))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
