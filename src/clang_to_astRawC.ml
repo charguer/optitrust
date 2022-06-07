@@ -682,6 +682,8 @@ and tr_attribute (loc : location) (a : Clang.Ast.attribute) : attribute =
   | Aligned {spelling = _; alignment_expr = e} -> Alignas (tr_expr e)
   | _ -> fail loc "Clang_to_astRawC.tr_attribute: unsupported attribute"
 
+
+
 (* [tr_decl_list dl]: translates a list of declarations *)
 and tr_decl_list (dl : decl list) : trms =
   let loc =
@@ -692,48 +694,7 @@ and tr_decl_list (dl : decl list) : trms =
   in
   match dl with
   | [] -> []
-  | [{decoration = _; desc = RecordDecl _}] ->
-    fail loc "Clang_to_astRawC.tr_decl_list: record declarations must be followed by type definitions"
   | [d] -> [tr_decl d]
-  | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
-                                        nested_name_specifier = _; name = rn;
-                                        bases = _; fields = fl; final = _;
-                                        complete_definition = _;_ }} ::
-    ({desc = Var _;_}) ::
-    dl' ->
-       let prod_list = List.map (fun (d : decl) ->
-      let loc = loc_of_node d in
-      match d with
-      | {decoration = _; desc = Field {name = fn; qual_type = q; attributes = al;_}} ->
-        let ft = tr_qual_type ~loc q in
-        let al = List.map (tr_attribute loc) al in
-        let ty = {ft with typ_attributes = al} in
-        (Record_field_member (fn, ty), Access_public)
-      | {decoration = _; desc = CXXMethod _; _} ->
-        let tdl = tr_decl d in 
-        (Record_field_method tdl, Access_public)
-        (* TODO: Deal with the access specification *)
-      | _ ->
-        fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
-    ) fl in
-      let tid = next_typconstrid () in
-      let td = {
-          typdef_loc = loc;
-          typdef_typid = tid;
-          typdef_tconstr = rn;
-          typdef_vars = [];
-          typdef_body = Typdef_record prod_list
-          } in
-        ctx_typedef_add rn tid td;
-      let trm_td = 
-      begin match k with 
-      | Struct -> trm_add_cstyle Is_struct (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) 
-      | Class -> trm_add_cstyle Is_class (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) 
-      | _ -> fail loc "Clang_to_astRawC.tr_decl_list: only classes and structs are supported." 
-      end in
-      let tl' = tr_decl_list dl' in 
-      trm_td :: tl'
-  
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
@@ -763,7 +724,9 @@ and tr_decl_list (dl : decl list) : trms =
             let al = List.map (tr_attribute loc) al in
             let ty = {ft with typ_attributes = al} in
             (Record_field_member (fn, ty), Access_public)
-          | _ -> fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in struct declaration"
+          | _ -> 
+            Printf.printf "Failing from here\n";
+            fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in struct declaration"
 
         ) fl in
         (* Third, add the typedef to the context *)
@@ -974,23 +937,49 @@ and tr_decl (d : decl) : trm =
      | CXX -> "C++"
      | _ -> "" in
      trm_extern lang dls
-  | RecordDecl {keyword = k; name = n; fields = fl;_} ->
-    let prod_list = List.map (fun (d : decl) ->
+  | RecordDecl {keyword = k; attributes = _;
+                                        nested_name_specifier = _; name = rn;
+                                        bases = _; fields = fl; final = _;
+                                        complete_definition = _;_ } ->
+       
+      let access_spec = ref Access_private in
+      let prod_list = List.fold_left (fun acc (d : decl) ->
       let loc = loc_of_node d in
       match d with
       | {decoration = _; desc = Field {name = fn; qual_type = q; attributes = al;_}} ->
         let ft = tr_qual_type ~loc q in
         let al = List.map (tr_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
-        (fn, ty)
-      | _ -> fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
-    ) fl in
-      let kw = match k with
-      | Struct -> Struct
-      | Union -> Union
-      | Class -> Class
-      | _ -> fail loc "Clang_to_astRawC.tr_decl_list: special records are not supported" in
-      trm_let_record n kw (List.rev prod_list) (trm_lit (Lit_unit))
+        acc @ [(Record_field_member (fn, ty), !access_spec)]
+      | {decoration = _; desc = CXXMethod _; _} ->
+        let tdl = tr_decl d in 
+        acc @ [(Record_field_method tdl, !access_spec)]
+      | {decoration = _; desc = AccessSpecifier (spec); _} ->
+        begin match spec with 
+        | CXXPublic -> access_spec := Access_public; acc
+        | CXXPrivate -> access_spec := Access_public; acc
+        | CXXProtected -> access_spec := Access_public; acc
+        | _ -> fail loc "Clang_to_astRawC.tr_decl_list"
+        end
+      | _ -> Printf.printf "Failing from here\n";
+        fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
+    ) [] fl in
+      let tid = next_typconstrid () in
+      let td = {
+          typdef_loc = loc;
+          typdef_typid = tid;
+          typdef_tconstr = rn;
+          typdef_vars = [];
+          typdef_body = Typdef_record prod_list
+          } in
+        ctx_typedef_add rn tid td;
+      
+      begin match k with 
+      | Struct -> trm_add_cstyle Is_struct (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) 
+      | Class -> trm_add_cstyle Is_class (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) 
+      | _ -> fail loc "Clang_to_astRawC.tr_decl_list: only classes and structs are supported." 
+      end 
+      
   | Namespace {name = n; declarations = dl; inline = b} ->
     let dls = tr_decl_list dl in
     trm_namespace n (trm_seq_nomarks dls) b
