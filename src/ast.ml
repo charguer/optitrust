@@ -2974,3 +2974,24 @@ let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
     | _ -> fail t.loc "Ast.typdef_get_methods: this function should be called only for typedef structs and classes."
     end
   | _ -> fail t.loc "Ast.typedef_get_methods: can't get methods of a trm that's not a type definition. "
+
+(* [typedef_get_all_fields t]: returns all the fields of [t]. *)
+let typedef_get_all_fields (t : trm) : record_fields =
+  match t.desc with 
+  | Trm_typedef td -> 
+    begin match td.typdef_body with 
+    | Typdef_record rf -> rf
+    | _ -> fail t.loc "Ast.typdef_get_all_fields: this function should be called only for structs and classes."
+    end
+  | _ -> fail t.loc "Ast.get_all_fields: only structs and classes have fields"
+
+
+(* [get_member_type rf]: returns the type of the member [rf]. *)
+let get_member_type (rf : record_field) : typ =
+  match rf with 
+  | Record_field_member (_, ty) -> ty
+  | Record_field_method t1 ->
+    begin match t1.desc with 
+    | Trm_let_fun (_, ty, _, _) -> ty
+    | _ -> fail None "Ast.get_member_type: can't get the type of the member [rf]."
+    end

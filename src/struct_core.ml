@@ -215,10 +215,8 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
         begin match td.typdef_body with
         | Typdef_record field_list ->
           field_index := Internal.get_field_index field_to_reveal field_list;
-          let lfront1, lback1 = Xlist.split_at !field_index field_list in
-          let field_to_inline1, lback1 = if List.length lback1 = 1 then (lback1, []) else
-            Xlist.split_at 1 lback1 in
-          let _, field_type = List.nth field_to_inline1 0 in
+          let (field_to_reveal_rf,_),field_list  = Xlist.extract_element field_list !field_index in 
+          let field_type = get_member_type field_to_reveal_rf in
           let tyid = begin match field_type.typ_desc with
           | Typ_constr (_, tid, _) -> tid
           | Typ_array (ty1, _) ->
@@ -236,23 +234,27 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
               else
                 fail t.loc "Struct_core.reveal_field_aux: field revealing is supported only for struct type"
             in
-          let inner_type_field_list = begin match struct_def.typdef_body with
-          | Typdef_record (_, s) -> s
-          | _ -> fail t.loc "Struct_core.reveal_field_aux: the field wanted to inline should also be of struct type"
-          end in
+          
+          let inner_type_field_list = typedef_get_all_fields t in
+          
 
-          let inner_type_field_list = List.map (fun (x, typ) ->
+          let inner_type_field_list = Internal.rename_record_fields (fun f ->
+             Convention.name_app field_to_reveal f) inner_type_field_list in
+
+          
+          
+          (* let inner_type_field_list = List.map (fun (x, typ) ->
             let new_field = Convention.name_app field_to_reveal x in
               match field_type.typ_desc with
               | Typ_array (_, size) -> (new_field, typ_array typ size)
               | _ -> (new_field, typ)
-          ) inner_type_field_list in
-
-          let field_list = (lfront1 @ inner_type_field_list @ lback1) in
+          ) inner_type_field_list in *)
+          let field_list = Xlist.insert_sublist_at !field_index inner_type_field_list field_list in
+          
           td_name := td.typdef_tconstr;
           f_list := fst (List.split (Internal.get_field_list struct_def));
 
-          let new_typedef = {td with typdef_body = Typdef_record (t_names, field_list)} in
+          let new_typedef = {td with typdef_body = Typdef_record field_list} in
           trm_typedef new_typedef
 
         | _ -> fail t.loc "Struct_core.reveal_field_aux: expected a struct definition"
@@ -284,7 +286,7 @@ let reorder_fields_aux (struct_fields: vars) (move_where : reorder) (t: trm) : t
    | Typdef_record fs ->
      let member_list = typedef_get_members t in 
      let field_list = Internal.reorder_fields move_where struct_fields member_list in
-     trm_typedef {td with typdef_body = Typdef_record (tn, field_list)}
+     trm_typedef {td with typdef_body = Typdef_record field_list}
    | _ -> fail t.loc "Struct_core.reorder_fields_aux: expected a typdef_record"
    end
 

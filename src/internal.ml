@@ -379,6 +379,22 @@ let get_field_index (field : field) (fields : record_fields) : int =
     in
   aux field fields 0
 
+(* [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
+let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) : record_fields =
+  List.map (fun (rf, rf_annot) -> 
+    match rf with 
+    | Record_field_member (f, ty) -> (Record_field_member (rename_fun f, ty), rf_annot)
+    | Record_field_method t -> 
+      begin match t.desc with
+      | Trm_let_fun (fn, ret_ty, args, body) -> 
+        let new_t =
+        trm_replace (Trm_let_fun (rename_fun fn, ret_ty, args, body)) t in
+        (Record_field_method new_t, rf_annot)
+
+      | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
+      end
+  ) rfs
+
 (*********************Auxiliary functions for reorder transformation ******************************************************)
 (* *) let get_pair x xs = List.fold_left(fun acc (y,ty) -> if y = x then (y,ty) :: acc else acc) [] xs                 (* *)
 (* *) let get_pairs ys xs = List.fold_left(fun acc y -> (get_pair y xs) :: acc) [] ys                                  (* *)
