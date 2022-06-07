@@ -556,7 +556,7 @@ and trm_let_fun_to_doc ?(semicolon : bool = true)(inline : bool) (f : var) (r : 
   end
 
 (* [typedef_to_doc ~semicolon td]: converts a type definition to pprint document *)
-and typedef_to_doc ?(semicolon : bool = true) ?(is_rec_struct : bool = false) (td : typedef) : document =
+and typedef_to_doc ?(semicolon : bool = true) ?(is_rec_struct : bool = false) ?(t_annot : cstyle_annot list = []) (td : typedef) : document =
   let dsemi = if semicolon then semi else empty in
   let tname = td.typdef_tconstr in
   let tbody = td.typdef_body in
@@ -569,9 +569,7 @@ and typedef_to_doc ?(semicolon : bool = true) ?(is_rec_struct : bool = false) (t
          let dl = List.map typ_to_doc tyl in
          let dr = typ_to_doc r in
          separate (blank 1)
-         [
-            string "typedef"; dr; parens (star ^^ string tname) ^^ parens (separate (comma ^^ blank 1) dl)
-         ] ^^ dsemi
+         [string "typedef"; dr; parens (star ^^ string tname) ^^ parens (separate (comma ^^ blank 1) dl)] ^^ dsemi
       | _ ->
          separate (blank 1) [string "typedef"; typ_to_doc t; string tname] ^^ dsemi
       end
