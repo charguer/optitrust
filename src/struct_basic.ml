@@ -23,7 +23,7 @@ let set_implicit ?(keep_label : bool = true) : Transfo.t =
 
    @correctness: Correct if pointer arithmetic to field is replaced everywhere,
    might be impossible to prove in case of casts between types. *)
-let reorder_fields ?(move_before : field = "") ?(move_after : field = "") (struct_fields : vars) (tg : target) : unit =
+(* let reorder_fields ?(move_before : field = "") ?(move_after : field = "") (struct_fields : vars) (tg : target) : unit =
   let move_where =
     begin match move_before, move_after with
     | "", "" -> Reorder_all
@@ -31,7 +31,7 @@ let reorder_fields ?(move_before : field = "") ?(move_after : field = "") (struc
     | _, "" -> Reorder_before move_before
     | _,_-> fail None "Struct_basic.reorder_fields: cannot provide both move_before and move_after"
     end in
-  apply_on_targets (Struct_core.reorder_fields struct_fields move_where) tg
+  apply_on_targets (Struct_core.reorder_fields struct_fields move_where) tg *)
 
 (* [reveal_field ~reparse field_to_reveal_field tg]: expects the target [tg] to point at a typedef struct,
     then it will find [field_to_reveal_field] and it's underlying type and it will

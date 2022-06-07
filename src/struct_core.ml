@@ -279,7 +279,7 @@ let reveal_field (field_to_reveal : field) (index : int) : Transfo.local =
      [move_where] - a string which is equal either "before" or "after",
      [around] - the target field where fields are going to be moved to,
      [t] - ast of the typedef struct. *)
-let reorder_fields_aux (struct_fields: vars) (move_where : reorder) (t: trm) : trm =
+(* let reorder_fields_aux (struct_fields: vars) (move_where : reorder) (t: trm) : trm =
   let error = "Struct_core.reorder_fields_aux: expected a typedef definiton" in
   let td = trm_inv ~error trm_typedef_inv t in
    begin match td.typdef_body with
@@ -288,11 +288,11 @@ let reorder_fields_aux (struct_fields: vars) (move_where : reorder) (t: trm) : t
      let field_list = Internal.reorder_fields move_where struct_fields member_list in
      trm_typedef {td with typdef_body = Typdef_record field_list}
    | _ -> fail t.loc "Struct_core.reorder_fields_aux: expected a typdef_record"
-   end
+   end *)
 
 (* [reorder_fields struct_fields move_where around t p]: applies [reorder_fields_aux] at trm [t] with path [p]. *)
-let reorder_fields (struct_fields : vars) (move_where : reorder) : Transfo.local =
-  apply_on_path(reorder_fields_aux struct_fields move_where)
+(* let reorder_fields (struct_fields : vars) (move_where : reorder) : Transfo.local =
+  apply_on_path(reorder_fields_aux struct_fields move_where) *)
 
 (* [inline_struct_accesses name field t]: transforms a specific struct access into a variable occurrence,
     [name] - name of the variable to replace the struct access,
@@ -431,10 +431,11 @@ let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
   let struct_name = ref "" in
   let f_update (t : trm) : trm =
     match t.desc with
-    | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_record (tn, fl);_}  as td) ->
+    | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_record rfl;_}  as td) ->
       struct_name := name;
-      let new_fl = List.map (fun (x, ty) -> (rename x, ty)) fl in
-      trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record (tn, new_fl)}
+      let rfl = Internal.rename_record_fields rename rfl in 
+      (* let new_fl = List.map (fun (x, ty) -> (rename x, ty)) fl in *)
+      trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record rfl}
    | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
    in
   let f_update_further (t : trm) : trm =
@@ -454,7 +455,7 @@ let rename_fields (index : int) (rename : rename) : Transfo.local =
       [t] - the ast of the typedef definition. *)
 let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : trm) : trm =
   match t.desc with
-  | Trm_typedef ({typdef_body = Typdef_record (tn, fl);_}  as td) ->
+  | Trm_typedef ({typdef_body = Typdef_record rfl;_}  as td) ->
     (* LATER: FIX ME! *)
     (* let update_type ty = typ_map typ_update ty in *)
     
@@ -465,10 +466,12 @@ let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : tr
       | _ -> ty_to_update
       in 
     
-    let replace_type (s : string) (ty1 : typ) : typ =
+    (* let replace_type (s : string) (ty1 : typ) : typ =
       if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
-    let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in
-    trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record (tn, new_fl)}
+     *)
+    let rfl = Internal.update_record_fields_type ~pattern update_type rfl in
+    (* let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in *)
+    trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record rfl}
   | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
 
 (* [update_fields_type pattern typ_update t p]: applies [update_fields_type_aux] at trm [t] with path [p]. *)
@@ -514,7 +517,9 @@ let simpl_proj : Transfo.local =
 (* [Struct_modif]: a module for defining struct modifications. *)
 module Struct_modif = struct
   (* Fields of a struct *)
-  type fields = (label * typ) list
+  
+  type fields = record_fields 
+  (* type fields = (label * typ) list *)
 
   let fields_identity :  fields -> fields =
     Fun.id
@@ -612,10 +617,10 @@ let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
     begin match tdef.desc with
     | Trm_typedef td ->
       begin match td.typdef_body with
-      | Typdef_record (t_names, old_fields) ->
+      | Typdef_record old_fields ->
          let struct_name = td.typdef_tconstr in
          let new_fields = arg.f_fields old_fields in
-         let new_typdef = {td with typdef_body = Typdef_record (t_names, new_fields)} in
+         let new_typdef = {td with typdef_body = Typdef_record new_fields} in
          let new_td = trm_typedef ~annot:tdef.annot new_typdef in
          let f_update = fun t -> new_td in
          let f_update_further = fun t -> modif_accesses (old_fields, new_fields) struct_name arg t in

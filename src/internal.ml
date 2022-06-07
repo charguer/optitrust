@@ -379,21 +379,39 @@ let get_field_index (field : field) (fields : record_fields) : int =
     in
   aux field fields 0
 
+(* [apply_on_record_fields app_fun rfs]: applies [app_fun] on all the elements of [rfs]. *)
+let apply_on_record_fields (app_fun : record_field -> record_field ) (rfs : record_fields) : record_fields =
+  List.map (fun (rf, rf_annot) -> (app_fun rf, rf_annot)) rfs
+
+
 (* [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
 let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) : record_fields =
-  List.map (fun (rf, rf_annot) -> 
+  let app_fun (rf : record_field) : record_field =
     match rf with 
-    | Record_field_member (f, ty) -> (Record_field_member (rename_fun f, ty), rf_annot)
+    | Record_field_member (f, ty) -> Record_field_member (rename_fun f, ty)
     | Record_field_method t -> 
       begin match t.desc with
       | Trm_let_fun (fn, ret_ty, args, body) -> 
         let new_t =
         trm_replace (Trm_let_fun (rename_fun fn, ret_ty, args, body)) t in
-        (Record_field_method new_t, rf_annot)
-
+        Record_field_method new_t
       | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
       end
-  ) rfs
+      in
+    apply_on_record_fields app_fun rfs
+  
+(* [update_record_fields_type typ_update rfs]: updates the type of [rfs] based on [typ_update] function. *)
+let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ ) (rfs : record_fields) : record_fields =
+  let app_fun (rf : record_field) : record_field =
+    match rf with 
+    | Record_field_member (f, ty) -> 
+      let ty = if Tools.pattern_matches pattern f then typ_update ty else ty in
+      Record_field_member (f, ty)
+    | Record_field_method t -> fail None "Internal.update_record_fields_type: can't update the type of a method."
+      in
+    apply_on_record_fields app_fun rfs
+  
+  
 
 (*********************Auxiliary functions for reorder transformation ******************************************************)
 (* *) let get_pair x xs = List.fold_left(fun acc (y,ty) -> if y = x then (y,ty) :: acc else acc) [] xs                 (* *)
@@ -402,8 +420,8 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
 (* *) let remove_pairs (ys : vars) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys (* *)
 (* ************************************************************************************************************************)
 
-(* [move_fields_after x local_l l ]: reorder fields list [l] by moving all the pairs whose first eleement is
-     in [local_l] after field [x] *)
+(* [move_fields_after x local_l l ]: reorder fields list [l] by moving all the pairs whose first eleement is 
+     in [local_l] after field [x]. *)
 let move_fields_after (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ ) list=
   let fins = List.flatten (get_pairs local_l l )in
   let l = remove_pairs local_l l in
@@ -417,7 +435,7 @@ let move_fields_after (x : var) (local_l : vars) (l : (var * typ) list) : (var *
     aux l
 
 (* [move_fields_before x local_l l ]: reorder fields list [l] by moving all the pairs whose first eleement is
-     in [local_l] before field [x] *)
+     in [local_l] before field [x]. *)
 let move_fields_before (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ) list =
   let fins = List.flatten (get_pairs local_l l) in
   let l = remove_pairs local_l l in
@@ -430,7 +448,7 @@ let move_fields_before (x : var) (local_l : vars) (l : (var * typ) list) : (var 
       in
     aux l
 
-(* [reorder_fields reorder_kind local_l sf]: reorder all fields that belong to [local_l] based on [reorder_kind] *)
+(* [reorder_fields reorder_kind local_l sf]: reorder all fields that belong to [local_l] based on [reorder_kind]. *)
 let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) list) : (var * typ) list =
   match reorder_kind with
   | Reorder_after around -> move_fields_after around local_l sf
@@ -458,7 +476,7 @@ let get_item_and_its_relatives (index : int) (items : 'a mlist) : ('a mlist * 'a
   (lfront, element, lback)
 
 (* [inline_sublist_at index ml]: in the case of nested sequence, nested initialization lists for arrays and structs,
-    this function can be used to inline the sublist at [index] into the main list *)
+    this function can be used to inline the sublist at [index] into the main list. *)
 let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
   let lfront, st, lback  = get_item_and_its_relatives index ml in
   match st.desc with
