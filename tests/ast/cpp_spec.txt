@@ -44,7 +44,7 @@ new:
     | Access_protected
 
 val typedef_get_members : ?(access: access_control option) -> trm -> (label * typ) list
-val typedef_get_methods : ?(access: access_control option) -> trm -> trm
+val typedef_get_methods : ?(access: access_control option) -> trm -> trm list
 
 type trm_annot = + "static"
 

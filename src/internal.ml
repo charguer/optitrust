@@ -383,6 +383,14 @@ let get_field_index (field : field) (fields : record_fields) : int =
 let apply_on_record_fields (app_fun : record_field -> record_field ) (rfs : record_fields) : record_fields =
   List.map (fun (rf, rf_annot) -> (app_fun rf, rf_annot)) rfs
 
+(* let inner_type_field_list = List.map (fun (x, typ) ->
+            let new_field = Convention.name_app field_to_reveal x in
+              match field_type.typ_desc with
+              | Typ_array (_, size) -> (new_field, typ_array typ size)
+              | _ -> (new_field, typ)
+          ) inner_type_field_list in
+
+ *)
 
 (* [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
 let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) : record_fields =

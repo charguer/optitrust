@@ -73,9 +73,8 @@ TESTS_WITH_DOC := \
 	sequence_split.ml \
 	specialize_any.ml \
 	specialize_choose.ml \
-	struct_reorder_fields.ml \
-	struct_reveal_field.ml \
 	struct_rename_fields.ml \
+	struct_reveal_field.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	struct_simpl_proj.ml \
@@ -103,7 +102,8 @@ TESTS_NODOC := \
 	matrix_local_name_obj.ml \
 
 TESTS_TO_FIX := \
-  struct_update_fields_type.ml \
+	struct_reorder_fields.ml \
+	struct_update_fields_type.ml \
 	matrix_insert_access_dim_index.ml \
 
 

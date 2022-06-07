@@ -234,28 +234,29 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
               else
                 fail t.loc "Struct_core.reveal_field_aux: field revealing is supported only for struct type"
             in
-          
-          let inner_type_field_list = typedef_get_all_fields t in
-          
+
+          let inner_type_field_list = match struct_def.typdef_body with
+          | Typdef_record rfl -> rfl
+          | _ -> fail t.loc "Struct_core.reveal_field_aux: the field wanted to inline should also be of struct type"
+          in
 
           let inner_type_field_list = Internal.rename_record_fields (fun f ->
              Convention.name_app field_to_reveal f) inner_type_field_list in
-
           
+          let typ_update (ty : typ) : typ =
+            match field_type.typ_desc with
+              | Typ_array (_, size) -> typ_array ty size
+              | _ -> ty
+            in
+          let inner_type_field_list = Internal.update_record_fields_type typ_update inner_type_field_list in
           
-          (* let inner_type_field_list = List.map (fun (x, typ) ->
-            let new_field = Convention.name_app field_to_reveal x in
-              match field_type.typ_desc with
-              | Typ_array (_, size) -> (new_field, typ_array typ size)
-              | _ -> (new_field, typ)
-          ) inner_type_field_list in *)
           let field_list = Xlist.insert_sublist_at !field_index inner_type_field_list field_list in
           
           td_name := td.typdef_tconstr;
           f_list := fst (List.split (Internal.get_field_list struct_def));
 
           let new_typedef = {td with typdef_body = Typdef_record field_list} in
-          trm_typedef new_typedef
+          trm_replace (Trm_typedef new_typedef) t
 
         | _ -> fail t.loc "Struct_core.reveal_field_aux: expected a struct definition"
         end
