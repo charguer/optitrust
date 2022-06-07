@@ -360,7 +360,9 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_let_fun (f, r, tvl, b) ->
         let inline = trm_has_cstyle Fun_inline t in
         dattr ^^ trm_let_fun_to_doc ~semicolon inline f r tvl b
-    | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
+    | Trm_typedef td -> 
+      let is_rec_struct = trm_has_cstyle Is_rec_struct t in
+      dattr ^^ typedef_to_doc ~semicolon ~is_rec_struct td
     | Trm_if (b, then_, else_) ->
        let db = decorate_trm ~semicolon:false b in
        let dt = decorate_trm ~semicolon:true then_ in
@@ -554,7 +556,7 @@ and trm_let_fun_to_doc ?(semicolon : bool = true)(inline : bool) (f : var) (r : 
   end
 
 (* [typedef_to_doc ~semicolon td]: converts a type definition to pprint document *)
-and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
+and typedef_to_doc ?(semicolon : bool = true) ?(is_rec_struct : bool = false) (td : typedef) : document =
   let dsemi = if semicolon then semi else empty in
   let tname = td.typdef_tconstr in
   let tbody = td.typdef_body in
@@ -573,17 +575,23 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       | _ ->
          separate (blank 1) [string "typedef"; typ_to_doc t; string tname] ^^ dsemi
       end
-  | Typdef_record (tn, s) ->
-      let get_document_list s =
-        let rec aux acc = function
-         | [] -> acc
-         | (lb, t) :: tl ->
-            aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in
-        aux [] (List.rev s) (* LATER: process without accumulator *) in
-      let dl = get_document_list s in
+  | Typdef_record rfl -> 
+    let get_document_list rfl =
+      let rec aux acc = function 
+      | [] -> acc
+      | (rf, _) :: tl ->
+        begin match rf with  (* LATER: process without accumulator *) 
+        | Record_field_member (lb, ty) ->
+          aux ((typed_var_to_doc (lb, ty) ^^ semi) :: acc) tl 
+        | Record_field_method t1 ->
+          aux (trm_to_doc t1 :: acc) tl
+        end in 
+        aux [] (List.rev rfl)
+      in
+      let dl = get_document_list rfl in
       let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
-      let second_name = if tn then td.typdef_tconstr else "" in
-      string "typedef " ^^ string "struct" ^^ blank 1 ^^ string second_name ^^ blank 1 ^^ sbody ^^ blank 1
+      let rec_name = if is_rec_struct then td.typdef_tconstr else "" in
+      string "typedef " ^^ string "struct" ^^ blank 1 ^^ string rec_name ^^ blank 1 ^^ sbody ^^ blank 1
       ^^ string td.typdef_tconstr ^^ semi
   | Typdef_sum _ ->
       fail None "AstC_to_c.typedef_to_doc: sum types are not supported in C/C++"

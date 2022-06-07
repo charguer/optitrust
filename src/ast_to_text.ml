@@ -303,7 +303,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
        begin match a with
        | Ret t_o ->
           begin match t_o with
-          | None -> print_node "Ret" ^^ underscore
+          | None -> print_node "Ret" ^^ underscore  
           | Some t ->
              let dt = print_trm ~only_desc t in
              print_node "Ret" ^^ dt
@@ -370,19 +370,20 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
     print_node "Typedef_alias" ^^ parens ( separate (comma ^^ break 1)
      [string tname; string (string_of_int tid); dt ])
   | Typdef_record rfl ->
-    let get_document_list (rf : record_fields) : document list =
+    let get_document_list (rfl : record_fields) : document list =
       let rec aux acc = function 
       | [] -> acc
-      | rf :: tl -> 
+      | (rf, _) :: tl -> 
         begin match rf with 
-        | Record_field_memeber (lb, ty) -> 
+        | Record_field_member (lb, ty) -> 
           let dt = print_typ ~only_desc ty in 
           aux (print_pair (string lb) dt :: acc) tl
-        | Record_fields_method t1 ->
+        | Record_field_method t1 ->
           let dt = print_trm ~only_desc t1 in
           aux (dt :: acc) tl  
         end
-        in 
+         in aux [] rfl
+      in
       let dtl = get_document_list rfl in 
      print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
       [string tname; string (string_of_int tid); print_list dtl ])
@@ -480,7 +481,7 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Is_struct -> string "Is_struct"
  | Is_rec_struct -> string "Is_rec_struct"
  | Is_class -> string "Is_class"
- | Static -> strign "Static"
+ | Static_fun -> string "Static"
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =
@@ -489,7 +490,7 @@ and print_atomic_operation (ao : atomic_operation option) : document =
   | Some ao1 ->
     begin match ao1 with
     | Read -> string "Read"
-    | Write -> string "Write"
+    | Write -> string "Write" 
     | Update -> string "Update"
     | Capture -> string "Capture"
     end

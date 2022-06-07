@@ -177,8 +177,8 @@ and typedef = {
 and record_fields = (record_field * record_field_annot) list 
 
 and record_field = 
-  | Record_field_memeber of (label * typ) 
-  | Recorf_field_method of trm
+  | Record_field_member of (label * typ) 
+  | Record_field_method of trm
 
 and record_field_annot = access_control
 
@@ -303,7 +303,7 @@ and cstyle_annot =
   | Is_struct
   | Is_rec_struct
   | Is_class
-  | Static
+  | Static_fun
 
 (* [files_annot]: file annotation *)
 and files_annot =
@@ -2945,7 +2945,7 @@ let typedef_get_members ?(access : access_control option) (t : trm) : (label * t
         match rf with 
         | Record_field_member (lb, ty) -> 
           begin match access with
-          | Some accs -> if accss = rf_ann then (lb, ty) :: acc else acc
+          | Some accs -> if accs = rf_ann then (lb, ty) :: acc else acc
           | None -> (lb, ty) :: acc 
           end 
         | Record_field_method _ -> acc
@@ -2957,20 +2957,19 @@ let typedef_get_members ?(access : access_control option) (t : trm) : (label * t
 
 (* [typedef_get_methods ~access t]: returns all the methods of typedef [t]. If [access] is provided as an argument
       then only methods with the specified access_control are returned. *)
-let typedef_get_methods ?(access : access_control option) (t : trm) : trm =
+let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
   match t.desc with
   | Trm_typedef td ->
     begin match td.typdef_body with 
     | Typdef_record rf ->
       List.fold_left (fun acc (rf, rf_ann) -> 
         match rf with 
-        | Record_field_member _ ->  acc
+        | Record_field_member _fm ->  acc
         | Record_field_method trm -> 
           begin match access with 
           | Some accss -> if accss = rf_ann then trm :: acc else acc
           | None -> trm :: acc
           end
-          trm :: acc
       ) [] (List.rev rf)
     | _ -> fail t.loc "Ast.typdef_get_methods: this function should be called only for typedef structs and classes."
     end

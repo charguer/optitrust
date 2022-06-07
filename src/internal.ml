@@ -115,10 +115,10 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
           trm_typedef  ~annot:t.annot ~loc:t.loc
            { td with typdef_body = Typdef_alias (change_typ ty)}
         | Typdef_record rf ->
-           let rf = List.map (fun (rf, rf_annot) -> 
-            match tf with 
-            | Record_field_memeber (lb, ty) -> (Record_field_memeber (lb, change_type ty), rf_annot)
-            | Record_field_method t -> (Recorf_field_method (aux t), rf_annot)
+           let rf = List.map (fun (rf1, rf_annot) -> 
+            match rf1 with 
+            | Record_field_member (lb, ty) -> (Record_field_member (lb, change_typ ty), rf_annot)
+            | Record_field_method t -> (Record_field_method (aux t), rf_annot)
            ) rf in 
            trm_typedef ~annot:t.annot ~loc:t.loc { td with typdef_body = Typdef_record rf}
         | _ -> trm_map aux t
@@ -229,15 +229,15 @@ let fresh_args (t : trm) : trm =
 
 (* [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
 let get_field_list (td : typedef) : (var * typ) list =
-  begin match td.typdef_body with
+  match td.typdef_body with
   | Typdef_record rfl ->
     List.map (fun (rf, _) -> 
       match rf with 
       | Record_field_member (lb, ty) -> (lb, ty)
-      | _ -> fail None "Internal.get_field_list: expected a struct without methods"/
-    )
+      | _ -> fail None "Internal.get_field_list: expected a struct without methods"
+    ) rfl
   | _ -> fail None "Internal.get_field_list: expected a Typedef_prod"
-  end
+  
 
 (* [get_typid_from_typ t]: check if typ is a constructed type or a composed type
     In case it is constructed type then return its id.
@@ -372,7 +372,7 @@ let get_field_index (field : field) (fields : record_fields) : int =
     | [] -> failwith "Internal.get_field_index: empty list"
     | (rf, _) :: tl ->
       begin match rf with 
-      | Record_field_memeber (f, _) -> 
+      | Record_field_member (f, _) -> 
         if f = field then c else aux field tl (c + 1)
       | _ -> aux field tl (c+1)
       end

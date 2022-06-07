@@ -337,7 +337,7 @@ let swap (index : int) : Target.Transfo.local =
 *)
 (* TODO: Reimplement it from scratch *)
 let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
-  let rec aux (global_trm : trm) (t : trm) : trm =
+  let rec aux (t : trm) : trm =
     match t.desc with
     (* LATER: document  E.G.  matching (array_access(struct_access(t, f), index)); ... *)
     | Trm_apps(_,[get_base]) when is_access t  ->
@@ -372,45 +372,45 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
                    in
                   begin match base'.typ with
                   | Some {typ_desc = Typ_array({typ_desc = Typ_constr (y, _, _);_}, _);_} when y = struct_name ->
-                     let base' = aux global_trm base' in
-                     let index = aux global_trm index in
+                     let base' = aux base' in
+                     let index = aux index in
                      (* keep outer annotations *)
                      trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
                   | Some {typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
                      (* x might appear both in index and in base' *)
-                     let base' = aux global_trm base' in
-                     let index = aux global_trm index in
+                     let base' = aux base' in
+                     let index = aux index in
                      (* keep outer annotations *)
                      trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
                   | Some {typ_desc = Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _}; _};_}
                        when y = struct_name ->
                      (* x might appear both in index and in base' *)
-                     let base' = aux global_trm base' in
-                     let index = aux global_trm index in
+                     let base' = aux base' in
+                     let index = aux index in
                      (* keep outer annotations *)
                      trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
-                  | _ -> trm_map (aux global_trm) t
+                  | _ -> trm_map aux t
                   end
 
-               | _ -> trm_map (aux global_trm) t
+               | _ -> trm_map aux t
                end
-            | _ -> trm_map (aux global_trm) t
+            | _ -> trm_map aux t
             end
-         | _ -> trm_map (aux global_trm) t
+         | _ -> trm_map aux t
          end
-      | _ -> trm_map (aux global_trm) t
+      | _ -> trm_map aux t
       end
       (* LATER: arthur: test the use of exceptions for structuring this code *)
 
     | Trm_typedef td when td.typdef_tconstr = struct_name ->
       begin match td.typdef_body with
       | Typdef_record rf ->
-        let rf = List.map (fun (rf, rf_annot) -> 
-          match rf with 
-          | Record_field_member (lb, ty) -> (Record_field (lb, typ_array (typ) (Trm (trm_var sz))))
-          | Record_field_method _ -> trm_map aux t
+        let rf = List.map (fun (rf1, rf_annot) -> 
+          match rf1 with 
+          | Record_field_member (lb, ty) -> ((Record_field_member (lb, typ_array ty (Trm (trm_var sz)))), rf_annot)
+          | Record_field_method _ -> (Record_field_method (trm_map aux t), rf_annot) 
         ) rf in 
-        trm_typedef ~annot:t.annot {td with typdef_body = Typdef_recod rf}
+        trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record rf}
 
       | Typdef_alias ty ->
           begin match ty.typ_desc with
@@ -418,10 +418,10 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
             begin match a.typ_desc with
             | Typ_constr (sn, _, _) when sn = struct_name-> trm_typedef {td with typdef_body  = Typdef_alias a}
 
-            | _ -> trm_map(aux global_trm) t
+            | _ -> trm_map aux t
             end
 
-          | _ -> trm_map(aux global_trm) t
+          | _ -> trm_map aux t
           end
       | _ -> fail t.loc "aos_to_soa_aux: expected a typedef struct"
       end
@@ -433,12 +433,12 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
             begin match a.typ_desc with
             | Typ_constr (sn, _, _) when sn = struct_name-> trm_typedef {td with typdef_body  = Typdef_alias a}
 
-            | _ -> trm_map(aux global_trm) t
+            | _ -> trm_map aux t
             end
 
-          | _ -> trm_map(aux global_trm) t
+          | _ -> trm_map aux t
           end
-        | _ -> trm_map(aux global_trm) t
+        | _ -> trm_map aux t
         end
 
     | Trm_let (vk, (n, dx), init) ->
@@ -449,14 +449,14 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
           begin match a.typ_desc with
           | Typ_constr (sn,_, _) when sn = struct_name ->
             trm_let_mut ~annot:t.annot (n, a) (trm_uninitialized ~loc:init.loc ())
-          | _ -> trm_map (aux global_trm) t
+          | _ -> trm_map aux t
           end
-        | _ -> trm_map (aux global_trm) t
+        | _ -> trm_map aux t
         end
-       | _ -> trm_map (aux global_trm) t
+       | _ -> trm_map aux t
        end
-    | _ -> trm_map (aux global_trm) t
-  in aux t t
+    | _ -> trm_map aux t
+  in aux t
 
 let aos_to_soa (tv : typvar) (sz : var): Target.Transfo.local =
   Target.apply_on_path(aos_to_soa_aux tv sz)

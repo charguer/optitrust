@@ -699,7 +699,7 @@ and tr_decl_list (dl : decl list) : trms =
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
                                         complete_definition = _;_ }} ::
-    ({desc = Var _;_} as d1) ::
+    ({desc = Var _;_}) ::
     dl' ->
        let prod_list = List.map (fun (d : decl) ->
       let loc = loc_of_node d in
@@ -708,30 +708,30 @@ and tr_decl_list (dl : decl list) : trms =
         let ft = tr_qual_type ~loc q in
         let al = List.map (tr_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
-        (fn, ty)
-      | {decoration = _ ; desc = CXXMethod dl;_} ->
-        let tdl = tr_decl dl in 
+        (Record_field_member (fn, ty), Access_public)
+      | {decoration = _; desc = CXXMethod _; _} ->
+        let tdl = tr_decl d in 
         (Record_field_method tdl, Access_public)
         (* TODO: Deal with the access specification *)
       | _ ->
         fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
     ) fl in
-      
+      let tid = next_typconstrid () in
       let td = {
           typdef_loc = loc;
           typdef_typid = tid;
-          typdef_tconstr = tn;
+          typdef_tconstr = rn;
           typdef_vars = [];
           typdef_body = Typdef_record prod_list
           } in
-        ctx_typedef_add tn tid td;
+        ctx_typedef_add rn tid td;
       let trm_td = 
       begin match k with 
-      | Struct -> trm_add_cstyle Is_struct (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) in
-      | Class -> trm_add_cstyle Is_class (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) in
+      | Struct -> trm_add_cstyle Is_struct (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) 
+      | Class -> trm_add_cstyle Is_class (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) 
       | _ -> fail loc "Clang_to_astRawC.tr_decl_list: only classes and structs are supported." 
       end in
-      let tl' = trd_decl_list dl' in 
+      let tl' = tr_decl_list dl' in 
       trm_td :: tl'
   
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
@@ -863,7 +863,49 @@ and tr_decl (d : decl) : trm =
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end
-
+  | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; _}} ->
+    let s = 
+      begin match n with 
+      | IdentifierName s -> s
+      | OperatorName op -> string_of_overloaded_op ~loc op
+      | _ -> fail loc "Clang_to_astRawC.tr_decl: only identifiers and overloaded operators allowed for method declarations"
+      end
+      in
+    let {calling_conv = _; result = _; parameters = po;
+         exception_spec = _; _} = ty in
+    let tt = tr_type_desc ~loc (FunctionType ty) in
+    begin match tt.typ_desc with
+      | Typ_fun (args_t, out_t) ->
+        begin match po with
+          | None ->
+            if List.length args_t != 0 then
+              fail loc "Clang_to_astRawC.tr_decl: wrong size of argument list";
+            let tb =
+              match bo with
+              | None -> trm_lit ~loc Lit_uninitialized
+              | Some s -> tr_stmt s
+            in
+            trm_let_fun ~loc s out_t  [] tb
+          | Some {non_variadic = pl; variadic = _} ->
+            let args =
+              List.combine
+                (List.map
+                   (fun {decoration = _;
+                         desc = {qual_type = _; name = n; default = _}} -> n)
+                   pl
+                )
+                args_t
+            in
+            List.iter (fun (y, ty) -> ctx_var_add y ty) args;
+            let tb =
+              match bo with
+              | None -> trm_lit ~loc Lit_uninitialized
+              | Some s -> tr_stmt s
+            in
+            trm_let_fun ~loc s out_t  args tb
+        end
+      |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
+    end
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
     let rec contains_elaborated_type (q : qual_type) : bool =
       let {desc = d;const = _;_} = q in
