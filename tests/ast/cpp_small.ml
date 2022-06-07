@@ -1,5 +1,5 @@
 (* A test for the parsing of C++ features *)
-
+  
 open Optitrust
 open Target
 

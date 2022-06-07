@@ -1176,7 +1176,6 @@ let trm_pass_pragmas (t1 : trm) (t2 : trm) : trm =
 let trm_get_cstyles (t : trm) : cstyle_annot list =
   t.annot.trm_annot_cstyle
 
-
 (**** CStyle  ****)
 
 (* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)

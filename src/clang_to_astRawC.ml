@@ -825,8 +825,10 @@ and tr_decl (d : decl) : trm =
             trm_let_fun ~loc s out_t  args tb
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
-    end
-  | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; _}} ->
+    end 
+    
+  | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; _};
+               static = st; _} ->
     let s = 
       begin match n with 
       | IdentifierName s -> s
@@ -834,9 +836,11 @@ and tr_decl (d : decl) : trm =
       | _ -> fail loc "Clang_to_astRawC.tr_decl: only identifiers and overloaded operators allowed for method declarations"
       end
       in
+    
     let {calling_conv = _; result = _; parameters = po;
          exception_spec = _; _} = ty in
     let tt = tr_type_desc ~loc (FunctionType ty) in
+    let res = 
     begin match tt.typ_desc with
       | Typ_fun (args_t, out_t) ->
         begin match po with
@@ -868,7 +872,8 @@ and tr_decl (d : decl) : trm =
             trm_let_fun ~loc s out_t  args tb
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
-    end
+    end in 
+    if st then trm_add_cstyle Static_fun res else res
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
     let rec contains_elaborated_type (q : qual_type) : bool =
       let {desc = d;const = _;_} = q in

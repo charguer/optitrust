@@ -359,10 +359,11 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl
     | Trm_let_fun (f, r, tvl, b) ->
         let inline = trm_has_cstyle Fun_inline t in
-        dattr ^^ trm_let_fun_to_doc ~semicolon inline f r tvl b
+        let static = if trm_has_cstyle Static_fun t then string "static" else empty in
+        dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc ~semicolon inline f r tvl b
     | Trm_typedef td -> 
-      let is_rec_struct = trm_has_cstyle Is_rec_struct t in
-      dattr ^^ typedef_to_doc ~semicolon ~is_rec_struct td
+      let t_annot = trm_get_cstyles t in
+      dattr ^^ typedef_to_doc ~semicolon ~t_annot td
     | Trm_if (b, then_, else_) ->
        let db = decorate_trm ~semicolon:false b in
        let dt = decorate_trm ~semicolon:true then_ in
@@ -556,7 +557,7 @@ and trm_let_fun_to_doc ?(semicolon : bool = true)(inline : bool) (f : var) (r : 
   end
 
 (* [typedef_to_doc ~semicolon td]: converts a type definition to pprint document *)
-and typedef_to_doc ?(semicolon : bool = true) ?(is_rec_struct : bool = false) ?(t_annot : cstyle_annot list = []) (td : typedef) : document =
+and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []) (td : typedef) : document =
   let dsemi = if semicolon then semi else empty in
   let tname = td.typdef_tconstr in
   let tbody = td.typdef_body in
@@ -588,9 +589,14 @@ and typedef_to_doc ?(semicolon : bool = true) ?(is_rec_struct : bool = false) ?(
       in
       let dl = get_document_list rfl in
       let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
-      let rec_name = if is_rec_struct then td.typdef_tconstr else "" in
-      string "typedef " ^^ string "struct" ^^ blank 1 ^^ string rec_name ^^ blank 1 ^^ sbody ^^ blank 1
-      ^^ string td.typdef_tconstr ^^ semi
+      if List.mem Is_struct t_annot
+        then string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ semi
+        else if List.mem Is_rec_struct t_annot 
+          then string "typedef " ^^ string "struct" ^^ blank 1 ^^ string (td.typdef_tconstr) ^^ blank 1 ^^ sbody ^^ blank 1 ^^ semi
+        else if List.mem Is_class t_annot 
+          then string "class" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ semi
+        else 
+          string "typedef " ^^ string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ string td.typdef_tconstr ^^ semi
   | Typdef_sum _ ->
       fail None "AstC_to_c.typedef_to_doc: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
