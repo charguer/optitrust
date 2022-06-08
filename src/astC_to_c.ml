@@ -87,7 +87,9 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
   | Typ_const t when is_typ_ptr t -> typ_to_doc t ^^ string " const"
   | Typ_const t -> string " const "  ^^ typ_to_doc t
-  | Typ_constr (tv, _, _) -> string tv
+  | Typ_constr (tv, _,  args) -> 
+    let d_args = if args = [] then empty else langle ^^ Tools.list_to_doc ~bounds:[empty; empty] (List.map typ_to_doc args) ^^ rangle in
+    string tv ^^ d_args
   | Typ_auto  -> string "auto"
   | Typ_unit -> string "void"
   | Typ_int -> string "int"
@@ -123,6 +125,8 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
         | Atyp ty -> string ty
         | _ -> fail None "AstC_to_c.typ_to_doc: arbitrary types entered as string should be entered by using Atyp"
         end
+  | Typ_decl t ->
+    string "decltype" ^^ parens (decorate_trm t)
 
 (* [typ_annot_to_doc]: converts type annotations to pprint document. *)
 and typ_annot_to_doc (a : typ_annot) : document =
@@ -191,6 +195,7 @@ and lit_to_doc (l : lit) : document =
   | Lit_int i -> string (string_of_int i)
   | Lit_double f -> string (string_of_float f)
   | Lit_string s -> dquotes (separate (backslash ^^ string "n") (lines s))
+  | Lit_nullptr -> string "nullptr"
 
 (* [unop_to_doc op]: converts unary operators to pprint documents. *)
 and unop_to_doc (op : unary_op) : document =
@@ -490,7 +495,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         let drt = record_type_to_doc rt in
         let dt = decorate_trm t1 in
         dattr ^^ drt ^^ dname ^^ blank 1 ^^ sbody  ^^ blank 1 ^^ dt ^^ semi
-     | Trm_using_directive nmspc -> string "using namespaces" ^^ string nmspc
+     | Trm_using_directive nmspc -> string "using namespace " ^^ string nmspc ^^ semi
      | Trm_template (tpl, t1) ->
         let dl = decorate_trm t1 in
         let dtpl = List.map (fun (n, tpk, _) ->

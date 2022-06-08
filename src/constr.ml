@@ -739,6 +739,7 @@ let is_equal_lit (l : lit) (l' : lit) =
   | Lit_int n, Lit_int n' when n = n' -> true
   | Lit_double d, Lit_double d' when d = d' -> true
   | Lit_string s, Lit_string s' when s = s' -> true
+  | Lit_nullptr, Lit_nullptr -> true
   | _ -> false
 
 (* [get_trm_kind t]: gets the kind of trm [t] *)

@@ -138,6 +138,7 @@ and typ_desc =
   | Typ_record of record_type * typ         (* class, struct, union *)
   | Typ_template_param of string            (* template(Soon..) *)
   | Typ_arbitrary of code_kind              (* types entered as string  *)
+  | Typ_decl of trm                        (* Since C++11, decltype (nullptr), create a type out of an expression *)
 
 (* [ptr_kind]: type used for distinguishing pointers from references, note that
     both pointers and references are considered by OptiTrust as pointers.*)
@@ -275,6 +276,7 @@ and lit =
   | Lit_int of int        (* 1, 10, 100 *)
   | Lit_double of float   (* 1.0, 2.0, 0.5 *)
   | Lit_string of string  (* "hello"  *)
+  | Lit_nullptr               (* nullptr *)
 
 (* [value]: values *)
 and value =
@@ -738,6 +740,11 @@ let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (s : code_kind) : typ =
   {typ_annot = annot; typ_desc = Typ_arbitrary s ; typ_attributes}
 
+(* [typ_decl ~annot ~typ_attributes expr]: type declaration based on an expression. *)
+let typ_decl ?(annot : typ_annot list = []) ?(typ_attributes = [])
+  (expr : trm) =
+  {typ_annot = annot; typ_desc = Typ_decl expr; typ_attributes}
+
 (* **************************** Trm constructors *************************** *)
 
 (* [trm_annot_default]: default trm annotation *)
@@ -954,6 +961,7 @@ let typ_of_lit (l : lit) : typ option =
   | Lit_int _ -> Some (typ_int ())
   | Lit_double _ -> Some (typ_double ())
   | Lit_string _ -> Some (typ_string ())
+  | Lit_nullptr -> Some (typ_unit ())
 
 
 (* [trm_lit ~annot ~loc ~ctx l]: literal *)

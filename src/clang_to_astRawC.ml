@@ -212,12 +212,11 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
         wrap_const ~const typ_to_add
       | _ -> fail loc ("tr_type_desc: only identifiers are allowed in type definitions")
     end
-  | Elaborated {keyword = k; nested_name_specifier = _; named_type = q} ->
+  | Elaborated {keyword = k; nested_name_specifier = ns; named_type = q} ->
     begin match k with
       | Struct -> if tr_record_types then typ_record Struct (tr_qual_type ~loc q) else (tr_qual_type ~loc q)
-      | Union ->  if tr_record_types then typ_record Union (tr_qual_type ~loc q) else (tr_qual_type ~loc q)
-      | _ ->
-        fail loc "Clang_to_astRawC.tr_type_desc: only struct allowed in elaborated type"
+      | NoKeyword -> tr_qual_type q
+      | _ -> fail loc "Clang_to_astRawC.tr_type_desc: this elaborated type is not supported."
     end
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
@@ -235,10 +234,14 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
     typ_template_param name
   | TemplateSpecialization {name = NameTemplate nm; args = tyl } ->
     (* For the moment we don't have a way to create an id for builtin types *)
-    typ_constr nm ~tid:(-1) ~tl:(List.map (fun (targ : template_argument) -> 
+    let tl = (List.map (fun (targ : template_argument) -> 
       match targ with 
       | Type q -> tr_qual_type ~loc q
-      | _ -> fail loc "Clang_to_astRawC.tr_type_desc: only simple types are supported as template arguments") tyl)
+      | _ -> fail loc "Clang_to_astRawC.tr_type_desc: only simple types are supported as template arguments") tyl) in
+    typ_constr nm ~tid:(-1) ~tl
+  | Decltype e -> 
+    let tr_e = tr_expr e in 
+    typ_decl tr_e
   | _ -> fail loc "Clang_to_astRawC.tr_type_desc: not implemented"
 
 (* [is_qual_type_const q]: checks if [q] is a const type or not *)
@@ -677,6 +680,7 @@ and tr_expr (e : expr) : trm =
       Printf.printf "WARNING: Unknown expressions are parse as null pointers";
       trm_add_mark "unknown_expr" (trm_null ~loc ~ctx () )
   | ImplicitValueInit _ -> trm_lit ~loc ~ctx Lit_uninitialized
+  | NullPtrLiteral -> trm_lit ~loc ~ctx Lit_nullptr
   | _ ->
     fail loc
       ("Clang_to_astRawC.tr_expr: the following expression is unsupported: " ^
@@ -990,7 +994,7 @@ and tr_decl (d : decl) : trm =
       | Class -> trm_add_cstyle Is_class (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) 
       | _ -> fail loc "Clang_to_astRawC.tr_decl_list: only classes and structs are supported." 
       end 
-      
+
   | Namespace {name = n; declarations = dl; inline = b} ->
     let dls = tr_decl_list dl in
     trm_namespace n (trm_seq_nomarks dls) b

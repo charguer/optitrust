@@ -56,7 +56,8 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
     print_node "Typ_record" ^^ parens (drt ^^ comma ^^ blank 1 ^^ dt)
   | Typ_template_param name ->
     print_node "Typ_template_param" ^^ parens (string name)
-  | Typ_arbitrary s -> string (code_to_str s)
+  | Typ_arbitrary s -> print_node "Typ_arbitrary " ^^ parens (string (code_to_str s))
+  | Typ_decl e -> print_node "Typ_decl " ^^ parens (print_trm ~only_desc e)
 
 (* [print_typ_annot a]: converts type annotations to pprint document *)
 and print_typ_annot (a : typ_annot) : document =
@@ -162,6 +163,7 @@ and print_lit (l : lit) : document =
   | Lit_double f -> print_node "Lit_double" ^^ string (string_of_float f)
   | Lit_string s ->
      print_node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
+  | Lit_nullptr -> print_node "Lit_nullptr"
 
 (* [print_val ~only_desc v]: converts values to pprint document *)
 and print_val ?(only_desc : bool = false) (v : value) : document =
