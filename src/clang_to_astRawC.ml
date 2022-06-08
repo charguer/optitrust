@@ -971,8 +971,8 @@ and tr_decl (d : decl) : trm =
       | {decoration = _; desc = AccessSpecifier (spec); _} ->
         begin match spec with 
         | CXXPublic -> access_spec := Access_public; acc
-        | CXXPrivate -> access_spec := Access_public; acc
-        | CXXProtected -> access_spec := Access_public; acc
+        | CXXPrivate -> access_spec := Access_private; acc
+        | CXXProtected -> access_spec := Access_protected; acc
         | _ -> fail loc "Clang_to_astRawC.tr_decl_list: unkwown access specifier"
         end
       | _ -> Printf.printf "Failing from here\n";

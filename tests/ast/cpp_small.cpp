@@ -12,7 +12,7 @@ private:
 
 public:
 
-  static int bar(int x) {
+   static int bar(int x) {
      return x;
   }
 

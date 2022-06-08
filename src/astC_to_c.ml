@@ -603,18 +603,6 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
 
       ) [] rfl
        in
-    (* let get_document_list rfl =
-      let rec aux acc = function 
-      | [] -> acc
-      | (rf, _) :: tl ->
-        begin match rf with  (* LATER: process without accumulator *) 
-        | Record_field_member (lb, ty) ->
-            aux ((typed_var_to_doc (lb, ty) ^^ semi) :: acc) tl 
-        | Record_field_method t1 ->
-            aux (trm_to_doc t1 :: acc) tl
-        end in 
-        aux [] (List.rev rfl)
-      in *)
       let dl = get_document_list rfl in
       let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
       if List.mem Is_struct t_annot
