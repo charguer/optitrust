@@ -233,6 +233,12 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
     end
   | TemplateTypeParm name ->
     typ_template_param name
+  | TemplateSpecialization {name = NameTemplate nm; args = tyl } ->
+    (* For the moment we don't have a way to create an id for builtin types *)
+    typ_constr nm ~tid:(-1) ~tl:(List.map (fun (targ : template_argument) -> 
+      match targ with 
+      | Type q -> tr_qual_type ~loc q
+      | _ -> fail loc "Clang_to_astRawC.tr_type_desc: only simple types are supported as template arguments") tyl)
   | _ -> fail loc "Clang_to_astRawC.tr_type_desc: not implemented"
 
 (* [is_qual_type_const q]: checks if [q] is a const type or not *)
@@ -1008,7 +1014,12 @@ and tr_decl (d : decl) : trm =
         (n, tpk, b)
     ) pl in
     trm_template pl dl
-
+  | UsingDirective {nested_name_specifier = _; namespace = ns} ->
+    let tr_n = tr_decl ns in
+    begin match tr_n.desc with 
+    | Trm_namespace (nm, _, _) -> trm_using_directive nm
+    | _ -> fail loc "Clan_to_astRawC.tr_decl: using direcitves can be used only with namespaces"
+    end
   | _ -> fail loc "Clang_to_astRawC.tr_decl: not implemented" in
      res
 

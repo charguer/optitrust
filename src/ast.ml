@@ -139,7 +139,6 @@ and typ_desc =
   | Typ_template_param of string            (* template(Soon..) *)
   | Typ_arbitrary of code_kind              (* types entered as string  *)
 
-
 (* [ptr_kind]: type used for distinguishing pointers from references, note that
     both pointers and references are considered by OptiTrust as pointers.*)
 and ptr_kind =
@@ -404,6 +403,7 @@ and trm_desc =
   | Trm_extern of string * trms                   (* extern keyword *)
   | Trm_namespace of string * trm * bool          (* namespaces *)
   | Trm_template of template_parameter_list * trm (* templates *)
+  | Trm_using_directive of string                 (* using namespace std *)
 
 (* [template_param_kind]: parameters kind, typename , empty or another template *)
 and template_param_kind =
@@ -920,6 +920,12 @@ let trm_let_record ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option
 let trm_template ?(annot = trm_annot_default) ?(loc = None) ?(typ=None) ?(ctx : ctx option = None)
   (tpl : template_parameter_list) (t : trm ) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_template (tpl, t))
+
+(* [trm_using_directive ~annot ~loc ~typ ~ctx namespace]: creates a using namespace directive. *)
+let trm_using_directive ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
+  (namespace : string) =
+  trm_make ~annot ~loc ~typ ~ctx (Trm_using_directive namespace)
+
 
 (* ********************************** Auxiliary functions ************************************ *)
 

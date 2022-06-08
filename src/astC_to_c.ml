@@ -490,6 +490,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         let drt = record_type_to_doc rt in
         let dt = decorate_trm t1 in
         dattr ^^ drt ^^ dname ^^ blank 1 ^^ sbody  ^^ blank 1 ^^ dt ^^ semi
+     | Trm_using_directive nmspc -> string "using namespaces" ^^ string nmspc
      | Trm_template (tpl, t1) ->
         let dl = decorate_trm t1 in
         let dtpl = List.map (fun (n, tpk, _) ->

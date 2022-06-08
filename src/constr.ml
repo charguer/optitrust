@@ -764,7 +764,7 @@ let get_trm_kind (t : trm) : trm_kind =
    | Trm_seq _ -> TrmKind_Ctrl
    | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
-   | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ -> TrmKind_Any
+   | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ | Trm_using_directive _ -> TrmKind_Any
 
 
 (* [match_regexp_str r s]: checks if [s] can be matched with [r] *)

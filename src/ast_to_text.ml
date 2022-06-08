@@ -58,7 +58,6 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
     print_node "Typ_template_param" ^^ parens (string name)
   | Typ_arbitrary s -> string (code_to_str s)
 
-
 (* [print_typ_annot a]: converts type annotations to pprint document *)
 and print_typ_annot (a : typ_annot) : document =
   match a with
@@ -348,7 +347,8 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let drt = print_record_type rt in
     print_node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
       [string name; drt; print_list dtl; dt])
-  | Trm_template _ -> string ""
+  | Trm_template _ ->  print_node "Trm_template _"
+  | Trm_using_directive str -> print_node "Trm_using_directive " ^^ string str
 
 
 (* [print_record_type rt]: converts record types to pprint document *)

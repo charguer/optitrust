@@ -365,6 +365,10 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_template (_, t) ->
       [ kind_to_field "template";
           children_to_field [child_to_json "template" (aux t)]]
+    | Trm_using_directive nmspc ->
+      [ kind_to_field "using namespace";
+          value_to_field nmspc]
+
 
 (* [ast_to_json trm_root]: converts a full ast to a Json object *)
 let ast_to_json (trm_root : trm) : json =
