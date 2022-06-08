@@ -37,9 +37,13 @@ public:
   //    x += d;
   // }
 
+  
+
   /* encoded as:
   void move(test_class* this, int d) {
-     this->x += d;
+     this->x += d; // first move above this
+     (this@implicit_this)->x += d; // second move above this
+     // note: in clangml the base is empty in the second case
   }
   */
 
@@ -103,3 +107,36 @@ bool test_poly(T* x, T* y) { // occurence of T is a Typ_var
 // }
 
 
+/*
+
+template<typename A, typename B>
+typedef struct { A key; B value; } box;
+
+template<typename A, typename B>
+void update(box<A,B>* b, A key, B value) {
+  b->key = key;
+  b->value = value;
+}
+
+int main() {
+  box<int,bool> b;
+  update(&b,1,true);
+  update<int,bool>(&b,1,true);
+}
+
+
+---
+
+class box2 {
+  box<int,bool> b;
+}
+
+b.update(1,true)
+
+
+
+encodings of method calls:
+  x.f(y)    function is an access whose LHS is a object (i.e. a value whose type is of some class)
+-> 
+  f(x,y) @ method_call
+*/

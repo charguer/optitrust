@@ -818,6 +818,13 @@ let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx
 let trm_var ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
   ?(kind : varkind = Var_mutable) (x : var) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_var (kind, x))
+(**
+   ~qvar:qvar  (in this case x ="")
+   ~qpath:(var list)  
+   by default empty 
+
+   if x contains "::" symbols, you need to do Str.split -> last element is x, the others make the qpath
+   **)
 
 (* [trm_array ~annot ~loc ~typ ~ctx tl]: array initialization list *)
 let trm_array ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)

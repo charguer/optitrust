@@ -72,6 +72,21 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
             end
           else fail dl.loc "Variable_core.unfold_aux: only const variables are safe to unfold"
       end
+    (* qvar_inv_var (qx : qvar) : var option =
+         if qx.qvar_path = [] then Some qx.qvar_var
+           else None
+        M :: f(int x)
+
+        Target: 
+          cFunDef "f" shouldn't match
+
+          cFunDef "M :: f" 
+          cFunDef ~qpath:["M"] "f"
+          cFunDef ~qvar:(qvar ["M"] "f") ""
+
+
+    
+     *)
     | Trm_let_fun (f, _, _, _) ->
       if accept_functions
         then Internal.subst_var f dl t
@@ -113,6 +128,25 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
   in
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
+
+(* 
+
+  instead of when y = x
+  when qvar_eq y x 
+    ignores the string repr in the comparison
+    
+
+
+
+    M :: f(int x)
+
+    rename ~new_name:"N :: g" [cFunDef "M :: f"];
+
+
+
+ *)
+
+
 
 (* [rename new_name index t p]: applies [rename_aux] at trm [t] with path [p]. *)
 let rename (new_name : var) (index : int): Transfo.local =

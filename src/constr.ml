@@ -71,6 +71,22 @@ and depth =
      - occurrence constraints
      - relative constraints
      - OpenMP pragam constraints *)
+
+(* type constr_qname = constr_name * constr_qpath
+
+
+   and constr_qpath = var list -> bool
+
+
+   f and M :: f
+
+   let check_qname (qx : qvar ) (cq : constr_qname) : bool =
+    ((snd cq) qx.qvar_path ) && (check_name (fst cq) (qx.qvar_var)) ||
+    (check_name (fst cq) (qx.qvar_str )
+
+
+*)
+
 and constr =
   | Constr_depth of depth
   | Constr_dir of dir
