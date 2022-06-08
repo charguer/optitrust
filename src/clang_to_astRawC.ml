@@ -750,8 +750,7 @@ and tr_decl_list (dl : decl list) : trms =
           } in
         ctx_typedef_add tn tid td;
         let trm_td = trm_typedef ~loc ~ctx:(Some (get_ctx())) td in
-        let annot_to_add = if is_rec_type then Is_rec_struct else Is_struct in
-        let trm_td = trm_add_cstyle annot_to_add trm_td in 
+        let trm_td = if is_rec_type then trm_add_cstyle Is_rec_struct trm_td else trm_td in
         let tl' = tr_decl_list dl' in
         trm_td :: tl'
 
@@ -974,7 +973,7 @@ and tr_decl (d : decl) : trm =
         | CXXPublic -> access_spec := Access_public; acc
         | CXXPrivate -> access_spec := Access_public; acc
         | CXXProtected -> access_spec := Access_public; acc
-        | _ -> fail loc "Clang_to_astRawC.tr_decl_list"
+        | _ -> fail loc "Clang_to_astRawC.tr_decl_list: unkwown access specifier"
         end
       | _ -> Printf.printf "Failing from here\n";
         fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"

@@ -305,6 +305,7 @@ and cstyle_annot =
   | Is_rec_struct
   | Is_class
   | Static_fun
+  | Nested_name_spec of var list 
 
 (* [files_annot]: file annotation *)
 and files_annot =
