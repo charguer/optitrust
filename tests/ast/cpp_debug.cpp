@@ -11,7 +11,7 @@ int main() {}
 
 void test_vector1() {
   std::vector<int> v;   // vector<int> is a typ_constr (typ_constrid, typ_int)
-  // v.push_back(3);  // encoded as push_back(v,3)
+  v.push_back(3);  // encoded as push_back(v,3)
   // int a = v[0];
 }
 
@@ -19,7 +19,7 @@ using namespace std;
 
 void test_vector2() {
   vector<int> v;   // vector<int> is a typ_constr (typ_constrid, typ_int)
-  // v.push_back(3);  // encoded as push_back(v,3)
+  v.push_back(3);  // encoded as push_back(v,3)
   // int a = v[0];
 }
 
