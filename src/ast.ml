@@ -3009,3 +3009,11 @@ let get_member_type (rf : record_field) : typ =
     | Trm_let_fun (_, ty, _, _) -> ty
     | _ -> fail None "Ast.get_member_type: can't get the type of the member [rf]."
     end
+
+(* [get_names_specs t]: get all the name specifiers from the trm annotation. *)
+let get_names_specs (t : trm) : var list =
+  let t_annot = trm_get_cstyles t in 
+  List.fold_left (fun acc t_ann -> match t_ann with 
+    | Nested_name_spec nmspc -> acc @ nmspc
+    | _ -> acc
+  ) [] t_annot

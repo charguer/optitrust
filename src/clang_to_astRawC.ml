@@ -140,6 +140,18 @@ let get_typid_for_type (tv : typvar) : int  =
 let wrap_const ?(const : bool = false) (t : typ) : typ =
   if const then typ_const t else t
 
+
+(* [tr_nested_name_specifier ~loc name_specs]: converts Clang.name_specifier to a string list. *)
+let tr_nested_name_specifier ?(loc : location = None) name_specs : string list =
+  match name_specs with 
+  | Some nms -> 
+      List.map (fun name_spec -> 
+        match name_spec with 
+        | NamespaceName nm -> nm
+        | _ -> fail loc "Clang_to_astRawC.tr_nested_name_specifier: name specifier not supported."
+       ) nms
+  | None -> []
+  
 (* [tr_type_desc ~loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
     [loc] gives the location of the type in the file that has been translated,
     if [const] is true then it means [d] is a const type, similarly if [const] is false then [d] is not a const type *)
@@ -205,7 +217,7 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
         in
         typ_fun tl tr
     end
-  | Typedef {nested_name_specifier = _; name = n; _} ->
+  | Typedef {nested_name_specifier = nms; name = n; _} ->
     begin match n with
       | IdentifierName n ->
         let typ_to_add = typ_constr n ~tid:(get_typid_for_type n)  in
@@ -582,7 +594,9 @@ and tr_expr (e : expr) : trm =
         end
     | _-> trm_apps ~loc ~ctx ~typ tf (List.map tr_expr el)
     end
-  | DeclRef {nested_name_specifier = _; name = n; _} -> (* Occurrence of a variable *)
+  | DeclRef {nested_name_specifier = nms; name = n; _} -> (* Occurrence of a variable *)
+    let nm_spcs = tr_nested_name_specifier nms in 
+    (* let tr_n = tr_decl n in  *)
     begin match n with
       | IdentifierName s ->
         (*
@@ -600,7 +614,8 @@ and tr_expr (e : expr) : trm =
           (* hack with ctx_var *)
           String_map.find_opt s !ctx_var
         in
-        trm_var ~loc ~ctx ~typ s
+        let res = trm_var ~loc ~ctx ~typ s in 
+        if nm_spcs <> [] then trm_add_cstyle (Nested_name_spec nm_spcs) res else res 
       | OperatorName op -> overloaded_op ~loc ~ctx  op
       | _ -> fail loc "Clang_to_astRawC.tr_expr: only identifiers allowed for variables"
     end
@@ -1017,10 +1032,13 @@ and tr_decl (d : decl) : trm =
         (n, tpk, b)
     ) pl in
     trm_template pl dl
-  | UsingDirective {nested_name_specifier = _; namespace = ns} ->
+  | UsingDirective {nested_name_specifier = nms; namespace = ns} ->
+    let nm_spcs = tr_nested_name_specifier nms in 
     let tr_n = tr_decl ns in
     begin match tr_n.desc with 
-    | Trm_namespace (nm, _, _) -> trm_using_directive nm
+    | Trm_namespace (nm, _, _) -> 
+      let res = trm_using_directive nm in 
+      if nm_spcs <> [] then trm_add_cstyle (Nested_name_spec nm_spcs) res else res
     | _ -> fail loc "Clan_to_astRawC.tr_decl: using direcitves can be used only with namespaces"
     end
   | _ -> fail loc "Clang_to_astRawC.tr_decl: not implemented" in
