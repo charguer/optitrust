@@ -105,8 +105,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
       | Trm_let (vk,(y,ty),init) ->
         trm_let ~annot:t.annot ~loc:t.loc vk (y,change_typ ty) (aux init)
       | Trm_let_fun (f, ty, args, body) ->
-         trm_let_fun ~annot:t.annot ~loc:t.loc
-            f.qvar_var (change_typ ty)
+         trm_let_fun ~annot:t.annot ~loc:t.loc ~qvar:f "" (change_typ ty)
             (List.map (fun (y, ty) -> (y, change_typ ty)) args)
             (aux body)
       | Trm_typedef td ->
@@ -128,7 +127,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
                    | Some ty -> ty
                    | None -> fail t.loc "Internal.apply_change: all variable occurrences should have a type"
                    end in
-        trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (change_typ ty)) x.qvar_var
+        trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (change_typ ty)) ~qvar:x ""
       | _ -> trm_map aux t
     in
     replace_type_annot (aux t)
@@ -596,7 +595,7 @@ let nobrace_remove_after ?(remove : bool = true) (f : unit -> unit) : unit =
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
   | Trm_var (_, y') when y'.qvar_var = y ->
-    trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (typ_constr  x )) y
+    trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (typ_constr x )) y
   | _ -> trm_map (replace_type_with x y) t
 
 (* [subst tm t]: find all the occurrences of variables in [t] and check if they belong to map [tm]

@@ -232,7 +232,7 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
       | NoKeyword -> let tr_ty = tr_qual_type q in 
         begin match tr_ty.typ_desc with 
         | Typ_constr (qty, tid, tl) -> 
-          typ_constr ~annot:tr_ty.typ_annot ~typ_attributes:tr_ty.typ_attributes ~tid ~tl ~qpath qty.qvar_var
+          typ_constr ~annot:tr_ty.typ_annot ~typ_attributes:tr_ty.typ_attributes ~tid ~tl ~qpath ~qtypvar:qty ""
         | _ -> tr_ty
         end
       | _ -> fail loc "Clang_to_astRawC.tr_type_desc: this elaborated type is not supported."
@@ -689,7 +689,7 @@ and tr_expr (e : expr) : trm =
           | {desc = Trm_val (Val_lit (Lit_int n)); loc; _} ->
             trm_prim ~loc ~ctx (Prim_new (typ_array tq (Const n)))
           | {desc = Trm_var (kind, x); loc; _} ->
-           trm_prim ~loc ~ctx (Prim_new (typ_array tq (Trm (trm_var ~loc ~ctx ~kind x.qvar_var))))
+           trm_prim ~loc ~ctx (Prim_new (typ_array tq (Trm (trm_var ~loc ~ctx ~kind ~qvar:x ""))))
           | _ ->
             fail loc "Clang_to_astRawC.tr_expr: new array size must be either constant or variable"
         end

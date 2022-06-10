@@ -674,17 +674,21 @@ let qvar_build (qv : var) (qp : var list) : qvar =
   let qs = 
     if qp = [] 
       then qv  
-      else  (Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ "::" ^ p ) "" qp ) ^ "::" ^ qv
+      else  (Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ "::  " ^ p ) "" qp ) ^ "::" ^ qv
     in
   {qvar_var = qv; qvar_path = qp; qvar_str = qs}
 
+(* [empty_qvar]: empty qvar is just a qvar with the string representation being the empty string. *)
+let empty_qvar : qvar =
+  {qvar_var = ""; qvar_path = []; qvar_str = ""}
 
 (* [typ_constr ~annot ~typ_attributes ~tid ~tl x]: constructed type constructor *)
 let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
   ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = []) ?(qpath : var list = [])
-  (x : typvar) : typ =
-  let qx = qvar_build x qpath in 
-  {typ_annot = annot; typ_desc = Typ_constr (qx, tid, tl); typ_attributes}
+  ?(qtypvar : qvar = empty_qvar) (x : typvar) : typ =
+  let qtx = qvar_build x qpath in 
+  let qtx = if qtypvar = empty_qvar then qtx else qtypvar in 
+  {typ_annot = annot; typ_desc = Typ_constr (qtx, tid, tl); typ_attributes}
 
 (* [typ_auto ~annot ~typ_attributes ()]: auto type constructor *)
 let typ_auto ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
@@ -833,8 +837,9 @@ let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx
 
 (* [trm_var ~annot ~loc ~typ ~ctx ~kind x]: variable occurrence *)
 let trm_var ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
-  ?(kind : varkind = Var_mutable) ?(qpath : var list = []) (x : var) : trm =
+  ?(kind : varkind = Var_mutable) ?(qpath : var list = []) ?(qvar : qvar = empty_qvar) (x : var) : trm =
   let qx = qvar_build x qpath in
+  let qx = if qvar = empty_qvar then qx else qvar in 
   trm_make ~annot ~loc ~typ ~ctx (Trm_var (kind, qx))
 
 (* [trm_array ~annot ~loc ~typ ~ctx tl]: array initialization list *)
@@ -859,8 +864,9 @@ let trm_let_mult ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option =
 
 (* [trm_let ~annot ~loc ~ctx name ret_typ args body]: function definition *)
 let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) ?(qpath : var list = [])
-  (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
+  ?(qvar : qvar = empty_qvar) (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
   let qname = qvar_build name qpath in 
+  let qname = if qvar = empty_qvar then qname else qvar in 
   trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_let_fun (qname, ret_typ, args, body))
 
 (* [trm_typedef ~annot ~loc ~ctx def_typ]: type definition *)
@@ -1483,7 +1489,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
     trm_let ~annot ~loc vk tv init'
   | Trm_let_fun (f', res, args, body) ->
     let body' = f false body in
-    trm_let_fun ~annot ~loc f'.qvar_var res args body'
+    trm_let_fun ~annot ~loc ~qvar:f' "" res args body'
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
@@ -1582,7 +1588,7 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   | Trm_let_fun (f', res, args, body) ->
     let body' = f false body in
     ret (body' == body)
-        (trm_let_fun ~annot ~loc f'.qvar_var res args body')
+        (trm_let_fun ~annot ~loc ~qvar:f' "" res args body' ) 
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = aux then_ in
@@ -2486,7 +2492,7 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
       | Trm_let_fun (f, ty, tv, _) ->
         if f_pred f.qvar_var then begin
           t_map := Trm_map.add f.qvar_var t !t_map;
-         trm_let_fun ~annot:t.annot f.qvar_var ty tv (trm_lit  Lit_uninitialized) end
+         trm_let_fun ~annot:t.annot ~qvar:f "" ty tv (trm_lit  Lit_uninitialized) end
         else t
       | _ -> trm_map aux t
       in

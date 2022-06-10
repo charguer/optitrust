@@ -175,7 +175,7 @@ let uninline_aux (fct_decl : trm) (t : trm) : trm =
   let (f, _, targs, body) = trm_inv ~error ~loc:fct_decl.loc trm_let_fun_inv fct_decl in
   let inst = Trm_matching.rule_match ~higher_order_inst:true targs body t in
   let args = Ast.tmap_to_list (List.map fst targs) inst in
-  trm_pass_labels t (trm_apps (trm_var f.qvar_var) args)
+  trm_pass_labels t (trm_apps (trm_var ~qvar:f "") args)
 
 (* [uninline fct_decl t p]: applies [uninline_aux] at the trm [t] with path [p]. *)
 let uninline (fct_decl : trm) : Transfo.local =
@@ -192,7 +192,7 @@ let rename_args_aux (vl : var list) (t : trm) : trm =
   let assoc_list = List.fold_left2 (fun acc v1 (arg1, _ty1) -> if v1 <> "" then (arg1, trm_var v1) ::  acc else acc) [] vl args in
   let tm = map_from_trm_var_assoc_list assoc_list in
   let new_body = Internal.subst tm body in
-  trm_let_fun f.qvar_var retty renamed_args new_body
+  trm_let_fun ~qvar:f "" retty renamed_args new_body
 
 (* [rename_args vl t p]: applies [rename_aux] at trm [t] with path [p] *)
 let rename_args (vl : var list) : Transfo.local =

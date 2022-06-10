@@ -338,7 +338,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           | _ -> fail t.loc "Path.apply_on_path: transformation must preserve variable names"
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body) ->
-          let t' = aux (trm_var ~loc:t.loc x.qvar_var) in
+          let t' = aux (trm_var ~loc:t.loc ~qvar:x "") in
           begin match t'.desc with
           | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body)}
           | _ ->
@@ -465,7 +465,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           app_to_nth loc arg n
             (fun (x, _) -> aux (trm_var ~loc x) ctx)
        | Dir_name, Trm_let_fun (x, _, _, _) -> 
-          aux (trm_var ~loc x.qvar_var) ctx
+          aux (trm_var ~loc ~qvar:x "") ctx
        | Dir_name , Trm_let (_,(x,_),_)
          | Dir_name, Trm_goto x ->
           aux (trm_var ~loc x) ctx

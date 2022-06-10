@@ -49,7 +49,7 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
             | Typ_constr (y, tid, _) ->
               trm_seq_no_brace (
                 List.map(fun x ->
-                trm_let_mut ~annot:t.annot (x, typ_constr y.qvar_var ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars)
+                trm_let_mut ~annot:t.annot (x, typ_constr ~qtypvar:y ~tid "") (trm_uninitialized ~loc:init.loc ()) ) new_vars)
             | Typ_var (y, tid) ->
               trm_seq_no_brace (
                  List.map(fun x ->

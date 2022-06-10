@@ -197,7 +197,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
         (* let body = t2 in *)
         let body = List.fold_left (fun tacc x ->
           Variable_core.remove_get_operations_on_var_temporary x tacc) t2 xargs in
-        let func = trm_let_fun x.qvar_var typ_ret targs body in
+        let func = trm_let_fun ~qvar:x "" typ_ret targs body in
         find_var x.qvar_var func
 
     | Trm_var (_, x1), Trm_var (_, x2) when x1.qvar_var = x2.qvar_var -> ()
