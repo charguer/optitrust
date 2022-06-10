@@ -232,7 +232,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [] ]
     | Trm_var (_, x) ->
         [ kind_to_field "var";
-          value_to_field x;
+          value_to_field x.qvar_var;
           children_to_field [] ]
     | Trm_record l ->
         [ kind_to_field  "struct";

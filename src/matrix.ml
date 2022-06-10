@@ -16,11 +16,11 @@ let intro_calloc : Transfo.t =
         begin match t1.desc with
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[calloc_trm]) ->
           begin match calloc_trm.desc with
-          | Trm_apps ({desc = Trm_var (_, "calloc");_}, _) ->
+          | Trm_apps ({desc = Trm_var (_, f);_}, _) when f.qvar_var = "calloc" ->
             Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
           | _ -> fail t1.loc "intro_calloc: couldn't find the call to calloc function"
           end
-        | Trm_apps ({desc = Trm_var (_, "calloc");_},_) ->
+        | Trm_apps ({desc = Trm_var (_, f);_},_) when f.qvar_var = "calloc" ->
           Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
         | _ -> try Matrix_basic.intro_calloc [cWriteVar x; cFun "calloc"]
           with | TransfoError _ -> fail tg_trm.loc "intro_calloc: couldn't find the calloc
@@ -58,11 +58,11 @@ let intro_malloc : Transfo.t =
         begin match t1.desc with
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm]) ->
           begin match malloc_trm.desc with
-          | Trm_apps ({desc = Trm_var (_, "malloc");_}, _) ->
+          | Trm_apps ({desc = Trm_var (_, f);_}, _) when f.qvar_var = "malloc" ->
             Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
           | _ -> fail t1.loc "intro_malloc: couldn't find the call to malloc function"
           end
-        | Trm_apps ({desc = Trm_var (_, "malloc");_},_) ->
+        | Trm_apps ({desc = Trm_var (_, f);_},_) when  f.qvar_var = "malloc" ->
           Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
         | _ ->
          try Matrix_basic.intro_malloc [cWriteVar x; cFun "malloc"]
@@ -88,7 +88,7 @@ let biject (fun_bij : string) : Transfo.t =
     | Trm_let (_, (p, _), _) ->
       Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVar p] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."]
     | Trm_apps (_, [{desc = Trm_var (_, p)}; _])  when is_set_operation tg_trm ->
-      Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
+      Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p.qvar_var] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
     | _ -> fail tg_trm.loc "biject: expected a variable declaration"
 )
 

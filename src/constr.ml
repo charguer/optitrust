@@ -947,7 +947,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_list ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
         in constra_app *)
      | Constr_var name, Trm_var (_, x) ->
-        check_name name x
+        check_name name x.qvar_var
      | Constr_lit pred_l, Trm_val (Val_lit l) ->
         pred_l l
      | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args) ->

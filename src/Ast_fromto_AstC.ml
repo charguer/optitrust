@@ -29,9 +29,9 @@ let get_varkind (env : env) (x : var) : varkind =
   | Some m -> m
   | _ -> Var_immutable
 
-(* [is_var_mutable env x]: checks if variable [x] is mutable or not *)
-let is_var_mutable (env : env) (x : var) : bool =
-  get_varkind env x = Var_mutable
+(* [is_qvar_mutable env x]: checks if variable [x] is mutable or not *)
+let is_qvar_mutable (env : env) (x : qvar) : bool =
+  get_varkind env x.qvar_var = Var_mutable
 
 (* [env_extend env e varkind]: adds variable [e] into environment [env] *)
 let env_extend (env : env) (e : var) (varkind : varkind) : env =
@@ -79,7 +79,7 @@ let stackvar_elim (t : trm) : trm =
     trm_simplify_addressof_and_get
     begin match t.desc with
     | Trm_var (_, x) ->
-      if is_var_mutable !env x
+      if is_qvar_mutable !env x
         then trm_get (trm_replace (Trm_var (Var_mutable, x)) t)
         else trm_replace (Trm_var (Var_immutable, x)) t
     | Trm_let (_, (x, ty), tbody) ->
@@ -129,7 +129,7 @@ let stackvar_intro (t : trm) : trm =
     trm_simplify_addressof_and_get
     begin match t.desc with
     | Trm_var (_, x) ->
-      if is_var_mutable !env x
+      if is_qvar_mutable !env x
         then trm_address_of (trm_replace (Trm_var (Var_mutable, x)) t)
         else t
     | Trm_let (_, (x, tx), tbody) ->
@@ -159,7 +159,7 @@ let stackvar_intro (t : trm) : trm =
       let (index, _, _, _, _, _) = l_range in
       onscope env t (fun t -> begin add_var env index Var_immutable; trm_map aux t end)
     | Trm_for_c _ -> onscope env t (fun t -> trm_map aux t)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_var_mutable !env x  -> t1
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_qvar_mutable !env x  -> t1
     | _ -> trm_map aux t
     end in
    aux t

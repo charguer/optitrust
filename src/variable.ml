@@ -390,22 +390,22 @@ let inline_and_rename : Transfo.t =
           | Trm_var (_, x) ->
             if is_typ_const ty then begin
                 inline spec_target;
-                renames (ByList [(x,y)]) tg_scope
+                renames (ByList [(x.qvar_var,y)]) tg_scope
               end
              else begin
               Variable_basic.to_const spec_target;
               inline spec_target;
-              renames (ByList [(x,y)]) tg_scope
+              renames (ByList [(x.qvar_var,y)]) tg_scope
               end
           | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation v ->
              if is_typ_const ty then begin
                 inline spec_target;
-                renames (ByList [(x,y)]) tg_scope
+                renames (ByList [(x.qvar_var,y)]) tg_scope
               end
              else begin
               Variable_basic.to_const spec_target;
               inline spec_target;
-              renames (ByList [(x,y)]) tg_scope
+              renames (ByList [(x.qvar_var,y)]) tg_scope
               end
           | _ ->
             (* DEBUG: *)

@@ -34,6 +34,10 @@ type var = string
 (* [vars]: variables, a list of elements of type variable *)
 type vars = var list
 
+(* [qvar]: qualiefied variables, Ex M :: N :: x
+    qx = {qvar_var = "x"; qvar_path = ["M"; "N"]; qvar_str = "M :: N :: x"}. *)
+type qvar = {qvar_var : var; qvar_path : var list; qvar_str : string}
+
 (* [typconstr]: name of type constructors (e.g. [list] in Ocaml's type [int list];
    or [vect] in C type [struct { int x,y }; *)
 type typconstr = string
@@ -366,7 +370,7 @@ and ctx = {
 (* [trm_desc]: description of an ast node *)
 and trm_desc =
   | Trm_val of value
-  | Trm_var of varkind * var
+  | Trm_var of varkind * qvar
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
@@ -814,17 +818,21 @@ let trm_replace (desc : trm_desc) (t : trm) : trm =
 let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (v : value) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_val v)
 
+
+(* [qvar_build qv qp qs]: builds a qvar record with fields qvar_var = [qv], qvar_path = [qp] and qvar_str = [qs]. *)
+let qvar_build (qv : var) (qp : var list) : qvar =
+  let qs = 
+    if qp = [] 
+      then qv  
+      else  Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ " :: " ^ p ) "" qp 
+    in
+  {qvar_var = qv; qvar_path = qp; qvar_str = qs}
+
 (* [trm_var ~annot ~loc ~typ ~ctx ~kind x]: variable occurrence *)
 let trm_var ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
-  ?(kind : varkind = Var_mutable) (x : var) : trm =
-  trm_make ~annot ~loc ~typ ~ctx (Trm_var (kind, x))
-(**
-   ~qvar:qvar  (in this case x ="")
-   ~qpath:(var list)  
-   by default empty 
-
-   if x contains "::" symbols, you need to do Str.split -> last element is x, the others make the qpath
-   **)
+  ?(kind : varkind = Var_mutable) ?(qpath : var list = []) (x : var) : trm =
+  let qx = qvar_build x qpath in
+  trm_make ~annot ~loc ~typ ~ctx (Trm_var (kind, qx))
 
 (* [trm_array ~annot ~loc ~typ ~ctx tl]: array initialization list *)
 let trm_array ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
@@ -1328,7 +1336,7 @@ let trm_seq_inv (t : trm) : (trm mlist) option =
     Otherwise it returns [None]. *)
 let trm_var_inv (t : trm) : (varkind * var) option =
   match t.desc with
-  | Trm_var (vk, x) -> Some (vk, x)
+  | Trm_var (vk, x) -> Some (vk, x.qvar_var)
   | _ -> None
 
 (* [trm_if_inv t]: returns the components of a [trm_if] constructor when [t] is an if statement.
@@ -1718,7 +1726,7 @@ let contains_decl (x : var) (t : trm) : bool =
 let contains_occurrence (x : var) (t : trm) : bool =
   let rec aux (t : trm) : bool =
     match t.desc with
-    | Trm_var (_, y) -> y = x
+    | Trm_var (_, y) -> y.qvar_var = x
     | Trm_apps (_, tl) -> List.fold_left (fun acc t1 -> acc || aux t1) false tl
     | _ -> false
   in aux t
@@ -1824,7 +1832,7 @@ let for_loop_index (t : trm) : var =
         - for (int i = …; …) *)
      begin match init.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                 [{desc = Trm_var (_, x); _}; _]) ->x
+                 [{desc = Trm_var (_, x); _}; _]) -> x.qvar_var
      | _ -> begin match decl_name init with
             | Some x -> x
             | None -> fail init.loc "Ast.for_loop_index: could't get the loop index"
@@ -3024,3 +3032,7 @@ let get_names_specs (t : trm) : var list =
     | Nested_name_spec nmspc -> acc @ nmspc
     | _ -> acc
   ) [] t_annot
+
+
+(* let qvar_ex  *)
+

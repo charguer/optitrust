@@ -37,7 +37,7 @@ let graphdep (t : trm) : adj =
     | Trm_apps ({ desc = Trm_var (_, g); _ }, args) ->
         begin match curf with
         | None -> failwith "function call not inside a function def"
-        | Some f -> adj_add adj f g
+        | Some f -> adj_add adj f g.qvar_var
         end;
         trm_iter (aux curf) t
     | _ -> trm_iter (aux curf) t

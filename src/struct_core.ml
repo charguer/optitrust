@@ -180,12 +180,12 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
             trm_record ~annot:t.annot ~typ:t.typ new_term_list
           
           | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change ->
-            let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ~typ:v.typ p) f))) field_list in
+            let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ~typ:v.typ p.qvar_var) f))) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
             trm_record ~annot:t.annot ~typ:t.typ new_term_list
 
           | Trm_var (_, p) ->
-            let sl = List.map (fun f -> (None, trm_struct_get (trm_var ~typ:t.typ p) f)) field_list in
+            let sl = List.map (fun f -> (None, trm_struct_get (trm_var ~typ:t.typ p.qvar_var) f)) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
             trm_record ~annot:t.annot ~typ:t.typ new_term_list
 
@@ -307,7 +307,7 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
         | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
           begin match base.desc with
-          | Trm_var (_, v) when v = name ->
+          | Trm_var (_, v) when v.qvar_var = name ->
             trm_var (Convention.name_app name field)
           | _ -> trm_map aux t
           end

@@ -128,7 +128,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
                    | Some ty -> ty
                    | None -> fail t.loc "Internal.apply_change: all variable occurrences should have a type"
                    end in
-        trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (change_typ ty)) x
+        trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (change_typ ty)) x.qvar_var
       | _ -> trm_map aux t
     in
     replace_type_annot (aux t)
@@ -224,7 +224,7 @@ let is_decl_body (dl : path) : bool =
 (* [fresh_args t]: rename all the occurrences of a variable by adding an underscore as prefix *)
 let fresh_args (t : trm) : trm =
   match t.desc with
-  | Trm_var (kind, x) -> trm_var ~kind ("_" ^ x)
+  | Trm_var (kind, x) -> trm_var ~kind ("_" ^ x.qvar_var)
   | _ -> t
 
 (* [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
@@ -602,7 +602,7 @@ let nobrace_remove_after ?(remove : bool = true) (f : unit -> unit) : unit =
 (* [repalce_type_with x y]: replace the current type of variable [y] to [typ_constr x] *)
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
-  | Trm_var (_, y') when y' = y ->
+  | Trm_var (_, y') when y'.qvar_var = y ->
     trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (typ_constr  x )) y
   | _ -> trm_map (replace_type_with x y) t
 
@@ -620,7 +620,7 @@ let rec subst (tm : tmap) (t : trm) : trm =
   match t.desc with
   (* Hack to avoid unnecessary get operations when we substitute a variable occurrence with arbitrary code *)
   | Trm_var (vk, x) ->
-    begin match Trm_map.find_opt x tm with
+    begin match Trm_map.find_opt x.qvar_var tm with
     | Some t1 ->
       if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1
     | _ -> t

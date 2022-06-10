@@ -587,7 +587,7 @@ and tr_expr (e : expr) : trm =
   | Call {callee = f; args = el} ->
     let tf = tr_expr f in
     begin match tf.desc with
-    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
+    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x.qvar_var 0 ->
         begin match el with
         | [tl;tr] -> trm_set ~loc ~ctx (tr_expr tl) (tr_expr tr)
         | _ -> fail loc "Clang_to_astRawC.tr_expr: overloaded= expects two arguments"
@@ -682,7 +682,7 @@ and tr_expr (e : expr) : trm =
           | {desc = Trm_val (Val_lit (Lit_int n)); loc; _} ->
             trm_prim ~loc ~ctx (Prim_new (typ_array tq (Const n)))
           | {desc = Trm_var (kind, x); loc; _} ->
-           trm_prim ~loc ~ctx (Prim_new (typ_array tq (Trm (trm_var ~loc ~ctx ~kind x))))
+           trm_prim ~loc ~ctx (Prim_new (typ_array tq (Trm (trm_var ~loc ~ctx ~kind x.qvar_var))))
           | _ ->
             fail loc "Clang_to_astRawC.tr_expr: new array size must be either constant or variable"
         end

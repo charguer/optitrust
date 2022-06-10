@@ -340,7 +340,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_val v ->
        if trm_has_cstyle Empty_cond t then empty else dattr ^^ val_to_doc v
     | Trm_var (_, x) ->
-           dattr ^^ string x
+           dattr ^^ string x.qvar_str
     | Trm_array tl -> let tl = Mlist.to_list tl in
        let dl = List.map (decorate_trm ~semicolon ~print_struct_init_type:false) tl in
        dattr ^^ braces (separate (comma ^^ blank 1) dl)
@@ -684,9 +684,9 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
   match f.desc with
   (* Case of function pointers *)
   | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var (_, x); _ } ]) ->
-      aux_arguments (string x)
+      aux_arguments (string x.qvar_var)
   (* Case of function by name *)
-  | Trm_var (_, x) -> aux_arguments (string x)
+  | Trm_var (_, x) -> aux_arguments (string x.qvar_var)
 
   (* Case of inlined function *)
   | Trm_let_fun _ ->

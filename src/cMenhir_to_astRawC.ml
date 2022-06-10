@@ -409,7 +409,7 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
   | ECall (f, el) ->
     let tf = tr_expr f in
     begin match tf.desc with
-    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
+    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x.qvar_var 0 ->
       begin match el with
       | [tl; tr] -> trm_set ~loc ~ctx (tr_expr tl) (tr_expr tr)
       | _ -> fail loc "CMenhir_to_astRawC.tr_expr: overloaded= expects two arguments"

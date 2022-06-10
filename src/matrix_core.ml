@@ -21,7 +21,7 @@ let mindex_inv (t : trm) : (trms * trms) option =
   match t.desc with
   | Trm_apps (f, dims_and_indices) ->
     begin match f.desc with
-    | Trm_var (_, f_name) when (Tools.pattern_matches "MINDEX" f_name) ->
+    | Trm_var (_, f_name) when (Tools.pattern_matches "MINDEX" f_name.qvar_var) ->
       let n = List.length dims_and_indices in
       if (n mod 2 = 0) then
         Some (Xlist.split_at (n/2) dims_and_indices)
@@ -107,8 +107,8 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
     begin match f.desc with
     | Trm_var (_, f_name) ->
       let dims , size = Xlist.unlast args in
-      if (Tools.pattern_matches "CALLOC" f_name) then Some (dims, size, true)
-        else if (Tools.pattern_matches "MALLOC" f_name) then Some (dims, size, false)
+      if (Tools.pattern_matches "CALLOC" f_name.qvar_var) then Some (dims, size, true)
+        else if (Tools.pattern_matches "MALLOC" f_name.qvar_var) then Some (dims, size, false)
         else None
     | _ -> None
     end
@@ -146,7 +146,7 @@ let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) 
      [t] - ast of the call to alloc. *)
 let intro_calloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var (_, "calloc");_},[dim; size]) ->
+  | Trm_apps ({desc = Trm_var (_, f);_},[dim; size]) when f.qvar_var = "calloc" ->
     alloc ~init:(Some (trm_int 0)) [dim] size
   | _ -> fail t.loc "Matrix_core.intro_calloc_aux: expected a function call to calloc"
 
@@ -158,7 +158,7 @@ let intro_calloc : Target.Transfo.local =
      [t] - ast of the call to alloc. *)
 let intro_malloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var (_, "malloc");_},[{desc = Trm_apps (_,[dim ;size]);_}]) ->
+  | Trm_apps ({desc = Trm_var (_, f);_},[{desc = Trm_apps (_,[dim ;size]);_}]) when f.qvar_var = "malloc" ->
     alloc ~init:None [dim] size
   | _ -> fail t.loc "Matrix_core.intro_malloc: expected a function call to malloc"
 

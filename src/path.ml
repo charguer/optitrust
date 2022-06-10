@@ -324,7 +324,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
               (fun (x, tx) ->
                 let t' = aux (trm_var ~loc:t.loc x) in
                 match t'.desc with
-                | Trm_var (_, x') -> (x', tx)
+                | Trm_var (_, x') -> (x'.qvar_var, tx)
                 | _ ->
                    fail t.loc ("Path.apply_on_path: transformation must preserve fun arguments")
               )
@@ -334,13 +334,13 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         | Dir_name , Trm_let (vk,(x,tx),body) ->
           let t' = aux (trm_var ~loc:t.loc x) in
           begin match t'.desc with
-          | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x', tx), body)}
+          | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x'.qvar_var, tx), body)}
           | _ -> fail t.loc "Path.apply_on_path: transformation must preserve variable names"
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body) ->
           let t' = aux (trm_var ~loc:t.loc x) in
           begin match t'.desc with
-          | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body)}
+          | Trm_var (_, x') -> { t with desc = Trm_let_fun (x'.qvar_var, tx, txl, body)}
           | _ ->
              fail t.loc "Path.apply_on_path: transformation must preserve names(function)"
           end

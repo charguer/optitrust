@@ -95,7 +95,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
     | Trm_apps(tfun, fun_call_args) ->
       let fun_decl = begin match tfun.desc with
       | Trm_var (_, f) ->
-        begin match Internal.toplevel_decl ~require_body:true f with
+        begin match Internal.toplevel_decl ~require_body:true f.qvar_var with
         | Some decl -> decl
         | _ -> fail tfun.loc "Function_core.inline_aux: couldn't find the toplevel decl for the targeted function call"
         end
@@ -244,7 +244,7 @@ let dsp_call_aux (dsp : var) (t : trm) : trm =
   | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
     begin match rhs.desc with
     | Trm_apps ({desc = Trm_var (_, f); _}, args) ->
-        let dsp_name = if dsp = "" then f ^ "_dsp" else dsp in
+        let dsp_name = if dsp = "" then f.qvar_var ^ "_dsp" else dsp in
         trm_apps (trm_var dsp_name) (args @ [lhs])
     | _ -> fail rhs.loc "Function_core.dsp_call_aux: expected a target to a function call."
     end

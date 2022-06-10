@@ -123,7 +123,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
     match Trm_map.find_opt x !inst with
     | None -> None
     | Some (ty,t0) -> match t0.desc with
-       | Trm_var (_, y) -> Some (y,ty)
+       | Trm_var (_, y) -> Some (y.qvar_var,ty)
        | _ -> None
     in
   let with_binding ?(loc:location=None) (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
@@ -168,39 +168,39 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
     match t1.desc, t2.desc with
 
     (* Case for treating a match against a pattern variable *)
-    | Trm_var (_, x), _ when is_var x -> find_var x t2
+    | Trm_var (_, x), _ when is_var x.qvar_var -> find_var x.qvar_var t2
 
     (* Case for treating a match against a pattern such as [body(i)],
        where [body] is a pattern variable that corresponds to a function. *)
-    | Trm_apps (({ desc = Trm_var (_, x); _} as trm_x), ts1), _ when higher_order_inst && is_var x ->
+    | Trm_apps (({ desc = Trm_var (_, x); _} as trm_x), ts1), _ when higher_order_inst && is_var x.qvar_var ->
         let typ_args, typ_ret =
           match trm_x.typ with
-          | None -> fail t1.loc (Printf.sprintf "Trm_matching.rule_match: no type available for %s; try reparsing first" x)
+          | None -> fail t1.loc (Printf.sprintf "Trm_matching.rule_match: no type available for %s; try reparsing first" x.qvar_var)
           | Some ({typ_desc = Typ_fun (typ_args, typ_ret); _}) -> typ_args, typ_ret
-          | _ -> fail t1.loc (Printf.sprintf "Trm_matching.rule_match: the variable %s is used as a function but does not have a function type" x)
+          | _ -> fail t1.loc (Printf.sprintf "Trm_matching.rule_match: the variable %s is used as a function but does not have a function type" x.qvar_var)
           in
         let msg1 i ti = fail None (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s
-                                     is not a variable.  It is the term: %s" i x (Ast_to_text.ast_to_string ti)) in
+                                     is not a variable.  It is the term: %s" i x.qvar_var (Ast_to_text.ast_to_string ti)) in
         let xargs = List.mapi (fun i ti -> match ti.desc with
           | Trm_var (_, x)
           (* LATER: find out if it is really correct to igore the get operation here *)
-          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x); _}]) -> x
+          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x); _}]) -> x.qvar_var
           | _ -> msg1 i ti) ts1 in
         (* DEPRECATED
           let msg2 i = fail t2.loc (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s is not found in the instantiation map" i x) in
           let targs = List.mapi (fun i xi -> match get_binding xi with Some typed_yi -> typed_yi | None -> msg2 i) xargs in *)
         if List.length typ_args <> List.length xargs
           then fail t2.loc (Printf.sprintf "Trm_matching.rule_match: the function call does not have the same number of arguments
-                                            as the higher-order function variable %s" x);
+                                            as the higher-order function variable %s" x.qvar_var);
         let targs = List.combine xargs typ_args in
         (* LATER ARTHUR: we need to replace "get p" by "p" for each argument "p" that did not have type const *)
         (* let body = t2 in *)
         let body = List.fold_left (fun tacc x ->
           Variable_core.remove_get_operations_on_var_temporary x tacc) t2 xargs in
-        let func = trm_let_fun x typ_ret targs body in
-        find_var x func
+        let func = trm_let_fun x.qvar_var typ_ret targs body in
+        find_var x.qvar_var func
 
-    | Trm_var (_, x1), Trm_var (_, x2) when x1 = x2 -> ()
+    | Trm_var (_, x1), Trm_var (_, x2) when x1.qvar_var = x2.qvar_var -> ()
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 

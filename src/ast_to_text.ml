@@ -178,6 +178,7 @@ and print_val ?(only_desc : bool = false) (v : value) : document =
      let dp = print_prim ~only_desc p in
      print_node "Val_prim" ^^ parens dp
 
+
 (* [print_attribute ~only_desc a]: converts attribute [a] to pprint document *)
 and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
   match a with
@@ -187,15 +188,24 @@ and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
     string "GeneratedTyp" ^^ blank 1
   | Others -> empty
 
+(* [print_qvar]: converts [qx] into a docuemnt. *)
+and print_qvar (qx : qvar) : document =
+  let qpath_str = List.map string qx.qvar_path in 
+  lbrace ^^ string "qvar_var" ^^ equals ^^ string qx.qvar_var ^^ semi ^^
+  string "qvar_path" ^^ equals ^^ Tools.list_to_doc qpath_str ^^ semi ^^
+  string "qvar_str" ^^ equals ^^ string qx.qvar_str 
+
+
 (* [print_trm_desc ~only_desc t]: converts the description of trm [t] to pprint document *)
 and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   match t with
   | Trm_val v ->
      let dv = print_val ~only_desc v in
      print_node "Trm_val" ^^ parens dv
-  | Trm_var (vk, x) ->
+  | Trm_var (vk, qx) ->
     let var_kind_str = match vk with | Var_immutable -> string "Var_immutable" | Var_mutable -> string "Var_mutable" in
-    string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ string x ^^ rparen
+    let qx_d = print_qvar qx in 
+    string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ qx_d ^^ rparen
   | Trm_array tl ->
      let tl = Mlist.to_list tl in
      let dtl = List.map (print_trm ~only_desc) tl in
