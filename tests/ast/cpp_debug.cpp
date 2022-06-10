@@ -6,7 +6,7 @@
 int test_iterator(std::vector<int> v) {
   int r = 0;
   for (auto it = std::begin(v); it != std::end(v); it++) { // auto type needs to be supported
-      r += *it;
+      // r += *it;
   }
   return r;
 }

@@ -121,6 +121,27 @@ let get_typid_for_type (tv : typvar) : int  =
   | PlusEqual -> "+="
   | MinusEqual -> "-="
   | StarEqual -> "*="
+  | Slash -> "/"
+  | Percent -> "%"
+  | Amp -> "&"
+  | Pipe -> "|"
+  | Less -> "<"
+  | Greater -> ">"
+  | SlashEqual -> "/="
+  | PercentEqual -> "%="
+  | AmpEqual -> "&="
+  | PipeEqual -> "|="
+  | LessLess -> "<<"
+  | GreaterGreater -> ">>"
+  | LessLessEqual -> "<<="
+  | GreaterGreaterEqual -> ">>="
+  | EqualEqual -> "=="
+  | LessEqual -> "<="
+  | GreaterEqual -> ">="
+  | AmpAmp -> "&&"
+  | PipePipe -> "||"
+  | PlusPlus -> "++"
+  | MinusMinus -> "--"
   | _ -> fail loc "Clang_to_astRawC.string_of_overloaded_op: non supported operator"
 
 (* [overload_op ~loc ~ctx op]: gets the primitive operation associated with the overloaded operator [op] *)
@@ -153,6 +174,7 @@ let get_typid_for_type (tv : typvar) : int  =
   | GreaterEqual -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_ge))
   | AmpAmp -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_and))
   | PipePipe -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_or))
+  | PlusPlus -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_unop (Unop_pre_inc)))
   | _ -> fail loc "Clang_to_astRawC.overloaded_op: non supported operator"
 
 (* [wrap_const ~const t]: wrap type [t] into a const type if [const] is true *)
