@@ -175,7 +175,7 @@ let uninline_aux (fct_decl : trm) (t : trm) : trm =
   let (f, _, targs, body) = trm_inv ~error ~loc:fct_decl.loc trm_let_fun_inv fct_decl in
   let inst = Trm_matching.rule_match ~higher_order_inst:true targs body t in
   let args = Ast.tmap_to_list (List.map fst targs) inst in
-  trm_pass_labels t (trm_apps (trm_var f) args)
+  trm_pass_labels t (trm_apps (trm_var f.qvar_var) args)
 
 (* [uninline fct_decl t p]: applies [uninline_aux] at the trm [t] with path [p]. *)
 let uninline (fct_decl : trm) : Transfo.local =
@@ -192,7 +192,7 @@ let rename_args_aux (vl : var list) (t : trm) : trm =
   let assoc_list = List.fold_left2 (fun acc v1 (arg1, _ty1) -> if v1 <> "" then (arg1, trm_var v1) ::  acc else acc) [] vl args in
   let tm = map_from_trm_var_assoc_list assoc_list in
   let new_body = Internal.subst tm body in
-  trm_let_fun f retty renamed_args new_body
+  trm_let_fun f.qvar_var retty renamed_args new_body
 
 (* [rename_args vl t p]: applies [rename_aux] at trm [t] with path [p] *)
 let rename_args (vl : var list) : Transfo.local =
@@ -225,7 +225,7 @@ let dsp_def_aux (index : int) (arg : var) (func : var) (t : trm) : trm =
     let (f, ret_ty, tvl, body) = trm_inv ~error trm_let_fun_inv t in 
     let new_body, _ = replace_return_with_assign arg body in 
     let new_args = tvl @ [(arg, typ_ptr Ptr_kind_mut ret_ty)] in
-    let new_fun = if func = "dsp" then f ^ "_dsp" else func in 
+    let new_fun = if func = "dsp" then f.qvar_var ^ "_dsp" else func in 
     let new_fun_def = trm_let_fun ~annot:t.annot new_fun (typ_unit ()) new_args new_body in 
     trm_seq_no_brace [t; new_fun_def]
    in 

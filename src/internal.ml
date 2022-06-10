@@ -106,7 +106,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
         trm_let ~annot:t.annot ~loc:t.loc vk (y,change_typ ty) (aux init)
       | Trm_let_fun (f, ty, args, body) ->
          trm_let_fun ~annot:t.annot ~loc:t.loc
-            f (change_typ ty)
+            f.qvar_var (change_typ ty)
             (List.map (fun (y, ty) -> (y, change_typ ty)) args)
             (aux body)
       | Trm_typedef td ->
@@ -297,7 +297,7 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
       | _ -> match t1.desc with
             | Trm_typedef td when td.typdef_tconstr = x -> Some t1
             | Trm_let (_, (y, _),_ ) when y = x -> Some t1
-            | Trm_let_fun (y, _, _, body) when y = x ->
+            | Trm_let_fun (y, _, _, body) when y.qvar_var = x ->
               if require_body then begin
                 match body.desc with
                 | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
@@ -316,7 +316,7 @@ let rec local_decl (x : var) (t : trm) : trm option =
   | Trm_typedef td when td.typdef_tconstr = x -> Some t
   | Trm_let (_, (y, _),_ ) when y = x -> Some t
   | Trm_let_fun (y, _, _, body) ->
-    if y = x then Some t else local_decl x body
+    if y.qvar_var = x then Some t else local_decl x body
   | Trm_seq tl ->
     Mlist.fold_left(
       fun acc t1 ->
@@ -379,18 +379,11 @@ let get_field_index (field : field) (fields : record_fields) : int =
     in
   aux field fields 0
 
+
 (* [apply_on_record_fields app_fun rfs]: applies [app_fun] on all the elements of [rfs]. *)
 let apply_on_record_fields (app_fun : record_field -> record_field ) (rfs : record_fields) : record_fields =
   List.map (fun (rf, rf_annot) -> (app_fun rf, rf_annot)) rfs
 
-(* let inner_type_field_list = List.map (fun (x, typ) ->
-            let new_field = Convention.name_app field_to_reveal x in
-              match field_type.typ_desc with
-              | Typ_array (_, size) -> (new_field, typ_array typ size)
-              | _ -> (new_field, typ)
-          ) inner_type_field_list in
-
- *)
 
 (* [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
 let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) : record_fields =
@@ -400,8 +393,8 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
     | Record_field_method t -> 
       begin match t.desc with
       | Trm_let_fun (fn, ret_ty, args, body) -> 
-        let new_t =
-        trm_replace (Trm_let_fun (rename_fun fn, ret_ty, args, body)) t in
+        let new_fn = {fn with qvar_var = rename_fun fn.qvar_var} in 
+        let new_t = trm_replace (Trm_let_fun (new_fn, ret_ty, args, body)) t in
         Record_field_method new_t
       | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
       end
@@ -634,7 +627,7 @@ let rec subst (tm : tmap) (t : trm) : trm =
         cur_tm := Trm_map.filter (fun k _v -> k <> x) tm;
         ti2
       | Trm_let_fun (f, __retty, targs, tbody) ->
-        cur_tm := Trm_map.filter (fun k _v -> k <> f) tm;
+        cur_tm := Trm_map.filter (fun k _v -> k <> f.qvar_var) tm;
         subst !cur_tm ti
       | _ -> subst !cur_tm ti
       end

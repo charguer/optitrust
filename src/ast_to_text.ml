@@ -244,9 +244,10 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
           let dtx = print_typ ~only_desc tx in
           print_pair (string x) dtx) tvl in
     let dt = print_trm ~only_desc b in
+    let fd = print_qvar f in 
     print_node "Trm_let_fun" ^^
       parens (separate (comma ^^ break 1)
-        [string f; dout; print_list dtvl; dt])
+        [fd; dout; print_list dtvl; dt])
   | Trm_typedef td -> print_typedef ~only_desc td
   | Trm_if (c, t, e) ->
      let dc = print_trm ~only_desc c in

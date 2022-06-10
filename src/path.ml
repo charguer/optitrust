@@ -321,10 +321,10 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_arg_nth n, Trm_let_fun (x, tx, txl, body) ->
           let txl' =
             Xlist.update_nth n
-              (fun (x, tx) ->
-                let t' = aux (trm_var ~loc:t.loc x) in
+              (fun (x1, tx) ->
+                let t' = aux (trm_var ~loc:t.loc x1) in
                 match t'.desc with
-                | Trm_var (_, x') -> (x'.qvar_var, tx)
+                | Trm_var (_,  x') -> (x'.qvar_var, tx)
                 | _ ->
                    fail t.loc ("Path.apply_on_path: transformation must preserve fun arguments")
               )
@@ -338,9 +338,9 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           | _ -> fail t.loc "Path.apply_on_path: transformation must preserve variable names"
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body) ->
-          let t' = aux (trm_var ~loc:t.loc x) in
+          let t' = aux (trm_var ~loc:t.loc x.qvar_var) in
           begin match t'.desc with
-          | Trm_var (_, x') -> { t with desc = Trm_let_fun (x'.qvar_var, tx, txl, body)}
+          | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body)}
           | _ ->
              fail t.loc "Path.apply_on_path: transformation must preserve names(function)"
           end
@@ -464,8 +464,9 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
        | Dir_arg_nth n, Trm_let_fun (_, _, arg, _) ->
           app_to_nth loc arg n
             (fun (x, _) -> aux (trm_var ~loc x) ctx)
+       | Dir_name, Trm_let_fun (x, _, _, _) -> 
+          aux (trm_var ~loc x.qvar_var) ctx
        | Dir_name , Trm_let (_,(x,_),_)
-         | Dir_name, Trm_let_fun (x, _, _, _)
          | Dir_name, Trm_goto x ->
           aux (trm_var ~loc x) ctx
        | Dir_name, Trm_typedef td ->

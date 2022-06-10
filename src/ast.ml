@@ -375,7 +375,7 @@ and trm_desc =
   | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c; ONLY FOR RAW AST! *)
-  | Trm_let_fun of var * typ * (typed_vars) * trm
+  | Trm_let_fun of qvar * typ * (typed_vars) * trm
   | Trm_let_record of string * record_type * (label * typ) list * trm
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm (* if (x > 0) {x += 1} else{x -= 1} *)
@@ -855,9 +855,10 @@ let trm_let_mult ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option =
   trm_make ~annot ~loc ~typ:(Some (typ_unit ())) ~ctx (Trm_let_mult (kind, ty, vl, tl))
 
 (* [trm_let ~annot ~loc ~ctx name ret_typ args body]: function definition *)
-let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
+let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) ?(qpath : var list = [])
   (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
-  trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_let_fun (name, ret_typ, args, body))
+  let qname = qvar_build name qpath in 
+  trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_let_fun (qname, ret_typ, args, body))
 
 (* [trm_typedef ~annot ~loc ~ctx def_typ]: type definition *)
 let trm_typedef ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
@@ -1312,7 +1313,7 @@ let trm_let_inv (t : trm) : (varkind * var * typ * trm) option =
 
 (* [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration.
      Otherwise it returns a [Noen]. *)
-let trm_let_fun_inv (t : trm) : (var * typ * typed_vars * trm) option =
+let trm_let_fun_inv (t : trm) : (qvar * typ * typed_vars * trm) option =
   match t.desc with
   | Trm_let_fun (f, ret_ty, args, body) -> Some (f, ret_ty, args, body)
   | _ -> None
@@ -1479,7 +1480,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
     trm_let ~annot ~loc vk tv init'
   | Trm_let_fun (f', res, args, body) ->
     let body' = f false body in
-    trm_let_fun ~annot ~loc f' res args body'
+    trm_let_fun ~annot ~loc f'.qvar_var res args body'
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
@@ -1578,7 +1579,7 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   | Trm_let_fun (f', res, args, body) ->
     let body' = f false body in
     ret (body' == body)
-        (trm_let_fun ~annot ~loc f' res args body')
+        (trm_let_fun ~annot ~loc f'.qvar_var res args body')
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = aux then_ in
@@ -1748,7 +1749,7 @@ let contains_field_access (f : field) (t : trm) : bool =
 let decl_name (t : trm) : var option =
   match t.desc with
   | Trm_let (_,(x,_),_) -> Some x
-  | Trm_let_fun (f, _, _, _) -> Some f
+  | Trm_let_fun (f, _, _, _) -> Some f.qvar_var
   | Trm_typedef td -> Some td.typdef_tconstr
   | _ -> None
 
@@ -2479,10 +2480,10 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
   let t_map = ref Trm_map.empty in
     let rec aux (t : trm) : trm =
       match t.desc with
-      | Trm_let_fun (f,ty, tv, _) ->
-        if f_pred f then begin
-          t_map := Trm_map.add f t !t_map;
-         trm_let_fun ~annot:t.annot f ty tv (trm_lit  Lit_uninitialized) end
+      | Trm_let_fun (f, ty, tv, _) ->
+        if f_pred f.qvar_var then begin
+          t_map := Trm_map.add f.qvar_var t !t_map;
+         trm_let_fun ~annot:t.annot f.qvar_var ty tv (trm_lit  Lit_uninitialized) end
         else t
       | _ -> trm_map aux t
       in
@@ -2498,7 +2499,7 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
       let new_tl =
       Mlist.map (fun def -> match def.desc with
       | Trm_let_fun (f, _, _, _) ->
-        begin match Trm_map.find_opt f chopped_fun_map with
+        begin match Trm_map.find_opt f.qvar_var chopped_fun_map with
         | Some tdef ->  tdef
         | _ -> def
         end
@@ -2780,7 +2781,7 @@ let top_level_fun_bindings (t : trm) : tmap =
       | Trm_seq tl ->
         Mlist.iter (fun t1 ->
           match t1.desc with
-          | Trm_let_fun (f, _, _, body) -> tmap := Trm_map.add f body !tmap
+          | Trm_let_fun (f, _, _, body) -> tmap := Trm_map.add f.qvar_var body !tmap
           | _ -> ()
         ) tl
       | _ -> fail t.loc "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"

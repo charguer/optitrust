@@ -89,7 +89,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
      *)
     | Trm_let_fun (f, _, _, _) ->
       if accept_functions
-        then Internal.subst_var f dl t
+        then Internal.subst_var f.qvar_var dl t
         else fail dl.loc "Varialbe_core.unfold_aux: to replace function calls with their declaration you need to set accept_functions arg to true"
     | _ -> fail t.loc "Variable_core.unfodl_aux: expected a target to a variable or function definition"
   in

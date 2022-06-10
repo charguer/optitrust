@@ -926,7 +926,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           if is_def then (check_target p_body body && not (is_body_unit))
            else is_body_unit in
         ty_pred tx &&
-        check_name name x &&
+        check_name name x.qvar_var &&
         check_args cl_args args &&
         body_check
      | Constr_decl_type name, Trm_typedef td ->
@@ -1482,8 +1482,9 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
      add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr))
+  | Dir_name, Trm_let_fun (x, _, _, _) -> 
+    add_dir Dir_name (aux (trm_var ~loc x.qvar_var))
   | Dir_name, Trm_let (_,(x,_),_)
-    | Dir_name, Trm_let_fun (x, _, _, _)
     | Dir_name, Trm_goto x ->
      add_dir Dir_name (aux (trm_var ~loc x))
   | Dir_case (n, cd), Trm_switch (_, cases) ->

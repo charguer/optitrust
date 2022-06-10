@@ -250,7 +250,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
       []
     | Trm_let_fun (f, typ, xts, tbody) ->
       [ kind_to_field "fun-def";
-            (strquote "name", strquote f);
+            (strquote "name", strquote f.qvar_var);
             (strquote "args", typed_var_list_to_json xts);
             (strquote "return_type", Json.typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]

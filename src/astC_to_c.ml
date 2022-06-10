@@ -369,7 +369,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_let_fun (f, r, tvl, b) ->
         let inline = trm_has_cstyle Fun_inline t in
         let static = if trm_has_cstyle Static_fun t then string "static" else empty in
-        dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc ~semicolon inline f r tvl b
+        dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc ~semicolon inline f.qvar_str r tvl b
     | Trm_typedef td -> 
       let t_annot = trm_get_cstyles t in
       dattr ^^ typedef_to_doc ~semicolon ~t_annot td

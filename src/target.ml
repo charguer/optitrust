@@ -1489,7 +1489,7 @@ let get_function_name_at (dl : path) : string option =
     | None -> fail None "get_function_name_at: couldn't retrive the function name at the targeted path"
    in
   match fun_decl.desc with
-  | Trm_let_fun (f, _, _, _) -> Some f
+  | Trm_let_fun (f, _, _, _) -> Some f.qvar_var
   | _ -> None
 
 

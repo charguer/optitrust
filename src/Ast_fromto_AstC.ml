@@ -102,7 +102,7 @@ let stackvar_elim (t : trm) : trm =
     | Trm_seq _ when not (trm_is_nobrace_seq t) -> onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
       (* function names are by default immutable *)
-      add_var env f Var_immutable;
+      add_var env f.qvar_var Var_immutable;
       onscope env t (fun t -> List.iter (fun (x, _tx) ->
        let mut = Var_immutable in (* if is_typ_ptr tx then Var_mutable else Var_immutable in *)
        add_var env x mut) targs; trm_map aux t)
@@ -152,7 +152,7 @@ let stackvar_intro (t : trm) : trm =
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
-      add_var env f Var_immutable;
+      add_var env f.qvar_var Var_immutable;
       onscope env t (fun t ->
       List.iter (fun (x, _tx) -> let mut = Var_immutable in (add_var env x mut)) targs; trm_map aux t)
     | Trm_for (l_range, _) ->
