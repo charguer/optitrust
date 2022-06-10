@@ -1,38 +1,15 @@
-
-int main() {}
-
 #include <vector>
 #include <algorithm>
 
-// foo::bar is a "qualified variable",
-// same as modules in ocaml M.N.x
-// type qvar =  { qvar_var = "x"; qvar_path = ["M";"N"]; qvar_str = "M.N.x" in OCaml or "M::N::x" in C }
 
 
-void test_vector1() {
-  // M :: N :: x;
-  // int y = M :: N :: x;
-  
-  std::vector<int> v;   // vector<int> is a typ_constr (typ_constrid, typ_int)
-  v.push_back(3);  // encoded as push_back(v,3)
-  // int a = v[0];
+int test_iterator(std::vector<int> v) {
+  int r = 0;
+  for (auto it = std::begin(v); it != std::end(v); it++) { // auto type needs to be supported
+      r += *it;
+  }
+  return r;
 }
-
-using namespace std;
-
-void test_vector2() {
-  vector<int> v;   // vector<int> is a typ_constr (typ_constrid, typ_int)
-  // v.push_back(3);  // encoded as push_back(v,3)
-  // int a = v[0];
-}
-
-// int test_iterator(std::vector<int> v) {
-//   int r = 0;
-//   for (auto it = std::begin(v); it != std::end(v); it++) { // auto type needs to be supported
-//       r += *it;
-//   }
-//   return r;
-// }
 
 // void test_lambda(std::vector<int> v) {
 //   int r = 0;
@@ -48,6 +25,7 @@ void test_vector2() {
 //   return r;
 // }
 
+
 // using namespace std;
 
 // void test_using() {
@@ -56,3 +34,36 @@ void test_vector2() {
 // }
 
 
+/*
+
+template<typename A, typename B>
+typedef struct { A key; B value; } box;
+
+template<typename A, typename B>
+void update(box<A,B>* b, A key, B value) {
+  b->key = key;
+  b->value = value;
+}
+
+int main() {
+  box<int,bool> b;
+  update(&b,1,true);
+  update<int,bool>(&b,1,true);
+}
+
+
+---
+
+class box2 {
+  box<int,bool> b;
+}
+
+b.update(1,true)
+
+
+
+encodings of method calls:
+  x.f(y)    function is an access whose LHS is a object (i.e. a value whose type is of some class)
+-> 
+  f(x,y) @ method_call
+*/
