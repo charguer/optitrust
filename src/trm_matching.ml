@@ -200,7 +200,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
         let func = trm_let_fun ~qvar:x "" typ_ret targs body in
         find_var x.qvar_var func
 
-    | Trm_var (_, x1), Trm_var (_, x2) when x1.qvar_var = x2.qvar_var -> ()
+    | Trm_var (_, x1), Trm_var (_, x2) when is_qvar_eq  x1 x2 -> ()
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 

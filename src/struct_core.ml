@@ -172,7 +172,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
       | Some ty ->
         let ty = get_inner_const_type ty in
         begin match ty.typ_desc with
-        | Typ_constr (y, _, _) when y.qvar_var = struct_name ->
+        | Typ_constr (y, _, _) when (is_qvar_var y struct_name) ->
           let lfront, (_,trm_to_change) , lback = Internal.get_item_and_its_relatives field_index term_list in
           begin match trm_to_change.desc with
           | Trm_record sl ->
@@ -307,7 +307,7 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
         | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
           begin match base.desc with
-          | Trm_var (_, v) when v.qvar_var = name ->
+          | Trm_var (_, v) when (is_qvar_var v name) ->
             trm_var (Convention.name_app name field)
           | _ -> trm_map aux t
           end
@@ -400,7 +400,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
           begin match base.typ with
           | Some ty ->
             begin match ty.typ_desc with
-            | Typ_constr (x, _, _) when x.qvar_var = struct_name->
+            | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
               trm_apps ~annot:t.annot ~typ:t.typ ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))})  [base]
             | _ -> trm_map (aux global_trm) t
             end
@@ -410,7 +410,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
         begin match base.typ with
           | Some ty ->
             begin match ty.typ_desc with
-            | Typ_constr (x, _, _) when x.qvar_var = struct_name->
+            | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
               trm_apps ~annot:t.annot ~typ:t.typ ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))})  [base]
             | _ -> trm_map (aux global_trm) t
             end

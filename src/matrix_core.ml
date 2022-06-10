@@ -146,7 +146,7 @@ let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) 
      [t] - ast of the call to alloc. *)
 let intro_calloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var (_, f);_},[dim; size]) when f.qvar_var = "calloc" ->
+  | Trm_apps ({desc = Trm_var (_, f);_},[dim; size]) when (is_qvar_var f "calloc") ->
     alloc ~init:(Some (trm_int 0)) [dim] size
   | _ -> fail t.loc "Matrix_core.intro_calloc_aux: expected a function call to calloc"
 
@@ -158,7 +158,7 @@ let intro_calloc : Target.Transfo.local =
      [t] - ast of the call to alloc. *)
 let intro_malloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var (_, f);_},[{desc = Trm_apps (_,[dim ;size]);_}]) when f.qvar_var = "malloc" ->
+  | Trm_apps ({desc = Trm_var (_, f);_},[{desc = Trm_apps (_,[dim ;size]);_}]) when (is_qvar_var f "malloc") ->
     alloc ~init:None [dim] size
   | _ -> fail t.loc "Matrix_core.intro_malloc: expected a function call to malloc"
 

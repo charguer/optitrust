@@ -1731,12 +1731,16 @@ let contains_decl (x : var) (t : trm) : bool =
     | _ -> false
   in aux t
 
+(* [is_qvar_var]: checks is [qv.qvar_var] is equal to [v]. *)
+let is_qvar_var (qv : qvar) (v : var) : bool =
+  qv.qvar_var = v
+
 
 (* [contains_occurrence x t]: checks if [t] contains any occurrence of the variable [x]*)
 let contains_occurrence (x : var) (t : trm) : bool =
   let rec aux (t : trm) : bool =
     match t.desc with
-    | Trm_var (_, y) -> y.qvar_var = x
+    | Trm_var (_, y) -> is_qvar_var y x
     | Trm_apps (_, tl) -> List.fold_left (fun acc t1 -> acc || aux t1) false tl
     | _ -> false
   in aux t
@@ -1779,6 +1783,10 @@ let is_null_pointer (ty : typ) (t : trm) : bool =
   | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = {typ_desc = Typ_unit;_}}, Trm_val (Val_lit (Lit_int 0)) -> true
   | _ -> false
 
+(* [is_qvar_eq qv1 qv2]: checks is qv1 = qv2. *)
+let is_qvar_eq (qv1 : qvar) (qv2 : qvar) : bool =
+  (qv1.qvar_var = qv2.qvar_var) && (qv1.qvar_path = qv2.qvar_path) && (qv1.qvar_str = qv2.qvar_str)
+
 
 (* [same_sizes sz1 sz2]: checks if two arrays are of the same size *)
 let same_sizes (sz1 : size) (sz2 : size) : bool =
@@ -1798,7 +1806,7 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
     | Typ_var (a1, _), Typ_var (a2, _) ->
       a1 = a2
     | Typ_constr (typ_var1, typ_id1, typ_list1), Typ_constr (typ_var2, typ_id2, typ_list2) ->
-      (typ_var1.qvar_var = typ_var2.qvar_var) && (typ_id1 = typ_id2) && (typ_list1 = typ_list2)
+      (is_qvar_eq typ_var1 typ_var2) && (typ_id1 = typ_id2) && (typ_list1 = typ_list2)
     | Typ_unit, Typ_unit -> true
     | Typ_int, Typ_int -> true
     | Typ_float, Typ_float -> true
@@ -2161,7 +2169,7 @@ let is_typ_struct (struct_name : var) (ty_opt : typ option) : bool =
   match ty_opt with
   | Some ty ->
     begin match ty.typ_desc with
-    | Typ_constr (sn, _, _) -> sn.qvar_var = struct_name
+    | Typ_constr (sn, _, _) -> is_qvar_var sn struct_name
     | _ -> false
     end
   | None -> false

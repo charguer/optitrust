@@ -1483,7 +1483,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   | Dir_name, Trm_typedef td ->
      add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr))
   | Dir_name, Trm_let_fun (x, _, _, _) -> 
-    add_dir Dir_name (aux (trm_var ~loc x.qvar_var))
+    add_dir Dir_name (aux (trm_var ~loc ~qvar:x ""))
   | Dir_name, Trm_let (_,(x,_),_)
     | Dir_name, Trm_goto x ->
      add_dir Dir_name (aux (trm_var ~loc x))
