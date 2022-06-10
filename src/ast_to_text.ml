@@ -17,9 +17,10 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_var (x, tid) ->
     print_node "Typ_var" ^^ parens ( separate (comma ^^ break 1) [string x; string (string_of_int tid)])
   | Typ_constr (tv, tid, tl) ->
+    let tv_d = print_qvar tv in 
     let tl = List.map (print_typ ~only_desc) tl in
     print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1)
-      [string tv; string (string_of_int tid); print_list tl])
+      [tv_d; string (string_of_int tid); print_list tl])
   | Typ_auto -> string "Typ_auto"
   | Typ_unit -> string "Typ_unit"
   | Typ_int -> string "Typ_int"

@@ -45,6 +45,9 @@ type typconstr = string
 (* [typvar]: name of type variables (e.g. ['a] in type ['a list] *)
 type typvar = var
 
+(* [qtypvar]: qname of the type variables *)
+type qtypvar = qvar 
+
 (* [typvars]: a list of typvar *)
 type typvars = typvar list
 
@@ -125,7 +128,7 @@ and code_kind =
 and typ_desc =
   | Typ_const of typ   (* e.g. [const int *] is a pointer on a [const int] type. *)
   | Typ_var of typvar * typconstrid  (* e.g. ['a] in the type ['a -> 'a] -- *)
-  | Typ_constr of typvar * typconstrid * typ list (* e.g. [int list] or
+  | Typ_constr of qtypvar * typconstrid * typ list (* e.g. [int list] or
                                                   [(int,string) map] or [vect] *)
   | Typ_auto                                (* auto *)
   | Typ_unit                                (* void *)
@@ -661,18 +664,28 @@ type reorder =
   | Reorder_after of string
   | Reorder_all
 
-
 (* *************************** Typ Construcors ***************************** *)
 (* [typ_const ~annot ~typ_attributes t]: const type constructor *)
 let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (t : typ) : typ =
   {typ_annot = annot; typ_desc = Typ_const t; typ_attributes}
 
+(* [qvar_build qv qp qs]: builds a qvar record with fields qvar_var = [qv], qvar_path = [qp] and qvar_str = [qs]. *)
+let qvar_build (qv : var) (qp : var list) : qvar =
+  let qs = 
+    if qp = [] 
+      then qv  
+      else  Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ " :: " ^ p ) "" qp 
+    in
+  {qvar_var = qv; qvar_path = qp; qvar_str = qs}
+
+
 (* [typ_constr ~annot ~typ_attributes ~tid ~tl x]: constructed type constructor *)
 let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = [])
+  ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = []) ?(qpath : var list = [])
   (x : typvar) : typ =
-  {typ_annot = annot; typ_desc = Typ_constr (x, tid, tl); typ_attributes}
+  let qx = qvar_build x qpath in 
+  {typ_annot = annot; typ_desc = Typ_constr (qx, tid, tl); typ_attributes}
 
 (* [typ_auto ~annot ~typ_attributes ()]: auto type constructor *)
 let typ_auto ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
@@ -818,15 +831,6 @@ let trm_replace (desc : trm_desc) (t : trm) : trm =
 let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (v : value) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_val v)
 
-
-(* [qvar_build qv qp qs]: builds a qvar record with fields qvar_var = [qv], qvar_path = [qp] and qvar_str = [qs]. *)
-let qvar_build (qv : var) (qp : var list) : qvar =
-  let qs = 
-    if qp = [] 
-      then qv  
-      else  Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ " :: " ^ p ) "" qp 
-    in
-  {qvar_var = qv; qvar_path = qp; qvar_str = qs}
 
 (* [trm_var ~annot ~loc ~typ ~ctx ~kind x]: variable occurrence *)
 let trm_var ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
@@ -1789,7 +1793,7 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
     | Typ_var (a1, _), Typ_var (a2, _) ->
       a1 = a2
     | Typ_constr (typ_var1, typ_id1, typ_list1), Typ_constr (typ_var2, typ_id2, typ_list2) ->
-      (typ_var1 = typ_var2) && (typ_id1 = typ_id2) && (typ_list1 = typ_list2)
+      (typ_var1.qvar_var = typ_var2.qvar_var) && (typ_id1 = typ_id2) && (typ_list1 = typ_list2)
     | Typ_unit, Typ_unit -> true
     | Typ_int, Typ_int -> true
     | Typ_float, Typ_float -> true
@@ -2152,7 +2156,7 @@ let is_typ_struct (struct_name : var) (ty_opt : typ option) : bool =
   match ty_opt with
   | Some ty ->
     begin match ty.typ_desc with
-    | Typ_constr (sn, _, _) -> sn = struct_name
+    | Typ_constr (sn, _, _) -> sn.qvar_var = struct_name
     | _ -> false
     end
   | None -> false

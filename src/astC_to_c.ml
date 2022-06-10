@@ -90,7 +90,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   | Typ_const t -> string " const "  ^^ typ_to_doc t
   | Typ_constr (tv, _,  args) -> 
     let d_args = if args = [] then empty else langle ^^ list_to_doc ~bounds:[empty; empty] (List.map typ_to_doc args) ^^ rangle in
-    string tv ^^ d_args
+    string tv.qvar_str ^^ d_args
   | Typ_auto  -> string "auto"
   | Typ_unit -> string "void"
   | Typ_int -> string "int"
