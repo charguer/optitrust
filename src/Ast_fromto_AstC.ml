@@ -288,6 +288,29 @@ let infix_intro (t : trm) : trm =
     | _ -> trm_map aux t
   in aux t
 
+
+(* [method_elim t]: encodes class method calls.  *)
+let method_call_elim (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match t.desc with 
+    | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base])}, args) ->
+       trm_add_cstyle Method_call (trm_apps (trm_var f) ([base] @ args))
+    | _ -> trm_map aux t
+   in aux t
+
+
+(* [method_call_intro t]: decodes calls methods calls. *)
+let method_call_intro (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match t.desc with 
+    | Trm_apps ({desc = Trm_var (_, f)}, args) when trm_has_cstyle Method_call t ->
+      if List.length args < 1 then fail t.loc "Ast_fromto_AstC: method_call_intro: bad encodings.";
+      let base, args = Xlist.uncons args in 
+      trm_alter ~desc:(Some (Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f.qvar_var)))}, [base])}, args))) t
+    | _ -> trm_map aux t 
+   in aux t
+
+
 (***************************************  Main entry points *********************************************)
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.

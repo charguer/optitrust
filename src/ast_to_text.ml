@@ -496,6 +496,7 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Is_rec_struct -> string "Is_rec_struct"
  | Is_class -> string "Is_class"
  | Static_fun -> string "Static"
+ | Method_call -> string "Method_call"
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =

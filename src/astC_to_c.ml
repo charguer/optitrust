@@ -782,8 +782,8 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
      | _ -> fail f.loc (Printf.sprintf "AstC_to_c.apps_to_doc: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
      end
    | _ ->
-      Ast_to_text.print_ast ~only_desc:true stdout f;
-      fail f.loc "AstC_to_c.apps_to_doc: only functions may be applied"
+      let f_doc = decorate_trm f in
+      aux_arguments f_doc 
 
 (* [mode_to_doc m]: OpenMP mode to pprint document *)
 and mode_to_doc (m : mode) : document =

@@ -312,6 +312,7 @@ and cstyle_annot =
   | Is_rec_struct
   | Is_class
   | Static_fun
+  | Method_call
 
 (* [files_annot]: file annotation *)
 and files_annot =
