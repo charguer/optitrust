@@ -9,5 +9,5 @@ let _ = Flags.use_light_diff := false
 
 let _ = Run.script_cpp (fun () ->
   (* Trace.reparse(); *)
-  ()
+  ( )
 )

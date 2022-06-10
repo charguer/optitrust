@@ -332,9 +332,6 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
     in
-  (* let namespecifiers = List.map string (get_names_specs t) in 
-  let nmspc = if namespecifiers = [] then empty else (Xlist.fold_lefti (fun i acc nm -> if i = 0 then nm else acc ^^ blank 1 ^^ colon ^^ colon ^^ blank 1 ^^ nm ) empty namespecifiers) in 
-  let dattr = dattr ^^ blank 1 ^^ nmspc in  *)
   let d =
     begin match t.desc with
     | Trm_val v ->

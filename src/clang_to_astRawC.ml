@@ -217,29 +217,38 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
         in
         typ_fun tl tr
     end
-  | Typedef {nested_name_specifier = nms; name = n; _} ->
+  | Typedef {nested_name_specifier = nns; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        let typ_to_add = typ_constr n ~tid:(get_typid_for_type n)  in
+        let qpath = tr_nested_name_specifier ~loc nns  in
+        let typ_to_add = typ_constr n ~qpath ~tid:(get_typid_for_type n)  in
         wrap_const ~const typ_to_add
       | _ -> fail loc ("tr_type_desc: only identifiers are allowed in type definitions")
     end
-  | Elaborated {keyword = k; nested_name_specifier = ns; named_type = q} ->
-    begin match k with
+  | Elaborated {keyword = k; nested_name_specifier = nns; named_type = q} ->
+      let qpath = tr_nested_name_specifier ~loc nns in
+      begin match k with
       | Struct -> if tr_record_types then typ_record Struct (tr_qual_type ~loc q) else (tr_qual_type ~loc q)
-      | NoKeyword -> tr_qual_type q
+      | NoKeyword -> let tr_ty = tr_qual_type q in 
+        begin match tr_ty.typ_desc with 
+        | Typ_constr (qty, tid, tl) -> 
+          typ_constr ~annot:tr_ty.typ_annot ~typ_attributes:tr_ty.typ_attributes ~tid ~tl ~qpath qty.qvar_var
+        | _ -> tr_ty
+        end
       | _ -> fail loc "Clang_to_astRawC.tr_type_desc: this elaborated type is not supported."
     end
-  | Record {nested_name_specifier = _; name = n; _} ->
+  | Record {nested_name_specifier = nns; name = n; _} ->
+    let qpath = tr_nested_name_specifier ~loc nns in 
     begin match n with
       | IdentifierName n ->
-         typ_constr n ~tid:(get_typid_for_type n)
+         typ_constr n ~qpath ~tid:(get_typid_for_type n)
       | _ -> fail loc "Clang_to_astRawC.tr_type_desc: only identifiers are allowed in records"
     end
-  | Enum {nested_name_specifier = _; name = n; _} ->
+  | Enum {nested_name_specifier = nns; name = n; _} ->
+    let qpath = tr_nested_name_specifier ~loc nns in
     begin match n with
       | IdentifierName n ->
-         typ_constr n ~tid:(get_typid_for_type n)
+         typ_constr n ~qpath ~tid:(get_typid_for_type n)
       | _ -> fail loc "Clang_to_astRawC.tr_type_desc: only identifiers are allowed in enums"
     end
   | TemplateTypeParm name ->
@@ -594,9 +603,7 @@ and tr_expr (e : expr) : trm =
         end
     | _-> trm_apps ~loc ~ctx ~typ tf (List.map tr_expr el)
     end
-  | DeclRef {nested_name_specifier = nms; name = n; _} -> (* Occurrence of a variable *)
-    let nm_spcs = tr_nested_name_specifier nms in 
-    (* let tr_n = tr_decl n in  *)
+  | DeclRef {nested_name_specifier = nns; name = n; _} -> (* Occurrence of a variable *)
     begin match n with
       | IdentifierName s ->
         (*
@@ -614,8 +621,8 @@ and tr_expr (e : expr) : trm =
           (* hack with ctx_var *)
           String_map.find_opt s !ctx_var
         in
-        let res = trm_var ~loc ~ctx ~typ s in 
-        if nm_spcs <> [] then trm_add_cstyle (Nested_name_spec nm_spcs) res else res 
+        let qpath = tr_nested_name_specifier ~loc nns in 
+        trm_var ~loc ~ctx ~typ ~qpath s 
       | OperatorName op -> overloaded_op ~loc ~ctx  op
       | _ -> fail loc "Clang_to_astRawC.tr_expr: only identifiers allowed for variables"
     end
@@ -805,8 +812,9 @@ and tr_decl (d : decl) : trm =
     } in
     ctx_typedef_add tn tid td;
     trm_typedef ~loc ~ctx td
-  | Function {linkage = _; function_type = t; nested_name_specifier = _;
+  | Function {linkage = _; function_type = t; nested_name_specifier = nns;
               name = n; body = bo; deleted = _; constexpr = _; _} ->
+    let qpath = tr_nested_name_specifier ~loc nns in
     let s =
       begin match n with
         | IdentifierName s -> s
@@ -829,7 +837,7 @@ and tr_decl (d : decl) : trm =
               | None -> trm_lit ~loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ~loc s out_t  [] tb
+            trm_let_fun ~loc ~qpath s out_t  [] tb
           | Some {non_variadic = pl; variadic = _} ->
             let args =
               List.combine
@@ -846,7 +854,7 @@ and tr_decl (d : decl) : trm =
               | None -> trm_lit ~loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ~loc s out_t  args tb
+            trm_let_fun ~loc ~qpath s out_t  args tb
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end 
@@ -1032,13 +1040,10 @@ and tr_decl (d : decl) : trm =
         (n, tpk, b)
     ) pl in
     trm_template pl dl
-  | UsingDirective {nested_name_specifier = nms; namespace = ns} ->
-    let nm_spcs = tr_nested_name_specifier nms in 
+  | UsingDirective {nested_name_specifier = _; namespace = ns} ->
     let tr_n = tr_decl ns in
     begin match tr_n.desc with 
-    | Trm_namespace (nm, _, _) -> 
-      let res = trm_using_directive nm in 
-      if nm_spcs <> [] then trm_add_cstyle (Nested_name_spec nm_spcs) res else res
+    | Trm_namespace (nm, _, _) -> trm_using_directive nm 
     | _ -> fail loc "Clan_to_astRawC.tr_decl: using direcitves can be used only with namespaces"
     end
   | _ -> fail loc "Clang_to_astRawC.tr_decl: not implemented" in
