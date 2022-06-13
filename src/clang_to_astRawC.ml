@@ -304,6 +304,8 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
   | Decltype e -> 
     let tr_e = tr_expr e in 
     typ_decl tr_e
+  | SubstTemplateTypeParm tys -> 
+    typ_template_param tys
   | _ -> fail loc "Clang_to_astRawC.tr_type_desc: not implemented"
 
 (* [is_qual_type_const q]: checks if [q] is a const type or not *)

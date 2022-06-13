@@ -2,27 +2,40 @@
 #include <algorithm>
 
 
-template<typename A, typename B> struct Box 
-  { 
-    A key; 
-    B value; 
-  };
+class test_class {
 
-// typedef Box<int, bool> box;
+private:
 
+  int x;
 
+public:
 
-template<typename A, typename B>
-void update(Box<A, B>* b, A key, B value) {
-  b->key = key;
-  b->value = value;
-}
+  
+  void move(int d) {
+     this->x += d;
+  }
+  
+  // for each function, mark it as "public" or "private" as a trm_annot
+  void move(int d) {
+     x += d;
+  }
 
-int main() {
-  Box<int, bool> b;
-  // update<int, bool> (&b,1,true);
-  // update<int, bool> (&b,1,true);
-}
+  
+
+  // encoded as:
+  void move(test_class* this, int d) {
+     this->x += d; // first move above this
+    //  (this@implicit_this)->x += d; // second move above this
+     // note: in clangml the base is empty in the second case
+  }
+ 
+
+  bool test_this() {
+    return this->x == x;
+  }
+
+};
+
 
 
 // ---

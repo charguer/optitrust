@@ -514,7 +514,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
           | Template _ -> fail None "AstC_to_c.template_param_kind_to_doc: nested templates are not supported"
 
         ) tpl in
-        string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl ^^ semi
+        string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl 
      | Trm_fun (tvl, ty_opt , body) ->  dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
      end in
   (* Save the result in the optional stringreprs table, before returning the document *)
@@ -616,10 +616,10 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
       let dl = get_document_list rfl in
       let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
       if List.mem Is_struct t_annot
-        then string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ semi 
+        then string "struct" ^^ blank 1 ^^ string td.typdef_tconstr ^^ sbody ^^ blank 1 ^^ semi 
         else if List.mem Is_rec_struct t_annot 
           then 
-            let struct_name = string (td.typdef_tconstr) in
+            let struct_name = string td.typdef_tconstr in
             string "typedef " ^^ string "struct" ^^ blank 1 ^^ struct_name ^^ blank 1 ^^ sbody ^^ struct_name ^^ blank 1 ^^ semi
         else if List.mem Is_class t_annot then 
           let dl = get_document_list ~default_access:Access_private rfl in 

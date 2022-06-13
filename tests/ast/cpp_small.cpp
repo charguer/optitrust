@@ -110,20 +110,32 @@ bool test_poly(T* x, T* y) { // occurence of T is a Typ_var
 
 /*
 
-template<typename A, typename B>
-typedef struct { A key; B value; } box;
+template<typename A, typename B> struct Box 
+  { 
+    A key; 
+    B value; 
+  };
+
+// typedef Box<int, bool> box;
+
+class Box2 {
+  Box<int,bool> b;
+};
+// b.update(1,true)
+
 
 template<typename A, typename B>
-void update(box<A,B>* b, A key, B value) {
+void update(Box<A, B>* b, A key, B value) {
   b->key = key;
   b->value = value;
 }
 
 int main() {
-  box<int,bool> b;
-  update(&b,1,true);
-  update<int,bool>(&b,1,true);
+  Box<int, bool> b;
+  update<int, bool> (&b,1,true);
+  update<int, bool> (&b,1,true);
 }
+
 
 
 ---
