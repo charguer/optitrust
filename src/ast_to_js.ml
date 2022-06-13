@@ -374,6 +374,8 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
             (strquote "args", typed_var_list_to_json xfs);
             (strquote "return_type", ret_ty_js);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
+    | Trm_this -> [kind_to_field "This"]
+
 
 (* [ast_to_json trm_root]: converts a full ast to a Json object *)
 let ast_to_json (trm_root : trm) : json =

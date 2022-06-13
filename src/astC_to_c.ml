@@ -516,6 +516,8 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         ) tpl in
         string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl 
      | Trm_fun (tvl, ty_opt , body) ->  dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
+     | Trm_this -> 
+        if trm_has_cstyle Implicit_this t then empty else string "this"
      end in
   (* Save the result in the optional stringreprs table, before returning the document *)
   add_stringreprs_entry t d;

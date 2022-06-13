@@ -750,6 +750,7 @@ and tr_expr (e : expr) : trm =
       desc = {qual_type = q; name = n; default = _}} -> (n, tr_qual_type ~loc q)) pl in
     List.iter (fun (y, ty) -> ctx_var_add y ty) args;
     trm_fun args tt tb
+  | This -> trm_this ()
   | UnexposedExpr ImplicitValueInitExpr ->
     print_info loc "tr_expr: implicit initial value\n";
     trm_lit ~loc ~ctx Lit_uninitialized

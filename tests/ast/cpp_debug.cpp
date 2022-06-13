@@ -23,11 +23,11 @@ public:
   
 
   // encoded as:
-  void move(test_class* this, int d) {
-     this->x += d; // first move above this
-    //  (this@implicit_this)->x += d; // second move above this
-     // note: in clangml the base is empty in the second case
-  }
+  // void move(test_class* this, int d) {
+  //    this->x += d; // first move above this
+  //   //  (this@implicit_this)->x += d; // second move above this
+  //    // note: in clangml the base is empty in the second case
+  // }
  
 
   bool test_this() {

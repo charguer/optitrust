@@ -313,6 +313,7 @@ and cstyle_annot =
   | Is_class
   | Static_fun
   | Method_call
+  | Implicit_this (* Direct access to a class member. *)
 
 (* [files_annot]: file annotation *)
 and files_annot =
@@ -415,7 +416,8 @@ and trm_desc =
   | Trm_template of template_parameter_list * trm (* templates *)
   | Trm_using_directive of string                 (* using namespace std *)
   | Trm_fun of typed_vars * typ option * trm      (* anonymous functions, [&](int const& x) -> void ({r += x;}) *)
-
+  | Trm_this                                      (* this pointer. *)
+  
 (* [template_param_kind]: parameters kind, typename , empty or another template *)
 and template_param_kind =
   | Type_name of typ option               (* <T> *)
@@ -966,6 +968,9 @@ let trm_using_directive ?(annot = trm_annot_default) ?(loc = None) ?(typ = None)
   (namespace : string) =
   trm_make ~annot ~loc ~typ ~ctx (Trm_using_directive namespace)
 
+(* [trm_this ~annot ~loc ~typ ~ctx ()]: this pointer. *)
+let trm_this ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) () =
+  trm_make ~annot ~loc ~typ ~ctx (Trm_this)
 
 (* ********************************** Auxiliary functions ************************************ *)
 
