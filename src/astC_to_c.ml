@@ -733,7 +733,8 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
                         let d = decorate_trm ~prec (get_operation_arg t) in
                         d ^^ minus ^^ rangle ^^ string f1
                  else
-                    d ^^ dot ^^ string f1
+                    if trm_has_cstyle Implicit_this t then string f1
+                    else d ^^ dot ^^ string f1
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
                  parens dty ^^ blank 1 ^^ d

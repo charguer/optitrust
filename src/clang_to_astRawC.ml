@@ -671,7 +671,17 @@ and tr_expr (e : expr) : trm =
     end
   | Member {base = eo; arrow = has_arrow; field = f} ->
     begin match eo with
-    | None -> fail loc "Clang_to_astRawC.tr_expr: field accesses should have a base"
+    | None -> 
+      if has_arrow
+        then 
+          begin match f with 
+          | FieldName id -> 
+            let f = tr_ident id in
+            let t_this = trm_add_cstyle Implicit_this (trm_this ()) in
+            trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get f)) [t_this]
+          | _ -> fail loc "Clang_to_astRawC.tr_expr: fields should be accesses by names"
+          end 
+        else fail loc "Clang_to_astRawC.tr_expr: field accesses should have a base"
     | Some e ->
       let f = 
       begin match f with

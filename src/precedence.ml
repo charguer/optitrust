@@ -57,6 +57,7 @@ let precedence_trm (t : trm) : precedence =
   | Trm_val (Val_lit _ ) | Trm_val (Val_ptr _ )-> (30, NA)
   | Trm_var _ -> (20, NA)
   | Trm_arbitrary _ -> (100, NA)
+  | Trm_this -> (100, NA)
   | _ -> precedence_none
 
 
