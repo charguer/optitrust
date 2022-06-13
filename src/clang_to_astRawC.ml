@@ -740,8 +740,8 @@ and tr_expr (e : expr) : trm =
     let tb = tr_stmt b in 
     let pl = match po with | Some pl -> pl | None -> [] in 
     let args = List.map (fun {decoration = _;
-      desc = {qual_type = _; name = n; default = _}} -> n) pl in
-    List.iter (fun (y, ty) -> cr_var_add t ty) args;
+      desc = {qual_type = q; name = n; default = _}} -> (n, tr_qual_type ~loc q)) pl in
+    List.iter (fun (y, ty) -> ctx_var_add y ty) args;
     trm_fun args tt tb
   | UnexposedExpr ImplicitValueInitExpr ->
     print_info loc "tr_expr: implicit initial value\n";

@@ -571,7 +571,7 @@ and trm_fun_to_doc ?(semicolon : bool = true) (ty : typ option) (tvl : typed_var
   let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
   let dr = match ty with | Some ty -> string "->" ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 | None -> blank 1 in 
   let capt = brackets (ampersand) in
-  separate (blank 1) ([capt; argd; dr; decorate_trm b]) ^^ dsemi
+  separate (blank 1) ([capt; parens (argd); dr; decorate_trm b]) ^^ dsemi
 
 (* [access_ctrl_to_doc acc_ctrl]: converts [acc_ctrl] to a pprint document. *)
 and access_ctrl_to_doc (acc_ctrl : access_control) : document =
