@@ -671,18 +671,23 @@ and tr_expr (e : expr) : trm =
     begin match eo with
     | None -> fail loc "Clang_to_astRawC.tr_expr: field accesses should have a base"
     | Some e ->
+      let f = 
       begin match f with
-      | FieldName id ->
-        let f = tr_ident id in
-        let base = tr_expr e in
+      | FieldName id -> tr_ident id
+      | DependentScopeMember {ident_ref = id; template_arguments = _} -> 
+        begin match id.name with 
+        | IdentifierName f -> f
+        | _ -> fail loc "Clang_to_astRawC.tr_expr: fields should be accessed by names"
+        end
+      | _ -> fail loc "Clang_to_astRawC.tr_expr: fields should be accessed by names"
+      end in 
+      let base = tr_expr e in
         if has_arrow then
           trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get f) ) [trm_get base]
         else
           let get_op = trm_unop ~loc (Unop_struct_get f) in
           let get_op = if is_get_operation base then trm_add_cstyle Display_no_arrow get_op else get_op in
           trm_apps ~loc ~ctx ~typ get_op [base]
-      | _ -> fail loc "Clang_to_astRawC.tr_expr: fields should be accessed by names"
-      end
     end
   | ArraySubscript {base = e; index = i} ->
     let ti = tr_expr i in
