@@ -337,7 +337,10 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_val v ->
        if trm_has_cstyle Empty_cond t then empty else dattr ^^ val_to_doc v
     | Trm_var (_, x) ->
-           dattr ^^ string x.qvar_str
+           let typ_args = get_typ_arguments t in 
+           let typ_args_d = List.map typ_to_doc typ_args in 
+           let typ_args_d = begin match typ_args_d with | [] -> empty | _ -> list_to_doc ~sep:semi ~bounds:[langle; rangle] typ_args_d  end in
+           dattr ^^ string x.qvar_str ^^ typ_args_d
     | Trm_array tl -> let tl = Mlist.to_list tl in
        let dl = List.map (decorate_trm ~semicolon ~print_struct_init_type:false) tl in
        dattr ^^ braces (separate (comma ^^ blank 1) dl)

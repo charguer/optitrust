@@ -1,55 +1,26 @@
-#include <vector>
-#include <algorithm>
+template<typename A, typename B> struct Box 
+  { 
+    A key; 
+    B value; 
+  };
 
+// typedef Box<int, bool> box;
 
-class test_class {
-
-private:
-
-  int x;
-
-public:
-
-  
-  void move(int d) {
-     this->x += d;
-  }
-  
-  // for each function, mark it as "public" or "private" as a trm_annot
-  void move(int d) {
-     x += d;
-  }
-
-  
-
-  // encoded as:
-  // void move(test_class* this, int d) {
-  //    this->x += d; // first move above this
-  //   //  (this@implicit_this)->x += d; // second move above this
-  //    // note: in clangml the base is empty in the second case
-  // }
- 
-
-  bool test_this() {
-    return this->x == x;
-  }
-
+class Box2 {
+  Box<int,bool> b;
 };
-
-
-
-// ---
-
-// class box2 {
-//   box<int,bool> b;
-// }
-
 // b.update(1,true)
 
 
-/*
-encodings of method calls:
-  x.f(y)    function is an access whose LHS is a object (i.e. a value whose type is of some class)
--> 
-  f(x,y) @ method_call
-*/
+template<typename A, typename B>
+void update(Box<A, B>* b, A key, B value) {
+  b->key = key;
+  b->value = value;
+}
+
+int main() {
+  Box<int, bool> b;
+  Box<float, bool> b1;
+  update<int, bool> (&b,1,true);
+  update<float, bool> (&b1,1.,true);
+}

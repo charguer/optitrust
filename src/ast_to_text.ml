@@ -507,6 +507,7 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Static_fun -> string "Static"
  | Method_call -> string "Method_call"
  | Implicit_this -> string "Implicit_this"
+ | Typ_arguments tyl -> string "Typ_arguments " ^^ list_to_doc ~bounds:[langle; rangle] (List.map print_typ tyl)
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =

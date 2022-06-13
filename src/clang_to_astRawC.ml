@@ -646,7 +646,7 @@ and tr_expr (e : expr) : trm =
         end
     | _-> trm_apps ~loc ~ctx ~typ tf (List.map tr_expr el)
     end
-  | DeclRef {nested_name_specifier = nns; name = n; _} -> (* Occurrence of a variable *)
+  | DeclRef {nested_name_specifier = nns; name = n; template_arguments = targs} -> (* Occurrence of a variable *)
     begin match n with
       | IdentifierName s ->
         (*
@@ -665,7 +665,12 @@ and tr_expr (e : expr) : trm =
           String_map.find_opt s !ctx_var
         in
         let qpath = tr_nested_name_specifier ~loc nns in 
-        trm_var ~loc ~ctx ~typ ~qpath s 
+        let res = trm_var ~loc ~ctx ~typ ~qpath s  in
+        let targs = List.map (fun (targ : template_argument) -> begin match targ with | Type q -> tr_qual_type ~loc q | _ -> fail loc "Clang_to_astRawC.tr_expr: something went wrong." end) targs in 
+        begin match targs with 
+        | [] -> res
+        | _ -> trm_add_cstyle (Typ_arguments targs) res
+        end
       | OperatorName op -> overloaded_op ~loc ~ctx  op
       | _ -> fail loc "Clang_to_astRawC.tr_expr: only identifiers allowed for variables"
     end

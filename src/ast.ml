@@ -158,7 +158,7 @@ and typ_annot =
   | Unsigned  (* unsigned int *)
   | Long      (* long int *)
   | Short     (* short int *)
-
+  
 (* [typ]: is a record containing the description, annotation and some attributes*)
 and typ = {
   typ_desc : typ_desc;
@@ -314,6 +314,7 @@ and cstyle_annot =
   | Static_fun
   | Method_call
   | Implicit_this (* Direct access to a class member. *)
+  | Typ_arguments of typ list  (* <int, float> , type arguments used for template specializations. *)
 
 (* [files_annot]: file annotation *)
 and files_annot =
@@ -3054,3 +3055,12 @@ let get_member_type (rf : record_field) : typ =
     | Trm_let_fun (_, ty, _, _) -> ty
     | _ -> fail None "Ast.get_member_type: can't get the type of the member [rf]."
     end
+
+(* [get_typ_arguments t]: returns the list of types used during a template specialization. *)
+let get_typ_arguments (t : trm) : typ list =
+  let c_annot = trm_get_cstyles t in 
+  List.fold_left (fun acc c_ann -> 
+    match c_ann with 
+    | Typ_arguments tyl -> tyl 
+    | _ -> acc
+  ) [] c_annot
