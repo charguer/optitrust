@@ -871,6 +871,11 @@ let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = 
   let qname = if qvar = empty_qvar then qname else qvar in 
   trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_let_fun (qname, ret_typ, args, body))
 
+(* [trm_fun ~annot ~loc args ret_typ body]: anonymous function.  *)
+let trm_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (args : typed_vars)
+  (ret_typ : typ option) (body : trm) = 
+  trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_fun (args, ret_typ, body))
+
 (* [trm_typedef ~annot ~loc ~ctx def_typ]: type definition *)
 let trm_typedef ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
   (def_typ : typedef): trm =

@@ -735,6 +735,14 @@ and tr_expr (e : expr) : trm =
             fail loc "Clang_to_astRawC.tr_expr: new array size must be either constant or variable"
         end
     end
+  | Lambda {capture_default = ByRef; captures = _; is_mutable = _; parameters = po; result_type = rt; body = b} -> 
+    let tt = begin match rt with | Some ty -> Some (tr_qual_type ~loc ty ) | None -> None end in 
+    let tb = tr_stmt b in 
+    let pl = match po with | Some pl -> pl | None -> [] in 
+    let args = List.map (fun {decoration = _;
+      desc = {qual_type = _; name = n; default = _}} -> n) pl in
+    List.iter (fun (y, ty) -> cr_var_add t ty) args;
+    trm_fun args tt tb
   | UnexposedExpr ImplicitValueInitExpr ->
     print_info loc "tr_expr: implicit initial value\n";
     trm_lit ~loc ~ctx Lit_uninitialized
