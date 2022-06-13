@@ -754,6 +754,12 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
           end
         | (Prim_compound_assgn_op _ | Prim_overloaded_op _) as p_b ->
            begin match tl with
+           | [t1] -> 
+            let d1 = decorate_trm ~prec t1 in 
+            let op_d = prim_to_doc p_b in 
+            if !print_optitrust_syntax
+                then op_d ^^ parens (d1)
+                else separate (blank 1) [op_d; d1]
            | [t1; t2] ->
               let d1 = decorate_trm ~prec t1 in
               let d2 = decorate_trm ~prec t2 in
@@ -761,7 +767,9 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
               if !print_optitrust_syntax
                 then op_d ^^ parens (d1 ^^ comma ^^ d2)
                 else separate (blank 1) [d1; op_d; d2]
-          | _ -> fail f.loc "AstC_to_c.apps_to_doc: binary operators must have two arguments"
+          | _ -> 
+            Printf.printf "Nb_args: %d" (List.length tl);
+            fail f.loc "AstC_to_c.apps_to_doc: expected at most two argumetns."
           end
         | Prim_conditional_op ->
            begin match tl with

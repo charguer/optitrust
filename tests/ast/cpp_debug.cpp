@@ -6,24 +6,24 @@
 int test_iterator(std::vector<int> v) {
   int r = 0;
   for (auto it = std::begin(v); it != std::end(v); it++) { // auto type needs to be supported
-      // r += *it;
+      r += *it;
   }
   return r;
 }
 
-// void test_lambda(std::vector<int> v) {
-//   int r = 0;
-//   auto f = [&](int const& x) -> void { // we only support arguments by references [&]
-//      r += x; }; // trm_fun
-//   std::for_each(std::begin(v), std::end(v), f);
-// }
+void test_lambda(std::vector<int> v) {
+  int r = 0;
+  auto f = [&](int const& x) -> void { // we only support arguments by references [&]
+     r += x; }; // trm_fun
+  std::for_each(std::begin(v), std::end(v), f);
+}
 
-// int test_lambda_inline(std::vector<int> v) {
-//   int r = 0;
-//   std::for_each(std::begin(v), std::end(v), [&](int const& x) { // we only support arguments by references [&]
-//      r += x; }); // trm_fun
-//   return r;
-// }
+int test_lambda_inline(std::vector<int> v) {
+  int r = 0;
+  std::for_each(std::begin(v), std::end(v), [&](int const& x) { // we only support arguments by references [&]
+     r += x; }); // trm_fun
+  return r;
+}
 
 
 // using namespace std;
