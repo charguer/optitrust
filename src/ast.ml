@@ -378,7 +378,7 @@ and trm_desc =
   | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c; ONLY FOR RAW AST! *)
-  | Trm_let_fun of qvar * typ * (typed_vars) * trm
+  | Trm_let_fun of qvar * typ * typed_vars * trm
   | Trm_let_record of string * record_type * (label * typ) list * trm
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm (* if (x > 0) {x += 1} else{x -= 1} *)
@@ -414,6 +414,7 @@ and trm_desc =
   | Trm_namespace of string * trm * bool          (* namespaces *)
   | Trm_template of template_parameter_list * trm (* templates *)
   | Trm_using_directive of string                 (* using namespace std *)
+  | Trm_fun of typed_vars * typ option * trm      (* anonymous functions, [&](int const& x) -> void ({r += x;}) *)
 
 (* [template_param_kind]: parameters kind, typename , empty or another template *)
 and template_param_kind =

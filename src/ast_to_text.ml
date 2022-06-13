@@ -363,6 +363,15 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
       [string name; drt; print_list dtl; dt])
   | Trm_template _ ->  print_node "Trm_template _"
   | Trm_using_directive str -> print_node "Trm_using_directive " ^^ string str
+  | Trm_fun (tvl , ty_opt, b) -> 
+    let dtout = begin match ty_opt with | Some ty -> string "Some " ^^ print_typ ~only_desc ty | None -> string "None" end in
+    let dtvl = List.map(function (x,tx) ->
+          let dtx = print_typ ~only_desc tx in
+          print_pair (string x) dtx) tvl in
+    let dt = print_trm ~only_desc b in
+    print_node "Trm_fun" ^^
+      parens (separate (comma ^^ break 1)
+        [print_list dtvl; dtout; dt])
 
 
 (* [print_record_type rt]: converts record types to pprint document *)

@@ -778,6 +778,7 @@ let get_trm_kind (t : trm) : trm_kind =
    | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
    | Trm_typedef _ | Trm_let_record _-> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
+   | Trm_fun _ -> TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
    | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl

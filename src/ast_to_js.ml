@@ -368,7 +368,12 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_using_directive nmspc ->
       [ kind_to_field "using namespace";
           value_to_field nmspc]
-
+    | Trm_fun (xfs, ty_opt, tbody) -> 
+      let ret_ty_js = begin match ty_opt with | Some ty -> Json.typ_to_json ty | None -> Json.str "" end in 
+      [ kind_to_field "lambda";
+            (strquote "args", typed_var_list_to_json xfs);
+            (strquote "return_type", ret_ty_js);
+            children_to_field ([(child_to_json "body" (aux tbody))]) ]
 
 (* [ast_to_json trm_root]: converts a full ast to a Json object *)
 let ast_to_json (trm_root : trm) : json =

@@ -515,6 +515,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
 
         ) tpl in
         string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl ^^ semi
+     | Trm_fun (tvl, ty_opt , body) ->  dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
      end in
   (* Save the result in the optional stringreprs table, before returning the document *)
   add_stringreprs_entry t d;
@@ -553,15 +554,24 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
 (* [trm_let_fun_to_doc ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
 and trm_let_fun_to_doc ?(semicolon : bool = true)(inline : bool) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
-  let dinline = if inline then [string "inline"] else [] in
+  let dinline = if inline then string "inline" else empty in
   let f = string_subst "overloaded" "operator" f in
   let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
   begin match b.desc with
   | Trm_val (Val_lit Lit_uninitialized) ->
-     separate (blank 1) (dinline @ [dr; string f; parens argd]) ^^ dsemi
-  | _ -> separate (blank 1) (dinline @ [dr; string f; parens argd; decorate_trm b])
+     separate (blank 1) ([dinline; dr; string f; parens argd]) ^^ dsemi
+  | _ -> separate (blank 1) ([dinline; dr; string f; parens argd; decorate_trm b])
   end
+
+
+(* [trm_fun_to_doc ~semicolon ty tvl b]: converts a lambda function to a pprint document. *)
+and trm_fun_to_doc ?(semicolon : bool = true) (ty : typ option) (tvl : typed_vars) (b : trm) : document =
+  let dsemi = if semicolon then semi else empty in 
+  let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
+  let dr = match ty with | Some ty -> string "->" ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 | None -> blank 1 in 
+  let capt = brackets (ampersand) in
+  separate (blank 1) ([capt; argd; dr; decorate_trm b]) ^^ dsemi
 
 (* [access_ctrl_to_doc acc_ctrl]: converts [acc_ctrl] to a pprint document. *)
 and access_ctrl_to_doc (acc_ctrl : access_control) : document =
