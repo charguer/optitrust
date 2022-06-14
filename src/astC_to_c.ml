@@ -322,6 +322,13 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
       sleft ^^ dt ^^ sright
       end
 
+(* [trm_var_to_doc v t]: pretty prints trm_vars, including here type arguments and nested name specifiers. *)
+and trm_var_to_doc (x : qvar) (t : trm) : document =
+  let typ_args = get_typ_arguments t in 
+  let typ_args_d = List.map typ_to_doc typ_args in 
+  let typ_args_d = begin match typ_args_d with | [] -> empty | _ -> list_to_doc ~sep:comma ~bounds:[langle; rangle] typ_args_d end in 
+  string x.qvar_str ^^ typ_args_d 
+
 (* [trm_to_doc ~semicolon ~prec ~print_struct_init_type  t]: converts [t] to a pprint document *)
 and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false)  (t : trm) : document =
   let loc = t.loc in
@@ -337,10 +344,8 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_val v ->
        if trm_has_cstyle Empty_cond t then empty else dattr ^^ val_to_doc v
     | Trm_var (_, x) ->
-           let typ_args = get_typ_arguments t in 
-           let typ_args_d = List.map typ_to_doc typ_args in 
-           let typ_args_d = begin match typ_args_d with | [] -> empty | _ -> list_to_doc ~sep:semi ~bounds:[langle; rangle] typ_args_d  end in
-           dattr ^^ string x.qvar_str ^^ typ_args_d
+      let var_doc = trm_var_to_doc x t in 
+      dattr ^^ var_doc
     | Trm_array tl -> let tl = Mlist.to_list tl in
        let dl = List.map (decorate_trm ~semicolon ~print_struct_init_type:false) tl in
        dattr ^^ braces (separate (comma ^^ blank 1) dl)
@@ -698,8 +703,9 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
   | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var (_, x); _ } ]) ->
       aux_arguments (string x.qvar_var)
   (* Case of function by name *)
-  | Trm_var (_, x) -> aux_arguments (string x.qvar_var)
-
+  | Trm_var (_, x) -> 
+    let var_doc = trm_var_to_doc x f in 
+    aux_arguments var_doc 
   (* Case of inlined function *)
   | Trm_let_fun _ ->
         parens (decorate_trm f) ^^ list_to_doc ~sep:comma ~bounds:[lparen; rparen] (List.map decorate_trm tl)
