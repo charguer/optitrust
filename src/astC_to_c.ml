@@ -609,7 +609,7 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
          separate (blank 1) [string "typedef"; typ_to_doc t; string tname] ^^ dsemi
       end
   | Typdef_record rfl -> 
-    let get_document_list ?(default_access : access_control = Access_public)(rtl : record_fields) : document list =
+    let get_document_list ?(default_access : access_control = Access_private)(rtl : record_fields) : document list =
       let access_ctrl = ref default_access in
       List.fold_left (fun acc (rt, rt_annot) -> 
         let fd = 

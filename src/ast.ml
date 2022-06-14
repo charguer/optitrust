@@ -315,6 +315,9 @@ and cstyle_annot =
   | Method_call
   | Implicit_this (* Direct access to a class member. *)
   | Typ_arguments of typ list  (* <int, float> , type arguments used for template specializations. *)
+  | Implicit_constructor
+  | Explicit_constructor 
+  | Default_constructor
 
 (* [files_annot]: file annotation *)
 and files_annot =
