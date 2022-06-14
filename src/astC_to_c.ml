@@ -625,18 +625,19 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
        in
       let dl = get_document_list rfl in
       let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
+      let record_type = string td.typdef_tconstr in
       if List.mem Is_struct t_annot
-        then string "struct" ^^ blank 1 ^^ string td.typdef_tconstr ^^ sbody ^^ blank 1 ^^ semi 
+        then string "struct" ^^ blank 1 ^^ record_type ^^ sbody ^^ blank 1 ^^ semi 
         else if List.mem Is_rec_struct t_annot 
           then 
-            let struct_name = string td.typdef_tconstr in
-            string "typedef " ^^ string "struct" ^^ blank 1 ^^ struct_name ^^ blank 1 ^^ sbody ^^ struct_name ^^ blank 1 ^^ semi
+            
+            string "typedef " ^^ string "struct" ^^ blank 1 ^^ record_type ^^ blank 1 ^^ sbody ^^ record_type ^^ blank 1 ^^ semi
         else if List.mem Is_class t_annot then 
           let dl = get_document_list ~default_access:Access_private rfl in 
           let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
-          string "class" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ semi
+          string "class" ^^ blank 1 ^^ record_type ^^ sbody ^^ blank 1 ^^ semi
         else 
-          string "typedef " ^^ string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ string td.typdef_tconstr ^^ blank 1 ^^ semi
+          string "typedef " ^^ string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ record_type ^^ blank 1 ^^ semi
   | Typdef_sum _ ->
       fail None "AstC_to_c.typedef_to_doc: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->

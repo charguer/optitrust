@@ -1,26 +1,13 @@
-template<typename A, typename B> struct Box 
-  { 
-    A key; 
-    B value; 
-  };
+#include <vector>
+#include <algorithm>
 
-// typedef Box<int, bool> box;
+// foo::bar is a "qualified variable",
+// same as modules in ocaml M.N.x
+// type qvar =  { qvar_var = "x"; qvar_path = ["M";"N"]; qvar_str = "M.N.x" in OCaml or "M::N::x" in C }
 
-class Box2 {
-  Box<int,bool> b;
-};
-// b.update(1,true)
-
-
-template<typename A, typename B>
-void update(Box<A, B>* b, A key, B value) {
-  b->key = key;
-  b->value = value;
+void test_vector() {
+  std::vector<int> v;   // vector<int> is a typ_constr (typ_constrid, typ_int)
+  v.push_back(3);  // encoded as push_back(v,3)
+  // int a = v[0];
 }
-
-int main() {
-  Box<int, bool> b;
-  Box<float, bool> b1;
-  update<int, bool> (&b,1,true);
-  update<float, bool> (&b1,1.,true);
-}
+int main(){}
