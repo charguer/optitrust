@@ -979,8 +979,19 @@ and tr_decl (d : decl) : trm =
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in 
     if st then trm_add_cstyle Static_fun res else res
-  | Constructor { class_name = cn; parameters = po; body = bd; implicit = ib; explicit = eb;  deleted = db; _} -> fail loc "Clang_to_astRawc.tr_decl: constructor kind not supported"
+  | Constructor { class_name = cn; parameters = {non_variadic = pl; _}; initializer_list = _; body = bd; implicit = ib; explicit = eb;  defaulted = db; _} -> 
+    let args = List.map (fun {decoration = _;
+       desc = {qual_type = q; name = n; default = _}} -> (n,tr_qual_type ~loc q)) pl in 
+    let tb = match bd with 
+    | None -> trm_lit ~loc Lit_uninitialized
+    | Some s -> tr_stmt s in
 
+     let res = trm_class_constructor cn args [] tb in 
+     if ib 
+      then trm_add_cstyle Implicit_constructor res
+      else if eb then trm_add_cstyle Explicit_constructor res 
+      else if db then trm_add_cstyle Default_constructor res
+      else res
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
     let rec contains_elaborated_type (q : qual_type) : bool =
       let {desc = d;const = _;_} = q in
@@ -1064,6 +1075,9 @@ and tr_decl (d : decl) : trm =
         let ty = {ft with typ_attributes = al} in
         acc @ [(Record_field_member (fn, ty), !access_spec)]
       | {decoration = _; desc = CXXMethod _; _} ->
+        let tdl = tr_decl d in 
+        acc @ [(Record_field_method tdl, !access_spec)]
+      | {decoration = _; desc = Constructor _; _} ->
         let tdl = tr_decl d in 
         acc @ [(Record_field_method tdl, !access_spec)]
       | {decoration = _; desc = AccessSpecifier (spec); _} ->
