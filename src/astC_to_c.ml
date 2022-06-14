@@ -692,6 +692,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
        end
   | _ -> fail loc "AstC_to_c.multi_decl_to_doc: expected a trm_let"
   end
+
 (* [apps_to_doc ~prec f tl]: converts a function call to pprint document *)
 and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
   let (prec, assoc) = precedence_trm f in
@@ -775,7 +776,18 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
              end
           | _ -> fail f.loc "AstC_to_c.apps_to_doc: binary_operators must have two arguments"
           end
-        | (Prim_compound_assgn_op _ | Prim_overloaded_op _) as p_b ->
+        | Prim_compound_assgn_op _  ->
+           begin match tl with
+           | [t1; t2] ->
+              let d1 = decorate_trm ~prec t1 in
+              let d2 = decorate_trm ~prec t2 in
+              let op_d = prim_to_doc p in
+              if !print_optitrust_syntax
+                then op_d ^^ parens (d1 ^^ comma ^^ d2)
+                else separate (blank 1) [d1; op_d; d2]
+          | _ -> fail f.loc "AstC_to_c.apps_to_doc: expected at most two argumetns."
+          end
+        | Prim_overloaded_op p_b ->
            begin match tl with
            | [t1] -> 
             let d1 = decorate_trm ~prec t1 in 
@@ -787,13 +799,29 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
               let d1 = decorate_trm ~prec t1 in
               let d2 = decorate_trm ~prec t2 in
               let op_d = prim_to_doc p_b in
-              if !print_optitrust_syntax
-                then op_d ^^ parens (d1 ^^ comma ^^ d2)
-                else separate (blank 1) [d1; op_d; d2]
+              begin match p_b with 
+              | Prim_binop op -> 
+                  begin match op with
+                  | Binop_set when !print_optitrust_syntax ->
+                      string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+                  | Binop_array_access when !print_optitrust_syntax ->
+                      string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+                  | Binop_array_access | Binop_array_get ->
+                    let d2 = decorate_trm ~prec:0 t2 in
+                    d1 ^^ brackets (d2)
+                  | _ -> separate (blank 1) [d1; op_d; d2]
+                  end
+              | Prim_unop Unop_pre_inc -> 
+                if !print_optitrust_syntax
+                then op_d ^^ parens (d1)
+                else separate (blank 1) [op_d; d1]
+              | _ -> fail f.loc "AstC_to_c.apps_to_doc: binary_operators must have two arguments"
+              end
           | _ -> 
             Printf.printf "Nb_args: %d" (List.length tl);
             fail f.loc "AstC_to_c.apps_to_doc: expected at most two argumetns."
           end
+        
         | Prim_conditional_op ->
            begin match tl with
            | [t1; t2; t3] ->
