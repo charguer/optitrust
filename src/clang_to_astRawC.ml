@@ -175,6 +175,7 @@ let get_typid_for_type (tv : typvar) : int  =
   | AmpAmp -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_and))
   | PipePipe -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_or))
   | PlusPlus -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_unop (Unop_pre_inc)))
+  | Subscript -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop (Binop_array_get)))
   | _ -> fail loc "Clang_to_astRawC.overloaded_op: non supported operator"
 
 (* [wrap_const ~const t]: wrap type [t] into a const type if [const] is true *)

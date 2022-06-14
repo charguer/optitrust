@@ -511,8 +511,8 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
           match tpk with
           | Type_name typ_opt ->
             begin match typ_opt with
-            | Some ty -> string "class " ^^ string n ^^ equals ^^ typ_to_doc ty
-            | None -> string "class " ^^ string n
+            | Some ty -> string "typename " ^^ string n ^^ equals ^^ typ_to_doc ty
+            | None -> string "typename " ^^ string n
             end
           | NonType (ty, t_opt) ->
             begin match t_opt with
