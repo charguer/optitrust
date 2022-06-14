@@ -979,7 +979,8 @@ and tr_decl (d : decl) : trm =
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in 
     if st then trm_add_cstyle Static_fun res else res
-  | Constructor { class_name = cn; _} -> fail loc ""
+  | Constructor { class_name = cn; parameters = po; body = bd; implicit = ib; explicit = eb;  deleted = db; _} -> fail loc "Clang_to_astRawc.tr_decl: constructor kind not supported"
+
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
     let rec contains_elaborated_type (q : qual_type) : bool =
       let {desc = d;const = _;_} = q in

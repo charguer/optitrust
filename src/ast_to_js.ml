@@ -375,6 +375,11 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
             (strquote "return_type", ret_ty_js);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
     | Trm_this -> [kind_to_field "This"]
+    | Trm_class_constructor (x, tvl, tl, tbody) -> 
+      [ kind_to_field "class constructor";
+        (strquote "args", typed_var_list_to_json tvl);
+        children_to_field (List.mapi ichild_to_json (List.map aux tl));
+        children_to_field ([(child_to_json "body" (aux tbody))])]
 
 
 (* [ast_to_json trm_root]: converts a full ast to a Json object *)

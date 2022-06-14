@@ -526,6 +526,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
      | Trm_fun (tvl, ty_opt , body) ->  dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
      | Trm_this -> 
         if trm_has_cstyle Implicit_this t then empty else string "this"
+     | Trm_class_constructor _ -> fail t.loc ""
      end in
   (* Save the result in the optional stringreprs table, before returning the document *)
   add_stringreprs_entry t d;

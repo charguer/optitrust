@@ -421,6 +421,7 @@ and trm_desc =
   | Trm_using_directive of string                 (* using namespace std *)
   | Trm_fun of typed_vars * typ option * trm      (* anonymous functions, [&](int const& x) -> void ({r += x;}) *)
   | Trm_this                                      (* this pointer. *)
+  | Trm_class_constructor of var * typed_vars * trm list * trm  (* class constructor. *)
   
 (* [template_param_kind]: parameters kind, typename , empty or another template *)
 and template_param_kind =
@@ -881,6 +882,12 @@ let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = 
 let trm_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (args : typed_vars)
   (ret_typ : typ option) (body : trm) = 
   trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_fun (args, ret_typ, body))
+
+
+(* [trm_class_constructor ~annot ~loc ~ctx class_name args init_list body]: class constructor. *)
+let trm_class_constructor ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (class_name : var)
+  (args : typed_vars) (init_list : trm list) (body : trm) : trm =
+   trm_make ~annot ~loc ~typ:(Some (typ_unit ())) ~ctx (Trm_class_constructor (class_name, args, init_list, body))
 
 (* [trm_typedef ~annot ~loc ~ctx def_typ]: type definition *)
 let trm_typedef ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
