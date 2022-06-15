@@ -171,3 +171,17 @@ If the function returns values of type T:
   we already have this one.
 
 
+
+TODO: comment savoir qu'une fonction n'a pas d'effets ?
+
+ f(x)
+ f(y)
+
+ quand peut-on paralléliser les deux appels ?
+
+
+TODO  quand une variable x est un "out" d'un appel dans un task,
+faut-il mettre un #sync x avant la première occurence de x qui suit
+et qui n'est pas déjà dans depend(in:x) ?
+
+TODO: où vont les taskwait?
