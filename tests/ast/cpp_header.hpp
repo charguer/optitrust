@@ -38,12 +38,12 @@ public:
      * @param inData The actual data
      * @param inDataSize The data size in memory blocks (cases)
      */
-    // ArrayView(DataType* inData, const long int inDataSize) 
-    //     : data(inData), dataSize(inDataSize){}
-    ArrayView(DataType* inData, const long int inDataSize)  {
-      data = inData;
-      dataSize = inDataSize;
-    }
+    ArrayView(DataType* inData, const long int inDataSize) 
+        : data(inData), dataSize(inDataSize){}
+    // ArrayView(DataType* inData, const long int inDataSize)  {
+    //   data = inData;
+    //   dataSize = inDataSize;
+    // }
         
 
     /**

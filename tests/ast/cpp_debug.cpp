@@ -59,9 +59,9 @@ public:
     }
 
     
-    // auto getSubArray(const long int inStartingIdx, const long int inEndingIdx) const{
-    //     return ArrayView<const DataType>(data+inStartingIdx, inEndingIdx-inStartingIdx);
-    // }
+    auto getSubArray(const long int inStartingIdx, const long int inEndingIdx) const{
+        return ArrayView<const DataType>(data+inStartingIdx, inEndingIdx-inStartingIdx);
+    }
 };
 
 int main(){}

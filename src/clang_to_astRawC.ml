@@ -183,17 +183,6 @@ let get_typid_for_type (tv : typvar) : int  =
 let wrap_const ?(const : bool = false) (t : typ) : typ =
   if const then typ_const t else t
 
-
-(* [tr_nested_name_specifier ~loc name_specs]: converts Clang.name_specifier to a string list. *)
-let tr_nested_name_specifier ?(loc : location = None) name_specs : string list =
-  match name_specs with 
-  | Some nms -> 
-      List.map (fun name_spec -> 
-        match name_spec with 
-        | NamespaceName nm -> nm
-        | _ -> fail loc "Clang_to_astRawC.tr_nested_name_specifier: name specifier not supported."
-       ) nms
-  | None -> []
   
 (* [tr_type_desc ~loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
     [loc] gives the location of the type in the file that has been translated,
@@ -321,6 +310,21 @@ and is_qual_type_const (q : qual_type) : bool =
 and tr_qual_type ?(loc : location = None) ?(tr_record_types : bool = true) (q : qual_type) : typ =
   let ({desc = d; const = c; _} : qual_type) = q in
   tr_type_desc ~loc ~const:c ~tr_record_types d
+
+(* [tr_nested_name_specifier ~loc name_specs]: converts Clang.name_specifier to a string list. *)
+and tr_nested_name_specifier ?(loc : location = None) name_specs : string list =
+  match name_specs with 
+  | Some nms -> 
+      List.map (fun name_spec -> 
+        match name_spec with 
+        | NamespaceName nm -> nm
+        | TypeSpec q -> 
+          let tq = tr_qual_type ~loc q in 
+          AstC_to_c.typ_to_string tq
+        | _ -> fail loc "Clang_to_astRawC.tr_nested_name_specifier: name specifier not supported."
+       ) nms
+  | None -> []
+
 
 (* [tr_ident id]: translates identifier [id] into a string *)
 and tr_ident (id : ident_ref node) : string =
@@ -730,16 +734,18 @@ and tr_expr (e : expr) : trm =
 
   | Construct {qual_type = _; args = el} ->
     (* only known use case: return of a struct variable *)
+    let el = List.filter (fun (e : expr) -> match e.desc with DefaultArg -> false | _ -> true) el in
     begin match el with
       | [e] -> tr_expr e
       | _ -> fail loc "Clang_to_astRawC.tr_expr: unsupported construct"
     end
   | Cast {kind = k; qual_type = q; operand = e'} ->
     begin match k with
-      | CStyle | Static ->
+      | CStyle | Static | Functional ->
         let t = tr_qual_type ~loc q in
         let te' = tr_expr e' in
         trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast t)) [te']
+
       | _ -> fail loc "Clang_to_astRawC.tr_expr: only static casts are allowed"
     end
   | New {placement_args = _; qual_type = q; array_size = seo; init = ieo} ->
@@ -780,8 +786,9 @@ and tr_expr (e : expr) : trm =
       trm_add_mark "unknown_expr" (trm_null ~loc ~ctx () )
   | ImplicitValueInit _ -> trm_lit ~loc ~ctx Lit_uninitialized
   | NullPtrLiteral -> trm_lit ~loc ~ctx Lit_nullptr
-  | UnresolvedConstruct {qual_type = q; args = args} ->
+  | UnresolvedConstruct {qual_type = q; args = args} | TemporaryObject {qual_type = q; args = args} ->
     let tq = tr_qual_type q in 
+    let args = List.filter (fun (d : expr) -> match d.desc with | TemplateRef _ -> false | _ -> true) args in 
     let tr_args = List.map tr_expr args in 
     let f_name = AstC_to_c.typ_to_string tq  in 
     trm_apps (trm_var f_name) tr_args
