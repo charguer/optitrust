@@ -432,6 +432,7 @@ and trm_desc =
   | Trm_using_directive of string                 (* using namespace std *)
   | Trm_fun of typed_vars * typ option * trm      (* anonymous functions, [&](int const& x) -> void ({r += x;}) *)
   | Trm_this                                      (* this pointer. *)
+  | Trm_delete of bool * trm                      (* delete t, delete[] t *)
   
 (* [template_param_kind]: parameters kind, typename , empty or another template *)
 and template_param_kind =
@@ -986,6 +987,10 @@ let trm_using_directive ?(annot = trm_annot_default) ?(loc = None) ?(typ = None)
 (* [trm_this ~annot ~loc ~typ ~ctx ()]: this pointer. *)
 let trm_this ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) () =
   trm_make ~annot ~loc ~typ ~ctx (Trm_this)
+
+(* [trm_delete ~annot ~loc ~typ ~ctx is_array_form t]: delete operator  *)
+let trm_delete ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (is_array_form : bool) (t : trm) = 
+  trm_make ~annot ~loc ~typ ~ctx (Trm_delete (is_array_form, t))
 
 (* ********************************** Auxiliary functions ************************************ *)
 

@@ -769,6 +769,9 @@ and tr_expr (e : expr) : trm =
             fail loc "Clang_to_astRawC.tr_expr: new array size must be either constant or variable"
         end
     end
+  | Delete {global_delete = _; array_form = b; argument = e} -> 
+    let te = tr_expr e in 
+    trm_delete ~loc ~ctx b te
   | Lambda {capture_default = ByRef; captures = _; is_mutable = _; parameters = po; result_type = rt; body = b} -> 
     let tt = begin match rt with | Some ty -> Some (tr_qual_type ~loc ty ) | None -> None end in 
     let tb = tr_stmt b in 
