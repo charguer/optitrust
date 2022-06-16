@@ -528,7 +528,12 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
      | Trm_this -> 
         if trm_has_cstyle Implicit_this t then empty else string "this"
      | Trm_class_constructor (name, args, init_list, body) -> 
-      dattr ^^ trm_class_constructor_to_doc ~semicolon name args init_list body 
+      let spec_annot = if trm_has_cstyle Implicit_constructor t then Some Implicit_constructor 
+            else if trm_has_cstyle Default_constructor t then Some Default_constructor 
+            else if trm_has_cstyle Explicit_constructor t then Some Explicit_constructor 
+            else None in 
+
+      dattr ^^ trm_class_constructor_to_doc ~semicolon ~spec_annot name args init_list body 
 
 
      end in
@@ -567,11 +572,17 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
 
 
 (* [trm_class_constructor_to_doc ]: converst class constructor declaration to pprint document. *)
-and trm_class_constructor_to_doc ?(semicolon : bool = false) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
+and trm_class_constructor_to_doc ?(semicolon : bool = false)  ?(spec_annot = None) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
   let dsemi = if semicolon then semi else empty in 
   let argd = if List.length args = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) args) in
   let il_d = if init_l = [] then empty else colon ^^ blank 1 ^^ (Tools.list_to_doc ~bounds:[empty; empty] (List.map decorate_trm init_l)) in 
-  let dt = decorate_trm body in 
+  let dt = match spec_annot with 
+    | Some Implicit_constructor -> equals ^^ blank 1 ^^ string  "implicit"
+    | Some Default_constructor -> equals ^^ blank 1 ^^ string "default"
+    | Some Explicit_constructor -> equals ^^ blank 1 ^^ string "explicit"
+    | _ -> decorate_trm body
+  
+   in
   (separate (blank 1) [string name; parens argd; il_d; dt]) ^^ dsemi
 
 (* [trm_let_fun_to_doc ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)

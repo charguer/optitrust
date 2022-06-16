@@ -20,13 +20,13 @@ public:
     ArrayView(const ArrayView&) = default;
 
     
-    // ArrayView& operator=(const ArrayView&) = default;
+    ArrayView& operator=(const ArrayView&) = default;
 
     
     ArrayView(ArrayView&&) = default;
 
     
-    // ArrayView& operator=(ArrayView&&) = default;
+    ArrayView& operator=(ArrayView&&) = default;
 
     
     DataType* getData(){
@@ -54,9 +54,9 @@ public:
     }
 
     
-    // auto getSubArray(const long int inStartingIdx, const long int inEndingIdx){
-    //     return ArrayView<DataType>(data+inStartingIdx, inEndingIdx-inStartingIdx);
-    // }
+    auto getSubArray(const long int inStartingIdx, const long int inEndingIdx){
+        return ArrayView<DataType>(data+inStartingIdx, inEndingIdx-inStartingIdx);
+    }
 
     
     // auto getSubArray(const long int inStartingIdx, const long int inEndingIdx) const{

@@ -295,19 +295,19 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
       | _ -> fail loc "Clang_to_astRawC.tr_type_desc: only identifiers are allowed in enums"
     end
   | TemplateTypeParm name ->
-    typ_template_param name
+    wrap_const ~const (typ_template_param name)
   | TemplateSpecialization {name = NameTemplate nm; args = tyl } ->
     (* For the moment we don't have a way to create an id for builtin types *)
     let tl = (List.map (fun (targ : template_argument) -> 
       match targ with 
       | Type q -> tr_qual_type ~loc q
       | _ -> fail loc "Clang_to_astRawC.tr_type_desc: only simple types are supported as template arguments") tyl) in
-    typ_constr nm ~tid:(-1) ~tl
+    wrap_const ~const (typ_constr nm ~tid:(-1) ~tl)
   | Decltype e -> 
     let tr_e = tr_expr e in 
-    typ_decl tr_e
+    wrap_const ~const (typ_decl tr_e)
   | SubstTemplateTypeParm tys -> 
-    typ_template_param tys
+    wrap_const ~const (typ_template_param tys)
   
   | InjectedClassName {desc = q_d; _} ->  wrap_const ~const (tr_type_desc ~loc q_d)
   
@@ -780,6 +780,11 @@ and tr_expr (e : expr) : trm =
       trm_add_mark "unknown_expr" (trm_null ~loc ~ctx () )
   | ImplicitValueInit _ -> trm_lit ~loc ~ctx Lit_uninitialized
   | NullPtrLiteral -> trm_lit ~loc ~ctx Lit_nullptr
+  | UnresolvedConstruct {qual_type = q; args = args} ->
+    let tq = tr_qual_type q in 
+    let tr_args = List.map tr_expr args in 
+    let f_name = AstC_to_c.typ_to_string tq  in 
+    trm_apps (trm_var f_name) tr_args
   | _ ->
     fail loc
       ("Clang_to_astRawC.tr_expr: the following expression is unsupported: " ^
@@ -942,7 +947,7 @@ and tr_decl (d : decl) : trm =
     let s = 
       begin match n with 
       | IdentifierName s -> s
-      | OperatorName op -> string_of_overloaded_op ~loc op
+      | OperatorName op -> "operator" ^ string_of_overloaded_op ~loc op
       | _ -> fail loc "Clang_to_astRawC.tr_decl: only identifiers and overloaded operators allowed for method declarations"
       end
       in
