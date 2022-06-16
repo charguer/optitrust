@@ -12,7 +12,7 @@ If the function is void:
 If the function returns values of type T:
 - add, before the new sequence, a variable declaration "T ___res;"
 - for each 'return x' in the body, replace it with '___res = x; goto ___exit'
-- add, after the new sequence, the labelled statement "___exit: return x;"
+- add, after the new sequence, the labelled statement "___exit: return ___res;"
 
 
 *) Apac.parallel_task_group ?mark tg
@@ -26,19 +26,19 @@ If the function returns values of type T:
   using one a call (or several calls) to  Omp.op  for the appropriate op
 
 
-*) Function.get_prototype tg
+*) Function.get_prototype t
 
-- where tg is a target on a function def
+- where t is a function def
+- return the types of the arguments and the return type
 
+*) Apac.get_arg_dependencies t
 
-*) Apac.get_arg_dependencies tg
-
-- where tg is a target on a function def
+- where t is a function def
 - returns a arg_deps where
 
   type dep_kind =
       | Dep_kind_in
-      | Dep_kind_out
+      | Dep_kind_out  not currently used
       | Dep_kind_inout
 
   type arg_dep = {
@@ -60,7 +60,7 @@ If the function returns values of type T:
 
   type dep =
      | Dep_var of var   (* x *)
-     | Dep_array of var (* x[0] *)
+     | Dep_ptr of dep (* x[0] *)
 
   type deps = list dep
 
@@ -81,7 +81,7 @@ If the function returns values of type T:
 - where tg is a target, generally the full file, or possibly just one function definition
 - returns a value of type
 
-     type taskable = (var * path * arg_deps) list
+     type taskable = (var * arg_deps) list    var is mangled name 
         (* could be a hashtable in the future, but let's keep it simple *)
 
   giving the names of the function definitions that are eligible to a "omp task" pragma,
@@ -96,6 +96,11 @@ If the function returns values of type T:
 - where tg is a target, generally the full file
 - calls Function.bind on every function call whose function name appears
   in the list "taskable", and whose result is not the RHS of an assignment.
+
+- example 0:
+  y = f(x)
+  f(x)
+  nothing to change
 
 - example 1:
 
@@ -146,6 +151,7 @@ If the function returns values of type T:
 
 - where tg is a is a target, typically the full file or a function call
 - where indepth controls whether to recurse in subterms
+- f(x), y=f(x) with f taskable
 
   if the term at hand is a function call to a taskable function,
   then consider the arg_deps for this function,
@@ -156,6 +162,9 @@ If the function returns values of type T:
   TODO: le in/out dépend du proto de la fonction? ou du type des arguments?
         et que fait-on si les arguments ne sont pas des variables?
 
+- List.assoc f taskable -> arg_deps
+- List.map2 g arg_deps args     args : arguments to the call
+- let g arg_dep_i targi -> { arg_dep_i with arg_dep_var = trm_to_string targi }  might require temporary variable for nontrivial arguments
 
 *) Apac.main
 
@@ -171,14 +180,12 @@ If the function returns values of type T:
   we already have this one.
 
 
-
 TODO: comment savoir qu'une fonction n'a pas d'effets ?
 
  f(x)
  f(y)
 
  quand peut-on paralléliser les deux appels ?
-
 
 TODO  quand une variable x est un "out" d'un appel dans un task,
 faut-il mettre un #sync x avant la première occurence de x qui suit
