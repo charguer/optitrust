@@ -1007,42 +1007,16 @@ and tr_decl (d : decl) : trm =
     | None -> trm_lit ~loc Lit_uninitialized
     | Some s -> tr_stmt s in
 
-     let res = trm_class_constructor cn args [] tb in 
-     (* 
-        TODO: handle the initializer_list  
 
-
-        
-        type constructor_kind = 
-        | Constructor_implicit
-        | Constructor_explicit
-        | Constructor_default
-        
-
-        add to cstyle_annot
-        | Annot_constructor of constructor_kind 
-
-        
-     
-       encode it as a function 
-       with void return type
-
-       decode it back to constructor.
-
-
-      TODO: add delete
-
-
-     
-      *)
-     
-     
+     let res = trm_let_fun ~loc cn (typ_unit ()) args tb in 
+     (* let res = trm_class_constructor cn args [] tb in  *)
      
      if ib 
-      then trm_add_cstyle Implicit_constructor res
-      else if eb then trm_add_cstyle Explicit_constructor res 
-      else if db then trm_add_cstyle Default_constructor res
-      else res
+      then trm_add_cstyle (Class_constructor Constructor_implicit) res
+      else if eb then trm_add_cstyle (Class_constructor Constructor_explicit) res 
+      else if db then trm_add_cstyle (Class_constructor Constructor_default) res
+      else trm_add_cstyle (Class_constructor Constructor_simpl) res
+
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
     let rec contains_elaborated_type (q : qual_type) : bool =
       let {desc = d;const = _;_} = q in

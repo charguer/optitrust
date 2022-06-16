@@ -501,6 +501,15 @@ and print_files_annot (ann : files_annot) : document =
   | Include s -> string ("Include" ^ s)
   | Main_file -> string "Main_file"
 
+
+(* [print_constructor_kind ck]: prints constructor kinds. *)
+and print_constructor_kind (ck : constructor_kind) : document =
+  match ck with 
+  | Constructor_implicit -> string "Constructor_implicit"
+  | Constructor_explicit -> string "Constructor_explicit"
+  | Constructor_default -> string "Constructor_default"
+  | Constructor_simpl -> string "Constructor_simpl"
+
 (* [print_cstyle_annot ann]: prints as string cstyle annotation [ann]. *)
 and print_cstyle_annot (ann : cstyle_annot) : document =
  match ann with
@@ -524,6 +533,7 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Default_constructor -> string "Default_constructor"
  | Const_method -> string "Const_methdo"
  | Constructed_init -> string "Constructed_init"
+ | Class_constructor ck -> print_constructor_kind ck
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =

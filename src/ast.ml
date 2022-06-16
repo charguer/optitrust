@@ -320,6 +320,15 @@ and cstyle_annot =
   | Default_constructor
   | Const_method  (* const methods *)
   | Constructed_init (* objects initialized with a constructor. *)
+  | Class_constructor of constructor_kind 
+
+(* [constructor_kind]: special annotation for constructors *)
+and constructor_kind = 
+  | Constructor_implicit
+  | Constructor_explicit
+  | Constructor_default
+  | Constructor_simpl
+
 
 (* [files_annot]: file annotation *)
 and files_annot =
@@ -1265,6 +1274,11 @@ let trm_rem_cstyle (cs : cstyle_annot) (t : trm) : trm =
 let trm_has_cstyle (cs : cstyle_annot) (t : trm) : bool =
   let cstyles = trm_get_cstyles t in
   List.mem cs cstyles
+
+(* [annot_has_cstyle cs t_ann]: checks if [cs] is constained in [t_ann]. *)
+let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
+  let cstyles = t_ann.trm_annot_cstyle in 
+  List.mem cs cstyles 
 
 
 (**** Files  ****)
@@ -3076,3 +3090,4 @@ let get_typ_arguments (t : trm) : typ list =
     | Typ_arguments tyl -> tyl 
     | _ -> acc
   ) [] c_annot
+  

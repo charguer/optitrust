@@ -372,6 +372,9 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl
     | Trm_let_fun (f, r, tvl, b) ->
+        
+        
+
         let inline = trm_has_cstyle Fun_inline t in
         let static = if trm_has_cstyle Static_fun t then string "static" else empty in
         let const = trm_has_cstyle Const_method t in 
@@ -575,7 +578,7 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
 
 
 (* [trm_class_constructor_to_doc ]: converst class constructor declaration to pprint document. *)
-and trm_class_constructor_to_doc ?(semicolon : bool = false)  ?(spec_annot = None) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
+and trm_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : trm_annot) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
   let dsemi = if semicolon then semi else empty in 
   let argd = if List.length args = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) args) in
   let il_d = if init_l = [] then empty else colon ^^ blank 1 ^^ (Tools.list_to_doc ~bounds:[empty; empty] (List.map decorate_trm init_l)) in 
@@ -601,6 +604,13 @@ and trm_let_fun_to_doc ?(semicolon : bool = true) ?(const : bool = false) (inlin
      (separate (blank 1) [dinline; dr; string f; parens argd]) ^^ dsemi
   | _ -> separate (blank 1) [dinline; dr; string f; parens argd; const; decorate_trm b]
   end
+
+and trm_let_fun_to_doc ?(semicolon : bool = true) (fun_annot : trm_annot) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
+  let dsemi = if semicolon then semi else empty in 
+  if List.exists (function  | Class_constructor _ -> true | _ -> false ) fun_annot 
+    then 
+      trm_class_constructor_to_doc ~semicolon fun_annot f  args [] b
+    else 
 
 
 (* [trm_fun_to_doc ~semicolon ty tvl b]: converts a lambda function to a pprint document. *)
