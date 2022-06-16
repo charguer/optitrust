@@ -40,16 +40,21 @@ public:
      */
     ArrayView(DataType* inData, const long int inDataSize) 
         : data(inData), dataSize(inDataSize){}
+    // encoded as
     // ArrayView(DataType* inData, const long int inDataSize)  {
-    //   data = inData;
-    //   dataSize = inDataSize;
+    //   this->data = inData;   @annot_member_initializer
+    //   this->dataSize = inDataSize; @annot_member_initializer
     // }
-        
 
     /**
      * @brief Construct a new Array View object
      * 
      */
+    ArrayView (){
+      this->data = NULL;
+      this->dataSize = 0;
+    }
+    
     ArrayView(const ArrayView&) = default;
 
     /**

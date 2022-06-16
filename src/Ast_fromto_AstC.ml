@@ -340,3 +340,45 @@ but it is equivalent to:
   f(a,a,a)
 
 *)
+
+(* 
+
+source:
+T x(args) 
+
+before encoding
+T x = (new(T,args)@ annot_constructor_arg) 
+
+after encoding
+T* x = (T(args)@annot_new) 
+
+
+source 
+constructor T(a, b) : field1(a) { field2 = b;} 
+
+
+before encoding, with treating "this" as const variable
+
+before encoding
+void T(a, b) { @annot_constructor
+  
+  this->field1 = a;  @annot_member_initializer
+  (this@annot_implicit_this) ->field2 = b;  
+  
+} 
+
+
+
+after encoding
+T* T(a, b) { 
+  
+  
+  T* this = alloc(size_of(T)); @annot_dont_encode
+  this->field1 = a;  @annot_member_initializer
+  (this@annot_implicit_this) ->field2 = b;  
+  
+  return this; } @annot_constructor
+
+
+*)
+

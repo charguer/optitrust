@@ -298,7 +298,7 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
   | SubstTemplateTypeParm tys -> 
     wrap_const ~const (typ_template_param tys)
   
-  | InjectedClassName {desc = q_d; _} ->  wrap_const ~const (tr_type_desc ~loc q_d)
+  | InjectedClassName {desc = q_d; _} ->  wrap_const ~const (tr_type_desc ~loc q_d) (* @annot_injected *)
   
   | _ -> fail loc "Clang_to_astRawC.tr_type_desc: not implemented"
 
@@ -691,6 +691,7 @@ and tr_expr (e : expr) : trm =
           begin match f with 
           | FieldName id -> 
             let f = tr_ident id in
+            (* TODO: trm_this to trm_var *)
             let t_this = trm_add_cstyle Implicit_this (trm_this ()) in
             trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get f)) [t_this]
           | _ -> fail loc "Clang_to_astRawC.tr_expr: fields should be accesses by names"
@@ -1007,6 +1008,36 @@ and tr_decl (d : decl) : trm =
     | Some s -> tr_stmt s in
 
      let res = trm_class_constructor cn args [] tb in 
+     (* 
+        TODO: handle the initializer_list  
+
+
+        
+        type constructor_kind = 
+        | Constructor_implicit
+        | Constructor_explicit
+        | Constructor_default
+        
+
+        add to cstyle_annot
+        | Annot_constructor of constructor_kind 
+
+        
+     
+       encode it as a function 
+       with void return type
+
+       decode it back to constructor.
+
+
+      TODO: add delete
+
+
+     
+      *)
+     
+     
+     
      if ib 
       then trm_add_cstyle Implicit_constructor res
       else if eb then trm_add_cstyle Explicit_constructor res 
@@ -1039,6 +1070,8 @@ and tr_decl (d : decl) : trm =
           let f_name = trm_var n in 
           let args = List.map tr_expr el in 
           trm_add_cstyle Constructed_init (trm_apps f_name args)
+
+          (*  *)
         | _ -> tr_expr e
         end
       end

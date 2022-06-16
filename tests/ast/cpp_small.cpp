@@ -134,6 +134,17 @@ class Box2 {
     }
 };
 
+template <typename A> 
+class Inject {
+
+  static void f(Inject x ) { 
+    Inject<A> y;
+    Inject z; // encoded as (Foo<A>@Annot_injected) y;
+  }
+
+
+};
+
 int main() {
   Box<int, bool> b;
   update<int, bool> (&b,1,true);
