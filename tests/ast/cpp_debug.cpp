@@ -20,19 +20,19 @@ public:
     ArrayView(const ArrayView&) = default;
 
     
-    ArrayView& operator=(const ArrayView&) = default;
+    // ArrayView& operator=(const ArrayView&) = default;
 
     
     ArrayView(ArrayView&&) = default;
 
     
-    ArrayView& operator=(ArrayView&&) = default;
+    // ArrayView& operator=(ArrayView&&) = default;
 
     
     DataType* getData(){
         return  data;
     }
-
+ 
     
     const DataType* getData() const {
         return  data;
@@ -54,14 +54,14 @@ public:
     }
 
     
-    auto getSubArray(const long int inStartingIdx, const long int inEndingIdx){
-        return ArrayView<DataType>(data+inStartingIdx, inEndingIdx-inStartingIdx);
-    }
+    // auto getSubArray(const long int inStartingIdx, const long int inEndingIdx){
+    //     return ArrayView<DataType>(data+inStartingIdx, inEndingIdx-inStartingIdx);
+    // }
 
     
-    auto getSubArray(const long int inStartingIdx, const long int inEndingIdx) const{
-        return ArrayView<const DataType>(data+inStartingIdx, inEndingIdx-inStartingIdx);
-    }
+    // auto getSubArray(const long int inStartingIdx, const long int inEndingIdx) const{
+    //     return ArrayView<const DataType>(data+inStartingIdx, inEndingIdx-inStartingIdx);
+    // }
 };
 
-#endif
+int main(){}

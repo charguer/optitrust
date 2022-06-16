@@ -142,6 +142,7 @@ let get_typid_for_type (tv : typvar) : int  =
   | PipePipe -> "||"
   | PlusPlus -> "++"
   | MinusMinus -> "--"
+  | Subscript -> "[]"
   | _ -> fail loc "Clang_to_astRawC.string_of_overloaded_op: non supported operator"
 
 (* [overload_op ~loc ~ctx op]: gets the primitive operation associated with the overloaded operator [op] *)
@@ -307,6 +308,9 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
     typ_decl tr_e
   | SubstTemplateTypeParm tys -> 
     typ_template_param tys
+  
+  | InjectedClassName {desc = q_d; _} ->  wrap_const ~const (tr_type_desc ~loc q_d)
+  
   | _ -> fail loc "Clang_to_astRawC.tr_type_desc: not implemented"
 
 (* [is_qual_type_const q]: checks if [q] is a const type or not *)
@@ -898,6 +902,7 @@ and tr_decl (d : decl) : trm =
     in
     let {calling_conv = _; result = _; parameters = po;
          exception_spec = _; _} = t in
+    
     let tt = tr_type_desc ~loc (FunctionType t) in
     begin match tt.typ_desc with
       | Typ_fun (args_t, out_t) ->
@@ -933,7 +938,7 @@ and tr_decl (d : decl) : trm =
     end 
     
   | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; _};
-               static = st; _} ->
+               static = st; const = c; _} ->
     let s = 
       begin match n with 
       | IdentifierName s -> s
@@ -978,7 +983,10 @@ and tr_decl (d : decl) : trm =
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in 
-    if st then trm_add_cstyle Static_fun res else res
+    if st 
+      then trm_add_cstyle Static_fun res 
+      else if c then trm_add_cstyle Const_method res 
+      else res
   | Constructor { class_name = cn; parameters = {non_variadic = pl; _}; initializer_list = _; body = bd; implicit = ib; explicit = eb;  defaulted = db; _} -> 
     let args = List.map (fun {decoration = _;
        desc = {qual_type = q; name = n; default = _}} -> (n,tr_qual_type ~loc q)) pl in 

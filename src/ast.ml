@@ -318,6 +318,7 @@ and cstyle_annot =
   | Implicit_constructor
   | Explicit_constructor 
   | Default_constructor
+  | Const_method  (* const methods *)
 
 (* [files_annot]: file annotation *)
 and files_annot =

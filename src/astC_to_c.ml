@@ -374,7 +374,8 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_let_fun (f, r, tvl, b) ->
         let inline = trm_has_cstyle Fun_inline t in
         let static = if trm_has_cstyle Static_fun t then string "static" else empty in
-        dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc ~semicolon inline f.qvar_str r tvl b
+        let const = trm_has_cstyle Const_method t in 
+        dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc ~semicolon ~const inline f.qvar_str r tvl b
     | Trm_typedef td -> 
       let t_annot = trm_get_cstyles t in
       dattr ^^ typedef_to_doc ~semicolon ~t_annot td
@@ -571,19 +572,20 @@ and trm_class_constructor_to_doc ?(semicolon : bool = false) (name : var) (args 
   let argd = if List.length args = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) args) in
   let il_d = if init_l = [] then empty else colon ^^ blank 1 ^^ (Tools.list_to_doc ~bounds:[empty; empty] (List.map decorate_trm init_l)) in 
   let dt = decorate_trm body in 
-  (separate (blank 1) [string name; argd; il_d; dt]) ^^ dsemi
+  (separate (blank 1) [string name; parens argd; il_d; dt]) ^^ dsemi
 
 (* [trm_let_fun_to_doc ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
-and trm_let_fun_to_doc ?(semicolon : bool = true)(inline : bool) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
+and trm_let_fun_to_doc ?(semicolon : bool = true) ?(const : bool = false) (inline : bool) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dinline = if inline then string "inline" else empty in
   let f = string_subst "overloaded" "operator" f in
   let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
+  let const = if const then string "const" else empty in 
   begin match b.desc with
   | Trm_val (Val_lit Lit_uninitialized) ->
      (separate (blank 1) [dinline; dr; string f; parens argd]) ^^ dsemi
-  | _ -> separate (blank 1) [dinline; dr; string f; parens argd; decorate_trm b]
+  | _ -> separate (blank 1) [dinline; dr; string f; parens argd; const; decorate_trm b]
   end
 
 
