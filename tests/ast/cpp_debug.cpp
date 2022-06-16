@@ -1,67 +1,13 @@
-template <class DataType>
-class ArrayView{
-    
-    DataType* const data;
+#include <random>
 
-    
-    long int dataSize;
-public:
+#include <vector>
 
-    
-    // ArrayView(DataType* inData, const long int inDataSize) 
-    //     : data(inData), dataSize(inDataSize){}
-    ArrayView(DataType* inData, const long int inDataSize)  {
-      data = inData;
-      dataSize = inDataSize;
-    }
-        
+int main(){
+    const int Size = 10000000;
+    std::vector<int> data(Size);
 
+    std::mt19937 gen(0);
     
-    ArrayView(const ArrayView&) = default;
 
-    
-    ArrayView& operator=(const ArrayView&) = default;
-
-    
-    ArrayView(ArrayView&&) = default;
-
-    
-    ArrayView& operator=(ArrayView&&) = default;
-
-    
-    DataType* getData(){
-        return  data;
-    }
- 
-    
-    const DataType* getData() const {
-        return  data;
-    }
-
-    
-    long int size() const{
-        return dataSize;
-    }
-
-    
-    DataType& operator[](long int idx){
-        return data[idx];
-    }
-
-    
-    const DataType& operator[](long int idx) const {
-        return data[idx];
-    }
-
-    
-    auto getSubArray(const long int inStartingIdx, const long int inEndingIdx){
-        return ArrayView<DataType>(data+inStartingIdx, inEndingIdx-inStartingIdx);
-    }
-
-    
-    auto getSubArray(const long int inStartingIdx, const long int inEndingIdx) const{
-        return ArrayView<const DataType>(data+inStartingIdx, inEndingIdx-inStartingIdx);
-    }
-};
-
-int main(){}
+    return 0;
+}

@@ -1034,6 +1034,11 @@ and tr_decl (d : decl) : trm =
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
           tr_init_list ~loc ~ctx tt el
+        | Construct {args = args; _} ->
+          let el = List.filter (fun (e : expr) -> match e.desc with DefaultArg -> false | _ -> true) args in
+          let f_name = trm_var n in 
+          let args = List.map tr_expr el in 
+          trm_add_cstyle Constructed_init (trm_apps f_name args)
         | _ -> tr_expr e
         end
       end

@@ -554,10 +554,13 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
   let dsemi = if semicolon then semi else empty in
   let dtx = typed_var_to_doc tv in
   let dinit = begin match init.desc with
-  | Trm_val (Val_lit Lit_uninitialized) -> dsemi
-  | _ -> equals ^^ blank 1 ^^ decorate_trm ~print_struct_init_type:false init ^^ dsemi
+    | Trm_val (Val_lit Lit_uninitialized) -> dsemi
+    | Trm_apps (_, args) when trm_has_cstyle Constructed_init init ->
+      list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (trm_to_doc) args) ^^ dsemi
+    | _ -> 
+      equals ^^ blank 1 ^^ decorate_trm ~print_struct_init_type:false init ^^ dsemi
   end in
-    dtx ^^ blank 1 ^^ dinit
+  dtx ^^ blank 1 ^^ dinit
 
 (* [trm_let_mult_to_doc ~semicolon tv vl tl]: converts multiple variable declarations to pprint document *)
 and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (tl : trm list) : document =

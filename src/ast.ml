@@ -319,6 +319,7 @@ and cstyle_annot =
   | Explicit_constructor 
   | Default_constructor
   | Const_method  (* const methods *)
+  | Constructed_init (* objects initialized with a constructor. *)
 
 (* [files_annot]: file annotation *)
 and files_annot =
