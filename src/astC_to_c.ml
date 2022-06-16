@@ -372,13 +372,9 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl
     | Trm_let_fun (f, r, tvl, b) ->
-        
-        
-
-        let inline = trm_has_cstyle Fun_inline t in
+        let fun_annot = trm_get_cstyles t in 
         let static = if trm_has_cstyle Static_fun t then string "static" else empty in
-        let const = trm_has_cstyle Const_method t in 
-        dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc ~semicolon ~const inline f.qvar_str r tvl b
+        dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc ~semicolon fun_annot f.qvar_str r tvl b
     | Trm_typedef td -> 
       let t_annot = trm_get_cstyles t in
       dattr ^^ typedef_to_doc ~semicolon ~t_annot td
@@ -530,15 +526,6 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
      | Trm_fun (tvl, ty_opt , body) ->  dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
      | Trm_this -> 
         if trm_has_cstyle Implicit_this t then empty else string "this"
-     | Trm_class_constructor (name, args, init_list, body) -> 
-      let spec_annot = if trm_has_cstyle Implicit_constructor t then Some Implicit_constructor 
-            else if trm_has_cstyle Default_constructor t then Some Default_constructor 
-            else if trm_has_cstyle Explicit_constructor t then Some Explicit_constructor 
-            else None in 
-
-      dattr ^^ trm_class_constructor_to_doc ~semicolon ~spec_annot name args init_list body 
-
-
      end in
   (* Save the result in the optional stringreprs table, before returning the document *)
   add_stringreprs_entry t d;
@@ -577,22 +564,25 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
   dtx  ^^ blank 1 ^^ list_to_doc ~sep:comma dtl ~bounds:[empty; empty] ^^ dsemi
 
 
-(* [trm_class_constructor_to_doc ]: converst class constructor declaration to pprint document. *)
-and trm_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : trm_annot) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
+(* [aux_class_constructor_to_doc ]: converst class constructor declaration to pprint document. *)
+and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
   let dsemi = if semicolon then semi else empty in 
   let argd = if List.length args = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) args) in
-  let il_d = if init_l = [] then empty else colon ^^ blank 1 ^^ (Tools.list_to_doc ~bounds:[empty; empty] (List.map decorate_trm init_l)) in 
+  let spec_annot = List.fold_left (fun acc c_annot -> match c_annot with | Class_constructor ck -> ck :: acc | _ -> acc) [] spec_annot in 
+  
+  let spec_annot = if List.length spec_annot = 1 then List.nth spec_annot 0 else fail None "astC_to_c.trm_class_constructor_to_doc: catastrophic error" in 
+
   let dt = match spec_annot with 
-    | Some Implicit_constructor -> equals ^^ blank 1 ^^ string  "implicit"
-    | Some Default_constructor -> equals ^^ blank 1 ^^ string "default"
-    | Some Explicit_constructor -> equals ^^ blank 1 ^^ string "explicit"
-    | _ -> decorate_trm body
+    | Constructor_implicit -> equals ^^ blank 1 ^^ string  "implicit"
+    | Constructor_default -> equals ^^ blank 1 ^^ string "default"
+    | Constructor_explicit -> equals ^^ blank 1 ^^ string "explicit"
+    | Constructor_simpl -> decorate_trm body
   
    in
-  (separate (blank 1) [string name; parens argd; il_d; dt]) ^^ dsemi
+  (separate (blank 1) [string name; parens argd; dt]) ^^ dsemi
 
-(* [trm_let_fun_to_doc ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
-and trm_let_fun_to_doc ?(semicolon : bool = true) ?(const : bool = false) (inline : bool) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
+(* [aux_fun_to_doc ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
+and aux_fun_to_doc ?(semicolon : bool = true) ?(const : bool = false) ?(inline : bool = false) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dinline = if inline then string "inline" else empty in
   let f = string_subst "overloaded" "operator" f in
@@ -605,14 +595,16 @@ and trm_let_fun_to_doc ?(semicolon : bool = true) ?(const : bool = false) (inlin
   | _ -> separate (blank 1) [dinline; dr; string f; parens argd; const; decorate_trm b]
   end
 
-and trm_let_fun_to_doc ?(semicolon : bool = true) (fun_annot : trm_annot) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
-  let dsemi = if semicolon then semi else empty in 
+(* [trm_let_fun_to_doc]: converts any OptiTrust function declaration(definition) to a pprint document. *)
+and trm_let_fun_to_doc ?(semicolon : bool = true) (fun_annot : cstyle_annot list) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
   if List.exists (function  | Class_constructor _ -> true | _ -> false ) fun_annot 
-    then 
-      trm_class_constructor_to_doc ~semicolon fun_annot f  args [] b
+    then aux_class_constructor_to_doc ~semicolon fun_annot f  args [] b
     else 
-
-
+      let inline = List.mem Fun_inline fun_annot in
+      let const = List.mem Const_method fun_annot in 
+      aux_fun_to_doc ~semicolon ~const ~inline f r args b
+      
+    
 (* [trm_fun_to_doc ~semicolon ty tvl b]: converts a lambda function to a pprint document. *)
 and trm_fun_to_doc ?(semicolon : bool = true) (ty : typ option) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in 

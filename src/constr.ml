@@ -775,7 +775,7 @@ let get_trm_kind (t : trm) : trm_kind =
    | Trm_var _ -> TrmKind_Expr
    | Trm_record _ | Trm_array _ -> TrmKind_Expr
    | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
-   | Trm_let _ | Trm_let_mult _ | Trm_class_constructor _ -> TrmKind_Instr
+   | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
    | Trm_typedef _ | Trm_let_record _-> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
    | Trm_fun _ | Trm_this -> TrmKind_Expr

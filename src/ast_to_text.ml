@@ -373,16 +373,6 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
       parens (separate (comma ^^ break 1)
         [print_list dtvl; dtout; dt])
   | Trm_this -> print_node "This"
-  | Trm_class_constructor (name, tv, init_list, body) -> 
-    let dtvl = List.map(function (x,tx) ->
-          let dtx = print_typ ~only_desc tx in
-          print_pair (string x) dtx) tv in
-    let dtvl = Tools.list_to_doc dtvl in 
-    let dt = print_trm ~only_desc body in 
-    let dt_init = Tools.list_to_doc ~empty (List.map (print_trm ~only_desc) init_list ) in
-    print_node "Trm_class_constructor" ^^ 
-      parens (separate (comma ^^ blank 1 )
-        [string name;  dtvl; dt_init; dt])
   
 
 (* [print_record_type rt]: converts record types to pprint document *)
