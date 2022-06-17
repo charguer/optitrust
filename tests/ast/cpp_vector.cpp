@@ -21,8 +21,6 @@ public:
 	// Destructor
 	~Vector();
 
-	/*----------------------------*/
-
 	/* -------- CAPACITY -------- */
 
 	bool empty() const;
@@ -48,12 +46,6 @@ public:
 	// Reduces capcity to fit the size
 	void shrink_to_fit();
 
-	/*----------------------------*/
-
-
-
-
-
 	/* -------- MODIFIERS --------*/
 
 	// Removes all elements from the Vector
@@ -67,9 +59,6 @@ public:
 	void pop_back();
 
 	/*----------------------------*/
-
-
-
 
 
 	/* ----- ELEMENT ACCESS ----- */
