@@ -1028,9 +1028,7 @@ and tr_decl (d : decl) : trm =
     let tb = insert_at_top_of_seq t_il tb in 
 
     let res = trm_let_fun ~loc cn (typ_unit ()) args tb in 
-     
-
-    
+      
     if ib 
      then trm_add_cstyle (Class_constructor Constructor_implicit) res
      else if eb then trm_add_cstyle (Class_constructor Constructor_explicit) res 
