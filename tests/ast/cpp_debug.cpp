@@ -1,12 +1,11 @@
-template <class DataType>
-class ArrayView{
-    
-    DataType* const data;
+#include <random>
+#include <vector>
 
-    long int dataSize;
-public:
+int main(){
+    const int Size = 10000000;
+    std::vector<int> data(Size);
 
-    ArrayView(DataType* inData, const long int inDataSize) 
-        : data(inData) { dataSize = inDataSize;}
+    std::mt19937 gen(0);
     
-};
+    return 0;
+}

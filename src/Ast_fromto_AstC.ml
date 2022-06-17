@@ -94,7 +94,8 @@ let stackvar_elim (t : trm) : trm =
       | None ->
         begin match xm with
         | Var_mutable ->
-          trm_add_cstyle Stackvar (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) )) t)
+          let new_body = if trm_has_cstyle Constructed_init tbody then aux tbody else trm_new ty (aux tbody) in 
+          trm_add_cstyle Stackvar (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty), new_body )) t)
         | Var_immutable ->
           trm_map aux t
         end
@@ -140,6 +141,8 @@ let stackvar_intro (t : trm) : trm =
           begin match tx.typ_desc , tbody.desc with
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_new _));_}, [tbody1])  ->
               trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody1)) t)
+          | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, _  when trm_has_cstyle Constructed_init tbody ->
+              trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody)) t)
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
           end
       else if trm_has_cstyle Reference t then
