@@ -568,7 +568,6 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
   dtx  ^^ blank 1 ^^ list_to_doc ~sep:comma dtl ~bounds:[empty; empty] ^^ dsemi
 
 
-
 (* [aux_class_constructor_to_doc ]: converst class constructor declaration to pprint document. *)
 and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
   let dsemi = if semicolon then semi else empty in 
@@ -588,6 +587,22 @@ and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cst
    in
   (separate (blank 1) [string name; parens argd; dt]) ^^ dsemi
 
+(* [aux_class_destructor_to_doc ]: converst class constructor declaration to pprint document. *)
+and aux_class_destructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (body : trm) : document =
+  let dsemi = if semicolon then semi else empty in 
+  let spec_annot = List.fold_left (fun acc c_annot -> match c_annot with | Class_destructor dk -> dk :: acc | _ -> acc) [] spec_annot in 
+  
+  let spec_annot = if List.length spec_annot = 1 then List.nth spec_annot 0 else fail None "astC_to_c.trm_class_constructor_to_doc: catastrophic error" in 
+
+  let dt = match spec_annot with 
+    | Destructor_default -> equals ^^ blank 1 ^^ string "default"
+    | Destructor_delete -> equals ^^ blank 1 ^^ string "delete"
+    | Destructor_simpl -> decorate_trm body
+  
+   in
+  (separate (blank 1) [tilde; string name; lparen ^^ rparen; dt]) ^^ dsemi
+
+
 (* [aux_fun_to_doc ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
 and aux_fun_to_doc ?(semicolon : bool = true) ?(const : bool = false) ?(inline : bool = false) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
@@ -606,6 +621,8 @@ and aux_fun_to_doc ?(semicolon : bool = true) ?(const : bool = false) ?(inline :
 and trm_let_fun_to_doc ?(semicolon : bool = true) (fun_annot : cstyle_annot list) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
   if List.exists (function  | Class_constructor _ -> true | _ -> false ) fun_annot 
     then aux_class_constructor_to_doc ~semicolon fun_annot f  args [] b
+    else if List.exists (function  | Class_destructor _ -> true | _ -> false ) fun_annot 
+      then aux_class_destructor_to_doc ~semicolon fun_annot f b
     else 
       let inline = List.mem Fun_inline fun_annot in
       let const = List.mem Const_method fun_annot in 

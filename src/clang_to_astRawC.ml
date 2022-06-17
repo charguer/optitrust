@@ -1035,6 +1035,15 @@ and tr_decl (d : decl) : trm =
      else if db then trm_add_cstyle (Class_constructor Constructor_default) res
      else trm_add_cstyle (Class_constructor Constructor_simpl) res
 
+  | Destructor {class_name = cn; body = bd; defaulted = df; deleted = dl; _} -> 
+    let tb = match bd with 
+    | None -> trm_lit ~loc Lit_uninitialized
+    | Some s -> tr_stmt s in 
+    let res = trm_let_fun ~loc cn (typ_unit ()) [] tb in 
+    if df 
+      then trm_add_cstyle (Class_destructor Destructor_default) res 
+      else if dl then trm_add_cstyle (Class_destructor Destructor_delete) res 
+      else trm_add_cstyle (Class_destructor Destructor_simpl) res
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
     let rec contains_elaborated_type (q : qual_type) : bool =
       let {desc = d;const = _;_} = q in
@@ -1129,6 +1138,9 @@ and tr_decl (d : decl) : trm =
         let tdl = tr_decl d in 
         acc @ [(Record_field_method tdl, !access_spec)]
       | {decoration = _; desc = Constructor _; _} ->
+        let tdl = tr_decl d in 
+        acc @ [(Record_field_method tdl, !access_spec)]
+      | {decoration = _; desc = Destructor _; _} ->
         let tdl = tr_decl d in 
         acc @ [(Record_field_method tdl, !access_spec)]
       | {decoration = _; desc = AccessSpecifier (spec); _} ->

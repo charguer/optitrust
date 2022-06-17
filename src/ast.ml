@@ -321,6 +321,7 @@ and cstyle_annot =
   | Const_method  (* const methods *)
   | Constructed_init (* objects initialized with a constructor. *)
   | Class_constructor of constructor_kind 
+  | Class_destructor of destructor_kind
   | Member_initializer
 
 (* [constructor_kind]: special annotation for constructors *)
@@ -330,6 +331,10 @@ and constructor_kind =
   | Constructor_default
   | Constructor_simpl
 
+and destructor_kind =
+  | Destructor_default 
+  | Destructor_delete 
+  | Destructor_simpl
 
 (* [files_annot]: file annotation *)
 and files_annot =

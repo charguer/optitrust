@@ -506,6 +506,14 @@ and print_constructor_kind (ck : constructor_kind) : document =
   | Constructor_default -> string "Constructor_default"
   | Constructor_simpl -> string "Constructor_simpl"
 
+
+(* [print_destructor_kind dk]: prints destructor kinds. *)
+and print_destructor_kind (dk : destructor_kind) : document =
+  match dk with 
+  | Destructor_default -> string "Destructor_default"
+  | Destructor_delete -> string "Destructor_delete"
+  | Destructor_simpl -> string "Destructor_simpld"
+
 (* [print_cstyle_annot ann]: prints as string cstyle annotation [ann]. *)
 and print_cstyle_annot (ann : cstyle_annot) : document =
  match ann with
@@ -530,6 +538,7 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Const_method -> string "Const_methdo"
  | Constructed_init -> string "Constructed_init"
  | Class_constructor ck -> print_constructor_kind ck
+ | Class_destructor dk -> print_destructor_kind dk 
  | Member_initializer -> string "Member_initializer"
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
