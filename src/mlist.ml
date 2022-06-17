@@ -71,6 +71,11 @@ let rev (ml : 'a t) : 'a t =
   { items = List.rev ml.items;
     marks = List.rev ml.marks }
 
+(* [partition ml]: applies List.partition to ml.items *)
+let partition (pred : 'a -> bool) (ml : 'a t) : ('a t * 'a t) = 
+  let ml_items_sat, ml_items = List.partition pred ml.items in
+  (of_list ml_items_sat, of_list ml_items  )
+  
 (***********************************************************************)
 
 (* [replace_at index x ml]: replaces the item at [index] in [ml] with element [x].*)

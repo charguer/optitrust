@@ -1020,14 +1020,17 @@ and tr_decl (d : decl) : trm =
        desc = {qual_type = q; name = n; default = _}} -> (n,tr_qual_type ~loc q)) pl in 
     let tb = match bd with 
     | None -> trm_lit ~loc Lit_uninitialized
-    | Some s -> tr_stmt s in
+    | Some s -> 
+      tr_stmt s in
 
     let t_il = tr_member_initialized_list ~loc il in 
-
+    
     let tb = insert_at_top_of_seq t_il tb in 
 
     let res = trm_let_fun ~loc cn (typ_unit ()) args tb in 
      
+
+    
     if ib 
      then trm_add_cstyle (Class_constructor Constructor_implicit) res
      else if eb then trm_add_cstyle (Class_constructor Constructor_explicit) res 

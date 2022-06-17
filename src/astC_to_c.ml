@@ -568,6 +568,7 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
   dtx  ^^ blank 1 ^^ list_to_doc ~sep:comma dtl ~bounds:[empty; empty] ^^ dsemi
 
 
+
 (* [aux_class_constructor_to_doc ]: converst class constructor declaration to pprint document. *)
 and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
   let dsemi = if semicolon then semi else empty in 
@@ -580,7 +581,9 @@ and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cst
     | Constructor_implicit -> equals ^^ blank 1 ^^ string  "implicit"
     | Constructor_default -> equals ^^ blank 1 ^^ string "default"
     | Constructor_explicit -> equals ^^ blank 1 ^^ string "explicit"
-    | Constructor_simpl -> decorate_trm body
+    | Constructor_simpl -> 
+      let bd, _init_list = filter_out_from_seq (fun t -> trm_has_cstyle Member_initializer t ) body in
+      decorate_trm bd
   
    in
   (separate (blank 1) [string name; parens argd; dt]) ^^ dsemi

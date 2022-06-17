@@ -3096,4 +3096,15 @@ let insert_at_top_of_seq (tl : trm list) (t : trm) : trm =
   | Trm_seq tl1 ->
     let new_tl = Mlist.insert_sublist_at 0 tl tl1 in 
     trm_alter ~desc:(Some (Trm_seq new_tl)) t
-  | _ -> fail t.loc "Internal.insert_at_top_of_seq: expected  a trm_seq "
+  | _ -> t
+
+
+(* [filter_out_from_seq f t]: extracts all the trms that satisfy the predicate [f] from sequence [t].
+      The final result is a pair consisting of the final sequence and the filtered out trms.*)
+let filter_out_from_seq (f : trm -> bool) (t : trm) : (trm * trms)  =
+  match t.desc with 
+  | Trm_seq tl -> 
+    let tl_to_remove, tl_to_keep = Mlist.partition f tl in 
+    (trm_alter ~desc:(Some (Trm_seq tl_to_keep)) t , Mlist.to_list tl_to_remove)
+  | _  -> (t, [])
+  
