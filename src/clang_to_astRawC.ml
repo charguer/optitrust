@@ -760,13 +760,11 @@ and tr_expr (e : expr) : trm =
     begin match seo with
       | None -> trm_prim ~loc ~ctx (Prim_new tq)
       | Some se ->
-        begin match tr_expr se with
+        let te = tr_expr se in 
+        begin match te with
           | {desc = Trm_val (Val_lit (Lit_int n)); loc; _} ->
             trm_prim ~loc ~ctx (Prim_new (typ_array tq (Const n)))
-          | {desc = Trm_var (kind, x); loc; _} ->
-           trm_prim ~loc ~ctx (Prim_new (typ_array tq (Trm (trm_var ~loc ~ctx ~kind ~qvar:x ""))))
-          | _ ->
-            fail loc "Clang_to_astRawC.tr_expr: new array size must be either constant or variable"
+          | _ -> trm_prim ~loc ~ctx (Prim_new (typ_array tq (Trm te)))
         end
     end
   | Delete {global_delete = _; array_form = b; argument = e} -> 
