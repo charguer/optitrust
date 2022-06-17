@@ -877,6 +877,27 @@ and tr_decl_list (dl : decl list) : trms =
     let tl = tr_decl_list (d' :: dl) in
     td :: tl
 
+and tr_member_initialized_list ?((init_list :  constructor_initializer list) : trms =
+  let loc = loc_of_node e in
+  let typ : typ option =
+    let q = Clang.Type.of_node e in
+    try Some (tr_qual_type ~loc q) with
+    | _ ->
+      print_info loc "tr_expr: unable to translate type %s\n"
+        (Clang.Type.show q);
+      None
+  in
+  let ctx = Some (get_ctx()) in
+  List.map (fun {kind = k; init = ie} -> 
+    match k with 
+    | Member {indirect = b; field = {desc = f}} ->
+      let ti = tr_expr ie in 
+      trm_set (trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get f)) [t_this]) (ti)
+    | _ -> fail loc "Clang_to_astRawC.tr_member_initializer_list: only simple mmeber initializers are supported."
+  
+  ) init_list 
+
+
 (* [tr_decl d]: translates declaration [d] *)
 and tr_decl (d : decl) : trm =
   let loc = loc_of_node d in

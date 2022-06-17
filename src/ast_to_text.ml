@@ -379,7 +379,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     print_node "Trm_delete"  ^^
       parens (separate (comma ^^ break 1)
         [bd; td])
-  
+    
 
 (* [print_record_type rt]: converts record types to pprint document *)
 and print_record_type (rt : record_type) : document =
