@@ -1025,8 +1025,7 @@ and tr_decl (d : decl) : trm =
     
     let tb = insert_at_top_of_seq t_il tb in 
 
-    let res = trm_let_fun ~loc cn (typ_unit ()) args tb in 
-      
+    let res = trm_let_fun ~loc (Tools.clean_class_name cn) (typ_unit ()) args tb in 
     if ib 
      then trm_add_cstyle (Class_constructor Constructor_implicit) res
      else if eb then trm_add_cstyle (Class_constructor Constructor_explicit) res 
@@ -1037,7 +1036,7 @@ and tr_decl (d : decl) : trm =
     let tb = match bd with 
     | None -> trm_lit ~loc Lit_uninitialized
     | Some s -> tr_stmt s in 
-    let res = trm_let_fun ~loc cn (typ_unit ()) [] tb in 
+    let res = trm_let_fun ~loc (Tools.clean_class_name cn) (typ_unit ()) [] tb in 
     if df 
       then trm_add_cstyle (Class_destructor Destructor_default) res 
       else if dl then trm_add_cstyle (Class_destructor Destructor_delete) res 

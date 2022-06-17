@@ -2,8 +2,8 @@
 
 #include <cstddef>
 
-template<class T> class Vector
-{
+template<class T> 
+class Vector {
 public:
 	/* ----- Constructors ----- */
 

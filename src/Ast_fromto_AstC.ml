@@ -315,6 +315,12 @@ let method_call_intro (t : trm) : trm =
    in aux t
 
 
+(* let class_member_elim (t : trm) : trm =
+  match t.desc with 
+  | 
+
+ *)
+
 (***************************************  Main entry points *********************************************)
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.

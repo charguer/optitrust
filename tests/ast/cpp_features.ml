@@ -7,7 +7,7 @@ let _ = Flags.set_dump_clang_ast()
 
 let _ =
   Flags.dump_ast_details := true;
-  Flags.bypass_cfeatures := true
+  Flags.bypass_cfeatures := false
   
 
 (* Option to choose the size of the test *)

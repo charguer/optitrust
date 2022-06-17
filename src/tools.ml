@@ -142,6 +142,14 @@ let spaces (nb : int) : string =
 let add_prefix (prefix : string) (indices : string list) : string list =
     List.map (fun x -> prefix ^ x) indices
 
+
+(* [clean_class_name class_name]: avoids printing the angle bracket for template class constructors. *)
+let clean_class_name (class_name : string) : string =
+  let splitted_string = Str.split (Str.regexp_string "<") class_name in 
+  if List.length splitted_string < 2 then failwith "Tools.clean_class_name: not a valid class name"
+    else List.nth splitted_string 0
+ 
+
 (******************************************************************************)
 (*                          Extensions for Time                               *)
 (******************************************************************************)

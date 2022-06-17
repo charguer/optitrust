@@ -575,17 +575,17 @@ and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cst
   let spec_annot = List.fold_left (fun acc c_annot -> match c_annot with | Class_constructor ck -> ck :: acc | _ -> acc) [] spec_annot in 
   
   let spec_annot = if List.length spec_annot = 1 then List.nth spec_annot 0 else fail None "astC_to_c.trm_class_constructor_to_doc: catastrophic error" in 
-
+  let explicit = ref empty in
+  let bd, _init_list = filter_out_from_seq (fun t -> trm_has_cstyle Member_initializer t ) body in
+      
   let dt = match spec_annot with 
     | Constructor_implicit -> equals ^^ blank 1 ^^ string  "implicit"
     | Constructor_default -> equals ^^ blank 1 ^^ string "default"
-    | Constructor_explicit -> equals ^^ blank 1 ^^ string "explicit"
+    | Constructor_explicit -> explicit := string "explicit"; decorate_trm bd
     | Constructor_simpl -> 
-      let bd, _init_list = filter_out_from_seq (fun t -> trm_has_cstyle Member_initializer t ) body in
       decorate_trm bd
-  
    in
-  (separate (blank 1) [string name; parens argd; dt]) ^^ dsemi
+  (separate (blank 1) [!explicit; string name; parens argd; dt]) ^^ dsemi
 
 (* [aux_class_destructor_to_doc ]: converst class constructor declaration to pprint document. *)
 and aux_class_destructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (body : trm) : document =
