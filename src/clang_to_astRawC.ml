@@ -877,24 +877,15 @@ and tr_decl_list (dl : decl list) : trms =
     let tl = tr_decl_list (d' :: dl) in
     td :: tl
 
-and tr_member_initialized_list ?((init_list :  constructor_initializer list) : trms =
-  let loc = loc_of_node e in
-  let typ : typ option =
-    let q = Clang.Type.of_node e in
-    try Some (tr_qual_type ~loc q) with
-    | _ ->
-      print_info loc "tr_expr: unable to translate type %s\n"
-        (Clang.Type.show q);
-      None
-  in
+(* [tr_member_initialized_list ~loc init_list]: translates class member initializer lists. *)
+and tr_member_initialized_list ?(loc : location = None) (init_list :  constructor_initializer list) : trms =
   let ctx = Some (get_ctx()) in
   List.map (fun {kind = k; init = ie} -> 
     match k with 
     | Member {indirect = b; field = {desc = f}} ->
       let ti = tr_expr ie in 
-      trm_set (trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get f)) [t_this]) (ti)
+      trm_add_cstyle Member_initializer (trm_set (trm_apps ~ctx (trm_unop (Unop_struct_get f)) [trm_this()]) (ti))
     | _ -> fail loc "Clang_to_astRawC.tr_member_initializer_list: only simple mmeber initializers are supported."
-  
   ) init_list 
 
 
@@ -1024,22 +1015,24 @@ and tr_decl (d : decl) : trm =
       then trm_add_cstyle Static_fun res 
       else if c then trm_add_cstyle Const_method res 
       else res
-  | Constructor { class_name = cn; parameters = {non_variadic = pl; _}; initializer_list = _; body = bd; implicit = ib; explicit = eb;  defaulted = db; _} -> 
+  | Constructor { class_name = cn; parameters = {non_variadic = pl; _}; initializer_list = il; body = bd; implicit = ib; explicit = eb;  defaulted = db; _} -> 
     let args = List.map (fun {decoration = _;
        desc = {qual_type = q; name = n; default = _}} -> (n,tr_qual_type ~loc q)) pl in 
     let tb = match bd with 
     | None -> trm_lit ~loc Lit_uninitialized
     | Some s -> tr_stmt s in
 
+    let t_il = tr_member_initialized_list ~loc il in 
 
-     let res = trm_let_fun ~loc cn (typ_unit ()) args tb in 
-     (* let res = trm_class_constructor cn args [] tb in  *)
+    let tb = insert_at_top_of_seq t_il tb in 
+
+    let res = trm_let_fun ~loc cn (typ_unit ()) args tb in 
      
-     if ib 
-      then trm_add_cstyle (Class_constructor Constructor_implicit) res
-      else if eb then trm_add_cstyle (Class_constructor Constructor_explicit) res 
-      else if db then trm_add_cstyle (Class_constructor Constructor_default) res
-      else trm_add_cstyle (Class_constructor Constructor_simpl) res
+    if ib 
+     then trm_add_cstyle (Class_constructor Constructor_implicit) res
+     else if eb then trm_add_cstyle (Class_constructor Constructor_explicit) res 
+     else if db then trm_add_cstyle (Class_constructor Constructor_default) res
+     else trm_add_cstyle (Class_constructor Constructor_simpl) res
 
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
     let rec contains_elaborated_type (q : qual_type) : bool =

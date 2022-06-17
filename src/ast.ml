@@ -321,6 +321,7 @@ and cstyle_annot =
   | Const_method  (* const methods *)
   | Constructed_init (* objects initialized with a constructor. *)
   | Class_constructor of constructor_kind 
+  | Member_initializer
 
 (* [constructor_kind]: special annotation for constructors *)
 and constructor_kind = 
@@ -3088,3 +3089,11 @@ let get_typ_arguments (t : trm) : typ list =
     | Typ_arguments tyl -> tyl 
     | _ -> acc
   ) [] c_annot
+
+(* [insert_at_top_of_seq tl t]: insert the list of trms [tl] at the top of sequence [t]. *)
+let insert_at_top_of_seq (tl : trm list) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl1 ->
+    let new_tl = Mlist.insert_sublist_at 0 tl tl1 in 
+    trm_alter ~desc:(Some (Trm_seq new_tl)) t
+  | _ -> fail t.loc "Internal.insert_at_top_of_seq: expected  a trm_seq "

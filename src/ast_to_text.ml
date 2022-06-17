@@ -530,6 +530,7 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Const_method -> string "Const_methdo"
  | Constructed_init -> string "Constructed_init"
  | Class_constructor ck -> print_constructor_kind ck
+ | Member_initializer -> string "Member_initializer"
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =
