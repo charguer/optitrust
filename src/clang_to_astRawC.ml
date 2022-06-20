@@ -102,6 +102,10 @@ let get_ctx () : ctx =
     ctx_label = !ctx_label;
     ctx_constr = !ctx_constr; }
 
+
+(* [redundant_decl]: a reference used for checking if the declaration is redundant or not. *)
+let redundant_decl = ref false 
+
 (* [get_typid_for_type ty]: gets the type id for type [tv]*)
 let get_typid_for_type (tv : typvar) : int  =
    let tid = String_map.find_opt tv !ctx_tconstr in
@@ -183,7 +187,7 @@ let get_typid_for_type (tv : typvar) : int  =
 let wrap_const ?(const : bool = false) (t : typ) : typ =
   if const then typ_const t else t
 
-  
+
 (* [tr_type_desc ~loc ~const ~tr_record_types]: translates ClanML C/C++ type decriptions to OptiTrust type descriptions,
     [loc] gives the location of the type in the file that has been translated,
     if [const] is true then it means [d] is a const type, similarly if [const] is false then [d] is not a const type *)
@@ -296,6 +300,7 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
     let tr_e = tr_expr e in 
     wrap_const ~const (typ_decl tr_e)
   | SubstTemplateTypeParm tys -> 
+    redundant_decl := true;
     wrap_const ~const (typ_template_param tys)
   
   | InjectedClassName {desc = q_d; _} ->  
@@ -920,6 +925,7 @@ and tr_decl (d : decl) : trm =
     trm_typedef ~loc ~ctx td
   | Function {linkage = _; function_type = t; nested_name_specifier = nns;
               name = n; body = bo; deleted = _; constexpr = _; _} ->
+    redundant_decl := false;
     let qpath = tr_nested_name_specifier ~loc nns in
     let s =
       begin match n with
@@ -933,7 +939,7 @@ and tr_decl (d : decl) : trm =
          exception_spec = _; _} = t in
     
     let tt = tr_type_desc ~loc (FunctionType t) in
-    begin match tt.typ_desc with
+    let res = begin match tt.typ_desc with
       | Typ_fun (args_t, out_t) ->
         begin match po with
           | None ->
@@ -964,8 +970,8 @@ and tr_decl (d : decl) : trm =
             trm_let_fun ~loc ~qpath s out_t  args tb
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
-    end 
-    
+    end in 
+    if !redundant_decl then trm_unit () else res 
   | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; _};
                static = st; const = c; _} ->
     let s = 
