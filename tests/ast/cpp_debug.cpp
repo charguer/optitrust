@@ -1,22 +1,14 @@
-template <typename A, typename B>
-struct Box {
-  A key;
-  B value;
-};
 
-class Box2 {
-  Box<int, bool> b;
-};
+#include <vector>
+#include <random>
 
-template <typename A, typename B>
-void update(Box<A, B>* b, A key, B value) {
-  b->key = key;
-  b->value = value;
-}
+int main(){
+    const int Size = 10000000;
+    std::vector<int> data(Size);
 
-int main() {
-  Box<int, bool> b;
-  update<int, bool>(&b, 1, true);
-  // update<int, bool>(&b, 1, true);
-  return 0;
+    std::mt19937 gen(0);
+    std::uniform_int_distribution<> dis(1, Size);
+
+
+    return 0;
 }

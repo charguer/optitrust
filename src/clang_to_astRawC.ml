@@ -179,7 +179,7 @@ let get_typid_for_type (tv : typvar) : int  =
   | GreaterEqual -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_ge))
   | AmpAmp -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_and))
   | PipePipe -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_or))
-  | PlusPlus -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_unop (Unop_pre_inc)))
+  | PlusPlus -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_unop (Unop_post_inc)))
   | Subscript -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop (Binop_array_get)))
   | _ -> fail loc "Clang_to_astRawC.overloaded_op: non supported operator"
 
@@ -1080,9 +1080,10 @@ and tr_decl (d : decl) : trm =
           let tq = tr_qual_type ~loc q in
           let f_name = trm_var (AstC_to_c.typ_to_string tq) in 
           let args = List.map tr_expr el in 
-          trm_add_cstyle Constructed_init (trm_apps f_name args)
-
-          (*  *)
+          begin match q.desc with 
+          | Elaborated _ -> trm_add_cstyle Constructed_init (trm_apps f_name args)
+          | _ -> tr_expr e
+          end
         | _ -> tr_expr e
         end
       end

@@ -349,7 +349,7 @@ let class_member_intro (t : trm) : trm =
     | Trm_let_fun (qv, ty, vl, body) when is_class_constructor t ->
       begin match body.desc with 
       | Trm_seq tl -> 
-        (* let tl = Mlist.(pop_front (pop_back tl)) in  *)
+        let tl = Mlist.(pop_front (pop_back tl)) in 
         let new_body = 
           if Mlist.is_empty tl 
             then trm_alter ~desc:(Some (Trm_val (Val_lit (Lit_uninitialized)))) body 

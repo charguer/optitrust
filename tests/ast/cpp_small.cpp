@@ -103,6 +103,7 @@ using namespace std;
 void test_using() {
   vector<int> v;
   v.push_back(3);
+  int a = v[0];
 }
 
 template<typename A, typename B> struct Box 
@@ -113,22 +114,14 @@ template<typename A, typename B> struct Box
 
 // typedef Box<int, bool> box;
 
-class Box2 {
-  Box<int,bool> b;
-};
-// b.update(1,true)
-
-
 template<typename A, typename B>
 void update(Box<A, B>* b, A key, B value) {
   b->key = key;
   b->value = value;
 }
-
 class Box2 {
-  Box<int, bool> b;
+  Box<int,bool> b;
   public:
-    
     void update1 (int key, bool value){
       update<int, bool> (&b, key, value);
     }
@@ -136,12 +129,10 @@ class Box2 {
 
 template <typename A> 
 class Inject {
-
   static void f(Inject x ) { 
     Inject<A> y;
     Inject z; // encoded as (Foo<A>@Annot_injected) y;
   }
-
 
 };
 

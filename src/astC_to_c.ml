@@ -674,7 +674,7 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
         let fd = 
         match rt with 
         | Record_field_member (lb, ty) -> typed_var_to_doc (lb, ty) ^^ semi
-        | Record_field_method t1 -> trm_to_doc t1 ^^ semi
+        | Record_field_method t1 -> trm_to_doc t1 
          in 
         if rt_annot <> !access_ctrl 
             then begin access_ctrl := rt_annot;acc @ [access_ctrl_to_doc !access_ctrl; fd ] end
@@ -870,10 +870,10 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
                     d1 ^^ brackets (d2)
                   | _ -> separate (blank 1) [d1; op_d; d2]
                   end
-              | Prim_unop Unop_pre_inc -> 
+              | Prim_unop Unop_post_inc -> 
                 if !print_optitrust_syntax
-                then op_d ^^ parens (d1)
-                else separate (blank 1) [op_d; d1]
+                then parens (d1) ^^ op_d
+                else separate (blank 1) [d1; op_d]
               | _ -> fail f.loc "AstC_to_c.apps_to_doc: binary_operators must have two arguments"
               end
           | _ -> 
