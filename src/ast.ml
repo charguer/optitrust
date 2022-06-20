@@ -1583,6 +1583,19 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
      (* return without value, continue, break *)
      | _ -> t
      end
+  | Trm_typedef td -> 
+    begin match td.typdef_body with 
+    | Typdef_record rfl ->
+      let rfl = List.map (fun (rf, rf_ann) -> 
+        match rf with 
+        | Record_field_method t1 ->  (Record_field_method (f false t1), rf_ann)
+        | _ -> (rf, rf_ann)
+      ) rfl in 
+      let td = {td with typdef_body = Typdef_record rfl} in 
+      trm_typedef ~annot ~loc td
+    | _ -> t
+    end
+
   | _ -> t
 
 (* TODO ARTHUR: think about how to factorize this.

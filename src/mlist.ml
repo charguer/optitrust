@@ -78,6 +78,10 @@ let partition (pred : 'a -> bool) (ml : 'a t) : ('a t * 'a t) =
   
 (***********************************************************************)
 
+(* [is_empty ml]: checks if [ml] is empty or not. *)
+let is_empty (ml :'a t) : bool =
+  length ml = 0
+
 (* [replace_at index x ml]: replaces the item at [index] in [ml] with element [x].*)
 let replace_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
   { ml with items = Xlist.update_nth index (fun _ -> x) ml.items }
@@ -143,11 +147,11 @@ let push_front (x : 'a) (ml : 'a t) : 'a t =
 let push_back (x : 'a) (ml : 'a t) : 'a t =
   insert_at (length ml) x ml
 
-
-
+(* [pop_front ml]: removes the first element from the mlist [ml]. *)
 let pop_front (ml : 'a t) : 'a t =
   remove 0 1 ml
 
+(* [pop_back ml]: removes the last element from the mlist [ml]. *)
 let pop_back (ml : 'a t) : 'a t =
   let ln = length ml in
   remove (ln - 1) 1 ml

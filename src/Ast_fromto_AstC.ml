@@ -320,7 +320,7 @@ let class_member_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
     | Trm_let_fun (qv, ty, vl, body) when is_class_constructor t ->
-      let this_mut =  if trm_has_cstyle Const_method t then Var_immutable else Var_mutable in
+      let this_mut = Var_mutable in
       let q_var = qv.qvar_var in
       let this_typ = typ_ptr_generated (typ_constr q_var ~tid:(Clang_to_astRawC.get_typid_for_type q_var)) in 
       let this_body = trm_apps (trm_var "malloc") [trm_var ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")")] in
@@ -330,15 +330,37 @@ let class_member_elim (t : trm) : trm =
       | Trm_seq tl -> 
         let new_tl = Mlist.push_front this_alloc tl in 
         let new_tl = Mlist.push_back ret_this new_tl in 
-        trm_alter ~desc:(Some (Trm_seq new_tl)) t
+        let new_body = trm_alter ~desc:(Some (Trm_seq new_tl)) t in 
+        trm_alter ~desc:(Some (Trm_let_fun (qv, this_typ, vl, new_body))) t
       | Trm_val (Val_lit Lit_uninitialized) -> 
         let tl = Mlist.of_list [this_alloc; ret_this] in 
-        trm_alter ~desc:(Some (Trm_seq tl)) t 
+        let new_body = trm_alter ~desc:(Some (Trm_seq tl)) t in
+        trm_alter ~desc:(Some (Trm_let_fun (qv, this_typ, vl, new_body))) t 
       | _ ->  fail t.loc "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
       end
     | _ -> trm_map aux t
   in aux t
   
+
+let class_memeber_intro (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match t.desc with 
+    | Trm_let_fun (qv, ty, vl, body) when is_class_constructor t ->
+      begin match body.desc with 
+      | Trm_seq tl -> 
+        let tl = Mlist.(pop_front (pop_back tl)) in 
+        let new_body = 
+          if Mlist.is_empty tl 
+            then trm_alter ~desc:(Some (Trm_val (Val_lit (Lit_uninitialized)))) body 
+            else trm_alter ~desc:(Some (Trm_seq tl)) body 
+          in 
+        trm_alter ~desc:(Some (Trm_let_fun (qv, typ_unit(), vl, new_body))) t
+
+      | _ -> fail t.loc "Ast_fromto_AstC.class_member_intro: ill defined class constructor"
+      end
+    | _ -> trm_map aux t 
+  in aux t
+
 
 
 
