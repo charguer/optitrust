@@ -17,6 +17,6 @@ void update(Box<A, B>* b, A key, B value) {
 int main() {
   Box<int, bool> b;
   update<int, bool>(&b, 1, true);
-  update<int, bool>(&b, 1, true);
+  // update<int, bool>(&b, 1, true);
   return 0;
 }

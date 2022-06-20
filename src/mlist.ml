@@ -75,7 +75,7 @@ let rev (ml : 'a t) : 'a t =
 let partition (pred : 'a -> bool) (ml : 'a t) : ('a t * 'a t) = 
   let ml_items_sat, ml_items = List.partition pred ml.items in
   (of_list ml_items_sat, of_list ml_items  )
-  
+
 (***********************************************************************)
 
 (* [is_empty ml]: checks if [ml] is empty or not. *)

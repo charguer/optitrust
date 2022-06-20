@@ -192,6 +192,7 @@ let wrap_const ?(const : bool = false) (t : typ) : typ =
     [loc] gives the location of the type in the file that has been translated,
     if [const] is true then it means [d] is a const type, similarly if [const] is false then [d] is not a const type *)
 let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_record_types : bool = true) (d : type_desc) : typ =
+  redundant_decl := false;
   match d with
   | Pointer q ->
     let t = tr_qual_type ~loc ~tr_record_types q in
@@ -348,7 +349,9 @@ and tr_stmt (s : stmt) : trm =
   let loc = loc_of_node s in
   let ctx = Some (get_ctx ()) in
   match s.desc with
-  | Compound sl -> trm_seq_nomarks ~loc ~ctx (List.map tr_stmt sl)
+  | Compound sl -> 
+    let tl = List.map tr_stmt sl in 
+    trm_seq_nomarks ~loc ~ctx tl
   | If {init = None; condition_variable = None; cond = c; then_branch = st;
         else_branch = seo} ->
     let tc = tr_expr c in
@@ -925,7 +928,7 @@ and tr_decl (d : decl) : trm =
     trm_typedef ~loc ~ctx td
   | Function {linkage = _; function_type = t; nested_name_specifier = nns;
               name = n; body = bo; deleted = _; constexpr = _; _} ->
-    redundant_decl := false;
+    
     let qpath = tr_nested_name_specifier ~loc nns in
     let s =
       begin match n with
@@ -971,7 +974,7 @@ and tr_decl (d : decl) : trm =
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in 
-    if !redundant_decl then trm_unit () else res 
+    if !redundant_decl then trm_add_cstyle Redundant_decl res else res 
   | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; _};
                static = st; const = c; _} ->
     let s = 
@@ -1119,7 +1122,6 @@ and tr_decl (d : decl) : trm =
       | _ -> fail loc "Clang_to_astRawC.tr_decl: only identifiers allowed for type aliases"
     end
   | LinkageSpec {language = lang;decls = dl} ->
-
      let dls = tr_decl_list dl in
      let lang = match lang with
      | C -> "C"

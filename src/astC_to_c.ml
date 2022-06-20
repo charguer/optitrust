@@ -396,6 +396,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_seq tl ->
        let tl_m = tl.marks in
        let tl = Mlist.to_list tl in
+       let tl = List.filter (fun t -> not (trm_has_cstyle Redundant_decl t)) tl in
        if trm_has_cstyle Multi_decl t
           then dattr ^^ multi_decl_to_doc loc tl
           else if trm_is_nobrace_seq t

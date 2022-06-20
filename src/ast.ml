@@ -323,6 +323,7 @@ and cstyle_annot =
   | Class_constructor of constructor_kind 
   | Class_destructor of destructor_kind
   | Member_initializer
+  | Redundant_decl 
 
 (* [constructor_kind]: special annotation for constructors *)
 and constructor_kind = 
