@@ -1250,11 +1250,11 @@ let trm_pass_pragmas (t1 : trm) (t2 : trm) : trm =
   let t2_annot = {t2.annot with trm_annot_pragma = t1_pragmas @ t2_pragmas} in
   {t2 with annot = t2_annot}
 
+(**** CStyle  ****)
+
 (* [trm_get_cstyles t]: returns all cstyle annotations of trm [t]. *)
 let trm_get_cstyles (t : trm) : cstyle_annot list =
   t.annot.trm_annot_cstyle
-
-(**** CStyle  ****)
 
 (* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)
 let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
@@ -1279,11 +1279,11 @@ let trm_has_cstyle (cs : cstyle_annot) (t : trm) : bool =
   let cstyles = trm_get_cstyles t in
   List.mem cs cstyles
 
+
 (* [annot_has_cstyle cs t_ann]: checks if [cs] is constained in [t_ann]. *)
 let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
   let cstyles = t_ann.trm_annot_cstyle in 
   List.mem cs cstyles 
-
 
 (**** Files  ****)
 
@@ -3113,3 +3113,6 @@ let filter_out_from_seq (f : trm -> bool) (t : trm) : (trm * trms)  =
     (trm_alter ~desc:(Some (Trm_seq tl_to_keep)) t , Mlist.to_list tl_to_remove)
   | _  -> (t, [])
   
+(* [is_class_constructor t] checks if [t] is a class constructor declaration or definition. *)
+let is_class_constructor (t : trm) : bool =
+  List.exists (function  | Class_constructor _ -> true | _ -> false) (trm_get_cstyles t)

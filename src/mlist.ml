@@ -135,6 +135,24 @@ let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
 let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
   insert_sublist_at index [x] ml
 
+(* [push_front x ml]: inserts the element [x] at the beginning of the mlist [ml]. *)
+let push_front (x : 'a) (ml : 'a t) : 'a t =
+  insert_at 0 x ml
+
+(* [push_back x ml]: inserts the element [x] at the end of the mlist [ml]. *)
+let push_back (x : 'a) (ml : 'a t) : 'a t =
+  insert_at (length ml) x ml
+
+
+
+let pop_front (ml : 'a t) : 'a t =
+  remove 0 1 ml
+
+let pop_back (ml : 'a t) : 'a t =
+  let ln = length ml in
+  remove (ln - 1) 1 ml
+
+
 (* [update_nth n transfo ml]: applies function [transfo] at the item with index [n] in mlist [ml]. *)
 let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =
   { ml with items = Xlist.update_nth n transfo ml.items }
