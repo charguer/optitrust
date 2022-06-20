@@ -315,7 +315,7 @@ let method_call_intro (t : trm) : trm =
    in aux t
 
 
-(* [class_memeber_elim t]:  *)
+(* [class_member_elim t]: encoding for class members. *)
 let class_member_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
@@ -323,9 +323,9 @@ let class_member_elim (t : trm) : trm =
       let this_mut = Var_mutable in
       let q_var = qv.qvar_var in
       let this_typ = typ_ptr_generated (typ_constr q_var ~tid:(Clang_to_astRawC.get_typid_for_type q_var)) in 
-      let this_body = trm_apps (trm_var "malloc") [trm_var ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")")] in
+      let this_body = trm_apps (trm_var "malloc") [trm_var ("sizeof(" ^ q_var ^ ")")] in
       let this_alloc = trm_let this_mut ("this", this_typ) this_body in 
-      let ret_this = trm_ret (Some (trm_var "this")) in 
+      let ret_this = trm_ret (Some (trm_var_get "this")) in 
       begin match body.desc with 
       | Trm_seq tl -> 
         let new_tl = Mlist.push_front this_alloc tl in 
@@ -342,13 +342,14 @@ let class_member_elim (t : trm) : trm =
   in aux t
   
 
-let class_memeber_intro (t : trm) : trm =
+(* [class_member_intro t]: decoding for class members. *)
+let class_member_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
     | Trm_let_fun (qv, ty, vl, body) when is_class_constructor t ->
       begin match body.desc with 
       | Trm_seq tl -> 
-        let tl = Mlist.(pop_front (pop_back tl)) in 
+        (* let tl = Mlist.(pop_front (pop_back tl)) in  *)
         let new_body = 
           if Mlist.is_empty tl 
             then trm_alter ~desc:(Some (Trm_val (Val_lit (Lit_uninitialized)))) body 
@@ -361,19 +362,16 @@ let class_memeber_intro (t : trm) : trm =
     | _ -> trm_map aux t 
   in aux t
 
-
-
-
 (***************************************  Main entry points *********************************************)
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let cfeatures_elim (t : trm) : trm =
-  cseq_items_void_type (caddress_elim (stackvar_elim (infix_elim (method_call_elim t))))
+  class_member_elim (cseq_items_void_type (caddress_elim (stackvar_elim (infix_elim (method_call_elim t)))))
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
-  method_call_intro (infix_intro (stackvar_intro (caddress_intro t)))
+  class_member_intro (method_call_intro (infix_intro (stackvar_intro (caddress_intro t))))
 
 (* Note: recall that currently const references are not supported
    Argument of why const ref is not so useful
