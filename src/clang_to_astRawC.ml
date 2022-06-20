@@ -298,7 +298,10 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
   | SubstTemplateTypeParm tys -> 
     wrap_const ~const (typ_template_param tys)
   
-  | InjectedClassName {desc = q_d; _} ->  wrap_const ~const (tr_type_desc ~loc q_d) (* @annot_injected *)
+  | InjectedClassName {desc = q_d; _} ->  
+    let tq = tr_type_desc ~loc q_d in
+    let tq = typ_add_attribute Injected tq in 
+    wrap_const ~const tq (* @annot_injected *)
   
   | _ -> fail loc "Clang_to_astRawC.tr_type_desc: not implemented"
 

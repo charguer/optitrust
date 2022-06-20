@@ -362,6 +362,7 @@ and trm_annot = {
 and attribute =
   | Alignas of trm (* alignas(64) double* deposit; *)
   | GeneratedTyp   (* pointers used only for encoding stack variables*)
+  | Injected       (* injected type *)
   | Others         (* TO BE CONTINUED ... *)
 
 (* [record_type]: C++ record types *)
@@ -1065,6 +1066,10 @@ let typ_ptr_inv (ty : typ) : typ option =
 (* [typ_add_attribute att ty]: adds the attribute [att] to the type [ty] *)
 let typ_add_attribute (att : attribute)(ty : typ) : typ =
   {ty with typ_attributes = att :: ty.typ_attributes}
+
+(* [typ_has_attribute att ty]: checks if [ty] has attribute [att]. *)
+let typ_has_attribute (att : attribute) (ty : typ) : bool =
+  List.mem att ty.typ_attributes
 
 (* [TransfoError]: exception raised in case a transformation fails *)
 exception TransfoError of string

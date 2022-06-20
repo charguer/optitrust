@@ -84,12 +84,15 @@ let print_stringreprs (m : stringreprs) : unit =
 **************************************************************************************************************)
 
 (* [typ_desc_to_doc t]: converts ast type descriptions to pprint documents. *)
-let rec typ_desc_to_doc (t : typ_desc) : document =
+let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document =
   match t with
   | Typ_const t when is_typ_ptr t -> typ_to_doc t ^^ string " const"
   | Typ_const t -> string " const "  ^^ typ_to_doc t
   | Typ_constr (tv, _,  args) -> 
-    let d_args = if args = [] then empty else langle ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] (List.map typ_to_doc args) ^^ rangle in
+    
+    let d_args = if args = [] || is_injected
+      then empty
+      else langle ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] (List.map typ_to_doc args) ^^ rangle in
     string tv.qvar_str ^^ d_args
   | Typ_auto  -> string "auto"
   | Typ_unit -> string "void"
@@ -138,7 +141,8 @@ and typ_annot_to_doc (a : typ_annot) : document =
 
 (* [typ_to_doc]: converts ast types to pprint document. *)
 and typ_to_doc (t : typ) : document =
-  let d = typ_desc_to_doc t.typ_desc in
+  let is_injected = typ_has_attribute Injected t in 
+  let d = typ_desc_to_doc ~is_injected t.typ_desc in
   let dannot =
     List.fold_left (fun d' a -> typ_annot_to_doc a ^^ blank 1 ^^ d') empty
       t.typ_annot
@@ -268,7 +272,7 @@ and attr_to_doc (a : attribute) : document =
   match a with
   (* | Alignas t -> string "_Alignas" ^^ parens (decorate_trm t). *)
   | Alignas t -> string "alignas" ^^ parens (decorate_trm t)
-  | GeneratedTyp -> blank 1
+  | GeneratedTyp | Injected -> empty  
   | Others -> empty
 
 (* [decorate_trm ~semicolon ~prec ~print_struct_init_type t]:

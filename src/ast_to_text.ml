@@ -187,6 +187,7 @@ and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
      string "Alignas" ^^ blank 1 ^^ print_trm ~only_desc t
   | GeneratedTyp ->
     string "GeneratedTyp" ^^ blank 1
+  | Injected -> string "Injected class type"  ^^ blank 1
   | Others -> empty
 
 (* [print_qvar]: converts [qx] into a docuemnt. *)
