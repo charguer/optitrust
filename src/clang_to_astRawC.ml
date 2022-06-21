@@ -868,7 +868,6 @@ and tr_decl_list (dl : decl list) : trms =
             let ty = {ft with typ_attributes = al} in
             (Record_field_member (fn, ty), Access_public)
           | _ -> 
-            Printf.printf "Failing from here\n";
             fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in struct declaration"
 
         ) fl in

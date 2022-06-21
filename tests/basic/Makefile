@@ -23,6 +23,7 @@ TESTS_WITH_DOC := \
 	cast_insert.ml \
 	expr_replace.ml \
 	expr_replace_fun.ml \
+	flow_insert_if.ml \
 	function_beta.ml \
 	function_bind_intro.ml \
 	function_dsp_call.ml \
@@ -101,7 +102,6 @@ TESTS_NODOC := \
 	matrix_local_name_obj.ml \
 
 TESTS_TO_FIX := \
-	flow_insert_if.ml \
 	struct_reorder_fields.ml \
 	struct_update_fields_type.ml \
 	matrix_insert_access_dim_index.ml \
