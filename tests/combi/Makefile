@@ -65,6 +65,7 @@ TESTS_WITH_DOC := \
 
 
 TESTS_WITHOUT_DOC := \
+	apac_parallel_task_group.ml \
 	matrix_delocalize_obj.ml \
 
 	

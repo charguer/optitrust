@@ -98,8 +98,10 @@ TESTS_WITH_DOC := \
 
 
 TESTS_NODOC := \
+	apac_use_goto_for_return.ml \
 	matrix_delocalize_obj.ml \
 	matrix_local_name_obj.ml \
+
 
 TESTS_TO_FIX := \
 	struct_reorder_fields.ml \

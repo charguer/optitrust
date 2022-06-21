@@ -26,7 +26,7 @@ If the function returns values of type T:
   using one a call (or several calls) to  Omp.op  for the appropriate op
 
 
-*) Function.get_prototype t
+*) Function.get_prototype t 
 
 - where t is a function def
 - return the types of the arguments and the return type

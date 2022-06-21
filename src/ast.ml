@@ -3135,3 +3135,35 @@ let filter_out_from_seq (f : trm -> bool) (t : trm) : (trm * trms)  =
 (* [is_class_constructor t] checks if [t] is a class constructor declaration or definition. *)
 let is_class_constructor (t : trm) : bool =
   List.exists (function  | Class_constructor _ -> true | _ -> false) (trm_get_cstyles t)
+
+
+(* [get_function_prototype t]: returns the return type of the function and the types of all its arguments. *)
+let get_function_prototype (t : trm) : (typ * typ list) option =
+  match t.desc with 
+  | Trm_let_fun (f, ret_ty, args, body) -> 
+    let args_ty = List.map snd args in
+    Some (ret_ty, args_ty)
+  | _ -> None 
+
+type dep_kind = 
+  | Dep_kind_in 
+  | Dep_kind_out
+  | Dep_kind_inout
+  | Dep_kind_outin
+  | Dep_kind_sink
+  | Dep_kind_source
+
+type arg_dep = {
+  arg_dep_var : var;
+  arg_dep_typ : typ;
+  arg_dep_kind : dep_kind;
+}
+
+type arg_deps = arg_dep list
+
+(* let get_arg_dependencies (t : trm) : arg_deps =
+  match get_function_prototype t with 
+  | Some (ty, tyl) -> 
+    List.map (fun ty )tyl
+
+  | None -> fail t.loc "Ast.get_arg_dependencies: expected a function definition" *)
