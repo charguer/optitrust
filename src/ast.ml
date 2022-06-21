@@ -505,13 +505,21 @@ and proc_bind =
   | Close
   | Spread
 
+(* [dep]:  *)
+and dep = 
+  | Dep_var of var
+  | Dep_ptr of dep
+
+(* [deps]: *)
+and deps = dep list
+
 (* [dependecy_type]: dependency kind *)
 and dependence_type =
-  | In of vars
-  | Out of vars
-  | Inout of vars
-  | Outin of vars
-  | Sink of vars
+  | In of deps
+  | Out of deps
+  | Inout of deps
+  | Outin of deps
+  | Sink of deps
   | Source
 
 (* [clause]: OpenMP clauses *)
@@ -551,7 +559,7 @@ and clause =
   | Taskgroup_c
   | Proc_bind of proc_bind
   | Priority of var
-  | Depend of dependence_type
+  | Depend of dependence_type list
   | Grainsize of int
   | Mergeable
   | Nogroup
@@ -3138,11 +3146,10 @@ let is_class_constructor (t : trm) : bool =
 
 
 (* [get_function_prototype t]: returns the return type of the function and the types of all its arguments. *)
-let get_function_prototype (t : trm) : (typ * typ list) option =
+let get_function_prototype (t : trm) : (typ * typed_vars) option =
   match t.desc with 
   | Trm_let_fun (f, ret_ty, args, body) -> 
-    let args_ty = List.map snd args in
-    Some (ret_ty, args_ty)
+    Some (ret_ty, args)
   | _ -> None 
 
 type dep_kind = 
@@ -3161,9 +3168,29 @@ type arg_dep = {
 
 type arg_deps = arg_dep list
 
-(* let get_arg_dependencies (t : trm) : arg_deps =
+let get_arg_dependencies (t : trm) : arg_deps =
   match get_function_prototype t with 
-  | Some (ty, tyl) -> 
-    List.map (fun ty )tyl
+  | Some (ty, args) -> 
+    List.map (fun (x, ty) -> 
+      { arg_dep_var = x;
+        arg_dep_typ = ty;
+        arg_dep_kind = Dep_kind_in (* TODO: Michel, dep_kind_of_typ  *)}
+     ) args
+  | None -> fail t.loc "Ast.get_arg_dependencies: expected a function definition"
 
-  | None -> fail t.loc "Ast.get_arg_dependencies: expected a function definition" *)
+type sorted_arg_deps = {
+  dep_in : deps;
+  dep_out : deps;
+  dep_inout : deps;
+  dep_outin : deps;
+  (* LATER: add other fields. *)
+}
+
+
+(* [TODO: Michel] *)
+let sort_arg (arg_deps : arg_deps) : sorted_arg_deps = 
+ { dep_in = [];
+   dep_out = [];
+   dep_inout = [];
+   dep_outin = [];}
+

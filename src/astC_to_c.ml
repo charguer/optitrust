@@ -951,14 +951,24 @@ and proc_bind_to_doc (pb : proc_bind) : document =
   | Close -> string "close"
   | Spread -> string "spread"
 
+and dep_to_doc (d : dep) : document =
+  match d with 
+  | Dep_var s -> string s
+  | Dep_ptr d -> star ^^ dep_to_doc d
+
 (* [dependence_type_to_doc dp]: OpenMP variable dependence type to pprint document *)
 and dependece_type_to_doc (dp : dependence_type) : document =
   match dp with
-  | In vl -> string "in" ^^ colon ^^ blank 1 ^^ string ( list_to_string ~sep:"," ~bounds: ["";""] vl)
-  | Out vl -> string "out" ^^ colon ^^ blank 1 ^^ string ( list_to_string ~sep:"," ~bounds: ["";""] vl)
-  | Inout vl -> string "inout" ^^ colon ^^ blank 1 ^^ string ( list_to_string ~sep:"," ~bounds: ["";""] vl)
-  | Outin vl -> string "outin" ^^ colon ^^ blank 1 ^^ string ( list_to_string ~sep:"," ~bounds: ["";""] vl)
-  | Sink vl -> string "sink" ^^ colon ^^ blank 1 ^^ string ( list_to_string ~sep:"," ~bounds: ["";""] vl)
+  | In vl -> let vl = List.map dep_to_doc vl in 
+    string "in" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl)
+  | Out vl -> let vl = List.map dep_to_doc vl in 
+    string "out" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl)
+  | Inout vl -> let vl = List.map dep_to_doc vl in 
+    string "inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl)
+  | Outin vl -> let vl = List.map dep_to_doc vl in 
+    string "outin" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl)
+  | Sink vl -> let vl = List.map dep_to_doc vl in 
+    string "sink" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl)
   | Source -> string "source"
 
 (* [clause_to_doc cl]: OpenMP clause to pprint document *)
@@ -995,7 +1005,9 @@ and clause_to_doc (cl : clause) : document =
   | Taskgroup_c -> string "taskgroup"
   | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)
   | Priority i -> string "priority" ^^ parens (string i)
-  | Depend dp -> string "depend" ^^ parens (dependece_type_to_doc dp)
+  | Depend dp -> 
+    let dpl = Tools.list_to_doc (List.map dependece_type_to_doc dp) in 
+    string "depend" ^^ parens (dpl)
   | Grainsize i -> string "grainsize" ^^ parens (string (string_of_int i))
   | Mergeable -> string "mergeable"
   | Nogroup -> string "nogroup"
