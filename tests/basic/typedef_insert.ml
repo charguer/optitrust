@@ -1,5 +1,6 @@
 open Optitrust
 open Target
+open Ast
 
 let _ = Run.doc_script_cpp (fun _ ->
 
@@ -15,9 +16,7 @@ int a = 0;
 
 let _ = Run.script_cpp (fun _ ->
 
-    let td = Ast.typdef_prod [
-        ("x", Ast.typ_int ());
-        ("y", Ast.typ_int ())] in
+    let td = Ast.typdef_record [(Record_field_member ("x", typ_int()), Access_public); (Record_field_member ("y", typ_int()), Access_public)] in
     !! Typedef_basic.insert "vect" td [tAfter; cVarDef "M"];
     !! Typedef_basic.insert "myvect" (Typdef_alias (ty "vect" )) [tAfter; cTypDef "vect"];
 

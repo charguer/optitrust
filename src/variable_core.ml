@@ -72,9 +72,24 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
             end
           else fail dl.loc "Variable_core.unfold_aux: only const variables are safe to unfold"
       end
+    (* qvar_inv_var (qx : qvar) : var option =
+         if qx.qvar_path = [] then Some qx.qvar_var
+           else None
+        M :: f(int x)
+
+        Target: 
+          cFunDef "f" shouldn't match
+
+          cFunDef "M :: f" 
+          cFunDef ~qpath:["M"] "f"
+          cFunDef ~qvar:(qvar ["M"] "f") ""
+
+
+    
+     *)
     | Trm_let_fun (f, _, _, _) ->
       if accept_functions
-        then Internal.subst_var f dl t
+        then Internal.subst_var f.qvar_var dl t
         else fail dl.loc "Varialbe_core.unfold_aux: to replace function calls with their declaration you need to set accept_functions arg to true"
     | _ -> fail t.loc "Variable_core.unfodl_aux: expected a target to a variable or function definition"
   in
@@ -107,12 +122,33 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
     end in
     let rec aux (t1 : trm) : trm =
       match t1.desc with
-      | Trm_var (vk, y) when y = x -> trm_replace (Trm_var (vk, new_name)) t
+      | Trm_var (vk, y) when (is_qvar_var y x) -> 
+         let q_new_name = qvar_build new_name [] in 
+          trm_replace (Trm_var (vk, q_new_name)) t
       | _ -> trm_map aux t1
     in aux t
   in
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
+
+(* 
+
+  instead of when y = x
+  when qvar_eq y x 
+    ignores the string repr in the comparison
+    
+
+
+
+    M :: f(int x)
+
+    rename ~new_name:"N :: g" [cFunDef "M :: f"];
+
+
+
+ *)
+
+
 
 (* [rename new_name index t p]: applies [rename_aux] at trm [t] with path [p]. *)
 let rename (new_name : var) (index : int): Transfo.local =
@@ -172,7 +208,7 @@ exception Init_attach_occurrence_below_control
 let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
   let error = "Variable_core.init_attach_axu: expected the surrounding sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
-    let lfront, trm_to_change, lback  = Internal.get_trm_and_its_relatives index tl in
+    let lfront, trm_to_change, lback  = Internal.get_item_and_its_relatives index tl in
     let error = "Variable_core.init_attach_aux: expected a variable declaration." in
     let (_, x, tx, _) = trm_inv ~error trm_let_inv trm_to_change in
     let tg = [nbAny;cSeq (); cStrict;cWriteVar x] in
@@ -386,7 +422,7 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
       let _, t1 = aux false t in t1
       in
     match t.desc with
-    | Trm_var (_, y) when y = x -> (true, t)
+    | Trm_var (_, y) when (is_qvar_var y x) -> (true, t)
     | Trm_apps (_, [t1]) when is_get_operation t ->
       let r, t1' = aux true t1 in
       if r then (true, t1') else (false, trm_get t1')
@@ -404,7 +440,7 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
 (* [remove_get_operations_on_var_temporary x t]: to be removed. *)
 let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (* ARTHUR *)
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [{desc = Trm_var (_,y);_}as ty]) when y = x -> ty
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [{desc = Trm_var (_,y);_}as ty]) when (is_qvar_var y x) -> ty
   | _ -> trm_map (remove_get_operations_on_var_temporary x) t
 
 (* [Variable_to_const_abort]: exception raised by [from_to_const_aux]. *)
@@ -419,7 +455,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
 
-    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
+    let lfront, dl, lback = Internal.get_item_and_its_relatives index tl in
     begin match dl.desc with
     | Trm_let (vk, (x, tx), init) ->
       let update_seq (new_dl : trm) (new_lback : trm mlist) (new_lfront : trm mlist) : trm =
@@ -450,7 +486,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
               begin match t1.desc with
               | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
                 begin match ls.desc with
-                | Trm_var (_, y) when y = x -> fail ls.loc "Variable_core.to_const_aux: variables with
+                | Trm_var (_, y) when (is_qvar_var y x) -> fail ls.loc "Variable_core.to_const_aux: variables with
                                      one or more write operations can't be converted to immutable ones"
                 | _ -> if contains_occurrence x ls 
                             then fail ls.loc "Variable_core.to_const_aux: struct instances with 

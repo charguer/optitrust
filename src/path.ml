@@ -262,8 +262,9 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_array (Mlist.update_nth n aux tl)}
        | Dir_seq_nth n, Trm_seq tl ->
           { t with desc = Trm_seq (Mlist.update_nth n aux tl) }
-       | Dir_struct_nth n, Trm_struct tl ->
-          { t with desc = Trm_struct (Mlist.update_nth n aux tl)}
+       | Dir_struct_nth n, Trm_record tl ->
+          let aux (lb, t1) = (lb, aux t1) in
+          { t with desc = Trm_record (Mlist.update_nth n aux tl)}
        | Dir_cond, Trm_if (cond, then_t, else_t) ->
           { t with desc = Trm_if (aux cond, then_t, else_t)}
        | Dir_cond, Trm_while (cond, body) ->
@@ -320,10 +321,10 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_arg_nth n, Trm_let_fun (x, tx, txl, body) ->
           let txl' =
             Xlist.update_nth n
-              (fun (x, tx) ->
-                let t' = aux (trm_var ~loc:t.loc x) in
+              (fun (x1, tx) ->
+                let t' = aux (trm_var ~loc:t.loc x1) in
                 match t'.desc with
-                | Trm_var (_, x') -> (x', tx)
+                | Trm_var (_,  x') -> (x'.qvar_var, tx)
                 | _ ->
                    fail t.loc ("Path.apply_on_path: transformation must preserve fun arguments")
               )
@@ -333,11 +334,11 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         | Dir_name , Trm_let (vk,(x,tx),body) ->
           let t' = aux (trm_var ~loc:t.loc x) in
           begin match t'.desc with
-          | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x', tx), body)}
+          | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x'.qvar_var, tx), body)}
           | _ -> fail t.loc "Path.apply_on_path: transformation must preserve variable names"
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body) ->
-          let t' = aux (trm_var ~loc:t.loc x) in
+          let t' = aux (trm_var ~loc:t.loc ~qvar:x "") in
           begin match t'.desc with
           | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body)}
           | _ ->
@@ -396,8 +397,8 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
             (fun nth_t -> aux nth_t ((decl_before n tl)@ctx))
        | Dir_array_nth n, Trm_array tl ->
           app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux nth_t ctx)
-       | Dir_struct_nth n, Trm_struct tl ->
-          app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux nth_t ctx)
+       | Dir_struct_nth n, Trm_record tl ->
+          app_to_nth loc (Xlist.split_pairs_snd (Mlist.to_list tl)) n (fun nth_t -> aux nth_t ctx)
        | Dir_cond, Trm_if (cond, _, _)
          | Dir_cond, Trm_while (cond, _)
          | Dir_cond, Trm_do_while (_, cond)
@@ -463,8 +464,9 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
        | Dir_arg_nth n, Trm_let_fun (_, _, arg, _) ->
           app_to_nth loc arg n
             (fun (x, _) -> aux (trm_var ~loc x) ctx)
+       | Dir_name, Trm_let_fun (x, _, _, _) -> 
+          aux (trm_var ~loc ~qvar:x "") ctx
        | Dir_name , Trm_let (_,(x,_),_)
-         | Dir_name, Trm_let_fun (x, _, _, _)
          | Dir_name, Trm_goto x ->
           aux (trm_var ~loc x) ctx
        | Dir_name, Trm_typedef td ->

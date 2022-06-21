@@ -29,9 +29,9 @@ let get_varkind (env : env) (x : var) : varkind =
   | Some m -> m
   | _ -> Var_immutable
 
-(* [is_var_mutable env x]: checks if variable [x] is mutable or not *)
-let is_var_mutable (env : env) (x : var) : bool =
-  get_varkind env x = Var_mutable
+(* [is_qvar_mutable env x]: checks if variable [x] is mutable or not *)
+let is_qvar_mutable (env : env) (x : qvar) : bool =
+  get_varkind env x.qvar_var = Var_mutable
 
 (* [env_extend env e varkind]: adds variable [e] into environment [env] *)
 let env_extend (env : env) (e : var) (varkind : varkind) : env =
@@ -79,7 +79,7 @@ let stackvar_elim (t : trm) : trm =
     trm_simplify_addressof_and_get
     begin match t.desc with
     | Trm_var (_, x) ->
-      if is_var_mutable !env x
+      if is_qvar_mutable !env x
         then trm_get (trm_replace (Trm_var (Var_mutable, x)) t)
         else trm_replace (Trm_var (Var_immutable, x)) t
     | Trm_let (_, (x, ty), tbody) ->
@@ -94,7 +94,8 @@ let stackvar_elim (t : trm) : trm =
       | None ->
         begin match xm with
         | Var_mutable ->
-          trm_add_cstyle Stackvar (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty), trm_new ty (aux tbody) )) t)
+          let new_body = if trm_has_cstyle Constructed_init tbody then aux tbody else trm_new ty (aux tbody) in 
+          trm_add_cstyle Stackvar (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty), new_body )) t)
         | Var_immutable ->
           trm_map aux t
         end
@@ -102,7 +103,7 @@ let stackvar_elim (t : trm) : trm =
     | Trm_seq _ when not (trm_is_nobrace_seq t) -> onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
       (* function names are by default immutable *)
-      add_var env f Var_immutable;
+      add_var env f.qvar_var Var_immutable;
       onscope env t (fun t -> List.iter (fun (x, _tx) ->
        let mut = Var_immutable in (* if is_typ_ptr tx then Var_mutable else Var_immutable in *)
        add_var env x mut) targs; trm_map aux t)
@@ -129,7 +130,7 @@ let stackvar_intro (t : trm) : trm =
     trm_simplify_addressof_and_get
     begin match t.desc with
     | Trm_var (_, x) ->
-      if is_var_mutable !env x
+      if is_qvar_mutable !env x
         then trm_address_of (trm_replace (Trm_var (Var_mutable, x)) t)
         else t
     | Trm_let (_, (x, tx), tbody) ->
@@ -140,6 +141,8 @@ let stackvar_intro (t : trm) : trm =
           begin match tx.typ_desc , tbody.desc with
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_new _));_}, [tbody1])  ->
               trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody1)) t)
+          | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, _  when trm_has_cstyle Constructed_init tbody ->
+              trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody)) t)
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
           end
       else if trm_has_cstyle Reference t then
@@ -152,14 +155,14 @@ let stackvar_intro (t : trm) : trm =
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
-      add_var env f Var_immutable;
+      add_var env f.qvar_var Var_immutable;
       onscope env t (fun t ->
       List.iter (fun (x, _tx) -> let mut = Var_immutable in (add_var env x mut)) targs; trm_map aux t)
     | Trm_for (l_range, _) ->
       let (index, _, _, _, _, _) = l_range in
       onscope env t (fun t -> begin add_var env index Var_immutable; trm_map aux t end)
     | Trm_for_c _ -> onscope env t (fun t -> trm_map aux t)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_var_mutable !env x  -> t1
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_qvar_mutable !env x  -> t1
     | _ -> trm_map aux t
     end in
    aux t
@@ -288,16 +291,87 @@ let infix_intro (t : trm) : trm =
     | _ -> trm_map aux t
   in aux t
 
+
+(* [method_elim t]: encodes class method calls.  *)
+let method_call_elim (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match t.desc with 
+    | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base])}, args) ->
+       trm_add_cstyle Method_call (trm_apps (trm_var f) ([base] @ args))
+    | _ -> trm_map aux t
+   in aux t
+
+
+(* [method_call_intro t]: decodes class methods calls. *)
+let method_call_intro (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match t.desc with 
+    | Trm_apps ({desc = Trm_var (_, f)}, args) when trm_has_cstyle Method_call t ->
+      if List.length args < 1 then fail t.loc "Ast_fromto_AstC: method_call_intro: bad encodings.";
+      let base, args = Xlist.uncons args in 
+      let struct_access = trm_struct_get base f.qvar_var in
+      trm_alter ~desc:(Some (Trm_apps (struct_access, args))) t
+    | _ -> trm_map aux t 
+   in aux t
+
+
+(* [class_member_elim t]: encoding for class members. *)
+let class_member_elim (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match t.desc with 
+    | Trm_let_fun (qv, ty, vl, body) when is_class_constructor t ->
+      let this_mut = Var_mutable in
+      let q_var = qv.qvar_var in
+      let this_typ = typ_ptr_generated (typ_constr q_var ~tid:(Clang_to_astRawC.get_typid_for_type q_var)) in 
+      let this_body = trm_apps (trm_var "malloc") [trm_var ("sizeof(" ^ q_var ^ ")")] in
+      let this_alloc = trm_let this_mut ("this", this_typ) this_body in 
+      let ret_this = trm_ret (Some (trm_var_get "this")) in 
+      begin match body.desc with 
+      | Trm_seq tl -> 
+        let new_tl = Mlist.push_front this_alloc tl in 
+        let new_tl = Mlist.push_back ret_this new_tl in 
+        let new_body = trm_alter ~desc:(Some (Trm_seq new_tl)) t in 
+        trm_alter ~desc:(Some (Trm_let_fun (qv, this_typ, vl, new_body))) t
+      | Trm_val (Val_lit Lit_uninitialized) -> 
+        let tl = Mlist.of_list [this_alloc; ret_this] in 
+        let new_body = trm_alter ~desc:(Some (Trm_seq tl)) t in
+        trm_alter ~desc:(Some (Trm_let_fun (qv, this_typ, vl, new_body))) t 
+      | _ ->  fail t.loc "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
+      end
+    | _ -> trm_map aux t
+  in aux t
+  
+
+(* [class_member_intro t]: decoding for class members. *)
+let class_member_intro (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match t.desc with 
+    | Trm_let_fun (qv, ty, vl, body) when is_class_constructor t ->
+      begin match body.desc with 
+      | Trm_seq tl -> 
+        let tl = Mlist.(pop_front (pop_back tl)) in 
+        let new_body = 
+          if Mlist.is_empty tl 
+            then trm_alter ~desc:(Some (Trm_val (Val_lit (Lit_uninitialized)))) body 
+            else trm_alter ~desc:(Some (Trm_seq tl)) body 
+          in 
+        trm_alter ~desc:(Some (Trm_let_fun (qv, typ_unit(), vl, new_body))) t
+
+      | _ -> fail t.loc "Ast_fromto_AstC.class_member_intro: ill defined class constructor"
+      end
+    | _ -> trm_map aux t 
+  in aux t
+
 (***************************************  Main entry points *********************************************)
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let cfeatures_elim (t : trm) : trm =
-  cseq_items_void_type (caddress_elim (stackvar_elim (infix_elim t)))
+  class_member_elim (cseq_items_void_type (caddress_elim (stackvar_elim (infix_elim (method_call_elim t)))))
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
-  infix_intro (stackvar_intro (caddress_intro t))
+  class_member_intro (method_call_intro (infix_intro (stackvar_intro (caddress_intro t))))
 
 (* Note: recall that currently const references are not supported
    Argument of why const ref is not so useful
@@ -316,3 +390,45 @@ but it is equivalent to:
   f(a,a,a)
 
 *)
+
+(* 
+
+source:
+T x(args) 
+
+before encoding
+T x = (new(T,args)@ annot_constructor_arg) 
+
+after encoding
+T* x = (T(args)@annot_new) 
+
+
+source 
+constructor T(a, b) : field1(a) { field2 = b;} 
+
+
+before encoding, with treating "this" as const variable
+
+before encoding
+void T(a, b) { @annot_constructor
+  
+  this->field1 = a;  @annot_member_initializer
+  (this@annot_implicit_this) ->field2 = b;  
+  
+} 
+
+
+
+after encoding
+T* T(a, b) { 
+  
+  
+  T* this = alloc(size_of(T)); @annot_dont_encode
+  this->field1 = a;  @annot_member_initializer
+  (this@annot_implicit_this) ->field2 = b;  
+  
+  return this; } @annot_constructor
+
+
+*)
+

@@ -1,6 +1,4 @@
 
-int main() {}
-
 class test_static_class {
 
 private:
@@ -12,7 +10,7 @@ private:
 
 public:
 
-  static int bar(int x) {
+   static int bar(int x) {
      return x;
   }
 
@@ -27,19 +25,28 @@ private:
 
 public:
 
+  
+  void move(int d) {
+     this->x += d;
+  }
+  
   // for each function, mark it as "public" or "private" as a trm_annot
   void move(int d) {
      x += d;
   }
 
+  
+
   /* encoded as:
   void move(test_class* this, int d) {
-     this->x += d;
+     this->x += d; // first move above this
+     (this@implicit_this)->x += d; // second move above this
+     // note: in clangml the base is empty in the second case
   }
   */
 
   bool test_this() {
-    return this.x == x;
+    return this->x == x;
   }
 
 };
@@ -76,9 +83,65 @@ int test_iterator(std::vector<int> v) {
   return r;
 }
 
-int test_lambda(std::vector<int> v) {
+void test_lambda(std::vector<int> v) {
+  int r = 0;
+  auto f = [&](int const& x) -> void { // we only support arguments by references [&]
+     r += x; }; // trm_fun
+  std::for_each(std::begin(v), std::end(v), f);
+}
+
+int test_lambda_inline(std::vector<int> v) {
   int r = 0;
   std::for_each(std::begin(v), std::end(v), [&](int const& x) { // we only support arguments by references [&]
      r += x; }); // trm_fun
   return r;
+}
+
+
+using namespace std;
+
+void test_using() {
+  vector<int> v;
+  v.push_back(3);
+  int a = v[0];
+}
+
+template<typename A, typename B> struct Box 
+  { 
+    A key; 
+    B value; 
+  };
+
+// typedef Box<int, bool> box;
+
+template<typename A, typename B>
+void update(Box<A, B>* b, A key, B value) {
+  b->key = key;
+  b->value = value;
+}
+class Box2 {
+  Box<int,bool> b;
+  public:
+    void update1 (int key, bool value){
+      update<int, bool> (&b, key, value);
+    }
+};
+
+template <typename A> 
+class Inject {
+  static void f(Inject x ) { 
+    Inject<A> y;
+    Inject z; // encoded as (Foo<A>@Annot_injected) y;
+  }
+
+};
+
+int main() {
+  Box<int, bool> b;
+  update<int, bool> (&b,1,true);
+  update<int, bool> (&b,1,true);
+
+  Box2 b1;
+  b1.update1(1, true);
+  return 0;
 }

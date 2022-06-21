@@ -71,6 +71,22 @@ and depth =
      - occurrence constraints
      - relative constraints
      - OpenMP pragam constraints *)
+
+(* type constr_qname = constr_name * constr_qpath
+
+
+   and constr_qpath = var list -> bool
+
+
+   f and M :: f
+
+   let check_qname (qx : qvar ) (cq : constr_qname) : bool =
+    ((snd cq) qx.qvar_path ) && (check_name (fst cq) (qx.qvar_var)) ||
+    (check_name (fst cq) (qx.qvar_str )
+
+
+*)
+
 and constr =
   | Constr_depth of depth
   | Constr_dir of dir
@@ -739,6 +755,7 @@ let is_equal_lit (l : lit) (l' : lit) =
   | Lit_int n, Lit_int n' when n = n' -> true
   | Lit_double d, Lit_double d' when d = d' -> true
   | Lit_string s, Lit_string s' when s = s' -> true
+  | Lit_nullptr, Lit_nullptr -> true
   | _ -> false
 
 (* [get_trm_kind t]: gets the kind of trm [t] *)
@@ -756,15 +773,16 @@ let get_trm_kind (t : trm) : trm_kind =
    match t.desc with
    | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_var _ -> TrmKind_Expr
-   | Trm_struct _ | Trm_array _ -> TrmKind_Expr
+   | Trm_record _ | Trm_array _ -> TrmKind_Expr
    | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
    | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
    | Trm_typedef _ | Trm_let_record _-> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
+   | Trm_fun _ | Trm_this | Trm_delete _ -> TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
    | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
-   | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ -> TrmKind_Any
+   | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _ | Trm_arbitrary _ | Trm_using_directive _ -> TrmKind_Any
 
 
 (* [match_regexp_str r s]: checks if [s] can be matched with [r] *)
@@ -909,13 +927,13 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           if is_def then (check_target p_body body && not (is_body_unit))
            else is_body_unit in
         ty_pred tx &&
-        check_name name x &&
+        check_name name x.qvar_var &&
         check_args cl_args args &&
         body_check
      | Constr_decl_type name, Trm_typedef td ->
         let is_new_typ = begin match td.typdef_body with
         | Typdef_alias _ -> true
-        | Typdef_prod _ -> true
+        | Typdef_record _ -> true
         | _ -> false
         end in
         let x = td.typdef_tconstr in
@@ -930,7 +948,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_list ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
         in constra_app *)
      | Constr_var name, Trm_var (_, x) ->
-        check_name name x
+        check_name name x.qvar_var
      | Constr_lit pred_l, Trm_val (Val_lit l) ->
         pred_l l
      | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args) ->
@@ -971,8 +989,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_mark (pred, _m), _ ->
         let t_marks = trm_get_marks t in
         begin match t.desc with
-        | Trm_seq tl | Trm_array tl | Trm_struct tl->
+        | Trm_seq tl | Trm_array tl ->
           (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
+        | Trm_record tl -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
         | _ -> List.exists pred t_marks
         end
      | Constr_hastype pred , _ ->
@@ -981,7 +1000,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_var_init, Trm_val (Val_lit (Lit_uninitialized)) -> false
      | Constr_var_init , _ -> true
      | Constr_array_init, Trm_array _ -> true
-     | Constr_struct_init, Trm_struct _ -> true
+     | Constr_struct_init, Trm_record _ -> true
      | Constr_omp (pred, _), _ -> trm_has_pragma pred t
      | _ -> false
      end
@@ -1375,8 +1394,8 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
      | Trm_seq tl ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
-     | Trm_struct tl ->
-        explore_list (Mlist.to_list tl) (fun n -> Dir_struct_nth n) (aux)
+     | Trm_record tl ->
+        explore_list (Xlist.split_pairs_snd (Mlist.to_list tl)) (fun n -> Dir_struct_nth n) (aux)
      | Trm_switch (cond, cases) ->
         (add_dir Dir_cond (aux cond)) @
         (Xlist.fold_lefti (fun i epl case -> epl@explore_case depth i case p) [] cases)
@@ -1420,8 +1439,8 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   | Dir_seq_nth n, Trm_seq tl ->
     app_to_nth_dflt loc (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
-  | Dir_struct_nth n, Trm_struct tl ->
-     app_to_nth_dflt loc (Mlist.to_list tl) n
+  | Dir_struct_nth n, Trm_record tl ->
+     app_to_nth_dflt loc (Xlist.split_pairs_snd (Mlist.to_list tl)) n
        (fun nth_t -> add_dir (Dir_struct_nth n) (aux nth_t))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
@@ -1464,8 +1483,9 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
      add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr))
+  | Dir_name, Trm_let_fun (x, _, _, _) -> 
+    add_dir Dir_name (aux (trm_var ~loc ~qvar:x ""))
   | Dir_name, Trm_let (_,(x,_),_)
-    | Dir_name, Trm_let_fun (x, _, _, _)
     | Dir_name, Trm_goto x ->
      add_dir Dir_name (aux (trm_var ~loc x))
   | Dir_case (n, cd), Trm_switch (_, cases) ->

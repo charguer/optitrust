@@ -23,7 +23,6 @@ TESTS_WITH_DOC := \
 	cast_insert.ml \
 	expr_replace.ml \
 	expr_replace_fun.ml \
-	flow_insert_if.ml \
 	function_beta.ml \
 	function_bind_intro.ml \
 	function_dsp_call.ml \
@@ -73,9 +72,8 @@ TESTS_WITH_DOC := \
 	sequence_split.ml \
 	specialize_any.ml \
 	specialize_choose.ml \
-	struct_reorder_fields.ml \
-	struct_reveal_field.ml \
 	struct_rename_fields.ml \
+	struct_reveal_field.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	struct_simpl_proj.ml \
@@ -103,7 +101,9 @@ TESTS_NODOC := \
 	matrix_local_name_obj.ml \
 
 TESTS_TO_FIX := \
-  struct_update_fields_type.ml \
+	flow_insert_if.ml \
+	struct_reorder_fields.ml \
+	struct_update_fields_type.ml \
 	matrix_insert_access_dim_index.ml \
 
 

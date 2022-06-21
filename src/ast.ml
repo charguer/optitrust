@@ -34,12 +34,19 @@ type var = string
 (* [vars]: variables, a list of elements of type variable *)
 type vars = var list
 
+(* [qvar]: qualiefied variables, Ex M :: N :: x
+    qx = {qvar_var = "x"; qvar_path = ["M"; "N"]; qvar_str = "M :: N :: x"}. *)
+type qvar = {qvar_var : var; qvar_path : var list; qvar_str : string}
+
 (* [typconstr]: name of type constructors (e.g. [list] in Ocaml's type [int list];
    or [vect] in C type [struct { int x,y }; *)
 type typconstr = string
 
 (* [typvar]: name of type variables (e.g. ['a] in type ['a list] *)
 type typvar = var
+
+(* [qtypvar]: qname of the type variables *)
+type qtypvar = qvar 
 
 (* [typvars]: a list of typvar *)
 type typvars = typvar list
@@ -121,7 +128,7 @@ and code_kind =
 and typ_desc =
   | Typ_const of typ   (* e.g. [const int *] is a pointer on a [const int] type. *)
   | Typ_var of typvar * typconstrid  (* e.g. ['a] in the type ['a -> 'a] -- *)
-  | Typ_constr of typvar * typconstrid * typ list (* e.g. [int list] or
+  | Typ_constr of qtypvar * typconstrid * typ list (* e.g. [int list] or
                                                   [(int,string) map] or [vect] *)
   | Typ_auto                                (* auto *)
   | Typ_unit                                (* void *)
@@ -138,7 +145,7 @@ and typ_desc =
   | Typ_record of record_type * typ         (* class, struct, union *)
   | Typ_template_param of string            (* template(Soon..) *)
   | Typ_arbitrary of code_kind              (* types entered as string  *)
-
+  | Typ_decl of trm                        (* Since C++11, decltype (nullptr), create a type out of an expression *)
 
 (* [ptr_kind]: type used for distinguishing pointers from references, note that
     both pointers and references are considered by OptiTrust as pointers.*)
@@ -151,7 +158,7 @@ and typ_annot =
   | Unsigned  (* unsigned int *)
   | Long      (* long int *)
   | Short     (* short int *)
-
+  
 (* [typ]: is a record containing the description, annotation and some attributes*)
 and typ = {
   typ_desc : typ_desc;
@@ -172,16 +179,32 @@ and typedef = {
                             i.e. the description of [...] *)
 }
 
+
+(* [record_fields]: fields representation for classes, structs and unions. *)
+and record_fields = (record_field * record_field_annot) list 
+
+and record_field = 
+  | Record_field_member of (label * typ) 
+  | Record_field_method of trm
+
+and record_field_annot = access_control
+
+and access_control = 
+  | Access_public
+  | Access_private
+  | Access_protected
+
+
 (* [typedef_body]: typedef kinds *)
 and typdef_body =
   | Typdef_alias of typ   (* for abbreviations, e.g. [type 'a t = ('a * 'a)
                           list] or [typdef vect t] *)
-  | Typdef_prod of bool * (label * typ) list (* for records / struct,
-                                      e.g. [type 'a t = { f : 'a; g : int } *)
+  | Typdef_record of record_fields
+  (* | Typdef_record of bool * (label * typ) list  *)
+    (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
   | Typdef_sum of (constrname * typ) list (* for algebraic definitions / enum,
                                              e.g. [type 'a t = A | B of 'a] *)
   | Typdef_enum of (var * (trm option)) list (* for C/C++ enums *)
-
 
 (* [typed_var]: used for function arguments *)
 and typed_var = var * typ
@@ -260,6 +283,7 @@ and lit =
   | Lit_int of int        (* 1, 10, 100 *)
   | Lit_double of float   (* 1.0, 2.0, 0.5 *)
   | Lit_string of string  (* "hello"  *)
+  | Lit_nullptr               (* nullptr *)
 
 (* [value]: values *)
 and value =
@@ -284,6 +308,34 @@ and cstyle_annot =
   | Postfix_set     (* annotates all x++ and x-- unary operations aswrite operations *)
   | Reference
   | Stackvar
+  | Is_struct
+  | Is_rec_struct
+  | Is_class
+  | Static_fun
+  | Method_call
+  | Implicit_this (* Direct access to a class member. *)
+  | Typ_arguments of typ list  (* <int, float> , type arguments used for template specializations. *)
+  | Implicit_constructor
+  | Explicit_constructor 
+  | Default_constructor
+  | Const_method  (* const methods *)
+  | Constructed_init (* objects initialized with a constructor. *)
+  | Class_constructor of constructor_kind 
+  | Class_destructor of destructor_kind
+  | Member_initializer
+  | Redundant_decl 
+
+(* [constructor_kind]: special annotation for constructors *)
+and constructor_kind = 
+  | Constructor_implicit
+  | Constructor_explicit
+  | Constructor_default
+  | Constructor_simpl
+
+and destructor_kind =
+  | Destructor_default 
+  | Destructor_delete 
+  | Destructor_simpl
 
 (* [files_annot]: file annotation *)
 and files_annot =
@@ -311,6 +363,7 @@ and trm_annot = {
 and attribute =
   | Alignas of trm (* alignas(64) double* deposit; *)
   | GeneratedTyp   (* pointers used only for encoding stack variables*)
+  | Injected       (* injected type *)
   | Others         (* TO BE CONTINUED ... *)
 
 (* [record_type]: C++ record types *)
@@ -344,12 +397,12 @@ and ctx = {
 (* [trm_desc]: description of an ast node *)
 and trm_desc =
   | Trm_val of value
-  | Trm_var of varkind * var
+  | Trm_var of varkind * qvar
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
-  | Trm_struct of trm mlist (* { 4, 5.3 } as a record *)
+  | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c; ONLY FOR RAW AST! *)
-  | Trm_let_fun of var * typ * (typed_vars) * trm
+  | Trm_let_fun of qvar * typ * typed_vars * trm
   | Trm_let_record of string * record_type * (label * typ) list * trm
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm (* if (x > 0) {x += 1} else{x -= 1} *)
@@ -384,7 +437,11 @@ and trm_desc =
   | Trm_extern of string * trms                   (* extern keyword *)
   | Trm_namespace of string * trm * bool          (* namespaces *)
   | Trm_template of template_parameter_list * trm (* templates *)
-
+  | Trm_using_directive of string                 (* using namespace std *)
+  | Trm_fun of typed_vars * typ option * trm      (* anonymous functions, [&](int const& x) -> void ({r += x;}) *)
+  | Trm_this                                      (* this pointer. *)
+  | Trm_delete of bool * trm                      (* delete t, delete[] t *)
+  
 (* [template_param_kind]: parameters kind, typename , empty or another template *)
 and template_param_kind =
   | Type_name of typ option               (* <T> *)
@@ -634,18 +691,32 @@ type reorder =
   | Reorder_after of string
   | Reorder_all
 
-
 (* *************************** Typ Construcors ***************************** *)
 (* [typ_const ~annot ~typ_attributes t]: const type constructor *)
 let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (t : typ) : typ =
   {typ_annot = annot; typ_desc = Typ_const t; typ_attributes}
 
+(* [qvar_build qv qp qs]: builds a qvar record with fields qvar_var = [qv], qvar_path = [qp] and qvar_str = [qs]. *)
+let qvar_build (qv : var) (qp : var list) : qvar =
+  let qs = 
+    if qp = [] 
+      then qv  
+      else  (Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ "::  " ^ p ) "" qp ) ^ "::" ^ qv
+    in
+  {qvar_var = qv; qvar_path = qp; qvar_str = qs}
+
+(* [empty_qvar]: empty qvar is just a qvar with the string representation being the empty string. *)
+let empty_qvar : qvar =
+  {qvar_var = ""; qvar_path = []; qvar_str = ""}
+
 (* [typ_constr ~annot ~typ_attributes ~tid ~tl x]: constructed type constructor *)
 let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = [])
-  (x : typvar) : typ =
-  {typ_annot = annot; typ_desc = Typ_constr (x, tid, tl); typ_attributes}
+  ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = []) ?(qpath : var list = [])
+  ?(qtypvar : qvar = empty_qvar) (x : typvar) : typ =
+  let qtx = qvar_build x qpath in 
+  let qtx = if qtypvar = empty_qvar then qtx else qtypvar in 
+  {typ_annot = annot; typ_desc = Typ_constr (qtx, tid, tl); typ_attributes}
 
 (* [typ_auto ~annot ~typ_attributes ()]: auto type constructor *)
 let typ_auto ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
@@ -710,13 +781,18 @@ let typ_ptr_generated (ty : typ) : typ =
   typ_ptr ~typ_attributes:[GeneratedTyp] Ptr_kind_mut ty
 
 (* [typedef_prod ~recursive field_list]: typedef kind constructor *)
-let typdef_prod ?(recursive:bool=false) (field_list : (label * typ) list) : typdef_body =
-  Typdef_prod (recursive, field_list)
+let typdef_record (fields : record_fields) : typdef_body =
+  Typdef_record fields
 
 (* [typ_str ~annot ~typ_attributes s] *)
 let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (s : code_kind) : typ =
   {typ_annot = annot; typ_desc = Typ_arbitrary s ; typ_attributes}
+
+(* [typ_decl ~annot ~typ_attributes expr]: type declaration based on an expression. *)
+let typ_decl ?(annot : typ_annot list = []) ?(typ_attributes = [])
+  (expr : trm) =
+  {typ_annot = annot; typ_desc = Typ_decl expr; typ_attributes}
 
 (* **************************** Trm constructors *************************** *)
 
@@ -786,20 +862,23 @@ let trm_replace (desc : trm_desc) (t : trm) : trm =
 let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (v : value) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_val v)
 
+
 (* [trm_var ~annot ~loc ~typ ~ctx ~kind x]: variable occurrence *)
 let trm_var ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
-  ?(kind : varkind = Var_mutable) (x : var) : trm =
-  trm_make ~annot ~loc ~typ ~ctx (Trm_var (kind, x))
+  ?(kind : varkind = Var_mutable) ?(qpath : var list = []) ?(qvar : qvar = empty_qvar) (x : var) : trm =
+  let qx = qvar_build x qpath in
+  let qx = if qvar = empty_qvar then qx else qvar in 
+  trm_make ~annot ~loc ~typ ~ctx (Trm_var (kind, qx))
 
 (* [trm_array ~annot ~loc ~typ ~ctx tl]: array initialization list *)
 let trm_array ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
   (tl : trm mlist) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_array tl)
 
-(* [trm_struct ~annot ~loc ~typ ~ctx tl]: struct initialization list *)
-let trm_struct ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
-  (tl : trm mlist) : trm =
-  trm_make ~annot ~loc ~typ ~ctx (Trm_struct tl)
+(* [trm_record ~annot ~loc ~typ ~ctx tl]: struct initialization list *)
+let trm_record ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
+  (tl : (label option * trm) mlist) : trm =
+  trm_make ~annot ~loc ~typ ~ctx (Trm_record tl)
 
 (* [trm_let ~annot ~loc ~ctx kind typed_var init]: variable declaration *)
 let trm_let ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
@@ -812,9 +891,16 @@ let trm_let_mult ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option =
   trm_make ~annot ~loc ~typ:(Some (typ_unit ())) ~ctx (Trm_let_mult (kind, ty, vl, tl))
 
 (* [trm_let ~annot ~loc ~ctx name ret_typ args body]: function definition *)
-let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
-  (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
-  trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_let_fun (name, ret_typ, args, body))
+let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) ?(qpath : var list = [])
+  ?(qvar : qvar = empty_qvar) (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
+  let qname = qvar_build name qpath in 
+  let qname = if qvar = empty_qvar then qname else qvar in 
+  trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_let_fun (qname, ret_typ, args, body))
+
+(* [trm_fun ~annot ~loc args ret_typ body]: anonymous function.  *)
+let trm_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (args : typed_vars)
+  (ret_typ : typ option) (body : trm) = 
+  trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_fun (args, ret_typ, body))
 
 (* [trm_typedef ~annot ~loc ~ctx def_typ]: type definition *)
 let trm_typedef ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
@@ -901,6 +987,19 @@ let trm_template ?(annot = trm_annot_default) ?(loc = None) ?(typ=None) ?(ctx : 
   (tpl : template_parameter_list) (t : trm ) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_template (tpl, t))
 
+(* [trm_using_directive ~annot ~loc ~typ ~ctx namespace]: creates a using namespace directive. *)
+let trm_using_directive ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
+  (namespace : string) =
+  trm_make ~annot ~loc ~typ ~ctx (Trm_using_directive namespace)
+
+(* [trm_this ~annot ~loc ~typ ~ctx ()]: this pointer. *)
+let trm_this ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) () =
+  trm_make ~annot ~loc ~typ ~ctx (Trm_this)
+
+(* [trm_delete ~annot ~loc ~typ ~ctx is_array_form t]: delete operator  *)
+let trm_delete ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (is_array_form : bool) (t : trm) = 
+  trm_make ~annot ~loc ~typ ~ctx (Trm_delete (is_array_form, t))
+
 (* ********************************** Auxiliary functions ************************************ *)
 
 (* [trm_null ~annot ~loc ~ctx ()]: NULL or void* *)
@@ -928,6 +1027,7 @@ let typ_of_lit (l : lit) : typ option =
   | Lit_int _ -> Some (typ_int ())
   | Lit_double _ -> Some (typ_double ())
   | Lit_string _ -> Some (typ_string ())
+  | Lit_nullptr -> Some (typ_unit ())
 
 
 (* [trm_lit ~annot ~loc ~ctx l]: literal *)
@@ -967,6 +1067,10 @@ let typ_ptr_inv (ty : typ) : typ option =
 (* [typ_add_attribute att ty]: adds the attribute [att] to the type [ty] *)
 let typ_add_attribute (att : attribute)(ty : typ) : typ =
   {ty with typ_attributes = att :: ty.typ_attributes}
+
+(* [typ_has_attribute att ty]: checks if [ty] has attribute [att]. *)
+let typ_has_attribute (att : attribute) (ty : typ) : bool =
+  List.mem att ty.typ_attributes
 
 (* [TransfoError]: exception raised in case a transformation fails *)
 exception TransfoError of string
@@ -1152,12 +1256,11 @@ let trm_pass_pragmas (t1 : trm) (t2 : trm) : trm =
   let t2_annot = {t2.annot with trm_annot_pragma = t1_pragmas @ t2_pragmas} in
   {t2 with annot = t2_annot}
 
+(**** CStyle  ****)
+
 (* [trm_get_cstyles t]: returns all cstyle annotations of trm [t]. *)
 let trm_get_cstyles (t : trm) : cstyle_annot list =
   t.annot.trm_annot_cstyle
-
-
-(**** CStyle  ****)
 
 (* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)
 let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
@@ -1182,6 +1285,11 @@ let trm_has_cstyle (cs : cstyle_annot) (t : trm) : bool =
   let cstyles = trm_get_cstyles t in
   List.mem cs cstyles
 
+
+(* [annot_has_cstyle cs t_ann]: checks if [cs] is constained in [t_ann]. *)
+let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
+  let cstyles = t_ann.trm_annot_cstyle in 
+  List.mem cs cstyles 
 
 (**** Files  ****)
 
@@ -1245,11 +1353,11 @@ let trm_lit_inv (t : trm) : lit option =
   | _ -> None
 
 
-(* [trm_inv ~arror k t]: returns the results of applying [k] on t, if the result is [None] thne 
+(* [trm_inv ~arror k t]: returns the results of applying [k] on t, if the result is [None] thne
      then function fails with error [error]. *)
 let trm_inv ?(error : string = "") ?(loc : location = None) (k : trm -> 'a option) (t : trm) : 'a =
   let loc = if loc = None then t.loc else loc in
-  match k t with 
+  match k t with
   | None -> if error = "" then assert false else fail loc error
   | Some r -> r
 
@@ -1257,49 +1365,49 @@ let trm_inv ?(error : string = "") ?(loc : location = None) (k : trm -> 'a optio
 (* [trm_let_inv t]: returns the components of a [trm_let] constructor if [t] is a let declaration.
      Otherwise it returns [None]. *)
 let trm_let_inv (t : trm) : (varkind * var * typ * trm) option =
-  match t.desc with 
+  match t.desc with
   | Trm_let (vk, (x, tx), init) -> Some (vk, x, tx, init)
   | _ -> None
 
-(* [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration. 
+(* [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration.
      Otherwise it returns a [Noen]. *)
-let trm_let_fun_inv (t : trm) : (var * typ * typed_vars * trm) option =
-  match t.desc with 
+let trm_let_fun_inv (t : trm) : (qvar * typ * typed_vars * trm) option =
+  match t.desc with
   | Trm_let_fun (f, ret_ty, args, body) -> Some (f, ret_ty, args, body)
   | _ -> None
 
 
 (* [trm_apps_inv t]: returns the components of a [trm_apps] constructor in case [t] is function application.
     Otherwise it returns [None]. *)
-let trm_apps_inv (t : trm) : (trm * trm list) option = 
-  match t.desc with 
+let trm_apps_inv (t : trm) : (trm * trm list) option =
+  match t.desc with
   | Trm_apps (f, tl) -> Some (f, tl)
   | _ -> None
 
 (* [trm_seq_inv t]: returns the components of a [trm_seq] constructor when [t] is a sequence.
     Otherwise it returns [None]. *)
 let trm_seq_inv (t : trm) : (trm mlist) option =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->  Some tl
   | _ -> None
 
 (* [trm_var_inv t]: returns the components of a [trm_var] constructor when [t] is a variable occurrence.
     Otherwise it returns [None]. *)
 let trm_var_inv (t : trm) : (varkind * var) option =
-  match t.desc with 
-  | Trm_var (vk, x) -> Some (vk, x)
+  match t.desc with
+  | Trm_var (vk, x) -> Some (vk, x.qvar_var)
   | _ -> None
 
 (* [trm_if_inv t]: returns the components of a [trm_if] constructor when [t] is an if statement.
     Otherwise it returns [None]. *)
 let trm_if_inv (t : trm) : (trm * trm * trm) option =
-  match t.desc with 
+  match t.desc with
   | Trm_if (cond, then_, else_) -> Some (cond, then_, else_)
   | _ -> None
 
 (* [trm_typedef_inv t]: returns the components of a [trm_typedef] constructor when [t] is a type definition. *)
-let trm_typedef_inv (t : trm) : typedef option = 
-  match t.desc with 
+let trm_typedef_inv (t : trm) : typedef option =
+  match t.desc with
   | Trm_typedef td -> Some td
   | _ -> None
 
@@ -1422,15 +1530,15 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
   | Trm_array tl ->
     let tl' = Mlist.map (f false) tl in
     trm_array ~annot ~loc ~typ tl'
-  | Trm_struct tl ->
-    let tl' = Mlist.map (f false) tl in
-    trm_struct ~annot ~loc ~typ tl'
+  | Trm_record tl ->
+    let tl' = Mlist.map (fun (lb, t) -> (lb, f false t)) tl in
+    trm_record ~annot ~loc ~typ tl'
   | Trm_let (vk, tv, init) ->
     let init' = f false init in
     trm_let ~annot ~loc vk tv init'
   | Trm_let_fun (f', res, args, body) ->
     let body' = f false body in
-    trm_let_fun ~annot ~loc f' res args body'
+    trm_let_fun ~annot ~loc ~qvar:f' "" res args body'
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
@@ -1481,6 +1589,19 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
      (* return without value, continue, break *)
      | _ -> t
      end
+  | Trm_typedef td -> 
+    begin match td.typdef_body with 
+    | Typdef_record rfl ->
+      let rfl = List.map (fun (rf, rf_ann) -> 
+        match rf with 
+        | Record_field_method t1 ->  (Record_field_method (f false t1), rf_ann)
+        | _ -> (rf, rf_ann)
+      ) rfl in 
+      let td = {td with typdef_body = Typdef_record rfl} in 
+      trm_typedef ~annot ~loc td
+    | _ -> t
+    end
+
   | _ -> t
 
 (* TODO ARTHUR: think about how to factorize this.
@@ -1517,10 +1638,11 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
     let tl' = fmlist false tl in
     ret (tl' == tl)
         (trm_array ~annot ~loc ~typ tl')
-  | Trm_struct tl ->
-    let tl' = fmlist false tl in
+  | Trm_record tl ->
+    let tl' = Mlist.map (fun (lb, t) -> (lb, f false t)) tl in
+    let tl' = if Mlist.for_all2 (==) tl tl' then tl else tl' in
     ret (tl' == tl)
-        (trm_struct ~annot ~loc ~typ tl')
+        (trm_record ~annot ~loc ~typ tl')
   | Trm_let (vk, tv, init) ->
     let init' = f false init in
     ret (init' == init)
@@ -1528,7 +1650,7 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   | Trm_let_fun (f', res, args, body) ->
     let body' = f false body in
     ret (body' == body)
-        (trm_let_fun ~annot ~loc f' res args body')
+        (trm_let_fun ~annot ~loc ~qvar:f' "" res args body' ) 
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = aux then_ in
@@ -1597,8 +1719,8 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
   match t.desc with
   | Trm_array tl ->
     Mlist.iter f tl
-  | Trm_struct tl ->
-    Mlist.iter f tl
+  | Trm_record tl ->
+    Mlist.iter (function (_, t) -> f t) tl
   | Trm_let (vk, tv, init) ->
     f init
   | Trm_let_fun (f', res, args, body) ->
@@ -1671,12 +1793,16 @@ let contains_decl (x : var) (t : trm) : bool =
     | _ -> false
   in aux t
 
+(* [is_qvar_var]: checks is [qv.qvar_var] is equal to [v]. *)
+let is_qvar_var (qv : qvar) (v : var) : bool =
+  qv.qvar_var = v
+
 
 (* [contains_occurrence x t]: checks if [t] contains any occurrence of the variable [x]*)
 let contains_occurrence (x : var) (t : trm) : bool =
   let rec aux (t : trm) : bool =
     match t.desc with
-    | Trm_var (_, y) -> y = x
+    | Trm_var (_, y) -> is_qvar_var y x
     | Trm_apps (_, tl) -> List.fold_left (fun acc t1 -> acc || aux t1) false tl
     | _ -> false
   in aux t
@@ -1698,7 +1824,7 @@ let contains_field_access (f : field) (t : trm) : bool =
 let decl_name (t : trm) : var option =
   match t.desc with
   | Trm_let (_,(x,_),_) -> Some x
-  | Trm_let_fun (f, _, _, _) -> Some f
+  | Trm_let_fun (f, _, _, _) -> Some f.qvar_var
   | Trm_typedef td -> Some td.typdef_tconstr
   | _ -> None
 
@@ -1719,6 +1845,10 @@ let is_null_pointer (ty : typ) (t : trm) : bool =
   | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = {typ_desc = Typ_unit;_}}, Trm_val (Val_lit (Lit_int 0)) -> true
   | _ -> false
 
+(* [is_qvar_eq qv1 qv2]: checks is qv1 = qv2. *)
+let is_qvar_eq (qv1 : qvar) (qv2 : qvar) : bool =
+  (qv1.qvar_var = qv2.qvar_var) && (qv1.qvar_path = qv2.qvar_path) && (qv1.qvar_str = qv2.qvar_str)
+
 
 (* [same_sizes sz1 sz2]: checks if two arrays are of the same size *)
 let same_sizes (sz1 : size) (sz2 : size) : bool =
@@ -1738,7 +1868,7 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
     | Typ_var (a1, _), Typ_var (a2, _) ->
       a1 = a2
     | Typ_constr (typ_var1, typ_id1, typ_list1), Typ_constr (typ_var2, typ_id2, typ_list2) ->
-      (typ_var1 = typ_var2) && (typ_id1 = typ_id2) && (typ_list1 = typ_list2)
+      (is_qvar_eq typ_var1 typ_var2) && (typ_id1 = typ_id2) && (typ_list1 = typ_list2)
     | Typ_unit, Typ_unit -> true
     | Typ_int, Typ_int -> true
     | Typ_float, Typ_float -> true
@@ -1782,7 +1912,7 @@ let for_loop_index (t : trm) : var =
         - for (int i = …; …) *)
      begin match init.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                 [{desc = Trm_var (_, x); _}; _]) ->x
+                 [{desc = Trm_var (_, x); _}; _]) -> x.qvar_var
      | _ -> begin match decl_name init with
             | Some x -> x
             | None -> fail init.loc "Ast.for_loop_index: could't get the loop index"
@@ -1924,7 +2054,7 @@ type typ_kind =
   | Typ_kind_reference
   | Typ_kind_array
   | Typ_kind_sum
-  | Typ_kind_prod
+  | Typ_kind_record
   | Typ_kind_basic of typ_desc
   | Typ_kind_fun
   | Typ_kind_var
@@ -1936,7 +2066,7 @@ let typ_kind_to_string (tpk : typ_kind) : string =
   | Typ_kind_reference -> "reference"
   | Typ_kind_array -> "array"
   | Typ_kind_sum -> "sum"
-  | Typ_kind_prod -> "prod"
+  | Typ_kind_record -> "prod"
   | Typ_kind_basic _ -> "basic"
   | Typ_kind_fun -> "fun"
   | Typ_kind_var -> "var"
@@ -1965,7 +2095,7 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
      | Some td ->
          begin match td.typdef_body with
         | Typdef_alias ty1 -> get_typ_kind ctx ty1
-        | Typdef_prod _ -> Typ_kind_prod
+        | Typdef_record _ -> Typ_kind_record
         | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum
         end
      end
@@ -2101,7 +2231,7 @@ let is_typ_struct (struct_name : var) (ty_opt : typ option) : bool =
   match ty_opt with
   | Some ty ->
     begin match ty.typ_desc with
-    | Typ_constr (sn, _, _) -> sn = struct_name
+    | Typ_constr (sn, _, _) -> is_qvar_var sn struct_name
     | _ -> false
     end
   | None -> false
@@ -2429,10 +2559,10 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
   let t_map = ref Trm_map.empty in
     let rec aux (t : trm) : trm =
       match t.desc with
-      | Trm_let_fun (f,ty, tv, _) ->
-        if f_pred f then begin
-          t_map := Trm_map.add f t !t_map;
-         trm_let_fun ~annot:t.annot f ty tv (trm_lit  Lit_uninitialized) end
+      | Trm_let_fun (f, ty, tv, _) ->
+        if f_pred f.qvar_var then begin
+          t_map := Trm_map.add f.qvar_var t !t_map;
+         trm_let_fun ~annot:t.annot ~qvar:f "" ty tv (trm_lit  Lit_uninitialized) end
         else t
       | _ -> trm_map aux t
       in
@@ -2448,7 +2578,7 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
       let new_tl =
       Mlist.map (fun def -> match def.desc with
       | Trm_let_fun (f, _, _, _) ->
-        begin match Trm_map.find_opt f chopped_fun_map with
+        begin match Trm_map.find_opt f.qvar_var chopped_fun_map with
         | Some tdef ->  tdef
         | _ -> def
         end
@@ -2515,7 +2645,7 @@ let is_prim_arith_call (t : trm) : bool =
 (* [is_struct_init t]: checks if [t] is struct_init *)
 let is_struct_init (t : trm) : bool =
   match t.desc with
-  | Trm_struct _ -> true | _ -> false
+  | Trm_record _ -> true | _ -> false
 
 (* [is_trm_seq t]: checks if [t] has [Trm_seq tl] description. *)
 let is_trm_seq (t : trm) : bool =
@@ -2730,7 +2860,7 @@ let top_level_fun_bindings (t : trm) : tmap =
       | Trm_seq tl ->
         Mlist.iter (fun t1 ->
           match t1.desc with
-          | Trm_let_fun (f, _, _, body) -> tmap := Trm_map.add f body !tmap
+          | Trm_let_fun (f, _, _, body) -> tmap := Trm_map.add f.qvar_var body !tmap
           | _ -> ()
         ) tl
       | _ -> fail t.loc "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
@@ -2887,13 +3017,13 @@ let set_struct_access_inv_some (t : trm) : (trm * field * trm) =
   | Some r -> r
 
 (* [struct_init_inv t]: if is t is a struct initialization, get the list of terms; else None *)
-let struct_init_inv (t : trm) : trm mlist option =
+let struct_init_inv (t : trm) : (label option * trm) mlist option =
   match t.desc with
-  | Trm_struct sl -> Some sl
+  | Trm_record sl -> Some sl
   | _ -> None
 
 (* [struct_init_inv_some t]: gets struct initialization list trms *)
-let struct_init_inv_some (t : trm) : trm mlist =
+let struct_init_inv_some (t : trm) : (label option * trm) mlist =
  match struct_init_inv t with
   | None -> assert false
   | Some r -> r
@@ -2912,3 +3042,96 @@ let map_from_trm_var_assoc_list (al : (string * trm) list) : tmap =
 (* [typ_align align ty]: adds the alignas attribute to type ty *)
 let typ_align (align : trm) (ty : typ) =
   typ_add_attribute (Alignas align) ty
+
+(* [typedef_get_members ~access t]: returns all the memebers of typedef [t]. If [access] is provided as an argument
+     then only members with the specified access_control are returned. *)
+let typedef_get_members ?(access : access_control option) (t : trm) : (label * typ) list =
+  match t.desc with 
+  | Trm_typedef td ->
+    begin match td.typdef_body with
+    | Typdef_record rf -> 
+      List.fold_left (fun acc (rf, rf_ann) -> 
+        match rf with 
+        | Record_field_member (lb, ty) -> 
+          begin match access with
+          | Some accs -> if accs = rf_ann then (lb, ty) :: acc else acc
+          | None -> (lb, ty) :: acc 
+          end 
+        | Record_field_method _ -> acc
+      ) [] (List.rev rf)
+    | _ -> fail t.loc "Ast.typdef_get_members: this function should be called only for typedef structs and classes"
+    end
+  | _ -> fail t.loc "Ast.typedef_get_members: can't get members of a trm that's not a type definition."
+
+
+(* [typedef_get_methods ~access t]: returns all the methods of typedef [t]. If [access] is provided as an argument
+      then only methods with the specified access_control are returned. *)
+let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
+  match t.desc with
+  | Trm_typedef td ->
+    begin match td.typdef_body with 
+    | Typdef_record rf ->
+      List.fold_left (fun acc (rf, rf_ann) -> 
+        match rf with 
+        | Record_field_member _fm ->  acc
+        | Record_field_method trm -> 
+          begin match access with 
+          | Some accss -> if accss = rf_ann then trm :: acc else acc
+          | None -> trm :: acc
+          end
+      ) [] (List.rev rf)
+    | _ -> fail t.loc "Ast.typdef_get_methods: this function should be called only for typedef structs and classes."
+    end
+  | _ -> fail t.loc "Ast.typedef_get_methods: can't get methods of a trm that's not a type definition. "
+
+(* [typedef_get_all_fields t]: returns all the fields of [t]. *)
+let typedef_get_all_fields (t : trm) : record_fields =
+  match t.desc with 
+  | Trm_typedef td -> 
+    begin match td.typdef_body with 
+    | Typdef_record rf -> rf
+    | _ -> fail t.loc "Ast.typdef_get_all_fields: this function should be called only for structs and classes."
+    end
+  | _ -> fail t.loc "Ast.get_all_fields: only structs and classes have fields"
+
+
+(* [get_member_type rf]: returns the type of the member [rf]. *)
+let get_member_type (rf : record_field) : typ =
+  match rf with 
+  | Record_field_member (_, ty) -> ty
+  | Record_field_method t1 ->
+    begin match t1.desc with 
+    | Trm_let_fun (_, ty, _, _) -> ty
+    | _ -> fail None "Ast.get_member_type: can't get the type of the member [rf]."
+    end
+
+(* [get_typ_arguments t]: returns the list of types used during a template specialization. *)
+let get_typ_arguments (t : trm) : typ list =
+  let c_annot = trm_get_cstyles t in 
+  List.fold_left (fun acc c_ann -> 
+    match c_ann with 
+    | Typ_arguments tyl -> tyl 
+    | _ -> acc
+  ) [] c_annot
+
+(* [insert_at_top_of_seq tl t]: insert the list of trms [tl] at the top of sequence [t]. *)
+let insert_at_top_of_seq (tl : trm list) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl1 ->
+    let new_tl = Mlist.insert_sublist_at 0 tl tl1 in 
+    trm_alter ~desc:(Some (Trm_seq new_tl)) t
+  | _ -> t
+
+
+(* [filter_out_from_seq f t]: extracts all the trms that satisfy the predicate [f] from sequence [t].
+      The final result is a pair consisting of the final sequence and the filtered out trms.*)
+let filter_out_from_seq (f : trm -> bool) (t : trm) : (trm * trms)  =
+  match t.desc with 
+  | Trm_seq tl -> 
+    let tl_to_remove, tl_to_keep = Mlist.partition f tl in 
+    (trm_alter ~desc:(Some (Trm_seq tl_to_keep)) t , Mlist.to_list tl_to_remove)
+  | _  -> (t, [])
+  
+(* [is_class_constructor t] checks if [t] is a class constructor declaration or definition. *)
+let is_class_constructor (t : trm) : bool =
+  List.exists (function  | Class_constructor _ -> true | _ -> false) (trm_get_cstyles t)

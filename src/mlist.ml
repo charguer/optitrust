@@ -71,7 +71,16 @@ let rev (ml : 'a t) : 'a t =
   { items = List.rev ml.items;
     marks = List.rev ml.marks }
 
+(* [partition ml]: applies List.partition to ml.items *)
+let partition (pred : 'a -> bool) (ml : 'a t) : ('a t * 'a t) = 
+  let ml_items_sat, ml_items = List.partition pred ml.items in
+  (of_list ml_items_sat, of_list ml_items  )
+
 (***********************************************************************)
+
+(* [is_empty ml]: checks if [ml] is empty or not. *)
+let is_empty (ml :'a t) : bool =
+  length ml = 0
 
 (* [replace_at index x ml]: replaces the item at [index] in [ml] with element [x].*)
 let replace_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
@@ -129,6 +138,24 @@ let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
 (* [insert_at index x ml]: just a specialization of insert_sublist_at for a mlist with only one item. *)
 let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
   insert_sublist_at index [x] ml
+
+(* [push_front x ml]: inserts the element [x] at the beginning of the mlist [ml]. *)
+let push_front (x : 'a) (ml : 'a t) : 'a t =
+  insert_at 0 x ml
+
+(* [push_back x ml]: inserts the element [x] at the end of the mlist [ml]. *)
+let push_back (x : 'a) (ml : 'a t) : 'a t =
+  insert_at (length ml) x ml
+
+(* [pop_front ml]: removes the first element from the mlist [ml]. *)
+let pop_front (ml : 'a t) : 'a t =
+  remove 0 1 ml
+
+(* [pop_back ml]: removes the last element from the mlist [ml]. *)
+let pop_back (ml : 'a t) : 'a t =
+  let ln = length ml in
+  remove (ln - 1) 1 ml
+
 
 (* [update_nth n transfo ml]: applies function [transfo] at the item with index [n] in mlist [ml]. *)
 let update_nth (n : int) (transfo : 'a -> 'a) (ml : 'a t) : 'a t =

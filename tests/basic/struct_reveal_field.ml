@@ -22,7 +22,7 @@ typedef struct {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Struct_basic.reveal_field "pos" [cTypDef "particle"];
+  !! Struct_basic .reveal_field "pos" [cTypDef "particle"];
   !! Struct_basic.reveal_field "speed" [cTypDef "particle"];
   !! Struct_basic.reveal_field "items" [cTypDef "chunk"];
 

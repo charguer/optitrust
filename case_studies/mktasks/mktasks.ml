@@ -30,14 +30,14 @@ let graphdep (t : trm) : adj =
     (* Function definition *)
     | Trm_let_fun (f, rettyp, targs, body) ->
         if (curf <> None) then failwith "nested functions";
-        if Hashtbl.mem adj f then failwith "function occurs several time";
-        Hashtbl.add adj f [];
-        aux (Some f) body
+        if Hashtbl.mem adj f.qvar_var then failwith "function occurs several time";
+        Hashtbl.add adj f.qvar_var [];
+        aux (Some f.qvar_var) body
     (* Function application, i.e CallExpr *)
     | Trm_apps ({ desc = Trm_var (_, g); _ }, args) ->
         begin match curf with
         | None -> failwith "function call not inside a function def"
-        | Some f -> adj_add adj f g
+        | Some f -> adj_add adj f.qvar_var g.qvar_var
         end;
         trm_iter (aux curf) t
     | _ -> trm_iter (aux curf) t
@@ -55,7 +55,7 @@ type proto = {
   proto_argtypes : typ list; }
 
 
-let run_on_functions (f : trm -> (var * typ * (typed_vars) * trm) -> unit) : unit =
+let run_on_functions (f : trm -> (qvar * typ * (typed_vars) * trm) -> unit) : unit =
   let rec aux (t : trm) : unit =
     begin match t.desc with
     | Trm_let_fun (f, rettype, targs, body) -> f t (f, rettype, targs, body)
@@ -76,7 +76,7 @@ let gather_prototype_a_la_mano : (var, proto) Hashtbl.t =
   let rec aux (t : trm) : unit =
     match t.desc with
     | Trm_let_fun (f, proto_rettype, proto_argtypes, body) ->
-        Hashtbl.add protos f { proto_rettype; proto_argtypes }
+        Hashtbl.add protos f.qvar_var { proto_rettype; proto_argtypes }
     | _ -> trm_iter aux t
     in
   aux t;
@@ -88,7 +88,7 @@ let add_const_marks (funisconst : (var, bool) Hashtbl.t) (t : trm) : trm =
     match t.desc with
     | Trm_let_fun (f, proto_rettype, proto_argtypes, body) ->
         let isconst =
-          try Hashtbl.find funisconst f
+          try Hashtbl.find funisconst f.qvar_var
           with Not_found -> failwith "fun not in funisconst" in
         (* let t = trm_map aux t in *)
         if isconst

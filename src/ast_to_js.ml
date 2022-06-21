@@ -43,7 +43,7 @@ module Json = struct
     | Str s -> string s
     | Int i -> string (string_of_int i)
     | Boolean b-> string (string_of_bool b)
-    | List l -> Tools.print_list ~sep:"," (List.map json_to_doc l)
+    | List l -> Tools.list_to_doc (List.map json_to_doc l)
     | Object o -> Tools.print_object (List.map (fun (k,j) -> json_to_doc k ^^ string ": " ^^ json_to_doc j) o)
 
   (* [json_to_js]: creates a javascript variable of type json object from ast [j] *)
@@ -232,11 +232,12 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [] ]
     | Trm_var (_, x) ->
         [ kind_to_field "var";
-          value_to_field x;
+          value_to_field x.qvar_var;
           children_to_field [] ]
-    | Trm_struct l ->
+    | Trm_record l ->
         [ kind_to_field  "struct";
-          children_to_field (List.mapi ichild_to_json (List.map aux(Mlist.to_list l))) ]
+          (* TODO: Temporary hack for labelled struct inits. *)
+          children_to_field (List.mapi ichild_to_json (List.map aux(Xlist.split_pairs_snd (Mlist.to_list l)))) ]
     | Trm_array l ->
         [ kind_to_field "array";
           children_to_field (List.mapi ichild_to_json (List.map aux (Mlist.to_list l))) ]
@@ -249,7 +250,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
       []
     | Trm_let_fun (f, typ, xts, tbody) ->
       [ kind_to_field "fun-def";
-            (strquote "name", strquote f);
+            (strquote "name", strquote f.qvar_var);
             (strquote "args", typed_var_list_to_json xts);
             (strquote "return_type", Json.typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
@@ -364,6 +365,20 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_template (_, t) ->
       [ kind_to_field "template";
           children_to_field [child_to_json "template" (aux t)]]
+    | Trm_using_directive nmspc ->
+      [ kind_to_field "using namespace";
+          value_to_field nmspc]
+    | Trm_fun (xfs, ty_opt, tbody) -> 
+      let ret_ty_js = begin match ty_opt with | Some ty -> Json.typ_to_json ty | None -> Json.str "" end in 
+      [ kind_to_field "lambda";
+            (strquote "args", typed_var_list_to_json xfs);
+            (strquote "return_type", ret_ty_js);
+            children_to_field ([(child_to_json "body" (aux tbody))]) ]
+    | Trm_this -> [kind_to_field "This"]
+    | Trm_delete (_, tbody) -> 
+        [ kind_to_field "delete";
+          children_to_field ([(child_to_json "body" (aux tbody))])]
+
 
 (* [ast_to_json trm_root]: converts a full ast to a Json object *)
 let ast_to_json (trm_root : trm) : json =
