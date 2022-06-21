@@ -656,7 +656,7 @@ let clean_nobraces : Transfo.t =
       [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
       [r] - the name of the variable replacing the return statement,
       [t] - ast of the body of the function. *)
-let replace_return_with_assign ?(exit_label : label = "") (r : var) (t : trm) : (trm * int) =
+let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : label = "") (r : var) (t : trm) : (trm * int) =
   let nb_gotos = ref 0 in
   let rec aux (is_terminal : bool) (t : trm) : trm =
     match t.desc with
@@ -684,5 +684,5 @@ let replace_return_with_assign ?(exit_label : label = "") (r : var) (t : trm) : 
     | Trm_let_fun _ -> t (* do not recurse through local function definitions *)
     | _-> trm_map_with_terminal is_terminal aux t
   in
-  let t = aux true t in
+  let t = aux check_terminal t in
   (t, !nb_gotos)

@@ -8,7 +8,7 @@ open Target
 let use_goto_for_return_aux (mark : mark) (t : trm) : trm =
   match t.desc with 
   | Trm_let_fun (qn, ret_ty, args, body) -> 
-    let seq_to_insert, _ = Internal.replace_return_with_assign ~exit_label:"__exit" "__res" body in 
+    let seq_to_insert, _ = Internal.replace_return_with_assign ~check_terminal:false ~exit_label:"__exit" "__res" body in 
     let new_body = 
       begin match ret_ty.typ_desc with 
       | Typ_unit -> 
