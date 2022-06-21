@@ -92,7 +92,12 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
     
     let d_args = if args = [] || is_injected
       then empty
-      else langle ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] (List.map typ_to_doc args) ^^ rangle in
+      else begin match args with 
+      | [{typ_desc = Typ_unit; _}] ->
+        langle ^^ rangle
+      | _ -> langle ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] (List.map typ_to_doc args) ^^ rangle 
+      end in
+      
     string tv.qvar_str ^^ d_args
   | Typ_auto  -> string "auto"
   | Typ_unit -> string "void"

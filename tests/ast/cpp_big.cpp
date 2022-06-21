@@ -132,9 +132,9 @@ int main(){
     std::mt19937 gen(0);
     std::uniform_int_distribution<> dis(1, Size);
 
-    // for(int idx = 0 ; idx < Size ; ++idx){
-    //     data[idx] = dis(gen);
-    // }
+    for(int idx = 0 ; idx < Size ; ++idx){
+        data[idx] = dis(gen);
+    }
     int result = 0;
     //Timer timerSequential(result);
     result = Quicksort::Sort(ArrayView<int>(data.data(), int(data.size())));

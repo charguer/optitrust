@@ -147,6 +147,7 @@ let get_typid_for_type (tv : typvar) : int  =
   | PlusPlus -> "++"
   | MinusMinus -> "--"
   | Subscript -> "[]"
+  | Call -> "()"
   | _ -> fail loc "Clang_to_astRawC.string_of_overloaded_op: non supported operator"
 
 (* [overload_op ~loc ~ctx op]: gets the primitive operation associated with the overloaded operator [op] *)
@@ -181,6 +182,7 @@ let get_typid_for_type (tv : typvar) : int  =
   | PipePipe -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop Binop_or))
   | PlusPlus -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_unop (Unop_post_inc)))
   | Subscript -> trm_prim ~loc ~ctx (Prim_overloaded_op (Prim_binop (Binop_array_get)))
+  | Call -> trm_var "overloaded_call"
   | _ -> fail loc "Clang_to_astRawC.overloaded_op: non supported operator"
 
 (* [wrap_const ~const t]: wrap type [t] into a const type if [const] is true *)
@@ -296,6 +298,9 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
       match targ with 
       | Type q -> tr_qual_type ~loc q
       | _ -> fail loc "Clang_to_astRawC.tr_type_desc: only simple types are supported as template arguments") tyl) in
+    (* temporary hack for printing <> *)
+    let tl = if tl = [] then [typ_unit()] else tl in
+    
     wrap_const ~const (typ_constr nm ~tid:(-1) ~tl)
   | Decltype e -> 
     let tr_e = tr_expr e in 
@@ -664,6 +669,10 @@ and tr_expr (e : expr) : trm =
         | [tl;tr] -> trm_set ~loc ~ctx (tr_expr tl) (tr_expr tr)
         | _ -> fail loc "Clang_to_astRawC.tr_expr: overloaded= expects two arguments"
         end
+    | Trm_var (_, x) when x.qvar_var = "overloaded_call" -> 
+      let t_args = List.map tr_expr el in 
+      let call_name , call_args = Xlist.uncons t_args in 
+      trm_apps ~loc ~ctx ~typ call_name call_args
     | _-> trm_apps ~loc ~ctx ~typ tf (List.map tr_expr el)
     end
   | DeclRef {nested_name_specifier = nns; name = n; template_arguments = targs} -> (* Occurrence of a variable *)
