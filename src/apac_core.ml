@@ -66,7 +66,7 @@ type sorted_arg_deps = {
 
 (* [get_arg_dependencies t]: for each argument of the function [t] returns all the dependencies.  *)
 let get_arg_dependencies (t : trm) : arg_deps =
-  match get_function_prototype t with 
+  match Function_core.get_function_prototype t with 
   | Some (ty, args) -> 
     List.map (fun (x, ty) -> 
       { arg_dep_var = x;

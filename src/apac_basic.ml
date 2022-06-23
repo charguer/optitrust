@@ -1,6 +1,6 @@
 open Ast
 open Target
-
+include Apac_core
 
 (* [use_goto_for_return mark]: expects the target [tg] to point at a function definition,
     then it will transform the body of that function definition as follows.
@@ -37,30 +37,39 @@ let identify_taskable_functions (tg : target) : taskable =
   | Some t when trm_is_mainfile t -> 
     begin match trm_seq_inv t with 
     | Some tl -> 
-      let tm = Fun_map.empty in 
       let ht = Hashtbl.create 100 in 
-      Mlist.folf_left (fun acc t -> 
+      Mlist.iter (fun t -> 
         match t.desc with 
         | Trm_let_fun (qn, ty, args, body) when qn.qvar_var <> "main" -> 
-          Hashtbl.add acc f.qvar_var (get_arg_dependencies t)
-        | _ -> acc
-      ) ht tl
+          if Hashtbl.mem ht qn.qvar_var then ()
+            else Hashtbl.add ht qn.qvar_var (get_arg_dependencies t)
+        | _ -> ()
+      ) tl;
+      ht
     | None -> fail None "Apac_basic.identify_taskable_functions:expected a target to the main file sequence."
     end 
   | _ -> fail None "Apac_basic.identify_taskable_functions: expected a target to the main file sequence."
 
 
-
+(* [bind_taskable tsk tg]: expects the target [ŧg] to be pointing at a a sequence. 
+    Then it will bind a variable to all the calls to the taskable functions [tsk]. 
+    That are descendants of the trms associated to the target [tg]. *)
 let bind_taskable_calls (tsk : taskable) (tg : target) : unit =
-  iter_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+  let f tg = 
+  iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun i t (path_to_seq, local_path, i1)  -> 
       let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
       let path_to_call = path_to_instruction @ local_path in
-      let call = Path.get_trm_at_path path_to_call in 
-      let tg_out_trm = Path.resolvea_path path_to_instruction t in 
+      let tg_out_trm = Path.resolve_path path_to_instruction t in 
+      let path_call_len = List.length path_to_call in
+      let tg_call = target_of_path path_to_call in
       match tg_out_trm.desc with 
-      | Trm_let _ -> 
-      | Trm_apps (_,|ls; rhs) when is_set_operation tg_out_trm -> 
-      | _ -> Functin.bind (target_of_path path_to_call)
-      
-) tg
+      | Trm_let _  when path_call_len <= 2 -> 
+          Variable_basic.init_detach (target_of_path path_to_instruction)
+      | Trm_apps (_,[ls; rhs]) when is_set_operation tg_out_trm -> 
+          if path_call_len >= 1 
+            then  Function.bind_intro ~fresh_name:("res__" ^ (string_of_int i)) tg_call
+            else ()
+      | _ -> Function.bind_intro ~fresh_name:("res__" ^ (string_of_int i)) tg_call
+) tg in 
+Hashtbl.iter (fun k _ -> f (tg @ [nbAny; cFun k])) tsk
