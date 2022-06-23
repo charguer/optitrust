@@ -27,11 +27,18 @@ void test (){
 
 }
 
+void test_simpl_decl(){
+
+  int x = 10;
+  const int c = f(x);
+
+
+}
+
+
 
 int main() {
   int x = 10;
-
-  int b = f(x) + g(0, 1);
 
   const int c = f(x);
 
