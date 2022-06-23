@@ -10,11 +10,26 @@ int f(int x) {
 }
 
 
-int main() {
+
+void test_invariant (){
   int x = 10;
   int a;
   a = f(x);
   f(x);
+}
+
+
+void test (){
+
+  int x = 10;
+
+  int b = f(x) + g(0, 1);
+
+}
+
+
+int main() {
+  int x = 10;
 
   int b = f(x) + g(0, 1);
 

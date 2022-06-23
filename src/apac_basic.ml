@@ -61,15 +61,23 @@ let bind_taskable_calls (tsk : taskable) (tg : target) : unit =
       let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
       let path_to_call = path_to_instruction @ local_path in
       let tg_out_trm = Path.resolve_path path_to_instruction t in 
-      let path_call_len = List.length path_to_call in
+      let path_call_len = List.length local_path in
+      let tg_call_trm = Path.resolve_path path_to_call t in
       let tg_call = target_of_path path_to_call in
+      Printf.printf "Path length: %d\n" path_call_len;
+      
       match tg_out_trm.desc with 
-      | Trm_let _  when path_call_len <= 2 -> 
-          Variable_basic.init_detach (target_of_path path_to_instruction)
-      | Trm_apps (_,[ls; rhs]) when is_set_operation tg_out_trm -> 
-          if path_call_len >= 1 
-            then  Function.bind_intro ~fresh_name:("res__" ^ (string_of_int i)) tg_call
+      | Trm_let (vk, _, _)  when path_call_len <= 1 -> 
+          if vk = Var_mutable 
+            then Variable_basic.init_detach (target_of_path path_to_instruction)
             else ()
-      | _ -> Function.bind_intro ~fresh_name:("res__" ^ (string_of_int i)) tg_call
+      | Trm_apps (_,[ls; rhs]) when is_set_operation tg_out_trm -> 
+          if path_call_len >= 2 
+            then  Function.bind_intro ~const:false ~fresh_name:("res__" ^ (string_of_int i)) tg_call
+            else ()
+      | Trm_apps _ when Internal.same_trm tg_out_trm tg_call_trm -> ()
+      | _ -> Function.bind_intro ~const:false ~fresh_name:("res__" ^ (string_of_int i)) tg_call
 ) tg in 
-Hashtbl.iter (fun k _ -> f (tg @ [nbAny; cFun k])) tsk
+Hashtbl.iter (fun k _ -> 
+  Printf.printf "Taskable function %s\n" k;
+  f (tg @ [nbAny; cFun k])) tsk
