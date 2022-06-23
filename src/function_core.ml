@@ -36,7 +36,7 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
   trm_seq ~annot:t.annot new_tl
 
 
-(* [bind_intro ~my_mark index fresh_name const p_local]: applies [bind_intro_aux] at the trm with path [p]. *)
+(* [bind_intro ~my_mark index fresh_name const p_local]: applies [bind_intro_aux] at the trm [t] with path [p]. *)
 let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const : bool) (p_local : path) : Transfo.local =
   apply_on_path (bind_intro_aux my_mark index fresh_name const p_local)
 
@@ -218,3 +218,12 @@ let dsp_call_aux (dsp : var) (t : trm) : trm =
 (* [dsp_call dsp t p]: applies [dsp_call_aux] at trm [t] with path [p]. *)
 let dsp_call (dsp : var) : Transfo.local =
   apply_on_path (dsp_call_aux dsp)
+
+
+(* [get_function_prototype t]: returns the return type of the function and the types of all its arguments. 
+    Note: This is not a function that transforms the ast.*)
+let get_function_prototype (t : trm) : (typ * typed_vars) option =
+  match t.desc with 
+  | Trm_let_fun (f, ret_ty, args, body) -> 
+    Some (ret_ty, args)
+  | _ -> None 
