@@ -92,9 +92,9 @@ let bind_taskable_calls (tak : taskable) : Transfo.t =
       
        match tg_out_trm.desc with 
        | Trm_let (vk, _, _)  when path_call_len <= 2 -> 
-           if vk = Var_mutable 
+           (* if vk = Var_mutable 
              then Variable_basic.init_detach (target_of_path path_to_instruction)
-             else ()
+             else *) ()
        | Trm_apps (_,[ls; rhs]) when is_set_operation tg_out_trm -> 
            if path_call_len >= 2 
              then  Function.bind_intro ~const:false ~fresh_name:("res__" ^ (string_of_int i1)) tg_call
@@ -102,4 +102,5 @@ let bind_taskable_calls (tak : taskable) : Transfo.t =
        | Trm_apps _ when Internal.same_trm tg_out_trm tg_call_trm -> ()
        | _ -> Function.bind_intro ~const:false ~fresh_name:("res__" ^ (string_of_int i)) tg_call
      ) (tg_surround @ [nbAny; cFuns occ_functions ])
-  )
+  
+)

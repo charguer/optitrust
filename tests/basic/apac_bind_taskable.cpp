@@ -9,43 +9,29 @@ int f(int x) {
   return y + z;
 }
 
-
-
-void test_invariant (){
-  int x = 10;
+void test_invariant1 (int x){
   int a;
   a = f(x);
   f(x);
 }
 
+void test_invariant2(int x){
+  
+  const int c = f(x);
+  int d = f(x);
 
-void test (){
+}
 
-  int x = 10;
+
+void test_expression (int x){
 
   int b = f(x) + g(0, 1);
 
 }
 
-void test_simpl_decl(){
-
-  int x = 10;
-  const int c = f(x);
-
-
-}
-
-
-
-int main() {
-  int x = 10;
-
-  const int c = f(x);
-
-  int d = f(x);
-
+void test_nested_call(int x){
   int e = g(f(x), x);
 
-  return 0;
-
 }
+
+int main() {}
