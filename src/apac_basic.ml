@@ -67,3 +67,6 @@ let get_fun_occurrences (t : trm) : occurs =
       | _ -> trm_iter aux t
     in aux t;
     tsk
+
+let constify_args : Transfo.t =
+  apply_on_targets (Apac_core.constify_args)

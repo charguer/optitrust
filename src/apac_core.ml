@@ -84,3 +84,56 @@ let sort_arg (arg_deps : arg_deps) : sorted_arg_deps =
    dep_out = [];
    dep_inout = [];
    dep_outin = [];}
+
+
+(* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)
+let rec get_constified_arg_aux (ty : typ) : typ =
+  let annot = ty.typ_annot in
+  let typ_attributes = ty.typ_attributes in
+  match ty.typ_desc with 
+  | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty} ->
+    typ_const (typ_ptr Ptr_kind_mut (get_constified_arg_aux ty))
+  | Typ_const {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty }; typ_annot = t_an; typ_attributes = t_at} ->
+    typ_const ~annot ~typ_attributes (typ_ptr ~annot:t_an ~typ_attributes:t_at Ptr_kind_mut (get_constified_arg_aux ty))
+  | Typ_constr (_, id, _) ->
+    begin match Context.typid_to_typedef id with
+    | Some td -> 
+      begin match td.typdef_body with 
+      | Typdef_alias ty -> get_constified_arg_aux ty 
+      | _ -> typ_const ty
+      end
+    | None -> typ_const ty
+    end
+  | Typ_const _ -> ty
+  | _ -> typ_const ty
+
+(* [get_constified_arg ty]: applies [get_constified_arg_aux] at the typ [ty] or the typ pointer by [ty] 
+      if [ty] is a reference or a rvalue reference 
+      return the constified typ of [ty]  *)
+let get_constified_arg (ty : typ) : typ =
+  let annot = ty.typ_annot in
+  let typ_attributes = ty.typ_attributes in
+  match ty.typ_desc with 
+  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
+    begin match ty.typ_desc with
+    (* rvalue reference *)
+    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
+      typ_ptr ~annot:ty.typ_annot ~typ_attributes:ty.typ_attributes Ptr_kind_ref (typ_ptr ~annot ~typ_attributes Ptr_kind_ref (get_constified_arg_aux ty))
+    (* reference *)
+    | _ -> typ_ptr ~annot ~typ_attributes Ptr_kind_ref (get_constified_arg_aux ty)
+    end
+  | _ -> get_constified_arg_aux ty
+
+(* [constify_args_aux t]: transforms the type of arguments of the function declaration in such a way that
+      "const" keywords are added whereever it is possible.
+  [t] - ast of the function definition. *)
+let constify_args_aux (t : trm) : trm =
+  match t.desc with
+  | Trm_let_fun (qvar, ret_typ, args, body) -> 
+    let const_args = (List.map (fun (v, ty) -> (v, (get_constified_arg ty))) args) in
+    trm_let_fun ~annot:t.annot ~loc:t.loc ~ctx:t.ctx ~qvar "" ret_typ const_args body
+  | _ -> fail t.loc "Apac_core.constify_args expected a target to a function definition."
+
+(* [constify_args t p]: applies [constify_args_aux] at the trm [t] with path [p]. *)
+let constify_args : Transfo.local =
+  apply_on_path (constify_args_aux)
