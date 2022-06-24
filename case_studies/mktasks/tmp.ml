@@ -13,7 +13,16 @@ let is_base_type (t : typ) : bool =
   | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
   (* class, struct, union ... *)
   (* also typedef and using ! which are not wanted *)
-  | Typ_constr _ -> true
+  
+  | Typ_constr (qv, id, _) -> 
+    begin match Context.typid_to_typedef id with 
+    | Some td  -> 
+      begin match ty.typdef_body with 
+      | Typdef_alias ty -> is_base_type ty 
+      | _  -> false
+      end
+    | None -> false
+    end
   | _ -> false
 
 let rec is_dep_in_aux (t : typ) : bool =

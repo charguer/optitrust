@@ -30,8 +30,8 @@ let use_goto_for_return_aux (mark : mark) (t : trm) : trm =
 
 
 (* [use_goto_for_return mark t p]: applies [use_goto_for_return_aux] at the trm [t] with path [p]. *)
-let use_goto_for_return (mark : mark) : Transfo.local =
-  apply_on_path(use_goto_for_return_aux mark)
+let use_goto_for_return (mark : mark) (t : trm) (p : path) : trm =
+  apply_on_path(use_goto_for_return_aux mark) t p
 
 
 (* [dep_kind]: type used for [arg_dep]. *)

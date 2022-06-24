@@ -67,6 +67,7 @@ TESTS_WITH_DOC := \
 TESTS_WITHOUT_DOC := \
 	apac_parallel_task_group.ml \
 	matrix_delocalize_obj.ml \
+	apac_bind_taskable.ml \
 
 	
 #variable_inline.ml \ TODO: Update variable_inline unit test

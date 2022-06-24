@@ -15,6 +15,13 @@ If the function returns values of type T:
 - add, after the new sequence, the labelled statement "___exit: return ___res;"
 
 
+
+Target: is just a list of constraints 
+
+is resolved to a path: 
+
+
+
 *) Apac.parallel_task_group ?mark tg
 
 - where tg is a target on a function def
@@ -192,3 +199,23 @@ faut-il mettre un #sync x avant la première occurence de x qui suit
 et qui n'est pas déjà dans depend(in:x) ?
 
 TODO: où vont les taskwait?
+
+
+TODO:
+parameter hiding in Ocaml
+
+
+
+OpenMP ast
+
+how targets work
+
+Understand parallel_task_group transformation.
+
+
+
+
+
+
+
+
