@@ -18,8 +18,12 @@ void test_invariant1 (int x){
 void test_invariant2(int x){
   
   const int c = f(x);
-  int d = f(x);
+  
 
+}
+
+void test_detach (int x){ 
+  int d = f(x);
 }
 
 
@@ -33,5 +37,14 @@ void test_nested_call(int x){
   int e = g(f(x), x);
 
 }
+
+
+void test_indepth(int x){
+
+  int z = g(f(x),x);
+
+}
+
+
 
 int main() {}
