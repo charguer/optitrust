@@ -6,16 +6,12 @@ open Apac_core
 let _ = Run.script_cpp (fun () -> 
 
   let tsk = Apac_basic.identify_taskable_functions [] in
-  (* !! Apac_basic.bind_taskable_calls ~indepth:true tsk [nbMulti;cFunDef "test_detach"]; *)
-
-  (* !! Apac_basic.bind_taskable_calls ~indepth:true tsk [nbMulti;cFunDef "test_nested_call"]; *)
   
-  !! Apac_basic.bind_taskable_calls ~indepth:true tsk [nbMulti;cFunDef "test_invariant1"];
-  !! Apac_basic.bind_taskable_calls ~indepth:true tsk [nbMulti;cFunDef "test_invariant2"];
-  !! Apac_basic.bind_taskable_calls ~indepth:true tsk [nbMulti;cFunDef "test_detach"];
-  !! Apac_basic.bind_taskable_calls ~indepth:true tsk [nbMulti;cFunDef "test_expression"];
-  !! Apac_basic.bind_taskable_calls ~indepth:true tsk [nbMulti;cFunDef "test_nested_call"];
-  !! Apac_basic.bind_taskable_calls ~indepth:true tsk [nbMulti;cFunDef "test_indepth"; cFun "f"];
-  
+  !! Apac_basic.bind_taskable_calls tsk [nbMulti;cFunDef "test_invariant1"];
+  !! Apac_basic.bind_taskable_calls tsk [nbMulti;cFunDef "test_invariant2"];
+  !! Apac_basic.bind_taskable_calls tsk [nbMulti;cFunDef "test_detach"];
+  !! Apac_basic.bind_taskable_calls tsk [nbMulti;cFunDef "test_expression"];
+  !! Apac_basic.bind_taskable_calls tsk [nbMulti;cFunDef "test_nested_call"];
+  !! Apac_basic.bind_taskable_calls ~indepth:false tsk [nbMulti;cFunDef "test_not_indepth"; cFun "f"];
 
 )

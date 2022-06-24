@@ -39,7 +39,7 @@ void test_nested_call(int x){
 }
 
 
-void test_indepth(int x){
+void test_not_indepth(int x){
 
   int z = g(f(x),x);
 

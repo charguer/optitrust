@@ -58,7 +58,8 @@ let get_fun_occurrences (t : trm) : occurs =
     let tsk = Hashtbl.create 1000 in 
     let rec aux (t : trm) : unit = 
       match t.desc with 
-      | Trm_apps ({desc = Trm_var (vk, qv); _}, _) ->
+      | Trm_apps ({desc = Trm_var (vk, qv); _}, args) ->
+        trm_iter aux t;
         let fun_name = qv.qvar_var in 
         if Hashtbl.mem tsk fun_name 
           then ()
@@ -82,6 +83,7 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
       | Some _ -> k :: acc
       | None -> acc
     ) occ [] in 
+    
 
     let fixed_tg = 
       if indepth then (target_of_path p ) @ [nbAny; cFuns occ_functions]
@@ -94,13 +96,14 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
         let tg_out_trm = Path.resolve_path path_to_instruction t in 
         let path_call_len = List.length local_path in
         let tg_call = target_of_path path_to_call in
-       Printf.printf "Path len is %d, and the path is %s\n" path_call_len (Path.path_to_string local_path);
        match tg_out_trm.desc with 
        | Trm_let (vk, _, _)  when path_call_len <= 2 -> 
            if vk = Var_mutable 
              then Variable_basic.init_detach (target_of_path path_to_instruction)
              else ()
-       | Trm_let _ -> Function.bind_intro ~const:false ~fresh_name:("res__" ^ (string_of_int i1)) tg_call
+       | Trm_let _ -> Function.bind_intro ~const:false ~my_mark:"bind_tskbl" ~fresh_name:("res__" ^ (string_of_int i1)) tg_call;
+                      begin try Variable_basic.init_detach [cVarDef "" ~body:[cMark "bind_tskbl"]] with | TransfoError _ -> () end; 
+                      Marks.remove "bind_tskbl" [nbAny;cMark "bind_tskbl"]
        
        | Trm_apps (_,[ls; rhs]) when is_set_operation tg_out_trm -> 
            if path_call_len >= 2 
@@ -108,8 +111,7 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
              else ()
        | Trm_apps _ when path_call_len = 0 -> ()
        
-       |  _ -> Function.bind_intro ~const:false ~fresh_name:("res__" ^ (string_of_int i1)) tg_call
-       (* | _ -> fail tg_out_trm.loc "Apac_basic.bind_taskable_calls: the main target should either a function call, or any trm that 
-                  contains some function calls provided that the argument [indepth] is set to true. " *)
+       | _ -> fail tg_out_trm.loc "Apac_basic.bind_taskable_calls: the main target should either a function call, or any trm that 
+                  contains some function calls provided that the argument [indepth] is set to true. "
      ) fixed_tg
 )
