@@ -586,8 +586,23 @@ and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cst
   
   let spec_annot = if List.length spec_annot = 1 then List.nth spec_annot 0 else fail None "astC_to_c.trm_class_constructor_to_doc: catastrophic error" in 
   let explicit = ref empty in
-  let bd, _init_list = filter_out_from_seq (fun t -> trm_has_cstyle Member_initializer t ) body in
-      
+  let bd, init_list = filter_out_from_seq (fun t -> trm_has_cstyle Member_initializer t ) body in
+  let tr_inits = 
+    if List.length init_list = 0 
+      then [] 
+      else 
+        List.map (fun t1 -> 
+          match set_struct_access_inv t1 with 
+          | Some (this, f, v) -> 
+            string f ^^ parens (decorate_trm v)
+          | None -> fail t1.loc "AstC_to_c.aux_class_constructor_to_doc: bad member initializer."
+        
+        ) init_list in
+  (* TODO: By default list_to_doc should have empty bounds. *)
+  let init_d = Tools.list_to_doc ~bounds:[empty; empty] ~sep:comma tr_inits in 
+  let init_d = if init_d = empty then init_d else colon ^^ init_d in 
+  (* let init_d = empty in  *)
+
   let dt = match spec_annot with 
     | Constructor_implicit -> equals ^^ blank 1 ^^ string  "implicit"
     | Constructor_default -> equals ^^ blank 1 ^^ string "default"
@@ -595,7 +610,7 @@ and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cst
     | Constructor_simpl -> 
       decorate_trm bd
    in
-  (separate (blank 1) [!explicit; string name; parens argd; dt]) ^^ dsemi
+  (separate (blank 1) [!explicit; string name; parens argd; init_d; dt]) ^^ dsemi
 
 (* [aux_class_destructor_to_doc ]: converst class constructor declaration to pprint document. *)
 and aux_class_destructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (body : trm) : document =

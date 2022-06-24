@@ -906,7 +906,7 @@ and tr_member_initialized_list ?(loc : location = None) (init_list :  constructo
     match k with 
     | Member {indirect = b; field = {desc = f}} ->
       let ti = tr_expr ie in 
-      trm_add_cstyle Member_initializer (trm_set (trm_apps ~ctx (trm_unop (Unop_struct_get f)) [trm_this()]) (ti))
+      trm_add_cstyle Member_initializer (trm_set (trm_apps ~ctx (trm_unop (Unop_struct_access f)) [trm_this()]) (ti))
     | _ -> fail loc "Clang_to_astRawC.tr_member_initializer_list: only simple mmeber initializers are supported."
   ) init_list 
 
