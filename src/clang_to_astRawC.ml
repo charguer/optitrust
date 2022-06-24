@@ -814,6 +814,11 @@ and tr_expr (e : expr) : trm =
     let tr_args = List.map tr_expr args in 
     let f_name = AstC_to_c.typ_to_string tq  in 
     trm_apps (trm_var f_name) tr_args
+  | ParenList el -> 
+    begin match el with 
+    | [e] -> tr_expr e
+    | _ -> fail loc "Clang_to_astRawC.tr_expr: inheritance not yet supported."
+    end
   | _ ->
     fail loc
       ("Clang_to_astRawC.tr_expr: the following expression is unsupported: " ^

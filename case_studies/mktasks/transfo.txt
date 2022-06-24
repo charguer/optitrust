@@ -156,7 +156,7 @@ is resolved to a path:
 
 *) Apac.insert_tasks_for_taskable taskable ~indepth tg
 
-- where tg is a is a target, typically the full file or a function call
+ - where tg is a is a target, typically the full file or a function call
 - where indepth controls whether to recurse in subterms
 - f(x), y=f(x) with f taskable
 
@@ -203,8 +203,6 @@ TODO: où vont les taskwait?
 
 TODO:
 parameter hiding in Ocaml
-
-
 
 OpenMP ast
 
