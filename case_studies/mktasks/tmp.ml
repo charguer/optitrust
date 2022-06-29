@@ -73,19 +73,19 @@ let dep_kind_of_typ (t : typ) : dep_kind =
 
 let rec constify_arg_aux (ty : typ) : typ =
   let annot = ty.typ_annot in
-  let typ_attributes = ty.typ_attributes in
+  let attributes = ty.typ_attributes in
   match ty.typ_desc with 
   | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty} ->
     typ_const (typ_ptr Ptr_kind_mut (constify_arg_aux ty))
   | Typ_const {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty }; typ_annot = t_an; typ_attributes = t_at} ->
-    typ_const ~annot ~typ_attributes (typ_ptr ~annot:t_an ~typ_attributes:t_at Ptr_kind_mut (constify_arg_aux ty))
+    typ_const (typ_ptr ~annot:t_an ~attributes:t_at Ptr_kind_mut (constify_arg_aux ty))
   | Typ_const _ -> ty
   | _ -> typ_const ty
 
 let constify_arg (ty : typ) : typ =
   let annot = ty.typ_annot in
-  let typ_attributes = ty.typ_attributes in
+  let attributes = ty.typ_attributes in
   match ty.typ_desc with 
   | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> 
-    typ_ptr ~annot ~typ_attributes Ptr_kind_ref  (constify_arg_aux ty)
+    typ_ptr ~annot ~attributes Ptr_kind_ref  (constify_arg_aux ty)
   | _ -> constify_arg_aux ty

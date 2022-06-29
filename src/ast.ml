@@ -723,10 +723,10 @@ let typ_alter ?(annot : typ_annot list = []) ?(attributes = []) ?(desc : typ_des
 let typ_replace (desc : typ_desc) (ty : typ) : typ =
   typ_alter ~desc:(Some desc) ty
 
-(* [typ_const ~annot ~typ_attributes t]: const type constructor *)
-let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_const ~annot ~attributes t]: const type constructor *)
+let typ_const ?(annot : typ_annot list = []) ?(attributes = [])
   (t : typ) : typ =
-  {typ_annot = annot; typ_desc = Typ_const t; typ_attributes}
+  typ_make ~annot ~attributes (Typ_const t)  
 
 (* [qvar_build qv qp qs]: builds a qvar record with fields qvar_var = [qv], qvar_path = [qp] and qvar_str = [qs]. *)
 let qvar_build (qv : var) (qp : var list) : qvar =
@@ -741,99 +741,99 @@ let qvar_build (qv : var) (qp : var list) : qvar =
 let empty_qvar : qvar =
   {qvar_var = ""; qvar_path = []; qvar_str = ""}
 
-(* [typ_constr ~annot ~typ_attributes ~tid ~tl x]: constructed type constructor *)
-let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_constr ~annot ~attributes ~tid ~tl x]: constructed type constructor *)
+let typ_constr ?(annot : typ_annot list = []) ?(attributes = [])
   ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = []) ?(qpath : var list = [])
   ?(qtypvar : qvar = empty_qvar) (x : typvar) : typ =
   let qtx = qvar_build x qpath in 
   let qtx = if qtypvar = empty_qvar then qtx else qtypvar in 
-  {typ_annot = annot; typ_desc = Typ_constr (qtx, tid, tl); typ_attributes}
+  typ_make ~annot ~attributes (Typ_constr (qtx, tid, tl))
 
-(* [typ_auto ~annot ~typ_attributes ()]: auto type constructor *)
-let typ_auto ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_auto ; typ_attributes}
+(* [typ_auto ~annot ~attributes ()]: auto type constructor *)
+let typ_auto ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_auto
 
-(* [typ_unit ~annot ~typ_attributes ()]: void type constructor *)
-let typ_unit ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_unit; typ_attributes}
+(* [typ_unit ~annot ~attributes ()]: void type constructor *)
+let typ_unit ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_unit
 
-(* [typ_int ~annot ~typ_attributes ()]: int type constructor *)
-let typ_int ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_int; typ_attributes}
 
-(* [typ_float ~annot ~typ_attributes ()]: float type constructor *)
-let typ_float ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_float; typ_attributes}
+(* [typ_int ~annot ~attributes ()]: int type constructor *)
+let typ_int ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_int
 
-(* [typ_double ~annot ~typ_attributes ()]: double type constructor *)
-let typ_double ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_double; typ_attributes}
+(* [typ_float ~annot ~attributes ()]: float type constructor *)
+let typ_float ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_float
+  
+(* [typ_double ~annot ~attributes ()]: double type constructor *)
+let typ_double ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_double
 
-(* [typ_bool ~annot ~typ_attributes ()]: bool type constructor *)
-let typ_bool ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_bool; typ_attributes}
+(* [typ_bool ~annot ~attributes ()]: bool type constructor *)
+let typ_bool ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_bool
 
-(* [typ_char ~annot ~typ_attributes ()]: char type constructor *)
-let typ_char ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_char; typ_attributes}
+(* [typ_char ~annot ~attributes ()]: char type constructor *)
+let typ_char ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_char
 
-(* [typ_string ~annot ~typ_attributes ()]: char type constructor *)
-let typ_string ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_string; typ_attributes}
 
-(* [typ_ptr ~annot ~typ_attributes kind t]: pointer type constructor,
+(* [typ_string ~annot ~attributes ()]: char type constructor *)
+let typ_string ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_string
+
+(* [typ_ptr ~annot ~attributes kind t]: pointer type constructor,
    Note: references are considered as pointer types in OptiTrust *)
-let typ_ptr ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  (kind : ptr_kind) (t : typ) : typ = {typ_annot = annot; typ_desc = Typ_ptr
-                                      {ptr_kind = kind; inner_typ = t}; typ_attributes}
+let typ_ptr ?(annot : typ_annot list = []) ?(attributes = [])
+  (kind : ptr_kind) (t : typ) : typ = 
+  typ_make ~annot ~attributes (Typ_ptr {ptr_kind = kind; inner_typ = t} )
 
-(* [typ_array ~annot ~typ_attributes t s]: array type constructor *)
-let typ_array ?(annot : typ_annot list = []) ?(typ_attributes = []) (t : typ)
-  (s : size) : typ =
-  {typ_annot = annot; typ_desc = Typ_array (t, s); typ_attributes}
+(* [typ_array ~annot ~attributes t s]: array type constructor *)
+let typ_array ?(annot : typ_annot list = []) ?(attributes = []) (t : typ) (s : size) : typ =
+  typ_make ~annot ~attributes (Typ_array (t, s))
 
-(* [typ_fun ~annot ~typ_attributes args res]: function type constructor *)
-let typ_fun ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_fun ~annot ~attributes args res]: function type constructor *)
+let typ_fun ?(annot : typ_annot list = []) ?(attributes = [])
   (args : typ list) (res : typ) : typ =
-  {typ_annot = annot; typ_desc = Typ_fun (args, res); typ_attributes}
-
-(* [typ_record ~annot ~typ_attributes rt name]: record type constructor *)
-let typ_record ?(annot : typ_annot list = []) ?(typ_attributes = [])
+  typ_make ~annot ~attributes (Typ_fun (args, res) )
+  
+(* [typ_record ~annot ~attributes rt name]: record type constructor *)
+let typ_record ?(annot : typ_annot list = []) ?(attributes = [])
   (rt : record_type) (name : typ) : typ =
-  {typ_annot = annot; typ_desc = Typ_record (rt, name); typ_attributes}
+  typ_make ~annot ~attributes (Typ_record (rt, name) )
 
-(* [typ_template_param ~annot ~typ_attributes name]: template type constructor *)
-let typ_template_param ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_template_param ~annot ~attributes name]: template type constructor *)
+let typ_template_param ?(annot : typ_annot list = []) ?(attributes = [])
   (name : string) : typ =
-  {typ_annot = annot; typ_desc = Typ_template_param name; typ_attributes}
+  typ_make ~annot ~attributes (Typ_template_param name )
 
 (* [typ_ptr_generated ty]: generated pointer type constructor *)
 let typ_ptr_generated (ty : typ) : typ =
-  typ_ptr ~typ_attributes:[GeneratedTyp] Ptr_kind_mut ty
+  typ_ptr ~attributes:[GeneratedTyp] Ptr_kind_mut ty
 
 (* [typedef_prod ~recursive field_list]: typedef kind constructor *)
 let typdef_record (fields : record_fields) : typdef_body =
   Typdef_record fields
 
-(* [typ_str ~annot ~typ_attributes s] *)
-let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_str ~annot ~attributes s] *)
+let typ_str ?(annot : typ_annot list = []) ?(attributes = [])
   (s : code_kind) : typ =
-  {typ_annot = annot; typ_desc = Typ_arbitrary s ; typ_attributes}
+  typ_make ~annot ~attributes (Typ_arbitrary s )
 
-(* [typ_decl ~annot ~typ_attributes expr]: type declaration based on an expression. *)
-let typ_decl ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  (expr : trm) =
-  {typ_annot = annot; typ_desc = Typ_decl expr; typ_attributes}
+(* [typ_decl ~annot ~attributes expr]: type declaration based on an expression. *)
+let typ_decl ?(annot : typ_annot list = []) ?(attributes = []) (expr : trm) =
+  typ_make ~annot ~attributes (Typ_decl expr )
 
-(* [typ_ref ~annot ~typ_attributes ty]: alias to typ_ptr Ptr_kind_ref ty *)
-let typ_ref ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_ref ~annot ~attributes ty]: alias to typ_ptr Ptr_kind_ref ty *)
+let typ_ref ?(annot : typ_annot list = []) ?(attributes = [])
   (ty : typ) : typ =
-  typ_ptr ~annot ~typ_attributes Ptr_kind_ref ty 
+  typ_ptr ~annot ~attributes Ptr_kind_ref ty 
 
-(* [typ_lref ~annot ~typ_attributes ty]: alias to typ_ref (typ_ref ty). *)
-let typ_lref ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_lref ~annot ~attributes ty]: alias to typ_ref (typ_ref ty). *)
+let typ_lref ?(annot : typ_annot list = []) ?(attributes = [])
   (ty : typ) : typ =
-    typ_ref ~annot ~typ_attributes (typ_ref ty)
+    typ_ref ~annot ~attributes (typ_ref ty)
 
 (* **************************** Trm constructors *************************** *)
 
@@ -1801,15 +1801,15 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
 (* [typ_map f ty]: applies f on type ty recursively *)
 let typ_map (f : typ -> typ) (ty : typ) : typ =
   let annot = ty.typ_annot in
-  let typ_attributes = ty.typ_attributes in
+  let attributes = ty.typ_attributes in
   match ty.typ_desc with
-  | Typ_const ty -> f ty
-  | Typ_ptr {ptr_kind= pk; inner_typ = ty} -> typ_ptr ~annot ~typ_attributes pk (f ty)
-  | Typ_array (ty, n) -> typ_array ~annot ~typ_attributes (f ty) n
+  | Typ_ptr {ptr_kind= pk; inner_typ = ty} -> typ_ptr ~annot ~attributes pk (f ty)
+  | Typ_array (ty, n) -> typ_array ~annot ~attributes (f ty) n
   | Typ_fun (tyl, ty) ->
-     typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
+     typ_fun ~annot ~attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
-  | _ ->  f ty
+  | _ -> ty
+
 
 (* [label_subterms_with_fresh_stringreprids f t]: annotates all the subterms of [t]
    that satisfy the boolean predicate [f] with a fresh string representation identifier.

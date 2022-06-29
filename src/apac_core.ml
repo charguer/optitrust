@@ -89,12 +89,12 @@ let sort_arg (arg_deps : arg_deps) : sorted_arg_deps =
 (* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)
 let rec get_constified_arg_aux (ty : typ) : typ =
   let annot = ty.typ_annot in
-  let typ_attributes = ty.typ_attributes in
+  let attributes = ty.typ_attributes in
   match ty.typ_desc with 
   | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty} ->
-    typ_const (typ_ptr ~annot ~typ_attributes Ptr_kind_mut (get_constified_arg_aux ty))
-  | Typ_const {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty }; typ_annot = annot; typ_attributes = typ_attributes} ->
-    typ_const (typ_ptr ~annot ~typ_attributes Ptr_kind_mut (get_constified_arg_aux ty))
+    typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (get_constified_arg_aux ty))
+  | Typ_const {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty }; typ_annot = annot; typ_attributes = attributes} ->
+    typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (get_constified_arg_aux ty))
   | Typ_constr (_, id, _) ->
     begin match Context.typid_to_typedef id with
     | Some td -> 
@@ -112,15 +112,15 @@ let rec get_constified_arg_aux (ty : typ) : typ =
       return the constified typ of [ty]  *)
 let get_constified_arg (ty : typ) : typ =
   let annot = ty.typ_annot in
-  let typ_attributes = ty.typ_attributes in
+  let attributes = ty.typ_attributes in
   match ty.typ_desc with 
   | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
     begin match ty.typ_desc with
     (* rvalue reference *)
     | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
-      typ_lref ~annot ~typ_attributes (get_constified_arg_aux ty)
+      typ_lref ~annot ~attributes (get_constified_arg_aux ty)
     (* reference *)
-    | _ -> typ_ref ~annot ~typ_attributes (get_constified_arg_aux ty)
+    | _ -> typ_ref ~annot ~attributes (get_constified_arg_aux ty)
     end
   | _ -> get_constified_arg_aux ty
 
