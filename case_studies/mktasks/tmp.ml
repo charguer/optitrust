@@ -8,7 +8,7 @@ open Apac_core
   todo : handle typedef and using aliasing 
 *)
 
-let is_base_type (t : typ) : bool =
+let rec is_base_type (t : typ) : bool =
   match t.typ_desc with
   | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
   (* class, struct, union ... *)
@@ -17,7 +17,7 @@ let is_base_type (t : typ) : bool =
   | Typ_constr (qv, id, _) -> 
     begin match Context.typid_to_typedef id with 
     | Some td  -> 
-      begin match ty.typdef_body with 
+      begin match td.typdef_body with 
       | Typdef_alias ty -> is_base_type ty 
       | _  -> false
       end
@@ -76,7 +76,7 @@ let rec constify_arg_aux (ty : typ) : typ =
   let attributes = ty.typ_attributes in
   match ty.typ_desc with 
   | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty} ->
-    typ_const (typ_ptr Ptr_kind_mut (constify_arg_aux ty))
+    typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (constify_arg_aux ty))
   | Typ_const {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty }; typ_annot = t_an; typ_attributes = t_at} ->
     typ_const (typ_ptr ~annot:t_an ~attributes:t_at Ptr_kind_mut (constify_arg_aux ty))
   | Typ_const _ -> ty

@@ -74,6 +74,7 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
 
 type vars_arg = (string, int) Hashtbl.t
 type arg_const = {
+  is_ptr_or_ref : bool;
   mutable is_const : bool;
   mutable dependency_of : (string * int) list;
 }
@@ -111,44 +112,59 @@ let constify : Transfo.t =
     List.iter (fun t ->
       match t.desc with
       | Trm_let_fun (qv, _, args, _) ->
-        Printf.printf "ok\n";
-        let acs : args_const = List.init (List.length args) 
-        (fun _ -> { is_const = true; dependency_of = [] }) in
+        let acs : args_const = List.map 
+        (fun (_, ty) -> { 
+          is_ptr_or_ref = is_reference ty || is_typ_ptr (get_inner_const_type ty) ;
+          is_const = true; 
+          dependency_of = [] }) args in
         Hashtbl.add fac qv.qvar_str acs
       | _ -> fail None "Should not happen"
       ) fun_decls;
 
 
-    (* update fac dependency_of *)
+    (* update fac dependency_of and fill to_process *)
     (* TODO : handle other new scope if, while ... *)
-    let rec update_fac_dep_of_aux (va : vars_arg) (new_scope : bool) (cur_fun : string) (t : trm) : unit =
+    let rec update_fac_and_to_process (to_process : (string * int) Stack.t) (va : vars_arg) (new_scope : bool) (cur_fun : string) (t : trm) : unit =
       let va = if new_scope then Hashtbl.copy va else va in
       match t.desc with
       (* new scope *)
-      | Trm_seq _ -> trm_iter (update_fac_dep_of_aux va true cur_fun) t
+      | Trm_seq _ -> trm_iter (update_fac_and_to_process to_process va true cur_fun) t
       (* funcall *)
-      | Trm_apps ({ desc = Trm_var (_ , fname); _ }, args) when Hashtbl.mem fac fname.qvar_str -> 
+      | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ }, args) when Hashtbl.mem fac funcall_name.qvar_str -> 
         List.iteri (fun i t -> 
           match t.desc with
-          (* TODO : add only if it is ref or ptr in funcall def *)
           | Trm_var (_, arg_name) ->
               begin match Hashtbl.find_opt va arg_name.qvar_str with
-              | Some(j) -> 
-                let acs = Hashtbl.find fac fname.qvar_str in
-                let ac = List.nth acs (i-1) in 
-                ac.dependency_of <- (fname.qvar_str, j) :: ac.dependency_of ;
+              | Some(arg_pos) ->
+                  let acs = Hashtbl.find fac funcall_name.qvar_str in
+                  let ac = List.nth acs i in 
+                  if ac.is_ptr_or_ref then
+                    ac.dependency_of <- (cur_fun, arg_pos) :: ac.dependency_of ;
               | None -> ()
               end
           | _ -> ()) args;
-        trm_iter (update_fac_dep_of_aux va false cur_fun) t
+        trm_iter (update_fac_and_to_process to_process va false cur_fun) t
       (* ref/ptr assign *)
-      (* ignore the first ptr when *)
+      (* TODO :ignore the first ptr when varkind is mutable *)
+      (* TODO : check right side if exist arg (false positive possible if arg used as offset for example) *)
       | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [{ desc = Trm_var (_, rname); _ }]); _ }) when is_reference ty || is_typ_ptr (get_inner_const_type ty) ->
-        begin match Hashtbl.find_opt va rname.qvar_str with 
-        | Some(i) -> Hashtbl.add va lname i; trm_iter (update_fac_dep_of_aux va false cur_fun) t
-        | None -> trm_iter (update_fac_dep_of_aux va false cur_fun) t 
+        begin match Hashtbl.find_opt va rname.qvar_str with
+        | Some(i) -> Hashtbl.add va lname i; trm_iter (update_fac_and_to_process to_process va false cur_fun) t
+        | None -> trm_iter (update_fac_and_to_process to_process va false cur_fun) t
         end
-      | _ -> trm_iter (update_fac_dep_of_aux va false cur_fun) t
+      (* assign to arg *)
+      (* TODO : handle other mutable operations "+=", "++" ... *)
+      | Trm_apps (_, [ls; rhs]) when is_set_operation t -> 
+        begin match get_binop_set_left_var ls with
+        | Some({ desc = Trm_var (vk, name); _ }) when Hashtbl.mem va name.qvar_str ->
+          let i = Hashtbl.find va name.qvar_str in
+          let acs = Hashtbl.find fac cur_fun in
+          let ac = List.nth acs i in 
+          if ac.is_ptr_or_ref then 
+            Stack.push (cur_fun, i) to_process;
+        | _ -> trm_iter (update_fac_and_to_process to_process va false cur_fun) t
+        end 
+      | _ -> trm_iter (update_fac_and_to_process to_process va false cur_fun) t
     in
 
     List.iter (fun t ->
@@ -156,32 +172,10 @@ let constify : Transfo.t =
       match t.desc with
       | Trm_let_fun (qv, _, args, body) ->
         List.iteri (fun i (name, _) -> if name <> "" then Hashtbl.add va name i) args ;
-        trm_iter (update_fac_dep_of_aux va false (qv.qvar_str)) body
+        trm_iter (update_fac_and_to_process to_process va false (qv.qvar_str)) body
       | _ -> fail None "Should not happen"
       ) fun_decls;
-
     
-    (* unconstify *)
-    (* TODO *)
-    let rec unconstify_aux (to_process : (string * int) Stack.t) (va : vars_arg) (new_scope : bool) (t : trm) : unit =
-      let va = if new_scope then Hashtbl.copy va else va in
-      match t.desc with
-      | Trm_seq _ -> trm_iter (unconstify_aux to_process va true) t
-      | Trm_apps (_, [ls; rhs]) when is_set_operation t -> 
-        begin match get_binop_set_left_var ls with
-        | Some({ desc=Trm_var (_, name); _ }) when Hashtbl.mem va name.qvar_str-> ()
-        | _ -> ()
-        end 
-      | _ -> trm_iter (unconstify_aux to_process va false) t
-    in
-
-    List.iter (fun t ->
-      let va = Hashtbl.create 10 in
-      match t.desc with
-      | Trm_let_fun (qv, _, _, body) -> 
-        trm_iter (unconstify_aux to_process va false) body
-      | _ -> fail None "Expect function definition"
-      ) fun_decls;
     
     let rec unconstify_propagate (to_process : (string * int) Stack.t) : unit =
       match Stack.pop_opt to_process with
@@ -194,16 +188,10 @@ let constify : Transfo.t =
     in
     unconstify_propagate to_process;
 
-    (* TODO : make change in the ast *)
-    ()
+
+    (* make change in the ast *)
+    Hashtbl.iter (fun fname v -> 
+      let is_const : bool list = List.map (fun { is_const; _ } -> is_const) v in
+      constify_args ~is_const [nbMulti; cTopFunDefAndDecl fname]
+      ) fac
   )
-
-  (* 
-
-  (* TODO : assign *)
-  (* | Trm_apps (_, [ls; rhs]) when is_set_operation t -> 
-    begin match get_binop_left_var ls with
-    | Some({desc=Trm_var (_, name); _}) when String_map.mem name.qvar_str va -> ()
-    | _ -> ()
-    end *)
-  *)

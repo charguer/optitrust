@@ -132,11 +132,11 @@ let constify_args_aux (is_const : bool list) (t : trm) : trm =
   match t.desc with
   | Trm_let_fun (qvar, ret_typ, args, body) -> 
     let is_const = if is_const = [] then List.init (List.length args) (fun _ -> true) else is_const in
-    let const_args = (List.map2 (fun (v, ty) b-> 
+    let const_args = (List.map2 (fun (v, ty) b -> 
       if b then (v, (get_constified_arg ty)) else (v, ty)
       ) args is_const) in
     trm_let_fun ~annot:t.annot ~loc:t.loc ~ctx:t.ctx ~qvar "" ret_typ const_args body
   | _ -> fail t.loc "Apac_core.constify_args expected a target to a function definition."
 
-let constify_args (is_const) : Transfo.local =
+let constify_args (is_const : bool list) : Transfo.local =
   apply_on_path(constify_args_aux is_const)
