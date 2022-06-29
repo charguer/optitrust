@@ -699,7 +699,30 @@ type reorder =
   | Reorder_after of string
   | Reorder_all
 
-(* *************************** Typ Construcors ***************************** *)
+(* **************************** Typ constructors *************************** *)
+
+(* [typ_build ~annot ~attributes ~desc ()]: builds typ [ty] with its fields given as arguments. *)
+let typ_build ~(annot : typ_annot list) ?(attributes : attribute list = []) ~(desc : typ_desc) () : typ = 
+  let ty = {typ_annot = annot; typ_attributes = attributes; typ_desc = desc} in 
+  (* Stats for types? *) 
+  ty
+
+(* [typ_make ~annot ~attributes desc]: builds typ [ty] with the type description [desc] and other fields given. *)
+let typ_make ?(annot : typ_annot list = []) ?(attributes = []) (desc : typ_desc) : typ =
+  typ_build ~annot ~attributes ~desc ()
+
+(* [typ_alter ~annot ~attributes ~desc ty]: alters any of the fields of [ty] that was provided as argument. *)
+let typ_alter ?(annot : typ_annot list = []) ?(attributes = []) ?(desc : typ_desc option = None) (ty : typ) : typ = 
+  let annot = match annot with [] -> ty.typ_annot |_ -> annot in 
+  let attributes = match attributes with | [] -> ty.typ_attributes | _ -> attributes in 
+  let desc = match desc with | Some td -> td | None -> ty.typ_desc in 
+  typ_build ~annot ~attributes ~desc ()
+
+
+(* [typ_repplace desc]: an alias of [typ_alter] to alter only thet description of the trm [ty]. *)
+let typ_replace (desc : typ_desc) (ty : typ) : typ =
+  typ_alter ~desc:(Some desc) ty
+
 (* [typ_const ~annot ~typ_attributes t]: const type constructor *)
 let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (t : typ) : typ =
@@ -802,20 +825,15 @@ let typ_decl ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (expr : trm) =
   {typ_annot = annot; typ_desc = Typ_decl expr; typ_attributes}
 
-
+(* [typ_ref ~annot ~typ_attributes ty]: alias to typ_ptr Ptr_kind_ref ty *)
 let typ_ref ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (ty : typ) : typ =
   typ_ptr ~annot ~typ_attributes Ptr_kind_ref ty 
 
+(* [typ_lref ~annot ~typ_attributes ty]: alias to typ_ref (typ_ref ty). *)
 let typ_lref ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (ty : typ) : typ =
     typ_ref ~annot ~typ_attributes (typ_ref ty)
-
-
-(* **************************** Typ constructors *************************** *)
-(* TODO: typ_build typ_alter etc. *)
-
-
 
 (* **************************** Trm constructors *************************** *)
 
