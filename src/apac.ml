@@ -72,7 +72,7 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
   )  *)
 
 
-type vars_arg = int String_map.t
+type vars_arg = (string, int) Hashtbl.t
 type arg_const = {
   mutable is_const : bool;
   mutable dependency_of : (string * int) list;
@@ -91,84 +91,114 @@ let rec get_binop_set_left_var (t : trm) : trm option =
   | _ -> None
 
 (* wip*)
-let constify : unit = 
-  let fac : fun_args_const = Hashtbl.create 10 in 
+let constify : Transfo.t = 
+  iter_on_targets (fun t p ->
+    let tg_trm = Path.get_trm_at_path p t in
+    let fac : fun_args_const = Hashtbl.create 10 in 
+    let to_process = Stack.create () in
 
-  let _init_fac (fac : fun_args_const) : Transfo.t =
-    iter_on_targets(fun t p ->
-      let tg_trm = Path.get_trm_at_path p t in
-      match tg_trm.desc with
-      | Trm_let_fun (qv, _, args, _) -> 
+    (* get the list of function declarations trms *)
+    let fun_decls : trms = match tg_trm.desc with
+    | Trm_seq ml -> Mlist.fold_left (fun acc t -> 
+      match t.desc with
+      | Trm_let_fun _ -> t :: acc
+      | _ -> acc 
+      ) [] ml
+    | _ -> fail None "Expect dRoot target"
+    in
+
+    (* init fac *)
+    List.iter (fun t ->
+      match t.desc with
+      | Trm_let_fun (qv, _, args, _) ->
+        Printf.printf "ok\n";
         let acs : args_const = List.init (List.length args) 
         (fun _ -> { is_const = true; dependency_of = [] }) in
         Hashtbl.add fac qv.qvar_str acs
-      | _ -> fail None "Expect function definition"
-    )
-  in
+      | _ -> fail None "Should not happen"
+      ) fun_decls;
 
-  (* TODO : [va] not update in trm_iter*)
-  let rec update_fac_dep_of_aux (va : vars_arg) (cur_fun : string) (t : trm) : unit =
-    match t.desc with
-    | Trm_seq _ -> trm_iter (update_fac_dep_of_aux va cur_fun) t
-    (* funcall *)
-    | Trm_apps ({ desc = Trm_var (_ , fname); _ }, args) -> 
-      List.iteri (fun i t -> 
-        match t.desc with
-        | Trm_var (_, arg_name) ->
-            begin match String_map.find_opt arg_name.qvar_str va with
-            | Some(j) -> 
-              let acs = Hashtbl.find fac fname.qvar_str in
-              let ac = List.nth acs (i-1) in 
-              ac.dependency_of <- (fname.qvar_str, j) :: ac.dependency_of ;
-            | None -> ()
-            end
-        | _ -> ()) args;
-      trm_iter (update_fac_dep_of_aux va cur_fun) t
-    (* ref/ptr assign *)
-    | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [{ desc = Trm_var (_, rname); _ }]); _ }) when is_reference ty || is_typ_ptr (get_inner_const_type ty) ->
-      begin match String_map.find_opt rname.qvar_str va with 
-      | Some(i) -> trm_iter (update_fac_dep_of_aux (String_map.add lname i va) cur_fun) t
-      | None -> trm_iter (update_fac_dep_of_aux va cur_fun) t 
-      end
-    | _ -> trm_iter (update_fac_dep_of_aux va cur_fun) t
-  in
-  
-  let _update_fac_dep_of : Transfo.t =
-    iter_on_targets(fun t p ->
-      let tg_trm = Path.get_trm_at_path p t in
-      match tg_trm.desc with
+
+    (* update fac dependency_of *)
+    (* TODO : handle other new scope if, while ... *)
+    let rec update_fac_dep_of_aux (va : vars_arg) (new_scope : bool) (cur_fun : string) (t : trm) : unit =
+      let va = if new_scope then Hashtbl.copy va else va in
+      match t.desc with
+      (* new scope *)
+      | Trm_seq _ -> trm_iter (update_fac_dep_of_aux va true cur_fun) t
+      (* funcall *)
+      | Trm_apps ({ desc = Trm_var (_ , fname); _ }, args) when Hashtbl.mem fac fname.qvar_str -> 
+        List.iteri (fun i t -> 
+          match t.desc with
+          (* TODO : add only if it is ref or ptr in funcall def *)
+          | Trm_var (_, arg_name) ->
+              begin match Hashtbl.find_opt va arg_name.qvar_str with
+              | Some(j) -> 
+                let acs = Hashtbl.find fac fname.qvar_str in
+                let ac = List.nth acs (i-1) in 
+                ac.dependency_of <- (fname.qvar_str, j) :: ac.dependency_of ;
+              | None -> ()
+              end
+          | _ -> ()) args;
+        trm_iter (update_fac_dep_of_aux va false cur_fun) t
+      (* ref/ptr assign *)
+      (* ignore the first ptr when *)
+      | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [{ desc = Trm_var (_, rname); _ }]); _ }) when is_reference ty || is_typ_ptr (get_inner_const_type ty) ->
+        begin match Hashtbl.find_opt va rname.qvar_str with 
+        | Some(i) -> Hashtbl.add va lname i; trm_iter (update_fac_dep_of_aux va false cur_fun) t
+        | None -> trm_iter (update_fac_dep_of_aux va false cur_fun) t 
+        end
+      | _ -> trm_iter (update_fac_dep_of_aux va false cur_fun) t
+    in
+
+    List.iter (fun t ->
+      let va = Hashtbl.create 10 in
+      match t.desc with
       | Trm_let_fun (qv, _, args, body) ->
-        let (va, _) = List.fold_left (fun (va, i) (name, _) ->
-          if name = "" then (va,i+1) else (String_map.add name i va, i+1)) (String_map.empty, 0) args in
-        trm_iter (update_fac_dep_of_aux va (qv.qvar_str)) body
-      | _ -> fail None "Expect function definition"
-    )
-  in
+        List.iteri (fun i (name, _) -> if name <> "" then Hashtbl.add va name i) args ;
+        trm_iter (update_fac_dep_of_aux va false (qv.qvar_str)) body
+      | _ -> fail None "Should not happen"
+      ) fun_decls;
 
-  let rec _unconstify_propagate (to_process : (string * int) list) : unit =
-    match to_process with
-    | [] -> ()
-    | (fname, nth) :: t -> 
-      let acs : args_const = Hashtbl.find fac fname in
-      let ac : arg_const = List.nth acs nth in
-      if ac.is_const 
-        then begin ac.is_const <- false; _unconstify_propagate (List.rev_append to_process ac.dependency_of) end
-        else _unconstify_propagate t
-  in
+    
+    (* unconstify *)
+    (* TODO *)
+    let rec unconstify_aux (to_process : (string * int) Stack.t) (va : vars_arg) (new_scope : bool) (t : trm) : unit =
+      let va = if new_scope then Hashtbl.copy va else va in
+      match t.desc with
+      | Trm_seq _ -> trm_iter (unconstify_aux to_process va true) t
+      | Trm_apps (_, [ls; rhs]) when is_set_operation t -> 
+        begin match get_binop_set_left_var ls with
+        | Some({ desc=Trm_var (_, name); _ }) when Hashtbl.mem va name.qvar_str-> ()
+        | _ -> ()
+        end 
+      | _ -> trm_iter (unconstify_aux to_process va false) t
+    in
 
-  let unconstify_aux (t : trm) : unit =
-    ()
-  in
-
-  let _unconstify : Transfo.t =
-    iter_on_targets(fun t p ->
-      let tg_trm = Path.get_trm_at_path p t in
-      match tg_trm.desc with
+    List.iter (fun t ->
+      let va = Hashtbl.create 10 in
+      match t.desc with
       | Trm_let_fun (qv, _, _, body) -> 
-        trm_iter (unconstify_aux) body
+        trm_iter (unconstify_aux to_process va false) body
       | _ -> fail None "Expect function definition"
-    )
-  in
+      ) fun_decls;
+    
+    let rec unconstify_propagate (to_process : (string * int) Stack.t) : unit =
+      match Stack.pop_opt to_process with
+      | None -> ()
+      | Some (fname, nth) -> 
+        let acs : args_const = Hashtbl.find fac fname in
+        let ac : arg_const = List.nth acs nth in
+        if ac.is_const then begin ac.is_const <- false; List.iter (fun e -> Stack.push e to_process) ac.dependency_of end;
+        unconstify_propagate to_process
+    in
+    unconstify_propagate to_process;
+
+    (* TODO : make change in the ast *)
+    ()
+  )
+
+  (* 
 
   (* TODO : assign *)
   (* | Trm_apps (_, [ls; rhs]) when is_set_operation t -> 
@@ -176,8 +206,4 @@ let constify : unit =
     | Some({desc=Trm_var (_, name); _}) when String_map.mem name.qvar_str va -> ()
     | _ -> ()
     end *)
-
-(*   
-  init_fac fac [nbMulti; cTopFunDefAndDecl ""];
-  update_fac_dep_of [nbMulti; cTopFunDefAndDecl ""]; *)
-  ()
+  *)
