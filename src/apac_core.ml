@@ -92,9 +92,9 @@ let rec get_constified_arg_aux (ty : typ) : typ =
   let typ_attributes = ty.typ_attributes in
   match ty.typ_desc with 
   | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty} ->
-    typ_const (typ_ptr Ptr_kind_mut (get_constified_arg_aux ty))
-  | Typ_const {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty }; typ_annot = t_an; typ_attributes = t_at} ->
-    typ_const ~annot ~typ_attributes (typ_ptr ~annot:t_an ~typ_attributes:t_at Ptr_kind_mut (get_constified_arg_aux ty))
+    typ_const (typ_ptr ~annot ~typ_attributes Ptr_kind_mut (get_constified_arg_aux ty))
+  | Typ_const {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty }; typ_annot = annot; typ_attributes = typ_attributes} ->
+    typ_const (typ_ptr ~annot ~typ_attributes Ptr_kind_mut (get_constified_arg_aux ty))
   | Typ_constr (_, id, _) ->
     begin match Context.typid_to_typedef id with
     | Some td -> 
@@ -118,28 +118,17 @@ let get_constified_arg (ty : typ) : typ =
     begin match ty.typ_desc with
     (* rvalue reference *)
     | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
-      typ_ptr ~annot:ty.typ_annot ~typ_attributes:ty.typ_attributes Ptr_kind_ref (typ_ptr ~annot ~typ_attributes Ptr_kind_ref (get_constified_arg_aux ty))
+      typ_lref ~annot ~typ_attributes (get_constified_arg_aux ty)
     (* reference *)
-    | _ -> typ_ptr ~annot ~typ_attributes Ptr_kind_ref (get_constified_arg_aux ty)
+    | _ -> typ_ref ~annot ~typ_attributes (get_constified_arg_aux ty)
     end
   | _ -> get_constified_arg_aux ty
-
-
-let get_constified_arg (ty : typ) : typ =
-  let annot = ty.typ_annot in 
-  let typ_attributes = ty.typ_attributes in
-  let rec aux (ty : typ) : typ =
-    match ty.typ_desc with 
-    | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = ty} -> typ_ptr ~annot ~typ_attributes Ptr_kind_ref (aux ty)
-    |
-    | _ -> fail None ""
-
 
 (* [constify_args t]: transforms the type of arguments of the function declaration in such a way that
       "const" keywords are added whereever it is possible.
     [is_const] - list of booleans that tells if the argument should be constify. Its length must be the number of arguments.
     [t] - ast of the function definition. *)
-let constify_args (is_const : bool list) (t : trm) : trm =
+let constify_args_aux (is_const : bool list) (t : trm) : trm =
   match t.desc with
   | Trm_let_fun (qvar, ret_typ, args, body) -> 
     let is_const = if is_const = [] then List.init (List.length args) (fun _ -> true) else is_const in
@@ -148,3 +137,6 @@ let constify_args (is_const : bool list) (t : trm) : trm =
       ) args is_const) in
     trm_let_fun ~annot:t.annot ~loc:t.loc ~ctx:t.ctx ~qvar "" ret_typ const_args body
   | _ -> fail t.loc "Apac_core.constify_args expected a target to a function definition."
+
+let constify_args (is_const) : Transfo.local =
+  apply_on_path(constify_args_aux is_const)

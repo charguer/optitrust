@@ -69,4 +69,4 @@ let get_fun_occurrences (t : trm) : occurs =
     tsk
 
 let constify_args ?(is_const : bool list = []) : Transfo.t =
-  transfo_on_targets (Apac_core.constify_args is_const)
+  apply_on_targets (Apac_core.constify_args is_const)

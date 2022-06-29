@@ -1255,6 +1255,9 @@ let apply_on_pragmas (f : cpragma list -> cpragma list) (t : trm) : trm =
 let trm_add_pragma (p : cpragma) (t : trm) : trm =
   apply_on_pragmas (fun pragmas -> p :: pragmas) t
 
+let trm_add_pragmas (p : cpragma list) (t : trm) : trm =
+  apply_on_pragmas (fun pragmas -> p @ pragmas) t
+  
 (* [trm_filter_pragma pred t]: filters all the pragmas that satisfy the predicate [pred]. *)
 let trm_filter_pragma (pred : cpragma -> bool) (t : trm) : trm =
   apply_on_pragmas (fun pragmas -> List.filter (fun p -> pred p) pragmas) t
