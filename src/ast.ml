@@ -802,6 +802,21 @@ let typ_decl ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (expr : trm) =
   {typ_annot = annot; typ_desc = Typ_decl expr; typ_attributes}
 
+
+let typ_ref ?(annot : typ_annot list = []) ?(typ_attributes = [])
+  (ty : typ) : typ =
+  typ_ptr ~annot ~typ_attributes Ptr_kind_ref ty 
+
+let typ_lref ?(annot : typ_annot list = []) ?(typ_attributes = [])
+  (ty : typ) : typ =
+    typ_ref ~annot ~typ_attributes (typ_ref ty)
+
+
+(* **************************** Typ constructors *************************** *)
+(* TODO: typ_build typ_alter etc. *)
+
+
+
 (* **************************** Trm constructors *************************** *)
 
 (* [trm_annot_default]: default trm annotation *)
@@ -1767,12 +1782,13 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   let annot = ty.typ_annot in
   let typ_attributes = ty.typ_attributes in
   match ty.typ_desc with
+  | Typ_const ty -> f ty
   | Typ_ptr {ptr_kind= pk; inner_typ = ty} -> typ_ptr ~annot ~typ_attributes pk (f ty)
   | Typ_array (ty, n) -> typ_array ~annot ~typ_attributes (f ty) n
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
-  | _ -> ty
+  | _ ->  f ty
 
 (* [label_subterms_with_fresh_stringreprids f t]: annotates all the subterms of [t]
    that satisfy the boolean predicate [f] with a fresh string representation identifier.

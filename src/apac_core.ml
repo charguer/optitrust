@@ -124,6 +124,17 @@ let get_constified_arg (ty : typ) : typ =
     end
   | _ -> get_constified_arg_aux ty
 
+
+let get_constified_arg (ty : typ) : typ =
+  let annot = ty.typ_annot in 
+  let typ_attributes = ty.typ_attributes in
+  let rec aux (ty : typ) : typ =
+    match ty.typ_desc with 
+    | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = ty} -> typ_ptr ~annot ~typ_attributes Ptr_kind_ref (aux ty)
+    |
+    | _ -> fail None ""
+
+
 (* [constify_args t]: transforms the type of arguments of the function declaration in such a way that
       "const" keywords are added whereever it is possible.
     [is_const] - list of booleans that tells if the argument should be constify. Its length must be the number of arguments.
