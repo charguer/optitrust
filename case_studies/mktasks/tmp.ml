@@ -8,63 +8,95 @@ open Apac_core
   todo : handle typedef and using aliasing 
 *)
 
-let rec is_base_type (t : typ) : bool =
-  match t.typ_desc with
-  | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
-  (* class, struct, union ... *)
-  (* also typedef and using ! which are not wanted *)
-  
-  | Typ_constr (qv, id, _) -> 
-    begin match Context.typid_to_typedef id with 
-    | Some td  -> 
+let is_typdef_alias (ty : typ) : bool =
+  match ty.typ_desc with
+  | Typ_constr (_, id, _) ->
+    begin match Context.typid_to_typedef id with
+    | Some (td) -> 
       begin match td.typdef_body with 
-      | Typdef_alias ty -> is_base_type ty 
+      | Typdef_alias _ -> true
       | _  -> false
       end
-    | None -> false
+    | None -> false 
     end
   | _ -> false
 
-let rec is_dep_in_aux (t : typ) : bool =
-  match t.typ_desc with
+let get_inner_typedef_alias (ty : typ) : typ option =
+  match ty.typ_desc with
+  | Typ_constr (_, id, _) ->
+    begin match Context.typid_to_typedef id with
+    | Some (td) -> 
+      begin match td.typdef_body with 
+      | Typdef_alias ty -> Some (ty) 
+      | _  -> None
+      end
+    | None -> None 
+    end
+  | _ -> None
+  
+let rec is_base_type (ty : typ) : bool =
+  match ty.typ_desc with
+  | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
+  | Typ_constr _ -> 
+    begin match get_inner_typedef_alias ty with
+    (* alias *)
+    | Some (ty) -> is_base_type ty
+    (* class, struct, union, enum ... *)
+    | None -> true
+    end
+  | _ -> false
+
+let rec is_dep_in_aux (ty : typ) : bool =
+  match ty.typ_desc with
+  (* unwrap alias *)
+  | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) -> 
+    begin match get_inner_typedef_alias (get_inner_const_type ty) with
+    | Some (ty) -> is_dep_in_aux ty
+    | None -> assert false
+    end
   (* base type const *)
-  | Typ_const t when is_base_type t -> true
+  | Typ_const ty when is_base_type ty -> true
   (* ptr const *)
-  | Typ_const { typ_desc = Typ_ptr { ptr_kind = Ptr_kind_mut ; inner_typ = t } } -> is_dep_in_aux t
-  | Typ_const { typ_desc = Typ_array (t, _); _ } -> is_dep_in_aux t
+  | Typ_const { typ_desc = Typ_ptr { ptr_kind = Ptr_kind_mut ; inner_typ = ty } } -> is_dep_in_aux ty
+  | Typ_const { typ_desc = Typ_array (ty, _); _ } -> is_dep_in_aux ty
   (* ptr *)
   | Typ_ptr {ptr_kind = Ptr_kind_mut; _ } -> false
-  | Typ_array (t, _) -> false
+  | Typ_array (ty, _) -> false
   (* base type *)
-  | _  when is_base_type t -> false
+  | _  when is_base_type ty -> false
   (* should not encounter *)
   | Typ_ptr {ptr_kind = Ptr_kind_ref; _ } -> assert false
   | Typ_const _ -> assert false
   | _ -> assert false
 
-(* must replace typedef and using aliasing by their definition before *)
 (* does not handle auto *)
-let is_dep_in (t : typ) : bool =
-  match t.typ_desc with
-  (* reference *)
-  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = t } -> 
-    begin match t.typ_desc with
-    (* void & *)
-    | Typ_unit -> assert false
-    (* cons void & *)
-    | Typ_const { typ_desc = Typ_unit } -> assert false
-
-    | _ -> is_dep_in_aux t
+let rec is_dep_in (ty : typ) : bool =
+  match ty.typ_desc with
+  (* unwrap alias *)
+  | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) -> 
+    begin match get_inner_typedef_alias (get_inner_const_type ty) with
+    | Some (ty) -> is_dep_in ty
+    | None -> assert false
     end
-  (* void *)
-  | Typ_unit -> assert false
+  (* reference *)
+  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> 
+    begin match ty.typ_desc with
+    (* void & *)
+    | Typ_unit -> fail None "is_dep_in: void & as argument"
+    (* const void & *)
+    | Typ_const { typ_desc = Typ_unit } -> fail None "is_dep_in: const void & as argument"
+
+    | _ -> is_dep_in_aux ty
+    end
+  (* const void *)
+  | Typ_const { typ_desc = Typ_unit } -> fail None "is_dep_in: const void as argument"
   (* base type *)
-  | _ when is_base_type t -> true
+  | _ when is_base_type ty -> true
 
-  | _ -> is_dep_in_aux t
+  | _ -> is_dep_in_aux ty
 
-let dep_kind_of_typ (t : typ) : dep_kind =
-  if is_dep_in t then Dep_kind_in else Dep_kind_inout
+let dep_kind_of_typ (ty : typ) : dep_kind =
+  if is_dep_in ty then Dep_kind_in else Dep_kind_inout
 
 
 (*
