@@ -112,17 +112,38 @@ let get_args_idx_in_apps (va : vars_arg) (t : trm) : int list =
   in
   aux [] t
 
-(* wip *)
-let get_unary_mutation_var (t : trm) : var =
-  match t.desc with 
-  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _}, [tr]) -> 
-    begin match uo with
-    | Unop_post_dec | Unop_post_inc | Unop_pre_dec | Unop_pre_inc -> "ok"
-    | Unop_get -> "*"
-    | _ -> ""
+let is_unary_mutation (t : trm) : bool =
+  match t.desc with
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _}, _) ->
+    begin match uo with 
+    | Unop_post_dec | Unop_post_inc | Unop_pre_dec | Unop_pre_inc -> true
+    | _ -> false
     end
-  | Trm_apps ({ desc = Trm_var (_, name); _}, _) -> ""
-  | _ -> ""
+  | _ -> false
+
+let is_cptr_or_ref (ty : typ) : bool =
+  match (get_inner_const_type ty).typ_desc with
+  | Typ_ptr _ | Typ_array _-> true
+  | _ -> false
+
+(* wip *)
+let get_unary_mutation_qvar (t : trm) : qvar =
+  let rec aux (t : trm) : qvar =
+    match t.desc with 
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (Unop_get | Unop_address))); _}, [t]) -> aux t
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _}, [t; _]) -> aux t
+    | Trm_var (_, name)-> name
+    | _ -> empty_qvar
+  in
+
+  match t.desc with
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _}, [tr]) ->
+    begin match uo with
+    | Unop_post_dec | Unop_post_inc | Unop_pre_dec | Unop_pre_inc -> aux tr
+    | _ -> empty_qvar
+    end
+  | _ -> empty_qvar
+
 
 (* [constify_functions_arguments tg]: expect target [tg] to point at the root,
     then it will add "const" keyword whenever it is possible in functions arguments *) 
@@ -145,13 +166,25 @@ let constify_functions_arguments : Transfo.t =
     | _ -> fail None "Expect dRoot target"
     in
 
+    (* helper function : add element to process in to_process *)
+    let add_elt_in_to_process (va : vars_arg) (cur_fun : string) (name : string) : unit =
+      let acs = Hashtbl.find fac cur_fun in
+          let idx_args = Hashtbl.find va name in
+          List.iter (fun i -> 
+            let ac = List.nth acs i in 
+            if ac.is_ptr_or_ref then 
+              Stack.push (cur_fun, i) to_process;
+            ) idx_args;
+    in
+
+
     (* init fac *)
     List.iter (fun t ->
       match t.desc with
       | Trm_let_fun (qv, _, args, _) ->
         let acs : args_const = List.map 
         (fun (_, ty) -> { 
-          is_ptr_or_ref = is_reference ty || is_typ_ptr (get_inner_const_type ty) ;
+          is_ptr_or_ref = is_cptr_or_ref ty ;
           is_const = true; 
           dependency_of = [] }) args in
         Hashtbl.add fac qv.qvar_str acs
@@ -188,10 +221,10 @@ let constify_functions_arguments : Transfo.t =
         trm_iter (update_fac_and_to_process to_process va false cur_fun) t
       
       (* ref/ptr assignment : update vars_arg *)
-      (* TODO : ignore the first ptr when varkind is mutable *)
-      | Trm_let (_, (lname, ty), t) when is_reference ty || is_typ_ptr (get_inner_const_type ty) ->
+      | Trm_let (_, (lname, ty), tr) when trm_has_cstyle Reference t || is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) ->
         (* take all arguments on the right side of the "=" operator *)
-        begin match get_args_idx_in_apps va t with
+        (* TODO : find a better method to determine the variable pointed/refered *)
+        begin match get_args_idx_in_apps va tr with
         | [] -> ()
         | args_idx -> Hashtbl.add va lname args_idx
         end;
@@ -199,19 +232,19 @@ let constify_functions_arguments : Transfo.t =
       
       (* assignment & compound assignment to argument : update to_process *)
       (* TODO : change vars_arg in pointer assignement if it stills a pointer after dereferencing *)
-      (* TODO : handle other mutable operations, "++" ... *)
-      | Trm_apps (_, [ls; rhs]) when is_set_operation t -> 
-        begin match get_binop_set_left_var_opt ls with
-        | Some({ desc = Trm_var (vk, name); _ }) when Hashtbl.mem va name.qvar_str ->
-          let acs = Hashtbl.find fac cur_fun in
-          let idx_args = Hashtbl.find va name.qvar_str in
-          List.iter (fun i -> 
-            let ac = List.nth acs i in 
-            if ac.is_ptr_or_ref then 
-              Stack.push (cur_fun, i) to_process;
-            ) idx_args;
-        | _ -> trm_iter (update_fac_and_to_process to_process va false cur_fun) t
-        end 
+        | Trm_apps (_, [ls; rhs]) when is_set_operation t -> 
+          begin match get_binop_set_left_var_opt ls with
+          | Some({ desc = Trm_var (_, name); _ }) when Hashtbl.mem va name.qvar_str ->
+            add_elt_in_to_process va cur_fun name.qvar_str;
+            | _ -> ()
+          end;
+          trm_iter (update_fac_and_to_process to_process va false cur_fun) t
+          
+      (* mutable unary operator (++, --) : update to_process *)
+      | Trm_apps _ when is_unary_mutation t ->
+        let name = get_unary_mutation_qvar t in
+        if Hashtbl.mem va name.qvar_str then add_elt_in_to_process va cur_fun name.qvar_str;
+        trm_iter (update_fac_and_to_process to_process va false cur_fun) t
       
       | _ -> trm_iter (update_fac_and_to_process to_process va false cur_fun) t
     in
@@ -226,7 +259,7 @@ let constify_functions_arguments : Transfo.t =
       ) fun_decls;
     
     
-    (* propagate argument unconstification throught function call *)
+    (* propagate argument unconstification through function call *)
     let rec unconstify_propagate (to_process : (string * int) Stack.t) : unit =
       match Stack.pop_opt to_process with
       | None -> ()
