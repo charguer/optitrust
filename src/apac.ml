@@ -72,13 +72,19 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
   )  *)
 
 
-(* [vars_arg]: hashtable that stores variables that refer to argument
-    A list is used because of how dependencies of a new pointer are check :
-    we currently takes all variable refering to argument on the left side of the "=" *)
+(* let insert_tasks_for_taskable ?(indepth : bool = true) (tsk : taskable) : Transfo.t =  *)
+
+
+
+
+
+(* [vars_arg]: hashtable that stores variables that refer to an argument.
+    A list is used because of how dependencies of a new pointer are checked :
+    we currently take all the variables refering to the argument on the left side of the write operation. *)
 type vars_arg = (string, int list) Hashtbl.t
 
 (* [arg_const]: record that stores information to constify or not the argument
-    and other argument that depend on this argument *)
+    and other arguments that depend on this argument. *)
 type arg_const = {
   is_ptr_or_ref : bool;
   mutable is_const : bool;
@@ -88,21 +94,16 @@ type arg_const = {
 (* [args_const]: a list of args_const *)
 type args_const = arg_const list
 
-(* [fun_args_const]: hashtable that store the [args_const] of functions *)
+(* [fun_args_const]: hashtable that store the [args_const] of functions. *)
 type fun_args_const = (string, args_const) Hashtbl.t
 
-(* [get_binop_set_left_var_opt t]: return the variable on the left side of "=" *)
-let rec get_binop_set_left_var_opt (t : trm) : trm option =
+(* [get_binop_set_left_var_opt t]: returns the variable on the left side of the . *)
+let get_binop_set_left_var_opt (t : trm) : trm option =
   match t.desc with
-  | Trm_var _ -> Some(t)
-  | Trm_apps (_, args) ->
-    begin match List.nth_opt args 0 with
-    | Some(t) -> get_binop_set_left_var_opt t
-    | None -> None
-    end
+  | Trm_apps (_, [{desc = Trm_var _; _} as lhs; rhs]) when is_set_operation t -> Some lhs
   | _ -> None
 
-(* [get_args_idx_in_apps]: return a list of argument's index which are used in Trm_apps recursively*)
+(* [get_args_idx_in_apps]: returns a list of argument's index which are used in Trm_apps recursively. *)
 let get_args_idx_in_apps (va : vars_arg) (t : trm) : int list =
   let rec aux (acc : int list) (t : trm) : int list =
       match t.desc with
@@ -112,6 +113,7 @@ let get_args_idx_in_apps (va : vars_arg) (t : trm) : int list =
   in
   aux [] t
 
+(* [is_unary_mutation t]: checks if [t] is a primitive unary operaiton that mutates a variable. *)
 let is_unary_mutation (t : trm) : bool =
   match t.desc with
   | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _}, _) ->
@@ -121,6 +123,8 @@ let is_unary_mutation (t : trm) : bool =
     end
   | _ -> false
 
+
+(* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
 let is_cptr_or_ref (ty : typ) : bool =
   match (get_inner_const_type ty).typ_desc with
   | Typ_ptr _ | Typ_array _-> true

@@ -220,9 +220,9 @@ let dsp_call (dsp : var) : Transfo.local =
   apply_on_path (dsp_call_aux dsp)
 
 
-(* [get_function_prototype t]: returns the return type of the function and the types of all its arguments. 
+(* [get_prototype t]: returns the return type of the function and the types of all its arguments. 
     Note: This is not a function that transforms the ast.*)
-let get_function_prototype (t : trm) : (typ * typed_vars) option =
+let get_prototype (t : trm) : (typ * typed_vars) option =
   match t.desc with 
   | Trm_let_fun (f, ret_ty, args, body) -> 
     Some (ret_ty, args)

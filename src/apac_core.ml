@@ -157,14 +157,14 @@ let dep_kind_of_typ (ty : typ) : dep_kind =
 
 (* [get_arg_dependencies t]: for each argument of the function [t] returns all the dependencies.  *)
 let get_arg_dependencies (t : trm) : arg_deps =
-  match Function_core.get_function_prototype t with 
+  match Function_core.get_prototype t with 
   | Some (ty, args) -> 
     List.map (fun (x, ty) -> 
       { arg_dep_var = x;
         arg_dep_typ = ty;
         arg_dep_kind = dep_kind_of_typ ty }
      ) args
-  | None -> fail t.loc "Ast.get_arg_dependencies: expected a function definition"
+  | None -> fail t.loc "Apac_core.get_arg_dependencies: expected a function definition"
 
 
 (* TODO: Michel
