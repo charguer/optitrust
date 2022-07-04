@@ -975,15 +975,15 @@ and dep_to_doc (d : dep) : document =
 and dependece_type_to_doc (dp : dependence_type) : document =
   match dp with
   | In vl -> let vl = List.map dep_to_doc vl in 
-    string "in" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl)
+    string "depend (in" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl) ^^ rparen
   | Out vl -> let vl = List.map dep_to_doc vl in 
-    string "out" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl)
+    string "depend (out" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl) ^^ rparen
   | Inout vl -> let vl = List.map dep_to_doc vl in 
-    string "inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl)
+    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl) ^^ rparen
   | Outin vl -> let vl = List.map dep_to_doc vl in 
-    string "outin" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl)
+    string "depend (outin" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl) ^^ rparen
   | Sink vl -> let vl = List.map dep_to_doc vl in 
-    string "sink" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl)
+    string "depend (sink" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl) ^^ rparen
   | Source -> string "source"
 
 (* [clause_to_doc cl]: OpenMP clause to pprint document *)
@@ -1021,8 +1021,8 @@ and clause_to_doc (cl : clause) : document =
   | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)
   | Priority i -> string "priority" ^^ parens (string i)
   | Depend dp -> 
-    let dpl = Tools.list_to_doc (List.map dependece_type_to_doc dp) in 
-    string "depend" ^^ parens (dpl)
+    let dpl = Tools.list_to_doc ~bounds:[empty; empty] (List.map dependece_type_to_doc dp) in 
+    dpl
   | Grainsize i -> string "grainsize" ^^ parens (string (string_of_int i))
   | Mergeable -> string "mergeable"
   | Nogroup -> string "nogroup"

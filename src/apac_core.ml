@@ -163,11 +163,12 @@ type sorted_arg_deps = {
   mutable dep_outin : deps;
   mutable dep_sink : deps;
   mutable dep_source : deps
-  (* LATER: add other fields. *)
 }
 
 (* [empty_sort_arg]:  *)
-let empty_sort_arg = {dep_in = []; dep_out = []; dep_inout = []; dep_outin = []; dep_sink = []; dep_source = []}
+let empty_sort_arg = {
+    dep_in = []; dep_out = []; dep_inout = []; 
+    dep_outin = []; dep_sink = []; dep_source = []}
 
 
 (* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
