@@ -94,9 +94,14 @@ type fun_args_const = (string, args_const) Hashtbl.t
 
 (* [get_binop_set_left_var_opt t]: returns the variable on the left side of the . *)
 let get_binop_set_left_var_opt (t : trm) : trm option =
-  match t.desc with
-  | Trm_apps (_, [{desc = Trm_var _; _} as lhs; rhs]) when is_set_operation t -> Some lhs
-  | _ -> None
+  let rec aux (t : trm) : trm option =
+    match t.desc with
+    | Trm_var _ -> Some(t)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _)); _ }, [t; _]) -> aux t
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) -> aux t
+    | _ -> None
+  in
+  aux t
 
 (* [get_args_idx_in_apps]: returns a list of argument's index which are used in Trm_apps recursively. *)
 let get_args_idx_in_apps (va : vars_arg) (t : trm) : int list =
@@ -118,7 +123,6 @@ let is_unary_mutation (t : trm) : bool =
     end
   | _ -> false
 
-(* wip *)
 let get_unary_mutation_qvar (t : trm) : qvar =
   let rec aux (t : trm) : qvar =
     match t.desc with 
@@ -142,6 +146,7 @@ let get_unary_mutation_qvar (t : trm) : qvar =
 (* wip*)
 let constify_functions_arguments : Transfo.t = 
   (* TODO : handle include file *)
+  (* TODO : handle return ref/ptr argument *)
   iter_on_targets (fun t p ->
     let tg_trm = Path.get_trm_at_path p t in
     let fac : fun_args_const = Hashtbl.create 10 in 
@@ -160,13 +165,10 @@ let constify_functions_arguments : Transfo.t =
 
     (* helper function : add element to process in to_process *)
     let add_elt_in_to_process (va : vars_arg) (cur_fun : string) (name : string) : unit =
-      let acs = Hashtbl.find fac cur_fun in
-          let idx_args = Hashtbl.find va name in
-          List.iter (fun i -> 
-            let ac = List.nth acs i in 
-            if ac.is_ptr_or_ref then 
-              Stack.push (cur_fun, i) to_process;
-            ) idx_args;
+      let idx_args = Hashtbl.find va name in
+      List.iter (fun i -> 
+        Stack.push (cur_fun, i) to_process;
+        ) idx_args;
     in
 
 
@@ -224,13 +226,13 @@ let constify_functions_arguments : Transfo.t =
       
       (* assignment & compound assignment to argument : update to_process *)
       (* TODO : change vars_arg in pointer assignement if it stills a pointer after dereferencing *)
-        | Trm_apps (_, [ls; rhs]) when is_set_operation t -> 
-          begin match get_binop_set_left_var_opt ls with
-          | Some({ desc = Trm_var (_, name); _ }) when Hashtbl.mem va name.qvar_str ->
-            add_elt_in_to_process va cur_fun name.qvar_str;
-            | _ -> ()
-          end;
-          trm_iter (update_fac_and_to_process to_process va false cur_fun) t
+      | Trm_apps (_, [ls; rhs]) when is_set_operation t -> 
+        begin match get_binop_set_left_var_opt ls with
+        | Some({ desc = Trm_var (_, name); _ }) when Hashtbl.mem va name.qvar_str ->
+          add_elt_in_to_process va cur_fun name.qvar_str;
+          | _ -> ()
+        end;
+        trm_iter (update_fac_and_to_process to_process va false cur_fun) t
           
       (* mutable unary operator (++, --) : update to_process *)
       | Trm_apps _ when is_unary_mutation t ->
