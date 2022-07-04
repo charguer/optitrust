@@ -33,6 +33,23 @@ let use_goto_for_return_aux (mark : mark) (t : trm) : trm =
 let use_goto_for_return (mark : mark) : Transfo.local =
   apply_on_path(use_goto_for_return_aux mark)
 
+(* [occurs]: a Hashtable used for storing all the functions whose calls occur at a given trm. *)
+type occurs = (string, unit) Hashtbl.t
+
+(* [get_fun_occurrences t]: returns all the function call occurrences inside [t]. *)
+let get_fun_occurrences (t : trm) : occurs =
+    let tsk = Hashtbl.create 1000 in 
+    let rec aux (t : trm) : unit = 
+      match t.desc with 
+      | Trm_apps ({desc = Trm_var (vk, qv); _}, args) ->
+        trm_iter aux t;
+        let fun_name = qv.qvar_var in 
+        if Hashtbl.mem tsk fun_name 
+          then ()
+          else Hashtbl.add tsk fun_name ()
+      | _ -> trm_iter aux t
+    in aux t;
+    tsk
 
 (* [dep_kind]: type used for [arg_dep]. *)
 type dep_kind = 
@@ -53,6 +70,7 @@ type arg_dep = {
 (* [arg_deps]: a list of arg_dep. *)
 type arg_deps = arg_dep list
 
+(* [is_typdef_alias ty]: checks if [ty] is a defined type alias. *)
 let is_typdef_alias (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_constr (_, id, _) ->
@@ -66,6 +84,7 @@ let is_typdef_alias (ty : typ) : bool =
     end
   | _ -> false
 
+(* [get_inner_typdef_alias ty]: returns the inner type of the defined type alias. *)
 let get_inner_typedef_alias (ty : typ) : typ option =
   match ty.typ_desc with
   | Typ_constr (_, id, _) ->
@@ -79,6 +98,7 @@ let get_inner_typedef_alias (ty : typ) : typ option =
     end
   | _ -> None
   
+(* [is_base_type ty]: checks if [ty] is a base type or not. *)
 let rec is_base_type (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
@@ -154,6 +174,22 @@ let get_arg_dependencies (t : trm) : arg_deps =
         arg_dep_kind = dep_kind_of_typ ty }
      ) args
   | None -> fail t.loc "Apac_core.get_arg_dependencies: expected a function definition"
+
+(* [get_function_defs ()]: a hashtable containing all the function definitions. *)
+let get_function_defs () : (string, arg_deps)  Hashtbl.t = 
+  let ast = Target.get_ast () in
+  let fun_defs = Hashtbl.create 1000 in 
+  match ast.desc with 
+  | Trm_seq tl ->
+    Mlist.iter (fun t1 -> 
+      begin match t1.desc with 
+      | Trm_let_fun (qn, _, _, body) when not (is_trm_uninitialized body) ->
+        Hashtbl.add fun_defs qn.qvar_var (get_arg_dependencies t1)
+      | _ -> ()
+      end ) tl;
+    fun_defs
+  | _ -> fail ast.loc "Apac.get_function_defs: expected a Trm_seq." 
+
 
 (* [sorted_arg_deps]: a record used for storing classified arguments based on their respective dependency kind. *)
 type sorted_arg_deps = {

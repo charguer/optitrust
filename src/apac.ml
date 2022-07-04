@@ -12,6 +12,20 @@ let parallel_task_group ?(mark : mark = "") : Transfo.t =
     transfo_on_targets (trm_add_pragmas [Parallel []; Master ; Taskgroup]) (target_of_path p)
 )
 
+
+(* [insert_task_sorted sag tg]: expects the target [tg] to be pointing at an instruction or a sequence.
+    then based on [sag] it will insert a pragma on the trm that [tg] points to. *)
+let insert_task_sorted (sag : sorted_arg_deps) : Transfo.t =
+  iter_on_targets (fun t p -> 
+    let dl = match sag.dep_in with [] -> [] | _ -> [In sag.dep_in] in 
+    let dl = match sag.dep_out with [] -> dl | _ ->  (Out sag.dep_out) :: dl in
+    let dl = match sag.dep_inout with [] -> dl | _ -> (Inout sag.dep_inout) :: dl in 
+    let dl = match sag.dep_outin with [] -> dl | _ -> (Outin sag.dep_outin) :: dl in 
+    let dl = match sag.dep_sink with [] -> dl | _ -> (Sink sag.dep_sink) :: dl in 
+    let dl = match sag.dep_source with [] -> dl | _ -> Source :: dl in 
+    Omp_basic.task ~clause:[Depend dl] (target_of_path p)
+  )
+
 (* [bind_taskable tsk tg]: expects the target [ŧg] to be pointing at a a sequence. 
     Then it will bind a variable to all the calls to the taskable functions [tsk]. 
     That are descendants of the trms associated to the target [tg]. *)
@@ -60,18 +74,14 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
      ) fixed_tg
 )
 
-(* [insert_task_sorted sag tg]: expects the target [tg] to be pointing at an instruction or a sequence.
-    then based on [sag] it will insert a pragma on the trm that [tg] points to. *)
-let insert_task_sorted (sag : sorted_arg_deps) : Transfo.t =
+(* let insert_tasks_for_taskable (tsk : taskable) ?(indepth : bool = false) : Transfo.t = 
+  let fun_arg_deps = get_function_defs () in 
+  let occ_functions 
   iter_on_targets (fun t p -> 
-    let dl = match sag.dep_in with [] -> [] | _ -> [In sag.dep_in] in 
-    let dl = match sag.dep_out with [] -> dl | _ ->  (Out sag.dep_out) :: dl in
-    let dl = match sag.dep_inout with [] -> dl | _ -> (Inout sag.dep_inout) :: dl in 
-    let dl = match sag.dep_outin with [] -> dl | _ -> (Outin sag.dep_outin) :: dl in 
-    let dl = match sag.dep_sink with [] -> dl | _ -> (Sink sag.dep_sink) :: dl in 
-    let dl = match sag.dep_source with [] -> dl | _ -> Source :: dl in 
-    Omp_basic.task ~clause:[Depend dl] (target_of_path p)
-  )
+
+  
+  ) *)
+
 
 (* [vars_arg]: hashtable that stores variables that refer to an argument.
     A list is used because of how dependencies of a new pointer are checked :

@@ -1,5 +1,3 @@
-
-
 *) Apac.use_goto_for_return ?mark tg
 
 - where tg is a target on a function def
@@ -199,21 +197,3 @@ faut-il mettre un #sync x avant la première occurence de x qui suit
 et qui n'est pas déjà dans depend(in:x) ?
 
 TODO: où vont les taskwait?
-
-
-TODO:
-parameter hiding in Ocaml
-
-OpenMP ast
-
-how targets work
-
-Understand parallel_task_group transformation.
-
-
-
-
-
-
-
-

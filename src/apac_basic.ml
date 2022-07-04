@@ -50,23 +50,7 @@ let identify_taskable_functions (tg : target) : taskable =
     end 
   | _ -> fail None "Apac_basic.identify_taskable_functions: expected a target to the main file sequence."
 
-(* [occurs]: a Hashtable used for storing all the functions whose calls occur at a given trm. *)
-type occurs = (string, unit) Hashtbl.t
 
-(* [get_fun_occurrences t]: returns all the function call occurrences inside [t]. *)
-let get_fun_occurrences (t : trm) : occurs =
-    let tsk = Hashtbl.create 1000 in 
-    let rec aux (t : trm) : unit = 
-      match t.desc with 
-      | Trm_apps ({desc = Trm_var (vk, qv); _}, args) ->
-        trm_iter aux t;
-        let fun_name = qv.qvar_var in 
-        if Hashtbl.mem tsk fun_name 
-          then ()
-          else Hashtbl.add tsk fun_name ()
-      | _ -> trm_iter aux t
-    in aux t;
-    tsk
-
+(* [constify_args ~is_const tg]: *)
 let constify_args ?(is_const : bool list = []) : Transfo.t =
   apply_on_targets (Apac_core.constify_args is_const)
