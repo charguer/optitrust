@@ -53,17 +53,6 @@ type arg_dep = {
 (* [arg_deps]: a list of arg_dep. *)
 type arg_deps = arg_dep list
 
-
-(* [sorted_arg_deps]: a record used for storing classified arguments based on their respective dependency kind. *)
-type sorted_arg_deps = {
-  dep_in : deps;
-  dep_out : deps;
-  dep_inout : deps;
-  dep_outin : deps;
-  (* LATER: add other fields. *)
-}
-
-
 let is_typdef_alias (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_constr (_, id, _) ->
@@ -166,16 +155,39 @@ let get_arg_dependencies (t : trm) : arg_deps =
      ) args
   | None -> fail t.loc "Apac_core.get_arg_dependencies: expected a function definition"
 
+(* [sorted_arg_deps]: a record used for storing classified arguments based on their respective dependency kind. *)
+type sorted_arg_deps = {
+  mutable dep_in : deps;
+  mutable dep_out : deps;
+  mutable dep_inout : deps;
+  mutable dep_outin : deps;
+  mutable dep_sink : deps;
+  mutable dep_source : deps
+  (* LATER: add other fields. *)
+}
 
-(* TODO: Michel
-    [sort_arg_dependencies arg_deps]: classifies all the argument dependencies into four categories.
-    In, Out, Inout, Outin. *)
-let sort_arg (arg_deps : arg_deps) : sorted_arg_deps = 
- { dep_in = [];
-   dep_out = [];
-   dep_inout = [];
-   dep_outin = [];}
+(* [empty_sort_arg]:  *)
+let empty_sort_arg = {dep_in = []; dep_out = []; dep_inout = []; dep_outin = []; dep_sink = []; dep_source = []}
 
+
+(* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
+let is_cptr_or_ref (ty : typ) : bool =
+  match (get_inner_const_type ty).typ_desc with
+  | Typ_ptr _ | Typ_array _-> true
+  | _ -> false
+
+(* [sort_arg_dependencies arg_deps]: sorts [arg_deps] based on their kind. *)
+let sort_arg_dependencies (arg_deps : arg_deps) : sorted_arg_deps =
+  List.fold_left (fun acc arg_dep -> 
+    let dep = if is_cptr_or_ref arg_dep.arg_dep_typ then Dep_ptr (Dep_var arg_dep.arg_dep_var) else Dep_var arg_dep.arg_dep_var in
+    match arg_dep.arg_dep_kind with 
+    | Dep_kind_in -> acc.dep_in <- dep :: acc.dep_in; acc
+    | Dep_kind_out -> acc.dep_out <- dep :: acc.dep_out; acc
+    | Dep_kind_inout -> acc.dep_inout <- dep :: acc.dep_inout; acc
+    | Dep_kind_outin -> acc.dep_outin <- dep :: acc.dep_outin; acc
+    | Dep_kind_sink -> acc.dep_sink <- dep :: acc.dep_sink; acc
+    | Dep_kind_source -> acc.dep_source <- dep :: acc.dep_source; acc
+  ) empty_sort_arg arg_deps
 
 (* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)
 let rec get_constified_arg_aux (ty : typ) : typ =
