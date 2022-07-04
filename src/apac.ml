@@ -60,23 +60,18 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
      ) fixed_tg
 )
 
-
-(* let insert_tasks_for_taskable ?(indepth : bool = true) (tsk : taskable) : Transfo.t =
-  iter_on_targets ( fun t p -> 
-    let tg_trm = Path.get_trm_at_path p t in 
-    match tg_trm.desc with 
-    | Trm_apps ({desc = Trm_var (_, qv); _}, _) -> 
-
-    | _ -> 
-
-  )  *)
-
-
-(* let insert_tasks_for_taskable ?(indepth : bool = true) (tsk : taskable) : Transfo.t =  *)
-
-
-
-
+(* [insert_task_sorted sag tg]: expects the target [tg] to be pointing at an instruction or a sequence.
+    then based on [sag] it will insert a pragma on the trm that [tg] points to. *)
+let insert_task_sorted (sag : sorted_arg_deps) : Transfo.t =
+  iter_on_targets (fun t p -> 
+    let dl = match sag.dep_in with [] -> [] | _ -> [In sag.dep_in] in 
+    let dl = match sag.dep_out with [] -> dl | _ ->  (Out sag.dep_out) :: dl in
+    let dl = match sag.dep_inout with [] -> dl | _ -> (Inout sag.dep_inout) :: dl in 
+    let dl = match sag.dep_outin with [] -> dl | _ -> (Outin sag.dep_outin) :: dl in 
+    let dl = match sag.dep_sink with [] -> dl | _ -> (Sink sag.dep_sink) :: dl in 
+    let dl = match sag.dep_source with [] -> dl | _ -> Source :: dl in 
+    Omp_basic.task ~clause:[Depend dl] (target_of_path p)
+  )
 
 (* [vars_arg]: hashtable that stores variables that refer to an argument.
     A list is used because of how dependencies of a new pointer are checked :
@@ -121,13 +116,6 @@ let is_unary_mutation (t : trm) : bool =
     | Unop_post_dec | Unop_post_inc | Unop_pre_dec | Unop_pre_inc -> true
     | _ -> false
     end
-  | _ -> false
-
-
-(* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
-let is_cptr_or_ref (ty : typ) : bool =
-  match (get_inner_const_type ty).typ_desc with
-  | Typ_ptr _ | Typ_array _-> true
   | _ -> false
 
 (* wip *)
