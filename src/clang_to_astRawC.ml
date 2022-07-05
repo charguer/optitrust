@@ -712,7 +712,6 @@ and tr_expr (e : expr) : trm =
           begin match f with 
           | FieldName id -> 
             let f = tr_ident id in
-            (* TODO: trm_this to trm_var *)
             let t_this = trm_add_cstyle Implicit_this (trm_this ()) in
             trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get f)) [t_this]
           | _ -> fail loc "Clang_to_astRawC.tr_expr: fields should be accesses by names"

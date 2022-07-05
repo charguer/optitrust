@@ -439,7 +439,6 @@ and trm_desc =
   | Trm_template of template_parameter_list * trm (* templates *)
   | Trm_using_directive of string                 (* using namespace std *)
   | Trm_fun of typed_vars * typ option * trm      (* anonymous functions, [&](int const& x) -> void ({r += x;}) *)
-  | Trm_this                                      (* this pointer. *)
   | Trm_delete of bool * trm                      (* delete t, delete[] t *)
   
 (* [template_param_kind]: parameters kind, typename , empty or another template *)
@@ -728,14 +727,14 @@ let typ_const ?(annot : typ_annot list = []) ?(attributes = [])
   (t : typ) : typ =
   typ_make ~annot ~attributes (Typ_const t)  
 
-(* [qvar_build qv qp qs]: builds a qvar record with fields qvar_var = [qv], qvar_path = [qp] and qvar_str = [qs]. *)
-let qvar_build (qv : var) (qp : var list) : qvar =
-  let qs = 
-    if qp = [] 
-      then qv  
-      else  (Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ "::  " ^ p ) "" qp ) ^ "::" ^ qv
+(* [qvar_build qv qp qs]: builds a qvar record with fields qvar_var = [qvar], qvar_path = [qpath] and qvar_str = [qs]. *)
+let qvar_build ?(qpath : var list = []) (qvar : var) : qvar =
+  let qstr = 
+    if qpath = [] 
+      then qvar  
+      else  (Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ "::  " ^ p ) "" qpath ) ^ "::" ^ qvar
     in
-  {qvar_var = qv; qvar_path = qp; qvar_str = qs}
+  {qvar_var = qvar; qvar_path = qpath; qvar_str = qstr}
 
 (* [empty_qvar]: empty qvar is just a qvar with the string representation being the empty string. *)
 let empty_qvar : qvar =
@@ -745,7 +744,7 @@ let empty_qvar : qvar =
 let typ_constr ?(annot : typ_annot list = []) ?(attributes = [])
   ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = []) ?(qpath : var list = [])
   ?(qtypvar : qvar = empty_qvar) (x : typvar) : typ =
-  let qtx = qvar_build x qpath in 
+  let qtx = qvar_build x ~qpath in 
   let qtx = if qtypvar = empty_qvar then qtx else qtypvar in 
   typ_make ~annot ~attributes (Typ_constr (qtx, tid, tl))
 
@@ -903,11 +902,10 @@ let trm_replace (desc : trm_desc) (t : trm) : trm =
 let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (v : value) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_val v)
 
-
 (* [trm_var ~annot ~loc ~typ ~ctx ~kind x]: variable occurrence *)
 let trm_var ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
   ?(kind : varkind = Var_mutable) ?(qpath : var list = []) ?(qvar : qvar = empty_qvar) (x : var) : trm =
-  let qx = qvar_build x qpath in
+  let qx = qvar_build x ~qpath in
   let qx = if qvar = empty_qvar then qx else qvar in 
   trm_make ~annot ~loc ~typ ~ctx (Trm_var (kind, qx))
 
@@ -934,7 +932,7 @@ let trm_let_mult ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option =
 (* [trm_let ~annot ~loc ~ctx name ret_typ args body]: function definition *)
 let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) ?(qpath : var list = [])
   ?(qvar : qvar = empty_qvar) (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
-  let qname = qvar_build name qpath in 
+  let qname = qvar_build name ~qpath in 
   let qname = if qvar = empty_qvar then qname else qvar in 
   trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_let_fun (qname, ret_typ, args, body))
 
@@ -1035,7 +1033,7 @@ let trm_using_directive ?(annot = trm_annot_default) ?(loc = None) ?(typ = None)
 
 (* [trm_this ~annot ~loc ~typ ~ctx ()]: this pointer. *)
 let trm_this ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) () =
-  trm_make ~annot ~loc ~typ ~ctx (Trm_this)
+  trm_make ~annot ~loc ~typ ~ctx (Trm_var (Var_immutable, qvar_build "this" ))
 
 (* [trm_delete ~annot ~loc ~typ ~ctx is_array_form t]: delete operator  *)
 let trm_delete ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (is_array_form : bool) (t : trm) = 

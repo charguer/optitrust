@@ -95,7 +95,7 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
       else begin match args with 
       | [{typ_desc = Typ_unit; _}] ->
         langle ^^ rangle
-      | _ -> langle ^^ list_to_doc ~sep:comma  (List.map typ_to_doc args) ^^ rangle 
+      | _ -> langle ^^ list_to_doc ~sep:comma  ~bounds:[empty; empty] (List.map typ_to_doc args) ^^ rangle 
       end in
       
     string tv.qvar_str ^^ d_args
@@ -353,8 +353,14 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_val v ->
        if trm_has_cstyle Empty_cond t then empty else dattr ^^ val_to_doc v
     | Trm_var (_, x) ->
-      let var_doc = trm_var_to_doc x t in 
-      dattr ^^ var_doc
+      if x.qvar_var = "this" 
+        then 
+          if trm_has_cstyle Implicit_this t 
+            then empty 
+            else string "this"
+      else 
+        let var_doc = trm_var_to_doc x t in 
+        dattr ^^ var_doc
     | Trm_array tl -> let tl = Mlist.to_list tl in
        let dl = List.map (decorate_trm ~semicolon ~print_struct_init_type:false) tl in
        dattr ^^ braces (separate (comma ^^ blank 1) dl)
@@ -534,8 +540,6 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         ) tpl in
         string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl 
      | Trm_fun (tvl, ty_opt , body) ->  dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
-     | Trm_this -> 
-        if trm_has_cstyle Implicit_this t then empty else string "this"
      | Trm_delete (is_array, body) -> 
          let is_arr = if is_array then string "[]" else empty in 
          let dbody = decorate_trm body in 

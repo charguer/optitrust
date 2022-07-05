@@ -236,7 +236,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [] ]
     | Trm_record l ->
         [ kind_to_field  "struct";
-          (* TODO: Temporary hack for labelled struct inits. *)
+          (* LATER: Temporary hack for labelled struct inits. *)
           children_to_field (List.mapi ichild_to_json (List.map aux(Xlist.split_pairs_snd (Mlist.to_list l)))) ]
     | Trm_array l ->
         [ kind_to_field "array";
@@ -374,7 +374,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
             (strquote "args", typed_var_list_to_json xfs);
             (strquote "return_type", ret_ty_js);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
-    | Trm_this -> [kind_to_field "This"]
     | Trm_delete (_, tbody) -> 
         [ kind_to_field "delete";
           children_to_field ([(child_to_json "body" (aux tbody))])]

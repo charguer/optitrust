@@ -373,7 +373,6 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     print_node "Trm_fun" ^^
       parens (separate (comma ^^ break 1)
         [print_list dtvl; dtout; dt])
-  | Trm_this -> print_node "This"
   | Trm_delete (b, t1) -> 
     let bd = string (string_of_bool b) in
     let td = print_trm ~only_desc t1  in 

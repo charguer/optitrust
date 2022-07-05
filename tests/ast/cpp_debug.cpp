@@ -1,11 +1,6 @@
-template <class DataType>
-class ArrayView{
-    DataType* const data;
+int main(){
 
-    long int dataSize;
-public:
-
-    ArrayView(DataType* inData, const long int inDataSize) 
-        : data(inData), dataSize(inDataSize){}
-    
-};
+  int x = 10;
+  x = 20;
+  return 0;
+}

@@ -60,13 +60,15 @@ let print_list ?(sep : string = ";") (dl : document list) : document =
 
 (* [list_to_doc]: advanced version of [print_list] that supports special treatment for empty lists.
     LATER: merge with [print_list], making [empty] an optional argument? *)
-let list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds:document list = [empty; empty]) (l : document list) : document =
+let list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds = [empty; empty]) (l : document list) : document =
+  let lb = List.nth bounds 0 in 
+  let rb = List.nth bounds 1 in 
   let rec aux = function
     | [] -> empty
     | [s] -> s
     | s1 :: s2 :: sl -> s1 ^^ sep ^^ string " " ^^ aux (s2 :: sl)
   in
-  (List.nth bounds 0) ^^ aux l ^^ (List.nth bounds 1)
+   lb ^^ aux l ^^ rb
 
 (* [print_object dl]: prints a list of documents in the form [{x, y, z}]. *)
 let print_object (dl : document list) : document =
