@@ -1767,6 +1767,8 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     Mlist.iter (function (_, t) -> f t) tl
   | Trm_let (vk, tv, init) ->
     f init
+  | Trm_let_mult (vk, ty, vl, tl) ->
+    List.iter f tl
   | Trm_let_fun (f', res, args, body) ->
     f body
   | Trm_if (cond, then_, else_) ->
@@ -1787,6 +1789,8 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
      | Step sp -> f sp
     end;
     f body
+  | Trm_do_while (body, cond) -> 
+    f body; f cond
   | Trm_switch (cond, cases) ->
      f cond;
      List.iter (fun (tl, body) -> f body) cases
@@ -1795,6 +1799,10 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     | Ret (Some t') -> f t'
     | _ -> ()
     end
+  | Trm_namespace (name, t, b) ->
+    f t
+  | Trm_delete (is_array, t) ->
+    f t
   | _ -> ()
 
 
