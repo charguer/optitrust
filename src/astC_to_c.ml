@@ -95,7 +95,7 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
       else begin match args with 
       | [{typ_desc = Typ_unit; _}] ->
         langle ^^ rangle
-      | _ -> langle ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] (List.map typ_to_doc args) ^^ rangle 
+      | _ -> langle ^^ list_to_doc ~sep:comma  (List.map typ_to_doc args) ^^ rangle 
       end in
       
     string tv.qvar_str ^^ d_args
@@ -575,7 +575,7 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
       then string v
       else string v ^^ equals ^^ trm_to_doc t1
   ) vl tl in
-  dtx  ^^ blank 1 ^^ list_to_doc ~sep:comma dtl ~bounds:[empty; empty] ^^ dsemi
+  dtx  ^^ blank 1 ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] dtl ^^ dsemi
 
 
 (* [aux_class_constructor_to_doc ]: converst class constructor declaration to pprint document. *)
@@ -598,8 +598,7 @@ and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cst
           | None -> fail t1.loc "AstC_to_c.aux_class_constructor_to_doc: bad member initializer."
         
         ) init_list in
-  (* TODO: By default list_to_doc should have empty bounds. *)
-  let init_d = Tools.list_to_doc ~bounds:[empty; empty] ~sep:comma tr_inits in 
+  let init_d = Tools.list_to_doc ~sep:comma tr_inits in 
   let init_d = if init_d = empty then init_d else colon ^^ init_d in 
   (* let init_d = empty in  *)
 
@@ -975,15 +974,15 @@ and dep_to_doc (d : dep) : document =
 and dependece_type_to_doc (dp : dependence_type) : document =
   match dp with
   | In vl -> let vl = List.map dep_to_doc vl in 
-    string "depend (in" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl) ^^ rparen
+    string "depend (in" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Out vl -> let vl = List.map dep_to_doc vl in 
-    string "depend (out" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl) ^^ rparen
+    string "depend (out" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Inout vl -> let vl = List.map dep_to_doc vl in 
-    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl) ^^ rparen
+    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Outin vl -> let vl = List.map dep_to_doc vl in 
-    string "depend (outin" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl) ^^ rparen
+    string "depend (outin" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Sink vl -> let vl = List.map dep_to_doc vl in 
-    string "depend (sink" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma ~bounds:[empty;empty] vl) ^^ rparen
+    string "depend (sink" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Source -> string "source"
 
 (* [clause_to_doc cl]: OpenMP clause to pprint document *)
@@ -1021,7 +1020,7 @@ and clause_to_doc (cl : clause) : document =
   | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)
   | Priority i -> string "priority" ^^ parens (string i)
   | Depend dp -> 
-    let dpl = Tools.list_to_doc ~bounds:[empty; empty] (List.map dependece_type_to_doc dp) in 
+    let dpl = Tools.list_to_doc (List.map dependece_type_to_doc dp) in 
     dpl
   | Grainsize i -> string "grainsize" ^^ parens (string (string_of_int i))
   | Mergeable -> string "mergeable"
@@ -1056,42 +1055,42 @@ and directive_to_doc (d : directive) : document =
   | Cancel (c, cl) -> string "cancel" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ list_to_doc ~sep:comma (List.map clause_to_doc cl))
   | Cancellation_point (c, cl) -> string "cancellation" ^^ blank 1 ^^ string "point" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ list_to_doc ~sep:comma (List.map clause_to_doc cl))
   | Critical (name, hint) -> string "critical" ^^ if name = "" then empty else parens (string name) ^^ if hint = "" then empty else (string "hint" ^^ parens (string hint))
-  | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd " ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd " ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Declare_reduction (ri, tvl, e, c) ->  string "declare" ^^ blank 1 ^^ string "simd" ^^ parens (
     reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (list_to_string ~sep:"," ~bounds:["";""] tvl) ^^
     string e ^^ clause_to_doc c)
-  | Declare_target cl -> string "declare" ^^ blank 1 ^^ string "target " ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Distribute cl -> string "distribute" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Distribute_parallel_for cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Declare_target cl -> string "declare" ^^ blank 1 ^^ string "target " ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
+  | Distribute cl -> string "distribute" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
+  | Distribute_parallel_for cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
+  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
   | Distribute_simd -> string "distribute" ^^ blank 1 ^^ string "simd"
   | End_declare_target -> string "end" ^^ blank 1 ^^ string "declare " ^^ string "target"
   | Flush vl -> string "flush" ^^ string (list_to_string ~sep:"," ~bounds:["(";")"] vl)
-  | For cl -> string "for" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
+  | For cl -> string "for" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) (List.map clause_to_doc cl))
   | For_simd cl -> string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Master -> string "master"
-  | Ordered cl -> string "ordered" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
-  | Parallel  cl -> string "parallel" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
-  | Parallel_for cl -> string "parallel" ^^ blank 1 ^^ string "for " ^^ (list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
+  | Ordered cl -> string "ordered" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) (List.map clause_to_doc cl))
+  | Parallel  cl -> string "parallel" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) (List.map clause_to_doc cl))
+  | Parallel_for cl -> string "parallel" ^^ blank 1 ^^ string "for " ^^ (list_to_doc ~empty ~sep:(blank 1) (List.map clause_to_doc cl))
   | Parallel_for_simd  cl -> string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (list_to_doc ~empty (List.map clause_to_doc cl))
   | Section -> string "section"
   | Sections cl -> string "sections" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Simd cl -> string "simd" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Single cl -> string "single" ^^ blank 1 ^^ (list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Target cl -> string "target" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Simd cl -> string "simd" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
+  | Single cl -> string "single" ^^ blank 1 ^^ (list_to_doc ~empty (List.map clause_to_doc cl))
+  | Target cl -> string "target" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
   | Target_data cl -> string "target" ^^ blank 1 ^^ string "data"  ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Target_enter_data  cl -> string "target" ^^ blank 1 ^^ string "enter" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Target_exit_data  cl -> string "target" ^^ blank 1 ^^ string "exit" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
   | Target_teams_distribute cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
   | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Task cl -> string "task" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
+  | Task cl -> string "task" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Taskgroup -> string "taskgroup"
-  | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Taskloop_simd cl -> string "taskloop" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Taskwait -> string "taskwait"
   | Taskyield -> string "taskyield"

@@ -9,8 +9,7 @@ include Apac_basic
 let parallel_task_group ?(mark : mark = "") : Transfo.t =
   iter_on_targets ( fun t p -> 
     Apac_basic.use_goto_for_return ~mark (target_of_path p);
-    transfo_on_targets (trm_add_pragmas [Parallel []; Master ; Taskgroup]) (target_of_path p)
-)
+    transfo_on_targets (trm_add_pragmas [Parallel []; Master ; Taskgroup]) (target_of_path p))
 
 
 (* [insert_task_sorted sag tg]: expects the target [tg] to be pointing at an instruction or a sequence.
@@ -23,8 +22,7 @@ let insert_task_sorted (sag : sorted_arg_deps) : Transfo.t =
     let dl = match sag.dep_outin with [] -> dl | _ -> (Outin sag.dep_outin) :: dl in 
     let dl = match sag.dep_sink with [] -> dl | _ -> (Sink sag.dep_sink) :: dl in 
     let dl = match sag.dep_source with [] -> dl | _ -> Source :: dl in 
-    Omp_basic.task ~clause:[Depend dl] (target_of_path p)
-  )
+    Omp_basic.task ~clause:[Depend dl] (target_of_path p))
 
 (* [bind_taskable tsk tg]: expects the target [ŧg] to be pointing at a a sequence. 
     Then it will bind a variable to all the calls to the taskable functions [tsk]. 
@@ -36,13 +34,8 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
 
     (* get all the function names whose calls are descendants of tg_trm. *)
     let occ = get_fun_occurrences tg_trm in 
-    let occ_functions = Hashtbl.fold (fun k v acc -> 
-      match Hashtbl.find_opt tak k with 
-      | Some _ -> k :: acc
-      | None -> acc
-    ) occ [] in 
+    let occ_functions = Tools.hashtbl_keys_to_list occ in 
     
-
     let fixed_tg = 
       if indepth then (target_of_path p ) @ [nbAny; cFuns occ_functions]
       else target_of_path p
@@ -73,15 +66,25 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
                   contains some function calls provided that the argument [indepth] is set to true. "
      ) fixed_tg
 )
-
-(* let insert_tasks_for_taskable (tsk : taskable) ?(indepth : bool = false) : Transfo.t = 
+(* 
+let insert_tasks_for_taskable (tsk : taskable) ?(indepth : bool = false) (tg : target) : target = 
   let fun_arg_deps = get_function_defs () in 
-  let occ_functions 
-  iter_on_targets (fun t p -> 
+  let occ_functions = Tools.hashtbl_keys_to_list fun_arg_deps in 
 
   
-  ) *)
+  iter_on_targets (fun t p -> 
+    let fixed_tg = 
+      if indepth 
+        then (target_of_path p) @ [nbAny; cFuns occ_functions] 
+        else target_of_path p
+      in
+    let tg_trm = Path.get_trm_at_path p t in
+    match tg_trm.desc with 
+    
 
+  
+  )
+ *)
 
 (* [vars_arg]: hashtable that stores variables that refer to an argument.
     A list is used because of how dependencies of a new pointer are checked :

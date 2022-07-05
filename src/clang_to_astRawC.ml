@@ -368,6 +368,7 @@ and tr_stmt (s : stmt) : trm =
         trm_if ~loc ~ctx tc tt te
     end
   | If _ ->
+    (* Add support for this feature. *)
     fail loc "Clang_to_astRawC.tr_stmt: variable declaration forbidden in if conditions"
   | While {condition_variable = _; cond = c; body = s} ->
     let tc = tr_expr c in

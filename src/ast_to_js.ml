@@ -43,7 +43,7 @@ module Json = struct
     | Str s -> string s
     | Int i -> string (string_of_int i)
     | Boolean b-> string (string_of_bool b)
-    | List l -> Tools.list_to_doc (List.map json_to_doc l)
+    | List l -> Tools.list_to_doc ~bounds:[lbrace; rbrace] (List.map json_to_doc l)
     | Object o -> Tools.print_object (List.map (fun (k,j) -> json_to_doc k ^^ string ": " ^^ json_to_doc j) o)
 
   (* [json_to_js]: creates a javascript variable of type json object from ast [j] *)

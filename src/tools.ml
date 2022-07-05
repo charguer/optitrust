@@ -60,7 +60,7 @@ let print_list ?(sep : string = ";") (dl : document list) : document =
 
 (* [list_to_doc]: advanced version of [print_list] that supports special treatment for empty lists.
     LATER: merge with [print_list], making [empty] an optional argument? *)
-let list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds:document list = [string "["; string "]"]) (l : document list) : document =
+let list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds:document list = [empty; empty]) (l : document list) : document =
   let rec aux = function
     | [] -> empty
     | [s] -> s
@@ -206,3 +206,11 @@ let hashtbl_map_values (f : 'a -> 'b -> 'c) (h : ('a,'b) Hashtbl.t) : ('a,'c) Ha
   let r = Hashtbl.create (Hashtbl.length h) in
   Hashtbl.iter (fun k v -> Hashtbl.add r k (f k v)) h;
   r
+
+(* [hashtbl_keys_to_list h]: returns all the keys of [h] as a list. *)
+let hashtbl_keys_to_list (h : ('a, 'b) Hashtbl.t) : 'a list =
+  Hashtbl.fold (fun k _ acc ->
+    match Hashtbl.find_opt h k with 
+    | Some _ -> k :: acc
+    | None -> acc
+  ) h []

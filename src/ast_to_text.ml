@@ -194,7 +194,7 @@ and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
 and print_qvar (qx : qvar) : document =
   let qpath_str = List.map string qx.qvar_path in 
   lbrace ^^ string "qvar_var" ^^ equals ^^ string qx.qvar_var ^^ semi ^^
-  string "qvar_path" ^^ equals ^^ Tools.list_to_doc qpath_str ^^ semi ^^
+  string "qvar_path" ^^ equals ^^ Tools.list_to_doc ~bounds:[lbrace; rbrace] qpath_str ^^ semi ^^
   string "qvar_str" ^^ equals ^^ string qx.qvar_str 
 
 

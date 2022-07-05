@@ -160,9 +160,9 @@ let rec is_dep_in (ty : typ) : bool =
 
   | _ -> is_dep_in_aux ty
 
+(* [dep_kind_of_typ ty]: returns the dependency kind of type [ty]. *)
 let dep_kind_of_typ (ty : typ) : dep_kind =
   if is_dep_in ty then Dep_kind_in else Dep_kind_inout
-
 
 (* [get_arg_dependencies t]: for each argument of the function [t] returns all the dependencies.  *)
 let get_arg_dependencies (t : trm) : arg_deps =
