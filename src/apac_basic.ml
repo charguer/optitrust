@@ -17,10 +17,10 @@ include Apac_core
         1) Inserts a declaration "T __res" just befor the introduced sequence.
         2) Replaces each return statement inside the wrapped sequence with "__res = x; goto __exit"
         3) Add after the new sequence, adds the labelled statement "__exit; return __res;" *)
-let use_goto_for_return ?(mark : mark = "") : Transfo.t =
-  apply_on_targets (Apac_core.use_goto_for_return mark)
-
-
+let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
+  Internal.nobrace_remove_after (fun _ -> 
+    apply_on_targets (Apac_core.use_goto_for_return mark) tg)
+  
 (* [insert_task sad tg]: expects the target [tg] to be pointing at an insturction or a sequence.
     Then it will insert an OpenMP pragma at that insturction. *)
 let insert_task (sad : sorted_arg_deps) (tg : target) : unit =

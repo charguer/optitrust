@@ -26,23 +26,25 @@ int main() {
     int a = x + x;
     y = a + a;
   } /*bodyf@*/
+
   int z;
   if (x > 0)
     z = 1;
   else
     z = 2;
+
   int u;
   /*@bodyh*/ {
-    if (x > 0) {
-      u = 1;
-      goto exit_body;
-    }
+    if (x > 0) u = 1;
+    goto exit_body;
     u = 2;
   } /*bodyh@*/
 exit_body:;
   int* q;
   (*q)++;
+
   int result;
   /*@bodyk*/ { result = result + 4; } /*bodyk@*/
+
   return 0;
 }

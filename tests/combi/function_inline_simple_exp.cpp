@@ -41,13 +41,10 @@ int main() {
     z = 2;
 
   int s = y + z;
-  int u;
-  if (x > 0) {
-    u = 1;
-    goto exit_body;
-  }
-  u = 2;
+  if (x > 0) *__TEMP_Optitrust = 1;
+  goto exit_body;
 exit_body:;
+  int u = 2;
   int* q;
   (*q)++;
 
@@ -85,15 +82,11 @@ void test_const_ret() {
   int s = y + z;
   const vect t = {0, 1};
 
-  const vect v = {t.x + x * t.x, t.y + x * t.y, t.z + x * t.z};
-  vect w;
+  const vect w = {t.x + x * t.x, t.y + x * t.y, t.z + x * t.z};
   if (true) {
-    {
-      w = v;
-      goto exit_body;
-    }
+    *(a1 + a1) = w;
+    goto exit_body;
   }
-  w = v;
 exit_body:;
   vect res = {0, 0};
   res.x = 1;

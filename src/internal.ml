@@ -652,7 +652,7 @@ let subst_var (x : var) (u : trm) (t : trm) =
 let clean_nobraces : Transfo.t =
   apply_on_targets (apply_on_path (fun t -> clean_no_brace_seq ~all:true (-1) t))
 
-(* [replace_return exit_label r t]: removes all the return statements from the body of a function declaration,
+(* [replace_return_with_assign exit_label r t]: removes all the return statements from the body of a function declaration,
       [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
       [r] - the name of the variable replacing the return statement,
       [t] - ast of the body of the function. *)
@@ -671,7 +671,7 @@ let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : la
             then t_assign
             else begin
                  incr nb_gotos;
-                 if exit_label = "" then t_assign else trm_seq_nomarks [t_assign; trm_goto exit_label]
+                 if exit_label = "" then t_assign else trm_seq_no_brace [t_assign; trm_goto exit_label]
                  end
         | _ ->
             incr nb_gotos;

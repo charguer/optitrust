@@ -1,6 +1,20 @@
 open Optitrust
 open Target
 
+let _ = Run.doc_script_cpp (fun _ -> 
+
+  !! Apac_basic.use_goto_for_return [cFunDef "f"];
+
+)
+
+"
+int f(int a, int b){
+  return a + b;
+}
+int main(){}
+"
+
+
 let _ = Run.script_cpp (fun _ ->
 
 
