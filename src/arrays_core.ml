@@ -271,7 +271,7 @@ let rec apply_swapping (x : typvar) (t : trm) : trm =
   | _ -> trm_map aux t
 
 
-(* [swpa_aux index t]: swap the dimensions of an array declaration,
+(* [swap_aux index t]: swap the dimensions of an array declaration,
      [index] - index of the array declaration on its surrouding sequence,
      [t] - AST of the surrouding sequence of the targeted array declaration. *)
 let swap_aux (index : int) (t : trm) : trm =
@@ -324,17 +324,14 @@ let swap_aux (index : int) (t : trm) : trm =
 
   | _ -> fail t.loc "swap_aux: expected the surrounding sequence of the targeted trm"
 
+(* [swap index t p]: applies [swap_aux] at trm [t] with path [p]. *)
 let swap (index : int) : Target.Transfo.local =
   Target.apply_on_path (swap_aux index)
 
 
-(* [aos_to_soa_aux t ] : Transform an array of structures to a structure of arrays
-    params:
-      [index]: the index of the array declaration inside the surrounding sequence
-      [t]: ast of the outer sequence containing the array of structures declaration
-    return:
-      updated ast of the surrounding sequence wuth the new changed declaration and occurences
-*)
+(* [aos_to_soa_aux t ] : transforms an array of structures to a structure of arrays
+      [index] - the index of the array declaration inside the surrounding sequence
+      [t] - ast of the outer sequence containing the array of structures declaration. *)
 (* TODO: Reimplement it from scratch *)
 let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
   let rec aux (t : trm) : trm =
@@ -458,16 +455,13 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
     | _ -> trm_map aux t
   in aux t
 
+(* [aos_to_soa tv sz t p]: applies [aos_to_soa_aux] at trm [t] with path [p]. *)
 let aos_to_soa (tv : typvar) (sz : var): Target.Transfo.local =
   Target.apply_on_path(aos_to_soa_aux tv sz)
 
 (* [set_explicit_aux t]: transoform an initialized array declaration into a list of write operations
       for each one of its cells
-      params:
-        [t]: ast of the array declaration
-      return:
-        the ast of the uninitialized array declaration and a list of write operations
-*)
+    [t] - ast of the array declaration. *)
 let set_explicit_aux (t : trm) : trm =
   match t.desc with
   | Trm_let (vk, (x, tx), init) ->
@@ -487,5 +481,6 @@ let set_explicit_aux (t : trm) : trm =
   | _ -> fail t.loc "set_explicit_aux: expected an array declaration"
 
 
+(* [set_explicit t p]: applies [set_explicit_aux] at trm [t] with path [p]. *)
 let set_explicit : Target.Transfo.local =
   Target.apply_on_path (set_explicit_aux )

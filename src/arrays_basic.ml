@@ -1,33 +1,30 @@
 open Ast
 open Target
 
-(* [to_variables new_vars tg] expects the target [tg] to point at an array declaration.
-    It then transforms this declaration into a list of declarations.
-    [new_vars] - denotes the list of variables which is going to replace the initial declaration
-      the length of this list is equal to one less than this size of the array.
-*)
+(* [to_variables new_vars tg]: expects the target [tg] to point at an array declaration.
+    Then it transforms this declaration into a list of declarations.
+    [new_vars] - denotes the list of variables that is going to replace the initial declaration
+      the length of this list is equal to [size -1] where [size] is the size of the array.*)
 let to_variables (new_vars : vars) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Arrays_core.to_variables new_vars i t p
-  ) tg
-  )
+  ) tg)
 
 
-(* [tile name block_name b x tg] TODO: fix doc
-   expects the target [tg] to point at an array declaration.
-   It then takes this declaration and transforms it into a tiled array.
-   [block_type] is the size the block.
-   [block_size] the name of the array which is going to represent a tile. *)
+(* [tile ~block_type block_size tg]: expects the target [tg] to point at an array declaration.
+   Then it takes that declaration and transforms it into a tiled array. All the accesses of the 
+   targeted array are handled as well.
+   [block_type] - denotes the name of the array which is going to represent a tile.
+   [block_size] - size of the block of tiles. *)
 let tile ?(block_type : typvar = "") (block_size : var) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Arrays_core.tile block_type block_size i t p) tg)
 
-(* [swap name x tg] expects the target [tg] to point at an array declaration.
-   It changes the declaration so that the bounds of the array ar switched. Also
-   all the occurrences of the array are swapped too.
-*)
+(* [swap name x tg]: expects the target [tg] to point at an array declaration.
+   It changes the declaration so that the bounds of the array are switched. Also
+   all the accesses of the targeted array are handled as well.*)
 let swap (tg : target) : unit =
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Arrays_core.swap i t p) tg
@@ -72,7 +69,4 @@ let aos_to_soa (tv : typvar) (sz : var) : unit =
 *)
 let set_explicit (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    apply_on_targets (Arrays_core.set_explicit) tg
-  )
-
-
+    apply_on_targets (Arrays_core.set_explicit) tg)
