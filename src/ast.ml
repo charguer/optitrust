@@ -3186,5 +3186,3 @@ let filter_out_from_seq (f : trm -> bool) (t : trm) : (trm * trms)  =
 (* [is_class_constructor t] checks if [t] is a class constructor declaration or definition. *)
 let is_class_constructor (t : trm) : bool =
   List.exists (function  | Class_constructor _ -> true | _ -> false) (trm_get_cstyles t)
-
-

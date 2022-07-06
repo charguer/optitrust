@@ -12,9 +12,9 @@ let parallel_task_group ?(mark : mark = "") : Transfo.t =
     transfo_on_targets (trm_add_pragmas [Parallel []; Master ; Taskgroup]) (target_of_path p))
 
 
-(* [insert_task_sorted sag tg]: expects the target [tg] to be pointing at an instruction or a sequence.
-    then based on [sag] it will insert a pragma on the trm that [tg] points to. *)
-let insert_task_sorted (sag : sorted_arg_deps) : Transfo.t =
+(* [insert_task sag tg]: expects the target [tg] to be pointing at an instruction or a sequence.
+    then based on [sag] it will insert an OpenMP directive on the trm that [tg] points to. *)
+let insert_task (sag : sorted_arg_deps) : Transfo.t =
   iter_on_targets (fun t p -> 
     let dl = match sag.dep_in with [] -> [] | _ -> [In sag.dep_in] in 
     let dl = match sag.dep_out with [] -> dl | _ ->  (Out sag.dep_out) :: dl in
@@ -67,33 +67,42 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
      ) fixed_tg
 )
 
-let insert_tasks_for_taskable (tsk : taskable) ?(indepth : bool = false) (tg : target) : unit = 
+(* [insert_tasks_for_taskable ~indepth tsk tg]: expects the target [tg] to be pointing at a function call 
+      of the full file ast. If the targeted trm is a function call to a taskable function, then
+        it considers first the arg_deps of that function, then it will replace the arguments from the definition with 
+        the ones from the call and sort them. Finally it will call [inser_task] transformation to insert an OpenMP
+        pragma just before the instruction that contains the targeted function call.
+      [indepth] - controls whether to recurse in all the subterms, *)
+let insert_tasks_for_taskable ?(indepth : bool = false) (tsk : taskable) (tg : target) : unit = 
   let fun_arg_deps = get_function_defs () in 
-  (* let occ_functions = Tools.hashtbl_keys_to_list fun_arg_deps in  *)
-  (* TODO: Fix indepth arg *)
-  (* let fixed_tg = 
+  let occ_functions = Tools.hashtbl_keys_to_list fun_arg_deps in 
+  let fixed_tg = 
         if indepth 
-          then (target_of_path p) @ [nbAny; cFuns occ_functions] 
-          else target_of_path p
-        in *)
+          then tg @ [nbAny; cFuns occ_functions] 
+          else tg
+        in
   iter_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence) 
     (fun t (path_to_seq, local_path, i1) -> 
       let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in 
       let path_to_call = path_to_instruction @ local_path in 
-    
-      
       let call_trm = Path.get_trm_at_path path_to_call t in
       match call_trm.desc with 
-      | Trm_apps ({desc = Trm_var (_, qn); _}, _) ->
+      | Trm_apps ({desc = Trm_var (_, qn); _}, call_args) ->
         begin match Hashtbl.find_opt fun_arg_deps qn.qvar_var with 
         | Some arg_deps -> 
-          let srt_arg_deps = sort_arg_dependencies arg_deps in 
+          (* replacing function definition args with function call args. *)
+          let upd_arg_deps = List.map2 (fun arg_dep call_arg -> 
+            begin match (get_operation_arg call_arg).desc with 
+            | Trm_var (_, qn) -> {arg_dep with arg_dep_var = qn.qvar_var}
+            | _ -> arg_dep
+            end
+          ) arg_deps call_args in 
+          let srt_arg_deps = sort_arg_dependencies upd_arg_deps in 
           insert_task srt_arg_deps (target_of_path path_to_instruction)
         | None -> ()
         end
       | _ -> ()
-  
-  ) tg
+  ) fixed_tg
 
 
 (* [vars_arg]: hashtable that stores variables that refer to an argument.
