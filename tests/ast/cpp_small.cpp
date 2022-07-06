@@ -139,9 +139,11 @@ class Inject {
 int main() {
   Box<int, bool> b;
   update<int, bool> (&b,1,true);
-  update<int, bool> (&b,1,true);
 
-  Box2 b1;
-  b1.update1(1, true);
+  Box<float, bool> b1;
+  update<float, bool> (&b1,1.,true);
+
+  Box2 b2;
+  b2.update1(1, true);
   return 0;
 }

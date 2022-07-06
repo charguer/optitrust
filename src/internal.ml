@@ -295,6 +295,9 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
       | Some _ -> acc
       | _ -> match t1.desc with
             | Trm_typedef td when td.typdef_tconstr = x -> Some t1
+                (* if td.typdef_tconstr = x 
+                  then Some t1 
+                  else   *)
             | Trm_let (_, (y, _),_ ) when y = x -> Some t1
             | Trm_let_fun (y, _, _, body) when (is_qvar_var y x) ->
               if require_body then begin

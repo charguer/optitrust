@@ -69,6 +69,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
       end in
       begin match fun_decl.desc with
       | Trm_let_fun (_f, ty, args, body) ->
+        let args = if trm_has_cstyle Method_call fun_decl then snd (Xlist.uncons args) else args in 
         let fun_decl_arg_vars = fst (List.split args) in
         let fresh_args = List.map Internal.fresh_args fun_call_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in

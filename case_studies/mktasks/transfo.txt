@@ -13,13 +13,6 @@ If the function returns values of type T:
 - add, after the new sequence, the labelled statement "___exit: return ___res;"
 
 
-
-Target: is just a list of constraints 
-
-is resolved to a path: 
-
-
-
 *) Apac.parallel_task_group ?mark tg
 
 - where tg is a target on a function def

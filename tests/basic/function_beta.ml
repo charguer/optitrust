@@ -5,7 +5,7 @@ open Target
 let _ = Run.doc_script_cpp (fun _ ->
   
   !! Variable_basic.inline [cFunDef "sq"];
-  !! Function_basic.beta [cVarDef "r"; cFun ""];
+     Function_basic.beta [cVarDef "r"; cFun ""];
 
 )
 
