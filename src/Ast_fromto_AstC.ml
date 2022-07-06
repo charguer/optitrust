@@ -307,7 +307,7 @@ let method_call_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
     | Trm_apps ({desc = Trm_var (_, f)}, args) when trm_has_cstyle Method_call t ->
-      if List.length args < 1 then fail t.loc "Ast_fromto_AstC: method_call_intro: bad encodings.";
+      if List.length args < 1 then fail t.loc "Ast_fromto_AstC: method_call_intro: bad encoding.";
       let base, args = Xlist.uncons args in 
       let struct_access = trm_struct_get base f.qvar_var in
       trm_alter ~desc:(Some (Trm_apps (struct_access, args))) t

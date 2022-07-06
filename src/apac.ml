@@ -66,25 +66,35 @@ let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
                   contains some function calls provided that the argument [indepth] is set to true. "
      ) fixed_tg
 )
-(* 
-let insert_tasks_for_taskable (tsk : taskable) ?(indepth : bool = false) (tg : target) : target = 
+
+let insert_tasks_for_taskable (tsk : taskable) ?(indepth : bool = false) (tg : target) : unit = 
   let fun_arg_deps = get_function_defs () in 
-  let occ_functions = Tools.hashtbl_keys_to_list fun_arg_deps in 
-
-  
-  iter_on_targets (fun t p -> 
-    let fixed_tg = 
-      if indepth 
-        then (target_of_path p) @ [nbAny; cFuns occ_functions] 
-        else target_of_path p
-      in
-    let tg_trm = Path.get_trm_at_path p t in
-    match tg_trm.desc with 
+  (* let occ_functions = Tools.hashtbl_keys_to_list fun_arg_deps in  *)
+  (* TODO: Fix indepth arg *)
+  (* let fixed_tg = 
+        if indepth 
+          then (target_of_path p) @ [nbAny; cFuns occ_functions] 
+          else target_of_path p
+        in *)
+  iter_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence) 
+    (fun t (path_to_seq, local_path, i1) -> 
+      let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in 
+      let path_to_call = path_to_instruction @ local_path in 
     
-
+      
+      let call_trm = Path.get_trm_at_path path_to_call t in
+      match call_trm.desc with 
+      | Trm_apps ({desc = Trm_var (_, qn); _}, _) ->
+        begin match Hashtbl.find_opt fun_arg_deps qn.qvar_var with 
+        | Some arg_deps -> 
+          let srt_arg_deps = sort_arg_dependencies arg_deps in 
+          insert_task srt_arg_deps (target_of_path path_to_instruction)
+        | None -> ()
+        end
+      | _ -> ()
   
-  )
- *)
+  ) tg
+
 
 (* [vars_arg]: hashtable that stores variables that refer to an argument.
     A list is used because of how dependencies of a new pointer are checked :

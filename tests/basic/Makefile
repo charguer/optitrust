@@ -20,6 +20,7 @@ TESTS_WITH_DOC := \
 	array_swap.ml \
 	array_tile.ml \
 	array_to_variables.ml  \
+	apac_use_goto_for_return.ml \
 	cast_insert.ml \
 	expr_replace.ml \
 	expr_replace_fun.ml \
@@ -98,7 +99,6 @@ TESTS_WITH_DOC := \
 
 
 TESTS_NODOC := \
-	apac_use_goto_for_return.ml \
 	matrix_delocalize_obj.ml \
 	matrix_local_name_obj.ml \
 

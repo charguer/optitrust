@@ -11,6 +11,7 @@ TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	align_alloc.ml \
+	apac_parallel_task_group.ml \
 	expr_replace_fun.ml \
 	function_beta.ml \
 	function_bind.ml \
@@ -65,7 +66,6 @@ TESTS_WITH_DOC := \
 
 
 TESTS_WITHOUT_DOC := \
-	apac_parallel_task_group.ml \
 	matrix_delocalize_obj.ml \
 	apac_bind_taskable.ml \
 
