@@ -280,3 +280,20 @@ let constify_args_aux (is_const : bool list) (t : trm) : trm =
 
 let constify_args (is_const : bool list) : Transfo.local =
   apply_on_path(constify_args_aux is_const)
+
+let stack_to_heap_aux (t : trm) : trm =
+  match t.desc with
+  | Trm_let (vk, (var, ty), tr) when not (trm_has_cstyle Reference t) -> 
+    let new_name = Printf.sprintf "__APAC_%s" var in
+    let new_var = begin match vk with
+      | Var_immutable -> trm_let_mut (new_name, (typ_ptr Ptr_kind_mut ty)) (trm_new ty tr)
+      | Var_mutable -> trm_let_mut (new_name,ty) tr
+      end 
+    in
+
+    let updated_var = trm_let_ref (var, (get_inner_ptr_type ty)) (trm_get (trm_var new_name)) in
+    trm_seq_no_brace [new_var; updated_var]
+  | _ -> t
+  
+let stack_to_heap : Transfo.local =
+  apply_on_path(stack_to_heap_aux)

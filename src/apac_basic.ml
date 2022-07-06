@@ -54,3 +54,7 @@ let identify_taskable_functions (tg : target) : taskable =
 (* [constify_args ~is_const tg]: *)
 let constify_args ?(is_const : bool list = []) : Transfo.t =
   apply_on_targets (Apac_core.constify_args is_const)
+
+let stack_to_heap (tg : target) : unit =
+  Internal.nobrace_remove_after (fun _ -> 
+    apply_on_targets (Apac_core.stack_to_heap) tg)
