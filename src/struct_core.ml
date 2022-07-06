@@ -633,5 +633,30 @@ let struct_modif_aux (arg : Struct_modif.arg) (index : int)  (t : trm) : trm =
     end
   | _ -> fail t.loc "Struct_core.Struct_core.struct_modif: exepcted the surrounding sequence of the typedef "
 
+(* [struct_modif arg index t p]: applies [struct_modif_aux] at trm [t] with path [p]. *)
 let struct_modif (arg : Struct_modif.arg) (index : int) : Transfo.local =
   apply_on_path (struct_modif_aux arg index)
+
+(* [change_field_access_kind_aux acc_kind f t]: changes the access_kind for field [f] to [acc_kind] of class or struct [t]. *)
+let change_field_access_kind_aux (acc_kind : record_field_annot) (f : field) (t : trm) : trm =
+  match t.desc with 
+  | Trm_typedef td ->
+    begin match td.typdef_body with
+    | Typdef_record rfs ->
+      let new_rfs = List.map (fun (rf, rf_ann) ->
+        let rf_name_opt = Internal.get_field_name rf in 
+        begin match rf_name_opt with 
+        | Some n when n = f -> (rf, acc_kind)
+        | _ -> (rf, rf_ann)
+        end
+      ) rfs in 
+      let new_td = {td with typdef_body = Typdef_record new_rfs} in 
+      trm_alter ~desc:(Some (Trm_typedef new_td)) t
+    | _ -> fail t.loc "Struct_core.change_field_access_kind_aux: expected a target to a structured typedef."
+    end
+  | _ -> fail t.loc "Struct_core.change_field_access_kind_aux: expected a targetd to a typedef."
+
+
+(* [change_field_access_kind acc_kind f t p]: applies [change_field_access_kind] at trm [t] with path [p]. *)
+let change_field_access_kind (acc_kind : record_field_annot) (f : field) : Transfo.local =
+  apply_on_path (change_field_access_kind_aux acc_kind f)

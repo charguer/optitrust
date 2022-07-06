@@ -97,3 +97,9 @@ let struct_modif_simple ?(use_annot_of : bool = false) ?(new_fields : (label * t
     f_struct_get: modif:
     f_access: modif;
  *)
+
+
+(* [change_field_access_kind acc_kind f tg]: expects the target [tg] to point a typedef, then it will find 
+    field [f] at change its access kind to [acc_kind]. *)
+let change_field_access_kind (acc_kind : record_field_annot) (f : field) : Transfo.t =
+  apply_on_targets(Struct_core.change_field_access_kind acc_kind f)

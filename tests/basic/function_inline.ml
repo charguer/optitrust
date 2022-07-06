@@ -28,9 +28,10 @@ let _ = Run.script_cpp (fun _ ->
   let tc = cTopFunDef "test_class_method" in 
   
   !! Function_basic.inline ~body_mark:"bodyf" [tc;cFun "f"];
-  !! Function_basic.inline [tf;cFun "g"];
-  !! Function_basic.inline ~body_mark:"bodyh" [tf;cFun "h"];
-  !! Function_basic.inline [tf;cFun "m"];
-  !! Function_basic.inline ~body_mark:"bodyk" [tf;cFun "k"];
+  !! Function_basic.inline ~body_mark:"bodyf" [tc;cFun "f1"];
+  !! Function_basic.inline [tc;cFun "g"];
+  !! Function_basic.inline ~body_mark:"bodyh" [tc;cFun "h"];
+  !! Function_basic.inline [tc;cFun "m"];
+  !! Function_basic.inline ~body_mark:"bodyk" [tc;cFun "k"];
 
 )

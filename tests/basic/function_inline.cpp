@@ -47,6 +47,11 @@ class Test_method_inline {
       return a + a;
     }
 
+    int f1(){
+      int a = u + u;
+      return a + a;
+    }
+
     int g(int x) {
       if (x > 0)
         return 1;
@@ -71,6 +76,7 @@ void test_class_method (){
   Test_method_inline c;
   int x = 3;
   int y = c.f(x);
+  int y1 = c.f1();
   int z = c.g(x);
   int u = c.h(x);
   int *q;
@@ -80,16 +86,4 @@ void test_class_method (){
   result = c.k(result, 4);
 }
 
-
-int main(){
-  // int x = 3;
-  // int y = f(x);
-  // int z = g(x);
-  // int u = h(x);
-  // int *q;
-  // m(q);
-  // int result;
-  // result = 10;
-  // result = k(result, 4);
-  return 0;
-}
+int main(){}
