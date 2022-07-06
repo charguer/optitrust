@@ -644,14 +644,18 @@ let change_field_access_kind_aux (acc_kind : record_field_annot) (f : field) (t 
     begin match td.typdef_body with
     | Typdef_record rfs ->
       let new_rfs = List.map (fun (rf, rf_ann) ->
-        let rf_name_opt = Internal.get_field_name rf in 
-        begin match rf_name_opt with 
-        | Some n when n = f -> (rf, acc_kind)
-        | _ -> (rf, rf_ann)
-        end
-      ) rfs in 
-      let new_td = {td with typdef_body = Typdef_record new_rfs} in 
-      trm_alter ~desc:(Some (Trm_typedef new_td)) t
+        (* if f is given as the default string then all the fields access kind will be changed. *)
+        if f = "" 
+          then (rf, acc_kind)
+          else 
+            let rf_name_opt = Internal.get_field_name rf in 
+            begin match rf_name_opt with 
+            | Some n when n = f -> (rf, acc_kind)
+            | _ -> (rf, rf_ann)
+            end
+        ) rfs in 
+        let new_td = {td with typdef_body = Typdef_record new_rfs} in 
+        trm_alter ~desc:(Some (Trm_typedef new_td)) t
     | _ -> fail t.loc "Struct_core.change_field_access_kind_aux: expected a target to a structured typedef."
     end
   | _ -> fail t.loc "Struct_core.change_field_access_kind_aux: expected a targetd to a typedef."
