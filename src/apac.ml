@@ -182,6 +182,8 @@ let get_unary_mutation_qvar (t : trm) : qvar =
 let constify_functions_arguments : Transfo.t = 
   (* TODO : handle include file *)
   (* TODO : handle return ref/ptr argument *)
+  (* TODO : handle namespace *)
+  (* TODO : handle let_mult *)
   iter_on_targets (fun t p ->
     let tg_trm = Path.get_trm_at_path p t in
     let fac : fun_args_const = Hashtbl.create 10 in 
@@ -222,16 +224,15 @@ let constify_functions_arguments : Transfo.t =
 
 
     (* update fac dependency_of and fill to_process *)
-    let rec update_fac_and_to_process (to_process : (string * int) Stack.t) (va : vars_arg) (new_scope : bool) (cur_fun : string) (t : trm) : unit =
-      let va = if new_scope then Hashtbl.copy va else va in
+    let rec update_fac_and_to_process (to_process : (string * int) Stack.t) (va : vars_arg) (cur_fun : string) (t : trm) : unit =
       match t.desc with
       (* new scope *)
       | Trm_seq _ | Trm_for _ | Trm_for_c _ -> 
-        trm_iter (update_fac_and_to_process to_process va true cur_fun) t
+        trm_iter (update_fac_and_to_process to_process (Hashtbl.copy va) cur_fun) t
       (* the syntax allows to declare variable in the condition statement 
          but Optitrust currently cannot parse it *)
       | Trm_if _ | Trm_switch _ | Trm_while _ ->
-        trm_iter (update_fac_and_to_process to_process va true cur_fun) t
+        trm_iter (update_fac_and_to_process to_process (Hashtbl.copy va) cur_fun) t
       
       (* funcall : update dependecy_of *)
       | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ }, args) when Hashtbl.mem fac funcall_name.qvar_str -> 
@@ -244,7 +245,7 @@ let constify_functions_arguments : Transfo.t =
               if ac.is_ptr_or_ref then
                 List.iter (fun i -> ac.dependency_of <- (cur_fun, i) :: ac.dependency_of) arg_pos
           | _ -> ()) args;
-        trm_iter (update_fac_and_to_process to_process va false cur_fun) t
+        trm_iter (update_fac_and_to_process to_process va cur_fun) t
       
       (* declare new ref/ptr that refer/point to argument : update vars_arg *)
       (* TODO : handle multiple variable declaration *)
@@ -255,7 +256,7 @@ let constify_functions_arguments : Transfo.t =
         | [] -> ()
         | args_idx -> Hashtbl.add va lname args_idx
         end;
-        trm_iter (update_fac_and_to_process to_process va false cur_fun) t
+        trm_iter (update_fac_and_to_process to_process va cur_fun) t
       
       (* assignment & compound assignment to argument : update to_process *)
       (* TODO : change vars_arg in pointer assignement if it stills a pointer after dereferencing *)
@@ -265,15 +266,15 @@ let constify_functions_arguments : Transfo.t =
           add_elt_in_to_process va cur_fun name.qvar_str;
         | _ -> ()
         end;
-        trm_iter (update_fac_and_to_process to_process va false cur_fun) t
+        trm_iter (update_fac_and_to_process to_process va cur_fun) t
           
       (* mutable unary operator (++, --) : update to_process *)
       | Trm_apps _ when is_unary_mutation t ->
         let name = get_unary_mutation_qvar t in
         if Hashtbl.mem va name.qvar_str then add_elt_in_to_process va cur_fun name.qvar_str;
-        trm_iter (update_fac_and_to_process to_process va false cur_fun) t
+        trm_iter (update_fac_and_to_process to_process va cur_fun) t
       
-      | _ -> trm_iter (update_fac_and_to_process to_process va false cur_fun) t
+      | _ -> trm_iter (update_fac_and_to_process to_process va cur_fun) t
     in
 
     List.iter (fun t ->
@@ -281,7 +282,7 @@ let constify_functions_arguments : Transfo.t =
       match t.desc with
       | Trm_let_fun (qv, _, args, body) ->
         List.iteri (fun i (name, _) -> if name <> "" then Hashtbl.add va name [i]) args ;
-        trm_iter (update_fac_and_to_process to_process va false (qv.qvar_str)) body
+        trm_iter (update_fac_and_to_process to_process va (qv.qvar_str)) body
       | _ -> fail None "Should not happen"
       ) fun_decls;
     
@@ -314,18 +315,28 @@ let heapify_nested_seq : Transfo.t =
   (* TODO : handle let mult *)
   (* TODO : add delete task *)
   iter_on_targets (fun t p ->
+
+    let rec aux (occ : occurs) (t : trm) : trm =
+      match t.desc with
+      (* new scope *)
+      | Trm_seq _ -> trm_map (aux (Hashtbl.copy occ)) t
+
+      | Trm_let (_, (var, _), _) -> 
+        if Hashtbl.mem occ var 
+          (* remove variable from occurs when declaring them again *)
+          then begin Hashtbl.remove occ var; trm_map (aux occ) t end
+          (* heapify new variable *)
+          else begin Hashtbl.add occ var (); trm_map (aux occ) (Apac_core.stack_to_heap_aux t) end
+      
+      (* dereference heapified variables *)
+      | Trm_var (kind, qv) when Hashtbl.mem occ qv.qvar_str -> trm_get t 
+      
+      | _ -> trm_map (aux occ) t
+    in
+
     let tg_trm = Path.get_trm_at_path p t in
-
-    let to_heapify_vars = begin match tg_trm.desc with
-    | Trm_seq ml -> Mlist.fold_left (fun acc t -> 
-        match t.desc with
-        | Trm_let (_, (v, _), _) when not (trm_has_cstyle Reference t) -> v :: acc
-        | _ -> acc
-      ) [] ml
+    match tg_trm.desc with
+    | Trm_seq _ ->
+      transfo_on_targets (trm_map (aux (Hashtbl.create 10))) (target_of_path p)
     | _ -> fail None "Expects target to point at a sequence"
-    end in
-    
-    let tg = target_of_path p in
-    stack_to_heap (tg @ [cVarDefs to_heapify_vars])
-
   )

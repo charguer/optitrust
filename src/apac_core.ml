@@ -283,17 +283,23 @@ let constify_args (is_const : bool list) : Transfo.local =
 
 let stack_to_heap_aux (t : trm) : trm =
   match t.desc with
-  | Trm_let (vk, (var, ty), tr) when not (trm_has_cstyle Reference t) -> 
-    let new_name = Printf.sprintf "__APAC_%s" var in
-    let new_var = begin match vk with
-      | Var_immutable -> trm_let_mut (new_name, (typ_ptr Ptr_kind_mut ty)) (trm_new ty tr)
-      | Var_mutable -> trm_let_mut (new_name,ty) tr
-      end 
-    in
-
-    let updated_var = trm_let_ref (var, (get_inner_ptr_type ty)) (trm_get (trm_var new_name)) in
-    trm_seq_no_brace [new_var; updated_var]
-  | _ -> t
+  | Trm_let (vk, (var, ty), tr) ->
+    if trm_has_cstyle Reference t 
+      then begin match vk with
+        | Var_immutable -> fail None "Reference always mut ??"
+          (* trm_let_immut (var, (typ_ptr Ptr_kind_mut ty)) (trm_new ty (trm_get tr)) *)
+        | Var_mutable ->
+          let in_typ = get_inner_ptr_type ty in
+          if is_typ_const in_typ
+            then trm_let_immut (var, ty) (trm_new in_typ (trm_get tr))
+            else trm_let_mut (var, ty) (trm_new in_typ (trm_get tr))
+        end
+      else
+        begin match vk with
+        | Var_immutable -> trm_let_immut (var, (typ_ptr Ptr_kind_mut ty)) (trm_new ty tr)
+        | Var_mutable -> trm_let_mut (var, ty) tr
+        end
+  | _ -> fail None "Apac_core.stack_to_heap: expected a target to a variable declaration."
   
 let stack_to_heap : Transfo.local =
   apply_on_path(stack_to_heap_aux)

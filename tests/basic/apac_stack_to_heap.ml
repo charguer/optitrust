@@ -11,4 +11,10 @@ let _ = Run.script_cpp (fun () ->
 
   !! Apac.stack_to_heap [cVarDef "d" ];
 
+  !! Apac.stack_to_heap [cVarDef "e" ];
+
+  !! Apac.stack_to_heap [cVarDef "f" ];
+  
+  !! Apac.stack_to_heap [cVarDef "g" ];
+
 )
