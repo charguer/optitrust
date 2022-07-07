@@ -314,18 +314,28 @@ let heapify_nested_seq : Transfo.t =
   (* TODO : handle let mult *)
   (* TODO : add delete task *)
   iter_on_targets (fun t p ->
+
+    let rec aux (occ : occurs) (t : trm) : trm =
+      match t.desc with
+      (* new scope *)
+      | Trm_seq _ -> trm_map (aux (Hashtbl.copy occ)) t
+
+      | Trm_let (_, (var, _), _) -> 
+        if Hashtbl.mem occ var 
+          (* remove variable from occurs when declaring them again *)
+          then begin Hashtbl.remove occ var; trm_map (aux occ) t end
+          (* heapify new variable *)
+          else begin Hashtbl.add occ var (); trm_map (aux occ) (Apac_core.stack_to_heap_aux t) end
+      
+      (* dereference heapified variables *)
+      | Trm_var (kind, qv) when Hashtbl.mem occ qv.qvar_str -> trm_get t 
+      
+      | _ -> trm_map (aux occ) t
+    in
+
     let tg_trm = Path.get_trm_at_path p t in
-
-    let to_heapify_vars = begin match tg_trm.desc with
-    | Trm_seq ml -> Mlist.fold_left (fun acc t -> 
-        match t.desc with
-        | Trm_let (_, (v, _), _) when not (trm_has_cstyle Reference t) -> v :: acc
-        | _ -> acc
-      ) [] ml
+    match tg_trm.desc with
+    | Trm_seq _ ->
+      transfo_on_targets (trm_map (aux (Hashtbl.create 10))) (target_of_path p)
     | _ -> fail None "Expects target to point at a sequence"
-    end in
-    
-    let tg = target_of_path p in
-    stack_to_heap (tg @ [cVarDefs to_heapify_vars])
-
   )
