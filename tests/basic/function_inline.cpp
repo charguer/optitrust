@@ -42,13 +42,13 @@ class Test_method_inline {
     int u;
   
   public:
-    int f(){
-      int a = u + u;
+    int f(int x){
+      int a = x + x;
       return a + a;
     }
 
-    int f1(int x){
-      int a = x + x;
+    int f1(){
+      int a = u + u;
       return a + a;
     }
 
@@ -75,8 +75,10 @@ class Test_method_inline {
 void test_class_method (){
   Test_method_inline c;
   int x = 3;
-  int y = c.f1(x);
-  int y1 = c.f();
+  
+  int y = c.f(x);
+  
+  int y1 = c.f1();
   int z = c.g(x);
   int u = c.h(x);
   int *q;

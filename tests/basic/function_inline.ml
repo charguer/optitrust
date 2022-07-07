@@ -18,14 +18,6 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  let tc = cTopFunDef "test_class_method" in 
-  
-  (* Note: before inline any class method, all the members of the class should be made public! *)
-  !! Struct_basic.make_all_memebers_public [cTypDef "Test_method_inline"];
-  
-  !! Function_basic.inline ~body_mark:"bodyf" [tc;cFun "f"];
-  
-  
   let tf = cTopFunDef "test_fun" in 
   !! Function_basic.inline ~body_mark:"bodyf" [tf;cFun "f"];
   !! Function_basic.inline [tf;cFun "g"];
@@ -35,12 +27,12 @@ let _ = Run.script_cpp (fun _ ->
 
   let tc = cTopFunDef "test_class_method" in 
   
-  (* Note: before inline any class method, all the members of the class should be made public! *)
+   (* Note: before inline any class method, all the members of the class should be made public! *)
   !! Struct_basic.make_all_memebers_public [cTypDef "Test_method_inline"];
   
-  (* !! Function_basic.inline ~body_mark:"bodyf" [tc;cFun "f"]; *)
-  
   !! Function_basic.inline ~body_mark:"bodyf1" [tc;cFun "f1"];
+  
+  !! Function_basic.inline ~body_mark:"bodyf1" [tc;cFun "f"];
   
   !! Function_basic.inline [tc;cFun "g"];
   !! Function_basic.inline ~body_mark:"bodyh" [tc;cFun "h"];
