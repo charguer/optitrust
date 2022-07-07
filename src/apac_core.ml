@@ -281,6 +281,12 @@ let constify_args_aux (is_const : bool list) (t : trm) : trm =
 let constify_args (is_const : bool list) : Transfo.local =
   apply_on_path(constify_args_aux is_const)
 
+
+let array_typ_to_ptr_typ (ty : typ) : typ =
+  match ty.typ_desc with
+  | Typ_array (ty, _) -> typ_ptr Ptr_kind_mut ty
+  | _ -> ty
+
 let stack_to_heap_aux (t : trm) : trm =
   match t.desc with
   | Trm_let (vk, (var, ty), tr) ->
@@ -297,7 +303,10 @@ let stack_to_heap_aux (t : trm) : trm =
       else
         begin match vk with
         | Var_immutable -> trm_let_immut (var, (typ_ptr Ptr_kind_mut ty)) (trm_new ty tr)
-        | Var_mutable -> trm_let_mut (var, ty) tr
+        | Var_mutable -> 
+          let in_ty = get_inner_ptr_type ty in
+          let ty = if is_typ_array in_ty then array_typ_to_ptr_typ in_ty else ty in
+          trm_let_mut (var, ty) tr
         end
   | _ -> fail None "Apac_core.stack_to_heap: expected a target to a variable declaration."
   

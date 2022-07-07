@@ -7,4 +7,5 @@ int main() {
   int* e = new int(i);
   const int* const f = new const int(1);
   const int* const g = new const int(i);
+  const int* h = new const int[5]{1, 2, 3, 4, 5};
 }

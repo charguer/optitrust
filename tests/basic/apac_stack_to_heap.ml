@@ -16,5 +16,7 @@ let _ = Run.script_cpp (fun () ->
   !! Apac.stack_to_heap [cVarDef "f" ];
   
   !! Apac.stack_to_heap [cVarDef "g" ];
+  
+  !! Apac.stack_to_heap [cVarDef "h" ];
 
 )
