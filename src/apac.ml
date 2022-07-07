@@ -312,53 +312,53 @@ let constify_functions_arguments : Transfo.t =
 
 let get_delete_task (occ : (var, bool) Hashtbl.t) : trm =
   let vars = Tools.hashtbl_keys_to_list occ in
-  let _deps : deps = List.map (fun var -> Dep_ptr (Dep_var var) ) vars in
+  let deps : deps = List.map (fun var -> Dep_ptr (Dep_var var) ) vars in
   let delete_trms : trms = List.map (fun var -> trm_delete (Hashtbl.find occ var) (trm_var var)) vars in
-  (* trm_add_pragmas [Task [Depend [Inout deps]; FirstPrivate vars]] (trm_seq_nomarks delete_trms) *)
-  (trm_seq_nomarks delete_trms)
+  trm_add_pragmas [Task [Depend [Inout deps]; FirstPrivate vars]] (trm_seq_nomarks delete_trms)
 
 let heapify_nested_seq : Transfo.t =
   (* TODO : handle let mult *)
   (* TODO : add delete task *)
   iter_on_targets (fun t p ->
 
-    let rec aux (occ : (var, bool) Hashtbl.t) (t : trm) : trm =
+    let rec aux (occ : (var, bool) Hashtbl.t) (first_depth : bool) (t : trm) : trm =
       match t.desc with
       (* new scope *)
-      | Trm_seq _ -> trm_map (aux (Hashtbl.copy occ)) t
+      | Trm_seq _ -> trm_map (aux (Hashtbl.copy occ) first_depth) t
+      | Trm_for _ | Trm_for_c _  -> trm_map (aux (Hashtbl.copy occ) false) t 
+      | Trm_while _ | Trm_switch _ -> trm_map (aux occ false) t
 
       | Trm_let (_, (var, ty), _) -> 
         if Hashtbl.mem occ var 
           (* remove variable from occurs when declaring them again *)
-          then begin Hashtbl.remove occ var; trm_map (aux occ) t end
+          then begin Hashtbl.remove occ var; trm_map (aux occ first_depth) t end
           (* heapify new variable *)
           else begin 
             let tr = Apac_core.stack_to_heap_aux t in
             Hashtbl.add occ var (is_typ_array (get_inner_ptr_type ty));
-            trm_map (aux occ) tr 
+            trm_map (aux occ first_depth)  tr 
           end
       
       (* dereference heapified variables *)
       | Trm_var (kind, qv) when Hashtbl.mem occ qv.qvar_str -> trm_get t 
       
-      (* add delete task before abort trm*)
+      (* add delete task before abort trm *)
       | Trm_abort ab ->
         begin match ab with
         (* before every return *)
-        | Ret _ -> trm_seq_no_brace [get_delete_task occ; trm_map (aux occ) t]
-        (* break : TODO *)
-        | Break _ -> t
-        (* continue : TODO *)
-        | Continue _ -> t
+        | Ret _ -> trm_seq_no_brace [get_delete_task occ; trm_map (aux occ first_depth) t]
+        (* break, continue : only the current loop not deeper *)
+        | Break _ | Continue _  when first_depth -> trm_seq_no_brace [get_delete_task occ; t]
+        | _ -> trm_map (aux occ first_depth) t
         end
       
-      | _ -> trm_map (aux occ) t
+      | _ -> trm_map (aux occ first_depth) t
     in
 
     let tg_trm = Path.get_trm_at_path p t in
     match tg_trm.desc with
     | Trm_seq _ -> Internal.nobrace_remove_after (fun _ -> 
-        transfo_on_targets (trm_map (aux (Hashtbl.create 10))) (target_of_path p)
+        transfo_on_targets (trm_map (aux (Hashtbl.create 10) true)) (target_of_path p)
         )
     | _ -> fail None "Expects target to point at a sequence"
   )
