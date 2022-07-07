@@ -21,3 +21,14 @@ void test_two_args(int x, int y){
   }
   int a = x + y;
 }
+
+class Test_method_rename_args {
+  private:
+    int u;
+  
+  public:
+    int test_method_args(int x){
+      int a = u + u;
+      return a + a;
+    }
+};

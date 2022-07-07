@@ -1330,6 +1330,10 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         add_dir Dir_body (aux_body body)
      | Trm_typedef td  ->
       begin match td.typdef_body with
+      (* | Typdef_record rfl ->  *)
+
+      
+      
       | Typdef_enum xto_l ->
         let (il, tl) =
           Xlist.fold_lefti

@@ -543,7 +543,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
      | Trm_delete (is_array, body) -> 
          let is_arr = if is_array then string "[]" else empty in 
          let dbody = decorate_trm body in 
-         string "delete" ^^ is_arr ^^ dbody
+         string "delete" ^^ is_arr ^^ blank 1 ^^ dbody ^^ semi
      end in
   (* Save the result in the optional stringreprs table, before returning the document *)
   add_stringreprs_entry t d;
