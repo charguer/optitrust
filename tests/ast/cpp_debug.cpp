@@ -13,7 +13,7 @@ class Test_method_inline {
 int main(){
   
   Test_method_inline c;
-  int z = c.u;
+  // int z = c.u;
   int y1 = c.f1();
 
   return 0;

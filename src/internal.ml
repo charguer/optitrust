@@ -727,7 +727,7 @@ let fix_class_member_accesses (class_name : var) (t : trm) : trm =
     | Some (base, field) ->
       begin match base.desc with 
       | Trm_var (_, qn) when qn.qvar_var = "this" -> 
-        trm_struct_get ~annot:t.annot (trm_var class_name) field
+        trm_struct_get ~annot:t.annot (trm_var_get class_name) field
       | _ -> trm_map aux t
       end
     | _ -> trm_map aux t 

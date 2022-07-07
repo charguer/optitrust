@@ -57,7 +57,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
   let f_update (t : trm) : trm =
     let fun_call = Path.resolve_path p_local t in
     begin match fun_call.desc with
-    | Trm_apps(tfun, fun_call_args) ->
+    | Trm_apps(tfun, fun_call_args1) ->
       let fun_decl = begin match tfun.desc with
       | Trm_var (_, f) ->
         begin match Internal.toplevel_decl ~require_body:true f.qvar_var with
@@ -70,7 +70,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
       begin match fun_decl.desc with
       | Trm_let_fun (_f, ty, args, body) ->
         let fun_decl_arg_vars = fst (List.split args) in
-        let fun_call_args = if trm_has_cstyle Method_call fun_call then snd (Xlist.uncons fun_call_args) else fun_call_args in
+        let fun_call_args = if trm_has_cstyle Method_call fun_call then snd (Xlist.uncons fun_call_args1) else fun_call_args1 in
         let fresh_args = List.map Internal.fresh_args fun_call_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
@@ -80,7 +80,13 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body
         | _ -> Internal.set_nobrace_if_sequence processed_body
         end  in
-        
+        let marked_body = if trm_has_cstyle Method_call fun_call 
+          then 
+            let class_name = fst (Xlist.uncons fun_call_args1) in 
+            match trm_var_inv (get_operation_arg class_name) with 
+            | Some (_,c_name ) -> Internal.fix_class_member_accesses c_name marked_body 
+            | _ -> fail class_name.loc "Function_core.inline_aux: bad encodings."
+          else marked_body in 
         let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =
           if is_type_unit(ty)
