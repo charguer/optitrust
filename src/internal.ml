@@ -719,3 +719,17 @@ let get_field_name (rf : record_field) : var option =
     | _ -> None
     end
 
+(* [fix_class_member_accesses class_name t]: when class methods are inlined fixes all the direct accesses to class members 
+      on method definitions. *)
+let fix_class_member_accesses (class_name : var) (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match struct_get_inv t with 
+    | Some (base, field) ->
+      begin match base.desc with 
+      | Trm_var (_, qn) when qn.qvar_var = "this" -> 
+        trm_struct_get ~annot:t.annot (trm_var class_name) field
+      | _ -> trm_map aux t
+      end
+    | _ -> trm_map aux t 
+   in aux t
+    

@@ -80,6 +80,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body
         | _ -> Internal.set_nobrace_if_sequence processed_body
         end  in
+        
         let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =
           if is_type_unit(ty)

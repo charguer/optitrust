@@ -104,7 +104,7 @@ let struct_modif_simple ?(use_annot_of : bool = false) ?(new_fields : (label * t
 let change_field_access_kind ?(field : field = "") (acc_kind : record_field_annot) : Transfo.t =
   apply_on_targets(Struct_core.change_field_access_kind acc_kind field)
 
-(* [make_all_public tg]: expects the target [tg] to point at a typedef struct or class.
+(* [make_all_members_public tg]: expects the target [tg] to point at a typedef struct or class.
     then it will transform all its members to public. *)
-let make_all_public : Transfo.t =
+let make_all_memebers_public : Transfo.t =
   change_field_access_kind Access_public
