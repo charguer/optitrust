@@ -776,7 +776,7 @@ let get_trm_kind (t : trm) : trm_kind =
    | Trm_record _ | Trm_array _ -> TrmKind_Expr
    | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
    | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
-   | Trm_typedef _ | Trm_let_record _-> TrmKind_Typedef
+   | Trm_typedef _ -> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
    | Trm_fun _ | Trm_delete _ -> TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
@@ -1330,9 +1330,8 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         add_dir Dir_body (aux_body body)
      | Trm_typedef td  ->
       begin match td.typdef_body with
-      (* | Typdef_record rfl ->  *)
-
-      
+      (* | Typdef_record rfl -> *)
+        (* TODO: Fix the issue with going in depth of Trm_typedef *)
       
       | Typdef_enum xto_l ->
         let (il, tl) =

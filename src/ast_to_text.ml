@@ -348,20 +348,6 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dt = print_trm ~only_desc dcls in
     print_node "Trm_namespace" ^^ parens (separate (comma ^^ break 1)
       [string name; string (string_of_bool inline); dt])
-  | Trm_let_record (name, rt, s, t1) ->
-    let get_document_list s =
-      let rec aux acc = function
-        | [] -> acc
-        | (lb, t) :: tl ->
-          let dt = print_typ ~only_desc t in
-          aux (print_pair (string lb) dt :: acc) tl in
-        aux [] s
-      in
-    let dt = print_trm ~only_desc t1 in
-    let dtl = get_document_list s in
-    let drt = print_record_type rt in
-    print_node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
-      [string name; drt; print_list dtl; dt])
   | Trm_template _ ->  print_node "Trm_template _"
   | Trm_using_directive str -> print_node "Trm_using_directive " ^^ string str
   | Trm_fun (tvl , ty_opt, b) -> 

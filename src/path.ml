@@ -47,6 +47,8 @@ and dir =
   | Dir_case of int * case_dir
   (* enum_const: direction to constant in enum declaration *)
   | Dir_enum_const of int * enum_const_dir
+  (* struct, class methods *)
+  | Dir_record_field of int 
 
 (* [case_dir]: direction to a switch case *)
 and case_dir =
@@ -96,6 +98,8 @@ let dir_to_string (d : dir) : string =
        | Enum_const_val -> "Enum_const_val"
      in
      "Dir_enum_const (" ^ (string_of_int n) ^ ", " ^ s_ecd ^ ")"
+  | Dir_record_field i ->
+    "Dir_record_field " ^ string_of_int i
 
 (* [path_to_string dl]: print the path [dl] *)
 let path_to_string (dl : path) : string =
@@ -171,6 +175,8 @@ let compare_dir (d : dir) (d' : dir) : int =
   | _, Dir_name -> 1
   | Dir_case _, _ -> -1
   | _, Dir_case _ -> 1
+  | Dir_record_field _, _ -> -1
+  | _ , Dir_record_field _ -> 1
 
 (* [compare_path dl dl']: compare paths [dl] and [dl'] based on function compare_dir *)
 let rec compare_path (dl : path) (dl' : path) : int =

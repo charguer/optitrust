@@ -11,7 +11,6 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_record _, Trm_record _ -> true
   | Trm_let _, Trm_let _ -> true
   | Trm_let_fun _, Trm_let_fun _ -> true
-  | Trm_let_record _, Trm_let_record _ -> true
   | Trm_typedef _, Trm_typedef _ -> true
   | Trm_if _, Trm_if _ -> true
   | Trm_seq _, Trm_seq _ -> true

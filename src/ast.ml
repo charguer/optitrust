@@ -403,7 +403,6 @@ and trm_desc =
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c; ONLY FOR RAW AST! *)
   | Trm_let_fun of qvar * typ * typed_vars * trm
-  | Trm_let_record of string * record_type * (label * typ) list * trm
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm (* if (x > 0) {x += 1} else{x -= 1} *)
   | Trm_seq of trm mlist      (* { st1; st2; st3 } *)
@@ -857,7 +856,7 @@ let trm_build ~(annot : trm_annot) ~(loc : location) ~(is_statement : bool) ~(ty
 (* [is_statement_of_desc t_desc]: checks if t_tesc corresponds to a statement or not  *)
 let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
   match t_desc with
-  | Trm_let _ | Trm_let_mult _ | Trm_let_fun _ | Trm_let_record _ | Trm_typedef _ | Trm_if _ | Trm_seq _ | Trm_while _
+  | Trm_let _ | Trm_let_mult _ | Trm_let_fun _ | Trm_typedef _ | Trm_if _ | Trm_seq _ | Trm_while _
   | Trm_do_while _ | Trm_for_c _ | Trm_for _ | Trm_switch _ | Trm_abort _ | Trm_goto _  -> true
   | Trm_apps _ ->
     begin match ty with
@@ -1015,11 +1014,6 @@ let trm_extern ?(annot = trm_annot_default) ?(loc = None) (lang : string) (tl : 
 let trm_namespace ?(annot = trm_annot_default) ?(loc = None) ?(typ=None) ?(ctx : ctx option = None)
   (name : string) (t : trm ) (inline : bool) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_namespace (name, t, inline))
-
-(* [trm_let_record ~loc ~ctx name rt lt t]: rectod declaration and definition *)
-let trm_let_record ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
-  (name : string) (rt : record_type ) (lt : (label * typ) list) (t : trm) : trm =
-  trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_let_record (name, rt, lt, t))
 
 (* [trm_template ~loc ~typ ~ctx tpl t]: template statemented *)
 let trm_template ?(annot = trm_annot_default) ?(loc = None) ?(typ=None) ?(ctx : ctx option = None)

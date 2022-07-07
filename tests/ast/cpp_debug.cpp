@@ -1,11 +1,6 @@
 int main(){
   
-  int* x = new int;
-  
-  int* y = new int[2];
-
-  delete x;
-  delete[] y;
+  const int x[5] = {1, 2, 3, 4, 5};
 
   return 0;
 }
