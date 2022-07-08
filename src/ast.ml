@@ -691,11 +691,11 @@ module Trm_map = Map.Make(String)
 (* trm map used for rewrite rules and pattern matching *)
 type tmap = trm Trm_map.t
 
-(* used for defining the type of reordering for struct fields *)
-type reorder =
-  | Reorder_before of string
-  | Reorder_after of string
-  | Reorder_all
+(* [fields_order]: the order should be provided as argument to the transformation [reorder_fields]. *)
+type fields_order = 
+  | Move_before of (string * string list)
+  | Move_after of (string * string list)
+  | Reorder_all of var list
 
 (* **************************** Typ constructors *************************** *)
 

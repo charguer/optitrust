@@ -15,23 +15,18 @@ let set_explicit (tg : target) : unit =
 let set_implicit ?(keep_label : bool = true) : Transfo.t =
   apply_on_targets (Struct_core.set_implicit keep_label)
 
-(* [reorder_fields ~move_before ~move_after struct_fields tg]: expects the target [tg]
-    to point at a typedef struct, then it switches the order of the fields of the targeted struct.
-    [move_before] - field before which all the fields in [struct_fields] will be moved
-    [move_after] - field after which all the fields in [struct_fields] will be moved
-    [struct_fields] - list of fields to move
-
-   @correctness: Correct if pointer arithmetic to field is replaced everywhere,
-   might be impossible to prove in case of casts between types. *)
-(* let reorder_fields ?(move_before : field = "") ?(move_after : field = "") (struct_fields : vars) (tg : target) : unit =
-  let move_where =
-    begin match move_before, move_after with
-    | "", "" -> Reorder_all
-    | "", _ -> Reorder_after move_after
-    | _, "" -> Reorder_before move_before
-    | _,_-> fail None "Struct_basic.reorder_fields: cannot provide both move_before and move_after"
-    end in
-  apply_on_targets (Struct_core.reorder_fields struct_fields move_where) tg *)
+(* [reorder_fields order tg]: expects the target to be pointing at typedef struct or class.
+      then it changes the order of the fields based on [order].
+      [order] - can be one of the following 
+        Move_before (x,fl) -> all the fields that belong to [fl] are moved before the field [x].
+        Move_after (x,fl) -> all the fields that belong to [fl] are moved after the field [x].
+        Reorder_all [fl] -> all the fields are reorder an will appear like [fl].
+      
+    @correctness: Correct if pointer arithmetic to field is replaced everywhere,
+      might be impossible to prove in case of casts between types.*)
+let reorder_fields (order : fields_order) : Transfo.t =
+  apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun t (p, i) -> Struct_core.reorder_fields order i t p) 
 
 (* [reveal_field ~reparse field_to_reveal_field tg]: expects the target [tg] to point at a typedef struct,
     then it will find [field_to_reveal_field] and it's underlying type and it will

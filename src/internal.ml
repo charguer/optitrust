@@ -432,57 +432,6 @@ let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ )
     apply_on_record_fields app_fun rfs
   
   
-
-(*********************Auxiliary functions for reorder transformation ******************************************************)
-(* *) let get_pair x xs = List.fold_left(fun acc (y,ty) -> if y = x then (y,ty) :: acc else acc) [] xs                 (* *)
-(* *) let get_pairs ys xs = List.fold_left(fun acc y -> (get_pair y xs) :: acc) [] ys                                  (* *)
-(* *) let remove_pair x xs = List.filter (fun (y,_) -> y <> x) xs                                                      (* *)
-(* *) let remove_pairs (ys : vars) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys (* *)
-(* ************************************************************************************************************************)
-
-(* [move_fields_after x local_l l ]: reorder fields list [l] by moving all the pairs whose first eleement is 
-     in [local_l] after field [x]. *)
-let move_fields_after (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ ) list=
-  let fins = List.flatten (get_pairs local_l l )in
-  let l = remove_pairs local_l l in
-  let rec aux = function
-    | [] -> failwith "Internal.move_fields_after: empty list" (* raise an error x not part of the list *)
-    | (hd, ty) :: tl ->
-      if hd = x
-        then fins @ [hd, ty] @ tl
-        else (hd,ty) :: aux tl
-      in
-    aux l
-
-(* [move_fields_before x local_l l ]: reorder fields list [l] by moving all the pairs whose first eleement is
-     in [local_l] before field [x]. *)
-let move_fields_before (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ) list =
-  let fins = List.flatten (get_pairs local_l l) in
-  let l = remove_pairs local_l l in
-  let rec aux = function
-    | [] -> failwith "Internal.move_fields_after: empty list" (* raise an error x not part of the list *)
-    | (hd, ty) :: tl ->
-      if hd = x
-        then [hd, ty] @ fins @ tl
-        else (hd,ty) :: aux tl
-      in
-    aux l
-
-(* [reorder_fields reorder_kind local_l sf]: reorder all fields that belong to [local_l] based on [reorder_kind]. *)
-let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) list) : (var * typ) list =
-  match reorder_kind with
-  | Reorder_after around -> move_fields_after around local_l sf
-  | Reorder_before around -> move_fields_before around local_l sf
-  | Reorder_all -> let check = (List.length (Xlist.remove_duplicates local_l) = List.length sf) in
-    begin match check with
-    | false -> fail None "Internal.reorder_fields: list of fields entered contains duplicates"
-    | true -> List.map (fun x ->
-        match List.assoc_opt x sf with
-      | Some d -> (x,d)
-      | None -> fail None (Printf.sprintf "Internal.reorder_fields: field %s doest not exist" x)) local_l
-    end
-
-
 (* [get_item_and_its_relatives index trms]: for an  item [t] with index [index] in the mlist its belongs to,
     returns the list of items before [t], [t] itself and the list of items that come after [t]. *)
 let get_item_and_its_relatives (index : int) (items : 'a mlist) : ('a mlist * 'a * 'a mlist) =
