@@ -9,9 +9,28 @@ typedef struct {
   vect speed;
 } obj;
 
+
+class TestFieldRename {
+
+  private:
+    int x;
+  
+  public:
+    int f(int y){
+      return y + x;
+    }
+    int g(int y) { 
+      return this->x + y;
+    }
+
+};
+
+
 vect f() { return {1, 1}; }
 
-int main() {
+
+
+void test_struct_field_rename (){
   vect p = {0, 0};
   vect b;
   b.x = p.x;
@@ -30,5 +49,15 @@ int main() {
   c.pos.y = a.pos.y;
   c.speed.x = a.speed.x;
   c.speed.y = a.speed.y;
-  return 0;
 }
+
+
+
+void test_class_members_rename (){
+  TestFieldRename t;
+   
+  int a = t.f(10);
+  int b = t.g(a);
+}
+
+int main() {}

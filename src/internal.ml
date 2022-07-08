@@ -411,8 +411,9 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
     | Record_field_method t -> 
       begin match t.desc with
       | Trm_let_fun (fn, ret_ty, args, body) -> 
-        let new_fn = {fn with qvar_var = rename_fun fn.qvar_var} in 
-        let new_t = trm_replace (Trm_let_fun (new_fn, ret_ty, args, body)) t in
+        let new_fn = qvar_update ~var:(rename_fun fn.qvar_var) fn in
+        (* let new_fn = {fn with qvar_str = rename_fun fn.qvar_var} in  *)
+        let new_t = trm_alter  ~desc:(Some (Trm_let_fun (new_fn, ret_ty, args, body))) t in
         Record_field_method new_t
       | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
       end

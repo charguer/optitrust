@@ -1,12 +1,23 @@
+class TestFieldRename {
 
-int f(int x, int y, int z){
-  return x + y + z;
+  private:
+    int x;
+  
+  public:
+    int f(int y){
+      return y + x;
+    }
+    int g(int y) { 
+      return this->x + y;
+    }
+
+};
+
+void test_class_members_rename (){
+  TestFieldRename t;
+   
+  int a = t.f(10);
+  int b = t.g(a);
 }
 
-int main(){
-
- int a;
- a = f(1, 2 ,3);
-
- return 0;
-}
+int main() {}

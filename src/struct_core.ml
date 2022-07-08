@@ -411,13 +411,16 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
           | Some ty ->
             begin match ty.typ_desc with
             | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
-              trm_apps ~annot:t.annot ~typ:t.typ ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))})  [base]
+              trm_apps ~annot:t.annot ~typ:t.typ {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))}  [base]
             | _ -> trm_map (aux global_trm) t
             end
           | None -> trm_map (aux global_trm) t
           end
+      | Trm_var (vk, qf) when trm_has_cstyle Method_call t ->
+        trm_apps ~annot:t.annot ~typ:t.typ {f with desc = Trm_var (vk, qvar_update ~var:(rename qf.qvar_var) qf)} [base]
       | _ -> trm_map (aux global_trm) t
       end
+      
     | _ -> trm_map (aux global_trm) t
     end
    in aux t t
@@ -435,7 +438,6 @@ let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
     | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_record rfl;_}  as td) ->
       struct_name := name;
       let rfl = Internal.rename_record_fields rename rfl in 
-      (* let new_fl = List.map (fun (x, ty) -> (rename x, ty)) fl in *)
       trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record rfl}
    | _ -> fail t.loc "Struct_core.reanme_fields_aux: expected a typedef declaration"
    in

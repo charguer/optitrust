@@ -735,6 +735,12 @@ let qvar_build ?(qpath : var list = []) (qvar : var) : qvar =
     in
   {qvar_var = qvar; qvar_path = qpath; qvar_str = qstr}
 
+(* [qvar_update ~qpath var qv]: updates [qv] by updating the fields [qvar_var] and [qvar_path] respectively.*)
+let qvar_update ?(qpath : var list = []) ?(var : var = "") (qv : qvar) : qvar =
+  let qpath = if qpath = [] then qv.qvar_path else qpath in 
+  let qvar = if var = "" then qv.qvar_var else var in 
+  qvar_build ~qpath qvar
+
 (* [empty_qvar]: empty qvar is just a qvar with the string representation being the empty string. *)
 let empty_qvar : qvar =
   {qvar_var = ""; qvar_path = []; qvar_str = ""}
