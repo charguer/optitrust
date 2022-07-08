@@ -83,7 +83,7 @@ let stackvar_elim (t : trm) : trm =
         then trm_get (trm_replace (Trm_var (Var_mutable, x)) t)
         else trm_replace (Trm_var (Var_immutable, x)) t
     | Trm_let (_, (x, ty), tbody) ->
-      let xm = if is_typ_const ty then Var_immutable else Var_mutable in
+      let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
       add_var env x xm;
       begin match typ_ref_inv ty with
       | Some ty1 ->
@@ -134,7 +134,7 @@ let stackvar_intro (t : trm) : trm =
         then trm_address_of (trm_replace (Trm_var (Var_mutable, x)) t)
         else t
     | Trm_let (_, (x, tx), tbody) ->
-      let vk = if is_typ_const tx then Var_immutable else Var_mutable in
+      let vk = if is_typ_const (get_inner_array_type tx) then Var_immutable else Var_mutable in
       add_var env x vk;
       if trm_has_cstyle Stackvar t
         then

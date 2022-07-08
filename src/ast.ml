@@ -2152,6 +2152,13 @@ let get_inner_ptr_type (ty : typ) : typ =
   | Typ_ptr {inner_typ = ty1;_} when is_generated_typ ty -> ty1
   | _ -> ty
 
+(* [get_inner_array_type ty]: returns the underlying type of [ty] when [ty] is an array type. *)
+let get_inner_array_type (ty : typ) : typ =
+  match ty.typ_desc with 
+  | Typ_array (ty, _) -> ty
+  | _ -> ty
+
+
 (* [get_inner_const_type ty]: gets the underlying type of [ty] when [ty] is a const type *)
 let get_inner_const_type (ty : typ) : typ =
   match ty.typ_desc with
@@ -2177,6 +2184,7 @@ let is_reference (ty : typ) : bool =
 let is_typ_const (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_const _ -> true
+  (* | Typ_array (ty, s) -> is_typ_const ty *)
   | _ -> false
 
 (* [tile_bound]: used for loop tiling transformation *)
@@ -3186,3 +3194,8 @@ let is_typ_array (ty : typ) : bool =
   match ty.typ_desc with 
   | Typ_array _ -> true 
   | _ -> false
+
+(* [is_trm_record t]: checks if [t] has [Trm_record] or [Trm_array] description or not. *)
+let is_trm_record (t : trm) : bool =
+  match t.desc with 
+  | Trm_record _ | Trm_array _ -> true | _ -> false

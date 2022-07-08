@@ -30,7 +30,6 @@ TESTS_WITH_DOC := \
 	function_dsp_call.ml \
 	function_dsp_def.ml \
 	function_inline.ml \
-	function_rename_args.ml \
 	function_uninline.ml \
 	function_use_infix_ops.ml \
 	instr_accumulate.ml \
@@ -105,6 +104,7 @@ TESTS_NODOC := \
 
 
 TESTS_TO_FIX := \
+	function_rename_args.ml \
 	struct_reorder_fields.ml \
 	struct_update_fields_type.ml \
 	matrix_insert_access_dim_index.ml \

@@ -358,7 +358,6 @@ let heapify_nested_seq : Transfo.t =
     let tg_trm = Path.get_trm_at_path p t in
     match tg_trm.desc with
     | Trm_seq _ -> Internal.nobrace_remove_after (fun _ -> 
-        transfo_on_targets (trm_map (aux (Hashtbl.create 10) true)) (target_of_path p)
-        )
+        transfo_on_targets (trm_map (aux (Hashtbl.create 10) true)) (target_of_path p))
     | _ -> fail None "Expects target to point at a sequence"
   )

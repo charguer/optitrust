@@ -209,7 +209,7 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
     let t = tr_qual_type ~loc ~tr_record_types q in
     begin match eo with
-      | None -> typ_array t (Const n)
+      | None -> wrap_const ~const (typ_array t (Const n))
       | Some e ->
         let s = tr_expr e in
         wrap_const ~const (typ_array t (Trm s))
