@@ -324,6 +324,7 @@ and cstyle_annot =
   | Class_destructor of destructor_kind
   | Member_initializer
   | Redundant_decl 
+  | Brace_init
 
 (* [constructor_kind]: special annotation for constructors *)
 and constructor_kind = 

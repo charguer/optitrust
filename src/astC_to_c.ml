@@ -547,14 +547,16 @@ and record_type_to_doc (rt : record_type) : document =
 and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dtx = typed_var_to_doc tv in
-  let dinit = begin match init.desc with
-    | Trm_val (Val_lit Lit_uninitialized) -> dsemi
-    | Trm_apps (_, args) when trm_has_cstyle Constructed_init init ->
-      list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (trm_to_doc) args) ^^ dsemi
-    | _ -> 
-      equals ^^ blank 1 ^^ decorate_trm ~print_struct_init_type:false init ^^ dsemi
-  end in
-  dtx ^^ blank 1 ^^ dinit
+  match init.desc with
+  | Trm_val (Val_lit Lit_uninitialized) -> dtx ^^ semi
+  | Trm_apps (_, args) when trm_has_cstyle Constructed_init init ->
+    dtx ^^ blank 1 ^^ list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (trm_to_doc) args) ^^ dsemi
+  | Trm_array tl when trm_has_cstyle Brace_init init ->
+      let tl = Mlist.to_list tl in 
+      dtx ^^ list_to_doc ~bounds:[lbrace; rbrace] ~sep:empty (List.map decorate_trm tl) ^^ dsemi
+  | _ -> 
+    dtx ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm ~print_struct_init_type:false init ^^ dsemi
+  
 
 (* [trm_let_mult_to_doc ~semicolon tv vl tl]: converts multiple variable declarations to pprint document *)
 and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (tl : trm list) : document =
