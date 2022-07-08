@@ -3199,3 +3199,14 @@ let is_typ_array (ty : typ) : bool =
 let is_trm_record (t : trm) : bool =
   match t.desc with 
   | Trm_record _ | Trm_array _ -> true | _ -> false
+
+
+(* [is_return t]: checks if [t] is a return statement. *)
+let is_return (t : trm) : bool =
+  match t.desc with
+  | Trm_abort (Ret _) -> true | _ -> false
+
+(* [is_trm_abort t]: checks if [t] has [Trm_abort abort] description. *)
+let is_trm_abort (t: trm) : bool =
+  match t.desc with
+  | Trm_abort _ -> true | _ -> false
