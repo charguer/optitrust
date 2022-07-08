@@ -295,6 +295,80 @@ let reveal_field (field_to_reveal : field) (index : int) : Transfo.local =
 (* let reorder_fields (struct_fields : vars) (move_where : reorder) : Transfo.local =
   apply_on_path(reorder_fields_aux struct_fields move_where) *)
 
+(* [field_order]: the order should be provided as argument to the transformation [reorder_fields]. *)
+type field_order = 
+  | Move_before of (string * string list)
+  | Move_after of (string * string list)
+  | Reorder_all of string list
+
+
+let compute_bijection (new_order : field_order) (fl : (field * int) list) : int list =
+  match new_order with 
+  | Move_before (field, fields_to_move) ->
+    let filtered_fl = List.filter (fun (f, _) -> not (List.mem f fields_to_move)) fl in 
+    let fields_to_move_ind = List.map (fun f -> match List.assq_opt f fl with 
+      | Some ind -> (f, ind)
+      | None -> fail None "Struct_core.compute_bijection: catastrophic error."
+    ) fields_to_move in
+    let upd_fl = 
+    List.fold_left (fun acc (f, ind) -> 
+      if f = field then fields_to_move_ind @ (f, ind) :: acc
+        else (f, ind) :: acc
+    ) [] (List.rev filtered_fl)  
+      in 
+    List.map snd upd_fl
+  | Move_after (field, fields_to_move) ->
+    let filtered_fl = List.filter (fun (f, _) -> not (List.mem f fields_to_move)) fl in 
+    let fields_to_move_ind = List.map (fun f -> match List.assq_opt f fl with 
+      | Some ind -> (f, ind)
+      | None -> fail None "Struct_core.compute_bijection: catastrophic error."
+    ) fields_to_move in
+    let upd_fl = 
+    List.fold_left (fun acc (f, ind) -> 
+      if f = field then (f, ind) :: fields_to_move_ind @acc
+        else f :: acc
+    ) [] (List.rev filtered_fl)  
+      in 
+    List.map snd upd_fl
+  | Reorder_all new_order -> 
+    if List.length new_order <> List.length fl then fail None "Struct_core.compute_bijection: Reorder all should contain all the fields.";
+    List.map (fun f -> match List.assq_opt f fl with 
+      | Some ind -> ind
+      | None -> fail None "Struct_core:compute_bijection: catastrophic error."
+    ) new_order
+
+let reorder_fields_aux (new_order : field_order) (t : trm) : trm =
+  let f_update (t : trm) : trm =
+    match t.desc with 
+    | Trm_typedef td -> 
+      begin match td.typdef_body with 
+      | Typdef_record rfl ->
+        let rfl_str_rep = List.mapi (fun i rf -> 
+          match rf with 
+          | Record_field_member (lb, _f) -> (lb, i)
+          | Record_field_method t1 -> 
+            begin match decl_name t1 with 
+            | Some n -> (n, i)
+            | _ -> fail t.loc "Struct_core.reorder_fields_aux: unkown method definition."
+            end
+        ) rfl in 
+        let bij = compute_bijection new_order rfl_str_rep in 
+        let new_rfl = Xlist.reorder bij rfl in 
+        trm_alter ~desc:(Some (Trm_typedef {td with typdef_body = Typdef_record new_rfl})) t 
+
+      | _ -> fail t.loc "Struct_core.reorder_fields_aux: expected a target to a record type definition."
+
+      end 
+    | _ -> fail t.loc "Struct_core.reorder_fields_aux: expected a target pointing to a typedef."
+    in 
+  let f_update_further (t : trm) : trm =
+
+
+
+
+
+
+
 (* [inline_struct_accesses name field t]: transforms a specific struct access into a variable occurrence,
     [name] - name of the variable to replace the struct access,
     [field] - struct accesses on this field are going to be replaced with [name],
