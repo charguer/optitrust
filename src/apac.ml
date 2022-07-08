@@ -327,6 +327,7 @@ let heapify_nested_seq : Transfo.t =
   (* TODO : add firstprivate in tasks *)
   iter_on_targets (fun t p ->
 
+    (* heapifies variables and adds delete tasks before certain Trm_abort*)
     let rec aux (ptrs : decl_cptrs) (first_depth : bool) (t : trm) : trm =
       match t.desc with
       (* new scope *)
@@ -348,32 +349,24 @@ let heapify_nested_seq : Transfo.t =
       (* dereference heapified variables *)
       | Trm_var (kind, qv) when Hashtbl.mem ptrs qv.qvar_str -> trm_get t 
       
-      (* add delete task before abort trm *)
-      | Trm_abort ab ->
-        begin match ab with
-        (* before every return *)
-        | Ret _ -> 
-          begin match get_delete_task ptrs with
-          | Some (tr) -> trm_seq_no_brace [tr; trm_map (aux ptrs first_depth) t]
-          | None -> t
-          end
-        (* break, continue : only the current loop not deeper *)
-        | Break _ | Continue _  when first_depth -> 
-          begin match get_delete_task ptrs with
-          | Some (tr) -> trm_seq_no_brace [tr; t]
-          | None -> t 
-          end
-        | _ -> trm_map (aux ptrs first_depth) t
+      (* add delete task before : *)
+      (* return : everytime *)
+      (* break, continue : only the current loop not deeper *)
+      | Trm_abort _ when is_return t || first_depth ->
+        begin match get_delete_task ptrs with
+        | Some (tr) -> trm_seq_no_brace [tr; trm_map (aux ptrs first_depth) t]
+        | _ -> t
         end
       
       | _ -> trm_map (aux ptrs first_depth) t
     in
 
+    (* add a delete task a the end of the sequence if the is not Trm_abort at the end *)
     let add_end_delete_task (ptrs : decl_cptrs) (t :trm) : trm =
       match t.desc with
       | Trm_seq tl ->
         begin match List.rev (Mlist.to_list tl) with
-        | tr :: _ when is_return tr -> t
+        | tr :: _ when is_trm_abort tr -> t
         | _ -> 
           begin match get_delete_task ptrs with
           | Some (tr) -> trm_seq_add_last (tr) t
