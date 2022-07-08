@@ -392,8 +392,9 @@ type rename = Rename.t
       [rename] - a type used to rename the struct fields,
       [t] - any node in the same level as the struct declaration.*)
 let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm =
-  let rec aux (global_trm : trm) (t : trm) : trm =
-    begin match t.desc with
+  let rec aux (t : trm) : trm =
+    if trm_has_cstyle Method_call t then Printf.printf "Found a method call with trm_desc: %s\n" (AstC_to_c.ast_to_string t);
+    match t.desc with
     | Trm_apps (f, [base]) ->
       begin match f.desc with
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access y))) ->
@@ -402,9 +403,9 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
             begin match ty.typ_desc with
             | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
               trm_apps ~annot:t.annot ~typ:t.typ ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))})  [base]
-            | _ -> trm_map (aux global_trm) t
+            | _ -> trm_map aux t
             end
-          | None -> trm_map (aux global_trm) t
+          | None -> trm_map aux  t
           end
       | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
         begin match base.typ with
@@ -412,18 +413,28 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
             begin match ty.typ_desc with
             | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
               trm_apps ~annot:t.annot ~typ:t.typ {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))}  [base]
-            | _ -> trm_map (aux global_trm) t
+            | _ -> trm_map aux t
             end
-          | None -> trm_map (aux global_trm) t
+          | None -> trm_map aux t
           end
-      | Trm_var (vk, qf) when trm_has_cstyle Method_call t ->
-        trm_apps ~annot:t.annot ~typ:t.typ {f with desc = Trm_var (vk, qvar_update ~var:(rename qf.qvar_var) qf)} [base]
-      | _ -> trm_map (aux global_trm) t
-      end
       
-    | _ -> trm_map (aux global_trm) t
-    end
-   in aux t t
+      | _ -> trm_map aux t
+      end
+    | Trm_apps ({desc = Trm_var (vk, qf); _} as f, args) when trm_has_cstyle Method_call t ->
+        let member_base = fst (Xlist.uncons args) in 
+        begin match (get_operation_arg member_base).typ with
+        | Some ty -> 
+          begin match ty.typ_desc with 
+          | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
+            trm_apps ~annot:t.annot ~typ:t.typ {f with desc = Trm_var (vk, qvar_update ~var:(rename qf.qvar_var) qf)} args
+          | _ -> trm_map aux t
+          end
+
+        | None -> trm_map aux t
+        end
+        
+    | _ -> trm_map aux t
+   in aux t 
 
 (* [rename_fields_aux index rename t]: renames struct fields in the typedef struct definitions,
       [index] - the index of the struct declaration in the sequence [t],

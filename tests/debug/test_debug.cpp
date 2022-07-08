@@ -17,6 +17,8 @@ void test_class_members_rename (){
   TestFieldRename t;
    
   int a = t.f(10);
+  // encoded as 
+  // int* a = new int (f(*t, 10))
   int b = t.g(a);
 }
 

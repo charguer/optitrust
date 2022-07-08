@@ -9,9 +9,17 @@ typedef struct {
   vect rel_speed;
 } obj;
 
+class TestFieldRename {
+  int new_x;
+
+ public:
+  int new_f(int y) { return y + x; }
+  int new_g(int y) { return this->x + y; }
+};
+
 vect f() { return (vect){1, 1}; }
 
-int main() {
+void test_struct_field_rename() {
   vect p = {0, 0};
   vect b;
   b.rel_x = p.rel_x;
@@ -30,5 +38,12 @@ int main() {
   c.rel_pos.rel_y = a.rel_pos.rel_y;
   c.rel_speed.rel_x = a.rel_speed.rel_x;
   c.rel_speed.rel_y = a.rel_speed.rel_y;
-  return 0;
 }
+
+void test_class_members_rename() {
+  TestFieldRename t;
+  int a = t.new_f(10);
+  int b = t.new_g(a);
+}
+
+int main() {}
