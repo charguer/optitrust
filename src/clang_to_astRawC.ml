@@ -522,7 +522,10 @@ and tr_init_list ?(loc : location = None) ?(ctx : ctx option = None) (ty : typ) 
         end
       | _ -> (None, tr_expr e)) el in
         trm_record ~loc ~ctx ~typ:(Some ty) (Mlist.of_list tl)
-  | _ -> fail loc "Clang_to_astRawC.tr_init_list: initialisation lists only allowed for struct and array"
+  | _ -> 
+    let tl = List.map tr_expr el in 
+    trm_array ~loc ~ctx ~typ:(Some ty) (Mlist.of_list tl)
+  (* | _ -> fail loc "Clang_to_astRawC.tr_init_list: initialisation lists only allowed for struct and array" *)
 
 
 (* [tr_expr e]: translates expression [e] into an OptiTrust trm *)

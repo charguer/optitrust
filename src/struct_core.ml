@@ -309,9 +309,7 @@ let compute_bijection (order : fields_order) (fl : (field * int) list) : int lis
   | Reorder_all order -> 
     if List.length order <> List.length fl then fail None "Struct_core.compute_bijection: Reorder all should contain all the fields.";
     List.map (fun f -> match List.assoc_opt f fl with 
-      | Some ind -> 
-        Printf.printf "Found index %d" ind;
-        ind
+      | Some ind -> ind
       | None -> fail None (Printf.sprintf "Struct_core:compute_bijection: couldn't find field %s." f)
     ) order
 
@@ -322,9 +320,11 @@ let reorder_fields_aux (order : fields_order) (index : int) (t : trm) : trm =
   let error = "Struct_core.reorder_fields_aux: expected the surrouding sequence of the targeted declaration." in 
   let tl = trm_inv ~error trm_seq_inv t in 
   let bij = ref [] in 
+  let struct_name = ref "" in 
   let f_update (t : trm) : trm =
     match t.desc with 
     | Trm_typedef td -> 
+      struct_name := td.typdef_tconstr;
       begin match td.typdef_body with 
       | Typdef_record rfl ->
         let rfl_str_rep = List.mapi (fun i (rf, _) -> 
@@ -349,9 +349,13 @@ let reorder_fields_aux (order : fields_order) (index : int) (t : trm) : trm =
     let rec aux (t : trm) : trm =
       match t.desc with 
       | Trm_record mlt -> 
-        let lt = Mlist.to_list mlt in 
-        let reordered_lt = Xlist.reorder !bij lt in 
-        trm_alter ~desc:(Some (Trm_record (Mlist.of_list reordered_lt))) t
+        begin match t.typ with 
+        | Some {typ_desc = Typ_constr (qty, _, _)} when qty.qvar_var = !struct_name -> 
+          let lt = Mlist.to_list mlt in 
+          let reordered_lt = Xlist.reorder !bij lt in 
+          trm_alter ~desc:(Some (Trm_record (Mlist.of_list reordered_lt))) t
+        | _ -> trm_map aux t 
+        end
       | _ -> trm_map aux t 
       in 
     aux t
@@ -461,7 +465,6 @@ type rename = Rename.t
       [t] - any node in the same level as the struct declaration.*)
 let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm =
   let rec aux (t : trm) : trm =
-    if trm_has_cstyle Method_call t then Printf.printf "Found a method call with trm_desc: %s\n" (AstC_to_c.ast_to_string t);
     match t.desc with
     | Trm_apps (f, [base]) ->
       begin match f.desc with
@@ -564,7 +567,6 @@ let update_fields_type (pattern : string) (typ_update : typ -> typ) : Transfo.lo
 (* [simpl_proj_aux t]: transforms all expression of the form {1, 2, 3}.f into the trm it projects to,
       [t] - ast of the node whose descendants can contain struct initialization list projections. *)
 let simpl_proj_aux (t : trm) : trm =
-  (* Printf.printf "%s\n" (Ast_to_text.ast_to_string t); *)
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, [struct_list]) ->

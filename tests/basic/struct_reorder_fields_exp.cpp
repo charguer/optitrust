@@ -5,6 +5,14 @@ typedef struct {
   int m;
 } obj;
 
+class OBJ {
+  int x;
+
+ public:
+  void f(int y) { x = y + x; }
+  void g(int y) { x = y - x; }
+};
+
 int main() {
   obj a;
   int x;

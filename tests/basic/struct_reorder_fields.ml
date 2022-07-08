@@ -26,5 +26,8 @@ let _ = Run.script_cpp (fun _ ->
   !! Struct_basic.reorder_fields (Move_after ("y", ["z"])) [cTypDef "obj"];
   !! Struct_basic.reorder_fields (Move_after ("z", ["y";"m"])) [cTypDef "obj"];
   !! Struct_basic.reorder_fields (Reorder_all ["x";"y";"z"; "m"]) [cTypDef "obj"];
+
+  !! Struct_basic.reorder_fields (Move_before ("x", ["f";"g"])) [cTypDef "OBJ"];
+  !! Struct_basic.reorder_fields (Reorder_all ["x";"f";"g"]) [cTypDef "OBJ"];
   
 )
