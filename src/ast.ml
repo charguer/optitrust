@@ -1798,6 +1798,10 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
   | _ -> ()
 
 
+(* [is_generated_typ ty]: checks ia a typ is a type used only for optitrust encoding *)
+let is_generated_typ (ty : typ) : bool =
+  List.mem GeneratedTyp ty.typ_attributes
+
 (* [typ_map f ty]: applies f on type ty recursively *)
 let typ_map (f : typ -> typ) (ty : typ) : typ =
   let annot = ty.typ_annot in
@@ -1879,10 +1883,6 @@ let vars_bound_in_trm_init (t : trm) : var list =
   | Trm_let (_, (x,_), _) -> [x]
   | Trm_let_mult (_, _, vl, _) -> vl
   | _ -> []
-
-(* [is_generated_typ ty]: checks ia a typ is a type used only for optitrust encoding *)
-let is_generated_typ (ty : typ) : bool =
-  List.mem GeneratedTyp ty.typ_attributes
 
 (* [is_null_pointer ty t]: check if t == (void * ) 0 *)
 let is_null_pointer (ty : typ) (t : trm) : bool =

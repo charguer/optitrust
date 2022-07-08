@@ -9,10 +9,12 @@ let _ = Run.doc_script_cpp (fun _ ->
 )
 
 "
-int f(nt a, int b){
+int f(int a, int b){
   return a + b;
 }
+
 int main(){}
+
 "
 
 

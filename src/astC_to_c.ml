@@ -275,7 +275,6 @@ and val_to_doc (v : value) : document =
 (* [attr_to_doc a]: converts attributes to pprint documents. *)
 and attr_to_doc (a : attribute) : document =
   match a with
-  (* | Alignas t -> string "_Alignas" ^^ parens (decorate_trm t). *)
   | Alignas t -> string "alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp | Injected -> empty  
   | Others -> empty
@@ -969,7 +968,7 @@ and dependece_type_to_doc (dp : dependence_type) : document =
   | Out vl -> let vl = List.map dep_to_doc vl in 
     string "depend (out" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Inout vl -> let vl = List.map dep_to_doc vl in 
-    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
+    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~empty ~sep:comma vl) ^^ rparen
   | Outin vl -> let vl = List.map dep_to_doc vl in 
     string "depend (outin" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Sink vl -> let vl = List.map dep_to_doc vl in 

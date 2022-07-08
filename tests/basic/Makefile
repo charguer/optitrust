@@ -12,7 +12,6 @@ FLAGS := -dump-ast-details
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
-	align_def.ml \
 	arith_simpl.ml \
 	arith_scale.ml \
 	arith_shift.ml \
@@ -105,6 +104,7 @@ TESTS_NODOC := \
 
 TESTS_TO_FIX := \
 	function_rename_args.ml \
+	align_def.ml \
 	struct_reorder_fields.ml \
 	struct_update_fields_type.ml \
 	matrix_insert_access_dim_index.ml \
