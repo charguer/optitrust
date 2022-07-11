@@ -103,3 +103,9 @@ let change_field_access_kind ?(field : field = "") (acc_kind : record_field_anno
     then it will transform all its members to public. *)
 let make_all_memebers_public : Transfo.t =
   change_field_access_kind Access_public
+
+(* [method_to_const method_name]: expects the target [ŧg] to be pointing at a typedef record definition.
+    Then it will check if the method of that record definition is already a const method or not.
+    If it's a const method then this transformation does nothing, otherwise it will transform that method to a const one. *)
+let method_to_const (method_name : var) : Transfo.t = 
+  apply_on_targets (Struct_core.method_to_const method_name)

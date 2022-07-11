@@ -747,3 +747,36 @@ let change_field_access_kind_aux (acc_kind : record_field_annot) (f : field) (t 
 (* [change_field_access_kind acc_kind f t p]: applies [change_field_access_kind] at trm [t] with path [p]. *)
 let change_field_access_kind (acc_kind : record_field_annot) (f : field) : Transfo.local =
   apply_on_path (change_field_access_kind_aux acc_kind f)
+
+(* [method_to_const_aux method_name t]: converts the [method_name] method to a a const one,
+    if the targeted method is already const than this transformation does nothing. 
+    [method_name] - the name of the method that's going to be converted.*)
+let method_to_const_aux (method_name : var) (t : trm) : trm =
+  match t.desc with 
+  | Trm_typedef td -> 
+    begin match td.typdef_body with
+    | Typdef_record rfl -> 
+        let upd_rfl = List.map (fun (rf, rf_ann) -> 
+            match rf with 
+            | Record_field_method t1  -> 
+              begin match decl_name t1 with 
+              | Some name when method_name = name -> 
+                if trm_has_cstyle Const_method t1 
+                  then (rf, rf_ann)(* begin Printf.printf ("Nothing to change, method %s is already const." method_name); (rf, rf_ann) end *)
+                  else 
+                    let t1 = trm_add_cstyle Const_method t1 in 
+                    (Record_field_method t1, rf_ann)
+              | _ -> fail t.loc "Struct_core.method_to_const_aux: method_name should be a method not a member."
+              end 
+            | _ -> (rf, rf_ann)
+        ) rfl in 
+        
+        trm_replace (Trm_typedef {td with typdef_body = Typdef_record upd_rfl}) t
+    | _ ->  fail t.loc "Struct_core.method_to_const_aux: expected a target to a typedef record definition."
+    end
+  | _ -> fail t.loc "Struct_core.method_to_const_aux: expected a target to a record definition."
+
+
+(* [method_to_const method_name t p]: applies [method_to_const_aux] at trm [t] with path [p]. *)
+let method_to_const (method_name : var) : Transfo.local =
+  apply_on_path (method_to_const_aux method_name)

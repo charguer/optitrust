@@ -4,7 +4,7 @@ open Ast
     this function will print both the C code and the Optitrust ast.
     into files with prefix [test_name] *)
 let check (test_name : string) (t1 : trm) (t2 : trm) : unit =
-  (* LATER: see if we can have a ast comparison function *)
+  (* LATER: see if we can have an ast comparison function *)
   let success = Ast_to_text.ast_to_string t1 = Ast_to_text.ast_to_string t2 in
   Printf.printf "Checking %s: %s\n" test_name (if success
     then "succcess"
