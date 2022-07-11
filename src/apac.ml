@@ -106,8 +106,10 @@ let insert_tasks_for_taskable ?(indepth : bool = false) (tsk : taskable) (tg : t
 
 
 (* [vars_arg]: hashtable that stores variables that refer to an argument and the pointer depth of that argument.
-    A list is used because of how dependencies of a new pointer are checked :
-    we currently take all the variables refering to the argument on the left side of the write operation. *)
+    A list is used because of how dependencies of a new pointer and reference are checked :
+    When there is a function call, we take all the arguments of the function call that refer to 
+      the arguments of the function definition 
+    The issue is function can return ptr/ref related to argument : int& f(int& a) { return a; } *)
 type vars_arg = (string, (int list * int)) Hashtbl.t
 
 (* [arg_const]: record that stores information to constify or not the argument
@@ -229,11 +231,11 @@ let constify_functions_arguments : Transfo.t =
 
     (* helper function : if the right side of the assignment is a pointer and it is related to 
        an argument of a function, returns the index of the corresponding argument. *)
-    let _get_binop_right_cptr_args (va : vars_arg) (t: trm) : int list =
+    let get_binop_right_cptr_args (va : vars_arg) (t: trm) : int list =
       let rec aux (depth : int) (t: trm) : int list option =
         match t.desc with
         (* unop : progress deeper + update depth *)
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop uo)); _}, [t]) ->
+        | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _ }, [t]) ->
           begin match uo with
           | Unop_get -> aux (depth-1) t
           | Unop_address -> aux (depth+1) t
@@ -241,11 +243,11 @@ let constify_functions_arguments : Transfo.t =
           end
 
         (* binop array acces : progress deeper + update depth *)
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _}, 
+        | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _ }, 
             [t; _]) -> aux (depth-1) t
 
         (* binop : progress deeper + resolve left and right sides *)
-        | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop _ )); _}, [lhs; rhs]) ->
+        | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
           begin match (aux depth lhs, aux depth rhs) with
           | Some(res), None -> Some(res)
           | None, Some(res) -> Some(res)
@@ -255,7 +257,7 @@ let constify_functions_arguments : Transfo.t =
 
         (* funcall : check type, can progress deeper *)
         (* TODO : when handle return ref/ptr argument done, use it instead for more precision *)
-        | Trm_apps ({desc = Trm_var (_, fname); _}, args) -> 
+        | Trm_apps ({ desc = Trm_var (_, fname); _ }, args) -> 
           begin match Hashtbl.find_opt fac fname.qvar_str with 
           | Some (_, d) when (d + depth) > 0 ->
             begin match get_args_idx_in_apps va t with
@@ -321,12 +323,18 @@ let constify_functions_arguments : Transfo.t =
       
       (* declare new ref/ptr that refer/point to argument : update vars_arg *)
       (* TODO : handle multiple variable declaration *)
-      | Trm_let (_, (lname, ty), tr) when trm_has_cstyle Reference t || is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) ->
-        (* take all arguments on the right side of the "=" operator *)
-        (* TODO : find a better method to determine the variable pointed/refered *)
-        begin match get_args_idx_in_apps va tr with
+      (* TODO : better arg determination when there is a funcall for ref and ptr.
+         Now: take all arguments in the funcall's arguments *)
+      | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }) -> 
+        let args_idx = 
+          (* take all arguments on the right side of the "=" operator *)
+          if trm_has_cstyle Reference t then get_args_idx_in_apps va tr 
+          (* search *)
+          else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then get_binop_right_cptr_args va tr
+          else [] in
+        begin match args_idx with
         | [] -> ()
-        | args_idx -> Hashtbl.add va lname (args_idx, get_cptr_depth ty)
+        | _ -> Hashtbl.add va lname (args_idx, get_cptr_depth ty)
         end;
         trm_iter (update_fac_and_to_process va cur_fun) t
       
@@ -355,8 +363,8 @@ let constify_functions_arguments : Transfo.t =
     List.iter (fun t ->
       let va = Hashtbl.create 10 in
       match t.desc with
-      | Trm_let_fun (qv, ty, args, body) ->
-        List.iteri (fun i (name, _) -> if name <> "" then Hashtbl.add va name ([i], get_cptr_depth ty)) args ;
+      | Trm_let_fun (qv, _, args, body) ->
+        List.iteri (fun i (name, ty) -> if name <> "" then Hashtbl.add va name ([i], get_cptr_depth ty)) args ;
         trm_iter (update_fac_and_to_process va (qv.qvar_str)) body
       | _ -> fail None "Should not happen"
       ) fun_decls;
