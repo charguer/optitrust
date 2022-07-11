@@ -111,7 +111,8 @@ let rec is_base_type (ty : typ) : bool =
     end
   | _ -> false
 
-(* TODO: Michel add docs for this function. *)
+(* [is_dep_in_aux ty]: check if the omp dependency type of [ty] in In. 
+      It returns true if there is "const" before every pointer and before the base type. *)
 let rec is_dep_in_aux (ty : typ) : bool =
   match ty.typ_desc with
   (* unwrap alias *)
@@ -135,7 +136,10 @@ let rec is_dep_in_aux (ty : typ) : bool =
   | Typ_const _ -> assert false
   | _ -> assert false
 
-(* TODO: Michel add docs,   does not handle auto *)
+(* [is_dep_in ty]: checks if the omp dependency type of [ty] in In.
+    If [ty] is a base type, it returns true, else it calls [is_dep_in_aux] 
+      on the type under the references if they exist. 
+    It does not handle auto ! *)
 let rec is_dep_in (ty : typ) : bool =
   match ty.typ_desc with
   (* unwrap alias *)
@@ -249,8 +253,8 @@ let rec get_constified_arg_aux (ty : typ) : typ =
   | _ -> typ_const ty
 
 (* [get_constified_arg ty]: applies [get_constified_arg_aux] at the typ [ty] or the typ pointer by [ty] 
-      if [ty] is a reference or a rvalue reference 
-      return the constified typ of [ty]  *)
+    if [ty] is a reference or a rvalue reference 
+    return the constified typ of [ty]  *)
 let get_constified_arg (ty : typ) : typ =
   let annot = ty.typ_annot in
   let attributes = ty.typ_attributes in
@@ -279,21 +283,26 @@ let constify_args_aux (is_const : bool list) (t : trm) : trm =
     trm_let_fun ~annot:t.annot ~loc:t.loc ~ctx:t.ctx ~qvar "" ret_typ const_args body
   | _ -> fail t.loc "Apac_core.constify_args expected a target to a function definition."
 
+(* [constify_args is_const t p]: applies [constify_args_aux] at the trm [t] with path [p]. *)
 let constify_args (is_const : bool list) : Transfo.local =
   apply_on_path(constify_args_aux is_const)
 
 
+(* [array_typ_to_ptr_typ]: change Typ_array to Typ_ptr {ptr_kind = Ptr_kind_mut; _} *)
 let array_typ_to_ptr_typ (ty : typ) : typ =
   match ty.typ_desc with
   | Typ_array (ty, _) -> typ_ptr Ptr_kind_mut ty
   | _ -> ty
 
+(* [stack_to_heap_aux t]: transforms the variable declaration in such a way that
+      the variable declaration declares on the heap.
+    [t] - ast of the variable declaration. *)
 let stack_to_heap_aux (t : trm) : trm =
   match t.desc with
   | Trm_let (vk, (var, ty), tr) ->
     if trm_has_cstyle Reference t 
       then begin match vk with
-        | Var_immutable -> fail None "Reference always mut ??"
+        | Var_immutable -> fail None "So reference are not always mutable."
           (* trm_let_immut (var, (typ_ptr Ptr_kind_mut ty)) (trm_new ty (trm_get tr)) *)
         | Var_mutable ->
           let in_typ = get_inner_ptr_type ty in
@@ -311,5 +320,6 @@ let stack_to_heap_aux (t : trm) : trm =
         end
   | _ -> fail None "Apac_core.stack_to_heap: expected a target to a variable declaration."
   
+(* [stack_to_heap is_const t p]: applies [stack_to_heap_aux] at the trm [t] with path [p]. *)
 let stack_to_heap : Transfo.local =
   apply_on_path(stack_to_heap_aux)
