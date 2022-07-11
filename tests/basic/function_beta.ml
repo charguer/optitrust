@@ -4,8 +4,8 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
   
-  !! Variable_basic.inline [cFunDef "sq"];
-     Function_basic.beta [cVarDef "r"; cFun ""];
+     Variable_basic.inline [cFunDef "sq"];
+  !! Function_basic.beta [cVarDef "r"; cFun ""];
 
 )
 
@@ -21,5 +21,7 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Variable_basic.unfold ~accept_functions:true [cFunDef "f"];
   !! Function_basic.beta [cFun ""];
+
+  
 
 )

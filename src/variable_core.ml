@@ -83,14 +83,11 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
           cFunDef "M :: f" 
           cFunDef ~qpath:["M"] "f"
           cFunDef ~qvar:(qvar ["M"] "f") ""
-
-
-    
      *)
     | Trm_let_fun (f, _, _, _) ->
       if accept_functions
         then Internal.subst_var f.qvar_var dl t
-        else fail dl.loc "Varialbe_core.unfold_aux: to replace function calls with their declaration you need to set accept_functions arg to true"
+        else fail dl.loc "Variable_core.unfold_aux: please set call this fucntion with the argumnet accep_functions set to true. "
     | _ -> fail t.loc "Variable_core.unfodl_aux: expected a target to a variable or function definition"
   in
   let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index f_update f_update_further tl in

@@ -7,5 +7,5 @@ let _ = Flags.dump_ast_details := true
 
 let _ = Run.script_cpp (fun _ ->
 
-   !! Struct_basic.rename_fields (fun x -> "new_" ^ x) [cTypDef "TestFieldRename"];
+   show [cFunDef "f"];
 )

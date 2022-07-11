@@ -289,34 +289,34 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
   let full_ast = Target.get_ast () in
   let rec aux(t1 : trm) : trm option =
     match t1.desc with
-            | Trm_typedef td ->
-                if td.typdef_tconstr = x 
-                  then Some t1 
-                  else begin match td.typdef_body with
-                       | Typdef_record rfs ->
-                         List.fold_left (fun acc (rf, _) -> 
-                          begin match acc with 
-                          | Some _ -> acc
-                          | _ -> 
-                            begin match rf with 
-                            | Record_field_method t2 -> 
-                              aux t2
-                            | _ -> None
-                            end
-                          end) None rfs
-                       | _ -> None
-                       end
-            | Trm_let (_, (y, _),_ ) when y = x -> Some t1
-            | Trm_let_fun (y, _, _, body) when (is_qvar_var y x) ->
-              if require_body then begin
-                match body.desc with
-                | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
-                | _ -> None
-              end else begin
-                Some t1
-              end
-            | _ -> None
-          in
+    | Trm_typedef td ->
+        if td.typdef_tconstr = x 
+          then Some t1 
+          else begin match td.typdef_body with
+               | Typdef_record rfs ->
+                 List.fold_left (fun acc (rf, _) -> 
+                  begin match acc with 
+                  | Some _ -> acc
+                  | _ -> 
+                    begin match rf with 
+                    | Record_field_method t2 -> 
+                      aux t2
+                    | _ -> None
+                    end
+                  end) None rfs
+               | _ -> None
+               end
+    | Trm_let (_, (y, _),_ ) when y = x -> Some t1
+    | Trm_let_fun (y, _, _, body) when (is_qvar_var y x) ->
+      if require_body then begin
+        match body.desc with
+        | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
+        | _ -> None
+      end else begin
+        Some t1
+      end
+    | _ -> None
+   in
   match full_ast.desc with
   | Trm_seq tl ->
     Mlist.fold_left(

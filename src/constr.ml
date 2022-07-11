@@ -1330,9 +1330,16 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         add_dir Dir_body (aux_body body)
      | Trm_typedef td  ->
       begin match td.typdef_body with
-      (* | Typdef_record rfl -> *)
-        (* TODO: Fix the issue with going in depth of Trm_typedef *)
-      
+      | Typdef_record rfl -> 
+        let res = Xlist.fold_lefti (fun i acc (rf, _) -> 
+          begin match rf with 
+          | Record_field_method t1 ->
+            acc @ (add_dir (Dir_record_field i) (aux_body t1)) 
+          | _ -> acc
+          end
+        ) [] rfl in 
+        Printf.printf "Paths indepth of Trm_typedef: %s\n" (Path.paths_to_string res);
+        res
       | Typdef_enum xto_l ->
         let (il, tl) =
           Xlist.fold_lefti
@@ -1521,6 +1528,18 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
           )
       | _ -> []
       end
+  | Dir_record_field i, Trm_typedef td -> 
+    begin match td.typdef_body with 
+    | Typdef_record rfl -> 
+      app_to_nth_dflt loc rfl i (fun (rf, rf_ann) -> 
+        begin match rf with 
+        | Record_field_method  t1 -> 
+          add_dir (Dir_record_field i) (aux t1)
+        | _ -> fail loc "follow_dir: wrong field index"
+        end
+      )
+    | _ -> []
+    end
   | _, _ ->
      print_info loc "follow_dir: direction %s does not match"
        (dir_to_string d);

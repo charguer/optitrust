@@ -364,7 +364,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         | _, _ ->
            let s = dir_to_string d in
            fail t.loc (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
-
+      | Dir_record_field _i, Trm_let_fun ()
        end in
         { newt with typ = None; ctx = None }
 

@@ -1,4 +1,4 @@
-class TestFieldRename {
+class Test_method_inline {
 
   private:
     int x;
@@ -14,12 +14,14 @@ class TestFieldRename {
 };
 
 void test_class_members_rename (){
-  TestFieldRename t;
+  Test_method_inline t;
    
-  int a = t.f(10);
+  int a;
+  a = t.f(10);
   // encoded as 
   // int* a = new int (f(*t, 10))
-  int b = t.g(a);
+  int b;
+  b = t.g(a);
 }
 
 int main() {}
