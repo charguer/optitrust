@@ -23,21 +23,21 @@ let myscaling tg =
       assert false in (* accesses on double fields must be part of a get or set operation *)
 
     let f_struct_get aux t = (* t is [struct_get(base,field)] *)
-      let (field, base) = struct_get_inv_some t in
+      let (base, field) = struct_get_inv_some t in
       let base = aux base in
       let t' = reuse_annot_of t (trm_struct_get base field) in
       if field = fieldtochange then get_div_by_factor t' else t'
       in
 
     let f_get aux t = (* t is [get(access(base,field))] *)
-      let (field, base) = get_struct_access_inv_some t in
+      let (base, field) = get_struct_access_inv_some t in
       let base = aux base in
       let t' = reuse_annot_of t (trm_get (struct_access field base)) in
       if field = fieldtochange then get_div_by_factor t' else t'
       in
 
     let f_set aux t = (* t is [set(access(base,field), rhs)] *)
-      let (field, base, rhs) = set_struct_access_inv_some t in
+      let (base, field, rhs) = set_struct_access_inv_some t in
       let base = aux base in
       let rhs = aux rhs in
       let rhs' = if field = fieldtochange then set_mul_by_factor rhs else rhs in

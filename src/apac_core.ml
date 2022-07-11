@@ -111,6 +111,7 @@ let rec is_base_type (ty : typ) : bool =
     end
   | _ -> false
 
+(* TODO: Michel add docs for this function. *)
 let rec is_dep_in_aux (ty : typ) : bool =
   match ty.typ_desc with
   (* unwrap alias *)
@@ -134,7 +135,7 @@ let rec is_dep_in_aux (ty : typ) : bool =
   | Typ_const _ -> assert false
   | _ -> assert false
 
-(* does not handle auto *)
+(* TODO: Michel add docs,   does not handle auto *)
 let rec is_dep_in (ty : typ) : bool =
   match ty.typ_desc with
   (* unwrap alias *)
@@ -193,12 +194,12 @@ let get_function_defs () : (string, arg_deps)  Hashtbl.t =
 
 (* [sorted_arg_deps]: a record used for storing classified arguments based on their respective dependency kind. *)
 type sorted_arg_deps = {
-  mutable dep_in : deps;
-  mutable dep_out : deps;
-  mutable dep_inout : deps;
-  mutable dep_outin : deps;
-  mutable dep_sink : deps;
-  mutable dep_source : deps
+  dep_in : deps;
+  dep_out : deps;
+  dep_inout : deps;
+  dep_outin : deps;
+  dep_sink : deps;
+  dep_source : deps
 }
 
 (* [empty_sort_arg]:  *)
@@ -218,12 +219,12 @@ let sort_arg_dependencies (arg_deps : arg_deps) : sorted_arg_deps =
   List.fold_left (fun acc arg_dep -> 
     let dep = if is_cptr_or_ref arg_dep.arg_dep_typ then Dep_ptr (Dep_var arg_dep.arg_dep_var) else Dep_var arg_dep.arg_dep_var in
     match arg_dep.arg_dep_kind with 
-    | Dep_kind_in -> acc.dep_in <- dep :: acc.dep_in; acc
-    | Dep_kind_out -> acc.dep_out <- dep :: acc.dep_out; acc
-    | Dep_kind_inout -> acc.dep_inout <- dep :: acc.dep_inout; acc
-    | Dep_kind_outin -> acc.dep_outin <- dep :: acc.dep_outin; acc
-    | Dep_kind_sink -> acc.dep_sink <- dep :: acc.dep_sink; acc
-    | Dep_kind_source -> acc.dep_source <- dep :: acc.dep_source; acc
+    | Dep_kind_in -> {acc with dep_in = dep :: acc.dep_in}
+    | Dep_kind_out -> {acc with dep_out = dep :: acc.dep_out}
+    | Dep_kind_inout -> {acc with dep_inout = dep :: acc.dep_inout}
+    | Dep_kind_outin -> {acc with dep_outin = dep :: acc.dep_outin}
+    | Dep_kind_sink -> {acc with dep_sink = dep :: acc.dep_sink}
+    | Dep_kind_source -> {acc with dep_source = dep :: acc.dep_source}
   ) empty_sort_arg arg_deps
 
 (* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)
