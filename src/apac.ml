@@ -105,10 +105,10 @@ let insert_tasks_for_taskable ?(indepth : bool = false) (tsk : taskable) (tg : t
   ) fixed_tg
 
 
-(* [vars_arg]: hashtable that stores variables that refer to an argument.
+(* [vars_arg]: hashtable that stores variables that refer to an argument and the pointer depth of that argument.
     A list is used because of how dependencies of a new pointer are checked :
     we currently take all the variables refering to the argument on the left side of the write operation. *)
-type vars_arg = (string, int list) Hashtbl.t
+type vars_arg = (string, (int list * int)) Hashtbl.t
 
 (* [arg_const]: record that stores information to constify or not the argument
     and other arguments that depend on this argument. *)
@@ -121,8 +121,8 @@ type arg_const = {
 (* [args_const]: a list of args_const *)
 type args_const = arg_const list
 
-(* [fun_args_const]: hashtable that store the [args_const] of functions. *)
-type fun_args_const = (string, args_const) Hashtbl.t
+(* [fun_args_const]: hashtable that store the [args_const] of functions and the pointer depth of the return type. *)
+type fun_args_const = (string, (args_const * int)) Hashtbl.t
 
 (* [get_binop_set_left_var_opt t]: returns the variable on the left side of the . *)
 let get_binop_set_left_var_opt (t : trm) : trm option =
@@ -138,12 +138,14 @@ let get_binop_set_left_var_opt (t : trm) : trm option =
   | Trm_apps (_, [ls; _]) when is_set_operation t -> aux ls
   | _ -> None
 
-(* [get_args_idx_in_apps]: returns a list of argument's index which are used in Trm_apps recursively. *)
+(* [get_args_idx_in_apps va t]: returns a list of argument's index which are used in Trm_apps recursively. *)
 let get_args_idx_in_apps (va : vars_arg) (t : trm) : int list =
   let rec aux (acc : int list) (t : trm) : int list =
       match t.desc with
       | Trm_apps (_, ts) -> List.fold_left aux acc ts
-      | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str -> List.rev_append (Hashtbl.find va qv.qvar_str) acc
+      | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str -> 
+        let (l, _) = Hashtbl.find va qv.qvar_str in
+        List.rev_append l acc
       | _ -> acc
   in
   aux [] t
@@ -158,6 +160,7 @@ let is_unary_mutation (t : trm) : bool =
     end
   | _ -> false
 
+(* [get_unary_mutation_qvar t]: return the fully qualified name of the variable behind unary mutatation operator. *)
 let get_unary_mutation_qvar (t : trm) : qvar =
   let rec aux (t : trm) : qvar =
     match t.desc with 
@@ -175,7 +178,23 @@ let get_unary_mutation_qvar (t : trm) : qvar =
     end
   | _ -> empty_qvar
 
-
+(* [get_cptr_depth ty]: returns the number of C pointer of the type [ty]. *)
+let get_cptr_depth (ty : typ) : int =
+  let rec aux (depth : int) (ty : typ) : int =
+    match ty.typ_desc with
+    | Typ_const ty -> aux depth ty
+    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> aux (depth) ty 
+    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty } -> aux (depth+1) ty
+    | Typ_array (ty, _) -> aux (depth+1) ty
+    | Typ_constr _ when Apac_core.is_typdef_alias ty -> 
+      begin match Apac_core.get_inner_typedef_alias ty with
+      | Some (ty) -> aux depth ty
+      | None -> assert false
+      end
+    | _ -> depth
+  in
+  aux 0 ty
+    
 (* [constify_functions_arguments tg]: expect target [tg] to point at the root,
     then it will add "const" keyword whenever it is possible in functions arguments *) 
 (* wip*)
@@ -202,23 +221,76 @@ let constify_functions_arguments : Transfo.t =
 
     (* helper function : add element to process in to_process *)
     let add_elt_in_to_process (va : vars_arg) (cur_fun : string) (name : string) : unit =
-      let idx_args = Hashtbl.find va name in
+      let (idx_args, _) = Hashtbl.find va name in
       List.iter (fun i -> 
         Stack.push (cur_fun, i) to_process;
         ) idx_args;
+    in
+
+    (* helper function : if the right side of the assignment is a pointer and it is related to 
+       an argument of a function, returns the index of the corresponding argument. *)
+    let _get_binop_right_cptr_args (va : vars_arg) (t: trm) : int list =
+      let rec aux (depth : int) (t: trm) : int list option =
+        match t.desc with
+        (* unop : progress deeper + update depth *)
+        | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop uo)); _}, [t]) ->
+          begin match uo with
+          | Unop_get -> aux (depth-1) t
+          | Unop_address -> aux (depth+1) t
+          | _ -> None
+          end
+
+        (* binop array acces : progress deeper + update depth *)
+        | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _}, 
+            [t; _]) -> aux (depth-1) t
+
+        (* binop : progress deeper + resolve left and right sides *)
+        | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop _ )); _}, [lhs; rhs]) ->
+          begin match (aux depth lhs, aux depth rhs) with
+          | Some(res), None -> Some(res)
+          | None, Some(res) -> Some(res)
+          | None, None -> None
+          | Some(_), Some(_) -> fail None "Should not happen : Binary operator between pointers" 
+          end
+
+        (* funcall : check type, can progress deeper *)
+        (* TODO : when handle return ref/ptr argument done, use it instead for more precision *)
+        | Trm_apps ({desc = Trm_var (_, fname); _}, args) -> 
+          begin match Hashtbl.find_opt fac fname.qvar_str with 
+          | Some (_, d) when (d + depth) > 0 ->
+            begin match get_args_idx_in_apps va t with
+            | [] -> None
+            | args_idx -> Some (args_idx)
+            end
+          | _ -> None
+          end
+
+        (* variable : resolve variable *)
+        | Trm_var (_ ,qv) ->
+          begin match Hashtbl.find_opt va qv.qvar_str with
+          | Some (args_idx, d) when (d + depth) > 0 -> Some (args_idx)
+          | _ -> None
+          end
+        
+        | _ -> None
+      in
+
+      match aux 0 t with
+      | Some (res) -> res
+      | None -> []
     in
 
 
     (* init fac *)
     List.iter (fun t ->
       match t.desc with
-      | Trm_let_fun (qv, _, args, _) ->
+      | Trm_let_fun (qv, ty, args, _) ->
         let acs : args_const = List.map 
         (fun (_, ty) -> { 
           is_ptr_or_ref = is_cptr_or_ref ty ;
           is_const = true; 
           dependency_of = [] }) args in
-        Hashtbl.add fac qv.qvar_str acs
+        Hashtbl.add fac qv.qvar_str (acs, get_cptr_depth ty)
       | _ -> fail None "Should not happen"
       ) fun_decls;
 
@@ -239,8 +311,8 @@ let constify_functions_arguments : Transfo.t =
         List.iteri (fun i t -> 
           match t.desc with
           | Trm_var (_, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
-              let arg_pos = Hashtbl.find va arg_name.qvar_str in
-              let acs = Hashtbl.find fac funcall_name.qvar_str in
+              let (arg_pos, _) = Hashtbl.find va arg_name.qvar_str in
+              let (acs, _) = Hashtbl.find fac funcall_name.qvar_str in
               let ac = List.nth acs i in 
               if ac.is_ptr_or_ref then
                 List.iter (fun i -> ac.dependency_of <- (cur_fun, i) :: ac.dependency_of) arg_pos
@@ -254,7 +326,7 @@ let constify_functions_arguments : Transfo.t =
         (* TODO : find a better method to determine the variable pointed/refered *)
         begin match get_args_idx_in_apps va tr with
         | [] -> ()
-        | args_idx -> Hashtbl.add va lname args_idx
+        | args_idx -> Hashtbl.add va lname (args_idx, get_cptr_depth ty)
         end;
         trm_iter (update_fac_and_to_process va cur_fun) t
       
@@ -273,6 +345,9 @@ let constify_functions_arguments : Transfo.t =
         let name = get_unary_mutation_qvar t in
         if Hashtbl.mem va name.qvar_str then add_elt_in_to_process va cur_fun name.qvar_str;
         trm_iter (update_fac_and_to_process va cur_fun) t
+
+      (* return argument : update to_process if return ref or ptr*)
+      | Trm_abort (Ret (Some tr)) -> trm_iter (update_fac_and_to_process va cur_fun) t
       
       | _ -> trm_iter (update_fac_and_to_process va cur_fun) t
     in
@@ -280,8 +355,8 @@ let constify_functions_arguments : Transfo.t =
     List.iter (fun t ->
       let va = Hashtbl.create 10 in
       match t.desc with
-      | Trm_let_fun (qv, _, args, body) ->
-        List.iteri (fun i (name, _) -> if name <> "" then Hashtbl.add va name [i]) args ;
+      | Trm_let_fun (qv, ty, args, body) ->
+        List.iteri (fun i (name, _) -> if name <> "" then Hashtbl.add va name ([i], get_cptr_depth ty)) args ;
         trm_iter (update_fac_and_to_process va (qv.qvar_str)) body
       | _ -> fail None "Should not happen"
       ) fun_decls;
@@ -292,7 +367,7 @@ let constify_functions_arguments : Transfo.t =
       match Stack.pop_opt to_process with
       | None -> ()
       | Some (fname, nth) -> 
-        let acs : args_const = Hashtbl.find fac fname in
+        let (acs, _) = Hashtbl.find fac fname in
         let ac : arg_const = List.nth acs nth in
         if ac.is_const then begin 
           ac.is_const <- false; 
@@ -304,7 +379,7 @@ let constify_functions_arguments : Transfo.t =
 
 
     (* make change in the ast *)
-    Hashtbl.iter (fun fname v -> 
+    Hashtbl.iter (fun fname (v, _) -> 
       let is_const : bool list = List.map (fun { is_const; _ } -> is_const) v in
       constify_args ~is_const [nbMulti; cTopFunDefAndDecl fname]
       ) fac
@@ -361,7 +436,7 @@ let heapify_nested_seq : Transfo.t =
       | _ -> trm_map (aux ptrs first_depth) t
     in
 
-    (* add a delete task a the end of the sequence if the is not Trm_abort at the end *)
+    (* add a delete task a the end of the sequence if there is not Trm_abort at the end *)
     let add_end_delete_task (ptrs : decl_cptrs) (t :trm) : trm =
       match t.desc with
       | Trm_seq tl ->
