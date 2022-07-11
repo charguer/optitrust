@@ -154,7 +154,9 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
 let isolate_last_dir_in_seq (dl : path) : path * int =
   match List.rev dl with
   | Dir_seq_nth i :: dl' -> (List.rev dl',i)
-  | _ -> fail None "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
+  | _ -> 
+    Printf.printf "Path: %s\n" (Path.path_to_string dl);
+    fail None "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
 (* [get_instruction_in_surrounding_sequence dl]: for a trm with path [dl] return the path to the surrouding sequence

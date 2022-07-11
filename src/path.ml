@@ -361,10 +361,23 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
                )
                cases
             ) in trm_replace (Trm_switch (cond, updated_cases)) t
+        | Dir_record_field n, Trm_typedef td ->
+          begin match td.typdef_body with 
+          | Typdef_record rfl ->
+            let updated_rfl = 
+              (Xlist.update_nth n (fun (rf, rf_ann) -> 
+                match rf with 
+                | Record_field_method t1 -> (Record_field_method (aux t1), rf_ann )
+                | _ -> fail t.loc "Path.apply_on_path: expected a method."
+              ) rfl )
+              in 
+            trm_replace (Trm_typedef {td with typdef_body = Typdef_record updated_rfl}) t 
+          | _ -> fail t.loc "Path.apply_on_path: transformation applied on the wrong typedef."
+          end
         | _, _ ->
            let s = dir_to_string d in
            fail t.loc (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
-      | Dir_record_field _i, Trm_let_fun ()
+      
        end in
         { newt with typ = None; ctx = None }
 

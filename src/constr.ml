@@ -1334,11 +1334,10 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         let res = Xlist.fold_lefti (fun i acc (rf, _) -> 
           begin match rf with 
           | Record_field_method t1 ->
-            acc @ (add_dir (Dir_record_field i) (aux_body t1)) 
+            (add_dir (Dir_record_field i) (aux_body t1)) @ acc
           | _ -> acc
           end
         ) [] rfl in 
-        Printf.printf "Paths indepth of Trm_typedef: %s\n" (Path.paths_to_string res);
         res
       | Typdef_enum xto_l ->
         let (il, tl) =

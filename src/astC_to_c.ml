@@ -518,7 +518,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
             end
           | NonType (ty, t_opt) ->
             begin match t_opt with
-            | Some t1 -> typ_to_doc ty ^^ blank 1 ^^ string n ^^ equals ^^ trm_to_doc t1
+            | Some t1 -> typ_to_doc ty ^^ blank 1 ^^ string n ^^ equals ^^ decorate_trm t1
             | None -> typ_to_doc ty ^^ blank 1 ^^ string n
             end
           | Template _ -> fail None "AstC_to_c.template_param_kind_to_doc: nested templates are not supported"
@@ -550,7 +550,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
   match init.desc with
   | Trm_val (Val_lit Lit_uninitialized) -> dtx ^^ semi
   | Trm_apps (_, args) when trm_has_cstyle Constructed_init init ->
-    dtx ^^ blank 1 ^^ list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (trm_to_doc) args) ^^ dsemi
+    dtx ^^ blank 1 ^^ list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (decorate_trm) args) ^^ dsemi
   | Trm_array tl when trm_has_cstyle Brace_init init ->
       let tl = Mlist.to_list tl in 
       dtx ^^ list_to_doc ~bounds:[lbrace; rbrace] ~sep:empty (List.map decorate_trm tl) ^^ dsemi
@@ -565,7 +565,7 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (t
   let dtl = List.map2 (fun v t1 ->
     if is_trm_uninitialized t1
       then string v
-      else string v ^^ equals ^^ trm_to_doc t1
+      else string v ^^ equals ^^ decorate_trm t1
   ) vl tl in
   dtx  ^^ blank 1 ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] dtl ^^ dsemi
 
@@ -685,7 +685,7 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
         let fd = 
         match rt with 
         | Record_field_member (lb, ty) -> typed_var_to_doc (lb, ty) ^^ semi
-        | Record_field_method t1 -> trm_to_doc t1 
+        | Record_field_method t1 -> decorate_trm t1 
          in 
         if rt_annot <> !access_ctrl 
             then begin access_ctrl := rt_annot;acc @ [access_ctrl_to_doc !access_ctrl; fd ] end
