@@ -3217,3 +3217,9 @@ let is_return (t : trm) : bool =
 let is_trm_abort (t: trm) : bool =
   match t.desc with
   | Trm_abort _ -> true | _ -> false
+
+(* [is_trm_initialization_list] *)
+let is_trm_initialization_list (t : trm) : bool =
+  match t.desc with 
+  | Trm_array _ | Trm_record _ -> true 
+  | _ -> false

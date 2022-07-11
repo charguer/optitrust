@@ -905,7 +905,9 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
         | Prim_new t ->
           (* Here we assume that trm_apps has only one trm as argument *)
           let value = List.hd tl in
-          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
+          let tr_init = decorate_trm value in 
+          let init_val = if is_trm_initialization_list value then tr_init else parens (tr_init) in 
+          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ init_val
         end
      | _ -> fail f.loc (Printf.sprintf "AstC_to_c.apps_to_doc: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
      end
