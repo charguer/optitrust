@@ -3,7 +3,7 @@ class Method_const {
   public:
     int x;
     Method_const(int val) {
-      this->x = val;}
+      x = val;}
     
     int get_x(){return x;}
 

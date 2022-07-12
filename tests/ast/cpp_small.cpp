@@ -2,17 +2,13 @@
 class test_static_class {
 
 private:
-  
   // "static" is a trm_annot
   static int foo(int x) {
      return x;
   }
 
 public:
-  int x;
-  test_static_class(int y) {
-    x = y;
-  }
+
    static int bar(int x) {
      return x;
   }
@@ -29,7 +25,7 @@ private:
 public:
 
   
-  void move(int d) {
+  void move_this(int d) {
      this->x += d;
   }
   

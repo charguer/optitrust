@@ -766,7 +766,7 @@ let method_to_const_aux (method_name : var) (t : trm) : trm =
                   else 
                     let t1 = trm_add_cstyle Const_method t1 in 
                     (Record_field_method t1, rf_ann)
-              | _ -> fail t.loc "Struct_core.method_to_const_aux: method_name should be a method not a member."
+              | _ -> (rf, rf_ann)
               end 
             | _ -> (rf, rf_ann)
         ) rfl in 

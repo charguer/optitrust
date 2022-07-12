@@ -352,12 +352,12 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_val v ->
        if trm_has_cstyle Empty_cond t then empty else dattr ^^ val_to_doc v
     | Trm_var (_, x) ->
-      if x.qvar_var = "this" 
+      (* if x.qvar_var = "this" 
         then 
           if trm_has_cstyle Implicit_this t 
             then empty 
             else string "this"
-      else 
+      else  *)
         let var_doc = trm_var_to_doc x t in 
         dattr ^^ var_doc
     | Trm_array tl -> let tl = Mlist.to_list tl in

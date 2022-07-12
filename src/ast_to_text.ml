@@ -518,9 +518,6 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Method_call -> string "Method_call"
  | Implicit_this -> string "Implicit_this"
  | Typ_arguments tyl -> string "Typ_arguments " ^^ list_to_doc ~bounds:[langle; rangle] (List.map print_typ tyl)
- | Implicit_constructor -> string "Implicit_constructor"
- | Explicit_constructor -> string "Explicit_constructor"
- | Default_constructor -> string "Default_constructor"
  | Const_method -> string "Const_methdo"
  | Constructed_init -> string "Constructed_init"
  | Class_constructor ck -> print_constructor_kind ck

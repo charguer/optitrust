@@ -361,9 +361,9 @@ let class_member_intro (t : trm) : trm =
           in 
         trm_alter ~desc:(Some (Trm_let_fun (qv, typ_unit(), vl, new_body))) t
 
-      | _ -> 
-        Printf.printf "Body: %s\n" (Ast_to_text.ast_to_string body);
-        fail t.loc "Ast_fromto_AstC.class_member_intro: ill defined class constructor 1"
+      | _ -> trm_map aux t
+        (* Printf.printf "Body: %s\n" (Ast_to_text.ast_to_string body); *)
+        (* fail t.loc "Ast_fromto_AstC.class_member_intro: ill defined class constructor 1" *)
       end
    | _ -> trm_map aux t 
 in aux t
@@ -377,7 +377,7 @@ let cfeatures_elim (t : trm) : trm =
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
-  class_member_intro (method_call_intro (infix_intro (stackvar_intro (caddress_intro t))))
+  method_call_intro (infix_intro (stackvar_intro (caddress_intro (class_member_intro t))))
 
 (* Note: recall that currently const references are not supported
    Argument of why const ref is not so useful
@@ -437,4 +437,3 @@ T* T(a, b) {
 
 
 *)
-
