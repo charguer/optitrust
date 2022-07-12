@@ -88,6 +88,13 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
       if accept_functions
         then Internal.subst_var f.qvar_var dl t
         else fail dl.loc "Variable_core.unfold_aux: please set call this fucntion with the argumnet accep_functions set to true. "
+    (* | Trm_typedef td -> 
+      begin match td.typdef_body with
+      | Typdef_record rfl -> 
+
+      | _ -> fail t.loc "Variable_core.unfold_aux: the main target should be a target to a variable, function or method definition."
+      end *)
+
     | _ -> fail t.loc "Variable_core.unfodl_aux: expected a target to a variable or function definition"
   in
   let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index f_update f_update_further tl in
