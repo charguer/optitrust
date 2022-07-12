@@ -361,10 +361,12 @@ let class_member_intro (t : trm) : trm =
           in 
         trm_alter ~desc:(Some (Trm_let_fun (qv, typ_unit(), vl, new_body))) t
 
-      | _ -> fail t.loc "Ast_fromto_AstC.class_member_intro: ill defined class constructor"
+      | _ -> 
+        Printf.printf "Body: %s\n" (Ast_to_text.ast_to_string body);
+        fail t.loc "Ast_fromto_AstC.class_member_intro: ill defined class constructor 1"
       end
-    | _ -> trm_map aux t 
-  in aux t
+   | _ -> trm_map aux t 
+in aux t
 
 (***************************************  Main entry points *********************************************)
 

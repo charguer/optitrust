@@ -685,7 +685,9 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
         let fd = 
         match rt with 
         | Record_field_member (lb, ty) -> typed_var_to_doc (lb, ty) ^^ semi
-        | Record_field_method t1 -> decorate_trm t1 
+        | Record_field_method t1 -> 
+          let semi = if has_empty_body t1 then semi else empty in
+          decorate_trm t1 ^^ semi
          in 
         if rt_annot <> !access_ctrl 
             then begin access_ctrl := rt_annot;acc @ [access_ctrl_to_doc !access_ctrl; fd ] end

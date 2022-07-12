@@ -3222,3 +3222,9 @@ let is_trm_initialization_list (t : trm) : bool =
   match t.desc with 
   | Trm_array _ | Trm_record _ -> true 
   | _ -> false
+
+(* [has_empty_body t]: checks if the function [t] has an empty body or not. *)
+let has_empty_body (t : trm) : bool =
+  match t.desc with 
+  | Trm_let_fun (_, _, _, body) when is_trm_uninitialized body -> true 
+  | _ -> false
