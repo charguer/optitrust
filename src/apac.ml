@@ -122,19 +122,21 @@ type args_const = arg_const list
 (* [fun_args_const]: hashtable that store the [args_const] of functions and the pointer depth of the return type. *)
 type fun_args_const = (string, (args_const * (int * bool))) Hashtbl.t
 
-(* [get_binop_set_left_var_opt t]: returns the variable on the left side of the . *)
-let get_binop_set_left_var_opt (t : trm) : trm option =
-  let rec aux (t : trm) : trm option =
+(* [get_binop_set_left_var t]: returns the variable name on the left side of the set operator
+    and a boolean indicating if the variable has been dereferenced. *)
+let get_binop_set_left_var (t : trm) : (var * bool) option =
+  let rec aux (is_deref : bool) (t : trm) : (var * bool) option =
     match t.desc with
-    | Trm_var _ -> Some(t)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _ }, [t; _]) -> aux t
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (Unop_get | Unop_address | Unop_struct_access _))); _ }, [t]) -> aux t
+    | Trm_var (_, qv) -> Some(qv.qvar_str, is_deref)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _ }, [t; _]) -> aux true t
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (uo))); _ }, [t]) ->
+      begin match uo with
+      | Unop_get  | Unop_struct_access _ -> aux true t
+      | _ -> aux is_deref t
+      end
     | _ -> None
   in
-
-  match t.desc with
-  | Trm_apps (_, [ls; _]) when is_set_operation t -> aux ls
-  | _ -> None
+  aux false t
 
 (* [is_unary_mutation t]: checks if [t] is a primitive unary operaiton that mutates a variable. *)
 let is_unary_mutation (t : trm) : bool =
@@ -215,9 +217,9 @@ let constify_functions_arguments : Transfo.t =
       Stack.push (cur_fun, arg_idx) to_process;
     in
 
-    (* helper function : if the right side of the assignment is a pointer and it is related to 
+    (* helper function : resolve pointer operation to get the pointer variable. If it is related to 
        an argument of a function, returns the index of the corresponding argument. *)
-    let get_binop_right_cptr_args (va : vars_arg) (t: trm) : int option =
+    let get_arg_idx_from_cptr_arith (va : vars_arg) (t: trm) : int option =
       let rec aux (depth : int) (t: trm) : int option =
         match t.desc with
         (* unop : progress deeper + update depth *)
@@ -305,7 +307,7 @@ let constify_functions_arguments : Transfo.t =
             | _ -> None
             end
           else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then 
-            get_binop_right_cptr_args va tr
+            get_arg_idx_from_cptr_arith va tr
           else None
         in
         begin match arg_idx with
@@ -315,12 +317,21 @@ let constify_functions_arguments : Transfo.t =
         trm_iter (update_fac_and_to_process va cur_fun) t
       
       (* assignment & compound assignment to argument : update to_process *)
-      (* TODO : change vars_arg in pointer assignement if it stills a pointer after dereferencing *)
       | Trm_apps _ when is_set_operation t -> 
-        begin match get_binop_set_left_var_opt t with
-        | Some({ desc = Trm_var (_, name); _ }) when Hashtbl.mem va name.qvar_str ->
-          add_elt_in_to_process va cur_fun name.qvar_str;
-        | _ -> ()
+        begin match set_inv t with 
+        | Some (lhs, rhs) -> 
+          begin match get_binop_set_left_var lhs with
+          | Some (var_name, is_deref) when Hashtbl.mem va var_name ->
+            let (_, depth) = Hashtbl.find va var_name in
+            if depth = 0 || is_deref 
+              then add_elt_in_to_process va cur_fun var_name
+              else begin match get_arg_idx_from_cptr_arith va rhs with
+              | Some (arg_idx) -> Hashtbl.replace va var_name (arg_idx, depth)
+              | _ -> ()
+              end
+          | _ -> () (* example variable not in va : global variable *)  
+          end
+        | None -> assert false
         end;
         trm_iter (update_fac_and_to_process va cur_fun) t
           
@@ -339,7 +350,7 @@ let constify_functions_arguments : Transfo.t =
           | _ -> ()
           end
         else if depth > 0 then 
-          begin match get_binop_right_cptr_args va tr with
+          begin match get_arg_idx_from_cptr_arith va tr with
           | Some (arg_idx) -> Stack.push (cur_fun, arg_idx) to_process
           | None -> ()
           end;
@@ -365,7 +376,7 @@ let constify_functions_arguments : Transfo.t =
       | Some (fname, nth) -> 
         let (acs, _) = Hashtbl.find fac fname in
         let ac : arg_const = List.nth acs nth in
-        if ac.is_const then begin 
+        if ac.is_const then begin
           ac.is_const <- false; 
           List.iter (fun e -> Stack.push e to_process) ac.dependency_of 
         end;
