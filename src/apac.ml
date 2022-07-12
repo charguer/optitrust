@@ -124,7 +124,7 @@ type arg_const = {
 type args_const = arg_const list
 
 (* [fun_args_const]: hashtable that store the [args_const] of functions and the pointer depth of the return type. *)
-type fun_args_const = (string, (args_const * int)) Hashtbl.t
+type fun_args_const = (string, (args_const * (int * bool))) Hashtbl.t
 
 (* [get_binop_set_left_var_opt t]: returns the variable on the left side of the . *)
 let get_binop_set_left_var_opt (t : trm) : trm option =
@@ -196,13 +196,18 @@ let get_cptr_depth (ty : typ) : int =
     | _ -> depth
   in
   aux 0 ty
-    
+
+(* [get_inner_all_unop t]: unfold all unary operators. *)
+let rec get_inner_all_unop (t : trm) : trm =
+  match t.desc with
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) -> get_inner_all_unop t
+  | _ -> t
+
 (* [constify_functions_arguments tg]: expect target [tg] to point at the root,
     then it will add "const" keyword whenever it is possible in functions arguments *) 
 (* wip*)
 let constify_functions_arguments : Transfo.t = 
   (* TODO : handle include file *)
-  (* TODO : handle return ref/ptr argument *)
   (* TODO : handle namespace *)
   (* TODO : handle let_mult *)
   iter_on_targets (fun t p ->
@@ -239,6 +244,7 @@ let constify_functions_arguments : Transfo.t =
           begin match uo with
           | Unop_get -> aux (depth-1) t
           | Unop_address -> aux (depth+1) t
+          | Unop_cast ty -> aux (depth + get_cptr_depth ty) t
           | _ -> None
           end
 
@@ -253,18 +259,6 @@ let constify_functions_arguments : Transfo.t =
           | None, Some(res) -> Some(res)
           | None, None -> None
           | Some(_), Some(_) -> fail None "Should not happen : Binary operator between pointers" 
-          end
-
-        (* funcall : check type, can progress deeper *)
-        (* TODO : when handle return ref/ptr argument done, use it instead for more precision *)
-        | Trm_apps ({ desc = Trm_var (_, fname); _ }, args) -> 
-          begin match Hashtbl.find_opt fac fname.qvar_str with 
-          | Some (_, d) when (d + depth) > 0 ->
-            begin match get_args_idx_in_apps va t with
-            | [] -> None
-            | args_idx -> Some (args_idx)
-            end
-          | _ -> None
           end
 
         (* variable : resolve variable *)
@@ -292,7 +286,7 @@ let constify_functions_arguments : Transfo.t =
           is_ptr_or_ref = is_cptr_or_ref ty ;
           is_const = true; 
           dependency_of = [] }) args in
-        Hashtbl.add fac qv.qvar_str (acs, get_cptr_depth ty)
+        Hashtbl.add fac qv.qvar_str (acs, (get_cptr_depth ty, is_reference ty))
       | _ -> fail None "Should not happen"
       ) fun_decls;
 
@@ -308,11 +302,11 @@ let constify_functions_arguments : Transfo.t =
       | Trm_if _ | Trm_switch _ | Trm_while _ ->
         trm_iter (update_fac_and_to_process (Hashtbl.copy va) cur_fun) t
       
-      (* funcall : update dependecy_of *)
+      (* funcall : update dependency_of *)
       | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ }, args) when Hashtbl.mem fac funcall_name.qvar_str -> 
         List.iteri (fun i t -> 
-          match t.desc with
-          | Trm_var (_, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
+          match (get_inner_all_unop t).desc with
+          | Trm_var (vk, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
               let (arg_pos, _) = Hashtbl.find va arg_name.qvar_str in
               let (acs, _) = Hashtbl.find fac funcall_name.qvar_str in
               let ac = List.nth acs i in 
@@ -354,8 +348,21 @@ let constify_functions_arguments : Transfo.t =
         if Hashtbl.mem va name.qvar_str then add_elt_in_to_process va cur_fun name.qvar_str;
         trm_iter (update_fac_and_to_process va cur_fun) t
 
-      (* return argument : update to_process if return ref or ptr*)
-      | Trm_abort (Ret (Some tr)) -> trm_iter (update_fac_and_to_process va cur_fun) t
+      (* return argument : update to_process if return ref or ptr *)
+      | Trm_abort (Ret (Some tr)) -> 
+        let (_, (depth, is_ref)) = Hashtbl.find fac cur_fun in
+        if is_ref then 
+          begin match trm_var_inv tr with
+          | Some (a, var_name) when Hashtbl.mem va var_name -> add_elt_in_to_process va cur_fun var_name
+          | _ -> ()
+          end
+        else if depth > 0 then begin 
+          let idx_args = get_binop_right_cptr_args va tr in 
+          List.iter (fun i -> 
+            Stack.push (cur_fun, i) to_process;
+            ) idx_args;
+          end;
+        trm_iter (update_fac_and_to_process va cur_fun) t
       
       | _ -> trm_iter (update_fac_and_to_process va cur_fun) t
     in
