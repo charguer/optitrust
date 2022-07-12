@@ -20,10 +20,8 @@ class OBJ{
 };
 
 int main() {
-  obj a;
+  obj a = {0, 1, 2, 3};
   int x;
   x = 5;
   return 0;
 }
-
-
