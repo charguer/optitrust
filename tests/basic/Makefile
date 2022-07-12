@@ -100,6 +100,7 @@ TESTS_WITH_DOC := \
 TESTS_NODOC := \
 	matrix_delocalize_obj.ml \
 	matrix_local_name_obj.ml \
+	apac_constify_args.ml \
 
 
 TESTS_TO_FIX := \
