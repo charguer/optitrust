@@ -10,14 +10,11 @@ int h() {
   return 1;
 }
 
-
-
 void test_function (){
   int a = 3;
   int t = f(g(a, 4));
   int u = f(f(a));
   int z = f(h());
-  return 0;
 }
 
 class Test_method {

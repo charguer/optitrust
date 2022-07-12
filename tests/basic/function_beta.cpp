@@ -21,14 +21,10 @@ class X {
 };
 
 void test_method(){
-  int i = 1;
-  X a;
-  i = a.f_X(i);
+  int a = 1;
+  X b;
+  int c = b.f_X(a);
 
 }
 
-int main () {
-  int i = 1;
-  f(i);
-  return 0;
-}
+int main (){}

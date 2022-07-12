@@ -12,7 +12,6 @@ void test_function() {
   int u = f(b);
   const int s = h();
   int z = f(s);
-  return 0;
 }
 
 class Test_method {

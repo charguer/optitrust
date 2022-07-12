@@ -19,17 +19,10 @@ class X {
 };
 
 void test_method() {
-  int i = 1;
-  X a;
-  i = a.f_X(i);
+  int a = 1;
+  X b;
+  int c;
+  c = b.x + a;
 }
 
-int main() {
-  int i = 1;
-  (void f(int j) {
-    int s = 0;
-    s += 2 * j;
-    s -= j;
-  })(i);
-  return 0;
-}
+int main() {}

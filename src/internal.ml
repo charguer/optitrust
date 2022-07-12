@@ -586,6 +586,7 @@ let rec subst (tm : tmap) (t : trm) : trm =
   | Trm_var (vk, x) ->
     begin match Trm_map.find_opt x.qvar_var tm with
     | Some t1 ->
+      let t1 = {t1 with annot = t1.annot} in 
       if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1
     | _ -> t
     end

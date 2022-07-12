@@ -306,16 +306,20 @@ let method_call_elim (t : trm) : trm =
 let method_call_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
-    | Trm_apps ({desc = Trm_var (_, f)}, args) when trm_has_cstyle Method_call t ->
-      if List.length args < 1 then fail t.loc "Ast_fromto_AstC: method_call_intro: bad encoding.";
+    | Trm_apps (f, args) when trm_has_cstyle Method_call t ->
+      if List.length args < 1 then fail t.loc "Ast_fromto_AstC.method_call_intro: bad encodings.";
       let base, args = Xlist.uncons args in 
-      let struct_access = trm_struct_get base f.qvar_var in
+      let struct_access = 
+        begin match f.desc with 
+        | Trm_var (_, f) -> trm_struct_get base f.qvar_var 
+        (* Special case when function_beta transformation is applied. *)
+        | _ -> f
+        end in 
       trm_alter ~desc:(Some (Trm_apps (struct_access, args))) t
-    | _ -> trm_map aux t 
-   in aux t
+    | _ -> trm_map aux t
+     in aux t
 
-
-(* [class_member_elim t]: encoding for class members. *)
+(* [class_member_elim t]: encodes class members. *)
 let class_member_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
@@ -342,7 +346,7 @@ let class_member_elim (t : trm) : trm =
   in aux t
   
 
-(* [class_member_intro t]: decoding for class members. *)
+(* [class_member_intro t]: decodes class members. *)
 let class_member_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 

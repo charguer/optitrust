@@ -1,27 +1,17 @@
-class Test_method_inline {
+class X {
 
-  private:
-    int x;
-  
+  int x;
   public:
-    int f(int y){
-      return y + x;
+    int f_X(int y){
+      return x + y;
     }
-    int g(int y) { 
-      return this->x + y;
-    }
-
 };
 
-void test_class_members_rename (){
-  Test_method_inline t;
-   
-  int a;
-  a = t.f(10);
-  // encoded as 
-  // int* a = new int (f(*t, 10))
-  int b;
-  b = t.g(a);
+void test_method(){
+  int i = 1;
+  X a;
+  i = a.f_X(i);
+
 }
 
-int main() {}
+int main () {}
