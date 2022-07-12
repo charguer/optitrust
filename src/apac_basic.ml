@@ -51,9 +51,13 @@ let identify_taskable_functions (tg : target) : taskable =
   | _ -> fail None "Apac_basic.identify_taskable_functions: expected a target to the main file sequence."
 
 
-(* [constify_args ~is_const tg]: *)
+(* [constify_args ~is_const tg]: expect the target [tg] to point at the the root of the file.
+   Then it will add the "const" keyword where is it possible in the type of the argument. 
+   The list [is_const] determines which argument to constify. *)
 let constify_args ?(is_const : bool list = []) : Transfo.t =
   apply_on_targets (Apac_core.constify_args is_const)
 
+(* [stack_to_heap tg]: expect the target [tg] to point at a variable declaration. 
+    Then the variable declared will be declared on the heap. *)
 let stack_to_heap : Transfo.t =
   apply_on_targets (Apac_core.stack_to_heap)
