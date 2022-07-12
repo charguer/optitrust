@@ -516,7 +516,15 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
              )
           | _ -> fail loc "Path.resolving_path: direction"
           end
-
+       | Dir_record_field n, Trm_typedef td ->
+         begin match td.typdef_body with 
+          | Typdef_record rfl ->
+            app_to_nth loc rfl n 
+              (fun (rf, rf_annt) -> match rf with 
+                | Record_field_method t1 -> aux t1 ctx
+                | _ -> fail t.loc "Path.apply_on_path: expected a method.")
+          | _ -> fail t.loc "Path.apply_on_path: transformation applied on the wrong typedef."
+          end
        | _, _ ->
           let s = dir_to_string d in
           let s_t = AstC_to_c.ast_to_string t in

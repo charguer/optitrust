@@ -28,7 +28,8 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
                  | Trm_apps(_, [init]) -> init
                  | _ -> dx
                  end
-          end in
+          end 
+        in
       Internal.change_trm ~change_at:[fold_at] def_x t_x t1
     | _ -> fail t_dl.loc "Variable_core.fold_decl: expected a variable declaration"
      in
@@ -48,12 +49,13 @@ let fold (fold_at : target) (index) : Transfo.local =
                    of the variable are replaced with its initialization value,
       [index] - index of the targeted declaration inside its surrounding sequence,
       [t] - ast of the sequence that contains the targeted declaration.*)
-let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (t : trm) : trm =
+let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (p_local : path) (t : trm) : trm =
   let error = "Variable_core.unfodl_aux: expected the surrounding sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
   let f_update (t : trm) : trm = t in
   let f_update_further (t : trm) : trm =
     let dl = Mlist.nth tl index in
+    let dl = Path.resolve_path p_local dl in
     match dl.desc with
     | Trm_let (vk, (x, _), init) ->
       let init = trm_add_mark mark init in
@@ -101,8 +103,8 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
   trm_seq ~annot:t.annot new_tl
 
 (* [unfold delete_decl accept_functions mark unfold_at index t p]: applies [unfold_aux] at trm [t] with path [p]. *)
-let unfold (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) : Transfo.local =
-  apply_on_path(unfold_aux delete_decl accept_functions mark unfold_at index)
+let unfold (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (p_local : path) : Transfo.local =
+  apply_on_path(unfold_aux delete_decl accept_functions mark unfold_at index p_local)
 
 
 (* [rename_aux index new_name t]: renames the variable declared on the targeted declaration all its occurrences,
