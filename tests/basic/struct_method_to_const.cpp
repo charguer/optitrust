@@ -1,20 +1,23 @@
-class Method_const {
+class Method_test {
 
   public:
     int x;
-    Method_const(int val) {
+    Method_test (int val) {
       x = val;}
     
-    int get_x(){return x;}
+    int get1(){return x;}
+
+    const int& get2(){return x;}
 
 };
 
 
 void test_method_const (){
-  Method_const foo(10); 
+  Method_test foo(10); 
   
   int y;
-  y = foo.get_x(y);
+  y = foo.get1();
+  const int z = foo.get2();
 
 }
 

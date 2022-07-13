@@ -759,15 +759,19 @@ let method_to_const_aux (method_name : var) (t : trm) : trm =
         let upd_rfl = List.map (fun (rf, rf_ann) -> 
             match rf with 
             | Record_field_method t1  -> 
-              begin match decl_name t1 with 
-              | Some name when method_name = name -> 
-                if trm_has_cstyle Const_method t1 
-                  then (rf, rf_ann)(* begin Printf.printf ("Nothing to change, method %s is already const." method_name); (rf, rf_ann) end *)
-                  else 
-                    let t1 = trm_add_cstyle Const_method t1 in 
-                    (Record_field_method t1, rf_ann)
-              | _ -> (rf, rf_ann)
-              end 
+              if is_class_constructor t1 
+                then (rf, rf_ann)              
+                else if method_name = "" then (Record_field_method (trm_add_cstyle Const_method t1), rf_ann)
+                else
+                  begin match decl_name t1 with 
+                  | Some name when method_name = name -> 
+                    if trm_has_cstyle Const_method t1 
+                      then (rf, rf_ann)(* begin Printf.printf ("Nothing to change, method %s is already const." method_name); (rf, rf_ann) end *)
+                      else 
+                        let t1 = trm_add_cstyle Const_method t1 in 
+                        (Record_field_method t1, rf_ann)
+                  | _ -> (rf, rf_ann)
+                  end 
             | _ -> (rf, rf_ann)
         ) rfl in 
         

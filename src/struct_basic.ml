@@ -106,6 +106,7 @@ let make_all_memebers_public : Transfo.t =
 
 (* [method_to_const method_name]: expects the target [ŧg] to be pointing at a typedef record definition.
     Then it will check if the method of that record definition is already a const method or not.
-    If it's a const method then this transformation does nothing, otherwise it will transform that method to a const one. *)
-let method_to_const (method_name : var) : Transfo.t = 
+    If it's a const method then this transformation does nothing, otherwise it will transform that method to a const one. 
+    Note: If [method_name] is not specified by the user all the methods will be converted to const methods.*)
+let method_to_const ?(method_name : var = "") : Transfo.t = 
   apply_on_targets (Struct_core.method_to_const method_name)

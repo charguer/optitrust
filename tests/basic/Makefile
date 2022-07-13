@@ -73,6 +73,7 @@ TESTS_WITH_DOC := \
 	specialize_any.ml \
 	specialize_choose.ml \
 	struct_change_field_access_kind.ml \
+	struct_method_to_const.ml \
 	struct_rename_fields.ml \
 	struct_reveal_field.ml \
 	struct_set_explicit.ml \
