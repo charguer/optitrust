@@ -1798,6 +1798,16 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     f t
   | Trm_delete (is_array, t) ->
     f t
+  | Trm_typedef td -> 
+    begin match td.typdef_body with 
+    | Typdef_record rfl -> 
+      List.iter (fun (rf, rf_ann) -> 
+        match rf with 
+        | Record_field_method t1 -> f t
+        | _ -> ()
+      ) rfl
+    | _ -> ()
+    end
   | _ -> ()
 
 
