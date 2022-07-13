@@ -1,6 +1,6 @@
-typedef int * pINT;
+typedef int* pINT;
 
-using ppINT = int**;
+typedef int** ppINT;
 
 struct A {};
 

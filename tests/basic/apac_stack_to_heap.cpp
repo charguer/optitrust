@@ -8,4 +8,5 @@ int main() {
   int const &f = 1;
   int const &g = i;
   int const h[5] = {1, 2, 3, 4, 5};
+  int j[5] = {1, 2, 3, 4, 5};
 }
