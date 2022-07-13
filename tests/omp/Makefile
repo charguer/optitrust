@@ -4,22 +4,16 @@ TARGET_MAKE_ALL := check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
 TESTS_WORKING := \
-	collapse1.ml \
-	collapse2.ml \
-	collapse3.ml \
-	fpriv_sections.ml \
 	linear_in_loop.ml \
-	master.ml \
 	nowait1.ml \
 	nowait2.ml \
 	nthrs_dynamic1.ml \
 	nthrs_dynamic2.ml \
-  parallel.ml \
 	parallel_1.ml \
-	psections.ml \
-	single.ml \
-	
+	ploop_1.ml \
+	psections1.ml \
 
+	
 TESTS_TOCHECK := \
   affinity.ml \
 	array_sections1.ml \
@@ -71,7 +65,6 @@ TESTS_TOCHECK := \
 	nesting_restrict4.ml \
 	nesting_restrict5.ml \
 	nesting_restrict6.ml \
-	nthrs_nesting.ml \
 	ordered1.ml \
 	ordered2.ml \
 	ordered3.ml \
@@ -136,6 +129,19 @@ TESTS_TOCHECK := \
 	threadprivate2.ml \
 	worksharing_critical.ml \
 	taskgroup.ml \
+	fpriv_sections.ml \
+	master.ml \
+  parallel.ml \
+	single.ml \
+
+
+TESTS_TO_FIX := \
+	collapse1.ml \
+	collapse2.ml \
+	collapse3.ml \
+	nthrs_nesting.ml \
+
+
 
 TESTS := $(TESTS_WORKING)
 
