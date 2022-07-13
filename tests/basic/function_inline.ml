@@ -28,7 +28,7 @@ let _ = Run.script_cpp (fun _ ->
   let tc = cTopFunDef "test_class_method" in 
   
    (* Note: before inline any class method, all the members of the class should be made public! *)
-  !! Struct_basic.make_all_memebers_public [cTypDef "Test_method_inline"];
+  !! Record_basic.make_all_memebers_public [cTypDef "Test_method_inline"];
   
   !! Function_basic.inline ~body_mark:"bodyf1" [tc;cFun "f1"];
   

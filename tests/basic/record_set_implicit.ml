@@ -4,7 +4,7 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
   
-  !! Struct_basic.set_implicit ~keep_label:false [cLabel "fuse"];
+  !! Record_basic.set_implicit ~keep_label:false [cLabel "fuse"];
   
 )
 
@@ -27,19 +27,19 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Struct_basic.set_implicit ~keep_label:true [cLabel "group1"];
+  !! Record_basic.set_implicit ~keep_label:true [cLabel "group1"];
   (* DONE: check that the wrapper handles the label with dBody;
      here, the label "group1" should disappear *)
 
   (* apply operations to multiple groups *)
   !! Trace.alternative (fun () ->
-    Struct_basic.set_implicit [nbMulti; cLabel ~regexp:true "group."];
+    Record_basic.set_implicit [nbMulti; cLabel ~regexp:true "group."];
     !!(););
 
   (* apply operation using a more complex target *)
   !! Trace.alternative (fun () ->
     let tg = [cSeq ~args_pred:(Target.target_list_one_st [cFieldWrite ~base:[cVar "b"] ()]) ()] in
-    !! Struct_basic.set_implicit tg;
+    !! Record_basic.set_implicit tg;
     !!(););
 
 )

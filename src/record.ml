@@ -1,7 +1,7 @@
 open Ast
-include Struct_basic
+include Record_basic
 
-(* [set_explicit tg]: an extension to [Struct_basic.set_explicit](see struct_basic.ml), contrary to the basic
+(* [set_explicit tg]: an extension to [Record_basic.set_explicit](see Record_basic.ml), contrary to the basic
     on this transformation supports automatic variable declaration detachment.
     vect v = {0,0}; becomes vect v; v.x = 0; v.y = 0; *)
 let set_explicit (tg : Target.target) : unit =
@@ -12,13 +12,13 @@ let set_explicit (tg : Target.target) : unit =
       | Trm_let (_, (x,tx), _) ->
         if is_reference tx then Printf.printf "WARNING: set_explicit on a reference can only be correct if the reference is used for read-only purpose\n";
         Variable_basic.init_detach (Target.target_of_path p);
-        Struct_basic.set_explicit ((Target.target_of_path surrounding_seq) @ [Target.cStrict;Target.cWriteVar x])
-      | _ -> Struct_basic.set_explicit (Target.target_of_path p)
+        Record_basic.set_explicit ((Target.target_of_path surrounding_seq) @ [Target.cStrict;Target.cWriteVar x])
+      | _ -> Record_basic.set_explicit (Target.target_of_path p)
       end
 
   ) tg
 
-(* [set_implicit tg]: an extension to [Struct_basic.set_implicit](see struct_basic.ml), contrary to the basic one
+(* [set_implicit tg]: an extension to [Record_basic.set_implicit](see Record_basic.ml), contrary to the basic one
      this one expects that the target [tg] matches all the write operations that can be converted to a single
      write operation. *)
 let set_implicit (tg : Target.target) : unit =
@@ -43,16 +43,16 @@ let set_implicit (tg : Target.target) : unit =
       let field_list = Internal.get_field_list struct_def in
       let nb = List.length field_list in
       Sequence_basic.intro ~mark:"__SEQUENCE_MARK" nb tg;
-      Struct_basic.set_implicit [Target.cMark "__SEQUENCE_MARK"];
-    | _ -> fail tg_trm.loc "Struct.set_implicit: expected a set operation"
+      Record_basic.set_implicit [Target.cMark "__SEQUENCE_MARK"];
+    | _ -> fail tg_trm.loc "Record.set_implicit: expected a set operation"
 
 ) tg
 
 
-(* [rename_field field ~into tg]: this is a specialization of [Struct_basic.rename_fields]
-      when one wants to rename only one field of a struct. [field] is the current field name
+(* [rename_field field ~into tg]: this is a specialization of [Record_basic.rename_fields]
+      when one wants to rename only one field of a Record. [field] is the current field name
       [into] is the new name that is going to replace all the occurrences of field in the context of
-      the targeted typedef struct. *)
+      the targeted typedef Record. *)
 let rename_field (field : field) ~into:(into : var): Target.Transfo.t =
   rename_fields (only_for field (fun _ -> into))
 
@@ -60,4 +60,4 @@ let rename_field (field : field) ~into:(into : var): Target.Transfo.t =
 (* [align_field align pattern tg]: expects the target [tg] to be pointing at a typedef struct definition,
    then it will align all the fields that match [pattern] with [align] size. *)
 let align_field (align : trm) (pattern : string) : Target.Transfo.t =
-  Struct_basic.applyto_fields_type pattern (fun ty -> typ_align align ty)
+  Record_basic.applyto_fields_type pattern (fun ty -> typ_align align ty)

@@ -1524,7 +1524,7 @@ let get_relative_type (tg : target) : target_relative option =
 
 (* [reparse_after tr]: wrapper to force the reparsing after applying a transformation.
     For example type definitions are modified.
-    See example in [Struct.reveal_field]. The argument [~reparse:false] can be
+    See example in [Record.reveal_field]. The argument [~reparse:false] can be
     specified to deactivate the reparsing. *)
 let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->

@@ -55,7 +55,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Optimization and inlining of [matrix_vect_mul]";
   let ctx = cTopFunDef "matrix_vect_mul" in
   !! Function.inline [ctx; cFuns ["vect_mul"; "vect_add"]];
-  !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
+  !! Record.set_explicit [nbMulti; ctx; cWriteVar "res"];
   !! Loop.fission ~split_between:true [ctx; cFor "idCorner"];
   !! Loop.unroll [nbMulti; ctx; cFor "idCorner"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
@@ -81,7 +81,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "reveal_field write operations involved in the manipulation of particles and vectors";
   !! Function.inline [steps; cFuns ["vect_mul"; "vect_add"]];
   let tg = cOr [[steps]; [cTopFunDefReg "bag_push_.*"]] in
-  !! List.iter (fun typ -> Struct.set_explicit [nbMulti; tg; cWrite ~typ ()]) ["particle"; "vect"];
+  !! List.iter (fun typ -> Record.set_explicit [nbMulti; tg; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline ~delete:true ~vars:(AddSuffix "${occ}") [nbMulti; step; cFun "wrapArea"];
   !! Variable.inline [nbMulti; step; cVarDefReg "[xyz]."];
 
@@ -108,20 +108,20 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Instr.inline_last_write [nbMulti; steps; cReadVar "p"];
 
   bigstep "Preparation for AOS-TO-SOA";
-  !! Struct.set_explicit [step; cVarDef "p2"];
-  !! Struct.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ~regexp:true ~field:"\\(speed\\|pos\\)" ()];
+  !! Record.set_explicit [step; cVarDef "p2"];
+  !! Record.set_explicit [nbMulti; step; cFieldWrite ~base:[cVar "p2"] ~regexp:true ~field:"\\(speed\\|pos\\)" ()];
 
   bigstep "AOS-TO-SOA";
-  !! Struct.reveal_fields ["speed"; "pos"] [cTypDef "particle"];
-  !! Struct.reveal_field "items" [cTypDef "chunk"];
+  !! Record.reveal_fields ["speed"; "pos"] [cTypDef "particle"];
+  !! Record.reveal_field "items" [cTypDef "chunk"];
 
   bigstep "Apply scaling factors on the electric field";
-  !! Struct.to_variables [steps; cVarDef "fieldAtPos"];
+  !! Record.to_variables [steps; cVarDef "fieldAtPos"];
   !! Variable.insert_list_same_type ~reparse:true (ty "const double") (["factorC", expr "particleCharge * stepDuration * stepDuration / particleMass"]
       @ (map_dims (fun d -> ("factor" ^ d, expr ("factorC / cell" ^ d))))) [tBefore; steps; cFor "idCell" ~body:[cFor "i"]];
   !! Function.inline ~delete:true [steps; cFun "getFieldAtCorners"];
   !! Variable.rename ~into:"field_at_corners" [step; cVarDef "res"];
-  !! Struct.set_explicit [steps; cFor "idCorner"; cCellWrite ~base:[cFieldRead ~base:[cVar "field_at_corners"] ()] ()];
+  !! Record.set_explicit [steps; cFor "idCorner"; cCellWrite ~base:[cFieldRead ~base:[cVar "field_at_corners"] ()] ()];
   !! iter_dims (fun d ->
       Accesses.scale ~factor:(var ("factor" ^ d)) [steps; cFor "idCorner"; cFieldWrite ~field:(lowercase_ascii d) ()];
       Accesses.scale ~factor:(var ("factor" ^ d)) [steps; cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
@@ -130,7 +130,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Arith.(simpl_rec expand) [nbMulti; steps; cVarDef "accel"];
 
   bigstep "Applying a scaling factor on speeds";
-  !! Struct.set_explicit [addPart; cVarDef "p"];
+  !! Record.set_explicit [addPart; cVarDef "p"];
   !! iter_dims (fun d ->
       Accesses.scale ~factor:(expr ("(cell"^d^"/stepDuration)")) [addPart; cFieldRead ~field:(lowercase_ascii d) ~base:[cVar "speed"] ()];
       Accesses.scale ~factor:(expr ("(stepDuration / cell"^d^")"))
@@ -194,7 +194,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   if usesingle then begin
     bigstep "Turn positions into floats, decreasing precision but allowing to fit a larger number of particles";
     !! Cast.insert (ty "float") [sExprRegexp ~substr:true "p.2 - i.2"];
-    !! Struct.update_fields_type "itemsPos." (ty "float") [cTypDef "chunk"];
+    !! Record.update_fields_type "itemsPos." (ty "float") [cTypDef "chunk"];
   end;
 
   bigstep "Replacement of the floating-point wrap-around operation with an integer wrap-around";
@@ -335,7 +335,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Align.def (lit "64") [nbMulti; cOr [[cStrict; cVarDefReg "\\(coef\\|sign\\)."];
                                          [step; cVarDef "idCell2_step"];
                                          [cStrict; cVarDef ~substr:true "deposit"]]];
-  !! Struct.align_field (lit "64") ("items.") [cTypDef "chunk"];
+  !! Record.align_field (lit "64") ("items.") [cTypDef "chunk"];
   !! Function.inline [step; cFun "cellOfCoord"];
   !! Align.alloc (lit "64") [nbMulti; cTopFunDef "allocateStructures"; cMalloc ()];
 

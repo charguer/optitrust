@@ -1,4 +1,3 @@
-
 TARGET_MAKE_ALL := check
 
 # Usage: make transfo   or   make check
@@ -57,6 +56,13 @@ TESTS_WITH_DOC := \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
 	pointer_fold.ml \
+	record_change_field_access_kind.ml \
+	record_method_to_const.ml \
+	record_rename_fields.ml \
+	record_reveal_field.ml \
+	record_set_explicit.ml \
+	record_set_implicit.ml \
+	record_simpl_proj.ml \
 	reference_fold.ml \
 	reference_unfold.ml \
 	rewrite_compute.ml \
@@ -72,13 +78,6 @@ TESTS_WITH_DOC := \
 	sequence_split.ml \
 	specialize_any.ml \
 	specialize_choose.ml \
-	struct_change_field_access_kind.ml \
-	struct_method_to_const.ml \
-	struct_rename_fields.ml \
-	struct_reveal_field.ml \
-	struct_set_explicit.ml \
-	struct_set_implicit.ml \
-	struct_simpl_proj.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
 	typedef_fold.ml \
@@ -108,9 +107,9 @@ TESTS_NODOC := \
 TESTS_TO_FIX := \
 	function_rename_args.ml \
 	align_def.ml \
-	struct_reorder_fields.ml \
-	struct_update_fields_type.ml \
 	matrix_insert_access_dim_index.ml \
+	record_reorder_fields.ml \
+	record_update_fields_type.ml \
 
 
 NOT_NEEEDED_TO_FIX := \

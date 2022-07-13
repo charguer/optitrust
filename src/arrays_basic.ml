@@ -30,7 +30,7 @@ let swap (tg : target) : unit =
     (fun t (p,i) -> Arrays_core.swap i t p) tg
 
 
-(* [aos_to_soa tv sz] finds the definition of type [tv] which should be a typedef struct.
+(* [aos_to_soa tv sz] finds the definition of type [tv] which should be a typedef Record.
     Then it will change its struct fields type to arrys of size [sz] with type their current type.
     All the accesses will be swapped.
     Ex:

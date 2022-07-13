@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
 
-  !! Struct.set_implicit [sInstr "v.x = w.x"];
+  !! Record.set_implicit [sInstr "v.x = w.x"];
   
 )
 
@@ -24,8 +24,8 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Struct.set_implicit [sInstr "= p.x"];
-  !! Struct.set_implicit [sInstr "d.x ="];
+  !! Record.set_implicit [sInstr "= p.x"];
+  !! Record.set_implicit [sInstr "d.x ="];
 
 )
 

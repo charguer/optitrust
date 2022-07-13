@@ -14,8 +14,8 @@ let fill_fun_defs_tbl (t : trm) : unit =
     match t.desc with 
     | Trm_let_fun (qn, ret_ty, args, body) when not (is_trm_uninitialized body)-> 
        let args_types = List.map snd args in 
-       let fun_name = qn.qvar_var in 
-       
+       let qf = if class_name <> "" then qvar_update ~qpath:(class_name :: qn.qvar_path) qn else qn in 
+       let fun_name = qf.qvar_str in 
        Hashtbl.add fun_defs (fun_name, args_types) body
     | Trm_typedef td -> trm_iter (aux td.typdef_tconstr ) t
     | _ -> trm_iter (aux class_name) t

@@ -1,19 +1,19 @@
 open Ast
 open Target
-include Struct_core
-include Struct_core.Rename
+include Record_core
+include Record_core.Rename
 
 (* [set_explicit tg]: expects the target [tg] to point at a set instruction where one struct
     instance has been assigned another struct instance. *)
 let set_explicit (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
-  apply_on_targets(Struct_core.set_explicit) tg)
+  apply_on_targets(Record_core.set_explicit) tg)
 
 (*  [set_implicit tg]: expects the target [tg] to point at a sequence containing
       a list of struct set assignments. And transforms it into a single struct assignment.
       So it is the inverse of set_explicit. *)
 let set_implicit ?(keep_label : bool = true) : Transfo.t =
-  apply_on_targets (Struct_core.set_implicit keep_label)
+  apply_on_targets (Record_core.set_implicit keep_label)
 
 (* [reorder_fields order tg]: expects the target to be pointing at typedef struct or class.
       then it changes the order of the fields based on [order].
@@ -26,7 +26,7 @@ let set_implicit ?(keep_label : bool = true) : Transfo.t =
       might be impossible to prove in case of casts between types.*)
 let reorder_fields (order : fields_order) : Transfo.t =
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p, i) -> Struct_core.reorder_fields order i t p) 
+    (fun t (p, i) -> Record_core.reorder_fields order i t p) 
 
 (* [reveal_field ~reparse field_to_reveal_field tg]: expects the target [tg] to point at a typedef struct,
     then it will find [field_to_reveal_field] and it's underlying type and it will
@@ -34,7 +34,7 @@ let reorder_fields (order : fields_order) : Transfo.t =
 let reveal_field ?(reparse:bool=false) (field_to_reveal_field : field) : Transfo.t =
   reparse_after ~reparse
     (apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-      (fun t (p, i) -> Struct_core.reveal_field field_to_reveal_field i t p))
+      (fun t (p, i) -> Record_core.reveal_field field_to_reveal_field i t p))
 
 (* [reveal_fields fields_to_reveal_field tg]: an extension to the reveal_field transformation, this one
      is applied on multiple struct fields. *)
@@ -42,13 +42,13 @@ let reveal_fields ?(reparse : bool = false) (fields_to_reveal_field : fields) (t
   List.iter (fun f ->  reveal_field f tg) fields_to_reveal_field
 
 
-(* [to_variables tg]: expects the target [tg] to point at a variable declaration of type typedef struct.
+(* [to_variables tg]: expects the target [tg] to point at a variable declaration of type typedef Record.
     Then it will transform this declaration into a list of variable declarations where the type
     of these variables is inherited from the type of the struct definition. All the struct_accesses
     are going to be changed to variable occurrences. *)
 let to_variables : Transfo.t =
   reparse_after ~reparse:false (apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p, i) -> Struct_core.to_variables i t p) )
+    (fun t (p, i) -> Record_core.to_variables i t p) )
 
 (* [rename_fields rename tg] expects the target [tg] to point at a struct declaration,
     then it will rename all the fields that are matched when applying the type [rename]
@@ -56,12 +56,12 @@ let to_variables : Transfo.t =
     are matched by the [pattern] given as argument when the function [only_for] is used (see struc_core.ml). *)
 let rename_fields (rename : rename) : Transfo.t =
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p, i) -> Struct_core.rename_fields i rename t p)
+    (fun t (p, i) -> Record_core.rename_fields i rename t p)
 
 (* [applyto_fields_type ~reparse pattern typ_update tg]: expects the target [ŧg] to point at a
     struct definition, then it will update all the struct field types whose identifier matches [pattern]. *)
 let applyto_fields_type ?(reparse : bool = false) (pattern : string) (typ_update: typ -> typ) : Transfo.t =
-  reparse_after ~reparse (apply_on_targets (Struct_core.update_fields_type pattern typ_update))
+  reparse_after ~reparse (apply_on_targets (Record_core.update_fields_type pattern typ_update))
 
 (* [update_fields_type pattern ty tg]: expects the target [tg] to point at a struct declaration,
     then it will change the current type to [ty] for all the fields that are matched by [pattern]. *)
@@ -71,7 +71,7 @@ let update_fields_type ?(reparse : bool = false) (pattern : string) (ty : typ) :
 (* [simpl_proj tg]: expects the target [tg] to point at any node whose descendants can contain struct
     initialization list projections. *)
 let simpl_proj : Transfo.t =
-  apply_on_targets (Struct_core.simpl_proj)
+  apply_on_targets (Record_core.simpl_proj)
 
 (* [struct_modif new_fields f_get f_set use_annot_of tg]: expects the target [tg] to point at a typedef struct,
     then it will replace its current fields with [new_fields]. After modifying the fields it will search for
@@ -79,7 +79,7 @@ let simpl_proj : Transfo.t =
     [f_set] on that access otherwise [f_get] is going to be applied. *)
 let struct_modif (arg : Struct_modif.arg) : Transfo.t =
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-  (fun t (p, i) -> Struct_core.struct_modif arg i t p)
+  (fun t (p, i) -> Record_core.struct_modif arg i t p)
 
 (* FUTURE
 let struct_modif_simple ?(use_annot_of : bool = false) ?(new_fields : (label * typ) list = [])       ~ ?f_get:(f_get : (trm -> trm) option) ?f_set:(f_set : (trm -> trm) option) : Transfo.t =
@@ -97,7 +97,7 @@ let struct_modif_simple ?(use_annot_of : bool = false) ?(new_fields : (label * t
 (* [change_field_access_kind acc_kind f tg]: expects the target [tg] to point a typedef, then it will find 
     field [f] at change its access kind to [acc_kind]. *)
 let change_field_access_kind ?(field : field = "") (acc_kind : record_field_annot) : Transfo.t =
-  apply_on_targets(Struct_core.change_field_access_kind acc_kind field)
+  apply_on_targets(Record_core.change_field_access_kind acc_kind field)
 
 (* [make_all_members_public tg]: expects the target [tg] to point at a typedef struct or class.
     then it will transform all its members to public. *)
@@ -109,4 +109,4 @@ let make_all_memebers_public : Transfo.t =
     If it's a const method then this transformation does nothing, otherwise it will transform that method to a const one. 
     Note: If [method_name] is not specified by the user all the methods will be converted to const methods.*)
 let method_to_const ?(method_name : var = "") : Transfo.t = 
-  apply_on_targets (Struct_core.method_to_const method_name)
+  apply_on_targets (Record_core.method_to_const method_name)

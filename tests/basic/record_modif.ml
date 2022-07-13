@@ -16,7 +16,7 @@ let set_mul_by_factor t =
   trm_mul t factor
 
 let myscaling tg =
-  let arg = Struct_basic.Struct_modif.(
+  let arg = Record_basic.Struct_modif.(
     let f_fields = fields_identity in (* fields names and types are not modified *)
 
     let f_access _aux _t = (* t is [access(base,field)] *)
@@ -53,13 +53,13 @@ let myscaling tg =
       trm_record (Mlist.mapi fix_field sl) in
 
     { f_fields; f_get; f_set; f_struct_get; f_access; f_alloc }) in
-  Struct_basic.struct_modif arg tg
+  Record_basic.struct_modif arg tg
 
 
 (* Example struct_modif transformation #2: adding a suffix to all field names *)
 
 let mysuffix (suffix : string) tg =
-  let arg = Struct_basic.Struct_modif.(
+  let arg = Record_basic.Struct_modif.(
     let f_fields fields : fields =
       List.map (fun (x,t) -> (x^suffix, t)) fields in
 
@@ -94,7 +94,7 @@ let mysuffix (suffix : string) tg =
       reuse_annot_of t (trm_record (Mlist.mapi fix_field sl)) in
 
     { f_fields; f_get; f_set; f_struct_get; f_access; f_alloc }) in
-  Struct_basic.struct_modif arg tg
+  Record_basic.struct_modif arg tg
 
 
 let _ = Run.script_cpp (fun _ ->

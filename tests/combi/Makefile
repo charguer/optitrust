@@ -49,9 +49,9 @@ TESTS_WITH_DOC := \
 	matrix_intro_mops.ml \
 	sequence_intro.ml \
 	sequence_intro_targets.ml \
-	struct_set_explicit.ml \
-	struct_set_implicit.ml \
-  struct_rename_field.ml \
+	record_set_explicit.ml \
+	record_set_implicit.ml \
+  record_rename_field.ml \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_elim_redundant.ml \
@@ -75,7 +75,7 @@ TESTS_WITHOUT_DOC := \
 #variable_inline.ml \ TODO: Update variable_inline unit test
 
 TESTS_TO_FIX := \
-	struct_align_field.ml \
+	record_align_field.ml \
 
 	
 NOT_NEEEDED_TO_FIX := \
@@ -140,12 +140,12 @@ TESTS_BASIC_WITH_DOC := \
 	sequence_intro.ml \
 	sequence_partition.ml \
 	sequence_split.ml \
-	struct_fields_reorder.ml \
-	struct_reveal_field.ml \
-	struct_rename_fields.ml \
-	struct_set_explicit.ml \
-	struct_set_implicit.ml \
-	struct_update_fields_type.ml \
+	record_fields_reorder.ml \
+	record_reveal_field.ml \
+	record_rename_fields.ml \
+	record_set_explicit.ml \
+	record_set_implicit.ml \
+	record_update_fields_type.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
 	variable_bind.ml \

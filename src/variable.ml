@@ -323,10 +323,10 @@ let renames (rename : rename) : Transfo.t =
          WARNING: This step will fail in the case when there are any write operations on the targeted varibles.
       2) If the transformation didn't fail in the first step we are sure that we are trying to inline a const variable
          and we can call safely Variable_basic.unfold
-      3) If the targeted variable is a struct type then call Struct_basic.simpl_proj to remove all the occurrences
+      3) If the targeted variable is a struct type then call Record_basic.simpl_proj to remove all the occurrences
           of struct initialization list, by projecting them on the field they are accessed.
           Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is non valid C code.
-          After calling Struct_basic.simpl_proj {0, 1}.x becomes 0 .
+          After calling Record_basic.simpl_proj {0, 1}.x becomes 0 .
           Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them. *)
 let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(delete : bool = true) ?(at : target = []): Transfo.t =
   iter_on_targets (fun t p ->
@@ -354,7 +354,7 @@ let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
           else Variable_basic.unfold ~mark ~accept_functions ~at tg_decl
       end;
      if mark <> "" then begin
-       Struct_basic.simpl_proj [nbAny; cFieldAccess ~base:[cMark mark] ()];
+       Record_basic.simpl_proj [nbAny; cFieldAccess ~base:[cMark mark] ()];
        if simpl_deref
          then Variable_basic.simpl_deref [nbAny; cRead ~addr:[cMark mark] ()];
        Marks.remove mark [nbAny; cMark mark]
