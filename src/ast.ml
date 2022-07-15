@@ -1803,7 +1803,7 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     | Typdef_record rfl -> 
       List.iter (fun (rf, rf_ann) -> 
         match rf with 
-        | Record_field_method t1 -> f t
+        | Record_field_method t1 -> f t1
         | _ -> ()
       ) rfl
     | _ -> ()
