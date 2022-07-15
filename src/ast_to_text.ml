@@ -582,7 +582,7 @@ and print_directive (directive : directive) : document =
   | Taskgroup -> string "Taskgroup"
   | Taskloop _ -> string "Taskloop"
   | Taskloop_simd _ -> string "Taskloop_simd"
-  | Taskwait -> string "Taskwait"
+  | Taskwait _ -> string "Taskwait"
   | Taskyield -> string "Taskyield"
   | Teams _ -> string "Teams"
   | Teams_distribute _ -> string "Teams_distribute"

@@ -616,7 +616,7 @@ and directive =
   | Taskgroup
   | Taskloop of clause list
   | Taskloop_simd of clause list
-  | Taskwait
+  | Taskwait of clause list
   | Taskyield
   | Teams of clause list
   | Teams_distribute of clause list
