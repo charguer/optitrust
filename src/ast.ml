@@ -3246,16 +3246,3 @@ let has_empty_body (t : trm) : bool =
   | Trm_let_fun (_, _, _, body) when is_trm_uninitialized body -> true 
   | _ -> false
 
-(* [get_cursor_of_decl t]: returns the Clang.cxcurso id of trm [t] in the case when [t] is a function definition. *)
-let get_cursor_of_decl (t : trm) : Clang.cxcursor option =
-  let t_annot = trm_get_cstyles t in 
-  List.fold_left (fun acc t_annot -> 
-    match t_annot with 
-    | Clang_cursor cx ->
-      begin match acc with 
-      | None -> Some cx
-      | _ -> acc
-      end
-    | _ -> acc
-  
-  ) None t_annot
