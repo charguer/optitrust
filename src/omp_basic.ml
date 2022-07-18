@@ -129,7 +129,7 @@ let taskloop_simd ?(clause : clause list = []) : Transfo.t =
   transfo_on_targets (trm_add_pragma (Taskloop_simd clause))
 
 let taskwait ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma Taskwait)
+  transfo_on_targets (trm_add_pragma (Taskwait clause))
 
 let taskyield  : Transfo.t =
   transfo_on_targets (trm_add_pragma Taskyield)

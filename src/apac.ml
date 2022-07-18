@@ -467,11 +467,62 @@ let heapify_nested_seq : Transfo.t =
       | _ -> t
     in
 
-    let decl_vars = Hashtbl.create 10 in
+    let decl_cptrs = Hashtbl.create 10 in
     let tg_trm = Path.get_trm_at_path p t in
     match tg_trm.desc with
     | Trm_seq tl -> Internal.nobrace_remove_after (fun _ -> 
-      transfo_on_targets (trm_map (aux decl_vars true)) (target_of_path p));
-      transfo_on_targets (add_end_delete_task decl_vars) (target_of_path p)
+      transfo_on_targets (trm_map (aux decl_cptrs true)) (target_of_path p));
+      transfo_on_targets (add_end_delete_task decl_cptrs) (target_of_path p)
     | _ -> fail None "Expects target to point at a sequence"
+  )
+
+
+let get_all_vars (t : trm) : vars =
+  let rec aux (acc: vars) (t: trm) : vars =
+    match t.desc with
+    | Trm_apps (_, tl) -> List.fold_left aux acc tl
+    | Trm_var (_, qv) -> qv.qvar_str :: acc
+    | _ -> acc
+  in
+  aux [] t
+
+let get_dep (var : var) (ty : typ) : dep =
+  let rec aux (depth : int) : dep =
+    if depth > 0 then Dep_ptr (aux (depth-1)) else Dep_var var
+  in
+  aux (get_cptr_depth ty)
+
+let sync_with_taskwait : Transfo.t =
+  iter_on_targets (fun t p ->
+
+    let add_taskwait (decl_vars : (var, dep) Hashtbl.t) (cond : trm) (t : trm) : trm =
+      let vars = get_all_vars cond in
+      let deps = List.map (fun var -> Hashtbl.find decl_vars var) vars in
+      trm_add_pragma (Task [Depend [Inout deps]]) t
+    in
+    
+    let rec aux (decl_vars : (var, dep) Hashtbl.t) (t : trm) : trm =
+      match t.desc with
+      | Trm_seq _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
+      
+      | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t 
+
+      | Trm_if (cond, _, _) | Trm_switch (cond , _) | Trm_while (cond ,_) -> 
+        trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars cond t)
+      
+      (* TODO *)
+      | Trm_do_while _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
+      | Trm_for _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
+      | Trm_for_c _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
+
+      | _ -> t
+    in
+
+    let tg_trm = Path.get_trm_at_path p t in
+    let decl_vars = Hashtbl.create 10 in
+    match tg_trm.desc with
+    | Trm_let_fun (qv, ty, args, body) -> 
+      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add decl_vars var (get_dep var ty)) args;
+      transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
+    | _ -> fail None "Expects target to point at a function declaration"
   )

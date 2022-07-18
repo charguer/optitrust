@@ -164,7 +164,7 @@ let directive_to_json (directive : directive) : json * json =
   | Taskgroup -> strquote "Taskgroup"
   | Taskloop _ -> strquote "Taskloop"
   | Taskloop_simd _ -> strquote "Taskloop_simd"
-  | Taskwait -> strquote "Taskwait"
+  | Taskwait _ -> strquote "Taskwait"
   | Taskyield -> strquote "Taskyield"
   | Teams _ -> strquote "Teams"
   | Teams_distribute _ -> strquote "Teams_distribute"
