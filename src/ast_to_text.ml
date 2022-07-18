@@ -525,7 +525,7 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Member_initializer -> string "Member_initializer"
  | Redundant_decl -> string "Redundant_decl"
  | Brace_init -> string "Brace_init"
-
+ | Clang_cursor _ -> string "Clang_cursor"
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =
   match ao with

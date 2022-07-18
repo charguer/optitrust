@@ -1,22 +1,16 @@
-class Method_const {
+void f(float a);
 
+class T {
+  int x;
   public:
-    int x;
-    Method_const(int val) {
-      x = val;}
-    
-    int get_x(){return x;}
-
+    int get_x(){ return x;}
 };
 
+void f(T a);
 
-void test_method_const (){
-  Method_const foo(10); 
-  
-  int y;
-  y = foo.get_x();
 
+int main(){
+  T x;
+  f(x);
+  f(0.);
 }
-
-
-int main(){}

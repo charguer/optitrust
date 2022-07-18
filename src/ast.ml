@@ -321,6 +321,7 @@ and cstyle_annot =
   | Member_initializer
   | Redundant_decl 
   | Brace_init
+  | Clang_cursor of Clang.cxcursor
 
 (* [constructor_kind]: special annotation for constructors *)
 and constructor_kind = 

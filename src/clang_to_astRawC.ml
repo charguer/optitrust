@@ -991,6 +991,7 @@ and tr_decl (d : decl) : trm =
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in 
+    let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in 
     if !redundant_decl then trm_add_cstyle Redundant_decl res else res 
   | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; _};
                static = st; const = c; _} ->
@@ -1038,6 +1039,7 @@ and tr_decl (d : decl) : trm =
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in 
+    let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in 
     if st 
       then trm_add_cstyle Static_fun res 
       else if c then trm_add_cstyle Const_method res 
@@ -1054,7 +1056,9 @@ and tr_decl (d : decl) : trm =
     
     let tb = insert_at_top_of_seq t_il tb in 
 
+    
     let res = trm_let_fun ~loc (Tools.clean_class_name cn) (typ_unit ()) args tb in 
+    let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in 
     if ib 
      then trm_add_cstyle (Class_constructor Constructor_implicit) res
      else if eb then trm_add_cstyle (Class_constructor Constructor_explicit) res 
@@ -1066,6 +1070,7 @@ and tr_decl (d : decl) : trm =
     | None -> trm_lit ~loc Lit_uninitialized
     | Some s -> tr_stmt s in 
     let res = trm_let_fun ~loc (Tools.clean_class_name cn) (typ_unit ()) [] tb in 
+    let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in 
     if df 
       then trm_add_cstyle (Class_destructor Destructor_default) res 
       else if dl then trm_add_cstyle (Class_destructor Destructor_delete) res 
