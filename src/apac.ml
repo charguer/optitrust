@@ -477,14 +477,11 @@ let heapify_nested_seq : Transfo.t =
   )
 
 
-let get_all_vars (t : trm) : vars =
-  let rec aux (acc: vars) (t: trm) : vars =
-    match t.desc with
-    | Trm_apps (_, tl) -> List.fold_left aux acc tl
-    | Trm_var (_, qv) -> qv.qvar_str :: acc
-    | _ -> acc
-  in
-  aux [] t
+let rec get_all_vars (acc: vars) (t : trm) : vars =
+  match t.desc with
+  | Trm_apps (_, tl) -> List.fold_left get_all_vars acc tl
+  | Trm_var (_, qv) when not (List.mem qv.qvar_str acc) -> qv.qvar_str :: acc
+  | _ -> acc
 
 let get_dep (var : var) (ty : typ) : dep =
   let rec aux (depth : int) : dep =
@@ -495,26 +492,95 @@ let get_dep (var : var) (ty : typ) : dep =
 let sync_with_taskwait : Transfo.t =
   iter_on_targets (fun t p ->
 
-    let add_taskwait (decl_vars : (var, dep) Hashtbl.t) (cond : trm) (t : trm) : trm =
-      let vars = get_all_vars cond in
-      let deps = List.map (fun var -> Hashtbl.find decl_vars var) vars in
-      trm_add_pragma (Task [Depend [Inout deps]]) t
+    let add_taskwait (decl_vars : (var, dep) Hashtbl.t) (vars : vars) (t : trm) : trm =
+      match vars with 
+      | [] -> t
+      | _ ->
+        let deps = List.map (fun var -> Hashtbl.find decl_vars var) vars in
+        trm_add_pragma (Taskwait [Depend [Inout deps]]) t
     in
-    
+
+    let add_taskwait_end_seq (decl_vars : (var, dep) Hashtbl.t) (vars : vars) (t : trm) : trm =
+      match t.desc with
+      | Trm_seq _ -> 
+        begin match vars with 
+        | [] -> t
+        | _ ->
+          let deps = List.map (fun var -> Hashtbl.find decl_vars var) vars in
+          let taskwait = trm_add_pragma (Taskwait [Depend [Inout deps]]) (trm_seq Mlist.empty) in
+          trm_seq_add_last taskwait t
+        end
+      | _ -> fail None "add_taskwait_end_seq: expected sequence"
+    in
+
+    (* TODO : loop : taskwait at the end, check if variable in cond used in function.
+      currently always add taskwait *)
+    let add_taskwait_loop_body (decl_vars : (var, dep) Hashtbl.t) (vars : vars) (t : trm) : trm =
+      match t.desc with
+      | Trm_while (cond , body) -> 
+        let new_body = add_taskwait_end_seq decl_vars vars body in
+        trm_alter ~desc:(Some(Trm_while (cond, new_body))) t
+      | Trm_do_while (body, cond) -> 
+        let new_body = add_taskwait_end_seq decl_vars vars body in
+        trm_alter ~desc:(Some(Trm_do_while (new_body, cond))) t
+      | Trm_for (l_range, body) ->
+        let new_body = add_taskwait_end_seq decl_vars vars body in
+        trm_alter ~desc:(Some(Trm_for (l_range, new_body))) t
+      | Trm_for_c (init, cond, step, body) -> 
+        let new_body = add_taskwait_end_seq decl_vars vars body in
+        trm_alter ~desc:(Some(Trm_for_c (init, cond, step, new_body))) t
+      | _ -> t
+    in
+
+    let remove_n (n : int) (l : 'a list) : 'a list =
+      let rec aux (n : int) (l : 'a list) : 'a list =
+        match l with
+        | [] -> []
+        | _ :: t -> if n <= 0 then t else aux (n-1) t
+      in
+      List.rev (aux n (List.rev l))
+    in
+
     let rec aux (decl_vars : (var, dep) Hashtbl.t) (t : trm) : trm =
       match t.desc with
       | Trm_seq _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
       
+      (* TODO : let_mult *)
       | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t 
 
-      | Trm_if (cond, _, _) | Trm_switch (cond , _) | Trm_while (cond ,_) -> 
-        trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars cond t)
+      | Trm_if (cond, _, _) | Trm_switch (cond , _) -> 
+        trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (get_all_vars [] cond) t)
       
-      (* TODO *)
-      | Trm_do_while _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
-      | Trm_for _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
-      | Trm_for_c _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
+      | Trm_while (cond, _) -> 
+        let l = get_all_vars [] cond in 
+        let t = add_taskwait_loop_body decl_vars l t in
+        trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars l t)
+      
+      | Trm_do_while (_, cond) -> 
+        let l = get_all_vars [] cond in
+        let t = add_taskwait_loop_body decl_vars l t in
+        trm_map (aux (Hashtbl.copy decl_vars)) t
 
+      | Trm_for ((var, _, _, _, step, _), _) -> 
+        let l = begin match step with 
+        | Step tr -> get_all_vars [var] tr
+        | _ -> [var]
+        end in
+        let t = add_taskwait_loop_body decl_vars l t in
+        trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (remove_n 1 l) t)
+
+      | Trm_for_c (init, cond, step, _) -> 
+        let (l, n) = begin match init.desc with
+        (* TODO : trm_let_mult *)
+        | Trm_let (_, (var, _), _) -> (get_all_vars [var] cond, 1)
+        | _ -> (get_all_vars [] cond, 0)
+        end in
+        let l = get_all_vars l step in
+        let t = add_taskwait_loop_body decl_vars l t in
+        trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (remove_n n l) t)
+      
+      | Trm_abort Ret (Some tr) -> add_taskwait decl_vars (get_all_vars [] tr) t
+        
       | _ -> t
     in
 
