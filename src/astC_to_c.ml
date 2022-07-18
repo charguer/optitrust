@@ -564,9 +564,9 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (tvl : typed_vars) (tl : trm 
   (* check if all the declarations are of the same type *)
   let ty = Xlist.fold_lefti (fun i acc (x, ty) -> 
     if i = 0 
-      then  ty 
+      then  get_inner_type ty 
       else 
-        let ty = get_inner_ptr_type ty in 
+        let ty = get_inner_type ty in 
         if ty <> acc 
           then fail None "AstC_to_c.trm_let_mult_to_doc: all variables in trm_let_mult must have the same type."
           else acc
@@ -1003,7 +1003,7 @@ and clause_to_doc (cl : clause) : document =
   | FirstPrivate vl -> string "firstprivate" ^^ string ( list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | LastPrivate vl -> string "lastprivate" ^^ string ( list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | Linear (vl, step) -> string "linear" ^^ parens (string ( list_to_string ~sep:"," ~bounds: ["";""] vl)  ^^ if step = 0 then empty else blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int step))
-  | Reduction (ri, vl) -> string "reduction" ^^ parens (reduction_identifier_to_doc ri ^^ colon ^^ string (list_to_string ~sep:"," ~bounds:["";""] vl))
+  | Reduction (ri, vl) -> string "reduction" ^^ parens (reduction_identifier_to_doc ri ^^ colon ^^ (list_to_doc ~sep:comma (List.map string vl)))
   | Copyin vl -> string "copyin" ^^ string ( list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | CopyPrivate vl -> string "copyprivate" ^^ string ( list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | Map_c (mt, vl) -> string "map" ^^ parens (map_type_to_doc mt ^^  blank 1 ^^ string (list_to_string ~sep:"," ~bounds: ["";""] vl))

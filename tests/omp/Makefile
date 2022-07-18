@@ -58,7 +58,7 @@ TESTS_WORKING := \
 	task_dep3.ml \
 	task_dep4.ml \
 	task_priority1.ml \
-	taskyield.ml \
+	taskyield1.ml \
 	taskloop1.ml \
 	teams1.ml \
 	teams2.ml \

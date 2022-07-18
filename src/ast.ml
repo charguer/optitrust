@@ -2178,6 +2178,15 @@ let get_inner_const_type (ty : typ) : typ =
   | Typ_const ty -> ty
   | _ -> ty
 
+(* [get_inner_type ty]: returns the inner type of [ty] when [ty] is a pointer type, const type or an array type. *)
+let get_inner_type (ty : typ) : typ =
+  match ty.typ_desc with 
+  | Typ_const ty -> ty 
+  | Typ_ptr {inner_typ = ty; _} -> ty
+  | Typ_array (ty, _) -> ty 
+  | _ -> ty
+
+
 (* [decl_type t]: returns the type of declaration [t]. *)
 let decl_type (t : trm) : typ option =
   match t.desc with
