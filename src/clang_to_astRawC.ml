@@ -668,6 +668,7 @@ and tr_expr (e : expr) : trm =
     end
   | Call {callee = f; args = el} ->
     let tf = tr_expr f in
+    let tf = trm_add_cstyle (Clang_cursor (cursor_of_node f)) tf in 
     begin match tf.desc with
     | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x.qvar_var 0 ->
         begin match el with
@@ -678,7 +679,8 @@ and tr_expr (e : expr) : trm =
       let t_args = List.map tr_expr el in 
       let call_name , call_args = Xlist.uncons t_args in 
       trm_apps ~loc ~ctx ~typ call_name call_args
-    | _-> trm_apps ~loc ~ctx ~typ tf (List.map tr_expr el)
+    | _-> 
+      trm_apps ~loc ~ctx ~typ tf (List.map tr_expr el)
     end
   | DeclRef {nested_name_specifier = nns; name = n; template_arguments = targs} -> (* Occurrence of a variable *)
     begin match n with
