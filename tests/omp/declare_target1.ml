@@ -3,8 +3,11 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Omp.declare_target [] [tBefore; cFunDef "fib"];
-  !! Omp.end_declare_target [tAfter; cFunDef "fib"];
-  !! Sequence_basic.intro 1 [cFun "fib"];
-  !! Omp.target [If "n > THRESHOLD"] [tFirst; cFunDef "fib_wrapper"; dBody];
+  
+  !! Sequence.intro_on_instr ~mark:"seq_ins" [cFun "fib"];
+  !! Omp.declare_target [cTopFunDefAndDecl "fib"];
+  !! Omp.end_declare_target [cVarDef "THRESHOLD"];
+  !! Omp.target ~clause:[If "n > THRESHOLD"] [cMark "seq_ins"];
+  !! Marks.clean [cMark "seq_ins"];
+
 )

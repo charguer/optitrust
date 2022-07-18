@@ -268,6 +268,7 @@ let rec tr_type_desc ?(loc : location = None) ?(const : bool = false) ?(tr_recor
       let qpath = tr_nested_name_specifier ~loc nns in
       begin match k with
       | Struct -> if tr_record_types then typ_record Struct (tr_qual_type ~loc q) else (tr_qual_type ~loc q)
+      | Class -> if tr_record_types then typ_record Class (tr_qual_type ~loc q) else (tr_qual_type ~loc q)
       | NoKeyword -> let tr_ty = tr_qual_type q in 
         begin match tr_ty.typ_desc with 
         | Typ_constr (qty, tid, tl) -> 
@@ -412,14 +413,14 @@ and tr_stmt (s : stmt) : trm =
       | [d] -> tr_decl d
       | _ ->
        let dls = tr_decl_list dl in
-       let var_list, ty, init_list = List.fold_left (fun (acc1, _, acc2) t1 ->
+       let typed_vars, init_list = List.fold_left (fun (acc1, acc2) t1 ->
         begin match t1.desc with
         | Trm_let (_, (x, ty), init) ->
-          (x :: acc1, ty, init :: acc2)
+          ((x, ty) :: acc1, init :: acc2)
         | _ -> fail loc "Clang_to_astRawC.tr_stmr: expected a multip declaration statemnt"
         end
-       )([],typ_unit(), []) dls in
-       trm_let_mult ~loc ~ctx Var_mutable ty (List.rev var_list) (List.rev init_list)
+       )([], []) dls in
+       trm_let_mult ~loc ~ctx Var_mutable (List.rev typed_vars) (List.rev init_list)
     end
   | Expr e -> tr_expr e
   | Label {label = l; body = s} ->
@@ -1150,7 +1151,11 @@ and tr_decl (d : decl) : trm =
                                         bases = _; fields = fl; final = _;
                                         complete_definition = _;_ } ->
        
-      let access_spec = ref Access_private in
+      let def_access = match k with 
+      | Struct -> Access_public
+      | _ -> Access_private 
+        in 
+      let access_spec = ref def_access in
       let prod_list = List.fold_left (fun acc (d : decl) ->
       let loc = loc_of_node d in
       match d with

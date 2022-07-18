@@ -10,13 +10,15 @@ void d_output(double *, int);
 
 void s_vec_mult_accum()
 {
-   for (int i=0; i<N; i++)
+   int i;
+   for (i=0; i<N; i++)
      sp[i] = sv1[i] * sv2[i];
 }
 
 void d_vec_mult_accum()
 {
-   for (int i=0; i<N; i++)
+   int i;
+   for (i=0; i<N; i++)
      dp[i] = dv1[i] * dv2[i];
 }
 

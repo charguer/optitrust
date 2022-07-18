@@ -13,8 +13,8 @@ void gramSchmidt(float Q[][COLS], const int rows)
 
         tmp = 1/sqrt(tmp);
 
-        for(int j=0; j < rows; j++)
-            Q[j][k] *= tmp;
+        for(int i=0; i < rows; i++)
+            Q[i][k] *= tmp;
     }
 }
 

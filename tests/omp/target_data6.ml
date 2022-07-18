@@ -3,10 +3,16 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Sequence_basic.intro 2 [cFor  "i"];
-  !! Omp.target_data [If "N > THRESHOLD";Map_c (From, ["p0[0:N]"])] [tAfter; cFun "init"];
-  !! Omp.target [If "N>THRESHOLD";Map_c (To, ["v1[:N]";"v2[:N]"])] [tBefore;cFor "i"];
-  !! Omp.parallel_for [] [tBefore; cFor "i"];
-  !! Omp.target [If "N>THRESHOLD";Map_c (To, ["v1[:N]";"v2[:N]"])] [tBefore;cFor "j"];
-  !! Omp.parallel_for [] [tBefore; cFor "j"];
+  let tg_loop1 = [occIndex 0; cFor_c ""] in 
+  !! Sequence_basic.intro ~mark:"seq_ins" 3 tg_loop1 ;
+  !! Omp.target_data ~clause:[If "N > THRESHOLD";Map_c (From, ["p0[0:N]"])] [cMark "seq_ins"];
+  !! Omp.parallel_for tg_loop1;
+  !! Omp.target ~clause:[If "N>THRESHOLD";Map_c (To, ["v1[:N]";"v2[:N]"])] tg_loop1;
+  
+  let tg_loop2 = [occIndex 1; cFor_c ""] in 
+  !! Omp.parallel_for tg_loop2;
+  !! Omp.target ~clause:[If "N>THRESHOLD";Map_c (To, ["v1[:N]";"v2[:N]"])] tg_loop2;
+
+  !! Marks.clean [cMark "seq_ins"]; 
+  
 )

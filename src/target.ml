@@ -783,8 +783,8 @@ let cGoto ?(label : string = "") ?(substr : bool = false) ?(regexp : bool = fals
   let ro = string_to_rexp_opt regexp substr label TrmKind_Expr in
   Constr_goto ro
 
-(* [cReturn_target ~res ()]: matches a return statement. *)
-let cReturn_target ?(res : target = []) () : constr =
+(* [cReturn_tg ~res ()]: matches a return statement. *)
+let cReturn_tg ?(res : target = []) () : constr =
   let p_res =  res in
   Constr_return p_res
 

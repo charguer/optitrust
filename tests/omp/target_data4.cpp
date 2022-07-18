@@ -15,10 +15,9 @@ void foo(float *p0, float *v1, float *v2, int N)
 
 void vec_mult(float *p1, float *v3, float *v4, int N)
 {
-   for (int i=0; i<N; i++)
+   int i;
+   for (i=0; i<N; i++)
    {
      p1[i] = v3[i] * v4[i];
    }
 }
-
-

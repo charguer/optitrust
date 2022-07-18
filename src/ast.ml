@@ -398,7 +398,7 @@ and trm_desc =
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
-  | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c; ONLY FOR RAW AST! *)
+  | Trm_let_mult of varkind * typed_vars * trm list 
   | Trm_let_fun of qvar * typ * typed_vars * trm
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm (* if (x > 0) {x += 1} else{x -= 1} *)
@@ -928,8 +928,8 @@ let trm_let ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None
 
 (* [trm_let ~annot ~loc ~ctx kind ty vl tl]: multiple variable declarations *)
 let trm_let_mult ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (kind : varkind)
-   (ty : typ) (vl : var list) (tl : trms) : trm =
-  trm_make ~annot ~loc ~typ:(Some (typ_unit ())) ~ctx (Trm_let_mult (kind, ty, vl, tl))
+   (tvl : typed_vars) (tl : trms) : trm =
+  trm_make ~annot ~loc ~typ:(Some (typ_unit ())) ~ctx (Trm_let_mult (kind, tvl, tl))
 
 (* [trm_let ~annot ~loc ~ctx name ret_typ args body]: function definition *)
 let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) ?(qpath : var list = [])
@@ -1178,7 +1178,7 @@ let trm_remove_marks (t : trm) : trm =
   (* In the case of sequences, special treatment is needed for in between marks*)
   | Trm_seq tl -> trm_replace (Trm_seq {items = tl.items; marks = []}) t
   | _ -> t in
-  trm_filter_mark (fun _ -> true) res
+  trm_filter_mark (fun _ -> false) res
 
 (* [trm_rem_mark_between m t]: removes the between mark [m] from trm [t] *)
 let trm_rem_mark_between (m : mark) (t : trm) : trm =
@@ -1762,7 +1762,7 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     Mlist.iter (function (_, t) -> f t) tl
   | Trm_let (vk, tv, init) ->
     f init
-  | Trm_let_mult (vk, ty, vl, tl) ->
+  | Trm_let_mult (vk, tvl, tl) ->
     List.iter f tl
   | Trm_let_fun (f', res, args, body) ->
     f body
@@ -1894,7 +1894,7 @@ let decl_name (t : trm) : var option =
 let vars_bound_in_trm_init (t : trm) : var list =
   match t.desc with
   | Trm_let (_, (x,_), _) -> [x]
-  | Trm_let_mult (_, _, vl, _) -> vl
+  | Trm_let_mult (_, tvl, _) -> fst (List.split tvl)
   | _ -> []
 
 (* [is_null_pointer ty t]: check if t == (void * ) 0 *)

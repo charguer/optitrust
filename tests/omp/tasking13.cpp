@@ -1,8 +1,10 @@
 #include <string.h>
 #include <omp.h>
+#include <stdio.h>
+
 const int LIMIT = 3; /* arbitrary limit on recursion depth */
 
-void check_solution(char *);
+void check_solution(char *p);
 void bin_search (int pos, int n, char *state)
 {
    if ( pos == n ) {

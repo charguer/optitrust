@@ -262,7 +262,7 @@ val cLabel : ?substr:bool -> ?body:target -> ?regexp:bool -> string -> constr
 
 val cGoto : ?label:string -> ?substr:bool -> ?regexp:bool -> unit -> constr
 
-val cReturn_target : ?res:target -> unit -> constr
+val cReturn_tg : ?res:target -> unit -> constr
 
 val cReturn : constr
 

@@ -1,12 +1,16 @@
 open Optitrust
 open Target
 
+
+let _ = Flags.dump_ast_details := true
+
 let _ = Run.script_cpp (fun _ ->
 
-  !! Omp.declare_target [] [tBefore; cFunDef "F"];
-  !! Omp.end_declare_target [tAfter; cFunDef "F"];
-  !! Omp.task [Shared ["z"]] [tBefore; cFor "i"];
-  !! Omp.target_teams [Map_c (From, ["Z[C:CHUNKSZ]"])] [tBefore; cFor "i"];
-  !! Omp.parallel_for [] [tBefore; cFor "i"];
-  !! Omp.taskwait [tAfter; cFor "i"];
+  
+  !! Omp.declare_target [cFunDef "F"];
+  !! Omp.end_declare_target [cFunDef "F"];
+  !! Omp.task ~clause:[Shared ["z"]] [cFor "i"];
+  !! Omp.target_teams ~clause:[Map_c (From, ["Z[C:CHUNKSZ]"])] [cFor "i"];
+  !! Omp.parallel_for [cFor "i"];
+  !! Omp.taskwait [cFor "i"];
 )

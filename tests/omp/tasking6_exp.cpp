@@ -1,4 +1,4 @@
-int const LARGE_NUMBER = 10000000;
+const int LARGE_NUMBER = 10000000;
 
 double item[LARGE_NUMBER];
 
@@ -9,9 +9,10 @@ int main() {
   {
 #pragma omp single
     {
+      int i;
 #pragma omp task untied
       {
-        for (int i = 0; (i < LARGE_NUMBER); i++) {
+        for (i = 0; i < LARGE_NUMBER; i++) {
 #pragma omp task
           process(item[i]);
         }

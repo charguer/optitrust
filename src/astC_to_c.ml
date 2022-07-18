@@ -384,7 +384,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         in
        dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
-    | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl
+    | Trm_let_mult (_, tvl, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon tvl tl
     | Trm_let_fun (f, r, tvl, b) ->
         let fun_annot = trm_get_cstyles t in 
         let static = if trm_has_cstyle Static_fun t then string "static" else empty in
@@ -492,7 +492,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         | _ -> fail t.loc "AstC_to_c.trm_to_doc: arbitrary code should be entered by using Lit, Expr and Stmt only"
         end  in
         dattr ^^ code_str
-     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
+     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r 
      | Trm_extern (lang, tl) ->
         begin match tl with
         | [t1] ->
@@ -559,14 +559,27 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
   
 
 (* [trm_let_mult_to_doc ~semicolon tv vl tl]: converts multiple variable declarations to pprint document *)
-and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (tl : trm list) : document =
+and trm_let_mult_to_doc ?(semicolon : bool = true) (tvl : typed_vars) (tl : trm list) : document =
   let dsemi = if semicolon then semi else empty in
+  (* check if all the declarations are of the same type *)
+  let ty = Xlist.fold_lefti (fun i acc (x, ty) -> 
+    if i = 0 
+      then  ty 
+      else 
+        let ty = get_inner_ptr_type ty in 
+        if ty <> acc 
+          then fail None "AstC_to_c.trm_let_mult_to_doc: all variables in trm_let_mult must have the same type."
+          else acc
+        ) (typ_unit ()) tvl 
+   in 
+  
   let dtx = typ_to_doc ty in
-  let dtl = List.map2 (fun v t1 ->
-    if is_trm_uninitialized t1
-      then string v
-      else string v ^^ equals ^^ decorate_trm t1
-  ) vl tl in
+  let dtl = List.map2 (fun (v,ty) t ->
+    let ptr_star = if is_typ_ptr ty then star else empty in 
+    if is_trm_uninitialized t
+      then ptr_star ^^ string v
+      else ptr_star ^^ string v ^^ equals ^^ decorate_trm t
+  ) tvl tl in
   dtx  ^^ blank 1 ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] dtl ^^ dsemi
 
 
@@ -1074,23 +1087,23 @@ and directive_to_doc (d : directive) : document =
   | Sections cl -> string "sections" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Simd cl -> string "simd" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Single cl -> string "single" ^^ blank 1 ^^ (list_to_doc ~empty (List.map clause_to_doc cl))
-  | Target cl -> string "target" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
-  | Target_data cl -> string "target" ^^ blank 1 ^^ string "data"  ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
+  | Target cl -> string "target" ^^ blank 1 ^^ (list_to_doc ~sep:empty ~empty (List.map clause_to_doc cl))
+  | Target_data cl -> string "target" ^^ blank 1 ^^ string "data"  ^^ blank 1 ^^ (list_to_doc ~sep:empty ~empty (List.map clause_to_doc cl))
   | Target_enter_data  cl -> string "target" ^^ blank 1 ^^ string "enter" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Target_exit_data  cl -> string "target" ^^ blank 1 ^^ string "exit" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
+  | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (list_to_doc ~sep:empty ~empty (List.map clause_to_doc cl))
   | Target_teams_distribute cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
-  | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:empty ~empty (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:empty(List.map clause_to_doc cl))
+  | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc ~sep:empty (List.map clause_to_doc cl))
+  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (list_to_doc ~sep:empty ~empty (List.map clause_to_doc cl))
   | Task cl -> string "task" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Taskgroup -> string "taskgroup"
   | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Taskloop_simd cl -> string "taskloop" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Taskwait -> string "taskwait"
   | Taskyield -> string "taskyield"
-  | Teams cl -> string "teams" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
+  | Teams cl -> string "teams" ^^ blank 1 ^^ (list_to_doc ~sep:empty (List.map clause_to_doc cl))
   | Teams_distribute cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Teams_distribute_end cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "end" ^^ (list_to_doc (List.map clause_to_doc cl))
   | Teams_distribute_parallel_for cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
@@ -1101,9 +1114,9 @@ and directive_to_doc (d : directive) : document =
 and routine_to_doc (r : omp_routine) : document =
   match r with
   | Set_num_threads i -> string "omp_set_num_threads" ^^ parens (string (string_of_int i)) ^^ semi
-  | Get_num_threads -> string "omp_get_num_threads" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
+  | Get_num_threads -> string "omp_get_num_threads" ^^ lparen ^^ blank 1 ^^ rparen 
   | Get_max_threads -> string "omp_get_max_threads" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
-  | Get_thread_num  -> string "omp_get_thread_num" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
+  | Get_thread_num  -> string "omp_get_thread_num" ^^ lparen ^^ blank 1 ^^ rparen 
   | Get_num_procs  -> string "omp_get_num_procs" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
   | In_parallel  -> string "omp_in_parallel" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
   | Set_dynamic i -> string "omp_set_dynamic" ^^ parens (string (string_of_int i)) ^^ semi
@@ -1134,7 +1147,7 @@ and routine_to_doc (r : omp_routine) : document =
   | Destroy_nest_lock lck -> string "omp_destroy_nest_lock" ^^ parens (ampersand ^^ string lck)
   | Set_lock lck-> string "omp_set_lock" ^^ parens (ampersand ^^ string lck)
   | Set_nest_lock lck -> string "omp_set_nest_lock" ^^ parens (ampersand ^^ string lck)
-  | Unset_lock lck ->  string "omp_unset_lock" ^^ parens (ampersand ^^ string lck)
+  | Unset_lock lck ->  string "omp_unset_lock" ^^ parens (ampersand ^^ string lck) ^^ semi
   | Unset_nest_lock lck -> string "omp_unset_nest_lock" ^^ parens (ampersand ^^ string lck)
   | Test_lock lck -> string "omp_test_lock" ^^ parens (ampersand ^^ string lck)
   | Test_nest_lock lck -> string "omp_test_nest_lock" ^^ parens (ampersand ^^ string lck)
