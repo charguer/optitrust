@@ -575,10 +575,16 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (tvl : typed_vars) (tl : trm 
   
   let dtx = typ_to_doc ty in
   let dtl = List.map2 (fun (v,ty) t ->
-    let ptr_star = if is_typ_ptr ty then star else empty in 
+    let ptr_ = match ty.typ_desc with 
+    | Typ_ptr {ptr_kind = pt_k; _} ->
+      begin match pt_k with 
+      | Ptr_kind_mut -> star
+      | Ptr_kind_ref -> ampersand
+      end
+    | _ -> empty in
     if is_trm_uninitialized t
-      then ptr_star ^^ string v
-      else ptr_star ^^ string v ^^ equals ^^ decorate_trm t
+      then ptr_ ^^ string v
+      else ptr_ ^^ string v ^^ equals ^^ decorate_trm t
   ) tvl tl in
   dtx  ^^ blank 1 ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] dtl ^^ dsemi
 

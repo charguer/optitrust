@@ -1,16 +1,8 @@
-void f(float a);
-
-class T {
-  int x;
-  public:
-    int get_x(){ return x;}
-};
-
-void f(T a);
-
-
 int main(){
-  T x;
-  f(x);
-  f(0.);
+
+  int x = 10;
+  int a,&b = x, *c;
+
+  return 0;
+
 }

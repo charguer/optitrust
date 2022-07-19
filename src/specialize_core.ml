@@ -59,6 +59,7 @@ let fundefs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) :
   match t.desc with 
   | Trm_let_fun (qf, ret_ty, args, body) -> 
     let new_def = trm_let_fun spec_name ret_ty args body in 
+    
     trm_seq_no_brace [t; new_def]
   | _ -> fail t.loc "Specialize_core.fundefs_aux: expected a target to a function definition."
 
