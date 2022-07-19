@@ -23,3 +23,8 @@ let choose (choice : string) (tg : target) : unit =
     match Xlist.index_of choice xs with
     | None -> fail None "choose: the argument is not part of the choices"
     | Some id -> id) tg
+
+(* [fundefs spec_name spec_args tg] *)
+let fundefs (spec_name : string) (spec_args : (trm option) list) : Transfo.t =
+  apply_on_targets (Specialize_core.fundefs spec_name spec_args )
+  

@@ -1,4 +1,5 @@
 open Ast
+open Target
 
 (* [any_aux e t]: replaces the function call [t] with [e]
       [e] - the expression replacing the call to function [ANY],
@@ -47,3 +48,21 @@ let choose_aux (select_arg : string list -> int) (t : trm) : trm =
 (* [choose select_arg t p]: applies [choose_aux] at trm [t] with path [p]. *)
 let choose (select_arg : string list -> int) : Target.Transfo.local =
   Target.apply_on_path (choose_aux select_arg)
+
+
+(* [fundefs_aux spec_name spec_args t]: inserts a copy of the function definition [t], specializing
+      one of its arguments based on the list [spec_args].
+      [spec_name] - the name of the copy
+      [spec_args] - an optional list of trms, telling the transformation which argss it shoudl specialize,
+      [t] - ast of the function definition. *)
+let fundefs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) : trm =
+  match t.desc with 
+  | Trm_let_fun (qf, ret_ty, args, body) -> 
+    let new_def = trm_let_fun spec_name ret_ty args body in 
+    trm_seq_no_brace [t; new_def]
+  | _ -> fail t.loc "Specialize_core.fundefs_aux: expected a target to a function definition."
+
+
+(* [fundefs spec_name spec_args t p]: applies [fundefs_aux] at trm [ŧ] with path [p]. *)
+let fundefs (spec_name : string) (spec_args : (trm option) list) : Target.Transfo.local =
+  apply_on_path (fundefs_aux spec_name spec_args)

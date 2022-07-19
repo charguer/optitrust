@@ -26,7 +26,10 @@ let get_cursor_of_trm (t : trm) : Clang.cxcursor option =
 
 (* [fill_fun_defs_tbl t]: traverses the ast [t] and adds into the table [fun_defs] all the function definitions.
       with keys being their original Clang.cxcursor id. *)
-let fill_fun_defs_tbl (t : trm) : unit =
+let fill_fun_defs_tbl () : unit =
+  (* First clean the current hashtable. *)
+  let ast = Target.get_ast() in
+  Hashtbl.clear fun_defs;
   let rec aux (t : trm) : unit =
     match t.desc with 
     | Trm_let_fun (qf, ret_ty, args, body) -> 
@@ -37,7 +40,7 @@ let fill_fun_defs_tbl (t : trm) : unit =
     | Trm_typedef td -> trm_iter aux t
     | _ -> trm_iter aux t
    in 
-   aux t
+   aux ast
 
 (* [get_function_def t]: assumes that [t] is the callee of a function call, annotated with the Clang cxcursor.
     Then it will return the definition of the function whose name appears in [ŧ]. *)
@@ -49,3 +52,4 @@ let get_function_def (t : trm) : trm =
     | None -> fail t.loc "Ast.get_function_def: couldn't find the definition of the called function"
     end
   | None -> fail t.loc "Ast.get_function_def: expected a trm annotated with Clang cxcursor."
+
