@@ -140,6 +140,7 @@ TESTS_BASIC_WITH_DOC := \
 	sequence_intro.ml \
 	sequence_partition.ml \
 	sequence_split.ml \
+	specialize_function_arg.ml \
 	record_fields_reorder.ml \
 	record_reveal_field.ml \
 	record_rename_fields.ml \
