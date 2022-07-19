@@ -78,6 +78,8 @@ TESTS_WITH_DOC := \
 	sequence_split.ml \
 	specialize_any.ml \
 	specialize_choose.ml \
+	specialize_function_calls.ml \
+	specialize_function_defs.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
 	typedef_fold.ml \

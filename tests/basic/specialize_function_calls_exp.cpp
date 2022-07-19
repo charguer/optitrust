@@ -8,17 +8,11 @@ int f3(int b) { f(3, b); }
 
 int f4() { f(2, 3); }
 
-
 int main() {
   int x;
-  x = f(x, x + 1);
-
-  x = f(x, 3);
-
-  x = f(3, x);
-  
-  x = f(2, 3);
-
+  x = f1(x, x + 1);
+  x = f2(x);
+  x = f3(x);
+  x = f4();
   return 0;
-
 }

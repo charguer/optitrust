@@ -72,7 +72,6 @@ let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) 
         | _ -> arg :: acc
         end
       | None -> assert false) [] (List.rev args) in
-      (* | None -> acc ) [] (List.rev args) in *)
    
     let call_args = List.fold_left (fun acc (arg, ty) ->
       match List.assoc_opt (arg, ty) args_map with 
@@ -82,7 +81,6 @@ let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) 
         | None -> trm_var arg :: acc
         end 
       | None -> assert false
-      (* | None -> acc *)
     
     ) [] (List.rev args) in
 
@@ -110,7 +108,7 @@ let fun_calls_aux (spec_name : string) (args_to_choose : bool list) (t : trm) : 
       if b 
         then t1 :: acc 
         else acc) [] args_to_choose args in
-    trm_apps (trm_var spec_name) new_args
+    trm_apps (trm_var spec_name) (List.rev new_args)
   | _ -> fail t.loc "Specialize_core.fun_calls_aux: expected a target to a function call"
 
 (* [fun_calls spec_name args_to_choose t p]: applies [fun_calls_aux] to the trm [t] with path [p]. *)
