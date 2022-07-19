@@ -65,23 +65,24 @@ let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) 
     let args_map = List.combine args spec_args in
 
     let new_args = List.fold_left (fun acc arg -> 
-      match List.assq_opt arg args_map with 
+      match List.assoc_opt arg args_map with 
       | Some v -> 
         begin match v with 
         | Some _ -> acc
         | _ -> arg :: acc
         end
       | None -> assert false) [] (List.rev args) in
+      (* | None -> acc ) [] (List.rev args) in *)
    
     let call_args = List.fold_left (fun acc (arg, ty) ->
-      match List.assq_opt (arg, ty) args_map with 
+      match List.assoc_opt (arg, ty) args_map with 
       | Some v -> 
         begin match v with 
-        | Some t1 -> acc
-        | None -> 
-          if is_typ_const ty then trm_var arg :: acc else trm_var_get arg :: acc
+        | Some t1 -> t1 :: acc
+        | None -> trm_var arg :: acc
         end 
       | None -> assert false
+      (* | None -> acc *)
     
     ) [] (List.rev args) in
 
