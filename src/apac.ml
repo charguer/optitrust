@@ -397,7 +397,7 @@ let constify_functions_arguments : Transfo.t =
 type decl_cptrs = (var, bool) Hashtbl.t
 
 (* [get_delete_task ptrs]: returns a omp task that deletes the variable contained in [ptrs].
-    Each variable has a Inout dependence and is firstprivate *)
+    Each variable has a Inout dependence *)
 let get_delete_task (ptrs : decl_cptrs) : trm option =
   let vars = Tools.hashtbl_keys_to_list ptrs in
   match vars with
@@ -405,17 +405,15 @@ let get_delete_task (ptrs : decl_cptrs) : trm option =
   | _ ->
     let deps : deps = List.map (fun var -> Dep_ptr (Dep_var var) ) vars in
     let delete_trms : trms = List.map (fun var -> trm_delete (Hashtbl.find ptrs var) (trm_var var)) vars in
-    Some (trm_add_pragmas [Task [Depend [Inout deps]; FirstPrivate vars]] (trm_seq_nomarks delete_trms))
+    Some (trm_add_pragmas [Task [Depend [Inout deps]]] (trm_seq_nomarks delete_trms))
 
 (* [heapify_nested_seq tg]: expect target [tg] to point at a sequence, then it will : 
     - send on the heap all variables declared in this scope,
     - dereference all use of them (add  "*")
     - add task to delete these variables before "return" "break" and "continue" statements when it is needed
-    - TODO : add firstprivate in tasks that use these variables
   *)
 let heapify_nested_seq : Transfo.t =
   (* TODO : handle let mult *)
-  (* TODO : add firstprivate in tasks *)
   iter_on_targets (fun t p ->
 
     (* heapifies variables and adds delete tasks before certain Trm_abort*)

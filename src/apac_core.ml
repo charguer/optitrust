@@ -315,7 +315,7 @@ let stack_to_heap_aux (t : trm) : trm =
         | Var_immutable -> trm_let_immut (var, (typ_ptr Ptr_kind_mut ty)) (trm_new ty tr)
         | Var_mutable -> 
           let in_ty = get_inner_ptr_type ty in
-          let ty = array_typ_to_ptr_typ in_ty in
+          let ty = if is_typ_array in_ty then array_typ_to_ptr_typ in_ty else ty in
           let tr = if is_typ_array in_ty && is_typ_const (get_inner_array_type in_ty) 
             then trm_new in_ty tr else tr in 
           trm_let_mut (var, ty) tr
