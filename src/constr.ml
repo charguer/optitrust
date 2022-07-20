@@ -926,10 +926,15 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           let is_body_unit = is_trm_uninitialized body in
           if is_def then (check_target p_body body && not (is_body_unit))
            else is_body_unit in
+        let cursor_check = match (Ast_data.get_cursor_of_trm t), cx_opt with 
+        | None, Some cx -> false 
+        | _ , _ -> true
+          in        
         ty_pred tx &&
         check_name name x.qvar_var &&
         check_args cl_args args &&
-        body_check
+        body_check &&
+        cursor_check
      | Constr_decl_type name, Trm_typedef td ->
         let is_new_typ = begin match td.typdef_body with
         | Typdef_alias _ -> true

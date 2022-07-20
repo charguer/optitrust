@@ -185,9 +185,9 @@ int main() {
   t.set(10);
   int y = t.get();
 
-  A x(1);
-  A y(1, 2);
-  A z(1, 2, 3);
+  A x1(1);
+  A y1(1, 2);
+  A z1(1, 2, 3);
 
   return 0;
 }

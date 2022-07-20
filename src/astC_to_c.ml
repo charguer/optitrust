@@ -604,7 +604,9 @@ and aux_class_constructor_to_doc (spec_annot  : cstyle_annot list) (name : var) 
         List.map (fun t1 -> 
           match set_struct_get_inv t1 with 
           | Some (this, f, v) -> 
-            string f ^^ parens (decorate_trm v)
+            let d_v = decorate_trm v in 
+            let init_arg = if trm_has_cstyle Brace_init v then d_v else parens(d_v) in
+            string f ^^ init_arg
           | None -> string "bad member initializer"
               (* TODO: Debug  *)
             (* fail t1.loc "AstC_to_c.aux_class_constructor_to_doc: bad member initializer." *)
