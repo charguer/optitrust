@@ -917,8 +917,8 @@ and tr_member_initialized_list ?(loc : location = None) (init_list :  constructo
   ) init_list 
 
 
-(* [tr_decl d]: translates declaration [d] *)
-and tr_decl (d : decl) : trm =
+(* [tr_decl d]: translates declaration [d] from clang to OptiTrust ast. *)
+and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
   let loc = loc_of_node d in
   let ctx = Some (get_ctx ()) in
   let res = match d.desc with
@@ -995,8 +995,9 @@ and tr_decl (d : decl) : trm =
     end in 
     let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in 
     if !redundant_decl then trm_add_cstyle Redundant_decl res else res 
-  | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; _};
+  | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; nested_name_specifier = nns; _};
                static = st; const = c; _} ->
+    let qpath = tr_nested_name_specifier ~loc nns in
     let s = 
       begin match n with 
       | IdentifierName s -> s
@@ -1020,7 +1021,7 @@ and tr_decl (d : decl) : trm =
               | None -> trm_lit ~loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ~loc s out_t  [] tb
+            trm_let_fun ~loc ~qpath s out_t  [] tb
           | Some {non_variadic = pl; variadic = _} ->
             let args =
               List.combine
@@ -1037,7 +1038,7 @@ and tr_decl (d : decl) : trm =
               | None -> trm_lit ~loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ~loc s out_t  args tb
+            trm_let_fun ~loc ~qpath s out_t  args tb
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in 
@@ -1047,6 +1048,8 @@ and tr_decl (d : decl) : trm =
       else if c then trm_add_cstyle Const_method res 
       else res
   | Constructor { class_name = cn; parameters = {non_variadic = pl; _}; initializer_list = il; body = bd; implicit = ib; explicit = eb;  defaulted = db; _} -> 
+    let class_name = Tools.clean_class_name cn in
+    let qpath = if in_class_decl then [] else [class_name] in
     let args = List.map (fun {decoration = _;
        desc = {qual_type = q; name = n; default = _}} -> (n,tr_qual_type ~loc q)) pl in 
     let tb = match bd with 
@@ -1059,7 +1062,7 @@ and tr_decl (d : decl) : trm =
     let tb = insert_at_top_of_seq t_il tb in 
 
     
-    let res = trm_let_fun ~loc (Tools.clean_class_name cn) (typ_unit ()) args tb in 
+    let res = trm_let_fun ~loc ~qpath class_name (typ_unit ()) args tb in 
     let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in 
     if ib 
      then trm_add_cstyle (Class_constructor Constructor_implicit) res
@@ -1158,6 +1161,7 @@ and tr_decl (d : decl) : trm =
                                         bases = _; fields = fl; final = _;
                                         complete_definition = _;_ } ->
        
+      let in_class_decl = true in 
       let def_access = match k with 
       | Struct -> Access_public
       | _ -> Access_private 
@@ -1172,13 +1176,13 @@ and tr_decl (d : decl) : trm =
         let ty = {ft with typ_attributes = al} in
         acc @ [(Record_field_member (fn, ty), !access_spec)]
       | {decoration = _; desc = CXXMethod _; _} ->
-        let tdl = tr_decl d in 
+        let tdl = tr_decl ~in_class_decl d in 
         acc @ [(Record_field_method tdl, !access_spec)]
       | {decoration = _; desc = Constructor _; _} ->
-        let tdl = tr_decl d in 
+        let tdl = tr_decl ~in_class_decl d in 
         acc @ [(Record_field_method tdl, !access_spec)]
       | {decoration = _; desc = Destructor _; _} ->
-        let tdl = tr_decl d in 
+        let tdl = tr_decl ~in_class_decl d in 
         acc @ [(Record_field_method tdl, !access_spec)]
       | {decoration = _; desc = AccessSpecifier (spec); _} ->
         begin match spec with 

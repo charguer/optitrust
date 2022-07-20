@@ -1,13 +1,31 @@
-#define NT 4
+class Test {
+    int x;
+  public:
+    Test();
+    int get();
+    void set(int y);
 
-int f (int x, int y);
+
+};
+
+
+Test :: Test(){
+   x = 0;
+}
+
+int Test :: get(){
+  return x;
+}
+
+void Test :: set(int y){
+  x = y;
+}
 
 
 int main(){
-
-  int a = NT;
-  a = f(a);
+  Test t;
+  t.set(10);
+  int y = t.get();
+  
   return 0;
 }
-
-int f (int x, int y){}
