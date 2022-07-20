@@ -1109,6 +1109,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
           let args = List.map tr_expr el in 
           begin match q.desc with 
           | Elaborated _ -> trm_add_cstyle Constructed_init (trm_apps f_name args)
+          | Record _ -> trm_add_cstyle Constructed_init (trm_apps f_name args)
           | _ -> tr_expr e
           end
         | _ -> tr_expr e

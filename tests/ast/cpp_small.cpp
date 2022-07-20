@@ -160,6 +160,15 @@ void Test :: set(int y){
   x = y;
 }
 
+class A {
+  int a;
+  int b;
+
+ public:
+  A(int i) { a = i; }
+  A(int i, int j) { a = i; }
+  A(int i, int j, int k) { a = i; }
+};
 
 int main() {
   Box<int, bool> b;
@@ -175,5 +184,10 @@ int main() {
   Test t(10);
   t.set(10);
   int y = t.get();
+
+  A x(1);
+  A y(1, 2);
+  A z(1, 2, 3);
+
   return 0;
 }
