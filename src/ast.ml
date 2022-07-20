@@ -3074,6 +3074,7 @@ let get_struct_access_inv_some (t : trm) : (trm * field) =
   | None -> assert false
   | Some r -> r
 
+
 (* [set_struct_access_inv t]: if [t] is a write on a struct access, then return the base, the field of that access
     and the value that has been assigned to; else None *)
 let set_struct_access_inv (t : trm) : (trm * field * trm) option =
@@ -3085,10 +3086,29 @@ let set_struct_access_inv (t : trm) : (trm * field * trm) option =
    end
   | _ -> None
 
-(* [set_struct_access_inv t]: if [t] is a write on a struct access, then return the base, the field of that access
-    and the value that has been assigned to *)
+(* [set_struct_access_inv t]: if [t] is a write operation on a struct field, then it will return the base, the field and the 
+     value that has been assigned to.  *)
 let set_struct_access_inv_some (t : trm) : (trm * field * trm) =
   match set_struct_access_inv t with
+  | None -> assert false
+  | Some r -> r
+
+
+(* [set_struct_get_inv t]: if [t] is a write operation on a struct field, then it will return the base, the field and the 
+     value that has been assigned to.  *)
+let set_struct_get_inv (t : trm) : (trm * field * trm) option =
+  match t.desc with 
+  | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
+    begin match struct_get_inv lhs with 
+    | Some (base, f) -> Some (base, f, rhs)
+    | _ -> None
+    end
+  | _ -> None
+
+
+(* [set_struct_get_inv_some t]: similar to [set_struct_get_inv] but this one fails if [t] is not a write on a struct_get operation.  *)
+let set_struct_get_inv_some (t : trm) : (trm * field * trm) = 
+  match set_struct_get_inv t with 
   | None -> assert false
   | Some r -> r
 
