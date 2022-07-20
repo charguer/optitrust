@@ -488,7 +488,8 @@ let sync_with_taskwait : Transfo.t =
         | [] -> t
         | _ ->
           let deps = List.map (fun var -> Hashtbl.find decl_vars var) vars in
-          let taskwait = trm_add_pragma (Taskwait [Depend [Inout deps]]) (trm_seq Mlist.empty) in
+          (* trick : use empty Trm_arbitrary to add taskwait alone *)
+          let taskwait = trm_add_pragma (Taskwait [Depend [Inout deps]]) (code (Expr "")) in
           trm_seq_add_last taskwait t
         end
       | _ -> fail None "add_taskwait_end_seq: expected sequence"
