@@ -135,6 +135,32 @@ class Inject {
 
 };
 
+class Test {
+    int x;
+  public:
+    Test();
+    Test(int x);
+    int get();
+    void set(int y);
+
+
+};
+
+Test :: Test(int y){}
+
+Test :: Test(){
+   x = 0;
+}
+
+int Test :: get(){
+  return x;
+}
+
+void Test :: set(int y){
+  x = y;
+}
+
+
 int main() {
   Box<int, bool> b;
   update<int, bool> (&b,1,true);
@@ -144,5 +170,10 @@ int main() {
 
   Box2 b2;
   b2.update1(1, true);
+
+
+  Test t(10);
+  t.set(10);
+  int y = t.get();
   return 0;
 }

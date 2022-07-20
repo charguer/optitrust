@@ -1049,19 +1049,19 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
       else res
   | Constructor { class_name = cn; parameters = {non_variadic = pl; _}; initializer_list = il; body = bd; implicit = ib; explicit = eb;  defaulted = db; _} -> 
     let class_name = Tools.clean_class_name cn in
-    let qpath = if in_class_decl then [] else [class_name] in
+    let qpath = if in_class_decl then [] else [cn] in
     let args = List.map (fun {decoration = _;
        desc = {qual_type = q; name = n; default = _}} -> (n,tr_qual_type ~loc q)) pl in 
     let tb = match bd with 
     | None -> trm_lit ~loc Lit_uninitialized
-    | Some s -> 
-      tr_stmt s in
-
-    let t_il = tr_member_initialized_list ~loc il in 
-    
-    let tb = insert_at_top_of_seq t_il tb in 
-
-    
+    | Some s -> tr_stmt s in
+    let tb =
+      if List.length il = 0 
+        then tb 
+        else 
+          let t_il = tr_member_initialized_list ~loc il in 
+          insert_at_top_of_seq t_il tb 
+      in 
     let res = trm_let_fun ~loc ~qpath class_name (typ_unit ()) args tb in 
     let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in 
     if ib 

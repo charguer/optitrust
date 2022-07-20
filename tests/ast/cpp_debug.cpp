@@ -1,31 +1,14 @@
-class Test {
-    int x;
-  public:
-    Test();
-    int get();
-    void set(int y);
-
-
+class A {
+  int a;
+  int b;
+public:
+  A(int i) { a = i; }
+  A(int i, int j) { a = i; }
+  A(int i, int j, int k) { a = i; }
 };
 
-
-Test :: Test(){
-   x = 0;
-}
-
-int Test :: get(){
-  return x;
-}
-
-void Test :: set(int y){
-  x = y;
-}
-
-
-int main(){
-  Test t;
-  t.set(10);
-  int y = t.get();
-  
+int main() {
+  A x(1); // works
+  A y(1, 2); // error
+  A z(1, 2, 3); // error
   return 0;
-}

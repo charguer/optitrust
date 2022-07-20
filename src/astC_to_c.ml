@@ -606,7 +606,7 @@ and aux_class_constructor_to_doc (spec_annot  : cstyle_annot list) (name : var) 
           | Some (this, f, v) -> 
             string f ^^ parens (decorate_trm v)
           | None -> string "bad member initializer"
-
+              (* TODO: Debug  *)
             (* fail t1.loc "AstC_to_c.aux_class_constructor_to_doc: bad member initializer." *)
         
         ) init_list in
@@ -654,7 +654,7 @@ and aux_fun_to_doc ?(semicolon : bool = false) ?(const : bool = false) ?(inline 
 (* [trm_let_fun_to_doc]: converts any OptiTrust function declaration(definition) to a pprint document. *)
 and trm_let_fun_to_doc ?(semicolon : bool = false) (fun_annot : cstyle_annot list) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
   if List.exists (function  | Class_constructor _ -> true | _ -> false ) fun_annot 
-    then aux_class_constructor_to_doc fun_annot f  args [] b
+    then aux_class_constructor_to_doc fun_annot f args [] b
     else if List.exists (function  | Class_destructor _ -> true | _ -> false ) fun_annot 
       then aux_class_destructor_to_doc ~semicolon fun_annot f b
     else 

@@ -336,10 +336,7 @@ let class_member_elim (t : trm) : trm =
         let new_tl = Mlist.push_back ret_this new_tl in 
         let new_body = trm_alter ~desc:(Some (Trm_seq new_tl)) t in 
         trm_alter ~desc:(Some (Trm_let_fun (qv, this_typ, vl, new_body))) t
-      | Trm_val (Val_lit Lit_uninitialized) -> 
-        let tl = Mlist.of_list [this_alloc; ret_this] in 
-        let new_body = trm_alter ~desc:(Some (Trm_seq tl)) t in
-        trm_alter ~desc:(Some (Trm_let_fun (qv, this_typ, vl, new_body))) t 
+      | Trm_val (Val_lit Lit_uninitialized) ->  t
       | _ ->  fail t.loc "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
       end
     | _ -> trm_map aux t
@@ -353,17 +350,13 @@ let class_member_intro (t : trm) : trm =
     | Trm_let_fun (qv, ty, vl, body) when is_class_constructor t ->
       begin match body.desc with 
       | Trm_seq tl -> 
-        let tl = Mlist.(pop_front (pop_back tl)) in 
-        let new_body = 
-          if Mlist.is_empty tl 
-            then trm_alter ~desc:(Some (Trm_val (Val_lit (Lit_uninitialized)))) body 
-            else trm_alter ~desc:(Some (Trm_seq tl)) body 
-          in 
-        trm_alter ~desc:(Some (Trm_let_fun (qv, typ_unit(), vl, new_body))) t
-
+        if Mlist.is_empty tl 
+          then t
+          else 
+            let tl = Mlist.(pop_front (pop_back tl)) in 
+            let new_body = trm_alter ~desc:(Some (Trm_seq tl)) body in 
+            trm_alter ~desc:(Some (Trm_let_fun (qv, typ_unit(), vl, new_body))) t
       | _ -> trm_map aux t
-        (* Printf.printf "Body: %s\n" (Ast_to_text.ast_to_string body); *)
-        (* fail t.loc "Ast_fromto_AstC.class_member_intro: ill defined class constructor 1" *)
       end
    | _ -> trm_map aux t 
 in aux t
