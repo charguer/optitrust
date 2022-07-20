@@ -1,7 +1,7 @@
 int main() {
   int i;
-  int a = new int(1);
-  int b = new int(i);
+  int* a = new int(1);
+  int* b = new int(i);
   const int* const c = new const int(1);
   const int* const d = new const int(i);
   int* e = new int(i);

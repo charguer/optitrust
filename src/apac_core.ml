@@ -212,16 +212,34 @@ let empty_sort_arg = {
     dep_outin = []; dep_sink = []; dep_source = []}
 
 
-(* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
-let is_cptr_or_ref (ty : typ) : bool =
-  match (get_inner_const_type ty).typ_desc with
-  | Typ_ptr _ | Typ_array _-> true
-  | _ -> false
+(* [get_cptr_depth ty]: returns the number of C pointer of the type [ty]. *)
+let get_cptr_depth (ty : typ) : int =
+  let rec aux (depth : int) (ty : typ) : int =
+    match ty.typ_desc with
+    | Typ_const ty -> aux depth ty
+    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> aux (depth) ty 
+    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty } -> aux (depth+1) ty
+    | Typ_array (ty, _) -> aux (depth+1) ty
+    | Typ_constr _ when is_typdef_alias ty -> 
+      begin match get_inner_typedef_alias ty with
+      | Some (ty) -> aux depth ty
+      | None -> assert false
+      end
+    | _ -> depth
+  in
+  aux 0 ty
+
+(* [get_dep var ty]: returns the dep of the typ [ty] *)
+let get_dep (var : var) (ty : typ) : dep =
+  let rec aux (depth : int) : dep =
+    if depth > 0 then Dep_ptr (aux (depth-1)) else Dep_var var
+  in
+  aux (get_cptr_depth ty)
 
 (* [sort_arg_dependencies arg_deps]: sorts [arg_deps] based on their kind. *)
 let sort_arg_dependencies (arg_deps : arg_deps) : sorted_arg_deps =
   List.fold_left (fun acc arg_dep -> 
-    let dep = if is_cptr_or_ref arg_dep.arg_dep_typ then Dep_ptr (Dep_var arg_dep.arg_dep_var) else Dep_var arg_dep.arg_dep_var in
+    let dep = get_dep arg_dep.arg_dep_var arg_dep.arg_dep_typ in
     match arg_dep.arg_dep_kind with 
     | Dep_kind_in -> {acc with dep_in = dep :: acc.dep_in}
     | Dep_kind_out -> {acc with dep_out = dep :: acc.dep_out}
@@ -315,7 +333,7 @@ let stack_to_heap_aux (t : trm) : trm =
         | Var_immutable -> trm_let_immut (var, (typ_ptr Ptr_kind_mut ty)) (trm_new ty tr)
         | Var_mutable -> 
           let in_ty = get_inner_ptr_type ty in
-          let ty = array_typ_to_ptr_typ in_ty in
+          let ty = if is_typ_array in_ty then array_typ_to_ptr_typ in_ty else ty in
           let tr = if is_typ_array in_ty && is_typ_const (get_inner_array_type in_ty) 
             then trm_new in_ty tr else tr in 
           trm_let_mut (var, ty) tr

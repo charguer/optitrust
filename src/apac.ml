@@ -122,6 +122,12 @@ type args_const = arg_const list
 (* [fun_args_const]: hashtable that store the [args_const] of functions and the pointer depth of the return type. *)
 type fun_args_const = (string, (args_const * (int * bool))) Hashtbl.t
 
+(* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
+  let is_cptr_or_ref (ty : typ) : bool =
+    match (get_inner_const_type ty).typ_desc with
+    | Typ_ptr _ | Typ_array _-> true
+    | _ -> false  
+
 (* [get_binop_set_left_var t]: returns the variable name on the left side of the set operator
     and a boolean indicating if the variable has been dereferenced. *)
 let get_binop_set_left_var (t : trm) : (var * bool) option =
@@ -165,23 +171,6 @@ let get_unary_mutation_qvar (t : trm) : qvar =
     | _ -> empty_qvar
     end
   | _ -> empty_qvar
-
-(* [get_cptr_depth ty]: returns the number of C pointer of the type [ty]. *)
-let get_cptr_depth (ty : typ) : int =
-  let rec aux (depth : int) (ty : typ) : int =
-    match ty.typ_desc with
-    | Typ_const ty -> aux depth ty
-    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> aux (depth) ty 
-    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty } -> aux (depth+1) ty
-    | Typ_array (ty, _) -> aux (depth+1) ty
-    | Typ_constr _ when Apac_core.is_typdef_alias ty -> 
-      begin match Apac_core.get_inner_typedef_alias ty with
-      | Some (ty) -> aux depth ty
-      | None -> assert false
-      end
-    | _ -> depth
-  in
-  aux 0 ty
 
 (* [get_inner_all_unop t]: unfold all unary operators. *)
 let rec get_inner_all_unop (t : trm) : trm =
@@ -227,7 +216,7 @@ let constify_functions_arguments : Transfo.t =
           begin match uo with
           | Unop_get -> aux (depth-1) t
           | Unop_address -> aux (depth+1) t
-          | Unop_cast ty -> aux (depth + get_cptr_depth ty) t
+          | Unop_cast ty -> aux (depth + Apac_core.get_cptr_depth ty) t
           | _ -> None
           end
 
@@ -267,7 +256,7 @@ let constify_functions_arguments : Transfo.t =
           is_ptr_or_ref = is_cptr_or_ref ty ;
           is_const = true; 
           dependency_of = [] }) args in
-        Hashtbl.add fac qv.qvar_str (acs, (get_cptr_depth ty, is_reference ty))
+        Hashtbl.add fac qv.qvar_str (acs, (Apac_core.get_cptr_depth ty, is_reference ty))
       | _ -> fail None "Should not happen"
       ) fun_decls;
 
@@ -311,7 +300,7 @@ let constify_functions_arguments : Transfo.t =
           else None
         in
         begin match arg_idx with
-        | Some (idx) -> Hashtbl.add va lname (idx, get_cptr_depth ty)
+        | Some (idx) -> Hashtbl.add va lname (idx, Apac_core.get_cptr_depth ty)
         | None -> ()
         end;
         trm_iter (update_fac_and_to_process va cur_fun) t
@@ -363,7 +352,7 @@ let constify_functions_arguments : Transfo.t =
       let va = Hashtbl.create 10 in
       match t.desc with
       | Trm_let_fun (qv, _, args, body) ->
-        List.iteri (fun i (name, ty) -> if name <> "" then Hashtbl.add va name (i, get_cptr_depth ty)) args ;
+        List.iteri (fun i (name, ty) -> if name <> "" then Hashtbl.add va name (i, Apac_core.get_cptr_depth ty)) args ;
         trm_iter (update_fac_and_to_process va (qv.qvar_str)) body
       | _ -> fail None "Should not happen"
       ) fun_decls;
@@ -397,7 +386,7 @@ let constify_functions_arguments : Transfo.t =
 type decl_cptrs = (var, bool) Hashtbl.t
 
 (* [get_delete_task ptrs]: returns a omp task that deletes the variable contained in [ptrs].
-    Each variable has a Inout dependence and is firstprivate *)
+    Each variable has a Inout dependence *)
 let get_delete_task (ptrs : decl_cptrs) : trm option =
   let vars = Tools.hashtbl_keys_to_list ptrs in
   match vars with
@@ -405,17 +394,15 @@ let get_delete_task (ptrs : decl_cptrs) : trm option =
   | _ ->
     let deps : deps = List.map (fun var -> Dep_ptr (Dep_var var) ) vars in
     let delete_trms : trms = List.map (fun var -> trm_delete (Hashtbl.find ptrs var) (trm_var var)) vars in
-    Some (trm_add_pragmas [Task [Depend [Inout deps]; FirstPrivate vars]] (trm_seq_nomarks delete_trms))
+    Some (trm_add_pragmas [Task [Depend [Inout deps]]] (trm_seq_nomarks delete_trms))
 
 (* [heapify_nested_seq tg]: expect target [tg] to point at a sequence, then it will : 
     - send on the heap all variables declared in this scope,
     - dereference all use of them (add  "*")
     - add task to delete these variables before "return" "break" and "continue" statements when it is needed
-    - TODO : add firstprivate in tasks that use these variables
   *)
 let heapify_nested_seq : Transfo.t =
   (* TODO : handle let mult *)
-  (* TODO : add firstprivate in tasks *)
   iter_on_targets (fun t p ->
 
     (* heapifies variables and adds delete tasks before certain Trm_abort*)
@@ -483,12 +470,6 @@ let rec get_all_vars (acc: vars) (t : trm) : vars =
   | Trm_var (_, qv) when not (List.mem qv.qvar_str acc) -> qv.qvar_str :: acc
   | _ -> acc
 
-let get_dep (var : var) (ty : typ) : dep =
-  let rec aux (depth : int) : dep =
-    if depth > 0 then Dep_ptr (aux (depth-1)) else Dep_var var
-  in
-  aux (get_cptr_depth ty)
-
 let sync_with_taskwait : Transfo.t =
   iter_on_targets (fun t p ->
 
@@ -546,7 +527,7 @@ let sync_with_taskwait : Transfo.t =
       | Trm_seq _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
       
       (* TODO : let_mult *)
-      | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t 
+      | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (Apac_core.get_dep var (get_inner_ptr_type ty)); t 
 
       | Trm_if (cond, _, _) | Trm_switch (cond , _) -> 
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (get_all_vars [] cond) t)
@@ -588,7 +569,7 @@ let sync_with_taskwait : Transfo.t =
     let decl_vars = Hashtbl.create 10 in
     match tg_trm.desc with
     | Trm_let_fun (qv, ty, args, body) -> 
-      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add decl_vars var (get_dep var ty)) args;
+      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add decl_vars var (Apac_core.get_dep var ty)) args;
       transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
     | _ -> fail None "Expects target to point at a function declaration"
   )
