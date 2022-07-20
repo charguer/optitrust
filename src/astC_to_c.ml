@@ -590,8 +590,7 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (tvl : typed_vars) (tl : trm 
 
 
 (* [aux_class_constructor_to_doc ]: converst class constructor declaration to pprint document. *)
-and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
-  let dsemi = if semicolon then semi else empty in 
+and aux_class_constructor_to_doc (spec_annot  : cstyle_annot list) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
   let argd = if List.length args = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) args) in
   let spec_annot = List.fold_left (fun acc c_annot -> match c_annot with | Class_constructor ck -> ck :: acc | _ -> acc) [] spec_annot in 
   
@@ -619,14 +618,13 @@ and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cst
     | Constructor_implicit -> equals ^^ blank 1 ^^ string  "implicit"
     | Constructor_default -> equals ^^ blank 1 ^^ string "default"
     | Constructor_explicit -> explicit := string "explicit"; decorate_trm bd
-    | Constructor_simpl -> 
-      decorate_trm bd
+    | Constructor_simpl ->  decorate_trm bd
    in
-  (separate (blank 1) [!explicit; string name; parens argd; init_d; dt]) ^^ dsemi
+  (separate (blank 1) [!explicit; string name; parens argd; init_d; dt]) 
 
 (* [aux_class_destructor_to_doc ]: converst class constructor declaration to pprint document. *)
 and aux_class_destructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (body : trm) : document =
-  let dsemi = if semicolon then semi else empty in 
+  let dsemi = if semicolon then semi else empty in
   let spec_annot = List.fold_left (fun acc c_annot -> match c_annot with | Class_destructor dk -> dk :: acc | _ -> acc) [] spec_annot in 
   
   let spec_annot = if List.length spec_annot = 1 then List.nth spec_annot 0 else fail None "astC_to_c.trm_class_constructor_to_doc: catastrophic error" in 
@@ -641,23 +639,22 @@ and aux_class_destructor_to_doc ?(semicolon : bool = false)  (spec_annot  : csty
 
 
 (* [aux_fun_to_doc ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
-and aux_fun_to_doc ?(semicolon : bool = true) ?(const : bool = false) ?(inline : bool = false) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
+and aux_fun_to_doc ?(semicolon : bool = false) ?(const : bool = false) ?(inline : bool = false) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dinline = if inline then string "inline" else empty in
   let f = string_subst "overloaded" "operator" f in
   let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
   let const = if const then string "const" else empty in 
-  begin match b.desc with
-  | Trm_val (Val_lit Lit_uninitialized) ->
-     (separate (blank 1) [dinline; dr; string f; parens argd; const]) ^^ dsemi
-  | _ -> separate (blank 1) [dinline; dr; string f; parens argd; const; decorate_trm b]
-  end
+  if is_trm_uninitialized b 
+    then (separate (blank 1) [dinline; dr; string f; parens argd; const]) ^^ dsemi
+    else separate (blank 1) [dinline; dr; string f; parens argd; const; decorate_trm b]
+  
 
 (* [trm_let_fun_to_doc]: converts any OptiTrust function declaration(definition) to a pprint document. *)
-and trm_let_fun_to_doc ?(semicolon : bool = true) (fun_annot : cstyle_annot list) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
+and trm_let_fun_to_doc ?(semicolon : bool = false) (fun_annot : cstyle_annot list) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
   if List.exists (function  | Class_constructor _ -> true | _ -> false ) fun_annot 
-    then aux_class_constructor_to_doc ~semicolon fun_annot f  args [] b
+    then aux_class_constructor_to_doc fun_annot f  args [] b
     else if List.exists (function  | Class_destructor _ -> true | _ -> false ) fun_annot 
       then aux_class_destructor_to_doc ~semicolon fun_annot f b
     else 
