@@ -123,10 +123,10 @@ type args_const = arg_const list
 type fun_args_const = (string, (args_const * (int * bool))) Hashtbl.t
 
 (* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
-  let is_cptr_or_ref (ty : typ) : bool =
-    match (get_inner_const_type ty).typ_desc with
-    | Typ_ptr _ | Typ_array _-> true
-    | _ -> false  
+let is_cptr_or_ref (ty : typ) : bool =
+  match (get_inner_const_type ty).typ_desc with
+  | Typ_ptr _ | Typ_array _-> true
+  | _ -> false  
 
 (* [get_binop_set_left_var t]: returns the variable name on the left side of the set operator
     and a boolean indicating if the variable has been dereferenced. *)
@@ -181,7 +181,6 @@ let rec get_inner_all_unop (t : trm) : trm =
 (* [constify_functions_arguments tg]: expect target [tg] to point at the root,
     then it will add "const" keyword whenever it is possible in functions arguments *) 
 let constify_functions_arguments : Transfo.t = 
-  (* TODO : handle include file *)
   (* TODO : handle namespace *)
   (* TODO : handle let_mult *)
   iter_on_targets (fun t p ->
@@ -190,15 +189,21 @@ let constify_functions_arguments : Transfo.t =
     (* store the function's arguments (fname, nth arg) to unconst *)
     let to_process : (string * int) Stack.t = Stack.create () in
 
+
     (* get the list of function declarations trms *)
-    let fun_decls : trms = match tg_trm.desc with
-    | Trm_seq ml -> Mlist.fold_left (fun acc t -> 
+    let rec get_fun_decls (t : trm) : trm list =
       match t.desc with
-      | Trm_let_fun _ -> t :: acc
-      | _ -> acc 
-      ) [] ml
-    | _ -> fail None "Expect dRoot target"
+      | Trm_seq ml -> Mlist.fold_left (fun acc t -> 
+        match t.desc with
+        | Trm_let_fun _ -> t :: acc
+        | _ when List.exists (function | Include _ -> true | _ -> false) (trm_get_files_annot t) ->
+            (get_fun_decls t) @ acc
+        | _ -> acc 
+        ) [] ml
+      | _ -> fail None "Expect dRoot target"
     in
+      
+    let fun_decls = get_fun_decls tg_trm in
 
     (* helper function : add element to process in to_process *)
     let add_elt_in_to_process (va : vars_arg) (cur_fun : string) (name : string) : unit =

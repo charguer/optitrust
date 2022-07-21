@@ -480,7 +480,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
 (* [print_files_annot ann]: prints as string files annotation [ann] *)
 and print_files_annot (ann : files_annot) : document =
   match ann with
-  | Include s -> string ("Include" ^ s)
+  | Include s -> string ("Include " ^ s)
   | Main_file -> string "Main_file"
 
 
