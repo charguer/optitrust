@@ -31,9 +31,10 @@ let get_cursor_of_trm_unsome (t :trm) : Clang.cxcursor =
 
 
 (* [fill_fun_defs_tbl t]: traverses the ast [t] and adds into the table [fun_defs] all the function definitions.
-      with keys being their original Clang.cxcursor id. *)
+      with keys being   their original Clang.cxcursor id. *)
 let fill_fun_defs_tbl (t : trm) : unit =
   (* First clean the current hashtable. *)
+  let debug = ref false in
   Hashtbl.clear fun_defs;
   let rec aux (t : trm) : unit =
     match t.desc with 
@@ -45,15 +46,20 @@ let fill_fun_defs_tbl (t : trm) : unit =
     | Trm_typedef td -> trm_iter aux t
     | _ -> trm_iter aux t
    in 
-   aux t
+   let res = aux t in 
+   if !debug then Hashtbl.iter (fun _k v -> Printf.printf "Value: %s\n" (AstC_to_c.ast_to_string v)) fun_defs;
+   res
 
 (* [get_function_def t]: assumes that [t] is the callee of a function call, annotated with the Clang cxcursor.
     Then it will return the definition of the function whose name appears in [ŧ]. *)
 let get_function_def (t : trm) : trm = 
   match get_cursor_of_trm t with 
   | Some cx -> 
-    begin match Hashtbl.find_opt fun_defs (Clang.get_cursor_referenced cx) with 
-    | Some fun_def -> fun_def
+    begin match Hashtbl.find_opt fun_defs (Clang.Expr.get_definition cx) with 
+    | Some fun_def -> 
+        Printf.printf "For the call %s\n" (AstC_to_c.ast_to_string t);
+        Printf.printf "Got the definition %s\n"(AstC_to_c.ast_to_string fun_def);
+        fun_def
     | None -> fail t.loc "Ast.get_function_def: couldn't find the definition of the called function"
     end
   | None -> fail t.loc "Ast.get_function_def: expected a trm annotated with Clang cxcursor."

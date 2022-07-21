@@ -1470,6 +1470,12 @@ let get_trm_at (tg : target) : trm option  =
   );
   !t_ast
 
+(* [get_trm_at_unsome tg]: similar to [get_trm_at] but this one fails incase there is not trm that corresponds to the target [ŧg]. *)
+let get_trm_at_unsome (tg : target) : trm =
+  match get_trm_at tg with 
+  | Some t -> t
+  | None -> assert false
+
 (* [get_ast ()]: return the full ast. *)
 let get_ast () : trm =
   Tools.unsome (get_trm_at [])
