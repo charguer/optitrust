@@ -282,10 +282,10 @@ let constify_functions_arguments : Transfo.t =
         List.iteri (fun i t -> 
           match (get_inner_all_unop t).desc with
           | Trm_var (vk, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
-              let (arg_idx, _) = Hashtbl.find va arg_name.qvar_str in
-              let (acs, _) = Hashtbl.find fac funcall_name.qvar_str in
-              let ac = List.nth acs i in 
-              if ac.is_ptr_or_ref then ac.dependency_of <- (cur_fun, arg_idx) :: ac.dependency_of
+            let (arg_idx, _) = Hashtbl.find va arg_name.qvar_str in
+            let (acs, _) = Hashtbl.find fac funcall_name.qvar_str in
+            let ac = List.nth acs i in 
+            if ac.is_ptr_or_ref then ac.dependency_of <- (cur_fun, arg_idx) :: ac.dependency_of
           | _ -> ()) args;
         trm_iter (update_fac_and_to_process va cur_fun) t
       
@@ -523,7 +523,7 @@ let sync_with_taskwait : Transfo.t =
       let rec aux (n : int) (l : 'a list) : 'a list =
         match l with
         | [] -> []
-        | _ :: t -> if n <= 0 then t else aux (n-1) t
+        | _ :: t -> if n <= 0 then l else aux (n-1) t
       in
       List.rev (aux n (List.rev l))
     in
@@ -532,8 +532,10 @@ let sync_with_taskwait : Transfo.t =
       match t.desc with
       | Trm_seq _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
       
-      (* TODO : let_mult *)
       | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (Apac_core.get_dep var (get_inner_ptr_type ty)); t 
+
+      | Trm_let_mult (_, tvl, _) -> 
+        List.iter (fun (var, ty) -> Hashtbl.add decl_vars var (Apac_core.get_dep var (get_inner_ptr_type ty))) tvl; t
 
       | Trm_if (cond, _, _) | Trm_switch (cond , _) -> 
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (get_all_vars [] cond) t)
@@ -558,8 +560,13 @@ let sync_with_taskwait : Transfo.t =
 
       | Trm_for_c (init, cond, step, _) -> 
         let (l, n) = begin match init.desc with
-        (* TODO : trm_let_mult *)
-        | Trm_let (_, (var, _), _) -> (get_all_vars [var] cond, 1)
+        | Trm_let (_, (var, ty), _) -> 
+          Hashtbl.add decl_vars var (get_dep var ty);
+          (get_all_vars [var] cond, 1)
+        | Trm_let_mult (_, tvl, _) -> 
+          let l = List.fold_left (fun acc (var, _) -> var :: acc) [] tvl in
+          List.iter (fun (var, ty) -> Hashtbl.add decl_vars var (get_dep var ty)) tvl;
+          (get_all_vars l cond, List.length l)
         | _ -> (get_all_vars [] cond, 0)
         end in
         let l = get_all_vars l step in
