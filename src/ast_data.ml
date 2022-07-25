@@ -55,7 +55,7 @@ let fill_fun_defs_tbl (t : trm) : unit =
 let get_function_def (t : trm) : trm = 
   match get_cursor_of_trm t with 
   | Some cx -> 
-    begin match Hashtbl.find_opt fun_defs (Clang.Expr.get_definition cx) with 
+    begin match Hashtbl.find_opt fun_defs cx with 
     | Some fun_def -> 
         Printf.printf "For the call %s\n" (AstC_to_c.ast_to_string t);
         Printf.printf "Got the definition %s\n"(AstC_to_c.ast_to_string fun_def);
