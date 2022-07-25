@@ -560,28 +560,42 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
 
 (* [trm_let_mult_to_doc ~semicolon tv vl tl]: converts multiple variable declarations to pprint document *)
 and trm_let_mult_to_doc ?(semicolon : bool = true) (tvl : typed_vars) (tl : trm list) : document =
-  let dsemi = if semicolon then semi else empty in
+  let rec get_inner_ptrs_and_consts (ty : typ) : typ =
+    match ty.typ_desc with
+    | Typ_const ({typ_desc = Typ_ptr { inner_typ = ty; _ }; _ }) -> get_inner_ptrs_and_consts ty
+    | Typ_ptr { inner_typ = ty; _ } -> get_inner_ptrs_and_consts ty
+    | _ -> ty
+  in
+  
+  let get_ptrs_and_consts_doc (ty : typ) : document =
+    let rec aux (l : document list) (ty : typ) : document list =
+      match ty.typ_desc with
+      | Typ_const (ty) when is_typ_ptr ty -> aux ((string "const ") :: l) ty
+      | Typ_ptr {ptr_kind = pt_k; inner_typ = ty} -> 
+        let d = begin match pt_k with
+        | Ptr_kind_mut -> star
+        | Ptr_kind_ref -> ampersand
+        end in
+        aux (d :: l) ty
+      | _ -> l
+    in
+    List.fold_left (fun d d1 -> d ^^ d1 ) empty (aux [] ty)
+  in
+  
   (* check if all the declarations are of the same type *)
   let ty = Xlist.fold_lefti (fun i acc (x, ty) -> 
-    if i = 0 
-      then  get_inner_type ty 
-      else 
-        let ty = get_inner_type ty in 
-        if ty <> acc 
-          then fail None "AstC_to_c.trm_let_mult_to_doc: all variables in trm_let_mult must have the same type."
-          else acc
-        ) (typ_unit ()) tvl 
-   in 
-  
+    let ty = get_inner_ptrs_and_consts ty in
+    if i = 0 then ty
+    else if ty <> acc then 
+      fail None "AstC_to_c.trm_let_mult_to_doc: all variables in trm_let_mult must have the same type."
+    else acc
+    ) (typ_unit ()) tvl 
+  in 
+
+  let dsemi = if semicolon then semi else empty in
   let dtx = typ_to_doc ty in
   let dtl = List.map2 (fun (v,ty) t ->
-    let ptr_ = match ty.typ_desc with 
-    | Typ_ptr {ptr_kind = pt_k; _} ->
-      begin match pt_k with 
-      | Ptr_kind_mut -> star
-      | Ptr_kind_ref -> ampersand
-      end
-    | _ -> empty in
+  let ptr_ = get_ptrs_and_consts_doc ty in
     if is_trm_uninitialized t
       then ptr_ ^^ string v
       else ptr_ ^^ string v ^^ equals ^^ decorate_trm t

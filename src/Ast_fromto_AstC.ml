@@ -100,6 +100,12 @@ let stackvar_elim (t : trm) : trm =
           trm_map aux t
         end
       end
+    | Trm_let_mult (_, tvl, tl) ->
+      List.iter2 (fun (x, ty) tbody -> 
+        let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
+        add_var env x xm
+      ) tvl tl;
+      trm_map aux t
     | Trm_seq _ when not (trm_is_nobrace_seq t) -> onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
       (* function names are by default immutable *)
@@ -152,6 +158,12 @@ let stackvar_intro (t : trm) : trm =
         | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
         end
       else trm_replace (Trm_let (vk, (x, tx), aux tbody)) t
+    | Trm_let_mult (_, tvl, tl) ->
+      List.iter2 (fun (x, ty) tbody -> 
+        let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
+        add_var env x xm
+      ) tvl tl;
+      trm_map aux t
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
