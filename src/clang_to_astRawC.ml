@@ -775,14 +775,8 @@ and tr_expr (e : expr) : trm =
 
       | _ -> fail loc "Clang_to_astRawC.tr_expr: only static casts are allowed"
     end
-  | New {placement_args = _; qual_type = q; array_size = seo; init = ieo} ->
+  | New {placement_args = _; qual_type = q; array_size = seo; init = _} ->
     let tq = tr_qual_type ~loc q in
-    begin match ieo with
-      | None -> ()
-      | Some _ ->
-        print_info loc
-          "tr_expr: ignoring initialisation in new statement\n"
-    end;
     begin match seo with
       | None -> trm_prim ~loc ~ctx (Prim_new tq)
       | Some se ->
@@ -1112,6 +1106,11 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
           | Record _ -> trm_add_cstyle Constructed_init (trm_apps f_name args)
           | _ -> tr_expr e
           end
+        | New { init = ieo; _ } ->
+          begin match ieo with
+          | Some (ie) -> trm_apps (tr_expr e) [(tr_expr ie)]
+          | None -> tr_expr e
+          end 
         | _ -> tr_expr e
         end
       end
