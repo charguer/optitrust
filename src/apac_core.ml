@@ -249,6 +249,54 @@ let sort_arg_dependencies (arg_deps : arg_deps) : sorted_arg_deps =
     | Dep_kind_source -> {acc with dep_source = dep :: acc.dep_source}
   ) empty_sort_arg arg_deps
 
+
+(* [vars_arg]: hashtable that stores variables that refer to an argument and the pointer depth of that argument. *)
+type vars_arg = (string, (int * int)) Hashtbl.t
+
+(* [get_inner_all_unop t]: unfold all unary operators. *)
+let rec get_inner_all_unop (t : trm) : trm =
+  match t.desc with
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) -> get_inner_all_unop t
+  | _ -> t
+
+(* [get_arg_idx_from_cptr_arith va t] : resolve pointer operation to get the pointer variable. 
+    If it is related to an argument of a function, returns the index of the corresponding argument. *)
+let get_arg_idx_from_cptr_arith (va : vars_arg) (t: trm) : int option =
+  let rec aux (depth : int) (t: trm) : int option =
+    match t.desc with
+    (* unop : progress deeper + update depth *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _ }, [t]) ->
+      begin match uo with
+      | Unop_get -> aux (depth-1) t
+      | Unop_address -> aux (depth+1) t
+      | Unop_cast ty -> aux (depth + get_cptr_depth ty) t
+      | _ -> None
+      end
+
+    (* binop array access : progress deeper + update depth *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _ }, 
+        [t; _]) -> aux (depth-1) t
+
+    (* binop : progress deeper + resolve left and right sides *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+      begin match (aux depth lhs, aux depth rhs) with
+      | Some(res), None -> Some(res)
+      | None, Some(res) -> Some(res)
+      | None, None -> None
+      | Some(_), Some(_) -> fail None "Should not happen : Binary operator between pointers" 
+      end
+
+    (* variable : resolve variable *)
+    | Trm_var (_ ,qv) ->
+      begin match Hashtbl.find_opt va qv.qvar_str with
+      | Some (arg_idx, d) when (d + depth) > 0 -> Some (arg_idx)
+      | _ -> None
+      end
+    
+    | _ -> None
+  in
+  aux 0 t
+
 (* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)
 let rec get_constified_arg_aux (ty : typ) : typ =
   let annot = ty.typ_annot in
@@ -287,7 +335,7 @@ let get_constified_arg (ty : typ) : typ =
     end
   | _ -> get_constified_arg_aux ty
 
-(* [constify_args t]: transforms the type of arguments of the function declaration in such a way that
+(* [constify_args_aux t]: transforms the type of arguments of the function declaration in such a way that
       "const" keywords are added whereever it is possible.
     [is_const] - list of booleans that tells if the argument should be constify. Its length must be the number of arguments.
     [t] - ast of the function definition. *)
@@ -305,6 +353,52 @@ let constify_args_aux (is_const : bool list) (t : trm) : trm =
 let constify_args (is_const : bool list) : Transfo.local =
   apply_on_path(constify_args_aux is_const)
 
+(* [constify_args_alias_aux t]: transforms the type of variable that refer to constified arguments in such way that
+      "const" keywords are added whereever it is possible.
+    [is_const] - list of booleans that tells if the argument is constified. Its length must be the number of arguments.
+    [t] - ast of the function definition. *)
+let constify_args_alias_aux (is_const : bool list) (t : trm) : trm =
+  let rec aux (va : vars_arg) (t :trm) : trm=
+    match t.desc with
+    (* new scope *)
+    | Trm_seq _ | Trm_for _ | Trm_for_c _ -> trm_map (aux (Hashtbl.copy va)) t
+    (* the syntax allows to declare variable in the condition statement 
+       but clangml currently cannot parse it *)
+    | Trm_if _ | Trm_switch _ | Trm_while _ -> trm_map (aux (Hashtbl.copy va)) t
+  
+    | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }) -> 
+      begin if trm_has_cstyle Reference t then
+        match (get_inner_all_unop tr).desc with
+        | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
+          let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
+          Hashtbl.add va lname (arg_idx, get_cptr_depth ty);
+          let ty = typ_ref (get_constified_arg (get_inner_ptr_type ty)) in
+          trm_let_mut (lname, ty) tr
+        | _ -> t
+      else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then 
+        match get_arg_idx_from_cptr_arith va tr with
+        | Some (arg_idx) -> 
+          Hashtbl.add va lname (arg_idx, get_cptr_depth ty); 
+          let ty = get_constified_arg (get_inner_ptr_type ty) in
+          trm_let_mut (lname, get_inner_const_type ty) tr
+        | None -> t
+      else t
+      end
+    | _ -> trm_map (aux va) t
+  in
+
+  match t.desc with
+  | Trm_let_fun (qvar, ret_typ, args, body) -> 
+    let is_const = if is_const = [] then List.init (List.length args) (fun _ -> true) else is_const in
+    let va : vars_arg= Hashtbl.create 10 in
+    (* Only add constified arguments *)
+    List.iteri (fun i (b, (var, ty)) -> if b then Hashtbl.add va var (i, (get_cptr_depth ty))) (List.combine is_const args);
+    trm_let_fun ~annot:t.annot ~loc:t.loc ~ctx:t.ctx ~qvar "" ret_typ args (aux va body)
+  | _ -> fail t.loc "Apac_core.constify_args expected a target to a function definition."
+
+(* [constify_args_alias is_const t p]: applies [constify_args_alias_aux] at the trm [t] with path [p]. *)
+let constify_args_alias (is_const : bool list) : Transfo.local =
+  apply_on_path(constify_args_alias_aux is_const)
 
 (* [array_typ_to_ptr_typ]: change Typ_array to Typ_ptr {ptr_kind = Ptr_kind_mut; _} *)
 let array_typ_to_ptr_typ (ty : typ) : typ =

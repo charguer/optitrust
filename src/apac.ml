@@ -105,9 +105,6 @@ let insert_tasks_for_taskable ?(indepth : bool = false) (tsk : taskable) (tg : t
   ) fixed_tg
 
 
-(* [vars_arg]: hashtable that stores variables that refer to an argument and the pointer depth of that argument. *)
-type vars_arg = (string, (int * int)) Hashtbl.t
-
 (* [arg_const]: record that stores information to constify or not the argument
     and other arguments that depend on this argument. *)
 type arg_const = {
@@ -172,11 +169,6 @@ let get_unary_mutation_qvar (t : trm) : qvar =
     end
   | _ -> empty_qvar
 
-(* [get_inner_all_unop t]: unfold all unary operators. *)
-let rec get_inner_all_unop (t : trm) : trm =
-  match t.desc with
-  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) -> get_inner_all_unop t
-  | _ -> t
 
 (* [constify_functions_arguments tg]: expect target [tg] to point at the root,
     then it will add "const" keyword whenever it is possible in functions arguments *) 
@@ -211,46 +203,6 @@ let constify_functions_arguments : Transfo.t =
       Stack.push (cur_fun, arg_idx) to_process;
     in
 
-    (* helper function : resolve pointer operation to get the pointer variable. If it is related to 
-       an argument of a function, returns the index of the corresponding argument. *)
-    let get_arg_idx_from_cptr_arith (va : vars_arg) (t: trm) : int option =
-      let rec aux (depth : int) (t: trm) : int option =
-        match t.desc with
-        (* unop : progress deeper + update depth *)
-        | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _ }, [t]) ->
-          begin match uo with
-          | Unop_get -> aux (depth-1) t
-          | Unop_address -> aux (depth+1) t
-          | Unop_cast ty -> aux (depth + Apac_core.get_cptr_depth ty) t
-          | _ -> None
-          end
-
-        (* binop array access : progress deeper + update depth *)
-        | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _ }, 
-            [t; _]) -> aux (depth-1) t
-
-        (* binop : progress deeper + resolve left and right sides *)
-        | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
-          begin match (aux depth lhs, aux depth rhs) with
-          | Some(res), None -> Some(res)
-          | None, Some(res) -> Some(res)
-          | None, None -> None
-          | Some(_), Some(_) -> fail None "Should not happen : Binary operator between pointers" 
-          end
-
-        (* variable : resolve variable *)
-        | Trm_var (_ ,qv) ->
-          begin match Hashtbl.find_opt va qv.qvar_str with
-          | Some (arg_idx, d) when (d + depth) > 0 -> Some (arg_idx)
-          | _ -> None
-          end
-        
-        | _ -> None
-      in
-
-      aux 0 t
-    in
-
 
     (* init fac *)
     List.iter (fun t ->
@@ -273,32 +225,33 @@ let constify_functions_arguments : Transfo.t =
       | Trm_seq _ | Trm_for _ | Trm_for_c _ -> 
         trm_iter (update_fac_and_to_process (Hashtbl.copy va) cur_fun) t
       (* the syntax allows to declare variable in the condition statement 
-         but Optitrust currently cannot parse it *)
+         but clangml currently cannot parse it *)
       | Trm_if _ | Trm_switch _ | Trm_while _ ->
         trm_iter (update_fac_and_to_process (Hashtbl.copy va) cur_fun) t
       
       (* funcall : update dependency_of *)
       | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ }, args) when Hashtbl.mem fac funcall_name.qvar_str -> 
         List.iteri (fun i t -> 
-          match (get_inner_all_unop t).desc with
+          match (Apac_core.get_inner_all_unop t).desc with
           | Trm_var (vk, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
             let (arg_idx, _) = Hashtbl.find va arg_name.qvar_str in
             let (acs, _) = Hashtbl.find fac funcall_name.qvar_str in
             let ac = List.nth acs i in 
             if ac.is_ptr_or_ref then ac.dependency_of <- (cur_fun, arg_idx) :: ac.dependency_of
-          | _ -> ()) args;
+          | _ -> ()
+          ) args;
         trm_iter (update_fac_and_to_process va cur_fun) t
       
       (* declare new ref/ptr that refer/point to argument : update vars_arg *)
       | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }) -> 
         begin if trm_has_cstyle Reference t then
-          match (get_inner_all_unop tr).desc with
+          match (Apac_core.get_inner_all_unop tr).desc with
           | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
             let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
             Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
           | _ -> ()
         else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then 
-          match get_arg_idx_from_cptr_arith va tr with
+          match Apac_core.get_arg_idx_from_cptr_arith va tr with
           | Some (arg_idx) -> Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
           | None -> ()
         end;
@@ -306,13 +259,13 @@ let constify_functions_arguments : Transfo.t =
       | Trm_let_mult (_, tvl, tl) ->
         List.iter2 (fun (lname, ty) t ->
           if is_reference ty then
-            match (get_inner_all_unop t).desc with
+            match (Apac_core.get_inner_all_unop t).desc with
             | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
               let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
               Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
             | _ -> ()
           else if is_typ_ptr (get_inner_const_type ty) then
-            match get_arg_idx_from_cptr_arith va t with
+            match Apac_core.get_arg_idx_from_cptr_arith va t with
             | Some (arg_idx) -> Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
             | None -> ()
           else ()
@@ -327,8 +280,9 @@ let constify_functions_arguments : Transfo.t =
           | Some (var_name, is_deref) when Hashtbl.mem va var_name ->
             let (_, depth) = Hashtbl.find va var_name in
             if depth = 0 || is_deref 
+              (* if reference or access pointer's data *)
               then add_elt_in_to_process va cur_fun var_name
-              else begin match get_arg_idx_from_cptr_arith va rhs with
+              else begin match Apac_core.get_arg_idx_from_cptr_arith va rhs with
               | Some (arg_idx) -> Hashtbl.replace va var_name (arg_idx, depth)
               | _ -> ()
               end
@@ -353,7 +307,7 @@ let constify_functions_arguments : Transfo.t =
           | _ -> ()
           end
         else if depth > 0 then 
-          begin match get_arg_idx_from_cptr_arith va tr with
+          begin match Apac_core.get_arg_idx_from_cptr_arith va tr with
           | Some (arg_idx) -> Stack.push (cur_fun, arg_idx) to_process
           | None -> ()
           end;
@@ -388,10 +342,11 @@ let constify_functions_arguments : Transfo.t =
     unconstify_propagate to_process;
 
 
-    (* make change in the ast *)
+    (* make changes in the ast *)
     Hashtbl.iter (fun fname (v, _) -> 
       let is_const : bool list = List.map (fun { is_const; _ } -> is_const) v in
-      constify_args ~is_const [nbMulti; cTopFunDefAndDecl fname]
+      constify_args ~is_const [nbAny; cTopFunDefAndDecl fname];
+      constify_args_alias ~is_const [cFunDef fname]
       ) fac
   )
 
