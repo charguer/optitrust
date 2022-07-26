@@ -243,32 +243,20 @@ let constify_functions_arguments : Transfo.t =
         trm_iter (update_fac_and_to_process va cur_fun) t
       
       (* declare new ref/ptr that refer/point to argument : update vars_arg *)
-      | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }) -> 
-        begin if trm_has_cstyle Reference t then
-          match (Apac_core.get_inner_all_unop tr).desc with
-          | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
-            let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
-            Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
-          | _ -> ()
-        else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then 
-          match Apac_core.get_arg_idx_from_cptr_arith va tr with
-          | Some (arg_idx) -> Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
-          | None -> ()
-        end;
+      | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }) -> 
+        Apac_core.update_vars_arg_on_trm_let 
+          (fun () -> ()) 
+          (fun () -> ()) 
+          (fun () -> ()) 
+          va t;
         trm_iter (update_fac_and_to_process va cur_fun) t
       | Trm_let_mult (_, tvl, tl) ->
         List.iter2 (fun (lname, ty) t ->
-          if is_reference ty then
-            match (Apac_core.get_inner_all_unop t).desc with
-            | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
-              let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
-              Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
-            | _ -> ()
-          else if is_typ_ptr (get_inner_const_type ty) then
-            match Apac_core.get_arg_idx_from_cptr_arith va t with
-            | Some (arg_idx) -> Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
-            | None -> ()
-          else ()
+          Apac_core.update_vars_arg_on_trm_let_mult_iter
+            (fun () -> ()) 
+            (fun () -> ()) 
+            (fun () -> ())
+            va lname ty t
         ) tvl tl;
         trm_iter (update_fac_and_to_process va cur_fun) t
       

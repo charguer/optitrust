@@ -250,53 +250,6 @@ let sort_arg_dependencies (arg_deps : arg_deps) : sorted_arg_deps =
   ) empty_sort_arg arg_deps
 
 
-(* [vars_arg]: hashtable that stores variables that refer to an argument and the pointer depth of that argument. *)
-type vars_arg = (string, (int * int)) Hashtbl.t
-
-(* [get_inner_all_unop t]: unfold all unary operators. *)
-let rec get_inner_all_unop (t : trm) : trm =
-  match t.desc with
-  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) -> get_inner_all_unop t
-  | _ -> t
-
-(* [get_arg_idx_from_cptr_arith va t] : resolve pointer operation to get the pointer variable. 
-    If it is related to an argument of a function, returns the index of the corresponding argument. *)
-let get_arg_idx_from_cptr_arith (va : vars_arg) (t: trm) : int option =
-  let rec aux (depth : int) (t: trm) : int option =
-    match t.desc with
-    (* unop : progress deeper + update depth *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _ }, [t]) ->
-      begin match uo with
-      | Unop_get -> aux (depth-1) t
-      | Unop_address -> aux (depth+1) t
-      | Unop_cast ty -> aux (depth + get_cptr_depth ty) t
-      | _ -> None
-      end
-
-    (* binop array access : progress deeper + update depth *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _ }, 
-        [t; _]) -> aux (depth-1) t
-
-    (* binop : progress deeper + resolve left and right sides *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
-      begin match (aux depth lhs, aux depth rhs) with
-      | Some(res), None -> Some(res)
-      | None, Some(res) -> Some(res)
-      | None, None -> None
-      | Some(_), Some(_) -> fail None "Should not happen : Binary operator between pointers" 
-      end
-
-    (* variable : resolve variable *)
-    | Trm_var (_ ,qv) ->
-      begin match Hashtbl.find_opt va qv.qvar_str with
-      | Some (arg_idx, d) when (d + depth) > 0 -> Some (arg_idx)
-      | _ -> None
-      end
-    
-    | _ -> None
-  in
-  aux 0 t
-
 (* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)
 let rec get_constified_arg_aux (ty : typ) : typ =
   let annot = ty.typ_annot in
@@ -353,6 +306,108 @@ let constify_args_aux (is_const : bool list) (t : trm) : trm =
 let constify_args (is_const : bool list) : Transfo.local =
   apply_on_path(constify_args_aux is_const)
 
+
+(* [vars_arg]: hashtable that stores variables that refer to an argument and the pointer depth of that argument. *)
+type vars_arg = (string, (int * int)) Hashtbl.t
+
+(* [get_inner_all_unop t]: unfold all unary operators. *)
+let rec get_inner_all_unop (t : trm) : trm =
+  match t.desc with
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) -> get_inner_all_unop t
+  | _ -> t
+
+(* [get_arg_idx_from_cptr_arith va t] : resolve pointer operation to get the pointer variable. 
+    If it is related to an argument of a function, returns the index of the corresponding argument. *)
+let get_arg_idx_from_cptr_arith (va : vars_arg) (t: trm) : int option =
+  let rec aux (depth : int) (t: trm) : int option =
+    match t.desc with
+    (* unop : progress deeper + update depth *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _ }, [t]) ->
+      begin match uo with
+      | Unop_get -> aux (depth-1) t
+      | Unop_address -> aux (depth+1) t
+      | Unop_cast ty -> aux (depth + get_cptr_depth ty) t
+      | _ -> None
+      end
+
+    (* binop array access : progress deeper + update depth *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _ }, 
+        [t; _]) -> aux (depth-1) t
+
+    (* binop : progress deeper + resolve left and right sides *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+      begin match (aux depth lhs, aux depth rhs) with
+      | Some(res), None -> Some(res)
+      | None, Some(res) -> Some(res)
+      | None, None -> None
+      | Some(_), Some(_) -> fail None "Should not happen : Binary operator between pointers" 
+      end
+
+    (* variable : resolve variable *)
+    | Trm_var (_ ,qv) ->
+      begin match Hashtbl.find_opt va qv.qvar_str with
+      | Some (arg_idx, d) when (d + depth) > 0 -> Some (arg_idx)
+      | _ -> None
+      end
+    
+    | _ -> None
+  in
+  aux 0 t
+
+(* [update_vars_arg_on_trm_let on_ref on_ptr on_other va t]: 
+      It will add the variable to [va] if it is a reference or a pointer to an argument, 
+      then it will call the corresponding callback.
+    [va] : vars_arg which stores the arguments
+    [t] : trm of a variable declaration
+    [on_ref] : callback if the variable is a reference to an argument
+    [on_ptr] : callback if the variable is a pointer to an argument
+    [on_other] : callback for the remaining cases *)
+let update_vars_arg_on_trm_let (on_ref : unit -> 'a) (on_ptr : unit -> 'a) (on_other : unit -> 'a) (va : vars_arg) (t: trm) : 'a =
+  match t.desc with
+  | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }) -> 
+    if trm_has_cstyle Reference t then
+      match (get_inner_all_unop tr).desc with
+      | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
+        let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
+        Hashtbl.add va lname (arg_idx, get_cptr_depth ty);
+        on_ref()
+      | _ -> on_other()
+    else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then 
+      match get_arg_idx_from_cptr_arith va tr with
+      | Some (arg_idx) -> 
+        Hashtbl.add va lname (arg_idx, get_cptr_depth ty);
+        on_ptr()
+      | None -> on_other()
+    else on_other()
+  | _ -> fail None "Apac_core.update_vars_arg_on_trm_let: expect [t] to be a variable declaration"
+
+(* [update_vars_arg_on_trm_let on_ref on_ptr on_other va t]: 
+      It will add the variable to [va] if it is a reference or a pointer to an argument, 
+      then it will call the corresponding callback.
+    [va] : vars_arg which stores the arguments
+    [name] : name of the variable
+    [ty] : type of the variable
+    [t] : trm of the right side of the "-" (rvalue)
+    [on_ref] : callback if the variable is a reference to an argument
+    [on_ptr] : callback if the variable is a pointer to an argument
+    [on_other] : callback for the remaining cases *)
+let update_vars_arg_on_trm_let_mult_iter (on_ref : unit -> 'a) (on_ptr : unit -> 'a) (on_other : unit -> 'a) 
+    (va : vars_arg) (name : var) (ty : typ) (t: trm) : 'a =
+  if is_reference ty then
+    match (get_inner_all_unop t).desc with
+    | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
+      let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
+      Hashtbl.add va name (arg_idx, get_cptr_depth ty);
+      on_ref()
+    | _ -> on_other()
+  else if is_typ_ptr (get_inner_const_type ty) then
+    match get_arg_idx_from_cptr_arith va t with
+    | Some (arg_idx) -> 
+      Hashtbl.add va name (arg_idx, get_cptr_depth ty);
+      on_ptr()
+    | None -> on_other()
+  else on_other()
+
 (* [constify_args_alias_aux t]: transforms the type of variable that refer to constified arguments in such way that
       "const" keywords are added wherever it is possible.
       Note : It will fail if it has to partially constify a Trm_let_mult.
@@ -368,44 +423,21 @@ let constify_args_alias_aux (is_const : bool list) (t : trm) : trm =
     | Trm_if _ | Trm_switch _ | Trm_while _ -> trm_map (aux (Hashtbl.copy va)) t
   
     | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }) -> 
-      begin if trm_has_cstyle Reference t then
-        match (get_inner_all_unop tr).desc with
-        | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
-          let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
-          Hashtbl.add va lname (arg_idx, get_cptr_depth ty);
-          let ty = typ_ref (get_constified_arg (get_inner_ptr_type ty)) in
-          trm_let_mut (lname, ty) tr
-        | _ -> t
-      else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then 
-        match get_arg_idx_from_cptr_arith va tr with
-        | Some (arg_idx) -> 
-          Hashtbl.add va lname (arg_idx, get_cptr_depth ty); 
-          let ty = get_constified_arg (get_inner_ptr_type ty) in
-          trm_let_mut (lname, get_inner_const_type ty) tr
-        | None -> t
-      else t
-      end
+      update_vars_arg_on_trm_let 
+        (fun () -> let ty = typ_ref (get_constified_arg (get_inner_ptr_type ty)) in trm_let_mut (lname, ty) tr) 
+        (fun () -> let ty = get_constified_arg (get_inner_ptr_type ty) in trm_let_mut (lname, get_inner_const_type ty) tr) 
+        (fun () -> t) 
+        va t 
     
     | Trm_let_mult (vk, tvl, tl) ->
       (* fail if partial constify : more than zero, less than all *)
       let is_mutated = ref false in
       let l = List.map2 (fun (lname, ty) t ->
-        if is_reference ty then
-          match (get_inner_all_unop t).desc with
-          | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
-            let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
-            Hashtbl.add va lname (arg_idx, get_cptr_depth ty);
-            is_mutated := true;
-            ((lname, get_constified_arg ty), t)
-          | _ -> if !is_mutated then fail None "Apac_core.constify_args_alias_aux: Trm_let_mult partial constify" else ((lname, ty), t)
-        else if is_typ_ptr (get_inner_const_type ty) then
-          match get_arg_idx_from_cptr_arith va t with
-          | Some (arg_idx) -> 
-            Hashtbl.add va lname (arg_idx, get_cptr_depth ty); 
-            is_mutated := true;
-            ((lname, get_constified_arg ty), t)
-          | None -> if !is_mutated then fail None "Apac_core.constify_args_alias_aux: Trm_let_mult partial constify" else ((lname, ty), t)
-        else if !is_mutated then fail None "Apac_core.constify_args_alias_aux: Trm_let_mult partial constify" else ((lname, ty), t)
+        update_vars_arg_on_trm_let_mult_iter
+          (fun () -> is_mutated := true; ((lname, get_constified_arg ty), t))
+          (fun () -> is_mutated := true; ((lname, get_constified_arg ty), t))
+          (fun () -> if !is_mutated then fail None "Apac_core.constify_args_alias_aux: Trm_let_mult partial constify" else ((lname, ty), t))
+          va lname ty t
       ) tvl tl in
       let (tvl, tl) = List.split l in
       trm_let_mult vk tvl tl
