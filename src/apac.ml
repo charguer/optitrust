@@ -290,24 +290,33 @@ let constify_functions_arguments : Transfo.t =
         trm_iter (update_fac_and_to_process va cur_fun) t
       
       (* declare new ref/ptr that refer/point to argument : update vars_arg *)
-      (* TODO : handle multiple variable declaration *)
       | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }) -> 
-        let arg_idx = 
-          if trm_has_cstyle Reference t then
-            begin match (get_inner_all_unop tr).desc with
+        begin if trm_has_cstyle Reference t then
+          match (get_inner_all_unop tr).desc with
+          | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
+            let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
+            Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
+          | _ -> ()
+        else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then 
+          match get_arg_idx_from_cptr_arith va tr with
+          | Some (arg_idx) -> Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
+          | None -> ()
+        end;
+        trm_iter (update_fac_and_to_process va cur_fun) t
+      | Trm_let_mult (_, tvl, tl) ->
+        List.iter2 (fun (lname, ty) t ->
+          if is_reference ty then
+            match (get_inner_all_unop t).desc with
             | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
               let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
-              Some(arg_idx)
-            | _ -> None
-            end
-          else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then 
-            get_arg_idx_from_cptr_arith va tr
-          else None
-        in
-        begin match arg_idx with
-        | Some (idx) -> Hashtbl.add va lname (idx, Apac_core.get_cptr_depth ty)
-        | None -> ()
-        end;
+              Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
+            | _ -> ()
+          else if is_typ_ptr (get_inner_const_type ty) then
+            match get_arg_idx_from_cptr_arith va t with
+            | Some (arg_idx) -> Hashtbl.add va lname (arg_idx, get_cptr_depth ty)
+            | None -> ()
+          else ()
+        ) tvl tl;
         trm_iter (update_fac_and_to_process va cur_fun) t
       
       (* assignment & compound assignment to argument : update to_process *)

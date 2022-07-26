@@ -64,3 +64,9 @@ void n5(int * a, int & b, int c) {
     int * d = n2(a, c);
     int & e = n4(b, c);
 }
+
+void o(int a, int b, int c) {
+    int &d=a, *e=&b;
+    d = 1;
+    *e = 1;
+}
