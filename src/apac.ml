@@ -174,7 +174,7 @@ let get_unary_mutation_qvar (t : trm) : qvar =
     then it will add "const" keyword whenever it is possible in functions arguments *) 
 let constify_functions_arguments : Transfo.t = 
   (* TODO : handle namespace *)
-  (* TODO : handle let_mult *)
+  (* TODO : better handle include files *)
   iter_on_targets (fun t p ->
     let tg_trm = Path.get_trm_at_path p t in
     let fac : fun_args_const = Hashtbl.create 10 in 

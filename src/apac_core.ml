@@ -336,7 +336,7 @@ let get_constified_arg (ty : typ) : typ =
   | _ -> get_constified_arg_aux ty
 
 (* [constify_args_aux t]: transforms the type of arguments of the function declaration in such a way that
-      "const" keywords are added whereever it is possible.
+      "const" keywords are added wherever it is possible.
     [is_const] - list of booleans that tells if the argument should be constify. Its length must be the number of arguments.
     [t] - ast of the function definition. *)
 let constify_args_aux (is_const : bool list) (t : trm) : trm =
@@ -354,7 +354,8 @@ let constify_args (is_const : bool list) : Transfo.local =
   apply_on_path(constify_args_aux is_const)
 
 (* [constify_args_alias_aux t]: transforms the type of variable that refer to constified arguments in such way that
-      "const" keywords are added whereever it is possible.
+      "const" keywords are added wherever it is possible.
+      Note : It will fail if it has to partially constify a Trm_let_mult.
     [is_const] - list of booleans that tells if the argument is constified. Its length must be the number of arguments.
     [t] - ast of the function definition. *)
 let constify_args_alias_aux (is_const : bool list) (t : trm) : trm =
@@ -384,6 +385,30 @@ let constify_args_alias_aux (is_const : bool list) (t : trm) : trm =
         | None -> t
       else t
       end
+    
+    | Trm_let_mult (vk, tvl, tl) ->
+      (* fail if partial constify : more than zero, less than all *)
+      let is_mutated = ref false in
+      let l = List.map2 (fun (lname, ty) t ->
+        if is_reference ty then
+          match (get_inner_all_unop t).desc with
+          | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
+            let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
+            Hashtbl.add va lname (arg_idx, get_cptr_depth ty);
+            is_mutated := true;
+            ((lname, get_constified_arg ty), t)
+          | _ -> if !is_mutated then fail None "Apac_core.constify_args_alias_aux: Trm_let_mult partial constify" else ((lname, ty), t)
+        else if is_typ_ptr (get_inner_const_type ty) then
+          match get_arg_idx_from_cptr_arith va t with
+          | Some (arg_idx) -> 
+            Hashtbl.add va lname (arg_idx, get_cptr_depth ty); 
+            is_mutated := true;
+            ((lname, get_constified_arg ty), t)
+          | None -> if !is_mutated then fail None "Apac_core.constify_args_alias_aux: Trm_let_mult partial constify" else ((lname, ty), t)
+        else if !is_mutated then fail None "Apac_core.constify_args_alias_aux: Trm_let_mult partial constify" else ((lname, ty), t)
+      ) tvl tl in
+      let (tvl, tl) = List.split l in
+      trm_let_mult vk tvl tl
     | _ -> trm_map (aux va) t
   in
 
@@ -399,6 +424,7 @@ let constify_args_alias_aux (is_const : bool list) (t : trm) : trm =
 (* [constify_args_alias is_const t p]: applies [constify_args_alias_aux] at the trm [t] with path [p]. *)
 let constify_args_alias (is_const : bool list) : Transfo.local =
   apply_on_path(constify_args_alias_aux is_const)
+
 
 (* [array_typ_to_ptr_typ]: change Typ_array to Typ_ptr {ptr_kind = Ptr_kind_mut; _} *)
 let array_typ_to_ptr_typ (ty : typ) : typ =
