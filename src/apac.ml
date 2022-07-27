@@ -186,13 +186,13 @@ let constify_functions_arguments : Transfo.t =
     (* get the list of function declarations trms *)
     let rec get_fun_decls (t : trm) : trm list =
       match t.desc with
-      | Trm_seq ml -> Mlist.fold_left (fun acc t -> 
+      | Trm_seq tl -> Mlist.fold_left (fun acc t -> 
         match t.desc with
         | Trm_let_fun _ -> t :: acc
         | _ when List.exists (function | Include _ -> true | _ -> false) (trm_get_files_annot t) ->
             (get_fun_decls t) @ acc
         | _ -> acc 
-        ) [] ml
+        ) [] tl
       | _ -> fail None "Expect dRoot target"
     in
       
@@ -228,89 +228,102 @@ let constify_functions_arguments : Transfo.t =
 
 
     (* update fac dependency_of and fill to_process *)
-    let rec update_fac_and_to_process (va : vars_arg) (cur_fun : string) (t : trm) : unit =
-      match t.desc with
-      (* new scope *)
-      | Trm_seq _ | Trm_for _ | Trm_for_c _ -> 
-        trm_iter (update_fac_and_to_process (Hashtbl.copy va) cur_fun) t
-      (* the syntax allows to declare variable in the condition statement 
-         but clangml currently cannot parse it *)
-      | Trm_if _ | Trm_switch _ | Trm_while _ ->
-        trm_iter (update_fac_and_to_process (Hashtbl.copy va) cur_fun) t
-      
-      (* funcall : update dependency_of *)
-      | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ }, args) when Hashtbl.mem fac funcall_name.qvar_str -> 
-        List.iteri (fun i t -> 
-          match (Apac_core.get_inner_all_unop t).desc with
-          | Trm_var (vk, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
-            let (arg_idx, _) = Hashtbl.find va arg_name.qvar_str in
-            let (acs, _) = Hashtbl.find fac funcall_name.qvar_str in
-            let ac = List.nth acs i in 
-            if ac.is_ptr_or_ref then ac.dependency_of <- (cur_fun, arg_idx) :: ac.dependency_of
-          | _ -> ()
-          ) args;
-        trm_iter (update_fac_and_to_process va cur_fun) t
-      
-      (* declare new ref/ptr that refer/point to argument : update vars_arg *)
-      | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }) -> 
-        Apac_core.update_vars_arg_on_trm_let 
-          (fun () -> ()) 
-          (fun () -> ()) 
-          (fun () -> ()) 
-          va t;
-        trm_iter (update_fac_and_to_process va cur_fun) t
-      | Trm_let_mult (_, tvl, tl) ->
-        List.iter2 (fun (lname, ty) t ->
-          Apac_core.update_vars_arg_on_trm_let_mult_iter
+    let update_fac_and_to_process (va : vars_arg) (cur_fun : string) (t : trm) : unit =
+      let rec aux (va : vars_arg) (ns : string) (t : trm) : unit =
+        match t.desc with
+        (* new scope *)
+        | Trm_seq _ | Trm_for _ | Trm_for_c _ -> 
+          trm_iter (aux (Hashtbl.copy va) ns) t
+        (* the syntax allows to declare variable in the condition statement 
+        but clangml currently cannot parse it *)
+        | Trm_if _ | Trm_switch _ | Trm_while _ ->
+          trm_iter (aux (Hashtbl.copy va) ns) t
+        
+        (* new namespaces *)
+        | Trm_namespace (name, body, is_inline) -> trm_iter (aux (Hashtbl.copy va) (ns ^ "::" ^ name)) t
+        | Trm_typedef td -> 
+          let ns = begin match td.typdef_body with 
+          | Typdef_record _ -> ns ^ "::" ^ td.typdef_tconstr
+          | _ -> ns
+          end in
+          trm_iter (aux (Hashtbl.copy va) ns) t
+        
+        (* funcall : update dependency_of *)
+        | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ }, args) when Hashtbl.mem fac funcall_name.qvar_str -> 
+          List.iteri (fun i t -> 
+            match (Apac_core.get_inner_all_unop t).desc with
+            | Trm_var (vk, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
+              let (arg_idx, _) = Hashtbl.find va arg_name.qvar_str in
+              let (acs, _) = Hashtbl.find fac funcall_name.qvar_str in
+              let ac = List.nth acs i in 
+              if ac.is_ptr_or_ref then ac.dependency_of <- (cur_fun, arg_idx) :: ac.dependency_of
+            | _ -> ()
+            ) args;
+          trm_iter (aux va ns) t
+        
+        (* declare new ref/ptr that refer/point to argument : update vars_arg *)
+        | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }) -> 
+          Apac_core.update_vars_arg_on_trm_let 
             (fun () -> ()) 
             (fun () -> ()) 
-            (fun () -> ())
-            va lname ty t
-        ) tvl tl;
-        trm_iter (update_fac_and_to_process va cur_fun) t
-      
-      (* assignment & compound assignment to argument : update to_process *)
-      | Trm_apps _ when is_set_operation t -> 
-        begin match set_inv t with 
-        | Some (lhs, rhs) -> 
-          begin match get_binop_set_left_var lhs with
-          | Some (var_name, is_deref) when Hashtbl.mem va var_name ->
-            let (_, depth) = Hashtbl.find va var_name in
-            if depth = 0 || is_deref 
-              (* if reference or access pointer's data *)
-              then add_elt_in_to_process va cur_fun var_name
-              else begin match Apac_core.get_arg_idx_from_cptr_arith va rhs with
-              | Some (arg_idx) -> Hashtbl.add va var_name (arg_idx, depth)
-              | _ -> ()
-              end
-          | _ -> () (* example variable not in va : global variable *)  
-          end
-        | None -> assert false
-        end;
-        trm_iter (update_fac_and_to_process va cur_fun) t
-          
-      (* mutable unary operator (++, --) : update to_process *)
-      | Trm_apps _ when is_unary_mutation t ->
-        let name = get_unary_mutation_qvar t in
-        if Hashtbl.mem va name.qvar_str then add_elt_in_to_process va cur_fun name.qvar_str;
-        trm_iter (update_fac_and_to_process va cur_fun) t
-
-      (* return argument : update to_process if return ref or ptr *)
-      | Trm_abort (Ret (Some tr)) -> 
-        let (_, (depth, is_ref)) = Hashtbl.find fac cur_fun in
-        if is_ref then 
-          begin match trm_var_inv tr with
-          | Some (a, var_name) when Hashtbl.mem va var_name -> add_elt_in_to_process va cur_fun var_name
-          | _ -> ()
-          end
-        else if depth > 0 then 
-          begin match Apac_core.get_arg_idx_from_cptr_arith va tr with
-          | Some (arg_idx) -> Stack.push (cur_fun, arg_idx) to_process
-          | None -> ()
+            (fun () -> ()) 
+            va t;
+          trm_iter (aux va ns) t
+        | Trm_let_mult (_, tvl, tl) ->
+          List.iter2 (fun (lname, ty) t ->
+            Apac_core.update_vars_arg_on_trm_let_mult_iter
+              (fun () -> ()) 
+              (fun () -> ()) 
+              (fun () -> ())
+              va lname ty t
+          ) tvl tl;
+          trm_iter (aux va ns) t
+        
+        (* assignment & compound assignment to argument : update to_process *)
+        | Trm_apps _ when is_set_operation t -> 
+          begin match set_inv t with 
+          | Some (lhs, rhs) -> 
+            begin match get_binop_set_left_var lhs with
+            | Some (var_name, is_deref) when Hashtbl.mem va var_name ->
+              let (_, depth) = Hashtbl.find va var_name in
+              if depth = 0 || is_deref 
+                (* if reference or access pointer's data *)
+                then add_elt_in_to_process va cur_fun var_name
+                else begin match Apac_core.get_arg_idx_from_cptr_arith va rhs with
+                | Some (arg_idx) -> Hashtbl.add va var_name (arg_idx, depth)
+                | _ -> ()
+                end
+            | _ -> () (* example variable not in va : global variable *)  
+            end
+          | None -> assert false
           end;
-        trm_iter (update_fac_and_to_process va cur_fun) t
-      
-      | _ -> trm_iter (update_fac_and_to_process va cur_fun) t
+          trm_iter (aux va ns) t
+            
+        (* mutable unary operator (++, --) : update to_process *)
+        | Trm_apps _ when is_unary_mutation t ->
+          let name = get_unary_mutation_qvar t in
+          if Hashtbl.mem va name.qvar_str then add_elt_in_to_process va cur_fun name.qvar_str;
+          trm_iter (aux va ns) t
+
+        (* return argument : update to_process if return ref or ptr *)
+        | Trm_abort (Ret (Some tr)) -> 
+          let (_, (depth, is_ref)) = Hashtbl.find fac cur_fun in
+          if is_ref then 
+            begin match trm_var_inv tr with
+            | Some (a, var_name) when Hashtbl.mem va var_name -> add_elt_in_to_process va cur_fun var_name
+            | _ -> ()
+            end
+          else if depth > 0 then 
+            begin match Apac_core.get_arg_idx_from_cptr_arith va tr with
+            | Some (arg_idx) -> Stack.push (cur_fun, arg_idx) to_process
+            | None -> ()
+            end;
+          trm_iter (aux va ns) t
+        
+        | _ -> trm_iter (aux va ns) t
+      in
+
+      aux va "" t
     in
 
     List.iter (fun t ->
