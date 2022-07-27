@@ -108,17 +108,23 @@ let insert_tasks_for_taskable ?(indepth : bool = false) (tsk : taskable) (tg : t
 (* [arg_const]: record that stores information to constify or not the argument
     and other arguments that depend on this argument. *)
 type arg_const = {
-  is_ptr_or_ref : bool;
-  mutable is_arg_const : bool;
-  mutable dependency_of : (string * int) list;
+  is_ptr_or_ref : bool;                         (* is the argument a refrence or pointer? *)
+  mutable is_arg_const : bool;                  (* should the argument be constified? *)
+  mutable dependency_of : (string * int) list;  (* list of other arguments that depend on this argument *)
+  tid : typconstrid option;                     (* typedef id of the type if it is a record *)
 }
 
-(* [args_const]: a list of args_const *)
-type args_const = arg_const list
+(* [fun_const]: record that stores information to constify or not the function and its arguments.*)
+type fun_const = {
+  args_const : arg_const list; 
+  ret_ptr_depth : int;          (* depth of pointer of the return type *)
+  is_ret_ref : bool;            (* is the return type a reference? *)
+  mutable is_fun_const : bool;  (* should the method be constified? *)
+}
 
-(* [fun_args_const]: hashtable that store the [args_const] of functions, 
-    the pointer depth of the return type and if the return type is a reference. *)
-type fun_args_const = (string, (args_const * (int * bool))) Hashtbl.t
+(* [fun_args_const]: hashtable that store the [fun_const] of functions.
+    The key of the hashtable is the function's name and its path.*)
+type fun_args_const = ((string * string list), fun_const) Hashtbl.t
 
 (* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
 let is_cptr_or_ref (ty : typ) : bool =
@@ -184,16 +190,27 @@ let constify_functions_arguments : Transfo.t =
 
 
     (* get the list of function declarations trms *)
-    let rec get_fun_decls (t : trm) : trm list =
-      match t.desc with
-      | Trm_seq tl -> Mlist.fold_left (fun acc t -> 
+    let get_fun_decls (t : trm) : (trm * string list) list =
+      let rec aux (ns : string list) (t : trm) : (trm * string list) list =
         match t.desc with
-        | Trm_let_fun _ -> t :: acc
-        | _ when List.exists (function | Include _ -> true | _ -> false) (trm_get_files_annot t) ->
-            (get_fun_decls t) @ acc
-        | _ -> acc 
-        ) [] tl
-      | _ -> fail None "Expect dRoot target"
+        | Trm_seq tl -> Mlist.fold_left (fun acc t -> 
+          match t.desc with
+          | Trm_let_fun _ -> (t, ns) :: acc
+          | Trm_namespace (name, body, is_inline) -> (aux (name :: ns) body)
+          | Trm_typedef td -> 
+            begin match td.typdef_body with 
+            | Typdef_record _ -> 
+              let ns = td.typdef_tconstr :: ns in 
+              acc @ (List.fold_left (fun acc tr -> (tr, ns) :: acc) [] (typedef_get_methods t))
+            | _ -> acc
+            end
+          | _ when List.exists (function | Include _ -> true | _ -> false) (trm_get_files_annot t) ->
+            acc @ (aux ns t)
+          | _ -> acc
+          ) [] tl
+        | _ -> fail None "Expect dRoot target"
+      in
+      aux [] t
     in
       
     let fun_decls = get_fun_decls tg_trm in
@@ -214,22 +231,27 @@ let constify_functions_arguments : Transfo.t =
 
 
     (* init fac *)
-    List.iter (fun t ->
+    List.iter (fun (t, ns) ->
       match t.desc with
       | Trm_let_fun (qv, ty, args, _) ->
-        let acs : args_const = List.map 
-        (fun (_, ty) -> { 
-          is_ptr_or_ref = is_cptr_or_ref ty ;
-          is_arg_const = true; 
-          dependency_of = [] }) args in
-        Hashtbl.add fac qv.qvar_str (acs, (Apac_core.get_cptr_depth ty, is_reference ty))
+        let acs = List.map (fun (_, ty) -> { 
+            is_ptr_or_ref = is_cptr_or_ref ty ;
+            is_arg_const = true; 
+            dependency_of = [];
+            tid = Context.record_typ_to_typid ty;}
+          ) args in
+        Hashtbl.add fac(qv.qvar_var, ns) {
+          args_const = acs; 
+          ret_ptr_depth = Apac_core.get_cptr_depth ty; 
+          is_ret_ref = is_reference ty; 
+          is_fun_const = true }
       | _ -> fail None "Should not happen"
       ) fun_decls;
 
 
     (* update fac dependency_of and fill to_process *)
     let update_fac_and_to_process (va : vars_arg) (cur_fun : string) (t : trm) : unit =
-      let rec aux (va : vars_arg) (ns : string) (t : trm) : unit =
+      let rec aux (va : vars_arg) (ns : string list) (t : trm) : unit =
         match t.desc with
         (* new scope *)
         | Trm_seq _ | Trm_for _ | Trm_for_c _ -> 
@@ -240,22 +262,22 @@ let constify_functions_arguments : Transfo.t =
           trm_iter (aux (Hashtbl.copy va) ns) t
         
         (* new namespaces *)
-        | Trm_namespace (name, body, is_inline) -> trm_iter (aux (Hashtbl.copy va) (ns ^ "::" ^ name)) t
+        | Trm_namespace (name, body, is_inline) -> trm_iter (aux (Hashtbl.copy va) (name :: ns)) t
         | Trm_typedef td -> 
           let ns = begin match td.typdef_body with 
-          | Typdef_record _ -> ns ^ "::" ^ td.typdef_tconstr
+          | Typdef_record _ -> td.typdef_tconstr :: ns
           | _ -> ns
           end in
           trm_iter (aux (Hashtbl.copy va) ns) t
         
         (* funcall : update dependency_of *)
-        | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ }, args) when Hashtbl.mem fac funcall_name.qvar_str -> 
+        | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ }, args) when Hashtbl.mem fac (funcall_name.qvar_var, ns) -> 
           List.iteri (fun i t -> 
             match (Apac_core.get_inner_all_unop t).desc with
             | Trm_var (vk, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
               let (arg_idx, _) = Hashtbl.find va arg_name.qvar_str in
-              let (acs, _) = Hashtbl.find fac funcall_name.qvar_str in
-              let ac = List.nth acs i in 
+              let {args_const; _} = Hashtbl.find fac (funcall_name.qvar_var, ns) in
+              let ac = List.nth args_const i in 
               if ac.is_ptr_or_ref then ac.dependency_of <- (cur_fun, arg_idx) :: ac.dependency_of
             | _ -> ()
             ) args;
@@ -307,13 +329,13 @@ let constify_functions_arguments : Transfo.t =
 
         (* return argument : update to_process if return ref or ptr *)
         | Trm_abort (Ret (Some tr)) -> 
-          let (_, (depth, is_ref)) = Hashtbl.find fac cur_fun in
-          if is_ref then 
+          let {ret_ptr_depth; is_ret_ref; _} = Hashtbl.find fac (cur_fun, ns) in
+          if is_ret_ref then 
             begin match trm_var_inv tr with
             | Some (a, var_name) when Hashtbl.mem va var_name -> add_elt_in_to_process va cur_fun var_name
             | _ -> ()
             end
-          else if depth > 0 then 
+          else if ret_ptr_depth > 0 then 
             begin match Apac_core.get_arg_idx_from_cptr_arith va tr with
             | Some (arg_idx) -> Stack.push (cur_fun, arg_idx) to_process
             | None -> ()
@@ -323,10 +345,10 @@ let constify_functions_arguments : Transfo.t =
         | _ -> trm_iter (aux va ns) t
       in
 
-      aux va "" t
+      aux va [] t
     in
 
-    List.iter (fun t ->
+    List.iter (fun (t, ns) ->
       let va = Hashtbl.create 10 in
       match t.desc with
       | Trm_let_fun (qv, _, args, body) ->
@@ -341,8 +363,8 @@ let constify_functions_arguments : Transfo.t =
       match Stack.pop_opt to_process with
       | None -> ()
       | Some (fname, nth) -> 
-        let (acs, _) = Hashtbl.find fac fname in
-        let ac : arg_const = List.nth acs nth in
+        let {args_const; _} = Hashtbl.find fac (fname ,[]) in (* TO_CHANGE *)
+        let ac : arg_const = List.nth args_const nth in
         if ac.is_arg_const then begin
           ac.is_arg_const <- false; 
           List.iter (fun e -> Stack.push e to_process) ac.dependency_of 
@@ -353,8 +375,8 @@ let constify_functions_arguments : Transfo.t =
 
 
     (* make changes in the ast *)
-    Hashtbl.iter (fun fname (v, _) -> 
-      let is_const : bool list = List.map (fun { is_arg_const; _ } -> is_arg_const) v in
+    Hashtbl.iter (fun (fname, ns) {args_const; _} -> 
+      let is_const : bool list = List.map (fun { is_arg_const; _ } -> is_arg_const) args_const in
       constify_args ~is_const [nbAny; cTopFunDefAndDecl fname];
       constify_args_alias ~is_const [cFunDef fname]
       ) fac

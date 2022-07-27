@@ -1195,6 +1195,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
         fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
     ) [] fl in
       let tid = next_typconstrid () in
+      ctx_tconstr_add rn tid;
       let td = {
           typdef_loc = loc;
           typdef_typid = tid;
