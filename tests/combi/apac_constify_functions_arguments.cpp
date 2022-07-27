@@ -17,10 +17,10 @@ void j(int & a) {
     h(a);
 }
 
-void k(int * a, int * b) {
-    int * c = a;
-    c = b;
-    *c++;
+void k(int * a, int * b, int c) {
+    int * d = a;
+    d = b;
+    *d = 1;
 }
 
 void l1(int & a) {

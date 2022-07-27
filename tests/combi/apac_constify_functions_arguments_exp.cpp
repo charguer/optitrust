@@ -10,10 +10,10 @@ void h(int& a) { a = 1; }
 
 void j(int& a) { h(a); }
 
-void k(const int* const a, int* b) {
-  int* c = a;
-  c = b;
-  *c++;
+void k(int* a, int* b, const int c) {
+  int* d = a;
+  d = b;
+  *d = 1;
 }
 
 void l1(int& a) { a += 1; }
