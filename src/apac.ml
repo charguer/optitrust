@@ -109,14 +109,15 @@ let insert_tasks_for_taskable ?(indepth : bool = false) (tsk : taskable) (tg : t
     and other arguments that depend on this argument. *)
 type arg_const = {
   is_ptr_or_ref : bool;
-  mutable is_const : bool;
+  mutable is_arg_const : bool;
   mutable dependency_of : (string * int) list;
 }
 
 (* [args_const]: a list of args_const *)
 type args_const = arg_const list
 
-(* [fun_args_const]: hashtable that store the [args_const] of functions and the pointer depth of the return type. *)
+(* [fun_args_const]: hashtable that store the [args_const] of functions, 
+    the pointer depth of the return type and if the return type is a reference. *)
 type fun_args_const = (string, (args_const * (int * bool))) Hashtbl.t
 
 (* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
@@ -199,8 +200,16 @@ let constify_functions_arguments : Transfo.t =
 
     (* helper function : add element to process in to_process *)
     let add_elt_in_to_process (va : vars_arg) (cur_fun : string) (name : string) : unit =
-      let (arg_idx, _) = Hashtbl.find va name in 
-      Stack.push (cur_fun, arg_idx) to_process;
+      (* we also take the previously pointed arguments because aliasing creates dependencies.
+        ex : a is const and b is not : 
+        void (int * a, int * b) {     | void (int const * const a, int b) { 
+          int * p = a;                | int const * p = a;
+          p = c;                      | p = c;
+          *p = 1;                     | *p = 1;  // error : p is const because a is const
+        }                             | }
+      *)
+      let l = Hashtbl.find_all va name in 
+      List.iter (fun (arg_idx, _) -> Stack.push (cur_fun, arg_idx) to_process) l
     in
 
 
@@ -211,7 +220,7 @@ let constify_functions_arguments : Transfo.t =
         let acs : args_const = List.map 
         (fun (_, ty) -> { 
           is_ptr_or_ref = is_cptr_or_ref ty ;
-          is_const = true; 
+          is_arg_const = true; 
           dependency_of = [] }) args in
         Hashtbl.add fac qv.qvar_str (acs, (Apac_core.get_cptr_depth ty, is_reference ty))
       | _ -> fail None "Should not happen"
@@ -271,7 +280,7 @@ let constify_functions_arguments : Transfo.t =
               (* if reference or access pointer's data *)
               then add_elt_in_to_process va cur_fun var_name
               else begin match Apac_core.get_arg_idx_from_cptr_arith va rhs with
-              | Some (arg_idx) -> Hashtbl.replace va var_name (arg_idx, depth)
+              | Some (arg_idx) -> Hashtbl.add va var_name (arg_idx, depth)
               | _ -> ()
               end
           | _ -> () (* example variable not in va : global variable *)  
@@ -321,8 +330,8 @@ let constify_functions_arguments : Transfo.t =
       | Some (fname, nth) -> 
         let (acs, _) = Hashtbl.find fac fname in
         let ac : arg_const = List.nth acs nth in
-        if ac.is_const then begin
-          ac.is_const <- false; 
+        if ac.is_arg_const then begin
+          ac.is_arg_const <- false; 
           List.iter (fun e -> Stack.push e to_process) ac.dependency_of 
         end;
         unconstify_propagate to_process
@@ -332,7 +341,7 @@ let constify_functions_arguments : Transfo.t =
 
     (* make changes in the ast *)
     Hashtbl.iter (fun fname (v, _) -> 
-      let is_const : bool list = List.map (fun { is_const; _ } -> is_const) v in
+      let is_const : bool list = List.map (fun { is_arg_const; _ } -> is_arg_const) v in
       constify_args ~is_const [nbAny; cTopFunDefAndDecl fname];
       constify_args_alias ~is_const [cFunDef fname]
       ) fac

@@ -381,7 +381,7 @@ let update_vars_arg_on_trm_let (on_ref : unit -> 'a) (on_ptr : unit -> 'a) (on_o
     else on_other()
   | _ -> fail None "Apac_core.update_vars_arg_on_trm_let: expect [t] to be a variable declaration"
 
-(* [update_vars_arg_on_trm_let on_ref on_ptr on_other va t]: 
+(* [update_vars_arg_on_trm_let_mult_iter on_ref on_ptr on_other va t]: 
       It will add the variable to [va] if it is a reference or a pointer to an argument, 
       then it will call the corresponding callback.
     [va] : vars_arg which stores the arguments
