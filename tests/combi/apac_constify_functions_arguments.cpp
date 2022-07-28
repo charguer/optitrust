@@ -70,3 +70,25 @@ void o(int a, int b, int c) {
     d = 1;
     *e = 1;
 }
+
+namespace BB {
+    void h(int& a) {
+        a = 1;
+    }
+}
+
+namespace AA
+{
+    void f(int &a) {
+        a = 1;   
+    }
+
+    void g(int a, int b, int c) {
+        f(a);
+        BB::h(b);
+    }
+}
+
+void p(int a, int b) {
+    AA::f(a);
+}

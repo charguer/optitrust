@@ -1629,6 +1629,8 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
      (* return without value, continue, break *)
      | _ -> t
      end
+  | Trm_namespace (name, t, inline) ->
+    trm_namespace ~annot ~loc name (f false t) inline
   | Trm_typedef td -> 
     begin match td.typdef_body with 
     | Typdef_record rfl ->
