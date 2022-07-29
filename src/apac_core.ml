@@ -290,21 +290,25 @@ let get_constified_arg (ty : typ) : typ =
 
 (* [constify_args_aux t]: transforms the type of arguments of the function declaration in such a way that
       "const" keywords are added wherever it is possible.
-    [is_const] - list of booleans that tells if the argument should be constify. Its length must be the number of arguments.
+    [is_args_const] - list of booleans that tells if the argument should be constify. Its length must be the number of arguments.
     [t] - ast of the function definition. *)
-let constify_args_aux (is_const : bool list) (t : trm) : trm =
+let constify_args_aux (is_args_const : bool list) (is_method_const : bool) (t : trm) : trm =
   match t.desc with
   | Trm_let_fun (qvar, ret_typ, args, body) -> 
-    let is_const = if is_const = [] then List.init (List.length args) (fun _ -> true) else is_const in
+    let is_args_const = if is_args_const = [] 
+      then List.init (List.length args) (fun _ -> true) 
+      else is_args_const in
     let const_args = (List.map2 (fun (v, ty) b -> 
       if b then (v, (get_constified_arg ty)) else (v, ty)
-      ) args is_const) in
-    trm_let_fun ~annot:t.annot ~loc:t.loc ~ctx:t.ctx ~qvar "" ret_typ const_args body
+      ) args is_args_const) in
+    
+    let t = trm_let_fun ~annot:t.annot ~loc:t.loc ~ctx:t.ctx ~qvar "" ret_typ const_args body in
+    if is_method_const then trm_add_cstyle Const_method t else t
   | _ -> fail t.loc "Apac_core.constify_args expected a target to a function definition."
 
-(* [constify_args is_const t p]: applies [constify_args_aux] at the trm [t] with path [p]. *)
-let constify_args (is_const : bool list) : Transfo.local =
-  apply_on_path(constify_args_aux is_const)
+(* [constify_args is_args_const t p]: applies [constify_args_aux] at the trm [t] with path [p]. *)
+let constify_args (is_args_const : bool list) (is_method_const : bool) : Transfo.local =
+  apply_on_path(constify_args_aux is_args_const is_method_const)
 
 
 (* [vars_arg]: hashtable that stores variables that refer to an argument and the pointer depth of that argument. *)

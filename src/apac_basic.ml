@@ -53,9 +53,9 @@ let identify_taskable_functions (tg : target) : taskable =
 
 (* [constify_args ~is_const tg]: expect the target [tg] to point at a function definition.
    Then it will add the "const" keyword where is it possible in the type of the argument. 
-   The list [is_const] determines which argument to constify. *)
-let constify_args ?(is_const : bool list = []) : Transfo.t =
-  apply_on_targets (Apac_core.constify_args is_const)
+   The list [is_args_const] determines which argument to constify. *)
+let constify_args ?(is_args_const : bool list = []) ?(is_method_const : bool = false): Transfo.t =
+  apply_on_targets (Apac_core.constify_args is_args_const is_method_const)
 
 (* [constify_args ~is_const tg]: expect the target [tg] to point at a function definition.
    Then in the body, it will add the "const" keyword where is it possible in variables that 
