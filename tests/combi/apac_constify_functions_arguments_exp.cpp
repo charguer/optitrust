@@ -71,3 +71,17 @@ void g(int a, int b, const int c) {
 }  // namespace AA
 
 void p(int a, const int b) { AA::f(a); }
+
+class CC {
+ public:
+  int* i;
+  void f(int* a, const int b) {
+    i = a;
+    *i = 1;
+  }
+  int q(const int a) const;
+};
+
+int CC::q(const int a) const { return a; }
+
+void q(CC a, int b, const int c) { a.f(&b, 1); }

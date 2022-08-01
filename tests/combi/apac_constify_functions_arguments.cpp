@@ -92,3 +92,21 @@ namespace AA
 void p(int a, int b) {
     AA::f(a);
 }
+
+class CC {
+public:
+    int * i;
+    void f(int * a, int b) {
+        i = a;
+        *i = 1;
+    }
+    int q(int a);
+};
+
+int CC::q(int a) {
+    return a;
+}
+
+void q(CC a, int b, int c) {
+    a.f(&b, 1);
+}
