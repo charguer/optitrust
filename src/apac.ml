@@ -214,7 +214,7 @@ let constify_functions_arguments : Transfo.t =
             acc @ (aux ns t)
           | _ -> acc
           ) [] tl
-        | _ -> fail None "Expect dRoot target"
+        | _ -> fail None "Apac.constify_functions_arguments: Expect dRoot target"
       in
       aux [] t
     in
@@ -242,7 +242,7 @@ let constify_functions_arguments : Transfo.t =
       let absolute_path = List.rev qv.qvar_path in
       if Hashtbl.mem fac (qv.qvar_var, relative_path) then (qv.qvar_var, relative_path)
       else if Hashtbl.mem fac (qv.qvar_var, absolute_path) then (qv.qvar_var, absolute_path)
-      else fail None "resolve_funcall: try to resolve function not in fac."
+      else fail None "Apac.constify_functions_argumentsresolve_funcall.resolve_funcall: try to resolve function not in fac."
     in
 
     (* helper function: check if the fun_loc of a funcall is in fac. *)
@@ -493,7 +493,6 @@ let get_delete_task (ptrs : decl_cptrs) : trm option =
     - add task to delete these variables before "return" "break" and "continue" statements when it is needed
   *)
 let heapify_nested_seq : Transfo.t =
-  (* TODO : handle let mult *)
   iter_on_targets (fun t p ->
 
     (* heapifies variables and adds delete tasks before certain Trm_abort*)
@@ -514,6 +513,16 @@ let heapify_nested_seq : Transfo.t =
             Hashtbl.add ptrs var (is_typ_array (get_inner_ptr_type ty));
             trm_map (aux ptrs first_depth)  tr 
           end
+      | Trm_let_mult (_, tvl, tl) -> 
+        (* raises error if partial heapify *)
+        let has_defined_var = List.fold_left (fun has_defined_var (var, ty) ->
+          if Hashtbl.mem ptrs var then begin Hashtbl.remove ptrs var; true end
+          else if not has_defined_var then begin Hashtbl.add ptrs var (is_typ_array ty); false end
+          else fail None "Apac.heapify_nested_seq.aux: partial heapify of Trm_let_mult"
+        ) false tvl in
+        if has_defined_var 
+          then trm_map (aux ptrs first_depth) t
+          else trm_map (aux ptrs first_depth) (Apac_core.stack_to_heap_aux t)
       
       (* dereference heapified variables *)
       | Trm_var (kind, qv) when Hashtbl.mem ptrs qv.qvar_str -> trm_get t 
@@ -551,7 +560,7 @@ let heapify_nested_seq : Transfo.t =
     | Trm_seq tl -> Internal.nobrace_remove_after (fun _ -> 
       transfo_on_targets (trm_map (aux decl_cptrs true)) (target_of_path p));
       transfo_on_targets (add_end_delete_task decl_cptrs) (target_of_path p)
-    | _ -> fail None "Expects target to point at a sequence"
+    | _ -> fail None "Apac.heapify_nested_seq: Expects target to point at a sequence"
   )
 
 
@@ -583,7 +592,7 @@ let sync_with_taskwait : Transfo.t =
           let taskwait = trm_add_pragma (Taskwait [Depend [Inout deps]]) (code (Expr "")) in
           trm_seq_add_last taskwait t
         end
-      | _ -> fail None "add_taskwait_end_seq: expected sequence"
+      | _ -> fail None "Apac.sync_with_taskwait.add_taskwait_end_seq: expected sequence"
     in
 
     (* TODO : loop : taskwait at the end, check if variable in cond used in function.
@@ -670,5 +679,5 @@ let sync_with_taskwait : Transfo.t =
     | Trm_let_fun (qv, ty, args, body) -> 
       List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add decl_vars var (Apac_core.get_dep var ty)) args;
       transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
-    | _ -> fail None "Expects target to point at a function declaration"
+    | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
   )

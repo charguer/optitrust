@@ -564,6 +564,7 @@ and trm_let_mult_to_doc ?(semicolon : bool = true) (tvl : typed_vars) (tl : trm 
     match ty.typ_desc with
     | Typ_const ({typ_desc = Typ_ptr { inner_typ = ty; _ }; _ }) -> get_inner_ptrs_and_consts ty
     | Typ_ptr { inner_typ = ty; _ } -> get_inner_ptrs_and_consts ty
+    | Typ_array (ty, _) -> get_inner_ptrs_and_consts ty
     | _ -> ty
   in
   

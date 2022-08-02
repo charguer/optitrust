@@ -494,6 +494,17 @@ let stack_to_heap_aux (t : trm) : trm =
             then trm_new in_ty tr else tr in 
           trm_let_mut (var, ty) tr
         end
+  | Trm_let_mult (vk, tvl, tl) -> 
+    let l = List.map2 (fun (var, ty) t -> 
+      let ty2 = 
+        if is_typ_array ty then array_typ_to_ptr_typ ty 
+        else if is_typ_const ty then typ_const (typ_ptr Ptr_kind_mut ty)
+        else typ_ptr Ptr_kind_mut ty 
+      in
+      ((var, ty2), trm_new ty t)
+      ) tvl tl in
+    let (tvl, tl) = List.split l in
+    trm_let_mult vk tvl tl
   | _ -> fail None "Apac_core.stack_to_heap: expected a target to a variable declaration."
   
 (* [stack_to_heap is_const t p]: applies [stack_to_heap_aux] at the trm [t] with path [p]. *)
