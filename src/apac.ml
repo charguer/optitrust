@@ -525,7 +525,7 @@ let heapify_nested_seq : Transfo.t =
           else trm_map (aux ptrs first_depth) (Apac_core.stack_to_heap_aux t)
       
       (* dereference heapified variables *)
-      | Trm_var (kind, qv) when Hashtbl.mem ptrs qv.qvar_str -> trm_get t 
+      | Trm_var (kind, qv) when Hashtbl.mem ptrs qv.qvar_str && not (Hashtbl.find ptrs qv.qvar_str) -> trm_get t 
       
       (* add delete task before :
           - return : everytime

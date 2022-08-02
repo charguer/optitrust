@@ -7,6 +7,8 @@ int main() {
       b = 1;
       break;
     }
+    a = 1;
+    b[1] = 2;
     return 1;
   }
   return 1;
