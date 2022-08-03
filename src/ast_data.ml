@@ -1,9 +1,9 @@
 open Ast
 
-(* [fun_defs_tbl]: hashtable type, used for storing the function definitions based on their signature. *)
-(* type fun_defs_tbl = ((string * typ list), trm) Hashtbl.t *)
-
-type fun_defs_tbl = (Clang.cxcursor, trm) Hashtbl.t
+(* [fun_defs_tbl]: hashtable type, used for storing the function definitions based on their signature. 
+    The key is the Unified Symbol Resolution. 
+    Using Clang.cxcursor instead is not possible because all Clang.cxcursor give the same key *)
+type fun_defs_tbl = (string, trm) Hashtbl.t
 
 (* [fun_defs] hashtable used for storing function definitions for easier access when needed. *)
 let fun_defs : fun_defs_tbl = Hashtbl.create 1000
@@ -29,6 +29,16 @@ let get_cursor_of_trm_unsome (t :trm) : Clang.cxcursor =
   | Some cx -> cx
   | None -> assert false
 
+(* [get_function_usr t]: assume that t is the callee of a funcall or a function definition, annotated with the Clang cxcursor.
+    Then it will return the Unified Symbol Resolution of the function. *)
+let get_function_usr (t : trm) : string option =
+  match get_cursor_of_trm t with
+  | Some (cx) -> 
+    begin match Clang.get_cursor_usr (Clang.get_cursor_definition cx) with
+    | "" -> None
+    | usr -> Some (usr)
+    end 
+  | None -> None
 
 (* [fill_fun_defs_tbl t]: traverses the ast [t] and adds into the table [fun_defs] all the function definitions.
       with keys being   their original Clang.cxcursor id. *)
@@ -39,8 +49,8 @@ let fill_fun_defs_tbl (t : trm) : unit =
   let rec aux (t : trm) : unit =
     match t.desc with 
     | Trm_let_fun (qf, ret_ty, args, body) -> 
-      begin match get_cursor_of_trm t with 
-      | Some cx -> Hashtbl.add fun_defs cx t
+      begin match get_function_usr t with 
+      | Some usr -> Hashtbl.add fun_defs usr t
       | None -> () (* Maybe it shoudl fail here! *)
       end
     | Trm_typedef td -> trm_iter aux t
@@ -53,14 +63,11 @@ let fill_fun_defs_tbl (t : trm) : unit =
 (* [get_function_def t]: assumes that [t] is the callee of a function call, annotated with the Clang cxcursor.
     Then it will return the definition of the function whose name appears in [ŧ]. *)
 let get_function_def (t : trm) : trm = 
-  match get_cursor_of_trm t with 
-  | Some cx -> 
-    begin match Hashtbl.find_opt fun_defs cx with 
-    | Some fun_def -> 
-        Printf.printf "For the call %s\n" (AstC_to_c.ast_to_string t);
-        Printf.printf "Got the definition %s\n"(AstC_to_c.ast_to_string fun_def);
-        fun_def
-    | None -> fail t.loc "Ast.get_function_def: couldn't find the definition of the called function"
+  match get_function_usr t with
+  | Some (usr) ->
+    begin match Hashtbl.find_opt fun_defs usr with 
+    | Some fun_def -> fun_def
+    | None -> fail t.loc "Ast_data.get_function_def: couldn't find the definition of the called function"
     end
-  | None -> fail t.loc "Ast.get_function_def: expected a trm annotated with Clang cxcursor."
+  | None -> fail t.loc "Ast_data.get_function_def: expected a trm annotated with Clang cxcursor."
 

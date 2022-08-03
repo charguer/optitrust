@@ -308,8 +308,12 @@ let infix_intro (t : trm) : trm =
 let method_call_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
-    | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base])}, args) ->
-       trm_add_cstyle Method_call (trm_apps (trm_var f) ([base] @ args))
+    | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base])} as tr, args) ->
+      let t_var = begin match Ast_data.get_cursor_of_trm tr with
+      | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var f)
+      | None -> fail t.loc "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
+      end in
+      trm_add_cstyle Method_call (trm_apps (t_var) ([base] @ args))
     | _ -> trm_map aux t
    in aux t
 
