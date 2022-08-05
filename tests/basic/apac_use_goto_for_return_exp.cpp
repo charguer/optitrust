@@ -3,8 +3,8 @@ int g(int a, int b) {
   {
     __res = a + b + a;
     goto __exit;
+  __exit:;
   }
-__exit:;
   return __res;
 }
 
@@ -16,14 +16,23 @@ int f() {
     int z = 3;
     __res = g(x, g(y, z));
     goto __exit;
+  __exit:;
   }
-__exit:;
   return __res;
 }
 
 void h() {
-  { int a = g(f(), f()); }
-__exit:;
+  {
+    int a = g(f(), f());
+  __exit:;
+  }
 }
 
-int main() { f(); }
+int main() {
+  int __res;
+  {
+    f();
+  __exit:;
+  }
+  return __res;
+}

@@ -10,18 +10,16 @@ let use_goto_for_return_aux (mark : mark) (t : trm) : trm =
   match t.desc with 
   | Trm_let_fun (qn, ret_ty, args, body) -> 
     let seq_to_insert, _ = Internal.replace_return_with_assign ~check_terminal:false ~exit_label:"__exit" "__res" body in 
+    let seq_to_insert = trm_seq_add_last (trm_add_label "__exit" (trm_unit())) seq_to_insert in
     let new_body = 
       begin match ret_ty.typ_desc with 
       | Typ_unit -> 
-        trm_add_mark mark (trm_seq_nomarks [
-          seq_to_insert;
-          trm_add_label "__exit" (trm_unit())])
+        trm_add_mark mark (trm_seq_nomarks [seq_to_insert;])
       | _ -> 
         let new_decl = trm_let_mut ("__res", ret_ty) (trm_uninitialized ()) in 
         trm_add_mark mark (trm_seq_nomarks [
           new_decl;
           seq_to_insert;
-          trm_add_label "__exit" (trm_unit());
           trm_ret (Some (trm_var_get "__res"))
         ])
       end in 

@@ -1,4 +1,3 @@
-
 int g(int a, int b) {
   return a + b + a;
 }
@@ -14,8 +13,6 @@ void h() {
   int a = g(f(), f());
 }
 
-
 int main() {
   f();
-
 }

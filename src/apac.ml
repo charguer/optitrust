@@ -5,11 +5,29 @@ include Apac_core
 include Apac_basic
 
 (* [parallel_task_group ~mark tg]: expects the target [ŧg] to point at a taskable function definition,
-    then it will insert  #pragma omp parallel #pragma omp master #pragma omp taskgroup in front of that definition.*)
+    then it will insert  #pragma omp parallel #pragma omp master #pragma omp taskgroup in the body of the main function
+      or #pragma omp taskgroup int he body of the other functions.*)
 let parallel_task_group ?(mark : mark = "") : Transfo.t =
   iter_on_targets ( fun t p -> 
     Apac_basic.use_goto_for_return ~mark (target_of_path p);
-    transfo_on_targets (trm_add_pragmas [Parallel []; Master ; Taskgroup]) (target_of_path p))
+
+    transfo_on_targets ( fun t ->
+      match t.desc with
+      | Trm_let_fun (qvar, ret_typ, args, body) -> 
+        let body_tl = match trm_seq_inv body with
+        | Some (tl) -> Mlist.map (fun t -> 
+          match t.desc with 
+          | Trm_seq _ ->
+            let pragmas = if qvar.qvar_str = "main" then [Parallel []; Master ; Taskgroup] else [Taskgroup] in 
+            trm_add_pragmas pragmas t
+          | _ -> t
+          ) tl
+        | None -> assert false 
+        in
+        trm_alter ~desc:(Some(Trm_let_fun(qvar, ret_typ, args, (trm_seq body_tl)))) t
+      | _ -> assert false
+      ) (target_of_path p)
+    )
 
 
 (* [insert_task sag tg]: expects the target [tg] to be pointing at an instruction or a sequence.
@@ -588,8 +606,7 @@ let sync_with_taskwait : Transfo.t =
         | [] -> t
         | _ ->
           let deps = List.map (fun var -> Hashtbl.find decl_vars var) vars in
-          (* trick : use empty Trm_arbitrary to add taskwait alone *)
-          let taskwait = trm_add_pragma (Taskwait [Depend [Inout deps]]) (code (Expr "")) in
+          let taskwait = trm_add_pragma (Taskwait [Depend [Inout deps]]) (trm_unit()) in
           trm_seq_add_last taskwait t
         end
       | _ -> fail None "Apac.sync_with_taskwait.add_taskwait_end_seq: expected sequence"

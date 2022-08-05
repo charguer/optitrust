@@ -16,7 +16,5 @@ void h() {
 
 
 int main() {
-
   f();
-
 }
