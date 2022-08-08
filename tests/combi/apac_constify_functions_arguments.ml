@@ -3,6 +3,8 @@ open Target
 
 let _ = Run.script_cpp (fun () -> 
 
-  !! Apac.constify_functions_arguments [dRoot];
+  let c = Apac.identify_constifiable_functions [] in
+  
+  !! Apac.constify_functions_arguments c [cFunDefAndDecl ""];
 
 )

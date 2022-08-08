@@ -286,7 +286,7 @@ let get_constified_arg (ty : typ) : typ =
     end
   | _ -> get_constified_arg_aux ty
 
-(* [constify_args_aux t]: transforms the type of arguments of the function declaration in such a way that
+(* [constify_args_aux is_args_const t]: transforms the type of arguments of the function declaration in such a way that
       "const" keywords are added wherever it is possible.
     [is_args_const] - list of booleans that tells if the argument should be constify. Its length must be the number of arguments.
     [t] - ast of the function definition. *)
@@ -410,12 +410,12 @@ let update_vars_arg_on_trm_let_mult_iter (on_ref : unit -> 'a) (on_ptr : unit ->
     | None -> on_other()
   else on_other()
 
-(* [constify_args_alias_aux t]: transforms the type of variable that refer to constified arguments in such way that
+(* [constify_args_alias_aux is_args_const t]: transforms the type of variable that refer to constified arguments in such way that
       "const" keywords are added wherever it is possible.
       Note : It will fail if it has to partially constify a Trm_let_mult.
-    [is_const] - list of booleans that tells if the argument is constified. Its length must be the number of arguments.
+    [is_args_const] - list of booleans that tells if the argument is constified. Its length must be the number of arguments.
     [t] - ast of the function definition. *)
-let constify_args_alias_aux (is_const : bool list) (t : trm) : trm =
+let constify_args_alias_aux (is_args_const : bool list) (t : trm) : trm =
   let rec aux (va : vars_arg) (t :trm) : trm=
     match t.desc with
     (* new scope *)
@@ -448,7 +448,7 @@ let constify_args_alias_aux (is_const : bool list) (t : trm) : trm =
 
   match t.desc with
   | Trm_let_fun (qvar, ret_typ, args, body) -> 
-    let is_const = if is_const = [] then List.init (List.length args) (fun _ -> true) else is_const in
+    let is_const = if is_args_const = [] then List.init (List.length args) (fun _ -> true) else is_args_const in
     let va : vars_arg= Hashtbl.create 10 in
     (* Only add constified arguments *)
     List.iteri (fun i (b, (var, ty)) -> if b then Hashtbl.add va var (i, (get_cptr_depth ty))) (List.combine is_const args);
@@ -456,8 +456,8 @@ let constify_args_alias_aux (is_const : bool list) (t : trm) : trm =
   | _ -> fail t.loc "Apac_core.constify_args expected a target to a function definition."
 
 (* [constify_args_alias is_const t p]: applies [constify_args_alias_aux] at the trm [t] with path [p]. *)
-let constify_args_alias (is_const : bool list) : Transfo.local =
-  apply_on_path(constify_args_alias_aux is_const)
+let constify_args_alias (is_args_const : bool list) : Transfo.local =
+  apply_on_path(constify_args_alias_aux is_args_const)
 
 
 (* [array_typ_to_ptr_typ]: change Typ_array to Typ_ptr {ptr_kind = Ptr_kind_mut; _} *)
