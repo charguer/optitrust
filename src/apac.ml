@@ -122,11 +122,9 @@ let insert_tasks_for_taskable ?(indepth : bool = false) (tsk : taskable) (tg : t
       | _ -> ()
   ) fixed_tg
 
-(* [ns_path]: list of namespaces in reverse order *)
-type ns_path = var list
 
-(* [fun_loc]: tuple that store hte function name and the list of its namespace in reverse order *)
-type fun_loc = (var * ns_path)
+(* [fun_loc]: function's Unified Symbol Resolution *)
+type fun_loc = string
 
 (* [arg_const]: record that stores information to constify or not the argument
     and other arguments that depend on this argument. *)
@@ -147,7 +145,7 @@ type fun_const = {
 }
 
 (* [fun_args_const]: hashtable that store the [fun_const] of functions.
-    The key of the hashtable is the function's name and its path.*)
+    The key of the hashtable is the function's Unified Symbol Resolution.*)
 type fun_args_const = (fun_loc, fun_const) Hashtbl.t
 
 (* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
@@ -212,35 +210,37 @@ let constify_functions_arguments : Transfo.t =
     (* store the function's arguments (fname, nth arg) to unconst *)
     let to_process : (fun_loc * int) Stack.t = Stack.create () in
 
+    (* Note : do not know why it works without this. *)
+    (* Ast_data.fill_fun_defs_tbl tg_trm; *)
+
 
     (* get the list of function declarations trms *)
-    let get_fun_decls (t : trm) : ((trm * ns_path) * int) list =
-      let rec aux (ns : ns_path) (t : trm) : ((trm * ns_path) * int) list =
+    let get_fun_decls (t : trm) : (trm * int) list =
+      let rec aux (t : trm) : (trm * int) list =
         match t.desc with
         | Trm_seq tl -> Mlist.fold_left (fun acc t -> 
           match t.desc with
-          | Trm_let_fun _ -> ((t, ns), -1) :: acc
-          | Trm_namespace (name, body, is_inline) -> acc @ (aux (name :: ns) body)
+          | Trm_let_fun _ -> (t, -1) :: acc
+          | Trm_namespace (name, body, is_inline) -> acc @ (aux body)
           | Trm_typedef td -> 
             begin match td.typdef_body with 
             | Typdef_record _ -> 
-              let ns = td.typdef_tconstr :: ns in 
-              acc @ (List.fold_left (fun acc tr -> ((tr, ns), td.typdef_typid) :: acc) [] (typedef_get_methods t))
+              acc @ (List.fold_left (fun acc tr -> (tr, td.typdef_typid) :: acc) [] (typedef_get_methods t))
             | _ -> acc
             end
           | _ when List.exists (function | Include _ -> true | _ -> false) (trm_get_files_annot t) ->
-            acc @ (aux ns t)
+            acc @ (aux t)
           | _ -> acc
           ) [] tl
         | _ -> fail None "Apac.constify_functions_arguments: Expect dRoot target"
       in
-      aux [] t
+      aux t
     in
       
     let (fun_decls, tids) = List.split (get_fun_decls tg_trm) in
 
     (* helper function : add element to process in to_process *)
-    let add_elt_in_to_process (va : vars_arg) (cur_fun : var) (ns : ns_path) (name : var) : unit =
+    let add_elt_in_to_process (va : vars_arg) (usr : fun_loc) (name : var) : unit =
       (* we also take the previously pointed arguments because aliasing creates dependencies.
         ex : a is const and b is not : 
         void (int * a, int * b) {     | void (int const * const a, int b) { 
@@ -250,53 +250,24 @@ let constify_functions_arguments : Transfo.t =
         }                             | }
       *)
       let l = Hashtbl.find_all va name in 
-      List.iter (fun (arg_idx, _) -> Stack.push ((cur_fun, ns), arg_idx) to_process) l
+      List.iter (fun (arg_idx, _) -> Stack.push (usr, arg_idx) to_process) l
     in
 
-    (* helper function: returns the fun_loc of a function call. 
-        Raises an error if it does not find it in fac. *)
-    let resolve_funcall (qv : qvar) (ns : ns_path) : fun_loc  =
-      let relative_path = List.fold_left (fun acc s -> s::acc) ns qv.qvar_path in
-      let absolute_path = List.rev qv.qvar_path in
-      if Hashtbl.mem fac (qv.qvar_var, relative_path) then (qv.qvar_var, relative_path)
-      else if Hashtbl.mem fac (qv.qvar_var, absolute_path) then (qv.qvar_var, absolute_path)
-      else fail None "Apac.constify_functions_argumentsresolve_funcall.resolve_funcall: try to resolve function not in fac."
+    (* helper function: check if the term [t] is in fac. *)
+    let fac_mem_from_trm (t : trm) : bool =
+      begin match Ast_data.get_function_usr t with
+      | Some (usr) -> Hashtbl.mem fac usr
+      | None -> false 
+      end
     in
 
-    (* helper function: check if the fun_loc of a funcall is in fac. *)
-    let fac_mem (qv : qvar) (ns : ns_path) : bool =
-      let relative_path = List.fold_left (fun acc s -> s::acc) ns qv.qvar_path in
-      let absolute_path = List.rev qv.qvar_path in
-      if Hashtbl.mem fac (qv.qvar_var, relative_path) then true
-      else if Hashtbl.mem fac (qv.qvar_var, absolute_path) then true
-      else false
+    (* helper function: get the value of the term [t] in fac. *)
+    let fac_find_from_trm (t : trm) : fun_const =
+      Hashtbl.find fac (Ast_data.get_function_usr_unsome t)
     in
-
-    (* helper function: returns the namespace path the the function call of term [t].
-        Adds the class namespace for method calls. *)
-    let get_funcall_ns (va : vars_arg) (cur_fun : var) (ns : ns_path) (t : trm) : ns_path =
-      match t.desc with
-      | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ }, args) when trm_has_cstyle Method_call t -> 
-        let var1 = match trm_var_inv (List.hd args) with
-          | Some (_, var1) -> var1
-          | None -> assert false 
-        in
-        begin match Hashtbl.find_opt va var1 with
-        | Some (nth, _) ->
-          let {args_const} = Hashtbl.find fac (cur_fun, ns) in
-          let {tid} = List.nth args_const nth in
-          begin match Context.typid_to_typedef tid with
-            | Some (td) -> td.typdef_tconstr :: ns
-            | None -> ns
-          end 
-        | None -> ns 
-        end
-      | _ -> ns
-    in
-
 
     (* init fac *)
-    List.iter2 (fun (t, ns) tid ->
+    List.iter2 (fun t tid ->
       match t.desc with
       | Trm_let_fun (qv, ty, args, _) ->
         let is_method = tid <> -1 in
@@ -312,9 +283,9 @@ let constify_functions_arguments : Transfo.t =
           else acs in
         
         (* methods declared outside the class are not detected as method previously *)
-        let ns = List.fold_left (fun acc s -> s :: acc) ns qv.qvar_path in
-        if is_method then Hashtbl.remove fac (qv.qvar_var, ns);
-        Hashtbl.add fac (qv.qvar_var, ns) {
+        let usr = Ast_data.get_function_usr_unsome t in
+        if is_method then Hashtbl.remove fac usr;
+        Hashtbl.add fac usr {
           args_const = acs; 
           ret_ptr_depth = Apac_core.get_cptr_depth ty; 
           is_ret_ref = is_reference ty; 
@@ -324,7 +295,7 @@ let constify_functions_arguments : Transfo.t =
 
 
     (* update fac dependency_of and fill to_process *)
-    let update_fac_and_to_process (va : vars_arg) (cur_fun : var) (ns : ns_path) (is_method : bool) (t : trm) : unit =
+    let update_fac_and_to_process (va : vars_arg) (cur_usr : string) (is_method : bool) (t : trm) : unit =
       let rec aux (va : vars_arg) (t : trm) : unit =
         match t.desc with
         (* new scope *)
@@ -336,18 +307,14 @@ let constify_functions_arguments : Transfo.t =
           trm_iter (aux (Hashtbl.copy va)) t
         
         (* funcall : update dependency_of *)
-        | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ }, args) when fac_mem funcall_name (get_funcall_ns va cur_fun ns t) ->
-          (* resolve the namespace of the method call. 
-             For methods, the first argument is the object. *)
-          let funcall_ns = get_funcall_ns va cur_fun ns t in
-          let funcall_loc = resolve_funcall funcall_name funcall_ns in
-          let {args_const; _} = Hashtbl.find fac funcall_loc in
+        | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ } as f, args) when fac_mem_from_trm f ->
+          let {args_const; _} = fac_find_from_trm f in
           List.iteri (fun i t -> 
             match (Apac_core.get_inner_all_unop t).desc with
             | Trm_var (vk, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
               let (arg_idx, _) = Hashtbl.find va arg_name.qvar_str in
               let ac = List.nth args_const i in 
-              if ac.is_ptr_or_ref then ac.dependency_of <- ((cur_fun, ns), arg_idx) :: ac.dependency_of
+              if ac.is_ptr_or_ref then ac.dependency_of <- (cur_usr, arg_idx) :: ac.dependency_of
             | _ -> ()
             ) args;
           trm_iter (aux va) t
@@ -377,7 +344,7 @@ let constify_functions_arguments : Transfo.t =
             begin match get_binop_set_left_var lhs with
             | Some (var_name, is_deref) when Hashtbl.mem va var_name ->
               (* the variable [var_name] has been modified, add it in to_process *)
-              add_elt_in_to_process va cur_fun ns var_name;
+              add_elt_in_to_process va cur_usr var_name;
               (* change the pointed data for not dereferenced pointers *)
               begin match Apac_core.get_arg_idx_from_cptr_arith va rhs with
               | Some (arg_idx) when not is_deref ->
@@ -394,20 +361,20 @@ let constify_functions_arguments : Transfo.t =
         (* mutable unary operator (++, --) : update to_process *)
         | Trm_apps _ when is_unary_mutation t ->
           let name = get_unary_mutation_qvar t in
-          if Hashtbl.mem va name.qvar_str then add_elt_in_to_process va cur_fun ns name.qvar_str;
+          if Hashtbl.mem va name.qvar_str then add_elt_in_to_process va cur_usr name.qvar_str;
           trm_iter (aux va) t
 
         (* return argument : update to_process if return ref or ptr *)
         | Trm_abort (Ret (Some tr)) -> 
-          let {ret_ptr_depth; is_ret_ref; _} = Hashtbl.find fac (cur_fun, ns) in
+          let {ret_ptr_depth; is_ret_ref; _} = Hashtbl.find fac cur_usr in
           if is_ret_ref then 
             begin match trm_var_inv tr with
-            | Some (a, var_name) when Hashtbl.mem va var_name -> add_elt_in_to_process va cur_fun ns var_name
+            | Some (a, var_name) when Hashtbl.mem va var_name -> add_elt_in_to_process va cur_usr var_name
             | _ -> ()
             end
           else if ret_ptr_depth > 0 then 
             begin match Apac_core.get_arg_idx_from_cptr_arith va tr with
-            | Some (arg_idx) -> Stack.push ((cur_fun, ns), arg_idx) to_process 
+            | Some (arg_idx) -> Stack.push (cur_usr, arg_idx) to_process 
             | None -> ()
             end;
           trm_iter (aux va) t
@@ -418,11 +385,12 @@ let constify_functions_arguments : Transfo.t =
       aux va t
     in
 
-    List.iter (fun (t, ns) ->
+    List.iter (fun t ->
       let va = Hashtbl.create 10 in
       match t.desc with
       | Trm_let_fun (qv, _, args, body) ->
-        let {is_method; args_const} = Hashtbl.find fac (qv.qvar_var, ns) in
+        (* add attributes *)
+        let {is_method; args_const} = fac_find_from_trm t in
         if is_method then begin
           let tid = (List.hd args_const).tid in
           begin match Context.typid_to_trm tid with
@@ -433,12 +401,15 @@ let constify_functions_arguments : Transfo.t =
           | None -> assert false
           end 
         end;
+
+        (* add arguments *)
         List.iteri (fun i (name, ty) -> 
           if name <> "" then
             let i = if is_method then i+1 else i in
             Hashtbl.add va name (i, Apac_core.get_cptr_depth ty)
           ) args;
-        update_fac_and_to_process va (qv.qvar_var) ns is_method body
+        
+        update_fac_and_to_process va (Ast_data.get_function_usr_unsome t) is_method body
       | _ -> assert false
       ) fun_decls;
     
@@ -446,15 +417,15 @@ let constify_functions_arguments : Transfo.t =
     (* propagate argument unconstification through function call *)
     let rec unconstify_propagate (to_process : (fun_loc * int) Stack.t) : unit =
       match Stack.pop_opt to_process with
-      | None -> ()
       | Some (fun_loc, nth) ->
         let {args_const; _} = Hashtbl.find fac fun_loc in
-        let ac : arg_const = List.nth args_const nth in
+        let ac = List.nth args_const nth in
         if ac.is_arg_const then begin
           ac.is_arg_const <- false; 
           List.iter (fun e -> Stack.push e to_process) ac.dependency_of 
         end;
         unconstify_propagate to_process
+      | None -> ()
     in
     unconstify_propagate to_process;
 
@@ -462,29 +433,21 @@ let constify_functions_arguments : Transfo.t =
     
     (* make changes in the ast *)
     (* Note: use the method with trm_map and directly call Apac_core.*_aux 
-        because Optitrust target does not handle namespaces. *)
+        because it is easier to target functions in namespace. *)
     let constify (t : trm) : trm =
-      let rec aux (ns : ns_path) (t : trm) : trm =
+      let rec aux (t : trm) : trm =
         match t.desc with
-        | Trm_namespace (name, body, is_inline) -> trm_map (aux (name :: ns)) t
-        | Trm_typedef td -> 
-          let ns = begin match td.typdef_body with 
-          | Typdef_record _ -> td.typdef_tconstr :: ns
-          | _ -> ns
-          end in
-          trm_map (aux ns) t
         | Trm_let_fun (qv, ty, tvl, tl) ->  
-          let ns = List.fold_left (fun acc s -> s :: acc) ns qv.qvar_path in
-          let {args_const; is_method} = Hashtbl.find fac (qv.qvar_var, ns) in
+          let {args_const; is_method} = fac_find_from_trm t in
           let (args_const, is_const_method) = if is_method 
             then (List.tl args_const, (List.hd args_const).is_arg_const) 
             else (args_const, false) in
           let is_const : bool list = List.map (fun { is_arg_const; _ } -> is_arg_const) args_const in
           let t = Apac_core.constify_args_aux is_const is_const_method t in
           Apac_core.constify_args_alias_aux is_const t
-        | _ -> trm_map (aux ns) t
+        | _ -> trm_map aux t
       in
-      aux [] t
+      aux t
     in
     
     transfo_on_targets constify (target_of_path p)
