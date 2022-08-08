@@ -996,6 +996,14 @@ let cOmp ?(pred : (directive->bool) = cOmp_match_all) () : constr =
     if pred == cOmp_match_all then "cOmp_match_all" else "cOmp_custom_pred" in
   Constr_omp (pred, str)
 
+(* [cNamespace ~substr ~regexp name]: matches a namespace 
+    [substr] - match namespace name partially
+    [regep] - match based on regexp
+    [name] - match based on namespace name. *)
+let cNamespace ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =
+  let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
+  Constr_namespace ro
+
 (******************************************************************************)
 (*                          Target resolution                                 *)
 (******************************************************************************)

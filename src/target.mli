@@ -332,6 +332,8 @@ val cTargetInDepth : target -> constr
 
 val cOmp : ?pred:(Ast.directive -> bool) -> unit -> constr
 
+val cNamespace : ?substr:bool -> ?regexp:bool -> string -> constr
+
 val make_target_list_pred : (int -> target) -> (bool list -> bool) -> (unit -> string) -> target_list_pred
 
 val target_list_simpl : targets -> target_list_pred

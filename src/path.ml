@@ -49,6 +49,8 @@ and dir =
   | Dir_enum_const of int * enum_const_dir
   (* struct, class methods *)
   | Dir_record_field of int 
+  (* namespace *)
+  | Dir_namespace
 
 (* [case_dir]: direction to a switch case *)
 and case_dir =
@@ -100,6 +102,7 @@ let dir_to_string (d : dir) : string =
      "Dir_enum_const (" ^ (string_of_int n) ^ ", " ^ s_ecd ^ ")"
   | Dir_record_field i ->
     "Dir_record_field " ^ string_of_int i
+  | Dir_namespace -> "Dir_namespace"
 
 (* [path_to_string dl]: print the path [dl] *)
 let path_to_string (dl : path) : string =
@@ -177,6 +180,8 @@ let compare_dir (d : dir) (d' : dir) : int =
   | _, Dir_case _ -> 1
   | Dir_record_field _, _ -> -1
   | _ , Dir_record_field _ -> 1
+  | Dir_namespace, _ -> -1
+  | _, Dir_namespace -> -1
 
 (* [compare_path dl dl']: compare paths [dl] and [dl'] based on function compare_dir *)
 let rec compare_path (dl : path) (dl' : path) : int =
@@ -374,6 +379,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
             trm_replace (Trm_typedef {td with typdef_body = Typdef_record updated_rfl}) t 
           | _ -> fail t.loc "Path.apply_on_path: transformation applied on the wrong typedef."
           end
+        | Dir_namespace, Trm_namespace (name, body, inline) -> 
+          { t with desc = Trm_namespace (name, aux body, inline) }
         | _, _ ->
            let s = dir_to_string d in
            fail t.loc (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
@@ -525,6 +532,8 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
                 | _ -> fail t.loc "Path.apply_on_path: expected a method.")
           | _ -> fail t.loc "Path.apply_on_path: transformation applied on the wrong typedef."
           end
+       | Dir_namespace, Trm_namespace (name, body, inline) ->
+         aux body ctx
        | _, _ ->
           let s = dir_to_string d in
           let s_t = AstC_to_c.ast_to_string t in
