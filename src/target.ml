@@ -483,6 +483,20 @@ let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_
   let ty_pred = make_typ_constraint ~typ:ret_typ ~typ_pred:ret_typ_pred () in
   Constr_decl_fun (ty_pred, ro, combine_args args args_pred, body, is_def, clang_id)
 
+(* [cFunDefAndDecl ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches function definitions and declarations
+     [args] - match based on arguments
+     [args_pred] - match based on arguments
+     [body] - match based on the body of the function
+     [ret_typ] - match based on the return type
+     [ret_typ_pred] - match based on the return type
+     [regexp] - match based on regexp
+     [name] - match based on the name of the function. *)
+let cFunDefAndDecl ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
+  ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
+  ?(clang_id : Clang.cxcursor option = None)(name : string) : constr =
+  let fund (is_def : bool) = cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def ~clang_id name in
+  cOr [[fund true]; [fund false]]
+
 (* [cTopFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches top level function definitions
      [args] - match based on arguments
      [args_pred] - match based on arguments
