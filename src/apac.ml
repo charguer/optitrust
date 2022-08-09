@@ -548,12 +548,16 @@ let heapify_nested_seq : Transfo.t =
   )
 
 
+(* [get_all_vars acc t]: returns the list of variables used in the application [t]. *)
 let rec get_all_vars (acc: vars) (t : trm) : vars =
   match t.desc with
   | Trm_apps (_, tl) -> List.fold_left get_all_vars acc tl
   | Trm_var (_, qv) when not (List.mem qv.qvar_str acc) -> qv.qvar_str :: acc
   | _ -> acc
 
+(* [sync_with_taskwait tg]: expects the target [tg] to point at a function definition, 
+    then it will add taskwait omp pragmas before loop and conditional branches,
+    it also adds it at the end of loops. *)
 let sync_with_taskwait : Transfo.t =
   iter_on_targets (fun t p ->
 
@@ -572,12 +576,14 @@ let sync_with_taskwait : Transfo.t =
         | [] -> t
         | _ ->
           let deps = List.map (fun var -> Hashtbl.find decl_vars var) vars in
-          let taskwait = trm_add_pragma (Taskwait [Depend [Inout deps]]) (trm_unit()) in
+          (* trick : use empty Trm_arbitrary to add taskwait alone (trm_unit adds semi colons*)
+          let taskwait = trm_add_pragma (Taskwait [Depend [Inout deps]]) (code (Expr "")) in
           trm_seq_add_last taskwait t
         end
       | _ -> fail None "Apac.sync_with_taskwait.add_taskwait_end_seq: expected sequence"
     in
 
+    (* adds taskwait at the end of loops. *)
     (* TODO : loop : taskwait at the end, check if variable in cond used in function.
       currently always add taskwait *)
     let add_taskwait_loop_body (decl_vars : (var, dep) Hashtbl.t) (vars : vars) (t : trm) : trm =
@@ -597,6 +603,7 @@ let sync_with_taskwait : Transfo.t =
       | _ -> t
     in
 
+    (* removes the [n] last element of the list [l]. *)
     let remove_n (n : int) (l : 'a list) : 'a list =
       let rec aux (n : int) (l : 'a list) : 'a list =
         match l with
