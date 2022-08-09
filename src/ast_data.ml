@@ -40,6 +40,13 @@ let get_function_usr (t : trm) : string option =
     end 
   | None -> None
 
+(* [get_function_usr t]: assume that t is the callee of a funcall or a function definition, annotated with the Clang cxcursor.
+    Then it will return the Unified Symbol Resolution of the function. *)
+let get_function_usr_unsome (t : trm) : string =
+  match get_function_usr t with
+  | Some (usr) -> usr
+  | None -> assert false
+
 (* [fill_fun_defs_tbl t]: traverses the ast [t] and adds into the table [fun_defs] all the function definitions.
       with keys being   their original Clang.cxcursor id. *)
 let fill_fun_defs_tbl (t : trm) : unit =
