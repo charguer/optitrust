@@ -104,6 +104,8 @@ and constr =
   | Constr_if of target * target * target
   (* decl_var: name, body *)
   | Constr_decl_var of typ_constraint * constr_name * target
+  (* decl_vars *)
+  | Constr_decl_vars of typ_constraint * constr_name * target
   (* decl_fun: name, args, body is_def*)
   | Constr_decl_fun of typ_constraint * constr_name * target_list_pred * target * bool * Clang.cxcursor option
   (* decl_type: name *)
@@ -337,6 +339,13 @@ let rec constr_to_string (c : constr) : string =
      let s_body = target_to_string p_body in
      "Decl_var (<ty_pred>, " ^ s_name ^ ", " ^ s_body ^ ")"
      (* LATER: add a string representation for type constraints *)
+  | Constr_decl_vars (_ty_pred, name, p_body) ->
+     let s_name =
+       match name with | None -> "_" | Some r -> rexp_to_string r
+     in
+     let s_body = target_to_string p_body in
+     "Decl_vars (<ty_pred>, " ^ s_name ^ ", " ^ s_body ^ ")"
+     (* LATER: add a string representation for type constraints *)
   | Constr_decl_fun (_ty_pred,name, _tgt_list_pred, p_body, is_def, _opt) ->
     let s_name =
        match name with | None -> "_" | Some r -> rexp_to_string r
@@ -547,6 +556,9 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_decl_var (ty_pred, name, p_body) ->
      let s_body = aux p_body in
      Constr_decl_var (ty_pred, name, s_body)
+  | Constr_decl_vars (ty_pred, name, p_body) ->
+    let s_body = aux p_body in
+    Constr_decl_vars (ty_pred, name, s_body)
   | Constr_decl_fun (ty_pred,name, tgt_list_pred, p_body, is_def, cx_opt) ->
      let s_body = if is_def then aux p_body else p_body in
      Constr_decl_fun (ty_pred,name, tgt_list_pred, s_body, is_def, cx_opt)
@@ -924,6 +936,13 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         ty_pred (get_inner_ptr_type tx) &&
         check_name name x &&
         check_target p_body body
+     | Constr_decl_vars (ty_pred, name, p_body), Trm_let_mult (_, tvl, tl) ->
+        List.fold_left2 (fun acc (x, tx) body -> 
+          let b = ty_pred (get_inner_ptr_type tx) &&
+            check_name name x &&
+            check_target p_body body in
+          acc || b
+        ) false tvl tl
      | Constr_decl_fun (ty_pred, name, cl_args, p_body,is_def, cx_opt),
        Trm_let_fun (x, tx, args, body) ->
         let body_check =

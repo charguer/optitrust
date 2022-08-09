@@ -359,6 +359,18 @@ let cVarDefReg (reg : string) : constr =
 let cVarInit (var : string) : constr =
   cTarget [cVarDef var; dVarBody]
 
+(* [cVarDef ~regexp ~substr ~body ~typ ~typ_pred name]: matches all multiple variable definitions
+    [regexp] - match using regular expressions
+    [substr] - match names partially
+    [body] - match based on their body
+    [typ] - match based on type
+    [typ_pred] - match based on type. *)
+let cVarsDef ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) ?(typ : string = "")
+  ?(typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
+  let ro = string_to_rexp_opt regexp substr name TrmKind_Instr in
+  let ty_pred = make_typ_constraint ~typ ~typ_pred () in
+  Constr_decl_vars (ty_pred, ro, body)
+
 (* [cFor ~start ~direction ~stop ~step ~body index] matches simple for loops
      [start] - match based on the initial value trm
      [direction] - match based on the direction of the loop

@@ -508,3 +508,22 @@ let stack_to_heap_aux (t : trm) : trm =
 (* [stack_to_heap is_const t p]: applies [stack_to_heap_aux] at the trm [t] with path [p]. *)
 let stack_to_heap : Transfo.local =
   apply_on_path(stack_to_heap_aux)
+
+(* [unfold_let_mult_aux t]: transform the multiple variable declarations instruction to a sequence of variable declaration.
+    Does not work for pointer to variable of the multiple declaration instruction like the example below.
+    This is caused by the different encoding of variable of Trm_let and Trm_let_mult.
+    Example : int a, *b = &a *)
+let unfold_let_mult_aux (t : trm) : trm =
+  match t.desc with
+  | Trm_let_mult (vk, tvl, tl) -> 
+    let decls = List.map2 (fun (x, ty) t -> 
+      let t = match t.desc with
+      | Trm_val _ | Trm_array _ -> t | _ -> trm_get t in
+      if is_typ_const ty then trm_let_immut (x, get_inner_const_type (ty)) t else trm_let_mut (x, ty) t
+    ) tvl tl in
+    trm_seq_no_brace decls
+  | _ -> fail None "Apac_core.unfold_let_mult: expected a target to a multiple variable declaration."
+
+(* [unfold_let_mult t p]: applies [unfold_let_mult_aux] at the trm [t] with path [p]. *)
+let unfold_let_mult : Transfo.local =
+  apply_on_path(unfold_let_mult_aux)
