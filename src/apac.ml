@@ -206,13 +206,15 @@ let get_unary_mutation_qvar (t : trm) : qvar =
     then it will return the corresponding constifiable function *) 
 let identify_constifiable_functions (tg : target) : constifiable = 
   (* TODO : better handle include files *)
-  let tg_trm = get_trm_at_unsome tg in
+
+  let tg_trm = match get_trm_at tg with
+    | Some (t) when trm_is_mainfile t -> t
+    | _ -> fail None "Apac.constify_functions_arguments: expected a target to the main file sequence" 
+  in
+
   let fac : fun_args_const = Hashtbl.create 10 in 
   (* store the function's arguments (fname, nth arg) to unconst *)
   let to_process : (fun_loc * int) Stack.t = Stack.create () in
-
-  (* Note : do not know why it works without this initialisation. *)
-  (* Ast_data.fill_fun_defs_tbl tg_trm; *)
 
 
   (* get the list of function declarations trms *)
@@ -223,17 +225,13 @@ let identify_constifiable_functions (tg : target) : constifiable =
         match t.desc with
         | Trm_let_fun _ -> (t, -1) :: acc
         | Trm_namespace (name, body, is_inline) -> acc @ (aux body)
-        | Trm_typedef td -> 
-          begin match td.typdef_body with 
-          | Typdef_record _ -> 
-            acc @ (List.fold_left (fun acc tr -> (tr, td.typdef_typid) :: acc) [] (typedef_get_methods t))
-          | _ -> acc
-          end
+        | Trm_typedef ({ typdef_body = Typdef_record _; _ } as td) -> 
+          acc @ (List.fold_left (fun acc tr -> (tr, td.typdef_typid) :: acc) [] (typedef_get_methods t))
         | _ when List.exists (function | Include _ -> true | _ -> false) (trm_get_files_annot t) ->
           acc @ (aux t)
         | _ -> acc
         ) [] tl
-      | _ -> fail None "Apac.constify_functions_arguments: Expect dRoot target"
+      | _ -> assert false
     in
     aux t
   in
@@ -430,6 +428,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
   in
   unconstify_propagate to_process;
 
+
   (* create constifiable from fac *)
   let cstfbl = Hashtbl.create 10 in
   Hashtbl.iter (fun fun_loc {args_const; is_method; _} ->
@@ -480,23 +479,23 @@ let heapify_nested_seq : Transfo.t =
   iter_on_targets (fun t p ->
 
     (* heapifies variables and adds delete tasks before certain Trm_abort*)
-    let rec aux (ptrs : decl_cptrs) (first_depth : bool) (t : trm) : trm =
+    let rec aux (ptrs : decl_cptrs) (is_first_depth : bool) (t : trm) : trm =
       match t.desc with
       (* new scope *)
-      | Trm_seq _ -> trm_map (aux (Hashtbl.copy ptrs) first_depth) t
+      | Trm_seq _ -> trm_map (aux (Hashtbl.copy ptrs) is_first_depth) t
       | Trm_for _ | Trm_for_c _  -> trm_map (aux (Hashtbl.copy ptrs) false) t 
       | Trm_while _ | Trm_switch _ -> trm_map (aux ptrs false) t
 
       | Trm_let (_, (var, ty), _) -> 
-        if Hashtbl.mem ptrs var 
-          (* remove variable from occurs when declaring them again *)
-          then begin Hashtbl.remove ptrs var; trm_map (aux ptrs first_depth) t end
-          (* heapify new variable *)
-          else begin 
-            let tr = Apac_core.stack_to_heap_aux t in
-            Hashtbl.add ptrs var (is_typ_array (get_inner_ptr_type ty));
-            trm_map (aux ptrs first_depth)  tr 
+        (* remove variable from occurs when declaring them again *)
+        if Hashtbl.mem ptrs var then begin Hashtbl.remove ptrs var; trm_map (aux ptrs is_first_depth) t end
+        (* heapify new variable only for first depth *)
+        else if is_first_depth then begin 
+          let tr = Apac_core.stack_to_heap_aux t in
+          Hashtbl.add ptrs var (is_typ_array (get_inner_ptr_type ty));
+          trm_map (aux ptrs is_first_depth) tr 
           end
+        else trm_map (aux ptrs is_first_depth) t
       | Trm_let_mult (_, tvl, tl) -> 
         (* raises error if partial heapify *)
         let has_defined_var = List.fold_left (fun has_defined_var (var, ty) ->
@@ -505,8 +504,8 @@ let heapify_nested_seq : Transfo.t =
           else fail None "Apac.heapify_nested_seq.aux: partial heapify of Trm_let_mult"
         ) false tvl in
         if has_defined_var 
-          then trm_map (aux ptrs first_depth) t
-          else trm_map (aux ptrs first_depth) (Apac_core.stack_to_heap_aux t)
+          then trm_map (aux ptrs is_first_depth) t
+          else trm_map (aux ptrs is_first_depth) (Apac_core.stack_to_heap_aux t)
       
       (* dereference heapified variables *)
       | Trm_var (kind, qv) when Hashtbl.mem ptrs qv.qvar_str && not (Hashtbl.find ptrs qv.qvar_str) -> trm_get t 
@@ -514,13 +513,13 @@ let heapify_nested_seq : Transfo.t =
       (* add delete task before :
           - return : everytime
           - break, continue : only the current loop not deeper *)
-      | Trm_abort _ when is_return t || first_depth ->
+      | Trm_abort _ when is_return t || is_first_depth ->
         begin match get_delete_task ptrs with
-        | Some (tr) -> trm_seq_no_brace [tr; trm_map (aux ptrs first_depth) t]
+        | Some (tr) -> trm_seq_no_brace [tr; trm_map (aux ptrs is_first_depth) t]
         | _ -> t
         end
       
-      | _ -> trm_map (aux ptrs first_depth) t
+      | _ -> trm_map (aux ptrs is_first_depth) t
     in
 
     (* add a delete task a the end of the sequence if there is not Trm_abort at the end *)
