@@ -104,6 +104,7 @@ TESTS_NODOC := \
 	matrix_local_name_obj.ml \
 	apac_constify_args.ml \
 	apac_stack_to_heap.ml \
+	apac_unfold_let_mult.ml \
 
 
 TESTS_TO_FIX := \

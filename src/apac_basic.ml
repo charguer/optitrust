@@ -69,8 +69,12 @@ let constify_args_alias ?(is_args_const : bool list = []) : Transfo.t =
 let stack_to_heap : Transfo.t =
   apply_on_targets (Apac_core.stack_to_heap)
 
+(* DOES NOT WORK : cause different variable encoding between Trm_let, Trm_let_mult and function's arguments *)
 (* [unfold_let_mult tg]: expects the target [tg] to point at a multiple variable declaration.
     Then it will be replace by a sequence of simple variable declarations. *)
 let unfold_let_mult (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Apac_core.unfold_let_mult) tg)
+
+let mark_taskable_function (mark : mark) : Transfo.t =
+  apply_on_targets (Apac_core.mark_taskable_function mark)
