@@ -670,3 +670,64 @@ let sync_with_taskwait : Transfo.t =
       transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
   )
+
+(* [gen_id ()]: unique integer generator. *)
+let gen_id = Tools.fresh_generator ()
+
+(* [count_calls t]: count the number of function call in [t]. *)
+let count_calls (t : trm) : int =
+  let rec aux (count : int) (t : trm) : int =
+    match t.desc with
+    | Trm_apps (f, args) -> 
+      let count = match f.desc with | Trm_var _ -> count+1 | _ -> count in
+      List.fold_left (fun acc t -> aux acc t) count args 
+    | _ -> count
+  in
+  aux 0 t
+
+(* [unfold_funcalls tg]: expects the user to have filled [fun_defs] in Ast_data (Ast_data.fill_fun_defs_tbl).
+    It will search all function calls under from the target [tg]. Then it will create a new variable, change its value
+    with the function call and replace the function targeted with then newly created variable. *)
+let unfold_funcalls : Transfo.t =
+
+  let unfold_funcalls_transfo (tg_instr : target) (tg_call : target) : unit =
+    let tr_call = get_trm_at_unsome tg_call in
+    let ty = match tr_call.desc with
+      | Trm_apps ({desc = Trm_var _} as f, args) -> 
+        let def = Ast_data.get_function_def f in
+        let (_, ty, _, _) = trm_inv trm_let_fun_inv def in
+        ty
+      | _ -> assert false
+    in
+    let new_name = "__var_" ^ (string_of_int (gen_id())) in
+    let tr_let_var = trm_let_mut (new_name, get_inner_const_type ty) (trm_uninitialized ()) in 
+    let tr_set = trm_set (trm_var new_name) tr_call in
+
+    if not (same_types ty (typ_unit ())) 
+    then begin
+      transfo_on_targets (fun _ -> trm_apps (trm_unop Unop_get) [trm_var new_name]) tg_call;
+      Internal.nobrace_remove_after (fun _ -> 
+        transfo_on_targets (fun t -> trm_seq_no_brace [tr_let_var; tr_set; t]) tg_instr);
+      end
+    else ()
+  in
+
+  iter_on_targets (fun t p ->
+    let fixed_tg = (target_of_path p ) @ [nbAny; cFun ""] in
+
+    iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+      (fun i t (path_to_seq, local_path, i1)  -> 
+        let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
+        let path_to_call = path_to_instruction @ local_path in
+        let tg_instr = target_of_path path_to_instruction in
+        let tg_call = target_of_path path_to_call in
+        let tg_out_trm = Path.resolve_path path_to_instruction t in 
+        
+
+        match tg_out_trm.desc with
+        | Trm_let _ -> unfold_funcalls_transfo tg_instr tg_call
+        | Trm_apps (_, [lhs; rhs]) when is_set_operation tg_out_trm && count_calls rhs >= 2 -> 
+          unfold_funcalls_transfo tg_instr tg_call
+        | _ -> ()
+        ) fixed_tg;
+    )
