@@ -309,7 +309,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
       | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ } as f, args) when fac_mem_from_trm f ->
         let {args_const; _} = fac_find_from_trm f in
         List.iteri (fun i t -> 
-          match (Apac_core.get_inner_all_unop t).desc with
+          match (Apac_core.get_inner_all_unop_and_access t).desc with
           | Trm_var (vk, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
             let (arg_idx, _) = Hashtbl.find va arg_name.qvar_str in
             let ac = List.nth args_const i in 
@@ -482,9 +482,9 @@ let heapify_nested_seq : Transfo.t =
     let rec aux (ptrs : decl_cptrs) (is_first_depth : bool) (t : trm) : trm =
       match t.desc with
       (* new scope *)
-      | Trm_seq _ -> trm_map (aux (Hashtbl.copy ptrs) is_first_depth) t
+      | Trm_seq _ -> trm_map (aux (Hashtbl.copy ptrs) false) t
       | Trm_for _ | Trm_for_c _  -> trm_map (aux (Hashtbl.copy ptrs) false) t 
-      | Trm_while _ | Trm_switch _ -> trm_map (aux ptrs false) t
+      | Trm_while _ | Trm_switch _ | Trm_if _ -> trm_map (aux ptrs false) t
 
       | Trm_let (_, (var, ty), _) -> 
         (* remove variable from occurs when declaring them again *)

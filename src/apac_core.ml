@@ -312,10 +312,11 @@ let constify_args (is_args_const : bool list) (is_method_const : bool) : Transfo
 (* [vars_arg]: hashtable that stores variables that refer to an argument and the pointer depth of that argument. *)
 type vars_arg = (string, (int * int)) Hashtbl.t
 
-(* [get_inner_all_unop t]: unfold all unary operators. *)
-let rec get_inner_all_unop (t : trm) : trm =
+(* [get_inner_all_unop_and_access t]: unfold all unary operators and array access. *)
+let rec get_inner_all_unop_and_access (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) -> get_inner_all_unop t
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) -> get_inner_all_unop_and_access t
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop array_access)); _ }, [t; _]) -> get_inner_all_unop_and_access t
   | _ -> t
 
 (* [get_arg_idx_from_cptr_arith va t] : resolve pointer operation to get the pointer variable. 
@@ -368,7 +369,7 @@ let update_vars_arg_on_trm_let (on_ref : unit -> 'a) (on_ptr : unit -> 'a) (on_o
   match t.desc with
   | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }) -> 
     if trm_has_cstyle Reference t then
-      match (get_inner_all_unop tr).desc with
+      match (get_inner_all_unop_and_access tr).desc with
       | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
         let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
         Hashtbl.add va lname (arg_idx, get_cptr_depth ty);
@@ -396,7 +397,7 @@ let update_vars_arg_on_trm_let (on_ref : unit -> 'a) (on_ptr : unit -> 'a) (on_o
 let update_vars_arg_on_trm_let_mult_iter (on_ref : unit -> 'a) (on_ptr : unit -> 'a) (on_other : unit -> 'a) 
     (va : vars_arg) (name : var) (ty : typ) (t: trm) : 'a =
   if is_reference ty then
-    match (get_inner_all_unop t).desc with
+    match (get_inner_all_unop_and_access t).desc with
     | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
       let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
       Hashtbl.add va name (arg_idx, get_cptr_depth ty);
