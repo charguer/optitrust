@@ -632,10 +632,11 @@ let unfold_funcalls : Transfo.t =
         let tg_call = target_of_path path_to_call in
         let tg_out_trm = Path.resolve_path path_to_instruction t in 
         
-
         match tg_out_trm.desc with
         | Trm_let _ -> unfold_funcalls_transfo tg_instr tg_call
         | Trm_apps (_, [lhs; rhs]) when is_set_operation tg_out_trm && count_calls rhs >= 2 -> 
+          unfold_funcalls_transfo tg_instr tg_call
+        | Trm_apps ({ desc = Trm_var _ }, _) when count_calls tg_out_trm >= 2-> 
           unfold_funcalls_transfo tg_instr tg_call
         | _ -> ()
         ) fixed_tg;
