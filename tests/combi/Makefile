@@ -68,7 +68,6 @@ TESTS_WITH_DOC := \
 TESTS_WITHOUT_DOC := \
 	matrix_delocalize_obj.ml \
 	apac_constify_functions_arguments.ml \
-	apac_bind_taskable.ml \
 	apac_heapify_nested_seq.ml \
 
 	

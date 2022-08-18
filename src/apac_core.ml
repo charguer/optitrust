@@ -31,42 +31,6 @@ let use_goto_for_return_aux (mark : mark) (t : trm) : trm =
 let use_goto_for_return (mark : mark) : Transfo.local =
   apply_on_path(use_goto_for_return_aux mark)
 
-(* [occurs]: a Hashtable used for storing all the functions whose calls occur at a given trm. *)
-type occurs = (string, unit) Hashtbl.t
-
-(* [get_fun_occurrences t]: returns all the function call occurrences inside [t]. *)
-let get_fun_occurrences (t : trm) : occurs =
-    let tsk = Hashtbl.create 1000 in 
-    let rec aux (t : trm) : unit = 
-      match t.desc with 
-      | Trm_apps ({desc = Trm_var (vk, qv); _}, args) ->
-        trm_iter aux t;
-        let fun_name = qv.qvar_var in 
-        if Hashtbl.mem tsk fun_name 
-          then ()
-          else Hashtbl.add tsk fun_name ()
-      | _ -> trm_iter aux t
-    in aux t;
-    tsk
-
-(* [dep_kind]: type used for [arg_dep]. *)
-type dep_kind = 
-  | Dep_kind_in 
-  | Dep_kind_out
-  | Dep_kind_inout
-  | Dep_kind_outin
-  | Dep_kind_sink
-  | Dep_kind_source
-
-(* [arg_dep]: a record that stored all the dependecy informations about one argument. *)
-type arg_dep = {
-  arg_dep_var : var;
-  arg_dep_typ : typ;
-  arg_dep_kind : dep_kind;
-}
-
-(* [arg_deps]: a list of arg_dep. *)
-type arg_deps = arg_dep list
 
 (* [is_typdef_alias ty]: checks if [ty] is a defined type alias. *)
 let is_typdef_alias (ty : typ) : bool =
@@ -163,52 +127,6 @@ let rec is_dep_in (ty : typ) : bool =
 
   | _ -> is_dep_in_aux ty
 
-(* [dep_kind_of_typ ty]: returns the dependency kind of type [ty]. *)
-let dep_kind_of_typ (ty : typ) : dep_kind =
-  if is_dep_in ty then Dep_kind_in else Dep_kind_inout
-
-(* [get_arg_dependencies t]: for each argument of the function [t] returns all the dependencies.  *)
-let get_arg_dependencies (t : trm) : arg_deps =
-  match Function_core.get_prototype t with 
-  | Some (ty, args) -> 
-    List.map (fun (x, ty) -> 
-      { arg_dep_var = x;
-        arg_dep_typ = ty;
-        arg_dep_kind = dep_kind_of_typ ty }
-     ) args
-  | None -> fail t.loc "Apac_core.get_arg_dependencies: expected a function definition"
-
-(* [get_function_defs ()]: a hashtable containing all the function definitions. *)
-let get_function_defs () : (string, arg_deps)  Hashtbl.t = 
-  let ast = Target.get_ast () in
-  let fun_defs = Hashtbl.create 1000 in 
-  match ast.desc with 
-  | Trm_seq tl ->
-    Mlist.iter (fun t1 -> 
-      begin match t1.desc with 
-      | Trm_let_fun (qn, _, _, body) when not (is_trm_uninitialized body) ->
-        Hashtbl.add fun_defs qn.qvar_var (get_arg_dependencies t1)
-      | _ -> ()
-      end ) tl;
-    fun_defs
-  | _ -> fail ast.loc "Apac.get_function_defs: expected a Trm_seq." 
-
-
-(* [sorted_arg_deps]: a record used for storing classified arguments based on their respective dependency kind. *)
-type sorted_arg_deps = {
-  dep_in : deps;
-  dep_out : deps;
-  dep_inout : deps;
-  dep_outin : deps;
-  dep_sink : deps;
-  dep_source : deps
-}
-
-(* [empty_sort_arg]:  *)
-let empty_sort_arg = {
-    dep_in = []; dep_out = []; dep_inout = []; 
-    dep_outin = []; dep_sink = []; dep_source = []}
-
 
 (* [get_cptr_depth ty]: returns the number of C pointer of the type [ty]. *)
 let get_cptr_depth (ty : typ) : int =
@@ -233,19 +151,6 @@ let get_dep (var : var) (ty : typ) : dep =
     if depth > 0 then Dep_ptr (aux (depth-1)) else Dep_var var
   in
   aux (get_cptr_depth ty)
-
-(* [sort_arg_dependencies arg_deps]: sorts [arg_deps] based on their kind. *)
-let sort_arg_dependencies (arg_deps : arg_deps) : sorted_arg_deps =
-  List.fold_left (fun acc arg_dep -> 
-    let dep = get_dep arg_dep.arg_dep_var arg_dep.arg_dep_typ in
-    match arg_dep.arg_dep_kind with 
-    | Dep_kind_in -> {acc with dep_in = dep :: acc.dep_in}
-    | Dep_kind_out -> {acc with dep_out = dep :: acc.dep_out}
-    | Dep_kind_inout -> {acc with dep_inout = dep :: acc.dep_inout}
-    | Dep_kind_outin -> {acc with dep_outin = dep :: acc.dep_outin}
-    | Dep_kind_sink -> {acc with dep_sink = dep :: acc.dep_sink}
-    | Dep_kind_source -> {acc with dep_source = dep :: acc.dep_source}
-  ) empty_sort_arg arg_deps
 
 
 (* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)

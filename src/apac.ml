@@ -30,99 +30,6 @@ let parallel_task_group ?(mark : mark = "") : Transfo.t =
     )
 
 
-(* [insert_task sag tg]: expects the target [tg] to be pointing at an instruction or a sequence.
-    then based on [sag] it will insert an OpenMP directive on the trm that [tg] points to. *)
-let insert_task (sag : sorted_arg_deps) : Transfo.t =
-  iter_on_targets (fun t p -> 
-    let dl = match sag.dep_in with [] -> [] | _ -> [In sag.dep_in] in 
-    let dl = match sag.dep_out with [] -> dl | _ ->  (Out sag.dep_out) :: dl in
-    let dl = match sag.dep_inout with [] -> dl | _ -> (Inout sag.dep_inout) :: dl in 
-    let dl = match sag.dep_outin with [] -> dl | _ -> (Outin sag.dep_outin) :: dl in 
-    let dl = match sag.dep_sink with [] -> dl | _ -> (Sink sag.dep_sink) :: dl in 
-    let dl = match sag.dep_source with [] -> dl | _ -> Source :: dl in 
-    Omp_basic.task ~clause:[Depend dl] (target_of_path p))
-
-(* [bind_taskable tsk tg]: expects the target [ŧg] to be pointing at a a sequence. 
-    Then it will bind a variable to all the calls to the taskable functions [tsk]. 
-    That are descendants of the trms associated to the target [tg]. *)
-let bind_taskable_calls ?(indepth : bool = true) (tak : taskable) : Transfo.t =
-  iter_on_targets (fun t p -> 
-    
-    let tg_trm = Path.get_trm_at_path p t in 
-
-    (* get all the function names whose calls are descendants of tg_trm. *)
-    let occ = get_fun_occurrences tg_trm in 
-    let occ_functions = Tools.hashtbl_keys_to_list occ in 
-    
-    let fixed_tg = 
-      if indepth then (target_of_path p ) @ [nbAny; cFuns occ_functions]
-      else target_of_path p
-      in
-    iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-      (fun i t (path_to_seq, local_path, i1)  -> 
-        let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
-        let path_to_call = path_to_instruction @ local_path in
-        let tg_out_trm = Path.resolve_path path_to_instruction t in 
-        let path_call_len = List.length local_path in
-        let tg_call = target_of_path path_to_call in
-       match tg_out_trm.desc with 
-       | Trm_let (vk, _, _)  when path_call_len <= 2 -> 
-           if vk = Var_mutable 
-             then Variable.init_detach (target_of_path path_to_instruction)
-             else ()
-       | Trm_let _ -> Function.bind_intro ~const:false ~my_mark:"bind_tskbl" ~fresh_name:("res__" ^ (string_of_int i1)) tg_call;
-                      begin try Variable.init_detach [cVarDef "" ~body:[cMark "bind_tskbl"]] with | TransfoError _ -> () end; 
-                      Marks.remove "bind_tskbl" [nbAny;cMark "bind_tskbl"]
-       
-       | Trm_apps (_,[ls; rhs]) when is_set_operation tg_out_trm -> 
-           if path_call_len >= 2 
-             then  Function.bind_intro ~const:false ~fresh_name:("res__" ^ (string_of_int i1)) tg_call
-             else ()
-       | Trm_apps _ when path_call_len = 0 -> ()
-       
-       | _ -> fail tg_out_trm.loc "Apac_basic.bind_taskable_calls: the main target should either a function call, or any trm that 
-                  contains some function calls provided that the argument [indepth] is set to true. "
-     ) fixed_tg
-)
-
-(* [insert_tasks_for_taskable ~indepth tsk tg]: expects the target [tg] to be pointing at a function call 
-      of the full file ast. If the targeted trm is a function call to a taskable function, then
-        it considers first the arg_deps of that function, then it will replace the arguments from the definition with 
-        the ones from the call and sort them. Finally it will call [inser_task] transformation to insert an OpenMP
-        pragma just before the instruction that contains the targeted function call.
-      [indepth] - controls whether to recurse in all the subterms, *)
-let insert_tasks_for_taskable ?(indepth : bool = false) (tsk : taskable) (tg : target) : unit = 
-  let fun_arg_deps = get_function_defs () in 
-  let occ_functions = Tools.hashtbl_keys_to_list fun_arg_deps in 
-  let fixed_tg = 
-        if indepth 
-          then tg @ [nbAny; cFuns occ_functions] 
-          else tg
-        in
-  iter_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence) 
-    (fun t (path_to_seq, local_path, i1) -> 
-      let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in 
-      let path_to_call = path_to_instruction @ local_path in 
-      let call_trm = Path.get_trm_at_path path_to_call t in
-      match call_trm.desc with 
-      | Trm_apps ({desc = Trm_var (_, qn); _}, call_args) ->
-        begin match Hashtbl.find_opt fun_arg_deps qn.qvar_var with 
-        | Some arg_deps -> 
-          (* replacing function definition args with function call args. *)
-          let upd_arg_deps = List.map2 (fun arg_dep call_arg -> 
-            begin match (get_operation_arg call_arg).desc with 
-            | Trm_var (_, qn) -> {arg_dep with arg_dep_var = qn.qvar_var}
-            | _ -> arg_dep
-            end
-          ) arg_deps call_args in 
-          let srt_arg_deps = sort_arg_dependencies upd_arg_deps in 
-          insert_task srt_arg_deps (target_of_path path_to_instruction)
-        | None -> ()
-        end
-      | _ -> ()
-  ) fixed_tg
-
-
 (* [fun_loc]: function's Unified Symbol Resolution *)
 type fun_loc = string
 
@@ -456,6 +363,7 @@ let constify_functions_arguments (cstfbl : constifiable) : Transfo.t =
     | _ -> fail None "Apac.constify_functions_arguments: expected target to function definition."
   )
 
+
 (* [decl_cptrs]: Hashtable that stores the available varaibles and if they are arrays. *)
 type decl_cptrs = (var, bool) Hashtbl.t
 
@@ -670,6 +578,7 @@ let sync_with_taskwait : Transfo.t =
       transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
   )
+
 
 (* [gen_id ()]: unique integer generator. *)
 let gen_id = Tools.fresh_generator ()
