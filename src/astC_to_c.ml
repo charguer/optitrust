@@ -1051,7 +1051,7 @@ and clause_to_doc (cl : clause) : document =
   | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)
   | Priority i -> string "priority" ^^ parens (string i)
   | Depend dp -> 
-    let dpl = Tools.list_to_doc ~empty (List.map dependece_type_to_doc dp) in 
+    let dpl = Tools.list_to_doc ~sep:(blank 1) ~empty (List.map dependece_type_to_doc dp) in 
     dpl
   | Grainsize i -> string "grainsize" ^^ parens (string (string_of_int i))
   | Mergeable -> string "mergeable"
