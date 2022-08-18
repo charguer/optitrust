@@ -249,7 +249,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
       }                             | }
     *)
     let l = Hashtbl.find_all va name in 
-    List.iter (fun (arg_idx, _) -> Stack.push (usr, arg_idx) to_process) l
+    List.iter (fun (_, arg_idx) -> Stack.push (usr, arg_idx) to_process) l
   in
 
   (* helper function: check if the term [t] is in fac. *)
@@ -311,7 +311,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
         List.iteri (fun i t -> 
           match (Apac_core.get_inner_all_unop_and_access t).desc with
           | Trm_var (vk, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
-            let (arg_idx, _) = Hashtbl.find va arg_name.qvar_str in
+            let (_, arg_idx) = Hashtbl.find va arg_name.qvar_str in
             let ac = List.nth args_const i in 
             if ac.is_ptr_or_ref then ac.dependency_of <- (cur_usr, arg_idx) :: ac.dependency_of
           | _ -> ()
@@ -345,10 +345,10 @@ let identify_constifiable_functions (tg : target) : constifiable =
             (* the variable [var_name] has been modified, add it in to_process *)
             add_elt_in_to_process va cur_usr var_name;
             (* change the pointed data for not dereferenced pointers *)
-            begin match Apac_core.get_arg_idx_from_cptr_arith va rhs with
+            begin match Apac_core.get_vars_data_from_cptr_arith va rhs with
             | Some (arg_idx) when not is_deref ->
-              let (_, depth) = Hashtbl.find va var_name in
-              Hashtbl.add va var_name (arg_idx, depth)
+              let (depth, _) = Hashtbl.find va var_name in
+              Hashtbl.add va var_name (depth, arg_idx)
             | _ -> ()
             end
           | _ -> () (* example variable not in va : global variable *)  
@@ -372,7 +372,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
           | _ -> ()
           end
         else if ret_ptr_depth > 0 then 
-          begin match Apac_core.get_arg_idx_from_cptr_arith va tr with
+          begin match Apac_core.get_vars_data_from_cptr_arith va tr with
           | Some (arg_idx) -> Stack.push (cur_usr, arg_idx) to_process 
           | None -> ()
           end;
@@ -395,7 +395,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
         begin match Context.typid_to_trm tid with
         | Some (t) -> 
           List.iter (fun (name, ty) -> 
-            Hashtbl.add va name (0, Apac_core.get_cptr_depth ty)
+            Hashtbl.add va name (Apac_core.get_cptr_depth ty, 0)
           ) (typedef_get_members t)
         | None -> assert false
         end 
@@ -405,7 +405,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
       List.iteri (fun i (name, ty) -> 
         if name <> "" then
           let i = if is_method then i+1 else i in
-          Hashtbl.add va name (i, Apac_core.get_cptr_depth ty)
+          Hashtbl.add va name (Apac_core.get_cptr_depth ty, i)
         ) args;
       
       update_fac_and_to_process va (Ast_data.get_function_usr_unsome t) is_method body

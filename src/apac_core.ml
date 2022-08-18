@@ -309,8 +309,12 @@ let constify_args (is_args_const : bool list) (is_method_const : bool) : Transfo
   apply_on_path(constify_args_aux is_args_const is_method_const)
 
 
-(* [vars_arg]: hashtable that stores variables that refer to an argument and the pointer depth of that argument. *)
-type vars_arg = (string, (int * int)) Hashtbl.t
+(* [vars_tbl]: hashtable generic to keep track of variables and its pointer depth 
+    this abstrastion is used for generic functions. *)
+type 'a vars_tbl = (var, (int * 'a)) Hashtbl.t 
+
+(* [vars_arg]: hashtable that stores variables that refer the pointer depth of that argument and the position of the argument. *)
+type vars_arg = int vars_tbl
 
 (* [get_inner_all_unop_and_access t]: unfold all unary operators and array access. *)
 let rec get_inner_all_unop_and_access (t : trm) : trm =
@@ -319,10 +323,10 @@ let rec get_inner_all_unop_and_access (t : trm) : trm =
   | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop array_access)); _ }, [t; _]) -> get_inner_all_unop_and_access t
   | _ -> t
 
-(* [get_arg_idx_from_cptr_arith va t] : resolve pointer operation to get the pointer variable. 
-    If it is related to an argument of a function, returns the index of the corresponding argument. *)
-let get_arg_idx_from_cptr_arith (va : vars_arg) (t: trm) : int option =
-  let rec aux (depth : int) (t: trm) : int option =
+(* [get_vars_data_from_cptr_arith va t] : resolve pointer operation to get the pointer variable. 
+    Then return the data of the corresponding variable store in vars_tbl *)
+let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
+  let rec aux (depth : int) (t: trm) : 'a option =
     match t.desc with
     (* unop : progress deeper + update depth *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _ }, [t]) ->
@@ -349,7 +353,7 @@ let get_arg_idx_from_cptr_arith (va : vars_arg) (t: trm) : int option =
     (* variable : resolve variable *)
     | Trm_var (_ ,qv) ->
       begin match Hashtbl.find_opt va qv.qvar_str with
-      | Some (arg_idx, d) when (d + depth) > 0 -> Some (arg_idx)
+      | Some (d, arg_idx) when (d + depth) > 0 -> Some (arg_idx)
       | _ -> None
       end
     
@@ -371,14 +375,14 @@ let update_vars_arg_on_trm_let (on_ref : unit -> 'a) (on_ptr : unit -> 'a) (on_o
     if trm_has_cstyle Reference t then
       match (get_inner_all_unop_and_access tr).desc with
       | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
-        let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
-        Hashtbl.add va lname (arg_idx, get_cptr_depth ty);
+        let (_, arg_idx) = Hashtbl.find va qv.qvar_str in 
+        Hashtbl.add va lname (get_cptr_depth ty, arg_idx);
         on_ref()
       | _ -> on_other()
     else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then 
-      match get_arg_idx_from_cptr_arith va tr with
+      match get_vars_data_from_cptr_arith va tr with
       | Some (arg_idx) -> 
-        Hashtbl.add va lname (arg_idx, get_cptr_depth ty);
+        Hashtbl.add va lname (get_cptr_depth ty, arg_idx);
         on_ptr()
       | None -> on_other()
     else on_other()
@@ -399,14 +403,14 @@ let update_vars_arg_on_trm_let_mult_iter (on_ref : unit -> 'a) (on_ptr : unit ->
   if is_reference ty then
     match (get_inner_all_unop_and_access t).desc with
     | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
-      let (arg_idx, _) = Hashtbl.find va qv.qvar_str in 
-      Hashtbl.add va name (arg_idx, get_cptr_depth ty);
+      let (_, arg_idx) = Hashtbl.find va qv.qvar_str in 
+      Hashtbl.add va name (get_cptr_depth ty, arg_idx);
       on_ref()
     | _ -> on_other()
   else if is_typ_ptr (get_inner_const_type ty) then
-    match get_arg_idx_from_cptr_arith va t with
+    match get_vars_data_from_cptr_arith va t with
     | Some (arg_idx) -> 
-      Hashtbl.add va name (arg_idx, get_cptr_depth ty);
+      Hashtbl.add va name (get_cptr_depth ty, arg_idx);
       on_ptr()
     | None -> on_other()
   else on_other()
@@ -452,7 +456,7 @@ let constify_args_alias_aux (is_args_const : bool list) (t : trm) : trm =
     let is_const = if is_args_const = [] then List.init (List.length args) (fun _ -> true) else is_args_const in
     let va : vars_arg= Hashtbl.create 10 in
     (* Only add constified arguments *)
-    List.iteri (fun i (b, (var, ty)) -> if b then Hashtbl.add va var (i, (get_cptr_depth ty))) (List.combine is_const args);
+    List.iteri (fun i (b, (var, ty)) -> if b then Hashtbl.add va var (get_cptr_depth ty, i)) (List.combine is_const args);
     trm_let_fun ~annot:t.annot ~loc:t.loc ~ctx:t.ctx ~qvar "" ret_typ args (aux va body)
   | _ -> fail t.loc "Apac_core.constify_args expected a target to a function definition."
 
