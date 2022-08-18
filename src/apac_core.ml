@@ -60,74 +60,6 @@ let get_inner_typedef_alias (ty : typ) : typ option =
     end
   | _ -> None
   
-(* [is_base_type ty]: checks if [ty] is a base type or not. *)
-let rec is_base_type (ty : typ) : bool =
-  match ty.typ_desc with
-  | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
-  | Typ_constr _ -> 
-    begin match get_inner_typedef_alias ty with
-    (* alias *)
-    | Some (ty) -> is_base_type ty
-    (* class, struct, union, enum ... *)
-    | None -> true
-    end
-  | _ -> false
-
-(* [is_dep_in_aux ty]: check if the omp dependency type of [ty] in In. 
-      It returns true if there is "const" before every pointer and before the base type. *)
-let rec is_dep_in_aux (ty : typ) : bool =
-  match ty.typ_desc with
-  (* unwrap alias *)
-  | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) -> 
-    begin match get_inner_typedef_alias (get_inner_const_type ty) with
-    | Some (ty) -> is_dep_in_aux ty
-    | None -> assert false
-    end
-  (* base type const *)
-  | Typ_const ty when is_base_type ty -> true
-  (* ptr const *)
-  | Typ_const { typ_desc = Typ_ptr { ptr_kind = Ptr_kind_mut ; inner_typ = ty } } -> is_dep_in_aux ty
-  | Typ_const { typ_desc = Typ_array (ty, _); _ } -> is_dep_in_aux ty
-  (* ptr *)
-  | Typ_ptr {ptr_kind = Ptr_kind_mut; _ } -> false
-  | Typ_array (ty, _) -> false
-  (* base type *)
-  | _  when is_base_type ty -> false
-  (* should not encounter *)
-  | Typ_ptr {ptr_kind = Ptr_kind_ref; _ } -> assert false
-  | Typ_const _ -> assert false
-  | _ -> assert false
-
-(* [is_dep_in ty]: checks if the omp dependency type of [ty] in In.
-    If [ty] is a base type, it returns true, else it calls [is_dep_in_aux] 
-      on the type under the references if they exist. 
-    It does not handle auto ! *)
-let rec is_dep_in (ty : typ) : bool =
-  match ty.typ_desc with
-  (* unwrap alias *)
-  | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) -> 
-    begin match get_inner_typedef_alias (get_inner_const_type ty) with
-    | Some (ty) -> is_dep_in ty
-    | None -> assert false
-    end
-  (* reference *)
-  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> 
-    begin match ty.typ_desc with
-    (* void & *)
-    | Typ_unit -> fail None "is_dep_in: void & as argument"
-    (* const void & *)
-    | Typ_const { typ_desc = Typ_unit } -> fail None "is_dep_in: const void & as argument"
-
-    | _ -> is_dep_in_aux ty
-    end
-  (* const void *)
-  | Typ_const { typ_desc = Typ_unit } -> fail None "is_dep_in: const void as argument"
-  (* base type *)
-  | _ when is_base_type ty -> true
-
-  | _ -> is_dep_in_aux ty
-
-
 (* [get_cptr_depth ty]: returns the number of C pointer of the type [ty]. *)
 let get_cptr_depth (ty : typ) : int =
   let rec aux (depth : int) (ty : typ) : int =
@@ -144,14 +76,6 @@ let get_cptr_depth (ty : typ) : int =
     | _ -> depth
   in
   aux 0 ty
-
-(* [get_dep var ty]: returns the dep of the typ [ty] *)
-let get_dep (var : var) (ty : typ) : dep =
-  let rec aux (depth : int) : dep =
-    if depth > 0 then Dep_ptr (aux (depth-1)) else Dep_var var
-  in
-  aux (get_cptr_depth ty)
-
 
 (* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)
 let rec get_constified_arg_aux (ty : typ) : typ =

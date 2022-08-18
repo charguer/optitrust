@@ -462,6 +462,13 @@ let rec get_all_vars (acc: vars) (t : trm) : vars =
   | Trm_var (_, qv) when not (List.mem qv.qvar_str acc) -> qv.qvar_str :: acc
   | _ -> acc
 
+(* [get_dep var ty]: returns the dep of the typ [ty] *)
+let get_dep (var : var) (ty : typ) : dep =
+  let rec aux (depth : int) : dep =
+    if depth > 0 then Dep_ptr (aux (depth-1)) else Dep_var var
+  in
+  aux (get_cptr_depth ty)
+
 (* [sync_with_taskwait tg]: expects the target [tg] to point at a function definition, 
     then it will add taskwait omp pragmas before loop and conditional branches,
     it also adds it at the end of loops. *)
@@ -524,10 +531,10 @@ let sync_with_taskwait : Transfo.t =
       match t.desc with
       | Trm_seq _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
       
-      | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (Apac_core.get_dep var (get_inner_ptr_type ty)); t 
+      | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t 
 
       | Trm_let_mult (_, tvl, _) -> 
-        List.iter (fun (var, ty) -> Hashtbl.add decl_vars var (Apac_core.get_dep var (get_inner_ptr_type ty))) tvl; t
+        List.iter (fun (var, ty) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty))) tvl; t
 
       | Trm_if (cond, _, _) | Trm_switch (cond , _) -> 
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (get_all_vars [] cond) t)
@@ -574,7 +581,7 @@ let sync_with_taskwait : Transfo.t =
     let decl_vars = Hashtbl.create 10 in
     match tg_trm.desc with
     | Trm_let_fun (qv, ty, args, body) -> 
-      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add decl_vars var (Apac_core.get_dep var ty)) args;
+      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add decl_vars var (get_dep var ty)) args;
       transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
   )
@@ -657,7 +664,72 @@ type fun_args_deps = (fun_loc, dep_info list) Hashtbl.t
 type dep_infos = (var * dep_info) list
 (* [vars_depth]: hashtable that stores the pointer depth of variable and its name.
     The name of the variable is in the key and the value in order to use Apac_core.get_vars_data_from_cptr_arith. *)
-type vars_depth = var Apac_core.vars_tbl
+type vars_depth = var vars_tbl
+
+(* [is_base_type ty]: checks if [ty] is a base type or not. *)
+let rec is_base_type (ty : typ) : bool =
+  match ty.typ_desc with
+  | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
+  | Typ_constr _ -> 
+    begin match get_inner_typedef_alias ty with
+    (* alias *)
+    | Some (ty) -> is_base_type ty
+    (* class, struct, union, enum ... *)
+    | None -> true
+    end
+  | _ -> false
+  
+(* [is_dep_in ty]: checks if the omp dependency type of [ty] in In. 
+    It does not handle auto ! *)
+let rec is_dep_in (ty : typ) : bool =
+  (* returns true if there is "const" before every pointer and before the base type *)
+  let rec aux (ty : typ) : bool =
+    match ty.typ_desc with
+    (* unwrap alias *)
+    | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) -> 
+      begin match get_inner_typedef_alias (get_inner_const_type ty) with
+      | Some (ty) -> aux ty
+      | None -> assert false
+      end
+    (* base type const *)
+    | Typ_const ty when is_base_type ty -> true
+    (* ptr const *)
+    | Typ_const { typ_desc = Typ_ptr { ptr_kind = Ptr_kind_mut ; inner_typ = ty } } -> aux ty
+    | Typ_const { typ_desc = Typ_array (ty, _); _ } -> aux ty
+    (* ptr *)
+    | Typ_ptr { ptr_kind = Ptr_kind_mut; _ } -> false
+    | Typ_array (ty, _) -> false
+    (* base type *)
+    | _  when is_base_type ty -> false
+    (* should not encounter *)
+    | Typ_ptr { ptr_kind = Ptr_kind_ref; _ } -> assert false
+    | Typ_const _ -> assert false
+    | _ -> assert false
+  in
+
+  match ty.typ_desc with
+  (* unwrap alias *)
+  | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) -> 
+    begin match get_inner_typedef_alias (get_inner_const_type ty) with
+    | Some (ty) -> is_dep_in ty
+    | None -> assert false
+    end
+  (* reference *)
+  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> 
+    begin match ty.typ_desc with
+    (* void & *)
+    | Typ_unit -> fail None "is_dep_in: void & as argument"
+    (* const void & *)
+    | Typ_const { typ_desc = Typ_unit } -> fail None "is_dep_in: const void & as argument"
+
+    | _ -> aux ty
+    end
+  (* const void *)
+  | Typ_const { typ_desc = Typ_unit } -> fail None "is_dep_in: const void as argument"
+  (* base type *)
+  | _ when is_base_type ty -> true
+
+  | _ -> aux ty
 
 (* [get_functions_args_deps tg]: expect target [tg] to point at the root,
     then it will return the dep_info of each argument of functions. *)
