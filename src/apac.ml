@@ -731,3 +731,203 @@ let unfold_funcalls : Transfo.t =
         | _ -> ()
         ) fixed_tg;
     )
+
+
+(* [dep_info]: stores data of dependencies of tasks. *)
+type dep_info = {
+  dep_depth : int;
+  dep_in : bool;
+  dep_shared : bool;
+}
+
+(* [fun_args_deps]: hashtable that store the dep_info for each argument of functions. *)
+type fun_args_deps = (fun_loc, dep_info list) Hashtbl.t
+
+(* [dep_infos]: list of dep_info and its corresponding variable. *)
+type dep_infos = (var * dep_info) list
+(* [vars_depth]: hashtable that stores the pointer depth of variable and its name.
+    The name of the variable is in the key and the value in order to use Apac_core.get_vars_data_from_cptr_arith. *)
+type vars_depth = var Apac_core.vars_tbl
+
+(* [get_functions_args_deps tg]: expect target [tg] to point at the root,
+    then it will return the dep_info of each argument of functions. *)
+let get_functions_args_deps (tg : target) : fun_args_deps =
+  let rec aux (fad : fun_args_deps) (is_method : bool) (t : trm) : unit =
+    match t.desc with
+    | Trm_seq _ | Trm_namespace _ -> trm_iter (aux fad is_method) t
+    | Trm_typedef { typdef_body = Typdef_record _; _ } -> trm_iter (aux fad true) t
+    | Trm_let_fun (qv, _, tvl, _) when qv.qvar_str <> "main" -> 
+      let fc = Ast_data.get_function_usr_unsome t in
+      let args_info = List.map (fun (var, ty) -> 
+        let dep_in = is_dep_in ty in
+        let is_record = match Context.record_typ_to_typid ty with | Some (_) -> true | None -> false in
+        {dep_depth = Apac_core.get_cptr_depth (get_inner_ptr_type ty);
+        dep_in = dep_in;
+        dep_shared = is_reference ty || (is_record && dep_in);}) tvl 
+      in
+      let args_info = if is_method 
+        then begin
+          let is_const_method = trm_has_cstyle Const_method t in
+          {dep_depth = -1; 
+          dep_in = is_const_method;
+          dep_shared = is_const_method;} :: args_info
+          end
+        else args_info
+      in
+      Hashtbl.add fad fc args_info
+    | _ -> ()
+  in
+  
+  let tg_trm = match get_trm_at tg with
+    | Some (t) when trm_is_mainfile t -> t
+    | _ -> fail None "Apac.constify_functions_arguments: expected a target to the main file sequence" 
+  in
+  let fad = Hashtbl.create 10 in
+  aux fad false tg_trm;
+  fad
+
+(* [count_unop_get t]: return the number of nested unary operation of [t] *)
+let count_unop_get (t : trm) : int =
+  let rec aux (count : int) (t : trm) : int =
+    match t.desc with 
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [tr]) -> aux (count+1) tr
+    | Trm_apps (_, tl) -> List.fold_left aux count tl
+    | _ -> count 
+  in
+  aux 0 t
+
+(* [get_apps_deps vd fad t]: gets the list of dependency the trm [t] has. 
+    Expects the transformation [unfold_funcall] applied before.
+    The returned list may have duplicates or different dependencies for the same variable,
+    so it must be processed afterward. *)
+let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos =
+
+  let rec aux (dis : dep_infos) (t : trm) : dep_infos = 
+    match t.desc with 
+    (* function call *)
+    | Trm_apps ({ desc = Trm_var _} as f, args) ->
+      let l = Hashtbl.find fad (Ast_data.get_function_usr_unsome f) in
+      List.fold_left2 (fun acc ({dep_depth; dep_in; _} as dep_info) t -> 
+        match (Apac_core.get_inner_all_unop_and_access t).desc with
+        | Trm_var (_, qv) -> 
+          let di = { dep_info with dep_depth = if dep_depth = -1 then (count_unop_get t) - 1 else dep_depth}  in 
+          (qv.qvar_str, di) :: acc
+        
+        | Trm_apps (_, tl) ->
+          (* resolve pointers *)
+          let dep_infos = if dep_depth > 1  && not dep_in 
+            then begin match Apac_core.get_vars_data_from_cptr_arith vd t with
+            | Some (var) -> (var, dep_info) :: dis
+            | None -> dis
+            end
+            else dis in
+          (* recursive call to add the other variables *)
+          List.fold_left aux dep_infos tl
+        | _  -> dis
+        ) dis l args    
+    
+    (* set operation *)
+    | Trm_apps (_, [lhs; rhs]) when is_set_operation t -> 
+      begin match (Apac_core.get_inner_all_unop_and_access lhs).desc with
+      | Trm_var (_, qv) ->
+        let (depth, _) = Hashtbl.find vd qv.qvar_str in
+        let di = { dep_depth = depth; dep_in = false; dep_shared = true;} in
+        aux ((qv.qvar_str, di) :: dis) rhs
+      | _ -> assert false
+      end
+    
+    (* unary mutation *)
+    | Trm_apps (_, [tr]) when is_unary_mutation t -> 
+      let qv = get_unary_mutation_qvar t in
+      let (depth, _) = Hashtbl.find vd qv.qvar_str in
+      let di = { dep_depth = depth; dep_in = false; dep_shared = true;} in
+      (qv.qvar_str, di) :: dis
+    
+    (* explore further*)
+    | Trm_apps (_, tl) -> List.fold_left aux dis tl
+    
+    (* variable *)
+    | Trm_var (_, qv) -> 
+      let (depth, _) = Hashtbl.find vd qv.qvar_str in
+      let di = { dep_depth = depth; dep_in = true; dep_shared = false;} in
+      (qv.qvar_str, di) :: dis
+      
+    | _ -> dis
+  in
+
+  aux [] t
+
+(* [sort_dep_infos dis]: returns the the list of dependency for In and Inout dependency
+    from the dep_info list [dis]. *)
+let sort_dep_infos (dis : dep_infos) : (dep_infos * dep_infos) =
+  let dep_in_tbl : (var, dep_info) Hashtbl.t = Hashtbl.create 10 in
+  let dep_inout_tbl : (var, dep_info) Hashtbl.t = Hashtbl.create 10 in
+
+  List.iter (fun (var, di) ->
+    if di.dep_in && not (Hashtbl.mem dep_inout_tbl var) then Hashtbl.add dep_in_tbl var di
+    else if not di.dep_in then
+      begin match Hashtbl.find_opt dep_inout_tbl var with
+      | Some (arg_info) when arg_info.dep_shared -> ()
+      | _ -> Hashtbl.remove dep_in_tbl var; Hashtbl.replace dep_inout_tbl var di
+      end
+    ) dis;
+
+  (Tools.hashtbl_to_list dep_in_tbl, Tools.hashtbl_to_list dep_inout_tbl)
+
+(* [get_cpagma_from_dep_infos dis_in dis_inout]: returns the cpragma corresponding to a task.
+    [dis_in]: list of In dependency.
+    [dis_inout]: list of Inout dependency. *)
+let get_cpagma_from_dep_infos (dis_in : dep_infos) (dis_inout : dep_infos) : cpragma =
+  let rec aux (var : var) (depth : int) : dep =
+    if depth > 0 then Dep_ptr (aux  var (depth-1)) else Dep_var var
+  in
+  let is_empty l : bool =
+    match l with | [] -> true | _ -> false
+  in
+  let deps_in : deps = List.map (fun (var, {dep_depth; _}) -> aux var dep_depth) dis_in in
+  let deps_inout : deps = List.map (fun (var, {dep_depth; _}) -> aux var dep_depth) dis_inout in
+  let shared_vars = List.fold_left (fun acc (var, {dep_shared; _}) -> 
+    if dep_shared then var :: acc else acc) [] dis_inout in
+  
+  let depend = if is_empty deps_in then [] else [In deps_in] in
+  let depend = if is_empty deps_inout then depend else Inout deps_inout :: depend in
+  let clauses = if is_empty depend then [] else [Depend depend] in
+  let clauses = if is_empty shared_vars then clauses else Shared shared_vars :: clauses in
+  Task clauses
+
+(* [insert_tasks_naive fad]: expects the target [tg] to point at a function definition.
+    Then it will insert task in the body of the function.
+    This is a naive implementation that add a task on every instruction/application. *)
+let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
+  iter_on_targets (fun t p ->
+
+    let rec aux (vd : vars_depth) (t : trm) : trm =
+      match t.desc with
+      (* new sequence *)
+      | Trm_seq _ | Trm_if _ | Trm_for _ | Trm_for_c _ | Trm_while _ | Trm_do_while _ | Trm_switch _ ->
+        trm_map (aux (Hashtbl.copy vd))  t
+      
+      (* new variable *)
+      | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }) -> 
+        Hashtbl.add vd var (Apac_core.get_cptr_depth (get_inner_ptr_type ty), var); t
+      | Trm_let_mult (_, tvl, _) -> 
+        List.iter (fun (var, ty) -> Hashtbl.add vd var (Apac_core.get_cptr_depth ty, var)) tvl; t
+
+      (* new task *)
+      | Trm_apps _ -> 
+        let dis = get_apps_deps vd fad t in
+        let (dis_in, dis_inout) = sort_dep_infos dis in
+        let t = trm_seq_nomarks [t] in
+        trm_add_pragma (get_cpagma_from_dep_infos dis_in dis_inout) t
+
+      | _ -> t
+    in
+
+    let tg_trm = Path.get_trm_at_path p t in
+    let vd = Hashtbl.create 10 in
+    match tg_trm.desc with
+    | Trm_let_fun (_, _, tvl, _) -> 
+      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add vd var (Apac_core.get_cptr_depth ty, var)) tvl;
+      transfo_on_targets (aux vd) (target_of_path (p @ [Dir_body]))
+    | _ -> fail None "Apac.insert_tasks_naive: expected a target to a function definition"
+    )
