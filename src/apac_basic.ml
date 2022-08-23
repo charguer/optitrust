@@ -46,5 +46,7 @@ let unfold_let_mult (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Apac_core.unfold_let_mult) tg)
 
+(* [mark_taskable_function]: expects the target [tg] to point at a function definition.
+    Then it may add the mark [mark] if the function is taskable. *)
 let mark_taskable_function (mark : mark) : Transfo.t =
   apply_on_targets (Apac_core.mark_taskable_function mark)

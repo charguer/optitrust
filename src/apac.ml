@@ -55,6 +55,8 @@ type fun_const = {
     The key of the hashtable is the function's Unified Symbol Resolution.*)
 type fun_args_const = (fun_loc, fun_const) Hashtbl.t
 
+(* [constifiable]: hashtable that store the for each function
+    if its arguments should be constify and if it is a const method. *)
 type constifiable = (fun_loc, (bool list * bool)) Hashtbl.t
 
 (* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
@@ -295,7 +297,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
     let va = Hashtbl.create 10 in
     match t.desc with
     | Trm_let_fun (qv, _, args, body) ->
-      (* add attributes *)
+      (* add class attributes *)
       let {is_method; args_const} = fac_find_from_trm t in
       if is_method then begin
         let tid = (List.hd args_const).tid in

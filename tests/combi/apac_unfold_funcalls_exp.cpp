@@ -13,6 +13,8 @@ void h() {
   int __var_3;
   __var_3 = f(1);
   int __var_4;
-  __var_4 = g(__var_3, 1);
-  int c = __var_4;
+  __var_4 = f(2);
+  int __var_5;
+  __var_5 = g(__var_3, __var_4);
+  int c = __var_5;
 }

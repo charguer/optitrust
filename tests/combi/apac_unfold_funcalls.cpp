@@ -10,5 +10,5 @@ void h() {
   const int a = f(1);
   int b;
   b = f(f(1));
-  int c = g(f(1), 1);
+  int c = g(f(1), f(2));
 }
