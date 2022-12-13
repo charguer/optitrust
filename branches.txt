@@ -1,8 +1,6 @@
 
 TOMERGE BRANCH
 
-- fixes: 2022/06: fixes to be merged in master.
-
 - optim_marks: 2022/03: wip on optimizing the insertion and localization of marks
 
 UNMERGED BRANCHES
