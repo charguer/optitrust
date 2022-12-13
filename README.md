@@ -77,8 +77,8 @@ or
    # As explained in https://www.cosmiccode.blog/blog/vscode-for-ocaml/
    # for merlin to work well you need to update settings.json (global VS code settings)
    # go to file/ preferences / settings, type "settings.json", then at the very bottom click "edit".
-  # with (make sure to get the path right depending on opam's version)
-```
+   # with (make sure to get the path right depending on opam's version)
+
        {
 
          // ... other stuff
@@ -123,7 +123,7 @@ Useful entries for `keybindings.json`
 
 # Build and install
 
-Execute `make && make install` at the root of the project.
+Execute `make install` at the root of the project.
 
 # Example
 

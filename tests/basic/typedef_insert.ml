@@ -16,7 +16,7 @@ int a = 0;
 
 let _ = Run.script_cpp (fun _ ->
 
-    let td = Ast.typdef_record [(Record_field_member ("x", typ_int()), Access_public); (Record_field_member ("y", typ_int()), Access_public)] in
+    let td = Ast.typdef_record [(Record_field_member ("x", typ_int()), Access_unspecified); (Record_field_member ("y", typ_int()), Access_unspecified)] in
     !! Typedef_basic.insert "vect" td [tAfter; cVarDef "M"];
     !! Typedef_basic.insert "myvect" (Typdef_alias (ty "vect" )) [tAfter; cTypDef "vect"];
 

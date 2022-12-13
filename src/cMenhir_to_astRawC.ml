@@ -505,7 +505,7 @@ and tr_globdef (d : C.globdecl) : trm =
 let tr_typedef struct_is_named loc sn fl ty =
   let tid = next_typconstrid () in
   ctx_tconstr_add sn tid;
-  let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (Record_field_member (fr, tr_type ft), Access_public)) fl in
+  let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (Record_field_member (fr, tr_type ft), Access_unspecified)) fl in
   let td = {
     typdef_loc = loc;
     typdef_typid = tid;
