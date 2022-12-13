@@ -27,7 +27,7 @@
    sudo apt-get install opam
 
    opam init
-   opam switch create 4.12.0
+   opam switch create ocaml-base-compiler.4.12.0
    opam pin add menhirLib 20210419
    opam pin add pprint 20220103
    opam install dune clangml pprint menhir menhirLib base64 ocamlbuild
@@ -76,9 +76,6 @@ or
 
    # As explained in https://www.cosmiccode.blog/blog/vscode-for-ocaml/
    # for merlin to work well you need to update settings.json (global VS code settings)
-
-
-
    # go to file/ preferences / settings, type "settings.json", then at the very bottom click "edit".
    # to edit the file ~/.config/Code/User/settings.json
    # with (make sure to get the path right depending on opam's version),
@@ -119,7 +116,7 @@ Useful entries for `keybindings.json`
 
 # Build and install
 
-Execute `make && make install` at the root of the project.
+Execute `make install` at the root of the project.
 
 # Example
 

@@ -707,6 +707,34 @@ If you want to see just a few diffs, the key binding for "F6" is sufficient.
     "command": "workbench.action.tasks.runTask",
     "args": "Save intermediate state",
   },
+
+  {
+    "key":"shift+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Recompile and view diff",
+  },
+  {
+    "key": "shift+f7",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Recompile and execute from intermediate state",
+  },
+  {
+    "key":"ctrl+shift+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View diff for ast encoding",
+  },
+  {
+    "key":"f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Open unit test ML and CPP files",
+    "when": "resourceFilename == Makefile && resourceDirname =~ /^.*\/verified_transfo\/src\/tests\/.*$/"
+  },
+  {
+    "key":"ctrl+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View documentation for unit test",
+  },
+
 }
 ```
 

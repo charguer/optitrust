@@ -258,7 +258,7 @@ let unroll (braces : bool)(my_mark : mark) : Transfo.local =
     [t] - ast of the for loop. *)
 let move_out_aux (trm_index : int) (t : trm) : trm =
   let tl = try for_loop_body_trms t with | TransfoError _ -> fail t.loc "Loop_core.move_out_aux: expected a for loop" in
-  let lfront, trm_inv, lback = Internal.get_trm_and_its_relatives trm_index tl in
+  let lfront, trm_inv, lback = Internal.get_item_and_its_relatives trm_index tl in
   let new_tl = Mlist.merge lfront lback in
   let loop =
   match t.desc with

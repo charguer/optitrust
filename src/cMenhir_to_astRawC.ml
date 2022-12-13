@@ -264,7 +264,7 @@ and tr_init ?(loc : location = None) (i : C.init) : trm =
   | Init_array il -> trm_array ~loc (Mlist.of_list (List.map tr_init il))
   | Init_struct ((id, ty), il) ->
     let ty = tr_type ty in
-    trm_struct ~loc ~typ:(Some ty) (Mlist.of_list (List.map (fun (_, init) -> tr_init init) il))
+    trm_record ~loc ~typ:(Some ty) (Mlist.of_list (List.map (fun (_, init) -> (None, tr_init init)) il))
   | Init_union _ -> fail loc "CMenhir_to_astRawC.tr_init: union not supported yet"
 
 (* [tr_constant c]: translates C.constant into OptiTrust trm *)
@@ -409,7 +409,7 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
   | ECall (f, el) ->
     let tf = tr_expr f in
     begin match tf.desc with
-    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
+    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x.qvar_var 0 ->
       begin match el with
       | [tl; tr] -> trm_set ~loc ~ctx (tr_expr tl) (tr_expr tr)
       | _ -> fail loc "CMenhir_to_astRawC.tr_expr: overloaded= expects two arguments"
@@ -505,13 +505,13 @@ and tr_globdef (d : C.globdecl) : trm =
 let tr_typedef struct_is_named loc sn fl ty =
   let tid = next_typconstrid () in
   ctx_tconstr_add sn tid;
-  let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (fr, tr_type ft)) fl in
+  let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (Record_field_member (fr, tr_type ft), Access_unspecified)) fl in
   let td = {
     typdef_loc = loc;
     typdef_typid = tid;
     typdef_tconstr = sn;
     typdef_vars = [];
-    typdef_body = Typdef_prod (struct_is_named, prod_list)
+    typdef_body = Typdef_record prod_list
   } in
   let ctx = Some (get_ctx ()) in
   ctx_typedef_add sn tid td;

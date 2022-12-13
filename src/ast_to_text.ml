@@ -17,9 +17,10 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_var (x, tid) ->
     print_node "Typ_var" ^^ parens ( separate (comma ^^ break 1) [string x; string (string_of_int tid)])
   | Typ_constr (tv, tid, tl) ->
+    let tv_d = print_qvar tv in 
     let tl = List.map (print_typ ~only_desc) tl in
     print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1)
-      [string tv; string (string_of_int tid); print_list tl])
+      [tv_d; string (string_of_int tid); print_list tl])
   | Typ_auto -> string "Typ_auto"
   | Typ_unit -> string "Typ_unit"
   | Typ_int -> string "Typ_int"
@@ -56,8 +57,8 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
     print_node "Typ_record" ^^ parens (drt ^^ comma ^^ blank 1 ^^ dt)
   | Typ_template_param name ->
     print_node "Typ_template_param" ^^ parens (string name)
-  | Typ_arbitrary s -> string (code_to_str s)
-
+  | Typ_arbitrary s -> print_node "Typ_arbitrary " ^^ parens (string (code_to_str s))
+  | Typ_decl e -> print_node "Typ_decl " ^^ parens (print_trm ~only_desc e)
 
 (* [print_typ_annot a]: converts type annotations to pprint document *)
 and print_typ_annot (a : typ_annot) : document =
@@ -163,6 +164,7 @@ and print_lit (l : lit) : document =
   | Lit_double f -> print_node "Lit_double" ^^ string (string_of_float f)
   | Lit_string s ->
      print_node "Lit_string" ^^ dquotes (separate (backslash ^^ string "n") (lines s))
+  | Lit_nullptr -> print_node "Lit_nullptr"
 
 (* [print_val ~only_desc v]: converts values to pprint document *)
 and print_val ?(only_desc : bool = false) (v : value) : document =
@@ -177,6 +179,7 @@ and print_val ?(only_desc : bool = false) (v : value) : document =
      let dp = print_prim ~only_desc p in
      print_node "Val_prim" ^^ parens dp
 
+
 (* [print_attribute ~only_desc a]: converts attribute [a] to pprint document *)
 and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
   match a with
@@ -184,7 +187,16 @@ and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
      string "Alignas" ^^ blank 1 ^^ print_trm ~only_desc t
   | GeneratedTyp ->
     string "GeneratedTyp" ^^ blank 1
+  | Injected -> string "Injected class type"  ^^ blank 1
   | Others -> empty
+
+(* [print_qvar]: converts [qx] into a docuemnt. *)
+and print_qvar (qx : qvar) : document =
+  let qpath_str = List.map string qx.qvar_path in 
+  lbrace ^^ string "qvar_var" ^^ equals ^^ string qx.qvar_var ^^ semi ^^
+  string "qvar_path" ^^ equals ^^ Tools.list_to_doc qpath_str ^^ semi ^^
+  string "qvar_str" ^^ equals ^^ string qx.qvar_str 
+
 
 (* [print_trm_desc ~only_desc t]: converts the description of trm [t] to pprint document *)
 and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
@@ -192,16 +204,20 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_val v ->
      let dv = print_val ~only_desc v in
      print_node "Trm_val" ^^ parens dv
-  | Trm_var (vk, x) ->
+  | Trm_var (vk, qx) ->
     let var_kind_str = match vk with | Var_immutable -> string "Var_immutable" | Var_mutable -> string "Var_mutable" in
-    string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ string x ^^ rparen
+    let qx_d = print_qvar qx in 
+    string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ qx_d ^^ rparen
   | Trm_array tl ->
      let tl = Mlist.to_list tl in
      let dtl = List.map (print_trm ~only_desc) tl in
      print_node "Trm_array" ^^ print_list dtl
-  | Trm_struct tl ->
-     let dtl = List.map (print_trm ~only_desc) (Mlist.to_list tl) in
-     print_node "Trm_struct" ^^ print_list dtl
+  | Trm_record tl ->
+     let tl = Mlist.to_list tl in
+     let dtl = List.map (fun (lb, t) ->
+      let td = print_trm ~only_desc t in 
+      match lb with Some lb -> parens (string lb ^^ comma ^^blank 1 ^^ td) | None -> td) tl in
+     print_node "Trm_record" ^^ print_list dtl
   | Trm_let (vk,(x,tx),t) ->
     let dvk = match vk with
     | Var_immutable -> string "Var_immutable"
@@ -230,9 +246,10 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
           let dtx = print_typ ~only_desc tx in
           print_pair (string x) dtx) tvl in
     let dt = print_trm ~only_desc b in
+    let fd = print_qvar f in 
     print_node "Trm_let_fun" ^^
       parens (separate (comma ^^ break 1)
-        [string f; dout; print_list dtvl; dt])
+        [fd; dout; print_list dtvl; dt])
   | Trm_typedef td -> print_typedef ~only_desc td
   | Trm_if (c, t, e) ->
      let dc = print_trm ~only_desc c in
@@ -300,7 +317,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
        begin match a with
        | Ret t_o ->
           begin match t_o with
-          | None -> print_node "Ret" ^^ underscore
+          | None -> print_node "Ret" ^^ underscore  
           | Some t ->
              let dt = print_trm ~only_desc t in
              print_node "Ret" ^^ dt
@@ -345,8 +362,25 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let drt = print_record_type rt in
     print_node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
       [string name; drt; print_list dtl; dt])
-  | Trm_template _ -> string ""
-
+  | Trm_template _ ->  print_node "Trm_template _"
+  | Trm_using_directive str -> print_node "Trm_using_directive " ^^ string str
+  | Trm_fun (tvl , ty_opt, b) -> 
+    let dtout = begin match ty_opt with | Some ty -> string "Some " ^^ print_typ ~only_desc ty | None -> string "None" end in
+    let dtvl = List.map(function (x,tx) ->
+          let dtx = print_typ ~only_desc tx in
+          print_pair (string x) dtx) tvl in
+    let dt = print_trm ~only_desc b in
+    print_node "Trm_fun" ^^
+      parens (separate (comma ^^ break 1)
+        [print_list dtvl; dtout; dt])
+  | Trm_this -> print_node "This"
+  | Trm_delete (b, t1) -> 
+    let bd = string (string_of_bool b) in
+    let td = print_trm ~only_desc t1  in 
+    print_node "Trm_delete"  ^^
+      parens (separate (comma ^^ break 1)
+        [bd; td])
+    
 
 (* [print_record_type rt]: converts record types to pprint document *)
 and print_record_type (rt : record_type) : document =
@@ -366,18 +400,24 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
     let dt = print_typ ~only_desc t in
     print_node "Typedef_alias" ^^ parens ( separate (comma ^^ break 1)
      [string tname; string (string_of_int tid); dt ])
-  | Typdef_prod (_, s) ->
-    let get_document_list s =
-      let rec aux acc = function
+  | Typdef_record rfl ->
+    let get_document_list (rfl : record_fields) : document list =
+      let rec aux acc = function 
       | [] -> acc
-      | (lb, t) :: tl  ->
-        let dt = print_typ ~only_desc t in
-        aux (print_pair (string lb) dt :: acc) tl in
-      aux [] (List.rev s) (* LATER: process without accumulator *)
-     in
-    let dtl = get_document_list s in
-    print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
-     [string tname; string (string_of_int tid); print_list dtl ])
+      | (rf, _) :: tl -> 
+        begin match rf with 
+        | Record_field_member (lb, ty) -> 
+          let dt = print_typ ~only_desc ty in 
+          aux (print_pair (string lb) dt :: acc) tl
+        | Record_field_method t1 ->
+          let dt = print_trm ~only_desc t1 in
+          aux (dt :: acc) tl  
+        end
+         in aux [] rfl
+      in
+      let dtl = get_document_list rfl in 
+     print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
+      [string tname; string (string_of_int tid); print_list dtl ])
   | Typdef_sum _ ->
     fail None "Ast_to_text.print_typedef: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
@@ -458,6 +498,23 @@ and print_files_annot (ann : files_annot) : document =
   | Include s -> string ("Include" ^ s)
   | Main_file -> string "Main_file"
 
+
+(* [print_constructor_kind ck]: prints constructor kinds. *)
+and print_constructor_kind (ck : constructor_kind) : document =
+  match ck with 
+  | Constructor_implicit -> string "Constructor_implicit"
+  | Constructor_explicit -> string "Constructor_explicit"
+  | Constructor_default -> string "Constructor_default"
+  | Constructor_simpl -> string "Constructor_simpl"
+
+
+(* [print_destructor_kind dk]: prints destructor kinds. *)
+and print_destructor_kind (dk : destructor_kind) : document =
+  match dk with 
+  | Destructor_default -> string "Destructor_default"
+  | Destructor_delete -> string "Destructor_delete"
+  | Destructor_simpl -> string "Destructor_simpld"
+
 (* [print_cstyle_annot ann]: prints as string cstyle annotation [ann]. *)
 and print_cstyle_annot (ann : cstyle_annot) : document =
  match ann with
@@ -469,6 +526,22 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Postfix_set -> string "Postfix_set"
  | Reference -> string "Reference"
  | Stackvar -> string "Stackvar"
+ | Is_struct -> string "Is_struct"
+ | Is_rec_struct -> string "Is_rec_struct"
+ | Is_class -> string "Is_class"
+ | Static_fun -> string "Static"
+ | Method_call -> string "Method_call"
+ | Implicit_this -> string "Implicit_this"
+ | Typ_arguments tyl -> string "Typ_arguments " ^^ list_to_doc ~bounds:[langle; rangle] (List.map print_typ tyl)
+ | Implicit_constructor -> string "Implicit_constructor"
+ | Explicit_constructor -> string "Explicit_constructor"
+ | Default_constructor -> string "Default_constructor"
+ | Const_method -> string "Const_methdo"
+ | Constructed_init -> string "Constructed_init"
+ | Class_constructor ck -> print_constructor_kind ck
+ | Class_destructor dk -> print_destructor_kind dk 
+ | Member_initializer -> string "Member_initializer"
+ | Redundant_decl -> string "Redundant_decl"
 
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =
@@ -477,7 +550,7 @@ and print_atomic_operation (ao : atomic_operation option) : document =
   | Some ao1 ->
     begin match ao1 with
     | Read -> string "Read"
-    | Write -> string "Write"
+    | Write -> string "Write" 
     | Update -> string "Update"
     | Capture -> string "Capture"
     end

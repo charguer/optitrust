@@ -8,7 +8,7 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_var _, Trm_var _ -> true
   | Trm_var _, Trm_apps _  when is_get_operation t2 -> true
   | Trm_array _, Trm_array _ ->  true
-  | Trm_struct _, Trm_struct _ -> true
+  | Trm_record _, Trm_record _ -> true
   | Trm_let _, Trm_let _ -> true
   | Trm_let_fun _, Trm_let_fun _ -> true
   | Trm_let_record _, Trm_let_record _ -> true
@@ -105,8 +105,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
       | Trm_let (vk,(y,ty),init) ->
         trm_let ~annot:t.annot ~loc:t.loc vk (y,change_typ ty) (aux init)
       | Trm_let_fun (f, ty, args, body) ->
-         trm_let_fun ~annot:t.annot ~loc:t.loc
-            f (change_typ ty)
+         trm_let_fun ~annot:t.annot ~loc:t.loc ~qvar:f "" (change_typ ty)
             (List.map (fun (y, ty) -> (y, change_typ ty)) args)
             (aux body)
       | Trm_typedef td ->
@@ -114,10 +113,13 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
         | Typdef_alias ty ->
           trm_typedef  ~annot:t.annot ~loc:t.loc
            { td with typdef_body = Typdef_alias (change_typ ty)}
-        | Typdef_prod (b, s) ->
-           let s = List.map (fun (lb, x) -> (lb, change_typ x)) s in
-           trm_typedef ~annot:t.annot ~loc:t.loc
-           { td with typdef_body = Typdef_prod (b, s)}
+        | Typdef_record rf ->
+           let rf = List.map (fun (rf1, rf_annot) -> 
+            match rf1 with 
+            | Record_field_member (lb, ty) -> (Record_field_member (lb, change_typ ty), rf_annot)
+            | Record_field_method t -> (Record_field_method (aux t), rf_annot)
+           ) rf in 
+           trm_typedef ~annot:t.annot ~loc:t.loc { td with typdef_body = Typdef_record rf}
         | _ -> trm_map aux t
         end
        | Trm_var (_, x) ->
@@ -125,7 +127,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
                    | Some ty -> ty
                    | None -> fail t.loc "Internal.apply_change: all variable occurrences should have a type"
                    end in
-        trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (change_typ ty)) x
+        trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (change_typ ty)) ~qvar:x ""
       | _ -> trm_map aux t
     in
     replace_type_annot (aux t)
@@ -221,15 +223,20 @@ let is_decl_body (dl : path) : bool =
 (* [fresh_args t]: rename all the occurrences of a variable by adding an underscore as prefix *)
 let fresh_args (t : trm) : trm =
   match t.desc with
-  | Trm_var (kind, x) -> trm_var ~kind ("_" ^ x)
+  | Trm_var (kind, x) -> trm_var ~kind ("_" ^ x.qvar_var)
   | _ -> t
 
 (* [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
 let get_field_list (td : typedef) : (var * typ) list =
-  begin match td.typdef_body with
-  | Typdef_prod (_, s) -> s
-  | _ -> fail None "Internal.get_field_lists: expected a Typedef_prod"
-  end
+  match td.typdef_body with
+  | Typdef_record rfl ->
+    List.map (fun (rf, _) -> 
+      match rf with 
+      | Record_field_member (lb, ty) -> (lb, ty)
+      | _ -> fail None "Internal.get_field_list: expected a struct without methods"
+    ) rfl
+  | _ -> fail None "Internal.get_field_list: expected a Typedef_prod"
+  
 
 (* [get_typid_from_typ t]: check if typ is a constructed type or a composed type
     In case it is constructed type then return its id.
@@ -258,7 +265,7 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
       end
     | None -> get_typid_from_trm base
     end
-  | Trm_struct _ ->
+  | Trm_record _ ->
     begin match t.typ with
     | Some typ ->
       begin match typ.typ_desc with
@@ -289,7 +296,7 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
       | _ -> match t1.desc with
             | Trm_typedef td when td.typdef_tconstr = x -> Some t1
             | Trm_let (_, (y, _),_ ) when y = x -> Some t1
-            | Trm_let_fun (y, _, _, body) when y = x ->
+            | Trm_let_fun (y, _, _, body) when (is_qvar_var y x) ->
               if require_body then begin
                 match body.desc with
                 | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
@@ -308,7 +315,7 @@ let rec local_decl (x : var) (t : trm) : trm option =
   | Trm_typedef td when td.typdef_tconstr = x -> Some t
   | Trm_let (_, (y, _),_ ) when y = x -> Some t
   | Trm_let_fun (y, _, _, body) ->
-    if y = x then Some t else local_decl x body
+    if (is_qvar_var y x) then Some t else local_decl x body
   | Trm_seq tl ->
     Mlist.fold_left(
       fun acc t1 ->
@@ -359,13 +366,52 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
 
 (* [get_field_index field fields]: for a struct field with name [field] and [fields] being the list of fields of the
     same struct, return back the index of field [field] in the list of fields [fields]. *)
-let get_field_index (field : field) (fields : (var * typ) list) : int =
+let get_field_index (field : field) (fields : record_fields) : int =
   let rec aux field fields c = match fields with
     | [] -> failwith "Internal.get_field_index: empty list"
-    | (f, _) :: tl ->
-      if (f = field) then c else aux field tl (c+1)
+    | (rf, _) :: tl ->
+      begin match rf with 
+      | Record_field_member (f, _) -> 
+        if f = field then c else aux field tl (c + 1)
+      | _ -> aux field tl (c+1)
+      end
     in
   aux field fields 0
+
+
+(* [apply_on_record_fields app_fun rfs]: applies [app_fun] on all the elements of [rfs]. *)
+let apply_on_record_fields (app_fun : record_field -> record_field ) (rfs : record_fields) : record_fields =
+  List.map (fun (rf, rf_annot) -> (app_fun rf, rf_annot)) rfs
+
+
+(* [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
+let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) : record_fields =
+  let app_fun (rf : record_field) : record_field =
+    match rf with 
+    | Record_field_member (f, ty) -> Record_field_member (rename_fun f, ty)
+    | Record_field_method t -> 
+      begin match t.desc with
+      | Trm_let_fun (fn, ret_ty, args, body) -> 
+        let new_fn = {fn with qvar_var = rename_fun fn.qvar_var} in 
+        let new_t = trm_replace (Trm_let_fun (new_fn, ret_ty, args, body)) t in
+        Record_field_method new_t
+      | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
+      end
+      in
+    apply_on_record_fields app_fun rfs
+  
+(* [update_record_fields_type typ_update rfs]: updates the type of [rfs] based on [typ_update] function. *)
+let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ ) (rfs : record_fields) : record_fields =
+  let app_fun (rf : record_field) : record_field =
+    match rf with 
+    | Record_field_member (f, ty) -> 
+      let ty = if Tools.pattern_matches pattern f then typ_update ty else ty in
+      Record_field_member (f, ty)
+    | Record_field_method t -> fail None "Internal.update_record_fields_type: can't update the type of a method."
+      in
+    apply_on_record_fields app_fun rfs
+  
+  
 
 (*********************Auxiliary functions for reorder transformation ******************************************************)
 (* *) let get_pair x xs = List.fold_left(fun acc (y,ty) -> if y = x then (y,ty) :: acc else acc) [] xs                 (* *)
@@ -374,8 +420,8 @@ let get_field_index (field : field) (fields : (var * typ) list) : int =
 (* *) let remove_pairs (ys : vars) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys (* *)
 (* ************************************************************************************************************************)
 
-(* [move_fields_after x local_l l ]: reorder fields list [l] by moving all the pairs whose first eleement is
-     in [local_l] after field [x] *)
+(* [move_fields_after x local_l l ]: reorder fields list [l] by moving all the pairs whose first eleement is 
+     in [local_l] after field [x]. *)
 let move_fields_after (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ ) list=
   let fins = List.flatten (get_pairs local_l l )in
   let l = remove_pairs local_l l in
@@ -389,7 +435,7 @@ let move_fields_after (x : var) (local_l : vars) (l : (var * typ) list) : (var *
     aux l
 
 (* [move_fields_before x local_l l ]: reorder fields list [l] by moving all the pairs whose first eleement is
-     in [local_l] before field [x] *)
+     in [local_l] before field [x]. *)
 let move_fields_before (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ) list =
   let fins = List.flatten (get_pairs local_l l) in
   let l = remove_pairs local_l l in
@@ -402,7 +448,7 @@ let move_fields_before (x : var) (local_l : vars) (l : (var * typ) list) : (var 
       in
     aux l
 
-(* [reorder_fields reorder_kind local_l sf]: reorder all fields that belong to [local_l] based on [reorder_kind] *)
+(* [reorder_fields reorder_kind local_l sf]: reorder all fields that belong to [local_l] based on [reorder_kind]. *)
 let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) list) : (var * typ) list =
   match reorder_kind with
   | Reorder_after around -> move_fields_after around local_l sf
@@ -416,25 +462,25 @@ let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) l
       | None -> fail None (Printf.sprintf "Internal.reorder_fields: field %s doest not exist" x)) local_l
     end
 
-(* [get_trm_and_its_relatives index trms]: for a trm [t] with index [index] in its surrounding sequence return
-    the list of trms before t, t itself and the list of trms that come after t. *)
-let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
-  let lfront, lback = Mlist.split index trms in
+
+(* [get_item_and_its_relatives index trms]: for an  item [t] with index [index] in the mlist its belongs to,
+    returns the list of items before [t], [t] itself and the list of items that come after [t]. *)
+let get_item_and_its_relatives (index : int) (items : 'a mlist) : ('a mlist * 'a * 'a mlist) =
+  let lfront, lback = Mlist.split index items in
   let element, lback = Mlist.split 1 lback in
   let element =
     if Mlist.length element = 1
       then Mlist.nth element 0
-      else fail None "Internal.get_element_and_its_relatives: expected a list with a single element"
+      else fail None "Internal.get_item_and_its_relatives: expected a list with a single element"
   in
   (lfront, element, lback)
 
 (* [inline_sublist_at index ml]: in the case of nested sequence, nested initialization lists for arrays and structs,
-    this function can be used to inline the sublist at [index] into the main list *)
+    this function can be used to inline the sublist at [index] into the main list. *)
 let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
-  let lfront, st, lback  = get_trm_and_its_relatives index ml in
+  let lfront, st, lback  = get_item_and_its_relatives index ml in
   match st.desc with
-  | Trm_seq tl | Trm_array tl | Trm_struct tl ->
-    Mlist.merge (Mlist.merge lfront tl) lback
+  | Trm_seq tl -> Mlist.merge (Mlist.merge lfront tl) lback
   | _ -> fail st.loc "Internal.inline_sublist_at: expected an ast node which taks a mlist as parameter"
 
 
@@ -520,7 +566,7 @@ let is_struct_type (t : typ) : bool =
     begin match Context.typid_to_typedef tid with
     | Some td ->
       begin match td.typdef_body with
-      | Typdef_prod _ -> true
+      | Typdef_record _ -> true
       | _ -> false
       end
     | _ -> false
@@ -548,8 +594,8 @@ let nobrace_remove_after ?(remove : bool = true) (f : unit -> unit) : unit =
 (* [repalce_type_with x y]: replace the current type of variable [y] to [typ_constr x] *)
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
-  | Trm_var (_, y') when y' = y ->
-    trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (typ_constr  x )) y
+  | Trm_var (_, y') when (is_qvar_var y' y) ->
+    trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (typ_constr x )) y
   | _ -> trm_map (replace_type_with x y) t
 
 (* [subst tm t]: find all the occurrences of variables in [t] and check if they belong to map [tm]
@@ -566,7 +612,7 @@ let rec subst (tm : tmap) (t : trm) : trm =
   match t.desc with
   (* Hack to avoid unnecessary get operations when we substitute a variable occurrence with arbitrary code *)
   | Trm_var (vk, x) ->
-    begin match Trm_map.find_opt x tm with
+    begin match Trm_map.find_opt x.qvar_var tm with
     | Some t1 ->
       if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1
     | _ -> t
@@ -580,7 +626,7 @@ let rec subst (tm : tmap) (t : trm) : trm =
         cur_tm := Trm_map.filter (fun k _v -> k <> x) tm;
         ti2
       | Trm_let_fun (f, __retty, targs, tbody) ->
-        cur_tm := Trm_map.filter (fun k _v -> k <> f) tm;
+        cur_tm := Trm_map.filter (fun k _v -> k <> f.qvar_var) tm;
         subst !cur_tm ti
       | _ -> subst !cur_tm ti
       end

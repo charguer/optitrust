@@ -273,9 +273,9 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
         begin match Atom_map.find_opt id atoms with
         | Some t1 ->
             begin match t1.desc with
-            | Trm_var (_, x) -> string x
+            | Trm_var (_, x) -> string x.qvar_var
             | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _},
-               [{desc = Trm_var (_, x); _}]) -> string x
+               [{desc = Trm_var (_, x); _}]) -> string x.qvar_var
             | _ -> braces (AstC_to_c.trm_to_doc t1)
             end
         | _  ->

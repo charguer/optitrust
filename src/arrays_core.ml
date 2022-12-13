@@ -12,13 +12,13 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_}, [base; index]) ->
       begin match base.desc with
-      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x)}]) when x = array_var ->
+      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x)}]) when (is_qvar_var x array_var) ->
         begin match index.desc with
         | Trm_val (Val_lit (Lit_int i)) ->
           if i >= List.length new_vars
             then fail index.loc "Arrays_core.inline_array_access: the number of variable provided should be consistent with the size of the targeted array"
             else (trm_var (List.nth new_vars i))
-        | Trm_apps ({desc = Trm_var (_, "ANY"); _}, _) ->
+        | Trm_apps ({desc = Trm_var (_, x); _}, _) when (is_qvar_var x "ANY") ->
           let nb_vars = List.length new_vars in
           trm_address_of (trm_apps (trm_var "CHOOSE") ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var_get new_vars)))
         | _ -> fail index.loc "Arrays_core.inline_array_access: only integer indices are supported"
@@ -49,7 +49,7 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
             | Typ_constr (y, tid, _) ->
               trm_seq_no_brace (
                 List.map(fun x ->
-                trm_let_mut ~annot:t.annot (x, typ_constr y ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars)
+                trm_let_mut ~annot:t.annot (x, typ_constr ~qtypvar:y ~tid "") (trm_uninitialized ~loc:init.loc ()) ) new_vars)
             | Typ_var (y, tid) ->
               trm_seq_no_brace (
                  List.map(fun x ->
@@ -98,7 +98,7 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
     begin match arg.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access))}, [base;index]) ->
       begin match base.typ with
-      | Some {typ_desc = Typ_constr (y,_, _); _} when y = x ->
+      | Some {typ_desc = Typ_constr (y,_, _); _} when (is_qvar_var y x) ->
           get_array_access (get_array_access base (trm_div index b)) (trm_mod index b)
       | _ ->
         trm_map aux t
@@ -120,7 +120,7 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
 let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
+    let lfront, d, lback = Internal.get_item_and_its_relatives index tl in
     let base_type_name, base_type =
     begin match d.desc with
     | Trm_typedef td ->
@@ -213,15 +213,15 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
 
     | Trm_let (Var_mutable, (y,ty), init) when y = base_type_name ->
         begin match ty.typ_desc with
-        | Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _};_} when y = base_type_name ->
-          trm_let Var_mutable ~annot:d.annot (y, ty) init
+        | Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _};_} when (is_qvar_var y base_type_name) ->
+          trm_let Var_mutable ~annot:d.annot (y.qvar_var, ty) init
         | _ -> fail t.loc "Arrays_core.tile_aux: expected a pointer because of heap allocation"
         end
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
               [lhs; rhs]) ->
         (* lhs should have type x *)
         begin match lhs.typ with
-        | Some {typ_desc = Typ_constr (y, _, _); _} when y = base_type_name ->
+        | Some {typ_desc = Typ_constr (y, _, _); _} when (is_qvar_var y base_type_name) ->
            trm_apps ~annot:t.annot ~loc:t.loc
              ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
         | _ -> trm_map (apply_tiling base_type block_name (trm_var block_size) base_type_name) t
@@ -252,7 +252,7 @@ let rec apply_swapping (x : typvar) (t : trm) : trm =
       begin match get_array_access_inv base with
       | Some (base1, index1) ->
         begin match base1.typ with
-        | Some {typ_desc = Typ_constr (y,_, _); _} when y = x -> get_array_access (get_array_access base1 index) index1
+        | Some {typ_desc = Typ_constr (y,_, _); _} when (is_qvar_var y x) -> get_array_access (get_array_access base1 index) index1
         | _ -> trm_map aux t
         end
       | None -> trm_map aux t
@@ -263,7 +263,7 @@ let rec apply_swapping (x : typvar) (t : trm) : trm =
       begin match get_array_access_inv base with
       | Some (base1, index1) ->
         begin match base1.typ with 
-        | Some {typ_desc = Typ_constr (y, _, _)} when y = x -> array_access (get_array_access base1 index) index1
+        | Some {typ_desc = Typ_constr (y, _, _)} when (is_qvar_var y x) -> array_access (get_array_access base1 index) index1
         | _ -> trm_map aux t
         end
       | None -> trm_map aux t
@@ -337,7 +337,7 @@ let swap (index : int) : Target.Transfo.local =
 *)
 (* TODO: Reimplement it from scratch *)
 let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
-  let rec aux (global_trm : trm) (t : trm) : trm =
+  let rec aux (t : trm) : trm =
     match t.desc with
     (* LATER: document  E.G.  matching (array_access(struct_access(t, f), index)); ... *)
     | Trm_apps(_,[get_base]) when is_access t  ->
@@ -371,52 +371,57 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
                   | _ -> index
                    in
                   begin match base'.typ with
-                  | Some {typ_desc = Typ_array({typ_desc = Typ_constr (y, _, _);_}, _);_} when y = struct_name ->
-                     let base' = aux global_trm base' in
-                     let index = aux global_trm index in
+                  | Some {typ_desc = Typ_array({typ_desc = Typ_constr (y, _, _);_}, _);_} when (is_qvar_var y struct_name) ->
+                     let base' = aux base' in
+                     let index = aux index in
                      (* keep outer annotations *)
                      trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
-                  | Some {typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
+                  | Some {typ_desc = Typ_constr (y, _, _); _} when (is_qvar_var y struct_name) ->
                      (* x might appear both in index and in base' *)
-                     let base' = aux global_trm base' in
-                     let index = aux global_trm index in
+                     let base' = aux base' in
+                     let index = aux index in
                      (* keep outer annotations *)
                      trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
                   | Some {typ_desc = Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _}; _};_}
-                       when y = struct_name ->
+                       when (is_qvar_var y struct_name) ->
                      (* x might appear both in index and in base' *)
-                     let base' = aux global_trm base' in
-                     let index = aux global_trm index in
+                     let base' = aux base' in
+                     let index = aux index in
                      (* keep outer annotations *)
                      trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
-                  | _ -> trm_map (aux global_trm) t
+                  | _ -> trm_map aux t
                   end
 
-               | _ -> trm_map (aux global_trm) t
+               | _ -> trm_map aux t
                end
-            | _ -> trm_map (aux global_trm) t
+            | _ -> trm_map aux t
             end
-         | _ -> trm_map (aux global_trm) t
+         | _ -> trm_map aux t
          end
-      | _ -> trm_map (aux global_trm) t
+      | _ -> trm_map aux t
       end
       (* LATER: arthur: test the use of exceptions for structuring this code *)
 
     | Trm_typedef td when td.typdef_tconstr = struct_name ->
       begin match td.typdef_body with
-      | Typdef_prod (tn, s) ->
-        let s = List.map( fun (x, typ) -> (x, typ_array (typ) (Trm (trm_var sz)))) s in
-        trm_typedef {td with typdef_body = Typdef_prod (tn, s)}
+      | Typdef_record rf ->
+        let rf = List.map (fun (rf1, rf_annot) -> 
+          match rf1 with 
+          | Record_field_member (lb, ty) -> ((Record_field_member (lb, typ_array ty (Trm (trm_var sz)))), rf_annot)
+          | Record_field_method _ -> (Record_field_method (trm_map aux t), rf_annot) 
+        ) rf in 
+        trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record rf}
+
       | Typdef_alias ty ->
           begin match ty.typ_desc with
           | Typ_array (a, _)->
             begin match a.typ_desc with
-            | Typ_constr (sn, _, _) when sn = struct_name-> trm_typedef {td with typdef_body  = Typdef_alias a}
+            | Typ_constr (sn, _, _) when (is_qvar_var sn struct_name)-> trm_typedef {td with typdef_body  = Typdef_alias a}
 
-            | _ -> trm_map(aux global_trm) t
+            | _ -> trm_map aux t
             end
 
-          | _ -> trm_map(aux global_trm) t
+          | _ -> trm_map aux t
           end
       | _ -> fail t.loc "aos_to_soa_aux: expected a typedef struct"
       end
@@ -426,14 +431,14 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
           begin match ty.typ_desc with
           | Typ_array (a, _)->
             begin match a.typ_desc with
-            | Typ_constr (sn, _, _) when sn = struct_name-> trm_typedef {td with typdef_body  = Typdef_alias a}
+            | Typ_constr (sn, _, _) when (is_qvar_var sn struct_name) -> trm_typedef {td with typdef_body  = Typdef_alias a}
 
-            | _ -> trm_map(aux global_trm) t
+            | _ -> trm_map aux t
             end
 
-          | _ -> trm_map(aux global_trm) t
+          | _ -> trm_map aux t
           end
-        | _ -> trm_map(aux global_trm) t
+        | _ -> trm_map aux t
         end
 
     | Trm_let (vk, (n, dx), init) ->
@@ -442,16 +447,16 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
         begin match ty.typ_desc with
         | Typ_array (a, _) ->
           begin match a.typ_desc with
-          | Typ_constr (sn,_, _) when sn = struct_name ->
+          | Typ_constr (sn,_, _) when (is_qvar_var sn struct_name) ->
             trm_let_mut ~annot:t.annot (n, a) (trm_uninitialized ~loc:init.loc ())
-          | _ -> trm_map (aux global_trm) t
+          | _ -> trm_map aux t
           end
-        | _ -> trm_map (aux global_trm) t
+        | _ -> trm_map aux t
         end
-       | _ -> trm_map (aux global_trm) t
+       | _ -> trm_map aux t
        end
-    | _ -> trm_map (aux global_trm) t
-  in aux t t
+    | _ -> trm_map aux t
+  in aux t
 
 let aos_to_soa (tv : typvar) (sz : var): Target.Transfo.local =
   Target.apply_on_path(aos_to_soa_aux tv sz)

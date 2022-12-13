@@ -157,3 +157,25 @@ let rotate (n : int) (l : 'a list) : 'a list =
    then failwith "Xlist.rotate: the number of elements to rotate should not exceed the length of the input list.";
   let ls, rs = split_at n l in
   rs @ ls
+
+
+(* [split_pairs_fst l]: returns the first element of the pair generated after calling [List.split] on [l]. *)
+let split_pairs_fst (l : ('a * 'b) list) : 'a list =
+  fst (List.split l)
+
+(* [split_pairs_fst l]: returns the second element of the pair generated after calling [List.split] on [l]. *)
+let split_pairs_snd (l : ('a * 'b) list) : 'b list =
+  snd (List.split l)
+
+
+(* [extract l start nb]: returns a sublist of [l] and the complement of that sublist in [l].
+    The sublist contains all the elements of [l] whose indices fall in the range [start, start + nb) range. *)
+let extract (l : 'a list) (start : int) (nb : int) : ('a list * 'a list) =
+  let lfront, lback = try split_at start l with Failure _ ->  failwith "XList.extract: please enter a valid starting index"in 
+  let ext, lback = try split_at nb lback with Failure _ -> failwith "Xlist.extract: [start] + [nb] -1 should be a valid index for list [l]. "in
+  ext , lfront @ lback
+
+(* [extract_element l index]: extracts the element with [index] from list [l].*)
+let extract_element (l : 'a list) (index : int) : ('a * 'a list) = 
+  let l, l1 = extract l index 1 in
+  (List.nth l 0), l1

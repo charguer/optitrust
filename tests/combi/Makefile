@@ -66,12 +66,13 @@ TESTS_WITH_DOC := \
 
 TESTS_WITHOUT_DOC := \
 	matrix_delocalize_obj.ml \
-	struct_align_field.ml \
 
 	
 #variable_inline.ml \ TODO: Update variable_inline unit test
 
 TESTS_TO_FIX := \
+	struct_align_field.ml \
+
 	
 NOT_NEEEDED_TO_FIX := \
 	aos_to_soa.ml \

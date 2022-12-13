@@ -227,7 +227,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       let mark_added = ref false in
       let call_trm = Path.get_trm_at_path path_to_call t in
       begin match call_trm.desc with
-        | Trm_apps ({desc = Trm_var (_, f)}, _) -> function_name := f
+        | Trm_apps ({desc = Trm_var (_, f)}, _) -> function_name := f.qvar_var
         | _ ->  fail t.loc "Function.get_function_name_from_call: couldn't get the name of the called function"
       end;
 

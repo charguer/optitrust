@@ -289,16 +289,16 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       | Trm_apps (_, [_;bnd]) ->
         begin match bnd.desc with
         | Trm_val (Val_lit (Lit_int n)) -> n
-        | Trm_var (_, x) -> aux x t
+        | Trm_var (_, x) -> aux x.qvar_var t
         | _ -> fail stop.loc "Loop.unroll: expected eitehr a constant variable of a literal"
         end
       | Trm_var (_, x) ->
           let start_nb = begin match start.desc with
-          | Trm_var (_, y) -> aux y t
+          | Trm_var (_, y) -> aux y.qvar_var t
           | Trm_val (Val_lit (Lit_int n)) -> n
           | _ -> fail start.loc "Loop.unroll: expected a loop of the form for (int i = a; i < N; i where a should be a constant variable"
           end in
-          (aux x t) - start_nb
+          (aux x.qvar_var t) - start_nb
       | Trm_val (Val_lit (Lit_int n)) -> n
       | _ -> fail stop.loc "Loop.unroll: expected an addition of two constants or a constant variable"
       end
@@ -404,9 +404,9 @@ let unfold_bound (tg : target) : unit =
       let (_, _, _, stop, _, _) = l_range in
       begin match stop.desc with
       | Trm_var (_, x) ->
-        Variable_basic.unfold ~at:(target_of_path p) [cVarDef x]
+        Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.qvar_var]
       | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation stop ->
-        Variable_basic.unfold ~at:(target_of_path p) [cVarDef x]
+        Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.qvar_var]
       | _ -> fail tg_trm.loc "Loop.unfold_bound: can't unfold loop bounds that are not variables"
       end
     | _ -> fail tg_trm.loc "Loop.unfold_bound: expected a target to a simple for loop"

@@ -1,0 +1,297 @@
+
+(*
+
+
+RECORD
+================
+
+current:
+
+  | Trm_struct of trm mlist (* { 4, 5.3 } as a record  *)
+
+
+new:
+
+  | Trm_record of (label option * trm) mlist
+       (* in OCaml: { x = 4; y = 5 }
+          in C:     { 5, 6 } or { .x = 5, .y = 6 }
+
+          the OCaml construct { t1 with x = 4; y = 5 }
+          is encoded as a call:    __with(t1, { x = 4; y = 5 })
+         *)
+
+CLASS
+================
+
+current:
+  | Typdef_prod of bool * (label * typ) list (* for records / struct,
+                                      e.g. [type 'a t = { f : 'a; g : int } *)
+
+new:
+
+  | Typdef_record of record_fields
+
+  type record_fields = (record_field * record_field_annot) list
+  type record_field =
+    | Record_field_member of (label * typ)
+    | Record_field_method of trm
+
+  type record_field_annot = access_control
+
+  and access_control =
+    | Access_public
+    | Access_private
+    | Access_protected
+
+val typedef_get_members : ?(access: access_control option) -> trm -> (label * typ) list
+val typedef_get_methods : ?(access: access_control option) -> trm -> trm list
+
+type trm_annot = + "static"
+
+
+===========================
+
+THIS POINTER
+
+
+class foo {
+  int x;
+  void f(int m) {
+   x += m + this->x; // here "this" is a variable
+   f(3);
+  };
+}
+foo* v;
+v->f(1);
+foo w;
+w.f(1);
+
+
+becomes during an encoding phase method_intro/method_elim:
+
+
+class foo {
+  int x;
+  static void f(foo* this, int m) { @ annotation "was a method"
+    this->x += m + this->x;
+    f(this, 3)
+  };
+}
+foo* v;
+f(v, 1); @ annotation "was a method"
+foo w;
+f(&w, 1); @ annotation "was a method"
+
+
+cVar "x" does not match "this->x" but
+cMemberVar (or just cMVar) "x" will match "this->x"
+
+constraints on arguments of "f" need to be shifted by one when
+the function is annotated as being a method.
+
+
+---another possible translation, which is less good
+because does not match.
+
+class foo {
+  int x;
+  "const" (int -> unit) f;
+}
+
+// for any x object of type f, implicitly define:
+x.f = (fun f(int m) ->
+   x += m + this->x; // here "this" is a variable
+   f(3);
+  });
+
+foo* v;
+(v->f)(1);
+foo w;
+(w.f)(1);
+
+x
+
+==============================
+
+NAMESPACES
+--------------------------------------
+
+Namespace ==> LATER
+
+for now, only support qualified names
+
+---
+
+const int x = 0;
+
+namespace foo {
+  const int x = 1;
+}
+
+const int y = x + foo::x;
+
+---
+
+let x = 0
+module M = struct
+  let x = 1
+end
+
+let y = x + M.x
+
+---
+
+-----------------------------------------
+qualified variables
+
+
+type qvar = {
+  qvar_var : var;
+  qvar_path : var list;
+  qvar_str : string; }
+
+foo::bar::x
+
+is { qvar_var = "x";
+     qvar_path = ["foo";"bar"];
+     qvar_str = "foo::bar::x"; }
+
+cVar "foo::bar::x"  should match it
+cQVarString "foo
+
+
+
+LATER
+
+using namespace std;
+vector<int> x
+
+question is: is vector internally known as "std::vector"?
+keeping the information "std" would then be interesting
+
+representation would be:
+   { qvar_var = "vector";
+     qvar_path = ["std"];
+     qvar_str = "vector"; }
+
+type variables should also have qvar
+
+
+-----------------------------------------
+Template declarations are already implemented
+
+
+--------------------------------------------
+Specializations:
+
+TemplateSpecialization
+                         { name = NameTemplate ("vector");
+                           args =
+                           [Type
+                            ({ cxtype = <opaque>; type_loc = <opaque>;
+                               const = false; volatile = false;
+                               restrict = false; desc = BuiltinType (Int) })]
+                           }
+                         }
+
+=>
+
+| Typ_constr of typvar * typconstrid * typ list (* e.g. [int list] or
+
+
+
+====================================
+LAMBDAS
+
+[&](int const& x) { // we only support arguments by references [&]
+     r += x; }); // trm_funs
+
+
+Lambda is Trm_fun
+
+must check that
+ capture_default = ByRef;
+and
+ captures are all by reference
+
+
+tr_parameters  should be common with what we already have
+likewise for result type
+if result_type is None, then can translate to auto annotated as "return type was implicit"
+
+
+                           Lambda
+                           { capture_default = ByRef;
+                             captures =
+                             [{ capture_kind = ByRef; implicit = true;
+                                captured_var_name = Some ("r");
+                                pack_expansion = false }];
+
+                             parameters =
+                             Some
+                             ([{ decoration = <opaque>;
+                                 desc =
+                                 { qual_type =
+                                   { cxtype = <opaque>; type_loc = <opaque>;
+                                     const = false; volatile = false;
+                                     restrict = false;
+                                     desc =
+                                     LValueReference
+                                     ({ cxtype = <opaque>;
+                                        type_loc = <opaque>; const = true;
+                                        volatile = false; restrict = false;
+                                        desc = BuiltinType (Int) })
+                                     };
+                                   name = "x"; default = None }
+                                 }]);
+                             result_type =
+                               Some ({ cxtype = <opaque>; type_loc = <opaque>;
+                                const = false; volatile = false;
+                                restrict = false; desc = BuiltinType (Void) });
+
+                             body =
+
+
+
+
+
+
+   Trm_let_fun (f, rt, targs, body)
+ = Trm_let (f, Trm_fun (rf, rt, targs, body))
+
+ where rf is the name used for recursive calls,
+ typically [None | Some f]
+
+
+NOW: just add Trm_fun
+  note: it is fine to generate  Trm_let (f, Trm_fun (rf, rt, targs, body))
+  during the translation, then to have a phase in the encodings
+  for converting to Trm_let_fun (f, rt, targs, body)
+
+LATER: eliminate trm_let_fun
+
+
+
+let example = {|
+  struct {
+    int a;
+    int b;
+  } s = { .a = 1, .b = 2 };
+|}
+
+let () =
+  check_pattern quote_stmt_list parse_statement_list example
+  [%pattern?
+    [{ desc = Decl [
+      { desc = RecordDecl _; _ };
+      { desc = Var {
+          var_name = "s";
+          var_init = Some { desc = InitList [
+             { desc = DesignatedInit {
+                designators = [FieldDesignator "a"];
+                init = { desc = IntegerLiteral (Int 1) }}};
+             { desc = DesignatedInit {
+                designators = [FieldDesignator "b"];
+                init = { desc = IntegerLiteral (Int 2) }}}] }}}] }]]
+    ]}*)
+
