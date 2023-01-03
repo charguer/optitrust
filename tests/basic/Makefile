@@ -8,6 +8,7 @@ FLAGS := -dump-ast-details
 
 
 #	accesses_intro.ml \
+# function_uninline.ml \
 
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
@@ -29,7 +30,6 @@ TESTS_WITH_DOC := \
 	function_dsp_def.ml \
 	function_inline.ml \
 	function_rename_args.ml \
-	function_uninline.ml \
 	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_move.ml \

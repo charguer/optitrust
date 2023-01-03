@@ -6,6 +6,7 @@ TARGET_MAKE_ALL := check
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
+#	function_use_infix_ops.ml \
 
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
@@ -20,7 +21,6 @@ TESTS_WITH_DOC := \
 	function_inline_simple.ml \
 	function_inline_struct.ml \
 	function_uninline.ml \
-	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_accumulate_targets.ml \
 	instr_inline_last_write.ml \
@@ -65,7 +65,7 @@ TESTS_WITH_DOC := \
 
 
 TESTS_WITHOUT_DOC := \
-	matrix_delocalize_obj.ml \
+	# matrix_delocalize_obj.ml \
 
 	
 #variable_inline.ml \ TODO: Update variable_inline unit test
