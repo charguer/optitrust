@@ -26,5 +26,5 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.hoist [cFor "i"; cVarDef "x"];
   !! Loop.hoist [cFor "j"; cVarDef "y"];
   !! Loop.hoist [cFor "k"; cVarDef "x"];
-  
+  !! Loop.hoist ~nb_loops:2 [cFor "l"; cVarDef "x"];
 )

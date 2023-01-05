@@ -401,6 +401,13 @@ val check : target -> unit
 
 val show : ?line:int -> ?reparse:bool -> ?types:bool -> target -> unit
 
+module Transfo : sig
+  type t = target -> unit
+  type local = trm -> path -> trm
+end
+
+val target_show_transfo : ?types:bool -> mark -> Transfo.local
+
 val show_type : ?line:int -> ?reparse:bool -> target -> unit
 
 val bigstep : string -> unit
@@ -408,11 +415,6 @@ val bigstep : string -> unit
 (* Target debugging *)
 
 val target_to_string : target -> string
-
-module Transfo : sig
-  type t = target -> unit
-  type local = trm -> path -> trm
-end
 
 val string_to_rexp : bool -> bool -> string -> Constr.trm_kind -> Constr.rexp
 

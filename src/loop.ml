@@ -8,25 +8,125 @@ type rename = Variable.Rename.t
 (* [hoist ~name ~array_size tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
     transformation supports also undetached declarations contrary to the basic one. This is done by first checking if
     the declaration is detached or not. If it is not detached then we call another transformation that does the detachment for us. *)
-let hoist ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
+let hoist1_aux (name : var) (array_size : trm option) (init_to_detach : trm option)
+               (p : path) : unit = begin
+  let detach_first =
+    match init_to_detach with
+    | Some init -> begin
+        Printf.printf "hoist init: %s\n\n" (Ast_to_text.ast_to_string init);
+        match init.desc with
+          | Trm_val(Val_lit (Lit_uninitialized)) -> false
+          | Trm_val(Val_prim (Prim_new _)) -> false
+          | _ -> true
+      end
+    | None -> false
+    in
+    match detach_first with
+    | true ->
+      Variable_basic.init_detach (target_of_path p);
+      Loop_basic.hoist ~name ~array_size(target_of_path p);
+    | false ->
+      Loop_basic.hoist ~name ~array_size (target_of_path p);
+  end
+
+(* [hoist ~name ~array_size ~inline tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
+    transformation supports also undetached declarations as well as hoisting through multiple loops.
+    [inline] - inlines the array indexing code
+    [nb_loops] - number of loops to hoist through (expecting a perfect nest of simple loops)
+  
+    for (int i = 0; i < 10; i++) {
+      int x = ...;
+    }
+    -->
+    int x_step[10];
+    for (int i = 0; i < 10; i++) {
+      int& x = x_step[i];
+      x = ...;
+    }
+
+    for (int l = 0; l < 5; l++) {
+      for (int m = 0; m < 2; m++) {
+        int x = ...;
+      }
+    }
+    --> first hoist  
+    for (int l = 0; l < 5; l++) {
+      int x_step[2];
+      for (int m = 0; m < 2; m++) {
+        int& x = x_step[m];
+        x = ...;
+      }
+    }
+    --> second hoist
+    int x_step_bis[2][5];
+    for (int l = 0; l < 5; l++) {
+      int& x_step[2] = x_step_bis[l];
+      for (int m = 0; m < 2; m++) {
+        int& x = x_step[m];
+        x = ...;
+      }
+    }
+    --> final
+    int x_step[5][2];
+    for (int l = 0; l < 5; l++) {
+      for (int m = 0; m < 2; m++) {
+        int& x = x_step[l][m];
+        x = ...;
+      }
+    }
+
+    for (int l = 0; l < 5; l++) {
+      for (int m = 0; m < 2; m++) {
+        int x = ...;
+      }
+    }
+    --> first hoist  
+    for (int l = 0; l < 5; l++) {
+      int* x_step = MALLOC1(2, sizeof(int));
+      for (int m = 0; m < 2; m++) {
+        int& x = x_step[MINDEX1(2, m)];
+        x = ...;
+      }
+    }
+    --> second hoist
+    int* x_step_bis = MALLOC2(5, 2, sizeof(int));
+    for (int l = 0; l < 5; l++) {
+      int*& x_step = x_step_bis[MINDEX2(5, 2, l, 0)];
+      for (int m = 0; m < 2; m++) {
+        int& x = x_step[MINDEX1(2, m)];
+        x = ...;
+      }
+    }
+    --> final
+    int* x_step_bis = MALLOC2(5, 2, sizeof(int));
+    for (int l = 0; l < 5; l++) {
+      for (int m = 0; m < 2; m++) {
+        int& x = x_step_bis[MINDEX2(5, 2, l, m)];
+        x = ...;
+      }
+    }
+ *)
+let hoist ?(name : string = "${var}_step${i}")
+          ?(inline : bool = false) ?(nb_loops : int = 1) (tg : target) : unit =
+  let rec aux name i (init_to_detach : trm option) (p : path) =
+    if i <= nb_loops then
+      let next_name = Tools.string_subst "${i}" (string_of_int i) name in
+      let _ = Printf.printf "next name: %s\n\n" next_name in
+      let _ = hoist1_aux next_name None init_to_detach p in
+      let next_target = (target_of_path (fst (Xlist.unlast p))) @ [cVarDef next_name] in
+      if (i + 1 <= nb_loops) then
+        iter_on_targets (fun t p -> aux name (i + 1) None p) next_target
+    in
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
-      let detach_first =
-      match tg_trm.desc with
-        | Trm_let (_, (_, _), init) ->
-          begin match init.desc with
-          | Trm_val(Val_lit (Lit_uninitialized)) -> false
-          | Trm_val(Val_prim (Prim_new _))-> false
-          | _ -> true
-          end
-        | _ -> fail tg_trm.loc "Loop.hoist: expected a variable declaration"
-        in
-        match detach_first with
-        | true ->
-          Variable_basic.init_detach (target_of_path p);
-          Loop_basic.hoist ~name ~array_size(target_of_path p);
-        | false -> Loop_basic.hoist ~name ~array_size (target_of_path p)
+    match tg_trm.desc with
+    | Trm_let (_, (x, _), init) ->
+      let subs_name = (Tools.string_subst "${var}" x name) in
+      aux subs_name 1 (Some init) p
+    | _ -> fail tg_trm.loc "Loop.hoist: expected a variable declaration"
   ) tg
+    (* TODO: is this target precise enough? *)
+    (* if inline then Variable.inline [cVarDef name]; *)
 
 (* [fusion nb tg]: expects the target [tg] to point at a for loop followed by one or more
     for loops with the same range, start, step and bound but different bodies.

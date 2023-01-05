@@ -76,13 +76,14 @@ ${VSCODE}/add_lines.sh ${FILEBASE}.ml ${FILEBASE}_with_lines.ml
 
 
 # TODO: check that PROG is also more recent than the optitrust library
-if [[ "${FILEBASE}.ml" -nt "${PROG}" ]] || [[ "${FILEBASE}.cpp" -nt "${PROG}" ]]; then
+#if [[ "${FILEBASE}.ml" -nt "${PROG}" ]] || [[ "${FILEBASE}.cpp" -nt "${PROG}" ]]; then
   # echo FILE1 is newer than FILE2
   PROGNEEDSREBUILD="needsrebuild"
-fi
+#fi
 
 
 if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ] || [ "${PROGNEEDSREBUILD}" = "needsrebuild" ]; then
+  rm -f  _build/${PROG} ${PROG}
   ocamlbuild -use-ocamlfind -r -tags "debug,package(clangml),package(refl),package(pprint),package(str),package(optitrust)" ${PROG}
   ln -sf _build/${PROG} ${PROG}
 fi

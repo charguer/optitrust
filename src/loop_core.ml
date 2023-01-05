@@ -102,6 +102,8 @@ let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm
     begin match body.desc with
     | Trm_seq tl ->
       let (index, _, _, stop, _, _) = l_range in
+      (* TODO: stop - start ; check step *)
+      (* Arith.simpl *)
       let stop_bd = begin match array_size with | Some arr_sz -> arr_sz | None -> stop end in
       let ty = ref (typ_auto()) in
       let new_name = ref "" in
