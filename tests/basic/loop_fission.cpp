@@ -9,5 +9,10 @@ int main() {
     int b = i;
     u[i] += b;
   }
+
+  for (int i = 0; (i < 5); i++) {
+    int y = i;
+    int z = i;
+  }
   return 0;
 }

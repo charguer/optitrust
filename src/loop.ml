@@ -470,6 +470,31 @@ let fission_all_instrs ?(nb_loops : int  = 1) (tg : target) : unit =
   iter_on_targets (fun t p ->
     aux nb_loops p
   ) tg
+
+let fission ?(nb_loops : int  = 1) (tg : target) : unit =
+  let rec aux nb_loops p =
+    if nb_loops > 0 then begin
+      Printf.printf "\ncCc: %i\n\n" nb_loops;
+      (* unlast x2 to go to upper for seq and then the for itself *)
+      let p' = p |> Xlist.unlast |> fst |> Xlist.unlast |> fst in
+      fission1 ~split_between:true (target_of_path p');
+      aux (nb_loops - 1) p';
+    end
+  in
+  (* TODO: put somewhere else *)
+  let iter_on_targets_between (tr : trm -> path * int -> unit) (tg : target) : unit =
+    apply_on_targets_between (fun t pk -> tr t pk; Trace.ast()) tg
+  in
+  iter_on_targets_between (fun t (p, i) ->
+    if nb_loops > 0 then begin
+      Printf.printf "\naAa\n\n";
+      fission1 ~split_between:false (
+        [tBefore] @ (target_of_path (p @ [Dir_seq_nth i])));
+      Printf.printf "\nbBb\n\n";
+      (* unlast x2 will go from instr to seq, to for *)
+      aux (nb_loops - 1) (p |> Xlist.unlast |> fst |> Xlist.unlast |> fst)
+    end
+  ) tg
       
 (* [fold ~index ~start ~sstep ~nb_instr tg]: similar to [Loop_basic.fold] (see loop_basic.ml) except that
     this one doesn't ask the user to prepare the sequence of instructions. But asks for the first instructions and
