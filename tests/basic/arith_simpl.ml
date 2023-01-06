@@ -46,6 +46,8 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "u"; dRHS];
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "v"; dRHS];
 
+  show [nbMulti; cWriteVar "ls"; dRHS];
+  !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "ls"; dRHS];
 )
 
 

@@ -553,3 +553,21 @@ let change_iter ~src:(it_fun : var) ~dst:(loop_fun : var) (tg : target) : unit =
     Function.beta ~indepth:true [mark_tg];
     Marks.remove mark [cMark mark]
   ) tg
+
+(* TODO: what if index name is same as original loop index name? *)
+(* [shift index amount ~inline]: shifts a loop index by a given amount.
+   - [inline] if true, inline the index shift in the loop body *)
+let shift (index : var) (amount : trm) ?(inline : bool = true) (tg: target) : unit =
+  iter_on_targets (fun t p ->
+    Loop_basic.shift index amount (target_of_path p);
+    if inline then Variable_basic.inline (target_of_path (p @ [Dir_body; Dir_seq_nth 0]));
+  ) tg
+
+(* TODO: what if index name is same as original loop index name? *)
+(* [shift_to_zero index ~inline]: shifts a loop index to start from zero.
+    - [inline] if true, inline the index shift in the loop body *)
+let shift_to_zero (index : var) ?(inline : bool = true) (tg : target) : unit =
+  iter_on_targets (fun t p ->
+    Loop_basic.shift_to_zero index (target_of_path p);
+    if inline then Variable_basic.inline (target_of_path (p @ [Dir_body; Dir_seq_nth 0]));
+  ) tg

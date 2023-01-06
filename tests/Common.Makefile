@@ -53,7 +53,7 @@ TARGET_MAKE_ALL ?= check compile
 OPTITRUSTLIB ?= $(shell command -v ocamlfind > /dev/null && ocamlfind query optitrust)
 
 # Browser for opening documentation
-BROWSER ?= chromium-browser
+OPTITRUST_BROWSER ?= chromium-browser
 
 # Flags for executing the programs, coming both from local user flags, and flags from the local Makefile
 -include optitrust_flags.sh
@@ -339,7 +339,7 @@ OPTITRUST_SRC := $(wildcard $(OPTITRUST)/src/*.ml)
 
 # To check the documentation associated with the demo in a browser, use 'make mytransfo.doc'
 %.doc: %_doc.html
-	$(V)$(BROWSER) $<
+	$(V)$(OPTITRUST_BROWSER) $<
 
 # To check the documentation associated with the demo in a console, use 'make mytransfo.doct'
 %.doct: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
@@ -364,7 +364,7 @@ docs: $(DOCJS)
 
 # 'make doc' to build the documentation for all $(TESTS_WITH_DOC) in doc.html
 doc: doc.html docs
-	$(V)$(BROWSER) $<
+	$(V)$(OPTITRUST_BROWSER) $<
 
 # Rule for building 'doc.html', unless it's already defined in an ad-hoc way (e.g. tests/combi/Makefile)
 ifeq ($(SPECIAL_RULE_FOR_DOC_HTML),)

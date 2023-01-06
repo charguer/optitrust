@@ -58,6 +58,12 @@ int main()
   // test for recursion in atoms (LATER)
   w = a + a * 3 + f(b * f(c + c) / b); // = 4*a + f(f(2*c))
 
+  // test for loop shift
+  int ls;
+  ls = 0 + 12 + (-2); // = 10
+  ls = 0 + x - (-2); // = x + 2
+  ls = 0 + x; // = x
+
   return 0;
 }
 

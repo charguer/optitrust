@@ -23,4 +23,5 @@ let _ = Run.script_cpp(fun _ ->
   !! Loop_basic.shift "i2" (expr "2") [cFor "i"];
   !! Loop_basic.shift_to_zero "j2" [cFor "j"];
   !! Loop_basic.shift "k2" (expr "shift") [cFor "k"];
+  !! Loop_basic.shift "l2" (expr "shift") [cFor "l"];
 )

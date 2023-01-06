@@ -16,8 +16,4 @@ int main(){
   for (int k = 0; k < N; k++){
     x += k;
   }
-  
-  for (int l = N; l > 0; l--){
-    x += l;
-  }
 }

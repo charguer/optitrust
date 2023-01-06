@@ -165,7 +165,7 @@ let shift (index : var) (amount : trm) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Loop_core.shift index (Loop_core.Add amount)) tg)
     
-(* [shift index amount]: shifts a loop index to start from zero. *)
+(* [shift_to_zero index]: shifts a loop index to start from zero. *)
 let shift_to_zero (index : var) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Loop_core.shift index Loop_core.ToZero) tg)
