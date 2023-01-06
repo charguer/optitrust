@@ -44,6 +44,7 @@ TESTS_WITH_DOC := \
 	loop_hoist.ml \
 	loop_moveout.ml \
 	loop_split_range.ml \
+	loop_shift.ml \
 	loop_swap.ml \
 	loop_tile.ml \
 	loop_to_unit_steps.ml \
