@@ -169,3 +169,7 @@ let shift (index : var) (amount : trm) (tg : target) : unit =
 let shift_to_zero (index : var) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Loop_core.shift index Loop_core.ToZero) tg)
+
+(* [rename_index new_index]: renames the loop index variable *)
+let rename_index (new_index : var) (tg : target) : unit =
+  apply_on_targets (Loop_core.rename_index new_index) tg

@@ -2,8 +2,8 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-  !! Loop.shift_to_zero "i2" [cFor "i"];
-     Loop.shift "k2" (expr "shift") [cFor "k"];
+  !! Loop.shift_to_zero ~index:"i2" [cFor "i"];
+     Loop.shift (expr "shift") [cFor "k"];
 )
 
 "
@@ -20,7 +20,8 @@ int main (){
 "
 
 let _ = Run.script_cpp(fun _ ->
-  !! Loop.shift "i2" (expr "2") [cFor "i"];
-  !! Loop.shift_to_zero "j2" [cFor "j"];
-  !! Loop.shift "k2" (expr "shift") [cFor "k"];
+  !! Loop.shift ~index:"i_s" (expr "2") [cFor "i"];
+  !! Loop.shift (expr "2") [cFor "i2"];
+  !! Loop.shift_to_zero ~index:"j2" [cFor "j"];
+  !! Loop.shift ~index:"k2" ~inline:false (expr "shift") [cFor "k"];
 )

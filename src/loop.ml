@@ -444,7 +444,7 @@ let reorder ?(order : vars = []) (tg : target) : unit =
 (* [fission ~split_between tg]: similar to [Loop_basic.fission](see loop_basic.ml) except that this one has an additional feature.
     If [split_between] is true then it's going to split the loop into [N] loops, where [N] is the number of instructions
     of the loop [tg]. *)
-let fission ?(split_between : bool = false) (tg : target) : unit =
+let fission1 ?(split_between : bool = false) (tg : target) : unit =
   if not split_between
     then Loop_basic.fission tg
     else Internal.nobrace_remove_after(fun _ ->
@@ -460,6 +460,17 @@ let fission ?(split_between : bool = false) (tg : target) : unit =
           end
         | _ -> fail t.loc "Loop.fission_aux: only simple loops are supported") tg)
 
+let fission_all_instrs ?(nb_loops : int  = 1) (tg : target) : unit =
+  let rec aux nb_loops p =
+    if nb_loops > 0 then begin
+      aux (nb_loops - 1) (p @ Path.[Dir_body; Dir_seq_nth 0]);
+      fission1 ~split_between:true (target_of_path p);
+    end
+  in
+  iter_on_targets (fun t p ->
+    aux nb_loops p
+  ) tg
+      
 (* [fold ~index ~start ~sstep ~nb_instr tg]: similar to [Loop_basic.fold] (see loop_basic.ml) except that
     this one doesn't ask the user to prepare the sequence of instructions. But asks for the first instructions and
     the number of consecutive instructions [nb_instr] that can be converted into a single loop.
@@ -554,20 +565,35 @@ let change_iter ~src:(it_fun : var) ~dst:(loop_fun : var) (tg : target) : unit =
     Marks.remove mark [cMark mark]
   ) tg
 
-(* TODO: what if index name is same as original loop index name? *)
-(* [shift index amount ~inline]: shifts a loop index by a given amount.
-   - [inline] if true, inline the index shift in the loop body *)
-let shift (index : var) (amount : trm) ?(inline : bool = true) (tg: target) : unit =
-  iter_on_targets (fun t p ->
-    Loop_basic.shift index amount (target_of_path p);
-    if inline then Variable_basic.inline (target_of_path (p @ [Dir_body; Dir_seq_nth 0]));
-  ) tg
 
 (* TODO: what if index name is same as original loop index name? *)
+let shift_aux (index : var) (inline : bool) (debug_name : string)
+              (do_shift : string -> target -> unit) (tg : target) : unit =
+  let index' = if index = "" then begin
+    if not inline then fail None
+      (debug_name ^ ": expected name for index variable when inline = false");
+    Tools.next_tmp_name ();
+  end else
+    index
+  in
+  iter_on_targets (fun t p ->
+    let tg_trm = Path.resolve_path p t in
+    let error = debug_name ^ ": expected target to be a simple loop" in
+    let ((prev_index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv tg_trm in begin
+    do_shift index' (target_of_path p);
+    if inline then
+      Variable_basic.inline (target_of_path (p @ [Dir_body; Dir_seq_nth 0]));
+    if index = "" then
+      Loop_basic.rename_index prev_index (target_of_path p);
+    end
+  ) tg
+
+(* [shift ~index amount ~inline]: shifts a loop index by a given amount.
+   - [inline] if true, inline the index shift in the loop body *)
+let shift ?(index : var = "") (amount : trm) ?(inline : bool = true) (tg : target) : unit =
+  shift_aux index inline "Loop.shift" (fun i tg -> Loop_basic.shift i amount tg) tg
+
 (* [shift_to_zero index ~inline]: shifts a loop index to start from zero.
     - [inline] if true, inline the index shift in the loop body *)
-let shift_to_zero (index : var) ?(inline : bool = true) (tg : target) : unit =
-  iter_on_targets (fun t p ->
-    Loop_basic.shift_to_zero index (target_of_path p);
-    if inline then Variable_basic.inline (target_of_path (p @ [Dir_body; Dir_seq_nth 0]));
-  ) tg
+let shift_to_zero ?(index : var = "") ?(inline : bool = true) (tg : target) : unit =
+  shift_aux index inline "Loop.shift_to_zero" Loop_basic.shift_to_zero tg

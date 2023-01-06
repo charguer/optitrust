@@ -408,3 +408,12 @@ let shift (index : var) (kind : shift_kind) : Transfo.local =
     trm_for (index', start', direction, stop', step, is_parallel) body'
   in
   apply_on_path aux
+
+(* [rename_index new_index]: renames the loop index variable *)
+let rename_index (new_index : var) : Transfo.local =
+  apply_on_path (fun t ->
+    let error = "Loop_core.shift: expected a target to a simple for loop" in
+    let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
+    let new_body = Internal.subst_var index (trm_var new_index) body in
+    trm_for (new_index, start, direction, stop, step, is_parallel) new_body
+  )

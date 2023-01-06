@@ -100,6 +100,9 @@ let resetable_fresh_generator () : (unit -> int) * (unit -> unit) =
   let n = ref 0 in
   (fun () -> incr n; !n), (fun () -> n := 0)
 
+let next_tmp_name: unit -> string =
+  let gen = fresh_generator () in
+  fun () -> "__TMP_" ^ (string_of_int (gen ()))
 
 (******************************************************************************)
 (*                          Extensions for string                             *)

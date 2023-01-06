@@ -8,10 +8,6 @@ int main(){
     x += i;
   }
   
-  for (int i2 = 0; i2 < 10; i2++){
-    x += i2;
-  }
-
   for (int j = st; j < st+N; j++){
     x += j;
   }
@@ -19,5 +15,9 @@ int main(){
   int shift = 5;
   for (int k = 0; k < N; k++){
     x += k;
+  }
+  
+  for (int l = N; l > 0; l--){
+    x += l;
   }
 }
