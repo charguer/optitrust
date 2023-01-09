@@ -51,7 +51,7 @@ TESTS_WITH_DOC := \
 	sequence_intro_targets.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
-  struct_rename_field.ml \
+   struct_rename_field.ml \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_elim_redundant.ml \
