@@ -1,0 +1,12 @@
+# Files copied from PIC
+
+optitrust.h 
+particle.h
+bag.h 
+bag_atomics.h 
+mymacros.h 
+particle.c 
+bag.c 
+pic_demo.h 
+pic_demo_aux.h 
+pic_demo.c 
