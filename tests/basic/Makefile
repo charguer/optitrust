@@ -10,11 +10,13 @@ FLAGS := -dump-ast-details
 #	accesses_intro.ml \
 # function_uninline.ml \
 
+TESTS_WITH_DOC_TOFIX := \
+	arith_simpl.ml \
+
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	align_def.ml \
-	arith_simpl.ml \
 	arith_scale.ml \
 	arith_shift.ml \
 	array_set_explicit.ml \

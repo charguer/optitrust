@@ -44,6 +44,9 @@
 - rewrite rules: comment retrouver l'expressivé de ton système
 
 
+- diff for tests composed with removal of \n
+
+
 LATER
 
 - type reconstruction

@@ -1,6 +1,6 @@
-int *t;
+int* t;
 
-int *u;
+int* u;
 
 int n;
 
@@ -12,6 +12,12 @@ int main() {
   for (int i = 1; i < n; i++) {
     int b = i;
     u[i] += b;
+  }
+  for (int i = 0; i < 5; i++) {
+    int y = i;
+  }
+  for (int i = 0; i < 5; i++) {
+    int z = i;
   }
   return 0;
 }
