@@ -519,7 +519,33 @@ let get_trm_at_path (dl : path) (t : trm) : trm =
 (*                           Smart constructors for paths                          *)
 (***********************************************************************************)
 
-(* [to_nested_loop] takes the path to a loop that contains a nested loop, and
-   returns the path the inner loop *)
-let to_nested_loop (p : path) : path =
+(* [parent]: returns the parent of a path. *)
+let parent (p : path) : path =
+   match List.rev p with
+   | _ :: p' -> List.rev p'
+   | _ -> p
+
+(* [to_inner_loop] takes the path to a loop that contains 1 nested loop,
+   and returns the path the inner loop *)
+let to_inner_loop (p : path) : path =
   p @ [Dir_body; Dir_seq_nth 0]
+
+(* [to_inner_loops] takes the path to a loop that contains N nested loops,
+   and returns the path the inner loop *)
+let rec to_inner_loop_n (n : int) (p : path) : path =
+   if n > 0 then to_inner_loop_n (n - 1) (to_inner_loop p) else p
+
+(* [index_in_surrounding_loop]: takes the path to a term inside a loop,
+   and returns the index of that term in the sequence of the loop body,
+   as well as the path to the loop itself. *)
+   let index_in_surrounding_loop (dl : path) : int * path =
+      match List.rev dl with
+      | Dir_seq_nth i :: Dir_body :: dl' -> (i, List.rev dl')
+      | _ -> fail None "Path.index_in_surrounding_loop: unexpected path"
+   
+(* [to_outer_loop]: takes the path to a loop surrounded by another loop,
+   and returns the path to the outer loop *)
+let to_outer_loop (p : path) : path =
+   match index_in_surrounding_loop p with
+   | (0, p') -> p'
+   | _ -> fail None "Path.to_outer_loop: unexpected path"

@@ -169,13 +169,6 @@ let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
     | dir :: dl' -> aux (dir :: acc) dl'
   in aux [] (List.rev dl)
 
-(* [get_trm_in_surrounding_loop dl]: for a trm with path [dl] return the path to surrouding sequence of the loop
-    that contains that trm , and the index of that loop on that sequence *)
-let get_trm_in_surrounding_loop (dl : path) : path * int =
-    match List.rev dl with
-    | Dir_seq_nth i :: Dir_body :: dl' -> (List.rev dl', i)
-    | _ -> fail None "Internal.get_trm_in_surrounding_loop: empty path"
-
 (* [get_ascendant_path checker dl t]: for a trm with path [dl] return the path to the first ascendant that satisfies
     that satisfies the predicate [checker]. *)
 let get_ascendant_path (checker : trm -> bool) (dl : path) (t : trm) : path =
@@ -199,13 +192,6 @@ let get_ascendant_read_path (dl : path) (t : trm) : path =
 (* [get_ascendant_write_path dl t] specialization of get_ascendant_path for write operations*)
 let get_ascendant_write_path (dl : path) (t : trm) : path =
   get_ascendant_path is_set_operation dl t
-
-(* [get_parent_path dl]: returns the parent path of [dl]. *)
-let get_parent_path (dl : path) : path =
-  match List.rev dl with
-  | _ :: dl' -> List.rev dl'
-  | _ -> dl
-
 
 (* [get_ascendant_topfun_path dl]: returns the path to the toplevel function that contains
      the trm where the path [dl] points to. *)

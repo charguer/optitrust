@@ -53,8 +53,8 @@ let tile ?(index : var = "b${id}") ?(bound : tile_bound = TileBoundMin) (tile_si
     for each index of the for loop. *)
 let hoist ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
-     (fun t (p, i) -> Loop_core.hoist name i array_size t p) tg)
+    apply_on_transformed_targets (Path.index_in_surrounding_loop)
+     (fun t (i, p) -> Loop_core.hoist name i array_size t p) tg)
 
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
@@ -64,8 +64,8 @@ let hoist ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : 
    writes in first loop after index i. *)
 let fission (tg : target) : unit =
   Internal.nobrace_remove_after( fun _ ->
-    apply_on_transformed_targets_between (fun (p,i) -> Internal.get_trm_in_surrounding_loop (p @ [Dir_seq_nth i]))
-    (fun t (p, i) -> Loop_core.fission i t p) tg )
+    apply_on_transformed_targets_between (fun (p,i) -> Path.index_in_surrounding_loop (p @ [Dir_seq_nth i]))
+    (fun t (i, p) -> Loop_core.fission i t p) tg )
 
 (* [fusion_on_block tg]: expects the target [tg] to point at a sequence containing two loops
     with the same range, start step and bound but different body.
@@ -113,8 +113,8 @@ let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit
     is dependent on any local variable or the loop index. *)
 let move_out (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
-  apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
-    (fun t (p, i) -> Loop_core.move_out i t p ) tg)
+  apply_on_transformed_targets (Path.index_in_surrounding_loop)
+    (fun t (i, p) -> Loop_core.move_out i t p ) tg)
 
 (* [unswitch tg]:  expects the target [tg] to point at an if statement with a constant condition
      (not dependent on loop index or local variables) inside a loop.  Then it will take that
@@ -123,8 +123,8 @@ let move_out (tg : target) : unit =
    @correctness: requires that the loop is parallelizable *)
 let unswitch (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
-  apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
-    (fun t (p, i) -> Loop_core.unswitch i t p) tg)
+  apply_on_transformed_targets(Path.index_in_surrounding_loop)
+    (fun t (i, p) -> Loop_core.unswitch i t p) tg)
 
 
 (* [to_unit_steps index tg]: expects target [tg] to point at a for loop

@@ -124,5 +124,5 @@ let dsp_def ?(arg : var = "res") ?(func : var = "dsp") (tg : target) : unit =
     If [dsp] is the empty string, then "f_dsp" will be used as name based on the original name "f".
     Note: This transformation assumes that dsp_def has been already applied to the definition of the called function. *)
 let dsp_call ?(dsp : var = "") : Transfo.t =
-  apply_on_transformed_targets (Internal.get_parent_path)
+  apply_on_transformed_targets (Path.parent)
     (fun t p -> Function_core.dsp_call dsp t p)

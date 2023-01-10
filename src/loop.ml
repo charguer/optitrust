@@ -173,7 +173,7 @@ let fusion_targets ?(keep_label : bool = true) : Transfo.t =
 let move_out ?(upto : string = "") (tg : target) : unit =
   Internal.nobrace_remove_after( fun _ ->
   iter_on_targets (fun t exp ->
-    let (p, _) = Internal.get_trm_in_surrounding_loop exp in
+    let (_, p) = Path.index_in_surrounding_loop exp in
     match upto with
     | "" -> Loop_basic.move_out tg
     | _ ->
@@ -441,11 +441,11 @@ let reorder ?(order : vars = []) (tg : target) : unit =
     List.iter (fun x -> move (target_of_path p @ [cFor x]) ~before:(target_of_path p @ [cFor targeted_loop_index])) order
   ) tg
 
-(* [fission1 ~split_between tg]: similar to [Loop_basic.fission](see loop_basic.ml) except that this one has an additional feature.
+(* [fission_one ~split_between tg]: similar to [Loop_basic.fission](see loop_basic.ml) except that this one has an additional feature.
     If [split_between] is true then it's going to split the loop into [N] loops, where [N] is the number of instructions
     in the body of the loop [tg]. *)
     (* TODO: fission_single  fission_one *)
-let fission1 ?(split_between : bool = false) (tg : target) : unit =
+let fission_one ?(split_between : bool = false) (tg : target) : unit =
   if not split_between
     then Loop_basic.fission tg
     else Internal.nobrace_remove_after(fun _ -> (* TODO:  put in fucntion loop_core.fission_all_instr *)
@@ -461,56 +461,43 @@ let fission1 ?(split_between : bool = false) (tg : target) : unit =
           end
         | _ -> fail t.loc "Loop.fission_aux: only simple loops are supported") tg)
 
-let fission_all_instrs ?(nb_loops : int  = 1) (tg : target) : unit =
+(* internal *)
+let fission_all_instrs_with_path_to_inner (nb_loops : int) (p : path) : unit =
   let rec aux (nb_loops : int) (p : path) : unit =
     if nb_loops > 0 then begin
-      (* First apply fission to the inner loops *)
-      aux (nb_loops - 1) (Path.to_nested_loop p);
-      (* Then apply fission to the outermost loop *)
-      fission1 ~split_between:true (target_of_path p);
-    end
-  in
-  iter_on_targets (fun t p ->
-    aux nb_loops p
-  ) tg
-
-(* TODO:
-  Path.to_nested_loops nb p
-
-  fission_all_instr =
-    fission_all_instr_with_path_to_inner (Path.to_nested_loops nb p)
-
-  fission ~between:true =
-    fission_one ~between:true;
-    fission_all_instr_with_path_to_inner (nbloops-1) (Path.parent p)
-
-  (* internal/private *)
-  fission_all_instr_with_path_to_inner
-
-*)
-
-let fission ?(nb_loops : int  = 1) (tg : target) : unit =
-  let rec aux nb_loops p =
-    if nb_loops > 0 then begin
-      Printf.printf "\ncCc: %i\n\n" nb_loops;
-      (* unlast x2 to go to upper for seq and then the for itself *)
-      let p' = p |> Xlist.unlast |> fst |> Xlist.unlast |> fst in
-      fission1 ~split_between:true (target_of_path p');
+      (* Apply fission to the next outer loop *)
+      let p' = Path.to_outer_loop p in
+      fission_one ~split_between:true (target_of_path p');
+      (* And go through the remaining outer loops *)
       aux (nb_loops - 1) p';
     end
   in
+  if nb_loops > 0 then begin
+    (* Apply fission to the innermost loop *)
+    fission_one ~split_between:true (target_of_path p);
+    (* And go through the outer loops *)
+    aux (nb_loops - 1) p
+  end
+
+let fission_all_instrs ?(nb_loops : int  = 1) (tg : target) : unit =
+  iter_on_targets (fun t p ->
+    Printf.printf "fission_all_instrs: %s\n" (Path.path_to_string p);
+    (* apply fission helper on inner loop *)
+    fission_all_instrs_with_path_to_inner nb_loops
+      (Path.to_inner_loop_n (nb_loops - 1) p)
+  ) tg
+
+let fission ?(nb_loops : int  = 1) (tg : target) : unit =
   (* TODO: put somewhere else *)
   let iter_on_targets_between (tr : trm -> path * int -> unit) (tg : target) : unit =
     apply_on_targets_between (fun t pk -> tr t pk; Trace.ast()) tg
   in
   iter_on_targets_between (fun t (p, i) ->
     if nb_loops > 0 then begin
-      Printf.printf "\naAa\n\n";
-      fission1 ~split_between:false (
+      Loop_basic.fission (
         [tBefore] @ (target_of_path (p @ [Dir_seq_nth i]))); (* TODO : target_of_path_between *)
-      Printf.printf "\nbBb\n\n";
-      (* unlast x2 will go from instr to seq, to for *)
-      aux (nb_loops - 1) (p |> Xlist.unlast |> fst |> Xlist.unlast |> fst)
+      let outer_loop = Path.(p |> parent |> to_outer_loop) in
+      fission_all_instrs_with_path_to_inner (nb_loops - 1) outer_loop
     end
   ) tg
 
