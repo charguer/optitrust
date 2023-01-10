@@ -33,7 +33,7 @@ let hoist1_aux (name : var) (array_size : trm option) (init_to_detach : trm opti
     transformation supports also undetached declarations as well as hoisting through multiple loops.
     [inline] - inlines the array indexing code
     [nb_loops] - number of loops to hoist through (expecting a perfect nest of simple loops)
-  
+
     for (int i = 0; i < 10; i++) {
       int x = ...;
     }
@@ -49,7 +49,7 @@ let hoist1_aux (name : var) (array_size : trm option) (init_to_detach : trm opti
         int x = ...;
       }
     }
-    --> first hoist  
+    --> first hoist
     for (int l = 0; l < 5; l++) {
       int x_step[2];
       for (int m = 0; m < 2; m++) {
@@ -80,7 +80,7 @@ let hoist1_aux (name : var) (array_size : trm option) (init_to_detach : trm opti
         int x = ...;
       }
     }
-    --> first hoist  
+    --> first hoist
     for (int l = 0; l < 5; l++) {
       int* x_step = MALLOC1(2, sizeof(int));
       for (int m = 0; m < 2; m++) {
@@ -441,13 +441,14 @@ let reorder ?(order : vars = []) (tg : target) : unit =
     List.iter (fun x -> move (target_of_path p @ [cFor x]) ~before:(target_of_path p @ [cFor targeted_loop_index])) order
   ) tg
 
-(* [fission ~split_between tg]: similar to [Loop_basic.fission](see loop_basic.ml) except that this one has an additional feature.
+(* [fission1 ~split_between tg]: similar to [Loop_basic.fission](see loop_basic.ml) except that this one has an additional feature.
     If [split_between] is true then it's going to split the loop into [N] loops, where [N] is the number of instructions
-    of the loop [tg]. *)
+    in the body of the loop [tg]. *)
+    (* TODO: fission_single  fission_one *)
 let fission1 ?(split_between : bool = false) (tg : target) : unit =
   if not split_between
     then Loop_basic.fission tg
-    else Internal.nobrace_remove_after(fun _ ->
+    else Internal.nobrace_remove_after(fun _ -> (* TODO:  put in fucntion loop_core.fission_all_instr *)
       apply_on_targets (fun t p ->
         let tg_trm = Path.resolve_path p t in
         match tg_trm.desc with
@@ -461,15 +462,32 @@ let fission1 ?(split_between : bool = false) (tg : target) : unit =
         | _ -> fail t.loc "Loop.fission_aux: only simple loops are supported") tg)
 
 let fission_all_instrs ?(nb_loops : int  = 1) (tg : target) : unit =
-  let rec aux nb_loops p =
+  let rec aux (nb_loops : int) (p : path) : unit =
     if nb_loops > 0 then begin
-      aux (nb_loops - 1) (p @ Path.[Dir_body; Dir_seq_nth 0]);
+      (* First apply fission to the inner loops *)
+      aux (nb_loops - 1) (Path.to_nested_loop p);
+      (* Then apply fission to the outermost loop *)
       fission1 ~split_between:true (target_of_path p);
     end
   in
   iter_on_targets (fun t p ->
     aux nb_loops p
   ) tg
+
+(* TODO:
+  Path.to_nested_loops nb p
+
+  fission_all_instr =
+    fission_all_instr_with_path_to_inner (Path.to_nested_loops nb p)
+
+  fission ~between:true =
+    fission_one ~between:true;
+    fission_all_instr_with_path_to_inner (nbloops-1) (Path.parent p)
+
+  (* internal/private *)
+  fission_all_instr_with_path_to_inner
+
+*)
 
 let fission ?(nb_loops : int  = 1) (tg : target) : unit =
   let rec aux nb_loops p =
@@ -489,13 +507,13 @@ let fission ?(nb_loops : int  = 1) (tg : target) : unit =
     if nb_loops > 0 then begin
       Printf.printf "\naAa\n\n";
       fission1 ~split_between:false (
-        [tBefore] @ (target_of_path (p @ [Dir_seq_nth i])));
+        [tBefore] @ (target_of_path (p @ [Dir_seq_nth i]))); (* TODO : target_of_path_between *)
       Printf.printf "\nbBb\n\n";
       (* unlast x2 will go from instr to seq, to for *)
       aux (nb_loops - 1) (p |> Xlist.unlast |> fst |> Xlist.unlast |> fst)
     end
   ) tg
-      
+
 (* [fold ~index ~start ~sstep ~nb_instr tg]: similar to [Loop_basic.fold] (see loop_basic.ml) except that
     this one doesn't ask the user to prepare the sequence of instructions. But asks for the first instructions and
     the number of consecutive instructions [nb_instr] that can be converted into a single loop.

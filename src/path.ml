@@ -464,7 +464,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
        | Dir_arg_nth n, Trm_let_fun (_, _, arg, _) ->
           app_to_nth loc arg n
             (fun (x, _) -> aux (trm_var ~loc x) ctx)
-       | Dir_name, Trm_let_fun (x, _, _, _) -> 
+       | Dir_name, Trm_let_fun (x, _, _, _) ->
           aux (trm_var ~loc ~qvar:x "") ctx
        | Dir_name , Trm_let (_,(x,_),_)
          | Dir_name, Trm_goto x ->
@@ -513,3 +513,13 @@ let resolve_path (dl : path) (t : trm) : trm  =
 (* [get_trm_at_path dl]: alias for resolve_path *)
 let get_trm_at_path (dl : path) (t : trm) : trm =
   resolve_path dl t
+
+
+(***********************************************************************************)
+(*                           Smart constructors for paths                          *)
+(***********************************************************************************)
+
+(* [to_nested_loop] takes the path to a loop that contains a nested loop, and
+   returns the path the inner loop *)
+let to_nested_loop (p : path) : path =
+  p @ [Dir_body; Dir_seq_nth 0]

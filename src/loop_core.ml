@@ -29,8 +29,8 @@ let swap : Transfo.local =
       [i_color] - a variable representing the index used of the new outer loop,
       [t] - ast of the loop. *)
 let color_aux (nb_colors : trm) (i_color : var option) (t : trm) : trm =
-  let error = "Loop_core.color_aux: only simple loops are supported." in 
-  let ((index , start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in 
+  let error = "Loop_core.color_aux: only simple loops are supported." in
+  let ((index , start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
   let i_color = match i_color with
    | Some cl -> cl
    | _ -> "c" ^ index
@@ -58,8 +58,8 @@ let color (nb_colors : trm) (i_color : var option ) : Transfo.local =
                  this transformation,
       [t] - ast of targeted loop. *)
 let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
-  let error = "Loop_core.tile_aux: only simple loops are supported." in 
-  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in 
+  let error = "Loop_core.tile_aux: only simple loops are supported." in
+  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
   let tile_index = Tools.string_subst "${id}" index tile_index in
   let tile_bound =
    if is_step_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index ) (trm_mul tile_size (loop_step_to_trm step)) in
@@ -134,6 +134,7 @@ let hoist (name : var) (index : int) (array_size : trm option): Transfo.local =
       [index]: index of the splitting point
       [t]: ast of the loop *)
  let fission_aux (index : int) (t : trm) : trm =
+  (* TODO: trm_for_inv_instrs => (l_range, tl) *)
   match t.desc with
   | Trm_for (l_range, body) ->
     begin match body.desc with
@@ -142,7 +143,7 @@ let hoist (name : var) (index : int) (array_size : trm option): Transfo.local =
       let b1 = trm_seq tl1 in
       let b2 = trm_seq tl2 in
       trm_seq_no_brace [
-        trm_for l_range b1;
+        trm_for l_range b1; (* TODO: trm_for_instrs l_range tl1 *)
         trm_for l_range b2;]
     | _ -> fail t.loc "Loop_core.fission_aux: expected the sequence inside the loop body"
     end
@@ -186,9 +187,9 @@ let fusion_on_block (keep_label : bool): Transfo.local =
       [t] - ast of the loop. *)
 let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : trm =
   let error = "Loop_core.grid_enumerate_aux: expected a simple for loop" in
-  let (l_range, body) = trm_inv ~error trm_for_inv t in 
+  let (l_range, body) = trm_inv ~error trm_for_inv t in
   let (index, _, direction, _, _, is_parallel) = l_range in
-  let new_body = 
+  let new_body =
     begin match body.desc with
     | Trm_seq tl ->
         let old_loop_index_val = Xlist.fold_lefti (fun i acc (ind, bnd) ->
@@ -283,8 +284,8 @@ let move_out (trm_index : int) : Transfo.local =
 let unswitch_aux (trm_index : int) (t : trm) : trm =
   let tl = for_loop_body_trms t in
   let if_stmt = Mlist.nth tl trm_index in
-  let error = "Loop_core.unswitch_aux: expected an if statement."  in 
-  let (cond, then_, else_) = trm_inv ~error trm_if_inv if_stmt in 
+  let error = "Loop_core.unswitch_aux: expected an if statement."  in
+  let (cond, then_, else_) = trm_inv ~error trm_if_inv if_stmt in
   let then_ = Internal.set_nobrace_if_sequence then_ in
   let else_ = Internal.set_nobrace_if_sequence else_ in
   let wrap_branch (t1 : trm) : trm  = Internal.change_loop_body t (trm_seq (Mlist.replace_at trm_index t1 tl )) in
@@ -298,8 +299,8 @@ let unswitch (trm_index : int) : Transfo.local =
       [new_index] - a string representing the new index for the transformed loop,
       [t] - ast of the loop to be transformed. *)
 let to_unit_steps_aux (new_index : var) (t : trm) : trm =
-  let error = "Loop_core.to_unit_steps: only simple loops are supported." in 
-  let ((index, start, direction, stop, step, is_parallel), _) = trm_inv ~error trm_for_inv t in 
+  let error = "Loop_core.to_unit_steps: only simple loops are supported." in
+  let ((index, start, direction, stop, step, is_parallel), _) = trm_inv ~error trm_for_inv t in
   let new_index = match new_index with
   | "" -> index ^ "_step"
   | _ -> new_index in
@@ -346,7 +347,7 @@ let to_unit_steps (new_index : var) : Transfo.local =
     LATER: use  sExpr  to mark the subexpression that correspnod to the string "start";
     then you can Generic.replace at these marks.*)
 let fold_aux (index : var) (start : int) (step : int) (t : trm) : trm =
-  let error = "Loop_core.fold_aux: expected a sequence of instructions" in 
+  let error = "Loop_core.fold_aux: expected a sequence of instructions" in
   let tl = trm_inv ~error trm_seq_inv t in
   let nb = Mlist.length tl in
   if nb = 0
@@ -369,8 +370,8 @@ let fold (index : var) (start : int) (step : int) : Transfo.local =
      [cut] - by default this argument has value tmr_unit(), if provided then the loop will be splited at that iteration,
      [t] - ast of the for loop. *)
 let split_range_aux (nb : int)(cut : trm)(t : trm) : trm =
-  let error = "Loop_core.split_range: expected a target to a simple for loop" in 
-  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in 
+  let error = "Loop_core.split_range: expected a target to a simple for loop" in
+  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
   let split_index =
   begin match nb, cut with
   | 0, {desc = Trm_val (Val_lit (Lit_unit )); _} -> fail t.loc "Loop_core.split_range_aux: one of the args nb or cut should be set "
@@ -394,7 +395,7 @@ type shift_kind =
 let shift (index : var) (kind : shift_kind) : Transfo.local =
   let aux (t : trm) : trm =
     let index' = index in
-    let error = "Loop_core.shift: expected a target to a simple for loop" in 
+    let error = "Loop_core.shift: expected a target to a simple for loop" in
     let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
     let body_terms = trm_inv ~error trm_seq_inv body in
     let (start', shift) = match kind with

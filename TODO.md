@@ -46,6 +46,9 @@
 
 - diff for tests composed with removal of \n
 
+- déplacer les fonctions sur les paths de internal vers path.ml, en renommant
+
+- raffiner le système des marks between pour avoir une affinité "vers le haut ou vers le bas".
 
 LATER
 
