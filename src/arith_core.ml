@@ -168,6 +168,7 @@ let normalize_one (e : expr) : expr =
         Expr_sum (List.concat_map (function
           | (_ai, Expr_int 0) | (_ai, Expr_double 0.) -> []
           | (1, Expr_int n) -> [(n, Expr_int 1)]
+          | (-1, Expr_int n) -> [(-n, Expr_int 1)]
           | (0, _ei) -> []
           | (1, Expr_sum wesi) -> wesi
           | (-1, Expr_sum [(ai,ei)]) -> [(-ai,ei)]
@@ -239,7 +240,7 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
        end
      | Trm_apps (f, [t1]) ->
        begin match trm_prim_inv f with
-        | Some (Prim_unop Unop_neg) -> Expr_sum [(-1, aux t1)]
+        | Some (Prim_unop Unop_minus) -> Expr_sum [(-1, aux t1)]
         | _ -> not_expression()
        end
      | _ -> not_expression()

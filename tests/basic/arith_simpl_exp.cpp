@@ -49,5 +49,9 @@ int main() {
   v = d;
   v = a + c;
   w = a + a * 3 + f(b * f(c + c) / b);
+  int ls;
+  ls = 10;
+  ls = x + 2;
+  ls = x;
   return 0;
 }
