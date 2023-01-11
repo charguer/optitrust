@@ -611,8 +611,13 @@ let shift_aux (index : var) (inline : bool) (debug_name : string)
     let error = debug_name ^ ": expected target to be a simple loop" in
     let ((prev_index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv tg_trm in begin
     do_shift index' (target_of_path p);
+    Arith_basic.(simpl gather) (target_of_path (p @ [Dir_for_start]));
+    (* FIXME: why is this sometimes doing nothing? *)
+    Arith_basic.(simpl gather) (target_of_path (p @ [Dir_for_stop]));
     if inline then
-      Variable_basic.inline (target_of_path (p @ [Dir_body; Dir_seq_nth 0]));
+      let mark = Mark.next() in
+      let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
+      Arith_basic.(simpl gather) [nbAny; cMark mark];
     if index = "" then
       Loop_basic.rename_index prev_index (target_of_path p);
     end

@@ -20,6 +20,7 @@ int main (){
 "
 
 let _ = Run.script_cpp(fun _ ->
+  show [cFor "i"; dForStop];
   !! Loop.shift ~index:"i_s" (expr "2") [cFor "i"];
   !! Loop.shift (expr "2") [cFor "i2"];
   !! Loop.shift_to_zero ~index:"j2" [cFor "j"];
