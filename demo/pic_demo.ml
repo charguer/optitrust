@@ -56,7 +56,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   let ctx = cTopFunDef "matrix_vect_mul" in
   !! Function.inline [ctx; cFuns ["vect_mul"; "vect_add"]];
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
-  !! Loop.fission ~split_between:true [ctx; cFor "idCorner"];
+  !! Loop.fission_one ~split_between:true [ctx; cFor "idCorner"];
   !! Loop.unroll [nbMulti; ctx; cFor "idCorner"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp ~substr:true "res.*\\[0\\]"];
   !! Function.inline ~delete:true [nbMulti;cFun "matrix_vect_mul"];
@@ -323,7 +323,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   !! Arith.with_nosimpl [nbMulti; stepsReal; cFor "idCorner"] (fun () ->
        Arith.(simpl_rec expand) [nbMulti; stepsReal; cFor "i"]);
   !! Variable.to_nonconst [step; cVarDef "idCell2"];
-  !! Loop.hoist ~array_size:(Some (var "CHUNK_SIZE")) [step; cVarDef "idCell2"];
+  !! Loop.hoist_old ~array_size:(Some (var "CHUNK_SIZE")) [step; cVarDef "idCell2"];
      let dest = [tBefore; step; cVarDef "isDistFromBlockLessThanHalfABlock"] in
   !! Instr.copy ~dest [step; cVarDef "idCell2"];
   !! Instr.move ~dest [step; cVarDef "co"];

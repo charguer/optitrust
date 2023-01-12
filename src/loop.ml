@@ -29,6 +29,28 @@ let hoist1_aux (name : var) (array_size : trm option) (init_to_detach : trm opti
       Loop_basic.hoist ~name ~array_size (target_of_path p);
   end
 
+(* LATER/ deprecated *)
+let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
+  iter_on_targets (fun t p ->
+    let tg_trm = Path.resolve_path p t in
+      let detach_first =
+      match tg_trm.desc with
+        | Trm_let (_, (_, _), init) ->
+          begin match init.desc with
+          | Trm_val(Val_lit (Lit_uninitialized)) -> false
+          | Trm_val(Val_prim (Prim_new _))-> false
+          | _ -> true
+          end
+        | _ -> fail tg_trm.loc "Loop.hoist: expected a variable declaration"
+        in
+        match detach_first with
+        | true ->
+          Variable_basic.init_detach (target_of_path p);
+          Loop_basic.hoist ~name ~array_size(target_of_path p);
+        | false -> Loop_basic.hoist ~name ~array_size (target_of_path p)
+  ) tg
+
+
 (* [hoist ~name ~array_size ~inline tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
     transformation supports also undetached declarations as well as hoisting through multiple loops.
     [inline] - inlines the array indexing code
