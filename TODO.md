@@ -44,7 +44,6 @@
 - rewrite rules: comment retrouver l'expressivé de ton système
 
 
-- diff for tests composed with removal of \n
 
 - déplacer les fonctions sur les paths de internal vers path.ml, en renommant
 

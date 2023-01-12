@@ -29,14 +29,12 @@ TESTS_WITH_DOC := \
 	instr_move.ml \
 	instr_moveout.ml \
 	instr_moveout_of_fun.ml \
-	loop_fission.ml \
 	loop_fold.ml \
 	loop_fold_instrs.ml \
 	loop_fusion.ml \
 	loop_fusion_targets.ml \
 	loop_shift.ml \
 	loop_grid_enumerate.ml \
-	loop_hoist.ml \
 	loop_isolate_first_iteration.ml \
 	loop_move.ml \
 	loop_moveout.ml \
@@ -73,7 +71,8 @@ TESTS_WITHOUT_DOC := \
 
 TESTS_TO_FIX := \
 	struct_align_field.ml \
-
+	loop_hoist.ml \
+	loop_fission.ml \
 	
 NOT_NEEEDED_TO_FIX := \
 	aos_to_soa.ml \

@@ -131,7 +131,8 @@ runner:
 # Rules
 
 # The command for calling diff
-DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
+DIFF := $(OPTITRUST)/tests/diff.sh
+# DEPRECATED: DIFF := diff -q --ignore-blank-lines --ignore-all-space -I '^//'
 
 # The build command for compiling a script
 BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -use-ocamlfind -r -quiet -tags "debug,package(clangml),package(refl),package(pprint),package(str),package(optitrust)"
@@ -155,7 +156,7 @@ BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -us
 
 # Rule for building .chk, that gives evidence whether the output matches the expected output
 %.chk: %_out.cpp %_exp.cpp
-	$(V) ($(DIFF) -q $^ > /dev/null && touch $@ && echo "Success for $@") \
+	$(V) ($(DIFF) $^ > /dev/null && touch $@ && echo "Success for $@") \
 	|| (echo "=== ERROR: $< does not match the expected result:" && echo "  make $*.meld")
 #	|| (echo "$< does not match the expected result:" && $(DIFF) $^)
 
@@ -229,7 +230,7 @@ endif
 
 # Rule for comparing output of runs
 %.exec: %.prog %_out.prog
-	$(V)bash -c "($(DIFF) -q <(./$*.prog) <(./$*_out.prog) && echo \"Checked $@\") \
+	$(V)bash -c "($(DIFF) <(./$*.prog) <(./$*_out.prog) && echo \"Checked $@\") \
                 || (./$*.prog; echo \"--\"; ./$*_out.prog)"
 
 # Rule for opening meld to compare the output and the expected output

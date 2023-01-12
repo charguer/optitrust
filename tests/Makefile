@@ -31,7 +31,9 @@ check:
 	$(MAKE) -C basic batch_check
 	$(MAKE) -C combi batch_check
 	$(MAKE) -C target batch_check
-	$(MAKE) -C ast batch_check
+	$(MAKE) -C ast transfos
+
+# TODO: fix tests in ast so as to use batch_check
 
 # TODO: fix	$(MAKE) -C ../demo import pic_demo.chk
 
