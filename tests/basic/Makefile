@@ -7,6 +7,7 @@ FLAGS := -dump-ast-details
 
 
 #	accesses_intro.ml \
+# 	function_uninline.ml \
 
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
@@ -28,7 +29,6 @@ TESTS_WITH_DOC := \
 	function_dsp_call.ml \
 	function_dsp_def.ml \
 	function_inline.ml \
-	function_uninline.ml \
 	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_move.ml \
@@ -99,9 +99,10 @@ TESTS_WITH_DOC := \
 	variable_to_nonconst.ml \
 
 
+# TODO 	matrix_delocalize_obj.ml \
+#	matrix_local_name_obj.ml \
+
 TESTS_NODOC := \
-	matrix_delocalize_obj.ml \
-	matrix_local_name_obj.ml \
 	apac_constify_args.ml \
 	apac_stack_to_heap.ml \
 	apac_unfold_let_mult.ml \

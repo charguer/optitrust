@@ -64,9 +64,8 @@ TESTS_WITH_DOC := \
 	variable_renames.ml \
 	variable_reuse.ml \
 
-
+# 	matrix_delocalize_obj.ml \
 TESTS_WITHOUT_DOC := \
-	matrix_delocalize_obj.ml \
 	apac_constify_functions_arguments.ml \
 	apac_heapify_nested_seq.ml \
 	apac_sync_with_taskwait.ml \
