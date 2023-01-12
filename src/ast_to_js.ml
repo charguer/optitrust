@@ -43,7 +43,7 @@ module Json = struct
     | Str s -> string s
     | Int i -> string (string_of_int i)
     | Boolean b-> string (string_of_bool b)
-    | List l -> Tools.list_to_doc (List.map json_to_doc l)
+    | List l -> Tools.list_to_doc ~bounds:[lbrace; rbrace] (List.map json_to_doc l)
     | Object o -> Tools.print_object (List.map (fun (k,j) -> json_to_doc k ^^ string ": " ^^ json_to_doc j) o)
 
   (* [json_to_js]: creates a javascript variable of type json object from ast [j] *)
@@ -164,7 +164,7 @@ let directive_to_json (directive : directive) : json * json =
   | Taskgroup -> strquote "Taskgroup"
   | Taskloop _ -> strquote "Taskloop"
   | Taskloop_simd _ -> strquote "Taskloop_simd"
-  | Taskwait -> strquote "Taskwait"
+  | Taskwait _ -> strquote "Taskwait"
   | Taskyield -> strquote "Taskyield"
   | Teams _ -> strquote "Teams"
   | Teams_distribute _ -> strquote "Teams_distribute"
@@ -228,7 +228,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     match t.desc with
     | Trm_val v ->
         [ kind_to_field "val";
-          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes(AstC_to_c.val_to_doc v))));
+          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes(AstC_to_c.val_to_doc (trm_get_cstyles t) v))));
           children_to_field [] ]
     | Trm_var (_, x) ->
         [ kind_to_field "var";
@@ -236,7 +236,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [] ]
     | Trm_record l ->
         [ kind_to_field  "struct";
-          (* TODO: Temporary hack for labelled struct inits. *)
+          (* LATER: Temporary hack for labelled struct inits. *)
           children_to_field (List.mapi ichild_to_json (List.map aux(Xlist.split_pairs_snd (Mlist.to_list l)))) ]
     | Trm_array l ->
         [ kind_to_field "array";
@@ -246,8 +246,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           (strquote "name", strquote x);
           (strquote "def-type", Json.typ_to_json typ);
           children_to_field ([(child_to_json "init" (aux init))])]
-    | Trm_let_mult _ ->
-      []
+    | Trm_let_mult _ -> [] (* TODO: *)
     | Trm_let_fun (f, typ, xts, tbody) ->
       [ kind_to_field "fun-def";
             (strquote "name", strquote f.qvar_var);
@@ -353,29 +352,19 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
       [ kind_to_field "namespace";
           value_to_field name;
           children_to_field [child_to_json "namespace" (aux t1)]]
-    | Trm_let_record (name, rt, _l, _t) ->
-        let rt_str = match rt with
-        | Struct -> "struct"
-        | Union -> "union"
-        | Class -> "class" in
-        [ kind_to_field rt_str;
-          value_to_field name
-          (* LATER: When we will need structs fix this *)
-          (* children_to_field (List.mapi ichild_to_json (List.map aux (l @ [t]))) *)]
     | Trm_template (_, t) ->
       [ kind_to_field "template";
           children_to_field [child_to_json "template" (aux t)]]
     | Trm_using_directive nmspc ->
       [ kind_to_field "using namespace";
           value_to_field nmspc]
-    | Trm_fun (xfs, ty_opt, tbody) -> 
-      let ret_ty_js = begin match ty_opt with | Some ty -> Json.typ_to_json ty | None -> Json.str "" end in 
+    | Trm_fun (xfs, ty_opt, tbody) ->
+      let ret_ty_js = begin match ty_opt with | Some ty -> Json.typ_to_json ty | None -> Json.str "" end in
       [ kind_to_field "lambda";
             (strquote "args", typed_var_list_to_json xfs);
             (strquote "return_type", ret_ty_js);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
-    | Trm_this -> [kind_to_field "This"]
-    | Trm_delete (_, tbody) -> 
+    | Trm_delete (_, tbody) ->
         [ kind_to_field "delete";
           children_to_field ([(child_to_json "body" (aux tbody))])]
 

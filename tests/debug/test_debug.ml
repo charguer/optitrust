@@ -91,4 +91,5 @@ let _ = Run.script_cpp (fun () ->
 
    (* -- Parallelize -- *)
    (* OMP pragma *)
+   (* show [cFunDef "main"]; *)
 )

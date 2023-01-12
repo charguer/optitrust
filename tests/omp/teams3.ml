@@ -3,6 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Omp.target_teams [Map_c (To, ["B[0:N]";"C[0:N]"]); Defaultmap (ToFrom, ["scalar"])] [tAfter; cVarDef "sum"];
-  !! Omp.distribute_parallel_for [Reduction(Plus, ["sum"])] [tBefore; cFor "i"];
+    let tg_loop = [cFor_c ""] in 
+  !! Omp.distribute_parallel_for ~clause:[Reduction(Plus, ["sum"])] tg_loop;
+  !! Omp.target_teams ~clause:[Map_c (To, ["B[0:N]";"C[0:N]"]); Defaultmap (ToFrom, ["scalar"])] tg_loop;
 )

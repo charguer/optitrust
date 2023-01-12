@@ -2,14 +2,14 @@ void bar(void);
 
 void foo ( )
 {
+   int i;
    {
-      for (int i = 0; i < 3; i++) {
-          #pragma omp task     // This task is a regular task
+      for (i = 0; i < 3; i++) {
           bar();
       }
    }
    {
-      for (int j = 0; j < 3; j++) {
+      for (i = 0; i < 3; i++) {
           bar();
       }
    }

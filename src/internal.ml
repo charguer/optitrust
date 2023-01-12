@@ -11,7 +11,6 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_record _, Trm_record _ -> true
   | Trm_let _, Trm_let _ -> true
   | Trm_let_fun _, Trm_let_fun _ -> true
-  | Trm_let_record _, Trm_let_record _ -> true
   | Trm_typedef _, Trm_typedef _ -> true
   | Trm_if _, Trm_if _ -> true
   | Trm_seq _, Trm_seq _ -> true
@@ -153,9 +152,12 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
 (* [isolate_last_dir_in_seq dl]: for a trm with path [dl] return the path to the surrouding sequence of the
     instruction that contains that trm, and the index of that instruction on that sequence *)
 let isolate_last_dir_in_seq (dl : path) : path * int =
-  match List.rev dl with
-  | Dir_seq_nth i :: dl' -> (List.rev dl',i)
-  | _ -> fail None "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
+    match List.rev dl with
+    | Dir_seq_nth i :: dl' -> (List.rev dl',i)
+    | Dir_record_field _ :: Dir_seq_nth i :: dl'  -> (List.rev dl', i)
+      (* Printf.printf "Path: %s\n" (Path.path_to_string dl); *)
+    | _ -> 
+      fail None "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
 (* [get_instruction_in_surrounding_sequence dl]: for a trm with path [dl] return the path to the surrouding sequence
@@ -269,28 +271,48 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
       end
   | _ -> -1
 
-(* [toplevel_decl ~require_body x]: find the declaration of variable [x] if it exists in [t] where [t] usually is the full ast.
-   If [~require_body:true] is provided, then only definitions are returned *)
+
+(* [toplevel_decl ~require_body x]: finds the toplevel declaration of variable x, x may be a function, variable, typedef or a class method. 
+      If [require_body] is set to true, then only definitions are considered.*)
 let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
   let full_ast = Target.get_ast () in
+  let rec aux(t1 : trm) : trm option =
+    match t1.desc with
+    | Trm_typedef td ->
+        if td.typdef_tconstr = x 
+          then Some t1 
+          else begin match td.typdef_body with
+               | Typdef_record rfs ->
+                 List.fold_left (fun acc (rf, _) -> 
+                  begin match acc with 
+                  | Some _ -> acc
+                  | _ -> 
+                    begin match rf with 
+                    | Record_field_method t2 -> 
+                      aux t2
+                    | _ -> None
+                    end
+                  end) None rfs
+               | _ -> None
+               end
+    | Trm_let (_, (y, _),_ ) when y = x -> Some t1
+    | Trm_let_fun (y, _, _, body) when (is_qvar_var y x) ->
+      if require_body then begin
+        match body.desc with
+        | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
+        | _ -> None
+      end else begin
+        Some t1
+      end
+    | _ -> None
+   in
   match full_ast.desc with
   | Trm_seq tl ->
     Mlist.fold_left(
       fun acc t1 ->
       match acc with
       | Some _ -> acc
-      | _ -> match t1.desc with
-            | Trm_typedef td when td.typdef_tconstr = x -> Some t1
-            | Trm_let (_, (y, _),_ ) when y = x -> Some t1
-            | Trm_let_fun (y, _, _, body) when (is_qvar_var y x) ->
-              if require_body then begin
-                match body.desc with
-                | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
-                | _ -> None
-              end else begin
-                Some t1
-              end
-            | _ -> None
+      | _ -> aux t1
   ) None tl
   | _ -> fail full_ast.loc "Internal.top_level_decl: the full ast starts with the main sequence which contains all the toplevel declarations"
 
@@ -378,8 +400,9 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
     | Record_field_method t -> 
       begin match t.desc with
       | Trm_let_fun (fn, ret_ty, args, body) -> 
-        let new_fn = {fn with qvar_var = rename_fun fn.qvar_var} in 
-        let new_t = trm_replace (Trm_let_fun (new_fn, ret_ty, args, body)) t in
+        let new_fn = qvar_update ~var:(rename_fun fn.qvar_var) fn in
+        (* let new_fn = {fn with qvar_str = rename_fun fn.qvar_var} in  *)
+        let new_t = trm_alter  ~desc:(Some (Trm_let_fun (new_fn, ret_ty, args, body))) t in
         Record_field_method new_t
       | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
       end
@@ -398,57 +421,6 @@ let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ )
     apply_on_record_fields app_fun rfs
   
   
-
-(*********************Auxiliary functions for reorder transformation ******************************************************)
-(* *) let get_pair x xs = List.fold_left(fun acc (y,ty) -> if y = x then (y,ty) :: acc else acc) [] xs                 (* *)
-(* *) let get_pairs ys xs = List.fold_left(fun acc y -> (get_pair y xs) :: acc) [] ys                                  (* *)
-(* *) let remove_pair x xs = List.filter (fun (y,_) -> y <> x) xs                                                      (* *)
-(* *) let remove_pairs (ys : vars) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys (* *)
-(* ************************************************************************************************************************)
-
-(* [move_fields_after x local_l l ]: reorder fields list [l] by moving all the pairs whose first eleement is 
-     in [local_l] after field [x]. *)
-let move_fields_after (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ ) list=
-  let fins = List.flatten (get_pairs local_l l )in
-  let l = remove_pairs local_l l in
-  let rec aux = function
-    | [] -> failwith "Internal.move_fields_after: empty list" (* raise an error x not part of the list *)
-    | (hd, ty) :: tl ->
-      if hd = x
-        then fins @ [hd, ty] @ tl
-        else (hd,ty) :: aux tl
-      in
-    aux l
-
-(* [move_fields_before x local_l l ]: reorder fields list [l] by moving all the pairs whose first eleement is
-     in [local_l] before field [x]. *)
-let move_fields_before (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ) list =
-  let fins = List.flatten (get_pairs local_l l) in
-  let l = remove_pairs local_l l in
-  let rec aux = function
-    | [] -> failwith "Internal.move_fields_after: empty list" (* raise an error x not part of the list *)
-    | (hd, ty) :: tl ->
-      if hd = x
-        then [hd, ty] @ fins @ tl
-        else (hd,ty) :: aux tl
-      in
-    aux l
-
-(* [reorder_fields reorder_kind local_l sf]: reorder all fields that belong to [local_l] based on [reorder_kind]. *)
-let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) list) : (var * typ) list =
-  match reorder_kind with
-  | Reorder_after around -> move_fields_after around local_l sf
-  | Reorder_before around -> move_fields_before around local_l sf
-  | Reorder_all -> let check = (List.length (Xlist.remove_duplicates local_l) = List.length sf) in
-    begin match check with
-    | false -> fail None "Internal.reorder_fields: list of fields entered contains duplicates"
-    | true -> List.map (fun x ->
-        match List.assoc_opt x sf with
-      | Some d -> (x,d)
-      | None -> fail None (Printf.sprintf "Internal.reorder_fields: field %s doest not exist" x)) local_l
-    end
-
-
 (* [get_item_and_its_relatives index trms]: for an  item [t] with index [index] in the mlist its belongs to,
     returns the list of items before [t], [t] itself and the list of items that come after [t]. *)
 let get_item_and_its_relatives (index : int) (items : 'a mlist) : ('a mlist * 'a * 'a mlist) =
@@ -600,6 +572,7 @@ let rec subst (tm : tmap) (t : trm) : trm =
   | Trm_var (vk, x) ->
     begin match Trm_map.find_opt x.qvar_var tm with
     | Some t1 ->
+      let t1 = {t1 with annot = t1.annot} in 
       if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1
     | _ -> t
     end
@@ -637,3 +610,65 @@ let subst_var (x : var) (u : trm) (t : trm) =
 (* [clean_nobraces tg]: remove all the hidden sequence starting from target [ŧg] *)
 let clean_nobraces : Transfo.t =
   apply_on_targets (apply_on_path (fun t -> clean_no_brace_seq ~all:true (-1) t))
+
+(* [replace_return_with_assign exit_label r t]: removes all the return statements from the body of a function declaration,
+      [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
+      [r] - the name of the variable replacing the return statement,
+      [t] - ast of the body of the function. *)
+let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : label = "") (r : var) (t : trm) : (trm * int) =
+  let nb_gotos = ref 0 in
+  let rec aux (is_terminal : bool) (t : trm) : trm =
+    match t.desc with
+    | Trm_abort ab ->
+      begin match ab with
+      | Ret t1 ->
+        begin match t1 with
+        | Some t2 ->
+          let t1' = (aux false t2) in
+          let t_assign = if r = "" then t2 else trm_set (trm_var r) t1' in
+          if is_terminal
+            then t_assign
+            else begin
+                 incr nb_gotos;
+                 if exit_label = "" then t_assign else trm_seq_no_brace [t_assign; trm_goto exit_label]
+                 end
+        | _ ->
+            incr nb_gotos;
+            if exit_label = "" then trm_unit () else trm_goto exit_label
+        end
+      | _ ->
+          incr nb_gotos;
+          if exit_label = "" then trm_unit () else trm_goto exit_label
+      end
+    | Trm_let_fun _ -> t (* do not recurse through local function definitions *)
+    | _-> trm_map_with_terminal is_terminal aux t
+  in
+  let t = aux check_terminal t in
+  (t, !nb_gotos)
+
+
+(* [get_field_name rf]: returns the name of the field [rf]. *)
+let get_field_name (rf : record_field) : var option = 
+  match rf with 
+  | Record_field_member (n, _) -> Some n
+  | Record_field_method t1 ->
+    begin match t1.desc with 
+    | Trm_let (_, (n, _), _) -> Some n
+    | Trm_let_fun (qn, _, _, _) -> Some qn.qvar_var
+    | _ -> None
+    end
+
+(* [fix_class_member_accesses class_name t]: when class methods are inlined fixes all the direct accesses to class members 
+      on method definitions. *)
+let fix_class_member_accesses (class_name : var) (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match struct_get_inv t with 
+    | Some (base, field) ->
+      begin match base.desc with 
+      | Trm_var (_, qn) when qn.qvar_var = "this" -> 
+        trm_struct_get ~annot:t.annot (trm_var_get class_name) field
+      | _ -> trm_map aux t
+      end
+    | _ -> trm_map aux t 
+   in aux t
+    

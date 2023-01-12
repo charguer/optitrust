@@ -2,8 +2,9 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-  !! Omp.task [Shared ["x"]; Depend (In ["x"])] [tFirst;cSeq ~args_pred:(Target.target_list_one_st [sInstr "x = 2"])()];
-  !! Omp.task [Shared ["x"]; Depend (Out ["x"])] [tBefore; sInstr "x = 2"];
-  !! Omp.single []  [tAfter; cVarDef "x"];
-  !! Omp.parallel []  [tAfter; cVarDef "x"];
+  !! Omp.task ~clause:[Shared ["x"]; Depend [Out [Dep_var "x"]]] [sInstr "x = 2"];
+  !! Omp.task ~clause:[Shared ["x"]; Depend [In [Dep_var "x"]]] [cFun "printf"];
+     let tg = [cSeq ~args_pred:(target_list_one_st [cWriteVar "x"]) ()] in
+  !! Omp.single tg;
+  !! Omp.parallel tg;
 )

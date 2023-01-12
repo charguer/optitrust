@@ -641,7 +641,7 @@ let sizeof_struct env members ma =
   | None -> None
   | Some(bitsize, offsets) -> Some ((bitsize + 7) / 8)
 
-(* Compute the offsets of all non-bitfield members of a struct. *)
+(* Compute the offsets of all non-bitfield members of a Record. *)
 let struct_layout env attrs members =
   let (ma, _, _) = packing_parameters attrs in
   match sizeof_layout_struct env members ma with

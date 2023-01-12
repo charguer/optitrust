@@ -264,7 +264,7 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
     let auxw ((w,e) : wexpr) : document =
       parens ((string (string_of_int w)) ^^ comma ^^ aux e) in
     let auxwes (we : wexprs) : document =
-      Tools.list_to_doc (List.map auxw we) in
+      Tools.list_to_doc ~bounds:[lbrace; rbrace] (List.map auxw we) in
     match e with
     | Expr_int n -> string (string_of_int n)
     | Expr_double n -> string (string_of_float n)

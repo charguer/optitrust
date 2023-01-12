@@ -36,13 +36,13 @@ let fold ?(at : target = []) : Target.Transfo.t =
 
      NOTE: the targeted variable must be a const variable. *)
 let unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : Target.target = []) : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Variable_core.unfold false accept_functions mark at i t p)
+  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+    (fun t (p, p_local, i) -> Variable_core.unfold false accept_functions mark at i p_local t p)
 
 (* [inline]: similar to [unfold] but this one deletes the targeted declaration. *)
-let inline ?(mark : mark = "") ?(accept_functions : bool = true) : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p, i) -> Variable_core.unfold true accept_functions mark [] i t p)
+let inline ?(mark : mark = "") ?(accept_functions : bool = false) : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+    (fun t (p, p_local, i) -> Variable_core.unfold true accept_functions mark [] i p_local t p)
 
 (* [rename ~into tg]: expects the target [tg] to be pointing at a declaration, then it will
     rename its declaration and all its occurrences. *)

@@ -4,7 +4,7 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Struct_basic.reorder_fields ["m"; "x"; "y"] [cTypDef "obj"];
+    !! Record_basic.reorder_fields ["m"; "x"; "y"] [cTypDef "obj"];
   )
 "
 typedef struct {
@@ -20,8 +20,8 @@ int main() {
 "
 
 let _ = Run.script_cpp (fun _ ->
-  !! Struct_basic.reorder_fields ~move_before:"x" ["m";"z"] [cTypDef "obj"];
-  !! Struct_basic.reorder_fields ~move_after:"y" ["z"] [cTypDef "obj"];
-  !! Struct_basic.reorder_fields ~move_after:"z" ["y"; "m"] [cTypDef "obj"];
-  !! Struct_basic.reorder_fields ["x"; "y"; "z"; "m"] [cTypDef "obj"];
+  !! Record_basic.reorder_fields ~move_before:"x" ["m";"z"] [cTypDef "obj"];
+  !! Record_basic.reorder_fields ~move_after:"y" ["z"] [cTypDef "obj"];
+  !! Record_basic.reorder_fields ~move_after:"z" ["y"; "m"] [cTypDef "obj"];
+  !! Record_basic.reorder_fields ["x"; "y"; "z"; "m"] [cTypDef "obj"];
 )

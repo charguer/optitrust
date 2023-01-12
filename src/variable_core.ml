@@ -28,7 +28,8 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
                  | Trm_apps(_, [init]) -> init
                  | _ -> dx
                  end
-          end in
+          end 
+        in
       Internal.change_trm ~change_at:[fold_at] def_x t_x t1
     | _ -> fail t_dl.loc "Variable_core.fold_decl: expected a variable declaration"
      in
@@ -48,12 +49,13 @@ let fold (fold_at : target) (index) : Transfo.local =
                    of the variable are replaced with its initialization value,
       [index] - index of the targeted declaration inside its surrounding sequence,
       [t] - ast of the sequence that contains the targeted declaration.*)
-let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (t : trm) : trm =
+let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (p_local : path) (t : trm) : trm =
   let error = "Variable_core.unfodl_aux: expected the surrounding sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
   let f_update (t : trm) : trm = t in
   let f_update_further (t : trm) : trm =
     let dl = Mlist.nth tl index in
+    let dl = Path.resolve_path p_local dl in
     match dl.desc with
     | Trm_let (vk, (x, _), init) ->
       let init = trm_add_mark mark init in
@@ -83,22 +85,20 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
           cFunDef "M :: f" 
           cFunDef ~qpath:["M"] "f"
           cFunDef ~qvar:(qvar ["M"] "f") ""
-
-
-    
      *)
     | Trm_let_fun (f, _, _, _) ->
       if accept_functions
         then Internal.subst_var f.qvar_var dl t
-        else fail dl.loc "Varialbe_core.unfold_aux: to replace function calls with their declaration you need to set accept_functions arg to true"
+        else fail dl.loc "Variable_core.unfold_aux: please set call this fucntion with the argumnet accep_functions set to true. "
+
     | _ -> fail t.loc "Variable_core.unfodl_aux: expected a target to a variable or function definition"
   in
   let new_tl = Mlist.update_at_index_and_fix_beyond ~delete:delete_decl index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
 
 (* [unfold delete_decl accept_functions mark unfold_at index t p]: applies [unfold_aux] at trm [t] with path [p]. *)
-let unfold (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) : Transfo.local =
-  apply_on_path(unfold_aux delete_decl accept_functions mark unfold_at index)
+let unfold (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (p_local : path) : Transfo.local =
+  apply_on_path(unfold_aux delete_decl accept_functions mark unfold_at index p_local)
 
 
 (* [rename_aux index new_name t]: renames the variable declared on the targeted declaration all its occurrences,
@@ -123,7 +123,7 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
     let rec aux (t1 : trm) : trm =
       match t1.desc with
       | Trm_var (vk, y) when (is_qvar_var y x) -> 
-         let q_new_name = qvar_build new_name [] in 
+         let q_new_name = qvar_build new_name in 
           trm_replace (Trm_var (vk, q_new_name)) t
       | _ -> trm_map aux t1
     in aux t

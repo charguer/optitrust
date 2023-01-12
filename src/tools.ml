@@ -60,13 +60,15 @@ let print_list ?(sep : string = ";") (dl : document list) : document =
 
 (* [list_to_doc]: advanced version of [print_list] that supports special treatment for empty lists.
     LATER: merge with [print_list], making [empty] an optional argument? *)
-let list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds:document list = [string "["; string "]"]) (l : document list) : document =
+let list_to_doc ?(empty : document = empty) ?(sep:document = semi) ?(bounds = [empty; empty]) (l : document list) : document =
+  let lb = List.nth bounds 0 in 
+  let rb = List.nth bounds 1 in 
   let rec aux = function
     | [] -> empty
     | [s] -> s
     | s1 :: s2 :: sl -> s1 ^^ sep ^^ string " " ^^ aux (s2 :: sl)
   in
-  (List.nth bounds 0) ^^ aux l ^^ (List.nth bounds 1)
+   lb ^^ aux l ^^ rb
 
 (* [print_object dl]: prints a list of documents in the form [{x, y, z}]. *)
 let print_object (dl : document list) : document =
@@ -209,3 +211,15 @@ let hashtbl_map_values (f : 'a -> 'b -> 'c) (h : ('a,'b) Hashtbl.t) : ('a,'c) Ha
   let r = Hashtbl.create (Hashtbl.length h) in
   Hashtbl.iter (fun k v -> Hashtbl.add r k (f k v)) h;
   r
+
+(* [hashtbl_keys_to_list h]: returns all the keys of [h] as a list. *)
+let hashtbl_keys_to_list (h : ('a, 'b) Hashtbl.t) : 'a list =
+  Hashtbl.fold (fun k _ acc ->
+    match Hashtbl.find_opt h k with 
+    | Some _ -> k :: acc
+    | None -> acc
+  ) h []
+
+(* [hashtbl_to_list h]: returns all pairs of key/value of [h] as a list. *)
+let hashtbl_to_list (h : ('a, 'b) Hashtbl.t) : ('a * 'b) list =
+  Hashtbl.fold (fun k v acc -> (k, v) :: acc) h []

@@ -1,6 +1,10 @@
 open Optitrust
 open Target
+open Ast
+
+(* TODO: FIx trm_let_mult *)
 
 let _ = Run.script_cpp (fun _ ->
-  !! Omp.task [Private ["ii";"jj";"kk"];Depend (In ["A[i:BS][k:BS], B[k:BS][j:BS]"]); Depend (Inout ["C[i:BS][j:BS]"]) ] [tBefore; cFor "ii"];
+  !! Omp.task ~clause:[Private ["ii";"jj";"kk"];Depend [
+    In [Dep_var "A[i:BS][k:BS], B[k:BS][j:BS]"]; Inout [Dep_var "C[i:BS][j:BS]"]]]  [cFor "ii"];
 )

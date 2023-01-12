@@ -1,0 +1,192 @@
+*) Apac.use_goto_for_return ?mark tg
+
+- where tg is a target on a function def
+- wrap the body of the function into a sequence, with a mark if provided
+
+If the function is void:
+- for each 'return' in the body, replace it with 'goto ___exit'
+- add, after the new sequence, an empty labelled statement "___exit:;"
+
+If the function returns values of type T:
+- add, before the new sequence, a variable declaration "T ___res;"
+- for each 'return x' in the body, replace it with '___res = x; goto ___exit'
+- add, after the new sequence, the labelled statement "___exit: return ___res;"
+
+
+*) Apac.parallel_task_group ?mark tg
+
+- where tg is a target on a function def
+- call Apac.use_goto_for_return ?mark tg
+- insert the following pragmas on this sequence:
+      #pragma omp parallel
+      #pragma omp master
+      #pragma omp taskgroup
+  using one a call (or several calls) to  Omp.op  for the appropriate op
+
+
+*) Function.get_prototype t 
+
+- where t is a function def
+- return the types of the arguments and the return type
+
+*) Apac.get_arg_dependencies t
+
+- where t is a function def
+- returns a arg_deps where
+
+  type dep_kind =
+      | Dep_kind_in
+      | Dep_kind_out  not currently used
+      | Dep_kind_inout
+
+  type arg_dep = {
+    arg_dep_var : var;
+    arg_dep_typ : typ;
+    arg_dep_kind : dep_kind;
+   }
+
+   type arg_deps = arg_dep list
+
+- use Function.get_prototype
+- use a new function  Apac.dep_kind_of_typ typ  (Michel)
+
+
+*) Apac.sort_arg_dependencies arg_deps
+
+- where arg_deps describes the classification of each argument
+- returns a sorted_arg_deps object
+
+  type dep =
+     | Dep_var of var   (* x *)
+     | Dep_ptr of dep (* x[0] *)
+
+  type deps = list dep
+
+  type sorted_arg_deps = {
+     dep_in: deps;
+     dep_out: deps;
+     dep_inout: deps; }
+
+
+*) Apac.insert_task sorted_arg_deps tg
+
+- where tg is a target on an instruction (or a sequence)
+- insert a "pragma omp tasks depend(in:...) depend(out:...)
+
+
+*) Apac.identify_taskable_functions tg
+
+- where tg is a target, generally the full file, or possibly just one function definition
+- returns a value of type
+
+     type taskable = (var * arg_deps) list    var is mangled name 
+        (* could be a hashtable in the future, but let's keep it simple *)
+
+  giving the names of the function definitions that are eligible to a "omp task" pragma,
+  but also the path to these function definitions, and the classification of their args
+
+- a naive implementation is to return all functions defined in the
+  root sequence that describes the full file, except the "main" function.
+
+
+*) Apac.bind_taskable_calls taskable tg
+
+- where tg is a target, generally the full file
+- calls Function.bind on every function call whose function name appears
+  in the list "taskable", and whose result is not the RHS of an assignment.
+
+- example 0:
+  y = f(x)
+  f(x)
+  nothing to change
+
+- example 1:
+
+   int r = f(x) + g(x);
+   ->
+   int __res1;
+   __res1 = f(x);
+   int __res2;
+   __res2 = g(x);
+   int r = __res1 + __res2;
+
+- example 2:
+
+   const int c = f(x);
+   ->
+   int __res1;
+   __res1 = f(x);
+   const int c = __res1;
+
+
+- special case that can be optimized to avoid a fresh name, by doing just a detach:
+  example 3:
+
+   int c = f(x);
+   ->
+   int c;
+   c = f(x);
+
+- example 4:
+
+   int r = g(f(x));
+   ->
+   int __res1;
+   __res1 = f(x);
+   int r;
+   r = g(__res1);
+
+- algorithm applied to a term at a given path:
+  - if the term is an instruction is of the form "int r = f(x)" for a taskable f,
+    invoke Function.detach, then apply the algorithm to the arguments of "f"
+    inside the instruction "r = f(x)".
+  - if the term is a taskable function call, extract it out using Function.bind
+    called on the current path; then, for each argument of the extracted function,
+    apply recursively the same algorithm.
+
+
+*) Apac.insert_tasks_for_taskable taskable ~indepth tg
+
+ - where tg is a is a target, typically the full file or a function call
+- where indepth controls whether to recurse in subterms
+- f(x), y=f(x) with f taskable
+
+  if the term at hand is a function call to a taskable function,
+  then consider the arg_deps for this function,
+  then based on the arguments of the function call,
+  generate the sorted_arg_deps, and call:
+    Apac.insert_task sorted_arg_deps tg
+
+  TODO: le in/out dépend du proto de la fonction? ou du type des arguments?
+        et que fait-on si les arguments ne sont pas des variables?
+
+- List.assoc f taskable -> arg_deps
+- List.map2 g arg_deps args     args : arguments to the call
+- let g arg_dep_i targi -> { arg_dep_i with arg_dep_var = trm_to_string targi }  might require temporary variable for nontrivial arguments
+
+*) Apac.main
+
+   let root = [cRoot] in
+   let taskable = Apac.identify_taskable_functions root in
+   Apac.bind_taskable_calls taskable root;
+   Apac.insert_tasks_for_taskable taskable ~indepth:true root
+
+
+
+*) Variable.to_nonconst tg
+
+  we already have this one.
+
+
+TODO: comment savoir qu'une fonction n'a pas d'effets ?
+
+ f(x)
+ f(y)
+
+ quand peut-on paralléliser les deux appels ?
+
+TODO  quand une variable x est un "out" d'un appel dans un task,
+faut-il mettre un #sync x avant la première occurence de x qui suit
+et qui n'est pas déjà dans depend(in:x) ?
+
+TODO: où vont les taskwait?

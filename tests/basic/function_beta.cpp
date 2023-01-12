@@ -5,8 +5,26 @@ void f(int j) {
 
 }
 
-int main () {
+void test_fun(){
   int i = 1;
   f(i);
-  return 0;
+
 }
+
+class X {
+
+  int x;
+  public:
+    int f_X(int y){
+      return x + y;
+    }
+};
+
+void test_method(){
+  int a = 1;
+  X b;
+  int c = b.f_X(a);
+
+}
+
+int main (){}

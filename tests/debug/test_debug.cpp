@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // output: m.n.f
 //      a: m.o.f
 //      b: o.n.f

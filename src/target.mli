@@ -182,11 +182,15 @@ val cVarDefReg : string -> constr
 
 val cVarInit : string -> constr
 
-val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> string -> constr
+val cVarsDef : ?regexp:bool -> ?substr:bool -> ?body:target -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
 
-val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> string -> constr
+val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
 
-val cTopFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> string -> constr
+val cFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
+
+val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
+
+val cTopFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
 
 val cTopFunDefs : var list -> constr
 
@@ -262,7 +266,7 @@ val cLabel : ?substr:bool -> ?body:target -> ?regexp:bool -> string -> constr
 
 val cGoto : ?label:string -> ?substr:bool -> ?regexp:bool -> unit -> constr
 
-val cReturn_target : ?res:target -> unit -> constr
+val cReturn_tg : ?res:target -> unit -> constr
 
 val cReturn : constr
 
@@ -331,6 +335,8 @@ val dLHS : constr
 val cTargetInDepth : target -> constr
 
 val cOmp : ?pred:(Ast.directive -> bool) -> unit -> constr
+
+val cNamespace : ?substr:bool -> ?regexp:bool -> string -> constr
 
 val make_target_list_pred : (int -> target) -> (bool list -> bool) -> (unit -> string) -> target_list_pred
 
@@ -429,6 +435,9 @@ val (!!^) : 'a -> 'a
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 
 val get_trm_at : target -> trm option
+
+val get_trm_at_unsome : target -> trm
+
 val get_ast : unit -> trm
 
 val var : string  -> trm

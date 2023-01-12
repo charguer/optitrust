@@ -3,6 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Omp.target [Map_c (No_map, ["v1";"v2";"p"])] [tBefore; cFor "i"];
-  !! Omp.parallel_for [] [tBefore; cFor "i"];
+  !! Omp.parallel_for [cFor_c ""];
+  !! Omp.target ~clause:[Map_c (No_map,["v1"; "v2"; "p"])] [cFor_c ""];
+
 )

@@ -83,7 +83,7 @@ let stackvar_elim (t : trm) : trm =
         then trm_get (trm_replace (Trm_var (Var_mutable, x)) t)
         else trm_replace (Trm_var (Var_immutable, x)) t
     | Trm_let (_, (x, ty), tbody) ->
-      let xm = if is_typ_const ty then Var_immutable else Var_mutable in
+      let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
       add_var env x xm;
       begin match typ_ref_inv ty with
       | Some ty1 ->
@@ -100,6 +100,12 @@ let stackvar_elim (t : trm) : trm =
           trm_map aux t
         end
       end
+    | Trm_let_mult (_, tvl, tl) ->
+      List.iter2 (fun (x, ty) tbody -> 
+        let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
+        add_var env x xm
+      ) tvl tl;
+      trm_map aux t
     | Trm_seq _ when not (trm_is_nobrace_seq t) -> onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
       (* function names are by default immutable *)
@@ -134,7 +140,7 @@ let stackvar_intro (t : trm) : trm =
         then trm_address_of (trm_replace (Trm_var (Var_mutable, x)) t)
         else t
     | Trm_let (_, (x, tx), tbody) ->
-      let vk = if is_typ_const tx then Var_immutable else Var_mutable in
+      let vk = if is_typ_const (get_inner_array_type tx) then Var_immutable else Var_mutable in
       add_var env x vk;
       if trm_has_cstyle Stackvar t
         then
@@ -152,6 +158,12 @@ let stackvar_intro (t : trm) : trm =
         | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
         end
       else trm_replace (Trm_let (vk, (x, tx), aux tbody)) t
+    | Trm_let_mult (_, tvl, tl) ->
+      List.iter2 (fun (x, ty) tbody -> 
+        let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
+        add_var env x xm
+      ) tvl tl;
+      trm_map aux t
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody) ->
@@ -296,8 +308,12 @@ let infix_intro (t : trm) : trm =
 let method_call_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
-    | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base])}, args) ->
-       trm_add_cstyle Method_call (trm_apps (trm_var f) ([base] @ args))
+    | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base])} as tr, args) ->
+      let t_var = begin match Ast_data.get_cursor_of_trm tr with
+      | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var f)
+      | None -> fail t.loc "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
+      end in
+      trm_add_cstyle Method_call (trm_apps (t_var) ([base] @ args))
     | _ -> trm_map aux t
    in aux t
 
@@ -306,16 +322,20 @@ let method_call_elim (t : trm) : trm =
 let method_call_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
-    | Trm_apps ({desc = Trm_var (_, f)}, args) when trm_has_cstyle Method_call t ->
-      if List.length args < 1 then fail t.loc "Ast_fromto_AstC: method_call_intro: bad encodings.";
+    | Trm_apps (f, args) when trm_has_cstyle Method_call t ->
+      if List.length args < 1 then fail t.loc "Ast_fromto_AstC.method_call_intro: bad encodings.";
       let base, args = Xlist.uncons args in 
-      let struct_access = trm_struct_get base f.qvar_var in
+      let struct_access = 
+        begin match f.desc with 
+        | Trm_var (_, f) -> trm_struct_get base f.qvar_var 
+        (* Special case when function_beta transformation is applied. *)
+        | _ -> f
+        end in 
       trm_alter ~desc:(Some (Trm_apps (struct_access, args))) t
-    | _ -> trm_map aux t 
-   in aux t
+    | _ -> trm_map aux t
+     in aux t
 
-
-(* [class_member_elim t]: encoding for class members. *)
+(* [class_member_elim t]: encodes class members. *)
 let class_member_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
@@ -332,35 +352,30 @@ let class_member_elim (t : trm) : trm =
         let new_tl = Mlist.push_back ret_this new_tl in 
         let new_body = trm_alter ~desc:(Some (Trm_seq new_tl)) t in 
         trm_alter ~desc:(Some (Trm_let_fun (qv, this_typ, vl, new_body))) t
-      | Trm_val (Val_lit Lit_uninitialized) -> 
-        let tl = Mlist.of_list [this_alloc; ret_this] in 
-        let new_body = trm_alter ~desc:(Some (Trm_seq tl)) t in
-        trm_alter ~desc:(Some (Trm_let_fun (qv, this_typ, vl, new_body))) t 
+      | Trm_val (Val_lit Lit_uninitialized) ->  t
       | _ ->  fail t.loc "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
       end
     | _ -> trm_map aux t
   in aux t
   
 
-(* [class_member_intro t]: decoding for class members. *)
+(* [class_member_intro t]: decodes class members. *)
 let class_member_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
     | Trm_let_fun (qv, ty, vl, body) when is_class_constructor t ->
       begin match body.desc with 
       | Trm_seq tl -> 
-        let tl = Mlist.(pop_front (pop_back tl)) in 
-        let new_body = 
-          if Mlist.is_empty tl 
-            then trm_alter ~desc:(Some (Trm_val (Val_lit (Lit_uninitialized)))) body 
-            else trm_alter ~desc:(Some (Trm_seq tl)) body 
-          in 
-        trm_alter ~desc:(Some (Trm_let_fun (qv, typ_unit(), vl, new_body))) t
-
-      | _ -> fail t.loc "Ast_fromto_AstC.class_member_intro: ill defined class constructor"
+        if Mlist.is_empty tl 
+          then t
+          else 
+            let tl = Mlist.(pop_front (pop_back tl)) in 
+            let new_body = trm_alter ~desc:(Some (Trm_seq tl)) body in 
+            trm_alter ~desc:(Some (Trm_let_fun (qv, typ_unit(), vl, new_body))) t
+      | _ -> trm_map aux t
       end
-    | _ -> trm_map aux t 
-  in aux t
+   | _ -> trm_map aux t 
+in aux t
 
 (***************************************  Main entry points *********************************************)
 
@@ -371,7 +386,7 @@ let cfeatures_elim (t : trm) : trm =
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
-  class_member_intro (method_call_intro (infix_intro (stackvar_intro (caddress_intro t))))
+  method_call_intro (infix_intro (stackvar_intro (caddress_intro (class_member_intro t))))
 
 (* Note: recall that currently const references are not supported
    Argument of why const ref is not so useful
@@ -431,4 +446,3 @@ T* T(a, b) {
 
 
 *)
-

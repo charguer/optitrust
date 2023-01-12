@@ -104,8 +104,10 @@ and constr =
   | Constr_if of target * target * target
   (* decl_var: name, body *)
   | Constr_decl_var of typ_constraint * constr_name * target
+  (* decl_vars *)
+  | Constr_decl_vars of typ_constraint * constr_name * target
   (* decl_fun: name, args, body is_def*)
-  | Constr_decl_fun of typ_constraint * constr_name * target_list_pred * target * bool
+  | Constr_decl_fun of typ_constraint * constr_name * target_list_pred * target * bool * Clang.cxcursor option
   (* decl_type: name *)
   | Constr_decl_type of constr_name
   (* decl_enum: name, constants *)
@@ -162,6 +164,8 @@ and constr =
   | Constr_struct_init
   (* Constraint to match an omp directive *)
   | Constr_omp of (directive->bool) * string
+  (* Constraint to match a namespace *)
+  | Constr_namespace of constr_name
 
 (* LATER: optimize constr_of_path; should be recognized by resolution,
    and processed more efficiently; checking that the start of the path
@@ -335,7 +339,14 @@ let rec constr_to_string (c : constr) : string =
      let s_body = target_to_string p_body in
      "Decl_var (<ty_pred>, " ^ s_name ^ ", " ^ s_body ^ ")"
      (* LATER: add a string representation for type constraints *)
-  | Constr_decl_fun (_ty_pred,name, _tgt_list_pred, p_body, is_def) ->
+  | Constr_decl_vars (_ty_pred, name, p_body) ->
+     let s_name =
+       match name with | None -> "_" | Some r -> rexp_to_string r
+     in
+     let s_body = target_to_string p_body in
+     "Decl_vars (<ty_pred>, " ^ s_name ^ ", " ^ s_body ^ ")"
+     (* LATER: add a string representation for type constraints *)
+  | Constr_decl_fun (_ty_pred,name, _tgt_list_pred, p_body, is_def, _opt) ->
     let s_name =
        match name with | None -> "_" | Some r -> rexp_to_string r
      in
@@ -452,6 +463,7 @@ let rec constr_to_string (c : constr) : string =
   | Constr_array_init -> "Array_init "
   | Constr_struct_init -> "Struct_init"
   | Constr_omp (_, str) -> "Omp (" ^ str ^ ")"
+  | Constr_namespace cn -> "Namespace (" ^ match cn with | None -> "_" | Some r -> rexp_to_string r ^ ")"
 
 
 
@@ -544,9 +556,12 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_decl_var (ty_pred, name, p_body) ->
      let s_body = aux p_body in
      Constr_decl_var (ty_pred, name, s_body)
-  | Constr_decl_fun (ty_pred,name, tgt_list_pred, p_body, is_def) ->
+  | Constr_decl_vars (ty_pred, name, p_body) ->
+    let s_body = aux p_body in
+    Constr_decl_vars (ty_pred, name, s_body)
+  | Constr_decl_fun (ty_pred,name, tgt_list_pred, p_body, is_def, cx_opt) ->
      let s_body = if is_def then aux p_body else p_body in
-     Constr_decl_fun (ty_pred,name, tgt_list_pred, s_body, is_def)
+     Constr_decl_fun (ty_pred,name, tgt_list_pred, s_body, is_def, cx_opt)
   | Constr_decl_type name -> c
   | Constr_decl_enum (name, c_const) ->
      let s_const = Tools.option_map (List.map (fun (n,tg) -> (n,aux tg))) c_const in
@@ -594,6 +609,7 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   | Constr_array_init -> c
   | Constr_struct_init -> c
   | Constr_omp _ -> c
+  | Constr_namespace _ -> c
 
 (* [get_target_regexp_kinds tgs]: gets the list of trm_kinds of the terms
    for which we would potentially need to use the string representation,
@@ -651,7 +667,7 @@ let get_target_regexp_topfuns_opt (tgs : target list) : constr_name list option 
       match cs with
       | Constr_target [ Constr_root;
                         Constr_depth (DepthAt 1);
-                        Constr_decl_fun (_, ((Some _) as constr_name), _, _,_) ]
+                        Constr_decl_fun (_, ((Some _) as constr_name), _, _,_, _) ]
             :: _ ->
           constr_names := constr_name :: !constr_names
       | _ :: cs2 -> find_in_target cs2
@@ -776,9 +792,9 @@ let get_trm_kind (t : trm) : trm_kind =
    | Trm_record _ | Trm_array _ -> TrmKind_Expr
    | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
    | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
-   | Trm_typedef _ | Trm_let_record _-> TrmKind_Typedef
+   | Trm_typedef _ -> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
-   | Trm_fun _ | Trm_this | Trm_delete _ -> TrmKind_Expr
+   | Trm_fun _ | Trm_delete _ -> TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
    | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
@@ -920,16 +936,28 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         ty_pred (get_inner_ptr_type tx) &&
         check_name name x &&
         check_target p_body body
-     | Constr_decl_fun (ty_pred, name, cl_args, p_body,is_def),
+     | Constr_decl_vars (ty_pred, name, p_body), Trm_let_mult (_, tvl, tl) ->
+        List.fold_left2 (fun acc (x, tx) body -> 
+          let b = ty_pred (get_inner_ptr_type tx) &&
+            check_name name x &&
+            check_target p_body body in
+          acc || b
+        ) false tvl tl
+     | Constr_decl_fun (ty_pred, name, cl_args, p_body,is_def, cx_opt),
        Trm_let_fun (x, tx, args, body) ->
         let body_check =
           let is_body_unit = is_trm_uninitialized body in
           if is_def then (check_target p_body body && not (is_body_unit))
            else is_body_unit in
+        let cursor_check = match (Ast_data.get_cursor_of_trm t), cx_opt with 
+        | None, Some cx -> false 
+        | _ , _ -> true
+          in        
         ty_pred tx &&
         check_name name x.qvar_var &&
         check_args cl_args args &&
-        body_check
+        body_check &&
+        cursor_check
      | Constr_decl_type name, Trm_typedef td ->
         let is_new_typ = begin match td.typdef_body with
         | Typdef_alias _ -> true
@@ -1002,6 +1030,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_array_init, Trm_array _ -> true
      | Constr_struct_init, Trm_record _ -> true
      | Constr_omp (pred, _), _ -> trm_has_pragma pred t
+     | Constr_namespace cn, Trm_namespace (name, _, _) -> check_name cn name
      | _ -> false
      end
 
@@ -1330,6 +1359,15 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         add_dir Dir_body (aux_body body)
      | Trm_typedef td  ->
       begin match td.typdef_body with
+      | Typdef_record rfl -> 
+        let res = Xlist.fold_lefti (fun i acc (rf, _) -> 
+          begin match rf with 
+          | Record_field_method t1 ->
+            (add_dir (Dir_record_field i) (aux_body t1)) @ acc
+          | _ -> acc
+          end
+        ) [] rfl in 
+        res
       | Typdef_enum xto_l ->
         let (il, tl) =
           Xlist.fold_lefti
@@ -1399,6 +1437,8 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_switch (cond, cases) ->
         (add_dir Dir_cond (aux cond)) @
         (Xlist.fold_lefti (fun i epl case -> epl@explore_case depth i case p) [] cases)
+     | Trm_namespace (name, body, inline) ->
+        add_dir Dir_namespace (aux body)
      | _ ->
         print_info loc "explore_in_depth: cannot find a subterm to explore\n";
         []
@@ -1518,6 +1558,20 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
           )
       | _ -> []
       end
+  | Dir_record_field i, Trm_typedef td -> 
+    begin match td.typdef_body with 
+    | Typdef_record rfl -> 
+      app_to_nth_dflt loc rfl i (fun (rf, rf_ann) -> 
+        begin match rf with 
+        | Record_field_method  t1 -> 
+          add_dir (Dir_record_field i) (aux t1)
+        | _ -> fail loc "follow_dir: wrong field index"
+        end
+      )
+    | _ -> []
+    end
+  | Dir_namespace, Trm_namespace (name, body, inline) ->
+    add_dir Dir_namespace (aux body)
   | _, _ ->
      print_info loc "follow_dir: direction %s does not match"
        (dir_to_string d);

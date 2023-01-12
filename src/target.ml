@@ -359,6 +359,18 @@ let cVarDefReg (reg : string) : constr =
 let cVarInit (var : string) : constr =
   cTarget [cVarDef var; dVarBody]
 
+(* [cVarDef ~regexp ~substr ~body ~typ ~typ_pred name]: matches all multiple variable definitions
+    [regexp] - match using regular expressions
+    [substr] - match names partially
+    [body] - match based on their body
+    [typ] - match based on type
+    [typ_pred] - match based on type. *)
+let cVarsDef ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) ?(typ : string = "")
+  ?(typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
+  let ro = string_to_rexp_opt regexp substr name TrmKind_Instr in
+  let ty_pred = make_typ_constraint ~typ ~typ_pred () in
+  Constr_decl_vars (ty_pred, ro, body)
+
 (* [cFor ~start ~direction ~stop ~step ~body index] matches simple for loops
      [start] - match based on the initial value trm
      [direction] - match based on the direction of the loop
@@ -478,10 +490,24 @@ let combine_args (args:targets) (args_pred:target_list_pred) : target_list_pred 
      [name] - match based on the name of the function. *)
 let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
   ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
-  ?(is_def : bool = true) (name : string) : constr =
+  ?(is_def : bool = true) ?(clang_id : Clang.cxcursor option = None)(name : string) : constr =
   let ro = string_to_rexp_opt regexp false name TrmKind_Expr in
   let ty_pred = make_typ_constraint ~typ:ret_typ ~typ_pred:ret_typ_pred () in
-  Constr_decl_fun (ty_pred, ro, combine_args args args_pred, body, is_def)
+  Constr_decl_fun (ty_pred, ro, combine_args args args_pred, body, is_def, clang_id)
+
+(* [cFunDefAndDecl ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches function definitions and declarations
+     [args] - match based on arguments
+     [args_pred] - match based on arguments
+     [body] - match based on the body of the function
+     [ret_typ] - match based on the return type
+     [ret_typ_pred] - match based on the return type
+     [regexp] - match based on regexp
+     [name] - match based on the name of the function. *)
+let cFunDefAndDecl ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
+  ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
+  ?(clang_id : Clang.cxcursor option = None)(name : string) : constr =
+  let fund (is_def : bool) = cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def ~clang_id name in
+  cOr [[fund true]; [fund false]]
 
 (* [cTopFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches top level function definitions
      [args] - match based on arguments
@@ -494,8 +520,8 @@ let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_
      [name] - match based on the name of the function. *)
 let cTopFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
   ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
-  ?(is_def : bool = true)(name : string) : constr =
-  cTarget [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name ]
+  ?(is_def : bool = true)?(clang_id : Clang.cxcursor option = None) (name : string) : constr =
+  cTarget [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def ~clang_id name ]
 
 (* [cTopFunDefAndDecl ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp name]: matches top level function definitions
      and declarations
@@ -508,8 +534,8 @@ let cTopFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_li
      [name] - match based on the name of the function. *)
 let cTopFunDefAndDecl ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
   ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
-  (name : string) : constr =
-  let topfund (is_def : bool) = cTopFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name in
+  ?(clang_id : Clang.cxcursor option = None) (name : string) : constr =
+  let topfund (is_def : bool) = cTopFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def ~clang_id name in
   cOr [[topfund true ]; [topfund false]]
 
 (* [cTopFunDefAndDeclReg reg]: matches top level function definitions and declarations based on regexp [reg]. *)
@@ -783,8 +809,8 @@ let cGoto ?(label : string = "") ?(substr : bool = false) ?(regexp : bool = fals
   let ro = string_to_rexp_opt regexp substr label TrmKind_Expr in
   Constr_goto ro
 
-(* [cReturn_target ~res ()]: matches a return statement. *)
-let cReturn_target ?(res : target = []) () : constr =
+(* [cReturn_tg ~res ()]: matches a return statement. *)
+let cReturn_tg ?(res : target = []) () : constr =
   let p_res =  res in
   Constr_return p_res
 
@@ -995,6 +1021,14 @@ let cOmp ?(pred : (directive->bool) = cOmp_match_all) () : constr =
   let str =
     if pred == cOmp_match_all then "cOmp_match_all" else "cOmp_custom_pred" in
   Constr_omp (pred, str)
+
+(* [cNamespace ~substr ~regexp name]: matches a namespace 
+    [substr] - match namespace name partially
+    [regep] - match based on regexp
+    [name] - match based on namespace name. *)
+let cNamespace ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =
+  let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
+  Constr_namespace ro
 
 (******************************************************************************)
 (*                          Target resolution                                 *)
@@ -1470,6 +1504,12 @@ let get_trm_at (tg : target) : trm option  =
   );
   !t_ast
 
+(* [get_trm_at_unsome tg]: similar to [get_trm_at] but this one fails incase there is not trm that corresponds to the target [ŧg]. *)
+let get_trm_at_unsome (tg : target) : trm =
+  match get_trm_at tg with 
+  | Some t -> t
+  | None -> assert false
+
 (* [get_ast ()]: return the full ast. *)
 let get_ast () : trm =
   Tools.unsome (get_trm_at [])
@@ -1524,7 +1564,7 @@ let get_relative_type (tg : target) : target_relative option =
 
 (* [reparse_after tr]: wrapper to force the reparsing after applying a transformation.
     For example type definitions are modified.
-    See example in [Struct.reveal_field]. The argument [~reparse:false] can be
+    See example in [Record.reveal_field]. The argument [~reparse:false] can be
     specified to deactivate the reparsing. *)
 let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->

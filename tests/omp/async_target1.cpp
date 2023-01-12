@@ -4,9 +4,9 @@ const int CHUNKSZ = 1000000;
 void init(float *, int);
 float Z[N];
 void pipedF(){
-   int C;
+   int C, i;
    init(Z, N);
    for (C=0; C<N; C+=CHUNKSZ){
-      for (int i=0; i<CHUNKSZ; i++) Z[i] = F(Z[i]);
+      for (i=0; i<CHUNKSZ; i++) Z[i] = F(Z[i]);
    }
 }

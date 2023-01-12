@@ -36,45 +36,10 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
   trm_seq ~annot:t.annot new_tl
 
 
-(* [bind_intro ~my_mark index fresh_name const p_local]: applies [bind_intro_aux] at the trm with path [p]. *)
+(* [bind_intro ~my_mark index fresh_name const p_local]: applies [bind_intro_aux] at the trm [t] with path [p]. *)
 let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const : bool) (p_local : path) : Transfo.local =
   apply_on_path (bind_intro_aux my_mark index fresh_name const p_local)
 
-
-(* [replace_return exit_label r t]: removes all the return statements from the body of a function declaration,
-      [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
-      [r] - the name of the variable replacing the return statement,
-      [t] - ast of the body of the function. *)
-let replace_return_with_assign ?(exit_label : label = "") (r : var) (t : trm) : (trm * int) =
-  let nb_gotos = ref 0 in
-  let rec aux (is_terminal : bool) (t : trm) : trm =
-    match t.desc with
-    | Trm_abort ab ->
-      begin match ab with
-      | Ret t1 ->
-        begin match t1 with
-        | Some t2 ->
-          let t1' = (aux false t2) in
-          let t_assign = if r = "" then t2 else trm_set (trm_var r) t1' in
-          if is_terminal
-            then t_assign
-            else begin
-                 incr nb_gotos;
-                 if exit_label = "" then t_assign else trm_seq_nomarks [t_assign; trm_goto exit_label]
-                 end
-        | _ ->
-            incr nb_gotos;
-            if exit_label = "" then trm_unit () else trm_goto exit_label
-        end
-      | _ ->
-          incr nb_gotos;
-          if exit_label = "" then trm_unit () else trm_goto exit_label
-      end
-    | Trm_let_fun _ -> t (* do not recurse through local function definitions *)
-    | _-> trm_map_with_terminal is_terminal aux t
-  in
-  let t = aux true t in
-  (t, !nb_gotos)
 
 (* [inline_aux index body_mark p_local t]: inline a function call,
       [index] - index of the instruction containing the function call,
@@ -92,7 +57,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
   let f_update (t : trm) : trm =
     let fun_call = Path.resolve_path p_local t in
     begin match fun_call.desc with
-    | Trm_apps(tfun, fun_call_args) ->
+    | Trm_apps(tfun, fun_call_args1) ->
       let fun_decl = begin match tfun.desc with
       | Trm_var (_, f) ->
         begin match Internal.toplevel_decl ~require_body:true f.qvar_var with
@@ -105,15 +70,23 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
       begin match fun_decl.desc with
       | Trm_let_fun (_f, ty, args, body) ->
         let fun_decl_arg_vars = fst (List.split args) in
+        let fun_call_args = if trm_has_cstyle Method_call fun_call then snd (Xlist.uncons fun_call_args1) else fun_call_args1 in
         let fresh_args = List.map Internal.fresh_args fun_call_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
         let name = match t.desc with | Trm_let (vk, (x, _), _) -> x| _ -> ""  in
-        let processed_body, nb_gotos = replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
+        let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
         let marked_body = begin match body_mark with
         | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body
         | _ -> Internal.set_nobrace_if_sequence processed_body
         end  in
+        let marked_body = if trm_has_cstyle Method_call fun_call 
+          then 
+            let class_name = fst (Xlist.uncons fun_call_args1) in 
+            match trm_var_inv (get_operation_arg class_name) with 
+            | Some (_,c_name ) -> Internal.fix_class_member_accesses c_name marked_body 
+            | _ -> fail class_name.loc "Function_core.inline_aux: bad encodings."
+          else marked_body in 
         let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =
           if is_type_unit(ty)
@@ -223,7 +196,7 @@ let dsp_def_aux (index : int) (arg : var) (func : var) (t : trm) : trm =
   let f_update (t : trm) : trm =
     let error = "Function_core.dsp_def_aux: expected a target to a function definition." in
     let (f, ret_ty, tvl, body) = trm_inv ~error trm_let_fun_inv t in 
-    let new_body, _ = replace_return_with_assign arg body in 
+    let new_body, _ = Internal.replace_return_with_assign arg body in 
     let new_args = tvl @ [(arg, typ_ptr Ptr_kind_mut ret_ty)] in
     let new_fun = if func = "dsp" then f.qvar_var ^ "_dsp" else func in 
     let new_fun_def = trm_let_fun ~annot:t.annot new_fun (typ_unit ()) new_args new_body in 
@@ -253,3 +226,11 @@ let dsp_call_aux (dsp : var) (t : trm) : trm =
 (* [dsp_call dsp t p]: applies [dsp_call_aux] at trm [t] with path [p]. *)
 let dsp_call (dsp : var) : Transfo.local =
   apply_on_path (dsp_call_aux dsp)
+
+
+(* [get_prototype t]: returns the return type of the function and the types of all its arguments.*)
+let get_prototype (t : trm) : (typ * typed_vars) option =
+  match t.desc with 
+  | Trm_let_fun (f, ret_ty, args, body) -> 
+    Some (ret_ty, args)
+  | _ -> None 

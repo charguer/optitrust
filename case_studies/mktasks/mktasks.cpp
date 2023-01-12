@@ -1,21 +1,29 @@
 
-int g(int a, int b) {
-  return a + b + a;
+int f(int i, int j) {
+    return 0;
 }
 
-int f() {
-  const int x = 3;
-  int y = 5;
-  int z = 3;
-  g(x, g(y, z));
-}
+int g(int a) {return a;}
 
-int h() {
-  int a = g(f(), f());
-}
-
-
-int main() {
-  f();
-
+int main()
+{
+    int b;
+    if (true) {
+        int a;
+        f(1, 3);
+        f(a, f(a, 1));
+    }
+    else {
+        int a;
+        f(1, 3);
+        f(a, f(a, 1));
+    }
+    {
+        int a;
+        f(1, g(a));
+        f(a, f(a, 1));
+        int c;
+    }
+    int d = g(g(1));
+    return 0;
 }

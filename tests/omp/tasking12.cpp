@@ -2,8 +2,6 @@
 void foo ( )
 {
    int x = 2;
-   {
-      x++;
-   }
+   x++;
    printf("%d\n",x);  // prints 2 or 3
 }

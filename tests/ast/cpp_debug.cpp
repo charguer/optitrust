@@ -1,10 +1,8 @@
+class A {
+  int a;
+  int b;
+ public:
+  A(int i, int j) : a{i}, b(j) {}
+};
 
-#include <random>
-
-int main(){
-    const int Size = 10000000;
-    
-    std::uniform_int_distribution<> dis(1, Size);
-
-    return 0;
-}
+int main(){}
