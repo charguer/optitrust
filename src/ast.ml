@@ -46,7 +46,7 @@ type typconstr = string
 type typvar = var
 
 (* [qtypvar]: qname of the type variables *)
-type qtypvar = qvar 
+type qtypvar = qvar
 
 (* [typvars]: a list of typvar *)
 type typvars = typvar list
@@ -158,7 +158,7 @@ and typ_annot =
   | Unsigned  (* unsigned int *)
   | Long      (* long int *)
   | Short     (* short int *)
-  
+
 (* [typ]: is a record containing the description, annotation and some attributes*)
 and typ = {
   typ_desc : typ_desc;
@@ -181,15 +181,15 @@ and typedef = {
 
 
 (* [record_fields]: fields representation for classes, structs and unions. *)
-and record_fields = (record_field * record_field_annot) list 
+and record_fields = (record_field * record_field_annot) list
 
-and record_field = 
-  | Record_field_member of (label * typ) 
+and record_field =
+  | Record_field_member of (label * typ)
   | Record_field_method of trm
 
 and record_field_annot = access_control
 
-and access_control = 
+and access_control =
   | Access_public
   | Access_private
   | Access_protected
@@ -316,23 +316,24 @@ and cstyle_annot =
   | Typ_arguments of typ list  (* <int, float> , type arguments used for template specializations. *)
   | Const_method  (* const methods *)
   | Constructed_init (* objects initialized with a constructor. *)
-  | Class_constructor of constructor_kind 
+  | Class_constructor of constructor_kind
   | Class_destructor of destructor_kind
   | Member_initializer
-  | Redundant_decl 
+  | Redundant_decl
   | Brace_init
   | Clang_cursor of Clang.cxcursor
+  | Display_null_uppercase (* print NULL instead of nullptr *)
 
 (* [constructor_kind]: special annotation for constructors *)
-and constructor_kind = 
+and constructor_kind =
   | Constructor_implicit
   | Constructor_explicit
   | Constructor_default
   | Constructor_simpl
 
 and destructor_kind =
-  | Destructor_default 
-  | Destructor_delete 
+  | Destructor_default
+  | Destructor_delete
   | Destructor_simpl
 
 (* [files_annot]: file annotation *)
@@ -356,6 +357,7 @@ and trm_annot = {
     trm_annot_cstyle : cstyle_annot list;
     trm_annot_files : files_annot list;
   }
+  (* LATER: use a smartconstruct for trm_annot with optional arguments *)
 
 (* [attribute]: trm attributes *)
 and attribute =
@@ -399,7 +401,7 @@ and trm_desc =
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
-  | Trm_let_mult of varkind * typed_vars * trm list 
+  | Trm_let_mult of varkind * typed_vars * trm list
   | Trm_let_fun of qvar * typ * typed_vars * trm
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm (* if (x > 0) {x += 1} else{x -= 1} *)
@@ -437,7 +439,7 @@ and trm_desc =
   | Trm_using_directive of string                 (* using namespace std *)
   | Trm_fun of typed_vars * typ option * trm      (* anonymous functions, [&](int const& x) -> void ({r += x;}) *)
   | Trm_delete of bool * trm                      (* delete t, delete[] t *)
-  
+
 (* [template_param_kind]: parameters kind, typename , empty or another template *)
 and template_param_kind =
   | Type_name of typ option               (* <T> *)
@@ -502,7 +504,7 @@ and proc_bind =
   | Spread
 
 (* [dep]:  *)
-and dep = 
+and dep =
   | Dep_var of var
   | Dep_ptr of dep
 
@@ -690,7 +692,7 @@ module Trm_map = Map.Make(String)
 type tmap = trm Trm_map.t
 
 (* [fields_order]: the order should be provided as argument to the transformation [reorder_fields]. *)
-type fields_order = 
+type fields_order =
   | Move_before of (string * string list)
   | Move_after of (string * string list)
   | Reorder_all of var list
@@ -698,9 +700,9 @@ type fields_order =
 (* **************************** Typ constructors *************************** *)
 
 (* [typ_build ~annot ~attributes ~desc ()]: builds typ [ty] with its fields given as arguments. *)
-let typ_build ~(annot : typ_annot list) ?(attributes : attribute list = []) ~(desc : typ_desc) () : typ = 
-  let ty = {typ_annot = annot; typ_attributes = attributes; typ_desc = desc} in 
-  (* Stats for types? *) 
+let typ_build ~(annot : typ_annot list) ?(attributes : attribute list = []) ~(desc : typ_desc) () : typ =
+  let ty = {typ_annot = annot; typ_attributes = attributes; typ_desc = desc} in
+  (* Stats for types? *)
   ty
 
 (* [typ_make ~annot ~attributes desc]: builds typ [ty] with the type description [desc] and other fields given. *)
@@ -708,10 +710,10 @@ let typ_make ?(annot : typ_annot list = []) ?(attributes = []) (desc : typ_desc)
   typ_build ~annot ~attributes ~desc ()
 
 (* [typ_alter ~annot ~attributes ~desc ty]: alters any of the fields of [ty] that was provided as argument. *)
-let typ_alter ?(annot : typ_annot list = []) ?(attributes = []) ?(desc : typ_desc option = None) (ty : typ) : typ = 
-  let annot = match annot with [] -> ty.typ_annot |_ -> annot in 
-  let attributes = match attributes with | [] -> ty.typ_attributes | _ -> attributes in 
-  let desc = match desc with | Some td -> td | None -> ty.typ_desc in 
+let typ_alter ?(annot : typ_annot list = []) ?(attributes = []) ?(desc : typ_desc option = None) (ty : typ) : typ =
+  let annot = match annot with [] -> ty.typ_annot |_ -> annot in
+  let attributes = match attributes with | [] -> ty.typ_attributes | _ -> attributes in
+  let desc = match desc with | Some td -> td | None -> ty.typ_desc in
   typ_build ~annot ~attributes ~desc ()
 
 
@@ -722,21 +724,21 @@ let typ_replace (desc : typ_desc) (ty : typ) : typ =
 (* [typ_const ~annot ~attributes t]: const type constructor *)
 let typ_const ?(annot : typ_annot list = []) ?(attributes = [])
   (t : typ) : typ =
-  typ_make ~annot ~attributes (Typ_const t)  
+  typ_make ~annot ~attributes (Typ_const t)
 
 (* [qvar_build qv qp qs]: builds a qvar record with fields qvar_var = [qvar], qvar_path = [qpath] and qvar_str = [qs]. *)
 let qvar_build ?(qpath : var list = []) (qvar : var) : qvar =
-  let qstr = 
-    if qpath = [] 
-      then qvar  
+  let qstr =
+    if qpath = []
+      then qvar
       else  (Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ "::  " ^ p ) "" qpath ) ^ "::" ^ qvar
     in
   {qvar_var = qvar; qvar_path = qpath; qvar_str = qstr}
 
 (* [qvar_update ~qpath var qv]: updates [qv] by updating the fields [qvar_var] and [qvar_path] respectively.*)
 let qvar_update ?(qpath : var list = []) ?(var : var = "") (qv : qvar) : qvar =
-  let qpath = if qpath = [] then qv.qvar_path else qpath in 
-  let qvar = if var = "" then qv.qvar_var else var in 
+  let qpath = if qpath = [] then qv.qvar_path else qpath in
+  let qvar = if var = "" then qv.qvar_var else var in
   qvar_build ~qpath qvar
 
 (* [empty_qvar]: empty qvar is just a qvar with the string representation being the empty string. *)
@@ -747,8 +749,8 @@ let empty_qvar : qvar =
 let typ_constr ?(annot : typ_annot list = []) ?(attributes = [])
   ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = []) ?(qpath : var list = [])
   ?(qtypvar : qvar = empty_qvar) (x : typvar) : typ =
-  let qtx = qvar_build x ~qpath in 
-  let qtx = if qtypvar = empty_qvar then qtx else qtypvar in 
+  let qtx = qvar_build x ~qpath in
+  let qtx = if qtypvar = empty_qvar then qtx else qtypvar in
   typ_make ~annot ~attributes (Typ_constr (qtx, tid, tl))
 
 (* [typ_auto ~annot ~attributes ()]: auto type constructor *)
@@ -767,7 +769,7 @@ let typ_int ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
 (* [typ_float ~annot ~attributes ()]: float type constructor *)
 let typ_float ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
   typ_make ~annot ~attributes Typ_float
-  
+
 (* [typ_double ~annot ~attributes ()]: double type constructor *)
 let typ_double ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
   typ_make ~annot ~attributes Typ_double
@@ -788,7 +790,7 @@ let typ_string ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
 (* [typ_ptr ~annot ~attributes kind t]: pointer type constructor,
    Note: references are considered as pointer types in OptiTrust *)
 let typ_ptr ?(annot : typ_annot list = []) ?(attributes = [])
-  (kind : ptr_kind) (t : typ) : typ = 
+  (kind : ptr_kind) (t : typ) : typ =
   typ_make ~annot ~attributes (Typ_ptr {ptr_kind = kind; inner_typ = t} )
 
 (* [typ_array ~annot ~attributes t s]: array type constructor *)
@@ -799,7 +801,7 @@ let typ_array ?(annot : typ_annot list = []) ?(attributes = []) (t : typ) (s : s
 let typ_fun ?(annot : typ_annot list = []) ?(attributes = [])
   (args : typ list) (res : typ) : typ =
   typ_make ~annot ~attributes (Typ_fun (args, res) )
-  
+
 (* [typ_record ~annot ~attributes rt name]: record type constructor *)
 let typ_record ?(annot : typ_annot list = []) ?(attributes = [])
   (rt : record_type) (name : typ) : typ =
@@ -830,7 +832,7 @@ let typ_decl ?(annot : typ_annot list = []) ?(attributes = []) (expr : trm) =
 (* [typ_ref ~annot ~attributes ty]: alias to typ_ptr Ptr_kind_ref ty *)
 let typ_ref ?(annot : typ_annot list = []) ?(attributes = [])
   (ty : typ) : typ =
-  typ_ptr ~annot ~attributes Ptr_kind_ref ty 
+  typ_ptr ~annot ~attributes Ptr_kind_ref ty
 
 (* [typ_lref ~annot ~attributes ty]: alias to typ_ref (typ_ref ty). *)
 let typ_lref ?(annot : typ_annot list = []) ?(attributes = [])
@@ -850,13 +852,6 @@ let trm_annot_default = {
   trm_annot_files = [];
 }
 
-(* [trm_build ~annot ~loc ~is_statement ~typ ~ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
-let trm_build ~(annot : trm_annot) ~(loc : location) ~(is_statement : bool) ~(typ : typ option)
-  ~(ctx : ctx option) ~(desc : trm_desc) () : trm =
-  let t = {annot; loc; is_statement; typ; desc; ctx} in
-  Stats.incr_trm_alloc ();
-  t
-
 (* [is_statement_of_desc t_desc]: checks if t_tesc corresponds to a statement or not  *)
 let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
   match t_desc with
@@ -869,6 +864,12 @@ let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
     end
   | _ -> false
 
+(* [trm_build ~annot ~loc ~is_statement ~typ ~ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
+let trm_build ~(annot : trm_annot) ~(loc : location) ~(is_statement : bool) ~(typ : typ option)
+  ~(ctx : ctx option) ~(desc : trm_desc) () : trm =
+  let t = {annot; loc; is_statement; typ; desc; ctx} in
+  Stats.incr_trm_alloc ();
+  t
 
 (* [trm_make ~annot ~loc ~is_statement ~typ ~ctx desc]: builds trm [t] with description [desc] and other fields given
     as default ones. *)
@@ -880,6 +881,7 @@ let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location = None) ?
      | None -> is_statement_of_desc typ desc
      in
    trm_build ~annot ~desc ~loc ~is_statement ~typ ~ctx ()
+
 
 (* [trm_alter ~annot ~loc ~is_statement ~typ ~ctx ~desc t]: alters any of the fields of [t] that was provided as argument. *)
 let trm_alter ?(annot : trm_annot option = None) ?(loc : location option = None) ?(is_statement : bool option = None)
@@ -901,6 +903,45 @@ let trm_alter ?(annot : trm_annot option = None) ?(loc : location option = None)
 let trm_replace (desc : trm_desc) (t : trm) : trm =
   trm_alter ~desc:(Some desc ) t
 
+
+(* **************************** CStyle *************************** *)
+
+(* [trm_get_cstyles t]: returns all cstyle annotations of trm [t]. *)
+let trm_get_cstyles (t : trm) : cstyle_annot list =
+  t.annot.trm_annot_cstyle
+
+(* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)
+let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
+  let t_annot_cstyle = f (trm_get_cstyles t) in
+  let t_annot = {t.annot with trm_annot_cstyle=t_annot_cstyle} in
+  trm_alter ~annot:(Some t_annot) t
+
+(* [trm_add_cstyle cs t]: adds [cs] cstyle annotation to trm [t]. *)
+let trm_add_cstyle (cs : cstyle_annot) (t : trm) : trm =
+  apply_on_cstyles (fun cstyles -> cs :: cstyles) t
+
+(* [trm_filter_cstyle pred t]: filters all the pragmas that satisfy the predicate [pred]. *)
+let trm_filter_cstyle (pred : cstyle_annot -> bool) (t : trm) : trm =
+  apply_on_cstyles (fun cstyles -> List.filter (fun cs -> pred cs) cstyles) t
+
+(* [trm_rem_cstyle cs t]: removes the cstyle_annot annotation [cs] from trm [t]. *)
+let trm_rem_cstyle (cs : cstyle_annot) (t : trm) : trm =
+  trm_filter_cstyle (fun cs1 -> cs <> cs1) t
+
+(* [trm_has_cstyle cs t]: checks if [t] has the [cs] cstyle annotation. *)
+let trm_has_cstyle (cs : cstyle_annot) (t : trm) : bool =
+  let cstyles = trm_get_cstyles t in
+  List.mem cs cstyles
+
+(* [annot_has_cstyle cs t_ann]: checks if [cs] is constained in [t_ann]. *)
+let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
+  let cstyles = t_ann.trm_annot_cstyle in
+  List.mem cs cstyles
+
+
+(* **************************** Smart constructors *************************** *)
+
+
 (* [trm_val ~annot ~loc ~typ ~ctx y]: value *)
 let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (v : value) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_val v)
@@ -909,7 +950,7 @@ let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx
 let trm_var ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
   ?(kind : varkind = Var_mutable) ?(qpath : var list = []) ?(qvar : qvar = empty_qvar) (x : var) : trm =
   let qx = qvar_build x ~qpath in
-  let qx = if qvar = empty_qvar then qx else qvar in 
+  let qx = if qvar = empty_qvar then qx else qvar in
   trm_make ~annot ~loc ~typ ~ctx (Trm_var (kind, qx))
 
 (* [trm_array ~annot ~loc ~typ ~ctx tl]: array initialization list *)
@@ -935,13 +976,13 @@ let trm_let_mult ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option =
 (* [trm_let ~annot ~loc ~ctx name ret_typ args body]: function definition *)
 let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) ?(qpath : var list = [])
   ?(qvar : qvar = empty_qvar) (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
-  let qname = qvar_build name ~qpath in 
-  let qname = if qvar = empty_qvar then qname else qvar in 
+  let qname = qvar_build name ~qpath in
+  let qname = if qvar = empty_qvar then qname else qvar in
   trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_let_fun (qname, ret_typ, args, body))
 
 (* [trm_fun ~annot ~loc args ret_typ body]: anonymous function.  *)
 let trm_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (args : typed_vars)
-  (ret_typ : typ option) (body : trm) = 
+  (ret_typ : typ option) (body : trm) =
   trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_fun (args, ret_typ, body))
 
 (* [trm_typedef ~annot ~loc ~ctx def_typ]: type definition *)
@@ -1034,14 +1075,10 @@ let trm_this ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ct
   trm_make ~annot ~loc ~typ ~ctx (Trm_var (Var_immutable, qvar_build "this" ))
 
 (* [trm_delete ~annot ~loc ~typ ~ctx is_array_form t]: delete operator  *)
-let trm_delete ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (is_array_form : bool) (t : trm) = 
+let trm_delete ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (is_array_form : bool) (t : trm) =
   trm_make ~annot ~loc ~typ ~ctx (Trm_delete (is_array_form, t))
 
 (* ********************************** Auxiliary functions ************************************ *)
-
-(* [trm_null ~annot ~loc ~ctx ()]: NULL or void* *)
-let trm_null ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =
-  trm_val ~annot ~loc ~ctx  (Val_ptr 0)
 
 (* [trm_unop ~annot ~loc ~ctx p]: unary operator *)
 let trm_unop ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (p : unary_op) : trm =
@@ -1066,10 +1103,16 @@ let typ_of_lit (l : lit) : typ option =
   | Lit_string _ -> Some (typ_string ())
   | Lit_nullptr -> Some (typ_unit ())
 
-
 (* [trm_lit ~annot ~loc ~ctx l]: literal *)
 let trm_lit ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (l : lit) : trm =
   trm_val ~annot:annot ~loc ~ctx ~typ:(typ_of_lit l) (Val_lit l)
+
+(* [trm_null ~annot ~loc ~ctx ()]: build the term [nullptr], or [NULL] if [~uppercase:true]
+   (also used for [void* 0] by Menhir, but decoded in cMenhir_to_ast)  *)
+let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =
+  (* DEPRECATED trm_val ~annot ~loc ~ctx  (Val_ptr 0) *)
+  let t = trm_lit ~loc ~ctx Lit_nullptr in
+  if uppercase then trm_add_cstyle Display_null_uppercase t else t
 
 (* [trm_prim ~annot ~loc ~ctx p]: primitives *)
 let trm_prim ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (p : prim) : trm =
@@ -1271,7 +1314,7 @@ let trm_add_pragma (p : cpragma) (t : trm) : trm =
 
 let trm_add_pragmas (p : cpragma list) (t : trm) : trm =
   apply_on_pragmas (fun pragmas -> p @ pragmas) t
-  
+
 (* [trm_filter_pragma pred t]: filters all the pragmas that satisfy the predicate [pred]. *)
 let trm_filter_pragma (pred : cpragma -> bool) (t : trm) : trm =
   apply_on_pragmas (fun pragmas -> List.filter (fun p -> pred p) pragmas) t
@@ -1295,41 +1338,6 @@ let trm_pass_pragmas (t1 : trm) (t2 : trm) : trm =
   let t2_pragmas = trm_get_pragmas t2 in
   let t2_annot = {t2.annot with trm_annot_pragma = t1_pragmas @ t2_pragmas} in
   {t2 with annot = t2_annot}
-
-(**** CStyle  ****)
-
-(* [trm_get_cstyles t]: returns all cstyle annotations of trm [t]. *)
-let trm_get_cstyles (t : trm) : cstyle_annot list =
-  t.annot.trm_annot_cstyle
-
-(* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)
-let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
-  let t_annot_cstyle = f (trm_get_cstyles t) in
-  let t_annot = {t.annot with trm_annot_cstyle=t_annot_cstyle} in
-  trm_alter ~annot:(Some t_annot) t
-
-(* [trm_add_cstyle cs t]: adds [cs] cstyle annotation to trm [t]. *)
-let trm_add_cstyle (cs : cstyle_annot) (t : trm) : trm =
-  apply_on_cstyles (fun cstyles -> cs :: cstyles) t
-
-(* [trm_filter_cstyle pred t]: filters all the pragmas that satisfy the predicate [pred]. *)
-let trm_filter_cstyle (pred : cstyle_annot -> bool) (t : trm) : trm =
-  apply_on_cstyles (fun cstyles -> List.filter (fun cs -> pred cs) cstyles) t
-
-(* [trm_rem_cstyle cs t]: removes the cstyle_annot annotation [cs] from trm [t]. *)
-let trm_rem_cstyle (cs : cstyle_annot) (t : trm) : trm =
-  trm_filter_cstyle (fun cs1 -> cs <> cs1) t
-
-(* [trm_has_cstyle cs t]: checks if [t] has the [cs] cstyle annotation. *)
-let trm_has_cstyle (cs : cstyle_annot) (t : trm) : bool =
-  let cstyles = trm_get_cstyles t in
-  List.mem cs cstyles
-
-
-(* [annot_has_cstyle cs t_ann]: checks if [cs] is constained in [t_ann]. *)
-let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
-  let cstyles = t_ann.trm_annot_cstyle in 
-  List.mem cs cstyles 
 
 (**** Files  ****)
 
@@ -1631,15 +1639,15 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
      end
   | Trm_namespace (name, t, inline) ->
     trm_namespace ~annot ~loc name (f false t) inline
-  | Trm_typedef td -> 
-    begin match td.typdef_body with 
+  | Trm_typedef td ->
+    begin match td.typdef_body with
     | Typdef_record rfl ->
-      let rfl = List.map (fun (rf, rf_ann) -> 
-        match rf with 
+      let rfl = List.map (fun (rf, rf_ann) ->
+        match rf with
         | Record_field_method t1 ->  (Record_field_method (f false t1), rf_ann)
         | _ -> (rf, rf_ann)
-      ) rfl in 
-      let td = {td with typdef_body = Typdef_record rfl} in 
+      ) rfl in
+      let td = {td with typdef_body = Typdef_record rfl} in
       trm_typedef ~annot ~loc td
     | _ -> t
     end
@@ -1692,7 +1700,7 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   | Trm_let_fun (f', res, args, body) ->
     let body' = f false body in
     ret (body' == body)
-        (trm_let_fun ~annot ~loc ~qvar:f' "" res args body' ) 
+        (trm_let_fun ~annot ~loc ~qvar:f' "" res args body' )
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = aux then_ in
@@ -1787,7 +1795,7 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
      | Step sp -> f sp
     end;
     f body
-  | Trm_do_while (body, cond) -> 
+  | Trm_do_while (body, cond) ->
     f body; f cond
   | Trm_switch (cond, cases) ->
      f cond;
@@ -1801,11 +1809,11 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     f t
   | Trm_delete (is_array, t) ->
     f t
-  | Trm_typedef td -> 
-    begin match td.typdef_body with 
-    | Typdef_record rfl -> 
-      List.iter (fun (rf, rf_ann) -> 
-        match rf with 
+  | Trm_typedef td ->
+    begin match td.typdef_body with
+    | Typdef_record rfl ->
+      List.iter (fun (rf, rf_ann) ->
+        match rf with
         | Record_field_method t1 -> f t1
         | _ -> ()
       ) rfl
@@ -2170,7 +2178,7 @@ let get_inner_ptr_type (ty : typ) : typ =
 
 (* [get_inner_array_type ty]: returns the underlying type of [ty] when [ty] is an array type. *)
 let get_inner_array_type (ty : typ) : typ =
-  match ty.typ_desc with 
+  match ty.typ_desc with
   | Typ_array (ty, _) -> ty
   | _ -> ty
 
@@ -2183,10 +2191,10 @@ let get_inner_const_type (ty : typ) : typ =
 
 (* [get_inner_type ty]: returns the inner type of [ty] when [ty] is a pointer type, const type or an array type. *)
 let get_inner_type (ty : typ) : typ =
-  match ty.typ_desc with 
-  | Typ_const ty -> ty 
+  match ty.typ_desc with
+  | Typ_const ty -> ty
   | Typ_ptr {inner_typ = ty; _} -> ty
-  | Typ_array (ty, _) -> ty 
+  | Typ_array (ty, _) -> ty
   | _ -> ty
 
 
@@ -3088,7 +3096,7 @@ let set_struct_access_inv (t : trm) : (trm * field * trm) option =
    end
   | _ -> None
 
-(* [set_struct_access_inv t]: if [t] is a write operation on a struct field, then it will return the base, the field and the 
+(* [set_struct_access_inv t]: if [t] is a write operation on a struct field, then it will return the base, the field and the
      value that has been assigned to.  *)
 let set_struct_access_inv_some (t : trm) : (trm * field * trm) =
   match set_struct_access_inv t with
@@ -3096,12 +3104,12 @@ let set_struct_access_inv_some (t : trm) : (trm * field * trm) =
   | Some r -> r
 
 
-(* [set_struct_get_inv t]: if [t] is a write operation on a struct field, then it will return the base, the field and the 
+(* [set_struct_get_inv t]: if [t] is a write operation on a struct field, then it will return the base, the field and the
      value that has been assigned to.  *)
 let set_struct_get_inv (t : trm) : (trm * field * trm) option =
-  match t.desc with 
+  match t.desc with
   | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
-    begin match struct_get_inv lhs with 
+    begin match struct_get_inv lhs with
     | Some (base, f) -> Some (base, f, rhs)
     | _ -> None
     end
@@ -3109,8 +3117,8 @@ let set_struct_get_inv (t : trm) : (trm * field * trm) option =
 
 
 (* [set_struct_get_inv_some t]: similar to [set_struct_get_inv] but this one fails if [t] is not a write on a struct_get operation.  *)
-let set_struct_get_inv_some (t : trm) : (trm * field * trm) = 
-  match set_struct_get_inv t with 
+let set_struct_get_inv_some (t : trm) : (trm * field * trm) =
+  match set_struct_get_inv t with
   | None -> assert false
   | Some r -> r
 
@@ -3144,17 +3152,17 @@ let typ_align (align : trm) (ty : typ) =
 (* [typedef_get_members ~access t]: returns all the memebers of typedef [t]. If [access] is provided as an argument
      then only members with the specified access_control are returned. *)
 let typedef_get_members ?(access : access_control option) (t : trm) : (label * typ) list =
-  match t.desc with 
+  match t.desc with
   | Trm_typedef td ->
     begin match td.typdef_body with
-    | Typdef_record rf -> 
-      List.fold_left (fun acc (rf, rf_ann) -> 
-        match rf with 
-        | Record_field_member (lb, ty) -> 
+    | Typdef_record rf ->
+      List.fold_left (fun acc (rf, rf_ann) ->
+        match rf with
+        | Record_field_member (lb, ty) ->
           begin match access with
           | Some accs -> if accs = rf_ann then (lb, ty) :: acc else acc
-          | None -> (lb, ty) :: acc 
-          end 
+          | None -> (lb, ty) :: acc
+          end
         | Record_field_method _ -> acc
       ) [] (List.rev rf)
     | _ -> fail t.loc "Ast.typdef_get_members: this function should be called only for typedef structs and classes"
@@ -3167,13 +3175,13 @@ let typedef_get_members ?(access : access_control option) (t : trm) : (label * t
 let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
   match t.desc with
   | Trm_typedef td ->
-    begin match td.typdef_body with 
+    begin match td.typdef_body with
     | Typdef_record rf ->
-      List.fold_left (fun acc (rf, rf_ann) -> 
-        match rf with 
+      List.fold_left (fun acc (rf, rf_ann) ->
+        match rf with
         | Record_field_member _fm ->  acc
-        | Record_field_method trm -> 
-          begin match access with 
+        | Record_field_method trm ->
+          begin match access with
           | Some accss -> if accss = rf_ann then trm :: acc else acc
           | None -> trm :: acc
           end
@@ -3184,9 +3192,9 @@ let typedef_get_methods ?(access : access_control option) (t : trm) : trm list =
 
 (* [typedef_get_all_fields t]: returns all the fields of [t]. *)
 let typedef_get_all_fields (t : trm) : record_fields =
-  match t.desc with 
-  | Trm_typedef td -> 
-    begin match td.typdef_body with 
+  match t.desc with
+  | Trm_typedef td ->
+    begin match td.typdef_body with
     | Typdef_record rf -> rf
     | _ -> fail t.loc "Ast.typdef_get_all_fields: this function should be called only for structs and classes."
     end
@@ -3195,28 +3203,28 @@ let typedef_get_all_fields (t : trm) : record_fields =
 
 (* [get_member_type rf]: returns the type of the member [rf]. *)
 let get_member_type (rf : record_field) : typ =
-  match rf with 
+  match rf with
   | Record_field_member (_, ty) -> ty
   | Record_field_method t1 ->
-    begin match t1.desc with 
+    begin match t1.desc with
     | Trm_let_fun (_, ty, _, _) -> ty
     | _ -> fail None "Ast.get_member_type: can't get the type of the member [rf]."
     end
 
 (* [get_typ_arguments t]: returns the list of types used during a template specialization. *)
 let get_typ_arguments (t : trm) : typ list =
-  let c_annot = trm_get_cstyles t in 
-  List.fold_left (fun acc c_ann -> 
-    match c_ann with 
-    | Typ_arguments tyl -> tyl 
+  let c_annot = trm_get_cstyles t in
+  List.fold_left (fun acc c_ann ->
+    match c_ann with
+    | Typ_arguments tyl -> tyl
     | _ -> acc
   ) [] c_annot
 
 (* [insert_at_top_of_seq tl t]: insert the list of trms [tl] at the top of sequence [t]. *)
 let insert_at_top_of_seq (tl : trm list) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl1 ->
-    let new_tl = Mlist.insert_sublist_at 0 tl tl1 in 
+    let new_tl = Mlist.insert_sublist_at 0 tl tl1 in
     trm_alter ~desc:(Some (Trm_seq new_tl)) t
   | _ -> t
 
@@ -3224,25 +3232,25 @@ let insert_at_top_of_seq (tl : trm list) (t : trm) : trm =
 (* [filter_out_from_seq f t]: extracts all the trms that satisfy the predicate [f] from sequence [t].
       The final result is a pair consisting of the final sequence and the filtered out trms.*)
 let filter_out_from_seq (f : trm -> bool) (t : trm) : (trm * trms)  =
-  match t.desc with 
-  | Trm_seq tl -> 
-    let tl_to_remove, tl_to_keep = Mlist.partition f tl in 
+  match t.desc with
+  | Trm_seq tl ->
+    let tl_to_remove, tl_to_keep = Mlist.partition f tl in
     (trm_alter ~desc:(Some (Trm_seq tl_to_keep)) t , Mlist.to_list tl_to_remove)
   | _  -> (t, [])
-  
+
 (* [is_class_constructor t] checks if [t] is a class constructor declaration or definition. *)
 let is_class_constructor (t : trm) : bool =
   List.exists (function  | Class_constructor _ -> true | _ -> false) (trm_get_cstyles t)
 
 (* [is_typ_array ty]: checks if [ty] is of type array. *)
 let is_typ_array (ty : typ) : bool =
-  match ty.typ_desc with 
-  | Typ_array _ -> true 
+  match ty.typ_desc with
+  | Typ_array _ -> true
   | _ -> false
 
 (* [is_trm_record t]: checks if [t] has [Trm_record] or [Trm_array] description or not. *)
 let is_trm_record (t : trm) : bool =
-  match t.desc with 
+  match t.desc with
   | Trm_record _ | Trm_array _ -> true | _ -> false
 
 
@@ -3258,13 +3266,13 @@ let is_trm_abort (t: trm) : bool =
 
 (* [is_trm_initialization_list] *)
 let is_trm_initialization_list (t : trm) : bool =
-  match t.desc with 
-  | Trm_array _ | Trm_record _ -> true 
+  match t.desc with
+  | Trm_array _ | Trm_record _ -> true
   | _ -> false
 
 (* [has_empty_body t]: checks if the function [t] has an empty body or not. *)
 let has_empty_body (t : trm) : bool =
-  match t.desc with 
-  | Trm_let_fun (_, _, _, body) when is_trm_uninitialized body -> true 
+  match t.desc with
+  | Trm_let_fun (_, _, _, body) when is_trm_uninitialized body -> true
   | _ -> false
 

@@ -228,7 +228,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     match t.desc with
     | Trm_val v ->
         [ kind_to_field "val";
-          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes(AstC_to_c.val_to_doc v))));
+          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes(AstC_to_c.val_to_doc (trm_get_cstyles t) v))));
           children_to_field [] ]
     | Trm_var (_, x) ->
         [ kind_to_field "var";
@@ -358,13 +358,13 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_using_directive nmspc ->
       [ kind_to_field "using namespace";
           value_to_field nmspc]
-    | Trm_fun (xfs, ty_opt, tbody) -> 
-      let ret_ty_js = begin match ty_opt with | Some ty -> Json.typ_to_json ty | None -> Json.str "" end in 
+    | Trm_fun (xfs, ty_opt, tbody) ->
+      let ret_ty_js = begin match ty_opt with | Some ty -> Json.typ_to_json ty | None -> Json.str "" end in
       [ kind_to_field "lambda";
             (strquote "args", typed_var_list_to_json xfs);
             (strquote "return_type", ret_ty_js);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
-    | Trm_delete (_, tbody) -> 
+    | Trm_delete (_, tbody) ->
         [ kind_to_field "delete";
           children_to_field ([(child_to_json "body" (aux tbody))])]
 

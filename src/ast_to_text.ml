@@ -17,7 +17,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_var (x, tid) ->
     print_node "Typ_var" ^^ parens ( separate (comma ^^ break 1) [string x; string (string_of_int tid)])
   | Typ_constr (tv, tid, tl) ->
-    let tv_d = print_qvar tv in 
+    let tv_d = print_qvar tv in
     let tl = List.map (print_typ ~only_desc) tl in
     print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1)
       [tv_d; string (string_of_int tid); print_list tl])
@@ -192,10 +192,10 @@ and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
 
 (* [print_qvar]: converts [qx] into a docuemnt. *)
 and print_qvar (qx : qvar) : document =
-  let qpath_str = List.map string qx.qvar_path in 
+  let qpath_str = List.map string qx.qvar_path in
   lbrace ^^ string "qvar_var" ^^ equals ^^ string qx.qvar_var ^^ semi ^^
   string "qvar_path" ^^ equals ^^ Tools.list_to_doc ~bounds:[lbrace; rbrace] qpath_str ^^ semi ^^
-  string "qvar_str" ^^ equals ^^ string qx.qvar_str 
+  string "qvar_str" ^^ equals ^^ string qx.qvar_str
 
 
 (* [print_trm_desc ~only_desc t]: converts the description of trm [t] to pprint document *)
@@ -206,7 +206,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      print_node "Trm_val" ^^ parens dv
   | Trm_var (vk, qx) ->
     let var_kind_str = match vk with | Var_immutable -> string "Var_immutable" | Var_mutable -> string "Var_mutable" in
-    let qx_d = print_qvar qx in 
+    let qx_d = print_qvar qx in
     string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ qx_d ^^ rparen
   | Trm_array tl ->
      let tl = Mlist.to_list tl in
@@ -215,7 +215,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_record tl ->
      let tl = Mlist.to_list tl in
      let dtl = List.map (fun (lb, t) ->
-      let td = print_trm ~only_desc t in 
+      let td = print_trm ~only_desc t in
       match lb with Some lb -> parens (string lb ^^ comma ^^blank 1 ^^ td) | None -> td) tl in
      print_node "Trm_record" ^^ print_list dtl
   | Trm_let (vk,(x,tx),t) ->
@@ -233,10 +233,10 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     | Var_mutable -> string "Var_mutable"
     | Var_immutable -> string "Var_immutable"
       in
-    let dtx = List.map (fun (x, ty) -> parens (string x ^^ comma ^^ print_typ ~only_desc:true ty)) tvl in 
+    let dtx = List.map (fun (x, ty) -> parens (string x ^^ comma ^^ print_typ ~only_desc:true ty)) tvl in
     let dts = List.map (fun t -> print_trm ~only_desc t) tl in
     let dtl = List.map2 (fun v t ->  parens (v ^^ comma ^^ t)) dtx dts in
-    let dtx = Tools.list_to_doc ~sep:comma dtx in 
+    let dtx = Tools.list_to_doc ~sep:comma dtx in
     print_node "Trm_let_mult" ^^
       parens (separate (comma ^^ break 1)
         [dvk; dtx; print_list dtl;])
@@ -246,7 +246,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
           let dtx = print_typ ~only_desc tx in
           print_pair (string x) dtx) tvl in
     let dt = print_trm ~only_desc b in
-    let fd = print_qvar f in 
+    let fd = print_qvar f in
     print_node "Trm_let_fun" ^^
       parens (separate (comma ^^ break 1)
         [fd; dout; print_list dtvl; dt])
@@ -317,7 +317,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
        begin match a with
        | Ret t_o ->
           begin match t_o with
-          | None -> print_node "Ret" ^^ underscore  
+          | None -> print_node "Ret" ^^ underscore
           | Some t ->
              let dt = print_trm ~only_desc t in
              print_node "Ret" ^^ dt
@@ -350,7 +350,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
       [string name; string (string_of_bool inline); dt])
   | Trm_template _ ->  print_node "Trm_template _"
   | Trm_using_directive str -> print_node "Trm_using_directive " ^^ string str
-  | Trm_fun (tvl , ty_opt, b) -> 
+  | Trm_fun (tvl , ty_opt, b) ->
     let dtout = begin match ty_opt with | Some ty -> string "Some " ^^ print_typ ~only_desc ty | None -> string "None" end in
     let dtvl = List.map(function (x,tx) ->
           let dtx = print_typ ~only_desc tx in
@@ -359,13 +359,13 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     print_node "Trm_fun" ^^
       parens (separate (comma ^^ break 1)
         [print_list dtvl; dtout; dt])
-  | Trm_delete (b, t1) -> 
+  | Trm_delete (b, t1) ->
     let bd = string (string_of_bool b) in
-    let td = print_trm ~only_desc t1  in 
+    let td = print_trm ~only_desc t1  in
     print_node "Trm_delete"  ^^
       parens (separate (comma ^^ break 1)
         [bd; td])
-    
+
 
 (* [print_record_type rt]: converts record types to pprint document *)
 and print_record_type (rt : record_type) : document =
@@ -387,20 +387,20 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
      [string tname; string (string_of_int tid); dt ])
   | Typdef_record rfl ->
     let get_document_list (rfl : record_fields) : document list =
-      let rec aux acc = function 
+      let rec aux acc = function
       | [] -> acc
-      | (rf, _) :: tl -> 
-        begin match rf with 
-        | Record_field_member (lb, ty) -> 
-          let dt = print_typ ~only_desc ty in 
+      | (rf, _) :: tl ->
+        begin match rf with
+        | Record_field_member (lb, ty) ->
+          let dt = print_typ ~only_desc ty in
           aux (print_pair (string lb) dt :: acc) tl
         | Record_field_method t1 ->
           let dt = print_trm ~only_desc t1 in
-          aux (dt :: acc) tl  
+          aux (dt :: acc) tl
         end
          in aux [] rfl
       in
-      let dtl = get_document_list rfl in 
+      let dtl = get_document_list rfl in
      print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
       [string tname; string (string_of_int tid); print_list dtl ])
   | Typdef_sum _ ->
@@ -486,7 +486,7 @@ and print_files_annot (ann : files_annot) : document =
 
 (* [print_constructor_kind ck]: prints constructor kinds. *)
 and print_constructor_kind (ck : constructor_kind) : document =
-  match ck with 
+  match ck with
   | Constructor_implicit -> string "Constructor_implicit"
   | Constructor_explicit -> string "Constructor_explicit"
   | Constructor_default -> string "Constructor_default"
@@ -495,7 +495,7 @@ and print_constructor_kind (ck : constructor_kind) : document =
 
 (* [print_destructor_kind dk]: prints destructor kinds. *)
 and print_destructor_kind (dk : destructor_kind) : document =
-  match dk with 
+  match dk with
   | Destructor_default -> string "Destructor_default"
   | Destructor_delete -> string "Destructor_delete"
   | Destructor_simpl -> string "Destructor_simpld"
@@ -521,11 +521,13 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Const_method -> string "Const_methdo"
  | Constructed_init -> string "Constructed_init"
  | Class_constructor ck -> print_constructor_kind ck
- | Class_destructor dk -> print_destructor_kind dk 
+ | Class_destructor dk -> print_destructor_kind dk
  | Member_initializer -> string "Member_initializer"
  | Redundant_decl -> string "Redundant_decl"
  | Brace_init -> string "Brace_init"
  | Clang_cursor _ -> string "Clang_cursor"
+ | Display_null_uppercase -> string "Display_null_uppercase"
+
 (* [print_atomic_operation ao]: converts OpenMP atomic operations to pprint document *)
 and print_atomic_operation (ao : atomic_operation option) : document =
   match ao with
@@ -533,7 +535,7 @@ and print_atomic_operation (ao : atomic_operation option) : document =
   | Some ao1 ->
     begin match ao1 with
     | Read -> string "Read"
-    | Write -> string "Write" 
+    | Write -> string "Write"
     | Update -> string "Update"
     | Capture -> string "Capture"
     end

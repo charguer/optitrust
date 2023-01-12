@@ -55,9 +55,10 @@ TESTS_WITH_DOC := \
 	matrix_intro_mindex.ml \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
+	matrix_delocalize_obj.ml \
+	matrix_local_name_obj.ml \
 	pointer_fold.ml \
 	record_change_field_access_kind.ml \
-	record_method_to_const.ml \
 	record_rename_fields.ml \
 	record_reveal_field.ml \
 	record_set_explicit.ml \
@@ -99,8 +100,6 @@ TESTS_WITH_DOC := \
 	variable_to_nonconst.ml \
 
 
-# TODO 	matrix_delocalize_obj.ml \
-#	matrix_local_name_obj.ml \
 
 TESTS_NODOC := \
 	apac_constify_args.ml \
@@ -109,6 +108,7 @@ TESTS_NODOC := \
 
 
 TESTS_TO_FIX := \
+	record_method_to_const.ml \
 	function_rename_args.ml \
 	align_def.ml \
 	matrix_insert_access_dim_index.ml \
