@@ -5,8 +5,6 @@ TOMERGE BRANCH
 
 UNMERGED BRANCHES
 
-- mktasks: 2022/08 additions by Michel Tching for building openmp tasks; to review and merge.
-
 - ocaml, ocaml_output, quentin, struct_modif
   : 2022/04: preliminary work for setting up the ocaml front-end, to be continued;
   ocaml-tmp: 2021/07: older work for setting up the ocaml front-end, don't know the status.

@@ -10,7 +10,6 @@ TESTS_WITH_DOC_TOFIX := \
 	function_uninline \
 
 TESTS_WITH_DOC := \
-	accesses_intro.ml \
 	accesses_scale.ml \
 	accesses_shift.ml \
 	arith_simpl.ml \
@@ -57,8 +56,6 @@ TESTS_WITH_DOC := \
 	matrix_intro_mindex.ml \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
-	matrix_delocalize_obj.ml \
-	matrix_local_name_obj.ml \
 	pointer_fold.ml \
 	record_change_field_access_kind.ml \
 	record_rename_fields.ml \
@@ -102,8 +99,10 @@ TESTS_WITH_DOC := \
 	variable_to_nonconst.ml \
 
 
-
-TESTS_NODOC := \
+TESTS_WITHOUT_DOC := \
+	accesses_intro.ml \
+	matrix_local_name_obj.ml \
+	matrix_delocalize_obj.ml \
 	apac_constify_args.ml \
 	apac_stack_to_heap.ml \
 	apac_unfold_let_mult.ml \
@@ -125,7 +124,7 @@ NOT_NEEEDED_TO_FIX := \
 	variable_change_type.ml \
 
 
-TESTS := $(TESTS_WITH_DOC) $(TESTS_NODOC) 
+TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC) 
 
 
 # TEMPORARY FOR TESTING MAKEFILE

@@ -358,7 +358,7 @@ OPTITRUST_SRC := $(wildcard $(OPTITRUST)/src/*.ml)
 
 
 
-DOCJS := $(TESTS:.ml=_doc.js)
+DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 
 # 'make docs' to build all the auxililary *_doc.js
 docs: $(DOCJS)

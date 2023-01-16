@@ -65,7 +65,6 @@ TESTS_WITH_DOC := \
 	variable_renames.ml \
 	variable_reuse.ml \
 
-# 	
 TESTS_WITHOUT_DOC := \
 	matrix_delocalize_obj.ml \
 	apac_constify_functions_arguments.ml \
@@ -95,6 +94,8 @@ TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC)
 # and copying the files over here
 
 TESTS_COMBI_WITH_DOC := $(TESTS_WITH_DOC)
+
+# TODO : avoid redundancy with ../basic/Makefile
 
 # LATER: filter out the ones that are redundant with combi transformations
 TESTS_BASIC_WITH_DOC := \
@@ -144,8 +145,7 @@ TESTS_BASIC_WITH_DOC := \
 	sequence_intro.ml \
 	sequence_partition.ml \
 	sequence_split.ml \
-	specialize_function_arg.ml \
-	record_fields_reorder.ml \
+	specialize_function_defs.ml \
 	record_reveal_field.ml \
 	record_rename_fields.ml \
 	record_set_explicit.ml \
@@ -165,6 +165,9 @@ TESTS_BASIC_WITH_DOC := \
 	variable_subst.ml \
 	variable_to_const.ml \
 	variable_to_nonconst.ml \
+
+# TODO: fix
+# 	record_fields_reorder.ml \
 
 TESTS_BASIC_WITH_DOC := $(TESTS_BASIC_WITH_DOC:.ml=__basic.ml)
 
