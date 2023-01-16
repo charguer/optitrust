@@ -7,6 +7,7 @@
 
 
 - README.md => reprendre sc_artifact.md qui est à jour et intégrer ce qui manque de l'ancien README.md
+  + opam pin add clangml 4.08.0
 
 - LICENSE: gnu gpl 3
 
