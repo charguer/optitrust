@@ -1,6 +1,32 @@
 open Ast
 open Target
 
+
+(* ==========TODO: replace the old one
+
+
+(* [insert_aux index code t]: inserts trm [code] at index [index] in sequence [t],
+    [index] - a valid index where the instruction can be added,
+    [code] - instruction to be added as an arbitrary trm,
+    [t] - ast of the outer sequence where the insertion will be performed. *)
+let new_insert_aux (index : int) (code : trm) (t : trm) : trm =
+  let error = "Sequence_core.insert_aux: expected the sequence on where insertion is performed." in
+  let tl = trm_inv ~error trm_seq_inv t in
+  let new_tl = Mlist.insert_at index code tl in
+  trm_seq ~annot:t.annot new_tl
+
+(* [new_insert index code t p]: applies [insert_aux] at trm [t] with path [p]. *)
+let new_insert (index : int) (code : trm) : Transfo.local =
+  apply_on_path (new_insert_aux index code)
+
+let new_insert ?(reparse : bool = false) (code : trm) : Target.Transfo.t =
+  Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) ->
+    Sequence_core.insert i code t p) )
+
+  ==========
+*)
+
+
 (* [insert ~reparse code tg]: expects the target [tg] to point at a relative position(in between two instructoins),
      [code] - the instruction that is going to be added, provided by the user as an arbitrary trm. *)
 let insert ?(reparse : bool = false) (code : trm) : Target.Transfo.t =

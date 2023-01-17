@@ -403,6 +403,19 @@ val applyi_on_transformed_targets_between : (path * int -> 'a) -> (int -> trm ->
 
 val apply_on_transformed_targets_between : (path * int -> 'a) -> (trm -> 'a -> trm) -> target -> unit
 
+(* TODO: remove old ones when stable *)
+
+
+val iteri : ?rev:bool -> (int -> trm -> path -> unit) -> target -> unit
+
+val applyi : (int -> trm -> path -> trm) -> target -> unit
+
+val apply : (trm -> path -> trm) -> target -> unit
+
+val apply_at_target_paths : (trm -> trm) -> target -> unit
+
+
+
 val check : target -> unit
 
 val show : ?line:int -> ?reparse:bool -> ?types:bool -> target -> unit

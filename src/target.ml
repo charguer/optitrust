@@ -1022,7 +1022,7 @@ let cOmp ?(pred : (directive->bool) = cOmp_match_all) () : constr =
     if pred == cOmp_match_all then "cOmp_match_all" else "cOmp_custom_pred" in
   Constr_omp (pred, str)
 
-(* [cNamespace ~substr ~regexp name]: matches a namespace 
+(* [cNamespace ~substr ~regexp name]: matches a namespace
     [substr] - match namespace name partially
     [regep] - match based on regexp
     [name] - match based on namespace name. *)
@@ -1415,6 +1415,80 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
   applyi_on_targets_between (fun _i t pk -> tr t pk) tg
 
 
+
+(******************************************************************************)
+(*                                   New target system TODO: deprecate old one *)
+(******************************************************************************)
+
+
+
+(* [iteri_on_transformed_targets transformer tr tg]: similar to [applyi_on_transformed_targets] except this one is meant
+     to be used for combi transformations,
+     [rev] - process the resolved paths in reverse order,
+     [tg] - target
+     [tr] - processing to be applied at the nodes corresponding at target [tg];
+            [tr i t p] where
+            [i] is the index of the occurrence,
+            [t] is the current full ast
+            [p] is the path towards the target occurrence. *)
+let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) : unit =
+  let tg = fix_target tg in
+  let t = Trace.ast() in
+  with_stringreprs_available_for [tg] t (fun t ->
+    let ps = resolve_target tg t in
+    let ps = if rev then List.rev ps else ps in
+    match ps with
+    | [] -> ()
+    | [p] -> (* Call the transformation at that path *)
+             tr 0 t p
+    | _ ->
+      (* LATER: optimization to avoid mark for first occurrence *)
+      let marks = List.map (fun _ -> Mark.next()) ps in
+      (* LATER: could use a system to set all the marks in a single pass over the ast *)
+      let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
+      Trace.set_ast t;
+      (* Iterate over these marks *)
+      try
+        List.iteri (fun imark m ->
+          let t = Trace.ast() in
+          (* Recover the path to the i-th mark *)
+          let ps = resolve_target_mark_one_else_any m t in
+          match ps with
+          | [p] ->
+              (* Start by removing the mark *)
+              (* Here we don't call [Marks.remove] to avoid a circular dependency issue. *)
+              let t = apply_on_path (trm_rem_mark m) t p in
+              Trace.set_ast t;
+              (* Call the transformation at that path *)
+              tr imark t p
+          | ps ->
+              (* There were not exactly one occurrence of the mark: either zero or multiple *)
+              let msg =
+                if ps <> []
+                  then "iteri_on_transformed_targets: a mark was duplicated"
+                  else (Printf.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
+                in
+              if debug_disappearing_mark
+                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+                else fail None msg
+        ) marks
+      with Interrupted_applyi_on_transformed_targets t ->
+         (* Record the ast carried by the exception to allow visualizing the ast *)
+         Trace.set_ast t
+      )
+
+
+let applyi (tr : int -> trm -> path -> trm) (tg : target): unit =
+  iteri (fun i t p -> Trace.set_ast (tr i t p)) tg
+
+let apply (tr : trm -> path -> trm) (tg : target) : unit =
+  applyi  (fun _i t p -> tr t p) tg
+
+let apply_at_target_paths (transfo : trm -> trm) (tg : target) : unit =
+  apply (fun t p -> Path.apply_on_path transfo t p) tg
+
+
+
 (******************************************************************************)
 (*                                   Show                                     *)
 (******************************************************************************)
@@ -1506,7 +1580,7 @@ let get_trm_at (tg : target) : trm option  =
 
 (* [get_trm_at_unsome tg]: similar to [get_trm_at] but this one fails incase there is not trm that corresponds to the target [ŧg]. *)
 let get_trm_at_unsome (tg : target) : trm =
-  match get_trm_at tg with 
+  match get_trm_at tg with
   | Some t -> t
   | None -> assert false
 

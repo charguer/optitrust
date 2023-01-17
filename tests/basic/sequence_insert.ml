@@ -3,9 +3,9 @@ open Target
 open Ast
 
 let _ = Run.doc_script_cpp (fun _ ->
-    
+
   !! Sequence_basic.insert (stmt "a++;") [tBefore; cVarDef "c"];
-    
+
 )
 
 "
@@ -19,6 +19,11 @@ let _ = Run.script_cpp  (fun _ ->
 
   !! Sequence_basic.insert (stmt "int a = 5; const float b = 5.0;") [tBefore; cVarDef "x"];
   !! Sequence_basic.insert ~reparse:true (stmt "y++;") [tAfter; cVarDef "y"];
+
+   !! Trace.alternative (fun () ->
+      !! Sequence_basic.insert (stmt "p++;") [tAfter; cTopFunDef "main"; cVarDef ""];
+      !!(););
+
   !! Sequence_basic.insert (stmt "p++;") [tAfter; cVarDef "y"];
   !! Sequence_basic.insert (stmt "printf(\"%d\", y);") [tAfter; cVarDef "y"];
   !! Sequence_basic.insert (stmt "for (int i = 0; i < 5; i++) { x++; }") [tBefore; cVarDef "z"];
