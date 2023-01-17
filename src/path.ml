@@ -11,6 +11,8 @@ type path = dir list
 
 (* [dir]: direction type *)
 and dir =
+  (* [Dir_before] is used by target_between, to aim for a position in a sequence *)
+  | Dir_before of int
   (* nth: direction to nth element in a struct initialization *)
   | Dir_struct_nth of int
   (* nth: direction to nth element in a array initialization *)
@@ -48,7 +50,7 @@ and dir =
   (* enum_const: direction to constant in enum declaration *)
   | Dir_enum_const of int * enum_const_dir
   (* struct, class methods *)
-  | Dir_record_field of int 
+  | Dir_record_field of int
   (* namespace *)
   | Dir_namespace
 
@@ -70,6 +72,7 @@ type paths = path list
 (* [dir_to_string d]: print direction [d]*)
 let dir_to_string (d : dir) : string =
   match d with
+  | Dir_before n -> "Dir_before " ^ (string_of_int n)
   | Dir_array_nth n -> "Dir_array_nth " ^ (string_of_int n)
   | Dir_struct_nth n -> "Dir_struct_nth " ^ (string_of_int n)
   | Dir_seq_nth n-> "Dir_seq_nth " ^ (string_of_int n)
@@ -122,6 +125,7 @@ let paths_to_string ?(sep:string="; ") (dls : paths) : string =
     When one path is the prefix of the other, it must be considered "greater" *)
 let compare_dir (d : dir) (d' : dir) : int =
   match d, d' with
+  | Dir_before n, Dir_before m -> compare n m
   | Dir_array_nth n, Dir_array_nth m -> compare n m
   | Dir_seq_nth n, Dir_seq_nth m -> compare n m
   | Dir_struct_nth n, Dir_struct_nth m -> compare n m
@@ -144,6 +148,8 @@ let compare_dir (d : dir) (d' : dir) : int =
        | Enum_const_val, _ -> 1
        end
   | d, d' when d = d' -> 0
+  | Dir_before _, _ -> -1
+  | _, Dir_before _ -> 1
   | Dir_array_nth _, _ -> -1
   | _, Dir_array_nth _ -> 1
   | Dir_struct_nth _, _ -> -1
@@ -269,6 +275,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
     | d :: dl ->
        let aux t = aux_on_path_rec dl t in
        let newt = begin match d, t.desc with
+       | Dir_before _, _ -> fail t.loc "apply_on_path: Dir_before should not remain at this stage"
        | Dir_array_nth n, Trm_array tl ->
           { t with desc = Trm_array (Mlist.update_nth n aux tl)}
        | Dir_seq_nth n, Trm_seq tl ->
@@ -367,24 +374,24 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
                cases
             ) in trm_replace (Trm_switch (cond, updated_cases)) t
         | Dir_record_field n, Trm_typedef td ->
-          begin match td.typdef_body with 
+          begin match td.typdef_body with
           | Typdef_record rfl ->
-            let updated_rfl = 
-              (Xlist.update_nth n (fun (rf, rf_ann) -> 
-                match rf with 
+            let updated_rfl =
+              (Xlist.update_nth n (fun (rf, rf_ann) ->
+                match rf with
                 | Record_field_method t1 -> (Record_field_method (aux t1), rf_ann )
                 | _ -> fail t.loc "Path.apply_on_path: expected a method."
               ) rfl )
-              in 
-            trm_replace (Trm_typedef {td with typdef_body = Typdef_record updated_rfl}) t 
+              in
+            trm_replace (Trm_typedef {td with typdef_body = Typdef_record updated_rfl}) t
           | _ -> fail t.loc "Path.apply_on_path: transformation applied on the wrong typedef."
           end
-        | Dir_namespace, Trm_namespace (name, body, inline) -> 
+        | Dir_namespace, Trm_namespace (name, body, inline) ->
           { t with desc = Trm_namespace (name, aux body, inline) }
         | _, _ ->
            let s = dir_to_string d in
            fail t.loc (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
-      
+
        end in
         { newt with typ = None; ctx = None }
 
@@ -405,6 +412,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
        let aux t ctx = aux_on_path_rec dl t ctx in
        let loc = t.loc in
        begin match d, t.desc with
+       | Dir_before _, _ -> fail t.loc "aux_on_path_rec: Dir_before should not remain at this stage"
        | Dir_seq_nth n, Trm_seq tl ->
           let tl = Mlist.to_list tl in
           let decl_before (n : int) (tl : trm list) =
@@ -524,10 +532,10 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           | _ -> fail loc "Path.resolving_path: direction"
           end
        | Dir_record_field n, Trm_typedef td ->
-         begin match td.typdef_body with 
+         begin match td.typdef_body with
           | Typdef_record rfl ->
-            app_to_nth loc rfl n 
-              (fun (rf, rf_annt) -> match rf with 
+            app_to_nth loc rfl n
+              (fun (rf, rf_annt) -> match rf with
                 | Record_field_method t1 -> aux t1 ctx
                 | _ -> fail t.loc "Path.apply_on_path: expected a method.")
           | _ -> fail t.loc "Path.apply_on_path: transformation applied on the wrong typedef."
@@ -578,10 +586,28 @@ let rec to_inner_loop_n (n : int) (p : path) : path =
       match List.rev dl with
       | Dir_seq_nth i :: Dir_body :: dl' -> (i, List.rev dl')
       | _ -> fail None "Path.index_in_surrounding_loop: unexpected path"
-   
+
 (* [to_outer_loop]: takes the path to a loop surrounded by another loop,
    and returns the path to the outer loop *)
 let to_outer_loop (p : path) : path =
    match index_in_surrounding_loop p with
    | (0, p') -> p'
    | _ -> fail None "Path.to_outer_loop: unexpected path"
+
+(* [last_dir_before_inv p] for a path of the form [p1 @ Dir_before n]
+   returns the pair [Some (p1,n)], else returns [None]. *)
+let last_dir_before_inv (p : path) : (path * int) option =
+  if p = [] then None else
+  let parent_path, dir_last = Xlist.unlast p in
+  match dir_last with
+  | Dir_before n -> Some (parent_path, n)
+  | _ -> None
+
+(* [last_dir_before_inv_success p] takes a path of the form [p1 @ Dir_before n]
+   and returns the pair [(p1,n)] *)
+let last_dir_before_inv_success (p : path) : path * int =
+  if p = [] then fail None "Path.last_dir_before_inv does not apply to an empty path";
+  match last_dir_before_inv p with
+  | None -> fail None "Path.last_dir_before_inv expects a Dir_before at the end of the path; your target is probably missing a target_relative modifier, e.g. tBefore or tFirst."
+  | Some res -> res
+

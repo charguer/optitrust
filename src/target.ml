@@ -1444,23 +1444,32 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
     | _ ->
       (* LATER: optimization to avoid mark for first occurrence *)
       let marks = List.map (fun _ -> Mark.next()) ps in
-      (* LATER: could use a system to set all the marks in a single pass over the ast *)
-      let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
+      (* LATER: could use a system to set all the marks in a single pass over the ast,
+          able to hand the Dir_before *)
+      let t = List.fold_left2 (fun t p m ->
+        match last_dir_before_inv p with
+        | None -> apply_on_path (trm_add_mark m) t p
+        | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
+        t ps marks in
       Trace.set_ast t;
       (* Iterate over these marks *)
       try
-        List.iteri (fun imark m ->
+        List.iteri (fun occ m ->
           let t = Trace.ast() in
-          (* Recover the path to the i-th mark *)
+          (* Recover the path to the i-th mark (the one number [occ]) *)
           let ps = resolve_target_mark_one_else_any m t in
           match ps with
           | [p] ->
               (* Start by removing the mark *)
               (* Here we don't call [Marks.remove] to avoid a circular dependency issue. *)
-              let t = apply_on_path (trm_rem_mark m) t p in
+              let t =
+                match last_dir_before_inv p with
+                | None -> apply_on_path (trm_rem_mark m) t p
+                | Some (p_to_seq,i) -> apply_on_path (trm_rem_mark_between m) t p_to_seq
+                in
               Trace.set_ast t;
               (* Call the transformation at that path *)
-              tr imark t p
+              tr occ t p
           | ps ->
               (* There were not exactly one occurrence of the mark: either zero or multiple *)
               let msg =
@@ -1479,10 +1488,10 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
 
 
 let applyi (tr : int -> trm -> path -> trm) (tg : target): unit =
-  iteri (fun i t p -> Trace.set_ast (tr i t p)) tg
+  iteri (fun occ t p -> Trace.set_ast (tr occ t p)) tg
 
 let apply (tr : trm -> path -> trm) (tg : target) : unit =
-  applyi  (fun _i t p -> tr t p) tg
+  applyi  (fun _occ t p -> tr t p) tg
 
 let apply_at_target_paths (transfo : trm -> trm) (tg : target) : unit =
   apply (fun t p -> Path.apply_on_path transfo t p) tg

@@ -724,6 +724,7 @@ let target_to_target_struct (tr : target) : target_struct =
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
     target_occurrences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; } in
   tgs
+
 (* [is_target_between tr]: checks if [tr] contains a relative constraint different from TargetAt *)
 let is_target_between (tr : target) : bool =
    let tgs = target_to_target_struct tr in
@@ -872,6 +873,50 @@ let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 
 
+
+
+
+(* [extract_last_path_item p]: extracts the last direction from a nonempty path *)
+let extract_last_path_item (p : path) : dir * path =
+  match List.rev p with
+  | [] -> raise Not_found
+  | d :: p' -> (d, List.rev p')
+
+(* [extract_last_dir p]: extracts the last direction on a sequence *)
+let extract_last_dir (p : path) : path * int =
+  match List.rev p with
+  | [] -> raise Not_found
+  | d :: p' ->
+    begin match d with
+    | Dir_seq_nth i -> (List.rev p', i)
+    | _ -> fail None "Constr.extract_last_dir: expected a directory in a sequence"
+    end
+
+(* [get_sequence_length t]: gets the number of instructions on a sequence *)
+let get_sequence_length (t : trm) : int =
+  begin match t.desc with
+  | Trm_seq tl -> Mlist.length tl
+  | _ -> fail t.loc "Constr.get_sequence_length: expected a sequence"
+  end
+
+(* [get_arity_of_seq_at]: gets the arity of a sequence at path [p] *)
+(* TODO: move higher in file*)
+let get_arity_of_seq_at (p : path) (t : trm) : int =
+  let (d,p') =
+    try extract_last_path_item p
+    with Not_found -> fail None "Constr.get_arity_of_seq_at: expected a nonempty path"
+    in
+  match d with
+  | Dir_seq_nth _ ->
+      let seq_trm = Path.resolve_path p' t in
+      get_sequence_length seq_trm
+  | Dir_then | Dir_else | Dir_body  ->
+      let seq_trm = Path.resolve_path p t in
+      get_sequence_length seq_trm
+  | _ -> fail None "Constr.get_arity_of_seq_at: expected a Dir_seq_nth, Dir_then, Dir_else or Dir_body as last direction"
+
+
+
 (* [check_hastype pred t]: tests whether [t] carries a type
    that satisfies [pred]. If [t] does not carry a type information,
    then the return value is [false]. For constraints to work properly,
@@ -937,7 +982,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_name name x &&
         check_target p_body body
      | Constr_decl_vars (ty_pred, name, p_body), Trm_let_mult (_, tvl, tl) ->
-        List.fold_left2 (fun acc (x, tx) body -> 
+        List.fold_left2 (fun acc (x, tx) body ->
           let b = ty_pred (get_inner_ptr_type tx) &&
             check_name name x &&
             check_target p_body body in
@@ -949,10 +994,10 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           let is_body_unit = is_trm_uninitialized body in
           if is_def then (check_target p_body body && not (is_body_unit))
            else is_body_unit in
-        let cursor_check = match (Ast_data.get_cursor_of_trm t), cx_opt with 
-        | None, Some cx -> false 
+        let cursor_check = match (Ast_data.get_cursor_of_trm t), cx_opt with
+        | None, Some cx -> false
         | _ , _ -> true
-          in        
+          in
         ty_pred tx &&
         check_name name x.qvar_var &&
         check_args cl_args args &&
@@ -1287,12 +1332,53 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   | LastOcc ->  [snd (Xlist.unlast res)]
   end
 
-(* [resolve_target tg]: resolves the target [tg] *)
-and resolve_target (tg : target) (t : trm) : paths =
+(* [old_resolve_target tg]: resolves the target [tg] DEPRECATED *)
+and old_resolve_target (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in
   if tgs.target_relative <> TargetAt
     then fail None "Constr.resolve_target: this target should not contain a tBefore/tAfter/tFirst/tLast";
   try resolve_target_struct tgs t
+  with Resolve_target_failure (_loc_opt,str) ->
+    fail None ("Constr." ^ str ^ "\n" ^ (target_to_string tg))
+
+(* [fix_target_between rel t p]:
+   - if rel is [TargetBefore] or [TargetAfter], takes a path to a node in a sequence,
+     and convert the last [Dir_seq_nth n] in the path into a [Dir_before n] or [Dir_before (n+1)]
+   - if rel is [Target_First] or [TargetLast], takes a path to a sequence with [n] items,
+     and extend the path with [Dir_before 0] or [Dir_before n]. *)
+and fix_target_between (rel : target_relative) (t : trm) (p : path) : path =
+  match rel with
+  | TargetAt -> fail None "Constr.compute_relative_index: Didn't expect a TargetAt"
+  | TargetFirst ->
+      p @ [Dir_before 0]
+  | TargetLast ->
+      let n = get_arity_of_seq_at p t in
+      p @ [Dir_before n]
+  | TargetBefore | TargetAfter ->
+      let shift =
+         match rel with
+         | TargetBefore -> 0
+         | TargetAfter -> 1
+         | _ -> assert false
+         in
+      let (d,p') =
+        try extract_last_path_item p
+        with Not_found -> fail None "Constr.compute_relative_index: expected a nonempty path"
+        in
+      match d with
+      | Dir_seq_nth i -> p' @ [Dir_before (i + shift)]
+      | _ -> fail None "Constr.compute_relative_index: expected a Dir_seq_nth as last direction"
+
+
+(* [resolve_target tg]: resolves the target [tg] *)
+and resolve_target (tg : target) (t : trm) : paths =
+  let tgs = target_to_target_struct tg in
+  try
+    let res = resolve_target_struct tgs t in
+    (* Patch the path if it is a target_between *)
+    if tgs.target_relative <> TargetAt
+      then List.map (fix_target_between tgs.target_relative t) res
+      else res
   with Resolve_target_failure (_loc_opt,str) ->
     fail None ("Constr." ^ str ^ "\n" ^ (target_to_string tg))
 
@@ -1359,14 +1445,14 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         add_dir Dir_body (aux_body body)
      | Trm_typedef td  ->
       begin match td.typdef_body with
-      | Typdef_record rfl -> 
-        let res = Xlist.fold_lefti (fun i acc (rf, _) -> 
-          begin match rf with 
+      | Typdef_record rfl ->
+        let res = Xlist.fold_lefti (fun i acc (rf, _) ->
+          begin match rf with
           | Record_field_method t1 ->
             (add_dir (Dir_record_field i) (aux_body t1)) @ acc
           | _ -> acc
           end
-        ) [] rfl in 
+        ) [] rfl in
         res
       | Typdef_enum xto_l ->
         let (il, tl) =
@@ -1473,6 +1559,8 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   let aux = resolve_target_simple p in
   let loc = t.loc in
   match d, t.desc with
+  | Dir_before _, _ ->
+      fail loc "follow_dir: Dir_before should not remain at this stage"
   | Dir_array_nth n, Trm_array tl ->
     app_to_nth_dflt loc (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_array_nth n) (aux nth_t))
@@ -1523,7 +1611,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
      add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr))
-  | Dir_name, Trm_let_fun (x, _, _, _) -> 
+  | Dir_name, Trm_let_fun (x, _, _, _) ->
     add_dir Dir_name (aux (trm_var ~loc ~qvar:x ""))
   | Dir_name, Trm_let (_,(x,_),_)
     | Dir_name, Trm_goto x ->
@@ -1558,12 +1646,12 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
           )
       | _ -> []
       end
-  | Dir_record_field i, Trm_typedef td -> 
-    begin match td.typdef_body with 
-    | Typdef_record rfl -> 
-      app_to_nth_dflt loc rfl i (fun (rf, rf_ann) -> 
-        begin match rf with 
-        | Record_field_method  t1 -> 
+  | Dir_record_field i, Trm_typedef td ->
+    begin match td.typdef_body with
+    | Typdef_record rfl ->
+      app_to_nth_dflt loc rfl i (fun (rf, rf_ann) ->
+        begin match rf with
+        | Record_field_method  t1 ->
           add_dir (Dir_record_field i) (aux t1)
         | _ -> fail loc "follow_dir: wrong field index"
         end
@@ -1603,45 +1691,9 @@ and explore_list_ind (tl : trms) (d : int -> dir) (dom : int list)
 
 
 (******************************************************************************)
-(*                          Target-between resolution                         *)
+(*                          Target-between resolution      DEPRECATED SOON    *)
 (******************************************************************************)
-(* [extract_last_path_item p]: extracts the last direction from a nonempty path *)
-let extract_last_path_item (p : path) : dir * path =
-  match List.rev p with
-  | [] -> raise Not_found
-  | d :: p' -> (d, List.rev p')
 
-(* [extract_last_dir p]: extracts the last direction on a sequence *)
-let extract_last_dir (p : path) : path * int =
-  match List.rev p with
-  | [] -> raise Not_found
-  | d :: p' ->
-    begin match d with
-    | Dir_seq_nth i -> (List.rev p', i)
-    | _ -> fail None "Constr.extract_last_dir: expected a directory in a sequence"
-    end
-
-(* [get_sequence_length t]: gets the number of instructions on a sequence *)
-let get_sequence_length (t : trm) : int =
-  begin match t.desc with
-  | Trm_seq tl -> Mlist.length tl
-  | _ -> fail t.loc "Constr.get_sequence_length: expected a sequence"
-  end
-
-(* [get_arity_of_seq_at]: gets the arity of a sequence at path [p] *)
-let get_arity_of_seq_at (p : path) (t : trm) : int =
-  let (d,p') =
-    try extract_last_path_item p
-    with Not_found -> fail None "Constr.get_arity_of_seq_at: expected a nonempty path"
-    in
-  match d with
-  | Dir_seq_nth _ ->
-      let seq_trm = Path.resolve_path p' t in
-      get_sequence_length seq_trm
-  | Dir_then | Dir_else | Dir_body  ->
-      let seq_trm = Path.resolve_path p t in
-      get_sequence_length seq_trm
-  | _ -> fail None "Constr.get_arity_of_seq_at: expected a Dir_seq_nth, Dir_then, Dir_else or Dir_body as last direction"
 
 (* [compute_relative_index rel t p]: computes the relative index for relative targets different from [TargetAt] *)
 let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
@@ -1671,6 +1723,7 @@ let resolve_target_between (tg : target) (t : trm) : (path * int) list =
     then fail None "Constr.resolve_target_between:this target should contain a tBefore, tAfter, tFirst, or tLast";
   let res = resolve_target_struct tgs t in
   List.map (compute_relative_index tgs.target_relative t) res
+
 
 (* [resolve_target_between_exactly_one tg t]: similar to [resolve_target_between] but this one fails if the target matches
     to multiple paths *)
