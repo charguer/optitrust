@@ -4,6 +4,9 @@ open Tools
 open Path
 
 
+(* TODO deprecate this after Target.iter is used everywhere *)
+let old_resolution = ref true
+
 (******************************************************************************)
 (*                        Data structure for targets                          *)
 (******************************************************************************)
@@ -1060,12 +1063,16 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_prim pred, Trm_val (Val_prim p1) ->
         pred p1
      | Constr_mark (pred, _m), _ ->
-        let t_marks = trm_get_marks t in
-        begin match t.desc with
-        | Trm_seq tl | Trm_array tl ->
-          (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
-        | Trm_record tl -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
-        | _ -> List.exists pred t_marks
+        if !old_resolution then begin
+          let t_marks = trm_get_marks t in
+          begin match t.desc with
+          | Trm_seq tl | Trm_array tl ->
+            (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
+          | Trm_record tl -> (List.exists pred t_marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
+          | _ -> List.exists pred t_marks
+          end
+        end else begin
+          List.exists pred (trm_get_marks t)
         end
      | Constr_hastype pred , _ ->
         check_hastype pred t
@@ -1369,16 +1376,18 @@ and fix_target_between (rel : target_relative) (t : trm) (p : path) : path =
       | Dir_seq_nth i -> p' @ [Dir_before (i + shift)]
       | _ -> fail None "Constr.compute_relative_index: expected a Dir_seq_nth as last direction"
 
-
 (* [resolve_target tg]: resolves the target [tg] *)
 and resolve_target (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in
   try
     let res = resolve_target_struct tgs t in
+    (* printf "res=\n%s\n" (Path.paths_to_string res); *)
     (* Patch the path if it is a target_between *)
-    if tgs.target_relative <> TargetAt
-      then List.map (fix_target_between tgs.target_relative t) res
-      else res
+    if tgs.target_relative <> TargetAt then begin
+      let res2 = List.map (fix_target_between tgs.target_relative t) res in
+      (* printf "res2=\n%s\n" (Path.paths_to_string res2); *)
+      res2
+    end else res
   with Resolve_target_failure (_loc_opt,str) ->
     fail None ("Constr." ^ str ^ "\n" ^ (target_to_string tg))
 
@@ -1388,7 +1397,9 @@ and resolve_target_exactly_one (tg : target) (t : trm) : path =
   | [p] -> p
   | _ -> fail t.loc "Constr.resolve_target_exactly_one: obtained several targets."
 
-(* [resolve_constraint c p t]: checks [c] against [t] and in case of success continue with [p] *)
+(* [resolve_constraint c p t]: checks [c] against [t] and in case of success continue with [p].
+   With a special case for handling a [Constr_mark] constrained that reaches a
+  mark found in aa MList. *)
 and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   let loc = t.loc in
   match c with
@@ -1410,11 +1421,23 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
     if the constraint is a target constraint that does not match the node or
     if it is another kind of constraint, then we check if it holds
    *)
-  | c when check_constraint c t -> resolve_target_simple p t
   | _ ->
-     print_info loc "Constr.resolve_constraint: constraint %s does not hold\n"
-       (constr_to_string c);
-     []
+      let paths_on_this_node =
+        if check_constraint c t
+          then resolve_target_simple p t
+          else [] in
+      let paths_on_the_mlist =
+        if !old_resolution then [] else
+        (* find paths towards mark-between in a MList, in which case we generate a Dir_before *)
+        match c, Ast.trm_mlist_inv t with
+        | (Constr_mark (pred,_)), (Some marks) ->
+            List.concat (List.mapi (fun i ms -> if List.exists pred ms then [[Dir_before i]] else []) marks)
+        | _ -> []
+        in
+      let res = paths_on_this_node @ paths_on_the_mlist in
+      if res = [] then
+        print_info loc "Constr.resolve_constraint: constraint %s does not hold\n" (constr_to_string c);
+      res
 
 (* [explore_in_depth ~depth p t]: calls resolve_target_simple on subterms of t if possible *)
 and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) : paths =

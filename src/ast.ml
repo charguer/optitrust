@@ -1,3 +1,6 @@
+(* for debugging *)
+let printf = Printf.printf
+
 (* [pos]: record used to represent a specific location inside the code *)
 type pos = {
     pos_line : int;
@@ -1485,6 +1488,14 @@ let trm_prod_inv (t : trm) : trm list =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_mul))); _}, [l; r]) -> (aux true acc l) @ (aux true acc r)
     | _ -> if indepth then acc @ [t] else acc
   in aux false [] t
+
+(* [trm_mlist_inv_marks t] gets the description of marks in a term that
+   contains a MList, for example [Trm_seq], [Trm_array], or [Trm_record]. *)
+let trm_mlist_inv (t : trm) : mark list list option =
+  match t.desc with
+  | Trm_seq tl | Trm_array tl -> Some tl.marks
+  | Trm_record tl -> Some tl.marks
+  | _ -> None
 
 (* [get_mark_index m t]: for relative targets marks are stored on the parent sequence, this function give the index
    that mark m targets to *)

@@ -1432,6 +1432,14 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
             [t] is the current full ast
             [p] is the path towards the target occurrence. *)
 let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) : unit =
+  (* TODO TEMPORARY *)
+  Constr.old_resolution := false;
+  let tr_wrapped i t p =
+    Constr.old_resolution := true;
+    tr i t p;
+    Constr.old_resolution := false
+    in
+
   let tg = fix_target tg in
   let t = Trace.ast() in
   with_stringreprs_available_for [tg] t (fun t ->
@@ -1440,7 +1448,7 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
     match ps with
     | [] -> ()
     | [p] -> (* Call the transformation at that path *)
-             tr 0 t p
+             tr_wrapped 0 t p
     | _ ->
       (* LATER: optimization to avoid mark for first occurrence *)
       let marks = List.map (fun _ -> Mark.next()) ps in
@@ -1469,7 +1477,7 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
                 in
               Trace.set_ast t;
               (* Call the transformation at that path *)
-              tr occ t p
+              tr_wrapped occ t p
           | ps ->
               (* There were not exactly one occurrence of the mark: either zero or multiple *)
               let msg =
@@ -1649,26 +1657,31 @@ let get_relative_type (tg : target) : target_relative option =
     For example type definitions are modified.
     See example in [Record.reveal_field]. The argument [~reparse:false] can be
     specified to deactivate the reparsing. *)
+(* TODO: change strategy for reparse, probably based on missing types?
+   else on annotations added by clangml but cleared by smart-constructors
+   TODO URGENT: the resolve_target does not work with the new Dir_before system *)
 let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
-    let tg = enable_multi_targets tg in
-    let ast = (get_ast()) in
-    (* LATER: it would be nice to avoid computing the
-       with_stringreprs_available_for which we already compute later on
-       during [tr tg]. *)
-    let tg_paths = with_stringreprs_available_for [tg] ast (fun ast ->
-      if Constr.is_target_between tg
-      then let tg_ps = resolve_target_between tg ast in
-           fst (List.split tg_ps)
-      else resolve_target tg ast
-      ) in
-    tr tg;
-    if reparse then begin
-      if !Flags.use_light_diff then
-      let fun_names = List.map get_toplevel_function_name_containing tg_paths in
-      let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
-      reparse_only fun_names
-      else Trace.reparse();
+    if not reparse then tr tg else begin
+
+      let tg = enable_multi_targets tg in
+      let ast = (get_ast()) in
+      (* LATER: it would be nice to avoid computing the
+        with_stringreprs_available_for which we already compute later on
+        during [tr tg]. *)
+      let tg_paths = with_stringreprs_available_for [tg] ast (fun ast ->
+        if Constr.is_target_between tg
+        then let tg_ps = resolve_target_between tg ast in
+            fst (List.split tg_ps)
+        else resolve_target tg ast
+        ) in
+      tr tg;
+      if !Flags.use_light_diff then begin
+        let fun_names = List.map get_toplevel_function_name_containing tg_paths in
+        let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
+        reparse_only fun_names
+      end else
+        Trace.reparse();
     end
 
 

@@ -21,7 +21,7 @@ let _ = Run.script_cpp  (fun _ ->
   !! Sequence_basic.insert ~reparse:true (stmt "y++;") [tAfter; cVarDef "y"];
 
    !! Trace.alternative (fun () ->
-      !! Sequence_basic.new_insert (stmt "p++;") [tAfter; cTopFunDef "main"; cVarDef ""];
+      !! Sequence_basic.new_insert (stmt "p++;") [nbMulti; tAfter; cTopFunDef "main"; cVarDef ""];
       !!(););
 
   !! Sequence_basic.insert (stmt "p++;") [tAfter; cVarDef "y"];

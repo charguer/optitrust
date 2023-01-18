@@ -563,6 +563,9 @@ let get_trm_at_path (dl : path) (t : trm) : trm =
 (*                           Smart constructors for paths                          *)
 (***********************************************************************************)
 
+(* For debugging *)
+let debug_path = false
+
 (* [parent]: returns the parent of a path. *)
 let parent (p : path) : path =
    match List.rev p with
@@ -603,11 +606,14 @@ let last_dir_before_inv (p : path) : (path * int) option =
   | Dir_before n -> Some (parent_path, n)
   | _ -> None
 
+
 (* [last_dir_before_inv_success p] takes a path of the form [p1 @ Dir_before n]
    and returns the pair [(p1,n)] *)
 let last_dir_before_inv_success (p : path) : path * int =
   if p = [] then fail None "Path.last_dir_before_inv does not apply to an empty path";
   match last_dir_before_inv p with
-  | None -> fail None "Path.last_dir_before_inv expects a Dir_before at the end of the path; your target is probably missing a target_relative modifier, e.g. tBefore or tFirst."
+  | None ->
+      if debug_path then Printf.printf "Path: %s\n" (path_to_string p);
+      fail None "Path.last_dir_before_inv expects a Dir_before at the end of the path; your target is probably missing a target_relative modifier, e.g. tBefore or tFirst."
   | Some res -> res
 
