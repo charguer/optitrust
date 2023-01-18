@@ -1688,18 +1688,19 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   (* [ret nochange t'] evaluates the condition [nochange]; if is true,
      it returns [t], because [f] has not performed any change on [t];
      else, it returns the new result [t'], which was computed as [f t]. *)
-  let ret nochange t' =
-    if nochange then t else t' in
+    let ret nochange t' =
+      if nochange then t else t' in
 
-  (* [flist tl]: applies [f] to all the elements of a list [tl] *)
-  let flist tl =
-    let tl' = List.map (f false) tl in
-    if List.for_all2 (==) tl tl' then tl else tl'
-   in
-  (* [fmlist]: is like [flist] but for marked lists *)
-  let fmlist is_terminal tl =
-    let tl' = Mlist.map (f is_terminal) tl in
-    if Mlist.for_all2 (==) tl tl' then tl else tl' in
+    (* [flist tl]: applies [f] to all the elements of a list [tl] *)
+    let flist tl =
+      let tl' = List.map (f false) tl in
+      if List.for_all2 (==) tl tl' then tl else tl'
+    in
+    (* [fmlist]: is like [flist] but for marked lists *)
+    let fmlist is_terminal tl =
+      let tl' = Mlist.map (f is_terminal) tl in
+      if Mlist.for_all2 (==) tl tl' then tl else tl' in
+
   match t.desc with
   | Trm_array tl ->
     let tl' = fmlist false tl in
@@ -1740,7 +1741,8 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   | Trm_while (cond, body) ->
     let cond' = f false cond in
     let body' = f false body in
-    trm_while ~annot ~loc cond' body'
+    ret (cond' == cond && body' == body)
+        (trm_while ~annot ~loc cond' body')
   | Trm_for_c (init, cond, step, body) ->
      let init' = f false init in
      let cond' = f false cond in
@@ -1766,7 +1768,10 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
          (trm_switch ~annot ~loc cond' cases')
   | Trm_abort a ->
     begin match a with
-    | Ret (Some t') -> trm_ret ~annot ~loc (Some (f false t'))
+    | Ret (Some t') ->
+        let t'2 = f false t' in
+        ret (t'2 == t')
+            (trm_ret ~annot ~loc (Some t'2))
     | _ -> t
     end
   | _ -> t

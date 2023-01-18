@@ -286,6 +286,11 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_cond, Trm_if (cond, then_t, else_t) ->
           { t with desc = Trm_if (aux cond, then_t, else_t)}
        | Dir_cond, Trm_while (cond, body) ->
+          (* TODO: example of optimization
+             let cond2 = aux cond in
+             if cond2 == cond then t
+             else { t with desc = Trm_while (aux cond, body)}
+          *)
           { t with desc = Trm_while (aux cond, body)}
        | Dir_cond, Trm_do_while (body, cond) ->
           { t with desc = Trm_do_while (body, aux cond)}
@@ -394,6 +399,11 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
 
        end in
         { newt with typ = None; ctx = None }
+        (* TODO: go through trm_build in order to keep track of the fact that this is a fresh AST node
+          in the sense Node_to_reparse
+          TODO: also search for desc = in the whole codebase
+          -- TODO: make sure to use the optimization
+          if t==newt then t else ... *)
 
 
   in
