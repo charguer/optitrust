@@ -34,23 +34,24 @@
 - mettre un fichier driver.ml pour les tests
 
 
-- option si besoin: placer les fichiers générés par les tests dans un sous dossier
 
 - mettre en place un raccourci pour ouvrir les fichiers tests associés à une transfo
 
 - lire la doc de merlin pour lui faire pointer vers les sources et pas l'installation
 
-- arthur: enlever le système des traces
-
 - rewrite rules: comment retrouver l'expressivé de ton système
-
 
 
 - déplacer les fonctions sur les paths de internal vers path.ml, en renommant
 
-- raffiner le système des marks between pour avoir une affinité "vers le haut ou vers le bas".
+
 
 LATER
 
+- raffiner le système des marks between pour avoir une affinité "vers le haut ou vers le bas".
+
 - type reconstruction
 
+- add a mechanism for computing tests twice, once with reparsing in-betweeen every small steps
+
+- option si besoin: placer les fichiers générés par les tests dans un sous dossier

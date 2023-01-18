@@ -40,9 +40,9 @@ fi
 # Run make update in working folder if requested
 if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ]; then
   echo "recompile lib"
-  # FIXME: This is very fragile since it requires that the Makefile in 
+  # FIXME: This is very fragile since it requires that the Makefile in
   # the transformation script directory have an optitrust target properly configured
-  make optitrust 
+  make optitrust
   OUT=$?
   if [ ${OUT} -ne 0 ]; then
     echo "Could not compile lib"  >> /dev/stderr
@@ -75,15 +75,14 @@ ${VSCODE}/add_lines.sh ${FILEBASE}.ml ${FILEBASE}_with_lines.ml
 # of the installed package; only consider ${FILEBASE}.ml from local folder
 
 
-# TODO: check that PROG is also more recent than the optitrust library
+# TODO: check that PROG is also more recent than the optitrust library before reactivating
 #if [[ "${FILEBASE}.ml" -nt "${PROG}" ]] || [[ "${FILEBASE}.cpp" -nt "${PROG}" ]]; then
   # echo FILE1 is newer than FILE2
   PROGNEEDSREBUILD="needsrebuild"
 #fi
 
-
 if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ] || [ "${PROGNEEDSREBUILD}" = "needsrebuild" ]; then
-  rm -f  _build/${PROG} ${PROG}
+  rm -Rf _build/${PROG} ${PROG}
   ocamlbuild -use-ocamlfind -r -tags "debug,package(clangml),package(refl),package(pprint),package(str),package(optitrust)" ${PROG}
   ln -sf _build/${PROG} ${PROG}
 fi

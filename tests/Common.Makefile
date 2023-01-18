@@ -108,7 +108,7 @@ optitrust: clean optitrust_noclean
 
 # 'make optitrust_noclean' rebuilds the library and the runner, and clean all local files
 optitrust_noclean:
-	$(V)rm -rf *.byte *.native _build
+	$(V)rm -Rf *.byte *.native _build
 	$(MAKE) -C $(OPTITRUST) install
 
 # 'make recheck' is a shorthand for 'make optitrust' followed with 'make check'
@@ -121,7 +121,7 @@ expected: $(TESTS:.ml=.exp)
 $(RUNNER):
 
 # Rule for building the runner
-runner: 
+runner:
 	$(MAKE) -C $(OPTITRUST) runner
 	@echo Produced $(RUNNER)
 
@@ -165,7 +165,7 @@ BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -us
 ifeq ($(BATCH),)
 
 # $(RUNNER) as dependency?
-%_out.cpp: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml 
+%_out.cpp: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml
 	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< $(FLAGS)
 	@echo "Produced $@"
 
@@ -191,7 +191,7 @@ endif
 	$(V)$(BUILD) $@
 
 # $(RUNNER) as dependency?
-%.cmxs: %.ml $(OPTITRUSTLIB) 
+%.cmxs: %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@
 	$(V)ln -sf _build/$@ $@
 
@@ -390,8 +390,9 @@ cleandoc::
 
 clean:: cleandoc
 	$(V)rm -f *.js *_out.cpp *.cmxs *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_trace.js *_trace.html *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml *.ser *.i *_inlined.cpp
-
-	$(V)rm -rf _build
+	$(V)rm -Rf _build
 	@echo "Clean successful"
+
+
 
 

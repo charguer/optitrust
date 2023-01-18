@@ -403,6 +403,8 @@ val applyi_on_transformed_targets_between : (path * int -> 'a) -> (int -> trm ->
 
 val apply_on_transformed_targets_between : (path * int -> 'a) -> (trm -> 'a -> trm) -> target -> unit
 
+val apply_at_target_paths_before : (trm -> int -> trm) -> target -> unit
+
 (* TODO: remove old ones when stable *)
 
 

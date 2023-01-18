@@ -22,19 +22,12 @@ open Target
 let new_add_on (label : string) (t : trm) : trm =
   trm_add_label label t
 
-(* [new_add_at label t p]: applies [add_aux] at the trm [t] with path [p] *)
-let new_add_at (label : string) : Target.Transfo.local =
-  Target.apply_on_path (new_add_on label)
-
 (* [add label tg]: adds a C-label named [label] to the front of the terms
    matching the target [tg].
 
    @correctness: always correct. *)
 let new_add (label : string) : Target.Transfo.t =
-  Target.apply (new_add_at label)
-  (*
   Target.apply_at_target_paths (new_add_on label)
-  *)
 
 
 

@@ -1422,8 +1422,7 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 
 
 
-(* [iteri_on_transformed_targets transformer tr tg]: similar to [applyi_on_transformed_targets] except this one is meant
-     to be used for combi transformations,
+(* [iteri ?rev tr tg]: execute operation [tr] to each of the paths targeted by [tg].
      [rev] - process the resolved paths in reverse order,
      [tg] - target
      [tr] - processing to be applied at the nodes corresponding at target [tg];
@@ -1495,6 +1494,13 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
       )
 
 
+(* [applyi tr tg]: apply transformation [tr] on the current ast
+   to each of the paths targeted by [tg].
+     [tg] - target
+     [tr] - a call to [tr i t p] should compute the updated term where
+            [i] is the index of the occurrence,
+            [t] is the current full ast
+            [p] is the path towards the target occurrence. *)
 let applyi (tr : int -> trm -> path -> trm) (tg : target): unit =
   iteri (fun occ t p -> Trace.set_ast (tr occ t p)) tg
 
@@ -1504,6 +1510,12 @@ let apply (tr : trm -> path -> trm) (tg : target) : unit =
 let apply_at_target_paths (transfo : trm -> trm) (tg : target) : unit =
   apply (fun t p -> Path.apply_on_path transfo t p) tg
 
+(* ... [transfo t i] where [t] denotes the sequence and [i] denotes the index
+   of the item in the sequence before which the target is aiming at. *)
+let apply_at_target_paths_before (transfo : trm -> int -> trm) (tg : target) : unit =
+  apply (fun t pb ->
+    let (p,i) = Path.last_dir_before_inv_success pb in
+    Path.apply_on_path (fun tseq -> transfo tseq i) t p) tg
 
 
 (******************************************************************************)
