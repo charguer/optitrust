@@ -23,6 +23,7 @@ int main() {
           int x = i;
           int c = i;
         }
+        int e = j;
       }
     }
   }

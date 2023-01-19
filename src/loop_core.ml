@@ -129,31 +129,6 @@ let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm
 let hoist (name : var) (index : int) (array_size : trm option): Transfo.local =
    apply_on_path (hoist_aux name index array_size)
 
-(* [fission_aux]: split loop [t] into two loops
-    params:
-      [index]: index of the splitting point
-      [t]: ast of the loop *)
- let fission_aux (index : int) (t : trm) : trm =
-  (* TODO: trm_for_inv_instrs => (l_range, tl) *)
-  match t.desc with
-  | Trm_for (l_range, body) ->
-    begin match body.desc with
-    | Trm_seq tl ->
-      let tl1, tl2 = Mlist.split index tl in
-      let b1 = trm_seq tl1 in
-      let b2 = trm_seq tl2 in
-      trm_seq_no_brace [
-        trm_for l_range b1; (* TODO: trm_for_instrs l_range tl1 *)
-        trm_for l_range b2;]
-    | _ -> fail t.loc "Loop_core.fission_aux: expected the sequence inside the loop body"
-    end
-  | _ -> fail t.loc "Loop_core.fission_aux: only simple loops are supported"
-
-(* [fission index t p]: applies [fission_aux] at the trm [t] with path [p]. *)
-let fission (index : int) : Transfo.local=
- apply_on_path (fission_aux index)
-
-
 (* [fusion_on_block_aux t]: merges two or more loops with the same components except the body,
       [t] - ast of the sequence containing the loops. *)
 let fusion_on_block_aux (keep_label : bool) (t : trm) : trm =

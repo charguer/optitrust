@@ -1278,6 +1278,9 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
         resolve_target_simple ~depth:new_depth tr t
+    (* TODO: refactor follow_dir to avoid special case? *)
+    | Constr_dir (Dir_before i) :: [] ->
+        [[Dir_before i]]
     | Constr_dir d :: tr ->
         follow_dir d tr t
     | c :: p ->

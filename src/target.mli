@@ -407,6 +407,7 @@ val apply_at_target_paths_before : (trm -> int -> trm) -> target -> unit
 
 (* TODO: remove old ones when stable *)
 
+val iter : (trm -> path -> unit) -> target -> unit
 
 val iteri : ?rev:bool -> (int -> trm -> path -> unit) -> target -> unit
 

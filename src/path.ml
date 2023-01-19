@@ -582,6 +582,13 @@ let parent (p : path) : path =
    | _ :: p' -> List.rev p'
    | _ -> p
 
+(* [parent_with_dir]: returns the parent of a path [p],
+   checking that the direction from the parent is [d]. *)
+let parent_with_dir (p : path) (d : dir) : path =
+   match List.rev p with
+   | d' :: p' when d == d' -> List.rev p'
+   | _ -> fail None "Path.parent_with_dir: unexpected path"
+
 (* [to_inner_loop] takes the path to a loop that contains 1 nested loop,
    and returns the path the inner loop *)
 let to_inner_loop (p : path) : path =
@@ -595,10 +602,10 @@ let rec to_inner_loop_n (n : int) (p : path) : path =
 (* [index_in_surrounding_loop]: takes the path to a term inside a loop,
    and returns the index of that term in the sequence of the loop body,
    as well as the path to the loop itself. *)
-   let index_in_surrounding_loop (dl : path) : int * path =
-      match List.rev dl with
-      | Dir_seq_nth i :: Dir_body :: dl' -> (i, List.rev dl')
-      | _ -> fail None "Path.index_in_surrounding_loop: unexpected path"
+let index_in_surrounding_loop (dl : path) : int * path =
+   match List.rev dl with
+   | Dir_seq_nth i :: Dir_body :: dl' -> (i, List.rev dl')
+   | _ -> fail None "Path.index_in_surrounding_loop: unexpected path"
 
 (* [to_outer_loop]: takes the path to a loop surrounded by another loop,
    and returns the path to the outer loop *)

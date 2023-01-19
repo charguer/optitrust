@@ -463,46 +463,26 @@ let reorder ?(order : vars = []) (tg : target) : unit =
     List.iter (fun x -> move (target_of_path p @ [cFor x]) ~before:(target_of_path p @ [cFor targeted_loop_index])) order
   ) tg
 
-(* [fission_one ~split_between tg]: similar to [Loop_basic.fission](see loop_basic.ml) except that this one has an additional feature.
-    If [split_between] is true then it's going to split the loop into [N] loops, where [N] is the number of instructions
-    in the body of the loop [tg]. *)
-    (* TODO: fission_single  fission_one *)
-let fission_one ?(split_between : bool = false) (tg : target) : unit =
-  if not split_between
-    then Loop_basic.fission tg
-    else Internal.nobrace_remove_after(fun _ -> (* TODO:  put in fucntion loop_core.fission_all_instr *)
-      apply_on_targets (fun t p ->
-        let tg_trm = Path.resolve_path p t in
-        match tg_trm.desc with
-        | Trm_for (l_range, body) ->
-          begin match body.desc with
-          | Trm_seq tl ->
-            let body_lists = List.map (fun t1 -> trm_seq_nomarks [t1] ) (Mlist.to_list tl) in
-            apply_on_path (fun t -> trm_seq_no_brace (List.map (fun t1 -> trm_for l_range t1) body_lists)) t p
-          | _ -> fail t.loc "Loop.fission_aux: expected the sequence inside the loop body"
-          end
-        | _ -> fail t.loc "Loop.fission_aux: only simple loops are supported") tg)
-
 (* internal *)
 let fission_all_instrs_with_path_to_inner (nb_loops : int) (p : path) : unit =
   let rec aux (nb_loops : int) (p : path) : unit =
     if nb_loops > 0 then begin
       (* Apply fission to the next outer loop *)
       let p' = Path.to_outer_loop p in
-      fission_one ~split_between:true (target_of_path p');
+      Loop_basic.fission_all_instrs (target_of_path p');
       (* And go through the remaining outer loops *)
       aux (nb_loops - 1) p';
     end
   in
   if nb_loops > 0 then begin
     (* Apply fission to the innermost loop *)
-    fission_one ~split_between:true (target_of_path p);
+    Loop_basic.fission_all_instrs (target_of_path p);
     (* And go through the outer loops *)
     aux (nb_loops - 1) p
   end
 
 let fission_all_instrs ?(nb_loops : int  = 1) (tg : target) : unit =
-  iter_on_targets (fun t p ->
+  Target.iter (fun t p ->
     Printf.printf "fission_all_instrs: %s\n" (Path.path_to_string p);
     (* apply fission helper on inner loop *)
     fission_all_instrs_with_path_to_inner nb_loops
@@ -510,16 +490,13 @@ let fission_all_instrs ?(nb_loops : int  = 1) (tg : target) : unit =
   ) tg
 
 let fission ?(nb_loops : int  = 1) (tg : target) : unit =
-  (* TODO: put somewhere else *)
-  let iter_on_targets_between (tr : trm -> path * int -> unit) (tg : target) : unit =
-    apply_on_targets_between (fun t pk -> tr t pk; Trace.ast()) tg
-  in
-  iter_on_targets_between (fun t (p, i) ->
+  Target.iter (fun t p_before ->
     if nb_loops > 0 then begin
-      Loop_basic.fission (
-        [tBefore] @ (target_of_path (p @ [Dir_seq_nth i]))); (* TODO : target_of_path_between *)
-      let outer_loop = Path.(p |> parent |> to_outer_loop) in
-      fission_all_instrs_with_path_to_inner (nb_loops - 1) outer_loop
+      Loop_basic.fission (target_of_path p_before);
+      let (p_seq, _) = Path.last_dir_before_inv_success p_before in
+      let p_loop = Path.parent_with_dir p_seq Dir_body in
+      let p_outer_loop = Path.to_outer_loop p_loop in
+      fission_all_instrs_with_path_to_inner (nb_loops - 1) p_outer_loop
     end
   ) tg
 

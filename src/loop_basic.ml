@@ -56,6 +56,27 @@ let hoist ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : 
     apply_on_transformed_targets (Path.index_in_surrounding_loop)
      (fun t (i, p) -> Loop_core.hoist name i array_size t p) tg)
 
+(* [fission_on]: split loop [t] into two loops
+
+    [index]: index of the splitting point
+    [t]: ast of the loop
+    *)
+let fission_on (index : int) (t : trm) : trm =
+  (* TODO: trm_for_inv_instrs => (l_range, tl) *)
+  match t.desc with
+  | Trm_for (l_range, body) ->
+    begin match body.desc with
+    | Trm_seq tl ->
+      let tl1, tl2 = Mlist.split index tl in
+      let b1 = trm_seq tl1 in
+      let b2 = trm_seq tl2 in
+      trm_seq_no_brace [
+        trm_for l_range b1; (* TODO: trm_for_instrs l_range tl1 *)
+        trm_for l_range b2;]
+    | _ -> fail t.loc "Loop_basic.fission_on: expected the sequence inside the loop body"
+    end
+  | _ -> fail t.loc "Loop_basic.fission_on: only simple loops are supported"
+
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
 
@@ -63,10 +84,40 @@ let hoist ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : 
    first loop after index i. Writes in new second loop need to never overwrite
    writes in first loop after index i. *)
 let fission (tg : target) : unit =
-  Internal.nobrace_remove_after( fun _ ->
-    apply_on_transformed_targets_between (fun (p,i) -> Path.index_in_surrounding_loop (p @ [Dir_seq_nth i]))
-    (fun t (i, p) -> Loop_core.fission i t p) tg )
+  Internal.nobrace_remove_after (fun _ ->
+    Target.apply (fun t p_before ->
+      let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
+      let p_loop = Path.parent_with_dir p_seq Dir_body in
+      apply_on_path (fission_on split_i) t p_loop)
+    tg)
 
+(* [fission_all_instrs_on]: split loop [t] into N loops,
+   one per instruction in the loop body
+
+   [t]: ast of the loop
+    *)
+let fission_all_instrs_on (t : trm) : trm =
+  (* TODO: trm_for_inv_instrs => (l_range, tl) *)
+  match t.desc with
+  | Trm_for (l_range, body) ->
+    begin match body.desc with
+    | Trm_seq tl ->
+      let body_lists = List.map (fun t1 -> trm_seq_nomarks [t1]) (Mlist.to_list tl) in
+      trm_seq_no_brace (List.map (fun t1 -> trm_for l_range t1) body_lists)
+    | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: expected the sequence inside the loop body"
+    end
+  | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: only simple loops are supported"
+    
+(* LATER: only keep fission or fission_all_instrs,
+   implementing one with the other *)
+(* [fission_all_instrs]: similar to [fission],
+   but splits the targeted loop into N loops,
+   one per instruction in the loop body.
+   *)
+let fission_all_instrs (tg : target) : unit =
+  Internal.nobrace_remove_after (fun _ -> 
+    Target.apply_at_target_paths fission_all_instrs_on tg)
+  
 (* [fusion_on_block tg]: expects the target [tg] to point at a sequence containing two loops
     with the same range, start step and bound but different body.
     Then it's going to merge the bodies of all the loops that belong to the targeted sequence. *)
