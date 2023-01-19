@@ -211,15 +211,37 @@ let split_range ?(nb : int = 0) ?(cut : trm = trm_unit()) (tg : target) : unit =
   Internal.nobrace_remove_after( fun _ ->
     apply_on_targets (Loop_core.split_range nb cut) tg )
 
+type shift_kind =
+| ToZero
+| Add of trm
+
+(* [shift_on index kind]: shifts a loop index to start from zero or by a given amount. *)
+let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
+  let index' = index in
+  let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
+  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
+  let body_terms = trm_inv ~error trm_seq_inv body in
+  let (start', shift) = match kind with
+  | ToZero -> ((trm_lit (Lit_int 0)), trm_minus start)
+  | Add s -> (trm_add start s, s)
+  in
+  let stop' = trm_add stop shift in
+  let body' = trm_seq (Mlist.push_front (
+    trm_let_immut (index, (Option.get start.typ))
+      (trm_sub (trm_var index') shift)) body_terms) in
+  trm_for (index', start', direction, stop', step, is_parallel) body'
+
 (* [shift index amount]: shifts a loop index by a given amount. *)
-let shift (index : var) (amount : trm) (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ ->
-    apply_on_targets (Loop_core.shift index (Loop_core.Add amount)) tg)
+let shift ?(reparse : bool = false) (index : var) (amount : trm) (tg : target) : unit =
+  (* FIXME: having to think about reparse here is not great *)
+  reparse_after ~reparse (
+    Target.apply_at_target_paths (shift_on index (Add amount))) tg
     
 (* [shift_to_zero index]: shifts a loop index to start from zero. *)
-let shift_to_zero (index : var) (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ ->
-    apply_on_targets (Loop_core.shift index Loop_core.ToZero) tg)
+let shift_to_zero ?(reparse : bool = false) (index : var) (tg : target) : unit =
+  (* FIXME: having to think about reparse here is not great *)
+  reparse_after ~reparse (
+    Target.apply_at_target_paths (shift_on index ToZero)) tg
 
 (* [rename_index new_index]: renames the loop index variable *)
 let rename_index (new_index : var) (tg : target) : unit =

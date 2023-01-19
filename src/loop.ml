@@ -605,29 +605,29 @@ let shift_aux (index : var) (inline : bool) (debug_name : string)
   end else
     index
   in
-  iter_on_targets (fun t p ->
+  Target.iter (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let error = debug_name ^ ": expected target to be a simple loop" in
     let ((prev_index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv tg_trm in begin
     do_shift index' (target_of_path p);
     Arith_basic.(simpl gather) (target_of_path (p @ [Dir_for_start]));
-    (* FIXME: why is this sometimes doing nothing? *)
     Arith_basic.(simpl gather) (target_of_path (p @ [Dir_for_stop]));
-    if inline then
+    if inline then begin
       let mark = Mark.next() in
       let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
-      Arith_basic.(simpl gather) [nbAny; cMark mark];
+      Arith.(simpl_surrounding_expr gather) [nbAny; cMark mark]
+    end;
     if index = "" then
-      Loop_basic.rename_index prev_index (target_of_path p);
+      Loop_basic.rename_index prev_index (target_of_path p)
     end
   ) tg
 
 (* [shift ~index amount ~inline]: shifts a loop index by a given amount.
    - [inline] if true, inline the index shift in the loop body *)
-let shift ?(index : var = "") (amount : trm) ?(inline : bool = true) (tg : target) : unit =
-  shift_aux index inline "Loop.shift" (fun i tg -> Loop_basic.shift i amount tg) tg
+let shift ?(reparse : bool = false) ?(index : var = "") (amount : trm) ?(inline : bool = true) (tg : target) : unit =
+  shift_aux index inline "Loop.shift" (fun i tg -> Loop_basic.shift ~reparse i amount tg) tg
 
 (* [shift_to_zero index ~inline]: shifts a loop index to start from zero.
     - [inline] if true, inline the index shift in the loop body *)
-let shift_to_zero ?(index : var = "") ?(inline : bool = true) (tg : target) : unit =
-  shift_aux index inline "Loop.shift_to_zero" Loop_basic.shift_to_zero tg
+let shift_to_zero ?(reparse : bool = false) ?(index : var = "") ?(inline : bool = true) (tg : target) : unit =
+  shift_aux index inline "Loop.shift_to_zero" (Loop_basic.shift_to_zero ~reparse) tg

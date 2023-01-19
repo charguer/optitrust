@@ -47,6 +47,8 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "v"; dRHS];
 
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "ls"; dRHS];
+  !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStop];
+  !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStart];
 )
 
 

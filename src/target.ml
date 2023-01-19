@@ -1511,7 +1511,7 @@ let applyi (tr : int -> trm -> path -> trm) (tg : target): unit =
   iteri (fun occ t p -> Trace.set_ast (tr occ t p)) tg
 
 let apply (tr : trm -> path -> trm) (tg : target) : unit =
-  applyi  (fun _occ t p -> tr t p) tg
+  applyi (fun _occ t p -> tr t p) tg
 
 let apply_at_target_paths (transfo : trm -> trm) (tg : target) : unit =
   apply (fun t p -> Path.apply_on_path transfo t p) tg
