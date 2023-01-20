@@ -20,8 +20,9 @@ int main (){
 "
 
 let _ = Run.script_cpp(fun _ ->
-  !! Loop.shift ~reparse:true ~index:"i_s" (expr "2") [cFor "i"];
+  !! Loop.shift ~reparse:true ~index:"i_s" (expr "2") [occFirst; cFor "i"];
   !! Loop.shift ~reparse:true  (expr "2") [cFor "i2"];
   !! Loop.shift_to_zero ~index:"j2" [cFor "j"];
   !! Loop.shift ~index:"k2" ~inline:false (expr "shift") [cFor "k"];
+  !! Loop.shift_to_zero [cFor "i"];
 )

@@ -22,6 +22,6 @@ int main () {
 
 let _ = Run.script_cpp (fun _ ->
   
-  !! Loop.move [cFor "y"] ~before:[cFor "cx"];
+  !! Loop.move [occFirst; cFor "y"] ~before:[cFor "cx"];
 
 )

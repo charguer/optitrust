@@ -226,6 +226,7 @@ let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
   | Add s -> (trm_add start s, s)
   in
   let stop' = trm_add stop shift in
+  (* NOTE: Option.get assuming all types are available *)
   let body' = trm_seq (Mlist.push_front (
     trm_let_immut (index, (Option.get start.typ))
       (trm_sub (trm_var index') shift)) body_terms) in

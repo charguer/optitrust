@@ -250,7 +250,8 @@ let move ?(before : target = []) ?(after : target = []) (loop_to_move : target) 
         begin
         let choped_indices = Xlist.chop_after loop_to_move_index targeted_loop_nested_indices in
         let choped_indices = Xlist.chop_after targeted_loop_index (List.rev choped_indices) in
-        List.iter (fun x -> Loop_basic.swap [cFor x]) choped_indices
+        let tg = target_of_path targeted_loop_path in
+        List.iter (fun x -> Loop_basic.swap (tg @ [cFor x])) choped_indices
         end
       else fail loop_to_move_trm.loc "Loop.move: the given targets are not correct"
 
@@ -268,7 +269,10 @@ let move ?(before : target = []) ?(after : target = []) (loop_to_move : target) 
       else if List.mem loop_to_move_index targeted_loop_nested_indices then
         begin
         let choped_indices = Xlist.chop_after loop_to_move_index targeted_loop_nested_indices in
-        List.iter (fun x -> Loop_basic.swap [cFor x]) (List.rev choped_indices)
+        let tg = target_of_path targeted_loop_path in
+        List.iter (fun x ->
+          Loop_basic.swap (tg @ [cFor x]))
+         (List.rev choped_indices)
         end
       else fail loop_to_move_trm.loc "Loop.move: the given targets are not correct"
 
