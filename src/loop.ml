@@ -431,9 +431,9 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
         in
       Loop_basic.unroll ~braces:true ~my_mark [cMark my_mark];
       let block_list = Xlist.range 0 (nb_instr-1) in
-      List.iter (fun x ->
+      (* List.iter (fun x ->
         Variable.renames (AddSuffix (string_of_int x)) ([occIndex ~nb:nb_instr x; cMark my_mark;cSeq ()])
-      ) block_list;
+      ) block_list; *)
        List.iter (fun x ->
          Sequence_basic.partition ~braces blocks [cMark my_mark; dSeqNth x]
       ) block_list;
