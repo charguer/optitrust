@@ -60,9 +60,11 @@ int main()
 
   // test for loop shift
   int ls;
-  ls = 0 + 12 + (-2); // = 10
   ls = 0 + x - (-2); // = x + 2
   ls = 0 + x; // = x
+  for (int ls2 = 0 + 2; ls2 < 10 + 2; ls2++) {
+    ls = 0 + 12 + (-2); // = 10
+  }
 
   return 0;
 }

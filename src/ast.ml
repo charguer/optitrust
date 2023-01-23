@@ -2830,6 +2830,10 @@ let trm_new (ty : typ) (t : trm) : trm =
 let trm_any_bool : trm =
   trm_apps (trm_var "ANY_BOOL") []
 
+(* [trm_minus ~loc ~ctx ~typ t]: generates -t *)
+let trm_minus ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_minus) [t]
+
 (* [trm_eq ~loc ~ctx ~typ t1 t2]: generates t1 = t2 *)
 let trm_eq ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx  Binop_eq) [t1; t2]

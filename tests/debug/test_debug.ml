@@ -47,6 +47,10 @@ let _ = Run.script_cpp (fun () ->
    !! Loop_basic.tile (lit "32") ~index:"bj" ~bound:TileBoundDivides [cFunDef "mm"; cFor "j"];
    !! Loop_basic.tile (lit "4") ~index:"bk" ~bound:TileBoundDivides [cFunDef "mm"; cFor "k"];
 
+   (* FIXME: need explicit reparse for types *)
+   !!! Loop.shift_to_zero ~inline:true [cFunDef "mm"; cFor "i"];
+   !! Loop.shift_to_zero ~inline:true [cFunDef "mm"; cFor "j"];
+
    (* -- Reorder Loops -- *)
    (* DISCUSS: The loop nest is not 'perfect' enough for:
    - 'blocking'
@@ -57,25 +61,28 @@ let _ = Run.script_cpp (fun () ->
    !! Loop.reorder ~order:["bi"; "bj"; "i"; "j"] [cFunDef "mm"; cFor "bi"];
 
    (* TODO: hoist_inline helper? *)
-   (* FIXME: hoist bugged? array size + init *)
+   (* FIXME: hoist bugged without previous shift. array size + init, *)
+   (*        ~array_size:(Some (expr "32")) *)
    (* TODO:
    !! Loop.hoist ~inline:true ~nb_loops:2 [cFunDef "mm"; cVarDef "sum"];
    *)
-   !! Loop.hoist ~array_size:(Some (expr "32")) ~inline:true [cFunDef "mm"; cVarDef "sum"];
-   !! Loop.hoist ~array_size:(Some (expr "32")) ~inline:true [cFunDef "mm"; cVarDef "sum"];
+   !! Loop.hoist_old [cFunDef "mm"; cVarDef "sum"];
+   !! Loop.hoist_old [cFunDef "mm"; cVarDef "sum_step"];
    !! Instr.delete [cWriteVar "sum_step"];
+   !! Variable.inline [cFunDef "mm"; cVarDef "sum_step"];
+   !! Variable.inline [cFunDef "mm"; cVarDef "sum"];
    !! Variable.rename ~into:"sum" [cFunDef "mm"; cVarDef "sum_step_step"];
-   !! Loop.fission ~split_between:true [cFunDef "mm"; cFor "j"];
-   !! Loop.fission ~split_between:true [cFunDef "mm"; cFor "i"];
-   show [cFunDef "mm"; cFor ~body:[cFor ~body:[cFor ~body:[cFor "k"] "bk"] "j"] "i"];
-   show [cFunDef "mm"; cFor ~body:[sExpr"+="] "i"];
-   show [cFunDef "mm"; cFor ~body:[cVar "a"] "i"];
-   (* FIXME: reorder target is wrong? *)
-   (* !! Loop.reorder ~order:["bk"; "i"; "k"; "j"]
-    [cFunDef "mm"; cFor ~body:[cFor ~body:[cFor ~body:[cFor "k"] "bk"] "j"] "i"]; *)
+
+   !! Loop.fission_all_instrs ~nb_loops:2 [cFunDef "mm"; cFor "i"];
+
+   (* TODO: cleanup reorder and move implementations *)
+   !! Loop.reorder ~order:["bk"; "i"; "k"; "j"]
+      [cFunDef "mm"; cFor ~body:[sExpr"+="] "i"];
+   (* same as:
    !! Loop.swap [cFunDef "mm"; cFor "i"; cFor ~body:[sExpr"+="] "j"];
    !! Loop.swap [cFunDef "mm"; cFor ~body:[sExpr"+="] "i"];
    !! Loop.swap [cFunDef "mm"; cFor ~body:[sExpr"+="] "j"];
+   *)
 
    (* -- Vectorize -- *)
    (* OMP pragma *)

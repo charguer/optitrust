@@ -50,8 +50,10 @@ int main() {
   v = a + c;
   w = a + a * 3 + f(b * f(c + c) / b);
   int ls;
-  ls = 10;
   ls = x + 2;
   ls = x;
+  for (int ls2 = 2; ls2 < 12; ls2++) {
+    ls = 10;
+  }
   return 0;
 }

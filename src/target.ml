@@ -1432,9 +1432,10 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
             [p] is the path towards the target occurrence. *)
 let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) : unit =
   (* TODO TEMPORARY *)
+  let c_o_r_bak = !Constr.old_resolution in
   Constr.old_resolution := false;
   let tr_wrapped i t p =
-    Constr.old_resolution := true;
+    Constr.old_resolution := c_o_r_bak;
     tr i t p;
     Constr.old_resolution := false
     in
@@ -1491,8 +1492,13 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
       with Interrupted_applyi_on_transformed_targets t ->
          (* Record the ast carried by the exception to allow visualizing the ast *)
          Trace.set_ast t
-      )
+      );
 
+    Constr.old_resolution := c_o_r_bak (* TEMPORARY *)
+
+(* [iter] same as [iteri] but without occurence index *)
+let iter (tr : trm -> path -> unit) : target -> unit =
+  iteri (fun occ t p -> tr t p)
 
 (* [applyi tr tg]: apply transformation [tr] on the current ast
    to each of the paths targeted by [tg].
@@ -1505,7 +1511,7 @@ let applyi (tr : int -> trm -> path -> trm) (tg : target): unit =
   iteri (fun occ t p -> Trace.set_ast (tr occ t p)) tg
 
 let apply (tr : trm -> path -> trm) (tg : target) : unit =
-  applyi  (fun _occ t p -> tr t p) tg
+  applyi (fun _occ t p -> tr t p) tg
 
 let apply_at_target_paths (transfo : trm -> trm) (tg : target) : unit =
   apply (fun t p -> Path.apply_on_path transfo t p) tg

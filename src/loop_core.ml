@@ -129,31 +129,6 @@ let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm
 let hoist (name : var) (index : int) (array_size : trm option): Transfo.local =
    apply_on_path (hoist_aux name index array_size)
 
-(* [fission_aux]: split loop [t] into two loops
-    params:
-      [index]: index of the splitting point
-      [t]: ast of the loop *)
- let fission_aux (index : int) (t : trm) : trm =
-  (* TODO: trm_for_inv_instrs => (l_range, tl) *)
-  match t.desc with
-  | Trm_for (l_range, body) ->
-    begin match body.desc with
-    | Trm_seq tl ->
-      let tl1, tl2 = Mlist.split index tl in
-      let b1 = trm_seq tl1 in
-      let b2 = trm_seq tl2 in
-      trm_seq_no_brace [
-        trm_for l_range b1; (* TODO: trm_for_instrs l_range tl1 *)
-        trm_for l_range b2;]
-    | _ -> fail t.loc "Loop_core.fission_aux: expected the sequence inside the loop body"
-    end
-  | _ -> fail t.loc "Loop_core.fission_aux: only simple loops are supported"
-
-(* [fission index t p]: applies [fission_aux] at the trm [t] with path [p]. *)
-let fission (index : int) : Transfo.local=
- apply_on_path (fission_aux index)
-
-
 (* [fusion_on_block_aux t]: merges two or more loops with the same components except the body,
       [t] - ast of the sequence containing the loops. *)
 let fusion_on_block_aux (keep_label : bool) (t : trm) : trm =
@@ -386,29 +361,6 @@ let split_range_aux (nb : int)(cut : trm)(t : trm) : trm =
 (* [split_range nb cut t p]: applies [split_range_aux] at the trm [t] with path [p]. *)
 let split_range (nb : int) (cut : trm) : Transfo.local =
   apply_on_path (split_range_aux nb cut)
-
-type shift_kind =
-  | ToZero
-  | Add of trm
-
-(* [shift index kind]: shifts a loop index to start from zero or by a given amount. *)
-let shift (index : var) (kind : shift_kind) : Transfo.local =
-  let aux (t : trm) : trm =
-    let index' = index in
-    let error = "Loop_core.shift: expected a target to a simple for loop" in
-    let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
-    let body_terms = trm_inv ~error trm_seq_inv body in
-    let (start', shift) = match kind with
-    | ToZero -> ((trm_lit (Lit_int 0)), trm_apps (trm_unop Unop_minus) [start])
-    | Add s -> (trm_add start s, s)
-    in
-    let stop' = trm_add stop shift in
-    let body' = trm_seq (Mlist.push_front (
-      trm_let_immut (index, (Option.get start.typ))
-       (trm_sub (trm_var index') shift)) body_terms) in
-    trm_for (index', start', direction, stop', step, is_parallel) body'
-  in
-  apply_on_path aux
 
 (* [rename_index new_index]: renames the loop index variable *)
 let rename_index (new_index : var) : Transfo.local =

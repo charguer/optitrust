@@ -607,9 +607,12 @@ let subst_var (x : var) (u : trm) (t : trm) =
   let tmap = Trm_map.add x u empty_tmap  in
   subst tmap t
 
+(* FIXME: unused? *)
 (* [clean_nobraces tg]: remove all the hidden sequence starting from target [ŧg] *)
-let clean_nobraces : Transfo.t =
-  apply_on_targets (apply_on_path (fun t -> clean_no_brace_seq ~all:true (-1) t))
+(* let clean_nobraces (new_target_apply : bool): Transfo.t =
+  (if new_target_apply then Target.apply else apply_on_targets) (
+    apply_on_path (fun t -> clean_no_brace_seq ~all:true (-1) t))
+    *)
 
 (* [replace_return_with_assign exit_label r t]: removes all the return statements from the body of a function declaration,
       [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
