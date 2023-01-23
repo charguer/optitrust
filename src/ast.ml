@@ -3020,7 +3020,7 @@ let trm_simplify_addressof_and_get (t : trm) : trm =
   | _ -> t
 
 (* [simpl_struct_get_get t]: transform struct_get (get(t1), f) to get(struct_access (t1, f)) *)
-let simpl_struct_get_get (t : trm) : trm =
+let simpl_struct_get_get (t : trm) : trm = (* DEPRECATED? *)
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t1]) ->
     begin match t1.desc with
@@ -3031,7 +3031,7 @@ let simpl_struct_get_get (t : trm) : trm =
   | _ -> t
 
 (* [simpl_array_get t]: tranform array_get (get(t1), index) to get(array_access (t1), index) *)
-let rec simpl_array_get_get (t : trm) : trm =
+let rec simpl_array_get_get (t : trm) : trm = (* DEPRECATED? *)
   let aux = simpl_array_get_get in
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)));_} as op, [base; index]) ->

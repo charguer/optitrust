@@ -28,7 +28,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
                  | Trm_apps(_, [init]) -> init
                  | _ -> dx
                  end
-          end 
+          end
         in
       Internal.change_trm ~change_at:[fold_at] def_x t_x t1
     | _ -> fail t_dl.loc "Variable_core.fold_decl: expected a variable declaration"
@@ -79,10 +79,10 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
            else None
         M :: f(int x)
 
-        Target: 
+        Target:
           cFunDef "f" shouldn't match
 
-          cFunDef "M :: f" 
+          cFunDef "M :: f"
           cFunDef ~qpath:["M"] "f"
           cFunDef ~qvar:(qvar ["M"] "f") ""
      *)
@@ -122,8 +122,8 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
     end in
     let rec aux (t1 : trm) : trm =
       match t1.desc with
-      | Trm_var (vk, y) when (is_qvar_var y x) -> 
-         let q_new_name = qvar_build new_name in 
+      | Trm_var (vk, y) when (is_qvar_var y x) ->
+         let q_new_name = qvar_build new_name in
           trm_replace (Trm_var (vk, q_new_name)) t
       | _ -> trm_map aux t1
     in aux t
@@ -131,12 +131,12 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
 
-(* 
+(*
 
   instead of when y = x
-  when qvar_eq y x 
+  when qvar_eq y x
     ignores the string repr in the comparison
-    
+
 
 
 
@@ -325,7 +325,7 @@ let delocalize (array_size : string) (ops : local_ops) (index : string) : Transf
       [value] - the initial value of the inserted variable [name] entered as a string,
       [t] - ast of the sequence where the insertion is performed. *)
 let insert_aux (index : int) (const : bool) (name : string) (typ : typ) (value : trm) (t : trm) : trm =
-  let error = "Variable_core.insert_aux: expected the sequence where the declaration is oing to be inserted" in 
+  let error = "Variable_core.insert_aux: expected the sequence where the declaration is oing to be inserted" in
   let tl = trm_inv ~error trm_seq_inv t in
   let new_decl = if const then trm_let_immut (name, typ) value else trm_let_mut (name, typ) value in
   let new_tl = Mlist.insert_at index new_decl tl in
@@ -415,7 +415,7 @@ let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (is_pt
   apply_on_path (bind_aux my_mark index fresh_name const is_ptr typ p_local)
 
 
-(* [remove_get_operations_on_var x t]: removes all the get operation on variable [x]. *)
+(* [remove_get_operations_on_var x t]: removes all the get operation on variable [x]. TODO: missing doc about the bool returned *)
 let remove_get_operations_on_var (x : var) (t : trm) : trm =
   let rec aux (belongs_to_get : bool) (t : trm) : bool * trm =
     let aux_false (t : trm) : trm =
@@ -488,8 +488,8 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
                 begin match ls.desc with
                 | Trm_var (_, y) when (is_qvar_var y x) -> fail ls.loc "Variable_core.to_const_aux: variables with
                                      one or more write operations can't be converted to immutable ones"
-                | _ -> if contains_occurrence x ls 
-                            then fail ls.loc "Variable_core.to_const_aux: struct instances with 
+                | _ -> if contains_occurrence x ls
+                            then fail ls.loc "Variable_core.to_const_aux: struct instances with
                                     one or more write operations can't be conveted to immutable ones."
                             else ()
                 end
@@ -544,7 +544,7 @@ let ref_to_pointer_aux (index : int) (t : trm) : trm =
     in
   let f_update_further (t : trm) : trm =
     Internal.subst_var !var_name (trm_var_get !var_name) t in
-  
+
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl
 
