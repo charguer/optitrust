@@ -38,7 +38,7 @@ TESTS ?= $(filter-out $(wildcard *with_lines.ml), $(filter-out $(EXCLUDE_TESTS),
 TESTS_WITH_DOC ?= $(TESTS)
 
 # List of ml files for which the cpp files should be compiled
-COMPILE ?= $(TESTS)f
+COMPILE ?= $(TESTS)
 
 # List of ml files for which the cpp files should be executed for comparison
 EXECUTE ?= $(COMPILE)

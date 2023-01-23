@@ -33,7 +33,17 @@
 
 - mettre un fichier driver.ml pour les tests
 
+- think about parsing and `(expr "2")` vs `(lit "2")` (e.g. loop shift transformation):
+  ```ocaml
+  let lit l =
+       try trm_int (int_of_string l)
+       with _ ->
+       try trm_double (float_of_string l)
+       with _ ->
+       code (Lit l) 
+  ```
 
+- rajouter le dossier 'case_studies' dans un 'make test' à la racine
 
 - mettre en place un raccourci pour ouvrir les fichiers tests associés à une transfo
 

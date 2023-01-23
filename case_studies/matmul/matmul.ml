@@ -2,12 +2,24 @@ open Optitrust
 open Target
 open Ast
 
+(* FIXME: seems weird *)
+let cArrayRead (x : var) : constr =
+  cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()
+
 let foreach (_doc : string) (l : 'a list) (f: 'a -> unit) : unit =
   List.iter f l
 
 let _ = Run.script_cpp (fun () ->
-  (* TODO: avoid regexp? *)
-  (* !! Variable_basic.bind "bt" [sExprRegexp "b\\[.*\\]"]; *)
+  bigstep "---- compute transposed b first ----";
+
+  !! Variable_basic.bind "bt" [cFunDef "mm"; cArrayRead "b"];
+  !! Loop.hoist_old [cFunDef "mm"; cVarDef "bt"];
+  !! Loop.hoist_old [cFunDef "mm"; cVarDef "bt_step"];
+  !! Loop.move_out [cFunDef "mm"; cVarDef "bt_step_step"];
+  !! Instr.delete [cWriteVar "bt_step"];
+  !! Variable.inline [cFunDef "mm"; cVarDef "bt_step"];
+  !! Variable.inline [cFunDef "mm"; cVarDef "bt"];
+  !! Variable.rename ~into:"bt" [cFunDef "mm"; cVarDef "bt_step_step"];
 
   bigstep "---- split i/j/k loops ----";
    
