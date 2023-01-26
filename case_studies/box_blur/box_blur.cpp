@@ -1,5 +1,36 @@
 
-#include <stdlib.h>
+#include "box_blur.h"
+#include "../../include/optitrust.h"
+
+// output: (h-2).(w-8).float
+// input :     h.    w.float
+void blur(float* output, float* input, int w, int h) {
+  int w2 = w - 8;
+  int h2 = h - 2;
+  float* tmp = (float*) MALLOC2(h2, w, sizeof(float));
+
+  for (int x = 0; x < w; x++) {
+    for (int y = 0; y < h2; y++) {
+      tmp[x + w*y] = (
+       input[x + w*(y + 0)] +
+       input[x + w*(y + 1)] +
+       input[x + w*(y + 2)]
+      ) / 3.0f;
+    }
+  }
+
+  for (int x = 0; x < w2; x++) {
+    for (int y = 0; y < h2; y++) {
+      output[x + w2*y] = (
+       tmp[(x + 0) + w*y] +
+       tmp[(x + 1) + w*y] +
+       tmp[(x + 2) + w*y]
+      ) / 3.0f;
+    }
+  }
+}
+
+/*
 
 // output: (height-2).(width-2).float
 // input :     height.    width.float
@@ -23,39 +54,6 @@ void blur_fused(float* output, float* input, int width, int height) {
   }
 }
 
-// output: (height-2).(width-2).float
-// input :     height.    width.float
-void blur(float* output, float* input, int width, int height) {
-  float* tmp; // MALLOC2(height, width - 2, sizeof(float));
-
-  for (int x = 0; x < (width - 2); x++) {
-    for (int y = 0; y < height; y++) {
-      tmp[x + (width - 2)*y] = (
-       input[(x + 0) + width*y] +
-       input[(x + 1) + width*y] +
-       input[(x + 2) + width*y]
-      ) / 3.0f;
-    }
-  }
-
-  // fuse:
-  // tmp[x + (width - 2)*y] ~= MINDEX2(height, width - 2, y, x)
-  //  -->
-  // tmp2[y] ~= MINDEX1(width - 2, y)
-  //  with tmp2 : [width - 2] ~= MALLOC1(width - 2, sizeof(float))
-
-  for (int x = 0; x < (width - 2); x++) {
-    for (int y = 0; y < height; y++) {
-      output[x + (width - 2)*y] = (
-       tmp[x + (width - 2)*(y + 0)] +
-       tmp[x + (width - 2)*(y + 1)] +
-       tmp[x + (width - 2)*(y + 2)]
-      ) / 3.0f;
-    }
-  }
-}
-
-/*
 int main() {
   const int W = 1024;
   const int H = 1024;

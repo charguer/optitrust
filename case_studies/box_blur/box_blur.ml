@@ -13,24 +13,23 @@ let _ = Run.script_cpp (fun () ->
   let lines_per_thread = 32 in
   let vector_size = 8 in
 
+  !! ();
+
   bigstep "---- reorder loops ----";
 
   !! Loop.reorder ~order:["y"; "x"] [nbMulti; cFunDef "blur"; cFor "x"];
 
+  bigstep "---- thread parallelism ----";
+
   !! Loop.fusion [occFirst; cFunDef "blur"; cFor "y"];
-
-  !! Loop.tile (lit (string_of_int vector_size)) ~index:"bx" [nbMulti; cFunDef "blur"; cFor "x"];
-
-  !! Loop.tile (lit (string_of_int lines_per_thread)) ~index:"by" [nbMulti; cFunDef "blur"; cFor "y"];
-
-  bigstep "---- introduce vector and thread parallelism ----";
-
-  (* -- Vectorize -- *)
+  !! Loop.tile (lit (string_of_int lines_per_thread)) ~index:"by" ~bound:TileBoundAnd [nbMulti; cFunDef "blur"; cFor "y"];
   !! Omp.header ();
-  !! Omp.simd [nbMulti; cFunDef "blur"; cFor "x"];
-
-  (* -- Multi-thread -- *)
   !! Omp.parallel_for [cFunDef "blur"; cFor "by"];
+
+  bigstep "---- vector parallelism ----";
+
+  !! Loop.tile (lit (string_of_int vector_size)) ~index:"bx" ~bound:TileBoundDivides [nbMulti; cFunDef "blur"; cFor "x"];
+  !! Omp.simd [nbMulti; cFunDef "blur"; cFor "x"];
 
   !!! ();
 )
