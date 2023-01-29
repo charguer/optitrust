@@ -7,11 +7,14 @@
 void blur(float* output, float* input, int w, int h) {
   int w2 = w - 8;
   int h2 = h - 2;
-  float* tmp = (float*) MALLOC2(h2, w, sizeof(float));
+  float* blur_y = (float*) MALLOC2(h2, w, sizeof(float));
 
+  // pour toutes les colonnes
   for (int x = 0; x < w; x++) {
+    // pour toutes les lignes
     for (int y = 0; y < h2; y++) {
-      tmp[x + w*y] = (
+      // calcul de moyenne verticale
+      blur_y[x + w*y] = (
        input[x + w*(y + 0)] +
        input[x + w*(y + 1)] +
        input[x + w*(y + 2)]
@@ -21,10 +24,11 @@ void blur(float* output, float* input, int w, int h) {
 
   for (int x = 0; x < w2; x++) {
     for (int y = 0; y < h2; y++) {
+      // calcul de moyenne horizontale
       output[x + w2*y] = (
-       tmp[(x + 0) + w*y] +
-       tmp[(x + 1) + w*y] +
-       tmp[(x + 2) + w*y]
+       blur_y[(x + 0) + w*y] +
+       blur_y[(x + 1) + w*y] +
+       blur_y[(x + 2) + w*y]
       ) / 3.0f;
     }
   }

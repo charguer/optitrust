@@ -39,10 +39,10 @@ void benchmark_n_blurs(Buffer<float, 2> input, const int n,
         steps[n].device_sync();
     });
     
-    printf("%s runtime: %gms\n", name, best * 1e3);
-    printf("%s fps: %g\n", name, floor(1.0 / best));
+    printf("%s runtime: %.1fms\n", name, best * 1e3);
+    printf("%s fps: %.0f\n", name, floor(1.0 / best));
 
-    convert_and_save_image(steps[n], (std::string)"out_" + name + ".png");
+    convert_and_save_image(steps[n], (std::string)"blurred_" + name + ".png");
 }
 
 int main(int argc, char** argv) {
@@ -57,11 +57,9 @@ int main(int argc, char** argv) {
 
     if (variant == "reference") {
         benchmark_n_blurs(input, 10, "reference", blur_halide);
-    } else if (variant == "OptiTrust") {
-        benchmark_n_blurs(input, 10, "OptiTrust", blur_optitrust);
     } else {
-        printf("unknown variant: %s\n", variant.c_str());
-        return 1;
+        // if (variant == "OptiTrust") or other
+        benchmark_n_blurs(input, 10, variant.c_str(), blur_optitrust);
     }
 
     printf("done!\n");

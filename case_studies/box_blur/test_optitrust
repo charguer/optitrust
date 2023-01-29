@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -euo pipefail
+
+BLUR_SRC="box_blur_after.cpp"
+HALIDE_DIRECTORY="${HOME}/Halide"
+HALIDE_BLUR_DIR="${HALIDE_DIRECTORY}/apps/blur/"
+
+echo "Compiling ..."
+(cd ${HALIDE_BLUR_DIR} && make bin/host/halide_blur.a) > /dev/null
+mkdir -p _build
+g++ -c -Ofast -march=native -fno-tree-vectorize -std=c++17 -I ../../include/ -Wall -Werror -Wno-unused-function -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare -Wno-psabi -fopenmp -Wall ${BLUR_SRC} -o _build/box_blur.o
+g++ -O2 -std=c++17 -I ${HALIDE_DIRECTORY}/distrib/include -I ${HALIDE_DIRECTORY}/distrib/tools -Wall -Werror -Wno-unused-function -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare -Wno-psabi -fopenmp -Wall -I ${HALIDE_BLUR_DIR}/bin/host box_blur_bench.cpp _build/box_blur.o ${HALIDE_BLUR_DIR}/bin/host/halide_blur.a -o _build/box_blur_bench -ldl -lpthread -lz -ltinfo -ljpeg -lpng
+
+echo ""
+echo "Running ..."
+_build/box_blur_bench OptiTrust noisy.png
