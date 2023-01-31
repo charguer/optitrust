@@ -5,9 +5,13 @@
 //      a: m.o.f
 //      b: o.n.f
 void mm(float* output, float* a, float* b, int m, int n, int o) {
+// output -> array<float>
+// a ->^R array<float>
+// b ->^R array<float>
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       float sum = 0.0f;
+      // sum -> cell<float>
       for (int k = 0; k < o; k++) {
         sum += a[k + (o * i)] * b[j + (n * k)];
       }

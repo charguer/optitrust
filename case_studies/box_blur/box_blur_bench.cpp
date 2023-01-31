@@ -42,7 +42,7 @@ void benchmark_n_blurs(Buffer<float, 2> input, const int n,
     printf("%s runtime: %.1fms\n", name, best * 1e3);
     printf("%s fps: %.0f\n", name, floor(1.0 / best));
 
-    convert_and_save_image(steps[n], (std::string)"blurred_" + name + ".png");
+    convert_and_save_image(steps[n], (std::string)"images/blurred_" + name + ".png");
 }
 
 int main(int argc, char** argv) {
@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
     }
 
     std::string variant = argv[1];
-    Buffer<float, 2> input = load_and_convert_image(argv[2]);
+    Buffer<float, 2> input = load_and_convert_image((std::string)"images/" + argv[2]);
     assert(input.width() % 8 == 0);
 
     if (variant == "reference") {

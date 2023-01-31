@@ -21,11 +21,6 @@
   - 'box_blur_after' changes on F6 / Alt+F6 + run './test_optitrust' ?
   - script doing all above?
 
-# Useful
-
-open noisy.png
-open out_OptiTrust.png
-
 # Halide
 
 (x then y)
