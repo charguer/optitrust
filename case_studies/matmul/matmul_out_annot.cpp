@@ -3,18 +3,21 @@
 #include "omp.h"
 
 void mm(float* output, float* a, float* b, int m, int n, int o) {
-// output -> array<float>
-// a ->^R array<float>
-// b ->^R array<float>
+// output -> matrix (m, n) float 
+// a ->^R matrix (m, o) float
+// b ->^R matrix (o, n) float
   float bt[n][o];
-  // bt -> array<float> ?
+  // bt -> matrix (n, o) float
   {
 #pragma omp parallel for
     for (int bj = 0; bj < n; bj += 32) {
-      // bt -> array_seg ??? TODO
+      // bt -> matrix_tile ((bj, 32), _) (n, o) float
       for (int k = 0; k < o; k++) {
 #pragma omp simd
         for (int j = 0; j < 32; j++) {
+          // bt[j + bj][k] -> cell float
+          // =
+          // bt -> matrix_tile ((bj+j, 1), _) (n, o) float
           bt[j + bj][k] = b[j + bj + n * k];
         }
       }
@@ -24,12 +27,13 @@ void mm(float* output, float* a, float* b, int m, int n, int o) {
 #pragma omp parallel for
     for (int bi = 0; bi < m; bi += 32) {
       for (int bj = 0; bj < n; bj += 32) {
-        // output -> array_seg ??? TODO
+        // output -> matrix_tile ((bi, 32), (bj, 32)) (m, n) float
         float sum[32][32];
-        // sum -> array<float> ?
+        // sum -> matrix (32, 32) float
         for (int i = 0; i < 32; i++) {
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
+            // sum[i][j] -> cell float
             sum[i][j] = 0.;
           }
         }
@@ -37,6 +41,7 @@ void mm(float* output, float* a, float* b, int m, int n, int o) {
           for (int i = 0; i < 32; i++) {
 #pragma omp simd
             for (int j = 0; j < 32; j++) {
+              // sum[i][j] -> cell float
               sum[i][j] += a[0 + bk + o * (i + bi)] * bt[j + bj][0 + bk];
             }
 #pragma omp simd
@@ -56,6 +61,11 @@ void mm(float* output, float* a, float* b, int m, int n, int o) {
         for (int i = 0; i < 32; i++) {
 #pragma omp simd
           for (int j = 0; j < 32; j++) {
+            // output[j + bj + n * (i + bi)] -> cell float
+            // =
+            // output[i + bi][j + bj] -> cell float
+            // =
+            // output -> matrix_tile ((bi, 32), (bj+j, 1)) (m, n) float
             output[j + bj + n * (i + bi)] = sum[i][j];
           }
         }
