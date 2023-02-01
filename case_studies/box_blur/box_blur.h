@@ -1,3 +1,4 @@
+#pragma once
 #include <cstdint>
 
 // output: (height-8).(width-2).float
