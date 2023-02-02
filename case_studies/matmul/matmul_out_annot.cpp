@@ -4,6 +4,7 @@
 
 void mm(float* output, float* a, float* b, int m, int n, int o) {
 // output -> matrix (m, n) float 
+// = *(i in [0; m[, j in [0; n[) output[i][j] -> cell float 
 // a ->^R matrix (m, o) float
 // b ->^R matrix (o, n) float
   float bt[n][o];
@@ -28,6 +29,7 @@ void mm(float* output, float* a, float* b, int m, int n, int o) {
     for (int bi = 0; bi < m; bi += 32) {
       for (int bj = 0; bj < n; bj += 32) {
         // output -> matrix_tile ((bi, 32), (bj, 32)) (m, n) float
+        // = *(i in [bi; bi+32[, j in [bj; bj+32[) output[i][j] -> cell float
         float sum[32][32];
         // sum -> matrix (32, 32) float
         for (int i = 0; i < 32; i++) {
