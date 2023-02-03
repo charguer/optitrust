@@ -64,3 +64,4 @@ Includes matrix multiplication, convolution, packaed convolution, depthwise conv
 - Optimized binary search (e.g. [Futhark example for GPU](https://futhark-lang.org/examples/binary-search.html)).
 - Work-efficient scan implementations, see Federico Pizzuti paper.
 - Optimizing user code that uses library code?
+  - Beyond [Weld](https://www.weld.rs/)? Weld can improve the performance of workflows such as SQL with Spark SQL, logistic regression with TensorFlow, and data cleaning in NumPy and Pandas. 
