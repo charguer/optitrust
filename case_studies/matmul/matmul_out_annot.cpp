@@ -3,23 +3,38 @@
 #include "omp.h"
 
 void mm(float* output, float* a, float* b, int m, int n, int o) {
-// output -> matrix (m, n) float 
+// output -> matrix (m, n) float
 // = *(i in [0; m[, j in [0; n[) output[i][j] -> cell float 
 // a ->^R matrix (m, o) float
 // b ->^R matrix (o, n) float
   float bt[n][o];
   // bt -> matrix (n, o) float
   {
+    // matrix_tile_open bt (32, o):
+    //   consumes bt -> matrix (n, o) float
+    //   produces (*)(bj in 0 to n by 32, x in 0 to o by o)
+    //             bt -> matrix_tile ((bj, 32), (x, o)) (n, o) float
+    //(unroll x)= (*)(bj in 0 to n by 32)
+    //             bt -> matrix_tile ((bj, 32), (0, o)) (n, o) float
 #pragma omp parallel for
     for (int bj = 0; bj < n; bj += 32) {
-      // bt -> matrix_tile ((bj, 32), _) (n, o) float
+      // only_this_iteration_modifies bt -> matrix_tile ((bj, 32), (0, o)) (n, o) float
+      // matrix_tile_open bt (32, 1)
       for (int k = 0; k < o; k++) {
+        // only_this_iteration_modifies bt -> matrix_tile ((bj, 32), (k, 1)) (n, o) float
+        // matrix_tile_open bt (1, 1)
+        //  consumes bt -> matrix_tile ((bj, 32), (k, 1)) (n, o) float
+        //  produces (*)(j' in bj to bj+32 by 1, k' in k to k+1 by 1)
+        //           bt -> matrix_tile ((j', 1), (k', 1)) (n, o) float
+        //           = bt[j' = j + bj][k' = k] -> cell float
 #pragma omp simd
         for (int j = 0; j < 32; j++) {
           // bt[j + bj][k] -> cell float
           // =
-          // bt -> matrix_tile ((bj+j, 1), _) (n, o) float
+          // bt -> matrix_tile ((bj+j, 1), (0, o)) (n, o) float
           bt[j + bj][k] = b[j + bj + n * k];
+          // i / n ; i % n
+          // MINDEX2(j + bj, k)
         }
       }
     }

@@ -8,6 +8,10 @@ void mm(float* output, float* a, float* b, int m, int n, int o) {
 // output -> array<float>
 // a ->^R array<float>
 // b ->^R array<float>
+// modifies
+//   output -> array
+// reads
+//   a, b -> array
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       float sum = 0.0f;

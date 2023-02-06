@@ -35,6 +35,7 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "---- split i/j/k loops ----";
 
+  (* TODO: think about annotations after tile and shift *)
   !! Loop_basic.tile (lit "32") ~index:"bj" ~bound:TileBoundDivides (bt_loops @ [cFor "j"]);
   show (bt_loops @ [cFor "j"]);
   (* FIXME: need explicit reparse for types *)
