@@ -95,3 +95,65 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_ins
 (* [delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops] a generalized version of variable_delocalize. *)
 let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "") ?(labels : label list = []) ~dim:(dim : trm)  ~index:(index : string) ~ops:(dl_o : local_ops) : Target.Transfo.t =
     Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc any_mark labels index dl_o)
+
+(* TODO: check that size and index expressions are pure, otherwise fail *)
+let simpl_index_add_on (t : trm) : trm =
+  let error = "Matrix_basic.simpl_index_on: expected MINDEX addition" in
+  let (a, b) = trm_inv ~error trm_add_inv t in
+  let mindex1 = trm_inv ~error Matrix_core.mindex_inv a in
+  let mindex2 = trm_inv ~error Matrix_core.mindex_inv b in
+  let ((long_dims, long_idxs), (short_dims, short_idxs)) =
+    if (List.length (fst mindex1)) > (List.length (fst mindex2))
+    then (mindex1, mindex2) else (mindex2, mindex1)
+  in
+  let delta_dims = (List.length long_dims) - (List.length short_dims) in
+  let trimmed_long_dims = Xlist.drop delta_dims long_dims in
+  (* DEBUG
+  Printf.printf "delta: %i\n" delta_dims;
+  Printf.printf "trimmed long: %s\n" (Tools.list_to_string
+    (List.map AstC_to_c.ast_to_string trimmed_long_dims));
+  Printf.printf "\n       short: %s\n" (Tools.list_to_string
+  (List.map AstC_to_c.ast_to_string short_dims));
+  *)
+  (* TODO: need something better for term equality *)
+  let dims_matching = List.combine trimmed_long_dims short_dims |>
+    List.for_all (fun (a, b) -> a.desc = b.desc)
+  in
+  if not dims_matching then
+    fail None "Matrix_basic.simpl_index_on: dimensions mismatch";
+  let rec compute_idxs (delta : int) (long : trms) (short : trms) : trms =
+    if delta > 0 then
+      (List.hd long) :: (compute_idxs (delta - 1) (List.tl long) short)
+    else match (long, short) with
+    | (l :: l_rest, s :: s_rest) -> 
+      (trm_add l s) :: (compute_idxs 0 l_rest s_rest)
+    | ([], []) -> []
+    | _ -> assert false 
+  in
+  Matrix_core.mindex long_dims (compute_idxs delta_dims long_idxs short_idxs)
+
+(* [simpl_index_add]: simplifies an MINDEX(..) + MINDEX(..) expression,
+   into a single MINDEX(..) expression, if the dimensions are compatible:
+
+   MINDEX{N}  (            n1, .., nN,                 i1, .., iN) +
+   MINDEX{N+M}(m1, .., mM,     .., m{N+M}, j1, .., jM,     .., j{N+M})
+    = [if n{i} = m{i+M}]
+   MINDEX{N+M}(m1, .., mM,     .., m{N+M}, j1, .., jM, i1 + j{M+1}, .., iN + j{N+M})
+
+   For correctness, size and index expressions must be pure.
+   *)
+let simpl_index_add : Target.Transfo.t =
+  Target.apply_at_target_paths simpl_index_add_on
+
+let simpl_access_of_access_on (t : trm) : trm =
+  let error = "Matrix_basic.simpl_access_of_access_on: expected nested array accesses" in
+  let (base1, i1) = trm_inv ~error array_access_inv t in
+  let (base0, i0) = trm_inv ~error array_access_inv base1 in
+  array_access base0 (trm_add i0 i1)
+
+(* [simpl_access_of_access]: simplifies &((&p[i0])[i1]) into &p[i0 + i1]
+
+   TODO: should this be in another file?
+   *)
+let simpl_access_of_access : Target.Transfo.t =
+  Target.apply_at_target_paths simpl_access_of_access_on

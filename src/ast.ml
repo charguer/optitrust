@@ -2850,6 +2850,20 @@ let trm_sub ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t
 let trm_add ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_add) [t1; t2]
 
+(* [trm_binop_inv t]: deconstructs t = t1 op t2 *)
+let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =
+  match trm_apps_inv t with
+  | Some (f, args) -> begin
+    match (trm_prim_inv f, args) with
+    | Some (Prim_binop op'), [a; b] when op = op' -> Some (a, b)
+    | _ -> None
+    end
+  | _ -> None
+
+(* [trm_add_inv t1 t2]: deconstructs t = t1 + t2 *)
+let trm_add_inv (t : trm) : (trm * trm) option  =
+  trm_binop_inv Binop_add t
+
 (* [trm_mul t1 t2]: generates t1 * t2 *)
 let trm_mul ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mul) [t1; t2]
@@ -3051,6 +3065,12 @@ let rec simpl_array_get_get (t : trm) : trm =
 let array_access (base : trm) (index : trm) : trm =
   trm_apps (trm_binop Binop_array_access) [base; index]
 
+let array_access_inv (t : trm) : (trm * trm) option =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_},
+              [base;index]) -> Some (base, index)
+  | _ -> None
+
 (* [get_array_access base index]: generates get(array_access (base, index)) *)
 let get_array_access (base : trm) (index : trm) : trm =
   trm_get (array_access base index)
@@ -3060,10 +3080,7 @@ let get_array_access (base : trm) (index : trm) : trm =
 let get_array_access_inv (t : trm) : (trm * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) ->
-    begin match arg.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_}, [base;index]) -> Some (base, index)
-    | _ -> None
-    end
+    array_access_inv arg
   | _ -> None
 
 (* [struct_access base index]: generates struct_access (base, index) *)

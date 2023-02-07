@@ -1,3 +1,5 @@
+#include "../../include/optitrust.h"
+
 int *t;
 int *u;
 
@@ -8,6 +10,37 @@ int main() {
     u[i] = x;
     int z;
     z = x;
+  }
+
+  for (int l = 0; l < 5; l++) {
+    for (int m = 0; m < 2; m++) {
+      int y;
+      y = 0;
+      u[m] = y;
+    }
+  }
+
+  // Question:
+  // hoist:
+  // - int* y_step = (int*) MALLOC1(2, sizeof(int));
+  // - becomes:
+  //   - int* y_step_step = (int*) MALLOC2(5, 2, sizeof(int));
+  // vs:
+  // - int* y_step;
+  //   y_step = (int*) MALLOC1(2, sizeof(int));
+  // - becomes:
+  //   - int* y_step_step = (int**) MALLOC1(5, sizeof(int*));
+
+  // int* y_step = &t[0];
+  
+
+  for (int l = 0; l < 5; l++) {
+    int* y_step = (int*) MALLOC1(2, sizeof(int));
+    for (int m = 0; m < 2; m++) {
+      int& y = y_step[MINDEX1(2, m)];
+      y = 0;
+      u[m] = y;
+    }
   }
 }
 
