@@ -33,7 +33,7 @@ int main() {
 
   // int* y_step = &t[0];
   
-
+/*
   for (int l = 0; l < 5; l++) {
     int* y_step = (int*) MALLOC1(2, sizeof(int));
     for (int m = 0; m < 2; m++) {
@@ -42,6 +42,7 @@ int main() {
       u[m] = y;
     }
   }
+  */
 }
 
 /*

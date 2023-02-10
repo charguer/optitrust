@@ -51,10 +51,65 @@ let tile ?(index : var = "b${id}") ?(bound : tile_bound = TileBoundMin) (tile_si
 
     [x_step] - denotes the array name that is going to hoist all the values of the targeted variable
     for each index of the for loop. *)
-let hoist ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
+(* LATER/ deprecated *)
+let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_transformed_targets (Path.index_in_surrounding_loop)
-     (fun t (i, p) -> Loop_core.hoist name i array_size t p) tg)
+     (fun t (i, p) -> Loop_core.hoist_old name i array_size t p) tg)
+
+let hoist_on (name : string) (decl_index : int) (t : trm) : trm =
+  let error = "Loop_basic.hoist_on: only simple loops are supported" in
+  let (range, body) = trm_inv ~error trm_for_inv t in
+  let (index, start, dir, stop, step, _par) = range in
+  assert (dir = DirUp); (* TODO *)
+  let div_by_step = match step with
+  | Pre_inc | Post_inc -> fun x -> x
+  | Step s -> fun x -> trm_div x s
+  | _ -> fail t.loc "Loop_basic.hoist_on: unsupported loop step"
+  in
+  let body_instrs = trm_inv ~error trm_seq_inv body in
+  let array_size = div_by_step (trm_sub stop start) in
+  let ty = ref (typ_auto()) in
+  let new_name = ref "" in
+  let new_dims = ref [] in
+  let update_decl (decl : trm) : trm =
+    let error = "Loop_basic.hoist_on: expected variable declaration" in
+    let (vk, x, tx, init) = trm_inv ~error trm_let_inv decl in
+    new_name := Tools.string_subst "${var}" x name;
+    ty := get_inner_ptr_type tx;
+    (* TODO: deal with MALLOCs *)
+    let (dims, elem_size) = begin match Matrix_core.alloc_inv init with
+    | Some (dims, elem_size, zero_init) ->
+      assert (not zero_init);
+      (dims, elem_size)
+    | None ->
+      (* TODO: fail if there is an init *)
+      ([], (trm_var ("sizeof(" ^ (AstC_to_c.typ_to_string !ty) ^ ")")))
+    end in
+    new_dims := array_size :: dims;
+    (* i = start; i < stop; i += step *)
+    (* j = (i - start) / step *)
+    let partial_indices = (div_by_step (trm_sub (trm_var index) start)) ::
+      (List.init (List.length dims) (fun _ -> trm_lit (Lit_int 0))) in
+    trm_let_ref (x, (get_inner_ptr_type tx))
+      (trm_array_access (trm_var_get !new_name)
+        (Matrix_core.mindex !new_dims partial_indices))
+  in
+  let new_body_instrs = Mlist.update_nth decl_index update_decl body_instrs in
+  let new_body = trm_seq new_body_instrs in
+  trm_seq_no_brace [
+    (* TODO: generate MALLOC *)
+    trm_let_mut (!new_name, (typ_ptr Ptr_kind_mut !ty))
+      (Matrix_core.alloc_with_ty !new_dims !ty);
+    trm_for range new_body
+  ]
+
+let hoist ?(name : var = "${var}_step") (tg : target) : unit =
+  Internal.nobrace_remove_after (fun _ ->
+    Target.apply (fun t p_instr ->
+      let (i, p) = Path.index_in_surrounding_loop p_instr in
+      Path.apply_on_path (hoist_on name i) t p
+      ) tg)
 
 (* [fission_on]: split loop [t] into two loops
 

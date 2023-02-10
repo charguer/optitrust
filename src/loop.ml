@@ -8,7 +8,7 @@ type rename = Variable.Rename.t
 (* [hoist ~name ~array_size tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
     transformation supports also undetached declarations contrary to the basic one. This is done by first checking if
     the declaration is detached or not. If it is not detached then we call another transformation that does the detachment for us. *)
-let hoist1_aux (name : var) (array_size : trm option) (init_to_detach : trm option)
+let hoist1_aux (name : var) (init_to_detach : trm option)
                (p : path) : unit = begin
   let detach_first =
     match init_to_detach with
@@ -24,9 +24,9 @@ let hoist1_aux (name : var) (array_size : trm option) (init_to_detach : trm opti
     match detach_first with
     | true ->
       Variable_basic.init_detach (target_of_path p);
-      Loop_basic.hoist ~name ~array_size(target_of_path p);
+      Loop_basic.hoist ~name (target_of_path p);
     | false ->
-      Loop_basic.hoist ~name ~array_size (target_of_path p);
+      Loop_basic.hoist ~name (target_of_path p);
   end
 
 (* LATER/ deprecated *)
@@ -46,10 +46,9 @@ let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (t
         match detach_first with
         | true ->
           Variable_basic.init_detach (target_of_path p);
-          Loop_basic.hoist ~name ~array_size(target_of_path p);
-        | false -> Loop_basic.hoist ~name ~array_size (target_of_path p)
+          Loop_basic.hoist_old ~name ~array_size(target_of_path p);
+        | false -> Loop_basic.hoist_old ~name ~array_size (target_of_path p)
   ) tg
-
 
 (* [hoist ~name ~array_size ~inline tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
     transformation supports also undetached declarations as well as hoisting through multiple loops.
@@ -134,7 +133,7 @@ let hoist ?(name : string = "${var}_step${i}")
     if i <= nb_loops then
       let next_name = Tools.string_subst "${i}" (string_of_int i) name in
       let _ = Printf.printf "next name: %s\n\n" next_name in
-      let _ = hoist1_aux next_name None init_to_detach p in
+      let _ = hoist1_aux next_name init_to_detach p in
       let next_target = (target_of_path (fst (Xlist.unlast p))) @ [cVarDef next_name] in
       if (i + 1 <= nb_loops) then
         iter_on_targets (fun t p -> aux name (i + 1) None p) next_target

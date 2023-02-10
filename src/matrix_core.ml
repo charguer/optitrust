@@ -88,6 +88,26 @@ let alloc ?(init : trm option = None) (dims : trms) (size : trm) : trm =
   | None -> trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size])
 
 
+let alloc_with_ty (dims : trms) (ty : typ) : trm =
+  let n = List.length dims in
+  let size = trm_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
+  trm_cast (typ_ptr Ptr_kind_mut ty) (
+    trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size]))
+
+let alloc_inv_with_ty (t : trm) : (trms * trm)  option =
+(* TODO *)
+  match trm_cast_inv
+  match t.desc with
+  | Trm_apps (f, args) ->
+    begin match f.desc with
+    | Trm_var (_, f_name) ->
+      let dims, size = Xlist.unlast args in
+        if (Tools.pattern_matches "MALLOC" f_name.qvar_var) then Some (dims, size)
+        else None
+    | _ -> None
+    end
+  | _ -> None
+
 (* |alloc_aligned ~init dims size alignment] create a call to function MALLOC_ALIGNED$(N) where [N] is the
      number of dimensions and [size] is the size in bytes occupied by a single matrix element in
      the memory and [alignment] is the alignment size. *)
@@ -113,13 +133,6 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
     | _ -> None
     end
   | _ -> None
-
-
-(* [vardef_alloc ~init x ty dims size]: returnss a term of the form T* x = ( T* ) A where A is the trm
-    created from alloc function. *)
-let vardef_alloc ?(init : trm option = None) (x : string) (ty : typ) (dims : trms) (size : trm) : trm =
-  let alloc_trm = alloc ~init dims size in
-  trm_let_mut (x, ty) alloc_trm
 
 (* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
 let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) option =

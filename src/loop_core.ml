@@ -96,6 +96,7 @@ let tile (tile_index : var) (bound : tile_bound) (tile_size : trm) : Transfo.loc
       [name] - pattern of the form "${var}_something" for the name entered by the user, if not
               entered by the user, the dafault pattern ${var}_step is used,
       [t] - ast of the loop. *)
+(* LATER/ deprecated *)
 let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm) : trm =
   match t.desc with
   | Trm_for (l_range, body) ->
@@ -124,9 +125,9 @@ let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm
     end
   | _ -> fail t.loc "Loop_core.hoist_aux: only simple loops are supported"
 
-
 (* [hoist name index array_size t p]: applies [hoist_aux] at trm [t] with path [p]. *)
-let hoist (name : var) (index : int) (array_size : trm option): Transfo.local =
+(* LATER/ deprecated *)
+let hoist_old (name : var) (index : int) (array_size : trm option): Transfo.local =
    apply_on_path (hoist_aux name index array_size)
 
 (* [fusion_on_block_aux t]: merges two or more loops with the same components except the body,
