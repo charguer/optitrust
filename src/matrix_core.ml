@@ -95,18 +95,24 @@ let alloc_with_ty (dims : trms) (ty : typ) : trm =
     trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size]))
 
 let alloc_inv_with_ty (t : trm) : (trms * trm)  option =
-(* TODO *)
-  match trm_cast_inv
-  match t.desc with
-  | Trm_apps (f, args) ->
-    begin match f.desc with
-    | Trm_var (_, f_name) ->
-      let dims, size = Xlist.unlast args in
-        if (Tools.pattern_matches "MALLOC" f_name.qvar_var) then Some (dims, size)
-        else None
-    | _ -> None
+(* TODO: avoid cascade of matches? *)
+  match trm_new_inv t with
+  | Some (_, t2) ->
+    begin match trm_cast_inv t2 with
+    | Some (ty, t3) ->
+      begin match trm_apps_inv t3 with
+      | Some (f, args) ->
+        begin match trm_var_inv f with
+        | Some (_, f_name) when (Tools.pattern_matches "MALLOC" f_name) ->
+          let dims, size = Xlist.unlast args in
+          Some (dims, size)
+        | _ -> None
+        end
+      | None -> None
+      end
+    | None -> None
     end
-  | _ -> None
+  | None -> None
 
 (* |alloc_aligned ~init dims size alignment] create a call to function MALLOC_ALIGNED$(N) where [N] is the
      number of dimensions and [size] is the size in bytes occupied by a single matrix element in

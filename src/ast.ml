@@ -1468,6 +1468,21 @@ let trm_typedef_inv (t : trm) : typedef option =
   | Trm_typedef td -> Some td
   | _ -> None
 
+(* [trm_unop_inv t]: deconstructs t = op t1 *)
+let trm_unop_inv (t : trm) : (unary_op * trm) option =
+  match trm_apps_inv t with
+  | Some (f, args) -> begin
+    match (trm_prim_inv f, args) with
+    | Some (Prim_unop op), [a] -> Some (op, a)
+    | _ -> None
+    end
+  | _ -> None
+
+let trm_cast_inv (t : trm) : (typ * trm) option =
+  match trm_unop_inv t with
+  | Some (Unop_cast ty, t2) -> Some (ty, t2)
+  | _ -> None
+
 (* [trm_int n]: converts an integer to trm *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)
 
@@ -2628,11 +2643,25 @@ let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
   let loop_range_list = aux t in
   if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
 
+let trm_new_inv (t : trm) : (typ * trm) option =
+  match trm_apps_inv t with
+  | Some (f, [v]) ->
+    begin match trm_prim_inv f with
+    | Some (Prim_new ty) -> Some (ty, v)
+    | _ -> None
+    end
+  | _ -> None
+
 (* [is_trm_uninitialized t]: checks if [t] is the body of an uninitialized function or variable *)
 let is_trm_uninitialized (t:trm) : bool =
   match t.desc with
   | Trm_val (Val_lit Lit_uninitialized) -> true
   | _ -> false
+
+let is_trm_new_uninitialized (t : trm) : bool =
+  match trm_new_inv t with
+  | Some (_, v) -> is_trm_uninitialized v
+  | None -> false
 
 exception Unknown_key
 

@@ -14,10 +14,8 @@ let hoist1_aux (name : var) (init_to_detach : trm option)
     match init_to_detach with
     | Some init -> begin
         Printf.printf "hoist init: %s\n\n" (Ast_to_text.ast_to_string init);
-        match init.desc with
-          | Trm_val(Val_lit (Lit_uninitialized)) -> false
-          | Trm_val(Val_prim (Prim_new _)) -> false
-          | _ -> true
+        (* ??? *)
+        false
       end
     | None -> false
     in

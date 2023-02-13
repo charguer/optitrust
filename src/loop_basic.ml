@@ -61,44 +61,52 @@ let hoist_on (name : string) (decl_index : int) (t : trm) : trm =
   let error = "Loop_basic.hoist_on: only simple loops are supported" in
   let (range, body) = trm_inv ~error trm_for_inv t in
   let (index, start, dir, stop, step, _par) = range in
-  assert (dir = DirUp); (* TODO *)
-  let div_by_step = match step with
-  | Pre_inc | Post_inc -> fun x -> x
-  | Step s -> fun x -> trm_div x s
+  assert (dir = DirUp); (* TODO: other directions *)
+  let (array_size, new_index) = match step with
+  | Pre_inc | Post_inc ->
+     (trm_sub stop start, trm_sub (trm_var index) start)
+  | Step s ->
+    (* i = start; i < stop; i += step *)
+    let trm_ceil_div a b = 
+      trm_div (trm_add a (trm_sub b (trm_lit (Lit_int 1)))) b
+    in
+     (trm_ceil_div (trm_sub stop start) s,
+      trm_div (trm_sub (trm_var index) s) start)
   | _ -> fail t.loc "Loop_basic.hoist_on: unsupported loop step"
   in
   let body_instrs = trm_inv ~error trm_seq_inv body in
-  let array_size = div_by_step (trm_sub stop start) in
   let ty = ref (typ_auto()) in
   let new_name = ref "" in
   let new_dims = ref [] in
+  let with_mindex (dims : trms) : trm =
+    new_dims := array_size :: dims;
+    let partial_indices = new_index ::
+      (List.init (List.length dims) (fun _ -> trm_lit (Lit_int 0))) in
+    Matrix_core.mindex !new_dims partial_indices
+  in
   let update_decl (decl : trm) : trm =
     let error = "Loop_basic.hoist_on: expected variable declaration" in
     let (vk, x, tx, init) = trm_inv ~error trm_let_inv decl in
     new_name := Tools.string_subst "${var}" x name;
     ty := get_inner_ptr_type tx;
-    (* TODO: deal with MALLOCs *)
-    let (dims, elem_size) = begin match Matrix_core.alloc_inv init with
-    | Some (dims, elem_size, zero_init) ->
-      assert (not zero_init);
-      (dims, elem_size)
+    begin match Matrix_core.alloc_inv_with_ty init with
+    | Some (dims, elem_size) ->
+      let mindex = with_mindex dims in
+      (* extra reference to remove *)
+      ty := Option.get (typ_ptr_inv !ty);
+      (* TODO: let_immut? *)
+      trm_let_mut (x, (get_inner_ptr_type tx))
+        (trm_array_access (trm_var_get !new_name) mindex)
     | None ->
-      (* TODO: fail if there is an init *)
-      ([], (trm_var ("sizeof(" ^ (AstC_to_c.typ_to_string !ty) ^ ")")))
-    end in
-    new_dims := array_size :: dims;
-    (* i = start; i < stop; i += step *)
-    (* j = (i - start) / step *)
-    let partial_indices = (div_by_step (trm_sub (trm_var index) start)) ::
-      (List.init (List.length dims) (fun _ -> trm_lit (Lit_int 0))) in
-    trm_let_ref (x, (get_inner_ptr_type tx))
-      (trm_array_access (trm_var_get !new_name)
-        (Matrix_core.mindex !new_dims partial_indices))
+      assert ((is_trm_uninitialized init) || (is_trm_new_uninitialized init));
+      let mindex = with_mindex [] in
+      trm_let_ref (x, (get_inner_ptr_type tx))
+        (trm_array_access (trm_var_get !new_name) mindex)
+    end
   in
   let new_body_instrs = Mlist.update_nth decl_index update_decl body_instrs in
   let new_body = trm_seq new_body_instrs in
   trm_seq_no_brace [
-    (* TODO: generate MALLOC *)
     trm_let_mut (!new_name, (typ_ptr Ptr_kind_mut !ty))
       (Matrix_core.alloc_with_ty !new_dims !ty);
     trm_for range new_body

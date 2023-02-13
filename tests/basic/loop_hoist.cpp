@@ -13,10 +13,12 @@ int main() {
   }
 
   for (int l = 0; l < 5; l++) {
-    for (int m = 0; m < 2; m++) {
-      int y;
-      y = 0;
-      u[m] = y;
+    for (int m = 2; m < 6; m++) {
+      for (int n = 4; n < 11; n += 2) {
+        int y;
+        y = 0;
+        u[m] = y;
+      }
     }
   }
 
@@ -32,17 +34,6 @@ int main() {
   //   - int* y_step_step = (int**) MALLOC1(5, sizeof(int*));
 
   // int* y_step = &t[0];
-  
-/*
-  for (int l = 0; l < 5; l++) {
-    int* y_step = (int*) MALLOC1(2, sizeof(int));
-    for (int m = 0; m < 2; m++) {
-      int& y = y_step[MINDEX1(2, m)];
-      y = 0;
-      u[m] = y;
-    }
-  }
-  */
 }
 
 /*
