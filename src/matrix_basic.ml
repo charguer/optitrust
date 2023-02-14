@@ -147,7 +147,11 @@ let simpl_index_add : Target.Transfo.t =
 
 let simpl_access_of_access_on (t : trm) : trm =
   let error = "Matrix_basic.simpl_access_of_access_on: expected nested array accesses" in
-  let (base1, i1) = trm_inv ~error array_access_inv t in
+  let (base1, i1) = match array_access_inv t with
+  | Some res -> res
+  (* FIXME: don't want to deal with this here? *)
+  | None -> trm_inv ~error array_get_inv t
+  in
   let (base0, i0) = trm_inv ~error array_access_inv base1 in
   array_access base0 (trm_add i0 i1)
 

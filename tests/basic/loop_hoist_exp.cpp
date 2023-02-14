@@ -13,6 +13,7 @@ int main() {
     u[i] = x;
     int& z = z_step[MINDEX1(10, i)];
     z = x;
+    int w = 0;
   }
   int* yl = (int*)MALLOC3(5, 4, 8 / 2, sizeof(int));
   for (int l = 0; l < 5; l++) {
@@ -20,7 +21,7 @@ int main() {
     for (int m = 2; m < 6; m++) {
       int* yn = &ym[MINDEX2(4, 8 / 2, m + -2, 0)];
       for (int n = 4; n < 11; n += 2) {
-        int& y = yn[MINDEX1(8 / 2, n / 2 + -4)];
+        int& y = yn[MINDEX1(8 / 2, (n + -4) / 2)];
         y = 0;
         u[m] = y;
       }

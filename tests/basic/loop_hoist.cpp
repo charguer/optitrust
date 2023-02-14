@@ -10,6 +10,7 @@ int main() {
     u[i] = x;
     int z;
     z = x;
+    int w = 0;
   }
 
   for (int l = 0; l < 5; l++) {
@@ -32,45 +33,4 @@ int main() {
   //   y_step = (int*) MALLOC1(2, sizeof(int));
   // - becomes:
   //   - int* y_step_step = (int**) MALLOC1(5, sizeof(int*));
-
-  // int* y_step = &t[0];
 }
-
-/*
-Loop hoist on x:
-
--- step 1 detach init
-
-int main() {
-  for (int i = 0; i < 10; i++) {
-    int x;
-    x = t[i];
-    u[i] = x;
-    int z = x;
-  }
-}
-
--- step 2: extract variable as ref
-
-int main() {
-  int x_step[10];
-  for (int i = 0; i < 10; i++) {
-    int& x = x_step[i];
-    x = t[i];
-    u[i] = x;
-    int z = x;
-  }
-}
-
--- step 3: optional (matches the result of extract_var)
-  -> this will only be available at the combi level
-
-int main() {
-  int x_step[10];
-  for (int i = 0; i < 10; i++) {
-    x_step[i] = t[i];
-    u[i] = x_step[i];
-    int z = x_step[i];
-  }
-}
-*/

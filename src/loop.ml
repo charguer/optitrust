@@ -8,24 +8,19 @@ type rename = Variable.Rename.t
 (* [hoist ~name ~array_size tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
     transformation supports also undetached declarations contrary to the basic one. This is done by first checking if
     the declaration is detached or not. If it is not detached then we call another transformation that does the detachment for us. *)
-let hoist1_aux (name : var) (init_to_detach : trm option)
+let hoist1_aux (name : var)
+               (init_to_detach : trm option)
                (p : path) : unit = begin
   let detach_first =
     match init_to_detach with
-    | Some init -> begin
-        Printf.printf "hoist init: %s\n\n" (Ast_to_text.ast_to_string init);
-        (* ??? *)
-        false
-      end
+    | Some init -> 
+      not ((is_trm_uninitialized init) || (is_trm_new_uninitialized init))
     | None -> false
-    in
-    match detach_first with
-    | true ->
-      Variable_basic.init_detach (target_of_path p);
-      Loop_basic.hoist ~name (target_of_path p);
-    | false ->
-      Loop_basic.hoist ~name (target_of_path p);
-  end
+  in
+  if detach_first then
+    Variable_basic.init_detach (target_of_path p);
+  Loop_basic.hoist ~name (target_of_path p);
+end
 
 (* LATER/ deprecated *)
 let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
@@ -127,25 +122,54 @@ let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (t
  *)
 let hoist ?(name : string = "${var}_step${i}")
           ?(inline : bool = false) ?(nb_loops : int = 1) (tg : target) : unit =
+  let tmp_marks = ref [] in
   let rec aux name i (init_to_detach : trm option) (p : path) =
-    if i <= nb_loops then
-      let next_name = Tools.string_subst "${i}" (string_of_int i) name in
-      let _ = Printf.printf "next name: %s\n\n" next_name in
-      let _ = hoist1_aux next_name init_to_detach p in
-      let next_target = (target_of_path (fst (Xlist.unlast p))) @ [cVarDef next_name] in
-      if (i + 1 <= nb_loops) then
-        iter_on_targets (fun t p -> aux name (i + 1) None p) next_target
-    in
+    let next_name = Tools.string_subst "${i}" (string_of_int i) name in
+    let (instr_index, seq_path) = Path.index_in_seq p in
+    let seq_target = target_of_path seq_path in
+    let seq_mark = Mark.next () in
+    Marks.add seq_mark seq_target;
+    hoist1_aux next_name init_to_detach p;
+    tmp_marks := (seq_mark, instr_index) :: !tmp_marks;
+    let loop_path = snd (Path.index_in_surrounding_loop p) in
+    let next_target = (target_of_path loop_path) @ [cVarDef next_name] in
+    if (i + 1 <= nb_loops) then
+      iter_on_targets (fun t p -> aux name (i + 1) None p) next_target;
+  in
+  let simpl_access_after_inline (tg : target) : unit =
+    Target.iter (fun _t p_nested ->
+      let p = p_nested |> Path.parent in
+      Matrix_basic.simpl_access_of_access (target_of_path p);
+      Matrix_basic.simpl_index_add ((target_of_path p) @ [dArg 1]);
+      Arith.(simpl_rec gather_rec ((target_of_path p) @ [dArg 1]));
+    ) tg
+  in
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_let (_, (x, _), init) ->
-      let subs_name = (Tools.string_subst "${var}" x name) in
-      aux subs_name 1 (Some init) p
+      if 1 <= nb_loops then begin
+        let subs_name = Tools.string_subst "${var}" x name in
+        aux subs_name 1 (Some init) p;
+          List.iteri (fun i (seq_mark, instr_index) ->
+            if inline then
+              iter_on_targets (fun t loop_p ->
+                let instr_target = (target_of_path loop_p) @ [dSeqNth instr_index] in
+                if (i + 1) < nb_loops then begin
+                  Variable_basic.to_const instr_target;
+                  Marks.with_fresh_mark (fun mark ->
+                    Variable_basic.inline ~mark instr_target;
+                    simpl_access_after_inline [cMark mark]
+                  )
+                end else
+                  Variable_basic.inline instr_target
+              ) [cMark seq_mark];
+            Marks.remove seq_mark [cMark seq_mark];
+          ) !tmp_marks;
+        tmp_marks := []
+      end
     | _ -> fail tg_trm.loc "Loop.hoist: expected a variable declaration"
   ) tg
-    (* TODO: is this target precise enough? *)
-    (* if inline then Variable.inline [cVarDef name]; *)
 
 (* [fusion nb tg]: expects the target [tg] to point at a for loop followed by one or more
     for loops with the same range, start, step and bound but different bodies.

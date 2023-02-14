@@ -16,16 +16,17 @@ int main() {
 }
 "
 
+
 let _ = Run.script_cpp (fun () ->
 
   !! Loop_basic.hoist [cVarDef "x"];
   !! Loop_basic.hoist [cVarDef "z"];
+  !! Ast.assert_transfo_error "expected uninitialized allocation" (fun _ -> 
+    Loop_basic.hoist [cVarDef "w"]);
 
   !! Loop_basic.hoist ~name:"yn" [cVarDef "y"];
   !! Loop_basic.hoist ~name:"ym" [cVarDef "yn"];
   !! Loop_basic.hoist ~name:"yl" [cVarDef "ym"];
-
-  !! Arith_basic.(simpl_rec gather_rec) [cFunDef "main"];
 
   !!! ();
 )

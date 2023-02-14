@@ -1153,6 +1153,12 @@ let typ_ptr_inv (ty : typ) : typ option =
   | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} -> Some ty1
   | _ -> None
 
+(* [typ_const_ptr_inv ty]: get the inner type of a constant pointer *)
+let typ_const_ptr_inv (ty : typ) : typ option =
+  match ty.typ_desc with
+  | Typ_const ty2 -> typ_ptr_inv ty2
+  | _ -> None
+
 (* [typ_add_attribute att ty]: adds the attribute [att] to the type [ty] *)
 let typ_add_attribute (att : attribute)(ty : typ) : typ =
   {ty with typ_attributes = att :: ty.typ_attributes}
@@ -1183,6 +1189,10 @@ let fail (loc : location) (err : string) : 'a =
   | None -> raise (TransfoError err)
   | Some _ -> raise (TransfoError (loc_to_string loc ^ " : " ^ err))
 
+let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
+  try f () with
+  | TransfoError msg2 -> assert (msg = msg2)
+
 (* ********************************** Annotation manipulation ************************************ *)
 (**** Attributes  ****)
 
@@ -1207,6 +1217,11 @@ let apply_on_marks (f : marks -> marks) (t : trm) : trm =
 (* [trm_add_mark m]: adds mark [m] to the trm [t] *)
 let trm_add_mark (m : mark) (t : trm) : trm =
   if m = "" then t else apply_on_marks (fun marks -> m :: marks) t
+
+let trm_may_add_mark (mo : mark option) (t : trm) : trm =
+  match mo with
+  | Some m -> trm_add_mark m t
+  | None -> t
 
 (* [trm_filter_mark m t]: filters all marks that satisfy the predicate [pred]. *)
 let trm_filter_mark (pred : mark -> bool) (t : trm): trm =
@@ -3097,6 +3112,12 @@ let array_access (base : trm) (index : trm) : trm =
 let array_access_inv (t : trm) : (trm * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_},
+              [base;index]) -> Some (base, index)
+  | _ -> None
+
+let array_get_inv (t : trm) : (trm * trm) option =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_},
               [base;index]) -> Some (base, index)
   | _ -> None
 

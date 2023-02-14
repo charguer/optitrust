@@ -22,9 +22,10 @@ int main (){
 "
 
 let _ = Run.script_cpp (fun () ->
-  
   !! Loop.hoist [cFor "i"; cVarDef "x"];
-  !! Loop.hoist [cFor "j"; cVarDef "y"];
+  !! Loop.hoist ~inline:true [cFor "j"; cVarDef "y"];
   !! Loop.hoist [cFor "k"; cVarDef "x"];
-  !! Loop.hoist ~nb_loops:2 [cFor "l"; cVarDef "x"];
+  !! Loop.hoist ~nb_loops:2 ~inline:true [cFor "l"; cVarDef "x"];
+  !! Loop.hoist ~nb_loops:3 ~inline:true [cFor "a"; cVarDef "x"];
+  !!! ();
 )
