@@ -1,5 +1,4 @@
-
-#include <stdlib.h>
+#include "../../include/optitrust.h"
 
 // output: m.n.f
 //      a: m.o.f

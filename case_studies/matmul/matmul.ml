@@ -13,13 +13,10 @@ let _ = Run.script_cpp (fun () ->
   bigstep "---- compute 'bt' (transposed b) first ----";
 
   !! Variable_basic.bind "bt" [cFunDef "mm"; cArrayRead "b"];
-  !! Loop.hoist_old [cFunDef "mm"; cVarDef "bt"];
-  !! Loop.hoist_old [cFunDef "mm"; cVarDef "bt_step"];
-  !! Loop.move_out [cFunDef "mm"; cVarDef "bt_step_step"];
-  !! Instr.delete [cWriteVar "bt_step"];
-  !! Variable.inline [cFunDef "mm"; cVarDef "bt_step"];
-  !! Variable.inline [cFunDef "mm"; cVarDef "bt"];
-  !! Variable.rename ~into:"bt" [cFunDef "mm"; cVarDef "bt_step_step"];
+  (* TODO: version of hoist that does a final rename? *)
+  !! Loop.hoist ~nb_loops:2 ~inline:true [cFunDef "mm"; cVarDef "bt"];
+  !! Variable.rename ~into:"bt" [cFunDef "mm"; cVarDef "bt_step2"];
+  !! Loop.move_out [cFunDef "mm"; cVarDef "bt"];
 
   !! Loop.fission_all_instrs [cFunDef "mm"; cFor "k"];
   !! Instr.move ~dest:[tBefore; cVarDef "sum"] [cFunDef "mm"; cFor ~body:[sInstrRegexp "bt.* ="] "k"];
@@ -62,18 +59,9 @@ let _ = Run.script_cpp (fun () ->
   *)
   !! Loop.reorder ~order:["bi"; "bj"; "i"; "j"] (sum_loops @ [cFor "bi"]);
 
-  (* TODO: hoist_inline helper? *)
-  (* FIXME: hoist bugged without previous shift. array size + init, *)
-  (*        ~array_size:(Some (expr "32")) *)
-  (* TODO:
-  !! Loop.hoist ~inline:true ~nb_loops:2 [cFunDef "mm"; cVarDef "sum"];
-  *)
-  !! Loop.hoist_old (sum_loops @ [cVarDef "sum"]);
-  !! Loop.hoist_old (sum_loops @ [cVarDef "sum_step"]);
-  !! Instr.delete [cWriteVar "sum_step"];
-  !! Variable.inline (sum_loops @ [cVarDef "sum_step"]);
-  !! Variable.inline (sum_loops @ [cVarDef "sum"]);
-  !! Variable.rename ~into:"sum" (sum_loops @ [cVarDef "sum_step_step"]);
+  (* TODO: version of hoist that does a final rename? *)
+  !! Loop.hoist ~nb_loops:2 ~inline:true (sum_loops @ [cVarDef "sum"]);
+  !! Variable.rename ~into:"sum" (sum_loops @ [cVarDef "sum_step2"]);
 
   bigstep "---- reorder bt and sum loops ----";
 
