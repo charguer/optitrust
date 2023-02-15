@@ -1116,6 +1116,11 @@ let typ_of_lit (l : lit) : typ option =
 let trm_lit ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (l : lit) : trm =
   trm_val ~annot:annot ~loc ~ctx ~typ:(typ_of_lit l) (Val_lit l)
 
+let trm_bool (b : bool) = trm_lit (Lit_bool b)
+let trm_int (i : int) = trm_lit (Lit_int i)
+let trm_double (d : float) = trm_lit (Lit_double d)
+let trm_sring (s : string) = trm_lit (Lit_string s)
+
 (* [trm_null ~annot ~loc ~ctx ()]: build the term [nullptr], or [NULL] if [~uppercase:true]
    (also used for [void* 0] by Menhir, but decoded in cMenhir_to_ast)  *)
 let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =

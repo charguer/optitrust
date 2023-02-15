@@ -34,7 +34,9 @@ let color (nb_colors : trm) ?(index : var option) : Transfo.t =
    It produces:
    [for (int index = 0; index < stop; index += tile_size) {
       for (int i = index; i < min(X, bx+B); i++) { body }]. *)
-let tile ?(index : var = "b${id}") ?(bound : tile_bound = TileBoundMin) (tile_size : trm) : Transfo.t =
+let tile ?(index : var = "b${id}")
+         ?(bound : tile_bound = TileBoundMin) 
+         (tile_size : trm) : Transfo.t =
   apply_on_targets (Loop_core.tile index bound tile_size)
 
 (* [hoist x_step tg]: expects [tg] to point at a variable declaration inside a
@@ -294,7 +296,7 @@ let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
   let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
   let body_terms = trm_inv ~error trm_seq_inv body in
   let (start', shift) = match kind with
-  | ToZero -> ((trm_lit (Lit_int 0)), trm_minus start)
+  | ToZero -> (trm_int 0, trm_minus start)
   | Add s -> (trm_add start s, s)
   in
   let stop' = trm_add stop shift in

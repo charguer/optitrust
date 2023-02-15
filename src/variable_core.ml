@@ -374,9 +374,11 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (i
   match t.desc with
   | Trm_seq tl ->
     let f_update (t : trm) : trm =
-      Printf.printf "----\n";
       let targeted_node = Path.resolve_path p_local t in
+      (* 
+      Printf.printf "----\n";
       Printf.printf "targeted_node: %s\n" (AstC_to_c.ast_to_string targeted_node);
+      *)
       let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
       let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
       let node_type = match targeted_node.typ with
@@ -384,8 +386,10 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (i
       | _ -> typ_auto()
        in
       let replacement_node = (trm_var_possibly_mut ~const ~typ:(Some node_type) fresh_name) in
+      (*
       Printf.printf "replacement_node: %s\n" (AstC_to_c.ast_to_string replacement_node);
       Printf.printf "t: %s\n" (AstC_to_c.ast_to_string t);
+      *)
       let node_to_change = Internal.change_trm targeted_node replacement_node t in
       let targeted_node = trm_add_mark my_mark targeted_node in
       let decl_to_insert =
@@ -402,21 +406,21 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (i
           else
             trm_let_array Var_mutable (fresh_name, node_type) (Const sz) targeted_node
       | _ ->
+        (*
         Printf.printf "not array\n";
         Printf.printf "node_type: %s\n" (AstC_to_c.typ_to_string node_type);
+        *)
         let node_type = if is_ptr then typ_ptr Ptr_kind_mut node_type else node_type in
-        Printf.printf "is_ptr: %s\n" (string_of_bool is_ptr);
-        Printf.printf "node_type 2: %s\n" (AstC_to_c.typ_to_string node_type);
         let node_type = begin match typ with | Some ty -> ty | _ -> node_type end in
-        Printf.printf "node_type 3: %s\n" (AstC_to_c.typ_to_string node_type);
-        Printf.printf "node_type 3: %s\n" (Ast_to_text.typ_to_string node_type);
         if const
           then trm_let_immut (fresh_name, node_type) targeted_node
           else trm_let_mut (fresh_name, node_type) targeted_node
       end in
+      (*
       Printf.printf "decl_to_insert: %s\n" (AstC_to_c.ast_to_string decl_to_insert);
       Printf.printf "node_to_change: %s\n" (AstC_to_c.ast_to_string node_to_change);
       Printf.printf "----\n";
+      *)
       trm_seq_no_brace [decl_to_insert; node_to_change]
     in
     let new_tl = Mlist.update_nth index f_update tl in
