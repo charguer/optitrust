@@ -126,10 +126,11 @@ let elim (tg : Target.target) : unit =
         used only for internal purposes.
     [mark] - denotes the mark of the sub-sequence. Targeting sequences can be challanging hence having
           them marked before can make the apllication of the transformations easier. *)
-let intro_on_instr ?(mark : mark = "") ?(visible : bool = true) : Target.Transfo.t =
+let intro_on_instr ?(mark : mark = "")
+                   ?(label : label = "")
+                   ?(visible : bool = true) : Target.Transfo.t =
    if not visible then Internal.nobrace_enter();
-   Target.apply_on_targets (Sequence_core.intro_on_instr visible mark)
-
+   Target.apply_on_targets (Sequence_core.intro_on_instr visible mark label)
 
 (* [elim_on_instr tg]: expects the target [tg] to point at a sequence that contains a single instruction,
     then it removes that sequence. *)
