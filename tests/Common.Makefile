@@ -78,6 +78,9 @@ all: $(TARGET_MAKE_ALL)
 # 'make f' forces clean before 'make all'
 f: clean all
 
+# 'make trace': produces the html traces
+trace: $(TESTS:.ml=_trace.html)
+
 # 'make transfo' executes all the transformations
 transfo: $(TESTS:.ml=_out.cpp)
 

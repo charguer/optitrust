@@ -589,8 +589,12 @@ let language_of_extension (extension:string) : language =
   | _ -> fail None ("Trace.language_of_extension: unknown extension " ^ extension)
 
 (* [get_language ()]: get the language *)
-let get_language () =
+let get_language () : language =
   language_of_extension the_trace.context.extension
+
+(* [get_language ()]: get the includes directive *)
+let get_includes () : string =
+  the_trace.context.includes
 
 (* [output_prog ctx prefix ast]: writes the program described by the term [ast]
    in several files:
