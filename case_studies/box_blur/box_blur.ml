@@ -14,7 +14,7 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "---- vector parallelism ----";
 
-  !! Loop.tile (by vector_size) ~index:"bx" ~bound:TileBoundDivides [nbMulti; cFunDef "blur"; cFor "x"];
+  !! Loop.tile (by vector_size) ~index:"bx" ~bound:TileDivides [nbMulti; cFunDef "blur"; cFor "x"];
   !! Omp.header ();
   !! Omp.simd [nbMulti; cFunDef "blur"; cFor "x"];
 

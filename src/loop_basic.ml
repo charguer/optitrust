@@ -29,7 +29,7 @@ let color (nb_colors : trm) ?(index : var option) : Transfo.t =
    [bound] - can be one of
       - TileBoundMin: generates a constraint of the form  [i < min(X, bx+B)]
       - TileBoundAnd: generates a constraint of the form [i <  X && i < bx+B]
-      - TileBoundDivides: generates a constraint of the form [i < X], which is only true if B divides X
+      - TileDivides: generates a constraint of the form [i < X], which is only true if B divides X
 
    It produces:
    [for (int index = 0; index < stop; index += tile_size) {

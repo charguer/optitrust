@@ -2278,7 +2278,7 @@ let is_typ_const (ty : typ) : bool =
   | _ -> false
 
 (* [tile_bound]: used for loop tiling transformation *)
-type tile_bound = TileBoundMin | TileBoundAnd | TileBoundDivides
+type tile_bound = TileBoundMin | TileBoundAnd | TileDivides
 
 (* [Nobrace]: module for managing nobrace sequences(hidden sequences), these sequence are visible only at the AST level *)
 module Nobrace = struct

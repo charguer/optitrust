@@ -69,7 +69,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
      let tile_bound =
      trm_apps (trm_var "min") [stop; tile_bound] in
      trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
-   | TileBoundDivides ->
+   | TileDivides ->
      trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
    | TileBoundAnd ->
      let init = trm_let_mut (index, typ_int ()) (trm_var tile_index) in

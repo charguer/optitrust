@@ -258,7 +258,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
   bigstep "Decompose the loop to allow for parallelization per blocks";
   !! Variable.insert_list_same_type (ty "const int") [("block", lit "2"); ("halfBlock", (lit "1"))] [tBefore; cVarDef "nbCells"];
   !! iter_dims (fun d -> let index = "b"^d in
-      Loop.tile (var_mut "block") ~bound:TileBoundDivides ~index [step; cFor ("i"^d)];
+      Loop.tile (var_mut "block") ~bound:TileDivides ~index [step; cFor ("i"^d)];
       Loop.color (lit "2") ~index:("c"^d) [step; cFor index] );
   !! Loop.reorder ~order:Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ idims) [step; cFor "cX"];
   (* TODO: Fix thes issue with label passing *)

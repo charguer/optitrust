@@ -35,7 +35,7 @@ TVM CPU scheduling: https://tvm.d2l.ai/chapter_cpu_schedules/.
 TVM GPU scheduling: https://tvm.d2l.ai/chapter_gpu_schedules/.
 Includes matrix multiplication, convolution, packaed convolution, depthwise convolution, pooling, batch normalization.
 
-- [Matrix Multiplication](matmul) corresponding to TVM's schedule. Interesting variation for DL: `ReLu(MM(tanh(A), transpose(B)))`, as in this [Rise version](https://github.com/rise-lang/shine/blob/89545f3a326405d8715d704ff3bcd848515f1a4f/src/main/scala/apps/neuralNetworkPieces.scala). Transposed batched matrix multiplication. Grouped Convolutions, Multi-Layer Perception, see Tensor Comprehensions paper. Sparse MM? im2col convolution to MM transformation?
+- [Matrix Multiplication](matmul) corresponding to [TVM's schedule](https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html). Interesting variation for DL: `ReLu(MM(tanh(A), transpose(B)))`, as in this [Rise version](https://github.com/rise-lang/shine/blob/89545f3a326405d8715d704ff3bcd848515f1a4f/src/main/scala/apps/neuralNetworkPieces.scala). Transposed batched matrix multiplication. Grouped Convolutions, Multi-Layer Perception, see Tensor Comprehensions paper. Sparse MM? im2col convolution to MM transformation?
 
 - *ResNet50?*, a 50-layer networks: 48 convolutions, one MaxPool, one average pool. Pooling uses max/avg to reduce tiles of input.
 
