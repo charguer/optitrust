@@ -1,3 +1,4 @@
+#include "matmul.h"
 #include "../../include/optitrust.h"
 
 /* Multiplies the matrix A (dim m x p) by the matrix B (dim p x n),
@@ -24,7 +25,7 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
     }
   }
 }
-
+/*
 int main() {
   const int M = 1024;
   const int N = 1024;
@@ -46,3 +47,4 @@ int main() {
 
   return 0;
 }
+*/

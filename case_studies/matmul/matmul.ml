@@ -25,6 +25,11 @@ let _ = Run.script_cpp (fun () ->
   (* TODO: 6 following steps could be done by a single hoisting that would also hoist
            the computation of the init value, not just the allocated storage.
 
+    Loop.hoist_alloc [0; 1; 1] [cFunDef "mm"; cVarDef "Bt"];
+    Loop.hoist_instr [0; 1; 1] [cFunDef "mm"; cArrayWrite "Bt"];
+
+    think about hoist/move_out terminology
+
     Loop.hoist_with_init [0; 1; 1] [cFunDef "mm"; cVarDef "Bt"];
 
     0 = move_out both storage and init
@@ -60,20 +65,13 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.hoist ~nb_loops:2 [cLabel "C"; cVarDef "sum"];
   !! Loop.fission_all_instrs ~nb_loops:2 [cLabel "C"; cFor "i"];
   !! Loop.reorder ~order:["bk"; "i"; "k"; "j"]
-       [cLabel "C"; cFor ~body:[sExpr"+="] "i"];
+       [cLabel "C"; cFor ~body:[sExpr "+="] "i"];
         (* TODO même idée qu'avant : introduire des labels lors de la fission:
             !! Loop.fission_all_instrs ~label:"i${occ}" ~nb_loops:2 [cLabel "C"; cFor "i"];
             !! Loop.reorder ~order:["bk"; "i"; "k"; "j"] [cLabel "i2"]  *)
 
 
   bigstep "unroll loops and introduce parallelism";
-  !! Loop.unroll [cLabel "C"; cFor ~body:[sExpr"+="] "k"];
-  !! Omp.simd [nbMulti; cFor "j"];
-  !! Omp.parallel_for [cOr [[cLabel "Bt"; cFor "bj"]; [cLabel "C"; cFor "bi"] ]];
-  (* TODO: clash to avoid if possible: label C when there is an argument named C *)
-
-  !! Sequence.elim [nbMulti; cLabel ""];
-  (*DEPRECATED!! Sequence.elim [cOr [[cLabel "Bt"]; [cLabel "C"]]];*)
 
   !! Rewrite.equiv_at ~ctx:true "int n, m, i, j; ==> MINDEX2(n, m, i, j) == (n * i + j)" [nbMulti; cMindex ()];
   (* Note: if we don't do the inlining above, vectorization will probably not work, with gcc in particular
@@ -84,8 +82,19 @@ let _ = Run.script_cpp (fun () ->
     !! Function.inline [nbMulti; cMindex ()];
       --using occFirst does not help either.
     and even if it did work it would be very inefficient
-
   *)
+
+  (*
+  TODO: allocate one per thread, outside of loop? or use stack.
+  !! Loop.move_out ~upto:"bi" [cVarDef "sum"];
+  *)
+  !! Loop.unroll [cLabel "C"; cFor ~body:[sInstr"+="] "k"];
+  !! Omp.simd [nbMulti; cFor "j"];
+  !! Omp.parallel_for [cOr [[cLabel "Bt"; cFor "bj"]; [cLabel "C"; cFor "bi"] ]];
+  (* TODO: clash to avoid if possible: label C when there is an argument named C *)
+
+  !! Sequence.elim [nbMulti; cLabel ""];
+  (*DEPRECATED!! Sequence.elim [cOr [[cLabel "Bt"]; [cLabel "C"]]];*)
 
   (*
     TODO:
@@ -98,7 +107,7 @@ let _ = Run.script_cpp (fun () ->
      - replace 'sExpr"+="' constraints with labels?
      - replace 'Sequence.intro_on_instr' with a 'Loop.add_label'?
        but it adds a sequence, not just a label, otherwise could use a 'Label.add'.
-w    NOTES:
+    NOTES:
     - the loop nest is not 'perfect' enough for Halide/TVM-like reorder:
       - 'blocking'
       !! Loop.reorder ~order:["bi"; "bj"; "bk"; "i"; "j"; "k"] [cFor "bi"];
