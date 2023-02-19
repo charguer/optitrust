@@ -54,6 +54,7 @@ let _ = Run.script_cpp (fun () ->
   (* DEPRECATED !! Sequence.intro_on_instr ~label:"C" [cFor ~body:[cVarDef "sum"] "i"]; *)
   !! Loop.tile (trm_int 32) ~index:"bj" ~bound:TileDivides [cLabel "Bt"; cFor "j"];
   !! Loop.reorder ~order:["bj"; "k"; "j"] [cLabel "Bt"; cFor "bj"];
+  (* TODO: need to propagate blocking to storage layout as well *)
 
   bigstep "apply blocking in the main computation of the product matrix";
   (* TODO:  Loop.multi_tile (trm_int size) ~index:"b${index}" ~bound:TileDivides
@@ -73,7 +74,7 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "unroll loops and introduce parallelism";
 
-  !! Rewrite.equiv_at ~ctx:true "int n, m, i, j; ==> MINDEX2(n, m, i, j) == (n * i + j)" [nbMulti; cMindex ()];
+  !! Rewrite.equiv_at ~ctx:true "int n, m, i, j; ==> MINDEX2(n, m, i, j) == (i * m + j)" [nbMulti; cMindex ()];
   (* Note: if we don't do the inlining above, vectorization will probably not work, with gcc in particular
     TODO: we could have a function Matrix.elim_mops, symmetrix to Matrix.intro_mops,
     that would generate the formulae for the accesses directly;

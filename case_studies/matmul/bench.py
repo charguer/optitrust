@@ -36,9 +36,10 @@ def run_mm_ref():
   C_ref[0] = numpy.matmul(A, B)
 
 def benchmark(msg, f):
-  n_bench = 5
+  n_bench = 10
   durations = timeit.repeat(f, repeat=n_bench, number=1)
-  print("{:<25}: {:.6f}s (median over {} runs)".format(msg, median(durations), n_bench))
+  print("{:<25}: {:.4f}s median, range [{:.4f}; {:.4f}]s over {} runs".format(
+    msg, median(durations), min(durations), max(durations), n_bench))
 
 if implementation_given:
   def run_mm():
@@ -49,7 +50,8 @@ if implementation_given:
   run_mm_ref()
   numpy.testing.assert_allclose(C, C_ref[0], rtol=1e-5, equal_nan=False)
 else:
-  target = "llvm"
+  # -mcpu=core-avx2
+  target = "llvm -mcpu=core-avx2"
   dev = tvm.device(target, 0)
   c = tvm.nd.array(C, dev)
   a = tvm.nd.array(A, dev)
