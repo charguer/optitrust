@@ -49,6 +49,7 @@ TESTS_WITH_DOC := \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
+	matrix_simpl.ml \
 	matrix_delocalize.ml \
 	matrix_insert_alloc_dim.ml \
 	matrix_intro_calloc.ml \

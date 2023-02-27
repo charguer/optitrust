@@ -2,82 +2,117 @@ open Optitrust
 open Target
 open Ast
 
-let foreach (_doc : string) (l : 'a list) (f: 'a -> unit) : unit =
+(* Reproducing a TVM schedule from:
+   https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html *)
+
+(* FIXME:
+   1. seems weird
+   2. also triggers on writes? *)
+let cArrayRead (x : var) : constr =
+  cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()
+
+let cArrayWrite (x : var) : constr =
+  cWrite ~lhs:[cCellAccess ~base:[cVar x] ()] ()
+
+let foreach (l : 'a list) (f: 'a -> unit) : unit =
   List.iter f l
 
+ (* LATER:  can use  ~inline:["../../include/optitrust.h"]  to inline MINDEX ops, but it does not work yet *)
+
 let _ = Run.script_cpp (fun () ->
-  (* TODO: avoid regexp? *)
-  (* !! Variable_basic.bind "bt" [sExprRegexp "b\\[.*\\]"]; *)
+  bigstep "precompute the transposed of B";
+  !! Variable_basic.bind "Bt" [cArrayRead "B"];
+  (* TODO: 6 following steps could be done by a single hoisting that would also hoist
+           the computation of the init value, not just the allocated storage.
 
-  bigstep "---- split i/j/k loops ----";
-   
-  !! foreach "splits" [(32, "i"); (32, "j"); (4, "k")] (fun (size, index) ->
-    Loop_basic.tile (lit (string_of_int size)) ~index:("b" ^ index) ~bound:TileBoundDivides [cFunDef "mm"; cFor index]
-  );
+    Loop.hoist_alloc [0; 1; 1] [cFunDef "mm"; cVarDef "Bt"];
+    Loop.hoist_instr [0; 1; 1] [cFunDef "mm"; cArrayWrite "Bt"];
 
-  (* FIXME: need explicit reparse for types *)
-  !!! foreach "to_shift" ["i"; "j"; "k"] (fun index ->
-    Loop.shift_to_zero ~inline:true [cFunDef "mm"; cFor index]
-  );
+    think about hoist/move_out terminology
 
-  bigstep "---- hoist sum out of i/j loops ----";
+    Loop.hoist_with_init [0; 1; 1] [cFunDef "mm"; cVarDef "Bt"];
 
-  (* -- Reorder Loops -- *)
-  (* DISCUSS: The loop nest is not 'perfect' enough for:
-  - 'blocking'
-  !! Loop.reorder ~order:["bi"; "bj"; "bk"; "i"; "j"; "k"] [cFor "bi"];
-  - 'loop-perm'
-  !! Loop.reorder ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cFor "bi"];
+    0 = move_out both storage and init
+    1 = hoist storage and use move + fission to hoist init
+    *)
+  !! Loop.hoist ~nb_loops:2 [cVarDef "Bt"];
+  !! Loop.move_out [cVarDef "Bt"];
+  !! Loop.fission_all_instrs [cFor "k"];
+  !! Instr.move ~dest:[tAfter; occFirst; cFor "k"] [cVarDef "sum"];
+  (* DEPRECATED !! Instr.move ~dest:[tBefore; cVarDef "sum"] [cFor ~body:[cArrayWrite "Bt"] "k"]; *)
+  !! Loop.fission [tBefore; cVarDef "sum"];
+          (* TODO: idée : introduire des labels lors de la fission:
+            !!Loop.fission ~label:"j${occ}"  [tBefore; cVarDef "sum"];
+            !! Loop.reorder ~order:["bk"; "i"; "k"; "j"] [cLabel "j1"]  *)
+  !! Sequence.intro_on_instr ~label:"Bt" [occFirst; cFor "j"]; (* alternative: cFor ~body:[cArrayWrite "Bt"] "j"  *)
+  !! Loop.move_out [cLabel "Bt"];
+  (* DEPRECATED !! Loop.move_out [cFor ~body:[cArrayWrite "Bt"] "j"]; *)
+
+  bigstep "apply blocking in the computation of the transposed of B";
+  (* DEPRECATED !! Sequence.intro_on_instr ~label:"Bt" [cFor ~body:[cArrayWrite "Bt"] "j"]; *)
+  !! Sequence.intro_on_instr ~label:"C" [cFor "i"];
+  (* DEPRECATED !! Sequence.intro_on_instr ~label:"C" [cFor ~body:[cVarDef "sum"] "i"]; *)
+  !! Loop.tile (trm_int 32) ~index:"bj" ~bound:TileDivides [cLabel "Bt"; cFor "j"];
+  !! Loop.reorder ~order:["bj"; "k"; "j"] [cLabel "Bt"; cFor "bj"];
+  (* TODO: need to propagate blocking to storage layout as well *)
+
+  bigstep "apply blocking in the main computation of the product matrix";
+  (* TODO:  Loop.multi_tile (trm_int size) ~index:"b${index}" ~bound:TileDivides
+              [("i", 32); ("j", 32); ("k", 4)] [cLabel "C"; cFor index_to_split] *)
+  !! foreach [("i", 32); ("j", 32); ("k", 4)] (fun (index_to_split, size) ->
+    Loop.tile (trm_int size) ~index:("b" ^ index_to_split)
+      ~bound:TileDivides [cLabel "C"; cFor index_to_split]);
+  !! Loop.reorder ~order:["bi"; "bj"; "i"; "j"] [cLabel "C"; cFor "bi"];
+  !! Loop.hoist ~nb_loops:2 [cLabel "C"; cVarDef "sum"];
+  !! Loop.fission_all_instrs ~nb_loops:2 [cLabel "C"; cFor "i"];
+  !! Loop.reorder ~order:["bk"; "i"; "k"; "j"]
+       [cLabel "C"; cFor ~body:[sExpr "+="] "i"];
+        (* TODO même idée qu'avant : introduire des labels lors de la fission:
+            !! Loop.fission_all_instrs ~label:"i${occ}" ~nb_loops:2 [cLabel "C"; cFor "i"];
+            !! Loop.reorder ~order:["bk"; "i"; "k"; "j"] [cLabel "i2"]  *)
+
+
+  bigstep "unroll loops and introduce parallelism";
+
+  !! Rewrite.equiv_at ~ctx:true "int n, m, i, j; ==> MINDEX2(n, m, i, j) == (i * m + j)" [nbMulti; cMindex ()];
+  (* Note: if we don't do the inlining above, vectorization will probably not work, with gcc in particular
+    TODO: we could have a function Matrix.elim_mops, symmetrix to Matrix.intro_mops,
+    that would generate the formulae for the accesses directly;
+
+    note the inline that we use in pic_demo does not work:
+    !! Function.inline [nbMulti; cMindex ()];
+      --using occFirst does not help either.
+    and even if it did work it would be very inefficient
   *)
-  !! Loop.reorder ~order:["bi"; "bj"; "i"; "j"] [cFunDef "mm"; cFor "bi"];
 
-  (* TODO: hoist_inline helper? *)
-  (* FIXME: hoist bugged without previous shift. array size + init, *)
-  (*        ~array_size:(Some (expr "32")) *)
-  (* TODO:
-  !! Loop.hoist ~inline:true ~nb_loops:2 [cFunDef "mm"; cVarDef "sum"];
+  (*
+  TODO: allocate one per thread, outside of loop? or use stack.
+  !! Loop.move_out ~upto:"bi" [cVarDef "sum"];
   *)
-  !! Loop.hoist_old [cFunDef "mm"; cVarDef "sum"];
-  !! Loop.hoist_old [cFunDef "mm"; cVarDef "sum_step"];
-  !! Instr.delete [cWriteVar "sum_step"];
-  !! Variable.inline [cFunDef "mm"; cVarDef "sum_step"];
-  !! Variable.inline [cFunDef "mm"; cVarDef "sum"];
-  !! Variable.rename ~into:"sum" [cFunDef "mm"; cVarDef "sum_step_step"];
+  !! Loop.unroll [cLabel "C"; cFor ~body:[sInstr"+="] "k"];
+  !! Omp.simd [nbMulti; cFor "j"];
+  !! Omp.parallel_for [cOr [[cLabel "Bt"; cFor "bj"]; [cLabel "C"; cFor "bi"] ]];
+  (* TODO: clash to avoid if possible: label C when there is an argument named C *)
 
-  bigstep "---- reorder sum loops ----";
+  !! Sequence.elim [nbMulti; cLabel ""];
+  (*DEPRECATED!! Sequence.elim [cOr [[cLabel "Bt"]; [cLabel "C"]]];*)
 
-  !! Loop.fission_all_instrs ~nb_loops:2 [cFunDef "mm"; cFor "i"];
-
-  (* TODO: cleanup reorder and move implementations *)
-  !! Loop.reorder ~order:["bk"; "i"; "k"; "j"] [cFunDef "mm"; cFor ~body:[sExpr"+="] "i"];
-  (* same as:
-  !! Loop.swap [cFunDef "mm"; cFor "i"; cFor ~body:[sExpr"+="] "j"];
-  !! Loop.swap [cFunDef "mm"; cFor ~body:[sExpr"+="] "i"];
-  !! Loop.swap [cFunDef "mm"; cFor ~body:[sExpr"+="] "j"];
-  *)
-
-  (* TODO *)
-  (* -- Array Packing -- *)
-  (* Store Temporary Array (alloc + copy loops) *)
-  (* replace x := a[i] * 2 by x := t[i] *)
-  (* Variable.bind? t = x * 2; hoist t *)
-  (* insert new array + bind to it *)
-
-  bigstep "---- unroll sum loops on blocks of k ----";
-
-  (* -- Loop Unroll -- *)
-  (* TODO: unroll without requiring shift? *)
-  (* !! Loop.shift_to_zero ~inline:true [cFunDef "mm"; cFor "k"]; *)
-  !! Loop.unroll [cFunDef "mm"; cFor ~body:[sExpr"+="] "k"];
-
-  bigstep "---- introduce vector and thread parallelism ----";
-
-  (* FIXME: does not work before unroll *)
-  (* -- Vectorize -- *)
-  !! Omp.header ();
-  !! Omp.simd [nbMulti; cFunDef "mm"; cFor "j"];
-
-  (* -- Multi-thread -- *)
-  !! Omp.parallel_for [cFunDef "mm"; cFor "bi"];
-  (* show [cFunDef "main"]; *)
+  (*
+    TODO:
+     - allow unrolling without requiring shift?
+     - allow SIMD before unroll
+     - avoid requiring an explicit reparse to get types for shift_to_zero
+     - convenient combination of loop hoist / move out depending on static analysis
+     - allow using marks for 'sum_loops' and 'bt_loops'
+     - define 'Loop.multi_tile' to replace foreach?
+     - replace 'sExpr"+="' constraints with labels?
+     - replace 'Sequence.intro_on_instr' with a 'Loop.add_label'?
+       but it adds a sequence, not just a label, otherwise could use a 'Label.add'.
+    NOTES:
+    - the loop nest is not 'perfect' enough for Halide/TVM-like reorder:
+      - 'blocking'
+      !! Loop.reorder ~order:["bi"; "bj"; "bk"; "i"; "j"; "k"] [cFor "bi"];
+      - 'loop-perm'
+      !! Loop.reorder ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cFor "bi"];
+    *)
 )

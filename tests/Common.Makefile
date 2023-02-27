@@ -38,7 +38,7 @@ TESTS ?= $(filter-out $(wildcard *with_lines.ml), $(filter-out $(EXCLUDE_TESTS),
 TESTS_WITH_DOC ?= $(TESTS)
 
 # List of ml files for which the cpp files should be compiled
-COMPILE ?= $(TESTS)f
+COMPILE ?= $(TESTS)
 
 # List of ml files for which the cpp files should be executed for comparison
 EXECUTE ?= $(COMPILE)
@@ -77,6 +77,9 @@ all: $(TARGET_MAKE_ALL)
 
 # 'make f' forces clean before 'make all'
 f: clean all
+
+# 'make trace': produces the html traces
+trace: $(TESTS:.ml=_trace.html)
 
 # 'make transfo' executes all the transformations
 transfo: $(TESTS:.ml=_out.cpp)

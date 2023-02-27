@@ -1,0 +1,3 @@
+(executable
+  (name box_blur)
+  (libraries optitrust))

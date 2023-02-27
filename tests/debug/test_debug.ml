@@ -43,9 +43,9 @@ let _ = Run.script_cpp (fun () ->
    bigstep "matrix";
 
    (* -- Split Loops -- *)
-   !! Loop_basic.tile (lit "32") ~index:"bi" ~bound:TileBoundDivides [cFunDef "mm"; cFor "i"];
-   !! Loop_basic.tile (lit "32") ~index:"bj" ~bound:TileBoundDivides [cFunDef "mm"; cFor "j"];
-   !! Loop_basic.tile (lit "4") ~index:"bk" ~bound:TileBoundDivides [cFunDef "mm"; cFor "k"];
+   !! Loop_basic.tile (lit "32") ~index:"bi" ~bound:TileDivides [cFunDef "mm"; cFor "i"];
+   !! Loop_basic.tile (lit "32") ~index:"bj" ~bound:TileDivides [cFunDef "mm"; cFor "j"];
+   !! Loop_basic.tile (lit "4") ~index:"bk" ~bound:TileDivides [cFunDef "mm"; cFor "k"];
 
    (* FIXME: need explicit reparse for types *)
    !!! Loop.shift_to_zero ~inline:true [cFunDef "mm"; cFor "i"];

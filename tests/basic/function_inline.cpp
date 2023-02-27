@@ -33,6 +33,7 @@ void test_fun(){
   m(q);
   int result;
   result = 10;
+  // FIXME: bugged
   result = k(result, 4);
 }
 

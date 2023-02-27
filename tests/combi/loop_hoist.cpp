@@ -10,13 +10,13 @@ int main() {
     int z = x;
   }
 
-  for (int j = 0; j < 10; j++) {
+  for (int j = 2; j < 10; j++) {
     int y = t[j];
     u[j] = y + 1;
     y = u[j];
   }
   int total = 0;
-  for (int k = 0; k < 10; k++) {
+  for (int k = 3; k < 7; k += 2) {
     int a = k + 1;
     int x = a + 1;
     int y = x + 1;
@@ -28,8 +28,18 @@ int main() {
       int x = l + m;
     }
   }
-}
 
+  for (int a = 0; a < 8; a++) {
+    int y = 0;
+    for (int b = 0; b < 5; b++) {
+      for (int c = 0; c < 2; c++) {
+        int x = a + b + c;
+      }
+      int z = 0;
+    }
+  }
+}
+/*
 int test1() {
     for (int l = 0; l < 5; l++) {
       for (int m = 0; m < 2; m++) {
@@ -70,23 +80,7 @@ int test4() {
     }
   }
 }
-
-
-int test3D() {
-  int* x_step_ter = (int*) MALLOC3(9, 5, 2, sizeof(int));
-  for (int n = 0; n < 9; n++) {
-    // int* x_step_bis = (int*) MALLOC2(5, 2, sizeof(int));
-    int* x_step_bis = &x_step_ter[MINDEX3(9, 5, 2, n, 0, 0)];
-    for (int l = 0; l < 5; l++) {
-      int* x_step = &x_step_bis[MINDEX2(5, 2, l, 0)];
-      // int* x_step = MREF2(x_step_bis, 5, 2, l, 0);
-      for (int m = 0; m < 2; m++) {
-        int& x = x_step[MINDEX1(2, m)];
-        x = 0;
-      }
-    }
-  }
-}
+*/
 
 // Variable.inline simplification
 

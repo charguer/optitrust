@@ -70,13 +70,14 @@ let elim : Transfo.local =
     [mark] - mark to be added on the introduced sequence,
     [visible] - a flag on the visibility of the introduced sequence,
     [t] - any trm. *)
-let intro_on_instr_aux (mark : mark) (visible : bool) (t : trm) : trm =
+let intro_on_instr_aux (mark : mark) (label : label) (visible : bool) (t : trm) : trm =
   let wrapped_seq = if visible then trm_seq_nomarks [t] else trm_seq_no_brace [t] in
-  if mark <> "" then trm_add_mark mark wrapped_seq  else wrapped_seq
+  let marked_seq = if mark <> "" then trm_add_mark mark wrapped_seq  else wrapped_seq in
+  if label <> "" then trm_add_label label marked_seq else marked_seq
 
 (* [intro_on_instr visible mark t p]: applies [intro_on_instr_aux] at trm [t] with path [p]. *)
-let intro_on_instr (visible : bool) (mark : mark) : Transfo.local=
-  apply_on_path (intro_on_instr_aux mark visible)
+let intro_on_instr (visible : bool) (mark : mark) (label : label) : Transfo.local=
+  apply_on_path (intro_on_instr_aux mark label visible)
 
 (* [unwrap_aux t]: the opposite of [intro_on_instr_aux]
      [t] - a term that corresponds to a sequence with a single item in t. *)

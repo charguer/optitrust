@@ -1,40 +1,50 @@
+#include "matmul.h"
+#include "../../include/optitrust.h"
 
-#include <stdlib.h>
-
-// output: m.n.f
-//      a: m.o.f
-//      b: o.n.f
-void mm(float* output, float* a, float* b, int m, int n, int o) {
+/* Multiplies the matrix A (dim m x p) by the matrix B (dim p x n),
+ * and writes the result in the matrix C (dim m x n):
+ *   C = A * B
+ */
+void mm(float* C, float* A, float* B, int m, int n, int p) {
+// C -> matrix2
+// A ->^R matrix2
+// B ->^R matrix2
+// modifies
+//   C -> matrix2
+// reads
+//   A, B -> array
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       float sum = 0.0f;
-      for (int k = 0; k < o; k++) {
-        sum += a[k + (o * i)] * b[j + (n * k)];
+      // sum -> cell
+      for (int k = 0; k < p; k++) {
+        sum += A[k + (p * i)] * B[j + (n * k)];
       }
 
-      output[(j + (n * i))] = sum;
+      C[(j + (n * i))] = sum;
     }
   }
 }
-
+/*
 int main() {
   const int M = 1024;
   const int N = 1024;
-  const int O = 1024;
+  const int P = 1024;
   
-  float* output = (float*) calloc(M * N, sizeof(float));
-  float* a = (float*) malloc(M * O * sizeof(float));
-  float* b = (float*) malloc(O * N * sizeof(float));
+  float* C = (float*) calloc(M * N, sizeof(float));
+  float* A = (float*) malloc(M * P * sizeof(float));
+  float* B = (float*) malloc(P * N * sizeof(float));
 
   // TODO: init?
 
-  mm(output, a, b, M, N, O);
+  mm(C, A, B, M, N, P);
 
   // TODO: check result?
 
-  free(output);
-  free(a);
-  free(b);
+  free(C);
+  free(A);
+  free(B);
 
   return 0;
 }
+*/

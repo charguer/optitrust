@@ -1116,6 +1116,11 @@ let typ_of_lit (l : lit) : typ option =
 let trm_lit ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (l : lit) : trm =
   trm_val ~annot:annot ~loc ~ctx ~typ:(typ_of_lit l) (Val_lit l)
 
+let trm_bool (b : bool) = trm_lit (Lit_bool b)
+let trm_int (i : int) = trm_lit (Lit_int i)
+let trm_double (d : float) = trm_lit (Lit_double d)
+let trm_sring (s : string) = trm_lit (Lit_string s)
+
 (* [trm_null ~annot ~loc ~ctx ()]: build the term [nullptr], or [NULL] if [~uppercase:true]
    (also used for [void* 0] by Menhir, but decoded in cMenhir_to_ast)  *)
 let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =
@@ -1153,6 +1158,12 @@ let typ_ptr_inv (ty : typ) : typ option =
   | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} -> Some ty1
   | _ -> None
 
+(* [typ_const_ptr_inv ty]: get the inner type of a constant pointer *)
+let typ_const_ptr_inv (ty : typ) : typ option =
+  match ty.typ_desc with
+  | Typ_const ty2 -> typ_ptr_inv ty2
+  | _ -> None
+
 (* [typ_add_attribute att ty]: adds the attribute [att] to the type [ty] *)
 let typ_add_attribute (att : attribute)(ty : typ) : typ =
   {ty with typ_attributes = att :: ty.typ_attributes}
@@ -1183,6 +1194,10 @@ let fail (loc : location) (err : string) : 'a =
   | None -> raise (TransfoError err)
   | Some _ -> raise (TransfoError (loc_to_string loc ^ " : " ^ err))
 
+let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
+  try f () with
+  | TransfoError msg2 -> assert (msg = msg2)
+
 (* ********************************** Annotation manipulation ************************************ *)
 (**** Attributes  ****)
 
@@ -1207,6 +1222,11 @@ let apply_on_marks (f : marks -> marks) (t : trm) : trm =
 (* [trm_add_mark m]: adds mark [m] to the trm [t] *)
 let trm_add_mark (m : mark) (t : trm) : trm =
   if m = "" then t else apply_on_marks (fun marks -> m :: marks) t
+
+let trm_may_add_mark (mo : mark option) (t : trm) : trm =
+  match mo with
+  | Some m -> trm_add_mark m t
+  | None -> t
 
 (* [trm_filter_mark m t]: filters all marks that satisfy the predicate [pred]. *)
 let trm_filter_mark (pred : mark -> bool) (t : trm): trm =
@@ -1466,6 +1486,21 @@ let trm_if_inv (t : trm) : (trm * trm * trm) option =
 let trm_typedef_inv (t : trm) : typedef option =
   match t.desc with
   | Trm_typedef td -> Some td
+  | _ -> None
+
+(* [trm_unop_inv t]: deconstructs t = op t1 *)
+let trm_unop_inv (t : trm) : (unary_op * trm) option =
+  match trm_apps_inv t with
+  | Some (f, args) -> begin
+    match (trm_prim_inv f, args) with
+    | Some (Prim_unop op), [a] -> Some (op, a)
+    | _ -> None
+    end
+  | _ -> None
+
+let trm_cast_inv (t : trm) : (typ * trm) option =
+  match trm_unop_inv t with
+  | Some (Unop_cast ty, t2) -> Some (ty, t2)
   | _ -> None
 
 (* [trm_int n]: converts an integer to trm *)
@@ -2243,7 +2278,7 @@ let is_typ_const (ty : typ) : bool =
   | _ -> false
 
 (* [tile_bound]: used for loop tiling transformation *)
-type tile_bound = TileBoundMin | TileBoundAnd | TileBoundDivides
+type tile_bound = TileBoundMin | TileBoundAnd | TileDivides
 
 (* [Nobrace]: module for managing nobrace sequences(hidden sequences), these sequence are visible only at the AST level *)
 module Nobrace = struct
@@ -2628,11 +2663,25 @@ let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
   let loop_range_list = aux t in
   if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
 
+let trm_new_inv (t : trm) : (typ * trm) option =
+  match trm_apps_inv t with
+  | Some (f, [v]) ->
+    begin match trm_prim_inv f with
+    | Some (Prim_new ty) -> Some (ty, v)
+    | _ -> None
+    end
+  | _ -> None
+
 (* [is_trm_uninitialized t]: checks if [t] is the body of an uninitialized function or variable *)
 let is_trm_uninitialized (t:trm) : bool =
   match t.desc with
   | Trm_val (Val_lit Lit_uninitialized) -> true
   | _ -> false
+
+let is_trm_new_uninitialized (t : trm) : bool =
+  match trm_new_inv t with
+  | Some (_, v) -> is_trm_uninitialized v
+  | None -> false
 
 exception Unknown_key
 
@@ -2850,6 +2899,20 @@ let trm_sub ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t
 let trm_add ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_add) [t1; t2]
 
+(* [trm_binop_inv t]: deconstructs t = t1 op t2 *)
+let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =
+  match trm_apps_inv t with
+  | Some (f, args) -> begin
+    match (trm_prim_inv f, args) with
+    | Some (Prim_binop op'), [a; b] when op = op' -> Some (a, b)
+    | _ -> None
+    end
+  | _ -> None
+
+(* [trm_add_inv t1 t2]: deconstructs t = t1 + t2 *)
+let trm_add_inv (t : trm) : (trm * trm) option  =
+  trm_binop_inv Binop_add t
+
 (* [trm_mul t1 t2]: generates t1 * t2 *)
 let trm_mul ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mul) [t1; t2]
@@ -3051,6 +3114,18 @@ let rec simpl_array_get_get (t : trm) : trm = (* DEPRECATED? *)
 let array_access (base : trm) (index : trm) : trm =
   trm_apps (trm_binop Binop_array_access) [base; index]
 
+let array_access_inv (t : trm) : (trm * trm) option =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_},
+              [base;index]) -> Some (base, index)
+  | _ -> None
+
+let array_get_inv (t : trm) : (trm * trm) option =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_},
+              [base;index]) -> Some (base, index)
+  | _ -> None
+
 (* [get_array_access base index]: generates get(array_access (base, index)) *)
 let get_array_access (base : trm) (index : trm) : trm =
   trm_get (array_access base index)
@@ -3060,10 +3135,7 @@ let get_array_access (base : trm) (index : trm) : trm =
 let get_array_access_inv (t : trm) : (trm * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) ->
-    begin match arg.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_}, [base;index]) -> Some (base, index)
-    | _ -> None
-    end
+    array_access_inv arg
   | _ -> None
 
 (* [struct_access base index]: generates struct_access (base, index) *)

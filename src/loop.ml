@@ -8,26 +8,20 @@ type rename = Variable.Rename.t
 (* [hoist ~name ~array_size tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
     transformation supports also undetached declarations contrary to the basic one. This is done by first checking if
     the declaration is detached or not. If it is not detached then we call another transformation that does the detachment for us. *)
-let hoist1_aux (name : var) (array_size : trm option) (init_to_detach : trm option)
+let hoist1_aux (name : var)
+               (mark : mark option)
+               (init_to_detach : trm option)
                (p : path) : unit = begin
   let detach_first =
     match init_to_detach with
-    | Some init -> begin
-        Printf.printf "hoist init: %s\n\n" (Ast_to_text.ast_to_string init);
-        match init.desc with
-          | Trm_val(Val_lit (Lit_uninitialized)) -> false
-          | Trm_val(Val_prim (Prim_new _)) -> false
-          | _ -> true
-      end
+    | Some init -> 
+      not ((is_trm_uninitialized init) || (is_trm_new_uninitialized init))
     | None -> false
-    in
-    match detach_first with
-    | true ->
-      Variable_basic.init_detach (target_of_path p);
-      Loop_basic.hoist ~name ~array_size(target_of_path p);
-    | false ->
-      Loop_basic.hoist ~name ~array_size (target_of_path p);
-  end
+  in
+  if detach_first then
+    Variable_basic.init_detach (target_of_path p);
+  Loop_basic.hoist ~name ~mark (target_of_path p);
+end
 
 (* LATER/ deprecated *)
 let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
@@ -46,56 +40,14 @@ let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (t
         match detach_first with
         | true ->
           Variable_basic.init_detach (target_of_path p);
-          Loop_basic.hoist ~name ~array_size(target_of_path p);
-        | false -> Loop_basic.hoist ~name ~array_size (target_of_path p)
+          Loop_basic.hoist_old ~name ~array_size(target_of_path p);
+        | false -> Loop_basic.hoist_old ~name ~array_size (target_of_path p)
   ) tg
-
 
 (* [hoist ~name ~array_size ~inline tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
     transformation supports also undetached declarations as well as hoisting through multiple loops.
     [inline] - inlines the array indexing code
     [nb_loops] - number of loops to hoist through (expecting a perfect nest of simple loops)
-
-    for (int i = 0; i < 10; i++) {
-      int x = ...;
-    }
-    -->
-    int x_step[10];
-    for (int i = 0; i < 10; i++) {
-      int& x = x_step[i];
-      x = ...;
-    }
-
-    for (int l = 0; l < 5; l++) {
-      for (int m = 0; m < 2; m++) {
-        int x = ...;
-      }
-    }
-    --> first hoist
-    for (int l = 0; l < 5; l++) {
-      int x_step[2];
-      for (int m = 0; m < 2; m++) {
-        int& x = x_step[m];
-        x = ...;
-      }
-    }
-    --> second hoist
-    int x_step_bis[2][5];
-    for (int l = 0; l < 5; l++) {
-      int& x_step[2] = x_step_bis[l];
-      for (int m = 0; m < 2; m++) {
-        int& x = x_step[m];
-        x = ...;
-      }
-    }
-    --> final
-    int x_step[5][2];
-    for (int l = 0; l < 5; l++) {
-      for (int m = 0; m < 2; m++) {
-        int& x = x_step[l][m];
-        x = ...;
-      }
-    }
 
     for (int l = 0; l < 5; l++) {
       for (int m = 0; m < 2; m++) {
@@ -128,27 +80,76 @@ let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (t
       }
     }
  *)
-let hoist ?(name : string = "${var}_step${i}")
-          ?(inline : bool = false) ?(nb_loops : int = 1) (tg : target) : unit =
-  let rec aux name i (init_to_detach : trm option) (p : path) =
-    if i <= nb_loops then
-      let next_name = Tools.string_subst "${i}" (string_of_int i) name in
-      let _ = Printf.printf "next name: %s\n\n" next_name in
-      let _ = hoist1_aux next_name None init_to_detach p in
-      let next_target = (target_of_path (fst (Xlist.unlast p))) @ [cVarDef next_name] in
-      if (i + 1 <= nb_loops) then
-        iter_on_targets (fun t p -> aux name (i + 1) None p) next_target
-    in
+let hoist ?(tmp_names : string = "${var}_step${i}")
+          ?(name : string = "")
+          ?(inline : bool = true)
+          ?(nb_loops : int = 1)
+          (tg : target) : unit =
+  let tmp_marks = ref [] in
+  let alloc_mark = Mark.next () in
+  let rec mark_and_hoist name i (init_to_detach : trm option) (p : path) =
+    let next_name = Tools.string_subst "${i}" (string_of_int i) name in
+    let (instr_index, seq_path) = Path.index_in_seq p in
+    let seq_target = target_of_path seq_path in
+    let seq_mark = Mark.next () in
+    Marks.add seq_mark seq_target;
+    tmp_marks := (seq_mark, instr_index) :: !tmp_marks;
+
+    let more_hoists = i + 1 <= nb_loops in
+    let maybe_mark = if more_hoists then None else Some alloc_mark in
+    hoist1_aux next_name maybe_mark init_to_detach p;
+
+    let loop_path = snd (Path.index_in_surrounding_loop p) in
+    let next_target = (target_of_path loop_path) @ [cVarDef next_name] in
+    if more_hoists then
+      iter_on_targets (fun t p -> mark_and_hoist name (i + 1) None p) next_target;
+  in
+  let simpl_index_after_inline (tg : target) : unit =
+    Target.iter (fun _t p_nested ->
+      let p = p_nested |> Path.parent in
+      Matrix_basic.simpl_access_of_access (target_of_path p);
+      Matrix_basic.simpl_index_add ((target_of_path p) @ [dArg 1]);
+      Arith.(simpl_rec gather_rec ((target_of_path p) @ [dArg 1]));
+    ) tg
+  in
+  let make_pretty_and_unmark (alloc_name: string) : unit =
+    List.iteri (fun i (seq_mark, instr_index) ->
+      if inline then
+        iter_on_targets (fun t loop_p ->
+          let instr_target = (target_of_path loop_p) @ [dSeqNth instr_index] in
+          let is_partial_mindex = (i + 1) < nb_loops in
+          if is_partial_mindex then begin
+            Variable_basic.to_const instr_target;
+            Marks.with_fresh_mark (fun mark ->
+              Variable_basic.inline ~mark instr_target;
+              simpl_index_after_inline [cMark mark]
+            )
+          end else
+            Variable_basic.inline instr_target;
+        ) [cMark seq_mark];
+      Marks.remove seq_mark [cMark seq_mark];
+    ) !tmp_marks;
+    tmp_marks := [];
+    if alloc_name <> "" then
+      Variable_basic.rename ~into:alloc_name [cMark alloc_mark];
+    Marks.remove alloc_mark [cMark alloc_mark];
+  in
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_let (_, (x, _), init) ->
-      let subs_name = (Tools.string_subst "${var}" x name) in
-      aux subs_name 1 (Some init) p
+      if 1 <= nb_loops then begin
+        let subs_name = Tools.string_subst "${var}" x tmp_names in
+        let alloc_name =
+          if inline && (name = "")
+          then x
+          else Tools.string_subst "${var}" x name
+        in
+        mark_and_hoist subs_name 1 (Some init) p;
+        make_pretty_and_unmark alloc_name;
+      end
     | _ -> fail tg_trm.loc "Loop.hoist: expected a variable declaration"
   ) tg
-    (* TODO: is this target precise enough? *)
-    (* if inline then Variable.inline [cVarDef name]; *)
 
 (* [fusion nb tg]: expects the target [tg] to point at a for loop followed by one or more
     for loops with the same range, start, step and bound but different bodies.
@@ -633,5 +634,27 @@ let shift ?(reparse : bool = false) ?(index : var = "") (amount : trm) ?(inline 
 
 (* [shift_to_zero index ~inline]: shifts a loop index to start from zero.
     - [inline] if true, inline the index shift in the loop body *)
-let shift_to_zero ?(reparse : bool = false) ?(index : var = "") ?(inline : bool = true) (tg : target) : unit =
+let shift_to_zero ?(reparse : bool = false)
+                  ?(index : var = "")
+                  ?(inline : bool = true)
+                  (tg : target) : unit =
   shift_aux index inline "Loop.shift_to_zero" (Loop_basic.shift_to_zero ~reparse) tg
+
+(* should the nested loop iterate over:
+   - [TileIterLocal] local tile indices? (loops are easy to swap)
+   - [TileIterGlobal] global loop indices? *)
+type tile_iteration = TileIterLocal | TileIterGlobal
+
+let tile ?(index : var = "b${id}")
+        ?(bound : tile_bound = TileBoundMin)
+        ?(iter : tile_iteration = TileIterLocal)
+        (tile_size : trm) : Transfo.t =
+  Target.iter (fun t p ->
+    match iter with
+    | TileIterLocal -> begin
+      reparse_after (Loop_basic.tile ~index ~bound tile_size) (target_of_path p);
+      shift_to_zero (target_of_path (Path.to_inner_loop p));
+    end
+    | TileIterGlobal ->
+      Loop_basic.tile ~index ~bound tile_size (target_of_path p)
+  )
