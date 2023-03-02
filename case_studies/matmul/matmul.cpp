@@ -12,7 +12,7 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
 // modifies
 //   C -> matrix2
 // reads
-//   A, B -> array
+//   A, B -> matrix2
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       float sum = 0.0f;

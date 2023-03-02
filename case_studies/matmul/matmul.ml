@@ -21,26 +21,55 @@ let foreach (l : 'a list) (f: 'a -> unit) : unit =
   List.iter f l
 
 let _ = Run.script_cpp (fun () ->
-  bigstep "apply blocking to the computation of C";
+  bigstep "apply blocking to the computation of C to improve data locality";
   !! foreach [("i", 32); ("j", 32); ("k", 4)] (fun (index_to_split, size) ->
     Loop.tile (trm_int size) ~index:("b" ^ index_to_split)
       ~bound:TileDivides [cFor index_to_split]);
+  (* add divides hypothesis to mm function
+     List.forall (divides 32) [n; m; p]
+      *)
+  (* check hypothesis that loop iterations are disjoint *)
   !! Loop.reorder ~order:["bi"; "bj"; "i"; "j"] [cFor "bi"];
   !! Loop.hoist ~nb_loops:2 [cVarDef "sum"];
   !! Loop.fission_all_instrs ~nb_loops:2 [cFor "i"];
-  !! Loop.reorder ~order:["bk"; "i"; "k"; "j"]
-       [cFor ~body:[cPlusEqVar "sum"] "i"];
+  (* check pfor { for { } } *)
+  !! Loop.reorder ~order:["bk"; "i"; "k"; "j"] [cFor ~body:[cPlusEqVar "sum"] "i"];
 
-  bigstep "precompute Bt, the transposed of B";
-  !!! Variable_basic.bind "Bt" [cArrayRead "B"];
-  !! Loop.hoist_alloc [0; 1; 1; 0; 1; 1] [cVarDef "Bt"];
-  !! Loop.hoist_instr [0; 1; 1; 0; 1; 1] [cArrayWrite "Bt"];
+  (*
+
+  Polyhedral?
+
+  for (int bi = 0; bi < m; bi += 32) {
+    for (int bj = 0; bj < n; bj += 32) {
+      for (int bk = 0; bk < p; bk += 4) {
+        for (int i = 0; i < 32; i++) {
+          for (int k = 0; k < 4; k++) {
+            for (int j = 0; j < 32; j++) {
+              ...
+            }
+          }
+        }
+      }
+    }
+  }
+  *)
+
+  bigstep "preload B with a different memory layout to improve access patterns";
+  !!! Variable_basic.bind "pB" [cArrayRead "B"];
+  !! Loop.hoist_alloc [0; 1; 1; 0; 1; 1] [cVarDef "pB"];
+  !! Loop.hoist_instr [0; 1; 1; 0; 1; 1] [cArrayWrite "pB"];
 
   bigstep "unroll loops and introduce parallelism";
   !! Rewrite.equiv_at ~ctx:true "int d1, d2, i1, i2; ==> MINDEX2(d1, d2, i1, i2) == (i2 + i1 * d2)" [nbMulti; cMindex ~d:2 ()];
   !! Rewrite.equiv_at ~ctx:true "int d1, d2, d3, d4, i1, i2, i3, i4; ==> MINDEX4(d1, d2, d3, d4, i1, i2, i3, i4) == (i4 + i3 * d4 + i2 * d3 * d4 + i1 * d2 * d3 * d4)" [nbMulti; cMindex ~d:4 ()];
   !! Loop.unroll [cFor ~body:[cPlusEqVar "sum"] "k"];
   !! Omp.simd [nbMulti; cFor "j"];
+
+  (* ghost -> loop invariant *)
+  (* !! Loop.tile_writes  [cFor "bj"]; *)
+
+(* tag as parallel logic + semantic *)
+  (* !! Loop.semantic_parallel *)
   !! Omp.parallel_for [nbMulti; cFunDef "mm"; dBody; cStrict; cFor ""];
 
   (*

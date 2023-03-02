@@ -35,9 +35,20 @@ C_ref = [None]
 def run_mm_ref():
   C_ref[0] = numpy.matmul(A, B)
 
+custom_batches = {
+  "matmul 'matmul'": 1,
+  "matmul 'matmul0'": 1, # 1.42
+  "matmul 'matmul1'": 2, # 0.47  x3
+  "matmul 'matmul2'": 4, # 0.055 x8.5
+  "matmul 'matmul3'": 8, # 0.020 x2.75, total x71
+                   # Rise  0.012      , total x118, 1.6x over OptiTrust
+                   # TVM   0.011      , total x129, 1.8x over OptiTrust
+                   # numpy 0.007      , total x202, 2.8x over OptiTrust
+}
+
 def benchmark(msg, f):
   n_repeat = 10
-  n_batch = 1 if msg == "matmul 'matmul'" else 10
+  n_batch = custom_batches[msg] if msg in custom_batches else 10
   durations = timeit.repeat(f, repeat=n_repeat, number=n_batch)
   print("{:<25}: {:.4f}s median, range [{:.4f}; {:.4f}]s over {}x{} runs".format(
     msg, median(durations) / n_batch, min(durations) / n_batch, max(durations) / n_batch, n_repeat, n_batch))

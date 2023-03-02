@@ -1,3 +1,4 @@
+#include "harris.h"
 #include <stdlib.h>
 
 void conv3x3(float* out,
