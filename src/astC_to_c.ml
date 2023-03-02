@@ -431,8 +431,10 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
              else acc
             ) dl tl_m in
             counter := -1;
+            (* TODO THOMAS
+            let header = if trm_is_mainfile t then string "// WARNING USING NOTATION" else empty in *)
             let res = if trm_is_mainfile t then (separate (twice hardline) dl) else surround 2 1 lbrace (separate hardline dl) rbrace in
-            dattr ^^ res
+            (* header ^^ *) dattr ^^ res
     | Trm_apps (f, tl) ->
            dattr ^^ apps_to_doc ~prec f tl ^^ dsemi
      | Trm_while (b, t) ->
@@ -895,8 +897,17 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
              | Binop_array_access when !print_optitrust_syntax ->
                 string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
              | Binop_array_access | Binop_array_get ->
+                (* begin match mindex_inv t2 with
+                | None -> *)
                 let d2 = decorate_trm ~prec:0 t2 in
                 d1 ^^ brackets (d2)
+                (* | Some (_dims, indices) ->
+                     let onebracket ti =
+                       bracket (decorate_trm ~prec:0 ti) in
+                     d1 ^^ separate empty (List.map onebracket indices)
+                   end
+                   TODO THOMAS
+                *)
              | _ -> separate (blank 1) [d1; op_d; d2]
              end
           | _ -> fail f.loc "AstC_to_c.apps_to_doc: binary_operators must have two arguments"

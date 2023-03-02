@@ -94,6 +94,10 @@ type expr =
   | Expr_sum of wexprs
   | Expr_prod of wexprs
 
+(* TODO ARTHUR: add types on nodes AND
+   disable simplification of integer division
+   TODO: add tests for this *)
+
 (* [exprs]: list of expressions *)
 and exprs = expr list
 
@@ -341,7 +345,7 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
 (* [trm_to_expr t]: convert trm [t] to an expression*)
 let trm_to_expr (t : trm) : expr * atom_map =
   let expr, atoms = trm_to_naive_expr t in
-  if debug 
+  if debug
     then Printf.printf "Expr before conversion: %s\n" (Ast_to_text.ast_to_string t);
   if debug
     then Printf.printf "Expr after conversion: %s\n" (expr_to_string atoms expr);

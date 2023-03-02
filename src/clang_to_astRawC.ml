@@ -859,7 +859,7 @@ and tr_decl_list (dl : decl list) : trms =
     dl' ->
     begin match k with
       | Struct ->
-        (* typedef struct rn { int x,y; } tn;
+        (* typed { int x,ef struct rny; } tn;
            is only allowed if rn is empty or same as tn. *)
         if rn <> "" && rn <> tn
           then fail loc (Printf.sprintf "Clang_to_astRawC.Typedef-struct: the struct name (%s) must match the typedef name (%s).\n" tn rn);

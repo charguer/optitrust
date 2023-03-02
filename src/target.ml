@@ -976,7 +976,7 @@ let cFieldReadOrWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : 
      [base] - match based on the base of the access
      [index] - match based on the index of the access. *)
 let cCellAccess ?(base : target = []) ?(index : target = [])  () : constr =
-  cAccesses ~base ~accesses:[cIndex ~index ()] ()
+  cAccesses ~base ~accesses:[cIndex ~index ()] () (* TODO: are we missing a Cstrict before cIndex here? *)
 
 (* [cCellRead ~base ~index ]:  match a read operation on an array accesses
      [base] - match based on the base of the access

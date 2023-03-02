@@ -303,33 +303,93 @@ and value =
 
 (* [cstyle_annot]: annotations used for encodings and decodings. *)
 and cstyle_annot =
+
+  (* distinguish [p->f] vs [( *p ).f], represented as [get(access(p,f)],
+     with an annotation carried by the [get] operation *)
   | Display_no_arrow
+
+  (* [ for (int i = 0; ; i++) ]  vs [for (int i = 0; true; i++)],
+     the latter form is used in the encoding. *)
   | Empty_cond      (* used for loops with empty conditions *)
+
+  (* [inline] meta-information on a C-function *)
   | Fun_inline
+
+  (* describe a sequence that does not impose a scope;
+     LATER: maybe refine this notion *)
   | No_braces of int (* LATER: Add another category *)
+
+  (* [int x, y]  encoded as [{ int x; int y}] with an annotation
+     on this special kind of no-scope block *)
   | Multi_decl      (* annotation for encoding mutiple one line declarations *)
+
+  (* DEPRECATED *)
   | Postfix_set     (* annotates all x++ and x-- unary operations aswrite operations *)
+
+  (* [int& x = 3]  encoded as  [let x : ( int* ) = ref 3] in the internal AST *)
   | Reference
+
+  (* annotation to distinguish [int x = 3]  vs [int* const x = ref 3]
+     because the two have the same encoding in the internal AST.
+     annotation is carried by the Trm_let. *) (* LATER: is the type also annotation? *)
   | Stackvar
+
+  (* distinguish between class vs struct *)
   | Is_struct
+
+  (*  [typedef struct node { int item; struct node* p } node; ]
+      this flag [Is_rec_struct] indicates whether to reprint the type at the front. *)
   | Is_rec_struct
+
+  (* distinguish between class vs struct -- seems redundant with is_struct *)
   | Is_class
+
+
+  (* [static] meta-information on a C-function *)
   | Static_fun
+
+  (* syntax [x.f(a)] vs [f(x,a)] because we encode "this" object as first argument *)
+  (* LATER: beware when refering to the "nth" argument *)
   | Method_call
+
+  (* syntax [x] where [x] is a class field instead of [this->x],
+     which is the encoding in OptiTrust *)
   | Implicit_this (* Direct access to a class member. *)
+
+  (* call to a polymorphic function   [f<int>(x)]
+      where definition is [template<typename T> f(T x) { return x }] *)
+  (* LATER: keep track of whether the user has written it explicitly;
+     ---would be needed in particular when the return type is generic *)
   | Typ_arguments of typ list  (* <int, float> , type arguments used for template specializations. *)
+
+  (* Automatically-synthesized constructors *)
   | Implicit_constructor
   | Explicit_constructor
   | Default_constructor
-  | Const_method  (* const methods *)
+
+  (* [const] meta-information on a C++ method, to indicate that the object is not modified *)
+  | Const_method
+
+  (*  [class foo {  int x;  foo() : x(3) { bla} }] is encoded as
+     [class foo {  int x; foo() { x = 3; bla  }], where [x=3] is tagged as Constructed_init
+     LATER: verify.  *)
   | Constructed_init (* objects initialized with a constructor. *)
+
+  (* LATER: document *)
   | Class_constructor of constructor_kind
   | Class_destructor of destructor_kind
   | Member_initializer
+
+  (* LATER: what use? *)
   | Redundant_decl
+
+  (* used for int[2] = { 3, 4 }, the trm_array is annotated with [Brace_init] *)
   | Brace_init
+
   | Clang_cursor of Clang.cxcursor
-  | Display_null_uppercase (* print NULL instead of nullptr *)
+
+  (* tag for printing [NULL] instead of [nullptr] *)
+  | Display_null_uppercase
 
 (* [constructor_kind]: special annotation for constructors *)
 and constructor_kind =
