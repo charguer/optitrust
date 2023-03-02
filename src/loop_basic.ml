@@ -87,7 +87,7 @@ let hoist_on (name : string)
     new_dims := (arith_f array_size) :: dims;
     let partial_indices = (arith_f new_index) ::
       (List.init (List.length dims) (fun _ -> trm_lit (Lit_int 0))) in
-    Matrix_core.mindex !new_dims partial_indices
+    mindex !new_dims partial_indices
   in
   let update_decl (decl : trm) : trm =
     let error = "Loop_basic.hoist_on: expected variable declaration" in

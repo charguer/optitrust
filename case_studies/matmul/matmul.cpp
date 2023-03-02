@@ -18,10 +18,10 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
       float sum = 0.0f;
       // sum -> cell
       for (int k = 0; k < p; k++) {
-        sum += A[k + (p * i)] * B[j + (n * k)];
+        sum += A[MINDEX2(m, p, i, k)] * B[MINDEX2(p, n, k, j)];
       }
 
-      C[(j + (n * i))] = sum;
+      C[MINDEX2(m, n, i, j)] = sum;
     }
   }
 }

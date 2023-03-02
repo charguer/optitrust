@@ -3434,3 +3434,32 @@ let has_empty_body (t : trm) : bool =
   | Trm_let_fun (_, _, _, body) when is_trm_uninitialized body -> true
   | _ -> false
 
+(* ========== matrix helpers =========== *)
+
+(* [mindex dims indices]: builds a call to the macro MINDEX(dims, indices)
+    [dims] - dimensions of the matrix access,
+    [indices ] - indices of the matrix access.
+
+     Example:
+     MINDEXN(N1,N2,N3,i1,i2,i3) = i1 * N2 * N3 + i2 * N3 + i3
+     Here, dims = [N1, N2, N3] and indices = [i1, i2, i3]. *)
+let mindex (dims : trms) (indices : trms) : trm =
+  if List.length dims <> List.length indices then fail None "Matrix_core.mindex: the number of
+      dimension should correspond to the number of indices";
+  let n = List.length dims in
+  let mindex = "MINDEX" ^ (string_of_int n) in
+  trm_apps (trm_var mindex) (dims @ indices)
+
+(* [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t]/ *)
+let mindex_inv (t : trm) : (trms * trms) option =
+  match t.desc with
+  | Trm_apps (f, dims_and_indices) ->
+    begin match f.desc with
+    | Trm_var (_, f_name) when (Tools.pattern_matches "MINDEX" f_name.qvar_var) ->
+      let n = List.length dims_and_indices in
+      if (n mod 2 = 0) then
+        Some (Xlist.split_at (n/2) dims_and_indices)
+      else None
+    | _ -> None
+    end
+  | _ -> None

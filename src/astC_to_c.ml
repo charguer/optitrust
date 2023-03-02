@@ -10,6 +10,9 @@ let print_optitrust_syntax = ref false
 (* [print_commented_pragma]: only for internal use. *)
 let print_commented_pragma = ref false
 
+(* [print_beautify_mindex]: only for internal use. *)
+let print_beautify_mindex = ref false
+
 (* [print_stringreprids]: only for debugging purposes. *)
 let print_stringreprids = ref false
 
@@ -431,10 +434,13 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
              else acc
             ) dl tl_m in
             counter := -1;
-            (* TODO THOMAS
-            let header = if trm_is_mainfile t then string "// WARNING USING NOTATION" else empty in *)
-            let res = if trm_is_mainfile t then (separate (twice hardline) dl) else surround 2 1 lbrace (separate hardline dl) rbrace in
-            (* header ^^ *) dattr ^^ res
+            let res = if trm_is_mainfile t then
+              let header = if !print_beautify_mindex
+                then (string "// NOTE: using pretty matrix notation") ^^ hardline
+                else empty in
+              header ^^ (separate (twice hardline) dl)
+            else surround 2 1 lbrace (separate hardline dl) rbrace in
+            dattr ^^ res
     | Trm_apps (f, tl) ->
            dattr ^^ apps_to_doc ~prec f tl ^^ dsemi
      | Trm_while (b, t) ->
@@ -831,6 +837,22 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
   (* Case of function pointers *)
   | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var (_, x); _ } ]) ->
       aux_arguments (string x.qvar_var)
+  (* Case of MALLOC *)
+  | Trm_var (_, x) when (!print_beautify_mindex && Tools.pattern_matches "MALLOC" x.qvar_str) ->
+    let dims, size = Xlist.unlast tl in
+    let error = "expected MALLOC(.., sizeof(..))" in
+    let (_, size_var) = trm_inv ~error trm_var_inv size in
+    let ty_str = String.(
+      match sub size_var 0 (length "sizeof("),
+            sub size_var (length "sizeof(") ((length size_var) - (length "sizeof()")),
+            sub size_var ((length size_var) - (length ")")) (length ")") with 
+      | "sizeof(", ty_str, ")" -> ty_str
+      | _ -> failwith error
+    ) in
+    let bracketed_trm t = brackets (decorate_trm ~prec:0 t) in
+    (string "malloc(sizeof(") ^^ (string ty_str) ^^
+    (separate empty (List.map bracketed_trm dims)) ^^
+    (string "))")
   (* Case of function by name *)
   | Trm_var (_, x) ->
     let var_doc = trm_var_to_doc x f in
@@ -897,17 +919,13 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
              | Binop_array_access when !print_optitrust_syntax ->
                 string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
              | Binop_array_access | Binop_array_get ->
-                (* begin match mindex_inv t2 with
-                | None -> *)
-                let d2 = decorate_trm ~prec:0 t2 in
-                d1 ^^ brackets (d2)
-                (* | Some (_dims, indices) ->
-                     let onebracket ti =
-                       bracket (decorate_trm ~prec:0 ti) in
-                     d1 ^^ separate empty (List.map onebracket indices)
-                   end
-                   TODO THOMAS
-                *)
+                let bracketed_trm t = brackets (decorate_trm ~prec:0 t) in
+                d1 ^^ if not !print_beautify_mindex then
+                  bracketed_trm (t2)
+                else begin match mindex_inv t2 with
+                | None -> bracketed_trm (t2)
+                | Some (_dims, indices) -> separate empty (List.map bracketed_trm indices)
+                end
              | _ -> separate (blank 1) [d1; op_d; d2]
              end
           | _ -> fail f.loc "AstC_to_c.apps_to_doc: binary_operators must have two arguments"
@@ -1246,9 +1264,10 @@ and unpack_trm_for ?(loc = None) (l_range : loop_range) (body : trm) : trm =
 
 (* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
     If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)
-let ast_to_doc ?(comment_pragma : bool = false) ?(optitrust_syntax:bool=false) (t : trm) : document =
+let ast_to_doc ?(comment_pragma : bool = false) ?(beautify_mindex : bool = false) ?(optitrust_syntax:bool=false) (t : trm) : document =
   let comment_pragma = false in (* temporary *)
   if comment_pragma then print_commented_pragma := true;
+  print_beautify_mindex := beautify_mindex;
   if optitrust_syntax then print_optitrust_syntax := true;
   let d = decorate_trm t in
   if optitrust_syntax then print_optitrust_syntax := false;
@@ -1256,8 +1275,8 @@ let ast_to_doc ?(comment_pragma : bool = false) ?(optitrust_syntax:bool=false) (
   d
 
 (* [ast_to_outchannel ~comment_pragma ~optitrust_syntax out t]: print ast [t] to an out_channel [out] *)
-let ast_to_outchannel ?(comment_pragma : bool = false) ?(optitrust_syntax:bool=false) (out : out_channel) (t : trm) : unit =
-  ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc ~comment_pragma ~optitrust_syntax t)
+let ast_to_outchannel ?(comment_pragma : bool = false) ?(beautify_mindex : bool = false) ?(optitrust_syntax:bool=false) (out : out_channel) (t : trm) : unit =
+  ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc ~beautify_mindex ~comment_pragma ~optitrust_syntax t)
 
 (* [ast_to_file ~optitrust_syntax filename t]: print ast [t] to file [filename] *)
 let ast_to_file ?(optitrust_syntax:bool=false) (filename : string) (t : trm) : unit =

@@ -612,9 +612,10 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
     (* LATER: try to find a way to put the includes in the AST so we can do simply ast_to_file *)
     output_string out_prog ctx.includes;
+    let beautify_mindex = beautify && !Flags.pretty_matrix_notation in
     if !Flags.bypass_cfeatures
       then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
-      else AstC_to_c.ast_to_outchannel ~comment_pragma:use_clang_format out_prog (Ast_fromto_AstC.cfeatures_intro ast);
+      else AstC_to_c.ast_to_outchannel ~beautify_mindex ~comment_pragma:use_clang_format out_prog (Ast_fromto_AstC.cfeatures_intro ast);
     output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->

@@ -100,8 +100,8 @@ let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc 
 let simpl_index_add_on (t : trm) : trm =
   let error = "Matrix_basic.simpl_index_on: expected MINDEX addition" in
   let (a, b) = trm_inv ~error trm_add_inv t in
-  let mindex1 = trm_inv ~error Matrix_core.mindex_inv a in
-  let mindex2 = trm_inv ~error Matrix_core.mindex_inv b in
+  let mindex1 = trm_inv ~error mindex_inv a in
+  let mindex2 = trm_inv ~error mindex_inv b in
   let ((long_dims, long_idxs), (short_dims, short_idxs)) =
     if (List.length (fst mindex1)) > (List.length (fst mindex2))
     then (mindex1, mindex2) else (mindex2, mindex1)
@@ -130,7 +130,7 @@ let simpl_index_add_on (t : trm) : trm =
     | ([], []) -> []
     | _ -> assert false 
   in
-  Matrix_core.mindex long_dims (compute_idxs delta_dims long_idxs short_idxs)
+  mindex long_dims (compute_idxs delta_dims long_idxs short_idxs)
 
 (* [simpl_index_add]: simplifies an MINDEX(..) + MINDEX(..) expression,
    into a single MINDEX(..) expression, if the dimensions are compatible:
