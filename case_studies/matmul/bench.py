@@ -36,10 +36,11 @@ def run_mm_ref():
   C_ref[0] = numpy.matmul(A, B)
 
 def benchmark(msg, f):
-  n_bench = 10
-  durations = timeit.repeat(f, repeat=n_bench, number=1)
-  print("{:<25}: {:.4f}s median, range [{:.4f}; {:.4f}]s over {} runs".format(
-    msg, median(durations), min(durations), max(durations), n_bench))
+  n_repeat = 10
+  n_batch = 1 if msg == "matmul 'matmul'" else 10
+  durations = timeit.repeat(f, repeat=n_repeat, number=n_batch)
+  print("{:<25}: {:.4f}s median, range [{:.4f}; {:.4f}]s over {}x{} runs".format(
+    msg, median(durations) / n_batch, min(durations) / n_batch, max(durations) / n_batch, n_repeat, n_batch))
 
 if implementation_given:
   def run_mm():

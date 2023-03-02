@@ -432,28 +432,31 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (i
 let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) : Transfo.local =
   apply_on_path (bind_aux my_mark index fresh_name const is_ptr typ p_local)
 
-
-(* [remove_get_operations_on_var x t]: removes all the get operation on variable [x]. TODO: missing doc about the bool returned *)
-let remove_get_operations_on_var (x : var) (t : trm) : trm =
-  let rec aux (belongs_to_get : bool) (t : trm) : bool * trm =
-    let aux_false (t : trm) : trm =
-      let _, t1 = aux false t in t1
-      in
+(* [remove_get_operations_on_var x t]: removes one layer of get operations on variable [x].
+     i.e. if [x] was a pointer to [v], [get x] becomes [v].
+   *)
+let remove_get_operations_on_var_old (x : var) (t : trm) : trm =
+  (* returns (adress_became_value, new_term) *)
+  let rec aux (t : trm) : bool * trm =
+    let aux_unwrap (t : trm) : trm =
+      let _, t' = aux t in t'
+    in
     match t.desc with
     | Trm_var (_, y) when (is_qvar_var y x) -> (true, t)
     | Trm_apps (_, [t1]) when is_get_operation t ->
-      let r, t1' = aux true t1 in
-      if r then (true, t1') else (false, trm_get t1')
+      let r, t1' = aux t1 in
+      (false, if r then t1' else trm_get t1')
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t1]) ->
-      let r, t1' = aux belongs_to_get t1 in
-      if r then (true, trm_struct_get ~typ:t.typ ~annot:t.annot t1' f) else (false, trm_struct_access ~typ:t.typ t1' f)
+      let r, t1' = aux t1 in
+      if r then (true, trm_struct_get ~typ:t.typ ~annot:t.annot t1' f)
+      else (false, trm_struct_access ~typ:t.typ t1' f)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [t1; t2]) ->
-      let r, t1' = aux belongs_to_get t1 in
-      let _, t2' = aux false t2 in
+      let r, t1' = aux t1 in
+      let _, t2' = aux t2 in
       if r then (true, trm_array_get t1' t2') else (false, trm_array_access t1' t2')
-    | _ -> false, trm_map aux_false t
-   in
-   snd (aux false t)
+    | _ -> false, trm_map aux_unwrap t
+  in
+  snd (aux t)
 
 (* [remove_get_operations_on_var_temporary x t]: to be removed. *)
 let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (* ARTHUR *)
@@ -521,7 +524,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
               in
             let init_type = get_inner_ptr_type tx in
             let new_dl = trm_pass_marks dl (trm_let_immut (x, init_type) init_val) in
-            let new_lback = Mlist.map (fun t1 -> remove_get_operations_on_var x t1) lback in
+            let new_lback = Mlist.map (fun t1 -> remove_get_operations_on_var_old x t1) lback in
             update_seq new_dl new_lback lfront
             end
        end

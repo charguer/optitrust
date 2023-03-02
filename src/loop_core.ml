@@ -235,7 +235,7 @@ let unroll (braces : bool)(my_mark : mark) : Transfo.local =
 (* [move_out_aux trm_index t]: moves an invariant instruction just before loop [t],
     [trm_index] - index of that instruction on its surrouding sequence,
     [t] - ast of the for loop. *)
-let move_out_aux (trm_index : int) (t : trm) : trm =
+let move_out_aux (mark : mark option) (trm_index : int) (t : trm) : trm =
   let tl = try for_loop_body_trms t with | TransfoError _ -> fail t.loc "Loop_core.move_out_aux: expected a for loop" in
   let lfront, trm_inv, lback = Internal.get_item_and_its_relatives trm_index tl in
   let new_tl = Mlist.merge lfront lback in
@@ -246,12 +246,11 @@ let move_out_aux (trm_index : int) (t : trm) : trm =
   | Trm_for_c (init, cond, step, _) ->
     trm_for_c init cond step (trm_seq new_tl)
   | _ -> fail t.loc "Loop_core.move_out_aux: expected a loop" in
-  trm_seq_no_brace [trm_inv; loop]
-
+  trm_seq_no_brace [trm_may_add_mark mark trm_inv; loop]
 
 (* [move_out trm_index t p]: applies [move_out_aux] at trm [t] with path [p] *)
-let move_out (trm_index : int) : Transfo.local =
-  apply_on_path (move_out_aux trm_index)
+let move_out (mark : mark option) (trm_index : int) : Transfo.local =
+  apply_on_path (move_out_aux mark trm_index)
 
 (* [unswitch_aux trm_index t]: extracts an if statement inside the loop whose condition,
     is not dependent on the index of the loop or any other local variables,

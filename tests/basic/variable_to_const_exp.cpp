@@ -25,6 +25,13 @@ int test_vect() {
   int c = p.pos.x;
   part q[2] = {{v, w}, {v, w}};
   int d = q[0].pos.x;
-  part *const r = &q[0];
+  part* const r = &q[0];
   int e = r[0].pos.x;
+  int* const f = 0;
+  int fv = *f;
+  int* const g = 0;
+  for (int i = 0; i < 2; i++) {
+    g[1] = 0;
+    int gv = g[1];
+  }
 }

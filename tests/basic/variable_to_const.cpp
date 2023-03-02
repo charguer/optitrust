@@ -27,4 +27,12 @@ int test_vect(){
   int d = q[0].pos.x;
   part* r = &q[0];
   int e = r[0].pos.x;
+
+  int* f = 0;
+  int fv = *f;
+  int* g = 0;
+  for (int i = 0; i < 2; i++) {
+    g[1] = 0;
+    int gv = *(&g[1]);
+  }
 }

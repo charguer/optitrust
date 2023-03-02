@@ -236,11 +236,11 @@ let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit
       
     LATER: Implement a combi transformation that will check if the targeted instruction
     is dependent on any local variable or the loop index. *)
-let move_out (tg : target) : unit =
+let move_out ?(mark : mark option = None) (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
   apply_on_transformed_targets (Path.index_in_surrounding_loop)
-    (fun t (i, p) -> Loop_core.move_out i t p ) tg)
-
+    (fun t (i, p) -> Loop_core.move_out mark i t p ) tg)
+    
 (* [unswitch tg]:  expects the target [tg] to point at an if statement with a constant condition
      (not dependent on loop index or local variables) inside a loop.  Then it will take that
       if statment outside the loop.

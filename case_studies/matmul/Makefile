@@ -23,7 +23,7 @@ _build/%.so: %.c _build
 
 .PHONY: bench bench_ref bench_%
 
-bench: bench_ref bench_matmul bench_matmul_out bench_matmul_out_fix bench_matmul_out_fix3 bench_matmul_out_fix6 bench_matmul_out_fix7 bench_matmul_rise bench_matmul_rise2
+bench: bench_ref bench_matmul bench_matmul_out bench_matmul_out_fix bench_matmul_out_fix2 bench_matmul_out_fix3 bench_matmul_out_fix6 bench_matmul_out_fix7 bench_matmul_rise bench_matmul_rise2
 
 bench_ref:
 	$(V)python3 bench.py
