@@ -248,6 +248,8 @@ val cPrimFun : ?args:targets -> ?args_pred:target_list_pred -> prim -> constr
 
 val cPrimFunArith : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
 
+val cBinop : ?lhs:target -> ?rhs: target -> binary_op -> constr
+ 
 val cPrimNew : ?arg:target -> unit -> constr
 
 val dVarInit : constr
@@ -373,6 +375,8 @@ val resolve_target_with_stringreprs_available : target -> trm -> paths
 val resolve_target_exactly_one_with_stringreprs_available : target -> trm -> path
 
 val resolve_path_with_stringreprs_available : path -> trm -> trm
+
+val path_of_target_mark_one : mark -> trm -> path
 
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
 

@@ -27,7 +27,15 @@ let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (t
   ) tg
 
 (* TODO: redundant with 'hoist' *)
-(* like 'hoist', but specifies for each loop whether a dimension should be created (1) *)
+(* [hoist_alloc]: this transformation is similar to [Loop_basic.hoist], but also supports undetached 
+   variable declarations, hoisting through multiple loops, and inlining array indexing code.
+    [tmp_names] - pattern used to generate temporary names
+    [name] - name of the hoisted matrix
+    [inline] - inlines the array indexing code
+    [loops] - loops to hoist through (expecting a perfect nest of simple loops),
+              where [0] represents a loop for which no dimension should be created,
+              and [1] represents a loop for which a dimension should be created.
+  *)
 let hoist_alloc ?(tmp_names : string = "${var}_step${i}")
           ?(name : string = "")
           ?(inline : bool = true)
@@ -87,13 +95,16 @@ let hoist_alloc ?(tmp_names : string = "${var}_step${i}")
           let instr = Path.resolve_path instr_path t in
           let is_partial_mindex = not (trm_has_cstyle Reference instr) in
           if is_partial_mindex then begin
+            Printf.printf "before to_const:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
             Variable_basic.to_const instr_target;
+            Printf.printf "after to_const:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
             Marks.with_fresh_mark (fun mark ->
               Variable_basic.inline ~mark instr_target;
               simpl_index_after_inline [nbAny; cMark mark]
             )
-          end else
+          end else begin
             Variable_basic.inline instr_target;
+          end
         ) [cMark seq_mark];
       Marks.remove seq_mark [cMark seq_mark];
     ) !tmp_marks;
@@ -163,6 +174,12 @@ let hoist ?(tmp_names : string = "${var}_step${i}")
           (tg : target) : unit =
   hoist_alloc ~tmp_names ~name ~inline (List.init nb_loops (fun _ -> 1)) tg
 
+(* [hoist_instr]: this transformation hoists an instructions outside of multiple loops using a combination of
+  [Loop_basic.move_out], [Instr_basic.move], and [Loop_basic.fission].
+  [loops] - loops to hoist through (expecting a perfect nest of simple loops),
+            where [0] represents a loop for which no dimension should be created,
+            and [1] represents a loop for which a dimension should be created.
+*)
 let hoist_instr (loops : int list) (tg : target) : unit =
   let rec aux (remaining_loops : int list) (p : path) : unit =
     match remaining_loops with
@@ -185,6 +202,26 @@ let hoist_instr (loops : int list) (tg : target) : unit =
     let tg_trm = Path.resolve_path p t in
     assert (Option.is_none (trm_let_inv tg_trm));
     aux (List.rev loops) p;
+  ) tg
+
+(* [hoist_decl]: this transformation hoists a variable declaration outside of multiple loops 
+   using a combination of [hoist_alloc] for the allocation and [hoist_expr] for the initialization. *)
+let hoist_decl ?(tmp_names : string = "${var}_step${i}")
+               ?(name : string = "")
+               ?(inline : bool = true)
+               (loops : int list)
+               (tg : target) : unit =
+  iter_on_targets (fun t p ->
+    let tg_trm = Path.resolve_path p t in
+    match trm_let_inv tg_trm with 
+    | Some (_, x, _, init) -> Marks.with_fresh_mark (fun m ->
+        Marks.add m ((target_of_path p) @ [dInit; dArg 0]);
+        Printf.printf "before:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
+        hoist_alloc ~tmp_names ~name ~inline loops tg;
+        Printf.printf "after:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
+        hoist_instr loops [cBinop ~rhs:[cMark m] Binop_set];
+      )
+    | None -> fail tg_trm.loc "expected let"
   ) tg
 
 (* [fusion nb tg]: expects the target [tg] to point at a for loop followed by one or more
@@ -502,6 +539,73 @@ let reorder ?(order : vars = []) (tg : target) : unit =
     let _, targeted_loop_index = Xlist.unlast order in
     (*  LATER: use more precise targets, to avoid targeting deeply-nested loops that resue the same index *)
     List.iter (fun x -> move (target_of_path p @ [cFor x]) ~before:(target_of_path p @ [cFor targeted_loop_index])) order
+  ) tg
+
+(* [bring_down_loop]: TODO *)
+let rec bring_down_loop (index : var) (is_at_bottom : bool) (p : path) : unit =
+  let hoist_all_allocs (tg : target) : unit =
+    hoist_alloc [1] (tg @ [nbAny; cStrict; cVarDef ""])
+  in
+  (* with_fresh_mark_on_p *)
+  Marks.with_fresh_mark (fun m ->
+    Marks.add m (target_of_path p);
+    let (_, loop_path) = Path.index_in_surrounding_loop p in
+    let loop_trm = Path.resolve_path loop_path (Trace.ast ()) in
+    let ((i, _start, _dir, _stop, _step, _par), body) = trm_inv
+      ~error:"Loop.reorder_at: expected simple loop."
+      trm_for_inv loop_trm in
+    (* Printf.printf "before i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
+    (* recursively bring the loop down if necessary *)
+    if i <> index then
+      bring_down_loop index false loop_path;
+    (* bring the loop down by one if necessary *)
+    if not is_at_bottom then begin
+      (* hoist all allocs and fission all instrs to isolate the
+          loops to be swaped *)
+      Target.iter (fun t p ->
+        (* let p = Trace.path_of_target_mark_one m in *)
+        (* hoist_all_allocs (target_to_surrounding_loop_of_path p) *)
+        let (_, loop_path) = Path.index_in_surrounding_loop p in
+        hoist_all_allocs (target_of_path loop_path)
+      ) [cMark m];
+      Target.iter (fun t p ->
+        let (_, loop_path) = Path.index_in_surrounding_loop p in
+        fission_all_instrs (target_of_path loop_path)
+      ) [cMark m];
+      Target.iter (fun t p ->
+        let (_, loop_path) = Path.index_in_surrounding_loop p in
+        Loop_basic.swap (target_of_path loop_path)
+      ) [cMark m];
+      (* Printf.printf "after i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
+    end      
+  )
+  
+(* [reorder_at ~order tg]: expects the target [tg] to point at an instruction that is surrounded
+   by [length order] loops, and attempts to reorder these loops according to [order].
+   The loops do not have to be perfectly nested. In order to swap imperfect loop nests,
+   local variables will be hoisted ([Loop.hoist]),
+   and surrounding instructions will be fissioned ([Loop.fission_all_instrs]).
+   *)
+let reorder_at ?(order : vars = []) (tg : target) : unit =
+  (* [remaining_loops]: sublist of [List.rev order]
+     [p]: path to either the target instruction at [tg],
+          or a surrounding for loop *)
+  let rec aux (remaining_loops : var list) (p : path) : unit =
+    match remaining_loops with
+    | [] -> ()
+    | loop_index :: rl -> begin
+      (* Printf.printf "index = '%s'\n" index; *)
+      Marks.with_fresh_mark (fun m ->
+        Marks.add m (target_of_path p);
+        bring_down_loop loop_index true p;
+        let p = path_of_target_mark_one m (Trace.ast ()) in
+        let (_, loop_path) = Path.index_in_surrounding_loop p in
+        aux rl loop_path
+      )
+      end
+  in
+  Target.iter (fun t p ->
+    aux (List.rev order) p
   ) tg
 
 (* internal *)

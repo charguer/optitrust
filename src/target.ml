@@ -728,6 +728,9 @@ let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_p
 let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) () : constr =
   cPrimPredFun ~args ~args_pred (fun p2 -> (is_arith_fun p2))
 
+let cBinop ?(lhs : target = [cTrue]) ?(rhs : target = []) (op : binary_op) : constr =
+  cPrimFun ~args:[lhs; rhs] (Prim_binop op)
+  
 (* [let cPrimNew ~arg ()]: matches "new" primitive operation
     [arg] - match based on the arguments of the "new" primitive. *)
 let cPrimNew ?(arg : target = []) () : constr =
@@ -1169,6 +1172,13 @@ let resolve_target_exactly_one_with_stringreprs_available (tg : target) (t : trm
     representation of all the ast nodes first. *)
 let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm =
   with_stringreprs_available_for [target_of_path p] t (fun t2 -> resolve_path p t2)
+
+(* [path_of_target_mark_one m t]: a wrapper for calling [resolve_target] with a mark for which we
+    expect a single occurence. *)
+let path_of_target_mark_one (m : mark) (t : trm) : path =
+  match resolve_target [nbExact 1; cMark m] t with
+  | [p] -> p
+  | _ -> fail t.loc "Target.resolve_target_mark_one: unreachable because nbExact 1 should return one path"
 
 (* [resolve_target_mark_one_else_any m t]: a wrapper for calling [resolve_target] with a mark for which we
     expect a single occurence. *)

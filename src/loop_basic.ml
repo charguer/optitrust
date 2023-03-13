@@ -117,7 +117,7 @@ let hoist_on (name : string)
       (* TODO: let_immut? *)
       trm_let_mut (!new_name, (typ_ptr Ptr_kind_mut !ty))
         (Matrix_core.alloc_with_ty !new_dims !ty));
-    trm_for range new_body
+    trm_for ~annot:t.annot range new_body
   ]
 
 let hoist ?(name : var = "${var}_step")

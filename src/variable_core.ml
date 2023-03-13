@@ -525,7 +525,11 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
             let init_type = get_inner_ptr_type tx in
             let new_dl = trm_pass_marks dl (trm_let_immut (x, init_type) init_val) in
             let new_lback = Mlist.map (fun t1 -> remove_get_operations_on_var_old x t1) lback in
-            update_seq new_dl new_lback lfront
+
+            let r = update_seq new_dl new_lback lfront in
+            let _ = Printf.printf "before seq:\n%s\n" (AstC_to_c.ast_to_string t) in
+            let _ = Printf.printf "updated seq:\n%s\n" (AstC_to_c.ast_to_string r) in
+            r
             end
        end
     | _ -> fail dl.loc "Variable_core.from_to_const_aux: the main target should point to a variable declaration"
