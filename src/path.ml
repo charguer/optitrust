@@ -628,7 +628,6 @@ let last_dir_before_inv (p : path) : (path * int) option =
   | Dir_before n -> Some (parent_path, n)
   | _ -> None
 
-
 (* [last_dir_before_inv_success p] takes a path of the form [p1 @ Dir_before n]
    and returns the pair [(p1,n)] *)
 let last_dir_before_inv_success (p : path) : path * int =
@@ -639,3 +638,13 @@ let last_dir_before_inv_success (p : path) : path * int =
       fail None "Path.last_dir_before_inv expects a Dir_before at the end of the path; your target is probably missing a target_relative modifier, e.g. tBefore or tFirst."
   | Some res -> res
 
+(* [split_common_prefix]: given paths [a] and [b], returns [(p, ra, rb)]
+   such that [a = p @ ra] and [b = p @ rb] *)
+let split_common_prefix (a : path) (b : path) : path * path * path =
+   let rec aux (rev_p : path) (ra : path) (rb : path) =
+      match (ra, rb) with
+      | (dir_a :: ra, dir_b :: rb) when dir_a = dir_b ->
+         aux (dir_a :: rev_p) ra rb
+      | _ -> ((List.rev rev_p), ra, rb)
+   in
+   aux [] a b

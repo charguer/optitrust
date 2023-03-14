@@ -28,7 +28,7 @@ let _ = Run.script_cpp (fun () ->
     Loop.tile (trm_int size) ~index:("b" ^ index_to_split)
       ~bound:TileDivides [cFor index_to_split]);
   !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEqVar "sum"];
-  !!! Loop.hoist_expr "pB" [0; 1; 1; 0; 1; 1] [cArrayRead "B"];
+  !!! Loop.hoist_expr ~hoist_at:[tBefore; cFor "bi"] "pB" ~independent_of:["bi"; "i"] [cArrayRead "B"];
 
   bigstep "unroll loops and introduce parallelism";
   !! Matrix.elim_mops []; (* TODO: include arith simplification *)
