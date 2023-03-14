@@ -5,6 +5,11 @@ include Loop_basic
 (* [rename]: instantiation of Rename module *)
 type rename = Variable.Rename.t
 
+let path_of_loop_surrounding_mark_current_ast (m : mark) : path =
+  let mark_path = path_of_target_mark_one_current_ast m in
+  let (_, loop_path) = Path.index_in_surrounding_loop mark_path in
+  loop_path
+
 (* LATER/ deprecated *)
 let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
   iter_on_targets (fun t p ->
@@ -95,16 +100,13 @@ let hoist_alloc ?(tmp_names : string = "${var}_step${i}")
           let instr = Path.resolve_path instr_path t in
           let is_partial_mindex = not (trm_has_cstyle Reference instr) in
           if is_partial_mindex then begin
-            Printf.printf "before to_const:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
             Variable_basic.to_const instr_target;
-            Printf.printf "after to_const:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
             Marks.with_fresh_mark (fun mark ->
               Variable_basic.inline ~mark instr_target;
               simpl_index_after_inline [nbAny; cMark mark]
             )
-          end else begin
+          end else
             Variable_basic.inline instr_target;
-          end
         ) [cMark seq_mark];
       Marks.remove seq_mark [cMark seq_mark];
     ) !tmp_marks;
@@ -214,14 +216,31 @@ let hoist_decl ?(tmp_names : string = "${var}_step${i}")
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match trm_let_inv tg_trm with 
-    | Some (_, x, _, init) -> Marks.with_fresh_mark (fun m ->
-        Marks.add m ((target_of_path p) @ [dInit; dArg 0]);
-        Printf.printf "before:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
+    | Some (_, x, _, init) -> Marks.with_fresh_mark_on (p @ [Dir_body; Dir_arg_nth 0]) (fun m ->
         hoist_alloc ~tmp_names ~name ~inline loops tg;
-        Printf.printf "after:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
         hoist_instr loops [cBinop ~rhs:[cMark m] Binop_set];
       )
     | None -> fail tg_trm.loc "expected let"
+  ) tg
+
+(* private *)
+let find_surrounding_instr (p : path) (t : trm) : path =
+  let rec aux p =
+    let p_t = Path.resolve_path p t in
+    if p_t.is_statement then p else aux (Path.parent p)
+  in
+  assert (not (Path.resolve_path p t).is_statement);
+  aux p
+
+(* [hoist_expr]: this transformation hoists an expression outside of multiple loops 
+   using a combination of [Variable.bind] to create a variable and [hoist_decl] to hoist the variable declaration. *)
+let hoist_expr (name : string)
+               (loops : int list)
+               (tg : target) : unit =
+  Target.iter (fun t p ->
+    let instr_path = find_surrounding_instr p t in
+    Variable.bind name (target_of_path p);
+    hoist_decl loops (target_of_path instr_path);
   ) tg
 
 (* [fusion nb tg]: expects the target [tg] to point at a for loop followed by one or more
@@ -541,14 +560,17 @@ let reorder ?(order : vars = []) (tg : target) : unit =
     List.iter (fun x -> move (target_of_path p @ [cFor x]) ~before:(target_of_path p @ [cFor targeted_loop_index])) order
   ) tg
 
-(* [bring_down_loop]: TODO *)
-let rec bring_down_loop (index : var) (is_at_bottom : bool) (p : path) : unit =
+(* [bring_down_loop]: given a path [p] to an instruction, find a surrounding
+   loop over [index] and bring it down to immediately surround the instruction. In order to swap imperfect loop nests,
+   local variables will be hoisted ([Loop.hoist]),
+   and surrounding instructions will be fissioned ([Loop.fission_all_instrs]).
+   *)
+let rec bring_down_loop ?(is_at_bottom : bool = true) (index : var) (p : path): unit =
   let hoist_all_allocs (tg : target) : unit =
     hoist_alloc [1] (tg @ [nbAny; cStrict; cVarDef ""])
   in
   (* with_fresh_mark_on_p *)
-  Marks.with_fresh_mark (fun m ->
-    Marks.add m (target_of_path p);
+  Marks.with_fresh_mark_on p (fun m ->
     let (_, loop_path) = Path.index_in_surrounding_loop p in
     let loop_trm = Path.resolve_path loop_path (Trace.ast ()) in
     let ((i, _start, _dir, _stop, _step, _par), body) = trm_inv
@@ -557,25 +579,14 @@ let rec bring_down_loop (index : var) (is_at_bottom : bool) (p : path) : unit =
     (* Printf.printf "before i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
     (* recursively bring the loop down if necessary *)
     if i <> index then
-      bring_down_loop index false loop_path;
+      bring_down_loop index ~is_at_bottom:false loop_path;
     (* bring the loop down by one if necessary *)
     if not is_at_bottom then begin
       (* hoist all allocs and fission all instrs to isolate the
           loops to be swaped *)
-      Target.iter (fun t p ->
-        (* let p = Trace.path_of_target_mark_one m in *)
-        (* hoist_all_allocs (target_to_surrounding_loop_of_path p) *)
-        let (_, loop_path) = Path.index_in_surrounding_loop p in
-        hoist_all_allocs (target_of_path loop_path)
-      ) [cMark m];
-      Target.iter (fun t p ->
-        let (_, loop_path) = Path.index_in_surrounding_loop p in
-        fission_all_instrs (target_of_path loop_path)
-      ) [cMark m];
-      Target.iter (fun t p ->
-        let (_, loop_path) = Path.index_in_surrounding_loop p in
-        Loop_basic.swap (target_of_path loop_path)
-      ) [cMark m];
+      hoist_all_allocs (target_of_path (path_of_loop_surrounding_mark_current_ast m));
+      fission_all_instrs (target_of_path (path_of_loop_surrounding_mark_current_ast m));
+      Loop_basic.swap (target_of_path (path_of_loop_surrounding_mark_current_ast m));
       (* Printf.printf "after i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
     end      
   )
@@ -589,18 +600,15 @@ let rec bring_down_loop (index : var) (is_at_bottom : bool) (p : path) : unit =
 let reorder_at ?(order : vars = []) (tg : target) : unit =
   (* [remaining_loops]: sublist of [List.rev order]
      [p]: path to either the target instruction at [tg],
-          or a surrounding for loop *)
+          or a surrounding for loop. *)
   let rec aux (remaining_loops : var list) (p : path) : unit =
     match remaining_loops with
     | [] -> ()
     | loop_index :: rl -> begin
       (* Printf.printf "index = '%s'\n" index; *)
-      Marks.with_fresh_mark (fun m ->
-        Marks.add m (target_of_path p);
-        bring_down_loop loop_index true p;
-        let p = path_of_target_mark_one m (Trace.ast ()) in
-        let (_, loop_path) = Path.index_in_surrounding_loop p in
-        aux rl loop_path
+      Marks.with_fresh_mark_on p (fun m ->
+        bring_down_loop loop_index p;
+        aux rl (path_of_loop_surrounding_mark_current_ast m)
       )
       end
   in

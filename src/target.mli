@@ -479,3 +479,10 @@ val get_relative_type : target -> target_relative option
 (* Other *)
 
 val show_next_id_reset : unit -> unit
+
+
+val resolve_target_current_ast : target -> paths
+
+val resolve_path_current_ast : path -> trm
+
+val path_of_target_mark_one_current_ast : mark -> path

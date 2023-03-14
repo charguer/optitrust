@@ -23,19 +23,12 @@ let foreach (l : 'a list) (f: 'a -> unit) : unit =
   List.iter f l
 
 let _ = Run.script_cpp (fun () ->
-  bigstep "apply blocking to the computation of C to improve data locality";
+  bigstep "improve data locality by blocking the computation of C and preloading B with a packed memory layout";
   !! foreach [("i", 32); ("j", 32); ("k", 4)] (fun (index_to_split, size) ->
     Loop.tile (trm_int size) ~index:("b" ^ index_to_split)
       ~bound:TileDivides [cFor index_to_split]);
   !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEqVar "sum"];
-
-  (* TODO? Loop.hoist_expr *)
-  bigstep "preload B with a different memory layout to improve access patterns";
-  !!! Variable.bind "pB" [cArrayRead "B"];
-  !! Loop.hoist_decl [0; 1; 1; 0; 1; 1] [cVarDef "pB"];
-  (* !! Loop.hoist_alloc [0; 1; 1; 0; 1; 1] [cVarDef "pB"];
-  !! Loop.hoist_instr [0; 1; 1; 0; 1; 1] [cArrayWrite "pB"];
-  *)
+  !!! Loop.hoist_expr "pB" [0; 1; 1; 0; 1; 1] [cArrayRead "B"];
 
   bigstep "unroll loops and introduce parallelism";
   !! Matrix.elim_mops []; (* TODO: include arith simplification *)
@@ -72,6 +65,11 @@ let _ = Run.script_cpp (fun () ->
       !! Loop.hoist ~nb_loops:2 [cVarDef "sum"];
       !! Loop.fission_all_instrs ~nb_loops:2 [cFor "i"];
       !! Loop.reorder ~order:["bk"; "i"; "k"; "j"] [cFor ~body:[cPlusEqVar "sum"] "i"];
+    - !!! Loop.hoist_expr "pB" [0; 1; 1; 0; 1; 1] [cArrayRead "B"];
+      =
+      !!! Variable.bind "pB" [cArrayRead "B"];
+      !! Loop.hoist_alloc [0; 1; 1; 0; 1; 1] [cVarDef "pB"];
+      !! Loop.hoist_instr [0; 1; 1; 0; 1; 1] [cArrayWrite "pB"];
 
     PLAN 1:
      - precompute the transposed of B

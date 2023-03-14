@@ -1741,3 +1741,17 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
     Target.apply_on_targets (reparse_where (Accesses_core.transform f_get f_set)))
 
 *)
+
+
+(******************************************************************************)
+(*                               Target aliases                               *)
+(******************************************************************************)
+
+let resolve_target_current_ast (tg : target) : paths =
+  resolve_target tg (Trace.ast ())
+
+let resolve_path_current_ast (p : path) : trm  =
+  Path.resolve_path p (Trace.ast ())
+
+let path_of_target_mark_one_current_ast (m : mark) : path =
+  path_of_target_mark_one m (Trace.ast ())

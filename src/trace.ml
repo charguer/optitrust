@@ -1103,15 +1103,3 @@ let get_context () : context =
 
 (* LATER:  need to reparse to hide spurious parentheses *)
 (* LATER: add a mechanism for automatic simplifications after every step *)
-
-
-(******************************************************************************)
-(*                               Target aliases                               *)
-(******************************************************************************)
-
-let resolve_target (tg : target) : paths 
-val resolve_target : target -> trm -> paths
-
-let resolve_path (dl : path) (t : trm) : trm  =
-
-val path_of_target_mark_one : mark -> trm -> path

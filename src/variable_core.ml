@@ -435,7 +435,7 @@ let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (is_pt
 (* [remove_get_operations_on_var x t]: removes one layer of get operations on variable [x].
      i.e. if [x] was a pointer to [v], [get x] becomes [v].
    *)
-let remove_get_operations_on_var_old (x : var) (t : trm) : trm =
+let remove_get_operations_on_var (x : var) (t : trm) : trm =
   (* returns (adress_became_value, new_term) *)
   let rec aux (t : trm) : bool * trm =
     let aux_unwrap (t : trm) : trm =
@@ -445,15 +445,16 @@ let remove_get_operations_on_var_old (x : var) (t : trm) : trm =
     | Trm_var (_, y) when (is_qvar_var y x) -> (true, t)
     | Trm_apps (_, [t1]) when is_get_operation t ->
       let r, t1' = aux t1 in
-      (false, if r then t1' else trm_get t1')
+      (false, if r then t1' else trm_get ~annot:t.annot t1')
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t1]) ->
       let r, t1' = aux t1 in
       if r then (true, trm_struct_get ~typ:t.typ ~annot:t.annot t1' f)
-      else (false, trm_struct_access ~typ:t.typ t1' f)
+      else (false, trm_struct_access ~typ:t.typ ~annot:t.annot t1' f)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [t1; t2]) ->
       let r, t1' = aux t1 in
       let _, t2' = aux t2 in
-      if r then (true, trm_array_get t1' t2') else (false, trm_array_access t1' t2')
+      if r then (true, trm_array_get ~annot:t.annot t1' t2')
+      else (false, trm_array_access ~annot:t.annot t1' t2')
     | _ -> false, trm_map aux_unwrap t
   in
   snd (aux t)
@@ -524,12 +525,9 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
               in
             let init_type = get_inner_ptr_type tx in
             let new_dl = trm_pass_marks dl (trm_let_immut (x, init_type) init_val) in
-            let new_lback = Mlist.map (fun t1 -> remove_get_operations_on_var_old x t1) lback in
+            let new_lback = Mlist.map (fun t1 -> remove_get_operations_on_var x t1) lback in
 
-            let r = update_seq new_dl new_lback lfront in
-            let _ = Printf.printf "before seq:\n%s\n" (AstC_to_c.ast_to_string t) in
-            let _ = Printf.printf "updated seq:\n%s\n" (AstC_to_c.ast_to_string r) in
-            r
+            update_seq new_dl new_lback lfront
             end
        end
     | _ -> fail dl.loc "Variable_core.from_to_const_aux: the main target should point to a variable declaration"
