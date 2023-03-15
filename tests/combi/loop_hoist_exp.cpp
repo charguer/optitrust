@@ -7,10 +7,10 @@ int* u;
 int main() {
   int* x_step1 = (int*)MALLOC1(10, sizeof(int));
   for (int i = 0; i < 10; i++) {
-    int& x = x_step1[MINDEX1(10, i)];
-    x = t[i];
-    u[i] = x;
-    int z = x;
+    int* x = &x_step1[MINDEX1(10, i)];
+    x[MINDEX0()] = t[i];
+    u[i] = x[MINDEX0()];
+    int z = x[MINDEX0()];
   }
   free(x_step1);
   int* y = (int*)MALLOC1(8, sizeof(int));
@@ -24,9 +24,9 @@ int main() {
   int* xk = (int*)MALLOC1(5 / 2, sizeof(int));
   for (int k = 3; k < 7; k += 2) {
     int a = k + 1;
-    int& x = xk[MINDEX1(5 / 2, (k + -3) / 2)];
-    x = a + 1;
-    int y = x + 1;
+    int* x = &xk[MINDEX1(5 / 2, (k + -3) / 2)];
+    x[MINDEX0()] = a + 1;
+    int y = x[MINDEX0()] + 1;
     total += y;
   }
   free(xk);

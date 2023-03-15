@@ -50,11 +50,14 @@ let hoist_alloc_loop_list
   =
   let tmp_marks = ref [] in
   let alloc_mark = Mark.next () in
-  let may_detach_init (init : trm) (p : path) =
+  let may_detach_init (x : var) (init : trm) (p : path) =
     let is_trm_malloc = Option.is_some (Matrix_core.alloc_inv_with_ty init) in
     let detach_first = not (is_trm_malloc || (is_trm_uninitialized init) || (is_trm_new_uninitialized init)) in
-    if detach_first then
+    if detach_first then begin
       Variable_basic.init_detach (target_of_path p);
+      let (_, seq_path) = Path.index_in_seq p in
+      Matrix_basic.intro_malloc0 x (target_of_path seq_path);
+    end
   in
   let rec mark_and_hoist prev_name name_template (i : int) (p : path) =
     let more_hoists = i + 1 <= (List.length loops) in
@@ -63,8 +66,11 @@ let hoist_alloc_loop_list
     let next_name = match varies_in_current_loop with
     | 0 -> begin
       (* Printf.printf "move out %s\n" prev_name; *)
-      (* FIXME: need to move out free *)
+      (* TODO: have combined move_out alloc + free *)
       Loop_basic.move_out ~mark:maybe_mark (target_of_path p);
+      let (outer_i, outer_path) = Path.index_in_seq (Path.to_outer_loop p) in
+      let new_loop_path = outer_path @ [Dir_seq_nth (outer_i + 1)] in
+      Instr.move ~dest:([tAfter] @ (target_of_path new_loop_path)) [cFun ~args:[[cVar prev_name]] "free"];
       prev_name
     end
     | 1 -> begin
@@ -100,17 +106,20 @@ let hoist_alloc_loop_list
         iter_on_targets (fun t loop_p ->
           let instr_path = loop_p @ [Dir_seq_nth instr_index] in
           let instr_target = target_of_path instr_path in
+          (* DEPRECATED since MALLOC0/MINDEX0
           let instr = Path.resolve_path instr_path t in
           let is_partial_mindex = not (trm_has_cstyle Reference instr) in
           if is_partial_mindex then begin
+          *)
             Variable_basic.to_const instr_target;
             Marks.with_fresh_mark (fun mark ->
               Variable_basic.inline ~mark instr_target;
               simpl_index_after_inline [nbAny; cMark mark]
             )
-          end else
-            Variable_basic.inline instr_target;
+          (* end else
+            Variable_basic.inline instr_target; *)
         ) [cMark seq_mark];
+        (* FIXME if not inline, we have MINDEX0 artifacts *)
       Marks.remove seq_mark [cMark seq_mark];
     ) !tmp_marks;
     tmp_marks := [];
@@ -129,7 +138,7 @@ let hoist_alloc_loop_list
           then x
           else Tools.string_subst "${var}" x name
         in
-        may_detach_init init p;
+        may_detach_init x init p;
         mark_and_hoist x name_template 1 p;
         make_pretty_and_unmark alloc_name;
       end
@@ -286,6 +295,7 @@ begin
   ) tg
 end
 
+(* TODO: add unit tests in combi/loop_hoist.ml *)
 (* [hoist_expr]: same as [hoist_expr_loop_list], but allows specifying
    loop indices that the expression does not depend on in [independent_of],
    and specifying where to hoist using [hoist_at] target. *)

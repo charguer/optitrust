@@ -34,8 +34,8 @@ let _ = Run.script_cpp (fun () ->
   !!! Loop.hoist_expr ~hoist_at:[tBefore; cFor "bi"] "pB" ~independent_of:["bi"; "i"] [cArrayRead "B"];
 
   bigstep "unroll loops and introduce parallelism";
-  !! Matrix.elim_mops []; (* TODO: include arith simplification *)
   !! Loop.unroll [cFor ~body:[cPlusEqVar "sum"] "k"];
+  !! Matrix.elim_mops []; (* TODO: include arith simplification *)
   !! Omp.simd [nbMulti; cFor "j"];
   !! Omp.parallel_for [nbMulti; cFunDef "mm"; dBody; cStrict; cFor ""];
   (* !! sum hoist *)
@@ -51,7 +51,6 @@ let _ = Run.script_cpp (fun () ->
         - !! Loop.writes_to_tiles ~parallel:true ... [cFor "bj"];
 
     TODO:
-     - !!!! PAIR MALLOCs WITH FREEs
      - !!!! 
      - allocate one 'sum' accumulator per thread?
        - hoist = create array + reuse space

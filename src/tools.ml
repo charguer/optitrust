@@ -25,8 +25,8 @@ module Debug = struct
       flush stdout;
       let s = Printexc.get_backtrace() in
       Printf.eprintf "%s\n" s
-end
 
+end
 
 exception Failure_expected_did_not_fail
 

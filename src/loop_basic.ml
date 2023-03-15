@@ -59,7 +59,7 @@ let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (t
     apply_on_transformed_targets (Path.index_in_surrounding_loop)
      (fun t (i, p) -> Loop_core.hoist_old name i array_size t p) tg)
 
-(* TODO: preprocess stack alloc to MALLOC0 *)
+(* TODO: clean up code *)
 let hoist_on (name : string)
              (mark : mark option)
              (arith_f : trm -> trm)
@@ -70,14 +70,16 @@ let hoist_on (name : string)
   assert (dir = DirUp); (* TODO: other directions *)
   let (array_size, new_index) = match step with
   | Pre_inc | Post_inc ->
-     (trm_sub stop start, trm_sub (trm_var index) start)
+     let typ = Some (typ_int ()) in
+     (trm_sub ~typ stop start, trm_sub ~typ  (trm_var ~typ index) start)
   | Step s ->
+    let typ = Some (typ_int ()) in
     (* i = start; i < stop; i += step *)
     let trm_ceil_div a b = 
-      trm_div (trm_add a (trm_sub b (trm_lit (Lit_int 1)))) b
+      trm_div ~typ (trm_add ~typ a (trm_sub ~typ b (trm_int 1))) b
     in
-     (trm_ceil_div (trm_sub stop start) s,
-      trm_div (trm_sub (trm_var index) start) s)
+     (trm_ceil_div (trm_sub ~typ stop start) s,
+      trm_div ~typ (trm_sub ~typ (trm_var ~typ index) start) s)
   | _ -> fail t.loc "Loop_basic.hoist_on: unsupported loop step"
   in
   let body_instrs = trm_inv ~error trm_seq_inv body in
@@ -106,17 +108,22 @@ let hoist_on (name : string)
       trm_let_mut (x, (get_inner_ptr_type tx))
         (trm_array_access (trm_var_get !new_name) mindex)
     | None ->
+      fail init.loc "expected MALLOCN initialization";
+      (* DEPRECATED: before MALLOC0
       if not ((is_trm_uninitialized init) || (is_trm_new_uninitialized init))
       then fail init.loc "expected uninitialized allocation";
       let mindex = with_mindex [] in
       trm_let_ref (x, (get_inner_ptr_type tx))
         (trm_array_access (trm_var_get !new_name) mindex)
+      *)
     end
   in
   let body_instrs_new_decl = Mlist.update_nth decl_index update_decl body_instrs in
+  (*
   Printf.printf "body_instrs_new_decl:\n%s\n" (AstC_to_c.ast_to_string (trm_seq ~annot:body.annot body_instrs_new_decl));
-  let new_body_instrs = if (List.length !new_dims > 1)
-  then begin
+  *)
+  let new_body_instrs = (* if (List.length !new_dims > 1)
+  then *) begin
     let free_index_opt = ref None in
     Mlist.iteri (fun i instr ->
       match trm_free_inv instr with
@@ -136,7 +143,8 @@ let hoist_on (name : string)
     match !free_index_opt with
     | Some free_index -> Mlist.remove free_index 1 body_instrs_new_decl
     | None -> fail body.loc "Loop_basic.hoist: expected free instruction"
-  end else body_instrs_new_decl
+  end (* DEPRECATED: before MALLOC0
+    else body_instrs_new_decl *)
   in 
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
   trm_seq_no_brace [
@@ -148,6 +156,7 @@ let hoist_on (name : string)
     trm_free (trm_var_get !new_name);
   ]
 
+(* TODO: document *)
 let hoist ?(name : var = "${var}_step")
           ?(mark : mark option = None)
           ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))

@@ -1103,3 +1103,8 @@ let get_context () : context =
 
 (* LATER:  need to reparse to hide spurious parentheses *)
 (* LATER: add a mechanism for automatic simplifications after every step *)
+
+
+(* ----- DEBUG FUNCTIONS, FIND BETTER SPOT ----- *)
+let debug_current_ast (msg : string) : unit =
+  Printf.printf "%s:\n%s\n" msg (AstC_to_c.ast_to_string (ast ()));

@@ -126,7 +126,7 @@ let simpl_index_add_on (t : trm) : trm =
       (List.hd long) :: (compute_idxs (delta - 1) (List.tl long) short)
     else match (long, short) with
     | (l :: l_rest, s :: s_rest) -> 
-      (trm_add l s) :: (compute_idxs 0 l_rest s_rest)
+      (trm_add ~typ:l.typ l s) :: (compute_idxs 0 l_rest s_rest)
     | ([], []) -> []
     | _ -> assert false 
   in
@@ -147,13 +147,14 @@ let simpl_index_add : Target.Transfo.t =
 
 let simpl_access_of_access_on (t : trm) : trm =
   let error = "Matrix_basic.simpl_access_of_access_on: expected nested array accesses" in
+  (* Printf.printf "debug:\n%s\n" (AstC_to_c.ast_to_string t); *)
   let (base1, i1) = match array_access_inv t with
   | Some res -> res
   (* FIXME: don't want to deal with this here? *)
   | None -> trm_inv ~error array_get_inv t
   in
   let (base0, i0) = trm_inv ~error array_access_inv base1 in
-  array_access base0 (trm_add i0 i1)
+  array_access base0 (trm_add ~typ:i0.typ i0 i1)
 
 (* [simpl_access_of_access]: simplifies &((&p[i0])[i1]) into &p[i0 + i1]
 
@@ -161,3 +162,76 @@ let simpl_access_of_access_on (t : trm) : trm =
    *)
 let simpl_access_of_access : Target.Transfo.t =
   Target.apply_at_target_paths simpl_access_of_access_on
+
+(* internal *)
+let find_occurences_and_add_mindex0 (x : var) (t : trm) : (bool * trm) =
+  let found = ref false in
+  let rec loop (t : trm) : trm =
+    match trm_var_inv t with 
+    | Some (_, y) when x = y ->
+      found := true;
+      trm_array_access (trm_var_get y) (mindex [] [])
+    | _ -> trm_map loop t
+  in
+  let res_t = loop t in
+  (!found, res_t)
+
+let intro_malloc0_on (x : var) (t : trm) : trm = begin
+  let instrs = trm_inv
+    ~error:"Matrix_basic.intro_malloc0_on: expected sequence"
+    trm_seq_inv t
+  in
+  let decl_info_opt = ref None in
+  Mlist.iteri (fun i instr ->
+    match trm_let_inv instr with
+    | Some (_, y, ty, init) when x = y ->
+      if (is_trm_new_uninitialized init) ||
+         (is_trm_uninitialized init)
+      then begin
+        assert (Option.is_none !decl_info_opt);
+        decl_info_opt := Some (i, ty);
+      end
+    | _ -> ()
+  ) instrs;
+  match !decl_info_opt with
+  | Some (decl_index, decl_ty) ->
+    let new_decl = trm_let_mut (x, decl_ty) (Matrix_core.alloc_with_ty [] (get_inner_ptr_type decl_ty)) in
+    let instrs2 = Mlist.replace_at decl_index new_decl instrs in
+    let last_use = ref decl_index in
+    let instrs3 = Mlist.mapi (fun i instr ->
+      if i <= decl_index then
+       instr 
+      else begin
+        let (found, instr2) = find_occurences_and_add_mindex0 x instr in
+        if found then last_use := i;
+        instr2
+      end
+    ) instrs2 in
+    let instrs4 = Mlist.insert_at (!last_use + 1) (trm_free (trm_var_get x)) instrs3 in
+    trm_seq ~annot:t.annot instrs4
+  | None -> fail t.loc "Matrix_basic.intro_malloc0_on: expected unintialized stack allocation"
+end
+
+(* [intro_malloc0]: given a target to a sequence with a declaration allocating
+   variable [x] on the stack, changes the declaration to use a MALLOC0 heap 
+   allocation, and adds an instruction to free the memory after all uses of
+   [x] in the sequence.
+
+   {
+    T* x = new T*;
+    ... uses x ...
+    ...
+   }
+   -->
+   {
+     T* x = MALLOC0(sizeof(T));
+     ... uses x ...
+     free(x);
+     ...
+   }
+
+   LATER: deal with control flow
+  
+   *)
+let intro_malloc0 (x : var) : Target.Transfo.t =
+  Target.apply_at_target_paths (intro_malloc0_on x)

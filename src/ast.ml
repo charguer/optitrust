@@ -34,6 +34,9 @@ type styp = string
 (* [var]: variable *)
 type var = string
 
+(* [Var_set]: a set module used for storing variables *)
+module Var_set = Set.Make(String)
+
 (* [vars]: variables, a list of elements of type variable *)
 type vars = var list
 

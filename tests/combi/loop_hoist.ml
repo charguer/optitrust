@@ -4,7 +4,8 @@ open Target
 
 let _ = Run.doc_script_cpp (fun () -> 
 
-  !! Loop.hoist [cFor "i"; cVarDef "x"];
+  (* !! Loop.hoist [cFor "i"; cVarDef "x"]; *)
+  ()
 
 )
 

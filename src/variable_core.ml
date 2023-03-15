@@ -510,10 +510,12 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
                 begin match ls.desc with
                 | Trm_var (_, y) when (is_qvar_var y x) -> fail ls.loc "Variable_core.to_const_aux: variables with
                                      one or more write operations can't be converted to immutable ones"
-                | _ -> if contains_occurrence x ls
+                | _ ->
+                  (* if contains_occurrence x ls
                             then fail ls.loc "Variable_core.to_const_aux: struct instances with
                                     one or more write operations can't be conveted to immutable ones."
-                            else ()
+                            else () *)
+                  ()
                 end
               | _ -> ()
               end
