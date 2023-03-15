@@ -847,7 +847,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
     let ty_str = String.(
       match sub size_var 0 (length "sizeof("),
             sub size_var (length "sizeof(") ((length size_var) - (length "sizeof()")),
-            sub size_var ((length size_var) - (length ")")) (length ")") with 
+            sub size_var ((length size_var) - (length ")")) (length ")") with
       | "sizeof(", ty_str, ")" -> ty_str
       | _ -> failwith error
     ) in

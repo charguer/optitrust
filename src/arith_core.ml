@@ -4,7 +4,7 @@ open PPrint
 open Target
 
 (* debug flags *)
-let debug = false
+let debug = true
 let debug_rec = false
 
 (* mark used for marking trms that should be skipped by the simplifier *)
@@ -93,6 +93,7 @@ type expr =
   | Expr_atom of id
   | Expr_sum of wexprs
   | Expr_prod of wexprs
+  | Expr_div_floor of expr * expr
 
 (* TODO ARTHUR: add types on nodes AND
    disable simplification of integer division
@@ -151,6 +152,7 @@ let rec apply_bottom_up (f : expr -> expr) (e : expr) : expr =
   match e with
   | Expr_sum wes -> f (Expr_sum (apply_wexprs wes))
   | Expr_prod wes -> f (Expr_prod (apply_wexprs wes))
+  | Expr_div_floor (e1, e2) -> f (Expr_div_floor (f e1, f e2))
   | _ -> f e
 
 
@@ -164,7 +166,8 @@ let identity (e : expr) : expr =
    - eliminates products and sums with a single expression of weight one
    - eliminates products and sums with an empty list
    - eliminates elements with weight zero
-   - eliminates +0 is sums and *1 in produts *)
+   - eliminates +0 is sums and *1 in produts
+   - simplifies interger-division by 1 *)
 let normalize_one (e : expr) : expr =
   let e =
     match e with
@@ -190,16 +193,19 @@ let normalize_one (e : expr) : expr =
           | (ai, Expr_sum [(bi, Expr_int 1)]) -> [(ai, Expr_int bi)]
           | (ai, Expr_sum [(bi, ei)]) -> [(ai, Expr_int bi); (ai, ei)]
           | we -> [we]) wes)
+    | Expr_div_floor (e1, Expr_int 1) -> e1
+    | Expr_div_floor (e1, Expr_prod []) -> e1
     | _ -> e
     in
   match e with
   | Expr_sum [] -> Expr_int 0
   | Expr_prod [] -> Expr_int 1
   | Expr_sum [(1,e1)] -> e1
+  | Expr_prod [(1, Expr_prod [(1,e1)] )] -> e1
   | Expr_prod [(1,e1)] -> e1
   | _ -> e
 
-(* [normaliez e]: applies [normalize_one] in a bottom up fashion *)
+(* [normalize e]: applies [normalize_one] in a bottom up fashion *)
 let normalize (e : expr) : expr =
   apply_bottom_up normalize_one e
 
@@ -229,15 +235,32 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
      | Trm_val (Val_lit (Lit_int n)) -> Expr_int n
      | Trm_val (Val_lit (Lit_double n)) -> Expr_double n
      | Trm_apps (f, [t1; t2]) ->
+       (* LATER: the primitive operations should be carrying their type! *)
+       let is_integer_op () = (* indicate if operation is on int or double *)
+         match t.typ with
+         | Some { typ_desc = ty ; _ } ->
+            begin match ty with
+            | Typ_int -> true
+            | Typ_float | Typ_double -> false
+            | _ -> fail t.loc "trm_to_naive_expr: unexpected type for binary operation (not int, float, or double)"
+            end
+         | None -> printf "WARNING: trm_to_naive_expr: missing type information for binary division, assuming double\n";
+                   false (* LATER: fix this assumption *)
+         in
        begin match trm_prim_inv f with
         | Some (Prim_binop b) ->
           begin match b with
-          | Binop_add | Binop_sub ->
-             let w = match b with | Binop_add -> 1 | Binop_sub -> -1 | _ -> assert false in
-             Expr_sum [(1, aux t1); (w, aux t2)]
-          | Binop_mul | Binop_div ->
-             let w = match b with | Binop_mul -> 1 | Binop_div -> -1 | _ -> assert false in
-             Expr_prod [(1, aux t1); (w, aux t2)]
+          | Binop_add -> Expr_sum [(1, aux t1); (1, aux t2)]
+          | Binop_sub -> Expr_sum [(1, aux t1); (-1, aux t2)]
+          | Binop_mul -> Expr_prod [(1, aux t1); (1, aux t2)]
+          | Binop_exact_div ->
+              if not (is_integer_op())
+                then fail t.loc "trm_to_naive_expr: Binop_exact_div expected to be an integer operation";
+              Expr_prod [(1, aux t1); (-1, aux t2)]
+          | Binop_div ->
+              if is_integer_op()
+                then Expr_div_floor (aux t1, aux t2)
+                else Expr_prod [(1, aux t1); (-1, aux t2)]
           | _ -> not_expression()
           end
         | _ -> not_expression()
@@ -274,6 +297,7 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
     | Expr_double n -> string (string_of_float n)
     | Expr_sum wes -> string "Sum" ^^ (auxwes wes)
     | Expr_prod wes -> string "Prod" ^^ (auxwes wes)
+    | Expr_div_floor (e1, e2) -> string "DivFloor(" ^^ aux e1 ^^ string "," ^^ aux e2 ^^ string ")"
     | Expr_atom id ->
         begin match Atom_map.find_opt id atoms with
         | Some t1 ->
@@ -332,7 +356,8 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
       ) we in
       Tools.list_to_doc ~sep:star ~bounds:[lparen; rparen] we_l
       end
-    | Expr_atom id ->
+    | Expr_div_floor (e1, e2) -> parens (aux e1) ^^ string "/" ^^ parens (aux e2)
+     | Expr_atom id ->
       begin match Atom_map.find_opt id atoms with
       | Some t1 -> (AstC_to_c.trm_to_doc t1)
       | _  -> fail None "Arith_core.expr_to_math_string: couldn't convert
@@ -345,7 +370,7 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
 (* [trm_to_expr t]: convert trm [t] to an expression*)
 let trm_to_expr (t : trm) : expr * atom_map =
   let expr, atoms = trm_to_naive_expr t in
-  if debug
+  if debug && false
     then Printf.printf "Expr before conversion: %s\n" (Ast_to_text.ast_to_string t);
   if debug
     then Printf.printf "Expr after conversion: %s\n" (expr_to_string atoms expr);
@@ -376,12 +401,12 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
           then x
           else trm_apps (trm_binop (if w >= 0 then Binop_add else Binop_sub)) [acc; x]
       ) (trm_unit ()) we
-    | Expr_prod  we ->
+    | Expr_prod we ->
       if we = [] then failwith "expr_to_trm: assumes a normalized term";
       let rec power t n =
         if n = 0
           then failwith "Arith_core.expr_to_trm: assumes a normalized term"
-          else if n < 0 then trm_apps (trm_binop Binop_div) [trm_double 1.0; power t (-n)]
+          else if n < 0 then trm_apps (trm_binop Binop_exact_div) [trm_double 1.0; power t (-n)]
           else if n = 1 then t
           else trm_apps (trm_binop Binop_mul) [t; power t (n-1)]
         in
@@ -390,8 +415,10 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
           then power (aux e) w
           else trm_apps (trm_binop (if w > 0
              then Binop_mul
-             else Binop_div)) [acc; power (aux e) (abs w)]
+             else Binop_exact_div)) [acc; power (aux e) (abs w)]
       ) (trm_unit ()) we
+    | Expr_div_floor (e1, e2) ->
+        trm_apps (trm_binop Binop_div) [aux e1; aux e2]
     | Expr_atom id ->
         begin match Atom_map.find_opt id atoms with
         | Some t1 -> t1
@@ -443,11 +470,34 @@ let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr
     in
   apply_bottom_up_if recurse cleanup f e
 
+
+(* [simplify_div_floor_prod wes n] simplifies
+   [Expr_div (Expr_prod wes) e] into [Expr_prod wes'].
+   It returns [Some wes'], or [None] if no simplification is possible *)
+
+let rec simplify_div_floor_prod (wes : wexprs) (e : expr) : wexprs option =
+  match wes with
+  | [] -> None
+  | (wi,ei)::wes' when ei = e && wi > 0->
+      if wi = 1
+        then Some wes'
+        else Some ((wi-1,ei)::wes')
+  | (wi,ei)::wes' ->
+      begin match simplify_div_floor_prod wes' e with (* LATER: use monadic notation *)
+      | None -> None
+      | Some res -> Some ((wi,ei)::res)
+      end
+
 (* LATER: Use a map instead of a list *)
 (* [gather_one e]: regroups similar expression that appear inside a same product
     or sum. For example, [2 * e1 + (-1)*e1] simplifies to [e1] and
-    [e1 * e2 * e1^(-1)] simplifies to [e2]. *)
-let gather_one (e : expr) : expr =
+    [e1 * e2 * e1^(-1)] simplifies to [e2].
+    Also changes [(a / b) / c] into [a / (b * c)], and simplifies
+    [(a1 * c * a2) / (b1 * c * b2)] into  [(a1 * a2) / (b1 * b2)]
+    where [c] is a common item to the numerator and divisor (order-insensitive).
+    This includes simplifications of [a / a] to [1] and of [(a*b)/a] to [b]. *)
+let rec gather_one (e : expr) : expr =
+
   let rec insert (acc : wexprs) ((w,e) : wexpr) : wexprs =
       match acc with
       | [] -> [(w,e)]
@@ -461,6 +511,39 @@ let gather_one (e : expr) : expr =
   match e with
   | Expr_sum wes -> Expr_sum (gather_wexprs wes)
   | Expr_prod wes -> Expr_prod (gather_wexprs wes)
+  (* simplify  [(a / b) / c] into [a / (b * c)] *)
+  | Expr_div_floor (Expr_div_floor(e1, e2), e3) ->
+      let e23 = normalize_one (Expr_prod [(1, e2); (1, e3)]) in
+      gather_one (Expr_div_floor(e1, e23)) (* attempt further simplifications *)
+  (* simplify [a/a] to [1]. *)
+  | Expr_div_floor (e1, e2) when e1 = e2 -> Expr_int 1
+  (* simplify [(a*b)/(c*a)] to [b/c] and [(a^k*b)/(c*a)] to [(a^(k-1)*b)/c]. *)
+  | Expr_div_floor ((Expr_prod wes1), (Expr_prod wes2)) ->
+     let rec aux wes1 wes2 : wexprs * wexprs =
+       let add_to_snd k (a,b) = (a,k::b) in
+       match wes2 with
+       | [] -> wes1, []
+       | ((wi,ei) as wei)::wes2rest when wi > 0 ->
+            begin match simplify_div_floor_prod wes1 ei with
+            | None -> add_to_snd wei (aux wes1 wes2rest) (* no occurence of e in numerator *)
+            | Some wes1' ->
+                if wi = 1
+                  then aux wes1' wes2rest  (* remove from list of divisors *)
+                  else aux wes1' (((wi-1),ei)::wes2rest) (* decrement exponent *)
+                  (* LATER: optimize by calling simplify_numerator only once, passing the power [wn]
+                    to that function *)
+            end
+       | wei::wes2rest -> (* not a cancellable item *)
+           add_to_snd wei (aux wes1 wes2rest)
+       in
+     let wes1',wes2' = aux wes1 wes2 in
+     normalize_one (Expr_div_floor (Expr_prod wes1', Expr_prod wes2'))
+  (* simplify [(a*b)/a] to [b] and [(a^k*b)/a] to [a^(k-1)*b]. *)
+  | Expr_div_floor (Expr_prod wes, e) -> (* when [e] is not an [Expr_prod] *)
+      begin match simplify_div_floor_prod wes e with
+      | None -> e
+      | Some wes' -> normalize_one (Expr_prod wes')
+      end
   | _ -> e
 
 (* [gather_common recurse_bool e]: apply gather one in a full expression

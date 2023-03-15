@@ -19,6 +19,7 @@ int main()
   double r; double  s; double t; double  u; double  v; double w; double  x; double  y; double z;
 
   // test parsing and normalizing
+  x = 2 + 2;
   x = 2 * b;
   x = a + b * 2 - (3 * c) - d;
   x = a + ((a + 2*b) + 1);
@@ -32,6 +33,8 @@ int main()
   y = a + a + a - a; // = 2*a
   y = 2*a - 3*a + b - 5*b; // = - a -4*b
   y = 3*a + 2*b - b + c - 4*a ; // = -a + b + c
+
+  // TODO: arithmetic computations with operations on constants
 
   // test gather prod
   z = a * a * a / a; // = a * a
@@ -69,9 +72,27 @@ int main()
   }
 
   // test exact division
-  int ed1, ed2;
-  exact_div(ed1, ed2);
-  exact_div(5 + 5, 2); // = 5
+  int n, m, p, q;
+
+  q = exact_div(5 + 5, 2); // = 5  --TODO COMPUTE
+  q = exact_div(5 + 5, 2); // = 5  --TODO COMPUTE
+  q = exact_div(n * m, n); // = m, would also be true if non-exact division
+  q = exact_div(n, m) * m; // = n, true because when b divides a
+  q = exact_div(exact_div(n, m), p); // = exact_div(n, m * p) --TODO FIXME
+  q = exact_div(exact_div(n, m), p) * m; // = exact_div(n, p)
+  q = exact_div(exact_div(n, m), p) * (m * p); // = n
+  q = (n / m) / p; // n / (m * p);
+  q = (n * m) / n; // = m
+  q = (m * n) / n; // = m
+  q = (m * n) / (n * n); // = m / n
+  q = (m * n * n) / (n * n); // = m
+  q = (n * m * n) / (n * n); // = m
+  q = (n * m * n) / (n * n * n); // = m / n
+  q = (n * m * n * n) / (n * n * n * n); // = m / n
+  q = (n * m * n * n) / (n * n * n * n * n); // = m / (n * n)
+  q = (n * m * n) / (p * n); // = (n * m) / p
+  q = (n / m) * m; // cannot simplify because n might not be divisible by m
+  q = (n / 1) / 1;
 
   return 0;
 }

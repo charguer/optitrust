@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-  
+
   !! Arith_basic.(simpl gather) [cVarInit "a"];
   !! Arith_basic.(simpl gather) [cVarInit "b"];
   !! Arith_basic.(simpl gather) [cVarInit "c"];
@@ -28,7 +28,9 @@ int main() {
 
 
 let _ = Run.script_cpp (fun _ ->
-  
+
+  !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "q"; dRHS];
+
   (* !! Arith_basic.simplify ~indepth:true [dRoot]); *) (* Test of all at once: *)
 
   !! Arith_basic.nosimpl [nbMulti; cFunDef "simpl_in_depth"; cVarDef "x"; cFun "g"];
