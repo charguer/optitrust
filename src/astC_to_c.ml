@@ -243,6 +243,8 @@ and binop_to_doc (op : binary_op) : document =
   | Binop_mul -> star
   | Binop_mod -> percent
   | Binop_div -> slash
+  (* FIXME: should not be used *)
+  | Binop_exact_div -> string "exact_div"
   | Binop_le -> langle ^^ equals
   | Binop_lt -> langle
   | Binop_ge -> rangle ^^ equals
@@ -914,6 +916,8 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
             let d1 = decorate_trm ~prec:prec1 t1 in
             let d2 = decorate_trm ~prec:prec2 t2 in
             begin match op with
+             | Binop_exact_div ->
+              string "exact_div(" ^^ d1 ^^ comma ^^ space ^^ d2 ^^ string ")"
              | Binop_set when !print_optitrust_syntax ->
                 string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
              | Binop_array_access when !print_optitrust_syntax ->

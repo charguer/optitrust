@@ -12,12 +12,14 @@ int main() {
     u[i] = x;
     int z = x;
   }
+  free(x_step1);
   int* y = (int*)MALLOC1(8, sizeof(int));
   for (int j = 2; j < 10; j++) {
     y[MINDEX1(8, j + -2)] = t[j];
     u[j] = y[MINDEX1(8, j + -2)] + 1;
     y[MINDEX1(8, j + -2)] = u[j];
   }
+  free(y);
   int total = 0;
   int* xk = (int*)MALLOC1(5 / 2, sizeof(int));
   for (int k = 3; k < 7; k += 2) {
@@ -27,12 +29,14 @@ int main() {
     int y = x + 1;
     total += y;
   }
+  free(xk);
   int* x = (int*)MALLOC2(5, 2, sizeof(int));
   for (int l = 0; l < 5; l++) {
     for (int m = 0; m < 2; m++) {
       x[MINDEX2(5, 2, l, m)] = l + m;
     }
   }
+  free(x);
   int* xa = (int*)MALLOC3(8, 5, 2, sizeof(int));
   for (int a = 0; a < 8; a++) {
     int y = 0;
@@ -43,4 +47,5 @@ int main() {
       int z = 0;
     }
   }
+  free(xa);
 }

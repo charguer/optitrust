@@ -67,3 +67,6 @@ void MFREE2(int N1, int N2, void* p) {
 
 int ANY(int maxValue) { return 0; }
 
+int exact_div(int n, int b) {
+  return n / b;
+}

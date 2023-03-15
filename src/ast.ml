@@ -251,6 +251,7 @@ and binary_op =
   | Binop_mul           (* a * b *)
   | Binop_mod           (* a % b *)
   | Binop_div           (* a / b *)
+  | Binop_exact_div     (* a / b with a % b = 0 *)
   | Binop_le            (* a <= b *)
   | Binop_lt            (* a < b *)
   | Binop_ge            (* a >= b *)
@@ -1188,6 +1189,10 @@ let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc = No
   let t = trm_lit ~loc ~ctx Lit_nullptr in
   if uppercase then trm_add_cstyle Display_null_uppercase t else t
 
+(* [trm_free]: build a term calling the 'free' function. *)
+let trm_free ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (memory : trm) : trm =
+  trm_apps (trm_var "free") [memory]
+
 (* [trm_prim ~annot ~loc ~ctx p]: primitives *)
 let trm_prim ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (p : prim) : trm =
   trm_val ~annot:annot ~loc ~ctx (Val_prim p)
@@ -1482,7 +1487,6 @@ let trm_prim_inv (t : trm) : prim option =
   | Trm_val (Val_prim p) -> Some p
   | _ -> None
 
-
 (* [trm_lit_inv t]: gets the literal from a literal trm *)
 let trm_lit_inv (t : trm) : lit option =
   match t.desc with
@@ -1535,6 +1539,16 @@ let trm_var_inv (t : trm) : (varkind * var) option =
   | Trm_var (vk, x) -> Some (vk, x.qvar_var)
   | _ -> None
 
+(* [trm_free_inv]: deconstructs a 'free(x)' call. *)
+let trm_free_inv (t : trm) : trm option =
+  match trm_apps_inv t with
+  | Some (f, [x]) ->
+    begin match trm_var_inv f with
+    | Some (_, f_name) when f_name = "free" -> Some x
+    | _ -> None
+    end
+  | _ -> None
+
 (* [trm_if_inv t]: returns the components of a [trm_if] constructor when [t] is an if statement.
     Otherwise it returns [None]. *)
 let trm_if_inv (t : trm) : (trm * trm * trm) option =
@@ -1561,6 +1575,11 @@ let trm_unop_inv (t : trm) : (unary_op * trm) option =
 let trm_cast_inv (t : trm) : (typ * trm) option =
   match trm_unop_inv t with
   | Some (Unop_cast ty, t2) -> Some (ty, t2)
+  | _ -> None
+
+let trm_get_inv (t : trm) : trm option =
+  match trm_unop_inv t with
+  | Some (Unop_get, t2) -> Some t2
   | _ -> None
 
 (* [trm_int n]: converts an integer to trm *)

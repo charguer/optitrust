@@ -59,6 +59,7 @@ let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (t
     apply_on_transformed_targets (Path.index_in_surrounding_loop)
      (fun t (i, p) -> Loop_core.hoist_old name i array_size t p) tg)
 
+(* TODO: preprocess stack alloc to MALLOC0 *)
 let hoist_on (name : string)
              (mark : mark option)
              (arith_f : trm -> trm)
@@ -81,6 +82,7 @@ let hoist_on (name : string)
   in
   let body_instrs = trm_inv ~error trm_seq_inv body in
   let ty = ref (typ_auto()) in
+  let old_name = ref "" in
   let new_name = ref "" in
   let new_dims = ref [] in
   let with_mindex (dims : trms) : trm =
@@ -92,6 +94,7 @@ let hoist_on (name : string)
   let update_decl (decl : trm) : trm =
     let error = "Loop_basic.hoist_on: expected variable declaration" in
     let (vk, x, tx, init) = trm_inv ~error trm_let_inv decl in
+    old_name := x;
     new_name := Tools.string_subst "${var}" x name;
     ty := get_inner_ptr_type tx;
     begin match Matrix_core.alloc_inv_with_ty init with
@@ -110,14 +113,39 @@ let hoist_on (name : string)
         (trm_array_access (trm_var_get !new_name) mindex)
     end
   in
-  let new_body_instrs = Mlist.update_nth decl_index update_decl body_instrs in
+  let body_instrs_new_decl = Mlist.update_nth decl_index update_decl body_instrs in
+  Printf.printf "body_instrs_new_decl:\n%s\n" (AstC_to_c.ast_to_string (trm_seq ~annot:body.annot body_instrs_new_decl));
+  let new_body_instrs = if (List.length !new_dims > 1)
+  then begin
+    let free_index_opt = ref None in
+    Mlist.iteri (fun i instr ->
+      match trm_free_inv instr with
+      | Some freed ->
+        begin match trm_get_inv freed with
+        | Some x ->
+          begin match trm_var_inv x with
+          | Some (_, freed_name) when freed_name = !old_name ->
+            assert (Option.is_none !free_index_opt);
+            free_index_opt := Some i;
+          | _ -> ()
+          end
+        | None -> ()
+        end
+      | _ -> ()
+    ) body_instrs_new_decl;
+    match !free_index_opt with
+    | Some free_index -> Mlist.remove free_index 1 body_instrs_new_decl
+    | None -> fail body.loc "Loop_basic.hoist: expected free instruction"
+  end else body_instrs_new_decl
+  in 
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
   trm_seq_no_brace [
     trm_may_add_mark mark (
       (* TODO: let_immut? *)
       trm_let_mut (!new_name, (typ_ptr Ptr_kind_mut !ty))
         (Matrix_core.alloc_with_ty !new_dims !ty));
-    trm_for ~annot:t.annot range new_body
+    trm_for ~annot:t.annot range new_body;
+    trm_free (trm_var_get !new_name);
   ]
 
 let hoist ?(name : var = "${var}_step")

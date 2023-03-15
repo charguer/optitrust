@@ -1,3 +1,5 @@
+#include "../../include/optitrust.h"
+
 int f(int x) {
   return x;
 }
@@ -65,6 +67,11 @@ int main()
   for (int ls2 = 0 + 2; ls2 < 10 + 2; ls2++) {
     ls = 0 + 12 + (-2); // = 10
   }
+
+  // test exact division
+  int ed1, ed2;
+  exact_div(ed1, ed2);
+  exact_div(5 + 5, 2); // = 5
 
   return 0;
 }

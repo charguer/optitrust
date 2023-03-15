@@ -63,6 +63,7 @@ let hoist_alloc_loop_list
     let next_name = match varies_in_current_loop with
     | 0 -> begin
       (* Printf.printf "move out %s\n" prev_name; *)
+      (* FIXME: need to move out free *)
       Loop_basic.move_out ~mark:maybe_mark (target_of_path p);
       prev_name
     end
@@ -221,7 +222,9 @@ let hoist_decl_loop_list
     let tg_trm = Path.resolve_path p t in
     match trm_let_inv tg_trm with 
     | Some (_, x, _, init) -> Marks.with_fresh_mark_on (p @ [Dir_body; Dir_arg_nth 0]) (fun m ->
+        Printf.printf "before hoist alloc:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
         hoist_alloc_loop_list ~tmp_names ~name ~inline loops tg;
+        Printf.printf "after hoist alloc:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
         hoist_instr_loop_list loops [cBinop ~rhs:[cMark m] Binop_set];
       )
     | None -> fail tg_trm.loc "expected let"
@@ -258,15 +261,17 @@ begin
   Target.iter (fun t target_path ->
     let hoist_path = Target.resolve_target_exactly_one hoist_at t in
     let (common_path, hoist_relpath, target_relpath) = Path.split_common_prefix hoist_path target_path in
+    (*
     Printf.printf "common path: %s\n" (Path.path_to_string common_path);
     Printf.printf "hoist relative path: %s\n" (Path.path_to_string hoist_relpath);
     Printf.printf "target relative path: %s\n" (Path.path_to_string target_relpath);
+    *)
     let hoist_before_index = match hoist_relpath with
     | Dir_before bi :: [] -> bi
     | _ -> fail None "Loop.targets_iter_with_loop_lists expects [before] to point a sequence surrounding its target"
     in
     (* TODO: otherwise, need to move instrs after hoist. *)
-    assert ((List.hd target_relpath) == (Dir_seq_nth hoist_before_index));
+    assert ((List.hd target_relpath) = (Dir_seq_nth hoist_before_index));
     let (rev_loop_list, _) = List.fold_left (fun (rev_loop_list, p) elem ->
       let new_rev_loop_list = match trm_for_inv (resolve_path_current_ast p) with
       | Some ((i, _start, _dir, _stop, _step, _par), _) ->
@@ -289,7 +294,7 @@ let hoist_expr (name : string)
                ?(hoist_at : target = [])
                (tg : target) : unit =
   targets_iter_with_loop_lists ~independent_of ~hoist_at (fun loops p ->
-    Printf.printf "%s\n" (Tools.list_to_string (List.map string_of_int loops));
+    (* Printf.printf "%s\n" (Tools.list_to_string (List.map string_of_int loops)); *)
     hoist_expr_loop_list name loops (target_of_path p)
   ) tg
 

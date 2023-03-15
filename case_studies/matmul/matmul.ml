@@ -24,6 +24,9 @@ let foreach (l : 'a list) (f: 'a -> unit) : unit =
 
 let _ = Run.script_cpp (fun () ->
   bigstep "improve data locality by blocking the computation of C and preloading B with a packed memory layout";
+  (* 
+        for (int bj' = 0; bj' < n / 32; bj'++)
+   *)
   !! foreach [("i", 32); ("j", 32); ("k", 4)] (fun (index_to_split, size) ->
     Loop.tile (trm_int size) ~index:("b" ^ index_to_split)
       ~bound:TileDivides [cFor index_to_split]);
@@ -35,6 +38,8 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.unroll [cFor ~body:[cPlusEqVar "sum"] "k"];
   !! Omp.simd [nbMulti; cFor "j"];
   !! Omp.parallel_for [nbMulti; cFunDef "mm"; dBody; cStrict; cFor ""];
+  (* !! sum hoist *)
+  (* '*' '/' to bitshift  *)
 
   (*
     STATIC ANALYSIS:
@@ -46,7 +51,11 @@ let _ = Run.script_cpp (fun () ->
         - !! Loop.writes_to_tiles ~parallel:true ... [cFor "bj"];
 
     TODO:
-     - !!!!! PAIR MALLOCs WITH FREEs
+     - !!!! PAIR MALLOCs WITH FREEs
+     - !!!! 
+     - allocate one 'sum' accumulator per thread?
+       - hoist = create array + reuse space
+
      - allow unrolling without requiring shift?
      - allow SIMD before unroll
      - avoid requiring an explicit reparse to get types for shift_to_zero
@@ -54,7 +63,6 @@ let _ = Run.script_cpp (fun () ->
      - define 'Loop.multi_tile' to replace foreach?
        Loop.multi_tile (trm_int size) ~index:"b${index}" ~bound:TileDivides
               [("i", 32); ("j", 32); ("k", 4)] [cLabel "C"; cFor index_to_split]
-     - allocate one 'sum' accumulator per thread?
      - !! Arith.(simpl_rec gather_rec) [cFunDef "mm"];
        FIXME: (p+3)/4*4 != p+3   
 

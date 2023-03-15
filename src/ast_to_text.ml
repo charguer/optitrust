@@ -115,6 +115,7 @@ and print_binop (op : binary_op) : document =
   | Binop_mul -> string "Binop_mul"
   | Binop_mod -> string "Binop_mod"
   | Binop_div -> string "Binop_div"
+  | Binop_exact_div -> string "Binop_exact_div"
   | Binop_le -> string "Binop_le"
   | Binop_lt -> string "Binop_lt"
   | Binop_ge -> string "Binop_ge"
