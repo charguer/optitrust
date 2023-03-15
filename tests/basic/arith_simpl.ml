@@ -53,7 +53,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStart];
 
   show [cBinop Binop_exact_div];
-  !! Arith_basic.(simpl gather) [nbMulti; cBinop Binop_exact_div];
+  !! Arith_basic.(simpl_rec gather_rec) [nbMulti; cBinop Binop_exact_div];
 )
 
 
