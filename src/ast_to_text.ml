@@ -668,3 +668,9 @@ let typedef_to_string ?(only_desc : bool = false) (td : typedef) : string =
 let typ_to_string ?(only_desc : bool = false) (t : typ) : string =
   let d = print_typ ~only_desc t in
   document_to_string d
+
+(* [typ_option_to_string ~only_desc t]: converts an optional type [t] to a string  *)
+let typ_option_to_string ?(only_desc : bool = false) (t : typ option) : string =
+  match t with
+  | None -> "<notype>"
+  | Some ty -> typ_to_string ~only_desc ty
