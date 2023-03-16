@@ -1,9 +1,9 @@
 from ctypes import *
 import numpy
 from numpy.ctypeslib import ndpointer
-import timeit
 from statistics import median
 import sys
+import time
 import os
 import tvm
 
@@ -27,47 +27,40 @@ N = 1024
 P = 1024
 dt = "float32"
 
-C = numpy.zeros((M, N), dtype=dt)
-A = numpy.random.rand(M, P).astype(dt)
-B = numpy.random.rand(P, N).astype(dt)
+# rotate through 10 arrays to mitigate cache interference
+# numpy.random.seed()
+n_bench = 10
+n_allocs = n_bench
+C = [ numpy.zeros((M, N), dtype=dt) for i in range(0, n_allocs) ]
+A = [ numpy.random.rand(M, P).astype(dt) for i in range(0, n_allocs) ]
+B = [ numpy.random.rand(P, N).astype(dt) for i in range(0, n_allocs) ]
 
-C_ref = [None]
-def run_mm_ref():
-  C_ref[0] = numpy.matmul(A, B)
-
-custom_batches = {
-  "matmul 'matmul'": 1,
-  "matmul 'matmul0'": 1, # 1.42
-  "matmul 'matmul1'": 2, # 0.47  x3
-  "matmul 'matmul2'": 4, # 0.055 x8.5
-  "matmul 'matmul3'": 8, # 0.020 x2.75, total x71
-                   # Rise  0.012      , total x118, 1.6x over OptiTrust
-                   # TVM   0.011      , total x129, 1.8x over OptiTrust
-                   # numpy 0.007      , total x202, 2.8x over OptiTrust
-}
+C_ref = [ numpy.zeros((M, N), dtype=dt) for i in range(0, n_allocs) ]
+def run_mm_ref(i):
+  numpy.matmul(A[i], B[i], out=C_ref[i])
 
 def benchmark(msg, f):
-  n_repeat = 10
-  n_batch = custom_batches[msg] if msg in custom_batches else 10
-  durations = timeit.repeat(f, repeat=n_repeat, number=n_batch)
-  print("{:<25}: {:.4f}s median, range [{:.4f}; {:.4f}]s over {}x{} runs".format(
-    msg, median(durations) / n_batch, min(durations) / n_batch, max(durations) / n_batch, n_repeat, n_batch))
+  durations_s = []
+  for i in range(0, n_bench):
+    start = time.time_ns()
+    f(i)
+    stop = time.time_ns()
+    durations_s.append((stop - start) / (10 ** 9))
+  print("{:<40}: {:.4f} s median, range [{:.4f}; {:.4f}] s over {} runs".format(
+    msg, median(durations_s), min(durations_s), max(durations_s), n_bench))
 
 if implementation_given:
-  def run_mm():
-    mm(C, A, B, M, N, P)
+  def run_mm(i):
+    mm(C[i], A[i], B[i], M, N, P)
 
   benchmark("matmul '{}'".format(implementation_name), run_mm)
 
-  run_mm_ref()
-  numpy.testing.assert_allclose(C, C_ref[0], rtol=1e-5, equal_nan=False)
+  for i in range(0, n_bench):
+    run_mm_ref(i)
+    numpy.testing.assert_allclose(C[i], C_ref[i], rtol=1e-5, equal_nan=False)
 else:
   # -mcpu=core-avx2
   target = "llvm -mcpu=core-avx2"
-  dev = tvm.device(target, 0)
-  c = tvm.nd.array(C, dev)
-  a = tvm.nd.array(A, dev)
-  b = tvm.nd.array(B, dev)
 
   def build_mm_tvm():
     bn = 32
@@ -109,9 +102,16 @@ else:
     return tvm.build(s, [A, B, C], target=target, name="mm")
 
   mm_tvm = build_mm_tvm()
-  def run_mm_tvm():
-    mm_tvm(a, b, c)
+
+  dev = tvm.device(target, 0)
+  to_dev = lambda x: tvm.nd.array(x, dev)
+  c = list(map(to_dev, C))
+  a = list(map(to_dev, A))
+  b = list(map(to_dev, B))
+  def run_mm_tvm(i):
+    mm_tvm(a[i], b[i], c[i])
 
   benchmark("matmul numpy", run_mm_ref)
   benchmark("matmul TVM", run_mm_tvm)
-  numpy.testing.assert_allclose(c.numpy(), C_ref[0], rtol=1e-5, equal_nan=False)
+  for (a, b) in zip(c, C_ref):
+    numpy.testing.assert_allclose(a.numpy(), b, rtol=1e-5, equal_nan=False)

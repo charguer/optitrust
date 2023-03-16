@@ -21,7 +21,7 @@ let precedence_prim (p : prim) : precedence =
     end
   | Prim_binop binop ->
     begin match binop with
-    | Binop_array_access | Binop_array_get -> (16, LtoR)
+    | Binop_array_access | Binop_array_get | Binop_exact_div -> (16, LtoR)
     | Binop_mul | Binop_div | Binop_mod -> (13, LtoR)
     | Binop_add | Binop_sub -> (12, LtoR)
     | Binop_shiftl | Binop_shiftr -> (11, LtoR)

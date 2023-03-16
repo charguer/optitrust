@@ -61,6 +61,21 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
   let error = "Loop_core.tile_aux: only simple loops are supported." in
   let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
   let tile_index = Tools.string_subst "${id}" index tile_index in
+  (* TODO: enable other styles for TileDivides *)
+  if bound = TileDivides then begin
+     (* TODO: other cases *)
+     assert (Internal.same_trm start (trm_int 0));
+     assert (is_step_one step);
+     assert (direction = DirUp);
+     let tile_count = trm_exact_div ~typ:stop.typ stop tile_size in
+     let new_index = trm_add ~typ:start.typ
+      (trm_mul ~typ:start.typ (trm_var ~typ:start.typ tile_index) tile_size)
+      (trm_var ~typ:start.typ index)
+     in
+     trm_for (tile_index, (trm_int 0), DirUp, tile_count, Post_inc, is_parallel) (trm_seq_nomarks [
+       trm_for (index, (trm_int 0), DirUp, tile_size, Post_inc, is_parallel) (Internal.change_trm (trm_var index) new_index body)
+     ])
+  end else begin
   let tile_bound =
    if is_step_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index ) (trm_mul tile_size (loop_step_to_trm step)) in
   let inner_loop =
@@ -83,9 +98,12 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
      let new_body = Internal.change_trm (trm_var index) (trm_var_get index) body in
      trm_for_c init cond step new_body
    end in
-   trm_pass_labels t (trm_for (tile_index, start, direction, stop, (if is_step_one step then Step tile_size else Step (trm_mul tile_size (loop_step_to_trm step))), is_parallel) (
-     trm_seq_nomarks [inner_loop]))
-
+   let outer_loop_step = if is_step_one step then Step tile_size else Step (trm_mul tile_size (loop_step_to_trm step)) in
+   let outer_loop =
+      trm_for (tile_index, start, direction, stop, outer_loop_step, is_parallel) (trm_seq_nomarks [inner_loop])
+   in
+   trm_pass_labels t outer_loop
+  end
 
 (* [tile tile_index bound tile_size t p]: applies [tile_aux] at trm [t] with path [p] *)
 let tile (tile_index : var) (bound : tile_bound) (tile_size : trm) : Transfo.local =

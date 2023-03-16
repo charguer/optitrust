@@ -231,9 +231,7 @@ let hoist_decl_loop_list
     let tg_trm = Path.resolve_path p t in
     match trm_let_inv tg_trm with 
     | Some (_, x, _, init) -> Marks.with_fresh_mark_on (p @ [Dir_body; Dir_arg_nth 0]) (fun m ->
-        Printf.printf "before hoist alloc:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
         hoist_alloc_loop_list ~tmp_names ~name ~inline loops tg;
-        Printf.printf "after hoist alloc:\n%s\n" (AstC_to_c.ast_to_string (Trace.ast ()));
         hoist_instr_loop_list loops [cBinop ~rhs:[cMark m] Binop_set];
       )
     | None -> fail tg_trm.loc "expected let"
@@ -865,11 +863,11 @@ let tile ?(index : var = "b${id}")
         ?(iter : tile_iteration = TileIterLocal)
         (tile_size : trm) : Transfo.t =
   Target.iter (fun t p ->
-    match iter with
-    | TileIterLocal -> begin
+    match (iter, bound) with
+    | (TileIterGlobal, _) | (_, TileDivides) ->
+      Loop_basic.tile ~index ~bound tile_size (target_of_path p)
+    | _ -> begin
       reparse_after (Loop_basic.tile ~index ~bound tile_size) (target_of_path p);
       shift_to_zero (target_of_path (Path.to_inner_loop p));
     end
-    | TileIterGlobal ->
-      Loop_basic.tile ~index ~bound tile_size (target_of_path p)
   )

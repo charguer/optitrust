@@ -24,9 +24,6 @@ let foreach (l : 'a list) (f: 'a -> unit) : unit =
 
 let _ = Run.script_cpp (fun () ->
   bigstep "improve data locality by blocking the computation of C and preloading B with a packed memory layout";
-  (* 
-        for (int bj' = 0; bj' < n / 32; bj'++)
-   *)
   !! foreach [("i", 32); ("j", 32); ("k", 4)] (fun (index_to_split, size) ->
     Loop.tile (trm_int size) ~index:("b" ^ index_to_split)
       ~bound:TileDivides [cFor index_to_split]);
@@ -35,7 +32,7 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "unroll loops and introduce parallelism";
   !! Loop.unroll [cFor ~body:[cPlusEqVar "sum"] "k"];
-  !! Matrix.elim_mops []; (* TODO: include arith simplification *)
+  !! Matrix.elim_mops [];
   !! Omp.simd [nbMulti; cFor "j"];
   !! Omp.parallel_for [nbMulti; cFunDef "mm"; dBody; cStrict; cFor ""];
   (* !! sum hoist *)
