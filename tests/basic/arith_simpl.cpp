@@ -44,7 +44,7 @@ int main()
   t = (a + (3 + 2)*a); // = 6 * a
   t = a + b * a / b; // = 2 * a
   t = (a + (3 + 2)*a) / a * b; // = 6 * b
-  t = a / (b * a * b) / (1 / b); // = 1 / b
+  t = a / (b * a * b) / (1 / b); // = 1. / b
 
   // test expand
   u = a * (b + c); // = a * b + a * c
@@ -52,7 +52,7 @@ int main()
   u = 5*a * (2*b + 3*c + 4*d);
 
   // test expand from pic demo
-  v = (a / b * c / (a * d * d / b * e)); // = c / (d * d) / e
+  v = (a / b * c / (a * d * d / b * e)); // = c / (d * d * e)
   v = (a * b * c / a); // = b * c
   v = ((a / (b / c)) + d * c / b) * (b / c); // = a + d
   v = ((a * ((b / c) * (d / ((((b * a) * a) / c) / e)))) * (a / e)); // = d
@@ -78,7 +78,7 @@ int main()
   q = exact_div(5 + 5, 2); // = 5  --TODO COMPUTE
   q = exact_div(n * m, n); // = m, would also be true if non-exact division
   q = exact_div(n, m) * m; // = n, true because when b divides a
-  q = exact_div(exact_div(n, m), p); // = exact_div(n, m * p) --TODO FIXME
+  q = exact_div(exact_div(n, m), p); // = exact_div(n, m * p)
   q = exact_div(exact_div(n, m), p) * m; // = exact_div(n, p)
   q = exact_div(exact_div(n, m), p) * (m * p); // = n
   q = (n / m) / p; // n / (m * p);
@@ -92,7 +92,7 @@ int main()
   q = (n * m * n * n) / (n * n * n * n * n); // = m / (n * n)
   q = (n * m * n) / (p * n); // = (n * m) / p
   q = (n / m) * m; // cannot simplify because n might not be divisible by m
-  q = (n / 1) / 1;
+  q = (n / 1) / 1;  // = n
 
   return 0;
 }

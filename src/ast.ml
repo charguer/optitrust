@@ -1180,10 +1180,16 @@ let typ_of_lit (l : lit) : typ option =
 let trm_lit ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (l : lit) : trm =
   trm_val ~annot:annot ~loc ~ctx ~typ:(typ_of_lit l) (Val_lit l)
 
-let trm_bool (b : bool) = trm_lit (Lit_bool b)
-let trm_int (i : int) = trm_lit (Lit_int i)
-let trm_double (d : float) = trm_lit (Lit_double d)
-let trm_sring (s : string) = trm_lit (Lit_string s)
+let trm_unit ?(loc = None) () : trm =
+  trm_lit ~loc (Lit_unit)
+let trm_bool ?(loc = None) (b : bool) =
+  trm_lit ~loc (Lit_bool b)
+let trm_int ?(loc = None) (i : int) =
+  trm_lit ~loc (Lit_int i)
+let trm_double ?(loc = None) (d : float) =
+  trm_lit ~loc (Lit_double d)
+let trm_sring ?(loc = None) (s : string) =
+  trm_lit ~loc (Lit_string s)
 
 (* [trm_null ~annot ~loc ~ctx ()]: build the term [nullptr], or [NULL] if [~uppercase:true]
    (also used for [void* 0] by Menhir, but decoded in cMenhir_to_ast)  *)
@@ -1585,6 +1591,7 @@ let trm_get_inv (t : trm) : trm option =
   | Some (Unop_get, t2) -> Some t2
   | _ -> None
 
+(* DEPRECATED because REDUNDANT
 (* [trm_int n]: converts an integer to trm *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)
 
@@ -1597,6 +1604,7 @@ let trm_double (d : float) : trm = trm_lit (Lit_double d)
 
 (* [trm_bool b]: converts an integer to an ast node *)
 let trm_bool (b : bool) : trm = trm_lit (Lit_bool b)
+*)
 
 (* [trm_prod_inv t]: gets a the list of factors involved in a multiplication*)
 let trm_prod_inv (t : trm) : trm list =
@@ -2922,7 +2930,7 @@ let trm_struct_access ?(annot = trm_annot_default) ?(typ : typ option = None) (b
   trm_apps ~typ (trm_unop ~annot (Unop_struct_access field)) [base]
 
 (* [trm_struct_get ~annot ~typ base field]: creates a struct_get encoding *)
-let trm_struct_get ?(annot = trm_annot_default) ?(typ : typ option = None)(base : trm) (field : var) : trm =
+let trm_struct_get ?(annot = trm_annot_default) ?(typ : typ option = None) (base : trm) (field : var) : trm =
   trm_apps ~typ (trm_unop ~annot (Unop_struct_get field)) [base]
 
 (* [trm_array_access~annot ~typ base index]: creates array_access(base, index) encoding *)
