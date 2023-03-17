@@ -28,7 +28,10 @@ int main() {
 
 
 let _ = Run.script_cpp (fun _ ->
+  (* TODO: split this files into one file for each type of simplification *)
 
+  !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "cd"; dRHS];
+  !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "ci"; dRHS];
 
   (* !! Arith_basic.simplify ~indepth:true [dRoot]); *) (* Test of all at once: *)
 

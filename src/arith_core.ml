@@ -384,11 +384,13 @@ let rec apply_bottom_up (f : expr -> expr) (e : expr) : expr =
 let normalize (e : expr) : expr =
   apply_bottom_up normalize_one e
 
-(* [cleanup_true]: perform cleanup *)
+(* [cleanup_true]: perform cleanup after transformation; else [cleanup_false] *)
 let cleanup_true = true
-
-(* [cleanup_false]: don't perform cleanup *)
 let cleanup_false = false
+
+(* [recurse_true]: apply transformation in depth; else [recurse_false] *)
+let recurse_true = true
+let recurse_false = false
 
 (* [apply_bottom_up_if]: is a combinator for either applying a transformation recursively
    or applying it only at the top level, according to the [recurse] argument.
@@ -444,26 +446,29 @@ let create_or_reuse_atom_for_trm (atoms : atom_map ref) (t : trm) : id =
       end;
   !occ
 
+(* [typ_to_expr_typ typ_opt] converts an AST optional type into an expr_typ *)
+
+let typ_to_expr_typ (typ_opt : typ option) : expr_typ =
+  match typ_opt with
+  | Some { typ_desc = ty ; _ } ->
+      begin match ty with
+      | Typ_int -> Expr_typ_int
+      | Typ_float | Typ_double -> Expr_typ_double
+      | _ ->
+        (* TODO: we should avoid attempting to convert things that are not of number types
+          fail t.loc ("trm_to_naive_expr: unexpected type for binary operation (not int, float, or double): " ^ (Ast_to_text.typ_option_to_string t.typ))
+        *)
+          Expr_typ_unknown
+      end
+  | None -> Expr_typ_unknown
+
 (* [trm_to_naive_expr]: conversion of a trm from the AST into an expr, plus a map that for each atom gives
     the corresponding term *)
 let trm_to_naive_expr (t : trm) : expr * atom_map =
   let atoms = ref Atom_map.empty in
   let rec aux (t : trm) : expr =
     let loc = t.loc in
-    let typ =
-      match t.typ with
-      | Some { typ_desc = ty ; _ } ->
-          begin match ty with
-          | Typ_int -> Expr_typ_int
-          | Typ_float | Typ_double -> Expr_typ_double
-          | _ ->
-            (* TODO: we should avoid attempting to convert things that are not of number types
-              fail t.loc ("trm_to_naive_expr: unexpected type for binary operation (not int, float, or double): " ^ (Ast_to_text.typ_option_to_string t.typ))
-            *)
-             Expr_typ_unknown
-          end
-      | None -> Expr_typ_unknown
-      in
+    let typ = typ_to_expr_typ t.typ in
     let force_atom() = expr_atom ~loc (create_or_reuse_atom_for_trm atoms t) in
     if has_mark_nosimpl t then force_atom() else
     match t.desc with
@@ -479,10 +484,10 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
      (* Recognize binary operators *)
      | Trm_apps (f, [t1; t2]) ->
        let is_integer_op () = (* indicate if operation is on int or double *)
-          match typ with
-          | Expr_typ_int -> true
-          | Expr_typ_double -> false
-          | Expr_typ_unknown ->
+          match typ_to_expr_typ t1.typ, typ_to_expr_typ t2.typ with
+          | Expr_typ_int, Expr_typ_int -> true
+          | (Expr_typ_int | Expr_typ_double), (Expr_typ_int | Expr_typ_double) -> false
+          | (Expr_typ_unknown, _) | (_, Expr_typ_unknown) ->
               printf "WARNING: trm_to_naive_expr: missing type information for binary division, assuming double\n";
               false (* LATER: fix this assumption *)
          in
@@ -752,8 +757,133 @@ let expand_common (recurse : bool) (e : expr) : expr =
 
 (* [expand] and [expand_rec] can be passed as arguments to [Arith.simpl] *)
 let expand = expand_common false
-let expand_rec = expand_common true (* Warning: quadratic, because normalize
-                                        all and gather_rec at each step *)
+let expand_rec = expand_common true (* Warning: might be quadratic? *)
+
+(******************************************************************************)
+(*                          Compute                                 *)
+(******************************************************************************)
+
+(* [wexpr_is_numeric (w,e)] returns true if [e] is a constant [Expr_int]
+   or [Expr_double]. *)
+
+let wexpr_is_numeric ((w,e):wexpr) : bool =
+  match e.expr_desc with
+  | Expr_int _ | Expr_double _ -> true
+  | _ -> false
+
+(* [wwexpr_is_int (w,e)] returns true if [e] is a constant [Expr_int]. *)
+let wexpr_is_int ((w,e):wexpr) : bool =
+  match e.expr_desc with
+  | Expr_int _ -> true
+  | _ -> false
+
+(* [compute_power_int n w] computes [n^w] *)
+
+let rec compute_power_int (n:int) (w:int) : int =
+  assert (w >= 0);
+  if w = 0 then 1 else n * compute_power_int n (w-1)
+
+(* [compute_power_double f w] computes [f^w] *)
+
+let rec compute_power_double (f:float) (w:int) : float =
+  if w < 0 then begin
+    let inv = compute_power_double f (-w) in
+    if inv = 0. then fail None "compute_power_double: division by zero";
+    1.0 /. inv
+  end else begin
+    if w = 0 then 1.0 else f *. compute_power_double f (w-1)
+  end
+
+(* [compute_wexpr_sum wes] assumes all items in [wes] to satisfy [wexpr_is_numeric],
+   and it returns a single item [(w,e)] describing the numerical result.
+   It is either of the form [(n, Expr_int 1)] in case the result is the integer [n],
+   or of the forme [(1, Expr_double f)] in case the result is the float value [f].
+   When the sum involves only integers, the result is an integer;
+   if, however, the sum involves at least one double, it is a double. *)
+
+let compute_wexpr_sum ?(loc=None) (wes:wexprs) : wexpr =
+  if List.for_all wexpr_is_int wes then begin
+    let n= List.fold_left (fun acc (w,e) ->
+      acc + match e.expr_desc with
+      | Expr_int n -> (w * n)
+      | _ -> assert false
+    ) 0 wes in
+    (n, expr_int 1)
+  end else begin
+    let f = List.fold_left (fun acc (w,e) ->
+      acc +. match e.expr_desc with
+      | Expr_int n -> float_of_int (w * n)
+      | Expr_double f -> (float_of_int w) *. f
+      | _ -> assert false
+    ) 0. wes in
+    (1, expr_double f)
+  end
+
+(* [compute_wexpr_prod wes] is similar to [compute_wexpr_sum], but for products.
+   It returns a single item [(w,e)] describing the numerical result.
+   It is either of the form [(1, Expr_int n)] in case the result is the integer [n],
+   or of the forme [(1, Expr_double f)] in case the result is the float value [f]. *)
+
+let compute_wexpr_prod ?(loc=None) (wes:wexprs) : wexpr =
+  if List.for_all wexpr_is_int wes then begin
+    let wes_pos = List.filter (fun (w,_e) -> w >= 0) wes in
+    let wes_neg = List.filter (fun (w,_e) -> w < 0) wes in
+    let wes_neg = List.map (fun (w,e) -> (-w,e)) wes_neg in
+    let wes_prod (wes_select:wexprs) : int =
+      List.fold_left (fun acc (w,e) ->
+        acc * match e.expr_desc with
+        | Expr_int n -> compute_power_int n w
+        | _ -> assert false
+      ) 1 wes_select in
+    let num = wes_prod wes_pos in
+    let denum = wes_prod wes_neg in
+    if denum = 0 then fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division by zero: %d / %d" num denum);
+    if num mod denum <> 0 then fail loc (Printf.sprintf "compute_wexpr_prod: exact integer division is not exact: %d / %d" num denum);
+    let n = num / denum in
+    (1, expr_int n)
+  end else begin
+    let f =List.fold_left (fun acc (w,e) ->
+      acc *. match e.expr_desc with
+      | Expr_int n -> compute_power_double (float_of_int n) w
+      | Expr_double f -> compute_power_double f w
+      | _ -> assert false
+    ) 1. wes in
+    (1, expr_double f)
+  end
+
+(* [compute_one e]: performs simplification of operations between known constants.
+    For example, [4 + a + 3] becomes [a + 7].
+    For example, [4.3 + a + 3] becomes [a + 7.3].
+    For example, [10 / 2.5 - 3] becomes [1.0].
+    The operation [normalize] is called at the end. *)
+
+let compute_one (e : expr) : expr =
+  let _typ = e.expr_typ in
+  let loc = e.expr_loc in
+  let mk desc = expr_make_like e desc in
+  let res = match e.expr_desc with
+  | Expr_sum wes ->
+      let wes_num, wes_rest = List.partition wexpr_is_numeric wes in
+      if wes_num = [] then e else
+      let we_num = compute_wexpr_sum ~loc wes_num in
+      mk (Expr_sum (we_num :: wes_rest))
+  | Expr_prod wes ->
+      let wes_num, wes_rest = List.partition wexpr_is_numeric wes in
+      if wes_num = [] then e else
+      let we_num = compute_wexpr_prod ~loc wes_num in
+      mk (Expr_prod (we_num :: wes_rest))
+  | Expr_div_floor ({ expr_desc = Expr_int n1; _},
+                    { expr_desc = Expr_int n2; _}) ->
+      if n2 = 0 then fail loc (Printf.sprintf "compute_one: integer division by zero: %d / %d" n1 n2);
+      expr_int (n1 / n2) (* integer division with rounding *)
+  | _ -> e (* LATER: don't use a catch-all branch, as it is error prone in case we add constructors *)
+  in
+  normalize res
+
+
+(* [compute] can be passed as arguments to [Arith.simpl] *)
+let compute (e:expr) : expr =
+  apply_bottom_up_if recurse_true cleanup_true compute_one e
 
 
 (******************************************************************************)

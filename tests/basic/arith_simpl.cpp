@@ -71,11 +71,10 @@ int main()
     ls = 0 + 12 + (-2); // = 10
   }
 
-  // test exact division
+  // test integer division
   int n, m, p, q;
-
-  q = exact_div(5 + 5, 2); // = 5  --TODO COMPUTE
-  q = exact_div(5 + 5, 2); // = 5  --TODO COMPUTE
+  q = exact_div(5 + 5, 2); // = exact_div(10,2)
+  q = exact_div(5 + 5, 2); // = exact_div(10,2)
   q = exact_div(n * m, n); // = m, would also be true if non-exact division
   q = exact_div(n, m) * m; // = n, true because when b divides a
   q = exact_div(exact_div(n, m), p); // = exact_div(n, m * p)
@@ -93,6 +92,28 @@ int main()
   q = (n * m * n) / (p * n); // = (n * m) / p
   q = (n / m) * m; // cannot simplify because n might not be divisible by m
   q = (n / 1) / 1;  // = n
+
+  // compute int
+  int ci;
+  ci = 5 + 5; // = 10
+  ci = 3 + n + 1 + n; // = n + n + 4
+  ci = 2 * 3 - 1; // = 5
+  ci = exact_div(8, 2); // = 4
+  ci = exact_div(exact_div(12,3), 4); // = 1
+  ci = 8 / 3; // = 2
+  ci = (8 / 3) / 3; // = 0
+  ci = 2 * 3 - 1 + exact_div(8, 2) + 8 / 3; // = 11
+
+  // compute double
+  double cd;
+  cd = 5.2 + 5.2; // = 10.4
+  cd = 3.2 + a + 1 + a + 3 + 3.4; // = a + a + 10.6
+  cd = 2.5 * 3 - 10 / 4; // = 5.5  (because using integer division)
+  cd = 2.5 * 3 - 10 / 4.0; // = 5.0  (because using float division)
+  cd = (10.5 / 2.2) / (2.4 * 3.4); // = .584893048
+
+  // LATER: compute casts from/to int/double
+
 
   return 0;
 }
