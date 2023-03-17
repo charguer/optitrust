@@ -60,12 +60,13 @@ int main() {
   }
   int n, m, p, q;
   q = exact_div(10, 2);
-  q = exact_div(10, 2);
   q = m;
   q = n;
   q = exact_div(n, (m * p));
   q = exact_div(n, p);
   q = n;
+  q = n * 4 * 32;
+  q = exact_div((n * m * 4 * 32), 4);
   q = n / (m * p);
   q = m;
   q = m;

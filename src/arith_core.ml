@@ -99,6 +99,10 @@ type expr = {
   expr_typ : expr_typ;
   expr_loc : loc; }
 
+(* 
+  Expr_sum  : w1 * e1 + ... + wN * eN
+  Expr_prod : e1 ^ w1 + ... + eN ^ wN
+*)
 and expr_desc =
   | Expr_int of int
   | Expr_double of float
@@ -615,6 +619,22 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
 (*                          Simpl, gather                                 *)
 (******************************************************************************)
 
+let rec same_expr (a : expr) (b : expr) : bool =
+  let rec same_desc (a : expr_desc) (b : expr_desc) : bool =
+    match (a, b) with
+    | (Expr_int a, Expr_int b) -> a = b
+    | (Expr_double a, Expr_double b) -> a = b
+    | (Expr_atom a, Expr_atom b) -> a = b
+    | (Expr_sum a, Expr_sum b) | (Expr_prod a, Expr_prod b) ->
+       List.for_all2 same_wexprs a b
+    | (Expr_div_floor (a1, a2), Expr_div_floor (b1, b2)) ->
+       (same_expr a1 b1) && (same_expr a2 b2)
+    | _ -> false
+  and same_wexprs ((a_id, a_e) : wexpr) ((b_id, b_e) : wexpr) : bool =
+    (a_id = b_id) && (same_expr a_e b_e)
+  in
+  same_desc a.expr_desc b.expr_desc
+
 (* [cancel_div_floor_prod wes n] simplifies
    [Expr_div (Expr_prod wes) e] into [Expr_prod wes'].
    It returns [Some wes'], or [None] if no simplification is possible *)
@@ -622,7 +642,7 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
 let rec cancel_div_floor_prod (wes : wexprs) (e : expr) : wexprs option =
   match wes with
   | [] -> None
-  | (wi,ei)::wes' when ei = e && wi > 0->
+  | (wi,ei)::wes' when (same_expr ei e) && wi > 0->
       if wi = 1
         then Some wes'
         else Some ((wi-1,ei)::wes')
@@ -644,12 +664,12 @@ let rec gather_one (e : expr) : expr =
   let rec insert (acc : wexprs) ((w,e) : wexpr) : wexprs =
       match acc with
       | [] -> [(w,e)]
-      | (wi,ei)::acc2 -> if e = ei
+      | (wi,ei)::acc2 -> if same_expr e ei
           then (wi+w,ei)::acc2
           else (wi,ei)::(insert acc2 (w,e))
     in
   let gather_wexprs (wes : wexprs) : wexprs =
-     List.fold_left insert [] wes
+    List.fold_left insert [] wes
     in
   let loc = e.expr_loc in
   let mk desc = expr_make_like e desc in

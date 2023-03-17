@@ -29,6 +29,9 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
   (* TODO: split this files into one file for each type of simplification *)
+  (* TODO: figure out when
+     WARNING: trm_to_naive_expr: missing type information for binary division, assuming double
+     appears, and whether we can rebuild the type information *)
 
   !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "cd"; dRHS];
   !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "ci"; dRHS];
