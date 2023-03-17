@@ -75,12 +75,13 @@ int main()
   int n, m, p, q;
 
   q = exact_div(5 + 5, 2); // = 5  --TODO COMPUTE
-  q = exact_div(5 + 5, 2); // = 5  --TODO COMPUTE
   q = exact_div(n * m, n); // = m, would also be true if non-exact division
   q = exact_div(n, m) * m; // = n, true because when b divides a
   q = exact_div(exact_div(n, m), p); // = exact_div(n, m * p)
   q = exact_div(exact_div(n, m), p) * m; // = exact_div(n, p)
   q = exact_div(exact_div(n, m), p) * (m * p); // = n
+  q = exact_div((n * m * 4 * 32), m); // = n * 4 * 32
+  q = exact_div((n * m * 4 * 32), 4); // = n * m * 32
   q = (n / m) / p; // n / (m * p);
   q = (n * m) / n; // = m
   q = (m * n) / n; // = m
