@@ -99,6 +99,14 @@ int main()
   ci = 5 + 5; // = 10
   ci = 3 + n + 1 + n; // = n + n + 4
   ci = 2 * 3 - 1; // = 5
+  ci = 1 << 4; // = 16
+  ci = 1024 >> 4; // = 64
+  ci = 14 ^ 5; // = 11 because 1110b ^ 101b = 1011b
+  ci = 14 | 5; // = 15
+  ci = 14 & 5; // = 4
+  ci = 15 % 4; // = 3
+
+  // compute int div
   ci = exact_div(8, 2); // = 4
   ci = exact_div(exact_div(12,3), 4); // = 1
   ci = 8 / 3; // = 2

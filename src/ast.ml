@@ -266,6 +266,10 @@ and binary_op =
   | Binop_shiftl        (* a >> k*)
   | Binop_shiftr        (* a << k *)
   | Binop_xor           (* a ^ b *)
+  (* LATER: add types to operations wherever relevant *)
+  (* TODO: not coherent to use a grammar of binary_op for certain ops, and use conventional functions for others, eg. fmod *)
+  (* | Binop_fmod          (* floatting point modulo, LATER: merge with mod when annotated with type *) *)
+
 
 (* [consistency_mode]: C++ memory model consistency *)
 and consistency_mode =
@@ -3068,6 +3072,11 @@ let trm_shiftr ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm)
 (* [trm_mod t1 t2]: generates t1 % t2*)
 let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [t1;t2]
+
+(* LATER [trm_fmod t1 t2]: generates fmod(t1, t2)
+let trm_fmod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_fmod) [t1;t2]
+*)
 
 (* [trm_xor t1 t2]: generates t1 ^ t2 *)
 let trm_xor ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =

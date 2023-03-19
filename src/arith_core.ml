@@ -99,9 +99,20 @@ type expr = {
   expr_typ : expr_typ;
   expr_loc : loc; }
 
-(* 
+(*  Grammar of expressions.
+  Atoms : uninterpreted expressions
+  Int, Double : base types
   Expr_sum  : w1 * e1 + ... + wN * eN
   Expr_prod : e1 ^ w1 + ... + eN ^ wN
+  Supported arithmetic binary operators on int :
+  | Binop_div           (* a / b *) -> div_floor : a/b  on int
+  | Binop_mod           (* a % b *)
+  | Binop_shiftl        (* a >> k*)
+  | Binop_shiftr        (* a << k *)
+  | Binop_xor           (* a ^ b *)
+  | Binop_bitwise_and   (* a & b *)
+  | Binop_bitwise_or    (* a | b *)
+  --LATER: add fmod, not clear whether it should be a function or a binop in ast.ml;
 *)
 and expr_desc =
   | Expr_int of int
@@ -109,7 +120,7 @@ and expr_desc =
   | Expr_atom of id
   | Expr_sum of wexprs
   | Expr_prod of wexprs
-  | Expr_div_floor of expr * expr
+  | Expr_binop of binary_op * expr * expr
 
 (* TODO ARTHUR: add types on nodes AND
    disable simplification of integer division
@@ -136,6 +147,10 @@ let no_atoms = Atom_map.empty
 (******************************************************************************)
 (*                          Smart constructors                                *)
 (******************************************************************************)
+
+let unsupported_binop (op : binary_op) =
+  let s = Tools.document_to_string (Ast_to_text.print_binop op) in
+  fail None ("Arith_core: unsupported binop: " ^ s)
 
 let expr_make ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (desc : expr_desc) : expr =
   { expr_desc = desc;
@@ -205,10 +220,15 @@ let expr_mul ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr
 let expr_div ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) (e2 : expr) : expr =
   expr_prod ~loc ~typ [(1,e1); (-1,e2)]
 
+(* [expr_binop op e1 e2] produces the operation [op e1 e2] *)
+let expr_binop ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (op : binary_op) (e1 : expr) (e2 : expr) : expr =
+  expr_make ~loc ~typ (Expr_binop (op, e1, e2))
+
 (* [expr_div_floor e1 e2] produces the integer division [e1 / e2], rounded below *)
 let expr_div_floor ?(loc : loc = None) (e1 : expr) (e2 : expr) : expr =
-  expr_make ~loc ~typ:Expr_typ_int (Expr_div_floor (e1, e2))
+  expr_binop ~loc ~typ:Expr_typ_int Binop_div e1 e2
 
+(* LATER: might add constructors for other binary_ops *)
 
 
 (******************************************************************************)
@@ -223,7 +243,10 @@ let expr_div_floor ?(loc : loc = None) (e1 : expr) (e2 : expr) : expr =
    - eliminates products and sums with an empty list
    - eliminates elements with weight zero
    - eliminates +0 is sums and *1 in produts
-   - simplifies interger-division by 1 *)
+   - simplifies interger-division by 1
+   - simplifies modulo operations applied to zero
+   - simplifies binary shifting operations by zero
+   *)
 let normalize_one (e : expr) : expr =
   let e =
     let mk desc = expr_make_like e desc in
@@ -252,8 +275,13 @@ let normalize_one (e : expr) : expr =
           | (ai, { expr_desc = Expr_sum [(bi, { expr_desc = Expr_int 1; _})]; expr_loc = loc; _}) -> [(ai, expr_int ~loc bi)]
           | (ai, { expr_desc = Expr_sum [(bi, ei)]; expr_loc = loc; _}) -> [(ai, expr_int ~loc bi); (ai, ei)]
           | we -> [we]) wes))
-    | Expr_div_floor (e1, { expr_desc = Expr_int 1; _}) -> e1
-    | Expr_div_floor (e1, { expr_desc = Expr_prod []; _}) -> e1
+    (* [e1 / 1 = 1] *)
+    | Expr_binop (Binop_div, e1, { expr_desc = Expr_int 1; _}) -> e1
+    | Expr_binop (Binop_div, e1, { expr_desc = Expr_prod []; _}) -> e1
+    (* [0 mod e2 = 0] *)
+    | Expr_binop (Binop_mod, ({ expr_desc = Expr_int 0; _} as ezero), e2) -> ezero
+    (* [e1 << 0 = e1] and [e1 >> 0 = e1] *)
+    | Expr_binop ((Binop_shiftr | Binop_shiftl), e1, { expr_desc = Expr_int 0; _}) -> e1
     | _ -> e
     in
   match e.expr_desc with
@@ -293,7 +321,12 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
     | Expr_double n -> string (string_of_float n)
     | Expr_sum wes -> string "Sum" ^^ (auxwes wes)
     | Expr_prod wes -> string "Prod" ^^ (auxwes wes)
-    | Expr_div_floor (e1, e2) -> string "DivFloor(" ^^ aux e1 ^^ string "," ^^ aux e2 ^^ string ")"
+    | Expr_binop (op, e1, e2) ->
+        let sop = match op with
+          | Binop_div -> "Biv"
+          | _ -> unsupported_binop op
+          in
+        string sop ^^ string "(" ^^ aux e1 ^^ string "," ^^ aux e2 ^^ string ")"
     | Expr_atom id ->
         begin match Atom_map.find_opt id atoms with
         | Some t1 ->
@@ -353,7 +386,17 @@ let expr_to_math_string (atoms : atom_map) (e : expr) : string =
       ) we in
       Tools.list_to_doc ~sep:star ~bounds:[lparen; rparen] we_l
       end
-    | Expr_div_floor (e1, e2) -> parens (aux e1) ^^ string "/" ^^ parens (aux e2)
+     | Expr_binop (op, e1, e2) ->
+        let sop = match op with
+          | Binop_div -> "/"
+          | Binop_shiftr -> ">>"
+          | Binop_shiftl -> "<<"
+          | Binop_xor -> "^" (* LATER: use other symbol to avoid confusion *)
+          | Binop_bitwise_and -> "&" (* LATER: use other symbol to avoid confusion *)
+          | Binop_bitwise_or -> "|" (* LATER: use other symbol to avoid confusion *)
+          | _ -> unsupported_binop op
+          in
+        parens (aux e1) ^^ string sop ^^ parens (aux e2)
      | Expr_atom id ->
       begin match Atom_map.find_opt id atoms with
       | Some t1 -> (AstC_to_c.trm_to_doc t1)
@@ -381,7 +424,7 @@ let rec apply_bottom_up (f : expr -> expr) (e : expr) : expr =
   match e.expr_desc with
   | Expr_sum wes -> f (mk (Expr_sum (apply_wexprs wes)))
   | Expr_prod wes -> f (mk (Expr_prod (apply_wexprs wes)))
-  | Expr_div_floor (e1, e2) -> f (mk (Expr_div_floor (f e1, f e2)))
+  | Expr_binop (op, e1, e2) -> f (mk (Expr_binop (op, f e1, f e2)))
   | _ -> f e (* LATER: don't use a catch-all branch, as it is error prone in case we add constructors *)
 
 (* [normalize e]: applies [normalize_one] in a bottom up fashion *)
@@ -496,8 +539,8 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
               false (* LATER: fix this assumption *)
          in
        begin match trm_prim_inv f with
-        | Some (Prim_binop b) ->
-          begin match b with
+        | Some (Prim_binop op) ->
+          begin match op with
           | Binop_add -> expr_add ~loc ~typ (aux t1) (aux t2)
           | Binop_sub -> expr_sub ~loc ~typ (aux t1) (aux t2)
           | Binop_mul -> expr_mul ~loc ~typ (aux t1) (aux t2)
@@ -509,6 +552,8 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
               if is_integer_op()
                 then expr_div_floor ~loc (aux t1) (aux t2)
                 else expr_div ~loc ~typ (aux t1) (aux t2)
+          | Binop_mod | Binop_shiftl | Binop_shiftr | Binop_xor | Binop_bitwise_and | Binop_bitwise_or ->
+              expr_binop op ~loc ~typ:Expr_typ_int (aux t1) (aux t2)
           | _ -> force_atom()
           end
         | _ -> force_atom()
@@ -604,8 +649,8 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
           (* LATER: this case is not expected to happen with exact_div *)
       end
 
-    | Expr_div_floor (e1, e2) ->
-        trm_apps ~loc (trm_binop Binop_div) [aux e1; aux e2]
+    | Expr_binop (op, e1, e2) ->
+        trm_apps ~loc (trm_binop op) [aux e1; aux e2]
     | Expr_atom id ->
         begin match Atom_map.find_opt id atoms with
         | Some t1 -> t1
@@ -627,8 +672,8 @@ let rec same_expr (a : expr) (b : expr) : bool =
     | (Expr_atom a, Expr_atom b) -> a = b
     | (Expr_sum a, Expr_sum b) | (Expr_prod a, Expr_prod b) ->
        List.for_all2 same_wexprs a b
-    | (Expr_div_floor (a1, a2), Expr_div_floor (b1, b2)) ->
-       (same_expr a1 b1) && (same_expr a2 b2)
+    | (Expr_binop (op1, a1, a2), Expr_binop (op2, b1, b2)) ->
+       (op1 = op2) && (same_expr a1 b1) && (same_expr a2 b2)
     | _ -> false
   and same_wexprs ((a_id, a_e) : wexpr) ((b_id, b_e) : wexpr) : bool =
     (a_id = b_id) && (same_expr a_e b_e)
@@ -677,14 +722,14 @@ let rec gather_one (e : expr) : expr =
   | Expr_sum wes -> mk (Expr_sum (gather_wexprs wes))
   | Expr_prod wes -> mk (Expr_prod (gather_wexprs wes))
   (* simplify  [(a / b) / c] into [a / (b * c)] *)
-  | Expr_div_floor ({ expr_desc = Expr_div_floor(e1, e2); _ }, e3) ->
+  | Expr_binop (Binop_div, { expr_desc = Expr_binop (Binop_div, e1, e2); _ }, e3) ->
       let e23 = normalize_one (mk (Expr_prod [(1, e2); (1, e3)])) in
-      gather_one (mk (Expr_div_floor(e1, e23))) (* attempt further simplifications *)
+      gather_one (mk (Expr_binop (Binop_div, e1, e23))) (* attempt further simplifications *)
   (* simplify [a/a] to [1]. *)
-  | Expr_div_floor (e1, e2) when e1 = e2 -> expr_int ~loc 1
+  | Expr_binop (Binop_div, e1, e2) when e1 = e2 -> expr_int ~loc 1
   (* simplify [(a*b)/(c*a)] to [b/c] and [(a^k*b)/(c*a)] to [(a^(k-1)*b)/c]. *)
-  | Expr_div_floor (({ expr_desc = Expr_prod wes1; _ } as e1),
-                    ({ expr_desc = Expr_prod wes2; _ } as e2)) ->
+  | Expr_binop (Binop_div, ({ expr_desc = Expr_prod wes1; _ } as e1),
+                           ({ expr_desc = Expr_prod wes2; _ } as e2)) ->
      let rec aux wes1 wes2 : wexprs * wexprs =
        let add_to_snd k (a,b) = (a,k::b) in
        match wes2 with
@@ -705,9 +750,9 @@ let rec gather_one (e : expr) : expr =
      let wes1',wes2' = aux wes1 wes2 in
      let e1' = expr_make_like e1 (Expr_prod wes1') in
      let e2' = expr_make_like e2 (Expr_prod wes2') in
-     normalize_one (mk (Expr_div_floor (e1', e2')))
+     normalize_one (mk (Expr_binop (Binop_div, e1', e2')))
   (* simplify [(a*b)/a] to [b] and [(a^k*b)/a] to [a^(k-1)*b]. *)
-  | Expr_div_floor ({ expr_desc = Expr_prod wes; _ }, e) -> (* when [e] is not an [Expr_prod] *)
+  | Expr_binop (Binop_div, { expr_desc = Expr_prod wes; _ }, e) -> (* when [e] is not an [Expr_prod] *)
       begin match cancel_div_floor_prod wes e with
       | None -> e
       | Some wes' -> normalize_one (mk (Expr_prod wes'))
@@ -892,10 +937,27 @@ let compute_one (e : expr) : expr =
       if wes_num = [] then e else
       let we_num = compute_wexpr_prod ~loc wes_num in
       mk (Expr_prod (we_num :: wes_rest))
-  | Expr_div_floor ({ expr_desc = Expr_int n1; _},
-                    { expr_desc = Expr_int n2; _}) ->
-      if n2 = 0 then fail loc (Printf.sprintf "compute_one: integer division by zero: %d / %d" n1 n2);
-      expr_int (n1 / n2) (* integer division with rounding *)
+  (* binary operations on integers *)
+  | Expr_binop (op, { expr_desc = Expr_int n1; _}, { expr_desc = Expr_int n2; _}) ->
+     begin match op with
+     | Binop_div ->
+        if n2 = 0 then fail loc (Printf.sprintf "compute_one: integer division by zero: %d / %d" n1 n2);
+        expr_int (n1 / n2) (* integer division with rounding *)
+     | Binop_mod ->
+        if n2 = 0 then fail loc (Printf.sprintf "compute_one: modulo by zero: %d / %d" n1 n2);
+        expr_int (n1 mod n2)
+     | Binop_shiftl ->
+        expr_int (n1 lsl n2)
+     | Binop_shiftr ->
+        expr_int (n1 lsr n2)
+     | Binop_xor ->
+        expr_int (n1 lxor n2)
+     | Binop_bitwise_and ->
+        expr_int (n1 land n2)
+     | Binop_bitwise_or ->
+        expr_int (n1 lor n2)
+     | _ -> e
+    end
   | _ -> e (* LATER: don't use a catch-all branch, as it is error prone in case we add constructors *)
   in
   normalize res
