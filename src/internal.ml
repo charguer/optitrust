@@ -113,11 +113,11 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
           trm_typedef  ~annot:t.annot ~loc:t.loc
            { td with typdef_body = Typdef_alias (change_typ ty)}
         | Typdef_record rf ->
-           let rf = List.map (fun (rf1, rf_annot) -> 
-            match rf1 with 
+           let rf = List.map (fun (rf1, rf_annot) ->
+            match rf1 with
             | Record_field_member (lb, ty) -> (Record_field_member (lb, change_typ ty), rf_annot)
             | Record_field_method t -> (Record_field_method (aux t), rf_annot)
-           ) rf in 
+           ) rf in
            trm_typedef ~annot:t.annot ~loc:t.loc { td with typdef_body = Typdef_record rf}
         | _ -> trm_map aux t
         end
@@ -156,7 +156,7 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
     | Dir_seq_nth i :: dl' -> (List.rev dl',i)
     | Dir_record_field _ :: Dir_seq_nth i :: dl'  -> (List.rev dl', i)
       (* Printf.printf "Path: %s\n" (Path.path_to_string dl); *)
-    | _ -> 
+    | _ ->
       fail None "Internal.isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
@@ -218,13 +218,13 @@ let fresh_args (t : trm) : trm =
 let get_field_list (td : typedef) : (var * typ) list =
   match td.typdef_body with
   | Typdef_record rfl ->
-    List.map (fun (rf, _) -> 
-      match rf with 
+    List.map (fun (rf, _) ->
+      match rf with
       | Record_field_member (lb, ty) -> (lb, ty)
       | _ -> fail None "Internal.get_field_list: expected a struct without methods"
     ) rfl
   | _ -> fail None "Internal.get_field_list: expected a Typedef_prod"
-  
+
 
 (* [get_typid_from_typ t]: check if typ is a constructed type or a composed type
     In case it is constructed type then return its id.
@@ -272,23 +272,23 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
   | _ -> -1
 
 
-(* [toplevel_decl ~require_body x]: finds the toplevel declaration of variable x, x may be a function, variable, typedef or a class method. 
+(* [toplevel_decl ~require_body x]: finds the toplevel declaration of variable x, x may be a function, variable, typedef or a class method.
       If [require_body] is set to true, then only definitions are considered.*)
 let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
   let full_ast = Target.get_ast () in
   let rec aux(t1 : trm) : trm option =
     match t1.desc with
     | Trm_typedef td ->
-        if td.typdef_tconstr = x 
-          then Some t1 
+        if td.typdef_tconstr = x
+          then Some t1
           else begin match td.typdef_body with
                | Typdef_record rfs ->
-                 List.fold_left (fun acc (rf, _) -> 
-                  begin match acc with 
+                 List.fold_left (fun acc (rf, _) ->
+                  begin match acc with
                   | Some _ -> acc
-                  | _ -> 
-                    begin match rf with 
-                    | Record_field_method t2 -> 
+                  | _ ->
+                    begin match rf with
+                    | Record_field_method t2 ->
                       aux t2
                     | _ -> None
                     end
@@ -378,8 +378,8 @@ let get_field_index (field : field) (fields : record_fields) : int =
   let rec aux field fields c = match fields with
     | [] -> failwith "Internal.get_field_index: empty list"
     | (rf, _) :: tl ->
-      begin match rf with 
-      | Record_field_member (f, _) -> 
+      begin match rf with
+      | Record_field_member (f, _) ->
         if f = field then c else aux field tl (c + 1)
       | _ -> aux field tl (c+1)
       end
@@ -395,11 +395,11 @@ let apply_on_record_fields (app_fun : record_field -> record_field ) (rfs : reco
 (* [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
 let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) : record_fields =
   let app_fun (rf : record_field) : record_field =
-    match rf with 
+    match rf with
     | Record_field_member (f, ty) -> Record_field_member (rename_fun f, ty)
-    | Record_field_method t -> 
+    | Record_field_method t ->
       begin match t.desc with
-      | Trm_let_fun (fn, ret_ty, args, body) -> 
+      | Trm_let_fun (fn, ret_ty, args, body) ->
         let new_fn = qvar_update ~var:(rename_fun fn.qvar_var) fn in
         (* let new_fn = {fn with qvar_str = rename_fun fn.qvar_var} in  *)
         let new_t = trm_alter  ~desc:(Some (Trm_let_fun (new_fn, ret_ty, args, body))) t in
@@ -408,19 +408,19 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
       end
       in
     apply_on_record_fields app_fun rfs
-  
+
 (* [update_record_fields_type typ_update rfs]: updates the type of [rfs] based on [typ_update] function. *)
 let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ ) (rfs : record_fields) : record_fields =
   let app_fun (rf : record_field) : record_field =
-    match rf with 
-    | Record_field_member (f, ty) -> 
+    match rf with
+    | Record_field_member (f, ty) ->
       let ty = if Tools.pattern_matches pattern f then typ_update ty else ty in
       Record_field_member (f, ty)
     | Record_field_method t -> fail None "Internal.update_record_fields_type: can't update the type of a method."
       in
     apply_on_record_fields app_fun rfs
-  
-  
+
+
 (* [get_item_and_its_relatives index trms]: for an  item [t] with index [index] in the mlist its belongs to,
     returns the list of items before [t], [t] itself and the list of items that come after [t]. *)
 let get_item_and_its_relatives (index : int) (items : 'a mlist) : ('a mlist * 'a * 'a mlist) =
@@ -465,10 +465,11 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
     | _ -> trm_map aux t
    in aux t
 
-(* [nobrace_remove_and_exit ()]: apply function clean_no_brace over the curren ast *)
-let nobrace_remove_and_exit () =
+(* [nobrace_remove_and_exit ?remove ()]: apply function clean_no_brace over the curren ast *)
+let nobrace_remove_and_exit ?(remove:bool=true) () =
   let id = Nobrace.exit () in
-  Trace.apply (fun ast -> clean_no_brace_seq id ast)
+  if remove
+    then Trace.apply (fun ast -> clean_no_brace_seq id ast)
 
 
 
@@ -542,11 +543,9 @@ let get_constr_from_target (tg : target) : constr =
 
 (* [nobrace_remove_after ~remove f]: wrapper for creating and deleting a nobrace sequence *)
 let nobrace_remove_after ?(remove : bool = true) (f : unit -> unit) : unit =
-  if remove then
-    begin nobrace_enter();
-       f();
-    nobrace_remove_and_exit() end
-  else f()
+  nobrace_enter();
+  f();
+  nobrace_remove_and_exit ~remove ()
 
 
 (* [repalce_type_with x y]: replace the current type of variable [y] to [typ_constr x] *)
@@ -572,7 +571,7 @@ let rec subst (tm : tmap) (t : trm) : trm =
   | Trm_var (vk, x) ->
     begin match Trm_map.find_opt x.qvar_var tm with
     | Some t1 ->
-      let t1 = {t1 with annot = t1.annot} in 
+      let t1 = {t1 with annot = t1.annot} in
       if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1
     | _ -> t
     end
@@ -651,27 +650,26 @@ let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : la
 
 
 (* [get_field_name rf]: returns the name of the field [rf]. *)
-let get_field_name (rf : record_field) : var option = 
-  match rf with 
+let get_field_name (rf : record_field) : var option =
+  match rf with
   | Record_field_member (n, _) -> Some n
   | Record_field_method t1 ->
-    begin match t1.desc with 
+    begin match t1.desc with
     | Trm_let (_, (n, _), _) -> Some n
     | Trm_let_fun (qn, _, _, _) -> Some qn.qvar_var
     | _ -> None
     end
 
-(* [fix_class_member_accesses class_name t]: when class methods are inlined fixes all the direct accesses to class members 
+(* [fix_class_member_accesses class_name t]: when class methods are inlined fixes all the direct accesses to class members
       on method definitions. *)
 let fix_class_member_accesses (class_name : var) (t : trm) : trm =
   let rec aux (t : trm) : trm =
-    match struct_get_inv t with 
+    match struct_get_inv t with
     | Some (base, field) ->
-      begin match base.desc with 
-      | Trm_var (_, qn) when qn.qvar_var = "this" -> 
+      begin match base.desc with
+      | Trm_var (_, qn) when qn.qvar_var = "this" ->
         trm_struct_get ~annot:t.annot (trm_var_get class_name) field
       | _ -> trm_map aux t
       end
-    | _ -> trm_map aux t 
+    | _ -> trm_map aux t
    in aux t
-    

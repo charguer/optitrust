@@ -139,6 +139,9 @@ let stackvar_elim (t : trm) : trm =
      - [<annotation:reference> int* x = &t[i]] becomes [int& x = *(&t[i])], where t has type [const int*]
        which simplifies to x = t[i]
      - [x] where [x] is mutable becomes [&x] *)
+ (* TODO: some marks are lost in the printing, and this needs to be fixed,
+    typically [*x] in the optitrust ast is printed as [x], and if the star operation
+    was carrying a mark, then it is currently not displayed! *)
 let stackvar_intro (t : trm) : trm =
   let env = create_env () in
   let rec aux (t : trm) : trm =

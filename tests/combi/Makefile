@@ -154,6 +154,7 @@ TESTS_BASIC_WITH_DOC := \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
 	variable_bind.ml \
+	variable_bind_multi.ml \
 	variable_fold.ml \
 	variable_unfold.ml \
 	variable_inline.ml \

@@ -363,19 +363,25 @@ let change_type (new_type : typvar) (index : int) : Transfo.local =
   apply_on_path (change_type_aux new_type index)
 
 (* [bind_aux index fresh_name const p_local t]: binds the variable [fresh_name] to the targeted trm,
-      [my_mark] - a mark to be left in the targeted trm,
+      [mark_let] - an optional mark attached to the new binding instruction
+      [mark_occ] - an optional mark attached to the occurrences of [fresh_name] that are inserted
+      [my_mark] - a mark to be left on the bound term, inside the new let-binding definition
       [index] - index of the instruction containing the targeted function call,
       [fresh_name] - name of the variable which going to be binded to the function call,
       [const] - a flag for the mutability of the binded variable,
       [p_local] - the local path from the instruction containing the targeted node
                   to the targeted node,
       [t] - ast of the sequence containing the targeted node. *)
-let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) (t : trm) : trm =
+      (* LATER: cleanup this code, and pull out into auxiliary functions the tooling needed
+         to handle arrays *)
+      (* LATER: figure out whether mark option should use "" as none, and whether
+         trm_add_mark should just be a noop when the mark is "" *)
+let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (index : int) (fresh_name : var) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let f_update (t : trm) : trm =
       let targeted_node = Path.resolve_path p_local t in
-      (* 
+      (*
       Printf.printf "----\n";
       Printf.printf "targeted_node: %s\n" (AstC_to_c.ast_to_string targeted_node);
       *)
@@ -385,13 +391,26 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (i
       | Some ty -> ty
       | _ -> typ_auto()
        in
-      let replacement_node = (trm_var_possibly_mut ~const ~typ:(Some node_type) fresh_name) in
+      let replacement_node = trm_var_possibly_mut ~const ~typ:(Some node_type) fresh_name in
+      let replacement_node = (* LATER; use trm_add_mark_opt *)
+        match mark_occ with
+        | Some m -> trm_add_mark m replacement_node
+        | _ -> replacement_node
+        in
       (*
       Printf.printf "replacement_node: %s\n" (AstC_to_c.ast_to_string replacement_node);
       Printf.printf "t: %s\n" (AstC_to_c.ast_to_string t);
       *)
-      let node_to_change = Internal.change_trm targeted_node replacement_node t in
-      let targeted_node = trm_add_mark my_mark targeted_node in
+      let node_to_change =
+        Path.apply_on_path (fun _tsub -> replacement_node) t p_local in
+        (* DEPRECATED Internal.change_trm targeted_node replacement_node t in
+        -- change_trm seems to lose the mark on replacement node *)
+      (* DEPRECATED let node_to_change =
+        Path.apply_on_path (fun tocc -> trm_add_mark "OCC" tocc) node_to_change p_local in *)
+      (*
+      Printf.printf "replacement_node: %s\n" (AstC_to_c.ast_to_string node_to_change);
+      *)
+      let targeted_node = trm_add_mark mark_body targeted_node in (* LATER: this is probably boggus *)
       let decl_to_insert =
       begin match targeted_node.desc with
       | Trm_array tl ->
@@ -421,16 +440,24 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (i
       Printf.printf "node_to_change: %s\n" (AstC_to_c.ast_to_string node_to_change);
       Printf.printf "----\n";
       *)
+      let decl_to_insert = (* LATER; use trm_add_mark_opt *)
+        match mark_let with
+        | Some m -> trm_add_mark m decl_to_insert
+        | _ -> decl_to_insert
+        in
       trm_seq_no_brace [decl_to_insert; node_to_change]
     in
     let new_tl = Mlist.update_nth index f_update tl in
-    trm_seq ~annot:t.annot new_tl
+    let r = trm_seq ~annot:t.annot new_tl in
+    (*Printf.printf "final: %s\n" (AstC_to_c.ast_to_string r);*)
+    r
+
 
   | _ -> fail t.loc "Variable_core.bind_aux: expected the surrounding sequence"
 
-(* [bind my_mark index fresh_name const is_ptr typ p_local t p]: applies [bind_aux] at trm [t] with path [p]. *)
-let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) : Transfo.local =
-  apply_on_path (bind_aux my_mark index fresh_name const is_ptr typ p_local)
+(* [bind mark_let mark_occ mark_body index fresh_name const is_ptr typ p_local t p]: applies [bind_aux] at trm [t] with path [p]. *)
+let bind (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (index : int) (fresh_name : var) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) : Transfo.local =
+  apply_on_path (bind_aux mark_let mark_occ mark_body index fresh_name const is_ptr typ p_local)
 
 (* [remove_get_operations_on_var x t]: removes one layer of get operations on variable [x].
      i.e. if [x] was a pointer to [v], [get x] becomes [v].
