@@ -29,7 +29,7 @@ dt = "float32"
 
 # rotate through 10 arrays to mitigate cache interference
 # numpy.random.seed()
-n_bench = 10
+n_bench = 20
 n_allocs = n_bench
 C = [ numpy.zeros((M, N), dtype=dt) for i in range(0, n_allocs) ]
 A = [ numpy.random.rand(M, P).astype(dt) for i in range(0, n_allocs) ]

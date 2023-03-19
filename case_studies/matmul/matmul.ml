@@ -26,17 +26,6 @@ let cPlusEqVar (name : string) : constr =
 let foreach (l : 'a list) (f: 'a -> unit) : unit =
   List.iter f l
 
-let _ = Run.script_cpp (fun () ->
-  !! foreach [("i", 32); ("j", 32); ("k", 4)] (fun (index_to_split, size) ->
-    Loop.tile (trm_int size) ~index:("b" ^ index_to_split)
-      ~bound:TileDivides [cFor index_to_split]);
-  !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEqVar "sum"];
-  !!! Loop.hoist_expr ~hoist_at:[tBefore; cFor "bi"] "pB" ~independent_of:["bi"; "i"] [cArrayRead "B"];
-  !! Loop.unroll [cFor ~body:[cPlusEqVar "sum"] "k"];
-  !! Omp.simd [nbMulti; cFor "j"];
-  !! Omp.parallel_for [nbMulti; cFunDef "mm"; dBody; cStrict; cFor ""];
-  !! Matrix.elim_mops [];
-)
 (*
   STATIC ANALYSIS:
     - add divides hypothesis to mm function 'List.forall (divides 32) [n; m; p]'
@@ -86,3 +75,15 @@ let _ = Run.script_cpp (fun () ->
     - precompute the transposed of B
     - unroll loops and introduce parallelism
   *)
+
+let _ = Run.script_cpp (fun () ->
+  !! foreach [("i", 32); ("j", 32); ("k", 4)] (fun (index_to_split, size) ->
+    Loop.tile (trm_int size) ~index:("b" ^ index_to_split)
+      ~bound:TileDivides [cFor index_to_split]);
+  !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEqVar "sum"];
+  !!! Loop.hoist_expr ~hoist_at:[tBefore; cFor "bi"] "pB" ~independent_of:["bi"; "i"] [cArrayRead "B"];
+  !! Matrix.elim_mops [];
+  !! Loop.unroll [cFor ~body:[cPlusEqVar "sum"] "k"];
+  !! Omp.simd [nbMulti; cFor ~body:[cPlusEqVar "sum"] "j"];
+  !! Omp.parallel_for [nbMulti; cFunDef "mm"; dBody; cStrict; cFor ""];
+)

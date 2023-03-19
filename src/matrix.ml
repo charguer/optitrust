@@ -123,7 +123,7 @@ let intro_mops (dim : trm) : Transfo.t =
 let elim_mops (tg : target): unit =
   Rewrite.equiv_at ~ctx:true "int d1, d2, i1, i2; ==> MINDEX2(d1, d2, i1, i2) == (i1 * d2 + i2)" (tg @ [nbAny; cMindex ~d:2 ()]);
   Rewrite.equiv_at ~ctx:true "int d1, d2, d3, i1, i2, i3; ==> MINDEX3(d1, d2, d3, i1, i2, i3) == (i1 * d2 * d3 + i2 * d3 + i3)" (tg @ [nbAny; cMindex ~d:3 ()]);
-  Rewrite.equiv_at ~ctx:true "int d1, d2, d3, d4, i1, i2, i3, i4; ==> MINDEX4(d1, d2, d3, d4, i1, i2, i3, i4) == (i3 * d4 + i2 * d3 * d4 + i1 * d2 * d3 * d4 + i4)" (tg @ [nbAny; cMindex ~d:4 ()]);
+  Rewrite.equiv_at ~ctx:true "int d1, d2, d3, d4, i1, i2, i3, i4; ==> MINDEX4(d1, d2, d3, d4, i1, i2, i3, i4) == (i1 * d2 * d3 * d4 + i2 * d3 * d4 + i3 * d4 + i4)" (tg @ [nbAny; cMindex ~d:4 ()]);
   (* TODO: more precise target ? *)
   Arith.(simpl_rec gather_rec) tg
 
