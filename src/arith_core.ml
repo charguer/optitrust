@@ -868,7 +868,7 @@ let rec compute_power_double (f:float) (w:int) : float =
 
 let compute_wexpr_sum ?(loc=None) (wes:wexprs) : wexpr =
   if List.for_all wexpr_is_int wes then begin
-    let n= List.fold_left (fun acc (w,e) ->
+    let n = List.fold_left (fun acc (w,e) ->
       acc + match e.expr_desc with
       | Expr_int n -> (w * n)
       | _ -> assert false
@@ -940,6 +940,10 @@ let compute_one (e : expr) : expr =
   (* binary operations on integers *)
   | Expr_binop (op, { expr_desc = Expr_int n1; _}, { expr_desc = Expr_int n2; _}) ->
      begin match op with
+     | Binop_exact_div ->
+        if n2 = 0 then fail loc (Printf.sprintf "compute_one: integer division by zero: exact_div(%d, %d)" n1 n2);
+        if (n1 mod n2) <> 0 then fail loc (Printf.sprintf "compute_one: division is not exact: exact_div(%d, %d)" n1 n2);
+        expr_int (n1 / n2) (* integer division with rounding *)
      | Binop_div ->
         if n2 = 0 then fail loc (Printf.sprintf "compute_one: integer division by zero: %d / %d" n1 n2);
         expr_int (n1 / n2) (* integer division with rounding *)

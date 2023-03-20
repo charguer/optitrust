@@ -3,11 +3,8 @@
 
 // NOTE: using pretty matrix notation
 #include "omp.h"
-#include <assert.h>
 
-void mm(float* C, float* A, float* B, int m, int n, int p) {
-  assert((m == 1024) && (n == 1024) && (p == 1024));
-
+void mm1024(float* C, float* A, float* B) {
   float* pB =
       (float*)malloc(sizeof(float[32][256][4][32]));
 #pragma omp parallel for
@@ -29,7 +26,7 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
       float sum[1024];
       for (int i = 0; i < 32; i++) {
         for (int j = 0; j < 32; j++) {
-          sum[(i* 32) + j] = 0.0f;
+          sum[(i * 32) + j] = 0.0f;
         }
       }
       for (int bk = 0; bk < 256; bk++) {

@@ -58,8 +58,8 @@ def benchmark(msg, f):
 
 if implementation_given:
   def run_mm(i):
-    mm(C[i], A[i], B[i])
-
+    mm1024(C[i], A[i], B[i])
+  
   benchmark("matmul '{}'".format(implementation_name), run_mm)
 
   for i in range(0, n_bench):

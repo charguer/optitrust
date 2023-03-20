@@ -184,3 +184,7 @@ let extract_element (l : 'a list) (index : int) : ('a * 'a list) =
 let rec drop (n : int) (l: 'a list) : 'a list =
   if n <= 0 then l
   else drop (n - 1) (List.tl l)
+
+(* [take_last n l]: takes the last [n] elements from [l]. *)
+let take_last (n : int) (l : 'a list) : 'a list =
+  drop ((List.length l) - n) l

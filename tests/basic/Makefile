@@ -57,6 +57,7 @@ TESTS_WITH_DOC := \
 	matrix_intro_mindex.ml \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
+	matrix_stack_copy.ml \
 	pointer_fold.ml \
 	record_change_field_access_kind.ml \
 	record_rename_fields.ml \

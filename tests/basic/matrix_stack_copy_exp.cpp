@@ -1,26 +1,25 @@
-#include "../../include/optitrust.h"
 #include <stdio.h>
+
+#include "../../include/optitrust.h"
 
 int main() {
   float* s = (float*)MALLOC2(32, 32, sizeof(float));
-  // s[32][32] = { 0 };
-
   for (int i = 0; i < 32; i++) {
-    // TODO: s[i][j] = x[j]
+    float x[32];
+    memcpy(x, &s[MINDEX2(32, 32, i, 0)], sizeof(float[32]));
     for (int j = 0; j < 32; j++) {
       for (int k = 0; k < 4; k++) {
-        s[MINDEX2(32, 32, i, j)] += k;
+        s[j] += k;
       }
     }
+    memcpy(&s[MINDEX2(32, 32, i, 0)], x, sizeof(float[32]));
   }
-
   for (int i = 0; i < 32; i++) {
     for (int j = 0; j < 32; j++) {
       printf("%f ", s[MINDEX2(32, 32, i, j)]);
     }
     printf("\n");
   }
-
   free(s);
   return 0;
 }

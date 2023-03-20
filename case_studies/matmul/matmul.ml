@@ -20,6 +20,7 @@ let cArrayRead (x : var) : constr =
 let cArrayWrite (x : var) : constr =
   cWrite ~lhs:[cCellAccess ~base:[cVar x] ()] ()
 
+(* TODO: but in lib *)
 let cPlusEqVar (name : string) : constr =
   cPrimFun ~args:[[cVar name]; [cTrue]] (Prim_compound_assgn_op Binop_add)
     
@@ -85,8 +86,9 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEqVar "sum"];
   !!! Loop.hoist_expr ~hoist_at:[tBefore; cFor "bi"] "pB" ~independent_of:["bi"; "i"] [cArrayRead "B"];
   !! Function.inline ~delete:true [cFun "mm"];
+  !!! Matrix.stack_copy ~name:"sum" ~stack_name:"s" ~d:1 [cFor ~body:[cPlusEqVar "sum"] "k"];
   !! Matrix.elim_mops [];
-  !! Loop.unroll [cFor ~body:[cPlusEqVar "sum"] "k"];
-  !! Omp.simd [nbMulti; cFor ~body:[cPlusEqVar "sum"] "j"];
-  !! Omp.parallel_for [nbMulti; cFunDef "mm"; dBody; cStrict; cFor ""];
+  !! Loop.unroll [cFor ~body:[cPlusEqVar "s"] "k"];
+  !! Omp.simd [nbMulti; cFor ~body:[cPlusEqVar "s"] "j"];
+  !! Omp.parallel_for [nbMulti; cFunDef "mm1024"; dBody; cStrict; cFor ""];
 )

@@ -44,7 +44,7 @@ MATMUL_BENCHS := $(filter-out bench_matmul_before,$(MATMUL_BENCHS))
 
 bench: bench_ref $(MATMUL_BENCHS)
 
-bench_demo: bench_ref bench_matmul bench_matmul_opt
+bench_demo: bench_ref bench_matmul bench_matmul_out bench_matmul_out_goal bench_matmul_opt_spec_cse_autosimd_ssum_tmp bench_matmul_opt_spec_cse_bits_ssum_tmp
 
 bench_ref:
 	$(V)python3 bench.py

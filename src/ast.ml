@@ -1595,6 +1595,11 @@ let trm_get_inv (t : trm) : trm option =
   | Some (Unop_get, t2) -> Some t2
   | _ -> None
 
+let trm_var_get_inv (t : trm) : (varkind * var) option =
+  match trm_get_inv t with
+  | Some t2 -> trm_var_inv t2
+  | None -> None
+  
 (* DEPRECATED because REDUNDANT
 (* [trm_int n]: converts an integer to trm *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)

@@ -235,3 +235,65 @@ end
    *)
 let intro_malloc0 (x : var) : Target.Transfo.t =
   Target.apply_at_target_paths (intro_malloc0_on x)
+
+(*
+  f(name)
+
+  --->
+
+  T stack_name[N];
+  memcpy(stack_name, &name[MINDEX(...)], sizeof(T[...]));
+  f(name)[
+    stack_name[iN] /
+    name[MINDEX(..., iN)]
+  ];
+  memcpy(&name[MINDEX(...)], stack_name, sizeof(T[...]));
+*)
+let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : trm =
+  let dims_and_typ_opt : (trms * typ) option ref = ref None in
+  let common_indices_opt : trms option ref = ref None in
+  let rec update_accesses (t : trm) : trm =
+    match Matrix_core.access_inv t with
+    | Some (f, dims, indices) ->
+      begin match trm_var_get_inv f with
+      | Some (_, n) when n = name -> begin
+        if Option.is_none !dims_and_typ_opt then begin
+          let typ = Option.get (typ_ptr_inv (Option.get f.typ)) in
+          dims_and_typ_opt := Some (dims, typ);
+        end;
+        let (common_indices, new_indices) = Xlist.split_at d indices in
+        begin match !common_indices_opt with
+        | Some ci -> assert (List.for_all2 Internal.same_trm ci common_indices);
+        | None -> common_indices_opt := Some common_indices
+        end;
+        List.fold_left (fun acc i ->
+          trm_array_access acc i) (trm_var_get stack_name) new_indices
+        end
+      | _ -> trm_map update_accesses t
+      end
+    | None ->
+      begin match trm_var_inv t with
+      | Some (_, n) when n = name ->
+        fail t.loc "Matrix_basic.stack_copy_on: variable access is not covered" 
+      | _ -> trm_map update_accesses t
+      end
+  in
+  let new_t = update_accesses t in
+  let (dims, typ) = Option.get !dims_and_typ_opt in
+  let common_indices = Option.get !common_indices_opt in
+  let new_dims = Xlist.take_last d dims in 
+  let array_typ = List.fold_left (fun acc i ->
+    typ_array acc (Trm i)
+  ) typ new_dims in
+  let copy_offset = trm_array_access (trm_var_get name) (mindex dims (common_indices @ (List.init d (fun _ -> trm_int 0)))) in
+  let copy_size = trm_var ("sizeof(" ^ (AstC_to_c.typ_to_string array_typ) ^ ")") in
+  trm_seq_no_brace [
+    trm_let_mut (stack_name, array_typ) (trm_uninitialized ());
+    trm_apps (trm_var "memcpy") [trm_var_get stack_name; copy_offset; copy_size];
+    new_t;
+    trm_apps (trm_var "memcpy") [copy_offset; trm_var_get stack_name; copy_size];
+  ]
+
+let stack_copy ~(name : string) ~(stack_name : string) ~(d : int) (tg : Target.target) : unit =
+  Internal.nobrace_remove_after (fun () ->
+    Target.apply_at_target_paths (stack_copy_on name stack_name d) tg)
