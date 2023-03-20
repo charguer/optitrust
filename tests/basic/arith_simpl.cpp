@@ -105,6 +105,7 @@ int main()
   ci = 14 | 5; // = 15
   ci = 14 & 5; // = 4
   ci = 15 % 4; // = 3
+  ci = n * 4 * 2; // = n * 8
 
   // compute int div
   ci = exact_div(8, 2); // = 4
