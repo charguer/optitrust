@@ -11,15 +11,22 @@ implementation_given = len(sys.argv) > 1
 if implementation_given:
   implementation_name, _ = os.path.splitext(os.path.basename(sys.argv[1]))
   so_functions = CDLL(sys.argv[1])
-  mm = so_functions.mm
-  mm.restype = None
-  mm.argtypes = [
+  # mm = so_functions.mm
+  # mm.restype = None
+  # mm.argtypes = [
+  #   ndpointer(c_float, flags="C_CONTIGUOUS"),
+  #   ndpointer(c_float, flags="C_CONTIGUOUS"),
+  #   ndpointer(c_float, flags="C_CONTIGUOUS"),
+  #   c_int,
+  #   c_int,
+  #   c_int,
+  # ]
+  mm1024 = so_functions.mm1024
+  mm1024.restype = None
+  mm1024.argtypes = [
     ndpointer(c_float, flags="C_CONTIGUOUS"),
     ndpointer(c_float, flags="C_CONTIGUOUS"),
     ndpointer(c_float, flags="C_CONTIGUOUS"),
-    c_int,
-    c_int,
-    c_int,
   ]
 
 M = 1024
@@ -51,7 +58,7 @@ def benchmark(msg, f):
 
 if implementation_given:
   def run_mm(i):
-    mm(C[i], A[i], B[i], M, N, P)
+    mm(C[i], A[i], B[i])
 
   benchmark("matmul '{}'".format(implementation_name), run_mm)
 

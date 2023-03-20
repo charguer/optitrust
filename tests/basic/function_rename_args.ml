@@ -31,5 +31,4 @@ let _ = Run.script_cpp (fun () ->
   !! Function_basic.rename_args ["x2"; "y2"] [cFunDef "test_two_args"];
 
   !! Function_basic.rename_args ["x1"] [cFunDef "test_method_args"];
-
 )

@@ -25,26 +25,7 @@ void mm(float* C, float* A, float* B, int m, int n, int p) {
     }
   }
 }
-/*
-int main() {
-  const int M = 1024;
-  const int N = 1024;
-  const int P = 1024;
-  
-  float* C = (float*) calloc(M * N, sizeof(float));
-  float* A = (float*) malloc(M * P * sizeof(float));
-  float* B = (float*) malloc(P * N * sizeof(float));
 
-  // TODO: init?
-
-  mm(C, A, B, M, N, P);
-
-  // TODO: check result?
-
-  free(C);
-  free(A);
-  free(B);
-
-  return 0;
+void mm1024(float* C, float* A, float* B) {
+  mm(C, A, B, 1024, 1024, 1024);
 }
-*/

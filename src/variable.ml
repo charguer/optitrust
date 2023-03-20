@@ -508,7 +508,7 @@ let bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ opti
   (* introduce a binding for the first targeted occurrence *)
   let mark_let = Mark.next() in
   let mark_occ = Mark.next() in
-  Variable_basic.bind ~const ~is_ptr ~mark_let:(Some mark_let) ~mark_occ:(Some mark_occ) ~typ fresh_name [cMark mark_fst];
+  Variable_basic.bind ~const ~is_ptr ~mark_let:(Some mark_let) ~mark_occ:(Some mark_occ) ~typ ~remove_nobrace:false fresh_name [cMark mark_fst];
   (*Printf.printf "ex2: %s\n" (AstC_to_c.ast_to_string (Trace.ast()))*)
   (* move the binding to the desired target *)
   Instr.move ~dest [cMark mark_let];

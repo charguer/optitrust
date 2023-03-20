@@ -39,6 +39,8 @@ let foreach (l : 'a list) (f: 'a -> unit) : unit =
     - allocate one 'sum' accumulator per thread?
       - hoist = create array + reuse space
     - '*' '/' to bitshift
+    - "local name" for sum
+    - memset/memcpy insertions
 
     - allow unrolling without requiring shift?
     - allow SIMD before unroll
@@ -82,6 +84,7 @@ let _ = Run.script_cpp (fun () ->
       ~bound:TileDivides [cFor index_to_split]);
   !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEqVar "sum"];
   !!! Loop.hoist_expr ~hoist_at:[tBefore; cFor "bi"] "pB" ~independent_of:["bi"; "i"] [cArrayRead "B"];
+  !! Function.inline ~delete:true [cFun "mm"];
   !! Matrix.elim_mops [];
   !! Loop.unroll [cFor ~body:[cPlusEqVar "sum"] "k"];
   !! Omp.simd [nbMulti; cFor ~body:[cPlusEqVar "sum"] "j"];

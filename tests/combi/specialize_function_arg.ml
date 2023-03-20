@@ -32,5 +32,4 @@ let _ = Run.script_cpp (fun _ ->
   !! Specialize.function_arg "f3" [false; true] tg;
 
   !! Specialize.function_arg "f4" [false; false] tg;
-
 )
