@@ -65,13 +65,21 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
   if bound = TileDivides then begin
      (* TODO: other cases *)
      assert (Internal.same_trm start (trm_int 0));
-     assert (is_step_one step);
      assert (direction = DirUp);
-     let tile_count = trm_exact_div ~typ:stop.typ stop tile_size in
-     let new_index = trm_add ~typ:start.typ
+     let (count, iteration_to_index) = if is_step_one step
+     then (stop, fun i -> i)
+     else match step with
+     | Step s ->
+      (trm_div ~typ:stop.typ stop s,
+       fun i -> trm_mul ~typ:stop.typ i s)
+     | _ -> assert false
+     in
+     let tile_count = trm_exact_div ~typ:stop.typ count tile_size in
+     let iteration = trm_add ~typ:start.typ
       (trm_mul ~typ:start.typ (trm_var ~typ:start.typ tile_index) tile_size)
       (trm_var ~typ:start.typ index)
      in
+     let new_index = iteration_to_index iteration in
      trm_for (tile_index, (trm_int 0), DirUp, tile_count, Post_inc, is_parallel) (trm_seq_nomarks [
        trm_for (index, (trm_int 0), DirUp, tile_size, Post_inc, is_parallel) (Internal.change_trm (trm_var index) new_index body)
      ])

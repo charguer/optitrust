@@ -9,7 +9,7 @@ int main() {
     memcpy(x, &s[MINDEX2(32, 32, i, 0)], sizeof(float[32]));
     for (int j = 0; j < 32; j++) {
       for (int k = 0; k < 4; k++) {
-        s[j] += k;
+        x[j] += k;
       }
     }
     memcpy(&s[MINDEX2(32, 32, i, 0)], x, sizeof(float[32]));

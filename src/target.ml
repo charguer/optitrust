@@ -1015,6 +1015,18 @@ let cCell ?(cell_index : int option = None) () : constr =
   | None -> cTarget [cArrayInit; cStrict; cTrue]
   | Some i -> cTarget [cArrayInit; dArrayNth i]
 
+(* FIXME:
+   1. seems weird
+   2. also triggers on writes? *)
+let cArrayRead (x : var) : constr =
+  cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()
+
+let cArrayWrite (x : var) : constr =
+  cWrite ~lhs:[cCellAccess ~base:[cVar x] ()] ()
+
+let cPlusEqVar (name : string) : constr =
+  cPrimFun ~args:[[cVar name]; [cTrue]] (Prim_compound_assgn_op Binop_add)
+
 (* [cOmp_match_all]: matches an OpenMP directive. *)
 let cOmp_match_all : directive->bool =
   fun _ -> true

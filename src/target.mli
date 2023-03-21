@@ -317,6 +317,12 @@ val cStructInit : constr
 
 val cCell : ?cell_index: int option -> unit -> constr
 
+val cArrayRead : var -> constr
+
+val cArrayWrite : var -> constr
+
+val cPlusEqVar : string -> constr
+
 val cSwitch : ?cond:target ->
               ?cases:((case_kind * target) list) -> unit -> constr
 

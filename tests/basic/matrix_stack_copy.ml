@@ -3,7 +3,7 @@ open Target
 open Path
 
 let _ = Run.doc_script_cpp (fun () ->
-   !! Matrix.stack_copy ~var_from:"s" ~var_to:"x" ~fixed_dims:1 [occFirst; cFor "j"];
+   !! Matrix.stack_copy ~var:"s" ~copy_var:"x" ~copy_dims:1 [occFirst; cFor "j"];
 )
 
 "
@@ -23,6 +23,6 @@ int main () {
 "
 
 let _ = Run.script_cpp (fun () ->
-   !! Matrix.stack_copy ~var_from:"s" ~var_to:"x" ~fixed_dims:1 [occFirst; cFor "j"];
+   !! Matrix.stack_copy ~var:"s" ~copy_var:"x" ~copy_dims:1 [occFirst; cFor "j"];
    !!! ();
 )

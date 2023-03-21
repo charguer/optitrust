@@ -249,7 +249,7 @@ let intro_malloc0 (x : var) : Target.Transfo.t =
   ];
   memcpy(&name[MINDEX(...)], stack_name, sizeof(T[...]));
 *)
-(* TODO: rename name to var_from  and stack_name to var_to, rename d to fixed_dims *)
+(* TODO: rename name to var and stack_name to copy_name, rename d to copy_dims *)
 let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : trm =
   let dims_and_typ_opt : (trms * typ) option ref = ref None in
   let common_indices_opt : trms option ref = ref None in
@@ -295,6 +295,6 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
     trm_apps (trm_var "memcpy") [copy_offset; trm_var_get stack_name; copy_size];
   ]
 
-let stack_copy ~(var_from : string) ~(var_to : string) ~(fixed_dims : int) (tg : Target.target) : unit =
+let stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun () ->
-    Target.apply_at_target_paths (stack_copy_on var_from var_to fixed_dims) tg)
+    Target.apply_at_target_paths (stack_copy_on var copy_var copy_dims) tg)
