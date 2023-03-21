@@ -3,7 +3,7 @@ open Target
 open Path
 
 let _ = Run.doc_script_cpp (fun () ->
-   !! Matrix.stack_copy ~name:"s" ~stack_name:"x" ~d:1 [occFirst; cFor "j"];
+   !! Matrix.stack_copy ~var_from:"s" ~var_to:"x" ~fixed_dims:1 [occFirst; cFor "j"];
 )
 
 "
@@ -16,13 +16,13 @@ int main () {
     for (int j = 0; j < 32; j++) {
       for (int k = 0; k < 4; k++) {
         s[MINDEX2(32, 32, i, j)] += k;
-      } 
+      }
     }
   }
 }
 "
 
 let _ = Run.script_cpp (fun () ->
-   !! Matrix.stack_copy ~name:"s" ~stack_name:"x" ~d:1 [occFirst; cFor "j"];
+   !! Matrix.stack_copy ~var_from:"s" ~var_to:"x" ~fixed_dims:1 [occFirst; cFor "j"];
    !!! ();
 )

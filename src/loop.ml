@@ -32,7 +32,7 @@ let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (t
   ) tg
 
 (* TODO: redundant with 'hoist' *)
-(* [hoist_alloc_loop_list]: this transformation is similar to [Loop_basic.hoist], but also supports undetached 
+(* [hoist_alloc_loop_list]: this transformation is similar to [Loop_basic.hoist], but also supports undetached
    variable declarations, hoisting through multiple loops, and inlining array indexing code.
     [tmp_names] - pattern used to generate temporary names
     [name] - name of the hoisted matrix
@@ -41,7 +41,7 @@ let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (t
               where [0] represents a loop for which no dimension should be created,
               and [1] represents a loop for which a dimension should be created.
   *)
-let hoist_alloc_loop_list 
+let hoist_alloc_loop_list
   ?(tmp_names : string = "${var}_step${i}")
   ?(name : string = "")
   ?(inline : bool = true)
@@ -218,18 +218,18 @@ let hoist_instr_loop_list (loops : int list) (tg : target) : unit =
     aux (List.rev loops) p;
   ) tg
 
-(* [hoist_decl_loop_list]: this transformation hoists a variable declaration outside of multiple loops 
+(* [hoist_decl_loop_list]: this transformation hoists a variable declaration outside of multiple loops
    using a combination of [hoist_alloc_loop_list] for the allocation and [hoist_instr_loop_list] for the initialization. *)
 let hoist_decl_loop_list
   ?(tmp_names : string = "${var}_step${i}")
   ?(name : string = "")
   ?(inline : bool = true)
   (loops : int list)
-  (tg : target) : unit 
+  (tg : target) : unit
   =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
-    match trm_let_inv tg_trm with 
+    match trm_let_inv tg_trm with
     | Some (_, x, _, init) -> Marks.with_fresh_mark_on (p @ [Dir_body; Dir_arg_nth 0]) (fun m ->
         hoist_alloc_loop_list ~tmp_names ~name ~inline loops tg;
         hoist_instr_loop_list loops [cBinop ~rhs:[cMark m] Binop_set];
@@ -246,7 +246,7 @@ let find_surrounding_instr (p : path) (t : trm) : path =
   assert (not (Path.resolve_path p t).is_statement);
   aux p
 
-(* [hoist_expr_loop_list]: this transformation hoists an expression outside of multiple loops 
+(* [hoist_expr_loop_list]: this transformation hoists an expression outside of multiple loops
    using a combination of [Variable.bind] to create a variable and [hoist_decl_loop_list] to hoist the variable declaration. *)
 let hoist_expr_loop_list (name : string)
                          (loops : int list)
@@ -259,14 +259,14 @@ let hoist_expr_loop_list (name : string)
 
 (* internal *)
 let targets_iter_with_loop_lists
-  ?(independent_of : var list = [])
-  ?(hoist_at : target = [])
+  ?(indep : var list = [])
+  ?(dest : target = [])
   (f : int list -> path -> unit)
   (tg : target) : unit =
 begin
-  assert (hoist_at <> []);
+  assert (dest <> []);
   Target.iter (fun t target_path ->
-    let hoist_path = Target.resolve_target_exactly_one hoist_at t in
+    let hoist_path = Target.resolve_target_exactly_one dest t in
     let (common_path, hoist_relpath, target_relpath) = Path.split_common_prefix hoist_path target_path in
     (*
     Printf.printf "common path: %s\n" (Path.path_to_string common_path);
@@ -282,7 +282,7 @@ begin
     let (rev_loop_list, _) = List.fold_left (fun (rev_loop_list, p) elem ->
       let new_rev_loop_list = match trm_for_inv (resolve_path_current_ast p) with
       | Some ((i, _start, _dir, _stop, _step, _par), _) ->
-        let loop_val = if List.mem i independent_of then 0 else 1 in
+        let loop_val = if List.mem i indep then 0 else 1 in
         loop_val :: rev_loop_list
       | None -> rev_loop_list
       in
@@ -295,13 +295,13 @@ end
 
 (* TODO: add unit tests in combi/loop_hoist.ml *)
 (* [hoist_expr]: same as [hoist_expr_loop_list], but allows specifying
-   loop indices that the expression does not depend on in [independent_of],
-   and specifying where to hoist using [hoist_at] target. *)
+   loop indices that the expression does not depend on in [indep],
+   and specifying where to hoist using [dest] target. *)
 let hoist_expr (name : string)
-               ?(independent_of : var list = [])
-               ?(hoist_at : target = [])
+               ?(indep : var list = [])
+               ?(dest : target = [])
                (tg : target) : unit =
-  targets_iter_with_loop_lists ~independent_of ~hoist_at (fun loops p ->
+  targets_iter_with_loop_lists ~indep ~dest (fun loops p ->
     (* Printf.printf "%s\n" (Tools.list_to_string (List.map string_of_int loops)); *)
     hoist_expr_loop_list name loops (target_of_path p)
   ) tg
@@ -651,9 +651,9 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : var) (p : path): 
       fission_all_instrs (target_of_path (path_of_loop_surrounding_mark_current_ast m));
       Loop_basic.swap (target_of_path (path_of_loop_surrounding_mark_current_ast m));
       (* Printf.printf "after i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
-    end      
+    end
   )
-  
+
 (* [reorder_at ~order tg]: expects the target [tg] to point at an instruction that is surrounded
    by [length order] loops, and attempts to reorder these loops according to [order].
    The loops do not have to be perfectly nested. In order to swap imperfect loop nests,

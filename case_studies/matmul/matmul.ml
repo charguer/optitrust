@@ -23,7 +23,7 @@ let cArrayWrite (x : var) : constr =
 (* TODO: but in lib *)
 let cPlusEqVar (name : string) : constr =
   cPrimFun ~args:[[cVar name]; [cTrue]] (Prim_compound_assgn_op Binop_add)
-    
+
 let foreach (l : 'a list) (f: 'a -> unit) : unit =
   List.iter f l
 
@@ -79,16 +79,29 @@ let foreach (l : 'a list) (f: 'a -> unit) : unit =
     - unroll loops and introduce parallelism
   *)
 
+let (~~) f a b = f b a
+(* TODO: je préfères utiliser un combinateur qui conserve le nom "List.iter" *)
+
+(* TODO:  déplacer tous les commentaires dans un fichier auxiliaire
+   TODO: déplacer les fonctions cArrayRead etc.. au bon endroit *)
+
+(* TODO: j'ai des erreurs en output:
+
+  tmp_rule.cpp:33:70: error: subscripted value is not an array, pointer, or vector *)
+
+
 let _ = Run.script_cpp (fun () ->
-  !! foreach [("i", 32); ("j", 32); ("k", 4)] (fun (index_to_split, size) ->
-    Loop.tile (trm_int size) ~index:("b" ^ index_to_split)
-      ~bound:TileDivides [cFor index_to_split]);
+  !! ~~List.iter [("i", 32); ("j", 32); ("k", 4)] (fun (loop_id, tile_size) ->
+    Loop.tile (trm_int tile_size) ~index:("b" ^ loop_id)
+      ~bound:TileDivides [cFor loop_id]);
   !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEqVar "sum"];
-  !!! Loop.hoist_expr ~hoist_at:[tBefore; cFor "bi"] "pB" ~independent_of:["bi"; "i"] [cArrayRead "B"];
+  !!! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "pB" ~indep:["bi"; "i"] [cArrayRead "B"];
   !! Function.inline ~delete:true [cFun "mm"];
-  !!! Matrix.stack_copy ~name:"sum" ~stack_name:"s" ~d:1 [cFor ~body:[cPlusEqVar "sum"] "k"];
+  (*!! Arith.(simpl compute) [];  TODO: ça serait sympa de retirer les exact div ici *)
+  !!! Matrix.stack_copy ~var_from:"sum" ~var_to:"s" ~fixed_dims:1 [cFor ~body:[cPlusEqVar "sum"] "k"];
   !! Matrix.elim_mops [];
   !! Loop.unroll [cFor ~body:[cPlusEqVar "s"] "k"];
   !! Omp.simd [nbMulti; cFor ~body:[cPlusEqVar "s"] "j"];
   !! Omp.parallel_for [nbMulti; cFunDef "mm1024"; dBody; cStrict; cFor ""];
+  (* TODO: on a deux fois #include "omp.h" *)
 )

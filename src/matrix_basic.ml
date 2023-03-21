@@ -125,10 +125,10 @@ let simpl_index_add_on (t : trm) : trm =
     if delta > 0 then
       (List.hd long) :: (compute_idxs (delta - 1) (List.tl long) short)
     else match (long, short) with
-    | (l :: l_rest, s :: s_rest) -> 
+    | (l :: l_rest, s :: s_rest) ->
       (trm_add ~typ:l.typ l s) :: (compute_idxs 0 l_rest s_rest)
     | ([], []) -> []
-    | _ -> assert false 
+    | _ -> assert false
   in
   mindex long_dims (compute_idxs delta_dims long_idxs short_idxs)
 
@@ -167,7 +167,7 @@ let simpl_access_of_access : Target.Transfo.t =
 let find_occurences_and_add_mindex0 (x : var) (t : trm) : (bool * trm) =
   let found = ref false in
   let rec loop (t : trm) : trm =
-    match trm_var_inv t with 
+    match trm_var_inv t with
     | Some (_, y) when x = y ->
       found := true;
       trm_array_access (trm_var_get y) (mindex [] [])
@@ -200,7 +200,7 @@ let intro_malloc0_on (x : var) (t : trm) : trm = begin
     let last_use = ref decl_index in
     let instrs3 = Mlist.mapi (fun i instr ->
       if i <= decl_index then
-       instr 
+       instr
       else begin
         let (found, instr2) = find_occurences_and_add_mindex0 x instr in
         if found then last_use := i;
@@ -213,7 +213,7 @@ let intro_malloc0_on (x : var) (t : trm) : trm = begin
 end
 
 (* [intro_malloc0]: given a target to a sequence with a declaration allocating
-   variable [x] on the stack, changes the declaration to use a MALLOC0 heap 
+   variable [x] on the stack, changes the declaration to use a MALLOC0 heap
    allocation, and adds an instruction to free the memory after all uses of
    [x] in the sequence.
 
@@ -231,7 +231,7 @@ end
    }
 
    LATER: deal with control flow
-  
+
    *)
 let intro_malloc0 (x : var) : Target.Transfo.t =
   Target.apply_at_target_paths (intro_malloc0_on x)
@@ -249,6 +249,7 @@ let intro_malloc0 (x : var) : Target.Transfo.t =
   ];
   memcpy(&name[MINDEX(...)], stack_name, sizeof(T[...]));
 *)
+(* TODO: rename name to var_from  and stack_name to var_to, rename d to fixed_dims *)
 let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : trm =
   let dims_and_typ_opt : (trms * typ) option ref = ref None in
   let common_indices_opt : trms option ref = ref None in
@@ -274,14 +275,14 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
     | None ->
       begin match trm_var_inv t with
       | Some (_, n) when n = name ->
-        fail t.loc "Matrix_basic.stack_copy_on: variable access is not covered" 
+        fail t.loc "Matrix_basic.stack_copy_on: variable access is not covered"
       | _ -> trm_map update_accesses t
       end
   in
   let new_t = update_accesses t in
   let (dims, typ) = Option.get !dims_and_typ_opt in
   let common_indices = Option.get !common_indices_opt in
-  let new_dims = Xlist.take_last d dims in 
+  let new_dims = Xlist.take_last d dims in
   let array_typ = List.fold_left (fun acc i ->
     typ_array acc (Trm i)
   ) typ new_dims in
@@ -294,6 +295,6 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
     trm_apps (trm_var "memcpy") [copy_offset; trm_var_get stack_name; copy_size];
   ]
 
-let stack_copy ~(name : string) ~(stack_name : string) ~(d : int) (tg : Target.target) : unit =
+let stack_copy ~(var_from : string) ~(var_to : string) ~(fixed_dims : int) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun () ->
-    Target.apply_at_target_paths (stack_copy_on name stack_name d) tg)
+    Target.apply_at_target_paths (stack_copy_on var_from var_to fixed_dims) tg)
