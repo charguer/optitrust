@@ -171,12 +171,12 @@ let split_pairs_snd (l : ('a * 'b) list) : 'b list =
 (* [extract l start nb]: returns a sublist of [l] and the complement of that sublist in [l].
     The sublist contains all the elements of [l] whose indices fall in the range [start, start + nb) range. *)
 let extract (l : 'a list) (start : int) (nb : int) : ('a list * 'a list) =
-  let lfront, lback = try split_at start l with Failure _ ->  failwith "XList.extract: please enter a valid starting index"in 
+  let lfront, lback = try split_at start l with Failure _ ->  failwith "XList.extract: please enter a valid starting index"in
   let ext, lback = try split_at nb lback with Failure _ -> failwith "Xlist.extract: [start] + [nb] -1 should be a valid index for list [l]. "in
   ext , lfront @ lback
 
 (* [extract_element l index]: extracts the element with [index] from list [l].*)
-let extract_element (l : 'a list) (index : int) : ('a * 'a list) = 
+let extract_element (l : 'a list) (index : int) : ('a * 'a list) =
   let l, l1 = extract l index 1 in
   (List.nth l 0), l1
 
