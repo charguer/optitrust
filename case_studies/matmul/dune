@@ -1,3 +1,9 @@
 (executable
   (name matmul)
+  (modules matmul)
+  (libraries optitrust))
+
+(executable
+  (name matmul_mini)
+  (modules matmul_mini)
   (libraries optitrust))
