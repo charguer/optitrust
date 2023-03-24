@@ -137,9 +137,14 @@ let _main : unit =
         and update the ones that have just been reparsed *)
 
   (* Call batch_tests.sh test1 ... testN to generate  batch.ml
+     inclure ./batch_controller.ml tout à la fin de batch.ml
 
-     linker batch.ml avec batcher.ml  où batcher.ml serait celui
+     compiler et exécuter batch.ml
+
+     c'est le code de batch_controller.ml
      qui fait la gestion des cached_inputs/cached_outputs
+
+     ./batch_controller.ml prendrait en argument presque tous les arguments de tester.ml
 
      tester.ml would do only the computation of the list of tests
      and the generation of batch.ml and the launching of batcher.exe
@@ -162,14 +167,36 @@ let _main : unit =
      if only one failure, print full descr for this one;
      in more, generate a file with all full_descr
 
-     at last, print a summary: ALL SUCCEED, LIST OF FAILED
+     at last, print a summary: ALL SUCCEED, NB OF FAILED, NB OF SKIPPED
        print short failure descr => one per line
 
      generate a file "failed.txt" with the list of tests that have Result_mismatch,
      for use with bash script for accepting changes
 
+     generate a file "report.ser" or "report.txt" or both
+     with the list of tests that have succeeded
+
      *)
 
+     (* NOTE:
+
+Xfile.
+let serialize_to_file (filename : string) (obj : 'a) : unit =
+let unserialize_from_file (filename : string) : 'a =
+let is_newer_than (filename1 : string) (filename2 : string) : bool =
+
+need to compare dependency on
+- optitrust/ast.cmxa installed needs to be more recent than serialized files
+*)
+
+(* Level 2 :
+   if optitrust lib
+     AND test.cpp
+     AND test_out.cpp
+     AND test.ml
+     have not changed since production of report.ser
+   then skip this test.
+*)
 
 (* --- accept.sh
 
