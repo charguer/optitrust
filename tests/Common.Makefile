@@ -67,7 +67,7 @@ TRACEFLAGS ?=
 OPTITRUST_PREFIX := $(shell echo `opam config var prefix`)
 
 # Command for executing an OptiTrust script
-RUNNER="$(OPTITRUST_PREFIX)/bin/optitrust_runner.native"
+RUNNER="$(OPTITRUST_PREFIX)/bin/optitrust_runner"
 
 #######################################################
 # Targets
@@ -121,7 +121,7 @@ expected: $(TESTS:.ml=.exp)
 $(RUNNER):
 
 # Rule for building the runner
-runner: 
+runner:
 	$(MAKE) -C $(OPTITRUST) runner
 	@echo Produced $(RUNNER)
 
@@ -164,7 +164,7 @@ BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -us
 ifeq ($(BATCH),)
 
 # $(RUNNER) as dependency?
-%_out.cpp: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml 
+%_out.cpp: %_with_lines.cmxs %.cpp %.ml %_with_lines.ml
 	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< $(FLAGS)
 	@echo "Produced $@"
 
@@ -190,7 +190,7 @@ endif
 	$(V)$(BUILD) $@
 
 # $(RUNNER) as dependency?
-%.cmxs: %.ml $(OPTITRUSTLIB) 
+%.cmxs: %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@
 	$(V)ln -sf _build/$@ $@
 

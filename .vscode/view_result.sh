@@ -40,9 +40,9 @@ fi
 # Run make update in working folder if requested
 if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ]; then
   echo "recompile lib"
-  # FIXME: This is very fragile since it requires that the Makefile in 
+  # FIXME: This is very fragile since it requires that the Makefile in
   # the transformation script directory have an optitrust target properly configured
-  make optitrust 
+  make optitrust
   OUT=$?
   if [ ${OUT} -ne 0 ]; then
     echo "Could not compile lib"  >> /dev/stderr
@@ -53,7 +53,7 @@ fi
 
 PROG="${FILEBASE}_with_lines.cmxs"
 # TODO: Install optitrust_runner and use the installed version
-RUNNER="${SRCFOLDER}/runner/optitrust_runner.native"
+RUNNER="${SRCFOLDER}/runner/optitrust_runner"
 
 # First we create the source code for the transformation program
 # ---DEPRECATED:

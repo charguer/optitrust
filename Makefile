@@ -16,6 +16,7 @@ install_compcert_stdlib:
 	install -m 0644 $(COMPCERT_STDLIB_DIR_SRC)/*.h $(COMPCERT_STDLIB_DIR_DST)
 
 install:
+	dune build -p $(THIS) @install
 	dune install -p $(THIS)
 
 uninstall:
