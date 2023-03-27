@@ -1,0 +1,9 @@
+(executable
+ (name       optitrust_runner)
+ (libraries  clangml refl pprint str optitrust dynlink)
+ (link_flags (-linkall))
+ (modes      native))
+
+(install
+ (files (optitrust_runner.exe as optitrust_runner))
+ (section bin))
