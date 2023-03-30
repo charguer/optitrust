@@ -61,7 +61,8 @@ def benchmark(msg, f):
     msg, numpy.median(durations_s), numpy.min(durations_s), numpy.max(durations_s), n_bench))
   for (q, p) in zip(qs, percentiles):
     print("{}th percentile: {:.4f}".format(q, p))
-  print("raw: {}".format(durations_s))
+  # print("raw: {}".format(durations_s))
+  print()
 
 if implementation_given:
   def run_mm(i):

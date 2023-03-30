@@ -1599,7 +1599,7 @@ let trm_var_get_inv (t : trm) : (varkind * var) option =
   match trm_get_inv t with
   | Some t2 -> trm_var_inv t2
   | None -> None
-  
+
 (* DEPRECATED because REDUNDANT
 (* [trm_int n]: converts an integer to trm *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)
@@ -2887,7 +2887,7 @@ let is_arith_fun (p : prim) : bool =
 (* [is_prim_arith p]: checks if [p] is a primitive arithmetic operation *)
 let is_prim_arith (p : prim) : bool =
   match p with
-  | Prim_binop (Binop_add | Binop_sub | Binop_mul | Binop_div)
+  | Prim_binop (Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_exact_div)
   | Prim_unop Unop_neg ->
       true
   | _ -> false
