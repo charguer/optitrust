@@ -61,8 +61,8 @@ let print_list ?(sep : string = ";") (dl : document list) : document =
 (* [list_to_doc]: advanced version of [print_list] that supports special treatment for empty lists.
     LATER: merge with [print_list], making [empty] an optional argument? *)
 let list_to_doc ?(empty : document = empty) ?(sep:document = semi) ?(bounds = [empty; empty]) (l : document list) : document =
-  let lb = List.nth bounds 0 in 
-  let rb = List.nth bounds 1 in 
+  let lb = List.nth bounds 0 in
+  let rb = List.nth bounds 1 in
   let rec aux = function
     | [] -> empty
     | [s] -> s
@@ -150,10 +150,10 @@ let add_prefix (prefix : string) (indices : string list) : string list =
 
 (* [clean_class_name class_name]: avoids printing the angle bracket for template class constructors. *)
 let clean_class_name (class_name : string) : string =
-  let splitted_string = Str.split (Str.regexp_string "<") class_name in 
+  let splitted_string = Str.split (Str.regexp_string "<") class_name in
   if List.length splitted_string < 2 then class_name
     else List.nth splitted_string 0
- 
+
 
 (******************************************************************************)
 (*                          Extensions for Time                               *)
@@ -215,7 +215,7 @@ let hashtbl_map_values (f : 'a -> 'b -> 'c) (h : ('a,'b) Hashtbl.t) : ('a,'c) Ha
 (* [hashtbl_keys_to_list h]: returns all the keys of [h] as a list. *)
 let hashtbl_keys_to_list (h : ('a, 'b) Hashtbl.t) : 'a list =
   Hashtbl.fold (fun k _ acc ->
-    match Hashtbl.find_opt h k with 
+    match Hashtbl.find_opt h k with
     | Some _ -> k :: acc
     | None -> acc
   ) h []

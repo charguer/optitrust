@@ -1,23 +1,25 @@
 #include "harris.h"
 #include <stdlib.h>
+#include "../../include/optitrust.h"
 
+// TODO: use MINDEX2
 void conv3x3(float* out,
              int h, int w,
              const float* in,
              const float* weights)
 {
     for (int y = 0; y < (h - 2); y++) {
-        int r0 = (y + 0) * w;
-        int r1 = (y + 1) * w;
-        int r2 = (y + 2) * w;
+        // int r0 = (y + 0) * w;
+        // int r1 = (y + 1) * w;
+        // int r2 = (y + 2) * w;
         for (int x = 0; x < (w - 2); x++) {
-            int c0 = x + 0;
-            int c1 = x + 1;
-            int c2 = x + 2;
+            // int c0 = x + 0;
+            // int c1 = x + 1;
+            // int c2 = x + 2;
             out[y*(w - 2)+x] = (
-                weights[0]*in[r0+c0] + weights[1]*in[r0+c1] + weights[2]*in[r0+c2] +
-                weights[3]*in[r1+c0] + weights[4]*in[r1+c1] + weights[5]*in[r1+c2] +
-                weights[6]*in[r2+c0] + weights[7]*in[r2+c1] + weights[8]*in[r2+c2]
+                weights[MINDEX2(3, 3, 0, 0)]*in[MINDEX2(h, w, y + 0, x + 0)] + weights[MINDEX2(3, 3, 0, 1)]*in[MINDEX2(h, w, y + 0, x + 1)] + weights[MINDEX2(3, 3, 0, 2)]*in[MINDEX2(h, w, y + 0, x + 2)] +
+                weights[MINDEX2(3, 3, 1, 0)]*in[MINDEX2(h, w, y + 1, x + 0)] + weights[MINDEX2(3, 3, 1, 1)]*in[MINDEX2(h, w, y + 1, x + 1)] + weights[MINDEX2(3, 3, 1, 2)]*in[MINDEX2(h, w, y + 1, x + 2)] +
+                weights[MINDEX2(3, 3, 2, 0)]*in[MINDEX2(h, w, y + 2, x + 0)] + weights[MINDEX2(3, 3, 2, 1)]*in[MINDEX2(h, w, y + 2, x + 1)] + weights[MINDEX2(3, 3, 2, 2)]*in[MINDEX2(h, w, y + 2, x + 2)]
             );
         }
     }
