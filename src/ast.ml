@@ -1236,11 +1236,23 @@ let typ_ptr_inv (ty : typ) : typ option =
   | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} -> Some ty1
   | _ -> None
 
+let typ_array_inv (ty : typ) : (typ * size) option =
+  match ty.typ_desc with
+  | Typ_array (typ, size) -> Some (typ, size)
+  | _ -> None
+
+let typ_const_inv (ty : typ) : typ option =
+  match ty.typ_desc with
+  | Typ_const typ -> Some typ
+  | _ -> None
+
 (* [typ_const_ptr_inv ty]: get the inner type of a constant pointer *)
 let typ_const_ptr_inv (ty : typ) : typ option =
-  match ty.typ_desc with
-  | Typ_const ty2 -> typ_ptr_inv ty2
-  | _ -> None
+  Option.bind (typ_const_inv ty) typ_ptr_inv
+
+let typ_const_array_inv (ty : typ) : (typ * size) option =
+  Option.bind (typ_array_inv ty) (fun (ty2, size) ->
+    Option.map (fun ty3 -> (ty3, size)) (typ_const_inv ty2))
 
 (* [typ_add_attribute att ty]: adds the attribute [att] to the type [ty] *)
 let typ_add_attribute (att : attribute)(ty : typ) : typ =
@@ -1515,6 +1527,10 @@ let trm_inv ?(error : string = "") ?(loc : location = None) (k : trm -> 'a optio
   | None -> if error = "" then assert false else fail loc error
   | Some r -> r
 
+let typ_inv ?(error : string = "") (loc : location) (k : typ -> 'a option) (t : typ) : 'a =
+  match k t with
+  | None -> if error = "" then assert false else fail loc error
+  | Some r -> r
 
 (* [trm_let_inv t]: returns the components of a [trm_let] constructor if [t] is a let declaration.
      Otherwise it returns [None]. *)
@@ -3226,6 +3242,11 @@ let array_access_inv (t : trm) : (trm * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_},
               [base;index]) -> Some (base, index)
+  | _ -> None
+
+let array_inv (t : trm) : trm mlist option =
+  match t.desc with
+  | Trm_array els -> Some els
   | _ -> None
 
 let array_get_inv (t : trm) : (trm * trm) option =

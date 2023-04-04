@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include "../../include/optitrust.h"
 
-// TODO: use MINDEX2
 void conv3x3(float* out,
              int h, int w,
              const float* in,
@@ -29,7 +28,7 @@ void sobelX(float* out,
             int h, int w,
             const float* in)
 {
-    float weights[9] = {
+    const float weights[9] = {
         -1.f/8.f, 0.f, 1.f/8.f,
         -2.f/8.f, 0.f, 2.f/8.f,
         -1.f/8.f, 0.f, 1.f/8.f
@@ -41,7 +40,7 @@ void sobelY(float* out,
             int h, int w,
             const float* in)
 {
-    float weights[9] = {
+    const float weights[9] = {
         -1.f/8.f, -2.f/8.f, -1.f/8.f,
          0.f/8.f,  0.f/8.f,  0.f/8.f,
          1.f/8.f,  2.f/8.f,  1.f/8.f
@@ -53,7 +52,7 @@ void binomial(float* out,
               int h, int w,
               const float* in)
 {
-    float weights[9] = {
+    const float weights[9] = {
         1.f/16.f, 2.f/16.f, 1.f/16.f,
         2.f/16.f, 4.f/16.f, 2.f/16.f,
         1.f/16.f, 2.f/16.f, 1.f/16.f
@@ -68,7 +67,7 @@ void mul(float* out,
 {
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            out[y*w + x] = a[y*w + x] * b[y*w + x];
+            out[MINDEX2(h, w, y, x)] = a[MINDEX2(h, w, y, x)] * b[MINDEX2(h, w, y, x)];
         }
     }
 }
@@ -82,9 +81,9 @@ void coarsity(float* out,
 {
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            float det = sxx[y*w + x] * syy[y*w + x] - sxy[y*w + x] * sxy[y*w + x];
-            float trace = sxx[y*w + x] + syy[y*w + x];
-            out[y*w + x] = det - kappa * trace * trace;
+            float det = sxx[MINDEX2(h, w, y, x)] * syy[MINDEX2(h, w, y, x)] - sxy[MINDEX2(h, w, y, x)] * sxy[MINDEX2(h, w, y, x)];
+            float trace = sxx[MINDEX2(h, w, y, x)] + syy[MINDEX2(h, w, y, x)];
+            out[MINDEX2(h, w, y, x)] = det - kappa * trace * trace;
         }
     }
 }
@@ -93,16 +92,16 @@ void harris(float* out, int h, int w, const float* in, float kappa) {
     const int h1 = h - 2;
     const int w1 = w - 2;
     const int h2 = h - 4;
-    const int w2 = w - 6;
+    const int w2 = w - 4;
 
-    float* ix = (float*) malloc(h1 * w1 * sizeof(float));
-    float* iy = (float*) malloc(h1 * w1 * sizeof(float));
-    float* ixx = (float*) malloc(h1 * w1 * sizeof(float));
-    float* ixy = (float*) malloc(h1 * w1 * sizeof(float));
-    float* iyy = (float*) malloc(h1 * w1 * sizeof(float));
-    float* sxx = (float*) malloc(h2 * w2 * sizeof(float));
-    float* sxy = (float*) malloc(h2 * w2 * sizeof(float));
-    float* syy = (float*) malloc(h2 * w2 * sizeof(float));
+    float* ix = (float*) MALLOC2(h1, w1, sizeof(float));
+    float* iy = (float*) MALLOC2(h1, w1, sizeof(float));
+    float* ixx = (float*) MALLOC2(h1, w1, sizeof(float));
+    float* ixy = (float*) MALLOC2(h1, w1, sizeof(float));
+    float* iyy = (float*) MALLOC2(h1, w1, sizeof(float));
+    float* sxx = (float*) MALLOC2(h2, w2, sizeof(float));
+    float* sxy = (float*) MALLOC2(h2, w2, sizeof(float));
+    float* syy = (float*) MALLOC2(h2, w2, sizeof(float));
 
     sobelX(ix, h, w, in);
     sobelY(iy, h, w, in);

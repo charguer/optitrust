@@ -730,7 +730,7 @@ let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_l
 
 let cBinop ?(lhs : target = [cTrue]) ?(rhs : target = []) (op : binary_op) : constr =
   cPrimFun ~args:[lhs; rhs] (Prim_binop op)
-  
+
 (* [let cPrimNew ~arg ()]: matches "new" primitive operation
     [arg] - match based on the arguments of the "new" primitive. *)
 let cPrimNew ?(arg : target = []) () : constr =
@@ -1020,6 +1020,10 @@ let cCell ?(cell_index : int option = None) () : constr =
    2. also triggers on writes? *)
 let cArrayRead (x : var) : constr =
   cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()
+  (* cOr [
+    [cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()];
+    [cCellAccess ~base:[cStrict; cAccesses ~base:[cVar x] ()] ()];
+  ] *)
 
 let cArrayWrite (x : var) : constr =
   cWrite ~lhs:[cCellAccess ~base:[cVar x] ()] ()
@@ -1197,7 +1201,7 @@ let path_of_target_mark_one (m : mark) (t : trm) : path =
 let resolve_target_mark_one_else_any (m : mark) (t : trm) : paths =
     try resolve_target [nbExact 1; cMark m] t
     with Ast.Resolve_target_failure _ ->
-        resolve_target [nbAny; cMark m] t
+      resolve_target [nbAny; cMark m] t
 
 (* [resolve_target_between_mark_one_else_any]: a wrapper for calling [resolve_target] with a mark for
     which we expect a single occurence. *)
