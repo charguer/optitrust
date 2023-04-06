@@ -828,11 +828,13 @@ let shift_aux (index : var) (inline : bool) (debug_name : string)
     let error = debug_name ^ ": expected target to be a simple loop" in
     let ((prev_index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv tg_trm in begin
     do_shift index' (target_of_path p);
+    (* TODO: simpl flag x2 *)
     Arith_basic.(simpl gather) (target_of_path (p @ [Dir_for_start]));
     Arith_basic.(simpl gather) (target_of_path (p @ [Dir_for_stop]));
     if inline then begin
       let mark = Mark.next() in
       let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
+      (* TODO: simpl flag on top of inline flag *)
       Arith.(simpl_surrounding_expr gather) [nbAny; cMark mark]
     end;
     if index = "" then

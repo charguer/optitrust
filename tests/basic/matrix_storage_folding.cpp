@@ -39,6 +39,21 @@ for (int i = 0; i < N - 4; i++) {
   printf("%i\n", b[i] + b[i + 1] + b[i + 2]);
 }
 
+# same without prologue:
+
+T a[3];
+T b[N - 2];
+for (int i = 0; i < N; i++) {
+  a[i % 3] = i;
+  if (i >= 2) {
+    b[i - 2] = a[(i - 2) % 3] + a[(i - 1) % 3] + a[i % 3];
+  }
+}
+
+for (int i = 0; i < N - 4; i++) {
+  printf("%i\n", b[i] + b[i + 1] + b[i + 2]);
+}
+
 # register rotation for 'b'
 
 T a[3];
@@ -55,9 +70,24 @@ T b2;
 for (int i = 0; i < N - 4; i++) {
   a[(i + 4) % 3] = i + 2;
   b2 = a[(i + 2) % 3] + a[(i + 3) % 3] + a[(i + 4) % 3];
-  printf("%i\n", b1 + b2 + b3);
+  printf("%i\n", b0 + b1 + b2);
   b0 = b1;
   b1 = b2;
 }
 
+# same without prologue:
+
+T a[3];
+T b0, b1, b2;
+for (int i = 0; i < N; i++) {
+  a[i % 3] = i;
+  if (i >= 2) {
+    b2 = a[(i - 2) % 3] + a[(i - 1) % 3] + a[i % 3];
+  }
+  if (i >= 4) {
+    printf("%i\n", b0 + b1 + b2);
+  }
+  b0 = b1;
+  b1 = b2;
+}
 */

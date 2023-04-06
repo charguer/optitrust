@@ -107,7 +107,7 @@ let set_implicit_aux (t: trm) : trm =
             in
             begin match rhs_trms with
             | [rhs1] -> trm_pass_labels t (trm_set lt rhs1)
-            | _ -> 
+            | _ ->
               let rhs_trms = List.map (fun t1 -> (None, t1)) rhs_trms in
               trm_pass_labels t (trm_set lt (trm_record (Mlist.of_list rhs_trms)))
             end
@@ -178,7 +178,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
           | Trm_record sl ->
             let new_term_list = Mlist.merge_list [lfront; sl; lback] in
             trm_record ~annot:t.annot ~typ:t.typ new_term_list
-          
+
           | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change ->
             let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ~typ:v.typ ~qvar:p "") f))) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
@@ -215,7 +215,7 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
         begin match td.typdef_body with
         | Typdef_record field_list ->
           field_index := Internal.get_field_index field_to_reveal field_list;
-          let (field_to_reveal_rf,_),field_list  = Xlist.extract_element field_list !field_index in 
+          let (field_to_reveal_rf,_),field_list  = Xlist.extract_element field_list !field_index in
           let field_type = get_member_type field_to_reveal_rf in
           let tyid = begin match field_type.typ_desc with
           | Typ_constr (_, tid, _) -> tid
@@ -242,16 +242,16 @@ let reveal_field_aux (field_to_reveal : field) (index : int) (t : trm) : trm =
 
           let inner_type_field_list = Internal.rename_record_fields (fun f ->
              Convention.name_app field_to_reveal f) inner_type_field_list in
-          
+
           let typ_update (ty : typ) : typ =
             match field_type.typ_desc with
               | Typ_array (_, size) -> typ_array ty size
               | _ -> ty
             in
           let inner_type_field_list = Internal.update_record_fields_type typ_update inner_type_field_list in
-          
+
           let field_list = Xlist.insert_sublist_at !field_index inner_type_field_list field_list in
-          
+
           td_name := td.typdef_tconstr;
           f_list := fst (List.split (Internal.get_field_list struct_def));
 
@@ -279,36 +279,36 @@ let reveal_field (field_to_reveal : field) (index : int) : Transfo.local =
 (* [compute_bijection order fl]: based on the [order] given, computes the bijection
     of the indices after applying that order. *)
 let compute_bijection (order : fields_order) (fl : (field * int) list) : int list =
-  match order with 
+  match order with
   | Move_before (field, fields_to_move) ->
-    let filtered_fl = List.filter (fun (f, _) -> not (List.mem f fields_to_move)) fl in 
-    let fields_to_move_ind = List.map (fun f -> match List.assoc_opt f fl with 
+    let filtered_fl = List.filter (fun (f, _) -> not (List.mem f fields_to_move)) fl in
+    let fields_to_move_ind = List.map (fun f -> match List.assoc_opt f fl with
       | Some ind -> (f, ind)
       | None -> fail None "Record_core.compute_bijection: catastrophic error ."
     ) fields_to_move in
-    let upd_fl = 
-    List.fold_left (fun acc (f, ind) -> 
+    let upd_fl =
+    List.fold_left (fun acc (f, ind) ->
       if f = field then fields_to_move_ind @ (f, ind) :: acc
         else (f, ind) :: acc
-    ) [] (List.rev filtered_fl)  
-      in 
+    ) [] (List.rev filtered_fl)
+      in
     List.map snd upd_fl
   | Move_after (field, fields_to_move) ->
-    let filtered_fl = List.filter (fun (f, _) -> not (List.mem f fields_to_move)) fl in 
-    let fields_to_move_ind = List.map (fun f -> match List.assoc_opt f fl with 
+    let filtered_fl = List.filter (fun (f, _) -> not (List.mem f fields_to_move)) fl in
+    let fields_to_move_ind = List.map (fun f -> match List.assoc_opt f fl with
       | Some ind -> (f, ind)
       | None -> fail None "Record_core.compute_bijection: catastrophic error ."
     ) fields_to_move in
-    let upd_fl = 
-    List.fold_left (fun acc (f, ind) -> 
+    let upd_fl =
+    List.fold_left (fun acc (f, ind) ->
       if f = field then (f, ind) :: fields_to_move_ind @acc
         else (f, ind) :: acc
-    ) [] (List.rev filtered_fl)  
-      in 
+    ) [] (List.rev filtered_fl)
+      in
     List.map snd upd_fl
-  | Reorder_all order -> 
+  | Reorder_all order ->
     if List.length order <> List.length fl then fail None "Record_core.compute_bijection: Reorder all should contain all the fields.";
-    List.map (fun f -> match List.assoc_opt f fl with 
+    List.map (fun f -> match List.assoc_opt f fl with
       | Some ind -> ind
       | None -> fail None (Printf.sprintf "Record_core:compute_bijection: couldn't find field %s." f)
     ) order
@@ -317,52 +317,52 @@ let compute_bijection (order : fields_order) (fl : (field * int) list) : int lis
      [order] - order based on which the fields will be reordered,
      [t] - ast of the typedef Record. *)
 let reorder_fields_aux (order : fields_order) (index : int) (t : trm) : trm =
-  let error = "Record_core.reorder_fields_aux: expected the surrouding sequence of the targeted declaration." in 
-  let tl = trm_inv ~error trm_seq_inv t in 
-  let bij = ref [] in 
-  let struct_name = ref "" in 
+  let error = "Record_core.reorder_fields_aux: expected the surrouding sequence of the targeted declaration." in
+  let tl = trm_inv ~error trm_seq_inv t in
+  let bij = ref [] in
+  let struct_name = ref "" in
   let f_update (t : trm) : trm =
-    match t.desc with 
-    | Trm_typedef td -> 
+    match t.desc with
+    | Trm_typedef td ->
       struct_name := td.typdef_tconstr;
-      begin match td.typdef_body with 
+      begin match td.typdef_body with
       | Typdef_record rfl ->
-        let rfl_str_rep = List.mapi (fun i (rf, _) -> 
-          match rf with 
+        let rfl_str_rep = List.mapi (fun i (rf, _) ->
+          match rf with
           | Record_field_member (lb, _) -> (lb, i)
-          | Record_field_method t1 -> 
-            begin match decl_name t1 with 
+          | Record_field_method t1 ->
+            begin match decl_name t1 with
             | Some n -> (n, i)
             | _ -> fail t.loc "Record_core.reorder_fields_aux: unkown method definition."
             end
-        ) rfl in 
+        ) rfl in
         bij := compute_bijection order rfl_str_rep;
-        let new_rfl = Xlist.reorder !bij rfl in 
-        trm_alter ~desc:(Some (Trm_typedef {td with typdef_body = Typdef_record new_rfl})) t 
+        let new_rfl = Xlist.reorder !bij rfl in
+        trm_alter ~desc:(Some (Trm_typedef {td with typdef_body = Typdef_record new_rfl})) t
 
       | _ -> fail t.loc "Record_core.reorder_fields_aux: expected a target to a record type definition."
 
-      end 
+      end
     | _ -> fail t.loc "Record_core.reorder_fields_aux: expected a target pointing to a typedef."
-    in 
+    in
   let f_update_further (t : trm) : trm =
     let rec aux (t : trm) : trm =
-      match t.desc with 
-      | Trm_record mlt -> 
-        begin match t.typ with 
-        | Some {typ_desc = Typ_constr (qty, _, _)} when qty.qvar_var = !struct_name -> 
-          let lt = Mlist.to_list mlt in 
-          let reordered_lt = Xlist.reorder !bij lt in 
+      match t.desc with
+      | Trm_record mlt ->
+        begin match t.typ with
+        | Some {typ_desc = Typ_constr (qty, _, _)} when qty.qvar_var = !struct_name ->
+          let lt = Mlist.to_list mlt in
+          let reordered_lt = Xlist.reorder !bij lt in
           trm_alter ~desc:(Some (Trm_record (Mlist.of_list reordered_lt))) t
-        | _ -> trm_map aux t 
+        | _ -> trm_map aux t
         end
-      | _ -> trm_map aux t 
-      in 
+      | _ -> trm_map aux t
+      in
     aux t
-   in 
+   in
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_replace (Trm_seq new_tl) t
-  
+
 (* [reorder_fields index order t p]: applies [reorder_fields_aux] at trm [t] with path [p]. *)
 let reorder_fields (order : fields_order) (index : int) : Transfo.local =
   apply_on_path (reorder_fields_aux order index)
@@ -445,6 +445,7 @@ let to_variables_aux (index : int) (t : trm) : trm =
 let to_variables (index : int) : Transfo.local =
   apply_on_path (to_variables_aux index)
 
+(* TODO: merge with Variable.Rename *)
 (* [Rename]: a module used for renaming the struct fields. *)
 module Rename = struct
   type t = string -> string
@@ -488,14 +489,14 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
             end
           | None -> trm_map aux t
           end
-      
+
       | _ -> trm_map aux t
       end
     | Trm_apps ({desc = Trm_var (vk, qf); _} as f, args) when trm_has_cstyle Method_call t ->
-        let member_base = fst (Xlist.uncons args) in 
+        let member_base = fst (Xlist.uncons args) in
         begin match (get_operation_arg member_base).typ with
-        | Some ty -> 
-          begin match ty.typ_desc with 
+        | Some ty ->
+          begin match ty.typ_desc with
           | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
             trm_apps ~annot:t.annot ~typ:t.typ {f with desc = Trm_var (vk, qvar_update ~var:(rename qf.qvar_var) qf)} args
           | _ -> trm_map aux t
@@ -503,9 +504,9 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
 
         | None -> trm_map aux t
         end
-        
+
     | _ -> trm_map aux t
-   in aux t 
+   in aux t
 
 (* [rename_fields_aux index rename t]: renames struct fields in the typedef struct definitions,
       [index] - the index of the struct declaration in the sequence [t],
@@ -519,7 +520,7 @@ let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
     match t.desc with
     | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_record rfl;_}  as td) ->
       struct_name := name;
-      let rfl = Internal.rename_record_fields rename rfl in 
+      let rfl = Internal.rename_record_fields rename rfl in
       trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record rfl}
    | _ -> fail t.loc "Record_core.reanme_fields_aux: expected a typedef declaration"
    in
@@ -543,14 +544,14 @@ let update_fields_type_aux (pattern : string ) (typ_update : typ -> typ) (t : tr
   | Trm_typedef ({typdef_body = Typdef_record rfl;_}  as td) ->
     (* LATER: FIX ME! *)
     (* let update_type ty = typ_map typ_update ty in *)
-    
+
     let rec update_type (ty_to_update : typ) : typ =
       match ty_to_update.typ_desc with
       | Typ_array _ | Typ_ptr _
         | Typ_const _ -> typ_map update_type ty_to_update
       | _ -> ty_to_update
-      in 
-    
+      in
+
     (* let replace_type (s : string) (ty1 : typ) : typ =
       if Tools.pattern_matches pattern s then (update_type ty1)  else ty1 in
      *)
@@ -601,8 +602,8 @@ let simpl_proj : Transfo.local =
 (* [Struct_modif]: a module for defining struct modifications. *)
 module Struct_modif = struct
   (* Fields of a struct *)
-  
-  type fields = record_fields 
+
+  type fields = record_fields
   (* type fields = (label * typ) list *)
 
   let fields_identity :  fields -> fields =
@@ -722,22 +723,22 @@ let struct_modif (arg : Struct_modif.arg) (index : int) : Transfo.local =
 
 (* [change_field_access_kind_aux acc_kind f t]: changes the access_kind for field [f] to [acc_kind] of class or struct [t]. *)
 let change_field_access_kind_aux (acc_kind : record_field_annot) (f : field) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_typedef td ->
     begin match td.typdef_body with
     | Typdef_record rfs ->
       let new_rfs = List.map (fun (rf, rf_ann) ->
         (* if f is given as the default string then all the fields access kind will be changed. *)
-        if f = "" 
+        if f = ""
           then (rf, acc_kind)
-          else 
-            let rf_name_opt = Internal.get_field_name rf in 
-            begin match rf_name_opt with 
+          else
+            let rf_name_opt = Internal.get_field_name rf in
+            begin match rf_name_opt with
             | Some n when n = f -> (rf, acc_kind)
             | _ -> (rf, rf_ann)
             end
-        ) rfs in 
-        let new_td = {td with typdef_body = Typdef_record new_rfs} in 
+        ) rfs in
+        let new_td = {td with typdef_body = Typdef_record new_rfs} in
         trm_alter ~desc:(Some (Trm_typedef new_td)) t
     | _ -> fail t.loc "Record_core.change_field_access_kind_aux: expected a target to a structured typedef."
     end
@@ -749,32 +750,32 @@ let change_field_access_kind (acc_kind : record_field_annot) (f : field) : Trans
   apply_on_path (change_field_access_kind_aux acc_kind f)
 
 (* [method_to_const_aux method_name t]: converts the [method_name] method to a a const one,
-    if the targeted method is already const than this transformation does nothing. 
+    if the targeted method is already const than this transformation does nothing.
     [method_name] - the name of the method that's going to be converted.*)
 let method_to_const_aux (method_name : var) (t : trm) : trm =
-  match t.desc with 
-  | Trm_typedef td -> 
+  match t.desc with
+  | Trm_typedef td ->
     begin match td.typdef_body with
-    | Typdef_record rfl -> 
-        let upd_rfl = List.map (fun (rf, rf_ann) -> 
-            match rf with 
-            | Record_field_method t1  -> 
-              if is_class_constructor t1 
-                then (rf, rf_ann)              
+    | Typdef_record rfl ->
+        let upd_rfl = List.map (fun (rf, rf_ann) ->
+            match rf with
+            | Record_field_method t1  ->
+              if is_class_constructor t1
+                then (rf, rf_ann)
                 else if method_name = "" then (Record_field_method (trm_add_cstyle Const_method t1), rf_ann)
                 else
-                  begin match decl_name t1 with 
-                  | Some name when method_name = name -> 
-                    if trm_has_cstyle Const_method t1 
+                  begin match decl_name t1 with
+                  | Some name when method_name = name ->
+                    if trm_has_cstyle Const_method t1
                       then (rf, rf_ann)(* begin Printf.printf ("Nothing to change, method %s is already const." method_name); (rf, rf_ann) end *)
-                      else 
-                        let t1 = trm_add_cstyle Const_method t1 in 
+                      else
+                        let t1 = trm_add_cstyle Const_method t1 in
                         (Record_field_method t1, rf_ann)
                   | _ -> (rf, rf_ann)
-                  end 
+                  end
             | _ -> (rf, rf_ann)
-        ) rfl in 
-        
+        ) rfl in
+
         trm_replace (Trm_typedef {td with typdef_body = Typdef_record upd_rfl}) t
     | _ ->  fail t.loc "Record_core.method_to_const_aux: expected a target to a typedef record definition."
     end

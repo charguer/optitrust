@@ -2657,8 +2657,13 @@ let trm_for_of_trm_for_c (t : trm) : trm =
     end
   | _ -> fail t.loc "Ast.trm_for_of_trm_for_c: expected a for loop"
 
+(* TODO: rename to monoid *)
 (* [local_ops]: type used for the local_name transformation. *)
 type local_ops =
+(* | Functional_monoid of trm * trm (* 0 and +; what about += ? *)
+   | Imperative_monoid of trm * trm (* create 0 and mutating += (e.g. bag extend) and others (e.g. bag push) *)
+   Maybe should only take += even for functional
+      *)
   | Local_arith of lit * binary_op
   | Local_obj of string * string * string
 
