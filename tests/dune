@@ -2,3 +2,12 @@
   (name tester)
   (modules tester)
   (libraries optitrust))
+
+(library
+  (name batch)
+  (modules batch)
+  (libraries optitrust))
+
+(install
+ (files (tester.exe as optitrust_tester))
+ (section bin))

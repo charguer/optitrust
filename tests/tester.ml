@@ -28,23 +28,29 @@ VERY-LATER: mode for compiling sources with gcc at a given standard
 
 *)
 
+let tmp_file = "/tmp/optitrust_tester"
 
 (*****************************************************************************)
 (* Description of keys *)
 
 (* Gather the list of *.ml files in a directory. *)
 let get_list_of_tests_in_dir (folder : string) : string list =
- ignore (Sys.command ("ls " ^ folder ^ "/*.ml > " ^ "/tmp/ls"));
- Xfile.get_lines "/tmp/ls"
+ ignore (Sys.command ("ls " ^ folder ^ "/*.ml > " ^ tmp_file));
+ Xfile.get_lines tmp_file
 
 (* Gather the list of *.ml files for a given key. May contain duplicates. *)
 let rec list_of_tests_from_key (key : string) : string list =
   match key with
   | "all" -> (list_of_tests_from_key "basic") @
              (list_of_tests_from_key "combi") @
+             (list_of_tests_from_key "target") @
+             (list_of_tests_from_key "ast") @
              (list_of_tests_from_key "case_studies")
+  (* TODO: factorize dir keywords? *)
   | "basic" -> get_list_of_tests_in_dir "basic"
   | "combi" -> get_list_of_tests_in_dir "combi"
+  | "target" -> get_list_of_tests_in_dir "target"
+  | "ast" -> get_list_of_tests_in_dir "ast"
   | "case_studies" -> (list_of_tests_from_key "mm") @
                       (list_of_tests_from_key "harris")
   (* TODO: pic *)
@@ -52,6 +58,28 @@ let rec list_of_tests_from_key (key : string) : string list =
   (* TODO: box_blur *)
   | "harris" -> ["../case_studies/harris/harris.ml"]
   | file -> [file]
+
+(* TODO: read from a file instead? *)
+let tests_to_ignore = [
+  (* TO FIX: *)
+  "basic/function_uninline.ml";
+  "basic/record_method_to_const.ml";
+	"basic/function_rename_args.ml";
+	"basic/align_def.ml";
+	"basic/matrix_insert_access_dim_index.ml";
+	"basic/record_reorder_fields.ml";
+	"basic/record_update_fields_type.ml";
+  "combi/record_align_field.ml";
+	"combi/loop_hoist.ml";
+	"combi/loop_fission.ml";
+	"combi/record_align_field.ml";
+	"combi/apac_heapify_nested_seq.ml";
+  (* NO FIX: *)
+	"basic/aos_to_soa_typedef.ml";
+	"basic/aos_to_soa_sized_array.ml";
+	"basic/variable_change_type.ml";
+  "combi/aos_to_soa.ml";
+]
 
 (* Takes the list of target arguments on the command line;
    and expand the 'keys' and remove duplicates.
@@ -61,7 +89,8 @@ let compute_tests_to_process (keys : string list) : string list =
     List.fold_left (fun s x -> StringSet.add x s) s (list_of_tests_from_key key)
   ) StringSet.empty keys
   in
-  StringSet.elements test_set
+  let filtered_test_set = List.fold_left (fun s x -> StringSet.remove x s) test_set tests_to_ignore in
+  StringSet.elements filtered_test_set
 
 (*****************************************************************************)
 (* Options *)
@@ -69,7 +98,7 @@ let compute_tests_to_process (keys : string list) : string list =
 (* List of keys process; a key may be a special keyword or a path to a .ml test file
    e.g. ["basic/variable_inline.ml"; "combi"].
    The list gets later expanded into a list of paths, without duplicates. *)
-let keys_to_process : string list ref = ref ["all"]
+let keys_to_process : string list ref = ref []
 
 (* Flag for controlling whether or not to generate *_out.cpp files. *)
 type outfile_gen =
@@ -101,6 +130,8 @@ type comparison_method =
 
 let comparison_method : comparison_method ref = ref Comparison_method_text
 
+let _remove_later = comparison_method := Comparison_method_ast;
+  comparison_method := Comparison_method_text
 
 (*****************************************************************************)
 (* Parsing of options *)
@@ -121,6 +152,8 @@ let _main : unit =
     (Arg.align spec)
     (fun other_arg -> keys_to_process := other_arg :: !keys_to_process)
     ("usage: ./tester.exe [options] target1 .. targetN");
+  if (List.length !keys_to_process) = 0 then
+    keys_to_process := ["all"];
   (* order will currently be changed anyway
   tests_to_process := List.rev !tests_to_process; *)
 
@@ -128,13 +161,16 @@ let _main : unit =
     then outfile_gen := Outfile_gen_always;
 
   let tests_to_process = compute_tests_to_process !keys_to_process in
-  failwith (Tools.list_to_string tests_to_process);
-  (* We cache the "raw ast".
+
+  (* FIXME: need wrapper for Sys.command; currently fails silently *)
+  (* TODO: not always necessary + avoid make? *)
+  ignore (Sys.command "$(cd ..; make install)");
+
+  (* TODO: We cache the "raw ast".
   from a trm t, we need to serialize Ast_fromto_AstC.cfeatures_intro t;
   this is what is provided in trace.ml to  the function
    AstC_to_c.ast_to_outchannel ~beautify_mindex ~comment_pragma:use_clang_format out_prog t_after_cfeatures_intro;
-   *)
-   (*
+
   let cached_inputs = 0 in (* load the serialized file of ast (without encoding) *)
   let select_inputs = 0 in (* parmis les tests requested,
     either we have it in cached_inputs and the date is older than *.cpp file,
@@ -142,9 +178,17 @@ let _main : unit =
   let cached_expoutputs = 0 in (* load the serialized file of ast (without encoding) *)
   let all_expoutputs = 0 in(* for each tests, either the output is up to date and in
     cached_outputs, or we need to parse it *)
+  *)
   (* Need to save the cached_inputs and cached_expoutputs :
      -> we want save the ones that were serialized before,
         and update the ones that have just been reparsed *)
+
+  let batch_args = Tools.list_to_string ~sep:" " ~bounds:[""; ""] tests_to_process in
+  (* Printf.printf "\n%s\n" batch_args; *)
+  ignore (Sys.command ("./batch_tests.sh " ^ batch_args ^ " > " ^ "batch.ml"));
+  ignore (Sys.command "dune build batch.cmxs");
+  (* TODO: flags *)
+  ignore (Sys.command "OCAMLRUNPARAM=b $(opam var prefix)/bin/optitrust_runner.native ../_build/default/tests/batch.cmxs");
 
   (* Call batch_tests.sh test1 ... testN to generate  batch.ml
      inclure ./batch_controller.ml tout à la fin de batch.ml
@@ -219,7 +263,7 @@ need to compare dependency on
     si N, continue
     si A, exit
 
-*)*)
+*)
 
 (* --makefile:
     make tester   pour compiler tester.ml
