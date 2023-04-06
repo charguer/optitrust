@@ -67,7 +67,7 @@ TRACEFLAGS ?=
 OPTITRUST_PREFIX := $(shell echo `opam config var prefix`)
 
 # Command for executing an OptiTrust script
-RUNNER="$(OPTITRUST_PREFIX)/bin/optitrust_runner.native"
+RUNNER="$(OPTITRUST_PREFIX)/bin/optitrust_runner"
 
 #######################################################
 # Targets

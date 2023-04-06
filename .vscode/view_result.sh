@@ -53,7 +53,7 @@ fi
 
 PROG="${FILEBASE}_with_lines.cmxs"
 # TODO: Install optitrust_runner and use the installed version
-RUNNER="${SRCFOLDER}/runner/optitrust_runner.native"
+RUNNER="${SRCFOLDER}/runner/optitrust_runner"
 
 # First we create the source code for the transformation program
 # ---DEPRECATED:

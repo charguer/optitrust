@@ -1,0 +1,7 @@
+(install
+ (files (glob_files tools/*.{js,css,html}) tools/Makefile.common)
+ (section lib))
+
+(install
+ (files (glob_files tools/*.sh))
+ (section libexec))
