@@ -1,0 +1,4 @@
+(executable
+  (name tester)
+  (modules tester)
+  (libraries optitrust))
