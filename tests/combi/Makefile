@@ -71,7 +71,7 @@ TESTS_WITHOUT_DOC := \
 	apac_sync_with_taskwait.ml \
 	apac_insert_tasks_naive.ml \
 
-	
+
 #variable_inline.ml \ TODO: Update variable_inline unit test
 
 TESTS_TO_FIX := \
@@ -80,13 +80,13 @@ TESTS_TO_FIX := \
 	loop_fission.ml \
 	record_align_field.ml \
 	apac_heapify_nested_seq.ml \
-	
+
 NOT_NEEEDED_TO_FIX := \
 	aos_to_soa.ml \
 
 
 
-TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC) 
+TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC)
 
 
 #---------------------------------------------------------------------
@@ -196,7 +196,7 @@ TESTS_FOR_DOC := $(subst __basic, , $(TESTS_WITH_DOC:.ml=))
 DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 
 # LATER: dependency on docjs from basic
-doc.html: $(DOCJS) 
+doc.html: $(DOCJS)
 	$(V)$(OPTITRUST)/doc/doc_create.sh $(OPTITRUST) $@ $(TESTS_FOR_DOC)
 	sed -i "s#<\/body><\/html>#<script>var hide_basic = 1;<\/script><\/body><\/html>#" $@
 	@echo Produced $@

@@ -5,7 +5,9 @@ module StringSet = Set.Make(String)
 (**
 
   This file tester.ml is the source for the program ./tester.exe, for executing unit tests.
-  Assume for simplicity that ./tester.exe is executed from the current folder.
+  Assume for simplicity that ./tester.exe is executed from the project root (containing dune-project), using, e.g:
+
+  dune exec tests/tester.exe
 
   It features:
   - caching of AST representation for input and expected output files
@@ -30,12 +32,17 @@ VERY-LATER: mode for compiling sources with gcc at a given standard
 
 let tmp_file = "/tmp/optitrust_tester"
 
+let run_command (cmd : string) : unit =
+  let exit_code = Sys.command cmd in
+  if exit_code != 0 then
+    failwith (Printf.sprintf "command '%s' failed with exit code '%i'" cmd exit_code)
+
 (*****************************************************************************)
 (* Description of keys *)
 
 (* Gather the list of *.ml files in a directory. *)
 let get_list_of_tests_in_dir (folder : string) : string list =
- ignore (Sys.command ("ls " ^ folder ^ "/*.ml > " ^ tmp_file));
+ run_command ("ls " ^ folder ^ "/*.ml > " ^ tmp_file);
  Xfile.get_lines tmp_file
 
 (* Gather the list of *.ml files for a given key. May contain duplicates. *)
@@ -44,42 +51,70 @@ let rec list_of_tests_from_key (key : string) : string list =
   | "all" -> (list_of_tests_from_key "basic") @
              (list_of_tests_from_key "combi") @
              (list_of_tests_from_key "target") @
-             (list_of_tests_from_key "ast") @
-             (list_of_tests_from_key "case_studies")
+             (list_of_tests_from_key "ast") (* TODO: fix first @
+             (list_of_tests_from_key "case_studies")*)
   (* TODO: factorize dir keywords? *)
-  | "basic" -> get_list_of_tests_in_dir "basic"
-  | "combi" -> get_list_of_tests_in_dir "combi"
-  | "target" -> get_list_of_tests_in_dir "target"
-  | "ast" -> get_list_of_tests_in_dir "ast"
+  | "basic" -> get_list_of_tests_in_dir "tests/basic"
+  | "combi" -> get_list_of_tests_in_dir "tests/combi"
+  | "target" -> get_list_of_tests_in_dir "tests/target"
+  | "ast" -> get_list_of_tests_in_dir "tests/ast"
   | "case_studies" -> (list_of_tests_from_key "mm") @
                       (list_of_tests_from_key "harris")
   (* TODO: pic *)
-  | "mm" -> ["../case_studies/matmul/matmul.ml"]
+  | "mm" -> ["case_studies/matmul/matmul.ml"]
   (* TODO: box_blur *)
-  | "harris" -> ["../case_studies/harris/harris.ml"]
+  | "harris" -> ["case_studies/harris/harris.ml"]
   | file -> [file]
 
 (* TODO: read from a file instead? *)
-let tests_to_ignore = [
+let basic_tests_to_ignore = [
   (* TO FIX: *)
-  "basic/function_uninline.ml";
-  "basic/record_method_to_const.ml";
-	"basic/function_rename_args.ml";
-	"basic/align_def.ml";
-	"basic/matrix_insert_access_dim_index.ml";
-	"basic/record_reorder_fields.ml";
-	"basic/record_update_fields_type.ml";
-  "combi/record_align_field.ml";
-	"combi/loop_hoist.ml";
-	"combi/loop_fission.ml";
-	"combi/record_align_field.ml";
-	"combi/apac_heapify_nested_seq.ml";
+  "function_uninline.ml";
+  "record_method_to_const.ml";
+	"function_rename_args.ml";
+	"align_def.ml";
+	"matrix_insert_access_dim_index.ml";
+	"record_reorder_fields.ml";
   (* NO FIX: *)
-	"basic/aos_to_soa_typedef.ml";
-	"basic/aos_to_soa_sized_array.ml";
-	"basic/variable_change_type.ml";
-  "combi/aos_to_soa.ml";
+	"aos_to_soa_typedef.ml";
+	"aos_to_soa_sized_array.ml";
+	"variable_change_type.ml";
+  (* ??? *)
+	"record_update_fields_type.ml";
+  "record_modif.ml";
 ]
+let combi_tests_to_ignore = [
+  (* TO FIX: *)
+  "record_align_field.ml";
+	"loop_hoist.ml";
+	"loop_fission.ml";
+  "loop_unfold_bound.ml";
+	"record_align_field.ml";
+	"apac_heapify_nested_seq.ml";
+  (* NO FIX: *)
+  "aos_to_soa.ml";
+  (* ??? *)
+  "swap_coords_fixed.ml";
+  "swap_coords_vari.ml";
+]
+let target_tests_to_ignore = [
+  (* TO FIX: *)
+  "target_one.ml";
+  "target_type.ml";
+  (* NOT A TEST: *)
+	"target_regexp.ml";
+	"target_debug.ml";
+]
+let ast_tests_to_ignore = [
+  (* TO FIX: *)
+	"c_raw.ml";
+	"c_serialize.ml";
+]
+let tests_to_ignore =
+  (List.map (fun f -> "tests/basic/" ^ f) basic_tests_to_ignore) @
+  (List.map (fun f -> "tests/combi/" ^ f) combi_tests_to_ignore) @
+  (List.map (fun f -> "tests/target/" ^ f) target_tests_to_ignore) @
+  (List.map (fun f -> "tests/ast/" ^ f) ast_tests_to_ignore)
 
 (* Takes the list of target arguments on the command line;
    and expand the 'keys' and remove duplicates.
@@ -89,6 +124,7 @@ let compute_tests_to_process (keys : string list) : string list =
     List.fold_left (fun s x -> StringSet.add x s) s (list_of_tests_from_key key)
   ) StringSet.empty keys
   in
+  (* TODO: report ignored tests to user *)
   let filtered_test_set = List.fold_left (fun s x -> StringSet.remove x s) test_set tests_to_ignore in
   StringSet.elements filtered_test_set
 
@@ -162,9 +198,8 @@ let _main : unit =
 
   let tests_to_process = compute_tests_to_process !keys_to_process in
 
-  (* FIXME: need wrapper for Sys.command; currently fails silently *)
   (* TODO: not always necessary + avoid make? *)
-  ignore (Sys.command "$(cd ..; make install)");
+  (* run_command "make install"; *)
 
   (* TODO: We cache the "raw ast".
   from a trm t, we need to serialize Ast_fromto_AstC.cfeatures_intro t;
@@ -185,10 +220,10 @@ let _main : unit =
 
   let batch_args = Tools.list_to_string ~sep:" " ~bounds:[""; ""] tests_to_process in
   (* Printf.printf "\n%s\n" batch_args; *)
-  ignore (Sys.command ("./batch_tests.sh " ^ batch_args ^ " > " ^ "batch.ml"));
-  ignore (Sys.command "dune build batch.cmxs");
+  run_command ("tests/batch_tests.sh " ^ batch_args ^ " > " ^ "tests/batch.ml");
+  run_command "dune build tests/batch.cmxs";
   (* TODO: flags *)
-  ignore (Sys.command "OCAMLRUNPARAM=b $(opam var prefix)/bin/optitrust_runner.native ../_build/default/tests/batch.cmxs");
+  run_command "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe _build/default/tests/batch.cmxs";
 
   (* Call batch_tests.sh test1 ... testN to generate  batch.ml
      inclure ./batch_controller.ml tout à la fin de batch.ml

@@ -156,7 +156,7 @@ let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : st
         Printf.printf "Batch test executing: %s\n" batching;
         let basename = Filename.chop_extension batching in
         let prefix = if prefix <> "" then prefix else basename in
-        let filename = if filename <> "" then filename else (basename ^ ".cpp") in
+        let filename = if filename <> "" then (Filename.dirname batching) ^ "/" ^ filename else (basename ^ ".cpp") in
         filename, prefix
       end else
         filename, prefix
