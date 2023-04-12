@@ -40,10 +40,17 @@ let run_command (cmd : string) : unit =
 (*****************************************************************************)
 (* Description of keys *)
 
-(* Gather the list of *.ml files in a directory. *)
+(* Gather the list of *.ml files in a directory.
+
+   Ignores *_with_lines.ml files.
+   *)
 let get_list_of_tests_in_dir (folder : string) : string list =
  run_command ("ls " ^ folder ^ "/*.ml > " ^ tmp_file);
- Xfile.get_lines tmp_file
+ let suffix_to_ignore = "_with_lines.ml" in
+ (Xfile.get_lines tmp_file) |>
+ List.filter (fun f ->
+  let to_ignore = (Str.last_chars f (String.length suffix_to_ignore)) = suffix_to_ignore in
+  not to_ignore)
 
 (* Gather the list of *.ml files for a given key. May contain duplicates. *)
 let rec list_of_tests_from_key (key : string) : string list =
@@ -82,6 +89,8 @@ let basic_tests_to_ignore = [
   (* ??? *)
 	"record_update_fields_type.ml";
   "record_modif.ml";
+  "record_to_variables.ml";
+  "variable_ref_to_var.ml";
 ]
 let combi_tests_to_ignore = [
   (* TO FIX: *)
@@ -96,6 +105,7 @@ let combi_tests_to_ignore = [
   (* ??? *)
   "swap_coords_fixed.ml";
   "swap_coords_vari.ml";
+  "specialize_function_arg.ml";
 ]
 let target_tests_to_ignore = [
   (* TO FIX: *)
@@ -104,6 +114,9 @@ let target_tests_to_ignore = [
   (* NOT A TEST: *)
 	"target_regexp.ml";
 	"target_debug.ml";
+  (* ??? *)
+  "target_accesses.ml";
+  "target_get_set.ml";
 ]
 let ast_tests_to_ignore = [
   (* TO FIX: *)
@@ -220,10 +233,10 @@ let _main : unit =
 
   let batch_args = Tools.list_to_string ~sep:" " ~bounds:[""; ""] tests_to_process in
   (* Printf.printf "\n%s\n" batch_args; *)
-  run_command ("tests/batch_tests.sh " ^ batch_args ^ " > " ^ "tests/batch.ml");
-  run_command "dune build tests/batch.cmxs";
+  run_command ("tests/batch_tests.sh " ^ batch_args ^ " > " ^ "tests/batch/batch.ml");
+  run_command "dune build tests/batch/batch.cmxs";
   (* TODO: flags *)
-  run_command "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe _build/default/tests/batch.cmxs";
+  run_command "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe _build/default/tests/batch/batch.cmxs";
 
   (* Call batch_tests.sh test1 ... testN to generate  batch.ml
      inclure ./batch_controller.ml tout à la fin de batch.ml

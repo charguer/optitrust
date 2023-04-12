@@ -4,12 +4,3 @@
   (libraries optitrust)
   ;(public_name optitrust_tester)
   )
-
-(library
-  (name batch)
-  (modules batch)
-  (libraries optitrust)
-  (optional)
-  ; disable warning 33: unused open
-  ; disable warning 50: unexpected docstring
-  (flags (:standard -w -33-50)))
