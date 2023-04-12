@@ -7,7 +7,7 @@ module StringSet = Set.Make(String)
   This file tester.ml is the source for the program ./tester.exe, for executing unit tests.
   Assume for simplicity that ./tester.exe is executed from the project root (containing dune-project), using, e.g:
 
-  dune exec tests/tester.exe
+  ./tester args
 
   It features:
   - caching of AST representation for input and expected output files
@@ -58,8 +58,8 @@ let rec list_of_tests_from_key (key : string) : string list =
   | "all" -> (list_of_tests_from_key "basic") @
              (list_of_tests_from_key "combi") @
              (list_of_tests_from_key "target") @
-             (list_of_tests_from_key "ast") (* TODO: fix first @
-             (list_of_tests_from_key "case_studies")*)
+             (list_of_tests_from_key "ast") @
+             (list_of_tests_from_key "case_studies")
   (* TODO: factorize dir keywords? *)
   | "basic" -> get_list_of_tests_in_dir "tests/basic"
   | "combi" -> get_list_of_tests_in_dir "tests/combi"
@@ -211,8 +211,8 @@ let _main : unit =
 
   let tests_to_process = compute_tests_to_process !keys_to_process in
 
-  (* TODO: not always necessary + avoid make? *)
-  (* run_command "make install"; *)
+  (* TODO: not always necessary? *)
+  run_command "dune install";
 
   (* TODO: We cache the "raw ast".
   from a trm t, we need to serialize Ast_fromto_AstC.cfeatures_intro t;
