@@ -70,10 +70,20 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.shift (trm_int 2) [cFor ~body:[cArrayWrite "ix"] "y"];
   !! Loop.extend_range ~lower:ShiftToZero [cFor ~body:[cArrayWrite "ix"] "y"];
   !! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "gray"] "y"];
-  (* TODO: fuse ixx/sxx/coarsity as well, requires recomputing *)
+
+  (* TODO: inline ixx/... into sxx/... computation instead, requires recomputing, and Variable.bind with CSE. *)
+  !! Loop.shift (trm_int 2) [cFor ~body:[cArrayWrite "ixx"] "y"];
+  !! Loop.extend_range ~lower:ShiftToZero [cFor ~body:[cArrayWrite "ixx"] "y"];
+  !! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "ix"] "y"];
+
+  !! Loop.shift (trm_int 4) [cFor ~body:[cArrayWrite "out"] "y"];
+  !! Loop.extend_range ~lower:ShiftToZero [cFor ~body:[cArrayWrite "out"] "y"];
+  !! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "ix"] "y"];
 
   bigstep "circular buffers";
-  !! Matrix.storage_folding ~var:"gray" ~dim:0 ~n:(trm_int 3) [cFunBody "harris"];
+  !! ["gray"; "ix"; "iy"] |> List.iter (fun to_fold ->
+    Matrix.storage_folding ~var:to_fold ~dim:0 ~n:(trm_int 3) [cFunBody "harris"]
+  );
 
   bigstep "parallelism";
   !! Omp.header ();

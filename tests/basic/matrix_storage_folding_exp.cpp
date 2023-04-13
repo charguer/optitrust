@@ -21,5 +21,7 @@ int main() {
                          b[MINDEX1(3, (i - 2) % 3)]);
     }
   }
+  free(a);
+  free(b);
   return 0;
 }

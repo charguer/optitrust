@@ -348,7 +348,17 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
         begin match trm_var_inv t with
         | Some (_, n) when n = var ->
           fail t.loc "Matrix_basic.storage_folding_on: variable access is not covered"
-        | _ -> trm_map update_accesses_and_alloc t
+        | _ ->
+          let is_free_var = begin match trm_free_inv t with
+          | Some freed ->
+            begin match trm_var_get_inv freed with
+            | Some (_, n) -> n = var
+            | None -> false
+            end
+          | None -> false
+          end in
+          if is_free_var then t
+          else trm_map update_accesses_and_alloc t
         end
       end
   in

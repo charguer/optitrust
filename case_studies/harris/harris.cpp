@@ -137,6 +137,7 @@ void harris(float* out, int h, int w, const float* in, float kappa) {
   binomial(syy, h1, w1, iyy);
   coarsity(out, h2, w2, sxx, sxy, syy, kappa);
 
+  free(gray);
   free(ix);
   free(iy);
   free(ixx);
