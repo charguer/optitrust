@@ -26,5 +26,5 @@ let _ = Run.script_cpp (fun () ->
   !! Matrix.elim_mops [];
   !! Loop.unroll [cFor ~body:[cPlusEqVar "s"] "k"];
   !! Omp.simd [nbMulti; cFor ~body:[cPlusEqVar "s"] "j"];
-  !! Omp.parallel_for [nbMulti; cFunDef "mm1024"; dBody; cStrict; cFor ""];
+  !! Omp.parallel_for [nbMulti; cFunBody "mm1024"; cStrict; cFor ""];
 )

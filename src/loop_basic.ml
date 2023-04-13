@@ -100,7 +100,7 @@ let hoist_on (name : string)
     new_name := Tools.string_subst "${var}" x name;
     ty := get_inner_ptr_type tx;
     begin match Matrix_core.alloc_inv_with_ty init with
-    | Some (dims, elem_size) ->
+    | Some (dims, _, elem_size) ->
       let mindex = with_mindex dims in
       (* extra reference to remove *)
       ty := Option.get (typ_ptr_inv !ty);

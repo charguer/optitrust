@@ -3,9 +3,9 @@ open Target
 
 (* [access t dims indices]: builds the a matrix access with the index defined by macro [MINDEX], see [mindex] function.
     Ex: x[MINDEX(N1,N2,N3, i1, i2, i3)]. *)
-let access (t : trm) (dims : trms) (indices : trms) : trm =
+let access ?(annot : trm_annot = trm_annot_default) (t : trm) (dims : trms) (indices : trms) : trm =
   let mindex_trm = mindex dims indices in
-  trm_apps (trm_binop Binop_array_access) [t; mindex_trm]
+  trm_apps ~annot (trm_binop Binop_array_access) [t; mindex_trm]
 
 (* [access_inv t]: returns the array access base, the list of dimensions and indices used as args at matrix access [t]. *)
 let access_inv (t : trm) : (trm * trms * trms) option=
@@ -59,13 +59,13 @@ let alloc ?(init : trm option = None) (dims : trms) (size : trm) : trm =
   | None -> trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size])
 
 
-let alloc_with_ty (dims : trms) (ty : typ) : trm =
+let alloc_with_ty ?(annot : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
   let n = List.length dims in
   let size = trm_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
-  trm_cast (typ_ptr Ptr_kind_mut ty) (
+  trm_cast ~annot (typ_ptr Ptr_kind_mut ty) (
     trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size]))
 
-let alloc_inv_with_ty (t : trm) : (trms * trm)  option =
+let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
 (* TODO: avoid cascade of matches? *)
   match trm_new_inv t with
   | Some (_, t2) ->
@@ -76,7 +76,7 @@ let alloc_inv_with_ty (t : trm) : (trms * trm)  option =
         begin match trm_var_inv f with
         | Some (_, f_name) when (Tools.pattern_matches "MALLOC" f_name) ->
           let dims, size = Xlist.unlast args in
-          Some (dims, size)
+          Some (dims, Option.get (typ_ptr_inv ty), size)
         | _ -> None
         end
       | None -> None

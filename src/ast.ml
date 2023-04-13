@@ -1166,8 +1166,8 @@ let trm_binop ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = No
   trm_val ~annot:annot ~loc ~ctx (Val_prim (Prim_binop p))
 
 (* [trm_cast ty t]: type cast *)
-let trm_cast (ty : typ) (t : trm) : trm =
-  trm_apps (trm_unop (Unop_cast ty)) [t]
+let trm_cast ?(annot : trm_annot = trm_annot_default) (ty : typ) (t : trm) : trm =
+  trm_apps ~annot (trm_unop (Unop_cast ty)) [t]
 
 (* [typ_of_lit l]: get the type of a literal *)
 let typ_of_lit (l : lit) : typ option =
@@ -3018,6 +3018,11 @@ let trm_sub ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t
 (* [trm_add t1 t2]: generates t1 + t2 *)
 let trm_add ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_add) [t1; t2]
+
+(* [trm_mod t1 t2]: generates t1 % t2 *)
+let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [t1; t2]
+
 
 (* [trm_binop_inv t]: deconstructs t = t1 op t2 *)
 let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =

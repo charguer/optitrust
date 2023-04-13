@@ -322,3 +322,45 @@ let elim_mindex_on (t : trm) : trm =
    *)
 let elim_mindex (tg : Target.target) : unit =
   Target.apply_at_target_paths elim_mindex_on tg
+
+let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
+  let rec update_accesses_and_alloc (t : trm) : trm =
+    match Matrix_core.access_inv t with
+    | Some (f, dims, indices) ->
+      begin match trm_var_get_inv f with
+      | Some (_, v) when v = var -> begin
+        let new_dims = Xlist.update_nth dim (fun _ -> n) dims in
+        let new_indices = Xlist.update_nth dim (fun i -> trm_mod i n) indices in
+        Matrix_core.access ~annot:t.annot f new_dims new_indices
+        end
+      | _ -> trm_map update_accesses_and_alloc t
+      end
+    | None ->
+      begin match trm_let_inv t with
+      | Some (_kind, v, vtyp, init) when v = var ->
+        begin match Matrix_core.alloc_inv_with_ty init with
+        | Some (dims, etyp, size) ->
+          let new_dims = Xlist.update_nth dim (fun _ -> n) dims in
+          trm_let_mut ~annot:t.annot (v, (get_inner_ptr_type vtyp)) (Matrix_core.alloc_with_ty new_dims etyp)
+        | _ -> trm_map update_accesses_and_alloc t
+        end
+      | _ ->
+        begin match trm_var_inv t with
+        | Some (_, n) when n = var ->
+          fail t.loc "Matrix_basic.storage_folding_on: variable access is not covered"
+        | _ -> trm_map update_accesses_and_alloc t
+        end
+      end
+  in
+  update_accesses_and_alloc t
+
+type storage_folding_kind =
+| ModuloIndices
+| RotateVariables
+
+(* [storage_folding] expects target [tg] to point at a sequence defining matrix
+   [var], and folds the [dim]-th dimension so that every index [i] into this matrix dimension is mapped to index [i % n]. *)
+let storage_folding ~(var : var) ~(dim : int) ~(n : trm)
+  ?(kind : storage_folding_kind = ModuloIndices) (tg : Target.target) : unit =
+  assert(kind = ModuloIndices);
+  Target.apply_at_target_paths (storage_folding_on var dim n) tg
