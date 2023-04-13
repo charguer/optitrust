@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-(* open Ast *)
+open Ast
 
 let _ = Flags.pretty_matrix_notation := true
 (* let _ = Flags.analyse_stats := true *)
@@ -33,6 +33,9 @@ let _ = Run.script_cpp (fun () ->
   (* TODO: ~nb_loops:2 *)
   !! Loop.unroll [nbMulti; cFor ~body:[cPlusEqVar "acc"] "j"];
   !! Loop.unroll [nbMulti; cFor ~body:[cPlusEqVar "acc"] "i"];
+  (* TODO?
+  !! Instr.accumulate ~nb:9 [nbMulti; cVarDef "acc"]; *)
+  (* remove 0.0f * x *)
   !! Matrix.elim_accesses "weights";
   !! ["grayscale"; "sobelX"; "sobelY"; "binomial"; "mul"; "coarsity"] |> List.iter (fun fun_to_inline ->
     Function.inline ~delete:true [nbMulti; cFun fun_to_inline];
@@ -40,7 +43,7 @@ let _ = Run.script_cpp (fun () ->
   !! ["h1"; "w1"; "h2"; "w2"] |> List.iter (fun var_to_inline ->
     Variable.inline [cVarDef var_to_inline]
   );
-  (* remove 0.0f * x *)
+  !! Arith.(simpl gather) [nbMulti; cFor ""; dForStop];
 
   bigstep "fuse operators";
   (* FIXME: reparse required to remove blank lines,
@@ -50,15 +53,27 @@ let _ = Run.script_cpp (fun () ->
   !!! Loop.fusion_targets ~nb_loops:2 [cFor ~body:[cOr [[cArrayWrite "ix"]; [cArrayWrite ["iy"]]] "y"];
   TODO: check that loops extents are the same; or adjust them
   *)
+  !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "ix"] "x"; dBody];
+  !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "iy"] "x"; dBody];
   !!! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "ix"] "y"];
   !! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "ix"] "x"];
+
   !! Loop.fusion ~nb:3 [cFor ~body:[cArrayWrite "ixx"] "y"];
   !! Loop.fusion ~nb:3 [cFor ~body:[cArrayWrite "ixx"] "x"];
-  !! Loop.fusion ~nb:3 [cFor ~body:[cArrayWrite "sxx"] "y"];
-  !! Loop.fusion ~nb:3 [cFor ~body:[cArrayWrite "sxx"] "x"];
+
+  !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "sxx"] "x"; dBody];
+  !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "sxy"] "x"; dBody];
+  !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "syy"] "x"; dBody];
+  !! Loop.fusion ~nb:4 [cFor ~body:[cArrayWrite "sxx"] "y"];
+  !! Loop.fusion ~nb:4 [cFor ~body:[cArrayWrite "sxx"] "x"];
+
+  !! Loop.shift (trm_int 2) [cFor ~body:[cArrayWrite "ix"] "y"];
+  !! Loop.extend_range ~lower:ShiftToZero [cFor ~body:[cArrayWrite "ix"] "y"];
+  !! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "gray"] "y"];
   (* TODO: fuse ixx/sxx/coarsity as well, requires recomputing *)
 
   bigstep "circular buffers";
+  !! Matrix.storage_folding ~var:"gray" ~dim:0 ~n:(trm_int 3) [cFunBody "harris"];
 
   bigstep "parallelism";
   !! Omp.header ();
