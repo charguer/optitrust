@@ -35,7 +35,7 @@ let color (nb_colors : trm) ?(index : var option) : Transfo.t =
    [for (int index = 0; index < stop; index += tile_size) {
       for (int i = index; i < min(X, bx+B); i++) { body }]. *)
 let tile ?(index : var = "b${id}")
-         ?(bound : tile_bound = TileBoundMin) 
+         ?(bound : tile_bound = TileBoundMin)
          (tile_size : trm) : Transfo.t =
   apply_on_targets (Loop_core.tile index bound tile_size)
 
@@ -75,7 +75,7 @@ let hoist_on (name : string)
   | Step s ->
     let typ = Some (typ_int ()) in
     (* i = start; i < stop; i += step *)
-    let trm_ceil_div a b = 
+    let trm_ceil_div a b =
       trm_div ~typ (trm_add ~typ a (trm_sub ~typ b (trm_int 1))) b
     in
      (trm_ceil_div (trm_sub ~typ stop start) s,
@@ -145,7 +145,7 @@ let hoist_on (name : string)
     | None -> fail body.loc "Loop_basic.hoist: expected free instruction"
   end (* DEPRECATED: before MALLOC0
     else body_instrs_new_decl *)
-  in 
+  in
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
   trm_seq_no_brace [
     trm_may_add_mark mark (
@@ -218,7 +218,7 @@ let fission_all_instrs_on (t : trm) : trm =
     | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: expected the sequence inside the loop body"
     end
   | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: only simple loops are supported"
-    
+
 (* LATER: only keep fission or fission_all_instrs,
    implementing one with the other *)
 (* [fission_all_instrs]: similar to [fission],
@@ -226,9 +226,9 @@ let fission_all_instrs_on (t : trm) : trm =
    one per instruction in the loop body.
    *)
 let fission_all_instrs (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ -> 
+  Internal.nobrace_remove_after (fun _ ->
     Target.apply_at_target_paths fission_all_instrs_on tg)
-  
+
 (* [fusion_on_block tg]: expects the target [tg] to point at a sequence containing two loops
     with the same range, start step and bound but different body.
     Then it's going to merge the bodies of all the loops that belong to the targeted sequence. *)
@@ -270,14 +270,14 @@ let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit
     Then it will move it outside the loop.
 
     NOTE:: currently, there is no check that the transformation is legitimate.
-      
+
     LATER: Implement a combi transformation that will check if the targeted instruction
     is dependent on any local variable or the loop index. *)
 let move_out ?(mark : mark option = None) (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
   apply_on_transformed_targets (Path.index_in_surrounding_loop)
     (fun t (i, p) -> Loop_core.move_out mark i t p ) tg)
-    
+
 (* [unswitch tg]:  expects the target [tg] to point at an if statement with a constant condition
      (not dependent on loop index or local variables) inside a loop.  Then it will take that
       if statment outside the loop.
@@ -323,8 +323,10 @@ let split_range ?(nb : int = 0) ?(cut : trm = trm_unit()) (tg : target) : unit =
     apply_on_targets (Loop_core.split_range nb cut) tg )
 
 type shift_kind =
-| ToZero
-| Add of trm
+| ShiftNone
+| ShiftToZero
+| ShiftToVal of trm
+| ShiftBy of trm
 
 (* [shift_on index kind]: shifts a loop index to start from zero or by a given amount. *)
 let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
@@ -333,8 +335,10 @@ let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
   let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
   let body_terms = trm_inv ~error trm_seq_inv body in
   let (start', shift) = match kind with
-  | ToZero -> (trm_int 0, trm_minus start)
-  | Add s -> (trm_add start s, s)
+  | ShiftNone -> failwith "not implemented yet"
+  | ShiftToZero -> (trm_int 0, trm_minus start)
+  | ShiftToVal v -> failwith "not implemented yet"
+  | ShiftBy s -> (trm_add start s, s)
   in
   let stop' = trm_add stop shift in
   (* NOTE: Option.get assuming all types are available *)
@@ -347,13 +351,43 @@ let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
 let shift ?(reparse : bool = false) (index : var) (amount : trm) (tg : target) : unit =
   (* FIXME: having to think about reparse here is not great *)
   reparse_after ~reparse (
-    Target.apply_at_target_paths (shift_on index (Add amount))) tg
-    
+    Target.apply_at_target_paths (shift_on index (ShiftBy amount))) tg
+
 (* [shift_to_zero index]: shifts a loop index to start from zero. *)
 let shift_to_zero ?(reparse : bool = false) (index : var) (tg : target) : unit =
   (* FIXME: having to think about reparse here is not great *)
   reparse_after ~reparse (
-    Target.apply_at_target_paths (shift_on index ToZero)) tg
+    Target.apply_at_target_paths (shift_on index ShiftToZero)) tg
+
+let extend_range_on (lower : shift_kind) (upper : shift_kind) (t : trm) : trm =
+  let error = "Loop_basic.extend_range_on: expected a target to a simple for loop" in
+  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
+  assert (direction = DirUp);
+  assert (is_step_one step);
+  let may_merge_ifs t = Option.value ~default:t (Flow_core.may_merge_ifs t) in
+  let if_after_start body = trm_seq_nomarks [may_merge_ifs (trm_if (trm_le start (trm_var index)) body (trm_unit ()))] in
+  let if_before_stop body = trm_seq_nomarks [may_merge_ifs (trm_if (trm_lt (trm_var index) stop) body (trm_unit ()))] in
+  let (stop', body') = begin match upper with
+  | ShiftNone -> (stop, body)
+  | ShiftToZero -> failwith "not implemented yet"
+  | ShiftToVal v -> (v, if_before_stop body)
+  | ShiftBy v -> (trm_add stop v, if_before_stop body)
+  end in
+  let (start', body'') = begin match lower with
+  | ShiftNone -> (start, body')
+  | ShiftToZero -> (trm_int 0, if_after_start body')
+  | ShiftToVal v -> (v, if_after_start body')
+  | ShiftBy v -> (trm_sub start v, if_after_start body')
+  end in
+  trm_for (index, start', direction, stop', step, is_parallel) body''
+
+(* [extend_range]: extends the range of a loop on [lower] and/or [upper] bounds.
+   The body of the loop is guarded by ifs statements, doing nothing on the extension points.
+
+   For this to be correct, the loop bounds must be extended, not shrinked.
+  *)
+let extend_range ?(lower : shift_kind = ShiftNone) ?(upper : shift_kind = ShiftNone) (tg : target) : unit =
+  Target.apply_at_target_paths (extend_range_on lower upper) tg
 
 (* [rename_index new_index]: renames the loop index variable *)
 let rename_index (new_index : var) (tg : target) : unit =
