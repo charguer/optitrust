@@ -53,6 +53,7 @@ let _ = Run.script_cpp (fun () ->
   !!! Loop.fusion_targets ~nb_loops:2 [cFor ~body:[cOr [[cArrayWrite "ix"]; [cArrayWrite ["iy"]]] "y"];
   TODO: check that loops extents are the same; or adjust them
   *)
+  !! Variable.renames Variable.Rename.bylist [("acc", "acc_${occ}")] [cVar "acc"];
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "ix"] "x"; dBody];
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "iy"] "x"; dBody];
   !!! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "ix"] "y"];
@@ -89,4 +90,5 @@ let _ = Run.script_cpp (fun () ->
   !! Omp.header ();
 
   bigstep "code details";
+  !! Matrix.elim_mops [];
 )

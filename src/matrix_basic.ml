@@ -369,8 +369,11 @@ type storage_folding_kind =
 | RotateVariables
 
 (* [storage_folding] expects target [tg] to point at a sequence defining matrix
-   [var], and folds the [dim]-th dimension so that every index [i] into this matrix dimension is mapped to index [i % n]. *)
-let storage_folding ~(var : var) ~(dim : int) ~(n : trm)
+   [var], and folds the [dim]-th dimension so that every index [i] into this matrix dimension is mapped to index [i % n].
+
+   assumes that [i >= 0].
+   *)
+let storage_folding ~(var : var) ~(dim : int) ~(size : trm)
   ?(kind : storage_folding_kind = ModuloIndices) (tg : Target.target) : unit =
   assert(kind = ModuloIndices);
-  Target.apply_at_target_paths (storage_folding_on var dim n) tg
+  Target.apply_at_target_paths (storage_folding_on var dim size) tg
