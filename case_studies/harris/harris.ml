@@ -37,7 +37,7 @@ let _ = Run.script_cpp (fun () ->
   !! Instr.accumulate ~nb:9 [nbMulti; cVarDef "acc"]; *)
   (* remove 0.0f * x *)
   !! Matrix.elim_accesses "weights";
-  !! ["grayscale"; "sobelX"; "sobelY"; "binomial"; "mul"; "coarsity"] |> List.iter (fun fun_to_inline ->
+  !! ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"] |> List.iter (fun fun_to_inline ->
     Function.inline ~delete:true [nbMulti; cFun fun_to_inline];
   );
   !! ["h1"; "w1"; "h2"; "w2"] |> List.iter (fun var_to_inline ->
@@ -53,7 +53,7 @@ let _ = Run.script_cpp (fun () ->
   !!! Loop.fusion_targets ~nb_loops:2 [cFor ~body:[cOr [[cArrayWrite "ix"]; [cArrayWrite ["iy"]]] "y"];
   TODO: check that loops extents are the same; or adjust them
   *)
-  !! Variable.renames Variable.Rename.bylist [("acc", "acc_${occ}")] [cVar "acc"];
+  (* TODO: !! Variable.renames Variable.Rename.bylist [("acc", "acc_${occ}")] [cVar "acc"]; *)
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "ix"] "x"; dBody];
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "iy"] "x"; dBody];
   !!! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "ix"] "y"];
@@ -83,7 +83,7 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "circular buffers";
   !! ["gray"; "ix"; "iy"] |> List.iter (fun to_fold ->
-    Matrix.storage_folding ~var:to_fold ~dim:0 ~n:(trm_int 3) [cFunBody "harris"]
+    Matrix.storage_folding ~var:to_fold ~dim:0 ~size:(trm_int 3) [cFunBody "harris"]
   );
 
   bigstep "parallelism";

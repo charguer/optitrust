@@ -29,7 +29,7 @@ constexpr uint32_t MIN_SAMPLES = 3;
 // and the upper quartile of the runtimes is no more than this.
 // Controls accuracy. The closer to zero this gets the more
 // reliable the answer, but the longer it may take to run.
-constexpr double ACCURACY = 0.01;
+constexpr double ACCURACY = 0.03;
 
 inline double benchmark_sample(uint32_t iterations, const std::function<void(uint32_t)> &f) {
   auto start = Halide::Tools::benchmark_now();
@@ -107,9 +107,8 @@ inline uint32_t benchmark_and_print_samples(const std::function<void(uint32_t)> 
   // we happen to get faster results for the first samples, then happen to transition
   // to throttled-down CPU state.
   const double accuracy_scaling = 1.0 + ACCURACY;
-  while (((samples[std::floor(samples.size()*0.25)] * accuracy_scaling <
-           samples[std::floor(samples.size()*0.75)])
-           || total_time < MIN_TIME) &&
+  while ((samples[std::floor(samples.size()*0.25)] * accuracy_scaling <
+           samples[std::floor(samples.size()*0.75)]) &&
           total_time < MAX_TIME) {
       double sample = benchmark_sample(iters_per_sample, [&](uint32_t i) {
         f(total_iterations + i);
@@ -131,6 +130,12 @@ inline uint32_t benchmark_and_print_samples(const std::function<void(uint32_t)> 
   }
   fprintf(stderr, "took %zu samples of %u iterations\n",
     samples.size(), iters_per_sample);
+  if (samples[std::floor(samples.size()*0.25)] * accuracy_scaling >=
+      samples[std::floor(samples.size()*0.75)]) {
+    fprintf(stderr, "the demanded accuracy of %lf was achieved between lower and upper quartiles\n", ACCURACY);
+  } else {
+    fprintf(stderr, "the demanded accuracy of %lf was NOT achieved between lower and upper quartiles\n", ACCURACY);
+  }
 
   return total_iterations;
 }

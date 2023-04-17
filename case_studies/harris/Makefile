@@ -41,10 +41,14 @@ HARRIS_BENCHS := $(patsubst %.cpp,bench_%,$(HARRIS_CPP))
 HARRIS_BENCHS := $(filter-out bench_harris_after,$(HARRIS_BENCHS))
 HARRIS_BENCHS := $(filter-out bench_harris_before,$(HARRIS_BENCHS))
 
-bench: bench_ref $(HARRIS_BENCHS)
+bench: bench_halide $(HARRIS_BENCHS)
 
 bench_halide: _build/bench_halide
+	@echo "---- Benchmarking Halide .."
 	$(V)$< $(HALIDE_PATH)/apps/images/rgba.png output.png
+	@echo "----"
 
 bench_%: _build/bench_%
+	@echo "---- Benchmarking $(patsubst bench_%,%.cpp,$<) .."
 	$(V)$< $(HALIDE_PATH)/apps/images/rgba.png
+	@echo "----"
