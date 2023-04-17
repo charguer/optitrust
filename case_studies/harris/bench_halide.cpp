@@ -1,4 +1,4 @@
-#include "bench_util.cpp" // TODO: header?
+#include "bench_util.h"
 
 #include "_build/harris_halide.h"
 #include "halide_image_io.h"
@@ -30,14 +30,16 @@ int main(int argc, char **argv) {
 
     std::vector<Buffer<float>> outputs;
     for (uint16_t i = 0; i < n_allocs; i++) {
-        Buffer<float, 2> o(input.width() - 6, input.height() - 6);
+        // original benchmark: -6, -6
+        Buffer<float, 2> o(input.width() - 4, input.height() - 4);
         outputs.push_back(o);
-        outputs[i].set_min(3, 3);
+        // original benchmark: 3, 3
+        outputs[i].set_min(2, 2);
     }
 
     uint32_t iterations = benchmark_and_print_samples([&](uint32_t i) {
         uint16_t alloc = i % n_allocs;
-        int h_error = harris(inputs[alloc], outputs[alloc]);
+        int h_error = harris_halide(inputs[alloc], outputs[alloc]);
         outputs[alloc].device_sync();
 
         if (h_error) {

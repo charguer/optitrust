@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdlib>
 #include <cstdio>
 #include <cmath>
@@ -7,6 +9,8 @@
 #include "HalideBuffer.h"
 #include "HalideRuntime.h"
 #include "halide_benchmark.h"
+
+// TODO: put some of this code in a .cpp?
 
 // Attempt to use at least this much time (in seconds) for one sample;
 // initial iterations will be done to find an iterations-per-sample
@@ -132,9 +136,9 @@ inline uint32_t benchmark_and_print_samples(const std::function<void(uint32_t)> 
 }
 
 void error_stats(float* gold, float* other, size_t n, double tolerated_per_pixel, double required_psnr) {
-  double square_sum = 0.f;
-  double min = 1.f / 0.f;
-  double max = 0.f;
+  double square_sum = 0.;
+  double min = 1. / 0.;
+  double max = 0.;
   float min_g = 1.f / 0.f;
   float max_g = -min_g;
 
@@ -154,7 +158,7 @@ void error_stats(float* gold, float* other, size_t n, double tolerated_per_pixel
   min /= range;
   max /= range;
 
-  fprintf(stderr, "error stats: [%.3lf - %.3lf]*(%.4lf) with %.2lf PSNR\n", min, max, range, psnr);
+  fprintf(stderr, "error stats: [%.5lf - %.5lf]*%.5lf with %.2lf PSNR\n", min, max, range, psnr);
   if (max > tolerated_per_pixel || psnr < required_psnr) {
     fprintf(stderr, "maximum tolerated error of %.4f per pixel, and minimum PSNR of %.2f\n",
         tolerated_per_pixel, required_psnr);

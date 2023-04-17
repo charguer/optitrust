@@ -2,15 +2,16 @@
 #include <stdlib.h>
 #include "../../include/optitrust.h"
 
+// NOTE: need to decide if 'in' has 3 or 4 channels (alpha)
 void grayscale(float* out,
                int h, int w,
                const float* in)
 {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
-      out[MINDEX2(h, w, y, x)] = 0.299f * in[MINDEX3(3, h, w, 0, y, x)] +
-                                 0.587f * in[MINDEX3(3, h, w, 1, y, x)] +
-                                 0.114f * in[MINDEX3(3, h, w, 2, y, x)];
+      out[MINDEX2(h, w, y, x)] = 0.299f * in[MINDEX3(4, h, w, 0, y, x)] +
+                                 0.587f * in[MINDEX3(4, h, w, 1, y, x)] +
+                                 0.114f * in[MINDEX3(4, h, w, 2, y, x)];
     }
   }
 }
@@ -38,7 +39,7 @@ void conv2D(float* out,
       float acc = 0.0f;
       for (int i = 0; i < m; i++) {
         for (int j = 0; j < n; j++) {
-          acc += weights[MINDEX2(m, n, i, j)] * in[MINDEX2(h, w, y + i, x + j)];
+          acc += in[MINDEX2(h, w, y + i, x + j)] * weights[MINDEX2(m, n, i, j)];
         }
       }
       out[MINDEX2(h - m + 1, w - n + 1, y, x)] = acc;
@@ -50,10 +51,11 @@ void sobelX(float* out,
             int h, int w,
             const float* in)
 {
+  // NOTE: /12 used in Halide instead of /8
   const float weights[3 * 3] = {
-      -1.f/8.f, 0.f, 1.f/8.f,
-      -2.f/8.f, 0.f, 2.f/8.f,
-      -1.f/8.f, 0.f, 1.f/8.f
+      -1.f/12.f, 0.f, 1.f/12.f,
+      -2.f/12.f, 0.f, 2.f/12.f,
+      -1.f/12.f, 0.f, 1.f/12.f
   };
   conv2D(out, h, w, in, 3, 3, weights);
 }
@@ -62,14 +64,16 @@ void sobelY(float* out,
             int h, int w,
             const float* in)
 {
+  // NOTE: /12 used in Halide instead of /8
   const float weights[3 * 3] = {
-      -1.f/8.f, -2.f/8.f, -1.f/8.f,
-       0.f/8.f,  0.f/8.f,  0.f/8.f,
-       1.f/8.f,  2.f/8.f,  1.f/8.f
+      -1.f/12.f, -2.f/12.f, -1.f/12.f,
+       0.f/12.f,  0.f/12.f,  0.f/12.f,
+       1.f/12.f,  2.f/12.f,  1.f/12.f
   };
   conv2D(out, h, w, in, 3, 3, weights);
 }
 
+/* NOTE: box sum used in Halide instead
 void binomial(float* out,
               int h, int w,
               const float* in)
@@ -78,6 +82,18 @@ void binomial(float* out,
       1.f/16.f, 2.f/16.f, 1.f/16.f,
       2.f/16.f, 4.f/16.f, 2.f/16.f,
       1.f/16.f, 2.f/16.f, 1.f/16.f
+  };
+  conv2D(out, h, w, in, 3, 3, weights);
+}
+*/
+void sum3x3(float* out,
+            int h, int w,
+            const float* in)
+{
+  const float weights[3 * 3] = {
+      1.f, 1.f, 1.f,
+      1.f, 1.f, 1.f,
+      1.f, 1.f, 1.f
   };
   conv2D(out, h, w, in, 3, 3, weights);
 }
@@ -110,7 +126,7 @@ void coarsity(float* out,
   }
 }
 
-void harris(float* out, int h, int w, const float* in, float kappa) {
+void harris(float* out, int h, int w, const float* in) {
   const int h1 = h - 2;
   const int w1 = w - 2;
   const int h2 = h1 - 2;
@@ -132,10 +148,10 @@ void harris(float* out, int h, int w, const float* in, float kappa) {
   mul(ixx, h1, w1, ix, ix);
   mul(ixy, h1, w1, ix, iy);
   mul(iyy, h1, w1, iy, iy);
-  binomial(sxx, h1, w1, ixx);
-  binomial(sxy, h1, w1, ixy);
-  binomial(syy, h1, w1, iyy);
-  coarsity(out, h2, w2, sxx, sxy, syy, kappa);
+  sum3x3(sxx, h1, w1, ixx);
+  sum3x3(sxy, h1, w1, ixy);
+  sum3x3(syy, h1, w1, iyy);
+  coarsity(out, h2, w2, sxx, sxy, syy, 0.04f);
 
   free(gray);
   free(ix);
