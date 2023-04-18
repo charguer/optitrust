@@ -3,20 +3,21 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-  
-  !! Loop.fusion_targets [cLabel "block"];
-
+  (*!! Instr.gather_targets ~dest:(GatherAt [tBefore; occLast; cFor "i"]) [nbMulti; cFor "i"];*)
+  !! Loop.fusion_targets ~nb_loops:2 ~into:[occLast; cFor "i"] [nbMulti; cFor "i"];
 )
 
 "
 int main() {
-  block: {
-    int x = 0;
-    for (int i = 0; i <3; i++) {
+  int x = 0;
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 5; j += 2) {
       x++;
     }
-    int y = 0;
-    for (int i = 0; i < 3; i++) {
+  }
+  int y = 0;
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 5; j += 2) {
       y++;
     }
   }
@@ -25,7 +26,9 @@ int main() {
 
 
 let _ = Run.script_cpp ( fun _ ->
-
-  !! Loop.fusion_targets [cLabel "block"];
-
+  !! Loop.fusion_targets [nbMulti; cOr [
+    [cFor "i"];
+    [cFor "j"]
+  ]];
+  !! Loop.fusion_targets ~nb_loops:2 [nbMulti; cFor "k0"];
 )

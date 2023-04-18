@@ -56,20 +56,19 @@ let _ = Run.script_cpp (fun () ->
   (* TODO: !! Variable.renames Variable.Rename.bylist [("acc", "acc_${occ}")] [cVar "acc"]; *)
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "ix"] "x"; dBody];
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "iy"] "x"; dBody];
-  !!! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "ix"] "y"];
-  !! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "ix"] "x"];
+  !!! Loop.fusion ~nb:2 ~nb_loops:2 [cFor ~body:[cArrayWrite "ix"] "y"];
 
-  !! Loop.fusion ~nb:3 [cFor ~body:[cArrayWrite "ixx"] "y"];
-  !! Loop.fusion ~nb:3 [cFor ~body:[cArrayWrite "ixx"] "x"];
+  !! Loop.fusion ~nb:3 ~nb_loops:2 [cFor ~body:[cArrayWrite "ixx"] "y"];
 
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "sxx"] "x"; dBody];
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "sxy"] "x"; dBody];
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "syy"] "x"; dBody];
-  !! Loop.fusion ~nb:4 [cFor ~body:[cArrayWrite "sxx"] "y"];
-  !! Loop.fusion ~nb:4 [cFor ~body:[cArrayWrite "sxx"] "x"];
+  !! Loop.fusion ~nb:4 ~nb_loops:2 [cFor ~body:[cArrayWrite "sxx"] "y"];
 
   !! Loop.shift (trm_int 2) [cFor ~body:[cArrayWrite "ix"] "y"];
+  (*
   !! Loop.extend_range ~lower:ShiftToZero [cFor ~body:[cArrayWrite "ix"] "y"];
+  *)
   !! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "gray"] "y"];
 
   (* TODO: inline ixx/... into sxx/... computation instead, requires recomputing, and Variable.bind with CSE. *)

@@ -11,7 +11,9 @@ type path = dir list
 
 (* [dir]: direction type *)
 and dir =
-  (* [Dir_before] is used by target_between, to aim for a position in a sequence *)
+  (* [Dir_before] is used by target_between, to aim for a position in a sequence   TODO:  Dir_around of int * diraround
+       type diraround = Diraround_before | Diraround_after
+         *)
   | Dir_before of int
   (* nth: direction to nth element in a struct initialization *)
   | Dir_struct_nth of int

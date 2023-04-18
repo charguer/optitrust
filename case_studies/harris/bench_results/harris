@@ -1,0 +1,13 @@
+sample: 0.057454
+sample: 0.057506
+sample: 0.058306
+1th percentile: 0.057454
+5th percentile: 0.057454
+10th percentile: 0.057454
+25th percentile: 0.057454
+50th percentile: 0.057506
+75th percentile: 0.058306
+90th percentile: 0.058306
+95th percentile: 0.058306
+99th percentile: 0.058306
+rm _build/harris.o _build/bench_harris

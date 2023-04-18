@@ -1120,6 +1120,10 @@ let trm_for ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None
   (loop_range : loop_range) (body : trm) : trm =
   trm_make ~annot ~loc ~typ:(Some (typ_unit ())) ~ctx (Trm_for (loop_range, body))
 
+let trm_for_instrs ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
+(loop_range : loop_range) (body_instrs : trm mlist) : trm =
+  trm_for ~annot ~loc ~ctx loop_range (trm_seq body_instrs)
+
 (* [code code_str ]: arbitrary code entered by the user *)
 let code (code_str : code_kind) : trm =
   trm_make (Trm_arbitrary code_str)
@@ -2735,6 +2739,11 @@ let trm_for_inv (t : trm) : (loop_range * trm)  option =
   match t.desc with
   | Trm_for (l_range, body) -> Some (l_range, body)
   | _ -> None
+
+(* [trm_for_inv_instrs t]: gets the loop range and body instructions from loop [t]. *)
+let trm_for_inv_instrs (t : trm) : (loop_range * trm mlist) option =
+  Option.bind (trm_for_inv t) (fun (r, b) ->
+    Option.map (fun instrs -> (r, instrs)) (trm_seq_inv b))
 
 (* [is_trm_seq t]: checks if [t] is a sequence. *)
 let is_trm_seq (t : trm) : bool =

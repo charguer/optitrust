@@ -173,20 +173,14 @@ let hoist ?(name : var = "${var}_step")
     [t]: ast of the loop
     *)
 let fission_on (index : int) (t : trm) : trm =
-  (* TODO: trm_for_inv_instrs => (l_range, tl) *)
-  match t.desc with
-  | Trm_for (l_range, body) ->
-    begin match body.desc with
-    | Trm_seq tl ->
-      let tl1, tl2 = Mlist.split index tl in
-      let b1 = trm_seq tl1 in
-      let b2 = trm_seq tl2 in
-      trm_seq_no_brace [
-        trm_for l_range b1; (* TODO: trm_for_instrs l_range tl1 *)
-        trm_for l_range b2;]
-    | _ -> fail t.loc "Loop_basic.fission_on: expected the sequence inside the loop body"
-    end
-  | _ -> fail t.loc "Loop_basic.fission_on: only simple loops are supported"
+  let (l_range, tl) = trm_inv
+    ~error:"Loop_basic.fission_on: only simple loops are supported"
+    trm_for_inv_instrs t
+  in
+  let tl1, tl2 = Mlist.split index tl in
+  trm_seq_no_brace [
+    trm_for_instrs l_range tl1;
+    trm_for_instrs l_range tl2;]
 
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
@@ -229,11 +223,100 @@ let fission_all_instrs (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_at_target_paths fission_all_instrs_on tg)
 
-(* [fusion_on_block tg]: expects the target [tg] to point at a sequence containing two loops
-    with the same range, start step and bound but different body.
-    Then it's going to merge the bodies of all the loops that belong to the targeted sequence. *)
-let fusion_on_block ?(keep_label : bool = false) : Transfo.t =
-  apply_on_targets (Loop_core.fusion_on_block keep_label)
+let same_loop_step (a : loop_step) (b : loop_step) : bool =
+  match (a, b) with
+  | (Pre_inc, Pre_inc) -> true
+  | (Post_inc, Post_inc) -> true
+  | (Pre_dec, Pre_dec) -> true
+  | (Post_dec, Post_dec) -> true
+  | (Step s_a, Step s_b) -> Internal.same_trm s_a s_b
+  | _ -> false
+
+let same_loop_range
+  ((_index_a, start_a, dir_a, stop_a, step_a, is_par_a) : loop_range)
+  ((_index_b, start_b, dir_b, stop_b, step_b, is_par_b) : loop_range) : bool =
+  Internal.same_trm start_a start_b &&
+  (dir_a = dir_b) &&
+  Internal.same_trm stop_a stop_b &&
+  same_loop_step step_a step_b &&
+  (is_par_a = is_par_b)
+
+let loop_index ((idx, _, _, _, _, _) : loop_range) : var = idx
+
+let same_loop_index (a : loop_range) (b : loop_range) : bool =
+  (loop_index a) = (loop_index b)
+
+(* [t] is a sequence;
+   [index] is the index of the first loop to fuse in seq [t].
+   Its annotations are kept.
+   if [upwards], [index + 1] is the index of the second loop to fuse.
+   if [not upwards], [index - 1] is the index of the second loop to fuse.
+  *)
+let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
+  let instrs = trm_inv
+    ~error:"Loop_basic.fusion_on: expected sequence"
+    trm_seq_inv t in
+  (* LATER:
+     (above: trm_seq_update_multi
+       ~error_if_not_seq:...)
+     Mlist.update_multi index nb (fun mlist -> mlist') +
+     let ((m1, l1, m2), (m3, l2, m4)) = List.inv2 Mlist.inv +
+     Mlist.make [(m1, l, m4)]
+     *)
+  let (instrs', loops, lt, insertion_index) =
+    if upwards
+    then begin
+      let (instrs', loops_ml) = Mlist.extract index 2 instrs in
+      let loops = Mlist.to_list loops_ml in
+      let lt = List.nth loops 0 in
+      (instrs', loops, lt, index)
+    end else begin
+      let (instrs', loops_ml) = Mlist.extract (index - 1) 2 instrs in
+      let loops = Mlist.to_list loops_ml in
+      let lt = List.nth loops 1 in
+      (instrs', loops, lt, index - 1)
+    end
+  in
+  match List.map (
+    trm_inv
+    ~error:"Loop_basic.fusion_on: expected simple loop"
+    trm_for_inv_instrs
+  ) loops with
+  (* TODO: avoid ' name here : 1/2 instead *)
+  | [(loop_range, loop_instrs); (loop_range', loop_instrs')] ->
+    if not (same_loop_index loop_range loop_range') then
+      fail t.loc "Loop_basic.fusion_on: expected matching loop indices";
+    if not (same_loop_range loop_range loop_range') then
+      fail t.loc "Loop_basic.fusion_on: expected matching loop ranges";
+    let new_loop_instrs = Mlist.merge loop_instrs loop_instrs' in
+    (* TODO: trm_for_update on loop1? *)
+    let new_loop = trm_for_instrs ~annot:lt.annot ~loc:lt.loc loop_range new_loop_instrs in
+    let new_instrs = Mlist.insert_at insertion_index new_loop instrs' in
+    trm_seq ~annot:t.annot ~loc:t.loc new_instrs
+  | _ -> failwith "unreachable"
+
+(* [fusion]: expects the target [tg] to point at a loop that is followed by another loop with the same range (start, stop, step).
+  Merges the two loops into a single one, sequencing the loop bodies into a new loop body:
+
+  for (int i = start; i < stop; i += step) {
+    body1
+  }
+  for (int i = start; i < stop; i += step) {
+    body2
+  }
+
+  -->
+
+  for (int i = start; i < stop; i += step) {
+    body1;
+    body2
+  }
+ *)
+let fusion ?(upwards = true) : Transfo.t =
+  Target.apply (fun t p ->
+    let (index, p_seq) = Path.index_in_seq p in
+    Target.apply_on_path (fusion_on index upwards) t p_seq
+    )
 
 (* [grid_enumerate index_and_bounds tg]: expects the target [tg] to point at a loop iterating over
     a grid. The grid can be of any dimension.
@@ -332,8 +415,7 @@ type shift_kind =
 let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
   let index' = index in
   let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
-  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
-  let body_terms = trm_inv ~error trm_seq_inv body in
+  let ((index, start, direction, stop, step, is_parallel), body_terms) = trm_inv ~error trm_for_inv_instrs t in
   let (start', shift) = match kind with
   | ShiftNone -> failwith "not implemented yet"
   | ShiftToZero -> (trm_int 0, trm_minus start)
@@ -342,10 +424,10 @@ let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
   in
   let stop' = trm_add stop shift in
   (* NOTE: Option.get assuming all types are available *)
-  let body' = trm_seq (Mlist.push_front (
+  let body_terms' = Mlist.push_front (
     trm_let_immut (index, (Option.get start.typ))
-      (trm_sub (trm_var index') shift)) body_terms) in
-  trm_for (index', start', direction, stop', step, is_parallel) body'
+      (trm_sub (trm_var index') shift)) body_terms in
+  trm_for_instrs (index', start', direction, stop', step, is_parallel) body_terms'
 
 (* [shift index amount]: shifts a loop index by a given amount. *)
 let shift ?(reparse : bool = false) (index : var) (amount : trm) (tg : target) : unit =
