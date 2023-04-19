@@ -5,7 +5,7 @@ int n;
 
 int main() {
   float p = 5.0;
-  tofuse:{
+  tofuse:
     for (int i = 0; i < n; i++) {
       t[i] = i;
     }
@@ -15,7 +15,6 @@ int main() {
     for (int i = 0; i < n; i++) {
       v[i] += i;
     }
-  }
   return 0;
 }
 

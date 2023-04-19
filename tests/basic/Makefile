@@ -15,6 +15,7 @@ TESTS_WITH_DOC := \
 	arith_simpl.ml \
 	arith_scale.ml \
 	arith_shift.ml \
+	arrays_elim_accesses.ml \
 	array_set_explicit.ml \
 	array_swap.ml \
 	array_tile.ml \
@@ -58,6 +59,7 @@ TESTS_WITH_DOC := \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
 	matrix_stack_copy.ml \
+	matrix_storage_folding.ml \
 	pointer_fold.ml \
 	record_change_field_access_kind.ml \
 	record_rename_fields.ml \
@@ -126,7 +128,7 @@ NOT_NEEEDED_TO_FIX := \
 	variable_change_type.ml \
 
 
-TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC) 
+TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC)
 
 
 # TEMPORARY FOR TESTING MAKEFILE

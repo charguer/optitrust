@@ -1,3 +1,7 @@
+open Optitrust
+
+module StringSet = Set.Make(String)
+
 (**
 
   This file tester.ml is the source for the program ./tester.exe, for executing unit tests.
@@ -28,39 +32,44 @@ VERY-LATER: mode for compiling sources with gcc at a given standard
 (*****************************************************************************)
 (* Description of keys *)
 
-(* Gather the list of *.ml files in a directory *)
+(* Gather the list of *.ml files in a directory. *)
 let get_list_of_tests_in_dir (folder : string) : string list =
- (* TODO  ignore (Sys.command ("mkdir -p " ^ foldername)); *)
- (* rediriger la sortie du ls dand un fichier
-   éventuellement  Xfiles.get_lines file
-   sinon trouver la fonction caml qui va bien Unix.execv peut être *)
- []
+ ignore (Sys.command ("ls " ^ folder ^ "/*.ml > " ^ "/tmp/ls"));
+ Xfile.get_lines "/tmp/ls"
+
+(* Gather the list of *.ml files for a given key. May contain duplicates. *)
+let rec list_of_tests_from_key (key : string) : string list =
+  match key with
+  | "all" -> (list_of_tests_from_key "basic") @
+             (list_of_tests_from_key "combi") @
+             (list_of_tests_from_key "case_studies")
+  | "basic" -> get_list_of_tests_in_dir "basic"
+  | "combi" -> get_list_of_tests_in_dir "combi"
+  | "case_studies" -> (list_of_tests_from_key "mm") @
+                      (list_of_tests_from_key "harris")
+  (* TODO: pic *)
+  | "mm" -> ["../case_studies/matmul/matmul.ml"]
+  (* TODO: box_blur *)
+  | "harris" -> ["../case_studies/harris/harris.ml"]
+  | file -> [file]
 
 (* Takes the list of target arguments on the command line;
-   and expand the 'keys' and remove duplicates. *)
-
-let compute_tests_to_process (tests : string list) : string list =
-  tests (* TODO , use Xlist.remove_duplicates*)
-  (* example:
-      if key is folder name of /tests
-      "combi" => get_list_of_tests_in_dir "combi"
-      "mygroup" =>  [... ]
-
-      "pic"  => specific case study
-      "mm"
-      "studies" => all case studies
-    *)
-
-
+   and expand the 'keys' and remove duplicates.
+*)
+let compute_tests_to_process (keys : string list) : string list =
+  let test_set = List.fold_left (fun s key ->
+    List.fold_left (fun s x -> StringSet.add x s) s (list_of_tests_from_key key)
+  ) StringSet.empty keys
+  in
+  StringSet.elements test_set
 
 (*****************************************************************************)
 (* Options *)
 
-(* List of paths to tests to process;
-   This list at the time of parsing the command line may include 'keys'.
+(* List of keys process; a key may be a special keyword or a path to a .ml test file
    e.g. ["basic/variable_inline.ml"; "combi"].
-   The list gets later expanded into a list of filenames only, without duplicates. *)
-let tests_to_process : string list ref = ref ["all"]
+   The list gets later expanded into a list of paths, without duplicates. *)
+let keys_to_process : string list ref = ref ["all"]
 
 (* Flag for controlling whether or not to generate *_out.cpp files. *)
 type outfile_gen =
@@ -68,13 +77,15 @@ type outfile_gen =
   | Outfile_gen_only_on_failure (* failure or missing expected file *)
   | Outfile_gen_never
 
-let outfile_gen : outfile ref = ref Outfile_gen_only_on_failure
+let outfile_gen : outfile_gen ref = ref Outfile_gen_only_on_failure
 
-let set_outfile_gen = function
+let string_to_outfile_gen = function
   | "always" -> Outfile_gen_always
   | "never" -> Outfile_gen_never
   | "onfailure" -> Outfile_gen_only_on_failure
   | _ -> failwith "Invalid argument for -out"
+
+let set_outfile_gen str = outfile_gen := string_to_outfile_gen str
 
 (* Flag to ignore all cached data *)
 let ignore_cache : bool ref = ref false
@@ -105,33 +116,32 @@ let spec : cmdline_args =
      (* ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet)."); *)
   ]
 
-
-compute_tests_to_process
-
 let _main : unit =
   Arg.parse
     (Arg.align spec)
-    (fun other_arg -> tests_to_process := other_arg :: !tests_to_process)
+    (fun other_arg -> keys_to_process := other_arg :: !keys_to_process)
     ("usage: ./tester.exe [options] target1 .. targetN");
-  tests_to_process := List.rev !tests_to_process;
+  (* order will currently be changed anyway
+  tests_to_process := List.rev !tests_to_process; *)
 
   if !comparison_method = Comparison_method_text
     then outfile_gen := Outfile_gen_always;
 
-  let tests = compute_tests_to_process !tests_to_process in
+  let tests_to_process = compute_tests_to_process !keys_to_process in
+  failwith (Tools.list_to_string tests_to_process);
   (* We cache the "raw ast".
   from a trm t, we need to serialize Ast_fromto_AstC.cfeatures_intro t;
   this is what is provided in trace.ml to  the function
    AstC_to_c.ast_to_outchannel ~beautify_mindex ~comment_pragma:use_clang_format out_prog t_after_cfeatures_intro;
    *)
-  let cached_inputs = (* load the serialized file of ast (without encoding) *) in
-  let select_inputs = (* parmis les tests requested,
+   (*
+  let cached_inputs = 0 in (* load the serialized file of ast (without encoding) *)
+  let select_inputs = 0 in (* parmis les tests requested,
     either we have it in cached_inputs and the date is older than *.cpp file,
     or we have to parse the cpp file *)
-  let cached_expoutputs = (* load the serialized file of ast (without encoding) *) in
-  let all_expoutputs = (* for each tests, either the output is up to date and in
+  let cached_expoutputs = 0 in (* load the serialized file of ast (without encoding) *)
+  let all_expoutputs = 0 in(* for each tests, either the output is up to date and in
     cached_outputs, or we need to parse it *)
-
   (* Need to save the cached_inputs and cached_expoutputs :
      -> we want save the ones that were serialized before,
         and update the ones that have just been reparsed *)
@@ -209,7 +219,7 @@ need to compare dependency on
     si N, continue
     si A, exit
 
-*)
+*)*)
 
 (* --makefile:
     make tester   pour compiler tester.ml

@@ -6,6 +6,11 @@ type 'a t =
   { items : 'a list;
     marks : (mark list) list  }
 
+(* LATER:
+  type marks = mark list
+  type 'a t = (marks * 'a * marks) list
+   *)
+
 (* [length ml]: the number of items inside [ml]. *)
 let length (ml : 'a t) : int =
   List.length ml.items
@@ -72,7 +77,7 @@ let rev (ml : 'a t) : 'a t =
     marks = List.rev ml.marks }
 
 (* [partition ml]: applies List.partition to ml.items *)
-let partition (pred : 'a -> bool) (ml : 'a t) : ('a t * 'a t) = 
+let partition (pred : 'a -> bool) (ml : 'a t) : ('a t * 'a t) =
   let ml_items_sat, ml_items = List.partition pred ml.items in
   (of_list ml_items_sat, of_list ml_items  )
 

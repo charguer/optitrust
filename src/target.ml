@@ -495,6 +495,12 @@ let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_
   let ty_pred = make_typ_constraint ~typ:ret_typ ~typ_pred:ret_typ_pred () in
   Constr_decl_fun (ty_pred, ro, combine_args args args_pred, body, is_def, clang_id)
 
+(* [cFunBody] same as [cFunDef] followed by [dBody]. *)
+let cFunBody ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
+  ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
+  ?(is_def : bool = true) ?(clang_id : Clang.cxcursor option = None)(name : string) : constr =
+  cTarget [cFunDef ~args ~args_pred ~ret_typ ~ret_typ_pred ~regexp ~is_def ~clang_id name; dBody]
+
 (* [cFunDefAndDecl ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches function definitions and declarations
      [args] - match based on arguments
      [args_pred] - match based on arguments
@@ -730,7 +736,7 @@ let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_l
 
 let cBinop ?(lhs : target = [cTrue]) ?(rhs : target = []) (op : binary_op) : constr =
   cPrimFun ~args:[lhs; rhs] (Prim_binop op)
-  
+
 (* [let cPrimNew ~arg ()]: matches "new" primitive operation
     [arg] - match based on the arguments of the "new" primitive. *)
 let cPrimNew ?(arg : target = []) () : constr =
@@ -1020,6 +1026,10 @@ let cCell ?(cell_index : int option = None) () : constr =
    2. also triggers on writes? *)
 let cArrayRead (x : var) : constr =
   cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()
+  (* cOr [
+    [cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()];
+    [cCellAccess ~base:[cStrict; cAccesses ~base:[cVar x] ()] ()];
+  ] *)
 
 let cArrayWrite (x : var) : constr =
   cWrite ~lhs:[cCellAccess ~base:[cVar x] ()] ()
@@ -1197,7 +1207,7 @@ let path_of_target_mark_one (m : mark) (t : trm) : path =
 let resolve_target_mark_one_else_any (m : mark) (t : trm) : paths =
     try resolve_target [nbExact 1; cMark m] t
     with Ast.Resolve_target_failure _ ->
-        resolve_target [nbAny; cMark m] t
+      resolve_target [nbAny; cMark m] t
 
 (* [resolve_target_between_mark_one_else_any]: a wrapper for calling [resolve_target] with a mark for
     which we expect a single occurence. *)

@@ -323,7 +323,14 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
     | Expr_prod wes -> string "Prod" ^^ (auxwes wes)
     | Expr_binop (op, e1, e2) ->
         let sop = match op with
-          | Binop_div -> "Biv"
+          | Binop_div -> "Div"
+          | Binop_exact_div -> "ExactDiv"
+          | Binop_mod -> "Mod"
+          | Binop_shiftl -> "ShiftL"
+          | Binop_shiftr -> "ShiftR"
+          | Binop_xor -> "Xor"
+          | Binop_bitwise_and -> "BitwiseAnd"
+          | Binop_bitwise_or -> "BitwiseOr"
           | _ -> unsupported_binop op
           in
         string sop ^^ string "(" ^^ aux e1 ^^ string "," ^^ aux e2 ^^ string ")"

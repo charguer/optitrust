@@ -5,8 +5,7 @@
 #include "omp.h"
 #include "assert.h"
 
-void mm(float* C, float* A, float* B, int m, int n, int p) {
-  assert((m == 1024) && (n == 1024) && (p == 1024));
+void mm1024(float* C, float* A, float* B) {
   omp_set_num_threads(4);
 
   float* pB =

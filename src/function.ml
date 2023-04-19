@@ -18,8 +18,8 @@ let bind_args (fresh_names : vars) (tg : target) : unit =
     let call_trm = get_trm_at_path p t in
     let call_mark = "bind_args_mark" in
     let nb_fresh_names = List.length fresh_names in
-    let error = "Function.bind_args: expected a target to a function call." in 
-    let _, tl = trm_inv ~error trm_apps_inv call_trm in 
+    let error = "Function.bind_args: expected a target to a function call." in
+    let _, tl = trm_inv ~error trm_apps_inv call_trm in
     if nb_fresh_names = 0
       then ()
       else if List.length tl <> nb_fresh_names then
@@ -41,8 +41,8 @@ let bind_args (fresh_names : vars) (tg : target) : unit =
 let elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Stats.comp_stats "elim_body_resolve" (fun () -> Path.resolve_path p t) in
-    let error = "Function.elim_body: the given target should point at a sequence." in 
-    let _ = trm_inv ~error trm_seq_inv tg_trm in 
+    let error = "Function.elim_body: the given target should point at a sequence." in
+    let _ = trm_inv ~error trm_seq_inv tg_trm in
     Stats.comp_stats "elim_body_renames" (fun () ->
       Variable.renames vars (target_of_path p));
     Stats.comp_stats "elim_body_elim" (fun () ->
@@ -211,8 +211,8 @@ int f2() { // result of Funciton_basic.inline_cal
 } *)
 let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
     ?(delete : bool = false) ?(debug : bool = false) (tg : target) : unit =
-    (* variable for storing the function name, in case if [delete] is true it will use this name to target the declaration and delete it *)
-    let function_name = ref "" in
+    (* variable for storing the function names, in case if [delete] is true it will use this name to target the declarations and delete them *)
+    let function_names = ref Var_set.empty in
     Stats.comp_stats "iteri_on_transformed_targets" (fun () ->
   iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun i t (path_to_seq, local_path, i1) ->
@@ -227,7 +227,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       let mark_added = ref false in
       let call_trm = Path.get_trm_at_path path_to_call t in
       begin match call_trm.desc with
-        | Trm_apps ({desc = Trm_var (_, f)}, _) -> function_name := f.qvar_var
+        | Trm_apps ({desc = Trm_var (_, f)}, _) -> function_names := Var_set.add f.qvar_var !function_names;
         | _ ->  fail t.loc "Function.get_function_name_from_call: couldn't get the name of the called function"
       end;
 
@@ -286,7 +286,8 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       | _ -> fail tg_out_trm.loc "Function.inline: please be sure that you're tageting a proper function call"
       end
     ) tg;
-    if delete then Instr.delete [cTopFunDef !function_name]
+    if delete then Instr.delete [cOr
+      (List.map (fun name -> [cTopFunDef name]) (Var_set.elements !function_names))];
     )
 
 (* [beta ~indepth tg]: expects the target [tg] to be pointing at a function call or a function declaration whose

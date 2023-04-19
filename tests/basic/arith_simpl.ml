@@ -57,7 +57,10 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStop];
   !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStart];
 
-  !!! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "q"; dRHS]; (* needs all types to be valid *)
+  (* needs all types to be valid *)
+  !!! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "q"; dRHS];
+  show [cBinop Binop_exact_div];
+  !!! Arith_basic.(simpl compute) [nbMulti; cBinop Binop_exact_div];
   (*show [cBinop Binop_exact_div];*)
 )
 

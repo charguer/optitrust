@@ -1120,6 +1120,10 @@ let trm_for ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None
   (loop_range : loop_range) (body : trm) : trm =
   trm_make ~annot ~loc ~typ:(Some (typ_unit ())) ~ctx (Trm_for (loop_range, body))
 
+let trm_for_instrs ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
+(loop_range : loop_range) (body_instrs : trm mlist) : trm =
+  trm_for ~annot ~loc ~ctx loop_range (trm_seq body_instrs)
+
 (* [code code_str ]: arbitrary code entered by the user *)
 let code (code_str : code_kind) : trm =
   trm_make (Trm_arbitrary code_str)
@@ -1166,8 +1170,8 @@ let trm_binop ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = No
   trm_val ~annot:annot ~loc ~ctx (Val_prim (Prim_binop p))
 
 (* [trm_cast ty t]: type cast *)
-let trm_cast (ty : typ) (t : trm) : trm =
-  trm_apps (trm_unop (Unop_cast ty)) [t]
+let trm_cast ?(annot : trm_annot = trm_annot_default) (ty : typ) (t : trm) : trm =
+  trm_apps ~annot (trm_unop (Unop_cast ty)) [t]
 
 (* [typ_of_lit l]: get the type of a literal *)
 let typ_of_lit (l : lit) : typ option =
@@ -1236,11 +1240,23 @@ let typ_ptr_inv (ty : typ) : typ option =
   | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} -> Some ty1
   | _ -> None
 
+let typ_array_inv (ty : typ) : (typ * size) option =
+  match ty.typ_desc with
+  | Typ_array (typ, size) -> Some (typ, size)
+  | _ -> None
+
+let typ_const_inv (ty : typ) : typ option =
+  match ty.typ_desc with
+  | Typ_const typ -> Some typ
+  | _ -> None
+
 (* [typ_const_ptr_inv ty]: get the inner type of a constant pointer *)
 let typ_const_ptr_inv (ty : typ) : typ option =
-  match ty.typ_desc with
-  | Typ_const ty2 -> typ_ptr_inv ty2
-  | _ -> None
+  Option.bind (typ_const_inv ty) typ_ptr_inv
+
+let typ_const_array_inv (ty : typ) : (typ * size) option =
+  Option.bind (typ_array_inv ty) (fun (ty2, size) ->
+    Option.map (fun ty3 -> (ty3, size)) (typ_const_inv ty2))
 
 (* [typ_add_attribute att ty]: adds the attribute [att] to the type [ty] *)
 let typ_add_attribute (att : attribute)(ty : typ) : typ =
@@ -1515,6 +1531,10 @@ let trm_inv ?(error : string = "") ?(loc : location = None) (k : trm -> 'a optio
   | None -> if error = "" then assert false else fail loc error
   | Some r -> r
 
+let typ_inv ?(error : string = "") (loc : location) (k : typ -> 'a option) (t : typ) : 'a =
+  match k t with
+  | None -> if error = "" then assert false else fail loc error
+  | Some r -> r
 
 (* [trm_let_inv t]: returns the components of a [trm_let] constructor if [t] is a let declaration.
      Otherwise it returns [None]. *)
@@ -1599,7 +1619,7 @@ let trm_var_get_inv (t : trm) : (varkind * var) option =
   match trm_get_inv t with
   | Some t2 -> trm_var_inv t2
   | None -> None
-  
+
 (* DEPRECATED because REDUNDANT
 (* [trm_int n]: converts an integer to trm *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)
@@ -2641,8 +2661,13 @@ let trm_for_of_trm_for_c (t : trm) : trm =
     end
   | _ -> fail t.loc "Ast.trm_for_of_trm_for_c: expected a for loop"
 
+(* TODO: rename to monoid *)
 (* [local_ops]: type used for the local_name transformation. *)
 type local_ops =
+(* | Functional_monoid of trm * trm (* 0 and +; what about += ? *)
+   | Imperative_monoid of trm * trm (* create 0 and mutating += (e.g. bag extend) and others (e.g. bag push) *)
+   Maybe should only take += even for functional
+      *)
   | Local_arith of lit * binary_op
   | Local_obj of string * string * string
 
@@ -2714,6 +2739,11 @@ let trm_for_inv (t : trm) : (loop_range * trm)  option =
   match t.desc with
   | Trm_for (l_range, body) -> Some (l_range, body)
   | _ -> None
+
+(* [trm_for_inv_instrs t]: gets the loop range and body instructions from loop [t]. *)
+let trm_for_inv_instrs (t : trm) : (loop_range * trm mlist) option =
+  Option.bind (trm_for_inv t) (fun (r, b) ->
+    Option.map (fun instrs -> (r, instrs)) (trm_seq_inv b))
 
 (* [is_trm_seq t]: checks if [t] is a sequence. *)
 let is_trm_seq (t : trm) : bool =
@@ -2887,7 +2917,7 @@ let is_arith_fun (p : prim) : bool =
 (* [is_prim_arith p]: checks if [p] is a primitive arithmetic operation *)
 let is_prim_arith (p : prim) : bool =
   match p with
-  | Prim_binop (Binop_add | Binop_sub | Binop_mul | Binop_div)
+  | Prim_binop (Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_exact_div)
   | Prim_unop Unop_neg ->
       true
   | _ -> false
@@ -2997,6 +3027,11 @@ let trm_sub ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t
 (* [trm_add t1 t2]: generates t1 + t2 *)
 let trm_add ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_add) [t1; t2]
+
+(* [trm_mod t1 t2]: generates t1 % t2 *)
+let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [t1; t2]
+
 
 (* [trm_binop_inv t]: deconstructs t = t1 op t2 *)
 let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =
@@ -3226,6 +3261,11 @@ let array_access_inv (t : trm) : (trm * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_},
               [base;index]) -> Some (base, index)
+  | _ -> None
+
+let array_inv (t : trm) : trm mlist option =
+  match t.desc with
+  | Trm_array els -> Some els
   | _ -> None
 
 let array_get_inv (t : trm) : (trm * trm) option =
@@ -3474,6 +3514,11 @@ let is_trm_abort (t: trm) : bool =
 let is_trm_initialization_list (t : trm) : bool =
   match t.desc with
   | Trm_array _ | Trm_record _ -> true
+  | _ -> false
+
+let is_trm_unit (t : trm) : bool =
+  match trm_lit_inv t with
+  | Some Lit_unit -> true
   | _ -> false
 
 (* [has_empty_body t]: checks if the function [t] has an empty body or not. *)

@@ -31,7 +31,7 @@
 
 # Deep Learning Case Studies
 
-TVM CPU scheduling: https://tvm.d2l.ai/chapter_cpu_schedules/. 
+TVM CPU scheduling: https://tvm.d2l.ai/chapter_cpu_schedules/.
 TVM GPU scheduling: https://tvm.d2l.ai/chapter_gpu_schedules/.
 Includes matrix multiplication, convolution, packaed convolution, depthwise convolution, pooling, batch normalization.
 
@@ -62,6 +62,6 @@ Includes matrix multiplication, convolution, packaed convolution, depthwise conv
 - Optimized data structure implementations (HashMap, ..).
 - Optimized sorting algorithms (e.g. [Futhark example for GPU](https://futhark-lang.org/examples/radix-sort.html)).
 - Optimized binary search (e.g. [Futhark example for GPU](https://futhark-lang.org/examples/binary-search.html)).
-- Work-efficient scan implementations, see Federico Pizzuti paper.
+- Work-efficient scan implementations, see Federico Pizzuti paper, see [single pass parallel prefix scan with decoupled look back](https://research.nvidia.com/publication/2016-03_single-pass-parallel-prefix-scan-decoupled-look-back).
 - Optimizing user code that uses library code?
-  - Beyond [Weld](https://www.weld.rs/)? Weld can improve the performance of workflows such as SQL with Spark SQL, logistic regression with TensorFlow, and data cleaning in NumPy and Pandas. 
+  - Beyond [Weld](https://www.weld.rs/)? Weld can improve the performance of workflows such as SQL with Spark SQL, logistic regression with TensorFlow, and data cleaning in NumPy and Pandas.
