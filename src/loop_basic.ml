@@ -263,35 +263,28 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
      let ((m1, l1, m2), (m3, l2, m4)) = List.inv2 Mlist.inv +
      Mlist.make [(m1, l, m4)]
      *)
-  let (instrs', loops, lt, insertion_index) =
-    if upwards
-    then begin
-      let (instrs', loops_ml) = Mlist.extract index 2 instrs in
-      let loops = Mlist.to_list loops_ml in
-      let lt = List.nth loops 0 in
-      (instrs', loops, lt, index)
-    end else begin
-      let (instrs', loops_ml) = Mlist.extract (index - 1) 2 instrs in
-      let loops = Mlist.to_list loops_ml in
-      let lt = List.nth loops 1 in
-      (instrs', loops, lt, index - 1)
-    end
+  let (update_index, target_loop_i) =
+    if upwards then (index, 0) else (index - 1, 1)
   in
-  match List.map (
+  let (other_instrs, loops_ml) = Mlist.extract update_index 2 instrs in
+  let loops = Mlist.to_list loops_ml in
+  let lt = List.nth loops target_loop_i in
+  let loops_ri = List.map (
     trm_inv
     ~error:"Loop_basic.fusion_on: expected simple loop"
     trm_for_inv_instrs
-  ) loops with
-  (* TODO: avoid ' name here : 1/2 instead *)
-  | [(loop_range, loop_instrs); (loop_range', loop_instrs')] ->
-    if not (same_loop_index loop_range loop_range') then
+  ) loops in
+  match loops_ri with
+  | [(loop_range1, loop_instrs1); (loop_range2, loop_instrs2)] ->
+    if not (same_loop_index loop_range1 loop_range2) then
       fail t.loc "Loop_basic.fusion_on: expected matching loop indices";
-    if not (same_loop_range loop_range loop_range') then
+    if not (same_loop_range loop_range1 loop_range2) then
       fail t.loc "Loop_basic.fusion_on: expected matching loop ranges";
-    let new_loop_instrs = Mlist.merge loop_instrs loop_instrs' in
+    let new_loop_instrs = Mlist.merge loop_instrs1 loop_instrs2 in
     (* TODO: trm_for_update on loop1? *)
-    let new_loop = trm_for_instrs ~annot:lt.annot ~loc:lt.loc loop_range new_loop_instrs in
-    let new_instrs = Mlist.insert_at insertion_index new_loop instrs' in
+    let new_loop_range = fst (List.nth loops_ri target_loop_i) in
+    let new_loop = trm_for_instrs ~annot:lt.annot ~loc:lt.loc new_loop_range new_loop_instrs in
+    let new_instrs = Mlist.insert_at update_index new_loop other_instrs in
     trm_seq ~annot:t.annot ~loc:t.loc new_instrs
   | _ -> failwith "unreachable"
 

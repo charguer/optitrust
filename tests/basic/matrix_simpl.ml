@@ -2,8 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-  !! ()
-  (* !! Matrix_basic.simpl_index [cVarInit "r0"]; *)
+  !! Matrix_basic.simpl_index_add [cVarInit "r"];
 )
 
 "
