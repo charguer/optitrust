@@ -37,6 +37,8 @@ let run_command (cmd : string) : unit =
   if exit_code != 0 then
     failwith (Printf.sprintf "command '%s' failed with exit code '%i'" cmd exit_code)
 
+    (* command_output
+      command_output_lines *)
 (*****************************************************************************)
 (* Description of keys *)
 
@@ -45,33 +47,35 @@ let run_command (cmd : string) : unit =
    Ignores *_with_lines.ml files.
    *)
 let get_list_of_tests_in_dir (folder : string) : string list =
- run_command ("ls " ^ folder ^ "/*.ml > " ^ tmp_file);
- let suffix_to_ignore = "_with_lines.ml" in
- (Xfile.get_lines tmp_file) |>
- List.filter (fun f ->
-  let to_ignore = (Str.last_chars f (String.length suffix_to_ignore)) = suffix_to_ignore in
-  not to_ignore)
+  run_command (Printf.sprintf
+    "find %s -name \"*.ml\" -and -not -name \"*_with_lines.ml\" > %s"
+    folder tmp_file);
+  Xfile.get_lines tmp_file
 
 (* Gather the list of *.ml files for a given key. May contain duplicates. *)
 let rec list_of_tests_from_key (key : string) : string list =
+  let aux = list_of_tests_from_key in
   match key with
-  | "all" -> (list_of_tests_from_key "basic") @
-             (list_of_tests_from_key "combi") @
-             (list_of_tests_from_key "target") @
-             (list_of_tests_from_key "ast") @
-             (list_of_tests_from_key "case_studies")
+  | "all" -> (aux "basic") @
+             (aux "combi") @
+             (aux "target") @
+             (aux "ast") @
+             (aux "case_studies")
   (* TODO: factorize dir keywords? *)
   | "basic" -> get_list_of_tests_in_dir "tests/basic"
   | "combi" -> get_list_of_tests_in_dir "tests/combi"
   | "target" -> get_list_of_tests_in_dir "tests/target"
   | "ast" -> get_list_of_tests_in_dir "tests/ast"
-  | "case_studies" -> (list_of_tests_from_key "mm") @
-                      (list_of_tests_from_key "harris")
+  | "case_studies" -> (aux "mm") @
+                      (aux "harris")
   (* TODO: pic *)
   | "mm" -> ["case_studies/matmul/matmul.ml"]
   (* TODO: box_blur *)
   | "harris" -> ["case_studies/harris/harris.ml"]
   | file -> [file]
+
+  (* TODO: target "ignore" specially treated to ignore the ignore list
+     *)
 
 (* TODO: read from a file instead? *)
 let basic_tests_to_ignore = [
@@ -130,16 +134,15 @@ let tests_to_ignore =
   (List.map (fun f -> "tests/ast/" ^ f) ast_tests_to_ignore)
 
 (* Takes the list of target arguments on the command line;
-   and expand the 'keys' and remove duplicates.
+   and expand the 'keys', remove duplicates and ignored tests.
 *)
 let compute_tests_to_process (keys : string list) : string list =
-  let test_set = List.fold_left (fun s key ->
-    List.fold_left (fun s x -> StringSet.add x s) s (list_of_tests_from_key key)
-  ) StringSet.empty keys
-  in
+  let tests = List.concat_map list_of_tests_from_key keys in
+  let unique_tests = Xlist.remove_duplicates tests in
   (* TODO: report ignored tests to user *)
-  let filtered_test_set = List.fold_left (fun s x -> StringSet.remove x s) test_set tests_to_ignore in
-  StringSet.elements filtered_test_set
+  let filtered_tests = List.filter (fun x -> not (List.mem x tests_to_ignore)) unique_tests in
+  (* TODO : garder quand meme les keys *)
+  filtered_tests
 
 (*****************************************************************************)
 (* Options *)
@@ -171,6 +174,9 @@ let ignore_cache : bool ref = ref false
 (* Flag to discard all cached data *)
 let discard_cache : bool ref = ref false
 
+(* Flag to enable verbose mode *)
+let verbose_mode : bool ref = ref false
+
 (* Flag to control at which level the comparison is performed (AST or text).
    If Comparison_method_text, then implies Outfile_gen_always. *)
 type comparison_method =
@@ -193,7 +199,7 @@ let spec : cmdline_args =
    [ ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
      ("-ignore-cache", Arg.Set ignore_cache, " ignore the serialized AST, force reparse of source files; does not modify the existing serialized data");
      ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for tests that are executed.");
-     (* ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet)."); *)
+     ("-v", Arg.Set verbose_mode, " report details on the testing process.");
   ]
 
 let _main : unit =
@@ -201,15 +207,20 @@ let _main : unit =
     (Arg.align spec)
     (fun other_arg -> keys_to_process := other_arg :: !keys_to_process)
     ("usage: ./tester.exe [options] target1 .. targetN");
-  if (List.length !keys_to_process) = 0 then
-    keys_to_process := ["all"];
-  (* order will currently be changed anyway
-  tests_to_process := List.rev !tests_to_process; *)
 
+  (* Flag Comparison_method_text implies generation of output file *)
   if !comparison_method = Comparison_method_text
     then outfile_gen := Outfile_gen_always;
 
-  let tests_to_process = compute_tests_to_process !keys_to_process in
+  (* Default target is "all" *)
+  let keys_to_process =
+    if !keys_to_process = [] then
+     ["all"]
+    else
+      List.rev !keys_to_process in
+  let tests_to_process = compute_tests_to_process keys_to_process in
+
+
 
   (* TODO: not always necessary? *)
   run_command "dune install";
@@ -219,31 +230,44 @@ let _main : unit =
   this is what is provided in trace.ml to  the function
    AstC_to_c.ast_to_outchannel ~beautify_mindex ~comment_pragma:use_clang_format out_prog t_after_cfeatures_intro;
 
-  let cached_inputs = 0 in (* load the serialized file of ast (without encoding) *)
-  let select_inputs = 0 in (* parmis les tests requested,
-    either we have it in cached_inputs and the date is older than *.cpp file,
-    or we have to parse the cpp file *)
-  let cached_expoutputs = 0 in (* load the serialized file of ast (without encoding) *)
-  let all_expoutputs = 0 in(* for each tests, either the output is up to date and in
-    cached_outputs, or we need to parse it *)
+    LATER: deal with script_cpp ~filename by searching 'batch.ml'
+
+  for each test:
+    test.cpp must exit
+    if test.ser exist and .ser up to date: OK
+    else update .ser by parsing it from .cpp and serialize
+
+  for each test:
+    if test_exp.cpp exist:
+      if test_exp.ser exist and  .ser up to date: OK
+      else update .ser by parsing it from _exp.cpp and serialize
+    else:
+      create test_exp.ser with empty ast
   *)
   (* Need to save the cached_inputs and cached_expoutputs :
      -> we want save the ones that were serialized before,
         and update the ones that have just been reparsed *)
 
-  let batch_args = Tools.list_to_string ~sep:" " ~bounds:[""; ""] tests_to_process in
-  (* Printf.printf "\n%s\n" batch_args; *)
+  let batch_args = String.concat " " tests_to_process in
+  if !verbose_mode
+      then Printf.eprintf "Tester files processed: \n  %s\n"
+        (String.concat "\n  " tests_to_process);
+  (* TODO: faire la boucle en caml sur l'appel à sed,
+   à chaque fois afficher un commentaire (* CURTEST=... *)
+     TODO: add 'batch_prelude' and 'batch_postlude' calls.
+     LATER: ajouter ici l'option ~expected_ast , et concatener l'appel à Run.batch_postlude logfilename *)
   run_command ("tests/batch_tests.sh " ^ batch_args ^ " > " ^ "tests/batch/batch.ml");
   run_command "dune build tests/batch/batch.cmxs";
+  (* TODO: rediriiger l'erreur dans un fichier  2>&
+    Sys.command en version booléenne
+    ERRLINE = cat errorlog | head -n 1 | awk '{print $2}'
+     ou grep ", line "
+    head -n ${ERRLINE} batch.ml | grep "batching" | tail -1
+     *)
   (* TODO: flags *)
   run_command "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe _build/default/tests/batch/batch.cmxs";
 
-  (* Call batch_tests.sh test1 ... testN to generate  batch.ml
-     inclure ./batch_controller.ml tout à la fin de batch.ml
-
-     compiler et exécuter batch.ml
-
-     c'est le code de batch_controller.ml
+  (* c'est le code de batch_controller.ml
      qui fait la gestion des cached_inputs/cached_outputs
 
      ./batch_controller.ml prendrait en argument presque tous les arguments de tester.ml
@@ -269,14 +293,15 @@ let _main : unit =
      if only one failure, print full descr for this one;
      in more, generate a file with all full_descr
 
-     at last, print a summary: ALL SUCCEED, NB OF FAILED, NB OF SKIPPED
-       print short failure descr => one per line
+     print all succeeded first
+       print all mismatch (short failure descr => one per line)
+       print all failed execs
+     at last, print a summary: ALL SUCCEED, NB OF EXEC/DIFF FAILED, NB OF SKIPPED
 
      generate a file "failed.txt" with the list of tests that have Result_mismatch,
      for use with bash script for accepting changes
 
-     generate a file "report.ser" or "report.txt" or both
-     with the list of tests that have succeeded
+     LATER: generate a file "report.txt" or both with the list of tests that have succeeded
 
      *)
 

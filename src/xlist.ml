@@ -59,8 +59,19 @@ let remove (x : 'a) (xs : 'a list) : 'a list =
 (* [remove_duplicates xs]: removes duplicates from list [xs]. *)
 let remove_duplicates (lst : 'a list) =
   let unique_set = Hashtbl.create (List.length lst) in
+  (* Warning: behavior would be slightly different if
+    List.filter was implemented in a different way wrt
+    order of evaluation *)
+  List.filter (fun x ->
+    if (Hashtbl.mem unique_set x)
+      then false
+      else (Hashtbl.replace unique_set x (); true)) lst
+
+  (* deprecated
+  let unique_set = Hashtbl.create (List.length lst) in
   List.iter (fun x -> Hashtbl.replace unique_set x ()) lst;
   Hashtbl.fold (fun x () xs -> x :: xs) unique_set []
+  *)
 
 (* [update_nth f l i]: returns a copy of the list [l] where the element [x] at index [i] is replaced with [f x].
    NOTE: The index [i] must be valid. *)
