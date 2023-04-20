@@ -1,9 +1,10 @@
 open Optitrust
 open Target
+open Ast
 
 let _ = Run.doc_script_cpp (fun _ ->
-  !! Loop.shift_to_zero ~index:"i2" [cFor "i"];
-     Loop.shift (expr "shift") [cFor "k"];
+  !! Loop.shift ~index:"i2" StartAtZero [cFor "i"];
+     Loop.shift (ShiftBy (expr "shift")) [cFor "k"];
 )
 
 "
@@ -20,9 +21,12 @@ int main (){
 "
 
 let _ = Run.script_cpp(fun _ ->
-  !! Loop.shift ~reparse:true ~index:"i_s" (expr "2") [occFirst; cFor "i"];
-  !! Loop.shift ~reparse:true  (expr "2") [cFor "i2"];
-  !! Loop.shift_to_zero ~index:"j2" [cFor "j"];
-  !! Loop.shift ~index:"k2" ~inline:false (expr "shift") [cFor "k"];
-  !! Loop.shift_to_zero [cFor "i"];
+  !! Loop.shift ~index:"i_s" (ShiftBy (trm_int 2)) [occFirst; cFor "i"];
+  !! Loop.shift (ShiftBy (trm_int 2)) [cFor "i2"];
+  !! Loop.shift ~index:"j2" StartAtZero [cFor "j"];
+  !! Loop.shift ~index:"k2" ~inline:false (ShiftBy (expr "shift")) [cFor "k"];
+  !! Loop.shift (ShiftBy (expr "shift")) [cFor "l"];
+  !!! Loop.shift (StopAt (expr "N")) [cFor "m"];
+  !!! Loop.shift (StartAt (trm_int 8)) [cFor "m"];
+  !! Loop.shift StartAtZero [cFor "i"];
 )

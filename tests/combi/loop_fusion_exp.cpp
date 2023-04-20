@@ -1,19 +1,23 @@
-int *t;
+int* t;
 
-int *u;
+int* u;
 
-int *v;
+int* v;
 
 int n;
 
 int main() {
   float p = 5.;
   for (int i = 0; i < n; i++) {
-    t[i] = i;
-    u[i] += i;
+    for (int j = 0; j < n; j += 2) {
+      t[i] = i;
+      u[i] += i;
+    }
   }
   for (int i = 0; i < n; i++) {
-    v[i] += i;
+    for (int j = 0; j < n; j += 2) {
+      v[i] += i;
+    }
   }
 }
 

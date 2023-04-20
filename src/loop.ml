@@ -306,48 +306,58 @@ let hoist_expr (name : string)
     hoist_expr_loop_list name loops (target_of_path p)
   ) tg
 
-
+(* [shift ~index kind ~inline]: shifts a loop index according to [kind].
+- [inline] if true, inline the index shift in the loop body *)
 (* TODO: what if index name is same as original loop index name? *)
-  let shift_aux (index : var) (inline : bool) (debug_name : string)
-(do_shift : string -> target -> unit) (tg : target) : unit =
-let index' = if index = "" then begin
-if not inline then fail None
-(debug_name ^ ": expected name for index variable when inline = false");
-Tools.next_tmp_name ();
-end else
-index
-in
-Target.iter (fun t p ->
-let tg_trm = Path.resolve_path p t in
-let error = debug_name ^ ": expected target to be a simple loop" in
-let ((prev_index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv tg_trm in begin
-do_shift index' (target_of_path p);
-(* TODO: simpl flag x2 *)
-Arith_basic.(simpl gather) (target_of_path (p @ [Dir_for_start]));
-Arith_basic.(simpl gather) (target_of_path (p @ [Dir_for_stop]));
-if inline then begin
-let mark = Mark.next() in
-let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
-(* TODO: simpl flag on top of inline flag *)
-Arith.(simpl_surrounding_expr gather) [nbAny; cMark mark]
-end;
-if index = "" then
-Loop_basic.rename_index prev_index (target_of_path p)
-end
-) tg
+let shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_kind) ?(inline : bool = true) (tg : target) : unit =
+  let index' = if index = "" then begin
+    if not inline then
+      fail None "Loop.shift: expected name for index variable when inline = false";
+    Tools.next_tmp_name ();
+  end else
+    index
+  in
+  Target.iter (fun t p ->
+  let tg_trm = Path.resolve_path p t in
+  let error = "Loop.shift: expected target to be a simple loop" in
+  let ((prev_index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv tg_trm in begin
+  Loop_basic.shift index' kind (target_of_path p);
+  (* TODO: simpl flag x2 *)
+  Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_start]));
+  Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_stop]));
+  if inline then begin
+  let mark = Mark.next() in
+  let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
+  (* TODO: simpl flag on top of inline flag *)
+  Arith.(simpl_surrounding_expr gather) [nbAny; cMark mark]
+  end;
+  if index = "" then
+  Loop_basic.rename_index prev_index (target_of_path p)
+  end
+  ) tg
 
-(* [shift ~index amount ~inline]: shifts a loop index by a given amount.
-- [inline] if true, inline the index shift in the loop body *)
-let shift ?(reparse : bool = false) ?(index : var = "") (amount : trm) ?(inline : bool = true) (tg : target) : unit =
-shift_aux index inline "Loop.shift" (fun i tg -> Loop_basic.shift ~reparse i amount tg) tg
-
-(* [shift_to_zero index ~inline]: shifts a loop index to start from zero.
-- [inline] if true, inline the index shift in the loop body *)
-let shift_to_zero ?(reparse : bool = false)
-    ?(index : var = "")
-    ?(inline : bool = true)
-    (tg : target) : unit =
-shift_aux index inline "Loop.shift_to_zero" (Loop_basic.shift_to_zero ~reparse) tg
+(* [extend_range]: like [Loop_basic.extend_range], plus arithmetic and conditional simplifications.
+   *)
+let extend_range ?(start = ExtendNothing) ?(stop = ExtendNothing) (tg : target) : unit =
+  Target.iter (fun t p ->
+    Loop_basic.extend_range ~start ~stop (target_of_path p);
+    (* TODO: simpl flag? *)
+    Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_start]));
+    Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_stop]));
+    let tg_loop = Target.resolve_path_current_ast p in
+    let (_, loop_instrs) = trm_inv ~error:"Loop.extend_range: expected simple loop"
+      trm_for_inv_instrs tg_loop in
+    match Mlist.to_list loop_instrs with
+    | [single_intsr] ->
+      (* TODO: simplify conditions such as:
+          start <= index,
+          index < stop
+         *)
+      if Option.is_some (trm_if_inv single_intsr) then begin
+        Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_body; Dir_seq_nth 0; Dir_cond]));
+      end
+    | _ -> ()
+  ) tg
 
 (* internal *)
 (* TODO: doc *)
@@ -364,19 +374,6 @@ let adapt_indices ~(upwards : bool) (p : path) : unit =
   let error = "expected simple loop" in
   let (loop_range1, _) = trm_inv ~error trm_for_inv loop1 in
   let (loop_range2, _) = trm_inv ~error trm_for_inv loop2 in
-  if not (same_loop_range loop_range1 loop_range2) then begin
-    let (_, start1, dir1, stop1, step1, is_par1) = loop_range1 in
-    let (_, start2, dir2, stop2, step2, is_par2) = loop_range2 in
-    assert (dir1 = dir2);
-    assert (same_loop_step step1 step2);
-    assert (is_par1 = is_par2);
-    (* TODO: check start1 < start2 *)
-    (* TODO: check stop2 < stop1 *)
-    (* FIXME: does shift even make sense? *)
-    (* shift Arith_core.(simplify true gather_rec (trm_sub ~typ:(Some (typ_int ())) stop1 stop2) []) (target_of_path loop2_p);
-    Trace.debug_current_ast "HALLO1"; *)
-    extend_range ~lower:(ShiftToVal start1) (target_of_path loop2_p);
-  end;
   if not (same_loop_index loop_range1 loop_range2) then begin
     let (idx, _, _, _, _, _) = loop_range1 in
     rename_index idx (target_of_path loop2_p)
@@ -975,6 +972,6 @@ let tile ?(index : var = "b${id}")
       Loop_basic.tile ~index ~bound tile_size (target_of_path p)
     | _ -> begin
       reparse_after (Loop_basic.tile ~index ~bound tile_size) (target_of_path p);
-      shift_to_zero (target_of_path (Path.to_inner_loop p));
+      shift StartAtZero (target_of_path (Path.to_inner_loop p));
     end
   )

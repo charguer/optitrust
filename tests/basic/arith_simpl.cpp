@@ -9,6 +9,7 @@ int g(int x) {
 }
 
 void simpl_in_depth () {
+  // FIXME: simplified to 2 * g(5), could be wrong if not pure.
   int x = g(1 + 2 + f(2 + 4)) + g(5) + g(5);
   int y = g(1 + 2 + f(2 + 4)) + g(5) + g(5);
 }
@@ -33,6 +34,7 @@ int main()
   y = a + a + a - a; // = 2*a
   y = 2*a - 3*a + b - 5*b; // = - a -4*b
   y = 3*a + 2*b - b + c - 4*a ; // = -a + b + c
+  y = (2 + a) - (a + -2); // = 4
 
   // TODO: arithmetic computations with operations on constants
 
@@ -93,6 +95,10 @@ int main()
   q = (n * m * n) / (p * n); // = (n * m) / p
   q = (n / m) * m; // cannot simplify because n might not be divisible by m
   q = (n / 1) / 1;  // = n
+
+  // test integer addition
+  p = (2 + m) - (m + -2); // = 4
+  p = 4 + n - n; // = 4
 
   int* arr = (int*) MALLOC1(exact_div(1024, 32), sizeof(int));
   free(arr);
