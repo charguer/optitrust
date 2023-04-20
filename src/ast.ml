@@ -3010,28 +3010,33 @@ let trm_any_bool : trm =
 
 (* [trm_minus ~loc ~ctx ~typ t]: generates -t *)
 let trm_minus ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t : trm) : trm =
+  let typ = Tools.option_or typ t.typ in
   trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_minus) [t]
 
 (* [trm_eq ~loc ~ctx ~typ t1 t2]: generates t1 = t2 *)
 let trm_eq ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx  Binop_eq) [t1; t2]
 
 (* [trm_neq t1 t2]: generates t1 != t2 *)
 let trm_neq ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_neq) [t1; t2]
 
 (* [trm_sub t1 t2]: generates t1 - t2 *)
 let trm_sub ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_sub) [t1; t2]
 
 (* [trm_add t1 t2]: generates t1 + t2 *)
 let trm_add ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_add) [t1; t2]
 
 (* [trm_mod t1 t2]: generates t1 % t2 *)
 let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [t1; t2]
-
 
 (* [trm_binop_inv t]: deconstructs t = t1 op t2 *)
 let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =
@@ -3049,30 +3054,37 @@ let trm_add_inv (t : trm) : (trm * trm) option  =
 
 (* [trm_mul t1 t2]: generates t1 * t2 *)
 let trm_mul ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mul) [t1; t2]
 
 (* [trm_div t1 t2]: generates t1 / t2 *)
 let trm_div ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_div) [t1; t2]
 
 (* [trm_exact_div t1 t2]: generates exact_div(t1, t2) *)
 let trm_exact_div ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_exact_div) [t1; t2]
 
 (* [trm_le t1 t2]: generates t1 <= t2 *)
 let trm_le ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_le) [t1; t2]
 
 (* [trm_lt t1 t2]: generates t1 < t2 *)
 let trm_lt ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_lt) [t1; t2]
 
 (* [trm_ge t1 t2]: generates t1 >= t2 *)
 let trm_ge ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_ge) [t1; t2]
 
 (* [trm_gt t1 t2]: generates t1 > t2 *)
 let trm_gt ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_gt) [t1; t2]
 
 (* [trm_ineq ineq_sgn t1 t2]: generates an inequality t1 # t2 where # is one of the following operators <, <=, >, >=.
@@ -3087,18 +3099,22 @@ let trm_ineq (ineq_sgn : loop_dir) (t1 : trm) (t2 : trm) : trm =
 
 (* [trm_and t1 t2]: generates t1 && t2 *)
 let trm_and ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_and) [t1;t2]
 
 (* [trm_bit_and t1 t2]: generates t1 & t2 *)
 let trm_bit_and ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_bitwise_and) [t1;t2]
 
 (* [trm_or t1 t2]: generates t1 || t2 *)
 let trm_or ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_or) [t1;t2]
 
 (* [trm_bit_or t1 t2]: generates t1 | t2 *)
 let trm_bit_or ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_bitwise_or) [t1;t2]
 
 (* [trm_shiftl t1 t2]: generates t1 << t2*)
@@ -3107,11 +3123,8 @@ let trm_shiftl ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm)
 
 (* [trm_shiftr t1 t2]: generates t1 >> t2*)
 let trm_shiftr ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_shiftr) [t1; t2]
-
-(* [trm_mod t1 t2]: generates t1 % t2*)
-let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
-  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [t1;t2]
 
 (* LATER [trm_fmod t1 t2]: generates fmod(t1, t2)
 let trm_fmod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =

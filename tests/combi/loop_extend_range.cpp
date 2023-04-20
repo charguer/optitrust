@@ -5,12 +5,10 @@ int main(){
   const int N = 10;
 
   for (int i = 2; i < 10; i++){
-    if (false) {
-      x += i;
-    }
+    x += i;
   }
 
-  for (int j = st; j < N; j++){
+  for (int j = st; j < 15; j++){
     x += j;
   }
 
@@ -18,5 +16,9 @@ int main(){
   int u = N + 5;
   for (int k = 0; k < N; k++){
     x += k;
+  }
+
+  for (int l = 3; l < 3; l++) {
+    x += l;
   }
 }

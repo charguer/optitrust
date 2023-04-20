@@ -70,13 +70,11 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
      then (stop, fun i -> i)
      else match step with
      | Step s ->
-      (trm_div ~typ:stop.typ stop s,
-       fun i -> trm_mul ~typ:stop.typ i s)
+      (trm_div stop s, fun i -> trm_mul i s)
      | _ -> assert false
      in
-     let tile_count = trm_exact_div ~typ:stop.typ count tile_size in
-     let iteration = trm_add ~typ:start.typ
-      (trm_mul ~typ:start.typ (trm_var ~typ:start.typ tile_index) tile_size)
+     let tile_count = trm_exact_div count tile_size in
+     let iteration = trm_add (trm_mul (trm_var ~typ:start.typ tile_index) tile_size)
       (trm_var ~typ:start.typ index)
      in
      let new_index = iteration_to_index iteration in

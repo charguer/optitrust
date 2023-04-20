@@ -30,7 +30,4 @@ let _ = Run.script_cpp ( fun _ ->
 
   (* fuse two loops when targeting the first one *)
   !! Loop.fusion ~nb_loops:2 [cFunDef "main"; cFor "i" ~body:[sInstr "t[i]"]];
-
-  (* fuse loops that have varying ranges *)
-  !! Loop.fusion ~nb:3 [cFunDef "merge_ranges"; occFirst; cFor "i"];
 )

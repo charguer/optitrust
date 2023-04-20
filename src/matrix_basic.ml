@@ -126,7 +126,7 @@ let simpl_index_add_on (t : trm) : trm =
       (List.hd long) :: (compute_idxs (delta - 1) (List.tl long) short)
     else match (long, short) with
     | (l :: l_rest, s :: s_rest) ->
-      (trm_add ~typ:l.typ l s) :: (compute_idxs 0 l_rest s_rest)
+      (trm_add l s) :: (compute_idxs 0 l_rest s_rest)
     | ([], []) -> []
     | _ -> assert false
   in
@@ -154,7 +154,7 @@ let simpl_access_of_access_on (t : trm) : trm =
   | None -> trm_inv ~error array_get_inv t
   in
   let (base0, i0) = trm_inv ~error array_access_inv base1 in
-  array_access base0 (trm_add ~typ:i0.typ i0 i1)
+  array_access base0 (trm_add i0 i1)
 
 (* [simpl_access_of_access]: simplifies &((&p[i0])[i1]) into &p[i0 + i1]
 

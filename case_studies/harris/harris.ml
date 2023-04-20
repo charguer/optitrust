@@ -17,6 +17,14 @@ module Matrix = struct
     Arrays.elim_accesses [nbMulti; cVarDef name]
 end
 
+module Loop = struct
+  include Loop
+
+  let align_stop_extend_start (index : var) ~(start : trm) ~(stop : trm) : unit =
+    Loop.shift ~reparse:true (StopAt stop) [nbMulti; cFor index];
+    Loop.extend_range ~start:(ExtendTo start) [nbMulti; cFor index];
+end
+
 let _ = Run.script_cpp (fun () ->
   (*
 (* FIXME: duplicates even with suffix *)
@@ -48,11 +56,6 @@ let _ = Run.script_cpp (fun () ->
   bigstep "fuse operators";
   (* FIXME: reparse required to remove blank lines,
      otherwise fusion fails *)
-  (* TODO: ~nb_loops + better API *)
-  (* TODO:
-  !!! Loop.fusion_targets ~nb_loops:2 [cFor ~body:[cOr [[cArrayWrite "ix"]; [cArrayWrite ["iy"]]] "y"];
-  TODO: check that loops extents are the same; or adjust them
-  *)
   (* TODO: !! Variable.renames Variable.Rename.bylist [("acc", "acc_${occ}")] [cVar "acc"]; *)
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "ix"] "x"; dBody];
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "iy"] "x"; dBody];
@@ -65,20 +68,11 @@ let _ = Run.script_cpp (fun () ->
   !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "syy"] "x"; dBody];
   !! Loop.fusion ~nb:4 ~nb_loops:2 [cFor ~body:[cArrayWrite "sxx"] "y"];
 
-  !! Loop.shift (trm_int 2) [cFor ~body:[cArrayWrite "ix"] "y"];
-  (*
-  !! Loop.extend_range ~lower:ShiftToZero [cFor ~body:[cArrayWrite "ix"] "y"];
-  *)
-  !! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "gray"] "y"];
+  (* align : ix/iy ; ixx/ixy/iyy ; out *)
+  !! Loop.align_stop_extend_start "y" ~start:(trm_int 0) ~stop:(trm_var "h");
+  !! Loop.fusion ~nb:4 [cFor ~body:[cArrayWrite "gray"] "y"];
 
   (* TODO: inline ixx/... into sxx/... computation instead, requires recomputing, and Variable.bind with CSE. *)
-  !! Loop.shift (trm_int 2) [cFor ~body:[cArrayWrite "ixx"] "y"];
-  !! Loop.extend_range ~lower:ShiftToZero [cFor ~body:[cArrayWrite "ixx"] "y"];
-  !! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "ix"] "y"];
-
-  !! Loop.shift (trm_int 4) [cFor ~body:[cArrayWrite "out"] "y"];
-  !! Loop.extend_range ~lower:ShiftToZero [cFor ~body:[cArrayWrite "out"] "y"];
-  !! Loop.fusion ~nb:2 [cFor ~body:[cArrayWrite "ix"] "y"];
 
   bigstep "circular buffers";
   !! ["gray"; "ix"; "iy"] |> List.iter (fun to_fold ->

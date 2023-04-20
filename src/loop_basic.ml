@@ -70,16 +70,14 @@ let hoist_on (name : string)
   assert (dir = DirUp); (* TODO: other directions *)
   let (array_size, new_index) = match step with
   | Pre_inc | Post_inc ->
-     let typ = Some (typ_int ()) in
-     (trm_sub ~typ stop start, trm_sub ~typ  (trm_var ~typ index) start)
+     (trm_sub stop start, trm_sub (trm_var index) start)
   | Step s ->
-    let typ = Some (typ_int ()) in
     (* i = start; i < stop; i += step *)
     let trm_ceil_div a b =
-      trm_div ~typ (trm_add ~typ a (trm_sub ~typ b (trm_int 1))) b
+      trm_div (trm_add a (trm_sub b (trm_int 1))) b
     in
-     (trm_ceil_div (trm_sub ~typ stop start) s,
-      trm_div ~typ (trm_sub ~typ (trm_var ~typ index) start) s)
+     (trm_ceil_div (trm_sub stop start) s,
+      trm_div (trm_sub (trm_var index) start) s)
   | _ -> fail t.loc "Loop_basic.hoist_on: unsupported loop step"
   in
   let body_instrs = trm_inv ~error trm_seq_inv body in
@@ -399,22 +397,23 @@ let split_range ?(nb : int = 0) ?(cut : trm = trm_unit()) (tg : target) : unit =
     apply_on_targets (Loop_core.split_range nb cut) tg )
 
 type shift_kind =
-| ShiftNone
-| ShiftToZero
-| ShiftToVal of trm
 | ShiftBy of trm
+| StartAtZero
+| StartAt of trm
+| StopAt of trm
 
 (* [shift_on index kind]: shifts a loop index to start from zero or by a given amount. *)
 let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
   let index' = index in
   let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
   let ((index, start, direction, stop, step, is_parallel), body_terms) = trm_inv ~error trm_for_inv_instrs t in
-  let (start', shift) = match kind with
-  | ShiftNone -> failwith "not implemented yet"
-  | ShiftToZero -> (trm_int 0, trm_minus start)
-  | ShiftToVal v -> failwith "not implemented yet"
-  | ShiftBy s -> (trm_add start s, s)
+  let shift = match kind with
+  | ShiftBy s -> s
+  | StartAtZero -> trm_minus start
+  | StartAt v -> trm_sub v start
+  | StopAt v -> trm_sub v stop
   in
+  let start' = trm_add start shift in
   let stop' = trm_add stop shift in
   (* NOTE: Option.get assuming all types are available *)
   let body_terms' = Mlist.push_front (
@@ -422,37 +421,47 @@ let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
       (trm_sub (trm_var index') shift)) body_terms in
   trm_for_instrs (index', start', direction, stop', step, is_parallel) body_terms'
 
-(* [shift index amount]: shifts a loop index by a given amount. *)
-let shift ?(reparse : bool = false) (index : var) (amount : trm) (tg : target) : unit =
+(* [shift index kind]: shifts a loop index range according to [kind], using a new [index] name.
+  *)
+let shift ?(reparse : bool = false) (index : var) (kind : shift_kind) (tg : target) : unit =
   (* FIXME: having to think about reparse here is not great *)
   reparse_after ~reparse (
-    Target.apply_at_target_paths (shift_on index (ShiftBy amount))) tg
+    Target.apply_at_target_paths (shift_on index kind)) tg
 
-(* [shift_to_zero index]: shifts a loop index to start from zero. *)
-let shift_to_zero ?(reparse : bool = false) (index : var) (tg : target) : unit =
-  (* FIXME: having to think about reparse here is not great *)
-  reparse_after ~reparse (
-    Target.apply_at_target_paths (shift_on index ShiftToZero)) tg
+type extension_kind =
+| ExtendNothing
+| ExtendToZero
+| ExtendTo of trm
+| ExtendBy of trm
 
-let extend_range_on (lower : shift_kind) (upper : shift_kind) (t : trm) : trm =
+let extend_range_on (start_extension : extension_kind) (stop_extension : extension_kind) (t : trm) : trm =
   let error = "Loop_basic.extend_range_on: expected a target to a simple for loop" in
   let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
   assert (direction = DirUp);
   assert (is_step_one step);
-  let may_merge_ifs t = Option.value ~default:t (Flow_core.may_merge_ifs t) in
-  let if_after_start body = trm_seq_nomarks [may_merge_ifs (trm_if (trm_le start (trm_var index)) body (trm_unit ()))] in
-  let if_before_stop body = trm_seq_nomarks [may_merge_ifs (trm_if (trm_lt (trm_var index) stop) body (trm_unit ()))] in
-  let (stop', body') = begin match upper with
-  | ShiftNone -> (stop, body)
-  | ShiftToZero -> failwith "not implemented yet"
-  | ShiftToVal v -> (v, if_before_stop body)
-  | ShiftBy v -> (trm_add stop v, if_before_stop body)
+  (* avoid merging new ifs with previous ones *)
+  let added_if = ref false in
+  let make_if cond body =
+    let should_merge = !added_if in
+    added_if := true;
+    let t = trm_if cond body (trm_unit ()) in
+    if should_merge
+    then Option.get (Flow_core.may_merge_ifs t)
+    else t
+  in
+  let if_before_stop body = trm_seq_nomarks [make_if (trm_lt (trm_var index) stop) body] in
+  let if_after_start body = trm_seq_nomarks [make_if (trm_le start (trm_var index)) body] in
+  let (stop', body') = begin match stop_extension with
+  | ExtendNothing -> (stop, body)
+  | ExtendToZero -> failwith "not implemented yet"
+  | ExtendTo v -> (v, if_before_stop body)
+  | ExtendBy v -> (trm_add stop v, if_before_stop body)
   end in
-  let (start', body'') = begin match lower with
-  | ShiftNone -> (start, body')
-  | ShiftToZero -> (trm_int 0, if_after_start body')
-  | ShiftToVal v -> (v, if_after_start body')
-  | ShiftBy v -> (trm_sub start v, if_after_start body')
+  let (start', body'') = begin match start_extension with
+  | ExtendNothing -> (start, body')
+  | ExtendToZero -> (trm_int 0, if_after_start body')
+  | ExtendTo v -> (v, if_after_start body')
+  | ExtendBy v -> (trm_sub start v, if_after_start body')
   end in
   trm_for (index, start', direction, stop', step, is_parallel) body''
 
@@ -461,8 +470,8 @@ let extend_range_on (lower : shift_kind) (upper : shift_kind) (t : trm) : trm =
 
    For this to be correct, the loop bounds must be extended, not shrinked.
   *)
-let extend_range ?(lower : shift_kind = ShiftNone) ?(upper : shift_kind = ShiftNone) (tg : target) : unit =
-  Target.apply_at_target_paths (extend_range_on lower upper) tg
+let extend_range ?(start = ExtendNothing) ?(stop = ExtendNothing) (tg : target) : unit =
+  Target.apply_at_target_paths (extend_range_on start stop) tg
 
 (* [rename_index new_index]: renames the loop index variable *)
 let rename_index (new_index : var) (tg : target) : unit =

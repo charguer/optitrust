@@ -35,16 +35,3 @@ int fusion_on_block() {
   }
   return 0;
 }
-
-int merge_ranges() {
-  for (int i = 0; i < n; i++) {
-    t[i] = i;
-  }
-  for (int i = 2; i < n; i++) {
-    u[i] += i;
-  }
-  for (int i = 0; i < n-2; i++) {
-    v[i] += i;
-  }
-  return 0;
-}
