@@ -1107,4 +1107,7 @@ let get_context () : context =
 
 (* ----- DEBUG FUNCTIONS, FIND BETTER SPOT ----- *)
 let debug_current_ast (msg : string) : unit =
-  Printf.printf "%s:\n%s\n" msg (AstC_to_c.ast_to_string (ast ()));
+  Printf.printf "%s:\n%s\n" msg (AstC_to_c.ast_to_string (ast ()))
+
+let debug_current_ast_at_path (msg : string) (p : Path.path) : unit =
+  Printf.printf "%s:\n%s\n" msg (AstC_to_c.ast_to_string (Path.resolve_path p (ast ())))

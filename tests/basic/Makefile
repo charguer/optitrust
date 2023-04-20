@@ -60,6 +60,7 @@ TESTS_WITH_DOC := \
 	matrix_reorder_dims.ml \
 	matrix_stack_copy.ml \
 	matrix_storage_folding.ml \
+	matrix_delete.ml \
 	pointer_fold.ml \
 	record_change_field_access_kind.ml \
 	record_rename_fields.ml \

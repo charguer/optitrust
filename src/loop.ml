@@ -148,7 +148,7 @@ let hoist_alloc_loop_list
 (* [hoist ~name ~array_size ~inline tg]: this transformation is similar to [Loop_basic.hoist] (see loop_basic.ml) except that this
     transformation supports also undetached declarations as well as hoisting through multiple loops.
     [inline] - inlines the array indexing code
-    [nb_loops] - number of loops to hoist through (expecting a perfect nest of simple loops)
+    [nest_of] - number of loops to hoist through (expecting a perfect nest of simple loops)
 
     for (int l = 0; l < 5; l++) {
       for (int m = 0; m < 2; m++) {
@@ -184,9 +184,9 @@ let hoist_alloc_loop_list
 let hoist ?(tmp_names : string = "${var}_step${i}")
           ?(name : string = "")
           ?(inline : bool = true)
-          ?(nb_loops : int = 1)
+          ?(nest_of : int = 1)
           (tg : target) : unit =
-  hoist_alloc_loop_list ~tmp_names ~name ~inline (List.init nb_loops (fun _ -> 1)) tg
+  hoist_alloc_loop_list ~tmp_names ~name ~inline (List.init nest_of (fun _ -> 1)) tg
 
 (* [hoist_instr_loop_list]: this transformation hoists an instructions outside of multiple loops using a combination of
   [Loop_basic.move_out], [Instr_basic.move], and [Loop_basic.fission].
@@ -383,14 +383,14 @@ let adapt_indices ~(upwards : bool) (p : path) : unit =
     Merge them into a single loop.
 
     [nb] - denotes the number of sequenced loops to consider.
-    [nb_loops] - denotes the number of nested loops to consider.
+    [nest_of] - denotes the number of nested loops to consider.
     [adapt_fused_indices] - attempts to adapt the indices of fused loops using [Loop.extend_range] and [Loop.shift], otherwise by default the loops need to have the same range.
   *)
-let fusion ?(nb : int = 2) ?(nb_loops : int = 1) ?(upwards = true) ?(adapt_fused_indices : bool = true) (tg : target) : unit =
+let fusion ?(nb : int = 2) ?(nest_of : int = 1) ?(upwards = true) ?(adapt_fused_indices : bool = true) (tg : target) : unit =
   Target.iter (fun _ p ->
     Marks.with_fresh_mark_on p (fun m ->
       for _ = 2 to nb do
-        for nest_id = 0 to (nb_loops - 1) do
+        for nest_id = 0 to (nest_of - 1) do
           let cur_p = Target.path_of_target_mark_one_current_ast m in
           let nested_p = Path.to_inner_loop_n nest_id cur_p in
           let target_p = if upwards || nest_id = 0
@@ -413,11 +413,11 @@ let fusion ?(nb : int = 2) ?(nb_loops : int = 1) ?(upwards = true) ?(adapt_fused
 
   [into] - Specifies into which loop to fuse all other.
     Otherwise, fuse into the first loop in the sequence.
-  [nb_loops] - denotes the number of nested loops to consider.
+  [nest_of] - denotes the number of nested loops to consider.
 
   LATER ?(into_occ : int = 1)
   *)
-let fusion_targets ?(into : target option) ?(nb_loops : int = 1) ?(adapt_all_indices = false) ?(adapt_fused_indices = true) (tg : target) : unit =
+let fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_all_indices = false) ?(adapt_fused_indices = true) (tg : target) : unit =
   assert (not adapt_all_indices); (* TODO *)
   (* adapt_all_indices => adapt_fused_indices *)
   let adapt_fused_indices = adapt_all_indices || adapt_fused_indices in
@@ -442,7 +442,6 @@ let fusion_targets ?(into : target option) ?(nb_loops : int = 1) ?(adapt_all_ind
     | [] -> ()
     | to_fuse :: todo ->
       let fuse_into_tg = target_of_path (p_seq @ [Path.Dir_seq_nth fuse_into]) in
-      Trace.debug_current_ast "BEFORE";
       (* If we are fusing from top to bottom *)
       if to_fuse < fuse_into then begin
         Printf.printf "to_fuse: %i\n" to_fuse;
@@ -452,9 +451,7 @@ let fusion_targets ?(into : target option) ?(nb_loops : int = 1) ?(adapt_all_ind
         if to_fuse' <> fuse_into - 1 then begin
           Instr_basic.move ~dest:(tBefore :: fuse_into_tg) (target_of_path p_current);
         end;
-        Trace.debug_current_ast "INTERMEDIATE";
-        fusion ~nb_loops ~adapt_fused_indices ~upwards:false fuse_into_tg;
-        Trace.debug_current_ast "AFTER";
+        fusion ~nest_of ~adapt_fused_indices ~upwards:false fuse_into_tg;
         fuse_loops (fuse_into - 1) (shift - 1) todo;
       end;
       (* If we are fusing from bottom to top *)
@@ -464,8 +461,7 @@ let fusion_targets ?(into : target option) ?(nb_loops : int = 1) ?(adapt_all_ind
         if to_fuse' <> (fuse_into + 1) then begin
           Instr_basic.move ~dest:(tAfter :: fuse_into_tg) (target_of_path p_current);
         end;
-        fusion ~nb_loops ~adapt_fused_indices fuse_into_tg;
-        Trace.debug_current_ast "AFTER";
+        fusion ~nest_of ~adapt_fused_indices fuse_into_tg;
         fuse_loops fuse_into (shift - 1) todo;
       end;
   in
@@ -679,19 +675,9 @@ DETAILS for [unroll]
 
     LATER: This transformation should be factorized, that may change the docs. *)
 
-(* [unroll ~braces ~blocks ~shuffle tg]: expects the target to point at a loop. Then it checks if the loop
-    is of the form for(int i = a; i < a + C; i++){..} then it will move the
-    the instructions out of the loop and the loop will be removed. It works also
-    in the case when C = 0 and a is a constant variable. To get the number of steps
-    a is first inlined.
-
-    [braces]: a flag on the visiblity of blocks created during the unroll process
-
-    [blocks]: a list of integers describing the partition type of the targeted sequence
-
-    [shuffle]: shuffle blocks  *)
-let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : target) : unit =
-  reparse_after ~reparse:(not braces) (iteri_on_targets (fun i t p ->
+let unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : target) : unit =
+  (* in [unroll]: reparse_after ~reparse:(not braces) *)
+  Target.iteri (fun i t p ->
     let my_mark = "__unroll_" ^ string_of_int i in
     let tg_loop_trm  = Path.resolve_path p t in
     Marks.add my_mark (target_of_path p);
@@ -741,7 +727,31 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       if shuffle then Sequence_basic.shuffle ~braces [cMark my_mark];
       Marks.remove my_mark [nbAny;cMark my_mark]
     | _ -> fail tg_loop_trm.loc "Loop.unroll: expected a loop to unroll"
-  )) tg
+  ) tg
+
+(* [unroll ~braces ~blocks ~shuffle tg]: expects the target to point at a loop. Then it checks if the loop
+    is of the form for(int i = a; i < a + C; i++){..} then it will move the
+    the instructions out of the loop and the loop will be removed. It works also
+    in the case when C = 0 and a is a constant variable. To get the number of steps
+    a is first inlined.
+
+    [braces]: a flag on the visiblity of blocks created during the unroll process
+
+    [blocks]: a list of integers describing the partition type of the targeted sequence
+
+    [shuffle]: shuffle blocks
+
+    [nest_of]: denotes the number of nested loops to consider. *)
+let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) ?(nest_of = 1) (tg : target) : unit =
+  assert (nest_of > 0);
+  let rec aux p nest_of =
+    if nest_of > 1 then
+      aux (Path.to_inner_loop p) (nest_of - 1);
+    unroll_nest_of_1 (target_of_path p);
+  in
+  reparse_after ~reparse:(not braces) (
+    Target.iter (fun t p -> aux p nest_of)
+  ) tg
 
 (* [reorder ~order tg]:  expects the target [tg] to point at the first loop included in the [order]
     list, then it will find all the nested loops starting from the targeted loop [tg] and
@@ -825,40 +835,40 @@ let reorder_at ?(order : vars = []) (tg : target) : unit =
   ) tg
 
 (* internal *)
-let fission_all_instrs_with_path_to_inner (nb_loops : int) (p : path) : unit =
-  let rec aux (nb_loops : int) (p : path) : unit =
-    if nb_loops > 0 then begin
+let fission_all_instrs_with_path_to_inner (nest_of : int) (p : path) : unit =
+  let rec aux (nest_of : int) (p : path) : unit =
+    if nest_of > 0 then begin
       (* Apply fission to the next outer loop *)
       let p' = Path.to_outer_loop p in
       Loop_basic.fission_all_instrs (target_of_path p');
       (* And go through the remaining outer loops *)
-      aux (nb_loops - 1) p';
+      aux (nest_of - 1) p';
     end
   in
-  if nb_loops > 0 then begin
+  if nest_of > 0 then begin
     (* Apply fission to the innermost loop *)
     Loop_basic.fission_all_instrs (target_of_path p);
     (* And go through the outer loops *)
-    aux (nb_loops - 1) p
+    aux (nest_of - 1) p
   end
 
-let fission_all_instrs ?(nb_loops : int  = 1) (tg : target) : unit =
+let fission_all_instrs ?(nest_of : int  = 1) (tg : target) : unit =
   Target.iter (fun t p ->
     (* Printf.printf "fission_all_instrs: %s\n" (Path.path_to_string p); *)
     (* apply fission helper on inner loop *)
-    fission_all_instrs_with_path_to_inner nb_loops
-      (Path.to_inner_loop_n (nb_loops - 1) p)
+    fission_all_instrs_with_path_to_inner nest_of
+      (Path.to_inner_loop_n (nest_of - 1) p)
   ) tg
 
-let fission ?(nb_loops : int  = 1) (tg : target) : unit =
+let fission ?(nest_of : int  = 1) (tg : target) : unit =
   Target.iter (fun t p_before ->
-    if nb_loops > 0 then begin
+    if nest_of > 0 then begin
       Loop_basic.fission (target_of_path p_before);
-      if nb_loops > 1 then begin
+      if nest_of > 1 then begin
         let (p_seq, _) = Path.last_dir_before_inv_success p_before in
         let p_loop = Path.parent_with_dir p_seq Dir_body in
         let p_outer_loop = Path.to_outer_loop p_loop in
-        fission_all_instrs_with_path_to_inner (nb_loops - 1) p_outer_loop
+        fission_all_instrs_with_path_to_inner (nest_of - 1) p_outer_loop
       end
     end
   ) tg

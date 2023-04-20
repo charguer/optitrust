@@ -1021,18 +1021,17 @@ let cCell ?(cell_index : int option = None) () : constr =
   | None -> cTarget [cArrayInit; cStrict; cTrue]
   | Some i -> cTarget [cArrayInit; dArrayNth i]
 
-(* FIXME:
-   1. seems weird
-   2. also triggers on writes? *)
-let cArrayRead (x : var) : constr =
-  cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()
-  (* cOr [
-    [cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()];
-    [cCellAccess ~base:[cStrict; cAccesses ~base:[cVar x] ()] ()];
-  ] *)
-
 let cArrayWrite (x : var) : constr =
   cWrite ~lhs:[cCellAccess ~base:[cVar x] ()] ()
+
+let cArrayWriteAccess (x : var) : constr =
+  cTarget [cWrite (); dLHS; cCellAccess ~base:[cVar x] ()]
+
+(* FIXME: seems weird *)
+let cArrayRead (x : var) : constr =
+  cRead ~addr:[cDiff
+    [[cCellAccess ~base:[cVar x] ()]]
+    [[cArrayWriteAccess x]]] ()
 
 let cPlusEqVar (name : string) : constr =
   cPrimFun ~args:[[cVar name]; [cTrue]] (Prim_compound_assgn_op Binop_add)

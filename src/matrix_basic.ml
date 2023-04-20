@@ -377,3 +377,37 @@ let storage_folding ~(var : var) ~(dim : int) ~(size : trm)
   ?(kind : storage_folding_kind = ModuloIndices) (tg : Target.target) : unit =
   assert(kind = ModuloIndices);
   Target.apply_at_target_paths (storage_folding_on var dim size) tg
+
+(* TODO: redundant code with storage folding *)
+let delete_on (var : var) (t : trm) : trm =
+  let rec update_accesses_and_alloc (t : trm) : trm =
+    match trm_let_inv t with
+    | Some (_kind, v, vtyp, init) when v = var ->
+      assert (Option.is_some (Matrix_core.alloc_inv_with_ty init));
+      trm_seq_no_brace []
+    | _ ->
+      begin match trm_var_inv t with
+      | Some (_, n) when n = var ->
+        fail t.loc "Matrix_basic.delete_on: matrix should not be used anymore"
+      | _ ->
+        let is_free_var = begin match trm_free_inv t with
+        | Some freed ->
+          begin match trm_var_get_inv freed with
+          | Some (_, n) -> n = var
+          | None -> false
+          end
+        | None -> false
+        end in
+        if is_free_var then trm_seq_no_brace []
+        else trm_map update_accesses_and_alloc t
+      end
+  in
+  update_accesses_and_alloc t
+
+(* [delete] expects target [tg] to poitn to a sequence defining matrix [var], and deletes it.
+  Both allocation and de-allocation instructions are deleted.
+  Checks that [var] is not used anywhere.
+   *)
+let delete ~(var : var) (tg : Target.target) : unit =
+  Internal.nobrace_remove_after (fun () ->
+    Target.apply_at_target_paths (delete_on var) tg)
