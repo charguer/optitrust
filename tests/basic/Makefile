@@ -1,4 +1,3 @@
-
 TARGET_MAKE_ALL := check
 
 # Usage: make transfo   or   make check
@@ -7,12 +6,12 @@ TARGET_MAKE_ALL := check
 FLAGS := -dump-ast-details
 
 
-#	accesses_intro.ml \
+TESTS_WITH_DOC_TOFIX := \
+	function_uninline \
 
 TESTS_WITH_DOC := \
 	accesses_scale.ml \
 	accesses_shift.ml \
-	align_def.ml \
 	arith_simpl.ml \
 	arith_scale.ml \
 	arith_shift.ml \
@@ -20,16 +19,16 @@ TESTS_WITH_DOC := \
 	array_swap.ml \
 	array_tile.ml \
 	array_to_variables.ml  \
+	apac_use_goto_for_return.ml \
 	cast_insert.ml \
 	expr_replace.ml \
 	expr_replace_fun.ml \
+	flow_insert_if.ml \
 	function_beta.ml \
 	function_bind_intro.ml \
 	function_dsp_call.ml \
 	function_dsp_def.ml \
 	function_inline.ml \
-	function_rename_args.ml \
-	function_uninline.ml \
 	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_move.ml \
@@ -44,11 +43,13 @@ TESTS_WITH_DOC := \
 	loop_hoist.ml \
 	loop_moveout.ml \
 	loop_split_range.ml \
+	loop_shift.ml \
 	loop_swap.ml \
 	loop_tile.ml \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
+	matrix_simpl.ml \
 	matrix_delocalize.ml \
 	matrix_insert_alloc_dim.ml \
 	matrix_intro_calloc.ml \
@@ -56,7 +57,14 @@ TESTS_WITH_DOC := \
 	matrix_intro_mindex.ml \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
+	matrix_stack_copy.ml \
 	pointer_fold.ml \
+	record_change_field_access_kind.ml \
+	record_rename_fields.ml \
+	record_reveal_field.ml \
+	record_set_explicit.ml \
+	record_set_implicit.ml \
+	record_simpl_proj.ml \
 	reference_fold.ml \
 	reference_unfold.ml \
 	rewrite_compute.ml \
@@ -72,11 +80,8 @@ TESTS_WITH_DOC := \
 	sequence_split.ml \
 	specialize_any.ml \
 	specialize_choose.ml \
-	struct_rename_fields.ml \
-	struct_reveal_field.ml \
-	struct_set_explicit.ml \
-	struct_set_implicit.ml \
-	struct_simpl_proj.ml \
+	specialize_function_calls.ml \
+	specialize_function_defs.ml \
 	typedef_insert.ml \
 	typedef_insert_copy.ml \
 	typedef_fold.ml \
@@ -96,16 +101,24 @@ TESTS_WITH_DOC := \
 	variable_to_nonconst.ml \
 
 
-TESTS_NODOC := \
-	matrix_delocalize_obj.ml \
+TESTS_WITHOUT_DOC := \
+	accesses_intro.ml \
 	matrix_local_name_obj.ml \
+	matrix_delocalize_obj.ml \
+	apac_constify_args.ml \
+	apac_stack_to_heap.ml \
+	apac_unfold_let_mult.ml \
+
 
 TESTS_TO_FIX := \
-	flow_insert_if.ml \
-	struct_reorder_fields.ml \
-	struct_update_fields_type.ml \
+	record_method_to_const.ml \
+	function_rename_args.ml \
+	align_def.ml \
 	matrix_insert_access_dim_index.ml \
+	record_reorder_fields.ml \
+	record_update_fields_type.ml \
 
+# TODO: maybe 	function_rename_args.ml works
 
 NOT_NEEEDED_TO_FIX := \
 	aos_to_soa_typedef.ml \
@@ -113,7 +126,7 @@ NOT_NEEEDED_TO_FIX := \
 	variable_change_type.ml \
 
 
-TESTS := $(TESTS_WITH_DOC) $(TESTS_TOCHECK)
+TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC) 
 
 
 # TEMPORARY FOR TESTING MAKEFILE

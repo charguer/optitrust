@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Omp.target [] [tAfter; cFun "init"];
-  !! Omp.parallel_for [Private ["i"]] [tBefore; cFor "i"];
+  !! Omp.parallel_for ~clause:[Private ["i"]] [cFor_c ""];
+  !! Omp.target [cFor_c ""];
 
 )

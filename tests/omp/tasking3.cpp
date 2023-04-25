@@ -1,7 +1,7 @@
-typedef struct node {
-      int data;
-      node * next;
-} node;
+struct node {
+  int data;
+  node * next;
+};
 
 void process(node * p)
 {
@@ -17,4 +17,3 @@ void increment_list_items(node * head)
     p = p->next;
   }
 }
-

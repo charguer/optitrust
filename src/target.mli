@@ -182,11 +182,15 @@ val cVarDefReg : string -> constr
 
 val cVarInit : string -> constr
 
-val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> string -> constr
+val cVarsDef : ?regexp:bool -> ?substr:bool -> ?body:target -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
 
-val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> string -> constr
+val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
 
-val cTopFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> string -> constr
+val cFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
+
+val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
+
+val cTopFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
 
 val cTopFunDefs : var list -> constr
 
@@ -244,6 +248,8 @@ val cPrimFun : ?args:targets -> ?args_pred:target_list_pred -> prim -> constr
 
 val cPrimFunArith : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
 
+val cBinop : ?lhs:target -> ?rhs: target -> binary_op -> constr
+ 
 val cPrimNew : ?arg:target -> unit -> constr
 
 val dVarInit : constr
@@ -262,7 +268,7 @@ val cLabel : ?substr:bool -> ?body:target -> ?regexp:bool -> string -> constr
 
 val cGoto : ?label:string -> ?substr:bool -> ?regexp:bool -> unit -> constr
 
-val cReturn_target : ?res:target -> unit -> constr
+val cReturn_tg : ?res:target -> unit -> constr
 
 val cReturn : constr
 
@@ -311,6 +317,12 @@ val cStructInit : constr
 
 val cCell : ?cell_index: int option -> unit -> constr
 
+val cArrayRead : var -> constr
+
+val cArrayWrite : var -> constr
+
+val cPlusEqVar : string -> constr
+
 val cSwitch : ?cond:target ->
               ?cases:((case_kind * target) list) -> unit -> constr
 
@@ -331,6 +343,8 @@ val dLHS : constr
 val cTargetInDepth : target -> constr
 
 val cOmp : ?pred:(Ast.directive -> bool) -> unit -> constr
+
+val cNamespace : ?substr:bool -> ?regexp:bool -> string -> constr
 
 val make_target_list_pred : (int -> target) -> (bool list -> bool) -> (unit -> string) -> target_list_pred
 
@@ -368,6 +382,8 @@ val resolve_target_exactly_one_with_stringreprs_available : target -> trm -> pat
 
 val resolve_path_with_stringreprs_available : path -> trm -> trm
 
+val path_of_target_mark_one : mark -> trm -> path
+
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
 
 val applyi_on_targets : (int -> trm -> path -> trm) -> target -> unit
@@ -397,9 +413,32 @@ val applyi_on_transformed_targets_between : (path * int -> 'a) -> (int -> trm ->
 
 val apply_on_transformed_targets_between : (path * int -> 'a) -> (trm -> 'a -> trm) -> target -> unit
 
+val apply_at_target_paths_before : (trm -> int -> trm) -> target -> unit
+
+(* TODO: remove old ones when stable *)
+
+val iter : (trm -> path -> unit) -> target -> unit
+
+val iteri : ?rev:bool -> (int -> trm -> path -> unit) -> target -> unit
+
+val applyi : (int -> trm -> path -> trm) -> target -> unit
+
+val apply : (trm -> path -> trm) -> target -> unit
+
+val apply_at_target_paths : (trm -> trm) -> target -> unit
+
+
+
 val check : target -> unit
 
 val show : ?line:int -> ?reparse:bool -> ?types:bool -> target -> unit
+
+module Transfo : sig
+  type t = target -> unit
+  type local = trm -> path -> trm
+end
+
+val target_show_transfo : ?types:bool -> mark -> Transfo.local
 
 val show_type : ?line:int -> ?reparse:bool -> target -> unit
 
@@ -408,11 +447,6 @@ val bigstep : string -> unit
 (* Target debugging *)
 
 val target_to_string : target -> string
-
-module Transfo : sig
-  type t = target -> unit
-  type local = trm -> path -> trm
-end
 
 val string_to_rexp : bool -> bool -> string -> Constr.trm_kind -> Constr.rexp
 
@@ -427,6 +461,9 @@ val (!!^) : 'a -> 'a
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 
 val get_trm_at : target -> trm option
+
+val get_trm_at_unsome : target -> trm
+
 val get_ast : unit -> trm
 
 val var : string  -> trm
@@ -448,3 +485,10 @@ val get_relative_type : target -> target_relative option
 (* Other *)
 
 val show_next_id_reset : unit -> unit
+
+
+val resolve_target_current_ast : target -> paths
+
+val resolve_path_current_ast : path -> trm
+
+val path_of_target_mark_one_current_ast : mark -> path

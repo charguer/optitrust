@@ -1,10 +1,16 @@
+# Usage: 
+# make transfos
+
 
 FLAGS := -dump-ast-details
 
 #debug: c_ast_debug.out
 #debug_enc: c_ast_debug.enc
 
+# LATER: fix the diff tool for these tests
 TESTS := \
+
+TESTS_FOR_LATER := \
 	c_address.ml \
 	c_stackvar.ml \
 	c_features.ml \
@@ -20,6 +26,7 @@ FLAGS_MAKEFILE := -disable-clang-format
 
 include ../Common.Makefile
 
+transfos: $(TESTS_FOR_LATER:.ml=_out.cpp)
 
 c_ast.cpp: c_big.cpp
 	$(V)cp $< $@

@@ -323,10 +323,10 @@ let renames (rename : rename) : Transfo.t =
          WARNING: This step will fail in the case when there are any write operations on the targeted varibles.
       2) If the transformation didn't fail in the first step we are sure that we are trying to inline a const variable
          and we can call safely Variable_basic.unfold
-      3) If the targeted variable is a struct type then call Struct_basic.simpl_proj to remove all the occurrences
+      3) If the targeted variable is a struct type then call Record_basic.simpl_proj to remove all the occurrences
           of struct initialization list, by projecting them on the field they are accessed.
           Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is non valid C code.
-          After calling Struct_basic.simpl_proj {0, 1}.x becomes 0 .
+          After calling Record_basic.simpl_proj {0, 1}.x becomes 0 .
           Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them. *)
 let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(delete : bool = true) ?(at : target = []): Transfo.t =
   iter_on_targets (fun t p ->
@@ -354,7 +354,7 @@ let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
           else Variable_basic.unfold ~mark ~accept_functions ~at tg_decl
       end;
      if mark <> "" then begin
-       Struct_basic.simpl_proj [nbAny; cFieldAccess ~base:[cMark mark] ()];
+       Record_basic.simpl_proj [nbAny; cFieldAccess ~base:[cMark mark] ()];
        if simpl_deref
          then Variable_basic.simpl_deref [nbAny; cRead ~addr:[cMark mark] ()];
        Marks.remove mark [nbAny; cMark mark]
@@ -482,3 +482,43 @@ let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (st
   reparse_after ~reparse (fun tg ->
     List.iter (fun (name, value) ->
       insert ~const ~name ~typ ~value tg) name_vals)
+
+
+
+(* [bind_multi ?all ?dest name tg] performs common subexpression elimination.
+   Minimalistic example: [ f(e); g(e) ] becomes [ int x = e; f(x); g(x) ].
+   It takes a target that aims at one or more expressions.
+   If multiple expressions are targeted, the occurrences must correspond to equal expressions.
+   LATER: If [~all:true] is provided, then we automatically consider replacing all occurrences
+   within the syntactic scope of the new binding (and not just the ones targeted by [tg]).
+   LATER: It takes as argument a target [dest] where to put the binding; if [dest] is not provided,
+   then the point just before the instruction containing the first target is used.
+   LATER: document arguments passed to [bind].
+   LATER: add arguments for marks that could remain at the end *)
+
+let bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ option = None) ?(dest : target = []) (fresh_name : var) (tg : target) : unit =
+  if dest = [] then fail None "bind_multi: optional dest not yet supported";
+  (* mark all occurrences to be replaced *)
+  let mark_tg = Mark.next() in
+  Marks.add mark_tg (nbMulti :: tg);
+  (* rename the mark for the first occurrence *)
+  let mark_fst = Mark.next() in
+  Marks.add mark_fst [occFirst; cMark mark_tg];
+  Marks.remove mark_tg [occFirst; cMark mark_fst];
+  (* introduce a binding for the first targeted occurrence *)
+  let mark_let = Mark.next() in
+  let mark_occ = Mark.next() in
+  Variable_basic.bind ~const ~is_ptr ~mark_let:(Some mark_let) ~mark_occ:(Some mark_occ) ~typ ~remove_nobrace:false fresh_name [cMark mark_fst];
+  (*Printf.printf "ex2: %s\n" (AstC_to_c.ast_to_string (Trace.ast()))*)
+  (* move the binding to the desired target *)
+  Instr.move ~dest [cMark mark_let];
+  (* replace the contents of all remaining marked occurrences with the same contents at the first occurrence *)
+  let var_occ =
+    match Target.get_trm_at [cMark mark_occ] with
+    | Some t -> t
+    | None -> fail None "bind_multi: failed get_trm_at to obtain the variable occurrence"
+    in
+  Expr_basic.replace var_occ [nbMulti; cMark mark_tg];
+  (* clear temporary marks *) (* TODO: Marks.remove_all, would be much more efficient *)
+  List.iter (fun m -> Marks.remove m [nbAny; cMark m]) [mark_tg; mark_let; mark_occ; mark_fst]
+

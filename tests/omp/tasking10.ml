@@ -1,7 +1,11 @@
 open Optitrust
 open Target
 
+
+(* FIX ME! *)
+
 let _ = Run.script_cpp (fun _ ->
+
 
   !! Omp.init_lock "lock" [tAfter; cVarDef "lock"];
   !! Omp.parallel [] [tBefore; cSeq ~args:[[cFor "i"]] ()];

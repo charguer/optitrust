@@ -133,7 +133,7 @@ let move ~dest:(dest : target) : Transfo.t =
     Sequence_basic.insert tg_trm dest;
     Instr_basic.delete [cMark "instr_move_out"])
 
-(* [move_out tg]: moves the instruction targeted by [tg], just before its surrouding sequence. *)
+(* [move_out tg]: moves the instruction targeted by [tg], just before its surrounding sequence. *)
 let move_out : Transfo.t =
   iter_on_targets (fun t p ->
     let (seq, _) = try Internal.isolate_last_dir_in_seq p with | TransfoError _ ->

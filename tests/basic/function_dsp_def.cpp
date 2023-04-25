@@ -3,6 +3,7 @@ int test_simpl(int x){
     return x;
 }
 
+// FIXME: should add early return
 int test_one_branch(int x){
     if (x < 0){
       return -x;

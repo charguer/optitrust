@@ -21,7 +21,7 @@ let precedence_prim (p : prim) : precedence =
     end
   | Prim_binop binop ->
     begin match binop with
-    | Binop_array_access | Binop_array_get -> (16, LtoR)
+    | Binop_array_access | Binop_array_get | Binop_exact_div -> (16, LtoR)
     | Binop_mul | Binop_div | Binop_mod -> (13, LtoR)
     | Binop_add | Binop_sub -> (12, LtoR)
     | Binop_shiftl | Binop_shiftr -> (11, LtoR)
@@ -57,7 +57,7 @@ let precedence_trm (t : trm) : precedence =
   | Trm_val (Val_lit _ ) | Trm_val (Val_ptr _ )-> (30, NA)
   | Trm_var _ -> (20, NA)
   | Trm_arbitrary _ -> (100, NA)
-  | Trm_this -> (100, NA)
+  | Trm_record _ | Trm_array _ -> (100, NA)
   | _ -> precedence_none
 
 

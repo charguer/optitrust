@@ -38,7 +38,7 @@ TESTS ?= $(filter-out $(wildcard *with_lines.ml), $(filter-out $(EXCLUDE_TESTS),
 TESTS_WITH_DOC ?= $(TESTS)
 
 # List of ml files for which the cpp files should be compiled
-COMPILE ?= $(TESTS)f
+COMPILE ?= $(TESTS)
 
 # List of ml files for which the cpp files should be executed for comparison
 EXECUTE ?= $(COMPILE)
@@ -53,7 +53,7 @@ TARGET_MAKE_ALL ?= check compile
 OPTITRUSTLIB ?= $(shell command -v ocamlfind > /dev/null && ocamlfind query optitrust)
 
 # Browser for opening documentation
-BROWSER ?= chromium-browser
+OPTITRUST_BROWSER ?= chromium-browser
 
 # Flags for executing the programs, coming both from local user flags, and flags from the local Makefile
 -include optitrust_flags.sh
@@ -77,6 +77,9 @@ all: $(TARGET_MAKE_ALL)
 
 # 'make f' forces clean before 'make all'
 f: clean all
+
+# 'make trace': produces the html traces
+trace: $(TESTS:.ml=_trace.html)
 
 # 'make transfo' executes all the transformations
 transfo: $(TESTS:.ml=_out.cpp)
@@ -108,7 +111,7 @@ optitrust: clean optitrust_noclean
 
 # 'make optitrust_noclean' rebuilds the library and the runner, and clean all local files
 optitrust_noclean:
-	$(V)rm -rf *.byte *.native _build
+	$(V)rm -Rf *.byte *.native _build
 	$(MAKE) -C $(OPTITRUST) install
 
 # 'make recheck' is a shorthand for 'make optitrust' followed with 'make check'
@@ -131,7 +134,8 @@ runner:
 # Rules
 
 # The command for calling diff
-DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
+DIFF := $(OPTITRUST)/tests/diff.sh
+# DEPRECATED: DIFF := diff -q --ignore-blank-lines --ignore-all-space -I '^//'
 
 # The build command for compiling a script
 BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -use-ocamlfind -r -quiet -tags "debug,package(clangml),package(refl),package(pprint),package(str),package(optitrust)"
@@ -155,7 +159,7 @@ BUILD := OCAMLFIND_IGNORE_DUPS_IN="`ocamlc -where`/compiler-libs" ocamlbuild -us
 
 # Rule for building .chk, that gives evidence whether the output matches the expected output
 %.chk: %_out.cpp %_exp.cpp
-	$(V) ($(DIFF) -q $^ > /dev/null && touch $@ && echo "Success for $@") \
+	$(V) ($(DIFF) $^ > /dev/null && touch $@ && echo "Success for $@") \
 	|| (echo "=== ERROR: $< does not match the expected result:" && echo "  make $*.meld")
 #	|| (echo "$< does not match the expected result:" && $(DIFF) $^)
 
@@ -229,7 +233,7 @@ endif
 
 # Rule for comparing output of runs
 %.exec: %.prog %_out.prog
-	$(V)bash -c "($(DIFF) -q <(./$*.prog) <(./$*_out.prog) && echo \"Checked $@\") \
+	$(V)bash -c "($(DIFF) <(./$*.prog) <(./$*_out.prog) && echo \"Checked $@\") \
                 || (./$*.prog; echo \"--\"; ./$*_out.prog)"
 
 # Rule for opening meld to compare the output and the expected output
@@ -339,7 +343,7 @@ OPTITRUST_SRC := $(wildcard $(OPTITRUST)/src/*.ml)
 
 # To check the documentation associated with the demo in a browser, use 'make mytransfo.doc'
 %.doc: %_doc.html
-	$(V)$(BROWSER) $<
+	$(V)$(OPTITRUST_BROWSER) $<
 
 # To check the documentation associated with the demo in a console, use 'make mytransfo.doct'
 %.doct: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
@@ -357,14 +361,14 @@ OPTITRUST_SRC := $(wildcard $(OPTITRUST)/src/*.ml)
 
 
 
-DOCJS := $(TESTS:.ml=_doc.js)
+DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 
 # 'make docs' to build all the auxililary *_doc.js
 docs: $(DOCJS)
 
 # 'make doc' to build the documentation for all $(TESTS_WITH_DOC) in doc.html
 doc: doc.html docs
-	$(V)$(BROWSER) $<
+	$(V)$(OPTITRUST_BROWSER) $<
 
 # Rule for building 'doc.html', unless it's already defined in an ad-hoc way (e.g. tests/combi/Makefile)
 ifeq ($(SPECIAL_RULE_FOR_DOC_HTML),)
@@ -389,8 +393,9 @@ cleandoc::
 
 clean:: cleandoc
 	$(V)rm -f *.js *_out.cpp *.cmxs *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_trace.js *_trace.html *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml *.ser *.i *_inlined.cpp
-
-	$(V)rm -rf _build
+	$(V)rm -Rf _build
 	@echo "Clean successful"
+
+
 
 

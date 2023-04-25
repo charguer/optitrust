@@ -177,8 +177,8 @@ function showOrHide(obj, visible) {
 }
 
 function hideNoncoveredButtons(bdiffId) {
-  if (smallsteps.length <= maxButtons)
-    return; // no hiding needed if only a few steps
+  // if (smallsteps.length <= maxButtons)
+  //  return; // no hiding needed if only a few steps
   var step = bigsteps[bdiffId];
   var start = step.start;
   var stop = step.stop;

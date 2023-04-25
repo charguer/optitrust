@@ -9,9 +9,10 @@ float P(const int i, const int k)
 float accum(void)
 {
   float tmp = 0.0;
-  for (int i=0; i < N; i++) {
+  int i, k;
+  for (i=0; i < N; i++) {
     float tmp1 = 0.0;
-    for (int k=0; k < M; k++) {
+    for (k=0; k < M; k++) {
       tmp1 += P(i,k);
     }
     tmp += tmp1;

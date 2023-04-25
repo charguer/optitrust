@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-  !! Omp.task [Shared ["i"]] [tBefore;sInstr "i ="];
-  !! Omp.task [Shared ["j"]] [tBefore;sInstr "j ="];
-  !! Omp.taskwait [tBefore; occIndex ~nb:2 1;cReturn];
+  !! Omp.task ~clause:[Shared ["i"]] [sInstr "i ="];
+  !! Omp.task ~clause:[Shared ["j"]] [sInstr "j ="];
+  !! Omp.taskwait [cReturn_tg ~res:[cVar "i"] ()];
 )

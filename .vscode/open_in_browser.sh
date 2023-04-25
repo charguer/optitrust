@@ -8,8 +8,12 @@ FILEPATH=$1
 WINDOWTITLE=$2
 
 # SELECT BROWSER
-if [ -z "${BROWSER}" ]; then
-  BROWSER="chromium-browser"
+if [ -z "${OPTITRUST_BROWSER}" ]; then
+  if command -v chromium &> /dev/null; then
+    OPTITRUST_BROWSER="chromium"
+  else
+    OPTITRUST_BROWSER="chromium-browser"
+  fi
 fi
 
 # Open the browser
@@ -30,7 +34,7 @@ if [ -n "${WID}" ]; then
 else
   #echo "launch fresh window"
   ## Launch fresh browser
-  nohup ${BROWSER} --new-window ${FILEPATH} >/dev/null 2>&1
+  nohup ${OPTITRUST_BROWSER} --new-window ${FILEPATH} >/dev/null 2>&1
   
 fi
 

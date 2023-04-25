@@ -1,35 +1,6 @@
 open Ast
 open Target
 
-(* [mindex dims indices]: builds a call to the macro MINDEX(dims, indices)
-    [dims] - dimensions of the matrix access,
-    [indices ] - indices of the matrix access.
-
-     Example:
-     MINDEXN(N1,N2,N3,i1,i2,i3) = i1 * N2 * N3 + i2 * N3 + i3
-     Here, dims = [N1, N2, N3] and indices = [i1, i2, i3]. *)
-let mindex (dims : trms) (indices : trms) : trm =
-  if List.length dims <> List.length indices then fail None "Matrix_core.mindex: the number of
-      dimension should correspond to the number of indices";
-  let n = List.length dims in
-  let mindex = "MINDEX" ^ (string_of_int n) in
-  trm_apps (trm_var mindex) (dims @ indices)
-
-
-(* [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t]/ *)
-let mindex_inv (t : trm) : (trms * trms) option =
-  match t.desc with
-  | Trm_apps (f, dims_and_indices) ->
-    begin match f.desc with
-    | Trm_var (_, f_name) when (Tools.pattern_matches "MINDEX" f_name.qvar_var) ->
-      let n = List.length dims_and_indices in
-      if (n mod 2 = 0) then
-        Some (Xlist.split_at (n/2) dims_and_indices)
-      else None
-    | _ -> None
-    end
-  | _ -> None
-
 (* [access t dims indices]: builds the a matrix access with the index defined by macro [MINDEX], see [mindex] function.
     Ex: x[MINDEX(N1,N2,N3, i1, i2, i3)]. *)
 let access (t : trm) (dims : trms) (indices : trms) : trm =
@@ -88,6 +59,32 @@ let alloc ?(init : trm option = None) (dims : trms) (size : trm) : trm =
   | None -> trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size])
 
 
+let alloc_with_ty (dims : trms) (ty : typ) : trm =
+  let n = List.length dims in
+  let size = trm_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
+  trm_cast (typ_ptr Ptr_kind_mut ty) (
+    trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size]))
+
+let alloc_inv_with_ty (t : trm) : (trms * trm)  option =
+(* TODO: avoid cascade of matches? *)
+  match trm_new_inv t with
+  | Some (_, t2) ->
+    begin match trm_cast_inv t2 with
+    | Some (ty, t3) ->
+      begin match trm_apps_inv t3 with
+      | Some (f, args) ->
+        begin match trm_var_inv f with
+        | Some (_, f_name) when (Tools.pattern_matches "MALLOC" f_name) ->
+          let dims, size = Xlist.unlast args in
+          Some (dims, size)
+        | _ -> None
+        end
+      | None -> None
+      end
+    | None -> None
+    end
+  | None -> None
+
 (* |alloc_aligned ~init dims size alignment] create a call to function MALLOC_ALIGNED$(N) where [N] is the
      number of dimensions and [size] is the size in bytes occupied by a single matrix element in
      the memory and [alignment] is the alignment size. *)
@@ -113,13 +110,6 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
     | _ -> None
     end
   | _ -> None
-
-
-(* [vardef_alloc ~init x ty dims size]: returnss a term of the form T* x = ( T* ) A where A is the trm
-    created from alloc function. *)
-let vardef_alloc ?(init : trm option = None) (x : string) (ty : typ) (dims : trms) (size : trm) : trm =
-  let alloc_trm = alloc ~init dims size in
-  trm_let_mut (x, ty) alloc_trm
 
 (* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
 let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) option =

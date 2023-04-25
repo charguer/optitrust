@@ -7,6 +7,8 @@
 open Optitrust
 open Target
 
+(* DEPRECATED
+
 let _ = Run.script_cpp (fun () ->
 
   !! Label.add "r0" [cVarDef "a"];
@@ -14,7 +16,7 @@ let _ = Run.script_cpp (fun () ->
   (* NOTE: manually comment/uncomment the ~only_branch argument
      - use only_branch to use the interactive mode
      - comment it out for generating all output programs *)
-  Trace.switch ~only_branch:1 [
+  Trace.sm1"witch ~only_branch:1 [
     (fun () ->
         !! Label.add "m1" [cVarDef "b"]);
     (fun () ->
@@ -33,3 +35,5 @@ let _ = Run.script_cpp (fun () ->
         !! Label.add "k2" [cVarDef "d"])];
 )
 
+
+*)

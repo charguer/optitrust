@@ -359,6 +359,18 @@ let cVarDefReg (reg : string) : constr =
 let cVarInit (var : string) : constr =
   cTarget [cVarDef var; dVarBody]
 
+(* [cVarDef ~regexp ~substr ~body ~typ ~typ_pred name]: matches all multiple variable definitions
+    [regexp] - match using regular expressions
+    [substr] - match names partially
+    [body] - match based on their body
+    [typ] - match based on type
+    [typ_pred] - match based on type. *)
+let cVarsDef ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) ?(typ : string = "")
+  ?(typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
+  let ro = string_to_rexp_opt regexp substr name TrmKind_Instr in
+  let ty_pred = make_typ_constraint ~typ ~typ_pred () in
+  Constr_decl_vars (ty_pred, ro, body)
+
 (* [cFor ~start ~direction ~stop ~step ~body index] matches simple for loops
      [start] - match based on the initial value trm
      [direction] - match based on the direction of the loop
@@ -478,10 +490,24 @@ let combine_args (args:targets) (args_pred:target_list_pred) : target_list_pred 
      [name] - match based on the name of the function. *)
 let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
   ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
-  ?(is_def : bool = true) (name : string) : constr =
+  ?(is_def : bool = true) ?(clang_id : Clang.cxcursor option = None)(name : string) : constr =
   let ro = string_to_rexp_opt regexp false name TrmKind_Expr in
   let ty_pred = make_typ_constraint ~typ:ret_typ ~typ_pred:ret_typ_pred () in
-  Constr_decl_fun (ty_pred, ro, combine_args args args_pred, body, is_def)
+  Constr_decl_fun (ty_pred, ro, combine_args args args_pred, body, is_def, clang_id)
+
+(* [cFunDefAndDecl ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches function definitions and declarations
+     [args] - match based on arguments
+     [args_pred] - match based on arguments
+     [body] - match based on the body of the function
+     [ret_typ] - match based on the return type
+     [ret_typ_pred] - match based on the return type
+     [regexp] - match based on regexp
+     [name] - match based on the name of the function. *)
+let cFunDefAndDecl ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
+  ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
+  ?(clang_id : Clang.cxcursor option = None)(name : string) : constr =
+  let fund (is_def : bool) = cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def ~clang_id name in
+  cOr [[fund true]; [fund false]]
 
 (* [cTopFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches top level function definitions
      [args] - match based on arguments
@@ -494,8 +520,8 @@ let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_
      [name] - match based on the name of the function. *)
 let cTopFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
   ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
-  ?(is_def : bool = true)(name : string) : constr =
-  cTarget [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name ]
+  ?(is_def : bool = true)?(clang_id : Clang.cxcursor option = None) (name : string) : constr =
+  cTarget [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def ~clang_id name ]
 
 (* [cTopFunDefAndDecl ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp name]: matches top level function definitions
      and declarations
@@ -508,8 +534,8 @@ let cTopFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_li
      [name] - match based on the name of the function. *)
 let cTopFunDefAndDecl ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
   ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
-  (name : string) : constr =
-  let topfund (is_def : bool) = cTopFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name in
+  ?(clang_id : Clang.cxcursor option = None) (name : string) : constr =
+  let topfund (is_def : bool) = cTopFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def ~clang_id name in
   cOr [[topfund true ]; [topfund false]]
 
 (* [cTopFunDefAndDeclReg reg]: matches top level function definitions and declarations based on regexp [reg]. *)
@@ -702,6 +728,9 @@ let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_p
 let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) () : constr =
   cPrimPredFun ~args ~args_pred (fun p2 -> (is_arith_fun p2))
 
+let cBinop ?(lhs : target = [cTrue]) ?(rhs : target = []) (op : binary_op) : constr =
+  cPrimFun ~args:[lhs; rhs] (Prim_binop op)
+  
 (* [let cPrimNew ~arg ()]: matches "new" primitive operation
     [arg] - match based on the arguments of the "new" primitive. *)
 let cPrimNew ?(arg : target = []) () : constr =
@@ -783,8 +812,8 @@ let cGoto ?(label : string = "") ?(substr : bool = false) ?(regexp : bool = fals
   let ro = string_to_rexp_opt regexp substr label TrmKind_Expr in
   Constr_goto ro
 
-(* [cReturn_target ~res ()]: matches a return statement. *)
-let cReturn_target ?(res : target = []) () : constr =
+(* [cReturn_tg ~res ()]: matches a return statement. *)
+let cReturn_tg ?(res : target = []) () : constr =
   let p_res =  res in
   Constr_return p_res
 
@@ -950,7 +979,7 @@ let cFieldReadOrWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : 
      [base] - match based on the base of the access
      [index] - match based on the index of the access. *)
 let cCellAccess ?(base : target = []) ?(index : target = [])  () : constr =
-  cAccesses ~base ~accesses:[cIndex ~index ()] ()
+  cAccesses ~base ~accesses:[cIndex ~index ()] () (* TODO: are we missing a Cstrict before cIndex here? *)
 
 (* [cCellRead ~base ~index ]:  match a read operation on an array accesses
      [base] - match based on the base of the access
@@ -986,6 +1015,18 @@ let cCell ?(cell_index : int option = None) () : constr =
   | None -> cTarget [cArrayInit; cStrict; cTrue]
   | Some i -> cTarget [cArrayInit; dArrayNth i]
 
+(* FIXME:
+   1. seems weird
+   2. also triggers on writes? *)
+let cArrayRead (x : var) : constr =
+  cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()
+
+let cArrayWrite (x : var) : constr =
+  cWrite ~lhs:[cCellAccess ~base:[cVar x] ()] ()
+
+let cPlusEqVar (name : string) : constr =
+  cPrimFun ~args:[[cVar name]; [cTrue]] (Prim_compound_assgn_op Binop_add)
+
 (* [cOmp_match_all]: matches an OpenMP directive. *)
 let cOmp_match_all : directive->bool =
   fun _ -> true
@@ -995,6 +1036,14 @@ let cOmp ?(pred : (directive->bool) = cOmp_match_all) () : constr =
   let str =
     if pred == cOmp_match_all then "cOmp_match_all" else "cOmp_custom_pred" in
   Constr_omp (pred, str)
+
+(* [cNamespace ~substr ~regexp name]: matches a namespace
+    [substr] - match namespace name partially
+    [regep] - match based on regexp
+    [name] - match based on namespace name. *)
+let cNamespace ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =
+  let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
+  Constr_namespace ro
 
 (******************************************************************************)
 (*                          Target resolution                                 *)
@@ -1135,6 +1184,13 @@ let resolve_target_exactly_one_with_stringreprs_available (tg : target) (t : trm
     representation of all the ast nodes first. *)
 let resolve_path_with_stringreprs_available (p : path) (t : trm) :  trm =
   with_stringreprs_available_for [target_of_path p] t (fun t2 -> resolve_path p t2)
+
+(* [path_of_target_mark_one m t]: a wrapper for calling [resolve_target] with a mark for which we
+    expect a single occurence. *)
+let path_of_target_mark_one (m : mark) (t : trm) : path =
+  match resolve_target [nbExact 1; cMark m] t with
+  | [p] -> p
+  | _ -> fail t.loc "Target.resolve_target_mark_one: unreachable because nbExact 1 should return one path"
 
 (* [resolve_target_mark_one_else_any m t]: a wrapper for calling [resolve_target] with a mark for which we
     expect a single occurence. *)
@@ -1381,6 +1437,115 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
   applyi_on_targets_between (fun _i t pk -> tr t pk) tg
 
 
+
+(******************************************************************************)
+(*                                   New target system TODO: deprecate old one *)
+(******************************************************************************)
+
+
+
+(* [iteri ?rev tr tg]: execute operation [tr] to each of the paths targeted by [tg].
+     [rev] - process the resolved paths in reverse order,
+     [tg] - target
+     [tr] - processing to be applied at the nodes corresponding at target [tg];
+            [tr i t p] where
+            [i] is the index of the occurrence,
+            [t] is the current full ast
+            [p] is the path towards the target occurrence. *)
+let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) : unit =
+  (* TODO TEMPORARY *)
+  let c_o_r_bak = !Constr.old_resolution in
+  Constr.old_resolution := false;
+  let tr_wrapped i t p =
+    Constr.old_resolution := c_o_r_bak;
+    tr i t p;
+    Constr.old_resolution := false
+    in
+
+  let tg = fix_target tg in
+  let t = Trace.ast() in
+  with_stringreprs_available_for [tg] t (fun t ->
+    let ps = resolve_target tg t in
+    let ps = if rev then List.rev ps else ps in
+    match ps with
+    | [] -> ()
+    | [p] -> (* Call the transformation at that path *)
+             tr_wrapped 0 t p
+    | _ ->
+      (* LATER: optimization to avoid mark for first occurrence *)
+      let marks = List.map (fun _ -> Mark.next()) ps in
+      (* LATER: could use a system to set all the marks in a single pass over the ast,
+          able to hand the Dir_before *)
+      let t = List.fold_left2 (fun t p m ->
+        match last_dir_before_inv p with
+        | None -> apply_on_path (trm_add_mark m) t p
+        | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
+        t ps marks in
+      Trace.set_ast t;
+      (* Iterate over these marks *)
+      try
+        List.iteri (fun occ m ->
+          let t = Trace.ast() in
+          (* Recover the path to the i-th mark (the one number [occ]) *)
+          let ps = resolve_target_mark_one_else_any m t in
+          match ps with
+          | [p] ->
+              (* Start by removing the mark *)
+              (* Here we don't call [Marks.remove] to avoid a circular dependency issue. *)
+              let t =
+                match last_dir_before_inv p with
+                | None -> apply_on_path (trm_rem_mark m) t p
+                | Some (p_to_seq,i) -> apply_on_path (trm_rem_mark_between m) t p_to_seq
+                in
+              Trace.set_ast t;
+              (* Call the transformation at that path *)
+              tr_wrapped occ t p
+          | ps ->
+              (* There were not exactly one occurrence of the mark: either zero or multiple *)
+              let msg =
+                if ps <> []
+                  then "iteri_on_transformed_targets: a mark was duplicated"
+                  else (Printf.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
+                in
+              if debug_disappearing_mark
+                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+                else fail None msg
+        ) marks
+      with Interrupted_applyi_on_transformed_targets t ->
+         (* Record the ast carried by the exception to allow visualizing the ast *)
+         Trace.set_ast t
+      );
+
+    Constr.old_resolution := c_o_r_bak (* TEMPORARY *)
+
+(* [iter] same as [iteri] but without occurence index *)
+let iter (tr : trm -> path -> unit) : target -> unit =
+  iteri (fun occ t p -> tr t p)
+
+(* [applyi tr tg]: apply transformation [tr] on the current ast
+   to each of the paths targeted by [tg].
+     [tg] - target
+     [tr] - a call to [tr i t p] should compute the updated term where
+            [i] is the index of the occurrence,
+            [t] is the current full ast
+            [p] is the path towards the target occurrence. *)
+let applyi (tr : int -> trm -> path -> trm) (tg : target): unit =
+  iteri (fun occ t p -> Trace.set_ast (tr occ t p)) tg
+
+let apply (tr : trm -> path -> trm) (tg : target) : unit =
+  applyi (fun _occ t p -> tr t p) tg
+
+let apply_at_target_paths (transfo : trm -> trm) (tg : target) : unit =
+  apply (fun t p -> Path.apply_on_path transfo t p) tg
+
+(* ... [transfo t i] where [t] denotes the sequence and [i] denotes the index
+   of the item in the sequence before which the target is aiming at. *)
+let apply_at_target_paths_before (transfo : trm -> int -> trm) (tg : target) : unit =
+  apply (fun t pb ->
+    let (p,i) = Path.last_dir_before_inv_success pb in
+    Path.apply_on_path (fun tseq -> transfo tseq i) t p) tg
+
+
 (******************************************************************************)
 (*                                   Show                                     *)
 (******************************************************************************)
@@ -1470,6 +1635,12 @@ let get_trm_at (tg : target) : trm option  =
   );
   !t_ast
 
+(* [get_trm_at_unsome tg]: similar to [get_trm_at] but this one fails incase there is not trm that corresponds to the target [ŧg]. *)
+let get_trm_at_unsome (tg : target) : trm =
+  match get_trm_at tg with
+  | Some t -> t
+  | None -> assert false
+
 (* [get_ast ()]: return the full ast. *)
 let get_ast () : trm =
   Tools.unsome (get_trm_at [])
@@ -1524,28 +1695,33 @@ let get_relative_type (tg : target) : target_relative option =
 
 (* [reparse_after tr]: wrapper to force the reparsing after applying a transformation.
     For example type definitions are modified.
-    See example in [Struct.reveal_field]. The argument [~reparse:false] can be
+    See example in [Record.reveal_field]. The argument [~reparse:false] can be
     specified to deactivate the reparsing. *)
+(* TODO: change strategy for reparse, probably based on missing types?
+   else on annotations added by clangml but cleared by smart-constructors
+   TODO URGENT: the resolve_target does not work with the new Dir_before system *)
 let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
-    let tg = enable_multi_targets tg in
-    let ast = (get_ast()) in
-    (* LATER: it would be nice to avoid computing the
-       with_stringreprs_available_for which we already compute later on
-       during [tr tg]. *)
-    let tg_paths = with_stringreprs_available_for [tg] ast (fun ast ->
-      if Constr.is_target_between tg
-      then let tg_ps = resolve_target_between tg ast in
-           fst (List.split tg_ps)
-      else resolve_target tg ast
-      ) in
-    tr tg;
-    if reparse then begin
-      if !Flags.use_light_diff then
-      let fun_names = List.map get_toplevel_function_name_containing tg_paths in
-      let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
-      reparse_only fun_names
-      else Trace.reparse();
+    if not reparse then tr tg else begin
+
+      let tg = enable_multi_targets tg in
+      let ast = (get_ast()) in
+      (* LATER: it would be nice to avoid computing the
+        with_stringreprs_available_for which we already compute later on
+        during [tr tg]. *)
+      let tg_paths = with_stringreprs_available_for [tg] ast (fun ast ->
+        if Constr.is_target_between tg
+        then let tg_ps = resolve_target_between tg ast in
+            fst (List.split tg_ps)
+        else resolve_target tg ast
+        ) in
+      tr tg;
+      if !Flags.use_light_diff then begin
+        let fun_names = List.map get_toplevel_function_name_containing tg_paths in
+        let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
+        reparse_only fun_names
+      end else
+        Trace.reparse();
     end
 
 
@@ -1577,3 +1753,17 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
     Target.apply_on_targets (reparse_where (Accesses_core.transform f_get f_set)))
 
 *)
+
+
+(******************************************************************************)
+(*                               Target aliases                               *)
+(******************************************************************************)
+
+let resolve_target_current_ast (tg : target) : paths =
+  resolve_target tg (Trace.ast ())
+
+let resolve_path_current_ast (p : path) : trm  =
+  Path.resolve_path p (Trace.ast ())
+
+let path_of_target_mark_one_current_ast (m : mark) : path =
+  path_of_target_mark_one m (Trace.ast ())

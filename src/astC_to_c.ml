@@ -10,6 +10,9 @@ let print_optitrust_syntax = ref false
 (* [print_commented_pragma]: only for internal use. *)
 let print_commented_pragma = ref false
 
+(* [print_beautify_mindex]: only for internal use. *)
+let print_beautify_mindex = ref false
+
 (* [print_stringreprids]: only for debugging purposes. *)
 let print_stringreprids = ref false
 
@@ -197,7 +200,7 @@ and typed_var_to_doc (tx : typed_var) : document =
   | _ -> const_string ^^ typ_to_doc ty ^^ blank 1 ^^ string x
 
 (* [lit_to_doc l]: converts literals to pprint documents. *)
-and lit_to_doc (l : lit) : document =
+and lit_to_doc (cstyles: cstyle_annot list) (l : lit) : document =
   match l with
   | Lit_unit -> semi
   | Lit_uninitialized -> empty
@@ -205,7 +208,10 @@ and lit_to_doc (l : lit) : document =
   | Lit_int i -> string (string_of_int i)
   | Lit_double f -> string (string_of_float f)
   | Lit_string s -> dquotes (separate (backslash ^^ string "n") (lines s))
-  | Lit_nullptr -> string "nullptr"
+  | Lit_nullptr ->
+      if List.mem Display_null_uppercase cstyles
+        then string "NULL"
+        else string "nullptr"
 
 (* [unop_to_doc op]: converts unary operators to pprint documents. *)
 and unop_to_doc (op : unary_op) : document =
@@ -237,6 +243,8 @@ and binop_to_doc (op : binary_op) : document =
   | Binop_mul -> star
   | Binop_mod -> percent
   | Binop_div -> slash
+  (* FIXME: should not be used *)
+  | Binop_exact_div -> string "exact_div"
   | Binop_le -> langle ^^ equals
   | Binop_lt -> langle
   | Binop_ge -> rangle ^^ equals
@@ -260,11 +268,11 @@ and prim_to_doc (p : prim) : document =
   | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
 
 (* [val_to_doc v]: converts values to pprint documents. *)
-and val_to_doc (v : value) : document =
+and val_to_doc (cstyles : cstyle_annot list) (v : value) : document =
   match v with
-  | Val_lit l -> lit_to_doc l
+  | Val_lit l -> lit_to_doc cstyles l
   | Val_ptr l ->
-     if l = 0 then string "NULL"
+     if l = 0 then string "NULL" (* TODO: remove this when annotated nullptr is used *)
      else
        begin
          print_info None "AstC_to_c.val_to_doc: pointers not implemented\n";
@@ -275,7 +283,6 @@ and val_to_doc (v : value) : document =
 (* [attr_to_doc a]: converts attributes to pprint documents. *)
 and attr_to_doc (a : attribute) : document =
   match a with
-  (* | Alignas t -> string "_Alignas" ^^ parens (decorate_trm t). *)
   | Alignas t -> string "alignas" ^^ parens (decorate_trm t)
   | GeneratedTyp | Injected -> empty
   | Others -> empty
@@ -351,10 +358,18 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
   let d =
     begin match t.desc with
     | Trm_val v ->
-       if trm_has_cstyle Empty_cond t then empty else dattr ^^ val_to_doc v
+       if trm_has_cstyle Empty_cond t
+        then empty
+        else dattr ^^ val_to_doc (trm_get_cstyles t) v
     | Trm_var (_, x) ->
-      let var_doc = trm_var_to_doc x t in
-      dattr ^^ var_doc
+      (* if x.qvar_var = "this"
+        then
+          if trm_has_cstyle Implicit_this t
+            then empty
+            else string "this"
+      else  *)
+        let var_doc = trm_var_to_doc x t in
+        dattr ^^ var_doc
     | Trm_array tl -> let tl = Mlist.to_list tl in
        let dl = List.map (decorate_trm ~semicolon ~print_struct_init_type:false) tl in
        dattr ^^ braces (separate (comma ^^ blank 1) dl)
@@ -379,7 +394,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         in
        dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
     | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
-    | Trm_let_mult (_, ty, tv, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon ty tv tl
+    | Trm_let_mult (_, tvl, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon tvl tl
     | Trm_let_fun (f, r, tvl, b) ->
         let fun_annot = trm_get_cstyles t in
         let static = if trm_has_cstyle Static_fun t then string "static" else empty in
@@ -421,7 +436,12 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
              else acc
             ) dl tl_m in
             counter := -1;
-            let res = if trm_is_mainfile t then (separate (twice hardline) dl) else surround 2 1 lbrace (separate hardline dl) rbrace in
+            let res = if trm_is_mainfile t then
+              let header = if !print_beautify_mindex
+                then (string "// NOTE: using pretty matrix notation") ^^ hardline
+                else empty in
+              header ^^ (separate (twice hardline) dl)
+            else surround 2 1 lbrace (separate hardline dl) rbrace in
             dattr ^^ res
     | Trm_apps (f, tl) ->
            dattr ^^ apps_to_doc ~prec f tl ^^ dsemi
@@ -501,19 +521,6 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
       let inline = if inline then string "inline" else empty in
       let dt = decorate_trm ~semicolon:true t1 in
       dattr ^^ inline ^^ string "namespace" ^^ blank 1 ^^ string name ^^  blank 1 ^^ dt
-     | Trm_let_record (name, rt, s, t1) ->
-      let get_document_list s =
-        let rec aux acc = function
-          | [] -> acc
-          | (lb, t) :: tl ->
-            aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in
-            aux [] s in
-        let dl = get_document_list s in
-        let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
-        let dname = if name = "" then empty else blank 1 ^^ string name in
-        let drt = record_type_to_doc rt in
-        let dt = decorate_trm t1 in
-        dattr ^^ drt ^^ dname ^^ blank 1 ^^ sbody  ^^ blank 1 ^^ dt ^^ semi
      | Trm_using_directive nmspc -> string "using namespace " ^^ string nmspc ^^ semi
      | Trm_template (tpl, t1) ->
         let dl = decorate_trm t1 in
@@ -526,7 +533,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
             end
           | NonType (ty, t_opt) ->
             begin match t_opt with
-            | Some t1 -> typ_to_doc ty ^^ blank 1 ^^ string n ^^ equals ^^ trm_to_doc t1
+            | Some t1 -> typ_to_doc ty ^^ blank 1 ^^ string n ^^ equals ^^ decorate_trm t1
             | None -> typ_to_doc ty ^^ blank 1 ^^ string n
             end
           | Template _ -> fail None "AstC_to_c.template_param_kind_to_doc: nested templates are not supported"
@@ -534,12 +541,12 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         ) tpl in
         string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl
      | Trm_fun (tvl, ty_opt , body) ->  dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
-     | Trm_this ->
-        if trm_has_cstyle Implicit_this t then empty else string "this"
+     (* DEPRECATED | Trm_this ->
+        if trm_has_cstyle Implicit_this t then empty else string "this" *)
      | Trm_delete (is_array, body) ->
          let is_arr = if is_array then string "[]" else empty in
          let dbody = decorate_trm body in
-         string "delete" ^^ is_arr ^^ dbody
+         string "delete" ^^ is_arr ^^ blank 1 ^^ dbody ^^ semi
      end in
   (* Save the result in the optional stringreprs table, before returning the document *)
   add_stringreprs_entry t d;
@@ -557,6 +564,7 @@ and record_type_to_doc (rt : record_type) : document =
 and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dtx = typed_var_to_doc tv in
+ (* DEPREACTED
   let dinit = begin match init.desc with
     | Trm_val (Val_lit Lit_uninitialized) -> dsemi
     | Trm_apps (_, args) when trm_has_cstyle Constructed_init init ->
@@ -565,45 +573,105 @@ and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : do
       equals ^^ blank 1 ^^ decorate_trm ~print_struct_init_type:false init ^^ dsemi
   end in
   dtx ^^ blank 1 ^^ dinit
+  *)
+  match init.desc with
+  | Trm_val (Val_lit Lit_uninitialized) -> dtx ^^ semi
+  | Trm_apps (_, args) when trm_has_cstyle Constructed_init init ->
+    dtx ^^ blank 1 ^^ list_to_doc ~bounds:[lparen; rparen] ~sep:comma (List.map (decorate_trm) args) ^^ dsemi
+  | Trm_array tl when trm_has_cstyle Brace_init init ->
+      let tl = Mlist.to_list tl in
+      dtx ^^ list_to_doc ~bounds:[lbrace; rbrace] ~sep:empty (List.map decorate_trm tl) ^^ dsemi
+  | _ ->
+    dtx ^^ blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm ~print_struct_init_type:false init ^^ dsemi
+
 
 (* [trm_let_mult_to_doc ~semicolon tv vl tl]: converts multiple variable declarations to pprint document *)
-and trm_let_mult_to_doc ?(semicolon : bool = true) (ty : typ) (vl : var list) (tl : trm list) : document =
+and trm_let_mult_to_doc ?(semicolon : bool = true) (tvl : typed_vars) (tl : trm list) : document =
+  let rec get_inner_ptrs_and_consts (ty : typ) : typ =
+    match ty.typ_desc with
+    | Typ_const ({typ_desc = Typ_ptr { inner_typ = ty; _ }; _ }) -> get_inner_ptrs_and_consts ty
+    | Typ_ptr { inner_typ = ty; _ } -> get_inner_ptrs_and_consts ty
+    | Typ_array (ty, _) -> get_inner_ptrs_and_consts ty
+    | _ -> ty
+  in
+
+  let get_ptrs_and_consts_doc (ty : typ) : document =
+    let rec aux (l : document list) (ty : typ) : document list =
+      match ty.typ_desc with
+      | Typ_const (ty) when is_typ_ptr ty -> aux ((string "const ") :: l) ty
+      | Typ_ptr {ptr_kind = pt_k; inner_typ = ty} ->
+        let d = begin match pt_k with
+        | Ptr_kind_mut -> star
+        | Ptr_kind_ref -> ampersand
+        end in
+        aux (d :: l) ty
+      | _ -> l
+    in
+    List.fold_left (fun d d1 -> d ^^ d1 ) empty (aux [] ty)
+  in
+
+  (* check if all the declarations are of the same type *)
+  let ty = Xlist.fold_lefti (fun i acc (x, ty) ->
+    let ty = get_inner_ptrs_and_consts ty in
+    if i = 0 then ty
+    else if ty <> acc then
+      fail None "AstC_to_c.trm_let_mult_to_doc: all variables in trm_let_mult must have the same type."
+    else acc
+    ) (typ_unit ()) tvl
+  in
+
   let dsemi = if semicolon then semi else empty in
   let dtx = typ_to_doc ty in
-  let dtl = List.map2 (fun v t1 ->
-    if is_trm_uninitialized t1
-      then string v
-      else string v ^^ equals ^^ trm_to_doc t1
-  ) vl tl in
-  dtx  ^^ blank 1 ^^ list_to_doc ~sep:comma dtl ~bounds:[empty; empty] ^^ dsemi
+  let dtl = List.map2 (fun (v,ty) t ->
+  let ptr_ = get_ptrs_and_consts_doc ty in
+    if is_trm_uninitialized t
+      then ptr_ ^^ string v
+      else ptr_ ^^ string v ^^ equals ^^ decorate_trm t
+  ) tvl tl in
+  dtx  ^^ blank 1 ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] dtl ^^ dsemi
 
 
 (* [aux_class_constructor_to_doc ]: converst class constructor declaration to pprint document. *)
-and aux_class_constructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
-  let dsemi = if semicolon then semi else empty in
+(* DEPRECATED? _semicolon *)
+and aux_class_constructor_to_doc ?(_semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (args : typed_vars) (init_l : trm list) (body : trm) : document =
+  (* Deprecated? let dsemi = if semicolon then semi else empty in*)
   let argd = if List.length args = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) args) in
   let spec_annot = List.fold_left (fun acc c_annot -> match c_annot with | Class_constructor ck -> ck :: acc | _ -> acc) [] spec_annot in
 
   let spec_annot = if List.length spec_annot = 1 then List.nth spec_annot 0 else fail None "astC_to_c.trm_class_constructor_to_doc: catastrophic error" in
   let explicit = ref empty in
-  let bd, _init_list = filter_out_from_seq (fun t -> trm_has_cstyle Member_initializer t ) body in
+  let bd, init_list = filter_out_from_seq (fun t -> trm_has_cstyle Member_initializer t ) body in
+  let tr_inits =
+    if List.length init_list = 0
+      then []
+      else
+        List.map (fun t1 ->
+          match set_struct_get_inv t1 with
+          | Some (this, f, v) ->
+            let d_v = decorate_trm v in
+            let init_arg = if trm_has_cstyle Brace_init v then d_v else parens(d_v) in
+            string f ^^ init_arg
+          | None -> string "bad member initializer"
+              (* TODO: Debug  *)
+            (* fail t1.loc "AstC_to_c.aux_class_constructor_to_doc: bad member initializer." *)
 
+        ) init_list in
+  let init_d = Tools.list_to_doc ~sep:comma tr_inits in
+  let init_d = if init_d = empty then init_d else colon ^^ init_d in
+  (* let init_d = empty in  *)
   let dt = match spec_annot with
     | Constructor_implicit -> equals ^^ blank 1 ^^ string  "implicit"
     | Constructor_default -> equals ^^ blank 1 ^^ string "default"
     | Constructor_explicit -> explicit := string "explicit"; decorate_trm bd
-    | Constructor_simpl ->
-      decorate_trm bd
+    | Constructor_simpl ->  decorate_trm bd
    in
-  (separate (blank 1) [!explicit; string name; parens argd; dt]) ^^ dsemi
+  (separate (blank 1) [!explicit; string name; parens argd; init_d; dt])
 
 (* [aux_class_destructor_to_doc ]: converst class constructor declaration to pprint document. *)
 and aux_class_destructor_to_doc ?(semicolon : bool = false)  (spec_annot  : cstyle_annot list) (name : var) (body : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let spec_annot = List.fold_left (fun acc c_annot -> match c_annot with | Class_destructor dk -> dk :: acc | _ -> acc) [] spec_annot in
-
   let spec_annot = if List.length spec_annot = 1 then List.nth spec_annot 0 else fail None "astC_to_c.trm_class_constructor_to_doc: catastrophic error" in
-
   let dt = match spec_annot with
     | Destructor_default -> equals ^^ blank 1 ^^ string "default"
     | Destructor_delete -> equals ^^ blank 1 ^^ string "delete"
@@ -614,23 +682,21 @@ and aux_class_destructor_to_doc ?(semicolon : bool = false)  (spec_annot  : csty
 
 
 (* [aux_fun_to_doc ~semicolon inline f r tvl b]: converts a function declaration to pprint document *)
-and aux_fun_to_doc ?(semicolon : bool = true) ?(const : bool = false) ?(inline : bool = false) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
+and aux_fun_to_doc ?(semicolon : bool = false) ?(const : bool = false) ?(inline : bool = false) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dinline = if inline then string "inline" else empty in
   let f = string_subst "overloaded" "operator" f in
   let argd = if List.length tvl = 0 then empty else separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
   let const = if const then string "const" else empty in
-  begin match b.desc with
-  | Trm_val (Val_lit Lit_uninitialized) ->
-     (separate (blank 1) [dinline; dr; string f; parens argd]) ^^ dsemi
-  | _ -> separate (blank 1) [dinline; dr; string f; parens argd; const; decorate_trm b]
-  end
+  if is_trm_uninitialized b
+    then (separate (blank 1) [dinline; dr; string f; parens argd; const]) ^^ dsemi
+    else separate (blank 1) [dinline; dr; string f; parens argd; const; decorate_trm b]
 
 (* [trm_let_fun_to_doc]: converts any OptiTrust function declaration(definition) to a pprint document. *)
-and trm_let_fun_to_doc ?(semicolon : bool = true) (fun_annot : cstyle_annot list) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
+and trm_let_fun_to_doc ?(semicolon : bool = false) (fun_annot : cstyle_annot list) (f : var) (r : typ) (args : typed_vars) (b : trm) : document =
   if List.exists (function  | Class_constructor _ -> true | _ -> false ) fun_annot
-    then aux_class_constructor_to_doc ~semicolon fun_annot f  args [] b
+    then aux_class_constructor_to_doc fun_annot f args [] b
     else if List.exists (function  | Class_destructor _ -> true | _ -> false ) fun_annot
       then aux_class_destructor_to_doc ~semicolon fun_annot f b
     else
@@ -680,7 +746,12 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
         let fd =
         match rt with
         | Record_field_member (lb, ty) -> typed_var_to_doc (lb, ty) ^^ semi
+        (* DEPRECATED
         | Record_field_method t1 -> trm_to_doc t1
+        *)
+        | Record_field_method t1 ->
+          let semi = if has_empty_body t1 then semi else empty in
+          decorate_trm t1 ^^ semi
          in
         if rt_annot <> !access_ctrl
             then begin access_ctrl := rt_annot;acc @ [access_ctrl_to_doc !access_ctrl; fd ] end
@@ -695,7 +766,6 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
         then string "struct" ^^ blank 1 ^^ record_type ^^ sbody ^^ blank 1 ^^ semi
         else if List.mem Is_rec_struct t_annot
           then
-
             string "typedef " ^^ string "struct" ^^ blank 1 ^^ record_type ^^ blank 1 ^^ sbody ^^ record_type ^^ blank 1 ^^ semi
         else if List.mem Is_class t_annot then
           let dl = get_document_list ~default_access:Access_unspecified rfl in
@@ -769,6 +839,22 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
   (* Case of function pointers *)
   | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var (_, x); _ } ]) ->
       aux_arguments (string x.qvar_var)
+  (* Case of MALLOC *)
+  | Trm_var (_, x) when (!print_beautify_mindex && Tools.pattern_matches "MALLOC" x.qvar_str) ->
+    let dims, size = Xlist.unlast tl in
+    let error = "expected MALLOC(.., sizeof(..))" in
+    let (_, size_var) = trm_inv ~error trm_var_inv size in
+    let ty_str = String.(
+      match sub size_var 0 (length "sizeof("),
+            sub size_var (length "sizeof(") ((length size_var) - (length "sizeof()")),
+            sub size_var ((length size_var) - (length ")")) (length ")") with
+      | "sizeof(", ty_str, ")" -> ty_str
+      | _ -> failwith error
+    ) in
+    let bracketed_trm t = brackets (decorate_trm ~prec:0 t) in
+    (string "malloc(sizeof(") ^^ (string ty_str) ^^
+    (separate empty (List.map bracketed_trm dims)) ^^
+    (string "))")
   (* Case of function by name *)
   | Trm_var (_, x) ->
     let var_doc = trm_var_to_doc x f in
@@ -830,13 +916,20 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
             let d1 = decorate_trm ~prec:prec1 t1 in
             let d2 = decorate_trm ~prec:prec2 t2 in
             begin match op with
+             | Binop_exact_div ->
+              string "exact_div(" ^^ d1 ^^ comma ^^ space ^^ d2 ^^ string ")"
              | Binop_set when !print_optitrust_syntax ->
                 string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
              | Binop_array_access when !print_optitrust_syntax ->
                 string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
              | Binop_array_access | Binop_array_get ->
-                let d2 = decorate_trm ~prec:0 t2 in
-                d1 ^^ brackets (d2)
+                let bracketed_trm t = brackets (decorate_trm ~prec:0 t) in
+                d1 ^^ if not !print_beautify_mindex then
+                  bracketed_trm (t2)
+                else begin match mindex_inv t2 with
+                | None -> bracketed_trm (t2)
+                | Some (_dims, indices) -> separate empty (List.map bracketed_trm indices)
+                end
              | _ -> separate (blank 1) [d1; op_d; d2]
              end
           | _ -> fail f.loc "AstC_to_c.apps_to_doc: binary_operators must have two arguments"
@@ -901,7 +994,9 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
         | Prim_new t ->
           (* Here we assume that trm_apps has only one trm as argument *)
           let value = List.hd tl in
-          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
+          let tr_init = decorate_trm value in
+          let init_val = if is_trm_initialization_list value then tr_init else parens (tr_init) in
+          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ init_val
         end
      | _ -> fail f.loc (Printf.sprintf "AstC_to_c.apps_to_doc: only primitive values may be applied %s\n" (Ast_to_text.ast_to_string f))
      end
@@ -953,14 +1048,24 @@ and proc_bind_to_doc (pb : proc_bind) : document =
   | Close -> string "close"
   | Spread -> string "spread"
 
+and dep_to_doc (d : dep) : document =
+  match d with
+  | Dep_var s -> string s
+  | Dep_ptr d -> star ^^ dep_to_doc d
+
 (* [dependence_type_to_doc dp]: OpenMP variable dependence type to pprint document *)
 and dependece_type_to_doc (dp : dependence_type) : document =
   match dp with
-  | In vl -> string "in" ^^ colon ^^ blank 1 ^^ string ( list_to_string ~sep:"," ~bounds: ["";""] vl)
-  | Out vl -> string "out" ^^ colon ^^ blank 1 ^^ string ( list_to_string ~sep:"," ~bounds: ["";""] vl)
-  | Inout vl -> string "inout" ^^ colon ^^ blank 1 ^^ string ( list_to_string ~sep:"," ~bounds: ["";""] vl)
-  | Outin vl -> string "outin" ^^ colon ^^ blank 1 ^^ string ( list_to_string ~sep:"," ~bounds: ["";""] vl)
-  | Sink vl -> string "sink" ^^ colon ^^ blank 1 ^^ string ( list_to_string ~sep:"," ~bounds: ["";""] vl)
+  | In vl -> let vl = List.map dep_to_doc vl in
+    string "depend (in" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
+  | Out vl -> let vl = List.map dep_to_doc vl in
+    string "depend (out" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
+  | Inout vl -> let vl = List.map dep_to_doc vl in
+    string "depend (inout" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~empty ~sep:comma vl) ^^ rparen
+  | Outin vl -> let vl = List.map dep_to_doc vl in
+    string "depend (outin" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
+  | Sink vl -> let vl = List.map dep_to_doc vl in
+    string "depend (sink" ^^ colon ^^ blank 1 ^^ ( list_to_doc ~sep:comma vl) ^^ rparen
   | Source -> string "source"
 
 (* [clause_to_doc cl]: OpenMP clause to pprint document *)
@@ -972,7 +1077,7 @@ and clause_to_doc (cl : clause) : document =
   | FirstPrivate vl -> string "firstprivate" ^^ string ( list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | LastPrivate vl -> string "lastprivate" ^^ string ( list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | Linear (vl, step) -> string "linear" ^^ parens (string ( list_to_string ~sep:"," ~bounds: ["";""] vl)  ^^ if step = 0 then empty else blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int step))
-  | Reduction (ri, vl) -> string "reduction" ^^ parens (reduction_identifier_to_doc ri ^^ colon ^^ string (list_to_string ~sep:"," ~bounds:["";""] vl))
+  | Reduction (ri, vl) -> string "reduction" ^^ parens (reduction_identifier_to_doc ri ^^ colon ^^ (list_to_doc ~sep:comma (List.map string vl)))
   | Copyin vl -> string "copyin" ^^ string ( list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | CopyPrivate vl -> string "copyprivate" ^^ string ( list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | Map_c (mt, vl) -> string "map" ^^ parens (map_type_to_doc mt ^^  blank 1 ^^ string (list_to_string ~sep:"," ~bounds: ["";""] vl))
@@ -997,7 +1102,9 @@ and clause_to_doc (cl : clause) : document =
   | Taskgroup_c -> string "taskgroup"
   | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)
   | Priority i -> string "priority" ^^ parens (string i)
-  | Depend dp -> string "depend" ^^ parens (dependece_type_to_doc dp)
+  | Depend dp ->
+    let dpl = Tools.list_to_doc ~sep:(blank 1) ~empty (List.map dependece_type_to_doc dp) in
+    dpl
   | Grainsize i -> string "grainsize" ^^ parens (string (string_of_int i))
   | Mergeable -> string "mergeable"
   | Nogroup -> string "nogroup"
@@ -1031,46 +1138,46 @@ and directive_to_doc (d : directive) : document =
   | Cancel (c, cl) -> string "cancel" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ list_to_doc ~sep:comma (List.map clause_to_doc cl))
   | Cancellation_point (c, cl) -> string "cancellation" ^^ blank 1 ^^ string "point" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ list_to_doc ~sep:comma (List.map clause_to_doc cl))
   | Critical (name, hint) -> string "critical" ^^ if name = "" then empty else parens (string name) ^^ if hint = "" then empty else (string "hint" ^^ parens (string hint))
-  | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd " ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd " ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Declare_reduction (ri, tvl, e, c) ->  string "declare" ^^ blank 1 ^^ string "simd" ^^ parens (
     reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (list_to_string ~sep:"," ~bounds:["";""] tvl) ^^
     string e ^^ clause_to_doc c)
-  | Declare_target cl -> string "declare" ^^ blank 1 ^^ string "target " ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Distribute cl -> string "distribute" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Distribute_parallel_for cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Declare_target cl -> string "declare" ^^ blank 1 ^^ string "target " ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
+  | Distribute cl -> string "distribute" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
+  | Distribute_parallel_for cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
+  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))
   | Distribute_simd -> string "distribute" ^^ blank 1 ^^ string "simd"
   | End_declare_target -> string "end" ^^ blank 1 ^^ string "declare " ^^ string "target"
   | Flush vl -> string "flush" ^^ string (list_to_string ~sep:"," ~bounds:["(";")"] vl)
-  | For cl -> string "for" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
+  | For cl -> string "for" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) (List.map clause_to_doc cl))
   | For_simd cl -> string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Master -> string "master"
-  | Ordered cl -> string "ordered" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
-  | Parallel  cl -> string "parallel" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
-  | Parallel_for cl -> string "parallel" ^^ blank 1 ^^ string "for " ^^ (list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
+  | Ordered cl -> string "ordered" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) (List.map clause_to_doc cl))
+  | Parallel  cl -> string "parallel" ^^ blank 1 ^^ (list_to_doc ~empty ~sep:(blank 1) (List.map clause_to_doc cl))
+  | Parallel_for cl -> string "parallel" ^^ blank 1 ^^ string "for " ^^ (list_to_doc ~empty ~sep:(blank 1) (List.map clause_to_doc cl))
   | Parallel_for_simd  cl -> string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (list_to_doc ~empty (List.map clause_to_doc cl))
   | Section -> string "section"
   | Sections cl -> string "sections" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Simd cl -> string "simd" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Single cl -> string "single" ^^ blank 1 ^^ (list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Target cl -> string "target" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Target_data cl -> string "target" ^^ blank 1 ^^ string "data"  ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
+  | Simd cl -> string "simd" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
+  | Single cl -> string "single" ^^ blank 1 ^^ (list_to_doc ~empty (List.map clause_to_doc cl))
+  | Target cl -> string "target" ^^ blank 1 ^^ (list_to_doc ~sep:empty ~empty (List.map clause_to_doc cl))
+  | Target_data cl -> string "target" ^^ blank 1 ^^ string "data"  ^^ blank 1 ^^ (list_to_doc ~sep:empty ~empty (List.map clause_to_doc cl))
   | Target_enter_data  cl -> string "target" ^^ blank 1 ^^ string "enter" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Target_exit_data  cl -> string "target" ^^ blank 1 ^^ string "exit" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (list_to_doc ~sep:empty ~empty (List.map clause_to_doc cl))
   | Target_teams_distribute cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Task cl -> string "task" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:empty ~empty (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc ~sep:empty(List.map clause_to_doc cl))
+  | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc ~sep:empty (List.map clause_to_doc cl))
+  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (list_to_doc ~sep:empty ~empty (List.map clause_to_doc cl))
+  | Task cl -> string "task" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Taskgroup -> string "taskgroup"
-  | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Taskloop_simd cl -> string "taskloop" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
-  | Taskwait -> string "taskwait"
+  | Taskwait cl -> string "taskwait" ^^ blank 1 ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Taskyield -> string "taskyield"
-  | Teams cl -> string "teams" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
+  | Teams cl -> string "teams" ^^ blank 1 ^^ (list_to_doc ~sep:empty (List.map clause_to_doc cl))
   | Teams_distribute cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
   | Teams_distribute_end cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "end" ^^ (list_to_doc (List.map clause_to_doc cl))
   | Teams_distribute_parallel_for cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (list_to_doc (List.map clause_to_doc cl))
@@ -1081,9 +1188,9 @@ and directive_to_doc (d : directive) : document =
 and routine_to_doc (r : omp_routine) : document =
   match r with
   | Set_num_threads i -> string "omp_set_num_threads" ^^ parens (string (string_of_int i)) ^^ semi
-  | Get_num_threads -> string "omp_get_num_threads" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
+  | Get_num_threads -> string "omp_get_num_threads" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_max_threads -> string "omp_get_max_threads" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
-  | Get_thread_num  -> string "omp_get_thread_num" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
+  | Get_thread_num  -> string "omp_get_thread_num" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_num_procs  -> string "omp_get_num_procs" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
   | In_parallel  -> string "omp_in_parallel" ^^ lparen ^^ blank 1 ^^ rparen ^^ semi
   | Set_dynamic i -> string "omp_set_dynamic" ^^ parens (string (string_of_int i)) ^^ semi
@@ -1114,7 +1221,7 @@ and routine_to_doc (r : omp_routine) : document =
   | Destroy_nest_lock lck -> string "omp_destroy_nest_lock" ^^ parens (ampersand ^^ string lck)
   | Set_lock lck-> string "omp_set_lock" ^^ parens (ampersand ^^ string lck)
   | Set_nest_lock lck -> string "omp_set_nest_lock" ^^ parens (ampersand ^^ string lck)
-  | Unset_lock lck ->  string "omp_unset_lock" ^^ parens (ampersand ^^ string lck)
+  | Unset_lock lck ->  string "omp_unset_lock" ^^ parens (ampersand ^^ string lck) ^^ semi
   | Unset_nest_lock lck -> string "omp_unset_nest_lock" ^^ parens (ampersand ^^ string lck)
   | Test_lock lck -> string "omp_test_lock" ^^ parens (ampersand ^^ string lck)
   | Test_nest_lock lck -> string "omp_test_nest_lock" ^^ parens (ampersand ^^ string lck)
@@ -1161,9 +1268,10 @@ and unpack_trm_for ?(loc = None) (l_range : loop_range) (body : trm) : trm =
 
 (* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
     If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)
-let ast_to_doc ?(comment_pragma : bool = false) ?(optitrust_syntax:bool=false) (t : trm) : document =
+let ast_to_doc ?(comment_pragma : bool = false) ?(beautify_mindex : bool = false) ?(optitrust_syntax:bool=false) (t : trm) : document =
   let comment_pragma = false in (* temporary *)
   if comment_pragma then print_commented_pragma := true;
+  print_beautify_mindex := beautify_mindex;
   if optitrust_syntax then print_optitrust_syntax := true;
   let d = decorate_trm t in
   if optitrust_syntax then print_optitrust_syntax := false;
@@ -1171,8 +1279,8 @@ let ast_to_doc ?(comment_pragma : bool = false) ?(optitrust_syntax:bool=false) (
   d
 
 (* [ast_to_outchannel ~comment_pragma ~optitrust_syntax out t]: print ast [t] to an out_channel [out] *)
-let ast_to_outchannel ?(comment_pragma : bool = false) ?(optitrust_syntax:bool=false) (out : out_channel) (t : trm) : unit =
-  ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc ~comment_pragma ~optitrust_syntax t)
+let ast_to_outchannel ?(comment_pragma : bool = false) ?(beautify_mindex : bool = false) ?(optitrust_syntax:bool=false) (out : out_channel) (t : trm) : unit =
+  ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc ~beautify_mindex ~comment_pragma ~optitrust_syntax t)
 
 (* [ast_to_file ~optitrust_syntax filename t]: print ast [t] to file [filename] *)
 let ast_to_file ?(optitrust_syntax:bool=false) (filename : string) (t : trm) : unit =

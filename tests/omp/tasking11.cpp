@@ -2,9 +2,7 @@
 void foo ( )
 {
    int x = 2;
-   {
-      x++;
-   }
+   x++;
    printf("%d\n",x);  // prints 3
 }
 

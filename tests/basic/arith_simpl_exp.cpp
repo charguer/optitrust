@@ -1,10 +1,12 @@
+#include "../../include/optitrust.h"
+
 int f(int x) { return x; }
 
 int g(int x) { return x + 1; }
 
 void simpl_in_depth() {
   int x = g(3 + f(6)) + 2 * g(5);
-  int y = g(3 + f(6)) + 2 * g(5);
+  int y = g(3 + f(6)) + g(5) + g(5);
 }
 
 int main() {
@@ -22,12 +24,13 @@ int main() {
   double x;
   double y;
   double z;
+  x = 2 + 2;
   x = 2 * b;
   x = a + 2 * b - 3 * c - d;
   x = a + a + 2 * b + 1;
   x = 3 + 5. + a + a + 2 * b - 3 * c;
   x = 3 * 5. * a * b * b;
-  x = a / b / b / c / d;
+  x = a / (b * b * c * d);
   y = 3;
   y = 5 + 3.2 + 5.2;
   y = 2 * a;
@@ -42,12 +45,54 @@ int main() {
   u = a * b + a * c;
   u = a * c + a * d + b * c + b * d;
   u = 5 * a * 2 * b + 5 * a * 3 * c + 5 * a * 4 * d;
-  v = c / (d * d) / e;
+  v = c / (d * d * e);
   v = b * c;
   v = a + d;
   v = d;
   v = d;
   v = a + c;
   w = a + a * 3 + f(b * f(c + c) / b);
+  int ls;
+  ls = x + 2;
+  ls = x;
+  for (int ls2 = 2; ls2 < 12; ls2++) {
+    ls = 10;
+  }
+  int n, m, p, q;
+  q = exact_div(10, 2);
+  q = m;
+  q = n;
+  q = exact_div(n, (m * p));
+  q = exact_div(n, p);
+  q = n;
+  q = n * 4 * 32;
+  q = exact_div((n * m * 4 * 32), 4);
+  q = n / (m * p);
+  q = m;
+  q = m;
+  q = m / n;
+  q = m;
+  q = m;
+  q = m / n;
+  q = m / n;
+  q = m / (n * n);
+  q = n * m / p;
+  q = n / m * m;
+  q = n;
+  int ci;
+  ci = 10;
+  ci = 4 + n + n;
+  ci = 5;
+  ci = 4;
+  ci = 1;
+  ci = 2;
+  ci = 0;
+  ci = 11;
+  double cd;
+  cd = 10.4;
+  cd = 10.6 + a + a;
+  cd = 5.5;
+  cd = 5.;
+  cd = 0.584893048128;
   return 0;
 }

@@ -18,6 +18,11 @@ let add_between (m : mark) (tg : Target.target) : unit =
 let remove (m : mark) : Target.Transfo.t =
   Target.apply_on_targets (Marks_core.remove m)
 
+let remove_between (m : mark) : Target.Transfo.t =
+  Target.apply (fun t p ->
+    let (p_seq, _) = Path.last_dir_before_inv_success p in
+    Path.apply_on_path (trm_rem_mark_between m) t p_seq)
+
 (* [clean tg]: cleans all the marks from the trm that corresponds to target [tg]. *)
 let clean : Target.Transfo.t =
   Target.apply_on_targets (Marks_core.clean)

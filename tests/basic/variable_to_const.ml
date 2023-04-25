@@ -30,6 +30,8 @@ let _ = Run.script_cpp (fun _ ->
   (*!! Variable_basic.simpl_deref ~indepth:true [cVarDef "r"];*)
   !! Variable_basic.to_const [cVarDef "r"];
   
+  !! Variable_basic.to_const [cVarDef "f"];
+  !! Variable_basic.to_const [cVarDef "g"];
 )
 
 (* Note: recall that currently const references are not supported,

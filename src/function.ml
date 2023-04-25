@@ -260,7 +260,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
             Marks.remove my_mark [nbAny; new_target]
         end;
         Marks.remove my_mark [nbAny; new_target];
-        Struct_basic.simpl_proj (target_of_path path_to_seq);
+        Record_basic.simpl_proj (target_of_path path_to_seq);
 
       )
         in

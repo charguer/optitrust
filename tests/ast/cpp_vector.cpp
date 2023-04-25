@@ -105,11 +105,12 @@ private:
 
 
 // Constructors/Destructor
-/* template<class T>
+template<class T>
 Vector<T>::Vector()
 	:_size(0), _elements(0), _space(0)
-{} */
+{}
 
+// TODO: Fix this.
 template<class T>
 inline Vector<T>::Vector(int s)
 	:_size(s), _elements(new T[s], _space(s))
@@ -118,13 +119,13 @@ inline Vector<T>::Vector(int s)
 		_elements[index] = T();
 }
 
-// template<class T>
-// inline Vector<T>::Vector(const Vector & arg)
-// 	:_size(arg._size), _elements(new T[arg._size])
-// {
-// 	for (int index = 0; index < arg._size; ++index)
-// 		_elements[index] = arg._elements[index];
-// }
+template<class T>
+inline Vector<T>::Vector(const Vector & arg)
+	:_size(arg._size), _elements(new T[arg._size])
+{
+	for (int index = 0; index < arg._size; ++index)
+		_elements[index] = arg._elements[index];
+}
 
 template<class T>
 inline Vector<T>& Vector<T>::operator=(const Vector<T>& a)

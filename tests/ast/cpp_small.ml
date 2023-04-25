@@ -7,6 +7,8 @@ let _ = Flags.set_dump_clang_ast()
 
 let _ = Flags.use_light_diff := false
 
+let _ = Flags.dump_ast_details := true
+
 let _ = Run.script_cpp (fun () ->
   (* Trace.reparse(); *)
   ()

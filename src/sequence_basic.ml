@@ -1,6 +1,31 @@
 open Ast
 open Target
 
+
+(* ==========TODO: replace the old one*)
+
+
+(* [new_insert_on code t index]: inserts trm [code] at index [index] in sequence [t],
+    [code] - instruction to be added as an arbitrary trm,
+    [t] - ast of the outer sequence where the insertion will be performed,
+    [index] - a valid index where the instruction can be added *)
+let new_insert_on (code : trm) (t : trm) (index : int) : trm =
+  let error = "Sequence_core.insert_aux: expected the sequence on where insertion is performed." in
+  let tl = trm_inv ~error trm_seq_inv t in
+  let new_tl = Mlist.insert_at index code tl in
+  trm_seq ~annot:t.annot new_tl
+
+(* [insert ~reparse code tg]: expects the target [tg] to point at a relative position(in between two instructoins),
+     [code] - the instruction that is going to be added, provided by the user as an arbitrary trm. *)
+let new_insert ?(reparse : bool = false) (code : trm) : Target.Transfo.t =
+  Target.reparse_after ~reparse (
+    Target.apply_at_target_paths_before (new_insert_on code))
+
+
+  (*==========*)
+
+
+
 (* [insert ~reparse code tg]: expects the target [tg] to point at a relative position(in between two instructoins),
      [code] - the instruction that is going to be added, provided by the user as an arbitrary trm. *)
 let insert ?(reparse : bool = false) (code : trm) : Target.Transfo.t =
@@ -101,10 +126,11 @@ let elim (tg : Target.target) : unit =
         used only for internal purposes.
     [mark] - denotes the mark of the sub-sequence. Targeting sequences can be challanging hence having
           them marked before can make the apllication of the transformations easier. *)
-let intro_on_instr ?(mark : mark = "") ?(visible : bool = true) : Target.Transfo.t =
+let intro_on_instr ?(mark : mark = "")
+                   ?(label : label = "")
+                   ?(visible : bool = true) : Target.Transfo.t =
    if not visible then Internal.nobrace_enter();
-   Target.apply_on_targets (Sequence_core.intro_on_instr visible mark)
-
+   Target.apply_on_targets (Sequence_core.intro_on_instr visible mark label)
 
 (* [elim_on_instr tg]: expects the target [tg] to point at a sequence that contains a single instruction,
     then it removes that sequence. *)

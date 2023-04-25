@@ -1,5 +1,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
+#include <assert.h>
+#include <string.h>
+
+int MINDEX0() {
+  return 0;
+}
 
 int MINDEX1(int N1, int i1) {
   return i1;
@@ -31,6 +37,10 @@ void* CALLOC3(int N1, int N2, int N3, size_t bytes_per_item) {
 
 void* CALLOC4(int N1, int N2, int N3, int N4, size_t bytes_per_item) {
   return calloc(N1 * N2 * N3 * N4, bytes_per_item);
+}
+
+void* MALLOC0(size_t bytes_per_item) {
+  return malloc(bytes_per_item);
 }
 
 void* MALLOC1(int N1, size_t bytes_per_item) {
@@ -67,3 +77,6 @@ void MFREE2(int N1, int N2, void* p) {
 
 int ANY(int maxValue) { return 0; }
 
+int exact_div(int n, int b) {
+  return n / b;
+}

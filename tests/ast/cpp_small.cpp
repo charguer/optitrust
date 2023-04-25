@@ -2,7 +2,6 @@
 class test_static_class {
 
 private:
-
   // "static" is a trm_annot
   static int foo(int x) {
      return x;
@@ -26,7 +25,7 @@ private:
 public:
 
   
-  void move(int d) {
+  void move_this(int d) {
      this->x += d;
   }
   
@@ -136,12 +135,59 @@ class Inject {
 
 };
 
+class Test {
+    int x;
+  public:
+    Test();
+    Test(int x);
+    int get();
+    void set(int y);
+
+
+};
+
+Test :: Test(int y){}
+
+Test :: Test(){
+   x = 0;
+}
+
+int Test :: get(){
+  return x;
+}
+
+void Test :: set(int y){
+  x = y;
+}
+
+class A {
+  int a;
+  int b;
+
+ public:
+  A(int i) { a = i; }
+  A(int i, int j) { a = i; }
+  A(int i, int j, int k) { a = i; }
+};
+
 int main() {
   Box<int, bool> b;
   update<int, bool> (&b,1,true);
-  update<int, bool> (&b,1,true);
 
-  Box2 b1;
-  b1.update1(1, true);
+  Box<float, bool> b1;
+  update<float, bool> (&b1,1.,true);
+
+  Box2 b2;
+  b2.update1(1, true);
+
+
+  Test t(10);
+  t.set(10);
+  int y = t.get();
+
+  A x1(1);
+  A y1(1, 2);
+  A z1(1, 2, 3);
+
   return 0;
 }

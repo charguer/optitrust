@@ -36,13 +36,13 @@ let fold ?(at : target = []) : Target.Transfo.t =
 
      NOTE: the targeted variable must be a const variable. *)
 let unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : Target.target = []) : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Variable_core.unfold false accept_functions mark at i t p)
+  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+    (fun t (p, p_local, i) -> Variable_core.unfold false accept_functions mark at i p_local t p)
 
 (* [inline]: similar to [unfold] but this one deletes the targeted declaration. *)
-let inline ?(mark : mark = "") ?(accept_functions : bool = true) : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p, i) -> Variable_core.unfold true accept_functions mark [] i t p)
+let inline ?(mark : mark = "") ?(accept_functions : bool = false) : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+    (fun t (p, p_local, i) -> Variable_core.unfold true accept_functions mark [] i p_local t p)
 
 (* [rename ~into tg]: expects the target [tg] to be pointing at a declaration, then it will
     rename its declaration and all its occurrences. *)
@@ -157,15 +157,20 @@ let subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Targe
       with name [fresh_name] just before the instruction that contains the target [tg], and replace the targeted trm with an occurrence
       of the variable [fresh_name].
       [const] - if true the binded variable will be immutable, otherwise mutable,
-      [mark] - mark used for marking the targeted trm,
+      [mark_let] - an optional mark for the created instruction
+      [mark_occ] - an optional mark for the introduced occurrences
+      [mark_body] - mark used for marking the body of the targeted trm,
       [typ] - type of the binded variable, needed when the type can't be deducted from the targeted trm,
       [fresh_name] - name of the binded variable. *)
-let bind ?(const : bool = false) ?(mark : mark = "") ?(is_ptr : bool = false) ?(typ : typ option = None) (fresh_name : var) (tg : target) : unit =
-  Internal.nobrace_remove_after ( fun _ ->
+      (* LATER: document the behavior of ${occ} in the case [tg] aims at multiple targets *)
+      (* LATER: document the [îs_ptr] and explain why it is needed *)
+      (* LATER: it seems that a mark is introduced and not eliminated *)
+let bind ?(const : bool = false) ?(mark_let = None) ?(mark_occ = None) ?(mark_body : mark = "") ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option = None) (fresh_name : var) (tg : target) : unit =
+  Internal.nobrace_remove_after ~remove:remove_nobrace ( fun _ ->
     Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
-      Variable_core.bind mark i fresh_name const is_ptr typ p_local t p) tg
+      Variable_core.bind mark_let mark_occ mark_body i fresh_name const is_ptr typ p_local t p) tg;
   )
 
 (* [to_const tg]: expects the target [tg] to be point at a variable declaration, then it will search inside

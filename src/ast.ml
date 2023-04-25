@@ -1,3 +1,6 @@
+(* for debugging *)
+let printf = Printf.printf
+
 (* [pos]: record used to represent a specific location inside the code *)
 type pos = {
     pos_line : int;
@@ -30,6 +33,9 @@ type styp = string
 
 (* [var]: variable *)
 type var = string
+
+(* [Var_set]: a set module used for storing variables *)
+module Var_set = Set.Make(String)
 
 (* [vars]: variables, a list of elements of type variable *)
 type vars = var list
@@ -201,7 +207,6 @@ and typdef_body =
   | Typdef_alias of typ   (* for abbreviations, e.g. [type 'a t = ('a * 'a)
                           list] or [typdef vect t] *)
   | Typdef_record of record_fields
-  (* | Typdef_record of bool * (label * typ) list  *)
     (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
   | Typdef_sum of (constrname * typ) list (* for algebraic definitions / enum,
                                              e.g. [type 'a t = A | B of 'a] *)
@@ -249,6 +254,7 @@ and binary_op =
   | Binop_mul           (* a * b *)
   | Binop_mod           (* a % b *)
   | Binop_div           (* a / b *)
+  | Binop_exact_div     (* a / b with a % b = 0 *)
   | Binop_le            (* a <= b *)
   | Binop_lt            (* a < b *)
   | Binop_ge            (* a >= b *)
@@ -260,6 +266,10 @@ and binary_op =
   | Binop_shiftl        (* a >> k*)
   | Binop_shiftr        (* a << k *)
   | Binop_xor           (* a ^ b *)
+  (* LATER: add types to operations wherever relevant *)
+  (* TODO: not coherent to use a grammar of binary_op for certain ops, and use conventional functions for others, eg. fmod *)
+  (* | Binop_fmod          (* floatting point modulo, LATER: merge with mod when annotated with type *) *)
+
 
 (* [consistency_mode]: C++ memory model consistency *)
 and consistency_mode =
@@ -301,30 +311,93 @@ and value =
 
 (* [cstyle_annot]: annotations used for encodings and decodings. *)
 and cstyle_annot =
+
+  (* distinguish [p->f] vs [( *p ).f], represented as [get(access(p,f)],
+     with an annotation carried by the [get] operation *)
   | Display_no_arrow
+
+  (* [ for (int i = 0; ; i++) ]  vs [for (int i = 0; true; i++)],
+     the latter form is used in the encoding. *)
   | Empty_cond      (* used for loops with empty conditions *)
+
+  (* [inline] meta-information on a C-function *)
   | Fun_inline
+
+  (* describe a sequence that does not impose a scope;
+     LATER: maybe refine this notion *)
   | No_braces of int (* LATER: Add another category *)
+
+  (* [int x, y]  encoded as [{ int x; int y}] with an annotation
+     on this special kind of no-scope block *)
   | Multi_decl      (* annotation for encoding mutiple one line declarations *)
+
+  (* DEPRECATED *)
   | Postfix_set     (* annotates all x++ and x-- unary operations aswrite operations *)
+
+  (* [int& x = 3]  encoded as  [let x : ( int* ) = ref 3] in the internal AST *)
   | Reference
+
+  (* annotation to distinguish [int x = 3]  vs [int* const x = ref 3]
+     because the two have the same encoding in the internal AST.
+     annotation is carried by the Trm_let. *) (* LATER: is the type also annotation? *)
   | Stackvar
+
+  (* distinguish between class vs struct *)
   | Is_struct
+
+  (*  [typedef struct node { int item; struct node* p } node; ]
+      this flag [Is_rec_struct] indicates whether to reprint the type at the front. *)
   | Is_rec_struct
+
+  (* distinguish between class vs struct -- seems redundant with is_struct *)
   | Is_class
+
+
+  (* [static] meta-information on a C-function *)
   | Static_fun
+
+  (* syntax [x.f(a)] vs [f(x,a)] because we encode "this" object as first argument *)
+  (* LATER: beware when refering to the "nth" argument *)
   | Method_call
+
+  (* syntax [x] where [x] is a class field instead of [this->x],
+     which is the encoding in OptiTrust *)
   | Implicit_this (* Direct access to a class member. *)
+
+  (* call to a polymorphic function   [f<int>(x)]
+      where definition is [template<typename T> f(T x) { return x }] *)
+  (* LATER: keep track of whether the user has written it explicitly;
+     ---would be needed in particular when the return type is generic *)
   | Typ_arguments of typ list  (* <int, float> , type arguments used for template specializations. *)
+
+  (* Automatically-synthesized constructors *)
   | Implicit_constructor
   | Explicit_constructor
   | Default_constructor
-  | Const_method  (* const methods *)
+
+  (* [const] meta-information on a C++ method, to indicate that the object is not modified *)
+  | Const_method
+
+  (*  [class foo {  int x;  foo() : x(3) { bla} }] is encoded as
+     [class foo {  int x; foo() { x = 3; bla  }], where [x=3] is tagged as Constructed_init
+     LATER: verify.  *)
   | Constructed_init (* objects initialized with a constructor. *)
+
+  (* LATER: document *)
   | Class_constructor of constructor_kind
   | Class_destructor of destructor_kind
   | Member_initializer
+
+  (* LATER: what use? *)
   | Redundant_decl
+
+  (* used for int[2] = { 3, 4 }, the trm_array is annotated with [Brace_init] *)
+  | Brace_init
+
+  | Clang_cursor of Clang.cxcursor
+
+  (* tag for printing [NULL] instead of [nullptr] *)
+  | Display_null_uppercase
 
 (* [constructor_kind]: special annotation for constructors *)
 and constructor_kind =
@@ -359,6 +432,7 @@ and trm_annot = {
     trm_annot_cstyle : cstyle_annot list;
     trm_annot_files : files_annot list;
   }
+  (* LATER: use a smartconstruct for trm_annot with optional arguments *)
 
 (* [attribute]: trm attributes *)
 and attribute =
@@ -402,9 +476,8 @@ and trm_desc =
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
-  | Trm_let_mult of varkind * typ * var list * trm list (* int a, b = 3, c; ONLY FOR RAW AST! *)
+  | Trm_let_mult of varkind * typed_vars * trm list
   | Trm_let_fun of qvar * typ * typed_vars * trm
-  | Trm_let_record of string * record_type * (label * typ) list * trm
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm (* if (x > 0) {x += 1} else{x -= 1} *)
   | Trm_seq of trm mlist      (* { st1; st2; st3 } *)
@@ -440,7 +513,6 @@ and trm_desc =
   | Trm_template of template_parameter_list * trm (* templates *)
   | Trm_using_directive of string                 (* using namespace std *)
   | Trm_fun of typed_vars * typ option * trm      (* anonymous functions, [&](int const& x) -> void ({r += x;}) *)
-  | Trm_this                                      (* this pointer. *)
   | Trm_delete of bool * trm                      (* delete t, delete[] t *)
 
 (* [template_param_kind]: parameters kind, typename , empty or another template *)
@@ -506,13 +578,21 @@ and proc_bind =
   | Close
   | Spread
 
+(* [dep]:  *)
+and dep =
+  | Dep_var of var
+  | Dep_ptr of dep
+
+(* [deps]: *)
+and deps = dep list
+
 (* [dependecy_type]: dependency kind *)
 and dependence_type =
-  | In of vars
-  | Out of vars
-  | Inout of vars
-  | Outin of vars
-  | Sink of vars
+  | In of deps
+  | Out of deps
+  | Inout of deps
+  | Outin of deps
+  | Sink of deps
   | Source
 
 (* [clause]: OpenMP clauses *)
@@ -552,7 +632,7 @@ and clause =
   | Taskgroup_c
   | Proc_bind of proc_bind
   | Priority of var
-  | Depend of dependence_type
+  | Depend of dependence_type list
   | Grainsize of int
   | Mergeable
   | Nogroup
@@ -614,7 +694,7 @@ and directive =
   | Taskgroup
   | Taskloop of clause list
   | Taskloop_simd of clause list
-  | Taskwait
+  | Taskwait of clause list
   | Taskyield
   | Teams of clause list
   | Teams_distribute of clause list
@@ -686,114 +766,155 @@ module Trm_map = Map.Make(String)
 (* trm map used for rewrite rules and pattern matching *)
 type tmap = trm Trm_map.t
 
-(* used for defining the type of reordering for struct fields *)
-type reorder =
-  | Reorder_before of string
-  | Reorder_after of string
-  | Reorder_all
+(* [fields_order]: the order should be provided as argument to the transformation [reorder_fields]. *)
+type fields_order =
+  | Move_before of (string * string list)
+  | Move_after of (string * string list)
+  | Reorder_all of var list
 
-(* *************************** Typ Construcors ***************************** *)
-(* [typ_const ~annot ~typ_attributes t]: const type constructor *)
-let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* **************************** Typ constructors *************************** *)
+
+(* [typ_build ~annot ~attributes ~desc ()]: builds typ [ty] with its fields given as arguments. *)
+let typ_build ~(annot : typ_annot list) ?(attributes : attribute list = []) ~(desc : typ_desc) () : typ =
+  let ty = {typ_annot = annot; typ_attributes = attributes; typ_desc = desc} in
+  (* Stats for types? *)
+  ty
+
+(* [typ_make ~annot ~attributes desc]: builds typ [ty] with the type description [desc] and other fields given. *)
+let typ_make ?(annot : typ_annot list = []) ?(attributes = []) (desc : typ_desc) : typ =
+  typ_build ~annot ~attributes ~desc ()
+
+(* [typ_alter ~annot ~attributes ~desc ty]: alters any of the fields of [ty] that was provided as argument. *)
+let typ_alter ?(annot : typ_annot list = []) ?(attributes = []) ?(desc : typ_desc option = None) (ty : typ) : typ =
+  let annot = match annot with [] -> ty.typ_annot |_ -> annot in
+  let attributes = match attributes with | [] -> ty.typ_attributes | _ -> attributes in
+  let desc = match desc with | Some td -> td | None -> ty.typ_desc in
+  typ_build ~annot ~attributes ~desc ()
+
+
+(* [typ_repplace desc]: an alias of [typ_alter] to alter only thet description of the trm [ty]. *)
+let typ_replace (desc : typ_desc) (ty : typ) : typ =
+  typ_alter ~desc:(Some desc) ty
+
+(* [typ_const ~annot ~attributes t]: const type constructor *)
+let typ_const ?(annot : typ_annot list = []) ?(attributes = [])
   (t : typ) : typ =
-  {typ_annot = annot; typ_desc = Typ_const t; typ_attributes}
+  (* DEPRECATED {typ_annot = annot; typ_desc = Typ_const t; typ_attributes} *)
+  typ_make ~annot ~attributes (Typ_const t)
 
-(* [qvar_build qv qp qs]: builds a qvar record with fields qvar_var = [qv], qvar_path = [qp] and qvar_str = [qs]. *)
-let qvar_build (qv : var) (qp : var list) : qvar =
-  let qs =
-    if qp = []
-      then qv
-      else  (Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ "::  " ^ p ) "" qp ) ^ "::" ^ qv
+(* [qvar_build qv qp qs]: builds a qvar record with fields qvar_var = [qvar], qvar_path = [qpath] and qvar_str = [qs]. TODO FIX COMMENT *)
+let qvar_build ?(qpath : var list = []) (qvar : var) : qvar =
+  let qstr =
+    if qpath = []
+      then qvar
+      else  (Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ "::  " ^ p ) "" qpath ) ^ "::" ^ qvar
     in
-  {qvar_var = qv; qvar_path = qp; qvar_str = qs}
+ {qvar_var = qvar; qvar_path = qpath; qvar_str = qstr}
+
+(* [qvar_update ~qpath var qv]: updates [qv] by updating the fields [qvar_var] and [qvar_path] respectively.*)
+let qvar_update ?(qpath : var list = []) ?(var : var = "") (qv : qvar) : qvar =
+  let qpath = if qpath = [] then qv.qvar_path else qpath in
+  let qvar = if var = "" then qv.qvar_var else var in
+  qvar_build ~qpath qvar
 
 (* [empty_qvar]: empty qvar is just a qvar with the string representation being the empty string. *)
 let empty_qvar : qvar =
   {qvar_var = ""; qvar_path = []; qvar_str = ""}
 
-(* [typ_constr ~annot ~typ_attributes ~tid ~tl x]: constructed type constructor *)
-let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_constr ~annot ~attributes ~tid ~tl x]: constructed type constructor *)
+let typ_constr ?(annot : typ_annot list = []) ?(attributes = [])
   ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = []) ?(qpath : var list = [])
   ?(qtypvar : qvar = empty_qvar) (x : typvar) : typ =
-  let qtx = qvar_build x qpath in
+  let qtx = qvar_build x ~qpath in
   let qtx = if qtypvar = empty_qvar then qtx else qtypvar in
-  {typ_annot = annot; typ_desc = Typ_constr (qtx, tid, tl); typ_attributes}
+  (* DEPRECATED {typ_annot = annot; typ_desc = Typ_constr (qtx, tid, tl); typ_attributes} *)
+  typ_make ~annot ~attributes (Typ_constr (qtx, tid, tl))
 
-(* [typ_auto ~annot ~typ_attributes ()]: auto type constructor *)
-let typ_auto ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_auto ; typ_attributes}
+(* [typ_auto ~annot ~attributes ()]: auto type constructor *)
+let typ_auto ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_auto
 
-(* [typ_unit ~annot ~typ_attributes ()]: void type constructor *)
-let typ_unit ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_unit; typ_attributes}
+(* [typ_unit ~annot ~attributes ()]: void type constructor *)
+let typ_unit ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_unit
 
-(* [typ_int ~annot ~typ_attributes ()]: int type constructor *)
-let typ_int ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_int; typ_attributes}
 
-(* [typ_float ~annot ~typ_attributes ()]: float type constructor *)
-let typ_float ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_float; typ_attributes}
+(* [typ_int ~annot ~attributes ()]: int type constructor *)
+let typ_int ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_int
 
-(* [typ_double ~annot ~typ_attributes ()]: double type constructor *)
-let typ_double ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_double; typ_attributes}
+(* [typ_float ~annot ~attributes ()]: float type constructor *)
+let typ_float ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_float
 
-(* [typ_bool ~annot ~typ_attributes ()]: bool type constructor *)
-let typ_bool ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_bool; typ_attributes}
+(* [typ_double ~annot ~attributes ()]: double type constructor *)
+let typ_double ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_double
 
-(* [typ_char ~annot ~typ_attributes ()]: char type constructor *)
-let typ_char ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_char; typ_attributes}
+(* [typ_bool ~annot ~attributes ()]: bool type constructor *)
+let typ_bool ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_bool
 
-(* [typ_string ~annot ~typ_attributes ()]: char type constructor *)
-let typ_string ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
-  {typ_annot = annot; typ_desc = Typ_string; typ_attributes}
+(* [typ_char ~annot ~attributes ()]: char type constructor *)
+let typ_char ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_char
 
-(* [typ_ptr ~annot ~typ_attributes kind t]: pointer type constructor,
+
+(* [typ_string ~annot ~attributes ()]: char type constructor *)
+let typ_string ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
+  typ_make ~annot ~attributes Typ_string
+
+(* [typ_ptr ~annot ~attributes kind t]: pointer type constructor,
    Note: references are considered as pointer types in OptiTrust *)
-let typ_ptr ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  (kind : ptr_kind) (t : typ) : typ = {typ_annot = annot; typ_desc = Typ_ptr
-                                      {ptr_kind = kind; inner_typ = t}; typ_attributes}
+let typ_ptr ?(annot : typ_annot list = []) ?(attributes = [])
+  (kind : ptr_kind) (t : typ) : typ =
+  typ_make ~annot ~attributes (Typ_ptr {ptr_kind = kind; inner_typ = t} )
 
-(* [typ_array ~annot ~typ_attributes t s]: array type constructor *)
-let typ_array ?(annot : typ_annot list = []) ?(typ_attributes = []) (t : typ)
-  (s : size) : typ =
-  {typ_annot = annot; typ_desc = Typ_array (t, s); typ_attributes}
+(* [typ_array ~annot ~attributes t s]: array type constructor *)
+let typ_array ?(annot : typ_annot list = []) ?(attributes = []) (t : typ) (s : size) : typ =
+  typ_make ~annot ~attributes (Typ_array (t, s))
 
-(* [typ_fun ~annot ~typ_attributes args res]: function type constructor *)
-let typ_fun ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_fun ~annot ~attributes args res]: function type constructor *)
+let typ_fun ?(annot : typ_annot list = []) ?(attributes = [])
   (args : typ list) (res : typ) : typ =
-  {typ_annot = annot; typ_desc = Typ_fun (args, res); typ_attributes}
+  typ_make ~annot ~attributes (Typ_fun (args, res) )
 
-(* [typ_record ~annot ~typ_attributes rt name]: record type constructor *)
-let typ_record ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_record ~annot ~attributes rt name]: record type constructor *)
+let typ_record ?(annot : typ_annot list = []) ?(attributes = [])
   (rt : record_type) (name : typ) : typ =
-  {typ_annot = annot; typ_desc = Typ_record (rt, name); typ_attributes}
+  typ_make ~annot ~attributes (Typ_record (rt, name) )
 
-(* [typ_template_param ~annot ~typ_attributes name]: template type constructor *)
-let typ_template_param ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_template_param ~annot ~attributes name]: template type constructor *)
+let typ_template_param ?(annot : typ_annot list = []) ?(attributes = [])
   (name : string) : typ =
-  {typ_annot = annot; typ_desc = Typ_template_param name; typ_attributes}
+  typ_make ~annot ~attributes (Typ_template_param name )
 
 (* [typ_ptr_generated ty]: generated pointer type constructor *)
 let typ_ptr_generated (ty : typ) : typ =
-  typ_ptr ~typ_attributes:[GeneratedTyp] Ptr_kind_mut ty
+  typ_ptr ~attributes:[GeneratedTyp] Ptr_kind_mut ty
 
 (* [typedef_prod ~recursive field_list]: typedef kind constructor *)
 let typdef_record (fields : record_fields) : typdef_body =
   Typdef_record fields
 
-(* [typ_str ~annot ~typ_attributes s] *)
-let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
+(* [typ_str ~annot ~attributes s] *)
+let typ_str ?(annot : typ_annot list = []) ?(attributes = [])
   (s : code_kind) : typ =
-  {typ_annot = annot; typ_desc = Typ_arbitrary s ; typ_attributes}
+  typ_make ~annot ~attributes (Typ_arbitrary s )
 
-(* [typ_decl ~annot ~typ_attributes expr]: type declaration based on an expression. *)
-let typ_decl ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  (expr : trm) =
-  {typ_annot = annot; typ_desc = Typ_decl expr; typ_attributes}
+(* [typ_decl ~annot ~attributes expr]: type declaration based on an expression. *)
+let typ_decl ?(annot : typ_annot list = []) ?(attributes = []) (expr : trm) =
+  typ_make ~annot ~attributes (Typ_decl expr )
+
+(* [typ_ref ~annot ~attributes ty]: alias to typ_ptr Ptr_kind_ref ty *)
+let typ_ref ?(annot : typ_annot list = []) ?(attributes = [])
+  (ty : typ) : typ =
+  typ_ptr ~annot ~attributes Ptr_kind_ref ty
+
+(* [typ_lref ~annot ~attributes ty]: alias to typ_ref (typ_ref ty). *)
+let typ_lref ?(annot : typ_annot list = []) ?(attributes = [])
+  (ty : typ) : typ =
+    typ_ref ~annot ~attributes (typ_ref ty)
 
 (* **************************** Trm constructors *************************** *)
 
@@ -808,17 +929,10 @@ let trm_annot_default = {
   trm_annot_files = [];
 }
 
-(* [trm_build ~annot ~loc ~is_statement ~typ ~ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
-let trm_build ~(annot : trm_annot) ~(loc : location) ~(is_statement : bool) ~(typ : typ option)
-  ~(ctx : ctx option) ~(desc : trm_desc) () : trm =
-  let t = {annot; loc; is_statement; typ; desc; ctx} in
-  Stats.incr_trm_alloc ();
-  t
-
 (* [is_statement_of_desc t_desc]: checks if t_tesc corresponds to a statement or not  *)
 let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
   match t_desc with
-  | Trm_let _ | Trm_let_mult _ | Trm_let_fun _ | Trm_let_record _ | Trm_typedef _ | Trm_if _ | Trm_seq _ | Trm_while _
+  | Trm_let _ | Trm_let_mult _ | Trm_let_fun _ | Trm_typedef _ | Trm_if _ | Trm_seq _ | Trm_while _
   | Trm_do_while _ | Trm_for_c _ | Trm_for _ | Trm_switch _ | Trm_abort _ | Trm_goto _  -> true
   | Trm_apps _ ->
     begin match ty with
@@ -827,6 +941,12 @@ let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
     end
   | _ -> false
 
+(* [trm_build ~annot ~loc ~is_statement ~typ ~ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
+let trm_build ~(annot : trm_annot) ~(loc : location) ~(is_statement : bool) ~(typ : typ option)
+  ~(ctx : ctx option) ~(desc : trm_desc) () : trm =
+  let t = {annot; loc; is_statement; typ; desc; ctx} in
+  Stats.incr_trm_alloc ();
+  t
 
 (* [trm_make ~annot ~loc ~is_statement ~typ ~ctx desc]: builds trm [t] with description [desc] and other fields given
     as default ones. *)
@@ -838,6 +958,7 @@ let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location = None) ?
      | None -> is_statement_of_desc typ desc
      in
    trm_build ~annot ~desc ~loc ~is_statement ~typ ~ctx ()
+
 
 (* [trm_alter ~annot ~loc ~is_statement ~typ ~ctx ~desc t]: alters any of the fields of [t] that was provided as argument. *)
 let trm_alter ?(annot : trm_annot option = None) ?(loc : location option = None) ?(is_statement : bool option = None)
@@ -859,15 +980,53 @@ let trm_alter ?(annot : trm_annot option = None) ?(loc : location option = None)
 let trm_replace (desc : trm_desc) (t : trm) : trm =
   trm_alter ~desc:(Some desc ) t
 
+
+(* **************************** CStyle *************************** *)
+
+(* [trm_get_cstyles t]: returns all cstyle annotations of trm [t]. *)
+let trm_get_cstyles (t : trm) : cstyle_annot list =
+  t.annot.trm_annot_cstyle
+
+(* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)
+let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
+  let t_annot_cstyle = f (trm_get_cstyles t) in
+  let t_annot = {t.annot with trm_annot_cstyle=t_annot_cstyle} in
+  trm_alter ~annot:(Some t_annot) t
+
+(* [trm_add_cstyle cs t]: adds [cs] cstyle annotation to trm [t]. *)
+let trm_add_cstyle (cs : cstyle_annot) (t : trm) : trm =
+  apply_on_cstyles (fun cstyles -> cs :: cstyles) t
+
+(* [trm_filter_cstyle pred t]: filters all the pragmas that satisfy the predicate [pred]. *)
+let trm_filter_cstyle (pred : cstyle_annot -> bool) (t : trm) : trm =
+  apply_on_cstyles (fun cstyles -> List.filter (fun cs -> pred cs) cstyles) t
+
+(* [trm_rem_cstyle cs t]: removes the cstyle_annot annotation [cs] from trm [t]. *)
+let trm_rem_cstyle (cs : cstyle_annot) (t : trm) : trm =
+  trm_filter_cstyle (fun cs1 -> cs <> cs1) t
+
+(* [trm_has_cstyle cs t]: checks if [t] has the [cs] cstyle annotation. *)
+let trm_has_cstyle (cs : cstyle_annot) (t : trm) : bool =
+  let cstyles = trm_get_cstyles t in
+  List.mem cs cstyles
+
+(* [annot_has_cstyle cs t_ann]: checks if [cs] is constained in [t_ann]. *)
+let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
+  let cstyles = t_ann.trm_annot_cstyle in
+  List.mem cs cstyles
+
+
+(* **************************** Smart constructors *************************** *)
+
+
 (* [trm_val ~annot ~loc ~typ ~ctx y]: value *)
 let trm_val ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (v : value) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_val v)
 
-
 (* [trm_var ~annot ~loc ~typ ~ctx ~kind x]: variable occurrence *)
 let trm_var ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None)
   ?(kind : varkind = Var_mutable) ?(qpath : var list = []) ?(qvar : qvar = empty_qvar) (x : var) : trm =
-  let qx = qvar_build x qpath in
+  let qx = qvar_build x ~qpath in
   let qx = if qvar = empty_qvar then qx else qvar in
   trm_make ~annot ~loc ~typ ~ctx (Trm_var (kind, qx))
 
@@ -888,13 +1047,13 @@ let trm_let ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None
 
 (* [trm_let ~annot ~loc ~ctx kind ty vl tl]: multiple variable declarations *)
 let trm_let_mult ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (kind : varkind)
-   (ty : typ) (vl : var list) (tl : trms) : trm =
-  trm_make ~annot ~loc ~typ:(Some (typ_unit ())) ~ctx (Trm_let_mult (kind, ty, vl, tl))
+   (tvl : typed_vars) (tl : trms) : trm =
+  trm_make ~annot ~loc ~typ:(Some (typ_unit ())) ~ctx (Trm_let_mult (kind, tvl, tl))
 
 (* [trm_let ~annot ~loc ~ctx name ret_typ args body]: function definition *)
 let trm_let_fun ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) ?(qpath : var list = [])
   ?(qvar : qvar = empty_qvar) (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
-  let qname = qvar_build name qpath in
+  let qname = qvar_build name ~qpath in
   let qname = if qvar = empty_qvar then qname else qvar in
   trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_let_fun (qname, ret_typ, args, body))
 
@@ -978,11 +1137,6 @@ let trm_namespace ?(annot = trm_annot_default) ?(loc = None) ?(typ=None) ?(ctx :
   (name : string) (t : trm ) (inline : bool) : trm =
   trm_make ~annot ~loc ~typ ~ctx (Trm_namespace (name, t, inline))
 
-(* [trm_let_record ~loc ~ctx name rt lt t]: rectod declaration and definition *)
-let trm_let_record ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
-  (name : string) (rt : record_type ) (lt : (label * typ) list) (t : trm) : trm =
-  trm_make ~annot ~loc ~typ:(Some (typ_unit())) ~ctx (Trm_let_record (name, rt, lt, t))
-
 (* [trm_template ~loc ~typ ~ctx tpl t]: template statemented *)
 let trm_template ?(annot = trm_annot_default) ?(loc = None) ?(typ=None) ?(ctx : ctx option = None)
   (tpl : template_parameter_list) (t : trm ) : trm =
@@ -995,17 +1149,13 @@ let trm_using_directive ?(annot = trm_annot_default) ?(loc = None) ?(typ = None)
 
 (* [trm_this ~annot ~loc ~typ ~ctx ()]: this pointer. *)
 let trm_this ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) () =
-  trm_make ~annot ~loc ~typ ~ctx (Trm_this)
+  trm_make ~annot ~loc ~typ ~ctx (Trm_var (Var_immutable, qvar_build "this" ))
 
 (* [trm_delete ~annot ~loc ~typ ~ctx is_array_form t]: delete operator  *)
 let trm_delete ?(annot = trm_annot_default) ?(loc = None) ?(typ = None) ?(ctx : ctx option = None) (is_array_form : bool) (t : trm) =
   trm_make ~annot ~loc ~typ ~ctx (Trm_delete (is_array_form, t))
 
 (* ********************************** Auxiliary functions ************************************ *)
-
-(* [trm_null ~annot ~loc ~ctx ()]: NULL or void* *)
-let trm_null ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =
-  trm_val ~annot ~loc ~ctx  (Val_ptr 0)
 
 (* [trm_unop ~annot ~loc ~ctx p]: unary operator *)
 let trm_unop ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (p : unary_op) : trm =
@@ -1030,10 +1180,31 @@ let typ_of_lit (l : lit) : typ option =
   | Lit_string _ -> Some (typ_string ())
   | Lit_nullptr -> Some (typ_unit ())
 
-
 (* [trm_lit ~annot ~loc ~ctx l]: literal *)
 let trm_lit ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (l : lit) : trm =
   trm_val ~annot:annot ~loc ~ctx ~typ:(typ_of_lit l) (Val_lit l)
+
+let trm_unit ?(loc = None) () : trm =
+  trm_lit ~loc (Lit_unit)
+let trm_bool ?(loc = None) (b : bool) =
+  trm_lit ~loc (Lit_bool b)
+let trm_int ?(loc = None) (i : int) =
+  trm_lit ~loc (Lit_int i)
+let trm_double ?(loc = None) (d : float) =
+  trm_lit ~loc (Lit_double d)
+let trm_sring ?(loc = None) (s : string) =
+  trm_lit ~loc (Lit_string s)
+
+(* [trm_null ~annot ~loc ~ctx ()]: build the term [nullptr], or [NULL] if [~uppercase:true]
+   (also used for [void* 0] by Menhir, but decoded in cMenhir_to_ast)  *)
+let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =
+  (* DEPRECATED trm_val ~annot ~loc ~ctx  (Val_ptr 0) *)
+  let t = trm_lit ~loc ~ctx Lit_nullptr in
+  if uppercase then trm_add_cstyle Display_null_uppercase t else t
+
+(* [trm_free]: build a term calling the 'free' function. *)
+let trm_free ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (memory : trm) : trm =
+  trm_apps (trm_var "free") [memory]
 
 (* [trm_prim ~annot ~loc ~ctx p]: primitives *)
 let trm_prim ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None) (p : prim) : trm =
@@ -1063,6 +1234,12 @@ let typ_ref_inv (ty : typ) : typ option =
 let typ_ptr_inv (ty : typ) : typ option =
   match ty.typ_desc with
   | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} -> Some ty1
+  | _ -> None
+
+(* [typ_const_ptr_inv ty]: get the inner type of a constant pointer *)
+let typ_const_ptr_inv (ty : typ) : typ option =
+  match ty.typ_desc with
+  | Typ_const ty2 -> typ_ptr_inv ty2
   | _ -> None
 
 (* [typ_add_attribute att ty]: adds the attribute [att] to the type [ty] *)
@@ -1095,6 +1272,10 @@ let fail (loc : location) (err : string) : 'a =
   | None -> raise (TransfoError err)
   | Some _ -> raise (TransfoError (loc_to_string loc ^ " : " ^ err))
 
+let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
+  try f () with
+  | TransfoError msg2 -> assert (msg = msg2)
+
 (* ********************************** Annotation manipulation ************************************ *)
 (**** Attributes  ****)
 
@@ -1120,6 +1301,11 @@ let apply_on_marks (f : marks -> marks) (t : trm) : trm =
 let trm_add_mark (m : mark) (t : trm) : trm =
   if m = "" then t else apply_on_marks (fun marks -> m :: marks) t
 
+let trm_may_add_mark (mo : mark option) (t : trm) : trm =
+  match mo with
+  | Some m -> trm_add_mark m t
+  | None -> t
+
 (* [trm_filter_mark m t]: filters all marks that satisfy the predicate [pred]. *)
 let trm_filter_mark (pred : mark -> bool) (t : trm): trm =
   apply_on_marks (fun marks -> List.filter (fun m -> pred m) marks) t
@@ -1143,7 +1329,7 @@ let trm_remove_marks (t : trm) : trm =
   (* In the case of sequences, special treatment is needed for in between marks*)
   | Trm_seq tl -> trm_replace (Trm_seq {items = tl.items; marks = []}) t
   | _ -> t in
-  trm_filter_mark (fun _ -> true) res
+  trm_filter_mark (fun _ -> false) res
 
 (* [trm_rem_mark_between m t]: removes the between mark [m] from trm [t] *)
 let trm_rem_mark_between (m : mark) (t : trm) : trm =
@@ -1233,6 +1419,9 @@ let apply_on_pragmas (f : cpragma list -> cpragma list) (t : trm) : trm =
 let trm_add_pragma (p : cpragma) (t : trm) : trm =
   apply_on_pragmas (fun pragmas -> p :: pragmas) t
 
+let trm_add_pragmas (p : cpragma list) (t : trm) : trm =
+  apply_on_pragmas (fun pragmas -> p @ pragmas) t
+
 (* [trm_filter_pragma pred t]: filters all the pragmas that satisfy the predicate [pred]. *)
 let trm_filter_pragma (pred : cpragma -> bool) (t : trm) : trm =
   apply_on_pragmas (fun pragmas -> List.filter (fun p -> pred p) pragmas) t
@@ -1256,41 +1445,6 @@ let trm_pass_pragmas (t1 : trm) (t2 : trm) : trm =
   let t2_pragmas = trm_get_pragmas t2 in
   let t2_annot = {t2.annot with trm_annot_pragma = t1_pragmas @ t2_pragmas} in
   {t2 with annot = t2_annot}
-
-(**** CStyle  ****)
-
-(* [trm_get_cstyles t]: returns all cstyle annotations of trm [t]. *)
-let trm_get_cstyles (t : trm) : cstyle_annot list =
-  t.annot.trm_annot_cstyle
-
-(* [apply_on_cstyles f t]: applies [f] on the cstyme encodings of [t]. *)
-let apply_on_cstyles (f : cstyle_annot list -> cstyle_annot list) (t : trm) : trm =
-  let t_annot_cstyle = f (trm_get_cstyles t) in
-  let t_annot = {t.annot with trm_annot_cstyle=t_annot_cstyle} in
-  trm_alter ~annot:(Some t_annot) t
-
-(* [trm_add_cstyle cs t]: adds [cs] cstyle annotation to trm [t]. *)
-let trm_add_cstyle (cs : cstyle_annot) (t : trm) : trm =
-  apply_on_cstyles (fun cstyles -> cs :: cstyles) t
-
-(* [trm_filter_cstyle pred t]: filters all the pragmas that satisfy the predicate [pred]. *)
-let trm_filter_cstyle (pred : cstyle_annot -> bool) (t : trm) : trm =
-  apply_on_cstyles (fun cstyles -> List.filter (fun cs -> pred cs) cstyles) t
-
-(* [trm_rem_cstyle cs t]: removes the cstyle_annot annotation [cs] from trm [t]. *)
-let trm_rem_cstyle (cs : cstyle_annot) (t : trm) : trm =
-  trm_filter_cstyle (fun cs1 -> cs <> cs1) t
-
-(* [trm_has_cstyle cs t]: checks if [t] has the [cs] cstyle annotation. *)
-let trm_has_cstyle (cs : cstyle_annot) (t : trm) : bool =
-  let cstyles = trm_get_cstyles t in
-  List.mem cs cstyles
-
-
-(* [annot_has_cstyle cs t_ann]: checks if [cs] is constained in [t_ann]. *)
-let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
-  let cstyles = t_ann.trm_annot_cstyle in
-  List.mem cs cstyles
 
 (**** Files  ****)
 
@@ -1346,7 +1500,6 @@ let trm_prim_inv (t : trm) : prim option =
   | Trm_val (Val_prim p) -> Some p
   | _ -> None
 
-
 (* [trm_lit_inv t]: gets the literal from a literal trm *)
 let trm_lit_inv (t : trm) : lit option =
   match t.desc with
@@ -1399,6 +1552,16 @@ let trm_var_inv (t : trm) : (varkind * var) option =
   | Trm_var (vk, x) -> Some (vk, x.qvar_var)
   | _ -> None
 
+(* [trm_free_inv]: deconstructs a 'free(x)' call. *)
+let trm_free_inv (t : trm) : trm option =
+  match trm_apps_inv t with
+  | Some (f, [x]) ->
+    begin match trm_var_inv f with
+    | Some (_, f_name) when f_name = "free" -> Some x
+    | _ -> None
+    end
+  | _ -> None
+
 (* [trm_if_inv t]: returns the components of a [trm_if] constructor when [t] is an if statement.
     Otherwise it returns [None]. *)
 let trm_if_inv (t : trm) : (trm * trm * trm) option =
@@ -1412,6 +1575,32 @@ let trm_typedef_inv (t : trm) : typedef option =
   | Trm_typedef td -> Some td
   | _ -> None
 
+(* [trm_unop_inv t]: deconstructs t = op t1 *)
+let trm_unop_inv (t : trm) : (unary_op * trm) option =
+  match trm_apps_inv t with
+  | Some (f, args) -> begin
+    match (trm_prim_inv f, args) with
+    | Some (Prim_unop op), [a] -> Some (op, a)
+    | _ -> None
+    end
+  | _ -> None
+
+let trm_cast_inv (t : trm) : (typ * trm) option =
+  match trm_unop_inv t with
+  | Some (Unop_cast ty, t2) -> Some (ty, t2)
+  | _ -> None
+
+let trm_get_inv (t : trm) : trm option =
+  match trm_unop_inv t with
+  | Some (Unop_get, t2) -> Some t2
+  | _ -> None
+
+let trm_var_get_inv (t : trm) : (varkind * var) option =
+  match trm_get_inv t with
+  | Some t2 -> trm_var_inv t2
+  | None -> None
+  
+(* DEPRECATED because REDUNDANT
 (* [trm_int n]: converts an integer to trm *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)
 
@@ -1424,6 +1613,7 @@ let trm_double (d : float) : trm = trm_lit (Lit_double d)
 
 (* [trm_bool b]: converts an integer to an ast node *)
 let trm_bool (b : bool) : trm = trm_lit (Lit_bool b)
+*)
 
 (* [trm_prod_inv t]: gets a the list of factors involved in a multiplication*)
 let trm_prod_inv (t : trm) : trm list =
@@ -1432,6 +1622,14 @@ let trm_prod_inv (t : trm) : trm list =
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_mul))); _}, [l; r]) -> (aux true acc l) @ (aux true acc r)
     | _ -> if indepth then acc @ [t] else acc
   in aux false [] t
+
+(* [trm_mlist_inv_marks t] gets the description of marks in a term that
+   contains a MList, for example [Trm_seq], [Trm_array], or [Trm_record]. *)
+let trm_mlist_inv (t : trm) : mark list list option =
+  match t.desc with
+  | Trm_seq tl | Trm_array tl -> Some tl.marks
+  | Trm_record tl -> Some tl.marks
+  | _ -> None
 
 (* [get_mark_index m t]: for relative targets marks are stored on the parent sequence, this function give the index
    that mark m targets to *)
@@ -1590,6 +1788,8 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
      (* return without value, continue, break *)
      | _ -> t
      end
+  | Trm_namespace (name, t, inline) ->
+    trm_namespace ~annot ~loc name (f false t) inline
   | Trm_typedef td ->
     begin match td.typdef_body with
     | Typdef_record rfl ->
@@ -1622,18 +1822,19 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   (* [ret nochange t'] evaluates the condition [nochange]; if is true,
      it returns [t], because [f] has not performed any change on [t];
      else, it returns the new result [t'], which was computed as [f t]. *)
-  let ret nochange t' =
-    if nochange then t else t' in
+    let ret nochange t' =
+      if nochange then t else t' in
 
-  (* [flist tl]: applies [f] to all the elements of a list [tl] *)
-  let flist tl =
-    let tl' = List.map (f false) tl in
-    if List.for_all2 (==) tl tl' then tl else tl'
-   in
-  (* [fmlist]: is like [flist] but for marked lists *)
-  let fmlist is_terminal tl =
-    let tl' = Mlist.map (f is_terminal) tl in
-    if Mlist.for_all2 (==) tl tl' then tl else tl' in
+    (* [flist tl]: applies [f] to all the elements of a list [tl] *)
+    let flist tl =
+      let tl' = List.map (f false) tl in
+      if List.for_all2 (==) tl tl' then tl else tl'
+    in
+    (* [fmlist]: is like [flist] but for marked lists *)
+    let fmlist is_terminal tl =
+      let tl' = Mlist.map (f is_terminal) tl in
+      if Mlist.for_all2 (==) tl tl' then tl else tl' in
+
   match t.desc with
   | Trm_array tl ->
     let tl' = fmlist false tl in
@@ -1674,7 +1875,8 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   | Trm_while (cond, body) ->
     let cond' = f false cond in
     let body' = f false body in
-    trm_while ~annot ~loc cond' body'
+    ret (cond' == cond && body' == body)
+        (trm_while ~annot ~loc cond' body')
   | Trm_for_c (init, cond, step, body) ->
      let init' = f false init in
      let cond' = f false cond in
@@ -1700,7 +1902,10 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
          (trm_switch ~annot ~loc cond' cases')
   | Trm_abort a ->
     begin match a with
-    | Ret (Some t') -> trm_ret ~annot ~loc (Some (f false t'))
+    | Ret (Some t') ->
+        let t'2 = f false t' in
+        ret (t'2 == t')
+            (trm_ret ~annot ~loc (Some t'2))
     | _ -> t
     end
   | _ -> t
@@ -1724,6 +1929,8 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     Mlist.iter (function (_, t) -> f t) tl
   | Trm_let (vk, tv, init) ->
     f init
+  | Trm_let_mult (vk, tvl, tl) ->
+    List.iter f tl
   | Trm_let_fun (f', res, args, body) ->
     f body
   | Trm_if (cond, then_, else_) ->
@@ -1744,6 +1951,8 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
      | Step sp -> f sp
     end;
     f body
+  | Trm_do_while (body, cond) ->
+    f body; f cond
   | Trm_switch (cond, cases) ->
      f cond;
      List.iter (fun (tl, body) -> f body) cases
@@ -1752,20 +1961,39 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     | Ret (Some t') -> f t'
     | _ -> ()
     end
+  | Trm_namespace (name, t, b) ->
+    f t
+  | Trm_delete (is_array, t) ->
+    f t
+  | Trm_typedef td ->
+    begin match td.typdef_body with
+    | Typdef_record rfl ->
+      List.iter (fun (rf, rf_ann) ->
+        match rf with
+        | Record_field_method t1 -> f t1
+        | _ -> ()
+      ) rfl
+    | _ -> ()
+    end
   | _ -> ()
 
+
+(* [is_generated_typ ty]: checks ia a typ is a type used only for optitrust encoding *)
+let is_generated_typ (ty : typ) : bool =
+  List.mem GeneratedTyp ty.typ_attributes
 
 (* [typ_map f ty]: applies f on type ty recursively *)
 let typ_map (f : typ -> typ) (ty : typ) : typ =
   let annot = ty.typ_annot in
-  let typ_attributes = ty.typ_attributes in
+  let attributes = ty.typ_attributes in
   match ty.typ_desc with
-  | Typ_ptr {ptr_kind= pk; inner_typ = ty} -> typ_ptr ~annot ~typ_attributes pk (f ty)
-  | Typ_array (ty, n) -> typ_array ~annot ~typ_attributes (f ty) n
+  | Typ_ptr {ptr_kind= pk; inner_typ = ty} -> typ_ptr ~annot ~attributes pk (f ty)
+  | Typ_array (ty, n) -> typ_array ~annot ~attributes (f ty) n
   | Typ_fun (tyl, ty) ->
-     typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
+     typ_fun ~annot ~attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
   | _ -> ty
+
 
 (* [label_subterms_with_fresh_stringreprids f t]: annotates all the subterms of [t]
    that satisfy the boolean predicate [f] with a fresh string representation identifier.
@@ -1833,12 +2061,8 @@ let decl_name (t : trm) : var option =
 let vars_bound_in_trm_init (t : trm) : var list =
   match t.desc with
   | Trm_let (_, (x,_), _) -> [x]
-  | Trm_let_mult (_, _, vl, _) -> vl
+  | Trm_let_mult (_, tvl, _) -> fst (List.split tvl)
   | _ -> []
-
-(* [is_generated_typ ty]: checks ia a typ is a type used only for optitrust encoding *)
-let is_generated_typ (ty : typ) : bool =
-  List.mem GeneratedTyp ty.typ_attributes
 
 (* [is_null_pointer ty t]: check if t == (void * ) 0 *)
 let is_null_pointer (ty : typ) (t : trm) : bool =
@@ -2108,11 +2332,27 @@ let get_inner_ptr_type (ty : typ) : typ =
   | Typ_ptr {inner_typ = ty1;_} when is_generated_typ ty -> ty1
   | _ -> ty
 
+(* [get_inner_array_type ty]: returns the underlying type of [ty] when [ty] is an array type. *)
+let get_inner_array_type (ty : typ) : typ =
+  match ty.typ_desc with
+  | Typ_array (ty, _) -> ty
+  | _ -> ty
+
+
 (* [get_inner_const_type ty]: gets the underlying type of [ty] when [ty] is a const type *)
 let get_inner_const_type (ty : typ) : typ =
   match ty.typ_desc with
   | Typ_const ty -> ty
   | _ -> ty
+
+(* [get_inner_type ty]: returns the inner type of [ty] when [ty] is a pointer type, const type or an array type. *)
+let get_inner_type (ty : typ) : typ =
+  match ty.typ_desc with
+  | Typ_const ty -> ty
+  | Typ_ptr {inner_typ = ty; _} -> ty
+  | Typ_array (ty, _) -> ty
+  | _ -> ty
+
 
 (* [decl_type t]: returns the type of declaration [t]. *)
 let decl_type (t : trm) : typ option =
@@ -2133,10 +2373,11 @@ let is_reference (ty : typ) : bool =
 let is_typ_const (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_const _ -> true
+  (* | Typ_array (ty, s) -> is_typ_const ty *)
   | _ -> false
 
 (* [tile_bound]: used for loop tiling transformation *)
-type tile_bound = TileBoundMin | TileBoundAnd | TileBoundDivides
+type tile_bound = TileBoundMin | TileBoundAnd | TileDivides
 
 (* [Nobrace]: module for managing nobrace sequences(hidden sequences), these sequence are visible only at the AST level *)
 module Nobrace = struct
@@ -2521,11 +2762,25 @@ let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
   let loop_range_list = aux t in
   if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
 
+let trm_new_inv (t : trm) : (typ * trm) option =
+  match trm_apps_inv t with
+  | Some (f, [v]) ->
+    begin match trm_prim_inv f with
+    | Some (Prim_new ty) -> Some (ty, v)
+    | _ -> None
+    end
+  | _ -> None
+
 (* [is_trm_uninitialized t]: checks if [t] is the body of an uninitialized function or variable *)
 let is_trm_uninitialized (t:trm) : bool =
   match t.desc with
   | Trm_val (Val_lit Lit_uninitialized) -> true
   | _ -> false
+
+let is_trm_new_uninitialized (t : trm) : bool =
+  match trm_new_inv t with
+  | Some (_, v) -> is_trm_uninitialized v
+  | None -> false
 
 exception Unknown_key
 
@@ -2684,7 +2939,7 @@ let trm_struct_access ?(annot = trm_annot_default) ?(typ : typ option = None) (b
   trm_apps ~typ (trm_unop ~annot (Unop_struct_access field)) [base]
 
 (* [trm_struct_get ~annot ~typ base field]: creates a struct_get encoding *)
-let trm_struct_get ?(annot = trm_annot_default) ?(typ : typ option = None)(base : trm) (field : var) : trm =
+let trm_struct_get ?(annot = trm_annot_default) ?(typ : typ option = None) (base : trm) (field : var) : trm =
   trm_apps ~typ (trm_unop ~annot (Unop_struct_get field)) [base]
 
 (* [trm_array_access~annot ~typ base index]: creates array_access(base, index) encoding *)
@@ -2723,6 +2978,10 @@ let trm_new (ty : typ) (t : trm) : trm =
 let trm_any_bool : trm =
   trm_apps (trm_var "ANY_BOOL") []
 
+(* [trm_minus ~loc ~ctx ~typ t]: generates -t *)
+let trm_minus ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_minus) [t]
+
 (* [trm_eq ~loc ~ctx ~typ t1 t2]: generates t1 = t2 *)
 let trm_eq ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx  Binop_eq) [t1; t2]
@@ -2739,6 +2998,20 @@ let trm_sub ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t
 let trm_add ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_add) [t1; t2]
 
+(* [trm_binop_inv t]: deconstructs t = t1 op t2 *)
+let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =
+  match trm_apps_inv t with
+  | Some (f, args) -> begin
+    match (trm_prim_inv f, args) with
+    | Some (Prim_binop op'), [a; b] when op = op' -> Some (a, b)
+    | _ -> None
+    end
+  | _ -> None
+
+(* [trm_add_inv t1 t2]: deconstructs t = t1 + t2 *)
+let trm_add_inv (t : trm) : (trm * trm) option  =
+  trm_binop_inv Binop_add t
+
 (* [trm_mul t1 t2]: generates t1 * t2 *)
 let trm_mul ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mul) [t1; t2]
@@ -2746,6 +3019,10 @@ let trm_mul ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t
 (* [trm_div t1 t2]: generates t1 / t2 *)
 let trm_div ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_div) [t1; t2]
+
+(* [trm_exact_div t1 t2]: generates exact_div(t1, t2) *)
+let trm_exact_div ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_exact_div) [t1; t2]
 
 (* [trm_le t1 t2]: generates t1 <= t2 *)
 let trm_le ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
@@ -2800,6 +3077,11 @@ let trm_shiftr ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm)
 (* [trm_mod t1 t2]: generates t1 % t2*)
 let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [t1;t2]
+
+(* LATER [trm_fmod t1 t2]: generates fmod(t1, t2)
+let trm_fmod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_fmod) [t1;t2]
+*)
 
 (* [trm_xor t1 t2]: generates t1 ^ t2 *)
 let trm_xor ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
@@ -2913,7 +3195,7 @@ let trm_simplify_addressof_and_get (t : trm) : trm =
   | _ -> t
 
 (* [simpl_struct_get_get t]: transform struct_get (get(t1), f) to get(struct_access (t1, f)) *)
-let simpl_struct_get_get (t : trm) : trm =
+let simpl_struct_get_get (t : trm) : trm = (* DEPRECATED? *)
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)));_} as op, [t1]) ->
     begin match t1.desc with
@@ -2924,7 +3206,7 @@ let simpl_struct_get_get (t : trm) : trm =
   | _ -> t
 
 (* [simpl_array_get t]: tranform array_get (get(t1), index) to get(array_access (t1), index) *)
-let rec simpl_array_get_get (t : trm) : trm =
+let rec simpl_array_get_get (t : trm) : trm = (* DEPRECATED? *)
   let aux = simpl_array_get_get in
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_get)));_} as op, [base; index]) ->
@@ -2940,6 +3222,18 @@ let rec simpl_array_get_get (t : trm) : trm =
 let array_access (base : trm) (index : trm) : trm =
   trm_apps (trm_binop Binop_array_access) [base; index]
 
+let array_access_inv (t : trm) : (trm * trm) option =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_},
+              [base;index]) -> Some (base, index)
+  | _ -> None
+
+let array_get_inv (t : trm) : (trm * trm) option =
+  match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get));_},
+              [base;index]) -> Some (base, index)
+  | _ -> None
+
 (* [get_array_access base index]: generates get(array_access (base, index)) *)
 let get_array_access (base : trm) (index : trm) : trm =
   trm_get (array_access base index)
@@ -2949,10 +3243,7 @@ let get_array_access (base : trm) (index : trm) : trm =
 let get_array_access_inv (t : trm) : (trm * trm) option =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [arg]) ->
-    begin match arg.desc with
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access));_}, [base;index]) -> Some (base, index)
-    | _ -> None
-    end
+    array_access_inv arg
   | _ -> None
 
 (* [struct_access base index]: generates struct_access (base, index) *)
@@ -2999,6 +3290,7 @@ let get_struct_access_inv_some (t : trm) : (trm * field) =
   | None -> assert false
   | Some r -> r
 
+
 (* [set_struct_access_inv t]: if [t] is a write on a struct access, then return the base, the field of that access
     and the value that has been assigned to; else None *)
 let set_struct_access_inv (t : trm) : (trm * field * trm) option =
@@ -3010,10 +3302,29 @@ let set_struct_access_inv (t : trm) : (trm * field * trm) option =
    end
   | _ -> None
 
-(* [set_struct_access_inv t]: if [t] is a write on a struct access, then return the base, the field of that access
-    and the value that has been assigned to *)
+(* [set_struct_access_inv t]: if [t] is a write operation on a struct field, then it will return the base, the field and the
+     value that has been assigned to.  *)
 let set_struct_access_inv_some (t : trm) : (trm * field * trm) =
   match set_struct_access_inv t with
+  | None -> assert false
+  | Some r -> r
+
+
+(* [set_struct_get_inv t]: if [t] is a write operation on a struct field, then it will return the base, the field and the
+     value that has been assigned to.  *)
+let set_struct_get_inv (t : trm) : (trm * field * trm) option =
+  match t.desc with
+  | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
+    begin match struct_get_inv lhs with
+    | Some (base, f) -> Some (base, f, rhs)
+    | _ -> None
+    end
+  | _ -> None
+
+
+(* [set_struct_get_inv_some t]: similar to [set_struct_get_inv] but this one fails if [t] is not a write on a struct_get operation.  *)
+let set_struct_get_inv_some (t : trm) : (trm * field * trm) =
+  match set_struct_get_inv t with
   | None -> assert false
   | Some r -> r
 
@@ -3136,3 +3447,67 @@ let filter_out_from_seq (f : trm -> bool) (t : trm) : (trm * trms)  =
 (* [is_class_constructor t] checks if [t] is a class constructor declaration or definition. *)
 let is_class_constructor (t : trm) : bool =
   List.exists (function  | Class_constructor _ -> true | _ -> false) (trm_get_cstyles t)
+
+(* [is_typ_array ty]: checks if [ty] is of type array. *)
+let is_typ_array (ty : typ) : bool =
+  match ty.typ_desc with
+  | Typ_array _ -> true
+  | _ -> false
+
+(* [is_trm_record t]: checks if [t] has [Trm_record] or [Trm_array] description or not. *)
+let is_trm_record (t : trm) : bool =
+  match t.desc with
+  | Trm_record _ | Trm_array _ -> true | _ -> false
+
+
+(* [is_return t]: checks if [t] is a return statement. *)
+let is_return (t : trm) : bool =
+  match t.desc with
+  | Trm_abort (Ret _) -> true | _ -> false
+
+(* [is_trm_abort t]: checks if [t] has [Trm_abort abort] description. *)
+let is_trm_abort (t: trm) : bool =
+  match t.desc with
+  | Trm_abort _ -> true | _ -> false
+
+(* [is_trm_initialization_list] *)
+let is_trm_initialization_list (t : trm) : bool =
+  match t.desc with
+  | Trm_array _ | Trm_record _ -> true
+  | _ -> false
+
+(* [has_empty_body t]: checks if the function [t] has an empty body or not. *)
+let has_empty_body (t : trm) : bool =
+  match t.desc with
+  | Trm_let_fun (_, _, _, body) when is_trm_uninitialized body -> true
+  | _ -> false
+
+(* ========== matrix helpers =========== *)
+
+(* [mindex dims indices]: builds a call to the macro MINDEX(dims, indices)
+    [dims] - dimensions of the matrix access,
+    [indices ] - indices of the matrix access.
+
+     Example:
+     MINDEXN(N1,N2,N3,i1,i2,i3) = i1 * N2 * N3 + i2 * N3 + i3
+     Here, dims = [N1, N2, N3] and indices = [i1, i2, i3]. *)
+let mindex (dims : trms) (indices : trms) : trm =
+  if List.length dims <> List.length indices then fail None "Matrix_core.mindex: the number of
+      dimension should correspond to the number of indices";
+  let n = List.length dims in
+  let mindex = "MINDEX" ^ (string_of_int n) in
+  trm_apps (trm_var mindex) (dims @ indices)
+
+(* [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t]/ *)
+let mindex_inv (t : trm) : (trms * trms) option =
+  match t.desc with
+  | Trm_apps (f, dims_and_indices) ->
+    begin match f.desc with
+    | Trm_var (_, f_name) when (Tools.pattern_matches "MINDEX" f_name.qvar_var) ->
+      let n = List.length dims_and_indices in
+      if (n mod 2 = 0) then
+        Some (Xlist.split_at (n/2) dims_and_indices)
+      else None
+    | _ -> None
+    end
+  | _ -> None

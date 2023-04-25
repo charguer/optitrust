@@ -4,11 +4,25 @@ void f(int j) {
   s -= j;
 }
 
-int main() {
+void test_fun() {
   int i = 1;
   int s = 0;
   s += 2 * i;
   s -= i;
-
-  return 0;
 }
+
+class X {
+  int x;
+
+ public:
+  int f_X(int y) { return x + y; }
+};
+
+void test_method() {
+  int a = 1;
+  X b;
+  int c;
+  c = b.x + a;
+}
+
+int main() {}

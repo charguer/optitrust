@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-  
+
   !! Arith_basic.(simpl gather) [cVarInit "a"];
   !! Arith_basic.(simpl gather) [cVarInit "b"];
   !! Arith_basic.(simpl gather) [cVarInit "c"];
@@ -28,7 +28,14 @@ int main() {
 
 
 let _ = Run.script_cpp (fun _ ->
-  
+  (* TODO: split this files into one file for each type of simplification *)
+  (* TODO: figure out when
+     WARNING: trm_to_naive_expr: missing type information for binary division, assuming double
+     appears, and whether we can rebuild the type information *)
+
+  !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "ci"; dRHS];
+  !! Arith_basic.(simpl compute) [nbMulti; cWriteVar "cd"; dRHS];
+
   (* !! Arith_basic.simplify ~indepth:true [dRoot]); *) (* Test of all at once: *)
 
   !! Arith_basic.nosimpl [nbMulti; cFunDef "simpl_in_depth"; cVarDef "x"; cFun "g"];
@@ -39,13 +46,19 @@ let _ = Run.script_cpp (fun _ ->
   !! Arith_basic.simplify ~indepth:true [nbMulti; cFunDef "simpl_in_depth"];
 
   !! Arith_basic.(simpl identity) [nbMulti; cWriteVar "x"; dRHS];
-  !! Arith_basic.(simpl normalize) [nbMulti; cWriteVar "x"; dRHS];
+  !! Arith_basic.(simpl normalize) [nbMulti; cWriteVar "x"; dRHS]; (* empty diff *)
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "y"; dRHS];
   !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "z"; dRHS];
   !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "t"; dRHS];
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "u"; dRHS];
   !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "v"; dRHS];
 
+  !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "ls"; dRHS];
+  !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStop];
+  !! Arith_basic.(simpl gather) [nbMulti; cFor "ls2"; dForStart];
+
+  !!! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "q"; dRHS]; (* needs all types to be valid *)
+  (*show [cBinop Binop_exact_div];*)
 )
 
 

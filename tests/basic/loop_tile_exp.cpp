@@ -6,9 +6,9 @@ int main() {
   int s1 = 0;
   int s2 = 0;
   int s3 = 0;
-  for (int bx = 0; bx < 10; bx += 2) {
-    for (int x = bx; x < bx + 2; x++) {
-      s1 += x;
+  for (int bx = 0; bx < exact_div(10, 2); bx++) {
+    for (int x = 0; x < 2; x++) {
+      s1 += bx * 2 + x;
     }
   }
   for (int by = 0; by < 9; by += 2) {
@@ -25,9 +25,9 @@ int main() {
   int t1 = 0;
   int t2 = 0;
   int t3 = 0;
-  for (int bi = 0; bi < 12; bi += 2 * 3) {
-    for (int i = bi; i < bi + 2 * 3; i += 3) {
-      t1 += i;
+  for (int bi = 0; bi < exact_div((12 / 3), 2); bi++) {
+    for (int i = 0; i < 2; i++) {
+      t1 += (bi * 2 + i) * 3;
     }
   }
   for (int bj = 0; bj < 13; bj += 2 * 3) {

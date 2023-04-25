@@ -114,15 +114,15 @@ let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms)
     [arg] - is the name of the argument that's going to be inserted,
     [func] - the name of the new function that's going to be inserted. *)
 let dsp_def ?(arg : var = "res") ?(func : var = "dsp") (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ -> 
+  Internal.nobrace_remove_after (fun _ ->
     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Function_core.dsp_def i arg func t p) tg)
-  
+
 (* [dsp_call ~dsp tg]: expects the target [tg] to point at a function call whose parent trm is a write operation
-    then it will convert that write operation into a a function call.
+    then it will convert that write operation into a function call.
     Let's say that the targeted function call is r = f(x, y);
-    If [dsp] is the empty string, then "f_dsp" will be used as name based on the original name "f".
+    If [dsp] is the empty string, then "f_dsp" will be used as a name based on the original name "f".
     Note: This transformation assumes that dsp_def has been already applied to the definition of the called function. *)
 let dsp_call ?(dsp : var = "") : Transfo.t =
-  apply_on_transformed_targets (Internal.get_parent_path)
+  apply_on_transformed_targets (Path.parent)
     (fun t p -> Function_core.dsp_call dsp t p)

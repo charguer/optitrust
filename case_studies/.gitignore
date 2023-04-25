@@ -1,0 +1,3 @@
+# should these ignores be in tests/ as well?
+*_trace.*
+tmp_*
