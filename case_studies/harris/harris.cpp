@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include "../../include/optitrust.h"
 
+// TODO: this should be added by OptiTrust tiling
+inline int min(int a, int b) { return a < b ? a : b; }
+
 // NOTE: need to decide if 'in' has 3 or 4 channels (alpha)
 void grayscale(float* out,
                int h, int w,
