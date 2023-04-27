@@ -174,7 +174,7 @@ let stop () : unit =
  *)
 let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : string list = []) ?(inline : string list = [])
   ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(parser : Parsers.cparser = Default) (f : unit -> unit) : unit =
-    Clflags.prepro_options := prepro;
+    Compcert_parser.Clflags.prepro_options := prepro;
     let saved_parser = Parsers.get_selected() in
     Parsers.select_if_not_default parser;
     Target.show_next_id_reset();

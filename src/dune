@@ -2,12 +2,11 @@
   (name optitrust)
   (public_name optitrust)
 
-  (libraries menhirLib clangml refl pprint str base64)
-  (modes byte native)
-  (modules_without_implementation parse))
+  (libraries compcert_parser clangml refl pprint str base64)
+  (modes byte native))
 
 (include_subdirs unqualified)
 
 (env
   (dev
-    (flags (:standard -warn-error -16-67-69 -w -27-32-33-34-9))))
+    (flags (:standard -warn-error -69 -w -9-27-32-33))))

@@ -9,7 +9,7 @@ all:
 
 # requires root access -- can use another absolute path if needed
 COMPCERT_STDLIB_DIR_DST=/usr/local/lib/compcert
-COMPCERT_STDLIB_DIR_SRC=./src/cparser/include
+COMPCERT_STDLIB_DIR_SRC=./src/c/compcert_parser/include
 
 install_compcert_stdlib:
 	install -d $(COMPCERT_STDLIB_DIR_DST)
@@ -36,9 +36,8 @@ show_install:
 #   type: #show "Run";;
 #   type: exit 0;;
 
-test:
+tests:
 	./tester
-
 
 clean:
 	dune clean
@@ -57,4 +56,4 @@ md: $(PDFS)
 artifact: sc_artifact.pdf
 
 
-.PHONY: all install install_compcert_stdlib uninstall show_install test clean watch md artifact
+.PHONY: all install install_compcert_stdlib uninstall show_install tests clean watch md artifact

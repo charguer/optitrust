@@ -1,6 +1,6 @@
 open! Ast
 open Tools
-
+open Compcert_parser
 
 (* [loc_of_node cloc ]: transforms a C.location into Ast.location
 

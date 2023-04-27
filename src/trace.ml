@@ -163,7 +163,7 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
       let parse_clang () =
         Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename) in
       let parse_menhir () =
-        CMenhir_to_astRawC.tr_ast (MenhirC.parse_c_file_without_includes filename) in
+        CMenhir_to_astRawC.tr_ast (Compcert_parser.MenhirC.parse_c_file_without_includes filename) in
       let rawAst = match parser with
         | Parsers.Default -> assert false (* see def of parser; !dParsers.default_cparser should not be Default *)
         | Parsers.Clang -> parse_clang()

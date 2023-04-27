@@ -1,0 +1,12 @@
+(library
+  (name compcert_parser)
+  (package optitrust)
+  (libraries menhirLib unix str)
+  (modes byte native)
+  (modules_without_implementation parse))
+
+(include_subdirs no)
+
+(env
+  (dev
+    (flags (:standard -w -9-27-32-33-34-67))))
