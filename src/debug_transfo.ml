@@ -19,3 +19,6 @@ let current_ast (msg : string) : unit =
 
 let current_ast_at_path (msg : string) (p : Path.path) : unit =
   trm msg (Path.resolve_path p (Trace.ast ()))
+
+let current_ast_at_target (msg : string) (tg : Target.target) : unit =
+  Target.iter (fun t p -> trm msg (Path.resolve_path p t)) tg

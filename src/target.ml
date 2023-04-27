@@ -870,10 +870,10 @@ let cMalloc ?(d : int option = None) () : constr =
   cFun ~regexp:true ("MALLOC" ^ d)
 
 (* [cMindex ~d]:  match a call to Optitrust MINDEXI where I = d. *)
-let cMindex ?(d : int  = 0) () : constr =
-  let d = if d <> 0 then string_of_int d else "." in
-  cFun ~regexp:true ("MINDEX"^d)
-
+let cMindex ?(d : int option = None) ?(args : targets = []) () : constr =
+  match d with
+  | Some d -> cFun ~args ("MINDEX" ^ (string_of_int d))
+  | None -> cFun ~args ~regexp:true "MINDEX."
 
 (* [cCalloc ~d ()]: matches a call to Optitrust CALLOCI where I = d. *)
 let cCalloc ?(d : int option = None) () : constr =
@@ -1028,9 +1028,9 @@ let cArrayWriteAccess (x : var) : constr =
   cTarget [cWrite (); dLHS; cCellAccess ~base:[cVar x] ()]
 
 (* FIXME: seems weird *)
-let cArrayRead (x : var) : constr =
+let cArrayRead ?(index = []) (x : var) : constr =
   cRead ~addr:[cDiff
-    [[cCellAccess ~base:[cVar x] ()]]
+    [[cCellAccess ~base:[cVar x] ~index ()]]
     [[cArrayWriteAccess x]]] ()
 
 let cPlusEqVar (name : string) : constr =
@@ -1170,11 +1170,13 @@ let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a)
       Printf.printf "==end of kinds==\n";. *)
   let topfuns = Constr.get_target_regexp_topfuns_opt tgs in
   let t2, m = compute_stringreprs ?topfuns:topfuns (Constr.match_regexp_trm_kinds kinds) t in
-  (* FOR DEBUG: AstC_to_c.trm_print_debug t2;*)
-  (* AstC_to_c.print_stringreprs m; for debug. *)
+  (* FOR DEBUG: *)
+  (* AstC_to_c.trm_print_debug t2; *)
+  AstC_to_c.print_stringreprs m;
   let stringreprs = convert_stringreprs_from_documentation_to_string m in
   Constr.stringreprs := Some stringreprs;
   (* for debug Constr.print_stringreprs();*)
+  Constr.print_stringreprs();
   let r = f t2 in
   Constr.stringreprs := None;
   r
