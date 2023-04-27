@@ -3223,14 +3223,6 @@ let get_mutability (t : trm) : varkind option =
   | _ -> None
 
 
-(* [serialize_to_file filename t]: writes a serialized version of the AST [t] into the file [filename] *)
-let serialize_to_file (filename : string) (t : trm) : unit =
-  Xfile.serialize_to_file filename t
-
-(* [unserialize_from_file filename]: reads a serialized AST from the file [filename]. *)
-let unserialize_from_file (filename : string) : trm =
-  Xfile.unserialize_from_file filename
-
 (* [empty_ast]: generates {} *)
 let empty_ast : trm =
   trm_set_mainfile (trm_seq_nomarks [])

@@ -10,34 +10,6 @@ let set_exn_backtrace (b : bool) : unit =
 (* by default, all exceptions are backtraced *)
 let _ = set_exn_backtrace true
 
-(******************************************************************************)
-(*                               Batching Options                                         *)
-(******************************************************************************)
-
-type result = {
-  result_basename : string;
-  result_exec_success : bool;
-  result_diff_success : bool;
-  (* result_error_msg : string *)
-}
-
-type results = result list
-
-let batch_results : results ref = ref []
-
-(* TODO: call in script_cpp depending on following options
-   if AST diff fails, need to dump cpp output
-    *)
-let save_batch_result ~(basename : string) ~(exec_success : bool) ~(diff_success : bool) : unit =
-  let result = {
-    result_basename = basename;
-    result_exec_success = exec_success;
-    result_diff_success = diff_success;
-  } in
-  batch_results := result :: !batch_results
-
-let compare_expected_serialized : bool ref = ref false
-let stop_on_error : bool ref = ref false
 
 (******************************************************************************)
 (*                               Perf                                         *)
@@ -58,27 +30,7 @@ let _ =
 let process_cmdline_args (args : Flags.cmdline_args) : unit =
    Flags.process_cmdline_args ~args ()
 
-(* [script f]: serves as "main" function for an Optitrust script. It cakes care of parsing
-    the command line arguments and handling the errors, in addition to running the function [f] provided. *)
-let script (f : unit -> unit) : unit =
-  Flags.process_cmdline_args();
-  try
-    let stats0 = Stats.get_cur_stats () in
-    f();
-    let stats1 = Stats.get_cur_stats () in
-    if !Flags.analyse_stats
-      then
-        let stats_str = Stats.stats_diff_str stats0 stats1 in
-        Printf.printf "%s\n" stats_str;
-  with | Failure s | Ast.TransfoError s ->
-    Trace.finalize();
-    (* failwith s *)
-    let sbt = Printexc.get_backtrace() in
-    Printf.eprintf "%s\n" sbt;
-    Printf.eprintf "=======\nFailure: %s\n" s;
-    exit 1
-
-(* [generated_source_with_inlined_header_cpp input_file inline output_file]:
+(* [generate_source_with_inlined_header_cpp input_file inline output_file]:
    takes a file [input_file] and produces a file [output_file] obtained by
    inlining in the source the "#include" corresponding to the files listed
    in the list of filenames [inline].
@@ -91,10 +43,7 @@ let script (f : unit -> unit) : unit =
 (* [debug_inline_cpp]: only for debugging purposes *)
 let debug_inline_cpp = false
 
-(* [generated_source_with_inlined_header_cpp input_file inline output_file]: takes the input file [input_file]
-     and finds all the include directives, then its going to inline all those files whose name belongs to
-     in [inline]  *)
-let generated_source_with_inlined_header_cpp (input_file:string) (inline:string list) (output_file:string) : unit =
+let generate_source_with_inlined_header_cpp (input_file:string) (inline:string list) (output_file:string) : unit =
   let s = ref (Xfile.get_contents input_file) in
   let perform_inline finline =
       let include_instr = "#include \"" ^ finline ^ "\"" in
@@ -131,7 +80,7 @@ let generated_source_with_inlined_header_cpp (input_file:string) (inline:string 
 (* [get_program_basename ()]: returns the basename of the current binary program being used.
     It takes care to remove the leading './' and takes care to remove the "with_lines" suffix. *)
 let get_program_basename () : string =
-  Flags.process_program_name();
+  Flags.process_program_name ();
   let basename = Filename.chop_extension (!Flags.program_name) in
   (* remove the "_with_lines" suffix *)
   let suffix = "_with_lines" in
@@ -154,143 +103,157 @@ exception Stop
 let stop () : unit =
   raise Stop
 
-(* [script_cpp ~batching ~filename ~prepro ~inline ~check_exit_at_end ~prefix ~parser f]:
-     is a specialized version of [script f] that:
-   - automatically invokes [Trace.init "foo.cpp"] at start, where "foo" is the basename of
-     the current script named "foo.ml" (alternatively, this name can be specified using the ~filename argument).
-   - automatically invokes [Trace.dump] at the end of the script;
-     (the main output file is named "foo_out.cpp").
+(* [script ~filename ~extension ~batching ~check_exit_at_end ~prefix ~parser f]:
+   serves as "main" function for an Optitrust script. It takes care of parsing
+   the command line arguments, handling the errors, and parsing the file that will be processed,
+   before running the function [f] provided and outputing the results.
+
+   In transformation scripts you should prefer the language specific variants such as
+   [script_cpp].
+
+   It invokes [Trace.init "foo.xxx"] at start, where "foo" is the basename of
+   the current script named "foo.ml" and ".xxx" is the [extension]
+   (alternatively, this name can be specified using the ~filename argument).
+   At the end of the script, it invokes [Trace.dump];
+   (the main output file is named "foo_out.xxx").
+
+   Paths are all relative to the script.
+
+   It takes the following parameters:
    - [~check_exit_at_end:false] is an option for deactivating the implicit call to [Trace.check_exit_and_step()]
-    at the end of the execution of [f] (LATER: will be deprecated)
+      at the end of the execution of [f] (LATER: will be deprecated)
       This flag only has an effect if a [-exit_line] option was passed on the command line.
    - [~prefix:string] allows providing the basename for the output files produced
+   *)
+let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end : bool = true) ?(prefix : string option) ~(parser : Trace.parser) (f : unit -> unit) : unit =
+  Flags.process_cmdline_args ();
+  Target.show_next_id_reset ();
+
+  let default_basename = get_program_basename () in
+  let dirname = Filename.dirname default_basename in
+  let prefix =
+    match prefix with
+    | Some prefix -> Filename.concat dirname prefix
+    | None -> default_basename
+  in
+  let filename =
+    match filename with
+    | Some filename -> Filename.concat dirname filename
+    | None -> default_basename ^ extension
+  in
+
+  (* DEBUG: Printf.printf "script default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)
+
+  let stats_before = Stats.get_cur_stats () in
+
+  (* Set the input file, execute the function [f], dump the results. *)
+  (try
+    Trace.init ~prefix ~parser filename;
+    (try
+      f ()
+    with
+    | Stop -> ()
+    );
+    flush stdout;
+    if check_exit_at_end && Flags.get_exit_line () <> None then
+      Trace.dump_diff_and_exit ();
+    (* TODO:
+          IF ~expected_ast<>"" then load and unserialized expected ast and
+            call trm_cmp and store result in a list ref,
+            and batch.ml calls at the very end Run.batch_postlude
+            which dumps the list contents on stdout and into a file.
+            In this case, we skip trace.dump and other dumps. *)
+    (* Stores the current ast to the end of the history *)
+    Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
+    (* Dump full trace if [-dump-trace] option was provided;
+      in this case, record the last step in the history *)
+    if !Flags.dump_trace || !Flags.analyse_stats then begin
+      Trace.check_exit_and_step ~is_small_step:false ();
+      Stats.report_full_stats ();
+    end;
+    if !Flags.dump_trace then begin
+      Trace.dump_traces_to_js ~prefix ();
+    end;
+    begin match !Flags.dump_big_steps with
+    | None -> ()
+    | Some foldername -> Trace.dump_steps ~onlybig:true ~prefix foldername
+    end;
+    begin match !Flags.dump_small_steps with
+    | None -> ()
+    | Some foldername -> Trace.dump_steps ~prefix foldername
+    end;
+    Trace.finalize ();
+  with e ->
+    Trace.finalize ();
+    raise e
+  );
+
+  let stats_after = Stats.get_cur_stats () in
+  if !Flags.analyse_stats
+    then
+      let stats_str = Stats.stats_diff_str stats_before stats_after in
+      Printf.printf "%s\n" stats_str;
+
+  (* Printf.printf "END  %s\n" basename; *)
+  ()
+
+(* [script_cpp ~filename ~prepro ~inline ~check_exit_at_end ~prefix ~parser f]:
+   is a specialized version of [script f] that parses C/C++ files.
+
+   Its specific options are:
    - [~inline:["foo.cpp";"bar.h"]] allows to perform substitution of "#include" directives
      with the contents of the corresponding files; the substitutions are performed one after
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp".
-     See the specification of [generated_source_with_inlined_header_cpp] for additional features.
-   - [~batching:filename] is a shorthand for [~filename:filename ~prefix:filename] and also it activates
-     the printing of progress for batch mode; this is used by the "make batch" command for unit tests; in batching mode, errors are not fatal.
-   - [~compare_expected_ser]
- *)
-let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : string list = []) ?(inline : string list = [])
-  ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(parser : Parsers.cparser = Default) (f : unit -> unit) : unit =
-    Compcert_parser.Clflags.prepro_options := prepro;
-    let saved_parser = Parsers.get_selected() in
-    Parsers.select_if_not_default parser;
-    Target.show_next_id_reset();
+     See the specification of [generate_source_with_inlined_header_cpp] for additional features.
+   The rest of the options are the same as [script f] *)
+let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string option) ?(parser : Trace.parser option) (f : unit -> unit) : unit =
+  (* Handles preprocessor *)
+  Compcert_parser.Clflags.prepro_options := prepro;
 
-    (* Handles batch mode *)
-    let isbatching = batching <> "" in
-    let filename,prefix =
-      if isbatching then begin
-        Printf.printf "Batch test executing: %s\n" batching;
-        let basename = Filename.chop_extension batching in
-        let prefix = if prefix <> "" then prefix else basename in
-        let filename = if filename <> "" then (Filename.dirname batching) ^ "/" ^ filename else (basename ^ ".cpp") in
-        filename, prefix
-      end else
-        filename, prefix
+  (* Handles on-the-fly inlining *)
+  let filename =
+    match inline with
+    | [] -> filename
+    | _ ->
+      let program_basename = get_program_basename () in
+      let basepath = Filename.dirname program_basename in
+      let filename =
+        match filename with
+        | Some filename -> filename
+        | None -> (Filename.basename program_basename) ^ ".cpp"
       in
+      let basename = Filename.chop_extension filename in
+      let inlinefilename = basename ^ "_inlined.cpp" in
+      let reldir_inline = List.map (fun p -> Filename.concat basepath p) inline in
+      generate_source_with_inlined_header_cpp (Filename.concat basepath filename) reldir_inline (Filename.concat basepath inlinefilename);
+      if debug_inline_cpp then Printf.printf "Generated %s\n" inlinefilename;
+      Some inlinefilename
+  in
 
-    (* Compute the default basename *)
-    let default_basename = get_program_basename() in
-    (* Handles the prefix and the filename *)
-    let prefix =
-      if prefix <> "" then prefix else default_basename in
-    let filename =
-      if filename <> "" then filename else default_basename ^ ".cpp" in
-    (* DEBUG: Printf.printf "script_cpp default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)
-    let dirname = Filename.dirname filename in
+  let parser =
+    match parser with
+    | Some p -> p
+    | None -> CParsers.get_default ()
+  in
 
-    (* Handles on-the-fly inlining *)
-    let input_file =
-      match inline with
-      | [] -> filename
-      | _ ->
-          let basename = Filename.chop_extension filename in
-          let inlinefilename = basename ^ "_inlined.cpp" in
-          let reldir_inline = List.map (fun p -> Filename.concat dirname p) inline in
-          generated_source_with_inlined_header_cpp filename reldir_inline inlinefilename;
-          if debug_inline_cpp then Printf.printf "Generated %s\n" inlinefilename;
-          inlinefilename
-      in
+  script ~parser ?filename ~extension:".cpp" ~check_exit_at_end ?prefix f
 
-    (* Set the input file, execute the function [f], dump the results.
-       Error are fatal, except in batching mode *)
-    script (fun () ->
-      Trace.init ~prefix ~parser input_file;
-      let success = begin
-        try f(); true
-        with
-        | Stop -> (); true
-        | e -> Printf.eprintf "===> Script failed: %s\n" prefix;
-               if not isbatching then raise e;
-               false
-        end in
-      flush stdout;
-      if success then begin
-        if check_exit_at_end && Flags.get_exit_line() <> None
-          then Trace.dump_diff_and_exit ();
-        (* TODO:
-            IF ~expected_ast<>"" then load and unserialized expected ast and
-             call trm_cmp and store result in a list ref,
-             and batch.ml calls at the very end Run.batch_postlude
-             which dumps the list contents on stdout and into a file.
-             In this case, we skip trace.dump and other dumps. *)
-        (* Stores the current ast to the end of the history *)
-        Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
-        (* Dump full trace if [-dump-trace] option was provided;
-          in this case, record the last step in the history *)
-        if !Flags.dump_trace || !Flags.analyse_stats then begin
-          Trace.check_exit_and_step ~is_small_step:false ();
-          Stats.report_full_stats ();
-        end;
-        if !Flags.dump_trace then begin
-          Trace.dump_traces_to_js ~prefix ();
-        end;
-        begin match !Flags.dump_big_steps with
-        | None -> ()
-        | Some foldername-> Trace.dump_steps ~onlybig:true ~prefix foldername
-        end;
-        begin match !Flags.dump_small_steps with
-        | None -> ()
-        | Some foldername-> Trace.dump_steps ~prefix foldername
-        end;
-      end;
-      Trace.finalize();
-    );
-    Parsers.select saved_parser (* restore original parser *)
-    (* Printf.printf "END  %s\n" basename *)
-
-(* [doc_script_cpp ~batching ~parser f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
+(* [doc_script_cpp ~parser f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
     as a string, and stores this contents into [foo_doc.cpp], where [foo.ml] is the name of the current file. It then
-    executes the transformation [f] using [script_cpp ~batching:"foo_doc.ml"]  *)
-let doc_script_cpp ?(batching : string = "") ?(parser : Parsers.cparser = Parsers.Default) (f : unit -> unit) (src : string) : unit =
+    executes the transformation [f] using [script_cpp]  *)
+let doc_script_cpp ?(parser : Trace.parser option) (f : unit -> unit) (src : string) : unit =
   (* Handle names *)
-  let basename =
-    if batching = "" then get_program_basename() else (Filename.chop_extension batching) in
+  let basename = get_program_basename () in
   let docbasename = basename ^ "_doc" in
   let docfilename = docbasename ^ ".cpp" in
-  let batching =
-    if batching = "" then "" else docbasename ^ ".ml" in
+
   (* Special flag to save the diff of the first step *)
   Flags.documentation_save_file_at_first_check := docbasename;
   (* Write the contents of the cpp file; note that it will be overwritten at the first '!!' from the script. *)
   Xfile.put_contents docfilename src;
-  (* Involve [script_cpp] *)
-  if batching <> ""
-    then script_cpp ~batching:batching ~parser ~check_exit_at_end:false f
-    else script_cpp ~prefix:docbasename ~filename:docfilename ~parser ~check_exit_at_end:false f;
+
+  (* Invoke [script_cpp] *)
+  script_cpp ~prefix:(Filename.basename docbasename) ~filename:(Filename.basename docfilename) ?parser ~check_exit_at_end:false f;
+
   Flags.documentation_save_file_at_first_check := ""
 
-(* LATER:   add  script_rust  following script_cpp *)
-
-(* [batch_prelude]: called once at the top of 'batch.ml' generated by 'tester.ml'.
-   *)
-let batch_prelude ~(compare_expected_serialized : bool)
-  ~(stop_on_error : bool) : unit = ()
-  (* TODO: store in refs *)
-
-(* [batch_postlude]: called once at the bottom of 'batch.ml' generated by 'tester.ml'.*)
-let batch_postlude ~(serialized_output_file : string) : unit =
-  Xfile.serialize_to_file serialized_output_file !batch_results

@@ -77,13 +77,13 @@ let append_contents filename str =
   put_contents filename (contents^str)
 
 
-(* [serialize_to_file filename t]: dumps the object [obj] of type 'a into file [filename]. *)
-let serialize_to_file (filename : string) (obj : 'a) : unit =
+(* [serialize_to filename t]: dumps the object [obj] of type 'a into file [filename]. *)
+let serialize_to (filename : string) (obj : 'a) : unit =
   let out_file = open_out filename in
   Marshal.to_channel out_file obj []
 
-(* [unserialize_from_file filename]: reconstructs the object previously dumped in file [filename]. *)
-let unserialize_from_file (filename : string) : 'a =
+(* [unserialize_from filename]: reconstructs the object previously dumped in file [filename]. *)
+let unserialize_from (filename : string) : 'a =
   let in_file = open_in filename in
   Marshal.from_channel in_file
 

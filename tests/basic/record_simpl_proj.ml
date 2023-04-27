@@ -1,8 +1,8 @@
 open Optitrust
 open Target
 
-let _ = Run.doc_script_cpp ~parser:Parsers.Menhir (fun _ ->
-  
+let _ = Run.doc_script_cpp ~parser:CParsers.menhir (fun _ ->
+
   !! Record_basic.simpl_proj [cVarDefs ["a"; "b"]];
 
 )
@@ -18,7 +18,7 @@ int main() {
 }
 "
 
-let _ = Run.script_cpp ~parser:Parsers.Menhir (fun _ ->
+let _ = Run.script_cpp ~parser:CParsers.menhir (fun _ ->
 
   !! Record_basic.simpl_proj [cFunDef "main"];
 

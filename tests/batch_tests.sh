@@ -14,7 +14,9 @@ for file in "$@"
 do
     echo
     # Add a marker to show errors on their original file location
-    echo \# 1 \"$file\"
-    sed "s/script_cpp/script_cpp ~batching:\"${file//\//\\/}\"/;" < ${file}
+    echo "let _ = Batching.run_test ~script_name:\"${file}\" (fun () -> (module struct"
+    echo \# 1 \"${file}\"
+    cat ${file}
+    echo "end))"
 done
 

@@ -83,33 +83,34 @@ let execute_show_even_in_batch_mode : bool ref = ref false
   | Serialized_None: do not read or write any serialized ast, just parse the input file.
   | Serialized_Build: parse the input file, save its serialized ast, exit
   | Serialized_Use: do not parse the input file, simply read the corresponding serialized ast
+  | Serialized_Auto: if the serialized ast is up to date wrt the input file, read the serialized ast,
+                     else parse the input file and save its serialized ast; then continue the execution.
   | Serialized_Make: NOT YET IMPLEMENTED: first call 'make inputfile.ser', assuming the Makefile
                      features a rule for this (invoking the program with the Serialized_Build option,
                      with the appropriate dependencies); then load the serialized file just like
                      Serialized_Use would do, and continue the execution.
-  | Serialized_Auto: if the serialized ast is up to date wrt the input file, read the serialized ast,
-                     else parse the input file and save its serialized ast; then continue the execution. *)
+                     [NOTE: GB: This feature seems really weird, is it worth implementing?] *)
 
-type serialized_mode =
+type serialization_mode =
   | Serialized_None
   | Serialized_Build
   | Serialized_Use
-  | Serialized_Make
   | Serialized_Auto
+(*  | Serialized_Make*)
 
-(* [serialized_mode]: mode of serialization, by default AST is not serialized. *)
-let serialized_mode : serialized_mode ref = ref Serialized_None
+(* [serialization_mode]: mode of serialization, by default AST is not serialized. *)
+let serialization_mode : serialization_mode ref = ref Serialized_None
 
 (* [process_serialized_input mode]: based on the mode the serialized input is going to be processed
     in different ways. *)
 let process_serialized_input (mode : string) : unit =
-  serialized_mode := match mode with
+  serialization_mode := match mode with
   | "none" -> Serialized_None
   | "build" -> Serialized_Build
   | "use" -> Serialized_Use
-  | "make" -> Serialized_Make
   | "auto" -> Serialized_Auto
-  | _ -> Serialized_None
+  | "make" -> failwith "'make' serialization is not implemented"
+  | _ -> failwith "Serialization mode should be 'none', 'build', 'use', 'auto' or 'make'"
 
 (* [exit_line]: option for exiting the program when reaching a '!!' (step) after a specific line number. *)
 let exit_line : int ref = ref max_int
@@ -124,6 +125,9 @@ let get_exit_line () : int option =
    consider big steps ('!^'). *)
 let only_big_steps : bool ref = ref false
 
+(* [c_parser_name]: name of the C parser to use *)
+let c_parser_name : string ref = ref "default"
+
 (* Name of the currently executed transformation script.
    By default it is Sys.argv.(0) but it can be different in case of dynamic loading. *)
 let program_name : string ref = ref ""
@@ -133,6 +137,7 @@ let program_name : string ref = ref ""
 (* [cmdline_args]: a list of possible command line arguments. *)
 type cmdline_args = (string * Arg.spec * string) list
 
+(* LATER: Register options in the module where they are used *)
 (* [spec]: possible command line arguments. *)
 let spec : cmdline_args =
    [ ("-verbose", Arg.Set verbose, " activates debug printing");
@@ -142,17 +147,17 @@ let spec : cmdline_args =
      ("-debug-reparse", Arg.Set debug_reparse, " print on stdout the line number at which each reparse is performed");
      ("-reparse-at-big-steps", Arg.Set reparse_at_big_steps, " force reparsing at every big step (implies -debug-reparse)");
      ("-dump-trace", Arg.Set dump_trace, " produce a JS file with all the steps performed by the transformation script");
-     ("-dump-small-steps", Arg.String set_dump_small_steps, " produce a distinct CPP file for each small step");
-     ("-dump-big-steps", Arg.String set_dump_big_steps, " produce a distinct CPP file for each big step");
+     ("-dump-small-steps", Arg.String set_dump_small_steps, " produce a distinct file for each small step");
+     ("-dump-big-steps", Arg.String set_dump_big_steps, " produce a distinct file for each big step");
      ("-dump-last", Arg.Set_int dump_last, " dump outputs the number of desired last steps; only for interactive mode"); (* DEPRECATED *)
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
      ("-dump-clang-ast", Arg.Unit set_dump_clang_ast, " produce clang_ast.ml with the AST obtained by ClangML");
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
      ("-analyse-stats-details", Arg.Set analyse_stats_details, " produce more details in the file reporting on the execution time (implies -analyse_stats)");
-     ("-serialized-input", Arg.String process_serialized_input, " choose between 'build', 'use', 'make' or 'auto'.");
+     ("-serialized-input", Arg.String process_serialized_input, " choose an input serialization mode between 'build', 'use', 'make' or 'auto'");
      ("-disable-light-diff", Arg.Clear use_light_diff, " disable light diff");
      ("-disable-clang-format", Arg.Clear use_clang_format, " disable beautification using clang-format");
-     ("-cparser", Arg.String Parsers.select_by_string, "specify the parser among 'clang', 'menhir', 'default' and 'all' ");
+     ("-cparser", Arg.Set_string c_parser_name, "specify a C parser among 'default', 'clang', 'menhir', and 'all' ");
      ("-v", Arg.Set verbose_mode, " enable verbose regarding files processed out produced (not fully implemented yet).");
      (* LATER: a -dev flag to activate a combination of dump *)
   ]

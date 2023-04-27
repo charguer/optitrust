@@ -5,7 +5,7 @@ let _ =
   Flags.use_light_diff := false;
   Flags.dump_ast_details := true
 
-let _ = Run.script_cpp ~parser:Parsers.Menhir (fun () ->
+let _ = Run.script_cpp ~parser:CParsers.menhir (fun () ->
   show [cFunDef "f"];
-  !! Trace.reparse ~parser:Parsers.Menhir  ()
+  !! Trace.reparse ~parser:CParsers.menhir  ()
   )

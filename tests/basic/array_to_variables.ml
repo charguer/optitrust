@@ -21,7 +21,7 @@ int main() {
     int t[3] = { 1, 2, 3 };
 *)
 
-let _ = Run.script_cpp ~parser:Parsers.Clang (fun () ->
+let _ = Run.script_cpp ~parser:CParsers.clang (fun () ->
 
   !! Arrays_basic.to_variables ["ua";"ub"] [cVarDef "u"];
   !! Arrays_basic.to_variables ["va";"vb"] [cVarDef "v"];

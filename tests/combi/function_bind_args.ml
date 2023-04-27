@@ -25,7 +25,7 @@ int main(){
 }
 "
 
-let _ = Run.script_cpp ~parser:Parsers.Clang (fun _ ->
+let _ = Run.script_cpp ~parser:CParsers.clang (fun _ ->
 
   !! Function.bind_args ["a";"";"b";""] [cTopFunDef "main"; cFun "g"];
   (* It also works if the function is nested in a deeper context *)

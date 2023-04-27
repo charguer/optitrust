@@ -128,71 +128,19 @@ let id_big_step = ref 0
 (*                             File input                                     *)
 (******************************************************************************)
 
-(* [get_cpp_includes filename]: gets the list of file includes syntactically visible
-   on the first lines of a CPP file -- this implementation is quite restrictive. *)
-let get_cpp_includes (filename : string) : string =
-  (* make sure the include list is clean *)
-  let includes = ref "" in
-  let c_in = open_in filename in
-  try
-    while (true) do
-      let s = input_line c_in in
-      if Str.string_match (Str.regexp "^#include") s 0 then
-        includes := !includes ^ s ^ "\n\n";
-    done;
-    !includes
-  with
-  | End_of_file -> close_in c_in; !includes
+(* A parser should read a filename and return:
+   - A header to copy in the produced file (typically a list of '#include' for C)
+   - The OptiTrust AST of the rest of the file *)
+(* TODO: encode header information in the AST *)
+type parser = string -> string * trm
 
-(* [parse filename]: returns (1) a list of filenames corresponding to the '#include',
-   and the OptiTrust AST. *)
-let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
-  let parser = Parsers.get_selected ~parser () in
-  if !Flags.debug_reparse
-    then Printf.printf "Parsing %s using %s\n" filename (Parsers.string_of_cparser parser);
+(* [parse ~parser filename]:
+   call the parser on the given file while recording statistics *)
+let parse ~(parser: parser) (filename : string) : string * trm =
   print_info None "Parsing %s...\n" filename;
-  let includes = get_cpp_includes filename in
-  let command_line_include =
-    List.map Clang.Command_line.include_directory
-      (Clang.default_include_directories ()) in
-  let command_line_warnings = ["-Wno-parentheses-equality"; "-Wno-c++11-extensions"] in
-  let command_line_args = command_line_warnings @ command_line_include in
-
-  let t =
-    stats ~name:"tr_ast" (fun () ->
-      let parse_clang () =
-        Clang_to_astRawC.tr_ast (Clang.Ast.parse_file ~command_line_args filename) in
-      let parse_menhir () =
-        CMenhir_to_astRawC.tr_ast (Compcert_parser.MenhirC.parse_c_file_without_includes filename) in
-      let rawAst = match parser with
-        | Parsers.Default -> assert false (* see def of parser; !dParsers.default_cparser should not be Default *)
-        | Parsers.Clang -> parse_clang()
-        | Parsers.Menhir -> parse_menhir()
-        | Parsers.All ->
-           let rawAstClang = parse_clang() in
-           let rawAtMenhir = parse_menhir() in
-           let strAstClang = AstC_to_c.ast_to_string rawAstClang in
-           let strAstMenhir = AstC_to_c.ast_to_string rawAtMenhir in
-           if strAstClang <> strAstMenhir then begin
-             (* LATER: we could add a prefix based on the filename, but this is only for debug *)
-             Xfile.put_contents "ast_clang.cpp" strAstClang;
-             Xfile.put_contents "ast_menhir.cpp" strAstMenhir;
-            fail None "Trace.parse: [-cparser all] option detected discrepencies;\n meld ast_clang.cpp ast_menhir.cpp";
-           end else
-           (* If the two ast match, we can use any one of them (only locations might differ); let's use the one from the default parser. *)
-             if Parsers.default_cparser = Parsers.Clang then rawAstClang else rawAtMenhir
-          in
-        if !Flags.bypass_cfeatures
-          then rawAst
-          else Ast_fromto_AstC.cfeatures_elim rawAst
-    )
-  in
-
+  let parsed_file = stats ~name:"tr_ast" (fun () -> parser filename) in
   print_info None "Parsing Done.\n";
-  print_info None "Translating Done...\n";
-
-  print_info None "Translation done.\n";
-  (includes, t)
+  parsed_file
 
 (******************************************************************************)
 (*                             Trace management                               *)
@@ -203,19 +151,21 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
    - the prefix of the filenames in which to output the final result using [dump]
    - the log file to report on the transformation performed. *)
 type context =
-  { extension : string;
+  { parser : parser;
     (* DEPRECATED?
        directory : string; *)
     prefix : string;
-    includes : string;
+    extension : string;
+    header : string;
     clog : out_channel; }
 
 (* [contex_dummy]: used for [trace_dummy]. *)
 let context_dummy : context =
-  { extension = ".cpp";
+  { parser = (fun _ -> failwith "context_dummy has no parser");
     (* directory = ""; *)
     prefix = "";
-    includes = "";
+    extension = "";
+    header = "";
     clog = stdout; }
 
 (* [stepdescr]: description of a script step. *)
@@ -328,25 +278,22 @@ let get_excerpt (line : int) : string =
      [ser_file] - if serialization is used for the initial ast, the filename of the serialized version
                   of the source code is needed
      [filename] - filename of the source code  *)
-let get_initial_ast ?(parser : Parsers.cparser = Parsers.Default) (ser_mode : Flags.serialized_mode) (ser_file : string)
+let get_initial_ast ~(parser : parser) (ser_mode : Flags.serialization_mode) (ser_file : string)
   (filename : string) : (string * trm) =
   (* LATER if ser_mode = Serialized_Make then let _ = Sys.command ("make " ^ ser_file) in (); *)
-  let includes = get_cpp_includes filename in
   let ser_file_exists = Sys.file_exists ser_file in
   let ser_file_more_recent = if (not ser_file_exists) then false else Xfile.is_newer_than ser_file filename in
   let auto_use_ser = (ser_mode = Serialized_Auto && ser_file_more_recent) in
-  if (ser_mode = Serialized_Use
-   || ser_mode = Serialized_Make
-   || auto_use_ser) then begin
+  if (ser_mode = Serialized_Use (* || ser_mode = Serialized_Make *) || auto_use_ser) then (
     if not ser_file_exists
       then fail None "Trace.get_initial_ast: please generate a serialized file first";
     if not ser_file_more_recent
       then fail None (Printf.sprintf "Trace.get_initial_ast: serialized file is out of date with respect to %s\n" filename);
-    let ast = unserialize_from_file ser_file in
+    let ast = Xfile.unserialize_from ser_file in
     if auto_use_ser
       then Printf.printf "Loaded ast from %s.\n" ser_file;
-    (includes, ast)
-    end
+    ast
+  )
   else
     parse ~parser filename
 
@@ -356,7 +303,7 @@ let get_initial_ast ?(parser : Parsers.cparser = Parsers.Default) (ser_mode : Fl
    [~prefix:"foo"] allows to use a custom prefix for all output files,
    instead of the basename of [f]. *)
 (* LATER for mli: val set_init_source : string -> unit *)
-let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (filename : string) : unit =
+let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
   reset ();
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
@@ -372,7 +319,7 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (
       ml_file_excerpts := compute_ml_file_excerpts lines;
     end;
   end;
-  let mode = !Flags.serialized_mode in
+  let mode = !Flags.serialization_mode in
   start_stats := get_cur_stats ();
   last_stats := !start_stats;
 
@@ -380,9 +327,9 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (
   let clog = init_logs prefix in
   let ser_file = basename ^ ".ser" in
 
-  let (includes, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser mode ser_file filename) in
+  let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser mode ser_file filename) in
 
-  let context = { extension; prefix; includes; clog } in
+  let context = { parser; extension; prefix; header; clog } in
   let stepdescr = { isbigstep = None;
                     script = "Result of parsing";
                     exectime = int_of_float(stats_parse.stats_time); } in
@@ -391,7 +338,7 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (
   the_trace.history <- [cur_ast];
   the_trace.stepdescrs <- [stepdescr]; (* TODO: use a function the_trace_set_fields *)
   if mode = Serialized_Build || mode = Serialized_Auto
-    then serialize_to_file ser_file cur_ast;
+    then Xfile.serialize_to ser_file (header, cur_ast);
   if mode = Serialized_Build
     then exit 0;
   print_info None "Starting script execution...\n"
@@ -399,7 +346,7 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (
 (* [finalize()]: should be called at the end of the script, to properly close the log files
     created by the call to [init]. *)
 let finalize () : unit =
-  close_logs()
+  close_logs ()
 
 (* [alternative f]: executes the script [f] in the original state that
    was available just after the call to [init].
@@ -567,24 +514,10 @@ let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (file
       then ignore (Sys.command ("sed -i 's@//#pragma@#pragma@' " ^ filename))
   )
 
-(* [language]: choose the programming language of the source code. *)
-type language = | Language_cpp | Language_rust | Language_ocaml
 
-(* [language_of_extension extension]: based on the extension of a file choose the language *)
-let language_of_extension (extension:string) : language =
-  match extension with
-  | ".cpp" -> Language_cpp
-  | ".rs" -> Language_rust
-  | ".ml" -> Language_ocaml
-  | _ -> fail None ("Trace.language_of_extension: unknown extension " ^ extension)
-
-(* [get_language ()]: get the language *)
-let get_language () : language =
-  language_of_extension the_trace.context.extension
-
-(* [get_language ()]: get the includes directive *)
-let get_includes () : string =
-  the_trace.context.includes
+(* [get_header ()]: get the header of the current file (e.g. include directives) *)
+let get_header () : string =
+  the_trace.context.header
 
 (* [output_prog ctx prefix ast]: writes the program described by the term [ast]
    in several files:
@@ -601,7 +534,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     (*   DEPRECATED
     Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
     (* LATER: try to find a way to put the includes in the AST so we can do simply ast_to_file *)
-    output_string out_prog ctx.includes;
+    output_string out_prog ctx.header;
     let beautify_mindex = beautify && !Flags.pretty_matrix_notation in
     if !Flags.bypass_cfeatures
       then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
@@ -629,7 +562,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
         close_out out_ast;
       end;
       (* print the non-decoded ast *)
-      output_string out_enc ctx.includes;
+      output_string out_enc ctx.header;
       AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_enc ast;
       output_string out_enc "\n";
       close_out out_enc;
@@ -814,7 +747,7 @@ let dump_traces_to_js ?(prefix : string = "") () : unit =
 (******************************************************************************)
 
 (* [reparse_trm ctx ast]: prints [ast] in a temporary file and reparses it using Clang. *)
-let reparse_trm ?(info : string = "") ?(parser = Parsers.Default) (ctx : context) (ast : trm) : trm =
+let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (ast : trm) : trm =
   if !Flags.debug_reparse then begin
     let info = if info <> "" then info else "of a term during the step starting at" in
     Printf.printf "Reparse: %s line %d.\n" info !line_of_last_step;
@@ -823,17 +756,22 @@ let reparse_trm ?(info : string = "") ?(parser = Parsers.Default) (ctx : context
   let in_prefix = (Filename.dirname ctx.prefix) ^ "/tmp_" ^ (Filename.basename ctx.prefix) in
   output_prog ~beautify:false ctx in_prefix ast;
 
+  let parser =
+    match parser with
+    | Some p -> p
+    | None -> ctx.parser
+  in
+
   let (_, t) = parse ~parser (in_prefix ^ ctx.extension) in
   (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
   t
 
-(* [reparse()]: function takes the current AST, prints it to a file, and parses it
+(* [reparse ()]: function takes the current AST, prints it to a file, and parses it
    as if it was a fresh input. Doing so ensures in particular that all the type
    information is properly set up. WARNING: reparsing discards all the marks in the AST. *)
-let reparse ?(info : string = "") ?(parser = Parsers.Default) () : unit =
+let reparse ?(info : string = "") ?(parser: parser option) () : unit =
   let info = if info <> "" then info else "the code during the step starting at" in
-  let parser = Parsers.get_selected ~parser () in
-  the_trace.cur_ast <- reparse_trm ~info ~parser the_trace.context the_trace.cur_ast
+  the_trace.cur_ast <- reparse_trm ~info ?parser the_trace.context the_trace.cur_ast
 
 (* Work-around for a name clash *)
 let reparse_alias = reparse

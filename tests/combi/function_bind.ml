@@ -23,7 +23,7 @@ int main(){
 }
 "
 
-let _ = Run.script_cpp ~parser:Parsers.Clang (fun _ ->
+let _ = Run.script_cpp ~parser:CParsers.clang (fun _ ->
   !! Function.bind ~fresh_name:"r" ~args:["a";"";"b";""] [cFun "g"];
 
   (* default is to not name any of the arguments *)

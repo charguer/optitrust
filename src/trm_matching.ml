@@ -13,6 +13,7 @@ open Ast.AstParser
       (a + k * b) == (b * k + a)
     }
     Then the function returns ["a";"k";"b"] [] ((a + k * b) == (b * k + a)). *)
+(* FIXME: This function is super weird since it parses code in C no matter which language is used in the original file *)
 let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : string) : (typed_vars * typed_vars *trm) =
   let fix_pattern_args (var_decls : string) : string =
   let aux (var_decl : string) : string =
@@ -44,7 +45,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
   let main_fun_str = "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
   if ctx
     then
-      let ast = Target.get_ast() in
+      let ast = Target.get_ast () in
       let ast2 = trm_seq_add_last (stmt main_fun_str) ast in
       let prefix = Filename.remove_extension output_file in
       Trace.output_prog (Trace.get_context ()) prefix ast2;
@@ -52,7 +53,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
     else
       Xfile.put_contents output_file main_fun_str;
 
-  let _, ast_of_file = Trace.parse output_file in
+  let _, ast_of_file = Trace.parse ~parser:(CParsers.get_default ()) output_file in
 
   let defs = trm_main_inv_toplevel_defs ast_of_file in
   if defs = [] then fail ast_of_file.loc "Trm_matching.parse_pattern: couldn't parse pattern";

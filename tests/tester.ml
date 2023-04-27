@@ -286,7 +286,8 @@ let _main : unit =
   with
     Dynlink.Error err -> begin
       let sbt = Printexc.get_backtrace() in
-      failwith (sprintf "batch library error: %s\n%s" (Dynlink.error_message err) sbt);
+      Printf.eprintf "%s\n%s" (Dynlink.error_message err) sbt;
+      exit 1
     end
   end;
 
