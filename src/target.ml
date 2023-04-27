@@ -1170,13 +1170,13 @@ let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a)
       Printf.printf "==end of kinds==\n";. *)
   let topfuns = Constr.get_target_regexp_topfuns_opt tgs in
   let t2, m = compute_stringreprs ?topfuns:topfuns (Constr.match_regexp_trm_kinds kinds) t in
-  (* FOR DEBUG: *)
-  (* AstC_to_c.trm_print_debug t2; *)
-  AstC_to_c.print_stringreprs m;
+  if !Flags.debug_stringreprs then
+    (* AstC_to_c.trm_print_debug t2; *)
+    AstC_to_c.print_stringreprs m;
   let stringreprs = convert_stringreprs_from_documentation_to_string m in
   Constr.stringreprs := Some stringreprs;
-  (* for debug Constr.print_stringreprs();*)
-  Constr.print_stringreprs();
+  if !Flags.debug_stringreprs then
+    Constr.print_stringreprs();
   let r = f t2 in
   Constr.stringreprs := None;
   r

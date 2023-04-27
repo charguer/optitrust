@@ -96,10 +96,29 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "parallelism";
   !! Omp.header ();
+  (* Intel compiler may be better at this:
+    !! Omp.simd [nbMulti; cFor "x"]; *)
   (* TODO:
     !! Omp.parallel_for [cFor "by"]; *)
 
   bigstep "code details";
-  (* Variable.bind_common cArrayRead ["ix"; "iy"] *)
+  (* Debug_transfo.current_ast_at_target "HELLO" [ nbMulti; cArrayRead ~index:[cMindex ~d:(Some 2) ~args:[[]; []; []; [sExpr ~substr:true "x + 0"]] ()] "ix"]; *)
+  (* let bind_gradient name =
+    let bind_one dx dy =
+      (* let regexp = Printf.sprintf "MINDEX2\\(.*, .*, .*, .*\\)" in *)
+      let var = Printf.sprintf "%s%i%i" name dx dy in
+      Variable.bind_multi ~dest:[cFor ~body:[cVarDef "det"] "x"] var [cArrayRead ~index:[sExpr ~substr:true "+ 1"] name];
+    in
+    List.iter (fun dy ->
+      List.iter (fun dx ->
+        bind_one dx dy
+    ) [0;(* 1; 2*)]) [-4;(* -3; -2*)]
+  in
+  *)
+  let bind_gradient name =
+    Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [cArrayRead name]
+  in
+  !!! List.iter bind_gradient ["ix"; "iy"];
+  (* !! Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_ix"] ~fresh_name:"g${occ}" [cArrayRead "gray"]; *)
   !! Matrix.elim_mops [];
 )

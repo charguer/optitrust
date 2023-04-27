@@ -13,3 +13,14 @@ let with_fresh_mark_on (p : path) (f : mark -> unit) : unit =
     add m (target_of_path p);
     f(m)
   )
+
+let with_marks (k : (unit -> mark) -> unit) : unit =
+  let marks_to_remove = ref [] in
+  let next () =
+    let m = Mark.next () in
+    marks_to_remove := m :: !marks_to_remove;
+    m
+  in
+  k(next);
+  (* TODO: Marks.remove_all, would be much more efficient *)
+  List.iter (fun m -> remove m [nbAny; cMark m]) !marks_to_remove
