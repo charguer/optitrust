@@ -130,7 +130,7 @@ val cMalloc : ?d:int option -> unit -> constr
 
 val cCalloc : ?d:int option -> unit -> constr
 
-val cMindex : ?d:int -> unit -> constr
+val cMindex : ?d:int option -> ?args:targets -> unit -> constr
 
 val sInstr : ?substr:bool -> string -> constr
 
@@ -251,7 +251,7 @@ val cPrimFun : ?args:targets -> ?args_pred:target_list_pred -> prim -> constr
 val cPrimFunArith : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
 
 val cBinop : ?lhs:target -> ?rhs: target -> binary_op -> constr
- 
+
 val cPrimNew : ?arg:target -> unit -> constr
 
 val dVarInit : constr
@@ -319,7 +319,7 @@ val cStructInit : constr
 
 val cCell : ?cell_index: int option -> unit -> constr
 
-val cArrayRead : var -> constr
+val cArrayRead : ?index:target -> var -> constr
 
 val cArrayWrite : var -> constr
 

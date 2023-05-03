@@ -5,6 +5,29 @@ open Ast
 let _ = Flags.pretty_matrix_notation := true
 (* let _ = Flags.analyse_stats := true *)
 
+module Function = struct
+  include Function
+
+  (* TODO:
+    - cFuns = cOr ...
+    Function.inline on a definition, finding all calls
+    *)
+  let inline_all (funs : vars) : unit =
+    funs |> List.iter (fun f ->
+      Function.inline ~delete:true [nbMulti; cFun f])
+end
+
+module Variable = struct
+  include Variable
+
+  (* TODO:
+     - cVarDefs = cOr ...
+     - cOrMap cVarDef vars ?
+    *)
+  let inline_all (vars : vars) : unit =
+    vars |> List.iter (fun v -> Variable.inline [cVarDef v])
+end
+
 module Matrix = struct
   include Matrix
 
@@ -17,71 +40,85 @@ module Matrix = struct
     Arrays.elim_accesses [nbMulti; cVarDef name]
 end
 
-module Loop = struct
-  include Loop
+(* keep local *)
+module Image = struct
+  let fuse_loops_with_array_writes ?(nest_of = 1) ~(index : var) (arrays : var list) : unit =
+    let writes = cOr (List.map (fun a -> [cArrayWrite a]) arrays) in
+    Loop.fusion_targets ~nest_of [nbMulti; cFor ~body:[writes] index]
 
-  let align_stop_extend_start (index : var) ~(start : trm) ~(stop : trm) : unit =
-    Loop.shift ~reparse:true (StopAt stop) [nbMulti; cFor index];
+  let loop_align_stop_extend_start (index : var) ~(start : trm) ~(stop : trm) : unit =
+    Loop.shift (StopAt stop) [nbMulti; cFor index];
     Loop.extend_range ~start:(ExtendTo start) [nbMulti; cFor index];
+    (* TODO: transfo to remove useless if inside a for *)
 end
 
 let _ = Run.script_cpp (fun () ->
-  (*
-(* FIXME: duplicates even with suffix *)
-!! ["conv3x3"; "sobelX"; "sobelY"; (* "binomial"; *) "mul"; "coarsity"] |>  List.iter (fun fun_to_inline ->
-  Function.inline ~delete:true ~vars:(Variable.Rename.add_suffix ("_" ^ fun_to_inline)) [nbMulti; cFun fun_to_inline];
-);
-*)
   bigstep "inline operators";
-  (* TODO: Function.specialize ??? *)
-  (*
-  !! Specialize.function_arg "conv3x3" [true; true; true; true; false; false; true] [nbMulti; cFun "conv2D"];
-  *)
-  !! Function.inline ~delete:true [nbMulti; cFun "conv2D"];
-  (* TODO: ~nb_loops:2 *)
-  !! Loop.unroll [nbMulti; cFor ~body:[cPlusEqVar "acc"] "j"];
-  !! Loop.unroll [nbMulti; cFor ~body:[cPlusEqVar "acc"] "i"];
-  (* TODO?
-  !! Instr.accumulate ~nb:9 [nbMulti; cVarDef "acc"]; *)
-  (* remove 0.0f * x *)
+  !! Function.inline_all ["conv2D"];
+  !! Loop.unroll ~nest_of:2 [nbMulti; cFor ~body:[cPlusEqVar "acc"] "i"];
   !! Matrix.elim_accesses "weights";
-  !! ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"] |> List.iter (fun fun_to_inline ->
-    Function.inline ~delete:true [nbMulti; cFun fun_to_inline];
-  );
-  !! ["h1"; "w1"; "h2"; "w2"] |> List.iter (fun var_to_inline ->
-    Variable.inline [cVarDef var_to_inline]
-  );
+  !! Function.inline_all ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"];
+  (* cFunBody "harris"; cConstDef ""; *)
+  !! Variable.inline_all ["h1"; "w1"; "h2"; "w2"];
   !! Arith.(simpl gather) [nbMulti; cFor ""; dForStop];
 
   bigstep "fuse operators";
-  (* FIXME: reparse required to remove blank lines,
-     otherwise fusion fails *)
-  (* TODO: !! Variable.renames Variable.Rename.bylist [("acc", "acc_${occ}")] [cVar "acc"]; *)
-  !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "ix"] "x"; dBody];
-  !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "iy"] "x"; dBody];
-  !!! Loop.fusion ~nb:2 ~nb_loops:2 [cFor ~body:[cArrayWrite "ix"] "y"];
-
-  !! Loop.fusion ~nb:3 ~nb_loops:2 [cFor ~body:[cArrayWrite "ixx"] "y"];
-
-  !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "sxx"] "x"; dBody];
-  !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "sxy"] "x"; dBody];
-  !! Sequence.intro_on_instr [cFor ~body:[cArrayWrite "syy"] "x"; dBody];
-  !! Loop.fusion ~nb:4 ~nb_loops:2 [cFor ~body:[cArrayWrite "sxx"] "y"];
-
-  (* align : ix/iy ; ixx/ixy/iyy ; out *)
-  !! Loop.align_stop_extend_start "y" ~start:(trm_int 0) ~stop:(trm_var "h");
-  !! Loop.fusion ~nb:4 [cFor ~body:[cArrayWrite "gray"] "y"];
-
-  (* TODO: inline ixx/... into sxx/... computation instead, requires recomputing, and Variable.bind with CSE. *)
-
+  let rename_acc_of array = Variable.rename ~into:("acc_" ^ array) [cFor ~body:[cArrayWrite array] ""; cVarDef "acc"] in
+  !! List.iter rename_acc_of ["ix"; "iy"; "sxx"; "sxy"; "syy"];
+  let fuse = Image.fuse_loops_with_array_writes ~index:"y" in
+  !! fuse ~nest_of:2 ["ix"; "iy"];
+  !! fuse ~nest_of:2 ["ixx"; "ixy"; "iyy"];
+  !! fuse ~nest_of:2 ["sxx"; "sxy"; "syy"; "out"];
+  let elim_matrix m =
+    Matrix.read_last_write ~write:[cArrayWrite m] [nbMulti; cArrayRead m];
+    (* FIXME: dangerous transformation? *)
+    (* TODO: Matrix.delete_not_read *)
+    Instr.delete [cArrayWrite m];
+    Matrix.delete ~var:m [cFunBody "harris"];
+  in
+  !! List.iter elim_matrix ["ixx"; "ixy"; "iyy"; "sxx"; "sxy"; "syy"];
+  (* FIXME: dangerous, make transformation to remove empty loops *)
+  !! Instr.delete [occIndex ~nb:4 2; cFor "y"];
+(* TODO:
+  bigstep "tile over lines";
+  !! Loop.tile (trm_int 32) ~index:"by" ~iter:TileIterGlobal [cFor ~body:[cArrayWrite "out"] "y"];
+  !! Loop.tile (trm_int 34) ~index:"by" ~iter:TileIterGlobal [cFor ~body:[cArrayWrite "ix"] "y"];
+  !! Loop.tile (trm_int 36) ~index:"by" ~iter:TileIterGlobal [cFor ~body:[cArrayWrite "gray"] "y"];
+  !! Loop.fusion_targets [nbMulti; cFor "by"];
+*)
   bigstep "circular buffers";
-  !! ["gray"; "ix"; "iy"] |> List.iter (fun to_fold ->
-    Matrix.storage_folding ~var:to_fold ~dim:0 ~size:(trm_int 3) [cFunBody "harris"]
-  );
+  !! Image.loop_align_stop_extend_start "y" ~start:(trm_int 0) ~stop:(trm_var "h");
+  !! fuse ["gray"; "ix"; "ixx"; "out"];
+  (* TODO:
+     !! Loop.tile (trm_int 36) ~index:"by" ~iter:TileIterGlobal [cFor "y"]; *)
+  let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(trm_int 3) ~var:v [cFunBody "harris"] in
+  !! List.iter circular_buffer ["gray"; "ix"; "iy"];
 
   bigstep "parallelism";
   !! Omp.header ();
+  (* Intel compiler may be better at this:
+    !! Omp.simd [nbMulti; cFor "x"]; *)
+  (* TODO:
+    !! Omp.parallel_for [cFor "by"]; *)
 
   bigstep "code details";
+  (* Debug_transfo.current_ast_at_target "HELLO" [ nbMulti; cArrayRead ~index:[cMindex ~d:(Some 2) ~args:[[]; []; []; [sExpr ~substr:true "x + 0"]] ()] "ix"]; *)
+  (* let bind_gradient name =
+    let bind_one dx dy =
+      (* let regexp = Printf.sprintf "MINDEX2\\(.*, .*, .*, .*\\)" in *)
+      let var = Printf.sprintf "%s%i%i" name dx dy in
+      Variable.bind_multi ~dest:[cFor ~body:[cVarDef "det"] "x"] var [cArrayRead ~index:[sExpr ~substr:true "+ 1"] name];
+    in
+    List.iter (fun dy ->
+      List.iter (fun dx ->
+        bind_one dx dy
+    ) [0;(* 1; 2*)]) [-4;(* -3; -2*)]
+  in
+  *)
+  let bind_gradient name =
+    Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [cArrayRead name]
+  in
+  !!! List.iter bind_gradient ["ix"; "iy"];
+  (* !! Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_ix"] ~fresh_name:"g${occ}" [cArrayRead "gray"]; *)
   !! Matrix.elim_mops [];
 )

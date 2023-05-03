@@ -5,16 +5,6 @@ open Stats
     ('!!' or '!^') was last processed. *)
 let line_of_last_step = ref (-1)
 
-
-
-(******************************************************************************)
-(*                             Debugging tools                                *)
-(******************************************************************************)
-
-(* [report "mymessage" t]: can be used for debugging. *)
-let report (msg : string) (t : trm) : unit =
-  Printf.printf "%s: %s\n" msg (AstC_to_c.ast_to_string t)
-
 (******************************************************************************)
 (*                             Logging management                             *)
 (******************************************************************************)
@@ -1103,8 +1093,3 @@ let get_context () : context =
 
 (* LATER:  need to reparse to hide spurious parentheses *)
 (* LATER: add a mechanism for automatic simplifications after every step *)
-
-
-(* ----- DEBUG FUNCTIONS, FIND BETTER SPOT ----- *)
-let debug_current_ast (msg : string) : unit =
-  Printf.printf "%s:\n%s\n" msg (AstC_to_c.ast_to_string (ast ()));

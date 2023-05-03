@@ -494,8 +494,8 @@ let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (st
    LATER: It takes as argument a target [dest] where to put the binding; if [dest] is not provided,
    then the point just before the instruction containing the first target is used.
    LATER: document arguments passed to [bind].
-   LATER: add arguments for marks that could remain at the end *)
-
+   LATER: add arguments for marks that could remain at the end
+*)
 let bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ option = None) ?(dest : target = []) (fresh_name : var) (tg : target) : unit =
   if dest = [] then fail None "bind_multi: optional dest not yet supported";
   (* mark all occurrences to be replaced *)
@@ -522,3 +522,38 @@ let bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ opti
   (* clear temporary marks *) (* TODO: Marks.remove_all, would be much more efficient *)
   List.iter (fun m -> Marks.remove m [nbAny; cMark m]) [mark_tg; mark_let; mark_occ; mark_fst]
 
+(* [bind_syntactic]: performs common subexpression elimination.
+   Minimalistic example: [ f(a, b); g(a, b) ] becomes [ int x = a; int y = b; f(x, y); g(x, y) ].
+   It takes a target that aims at one or more expressions.
+   If multiple expressions are targeted, targeted expressions that are syntactically equal must correspond to semantically equal expressions.
+   *)
+let bind_syntactic ?(dest : target = []) ?(fresh_name : var = "x${occ}") (tg : target) : unit =
+  if dest = [] then fail None "bind_multi: optional dest not yet supported";
+  Marks.with_marks (fun next_mark ->
+  (* introduce a binding for every syntactically different occurrence *)
+  (* TODO: use hashmap *)
+  let bound = ref [] in
+  let bind_or_reuse t p =
+    match List.find_opt (fun (t2, _) -> Internal.same_trm t t2) !bound with
+    | None -> begin
+      let x = Tools.string_subst "${occ}" (string_of_int (List.length !bound)) fresh_name in
+      let mark_let = next_mark () in
+      let mark_occ = next_mark () in
+      (* ~remove_nobrace:false ??? *)
+      Variable_basic.bind ~mark_let:(Some mark_let) ~mark_occ:(Some mark_occ) x (target_of_path p);
+      (* move the binding to the desired target *)
+      Instr.move ~dest [cMark mark_let];
+      (* remember binding for future occurences *)
+      let var_occ =
+        match Target.get_trm_at [cMark mark_occ] with
+        | Some t -> t
+        | None -> fail None "bind_multi: failed get_trm_at to obtain the variable occurrence"
+        in
+      bound := (t, var_occ) :: !bound;
+    end
+    | Some (_, var_occ) -> begin
+      Expr_basic.replace var_occ (target_of_path p);
+    end
+  in
+  Target.iter (fun t p -> bind_or_reuse (Path.resolve_path p t) p) (nbMulti :: tg)
+  )

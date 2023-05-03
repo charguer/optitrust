@@ -96,6 +96,14 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_ins
 let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "") ?(labels : label list = []) ~dim:(dim : trm)  ~index:(index : string) ~ops:(dl_o : local_ops) : Target.Transfo.t =
     Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc any_mark labels index dl_o)
 
+let assert_same_dims (a : trms) (b : trms) : unit =
+  (* TODO: need something better for term equality *)
+  if not (List.for_all2 Internal.same_trm a b) then begin
+    Printf.printf "WARNING: Matrix_basic: dimensions mismatch\n";
+    Debug_transfo.trms "a" a;
+    Debug_transfo.trms "a" b;
+  end
+
 (* TODO: check that size and index expressions are pure, otherwise fail *)
 let simpl_index_add_on (t : trm) : trm =
   let error = "Matrix_basic.simpl_index_on: expected MINDEX addition" in
@@ -110,17 +118,10 @@ let simpl_index_add_on (t : trm) : trm =
   let trimmed_long_dims = Xlist.drop delta_dims long_dims in
   (* DEBUG
   Printf.printf "delta: %i\n" delta_dims;
-  Printf.printf "trimmed long: %s\n" (Tools.list_to_string
-    (List.map AstC_to_c.ast_to_string trimmed_long_dims));
-  Printf.printf "\n       short: %s\n" (Tools.list_to_string
-  (List.map AstC_to_c.ast_to_string short_dims));
+  Debug.trms "trimmed long" trimmed_long_dims;
+  Debug.trms "short" short_dims;
   *)
-  (* TODO: need something better for term equality *)
-  let dims_matching = List.combine trimmed_long_dims short_dims |>
-    List.for_all (fun (a, b) -> a.desc = b.desc)
-  in
-  if not dims_matching then
-    fail None "Matrix_basic.simpl_index_on: dimensions mismatch";
+  assert_same_dims trimmed_long_dims short_dims;
   let rec compute_idxs (delta : int) (long : trms) (short : trms) : trms =
     if delta > 0 then
       (List.hd long) :: (compute_idxs (delta - 1) (List.tl long) short)
@@ -147,7 +148,6 @@ let simpl_index_add : Target.Transfo.t =
 
 let simpl_access_of_access_on (t : trm) : trm =
   let error = "Matrix_basic.simpl_access_of_access_on: expected nested array accesses" in
-  (* Printf.printf "debug:\n%s\n" (AstC_to_c.ast_to_string t); *)
   let (base1, i1) = match array_access_inv t with
   | Some res -> res
   (* FIXME: don't want to deal with this here? *)
@@ -377,3 +377,68 @@ let storage_folding ~(var : var) ~(dim : int) ~(size : trm)
   ?(kind : storage_folding_kind = ModuloIndices) (tg : Target.target) : unit =
   assert(kind = ModuloIndices);
   Target.apply_at_target_paths (storage_folding_on var dim size) tg
+
+(* TODO: redundant code with storage folding *)
+let delete_on (var : var) (t : trm) : trm =
+  let rec update_accesses_and_alloc (t : trm) : trm =
+    match trm_let_inv t with
+    | Some (_kind, v, vtyp, init) when v = var ->
+      assert (Option.is_some (Matrix_core.alloc_inv_with_ty init));
+      trm_seq_no_brace []
+    | _ ->
+      begin match trm_var_inv t with
+      | Some (_, n) when n = var ->
+        fail t.loc "Matrix_basic.delete_on: matrix should not be used anymore"
+      | _ ->
+        let is_free_var = begin match trm_free_inv t with
+        | Some freed ->
+          begin match trm_var_get_inv freed with
+          | Some (_, n) -> n = var
+          | None -> false
+          end
+        | None -> false
+        end in
+        if is_free_var then trm_seq_no_brace []
+        else trm_map update_accesses_and_alloc t
+      end
+  in
+  update_accesses_and_alloc t
+
+(* [delete] expects target [tg] to poitn to a sequence defining matrix [var], and deletes it.
+  Both allocation and de-allocation instructions are deleted.
+  Checks that [var] is not used anywhere.
+   *)
+let delete ~(var : var) (tg : Target.target) : unit =
+  Internal.nobrace_remove_after (fun () ->
+    Target.apply_at_target_paths (delete_on var) tg)
+
+(* [read_last_write]: expects the target [tg] to pint at a matrix read operation, and replaces it with the value that was last written to this matrix index. The [write] target must correspond to this last write.
+  For correctness, if [V] was written at index [i], reading [V[j/i]] should be equivalent to reading at index [j].
+   *)
+let read_last_write ~(write : Target.target) (tg : Target.target) : unit =
+  let write_trm = match Target.get_trm_at write with
+  | Some wt -> wt
+  | None -> fail None "Matrix_basic.read_least_write: write target not found"
+  in
+  let (wr_base, wr_dims, wr_indices, wr_value) = trm_inv
+    ~error:"Matrix_basic.read_last_write: targeted matrix write operation is not supported"
+    Matrix_core.set_inv write_trm
+  in
+  Target.apply_at_target_paths (fun t ->
+    let (rd_base, rd_dims, rd_indices) = trm_inv
+      ~error:"Matrix_basic.read_last_write: targeted matrix read operation is not supported"
+      Matrix_core.get_inv t
+    in
+    assert_same_dims wr_dims rd_dims;
+    if not (Internal.same_trm wr_base rd_base) then
+      fail t.loc "Matrix_basic.read_last_write: array base mistmach";
+    let rd_value = List.fold_left (fun value (wr_i, rd_i) ->
+      let (_, wr_i_var) = trm_inv
+        ~error:"Matrix_basic.read_last_write: expected write index to be a variable"
+        trm_var_inv wr_i
+      in
+      Internal.subst_var wr_i_var rd_i value
+    ) wr_value (List.combine wr_indices rd_indices)
+    in
+    rd_value
+  ) tg

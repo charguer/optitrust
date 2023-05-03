@@ -3,11 +3,11 @@ TESTS := harris.ml
 include ../Common.Makefile
 
 _build/%.o: %.c #_build
-	$(V)$(CC) $(OPT_FLAGS) -std=c11 -I ../../include/ $(WARN_FLAGS) -c $< -o $@
+	$(V)$(CC) $(OPT_FLAGS) -fPIC -std=c11 -I ../../include/ $(WARN_FLAGS) -c $< -o $@
 
 # FIXME: avoid treating .cpp files as .c files, use .c files directly instead.
 _build/%.o: %.cpp _build
-	$(V)$(CC) $(OPT_FLAGS) -std=c11 -I ../../include/ $(WARN_FLAGS) -c -x c $< -o $@
+	$(V)$(CC) $(OPT_FLAGS) -fPIC -std=c11 -I ../../include/ $(WARN_FLAGS) -c -x c $< -o $@
 
 HALIDE_PATH=../../../../Halide
 HALIDE_TARGET=host
@@ -26,13 +26,13 @@ _build/harris_halide.a _build/harris_halide.h: #_build
 #	$(V)cd $(HALIDE_PATH)/apps/harris && make bin/$(HALIDE_TARGET)/harris_auto_schedule.a
 #	$(V)cp $(HALIDE_PATH)/apps/harris/bin/$(HALIDE_TARGET)/harris_auto_schedule.a $@
 
-# TODO? $(CC)
+# FIXME? using $(CC) below fails
 
 _build/bench_halide: bench_halide.cpp _build/harris_halide.a _build/halide_runtime.a bench_util.h _build/harris_halide.h
 	$(V)gcc $(filter-out %.h,$^) -O2 -std=c++17 -lstdc++ -lm -lpthread -ldl -lpng -ljpeg -I$(HALIDE_PATH)/include -I$(HALIDE_PATH)/tools $(WARN_FLAGS) -o $@
 
 _build/bench_%: bench_c.cpp _build/harris_halide.a _build/halide_runtime.a _build/%.o bench_util.h _build/harris_halide.h harris.h
-	$(V)gcc $(filter-out %.h,$^) -O2 -std=c++17 -lstdc++ -lm -lpthread -ldl -lpng -ljpeg -I$(HALIDE_PATH)/include -I$(HALIDE_PATH)/tools $(WARN_FLAGS) -o $@
+	$(V)gcc $(filter-out %.h,$^) -O2 -std=c++17 -lstdc++ -lm -lpthread -ldl -lpng -ljpeg -liomp5 -I$(HALIDE_PATH)/include -I$(HALIDE_PATH)/tools $(WARN_FLAGS) -o $@
 
 .PHONY: bench bench_%
 

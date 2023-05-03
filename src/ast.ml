@@ -1605,6 +1605,16 @@ let trm_unop_inv (t : trm) : (unary_op * trm) option =
     end
   | _ -> None
 
+(* [trm_binop_inv t]: deconstructs t = t1 op t2 *)
+let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =
+  match trm_apps_inv t with
+  | Some (f, args) -> begin
+    match (trm_prim_inv f, args) with
+    | Some (Prim_binop op'), [a; b] when op = op' -> Some (a, b)
+    | _ -> None
+    end
+  | _ -> None
+
 let trm_cast_inv (t : trm) : (typ * trm) option =
   match trm_unop_inv t with
   | Some (Unop_cast ty, t2) -> Some (ty, t2)
@@ -2514,12 +2524,16 @@ let is_new_operation (t : trm) : bool =
     end
   | _ -> false
 
+let trm_set_inv (t : trm) : (trm * trm) option =
+  trm_binop_inv Binop_set t
+
 (* [is_set_operation t]: checks if [t] is a set operation(write operation) *)
 let is_set_operation (t : trm) : bool =
   match t.desc with
   | Trm_apps (f, _) ->
     begin match trm_prim_inv f with
     | Some (Prim_binop Binop_set) | Some(Prim_compound_assgn_op _)
+    (* FIXME: not supported by [trm_set_inv] *)
      | Some (Prim_overloaded_op (Prim_binop Binop_set)) -> true
     | _ -> false
     end
@@ -3037,16 +3051,6 @@ let trm_add ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t
 let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
   let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [t1; t2]
-
-(* [trm_binop_inv t]: deconstructs t = t1 op t2 *)
-let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =
-  match trm_apps_inv t with
-  | Some (f, args) -> begin
-    match (trm_prim_inv f, args) with
-    | Some (Prim_binop op'), [a; b] when op = op' -> Some (a, b)
-    | _ -> None
-    end
-  | _ -> None
 
 (* [trm_add_inv t1 t2]: deconstructs t = t1 + t2 *)
 let trm_add_inv (t : trm) : (trm * trm) option  =
