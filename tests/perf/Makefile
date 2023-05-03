@@ -7,5 +7,5 @@ CURRENT := build_perf.ml
 
 build_timer:
 	touch ../../src/ast.ml
-	$(MAKE) V= FLAGS="-disable-clang-format" optitrust build_perf_out.cpp
+	$(MAKE) optitrust build_perf_out.cpp
 
