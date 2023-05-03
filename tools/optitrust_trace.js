@@ -295,12 +295,14 @@ function initControls() {
   */
 
   // Big diff buttons
-  var sBdiff = "";
+    var sBdiff = "";
   sBdiff += htmlButton("button_bdiff_next", "next", "next-button", "nextBdiff()");
   for (var i = 0; i < bigsteps.length; i++) {
     sBdiff += htmlButton("button_bdiff_" + i, (i+1), "ctrl-button", "loadBdiff(" + i + ")");
   }
-  addRow("BigStep", sBdiff);
+  if (bigsteps.length > 1) {
+    addRow("BigStep", sBdiff);
+  }
 
   // Small diff buttons
   var sSdiff = "";
