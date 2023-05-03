@@ -90,7 +90,10 @@ OptiTrust provides a library of transformations. Additionally, the user may defi
 
 Only the `*_basic.ml` files are meant to contain functions that directly produce pieces of AST, that is, call smart constructors such as `trm_for`. The higher-level files such as `loop.ml` are meant to contain only to combinations of calls to transformations from the "basic" level. This two-layer stratification is meant to (1) avoid circular dependencies between transformation libraries, and (2) isolate the trusted computing base.
 
-1. A simple transformation that modifies the AST at a given target
+When a transformation produces a fresh piece of AST using smart constructors, these pieces of AST are generally untyped, that is, they do not carry type information. However, there are transformations that do depend on types. In order to restore types, OptiTrust provides the operation `reparse_after tr`, where `tr` is a transformation of type `target->unit`. [TODO: in the future, we will provide an efficient incremental retyping].
+
+
+# Example transformation: modifying the AST at a given target
 
 Example: `Marks_basic.add (m : mark) (tg : target) : unit`.
 This transformation attaches a mark named `m` to the nodes at the paths targeted by `tg`.
@@ -108,7 +111,7 @@ Target.apply_at_target_paths (fun t -> trm_add_mark m t) tg
 where `t` denotes the targeted subterm.
 
 
-2. A example of a transformation that modifies the AST at a surrounding node
+# Example transformation: modifying the AST at a surrounding node
 
 Example: `Sequence.delete (tg : target) : unit`.
 This transformation removes the targeted instruction from its surrounding sequence.
@@ -136,5 +139,43 @@ Target.apply (fun fullterm p ->
    ) tg
 ```
 
+# Example transformation: a "combi" transformation that invokes basic transformations
+
+Consider the loop tiling transformation, whose purpose is to change
+`for (int i = 0; i < n; i++) { body(i); }` into
+`for (int bi = 0; bi < n; bi+=B) { for (int i = bi; i < min(n,bi+B); i++) { body(i); } }`.
+
+Assume this transformation is implemented by
+`Loop_basic.tile ?(index : var = "b${id}") (tile_size : trm) (tg : target) : unit`.
+where `index` is an optional argument, whose default value is the string "b${id}".
+In that index argument, the special token named "${id}" is replaced with the index
+variable of the original loop targeted by the transformation. For example, a tiling
+applied to `for (int i..)` introduces a loop `for (int bi...`. The user may
+override the default argument using the syntax `Loop_basic.tile ~index:"j" tile_size tg`.
+
+We next describe how to implement a higher-level transformation called `Loop.tile_zero`, that ensures the inner loop to start at zero. [TODO: it is not named like that in our library.]
+Concretely, it transforms:
+`for (int i = 0; i < n; i++) { body(i); }` into
+`for (int bi = 0; bi < n; bi+=B) { for (int i = 0; i < min(n-bi,B); i++) { body(i); } }`.
+This transformation is achieved by combining a `Loop_basic.tile` followed with a `Loop.shift` operation. It is implemented as shown below, where `target_of_path p` converts a path `p` of type `path` into a target of type `target`, and where `Path.to_inner_loop p` converts a path `p` into the path to the single loop that appears inside the body of the loop at path `p`.
+
+```
+let tile_zero ?(index : var = "b${id}") (tile_size : trm) (tg : target) : unit =
+  Target.iter (fun t p ->
+    reparse_after (Loop_basic.tile ~index tile_size) (target_of_path p);
+    Loop.shift StartAtZero (target_of_path (Path.to_inner_loop p));
+    ) tg
+```
+
+Rather than taking the argument `tg` and passing it to `Target.iter`, we prefer writing the code in "partial application" style, as follows:
+
+```
+let tile_zero ?(index : var = "b${id}") (tile_size : trm) : Transfo.t =
+  Target.iter (fun t p ->
+    reparse_after (Loop_basic.tile ~index tile_size) (target_of_path p);
+    shift StartAtZero (target_of_path (Path.to_inner_loop p));
+    )
+```
+where `Transfo.t` is a shorthand for the type `target -> unit`.
 
 
