@@ -201,6 +201,7 @@ let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : st
     let filename =
       if filename <> "" then filename else default_basename ^ ".cpp" in
     (* DEBUG: Printf.printf "script_cpp default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)
+    let dirname = Filename.dirname filename in
 
     (* Handles on-the-fly inlining *)
     let input_file =
@@ -209,7 +210,8 @@ let script_cpp ?(batching : string = "") ?(filename : string = "") ?(prepro : st
       | _ ->
           let basename = Filename.chop_extension filename in
           let inlinefilename = basename ^ "_inlined.cpp" in
-          generated_source_with_inlined_header_cpp filename inline inlinefilename;
+          let reldir_inline = List.map (fun p -> Filename.concat dirname p) inline in
+          generated_source_with_inlined_header_cpp filename reldir_inline inlinefilename;
           if debug_inline_cpp then Printf.printf "Generated %s\n" inlinefilename;
           inlinefilename
       in

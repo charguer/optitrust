@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 void test_ref() {
   int a = 3;
   int r = a + a;
@@ -36,7 +38,7 @@ typedef struct {
 } bag;
 
 int main() {
-  bag* b;
+  bag* b = (bag*)malloc(100 * sizeof(bag));
   chunk* c = b->front;
   int nb = c->size;
   for (int i = 0; i < nb; i++) {

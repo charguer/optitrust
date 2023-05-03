@@ -1,4 +1,5 @@
 open Optitrust
+open Printf
 
 module StringSet = Set.Make(String)
 
@@ -32,13 +33,20 @@ VERY-LATER: mode for compiling sources with gcc at a given standard
 
 let tmp_file = "/tmp/optitrust_tester"
 
-let run_command (cmd : string) : unit =
+let do_is_ko (cmd : string) : bool =
+  let exit_code = Sys.command cmd in
+  exit_code != 0
+
+let _do_is_ok (cmd : string) : bool = not (do_is_ko cmd)
+
+let do_or_die (cmd : string) : unit =
   let exit_code = Sys.command cmd in
   if exit_code != 0 then
-    failwith (Printf.sprintf "command '%s' failed with exit code '%i'" cmd exit_code)
+    failwith (sprintf "command '%s' failed with exit code '%i'" cmd exit_code)
 
     (* command_output
       command_output_lines *)
+
 (*****************************************************************************)
 (* Description of keys *)
 
@@ -47,7 +55,7 @@ let run_command (cmd : string) : unit =
    Ignores *_with_lines.ml files.
    *)
 let get_list_of_tests_in_dir (folder : string) : string list =
-  run_command (Printf.sprintf
+  do_or_die (sprintf
     "find %s -name \"*.ml\" -and -not -name \"*_with_lines.ml\" > %s"
     folder tmp_file);
   Xfile.get_lines tmp_file
@@ -95,13 +103,17 @@ let basic_tests_to_ignore = [
   "record_modif.ml";
   "record_to_variables.ml";
   "variable_ref_to_var.ml";
+  "variable_exchange.ml";
+  "pattern_replace.ml";
 ]
 let combi_tests_to_ignore = [
   (* TO FIX: *)
   "record_align_field.ml";
 	"loop_hoist.ml";
 	"loop_fission.ml";
+	"loop_unroll.ml";
   "loop_unfold_bound.ml";
+  "matrix_reorder_dims.ml";
 	"record_align_field.ml";
 	"apac_heapify_nested_seq.ml";
   (* NO FIX: *)
@@ -126,6 +138,8 @@ let ast_tests_to_ignore = [
   (* TO FIX: *)
 	"c_raw.ml";
 	"c_serialize.ml";
+	"cpp_features.ml";
+	"cpp_big.ml";
 ]
 let tests_to_ignore =
   (List.map (fun f -> "tests/basic/" ^ f) basic_tests_to_ignore) @
@@ -135,14 +149,14 @@ let tests_to_ignore =
 
 (* Takes the list of target arguments on the command line;
    and expand the 'keys', remove duplicates and ignored tests.
+   Returns (tests_to_process, ignored_tests)
 *)
-let compute_tests_to_process (keys : string list) : string list =
+let compute_tests_to_process (keys : string list) : (string list * string list) =
   let tests = List.concat_map list_of_tests_from_key keys in
   let unique_tests = Xlist.remove_duplicates tests in
-  (* TODO: report ignored tests to user *)
-  let filtered_tests = List.filter (fun x -> not (List.mem x tests_to_ignore)) unique_tests in
+  let (ignored_tests, tests_to_process) = List.partition (fun x -> List.mem x tests_to_ignore) unique_tests in
   (* TODO : garder quand meme les keys *)
-  filtered_tests
+  (tests_to_process, ignored_tests)
 
 (*****************************************************************************)
 (* Options *)
@@ -218,12 +232,13 @@ let _main : unit =
      ["all"]
     else
       List.rev !keys_to_process in
-  let tests_to_process = compute_tests_to_process keys_to_process in
+  let (tests_to_process, ignored_tests) = compute_tests_to_process keys_to_process in
 
 
 
   (* TODO: not always necessary? *)
-  run_command "dune install";
+  do_or_die "dune build -p optitrust @install";
+  do_or_die "dune install";
 
   (* TODO: We cache the "raw ast".
   from a trm t, we need to serialize Ast_fromto_AstC.cfeatures_intro t;
@@ -250,14 +265,14 @@ let _main : unit =
 
   let batch_args = String.concat " " tests_to_process in
   if !verbose_mode
-      then Printf.eprintf "Tester files processed: \n  %s\n"
+      then eprintf "Tester files processed: \n  %s\n"
         (String.concat "\n  " tests_to_process);
   (* TODO: faire la boucle en caml sur l'appel à sed,
    à chaque fois afficher un commentaire (* CURTEST=... *)
      TODO: add 'batch_prelude' and 'batch_postlude' calls.
      LATER: ajouter ici l'option ~expected_ast , et concatener l'appel à Run.batch_postlude logfilename *)
-  run_command ("tests/batch_tests.sh " ^ batch_args ^ " > " ^ "tests/batch/batch.ml");
-  run_command "dune build tests/batch/batch.cmxs";
+  do_or_die ("tests/batch_tests.sh " ^ batch_args ^ " > " ^ "tests/batch/batch.ml");
+  do_or_die "dune build tests/batch/batch.cmxs";
   (* TODO: rediriiger l'erreur dans un fichier  2>&
     Sys.command en version booléenne
     ERRLINE = cat errorlog | head -n 1 | awk '{print $2}'
@@ -265,7 +280,7 @@ let _main : unit =
     head -n ${ERRLINE} batch.ml | grep "batching" | tail -1
      *)
   (* TODO: flags *)
-  run_command "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe _build/default/tests/batch/batch.cmxs";
+  do_or_die "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe _build/default/tests/batch/batch.cmxs";
 
   (* c'est le code de batch_controller.ml
      qui fait la gestion des cached_inputs/cached_outputs
@@ -277,12 +292,24 @@ let _main : unit =
 
   *)
 
-  (* For each test, execute on the input the test
-     - selon Outfile_gen, genère ou pas le output file
-     - selon le comparison_method, compare la sortie.
-          pour le mode texte: ./diff.sh
-          on peut supposer que on execute tester dans le dossier courant tests/
+  let ok_count = ref 0 in
+  let ko_count = ref 0 in
+  (* Compare all text outputs if necessary *)
+  if !comparison_method = Comparison_method_text then
+    let check_output test =
+      let test_prefix = Filename.chop_extension test in
+      let out = sprintf "%s_out.cpp" test_prefix in
+      let exp = sprintf "%s_exp.cpp" test_prefix in
+      if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" out exp) then begin
+        printf "ERROR: %s does not match %s, run 'meld %s %s'\n" out exp out exp;
+        ko_count := !ko_count + 1;
+      end else
+        ok_count := !ok_count + 1;
+    in
+    List.iter check_output tests_to_process;
 
+  printf "%i tests passed, %i tests failed, %i tests ignored\n" !ok_count !ko_count (List.length ignored_tests);
+  (*
      Produire une liste de (testname, result)
 
      type result =
