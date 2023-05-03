@@ -7,7 +7,7 @@ A program is represented by its abstract syntax tree (AST). It corresponds to an
 
 - The type `trm` describes such an ast.
   + The `desc` field of type `trm_desc` indicates the type of the term, for example `Trm_if` describes a conditional.
-  + The `annot` field stores meta data, including C display styles (e.g., `*p.f` vs `p->f`).
+  + The `annot` field stores meta-data, including C display styles (e.g., `*p.f` vs `p->f`).
   + The `loc` field stores the location in the source file.
   + The `typ` and `ctx` fields store typing information.
   + The `is_statement` caches the information of whether a term corresponds to a statement or an expression.
@@ -61,6 +61,8 @@ A target consists of a list of constraints, e.g. `cFor "i"` is a constraint. Eac
 
 The modifier `cStrict` requires the nesting to be immediate, for example `[cFor "i"; cStrict; cFor "j"]` requires the for-loop on "j" to appear as direct child in the body of the for-loop on "i", whereas [cFor "i"; cFor "j"]` allows e.g. another intermediate loop to appear between the loop on "i" and that on "j".
 
+Targeting by the string representation is also possible, at the level of instructions or expressions. For example, `[cFor "i"; sInstr "a++"]` targets the instruction `a++` inside the for-loop on "i". Matching is by default on substrings; operations for regular-expressions matching are also available.
+
 By default, a target expects to resolve to exactly one path. The modifier `nbMulti` allows multiple targets. For example, `[nbMulti; cFor "i"]` may point at one or several for-loops index with "i". `nbAny` allows any number of occurrences, including zero. `nbExact 3` checks that the number of occurrences found is exactly 3.
 
 The constraints are defined in the files `constr.ml` and `target.ml`. The resolution of targets is implemented in `constr.ml`. The high-level operators involving targets are implemented in `target.ml` and are described next.
@@ -68,3 +70,71 @@ The constraints are defined in the files `constr.ml` and `target.ml`. The resolu
 - `Target.apply (tr : trm -> path -> trm) (tg : target) : unit` applies a transformation `tr` at all paths that correspond to the target `tg`. The transformation `tr` takes as first argument a full ast `t`, and as second argument the path `p` pointed at by target. The arguments `t` and `p` may be, e.g., exploited by `apply_on_path`.
 
 - `Target.iter (tr : trm -> path -> unit) (tg : target) : unit` applies an operation `tr` (performing side-effects) at all paths that correspond to the target `tg`. Compared with `Target.apply`, the transformation `tr` produces a result of type `unit` instead of producing a new `trm`.
+
+Some transformations such as `Instr.insert` need to aim not at one AST node but at a point in-between two instructions. The modifiers `tBefore` and `tAfter` may be placed in the target, e.g. `[tBefore; sInstr "i++"]`.
+The modifiers `tFirst` and `tLast` are also available. When such modifiers are used, the path produced by the target resolution mechanism is represented as `[dir1; dir2; .. ; dirN; Dir_before i]`, where the direction `dirN` reaches a sequence, and where `i` denotes the index inside this sequence at which, e.g., the insertion operation should be performed. The syntax `let (pseq,i) = Path.last_dir_before_inv_success p in` may be used to extract from such a path the path to the sequence `pseq = [dir1; dir2; .. ; dirN]` and, separately, the index `i`.
+
+# Trace
+
+An OptiTrust script consists of a sequence of steps. Each step modifies the "current AST" and produces an updated AST. All the intermediate ASTs are stored in "the trace" (type `trace` in file `trace.ml`).
+
+Steps are materialized in proof scripts by the `!!` symbol. When executed interactively, the script is interrupted when reaching the first `!!` whose location is further than the cursor location in the user's editor.
+
+The set of steps is used to compute the diffs that are produced as output.
+
+# Implementation of transformations
+
+OptiTrust provides a library of transformations. Additionally, the user may define custom transformations, either by implementing them directly at the AST-level, or, preferably, by invoking a combination of existing transformations.
+
+[TODO: For historical reasons, a transformation on a loop is implemented in three files: `loop_core.ml`, `loop_basic.ml` and `loop.ml`. The work-in-progress plan is to only use `loop_basic.ml` and `loop.ml`.]
+
+Only the `*_basic.ml` files are meant to contain functions that directly produce pieces of AST, that is, call smart constructors such as `trm_for`. The higher-level files such as `loop.ml` are meant to contain only to combinations of calls to transformations from the "basic" level. This two-layer stratification is meant to (1) avoid circular dependencies between transformation libraries, and (2) isolate the trusted computing base.
+
+1. A simple transformation that modifies the AST at a given target
+
+Example: `Marks_basic.add (m : mark) (tg : target) : unit`.
+This transformation attaches a mark named `m` to the nodes at the paths targeted by `tg`.
+This function can be implemented as:
+```
+Target.apply (fun fullterm p ->
+    Path.apply_on_path (fun subterm -> trm_add_mark m subterm) fullterm p
+   ) tg
+```
+
+This pattern is common, and can be factored out using `Target.apply_at_target_paths (transfo : trm -> trm) (tg : target) : unit` as follows:
+```
+Target.apply_at_target_paths (fun t -> trm_add_mark m t) tg
+```
+where `t` denotes the targeted subterm.
+
+
+2. A example of a transformation that modifies the AST at a surrounding node
+
+Example: `Sequence.delete (tg : target) : unit`.
+This transformation removes the targeted instruction from its surrounding sequence.
+The complication is that we need to update the surrounding sequence.
+This function can be implemented with help of
+`Path.index_in_seq (p : path) : int * path`, which returns the index in the sequence
+and the path to the surrounding sequence.
+The functions `trm_seq_inv` is used to extract the list (technically a list augmented with
+marsk, of type `mlist`) of instructions in the sequence.
+The function `trm_inv ~error:..` is used to process the error that may arise in case the
+surrounding node is not a sequence.
+The function `MList.remove i 1` removes one element from the list of instructions.
+The function `trm_seq` is used to build the updated sequence, with the updated list of instructions.
+The function `trm_like` is a smart constructor for preserving the annotations and cached information
+associated with the original term.
+
+```
+Target.apply (fun fullterm p ->
+    let i,p_seq = Path.index_in_seq p in
+    Path.apply_on_path (fun t_seq ->
+      let instrs = trm_inv ~error:"expected a sequence" trm_seq_inv t_seq in
+      let instrs2 = Mlist.remove i 1 instrs in
+      trm_like t_seq (trm_seq instrs2)
+     ) fullterm p_seq
+   ) tg
+```
+
+
+
