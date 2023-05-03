@@ -1425,7 +1425,7 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   | Constr_include h when trm_is_include t ->
      (* remove the include annotation for target resolution to proceed in the
        included file *)
-     resolve_target_simple p (trm_alter ~annot:(Some trm_annot_default) t)
+     resolve_target_simple p (trm_alter ~annot:trm_annot_default t)
   | _ when trm_is_include t ->
      print_info loc "Constr.resolve_constraint: not an include constraint\n";
      []
@@ -1503,8 +1503,8 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
            ([], [])
            xto_l
         in
-        add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr)) @
-        (explore_list (List.map (fun (y, _) -> trm_var ~loc y) xto_l)
+        add_dir Dir_name (aux (trm_var ?loc td.typdef_tconstr)) @
+        (explore_list (List.map (fun (y, _) -> trm_var ?loc y) xto_l)
            (fun n -> Dir_enum_const (n, Enum_const_name))
            (aux)) @
         (explore_list tl
@@ -1644,16 +1644,16 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      app_to_nth_dflt loc tl n (fun nth_t ->
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_arg_nth n, Trm_let_fun (_, _, arg, _) ->
-     let tl = List.map (fun (x, _) -> trm_var ~loc x) arg in
+     let tl = List.map (fun (x, _) -> trm_var ?loc x) arg in
      app_to_nth_dflt loc tl n (fun nth_t ->
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
-     add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr))
+     add_dir Dir_name (aux (trm_var ?loc td.typdef_tconstr))
   | Dir_name, Trm_let_fun (x, _, _, _) ->
-    add_dir Dir_name (aux (trm_var ~loc ~qvar:x ""))
+    add_dir Dir_name (aux (trm_var ?loc ~qvar:x ""))
   | Dir_name, Trm_let (_,(x,_),_)
     | Dir_name, Trm_goto x ->
-     add_dir Dir_name (aux (trm_var ~loc x))
+     add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_case (n, cd), Trm_switch (_, cases) ->
      app_to_nth_dflt loc cases n
        (fun (tl, body) ->
@@ -1671,7 +1671,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
           (fun (x, t_o) ->
             match ecd with
             | Enum_const_name ->
-               add_dir (Dir_enum_const (n, ecd)) (aux (trm_var ~loc x))
+               add_dir (Dir_enum_const (n, ecd)) (aux (trm_var ?loc x))
             | Enum_const_val ->
                begin match t_o with
                | None ->

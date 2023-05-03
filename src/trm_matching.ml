@@ -127,8 +127,8 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
        | Trm_var (_, y) -> Some (y.qvar_var,ty)
        | _ -> None
     in
-  let with_binding ?(loc:location=None) (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
-     inst := Trm_map.add x (ty, trm_var ~loc y) !inst;
+  let with_binding ?(loc:location) (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
+     inst := Trm_map.add x (ty, trm_var ?loc y) !inst;
      f();
      inst := Trm_map.remove x !inst;
     (* Note: it would be incorrect to simply restore the map to its value before the call to [f],
@@ -159,7 +159,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
             mismatch ~t1:dt1 ~t2:dt2 ()
           end;
           aux init1 init2;
-          with_binding ~loc:dt2.loc t1 x1 x2 (fun () -> aux_with_bindings tr1 tr2)
+          with_binding ?loc:dt2.loc t1 x1 x2 (fun () -> aux_with_bindings tr1 tr2)
       (* LATER: add support for Trm_let_fun, to allow matching local function definitions. *)
       | t1 :: tr1, t2 :: tr2 ->
           aux t1 t2;

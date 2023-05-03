@@ -54,7 +54,7 @@ let tile ?(index : var = "b${id}")
     [x_step] - denotes the array name that is going to hoist all the values of the targeted variable
     for each index of the for loop. *)
 (* LATER/ deprecated *)
-let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
+let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_transformed_targets (Path.index_in_surrounding_loop)
      (fun t (i, p) -> Loop_core.hoist_old name i array_size t p) tg)
@@ -156,7 +156,7 @@ let hoist_on (name : string)
 
 (* TODO: document *)
 let hoist ?(name : var = "${var}_step")
-          ?(mark : mark option = None)
+          ?(mark : mark option)
           ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))
          (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
@@ -281,9 +281,9 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     let new_loop_instrs = Mlist.merge loop_instrs1 loop_instrs2 in
     (* TODO: trm_for_update on loop1? *)
     let new_loop_range = fst (List.nth loops_ri target_loop_i) in
-    let new_loop = trm_for_instrs ~annot:lt.annot ~loc:lt.loc new_loop_range new_loop_instrs in
+    let new_loop = trm_for_instrs ~annot:lt.annot ?loc:lt.loc new_loop_range new_loop_instrs in
     let new_instrs = Mlist.insert_at update_index new_loop other_instrs in
-    trm_seq ~annot:t.annot ~loc:t.loc new_instrs
+    trm_seq ~annot:t.annot ?loc:t.loc new_instrs
   | _ -> failwith "unreachable"
 
 (* [fusion]: expects the target [tg] to point at a loop that is followed by another loop with the same range (start, stop, step).
@@ -347,7 +347,7 @@ let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit
 
     LATER: Implement a combi transformation that will check if the targeted instruction
     is dependent on any local variable or the loop index. *)
-let move_out ?(mark : mark option = None) (tg : target) : unit =
+let move_out ?(mark : mark option) (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
   apply_on_transformed_targets (Path.index_in_surrounding_loop)
     (fun t (i, p) -> Loop_core.move_out mark i t p ) tg)

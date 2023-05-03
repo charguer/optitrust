@@ -36,19 +36,19 @@ let set_explicit_aux (t : trm) : trm =
       begin match rt.desc with
       | Trm_apps (f1, [rt1]) when is_get_operation rt ->
          let exp_assgn = List.mapi (fun i (sf, ty) ->
-          trm_set (trm_struct_access ~typ:(Some ty) lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:(Some ty) rt1 sf]); typ = Some ty}
+          trm_set (trm_struct_access ~typ:ty lt sf) {rt with desc = Trm_apps (f1, [trm_struct_access ~typ:ty rt1 sf]); typ = Some ty}
          ) field_list in
          trm_seq_no_brace exp_assgn
       | Trm_record st ->
         let st = Xlist.split_pairs_snd (Mlist.to_list st) in
         let exp_assgn = List.mapi (fun i (sf, ty) ->
-          trm_set (trm_struct_access ~typ:(Some ty) lt sf) (List.nth st i)
+          trm_set (trm_struct_access ~typ:ty lt sf) (List.nth st i)
         ) field_list
          in
         trm_seq_no_brace exp_assgn
       | _ ->  (* other cases are included here *)
         let exp_assgn = List.mapi (fun i (sf, ty) ->
-         trm_set (trm_struct_access ~typ:(Some ty) lt sf) (trm_struct_get ~typ:(Some ty) rt sf)
+         trm_set (trm_struct_access ~typ:ty lt sf) (trm_struct_get ~typ:ty rt sf)
          ) field_list in
          trm_seq_no_brace exp_assgn
       end
@@ -177,17 +177,17 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
           begin match trm_to_change.desc with
           | Trm_record sl ->
             let new_term_list = Mlist.merge_list [lfront; sl; lback] in
-            trm_record ~annot:t.annot ~typ:t.typ new_term_list
+            trm_record ~annot:t.annot ?typ:t.typ new_term_list
 
           | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change ->
-            let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ~typ:v.typ ~qvar:p "") f))) field_list in
+            let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ?typ:v.typ ~qvar:p "") f))) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
-            trm_record ~annot:t.annot ~typ:t.typ new_term_list
+            trm_record ~annot:t.annot ?typ:t.typ new_term_list
 
           | Trm_var (_, p) ->
-            let sl = List.map (fun f -> (None, trm_struct_get (trm_var ~typ:t.typ ~qvar:p "") f)) field_list in
+            let sl = List.map (fun f -> (None, trm_struct_get (trm_var ?typ:t.typ ~qvar:p "") f)) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
-            trm_record ~annot:t.annot ~typ:t.typ new_term_list
+            trm_record ~annot:t.annot ?typ:t.typ new_term_list
 
           | _ -> fail t.loc "Record_core.inline_struct_initialization: struct intialization list is not compatible with definition"
           end
@@ -338,7 +338,7 @@ let reorder_fields_aux (order : fields_order) (index : int) (t : trm) : trm =
         ) rfl in
         bij := compute_bijection order rfl_str_rep;
         let new_rfl = Xlist.reorder !bij rfl in
-        trm_alter ~desc:(Some (Trm_typedef {td with typdef_body = Typdef_record new_rfl})) t
+        trm_alter ~desc:(Trm_typedef {td with typdef_body = Typdef_record new_rfl}) t
 
       | _ -> fail t.loc "Record_core.reorder_fields_aux: expected a target to a record type definition."
 
@@ -353,7 +353,7 @@ let reorder_fields_aux (order : fields_order) (index : int) (t : trm) : trm =
         | Some {typ_desc = Typ_constr (qty, _, _)} when qty.qvar_var = !struct_name ->
           let lt = Mlist.to_list mlt in
           let reordered_lt = Xlist.reorder !bij lt in
-          trm_alter ~desc:(Some (Trm_record (Mlist.of_list reordered_lt))) t
+          trm_alter ~desc:(Trm_record (Mlist.of_list reordered_lt)) t
         | _ -> trm_map aux t
         end
       | _ -> trm_map aux t
@@ -474,7 +474,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
           | Some ty ->
             begin match ty.typ_desc with
             | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
-              trm_apps ~annot:t.annot ~typ:t.typ ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))})  [base]
+              trm_apps ~annot:t.annot ?typ:t.typ ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))})  [base]
             | _ -> trm_map aux t
             end
           | None -> trm_map aux  t
@@ -484,7 +484,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
           | Some ty ->
             begin match ty.typ_desc with
             | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
-              trm_apps ~annot:t.annot ~typ:t.typ {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))}  [base]
+              trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))}  [base]
             | _ -> trm_map aux t
             end
           | None -> trm_map aux t
@@ -498,7 +498,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
         | Some ty ->
           begin match ty.typ_desc with
           | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
-            trm_apps ~annot:t.annot ~typ:t.typ {f with desc = Trm_var (vk, qvar_update ~var:(rename qf.qvar_var) qf)} args
+            trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_var (vk, qvar_update ~var:(rename qf.qvar_var) qf)} args
           | _ -> trm_map aux t
           end
 
@@ -739,7 +739,7 @@ let change_field_access_kind_aux (acc_kind : record_field_annot) (f : field) (t 
             end
         ) rfs in
         let new_td = {td with typdef_body = Typdef_record new_rfs} in
-        trm_alter ~desc:(Some (Trm_typedef new_td)) t
+        trm_alter ~desc:(Trm_typedef new_td) t
     | _ -> fail t.loc "Record_core.change_field_access_kind_aux: expected a target to a structured typedef."
     end
   | _ -> fail t.loc "Record_core.change_field_access_kind_aux: expected a targetd to a typedef."

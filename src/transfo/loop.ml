@@ -11,7 +11,7 @@ let path_of_loop_surrounding_mark_current_ast (m : mark) : path =
   loop_path
 
 (* LATER/ deprecated *)
-let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (tg : target) : unit =
+let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
       let detach_first =
@@ -27,8 +27,8 @@ let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option = None) (t
         match detach_first with
         | true ->
           Variable_basic.init_detach (target_of_path p);
-          Loop_basic.hoist_old ~name ~array_size(target_of_path p);
-        | false -> Loop_basic.hoist_old ~name ~array_size (target_of_path p)
+          Loop_basic.hoist_old ~name ?array_size (target_of_path p);
+        | false -> Loop_basic.hoist_old ~name ?array_size (target_of_path p)
   ) tg
 
 (* TODO: redundant with 'hoist' *)
@@ -67,7 +67,7 @@ let hoist_alloc_loop_list
     | 0 -> begin
       (* Printf.printf "move out %s\n" prev_name; *)
       (* TODO: have combined move_out alloc + free *)
-      Loop_basic.move_out ~mark:maybe_mark (target_of_path p);
+      Loop_basic.move_out ?mark:maybe_mark (target_of_path p);
       let (outer_i, outer_path) = Path.index_in_seq (Path.to_outer_loop p) in
       let new_loop_path = outer_path @ [Dir_seq_nth (outer_i + 1)] in
       Instr.move ~dest:([tAfter] @ (target_of_path new_loop_path)) [cFun ~args:[[cVar prev_name]] "free"];
@@ -82,7 +82,7 @@ let hoist_alloc_loop_list
       Marks.add seq_mark seq_target;
       tmp_marks := (seq_mark, instr_index) :: !tmp_marks;
 
-      Loop_basic.hoist ~name:next_name ~mark:maybe_mark (target_of_path p);
+      Loop_basic.hoist ~name:next_name ?mark:maybe_mark (target_of_path p);
       next_name
       end
     | _ -> fail None "expected list of 0 and 1s"
@@ -200,7 +200,7 @@ let hoist_instr_loop_list (loops : int list) (tg : target) : unit =
     | [] -> ()
     | 0 :: rl ->
       Marks.with_fresh_mark (fun m ->
-        Loop_basic.move_out ~mark:(Some m) (target_of_path p);
+        Loop_basic.move_out ~mark:m (target_of_path p);
         iter_on_targets (fun t p -> aux rl p) [cMark m];
       )
     | 1 :: rl ->

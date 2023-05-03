@@ -88,7 +88,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
       let typ = match t.typ with
       | None -> None
       | Some ty' -> Some (change_typ ty') in
-      trm_alter ~typ t
+      trm_alter ?typ t
     in
     trm_map replace_type_annot t
   in
@@ -96,21 +96,21 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
     let rec aux (t : trm) : trm =
       match t.desc with
       | Trm_val (Val_prim (Prim_new ty)) ->
-         trm_prim ~annot:t.annot ~loc:t.loc
+         trm_prim ~annot:t.annot ?loc:t.loc
            (Prim_new (change_typ ty))
       | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
-         trm_unop ~annot:t.annot ~loc:t.loc
+         trm_unop ~annot:t.annot ?loc:t.loc
            (Unop_cast (change_typ ty))
       | Trm_let (vk,(y,ty),init) ->
-        trm_let ~annot:t.annot ~loc:t.loc vk (y,change_typ ty) (aux init)
+        trm_let ~annot:t.annot ?loc:t.loc vk (y,change_typ ty) (aux init)
       | Trm_let_fun (f, ty, args, body) ->
-         trm_let_fun ~annot:t.annot ~loc:t.loc ~qvar:f "" (change_typ ty)
+         trm_let_fun ~annot:t.annot ?loc:t.loc ~qvar:f "" (change_typ ty)
             (List.map (fun (y, ty) -> (y, change_typ ty)) args)
             (aux body)
       | Trm_typedef td ->
         begin match td.typdef_body with
         | Typdef_alias ty ->
-          trm_typedef  ~annot:t.annot ~loc:t.loc
+          trm_typedef  ~annot:t.annot ?loc:t.loc
            { td with typdef_body = Typdef_alias (change_typ ty)}
         | Typdef_record rf ->
            let rf = List.map (fun (rf1, rf_annot) ->
@@ -118,7 +118,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
             | Record_field_member (lb, ty) -> (Record_field_member (lb, change_typ ty), rf_annot)
             | Record_field_method t -> (Record_field_method (aux t), rf_annot)
            ) rf in
-           trm_typedef ~annot:t.annot ~loc:t.loc { td with typdef_body = Typdef_record rf}
+           trm_typedef ~annot:t.annot ?loc:t.loc { td with typdef_body = Typdef_record rf}
         | _ -> trm_map aux t
         end
        | Trm_var (_, x) ->
@@ -126,7 +126,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
                    | Some ty -> ty
                    | None -> fail t.loc "Internal.apply_change: all variable occurrences should have a type"
                    end in
-        trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (change_typ ty)) ~qvar:x ""
+        trm_var ~annot:t.annot ?loc:t.loc ~typ:(change_typ ty) ~qvar:x ""
       | _ -> trm_map aux t
     in
     replace_type_annot (aux t)
@@ -402,7 +402,7 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
       | Trm_let_fun (fn, ret_ty, args, body) ->
         let new_fn = qvar_update ~var:(rename_fun fn.qvar_var) fn in
         (* let new_fn = {fn with qvar_str = rename_fun fn.qvar_var} in  *)
-        let new_t = trm_alter  ~desc:(Some (Trm_let_fun (new_fn, ret_ty, args, body))) t in
+        let new_t = trm_alter  ~desc:(Trm_let_fun (new_fn, ret_ty, args, body)) t in
         Record_field_method new_t
       | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
       end
@@ -552,7 +552,7 @@ let nobrace_remove_after ?(remove : bool = true) (f : unit -> unit) : unit =
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
   | Trm_var (_, y') when (is_qvar_var y' y) ->
-    trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (typ_constr x )) y
+    trm_var ~annot:t.annot ?loc:t.loc ~typ:(typ_constr x) y
   | _ -> trm_map (replace_type_with x y) t
 
 (* [subst tm t]: find all the occurrences of variables in [t] and check if they belong to map [tm]

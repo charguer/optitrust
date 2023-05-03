@@ -74,8 +74,8 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
      | _ -> assert false
      in
      let tile_count = trm_exact_div count tile_size in
-     let iteration = trm_add (trm_mul (trm_var ~typ:start.typ tile_index) tile_size)
-      (trm_var ~typ:start.typ index)
+     let iteration = trm_add (trm_mul (trm_var ?typ:start.typ tile_index) tile_size)
+      (trm_var ?typ:start.typ index)
      in
      let new_index = iteration_to_index iteration in
      trm_for (tile_index, (trm_int 0), DirUp, tile_count, Post_inc, is_parallel) (trm_seq_nomarks [

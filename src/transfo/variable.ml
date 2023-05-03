@@ -496,7 +496,7 @@ let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (st
    LATER: document arguments passed to [bind].
    LATER: add arguments for marks that could remain at the end
 *)
-let bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ option = None) ?(dest : target = []) (fresh_name : var) (tg : target) : unit =
+let bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ option) ?(dest : target = []) (fresh_name : var) (tg : target) : unit =
   if dest = [] then fail None "bind_multi: optional dest not yet supported";
   (* mark all occurrences to be replaced *)
   let mark_tg = Mark.next() in
@@ -508,7 +508,7 @@ let bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ opti
   (* introduce a binding for the first targeted occurrence *)
   let mark_let = Mark.next() in
   let mark_occ = Mark.next() in
-  Variable_basic.bind ~const ~is_ptr ~mark_let:(Some mark_let) ~mark_occ:(Some mark_occ) ~typ ~remove_nobrace:false fresh_name [cMark mark_fst];
+  Variable_basic.bind ~const ~is_ptr ~mark_let:mark_let ~mark_occ:mark_occ ?typ ~remove_nobrace:false fresh_name [cMark mark_fst];
   (*Printf.printf "ex2: %s\n" (AstC_to_c.ast_to_string (Trace.ast()))*)
   (* move the binding to the desired target *)
   Instr.move ~dest [cMark mark_let];
@@ -540,7 +540,7 @@ let bind_syntactic ?(dest : target = []) ?(fresh_name : var = "x${occ}") (tg : t
       let mark_let = next_mark () in
       let mark_occ = next_mark () in
       (* ~remove_nobrace:false ??? *)
-      Variable_basic.bind ~mark_let:(Some mark_let) ~mark_occ:(Some mark_occ) x (target_of_path p);
+      Variable_basic.bind ~mark_let ~mark_occ x (target_of_path p);
       (* move the binding to the desired target *)
       Instr.move ~dest [cMark mark_let];
       (* remember binding for future occurences *)

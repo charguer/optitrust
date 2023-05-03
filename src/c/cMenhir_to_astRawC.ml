@@ -153,7 +153,7 @@ and tr_stmt (s : C.stmt) : trm =
      let tc = tr_expr ~is_boolean:true cond in
      let tt = tr_stmt then_ in
      begin match else_.sdesc with
-     | Sskip -> trm_if ~loc ~ctx tc tt (trm_lit Lit_unit)
+     | Sskip -> trm_if ?loc ?ctx tc tt (trm_lit Lit_unit)
      | _ ->
       let te = tr_stmt else_ in
       trm_if tc tt te
@@ -161,15 +161,15 @@ and tr_stmt (s : C.stmt) : trm =
   | Swhile (cond, body) ->
     let tc = tr_expr cond in
     let ts = tr_stmt body in
-    trm_while ~loc ~ctx tc ts
+    trm_while ?loc ?ctx tc ts
   | Sdowhile (body, cond) ->
     let tc = tr_expr cond in
     let ts = tr_stmt body in
-    trm_do_while ~loc ~ctx ts tc
+    trm_do_while ?loc ?ctx ts tc
   | Sfor (init, cond, step, body) ->
     let tr_stmt_opt (so : C.stmt) : trm =
       match so.sdesc with
-      | Sskip -> trm_lit ~loc ~ctx Lit_unit
+      | Sskip -> trm_lit ?loc ?ctx Lit_unit
       | _ -> tr_stmt so
       in
     let init = tr_stmt_opt init in
@@ -181,11 +181,11 @@ and tr_stmt (s : C.stmt) : trm =
     let cond = tr_expr cond in
     let step = tr_stmt_opt step in
     let body = tr_stmt body in
-    trm_for_of_trm_for_c (trm_for_c ~loc ~ctx init cond step body)
+    trm_for_of_trm_for_c (trm_for_c ?loc ?ctx init cond step body)
   | Sbreak ->
-    trm_abort ~loc ~ctx (Break None)
+    trm_abort ?loc ?ctx (Break None)
   | Scontinue ->
-    trm_abort ~loc ~ctx (Continue None)
+    trm_abort ?loc ?ctx (Continue None)
   | Slabeled (label, body) ->
     begin match label with
     | Slabel lb ->
@@ -194,13 +194,13 @@ and tr_stmt (s : C.stmt) : trm =
     | _ -> fail loc "CMenhir_to_astRawC.tr_stmt: switch clauses are not yet supported in OptiTrust"
     end
   | Sgoto lb ->
-    trm_goto ~loc ~ctx lb
+    trm_goto ?loc ?ctx lb
   | Sreturn init_opt ->
     begin match init_opt with
     | Some re ->
        let t = tr_init re in
-       trm_abort~loc ~ctx  (Ret (Some t))
-    |_ -> trm_abort ~loc ~ctx (Ret None)
+       trm_abort?loc ?ctx  (Ret (Some t))
+    |_ -> trm_abort ?loc ?ctx (Ret None)
     end
   | Sblock sl ->
     (* LATER: put back naive code:*)
@@ -209,20 +209,20 @@ and tr_stmt (s : C.stmt) : trm =
       match sl with
       | [] -> List.rev acc
       | { C.sdesc = Spragma (p, s1); C.sloc = loc } :: sl1 ->
-          handle_pragma ((tr_stmt s1)::(tr_pragma ~loc:(loc_of_cloc loc) p)::acc) sl1
+          handle_pragma ((tr_stmt s1)::(tr_pragma ?loc:(loc_of_cloc loc) p)::acc) sl1
       | s1 :: sl1 -> handle_pragma (tr_stmt s1 :: acc) sl1
       in
-    trm_seq_nomarks ~loc ~ctx (handle_pragma [] sl) *)
-    trm_seq_nomarks ~loc ~ctx tl
+    trm_seq_nomarks ?loc ?ctx (handle_pragma [] sl) *)
+    trm_seq_nomarks ?loc ?ctx tl
   | Sdecl (_stor, {name = n; _}, ty, init_opt) ->
     let tt = tr_type ty in
     let te = begin match init_opt with
-             | None -> trm_lit ~loc Lit_uninitialized
-             | Some init -> tr_init ~loc init
+             | None -> trm_lit ?loc Lit_uninitialized
+             | Some init -> tr_init ?loc init
              end
       in
     let mut = if is_typ_const tt then Var_immutable else Var_mutable in
-    trm_let ~loc mut (n, tt) te
+    trm_let ?loc mut (n, tt) te
   | Spragma (p, s1) ->
     (* pragmas are parsed as annotations to the proceeding instruction *)
     let tp = tr_pragma p in
@@ -231,8 +231,8 @@ and tr_stmt (s : C.stmt) : trm =
   | _ -> fail loc "CMenhir_to_astRawC.tr_stmt: statment not supported"
    (* LATER: should not use catch all pattern, here and elsewhere *)
 
-(* [tr_pragma ~loc p]: translates C.pragma into OptiTrust pragmas *)
-and tr_pragma ?(loc : location = None) (p : string) : cpragma =
+(* [tr_pragma ?loc p]: translates C.pragma into OptiTrust pragmas *)
+and tr_pragma ?(loc : location) (p : string) : cpragma =
   match p with
   | "omp_simd" -> Simd []
   | "omp atomic" -> Atomic None
@@ -244,7 +244,7 @@ and tr_pragma ?(loc : location = None) (p : string) : cpragma =
      with Scanf.Scan_failure _ ->
       fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p)
 
-(* and tr_pragma1 ?(loc : location = None) (p : string) : trm =
+(* and tr_pragma1 ?(loc : location) (p : string) : trm =
   match p with
   | "omp simd" -> trm_omp_directive (Simd [])
   | "omp atomic" -> trm_omp_directive (Atomic None)
@@ -258,27 +258,27 @@ and tr_pragma ?(loc : location = None) (p : string) : cpragma =
       fail loc (Printf.sprintf "tr_pragma: unsupported pragma: '%s'" p) *)
 
 (* [tr_init i]: translates C.inti into OptiTrust trm *)
-and tr_init ?(loc : location = None) (i : C.init) : trm =
+and tr_init ?(loc : location) (i : C.init) : trm =
   match i with
   | Init_single e -> tr_expr e
-  | Init_array il -> trm_array ~loc (Mlist.of_list (List.map tr_init il))
+  | Init_array il -> trm_array ?loc (Mlist.of_list (List.map tr_init il))
   | Init_struct ((id, ty), il) ->
     let ty = tr_type ty in
-    trm_record ~loc ~typ:(Some ty) (Mlist.of_list (List.map (fun (_, init) -> (None, tr_init init)) il))
+    trm_record ?loc ~typ:ty (Mlist.of_list (List.map (fun (_, init) -> (None, tr_init init)) il))
   | Init_union _ -> fail loc "CMenhir_to_astRawC.tr_init: union not supported yet"
 
 (* [tr_constant c]: translates C.constant into OptiTrust trm *)
-and tr_constant ?(loc : location = None) ?(is_boolean : bool = false) (c : C.constant) : trm =
+and tr_constant ?(loc : location) ?(is_boolean : bool = false) (c : C.constant) : trm =
   match c with
   | C.CInt (i, ik, s)->
     let i = Int64.to_int i in
     begin match ik with
     | C.IBool ->
       let ib = Tools.int_to_bool i in
-      trm_lit ~loc (Lit_bool ib)
+      trm_lit ?loc (Lit_bool ib)
     | C.IChar | C.ISChar | C.IUChar->
 
-      trm_lit ~loc (Lit_string (string_of_int i))
+      trm_lit ?loc (Lit_string (string_of_int i))
     | _ ->
       if is_boolean
         then
@@ -287,14 +287,14 @@ and tr_constant ?(loc : location = None) ?(is_boolean : bool = false) (c : C.con
           | "0" -> false | "1" -> true
           | _ -> fail None "CMenhir_to_astRawC.tr_constant: expected a constant boolean expression"
           end in
-          trm_lit ~loc (Lit_bool b)
+          trm_lit ?loc (Lit_bool b)
         else
-      trm_lit ~loc (Lit_int i)
+      trm_lit ?loc (Lit_int i)
     end
   | C.CFloat ({intPart = inp; fracPart = fp;_}, fk) ->
-    trm_lit ~loc (Lit_double (float_of_string (inp ^ "." ^ fp)))
+    trm_lit ?loc (Lit_double (float_of_string (inp ^ "." ^ fp)))
   | CStr s ->
-    trm_lit ~loc (Lit_string s)
+    trm_lit ?loc (Lit_string s)
   | _  -> fail loc "CMenhir_to_astRawC.tr_const: constant expression is not supported"
 
 (* [tr_expr ~is_stement e]: translates C.exp into OptiTrust trm *)
@@ -303,24 +303,24 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
   let typ = Some (tr_type e.etyp) in
   let ctx = Some (get_ctx()) in
   match e.edesc with
-  | EConst c -> tr_constant ~loc ~is_boolean c
+  | EConst c -> tr_constant ?loc ~is_boolean c
   | ESizeof ty ->
     let ty = tr_type ty in
-    trm_var ~loc ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")")
+    trm_var ?loc ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")")
   | EAlignof ty ->
      let ty = tr_type ty in
-     trm_var ~loc ~typ ("_Alignas(" ^ AstC_to_c.typ_to_string ty ^ ")")
+     trm_var ?loc ?typ ("_Alignas(" ^ AstC_to_c.typ_to_string ty ^ ")")
   | EVar {name = n; _} ->
     (* Booleans are parsed as const variables, here we need to convert them into literals *)
     begin match Tools.bool_of_var n with
     | Some b ->
-      trm_lit ~loc (Lit_bool b)
-    | None -> trm_var ~loc ~ctx ~typ n
+      trm_lit ?loc (Lit_bool b)
+    | None -> trm_var ?loc ?ctx ?typ n
     end
 
   | EUnop (unop, e) ->
     let t = tr_expr e in
-    let trm_apps1 unop t1 = trm_apps ~loc ~typ ~ctx (trm_unop ~loc unop) [t1] in
+    let trm_apps1 unop t1 = trm_apps ?loc ?typ ?ctx (trm_unop ?loc unop) [t1] in
     begin match unop with
     | Ominus ->
       trm_apps1 Unop_minus t
@@ -344,42 +344,42 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
     | Opostdecr ->
       trm_apps1 Unop_post_dec t
     | Odot s ->
-      let get_op = trm_unop ~loc (Unop_struct_get s) in
+      let get_op = trm_unop ?loc (Unop_struct_get s) in
       let get_op = if is_get_operation t then trm_add_cstyle Display_no_arrow get_op else get_op in
-      trm_apps ~loc ~ctx ~typ get_op [t]
+      trm_apps ?loc ?ctx ?typ get_op [t]
     | Oarrow s ->
-      trm_apps ~loc ~ctx ~typ (trm_unop (Unop_struct_get s) ) [trm_get t]
+      trm_apps ?loc ?ctx ?typ (trm_unop (Unop_struct_get s) ) [trm_get t]
     end
   | EBinop (binop, le, re, _) ->
     let tl = tr_expr le in
     let tr = tr_expr re in
     let trm_prim_c binop tl tr =
-       trm_prim_compound ~loc ~ctx binop  tl tr in
+       trm_prim_compound ?loc ?ctx binop  tl tr in
     begin match binop with
-    | Oadd -> trm_add ~loc ~ctx ~typ tl tr
-    | Osub -> trm_sub ~loc ~ctx ~typ  tl tr
-    | Omul -> trm_mul ~loc ~ctx ~typ  tl tr
-    | Odiv -> trm_div ~loc ~ctx ~typ  tl tr
-    | Omod -> trm_mod ~loc ~ctx ~typ  tl tr
+    | Oadd -> trm_add ?loc ?ctx ?typ tl tr
+    | Osub -> trm_sub ?loc ?ctx ?typ  tl tr
+    | Omul -> trm_mul ?loc ?ctx ?typ  tl tr
+    | Odiv -> trm_div ?loc ?ctx ?typ  tl tr
+    | Omod -> trm_mod ?loc ?ctx ?typ  tl tr
     | Ologand ->
       let tl = tr_expr ~is_boolean:true le in
       let tr = tr_expr ~is_boolean:true re in
-      trm_and ~loc ~ctx ~typ  tl tr
+      trm_and ?loc ?ctx ?typ  tl tr
     | Ologor ->
       let tl = tr_expr ~is_boolean:true le in
       let tr = tr_expr ~is_boolean:true re in
-      trm_or ~loc ~ctx ~typ  tl tr
-    | Oxor -> trm_xor ~loc ~ctx ~typ  tl tr
-    | Oshl -> trm_shiftl ~loc ~ctx ~typ  tl tr
-    | Oshr -> trm_shiftr ~loc ~ctx ~typ  tl tr
-    | Oeq -> trm_eq ~loc ~ctx ~typ  tl tr
-    | One -> trm_neq ~loc ~ctx ~typ  tl tr
-    | Olt -> trm_lt ~loc ~ctx ~typ  tl tr
-    | Ogt -> trm_gt ~loc ~ctx ~typ tl tr
-    | Ole -> trm_le ~loc ~ctx ~typ  tl tr
-    | Oge -> trm_ge ~loc ~ctx ~typ  tl tr
-    | Oindex -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx (Binop_array_get) ) [tl; tr]
-    | Oassign -> trm_set ~loc ~ctx tl tr
+      trm_or ?loc ?ctx ?typ  tl tr
+    | Oxor -> trm_xor ?loc ?ctx ?typ  tl tr
+    | Oshl -> trm_shiftl ?loc ?ctx ?typ  tl tr
+    | Oshr -> trm_shiftr ?loc ?ctx ?typ  tl tr
+    | Oeq -> trm_eq ?loc ?ctx ?typ  tl tr
+    | One -> trm_neq ?loc ?ctx ?typ  tl tr
+    | Olt -> trm_lt ?loc ?ctx ?typ  tl tr
+    | Ogt -> trm_gt ?loc ?ctx ?typ tl tr
+    | Ole -> trm_le ?loc ?ctx ?typ  tl tr
+    | Oge -> trm_ge ?loc ?ctx ?typ  tl tr
+    | Oindex -> trm_apps ?loc ?ctx ?typ (trm_binop ?loc ?ctx (Binop_array_get) ) [tl; tr]
+    | Oassign -> trm_set ?loc ?ctx tl tr
     | Oadd_assign -> trm_prim_c Binop_add tl tr
     | Osub_assign -> trm_prim_c Binop_sub tl tr
     | Omul_assign -> trm_prim_c Binop_mul tl tr
@@ -391,30 +391,30 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
     | Oshl_assign -> trm_prim_c Binop_shiftl tl tr
     | Oshr_assign -> trm_prim_c Binop_shiftr tl tr
     | Ocomma -> fail loc "CMenhir_to_astRawC.tr_expr: OptiTrust does not support the comma operator"
-    | Oand -> trm_bit_and ~loc ~ctx ~typ tl tr
-    | Oor -> trm_bit_or ~loc ~ctx ~typ tl tr
+    | Oand -> trm_bit_and ?loc ?ctx ?typ tl tr
+    | Oor -> trm_bit_or ?loc ?ctx ?typ tl tr
     end
   | EConditional (cond, then_, else_) ->
     let t_cond = tr_expr cond in
     let t_then = tr_expr then_ in
     let t_else = tr_expr else_ in
-    trm_apps ~loc ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op) [t_cond; t_then; t_else]
+    trm_apps ?loc ?typ ?ctx (trm_prim ?loc ?ctx Prim_conditional_op) [t_cond; t_then; t_else]
   | ECast (ty, e1) ->
     let ty = tr_type ty in
     let te = tr_expr e1 in
     if is_null_pointer ty te (* Menhir encodes NULL as [( void* ) 0], we decode it here *)
-      then trm_null ~loc ~ctx ()
-      else  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast ty)) [te]
-  | ECompound (_, init) -> tr_init init ~loc
+      then trm_null ?loc ?ctx ()
+      else  trm_apps ?loc ?ctx ?typ (trm_unop ?loc ?ctx (Unop_cast ty)) [te]
+  | ECompound (_, init) -> tr_init init ?loc
   | ECall (f, el) ->
     let tf = tr_expr f in
     begin match tf.desc with
     | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x.qvar_var 0 ->
       begin match el with
-      | [tl; tr] -> trm_set ~loc ~ctx (tr_expr tl) (tr_expr tr)
+      | [tl; tr] -> trm_set ?loc ?ctx (tr_expr tl) (tr_expr tr)
       | _ -> fail loc "CMenhir_to_astRawC.tr_expr: overloaded= expects two arguments"
       end
-    | _ -> trm_apps ~loc ~ctx ~typ tf (List.map tr_expr el)
+    | _ -> trm_apps ?loc ?ctx ?typ tf (List.map tr_expr el)
     end
 
 (* [tr_globdef d]: transaltes C.globdecl into OptiTrust trm *)
@@ -442,13 +442,13 @@ and tr_globdef (d : C.globdecl) : trm =
             let ty = tr_type ty in
             (id.name, ty) in
           let args = List.map get_args pl in
-          trm_let_fun ~loc ~ctx n tt args (trm_lit (Lit_uninitialized))
+          trm_let_fun ?loc ?ctx n tt args (trm_lit (Lit_uninitialized))
         end
       | _ -> fail None "CMenhir_to_astRawC.tr_globdef: this function prototype is not supported"
       end
       else
         let mut = if is_typ_const tt then Var_immutable else Var_mutable in
-        trm_let ~loc ~ctx mut (n, tt) te
+        trm_let ?loc ?ctx mut (n, tt) te
   | C.Gfundef {fd_storage = _; fd_inline = inline; fd_name = {name = n;_}; fd_attrib = _att; fd_ret = ty; fd_params = po; fd_body = bo; _} ->
     let tt = tr_type ty in
     let tb = tr_stmt bo in
@@ -463,7 +463,7 @@ and tr_globdef (d : C.globdecl) : trm =
           (id.name, ty)
          in
         let args = List.map get_args po in
-        trm_let_fun ~loc ~ctx n tt args tb
+        trm_let_fun ?loc ?ctx n tt args tb
       end in
     if inline then trm_add_cstyle Fun_inline res else res
   | C.Genumdef ({C.name = tn}, att, enum_list) ->
@@ -484,7 +484,7 @@ and tr_globdef (d : C.globdecl) : trm =
       typdef_body = Typdef_enum el
     } in
     ctx_typedef_add tn tid td;
-    trm_typedef ~loc ~ctx td
+    trm_typedef ?loc ?ctx td
   | C.Gtypedef ({C.name = tn}, ty) ->
     let tid = next_typconstrid () in
     ctx_tconstr_add tn tid;
@@ -498,7 +498,7 @@ and tr_globdef (d : C.globdecl) : trm =
     }
     in
     ctx_typedef_add tn tid td;
-    trm_typedef ~loc ~ctx td;
+    trm_typedef ?loc ?ctx td;
   | _ -> fail loc "CMenhir_to_astRawC.tr_globdef: declaration not supported"
 
 (* [tr_typedef] translates a typedef (struct only for the moment) *)
@@ -515,7 +515,7 @@ let tr_typedef struct_is_named loc sn fl ty =
   } in
   let ctx = Some (get_ctx ()) in
   ctx_typedef_add sn tid td;
-  trm_typedef ~loc ~ctx td
+  trm_typedef ?loc ?ctx td
 
 
 (* [tr_globdefs gs]: translates a list of C.globdefs into a list of OptiTrust declarations *)

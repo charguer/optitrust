@@ -344,7 +344,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           let txl' =
             Xlist.update_nth n
               (fun (x1, tx) ->
-                let t' = aux (trm_var ~loc:t.loc x1) in
+                let t' = aux (trm_var ?loc:t.loc x1) in
                 match t'.desc with
                 | Trm_var (_,  x') -> (x'.qvar_var, tx)
                 | _ ->
@@ -354,13 +354,13 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           in
           trm_replace (Trm_let_fun (x, tx, txl', body)) t
         | Dir_name , Trm_let (vk,(x,tx),body) ->
-          let t' = aux (trm_var ~loc:t.loc x) in
+          let t' = aux (trm_var ?loc:t.loc x) in
           begin match t'.desc with
           | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x'.qvar_var, tx), body)}
           | _ -> fail t.loc "Path.apply_on_path: transformation must preserve variable names"
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body) ->
-          let t' = aux (trm_var ~loc:t.loc ~qvar:x "") in
+          let t' = aux (trm_var ?loc:t.loc ~qvar:x "") in
           begin match t'.desc with
           | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body)}
           | _ ->
@@ -506,14 +506,14 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           app_to_nth loc tl n (fun nth_t -> aux nth_t ctx)
        | Dir_arg_nth n, Trm_let_fun (_, _, arg, _) ->
           app_to_nth loc arg n
-            (fun (x, _) -> aux (trm_var ~loc x) ctx)
+            (fun (x, _) -> aux (trm_var ?loc x) ctx)
        | Dir_name, Trm_let_fun (x, _, _, _) ->
-          aux (trm_var ~loc ~qvar:x "") ctx
+          aux (trm_var ?loc ~qvar:x "") ctx
        | Dir_name , Trm_let (_,(x,_),_)
          | Dir_name, Trm_goto x ->
-          aux (trm_var ~loc x) ctx
+          aux (trm_var ?loc x) ctx
        | Dir_name, Trm_typedef td ->
-        aux (trm_var ~loc td.typdef_tconstr) ctx
+        aux (trm_var ?loc td.typdef_tconstr) ctx
        | Dir_case (n, cd), Trm_switch (_, cases) ->
           app_to_nth loc cases n
             (fun (tl, body) ->
@@ -528,7 +528,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
             app_to_nth loc xto_l n
              (fun (x, t_o) ->
                match ecd with
-               | Enum_const_name -> aux (trm_var ~loc x) ctx
+               | Enum_const_name -> aux (trm_var ?loc x) ctx
                | Enum_const_val ->
                   begin match t_o with
                   | None ->

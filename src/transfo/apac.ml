@@ -8,23 +8,23 @@ include Apac_basic
     then it will insert  #pragma omp parallel #pragma omp master #pragma omp taskgroup in the body of the main function
       or #pragma omp taskgroup int he body of the other functions.*)
 let parallel_task_group ?(mark : mark = "") : Transfo.t =
-  iter_on_targets ( fun t p -> 
+  iter_on_targets ( fun t p ->
     Apac_basic.use_goto_for_return ~mark (target_of_path p);
 
     transfo_on_targets ( fun t ->
       match t.desc with
-      | Trm_let_fun (qvar, ret_typ, args, body) -> 
+      | Trm_let_fun (qvar, ret_typ, args, body) ->
         let body_tl = match trm_seq_inv body with
-        | Some (tl) -> Mlist.map (fun t -> 
-          match t.desc with 
+        | Some (tl) -> Mlist.map (fun t ->
+          match t.desc with
           | Trm_seq _ ->
-            let pragmas = if qvar.qvar_str = "main" then [Parallel []; Master ; Taskgroup] else [Taskgroup] in 
+            let pragmas = if qvar.qvar_str = "main" then [Parallel []; Master ; Taskgroup] else [Taskgroup] in
             trm_add_pragmas pragmas t
           | _ -> t
           ) tl
-        | None -> assert false 
+        | None -> assert false
         in
-        trm_alter ~desc:(Some(Trm_let_fun(qvar, ret_typ, args, (trm_seq body_tl)))) t
+        trm_alter ~desc:(Trm_let_fun(qvar, ret_typ, args, (trm_seq body_tl))) t
       | _ -> assert false
       ) (target_of_path p)
     )
@@ -44,7 +44,7 @@ type arg_const = {
 
 (* [fun_const]: record that stores information to constify or not the function and its arguments.*)
 type fun_const = {
-  args_const : arg_const list;  (* information for each argument. For methods, the object is added as the 
+  args_const : arg_const list;  (* information for each argument. For methods, the object is added as the
                                     first argument, except for constructors and destructors. *)
   ret_ptr_depth : int;          (* depth of pointer of the return type *)
   is_ret_ref : bool;            (* is the return type a reference? *)
@@ -63,7 +63,7 @@ type constifiable = (fun_loc, (bool list * bool)) Hashtbl.t
 let is_cptr_or_ref (ty : typ) : bool =
   match (get_inner_const_type ty).typ_desc with
   | Typ_ptr _ | Typ_array _-> true
-  | _ -> false  
+  | _ -> false
 
 (* [get_binop_set_left_var t]: returns the variable name on the left side of the set operator
     and a boolean indicating if the variable has been dereferenced. *)
@@ -86,7 +86,7 @@ let get_binop_set_left_var (t : trm) : (var * bool) option =
 let is_unary_mutation (t : trm) : bool =
   match t.desc with
   | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _}, _) ->
-    begin match uo with 
+    begin match uo with
     | Unop_post_dec | Unop_post_inc | Unop_pre_dec | Unop_pre_inc -> true
     | _ -> false
     end
@@ -95,7 +95,7 @@ let is_unary_mutation (t : trm) : bool =
 (* [get_unary_mutation_qvar t]: return the fully qualified name of the variable behind unary mutatation operator. *)
 let get_unary_mutation_qvar (t : trm) : qvar =
   let rec aux (t : trm) : qvar =
-    match t.desc with 
+    match t.desc with
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (Unop_get | Unop_address))); _}, [t]) -> aux t
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _}, [t; _]) -> aux t
     | Trm_var (_, name)-> name
@@ -112,16 +112,16 @@ let get_unary_mutation_qvar (t : trm) : qvar =
 
 
 (* [identify_constifiable_functions tg]: expect target [tg] to point at the root,
-    then it will return the corresponding constifiable function *) 
-let identify_constifiable_functions (tg : target) : constifiable = 
+    then it will return the corresponding constifiable function *)
+let identify_constifiable_functions (tg : target) : constifiable =
   (* TODO : better handle include files *)
 
   let tg_trm = match get_trm_at tg with
     | Some (t) when trm_is_mainfile t -> t
-    | _ -> fail None "Apac.constify_functions_arguments: expected a target to the main file sequence" 
+    | _ -> fail None "Apac.constify_functions_arguments: expected a target to the main file sequence"
   in
 
-  let fac : fun_args_const = Hashtbl.create 10 in 
+  let fac : fun_args_const = Hashtbl.create 10 in
   (* store the function's arguments (fname, nth arg) to unconst *)
   let to_process : (fun_loc * int) Stack.t = Stack.create () in
 
@@ -130,11 +130,11 @@ let identify_constifiable_functions (tg : target) : constifiable =
   let get_fun_decls (t : trm) : (trm * int) list =
     let rec aux (t : trm) : (trm * int) list =
       match t.desc with
-      | Trm_seq tl -> Mlist.fold_left (fun acc t -> 
+      | Trm_seq tl -> Mlist.fold_left (fun acc t ->
         match t.desc with
         | Trm_let_fun _ -> (t, -1) :: acc
         | Trm_namespace (name, body, is_inline) -> acc @ (aux body)
-        | Trm_typedef ({ typdef_body = Typdef_record _; _ } as td) -> 
+        | Trm_typedef ({ typdef_body = Typdef_record _; _ } as td) ->
           acc @ (List.fold_left (fun acc tr -> (tr, td.typdef_typid) :: acc) [] (typedef_get_methods t))
         | _ when List.exists (function | Include _ -> true | _ -> false) (trm_get_files_annot t) ->
           acc @ (aux t)
@@ -144,20 +144,20 @@ let identify_constifiable_functions (tg : target) : constifiable =
     in
     aux t
   in
-    
+
   let (fun_decls, tids) = List.split (get_fun_decls tg_trm) in
 
   (* helper function : add element to process in to_process *)
   let add_elt_in_to_process (va : vars_arg) (usr : fun_loc) (name : var) : unit =
     (* we also take the previously pointed arguments because aliasing creates dependencies.
-      ex : a is const and b is not : 
-      void (int * a, int * b) {     | void (int const * const a, int b) { 
+      ex : a is const and b is not :
+      void (int * a, int * b) {     | void (int const * const a, int b) {
         int * p = a;                | int const * p = a;
         p = c;                      | p = c;
         *p = 1;                     | *p = 1;  // error : p is const because a is const
       }                             | }
     *)
-    let l = Hashtbl.find_all va name in 
+    let l = Hashtbl.find_all va name in
     List.iter (fun (_, arg_idx) -> Stack.push (usr, arg_idx) to_process) l
   in
 
@@ -165,7 +165,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
   let fac_mem_from_trm (t : trm) : bool =
     begin match Ast_data.get_function_usr t with
     | Some (usr) -> Hashtbl.mem fac usr
-    | None -> false 
+    | None -> false
     end
   in
 
@@ -179,24 +179,24 @@ let identify_constifiable_functions (tg : target) : constifiable =
     match t.desc with
     | Trm_let_fun (qv, ty, args, _) ->
       let is_method = tid <> -1 in
-      let acs = List.map (fun (_, ty) -> { 
+      let acs = List.map (fun (_, ty) -> {
           is_ptr_or_ref = is_cptr_or_ref ty ;
-          is_arg_const = true; 
+          is_arg_const = true;
           dependency_of = [];
           tid = match Context.record_typ_to_typid ty with | Some(tid) -> tid | None -> -1;}
         ) args in
       (* add the object as the first argument for object *)
-      let acs = if is_method 
+      let acs = if is_method
         then { is_ptr_or_ref = true; is_arg_const = true; dependency_of = []; tid = tid } :: acs
         else acs in
-      
+
       (* methods declared outside the class are not detected as method previously *)
       let usr = Ast_data.get_function_usr_unsome t in
       if is_method then Hashtbl.remove fac usr;
       Hashtbl.add fac usr {
-        args_const = acs; 
-        ret_ptr_depth = Apac_core.get_cptr_depth ty; 
-        is_ret_ref = is_reference ty; 
+        args_const = acs;
+        ret_ptr_depth = Apac_core.get_cptr_depth ty;
+        is_ret_ref = is_reference ty;
         is_method = is_method }
     | _ -> assert false
     ) fun_decls tids;
@@ -207,48 +207,48 @@ let identify_constifiable_functions (tg : target) : constifiable =
     let rec aux (va : vars_arg) (t : trm) : unit =
       match t.desc with
       (* new scope *)
-      | Trm_seq _ | Trm_for _ | Trm_for_c _ -> 
+      | Trm_seq _ | Trm_for _ | Trm_for_c _ ->
         trm_iter (aux (Hashtbl.copy va)) t
-      (* the syntax allows to declare variable in the condition statement 
+      (* the syntax allows to declare variable in the condition statement
       but clangml currently cannot parse it *)
       | Trm_if _ | Trm_switch _ | Trm_while _ ->
         trm_iter (aux (Hashtbl.copy va)) t
-      
+
       (* funcall : update dependency_of *)
       | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ } as f, args) when fac_mem_from_trm f ->
         let {args_const; _} = fac_find_from_trm f in
-        List.iteri (fun i t -> 
+        List.iteri (fun i t ->
           match (Apac_core.get_inner_all_unop_and_access t).desc with
           | Trm_var (vk, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
             let (_, arg_idx) = Hashtbl.find va arg_name.qvar_str in
-            let ac = List.nth args_const i in 
+            let ac = List.nth args_const i in
             if ac.is_ptr_or_ref then ac.dependency_of <- (cur_usr, arg_idx) :: ac.dependency_of
           | _ -> ()
           ) args;
         trm_iter (aux va) t
-      
+
       (* declare new ref/ptr that refer/point to argument : update vars_arg *)
-      | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }) -> 
-        Apac_core.update_vars_arg_on_trm_let 
-          (fun () -> ()) 
-          (fun () -> ()) 
-          (fun () -> ()) 
+      | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }) ->
+        Apac_core.update_vars_arg_on_trm_let
+          (fun () -> ())
+          (fun () -> ())
+          (fun () -> ())
           va t;
         trm_iter (aux va) t
       | Trm_let_mult (_, tvl, tl) ->
         List.iter2 (fun (lname, ty) t ->
           Apac_core.update_vars_arg_on_trm_let_mult_iter
-            (fun () -> ()) 
-            (fun () -> ()) 
+            (fun () -> ())
+            (fun () -> ())
             (fun () -> ())
             va lname ty t
         ) tvl tl;
         trm_iter (aux va) t
-      
+
       (* assignment & compound assignment to argument : update to_process *)
-      | Trm_apps _ when is_set_operation t -> 
-        begin match set_inv t with 
-        | Some (lhs, rhs) -> 
+      | Trm_apps _ when is_set_operation t ->
+        begin match set_inv t with
+        | Some (lhs, rhs) ->
           begin match get_binop_set_left_var lhs with
           | Some (var_name, is_deref) when Hashtbl.mem va var_name ->
             (* the variable [var_name] has been modified, add it in to_process *)
@@ -260,12 +260,12 @@ let identify_constifiable_functions (tg : target) : constifiable =
               Hashtbl.add va var_name (depth, arg_idx)
             | _ -> ()
             end
-          | _ -> () (* example variable not in va : global variable *)  
+          | _ -> () (* example variable not in va : global variable *)
           end
         | None -> assert false
         end;
         trm_iter (aux va) t
-          
+
       (* mutable unary operator (++, --) : update to_process *)
       | Trm_apps _ when is_unary_mutation t ->
         let name = get_unary_mutation_qvar t in
@@ -273,20 +273,20 @@ let identify_constifiable_functions (tg : target) : constifiable =
         trm_iter (aux va) t
 
       (* return argument : update to_process if return ref or ptr *)
-      | Trm_abort (Ret (Some tr)) -> 
+      | Trm_abort (Ret (Some tr)) ->
         let {ret_ptr_depth; is_ret_ref; _} = Hashtbl.find fac cur_usr in
-        if is_ret_ref then 
+        if is_ret_ref then
           begin match trm_var_inv tr with
           | Some (a, var_name) when Hashtbl.mem va var_name -> add_elt_in_to_process va cur_usr var_name
           | _ -> ()
           end
-        else if ret_ptr_depth > 0 then 
+        else if ret_ptr_depth > 0 then
           begin match Apac_core.get_vars_data_from_cptr_arith va tr with
-          | Some (arg_idx) -> Stack.push (cur_usr, arg_idx) to_process 
+          | Some (arg_idx) -> Stack.push (cur_usr, arg_idx) to_process
           | None -> ()
           end;
         trm_iter (aux va) t
-      
+
       | _ -> trm_iter (aux va) t
     in
 
@@ -302,26 +302,26 @@ let identify_constifiable_functions (tg : target) : constifiable =
       if is_method then begin
         let tid = (List.hd args_const).tid in
         begin match Context.typid_to_trm tid with
-        | Some (t) -> 
-          List.iter (fun (name, ty) -> 
+        | Some (t) ->
+          List.iter (fun (name, ty) ->
             Hashtbl.add va name (Apac_core.get_cptr_depth ty, 0)
           ) (typedef_get_members t)
         | None -> assert false
-        end 
+        end
       end;
 
       (* add arguments *)
-      List.iteri (fun i (name, ty) -> 
+      List.iteri (fun i (name, ty) ->
         if name <> "" then
           let i = if is_method then i+1 else i in
           Hashtbl.add va name (Apac_core.get_cptr_depth ty, i)
         ) args;
-      
+
       update_fac_and_to_process va (Ast_data.get_function_usr_unsome t) is_method body
     | _ -> assert false
     ) fun_decls;
-  
-  
+
+
   (* propagate argument unconstification through function call *)
   let rec unconstify_propagate (to_process : (fun_loc * int) Stack.t) : unit =
     match Stack.pop_opt to_process with
@@ -329,8 +329,8 @@ let identify_constifiable_functions (tg : target) : constifiable =
       let {args_const; _} = Hashtbl.find fac fun_loc in
       let ac = List.nth args_const nth in
       if ac.is_arg_const then begin
-        ac.is_arg_const <- false; 
-        List.iter (fun e -> Stack.push e to_process) ac.dependency_of 
+        ac.is_arg_const <- false;
+        List.iter (fun e -> Stack.push e to_process) ac.dependency_of
       end;
       unconstify_propagate to_process
     | None -> ()
@@ -349,15 +349,15 @@ let identify_constifiable_functions (tg : target) : constifiable =
   cstfbl
 
 (* [constify_functions_arguments cstfbl tg]: expect target [tg] to point at a function definition,
-    then it will add "const" keyword whenever it is possible in its arguments *) 
+    then it will add "const" keyword whenever it is possible in its arguments *)
 let constify_functions_arguments (cstfbl : constifiable) : Transfo.t =
   iter_on_targets ( fun tt p ->
     let tr = Path.get_trm_at_path p tt in
     let tg = nbAny :: target_of_path p in
     match tr.desc with
-    | Trm_let_fun _ -> 
+    | Trm_let_fun _ ->
       begin match (Hashtbl.find_opt cstfbl (Ast_data.get_function_usr_unsome tr)) with
-      | Some (is_args_const, is_method_const) -> 
+      | Some (is_args_const, is_method_const) ->
         Apac_basic.constify_args ~is_args_const ~is_method_const tg;
         Apac_basic.constify_args_alias ~is_args_const tg
       | None -> ()
@@ -380,7 +380,7 @@ let get_delete_task (ptrs : decl_cptrs) : trm option =
     let delete_trms : trms = List.map (fun var -> trm_delete (Hashtbl.find ptrs var) (trm_var var)) vars in
     Some (trm_add_pragmas [Task [Depend [Inout deps]]] (trm_seq_nomarks delete_trms))
 
-(* [heapify_nested_seq tg]: expect target [tg] to point at a sequence, then it will : 
+(* [heapify_nested_seq tg]: expect target [tg] to point at a sequence, then it will :
     - send on the heap all variables declared in this scope,
     - dereference all use of them (add  "*")
     - add task to delete these variables before "return" "break" and "continue" statements when it is needed
@@ -393,33 +393,33 @@ let heapify_nested_seq : Transfo.t =
       match t.desc with
       (* new scope *)
       | Trm_seq _ -> trm_map (aux (Hashtbl.copy ptrs) false) t
-      | Trm_for _ | Trm_for_c _  -> trm_map (aux (Hashtbl.copy ptrs) false) t 
+      | Trm_for _ | Trm_for_c _  -> trm_map (aux (Hashtbl.copy ptrs) false) t
       | Trm_while _ | Trm_switch _ | Trm_if _ -> trm_map (aux ptrs false) t
 
-      | Trm_let (_, (var, ty), _) -> 
+      | Trm_let (_, (var, ty), _) ->
         (* remove variable from occurs when declaring them again *)
         if Hashtbl.mem ptrs var then begin Hashtbl.remove ptrs var; trm_map (aux ptrs is_first_depth) t end
         (* heapify new variable only for first depth *)
-        else if is_first_depth then begin 
+        else if is_first_depth then begin
           let tr = Apac_core.stack_to_heap_aux t in
           Hashtbl.add ptrs var (is_typ_array (get_inner_ptr_type ty));
-          trm_map (aux ptrs is_first_depth) tr 
+          trm_map (aux ptrs is_first_depth) tr
           end
         else trm_map (aux ptrs is_first_depth) t
-      | Trm_let_mult (_, tvl, tl) -> 
+      | Trm_let_mult (_, tvl, tl) ->
         (* raises error if partial heapify *)
         let has_defined_var = List.fold_left (fun has_defined_var (var, ty) ->
           if Hashtbl.mem ptrs var then begin Hashtbl.remove ptrs var; true end
           else if not has_defined_var then begin Hashtbl.add ptrs var (is_typ_array ty); false end
           else fail None "Apac.heapify_nested_seq.aux: partial heapify of Trm_let_mult"
         ) false tvl in
-        if has_defined_var 
+        if has_defined_var
           then trm_map (aux ptrs is_first_depth) t
           else trm_map (aux ptrs is_first_depth) (Apac_core.stack_to_heap_aux t)
-      
+
       (* dereference heapified variables *)
-      | Trm_var (kind, qv) when Hashtbl.mem ptrs qv.qvar_str && not (Hashtbl.find ptrs qv.qvar_str) -> trm_get t 
-      
+      | Trm_var (kind, qv) when Hashtbl.mem ptrs qv.qvar_str && not (Hashtbl.find ptrs qv.qvar_str) -> trm_get t
+
       (* add delete task before :
           - return : everytime
           - break, continue : only the current loop not deeper *)
@@ -428,7 +428,7 @@ let heapify_nested_seq : Transfo.t =
         | Some (tr) -> trm_seq_no_brace [tr; trm_map (aux ptrs is_first_depth) t]
         | _ -> t
         end
-      
+
       | _ -> trm_map (aux ptrs is_first_depth) t
     in
 
@@ -438,7 +438,7 @@ let heapify_nested_seq : Transfo.t =
       | Trm_seq tl ->
         begin match List.rev (Mlist.to_list tl) with
         | tr :: _ when is_trm_abort tr -> t
-        | _ -> 
+        | _ ->
           begin match get_delete_task ptrs with
           | Some (tr) -> trm_seq_add_last (tr) t
           | _ -> t
@@ -450,7 +450,7 @@ let heapify_nested_seq : Transfo.t =
     let decl_cptrs = Hashtbl.create 10 in
     let tg_trm = Path.get_trm_at_path p t in
     match tg_trm.desc with
-    | Trm_seq tl -> Internal.nobrace_remove_after (fun _ -> 
+    | Trm_seq tl -> Internal.nobrace_remove_after (fun _ ->
       transfo_on_targets (trm_map (aux decl_cptrs true)) (target_of_path p));
       transfo_on_targets (add_end_delete_task decl_cptrs) (target_of_path p)
     | _ -> fail None "Apac.heapify_nested_seq: Expects target to point at a sequence"
@@ -471,14 +471,14 @@ let get_dep (var : var) (ty : typ) : dep =
   in
   aux (get_cptr_depth ty)
 
-(* [sync_with_taskwait tg]: expects the target [tg] to point at a function definition, 
+(* [sync_with_taskwait tg]: expects the target [tg] to point at a function definition,
     then it will add taskwait omp pragmas before loop and conditional branches,
     it also adds it at the end of loops. *)
 let sync_with_taskwait : Transfo.t =
   iter_on_targets (fun t p ->
 
     let add_taskwait (decl_vars : (var, dep) Hashtbl.t) (vars : vars) (t : trm) : trm =
-      match vars with 
+      match vars with
       | [] -> t
       | _ ->
         let deps = List.map (fun var -> Hashtbl.find decl_vars var) vars in
@@ -487,8 +487,8 @@ let sync_with_taskwait : Transfo.t =
 
     let add_taskwait_end_seq (decl_vars : (var, dep) Hashtbl.t) (vars : vars) (t : trm) : trm =
       match t.desc with
-      | Trm_seq _ -> 
-        begin match vars with 
+      | Trm_seq _ ->
+        begin match vars with
         | [] -> t
         | _ ->
           let deps = List.map (fun var -> Hashtbl.find decl_vars var) vars in
@@ -504,18 +504,18 @@ let sync_with_taskwait : Transfo.t =
       currently always add taskwait *)
     let add_taskwait_loop_body (decl_vars : (var, dep) Hashtbl.t) (vars : vars) (t : trm) : trm =
       match t.desc with
-      | Trm_while (cond , body) -> 
+      | Trm_while (cond , body) ->
         let new_body = add_taskwait_end_seq decl_vars vars body in
-        trm_alter ~desc:(Some(Trm_while (cond, new_body))) t
-      | Trm_do_while (body, cond) -> 
+        trm_alter ~desc:(Trm_while (cond, new_body)) t
+      | Trm_do_while (body, cond) ->
         let new_body = add_taskwait_end_seq decl_vars vars body in
-        trm_alter ~desc:(Some(Trm_do_while (new_body, cond))) t
+        trm_alter ~desc:(Trm_do_while (new_body, cond)) t
       | Trm_for (l_range, body) ->
         let new_body = add_taskwait_end_seq decl_vars vars body in
-        trm_alter ~desc:(Some(Trm_for (l_range, new_body))) t
-      | Trm_for_c (init, cond, step, body) -> 
+        trm_alter ~desc:(Trm_for (l_range, new_body)) t
+      | Trm_for_c (init, cond, step, body) ->
         let new_body = add_taskwait_end_seq decl_vars vars body in
-        trm_alter ~desc:(Some(Trm_for_c (init, cond, step, new_body))) t
+        trm_alter ~desc:(Trm_for_c (init, cond, step, new_body)) t
       | _ -> t
     in
 
@@ -532,39 +532,39 @@ let sync_with_taskwait : Transfo.t =
     let rec aux (decl_vars : (var, dep) Hashtbl.t) (t : trm) : trm =
       match t.desc with
       | Trm_seq _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
-      
-      | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t 
 
-      | Trm_let_mult (_, tvl, _) -> 
+      | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t
+
+      | Trm_let_mult (_, tvl, _) ->
         List.iter (fun (var, ty) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty))) tvl; t
 
-      | Trm_if (cond, _, _) | Trm_switch (cond , _) -> 
+      | Trm_if (cond, _, _) | Trm_switch (cond , _) ->
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (get_all_vars [] cond) t)
-      
-      | Trm_while (cond, _) -> 
-        let l = get_all_vars [] cond in 
+
+      | Trm_while (cond, _) ->
+        let l = get_all_vars [] cond in
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars l t)
-      
-      | Trm_do_while (_, cond) -> 
+
+      | Trm_do_while (_, cond) ->
         let l = get_all_vars [] cond in
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) t
 
-      | Trm_for ((var, _, _, _, step, _), _) -> 
-        let l = begin match step with 
+      | Trm_for ((var, _, _, _, step, _), _) ->
+        let l = begin match step with
         | Step tr -> get_all_vars [var] tr
         | _ -> [var]
         end in
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (remove_n 1 l) t)
 
-      | Trm_for_c (init, cond, step, _) -> 
+      | Trm_for_c (init, cond, step, _) ->
         let (l, n) = begin match init.desc with
-        | Trm_let (_, (var, ty), _) -> 
+        | Trm_let (_, (var, ty), _) ->
           Hashtbl.add decl_vars var (get_dep var ty);
           (get_all_vars [var] cond, 1)
-        | Trm_let_mult (_, tvl, _) -> 
+        | Trm_let_mult (_, tvl, _) ->
           let l = List.fold_left (fun acc (var, _) -> var :: acc) [] tvl in
           List.iter (fun (var, ty) -> Hashtbl.add decl_vars var (get_dep var ty)) tvl;
           (get_all_vars l cond, List.length l)
@@ -573,16 +573,16 @@ let sync_with_taskwait : Transfo.t =
         let l = get_all_vars l step in
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (remove_n n l) t)
-      
+
       | Trm_abort Ret (Some tr) -> add_taskwait decl_vars (get_all_vars [] tr) t
-        
+
       | _ -> t
     in
 
     let tg_trm = Path.get_trm_at_path p t in
     let decl_vars = Hashtbl.create 10 in
     match tg_trm.desc with
-    | Trm_let_fun (qv, ty, args, body) -> 
+    | Trm_let_fun (qv, ty, args, body) ->
       List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add decl_vars var (get_dep var ty)) args;
       transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
@@ -596,9 +596,9 @@ let gen_id = Tools.fresh_generator ()
 let count_calls (t : trm) : int =
   let rec aux (count : int) (t : trm) : int =
     match t.desc with
-    | Trm_apps (f, args) -> 
+    | Trm_apps (f, args) ->
       let count = match f.desc with | Trm_var _ -> count+1 | _ -> count in
-      List.fold_left (fun acc t -> aux acc t) count args 
+      List.fold_left (fun acc t -> aux acc t) count args
     | _ -> count
   in
   aux 0 t
@@ -611,20 +611,20 @@ let unfold_funcalls : Transfo.t =
   let unfold_funcalls_transfo (tg_instr : target) (tg_call : target) : unit =
     let tr_call = get_trm_at_unsome tg_call in
     let ty = match tr_call.desc with
-      | Trm_apps ({desc = Trm_var _} as f, args) -> 
+      | Trm_apps ({desc = Trm_var _} as f, args) ->
         let def = Ast_data.get_function_def f in
         let (_, ty, _, _) = trm_inv trm_let_fun_inv def in
         ty
       | _ -> assert false
     in
     let new_name = "__var_" ^ (string_of_int (gen_id())) in
-    let tr_let_var = trm_let_mut (new_name, get_inner_const_type ty) (trm_uninitialized ()) in 
+    let tr_let_var = trm_let_mut (new_name, get_inner_const_type ty) (trm_uninitialized ()) in
     let tr_set = trm_set (trm_var new_name) tr_call in
 
-    if not (same_types ty (typ_unit ())) 
+    if not (same_types ty (typ_unit ()))
     then begin
       transfo_on_targets (fun _ -> trm_apps (trm_unop Unop_get) [trm_var new_name]) tg_call;
-      Internal.nobrace_remove_after (fun _ -> 
+      Internal.nobrace_remove_after (fun _ ->
         transfo_on_targets (fun t -> trm_seq_no_brace [tr_let_var; tr_set; t]) tg_instr);
       end
     else ()
@@ -634,18 +634,18 @@ let unfold_funcalls : Transfo.t =
     let fixed_tg = (target_of_path p ) @ [nbAny; cFun ""] in
 
     iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-      (fun i t (path_to_seq, local_path, i1)  -> 
+      (fun i t (path_to_seq, local_path, i1)  ->
         let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
         let path_to_call = path_to_instruction @ local_path in
         let tg_instr = target_of_path path_to_instruction in
         let tg_call = target_of_path path_to_call in
-        let tg_out_trm = Path.resolve_path path_to_instruction t in 
-        
+        let tg_out_trm = Path.resolve_path path_to_instruction t in
+
         match tg_out_trm.desc with
         | Trm_let _ -> unfold_funcalls_transfo tg_instr tg_call
-        | Trm_apps (_, [lhs; rhs]) when is_set_operation tg_out_trm && count_calls rhs >= 2 -> 
+        | Trm_apps (_, [lhs; rhs]) when is_set_operation tg_out_trm && count_calls rhs >= 2 ->
           unfold_funcalls_transfo tg_instr tg_call
-        | Trm_apps ({ desc = Trm_var _ }, _) when count_calls tg_out_trm >= 2-> 
+        | Trm_apps ({ desc = Trm_var _ }, _) when count_calls tg_out_trm >= 2->
           unfold_funcalls_transfo tg_instr tg_call
         | _ -> ()
         ) fixed_tg;
@@ -672,7 +672,7 @@ type vars_depth = var vars_tbl
 let rec is_base_type (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
-  | Typ_constr _ -> 
+  | Typ_constr _ ->
     begin match get_inner_typedef_alias ty with
     (* alias *)
     | Some (ty) -> is_base_type ty
@@ -680,15 +680,15 @@ let rec is_base_type (ty : typ) : bool =
     | None -> true
     end
   | _ -> false
-  
-(* [is_dep_in ty]: checks if the omp dependency type of [ty] in In. 
+
+(* [is_dep_in ty]: checks if the omp dependency type of [ty] in In.
     It does not handle auto ! *)
 let rec is_dep_in (ty : typ) : bool =
   (* returns true if there is "const" before every pointer and before the base type *)
   let rec aux (ty : typ) : bool =
     match ty.typ_desc with
     (* unwrap alias *)
-    | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) -> 
+    | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) ->
       begin match get_inner_typedef_alias (get_inner_const_type ty) with
       | Some (ty) -> aux ty
       | None -> assert false
@@ -711,13 +711,13 @@ let rec is_dep_in (ty : typ) : bool =
 
   match ty.typ_desc with
   (* unwrap alias *)
-  | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) -> 
+  | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) ->
     begin match get_inner_typedef_alias (get_inner_const_type ty) with
     | Some (ty) -> is_dep_in ty
     | None -> assert false
     end
   (* reference *)
-  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> 
+  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
     begin match ty.typ_desc with
     (* void & *)
     | Typ_unit -> fail None "is_dep_in: void & as argument"
@@ -740,19 +740,19 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
     match t.desc with
     | Trm_seq _ | Trm_namespace _ -> trm_iter (aux fad is_method) t
     | Trm_typedef { typdef_body = Typdef_record _; _ } -> trm_iter (aux fad true) t
-    | Trm_let_fun (qv, _, tvl, _) when qv.qvar_str <> "main" -> 
+    | Trm_let_fun (qv, _, tvl, _) when qv.qvar_str <> "main" ->
       let fc = Ast_data.get_function_usr_unsome t in
-      let args_info = List.map (fun (var, ty) -> 
+      let args_info = List.map (fun (var, ty) ->
         let dep_in = is_dep_in ty in
         let is_record = match Context.record_typ_to_typid ty with | Some (_) -> true | None -> false in
         {dep_depth = Apac_core.get_cptr_depth (get_inner_ptr_type ty);
         dep_in = dep_in;
-        dep_shared = is_reference ty || (is_record && dep_in);}) tvl 
+        dep_shared = is_reference ty || (is_record && dep_in);}) tvl
       in
-      let args_info = if is_method 
+      let args_info = if is_method
         then begin
           let is_const_method = trm_has_cstyle Const_method t in
-          {dep_depth = -1; 
+          {dep_depth = -1;
           dep_in = is_const_method;
           dep_shared = is_const_method;} :: args_info
           end
@@ -761,10 +761,10 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
       Hashtbl.add fad fc args_info
     | _ -> ()
   in
-  
+
   let tg_trm = match get_trm_at tg with
     | Some (t) when trm_is_mainfile t -> t
-    | _ -> fail None "Apac.constify_functions_arguments: expected a target to the main file sequence" 
+    | _ -> fail None "Apac.constify_functions_arguments: expected a target to the main file sequence"
   in
   let fad = Hashtbl.create 10 in
   aux fad false tg_trm;
@@ -773,33 +773,33 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
 (* [count_unop_get t]: return the number of nested unary operation of [t] *)
 let count_unop_get (t : trm) : int =
   let rec aux (count : int) (t : trm) : int =
-    match t.desc with 
+    match t.desc with
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [tr]) -> aux (count+1) tr
     | Trm_apps (_, tl) -> List.fold_left aux count tl
-    | _ -> count 
+    | _ -> count
   in
   aux 0 t
 
-(* [get_apps_deps vd fad t]: gets the list of dependency the trm [t] has. 
+(* [get_apps_deps vd fad t]: gets the list of dependency the trm [t] has.
     Expects the transformation [unfold_funcall] applied before.
     The returned list may have duplicates or different dependencies for the same variable,
     so it must be processed afterward. *)
 let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos =
 
-  let rec aux (dis : dep_infos) (t : trm) : dep_infos = 
-    match t.desc with 
+  let rec aux (dis : dep_infos) (t : trm) : dep_infos =
+    match t.desc with
     (* function call *)
     | Trm_apps ({ desc = Trm_var _} as f, args) ->
       let l = Hashtbl.find fad (Ast_data.get_function_usr_unsome f) in
-      List.fold_left2 (fun acc ({dep_depth; dep_in; _} as dep_info) t -> 
+      List.fold_left2 (fun acc ({dep_depth; dep_in; _} as dep_info) t ->
         match (Apac_core.get_inner_all_unop_and_access t).desc with
-        | Trm_var (_, qv) -> 
-          let di = { dep_info with dep_depth = if dep_depth = -1 then (count_unop_get t) - 1 else dep_depth}  in 
+        | Trm_var (_, qv) ->
+          let di = { dep_info with dep_depth = if dep_depth = -1 then (count_unop_get t) - 1 else dep_depth}  in
           (qv.qvar_str, di) :: acc
-        
+
         | Trm_apps (_, tl) ->
           (* resolve pointers *)
-          let dep_infos = if dep_depth > 1  && not dep_in 
+          let dep_infos = if dep_depth > 1  && not dep_in
             then begin match Apac_core.get_vars_data_from_cptr_arith vd t with
             | Some (var) -> (var, dep_info) :: dis
             | None -> dis
@@ -808,10 +808,10 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
           (* recursive call to add the other variables *)
           List.fold_left aux dep_infos tl
         | _  -> dis
-        ) dis l args    
-    
+        ) dis l args
+
     (* set operation *)
-    | Trm_apps (_, [lhs; rhs]) when is_set_operation t -> 
+    | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
       begin match (Apac_core.get_inner_all_unop_and_access lhs).desc with
       | Trm_var (_, qv) ->
         let (depth, _) = Hashtbl.find vd qv.qvar_str in
@@ -819,23 +819,23 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
         aux ((qv.qvar_str, di) :: dis) rhs
       | _ -> assert false
       end
-    
+
     (* unary mutation *)
-    | Trm_apps (_, [tr]) when is_unary_mutation t -> 
+    | Trm_apps (_, [tr]) when is_unary_mutation t ->
       let qv = get_unary_mutation_qvar t in
       let (depth, _) = Hashtbl.find vd qv.qvar_str in
       let di = { dep_depth = depth; dep_in = false; dep_shared = true;} in
       (qv.qvar_str, di) :: dis
-    
+
     (* explore further*)
     | Trm_apps (_, tl) -> List.fold_left aux dis tl
-    
+
     (* variable *)
-    | Trm_var (_, qv) -> 
+    | Trm_var (_, qv) ->
       let (depth, _) = Hashtbl.find vd qv.qvar_str in
       let di = { dep_depth = depth; dep_in = true; dep_shared = false;} in
       (qv.qvar_str, di) :: dis
-      
+
     | _ -> dis
   in
 
@@ -870,9 +870,9 @@ let get_cpagma_from_dep_infos (dis_in : dep_infos) (dis_inout : dep_infos) : cpr
   in
   let deps_in : deps = List.map (fun (var, {dep_depth; _}) -> aux var dep_depth) dis_in in
   let deps_inout : deps = List.map (fun (var, {dep_depth; _}) -> aux var dep_depth) dis_inout in
-  let shared_vars = List.fold_left (fun acc (var, {dep_shared; _}) -> 
+  let shared_vars = List.fold_left (fun acc (var, {dep_shared; _}) ->
     if dep_shared then var :: acc else acc) [] dis_inout in
-  
+
   let depend = if is_empty deps_in then [] else [In deps_in] in
   let depend = if is_empty deps_inout then depend else Inout deps_inout :: depend in
   let clauses = if is_empty depend then [] else [Depend depend] in
@@ -890,15 +890,15 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
       (* new sequence *)
       | Trm_seq _ | Trm_if _ | Trm_for _ | Trm_for_c _ | Trm_while _ | Trm_do_while _ | Trm_switch _ ->
         trm_map (aux (Hashtbl.copy vd))  t
-      
+
       (* new variable *)
-      | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }) -> 
+      | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }) ->
         Hashtbl.add vd var (Apac_core.get_cptr_depth (get_inner_ptr_type ty), var); t
-      | Trm_let_mult (_, tvl, _) -> 
+      | Trm_let_mult (_, tvl, _) ->
         List.iter (fun (var, ty) -> Hashtbl.add vd var (Apac_core.get_cptr_depth ty, var)) tvl; t
 
       (* new task *)
-      | Trm_apps _ -> 
+      | Trm_apps _ ->
         let dis = get_apps_deps vd fad t in
         let (dis_in, dis_inout) = sort_dep_infos dis in
         let t = trm_seq_nomarks [t] in
@@ -910,7 +910,7 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
     let tg_trm = Path.get_trm_at_path p t in
     let vd = Hashtbl.create 10 in
     match tg_trm.desc with
-    | Trm_let_fun (_, _, tvl, _) -> 
+    | Trm_let_fun (_, _, tvl, _) ->
       List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add vd var (Apac_core.get_cptr_depth ty, var)) tvl;
       transfo_on_targets (aux vd) (target_of_path (p @ [Dir_body]))
     | _ -> fail None "Apac.insert_tasks_naive: expected a target to a function definition"

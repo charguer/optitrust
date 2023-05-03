@@ -183,7 +183,7 @@ let init_detach_aux  (t : trm) : trm =
     let var_type = get_inner_ptr_type tx in
     let var_decl = trm_pass_marks t (trm_let_mut ~annot:t.annot (x, var_type) (trm_uninitialized ())) in
     (* Check if variable was declared as a reference *)
-    let var_assgn = trm_set (trm_var ~typ:(Some var_type) x) {init with typ = (Some var_type)} in
+    let var_assgn = trm_set (trm_var ~typ:var_type x) {init with typ = (Some var_type)} in
     trm_seq_no_brace [var_decl; var_assgn]
   end
 
@@ -251,8 +251,8 @@ let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : 
     | Some (_, _, ty, _) -> ty
     | _ -> fail vardef_trm.loc "Variable_core.local_name: make sure the name of the current var is entered correctly"
     in
-  let fst_instr = trm_let_mut (local_var, var_type) (trm_var_possibly_mut ~typ:(Some var_type) curr_var) in
-  let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_var_possibly_mut ~typ:(Some var_type) local_var) in
+  let fst_instr = trm_let_mut (local_var, var_type) (trm_var_possibly_mut ~typ:var_type curr_var) in
+  let lst_instr = trm_set (trm_var ~typ:var_type curr_var) (trm_var_possibly_mut ~typ:var_type local_var) in
   let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in
   let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
   trm_add_mark mark final_trm
@@ -287,8 +287,8 @@ let delocalize_aux (array_size : string) (ops : local_ops) (index : string) (t :
                                curr_var_trm
                                 (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])))
         | Local_obj (clear_f, transfer_f, _) ->
-            trm_apps ~typ:(Some (typ_unit ())) (trm_var clear_f) [],
-            trm_apps ~typ:(Some (typ_unit())) (trm_var transfer_f)
+            trm_apps ~typ:(typ_unit ()) (trm_var clear_f) [],
+            trm_apps ~typ:(typ_unit()) (trm_var transfer_f)
               [trm_get curr_var_trm ;
               trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])]
       end in
@@ -391,7 +391,7 @@ let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (i
       | Some ty -> ty
       | _ -> typ_auto()
        in
-      let replacement_node = trm_var_possibly_mut ~const ~typ:(Some node_type) fresh_name in
+      let replacement_node = trm_var_possibly_mut ~const ~typ:node_type fresh_name in
       let replacement_node = (* LATER; use trm_add_mark_opt *)
         match mark_occ with
         | Some m -> trm_add_mark m replacement_node
@@ -475,8 +475,8 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
       (false, if r then t1' else trm_get ~annot:t.annot t1')
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f)))}, [t1]) ->
       let r, t1' = aux t1 in
-      if r then (true, trm_struct_get ~typ:t.typ ~annot:t.annot t1' f)
-      else (false, trm_struct_access ~typ:t.typ ~annot:t.annot t1' f)
+      if r then (true, trm_struct_get ?typ:t.typ ~annot:t.annot t1' f)
+      else (false, trm_struct_access ?typ:t.typ ~annot:t.annot t1' f)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [t1; t2]) ->
       let r, t1' = aux t1 in
       let _, t2' = aux t2 in
@@ -522,7 +522,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
               in
             let init_type = get_inner_const_type tx in
             let new_dl = trm_pass_marks dl (trm_let_mut (x, init_type) init_val) in
-            let new_lback = Mlist.map (Internal.subst_var x (trm_var_possibly_mut ~typ:(Some init_type) x)) lback in
+            let new_lback = Mlist.map (Internal.subst_var x (trm_var_possibly_mut ~typ:init_type x)) lback in
             update_seq new_dl new_lback lfront
           end
 

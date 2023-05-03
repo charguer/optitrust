@@ -11,8 +11,8 @@ let update (f : trm -> trm) : Target.Transfo.local =
 let replace_fun_aux (name : string) (t : trm) : trm =
   let error = "Expr_core.replace_fun: expected a function call" in
   let (f, args) = trm_inv ~error trm_apps_inv t in
-  trm_apps ~annot:t.annot ~typ:t.typ (trm_var name) args
-  
+  trm_apps ~annot:t.annot ?typ:t.typ (trm_var name) args
+
 
 (* [replace_fun name t p]: applies [replace_fun_aux] at trm [t] with path [p] *)
 let replace_fun (name : string) : Target.Transfo.local =

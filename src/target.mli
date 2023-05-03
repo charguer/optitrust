@@ -126,11 +126,11 @@ val cChoose : constr
 
 val cAlloc : int option -> constr
 
-val cMalloc : ?d:int option -> unit -> constr
+val cMalloc : ?d:int -> unit -> constr
 
-val cCalloc : ?d:int option -> unit -> constr
+val cCalloc : ?d:int -> unit -> constr
 
-val cMindex : ?d:int option -> ?args:targets -> unit -> constr
+val cMindex : ?d:int -> ?args:targets -> unit -> constr
 
 val sInstr : ?substr:bool -> string -> constr
 
@@ -184,15 +184,15 @@ val cVarInit : string -> constr
 
 val cVarsDef : ?regexp:bool -> ?substr:bool -> ?body:target -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
 
-val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
+val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor -> string -> constr
 
-val cFunBody : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
+val cFunBody : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor -> string -> constr
 
-val cFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
+val cFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?clang_id:Clang.cxcursor -> string -> constr
 
-val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
+val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor -> string -> constr
 
-val cTopFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
+val cTopFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?clang_id:Clang.cxcursor -> string -> constr
 
 val cTopFunDefs : var list -> constr
 
@@ -317,7 +317,7 @@ val cArrayInit : constr
 
 val cStructInit : constr
 
-val cCell : ?cell_index: int option -> unit -> constr
+val cCell : ?cell_index: int -> unit -> constr
 
 val cArrayRead : ?index:target -> var -> constr
 

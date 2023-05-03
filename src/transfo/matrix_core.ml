@@ -52,7 +52,7 @@ let set_inv (t : trm) : (trm * trms * trms * trm)  option =
 (* |alloc ~init dims size]: creates a call to function the MALLOC$(N) and CALLOC$(N) where [N] is the
      number of dimensions and [size] is the size in bytes occupied by a single matrix element in
      the memeory. *)
-let alloc ?(init : trm option = None) (dims : trms) (size : trm) : trm =
+let alloc ?(init : trm option) (dims : trms) (size : trm) : trm =
   let n = List.length dims in
   match init with
   | Some _ -> trm_apps (trm_var ("CALLOC" ^  (string_of_int n))) (dims @ [size])
@@ -137,7 +137,7 @@ let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) 
 let intro_calloc_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_var (_, f);_},[dim; size]) when (is_qvar_var f "calloc") ->
-    alloc ~init:(Some (trm_int 0)) [dim] size
+    alloc ~init:(trm_int 0) [dim] size
   | _ -> fail t.loc "Matrix_core.intro_calloc_aux: expected a function call to calloc"
 
 let intro_calloc : Target.Transfo.local =
@@ -149,7 +149,7 @@ let intro_calloc : Target.Transfo.local =
 let intro_malloc_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps ({desc = Trm_var (_, f);_},[{desc = Trm_apps (_,[dim ;size]);_}]) when (is_qvar_var f "malloc") ->
-    alloc ~init:None [dim] size
+    alloc [dim] size
   | _ -> fail t.loc "Matrix_core.intro_malloc: expected a function call to malloc"
 
 
@@ -207,7 +207,7 @@ let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
     begin try Xlist.check_permutation nb order with | Xlist.Invalid_permutation -> fail t.loc "Matrix_core.order is not a permutation of indices" end;
     let reordered_dims = Xlist.reorder order dims in
     let init = if zero_init then Some (trm_int 0 ) else None in
-    alloc ~init reordered_dims size
+    alloc ?init reordered_dims size
   | _ -> fail t.loc "Matrix_core.reorder_dims_aux: expected  a function call to CALLOC or MINDEX"
 
 (* [reorder_dims rotate_n order t p]: applies [reorder_dims_aux] at trm [t] with path [p]. *)
@@ -223,7 +223,7 @@ let insert_alloc_dim_aux ?(last : bool = false) (new_dim : trm) (t : trm) : trm 
   | Some (dims, size, zero_init) ->
     let new_dims = if last then dims @ [new_dim] else new_dim :: dims in
     let init = if zero_init then Some (trm_int 0) else None in
-    alloc ~init new_dims size
+    alloc ?init new_dims size
   | None -> fail t.loc "Matrix_core.insert_alloc_dim_aux: expected a function call to CALLOC"
 
 let insert_alloc_dim (new_dim : trm) : Target.Transfo.local =
@@ -260,7 +260,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   let dims, size, zero_init = malloc_trms in
   let local_var_type = var_type in
   let init = if zero_init then Some (trm_int 0) else None in
-  let fst_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc ~init dims size )) in
+  let fst_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc ?init dims size )) in
   let indices_list = begin match indices with
   | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
   let indices = List.map (fun ind -> trm_var ind) indices_list in

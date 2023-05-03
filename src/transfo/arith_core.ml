@@ -152,7 +152,7 @@ let unsupported_binop (op : binary_op) =
   let s = Tools.document_to_string (Ast_to_text.print_binop op) in
   fail None ("Arith_core: unsupported binop: " ^ s)
 
-let expr_make ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (desc : expr_desc) : expr =
+let expr_make ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (desc : expr_desc) : expr =
   { expr_desc = desc;
     expr_typ = typ;
     expr_loc = loc; }
@@ -161,12 +161,12 @@ let expr_make_like (e : expr) (desc : expr_desc) : expr =
   { e with expr_desc = desc }
 
 (* [expr_int n] produces the integer value [n] *)
-let expr_int ?(loc : loc = None) (n : int) : expr =
-  expr_make ~loc ~typ:Expr_typ_int (Expr_int n)
+let expr_int ?(loc : loc) (n : int) : expr =
+  expr_make ?loc ~typ:Expr_typ_int (Expr_int n)
 
 (* [expr_double f] produces the double value [n] *)
-let expr_double ?(loc : loc = None) (f : float) : expr =
-  expr_make ~loc ~typ:Expr_typ_double (Expr_double f)
+let expr_double ?(loc : loc) (f : float) : expr =
+  expr_make ?loc ~typ:Expr_typ_double (Expr_double f)
 
 (* [expr_one typ] produces either [expr_int 1] or [expr_double 1.0] depending on the type *)
 let expr_one (typ : expr_typ) : expr =
@@ -176,57 +176,57 @@ let expr_one (typ : expr_typ) : expr =
   | Expr_typ_unknown -> fail None "expr_one: requires a known type"
 
 (* [expr_atom id] produces a variable [id], denoting an arbitrary subterm form ast.ml *)
-let expr_atom ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (id : id) : expr =
-  expr_make ~loc ~typ (Expr_atom id)
+let expr_atom ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (id : id) : expr =
+  expr_make ?loc ~typ (Expr_atom id)
 
 (* [expr_sum [(w1,e1);(w2,e2)] produces [w1*e1 + w2*e2] *)
-let expr_sum ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (wes : wexprs) : expr =
-  expr_make ~loc ~typ (Expr_sum wes)
+let expr_sum ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (wes : wexprs) : expr =
+  expr_make ?loc ~typ (Expr_sum wes)
 
 (* [expr_sum_nonweighted es] produces [e1 + e2 + ... + en] *)
-let expr_sum_nonweighted ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (es : exprs) : expr =
-   expr_sum ~loc ~typ (List.map (fun e -> (1,e)) es)
+let expr_sum_nonweighted ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (es : exprs) : expr =
+   expr_sum ?loc ~typ (List.map (fun e -> (1,e)) es)
 
 (* [expr_neg e1] produces [-e1] *)
-let expr_neg ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) : expr =
-  expr_sum ~loc ~typ [(-1,e1)]
+let expr_neg ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) : expr =
+  expr_sum ?loc ~typ [(-1,e1)]
 
 (* [expr_add e1 e2] produces [e1 + e2] *)
-let expr_add ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) (e2 : expr) : expr =
-  expr_sum ~loc ~typ [(1,e1); (1,e2)]
+let expr_add ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) (e2 : expr) : expr =
+  expr_sum ?loc ~typ [(1,e1); (1,e2)]
 
 (* [expr_sub e1 e2] produces [e1 - e2] *)
-let expr_sub ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) (e2 : expr) : expr =
-  expr_sum ~loc ~typ [(1,e1); (-1,e2)]
+let expr_sub ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) (e2 : expr) : expr =
+  expr_sum ?loc ~typ [(1,e1); (-1,e2)]
 
 (* [expr_prod [(w1,e1);(w2,e2)] produces [e1^w1 * e2^w2] *)
-let expr_prod ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (wes : wexprs) : expr =
-  expr_make ~loc ~typ (Expr_prod wes)
+let expr_prod ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (wes : wexprs) : expr =
+  expr_make ?loc ~typ (Expr_prod wes)
 
 (* [expr_prod_nonweighted es] produces [e1 * e2 * ... * en] *)
-let expr_prod_nonweighted ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (es : exprs) : expr =
-   expr_prod ~loc ~typ (List.map (fun e -> (1,e)) es)
+let expr_prod_nonweighted ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (es : exprs) : expr =
+   expr_prod ?loc ~typ (List.map (fun e -> (1,e)) es)
 
 (* [expr_pow e1 w] produces [e1 ^ w] *)
-let expr_pow ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) (w : int) : expr =
-  expr_prod ~loc ~typ [(w,e1)]
+let expr_pow ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) (w : int) : expr =
+  expr_prod ?loc ~typ [(w,e1)]
 
 (* [expr_mul e1 e2] produces [e1 * e2] *)
-let expr_mul ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) (e2 : expr) : expr =
-  expr_prod ~loc ~typ [(1,e1); (1,e2)]
+let expr_mul ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) (e2 : expr) : expr =
+  expr_prod ?loc ~typ [(1,e1); (1,e2)]
 
 (* [expr_div e1 e2] produces [e1 / e2];
    if arguments are integers, then [e1] is assumed to be divisible by [e2]  *)
-let expr_div ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) (e2 : expr) : expr =
-  expr_prod ~loc ~typ [(1,e1); (-1,e2)]
+let expr_div ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (e1 : expr) (e2 : expr) : expr =
+  expr_prod ?loc ~typ [(1,e1); (-1,e2)]
 
 (* [expr_binop op e1 e2] produces the operation [op e1 e2] *)
-let expr_binop ?(loc : loc = None) ?(typ : expr_typ = Expr_typ_unknown) (op : binary_op) (e1 : expr) (e2 : expr) : expr =
-  expr_make ~loc ~typ (Expr_binop (op, e1, e2))
+let expr_binop ?(loc : loc) ?(typ : expr_typ = Expr_typ_unknown) (op : binary_op) (e1 : expr) (e2 : expr) : expr =
+  expr_make ?loc ~typ (Expr_binop (op, e1, e2))
 
 (* [expr_div_floor e1 e2] produces the integer division [e1 / e2], rounded below *)
-let expr_div_floor ?(loc : loc = None) (e1 : expr) (e2 : expr) : expr =
-  expr_binop ~loc ~typ:Expr_typ_int Binop_div e1 e2
+let expr_div_floor ?(loc : loc) (e1 : expr) (e2 : expr) : expr =
+  expr_binop ?loc ~typ:Expr_typ_int Binop_div e1 e2
 
 (* LATER: might add constructors for other binary_ops *)
 
@@ -272,8 +272,8 @@ let normalize_one (e : expr) : expr =
           | (0, _ei) -> []
           | (1, { expr_desc = Expr_prod wesi; _}) -> wesi
           | (-1, { expr_desc = Expr_prod wesi; _}) -> List.map (fun (w,ei) -> (-w, ei)) wesi
-          | (ai, { expr_desc = Expr_sum [(bi, { expr_desc = Expr_int 1; _})]; expr_loc = loc; _}) -> [(ai, expr_int ~loc bi)]
-          | (ai, { expr_desc = Expr_sum [(bi, ei)]; expr_loc = loc; _}) -> [(ai, expr_int ~loc bi); (ai, ei)]
+          | (ai, { expr_desc = Expr_sum [(bi, { expr_desc = Expr_int 1; _})]; expr_loc = loc; _}) -> [(ai, expr_int ?loc bi)]
+          | (ai, { expr_desc = Expr_sum [(bi, ei)]; expr_loc = loc; _}) -> [(ai, expr_int ?loc bi); (ai, ei)]
           | we -> [we]) wes))
     (* [e1 / 1 = 1] *)
     | Expr_binop (Binop_div, e1, { expr_desc = Expr_int 1; _}) -> e1
@@ -523,16 +523,16 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
   let rec aux (t : trm) : expr =
     let loc = t.loc in
     let typ = typ_to_expr_typ t.typ in
-    let force_atom() = expr_atom ~loc (create_or_reuse_atom_for_trm atoms t) in
+    let force_atom() = expr_atom ?loc (create_or_reuse_atom_for_trm atoms t) in
     if has_mark_nosimpl t then force_atom() else
     match t.desc with
      (* Recognize constants *)
-     | Trm_val (Val_lit (Lit_int n)) -> expr_int ~loc n
-     | Trm_val (Val_lit (Lit_double n)) -> expr_double ~loc n
+     | Trm_val (Val_lit (Lit_int n)) -> expr_int ?loc n
+     | Trm_val (Val_lit (Lit_double n)) -> expr_double ?loc n
      (* Recognize unary operators *)
      | Trm_apps (f, [t1]) ->
        begin match trm_prim_inv f with
-        | Some (Prim_unop Unop_minus) -> expr_neg ~loc ~typ (aux t1)
+        | Some (Prim_unop Unop_minus) -> expr_neg ?loc ~typ (aux t1)
         | _ -> force_atom()
        end
      (* Recognize binary operators *)
@@ -548,19 +548,19 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
        begin match trm_prim_inv f with
         | Some (Prim_binop op) ->
           begin match op with
-          | Binop_add -> expr_add ~loc ~typ (aux t1) (aux t2)
-          | Binop_sub -> expr_sub ~loc ~typ (aux t1) (aux t2)
-          | Binop_mul -> expr_mul ~loc ~typ (aux t1) (aux t2)
+          | Binop_add -> expr_add ?loc ~typ (aux t1) (aux t2)
+          | Binop_sub -> expr_sub ?loc ~typ (aux t1) (aux t2)
+          | Binop_mul -> expr_mul ?loc ~typ (aux t1) (aux t2)
           | Binop_exact_div ->
               if not (is_integer_op())
                 then fail t.loc "trm_to_naive_expr: Binop_exact_div expected to be an integer operation";
-              expr_div ~loc ~typ (aux t1) (aux t2)
+              expr_div ?loc ~typ (aux t1) (aux t2)
           | Binop_div ->
               if is_integer_op()
-                then expr_div_floor ~loc (aux t1) (aux t2)
-                else expr_div ~loc ~typ (aux t1) (aux t2)
+                then expr_div_floor ?loc (aux t1) (aux t2)
+                else expr_div ?loc ~typ (aux t1) (aux t2)
           | Binop_mod | Binop_shiftl | Binop_shiftr | Binop_xor | Binop_bitwise_and | Binop_bitwise_or ->
-              expr_binop op ~loc ~typ:Expr_typ_int (aux t1) (aux t2)
+              expr_binop op ?loc ~typ:Expr_typ_int (aux t1) (aux t2)
           | _ -> force_atom()
           end
         | _ -> force_atom()
@@ -592,8 +592,8 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
   let rec aux (e : expr) : trm =
     let loc = e.expr_loc in
     match e.expr_desc with
-    | Expr_int n -> trm_int ~loc n
-    | Expr_double n -> trm_double ~loc n
+    | Expr_int n -> trm_int ?loc n
+    | Expr_double n -> trm_double ?loc n
     | Expr_sum we ->
       if we = [] then failwith "expr_to_trm: assumes a normalized term";
       Xlist.fold_lefti (fun i acc (w, e) ->
@@ -605,12 +605,12 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
         let x =
           if c = 1
             then y
-            else if c = -1 then trm_apps ~loc (trm_unop Unop_minus) [y]
-            else trm_apps ~loc (trm_binop Binop_mul) [trm_int c; y]
+            else if c = -1 then trm_apps ?loc (trm_unop Unop_minus) [y]
+            else trm_apps ?loc (trm_binop Binop_mul) [trm_int c; y]
           in
         if i = 0
           then x
-          else trm_apps ~loc (trm_binop (if w >= 0 then Binop_add else Binop_sub)) [acc; x]
+          else trm_apps ?loc (trm_binop (if w >= 0 then Binop_add else Binop_sub)) [acc; x]
       ) (trm_unit ()) we
     | Expr_prod wes ->
       (* We have [e1^w1 * e2^w2 * e3^w3].
@@ -625,19 +625,19 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
         if e.expr_typ = Expr_typ_int then trm_int 1 else trm_double 1.0 in
       let trm_div (t1:trm) (t2:trm) : trm =
         let binop_div = if e.expr_typ = Expr_typ_int then Binop_exact_div else Binop_div in
-        trm_apps ~loc (trm_binop binop_div) [t1; t2] in
+        trm_apps ?loc (trm_binop binop_div) [t1; t2] in
       let rec trm_mul_nonempty (ts : trm list) : trm =
         match ts with
         | [] -> assert false
         | [t1] -> t1
-        | t1 :: t2 :: ts' -> trm_mul_nonempty ((trm_apps ~loc (trm_binop Binop_mul) [t1; t2])::ts')
+        | t1 :: t2 :: ts' -> trm_mul_nonempty ((trm_apps ?loc (trm_binop Binop_mul) [t1; t2])::ts')
         in
       let rec trm_power (t:trm) (n:int) : trm =
         if n = 0
           then failwith "Arith_core.expr_to_trm: assumes a normalized term, so (e,0) should not appear in the argument of [Expr_prod]"
-          else if n < 0 then assert false (* DEPRECATED  trm_apps ~loc (trm_binop binop_div) [trm_double 1.0; power t (-n)] *)
+          else if n < 0 then assert false (* DEPRECATED  trm_apps ?loc (trm_binop binop_div) [trm_double 1.0; power t (-n)] *)
           else if n = 1 then t
-          else trm_apps ~loc (trm_binop Binop_mul) [t; trm_power t (n-1)]
+          else trm_apps ?loc (trm_binop Binop_mul) [t; trm_power t (n-1)]
         in
 
       (* separate positive and negative exponents *)
@@ -657,7 +657,7 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
       end
 
     | Expr_binop (op, e1, e2) ->
-        trm_apps ~loc (trm_binop op) [aux e1; aux e2]
+        trm_apps ?loc (trm_binop op) [aux e1; aux e2]
     | Expr_atom id ->
         begin match Atom_map.find_opt id atoms with
         | Some t1 -> t1
@@ -733,7 +733,7 @@ let rec gather_one (e : expr) : expr =
       let e23 = normalize_one (mk (Expr_prod [(1, e2); (1, e3)])) in
       gather_one (mk (Expr_binop (Binop_div, e1, e23))) (* attempt further simplifications *)
   (* simplify [a/a] to [1]. *)
-  | Expr_binop (Binop_div, e1, e2) when e1 = e2 -> expr_int ~loc 1
+  | Expr_binop (Binop_div, e1, e2) when e1 = e2 -> expr_int ?loc 1
   (* simplify [(a*b)/(c*a)] to [b/c] and [(a^k*b)/(c*a)] to [(a^(k-1)*b)/c]. *)
   | Expr_binop (Binop_div, ({ expr_desc = Expr_prod wes1; _ } as e1),
                            ({ expr_desc = Expr_prod wes2; _ } as e2)) ->
@@ -873,7 +873,7 @@ let rec compute_power_double (f:float) (w:int) : float =
    When the sum involves only integers, the result is an integer;
    if, however, the sum involves at least one double, it is a double. *)
 
-let compute_wexpr_sum ?(loc=None) (wes:wexprs) : wexpr =
+let compute_wexpr_sum ?(loc) (wes:wexprs) : wexpr =
   if List.for_all wexpr_is_int wes then begin
     let n = List.fold_left (fun acc (w,e) ->
       acc + match e.expr_desc with
@@ -896,7 +896,7 @@ let compute_wexpr_sum ?(loc=None) (wes:wexprs) : wexpr =
    It is either of the form [(1, Expr_int n)] in case the result is the integer [n],
    or of the forme [(1, Expr_double f)] in case the result is the float value [f]. *)
 
-let compute_wexpr_prod ?(loc=None) (wes:wexprs) : wexpr =
+let compute_wexpr_prod ?(loc) (wes:wexprs) : wexpr =
   if List.for_all wexpr_is_int wes then begin
     let wes_pos = List.filter (fun (w,_e) -> w >= 0) wes in
     let wes_neg = List.filter (fun (w,_e) -> w < 0) wes in
@@ -937,12 +937,12 @@ let compute_one (e : expr) : expr =
   | Expr_sum wes ->
       let wes_num, wes_rest = List.partition wexpr_is_numeric wes in
       if wes_num = [] then e else
-      let we_num = compute_wexpr_sum ~loc wes_num in
+      let we_num = compute_wexpr_sum ?loc wes_num in
       mk (Expr_sum (we_num :: wes_rest))
   | Expr_prod wes ->
       let wes_num, wes_rest = List.partition wexpr_is_numeric wes in
       if wes_num = [] then e else
-      let we_num = compute_wexpr_prod ~loc wes_num in
+      let we_num = compute_wexpr_prod ?loc wes_num in
       mk (Expr_prod (we_num :: wes_rest))
   (* binary operations on integers *)
   | Expr_binop (op, { expr_desc = Expr_int n1; _}, { expr_desc = Expr_int n2; _}) ->

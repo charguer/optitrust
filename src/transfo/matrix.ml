@@ -130,12 +130,12 @@ let elim_mops (tg : target): unit =
    varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated
     environment where the delocalizing transformatino is going to be performed *)
 let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
-  ?(last : bool = false)  ?(use : trm option = None) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string)
-  ?(indices : string list = []) ~ops:(ops : local_ops) ?(alloc_instr : target option) ?(labels : label list = []) ?(dealloc_tg : target option = None) (tg : target) : unit =
+  ?(last : bool = false)  ?(use : trm option) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string)
+  ?(indices : string list = []) ~ops:(ops : local_ops) ?(alloc_instr : target option) ?(labels : label list = []) ?(dealloc_tg : target option) (tg : target) : unit =
 
     let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
     let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
-    let acc = match acc with | Some s -> s | _ -> "" in  Matrix_basic.local_name ~my_mark:middle_mark ~alloc_instr ~into ~indices ~local_ops:ops var tg;
+    let acc = match acc with | Some s -> s | _ -> "" in  Matrix_basic.local_name ~my_mark:middle_mark ?alloc_instr ~into ~indices ~local_ops:ops var tg;
 
     let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in
     Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [cMark middle_mark];

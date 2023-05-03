@@ -110,7 +110,7 @@ let elim_accesses_on (decl_index : int) (t : trm) : trm =
 
   let nobrace_id = Nobrace.exit () in
   Internal.clean_no_brace_seq nobrace_id (
-    trm_seq ~annot:t.annot ~loc:t.loc new_instrs)
+    trm_seq ~annot:t.annot ?loc:t.loc new_instrs)
 
 (* [elim_accesses] expects the target [tg] to point at an array literal declaration, and resolves all its accesses, that must be constant, to eliminate it.
   *)

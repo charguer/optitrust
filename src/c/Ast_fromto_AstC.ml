@@ -44,13 +44,13 @@ let add_var (env : env ref) (x : var) (xm : varkind) : unit =
 (* [trm_address_of t]: adds the "&" operator before [t]
     Note: if for example t = *a then [trm_address_of t] = &( *a) = a *)
 let trm_address_of (t : trm) : trm =
-  let u = trm_apps ~typ:t.typ (trm_unop Unop_address) [t] in
+  let u = trm_apps ?typ:t.typ (trm_unop Unop_address) [t] in
   trm_simplify_addressof_and_get u
 
 (* [trm_get t]: adds the "*" operator before [t]
     Note: if for example t = &a then [trm_get t] = *( &a) = a *)
 let trm_get (t : trm) : trm =
-  let u = trm_apps ~typ:t.typ (trm_unop Unop_get) [t] in
+  let u = trm_apps ?typ:t.typ (trm_unop Unop_get) [t] in
   trm_simplify_addressof_and_get u
 
 (* [onscope env t f]: applies function [f] on [t] without loosing [env]
@@ -202,7 +202,7 @@ let stackvar_intro (t : trm) : trm =
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[t])] *)
 let rec caddress_elim (t : trm) : trm =
   let aux t = caddress_elim t in (* recursive calls for rvalues *)
-  let mk ?(annot = trm_annot_default) td = trm_alter ~desc:(Some td) ~annot:(Some annot) t in
+  let mk ?(annot = trm_annot_default) td = trm_alter ~desc:td ~annot t in
   trm_simplify_addressof_and_get
   (begin
     match t.desc with
@@ -243,7 +243,7 @@ let is_access (t : trm) : bool =
 let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
   let aux t = caddress_intro_aux false t in  (* recursive calls for rvalues *)
   let access t = caddress_intro_aux true t in (* recursive calls for lvalues *)
-  let mk td = trm_alter ~desc:(Some td) t in
+  let mk td = trm_alter ~desc:td t in
   trm_simplify_addressof_and_get (* Note: might not be needed *)
   begin if is_access_t then begin
     match t.desc with
@@ -349,7 +349,7 @@ let method_call_intro (t : trm) : trm =
         (* Special case when function_beta transformation is applied. *)
         | _ -> f
         end in
-      trm_alter ~desc:(Some (Trm_apps (struct_access, args))) t
+      trm_alter ~desc:(Trm_apps (struct_access, args)) t
     | _ -> trm_map aux t
      in aux t
 
@@ -368,8 +368,8 @@ let class_member_elim (t : trm) : trm =
       | Trm_seq tl ->
         let new_tl = Mlist.push_front this_alloc tl in
         let new_tl = Mlist.push_back ret_this new_tl in
-        let new_body = trm_alter ~desc:(Some (Trm_seq new_tl)) t in
-        trm_alter ~desc:(Some (Trm_let_fun (qv, this_typ, vl, new_body))) t
+        let new_body = trm_alter ~desc:(Trm_seq new_tl) t in
+        trm_alter ~desc:(Trm_let_fun (qv, this_typ, vl, new_body)) t
       | Trm_val (Val_lit Lit_uninitialized) ->  t
       | _ ->  fail t.loc "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
       end
@@ -388,8 +388,8 @@ let class_member_intro (t : trm) : trm =
           then t
           else
             let tl = Mlist.(pop_front (pop_back tl)) in
-            let new_body = trm_alter ~desc:(Some (Trm_seq tl)) body in
-            trm_alter ~desc:(Some (Trm_let_fun (qv, typ_unit(), vl, new_body))) t
+            let new_body = trm_alter ~desc:(Trm_seq tl) body in
+            trm_alter ~desc:(Trm_let_fun (qv, typ_unit(), vl, new_body)) t
       | _ -> trm_map aux t
       end
    | _ -> trm_map aux t

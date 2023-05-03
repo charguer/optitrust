@@ -49,15 +49,15 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
             | Typ_constr (y, tid, _) ->
               trm_seq_no_brace (
                 List.map(fun x ->
-                trm_let_mut ~annot:t.annot (x, typ_constr ~qtypvar:y ~tid "") (trm_uninitialized ~loc:init.loc ()) ) new_vars)
+                trm_let_mut ~annot:t.annot (x, typ_constr ~qtypvar:y ~tid "") (trm_uninitialized ?loc:init.loc ()) ) new_vars)
             | Typ_var (y, tid) ->
               trm_seq_no_brace (
                  List.map(fun x ->
-                 trm_let_mut ~annot:t.annot (x, typ_constr y ~tid) (trm_uninitialized ~loc:init.loc ()) ) new_vars)
+                 trm_let_mut ~annot:t.annot (x, typ_constr y ~tid) (trm_uninitialized ?loc:init.loc ()) ) new_vars)
             | _ ->
               trm_seq_no_brace (
               List.map(fun x ->
-              trm_let_mut ~annot:t.annot (x, t_var) (trm_uninitialized ~loc:init.loc ())) new_vars)
+              trm_let_mut ~annot:t.annot (x, t_var) (trm_uninitialized ?loc:init.loc ())) new_vars)
             end
           | _ -> fail t.loc "Arrays_core.to_variables_aux: expected an array type"
           end
@@ -70,7 +70,7 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
       in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update_at f_update_further tl in
 
-    trm_seq ~annot:t.annot ~loc:t.loc new_tl
+    trm_seq ~annot:t.annot ?loc:t.loc new_tl
 
   | _ -> fail t.loc "Arrays_core.to_variables_aux: expected the outer sequence of the targeted trm"
 
@@ -85,7 +85,7 @@ let to_variables (new_vars : vars) (index : int): Target.Transfo.local =
       [b] - the size of the tile
       [x] - typvar
       [t] - ast node located in the same level or deeper as the array declaration
-    
+
     assumptions:
     - if x is ty*, each array of type x is allocated through a custom function:
       x a = my_alloc(nb_elements, size_element)
@@ -222,8 +222,8 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
         (* lhs should have type x *)
         begin match lhs.typ with
         | Some {typ_desc = Typ_constr (y, _, _); _} when (is_qvar_var y base_type_name) ->
-           trm_apps ~annot:t.annot ~loc:t.loc
-             ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
+           trm_apps ~annot:t.annot ?loc:t.loc
+             ?typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
         | _ -> trm_map (apply_tiling base_type block_name (trm_var block_size) base_type_name) t
         end
     | _-> fail t.loc "Arrays_core.tile_aux: expected a declaration"
@@ -262,7 +262,7 @@ let rec apply_swapping (x : typvar) (t : trm) : trm =
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));_}, [base; index]) ->
       begin match get_array_access_inv base with
       | Some (base1, index1) ->
-        begin match base1.typ with 
+        begin match base1.typ with
         | Some {typ_desc = Typ_constr (y, _, _)} when (is_qvar_var y x) -> array_access (get_array_access base1 index) index1
         | _ -> trm_map aux t
         end
@@ -286,7 +286,7 @@ let swap_aux (index : int) (t : trm) : trm =
         (* we look for the 2 first coordinates… *)
         | Typ_array _ ->
             let t' =
-              swap_type {typ_desc = Typ_array (ty', s'); typ_annot; 
+              swap_type {typ_desc = Typ_array (ty', s'); typ_annot;
                         typ_attributes}
             in
             {typ_desc = Typ_array (t', s); typ_annot = ty.typ_annot;
@@ -300,22 +300,22 @@ let swap_aux (index : int) (t : trm) : trm =
         end
       | _ -> fail None "Arrays_core.swap_type: the main target should point an an array declaration"
       in
-    
-    let f_update (t : trm) : trm = 
+
+    let f_update (t : trm) : trm =
       match t.desc with
-      | Trm_typedef td -> 
-        begin match td.typdef_body with 
+      | Trm_typedef td ->
+        begin match td.typdef_body with
         | Typdef_alias ty ->
-          trm_typedef ~annot:t.annot ~loc:t.loc {td with typdef_body = Typdef_alias (swap_type ty)}
+          trm_typedef ~annot:t.annot ?loc:t.loc {td with typdef_body = Typdef_alias (swap_type ty)}
         | _ -> fail t.loc "Arrays_core.swap_aux: expected a type alias definition."
         end
       | _ -> fail t.loc "Arrays_core.swap_aux: expected the typedef instruction."
-      
-      in 
-        
+
+      in
+
     let f_update_further (t : trm) : trm =
-      let td = Mlist.nth tl index in 
-      match td.desc with 
+      let td = Mlist.nth tl index in
+      match td.desc with
       | Trm_typedef td -> apply_swapping td.typdef_tconstr t
       | _ -> fail t.loc "Arrays_core.swap_aux: expected a target to a type definition"
       in
@@ -372,20 +372,20 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
                      let base' = aux base' in
                      let index = aux index in
                      (* keep outer annotations *)
-                     trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
+                     trm_apps ~annot:t.annot ?loc:t.loc ?typ:t.typ f' [trm_apps f [base']; index]
                   | Some {typ_desc = Typ_constr (y, _, _); _} when (is_qvar_var y struct_name) ->
                      (* x might appear both in index and in base' *)
                      let base' = aux base' in
                      let index = aux index in
                      (* keep outer annotations *)
-                     trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
+                     trm_apps ~annot:t.annot ?loc:t.loc ?typ:t.typ f' [trm_apps f [base']; index]
                   | Some {typ_desc = Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _}; _};_}
                        when (is_qvar_var y struct_name) ->
                      (* x might appear both in index and in base' *)
                      let base' = aux base' in
                      let index = aux index in
                      (* keep outer annotations *)
-                     trm_apps ~annot:t.annot ~loc:t.loc ~typ:t.typ f' [trm_apps f [base']; index]
+                     trm_apps ~annot:t.annot ?loc:t.loc ?typ:t.typ f' [trm_apps f [base']; index]
                   | _ -> trm_map aux t
                   end
 
@@ -402,11 +402,11 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
     | Trm_typedef td when td.typdef_tconstr = struct_name ->
       begin match td.typdef_body with
       | Typdef_record rf ->
-        let rf = List.map (fun (rf1, rf_annot) -> 
-          match rf1 with 
+        let rf = List.map (fun (rf1, rf_annot) ->
+          match rf1 with
           | Record_field_member (lb, ty) -> ((Record_field_member (lb, typ_array ty (Trm (trm_var sz)))), rf_annot)
-          | Record_field_method _ -> (Record_field_method (trm_map aux t), rf_annot) 
-        ) rf in 
+          | Record_field_method _ -> (Record_field_method (trm_map aux t), rf_annot)
+        ) rf in
         trm_typedef ~annot:t.annot {td with typdef_body = Typdef_record rf}
 
       | Typdef_alias ty ->
@@ -445,7 +445,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
         | Typ_array (a, _) ->
           begin match a.typ_desc with
           | Typ_constr (sn,_, _) when (is_qvar_var sn struct_name) ->
-            trm_let_mut ~annot:t.annot (n, a) (trm_uninitialized ~loc:init.loc ())
+            trm_let_mut ~annot:t.annot (n, a) (trm_uninitialized ?loc:init.loc ())
           | _ -> trm_map aux t
           end
         | _ -> trm_map aux t
@@ -474,7 +474,7 @@ let set_explicit_aux (t : trm) : trm =
       List.mapi ( fun i t1 ->
         trm_set (trm_apps (trm_binop (Binop_array_access)) [trm_var_get x;trm_int i]) t1
       ) (Mlist.to_list tl) in
-      let new_decl = trm_let_mut ~annot:t.annot (x, (get_inner_ptr_type tx)) (trm_uninitialized ~loc:init.loc ()) in
+      let new_decl = trm_let_mut ~annot:t.annot (x, (get_inner_ptr_type tx)) (trm_uninitialized ?loc:init.loc ()) in
       trm_seq_no_brace ([new_decl] @ array_set_list)
     | _ -> fail init.loc "set_explicit_aux: expected an array initialization"
     end

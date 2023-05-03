@@ -9,7 +9,7 @@ include Instr_basic
                    be deleted
      [write]: optional explicit target to the last write instruction
      Note: This transformation will fail in case it doesn't find a write to to the address that it reads from. *)
-let read_last_write ?(write_mark : mark option = None) ?(write : target = []) (tg : target) : unit =
+let read_last_write ?(write_mark : mark option) ?(write : target = []) (tg : target) : unit =
   if write <>  []
     then Instr_basic.read_last_write ~write tg
     else begin
@@ -53,7 +53,7 @@ let read_last_write ?(write_mark : mark option = None) ?(write : target = []) (t
     deletes the last write operation. *)
 let inline_last_write ?(write : target = []) ?(write_mark : mark = "__todelete__") (tg : target) : unit =
   let write_mark = if write = [] then Some write_mark else None in
-  read_last_write ~write ~write_mark  tg;
+  read_last_write ~write ?write_mark tg;
   if write <> [] then  Instr_basic.delete write else Instr_basic.delete [nbMulti;cMark "__todelete__"]
 
 (* [accumulate tg]: similar to [Instr_basic.accumulate], however this transformation requires the user to use a

@@ -8,7 +8,7 @@ open Target
 (******************************************************************************)
 (*                            OpenMP directives                               *)
 (******************************************************************************)
-let atomic ?(ao : atomic_operation option = None) : Transfo.t =
+let atomic ?(ao : atomic_operation option) : Transfo.t =
   transfo_on_targets (trm_add_pragma (Atomic ao))
 
 let atomic_capture : Transfo.t =
