@@ -10,4 +10,4 @@
 
 (env
   (dev
-    (flags (:standard -warn-error -16-67 -w -27-32-33-34-9))))
+    (flags (:standard -warn-error -16-67-69 -w -27-32-33-34-9))))

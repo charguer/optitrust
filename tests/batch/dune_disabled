@@ -1,6 +1,7 @@
-(library
+(executable
   (name batch)
   (modules batch)
+  (modes (native plugin) (byte exe))
   (libraries optitrust)
   ; disable warning 33: unused open
   ; disable warning 50: unexpected docstring

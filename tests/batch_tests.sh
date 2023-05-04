@@ -12,6 +12,9 @@
 
 for file in "$@"
 do
+    echo
+    # Add a marker to show errors on their original file location
+    echo \# 1 \"$file\"
     sed "s/script_cpp/script_cpp ~batching:\"${file//\//\\/}\"/;" < ${file}
 done
 
