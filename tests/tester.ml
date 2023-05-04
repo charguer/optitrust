@@ -267,12 +267,18 @@ let _main : unit =
   if !verbose_mode
       then eprintf "Tester files processed: \n  %s\n"
         (String.concat "\n  " tests_to_process);
+
   (* TODO: faire la boucle en caml sur l'appel à sed,
    à chaque fois afficher un commentaire (* CURTEST=... *)
      TODO: add 'batch_prelude' and 'batch_postlude' calls.
      LATER: ajouter ici l'option ~expected_ast , et concatener l'appel à Run.batch_postlude logfilename *)
   do_or_die ("tests/batch_tests.sh " ^ batch_args ^ " > " ^ "tests/batch/batch.ml");
+
+
+    (* TODO:  cp  dune_template dune *)
   do_or_die "dune build tests/batch/batch.cmxs";
+    (* TODO:   dune build   .. ; rm  -f dune *)
+
   (* TODO: rediriiger l'erreur dans un fichier  2>&
     Sys.command en version booléenne
     ERRLINE = cat errorlog | head -n 1 | awk '{print $2}'
@@ -281,9 +287,12 @@ let _main : unit =
      *)
   (* TODO: flags *)
   do_or_die "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe _build/default/tests/batch/batch.cmxs";
+  (*  TODO: on pourrait charger dynamiquement batch.cmxs depuis ce fichier ici *)
 
-  (* c'est le code de batch_controller.ml
+  (* c'est le code de batch.ml
      qui fait la gestion des cached_inputs/cached_outputs
+
+     et qui pourrait faire la comparaison au niveau AST
 
      ./batch_controller.ml prendrait en argument presque tous les arguments de tester.ml
 
@@ -298,13 +307,13 @@ let _main : unit =
   if !comparison_method = Comparison_method_text then
     let check_output test =
       let test_prefix = Filename.chop_extension test in
-      let out = sprintf "%s_out.cpp" test_prefix in
-      let exp = sprintf "%s_exp.cpp" test_prefix in
-      if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" out exp) then begin
-        printf "ERROR: %s does not match %s, run 'meld %s %s'\n" out exp out exp;
-        ko_count := !ko_count + 1;
+      let filename_out = sprintf "%s_out.cpp" test_prefix in
+      let filename_exp = sprintf "%s_exp.cpp" test_prefix in
+      if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) then begin
+        printf "ERROR: %s does not match %s, run 'meld %s %s'\n" filename_out filename_exp filename_out filename_exp;
+        incr ko_count;
       end else
-        ok_count := !ok_count + 1;
+        incr ok_count;
     in
     List.iter check_output tests_to_process;
 

@@ -1,2 +1,5 @@
 #!/bin/sh
-cd $OPTITRUST && dune exec tests/tester.exe -- $@
+
+OPTITRUST=$(dirname $0)
+cd ${OPTITRUST}
+dune exec tests/tester.exe -- $@

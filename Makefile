@@ -36,9 +36,9 @@ show_install:
 #   type: #show "Run";;
 #   type: exit 0;;
 
-tests: install
-	$(MAKE) -C tests/ast debug
-# temporary: we only aim for executing debug
+test: all
+	./tester
+
 
 clean:
 	dune clean
