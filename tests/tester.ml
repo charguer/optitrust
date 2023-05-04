@@ -278,9 +278,17 @@ let _main : unit =
     head -n ${ERRLINE} batch.ml | grep "batching" | tail -1
      *)
   (* TODO: flags *)
-  do_or_die "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe -- _build/default/tests/batch/batch.cmxs";
-  (*  TODO: on pourrait charger dynamiquement batch.cmxs depuis ce fichier ici *)
-
+  (* DEPRECATED:
+     do_or_die "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe -- _build/default/tests/batch/batch.cmxs"; *)
+  begin try
+    Flags.program_name := "tester.ml";
+    Dynlink.loadfile "_build/default/tests/batch/batch.cmxs"
+  with
+    Dynlink.Error err -> begin
+      let sbt = Printexc.get_backtrace() in
+      failwith (sprintf "batch library error: %s\n%s" (Dynlink.error_message err) sbt);
+    end
+  end;
 
   (* c'est le code de batch.ml
      qui fait la gestion des cached_inputs/cached_outputs

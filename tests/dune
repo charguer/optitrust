@@ -1,6 +1,8 @@
 (executable
   (name tester)
   (modules tester)
-  (libraries optitrust)
+  (libraries optitrust dynlink)
+   ;(libraries  clangml refl pprint str optitrust )
+  (link_flags (-linkall))
   ;(public_name optitrust_tester)
   )
