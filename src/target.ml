@@ -1778,3 +1778,5 @@ let resolve_path_current_ast (p : path) : trm  =
 
 let path_of_target_mark_one_current_ast (m : mark) : path =
   path_of_target_mark_one m (Trace.ast ())
+
+let (~~) f a b = f b a
