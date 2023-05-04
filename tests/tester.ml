@@ -234,12 +234,6 @@ let _main : unit =
       List.rev !keys_to_process in
   let (tests_to_process, ignored_tests) = compute_tests_to_process keys_to_process in
 
-
-
-  (* TODO: not always necessary? *)
-  do_or_die "dune build -p optitrust @install";
-  do_or_die "dune install";
-
   (* TODO: We cache the "raw ast".
   from a trm t, we need to serialize Ast_fromto_AstC.cfeatures_intro t;
   this is what is provided in trace.ml to  the function
@@ -274,10 +268,8 @@ let _main : unit =
      LATER: ajouter ici l'option ~expected_ast , et concatener l'appel à Run.batch_postlude logfilename *)
   do_or_die ("tests/batch_tests.sh " ^ batch_args ^ " > " ^ "tests/batch/batch.ml");
 
-
-    (* TODO:  cp  dune_template dune *)
-  do_or_die "dune build tests/batch/batch.cmxs";
-    (* TODO:   dune build   .. ; rm  -f dune *)
+  do_or_die "cp tests/batch/dune_disabled tests/batch/dune";
+  do_or_die "dune build tests/batch/batch.cmxs; rm tests/batch/dune";
 
   (* TODO: rediriiger l'erreur dans un fichier  2>&
     Sys.command en version booléenne
@@ -286,7 +278,7 @@ let _main : unit =
     head -n ${ERRLINE} batch.ml | grep "batching" | tail -1
      *)
   (* TODO: flags *)
-  do_or_die "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe _build/default/tests/batch/batch.cmxs";
+  do_or_die "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe -- _build/default/tests/batch/batch.cmxs";
   (*  TODO: on pourrait charger dynamiquement batch.cmxs depuis ce fichier ici *)
 
   (* c'est le code de batch.ml

@@ -4,7 +4,7 @@
 extern int N;
 typedef float T;
 
-void main() {
+int main() {
   T a[N];
   for (int i = 0; i < N; i++) {
     a[i] = i;
@@ -18,6 +18,8 @@ void main() {
   for (int i = 0; i < N - 4; i++) {
     printf("%i\n", b[i] + b[i + 1] + b[i + 2]);
   }
+
+  return 0;
 }
 
 /* storage folding transformations:
