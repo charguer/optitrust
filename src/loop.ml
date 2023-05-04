@@ -306,6 +306,13 @@ let hoist_expr (name : string)
     hoist_expr_loop_list name loops (target_of_path p)
   ) tg
 
+let simpl_range (tg : target) : unit =
+  Target.iter (fun _ p ->
+    Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_start]));
+    Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_stop]));
+    Arith_basic.(simpl gather_rec) (nbAny :: (target_of_path (p @ [Dir_for_step])));
+  ) tg
+
 (* [shift ~index kind ~inline]: shifts a loop index according to [kind].
 - [inline] if true, inline the index shift in the loop body *)
 (* TODO: what if index name is same as original loop index name? *)
@@ -322,9 +329,8 @@ let shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_kind) ?(in
   let error = "Loop.shift: expected target to be a simple loop" in
   let ((prev_index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv tg_trm in begin
   Loop_basic.shift index' kind (target_of_path p);
-  (* TODO: simpl flag x2 *)
-  Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_start]));
-  Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_stop]));
+  (* TODO: simpl flag *)
+  simpl_range (target_of_path p);
   if inline then begin
   let mark = Mark.next() in
   let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
@@ -430,7 +436,9 @@ let fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_all_indi
     let (i, p_seq) = Path.index_in_seq p in
     begin match !seq_path with
     | None -> seq_path := Some p_seq
-    | Some p_seq' -> assert(p_seq = p_seq')
+    | Some p_seq' ->
+      if p_seq <> p_seq' then
+        fail t.loc "Loop.fusion_targets: targeted loops are not in the same sequence"
     end;
     indices_in_seq := i :: !indices_in_seq;
   ) tg;
@@ -985,3 +993,15 @@ let tile ?(index : var = "b${id}")
       shift StartAtZero (target_of_path (Path.to_inner_loop p));
     end
   )
+
+(* [slide]: like [tile] but with the addition of a [step] parameter that controls how many iterations stand between the start of two tiles. Depending on [step] and [size], some iterations may be discarded or duplicated.
+*)
+let slide ?(index : var = "b${id}")
+  ?(bound : tile_bound = TileBoundMin)
+  ~(size : trm)
+  ~(step : trm)
+  (tg : target) : unit =
+  Target.iter (fun _ p ->
+    Loop_basic.slide ~index ~bound ~size ~step (target_of_path p);
+    simpl_range (target_of_path p);
+  ) tg

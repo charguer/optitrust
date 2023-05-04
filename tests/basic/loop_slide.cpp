@@ -14,6 +14,10 @@ int main() {
     printf("%f\n", s[MINDEX1(32, j - 2)]);
   }
 
+  for (int k = 0; k < 15; k += 3) {
+    s[MINDEX1(32, k)] = 1.0;
+  }
+
   free(s);
   return 0;
 }

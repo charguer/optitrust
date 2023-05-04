@@ -65,7 +65,7 @@ let _ = Run.script_cpp (fun () ->
   bigstep "fuse operators";
   let rename_acc_of array = Variable.rename ~into:("acc_" ^ array) [cFor ~body:[cArrayWrite array] ""; cVarDef "acc"] in
   !! List.iter rename_acc_of ["ix"; "iy"; "sxx"; "sxy"; "syy"];
-  let fuse = Image.fuse_loops_with_array_writes ~index:"y" in
+  let fuse ?(index = "y") = Image.fuse_loops_with_array_writes ~index in
   !! fuse ~nest_of:2 ["ix"; "iy"];
   !! fuse ~nest_of:2 ["ixx"; "ixy"; "iyy"];
   !! fuse ~nest_of:2 ["sxx"; "sxy"; "syy"; "out"];
@@ -80,20 +80,22 @@ let _ = Run.script_cpp (fun () ->
   (* FIXME: dangerous, make transformation to remove empty loops *)
   !! Instr.delete [occIndex ~nb:4 2; cFor "y"];
 
-(* TODO: bigstep "overlapped tiling over lines"; *)
+  bigstep "overlapped tiling over lines";
+  (* following could be Loop.tile: *)
+  !!! Loop.slide ~size:(trm_int 32) ~step:(trm_int 32) [cFor ~body:[cArrayWrite "out"] "y"];
+  !! Loop.slide ~size:(trm_int 34) ~step:(trm_int 32) [cFor ~body:[cArrayWrite "ix"] "y"];
+  !! Loop.slide ~size:(trm_int 36) ~step:(trm_int 32) [cFor ~body:[cArrayWrite "gray"] "y"];
+  !!! fuse ~index:"by" ["gray"; "ix"; "out"];
 
   bigstep "circular buffers";
+  (* Without tiling:
   !! Image.loop_align_stop_extend_start "y" ~start:(trm_int 0) ~stop:(trm_var "h");
+  *)
+  !! Image.loop_align_stop_extend_start "y" ~start:(trm_var "by") ~stop:(expr "min(h + -4, by + 32)");
   !! fuse ["gray"; "ix"; "ixx"; "out"];
+  (* TODO: introduce local buffers inside tile loops *)
   let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(trm_int 3) ~var:v [cFunBody "harris"] in
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
-
-  bigstep "parallelism";
-  !! Omp.header ();
-  (* Intel compiler may be better at this:
-    !! Omp.simd [nbMulti; cFor "x"]; *)
-  (* TODO: parallel tiles
-    !! Omp.parallel_for [cFor "by"]; *)
 
   bigstep "code details";
   let bind_gradient name =
@@ -102,4 +104,10 @@ let _ = Run.script_cpp (fun () ->
   !!! List.iter bind_gradient ["ix"; "iy"];
   (* !! Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_ix"] ~fresh_name:"g${occ}" [cArrayRead "gray"]; *)
   !! Matrix.elim_mops [];
+
+  bigstep "parallelism";
+  !! Omp.header ();
+  (* Intel compiler may be better at this:
+    !! Omp.simd [nbMulti; cFor "x"]; *)
+  (* !! Omp.parallel_for [cFor "by"]; *)
 )

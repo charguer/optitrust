@@ -476,3 +476,49 @@ let extend_range ?(start = ExtendNothing) ?(stop = ExtendNothing) (tg : target) 
 (* [rename_index new_index]: renames the loop index variable *)
 let rename_index (new_index : var) (tg : target) : unit =
   apply_on_targets (Loop_core.rename_index new_index) tg
+
+(* FIXME: duplicated code from tiling. *)
+let slide_on (tile_index : var) (bound : tile_bound) (tile_size : trm) (tile_step : trm) (t : trm) : trm =
+  let error = "Loop_basic.slide_on: only simple loops are supported." in
+  let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
+  let tile_index = Tools.string_subst "${id}" index tile_index in
+  let tile_bound =
+   if is_step_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step)) in
+  let inner_loop =
+  begin match bound with
+  | TileBoundMin ->
+    let tile_bound =
+    trm_apps (trm_var "min") [stop; tile_bound] in
+    trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
+  | TileDivides ->
+    trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
+  | TileBoundAnd ->
+    let init = trm_let_mut (index, typ_int ()) (trm_var tile_index) in
+    let cond = trm_and (trm_ineq direction (trm_var_get index)
+      (if is_step_one step
+        then (trm_add (trm_var tile_index) tile_size)
+        else (trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step) ) ))) (trm_ineq direction (trm_var_get index) stop)
+      in
+    let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index]
+      else trm_prim_compound Binop_add (trm_var index) (loop_step_to_trm step) in
+    let new_body = Internal.change_trm (trm_var index) (trm_var_get index) body in
+    trm_for_c init cond step new_body
+  end in
+  (* NOTE: only outer loop differs from tiling? *)
+  let may_scale x = if is_step_one step
+    then x else trm_mul x (loop_step_to_trm step) in
+  let outer_loop_step = Step (may_scale tile_step) in
+  let outer_stop = (trm_add stop (may_scale (trm_sub tile_step tile_size))) in
+  let outer_loop =
+      trm_for (tile_index, start, direction, outer_stop, outer_loop_step, is_parallel) (trm_seq_nomarks [inner_loop])
+  in
+  trm_pass_labels t outer_loop
+
+(* [slide]: like [tile] but with the addition of a [step] parameter that controls how many iterations stand between the start of two tiles. Depending on [step] and [size], some iterations may be discarded or duplicated.
+*)
+let slide ?(index : var = "b${id}")
+  ?(bound : tile_bound = TileBoundMin)
+  ~(size : trm)
+  ~(step : trm)
+  (tg : target) : unit =
+  Target.apply_at_target_paths (slide_on index bound size step) tg
