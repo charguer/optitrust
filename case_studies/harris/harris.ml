@@ -79,18 +79,12 @@ let _ = Run.script_cpp (fun () ->
   !! List.iter elim_matrix ["ixx"; "ixy"; "iyy"; "sxx"; "sxy"; "syy"];
   (* FIXME: dangerous, make transformation to remove empty loops *)
   !! Instr.delete [occIndex ~nb:4 2; cFor "y"];
-(* TODO:
-  bigstep "tile over lines";
-  !! Loop.tile (trm_int 32) ~index:"by" ~iter:TileIterGlobal [cFor ~body:[cArrayWrite "out"] "y"];
-  !! Loop.tile (trm_int 34) ~index:"by" ~iter:TileIterGlobal [cFor ~body:[cArrayWrite "ix"] "y"];
-  !! Loop.tile (trm_int 36) ~index:"by" ~iter:TileIterGlobal [cFor ~body:[cArrayWrite "gray"] "y"];
-  !! Loop.fusion_targets [nbMulti; cFor "by"];
-*)
+
+(* TODO: bigstep "overlapped tiling over lines"; *)
+
   bigstep "circular buffers";
   !! Image.loop_align_stop_extend_start "y" ~start:(trm_int 0) ~stop:(trm_var "h");
   !! fuse ["gray"; "ix"; "ixx"; "out"];
-  (* TODO:
-     !! Loop.tile (trm_int 36) ~index:"by" ~iter:TileIterGlobal [cFor "y"]; *)
   let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(trm_int 3) ~var:v [cFunBody "harris"] in
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
 
@@ -98,23 +92,10 @@ let _ = Run.script_cpp (fun () ->
   !! Omp.header ();
   (* Intel compiler may be better at this:
     !! Omp.simd [nbMulti; cFor "x"]; *)
-  (* TODO:
+  (* TODO: parallel tiles
     !! Omp.parallel_for [cFor "by"]; *)
 
   bigstep "code details";
-  (* Debug_transfo.current_ast_at_target "HELLO" [ nbMulti; cArrayRead ~index:[cMindex ~d:(Some 2) ~args:[[]; []; []; [sExpr ~substr:true "x + 0"]] ()] "ix"]; *)
-  (* let bind_gradient name =
-    let bind_one dx dy =
-      (* let regexp = Printf.sprintf "MINDEX2\\(.*, .*, .*, .*\\)" in *)
-      let var = Printf.sprintf "%s%i%i" name dx dy in
-      Variable.bind_multi ~dest:[cFor ~body:[cVarDef "det"] "x"] var [cArrayRead ~index:[sExpr ~substr:true "+ 1"] name];
-    in
-    List.iter (fun dy ->
-      List.iter (fun dx ->
-        bind_one dx dy
-    ) [0;(* 1; 2*)]) [-4;(* -3; -2*)]
-  in
-  *)
   let bind_gradient name =
     Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [cArrayRead name]
   in

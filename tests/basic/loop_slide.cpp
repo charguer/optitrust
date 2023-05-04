@@ -3,7 +3,7 @@
 
 int min(int a, int b) { return a < b ? a : b; }
 
-void test() {
+int main() {
   float* s = (float*)MALLOC1(32, sizeof(float));
 
   for (int i = 0; i < 32; i++) {
@@ -15,17 +15,5 @@ void test() {
   }
 
   free(s);
-}
-
-int main() {
-a: {
-  test();
-  }
-b: {
-  test();
-  }
-c: {
-  test();
-  }
   return 0;
 }
