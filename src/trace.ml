@@ -35,9 +35,9 @@ let close_logs () : unit =
 
 (* [init_logs]: initializes the log files. It closes any existing logs.
    Returns the one log created. *)
-let init_logs directory prefix =
+let init_logs prefix =
   close_logs();
-  let clog = open_out (directory ^ prefix ^ ".log") in
+  let clog = open_out (prefix ^ ".log") in
   let timing_log = open_out ("timing.log") in
   timing_log_handle := Some timing_log;
   let stats_log = open_out ("stats.log") in
@@ -214,7 +214,8 @@ let parse ?(parser = Parsers.Default) (filename : string) : string * trm =
    - the log file to report on the transformation performed. *)
 type context =
   { extension : string;
-    directory : string;
+    (* DEPRECATED?
+       directory : string; *)
     prefix : string;
     includes : string;
     clog : out_channel; }
@@ -222,7 +223,7 @@ type context =
 (* [contex_dummy]: used for [trace_dummy]. *)
 let context_dummy : context =
   { extension = ".cpp";
-    directory = "";
+    (* directory = ""; *)
     prefix = "";
     includes = "";
     clog = stdout; }
@@ -369,8 +370,7 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (
   reset ();
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
-  let directory = (Filename.dirname filename) ^ "/" in
-  let default_prefix = Filename.remove_extension basename in
+  let default_prefix = Filename.remove_extension filename in
   let ml_file_name =
     if Tools.pattern_matches "_inlined" default_prefix
       then List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0
@@ -387,12 +387,12 @@ let init ?(prefix : string = "") ?(parser : Parsers.cparser = Parsers.Default) (
   last_stats := !start_stats;
 
   let prefix = if prefix = "" then default_prefix else prefix in
-  let clog = init_logs directory prefix in
+  let clog = init_logs prefix in
   let ser_file = basename ^ ".ser" in
 
   let (includes, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser mode ser_file filename) in
 
-  let context = { extension; directory; prefix; includes; clog } in
+  let context = { extension; prefix; includes; clog } in
   let stepdescr = { isbigstep = None;
                     script = "Result of parsing";
                     exectime = int_of_float(stats_parse.stats_time); } in
@@ -672,7 +672,7 @@ let get_history ?(prefix : string = "") () : history =
   let extract (trace : trace) =
     let ctx = trace.context in
       let prefix =
-        if prefix = "" then ctx.directory ^ ctx.prefix else prefix in
+        if prefix = "" then ctx.prefix else prefix in
       if List.length trace.history <> List.length trace.stepdescrs
         then failwith "get_history: invariant broken, stepdescrs should have the same length as history";
       let hrev = List.combine trace.history trace.stepdescrs in
@@ -830,7 +830,7 @@ let reparse_trm ?(info : string = "") ?(parser = Parsers.Default) (ctx : context
     Printf.printf "Reparse: %s line %d.\n" info !line_of_last_step;
     flush stdout
   end;
-  let in_prefix = ctx.directory ^ "tmp_" ^ ctx.prefix in
+  let in_prefix = (Filename.dirname ctx.prefix) ^ "/tmp_" ^ (Filename.basename ctx.prefix) in
   output_prog ~beautify:false ctx in_prefix ast;
 
   let (_, t) = parse ~parser (in_prefix ^ ctx.extension) in
@@ -879,7 +879,7 @@ let dump_diff_and_exit () : unit =
     print_info None "Exiting script\n";
     let trace = the_trace in
     let ctx = trace.context in
-    let prefix = ctx.directory ^ ctx.prefix in
+    let prefix = (* ctx.directory ^ *) ctx.prefix in
     (* Common printinf function *)
     let output_ast ?(ast_and_enc:bool=true) filename_prefix ast =
       output_prog_check_empty ~ast_and_enc ctx filename_prefix ast;
@@ -1057,7 +1057,7 @@ let dump ?(prefix : string = "") () : unit =
   (* Dump final result, for every [switch] branch *)
   let ctx = the_trace.context in
   let prefix =
-    if prefix = "" then ctx.directory ^ ctx.prefix else prefix
+    if prefix = "" then (* ctx.directory ^ *) ctx.prefix else prefix
   in
   output_prog ctx (prefix ^ "_out") (the_trace.cur_ast)
 

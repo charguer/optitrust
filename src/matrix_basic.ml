@@ -298,3 +298,27 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
 let stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun () ->
     Target.apply_at_target_paths (stack_copy_on var copy_var copy_dims) tg)
+
+let elim_mindex_on (t : trm) : trm =
+  let (dims, idxs) = trm_inv
+    ~error:"Matrix_basic.elim_mindex_on: expected MINDEX expression"
+    mindex_inv t in
+  let rec generate_index (acc : trm) (dims : trms) (idxs : trms) : trm =
+    match (dims, idxs) with
+    | (d :: dr, i :: ir) ->
+      let new_acc = trm_add acc (List.fold_left trm_mul i dr) in
+      generate_index new_acc dr ir
+    | _ -> acc
+  in
+  generate_index (trm_int 0) dims idxs
+
+(* [elim_mindex] expects target [tg] to point at a call to MINDEX,
+  and replaces it with the flattened index computation.
+
+   Equivalent to:
+   Rewrite.equiv_at ~ctx:true "int d1, d2, i1, i2; ==> MINDEX2(d1, d2, i1, i2) == (i1 * d2 + i2)" tg
+   Rewrite.equiv_at ~ctx:true "int d1, d2, d3, i1, i2, i3; ==> MINDEX3(d1, d2, d3, i1, i2, i3) == (i1 * d2 * d3 + i2 * d3 + i3)" tg
+   [...]
+   *)
+let elim_mindex (tg : Target.target) : unit =
+  Target.apply_at_target_paths elim_mindex_on tg

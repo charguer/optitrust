@@ -1,0 +1,6 @@
+(executable
+  (name tester)
+  (modules tester)
+  (libraries optitrust)
+  ;(public_name optitrust_tester)
+  )

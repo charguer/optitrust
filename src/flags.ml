@@ -1,7 +1,7 @@
 (* [code_print_width]: flag to choose the width of the printed code. *)
 let code_print_width = ref 80
 
-(* [verbose]: flag to activate the printing of debug information -- NOT SUPPORTED YET .*)
+(* [verbose]: flag to activate the printing of debug information *)
 let verbose : bool ref = ref false
 
 (* [analyse_stats]: flag to meansure the time taken by each transformation. *)

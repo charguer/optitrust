@@ -94,6 +94,14 @@ int main()
   q = (n / m) * m; // cannot simplify because n might not be divisible by m
   q = (n / 1) / 1;  // = n
 
+  int* arr = (int*) MALLOC1(exact_div(1024, 32), sizeof(int));
+  free(arr);
+  arr = (int*) malloc(sizeof(int[exact_div(1024, 32)]));
+  for (q = 0; q < exact_div(1024, 32); q++) { // q < 32
+    arr[q] = 0;
+  }
+  free(arr);
+
   // compute int
   int ci;
   ci = 5 + 5; // = 10

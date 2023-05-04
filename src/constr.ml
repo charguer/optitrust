@@ -1382,7 +1382,7 @@ and fix_target_between (rel : target_relative) (t : trm) (p : path) : path =
 (* [resolve_target tg]: resolves the target [tg] *)
 and resolve_target (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in
-  try
+  (* try *)
     let res = resolve_target_struct tgs t in
     (* printf "res=\n%s\n" (Path.paths_to_string res); *)
     (* Patch the path if it is a target_between *)
@@ -1391,8 +1391,10 @@ and resolve_target (tg : target) (t : trm) : paths =
       (* printf "res2=\n%s\n" (Path.paths_to_string res2); *)
       res2
     end else res
-  with Resolve_target_failure (_loc_opt,str) ->
+  (* FIXME: prevents exception from being caught above
+with Resolve_target_failure (_loc_opt,str) ->
     fail None ("Constr." ^ str ^ "\n" ^ (target_to_string tg))
+    *)
 
 (* [resolve_target_exactly_one tg t]: similar to [resolve_target] but this one fails if the target resolves to more than one path *)
 and resolve_target_exactly_one (tg : target) (t : trm) : path =

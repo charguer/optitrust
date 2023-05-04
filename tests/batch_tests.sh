@@ -12,6 +12,6 @@
 
 for file in "$@"
 do
-    sed "s/script_cpp/script_cpp ~batching:\"${file}\"/;" < ${file}
+    sed "s/script_cpp/script_cpp ~batching:\"${file//\//\\/}\"/;" < ${file}
 done
 

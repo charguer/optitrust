@@ -7,7 +7,7 @@
 
 
 - README.md => reprendre sc_artifact.md qui est à jour et intégrer ce qui manque de l'ancien README.md
-  + opam pin add clangml 4.08.0
+  + opam pin add clangml 4.8.0
 
 - LICENSE: gnu gpl 3
 
@@ -40,7 +40,7 @@
        with _ ->
        try trm_double (float_of_string l)
        with _ ->
-       code (Lit l) 
+       code (Lit l)
   ```
 
 - rajouter le dossier 'case_studies' dans un 'make test' à la racine

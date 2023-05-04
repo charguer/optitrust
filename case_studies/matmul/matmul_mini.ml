@@ -10,14 +10,13 @@ let _ = Flags.pretty_matrix_notation := true
    du vrai script; voici une proposition *)
 
 let _ = Run.script_cpp ~filename:"matmul.cpp" (fun () ->
+   !! Loop.tile (trm_int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
+   !! Loop.tile (trm_int 4) ~index:"kj" ~bound:TileBoundAnd ~iter:TileIterGlobal [cFor "k"];
 
-    (* !! Loop.tile (trm_int 32) ~index:"bi" [cFor "i"]; --> TODO: optionnel, montrer le tiling quand ça tombe pas juste; voir si c'est facile à faire marcher, là ça donne une erreur *)
+   !! Loop.swap [cFor "bi"];
+   !! Loop.swap [cFor "bi"];
+   !! Loop.reorder ~order:["j"; "bi"; "i"] [cFor "i"];
 
-    !! Loop.tile (trm_int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];
-
-    !! Loop.reorder ~order:["i"; "j"; "bi"] [cFor "bi"];
-
-    !! Loop.hoist [cVarDef "sum"];
-
-    !! Loop.fission_all_instrs [cFor "bi"];
+   !! Loop.hoist [cVarDef "sum"];
+   !! Loop.fission_all_instrs [cFor "i"];
   )

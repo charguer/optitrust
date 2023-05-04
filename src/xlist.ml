@@ -59,8 +59,19 @@ let remove (x : 'a) (xs : 'a list) : 'a list =
 (* [remove_duplicates xs]: removes duplicates from list [xs]. *)
 let remove_duplicates (lst : 'a list) =
   let unique_set = Hashtbl.create (List.length lst) in
+  (* Warning: behavior would be slightly different if
+    List.filter was implemented in a different way wrt
+    order of evaluation *)
+  List.filter (fun x ->
+    if (Hashtbl.mem unique_set x)
+      then false
+      else (Hashtbl.replace unique_set x (); true)) lst
+
+  (* deprecated
+  let unique_set = Hashtbl.create (List.length lst) in
   List.iter (fun x -> Hashtbl.replace unique_set x ()) lst;
   Hashtbl.fold (fun x () xs -> x :: xs) unique_set []
+  *)
 
 (* [update_nth f l i]: returns a copy of the list [l] where the element [x] at index [i] is replaced with [f x].
    NOTE: The index [i] must be valid. *)
@@ -171,12 +182,12 @@ let split_pairs_snd (l : ('a * 'b) list) : 'b list =
 (* [extract l start nb]: returns a sublist of [l] and the complement of that sublist in [l].
     The sublist contains all the elements of [l] whose indices fall in the range [start, start + nb) range. *)
 let extract (l : 'a list) (start : int) (nb : int) : ('a list * 'a list) =
-  let lfront, lback = try split_at start l with Failure _ ->  failwith "XList.extract: please enter a valid starting index"in 
+  let lfront, lback = try split_at start l with Failure _ ->  failwith "XList.extract: please enter a valid starting index"in
   let ext, lback = try split_at nb lback with Failure _ -> failwith "Xlist.extract: [start] + [nb] -1 should be a valid index for list [l]. "in
   ext , lfront @ lback
 
 (* [extract_element l index]: extracts the element with [index] from list [l].*)
-let extract_element (l : 'a list) (index : int) : ('a * 'a list) = 
+let extract_element (l : 'a list) (index : int) : ('a * 'a list) =
   let l, l1 = extract l index 1 in
   (List.nth l 0), l1
 

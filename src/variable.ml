@@ -12,7 +12,7 @@ module Rename = struct
   | ByList of (string * string) list
   | Renamefn of (string -> string)
 
-  let add_sufix (s : string) =  Renamefn (fun x -> x ^ s)
+  let add_suffix (s : string) =  Renamefn (fun x -> x ^ s)
 
   let apply (f : string -> string) = Renamefn f
 

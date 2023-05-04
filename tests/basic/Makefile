@@ -15,6 +15,7 @@ TESTS_WITH_DOC := \
 	arith_simpl.ml \
 	arith_scale.ml \
 	arith_shift.ml \
+	arrays_elim_accesses.ml \
 	array_set_explicit.ml \
 	array_swap.ml \
 	array_tile.ml \
@@ -126,7 +127,7 @@ NOT_NEEEDED_TO_FIX := \
 	variable_change_type.ml \
 
 
-TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC) 
+TESTS := $(TESTS_WITH_DOC) $(TESTS_WITHOUT_DOC)
 
 
 # TEMPORARY FOR TESTING MAKEFILE

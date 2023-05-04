@@ -1,3 +1,4 @@
+#include <stdlib.h>
 
 void test_ref() {
     int a = 3;
@@ -61,7 +62,7 @@ int main() {
     ((*p).speed).y = 0;
     ((*p).speed).z = 0;
   }
-  
+
   return 0;
 }
 
