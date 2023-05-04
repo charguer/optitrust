@@ -3,8 +3,8 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun () ->
-  !! Loop.fission ~nb_loops:2 [nbExact 1; tAfter; cFor "i"; cFor "j"; cWriteVar "y"];
-  !! Loop.fission_all_instrs ~nb_loops:2 [cFor ~body:[cFor "k"] "i"];
+  !! Loop.fission ~nest_of:2 [nbExact 1; tAfter; cFor "i"; cFor "j"; cWriteVar "y"];
+  !! Loop.fission_all_instrs ~nest_of:2 [cFor ~body:[cFor "k"] "i"];
 )
 
 "
@@ -31,6 +31,6 @@ int main(){
 
 let _ = Run.script_cpp ( fun _ ->
   !! Loop.fission_all_instrs [cFor ~body:[cVarDef "d"] "i"];
-  !! Loop.fission_all_instrs ~nb_loops:2 [nbMulti; cFor ~body:[cVarDef "x"] "i"];
-  !! Loop.fission ~nb_loops:3 [nbMulti; tAfter; cFor ~body:[cVarDef "y"] "i"; cVarDef "b"];
+  !! Loop.fission_all_instrs ~nest_of:2 [nbMulti; cFor ~body:[cVarDef "x"] "i"];
+  !! Loop.fission ~nest_of:3 [nbMulti; tAfter; cFor ~body:[cVarDef "y"] "i"; cVarDef "b"];
 )

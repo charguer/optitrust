@@ -6,16 +6,22 @@ int N;
 
 typedef float T;
 
-void main() {
-  T a[N];
+int main() {
+  T* a = (T*)MALLOC1(3, sizeof(T));
+  T* b = (T*)MALLOC1(3, sizeof(T));
   for (int i = 0; i < N; i++) {
-    a[i] = i;
+    a[MINDEX1(3, i % 3)] = i;
+    if (i >= 2) {
+      b[MINDEX1(3, (i - 2) % 3)] = a[MINDEX1(3, (i - 2) % 3)] +
+                                   a[MINDEX1(3, (i - 1) % 3)] +
+                                   a[MINDEX1(3, i % 3)];
+    }
+    if (i >= 4) {
+      printf("%i\n", b[MINDEX1(3, (i - 4) % 3)] + b[MINDEX1(3, (i - 3) % 3)] +
+                         b[MINDEX1(3, (i - 2) % 3)]);
+    }
   }
-  T b[N - 2];
-  for (int i = 0; i < N - 2; i++) {
-    b[i] = a[i] + a[i + 1] + a[i + 1];
-  }
-  for (int i = 0; i < N - 4; i++) {
-    printf("%i\n", b[i] + b[i + 1] + b[i + 2]);
-  }
+  free(a);
+  free(b);
+  return 0;
 }

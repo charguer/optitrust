@@ -279,7 +279,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
       | Trm_apps _ ->
         post_processing ();
       | Trm_for _ | Trm_for_c _ ->
-          if debug then Printf.printf "Full_path to the call: %s\n" (Path.path_to_string path_to_call);
+          if debug then Debug_transfo.path "Full_path to the call" path_to_call;
           Function_basic.bind_intro ~my_mark ~fresh_name:!resname ~const:false (target_of_path path_to_call) ;
         mark_added := true;
         post_processing ~deep_cleanup:true ();

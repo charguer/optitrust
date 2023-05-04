@@ -846,13 +846,22 @@ let get_stringrepr (t : trm) : string =
         match Ast.trm_get_stringreprid t with
         | Some id ->
           begin match Hashtbl.find_opt m id with
-          | None -> ""
+          | None ->
               (* This term must correspond to a node that was removed during
                  [cfeatures_intro], hence not printed *)
-              (* FOR debug: print_stringreprs(); AstC_to_c.trm_print_debug t; *)
+              if !Flags.debug_stringreprs then begin
+                Printf.printf "WARNING: missing stringrepr for id %i\n" id;
+                AstC_to_c.trm_print_debug t;
+              end;
+              ""
           | Some s -> s
           end
-        | None -> ""
+        | None ->
+          if !Flags.debug_stringreprs then begin
+            Printf.printf "WARNING: missing stringrepr id\n";
+            AstC_to_c.trm_print_debug t;
+          end;
+          ""
 
 (* [match_regexp_trm_kind k t]: checks if [t] is of kind [k] *)
 let match_regexp_trm_kind (k : trm_kind) (t : trm) : bool =
@@ -866,7 +875,8 @@ let match_regexp_trm_kinds (ks : trm_kind list) (t : trm) : bool =
 let match_regexp_trm (r : rexp) (t : trm) : bool =
   if not (match_regexp_trm_kind r.rexp_trm_kind t) then false else begin
     let s = get_stringrepr t in
-    (* FOR DEBUG: Printf.printf "Considered: %s\n" s; *)
+    if !Flags.debug_stringreprs then
+      Printf.printf "Considered: %s\n" s;
     s <> "" && match_regexp_str r s
     (* If the stringrepr is not available, we return false *)
   end

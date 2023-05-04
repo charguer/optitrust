@@ -130,7 +130,7 @@ val cMalloc : ?d:int option -> unit -> constr
 
 val cCalloc : ?d:int option -> unit -> constr
 
-val cMindex : ?d:int -> unit -> constr
+val cMindex : ?d:int option -> ?args:targets -> unit -> constr
 
 val sInstr : ?substr:bool -> string -> constr
 
@@ -185,6 +185,8 @@ val cVarInit : string -> constr
 val cVarsDef : ?regexp:bool -> ?substr:bool -> ?body:target -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
 
 val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
+
+val cFunBody : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?is_def:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
 
 val cFunDefAndDecl : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?ret_typ:string -> ?ret_typ_pred:typ_constraint -> ?regexp:bool -> ?clang_id:Clang.cxcursor option -> string -> constr
 
@@ -249,7 +251,7 @@ val cPrimFun : ?args:targets -> ?args_pred:target_list_pred -> prim -> constr
 val cPrimFunArith : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
 
 val cBinop : ?lhs:target -> ?rhs: target -> binary_op -> constr
- 
+
 val cPrimNew : ?arg:target -> unit -> constr
 
 val dVarInit : constr
@@ -317,7 +319,7 @@ val cStructInit : constr
 
 val cCell : ?cell_index: int option -> unit -> constr
 
-val cArrayRead : var -> constr
+val cArrayRead : ?index:target -> var -> constr
 
 val cArrayWrite : var -> constr
 
@@ -492,3 +494,5 @@ val resolve_target_current_ast : target -> paths
 val resolve_path_current_ast : path -> trm
 
 val path_of_target_mark_one_current_ast : mark -> path
+
+val (~~) : ('a -> 'b -> 'c) -> 'b -> 'a -> 'c

@@ -46,7 +46,6 @@ void parallel(float* output, float* x0, float* x1) {
     }
 } } }
 
-void mm(float* C, float* A, float* B, int m, int n, int p) {
-    assert((m == 1024) && (n == 1024) && (p == 1024));
+void mm1024(float* C, float* A, float* B) {
     parallel(C, A, B);
 }

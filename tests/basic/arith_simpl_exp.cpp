@@ -6,7 +6,7 @@ int g(int x) { return x + 1; }
 
 void simpl_in_depth() {
   int x = g(3 + f(6)) + 2 * g(5);
-  int y = g(3 + f(6)) + g(5) + g(5);
+  int y = g(3 + f(6)) + 2 * g(5);
 }
 
 int main() {
@@ -36,6 +36,7 @@ int main() {
   y = 2 * a;
   y = -a - 4 * b;
   y = -a + b + c;
+  y = 4;
   z = a * a;
   z = 1. / b;
   t = 6 * a;
@@ -59,14 +60,14 @@ int main() {
     ls = 10;
   }
   int n, m, p, q;
-  q = exact_div(10, 2);
+  q = 5;
   q = m;
   q = n;
   q = exact_div(n, (m * p));
   q = exact_div(n, p);
   q = n;
   q = n * 4 * 32;
-  q = exact_div((n * m * 4 * 32), 4);
+  q = n * m * 32;
   q = n / (m * p);
   q = m;
   q = m;
@@ -79,10 +80,26 @@ int main() {
   q = n * m / p;
   q = n / m * m;
   q = n;
+  p = 4;
+  p = 4;
+  int* arr = (int*)MALLOC1(32, sizeof(int));
+  free(arr);
+  arr = (int*)malloc(sizeof(int[exact_div(1024, 32)]));
+  for (q = 0; q < 32; q++) {
+    arr[q] = 0;
+  }
+  free(arr);
   int ci;
   ci = 10;
   ci = 4 + n + n;
   ci = 5;
+  ci = 16;
+  ci = 64;
+  ci = 11;
+  ci = 15;
+  ci = 4;
+  ci = 3;
+  ci = 8 * n;
   ci = 4;
   ci = 1;
   ci = 2;

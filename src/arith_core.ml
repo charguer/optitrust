@@ -259,7 +259,7 @@ let normalize_one (e : expr) : expr =
           | (-1, { expr_desc = Expr_int n; _ }) -> [(-n, expr_int 1)]
           | (0, _ei) -> []
           | (1, { expr_desc = Expr_sum wesi; _ }) -> wesi
-          | (-1, { expr_desc = Expr_sum [(ai,ei)]; _ }) -> [(-ai,ei)]
+          | (-1, { expr_desc = Expr_sum wesi; _ }) -> List.map (fun (ai, ei) -> (-ai,ei)) wesi
           | (ai, { expr_desc = Expr_prod [(1, { expr_desc = Expr_int bi; _}); (1,ei)]; _ }) (* Optional? *)
           | (ai, { expr_desc = Expr_prod [(1,ei); (1, { expr_desc = Expr_int bi; _})]; _ }) (* Optional? *)
           | (ai, { expr_desc = Expr_prod [(bi, { expr_desc = Expr_int 1; _}); (1,ei)]; _ })

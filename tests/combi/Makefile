@@ -37,6 +37,7 @@ TESTS_WITH_DOC := \
 	loop_fusion.ml \
 	loop_fusion_targets.ml \
 	loop_shift.ml \
+	loop_extend_range.ml \
 	loop_grid_enumerate.ml \
 	loop_isolate_first_iteration.ml \
 	loop_move.ml \

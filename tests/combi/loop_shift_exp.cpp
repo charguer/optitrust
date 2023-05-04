@@ -17,6 +17,12 @@ int main() {
     const int k = k2 - shift;
     x += k;
   }
+  for (int l = N + shift; l > shift; l--) {
+    x += l - shift;
+  }
+  for (int m = 8; m < N + 4; m++) {
+    x += m + -6;
+  }
   float* input;
   float* output;
   for (int bi = 0; bi < N; bi += 32) {

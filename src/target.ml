@@ -495,6 +495,12 @@ let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_
   let ty_pred = make_typ_constraint ~typ:ret_typ ~typ_pred:ret_typ_pred () in
   Constr_decl_fun (ty_pred, ro, combine_args args args_pred, body, is_def, clang_id)
 
+(* [cFunBody] same as [cFunDef] followed by [dBody]. *)
+let cFunBody ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = [])
+  ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false)
+  ?(is_def : bool = true) ?(clang_id : Clang.cxcursor option = None)(name : string) : constr =
+  cTarget [cFunDef ~args ~args_pred ~ret_typ ~ret_typ_pred ~regexp ~is_def ~clang_id name; dBody]
+
 (* [cFunDefAndDecl ~args ~args_pred ~body ~ret_typ ~ret_typ_pred ~regexp ~is_def name]: matches function definitions and declarations
      [args] - match based on arguments
      [args_pred] - match based on arguments
@@ -864,10 +870,10 @@ let cMalloc ?(d : int option = None) () : constr =
   cFun ~regexp:true ("MALLOC" ^ d)
 
 (* [cMindex ~d]:  match a call to Optitrust MINDEXI where I = d. *)
-let cMindex ?(d : int  = 0) () : constr =
-  let d = if d <> 0 then string_of_int d else "." in
-  cFun ~regexp:true ("MINDEX"^d)
-
+let cMindex ?(d : int option = None) ?(args : targets = []) () : constr =
+  match d with
+  | Some d -> cFun ~args ("MINDEX" ^ (string_of_int d))
+  | None -> cFun ~args ~regexp:true "MINDEX."
 
 (* [cCalloc ~d ()]: matches a call to Optitrust CALLOCI where I = d. *)
 let cCalloc ?(d : int option = None) () : constr =
@@ -1015,18 +1021,17 @@ let cCell ?(cell_index : int option = None) () : constr =
   | None -> cTarget [cArrayInit; cStrict; cTrue]
   | Some i -> cTarget [cArrayInit; dArrayNth i]
 
-(* FIXME:
-   1. seems weird
-   2. also triggers on writes? *)
-let cArrayRead (x : var) : constr =
-  cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()
-  (* cOr [
-    [cAccesses ~base:[cStrict; cCellAccess ~base:[cVar x] ()] ()];
-    [cCellAccess ~base:[cStrict; cAccesses ~base:[cVar x] ()] ()];
-  ] *)
-
 let cArrayWrite (x : var) : constr =
   cWrite ~lhs:[cCellAccess ~base:[cVar x] ()] ()
+
+let cArrayWriteAccess (x : var) : constr =
+  cTarget [cWrite (); dLHS; cCellAccess ~base:[cVar x] ()]
+
+(* FIXME: seems weird *)
+let cArrayRead ?(index = []) (x : var) : constr =
+  cRead ~addr:[cDiff
+    [[cCellAccess ~base:[cVar x] ~index ()]]
+    [[cArrayWriteAccess x]]] ()
 
 let cPlusEqVar (name : string) : constr =
   cPrimFun ~args:[[cVar name]; [cTrue]] (Prim_compound_assgn_op Binop_add)
@@ -1165,11 +1170,13 @@ let with_stringreprs_available_for (tgs : target list) (t : trm) (f : trm -> 'a)
       Printf.printf "==end of kinds==\n";. *)
   let topfuns = Constr.get_target_regexp_topfuns_opt tgs in
   let t2, m = compute_stringreprs ?topfuns:topfuns (Constr.match_regexp_trm_kinds kinds) t in
-  (* FOR DEBUG: AstC_to_c.trm_print_debug t2;*)
-  (* AstC_to_c.print_stringreprs m; for debug. *)
+  if !Flags.debug_stringreprs then
+    (* AstC_to_c.trm_print_debug t2; *)
+    AstC_to_c.print_stringreprs m;
   let stringreprs = convert_stringreprs_from_documentation_to_string m in
   Constr.stringreprs := Some stringreprs;
-  (* for debug Constr.print_stringreprs();*)
+  if !Flags.debug_stringreprs then
+    Constr.print_stringreprs();
   let r = f t2 in
   Constr.stringreprs := None;
   r
@@ -1771,3 +1778,5 @@ let resolve_path_current_ast (p : path) : trm  =
 
 let path_of_target_mark_one_current_ast (m : mark) : path =
   path_of_target_mark_one m (Trace.ast ())
+
+let (~~) f a b = f b a

@@ -1120,6 +1120,10 @@ let trm_for ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None
   (loop_range : loop_range) (body : trm) : trm =
   trm_make ~annot ~loc ~typ:(Some (typ_unit ())) ~ctx (Trm_for (loop_range, body))
 
+let trm_for_instrs ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = None)
+(loop_range : loop_range) (body_instrs : trm mlist) : trm =
+  trm_for ~annot ~loc ~ctx loop_range (trm_seq body_instrs)
+
 (* [code code_str ]: arbitrary code entered by the user *)
 let code (code_str : code_kind) : trm =
   trm_make (Trm_arbitrary code_str)
@@ -1166,8 +1170,8 @@ let trm_binop ?(annot = trm_annot_default) ?(loc = None) ?(ctx : ctx option = No
   trm_val ~annot:annot ~loc ~ctx (Val_prim (Prim_binop p))
 
 (* [trm_cast ty t]: type cast *)
-let trm_cast (ty : typ) (t : trm) : trm =
-  trm_apps (trm_unop (Unop_cast ty)) [t]
+let trm_cast ?(annot : trm_annot = trm_annot_default) (ty : typ) (t : trm) : trm =
+  trm_apps ~annot (trm_unop (Unop_cast ty)) [t]
 
 (* [typ_of_lit l]: get the type of a literal *)
 let typ_of_lit (l : lit) : typ option =
@@ -1597,6 +1601,16 @@ let trm_unop_inv (t : trm) : (unary_op * trm) option =
   | Some (f, args) -> begin
     match (trm_prim_inv f, args) with
     | Some (Prim_unop op), [a] -> Some (op, a)
+    | _ -> None
+    end
+  | _ -> None
+
+(* [trm_binop_inv t]: deconstructs t = t1 op t2 *)
+let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =
+  match trm_apps_inv t with
+  | Some (f, args) -> begin
+    match (trm_prim_inv f, args) with
+    | Some (Prim_binop op'), [a; b] when op = op' -> Some (a, b)
     | _ -> None
     end
   | _ -> None
@@ -2510,12 +2524,16 @@ let is_new_operation (t : trm) : bool =
     end
   | _ -> false
 
+let trm_set_inv (t : trm) : (trm * trm) option =
+  trm_binop_inv Binop_set t
+
 (* [is_set_operation t]: checks if [t] is a set operation(write operation) *)
 let is_set_operation (t : trm) : bool =
   match t.desc with
   | Trm_apps (f, _) ->
     begin match trm_prim_inv f with
     | Some (Prim_binop Binop_set) | Some(Prim_compound_assgn_op _)
+    (* FIXME: not supported by [trm_set_inv] *)
      | Some (Prim_overloaded_op (Prim_binop Binop_set)) -> true
     | _ -> false
     end
@@ -2735,6 +2753,11 @@ let trm_for_inv (t : trm) : (loop_range * trm)  option =
   match t.desc with
   | Trm_for (l_range, body) -> Some (l_range, body)
   | _ -> None
+
+(* [trm_for_inv_instrs t]: gets the loop range and body instructions from loop [t]. *)
+let trm_for_inv_instrs (t : trm) : (loop_range * trm mlist) option =
+  Option.bind (trm_for_inv t) (fun (r, b) ->
+    Option.map (fun instrs -> (r, instrs)) (trm_seq_inv b))
 
 (* [is_trm_seq t]: checks if [t] is a sequence. *)
 let is_trm_seq (t : trm) : bool =
@@ -3001,33 +3024,33 @@ let trm_any_bool : trm =
 
 (* [trm_minus ~loc ~ctx ~typ t]: generates -t *)
 let trm_minus ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t : trm) : trm =
+  let typ = Tools.option_or typ t.typ in
   trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_minus) [t]
 
 (* [trm_eq ~loc ~ctx ~typ t1 t2]: generates t1 = t2 *)
 let trm_eq ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx  Binop_eq) [t1; t2]
 
 (* [trm_neq t1 t2]: generates t1 != t2 *)
 let trm_neq ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_neq) [t1; t2]
 
 (* [trm_sub t1 t2]: generates t1 - t2 *)
 let trm_sub ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_sub) [t1; t2]
 
 (* [trm_add t1 t2]: generates t1 + t2 *)
 let trm_add ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_add) [t1; t2]
 
-(* [trm_binop_inv t]: deconstructs t = t1 op t2 *)
-let trm_binop_inv (op : binary_op) (t : trm) : (trm * trm) option =
-  match trm_apps_inv t with
-  | Some (f, args) -> begin
-    match (trm_prim_inv f, args) with
-    | Some (Prim_binop op'), [a; b] when op = op' -> Some (a, b)
-    | _ -> None
-    end
-  | _ -> None
+(* [trm_mod t1 t2]: generates t1 % t2 *)
+let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
+  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [t1; t2]
 
 (* [trm_add_inv t1 t2]: deconstructs t = t1 + t2 *)
 let trm_add_inv (t : trm) : (trm * trm) option  =
@@ -3035,30 +3058,37 @@ let trm_add_inv (t : trm) : (trm * trm) option  =
 
 (* [trm_mul t1 t2]: generates t1 * t2 *)
 let trm_mul ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mul) [t1; t2]
 
 (* [trm_div t1 t2]: generates t1 / t2 *)
 let trm_div ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_div) [t1; t2]
 
 (* [trm_exact_div t1 t2]: generates exact_div(t1, t2) *)
 let trm_exact_div ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_exact_div) [t1; t2]
 
 (* [trm_le t1 t2]: generates t1 <= t2 *)
 let trm_le ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_le) [t1; t2]
 
 (* [trm_lt t1 t2]: generates t1 < t2 *)
 let trm_lt ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_lt) [t1; t2]
 
 (* [trm_ge t1 t2]: generates t1 >= t2 *)
 let trm_ge ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_ge) [t1; t2]
 
 (* [trm_gt t1 t2]: generates t1 > t2 *)
 let trm_gt ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_gt) [t1; t2]
 
 (* [trm_ineq ineq_sgn t1 t2]: generates an inequality t1 # t2 where # is one of the following operators <, <=, >, >=.
@@ -3073,18 +3103,22 @@ let trm_ineq (ineq_sgn : loop_dir) (t1 : trm) (t2 : trm) : trm =
 
 (* [trm_and t1 t2]: generates t1 && t2 *)
 let trm_and ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_and) [t1;t2]
 
 (* [trm_bit_and t1 t2]: generates t1 & t2 *)
 let trm_bit_and ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_bitwise_and) [t1;t2]
 
 (* [trm_or t1 t2]: generates t1 || t2 *)
 let trm_or ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_or typ (Some (typ_bool ())) in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_or) [t1;t2]
 
 (* [trm_bit_or t1 t2]: generates t1 | t2 *)
 let trm_bit_or ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_bitwise_or) [t1;t2]
 
 (* [trm_shiftl t1 t2]: generates t1 << t2*)
@@ -3093,11 +3127,8 @@ let trm_shiftl ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm)
 
 (* [trm_shiftr t1 t2]: generates t1 >> t2*)
 let trm_shiftr ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
+  let typ = Tools.option_ors [typ; t1.typ; t2.typ] in
   trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_shiftr) [t1; t2]
-
-(* [trm_mod t1 t2]: generates t1 % t2*)
-let trm_mod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
-  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [t1;t2]
 
 (* LATER [trm_fmod t1 t2]: generates fmod(t1, t2)
 let trm_fmod ?(loc = None) ?(ctx : ctx option = None) ?(typ = None) (t1 : trm) (t2 : trm) : trm =
@@ -3500,6 +3531,11 @@ let is_trm_abort (t: trm) : bool =
 let is_trm_initialization_list (t : trm) : bool =
   match t.desc with
   | Trm_array _ | Trm_record _ -> true
+  | _ -> false
+
+let is_trm_unit (t : trm) : bool =
+  match trm_lit_inv t with
+  | Some Lit_unit -> true
   | _ -> false
 
 (* [has_empty_body t]: checks if the function [t] has an empty body or not. *)
