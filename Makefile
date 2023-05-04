@@ -36,7 +36,7 @@ show_install:
 #   type: #show "Run";;
 #   type: exit 0;;
 
-test: all
+test:
 	./tester
 
 
@@ -55,3 +55,6 @@ md: $(PDFS)
 	pandoc -V geometry:margin=1in $< -o $@
 
 artifact: sc_artifact.pdf
+
+
+.PHONY: all install install_compcert_stdlib uninstall show_install test clean watch md artifact

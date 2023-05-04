@@ -1,10 +1,10 @@
 open Optitrust
-open Target 
+open Target
 
 
-let _ = Flags.set_dump_clang_ast()
+(* let _ = Flags.set_dump_clang_ast() *)
 
-let _ = Run.script_cpp (fun _ -> 
+let _ = Run.script_cpp (fun _ ->
 
 
  !! Omp.task [nbMulti; cFun "traverse"];
