@@ -1,23 +1,15 @@
 #!/bin/bash
 
-# How to test this script:
-# cd src/.vscode
-# assume test_split_before.cpp and test_split_after.cpp exist
-# ./open_diff.sh ../unit_tests test_split
-
-VSCODE=`pwd`
-TOOLS_FOLDER="${VSCODE}/../tools"
+TOOLS_FOLDER=$(dirname -- "$( readlink -f -- "$0"; )")
+WEB_VIEW_FOLDER="${TOOLS_FOLDER}/web_view"
 
 
-DIRNAME=$1
-FILEBASE=$2
+FILEBASE=$1
+FILEEXT=$2
 DIFFFOR=$3   # this flag could be "" or "enc"
 
 
 CONTEXTSIZE="10"
-
-# Work in the file directory
-cd ${DIRNAME}
 
 # Read options from optitrust_flags.sh
 # options: e.g., CONTEXTSIZE="100", NODIFFDISPLAY="1"
@@ -35,7 +27,7 @@ TARGET="${FILEBASE}_diff.html"
 #echo "Generating ${TARGET}"
 
 # Compute title
-TITLESTR="OptiTrust_Diff_${FILEBASE}"
+TITLESTR="${FILEBASE} - OptiTrust Diff"
 
 
 # Read options from optitrust_flags.sh
@@ -51,7 +43,7 @@ fi
 
 
 # Compute diff
-DIFFCODE=`git diff --ignore-all-space --no-index -U${CONTEXTSIZE} ${FILEBASE}_before${ENCOPT}.cpp ${FILEBASE}_after${ENCOPT}.cpp | base64 -w 0`
+DIFFCODE=`git diff --ignore-all-space --no-index -U${CONTEXTSIZE} ${FILEBASE}_before${ENCOPT}.${FILEEXT} ${FILEBASE}_after${ENCOPT}.${FILEEXT} | base64 -w 0`
 
 
 if [ "$DIFFCODE" == "" ]; then
@@ -62,15 +54,14 @@ fi
 DIFFSTR="var diffString = window.atob(\"${DIFFCODE}\");"
 
 
-# Take templace and substitute ${TOOLS_FOLDER}, ${INSERT_TITLE}, and ${INSERT_DIFF}
-TEMPLATE="${TOOLS_FOLDER}/diff_template.html"
+# Take templace and substitute ${WEB_VIEW_FOLDER}, ${INSERT_TITLE}, and ${INSERT_DIFF}
+TEMPLATE="${WEB_VIEW_FOLDER}/diff_template.html"
 
 cp ${TEMPLATE} ${TARGET}
 
-sed -i "s#{INSERT_TITLE}#${TITLESTR}#g;s#{TOOLS_FOLDER}#${TOOLS_FOLDER}#g;s#{INSERT_DIFF}#${DIFFSTR}#g" ${TARGET}
+sed -i "s#{INSERT_TITLE}#${TITLESTR}#g;s#{WEB_VIEW_FOLDER}#${WEB_VIEW_FOLDER}#g;s#{INSERT_DIFF}#${DIFFSTR}#g" ${TARGET}
 # Note: there seems to be an issue if performing the sed one after the other...
 #echo "Generated ${TARGET}"
 
 # Open the browser with the target file
-cd ${VSCODE}
-./open_in_browser.sh ${DIRNAME}/${TARGET} "${TITLESTR}"
+${TOOLS_FOLDER}/open_in_browser.sh ${TARGET} "${TITLESTR}"

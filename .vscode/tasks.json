@@ -44,7 +44,7 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "./view_result.sh",
+            "../tools/view_result.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
@@ -61,7 +61,7 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "./view_result.sh",
+            "../tools/view_result.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
@@ -79,7 +79,7 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "./view_result.sh",
+            "../tools/view_result.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
@@ -95,7 +95,7 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "./view_result.sh",
+            "../tools/view_result.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
@@ -112,7 +112,7 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "./view_result.sh",
+            "../tools/view_result.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
@@ -128,7 +128,7 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "./view_result_intermediate.sh",
+            "../tools/view_result_intermediate.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
@@ -144,7 +144,7 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "./view_result_intermediate.sh",
+            "../tools/view_result_intermediate.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
@@ -160,7 +160,7 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "./view_result_intermediate.sh",
+            "../tools/view_result_intermediate.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
@@ -177,7 +177,7 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "./view_result_intermediate.sh",
+            "../tools/view_result_intermediate.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
@@ -220,7 +220,7 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "./view_result.sh",
+            "../tools/view_result.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
@@ -237,7 +237,7 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "./view_result.sh",
+            "../tools/view_result.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
@@ -254,7 +254,7 @@ file{
           "cwd": "${fileDirname}"
         },
        "args": [
-          "./view_result.sh",
+          "../tools/view_result.sh",
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
@@ -271,7 +271,7 @@ file{
         "cwd": "${workspaceFolder}/.vscode"
       },
       "args": [
-        "./view_result.sh",
+        "../tools/view_result.sh",
         "${fileDirname}",
         "${fileBasenameNoExtension}",
         "${lineNumber}",
@@ -305,7 +305,7 @@ file{
         "cwd": "${workspaceFolder}/.vscode"
       },
       "args": [
-        "./view_result.sh",
+        "../tools/view_result.sh",
         "${fileDirname}",
         "${fileBasenameNoExtension}",
         "${lineNumber}",
@@ -322,7 +322,7 @@ file{
         "cwd": "${workspaceFolder}/.vscode"
       },
       "args": [
-        "./view_result.sh",
+        "../tools/view_result.sh",
         "${fileDirname}",
         "${fileBasenameNoExtension}",
         "${lineNumber}",
@@ -363,7 +363,7 @@ file{
     {
       "label": "Execute transformation script (dump trace)",
       "type": "shell",
-      "command": "./.vscode/view_result.sh",
+      "command": "./tools/view_result.sh",
       "args": [
         "${fileDirname}",
         "${fileBasenameNoExtension}",

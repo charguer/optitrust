@@ -3,16 +3,17 @@
 # with title ${WINDOWTITLE} already exists, in which case this window
 # in brought to the front and its contents is refreshed.
 
-VSCODE=`pwd`
 FILEPATH=$1
 WINDOWTITLE=$2
 
 # SELECT BROWSER
+# The fastest browser is one already loaded:
+# honor the user defaults unless explicitly asked otherwise
 if [ -z "${OPTITRUST_BROWSER}" ]; then
-  if command -v chromium &> /dev/null; then
-    OPTITRUST_BROWSER="chromium"
+  if [ -n "${BROWSER}" ]; then
+    OPTITRUST_BROWSER="${BROWSER}"
   else
-    OPTITRUST_BROWSER="chromium-browser"
+    OPTITRUST_BROWSER="xdg-open"
   fi
 fi
 
@@ -20,7 +21,6 @@ fi
 
 WID=`xdotool search --screen 0 --name "${WINDOWTITLE}" | head -1`
 
-# || xdotool search --desktop 3 --name "${WINDOWTITLE}
 if [ -n "${WID}" ]; then
   #echo "found window to reuse"
   # Immediately brings the window to the front
@@ -28,14 +28,11 @@ if [ -n "${WID}" ]; then
   # xdotool windowactivate $WID
   xdotool windowactivate --sync $WID
   #echo "now refreshing"
-  # Refresh the page 
-  xdotool key ctrl+r 
+  # Refresh the page
+  xdotool key ctrl+r
 
 else
-  #echo "launch fresh window"
   ## Launch fresh browser
-  nohup ${OPTITRUST_BROWSER} --new-window ${FILEPATH} >/dev/null 2>&1
-  
-fi
+  nohup ${OPTITRUST_BROWSER} ${FILEPATH} >/dev/null 2>&1 &
 
-exit
+fi

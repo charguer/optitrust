@@ -10,4 +10,8 @@
 INPUT_FILE=$1
 OUTPUT_FILE=$2
 
-sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\^/Trace.check_exit_and_step ~line:__LINE__ ~is_small_step:false ();/;s/\!\!\^/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ~is_small_step:false ();/;s/!!!/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ();/;s/!!/Trace.check_exit_and_step ~line:__LINE__ ();/' ${INPUT_FILE} > ${OUTPUT_FILE}
+sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /
+s/\!\^/Trace.check_exit_and_step ~line:__LINE__ ~is_small_step:false ();/
+s/\!\!\^/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ~is_small_step:false ();/
+s/!!!/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ();/
+s/!!/Trace.check_exit_and_step ~line:__LINE__ ();/' ${INPUT_FILE} > ${OUTPUT_FILE}

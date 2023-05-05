@@ -12,13 +12,11 @@ FILEBASE=$2
 LINE=$3 # should be the first line to be not executed
 VIEW=$4 # should be view_diff or save_intermediate_state
 RECOMPILE_OPTITRUST=$5 # should be recompile_optitrust_yes or recompile_optitrust_no
-OPTIONS=$6
-OPTIONS2=$7
+OPTIONS=${@:6}
 
-# Path to .vscode folder and src folder and src/src folder
-VSCODE=`pwd`
-SRCFOLDER=`cd .. && pwd`
-SRCSRCFOLDER=`cd ../src && pwd`
+# Path to tools folder and src folder
+TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0";)")
+SRCFOLDER=${TOOLS_FOLDER}/..
 
 # This can help with opam switches
 eval $(opam env)
@@ -111,7 +109,7 @@ fi
 #----------------------------------------------------
 # Instrument line numbers in the transformation program
 
-${VSCODE}/add_lines.sh ${SOURCEBASE}.ml ${SOURCEBASE}_with_lines.ml
+${TOOLS}/add_lines.sh ${SOURCEBASE}.ml ${SOURCEBASE}_with_lines.ml
 
 #----------------------------------------------------
 # Compile the transformation program
@@ -139,7 +137,7 @@ fi
 
 # Execute with backtrace activated, and specifying the -exit-line value
 #  LATER: progressive reporting? -report-big-steps
-OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS}
+OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${FLAGS}
 # echo "./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}"
 
 OUT=$?
@@ -153,8 +151,8 @@ fi
 
 if [ "${VIEW}" = "view_diff" ]; then
 
-   # We need to cd to ${VSCODE} folder because that's how the scripts know the path to .vscode
-   cd ${VSCODE}
+   # We need to cd to ${TOOLS} folder because that's how the scripts know the path to tools
+   cd ${TOOLS}
   ./open_diff.sh ${DIRNAME} ${SOURCEBASE} &
 
 elif [ "${VIEW}" = "save_intermediate_state" ]; then

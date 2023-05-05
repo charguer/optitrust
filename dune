@@ -1,5 +1,5 @@
 (install
- (files (glob_files tools/*.{js,css,html}) tools/Makefile.common)
+ (files (glob_files tools/web_view/*))
  (section lib))
 
 (install
