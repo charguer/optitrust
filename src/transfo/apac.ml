@@ -1,8 +1,21 @@
 
 open Ast
 open Target
+open Path
+open Mlist
 include Apac_core
 include Apac_basic
+
+let insert_timer_start (tg : target) : unit =
+  Target.apply(fun t p ->
+    let i,p_seq = Path.index_in_seq p in 
+    Path.apply_on_path(fun t_seq ->
+      let instrs = trm_inv ~error:"expected a sequence" trm_seq_inv t_seq in
+      let app_to_insert = trm_apps (trm_var "timer_start") [] in
+      let timer = Mlist.insert_at (i - 1) app_to_insert instrs in
+      trm_make t_seq (trm_seq timer)
+    ) t p_seq
+  ) tg
 
 (* [parallel_task_group ~mark tg]: expects the target [ŧg] to point at a taskable function definition,
     then it will insert  #pragma omp parallel #pragma omp master #pragma omp taskgroup in the body of the main function
