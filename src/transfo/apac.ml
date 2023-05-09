@@ -12,8 +12,8 @@ let insert_timer_start (tg : target) : unit =
     Path.apply_on_path(fun t_seq ->
       let instrs = trm_inv ~error:"expected a sequence" trm_seq_inv t_seq in
       let app_to_insert = trm_apps (trm_var "timer_start") [] in
-      let timer = Mlist.insert_at (i - 1) app_to_insert instrs in
-      trm_make t_seq (trm_seq timer)
+      let timer = Mlist.insert_at i app_to_insert instrs in
+      trm_seq ~annot:t_seq.annot timer
     ) t p_seq
   ) tg
 
