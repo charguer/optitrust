@@ -85,7 +85,7 @@ let stackvar_elim (t : trm) : trm =
       if is_qvar_mutable !env x
         then trm_get (trm_replace (Trm_var (Var_mutable, x)) t)
         else trm_replace (Trm_var (Var_immutable, x)) t
-    | Trm_let (_, (x, ty), tbody) ->
+    | Trm_let (_, (x, ty), tbody, bound_res) ->
       (* is the type of x (or elements of x in case it is a fixed-size array) a const type? *)
       let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
       add_var env x xm; (* Note: the onscope function will take care to remove this *)
@@ -96,14 +96,14 @@ let stackvar_elim (t : trm) : trm =
         | Var_immutable -> fail t.loc "Ast_fromto_AstC.tackvar_elim: unsupported references on const variables"
         | _ ->
           (* generate a pointer type, with suitable annotations *)
-          trm_add_cstyle Reference (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of (aux tbody))) t)
+          trm_add_cstyle Reference (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty1), trm_address_of (aux tbody), bound_res)) t)
         end
       | None ->
         begin match xm with
         | Var_mutable ->
           (* TODO: document the case that corresponds to Constructed_init *)
           let new_body = if trm_has_cstyle Constructed_init tbody then aux tbody else trm_new ty (aux tbody) in
-          trm_add_cstyle Stackvar (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty), new_body )) t)
+          trm_add_cstyle Stackvar (trm_replace (Trm_let (xm, (x, typ_ptr_generated ty), new_body, bound_res)) t)
         | Var_immutable ->
           trm_map aux t
         end
@@ -115,13 +115,13 @@ let stackvar_elim (t : trm) : trm =
       ) tvl tl;
       trm_map aux t
     | Trm_seq _ when not (trm_is_nobrace_seq t) -> onscope env t (trm_map aux)
-    | Trm_let_fun (f, _retty, targs, _tbody) ->
+    | Trm_let_fun (f, _retty, targs, _tbody, _) ->
       (* function names are by default immutable *)
       add_var env f.qvar_var Var_immutable;
       onscope env t (fun t -> List.iter (fun (x, _tx) ->
        let mut = Var_immutable in (* if is_typ_ptr tx then Var_mutable else Var_immutable in *)
        add_var env x mut) targs; trm_map aux t)
-    | Trm_for (l_range, _) ->
+    | Trm_for (l_range, _, _) ->
         let (index, _, _, _, _, _) = l_range in
         onscope env t (fun t -> add_var env index Var_immutable; trm_map aux t)
     | Trm_for_c _ ->
@@ -152,25 +152,25 @@ let stackvar_intro (t : trm) : trm =
       if is_qvar_mutable !env x
         then trm_address_of (trm_replace (Trm_var (Var_mutable, x)) t)
         else t
-    | Trm_let (_, (x, tx), tbody) ->
+    | Trm_let (_, (x, tx), tbody, bound_res) ->
       let vk = if is_typ_const (get_inner_array_type tx) then Var_immutable else Var_mutable in
       add_var env x vk;
       if trm_has_cstyle Stackvar t
         then
           begin match tx.typ_desc , tbody.desc with
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, Trm_apps ({desc = Trm_val (Val_prim (Prim_new _));_}, [tbody1])  ->
-              trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody1)) t)
+              trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody1, bound_res)) t)
           | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1}, _  when trm_has_cstyle Constructed_init tbody ->
-              trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody)) t)
+            trm_rem_cstyle Stackvar (trm_replace (Trm_let (vk, (x, tx1), aux tbody, bound_res)) t)
           | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Stackvar on this declaration"
           end
       else if trm_has_cstyle Reference t then
         begin match tx.typ_desc with
         | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx1} ->
-          trm_rem_cstyle Reference { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get (aux tbody))}
+          trm_rem_cstyle Reference { t with desc = Trm_let (vk, (x,typ_ptr Ptr_kind_ref tx1), trm_get (aux tbody), bound_res)}
         | _ -> failwith "stackvar_intro: not the expected form for a stackvar, should first remove the annotation Reference on this declaration"
         end
-      else trm_replace (Trm_let (vk, (x, tx), aux tbody)) t
+      else trm_replace (Trm_let (vk, (x, tx), aux tbody, bound_res)) t
     | Trm_let_mult (_, tvl, tl) ->
       List.iter2 (fun (x, ty) tbody ->
         let xm = if is_typ_const (get_inner_array_type ty) then Var_immutable else Var_mutable in
@@ -179,11 +179,11 @@ let stackvar_intro (t : trm) : trm =
       trm_map aux t
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
-    | Trm_let_fun (f, _retty, targs, _tbody) ->
+    | Trm_let_fun (f, _retty, targs, _tbody, _) ->
       add_var env f.qvar_var Var_immutable;
       onscope env t (fun t ->
       List.iter (fun (x, _tx) -> let mut = Var_immutable in (add_var env x mut)) targs; trm_map aux t)
-    | Trm_for (l_range, _) ->
+    | Trm_for (l_range, _, _) ->
       let (index, _, _, _, _, _) = l_range in
       onscope env t (fun t -> begin add_var env index Var_immutable; trm_map aux t end)
     | Trm_for_c _ -> onscope env t (fun t -> trm_map aux t)
@@ -357,7 +357,7 @@ let method_call_intro (t : trm) : trm =
 let class_member_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_let_fun (qv, ty, vl, body) when is_class_constructor t ->
+    | Trm_let_fun (qv, ty, vl, body, contract) when is_class_constructor t ->
       let this_mut = Var_mutable in
       let q_var = qv.qvar_var in
       let this_typ = typ_ptr_generated (typ_constr q_var ~tid:(Clang_to_astRawC.get_typid_for_type q_var)) in
@@ -369,7 +369,7 @@ let class_member_elim (t : trm) : trm =
         let new_tl = Mlist.push_front this_alloc tl in
         let new_tl = Mlist.push_back ret_this new_tl in
         let new_body = trm_alter ~desc:(Trm_seq new_tl) t in
-        trm_alter ~desc:(Trm_let_fun (qv, this_typ, vl, new_body)) t
+        trm_alter ~desc:(Trm_let_fun (qv, this_typ, vl, new_body, contract)) t
       | Trm_val (Val_lit Lit_uninitialized) ->  t
       | _ ->  fail t.loc "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
       end
@@ -381,7 +381,7 @@ let class_member_elim (t : trm) : trm =
 let class_member_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_let_fun (qv, ty, vl, body) when is_class_constructor t ->
+    | Trm_let_fun (qv, ty, vl, body, contract) when is_class_constructor t ->
       begin match body.desc with
       | Trm_seq tl ->
         if Mlist.is_empty tl
@@ -389,13 +389,13 @@ let class_member_intro (t : trm) : trm =
           else
             let tl = Mlist.(pop_front (pop_back tl)) in
             let new_body = trm_alter ~desc:(Trm_seq tl) body in
-            trm_alter ~desc:(Trm_let_fun (qv, typ_unit(), vl, new_body)) t
+            trm_alter ~desc:(Trm_let_fun (qv, typ_unit(), vl, new_body, contract)) t
       | _ -> trm_map aux t
       end
    | _ -> trm_map aux t
 in aux t
 
-(***************************************  Main entry points *********************************************)
+(*************************************** Main entry points *********************************************)
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)

@@ -47,7 +47,7 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_ins
   let remove = (my_mark = None) in
   let get_alloc_type_and_trms (t : trm) (tg1 : Target.target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
-      | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty
+      | Trm_let (_, (_, ty), _, _) -> get_inner_ptr_type ty
       | Trm_apps (_, [lhs; _rhs]) when is_set_operation t ->
         begin match lhs.typ with
         | Some ty -> ty
@@ -99,7 +99,7 @@ let local_name_tile ?(my_mark : mark option) ?(indices : (var list) = []) ?(allo
   let remove = (my_mark = None) in
   let get_alloc_type_and_trms (t : trm) (tg1 : Target.target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
-      | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty
+      | Trm_let (_, (_, ty), _, _) -> get_inner_ptr_type ty
       | Trm_apps (_, [lhs; _rhs]) when is_set_operation t ->
         begin match lhs.typ with
         | Some ty -> ty

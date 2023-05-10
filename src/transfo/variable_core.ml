@@ -13,7 +13,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
   let f_update_further (t1 : trm) : trm =
     let t_dl = Mlist.nth tl index in
     match t_dl.desc with
-    | Trm_let (vk, (x, tx), dx) ->
+    | Trm_let (vk, (x, tx), dx, _) ->
       (* check if the declaration is of the form int*x = &y *)
       let as_reference = is_typ_ptr (get_inner_ptr_type tx) && not (trm_has_cstyle Reference t_dl) in
       let t_x =
@@ -57,7 +57,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
     let dl = Mlist.nth tl index in
     let dl = Path.resolve_path p_local dl in
     match dl.desc with
-    | Trm_let (vk, (x, _), init) ->
+    | Trm_let (vk, (x, _), init, _) ->
       let init = trm_add_mark mark init in
       begin match vk with
       | Var_immutable ->
@@ -86,7 +86,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
           cFunDef ~qpath:["M"] "f"
           cFunDef ~qvar:(qvar ["M"] "f") ""
      *)
-    | Trm_let_fun (f, _, _, _) ->
+    | Trm_let_fun (f, _, _, _, _) ->
       if accept_functions
         then Internal.subst_var f.qvar_var dl t
         else fail dl.loc "Variable_core.unfold_aux: please set call this fucntion with the argumnet accep_functions set to true. "
@@ -110,7 +110,7 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
   let tl = trm_inv ~error trm_seq_inv t in
   let f_update (t : trm) : trm =
     match t.desc with
-    | Trm_let (vk,( x, tx), init) ->
+    | Trm_let (vk,( x, tx), init, _) ->
       trm_let ~annot:t.annot vk (new_name, tx) init
     | _ -> fail t.loc "Variable_core.rename_aux: expected a target to variable declaration"
     in
@@ -274,7 +274,7 @@ let delocalize_aux (array_size : string) (ops : local_ops) (index : string) (t :
     let def = Mlist.nth tl 0 in
     let snd_instr = Mlist.nth tl 1 in
     begin match def.desc with
-    | Trm_let (vk, (x, tx), init) ->
+    | Trm_let (vk, (x, tx), init, _) ->
       let local_var = x in
       let curr_var_trm = match get_init_val init with
         | Some init1 -> init1
@@ -506,7 +506,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
 
     let lfront, dl, lback = Internal.get_item_and_its_relatives index tl in
     begin match dl.desc with
-    | Trm_let (vk, (x, tx), init) ->
+    | Trm_let (vk, (x, tx), init, _) ->
       let update_seq (new_dl : trm) (new_lback : trm mlist) (new_lfront : trm mlist) : trm =
         let new_tl = Mlist.merge lfront new_lback in
         let new_tl = Mlist.insert_at index new_dl new_tl in
@@ -588,7 +588,7 @@ let ref_to_pointer_aux (index : int) (t : trm) : trm =
   let var_name = ref "" in
   let f_update (t : trm) : trm =
     match t.desc with
-    | Trm_let (vk,( x, tx), init) when trm_has_cstyle Reference t ->
+    | Trm_let (vk,( x, tx), init, _) when trm_has_cstyle Reference t ->
       var_name := x;
       let tx = get_inner_ptr_type tx in
       trm_let_mut (x, typ_ptr_generated tx) init
@@ -608,7 +608,7 @@ let ref_to_pointer (index : int) : Transfo.local =
      [t] - ast of the refernce declaration *)
 let ref_to_var_aux (t : trm) : trm =
   match t.desc with
-  | Trm_let (vk, (x, tx), init) when trm_has_cstyle Reference t ->
+  | Trm_let (vk, (x, tx), init, _) when trm_has_cstyle Reference t ->
     let t_annot = trm_rem_cstyle Reference t in
     let t_annot = trm_add_cstyle Stackvar t_annot in
     (trm_let ~annot:t_annot.annot vk (x, tx) (trm_new (get_inner_ptr_type tx) (trm_get init)))

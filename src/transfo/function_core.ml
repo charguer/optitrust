@@ -68,13 +68,13 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
       | _ -> fail tfun.loc "Function_core.inline_aux: expected either a function call or a beta function call"
       end in
       begin match fun_decl.desc with
-      | Trm_let_fun (_f, ty, args, body) ->
+      | Trm_let_fun (_f, ty, args, body, _) ->
         let fun_decl_arg_vars = fst (List.split args) in
         let fun_call_args = if trm_has_cstyle Method_call fun_call then snd (Xlist.uncons fun_call_args1) else fun_call_args1 in
         let fresh_args = List.map Internal.fresh_args fun_call_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
-        let name = match t.desc with | Trm_let (vk, (x, _), _) -> x| _ -> ""  in
+        let name = match t.desc with | Trm_let (vk, (x, _), _, _) -> x| _ -> ""  in
         let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
         let marked_body = begin match body_mark with
         | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body
@@ -231,6 +231,6 @@ let dsp_call (dsp : var) : Transfo.local =
 (* [get_prototype t]: returns the return type of the function and the types of all its arguments.*)
 let get_prototype (t : trm) : (typ * typed_vars) option =
   match t.desc with
-  | Trm_let_fun (f, ret_ty, args, body) ->
+  | Trm_let_fun (f, ret_ty, args, body, _) ->
     Some (ret_ty, args)
   | _ -> None

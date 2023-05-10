@@ -60,7 +60,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
   if defs = [] then fail ast_of_file.loc "Trm_matching.parse_pattern: couldn't parse pattern";
   let (_, main_fun) = Xlist.unlast defs in
   match main_fun.desc with
-  | Trm_let_fun (_, _, args, body) ->
+  | Trm_let_fun (_, _, args, body, _) ->
     begin match body.desc with
     | Trm_seq tl1 ->
       if Mlist.length tl1 < 1 then fail body.loc "Trm_matching.parse_pattern: please enter a pattern
@@ -157,8 +157,8 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     let rec aux_with_bindings (ts1 : trms) (ts2 : trms) : unit =
       match ts1, ts2 with
       | [], [] -> ()
-      | ({ desc = Trm_let (_vk1, (x1,t1), init1); _ } as dt1) :: tr1,
-        ({ desc = Trm_let (_vk2, (x2,t2), init2); _ } as dt2) :: tr2 ->
+      | ({ desc = Trm_let (_vk1, (x1,t1), init1, _); _ } as dt1) :: tr1,
+        ({ desc = Trm_let (_vk2, (x2,t2), init2, _); _ } as dt2) :: tr2 ->
            if not (same_types  (get_inner_ptr_type t1) (get_inner_ptr_type t2)) then begin
             Printf.printf "Type mismatch on trm_let\n";
             mismatch ~t1:dt1 ~t2:dt2 ()
@@ -210,8 +210,8 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 
-    | Trm_for ((index1, start1, _direction1, stop1, step1, _is_parallel1), body1),
-      Trm_for ((index2, start2, _direction2, stop2, step2, _is_parallel2), body2) ->
+    | Trm_for ((index1, start1, _direction1, stop1, step1, _is_parallel1), body1, _),
+      Trm_for ((index2, start2, _direction2, stop2, step2, _is_parallel2), body2, _) ->
         aux start1 start2;
         aux stop1 stop2;
         begin match step1, step2 with
@@ -220,7 +220,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
         end;
         with_binding (typ_int()) index1 index2 (fun () -> aux body1 body2)
 
-    | Trm_for_c (init1, cond1, step1, body1), Trm_for_c (init2, cond2, step2, body2) ->
+    | Trm_for_c (init1, cond1, step1, body1, _), Trm_for_c (init2, cond2, step2, body2, _) ->
         aux_with_bindings [init1; cond1; step1; body1] [init2; cond2; step2; body2]
 
     | Trm_seq tl1, Trm_seq tl2 ->

@@ -44,7 +44,7 @@ let fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_let (vk, (_, tx), _) ->
+    | Trm_let (vk, (_, tx), _, _) ->
       let ty = get_inner_ptr_type tx in
       begin match ty.typ_desc with
       (* If the declared variable has a refernce type checking its mutability is not needed*)
@@ -196,7 +196,7 @@ let detach_if_needed (tg : target) : unit =
   iter_on_targets (fun t p ->
     let decl_t  = Path.resolve_path p t in
     match decl_t.desc with
-    | Trm_let(vk,(_, _), init) ->
+    | Trm_let(vk,(_, _), init, _) ->
       begin match vk with
       | Var_immutable -> ()
       | _ ->
@@ -335,7 +335,7 @@ let unfold ?(accept_functions : bool = false) ?(simpl = default_unfold_simpl) ?(
     let tg_trm = Path.resolve_path p t in
     let tg_decl = target_of_path p in
     match tg_trm.desc with
-    | Trm_let (vk, (x, _tx), init) ->
+    | Trm_let (vk, (x, _tx), init, _) ->
 
       let mark = begin match get_init_val init with
       | Some init -> Mark.next ()
@@ -381,7 +381,7 @@ let inline_and_rename : Transfo.t =
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     let tg_scope = target_of_path path_to_seq in
     match tg_trm.desc with
-    | Trm_let (vk, (y, ty), init) ->
+    | Trm_let (vk, (y, ty), init, _) ->
         let spec_target = tg_scope @ [cVarDef y] in
         begin match get_init_val init with
         | Some v ->
@@ -425,7 +425,7 @@ let elim_redundant ?(source : target = []) : Transfo.t =
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
     let seq_trm = Path.resolve_path path_to_seq t in
     match tg_trm.desc with
-    | Trm_let (_, (x, _), init_x) ->
+    | Trm_let (_, (x, _), init_x, _) ->
       let source_var = ref "" in
       if source = []
         then
@@ -435,7 +435,7 @@ let elim_redundant ?(source : target = []) : Transfo.t =
             if i >= index then ()
                 else
                 begin match t1.desc with
-                | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y ->
+                | Trm_let (_, (y, _), init_y, _) when Internal.same_trm init_x init_y ->
                   source_var := y
                 | _ -> ()
                 end
@@ -449,7 +449,7 @@ let elim_redundant ?(source : target = []) : Transfo.t =
             | Some p -> Path.resolve_path p t
             | None -> fail t.loc "Variable.elim_redundant: the number of source targets  should be equal to the number of the main targets" in
           match source_decl_trm.desc with
-          | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y ->
+          | Trm_let (_, (y, _), init_y, _) when Internal.same_trm init_x init_y ->
             source_var := y
           | _ -> fail source_decl_trm.loc "Variable.elim_redundant: the soource target should point to a variable declaration"
         end;

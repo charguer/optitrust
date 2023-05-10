@@ -271,13 +271,6 @@ and prim_to_doc (p : prim) : document =
 and val_to_doc (cstyles : cstyle_annot list) (v : value) : document =
   match v with
   | Val_lit l -> lit_to_doc cstyles l
-  | Val_ptr l ->
-     if l = 0 then string "NULL" (* TODO: remove this when annotated nullptr is used *)
-     else
-       begin
-         print_info None "AstC_to_c.val_to_doc: pointers not implemented\n";
-         at
-       end
   | Val_prim p -> prim_to_doc p
 
 (* [attr_to_doc a]: converts attributes to pprint documents. *)
@@ -393,9 +386,9 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
           end
         in
        dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
-    | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
+    | Trm_let (_,tx,t,_) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_mult (_, tvl, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon tvl tl
-    | Trm_let_fun (f, r, tvl, b) ->
+    | Trm_let_fun (f, r, tvl, b, _) ->
         let fun_annot = trm_get_cstyles t in
         let static = if trm_has_cstyle Static_fun t then string "static" else empty in
         dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc ~semicolon fun_annot f.qvar_str r tvl b
@@ -453,7 +446,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
       let dt = decorate_trm t in
       let db = decorate_trm b in
       dattr ^^ string "do " ^^ dt ^^ blank 1 ^^ string "while " ^^ parens db ^^ semi
-     | Trm_for_c (init, cond, step, body) ->
+     | Trm_for_c (init, cond, step, body, _) ->
         let dinit = decorate_trm init in
         let dcond = decorate_trm cond in
         let dstep = decorate_trm step in
@@ -461,7 +454,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         dattr ^^ string "for" ^^ blank 1 ^^
           parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
             blank 1 ^^ dbody
-     | Trm_for (l_range, body) ->
+     | Trm_for (l_range, body, _) ->
        let full_loop = unpack_trm_for ?loc:t.loc l_range body in
        decorate_trm full_loop
      | Trm_switch (cond, cases) ->
@@ -540,7 +533,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
 
         ) tpl in
         string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl
-     | Trm_fun (tvl, ty_opt , body) ->  dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
+     | Trm_fun (tvl, ty_opt , body, _) ->  dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
      (* DEPRECATED | Trm_this ->
         if trm_has_cstyle Implicit_this t then empty else string "this" *)
      | Trm_delete (is_array, body) ->
@@ -791,7 +784,7 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
 and multi_decl_to_doc (loc : location) (tl : trms) : document =
  let get_info (t : trm) : document =
   begin match t.desc with
-  | Trm_let (vk, (x, _), init) ->
+  | Trm_let (vk, (x, _), init, _) ->
     begin match vk with
     | Var_immutable ->
       begin match init.desc with
@@ -817,7 +810,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
            end
   | hd :: _ ->
     match hd.desc with
-    | Trm_let (vk, (_, ty), _) ->
+    | Trm_let (vk, (_, ty), _, _) ->
       begin match vk with
       | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
       | _ -> begin match ty.typ_desc with

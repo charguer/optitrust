@@ -47,7 +47,7 @@ let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
   let written_trm =
     match write_trm.desc with
     | Trm_apps (_, [_;rhs]) when is_set_operation write_trm -> rhs
-    | Trm_let (_, _, init) ->
+    | Trm_let (_, _, init, _) ->
       begin match get_init_val init with
       | Some init -> init
       | None -> fail write_trm.loc "Instr_basic.read_last_write: the targeted write operation should be either a set operation or

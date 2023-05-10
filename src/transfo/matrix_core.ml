@@ -117,7 +117,7 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
 (* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
 let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) option =
   match t.desc with
-  | Trm_let (_, (x, ty), init) ->
+  | Trm_let (_, (x, ty), init, _) ->
     begin match get_init_val init with
     | Some init1 ->
       begin match alloc_inv  init1 with
@@ -380,7 +380,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
     let add_labels = List.length labels = 3 in
     let decl = Mlist.nth tl 0 in
     begin match decl.desc with
-    | Trm_let (_, (local_var, ty), init) ->
+    | Trm_let (_, (local_var, ty), init, _) ->
       begin match get_init_val init with
       | Some init1 ->
         begin match init1.desc with

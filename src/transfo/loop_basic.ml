@@ -202,11 +202,11 @@ let fission (tg : target) : unit =
 let fission_all_instrs_on (t : trm) : trm =
   (* TODO: trm_for_inv_instrs => (l_range, tl) *)
   match t.desc with
-  | Trm_for (l_range, body) ->
+  | Trm_for (l_range, body, contract) ->
     begin match body.desc with
     | Trm_seq tl ->
       let body_lists = List.map (fun t1 -> trm_seq_nomarks [t1]) (Mlist.to_list tl) in
-      trm_seq_no_brace (List.map (fun t1 -> trm_for l_range t1) body_lists)
+      trm_seq_no_brace (List.map (fun t1 -> trm_for ~contract l_range t1) body_lists)
     | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: expected the sequence inside the loop body"
     end
   | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: only simple loops are supported"

@@ -51,7 +51,9 @@ let get_ctx () : ctx =
     ctx_tconstr = !ctx_tconstr;
     ctx_typedef = !ctx_typedef;
     ctx_label = !ctx_label;
-    ctx_constr = !ctx_constr; }
+    ctx_constr = !ctx_constr;
+    ctx_resources = None;
+  }
 
 (* [get_typid_for_type ty]: gets the type id for type [tv]*)
 let get_typid_from_trm (tv : typvar) : int  =

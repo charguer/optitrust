@@ -30,6 +30,8 @@ A program is represented by its abstract syntax tree (AST). It corresponds to an
  is converted into "raw OptiTrust AST" by file `clang_to_astRawC`. At this stage, `x = 4` is represented (roughly) as `Trm_app(Prim_op_set, [Trm_var "x"; Trm_lit (Lit_int 4)])`.
 
 4. The "raw AST" is encoded into the OptiTrust AST by eliminating mutable variables and left-values. For example, `int x = 4` becomes `int* x = new int(4)`. This encoding is implemented by the function `cfeatures_elim` in file `Ast_fromto_AstC.ml`.
+   [FIXME: This currently does not respect *linearity* of targets. We want that each targettable trm node in the original AST appears exactly once (no duplication, no suppression) in the encoded AST. This is for example not the case for array and structure access in the current code.
+   One allowed transformation is to encode C sequences as blocks of let, terminated by a return value]
 
 5. Reciprocally, the decoding phase implemented by the function `cfeatures_intro` in the same file `Ast_fromto_AstC.ml` converts OptiTrust AST into "raw AST". Annotations (stored in field `annot` of type `trm`) are exploited to guide the output style.
 

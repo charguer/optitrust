@@ -123,7 +123,7 @@ let tile (tile_index : var) (bound : tile_bound) (tile_size : trm) : Transfo.loc
 (* LATER/ deprecated *)
 let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm) : trm =
   match t.desc with
-  | Trm_for (l_range, body) ->
+  | Trm_for (l_range, body, contract) ->
     begin match body.desc with
     | Trm_seq tl ->
       let (index, _, _, stop, _, _) = l_range in
@@ -134,7 +134,7 @@ let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm
       let new_name = ref "" in
       let f_update (t : trm) : trm =
         match t.desc with
-        | Trm_let (vk, (x, tx), _) ->
+        | Trm_let (vk, (x, tx), _, _) ->
           new_name := Tools.string_subst "${var}" x name;
           ty := get_inner_ptr_type tx;
           trm_let_ref (x, (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var_get !new_name; trm_var index] )
@@ -144,7 +144,7 @@ let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm
       let new_body = trm_seq new_tl in
         trm_seq_no_brace [
           trm_let_array Var_mutable (!new_name, !ty) (Trm stop_bd) (trm_uninitialized ());
-          trm_for l_range new_body ]
+          trm_for ~contract l_range new_body ]
     | _ -> fail t.loc "Loop_core.hoist_aux: body of the loop should be a sequence"
     end
   | _ -> fail t.loc "Loop_core.hoist_aux: only simple loops are supported"
@@ -163,7 +163,7 @@ let fusion_on_block_aux (keep_label : bool) (t : trm) : trm =
     if n < 2 then fail t.loc "fission_aux: there must be >= 2 loops to apply fussion";
     let first_loop = Mlist.nth tl 0 in
      begin match  first_loop.desc with
-    | Trm_for (l_range, _) ->
+    | Trm_for (l_range, _, contract) ->
       let fusioned_body = Mlist.fold_lefti (
         fun i acc loop ->
           if not (Internal.is_trm_loop loop) then fail loop.loc (Printf.sprintf "Loop_core.fusion_on_block_aux: cannot
@@ -171,7 +171,7 @@ let fusion_on_block_aux (keep_label : bool) (t : trm) : trm =
            else
           acc @ (Mlist.to_list (for_loop_body_trms loop))
       ) [] tl in
-      let res = trm_for l_range (trm_seq_nomarks fusioned_body) in
+      let res = trm_for ~contract l_range (trm_seq_nomarks fusioned_body) in
       if keep_label then trm_pass_labels t res else res
     | _ -> fail t.loc "Loop_core.fusion_on_block_aux: all loops should be simple loops"
     end
@@ -217,7 +217,7 @@ let grid_enumerate (indices_and_bounds : (string * trm) list) : Transfo.local =
       [t] - ast of the loop. *)
 let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
   match t.desc with
-  | Trm_for (l_range, body) ->
+  | Trm_for (l_range, body, contract) ->
       let (index, start, _, stop, _, _) = l_range in
       let unrolled_loop_range =
         begin match stop.desc with
@@ -265,10 +265,10 @@ let move_out_aux (mark : mark option) (trm_index : int) (t : trm) : trm =
   let new_tl = Mlist.merge lfront lback in
   let loop =
   match t.desc with
-  | Trm_for (l_range, _) ->
-    trm_for l_range (trm_seq new_tl)
-  | Trm_for_c (init, cond, step, _) ->
-    trm_for_c init cond step (trm_seq new_tl)
+  | Trm_for (l_range, _, contract) ->
+    trm_for ~contract l_range (trm_seq new_tl)
+  | Trm_for_c (init, cond, step, _, invariant) ->
+    trm_for_c ?invariant init cond step (trm_seq new_tl)
   | _ -> fail t.loc "Loop_core.move_out_aux: expected a loop" in
   trm_seq_no_brace [trm_may_add_mark mark trm_inv; loop]
 

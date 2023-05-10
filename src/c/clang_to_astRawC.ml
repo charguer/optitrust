@@ -100,7 +100,9 @@ let get_ctx () : ctx =
     ctx_tconstr = !ctx_tconstr;
     ctx_typedef = !ctx_typedef;
     ctx_label = !ctx_label;
-    ctx_constr = !ctx_constr; }
+    ctx_constr = !ctx_constr;
+    ctx_resources = None;
+  }
 
 
 (* [redundant_decl]: a reference used for checking if the declaration is redundant or not. *)
@@ -416,7 +418,7 @@ and tr_stmt (s : stmt) : trm =
        let dls = tr_decl_list dl in
        let typed_vars, init_list = List.fold_left (fun (acc1, acc2) t1 ->
         begin match t1.desc with
-        | Trm_let (_, (x, ty), init) ->
+        | Trm_let (_, (x, ty), init, _) ->
           ((x, ty) :: acc1, init :: acc2)
         | _ -> fail loc "Clang_to_astRawC.tr_stmr: expected a multip declaration statemnt"
         end
