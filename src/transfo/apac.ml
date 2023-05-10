@@ -8,7 +8,7 @@ include Apac_basic
 
 let insert_timer_start (tg : target) : unit =
   Target.apply(fun t p ->
-    let i,p_seq = Path.index_in_seq p in 
+    let p_seq,i = Path.last_dir_before_inv_success p in 
     Path.apply_on_path(fun t_seq ->
       let instrs = trm_inv ~error:"expected a sequence" trm_seq_inv t_seq in
       let app_to_insert = trm_apps (trm_var "timer_start") [] in
