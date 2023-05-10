@@ -275,6 +275,9 @@ let cInclude (s : string) : constr =
 let cOr (tgl : target list) : constr =
   Constr_or tgl
 
+let cOrMap (f : 'a -> constr) (l : 'a list) : constr =
+  cOr (List.map (fun x -> [f x]) l)
+
 (* [cAnd tgl]: matches the intersection of the target list [tgl]. *)
 let cAnd (tgl : target list) : constr =
   Constr_and tgl

@@ -5,6 +5,9 @@ open Target
 let path (msg : string) (p : path) : unit =
   printf "%s: %s\n" msg (Path.path_to_string p)
 
+let paths (msg : string) (ps : paths) : unit =
+  printf "%s: %s\n" msg (Tools.list_to_string (List.map Path.path_to_string ps))
+
 let trm (msg : string) (t : trm) : unit =
   printf "%s: %s\n" msg (AstC_to_c.ast_to_string t)
 

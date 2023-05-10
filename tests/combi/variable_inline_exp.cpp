@@ -5,7 +5,7 @@ void test_ref() {
   int r = a + a;
 }
 
-void test_nonconst() { int r = 3 + 3; }
+void test_nonconst() { int r = 6; }
 
 void test_nonconst_fail() {
   int a = 3;

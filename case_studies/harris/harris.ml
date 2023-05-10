@@ -5,29 +5,6 @@ open Ast
 let _ = Flags.pretty_matrix_notation := true
 (* let _ = Flags.analyse_stats := true *)
 
-module Function = struct
-  include Function
-
-  (* TODO:
-    - cFuns = cOr ...
-    Function.inline on a definition, finding all calls
-    *)
-  let inline_all (funs : vars) : unit =
-    funs |> List.iter (fun f ->
-      Function.inline ~delete:true [nbMulti; cFun f])
-end
-
-module Variable = struct
-  include Variable
-
-  (* TODO:
-     - cVarDefs = cOr ...
-     - cOrMap cVarDef vars ?
-    *)
-  let inline_all (vars : vars) : unit =
-    vars |> List.iter (fun v -> Variable.inline [cVarDef v])
-end
-
 module Matrix = struct
   include Matrix
 
@@ -53,14 +30,14 @@ module Image = struct
 end
 
 let _ = Run.script_cpp (fun () ->
+  let simpl = fun tg -> Arith.(simpl_surrounding_expr gather (nbAny :: tg)) in
+
   bigstep "inline operators";
-  !! Function.inline_all ["conv2D"];
+  !! Function.inline ~delete:true [nbMulti; cFun "conv2D"];
   !! Loop.unroll ~nest_of:2 [nbMulti; cFor ~body:[cPlusEqVar "acc"] "i"];
   !! Matrix.elim_accesses "weights";
-  !! Function.inline_all ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"];
-  (* cFunBody "harris"; cConstDef ""; *)
-  !! Variable.inline_all ["h1"; "w1"; "h2"; "w2"];
-  !! Arith.(simpl gather) [nbMulti; cFor ""; dForStop];
+  !! Function.inline ~delete:true [nbMulti; cOrMap cFun ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"]];
+  !! Variable.inline ~simpl [nbMulti; cOrMap cVarDef ["h1"; "w1"; "h2"; "w2"]];
 
   bigstep "fuse operators";
   let rename_acc_of array = Variable.rename ~into:("acc_" ^ array) [cFor ~body:[cArrayWrite array] ""; cVarDef "acc"] in
@@ -93,10 +70,10 @@ let _ = Run.script_cpp (fun () ->
   *)
   !! Image.loop_align_stop_extend_start "y" ~start:(trm_var "by") ~stop:(expr "min(h + -4, by + 32)");
   !! fuse ["gray"; "ix"; "ixx"; "out"];
-  (* TODO: introduce local buffers inside tile loops *)
+  (* FIXME: introduce local buffers inside tile loops
   let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(trm_int 3) ~var:v [cFunBody "harris"] in
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
-
+*)
   bigstep "code details";
   let bind_gradient name =
     Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [cArrayRead name]

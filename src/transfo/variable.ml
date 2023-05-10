@@ -254,6 +254,8 @@ let renames (rename : rename) : Transfo.t =
       List.iter2 (fun d into -> Variable_basic.rename ~into ((target_of_path p) @  [cVarDef d])) decl_vars new_decl_vars
     | _ -> fail tg_trm.loc "Variable.renames: the target should be pointing at a sequence" )
 
+let default_unfold_simpl (tg : target) : unit =
+  Record_basic.simpl_proj [nbAny; cFieldAccess ~base:tg ()]
 
 (*
   Documentation at basic level of Variable.unfold
@@ -328,7 +330,7 @@ let renames (rename : rename) : Transfo.t =
           Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is non valid C code.
           After calling Record_basic.simpl_proj {0, 1}.x becomes 0 .
           Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them. *)
-let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(delete : bool = true) ?(at : target = []): Transfo.t =
+let unfold ?(accept_functions : bool = false) ?(simpl = default_unfold_simpl) ?(delete : bool = true) ?(at : target = []): Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let tg_decl = target_of_path p in
@@ -336,8 +338,7 @@ let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
     | Trm_let (vk, (x, _tx), init) ->
 
       let mark = begin match get_init_val init with
-      | Some init ->
-          if is_struct_init init then Mark.next() else ""
+      | Some init -> Mark.next ()
       | _ -> fail tg_trm.loc "Variable.unfold: you should never try to inline uninitialized variables"
       end in
       begin match vk with
@@ -353,21 +354,19 @@ let unfold ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
             then Variable_basic.inline ~mark ~accept_functions tg_decl
           else Variable_basic.unfold ~mark ~accept_functions ~at tg_decl
       end;
-     if mark <> "" then begin
-       Record_basic.simpl_proj [nbAny; cFieldAccess ~base:[cMark mark] ()];
-       if simpl_deref
-         then Variable_basic.simpl_deref [nbAny; cRead ~addr:[cMark mark] ()];
-       Marks.remove mark [nbAny; cMark mark]
-     end
+      simpl [cMark mark];
+      Marks.remove mark [nbAny; cMark mark]
     | _ -> fail t.loc "Variable.unfold: expected a target to a variable declaration"
   )
 
+let default_inline_simpl (tg : target) : unit =
+  Record_basic.simpl_proj [nbAny; cFieldAccess ~base:tg ()];
+  Variable_basic.simpl_deref [nbAny; cRead ~addr:tg ()]
+
 (* [inline ~accept_functions ~simpl_deref tg]: similar to [unfold] except that this transformation
      deletes the targeted declaration by default. *)
-let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) : Transfo.t =
-  unfold ~accept_functions ~simpl_deref ~delete:true
-
-
+let inline ?(accept_functions : bool = false) ?(simpl = default_inline_simpl) : Transfo.t =
+  unfold ~accept_functions ~simpl ~delete:true
 
 (* [inline_and_rename]: expects the target [tg] to point at a variable declaration with an initial value
     being another variable. Then it will inline the targeted variable. And rename variable that was the

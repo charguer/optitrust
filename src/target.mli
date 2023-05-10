@@ -158,6 +158,8 @@ val cThen : constr
 
 val cOr : target list -> constr
 
+val cOrMap : ('a -> constr) -> 'a list -> constr
+
 val cAnd : target list -> constr
 
 val cDiff : target list -> target list -> constr

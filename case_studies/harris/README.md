@@ -21,10 +21,9 @@ make bench_[name]
 
 # Script Improvements
 
-- TODO: for transfos: `~simpl:[surrounding Arith.(simpl gather)]`
-- TODO:
-  `Function.inline [cDiff [[cTopFunDef ""]] [[cFunDef "harris"]]]`
-- `!! Instr.accumulate ~nb:9 [nbMulti; cVarDef "acc"];`
+- `Function.inline [nbMulti; cDiff [[cTopFunDef ""]] [[cFunDef "harris"]]]`
+- `Variable.inline ~simpl [nbMulti; cFunBody "harris"; cConstDef ""]`
+- `Instr.accumulate ~nb:9 [nbMulti; cVarDef "acc"];`
 - remove `0.0f * x`
 - improve 'acc' variable renaming step
 - FIXME: duplicates even with suffix:
