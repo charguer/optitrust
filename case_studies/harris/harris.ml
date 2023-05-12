@@ -62,6 +62,7 @@ let _ = Run.script_cpp (fun () ->
   !! Image.loop_align_stop_extend_start "y" ~start:(trm_int 0) ~stop:(trm_var "h");
   *)
   !! Image.loop_align_stop_extend_start "y" ~start:(trm_var "by") ~stop:(expr "min(h - 4, by + 32)");
+  (* min(h - 4, by + 32) - min(h, by + 36) *)
   !! fuse ["gray"; "ix"; "ixx"; "out"];
   (* FIXME: introduce local buffers inside tile loops
   let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(trm_int 3) ~var:v [cFunBody "harris"] in

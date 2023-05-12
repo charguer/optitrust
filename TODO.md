@@ -8,6 +8,9 @@
 
 - README.md => reprendre sc_artifact.md qui est à jour et intégrer ce qui manque de l'ancien README.md
   + opam pin add clangml 4.8.0
+  + `ocamllsp --fallback-read-dot-merlin` for LSP (VSCode) .merlin support
+
+- update template keybindings
 
 - LICENSE: gnu gpl 3
 
@@ -48,6 +51,7 @@
 - mettre en place un raccourci pour ouvrir les fichiers tests associés à une transfo
 
 - lire la doc de merlin pour lui faire pointer vers les sources et pas l'installation
+  - essayé, Ctrl+click ne follow plus
 
 - rewrite rules: comment retrouver l'expressivé de ton système
 

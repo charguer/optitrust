@@ -49,7 +49,6 @@ file{
             "${fileBasenameNoExtension}",
             "${lineNumber}",
             "view_result",
-            "recompile_optitrust_no",
             ""
         ]
       },
@@ -61,14 +60,13 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "view_diff",
-            "recompile_optitrust_no",
-            /*"-dump-last",
-            "5"*/
+          "../tools/view_result.sh",
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_diff",
+          /*"-dump-last",
+          "5"*/
         ]
       },
       {
@@ -84,7 +82,6 @@ file{
             "${fileBasenameNoExtension}",
             "${lineNumber}",
             "view_trace",
-            "recompile_optitrust_no",
         ]
       },
       {
@@ -100,7 +97,6 @@ file{
             "${fileBasenameNoExtension}",
             "${lineNumber}",
             "view_diff",
-            "recompile_optitrust_no",
             "-only-big-steps"
         ]
       },
@@ -117,7 +113,6 @@ file{
             "${fileBasenameNoExtension}",
             "${lineNumber}",
             "view_diff_enc",
-            "recompile_optitrust_no"
         ]
       },
       {
@@ -212,41 +207,8 @@ file{
           "cwd": "${fileDirname}"
         },
       },
-      {
-        "label": "Recompile and view state",
-        "type": "shell",
-        "command": "./run_action.sh",
-        "options": {
-          "cwd": "${workspaceFolder}/.vscode"
-        },
-        "args": [
-            "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "view_result",
-            "recompile_optitrust_yes",
-            ""
-        ]
-      },
-      {
-        "label": "Recompile and view diff",
-        "type": "shell",
-        "command": "./run_action.sh",
-        "options": {
-          "cwd": "${workspaceFolder}/.vscode"
-        },
-        "args": [
-            "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "view_diff",
-            "recompile_optitrust_yes",
-            ""
-        ]
-      },
       { // LATER: if current folder contains exp_out, we could also produce the .chk
+      // DEPRECATED?
         "label": "Recompile then compile and run current",
         "type":"shell",
         "command":"make optitrust; make ${fileBasenameNoExtension}.out",
@@ -259,27 +221,8 @@ file{
           "${fileBasenameNoExtension}",
           "${lineNumber}",
           "view_result",
-          "recompile_optitrust_no",
           ""
         ]
-    },
-    {
-      "label": "View diff",
-      "type": "shell",
-      "command": "./run_action.sh",
-      "options": {
-        "cwd": "${workspaceFolder}/.vscode"
-      },
-      "args": [
-        "../tools/view_result.sh",
-        "${fileDirname}",
-        "${fileBasenameNoExtension}",
-        "${lineNumber}",
-        "view_diff",
-        "recompile_optitrust_no",
-        /*"-dump-last",
-        "5"*/
-      ]
     },
     {
       "label": "Compile and run current",
@@ -296,40 +239,6 @@ file{
       "options": {
         "cwd": "${fileDirname}"
       }
-    },
-    {
-      "label": "Recompile and view state",
-      "type": "shell",
-      "command": "./run_action.sh",
-      "options": {
-        "cwd": "${workspaceFolder}/.vscode"
-      },
-      "args": [
-        "../tools/view_result.sh",
-        "${fileDirname}",
-        "${fileBasenameNoExtension}",
-        "${lineNumber}",
-        "view_result",
-        "recompile_optitrust_yes",
-        ""
-      ]
-    },
-    {
-      "label": "Recompile and view diff",
-      "type": "shell",
-      "command": "./run_action.sh",
-      "options": {
-        "cwd": "${workspaceFolder}/.vscode"
-      },
-      "args": [
-        "../tools/view_result.sh",
-        "${fileDirname}",
-        "${fileBasenameNoExtension}",
-        "${lineNumber}",
-        "view_diff",
-        "recompile_optitrust_yes",
-        ""
-      ]
     },
     {
       "label": "Recompile then compile and run current",

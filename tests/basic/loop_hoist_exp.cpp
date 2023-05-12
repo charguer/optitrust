@@ -21,9 +21,9 @@ int main() {
   for (int l = 0; l < 5; l++) {
     int* ym = &yl[MINDEX3(5, 4, 8 / 2, l, 0, 0)];
     for (int m = 2; m < 6; m++) {
-      int* yn = &ym[MINDEX2(4, 8 / 2, m + -2, 0)];
+      int* yn = &ym[MINDEX2(4, 8 / 2, m - 2, 0)];
       for (int n = 4; n < 11; n += 2) {
-        int* y = &yn[MINDEX1(8 / 2, (n + -4) / 2)];
+        int* y = &yn[MINDEX1(8 / 2, (n - 4) / 2)];
         y[MINDEX0()] = 0;
         u[m] = y[MINDEX0()];
       }

@@ -1,3 +1,0 @@
-(executable
-  (name harris)
-  (libraries optitrust))
