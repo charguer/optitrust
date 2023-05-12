@@ -71,13 +71,13 @@ let set_explicit (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Arrays_core.set_explicit) tg)
 
-let elim_accesses_on (decl_index : int) (t : trm) : trm =
+let elim_constant_on (decl_index : int) (t : trm) : trm =
   let array_var = ref "" in
   let array_vals = ref [] in
   Nobrace.enter ();
 
   let remove_decl (t : trm) : trm =
-    let error = "Arrays.elim_accesses_on: expected constant array literal declaration" in
+    let error = "Arrays.elim_constant_on: expected constant array literal declaration" in
     let (_, name, typ, init) = trm_inv ~error trm_let_inv t in
     (* Printf.printf "QSJIDO:\n%s\n" (Ast_to_text.ast_to_string t); *)
     let (_elem_ty, _size) = typ_inv ~error t.loc typ_const_array_inv typ in
@@ -92,7 +92,7 @@ let elim_accesses_on (decl_index : int) (t : trm) : trm =
     | Some (base, index) ->
       begin match trm_var_inv base with
       | Some (_, x) when x = !array_var ->
-        let error = "Arrays.elim_accesses_on: array accesses must be literals" in
+        let error = "Arrays.elim_constant_on: array accesses must be literals" in
         (* TODO: check that moving trm evaluation here is ok *)
         begin match trm_inv ~error trm_lit_inv index with
         | Lit_int i -> List.nth !array_vals i
@@ -104,7 +104,7 @@ let elim_accesses_on (decl_index : int) (t : trm) : trm =
   in
 
   let instrs = trm_inv
-   ~error:"Arrays.elim_accesses_on: expected sequence"
+   ~error:"Arrays.elim_constant_on: expected sequence"
    trm_seq_inv t in
   let new_instrs = Mlist.update_at_index_and_fix_beyond decl_index remove_decl update_accesses instrs in
 
@@ -112,10 +112,10 @@ let elim_accesses_on (decl_index : int) (t : trm) : trm =
   Internal.clean_no_brace_seq nobrace_id (
     trm_seq ~annot:t.annot ?loc:t.loc new_instrs)
 
-(* [elim_accesses] expects the target [tg] to point at an array literal declaration, and resolves all its accesses, that must be constant, to eliminate it.
+(* [elim_constant] expects the target [tg] to point at a constant array literal declaration, and resolves all its accesses, that must be constant, to eliminate it.
   *)
-let elim_accesses (tg : target) : unit =
+let elim_constant (tg : target) : unit =
   Target.apply (fun t p ->
     let (i, p_seq) = Path.index_in_seq p in
-    Path.apply_on_path (elim_accesses_on i) t p_seq
+    Path.apply_on_path (elim_constant_on i) t p_seq
   ) tg

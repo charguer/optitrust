@@ -278,6 +278,11 @@ let cOr (tgl : target list) : constr =
 let cOrMap (f : 'a -> constr) (l : 'a list) : constr =
   cOr (List.map (fun x -> [f x]) l)
 
+(* LATER: symbole infixe/prefixe? *)
+(* autoriser plusieurs nbMulti; cVarDefs; cFuns *)
+let multi (f : 'a -> constr) (l : 'a list) : constr =
+  cTarget [nbMulti; cOrMap f l]
+
 (* [cAnd tgl]: matches the intersection of the target list [tgl]. *)
 let cAnd (tgl : target list) : constr =
   Constr_and tgl

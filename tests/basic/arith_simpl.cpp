@@ -99,6 +99,7 @@ int main()
   // test integer addition
   p = (2 + m) - (m + -2); // = 4
   p = 4 + n - n; // = 4
+  p = m + -2;
 
   int* arr = (int*) MALLOC1(exact_div(1024, 32), sizeof(int));
   free(arr);

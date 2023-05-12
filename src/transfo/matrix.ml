@@ -180,3 +180,13 @@ let reorder_dims ?(rotate_n : int option) ?(order : int list = []) () (tg : targ
     let (_, x, _, _) = trm_inv ~error trm_let_inv tg_trm in
     Matrix_basic.reorder_dims ~rotate_n ~order () ((target_of_path path_to_seq) @ [cOr [[cVarDef x; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x] (); cFun ~regexp:true "MINDEX."]]])
   ) tg
+
+(* [elim]: eliminates the matrix [var] defined in the sequence targeted by [tg].
+  All reads from [var] must be eliminated The values of [var] must only be read locally, i.e. directly after being written.
+  *)
+let elim ~(var : var) (tg : target) : unit =
+  read_last_write ~write:(tg @ [cArrayWrite var]) (tg @ [nbAny; cArrayRead var]);
+  (* FIXME: dangerous transformation? *)
+  (* TODO: Matrix.delete_not_read *)
+  Instr.delete (tg @ [nbAny; cArrayWrite var]);
+  delete ~var tg;

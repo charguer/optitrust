@@ -25,7 +25,7 @@ make bench_[name]
 - `Variable.inline ~simpl [nbMulti; cFunBody "harris"; cConstDef ""]`
 - `Instr.accumulate ~nb:9 [nbMulti; cVarDef "acc"];`
 - remove `0.0f * x`
-- improve 'acc' variable renaming step
+- improve 'acc' variable renaming step: allow renaming to depend on context (e.g. `acc_${out}`)
 - FIXME: duplicates even with suffix:
   ```
   !! ["conv3x3"; "sobelX"; "sobelY"; (* "binomial"; *) "mul"; "coarsity"] |>  List.iter (fun fun_to_inline ->

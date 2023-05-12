@@ -598,19 +598,19 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
       if we = [] then failwith "expr_to_trm: assumes a normalized term";
       Xlist.fold_lefti (fun i acc (w, e) ->
         let (w, e) = match (w,e) with
-          | (n,{expr_desc = Expr_int 1; _}) -> (1,expr_int n)
+          | (n,{expr_desc = Expr_int 1; _}) ->
+            if n >= 0 then (1, expr_int n) else (-1, expr_int (-n))
           | _ -> (w,e) in
-        let c = if i = 0 then w else abs w in
-        let y = aux e in
-        let x =
-          if c = 1
-            then y
-            else if c = -1 then trm_apps ?loc (trm_unop Unop_minus) [y]
-            else trm_apps ?loc (trm_binop Binop_mul) [trm_int c; y]
+        let e_trm = aux e in
+        let abs_w = abs w in
+        let abs_t =
+          if abs_w = 1 then e_trm else trm_mul ?loc (trm_int abs_w) e_trm
           in
-        if i = 0
-          then x
-          else trm_apps ?loc (trm_binop (if w >= 0 then Binop_add else Binop_sub)) [acc; x]
+        if i = 0 then begin
+          if w >= 0 then abs_t else trm_minus ?loc abs_t
+        end else begin
+          if w >= 0 then trm_add ?loc acc abs_t else trm_sub ?loc acc abs_t
+        end
       ) (trm_unit ()) we
     | Expr_prod wes ->
       (* We have [e1^w1 * e2^w2 * e3^w3].
@@ -1005,6 +1005,8 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
     in
   let expr2 = f expr in
   if debug then Printf.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
+  (* let expr3 = normalize expr2 in
+  if debug then Printf.printf "Expr after normalization: %s\n" (expr_to_string atoms expr3); *)
   expr_to_trm atoms2 expr2
 
 (* [simplify_aux indepth f t]: converts node [t] to an expression, then applies the

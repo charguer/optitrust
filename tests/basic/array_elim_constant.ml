@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
 
-  !! Arrays_basic.elim_accesses [cVarDef "t"];
+  !! Arrays_basic.elim_constant [cVarDef "t"];
 
 )
 
@@ -16,6 +16,6 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Arrays_basic.elim_accesses [cVarDef "t"];
+  !! Arrays_basic.elim_constant [cVarDef "t"];
 
 )

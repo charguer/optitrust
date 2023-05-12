@@ -82,6 +82,7 @@ int main() {
   q = n;
   p = 4;
   p = 4;
+  p = m - 2;
   int* arr = (int*)MALLOC1(32, sizeof(int));
   free(arr);
   arr = (int*)malloc(sizeof(int[exact_div(1024, 32)]));
