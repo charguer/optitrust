@@ -279,10 +279,10 @@ let _main : unit =
      *)
   (* TODO: flags *)
   (* DEPRECATED:
-     do_or_die "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe -- _build/default/tests/batch/batch.cmxs"; *)
+     do_or_die "OCAMLRUNPARAM=b dune exec runner/optitrust_runner.exe -- tests/batch/batch.cmxs"; *)
   begin try
     Flags.program_name := "tester.ml";
-    Dynlink.loadfile "_build/default/tests/batch/batch.cmxs"
+    Dynlink.loadfile "tests/batch/batch.cmxs"
   with
     Dynlink.Error err -> begin
       let sbt = Printexc.get_backtrace() in
