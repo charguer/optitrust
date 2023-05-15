@@ -1,6 +1,14 @@
 TARGET_MAKE_ALL := transfo
 
 OPTITRUST := ../..
+TOOLS_FOLDER := $(OPTITRUST)/tools
+
+%.cmxs: %.ml
+	$(V)$(TOOLS_FOLDER)/build_cmxs.sh $<
+
+%_out.cpp: %_with_lines.cmxs %.ml
+	$(V)OCAMLRUNPARAM=b dune exec optitrust_runner -- $< $(FLAGS)
+	@echo "Produced $@"
 
 include ../../tests/Common.Makefile
 

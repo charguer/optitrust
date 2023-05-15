@@ -36,16 +36,8 @@ ${TOOLS_FOLDER}/add_lines.sh ${FILEBASE}.ml ${FILEBASE}_with_lines.ml
 
 # LATER: add_exit should also introduce special commands for figuring out the line of the command that executes
 
+${TOOLS_FOLDER}/build_cmxs.sh ${FILEBASE}_with_lines.ml
 PROG="${FILEBASE}_with_lines.cmxs"
-mv dune dune.bak && trap 'mv dune.bak dune' EXIT || true
-echo "(executable
-  (name ${FILEBASE}_with_lines)
-  (modules ${FILEBASE}_with_lines)
-  (modes (native plugin))
-  (promote)
-  (libraries optitrust))" > dune
-dune build ${PROG}
-rm dune
 
 # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp, unless mode is view_trace
 
