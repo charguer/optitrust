@@ -1,4 +1,6 @@
 #######################################################
+# This Makefile is DEPRECATED, use dune or tester to build tests instead
+#
 # Usage:
 #    `make`          attempts to build all the *.chk files and compile all code
 #    `make transfo`  only execute the transformations
