@@ -1,0 +1,6 @@
+(executable
+  (name rewrite_equiv_at_with_lines)
+  (modules rewrite_equiv_at_with_lines)
+  (modes (native plugin))
+  (promote)
+  (libraries optitrust))

@@ -17,6 +17,10 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Rewrite_basic.equiv_at "double a, b; int k; ==> a + k * b == b * k  + a" [cWriteVar "res"; dRHS];
   !! Rewrite_basic.equiv_at "double a; int k; ==> a + k * a == (k + 1) * a" [cWriteVar "res1"; dRHS];
-  !! Rewrite_basic.equiv_at "double a; int k; ==> a + k * a == (k + 1) * a" [cVarDef "res2"; dBody];
-
+  !! Rewrite_basic.equiv_at ~indepth:true "double a; int k; ==> a + k * a == (k + 1) * a" [cVarDef "res2"];
+  !! Rewrite_basic.equiv_at ~indepth:true "double a; int k; ==> a + k * a == (k + 1) * a" [cVarDef "res4"];
+  !! Rewrite_basic.equiv_at ~indepth:true "int k; ==> k + 0 == k" [];
+  !! Rewrite_basic.equiv_at ~indepth:true " ==> 8 + 1 == 9" [];
+  !! Tools.failure_expected (fun () ->
+    Rewrite_basic.equiv_at ~indepth:true " ==> 7 + 1 == 8" []);
 )
