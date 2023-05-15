@@ -61,7 +61,12 @@ let _ = Run.script_cpp (fun () ->
   (* Without tiling:
   !! Image.loop_align_stop_extend_start "y" ~start:(trm_int 0) ~stop:(trm_var "h");
   *)
-  !! Image.loop_align_stop_extend_start "y" ~start:(trm_var "by") ~stop:(expr "min(h - 4, by + 32)");
+  !! Image.loop_align_stop_extend_start "y" ~start:(trm_var "by") ~stop:(expr "min(h, by + 36)");
+  !!! Arith.(simpl_rec gather_rec) [];
+  !!! Rewrite.equiv_at ~ctx:true "int h; int by; ==> by + min(h, by + 36) - min(h - 2, by + 34) == by + 2" [sExpr "min(h, by + 36) - min(h - 2, by + 34)"];
+  !! Rewrite.equiv_at ~ctx:true "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 2, by + 34) == y - 2" [sExpr "y - min(h, by + 36) + min(h - 2, by + 34)"];
+  !! Rewrite.equiv_at ~ctx:true "int h; int by; ==> by + min(h, by + 36) - min(h - 4, by + 32) == by + 4" [sExpr "by + min(h, by + 36) - min(h - 4, by + 32)"];
+  !! Rewrite.equiv_at ~ctx:true "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 4, by + 32) == y - 4" [sExpr "y - min(h, by + 36) + min(h - 4, by + 32)"];
   (* min(h - 4, by + 32) - min(h, by + 36) *)
   !! fuse ["gray"; "ix"; "ixx"; "out"];
   (* FIXME: introduce local buffers inside tile loops
