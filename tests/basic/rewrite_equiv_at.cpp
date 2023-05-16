@@ -7,5 +7,7 @@ int main() {
   int res1;
   res1 = 5 + 8 * 5;
   const int res2 = 5 + 8 * 5;
+  const int res3 = (res2 + 0) + 0;
+  const int res4 = 5 + (5 + 8 * 5) + 3;
   return 0;
 }

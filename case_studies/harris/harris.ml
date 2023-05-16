@@ -61,13 +61,37 @@ let _ = Run.script_cpp (fun () ->
   (* Without tiling:
   !! Image.loop_align_stop_extend_start "y" ~start:(trm_int 0) ~stop:(trm_var "h");
   *)
-  !! Image.loop_align_stop_extend_start "y" ~start:(trm_var "by") ~stop:(expr "min(h - 4, by + 32)");
-  (* min(h - 4, by + 32) - min(h, by + 36) *)
+  !! Image.loop_align_stop_extend_start "y" ~start:(trm_var "by") ~stop:(expr "min(h, by + 36)");
+  !!! Arith.(simpl_rec gather_rec) [];
+  let rewrite rule = Rewrite.equiv_at ~ctx:true ~indepth:true rule [] in
+  !!! List.iter rewrite [
+    "int h; int by; ==> by + min(h, by + 36) - min(h - 2, by + 34) == by + 2";
+    "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 2, by + 34) == y - 2";
+    "int h; int by; ==> by + min(h, by + 36) - min(h - 4, by + 32) == by + 4";
+    "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 4, by + 32) == y - 4";
+  ];
+  !! Arith.(simpl_rec gather_rec) [];
   !! fuse ["gray"; "ix"; "ixx"; "out"];
-  (* FIXME: introduce local buffers inside tile loops
-  let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(trm_int 3) ~var:v [cFunBody "harris"] in
+  let local_matrix (m, tile) =
+    let tmp_m = ("l_" ^ m) in
+    Matrix.local_name_tile m ~into:tmp_m ~alloc_instr:[cVarDef m] ~indices:["y"; "x"] tile [cFunBody "harris"; cFor ~body:[cArrayWrite m] "y"];
+    (* FIXME: dangerous transformation? *)
+    (* TODO: Matrix.delete_not_read + Loop.delete_void
+       - how close to Matrix.elim is this? *)
+    Instr.delete [occFirst; cFor ~body:[cArrayRead m] "y"];
+    Instr.delete [occLast; cFor ~body:[cArrayWrite m] "y"];
+    Matrix.delete ~var:m [cFunBody "harris"];
+    Variable.rename ~into:m [cVarDef tmp_m];
+  in
+  !! List.iter local_matrix [
+    ("gray", [(expr "by", trm_int 36); (trm_int 0, expr "w")]);
+    ("ix", [(expr "by", trm_int 34); (trm_int 0, expr "w - 2")]);
+    ("iy", [(expr "by", trm_int 34); (trm_int 0, expr "w - 2")]);
+  ];
+  !! Arith.(simpl_rec gather) [];
+  let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(trm_int 3) ~var:v [cFunBody "harris"; cFor "by"] in
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
-*)
+
   bigstep "code details";
   let bind_gradient name =
     Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [cArrayRead name]
@@ -80,5 +104,5 @@ let _ = Run.script_cpp (fun () ->
   !! Omp.header ();
   (* Intel compiler may be better at this:
     !! Omp.simd [nbMulti; cFor "x"]; *)
-  (* !! Omp.parallel_for [cFor "by"]; *)
+  !! Omp.parallel_for [cFor "by"];
 )

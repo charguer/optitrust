@@ -97,7 +97,7 @@ let parse_rule ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : strin
 exception Rule_mismatch
 
 (* [rule_match ~higher_order_inst vars pat t]: LATER: Arthur  *)
-let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : trm) (t : trm) : tmap =
+let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : typed_vars) (pat : trm) (t : trm) : tmap =
 
   (* [inst] maps each pattern variable to a term and to a type;
      when pattern variables are not yet instantiated,
@@ -114,10 +114,12 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
         if Ast.is_trm_uninitialized t0 then
           inst := Trm_map.add x (ty,u) !inst
         else if not (Internal.same_trm ~ast_decode:false t0 u) then begin
-          Printf.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x
-            (AstC_to_c.ast_to_string ~optitrust_syntax:true t0) (AstC_to_c.ast_to_string ~optitrust_syntax:true u);
-          Printf.printf "Witout encodings: '%s' is not identical to '%s'.\n" (AstC_to_c.ast_to_string t0) (AstC_to_c.ast_to_string  u);
-          Printf.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
+          if error_msg then begin (* TODO: if + raise helper *)
+            Printf.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x
+              (AstC_to_c.ast_to_string ~optitrust_syntax:true t0) (AstC_to_c.ast_to_string ~optitrust_syntax:true u);
+            Printf.printf "Witout encodings: '%s' is not identical to '%s'.\n" (AstC_to_c.ast_to_string t0) (AstC_to_c.ast_to_string  u);
+            Printf.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
+          end;
           raise Rule_mismatch
         end
     in
@@ -139,8 +141,10 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
 
   let rec aux (t1 : trm) (t2 : trm) : unit =
     let mismatch ?(t1:trm=t1) ?(t2:trm=t2) () : unit =
-      Printf.printf "Mismatch on subterm, comparing '%s' with '%s'.\n" (AstC_to_c.ast_to_string t1) (AstC_to_c.ast_to_string t2);
-      Printf.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t1.loc) (Ast.loc_to_string t2.loc);
+      if error_msg then begin
+        Printf.printf "Mismatch on subterm, comparing '%s' with '%s'.\n" (AstC_to_c.ast_to_string t1) (AstC_to_c.ast_to_string t2);
+        Printf.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t1.loc) (Ast.loc_to_string t2.loc);
+      end;
       raise Rule_mismatch
       in
     let aux_list (ts1 : trms) (ts2 : trms) : unit =
@@ -231,8 +235,10 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
     in
   begin try aux pat t
   with Rule_mismatch ->
-    Printf.printf "Mismatch comparing\n------\n%s\n------\n%s\n------\n" (AstC_to_c.ast_to_string ~optitrust_syntax:true pat)
+    if error_msg then begin
+      Printf.printf "Mismatch comparing\n------\n%s\n------\n%s\n------\n" (AstC_to_c.ast_to_string ~optitrust_syntax:true pat)
           (AstC_to_c.ast_to_string ~optitrust_syntax:true t);
+    end;
     raise Rule_mismatch
   end;
   Trm_map.map (fun (_ty,t) -> t) !inst

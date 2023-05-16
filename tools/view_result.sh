@@ -36,25 +36,8 @@ ${TOOLS_FOLDER}/add_lines.sh ${FILEBASE}.ml ${FILEBASE}_with_lines.ml
 
 # LATER: add_exit should also introduce special commands for figuring out the line of the command that executes
 
-# Using only one dune command that builds the project is faster than using two.
-# Therefore we also force the runner to be up to date at this step.
-# FIXME: This will not work if the script is used outside an optitrust buildtree.
-# We should find a way to detect if we are.
-
+${TOOLS_FOLDER}/build_cmxs.sh ${FILEBASE}_with_lines.ml
 PROG="${FILEBASE}_with_lines.cmxs"
-mv dune dune.bak 2>/dev/null || true
-echo "(executable
-  (name ${FILEBASE}_with_lines)
-  (modules ${FILEBASE}_with_lines)
-  (modes (native plugin))
-  (promote)
-  (libraries optitrust))
-
-(alias
-  (name default)
-  (deps ${PROG} %{project_root}/runner/optitrust_runner.exe))" > dune
-trap 'mv dune.bak dune 2>/dev/null || rm dune' EXIT
-dune build
 
 # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp, unless mode is view_trace
 

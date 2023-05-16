@@ -189,4 +189,7 @@ let elim ~(var : var) (tg : target) : unit =
   (* FIXME: dangerous transformation? *)
   (* TODO: Matrix.delete_not_read *)
   Instr.delete (tg @ [nbAny; cArrayWrite var]);
-  delete ~var tg;
+  delete ~var tg
+
+(* TODO: local_name_tile ~shift_to_zero *)
+(* + shift_to_zero ~nest_of *)

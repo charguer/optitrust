@@ -556,3 +556,70 @@ let bind_syntactic ?(dest : target = []) ?(fresh_name : var = "x${occ}") (tg : t
   in
   Target.iter (fun t p -> bind_or_reuse (Path.resolve_path p t) p) (nbMulti :: tg)
   )
+
+(* TODO:
+  spec de bin et fold: *tg*
+
+  bind_one:
+  C(*e*)
+    ->
+  x = e
+  C(x)
+
+  bind_multi: bind_one on first + fold_multi
+  ?dest
+  C1(*e*)
+  C2(*e*)
+  C3(e)
+   ->
+  x = e
+  C1(x)
+  C2(x)
+  C3(e)
+
+  fold_all: fold_one + target all *e* in scope (what about effects on e?)
+  *x = e*
+  C1(e)
+  C2(e)
+    ->
+  x = e
+  C1(x)
+  C2(x)
+
+  (fold_one:)
+  fold_multi:
+  *x = e*
+  C1(*e*)
+  C2(e)
+  C3(*e*)
+    ->
+  x = e
+  C1(x)
+  C2(e)
+  C3(x)
+
+  bind_all : bind + fold_all
+  ?dest: **, default to local scope
+  C1(e)
+  C2(*e*)
+  C3(e)
+    ->
+  x = e
+  C1(x)
+  C2(x)
+  C3(x)
+
+  bind_syntactic : iter_unique + (bind + move + fold_all)?
+  ?dest: **, default to local scope
+  C1(*e1*)
+  C2(*e2*)
+  C3(*e2*)
+  C4(e1)
+    ->
+  x1 = e1
+  x2 = e2
+  C1(x1)
+  C2(x2)
+  C3(x2)
+  C4(e1)
+   *)

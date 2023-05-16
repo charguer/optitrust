@@ -1,9 +1,9 @@
 (* [equiv_at rule]: expects the target [tg] to point at a trm where [rule] can be applied to transform
    that trm into a similar one defined by the rule itself. *)
-let equiv_at ?(glob_defs : string = "") ?(ctx : bool = false) (rule : string) : Target.Transfo.t =
+let equiv_at ?(glob_defs : string = "") ?(ctx : bool = false) ?(indepth = false) (rule : string) : Target.Transfo.t =
   Target.reparse_after ~reparse:true (
   let rule_descr = Trm_matching.parse_rule ~ctx ~glob_defs rule in
-  Target.apply_on_targets (Rewrite_core.apply_rule rule_descr))
+  Target.apply_on_targets (Rewrite_core.apply_rule ~indepth rule_descr))
 
 (* [compute tg]: expects the target [tg] to point at an arithmetic operation then it will try to simlplify it. *)
 let compute : Target.Transfo.t =

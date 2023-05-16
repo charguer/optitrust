@@ -10,7 +10,10 @@
   + opam pin add clangml 4.8.0
   + `ocamllsp --fallback-read-dot-merlin` for LSP (VSCode) .merlin support
 
-- update template keybindings
+- update keybindings and templates
+  + "Maj+F6" (dune), + recover fast "F6" (dune without hanging, don't check dependencies)
+    + test if script in other project uses installed optitrust and is fast
+  + display tree of details for specific steps
 
 - LICENSE: gnu gpl 3
 
