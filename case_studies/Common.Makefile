@@ -23,7 +23,7 @@ _build:
 CC := icx
 # -mtune=native -qopt-dynamic-align
 # ENABLING QOPT REPORT SEEMS TO IMPROVE PERF => MORE OPTS ENABLED?
-OPT_FLAGS := -xhost -fiopenmp -Ofast -vec -qopt-report=max
+OPT_FLAGS := -xhost -fiopenmp -Ofast -vec -qopt-report=max -g
 # -vec -fvectorize
 # -fsave-optimization-record
 # -fmerge-all-constants

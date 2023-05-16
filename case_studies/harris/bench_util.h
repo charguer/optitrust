@@ -18,7 +18,7 @@
 constexpr double MIN_TIME = 0.05;
 
 // Upper time limit.
-constexpr double MAX_TIME = 5.0;
+constexpr double MAX_TIME = 10.0;
 
 // Maximum value for the computed iters-per-sample.
 constexpr uint32_t MAX_ITERS_PER_SAMPLE = 100000;
@@ -29,7 +29,7 @@ constexpr uint32_t MIN_SAMPLES = 3;
 // and the upper quartile of the runtimes is no more than this.
 // Controls accuracy. The closer to zero this gets the more
 // reliable the answer, but the longer it may take to run.
-constexpr double ACCURACY = 0.03;
+constexpr double ACCURACY = 0.02;
 
 inline double benchmark_sample(uint32_t iterations, const std::function<void(uint32_t)> &f) {
   auto start = Halide::Tools::benchmark_now();

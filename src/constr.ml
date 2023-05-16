@@ -717,6 +717,7 @@ let target_to_target_struct (tr : target) : target_struct =
     | Constr_occurrences oc ->
       begin match !occurences with
       | None -> occurences := Some oc;
+      | Some poc when poc = oc -> ();
       | _ -> fail None "Constr.Constr_occurrences provided twice in path"
       end
     | _ -> ()

@@ -27,7 +27,7 @@ module Image = struct
 end
 
 let _ = Run.script_cpp (fun () ->
-  let simpl = fun tg -> Arith.(simpl_surrounding_expr gather (nbAny :: tg)) in
+  let simpl = Arith.default_simpl in
   let fuse ?(index = "y") = Image.fuse_loops_with_array_writes ~index in
 
   bigstep "inline operators";
@@ -89,10 +89,15 @@ let _ = Run.script_cpp (fun () ->
     ("iy", [(expr "by", trm_int 34); (trm_int 0, expr "w - 2")]);
   ];
   !! Arith.(simpl_rec gather) [];
-  let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(trm_int 3) ~var:v [cFunBody "harris"; cFor "by"] in
+  let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(trm_int 4) ~var:v [cFunBody "harris"; cFor "by"] in
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
 
   bigstep "code details";
+  !!! Loop.shift StartAtZero [cFor "y"];
+  !!! Instr.delete [multi sInstr ["0. *"; "* 0."]];
+  (* !!! List.iter rewrite [
+    "int a; int b; int c; ==> (a + b <= c + b) == (a <= b)";
+  ]; *)
   let bind_gradient name =
     Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [cArrayRead name]
   in
@@ -102,7 +107,6 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "parallelism";
   !! Omp.header ();
-  (* Intel compiler may be better at this:
-    !! Omp.simd [nbMulti; cFor "x"]; *)
+  !! Omp.simd ~clause:[Simdlen 8] [nbMulti; cFor "x"];
   !! Omp.parallel_for [cFor "by"];
 )

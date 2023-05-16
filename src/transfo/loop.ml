@@ -2,6 +2,8 @@ open Ast
 open Target
 include Loop_basic
 
+let default_simpl = Arith.default_simpl
+
 (* [rename]: instantiation of Rename module *)
 type rename = Variable.Rename.t
 
@@ -306,17 +308,17 @@ let hoist_expr (name : string)
     hoist_expr_loop_list name loops (target_of_path p)
   ) tg
 
-let simpl_range (tg : target) : unit =
+let simpl_range ~(simpl : Target.Transfo.t) (tg : target) : unit =
   Target.iter (fun _ p ->
-    Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_start]));
-    Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_stop]));
-    Arith_basic.(simpl gather_rec) (nbAny :: (target_of_path (p @ [Dir_for_step])));
+    simpl (target_of_path (p @ [Dir_for_start]));
+    simpl (target_of_path (p @ [Dir_for_stop]));
+    simpl (nbAny :: (target_of_path (p @ [Dir_for_step])));
   ) tg
 
 (* [shift ~index kind ~inline]: shifts a loop index according to [kind].
 - [inline] if true, inline the index shift in the loop body *)
 (* TODO: what if index name is same as original loop index name? *)
-let shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_kind) ?(inline : bool = true) (tg : target) : unit =
+let shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_kind) ?(inline : bool = true) ?(simpl = default_simpl) (tg : target) : unit =
   let index' = if index = "" then begin
     if not inline then
       fail None "Loop.shift: expected name for index variable when inline = false";
@@ -329,13 +331,11 @@ let shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_kind) ?(in
   let error = "Loop.shift: expected target to be a simple loop" in
   let ((prev_index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv tg_trm in begin
   Loop_basic.shift index' kind (target_of_path p);
-  (* TODO: simpl flag *)
-  simpl_range (target_of_path p);
+  simpl_range ~simpl (target_of_path p);
   if inline then begin
-  let mark = Mark.next() in
-  let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
-  (* TODO: simpl flag on top of inline flag *)
-  Arith.(simpl_surrounding_expr gather) [nbAny; cMark mark]
+    let mark = Mark.next() in
+    let  _ = Variable_basic.inline ~mark (target_of_path (p @ [Dir_body; Dir_seq_nth 0])) in
+    simpl [nbAny; cMark mark]
   end;
   if index = "" then
   Loop_basic.rename_index prev_index (target_of_path p)
@@ -1000,8 +1000,9 @@ let slide ?(index : var = "b${id}")
   ?(bound : tile_bound = TileBoundMin)
   ~(size : trm)
   ~(step : trm)
+  ?(simpl = default_simpl)
   (tg : target) : unit =
   Target.iter (fun _ p ->
     Loop_basic.slide ~index ~bound ~size ~step (target_of_path p);
-    simpl_range (target_of_path p);
+    simpl_range ~simpl (target_of_path p);
   ) tg
