@@ -5,3 +5,9 @@
 */tmp_*.cpp
 batch.ml
 */doc.html
+ast/cpp_debug.ml
+ast/cpp_debug.cpp
+ast/cpp_debug_exp.cpp
+ast/c_ast_debug.ml
+ast/c_ast_debug.cpp
+ast/c_ast_debug_exp.cpp
