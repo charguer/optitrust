@@ -9,6 +9,11 @@ let line_of_last_step = ref (-1)
 (*                             Logging management                             *)
 (******************************************************************************)
 
+
+(* [now()] returns the current time *)
+let now () : float =
+   Unix.gettimeofday()
+
 (* [timing_log_handle]: is a handle on the channel for writing timing reports. *)
 let timing_log_handle = ref None
 
@@ -163,12 +168,12 @@ type context =
 let context_dummy : context =
   { parser = (fun _ -> failwith "context_dummy has no parser");
     (* directory = ""; *)
-    prefix = "";
+    mutable prefix = "";
     extension = "";
     header = "";
     clog = stdout; }
 
-(* [stepdescr]: description of a script step. *)
+(* DEPRECATED [stepdescr]: description of a script step. *)
 type stepdescr = {
   mutable isbigstep : string option; (* if the step is the beginning of a big step,
                                         then the value is [Some descr] *)
@@ -179,54 +184,175 @@ type stepdescr = {
 let stepdescr_for_interactive_step =
   { isbigstep = None; script = ""; exectime = 0; }
 
+
+(* [step_kind] : classifies the kind of steps *)
+
+type step_kind = Step_root | Step_big | Step_small | Step_detail | Step_target_resolve | Step_parsing
+
+(* [step_infos] *)
+type step_infos = {
+  mutable step_script : string;
+  mutable step_script_line : int option;
+  mutable step_time_start : float; (* seconds since start *)
+  mutable step_duration : float; (* seconds *)
+  mutable step_name : string;
+  mutable step_args : (string * string) list;
+  mutable step_justif : string list; }
+
+(* [step_tree]: history type used for storing all the trace information about all steps, recursively *)
+type step_tree = {
+  mutable step_kind : step_kind;
+  mutable step_ast_before : trm;
+  mutable step_ast_after : trm;
+  mutable step_sub : step_tree list;
+  (* substeps in reverse order during construction (between open and close) *)
+  mutable step_infos : step_infos; }
+  (* TODO: FOR PARSING STEPS int_of_float(stats_parse.stats_time); } *)
+
+
+(* A [step_stack] is a stack that contains the currently opened steps,
+   with the innermost at the top. The bottom element of the stack is
+   always the one that describes the execution of the full transformation
+   script. *)
+type step_stack = step_tree list
+
+
 (* [trace]: a record made of a context, a current AST, and a list of ASTs that were
    saved as "interesting intermediate steps", via the [Trace.save] function.
    Any call to the [step] function adds a copy of [cur_ast] into [history]. *)
 type trace = {
   mutable context : context;
   mutable cur_ast : trm;
-  mutable history : trms;
-  mutable stepdescrs : stepdescr list } (* same length as the history field *)
-  (* LATER: history will become a tree *)
+  mutable step_stack : step_stack; } (* stack of open steps *)
 
 (* [trm_dummy]: dummy trm. *)
 let trm_dummy : trm =
   trm_val (Val_lit Lit_unit)
 
-(* [trace_dummy]: an initial trace made of dummy context and dummy trm. *)
+(* [trace_dummy]: an trace made of dummy context and dummy trm,
+   whose purpose is to enforce that [Trace.init] is called before any transformation *)
 let trace_dummy : trace =
   { context = context_dummy;
     cur_ast = trm_dummy; (* dummy *)
-    history = [];
-    stepdescrs = []; (* indicate for each step if it was a big step *)
-      (* LATER: could improve the storage of bigsteps *)
+    step_stack = []; (* dummy *)
     }
 
 (* [the_trace]: the trace produced by the current script. *)
 let the_trace : trace =
   trace_dummy
 
-(* DEPRECATED?
-let set_the_trace (trace : trace) : unit :=
-  the_trace.context <- trace.context;
-  the_trace.cur_ast <- trace.cur_ast;
-  the_trace.history <- trace.history;
-  the_trace.stepdescrs <- trace.stepdescrs
-  *)
-
 (* [is_trace_dummy()]: returns whether the trace was never initialized. *)
 let is_trace_dummy () : bool =
   the_trace.history = []
-  (* DEPRECATED? *)
 
-(* [reset()]: restores the global state (object [trace]) in its uninitialized state,
-   like at the start of the program. This operation is automatically called by [Trace.init]. *)
-let reset () : unit =
+(* [get_decorated_history]: gets history from trace with a few meta information *)
+let get_decorated_history ?(prefix : string = "") () : string * context * step_tree =
+  let ctx = !the_trace.context.context in
+  let prefix = (* LATER: figure out why we needed a custom prefix here *)
+    if prefix = "" then ctx.prefix else prefix in
+  let tree =
+    match !the_trace.step_stack with
+    | [] -> failwith "step stack must never be empty"
+    | [tree] -> tree
+    | _ -> failwith "step stack contains more than one step; this should not be the case when a transformation script has completed"
+    in
+  (prefix, ctx, tree)
+
+let dummy_duration : float = 0.
+
+(* [open_root_step] is called only by [Trace.init], for initializing
+   the bottom element of the [step_stack].
+   Assumes fields of [the_trace] have already been initialized. *)
+let open_root_step ?(source : string = "<unnamed-file>") () : unit =
+  assert(the_trace.step_stack = []);
+  let step_root_infos = {
+    step_script = "Contents of " ^ source;
+    step_script_line = None;
+    step_time_start = now();
+    step_duration = dummy_duration;
+    step_name = "Full script";
+    step_args = [("extension", the_trace.context.extension) ];
+    step_justif = [] }
+   in
+  let step_root = {
+    step_kind = Step_root;
+    step_ast_before = the_trace.cur_ast;
+    step_ast_after = trm_dummy;
+    step_sub = [];
+    step_infos = step_root_infos; }
+    in
+  the_trace.step_stack <- [step_root];
+
+(* [finalize_step] is called by [close_root_step] and [close_step] *)
+let finalize_step (step : step) : unit =
+  let infos = step.step_infos in
+  infos.step_duration <- now() -. infos.step_time_start;
+  step.step_ast_after <- the_trace.cur_ast;
+  step.step_sub <- List.rev step.step_sub
+
+(* [close_root_step] is called only by [Run. TODO???] at the end of the script,
+   or at the end of the small-step targeted by the user. TODO *)
+let close_root_step () : unit =
+  let step = match the_trace.step_stack with
+    | [step] -> step
+    | _ -> failwith "close_root_step: broken invariant, stack must have size one" in
+  finalize_step step
+
+(* [get_excerpt line]: returns the piece of transformation script that starts on the given line. Currently returns the ""
+    in case [compute_ml_file_excerpts] was never called. LATER: make it fail in that case. *)
+let get_excerpt (line : int) : string =
+  if line = - 1 then failwith "get_excerpt: requires a valid line number";
+  if !ml_file_excerpts = Int_map.empty then "" else begin (* should "" be failure? *)
+  match Int_map.find_opt line !ml_file_excerpts with
+    | Some txt -> txt
+    | None -> (*LATER: failwith? *) Printf.sprintf "<unable to retrieve line %d from script>" line
+  end
+
+(* [open_step] is called at the start of every big-step, or small-step,
+   or combi, or basic transformation. *)
+let open_step ?(line : int option) ~kind:kind ~name:string () : unit =
+  let infos = {
+    step_script = Option.value ~default:"" (Option.map get_exercpt line);
+    step_script_line = line;
+    step_time_start = now();
+    step_duration = dummy_duration;
+    step_name = name;
+    step_args = [];
+    step_justif = [] }
+   in
+  let step = {
+    step_kind = kind;
+    step_ast_before = the_trace.cur_ast;
+    step_ast_after = trm_dummy;
+    step_sub = [];
+    step_infos = infos; }
+    in
+  the_trace.step_stack <- step :: the_trace.step_stack
+
+(* [close_step] is called at the end of every big-step, or small-step,
+   or combi, or basic transformation. *)
+let close_step () : unit =
+  match the_trace.step_stack with
+  | [] -> failwith "close_step: the_trace should not be empty"
+  | [root_step] -> failwith "close_step: on the root, should call close_root_step"
+  | step :: ((parent_step :: _) as stack_tail)  ->
+      finalize_step step;
+      parent_step.step_sub <- step :: parent_step.step_sub;
+      the_trace.step_stack <- stack_tail
+
+(* [step] is a function wrapping the body of a transformation *)
+let step ?(line : int option) ~kind:kind ~name:string (body : unit -> unit) : unit =
+  open_step ~line ~kind ~name ();
+  body();
+  close_step()
+
+(* [invalidate()]: restores the global state (object [trace]) in its uninitialized state,
+   like at the start of the program.  *)
+let invalidate () : unit =
   close_logs();
   the_trace.context <- trace_dummy.context;
   the_trace.cur_ast <- trace_dummy.cur_ast;
-  the_trace.history <- trace_dummy.history;
-  the_trace.stepdescrs <- trace_dummy.stepdescrs
+  the_trace.step_stack <- trace_dummy.step_stack
 
 (* [ml_file_excerpts]: maps line numbers to the corresponding sections in-between [!!] marks in
    the source file. Line numbers are counted from 1 in that map. *)
@@ -262,16 +388,6 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   push();
   !r
 
-(* [get_excerpt line]: returns the piece of transformation script that starts on the given line. Currently returns the ""
-    in case [compute_ml_file_excerpts] was never called. LATER: make it fail in that case. *)
-let get_excerpt (line : int) : string =
-  if line = - 1 then failwith "get_excerpt: requires a valid line number";
-  if !ml_file_excerpts = Int_map.empty then "" else begin (* should "" be failure? *)
-  match Int_map.find_opt line !ml_file_excerpts with
-    | Some txt -> txt
-    | None -> (*LATER: failwith? *) Printf.sprintf "<unable to retrieve line %d from script>" line
-  end
-
 (* [get_initial_ast ~parser ser_mode ser_file filename]: gets the initial ast before applying any trasformations
      [parser] - choose which parser to use for parsing the source code
      [ser_mode] - serialization mode
@@ -304,7 +420,7 @@ let get_initial_ast ~(parser : parser) (ser_mode : Flags.serialization_mode) (se
    instead of the basename of [f]. *)
 (* LATER for mli: val set_init_source : string -> unit *)
 let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
-  reset ();
+  invalidate ();
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
   let default_prefix = Filename.remove_extension filename in
@@ -330,13 +446,11 @@ let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
   let (header, cur_ast), stats_parse = Stats.measure_stats (fun () -> get_initial_ast ~parser mode ser_file filename) in
 
   let context = { parser; extension; prefix; header; clog } in
-  let stepdescr = { isbigstep = None;
-                    script = "Result of parsing";
-                    exectime = int_of_float(stats_parse.stats_time); } in
   the_trace.context <- context;
   the_trace.cur_ast <- cur_ast;
-  the_trace.history <- [cur_ast];
-  the_trace.stepdescrs <- [stepdescr]; (* TODO: use a function the_trace_set_fields *)
+  the_trace.step_stack <- [];
+  open_root_step ~source:ml_file_name ();
+
   if mode = Serialized_Build || mode = Serialized_Auto
     then Xfile.serialize_to ser_file (header, cur_ast);
   if mode = Serialized_Build
@@ -344,8 +458,9 @@ let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
   print_info None "Starting script execution...\n"
 
 (* [finalize()]: should be called at the end of the script, to properly close the log files
-    created by the call to [init]. *)
+    created by the call to [init] and close the root step. *)
 let finalize () : unit =
+  close_root_step();
   close_logs ()
 
 (* [alternative f]: executes the script [f] in the original state that
@@ -586,34 +701,13 @@ let output_prog_check_empty ?(ast_and_enc : bool = true) (ctx : context) (prefix
       close_out out_prog
 
 
-(* [history]: history type used for storing all the trace information about all steps
-    prefix, ctx, and a list of pairs made of an ast and a stepdescr *)
-type history = string * context * ((trm*stepdescr) list)
-
-(* [get_history]: gets history from trace *)
-let get_history ?(prefix : string = "") () : history =
-  let extract (trace : trace) =
-    let ctx = trace.context in
-      let prefix =
-        if prefix = "" then ctx.prefix else prefix in
-      if List.length trace.history <> List.length trace.stepdescrs
-        then failwith "get_history: invariant broken, stepdescrs should have the same length as history";
-      let hrev = List.combine trace.history trace.stepdescrs in
-      let hist = (* remove the ast associated with the input file *)
-        match List.rev hrev with
-        | _::hist -> hist
-        | _ -> failwith "Trace.get_history: empty history"
-        in
-      (prefix, ctx, hist)
-    in
-  extract the_trace (* TODO: inliner cette fonction *)
-
-
 (* [dump_steps]: writes into files called [`prefix`_$i_out.cpp] the contents of each of the big steps,
     where [$i] denotes the index of a big step. *)
 let dump_steps ?(onlybig : bool = false) ?(prefix : string = "") (foldername : string) : unit =
   ignore (Sys.command ("mkdir -p " ^ foldername));
-  let (prefix, ctx, hist_and_descr) = get_history ~prefix () in
+  let (prefix, ctx, hist_and_descr) = get_decorated_history ~prefix () in
+
+  (* TODO: modify this code *)
   let n = List.length hist_and_descr in
   let id = ref 0 in
   List.iteri (fun i (ast,stepdescr) ->
@@ -719,7 +813,7 @@ let dump_trace_to_js (history : history) : unit =
     LATER: later generalize to multiple traces, currently it would
        probably overwrite the same file over and over again. *)
 let dump_traces_to_js ?(prefix : string = "") () : unit =
-  let history = get_history ~prefix () in
+  let history = get_decorated_history ~prefix () in
   dump_trace_to_js history
 
 (*
