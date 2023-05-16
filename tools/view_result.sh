@@ -11,6 +11,9 @@ VIEW=$4 # should be view_diff or view_result or view_trace
 OPTIONS="${@:5}"
 ${FLAGS:=""}
 
+# TODO: what are TRACEFLAGS for?
+${TRACEFLAGS:=""}
+
 # LATER: if a ${FILEBASE}_exp.cpp file is present, export it into the JS file,
 # so that the browser can report on the differences between _out.cpp and _exp.cpp.
 
