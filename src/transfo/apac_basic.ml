@@ -49,9 +49,7 @@ let use_goto_for_return_aux (mark : mark) (t : trm) : trm =
            "__exit; return __res;". *)
 let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    Target.apply(fun t p ->
-      Path.apply_on_path(use_goto_for_return_aux mark) t p
-    ) tg
+    Target.apply_at_target_paths (use_goto_for_return_aux mark) tg
   )
   
 (* [constify_args ~is_const tg]: expect the target [tg] to point at a function definition.
