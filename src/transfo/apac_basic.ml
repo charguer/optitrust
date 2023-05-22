@@ -1,7 +1,6 @@
 open Ast
 open Target
 open Path
-include Apac_core
 
 (* [use_goto_for_return_aux mark t]: transforms the body of the funciton
       declaration in such a way that all return statements are replaced with
