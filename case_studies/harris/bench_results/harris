@@ -1,13 +1,19 @@
-sample: 0.057454
-sample: 0.057506
-sample: 0.058306
-1th percentile: 0.057454
-5th percentile: 0.057454
-10th percentile: 0.057454
-25th percentile: 0.057454
-50th percentile: 0.057506
-75th percentile: 0.058306
-90th percentile: 0.058306
-95th percentile: 0.058306
-99th percentile: 0.058306
-rm _build/harris.o _build/bench_harris
+---- Benchmarking _build/bench_harris ..
+sample: 0.051289
+sample: 0.052715
+sample: 0.052755
+sample: 0.052895
+sample: 0.052967
+sample: 0.052969
+sample: 0.052982
+sample: 0.055256
+sample: 0.056327
+1th percentile: 0.051289
+5th percentile: 0.051289
+10th percentile: 0.051289
+25th percentile: 0.052755
+50th percentile: 0.052967
+75th percentile: 0.052982
+90th percentile: 0.056327
+95th percentile: 0.056327
+99th percentile: 0.056327

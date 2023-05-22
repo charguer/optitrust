@@ -1,56 +1,23 @@
 ---- Benchmarking _build/bench_harris_out ..
-sample: 0.005084
-sample: 0.005089
-sample: 0.005099
-sample: 0.005102
-sample: 0.005144
-sample: 0.005172
-sample: 0.005173
-sample: 0.005179
-sample: 0.005183
-sample: 0.005186
-sample: 0.005200
-sample: 0.005206
-sample: 0.005211
-sample: 0.005216
-sample: 0.005221
-sample: 0.005230
-sample: 0.005234
-sample: 0.005269
-sample: 0.005324
-sample: 0.005355
-sample: 0.005364
-sample: 0.005400
-sample: 0.005554
-sample: 0.005562
-sample: 0.005677
-sample: 0.005933
-sample: 0.006101
-sample: 0.006305
-sample: 0.006417
-sample: 0.006518
-sample: 0.006577
-sample: 0.006706
-sample: 0.006746
-sample: 0.006800
-sample: 0.007067
-sample: 0.007136
-sample: 0.007158
-sample: 0.007314
-sample: 0.007392
-sample: 0.007820
-sample: 0.007824
-sample: 0.008103
-sample: 0.009539
-sample: 0.010024
-1th percentile: 0.005084
-5th percentile: 0.005099
-10th percentile: 0.005144
-25th percentile: 0.005206
-50th percentile: 0.005554
-75th percentile: 0.006800
-90th percentile: 0.007820
-95th percentile: 0.008103
-99th percentile: 0.010024
-----
-rm _build/harris_out.o _build/bench_harris_out
+sample: 0.003007
+sample: 0.003015
+sample: 0.003026
+sample: 0.003026
+sample: 0.003027
+sample: 0.003028
+sample: 0.003031
+sample: 0.003035
+sample: 0.003036
+sample: 0.003040
+sample: 0.003161
+sample: 0.003730
+sample: 0.003821
+1th percentile: 0.003007
+5th percentile: 0.003007
+10th percentile: 0.003015
+25th percentile: 0.003026
+50th percentile: 0.003031
+75th percentile: 0.003040
+90th percentile: 0.003730
+95th percentile: 0.003821
+99th percentile: 0.003821

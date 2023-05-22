@@ -7,7 +7,7 @@ int* v;
 int n;
 
 int main() {
-  float p = 5.;
+  float p = 5.f;
   for (int i = 0; i < n; i++) {
     t[i] = i;
     u[i] += i;

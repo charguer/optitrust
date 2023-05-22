@@ -1,8 +1,6 @@
-#include <stdlib.h>
-
-#include <stdio.h>
-
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 typedef struct {
   double x;
@@ -374,11 +372,17 @@ coord coordOfCell(int idCell) {
   return (coord){iX, iY, iZ};
 }
 
-typedef struct { int v[nbCorners]; } int_nbCorners;
+typedef struct {
+  int v[nbCorners];
+} int_nbCorners;
 
-typedef struct { double v[nbCorners]; } double_nbCorners;
+typedef struct {
+  double v[nbCorners];
+} double_nbCorners;
 
-typedef struct { vect v[nbCorners]; } vect_nbCorners;
+typedef struct {
+  vect v[nbCorners];
+} vect_nbCorners;
 
 int_nbCorners indicesOfCorners(int idCell) {
   const coord coord = coordOfCell(idCell);

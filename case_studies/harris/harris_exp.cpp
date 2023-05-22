@@ -16,34 +16,37 @@ void harris(float* out, int h, int w, const float* in) {
     float* iy = (float*)malloc(sizeof(float[4][-2 + w]));
     for (int y = 0; y < min(h, 36 + by) - by; y++) {
       if (by <= y + by) {
+#pragma omp simd simdlen(8)
         for (int x = 0; x < w; x++) {
           gray[y % 4 * w + x] =
-              0.298999994993 * in[0 * h * w + (y + by) * w + x] +
-              0.587000012398 * in[h * w + (y + by) * w + x] +
-              0.11400000006 * in[2 * h * w + (y + by) * w + x];
+              0.298999994993f * in[0 * h * w + (y + by) * w + x] +
+              0.587000012398f * in[h * w + (y + by) * w + x] +
+              0.11400000006f * in[2 * h * w + (y + by) * w + x];
         }
       }
       if (2 + by <= y + by) {
+#pragma omp simd simdlen(8)
         for (int x = 0; x < -2 + w; x++) {
-          float acc_ix = 0.;
-          acc_ix += -0.0833333333333 * gray[(-2 + y) % 4 * w + x];
-          acc_ix += 0.0833333333333 * gray[2 + (-2 + y) % 4 * w + x];
-          acc_ix += -0.166666666667 * gray[(-1 + y) % 4 * w + x];
-          acc_ix += 0.166666666667 * gray[2 + (-1 + y) % 4 * w + x];
-          acc_ix += -0.0833333333333 * gray[y % 4 * w + x];
-          acc_ix += 0.0833333333333 * gray[2 + y % 4 * w + x];
+          float acc_ix = 0.f;
+          acc_ix += -0.0833333333333f * gray[(-2 + y) % 4 * w + x];
+          acc_ix += 0.0833333333333f * gray[2 + (-2 + y) % 4 * w + x];
+          acc_ix += -0.166666666667f * gray[(-1 + y) % 4 * w + x];
+          acc_ix += 0.166666666667f * gray[2 + (-1 + y) % 4 * w + x];
+          acc_ix += -0.0833333333333f * gray[y % 4 * w + x];
+          acc_ix += 0.0833333333333f * gray[2 + y % 4 * w + x];
           ix[(-2 + y) % 4 * (-2 + w) + x] = acc_ix;
-          float acc_iy = 0.;
-          acc_iy += -0.0833333333333 * gray[(-2 + y) % 4 * w + x];
-          acc_iy += -0.166666666667 * gray[1 + (-2 + y) % 4 * w + x];
-          acc_iy += -0.0833333333333 * gray[2 + (-2 + y) % 4 * w + x];
-          acc_iy += 0.0833333333333 * gray[y % 4 * w + x];
-          acc_iy += 0.166666666667 * gray[1 + y % 4 * w + x];
-          acc_iy += 0.0833333333333 * gray[2 + y % 4 * w + x];
+          float acc_iy = 0.f;
+          acc_iy += -0.0833333333333f * gray[(-2 + y) % 4 * w + x];
+          acc_iy += -0.166666666667f * gray[1 + (-2 + y) % 4 * w + x];
+          acc_iy += -0.0833333333333f * gray[2 + (-2 + y) % 4 * w + x];
+          acc_iy += 0.0833333333333f * gray[y % 4 * w + x];
+          acc_iy += 0.166666666667f * gray[1 + y % 4 * w + x];
+          acc_iy += 0.0833333333333f * gray[2 + y % 4 * w + x];
           iy[(-2 + y) % 4 * (-2 + w) + x] = acc_iy;
         }
       }
       if (4 + by <= y + by) {
+#pragma omp simd simdlen(8)
         for (int x = 0; x < -4 + w; x++) {
           float ix0 = ix[(-4 + y) % 4 * (-2 + w) + x];
           float ix1 = ix[1 + (-4 + y) % 4 * (-2 + w) + x];
@@ -63,7 +66,7 @@ void harris(float* out, int h, int w, const float* in) {
           float iy6 = iy[(-2 + y) % 4 * (-2 + w) + x];
           float iy7 = iy[1 + (-2 + y) % 4 * (-2 + w) + x];
           float iy8 = iy[2 + (-2 + y) % 4 * (-2 + w) + x];
-          float acc_sxx = 0.;
+          float acc_sxx = 0.f;
           acc_sxx += ix0 * ix0;
           acc_sxx += ix1 * ix1;
           acc_sxx += ix2 * ix2;
@@ -73,7 +76,7 @@ void harris(float* out, int h, int w, const float* in) {
           acc_sxx += ix6 * ix6;
           acc_sxx += ix7 * ix7;
           acc_sxx += ix8 * ix8;
-          float acc_sxy = 0.;
+          float acc_sxy = 0.f;
           acc_sxy += ix0 * iy0;
           acc_sxy += ix1 * iy1;
           acc_sxy += ix2 * iy2;
@@ -83,7 +86,7 @@ void harris(float* out, int h, int w, const float* in) {
           acc_sxy += ix6 * iy6;
           acc_sxy += ix7 * iy7;
           acc_sxy += ix8 * iy8;
-          float acc_syy = 0.;
+          float acc_syy = 0.f;
           acc_syy += iy0 * iy0;
           acc_syy += iy1 * iy1;
           acc_syy += iy2 * iy2;
@@ -96,7 +99,7 @@ void harris(float* out, int h, int w, const float* in) {
           float det = acc_sxx * acc_syy - acc_sxy * acc_sxy;
           float trace = acc_sxx + acc_syy;
           out[(-4 + y + by) * (-4 + w) + x] =
-              det - 0.0399999991059 * trace * trace;
+              det - 0.0399999991059f * trace * trace;
         }
       }
     }

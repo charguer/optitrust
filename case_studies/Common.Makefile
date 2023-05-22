@@ -6,6 +6,8 @@ TOOLS_FOLDER := $(OPTITRUST)/tools
 %.cmxs: %.ml
 	$(V)$(TOOLS_FOLDER)/build_cmxs.sh $<
 
+# FIXME: should not be phony, but missing dune dependencies.
+.PHONY: %_out.cpp
 %_out.cpp: %_with_lines.cmxs %.ml
 	$(V)OCAMLRUNPARAM=b dune exec optitrust_runner -- $< $(FLAGS)
 	@echo "Produced $@"

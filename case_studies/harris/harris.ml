@@ -94,7 +94,7 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "code details";
   !!! Loop.shift StartAtZero [cFor "y"];
-  !!! Instr.delete [multi sInstr ["0. *"; "* 0."]];
+  !!! Instr.delete [multi sInstr ["0.f *"; "* 0.f"]];
   (* !!! List.iter rewrite [
     "int a; int b; int c; ==> (a + b <= c + b) == (a <= b)";
   ]; *)

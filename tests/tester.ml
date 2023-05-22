@@ -142,6 +142,9 @@ let ast_tests_to_ignore = [
 	"c_serialize.ml";
 	"cpp_features.ml";
 	"cpp_big.ml";
+  (* NOT A TEST: *)
+  "cpp_debug.ml";
+  "c_ast_debug.ml";
 ]
 let tests_to_ignore =
   (List.map (fun f -> "tests/basic/" ^ f) basic_tests_to_ignore) @
@@ -308,6 +311,7 @@ let _main : unit =
 
   let ok_count = ref 0 in
   let ko_count = ref 0 in
+  let meld_args = ref [] in
   (* Compare all text outputs if necessary *)
   if !comparison_method = Comparison_method_text then
     let check_output test =
@@ -316,7 +320,8 @@ let _main : unit =
       let filename_exp = sprintf "%s_exp.cpp" test_prefix in
       if Sys.file_exists filename_exp then begin
         if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) then begin
-          printf "ERROR: unexpected output for %s\n   meld %s %s\n" test_prefix filename_out filename_exp;
+          printf "ERROR: unexpected output for %s\n" test_prefix;
+          meld_args := sprintf "--diff %s %s" filename_out filename_exp :: !meld_args;
           incr ko_count;
         end else
           incr ok_count;
@@ -326,6 +331,11 @@ let _main : unit =
       end
     in
     List.iter check_output tests_to_process;
+
+  begin match !meld_args with
+  | [] -> ()
+  | args -> printf "%s" (Tools.list_to_string ~sep:"" ~bounds:["  meld "; "\n"] args)
+  end;
 
   printf "%i tests passed, %i tests failed, %i tests ignored\n" !ok_count !ko_count (List.length ignored_tests);
   (*
