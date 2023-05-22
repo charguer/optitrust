@@ -102,7 +102,6 @@ let _ = Run.script_cpp (fun () ->
     Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [cArrayRead name]
   in
   !!! List.iter bind_gradient ["ix"; "iy"];
-  (* !! Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_ix"] ~fresh_name:"g${occ}" [cArrayRead "gray"]; *)
   !! Matrix.elim_mops [];
 
   bigstep "parallelism";

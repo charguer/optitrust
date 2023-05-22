@@ -187,6 +187,11 @@ let bool_of_var (s : string) : bool option =
 (*                          Extensions to Option                              *)
 (******************************************************************************)
 
+(* [option_to_string]: returns "None" or "Some [f v]" *)
+let option_to_string (f : 'a -> string) (o : 'a option) : string =
+  Option.value ~default:"None" (
+    Option.map (fun v -> "Some " ^ f v) o)
+
 (* [option_map]: applies [f] on optional objects *)
 let option_map (f : 'a -> 'b) (o : 'a option) : 'b option =
   match o with
