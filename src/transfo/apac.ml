@@ -52,30 +52,39 @@ let parallel_task_group ?(mark : mark = "") : Transfo.t =
 (* [fun_loc]: function's Unified Symbol Resolution *)
 type fun_loc = string
 
-(* [arg_const]: record that stores information to constify or not the argument
-    and other arguments that depend on this argument. *)
+(* [arg_const]: argument constification record, it tells whether an argument and
+    its dependencies downstream should be constified. *)
 type arg_const = {
-  is_ptr_or_ref : bool;                         (* is the argument a refrence or pointer? *)
-  mutable is_arg_const : bool;                  (* should the argument be constified? *)
-  mutable dependency_of : (fun_loc * int) list; (* list of other arguments that depend on this argument *)
-  tid : typconstrid;                            (* typedef id of the type if it is a record, -1 if it is not *)
+  (* is the argument a refrence or a pointer? *)
+  is_ptr_or_ref : bool;
+  (* should the argument be constified? *)
+  mutable is_arg_const : bool;
+  (* list of other arguments that depend on this argument *)
+  mutable dependency_of : (fun_loc * int) list;
+  (* typedef id of the type if it is a record, -1 otherwise *)
+  tid : typconstrid;
 }
 
-(* [fun_const]: record that stores information to constify or not the function and its arguments.*)
+(* [fun_const]: function constification record, it tells whether a function and
+    its arguments should be constified. *)
 type fun_const = {
-  args_const : arg_const list;  (* information for each argument. For methods, the object is added as the
-                                    first argument, except for constructors and destructors. *)
-  ret_ptr_depth : int;          (* depth of pointer of the return type *)
-  is_ret_ref : bool;            (* is the return type a reference? *)
-  is_method : bool;             (* is it a method? set to false for constructors and destructors *)
+  (* information for each argument. For methods, the object is added as the
+     first argument, except for constructors and destructors. *)
+  args_const : arg_const list;
+  (* depth of pointer of the return type *)
+  ret_ptr_depth : int;
+  (* is the return type a reference? *)
+  is_ret_ref : bool;
+  (* is it a method? set to false for constructors and destructors *)
+  is_method : bool;
 }
 
-(* [fun_args_const]: hashtable that store the [fun_const] of functions.
-    The key of the hashtable is the function's Unified Symbol Resolution.*)
+(* [fun_args_const]: hashtable storing [fun_const] of functions.
+    The key of the hashtable is the function's Unified Symbol Resolution. *)
 type fun_args_const = (fun_loc, fun_const) Hashtbl.t
 
-(* [constifiable]: hashtable that store the for each function
-    if its arguments should be constify and if it is a const method. *)
+(* [constifiable]: hashtable storing constification records for all of the
+    functions. *)
 type constifiable = (fun_loc, (bool list * bool)) Hashtbl.t
 
 (* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
@@ -84,8 +93,9 @@ let is_cptr_or_ref (ty : typ) : bool =
   | Typ_ptr _ | Typ_array _-> true
   | _ -> false
 
-(* [get_binop_set_left_var t]: returns the variable name on the left side of the set operator
-    and a boolean indicating if the variable has been dereferenced. *)
+(* [get_binop_set_left_var t]: returns the variable name on the left side of a
+    set operator and a boolean indicating if the variable has been
+    dereferenced. *)
 let get_binop_set_left_var (t : trm) : (var * bool) option =
   let rec aux (is_deref : bool) (t : trm) : (var * bool) option =
     match t.desc with
@@ -101,7 +111,8 @@ let get_binop_set_left_var (t : trm) : (var * bool) option =
   in
   aux false t
 
-(* [is_unary_mutation t]: checks if [t] is a primitive unary operaiton that mutates a variable. *)
+(* [is_unary_mutation t]: checks if [t] is a primitive unary operaiton that
+    mutates a variable. *)
 let is_unary_mutation (t : trm) : bool =
   match t.desc with
   | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _}, _) ->
@@ -111,7 +122,8 @@ let is_unary_mutation (t : trm) : bool =
     end
   | _ -> false
 
-(* [get_unary_mutation_qvar t]: return the fully qualified name of the variable behind unary mutatation operator. *)
+(* [get_unary_mutation_qvar t]: returns fully qualified name of a variable
+    behind unary mutatation operator. *)
 let get_unary_mutation_qvar (t : trm) : qvar =
   let rec aux (t : trm) : qvar =
     match t.desc with
@@ -120,7 +132,6 @@ let get_unary_mutation_qvar (t : trm) : qvar =
     | Trm_var (_, name)-> name
     | _ -> empty_qvar
   in
-
   match t.desc with
   | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _}, [tr]) ->
     begin match uo with
@@ -130,22 +141,18 @@ let get_unary_mutation_qvar (t : trm) : qvar =
   | _ -> empty_qvar
 
 
-(* [identify_constifiable_functions tg]: expect target [tg] to point at the root,
-    then it will return the corresponding constifiable function *)
+(* [identify_constifiable_functions tg]: expects target [tg] to point at the
+    root. Then, it will return the corresponding constifiable function. *)
 let identify_constifiable_functions (tg : target) : constifiable =
   (* TODO : better handle include files *)
-
   let tg_trm = match get_trm_at tg with
     | Some (t) when trm_is_mainfile t -> t
     | _ -> fail None "Apac.constify_functions_arguments: expected a target to the main file sequence"
   in
-
   let fac : fun_args_const = Hashtbl.create 10 in
-  (* store the function's arguments (fname, nth arg) to unconst *)
+  (* Store the function's arguments (fname, nth arg) to unconst. *)
   let to_process : (fun_loc * int) Stack.t = Stack.create () in
-
-
-  (* get the list of function declarations trms *)
+  (* Get the list of function declarations trms. *)
   let get_fun_decls (t : trm) : (trm * int) list =
     let rec aux (t : trm) : (trm * int) list =
       match t.desc with
@@ -163,37 +170,33 @@ let identify_constifiable_functions (tg : target) : constifiable =
     in
     aux t
   in
-
   let (fun_decls, tids) = List.split (get_fun_decls tg_trm) in
-
-  (* helper function : add element to process in to_process *)
+  (* Helper function : add element to process in 'to_process'. *)
   let add_elt_in_to_process (va : vars_arg) (usr : fun_loc) (name : var) : unit =
-    (* we also take the previously pointed arguments because aliasing creates dependencies.
+    (* We also take the previously pointed arguments because aliasing creates
+       dependencies.
       ex : a is const and b is not :
-      void (int * a, int * b) {     | void (int const * const a, int b) {
-        int * p = a;                | int const * p = a;
-        p = c;                      | p = c;
-        *p = 1;                     | *p = 1;  // error : p is const because a is const
-      }                             | }
+      void (int * a, int * b) { | void (int const * const a, int b) {
+        int * p = a;            | int const * p = a;
+        p = c;                  | p = c;
+        *p = 1;                 | *p = 1;  // error : a is const --> p is const
+      }                         | }
     *)
     let l = Hashtbl.find_all va name in
     List.iter (fun (_, arg_idx) -> Stack.push (usr, arg_idx) to_process) l
   in
-
-  (* helper function: check if the term [t] is in fac. *)
+  (* Helper function: check if the term [t] is in fac. *)
   let fac_mem_from_trm (t : trm) : bool =
     begin match Ast_data.get_function_usr t with
     | Some (usr) -> Hashtbl.mem fac usr
     | None -> false
     end
   in
-
-  (* helper function: get the value of the term [t] in fac. *)
+  (* Helper function: get the value of the term [t] in fac. *)
   let fac_find_from_trm (t : trm) : fun_const =
     Hashtbl.find fac (Ast_data.get_function_usr_unsome t)
   in
-
-  (* init fac *)
+  (* Initialize fac. *)
   List.iter2 (fun t tid ->
     match t.desc with
     | Trm_let_fun (qv, ty, args, _, _) ->
@@ -204,12 +207,12 @@ let identify_constifiable_functions (tg : target) : constifiable =
           dependency_of = [];
           tid = match Context.record_typ_to_typid ty with | Some(tid) -> tid | None -> -1;}
         ) args in
-      (* add the object as the first argument for object *)
+      (* Add the object as the first argument for object. *)
       let acs = if is_method
         then { is_ptr_or_ref = true; is_arg_const = true; dependency_of = []; tid = tid } :: acs
         else acs in
-
-      (* methods declared outside the class are not detected as method previously *)
+      (* Methods declared outside the class are not detected as methods
+         previously. *)
       let usr = Ast_data.get_function_usr_unsome t in
       if is_method then Hashtbl.remove fac usr;
       Hashtbl.add fac usr {
@@ -219,21 +222,18 @@ let identify_constifiable_functions (tg : target) : constifiable =
         is_method = is_method }
     | _ -> assert false
     ) fun_decls tids;
-
-
-  (* update fac dependency_of and fill to_process *)
+  (* Update fac dependency_of and fill to_process. *)
   let update_fac_and_to_process (va : vars_arg) (cur_usr : string) (is_method : bool) (t : trm) : unit =
     let rec aux (va : vars_arg) (t : trm) : unit =
       match t.desc with
       (* new scope *)
       | Trm_seq _ | Trm_for _ | Trm_for_c _ ->
         trm_iter (aux (Hashtbl.copy va)) t
-      (* the syntax allows to declare variable in the condition statement
-      but clangml currently cannot parse it *)
+      (* The syntax allows to declare variable in the condition statement but
+         clangml currently cannot parse it. *)
       | Trm_if _ | Trm_switch _ | Trm_while _ ->
         trm_iter (aux (Hashtbl.copy va)) t
-
-      (* funcall : update dependency_of *)
+      (* funcall : update dependency_of. *)
       | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ } as f, args) when fac_mem_from_trm f ->
         let {args_const; _} = fac_find_from_trm f in
         List.iteri (fun i t ->
@@ -245,8 +245,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
           | _ -> ()
           ) args;
         trm_iter (aux va) t
-
-      (* declare new ref/ptr that refer/point to argument : update vars_arg *)
+      (* Declare new ref/ptr that refer/point to argument : update vars_arg. *)
       | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }) ->
         Apac_basic.update_vars_arg_on_trm_let
           (fun () -> ())
@@ -263,35 +262,32 @@ let identify_constifiable_functions (tg : target) : constifiable =
             va lname ty t
         ) tvl tl;
         trm_iter (aux va) t
-
-      (* assignment & compound assignment to argument : update to_process *)
+      (* Assignment & compound assignment to argument : update to_process. *)
       | Trm_apps _ when is_set_operation t ->
         begin match set_inv t with
         | Some (lhs, rhs) ->
           begin match get_binop_set_left_var lhs with
           | Some (var_name, is_deref) when Hashtbl.mem va var_name ->
-            (* the variable [var_name] has been modified, add it in to_process *)
+            (* Variable [var_name] has been modified, add it in to_process. *)
             add_elt_in_to_process va cur_usr var_name;
-            (* change the pointed data for not dereferenced pointers *)
+            (* Change the pointed data for not dereferenced pointers. *)
             begin match Apac_basic.get_vars_data_from_cptr_arith va rhs with
             | Some (arg_idx) when not is_deref ->
               let (depth, _) = Hashtbl.find va var_name in
               Hashtbl.add va var_name (depth, arg_idx)
             | _ -> ()
             end
-          | _ -> () (* example variable not in va : global variable *)
+          | _ -> () (* Example variable not in va : global variable *)
           end
         | None -> assert false
         end;
         trm_iter (aux va) t
-
-      (* mutable unary operator (++, --) : update to_process *)
+      (* Mutable unary operator (++, --) : update to_process. *)
       | Trm_apps _ when is_unary_mutation t ->
         let name = get_unary_mutation_qvar t in
         if Hashtbl.mem va name.qvar_str then add_elt_in_to_process va cur_usr name.qvar_str;
         trm_iter (aux va) t
-
-      (* return argument : update to_process if return ref or ptr *)
+      (* Return argument : update to_process if return ref or ptr. *)
       | Trm_abort (Ret (Some tr)) ->
         let {ret_ptr_depth; is_ret_ref; _} = Hashtbl.find fac cur_usr in
         if is_ret_ref then
@@ -308,15 +304,13 @@ let identify_constifiable_functions (tg : target) : constifiable =
 
       | _ -> trm_iter (aux va) t
     in
-
     aux va t
   in
-
   List.iter (fun t ->
     let va = Hashtbl.create 10 in
     match t.desc with
-    | Trm_let_fun (qv, _, args, body, _) ->
-      (* add class attributes *)
+    | Trm_let_fun (qv, _, args, body) ->
+      (* Add class attributes. *)
       let {is_method; args_const} = fac_find_from_trm t in
       if is_method then begin
         let tid = (List.hd args_const).tid in
@@ -328,20 +322,16 @@ let identify_constifiable_functions (tg : target) : constifiable =
         | None -> assert false
         end
       end;
-
-      (* add arguments *)
+      (* Add arguments. *)
       List.iteri (fun i (name, ty) ->
         if name <> "" then
           let i = if is_method then i+1 else i in
           Hashtbl.add va name (Apac_basic.get_cptr_depth ty, i)
         ) args;
-
       update_fac_and_to_process va (Ast_data.get_function_usr_unsome t) is_method body
     | _ -> assert false
     ) fun_decls;
-
-
-  (* propagate argument unconstification through function call *)
+  (* Propagate argument unconstification through function call. *)
   let rec unconstify_propagate (to_process : (fun_loc * int) Stack.t) : unit =
     match Stack.pop_opt to_process with
     | Some (fun_loc, nth) ->
@@ -355,9 +345,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
     | None -> ()
   in
   unconstify_propagate to_process;
-
-
-  (* create constifiable from fac *)
+  (* Create constifiable from fac. *)
   let cstfbl = Hashtbl.create 10 in
   Hashtbl.iter (fun fun_loc {args_const; is_method; _} ->
     let is_const = List.map (fun {is_arg_const; _} -> is_arg_const) args_const in
@@ -367,10 +355,11 @@ let identify_constifiable_functions (tg : target) : constifiable =
     ) fac;
   cstfbl
 
-(* [constify_functions_arguments cstfbl tg]: expect target [tg] to point at a function definition,
-    then it will add "const" keyword whenever it is possible in its arguments *)
+(* [constify_functions_arguments cstfbl tg]: expects target [tg] to point at a
+    function definition, then it will add "const" keyword to its arguments
+    whenever it is possible. *)
 let constify_functions_arguments (cstfbl : constifiable) : Transfo.t =
-  iter_on_targets ( fun tt p ->
+  Target.iter ( fun tt p ->
     let tr = Path.get_trm_at_path p tt in
     let tg = nbAny :: target_of_path p in
     match tr.desc with
@@ -383,7 +372,6 @@ let constify_functions_arguments (cstfbl : constifiable) : Transfo.t =
       end
     | _ -> fail None "Apac.constify_functions_arguments: expected target to function definition."
   )
-
 
 (* [decl_cptrs]: Hashtable that stores the available varaibles and if they are arrays. *)
 type decl_cptrs = (var, bool) Hashtbl.t
