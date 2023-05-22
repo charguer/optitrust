@@ -381,12 +381,37 @@ let stack_to_heap_aux (t : trm) : trm =
 let stack_to_heap : Transfo.t =
   Target.apply_at_target_paths (stack_to_heap_aux)
 
-(* DOES NOT WORK : cause different variable encoding between Trm_let, Trm_let_mult and function's arguments *)
-(* [unfold_let_mult tg]: expects the target [tg] to point at a multiple variable declaration.
-    Then it will be replace by a sequence of simple variable declarations. *)
+(* [unfold_let_mult_aux t]: transforms multiple variable declaration instruction
+    to a sequence of variable declarations.
+
+    DOES NOT WORK : causes different variable encoding between Trm_let,
+    Trm_let_mult and function's arguments. Here some examples:
+
+    Example : int i; int a = i, b = 1;
+    Example : int a, *b = &a, *c = b;
+    Example : void f(int i) { int a = i, int b = 1; }.
+
+    Also see the test file apac_unfold_let_mult.cpp. *)
+let unfold_let_mult_aux (t : trm) : trm =
+  match t.desc with
+  | Trm_let_mult (vk, tvl, tl) ->
+    let decls = List.map2 (fun (x, ty) t ->
+      let t = match t.desc with
+      | Trm_val _ | Trm_array _ -> t | _ -> trm_get t in
+      if is_typ_const ty then trm_let_immut (x, get_inner_const_type (ty)) t else trm_let_mut (x, ty) t
+    ) tvl tl in
+    trm_seq_no_brace decls
+  | _ -> fail None "Apac_basic.unfold_let_mult: expected a target to a multiple variable declaration."
+
+(* [unfold_let_mult tg]: expects target [tg] to point at a multiple variable
+    declaration. Then, it will replace it by a sequence of simple variable
+    declarations.
+
+    DOES NOT WORK : causes different variable encoding between Trm_let,
+    Trm_let_mult and function's arguments. *)
 let unfold_let_mult (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    apply_on_targets (Apac_core.unfold_let_mult) tg)
+    Target.apply_at_target_paths (unfold_let_mult_aux) tg)
 
 (* [mark_taskable_function]: expects the target [tg] to point at a function definition.
     Then it may add the mark [mark] if the function is taskable. *)
