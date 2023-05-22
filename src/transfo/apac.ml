@@ -16,14 +16,22 @@ let insert_timer_start (tg : target) : unit =
     ) t p_seq
   ) tg
 
-(* [parallel_task_group ~mark tg]: expects the target [ŧg] to point at a taskable function definition,
-    then it will insert  #pragma omp parallel #pragma omp master #pragma omp taskgroup in the body of the main function
-      or #pragma omp taskgroup int he body of the other functions.*)
-let parallel_task_group ?(mark : mark = "") : Transfo.t =
-  iter_on_targets ( fun t p ->
-    Apac_basic.use_goto_for_return ~mark (target_of_path p);
+(* [parallel_task_group ~mark tg]: expects target [ŧg] to point at a taskable
+    function definition. Then, it will insert:
 
-    transfo_on_targets ( fun t ->
+      #pragma omp parallel
+      #pragma omp master
+      #pragma omp taskgroup
+
+    in the body of the main function or
+
+      #pragma omp taskgroup
+
+    in the body of another function. *)
+let parallel_task_group ?(mark : mark = "") : Transfo.t =
+  Target.iter ( fun t p ->
+    Apac_basic.use_goto_for_return ~mark (target_of_path p);
+    Target.apply_at_target_paths ( fun t ->
       match t.desc with
       | Trm_let_fun (qvar, ret_typ, args, body, contract) ->
         let body_tl = match trm_seq_inv body with
@@ -40,7 +48,6 @@ let parallel_task_group ?(mark : mark = "") : Transfo.t =
       | _ -> assert false
       ) (target_of_path p)
     )
-
 
 (* [fun_loc]: function's Unified Symbol Resolution *)
 type fun_loc = string
