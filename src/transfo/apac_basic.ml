@@ -26,7 +26,7 @@ let use_goto_for_return_aux (mark : mark) (t : trm) : trm =
         ])
       end in
       trm_alter ~desc:(Trm_let_fun (qn, ret_ty, args, new_body)) t
-  | _ -> fail t.loc "Apac_core.use_goto_for_return_aux: expected a target to a function definition."
+  | _ -> fail t.loc "Apac_basic.use_goto_for_return_aux: expected a target to a function definition."
 
 (* [use_goto_for_return mark]: expects the target [tg] to point at a function
     definition, then it will transform the body of that function definition as
