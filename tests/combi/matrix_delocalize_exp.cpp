@@ -2,7 +2,7 @@
 
 typedef int T;
 
-T *b;
+T* b;
 
 const int N0 = 5;
 
@@ -12,16 +12,16 @@ const int N2 = 10;
 
 const int N3 = 10;
 
-T *y;
+T* y;
 
 void allocate() {
-  b = (T *)CALLOC3(N1, N2, N3, sizeof(T));
-  y = (T *)CALLOC4(N0, N1, N2, N3, sizeof(T));
+  b = (T*)CALLOC3(N1, N2, N3, sizeof(T));
+  y = (T*)CALLOC4(N0, N1, N2, N3, sizeof(T));
 }
 
 int main() {
-  T *a = (T *)CALLOC3(N1, N2, N3, sizeof(T));
-  T *x = (T *)CALLOC4(N0, N1, N2, N3, sizeof(T));
+  T* a = (T*)CALLOC3(N1, N2, N3, sizeof(T));
+  T* x = (T*)CALLOC4(N0, N1, N2, N3, sizeof(T));
   for (int i1 = 0; i1 < N1; i1++) {
     for (int i2 = 0; i2 < N2; i2++) {
       for (int i3 = 0; i3 < N3; i3++) {
@@ -46,7 +46,7 @@ int main() {
       }
     }
   }
-  MFREE(x);
+  free(x);
   for (int i1 = 0; i1 < N1; i1++) {
     for (int i2 = 0; i2 < N2; i2++) {
       for (int i3 = 0; i3 < N3; i3++) {
@@ -70,7 +70,7 @@ int main() {
       }
     }
   }
-  MFREE(y);
+  free(y);
   int z = 0;
   return 0;
 }

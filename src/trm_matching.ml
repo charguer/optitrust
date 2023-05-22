@@ -29,8 +29,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
   List.fold_left (fun acc x -> if acc = "" then acc ^ (aux x) else acc ^ "," ^ (aux x)) "" var_decls
    in
 
-  (* TODO: tmp *)
-  let output_file = "tmp_rule.cpp" in
+  let output_file = Filename.temp_file "tmp_rule" ".cpp" in
   let splitted_pattern = Str.split (Str.regexp_string "==>") pattern in
   if List.length splitted_pattern < 2 then fail None "Trm_matching.parse_pattern : could not split the given pattern, make sure that you are using ==> as a separator
     for the declaration of variables used in the pattern and the rule itself" ;
@@ -55,6 +54,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
       Xfile.put_contents output_file main_fun_str;
 
   let _, ast_of_file = Trace.parse ~parser:(CParsers.get_default ()) output_file in
+  Sys.remove output_file;
 
   let defs = trm_main_inv_toplevel_defs ast_of_file in
   if defs = [] then fail ast_of_file.loc "Trm_matching.parse_pattern: couldn't parse pattern";

@@ -1,3 +1,9 @@
+
+(* TODO: group options that are relevant for "reset in batching" into a record data structure;
+   so that we can save its state, and restore it, in between tests;
+   - options for interactivity
+   - options for behavior *)
+
 (* [code_print_width]: flag to choose the width of the printed code. *)
 let code_print_width = ref 80
 
@@ -25,7 +31,7 @@ let pretty_matrix_notation : bool ref = ref false
 let dump_clang_ast = ref None
 
 let set_dump_clang_ast () : unit =
-  dump_clang_ast := Some "clang_ast.ml"
+  dump_clang_ast := Some "clang_ast.ml.txt"
 
 (* DEPRECATED? Flag to call [Trace.dump_last !dump_last] instead of [Trace.dump].
    Note: incompatible with the use of [switch] in scripts, currently. *)

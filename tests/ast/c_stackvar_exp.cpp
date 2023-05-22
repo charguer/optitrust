@@ -16,10 +16,10 @@ typedef struct {
 } particle;
 
 vect vect_add(vect v1, vect v2) {
-  return {v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
+  return (vect){v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
 }
 
-vect vect_mul(double d, vect v) { return {d * (v.x), d * (v.y), d * (v.z)}; }
+vect vect_mul(double d, vect v) { return (vect){d * v.x, d * v.y, d * v.z}; }
 
 const int CHUNK_SIZE = 128;
 
@@ -36,7 +36,7 @@ typedef struct {
 
 chunk *atomic_read(chunk **p) {
   chunk *value;
-  = (value, get(p));
+  set(value, get(p));
   return value;
 }
 
@@ -46,23 +46,23 @@ void chunk_free(chunk *c) { free(c); }
 
 void bag_init(bag *b, int id_bag, int id_cell) {
   chunk *c = chunk_alloc();
-  = (c->size, 0);
-  = (c->next, NULL);
-  = (b->front, c);
-  = (b->back, c);
+  set(c->size, 0);
+  set(c->next, NULL);
+  set(b->front, c);
+  set(b->back, c);
 }
 
 void bag_append(bag *b, bag *other, int id_bag, int id_cell) {
   if (other->front) {
-    = (b->back->next, other->front);
-    = (b->back, other->back);
+    set(b->back->next, other->front);
+    set(b->back, other->back);
     bag_init(other, id_bag, id_cell);
   }
 }
 
 void bag_nullify(bag *b) {
-  = (b->front, NULL);
-  = (b->back, NULL);
+  set(b->front, NULL);
+  set(b->back, NULL);
 }
 
 int bag_size(bag *b) {
@@ -70,32 +70,32 @@ int bag_size(bag *b) {
   int size = 0;
   while (c) {
     += (size, c->size);
-    = (c, c->next);
+    set(c, c->next);
   }
   return size;
 }
 
 void bag_add_front_chunk(bag *b) {
   chunk *c = chunk_alloc();
-  = (c->size, 0);
-  = (c->next, b->front);
-  = (b->front, c);
+  set(c->size, 0);
+  set(c->next, b->front);
+  set(b->front, c);
 }
 
 void bag_push_concurrent(bag *b, particle p) {
   chunk *c;
   int index;
   while (true) {
-    = (c, b->front);
-    = (index, c->size++);
+    set(c, b->front);
+    set(index, c->size++);
     if (index < CHUNK_SIZE) {
-      = (c->items[index], p);
+      set(c->items[index], p);
       if (index == CHUNK_SIZE - 1) {
         bag_add_front_chunk(b);
       }
       return;
     } else {
-      = (c->size, CHUNK_SIZE);
+      set(c->size, CHUNK_SIZE);
       while (atomic_read(&b->front) == c) {
       }
     }
@@ -105,7 +105,7 @@ void bag_push_concurrent(bag *b, particle p) {
 void bag_push_serial(bag *b, particle p) {
   chunk *c = b->front;
   int index = c->size++;
-  = (c->items[index], p);
+  set(c->items[index], p);
   if (index == CHUNK_SIZE - 1) {
     bag_add_front_chunk(b);
   }
@@ -115,8 +115,8 @@ void bag_push(bag *b, particle p) { bag_push_serial(b, p); }
 
 void bag_swap(bag *b1, bag *b2) {
   bag temp = get(b1);
-  = (get(b1), get(b2));
-  = (get(b2), temp);
+  set(get(b1), get(b2));
+  set(get(b2), temp);
 }
 
 typedef struct bag_iter {
@@ -126,9 +126,9 @@ typedef struct bag_iter {
 } bag_iter;
 
 void bag_iter_load_chunk(bag_iter *it, chunk *c) {
-  = (it->iter_chunk, c);
-  = (it->size, c->size);
-  = (it->index, 0);
+  set(it->iter_chunk, c);
+  set(it->size, c->size);
+  set(it->index, 0);
 }
 
 void bag_iter_init(bag_iter *it, bag *b) { bag_iter_load_chunk(it, b->front); }
@@ -168,13 +168,13 @@ particle *bag_iter_next(bag_iter *it, bool destructive) {
 void bag_ho_iter_basic(bag *b, void body(particle *)) {
   bag_iter it;
   for (particle *p = bag_iter_begin(&it, b); p != NULL;
-       = (p, bag_iter_next(&it, true))) {
+       set(p, bag_iter_next(&it, true))) {
     body(p);
   }
 }
 
 void bag_ho_iter_chunk(bag *b, void body(particle *)) {
-  for (chunk *c = b->front; c != NULL; = (c, chunk_next(c, true))) {
+  for (chunk* c = b->front; c != NULL; set(c, chunk_next(c, true))) {
     int nb = c->size;
     for (int i = 0; i < nb; i++) {
       particle *p = &c->items[i];
@@ -215,7 +215,7 @@ chunk *manual_chunk_alloc(int thread_id) {
 
 void manual_chunk_free(chunk *c, int thread_id) {
   if (free_index[thread_id][0] < FREELIST_SIZE) {
-    = (free_chunks[thread_id][free_index[thread_id][0]++], c);
+    set(free_chunks[thread_id][free_index[thread_id][0]++], c);
   } else {
     free(c);
   }
@@ -240,13 +240,13 @@ chunk *manual_obtain_chunk(int id_bag, int id_cell, int thread_id) {
   }
   int id_chunk = spare_chunks_ids[id_bag][id_cell];
   int k;
-  for (= (k, num_threads - 1); k >= 0; k--)
-    if (cumulative_free_indexes[k] <= id_chunk)
-      break;
+  for (set(k, num_threads - 1); k >= 0; k--)
+    if (cumulative_free_indexes[k] <= id_chunk) break;
   int offset = id_chunk - cumulative_free_indexes[k];
   if (offset < 0 || offset >= free_index[k][0]) {
     printf("Not enough free chunks in thread %d !\n", k);
-    printf("Maybe did you forgot to call compute_cumulative_free_list_sizes "
+    printf(
+        "Maybe did you forgot to call compute_cumulative_free_list_sizes "
            "and/or update_free_list_sizes ?\n");
     exit(1);
   }
@@ -256,36 +256,37 @@ chunk *manual_obtain_chunk(int id_bag, int id_cell, int thread_id) {
 
 void compute_cumulative_free_list_sizes() {
   int k;
-  = (cumulative_free_indexes[0], 0);
-  for (= (k, 1); k < num_threads; k++)
-    = (cumulative_free_indexes[k],
+  set(cumulative_free_indexes[0], 0);
+  for (set(k, 1); k < num_threads; k++)
+    set(cumulative_free_indexes[k],
        cumulative_free_indexes[k - 1] + free_index[k - 1][0]);
   int nb_free_chunks =
       cumulative_free_indexes[num_threads - 1] + free_index[num_threads - 1][0];
   if (nb_free_chunks < number_of_spare_chunks_per_parity) {
     int nb_chunks_to_allocate =
         number_of_spare_chunks_per_parity - nb_free_chunks;
-    printf("Not enough free chunks in the free lists ! We must malloc %d "
+    printf(
+        "Not enough free chunks in the free lists ! We must malloc %d "
            "chunks.\n",
            nb_chunks_to_allocate);
     int nb_allocated_chunks = 0;
     while (nb_allocated_chunks < nb_chunks_to_allocate) {
-      = (free_chunks[THREAD_ZERO][free_index[THREAD_ZERO][0]++],
+      set(free_chunks[THREAD_ZERO][free_index[THREAD_ZERO][0]++],
          (chunk *)malloc(sizeof(chunk)));
       nb_allocated_chunks++;
     }
     compute_cumulative_free_list_sizes();
   }
-  for (= (k, num_threads - 1); k >= 0; k--)
+  for (set(k, num_threads - 1); k >= 0; k--)
     if (cumulative_free_indexes[k] <= number_of_spare_chunks_per_parity) {
-      = (bag_last_spare_chunk_to_be_used, k);
+      set(bag_last_spare_chunk_to_be_used, k);
       return;
     }
 }
 
 void update_free_list_sizes() {
   for (int i = 0; i < bag_last_spare_chunk_to_be_used; i++)
-    = (free_index[i][0], 0);
+    set(free_index[i][0], 0);
   -= (free_index[bag_last_spare_chunk_to_be_used][0],
       number_of_spare_chunks_per_parity -
           cumulative_free_indexes[bag_last_spare_chunk_to_be_used]);
@@ -370,7 +371,7 @@ coord coordOfCell(int idCell) {
   const int iXY = idCell / gridZ;
   const int iY = iXY % gridY;
   const int iX = iXY / gridY;
-  return {iX, iY, iZ};
+  return (coord){iX, iY, iZ};
 }
 
 typedef struct { int v[nbCorners]; } int_nbCorners;
@@ -387,17 +388,17 @@ int_nbCorners indicesOfCorners(int idCell) {
   const int x2 = wrap(gridX, x + 1);
   const int y2 = wrap(gridY, y + 1);
   const int z2 = wrap(gridZ, z + 1);
-  return {{cellOfCoord(x, y, z), cellOfCoord(x, y, z2), cellOfCoord(x, y2, z),
-           cellOfCoord(x, y2, z2), cellOfCoord(x2, y, z),
-           cellOfCoord(x2, y, z2), cellOfCoord(x2, y2, z),
-           cellOfCoord(x2, y2, z2)}};
+  return (int_nbCorners){{cellOfCoord(x, y, z), cellOfCoord(x, y, z2),
+                          cellOfCoord(x, y2, z), cellOfCoord(x, y2, z2),
+                          cellOfCoord(x2, y, z), cellOfCoord(x2, y, z2),
+                          cellOfCoord(x2, y2, z), cellOfCoord(x2, y2, z2)}};
 }
 
 vect_nbCorners getFieldAtCorners(int idCell, vect *field) {
   const int_nbCorners indices = indicesOfCorners(idCell);
   vect_nbCorners res;
   for (int k = 0; k < nbCorners; k++) {
-    = (res.v[k], field[indices.v[k]]);
+    set(res.v[k], field[indices.v[k]]);
   }
   return res;
 }
@@ -414,18 +415,18 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   const double rX = relativePosX(pos.x);
   const double rY = relativePosY(pos.y);
   const double rZ = relativePosZ(pos.z);
-  const double cX = 1. + (-1.) * rX;
-  const double cY = 1. + (-1.) * rY;
-  const double cZ = 1. + (-1.) * rZ;
+  const double cX = 1. + -1. * rX;
+  const double cY = 1. + -1. * rY;
+  const double cZ = 1. + -1. * rZ;
   double_nbCorners r;
-  = (r.v[0], cX * cY * cZ);
-  = (r.v[1], cX * cY * rZ);
-  = (r.v[2], cX * rY * cZ);
-  = (r.v[3], cX * rY * rZ);
-  = (r.v[4], rX * cY * cZ);
-  = (r.v[5], rX * cY * rZ);
-  = (r.v[6], rX * rY * cZ);
-  = (r.v[7], rX * rY * rZ);
+  set(r.v[0], cX * cY * cZ);
+  set(r.v[1], cX * cY * rZ);
+  set(r.v[2], cX * rY * cZ);
+  set(r.v[3], cX * rY * rZ);
+  set(r.v[4], rX * cY * cZ);
+  set(r.v[5], rX * cY * rZ);
+  set(r.v[6], rX * rY * cZ);
+  set(r.v[7], rX * rY * rZ);
   return r;
 }
 
@@ -433,7 +434,7 @@ vect matrix_vect_mul(const double_nbCorners coeffs,
                      const vect_nbCorners matrix) {
   vect res = {0., 0., 0.};
   for (int k = 0; k < nbCorners; k++) {
-    = (res, vect_add(res, vect_mul(coeffs.v[k], matrix.v[k])));
+    set(res, vect_add(res, vect_mul(coeffs.v[k], matrix.v[k])));
   }
   return res;
 }
@@ -441,7 +442,7 @@ vect matrix_vect_mul(const double_nbCorners coeffs,
 double_nbCorners vect8_mul(const double a, const double_nbCorners data) {
   double_nbCorners res;
   for (int k = 0; k < nbCorners; k++) {
-    = (res.v[k], a * (data.v[k]));
+    set(res.v[k], a * data.v[k]);
   }
   return res;
 }
@@ -459,14 +460,14 @@ int main() {
   for (int step = 0; step < nbSteps; step++) {
     updateFieldUsingNextCharge(nextCharge, field);
     for (int idCell = 0; idCell < nbCells; idCell++) {
-      = (nextCharge[idCell], 0.);
+      set(nextCharge[idCell], 0.);
     }
     for (int idCell = 0; idCell < nbCells; idCell++) {
       vect_nbCorners field_at_corners = getFieldAtCorners(idCell, field);
       bag *b = &bagsCur[idCell];
       bag_iter bag_it;
       for (particle *p = bag_iter_begin(&bag_it, b); p != NULL;
-           = (p, bag_iter_next(&bag_it, true))) {
+           set(p, bag_iter_next(&bag_it, true))) {
         double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
         vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
         vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);

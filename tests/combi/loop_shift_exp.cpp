@@ -6,7 +6,7 @@ int main() {
     x += i_s;
   }
   for (int i2 = 2; i2 < 12; i2++) {
-    x += i2 + -2;
+    x += i2 - 2;
   }
   int w = 10 + 2;
   for (int j2 = 0; j2 < N; j2++) {
@@ -21,7 +21,7 @@ int main() {
     x += l - shift;
   }
   for (int m = 8; m < N + 4; m++) {
-    x += m + -6;
+    x += m - 6;
   }
   float* input;
   float* output;

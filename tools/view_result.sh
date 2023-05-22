@@ -53,10 +53,8 @@ else
   fi
 fi
 
-# For that run, we activate the backtrace
-RUNNER="dune exec optitrust_runner --"
-echo "OCAMLRUNPARAM=b ${RUNNER} ${PROG} ${OPTIONS} ${FLAGS}"
-OCAMLRUNPARAM=b ${RUNNER} ${PROG} ${OPTIONS} ${FLAGS}
+# FIXME: Will not work if we are outside the optitrust buildtree either
+OCAMLRUNPARAM=b dune exec --no-build optitrust_runner -- ${PROG} ${OPTIONS} ${FLAGS}
 
 # Fourth, we vizualize a result or a diff or a trace
 
