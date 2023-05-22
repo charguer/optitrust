@@ -329,10 +329,57 @@ let constify_args_alias_aux (is_args_const : bool list) (t : trm) : trm =
 let constify_args_alias ?(is_args_const : bool list = []) : Transfo.t =
   Target.apply_at_target_paths (constify_args_alias_aux is_args_const)
 
-(* [stack_to_heap tg]: expect the target [tg] to point at a variable declaration. 
-    Then the variable declared will be declared on the heap. *)
+(* [array_typ_to_ptr_typ]: changes Typ_array to
+    Typ_ptr {ptr_kind = Ptr_kind_mut; _}. *)
+let array_typ_to_ptr_typ (ty : typ) : typ =
+  match ty.typ_desc with
+  | Typ_array (ty, _) -> typ_ptr Ptr_kind_mut ty
+  | _ -> ty
+
+(* [stack_to_heap_aux t]: transforms a variable declaration in such a way that
+    the variable is declared on the heap.
+
+   [t] - AST of the variable declaration. *)
+let stack_to_heap_aux (t : trm) : trm =
+  match t.desc with
+  | Trm_let (vk, (var, ty), tr) ->
+    if trm_has_cstyle Reference t
+      then begin match vk with
+        | Var_immutable -> fail None "So reference are not always mutable."
+          (* trm_let_immut (var, (typ_ptr Ptr_kind_mut ty)) (trm_new ty (trm_get tr)) *)
+        | Var_mutable ->
+          let in_typ = get_inner_ptr_type ty in
+          if is_typ_const in_typ
+            then trm_let_immut (var, ty) (trm_new in_typ (trm_get tr))
+            else trm_let_mut (var, ty) (trm_new in_typ (trm_get tr))
+        end
+      else
+        begin match vk with
+        | Var_immutable -> trm_let_immut (var, (typ_ptr Ptr_kind_mut ty)) (trm_new ty tr)
+        | Var_mutable ->
+          let in_ty = get_inner_ptr_type ty in
+          let ty = if is_typ_array in_ty then array_typ_to_ptr_typ in_ty else ty in
+          let tr = if is_typ_array in_ty && is_typ_const (get_inner_array_type in_ty)
+            then trm_new in_ty tr else tr in
+          trm_let_mut (var, ty) tr
+        end
+  | Trm_let_mult (vk, tvl, tl) ->
+    let l = List.map2 (fun (var, ty) t ->
+      let ty2 =
+        if is_typ_array ty then array_typ_to_ptr_typ ty
+        else if is_typ_const ty then typ_const (typ_ptr Ptr_kind_mut ty)
+        else typ_ptr Ptr_kind_mut ty
+      in
+      ((var, ty2), trm_new ty t)
+      ) tvl tl in
+    let (tvl, tl) = List.split l in
+    trm_let_mult vk tvl tl
+  | _ -> fail None "Apac_basic.stack_to_heap: expected a target to a variable declaration."
+
+(* [stack_to_heap tg]: expects the target [tg] to point at a variable
+    declaration. Then, the variable will be declared on the heap. *)
 let stack_to_heap : Transfo.t =
-  apply_on_targets (Apac_core.stack_to_heap)
+  Target.apply_at_target_paths (stack_to_heap_aux)
 
 (* DOES NOT WORK : cause different variable encoding between Trm_let, Trm_let_mult and function's arguments *)
 (* [unfold_let_mult tg]: expects the target [tg] to point at a multiple variable declaration.

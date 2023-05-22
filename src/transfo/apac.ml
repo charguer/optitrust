@@ -414,7 +414,7 @@ let heapify_nested_seq : Transfo.t =
         if Hashtbl.mem ptrs var then begin Hashtbl.remove ptrs var; trm_map (aux ptrs is_first_depth) t end
         (* heapify new variable only for first depth *)
         else if is_first_depth then begin
-          let tr = Apac_core.stack_to_heap_aux t in
+          let tr = Apac_basic.stack_to_heap_aux t in
           Hashtbl.add ptrs var (is_typ_array (get_inner_ptr_type ty));
           trm_map (aux ptrs is_first_depth) tr
           end
@@ -428,7 +428,7 @@ let heapify_nested_seq : Transfo.t =
         ) false tvl in
         if has_defined_var
           then trm_map (aux ptrs is_first_depth) t
-          else trm_map (aux ptrs is_first_depth) (Apac_core.stack_to_heap_aux t)
+          else trm_map (aux ptrs is_first_depth) (Apac_basic.stack_to_heap_aux t)
 
       (* dereference heapified variables *)
       | Trm_var (kind, qv) when Hashtbl.mem ptrs qv.qvar_str && not (Hashtbl.find ptrs qv.qvar_str) -> trm_get t
