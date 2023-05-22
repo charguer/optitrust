@@ -208,7 +208,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
       if is_method then Hashtbl.remove fac usr;
       Hashtbl.add fac usr {
         args_const = acs;
-        ret_ptr_depth = Apac_core.get_cptr_depth ty;
+        ret_ptr_depth = Apac_basic.get_cptr_depth ty;
         is_ret_ref = is_reference ty;
         is_method = is_method }
     | _ -> assert false
@@ -231,7 +231,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
       | Trm_apps ({ desc = Trm_var (_ , funcall_name); _ } as f, args) when fac_mem_from_trm f ->
         let {args_const; _} = fac_find_from_trm f in
         List.iteri (fun i t ->
-          match (Apac_core.get_inner_all_unop_and_access t).desc with
+          match (Apac_basic.get_inner_all_unop_and_access t).desc with
           | Trm_var (vk, arg_name) when Hashtbl.mem va arg_name.qvar_str ->
             let (_, arg_idx) = Hashtbl.find va arg_name.qvar_str in
             let ac = List.nth args_const i in
@@ -241,8 +241,8 @@ let identify_constifiable_functions (tg : target) : constifiable =
         trm_iter (aux va) t
 
       (* declare new ref/ptr that refer/point to argument : update vars_arg *)
-      | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }, _) ->
-        Apac_core.update_vars_arg_on_trm_let
+      | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }) ->
+        Apac_basic.update_vars_arg_on_trm_let
           (fun () -> ())
           (fun () -> ())
           (fun () -> ())
@@ -250,7 +250,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
         trm_iter (aux va) t
       | Trm_let_mult (_, tvl, tl) ->
         List.iter2 (fun (lname, ty) t ->
-          Apac_core.update_vars_arg_on_trm_let_mult_iter
+          Apac_basic.update_vars_arg_on_trm_let_mult_iter
             (fun () -> ())
             (fun () -> ())
             (fun () -> ())
@@ -267,7 +267,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
             (* the variable [var_name] has been modified, add it in to_process *)
             add_elt_in_to_process va cur_usr var_name;
             (* change the pointed data for not dereferenced pointers *)
-            begin match Apac_core.get_vars_data_from_cptr_arith va rhs with
+            begin match Apac_basic.get_vars_data_from_cptr_arith va rhs with
             | Some (arg_idx) when not is_deref ->
               let (depth, _) = Hashtbl.find va var_name in
               Hashtbl.add va var_name (depth, arg_idx)
@@ -294,7 +294,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
           | _ -> ()
           end
         else if ret_ptr_depth > 0 then
-          begin match Apac_core.get_vars_data_from_cptr_arith va tr with
+          begin match Apac_basic.get_vars_data_from_cptr_arith va tr with
           | Some (arg_idx) -> Stack.push (cur_usr, arg_idx) to_process
           | None -> ()
           end;
@@ -317,7 +317,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
         begin match Context.typid_to_trm tid with
         | Some (t) ->
           List.iter (fun (name, ty) ->
-            Hashtbl.add va name (Apac_core.get_cptr_depth ty, 0)
+            Hashtbl.add va name (Apac_basic.get_cptr_depth ty, 0)
           ) (typedef_get_members t)
         | None -> assert false
         end
@@ -327,7 +327,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
       List.iteri (fun i (name, ty) ->
         if name <> "" then
           let i = if is_method then i+1 else i in
-          Hashtbl.add va name (Apac_core.get_cptr_depth ty, i)
+          Hashtbl.add va name (Apac_basic.get_cptr_depth ty, i)
         ) args;
 
       update_fac_and_to_process va (Ast_data.get_function_usr_unsome t) is_method body
@@ -758,7 +758,7 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
       let args_info = List.map (fun (var, ty) ->
         let dep_in = is_dep_in ty in
         let is_record = match Context.record_typ_to_typid ty with | Some (_) -> true | None -> false in
-        {dep_depth = Apac_core.get_cptr_depth (get_inner_ptr_type ty);
+        {dep_depth = Apac_basic.get_cptr_depth (get_inner_ptr_type ty);
         dep_in = dep_in;
         dep_shared = is_reference ty || (is_record && dep_in);}) tvl
       in
@@ -805,7 +805,7 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
     | Trm_apps ({ desc = Trm_var _} as f, args) ->
       let l = Hashtbl.find fad (Ast_data.get_function_usr_unsome f) in
       List.fold_left2 (fun acc ({dep_depth; dep_in; _} as dep_info) t ->
-        match (Apac_core.get_inner_all_unop_and_access t).desc with
+        match (Apac_basic.get_inner_all_unop_and_access t).desc with
         | Trm_var (_, qv) ->
           let di = { dep_info with dep_depth = if dep_depth = -1 then (count_unop_get t) - 1 else dep_depth}  in
           (qv.qvar_str, di) :: acc
@@ -813,7 +813,7 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
         | Trm_apps (_, tl) ->
           (* resolve pointers *)
           let dep_infos = if dep_depth > 1  && not dep_in
-            then begin match Apac_core.get_vars_data_from_cptr_arith vd t with
+            then begin match Apac_basic.get_vars_data_from_cptr_arith vd t with
             | Some (var) -> (var, dep_info) :: dis
             | None -> dis
             end
@@ -825,7 +825,7 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
 
     (* set operation *)
     | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
-      begin match (Apac_core.get_inner_all_unop_and_access lhs).desc with
+      begin match (Apac_basic.get_inner_all_unop_and_access lhs).desc with
       | Trm_var (_, qv) ->
         let (depth, _) = Hashtbl.find vd qv.qvar_str in
         let di = { dep_depth = depth; dep_in = false; dep_shared = true;} in
@@ -905,10 +905,10 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
         trm_map (aux (Hashtbl.copy vd))  t
 
       (* new variable *)
-      | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }, _) ->
-        Hashtbl.add vd var (Apac_core.get_cptr_depth (get_inner_ptr_type ty), var); t
+      | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }) ->
+        Hashtbl.add vd var (Apac_basic.get_cptr_depth (get_inner_ptr_type ty), var); t
       | Trm_let_mult (_, tvl, _) ->
-        List.iter (fun (var, ty) -> Hashtbl.add vd var (Apac_core.get_cptr_depth ty, var)) tvl; t
+        List.iter (fun (var, ty) -> Hashtbl.add vd var (Apac_basic.get_cptr_depth ty, var)) tvl; t
 
       (* new task *)
       | Trm_apps _ ->
@@ -923,8 +923,8 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
     let tg_trm = Path.get_trm_at_path p t in
     let vd = Hashtbl.create 10 in
     match tg_trm.desc with
-    | Trm_let_fun (_, _, tvl, _, _) ->
-      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add vd var (Apac_core.get_cptr_depth ty, var)) tvl;
+    | Trm_let_fun (_, _, tvl, _) ->
+      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add vd var (Apac_basic.get_cptr_depth ty, var)) tvl;
       transfo_on_targets (aux vd) (target_of_path (p @ [Dir_body]))
     | _ -> fail None "Apac.insert_tasks_naive: expected a target to a function definition"
     )
