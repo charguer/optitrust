@@ -5,6 +5,8 @@ open Path
 open Mlist
 include Apac_basic
 
+(* [insert_timer_start tg]: a dummy transformation added during the learning
+    period of Marek. *)
 let insert_timer_start (tg : target) : unit =
   Target.apply(fun t p ->
     let p_seq,i = Path.last_dir_before_inv_success p in 
