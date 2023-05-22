@@ -375,11 +375,12 @@ let constify_functions_arguments (cstfbl : constifiable) : Transfo.t =
     | _ -> fail None "Apac.constify_functions_arguments: expected target to function definition."
   )
 
-(* [decl_cptrs]: Hashtable that stores the available varaibles and if they are arrays. *)
+(* [decl_cptrs]: hashtable storing available varaibles and whether they are
+    arrays. *)
 type decl_cptrs = (var, bool) Hashtbl.t
 
-(* [get_delete_task ptrs]: returns a omp task that deletes the variable contained in [ptrs].
-    Each variable has a Inout dependence *)
+(* [get_delete_task ptrs]: returns an OpenMP task that deletes the variable
+    contained in [ptrs]. Each variable has an InOut dependency. *)
 let get_delete_task (ptrs : decl_cptrs) : trm option =
   let vars = Tools.hashtbl_keys_to_list ptrs in
   match vars with
@@ -389,26 +390,26 @@ let get_delete_task (ptrs : decl_cptrs) : trm option =
     let delete_trms : trms = List.map (fun var -> trm_delete (Hashtbl.find ptrs var) (trm_var var)) vars in
     Some (trm_add_pragmas [Task [Depend [Inout deps]]] (trm_seq_nomarks delete_trms))
 
-(* [heapify_nested_seq tg]: expect target [tg] to point at a sequence, then it will :
+(* [heapify_nested_seq tg]: expects target [tg] to point at a sequence. Then, it
+    will:
     - send on the heap all variables declared in this scope,
-    - dereference all use of them (add  "*")
-    - add task to delete these variables before "return" "break" and "continue" statements when it is needed
-  *)
+    - dereference all use of them (add  '*'),
+    - add task to delete these variables before 'return', 'break' and 'continue'
+      statements when needed. *)
 let heapify_nested_seq : Transfo.t =
-  iter_on_targets (fun t p ->
-
-    (* heapifies variables and adds delete tasks before certain Trm_abort*)
+  Target.iter (fun t p ->
+    (* Heapifies variables and adds 'delete' tasks before certain Trm_abort. *)
     let rec aux (ptrs : decl_cptrs) (is_first_depth : bool) (t : trm) : trm =
       match t.desc with
-      (* new scope *)
+      (* New scope *)
       | Trm_seq _ -> trm_map (aux (Hashtbl.copy ptrs) false) t
       | Trm_for _ | Trm_for_c _  -> trm_map (aux (Hashtbl.copy ptrs) false) t
       | Trm_while _ | Trm_switch _ | Trm_if _ -> trm_map (aux ptrs false) t
 
-      | Trm_let (_, (var, ty), _, _) ->
-        (* remove variable from occurs when declaring them again *)
+      | Trm_let (_, (var, ty), _) ->
+        (* Remove variable from occurs when declaring them again. *)
         if Hashtbl.mem ptrs var then begin Hashtbl.remove ptrs var; trm_map (aux ptrs is_first_depth) t end
-        (* heapify new variable only for first depth *)
+        (* Heapify new variable only for first depth. *)
         else if is_first_depth then begin
           let tr = Apac_basic.stack_to_heap_aux t in
           Hashtbl.add ptrs var (is_typ_array (get_inner_ptr_type ty));
@@ -416,7 +417,7 @@ let heapify_nested_seq : Transfo.t =
           end
         else trm_map (aux ptrs is_first_depth) t
       | Trm_let_mult (_, tvl, tl) ->
-        (* raises error if partial heapify *)
+        (* Raises error on partial heapify. *)
         let has_defined_var = List.fold_left (fun has_defined_var (var, ty) ->
           if Hashtbl.mem ptrs var then begin Hashtbl.remove ptrs var; true end
           else if not has_defined_var then begin Hashtbl.add ptrs var (is_typ_array ty); false end
@@ -425,23 +426,20 @@ let heapify_nested_seq : Transfo.t =
         if has_defined_var
           then trm_map (aux ptrs is_first_depth) t
           else trm_map (aux ptrs is_first_depth) (Apac_basic.stack_to_heap_aux t)
-
-      (* dereference heapified variables *)
+      (* Dereference heapified variables. *)
       | Trm_var (kind, qv) when Hashtbl.mem ptrs qv.qvar_str && not (Hashtbl.find ptrs qv.qvar_str) -> trm_get t
-
-      (* add delete task before :
-          - return : everytime
-          - break, continue : only the current loop not deeper *)
+      (* Add delete task before:
+          - 'return': everytime,
+          - 'break', 'continue': only the current loop, not deeper. *)
       | Trm_abort _ when is_return t || is_first_depth ->
         begin match get_delete_task ptrs with
         | Some (tr) -> trm_seq_no_brace [tr; trm_map (aux ptrs is_first_depth) t]
         | _ -> t
         end
-
       | _ -> trm_map (aux ptrs is_first_depth) t
     in
-
-    (* add a delete task a the end of the sequence if there is not Trm_abort at the end *)
+    (* Add a 'delete' task at the end of the sequence if there is not
+       Trm_abort at the end. *)
     let add_end_delete_task (ptrs : decl_cptrs) (t :trm) : trm =
       match t.desc with
       | Trm_seq tl ->
@@ -455,7 +453,6 @@ let heapify_nested_seq : Transfo.t =
         end
       | _ -> t
     in
-
     let decl_cptrs = Hashtbl.create 10 in
     let tg_trm = Path.get_trm_at_path p t in
     match tg_trm.desc with
@@ -465,27 +462,26 @@ let heapify_nested_seq : Transfo.t =
     | _ -> fail None "Apac.heapify_nested_seq: Expects target to point at a sequence"
   )
 
-
-(* [get_all_vars acc t]: returns the list of variables used in the application [t]. *)
+(* [get_all_vars acc t]: returns the list of variables used in
+    application [t]. *)
 let rec get_all_vars (acc: vars) (t : trm) : vars =
   match t.desc with
   | Trm_apps (_, tl) -> List.fold_left get_all_vars acc tl
   | Trm_var (_, qv) when not (List.mem qv.qvar_str acc) -> qv.qvar_str :: acc
   | _ -> acc
 
-(* [get_dep var ty]: returns the dep of the typ [ty] *)
+(* [get_dep var ty]: returns the dep of the typ [ty]. *)
 let get_dep (var : var) (ty : typ) : dep =
   let rec aux (depth : int) : dep =
     if depth > 0 then Dep_ptr (aux (depth-1)) else Dep_var var
   in
   aux (get_cptr_depth ty)
 
-(* [sync_with_taskwait tg]: expects the target [tg] to point at a function definition,
-    then it will add taskwait omp pragmas before loop and conditional branches,
-    it also adds it at the end of loops. *)
+(* [sync_with_taskwait tg]: expects target [tg] to point at a function
+    definition. Then, it will add 'taskwait' OpenMP pragmas before loop and
+    conditional branches. It also adds it at the end of loops. *)
 let sync_with_taskwait : Transfo.t =
-  iter_on_targets (fun t p ->
-
+  Target.iter (fun t p ->
     let add_taskwait (decl_vars : (var, dep) Hashtbl.t) (vars : vars) (t : trm) : trm =
       match vars with
       | [] -> t
@@ -493,7 +489,6 @@ let sync_with_taskwait : Transfo.t =
         let deps = List.map (fun var -> Hashtbl.find decl_vars var) vars in
         trm_add_pragma (Taskwait [Depend [Inout deps]]) t
     in
-
     let add_taskwait_end_seq (decl_vars : (var, dep) Hashtbl.t) (vars : vars) (t : trm) : trm =
       match t.desc with
       | Trm_seq _ ->
@@ -501,16 +496,17 @@ let sync_with_taskwait : Transfo.t =
         | [] -> t
         | _ ->
           let deps = List.map (fun var -> Hashtbl.find decl_vars var) vars in
-          (* trick : use empty Trm_arbitrary to add taskwait alone (trm_unit adds semi colons*)
+          (* Trick : use empty Trm_arbitrary to add taskwait alone (trm_unit
+             adds semi colons. *)
           let taskwait = trm_add_pragma (Taskwait [Depend [Inout deps]]) (code (Expr "")) in
           trm_seq_add_last taskwait t
         end
       | _ -> fail None "Apac.sync_with_taskwait.add_taskwait_end_seq: expected sequence"
     in
-
-    (* adds taskwait at the end of loops. *)
-    (* TODO : loop : taskwait at the end, check if variable in cond used in function.
-      currently always add taskwait *)
+    (* Adds taskwait at the end of loops. *)
+    (* TODO: loop: taskwait at the end, check if variable in condition is used
+             in function.
+      Currently, it always adds taskwait. *)
     let add_taskwait_loop_body (decl_vars : (var, dep) Hashtbl.t) (vars : vars) (t : trm) : trm =
       match t.desc with
       | Trm_while (cond , body) ->
@@ -527,8 +523,7 @@ let sync_with_taskwait : Transfo.t =
         trm_alter ~desc:(Trm_for_c (init, cond, step, new_body, contract)) t
       | _ -> t
     in
-
-    (* removes the [n] last element of the list [l]. *)
+    (* Removes the [n] last elements of list [l]. *)
     let remove_n (n : int) (l : 'a list) : 'a list =
       let rec aux (n : int) (l : 'a list) : 'a list =
         match l with
@@ -537,38 +532,30 @@ let sync_with_taskwait : Transfo.t =
       in
       List.rev (aux n (List.rev l))
     in
-
     let rec aux (decl_vars : (var, dep) Hashtbl.t) (t : trm) : trm =
       match t.desc with
       | Trm_seq _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
-
-      | Trm_let (_, (var, ty), _, _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t
-
+      | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t
       | Trm_let_mult (_, tvl, _) ->
         List.iter (fun (var, ty) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty))) tvl; t
-
       | Trm_if (cond, _, _) | Trm_switch (cond , _) ->
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (get_all_vars [] cond) t)
-
       | Trm_while (cond, _) ->
         let l = get_all_vars [] cond in
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars l t)
-
       | Trm_do_while (_, cond) ->
         let l = get_all_vars [] cond in
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) t
-
-      | Trm_for ((var, _, _, _, step, _), _, _) ->
+      | Trm_for ((var, _, _, _, step, _), _) ->
         let l = begin match step with
         | Step tr -> get_all_vars [var] tr
         | _ -> [var]
         end in
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (remove_n 1 l) t)
-
-      | Trm_for_c (init, cond, step, _, _) ->
+      | Trm_for_c (init, cond, step, _) ->
         let (l, n) = begin match init.desc with
         | Trm_let (_, (var, ty), _, _) ->
           Hashtbl.add decl_vars var (get_dep var ty);
@@ -582,12 +569,9 @@ let sync_with_taskwait : Transfo.t =
         let l = get_all_vars l step in
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (remove_n n l) t)
-
       | Trm_abort Ret (Some tr) -> add_taskwait decl_vars (get_all_vars [] tr) t
-
       | _ -> t
     in
-
     let tg_trm = Path.get_trm_at_path p t in
     let decl_vars = Hashtbl.create 10 in
     match tg_trm.desc with
@@ -597,11 +581,10 @@ let sync_with_taskwait : Transfo.t =
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
   )
 
-
-(* [gen_id ()]: unique integer generator. *)
+(* [gen_id ()]: unique integer generator *)
 let gen_id = Tools.fresh_generator ()
 
-(* [count_calls t]: count the number of function call in [t]. *)
+(* [count_calls t]: counts the number of function calls in [t]. *)
 let count_calls (t : trm) : int =
   let rec aux (count : int) (t : trm) : int =
     match t.desc with
@@ -612,11 +595,12 @@ let count_calls (t : trm) : int =
   in
   aux 0 t
 
-(* [unfold_funcalls tg]: expects the user to have filled [fun_defs] in Ast_data (Ast_data.fill_fun_defs_tbl).
-    It will search all function calls under from the target [tg]. Then it will create a new variable, change its value
-    with the function call and replace the function targeted with then newly created variable. *)
+(* [unfold_funcalls tg]: expects the user to have filled [fun_defs] in Ast_data
+    (Ast_data.fill_fun_defs_tbl). It will search all function calls under
+    target [tg]. Then, it will create a new variable, change its value within
+    the function call and replace the function targeted with the newly created
+    variable. *)
 let unfold_funcalls : Transfo.t =
-
   let unfold_funcalls_transfo (tg_instr : target) (tg_call : target) : unit =
     let tr_call = get_trm_at_exn tg_call in
     let ty = match tr_call.desc with
@@ -629,19 +613,17 @@ let unfold_funcalls : Transfo.t =
     let new_name = "__var_" ^ (string_of_int (gen_id())) in
     let tr_let_var = trm_let_mut (new_name, get_inner_const_type ty) (trm_uninitialized ()) in
     let tr_set = trm_set (trm_var new_name) tr_call in
-
     if not (same_types ty (typ_unit ()))
     then begin
-      transfo_on_targets (fun _ -> trm_apps (trm_unop Unop_get) [trm_var new_name]) tg_call;
+      Target.apply_at_target_paths (fun _ -> trm_apps (trm_unop Unop_get) [trm_var new_name]) tg_call;
       Internal.nobrace_remove_after (fun _ ->
-        transfo_on_targets (fun t -> trm_seq_no_brace [tr_let_var; tr_set; t]) tg_instr);
+        Target.apply_at_target_paths (fun t -> trm_seq_no_brace [tr_let_var; tr_set; t]) tg_instr);
       end
     else ()
   in
-
-  iter_on_targets (fun t p ->
+  Target.iter (fun t p ->
     let fixed_tg = (target_of_path p ) @ [nbAny; cFun ""] in
-
+    (* TODO: Find corresponding method in new API. *)
     iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
       (fun i t (path_to_seq, local_path, i1)  ->
         let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
@@ -649,7 +631,6 @@ let unfold_funcalls : Transfo.t =
         let tg_instr = target_of_path path_to_instruction in
         let tg_call = target_of_path path_to_call in
         let tg_out_trm = Path.resolve_path path_to_instruction t in
-
         match tg_out_trm.desc with
         | Trm_let _ -> unfold_funcalls_transfo tg_instr tg_call
         | Trm_apps (_, [lhs; rhs]) when is_set_operation tg_out_trm && count_calls rhs >= 2 ->
@@ -660,7 +641,6 @@ let unfold_funcalls : Transfo.t =
         ) fixed_tg;
     )
 
-
 (* [dep_info]: stores data of dependencies of tasks. *)
 type dep_info = {
   dep_depth : int;
@@ -668,16 +648,18 @@ type dep_info = {
   dep_shared : bool;
 }
 
-(* [fun_args_deps]: hashtable that store the dep_info for each argument of functions. *)
+(* [fun_args_deps]: hashtable storing dep_info for each function argument. *)
 type fun_args_deps = (fun_loc, dep_info list) Hashtbl.t
 
-(* [dep_infos]: list of dep_info and its corresponding variable. *)
+(* [dep_infos]: list of dep_info and the corresponding variables. *)
 type dep_infos = (var * dep_info) list
-(* [vars_depth]: hashtable that stores the pointer depth of variable and its name.
-    The name of the variable is in the key and the value in order to use Apac_basic.get_vars_data_from_cptr_arith. *)
+
+(* [vars_depth]: hashtable storing the pointer depth of variable and its name.
+    The name of the variable is in the key and the value in order to use
+    Apac_basic.get_vars_data_from_cptr_arith. *)
 type vars_depth = var vars_tbl
 
-(* [is_base_type ty]: checks if [ty] is a base type or not. *)
+(* [is_base_type ty]: checks whether [ty] is a base type or not. *)
 let rec is_base_type (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
@@ -685,65 +667,63 @@ let rec is_base_type (ty : typ) : bool =
     begin match get_inner_typedef_alias ty with
     (* alias *)
     | Some (ty) -> is_base_type ty
-    (* class, struct, union, enum ... *)
+    (* 'class', 'struct', 'union', 'enum' ... *)
     | None -> true
     end
   | _ -> false
 
-(* [is_dep_in ty]: checks if the omp dependency type of [ty] in In.
-    It does not handle auto ! *)
+(* [is_dep_in ty]: checks whether the OpenMP dependency type of [ty] is In. It
+    does not handle auto! *)
 let rec is_dep_in (ty : typ) : bool =
-  (* returns true if there is "const" before every pointer and before the base type *)
+  (* Returns true if there is 'const' before every pointer and before the base
+     type. *)
   let rec aux (ty : typ) : bool =
     match ty.typ_desc with
-    (* unwrap alias *)
+    (* Unwrap alias. *)
     | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) ->
       begin match get_inner_typedef_alias (get_inner_const_type ty) with
       | Some (ty) -> aux ty
       | None -> assert false
       end
-    (* base type const *)
+    (* Base type 'const' *)
     | Typ_const ty when is_base_type ty -> true
-    (* ptr const *)
+    (* Pointer const *)
     | Typ_const { typ_desc = Typ_ptr { ptr_kind = Ptr_kind_mut ; inner_typ = ty } } -> aux ty
     | Typ_const { typ_desc = Typ_array (ty, _); _ } -> aux ty
-    (* ptr *)
+    (* Pointer *)
     | Typ_ptr { ptr_kind = Ptr_kind_mut; _ } -> false
     | Typ_array (ty, _) -> false
-    (* base type *)
+    (* Base type *)
     | _  when is_base_type ty -> false
-    (* should not encounter *)
+    (* Should not be encountered. *)
     | Typ_ptr { ptr_kind = Ptr_kind_ref; _ } -> assert false
     | Typ_const _ -> assert false
     | _ -> assert false
   in
-
   match ty.typ_desc with
-  (* unwrap alias *)
+  (* Unwrap alias *)
   | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) ->
     begin match get_inner_typedef_alias (get_inner_const_type ty) with
     | Some (ty) -> is_dep_in ty
     | None -> assert false
     end
-  (* reference *)
+  (* Reference *)
   | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
     begin match ty.typ_desc with
-    (* void & *)
+    (* 'void &' *)
     | Typ_unit -> fail None "is_dep_in: void & as argument"
-    (* const void & *)
+    (* 'const void &' *)
     | Typ_const { typ_desc = Typ_unit } -> fail None "is_dep_in: const void & as argument"
-
     | _ -> aux ty
     end
-  (* const void *)
+  (* 'const void' *)
   | Typ_const { typ_desc = Typ_unit } -> fail None "is_dep_in: const void as argument"
-  (* base type *)
+  (* Base type *)
   | _ when is_base_type ty -> true
-
   | _ -> aux ty
 
-(* [get_functions_args_deps tg]: expect target [tg] to point at the root,
-    then it will return the dep_info of each argument of functions. *)
+(* [get_functions_args_deps tg]: expects target [tg] to point at the root. Then,
+    it will return the dep_info of each function argument. *)
 let get_functions_args_deps (tg : target) : fun_args_deps =
   let rec aux (fad : fun_args_deps) (is_method : bool) (t : trm) : unit =
     match t.desc with
@@ -770,7 +750,6 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
       Hashtbl.add fad fc args_info
     | _ -> ()
   in
-
   let tg_trm = match get_trm_at tg with
     | Some (t) when trm_is_mainfile t -> t
     | _ -> fail None "Apac.constify_functions_arguments: expected a target to the main file sequence"
@@ -779,7 +758,7 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
   aux fad false tg_trm;
   fad
 
-(* [count_unop_get t]: return the number of nested unary operation of [t] *)
+(* [count_unop_get t]: returns the number of nested unary operations of [t]. *)
 let count_unop_get (t : trm) : int =
   let rec aux (count : int) (t : trm) : int =
     match t.desc with
@@ -789,15 +768,14 @@ let count_unop_get (t : trm) : int =
   in
   aux 0 t
 
-(* [get_apps_deps vd fad t]: gets the list of dependency the trm [t] has.
-    Expects the transformation [unfold_funcall] applied before.
-    The returned list may have duplicates or different dependencies for the same variable,
-    so it must be processed afterward. *)
+(* [get_apps_deps vd fad t]: gets the list of dependencies of trm [t]. Expects
+    the transformation [unfold_funcall] to be applied before. The returned list
+    may have duplicates or different dependencies for the same variable, so it
+    must be post-processed. *)
 let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos =
-
   let rec aux (dis : dep_infos) (t : trm) : dep_infos =
     match t.desc with
-    (* function call *)
+    (* Function call *)
     | Trm_apps ({ desc = Trm_var _} as f, args) ->
       let l = Hashtbl.find fad (Ast_data.get_function_usr_unsome f) in
       List.fold_left2 (fun acc ({dep_depth; dep_in; _} as dep_info) t ->
@@ -805,21 +783,19 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
         | Trm_var (_, qv) ->
           let di = { dep_info with dep_depth = if dep_depth = -1 then (count_unop_get t) - 1 else dep_depth}  in
           (qv.qvar_str, di) :: acc
-
         | Trm_apps (_, tl) ->
-          (* resolve pointers *)
+          (* Resolve pointers. *)
           let dep_infos = if dep_depth > 1  && not dep_in
             then begin match Apac_basic.get_vars_data_from_cptr_arith vd t with
             | Some (var) -> (var, dep_info) :: dis
             | None -> dis
             end
             else dis in
-          (* recursive call to add the other variables *)
+          (* Recursive call to add the other variables. *)
           List.fold_left aux dep_infos tl
         | _  -> dis
         ) dis l args
-
-    (* set operation *)
+    (* Set operation *)
     | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
       begin match (Apac_basic.get_inner_all_unop_and_access lhs).desc with
       | Trm_var (_, qv) ->
@@ -828,34 +804,28 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
         aux ((qv.qvar_str, di) :: dis) rhs
       | _ -> assert false
       end
-
-    (* unary mutation *)
+    (* Unary mutation *)
     | Trm_apps (_, [tr]) when is_unary_mutation t ->
       let qv = get_unary_mutation_qvar t in
       let (depth, _) = Hashtbl.find vd qv.qvar_str in
       let di = { dep_depth = depth; dep_in = false; dep_shared = true;} in
       (qv.qvar_str, di) :: dis
-
-    (* explore further*)
+    (* Explore further. *)
     | Trm_apps (_, tl) -> List.fold_left aux dis tl
-
-    (* variable *)
+    (* Variable *)
     | Trm_var (_, qv) ->
       let (depth, _) = Hashtbl.find vd qv.qvar_str in
       let di = { dep_depth = depth; dep_in = true; dep_shared = false;} in
       (qv.qvar_str, di) :: dis
-
     | _ -> dis
   in
-
   aux [] t
 
-(* [sort_dep_infos dis]: returns the the list of dependency for In and Inout dependency
-    from the dep_info list [dis]. *)
+(* [sort_dep_infos dis]: returns the the list of dependencies for In and InOut
+    dependencies from dep_info list [dis]. *)
 let sort_dep_infos (dis : dep_infos) : (dep_infos * dep_infos) =
   let dep_in_tbl : (var, dep_info) Hashtbl.t = Hashtbl.create 10 in
   let dep_inout_tbl : (var, dep_info) Hashtbl.t = Hashtbl.create 10 in
-
   List.iter (fun (var, di) ->
     if di.dep_in && not (Hashtbl.mem dep_inout_tbl var) then Hashtbl.add dep_in_tbl var di
     else if not di.dep_in then
@@ -864,12 +834,13 @@ let sort_dep_infos (dis : dep_infos) : (dep_infos * dep_infos) =
       | _ -> Hashtbl.remove dep_in_tbl var; Hashtbl.replace dep_inout_tbl var di
       end
     ) dis;
-
   (Tools.hashtbl_to_list dep_in_tbl, Tools.hashtbl_to_list dep_inout_tbl)
 
-(* [get_cpagma_from_dep_infos dis_in dis_inout]: returns the cpragma corresponding to a task.
-    [dis_in]: list of In dependency.
-    [dis_inout]: list of Inout dependency. *)
+(* [get_cpagma_from_dep_infos dis_in dis_inout]: returns the cpragma
+    corresponding to a task.
+
+    [dis_in] - list of In dependencies,
+    [dis_inout] - list of InOut dependencies. *)
 let get_cpagma_from_dep_infos (dis_in : dep_infos) (dis_inout : dep_infos) : cpragma =
   let rec aux (var : var) (depth : int) : dep =
     if depth > 0 then Dep_ptr (aux  var (depth-1)) else Dep_var var
@@ -881,46 +852,42 @@ let get_cpagma_from_dep_infos (dis_in : dep_infos) (dis_inout : dep_infos) : cpr
   let deps_inout : deps = List.map (fun (var, {dep_depth; _}) -> aux var dep_depth) dis_inout in
   let shared_vars = List.fold_left (fun acc (var, {dep_shared; _}) ->
     if dep_shared then var :: acc else acc) [] dis_inout in
+    let depend = if is_empty deps_in then [] else [In deps_in] in
+    let depend = if is_empty deps_inout then depend else Inout deps_inout :: depend in
+    let clauses = if is_empty depend then [] else [Depend depend] in
+    let clauses = if is_empty shared_vars then clauses else Shared shared_vars :: clauses in
+    Task clauses
 
-  let depend = if is_empty deps_in then [] else [In deps_in] in
-  let depend = if is_empty deps_inout then depend else Inout deps_inout :: depend in
-  let clauses = if is_empty depend then [] else [Depend depend] in
-  let clauses = if is_empty shared_vars then clauses else Shared shared_vars :: clauses in
-  Task clauses
+(* [insert_tasks_naive fad]: expects target [tg] to point at a function
+    definition. Then, it will insert task in the function's body.
 
-(* [insert_tasks_naive fad]: expects the target [tg] to point at a function definition.
-    Then it will insert task in the body of the function.
-    This is a naive implementation that add a task on every instruction/application. *)
+    This is a naive implementation that adds a task on every
+    instruction/application. *)
 let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
-  iter_on_targets (fun t p ->
-
+  Target.iter (fun t p ->
     let rec aux (vd : vars_depth) (t : trm) : trm =
       match t.desc with
-      (* new sequence *)
+      (* New sequence *)
       | Trm_seq _ | Trm_if _ | Trm_for _ | Trm_for_c _ | Trm_while _ | Trm_do_while _ | Trm_switch _ ->
         trm_map (aux (Hashtbl.copy vd))  t
-
-      (* new variable *)
+      (* New variable *)
       | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }) ->
         Hashtbl.add vd var (Apac_basic.get_cptr_depth (get_inner_ptr_type ty), var); t
       | Trm_let_mult (_, tvl, _) ->
         List.iter (fun (var, ty) -> Hashtbl.add vd var (Apac_basic.get_cptr_depth ty, var)) tvl; t
-
-      (* new task *)
+      (* New task *)
       | Trm_apps _ ->
         let dis = get_apps_deps vd fad t in
         let (dis_in, dis_inout) = sort_dep_infos dis in
         let t = trm_seq_nomarks [t] in
         trm_add_pragma (get_cpagma_from_dep_infos dis_in dis_inout) t
-
       | _ -> t
     in
-
     let tg_trm = Path.get_trm_at_path p t in
     let vd = Hashtbl.create 10 in
     match tg_trm.desc with
     | Trm_let_fun (_, _, tvl, _) ->
       List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add vd var (Apac_basic.get_cptr_depth ty, var)) tvl;
-      transfo_on_targets (aux vd) (target_of_path (p @ [Dir_body]))
+      Target.apply_at_target_paths (aux vd) (target_of_path (p @ [Dir_body]))
     | _ -> fail None "Apac.insert_tasks_naive: expected a target to a function definition"
-    )
+  )
