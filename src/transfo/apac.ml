@@ -678,7 +678,7 @@ type fun_args_deps = (fun_loc, dep_info list) Hashtbl.t
 (* [dep_infos]: list of dep_info and its corresponding variable. *)
 type dep_infos = (var * dep_info) list
 (* [vars_depth]: hashtable that stores the pointer depth of variable and its name.
-    The name of the variable is in the key and the value in order to use Apac_core.get_vars_data_from_cptr_arith. *)
+    The name of the variable is in the key and the value in order to use Apac_basic.get_vars_data_from_cptr_arith. *)
 type vars_depth = var vars_tbl
 
 (* [is_base_type ty]: checks if [ty] is a base type or not. *)
