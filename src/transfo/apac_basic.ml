@@ -2,6 +2,95 @@ open Ast
 open Target
 open Path
 
+(* [insert_task_pragma_on t]: puts the instruction sequence of a taskifiable
+    function's body into an OpenMP task group, i.e. a block of instructions
+    delimited by curly brackets and prepended with a set of dedicated OpenMP
+    pragmas. When applied on the 'main' function, the transformation creates the
+    task group using the following pragmas:
+
+      #pragma omp parallel
+      #pragma omp master
+      #pragma omp taskgroup
+
+    Example:
+
+      int main() {
+        int a;
+        f();
+        return 0;
+      }
+
+      becomes
+
+      int main() {
+      #pragma omp parallel
+      #pragma omp master
+      #pragma omp taskgroup
+      {
+        int a;
+        f()
+      }
+        return 0;
+      }
+
+    When applied to any other function except the 'main' function, the
+    transformation creates the task group using the following pragma:
+
+      #pragma omp taskgroup
+
+    Example:
+
+      int g() {
+        int a;
+        f();
+        return 0;
+      }
+
+      becomes
+
+      int g() {
+      #pragma omp taskgroup
+      {
+        int a;
+        f()
+      }
+        return 0;
+      }
+    [t] - AST of a taskifiable function definition.
+*)
+let insert_task_pragma_on (t : trm) : trm =
+  let error_let =
+    "Apac_basic.insert_task_pragma: expected a target to a function \
+    definition" in
+  (* Deconstruct the target function definition term [t]. *)
+  let (qvar, ret_typ, args, body) =
+    trm_inv ~error:error_let trm_let_fun_inv t in
+  let error_seq =
+    "Apac_basic.insert_task_pragma: expected body of a function definition" in
+  (* Deconstruct the instruction sequence of the function's body. *)
+  let body_seq = trm_inv ~error:error_seq trm_seq_inv body in
+  (* Iterate over the instructions of the sequence and construct the updated
+     function's body. *)
+  let body_seq' = Mlist.map(fun item ->
+    (* If an item of the body sequence is a sequence term, put it into an OpenMP
+       task group by adding the necessary pragmas. *)
+    if is_trm_seq item then
+      let pragmas = if qvar.qvar_str = "main" then
+                    [Parallel []; Master ; Taskgroup] else
+                    [Taskgroup] in
+      trm_add_pragmas pragmas item else
+    (* Otherwise, keep the item as it is. *)
+    item
+  ) body_seq in
+  (* Reconstruct the function definition with the updated body instruction
+     sequence. *)
+  trm_let_fun ~annot:t.annot ~qvar:qvar qvar.qvar_var ret_typ args
+              (trm_seq body_seq')
+
+(* [insert_task_pragma tg] applies insert_task_pragma_on. *)
+let insert_task_pragma (tg : target) : unit =
+  Target.apply_at_target_paths (insert_task_pragma_on) tg
+
 (* [use_goto_for_return_aux mark t]: transforms the body of the funciton
       declaration in such a way that all return statements are replaced with
       gotos,

@@ -6,37 +6,14 @@ open Mlist
 include Apac_basic
 
 (* [parallel_task_group ~mark tg]: expects target [tg] to point at a taskable
-    function definition. Then, it will insert:
-
-      #pragma omp parallel
-      #pragma omp master
-      #pragma omp taskgroup
-
-    in the body of the main function or
-
-      #pragma omp taskgroup
-
-    in the body of another function. *)
+    function definition. Then, it replaces return statements by gotos and puts
+    the instruction sequence of the function's body into an OpenMP task
+    group. *)
 let parallel_task_group ?(mark : mark = "") : Transfo.t =
-  Target.iter ( fun t p ->
+  Target.iter (fun t p ->
     Apac_basic.use_goto_for_return ~mark (target_of_path p);
-    Target.apply_at_target_paths ( fun t ->
-      match t.desc with
-      | Trm_let_fun (qvar, ret_typ, args, body, contract) ->
-        let body_tl = match trm_seq_inv body with
-        | Some (tl) -> Mlist.map (fun t ->
-          match t.desc with
-          | Trm_seq _ ->
-            let pragmas = if qvar.qvar_str = "main" then [Parallel []; Master ; Taskgroup] else [Taskgroup] in
-            trm_add_pragmas pragmas t
-          | _ -> t
-          ) tl
-        | None -> assert false
-        in
-        trm_alter ~desc:(Trm_let_fun(qvar, ret_typ, args, (trm_seq body_tl), contract)) t
-      | _ -> assert false
-      ) (target_of_path p)
-    )
+    Apac_basic.insert_task_pragma (target_of_path p);
+  )
 
 (* [fun_loc]: function's Unified Symbol Resolution *)
 type fun_loc = string
