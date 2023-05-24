@@ -5,7 +5,7 @@ open Path
 open Mlist
 include Apac_basic
 
-(* [parallel_task_group ~mark tg]: expects target [ŧg] to point at a taskable
+(* [parallel_task_group ~mark tg]: expects target [tg] to point at a taskable
     function definition. Then, it will insert:
 
       #pragma omp parallel
