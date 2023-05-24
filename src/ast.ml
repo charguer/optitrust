@@ -1700,7 +1700,7 @@ let trm_let_inv (t : trm) : (varkind * var * typ * trm) option =
   | _ -> None
 
 (* [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration.
-     Otherwise it returns a [Noen]. *)
+     Otherwise it returns a [None]. *)
 let trm_let_fun_inv (t : trm) : (qvar * typ * typed_vars * trm) option =
   match t.desc with
   | Trm_let_fun (f, ret_ty, args, body, _) -> Some (f, ret_ty, args, body)
