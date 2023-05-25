@@ -10,10 +10,18 @@ include Apac_basic
     the instruction sequence of the function's body into an OpenMP task
     group. *)
 let parallel_task_group ?(mark : mark = "") : Transfo.t =
+  let original_mark = mark in
+  let mark = if mark = "" then Mark.next () else mark in
   Target.iter (fun t p ->
     Apac_basic.use_goto_for_return ~mark (target_of_path p);
-    Apac_basic.insert_task_pragma (target_of_path p);
-  )
+    let error =
+    "Apac.parallel_task_group: expected a target to a function definition" in
+    (* Deconstruct the target function definition term [t]. *)
+    let (qvar, _, _, _) =
+      trm_inv ~error trm_let_fun_inv t in *)
+    Apac_basic.insert_task_pragma ~master:(qvar.qvar_str = "main") [cMark mark];
+  );
+  if mark <> original_mark then Marks.remove [cMark mark]
 
 (* [fun_loc]: function's Unified Symbol Resolution *)
 type fun_loc = string
