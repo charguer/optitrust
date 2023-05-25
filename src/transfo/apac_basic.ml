@@ -58,19 +58,24 @@ open Path
       }
     [t] - AST of a taskifiable function definition.
 *)
-let insert_task_pragma_on (t : trm) : trm =
-  let error_let =
+let insert_task_pragma_on ~(master : bool) (t : trm) : trm =
+  (* let error_let =
     "Apac_basic.insert_task_pragma: expected a target to a function \
     definition" in
   (* Deconstruct the target function definition term [t]. *)
   let (qvar, ret_typ, args, body) =
-    trm_inv ~error:error_let trm_let_fun_inv t in
+    trm_inv ~error:error_let trm_let_fun_inv t in *)
   let error_seq =
     "Apac_basic.insert_task_pragma: expected body of a function definition" in
   (* Deconstruct the instruction sequence of the function's body. *)
   let body_seq = trm_inv ~error:error_seq trm_seq_inv body in
+  let pragmas = if master then
+                [Parallel []; Master ; Taskgroup] else
+                [Taskgroup] in
+  trm_add_pragmas pragmas body_seq
   (* Iterate over the instructions of the sequence and construct the updated
      function's body. *)
+     (*
   let body_seq' = Mlist.map(fun item ->
     (* If an item of the body sequence is a sequence term, put it into an OpenMP
        task group by adding the necessary pragmas. *)
@@ -86,9 +91,10 @@ let insert_task_pragma_on (t : trm) : trm =
      sequence. *)
   trm_let_fun ~annot:t.annot ~qvar:qvar qvar.qvar_var ret_typ args
               (trm_seq body_seq')
+              *)
 
 (* [insert_task_pragma tg] applies insert_task_pragma_on. *)
-let insert_task_pragma (tg : target) : unit =
+let insert_task_pragma ~(master : bool)  (tg : target) : unit =
   Target.apply_at_target_paths (insert_task_pragma_on) tg
 
 (* [use_goto_for_return_aux mark t]: transforms the body of the funciton
@@ -247,7 +253,7 @@ let constify_args_aux (is_args_const : bool list) (is_method_const : bool) (t : 
     let t = trm_let_fun ~annot:t.annot ?loc:t.loc ?ctx:t.ctx ~qvar "" ret_typ const_args body in
     if is_method_const then trm_add_cstyle Const_method t else t
   | _ -> fail t.loc "Apac_basic.constify_args_aux expected a target to a function definition."
-  
+
 (* [constify_args ~is_const tg]: expect the target [tg] to point at a function
     definition. Then it will add the "const" keyword wherever it is possible in
     the type of the argument.
