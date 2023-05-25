@@ -441,7 +441,7 @@ let fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_all_indi
         fail t.loc "Loop.fusion_targets: targeted loops are not in the same sequence"
     end;
     indices_in_seq := i :: !indices_in_seq;
-  ) tg;
+  ) (nbMulti :: tg);
   (* TODO: use gather_targets GatherAt preprocessing *)
   (* Then, fuse all loops into one, moving loops in the sequence if necessary. *)
   let p_seq = Option.get !seq_path in

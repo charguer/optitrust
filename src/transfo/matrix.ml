@@ -181,15 +181,34 @@ let reorder_dims ?(rotate_n : int option) ?(order : int list = []) () (tg : targ
     Matrix_basic.reorder_dims ~rotate_n ~order () ((target_of_path path_to_seq) @ [cOr [[cVarDef x; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x] (); cFun ~regexp:true "MINDEX."]]])
   ) tg
 
-(* [elim]: eliminates the matrix [var] defined in the sequence targeted by [tg].
+(* [elim]: eliminates the matrix [var] defined in at the declaration targeted by [tg].
   All reads from [var] must be eliminated The values of [var] must only be read locally, i.e. directly after being written.
   *)
-let elim ~(var : var) (tg : target) : unit =
-  read_last_write ~write:(tg @ [cArrayWrite var]) (tg @ [nbAny; cArrayRead var]);
-  (* FIXME: dangerous transformation? *)
-  (* TODO: Matrix.delete_not_read *)
-  Instr.delete (tg @ [nbAny; cArrayWrite var]);
-  delete ~var tg
+let elim (tg : target) : unit =
+  Target.iter (fun t p_def ->
+    let t_def = Path.resolve_path p_def t in
+    let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
+    let (_, p_seq) = Path.index_in_seq p_def in
+    let tg_seq = target_of_path p_seq in
+    read_last_write ~write:(tg_seq @ [cArrayWrite x]) (tg_seq @ [nbAny; cArrayRead x]);
+    (* FIXME: dangerous transformation? *)
+    (* TODO: Matrix.delete_not_read *)
+    Instr.delete (tg_seq @ [nbAny; cArrayWrite x]);
+    delete ~var:x tg_seq
+  ) tg
 
 (* TODO: local_name_tile ~shift_to_zero *)
 (* + shift_to_zero ~nest_of *)
+
+(* [elim_constant]: expects [tg] to target a matrix definition,
+   then first uses [Matrix.elim_mops] on all reads before attempting
+   to use [Arrays.elim_constant].
+   *)
+let elim_constant (tg : target) : unit =
+  Target.iter (fun t p_def ->
+    let t_def = Path.resolve_path p_def t in
+    let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
+    let (_, p_seq) = Path.index_in_seq p_def in
+    elim_mops ((target_of_path p_seq) @ [nbAny; cArrayRead x]);
+    Arrays.elim_constant (target_of_path p_def);
+  ) tg
