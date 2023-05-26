@@ -1043,8 +1043,8 @@ let target_resolve_step (f : unit -> 'a) : 'a =
   step ~kind:Step_target_resolve ~name:"" f
 
 let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> unit) : unit =
-  step ~kind:Step_transfo ~name f
-  (* TODO *)
+  step ~kind:Step_transfo ~name f;
+  List.iter (fun (k, v) -> step_arg ~name:k ~value:v) args
 
 (* [check_recover_original()]: checks that the AST obtained so far
    is identical to the input AST, obtained from parsing. If not,
