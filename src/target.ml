@@ -1461,8 +1461,9 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 (*                                   New target system TODO: deprecate old one *)
 (******************************************************************************)
 
-
-
+(* LATER: add an optimization flag for transformations who know that they don't
+   break the paths in the case of multiple targets, this avoids placing marks
+   in the tree when -dump-trace is not requested *)
 (* [iteri ?rev tr tg]: execute operation [tr] to each of the paths targeted by [tg].
      [rev] - process the resolved paths in reverse order,
      [tg] - target
@@ -1484,17 +1485,23 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
   let tg = fix_target tg in
   let t = Trace.ast() in
   with_stringreprs_available_for [tg] t (fun t ->
-    let marks = [] ref in
-    resolve_target ?marks tg t;
-    (* LATER: recover optimization
+      let ps = resolve_target tg t in
+    let ps = if rev then List.rev ps else ps in
     match ps with
     | [] -> ()
     | [p] -> (* Call the transformation at that path *)
-            tr_wrapped 0 t p
-      (* LATER: optimization >to avoid mark for first occurrence *)
-    | _ -> *)
-    let marks = if rev then List.rev !marks else !marks in
-
+             tr_wrapped 0 t p
+    | _ ->
+      (* LATER: optimization to avoid mark for first occurrence *)
+      let marks = List.map (fun _ -> Mark.next()) ps in
+      (* LATER: could use a system to set all the marks in a single pass over the ast,
+          able to hand the Dir_before *)
+      let t = List.fold_left2 (fun t p m ->
+        match last_dir_before_inv p with
+        | None -> apply_on_path (trm_add_mark m) t p
+        | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
+        t ps marks in
+      Trace.set_ast t;
       (* Iterate over these marks *)
       try
         List.iteri (fun occ m ->
@@ -1527,8 +1534,8 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
       with Interrupted_applyi_on_transformed_targets t ->
          (* Record the ast carried by the exception to allow visualizing the ast *)
          Trace.set_ast t
-  );
-  Constr.old_resolution := c_o_r_bak (* TEMPORARY *)
+      );
+    Constr.old_resolution := c_o_r_bak (* TEMPORARY *)
 
 (* [iter] same as [iteri] but without occurence index *)
 let iter (tr : trm -> path -> unit) : target -> unit =
@@ -1583,7 +1590,7 @@ let target_between_show_transfo (m : mark) : Transfo.local_between =
 
 (* [bigstep s]: an alias for [Trace.open_bigstep s]. *)
 let bigstep (s : string) : unit =
-  Trace.open_bigstep ~name:s
+  Trace.open_bigstep s
 
 
 (* [show_next_id] used for batch mode execution of unit tests, to generate names of for marks.
@@ -1708,7 +1715,10 @@ let get_relative_type (tg : target) : target_relative option =
 (* [reparse_after tr]: wrapper to force the reparsing after applying a transformation.
     For example type definitions are modified.
     See example in [Record.reveal_field]. The argument [~reparse:false] can be
-    specified to deactivate the reparsing. *)
+    specified to deactivate the reparsing.
+    There is an optimization for reparsing only top-level functions that are
+    involved in the path targeted by the target [tg]; LATER: should deactivate
+    this for transformations that make global changes beyond the targetd functions *)
 (* TODO: change strategy for reparse, probably based on missing types?
    else on annotations added by clangml but cleared by smart-constructors
    TODO URGENT: the resolve_target does not work with the new Dir_before system *)
@@ -1727,14 +1737,12 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit
         else resolve_target tg ast
         ) in
       tr tg;
-      Trace.parsing_step (fun () ->
-        if !Flags.use_light_diff then begin
-          let fun_names = List.map get_toplevel_function_name_containing tg_paths in
-          let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
-          reparse_only fun_names
-        end else
-          Trace.reparse();
-      )
+      if !Flags.use_light_diff then begin
+        let fun_names = List.map get_toplevel_function_name_containing tg_paths in
+        let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
+        reparse_only fun_names
+      end else
+        Trace.reparse();
     end
 
 (* LATER: use this more efficient version that avoids computing path resolution twice

@@ -1389,49 +1389,66 @@ and fix_target_between (rel : target_relative) (t : trm) (p : path) : path =
       | Dir_seq_nth i -> p' @ [Dir_before (i + shift)]
       | _ -> fail None "Constr.compute_relative_index: expected a Dir_seq_nth as last direction"
 
-(* [resolve_target tg]: resolves the target [tg].
-   Fills [marks] by marking each path, if [Some]. *)
-and resolve_target ?(marks : mark list ref option) (tg : target) (t : trm) : paths =
-  let marks_out = marks in
-  Trace.target_resolve_step (fun () ->
+(* [resolve_target tg t]: resolves the target [tg];
+   Marks are set in the ast_after inside the trace only if -dump-trace is provided *)
+and resolve_target (tg : target) (t : trm) : paths =
+  Trace.open_target_resolve_step (); (* LATER: could use Trace.add_arg to provide the target as string *)
+  let ps = resolve_target_internal (*~place_marks:None*) tg t in
+  Trace.close_target_resolve_step ps t;
+  ps
+
+(* LATER optimization: close_target_resolve_step could return the result of its
+    call to add_marks_at_paths, possibly via a reference, in case it is computed.
+
+  [resolve_target_internal ?place_marks tg t]: resolves the target [tg].
+   If -dump-trace is provided, Trace.iter calls this function with [~place_marks:Some ..],
+   so that it can obtain the ast decorated with [marks] and the list of marks
+   used are stored in the reference [place_marks]. This optimization avoids placing
+   marks twice. *)
+and resolve_target_internal (*?(place_marks : mark list ref option)*) (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in
   (* try *)
-    let res = resolve_target_struct tgs t in
-    (* printf "res=\n%s\n" (Path.paths_to_string res); *)
-    (* Patch the path if it is a target_between *)
-    let ps = if tgs.target_relative <> TargetAt then begin
+  let res = resolve_target_struct tgs t in
+  (* printf "res=\n%s\n" (Path.paths_to_string res); *)
+  (* Patch the path if it is a target_between *)
+  let ps =
+    if tgs.target_relative <> TargetAt then begin
       let res2 = List.map (fix_target_between tgs.target_relative t) res in
       (* printf "res2=\n%s\n" (Path.paths_to_string res2); *)
       res2
     end else res
     in
-  (* FIXME: prevents exception from being caught above
-with Resolve_target_failure (_loc_opt,str) ->
-    fail None ("Constr." ^ str ^ "\n" ^ (target_to_string tg))
-    *)
+  ps
 
-    let marks = List.map (fun _ -> Mark.next()) ps in
-    (* LATER: could use a system to set all the marks in a single pass over the ast,
-        able to hand the Dir_before *)
-    let t = List.fold_left2 (fun t p m ->
-      match last_dir_before_inv p with
-      | None -> apply_on_path (trm_add_mark m) t p
-      | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
-      t ps marks in
-    Trace.set_ast t;
-    match marks_out with
-    | Some mso -> mso := marks
-    | None -> begin
-      (* Here we don't call [Marks.remove] to avoid a circular dependency issue. *)
-      (* FIXME: duplicated code with Target.iteri *)
-      let t =
+    (* FIXME: prevents exception from being caught above
+  with Resolve_target_failure (_loc_opt,str) ->
+      fail None ("Constr." ^ str ^ "\n" ^ (target_to_string tg))
+      *)
+  (* LATER FOR THE OPTIMIZATION
+      let marks = List.map (fun _ -> Mark.next()) ps in
+      (* LATER: could use a system to set all the marks in a single pass over the ast,
+          able to hand the Dir_before *)
+      let t = List.fold_left2 (fun t p m ->
         match last_dir_before_inv p with
-        | None -> apply_on_path (trm_rem_mark m) t p
-        | Some (p_to_seq,i) -> apply_on_path (trm_rem_mark_between m) t p_to_seq
-        in
-      Trace.set_ast t
-    end
-  )
+        | None -> apply_on_path (trm_add_mark m) t p
+        | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
+        t ps marks in
+      Trace.set_ast t;
+      match marks_out with
+      | Some mso -> mso := marks
+      | None -> begin
+        (* Here we don't call [Marks.remove] to avoid a circular dependency issue. *)
+        (* FIXME: duplicated code with Target.iteri *)
+        let t =
+          match last_dir_before_inv p with
+          | None -> apply_on_path (trm_rem_mark m) t p
+          | Some (p_to_seq,i) -> apply_on_path (trm_rem_mark_between m) t p_to_seq
+          in
+        Trace.set_ast t
+      end;
+      ps
+  *)
+
 
 (* [resolve_target_exactly_one tg t]: similar to [resolve_target] but this one fails if the target resolves to more than one path *)
 and resolve_target_exactly_one (tg : target) (t : trm) : path =

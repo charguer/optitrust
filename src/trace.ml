@@ -211,7 +211,7 @@ let the_trace : trace =
 
 (* [is_trace_dummy()]: returns whether the trace was never initialized. *)
 let is_trace_dummy () : bool =
-  the_trace.context = context_dummy
+  the_trace.context == context_dummy
 
 (* [get_decorated_history]: gets history from trace with a few meta information *)
 (* TODO: remove this function? *)
@@ -341,6 +341,7 @@ let close_step_kind_if_needed (k:step_kind) : unit =
   let step = get_cur_step() in
   if step.step_kind = k then close_step()
 
+
 (* [close_smallstep_if_needed()] closes a current big-step.
    Because big-steps are not syntactically scoped in the user script,
    we need such an implicit close operation to be called on either
@@ -372,6 +373,27 @@ let step ?(line : int = -1) ~(kind:step_kind) ~(name:string) (body : unit -> 'a)
   let r = body() in
   close_step();
   r
+
+(* [parsing_step f] accounts for a parsing operation *)
+let parsing_step (f : unit -> unit) : unit =
+  step ~kind:Step_parsing ~name:"" f
+
+(* [open_target_resolve_step] *)
+let open_target_resolve_step () : unit =
+  open_step ~kind:Step_target_resolve ~name:"" ()
+
+(* [close_target_resolve_step] has a special handling because it saves a diff
+   between an AST and an AST decorated with marks for targeted paths,
+   even though the [cur_ast] is not updated with the marsk *)
+let close_target_resolve_step (ps:Path.path list) (t:trm) : unit =
+  if !Flags.dump_trace then begin
+    let marked_ast, _marks = Path.add_marks_at_paths ps t in
+    let cur_ast = the_trace.cur_ast in
+    the_trace.cur_ast <- marked_ast;
+    close_step();
+    the_trace.cur_ast <- cur_ast
+  end else
+    close_step()
 
 (* [invalidate()]: restores the global state (object [trace]) in its uninitialized state,
    like at the start of the program.  *)
@@ -676,8 +698,10 @@ let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (
    as if it was a fresh input. Doing so ensures in particular that all the type
    information is properly set up. WARNING: reparsing discards all the marks in the AST. *)
 let reparse ?(info : string = "") ?(parser: parser option) () : unit =
-  let info = if info <> "" then info else "the code during the step starting at" in
-  the_trace.cur_ast <- reparse_trm ~info ?parser the_trace.context the_trace.cur_ast
+  parsing_step (fun () ->
+    let info = if info <> "" then info else "the code during the step starting at" in
+    the_trace.cur_ast <- reparse_trm ~info ?parser the_trace.context the_trace.cur_ast
+  )
 
 (* Work-around for a name clash *)
 let reparse_alias = reparse
@@ -963,6 +987,7 @@ let check_exit ~(line:int) : unit (* does not return *) =
 (*                                   Steps                                     *)
 (******************************************************************************)
 
+
 (* [open_bigstep s]: announces that the next step is a bigstep, and registers
    a string description for that step. The [close_bigstep] is implicitly handled. *)
 let open_bigstep ?(line : int = -1) (name:string) : unit =
@@ -989,7 +1014,7 @@ let open_bigstep ?(line : int = -1) (name:string) : unit =
    and registers a string description for that step, based on the excerpt
    frmo the file. The [close_smallstep] is implicitly handled. *)
 (* LATER: add the line argument in the generation of the _with_lines file *)
-let open_smallstep ?(line : int = -1) ~(reparse:bool) () : unit =
+let open_smallstep ?(line : int = -1) ?(reparse:bool=false) () : unit =
   close_smallstep_if_needed();
   if not !Flags.only_big_steps
     then check_exit ~line;
@@ -1002,11 +1027,6 @@ let open_smallstep ?(line : int = -1) ~(reparse:bool) () : unit =
     in
   open_step ~kind:Step_small ~name:"" ~step_script ()
 
-let parsing_step (f : unit -> unit) : unit =
-  step ~kind:Step_parsing ~name:"" f
-
-let target_resolve_step (f : unit -> 'a) : 'a =
-  step ~kind:Step_target_resolve ~name:"" f
 
 let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> unit) : unit =
   step ~kind:Step_transfo ~name f;
