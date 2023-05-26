@@ -900,6 +900,7 @@ let dump_traces_to_textfile ?(prefix : string = "") () : unit =
   let prefix =
     if prefix = "" then the_trace.context.prefix else prefix in
   let filename = prefix ^ "_trace.txt" in
+  printf "dumping trace to '%s'\n" filename;
   step_tree_to_file filename (get_root_step())
 
 

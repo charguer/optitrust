@@ -1,4 +1,5 @@
-TARGET_MAKE_ALL := transfo
+# Verbosity for commands
+V ?= @
 
 OPTITRUST := ../..
 TOOLS_FOLDER := $(OPTITRUST)/tools
@@ -6,13 +7,17 @@ TOOLS_FOLDER := $(OPTITRUST)/tools
 %.cmxs: %.ml
 	$(V)$(TOOLS_FOLDER)/build_cmxs.sh $<
 
-# FIXME: should not be phony, but missing dune dependencies.
+%_with_lines.ml: %.ml
+	$(V)$(TOOLS_FOLDER)/add_lines.sh $< $@
+
+# FIXME: missing dune dependencies
 .PHONY: %_out.cpp
-%_out.cpp: %_with_lines.cmxs %.ml
-	$(V)OCAMLRUNPARAM=b dune exec optitrust_runner -- $< $(FLAGS)
+%_out.cpp: %_with_lines.ml
+	$(V)$(TOOLS_FOLDER)/build_cmxs.sh $<
+	$(V)OCAMLRUNPARAM=b dune exec optitrust_runner -- $(patsubst %.ml,%.cmxs,$<) $(FLAGS)
 	@echo "Produced $@"
 
-include ../../tests/Common.Makefile
+# include ../../tests/Common.Makefile
 
 _build:
 	$(V)mkdir _build
@@ -34,3 +39,8 @@ icx_analyze_%: _build/%.so
 	$(V)icx $(OPT_FLAGS) --analyze -qopt-report=max -std=c11 -I ../../include/ $(WARN_FLAGS) $< -o $@
 
 WARN_FLAGS := -Wall -Wno-unused-function -Wcast-qual -Wignored-qualifiers -Wno-comment -Wsign-compare -Wno-psabi -fdiagnostics-color
+
+clean::
+	$(V)rm -f *.js *_out.cpp *.cmxs *.byte *.native *.chk *.log *.ast *.out *.cmi *.cmx *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_trace.js *_trace.html *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_*  *_fast.ml *_inter.ml batch.ml *.ser *.i *_inlined.cpp
+	$(V)rm -Rf _build
+	@echo "Clean successful"
