@@ -1,70 +1,74 @@
 open Ppxlib
 
-let par_var_inv (pat : pattern) : string =
+let pat_var_inv (pat : pattern) : (string, extension) result =
   match pat.ppat_desc with
-  | Ppat_var loc -> loc.txt
-  | _ -> failwith "JKSLDKJQSd"
+  | Ppat_var loc -> Ok loc.txt
+  | _ -> Error (Location.error_extensionf ~loc:pat.ppat_loc "let%%transfo: Only simple binding names are supported")
 
-let typ_to_string (typ : core_type) : string =
+let (let+) r cont =
+  match r with
+  | Ok r -> cont r
+  | Error err ->
+    let (module B) = Ast_builder.make (loc_of_extension err) in
+    B.pexp_extension err
+
+let printers_map = Longident.Map.of_seq (List.to_seq [
+    (Lident "int", "string_of_int");
+    (Lident "bool", "string_of_bool");
+    (Lident "string", "Trace_printers.string_arg_printer");
+    (Lident "option", "Trace_printers.option_arg_printer");
+    (Lident "list", "Trace_printers.list_arg_printer");
+  ])
+
+let rec printer_expr_for_type (typ: core_type) : expression =
+  let (module B) = Ast_builder.make typ.ptyp_loc in
   match typ.ptyp_desc with
-  | Ptyp_constr (loc, []) -> String.concat "_" (Ocaml_common.Longident.flatten loc.txt)
-  | _ -> failwith "QLEMQLZKELM"
+  | Ptyp_constr (lident, l) when Longident.Map.mem lident.txt printers_map ->
+    let printer = Longident.Map.find lident.txt printers_map in
+    let sub_printers = List.map (fun t -> (Nolabel, printer_expr_for_type t)) l in
+    B.pexp_apply (B.evar printer) sub_printers
+  | _ -> B.pexp_fun Nolabel None B.ppat_any (B.estring ("<" ^ string_of_core_type typ ^ ">"))
 
-let deal_with_binding (loc : Location.t) (binding : value_binding) =
+
+let deal_with_binding (loc : Location.t) (binding : value_binding): value_binding =
   let (module B) = Ast_builder.make loc in
-  let name = par_var_inv binding.pvb_pat in
-  (* binding.pvb_expr : fun arg1 -> .. -> fun argN -> body *)
+  let name = pat_var_inv binding.pvb_pat in
   let rec dive_into_args expr args =
     match expr.pexp_desc with
-    | Pexp_fun (lbl, _exp0, pat, expr) ->
+    | Pexp_fun (lbl, exp0, pat, expr) ->
       let label = match lbl with
       | Nolabel -> ""
       | Labelled l -> "~" ^ l
       | Optional l -> "?" ^ l
       in
-      let (name, typ) = match pat.ppat_desc with
-      | Ppat_constraint (pat, typ) -> (par_var_inv pat, typ)
-      | _ -> failwith "JKSLDKJQSd"
+      let+ (name, typ) =
+        match pat.ppat_desc with
+        | Ppat_constraint (pat, typ) -> Result.map (fun name -> (name, typ)) (pat_var_inv pat)
+        | _ -> Error (Location.error_extensionf ~loc:pat.ppat_loc "let%%transfo: Type annotations are required for all arguments")
       in
-      (* arg = Debug_transfo.arg_typ label name; *)
-      let arg = B.pexp_apply (B.evar ("Debug_transfo.arg_" ^ (typ_to_string typ))) [(Nolabel, (B.estring label)); (Nolabel, (B.evar name))] in
-      dive_into_args expr (arg :: args)
-    | _ ->
-      let instrs = List.rev (expr :: args) in
-      (*
-      new_body = Debug_transfo.scope "name" (fun () ->
-        args;
-        body
-      ) *)
-      let continuation = B.pexp_fun Nolabel None B.punit (B.esequence instrs) in
-      let new_body = B.pexp_apply (B.evar ("Debug_transfo.scope")) [(Nolabel, (B.estring name)); (Nolabel, continuation)] in
-      { binding with pvb_expr = new_body }
+      let arg_string = B.pexp_apply (printer_expr_for_type typ) [(Nolabel, (B.evar name))] in
+      B.pexp_fun lbl exp0 pat (dive_into_args expr (B.pexp_tuple [B.estring label; arg_string] :: args))
+    | body ->
+      let+ name in
+      let args = B.elist (List.rev args) in
+      let continuation = B.pexp_fun Nolabel None B.punit expr in
+      (* TODO: Replace print_call with the real tracing function *)
+      (* Trace_printers.print_call ~name:"name" ~args:[..] (fun () -> body) *)
+      B.pexp_apply (B.evar ("Trace_printers.print_call")) [(Labelled "name", (B.estring name)); (Labelled "args", args); (Nolabel, continuation)]
   in
-  dive_into_args binding.pvb_expr []
+  { binding with pvb_expr = dive_into_args binding.pvb_expr [] }
 
-let expand ~ctxt expr _ =
-  match expr.pexp_desc with
-  | Pexp_let (recflag, bindings, next) ->
-    let bindings = List.map (deal_with_binding expr.pexp_loc) bindings in
-    {expr with pexp_desc = Pexp_let (recflag, bindings, next)}
-  | _ ->
-    failwith "SKLJQSD"
+let expand_let_transfo ~ctxt recflag bindings =
+  let loc = Expansion_context.Extension.extension_point_loc ctxt in
+  let (module B) = Ast_builder.make loc in
+  let bindings = List.map (deal_with_binding loc) bindings in
+  B.pstr_value recflag bindings
 
-  (*
-let ast_pattern =
-  let open Ast_pattern in
-  pstr
-    (pstr_value nonrecursive
-      (value_binding ~pat:__ ~expr:__)
-    ^:: nil)
-    *)
-
-let my_extension =
+let let_transfo_extension =
   Extension.V3.declare "transfo"
-    Extension.Context.expression
-    Ast_pattern.(pstr ((pstr_eval __ __) ^:: nil))
-    (* Ast_pattern.__ *)
-    expand
+    Extension.Context.structure_item
+    Ast_pattern.(pstr ((pstr_value __ __) ^:: nil))
+    expand_let_transfo
 
-let rule = Ppxlib.Context_free.Rule.extension my_extension
-let () = Driver.register_transformation ~rules:[rule] "transfo"
+let let_transfo_rule = Ppxlib.Context_free.Rule.extension let_transfo_extension
+let () = Driver.register_transformation ~rules:[let_transfo_rule] "transfo"
