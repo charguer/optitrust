@@ -13,6 +13,14 @@ void h() {
   int a = g(f(), f());
 }
 
+float i(float pi, float a) {
+  float coef = 11.7;
+  if(a < 0.) {
+    return coef * a;
+  }
+  return coef * pi * a;
+}
+
 int main() {
   f();
 }
