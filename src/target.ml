@@ -1491,22 +1491,10 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
     | [] -> ()
     | [p] -> (* Call the transformation at that path *)
             tr_wrapped 0 t p
+      (* LATER: optimization >to avoid mark for first occurrence *)
     | _ -> *)
     let marks = if rev then List.rev !marks else !marks in
-    Trace.target_resolve_step (fun () ->
-      let ps = resolve_target tg t in
-      let ps = if rev then List.rev ps else ps in
-      (* LATER: optimization to avoid mark for first occurrence *)
-      let marks = List.map (fun _ -> Mark.next()) ps in
-      (* LATER: could use a system to set all the marks in a single pass over the ast,
-          able to hand the Dir_before *)
-      let t = List.fold_left2 (fun t p m ->
-        match last_dir_before_inv p with
-        | None -> apply_on_path (trm_add_mark m) t p
-        | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
-        t ps marks in
-      Trace.set_ast t;
-    );
+
       (* Iterate over these marks *)
       try
         List.iteri (fun occ m ->
@@ -1726,7 +1714,6 @@ let get_relative_type (tg : target) : target_relative option =
    TODO URGENT: the resolve_target does not work with the new Dir_before system *)
 let reparse_after ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit =
     if not reparse then tr tg else begin
-      Trace.parsing_step (fun () ->
       let tg = enable_multi_targets tg in
       let ast = (get_ast()) in
       (* LATER: it would be nice to avoid computing the
@@ -1740,12 +1727,13 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit
         else resolve_target tg ast
         ) in
       tr tg;
-      if !Flags.use_light_diff then begin
-        let fun_names = List.map get_toplevel_function_name_containing tg_paths in
-        let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
-        reparse_only fun_names
-      end else
-        Trace.reparse();
+      Trace.parsing_step (fun () ->
+        if !Flags.use_light_diff then begin
+          let fun_names = List.map get_toplevel_function_name_containing tg_paths in
+          let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
+          reparse_only fun_names
+        end else
+          Trace.reparse();
       )
     end
 

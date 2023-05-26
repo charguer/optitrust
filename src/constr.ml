@@ -1392,30 +1392,45 @@ and fix_target_between (rel : target_relative) (t : trm) (p : path) : path =
 (* [resolve_target tg]: resolves the target [tg].
    Fills [marks] by marking each path, if [Some]. *)
 and resolve_target ?(marks : mark list ref option) (tg : target) (t : trm) : paths =
+  let marks_out = marks in
   Trace.target_resolve_step (fun () ->
   let tgs = target_to_target_struct tg in
   (* try *)
     let res = resolve_target_struct tgs t in
     (* printf "res=\n%s\n" (Path.paths_to_string res); *)
     (* Patch the path if it is a target_between *)
-    if tgs.target_relative <> TargetAt then begin
+    let ps = if tgs.target_relative <> TargetAt then begin
       let res2 = List.map (fix_target_between tgs.target_relative t) res in
       (* printf "res2=\n%s\n" (Path.paths_to_string res2); *)
       res2
     end else res
+    in
   (* FIXME: prevents exception from being caught above
 with Resolve_target_failure (_loc_opt,str) ->
     fail None ("Constr." ^ str ^ "\n" ^ (target_to_string tg))
     *)
 
-  (* LATER: could use a system to set all the marks in a single pass over the ast,
-      able to hand the Dir_before *)
+    let marks = List.map (fun _ -> Mark.next()) ps in
+    (* LATER: could use a system to set all the marks in a single pass over the ast,
+        able to hand the Dir_before *)
     let t = List.fold_left2 (fun t p m ->
       match last_dir_before_inv p with
       | None -> apply_on_path (trm_add_mark m) t p
       | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
       t ps marks in
     Trace.set_ast t;
+    match marks_out with
+    | Some mso -> mso := marks
+    | None -> begin
+      (* Here we don't call [Marks.remove] to avoid a circular dependency issue. *)
+      (* FIXME: duplicated code with Target.iteri *)
+      let t =
+        match last_dir_before_inv p with
+        | None -> apply_on_path (trm_rem_mark m) t p
+        | Some (p_to_seq,i) -> apply_on_path (trm_rem_mark_between m) t p_to_seq
+        in
+      Trace.set_ast t
+    end
   )
 
 (* [resolve_target_exactly_one tg t]: similar to [resolve_target] but this one fails if the target resolves to more than one path *)
