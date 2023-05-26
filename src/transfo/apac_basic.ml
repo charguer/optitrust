@@ -69,54 +69,63 @@ let task_group_on ~(master : bool) (t : trm) : trm =
 let task_group ~(master : bool) (tg : target) : unit =
   Target.apply_at_target_paths (task_group_on ~master:master) tg
 
-(* [use_goto_for_return_aux mark t]: transforms the body of the funciton
-      declaration in such a way that all return statements are replaced with
-      gotos,
-    [mark] - mark used to mark the introduced sequence.
-    [t] - ast of the function definition. *)
-let use_goto_for_return_aux (mark : mark) (t : trm) : trm =
-  match t.desc with
-  | Trm_let_fun (qn, ret_ty, args, body) ->
-    let seq_to_insert, _ = Internal.replace_return_with_assign ~check_terminal:false ~exit_label:"__exit" "__res" body in
-    let seq_to_insert = trm_seq_add_last (trm_add_label "__exit" (trm_unit())) seq_to_insert in
-    let seq_to_insert = trm_add_mark mark seq_to_insert in
-    let new_body =
-      begin match ret_ty.typ_desc with
-      | Typ_unit ->
-        trm_seq_nomarks [seq_to_insert;]
-      | _ ->
-        let new_decl = trm_let_mut ("__res", ret_ty) (trm_uninitialized ()) in
-        trm_seq_nomarks [
-          new_decl;
-          seq_to_insert;
-          trm_ret (Some (trm_var_get "__res"))
-        ]
-      end in
-      trm_alter ~desc:(Trm_let_fun (qn, ret_ty, args, new_body)) t
-  | _ -> fail t.loc "Apac_basic.use_goto_for_return_aux: expected a target to a function definition."
+(* [use_goto_for_return_on mark t]: see [use_goto_for_return]. *)
+let use_goto_for_return_on (mark : mark) (t : trm) : trm =
+  (* Deconstruct the target function definition AST term. *)
+  let error =
+    "Apac_basic.use_goto_for_return_on: expected a target to a function \
+     definition." in
+  let (qvar, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
+  (* Within the function's body, replace return statements with assignments to a
+     return variable '__res' (if the return type is other than 'void') and
+     gotos to an exiting label '__exit'. The result is a sequence.
+     Note that both the return variable and the exiting label are defined in the
+     upcoming steps. *)
+  let body', _ = Internal.replace_return_with_assign ~check_terminal:false
+    ~exit_label:"__exit" "__res" body in
+  (* Add the '__exit' label at the end of the sequence. *)
+  let body' = trm_seq_add_last (trm_add_label "__exit" (trm_unit())) body' in
+  (* Mark the sequence with [mark]. *)
+  let body' = trm_add_mark mark body' in
+  (* If the function's return type is not 'void', we need to declare the return
+     variable '__res' at the beginning of the sequence and return its value at
+     the end of the sequence. *)
+  let body' = if is_type_unit ret_ty then trm_seq_nomarks [
+    body'
+  ] else trm_seq_nomarks [
+    (trm_let_mut ("__res", ret_ty) (trm_uninitialized ()));
+    body';
+    trm_ret (Some (trm_var_get "__res"))
+  ] in
+  (* Reconstruct the function definition with the update body instruction
+     sequence. *)
+  trm_let_fun ~annot:t.annot ~qvar:qvar qvar.qvar_var ret_ty args body'
 
 (* [use_goto_for_return mark]: expects the target [tg] to point at a function
-    definition, then it will transform the body of that function definition as
-    follows.
+    definition. It replaces potentially multiple return statements by a single
+    return statement at the end of the function definition through the usage of
+    gotos.
 
-    First of all wraps the body of the function into a sequence and marks it
-    with [mark] if [mark] <> "". Then it considers two cases.
+    First of all, the transformation wraps the function's body into a sequence
+    and marks it with [mark] if [mark] <> "". Then,
 
-    Case1:
-      Function is of type void:
-        1) Replaces each return statement inside the new sequence with
-           goto __exit.
-        2) After the wrapped sequence inserts an empty label "__exit".
-    Case2:
-      Function is returns a value of type [T] then:
-        1) Inserts a declaration "T __res" just befor the introduced sequence.
-        2) Replaces each return statement inside the wrapped sequence with
-           "__res = x; goto __exit".
-        3) Add after the new sequence, adds the labelled statement
-           "__exit; return __res;". *)
+    if the function is of type 'void', it:
+        1) replaces each return statement inside the new sequence with
+           'goto __exit',
+        2) appends an empty exiting label '__exit' to the sequence;
+    if the function returns a value, it:
+        1) preprends the declaration of a return variable '__res' to the
+           sequence,
+        2) replaces each return statement inside the sequence with
+           '__res = x; goto __exit'.
+        3) appends the final and unique labelled return statement
+           '__exit; return __res;' to the sequence.
+
+    [mark] - mark to put on the sequence the function's body is wrapped into,
+    [tg] - target function definition AST term. *)
 let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    Target.apply_at_target_paths (use_goto_for_return_aux mark) tg
+    Target.apply_at_target_paths (use_goto_for_return_on mark) tg
   )
 
 (* [is_typdef_alias ty]: checks if [ty] is a defined type alias. *)
