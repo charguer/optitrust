@@ -5,23 +5,39 @@ open Path
 open Mlist
 include Apac_basic
 
-(* [parallel_task_group ~mark tg]: expects target [tg] to point at a taskable
-    function definition. Then, it replaces return statements by gotos and puts
-    the instruction sequence of the function's body into an OpenMP task
-    group. *)
-let parallel_task_group ?(mark : mark = "") : Transfo.t =
-  let original_mark = mark in
-  let mark = if mark = "" then Mark.next () else mark in
+(* [parallel_task_group tg]: expects target [tg] to point at a function
+    definition.
+
+    The first step of the transformation consists in replacing return statements
+    by gotos. At the beginning of the process, the function's body is wrapped
+    into a sequence to which a mark is assigned.
+    See [Apac_basic.use_goto_for_return] for more details.
+
+    In the second step, we put the marked sequence into an OpenMP task group.
+    See [Apac_basic.task_group] for more details. *)
+let parallel_task_group : Transfo.t =
   Target.iter (fun t p ->
+    (* Create a mark. *)
+    let mark = Mark.next() in
+    (* Wrap the target function's body into a marked sequence and replace return
+       statements by gotos. *)
     Apac_basic.use_goto_for_return ~mark (target_of_path p);
+    (* Get the name of the target function through the deconstruction of the
+       corresponding AST term. *)
     let error =
     "Apac.parallel_task_group: expected a target to a function definition" in
-    (* Deconstruct the target function definition term [t]. *)
-    let (qvar, _, _, _) =
-      trm_inv ~error trm_let_fun_inv t in
-    Apac_basic.insert_task_pragma ~master:(qvar.qvar_str = "main") [cMark mark];
-  );
-  if mark <> original_mark then Marks.remove [cMark mark]
+    let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv (
+      Path.get_trm_at_path p t
+    ) in
+    (* Transform the marked instruction sequence corresponding to the target
+       function's body into an OpenMP task group.
+
+       Note that if the target function is the 'main' function, we want the
+       task group to be executed only by one thread, the master thread. *)
+    Apac_basic.task_group ~master:(qvar.qvar_str = "main") [cMark mark];
+    (* 5) Remove the mark. *)
+    Marks.remove mark [cMark mark];
+  )
 
 (* [fun_loc]: function's Unified Symbol Resolution *)
 type fun_loc = string
