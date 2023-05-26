@@ -7,7 +7,15 @@
 
 
 - README.md => reprendre sc_artifact.md qui est à jour et intégrer ce qui manque de l'ancien README.md
-  + opam pin add clangml 4.8.0
+  + ```
+    opam init
+    opam switch create optitrust 4.14.1
+    opam pin add menhirLib 20210419
+    opam pin add pprint 20220103
+    opam pin add clangml 4.8.0
+    opam install dune clangml pprint menhir menhirLib base64 ocamlbuild
+    eval $(opam env)
+    ```
   + `ocamllsp --fallback-read-dot-merlin` for LSP (VSCode) .merlin support
 
 - update keybindings and templates
