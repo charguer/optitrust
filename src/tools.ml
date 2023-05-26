@@ -165,6 +165,14 @@ let clean_class_name (class_name : string) : string =
 let milliseconds_between (t0 : float) (t1 : float) : int =
   int_of_float (1000. *. (t1 -. t0))
 
+(* [measure_time f]: returns a pair made of the result of [f()] and
+   of the number of milliseconds taken by that call. *)
+let measure_time (f : unit -> 'a) : 'a * int =
+  let t0 = Unix.gettimeofday () in
+  let res = f() in
+  let t1 = Unix.gettimeofday () in
+  res, (milliseconds_between t0 t1)
+
 
 (******************************************************************************)
 (*                        Extensions for Pervasives                           *)

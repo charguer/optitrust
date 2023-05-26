@@ -159,7 +159,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     if check_exit_at_end && Flags.get_exit_line () <> None then
       Trace.dump_diff_and_exit ();
     (* Otherwise, we finalize the script, and collapse the stack onto the root step *)
-    Trace.finalize ();
+    Trace.finalize();
     (* TODO:
           IF ~expected_ast<>"" then load and unserialized expected ast and
             call trm_cmp and store result in a list ref,
@@ -181,8 +181,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     | None -> ()
     | Some foldername -> Trace.dump_steps ~prefix foldername
     end;
+    Trace.close_logs();
   with e ->
-    Trace.finalize ();
+    Trace.close_logs();
     raise e
   );
 

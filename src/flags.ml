@@ -27,12 +27,6 @@ let dump_clang_ast = ref None
 let set_dump_clang_ast () : unit =
   dump_clang_ast := Some "clang_ast.ml"
 
-(* DEPRECATED? Flag to call [Trace.dump_last !dump_last] instead of [Trace.dump].
-   Note: incompatible with the use of [switch] in scripts, currently. *)
-let dump_last_default = -1
-let dump_last : int ref = ref dump_last_default
-
-
 (* [dump_trace]: call [Trace.dump_traces_to_js] in addition to [Trace.dump] at the end of the script. *)
 let dump_trace : bool ref = ref false
 
@@ -149,7 +143,6 @@ let spec : cmdline_args =
      ("-dump-trace", Arg.Set dump_trace, " produce a JS file with all the steps performed by the transformation script");
      ("-dump-small-steps", Arg.String set_dump_small_steps, " produce a distinct file for each small step");
      ("-dump-big-steps", Arg.String set_dump_big_steps, " produce a distinct file for each big step");
-     ("-dump-last", Arg.Set_int dump_last, " dump outputs the number of desired last steps; only for interactive mode"); (* DEPRECATED *)
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
      ("-dump-clang-ast", Arg.Unit set_dump_clang_ast, " produce clang_ast.ml with the AST obtained by ClangML");
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");
