@@ -21,7 +21,7 @@ int main() {
   }
   for (int y = 0; y < 6; y++) {
     for (int x = 0; x < 6; x++) {
-      float acc = 0.;
+      float acc = 0.f;
       for (int yd = 0; yd < 3; yd++) {
         for (int xd = 0; xd < 3; xd++) {
           acc += y + yd + (x + xd);

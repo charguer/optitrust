@@ -27,4 +27,5 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.unroll [cFor ~body:[cPlusEqVar "s"] "k"];
   !! Omp.simd [nbMulti; cFor ~body:[cPlusEqVar "s"] "j"];
   !! Omp.parallel_for [nbMulti; cFunBody "mm1024"; cStrict; cFor ""];
+
 )

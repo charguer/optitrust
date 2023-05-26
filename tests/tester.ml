@@ -77,13 +77,15 @@ let rec list_of_tests_from_key (key : string) : string list =
   | "case_studies" -> (aux "mm") @
                       (aux "harris")
   (* TODO: pic *)
-  | "mm" -> ["case_studies/matmul/matmul.ml"]
+  | "mm" | "matmul" -> ["case_studies/matmul/matmul.ml"]
   (* TODO: box_blur *)
   | "harris" -> ["case_studies/harris/harris.ml"]
   | file -> [file]
-
+  (* TODO: when giving a name, try find a path of the form tests/*/name *)
   (* TODO: target "ignore" specially treated to ignore the ignore list
      *)
+  (* LATER: support the test name when the user are not providing the .ml extension *)
+  (* LATER: provider a folder *)
 
 (* TODO: read from a file instead? *)
 let basic_tests_to_ignore = [
@@ -140,6 +142,9 @@ let ast_tests_to_ignore = [
 	"c_serialize.ml";
 	"cpp_features.ml";
 	"cpp_big.ml";
+  (* NOT A TEST: *)
+  "cpp_debug.ml";
+  "c_ast_debug.ml";
 ]
 let tests_to_ignore =
   (List.map (fun f -> "tests/basic/" ^ f) basic_tests_to_ignore) @
@@ -263,10 +268,18 @@ let _main : unit =
         (String.concat "\n  " tests_to_process);
 
   (* TODO: faire la boucle en caml sur l'appel à sed,
+     fAIRE Une erreur si le fichier n'existe pas !
    à chaque fois afficher un commentaire (* CURTEST=... *)
      TODO: add 'batch_prelude' and 'batch_postlude' calls.
      LATER: ajouter ici l'option ~expected_ast , et concatener l'appel à Run.batch_postlude logfilename *)
   do_or_die ("tests/batch_tests.sh " ^ batch_args ^ " > " ^ "tests/batch/batch.ml");
+
+  let delete_output test =
+    let test_prefix = Filename.chop_extension test in
+    let filename_out = sprintf "%s_out.cpp" test_prefix in
+    ignore (do_is_ko (sprintf "rm %s > /dev/null" filename_out))
+  in
+  List.iter delete_output tests_to_process;
 
   do_or_die "cp tests/batch/dune_disabled tests/batch/dune";
   do_or_die "dune build tests/batch/batch.cmxs; rm tests/batch/dune";
@@ -305,19 +318,31 @@ let _main : unit =
 
   let ok_count = ref 0 in
   let ko_count = ref 0 in
+  let meld_args = ref [] in
   (* Compare all text outputs if necessary *)
   if !comparison_method = Comparison_method_text then
     let check_output test =
       let test_prefix = Filename.chop_extension test in
       let filename_out = sprintf "%s_out.cpp" test_prefix in
       let filename_exp = sprintf "%s_exp.cpp" test_prefix in
-      if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) then begin
-        printf "ERROR: %s does not match %s, run 'meld %s %s'\n" filename_out filename_exp filename_out filename_exp;
-        incr ko_count;
-      end else
-        incr ok_count;
+      if Sys.file_exists filename_exp then begin
+        if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) then begin
+          printf "ERROR: unexpected output for %s\n" test_prefix;
+          meld_args := sprintf "--diff %s %s" filename_out filename_exp :: !meld_args;
+          incr ko_count;
+        end else
+          incr ok_count;
+      end else begin
+          printf "MISSING: no expected output for %s\n   cp %s %s; git add %s\n" test_prefix filename_out filename_exp filename_exp;
+          incr ko_count;
+      end
     in
     List.iter check_output tests_to_process;
+
+  begin match !meld_args with
+  | [] -> ()
+  | args -> printf "%s" (Tools.list_to_string ~sep:"" ~bounds:["  meld "; "\n"] args)
+  end;
 
   printf "%i tests passed, %i tests failed, %i tests ignored\n" !ok_count !ko_count (List.length ignored_tests);
   (*

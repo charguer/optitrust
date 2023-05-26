@@ -6,6 +6,8 @@ TOOLS_FOLDER := $(OPTITRUST)/tools
 %.cmxs: %.ml
 	$(V)$(TOOLS_FOLDER)/build_cmxs.sh $<
 
+# FIXME: should not be phony, but missing dune dependencies.
+.PHONY: %_out.cpp
 %_out.cpp: %_with_lines.cmxs %.ml
 	$(V)OCAMLRUNPARAM=b dune exec optitrust_runner -- $< $(FLAGS)
 	@echo "Produced $@"
@@ -23,7 +25,7 @@ _build:
 CC := icx
 # -mtune=native -qopt-dynamic-align
 # ENABLING QOPT REPORT SEEMS TO IMPROVE PERF => MORE OPTS ENABLED?
-OPT_FLAGS := -xhost -fiopenmp -Ofast -vec -qopt-report=max
+OPT_FLAGS := -xhost -fiopenmp -Ofast -vec -qopt-report=max -g
 # -vec -fvectorize
 # -fsave-optimization-record
 # -fmerge-all-constants

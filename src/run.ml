@@ -38,15 +38,19 @@ let process_cmdline_args (args : Flags.cmdline_args) : unit =
   If an item "bar.hc" (LATER or .hcpp) is provided in the list, then [#include "bar.h"] will be
   intrepreted as [#include "bar.h"; #include "bar.cpp"], and the substitutions will be
   performed as if the [~inline] argument contained ["bar.cpp"; "bar.h"].
-  If an item "bar.h-" is provided, then [#include "bar.h"] will be deleted. *)
+  If an item "bar.h-" is provided, then [#include "bar.h"] will be deleted.
+
+  LATER: currently this test only works to include files that are in the same directory
+  as the cpp file, we should generalize this in the support. *)
 
 (* [debug_inline_cpp]: only for debugging purposes *)
-let debug_inline_cpp = false
+let debug_inline_cpp = true
 
 let generate_source_with_inlined_header_cpp (input_file:string) (inline:string list) (output_file:string) : unit =
   let s = ref (Xfile.get_contents input_file) in
   let perform_inline finline =
-      let include_instr = "#include \"" ^ finline ^ "\"" in
+      let finline_nodir = Filename.basename finline in
+      let include_instr = "#include \"" ^ finline_nodir ^ "\"" in
       if debug_inline_cpp then Printf.printf "Inlined %s\n" include_instr;
       let contents = Xfile.get_contents finline in
       s := Tools.string_subst_first include_instr contents !s;

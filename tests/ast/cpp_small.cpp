@@ -24,17 +24,17 @@ private:
 
 public:
 
-  
+
   void move_this(int d) {
      this->x += d;
   }
-  
+
   // for each function, mark it as "public" or "private" as a trm_annot
   void move(int d) {
      x += d;
   }
 
-  
+
 
   /* encoded as:
   void move(test_class* this, int d) {
@@ -105,10 +105,10 @@ void test_using() {
   int a = v[0];
 }
 
-template<typename A, typename B> struct Box 
-  { 
-    A key; 
-    B value; 
+template<typename A, typename B> struct Box
+  {
+    A key;
+    B value;
   };
 
 // typedef Box<int, bool> box;
@@ -126,9 +126,9 @@ class Box2 {
     }
 };
 
-template <typename A> 
+template <typename A>
 class Inject {
-  static void f(Inject x ) { 
+  static void f(Inject x ) {
     Inject<A> y;
     Inject z; // encoded as (Foo<A>@Annot_injected) y;
   }

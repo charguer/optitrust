@@ -16,6 +16,10 @@ do
     # Add a marker to show errors on their original file location
     echo "let _ = Batching.run_test ~script_name:\"${file}\" (fun () -> (module struct"
     echo \# 1 \"${file}\"
+    #if [ ! -f ${file} ]; then
+    #  echo "Missing file ${file}"
+    #  exit 1;
+    #fi;
     cat ${file}
     echo "end))"
 done

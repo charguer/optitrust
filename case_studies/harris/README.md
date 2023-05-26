@@ -37,3 +37,7 @@ make bench_[name]
   (* Function.specialize ? *)
   !! Specialize.function_arg "conv3x3" [true; true; true; true; false; false; true] [nbMulti; cFun "conv2D"];
   ```
+
+# Script Notes
+
+- not necessary for perf: `Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_ix"] ~fresh_name:"g${occ}" [cArrayRead "gray"];`

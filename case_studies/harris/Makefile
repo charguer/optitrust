@@ -9,6 +9,12 @@ _build/%.o: %.c #_build
 _build/%.o: %.cpp _build
 	$(V)$(CC) $(OPT_FLAGS) -fPIC -std=c11 -I ../../include/ $(WARN_FLAGS) -c -x c $< -o $@
 
+_build/%.bc: %.cpp _build
+	$(V)$(CC) $(OPT_FLAGS) -fPIC -std=c11 -I ../../include/ $(WARN_FLAGS) -c -x c -emit-llvm $< -o $@
+
+_build/%.s: %.cpp _build
+	$(V)$(CC) $(OPT_FLAGS) -fPIC -std=c11 -I ../../include/ $(WARN_FLAGS) -S -x c $< -o $@
+
 HALIDE_PATH=../../../../Halide
 HALIDE_TARGET=host
 #HALIDE_TARGET=x86-64-linux-avx-avx2-fma-sse41
@@ -28,10 +34,10 @@ _build/harris_halide.a _build/harris_halide.h: #_build
 
 # FIXME? using $(CC) below fails
 
-_build/bench_halide: bench_halide.cpp _build/harris_halide.a _build/halide_runtime.a bench_util.h _build/harris_halide.h
+_build/bench_halide: bench_halide.cpp _build/harris_halide.a _build/halide_runtime.a bench_util.h _build/harris_halide.h bench_util.h
 	$(V)gcc $(filter-out %.h,$^) -O2 -std=c++17 -lstdc++ -lm -lpthread -ldl -lpng -ljpeg -I$(HALIDE_PATH)/include -I$(HALIDE_PATH)/tools $(WARN_FLAGS) -o $@
 
-_build/bench_%: bench_c.cpp _build/harris_halide.a _build/halide_runtime.a _build/%.o bench_util.h _build/harris_halide.h harris.h
+_build/bench_%: bench_c.cpp _build/harris_halide.a _build/halide_runtime.a _build/%.o bench_util.h _build/harris_halide.h harris.h bench_util.h
 	$(V)gcc $(filter-out %.h,$^) -O2 -std=c++17 -lstdc++ -lm -lpthread -ldl -lpng -ljpeg -liomp5 -I$(HALIDE_PATH)/include -I$(HALIDE_PATH)/tools $(WARN_FLAGS) -o $@
 
 .PHONY: bench bench_%
@@ -40,6 +46,7 @@ HARRIS_CPP := $(wildcard harris*.cpp)
 HARRIS_BENCHS := $(patsubst %.cpp,bench_%,$(HARRIS_CPP))
 HARRIS_BENCHS := $(filter-out bench_harris_after,$(HARRIS_BENCHS))
 HARRIS_BENCHS := $(filter-out bench_harris_before,$(HARRIS_BENCHS))
+HARRIS_BENCHS := $(filter-out bench_harris_exp,$(HARRIS_BENCHS))
 
 bench: bench_halide $(HARRIS_BENCHS)
 

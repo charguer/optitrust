@@ -1,7 +1,6 @@
 open Optitrust
-open Target
-open Ast
 open Ast_fromto_AstC
+open Target
 
 (* Note: [address_elim] is not meant work in the presence of stack variables;
    thus [stackvar_elim] must be called first. *)
@@ -21,7 +20,7 @@ let filename =
 
 let _ = Run.script_cpp ~filename (fun () ->
 
-  !^ Trace.apply infix_elim;
-  !^ Trace.apply infix_intro;
-  !^ Trace.check_recover_original(); (* Press F6 on this line to see a blank diff if successful, or an error message if the full round-trip fails *)
+  !! Trace.apply infix_elim;
+  !! Trace.apply infix_intro;
+  !! Trace.check_recover_original(); (* Press F6 on this line to see a blank diff if successful, or an error message if the full round-trip fails *)
 )

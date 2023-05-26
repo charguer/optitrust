@@ -200,13 +200,19 @@ and typed_var_to_doc (tx : typed_var) : document =
   | _ -> const_string ^^ typ_to_doc ty ^^ blank 1 ^^ string x
 
 (* [lit_to_doc l]: converts literals to pprint documents. *)
-and lit_to_doc (cstyles: cstyle_annot list) (l : lit) : document =
+and lit_to_doc (cstyles: cstyle_annot list) (typ : typ option) (l : lit) : document =
   match l with
   | Lit_unit -> semi
   | Lit_uninitialized -> empty
   | Lit_bool b -> string (string_of_bool b)
   | Lit_int i -> string (string_of_int i)
-  | Lit_double f -> string (string_of_float f)
+  | Lit_double f ->
+    begin match typ with
+    | Some { typ_desc = Typ_float; _ } ->
+      string ((string_of_float f) ^ "f")
+    | _ ->
+      string (string_of_float f)
+    end
   | Lit_string s -> dquotes (separate (backslash ^^ string "n") (lines s))
   | Lit_nullptr ->
       if List.mem Display_null_uppercase cstyles
@@ -268,9 +274,9 @@ and prim_to_doc (p : prim) : document =
   | Prim_conditional_op -> separate (blank 1) [underscore; qmark; underscore; colon; underscore]
 
 (* [val_to_doc v]: converts values to pprint documents. *)
-and val_to_doc (cstyles : cstyle_annot list) (v : value) : document =
+and val_to_doc (cstyles : cstyle_annot list) (typ : typ option) (v : value) : document =
   match v with
-  | Val_lit l -> lit_to_doc cstyles l
+  | Val_lit l -> lit_to_doc cstyles typ l
   | Val_ptr l ->
      if l = 0 then string "NULL" (* TODO: remove this when annotated nullptr is used *)
      else
@@ -360,7 +366,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
     | Trm_val v ->
        if trm_has_cstyle Empty_cond t
         then empty
-        else dattr ^^ val_to_doc (trm_get_cstyles t) v
+        else dattr ^^ val_to_doc (trm_get_cstyles t) (t.typ) v
     | Trm_var (_, x) ->
       (* if x.qvar_var = "this"
         then

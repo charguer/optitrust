@@ -1185,17 +1185,22 @@ let typ_of_lit (l : lit) : typ option =
   | Lit_nullptr -> Some (typ_unit ())
 
 (* [trm_lit ~annot ?loc ?ctx l]: literal *)
-let trm_lit ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (l : lit) : trm =
-  trm_val ~annot:annot ?loc ?ctx ?typ:(typ_of_lit l) (Val_lit l)
+let trm_lit ?(typ : typ option = None) ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (l : lit) : trm =
+  let typ = Tools.option_or typ (typ_of_lit l) in
+  trm_val ~annot:annot ?loc ?ctx ?typ (Val_lit l)
 
 let trm_unit ?(loc) () : trm =
   trm_lit ?loc (Lit_unit)
 let trm_bool ?(loc) (b : bool) =
   trm_lit ?loc (Lit_bool b)
+(* LATER: allow arbitrary sized integer types/values *)
 let trm_int ?(loc) (i : int) =
   trm_lit ?loc (Lit_int i)
+(* LATER: may need arbitrary sized float values *)
+let trm_float ?(typ : typ = typ_float ()) ?(loc) (d : float) =
+  trm_lit ~typ:(Some typ) ?loc (Lit_double d)
 let trm_double ?(loc) (d : float) =
-  trm_lit ?loc (Lit_double d)
+  trm_float ~typ:(typ_double ()) ?loc d
 let trm_sring ?(loc) (s : string) =
   trm_lit ?loc (Lit_string s)
 
@@ -1629,21 +1634,6 @@ let trm_var_get_inv (t : trm) : (varkind * var) option =
   match trm_get_inv t with
   | Some t2 -> trm_var_inv t2
   | None -> None
-
-(* DEPRECATED because REDUNDANT
-(* [trm_int n]: converts an integer to trm *)
-let trm_int (n : int) : trm = trm_lit (Lit_int n)
-
-(* [trm_unit ()]: unit trm, unvisble to the user *)
-let trm_unit () : trm =
-  trm_lit (Lit_unit)
-
-(* [trm_double d]: converts a double/float to an ast node *)
-let trm_double (d : float) : trm = trm_lit (Lit_double d)
-
-(* [trm_bool b]: converts an integer to an ast node *)
-let trm_bool (b : bool) : trm = trm_lit (Lit_bool b)
-*)
 
 (* [trm_prod_inv t]: gets a the list of factors involved in a multiplication*)
 let trm_prod_inv (t : trm) : trm list =
@@ -2707,21 +2697,29 @@ let compute_app_unop_value (p : unary_op) (v1:lit) : trm =
   | _ -> fail None "Ast.compute_app_unop_value: only negation can be applied here"
 
 (* [compute_app_binop_value]: simplifies binary operations on literals. *)
-let compute_app_binop_value (p : binary_op) (v1 : lit) (v2 : lit) : trm =
+let compute_app_binop_value (p : binary_op) (typ1 : typ option) (typ2 : typ option) (v1 : lit) (v2 : lit) : trm =
   match p,v1, v2 with
   | Binop_eq , Lit_int n1, Lit_int n2 -> trm_bool (n1 == n2)
   | Binop_eq, Lit_double d1, Lit_double d2 -> trm_bool (d1 == d2)
   | Binop_neq , Lit_int n1, Lit_int n2 -> trm_bool (n1 <> n2)
   | Binop_neq, Lit_double d1, Lit_double d2 -> trm_bool (d1 <> d2)
   | Binop_sub, Lit_int n1, Lit_int n2 -> trm_int (n1 - n2)
-  | Binop_sub, Lit_double d1, Lit_double d2 -> trm_double (d1 -. d2)
+  | Binop_sub, Lit_double d1, Lit_double d2 ->
+    let typ = Tools.option_or typ1 typ2 in
+    trm_float ?typ (d1 -. d2)
   | Binop_add, Lit_int n1, Lit_int n2 -> trm_int (n1 + n2)
-  | Binop_add, Lit_double d1, Lit_double d2 -> trm_double (d1 +. d2)
+  | Binop_add, Lit_double d1, Lit_double d2 ->
+    let typ = Tools.option_or typ1 typ2 in
+    trm_float ?typ (d1 +. d2)
   | Binop_mul, Lit_int n1, Lit_int n2 -> trm_int (n1 * n2)
-  | Binop_mul, Lit_double n1, Lit_double n2 -> trm_double (n1 *. n2)
+  | Binop_mul, Lit_double n1, Lit_double n2 ->
+    let typ = Tools.option_or typ1 typ2 in
+    trm_float ?typ (n1 *. n2)
   | Binop_mod, Lit_int n1, Lit_int n2 -> trm_int (n1 mod n2)
   | Binop_div, Lit_int n1, Lit_int n2 -> trm_int (n1 / n2)
-  | Binop_div, Lit_double d1, Lit_double d2 -> trm_double (d1 /. d2)
+  | Binop_div, Lit_double d1, Lit_double d2 ->
+    let typ = Tools.option_or typ1 typ2 in
+    trm_float ?typ (d1 /. d2)
   | Binop_le, Lit_int n1, Lit_int n2 -> trm_bool (n1 <= n2)
   | Binop_le, Lit_double d1, Lit_double d2 -> trm_bool (d1 <= d2)
   | Binop_lt, Lit_int n1, Lit_int n2 -> trm_bool (n1 < n2)
