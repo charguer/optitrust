@@ -9,7 +9,7 @@ open Target
 
      @correctness: correct if the new order of evaluation of expressions is
       not changed or does not matter. *)
-let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : target) : unit =
+let%transfo bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
     applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ t (p, p_local, i)  ->
@@ -68,7 +68,7 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
    @correctness: always works, and also needs to instantiate variables in the
    local invariants in the body. *)
 
-let inline ?(body_mark : mark option) (tg : target) : unit =
+let%transfo inline ?(body_mark : mark option) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
     apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
@@ -86,12 +86,12 @@ let beta ?(body_mark : var = "") (tg : target) : unit =
 
 (* [use_infix_ops_at tg]: expects the target [tg] to point at an explicit set operation of the form x = x (op) a,
     then it will transform that instruction into x (op)= a. Ex: x = x + 1 --> x += 1. *)
-let use_infix_ops_at ?(allow_identity : bool = true) : Transfo.t =
-  apply_on_targets (Function_core.use_infix_ops allow_identity)
+let%transfo use_infix_ops_at ?(allow_identity : bool = true) (tg : target) : unit =
+  apply_on_targets (Function_core.use_infix_ops allow_identity) tg
 
 (* [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similar to what Function_basic.inline generates
     Then it will replace that sequence with a call to the fuction with declaration targeted by [fct]. *)
-let uninline ~fct:(fct : target) (tg : target) : unit =
+let%transfo uninline ~fct:(fct : target) (tg : target) : unit =
   Trace.call (fun t ->
     let fct_path = resolve_target_exactly_one_with_stringreprs_available fct t in
     let fct_decl = Path.resolve_path fct_path t in
@@ -100,20 +100,20 @@ let uninline ~fct:(fct : target) (tg : target) : unit =
 (* [rename_args new_args tg]: expects the target [tg] to point at a function declaration, then it will rename the args of
      that function. If there are local variables declared inside the body of the function that have the same name as one
      of the function args then it will skip those variables on all their occurrences. *)
-let rename_args (new_args : var list)  : Transfo.t =
-  apply_on_targets (Function_core.rename_args new_args)
+let%transfo rename_args (new_args : var list) (tg : target) : unit =
+  apply_on_targets (Function_core.rename_args new_args) tg
 
 
 (* [replace_with_change_args new_fun_name arg_mapper tg]: expects the target [tg] to point at a function call, then it will
     replace the name of the called function with [new_fun_name] and apply [arrg_mapper] to its arguments. *)
-let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) (tg : target) : unit =
+let%transfo replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) (tg : target) : unit =
    apply_on_targets (Function_core.replace_with_change_args new_fun_name arg_mapper) tg
 
 (* [dsp_def ~arg ~func tg]: expects the target [tg] to point at a function definition, then it will
      inserts a new version of that definition whose return type is void.
     [arg] - is the name of the argument that's going to be inserted,
     [func] - the name of the new function that's going to be inserted. *)
-let dsp_def ?(arg : var = "res") ?(func : var = "dsp") (tg : target) : unit =
+let%transfo dsp_def ?(arg : var = "res") ?(func : var = "dsp") (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Function_core.dsp_def i arg func t p) tg)
@@ -123,6 +123,6 @@ let dsp_def ?(arg : var = "res") ?(func : var = "dsp") (tg : target) : unit =
     Let's say that the targeted function call is r = f(x, y);
     If [dsp] is the empty string, then "f_dsp" will be used as a name based on the original name "f".
     Note: This transformation assumes that dsp_def has been already applied to the definition of the called function. *)
-let dsp_call ?(dsp : var = "") : Transfo.t =
+let%transfo dsp_call ?(dsp : var = "") (tg : target) : unit =
   apply_on_transformed_targets (Path.parent)
-    (fun t p -> Function_core.dsp_call dsp t p)
+    (fun t p -> Function_core.dsp_call dsp t p) tg

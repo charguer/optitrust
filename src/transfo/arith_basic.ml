@@ -5,38 +5,38 @@ include Arith_core
 (* [shift ~reparse ~inv ~pre_cast ~post_cast u tg]:  expects the target [tg]
     to point at a trm on which an arithmetic operation can be applied, then
     depending on the value of [inv] it will add or substract [u] to that trm.*)
-let shift ?(reparse : bool = false) ?(inv : bool = false) ?(pre_cast : typ option)
-  ?(post_cast : typ option) (u : trm) : Transfo.t =
+let%transfo shift ?(reparse : bool = false) ?(inv : bool = false) ?(pre_cast : typ option)
+  ?(post_cast : typ option) (u : trm) (tg : target) : unit =
   reparse_after ~reparse (
-    apply_on_targets (Arith_core.transform Arith_shift inv u pre_cast post_cast) )
+    apply_on_targets (Arith_core.transform Arith_shift inv u pre_cast post_cast) ) tg
 
 (* [scale ~inv ~pre_cast ~post_cast u] *)
-let scale ?(reparse : bool = false) ?(inv : bool = false) ?(pre_cast : typ option)
-  ?(post_cast : typ option) (u : trm) : Transfo.t =
+let%transfo scale ?(reparse : bool = false) ?(inv : bool = false) ?(pre_cast : typ option)
+  ?(post_cast : typ option) (u : trm) (tg : target) : unit =
   reparse_after ~reparse (
-    apply_on_targets (Arith_core.transform Arith_scale inv u pre_cast post_cast) )
+    apply_on_targets (Arith_core.transform Arith_scale inv u pre_cast post_cast) ) tg
 
 (* [apply op arg] expects the target [tg] to be pointing at any node of the ast
       then it applies the binary operation [op] at that node with the second argument
       of that operation being [arg] *)
-let apply (op : binary_op) (arg : trm) : Transfo.t =
-  apply_on_targets (Arith_core.apply op arg)
+let%transfo apply (op : binary_op) (arg : trm) (tg : target) : unit =
+  apply_on_targets (Arith_core.apply op arg) tg
 
 (* [simpl f] applies a arithmetic rewriting method from the module Arith_core:
    - gather  for grouping and cancelling out similar expressions in sums and produts
    - expand  for expanding products involving sums. *)
-let simpl ?(indepth : bool = false) (f: (expr -> expr)) : Transfo.t =
-  apply_on_targets (Arith_core.simplify indepth f)
+let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : unit =
+  apply_on_targets (Arith_core.simplify indepth f) tg
 
 (* [simpl_rec f tg] just an alias for simpl ~indepth:true tg *)
-let simpl_rec (f : (expr -> expr)) : Transfo.t =
-  simpl ~indepth:true f
+let%transfo simpl_rec (f : (expr -> expr)) (tg : target) : unit =
+  simpl ~indepth:true f tg
 
 
 (* [simplify ~indepth tg] applies simpl with the operation being gathering of
     arithmetic experssions *)
-let simplify ?(indepth : bool = false) : Transfo.t =
-  simpl ~indepth Arith_core.gather_rec
+let%transfo simplify ?(indepth : bool = false) (tg : target) : unit =
+  simpl ~indepth Arith_core.gather_rec tg
 
 (* alias cPrimArith *)
 let constr =
@@ -44,11 +44,11 @@ let constr =
 
 (* [clear_nosimpl tg]: clears all the marks on all the instructions that where
     skipped by the simplifier *)
-let clear_nosimpl (tg : target) : unit =
+let%transfo clear_nosimpl (tg : target) : unit =
   Marks.remove Arith_core.mark_nosimpl [nbMulti; cMark Arith_core.mark_nosimpl]
 
 (* [nosimplf tg]: mark all the instructions targeted by [tg] as "__arith_core_nosimpl" *)
-let nosimpl (tg : target) : unit =
+let%transfo nosimpl (tg : target) : unit =
   Marks.add Arith_core.mark_nosimpl tg
 
 (* LATER: have a stack of different marks to avoid loosing the previously existing ones *)

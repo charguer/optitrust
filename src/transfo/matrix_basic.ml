@@ -1,49 +1,50 @@
 open Ast
+open Target
 
 (* [intro_calloc tg]: expects the target [tg] to point at  a call to funciton alloc then it will
     replace this call with a call to CALLOC. *)
-let intro_calloc : Target.Transfo.t =
-  Target.apply_on_targets (Matrix_core.intro_calloc)
+let%transfo intro_calloc (tg : target) : unit =
+  Target.apply_on_targets (Matrix_core.intro_calloc) tg
 
 (* [intro_malloc tg]: expects the target [tg] to point at a call to the function MALLOC,
       then it will replace this call with a call to MALLOC. *)
-let intro_malloc : Target.Transfo.t =
-  Target.apply_on_targets (Matrix_core.intro_malloc)
+let%transfo intro_malloc (tg : target) : unit =
+  Target.apply_on_targets (Matrix_core.intro_malloc) tg
 
 (* [intro_mindex dim tg]. expects the target [tg] to point at an array access
     then it will replace that access to let say index i with an access at
     MINDEX (dim,i). *)
-let intro_mindex (dim : trm) : Target.Transfo.t =
-  Target.apply_on_targets (Matrix_core.intro_mindex dim)
+let%transfo intro_mindex (dim : trm) (tg : target) : unit =
+  Target.apply_on_targets (Matrix_core.intro_mindex dim) tg
 
 (* [reorder_dims order tg]: expects the target [tg] to point at a call to ALLOC or MINDEX functions,
       then it will reorder their args based on [order], where [order] is a list of indices which the
       current args should follow. *)
-let reorder_dims ?(rotate_n : int = 0) ?(order : int list = [])  (): Target.Transfo.t =
-  Target.apply_on_targets (Matrix_core.reorder_dims rotate_n order)
+let%transfo reorder_dims ?(rotate_n : int = 0) ?(order : int list = []) (tg : target) : unit =
+  Target.apply_on_targets (Matrix_core.reorder_dims rotate_n order) tg
 
 (* [insert_alloc_dim new_dim]: expects the target [tg] to point at call to ALLOC functions, then it will
       add a new arg at the begining of the list of args in the targeted call. *)
-let insert_alloc_dim (new_dim : trm) : Target.Transfo.t =
-  Target.apply_on_targets (Matrix_core.insert_alloc_dim new_dim)
+let%transfo insert_alloc_dim (new_dim : trm) (tg : target) : unit =
+  Target.apply_on_targets (Matrix_core.insert_alloc_dim new_dim) tg
 
 (* [insert_access_dim new_dim new_index tg]: expects the target [tg] to point at an array access, then it will
     add two new args([new_dim] and [new_index]) in the call to MINDEX function inside that array access. *)
 
-let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.t =
-  Target.apply_on_targets (Matrix_core.insert_access_dim_index new_dim new_index)
+let%transfo insert_access_dim_index (new_dim : trm) (new_index : trm) (tg : target) : unit =
+  Target.apply_on_targets (Matrix_core.insert_access_dim_index new_dim new_index) tg
 
 (* [biject fun_name tg]: expectes the target [tg] to point at a function call, then it replaces the name
      of the called function with [fun_name]. *)
-let biject (fun_name : string) : Target.Transfo.t =
-  Expr.replace_fun fun_name
+let%transfo biject (fun_name : string) (tg : target) : unit =
+  Expr.replace_fun fun_name tg
 
 (* TODO: implement using local_name_tile to avoid duplication *)
 (* [local_name ~mark var into tg]: expects the target to point at an instruction that contains
       an occurrence of [var] then it will define a matrix [into] whose dimensions will be the same
       as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finally we
       free up the memory. *)
-let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : Target.target option) (v : var) ~into:(into : var) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : Target.target) : unit =
+let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : Target.target option) (v : var) ~into:(into : var) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : Target.target) : unit =
   let remove = (my_mark = None) in
   let get_alloc_type_and_trms (t : trm) (tg1 : Target.target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
@@ -95,7 +96,7 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_ins
 
 (* [local_name_tile ~mark var into tg]: expects the target to point at an instruction that contains
       an occurrence of [var] then it will define a matrix [into] whose dimensions will correspond to a tile of [var]. Then we copy the contents of the matrix [var] into [into] according to the given tile offsets and finally we free up the memory. *)
-let local_name_tile ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : Target.target option) (v : var) ~into:(into : var) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : Target.target) : unit =
+let%transfo local_name_tile ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : Target.target option) (v : var) ~into:(into : var) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : Target.target) : unit =
   let remove = (my_mark = None) in
   let get_alloc_type_and_trms (t : trm) (tg1 : Target.target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
@@ -146,8 +147,8 @@ let local_name_tile ?(my_mark : mark option) ?(indices : (var list) = []) ?(allo
   )
 
 (* [delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops] a generalized version of variable_delocalize. *)
-let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "") ?(labels : label list = []) ~dim:(dim : trm)  ~index:(index : string) ~ops:(dl_o : local_ops) : Target.Transfo.t =
-    Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc any_mark labels index dl_o)
+let%transfo delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(any_mark : mark = "") ?(labels : label list = []) ~dim:(dim : trm)  ~index:(index : string) ~ops:(dl_o : local_ops) (tg : target) : unit =
+    Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc any_mark labels index dl_o) tg
 
 let assert_same_dims (a : trms) (b : trms) : unit =
   (* TODO: need something better for term equality *)
@@ -196,8 +197,8 @@ let simpl_index_add_on (t : trm) : trm =
 
    For correctness, size and index expressions must be pure.
    *)
-let simpl_index_add : Target.Transfo.t =
-  Target.apply_at_target_paths simpl_index_add_on
+let%transfo simpl_index_add (tg : target) : unit =
+  Target.apply_at_target_paths simpl_index_add_on tg
 
 let simpl_access_of_access_on (t : trm) : trm =
   let error = "Matrix_basic.simpl_access_of_access_on: expected nested array accesses" in
@@ -213,8 +214,8 @@ let simpl_access_of_access_on (t : trm) : trm =
 
    TODO: should this be in another file?
    *)
-let simpl_access_of_access : Target.Transfo.t =
-  Target.apply_at_target_paths simpl_access_of_access_on
+let%transfo simpl_access_of_access (tg : target) : unit =
+  Target.apply_at_target_paths simpl_access_of_access_on tg
 
 (* internal *)
 let find_occurences_and_add_mindex0 (x : var) (t : trm) : (bool * trm) =
@@ -286,8 +287,8 @@ end
    LATER: deal with control flow
 
    *)
-let intro_malloc0 (x : var) : Target.Transfo.t =
-  Target.apply_at_target_paths (intro_malloc0_on x)
+let%transfo intro_malloc0 (x : var) (tg : target) : unit =
+  Target.apply_at_target_paths (intro_malloc0_on x) tg
 
 (*
   f(name)
@@ -349,7 +350,7 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
     trm_apps (trm_var "memcpy") [copy_offset; trm_var_get stack_name; copy_size];
   ]
 
-let stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (tg : Target.target) : unit =
+let%transfo stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun () ->
     Target.apply_at_target_paths (stack_copy_on var copy_var copy_dims) tg)
 
@@ -374,7 +375,7 @@ let elim_mindex_on (t : trm) : trm =
    Rewrite.equiv_at ~ctx:true "int d1, d2, d3, i1, i2, i3; ==> MINDEX3(d1, d2, d3, i1, i2, i3) == (i1 * d2 * d3 + i2 * d3 + i3)" tg
    [...]
    *)
-let elim_mindex (tg : Target.target) : unit =
+let%transfo elim_mindex (tg : Target.target) : unit =
   Target.apply_at_target_paths elim_mindex_on tg
 
 let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
@@ -427,7 +428,7 @@ type storage_folding_kind =
 
    assumes that [i >= 0].
    *)
-let storage_folding ~(var : var) ~(dim : int) ~(size : trm)
+let%transfo storage_folding ~(var : var) ~(dim : int) ~(size : trm)
   ?(kind : storage_folding_kind = ModuloIndices) (tg : Target.target) : unit =
   assert(kind = ModuloIndices);
   Target.apply_at_target_paths (storage_folding_on var dim size) tg
@@ -462,14 +463,14 @@ let delete_on (var : var) (t : trm) : trm =
   Both allocation and de-allocation instructions are deleted.
   Checks that [var] is not used anywhere.
    *)
-let delete ~(var : var) (tg : Target.target) : unit =
+let%transfo delete ~(var : var) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun () ->
     Target.apply_at_target_paths (delete_on var) tg)
 
 (* [read_last_write]: expects the target [tg] to pint at a matrix read operation, and replaces it with the value that was last written to this matrix index. The [write] target must correspond to this last write.
   For correctness, if [V] was written at index [i], reading [V[j/i]] should be equivalent to reading at index [j].
    *)
-let read_last_write ~(write : Target.target) (tg : Target.target) : unit =
+let%transfo read_last_write ~(write : Target.target) (tg : Target.target) : unit =
   let write_trm = match Target.get_trm_at write with
   | Some wt -> wt
   | None -> fail None "Matrix_basic.read_least_write: write target not found"

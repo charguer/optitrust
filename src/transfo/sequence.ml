@@ -12,8 +12,8 @@ include Sequence_basic
       of [nb] should be poistive otherwise it should be negative.
     [on] - denotes a single target to be isolated inside the sub-sequence. When [on] i used all the other
       except mark and visible shoold be left empty. *)
-let intro ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int = 0)
-  ?(on : Target.target = []) ?(mark : string = "") ?(visible : bool = true) () : unit =
+let%transfo intro ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int = 0)
+  ?(on : Target.target = []) ?(mark : string = "") ?(visible : bool = true) (_u : unit) : unit =
   match on with
   | [_] ->  if (start = [] && stop = [] && nb = 0) then Sequence_basic.intro_on_instr ~mark ~visible on else ()
   | _ ->  begin match nb with
@@ -34,7 +34,7 @@ let intro ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int 
 
 (* [intro_targets tg]: expects the target [tg] to point at one or more consecutive instuctions
       then it will introduce a sequence that contains those instructions. *)
-let intro_targets ?(mark : string = "")(tg : Target.target) : unit =
+let%transfo intro_targets ?(mark : string = "")(tg : Target.target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in
   let first_target = [Target.occFirst] @ (Target.filter_constr_occurrence tg) in

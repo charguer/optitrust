@@ -9,7 +9,7 @@ let delete : Target.Transfo.t =
 (* [copy ~target tg]: expects the target [tg] to point at an instruction that is
     going to be copied to the relative target [where]. If [delete] is true then
     the targetd instruction will be delete. *)
-let copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:Target.target = []) (tg : Target.target) : unit =
+let%transfo copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:Target.target = []) (tg : Target.target) : unit =
   Target.apply_on_transformed_targets ~rev (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) ->
       let tg_dest_path_seq, dest_index = if dest = [] then p, i+1 else Target.resolve_target_between_exactly_one dest t in
@@ -30,7 +30,7 @@ let copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:Target.target = [
 
    This is sufficient but not necessary, a manual commutation proof can be used
    as well. *)
-let move ?(rev : bool = false) ~dest:(dest : Target.target) (tg : Target.target) : unit =
+let%transfo move ?(rev : bool = false) ~dest:(dest : Target.target) (tg : Target.target) : unit =
   copy ~rev ~delete:true ~dest tg
 
 
@@ -40,7 +40,7 @@ let move ?(rev : bool = false) ~dest:(dest : Target.target) (tg : Target.target)
 
    @correctness: the read expression must be pure, and its evaluation must not
    have changed since the write.*)
-let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
+let%transfo read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
   let write_trm = match Target.get_trm_at write with
   | Some wt -> wt
   | None -> fail None "uninline: write target does point to any node" in
@@ -70,5 +70,5 @@ let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
       x += 3;
     }
     is transformed to x += 1+2+3 *)
-let accumulate : Target.Transfo.t =
-  Target.apply_on_targets (Instr_core.accumulate)
+let%transfo accumulate (tg : target) : unit =
+  Target.apply_on_targets (Instr_core.accumulate) tg

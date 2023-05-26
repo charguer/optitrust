@@ -16,7 +16,7 @@ let find_surrounding_path (p : path) (t : trm) : path =
 
 (* [simpl_surrounding_expr] first goes to the outside of the targeted expression,
    then applies [simpl] *)
-let simpl_surrounding_expr ?(indepth : bool = true) (f : (expr -> expr)) (tg : target) : unit =
+let%transfo simpl_surrounding_expr ?(indepth : bool = true) (f : (expr -> expr)) (tg : target) : unit =
   let paths_to_simpl = ref Path_set.empty in
   Target.iter (fun t p ->
     paths_to_simpl := Path_set.add (find_surrounding_path p t) !paths_to_simpl;

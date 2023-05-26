@@ -54,7 +54,7 @@ let deal_with_binding (loc : Location.t) (binding : value_binding): value_bindin
       let continuation = B.pexp_fun Nolabel None B.punit expr in
       (* TODO: Replace print_call with the real tracing function *)
       (* Trace_printers.print_call ~name:"name" ~args:[..] (fun () -> body) *)
-      B.pexp_apply (B.evar ("Trace_printers.print_call")) [(Labelled "name", (B.estring name)); (Labelled "args", args); (Nolabel, continuation)]
+      B.pexp_apply (B.evar ("Trace.transfo_step")) [(Labelled "name", (B.estring name)); (Labelled "args", args); (Nolabel, continuation)]
   in
   { binding with pvb_expr = dive_into_args binding.pvb_expr [] }
 

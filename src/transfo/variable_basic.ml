@@ -6,9 +6,9 @@ open Ast
       [at] - denotes a target where the folding is done. If empty the folding operation
              is performed on all the ast nodes in the same level as the
              declaration or deeper, by default [at] = []. *)
-let fold ?(at : target = []) : Target.Transfo.t =
+let%transfo fold ?(at : target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Variable_core.fold at i t p)
+    (fun t (p,i) -> Variable_core.fold at i t p) tg
 
 
 (* [unfold ~mark ~accept_functions ~at tg]: expects the target [tg] to be pointing at an initialized
@@ -35,24 +35,24 @@ let fold ?(at : target = []) : Target.Transfo.t =
      }
 
      NOTE: the targeted variable must be a const variable. *)
-let unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : Target.target = []) : Target.Transfo.t =
+let%transfo unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : Target.target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-    (fun t (p, p_local, i) -> Variable_core.unfold false accept_functions mark at i p_local t p)
+    (fun t (p, p_local, i) -> Variable_core.unfold false accept_functions mark at i p_local t p) tg
 
 (* [inline]: similar to [unfold] but this one deletes the targeted declaration. *)
-let inline ?(mark : mark = "") ?(accept_functions : bool = false) : Target.Transfo.t =
+let%transfo inline ?(mark : mark = "") ?(accept_functions : bool = false) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-    (fun t (p, p_local, i) -> Variable_core.unfold true accept_functions mark [] i p_local t p)
+    (fun t (p, p_local, i) -> Variable_core.unfold true accept_functions mark [] i p_local t p) tg
 
 (* [rename ~into tg]: expects the target [tg] to be pointing at a declaration, then it will
     rename its declaration and all its occurrences. *)
-let rename ~into:(new_name : var) : Target.Transfo.t =
+let%transfo rename ~into:(new_name : var) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Variable_core.rename new_name i t p)
+    (fun t (p,i) -> Variable_core.rename new_name i t p) tg
 
 (* [init_detach tg]: expects the target [tg] to point at a variable initialization.
    It then splits the instruction into a variable declaration and a set operation. *)
-let init_detach (tg : Target.target) : unit =
+let%transfo init_detach (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
     Target.apply_on_targets (Variable_core.init_detach) tg
   )
@@ -62,9 +62,9 @@ let init_detach (tg : Target.target) : unit =
     for an unique assigment. Then it will replace that assignment with a new initialized
     variable declaration.
     [const] -denotes a booleean to decide if the new declaration is constant or not. *)
-let init_attach ?(const : bool = false) : Target.Transfo.t =
+let%transfo init_attach ?(const : bool = false) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Variable_core.init_attach const i t p )
+    (fun t (p,i) -> Variable_core.init_attach const i t p ) tg
 
 
 (* [local_name var_type ~mark var ~into tg]: expects the target [tg] to point at a marked
@@ -82,7 +82,7 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
        }@nobrace                                }
                                                 a = x;
                                               }@nobrace *)
-let local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : Target.target) : unit =
+let%transfo local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : Target.target) : unit =
   Internal.nobrace_enter();
   Target.apply_on_targets (Variable_core.local_name mark var nv) tg
 
@@ -121,16 +121,16 @@ let local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : Target.tar
    [array_size] - denotes the size of the array inside the block
    [ops] - the delocalize operation, it can be an arithmetic delocalization or an object delocalization
     of the array declared inside the block. *)
-let delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : local_ops) (tg : Target.target) : unit =
+let%transfo delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : local_ops) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
 
 
 (* [change_type new_type tg]: expects [tg] to point a variable declaration, then it will change the type of
     that variable with [new_type]. *)
-let change_type (new_type : typvar) : Target.Transfo.t =
+let%transfo change_type (new_type : typvar) (tg : target) : unit =
  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p, i) -> Variable_core.change_type new_type i t p)
+    (fun t (p, i) -> Variable_core.change_type new_type i t p) tg
 
 
 (* [insert ~constr ~name ~typ ~value tg]: expects the target [tg] to point at any relative location in a sequence
@@ -142,16 +142,16 @@ let change_type (new_type : typvar) : Target.Transfo.t =
      [typ] - typ of the inserted variable;.
 
     NOTE: if initialization [value] is not provided then the declaration will be un-initialized. *)
-let insert ?(const : bool = false) ?(reparse : bool = false) ?(value : trm = trm_lit (Lit_uninitialized)) ~name:(name : string) ~typ:(typ : typ) : Target.Transfo.t =
-  Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p))
+let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ?(value : trm = trm_lit (Lit_uninitialized)) ~name:(name : string) ~typ:(typ : typ) (tg : target) : unit =
+  Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p)) tg
 
 
 (* [subst name ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
     variable [name], then it will check for occurrences of the variable [subst] and replace is with [put]. *)
-let subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Target.Transfo.t =
+let%transfo subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) (tg : target) : unit =
   Target.reparse_after ~reparse (
     Target.apply_on_targets (Variable_core.subst name put)
-  )
+  ) tg
 
 (* [bind ~const ~mark fresh_name tg]: expects the target [tg] to be pointing at any trm, then it will insert a variable declaration
       with name [fresh_name] just before the instruction that contains the target [tg], and replace the targeted trm with an occurrence
@@ -165,7 +165,7 @@ let subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Targe
       (* LATER: document the behavior of ${occ} in the case [tg] aims at multiple targets *)
       (* LATER: document the [îs_ptr] and explain why it is needed *)
       (* LATER: it seems that a mark is introduced and not eliminated *)
-let bind ?(const : bool = false) ?(mark_let) ?(mark_occ) ?(mark_body : mark = "") ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : var) (tg : target) : unit =
+let%transfo bind ?(const : bool = false) ?(mark_let : mark option) ?(mark_occ : mark option) ?(mark_body : mark = "") ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : var) (tg : target) : unit =
   Internal.nobrace_remove_after ~remove:remove_nobrace ( fun _ ->
     Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) ->
@@ -179,26 +179,26 @@ let bind ?(const : bool = false) ?(mark_let) ?(mark_occ) ?(mark_body : mark = ""
       Otherwise, first switch the mutability of that variable and then replace all get operations on that variable with its intialization
       value.
   @correctness: always correct if the result type checks. *)
-let to_const : Target.Transfo.t =
+let%transfo to_const (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-     ( fun t (p, i) -> Variable_core.from_to_const true i t p)
+     ( fun t (p, i) -> Variable_core.from_to_const true i t p) tg
 
 (* [to_nonconst tg]: expects the target [tg] to be point at a variable declaration,
       If the variable is mutable then does nothing, otherwise change the mutability of the targeted variable to a mutable one,
       and replace all the variable occurrences with a get operation containing that occurrence. *)
-let to_nonconst : Target.Transfo.t =
+let%transfo to_nonconst (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-     ( fun t (p, i) -> Variable_core.from_to_const false i t p)
+     ( fun t (p, i) -> Variable_core.from_to_const false i t p) tg
 
 
 (* [simpl_deref ~indepth tg]: expects the target [tg] to be pointing at expressions of the form  *(&b), &( *b) in depth
     if [indepth] is set to true or at the give target if [indepth] is false.*)
-let simpl_deref ?(indepth : bool = false) : Target.Transfo.t =
-  Target.apply_on_targets (Variable_core.simpl_deref indepth)
+let%transfo simpl_deref ?(indepth : bool = false) (tg : target) : unit =
+  Target.apply_on_targets (Variable_core.simpl_deref indepth) tg
 
 (* [exchange var1 var2 tg]: expects the target [tg] to point at an instruction that contains both the
     variable [var1] and [var2], then it will try to swap all the occurrences of [var1] with [var2]. *)
-let exchange (v1 : var) (v2 : var) (tg : Target.target) : unit =
+let%transfo exchange (v1 : var) (v2 : var) (tg : Target.target) : unit =
   let tm = Trm_map.empty in
   let tm = Trm_map.add v1 (trm_var v2) tm in
   let tm = Trm_map.add v2 (trm_var v1) tm in
@@ -207,11 +207,11 @@ let exchange (v1 : var) (v2 : var) (tg : Target.target) : unit =
 
 (* [ref_to_pointer tg]: expects thee target [tg] to be pointing at a reference declaration, then it will convert
     this reference into a pointer. *)
-let ref_to_pointer : Target.Transfo.t =
+let%transfo ref_to_pointer (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p, i) -> Variable_core.ref_to_pointer i t p)
+    (fun t (p, i) -> Variable_core.ref_to_pointer i t p) tg
 
 (* [ref_to_var tg]: expects the target [tg] to point at a refernce declaration,
      then it will convert it into a simple variable declaration. *)
-let ref_to_var : Transfo.t =
-  apply_on_targets (Variable_core.ref_to_var)
+let%transfo ref_to_var (tg : target) : unit =
+  apply_on_targets (Variable_core.ref_to_var) tg
