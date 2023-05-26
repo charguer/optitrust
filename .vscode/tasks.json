@@ -235,7 +235,7 @@ file{
     {
       "label": "Compile the full current folder",
       "type": "shell",
-      "command": "make all",
+      "command": "dune build",
       "options": {
         "cwd": "${fileDirname}"
       }
@@ -244,14 +244,6 @@ file{
       "label": "Recompile then compile and run current",
       "type": "shell",
       "command": "make optitrust; make ${fileBasenameNoExtension}.out",
-      "options": {
-        "cwd": "${fileDirname}"
-      }
-    },
-    {
-      "label": "Compile the full current folder",
-      "type": "shell",
-      "command": "make all",
       "options": {
         "cwd": "${fileDirname}"
       }

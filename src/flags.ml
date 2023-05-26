@@ -122,7 +122,7 @@ let get_exit_line () : int option =
     else Some !exit_line
 
 (* [only_big_steps]: flag for the treatment of the exit line to ignore the small steps ('!!') and only
-   consider big steps ('!^'). *)
+   consider big steps. TODO: used? *)
 let only_big_steps : bool ref = ref false
 
 (* [c_parser_name]: name of the C parser to use *)

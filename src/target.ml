@@ -1588,9 +1588,9 @@ let target_between_show_aux (m : mark) (k : int) (t : trm) : trm =
 let target_between_show_transfo (m : mark) : Transfo.local_between =
   fun (k:int) -> apply_on_path (target_between_show_aux m k)
 
-(* [bigstep s]: an alias for [Trace.bigstep s]. *)
+(* [bigstep s]: an alias for [Trace.open_bigstep s]. *)
 let bigstep (s : string) : unit =
-  Trace.bigstep s
+  Trace.open_bigstep ~name:s
 
 
 (* [show_next_id] used for batch mode execution of unit tests, to generate names of for marks.
