@@ -211,7 +211,7 @@ type stepdescr = {
 
 
 (* [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_detail | Step_target_resolve | Step_parsing
+type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_parsing
 
 (* [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -219,7 +219,7 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_root -> "Root"
   | Step_big -> "Big"
   | Step_small -> "Small"
-  | Step_detail -> "Detail"
+  | Step_transfo -> "Transfo"
   | Step_target_resolve -> "Target"
   | Step_parsing -> "Parsing"
 
@@ -433,10 +433,11 @@ let close_root_step () : unit =
   finalize_step step
 
 (* [step] is a function wrapping the body of a transformation *)
-let step ?(line : int = -1) ~(kind:step_kind) ~(name:string) (body : unit -> unit) : unit =
+let step ?(line : int = -1) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
   open_step ~line ~kind ~name ();
-  body();
-  close_step()
+  let r = body() in
+  close_step();
+  r
 
 (* [invalidate()]: restores the global state (object [trace]) in its uninitialized state,
    like at the start of the program.  *)
@@ -882,12 +883,12 @@ let step_tree_to_doc (step_tree:step_tree) : document =
        tab
     ^^ string (step_kind_to_string s.step_kind)
     ^^ space
-    ^^ string (sprintf "(%dms)" (float_of_int (i.step_duration *. 1000)))
+    ^^ string (sprintf "(%dms)" (int_of_float (i.step_duration *. 1000.)))
     ^^ space
     ^^ string i.step_name
     ^^ (separate space (List.map (fun (k,v) -> string (if k = "" then v else sprintf "~%s:%s" k v)) i.step_args))
     ^^ (if i.step_justif = [] then empty else separate empty (List.map (fun txt -> hardline ^^ tab ^^ string "==>" ^^ string txt) i.step_justif))
-    ^^ (if i.step_script = "" then empty else (*hardline ^^ tab ^^*) string ">> " ^^ s.step_script)
+    ^^ (if i.step_script = "" then empty else (*hardline ^^ tab ^^*) string ">> " ^^ (string i.step_script))
     ^^ hardline
     ^^ separate empty (List.map (aux (depth+1)) s.step_sub)
     in
@@ -1034,6 +1035,16 @@ let open_smallstep ?(line : int = -1) ~reparse:bool () : unit =
       else None
     in
   open_step ~kind:Step_small ~name:"" ~step_script ()
+
+let parsing_step (f : unit -> unit) : unit =
+  step ~kind:Step_parsing ~name:"" f
+
+let target_resolve_step (f : unit -> 'a) : 'a =
+  step ~kind:Step_target_resolve ~name:"" f
+
+let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> unit) : unit =
+  step ~kind:Step_transfo ~name f
+  (* TODO *)
 
 (* [check_recover_original()]: checks that the AST obtained so far
    is identical to the input AST, obtained from parsing. If not,

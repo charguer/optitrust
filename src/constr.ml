@@ -1389,8 +1389,10 @@ and fix_target_between (rel : target_relative) (t : trm) (p : path) : path =
       | Dir_seq_nth i -> p' @ [Dir_before (i + shift)]
       | _ -> fail None "Constr.compute_relative_index: expected a Dir_seq_nth as last direction"
 
-(* [resolve_target tg]: resolves the target [tg] *)
-and resolve_target (tg : target) (t : trm) : paths =
+(* [resolve_target tg]: resolves the target [tg].
+   Fills [marks] by marking each path, if [Some]. *)
+and resolve_target ?(marks : mark list ref option) (tg : target) (t : trm) : paths =
+  Trace.target_resolve_step (fun () ->
   let tgs = target_to_target_struct tg in
   (* try *)
     let res = resolve_target_struct tgs t in
@@ -1405,6 +1407,16 @@ and resolve_target (tg : target) (t : trm) : paths =
 with Resolve_target_failure (_loc_opt,str) ->
     fail None ("Constr." ^ str ^ "\n" ^ (target_to_string tg))
     *)
+
+  (* LATER: could use a system to set all the marks in a single pass over the ast,
+      able to hand the Dir_before *)
+    let t = List.fold_left2 (fun t p m ->
+      match last_dir_before_inv p with
+      | None -> apply_on_path (trm_add_mark m) t p
+      | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
+      t ps marks in
+    Trace.set_ast t;
+  )
 
 (* [resolve_target_exactly_one tg t]: similar to [resolve_target] but this one fails if the target resolves to more than one path *)
 and resolve_target_exactly_one (tg : target) (t : trm) : path =

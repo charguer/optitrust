@@ -1484,13 +1484,18 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
   let tg = fix_target tg in
   let t = Trace.ast() in
   with_stringreprs_available_for [tg] t (fun t ->
-    let ps = resolve_target tg t in
-    let ps = if rev then List.rev ps else ps in
+    let marks = [] ref in
+    resolve_target ?marks tg t;
+    (* LATER: recover optimization
     match ps with
     | [] -> ()
     | [p] -> (* Call the transformation at that path *)
-             tr_wrapped 0 t p
-    | _ ->
+            tr_wrapped 0 t p
+    | _ -> *)
+    let marks = if rev then List.rev !marks else !marks in
+    Trace.target_resolve_step (fun () ->
+      let ps = resolve_target tg t in
+      let ps = if rev then List.rev ps else ps in
       (* LATER: optimization to avoid mark for first occurrence *)
       let marks = List.map (fun _ -> Mark.next()) ps in
       (* LATER: could use a system to set all the marks in a single pass over the ast,
@@ -1501,6 +1506,7 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
         | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
         t ps marks in
       Trace.set_ast t;
+    );
       (* Iterate over these marks *)
       try
         List.iteri (fun occ m ->
@@ -1533,9 +1539,8 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
       with Interrupted_applyi_on_transformed_targets t ->
          (* Record the ast carried by the exception to allow visualizing the ast *)
          Trace.set_ast t
-      );
-
-    Constr.old_resolution := c_o_r_bak (* TEMPORARY *)
+  );
+  Constr.old_resolution := c_o_r_bak (* TEMPORARY *)
 
 (* [iter] same as [iteri] but without occurence index *)
 let iter (tr : trm -> path -> unit) : target -> unit =
@@ -1692,12 +1697,12 @@ let get_toplevel_function_name_containing (dl : path) : string option =
 
 (* [reparse_only fun_nmaes]: reparse only those functions whose identifier is contained in [fun_names]. *)
 let reparse_only (fun_names : string list) : unit =
-  Trace.call (fun t ->
+  Trace.parsing_step (fun () -> Trace.call (fun t ->
     let chopped_ast, chopped_ast_map  =  hide_function_bodies (function f -> not (List.mem f fun_names)) t in
     let parsed_chopped_ast = Trace.reparse_trm  (Trace.get_context ()) chopped_ast in
     let new_ast = update_chopped_ast parsed_chopped_ast chopped_ast_map in
     Trace.set_ast new_ast
-  )
+  ))
 
 (* [get_relative_type tg]: get the type of target relative , Before, After, First Last. *)
 let get_relative_type (tg : target) : target_relative option =
@@ -1719,15 +1724,15 @@ let get_relative_type (tg : target) : target_relative option =
 (* TODO: change strategy for reparse, probably based on missing types?
    else on annotations added by clangml but cleared by smart-constructors
    TODO URGENT: the resolve_target does not work with the new Dir_before system *)
-let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
-  fun (tg : target) ->
+let reparse_after ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit =
     if not reparse then tr tg else begin
-
+      Trace.parsing_step (fun () ->
       let tg = enable_multi_targets tg in
       let ast = (get_ast()) in
       (* LATER: it would be nice to avoid computing the
         with_stringreprs_available_for which we already compute later on
         during [tr tg]. *)
+      (* FIXME: will not appear in trace *)
       let tg_paths = with_stringreprs_available_for [tg] ast (fun ast ->
         if Constr.is_target_between tg
         then let tg_ps = resolve_target_between tg ast in
@@ -1741,8 +1746,8 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
         reparse_only fun_names
       end else
         Trace.reparse();
+      )
     end
-
 
 (* LATER: use this more efficient version that avoids computing path resolution twice
 
