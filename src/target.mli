@@ -448,8 +448,6 @@ val target_show_transfo : ?types:bool -> mark -> Transfo.local
 
 val show_type : ?line:int -> ?reparse:bool -> target -> unit
 
-val bigstep : string -> unit
-
 (* Target debugging *)
 
 val target_to_string : target -> string
@@ -460,7 +458,7 @@ val string_to_rexp : bool -> bool -> string -> Constr.trm_kind -> Constr.rexp
 
 val (!!) : 'a -> 'a
 val (!!!) : 'a -> 'a
-
+val bigstep : string -> unit
 
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 
