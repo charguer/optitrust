@@ -7,6 +7,7 @@ open PPrint
    the source file. Line numbers are counted from 1 in that map. *)
 module Int_map = Map.Make(Int)
 let ml_file_excerpts = ref Int_map.empty
+let debug_compute_ml_file_excerpts = false
 
 (* [compute_ml_file_excerpts lines]: is a function for grouping lines according to the [!!] symbols. *)
 let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
@@ -14,7 +15,11 @@ let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
   let start = ref 0 in
   let acc = Buffer.create 3000 in
   let push () =
-    r := Int_map.add (!start+1) (Buffer.contents acc) !r;
+    let s = Buffer.contents acc in
+    let i = !start+1 in
+    if debug_compute_ml_file_excerpts
+      then printf "Excerpt[%d] = <<<%s>>>\n\n" i s;
+    r := Int_map.add i s !r;
     Buffer.clear acc; in
   let regexp_let = Str.regexp "^[ ]*let" in
   let starts_with_let (str : string) : bool =
@@ -277,11 +282,11 @@ let get_root_step () : step_tree =
 (* [get_excerpt line]: returns the piece of transformation script that starts on the given line. Currently returns the ""
     in case [compute_ml_file_excerpts] was never called. LATER: make it fail in that case. *)
 let get_excerpt (line : int) : string =
-  if line = - 1 then "" else (*failwith "get_excerpt: requires a valid line number";*)
-  if !ml_file_excerpts = Int_map.empty then "" else begin (* should "" be failure? *)
+  if line = - 1 then sprintf "<get_excerpt for line -1>" else (*failwith "get_excerpt: requires a valid line number";*)
+  if !ml_file_excerpts = Int_map.empty then "<get_excerpt: empty map>" else begin (* should "" be failure? *)
   match Int_map.find_opt line !ml_file_excerpts with
-    | Some txt -> txt
-    | None -> (*LATER: failwith? *) Printf.sprintf "<unable to retrieve line %d from script>" line
+    | Some txt -> if txt <> "" then txt else sprintf "<get_excerpt: empty string mapped to line %d>" line
+    | None -> (*LATER: failwith? *) sprintf "<get_excerpt: no binding for line %d>" line
   end
 
 (* [open_step] is called at the start of every big-step, or small-step,
@@ -951,7 +956,10 @@ let dump_diff_and_exit () : unit =
   let astBefore, astAfter =
     match step.step_sub with
     | [] -> failwith "dump_diff_and_exit: no sub-steps for which to display a diff";
-    | last_step :: _ -> last_step.step_ast_before, last_step.step_ast_after
+    | last_step :: _ ->
+        if !Flags.only_big_steps && last_step.step_kind <> Step_big
+          then failwith "dump_diff_and_exit: cannot show a diff for a big-step, no call to bigstep was made";
+        last_step.step_ast_before, last_step.step_ast_after
     in
 
   (* Option to compute light-diff:
@@ -1004,7 +1012,7 @@ let check_exit_at_end () : unit (* may not return *) =
 
 (* [open_bigstep s]: announces that the next step is a bigstep, and registers
    a string description for that step. The [close_bigstep] is implicitly handled. *)
-let open_bigstep ?(line : int = -1) (name:string) : unit =
+let open_bigstep ~(line : int) (title:string) : unit =
   (* The [check_exit] is performed after closing the last small-step or big-step,
     depending on whether the user is interested in a diff over the last big-step. *)
   close_smallstep_if_needed();
@@ -1016,19 +1024,19 @@ let open_bigstep ?(line : int = -1) (name:string) : unit =
   (* Reparse if needed *)
   if !Flags.reparse_at_big_steps
     then reparse_alias ();
-  open_step ~kind:Step_big ~name ~line ();
+  open_step ~kind:Step_big ~name:"" ~step_script:title ~line ();
   (* Handle progress report *)
   if !Flags.report_big_steps then begin
     Printf.printf "Executing bigstep %s%s\n"
       (if line <> -1 then sprintf "at line %d" line else "")
-      name
+      title
   end
 
 (* [open_smallstep s]: announces that the next step is a smallstep,
    and registers a string description for that step, based on the excerpt
    frmo the file. The [close_smallstep] is implicitly handled. *)
 (* LATER: add the line argument in the generation of the _with_lines file *)
-let open_smallstep ?(line : int = -1) ?(reparse:bool=false) () : unit =
+let open_smallstep ~(line : int) ?(reparse:bool=false) () : unit =
   close_smallstep_if_needed();
   if not !Flags.only_big_steps
     then check_exit ~line;
@@ -1092,15 +1100,18 @@ let check_recover_original () : unit =
    loaded by [Trace.init] if there is no preceeding '!!'.).
    Use [!!();] for a step in front of another language construct, e.g., a let-binding. *)
 let (!!) (x:'a) : 'a =
-  open_smallstep ~reparse:false ();
+  open_smallstep ~line:(-1) ~reparse:false ();
   x
 
 (* [!!!]: is similar to [!!] but forces a [reparse] prior to the [step] operation.
    ONLY FOR DEVELOPMENT PURPOSE. *)
 let (!!!) (x : 'a) : 'a =
-  open_smallstep ~reparse:true ();
+  open_smallstep ~line:(-1) ~reparse:true ();
   x
 
+(* [bigstep s]: an alias for [open_bigstep s], for usage in user scripts. *)
+let bigstep (s : string) : unit =
+  open_bigstep ~line:(-1) s
 
 (* [dump ~prefix]: invokes [output_prog] to write the contents of the current AST.
    If there are several traces (e.g., due to a [switch]), it writes one file for each.
