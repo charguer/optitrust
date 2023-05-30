@@ -377,9 +377,9 @@ let close_root_step () : unit =
 (* [step] is a function wrapping the body of a transformation *)
 let step ?(line : int = -1) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
   let s = open_step ~line ~kind ~name () in
-  let r = body() in
-  assert (get_cur_step() == s);
-  close_step();
+  let r = body () in
+  assert (get_cur_step () == s);
+  close_step ();
   r
 
 (* [scoped_step] opens a scope to perform transformations in.
@@ -1074,8 +1074,10 @@ let open_smallstep ~(line : int) ?(reparse:bool=false) () : unit =
 
 let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> unit) : unit =
   step ~kind:Step_transfo ~name (fun () ->
+    printf "> %s\n" name;
     List.iter (fun (k, v) -> step_arg ~name:k ~value:v) args;
-    f ()
+    f ();
+    printf "< %s\n" name;
   )
 
 (* [check_recover_original()]: checks that the AST obtained so far

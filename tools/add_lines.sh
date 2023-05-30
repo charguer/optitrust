@@ -3,6 +3,7 @@
 # Usage: add_lines.sh input.ml output.ml
 
 # Replace "bigstep \"foo\"" with "Trace.open_bigstep ~line:__LINE__ \"foo\""
+# Replace "show" with "show ~line:__LINE__"
 # Replace "!!" with "Trace.open_smallstep ~line:__LINE__ ()"
 # Replace "!!!" with "Trace.open_smallstep ~line:__LINE__ ~reparse:true ()"
 

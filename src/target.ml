@@ -1614,6 +1614,8 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
       else Printf.sprintf "%d" i
     in
   if should_exit || (!Flags.execute_show_even_in_batch_mode && batch_mode) then begin
+    Trace.close_smallstep_if_needed ();
+    Trace.open_smallstep ~line ();
     if Constr.is_target_between tg then begin
       applyi_on_targets_between (fun i t (p,k) ->
         let m = mark_of_occurence i in
@@ -1623,8 +1625,9 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
         let m = mark_of_occurence i in
         target_show_transfo ~types m t p) tg
     end;
+    Trace.close_smallstep_if_needed ();
     if should_exit
-      then dump_diff_and_exit()
+      then dump_diff_and_exit ()
   end else begin
     (* only check targets are valid *)
     if Constr.is_target_between tg

@@ -4,7 +4,7 @@ open Target
 let _ = Flags.execute_show_even_in_batch_mode := true
 
 let _ = Run.script_cpp (fun () ->
-  (** There should be exactly one result to each of the commands;
+  (* There should be exactly one result to each of the commands;
       if it is not the case, we'll get an error. *)
 
   (* Before *)

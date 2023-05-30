@@ -5,21 +5,8 @@ open Ast
 let _ = Flags.pretty_matrix_notation := true
 (* let _ = Flags.analyse_stats := true *)
 
-module Matrix = struct
-  include Matrix
-
-  (* TODO: should this be in matrix.ml? *)
-  let elim_constant (name : string) : unit =
-    Matrix.elim_mops [nbMulti; cArrayRead name];
-    Arrays.elim_constant [nbMulti; cVarDef name]
-end
-
 (* keep local *)
 module Image = struct
-  let fuse_loops_with_array_writes ?(nest_of = 1) ~(index : var) (arrays : var list) : unit =
-    let writes = cOrMap cArrayWrite arrays in
-    Loop.fusion_targets ~nest_of [nbMulti; cFor ~body:[writes] index]
-
   let loop_align_stop_extend_start (index : var) ~(start : trm) ~(stop : trm) : unit =
     Loop.shift (StopAt stop) [nbMulti; cFor index];
     Loop.extend_range ~start:(ExtendTo start) [nbMulti; cFor index];
@@ -28,38 +15,36 @@ end
 
 let _ = Run.script_cpp (fun () ->
   let simpl = Arith.default_simpl in
-  let fuse ?(index = "y") = Image.fuse_loops_with_array_writes ~index in
+  let int = trm_int in
 
   bigstep "inline operators";
   (* Function.inline_def *)
   !! Function.inline ~delete:true [nbMulti; cFun "conv2D"];
   !! Loop.unroll ~nest_of:2 [nbMulti; cFor ~body:[cPlusEqVar "acc"] "i"];
-  !! Matrix.elim_constant "weights";
+  !! Matrix.elim_constant [nbMulti; cVarDef "weights"];
   !! Function.inline ~delete:true [multi cFun ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"]];
   !! Variable.inline ~simpl [multi cVarDef ["h1"; "w1"; "h2"; "w2"]];
 
   bigstep "fuse operators";
   let rename_acc_of array = Variable.rename ~into:("acc_" ^ array) [cFor ~body:[cArrayWrite array] ""; cVarDef "acc"] in
   !! List.iter rename_acc_of ["ix"; "iy"; "sxx"; "sxy"; "syy"];
-  !! fuse ~nest_of:2 ["ix"; "iy"];
-  !! fuse ~nest_of:2 ["ixx"; "ixy"; "iyy"];
-  !! fuse ~nest_of:2 ["sxx"; "sxy"; "syy"; "out"];
-  let elim_matrix m = Matrix.elim ~var:m [cFunBody "harris"] in
-  !! List.iter elim_matrix ["ixx"; "ixy"; "iyy"; "sxx"; "sxy"; "syy"];
-  (* FIXME: Loop_basic.delete_void + on Matrix.elim ~simpl:delete_void_loops *)
+  let fuse arrays = Loop.fusion_targets ~nest_of:2 [cFor "y" ~body:[cOrMap cArrayWrite arrays]] in
+  !! List.iter fuse [["ix"; "iy"]; ["ixx"; "ixy"; "iyy"]; ["sxx"; "sxy"; "syy"; "out"]];
+  !! Matrix.elim [multi cVarDef ["ixx"; "ixy"; "iyy"; "sxx"; "sxy"; "syy"]];
+  (* FIXME: Loop_basic.delete_void + on Matrix.elim ~simpl:[delete_void_loops] *)
   !! Instr.delete [occIndex ~nb:4 2; cFor "y"];
 
   bigstep "overlapped tiling over lines";
   (* following could be Loop.tile: *)
   (* let tile_size = 32 *)
-  !!! Loop.slide ~size:(trm_int 32) ~step:(trm_int 32) [cFor ~body:[cArrayWrite "out"] "y"];
-  !! Loop.slide ~size:(trm_int 34) ~step:(trm_int 32) [cFor ~body:[cArrayWrite "ix"] "y"];
-  !! Loop.slide ~size:(trm_int 36) ~step:(trm_int 32) [cFor ~body:[cArrayWrite "gray"] "y"];
-  !!! fuse ~index:"by" ["gray"; "ix"; "out"];
+  !!! Loop.slide ~size:(int 32) ~step:(int 32) [cFor "y" ~body:[cArrayWrite "out"]];
+  !! Loop.slide ~size:(int 34) ~step:(int 32) [cFor "y" ~body:[cArrayWrite "ix"]];
+  !! Loop.slide ~size:(int 36) ~step:(int 32) [cFor "y" ~body:[cArrayWrite "gray"]];
+  !!! Loop.fusion_targets [cFor "by" ~body:[cOrMap cArrayWrite ["gray"; "ix"; "out"]]];
 
   bigstep "circular buffers";
   (* Without tiling:
-  !! Image.loop_align_stop_extend_start "y" ~start:(trm_int 0) ~stop:(trm_var "h");
+  !! Image.loop_align_stop_extend_start "y" ~start:(int 0) ~stop:(trm_var "h");
   *)
   !! Image.loop_align_stop_extend_start "y" ~start:(trm_var "by") ~stop:(expr "min(h, by + 36)");
   !!! Arith.(simpl_rec gather_rec) [];
@@ -71,25 +56,26 @@ let _ = Run.script_cpp (fun () ->
     "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 4, by + 32) == y - 4";
   ];
   !! Arith.(simpl_rec gather_rec) [];
-  !! fuse ["gray"; "ix"; "ixx"; "out"];
+  !! Loop.fusion_targets [cFor "y" ~body:[cOrMap cArrayWrite ["gray"; "ix"; "ixx"; "out"]]];
+  (* !! fuse ["gray"; "ix"; "ixx"; "out"]; *)
   let local_matrix (m, tile) =
     let tmp_m = ("l_" ^ m) in
     Matrix.local_name_tile m ~into:tmp_m ~alloc_instr:[cVarDef m] ~indices:["y"; "x"] tile [cFunBody "harris"; cFor ~body:[cArrayWrite m] "y"];
     (* FIXME: dangerous transformation? *)
     (* TODO: Matrix.delete_not_read + Loop.delete_void
        - how close to Matrix.elim is this? *)
-    Instr.delete [occFirst; cFor ~body:[cArrayRead m] "y"];
-    Instr.delete [occLast; cFor ~body:[cArrayWrite m] "y"];
+    Instr.delete [occFirst; cFor "y" ~body:[cArrayRead m]];
+    Instr.delete [occLast; cFor "y" ~body:[cArrayWrite m]];
     Matrix.delete ~var:m [cFunBody "harris"];
     Variable.rename ~into:m [cVarDef tmp_m];
   in
   !! List.iter local_matrix [
-    ("gray", [(expr "by", trm_int 36); (trm_int 0, expr "w")]);
-    ("ix", [(expr "by", trm_int 34); (trm_int 0, expr "w - 2")]);
-    ("iy", [(expr "by", trm_int 34); (trm_int 0, expr "w - 2")]);
+    ("gray", [(expr "by", int 36); (int 0, expr "w")]);
+    ("ix", [(expr "by", int 34); (int 0, expr "w - 2")]);
+    ("iy", [(expr "by", int 34); (int 0, expr "w - 2")]);
   ];
   !! Arith.(simpl_rec gather) [];
-  let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(trm_int 4) ~var:v [cFunBody "harris"; cFor "by"] in
+  let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(int 4) ~var:v [cFunBody "harris"; cFor "by"] in
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
 
   bigstep "code details";
