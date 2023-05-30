@@ -2,7 +2,6 @@ open Ast
 open Stats
 open Tools
 open PPrint
-let sprintf = Printf.sprintf
 
 (* [ml_file_excerpts]: maps line numbers to the corresponding sections in-between [!!] marks in
    the source file. Line numbers are counted from 1 in that map. *)

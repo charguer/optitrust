@@ -80,3 +80,71 @@ LATER
 - add a mechanism for computing tests twice, once with reparsing in-betweeen every small steps
 
 - option si besoin: placer les fichiers générés par les tests dans un sous dossier
+
+
+
+
+
+   // deactivate existing binding
+  {
+    "key":"f5",
+    "command": "-workbench.action.debug.start",
+    "when": "debuggersAvailable && debugState != 'initializing'"
+  },
+
+  {
+    "key":"f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Compile the last-tried test(s)",
+    "when": "resourceDirname =~ /^.*\/verified_transfo\/src\/src\/.*$/ || resourceDirname =~ /^.*\/verified_transfo\/src\/src\/transfo\/.*$/"
+  },
+  {
+    "key":"f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Compile the current test",
+    // "when": "resourceDirname =~ /^.*\/verified_transfo\/src\/tests\/.*$/"
+  },
+    {
+    "key":"shift+f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Compile the current test with -dump-trace",
+    // "when": "resourceDirname =~ /^.*\/verified_transfo\/src\/tests\/.*$/"
+  },
+
+
+
+
+    {
+      "label": "Compile the current test",
+      "type": "shell",
+      "command": "./tester",
+      "args": [
+        "${relativeFile}"
+      ]
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Compile the current test with -dump-trace",
+      "type": "shell",
+      "command": "./tester",
+      "args": [
+        "${relativeFile}",
+        "-dump-trace"
+      ]
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Compile the last-tried test(s)",
+      "type": "shell",
+      "command": "./tester",
+      "args": [
+        "__last"
+      ]
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
