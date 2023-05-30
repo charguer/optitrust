@@ -402,6 +402,13 @@ type shift_kind =
 | StartAt of trm
 | StopAt of trm
 
+let shift_kind_to_string = function
+| ShiftBy t -> "ShiftBy " ^ (AstC_to_c.ast_to_string t)
+| StartAtZero -> "StartAtZero"
+| StartAt t -> "StartAt " ^ (AstC_to_c.ast_to_string t)
+| StopAt t -> "StopAt " ^ (AstC_to_c.ast_to_string t)
+
+
 (* [shift_on index kind]: shifts a loop index to start from zero or by a given amount. *)
 let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
   let index' = index in
@@ -433,6 +440,12 @@ type extension_kind =
 | ExtendToZero
 | ExtendTo of trm
 | ExtendBy of trm
+
+let extension_kind_to_string = function
+| ExtendNothing -> "ExtendNothing"
+| ExtendToZero -> "ExtendToZero"
+| ExtendTo t -> "ExtendTo " ^ (AstC_to_c.ast_to_string t)
+| ExtendBy t -> "ExtendBy " ^ (AstC_to_c.ast_to_string t)
 
 let extend_range_on (start_extension : extension_kind) (stop_extension : extension_kind) (t : trm) : trm =
   let error = "Loop_basic.extend_range_on: expected a target to a simple for loop" in

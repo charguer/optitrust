@@ -1,4 +1,5 @@
 open Ast
+open Target
 
 (* [transform ~reparse f_get f_set tg]: expects the target [tg] to point at a trm inside a set or a get operation.
     Then the transformation will search for the first get or set operation surrounding the targeted trm and call
@@ -15,7 +16,7 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
 (* [scale ~inv ~factor tg]: this transformation just calls the [transform] function  with [f_get] and [f_set] args
    defined as a multiplication and a division operation respectively. If [inv] is set to true then these two
    operations will be swapped. *)
-let scale ?(inv:bool=false) ~factor:(factor:trm) (tg : Target.target) : unit =
+let scale ?(inv:bool=false) ~factor:(factor:trm) (tg : target) : unit =
   let op_get, op_set = if inv then (Binop_mul, Binop_div) else (Binop_div, Binop_mul) in
   let f_get t = Arith_core.apply_aux op_get factor t in
   let f_set t = Arith_core.apply_aux op_set factor t in
@@ -24,7 +25,7 @@ let scale ?(inv:bool=false) ~factor:(factor:trm) (tg : Target.target) : unit =
 (* [shift ~inv ~factor tg]: this transformation just calls the [transform] function with [f_get] and [f_set] args
    defined as a multiplication and a division respectively. If [inv] is set to true then these two operations
    will be swapped. *)
-let shift ?(inv:bool=false) ~factor:(factor : trm) (tg : Target.target) : unit =
+let shift ?(inv:bool=false) ~factor:(factor : trm) (tg : target) : unit =
   let op_get, op_set = if inv then (Binop_add, Binop_sub) else (Binop_sub, Binop_add) in
   let f_get t = Arith_core.apply_aux op_get factor t in
   let f_set t = Arith_core.apply_aux op_set factor t in

@@ -266,6 +266,7 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
 let finalize_step (step : step_tree) : unit =
   let infos = step.step_infos in
   infos.step_duration <- now() -. infos.step_time_start;
+  infos.step_args <- List.rev infos.step_args;
   step.step_ast_after <- the_trace.cur_ast;
   step.step_sub <- List.rev step.step_sub
 
@@ -883,11 +884,11 @@ let step_tree_to_doc (step_tree:step_tree) : document =
     ^^ string (sprintf "(%dms)" (int_of_float (i.step_duration *. 1000.)))
     ^^ space
     ^^ string i.step_name
-    ^^ (separate space (List.map (fun (k,v) -> string (if k = "" then v else sprintf "~%s:%s" k v)) i.step_args))
+    ^^ concat_map (fun (k,v) -> space ^^ string (if k = "" then v else sprintf "~%s:%s" k v)) i.step_args
     ^^ (if i.step_justif = [] then empty else separate empty (List.map (fun txt -> hardline ^^ tab ^^ string "==>" ^^ string txt) i.step_justif))
     ^^ (if i.step_script = "" then empty else (*hardline ^^ tab ^^*) string ">> " ^^ (string i.step_script))
     ^^ hardline
-    ^^ separate empty (List.map (aux (depth+1)) s.step_sub)
+    ^^ concat_map (aux (depth+1)) s.step_sub
     in
   aux 0 step_tree
 

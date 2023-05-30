@@ -3,6 +3,7 @@ open Target
 open Ast
 
 let _ = Flags.pretty_matrix_notation := true
+let _ = Flags.dump_trace := true
 (* let _ = Flags.analyse_stats := true *)
 
 module Matrix = struct

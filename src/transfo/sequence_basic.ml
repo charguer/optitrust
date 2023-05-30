@@ -65,14 +65,14 @@ let iter_delete (tgl : target list) : unit =
         iny y = 6;      int y = 6;
         return 0;       return 0;
       }                } *)
-let%transfo intro ?(mark : string = "") ?(label : label = "") (nb : int) (tg : Target.target) : unit =
+let%transfo intro ?(mark : string = "") ?(label : label = "") (nb : int) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
   (fun t (p, i) -> Sequence_core.intro mark label i nb t p) tg
 
 
 (* [intro_after ~mark ~label tg]: same as [intro] but this transformation will include in the sequence all the
     instructions that come after the targeted instruction and belong to the same scope. *)
-let%transfo intro_after ?(mark : mark = "") ?(label : label = "") (tg : Target.target) : unit =
+let%transfo intro_after ?(mark : mark = "") ?(label : label = "") (tg : target) : unit =
   Target.apply_on_targets (fun t p ->
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
     let seq_trm = Path.resolve_path path_to_seq t in
@@ -85,7 +85,7 @@ let%transfo intro_after ?(mark : mark = "") ?(label : label = "") (tg : Target.t
 
 (* [intro_before ~mark ~label tg]: similar to [intro] but this transformation will include in the sequence all the
     instructions that come before the targeted instruction and belong to the same scope. *)
-let%transfo intro_before ?(mark : mark = "") ? (label : label = "") (tg : Target.target) : unit =
+let%transfo intro_before ?(mark : mark = "") ? (label : label = "") (tg : target) : unit =
   Target.apply_on_targets (fun t p ->
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
     let seq_trm = Path.resolve_path path_to_seq t in
@@ -116,7 +116,7 @@ let%transfo intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : 
 (* [elim tg]: expects the target [tg] to point at a sequence that appears nested inside another sequence,
     e.g., points at [{t2;t3}] inside [{ t1; { t2; t3 }; t4 }]. It "elims" the contents of the inner sequence,
     producing e.g., [{ t1; t2; t3; t3}]. *)
-let%transfo elim (tg : Target.target) : unit =
+let%transfo elim (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
   Target.apply_on_targets (Sequence_core.elim) tg)
 
@@ -134,7 +134,7 @@ let%transfo intro_on_instr ?(mark : mark = "")
 
 (* [elim_on_instr tg]: expects the target [tg] to point at a sequence that contains a single instruction,
     then it removes that sequence. *)
-let%transfo elim_on_instr (tg : Target.target) : unit =
+let%transfo elim_on_instr (tg : target) : unit =
    Internal.nobrace_remove_after ( fun _ ->
     Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, _) -> Sequence_core.elim t p) tg
@@ -142,7 +142,7 @@ let%transfo elim_on_instr (tg : Target.target) : unit =
 
 (* [split tg]: expects the target [tg] to point in between two instructions, then it will split the sequence
      that contains that location into two sequences. *)
-let%transfo split (tg : Target.target) : unit =
+let%transfo split (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets_between (fun t (p, i) ->
       let is_fun_body = Internal.is_decl_body p in
