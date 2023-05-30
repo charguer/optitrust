@@ -2,7 +2,6 @@ open Ast
 open Stats
 open Tools
 open PPrint
-let sprintf = Printf.sprintf
 
 (* [ml_file_excerpts]: maps line numbers to the corresponding sections in-between [!!] marks in
    the source file. Line numbers are counted from 1 in that map. *)
@@ -973,7 +972,7 @@ let dump_diff_and_exit () : unit =
 (* [check_exit ~line] checks whether the program execution should be interrupted based
    on the command line argument [-exit-line]. If so, it exists the program after dumping
    the diff. *)
-let check_exit ~(line:int) : unit (* does not return *) =
+let check_exit ~(line:int) : unit (* may not return *) =
   let should_exit = match Flags.get_exit_line() with
     | Some li -> (line > li)
     | _ -> false
@@ -981,8 +980,21 @@ let check_exit ~(line:int) : unit (* does not return *) =
   if should_exit
      then dump_diff_and_exit()
 
-
-
+(* [check_exit_at_end] is called by [run.ml] when reaching the end of the script.
+   This special case is needed to display a diff for the last transformation of
+   the script. Indeed, this last transformation is not followed by a [!!] or a
+   [bigstep] call.
+   LATER: we may want to check that the targeted line is before the closing
+   parenthesis of the call to script_cpp, but this requires instrumenting the
+   call to script_cpp, and obtaining the end position of this construction. *)
+let check_exit_at_end () : unit (* may not return *) =
+  let should_exit = (Flags.get_exit_line () <> None) in
+  if should_exit then begin
+    close_smallstep_if_needed();
+    if !Flags.only_big_steps
+      then close_bigstep_if_needed();
+    dump_diff_and_exit()
+  end
 
 
 (******************************************************************************)

@@ -233,11 +233,37 @@ file{
       }
     },
     {
-      "label": "Compile the full current folder",
+      "label": "Compile the last-tried test(s)",
       "type": "shell",
-      "command": "dune build",
+      "command": "./tester",
+      "args": [
+        "__last"
+      ]
       "options": {
-        "cwd": "${fileDirname}"
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Compile the current test",
+      "type": "shell",
+      "command": "./tester",
+      "args": [
+        "${relativeFile}"
+      ]
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Compile the current test with -dump-trace",
+      "type": "shell",
+      "command": "./tester",
+      "args": [
+        "${relativeFile}",
+        "-dump-trace"
+      ]
+      "options": {
+        "cwd": "${workspaceFolder}"
       }
     },
     {

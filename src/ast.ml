@@ -1,5 +1,6 @@
-(* for debugging *)
+(* for debugging and message printing *)
 let printf = Printf.printf
+let sprintf = Printf.sprintf
 
 (* [pos]: record used to represent a specific location inside the code *)
 type pos = {

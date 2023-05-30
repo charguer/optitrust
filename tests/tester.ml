@@ -13,15 +13,19 @@ module StringSet = Set.Make(String)
   It features:
   - caching of AST representation for input and expected output files
   - management of dependencies on the source code of optitrust
-  - selection of a subset of tests to process (by default "all")
+  - selection of a subset of tests to process (${args} is by default "all")
     (either via filenames, or via a 'key' name refering to a groupe of files)
   - comparison either at the AST level or at the cpp source level via diff
+  - call to "./tester __last" reuses the arguments provided to the last call
+    (these arguments are saved in the file ./tester_last_args.txt,
+    the target "all" is taken if this file does not exist yet)
 
   It produces as output:
   - information on which test fails
   - if requested or else only for tests that fail, produce the output files *_out.cpp
   - generates a bash script to be used for approving changes on expected files
     in case of test failures that result from intended changes.
+
 
 
 LATER: add options to control whether to generate for each test
@@ -32,6 +36,9 @@ VERY-LATER: mode for compiling sources with gcc at a given standard
 *)
 
 let tmp_file = "/tmp/optitrust_tester"
+
+let last_args_file = "tester_last_args.txt"
+  (* LATER: decide if this file could be in _build/default/.. *)
 
 let do_is_ko (cmd : string) : bool =
   let exit_code = Sys.command cmd in
@@ -48,10 +55,25 @@ let do_or_die (cmd : string) : unit =
       command_output_lines *)
 
 (*****************************************************************************)
+(* Saving/retrieving arguments of the last call *)
+
+(* Save to the file [last_args_file] the targets provided, assuming the target
+   does not contain "__last" *)
+let save_last_tests (keys : string list) : unit =
+  if not (List.mem "__last" keys)
+    then Xfile.put_lines last_args_file keys
+
+(* Obtain the contents of the file [last_args_file], or "all" if the file does not exist *)
+let get_last_tests () : string list =
+  if Sys.file_exists last_args_file
+    then Xfile.get_lines last_args_file
+    else ["all"]
+
+
+(*****************************************************************************)
 (* Description of keys *)
 
 (* Gather the list of *.ml files in a directory.
-
    Ignores *_with_lines.ml files.
    *)
 let get_list_of_tests_in_dir (folder : string) : string list =
@@ -60,10 +82,12 @@ let get_list_of_tests_in_dir (folder : string) : string list =
     folder tmp_file);
   Xfile.get_lines tmp_file
 
+
 (* Gather the list of *.ml files for a given key. May contain duplicates. *)
 let rec list_of_tests_from_key (key : string) : string list =
   let aux = list_of_tests_from_key in
   match key with
+  | "__last" -> get_last_tests ()
   | "all" -> (aux "basic") @
              (aux "combi") @
              (aux "target") @
@@ -217,13 +241,14 @@ type cmdline_args = (string * Arg.spec * string) list
 let spec : cmdline_args =
    [ ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
      ("-ignore-cache", Arg.Set ignore_cache, " ignore the serialized AST, force reparse of source files; does not modify the existing serialized data");
-     ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for tests that are executed.");
+     ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for
+     tests that are executed.");
      ("-v", Arg.Set verbose_mode, " report details on the testing process.");
   ]
 
 let _main : unit =
   Arg.parse
-    (Arg.align spec)
+    (Arg.align (spec @ Flags.spec))
     (fun other_arg -> keys_to_process := other_arg :: !keys_to_process)
     ("usage: ./tester.exe [options] target1 .. targetN");
 
@@ -237,6 +262,7 @@ let _main : unit =
      ["all"]
     else
       List.rev !keys_to_process in
+  save_last_tests keys_to_process;
   let (tests_to_process, ignored_tests) = compute_tests_to_process keys_to_process in
 
   (* TODO: We cache the "raw ast".
@@ -275,9 +301,12 @@ let _main : unit =
   do_or_die ("tests/batch_tests.sh " ^ batch_args ^ " > " ^ "tests/batch/batch.ml");
 
   let delete_output test =
+    (* LATER: the following line raises Invalid_argument("Filename.chop_extension")
+        in case the test is not a valid path, ie to a file with an extension *)
     let test_prefix = Filename.chop_extension test in
     let filename_out = sprintf "%s_out.cpp" test_prefix in
-    ignore (do_is_ko (sprintf "rm %s > /dev/null" filename_out))
+    ignore (do_is_ko (sprintf "rm -f %s > /dev/null" filename_out))
+    (* LATER: remove without displaying error messages or missing files *)
   in
   List.iter delete_output tests_to_process;
 

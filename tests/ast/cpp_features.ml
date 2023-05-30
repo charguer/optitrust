@@ -18,10 +18,11 @@ let filename =
 
 let _ = Run.script_cpp ~filename (fun () ->
 
-
-  !! ();
   (* If this test fails, see c_access.ml or c_stackvar.ml for debugging *)
-  !^ Trace.apply cfeatures_elim;
+
+  bigstep "round-trip";
+  !! Trace.apply cfeatures_elim;
   !! Trace.apply cfeatures_intro;
-  !^ Trace.check_recover_original();
+  bigstep "check";
+  !! Trace.check_recover_original();
 )
