@@ -28,20 +28,6 @@ module Debug = struct
 
 end
 
-exception Failure_expected_did_not_fail
-
-(* [failure_expected f]: executes the unit function [f], and checks that
-   it raises the exception [Failure_expected_did_not_fail]. If it does
-   not, then an error is triggered. *)
-let failure_expected (f : unit -> unit) : unit =
-  try
-    f();
-    raise Failure_expected_did_not_fail
-  with
-    | Failure_expected_did_not_fail -> failwith "failure_expected: the operation was supposed to fail but it didn't"
-    |_ -> ()
-
-
 (******************************************************************************)
 (*                          Extensions to Pprint                              *)
 (******************************************************************************)

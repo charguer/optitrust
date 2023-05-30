@@ -265,6 +265,9 @@ let _main : unit =
   save_last_tests keys_to_process;
   let (tests_to_process, ignored_tests) = compute_tests_to_process keys_to_process in
 
+  if List.length tests_to_process > 1
+    then Flags.print_backtrace_on_error := false;
+
   (* TODO: We cache the "raw ast".
   from a trm t, we need to serialize Ast_fromto_AstC.cfeatures_intro t;
   this is what is provided in trace.ml to  the function
@@ -357,16 +360,24 @@ let _main : unit =
       let test_prefix = Filename.chop_extension test in
       let filename_out = sprintf "%s_out.cpp" test_prefix in
       let filename_exp = sprintf "%s_exp.cpp" test_prefix in
-      if Sys.file_exists filename_exp then begin
-        if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) then begin
-          printf "ERROR: unexpected output for %s\n" test_prefix;
-          meld_args := sprintf "--diff %s %s" filename_out filename_exp :: !meld_args;
-          incr ko_count;
-        end else
-          incr ok_count;
+      if Sys.file_exists filename_out then begin
+        if Sys.file_exists filename_exp then begin
+          if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) then begin
+            printf "ERROR: unexpected output for %s\n" test_prefix;
+            meld_args := sprintf "--diff %s %s" filename_out filename_exp :: !meld_args;
+            incr ko_count;
+          end else
+            incr ok_count;
+        end else begin
+            printf "MISSING: no expected output for %s\n   cp %s %s; git add %s\n" test_prefix filename_out filename_exp filename_exp;
+            incr ko_count;
+        end
       end else begin
-          printf "MISSING: no expected output for %s\n   cp %s %s; git add %s\n" test_prefix filename_out filename_exp filename_exp;
-          incr ko_count;
+        (* NOTE: we assume that only a script exception can
+           lead to the absence of a _out.cpp;
+           this error is already displayed *)
+        (* printf "No output %s\n" test_prefix;*)
+        incr ko_count;
       end
     in
     List.iter check_output tests_to_process;

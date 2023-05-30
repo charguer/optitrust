@@ -19,14 +19,14 @@ int main() {
 "
 
 let _ = Run.script_cpp (fun _ ->
-  
+
   (* LATER: ARTHUR why is this giving 2 results? show [ cFunDef "main"; cSeq(); cSeq()]; *)
   let tg = [cSeq ~args_pred:(target_list_one_st [cVarDef "a"]) ()] in (* LATER: simplify *)
   !! Sequence_basic.partition ~braces:true [2;3;2] tg;
 
 
   (* Error message if the sum of blocks does not correspond to the number trms in the sequence*)
-  !! Tools.failure_expected (fun _ ->
+  !! Trace.failure_expected (fun _ ->
     Sequence_basic.partition ~braces:true [2;3] tg;);
 
   !! Trace.alternative (fun () ->

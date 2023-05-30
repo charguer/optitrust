@@ -149,7 +149,7 @@ type stepdescr = {
 
 
 (* [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_parsing
+type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_parsing | Step_scoped
 
 (* [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -160,6 +160,7 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_transfo -> "Transfo"
   | Step_target_resolve -> "Target"
   | Step_parsing -> "Parsing"
+  | Step_scoped -> "Scoped"
 
 (* [step_infos] *)
 type step_infos = {
@@ -291,7 +292,7 @@ let get_excerpt (line : int) : string =
 
 (* [open_step] is called at the start of every big-step, or small-step,
    or combi, or basic transformation. *)
-let open_step ?(line : int option) ?(step_script:string="") ~(kind:step_kind) ~(name:string) () : unit =
+let open_step ?(line : int option) ?(step_script:string="") ~(kind:step_kind) ~(name:string) () : step_tree =
   let infos = {
     step_script;
     step_script_line = line;
@@ -308,7 +309,8 @@ let open_step ?(line : int option) ?(step_script:string="") ~(kind:step_kind) ~(
     step_sub = [];
     step_infos = infos; }
     in
-  the_trace.step_stack <- step :: the_trace.step_stack
+  the_trace.step_stack <- step :: the_trace.step_stack;
+  step
 
 (* [step_justif txt] is called by a transformation after open_step in order
    to store an textual explaination of why it is correct. *)
@@ -320,7 +322,7 @@ let step_justif (justif:string) : unit =
 (* [step_justif_always_correct()] is a specialized version of [step_justif]
    for transformation that are always correct. *)
 let step_justif_always_correct () : unit =
-  step_justif "Transformation always correct"
+  step_justif "always correct"
 
 (* [step_arg] is called by a transformation after open_step in order
    to store the string representations of one argument. *)
@@ -371,12 +373,28 @@ let close_root_step () : unit =
     | _ -> failwith "close_root_step: broken invariant, stack must have size one" in
   finalize_step step
 
+
 (* [step] is a function wrapping the body of a transformation *)
 let step ?(line : int = -1) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
-  open_step ~line ~kind ~name ();
+  let s = open_step ~line ~kind ~name () in
   let r = body() in
+  assert (get_cur_step() == s);
   close_step();
   r
+
+(* [scoped_step] opens a scope to perform transformations in.
+  At the end:
+  - closes all scope-local steps automatically if not already done
+  - restores the current AST to what it was before the scope *)
+let scoped_step (f : unit -> unit) : unit =
+  let ast_bak = the_trace.cur_ast in
+  let s = open_step ~kind:Step_scoped ~name:"" () in
+  f ();
+  while (get_cur_step () != s) do
+    close_step ()
+  done;
+  the_trace.cur_ast <- ast_bak;
+  close_step ()
 
 (* [parsing_step f] accounts for a parsing operation *)
 let parsing_step (f : unit -> unit) : unit =
@@ -384,7 +402,7 @@ let parsing_step (f : unit -> unit) : unit =
 
 (* [open_target_resolve_step] *)
 let open_target_resolve_step () : unit =
-  open_step ~kind:Step_target_resolve ~name:"" ()
+  ignore (open_step ~kind:Step_target_resolve ~name:"" ())
 
 (* [close_target_resolve_step] has a special handling because it saves a diff
    between an AST and an AST decorated with marks for targeted paths,
@@ -481,37 +499,27 @@ let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
 let finalize () : unit =
   close_root_step()
 
+let get_last_substep () : step_tree =
+  match (get_cur_step ()).step_sub with
+  | [] -> failwith "Trace.get_last_substep: expected a previous substep in the current step"
+  | last_step :: _ -> last_step
+
 (* [alternative f]: executes the script [f] in the original state that
-   was available just after the call to [init].
-   After the call, all the actions performed are discarded.
+  was available just after the call to [init].
+  After the call, all the actions performed are discarded.
 
   Current usage:
      !! Trace.alternative (fun () ->
         !! Loop.fusion_on_block [cLabel "tofusion"];
-        !!());
-
-   LATER: figure out if it is possible to avoid "!!" in front and tail of [Trace.restart].
-   LATER: figure out if this implementation could be extended in the presence of [switch]. *)
+     );
+*)
 let alternative (f : unit->unit) : unit =
-  failwith "unimplemented"
-  (* TODO: fix this
-  let trace = the_trace in
-  if trace.history = [] || trace.stepdescrs = []
-    then fail None "Trace.alternative: the history is empty";
-  let _,init_ast = Xlist.unlast trace.history in
-  let _,init_stepdescr = Xlist.unlast trace.stepdescrs in
-  let cur_ast = trace.cur_ast in
-  let history = trace.history in
-  let stepdescrs = trace.stepdescrs in
-  the_trace.cur_ast <- init_ast;
-  the_trace.history <- [init_ast];
-  the_trace.stepdescrs <- [init_stepdescr];
-  f();
-  the_trace.cur_ast <- cur_ast;
-  the_trace.history <- history;
-  the_trace.stepdescrs <- stepdescrs
-  *)
-  (* TODO: beautify? *)
+  (* let ast = (get_last_substep ()).step_ast_before in *)
+  let ast = (List.nth (List.rev the_trace.step_stack) 0).step_ast_before in
+  scoped_step (fun () ->
+    the_trace.cur_ast <- ast;
+    f();
+  )
 
 (* [switch cases]: allows to introduce a branching point in a script.
    The [cases] argument gives a list of possible continuations (branches).
@@ -569,6 +577,22 @@ let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
   in
   traces := List.flatten (List.rev list_of_traces)
  *)
+
+(* FIXME: where should [failure_expected] and [alternative] be defined? *)
+exception Failure_expected_did_not_fail
+
+(* [failure_expected f]: executes the unit function [f], and checks that
+   it raises the exception [Failure_expected_did_not_fail]. If it does
+   not, then an error is triggered. *)
+let failure_expected (f : unit -> unit) : unit =
+  scoped_step (fun () ->
+    try
+      f();
+      raise Failure_expected_did_not_fail
+    with
+      | Failure_expected_did_not_fail -> failwith "failure_expected: the operation was supposed to fail but it didn't"
+      |_ -> ()
+  )
 
 (* [apply f]: applies the transformation [f] to the current AST,
    and updates the current ast with the result of that transformation.
@@ -885,7 +909,7 @@ let step_tree_to_doc (step_tree:step_tree) : document =
     ^^ space
     ^^ string i.step_name
     ^^ concat_map (fun (k,v) -> space ^^ string (if k = "" then v else sprintf "~%s:%s" k v)) i.step_args
-    ^^ (if i.step_justif = [] then empty else separate empty (List.map (fun txt -> hardline ^^ tab ^^ string "==>" ^^ string txt) i.step_justif))
+    ^^ (if i.step_justif = [] then empty else concat_map (fun txt -> hardline ^^ tab ^^ string "==> " ^^ string txt) i.step_justif)
     ^^ (if i.step_script = "" then empty else (*hardline ^^ tab ^^*) string ">> " ^^ (string i.step_script))
     ^^ hardline
     ^^ concat_map (aux (depth+1)) s.step_sub
@@ -951,15 +975,13 @@ let dump_diff_and_exit () : unit =
   (* Extrat the two ASTs that should be used for the diff *)
   let step = get_cur_step() in
   let kind = step.step_kind in
-  if kind <> Step_root && kind <> Step_big
-    then failwith "dump_diff_and_exit: expects the current step to be a Root-step or a Big-step";
+  if kind <> Step_root && kind <> Step_big && kind <> Step_scoped
+    then failwith (sprintf "dump_diff_and_exit: expects the current step to be Root, Big or Scoped, found %s" (step_kind_to_string kind));
+  let last_step = get_last_substep () in
+  if !Flags.only_big_steps && last_step.step_kind <> Step_big
+    then failwith "dump_diff_and_exit: cannot show a diff for a big-step, no call to bigstep was made";
   let astBefore, astAfter =
-    match step.step_sub with
-    | [] -> failwith "dump_diff_and_exit: no sub-steps for which to display a diff";
-    | last_step :: _ ->
-        if !Flags.only_big_steps && last_step.step_kind <> Step_big
-          then failwith "dump_diff_and_exit: cannot show a diff for a big-step, no call to bigstep was made";
-        last_step.step_ast_before, last_step.step_ast_after
+    last_step.step_ast_before, last_step.step_ast_after
     in
 
   (* Option to compute light-diff:
@@ -1024,7 +1046,7 @@ let open_bigstep ~(line : int) (title:string) : unit =
   (* Reparse if needed *)
   if !Flags.reparse_at_big_steps
     then reparse_alias ();
-  open_step ~kind:Step_big ~name:"" ~step_script:title ~line ();
+  ignore (open_step ~kind:Step_big ~name:"" ~step_script:title ~line ());
   (* Handle progress report *)
   if !Flags.report_big_steps then begin
     Printf.printf "Executing bigstep %s%s\n"
@@ -1047,7 +1069,7 @@ let open_smallstep ~(line : int) ?(reparse:bool=false) () : unit =
       then get_excerpt line
       else ""
     in
-  open_step ~kind:Step_small ~name:"" ~line ~step_script ()
+  ignore (open_step ~kind:Step_small ~name:"" ~line ~step_script ())
 
 
 let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> unit) : unit =

@@ -50,6 +50,9 @@ let dump_small_steps : string option ref = ref None
 let set_dump_small_steps (foldername : string) : unit =
   dump_small_steps := Some foldername
 
+(* [print_backtrace_on_error] *)
+let print_backtrace_on_error : bool ref = ref true
+ (*LATER: make available from command line*)
 
 (* [debug_reparse]: flag to print the line numbers at which reparsing is triggered. *)
 let debug_reparse : bool ref = ref false

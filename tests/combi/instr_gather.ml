@@ -21,7 +21,7 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Instr.(gather_targets ~dest:(GatherAtFirst)) [cVarDef ""];
   !! Trace.alternative (fun _ ->
-      Instr.(gather_targets ~dest:(GatherAtLast)) [cVarDef ""];
+      !! Instr.(gather_targets ~dest:(GatherAtLast)) [cVarDef ""];
       !! ();
      );
   !! Trace.alternative (fun _ ->
