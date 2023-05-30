@@ -341,7 +341,6 @@ let close_step_kind_if_needed (k:step_kind) : unit =
   let step = get_cur_step() in
   if step.step_kind = k then close_step()
 
-
 (* [close_smallstep_if_needed()] closes a current big-step.
    Because big-steps are not syntactically scoped in the user script,
    we need such an implicit close operation to be called on either
@@ -447,6 +446,7 @@ let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
     let src_file = (ml_file_name ^ ".ml") in
     if Sys.file_exists src_file then begin
       let lines = Xfile.get_lines src_file in
+      (* printf "%s\n" (Tools.list_to_string ~sep:"\n" lines); *)
       ml_file_excerpts := compute_ml_file_excerpts lines;
     end;
   end;
@@ -1003,7 +1003,7 @@ let open_bigstep ?(line : int = -1) (name:string) : unit =
   (* Reparse if needed *)
   if !Flags.reparse_at_big_steps
     then reparse_alias ();
-  open_step ~kind:Step_big ~name ();
+  open_step ~kind:Step_big ~name ~line ();
   (* Handle progress report *)
   if !Flags.report_big_steps then begin
     Printf.printf "Executing bigstep %s%s\n"
@@ -1026,12 +1026,14 @@ let open_smallstep ?(line : int = -1) ?(reparse:bool=false) () : unit =
       then get_excerpt line
       else ""
     in
-  open_step ~kind:Step_small ~name:"" ~step_script ()
+  open_step ~kind:Step_small ~name:"" ~line ~step_script ()
 
 
 let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> unit) : unit =
-  step ~kind:Step_transfo ~name f;
-  List.iter (fun (k, v) -> step_arg ~name:k ~value:v) args
+  step ~kind:Step_transfo ~name (fun () ->
+    List.iter (fun (k, v) -> step_arg ~name:k ~value:v) args;
+    f ()
+  )
 
 (* [check_recover_original()]: checks that the AST obtained so far
    is identical to the input AST, obtained from parsing. If not,
