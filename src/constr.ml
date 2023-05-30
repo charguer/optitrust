@@ -93,6 +93,8 @@ and depth =
 and constr =
   | Constr_depth of depth
   | Constr_dir of dir
+  (* already resolved paths: *)
+  | Constr_paths of paths
   | Constr_include of string
   | Constr_regexp of rexp
   (* for: init, cond, step, body *)
@@ -298,6 +300,7 @@ let rec constr_to_string (c : constr) : string =
   match c with
   | Constr_depth depth -> "Depth " ^ (depth_to_string depth)
   | Constr_dir d -> dir_to_string d
+  | Constr_paths ps -> paths_to_string ps
   | Constr_include s -> "Include " ^ s
   | Constr_regexp r -> "Regexp " ^ rexp_to_string r
   | Constr_for_c (p_init, p_cond, p_step, p_body) ->
@@ -529,6 +532,7 @@ let constr_map (f : constr -> constr) (c : constr) : constr =
   match c with
   | Constr_depth _depth -> c
   | Constr_dir _d -> c
+  | Constr_paths _ps -> c
   | Constr_include _s -> c
   | Constr_regexp _r -> c
   | Constr_for_c (p_init, p_cond, p_step, p_body) ->
@@ -1294,6 +1298,11 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
         [[Dir_before i]]
     | Constr_dir d :: tr ->
         follow_dir d tr t
+    | Constr_paths ps :: tr ->
+      resolve_target_simple (
+        Constr_or (
+          List.map (List.map (fun d -> Constr_dir d)) ps
+        ) :: tr) t
     | c :: p ->
       let strict = match depth with
         | DepthAt 0 -> true
@@ -1393,10 +1402,15 @@ and fix_target_between (rel : target_relative) (t : trm) (p : path) : path =
 (* [resolve_target tg t]: resolves the target [tg];
    Marks are set in the ast_after inside the trace only if -dump-trace is provided *)
 and resolve_target (tg : target) (t : trm) : paths =
-  Trace.open_target_resolve_step (); (* LATER: could use Trace.add_arg to provide the target as string *)
-  let ps = resolve_target_internal (*~place_marks:None*) tg t in
-  Trace.close_target_resolve_step ps t;
-  ps
+  match tg with
+  (* shortcut: paths are already resolved *)
+  | [Constr_paths ps] -> ps
+  | _ -> begin
+    Trace.open_target_resolve_step (); (* LATER: could use Trace.add_arg to provide the target as string *)
+    let ps = resolve_target_internal (*~place_marks:None*) tg t in
+    Trace.close_target_resolve_step ps t;
+    ps
+  end
 
 (* LATER optimization: close_target_resolve_step could return the result of its
     call to add_marks_at_paths, possibly via a reference, in case it is computed.

@@ -120,7 +120,7 @@ let occLast : constr =
 
 (* [target_of_path p]: converts path [p] to a target. *)
 let target_of_path (p : path) : target =
-  List.map (fun d -> Constr_dir d) p
+  [Constr_paths [p]]
 
 (* [dRoot]: matches the root of the ast. *)
 let dRoot : constr =
