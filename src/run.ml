@@ -160,8 +160,8 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     );
     flush stdout;
     (* If we requested a diff for the last line of the script, print it *)
-    if check_exit_at_end && Flags.get_exit_line () <> None then
-      Trace.dump_diff_and_exit ();
+    if check_exit_at_end
+      then Trace.check_exit_at_end();
     (* Otherwise, we finalize the script, and collapse the stack onto the root step *)
     Trace.finalize();
     (* TODO:
