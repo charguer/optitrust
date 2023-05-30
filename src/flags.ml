@@ -33,7 +33,7 @@ let dump_clang_ast = ref None
 let set_dump_clang_ast () : unit =
   dump_clang_ast := Some "clang_ast.ml.txt"
 
-(* [dump_trace]: call [Trace.dump_traces_to_js] in addition to [Trace.dump] at the end of the script. *)
+(* [dump_trace]: call [Trace.dump_trace_to_js] in addition to [Trace.dump] at the end of the script. *)
 let dump_trace : bool ref = ref false
 
 (* [dump_big_steps]: call [Trace.dump_big_steps] in addition to [Trace.dump] at the end of the script.

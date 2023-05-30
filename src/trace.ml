@@ -768,48 +768,12 @@ let dump_steps ?(onlybig : bool = false) ?(prefix : string = "") (foldername : s
   *)
 
 
-(* [dump_trace_to_js]: writes into a file called [`prefix`.js] the
-   contents of each of the steps record by the script, both for
-   small steps and big steps, including the diffs and the excerpts
-   of proof scripts associated with each step.
+(* [dump_step_tree_to_js_and_return_id] auxiliary function for [dump_trace_to_js] *)
+let (*rec*) dump_step_tree_to_js_and_return_id (get_next_id:unit->int) (out:string->unit) (step_tree:step_tree) : int =
+  0
 
-   The argument [history_and_isbigstep] takes the history
-   with oldest entry first (unliked the history record field).
-   It does not include the parsing step. --LATER: include it.
-
-   The JS file is
-   structured as follows (up to the order of the definitions):
-
-   var codes = []; // if the script has 3 '!!', the array will have 4 entries (one for the state of the code before each '!!' and one for the final result)
-   codes[i] = window.atob("...");
-
-   var smallsteps = []; // smallsteps.length = codes.length - 1
-   smallsteps[i] = { diff: window.atob("...");
-                     script: window.atob("...");
-                     exectime: ... } // for future use
-   var bigsteps = []; // bigsteps.length <= smallsteps.length
-   bigstep.push ({ diff: window.atob("...");
-                  start: idStart;
-                  stop: idStop;
-                  descr : window.atob("...") });
-     // invariant: bigstep[j].stop = bigstep[j+1].start
-   *)
-   (* TODO NEW
-
-    step[i] = {  ... infos ; sub : [ i1; i2 ; ... ] }
-
-    unique id for each step node in the tree
-
-   *)
-     (*
-let dump_trace_to_js (history : history) : unit =
-  ()
-
-  let (prefix, ctx, hist_and_descr) = history in
-  let file_js = prefix ^ "_trace.js" in
-  let out_js = open_out file_js in
-  let out = output_string out_js in
-  let sprintf = Printf.sprintf in
+(* WIP
+  (* LATER: move these functions elsewhere? *)
   let cmd s =
     (* FOR DEBUG Printf.printf "execute: %s\n" s; flush stdout; *)
     ignore (Sys.command s) in
@@ -819,11 +783,30 @@ let dump_trace_to_js (history : history) : unit =
     in
   let compute_diff () : string =
     compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp" in
-  let lastbigstepstart = ref (-1) in
-  let nextbigstep_descr = ref "<undefined bigstep descr>" in
-  (* LATER: catch failures *)
-  (* LATER: support other languages than C/C++ *)
-  out "var codes = [];\nvar smallsteps = [];\nvar bigsteps = [];\n";
+
+  let id = get_next_id() in
+
+  step_tree
+
+  let rec aux (depth:int) (s:step_tree) : document =
+    let i = s.step_infos in
+    let space = blank 1 in
+    let tab = blank (depth * ident_width) in
+       tab
+    ^^ string (step_kind_to_string s.step_kind)
+    ^^ space
+    ^^ string (sprintf "(%dms)" (int_of_float (i.step_duration *. 1000.)))
+    ^^ space
+    ^^ string i.step_name
+    ^^ concat_map (fun (k,v) -> space ^^ string (if k = "" then v else sprintf "~%s:%s" k v)) i.step_args
+    ^^ (if i.step_justif = [] then empty else concat_map (fun txt -> hardline ^^ tab ^^ string "==> " ^^ string txt) i.step_justif)
+    ^^ (if i.step_script = "" then empty else (*hardline ^^ tab ^^*) string ">> " ^^ (string i.step_script))
+    ^^ hardline
+    ^^ concat_map (aux (depth+1)) s.step_sub
+    in
+  aux 0 step_tree
+
+
   let n = List.length hist_and_descr in
   List.iteri (fun i (ast,stepdescr) ->
     (* obtain source code *)
@@ -863,36 +846,41 @@ let dump_trace_to_js (history : history) : unit =
   *)
 
 
-(* [dump_traces_to_js]: dump all traces to js.
-    LATER: later generalize to multiple traces, currently it would
-       probably overwrite the same file over and over again. *)
-let dump_traces_to_js ?(prefix : string = "") () : unit =
-  ()
-  (* TODO FIX
-  let history = get_decorated_history ~prefix () in
-  dump_trace_to_js history
-  *)
-
-(*
-  filename = prefix ^ "_trace.js"
-  let f = open_out filename
-
-  fprintf  f "var trace = {};";
-  let print_step i ast =
-     fprintf f "traces[%d] = {" i;
-     code_to_js f i ast;
-     fprintf f "};";
-     in
-  List.iteri print_step !traces
 
 
+(* [dump_trace_to_js]: writes into a file called [`prefix`_trace.js] the
+   contents of the step_tree. The JS file is structured as follows
+   (up to the order of the definitions):
 
-  var trace = {};
-  trace[0] = {`
-  trace[1] = {..};
-  trace[2] = {..};
- *)
-
+   var step = [];
+   step[i] = {
+      kind: "..",
+      duration: 0.0453;   // in seconds
+      name: "..",
+      args: [ { name: "..", value: ".."}, { name: "..", value: ".." } ],
+      justif: ["..", ".." ],
+      script: window.atob("..."),
+      astBefore: "..",
+      astAfter: "..",
+      diff: window.atob("..."), // could be slow if requested for all!
+      sub: [ j1, j2, ... jK ]  // ids of the sub-steps
+      }
+   *)
+let dump_trace_to_js ?(prefix : string = "") () : unit =
+  let prefix =
+    if prefix = "" then the_trace.context.prefix else prefix in
+  let filename = prefix ^ "_trace.js" in
+  printf "Dumping trace to '%s'\n" filename;
+  let out_js = open_out filename in
+  let out = output_string out_js in
+  let step_tree = get_root_step() in
+  let next_id = ref (-1) in
+  let get_next_id () : int =
+    incr next_id;
+    !next_id in
+  out "var steps = [];\n";
+  let _idroot = dump_step_tree_to_js_and_return_id get_next_id out step_tree in
+  close_out out_js
 
 (* [step_tree_to_doc step_tree] takes a step tree and gives a string
    representation of it, using indentation to represent substeps *)
@@ -924,8 +912,8 @@ let step_tree_to_file (filename:string) (step_tree:step_tree) =
   ToChannel.pretty 0.9 line_width out (step_tree_to_doc step_tree);
   close_out out
 
-(* [dump_traces_to_textfile] dumps a trace into a text file *)
-let dump_traces_to_textfile ?(prefix : string = "") () : unit =
+(* [dump_trace_to_textfile] dumps a trace into a text file *)
+let dump_trace_to_textfile ?(prefix : string = "") () : unit =
   let prefix =
     if prefix = "" then the_trace.context.prefix else prefix in
   let filename = prefix ^ "_trace.txt" in

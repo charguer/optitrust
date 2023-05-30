@@ -174,8 +174,8 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
     (* Dump full trace if [-dump-trace] option was provided *)
     if !Flags.dump_trace then begin
-      Trace.dump_traces_to_js ~prefix ();
-      Trace.dump_traces_to_textfile ~prefix ();
+      Trace.dump_trace_to_js ~prefix ();
+      Trace.dump_trace_to_textfile ~prefix ();
     end;
     begin match !Flags.dump_big_steps with (* DEPRECATED? *)
     | None -> ()
