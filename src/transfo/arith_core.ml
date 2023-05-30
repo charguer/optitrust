@@ -153,7 +153,9 @@ let is_integer_typ (typ : typ option) : bool =
     end
   | _ ->
     printf "WARNING: trm_to_naive_expr: missing type information, assuming floating point\n";
-    false (* LATER: fix this assumption *)
+    failwith "DEBUGME"
+    (*;
+    false*) (* LATER: fix this assumption *)
 
 let unsupported_binop (op : binary_op) =
   let s = Tools.document_to_string (Ast_to_text.print_binop op) in
@@ -543,7 +545,7 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
           | true, true -> true
           | false, false -> false
           | _ ->
-            printf "WARNING: arith types differ: %s and %s" (Tools.option_to_string AstC_to_c.typ_to_string t1.typ) (Tools.option_to_string AstC_to_c.typ_to_string t2.typ);
+            printf "WARNING: arith types differ: %s and %s\n" (Tools.option_to_string AstC_to_c.typ_to_string t1.typ) (Tools.option_to_string AstC_to_c.typ_to_string t2.typ);
             false
             (* LATER: failwith "should not happen" *)
          in
@@ -884,7 +886,7 @@ let update_typ (mem_t : typ option ref) (new_t : typ option) : unit =
       | None -> mem_t := Some nt
       | Some mt ->
         if (mt <> nt) then
-          printf "WARNING: arith types differ: %s and %s" (AstC_to_c.typ_to_string mt) (AstC_to_c.typ_to_string nt)
+          printf "WARNING: arith types differ: %s and %s\n" (AstC_to_c.typ_to_string mt) (AstC_to_c.typ_to_string nt)
       end
 
 let compute_wexpr_sum ~(typ : typ option) ?(loc) (wes:wexprs) : wexpr =
@@ -1021,7 +1023,9 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
     | Expr_atom _id -> atoms
     | _ -> Atom_map.map f_atom atoms
     in
-  let expr2 = f expr in
+  let expr2 =
+    try f expr
+    with e ->  Printf.printf "Arith.simplify_at_node: error on processing at loc %s\n" (loc_to_string t.loc); raise e in
   if debug then Printf.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
   (* let expr3 = normalize expr2 in
   if debug then Printf.printf "Expr after normalization: %s\n" (expr_to_string atoms expr3); *)

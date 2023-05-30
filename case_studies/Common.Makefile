@@ -4,18 +4,24 @@ V ?= @
 OPTITRUST := ../..
 TOOLS_FOLDER := $(OPTITRUST)/tools
 
-%.cmxs: %.ml
-	$(V)$(TOOLS_FOLDER)/build_cmxs.sh $<
+.FORCE:
 
 %_with_lines.ml: %.ml
 	$(V)$(TOOLS_FOLDER)/add_lines.sh $< $@
 
-# FIXME: missing dune dependencies
-.PHONY: %_out.cpp
-%_out.cpp: %_with_lines.ml
+%_out.cpp: %_with_lines.ml .FORCE
+  @rm -f $@
 	$(V)$(TOOLS_FOLDER)/build_cmxs.sh $<
-	$(V)OCAMLRUNPARAM=b dune exec optitrust_runner -- $(patsubst %.ml,%.cmxs,$<) $(FLAGS)
+	$(V)OCAMLRUNPARAM=b dune exec optitrust_runner -- $*_with_lines.cmxs $(FLAGS)
 	@echo "Produced $@"
+
+  # $(patsubst %.ml,%.cmxs,$<)
+
+# TEST FOR THESE RULES:
+# - change foo.ml
+# - change foo_with_lines.ml
+# - change optitrust lib
+
 
 # include ../../tests/Common.Makefile
 

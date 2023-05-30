@@ -810,7 +810,7 @@ and tr_expr (e : expr) : trm =
     print_info loc "tr_expr: implicit initial value\n";
     trm_lit ?loc ?ctx Lit_uninitialized
   | UnknownExpr (CompoundLiteralExpr, CompoundLiteralExpr) ->
-      Printf.printf "WARNING: Unknown expressions are parse as null pointers";
+      Printf.printf "WARNING: Unknown expressions are parse as null pointers\n";
       trm_add_mark "unknown_expr" (trm_null ?loc ?ctx () )
   | ImplicitValueInit _ -> trm_lit ?loc ?ctx Lit_uninitialized
 

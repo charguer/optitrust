@@ -295,6 +295,7 @@ let _main : unit =
 
   (* TODO: faire la boucle en caml sur l'appel à sed,
      fAIRE Une erreur si le fichier n'existe pas !
+
    à chaque fois afficher un commentaire (* CURTEST=... *)
      TODO: add 'batch_prelude' and 'batch_postlude' calls.
      LATER: ajouter ici l'option ~expected_ast , et concatener l'appel à Run.batch_postlude logfilename *)
@@ -312,6 +313,8 @@ let _main : unit =
 
   do_or_die "cp tests/batch/dune_disabled tests/batch/dune";
   do_or_die "dune build tests/batch/batch.cmxs; rm tests/batch/dune";
+
+  (* LATER: if -dump_trace is requested, use _with_lines files *)
 
   (* TODO: rediriiger l'erreur dans un fichier  2>&
     Sys.command en version booléenne

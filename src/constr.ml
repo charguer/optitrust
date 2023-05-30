@@ -1299,7 +1299,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
     | Constr_dir d :: tr ->
         follow_dir d tr t
     | Constr_paths ps :: tr ->
-      resolve_target_simple (
+      resolve_target_simple ~depth (
         Constr_or (
           List.map (List.map (fun d -> Constr_dir d)) ps
         ) :: tr) t
