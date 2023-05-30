@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 
-let _  = Run.doc_script_cpp (fun () -> 
+let _  = Run.doc_script_cpp (fun () ->
 
   (* !!(); *)
   !! Function.bind_args ["a"] [cTopFunDef "main"; cFun "g"];
@@ -10,11 +10,11 @@ let _  = Run.doc_script_cpp (fun () ->
 )
 
 "
-int f(int x){ 
+int f(int x){
   return x + 1;
 }
 
-int g(int a){ 
+int g(int a){
   return a - 1;
 }
 
@@ -34,7 +34,7 @@ let _ = Run.script_cpp ~parser:CParsers.clang (fun _ ->
   !! Trace.alternative (fun _ ->
     !! Function.bind_args [] [cTopFunDef "main2"; cFun "g"];
     !! ());
-  !! Tools.failure_expected (fun _ ->
+  !! Trace.failure_expected (fun _ ->
     Function.bind_args ["a"] [cTopFunDef "main2"; cFun "g"]);
-    
+
 )

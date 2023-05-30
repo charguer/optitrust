@@ -4,7 +4,7 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-  
+
   !! Loop.reorder ~order:["c";"b";"a"] [cFor "a"];
 
 )
@@ -34,9 +34,9 @@ let _ = Run.script_cpp (fun _ ->
     !!(););
 
   !! Trace.alternative (fun () ->
-    !! Tools.failure_expected (fun () ->
+    !! Trace.failure_expected (fun () ->
        Loop.reorder ~order:["e"] [cFor "a"];);
-    !! Tools.failure_expected (fun () ->
+    !! Trace.failure_expected (fun () ->
        Loop.reorder ~order:["e"; "f"] [cFor "e"];)
     );
 
