@@ -16,8 +16,22 @@ let printers_map = Longident.Map.of_seq (List.to_seq [
     (Lident "int", "string_of_int");
     (Lident "bool", "string_of_bool");
     (Lident "string", "Trace_printers.string_arg_printer");
+    (Lident "var", "Trace_printers.string_arg_printer");
+    (Lident "mark", "Trace_printers.string_arg_printer");
+    (Lident "vars", "vars_to_string");
     (Lident "option", "Trace_printers.option_arg_printer");
     (Lident "list", "Trace_printers.list_arg_printer");
+    (Lident "trm", "AstC_to_c.ast_to_string");
+    (Lident "tile_iteration", "tile_iteration_to_string");
+    (Lident "tile_bound", "tile_bound_to_string");
+    (Lident "shift_kind", "shift_kind_to_string");
+    (Lident "extension_kind", "extension_kind_to_string");
+    (Lident "storage_folding_kind", "storage_folding_kind_to_string");
+    (* TODO:
+      - type rename
+      - type local_ops
+      - type nd_tile = (trm * trm) list
+      - ~simpl args *)
   ])
 
 let rec printer_expr_for_type (typ: core_type) : expression =
@@ -38,8 +52,8 @@ let deal_with_binding (loc : Location.t) (binding : value_binding): value_bindin
     | Pexp_fun (lbl, exp0, pat, expr) ->
       let label = match lbl with
       | Nolabel -> ""
-      | Labelled l -> "~" ^ l
-      | Optional l -> "?" ^ l
+      | Labelled l -> (* "~" ^ *) l
+      | Optional l -> (* "?" ^ *) l
       in
       let+ (name, typ) =
         match pat.ppat_desc with

@@ -22,7 +22,7 @@ let%transfo simpl_surrounding_expr ?(indepth : bool = true) (f : (expr -> expr))
     paths_to_simpl := Path_set.add (find_surrounding_path p t) !paths_to_simpl;
   ) tg;
   Path_set.iter (fun p ->
-    Arith_basic.simpl ~indepth f (Target.target_of_path p);
+    Arith_basic.simpl ~indepth f (target_of_path p);
   ) !paths_to_simpl
 
 let default_simpl tg = simpl_surrounding_expr gather (nbAny :: tg)

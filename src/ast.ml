@@ -40,6 +40,9 @@ module Var_set = Set.Make(String)
 (* [vars]: variables, a list of elements of type variable *)
 type vars = var list
 
+(* let vars_to_string vs = Tools.list_to_string vs *)
+let vars_to_string vs = Trace_printers.(list_arg_printer string_arg_printer vs)
+
 (* [qvar]: qualiefied variables, Ex M :: N :: x
     qx = {qvar_var = "x"; qvar_path = ["M"; "N"]; qvar_str = "M :: N :: x"}. *)
 type qvar = {qvar_var : var; qvar_path : var list; qvar_str : string}
@@ -2398,6 +2401,11 @@ let is_typ_const (ty : typ) : bool =
 
 (* [tile_bound]: used for loop tiling transformation *)
 type tile_bound = TileBoundMin | TileBoundAnd | TileDivides
+
+let tile_bound_to_string = function
+  | TileBoundMin -> "TileBoundMin"
+  | TileBoundAnd -> "TileBoundAnd"
+  | TileDivides -> "TileDivides"
 
 (* [Nobrace]: module for managing nobrace sequences(hidden sequences), these sequence are visible only at the AST level *)
 module Nobrace = struct

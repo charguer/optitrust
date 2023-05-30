@@ -44,9 +44,9 @@ let%transfo biject (fun_name : string) (tg : target) : unit =
       an occurrence of [var] then it will define a matrix [into] whose dimensions will be the same
       as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finally we
       free up the memory. *)
-let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : Target.target option) (v : var) ~into:(into : var) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : Target.target) : unit =
+let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ~into:(into : var) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
   let remove = (my_mark = None) in
-  let get_alloc_type_and_trms (t : trm) (tg1 : Target.target) : typ * (trms * trm * bool) =
+  let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
       | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty
       | Trm_apps (_, [lhs; _rhs]) when is_set_operation t ->
@@ -69,7 +69,7 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(a
   Internal.nobrace_remove_after ~remove (fun _ ->
     Target.(apply_on_targets (fun t p ->
       let seq_p, _ = Internal.isolate_last_dir_in_seq p in
-      let seq_tg = Target.target_of_path seq_p in
+      let seq_tg = target_of_path seq_p in
       let var_target = cOr [[cVarDef v]; [cWriteVar v]] in
       begin match alloc_instr with
       | Some tg1 ->
@@ -96,9 +96,9 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(a
 
 (* [local_name_tile ~mark var into tg]: expects the target to point at an instruction that contains
       an occurrence of [var] then it will define a matrix [into] whose dimensions will correspond to a tile of [var]. Then we copy the contents of the matrix [var] into [into] according to the given tile offsets and finally we free up the memory. *)
-let%transfo local_name_tile ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : Target.target option) (v : var) ~into:(into : var) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : Target.target) : unit =
+let%transfo local_name_tile ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ~into:(into : var) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
   let remove = (my_mark = None) in
-  let get_alloc_type_and_trms (t : trm) (tg1 : Target.target) : typ * (trms * trm * bool) =
+  let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
       | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty
       | Trm_apps (_, [lhs; _rhs]) when is_set_operation t ->
@@ -121,7 +121,7 @@ let%transfo local_name_tile ?(my_mark : mark option) ?(indices : (var list) = []
   Internal.nobrace_remove_after ~remove (fun _ ->
     Target.(apply_on_targets (fun t p ->
       let seq_p, _ = Internal.isolate_last_dir_in_seq p in
-      let seq_tg = Target.target_of_path seq_p in
+      let seq_tg = target_of_path seq_p in
       let var_target = cOr [[cVarDef v]; [cWriteVar v]] in
       begin match alloc_instr with
       | Some tg1 ->
@@ -350,7 +350,7 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
     trm_apps (trm_var "memcpy") [copy_offset; trm_var_get stack_name; copy_size];
   ]
 
-let%transfo stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (tg : Target.target) : unit =
+let%transfo stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (tg : target) : unit =
   Internal.nobrace_remove_after (fun () ->
     Target.apply_at_target_paths (stack_copy_on var copy_var copy_dims) tg)
 
@@ -375,7 +375,7 @@ let elim_mindex_on (t : trm) : trm =
    Rewrite.equiv_at ~ctx:true "int d1, d2, d3, i1, i2, i3; ==> MINDEX3(d1, d2, d3, i1, i2, i3) == (i1 * d2 * d3 + i2 * d3 + i3)" tg
    [...]
    *)
-let%transfo elim_mindex (tg : Target.target) : unit =
+let%transfo elim_mindex (tg : target) : unit =
   Target.apply_at_target_paths elim_mindex_on tg
 
 let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
@@ -423,13 +423,17 @@ type storage_folding_kind =
 | ModuloIndices
 | RotateVariables
 
+let storage_folding_kind_to_string = function
+| ModuloIndices -> "ModuloIndices"
+| RotateVariables -> "RotateVariables"
+
 (* [storage_folding] expects target [tg] to point at a sequence defining matrix
    [var], and folds the [dim]-th dimension so that every index [i] into this matrix dimension is mapped to index [i % n].
 
    assumes that [i >= 0].
    *)
 let%transfo storage_folding ~(var : var) ~(dim : int) ~(size : trm)
-  ?(kind : storage_folding_kind = ModuloIndices) (tg : Target.target) : unit =
+  ?(kind : storage_folding_kind = ModuloIndices) (tg : target) : unit =
   assert(kind = ModuloIndices);
   Target.apply_at_target_paths (storage_folding_on var dim size) tg
 
@@ -463,14 +467,14 @@ let delete_on (var : var) (t : trm) : trm =
   Both allocation and de-allocation instructions are deleted.
   Checks that [var] is not used anywhere.
    *)
-let%transfo delete ~(var : var) (tg : Target.target) : unit =
+let%transfo delete ~(var : var) (tg : target) : unit =
   Internal.nobrace_remove_after (fun () ->
     Target.apply_at_target_paths (delete_on var) tg)
 
 (* [read_last_write]: expects the target [tg] to pint at a matrix read operation, and replaces it with the value that was last written to this matrix index. The [write] target must correspond to this last write.
   For correctness, if [V] was written at index [i], reading [V[j/i]] should be equivalent to reading at index [j].
    *)
-let%transfo read_last_write ~(write : Target.target) (tg : Target.target) : unit =
+let%transfo read_last_write ~(write : target) (tg : target) : unit =
   let write_trm = match Target.get_trm_at write with
   | Some wt -> wt
   | None -> fail None "Matrix_basic.read_least_write: write target not found"

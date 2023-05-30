@@ -1,13 +1,14 @@
 open Ast
+open Target
 
 (* [add m tg]: adds mark [m] to the trm that correpsonds to target [tg].
    NOTE: if m = "" then does nothing. *)
-let add (m : mark) (tg : Target.target) : unit =
+let add (m : mark) (tg : target) : unit =
   if m = "" then () else Target.apply_on_targets (Marks_core.add m) tg
 
 (* [add_between m]: adds mark [m] at the location of the relative target [tg].
    NOTE: if m = "" then does nothing. *)
-let add_between (m : mark) (tg : Target.target) : unit =
+let add_between (m : mark) (tg : target) : unit =
   if m = "" then ()
     else
       Target.apply_on_targets_between(

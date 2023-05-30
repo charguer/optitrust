@@ -980,6 +980,10 @@ let%transfo change_iter ~src:(it_fun : var) ~dst:(loop_fun : var) (tg : target) 
    - [TileIterGlobal] global loop indices? *)
 type tile_iteration = TileIterLocal | TileIterGlobal
 
+let tile_iteration_to_string = function
+  | TileIterLocal -> "TileIterLocal"
+  | TileIterGlobal -> "TileIterGlobal"
+
 let%transfo tile ?(index : var = "b${id}")
         ?(bound : tile_bound = TileBoundMin)
         ?(iter : tile_iteration = TileIterLocal)

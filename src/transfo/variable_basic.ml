@@ -35,7 +35,7 @@ let%transfo fold ?(at : target = []) (tg : target) : unit =
      }
 
      NOTE: the targeted variable must be a const variable. *)
-let%transfo unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : Target.target = []) (tg : target) : unit =
+let%transfo unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun t (p, p_local, i) -> Variable_core.unfold false accept_functions mark at i p_local t p) tg
 
@@ -52,7 +52,7 @@ let%transfo rename ~into:(new_name : var) (tg : target) : unit =
 
 (* [init_detach tg]: expects the target [tg] to point at a variable initialization.
    It then splits the instruction into a variable declaration and a set operation. *)
-let%transfo init_detach (tg : Target.target) : unit =
+let%transfo init_detach (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
     Target.apply_on_targets (Variable_core.init_detach) tg
   )
@@ -82,7 +82,7 @@ let%transfo init_attach ?(const : bool = false) (tg : target) : unit =
        }@nobrace                                }
                                                 a = x;
                                               }@nobrace *)
-let%transfo local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : Target.target) : unit =
+let%transfo local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : target) : unit =
   Internal.nobrace_enter();
   Target.apply_on_targets (Variable_core.local_name mark var nv) tg
 
@@ -121,7 +121,7 @@ let%transfo local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : Ta
    [array_size] - denotes the size of the array inside the block
    [ops] - the delocalize operation, it can be an arithmetic delocalization or an object delocalization
     of the array declared inside the block. *)
-let%transfo delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : local_ops) (tg : Target.target) : unit =
+let%transfo delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : local_ops) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
 
@@ -198,7 +198,7 @@ let%transfo simpl_deref ?(indepth : bool = false) (tg : target) : unit =
 
 (* [exchange var1 var2 tg]: expects the target [tg] to point at an instruction that contains both the
     variable [var1] and [var2], then it will try to swap all the occurrences of [var1] with [var2]. *)
-let%transfo exchange (v1 : var) (v2 : var) (tg : Target.target) : unit =
+let%transfo exchange (v1 : var) (v2 : var) (tg : target) : unit =
   let tm = Trm_map.empty in
   let tm = Trm_map.add v1 (trm_var v2) tm in
   let tm = Trm_map.add v2 (trm_var v1) tm in
