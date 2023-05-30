@@ -2,4 +2,4 @@
 
 OPTITRUST=$(dirname $0)
 cd ${OPTITRUST}
-dune exec tests/tester.exe -- $@
+OCAMLRUNPARAM=b dune exec tests/tester.exe -- $@

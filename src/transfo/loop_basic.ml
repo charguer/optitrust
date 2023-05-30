@@ -159,6 +159,7 @@ let%transfo hoist ?(name : var = "${var}_step")
           ?(mark : mark option)
           ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))
          (tg : target) : unit =
+  Trace.step_justif_always_correct ();
   Internal.nobrace_remove_after (fun _ ->
     Target.apply (fun t p_instr ->
       let (i, p) = Path.index_in_surrounding_loop p_instr in

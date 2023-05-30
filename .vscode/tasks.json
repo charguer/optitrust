@@ -249,7 +249,7 @@ file{
       "command": "./tester",
       "args": [
         "${relativeFile}"
-      ]
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       }
@@ -261,7 +261,7 @@ file{
       "args": [
         "${relativeFile}",
         "-dump-trace"
-      ]
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       }

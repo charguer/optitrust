@@ -47,12 +47,14 @@ let%transfo inline ?(mark : mark = "") ?(accept_functions : bool = false) (tg : 
 (* [rename ~into tg]: expects the target [tg] to be pointing at a declaration, then it will
     rename its declaration and all its occurrences. *)
 let%transfo rename ~into:(new_name : var) (tg : target) : unit =
+  Trace.step_justif "correct if there is no name conflict";
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.rename new_name i t p) tg
 
 (* [init_detach tg]: expects the target [tg] to point at a variable initialization.
    It then splits the instruction into a variable declaration and a set operation. *)
 let%transfo init_detach (tg : target) : unit =
+  Trace.step_justif_always_correct ();
   Internal.nobrace_remove_after ( fun _ ->
     Target.apply_on_targets (Variable_core.init_detach) tg
   )

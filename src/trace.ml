@@ -320,7 +320,7 @@ let step_justif (justif:string) : unit =
 (* [step_justif_always_correct()] is a specialized version of [step_justif]
    for transformation that are always correct. *)
 let step_justif_always_correct () : unit =
-  step_justif "Transformation always correct"
+  step_justif "always correct"
 
 (* [step_arg] is called by a transformation after open_step in order
    to store the string representations of one argument. *)
@@ -885,7 +885,7 @@ let step_tree_to_doc (step_tree:step_tree) : document =
     ^^ space
     ^^ string i.step_name
     ^^ concat_map (fun (k,v) -> space ^^ string (if k = "" then v else sprintf "~%s:%s" k v)) i.step_args
-    ^^ (if i.step_justif = [] then empty else separate empty (List.map (fun txt -> hardline ^^ tab ^^ string "==>" ^^ string txt) i.step_justif))
+    ^^ (if i.step_justif = [] then empty else concat_map (fun txt -> hardline ^^ tab ^^ string "==> " ^^ string txt) i.step_justif)
     ^^ (if i.step_script = "" then empty else (*hardline ^^ tab ^^*) string ">> " ^^ (string i.step_script))
     ^^ hardline
     ^^ concat_map (aux (depth+1)) s.step_sub

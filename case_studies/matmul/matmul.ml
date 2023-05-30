@@ -3,7 +3,6 @@ open Target
 open Ast
 
 let _ = Flags.pretty_matrix_notation := true
-let _ = Flags.dump_trace := true
 
 (* Reproducing a TVM schedule from:
    https://tvm.apache.org/docs/how_to/optimize_operators/opt_gemm.html

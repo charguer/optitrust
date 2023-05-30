@@ -153,9 +153,8 @@ let is_integer_typ (typ : typ option) : bool =
     end
   | _ ->
     printf "WARNING: trm_to_naive_expr: missing type information, assuming floating point\n";
-    failwith "DEBUGME"
-    (*;
-    false*) (* LATER: fix this assumption *)
+    (* if true then failwith "DEBUGME"; *)
+    false (* LATER: fix this assumption *)
 
 let unsupported_binop (op : binary_op) =
   let s = Tools.document_to_string (Ast_to_text.print_binop op) in
@@ -1014,6 +1013,7 @@ let rec map_on_arith_nodes (tr : trm -> trm) (t : trm) : trm =
 
 (* DEBUG let c = ref 0 *)
 let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
+  try (
   let expr, atoms = trm_to_expr t in
 
   let atoms2 =
@@ -1023,13 +1023,13 @@ let simplify_at_node (f_atom : trm -> trm) (f : expr -> expr) (t : trm) : trm =
     | Expr_atom _id -> atoms
     | _ -> Atom_map.map f_atom atoms
     in
-  let expr2 =
-    try f expr
-    with e ->  Printf.printf "Arith.simplify_at_node: error on processing at loc %s\n" (loc_to_string t.loc); raise e in
+  let expr2 = f expr in
   if debug then Printf.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
   (* let expr3 = normalize expr2 in
   if debug then Printf.printf "Expr after normalization: %s\n" (expr_to_string atoms expr3); *)
   expr_to_trm atoms2 expr2
+  )
+  with e -> Printf.printf "Arith.simplify_at_node: error on processing at loc %s\n" (loc_to_string t.loc); raise e
 
 (* [simplify_aux indepth f t]: converts node [t] to an expression, then applies the
      simplifier [f], then it converts it back to a trm
