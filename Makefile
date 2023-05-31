@@ -37,7 +37,14 @@ show_install:
 #   type: exit 0;;
 
 tests:
-	./tester
+	# should be: ./tester
+	./tester basic
+	read -p "Enter to Continue" REPLY
+	./tester combi
+	read -p "Enter to Continue" REPLY
+	./tester target
+	read -p "Enter to Continue" REPLY
+	./tester case_studies
 
 clean:
 	dune clean

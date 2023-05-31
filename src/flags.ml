@@ -33,13 +33,7 @@ let dump_clang_ast = ref None
 let set_dump_clang_ast () : unit =
   dump_clang_ast := Some "clang_ast.ml.txt"
 
-(* DEPRECATED? Flag to call [Trace.dump_last !dump_last] instead of [Trace.dump].
-   Note: incompatible with the use of [switch] in scripts, currently. *)
-let dump_last_default = -1
-let dump_last : int ref = ref dump_last_default
-
-
-(* [dump_trace]: call [Trace.dump_traces_to_js] in addition to [Trace.dump] at the end of the script. *)
+(* [dump_trace]: call [Trace.dump_trace_to_js] in addition to [Trace.dump] at the end of the script. *)
 let dump_trace : bool ref = ref false
 
 (* [dump_big_steps]: call [Trace.dump_big_steps] in addition to [Trace.dump] at the end of the script.
@@ -56,6 +50,9 @@ let dump_small_steps : string option ref = ref None
 let set_dump_small_steps (foldername : string) : unit =
   dump_small_steps := Some foldername
 
+(* [print_backtrace_on_error] *)
+let print_backtrace_on_error : bool ref = ref true
+ (*LATER: make available from command line*)
 
 (* [debug_reparse]: flag to print the line numbers at which reparsing is triggered. *)
 let debug_reparse : bool ref = ref false
@@ -119,7 +116,7 @@ let process_serialized_input (mode : string) : unit =
   | _ -> failwith "Serialization mode should be 'none', 'build', 'use', 'auto' or 'make'"
 
 (* [exit_line]: option for exiting the program when reaching a '!!' (step) after a specific line number. *)
-let exit_line : int ref = ref max_int
+let exit_line : int ref = ref max_int (* LATER: encode this as an option directly *)
 
 (* [get_exit_line ()]: gets the exit line if it exists. *)
 let get_exit_line () : int option =
@@ -127,8 +124,12 @@ let get_exit_line () : int option =
     then None
     else Some !exit_line
 
+(* [is_batch_mode ()] returns whether an exit line has been provided *)
+let is_batch_mode () : bool =
+  get_exit_line() = None
+
 (* [only_big_steps]: flag for the treatment of the exit line to ignore the small steps ('!!') and only
-   consider big steps ('!^'). *)
+   consider big steps. TODO: used? *)
 let only_big_steps : bool ref = ref false
 
 (* [c_parser_name]: name of the C parser to use *)
@@ -155,7 +156,6 @@ let spec : cmdline_args =
      ("-dump-trace", Arg.Set dump_trace, " produce a JS file with all the steps performed by the transformation script");
      ("-dump-small-steps", Arg.String set_dump_small_steps, " produce a distinct file for each small step");
      ("-dump-big-steps", Arg.String set_dump_big_steps, " produce a distinct file for each big step");
-     ("-dump-last", Arg.Set_int dump_last, " dump outputs the number of desired last steps; only for interactive mode"); (* DEPRECATED *)
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
      ("-dump-clang-ast", Arg.Unit set_dump_clang_ast, " produce clang_ast.ml with the AST obtained by ClangML");
      ("-analyse-stats", Arg.Set analyse_stats, " produce a file reporting on the execution time");

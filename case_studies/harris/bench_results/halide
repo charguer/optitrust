@@ -1,157 +1,31 @@
-sample: 0.002965
-sample: 0.003002
-sample: 0.003016
-sample: 0.003020
-sample: 0.003024
-sample: 0.003025
-sample: 0.003025
-sample: 0.003039
-sample: 0.003040
-sample: 0.003042
-sample: 0.003043
-sample: 0.003048
-sample: 0.003049
-sample: 0.003050
-sample: 0.003054
-sample: 0.003057
-sample: 0.003058
-sample: 0.003058
-sample: 0.003059
-sample: 0.003063
-sample: 0.003063
-sample: 0.003067
-sample: 0.003067
-sample: 0.003067
-sample: 0.003069
-sample: 0.003071
-sample: 0.003072
-sample: 0.003073
-sample: 0.003073
-sample: 0.003073
-sample: 0.003073
-sample: 0.003073
-sample: 0.003074
-sample: 0.003074
-sample: 0.003074
-sample: 0.003074
-sample: 0.003075
-sample: 0.003077
-sample: 0.003078
-sample: 0.003078
-sample: 0.003079
-sample: 0.003079
-sample: 0.003080
-sample: 0.003080
-sample: 0.003081
-sample: 0.003082
-sample: 0.003084
-sample: 0.003085
-sample: 0.003085
-sample: 0.003086
-sample: 0.003086
-sample: 0.003089
-sample: 0.003091
-sample: 0.003092
-sample: 0.003092
-sample: 0.003093
-sample: 0.003093
-sample: 0.003093
-sample: 0.003094
-sample: 0.003095
-sample: 0.003095
-sample: 0.003095
-sample: 0.003095
-sample: 0.003096
-sample: 0.003096
-sample: 0.003097
-sample: 0.003097
-sample: 0.003097
-sample: 0.003097
+---- Benchmarking Halide ..
 sample: 0.003098
-sample: 0.003098
-sample: 0.003099
 sample: 0.003099
 sample: 0.003099
 sample: 0.003099
 sample: 0.003101
 sample: 0.003102
-sample: 0.003102
-sample: 0.003102
 sample: 0.003103
 sample: 0.003104
-sample: 0.003104
-sample: 0.003104
-sample: 0.003105
 sample: 0.003106
-sample: 0.003106
+sample: 0.003107
 sample: 0.003107
 sample: 0.003108
 sample: 0.003108
-sample: 0.003110
-sample: 0.003111
 sample: 0.003112
-sample: 0.003112
-sample: 0.003114
+sample: 0.003113
 sample: 0.003115
-sample: 0.003115
-sample: 0.003115
-sample: 0.003119
-sample: 0.003120
-sample: 0.003121
-sample: 0.003121
-sample: 0.003121
-sample: 0.003121
-sample: 0.003122
-sample: 0.003122
-sample: 0.003125
-sample: 0.003129
-sample: 0.003130
-sample: 0.003132
-sample: 0.003135
-sample: 0.003136
-sample: 0.003138
-sample: 0.003140
-sample: 0.003141
-sample: 0.003141
-sample: 0.003142
-sample: 0.003143
-sample: 0.003144
-sample: 0.003144
-sample: 0.003147
-sample: 0.003149
-sample: 0.003150
-sample: 0.003150
-sample: 0.003151
-sample: 0.003154
-sample: 0.003155
-sample: 0.003156
-sample: 0.003163
-sample: 0.003168
-sample: 0.003180
-sample: 0.003199
-sample: 0.003211
-sample: 0.003214
-sample: 0.003227
-sample: 0.003239
-sample: 0.003245
-sample: 0.003258
-sample: 0.003296
-sample: 0.003298
-sample: 0.003315
-sample: 0.003367
-sample: 0.003514
-sample: 0.003558
-sample: 0.003579
-sample: 0.003669
-sample: 0.003716
-sample: 0.004006
-sample: 0.004730
-1th percentile: 0.003002
-5th percentile: 0.003039
-10th percentile: 0.003054
-25th percentile: 0.003077
-50th percentile: 0.003099
-75th percentile: 0.003138
-90th percentile: 0.003227
-95th percentile: 0.003367
-99th percentile: 0.004006
+sample: 0.003178
+sample: 0.003259
+sample: 0.003278
+sample: 0.003485
+sample: 0.003492
+1th percentile: 0.003098
+5th percentile: 0.003099
+10th percentile: 0.003099
+25th percentile: 0.003102
+50th percentile: 0.003107
+75th percentile: 0.003115
+90th percentile: 0.003278
+95th percentile: 0.003485
+99th percentile: 0.003492

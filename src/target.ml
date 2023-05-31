@@ -120,7 +120,7 @@ let occLast : constr =
 
 (* [target_of_path p]: converts path [p] to a target. *)
 let target_of_path (p : path) : target =
-  List.map (fun d -> Constr_dir d) p
+  [Constr_paths [p]]
 
 (* [dRoot]: matches the root of the ast. *)
 let dRoot : constr =
@@ -1461,8 +1461,9 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 (*                                   New target system TODO: deprecate old one *)
 (******************************************************************************)
 
-
-
+(* LATER: add an optimization flag for transformations who know that they don't
+   break the paths in the case of multiple targets, this avoids placing marks
+   in the tree when -dump-trace is not requested *)
 (* [iteri ?rev tr tg]: execute operation [tr] to each of the paths targeted by [tg].
      [rev] - process the resolved paths in reverse order,
      [tg] - target
@@ -1484,7 +1485,7 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
   let tg = fix_target tg in
   let t = Trace.ast() in
   with_stringreprs_available_for [tg] t (fun t ->
-    let ps = resolve_target tg t in
+      let ps = resolve_target tg t in
     let ps = if rev then List.rev ps else ps in
     match ps with
     | [] -> ()
@@ -1534,7 +1535,6 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
          (* Record the ast carried by the exception to allow visualizing the ast *)
          Trace.set_ast t
       );
-
     Constr.old_resolution := c_o_r_bak (* TEMPORARY *)
 
 (* [iter] same as [iteri] but without occurence index *)
@@ -1588,10 +1588,6 @@ let target_between_show_aux (m : mark) (k : int) (t : trm) : trm =
 let target_between_show_transfo (m : mark) : Transfo.local_between =
   fun (k:int) -> apply_on_path (target_between_show_aux m k)
 
-(* [bigstep s]: an alias for [Trace.bigstep s]. *)
-let bigstep (s : string) : unit =
-  Trace.bigstep s
-
 
 (* [show_next_id] used for batch mode execution of unit tests, to generate names of for marks.
     Only used when [Flags.execute_show_even_in_batch_mode] is set.  *)
@@ -1605,19 +1601,17 @@ let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
    There is no need for a prefix such as [!!] in front of the [show]
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
-let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (tg : target) : unit =
-  (* Automatically add [nbMulti] if there is no occurence constraint. *)
+let show ?(line : int = -1) ?(types : bool = false) (tg : target) : unit =
+  (* DEPRECATED ?(reparse : bool = false)  if reparse then reparse_alias(); *)
+  (* Calling [enable_multi_targets] to automatically add [nbMulti] if there is no occurence constraint. *)
   let tg = enable_multi_targets tg in
-  if reparse then reparse_alias();
-  let should_exit = (Flags.get_exit_line() = Some line) in
-  let batch_mode = (Flags.get_exit_line() = None) in
-  let marks_base = show_next_id() in
-  let mark_of_occurence (i:int) : string =
-    if batch_mode && !Flags.execute_show_even_in_batch_mode
-      then Printf.sprintf "%d_%d" marks_base i
-      else Printf.sprintf "%d" i
-    in
-  if should_exit || (!Flags.execute_show_even_in_batch_mode && batch_mode) then begin
+  let interactive_action () =
+    let marks_base = show_next_id() in
+    let mark_of_occurence (i:int) : string =
+      if (*DEPRECATED batch_mode &&*) !Flags.execute_show_even_in_batch_mode
+        then Printf.sprintf "%d_%d" marks_base i
+        else Printf.sprintf "%d" i
+      in
     if Constr.is_target_between tg then begin
       applyi_on_targets_between (fun i t (p,k) ->
         let m = mark_of_occurence i in
@@ -1626,20 +1620,33 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
       applyi_on_targets (fun i t p ->
         let m = mark_of_occurence i in
         target_show_transfo ~types m t p) tg
-    end;
-    if should_exit
-      then dump_diff_and_exit()
-  end else begin
-    (* only check targets are valid *)
+    end
+    in
+  let action_otherwise () =
+    (* If in regular batch mode, then we only check that the targets are valid *)
     if Constr.is_target_between tg
       then applyi_on_targets_between (fun _i t (_p,_k) -> t) tg
       else applyi_on_targets (fun _i t _p -> t) tg
-  end
+    in
+  Trace.show_step ~line ~interactive_action ~action_otherwise ()
+
+(* [show_ast] enables to view the current ast. *)
+let show_ast ?(line:int = -1) () : unit =
+  let t = Trace.ast() in
+  Trace.interactive_step ~line ~ast_before:(fun () -> empty_ast) ~ast_after:(fun () -> t)
+
+(* [show_res] enables to view the result of resource computations. *)
+let show_res (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
+  let t = Trace.ast() in
+  let compute_res t = t in (* TODO *)
+  let tres = compute_res t in
+  let decode t = t in (* TODO *)
+  Trace.interactive_step ~line ~ast_before:(fun () -> t) ~ast_after:(fun () -> decode tres)
 
 (* LATER: Fix me *)
 (* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
-let show_type ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
-  show ~line ~reparse ~types:true tg
+let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : target) : unit =
+  show ~line (* DEPRECATED ~reparse*) ~types:true tg
 
 
 (* [get_trm_at]: get the trm that corresponds to the target [tg]
@@ -1692,12 +1699,12 @@ let get_toplevel_function_name_containing (dl : path) : string option =
 
 (* [reparse_only fun_nmaes]: reparse only those functions whose identifier is contained in [fun_names]. *)
 let reparse_only (fun_names : string list) : unit =
-  Trace.call (fun t ->
+  Trace.parsing_step (fun () -> Trace.call (fun t ->
     let chopped_ast, chopped_ast_map  =  hide_function_bodies (function f -> not (List.mem f fun_names)) t in
     let parsed_chopped_ast = Trace.reparse_trm  (Trace.get_context ()) chopped_ast in
     let new_ast = update_chopped_ast parsed_chopped_ast chopped_ast_map in
     Trace.set_ast new_ast
-  )
+  ))
 
 (* [get_relative_type tg]: get the type of target relative , Before, After, First Last. *)
 let get_relative_type (tg : target) : target_relative option =
@@ -1715,19 +1722,21 @@ let get_relative_type (tg : target) : target_relative option =
 (* [reparse_after tr]: wrapper to force the reparsing after applying a transformation.
     For example type definitions are modified.
     See example in [Record.reveal_field]. The argument [~reparse:false] can be
-    specified to deactivate the reparsing. *)
+    specified to deactivate the reparsing.
+    There is an optimization for reparsing only top-level functions that are
+    involved in the path targeted by the target [tg]; LATER: should deactivate
+    this for transformations that make global changes beyond the targetd functions *)
 (* TODO: change strategy for reparse, probably based on missing types?
    else on annotations added by clangml but cleared by smart-constructors
    TODO URGENT: the resolve_target does not work with the new Dir_before system *)
-let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
-  fun (tg : target) ->
+let reparse_after ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit =
     if not reparse then tr tg else begin
-
       let tg = enable_multi_targets tg in
       let ast = (get_ast()) in
       (* LATER: it would be nice to avoid computing the
         with_stringreprs_available_for which we already compute later on
         during [tr tg]. *)
+      (* FIXME: will not appear in trace *)
       let tg_paths = with_stringreprs_available_for [tg] ast (fun ast ->
         if Constr.is_target_between tg
         then let tg_ps = resolve_target_between tg ast in
@@ -1742,7 +1751,6 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
       end else
         Trace.reparse();
     end
-
 
 (* LATER: use this more efficient version that avoids computing path resolution twice
 

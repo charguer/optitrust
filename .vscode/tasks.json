@@ -233,25 +233,43 @@ file{
       }
     },
     {
-      "label": "Compile the full current folder",
+      "label": "Compile the last-tried test(s)",
       "type": "shell",
-      "command": "make all",
+      "command": "./tester",
+      "args": [
+        "__last"
+      ]
       "options": {
-        "cwd": "${fileDirname}"
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Compile the current test",
+      "type": "shell",
+      "command": "./tester",
+      "args": [
+        "${relativeFile}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Compile the current test with -dump-trace",
+      "type": "shell",
+      "command": "./tester",
+      "args": [
+        "${relativeFile}",
+        "-dump-trace"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
       }
     },
     {
       "label": "Recompile then compile and run current",
       "type": "shell",
       "command": "make optitrust; make ${fileBasenameNoExtension}.out",
-      "options": {
-        "cwd": "${fileDirname}"
-      }
-    },
-    {
-      "label": "Compile the full current folder",
-      "type": "shell",
-      "command": "make all",
       "options": {
         "cwd": "${fileDirname}"
       }

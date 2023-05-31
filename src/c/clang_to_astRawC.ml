@@ -559,17 +559,17 @@ and tr_expr (e : expr) : trm =
   | CompoundLiteral {init = init_expr; qual_type = _q} -> tr_expr init_expr
   | IntegerLiteral i ->
     begin match i with
-      | Int i -> trm_lit ?loc ?ctx (Lit_int i)
+      | Int i -> trm_lit ~typ ?loc ?ctx (Lit_int i)
       | _ -> fail loc "Clang_to_astRawC.tr_expr: only int literal allowed"
     end
-  | BoolLiteral b -> trm_lit ?loc ?ctx (Lit_bool b)
+  | BoolLiteral b -> trm_lit ~typ ?loc ?ctx (Lit_bool b)
   | FloatingLiteral f ->
     begin match f with
-      | Float f -> trm_lit ?loc ?ctx (Lit_double f)
+      | Float f -> trm_lit ~typ ?loc ?ctx (Lit_double f)
       | _ -> fail loc "Clang_to_astRawC.tr_expr: only float literal allowed"
     end
   | StringLiteral {byte_width = _; bytes = s; string_kind = _} ->
-    trm_lit ?loc ?ctx (Lit_string s)
+    trm_lit ~typ ?loc ?ctx (Lit_string s)
 
   | InitList el ->
     (* maybe typ is already the value of tt ---let tt = tr_qual_type ?loc t in *)
@@ -812,7 +812,7 @@ and tr_expr (e : expr) : trm =
     print_info loc "tr_expr: implicit initial value\n";
     trm_lit ?loc ?ctx Lit_uninitialized
   | UnknownExpr (CompoundLiteralExpr, CompoundLiteralExpr) ->
-      Printf.printf "WARNING: Unknown expressions are parse as null pointers";
+      Printf.printf "WARNING: Unknown expressions are parse as null pointers\n";
       trm_add_mark "unknown_expr" (trm_null ?loc ?ctx () )
   | ImplicitValueInit _ -> trm_lit ?loc ?ctx Lit_uninitialized
 

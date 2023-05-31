@@ -437,7 +437,7 @@ val apply_at_target_paths : (trm -> trm) -> target -> unit
 
 val check : target -> unit
 
-val show : ?line:int -> ?reparse:bool -> ?types:bool -> target -> unit
+val show : ?line:int -> (* DEPREACTED ?reparse:bool ->*) ?types:bool -> target -> unit
 
 module Transfo : sig
   type t = target -> unit
@@ -446,9 +446,10 @@ end
 
 val target_show_transfo : ?types:bool -> mark -> Transfo.local
 
-val show_type : ?line:int -> ?reparse:bool -> target -> unit
+val show_type : ?line:int -> (* DEPREACTED ?reparse:bool ->*) target -> unit
 
-val bigstep : string -> unit
+val show_ast : ?line:int -> unit -> unit
+val show_res : ?line:int -> unit -> unit
 
 (* Target debugging *)
 
@@ -459,10 +460,8 @@ val string_to_rexp : bool -> bool -> string -> Constr.trm_kind -> Constr.rexp
 (* Shorthand *)
 
 val (!!) : 'a -> 'a
-val (!^) : 'a -> 'a
 val (!!!) : 'a -> 'a
-val (!!^) : 'a -> 'a
-
+val bigstep : string -> unit
 
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 

@@ -13,7 +13,7 @@ type rename = Variable.Rename.t
       then it just leaves it as an empty string "". Basically this transformation is
       just an aplication of bind_intro n times. Where n is the numer of strings inside
       [fresh_names] different from "". *)
-let bind_args (fresh_names : vars) (tg : target) : unit =
+let%transfo bind_args (fresh_names : vars) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let call_trm = get_trm_at_path p t in
     let call_mark = "bind_args_mark" in
@@ -38,7 +38,7 @@ let bind_args (fresh_names : vars) (tg : target) : unit =
      Then it will change all the declaraed variables inside that sequence  based on [vars]
      Either the user can give a list of variables together with their new names, or he can give the postifx
      that's going to be assigned to all the declared vairables. *)
-let elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
+let%transfo elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Stats.comp_stats "elim_body_resolve" (fun () -> Path.resolve_path p t) in
     let error = "Function.elim_body: the given target should point at a sequence." in
@@ -53,7 +53,7 @@ let elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
     Then it will just call bind args and bind_intro.
     Basically this tranasformation just binds a variable to the targeted function call
     and its arguments.*)
-let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : target) : unit =
+let%transfo bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : target) : unit =
   bind_args args tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
@@ -209,7 +209,7 @@ int f2() { // result of Funciton_basic.inline_cal
   _exit:;
   int s = r;
 } *)
-let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
+let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
     ?(delete : bool = false) ?(debug : bool = false) (tg : target) : unit =
     (* variable for storing the function names, in case if [delete] is true it will use this name to target the declarations and delete them *)
     let function_names = ref Var_set.empty in
@@ -244,20 +244,31 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
         Stats.comp_stats "elim_body" (fun () ->
           elim_body ~vars [cMark body_mark];);
         if deep_cleanup then begin
-          let success_attach = ref true in
-            let _ = try Variable_basic.init_attach [new_target] with
-                | Variable_core.Init_attach_no_occurrences
-                | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
-                | e -> raise e in
-
-             if !success_attach then begin
-                Variable.inline [new_target];
-                Variable.inline_and_rename [nbAny; cVarDef !resname];
-                if not keep_res then begin try Variable.inline_and_rename [nbAny; cMark "__inline_instruction"] with | TransfoError _ -> () end;
-                Marks.remove "__inline_instruction" [nbAny;cMark "__inline_instruction" ] end
-             else if not keep_res then
-                try Variable.inline_and_rename [nbAny; cMark "__inline_instruction"] with | TransfoError _ -> ();
-            Marks.remove my_mark [nbAny; new_target]
+          let success_attach = match Trace.backtrack_on_failure (fun () ->
+            Variable_basic.init_attach [new_target]
+          ) with
+          | Success -> true
+          | Failure Variable_core.Init_attach_no_occurrences
+          | Failure Variable_core.Init_attach_occurrence_below_control ->
+            false
+          | Failure e -> raise e
+          in
+          if success_attach then begin
+            Variable.inline [new_target];
+            Variable.inline_and_rename [nbAny; cVarDef !resname];
+            if not keep_res then begin
+              ignore (Trace.backtrack_on_failure (fun () ->
+                Variable.inline_and_rename [nbAny; cMark "__inline_instruction"]
+              ));
+              (* TODO: only with | TransfoError ? *)
+              Marks.remove "__inline_instruction" [nbAny;cMark "__inline_instruction" ]
+            end
+          end else if not keep_res then
+            ignore (Trace.backtrack_on_failure (fun () ->
+              Variable.inline_and_rename [nbAny; cMark "__inline_instruction"]
+              (* TODO: only with | TransfoError ? *)
+            ));
+          Marks.remove my_mark [nbAny; new_target]
         end;
         Marks.remove my_mark [nbAny; new_target];
         Record_basic.simpl_proj (target_of_path path_to_seq);
@@ -304,7 +315,7 @@ let inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : var
 
 (* [beta ~indepth tg]: applies beta-reduction on candidate function calls that appear
     either "exactly at" or "anywhere in depth" in the target [tg], depending on the value of ~indepth. *)
-let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : target) : unit =
+let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : target) : unit =
   let tg = if indepth
     then tg @ [cFun ~fun_:[cFunDef ""] ""]
     else tg in
@@ -327,7 +338,7 @@ let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : target) : unit
      an infix form, for example x = x + 1 can be converted to x += 1,
     [indepth]: if true then it will check all the descendants of [t] if there are any write operations to be transformed
     [allow_identity]: if true it stops the transformation from failing when it finds nodes that can't be transformed.*)
-let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg : target) : unit =
+let%transfo use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg : target) : unit =
   let tg = if indepth
     then [nbMulti] @ tg @ [cWrite ~rhs:[cPrimPredFun is_infix_prim_fun] ()] else tg in
   Function_basic.use_infix_ops_at ~allow_identity tg
@@ -339,7 +350,7 @@ let use_infix_ops ?(indepth : bool = false) ?(allow_identity : bool = true) (tg 
     Now the stage is ready for applying the basic version of uninline. After calling that transformation and assuming that
     everything went fine we can now eliminate the introduced sequence. The arg [with_for_loop] should be set to true if the
     original function declaration contains a for loop.*)
-let uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) : Transfo.t =
+let%transfo uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) (tg : target) : unit =
   let tg_fun_def = match get_trm_at fct with
   | Some td -> td
   | None -> fail None "Function.uninline: fct target does point to any node" in
@@ -356,11 +367,10 @@ let uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) : Transfo.t
       | _ -> fail tg_fun_def.loc "Function.uninline: weird function declaration "
       end
     | _ -> fail tg_fun_def.loc "Function.uinline: fct arg should point to a a function declaration"
-
-)
+  ) tg
 
 (* [insert ~reparse decl tg]: expects the relative target [t] to point before or after an instruction,
      then it will insert the function declaration [decl] on that location.
      To integrate the new declaration with the current AST [reparse] should be set to true. *)
-let insert ?(reparse : bool = false) (decl : string) : Transfo.t =
-  Sequence.insert ~reparse (stmt decl)
+let%transfo insert ?(reparse : bool = false) (decl : string) (tg : target) : unit =
+  Sequence.insert ~reparse (stmt decl) tg

@@ -1,11 +1,13 @@
 open Optitrust
 open Target
 
-(* FOR DEBUG:
-   make optitrust && rm -f interact_trace_trace.* && make interact_trace_trace.html
+(* Usage:
+       ./tester tests/interact/interact_traceview.ml
+      cat tests/interact/interact_traceview_trace.txt
+      chromium-browser interact_trace_trace.html
 *)
 
-(* This test can be used to test the generation of the javsacript trace [%_trance.js],
+(* This test can be used to test the generation of the javsacript trace [%_trace.js],
    used to display [%_trace.html]. It can also be used to test the [alt+f6] shortcut
    for viewing big steps interactively. *)
 
@@ -26,13 +28,5 @@ let _ = Run.script_cpp (fun _ ->
     bigstep "third part";
     !! Label.add "lab6" [cVarDef "a"];
     !! Label.add "lab7" [cVarDef "a"];
-
-    !^ Label.add "info1" [cVarDef "b"];
-    !! Label.add "info2" [cVarDef "b"];
-    !^ Label.add "info3" [cVarDef "b"];
-    !! Label.add "info4" [cVarDef "b"];
-    !! Label.add "info5" [cVarDef "b"];
-    !^ Label.add "info6" [cVarDef "b"];
-    !! Label.add "info7" [cVarDef "b"];
 
 )

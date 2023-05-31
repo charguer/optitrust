@@ -30,8 +30,8 @@ let _ = Run.script_cpp (fun _ ->
       !! Sequence.intro ~stop:[cVarDef "e"] ();
       !! (););
 
-  !! Tools.failure_expected (fun () ->
+  !! Trace.failure_expected (fun () ->
        Sequence.intro ~start:[tAfter; cVarDef "z"] ~stop:[tBefore; cVarDef "z"] ());
-  !! Tools.failure_expected (fun () ->
+  !! Trace.failure_expected (fun () ->
        Sequence.intro ~start:[tAfter; cVarDef "z"] ~stop:[tAfter; cVarDef "z"] ());
 )

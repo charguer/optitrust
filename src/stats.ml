@@ -52,6 +52,7 @@ let start_stats = ref cur_stats
 (* [last_stats]: stores the stats after the execution of the current step. *)
 let last_stats = ref cur_stats
 
+(* MANY DEPRECATED FUNCTIONS BELOW *)
 
 (* [last_stats_update ()]: updates [last_stats] and returns the difference *)
 let last_stats_update () : stats =

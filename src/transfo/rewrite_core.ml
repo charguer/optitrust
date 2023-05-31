@@ -49,7 +49,7 @@ let compute_aux (t : trm) : trm =
     | Some (Prim_binop Binop_or), [t2; {desc = Trm_val (Val_lit (Lit_bool false));_}] when trm_is_val_or_var t2 -> t2
     | Some (Prim_binop p), [t1;t2] ->
       begin match (trm_lit_inv t1), (trm_lit_inv t2) with
-      | Some v1, Some v2 -> compute_app_binop_value p v1 v2
+      | Some v1, Some v2 -> compute_app_binop_value p t1.typ t2.typ v1 v2
       | _,_ -> t
       end
     | Some _ ,_ | None, _-> t

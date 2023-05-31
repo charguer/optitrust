@@ -6,7 +6,7 @@ include Matrix_basic
 (* [intro_calloc tg]: expects the target [tg] to point at a variable declaration
     then it will check its body for a call to calloc. On this extended path it will call
     the [Matrix_basic.intro_calloc] transformation *)
-let intro_calloc : Transfo.t =
+let%transfo intro_calloc (tg : target) : unit =
   iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with
@@ -33,22 +33,24 @@ let intro_calloc : Transfo.t =
             opertion on the targeted variable"
       end
 
-    | _ -> fail None "intro_calloc: the target should be a variable declarartion allocated with alloc")
+    | _ -> fail None "intro_calloc: the target should be a variable declarartion allocated with alloc"
+  ) tg
 
 
 (* [intro_mindex dim]; expects the target [tg] to point at at a matrix declaration, then it will change
      all its occurrence accesses into Optitrust MINDEX accesses. *)
-let intro_mindex (dim : trm) : Target.Transfo.t =
+let%transfo intro_mindex (dim : trm) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.get_trm_at_path p t in
     let error = "Matrix.intro_mindex: the target should point at matrix declaration." in
     let (_, x, _, _) = trm_inv ~error trm_let_inv tg_trm in
-    Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVar x] ()])
+    Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVar x] ()]
+  ) tg
 
 (* [intro_malloc tg]: expects the target [tg] to point at a variable declaration
     then it will check its body for a call to malloc. On this extended path it will call
     the [Matrix_basic.intro_malloc] transformation. *)
-let intro_malloc : Transfo.t =
+let%transfo intro_malloc (tg : target) : unit =
   iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with
@@ -75,12 +77,13 @@ let intro_malloc : Transfo.t =
           with | TransfoError _ -> fail tg_trm.loc "intro_malloc: couldn't find the malloc
             opertion on the targeted variable"
       end
-    | _ -> fail None "intro_malloc: the target should be a variable declarartion allocated with alloc")
+    | _ -> fail None "intro_malloc: the target should be a variable declarartion allocated with alloc"
+  ) tg
 
 
 (* [biject fun_bij tg]: expects the target [tg] to point at at a matrix declaration , then it will search for all its
     acccesses and replace MINDEX with  [fun_bij]. *)
-let biject (fun_bij : string) : Transfo.t =
+let%transfo biject (fun_bij : string) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
@@ -90,22 +93,29 @@ let biject (fun_bij : string) : Transfo.t =
     | Trm_apps (_, [{desc = Trm_var (_, p)}; _])  when is_set_operation tg_trm ->
       Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p.qvar_var] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
     | _ -> fail tg_trm.loc "biject: expected a variable declaration"
-)
+  ) tg
 
 (* [intro_mops dims]: expects the target [tg] to point at an array declaration allocated with
       calloc or malloc, then it will apply intro_calloc or intor_mmaloc based on the type of
       the current allocation used. Then it will search for all accesses and apply intro_mindex. *)
-let intro_mops (dim : trm) : Transfo.t =
+let%transfo intro_mops (dim : trm) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.get_trm_at_path p t in
     let error = "Matrix.intro_mops: the target should be pointing at a matrix declaration" in
     let _ = trm_inv ~error trm_let_inv tg_trm in
     intro_mindex dim (target_of_path p);
-    try intro_malloc (target_of_path p) with | TransfoError _ ->
-      begin
-        try intro_calloc (target_of_path p) with | TransfoError _ -> fail tg_trm.loc "intro_mops: the targeted matrix was not allocated with malloc or calloc"
-      end
-    )
+    match Trace.backtrack_on_failure (fun () ->
+      intro_malloc (target_of_path p)
+    ) with
+    | Success -> ()
+    | Failure _ -> begin
+      match Trace.backtrack_on_failure (fun () ->
+        intro_calloc (target_of_path p)
+      ) with
+      | Success -> ()
+      | Failure _ -> fail tg_trm.loc "intro_mops: the targeted matrix was not allocated with malloc or calloc"
+    end
+  ) tg
 
 
 (* [elim_mops]: expects the target [tg] to point at a subterm and
@@ -114,7 +124,7 @@ let intro_mops (dim : trm) : Transfo.t =
   TODO:
   - eliminate MALLOC2 into malloc(sizeof(T[n][m]))?
 *)
-let elim_mops (tg : target): unit =
+let%transfo elim_mops (tg : target): unit =
   let targets = ref [] in
   Target.iter (fun _ p ->
     targets := (target_of_path p) :: !targets;
@@ -129,7 +139,7 @@ let elim_mops (tg : target): unit =
 (* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~into ~dim ~index ~indices ~ops tg]: this is a combi
    varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated
     environment where the delocalizing transformatino is going to be performed *)
-let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
+let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
   ?(last : bool = false)  ?(use : trm option) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string)
   ?(indices : string list = []) ~ops:(ops : local_ops) ?(alloc_instr : target option) ?(labels : label list = []) ?(dealloc_tg : target option) (tg : target) : unit =
 
@@ -141,7 +151,7 @@ let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place 
     Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [cMark middle_mark];
 
     let tg_decl_access = cOr [[cVarDef into];[cWriteVar into]; [cCellAccess ~base:[cVar into] ()]] in
-    if last then Matrix_basic.reorder_dims ~rotate_n:1 () [nbAny; tg_decl_access; cFun ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
+    if last then Matrix_basic.reorder_dims ~rotate_n:1 [nbAny; tg_decl_access; cFun ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
     begin match use with
       | Some e ->   Specialize.any e [nbAny; cMark any_mark]
       | None -> ()
@@ -171,25 +181,44 @@ let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place 
 
 (* [reorder_dims ~rotate_n ~order tg] expects the target [tg] to point at at a matrix declaration, then it will find the occurrences of ALLOC and INDEX functions
       and apply the reordering of the dimensions. *)
-let reorder_dims ?(rotate_n : int option) ?(order : int list = []) () (tg : target) : unit =
+let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg : target) : unit =
   let rotate_n = match rotate_n with Some n -> n | None -> 0  in
   iter_on_targets (fun t p ->
     let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in
     let tg_trm = Path.resolve_path p t in
     let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
     let (_, x, _, _) = trm_inv ~error trm_let_inv tg_trm in
-    Matrix_basic.reorder_dims ~rotate_n ~order () ((target_of_path path_to_seq) @ [cOr [[cVarDef x; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x] (); cFun ~regexp:true "MINDEX."]]])
+    Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr [[cVarDef x; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x] (); cFun ~regexp:true "MINDEX."]]])
   ) tg
 
-(* [elim]: eliminates the matrix [var] defined in the sequence targeted by [tg].
+(* [elim]: eliminates the matrix [var] defined in at the declaration targeted by [tg].
   All reads from [var] must be eliminated The values of [var] must only be read locally, i.e. directly after being written.
   *)
-let elim ~(var : var) (tg : target) : unit =
-  read_last_write ~write:(tg @ [cArrayWrite var]) (tg @ [nbAny; cArrayRead var]);
-  (* FIXME: dangerous transformation? *)
-  (* TODO: Matrix.delete_not_read *)
-  Instr.delete (tg @ [nbAny; cArrayWrite var]);
-  delete ~var tg
+let%transfo elim (tg : target) : unit =
+  Target.iter (fun t p_def ->
+    let t_def = Path.resolve_path p_def t in
+    let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
+    let (_, p_seq) = Path.index_in_seq p_def in
+    let tg_seq = target_of_path p_seq in
+    read_last_write ~write:(tg_seq @ [cArrayWrite x]) (tg_seq @ [nbAny; cArrayRead x]);
+    (* FIXME: dangerous transformation? *)
+    (* TODO: Matrix.delete_not_read *)
+    Instr.delete (tg_seq @ [nbAny; cArrayWrite x]);
+    delete ~var:x tg_seq
+  ) tg
 
 (* TODO: local_name_tile ~shift_to_zero *)
 (* + shift_to_zero ~nest_of *)
+
+(* [elim_constant]: expects [tg] to target a matrix definition,
+   then first uses [Matrix.elim_mops] on all reads before attempting
+   to use [Arrays.elim_constant].
+   *)
+let%transfo elim_constant (tg : target) : unit =
+  Target.iter (fun t p_def ->
+    let t_def = Path.resolve_path p_def t in
+    let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
+    let (_, p_seq) = Path.index_in_seq p_def in
+    elim_mops ((target_of_path p_seq) @ [nbAny; cArrayRead x]);
+    Arrays.elim_constant (target_of_path p_def);
+  ) tg

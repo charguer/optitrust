@@ -7,7 +7,19 @@
 
 
 - README.md => reprendre sc_artifact.md qui est à jour et intégrer ce qui manque de l'ancien README.md
-  + opam pin add clangml 4.8.0
+  + ```
+    opam init
+    opam switch create optitrust 4.14.1
+    opam pin add menhirLib 20210419
+    opam pin add pprint 20220103
+    opam pin add clangml 4.8.0
+    opam install dune clangml pprint menhir menhirLib base64 ocamlbuild
+    eval $(opam env)
+    ```
+TODO: une commande avec les -y  pour répondre yes et des ;\  pour pouvoir exécuter en une seule fois
+=> mieux encore, make setup, voir comme fait françois pottier dans
+  https://gitlab.inria.fr/fpottier/sek/-/blob/master/Makefile
+
   + `ocamllsp --fallback-read-dot-merlin` for LSP (VSCode) .merlin support
 
 - update keybindings and templates
@@ -72,3 +84,80 @@ LATER
 - add a mechanism for computing tests twice, once with reparsing in-betweeen every small steps
 
 - option si besoin: placer les fichiers générés par les tests dans un sous dossier
+
+
+
+
+
+   // deactivate existing binding
+  {
+    "key":"f5",
+    "command": "-workbench.action.debug.start",
+    "when": "debuggersAvailable && debugState != 'initializing'"
+  },
+
+  {
+    "key":"f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Compile the last-tried test(s)",
+    "when": "resourceDirname =~ /^.*\/verified_transfo\/src\/src\/.*$/ || resourceDirname =~ /^.*\/verified_transfo\/src\/src\/transfo\/.*$/"
+  },
+  {
+    "key":"f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Compile the current test",
+    // "when": "resourceDirname =~ /^.*\/verified_transfo\/src\/tests\/.*$/"
+  },
+    {
+    "key":"shift+f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Compile the current test with -dump-trace",
+    // "when": "resourceDirname =~ /^.*\/verified_transfo\/src\/tests\/.*$/"
+  },
+
+
+
+
+    {
+      "label": "Compile the current test",
+      "type": "shell",
+      "command": "./tester",
+      "args": [
+        "${relativeFile}"
+      ]
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Compile the current test with -dump-trace",
+      "type": "shell",
+      "command": "./tester",
+      "args": [
+        "${relativeFile}",
+        "-dump-trace"
+      ]
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Compile the last-tried test(s)",
+      "type": "shell",
+      "command": "./tester",
+      "args": [
+        "__last"
+      ]
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+
+
+
+
+# autostart watch
+gnome-terminal --geometry 100x30+0+0 -e "bash -c \"${OPTITRUST}/.vscode/watch.sh\""
+
+e.g.
+gnome-terminal --geometry 100x30+0+0 -e "bash -c \"~/shared/verified_transfo/src/.vscode/watch.sh\""

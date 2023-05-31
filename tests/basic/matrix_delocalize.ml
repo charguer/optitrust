@@ -16,25 +16,25 @@ int main(){
   int const N1 = 5;
   T* a = (T*) CALLOC1 (N1, sizeof(T));
   mark :{
-    
+
     T* x = (T*) CALLOC1 (N1, sizeof(T));
-    
+
     for (int i1 = 0; i1 < N1; i1++){
       x[MINDEX1(N1, i1)] = a[MINDEX1(N1, i1)];
     }
-    
+
     for (int i = 0; i < 10; i++){
       int t = x[MINDEX1(N1, i)];
       x[MINDEX1(N1, i)];
     }
-    
+
     for (int i1 = 0; i1 < N1; i1++){
       a[MINDEX1(N1, i1)] = x[MINDEX1(N1, i1)];
     }
-    
+
     MFREE(x);
-  
-  }  
+
+  }
   MFREE(a);
   int y = 0;
   return 0;

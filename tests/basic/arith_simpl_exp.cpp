@@ -41,7 +41,7 @@ int main() {
   z = 1. / b;
   t = 6 * a;
   t = 2 * a;
-  t = 6 * b;
+  t = 6 * a * b / a;
   t = 1. / b;
   u = a * b + a * c;
   u = a * c + a * d + b * c + b * d;
@@ -53,6 +53,8 @@ int main() {
   v = d;
   v = a + c;
   w = a + a * 3 + f(b * f(c + c) / b);
+  float f;
+  f = -2.f / 12.f;
   int ls;
   ls = x + 2;
   ls = x;

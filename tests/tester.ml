@@ -13,15 +13,19 @@ module StringSet = Set.Make(String)
   It features:
   - caching of AST representation for input and expected output files
   - management of dependencies on the source code of optitrust
-  - selection of a subset of tests to process (by default "all")
+  - selection of a subset of tests to process (${args} is by default "all")
     (either via filenames, or via a 'key' name refering to a groupe of files)
   - comparison either at the AST level or at the cpp source level via diff
+  - call to "./tester __last" reuses the arguments provided to the last call
+    (these arguments are saved in the file ./tester_last_args.txt,
+    the target "all" is taken if this file does not exist yet)
 
   It produces as output:
   - information on which test fails
   - if requested or else only for tests that fail, produce the output files *_out.cpp
   - generates a bash script to be used for approving changes on expected files
     in case of test failures that result from intended changes.
+
 
 
 LATER: add options to control whether to generate for each test
@@ -32,6 +36,9 @@ VERY-LATER: mode for compiling sources with gcc at a given standard
 *)
 
 let tmp_file = "/tmp/optitrust_tester"
+
+let last_args_file = "tester_last_args.txt"
+  (* LATER: decide if this file could be in _build/default/.. *)
 
 let do_is_ko (cmd : string) : bool =
   let exit_code = Sys.command cmd in
@@ -48,10 +55,25 @@ let do_or_die (cmd : string) : unit =
       command_output_lines *)
 
 (*****************************************************************************)
+(* Saving/retrieving arguments of the last call *)
+
+(* Save to the file [last_args_file] the targets provided, assuming the target
+   does not contain "__last" *)
+let save_last_tests (keys : string list) : unit =
+  if not (List.mem "__last" keys)
+    then Xfile.put_lines last_args_file keys
+
+(* Obtain the contents of the file [last_args_file], or "all" if the file does not exist *)
+let get_last_tests () : string list =
+  if Sys.file_exists last_args_file
+    then Xfile.get_lines last_args_file
+    else ["all"]
+
+
+(*****************************************************************************)
 (* Description of keys *)
 
 (* Gather the list of *.ml files in a directory.
-
    Ignores *_with_lines.ml files.
    *)
 let get_list_of_tests_in_dir (folder : string) : string list =
@@ -60,10 +82,12 @@ let get_list_of_tests_in_dir (folder : string) : string list =
     folder tmp_file);
   Xfile.get_lines tmp_file
 
+
 (* Gather the list of *.ml files for a given key. May contain duplicates. *)
 let rec list_of_tests_from_key (key : string) : string list =
   let aux = list_of_tests_from_key in
   match key with
+  | "__last" -> get_last_tests ()
   | "all" -> (aux "basic") @
              (aux "combi") @
              (aux "target") @
@@ -127,7 +151,6 @@ let combi_tests_to_ignore = [
 ]
 let target_tests_to_ignore = [
   (* TO FIX: *)
-  "target_one.ml";
   "target_type.ml";
   (* NOT A TEST: *)
 	"target_regexp.ml";
@@ -142,6 +165,9 @@ let ast_tests_to_ignore = [
 	"c_serialize.ml";
 	"cpp_features.ml";
 	"cpp_big.ml";
+  (* NOT A TEST: *)
+  "cpp_debug.ml";
+  "c_ast_debug.ml";
 ]
 let tests_to_ignore =
   (List.map (fun f -> "tests/basic/" ^ f) basic_tests_to_ignore) @
@@ -156,7 +182,10 @@ let tests_to_ignore =
 let compute_tests_to_process (keys : string list) : (string list * string list) =
   let tests = List.concat_map list_of_tests_from_key keys in
   let unique_tests = Xlist.remove_duplicates tests in
-  let (ignored_tests, tests_to_process) = List.partition (fun x -> List.mem x tests_to_ignore) unique_tests in
+  (* We ignore tests that are in the ignore-list defined above, except if they
+     are requested explicitly as a command line argument *)
+  let (ignored_tests, tests_to_process) =
+    List.partition (fun x -> List.mem x tests_to_ignore && not (List.mem x keys)) unique_tests in
   (* TODO : garder quand meme les keys *)
   (tests_to_process, ignored_tests)
 
@@ -214,13 +243,14 @@ type cmdline_args = (string * Arg.spec * string) list
 let spec : cmdline_args =
    [ ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
      ("-ignore-cache", Arg.Set ignore_cache, " ignore the serialized AST, force reparse of source files; does not modify the existing serialized data");
-     ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for tests that are executed.");
+     ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for
+     tests that are executed.");
      ("-v", Arg.Set verbose_mode, " report details on the testing process.");
   ]
 
 let _main : unit =
   Arg.parse
-    (Arg.align spec)
+    (Arg.align (spec @ Flags.spec))
     (fun other_arg -> keys_to_process := other_arg :: !keys_to_process)
     ("usage: ./tester.exe [options] target1 .. targetN");
 
@@ -234,7 +264,11 @@ let _main : unit =
      ["all"]
     else
       List.rev !keys_to_process in
+  save_last_tests keys_to_process;
   let (tests_to_process, ignored_tests) = compute_tests_to_process keys_to_process in
+
+  if List.length tests_to_process > 1
+    then Flags.print_backtrace_on_error := false;
 
   (* TODO: We cache the "raw ast".
   from a trm t, we need to serialize Ast_fromto_AstC.cfeatures_intro t;
@@ -266,13 +300,26 @@ let _main : unit =
 
   (* TODO: faire la boucle en caml sur l'appel à sed,
      fAIRE Une erreur si le fichier n'existe pas !
+
    à chaque fois afficher un commentaire (* CURTEST=... *)
      TODO: add 'batch_prelude' and 'batch_postlude' calls.
      LATER: ajouter ici l'option ~expected_ast , et concatener l'appel à Run.batch_postlude logfilename *)
   do_or_die ("tests/batch_tests.sh " ^ batch_args ^ " > " ^ "tests/batch/batch.ml");
 
+  let delete_output test =
+    (* LATER: the following line raises Invalid_argument("Filename.chop_extension")
+        in case the test is not a valid path, ie to a file with an extension *)
+    let test_prefix = Filename.chop_extension test in
+    let filename_out = sprintf "%s_out.cpp" test_prefix in
+    ignore (do_is_ko (sprintf "rm -f %s > /dev/null" filename_out))
+    (* LATER: remove without displaying error messages or missing files *)
+  in
+  List.iter delete_output tests_to_process;
+
   do_or_die "cp tests/batch/dune_disabled tests/batch/dune";
   do_or_die "dune build tests/batch/batch.cmxs; rm tests/batch/dune";
+
+  (* LATER: if -dump_trace is requested, use _with_lines files *)
 
   (* TODO: rediriiger l'erreur dans un fichier  2>&
     Sys.command en version booléenne
@@ -308,24 +355,39 @@ let _main : unit =
 
   let ok_count = ref 0 in
   let ko_count = ref 0 in
+  let meld_args = ref [] in
   (* Compare all text outputs if necessary *)
   if !comparison_method = Comparison_method_text then
     let check_output test =
       let test_prefix = Filename.chop_extension test in
       let filename_out = sprintf "%s_out.cpp" test_prefix in
       let filename_exp = sprintf "%s_exp.cpp" test_prefix in
-      if Sys.file_exists filename_exp then begin
-        if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) then begin
-          printf "ERROR: unexpected output for %s\n   meld %s %s\n" test_prefix filename_out filename_exp;
-          incr ko_count;
-        end else
-          incr ok_count;
+      if Sys.file_exists filename_out then begin
+        if Sys.file_exists filename_exp then begin
+          if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) then begin
+            printf "ERROR: unexpected output for %s\n" test_prefix;
+            meld_args := sprintf "--diff %s %s" filename_out filename_exp :: !meld_args;
+            incr ko_count;
+          end else
+            incr ok_count;
+        end else begin
+            printf "MISSING: no expected output for %s\n   cp %s %s; git add %s\n" test_prefix filename_out filename_exp filename_exp;
+            incr ko_count;
+        end
       end else begin
-          printf "MISSING: no expected output for %s\n   cp %s %s; git add %s\n" test_prefix filename_out filename_exp filename_exp;
-          incr ko_count;
+        (* NOTE: we assume that only a script exception can
+           lead to the absence of a _out.cpp;
+           this error is already displayed *)
+        (* printf "No output %s\n" test_prefix;*)
+        incr ko_count;
       end
     in
     List.iter check_output tests_to_process;
+
+  begin match !meld_args with
+  | [] -> ()
+  | args -> printf "%s" (Tools.list_to_string ~sep:"" ~bounds:["  meld "; "\n"] args)
+  end;
 
   printf "%i tests passed, %i tests failed, %i tests ignored\n" !ok_count !ko_count (List.length ignored_tests);
   (*

@@ -25,7 +25,9 @@ make bench_[name]
 - `Variable.inline ~simpl [nbMulti; cFunBody "harris"; cConstDef ""]`
 - `Instr.accumulate ~nb:9 [nbMulti; cVarDef "acc"];`
 - remove `0.0f * x`
-- improve 'acc' variable renaming step: allow renaming to depend on context (e.g. `acc_${out}`)
+- improve 'acc' variable renaming step
+  - `Variable.rename ~add_suffix:array` / `Variable.rename ~op:AddSuffix(array)`
+  - allow renaming to depend on context (e.g. `acc_${out}`)
 - FIXME: duplicates even with suffix:
   ```
   !! ["conv3x3"; "sobelX"; "sobelY"; (* "binomial"; *) "mul"; "coarsity"] |>  List.iter (fun fun_to_inline ->
@@ -37,3 +39,7 @@ make bench_[name]
   (* Function.specialize ? *)
   !! Specialize.function_arg "conv3x3" [true; true; true; true; false; false; true] [nbMulti; cFun "conv2D"];
   ```
+
+# Script Notes
+
+- not necessary for perf: `Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_ix"] ~fresh_name:"g${occ}" [cArrayRead "gray"];`

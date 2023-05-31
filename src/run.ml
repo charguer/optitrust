@@ -124,7 +124,7 @@ let stop () : unit =
    Paths are all relative to the script.
 
    It takes the following parameters:
-   - [~check_exit_at_end:false] is an option for deactivating the implicit call to [Trace.check_exit_and_step()]
+   - [~check_exit_at_end:false] is an option for deactivating the implicit call to [Trace.check_exit()]
       at the end of the execution of [f] (LATER: will be deprecated)
       This flag only has an effect if a [-exit_line] option was passed on the command line.
    - [~prefix:string] allows providing the basename for the output files produced
@@ -159,8 +159,11 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     | Stop -> ()
     );
     flush stdout;
-    if check_exit_at_end && Flags.get_exit_line () <> None then
-      Trace.dump_diff_and_exit ();
+    (* If we requested a diff for the last line of the script, print it *)
+    if check_exit_at_end
+      then Trace.check_exit_at_end();
+    (* Otherwise, we finalize the script, and collapse the stack onto the root step *)
+    Trace.finalize();
     (* TODO:
           IF ~expected_ast<>"" then load and unserialized expected ast and
             call trm_cmp and store result in a list ref,
@@ -169,26 +172,22 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
             In this case, we skip trace.dump and other dumps. *)
     (* Stores the current ast to the end of the history *)
     Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
-    (* Dump full trace if [-dump-trace] option was provided;
-      in this case, record the last step in the history *)
-    if !Flags.dump_trace || !Flags.analyse_stats then begin
-      Trace.check_exit_and_step ~is_small_step:false ();
-      Stats.report_full_stats ();
-    end;
+    (* Dump full trace if [-dump-trace] option was provided *)
     if !Flags.dump_trace then begin
-      Trace.dump_traces_to_js ~prefix ();
+      Trace.dump_trace_to_js ~prefix ();
+      Trace.dump_trace_to_textfile ~prefix ();
     end;
-    begin match !Flags.dump_big_steps with
+    begin match !Flags.dump_big_steps with (* DEPRECATED? *)
     | None -> ()
     | Some foldername -> Trace.dump_steps ~onlybig:true ~prefix foldername
     end;
-    begin match !Flags.dump_small_steps with
+    begin match !Flags.dump_small_steps with (* DEPRECATED? *)
     | None -> ()
     | Some foldername -> Trace.dump_steps ~prefix foldername
     end;
-    Trace.finalize ();
+    Trace.close_logs();
   with e ->
-    Trace.finalize ();
+    Trace.close_logs();
     raise e
   );
 

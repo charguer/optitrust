@@ -21,7 +21,6 @@ int main() {
 let _ = Run.script_cpp (fun _ ->
 
   !! Loop_basic.unroll ~braces:true [cFor "i"];
-
   (* TODO: test unroll on SIMD loop *)
 
 )

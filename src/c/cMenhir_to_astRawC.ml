@@ -270,17 +270,17 @@ and tr_init ?(loc : location) (i : C.init) : trm =
   | Init_union _ -> fail loc "CMenhir_to_astRawC.tr_init: union not supported yet"
 
 (* [tr_constant c]: translates C.constant into OptiTrust trm *)
-and tr_constant ?(loc : location) ?(is_boolean : bool = false) (c : C.constant) : trm =
+and tr_constant ?(loc : location) ?(typ : typ option) ?(is_boolean : bool = false) (c : C.constant) : trm =
   match c with
   | C.CInt (i, ik, s)->
     let i = Int64.to_int i in
     begin match ik with
     | C.IBool ->
       let ib = Tools.int_to_bool i in
-      trm_lit ?loc (Lit_bool ib)
+      trm_lit ~typ ?loc (Lit_bool ib)
     | C.IChar | C.ISChar | C.IUChar->
 
-      trm_lit ?loc (Lit_string (string_of_int i))
+      trm_lit ~typ ?loc (Lit_string (string_of_int i))
     | _ ->
       if is_boolean
         then
@@ -289,14 +289,14 @@ and tr_constant ?(loc : location) ?(is_boolean : bool = false) (c : C.constant) 
           | "0" -> false | "1" -> true
           | _ -> fail None "CMenhir_to_astRawC.tr_constant: expected a constant boolean expression"
           end in
-          trm_lit ?loc (Lit_bool b)
+          trm_lit ~typ ?loc (Lit_bool b)
         else
-      trm_lit ?loc (Lit_int i)
+      trm_lit ~typ ?loc (Lit_int i)
     end
   | C.CFloat ({intPart = inp; fracPart = fp;_}, fk) ->
-    trm_lit ?loc (Lit_double (float_of_string (inp ^ "." ^ fp)))
+    trm_lit ~typ ?loc (Lit_double (float_of_string (inp ^ "." ^ fp)))
   | CStr s ->
-    trm_lit ?loc (Lit_string s)
+    trm_lit ~typ ?loc (Lit_string s)
   | _  -> fail loc "CMenhir_to_astRawC.tr_const: constant expression is not supported"
 
 (* [tr_expr ~is_stement e]: translates C.exp into OptiTrust trm *)
@@ -305,7 +305,7 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
   let typ = Some (tr_type e.etyp) in
   let ctx = Some (get_ctx()) in
   match e.edesc with
-  | EConst c -> tr_constant ?loc ~is_boolean c
+  | EConst c -> tr_constant ?typ ?loc ~is_boolean c
   | ESizeof ty ->
     let ty = tr_type ty in
     trm_var ?loc ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")")

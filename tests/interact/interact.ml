@@ -16,6 +16,11 @@ let _ = Run.script_cpp (fun () ->
   show [cVarDef "b"];
   show [tFirst; cFunDef "main"; cStrict; dBody];
 
+  (* Show the current ast *)
+  show_ast();
+  (* Show the resources *)
+  show_res();
+
   (* Showing operation with step at front *)
   !! Label.add "m1" [cVarDef "b"];
   show [cVarDef "a"];
@@ -28,9 +33,9 @@ let _ = Run.script_cpp (fun () ->
 
   (* Showing a big-step at once: the diff for each line can be viewed independently,
      but using the right shortcut one views the diff for the two operations at once. *)
-  !^ Label.add "m6" [cVarDef "a"];
+  bigstep "a big step";
+  !! Label.add "m6" [cVarDef "a"];
   !! Label.add "m7" [cVarDef "a"];
-  !^ ();
 
   (* Trace.dump() is called implicitly called at the end of file;
      this function handles the case where the cursor was after the last '!!'. *)

@@ -28,20 +28,6 @@ module Debug = struct
 
 end
 
-exception Failure_expected_did_not_fail
-
-(* [failure_expected f]: executes the unit function [f], and checks that
-   it raises the exception [Failure_expected_did_not_fail]. If it does
-   not, then an error is triggered. *)
-let failure_expected (f : unit -> unit) : unit =
-  try
-    f();
-    raise Failure_expected_did_not_fail
-  with
-    | Failure_expected_did_not_fail -> failwith "failure_expected: the operation was supposed to fail but it didn't"
-    |_ -> ()
-
-
 (******************************************************************************)
 (*                          Extensions to Pprint                              *)
 (******************************************************************************)
@@ -165,6 +151,14 @@ let clean_class_name (class_name : string) : string =
 let milliseconds_between (t0 : float) (t1 : float) : int =
   int_of_float (1000. *. (t1 -. t0))
 
+(* [measure_time f]: returns a pair made of the result of [f()] and
+   of the number of milliseconds taken by that call. *)
+let measure_time (f : unit -> 'a) : 'a * int =
+  let t0 = Unix.gettimeofday () in
+  let res = f() in
+  let t1 = Unix.gettimeofday () in
+  res, (milliseconds_between t0 t1)
+
 
 (******************************************************************************)
 (*                        Extensions for Pervasives                           *)
@@ -186,6 +180,11 @@ let bool_of_var (s : string) : bool option =
 (******************************************************************************)
 (*                          Extensions to Option                              *)
 (******************************************************************************)
+
+(* [option_to_string]: returns "None" or "Some [f v]" *)
+let option_to_string (f : 'a -> string) (o : 'a option) : string =
+  Option.value ~default:"None" (
+    Option.map (fun v -> "Some " ^ f v) o)
 
 (* [option_map]: applies [f] on optional objects *)
 let option_map (f : 'a -> 'b) (o : 'a option) : 'b option =

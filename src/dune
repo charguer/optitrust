@@ -1,7 +1,7 @@
 (library
   (name optitrust)
   (public_name optitrust)
-
+  (preprocess (pps ppx_transfo))
   (libraries compcert_parser clangml refl pprint str base64)
   (modes byte native))
 

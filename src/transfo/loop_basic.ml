@@ -3,8 +3,8 @@ open Target
 
 (* [swap tg]: expects the target [tg] to point at a loop that contains an
    immediately-nested loop. The transformation swaps the two loops. *)
-let swap : Transfo.t =
-  apply_on_targets (Loop_core.swap)
+let%transfo swap (tg : target) : unit =
+  apply_on_targets (Loop_core.swap) tg
 
 (* [color nb_colors i_color tg]: expects the target [tg] to point at a simple for  loop,
    let's say [for (int i = start; i < stop; i += step) { body } ].
@@ -18,8 +18,8 @@ let swap : Transfo.t =
    In the general case, it produces:
    [for (int index = 0; index < nb_color; index++) {
       for (int i = index*step; i < stop; i += step*nb_color) { body }]. *)
-let color (nb_colors : trm) ?(index : var option) : Transfo.t =
-  apply_on_targets (Loop_core.color nb_colors index)
+let%transfo color (nb_colors : trm) ?(index : var option) (tg : target) : unit =
+  apply_on_targets (Loop_core.color nb_colors index) tg
 
 (* [tile tile_size index tg]: expects the target [tg] to point at a simple loop,
    say [for (int i = start; i < stop; i += step) { body } ].
@@ -34,10 +34,10 @@ let color (nb_colors : trm) ?(index : var option) : Transfo.t =
    It produces:
    [for (int index = 0; index < stop; index += tile_size) {
       for (int i = index; i < min(X, bx+B); i++) { body }]. *)
-let tile ?(index : var = "b${id}")
+let%transfo tile ?(index : var = "b${id}")
          ?(bound : tile_bound = TileBoundMin)
-         (tile_size : trm) : Transfo.t =
-  apply_on_targets (Loop_core.tile index bound tile_size)
+         (tile_size : trm) (tg : target) : unit =
+  apply_on_targets (Loop_core.tile index bound tile_size) tg
 
 (* [hoist x_step tg]: expects [tg] to point at a variable declaration inside a
     simple loop. Let's say for {int i ...} {
@@ -155,10 +155,11 @@ let hoist_on (name : string)
   ]
 
 (* TODO: document *)
-let hoist ?(name : var = "${var}_step")
+let%transfo hoist ?(name : var = "${var}_step")
           ?(mark : mark option)
           ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))
          (tg : target) : unit =
+  Trace.step_justif_always_correct ();
   Internal.nobrace_remove_after (fun _ ->
     Target.apply (fun t p_instr ->
       let (i, p) = Path.index_in_surrounding_loop p_instr in
@@ -186,7 +187,7 @@ let fission_on (index : int) (t : trm) : trm =
    @correctness: Reads in new second loop need to never depend on writes on
    first loop after index i. Writes in new second loop need to never overwrite
    writes in first loop after index i. *)
-let fission (tg : target) : unit =
+let%transfo fission (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply (fun t p_before ->
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
@@ -217,7 +218,7 @@ let fission_all_instrs_on (t : trm) : trm =
    but splits the targeted loop into N loops,
    one per instruction in the loop body.
    *)
-let fission_all_instrs (tg : target) : unit =
+let%transfo fission_all_instrs (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_at_target_paths fission_all_instrs_on tg)
 
@@ -303,11 +304,11 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     body2
   }
  *)
-let fusion ?(upwards = true) : Transfo.t =
+let%transfo fusion ?(upwards : bool = true) (tg : target) : unit =
   Target.apply (fun t p ->
     let (index, p_seq) = Path.index_in_seq p in
     Target.apply_on_path (fusion_on index upwards) t p_seq
-    )
+    ) tg
 
 (* [grid_enumerate index_and_bounds tg]: expects the target [tg] to point at a loop iterating over
     a grid. The grid can be of any dimension.
@@ -325,8 +326,8 @@ let fusion ?(upwards = true) : Transfo.t =
                                               }
                                             }
                                           } *)
-let grid_enumerate (index_and_bounds : (string * trm) list) : Transfo.t =
-  apply_on_targets (Loop_core.grid_enumerate index_and_bounds)
+let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target) : unit =
+  apply_on_targets (Loop_core.grid_enumerate index_and_bounds) tg
 
 (* [unroll ~braces ~my_mark tg]: expects the target to point at a simple loop of the shape
     for (int i = a; i < a + C; i++) or for (int i = 0; i < C; i++)
@@ -335,7 +336,7 @@ let grid_enumerate (index_and_bounds : (string * trm) list) : Transfo.t =
       j is an integer in range from 0 to C.
 
     Assumption: Both a and C should be declared as constant variables. *)
-let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit =
+let%transfo unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Loop_core.unroll braces my_mark) tg)
 
@@ -347,7 +348,7 @@ let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit
 
     LATER: Implement a combi transformation that will check if the targeted instruction
     is dependent on any local variable or the loop index. *)
-let move_out ?(mark : mark option) (tg : target) : unit =
+let%transfo move_out ?(mark : mark option) (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
   apply_on_transformed_targets (Path.index_in_surrounding_loop)
     (fun t (i, p) -> Loop_core.move_out mark i t p ) tg)
@@ -357,7 +358,7 @@ let move_out ?(mark : mark option) (tg : target) : unit =
       if statment outside the loop.
 
    @correctness: requires that the loop is parallelizable *)
-let unswitch (tg : target) : unit =
+let%transfo unswitch (tg : target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
   apply_on_transformed_targets(Path.index_in_surrounding_loop)
     (fun t (i, p) -> Loop_core.unswitch i t p) tg)
@@ -378,21 +379,21 @@ let unswitch (tg : target) : unit =
             int i = (a + (j * B));
             s += i;
            } *)
-let to_unit_steps ?(index : var = "" ) : Transfo.t =
-  apply_on_targets (Loop_core.to_unit_steps index)
+let%transfo to_unit_steps ?(index : var = "" ) (tg : target) : unit =
+  apply_on_targets (Loop_core.to_unit_steps index) tg
 
 (* [fold ~direction index start stop step tg]: expects the target [tg] to point at the first instruction in a sequence
     and it assumes that the sequence containing the target [tg] is composed of a list of instructions which
     can be expressed into a single for loop with [index] [direction] [start] [nb_instructions] and [step] as loop
     components. *)
-let fold ~index:(index : var) ~start:(start : int) ~step:(step : int) : Transfo.t =
+let%transfo fold ~index:(index : var) ~start:(start : int) ~step:(step : int) (tg : target) : unit =
   apply_on_targets (
     Loop_core.fold index start step
-)
+  ) tg
 
 (* [split_range nb cut tg]: expects the target [tg] to point at a simple loop
     then based on the arguments nb or cut it will split the loop into two loops. *)
-let split_range ?(nb : int = 0) ?(cut : trm = trm_unit()) (tg : target) : unit =
+let%transfo split_range ?(nb : int = 0) ?(cut : trm = trm_unit()) (tg : target) : unit =
   Internal.nobrace_remove_after( fun _ ->
     apply_on_targets (Loop_core.split_range nb cut) tg )
 
@@ -401,6 +402,13 @@ type shift_kind =
 | StartAtZero
 | StartAt of trm
 | StopAt of trm
+
+let shift_kind_to_string = function
+| ShiftBy t -> "ShiftBy " ^ (AstC_to_c.ast_to_string t)
+| StartAtZero -> "StartAtZero"
+| StartAt t -> "StartAt " ^ (AstC_to_c.ast_to_string t)
+| StopAt t -> "StopAt " ^ (AstC_to_c.ast_to_string t)
+
 
 (* [shift_on index kind]: shifts a loop index to start from zero or by a given amount. *)
 let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
@@ -423,7 +431,7 @@ let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
 
 (* [shift index kind]: shifts a loop index range according to [kind], using a new [index] name.
   *)
-let shift ?(reparse : bool = false) (index : var) (kind : shift_kind) (tg : target) : unit =
+let%transfo shift ?(reparse : bool = false) (index : var) (kind : shift_kind) (tg : target) : unit =
   (* FIXME: having to think about reparse here is not great *)
   reparse_after ~reparse (
     Target.apply_at_target_paths (shift_on index kind)) tg
@@ -433,6 +441,12 @@ type extension_kind =
 | ExtendToZero
 | ExtendTo of trm
 | ExtendBy of trm
+
+let extension_kind_to_string = function
+| ExtendNothing -> "ExtendNothing"
+| ExtendToZero -> "ExtendToZero"
+| ExtendTo t -> "ExtendTo " ^ (AstC_to_c.ast_to_string t)
+| ExtendBy t -> "ExtendBy " ^ (AstC_to_c.ast_to_string t)
 
 let extend_range_on (start_extension : extension_kind) (stop_extension : extension_kind) (t : trm) : trm =
   let error = "Loop_basic.extend_range_on: expected a target to a simple for loop" in
@@ -470,11 +484,11 @@ let extend_range_on (start_extension : extension_kind) (stop_extension : extensi
 
    For this to be correct, the loop bounds must be extended, not shrinked.
   *)
-let extend_range ?(start = ExtendNothing) ?(stop = ExtendNothing) (tg : target) : unit =
+let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : extension_kind = ExtendNothing) (tg : target) : unit =
   Target.apply_at_target_paths (extend_range_on start stop) tg
 
 (* [rename_index new_index]: renames the loop index variable *)
-let rename_index (new_index : var) (tg : target) : unit =
+let%transfo rename_index (new_index : var) (tg : target) : unit =
   apply_on_targets (Loop_core.rename_index new_index) tg
 
 (* FIXME: duplicated code from tiling. *)
@@ -516,7 +530,7 @@ let slide_on (tile_index : var) (bound : tile_bound) (tile_size : trm) (tile_ste
 
 (* [slide]: like [tile] but with the addition of a [step] parameter that controls how many iterations stand between the start of two tiles. Depending on [step] and [size], some iterations may be discarded or duplicated.
 *)
-let slide ?(index : var = "b${id}")
+let%transfo slide ?(index : var = "b${id}")
   ?(bound : tile_bound = TileBoundMin)
   ~(size : trm)
   ~(step : trm)

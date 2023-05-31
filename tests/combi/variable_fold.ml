@@ -23,6 +23,6 @@ let _ = Run.script_cpp( fun _ ->
   (* Folding a non-constant variable, requires a flag to force it *)
   !! Variable.fold ~nonconst:true [cVarDef "s2"];
   (* Without that flag, an error is issued *)
-  !! Tools.failure_expected (fun () ->
+  !! Trace.failure_expected (fun () ->
         Variable.fold [cVarDef "a"])
 )

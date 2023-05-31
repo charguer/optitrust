@@ -43,6 +43,6 @@
     "algorithm": "c",
     "optitrust.h": "c"
   },
-  "editor.wordWrap": "bounded",
+  //"editor.wordWrap": "bounded",
   "files.trimTrailingWhitespace": true
 }

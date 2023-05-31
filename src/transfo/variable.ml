@@ -213,7 +213,7 @@ let detach_if_needed (tg : target) : unit =
     remove that declaration and replace all its occurrences with [space]
 
    @correctness: correct if the previous variable space was never read after the reuse point. *)
-let reuse ?(reparse : bool = false) (space : trm) : Transfo.t =
+let reuse ?(reparse : bool = false) (space : trm) (tg : target) : unit =
   reparse_after ~reparse (iter_on_targets (fun t p ->
       let decl_t = Path.resolve_path p t in
       begin match decl_name decl_t with
@@ -225,13 +225,13 @@ let reuse ?(reparse : bool = false) (space : trm) : Transfo.t =
         Variable_basic.subst ~subst:x ~put:space (target_of_path _path_to_seq)
       | None -> fail decl_t.loc "Variable.reuse: could not match the declaration"
       end
-      ))
+      )) tg
 (* [renames rename tg: expects [tg] to point at a sequence.
     [rename] can be either ByList l where l denotes a list of pairs on which
     each pair consists the current variable and the one that is going to replace it.
     Or AddSuffix s, in this case all the variables declared inside the targeted sequence
      are going to be renamed by adding the suffix [s] at the end of its current name. *)
-let renames (rename : rename) : Transfo.t =
+let renames (rename : rename) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
@@ -252,7 +252,7 @@ let renames (rename : rename) : Transfo.t =
 
       end in
       List.iter2 (fun d into -> Variable_basic.rename ~into ((target_of_path p) @  [cVarDef d])) decl_vars new_decl_vars
-    | _ -> fail tg_trm.loc "Variable.renames: the target should be pointing at a sequence" )
+    | _ -> fail tg_trm.loc "Variable.renames: the target should be pointing at a sequence" ) tg
 
 let default_unfold_simpl (tg : target) : unit =
   Record_basic.simpl_proj [nbAny; cFieldAccess ~base:tg ()]
@@ -330,7 +330,7 @@ let default_unfold_simpl (tg : target) : unit =
           Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is non valid C code.
           After calling Record_basic.simpl_proj {0, 1}.x becomes 0 .
           Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them. *)
-let unfold ?(accept_functions : bool = false) ?(simpl = default_unfold_simpl) ?(delete : bool = true) ?(at : target = []): Transfo.t =
+let unfold ?(accept_functions : bool = false) ?(simpl = default_unfold_simpl) ?(delete : bool = true) ?(at : target = [])(tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let tg_decl = target_of_path p in
@@ -357,7 +357,7 @@ let unfold ?(accept_functions : bool = false) ?(simpl = default_unfold_simpl) ?(
       simpl [cMark mark];
       Marks.remove mark [nbAny; cMark mark]
     | _ -> fail t.loc "Variable.unfold: expected a target to a variable declaration"
-  )
+  ) tg
 
 let default_inline_simpl (tg : target) : unit =
   Record_basic.simpl_proj [nbAny; cFieldAccess ~base:tg ()];
@@ -365,8 +365,8 @@ let default_inline_simpl (tg : target) : unit =
 
 (* [inline ~accept_functions ~simpl_deref tg]: similar to [unfold] except that this transformation
      deletes the targeted declaration by default. *)
-let inline ?(accept_functions : bool = false) ?(simpl = default_inline_simpl) : Transfo.t =
-  unfold ~accept_functions ~simpl ~delete:true
+let inline ?(accept_functions : bool = false) ?(simpl = default_inline_simpl) (tg : target) : unit =
+  unfold ~accept_functions ~simpl ~delete:true tg
 
 (* [inline_and_rename]: expects the target [tg] to point at a variable declaration with an initial value
     being another variable. Then it will inline the targeted variable. And rename variable that was the
@@ -375,7 +375,7 @@ let inline ?(accept_functions : bool = false) ?(simpl = default_inline_simpl) : 
     Assumption:
       if the target [tg] points to the following instruction int y = x; then
       no occurrence of x appears after that instruction *)
-let inline_and_rename : Transfo.t =
+let inline_and_rename (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
@@ -414,12 +414,12 @@ let inline_and_rename : Transfo.t =
         | _ -> fail init.loc "Variable.inline_and_rename: please try targeting initialized variable declarations"
         end
     | _ -> fail t.loc "Variable.inline_and_rename: expected the declaration of the variable which is going to be inlined"
-  )
+  ) tg
 
 (* [elim_redundant ~source tg]: expects the target [tg] to be point at a variable declaration with an initial value being
     the same as the variable declaration where [source] points to. Then it will fold the variable at [source] into
     the variable declaration [tg] and inline the declaration in [tg]. *)
-let elim_redundant ?(source : target = []) : Transfo.t =
+let elim_redundant ?(source : target = []) (tg : target) : unit =
   iteri_on_targets (fun i t p ->
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
@@ -457,30 +457,30 @@ let elim_redundant ?(source : target = []) : Transfo.t =
         inline ((target_of_path path_to_seq) @ [cVarDef x])
     | _ -> fail tg_trm.loc "Variable.elim_redundant: the main target should point to the declaration of the variable you want to eliminate"
 
-  )
+  ) tg
 
 (* [insert ~constr name typ value tg]: expects the target [tg] to point at a location in a sequence then it wil insert a
     new variable declaration with name: [name] and type:[typ] and initialization value [value].
     This transformation is basically the same as the basic one except that this has a default value for the type argument. *)
-let insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ = typ_auto ()) ~name:(name : string) ?(value : trm = trm_uninitialized()) : Transfo.t =
- Variable_basic.insert ~const ~reparse ~name ~typ ~value
+let insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ = typ_auto ()) ~name:(name : string) ?(value : trm = trm_uninitialized()) (tg : target) : unit =
+ Variable_basic.insert ~const ~reparse ~name ~typ ~value tg
 
 (* [insert_list ~const names typ values tg]: expects the target [tg] to be poiting to a location in a sequence
     then it wil insert a new variable declaration with [name], [typ] and initialization [value] *)
-let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) : Transfo.t =
+let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) (tg : target) : unit =
   let defs = List.rev defs in
   reparse_after ~reparse (fun tg ->
     List.iter (fun (typ, name, value) ->
       (* This check is needed to avoid the parentheses in the case when the value of the vairbale is a simple expression  *)
       insert ~const ~name ~typ:(AstParser.ty typ) ~value tg) (List.rev defs)
-)
+  ) tg
 
 (* [insert_list_same_type typ name_vals tg]: inserts a list of variables with type [typ] and name and value give as argument in [name_vals]. *)
-let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (string * trm) list) : Transfo.t =
+let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (string * trm) list) (tg : target) : unit =
   let const = false in
   reparse_after ~reparse (fun tg ->
     List.iter (fun (name, value) ->
-      insert ~const ~name ~typ ~value tg) name_vals)
+      insert ~const ~name ~typ ~value tg) name_vals) tg
 
 
 
