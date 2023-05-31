@@ -16,6 +16,10 @@
     opam install dune clangml pprint menhir menhirLib base64 ocamlbuild
     eval $(opam env)
     ```
+TODO: une commande avec les -y  pour répondre yes et des ;\  pour pouvoir exécuter en une seule fois
+=> mieux encore, make setup, voir comme fait françois pottier dans
+  https://gitlab.inria.fr/fpottier/sek/-/blob/master/Makefile
+
   + `ocamllsp --fallback-read-dot-merlin` for LSP (VSCode) .merlin support
 
 - update keybindings and templates
@@ -148,3 +152,12 @@ LATER
         "cwd": "${workspaceFolder}"
       }
     },
+
+
+
+
+# autostart watch
+gnome-terminal --geometry 100x30+0+0 -e "bash -c \"${OPTITRUST}/.vscode/watch.sh\""
+
+e.g.
+gnome-terminal --geometry 100x30+0+0 -e "bash -c \"~/shared/verified_transfo/src/.vscode/watch.sh\""
