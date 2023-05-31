@@ -804,24 +804,25 @@ let dump_steps ?(onlybig : bool = false) ?(prefix : string = "") (foldername : s
   ) hist_and_descr
   *)
 
+(* TODO: move  *)
+let cmd s =
+  (* FOR DEBUG Printf.printf "execute: %s\n" s; flush stdout; *)
+  ignore (Sys.command s)
 
+(* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (* [dump_step_tree_to_js_and_return_id] auxiliary function for [dump_trace_to_js] *)
-let (*rec*) dump_step_tree_to_js_and_return_id (get_next_id:unit->int) (out:string->unit) (step_tree:step_tree) : int =
-  0
-
-(* WIP
-  (* LATER: move these functions elsewhere? *)
-  let cmd s =
-    (* FOR DEBUG Printf.printf "execute: %s\n" s; flush stdout; *)
-    ignore (Sys.command s) in
+let (*rec*) dump_step_tree_to_js_and_return_id (get_next_id:unit->int) (out:string->unit)(id:int) (step_tree:step_tree) : unit =
+  (* LATER: move these functions elsewhere?
   let compute_command_base64 (s : string) : string =
     cmd (sprintf "%s | base64 -w 0 > tmp.base64" s);
     Xfile.get_contents ~newline_at_end:false "tmp.base64"
     in
   let compute_diff () : string =
     compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp" in
+    *)
+  ()
 
-  let id = get_next_id() in
+(* WIP
 
   step_tree
 
@@ -844,8 +845,6 @@ let (*rec*) dump_step_tree_to_js_and_return_id (get_next_id:unit->int) (out:stri
   aux 0 step_tree
 
 
-  let n = List.length hist_and_descr in
-  List.iteri (fun i (ast,stepdescr) ->
     (* obtain source code *)
     output_prog ctx "tmp_after" ast;
     let src = compute_command_base64 "cat tmp_after.cpp" in
@@ -855,30 +854,9 @@ let (*rec*) dump_step_tree_to_js_and_return_id (get_next_id:unit->int) (out:stri
       let diff = compute_diff() in
       out (sprintf "smallsteps[%d] = { exectime: %d, script: window.atob(\"%s\"), diff: window.atob(\"%s\") };\n" (i-1) stepdescr.exectime (Base64.encode_exn stepdescr.script) diff);
     end;
-    (* obtain bigstep diff *)
-    let isstartofbigstep =
-      match stepdescr.isbigstep with
-      | None -> false
-      | Some _descr -> true
-      in
-    let isendofbigstep = (i > 0 && isstartofbigstep) || i = n-1 in
-    if isendofbigstep then begin
-      cmd "mv tmp_big.cpp tmp_before.cpp";
-      let diff = compute_diff() in
-      out (sprintf "bigsteps.push({ start: %d, stop: %d, descr: window.atob(\"%s\"), diff: window.atob(\"%s\") });\n"  !lastbigstepstart i (Base64.encode_exn !nextbigstep_descr) diff);
-    end;
-    (* shift files to prepare for next step *)
-    cmd "mv tmp_after.cpp tmp_before.cpp";
-    if isstartofbigstep then begin
-      cmd "cp tmp_before.cpp tmp_big.cpp";
-      lastbigstepstart := i;
-      begin match stepdescr.isbigstep with
-      | None -> assert false
-      | Some descr -> nextbigstep_descr := descr
-      end;
-    end
-  ) hist_and_descr;
-  cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp tmp_big.cpp";
+
+
+
   close_out out_js
   *)
 
@@ -916,7 +894,9 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
     incr next_id;
     !next_id in
   out "var steps = [];\n";
-  let _idroot = dump_step_tree_to_js_and_return_id get_next_id out step_tree in
+  let idroot = get_next_id() in
+  dump_step_tree_to_js_and_return_id get_next_id out idroot step_tree;
+  cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp";
   close_out out_js
 
 (* [step_tree_to_doc step_tree] takes a step tree and gives a string

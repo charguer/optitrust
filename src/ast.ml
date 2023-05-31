@@ -1842,45 +1842,39 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
   let typ = t.typ in
   let aux = f is_terminal in
 
-  (* [ret nochange t'] evaluates the condition [nochange]; if is true,
-     it returns [t], because [f] has not performed any change on [t];
-     else, it returns the new result [t'], which was computed as [f t]. *)
-    let ret nochange t' =
-      if nochange then t else t' in
-
-    (* [flist tl]: applies [f] to all the elements of a list [tl] *)
-    let flist tl =
-      let tl' = List.map (f false) tl in
-      if List.for_all2 (==) tl tl' then tl else tl'
-    in
-    (* [fmlist]: is like [flist] but for marked lists *)
-    let fmlist is_terminal tl =
-      let tl' = Mlist.map (f is_terminal) tl in
-      if Mlist.for_all2 (==) tl tl' then tl else tl' in
+  (* [flist tl]: applies [f] to all the elements of a list [tl] *)
+  let flist tl =
+    let tl' = List.map (f false) tl in
+    if List.for_all2 (==) tl tl' then tl else tl'
+  in
+  (* [fmlist]: is like [flist] but for marked lists *)
+  let fmlist is_terminal tl =
+    let tl' = Mlist.map (f is_terminal) tl in
+    if Mlist.for_all2 (==) tl tl' then tl else tl' in
 
   match t.desc with
   | Trm_array tl ->
     let tl' = fmlist false tl in
-    ret (tl' == tl)
+    if (tl' == tl) then t else
         (trm_array ~annot ?loc ?typ tl')
   | Trm_record tl ->
     let tl' = Mlist.map (fun (lb, t) -> (lb, f false t)) tl in
     let tl' = if Mlist.for_all2 (==) tl tl' then tl else tl' in
-    ret (tl' == tl)
+    if (tl' == tl) then t else
         (trm_record ~annot ?loc ?typ tl')
   | Trm_let (vk, tv, init) ->
     let init' = f false init in
-    ret (init' == init)
+    if (init' == init) then t else
         (trm_let ~annot ?loc vk tv init')
   | Trm_let_fun (f', res, args, body) ->
     let body' = f false body in
-    ret (body' == body)
+    if (body' == body) then t else
         (trm_let_fun ~annot ?loc ~qvar:f' "" res args body' )
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = aux then_ in
     let else_' = aux else_ in
-    ret (cond' == cond && then_' == then_ && else_' == else_)
+    if (cond' == cond && then_' == then_ && else_' == else_) then t else
         (trm_if ~annot ?loc cond' then_' else_')
   | Trm_seq tl ->
     let n = Mlist.length tl in
@@ -1888,24 +1882,24 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
         let sub_is_terminal = (is_terminal && i == n-1) in
         f sub_is_terminal tsub
       ) tl in
-    ret (Mlist.for_all2 (==) tl tl')
+    if (Mlist.for_all2 (==) tl tl') then t else
         (trm_seq ~annot ?loc tl')
   | Trm_apps (func, args) ->
     let func' = f false func in
     let args' = flist args in
-    ret (func' == func && args' == args)
+    if (func' == func && args' == args) then t else
       (trm_apps ~annot ?loc ?typ func' args')
   | Trm_while (cond, body) ->
     let cond' = f false cond in
     let body' = f false body in
-    ret (cond' == cond && body' == body)
+    if (cond' == cond && body' == body) then t else
         (trm_while ~annot ?loc cond' body')
   | Trm_for_c (init, cond, step, body) ->
      let init' = f false init in
      let cond' = f false cond in
      let step' = f false step in
      let body' = aux body in
-     ret (init' == init && cond' == cond && step' == step && body' == body)
+     if (init' == init && cond' == cond && step' == step && body' == body) then t else
          (trm_for_c ~annot ?loc init' cond' step' body')
   | Trm_for (l_range, body) ->
     let (index, start, direction, stop, step, is_parallel) = l_range in
@@ -1916,27 +1910,27 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
       | Step sp -> Step (aux sp)
       in
     let body' = aux body in
-    ret (step' == step && start' == start && stop' == stop && body' == body)
+    if (step' == step && start' == start && stop' == stop && body' == body) then t else
         (trm_for ~annot ?loc (index, start', direction, stop', step', is_parallel) body')
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, aux body)) cases in
-     ret (cond' == cond && List.for_all2 (fun (_tl1,body1) (_tl2,body2) -> body1 == body2) cases' cases)
+     if (cond' == cond && List.for_all2 (fun (_tl1,body1) (_tl2,body2) -> body1 == body2) cases' cases) then t else
          (trm_switch ~annot ?loc cond' cases')
   | Trm_abort a ->
     begin match a with
     | Ret (Some t') ->
         let t'2 = f false t' in
-        ret (t'2 == t')
+        if (t'2 == t') then t else
             (trm_ret ~annot ?loc (Some t'2))
     | _ -> t
     end
   | _ -> t
 
 
-(* [trm_map_with_terminal is_terminal f t]: unoptimized trm_mpa_with_terminal *)
+(* [trm_map_with_terminal is_terminal f t] *)
 let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm =
-  trm_map_with_terminal_unopt is_terminal f t
+  trm_map_with_terminal_opt is_terminal f t
 
 (* [trm_map f]: applies f on t recursively *)
 let trm_map (f : trm -> trm) (t : trm) : trm =
