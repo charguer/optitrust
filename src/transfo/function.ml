@@ -244,20 +244,31 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
         Stats.comp_stats "elim_body" (fun () ->
           elim_body ~vars [cMark body_mark];);
         if deep_cleanup then begin
-          let success_attach = ref true in
-            let _ = try Variable_basic.init_attach [new_target] with
-                | Variable_core.Init_attach_no_occurrences
-                | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
-                | e -> raise e in
-
-             if !success_attach then begin
-                Variable.inline [new_target];
-                Variable.inline_and_rename [nbAny; cVarDef !resname];
-                if not keep_res then begin try Variable.inline_and_rename [nbAny; cMark "__inline_instruction"] with | TransfoError _ -> () end;
-                Marks.remove "__inline_instruction" [nbAny;cMark "__inline_instruction" ] end
-             else if not keep_res then
-                try Variable.inline_and_rename [nbAny; cMark "__inline_instruction"] with | TransfoError _ -> ();
-            Marks.remove my_mark [nbAny; new_target]
+          let success_attach = match Trace.backtrack_on_failure (fun () ->
+            Variable_basic.init_attach [new_target]
+          ) with
+          | Success -> true
+          | Failure Variable_core.Init_attach_no_occurrences
+          | Failure Variable_core.Init_attach_occurrence_below_control ->
+            false
+          | Failure e -> raise e
+          in
+          if success_attach then begin
+            Variable.inline [new_target];
+            Variable.inline_and_rename [nbAny; cVarDef !resname];
+            if not keep_res then begin
+              ignore (Trace.backtrack_on_failure (fun () ->
+                Variable.inline_and_rename [nbAny; cMark "__inline_instruction"]
+              ));
+              (* TODO: only with | TransfoError ? *)
+              Marks.remove "__inline_instruction" [nbAny;cMark "__inline_instruction" ]
+            end
+          end else if not keep_res then
+            ignore (Trace.backtrack_on_failure (fun () ->
+              Variable.inline_and_rename [nbAny; cMark "__inline_instruction"]
+              (* TODO: only with | TransfoError ? *)
+            ));
+          Marks.remove my_mark [nbAny; new_target]
         end;
         Marks.remove my_mark [nbAny; new_target];
         Record_basic.simpl_proj (target_of_path path_to_seq);

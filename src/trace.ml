@@ -149,7 +149,7 @@ type stepdescr = {
 
 
 (* [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_parsing | Step_scoped
+type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_parsing | Step_scoped | Step_aborted
 
 (* [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -161,6 +161,7 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_target_resolve -> "Target"
   | Step_parsing -> "Parsing"
   | Step_scoped -> "Scoped"
+  | Step_aborted -> "Aborted"
 
 (* [step_infos] *)
 type step_infos = {
@@ -235,9 +236,9 @@ let get_decorated_history ?(prefix : string = "") () : string * context * step_t
 let dummy_duration : float = 0.
 
 (* [get_cur_step ()] returns the current step --there should always be one. *)
-let get_cur_step () : step_tree =
+let get_cur_step ?(error : string = "get_cur_step: empty stack") () : step_tree =
   match the_trace.step_stack with
-  | [] -> failwith "Trace.init has not been called"
+  | [] -> failwith error
   | step::_ -> step
 
 (* [open_root_step] is called only by [Trace.init], for initializing
@@ -315,7 +316,7 @@ let open_step ?(line : int option) ?(step_script:string="") ~(kind:step_kind) ~(
 (* [step_justif txt] is called by a transformation after open_step in order
    to store an textual explaination of why it is correct. *)
 let step_justif (justif:string) : unit =
-  let step = get_cur_step() in
+  let step = get_cur_step () in
   let infos = step.step_infos in
   infos.step_justif <- justif::infos.step_justif
 
@@ -327,7 +328,7 @@ let step_justif_always_correct () : unit =
 (* [step_arg] is called by a transformation after open_step in order
    to store the string representations of one argument. *)
 let step_arg ~(name:string) ~(value:string) : unit =
-  let step = get_cur_step() in
+  let step = get_cur_step () in
   let infos = step.step_infos in
   infos.step_args <- (name,value)::infos.step_args
 
@@ -386,15 +387,40 @@ let step ?(line : int = -1) ~(kind:step_kind) ~(name:string) (body : unit -> 'a)
   At the end:
   - closes all scope-local steps automatically if not already done
   - restores the current AST to what it was before the scope *)
-let scoped_step (f : unit -> unit) : unit =
+let scoped_step ~(kind : step_kind) (f : unit -> unit) : unit =
   let ast_bak = the_trace.cur_ast in
-  let s = open_step ~kind:Step_scoped ~name:"" () in
+  let s = open_step ~kind ~name:"" () in
   f ();
-  while (get_cur_step () != s) do
+  let error = "Trace.scoped_step: did not find 's'" in
+  while (get_cur_step ~error () != s) do
     close_step ()
   done;
   the_trace.cur_ast <- ast_bak;
+  assert (get_cur_step () == s);
   close_step ()
+
+type backtrack_result =
+| Success
+| Failure of exn
+
+let backtrack_on_failure (f : unit -> unit) : backtrack_result =
+  let ast_bak = the_trace.cur_ast in
+  let s = open_step ~kind:Step_scoped ~name:"" () in
+  let res =
+    try
+      f (); Success
+    with e -> begin
+      let error = "Trace.backtrack_on_failure: did not find 's'" in
+      while (get_cur_step ~error () != s) do
+        close_step ()
+      done;
+      s.step_kind <- Step_aborted;
+      the_trace.cur_ast <- ast_bak;
+      Failure e
+    end in
+  assert (get_cur_step () == s);
+  close_step ();
+  res
 
 (* [parsing_step f] accounts for a parsing operation *)
 let parsing_step (f : unit -> unit) : unit =
@@ -512,11 +538,15 @@ let get_last_substep () : step_tree =
      !! Trace.alternative (fun () ->
         !! Loop.fusion_on_block [cLabel "tofusion"];
      );
+
+  TODO: deprecate this
 *)
 let alternative (f : unit->unit) : unit =
   (* let ast = (get_last_substep ()).step_ast_before in *)
-  let ast = (List.nth (List.rev the_trace.step_stack) 0).step_ast_before in
-  scoped_step (fun () ->
+  assert (the_trace.step_stack <> []);
+  let (_, root_step) = Xlist.unlast the_trace.step_stack in
+  let ast = root_step.step_ast_before in
+  scoped_step ~kind:Step_aborted (fun () ->
     the_trace.cur_ast <- ast;
     f();
   )
@@ -585,7 +615,7 @@ exception Failure_expected_did_not_fail
    it raises the exception [Failure_expected_did_not_fail]. If it does
    not, then an error is triggered. *)
 let failure_expected (f : unit -> unit) : unit =
-  scoped_step (fun () ->
+  scoped_step ~kind:Step_aborted (fun () ->
     try
       f();
       raise Failure_expected_did_not_fail
@@ -1074,10 +1104,10 @@ let open_smallstep ~(line : int) ?(reparse:bool=false) () : unit =
 
 let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> unit) : unit =
   step ~kind:Step_transfo ~name (fun () ->
-    printf "> %s\n" name;
+    (* printf "> %s\n" name; *)
     List.iter (fun (k, v) -> step_arg ~name:k ~value:v) args;
     f ();
-    printf "< %s\n" name;
+    (* printf "< %s\n" name; *)
   )
 
 (* [check_recover_original()]: checks that the AST obtained so far

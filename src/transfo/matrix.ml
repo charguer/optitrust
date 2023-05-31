@@ -104,10 +104,17 @@ let%transfo intro_mops (dim : trm) (tg : target) : unit =
     let error = "Matrix.intro_mops: the target should be pointing at a matrix declaration" in
     let _ = trm_inv ~error trm_let_inv tg_trm in
     intro_mindex dim (target_of_path p);
-    try intro_malloc (target_of_path p) with | TransfoError _ ->
-      begin
-        try intro_calloc (target_of_path p) with | TransfoError _ -> fail tg_trm.loc "intro_mops: the targeted matrix was not allocated with malloc or calloc"
-      end
+    match Trace.backtrack_on_failure (fun () ->
+      intro_malloc (target_of_path p)
+    ) with
+    | Success -> ()
+    | Failure _ -> begin
+      match Trace.backtrack_on_failure (fun () ->
+        intro_calloc (target_of_path p)
+      ) with
+      | Success -> ()
+      | Failure _ -> fail tg_trm.loc "intro_mops: the targeted matrix was not allocated with malloc or calloc"
+    end
   ) tg
 
 
