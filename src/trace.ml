@@ -532,10 +532,18 @@ let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
 let finalize () : unit =
   close_root_step()
 
+(* [get_last_substep] returns the last substep, which corresponds to the
+    step to be visualized by a diff *)
 let get_last_substep () : step_tree =
   match (get_cur_step ()).step_sub with
   | [] -> failwith "Trace.get_last_substep: expected a previous substep in the current step"
   | last_step :: _ -> last_step
+
+(* [get_original_ast] returns the ast obtained at [Trace.init] *)
+let get_original_ast () : trm =
+  assert (the_trace.step_stack <> []);
+  let (_, root_step) = Xlist.unlast the_trace.step_stack in
+  root_step.step_ast_before
 
 (* [alternative f]: executes the script [f] in the original state that
   was available just after the call to [init].
@@ -545,14 +553,10 @@ let get_last_substep () : step_tree =
      !! Trace.alternative (fun () ->
         !! Loop.fusion_on_block [cLabel "tofusion"];
      );
-
-  TODO: deprecate this
+  TODO: deprecate this and use trace.reset instead
 *)
 let alternative (f : unit->unit) : unit =
-  (* let ast = (get_last_substep ()).step_ast_before in *)
-  assert (the_trace.step_stack <> []);
-  let (_, root_step) = Xlist.unlast the_trace.step_stack in
-  let ast = root_step.step_ast_before in
+  let ast = get_original_ast () in
   scoped_step ~kind:Step_aborted (fun () ->
     the_trace.cur_ast <- ast;
     f();
@@ -642,6 +646,11 @@ let apply (f : trm -> trm) : unit =
   if is_trace_dummy()
     then fail None "Trace.init must be called prior to any transformation.";
   the_trace.cur_ast <- f the_trace.cur_ast
+
+(* [reset] performs a step that sets the current ast to the original ast *)
+let reset () : unit =
+  let t = get_original_ast () in
+  apply (fun _cur_ast -> t)
 
 (* [call f]: is similar to [apply] except that it applies to a function [f]
    with unit return type: [f] is meant to update the [cur_ast] by itself
@@ -1124,21 +1133,13 @@ let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> 
    is identical to the input AST, obtained from parsing. If not,
    it raises an error. *)
 let check_recover_original () : unit =
-  failwith "unimplemented"
-  (*
   let check_same ast1 ast2 =
     if AstC_to_c.ast_to_string ast1 <> AstC_to_c.ast_to_string ast2
       then fail None "Trace.check_recover_original: the current AST is not identical to the original one."
       else () (* FOR DEBUG: Printf.printf "check_recover_original: successful" *)
     in
-  let h = the_trace.history in
-  match h with
-  | [] -> failwith "check_recover_original: no history"
-  | astLast :: [] -> () (* no operation performed, nothing to check *)
-  | astLast :: astsBefore ->
-      let _,astInit = Xlist.unlast astsBefore in
-      check_same astLast astInit
-*)
+  let orig_ast = get_original_ast () in
+  call (fun cur_ast -> check_same cur_ast orig_ast)
 
 
 
