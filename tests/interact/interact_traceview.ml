@@ -8,8 +8,7 @@ open Target
 *)
 
 (* This test can be used to test the generation of the javsacript trace [%_trace.js],
-   used to display [%_trace.html]. It can also be used to test the [alt+f6] shortcut
-   for viewing big steps interactively. *)
+   used to display [%_trace.html].  *)
 
 (* Dump a javascript file with the full trace at the end,
    when executing 'make interact_traceview.out'  *)
