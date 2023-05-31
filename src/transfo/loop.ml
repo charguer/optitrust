@@ -1011,3 +1011,35 @@ let%transfo slide ?(index : var = "b${id}")
     Loop_basic.slide ~index ~bound ~size ~step (target_of_path p);
     simpl_range ~simpl (target_of_path p);
   ) tg
+
+(* [delete_void]: deletes a loop nest with empty body.
+
+  [nest_of] - number of perfectly nested loops to delete
+  *)
+let%transfo delete_void ?(nest_of : int = 1) (tg : target) : unit =
+  let rec aux (nest_of : int) (p : path) : unit =
+    if nest_of > 0 then begin
+      aux (nest_of - 1) (Path.to_inner_loop p);
+      Loop_basic.delete_void (target_of_path p);
+    end
+  in
+  Target.iter (fun _ p -> aux nest_of p) tg
+
+(* TODO: should this be in basic? *)
+(* [delete_void]: deletes all loop nests with empty body. *)
+let%transfo delete_all_void (tg : target) : unit =
+  Trace.step_justif_always_correct ();
+  Target.apply (fun t p ->
+    Path.apply_on_path (trm_bottom_up (fun t ->
+      match trm_seq_inv t with
+      | Some instrs ->
+        let res_t = ref t in
+        for i = (Mlist.length instrs) - 1 downto 0 do
+          match Loop_basic.delete_void_on i !res_t with
+          | Some t2 -> res_t := t2
+          | None -> ()
+        done;
+        !res_t
+      | None -> t
+    )) t p
+  ) tg

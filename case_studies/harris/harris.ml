@@ -31,15 +31,13 @@ let _ = Run.script_cpp (fun () ->
   let fuse arrays = Loop.fusion_targets ~nest_of:2 [cFor "y" ~body:[cOrMap cArrayWrite arrays]] in
   !! List.iter fuse [["ix"; "iy"]; ["ixx"; "ixy"; "iyy"]; ["sxx"; "sxy"; "syy"; "out"]];
   !! Matrix.elim [multi cVarDef ["ixx"; "ixy"; "iyy"; "sxx"; "sxy"; "syy"]];
-  (* FIXME: Loop_basic.delete_void + on Matrix.elim ~simpl:[delete_void_loops] *)
-  !! Instr.delete [occIndex ~nb:4 2; cFor "y"];
 
   bigstep "overlapped tiling over lines";
-  (* following could be Loop.tile: *)
-  (* let tile_size = 32 *)
-  !!! Loop.slide ~size:(int 32) ~step:(int 32) [cFor "y" ~body:[cArrayWrite "out"]];
-  !! Loop.slide ~size:(int 34) ~step:(int 32) [cFor "y" ~body:[cArrayWrite "ix"]];
-  !! Loop.slide ~size:(int 36) ~step:(int 32) [cFor "y" ~body:[cArrayWrite "gray"]];
+  let tile_size = 32 in
+  let slide overlap = Loop.slide ~size:(int (tile_size + overlap)) ~step:(int tile_size) in
+  !!! slide 0 [cFor "y" ~body:[cArrayWrite "out"]];
+  !! slide 2 [cFor "y" ~body:[cArrayWrite "ix"]];
+  !! slide 4 [cFor "y" ~body:[cArrayWrite "gray"]];
   !!! Loop.fusion_targets [cFor "by" ~body:[cOrMap cArrayWrite ["gray"; "ix"; "out"]]];
 
   bigstep "circular buffers";

@@ -191,10 +191,15 @@ let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg :
     Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr [[cVarDef x; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x] (); cFun ~regexp:true "MINDEX."]]])
   ) tg
 
+(* FIXME:
+  - (1) should be defined elsewhere;
+  - (2) should start from replaced bottom leaf instead of top scope target? *)
+let simpl_void_loops = Loop.delete_all_void
+
 (* [elim]: eliminates the matrix [var] defined in at the declaration targeted by [tg].
   All reads from [var] must be eliminated The values of [var] must only be read locally, i.e. directly after being written.
   *)
-let%transfo elim (tg : target) : unit =
+let%transfo elim ?(simpl : Transfo.t = simpl_void_loops) (tg : target) : unit =
   Target.iter (fun t p_def ->
     let t_def = Path.resolve_path p_def t in
     let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
@@ -204,7 +209,8 @@ let%transfo elim (tg : target) : unit =
     (* FIXME: dangerous transformation? *)
     (* TODO: Matrix.delete_not_read *)
     Instr.delete (tg_seq @ [nbAny; cArrayWrite x]);
-    delete ~var:x tg_seq
+    delete ~var:x tg_seq;
+    simpl tg_seq
   ) tg
 
 (* TODO: local_name_tile ~shift_to_zero *)

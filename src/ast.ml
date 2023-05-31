@@ -1574,6 +1574,13 @@ let trm_seq_inv (t : trm) : (trm mlist) option =
   | Trm_seq tl ->  Some tl
   | _ -> None
 
+let trm_seq_nth_inv (i : int) (t : trm) : trm option =
+  Option.bind (trm_seq_inv t) (fun instrs ->
+    if i < Mlist.length instrs
+    then Some (Mlist.nth instrs i)
+    else None
+  )
+
 (* [trm_var_inv t]: returns the components of a [trm_var] constructor when [t] is a variable occurrence.
     Otherwise it returns [None]. *)
 let trm_var_inv (t : trm) : (varkind * var) option =
@@ -1943,6 +1950,10 @@ let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : tr
 let trm_map (f : trm -> trm) (t : trm) : trm =
   trm_map_with_terminal false (fun _is_terminal t -> f t) t
 
+(* [trm_bottom_up]: applies f on t recursively from bottom to top. *)
+let rec trm_bottom_up (f : trm -> trm) (t : trm) : trm =
+  let t2 = trm_map (trm_bottom_up f) t in
+  f t2
 
 (* [trm_iter f t]: similar to [trm_map] but this one doesn't return a trm at the end. *)
 let trm_iter (f : trm -> unit) (t : trm) : unit =
