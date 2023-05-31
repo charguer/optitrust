@@ -437,7 +437,7 @@ val apply_at_target_paths : (trm -> trm) -> target -> unit
 
 val check : target -> unit
 
-val show : ?line:int -> ?reparse:bool -> ?types:bool -> target -> unit
+val show : ?line:int -> (* DEPREACTED ?reparse:bool ->*) ?types:bool -> target -> unit
 
 module Transfo : sig
   type t = target -> unit
@@ -446,7 +446,7 @@ end
 
 val target_show_transfo : ?types:bool -> mark -> Transfo.local
 
-val show_type : ?line:int -> ?reparse:bool -> target -> unit
+val show_type : ?line:int -> (* DEPREACTED ?reparse:bool ->*) target -> unit
 
 (* Target debugging *)
 

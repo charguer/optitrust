@@ -47,10 +47,15 @@ let run_test ~(script_name:string) (test: unit -> (module TEST)) =
     ()
   with e ->
     Printf.eprintf "===> Script failed: %s\n" script_name;
-    if !Flags.print_backtrace_on_error
+    if !Flags.print_backtrace_on_error then begin
       (* LATER: flip backtrace *)
-      then Printexc.print_backtrace stderr
-      else Printf.eprintf "%s\n" (Printexc.to_string e)
+      (* LATER: in the backtrace we want to extract and copy the last line
+          that contains [in file "tests/target/target_one.ml"], for the
+          current test file *)
+      Printexc.print_backtrace stderr;
+      Printf.eprintf "--------------\n"
+    end;
+    Printf.eprintf "%s\n" (Printexc.to_string e)
   end;
   Flags.program_name := program_name
 

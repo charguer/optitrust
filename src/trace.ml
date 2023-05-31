@@ -1090,6 +1090,26 @@ let open_smallstep ~(line : int) ?(reparse:bool=false) () : unit =
   ignore (open_step ~kind:Step_small ~name:"" ~line ~step_script ())
 
 
+(* [interactive_step] is used to implement functions such as [show] to show a target,
+   or [show_encoding] or [show_ast], etc. It takes as argument a function describing
+   the action to perform when the user cursor is on the line of the operation.
+   It also accept an optional argument for an action to perform in other cases. *)
+let interactive_step ~(line:int) ~(interactive_action: unit->unit) ?(action_otherwise:unit->unit=(fun()->())) () : unit =
+  let should_exit = (Flags.get_exit_line() = Some line) in
+  let batch_mode = Flags.is_batch_mode() in
+  if should_exit || (!Flags.execute_show_even_in_batch_mode && batch_mode) then begin
+    close_smallstep_if_needed ();
+    open_smallstep ~line ();
+    interactive_action ();
+    close_smallstep_if_needed ();
+    if should_exit
+      then dump_diff_and_exit ()
+  end else begin
+    action_otherwise();
+  end
+
+(* [transfo_step] is the function that is produced by a [let%transfo]. It performs a step,
+   and set the name and the arguments of the step. *)
 let transfo_step ~(name : string) ~(args : (string * string) list) (f : unit -> unit) : unit =
   step ~kind:Step_transfo ~name (fun () ->
     (* printf "> %s\n" name; *)

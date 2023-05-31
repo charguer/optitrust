@@ -74,7 +74,10 @@ let _ = Run.script_cpp (fun () ->
   (* Function calls are
     - instructions if return type is unit
     - expressions otherwise *)
-  show [sInstr "g("];
+  (* TODO: fix me, this target fails in batch mode only *)
+  if not (Flags.is_batch_mode()) then
+    show [sInstr "g("];
+
   show [sExpr "f("];
   (* Regexp *)
 

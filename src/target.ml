@@ -1601,21 +1601,17 @@ let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
    There is no need for a prefix such as [!!] in front of the [show]
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
-let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (tg : target) : unit =
-  (* Automatically add [nbMulti] if there is no occurence constraint. *)
+let show ?(line : int = -1) ?(types : bool = false) (tg : target) : unit =
+  (* DEPRECATED ?(reparse : bool = false)  if reparse then reparse_alias(); *)
+  (* Calling [enable_multi_targets] to automatically add [nbMulti] if there is no occurence constraint. *)
   let tg = enable_multi_targets tg in
-  if reparse then reparse_alias();
-  let should_exit = (Flags.get_exit_line() = Some line) in
-  let batch_mode = (Flags.get_exit_line() = None) in
-  let marks_base = show_next_id() in
-  let mark_of_occurence (i:int) : string =
-    if batch_mode && !Flags.execute_show_even_in_batch_mode
-      then Printf.sprintf "%d_%d" marks_base i
-      else Printf.sprintf "%d" i
-    in
-  if should_exit || (!Flags.execute_show_even_in_batch_mode && batch_mode) then begin
-    Trace.close_smallstep_if_needed ();
-    Trace.open_smallstep ~line ();
+  let interactive_action () =
+    let marks_base = show_next_id() in
+    let mark_of_occurence (i:int) : string =
+      if (*DEPRECATED batch_mode &&*) !Flags.execute_show_even_in_batch_mode
+        then Printf.sprintf "%d_%d" marks_base i
+        else Printf.sprintf "%d" i
+      in
     if Constr.is_target_between tg then begin
       applyi_on_targets_between (fun i t (p,k) ->
         let m = mark_of_occurence i in
@@ -1624,21 +1620,21 @@ let show ?(line : int = -1) ?(reparse : bool = false) ?(types : bool = false) (t
       applyi_on_targets (fun i t p ->
         let m = mark_of_occurence i in
         target_show_transfo ~types m t p) tg
-    end;
-    Trace.close_smallstep_if_needed ();
-    if should_exit
-      then dump_diff_and_exit ()
-  end else begin
-    (* only check targets are valid *)
+    end
+    in
+  let action_otherwise () =
+    (* If in regular batch mode, then we only check that the targets are valid *)
     if Constr.is_target_between tg
       then applyi_on_targets_between (fun _i t (_p,_k) -> t) tg
       else applyi_on_targets (fun _i t _p -> t) tg
-  end
+    in
+  Trace.interactive_step ~line ~interactive_action ~action_otherwise ()
+
 
 (* LATER: Fix me *)
 (* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
-let show_type ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
-  show ~line ~reparse ~types:true tg
+let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : target) : unit =
+  show ~line (* DEPRECATED ~reparse*) ~types:true tg
 
 
 (* [get_trm_at]: get the trm that corresponds to the target [tg]

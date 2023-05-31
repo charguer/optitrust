@@ -116,13 +116,17 @@ let process_serialized_input (mode : string) : unit =
   | _ -> failwith "Serialization mode should be 'none', 'build', 'use', 'auto' or 'make'"
 
 (* [exit_line]: option for exiting the program when reaching a '!!' (step) after a specific line number. *)
-let exit_line : int ref = ref max_int
+let exit_line : int ref = ref max_int (* LATER: encode this as an option directly *)
 
 (* [get_exit_line ()]: gets the exit line if it exists. *)
 let get_exit_line () : int option =
   if !exit_line = max_int
     then None
     else Some !exit_line
+
+(* [is_batch_mode ()] returns whether an exit line has been provided *)
+let is_batch_mode () : bool =
+  get_exit_line() = None
 
 (* [only_big_steps]: flag for the treatment of the exit line to ignore the small steps ('!!') and only
    consider big steps. TODO: used? *)

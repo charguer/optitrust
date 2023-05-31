@@ -151,7 +151,6 @@ let combi_tests_to_ignore = [
 ]
 let target_tests_to_ignore = [
   (* TO FIX: *)
-  "target_one.ml";
   "target_type.ml";
   (* NOT A TEST: *)
 	"target_regexp.ml";
@@ -183,7 +182,10 @@ let tests_to_ignore =
 let compute_tests_to_process (keys : string list) : (string list * string list) =
   let tests = List.concat_map list_of_tests_from_key keys in
   let unique_tests = Xlist.remove_duplicates tests in
-  let (ignored_tests, tests_to_process) = List.partition (fun x -> List.mem x tests_to_ignore) unique_tests in
+  (* We ignore tests that are in the ignore-list defined above, except if they
+     are requested explicitly as a command line argument *)
+  let (ignored_tests, tests_to_process) =
+    List.partition (fun x -> List.mem x tests_to_ignore && not (List.mem x keys)) unique_tests in
   (* TODO : garder quand meme les keys *)
   (tests_to_process, ignored_tests)
 
