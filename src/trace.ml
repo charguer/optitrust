@@ -149,7 +149,7 @@ type stepdescr = {
 
 
 (* [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_parsing | Step_scoped | Step_aborted
+type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_parsing | Step_scoped | Step_aborted | Step_interactive
 
 (* [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -162,6 +162,7 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_parsing -> "Parsing"
   | Step_scoped -> "Scoped"
   | Step_aborted -> "Aborted"
+  | Step_interactive -> "Interactive"
 
 (* [step_infos] *)
 type step_infos = {
@@ -333,12 +334,19 @@ let step_arg ~(name:string) ~(value:string) : unit =
   infos.step_args <- (name,value)::infos.step_args
 
 (* [close_step] is called at the end of every big-step, or small-step,
-   or combi, or basic transformation. *)
-let close_step () : unit =
+   or combi, or basic transformation. The step to close can be passed
+   as an optional argument, to check that the exected step is being closed. *)
+let close_step ?(check:step_tree option) () : unit =
   match the_trace.step_stack with
   | [] -> failwith "close_step: the_trace should not be empty"
   | [root_step] -> failwith "close_step: on the root, should call close_root_step"
   | step :: ((parent_step :: _) as stack_tail)  ->
+      begin match check with
+      | None -> ()
+      | Some opened_step ->
+          if step != opened_step
+            then failwith "close_step: not closing the expected step"
+      end;
       finalize_step step;
       parent_step.step_sub <- step :: parent_step.step_sub;
       the_trace.step_stack <- stack_tail
@@ -380,7 +388,7 @@ let step ?(line : int = -1) ~(kind:step_kind) ~(name:string) (body : unit -> 'a)
   let s = open_step ~line ~kind ~name () in
   let r = body () in
   assert (get_cur_step () == s);
-  close_step ();
+  close_step ~check:s ();
   r
 
 (* [scoped_step] opens a scope to perform transformations in.
@@ -396,8 +404,7 @@ let scoped_step ~(kind : step_kind) (f : unit -> unit) : unit =
     close_step ()
   done;
   the_trace.cur_ast <- ast_bak;
-  assert (get_cur_step () == s);
-  close_step ()
+  close_step ~check:s ()
 
 type backtrack_result =
 | Success
@@ -419,7 +426,7 @@ let backtrack_on_failure (f : unit -> unit) : backtrack_result =
       Failure e
     end in
   assert (get_cur_step () == s);
-  close_step ();
+  close_step ~check:s ();
   res
 
 (* [parsing_step f] accounts for a parsing operation *)
@@ -1089,19 +1096,34 @@ let open_smallstep ~(line : int) ?(reparse:bool=false) () : unit =
     in
   ignore (open_step ~kind:Step_small ~name:"" ~line ~step_script ())
 
-
-(* [interactive_step] is used to implement functions such as [show] to show a target,
+(* [interactive_step] is used to implement functions such as [show_ast] to show a target,
    or [show_encoding] or [show_ast], etc. It takes as argument a function describing
    the action to perform when the user cursor is on the line of the operation.
    It also accept an optional argument for an action to perform in other cases. *)
-let interactive_step ~(line:int) ~(interactive_action: unit->unit) ?(action_otherwise:unit->unit=(fun()->())) () : unit =
+let interactive_step ~(line:int) ~(ast_before:trm) ~(ast_after:trm) : unit =
+  let should_exit = (Flags.get_exit_line() = Some line) in
+  if should_exit then begin
+    close_smallstep_if_needed ();
+    let s = open_step ~line ~kind:Step_interactive ~name:"show" () in
+    close_step ~check:s ();
+    (* Overwrite the ast_before and ast_after *)
+    s.step_ast_before <- ast_before;
+    s.step_ast_after <- ast_after;
+    dump_diff_and_exit ()
+  end
+
+(* [show_step] is used to implement [Target.show].
+   It takes as argument a function describing
+   the action to perform when the user cursor is on the line of the operation.
+   It also accept an optional argument for an action to perform in other cases. *)
+let show_step ~(line:int) ~(interactive_action: unit->unit) ?(action_otherwise:unit->unit=(fun()->())) () : unit =
   let should_exit = (Flags.get_exit_line() = Some line) in
   let batch_mode = Flags.is_batch_mode() in
   if should_exit || (!Flags.execute_show_even_in_batch_mode && batch_mode) then begin
     close_smallstep_if_needed ();
-    open_smallstep ~line ();
+    let s = open_step ~name:"show" ~kind:Step_interactive ~line () in
     interactive_action ();
-    close_smallstep_if_needed ();
+    close_step ~check:s ();
     if should_exit
       then dump_diff_and_exit ()
   end else begin

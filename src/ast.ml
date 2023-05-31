@@ -1022,7 +1022,6 @@ let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
 
 (* **************************** Smart constructors *************************** *)
 
-
 (* [trm_val ~annot ?loc ?typ ~ctx y]: value *)
 let trm_val ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (v : value) : trm =
   trm_make ~annot ?loc ?typ ?ctx (Trm_val v)

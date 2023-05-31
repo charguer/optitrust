@@ -448,6 +448,9 @@ val target_show_transfo : ?types:bool -> mark -> Transfo.local
 
 val show_type : ?line:int -> (* DEPREACTED ?reparse:bool ->*) target -> unit
 
+val show_ast : ?line:int -> unit -> unit
+val show_res : ?line:int -> unit -> unit
+
 (* Target debugging *)
 
 val target_to_string : target -> string

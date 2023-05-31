@@ -1628,7 +1628,17 @@ let show ?(line : int = -1) ?(types : bool = false) (tg : target) : unit =
       then applyi_on_targets_between (fun _i t (_p,_k) -> t) tg
       else applyi_on_targets (fun _i t _p -> t) tg
     in
-  Trace.interactive_step ~line ~interactive_action ~action_otherwise ()
+  Trace.show_step ~line ~interactive_action ~action_otherwise ()
+
+(* [show_ast] enables to view the current ast. *)
+let show_ast ?(line:int = -1) () : unit =
+  Trace.interactive_step ~line ~ast_before:empty_ast ~ast_after:(Trace.ast())
+
+(* [show_res] enables to view the result of resource computations. *)
+let show_res (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
+  let t = Trace.ast() in
+  let tres = t in (* TODO apply code describing resources *)
+  Trace.interactive_step ~line ~ast_before:t ~ast_after:tres
 
 
 (* LATER: Fix me *)

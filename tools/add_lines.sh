@@ -4,6 +4,7 @@
 
 # Replace "bigstep \"foo\"" with "Trace.open_bigstep ~line:__LINE__ \"foo\""
 # Replace "show" with "show ~line:__LINE__"
+# Replace "show_foo" with "show_foo ~line:__LINE__"
 # Replace "!!" with "Trace.open_smallstep ~line:__LINE__ ()"
 # Replace "!!!" with "Trace.open_smallstep ~line:__LINE__ ~reparse:true ()"
 
@@ -11,7 +12,8 @@
 INPUT_FILE=$1
 OUTPUT_FILE=$2
 
-sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /
+sed 's/^\([[:space:]]*\)show_\([^[:space:](]*\)/\1show_\2 ~line:__LINE__ /
+s/^\([[:space:]]*\)show /\1show ~line:__LINE__ /
 s/bigstep/Trace.open_bigstep ~line:__LINE__ /
 s/!!!/Trace.open_smallstep ~line:__LINE__ ~reparse:true ();/
 s/!!/Trace.open_smallstep ~line:__LINE__ ();/

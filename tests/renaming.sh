@@ -14,13 +14,13 @@ exit
 
 cd basic
 rm -f *_with_lines.ml
-ls -1 *.ml > list_basic.ml
+ls -1 *.ml > list_basic.txt
 cd ..
 
 
 cd combi
 rm -f *_with_lines.ml
-ls -1 *.ml > list_combi.ml
+ls -1 *.ml > list_combi.txt
 cd ..
 
 grep -Fxf list_basic.txt list_combi.txt > list_common.ml

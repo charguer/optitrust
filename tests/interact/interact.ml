@@ -16,6 +16,11 @@ let _ = Run.script_cpp (fun () ->
   show [cVarDef "b"];
   show [tFirst; cFunDef "main"; cStrict; dBody];
 
+  (* Show the current ast *)
+  show_ast();
+  (* Show the resources *)
+  show_res();
+
   (* Showing operation with step at front *)
   !! Label.add "m1" [cVarDef "b"];
   show [cVarDef "a"];
