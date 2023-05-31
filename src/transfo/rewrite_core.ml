@@ -1,20 +1,20 @@
 open Ast
 
 (* [apply_rule rule t]: applies rule [rule] on trm [t]. *)
-let apply_rule_aux ~(error_msg : bool) (rule : rewrite_rule) (t : trm) : trm =
+let apply_rule_aux ~(error_msg : bool) ~(mark : mark option) (rule : rewrite_rule) (t : trm) : trm =
   let inst : tmap = Trm_matching.rule_match ~error_msg (rule.rule_vars  @ rule.rule_aux_vars) rule.rule_from t in
   let rule_before = rule.rule_to in
   let rule_after = Internal.subst inst rule_before in
-  rule_after
+  trm_may_add_mark mark rule_after
 
 exception Rewrite_nomatch of string
 
-let apply_rule_bottom_up (rule : rewrite_rule) (t : trm) : trm =
+let apply_rule_bottom_up ~(mark : mark option) (rule : rewrite_rule) (t : trm) : trm =
   let nb_rewrites = ref 0 in
   let rec aux (t : trm) : trm =
     let t2 = trm_map aux t in
     try
-      let t3 = apply_rule_aux ~error_msg:false rule t2 in
+      let t3 = apply_rule_aux ~mark ~error_msg:false rule t2 in
       incr nb_rewrites;
       t3
     with
@@ -25,8 +25,8 @@ let apply_rule_bottom_up (rule : rewrite_rule) (t : trm) : trm =
   t_res
 
 (* [apply_rule rule t p]: applies [apply_rule_aux] at trm [t] with path [p]. *)
-let apply_rule ~(indepth : bool) (rule : rewrite_rule) : Target.Transfo.local =
-  Target.apply_on_path (if indepth then apply_rule_bottom_up rule else apply_rule_aux ~error_msg:true rule)
+let apply_rule ~(mark : mark option) ~(indepth : bool) (rule : rewrite_rule) : Target.Transfo.local =
+  Target.apply_on_path (if indepth then apply_rule_bottom_up ~mark rule else apply_rule_aux ~mark ~error_msg:true rule)
 
 (* [compute_aux t]: applies arithmetic simplifications on trm [t]. *)
 let compute_aux (t : trm) : trm =

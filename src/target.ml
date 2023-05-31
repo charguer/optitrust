@@ -275,13 +275,15 @@ let cInclude (s : string) : constr =
 let cOr (tgl : target list) : constr =
   Constr_or tgl
 
-let cOrMap (f : 'a -> constr) (l : 'a list) : constr =
+(* TODO: should this add 'nbAny'? *)
+(* [any f l]: targets any [f l0], .., [f lN] *)
+let any (f : 'a -> constr) (l : 'a list) : constr =
   cOr (List.map (fun x -> [f x]) l)
 
 (* LATER: symbole infixe/prefixe? *)
-(* autoriser plusieurs nbMulti; cVarDefs; cFuns *)
+(* [multi f l]: targets multiple [f l0], .., [f lN] *)
 let multi (f : 'a -> constr) (l : 'a list) : constr =
-  cTarget [nbMulti; cOrMap f l]
+  cTarget [nbMulti; cOr (List.map (fun x -> [f x]) l)]
 
 (* [cAnd tgl]: matches the intersection of the target list [tgl]. *)
 let cAnd (tgl : target list) : constr =

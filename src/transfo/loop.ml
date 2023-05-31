@@ -344,12 +344,12 @@ let%transfo shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_ki
 
 (* [extend_range]: like [Loop_basic.extend_range], plus arithmetic and conditional simplifications.
    *)
-let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : extension_kind = ExtendNothing) (tg : target) : unit =
+let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : extension_kind = ExtendNothing) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Target.iter (fun t p ->
     Loop_basic.extend_range ~start ~stop (target_of_path p);
-    (* TODO: simpl flag? *)
-    Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_start]));
-    Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_for_stop]));
+    (* TODO: simpl_range? *)
+    simpl (target_of_path (p @ [Dir_for_start]));
+    simpl (target_of_path (p @ [Dir_for_stop]));
     let tg_loop = Target.resolve_path_current_ast p in
     let (_, loop_instrs) = trm_inv ~error:"Loop.extend_range: expected simple loop"
       trm_for_inv_instrs tg_loop in
@@ -360,7 +360,7 @@ let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : exte
           index < stop
          *)
       if Option.is_some (trm_if_inv single_intsr) then begin
-        Arith_basic.(simpl gather_rec) (target_of_path (p @ [Dir_body; Dir_seq_nth 0; Dir_cond]));
+        simpl (target_of_path (p @ [Dir_body; Dir_seq_nth 0; Dir_cond]));
       end
     | _ -> ()
   ) tg

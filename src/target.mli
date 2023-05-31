@@ -158,7 +158,7 @@ val cThen : constr
 
 val cOr : target list -> constr
 
-val cOrMap : ('a -> constr) -> 'a list -> constr
+val any : ('a -> constr) -> 'a list -> constr
 
 val multi : ('a -> constr) -> 'a list -> constr
 
