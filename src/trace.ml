@@ -1100,15 +1100,15 @@ let open_smallstep ~(line : int) ?(reparse:bool=false) () : unit =
    or [show_encoding] or [show_ast], etc. It takes as argument a function describing
    the action to perform when the user cursor is on the line of the operation.
    It also accept an optional argument for an action to perform in other cases. *)
-let interactive_step ~(line:int) ~(ast_before:trm) ~(ast_after:trm) : unit =
+let interactive_step ~(line:int) ~(ast_before:unit->trm) ~(ast_after:unit->trm) : unit =
   let should_exit = (Flags.get_exit_line() = Some line) in
   if should_exit then begin
     close_smallstep_if_needed ();
     let s = open_step ~line ~kind:Step_interactive ~name:"show" () in
     close_step ~check:s ();
     (* Overwrite the ast_before and ast_after *)
-    s.step_ast_before <- ast_before;
-    s.step_ast_after <- ast_after;
+    s.step_ast_before <- ast_before();
+    s.step_ast_after <- ast_after();
     dump_diff_and_exit ()
   end
 
