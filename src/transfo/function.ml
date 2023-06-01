@@ -274,9 +274,9 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
           Marks.remove my_mark [nbAny; new_target]
         end;
         Marks.remove my_mark [nbAny; new_target];
-        Debug_transfo.current_ast "before proj";
+        (* Debug_transfo.current_ast "before proj"; *)
         Record_basic.simpl_proj (target_of_path path_to_seq);
-        Debug_transfo.current_ast "after proj";
+        (* Debug_transfo.current_ast "after proj"; *)
 
       )
         in
