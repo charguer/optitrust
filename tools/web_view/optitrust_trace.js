@@ -43,6 +43,9 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 // parameters
 var displayTime = false;
 
+// checkbox status
+var displayTargetStep = false;
+
 //---------------------------------------------------
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
@@ -334,12 +337,16 @@ function stepToHTML(step) {
   var s = "";
   var sSubs = "";
   for (var i = 0; i < step.sub.length; i++) {
-    sSubs += "<li>" + stepToHTML(steps[step.sub[i]]) + "</li>\n";
+    var substep = steps[step.sub[i]];
+    if (!displayTargetStep && substep.kind == "Target") {
+      continue;
+    }
+    sSubs += "<li>" + stepToHTML(substep) + "</li>\n";
   }
-  if (step.kind == "Target") {
-     step.isvalid = true;
-  }
-  s += "<div class='step-title" + (step.isvalid ? " step-valid" : "") + "'>[" + escapeHTML(step.kind) + "] " + escapeHTML(step.name) + " " + escapeHTML(step.script) + "</div>";
+  var validityClass = "";
+  validityClass = (step.isvalid) ? "step-valid" : "step-invalid";
+
+  s += "<div class='step-title " + validityClass + "'>[" + escapeHTML(step.kind) + "] " + escapeHTML(step.name) + " " + escapeHTML(step.script) + "</div>";
   for (var i = 0; i < step.justif.length; i++) {
     s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
   }

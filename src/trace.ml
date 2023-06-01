@@ -172,6 +172,7 @@ type step_infos = {
   mutable step_exectime : float; (* seconds *)
   mutable step_name : string;
   mutable step_args : (string * string) list;
+  mutable step_valid : bool;
   mutable step_justif : string list; }
 
 (* [step_tree]: history type used for storing all the trace information about all steps, recursively *)
@@ -254,7 +255,8 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     step_exectime = dummy_exectime;
     step_name = "Full script";
     step_args = [("extension", the_trace.context.extension) ];
-    step_justif = [] }
+    step_justif = [];
+    step_valid = false; }
    in
   let step_root = {
     step_kind = Step_root;
@@ -294,7 +296,7 @@ let get_excerpt (line : int) : string =
 
 (* [open_step] is called at the start of every big-step, or small-step,
    or combi, or basic transformation. *)
-let open_step ?(line : int option) ?(step_script:string="") ~(kind:step_kind) ~(name:string) () : step_tree =
+let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") ~(kind:step_kind) ~(name:string) () : step_tree =
   let infos = {
     step_script;
     step_script_line = line;
@@ -302,7 +304,8 @@ let open_step ?(line : int option) ?(step_script:string="") ~(kind:step_kind) ~(
     step_exectime = dummy_exectime;
     step_name = name;
     step_args = [];
-    step_justif = [] }
+    step_justif = [];
+    step_valid = valid; }
    in
   let step = {
     step_kind = kind;
@@ -317,9 +320,9 @@ let open_step ?(line : int option) ?(step_script:string="") ~(kind:step_kind) ~(
 (* [step_justif txt] is called by a transformation after open_step in order
    to store an textual explaination of why it is correct. *)
 let step_justif (justif:string) : unit =
-  printf "step_justif: ^^ %s^^\n" justif;
   let step = get_cur_step () in
   let infos = step.step_infos in
+  infos.step_valid <- true;
   infos.step_justif <- justif::infos.step_justif
 
 (* [step_justif_always_correct()] is a specialized version of [step_justif]
@@ -334,20 +337,36 @@ let step_arg ~(name:string) ~(value:string) : unit =
   let infos = step.step_infos in
   infos.step_args <- (name,value)::infos.step_args
 
+let step_set_validity (s : step_tree) : unit =
+  let infos = s.step_infos in
+  if not infos.step_valid then begin
+    let generated_asts: trm list = List.flatten [
+      (List.concat_map (fun sub -> [sub.step_ast_before; sub.step_ast_after]) s.step_sub);
+      [s.step_ast_after]
+    ] in
+    let (computed_validity, _) = List.fold_left (fun (valid, a) b -> (valid && (a == b), b)) (true, s.step_ast_before) generated_asts in
+    infos.step_valid <- computed_validity
+  end
+
 (* [close_step] is called at the end of every big-step, or small-step,
    or combi, or basic transformation. The step to close can be passed
-   as an optional argument, to check that the exected step is being closed. *)
+   as an optional argument, to check that the exected step is being closed.
+   If all substeps are valid and their sequence explains how to go from ast_before to ast_after, the step is valid by the explaination "combination of valid steps" *)
 let close_step ?(check:step_tree option) () : unit =
   match the_trace.step_stack with
   | [] -> failwith "close_step: the_trace should not be empty"
   | [root_step] -> failwith "close_step: on the root, should call close_root_step"
   | step :: ((parent_step :: _) as stack_tail)  ->
+      (* Checking that swe close the expected step *)
       begin match check with
       | None -> ()
       | Some opened_step ->
           if step != opened_step
             then failwith "close_step: not closing the expected step"
       end;
+      (* Computing validity *)
+      step_set_validity step;
+      (* Folding step into parent substeps *)
       finalize_step step;
       parent_step.step_sub <- step :: parent_step.step_sub;
       the_trace.step_stack <- stack_tail
@@ -385,8 +404,8 @@ let close_root_step () : unit =
 
 
 (* [step] is a function wrapping the body of a transformation *)
-let step ?(line : int = -1) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
-  let s = open_step ~line ~kind ~name () in
+let step ?(valid:bool=false) ?(line : int = -1) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
+  let s = open_step ~valid ~line ~kind ~name () in
   let r = body () in
   assert (get_cur_step () == s);
   close_step ~check:s ();
@@ -432,11 +451,11 @@ let backtrack_on_failure (f : unit -> unit) : backtrack_result =
 
 (* [parsing_step f] accounts for a parsing operation *)
 let parsing_step (f : unit -> unit) : unit =
-  step ~kind:Step_parsing ~name:"" f
+  step ~valid:true ~kind:Step_parsing ~name:"" f
 
 (* [open_target_resolve_step] *)
 let open_target_resolve_step () : unit =
-  ignore (open_step ~kind:Step_target_resolve ~name:"" ())
+  ignore (open_step ~valid:true ~kind:Step_target_resolve ~name:"" ())
 
 (* [close_target_resolve_step] has a special handling because it saves a diff
    between an AST and an AST decorated with marks for targeted paths,
@@ -851,7 +870,7 @@ let rec dump_step_tree_to_js (get_next_id:unit->int) (out:string->unit) (id:int)
       "name", Json.str i.step_name;
       "script", Json.base64 (Base64.encode_exn i.step_script);
       "args", Json.(listof (fun (k,v) -> Json.obj_quoted_keys ["name", str k; "value",str v])) i.step_args;
-      "isvalid", Json.bool (i.step_justif <> []);
+      "isvalid", Json.bool i.step_valid;
         (* TODO: at the moment, we assume that a justification item means is-valid *)
       "justif", Json.(listof str) i.step_justif;
       "sub", Json.(listof int) sub_ids;

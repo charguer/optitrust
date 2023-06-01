@@ -144,10 +144,9 @@ h2 {
 .diffBefore {}
 .diffAfter {}
 
-.step-valid {
-  background: #99c9ff;
-}
-
-.step-justif {
+.step-valid, .step-justif {
   background: #99ffc9;
+}
+.step-invalid {
+  background: #99c9ff;
 }
