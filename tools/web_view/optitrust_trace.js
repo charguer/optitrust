@@ -347,7 +347,7 @@ function initControls() {
     sBdiff += htmlButton("button_bdiff_" + i, (i+1), "ctrl-button", "loadBdiff(" + i + ")");
   }
   if (bigsteps.length > 1) {
-    addRow("BigStep", sBdiff);
+    addRow("BigSteps", sBdiff);
   }
 
   // Small diff buttons
@@ -356,7 +356,7 @@ function initControls() {
   for (var i = 0; i < smallsteps.length; i++) {
     sSdiff += htmlButton("button_sdiff_" + i, (i+1), "ctrl-button", "loadSdiff(" + i + ")");
   }
-  addRow("SmallStep", sSdiff);
+  addRow("SmallSteps", sSdiff);
 
   $("#contents").html(s);
 }
@@ -419,7 +419,11 @@ document.addEventListener('DOMContentLoaded', function () {
   // editor.setValue("click on a button");
   // loadSource(codes.length-1);
   // loadSource(0);
-   loadBdiff(0);
+  if (hasBigsteps) {
+    loadBdiff(0); }
+  else {
+    loadSdiff(0);
+  }
   $('#button_bdiff_next').focus();
 });
 
