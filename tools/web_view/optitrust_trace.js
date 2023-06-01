@@ -7,6 +7,7 @@
 
 var steps = [];
 steps[0] = {
+   id: 0, // corresponds to the step number
    kind: "..",
    exectime: 0.0453;   // in seconds
    name: "..",
@@ -194,6 +195,7 @@ function loadDiffFromString(diffString) {
 function resetView() {
   $("#sourceDiv").hide();
   $("#diffDiv").hide();
+  $("#detailsDiv").hide();
   $("#infoDiv").html("");
   curSource = -1;
   curSdiff = -1;
@@ -327,15 +329,28 @@ function nextBdiff() {
   loadBdiff(id);
 }
 
-// function loadDetails(selectedStep);
+function stepToHTML(step) {
+  // console.log("steptohtml " + step.id);
+  var s = "";
+  var sSubs = "";
+  for (var i = 0; i < step.sub.length; i++) {
+    sSubs += "<li>" + stepToHTML(steps[step.sub[i]]) + "</li>\n";
+  }
+  if (step.kind == "Target") {
+     step.isvalid = true;
+  }
+  s = "<div class='step-title" + (step.isvalid ? " step-valid" : "") + "'>[" + step.kind + "] " + step.script + "</div><ul class='step-sub'> " + sSubs + "</ul>\n";
+  return s;
+}
+
 
 // handles click on the details button
 function toggleDetails() {
-  detailsDiv = $("#details");
-  var hasDetails = (detailsDiv.style.display == "block");
-  detailsDiv.style.display = (hasDetails ? "none" : "block");
-  if (! hasDetails) {
-    loadDetails(selectedStep);
+  $("#detailsDiv").toggle();
+  $("#diffDiv").toggle();
+  var showingDetails = ($("#detailsDiv").css('display') == "block");
+  if (showingDetails) {
+    $("#detailsDiv").html(stepToHTML(selectedStep));
   }
 }
 
@@ -443,6 +458,10 @@ document.addEventListener('DOMContentLoaded', function () {
     loadSdiff(0);
   }
   $('#button_bdiff_next').focus();
+
+  // start by showing the tree of steps on the root
+  selectedStep = steps[0];
+  toggleDetails();
 });
 
 // alternative:
