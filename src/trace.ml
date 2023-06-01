@@ -169,7 +169,7 @@ type step_infos = {
   mutable step_script : string;
   mutable step_script_line : int option;
   mutable step_time_start : float; (* seconds since start *)
-  mutable step_duration : float; (* seconds *)
+  mutable step_exectime : float; (* seconds *)
   mutable step_name : string;
   mutable step_args : (string * string) list;
   mutable step_justif : string list; }
@@ -234,7 +234,7 @@ let get_decorated_history ?(prefix : string = "") () : string * context * step_t
     in
   (prefix, ctx, tree)
 
-let dummy_duration : float = 0.
+let dummy_exectime : float = 0.
 
 (* [get_cur_step ()] returns the current step --there should always be one. *)
 let get_cur_step ?(error : string = "get_cur_step: empty stack") () : step_tree =
@@ -251,7 +251,7 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     step_script = "Contents of " ^ source;
     step_script_line = None;
     step_time_start = now();
-    step_duration = dummy_duration;
+    step_exectime = dummy_exectime;
     step_name = "Full script";
     step_args = [("extension", the_trace.context.extension) ];
     step_justif = [] }
@@ -268,7 +268,7 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
 (* [finalize_step] is called by [close_root_step] and [close_step] *)
 let finalize_step (step : step_tree) : unit =
   let infos = step.step_infos in
-  infos.step_duration <- now() -. infos.step_time_start;
+  infos.step_exectime <- now() -. infos.step_time_start;
   infos.step_args <- List.rev infos.step_args;
   step.step_ast_after <- the_trace.cur_ast;
   step.step_sub <- List.rev step.step_sub
@@ -299,7 +299,7 @@ let open_step ?(line : int option) ?(step_script:string="") ~(kind:step_kind) ~(
     step_script;
     step_script_line = line;
     step_time_start = now();
-    step_duration = dummy_duration;
+    step_exectime = dummy_exectime;
     step_name = name;
     step_args = [];
     step_justif = [] }
@@ -845,15 +845,17 @@ let rec dump_step_tree_to_js (get_next_id:unit->int) (out:string->unit) (id:int)
   let json =
     Json.obj_quoted_keys [
       "kind", Json.str (step_kind_to_string s.step_kind);
-      "duration", Json.float i.step_duration;
+      "exectime", Json.float i.step_exectime;
       "name", Json.str i.step_name;
       "script", Json.base64 (Base64.encode_exn i.step_script);
       "args", Json.(listof (fun (k,v) -> listof str [k;v])) i.step_args;
+      "isvalid", Json.bool (i.step_justif <> []);
+        (* TODO: at the moment, we assume that a justification item means is-valid *)
       "justif", Json.(listof str) i.step_justif;
       "sub", Json.(listof int) sub_ids;
       "diff", Json.base64 diff64;
     ] in
-  out (sprintf "step[%d] = %s;\n" id (Json.to_string json));
+  out (sprintf "steps[%d] = %s;\n" id (Json.to_string json));
   (* Process sub-steps recursively *)
   List.iter2 (dump_step_tree_to_js get_next_id out) sub_ids s.step_sub
 
@@ -862,10 +864,10 @@ let rec dump_step_tree_to_js (get_next_id:unit->int) (out:string->unit) (id:int)
    contents of the step_tree. The JS file is structured as follows
    (up to the order of the definitions):
 
-   var step = [];
-   step[i] = {
+   var steps = [];
+   steps[i] = {
       kind: "..",
-      duration: 0.0453;   // in seconds
+      exectime: 0.0453;   // in seconds
       name: "..",
       args: [ { name: "..", value: ".."}, { name: "..", value: ".." } ],
       justif: ["..", ".." ],
@@ -907,7 +909,7 @@ let step_tree_to_doc (step_tree:step_tree) : document =
        tab
     ^^ string (step_kind_to_string s.step_kind)
     ^^ space
-    ^^ string (sprintf "(%dms)" (int_of_float (i.step_duration *. 1000.)))
+    ^^ string (sprintf "(%dms)" (int_of_float (i.step_exectime *. 1000.)))
     ^^ space
     ^^ string i.step_name
     ^^ concat_map (fun (k,v) -> space ^^ string (if k = "" then v else sprintf "~%s:%s" k v)) i.step_args

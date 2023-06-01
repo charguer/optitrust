@@ -80,7 +80,7 @@ let rec to_doc (j : t) : document =
   | Bool b-> string (string_of_bool b)
   | Int i -> string (string_of_int i)
   | Float f-> string (string_of_float f)
-  | List l -> Tools.list_to_doc ~bounds:[lbracket; rbracket] (List.map to_doc l)
+  | List l -> Tools.list_to_doc ~sep:(string ", ") ~bounds:[lbracket; rbracket] (List.map to_doc l)
   | Obj o -> Tools.print_object (List.map (fun (k,j) -> to_doc k ^^ string ": " ^^ to_doc j) o)
 
 (* [to_string j]: converts a Json.t to a string *)

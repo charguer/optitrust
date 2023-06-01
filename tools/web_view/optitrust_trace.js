@@ -1,4 +1,45 @@
+// The function [Trace.dump_trace_to_js] in [trace.ml] documents the data representation
+// used for the trace. It looks like this, where 0 is always the id of the root step.
 
+// TODO: restore the feature of displaying sources at lines
+
+/*
+
+var steps = [];
+steps[0] = {
+   kind: "..",
+   exectime: 0.0453;   // in seconds
+   name: "..",
+   args: [ { name: "..", value: ".."}, { name: "..", value: ".." } ],
+   justif: ["..", ".." ],
+   isvalid: true,
+   script: window.atob("..."),
+   astBefore: window.atob("..."), // NOT YET IMPLEMENTED; could also an id of an source code stored in a different array, for improved factorization
+   astAfter: window.atob("..."), // NOT YET IMPLEMENTED
+   diff: window.atob("..."), // could be slow if requested for all!
+   sub: [ j1, j2, ... jK ]  // ids of the sub-steps
+   }
+step[1] = ...
+
+The function initSteps() builds an array of [bigsteps] and an array of [smallsteps],
+in order of appearance.
+
+Representation of a big step:
+  bigsteps[k] = step object with additional fields:
+      id: // the id of the step in the steps array
+      start: // an index in smallstep array, inclusive
+      stop: // an index in smallstep array, exclusive
+  smallsteps[k] = step object with additional fields:
+      id: // the id of the step in the steps array
+
+*/
+
+// data structures filled by function initSteps
+var smallsteps = [];
+var bigsteps = [];
+var hasBigsteps = undefined; // false iff bigsteps is empty
+
+// parameters
 var displayTime = false;
 
 //---------------------------------------------------
@@ -182,10 +223,13 @@ function hideNoncoveredButtons(bdiffId) {
   var step = bigsteps[bdiffId];
   var start = step.start;
   var stop = step.stop;
-  for (var i = 0; i <= codes.length; i++) {
+  /*for (var i = 0; i <= codes.length; i++) {
     // DEPRECATED showOrHide($("#button_code_" + i), (start <= i && i <= stop));
     if (i < smallsteps.length)
       showOrHide($("#button_sdiff_" + i), (start <= i && i < stop));
+  }*/
+  for (var i = 0; i < smallsteps.length; i++) {
+    showOrHide($("#button_sdiff_" + i), (start <= i && i < stop));
   }
 }
 
@@ -238,7 +282,7 @@ function loadBdiff(id) {
   var step = bigsteps[id];
   loadDiffFromString(step.diff);
   $("#button_bdiff_" + id).addClass("ctrl-button-selected");
-  var sStep = htmlSpan(escapeHTML(step.descr), "step-info");
+  var sStep = htmlSpan(escapeHTML(step.script), "step-info");
   displayInfo(sStep);
   curBdiff = id;
   // $("#button_sdiff_" + bigsteps[id].start).addClass("ctrl-button-covered");
@@ -262,7 +306,8 @@ function nextSdiff() {
   if (curSdiff == -1 && curSource != -1) {
     curSdiff = curSource - 1;
   }
-  var id = Math.min(curSdiff + 1, smallsteps.length-1);
+  //var id = Math.min(curSdiff + 1, smallsteps.length-1);
+  var id = (curSdiff + 1) % smallsteps.length;
   loadSdiff(id);
 }
 
@@ -274,7 +319,8 @@ function nextBdiff() {
     }
     curBdiff = getBdiffCovering(curSdiff) - 1; // anticipate for the +1 operation
   }
-  var id = Math.min(curBdiff + 1, bigsteps.length-1);
+  //var id = Math.min(curBdiff + 1, bigsteps.length-1);
+  var id = (curBdiff + 1) % bigsteps.length;
   loadBdiff(id);
 }
 
@@ -315,8 +361,60 @@ function initControls() {
   $("#contents").html(s);
 }
 
+function initSteps() {
+  // reads global variable [steps]
+  // writes global variables [smallsteps] and [bigsteps] and [hasBigsteps]
+  var rootStep = steps[0];
+  var rootSub = rootStep.sub;
+  if (rootSub.length == 0) {
+    console.log("Error: no steps in tree")
+    return;
+  }
+  // set global variable [hasBigsteps]
+  hasBigsteps = (steps[rootSub[0]].kind == "Big");
+
+  // counter used to fill [smallsteps] array
+  var curSmallStep = 0;
+
+  // function to iterate over an array of step ids treated as small steps
+  function numberSmallSteps(stepIds) {
+    for (var i = 0; i < stepIds.length; i++) {
+      var smallstep_id = stepIds[i];
+      var smallstep = steps[smallstep_id];
+      if (smallstep.kind != "Small") {
+        console.log("Error: numberSmallSteps expected a small step but encountered a step of kind " + smallstep.kind);
+      }
+      smallstep.id = smallstep_id;
+      smallsteps[curSmallStep] = smallstep;
+      curSmallStep++;
+    }
+  };
+
+  if (hasBigsteps) {
+    // filling of [bigsteps] and [smallsteps] array
+    for (var i = 0; i < rootSub.length; i++) {
+      var bigstep_i_id = rootSub[i];
+      var bigstep_i = steps[bigstep_i_id];
+      if (bigstep_i.kind != "Big") {
+        console.log("Error: initSteps expected a big-step but encountered a step of kind " + bigstep_i.kind);
+      }
+      bigstep_i.id = bigstep_i_id;
+      bigstep_i.start = curSmallStep;
+      numberSmallSteps(bigstep_i.sub);
+      bigstep_i.stop = curSmallStep;
+      bigsteps[i] = bigstep_i;
+    }
+  } else {
+    // there are no big-steps, filling only [smallsteps] array
+    numberSmallSteps(rootSub);
+  }
+}
+
+
+
 document.addEventListener('DOMContentLoaded', function () {
   initEditor();
+  initSteps();
   initControls();
   // editor.setValue("click on a button");
   // loadSource(codes.length-1);

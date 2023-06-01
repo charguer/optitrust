@@ -26,7 +26,5 @@ s#{TRACEJSFILE}#${TRACEJSFILE}#g" ${TARGET}
 
 echo "Generated ${TARGET}"
 
-exit
-
 # Open the browser with the target file
 ${TOOLS_FOLDER}/open_in_browser.sh ${TARGET} "Trace for ${FILEBASE}"
