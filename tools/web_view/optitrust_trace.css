@@ -94,6 +94,12 @@ h2 {
   text-align: center;
 }
 
+.details-button {
+  min-width: 5em;
+  margin-top: 8px;
+  text-align: center;
+}
+
 .next-button {
   width: 5em;
   margin: 3px;

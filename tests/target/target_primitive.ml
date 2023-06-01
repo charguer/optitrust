@@ -2,6 +2,8 @@ open Optitrust
 open Target
 open Ast
 
+let _ = Flags.execute_show_even_in_batch_mode := true
+
 let _ = Run.script_cpp (fun _ ->
 
   show [cPrimFun (Prim_binop Binop_add)];

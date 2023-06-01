@@ -161,3 +161,10 @@ gnome-terminal --geometry 100x30+0+0 -e "bash -c \"${OPTITRUST}/.vscode/watch.sh
 
 e.g.
 gnome-terminal --geometry 100x30+0+0 -e "bash -c \"~/shared/verified_transfo/src/.vscode/watch.sh\""
+
+
+(* *************************************************************************************************************
+  Note: to see a diff at the level of the OptiTrust AST, use:
+    -dump-ast-details
+  and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp]
+***************************************************************************************************************)
