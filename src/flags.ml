@@ -74,6 +74,7 @@ let verbose_mode : bool ref = ref false
 
 (* [use_light_diff]: flag to enable "light diffs", whereby we hide the function body of all the
    toplevel functions that are not affected by the transformation. *)
+   (* TODO: could it be true by default? *)
 let use_light_diff : bool ref = ref false
 
 (* [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them. *)
@@ -192,9 +193,15 @@ let process_cmdline_args ?(args : cmdline_args = []) () : unit =
     the output associated with the documentation of a unit test, before running the main contents of the file. *)
 let documentation_save_file_at_first_check = ref ""
 
+(* [reset_flags_to_default] is used by [batching.ml] to avoid propagation of effects
+  TODO: complete implementation by going over all relevant flags,
+  and using a record of values.
+  TODO: alternative: save flags and restore them at the end of a batching run. *)
 
-(* *************************************************************************************************************
-  Note: to see a diff at the level of the OptiTrust AST, use:
-    -dump-ast-details
-  and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp]
-***************************************************************************************************************)
+let reset_flags_to_default () : unit =
+  execute_show_even_in_batch_mode := false;
+  dump_ast_details := false;
+  bypass_cfeatures := false;
+  use_light_diff := false;
+  pretty_matrix_notation := false
+

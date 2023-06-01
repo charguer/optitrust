@@ -37,6 +37,7 @@ let stop_on_error : bool ref = ref false
 module type TEST = sig end
 
 let run_test ~(script_name:string) (test: unit -> (module TEST)) =
+  Flags.reset_flags_to_default ();
   Flags.process_program_name ();
   let program_name = !Flags.program_name in
   let program_path = Filename.dirname program_name in

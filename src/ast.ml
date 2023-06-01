@@ -1930,7 +1930,8 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
 
 (* [trm_map_with_terminal is_terminal f t] *)
 let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm =
-  trm_map_with_terminal_opt is_terminal f t
+  (* TODO FIXME: trm_map_with_terminal_opt is_terminal f t*)
+  trm_map_with_terminal_unopt is_terminal f t
 
 (* [trm_map f]: applies f on t recursively *)
 let trm_map (f : trm -> trm) (t : trm) : trm =

@@ -160,6 +160,7 @@ var curSdiff = -1;
 var curBdiff = -1;
 var idSourceLeft = -1;
 var idSourceRight = -1;
+var selectedStep = undefined; // stores a step object
 
 function openSourceAtLine(idSource, line) {
   loadSource(idSource);
@@ -259,6 +260,7 @@ function loadSdiff(id) {
   resetView();
   $("#diffDiv").show();
   var step = smallsteps[id];
+  selectedStep = step;
   loadDiffFromString(step.diff);
   var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
   if (displayTime) {
@@ -280,6 +282,7 @@ function loadBdiff(id) {
   resetView();
   $("#diffDiv").show();
   var step = bigsteps[id];
+  selectedStep = step;
   loadDiffFromString(step.diff);
   $("#button_bdiff_" + id).addClass("ctrl-button-selected");
   var sStep = htmlSpan(escapeHTML(step.script), "step-info");
@@ -324,6 +327,18 @@ function nextBdiff() {
   loadBdiff(id);
 }
 
+// function loadDetails(selectedStep);
+
+// handles click on the details button
+function toggleDetails() {
+  detailsDiv = $("#details");
+  var hasDetails = (detailsDiv.style.display == "block");
+  detailsDiv.style.display = (hasDetails ? "none" : "block");
+  if (! hasDetails) {
+    loadDetails(selectedStep);
+  }
+}
+
 function initControls() {
   var s = "";
   function addRow(sTitle, sRow) {
@@ -357,6 +372,9 @@ function initControls() {
     sSdiff += htmlButton("button_sdiff_" + i, (i+1), "ctrl-button", "loadSdiff(" + i + ")");
   }
   addRow("SmallSteps", sSdiff);
+
+  // Details button
+  s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
 
   $("#contents").html(s);
 }
