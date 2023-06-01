@@ -395,16 +395,112 @@ let class_member_intro (t : trm) : trm =
    | _ -> trm_map aux t
 in aux t
 
+(********************** Decode contract annotations ***************************)
+
+let rec contract_elim (t: trm): trm =
+  match t.desc with
+  (* TODO: Parsing of contract and resource annotations *)
+  | _ -> trm_map contract_elim t
+
+
+let formula_to_string (f: formula) : string =
+  AstC_to_c.ast_to_string ~optitrust_syntax:true f
+
+let named_formula_to_string (name, formula): string =
+  let sformula = formula_to_string formula in
+  match name with
+  | None ->
+      Printf.sprintf "%s;" sformula
+  | Some name ->
+      Printf.sprintf "%s: %s;" name sformula
+
+(* FIXME: Copied from Sequence_core to avoid circular dependancy *)
+(* [insert_aux index code t]: inserts trm [code] at index [index] in sequence [t],
+    [index] - a valid index where the instruction can be added,
+    [code] - instruction to be added as an arbitrary trm,
+    [t] - ast of the outer sequence where the insertion will be performed. *)
+let insert_aux (index : int) (code : trm) (t : trm) : trm =
+  let error = "Sequence_core.insert_aux: expected the sequence on where insertion is performed." in
+  let tl = trm_inv ~error trm_seq_inv t in
+  let new_tl = Mlist.insert_at index code tl in
+  (* TODO: Should use alter here ? *)
+  trm_seq ~annot:t.annot new_tl
+
+let ctx_resource_list_to_string (res: resource_item list) : string =
+  String.concat " " (List.map named_formula_to_string res)
+
+let ctx_resources_to_trm (res: resource_set) : trm =
+  let spure = ctx_resource_list_to_string res.pure in
+  let slin = ctx_resource_list_to_string res.linear in
+  trm_apps (trm_var "__ctx_res") [trm_string spure; trm_string slin]
+
+
+let display_ctx_resources (t: trm): trm =
+  let tl_before = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before) in
+  let tl_after = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after) in
+  let tl_frame = Option.to_list (Option.map (fun res_frame ->
+      trm_apps (trm_var "__ctx_frame") [trm_string (ctx_resource_list_to_string res_frame)]) t.ctx.ctx_resources_frame) in
+  trm_seq (Mlist.of_list (tl_before @ tl_frame @ [t] @ tl_after))
+
+let computed_resources_intro (t: trm): trm =
+  let rec aux t =
+    match t.desc with
+    | Trm_seq instrs ->
+      trm_like ~old:t (trm_seq (Mlist.map (fun instr -> display_ctx_resources (aux instr)) instrs))
+    | _ -> trm_map_with_terminal_opt ~keep_ctx:true false (fun _ -> aux) t
+  in
+  (*Internal.nobrace_enter();*)
+  let t = aux t in
+  (*let id = Nobrace.exit () in
+  Internal.clean_no_brace_seq id t*)
+  t
+
+
+let rec contract_intro (t: trm): trm =
+  let push_named_formulas (contract_prim: var) (named_formulas: (var option * formula) list) (t: trm): trm =
+    let sres = String.concat "" (List.map named_formula_to_string named_formulas) in
+    let tres = trm_apps (trm_var contract_prim) [trm_string sres] in
+    insert_aux 0 tres t
+  in
+
+  let push_resource_set (pure_prim: var) (linear_prim: var) (res_set: resource_spec) (t: trm): trm =
+    match res_set with
+    | None -> t
+    | Some res_set ->
+      let t =
+        if res_set.linear <> []
+          then push_named_formulas linear_prim res_set.linear t
+          else t
+      in
+      if res_set.pure <> [] || res_set.linear == [] then
+        push_named_formulas pure_prim res_set.pure t
+      else t
+  in
+
+  match t.desc with
+  | Trm_let_fun (qv, ty, args, body0, contract) ->
+    let body = contract_intro body0 in
+    let body = push_resource_set "__ensures" "__produces" contract.post body in
+    let body = push_resource_set "__requires" "__consumes" contract.pre body in
+    if body == body0
+      then t
+      else trm_like ~old:t (trm_let_fun (qvar_to_var qv) ty args body ~contract)
+
+  | Trm_seq instrs ->
+    trm_like ~old:t (trm_seq (Mlist.map contract_intro instrs))
+
+  | _ -> trm_map contract_intro t
+
 (*************************************** Main entry points *********************************************)
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let cfeatures_elim (t : trm) : trm =
-  class_member_elim (cseq_items_void_type (caddress_elim (stackvar_elim (infix_elim (method_call_elim t)))))
+  class_member_elim (cseq_items_void_type (caddress_elim (stackvar_elim (infix_elim (method_call_elim (contract_elim t))))))
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
-  method_call_intro (infix_intro (stackvar_intro (caddress_intro (class_member_intro t))))
+  contract_intro (method_call_intro (infix_intro (stackvar_intro (caddress_intro (class_member_intro t)))))
 
 (* Note: recall that currently const references are not supported
    Argument of why const ref is not so useful

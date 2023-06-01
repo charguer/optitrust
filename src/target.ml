@@ -1638,10 +1638,8 @@ let show_ast ?(line:int = -1) () : unit =
 (* [show_res] enables to view the result of resource computations. *)
 let show_res (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
   let t = Trace.ast() in
-  let compute_res t = t in (* TODO *)
-  let tres = compute_res t in
-  let decode t = t in (* TODO *)
-  Trace.interactive_step ~line ~ast_before:(fun () -> t) ~ast_after:(fun () -> decode tres)
+  let tres = Resources_core.(trm_recompute_resources builtin_env t) in
+  Trace.interactive_step ~line ~ast_before:(fun () -> t) ~ast_after:(fun () -> Ast_fromto_AstC.computed_resources_intro tres)
 
 (* LATER: Fix me *)
 (* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)

@@ -46,14 +46,18 @@ let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
   ctx_constr := Var_map.add c tid (!ctx_constr)
 
 (* [get_ctx]: get the current context *)
-let get_ctx () : ctx =
-  { ctx_var = Var_map.empty;
+let get_ctx () : ctx = {
+  ctx_types = Some {
+    ctx_var = Var_map.empty;
     ctx_tconstr = !ctx_tconstr;
     ctx_typedef = !ctx_typedef;
     ctx_label = !ctx_label;
     ctx_constr = !ctx_constr;
-    ctx_resources = None;
-  }
+  };
+  ctx_resources_before = None;
+  ctx_resources_after = None;
+  ctx_resources_frame = None;
+}
 
 (* [get_typid_for_type ty]: gets the type id for type [tv]*)
 let get_typid_from_trm (tv : typvar) : int  =

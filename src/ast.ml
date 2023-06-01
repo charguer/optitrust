@@ -468,24 +468,33 @@ and trm =
    loc : location;
    is_statement : bool;
    typ : typ option;
-   ctx : ctx option}
+   mutable ctx : ctx;
+}
 
 (* [trms]: a list of trms *)
 and trms = trm list
 
-(* [ctx]: stores all the information about types, labels, constructors, etc. *)
+(* [ctx]: stores context information that can be recomputed and must be updated
+   when changes occur (reset the field to unknown_ctx for invalidation). *)
 and ctx = {
+  mutable ctx_types: typ_ctx option;
+
+  (* The set of accessible resources after this term. *)
+  mutable ctx_resources_before: resource_set option;
+  mutable ctx_resources_after: resource_set option;
+  mutable ctx_resources_frame: resource_item list option;
+  (*mutable ctx_resources_instance: trm Var_map.t option; (* should we record instances? *)*)
+}
+
+(* [typ_ctx]: stores all the information about types, labels, constructors, etc. *)
+and typ_ctx = {
   ctx_var : typ varmap;             (* from [var] to [typ], i.e. giving the type
                                        of program variables *)
   ctx_tconstr : typconstrid varmap; (* from [typconstr] to [typconstrid] *)
   ctx_typedef : typedef typmap;     (* from [typconstrid] to [typedef] *)
   ctx_label : typconstrid varmap;   (* from [label] to [typconstrid] *)
   ctx_constr : typconstrid varmap;  (* from [constr] to [typconstrid] *)
-
-  ctx_resources: resource_set option;
-  (* The set of accessible resources before this term, do not read this value
-     directly as it may be invalidated by nodes above in the tree *)
-  }
+}
 
 (* [trm_desc]: description of an ast node *)
 and trm_desc =
@@ -534,14 +543,16 @@ and trm_desc =
   | Trm_delete of bool * trm                      (* delete t, delete[] t *)
 
 and hyp = string
+and formula = trm
+and resource_item = hyp option * formula
+
+and resource_set = {
+  pure: resource_item list;
+  linear: resource_item list;
+  fun_contracts: (var list * fun_contract) varmap;
+}
 
 and resource_spec = resource_set option
-
-and resource_set =
-  { pure: (hyp option * formula) list;
-    linear: (hyp option * formula) list; }
-
-and formula = trm
 
 and fun_contract =
   { pre: resource_spec;
@@ -857,6 +868,12 @@ let qvar_update ?(qpath : var list = []) ?(var : var = "") (qv : qvar) : qvar =
 let empty_qvar : qvar =
   {qvar_var = ""; qvar_path = []; qvar_str = ""}
 
+(* FIXME: This function should not exists but is useful for quick code.
+ * Assumes that the path is empty *)
+let qvar_to_var (q: qvar) : var =
+  assert (q.qvar_path = []);
+  q.qvar_var
+
 (* [typ_constr ~annot ~attributes ~tid ~tl x]: constructed type constructor *)
 (* FIXME: Super weird arguments -> useless qtx created + inefficient comparison *)
 let typ_constr ?(annot : typ_annot list = []) ?(attributes = [])
@@ -955,6 +972,10 @@ let typ_lref ?(annot : typ_annot list = []) ?(attributes = [])
 
 (* ************************* Resource constructors ************************* *)
 
+let unknown_ctx: ctx =
+  { ctx_types = None; ctx_resources_before = None; ctx_resources_after = None;
+    ctx_resources_frame = None; }
+
 let unknown_fun_contract: fun_contract =
   { pre = None; post = None }
 
@@ -988,7 +1009,7 @@ let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
 
 (* [trm_build ~annot ?loc ~is_statement ?typ ?ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
 let trm_build ~(annot : trm_annot) ?(loc : location) ~(is_statement : bool) ?(typ : typ option)
-  ?(ctx : ctx option) ~(desc : trm_desc) () : trm =
+  ?(ctx : ctx = unknown_ctx) ~(desc : trm_desc) () : trm =
   let t = {annot; loc; is_statement; typ; desc; ctx} in
   Stats.incr_trm_alloc ();
   t
@@ -1017,9 +1038,9 @@ let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statemen
                 | None -> t.is_statement
       in
     let typ = match typ with | None -> t.typ | _ -> typ in
-    let ctx = match ctx with | None -> t.ctx | _ -> ctx in
+    let ctx = Option.value ~default:t.ctx ctx in
     let desc = match desc with | Some x -> x | None -> t.desc in
-    trm_build ~annot ~desc ?loc ~is_statement ?typ ?ctx ()
+    trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ()
 
 (* [trm_replace desc t]: an alias of [trm_alter] to alter only the descriptiong of [t]. *)
 let trm_replace (desc : trm_desc) (t : trm) : trm =
@@ -1890,52 +1911,53 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
     using trm_map, and only duplicating 5 cases *)
 
 (* [trm_map_with_terminal_opt is_terminal f]: trm_map_with_terminal derived from trm_map *)
-let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
+let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
   let annot = t.annot in
   let loc = t.loc in
   let typ = t.typ in
+  let ctx = if keep_ctx then t.ctx else unknown_ctx in
   let aux = f is_terminal in
 
   (* [ret nochange t'] evaluates the condition [nochange]; if is true,
      it returns [t], because [f] has not performed any change on [t];
      else, it returns the new result [t'], which was computed as [f t]. *)
-    let ret nochange t' =
-      if nochange then t else t' in
+  let ret nochange t' =
+    if nochange then t else t' in
 
-    (* [flist tl]: applies [f] to all the elements of a list [tl] *)
-    let flist tl =
-      let tl' = List.map (f false) tl in
-      if List.for_all2 (==) tl tl' then tl else tl'
-    in
-    (* [fmlist]: is like [flist] but for marked lists *)
-    let fmlist is_terminal tl =
-      let tl' = Mlist.map (f is_terminal) tl in
-      if Mlist.for_all2 (==) tl tl' then tl else tl' in
+  (* [flist tl]: applies [f] to all the elements of a list [tl] *)
+  let flist tl =
+    let tl' = List.map (f false) tl in
+    if List.for_all2 (==) tl tl' then tl else tl'
+  in
+  (* [fmlist]: is like [flist] but for marked lists *)
+  let fmlist is_terminal tl =
+    let tl' = Mlist.map (f is_terminal) tl in
+    if Mlist.for_all2 (==) tl tl' then tl else tl' in
 
   match t.desc with
   | Trm_array tl ->
     let tl' = fmlist false tl in
     ret (tl' == tl)
-        (trm_array ~annot ?loc ?typ tl')
+        (trm_array ~annot ?loc ?typ ~ctx tl')
   | Trm_record tl ->
     let tl' = Mlist.map (fun (lb, t) -> (lb, f false t)) tl in
     let tl' = if Mlist.for_all2 (==) tl tl' then tl else tl' in
     ret (tl' == tl)
-        (trm_record ~annot ?loc ?typ tl')
+        (trm_record ~annot ?loc ?typ ~ctx tl')
   | Trm_let (vk, tv, init, bound_resources) ->
     let init' = f false init in
     ret (init' == init)
-        (trm_let ~annot ?loc ?bound_resources vk tv init')
+        (trm_let ~annot ?loc ?bound_resources ~ctx vk tv init')
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
     ret (body' == body)
-        (trm_let_fun ~annot ?loc ~qvar:f' ~contract "" res args body' )
+        (trm_let_fun ~annot ?loc ~qvar:f' ~contract ~ctx "" res args body' )
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = aux then_ in
     let else_' = aux else_ in
     ret (cond' == cond && then_' == then_ && else_' == else_)
-        (trm_if ~annot ?loc cond' then_' else_')
+        (trm_if ~annot ?loc ~ctx cond' then_' else_')
   | Trm_seq tl ->
     let n = Mlist.length tl in
     let tl' = Mlist.mapi (fun i tsub ->
@@ -1943,24 +1965,24 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
         f sub_is_terminal tsub
       ) tl in
     ret (Mlist.for_all2 (==) tl tl')
-        (trm_seq ~annot ?loc tl')
+        (trm_seq ~annot ?loc ~ctx tl')
   | Trm_apps (func, args) ->
     let func' = f false func in
     let args' = flist args in
     ret (func' == func && args' == args)
-      (trm_apps ~annot ?loc ?typ func' args')
+      (trm_apps ~annot ?loc ?typ ~ctx func' args')
   | Trm_while (cond, body) ->
     let cond' = f false cond in
     let body' = f false body in
     ret (cond' == cond && body' == body)
-        (trm_while ~annot ?loc cond' body')
+        (trm_while ~annot ?loc ~ctx cond' body')
   | Trm_for_c (init, cond, step, body, invariant) ->
      let init' = f false init in
      let cond' = f false cond in
      let step' = f false step in
      let body' = aux body in
      ret (init' == init && cond' == cond && step' == step && body' == body)
-         (trm_for_c ~annot ?loc ?invariant init' cond' step' body')
+         (trm_for_c ~annot ?loc ?invariant ~ctx init' cond' step' body')
   | Trm_for (l_range, body, contract) ->
     let (index, start, direction, stop, step, is_parallel) = l_range in
     let start' = f false start in
@@ -1971,18 +1993,18 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
       in
     let body' = aux body in
     ret (step' == step && start' == start && stop' == stop && body' == body)
-        (trm_for ~annot ?loc (index, start', direction, stop', step', is_parallel) body')
+        (trm_for ~annot ?loc ~ctx (index, start', direction, stop', step', is_parallel) body')
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, aux body)) cases in
      ret (cond' == cond && List.for_all2 (fun (_tl1,body1) (_tl2,body2) -> body1 == body2) cases' cases)
-         (trm_switch ~annot ?loc cond' cases')
+         (trm_switch ~annot ?loc ~ctx cond' cases')
   | Trm_abort a ->
     begin match a with
     | Ret (Some t') ->
         let t'2 = f false t' in
         ret (t'2 == t')
-            (trm_ret ~annot ?loc (Some t'2))
+            (trm_ret ~annot ?loc ~ctx (Some t'2))
     | _ -> t
     end
   | _ -> t
@@ -2381,7 +2403,7 @@ let is_atomic_typ (ty : typ) : bool =
   | _ -> false
 
 (* [get_typ_kind ctx ty]: based on the context [ctx], get the kind of type [ty] *)
-let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
+let rec get_typ_kind (ctx : typ_ctx) (ty : typ) : typ_kind =
   if is_atomic_typ ty then Typ_kind_basic ty.typ_desc
     else
   match ty.typ_desc with

@@ -129,7 +129,7 @@ let constify_args_aux (is_args_const : bool list) (is_method_const : bool) (t : 
       if b then (v, (get_constified_arg ty)) else (v, ty)
       ) args is_args_const) in
 
-    let t = trm_let_fun ~annot:t.annot ?loc:t.loc ?ctx:t.ctx ~qvar ~contract "" ret_typ const_args body in
+    let t = trm_let_fun ~annot:t.annot ?loc:t.loc ~ctx:t.ctx ~qvar ~contract "" ret_typ const_args body in
     if is_method_const then trm_add_cstyle Const_method t else t
   | _ -> fail t.loc "Apac_core.constify_args expected a target to a function definition."
 
@@ -286,7 +286,7 @@ let constify_args_alias_aux (is_args_const : bool list) (t : trm) : trm =
     let va : vars_arg= Hashtbl.create 10 in
     (* Only add constified arguments *)
     List.iteri (fun i (b, (var, ty)) -> if b then Hashtbl.add va var (get_cptr_depth ty, i)) (List.combine is_const args);
-    trm_let_fun ~annot:t.annot ?loc:t.loc ?ctx:t.ctx ~qvar ~contract "" ret_typ args (aux va body)
+    trm_let_fun ~annot:t.annot ?loc:t.loc ~ctx:t.ctx ~qvar ~contract "" ret_typ args (aux va body)
   | _ -> fail t.loc "Apac_core.constify_args expected a target to a function definition."
 
 (* [constify_args_alias is_const t p]: applies [constify_args_alias_aux] at the trm [t] with path [p]. *)

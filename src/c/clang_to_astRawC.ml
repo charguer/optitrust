@@ -95,14 +95,18 @@ let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
   ctx_constr := Var_map.add c tid (!ctx_constr)
 
 (* [get_ctx]: gets the current context *)
-let get_ctx () : ctx =
-  { ctx_var = !ctx_var;
+let get_ctx () : ctx = {
+  ctx_types = Some {
+    ctx_var = !ctx_var;
     ctx_tconstr = !ctx_tconstr;
     ctx_typedef = !ctx_typedef;
     ctx_label = !ctx_label;
     ctx_constr = !ctx_constr;
-    ctx_resources = None;
-  }
+  };
+  ctx_resources_before = None;
+  ctx_resources_after = None;
+  ctx_resources_frame = None;
+}
 
 
 (* [redundant_decl]: a reference used for checking if the declaration is redundant or not. *)
@@ -511,7 +515,7 @@ and compute_body (loc : location) (body_acc : trms)
 (* [tr_init_list ?loc ~ctx ty el]: translates [el] into a trm, based on type [ty] the initialization list kind
      is determined. *)
 and tr_init_list ?(loc : location) ~(ctx : ctx) (ty : typ) (el : expr list) : trm =
-  match get_typ_kind (get_ctx()) ty with
+  match get_typ_kind (Option.get (get_ctx ()).ctx_types) ty with
   | Typ_kind_array ->
      let tl = List.map tr_expr el in
      trm_array ?loc ~ctx ~typ:ty (Mlist.of_list tl)

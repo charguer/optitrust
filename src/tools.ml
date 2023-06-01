@@ -218,6 +218,16 @@ let unsome (x_opt : 'a option) : 'a =
   | Some x -> x
   | None -> failwith "Tools.unsome: please check if the optional is different from none before calling this function"
 
+(* [OptionMonad]: when opened add the operators [let*] and [and*] for the
+   option monad. *)
+module OptionMonad = struct
+  let (let*) = Option.bind
+
+  let (and*) a b =
+    let* a in
+    let* b in
+    Some (a, b)
+end
 
 (******************************************************************************)
 (*                          Extensions for Hashtbl                            *)
