@@ -224,7 +224,7 @@ let find_occurences_and_add_mindex0 (x : var) (t : trm) : (bool * trm) =
   let found = ref false in
   let rec loop (t : trm) : trm =
     match trm_var_inv t with
-    | Some (_, y) when x = y ->
+    | Some y when x = y ->
       found := true;
       trm_array_access (trm_var_get y) (mindex [] [])
     | _ -> trm_map loop t
@@ -314,7 +314,7 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
     match Matrix_core.access_inv t with
     | Some (f, dims, indices) ->
       begin match trm_var_get_inv f with
-      | Some (_, n) when n = name -> begin
+      | Some n when n = name -> begin
         if Option.is_none !dims_and_typ_opt then begin
           let typ = Option.get (typ_ptr_inv (Option.get f.typ)) in
           dims_and_typ_opt := Some (dims, typ);
@@ -331,7 +331,7 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
       end
     | None ->
       begin match trm_var_inv t with
-      | Some (_, n) when n = name ->
+      | Some n when n = name ->
         fail t.loc "Matrix_basic.stack_copy_on: variable access is not covered"
       | _ -> trm_map update_accesses t
       end
@@ -385,7 +385,7 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
     match Matrix_core.access_inv t with
     | Some (f, dims, indices) ->
       begin match trm_var_get_inv f with
-      | Some (_, v) when v = var -> begin
+      | Some v when v = var -> begin
         let new_dims = Xlist.update_nth dim (fun _ -> n) dims in
         let new_indices = Xlist.update_nth dim (fun i -> trm_mod i n) indices in
         Matrix_core.access ~annot:t.annot f new_dims new_indices
@@ -403,13 +403,13 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
         end
       | _ ->
         begin match trm_var_inv t with
-        | Some (_, n) when n = var ->
+        | Some n when n = var ->
           fail t.loc "Matrix_basic.storage_folding_on: variable access is not covered"
         | _ ->
           let is_free_var = begin match Matrix_core.free_inv t with
           | Some freed ->
             begin match trm_var_get_inv freed with
-            | Some (_, n) -> n = var
+            | Some n -> n = var
             | None -> false
             end
           | None -> false
@@ -448,13 +448,13 @@ let delete_on (var : var) (t : trm) : trm =
       trm_seq_no_brace []
     | _ ->
       begin match trm_var_inv t with
-      | Some (_, n) when n = var ->
+      | Some n when n = var ->
         fail t.loc "Matrix_basic.delete_on: matrix should not be used anymore"
       | _ ->
         let is_free_var = begin match Matrix_core.free_inv t with
         | Some freed ->
           begin match trm_var_get_inv freed with
-          | Some (_, n) -> n = var
+          | Some n -> n = var
           | None -> false
           end
         | None -> false
@@ -494,11 +494,11 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
     if not (Internal.same_trm wr_base rd_base) then
       fail t.loc "Matrix_basic.read_last_write: array base mistmach";
     let rd_value = List.fold_left (fun value (wr_i, rd_i) ->
-      let (_, wr_i_var) = trm_inv
+      let wr_i_var = trm_inv
         ~error:"Matrix_basic.read_last_write: expected write index to be a variable"
         trm_var_inv wr_i
       in
-      Internal.subst_var wr_i_var rd_i value
+      Subst.subst_var wr_i_var rd_i value
     ) wr_value (List.combine wr_indices rd_indices)
     in
     rd_value

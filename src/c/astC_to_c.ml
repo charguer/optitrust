@@ -842,7 +842,7 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
   | Trm_var (_, x) when (!print_beautify_mindex && Tools.pattern_matches "MALLOC" x.qvar_str) ->
     let dims, size = Xlist.unlast tl in
     let error = "expected MALLOC(.., sizeof(..))" in
-    let (_, size_var) = trm_inv ~error trm_var_inv size in
+    let size_var = trm_inv ~error trm_var_inv size in
     let ty_str = String.(
       match sub size_var 0 (length "sizeof("),
             sub size_var (length "sizeof(") ((length size_var) - (length "sizeof()")),

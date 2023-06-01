@@ -89,10 +89,10 @@ type field = string
 type fields = field list
 
 (* ['a varmap] is a map from string to ['a] *)
-module String_map = Map.Make(String)
+module Var_map = Map.Make(String)
 
-(* [varmap]: instantiation of String_map *)
-type 'a varmap = 'a String_map.t
+(* [varmap]: instantiation of Var_map *)
+type 'a varmap = 'a Var_map.t
 
 (* [label]: labels (for records) *)
 type label = string
@@ -799,11 +799,8 @@ type rewrite_rule = {
 (* basic rewrite rules *)
 type base = rewrite_rule list
 
-(* pattern instantiation *)
-module Trm_map = Map.Make(String)
-
 (* trm map used for rewrite rules and pattern matching *)
-type tmap = trm Trm_map.t
+type tmap = trm Var_map.t
 
 (* [fields_order]: the order should be provided as argument to the transformation [reorder_fields]. *)
 type fields_order =
@@ -989,14 +986,14 @@ let is_statement_of_desc (ty : typ option) (t_desc : trm_desc) : bool =
     end
   | _ -> false
 
-(* [trm_build ~annot ?loc ~is_statement ?typ ~ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
+(* [trm_build ~annot ?loc ~is_statement ?typ ?ctx ~desc ()]: builds trm [t] with its fields given as arguments. *)
 let trm_build ~(annot : trm_annot) ?(loc : location) ~(is_statement : bool) ?(typ : typ option)
-  ~(ctx : ctx option) ~(desc : trm_desc) () : trm =
+  ?(ctx : ctx option) ~(desc : trm_desc) () : trm =
   let t = {annot; loc; is_statement; typ; desc; ctx} in
   Stats.incr_trm_alloc ();
   t
 
-(* [trm_make ~annot ?loc ~is_statement ?typ ~ctx desc]: builds trm [t] with description [desc] and other fields given
+(* [trm_make ~annot ?loc ~is_statement ?typ ?ctx desc]: builds trm [t] with description [desc] and other fields given
     as default ones. *)
 let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location) ?(is_statement : bool option)
     ?(typ : typ option) ?(ctx : ctx option) (desc : trm_desc) : trm =
@@ -1005,10 +1002,10 @@ let trm_make ?(annot : trm_annot = trm_annot_default) ?(loc : location) ?(is_sta
      | Some b -> b
      | None -> is_statement_of_desc typ desc
      in
-   trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ()
+   trm_build ~annot ~desc ?loc ~is_statement ?typ ?ctx ()
 
 
-(* [trm_alter ~annot ?loc ~is_statement ?typ ~ctx ~desc t]: alters any of the fields of [t] that was provided as argument. *)
+(* [trm_alter ~annot ?loc ?is_statement ?typ ?ctx ?desc t]: alters any of the fields of [t] that was provided as argument. *)
 let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statement : bool option)
  ?(typ : typ option) ?(ctx : ctx option) ?(desc : trm_desc option) (t : trm) : trm =
     let annot = match annot with Some x -> x | None -> t.annot in
@@ -1022,12 +1019,15 @@ let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statemen
     let typ = match typ with | None -> t.typ | _ -> typ in
     let ctx = match ctx with | None -> t.ctx | _ -> ctx in
     let desc = match desc with | Some x -> x | None -> t.desc in
-    trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ()
+    trm_build ~annot ~desc ?loc ~is_statement ?typ ?ctx ()
 
 (* [trm_replace desc t]: an alias of [trm_alter] to alter only the descriptiong of [t]. *)
 let trm_replace (desc : trm_desc) (t : trm) : trm =
   trm_alter ~desc t
 
+(* [trm_like]: copies the annotations and the location of the old trm into a new trm *)
+let trm_like ~(old:trm) (t:trm): trm =
+  trm_alter ~annot:old.annot ~loc:old.loc t
 
 (* **************************** CStyle *************************** *)
 
@@ -1561,8 +1561,8 @@ let rec trm_vardef_get_vars (t : trm) : var list =
   | _ -> []
 
 (* [trm_ret ~annot a]; special trm_abort case, used for return statements *)
-let trm_ret ?(annot = trm_annot_default) ?(loc) (a : trm option) : trm =
-  trm_abort ~annot ?loc (Ret a)
+let trm_ret ?(annot = trm_annot_default) ?loc ?ctx (a : trm option) : trm =
+  trm_abort ~annot ?loc ?ctx (Ret a)
 
 (* [trm_prim_inv t]: gets the primitive operation *)
 let trm_prim_inv (t : trm) : prim option =
@@ -1619,11 +1619,18 @@ let trm_seq_inv (t : trm) : (trm mlist) option =
   | Trm_seq tl ->  Some tl
   | _ -> None
 
+(* [trm_val_inv t]: returns the components of a [trm_val] constructor when [t] is a value.
+    Otherwise it returns [None]. *)
+let trm_val_inv (t: trm): value option =
+  match t.desc with
+  | Trm_val v -> Some v
+  | _ -> None
+
 (* [trm_var_inv t]: returns the components of a [trm_var] constructor when [t] is a variable occurrence.
     Otherwise it returns [None]. *)
-let trm_var_inv (t : trm) : (varkind * var) option =
+let trm_var_inv (t : trm) : var option =
   match t.desc with
-  | Trm_var (vk, x) -> Some (vk, x.qvar_var)
+  | Trm_var (_, x) -> Some x.qvar_var
   | _ -> None
 
 (* [trm_free_inv]: deconstructs a 'free(x)' call. *)
@@ -1631,7 +1638,7 @@ let trm_free_inv (t : trm) : trm option =
   match trm_apps_inv t with
   | Some (f, [x]) ->
     begin match trm_var_inv f with
-    | Some (_, f_name) when f_name = "free" -> Some x
+    | Some f_name when f_name = "free" -> Some x
     | _ -> None
     end
   | _ -> None
@@ -1679,7 +1686,7 @@ let trm_get_inv (t : trm) : trm option =
   | Some (Unop_get, t2) -> Some t2
   | _ -> None
 
-let trm_var_get_inv (t : trm) : (varkind * var) option =
+let trm_var_get_inv (t : trm) : var option =
   match trm_get_inv t with
   | Some t2 -> trm_var_inv t2
   | None -> None
@@ -2883,14 +2890,14 @@ exception Unknown_key
 
 (* [tmap_to_list keys map]: gets the list of values for all keys [keys] in [map] *)
 let tmap_to_list (keys : vars) (map : tmap) : trms =
-  List.map (fun x -> match Trm_map.find_opt x map with
+  List.map (fun x -> match Var_map.find_opt x map with
     | Some v -> v
     | None -> raise Unknown_key
   ) keys
 
 (* [tmap_filter keys tmap]: removes all the bindings with [keys] in [map] and return [map] *)
 let tmap_filter (keys : vars) (map : tmap) : tmap =
-  Trm_map.filter (fun k _ -> not (List.mem k keys)) map
+  Var_map.filter (fun k _ -> not (List.mem k keys)) map
 
 
 (* [is_trm_arbit t]: checks if [t] is a proper trm *)
@@ -2909,12 +2916,12 @@ let is_typ (ty : typ) : bool =
     Others will be kept unchanged. The new ast is called the chopped_ast. This function wlll return the choped_ast and
     a map with keys the names of the functions whose body has been removed and values their removed body. *)
 let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
-  let t_map = ref Trm_map.empty in
+  let t_map = ref Var_map.empty in
     let rec aux (t : trm) : trm =
       match t.desc with
       | Trm_let_fun (f, ty, tv, _, _) ->
         if f_pred f.qvar_var then begin
-          t_map := Trm_map.add f.qvar_var t !t_map;
+          t_map := Var_map.add f.qvar_var t !t_map;
          trm_let_fun ~annot:t.annot ~qvar:f "" ty tv (trm_lit  Lit_uninitialized) end
         else t
       | _ -> trm_map aux t
@@ -2931,14 +2938,14 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
       let new_tl =
       Mlist.map (fun def -> match def.desc with
       | Trm_let_fun (f, _, _, _, _) ->
-        begin match Trm_map.find_opt f.qvar_var chopped_fun_map with
+        begin match Var_map.find_opt f.qvar_var chopped_fun_map with
         | Some tdef ->  tdef
         | _ -> def
         end
       | Trm_let (_, (x, _), _, _) ->
         (* There is a slight difference between clang and menhir how they handle function declarations, that's why we
          need to check if there are variables inside the function map *)
-        begin match Trm_map.find_opt x chopped_fun_map with
+        begin match Var_map.find_opt x chopped_fun_map with
         | Some tdef -> tdef
         | _ -> def
         end
@@ -3241,13 +3248,13 @@ let var_mutability_unknown = Var_mutable
 
 (* [top_level_fun_bindings t]: returns a map with keys the names of toplevel function names and values being their bodies *)
 let top_level_fun_bindings (t : trm) : tmap =
-  let tmap = ref Trm_map.empty in
+  let tmap = ref Var_map.empty in
     let aux (t : trm) : unit =
       match t.desc with
       | Trm_seq tl ->
         Mlist.iter (fun t1 ->
           match t1.desc with
-          | Trm_let_fun (f, _, _, body, _) -> tmap := Trm_map.add f.qvar_var body !tmap
+          | Trm_let_fun (f, _, _, body, _) -> tmap := Var_map.add f.qvar_var body !tmap
           | _ -> ()
         ) tl
       | _ -> fail t.loc "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
@@ -3259,8 +3266,8 @@ let top_level_fun_bindings (t : trm) : tmap =
     and returns the list of function names that ard bound to the same terms in the two maps. *)
 let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
   let common = ref [] in
-  Trm_map.iter (fun f1 b1 ->
-    match Trm_map.find_opt f1 tm2 with
+  Var_map.iter (fun f1 b1 ->
+    match Var_map.find_opt f1 tm2 with
     | Some b2 when b1 == b2 -> common := f1 :: !common
     | _ -> ()
   ) tm1;
@@ -3449,8 +3456,8 @@ let set_inv (t : trm) : (trm * trm) option =
 
 (* [trm_var_assoc_list to_map al]: creats a map from an association list wher keys are string and values are trms *)
 let map_from_trm_var_assoc_list (al : (string * trm) list) : tmap =
-  let tm = Trm_map.empty in
-  List.fold_left (fun acc (k, v) -> Trm_map.add k v acc) tm al
+  let tm = Var_map.empty in
+  List.fold_left (fun acc (k, v) -> Var_map.add k v acc) tm al
 
 (* [typ_align align ty]: adds the alignas attribute to type ty *)
 let typ_align (align : trm) (ty : typ) =

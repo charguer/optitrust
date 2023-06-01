@@ -16,16 +16,16 @@ open Ast
    Recall: struct_get(t,f)  means  trm_apps (Prim_unop (unop_struct_get "f")) [t] *)
 
 (* [env]: a map for storing all the variables as keys, and their mutability as values *)
-type env = varkind String_map.t
+type env = varkind Var_map.t
 
 (* [env_empty]: empty environment *)
 let env_empty =
-  String_map.empty
+  Var_map.empty
 
 (* [get_varkind env x]: gets the mutability of variable [x]
    Note: Functions that come from an external library are set to immutable by default *)
 let get_varkind (env : env) (x : var) : varkind =
-  match String_map.find_opt x env with
+  match Var_map.find_opt x env with
   | Some m -> m
   | _ -> Var_immutable
 
@@ -35,7 +35,7 @@ let is_qvar_mutable (env : env) (x : qvar) : bool =
 
 (* [env_extend env e varkind]: adds variable [e] into environment [env] *)
 let env_extend (env : env) (e : var) (varkind : varkind) : env =
-  String_map.add e varkind env
+  Var_map.add e varkind env
 
 (* [add_var env x xm]: adds variable [x] into environemnt [env] with value [xm] *)
 let add_var (env : env ref) (x : var) (xm : varkind) : unit =

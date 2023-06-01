@@ -4,7 +4,7 @@ open Ast
 let apply_rule_aux ~(error_msg : bool) (rule : rewrite_rule) (t : trm) : trm =
   let inst : tmap = Trm_matching.rule_match ~error_msg (rule.rule_vars  @ rule.rule_aux_vars) rule.rule_from t in
   let rule_before = rule.rule_to in
-  let rule_after = Internal.subst inst rule_before in
+  let rule_after = Subst.subst inst rule_before in
   rule_after
 
 exception Rewrite_nomatch of string

@@ -9,6 +9,7 @@ let insert_aux (index : int) (code : trm) (t : trm) : trm =
   let error = "Sequence_core.insert_aux: expected the sequence on where insertion is performed." in
   let tl = trm_inv ~error trm_seq_inv t in
   let new_tl = Mlist.insert_at index code tl in
+  (* TODO: Should use alter here ? *)
   trm_seq ~annot:t.annot new_tl
 
 (* [insert index code t p]: applies [insert_aux] at trm [t] with path [p]. *)

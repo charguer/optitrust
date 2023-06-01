@@ -72,7 +72,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         let fun_decl_arg_vars = fst (List.split args) in
         let fun_call_args = if trm_has_cstyle Method_call fun_call then snd (Xlist.uncons fun_call_args1) else fun_call_args1 in
         let fresh_args = List.map Internal.fresh_args fun_call_args in
-        let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in
+        let fun_decl_body = List.fold_left2 (fun acc x y -> Subst.subst_var x y acc) body fun_decl_arg_vars fresh_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
         let name = match t.desc with | Trm_let (vk, (x, _), _, _) -> x| _ -> ""  in
         let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
@@ -84,7 +84,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
           then
             let class_name = fst (Xlist.uncons fun_call_args1) in
             match trm_var_inv (get_operation_arg class_name) with
-            | Some (_,c_name ) -> Internal.fix_class_member_accesses c_name marked_body
+            | Some c_name -> Internal.fix_class_member_accesses c_name marked_body
             | _ -> fail class_name.loc "Function_core.inline_aux: bad encodings."
           else marked_body in
         let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_add_label "exit_body" (trm_lit (Lit_unit)) in
@@ -164,7 +164,7 @@ let rename_args_aux (vl : var list) (t : trm) : trm =
   let renamed_args = List.map2 (fun v1 (arg1, ty1) -> if v1 <> "" then (v1, ty1) else (arg1, ty1)) vl args in
   let assoc_list = List.fold_left2 (fun acc v1 (arg1, _ty1) -> if v1 <> "" then (arg1, trm_var v1) ::  acc else acc) [] vl args in
   let tm = map_from_trm_var_assoc_list assoc_list in
-  let new_body = Internal.subst tm body in
+  let new_body = Subst.subst tm body in
   trm_let_fun ~qvar:f "" retty renamed_args new_body
 
 (* [rename_args vl t p]: applies [rename_aux] at trm [t] with path [p] *)

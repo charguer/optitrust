@@ -241,7 +241,7 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
           | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
           | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))]
           end in
-        let body_i = Internal.subst_var index new_index body in
+        let body_i = Subst.subst_var index new_index body in
         let body_i = if braces
                       then Internal.remove_nobrace_if_sequence body_i
                       else Internal.set_nobrace_if_sequence body_i in
@@ -391,6 +391,6 @@ let rename_index (new_index : var) : Transfo.local =
   apply_on_path (fun t ->
     let error = "Loop_core.shift: expected a target to a simple for loop" in
     let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
-    let new_body = Internal.subst_var index (trm_var new_index) body in
+    let new_body = Subst.subst_var index (trm_var new_index) body in
     trm_for (new_index, start, direction, stop, step, is_parallel) new_body
   )

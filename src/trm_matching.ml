@@ -104,15 +104,15 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
      they are bound to the special term trm_uninitialized. *)
      (* LATER: we may need one day to introduce another special term Trm_uninstantiated  *)
   let pat_vars_association = Ast.trm_uninitialized() in
-  let inst = ref (List.fold_left (fun acc (x,ty) -> Trm_map.add x (ty, pat_vars_association) acc) Trm_map.empty vars) in
+  let inst = ref (List.fold_left (fun acc (x,ty) -> Var_map.add x (ty, pat_vars_association) acc) Var_map.empty vars) in
   let is_var (x : var) : bool =
-    Trm_map.mem x !inst in
+    Var_map.mem x !inst in
   let find_var (x : var) (u : trm) : unit =
-    match Trm_map.find_opt x !inst with
+    match Var_map.find_opt x !inst with
     | None -> failwith "Trm_matching.rule_match: called find_var without first checking is_var"
     | Some (ty,t0) ->
         if Ast.is_trm_uninitialized t0 then
-          inst := Trm_map.add x (ty,u) !inst
+          inst := Var_map.add x (ty,u) !inst
         else if not (Internal.same_trm ~ast_decode:false t0 u) then begin
           if error_msg then begin (* TODO: if + raise helper *)
             Printf.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x
@@ -124,16 +124,16 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
         end
     in
   let _get_binding (x : var) : (var * typ) option =
-    match Trm_map.find_opt x !inst with
+    match Var_map.find_opt x !inst with
     | None -> None
     | Some (ty,t0) -> match t0.desc with
        | Trm_var (_, y) -> Some (y.qvar_var,ty)
        | _ -> None
     in
   let with_binding ?(loc:location) (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
-     inst := Trm_map.add x (ty, trm_var ?loc y) !inst;
+     inst := Var_map.add x (ty, trm_var ?loc y) !inst;
      f();
-     inst := Trm_map.remove x !inst;
+     inst := Var_map.remove x !inst;
     (* Note: it would be incorrect to simply restore the map to its value before the call to [f],
        because other variables than [x] may have been instantiated during the call to [f]. *)
      in
@@ -241,7 +241,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     end;
     raise Rule_mismatch
   end;
-  Trm_map.map (fun (_ty,t) -> t) !inst
+  Var_map.map (fun (_ty,t) -> t) !inst
 
 (* [Rule_match_ast_list_no_occurrence_for]: exception raised by [tmap_to_list] *)
 exception Rule_match_ast_list_no_occurrence_for of string
@@ -249,7 +249,7 @@ exception Rule_match_ast_list_no_occurrence_for of string
 
 (* [tmap_to_list keys map]: gets the values of [keys] in [map] as a list *)
 let tmap_to_list (keys : typed_vars) (map : tmap) : trms =
-  List.map (fun (x, _) -> match Trm_map.find_opt x map with
+  List.map (fun (x, _) -> match Var_map.find_opt x map with
     | Some v -> v
     | None -> raise (Rule_match_ast_list_no_occurrence_for x)
   ) keys
@@ -257,12 +257,12 @@ let tmap_to_list (keys : typed_vars) (map : tmap) : trms =
 (* [tmap_filter_keys keys map]: get a map with filtered keys *)
 let tmap_filter_keys (keys : typed_vars) (map : tmap) : tmap =
   let keys = fst (List.split keys) in
-  Trm_map.filter (fun k _ -> List.mem k keys) map
+  Var_map.filter (fun k _ -> List.mem k keys) map
 
 (* [rule_match_as_list pattern_vars pattern_instr t]: returns the list of key values in the map generated from rule_match *)
 let rule_match_as_list (pattern_vars : typed_vars) (pattern_instr : trm)  (t : trm) : trms =
   let inst : tmap = rule_match pattern_vars  pattern_instr t in
-  List.map (fun (x,_) -> match Trm_map.find_opt x inst with
+  List.map (fun (x,_) -> match Var_map.find_opt x inst with
     | Some v -> v
     | None -> raise (Rule_match_ast_list_no_occurrence_for x)
   ) pattern_vars

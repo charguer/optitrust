@@ -129,7 +129,7 @@ let hoist_on (name : string)
         begin match trm_get_inv freed with
         | Some x ->
           begin match trm_var_inv x with
-          | Some (_, freed_name) when freed_name = !old_name ->
+          | Some freed_name when freed_name = !old_name ->
             assert (Option.is_none !free_index_opt);
             free_index_opt := Some i;
           | _ -> ()

@@ -91,7 +91,7 @@ let elim_constant_on (decl_index : int) (t : trm) : trm =
     match Option.bind (trm_get_inv t) array_access_inv with
     | Some (base, index) ->
       begin match trm_var_inv base with
-      | Some (_, x) when x = !array_var ->
+      | Some x when x = !array_var ->
         let error = "Arrays.elim_constant_on: array accesses must be literals" in
         (* TODO: check that moving trm evaluation here is ok *)
         begin match trm_inv ~error trm_lit_inv index with

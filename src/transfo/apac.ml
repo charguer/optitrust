@@ -277,7 +277,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
         let {ret_ptr_depth; is_ret_ref; _} = Hashtbl.find fac cur_usr in
         if is_ret_ref then
           begin match trm_var_inv tr with
-          | Some (a, var_name) when Hashtbl.mem va var_name -> add_elt_in_to_process va cur_usr var_name
+          | Some var_name when Hashtbl.mem va var_name -> add_elt_in_to_process va cur_usr var_name
           | _ -> ()
           end
         else if ret_ptr_depth > 0 then

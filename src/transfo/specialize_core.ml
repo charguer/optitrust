@@ -7,7 +7,7 @@ open Target
 let any_aux (e : trm) (t : trm) : trm =
   let error = "Specialize_core.any_aux: expected a trm_var with ANY annotation."  in
   let (f, _) = trm_inv ~error trm_apps_inv t in
-  let (_, any) = trm_inv ~error trm_var_inv f in
+  let any = trm_inv ~error trm_var_inv f in
   if Tools.pattern_matches "ANY?." any
     then  e
     else fail f.loc "Specialize_core.any_aux: expected the special function ANY"
