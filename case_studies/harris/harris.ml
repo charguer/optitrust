@@ -7,13 +7,20 @@ let _ = Flags.pretty_matrix_notation := true
 
 (* keep local *)
 module Image = struct
-  let loop_align_stop_extend_start (index : var) ~(start : trm) ~(stop : trm) : unit =
-    Loop.shift (StopAt stop) [nbMulti; cFor index];
-    Loop.extend_range ~start:(ExtendTo start) [nbMulti; cFor index];
+  let loop_align_stop_extend_start ~(start : trm) ~(stop : trm) (tg : target) : unit =
+    Loop.shift (StopAt stop) tg;
+    Loop.extend_range ~start:(ExtendTo start) tg;
     (* FIXME: hack to trigger missed simplifications *)
     Trace.reparse ();
-    Arith.(simpl_rec gather_rec) [nbMulti; cFor index];
+    Arith.(simpl_rec gather_rec) tg
     (* TODO: transfo to remove useless if inside a for *)
+
+      (*
+  let loop_align_stop_extend_start_like ~(orig:target) (tg:target) : unit =
+    let t = get_trm_at_exn orig in
+    let () = trm_inv ~error trm_for_inv in
+    loop_align_stop_extend_start ~start ~stop ~tg
+    *)
 end
 
 let simpl_mins ?(simpl = Arith.default_simpl) (tg : target) : unit =
@@ -31,10 +38,12 @@ let _ = Run.script_cpp (fun () ->
 
   bigstep "inline operators";
   (* Function.inline_def *)
-  !! Function.inline ~delete:true [nbMulti; cFun "conv2D"];
+  (* TODO: make Function.inline ~simpl work *)
+  !! Function.inline ~simpl ~delete:true [nbMulti; cFun "conv2D"];
   !! Loop.unroll ~nest_of:2 [nbMulti; cFor ~body:[cPlusEqVar "acc"] "i"];
   !! Matrix.elim_constant [nbMulti; cVarDef "weights"];
-  !! Function.inline ~delete:true [multi cFun ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"]];
+  (* elim_constant ~simpl: simpl arith '* 0.0f' + simpl 'acc += 0.0' / simpl_inplace_noop *)
+  !! Function.inline ~simpl ~delete:true [multi cFun ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"]];
   !! Variable.inline ~simpl [multi cVarDef ["h1"; "w1"; "h2"; "w2"]];
 
   bigstep "fuse operators";
@@ -53,27 +62,29 @@ let _ = Run.script_cpp (fun () ->
   !!! Loop.fusion_targets [cFor "by" ~body:[any cArrayWrite ["gray"; "ix"; "out"]]];
 
   bigstep "circular buffers";
-  (* TODO: Image.loop_align_stop_extend_start ~like:[cFor "y" ~body:[cArrayWrite "gray"]] [cFor "y" ~body:[any cArrayWrite ["ix"; "gray"]]] *)
-  !! Image.loop_align_stop_extend_start "y" ~start:(trm_var "by") ~stop:(expr "min(h, by + 36)");
+  (* TODO: Image.loop_align_stop_extend_start ~like:[cFor "y" ~body:[cArrayWrite "gray"]] [cFor "y" ~body:[any cArrayWrite ["ix"; "out"]]] *)
+  !! Image.loop_align_stop_extend_start ~start:(trm_var "by") ~stop:(expr "min(h, by + 36)") [nbMulti; cFor "y" ~body:[any cArrayWrite ["ix"; "out"]]];
   !! simpl_mins [];
   !! Loop.fusion_targets [cFor "y" ~body:[any cArrayWrite ["gray"; "ix"; "ixx"; "out"]]];
-  let local_matrix (m, tile) =
+  let local_matrix (m, tile) = (* TODO remove ~indices *)
     Matrix.local_name_tile m ~alloc_instr:[cVarDef m] ~indices:["y"; "x"] tile [cFunBody "harris"; cFor ~body:[cArrayWrite m] "y"]
-  in
+  in (* LATER: ("gray", [Some (expr "by", int 36);  None]);  *)
+    (* LATER: ("gray", [(dim1, (expr "by", int 36))]);  *)
   !! List.iter local_matrix [
     ("gray", [(expr "by", int 36); (int 0, expr "w")]);
     ("ix", [(expr "by", int 34); (int 0, expr "w - 2")]);
     ("iy", [(expr "by", int 34); (int 0, expr "w - 2")]);
   ];
   (* TODO: local_name_tile ~simpl *)
-  !! Arith.(simpl_rec gather) [];
-  let circular_buffer v = Matrix.storage_folding ~dim:0 ~size:(int 4) ~var:v [cFunBody "harris"; cFor "by"] in
+  !! simpl [];
+  let circular_buffer var = Matrix.storage_folding ~dim:0 ~size:(int 4) ~var [cFunBody "harris"; cFor "by"] in
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
+  (* LATER: (a - 4 + b)%4 =  (a+b)%4 avec analyse statique *)
 
   bigstep "code details";
   !!! Loop.shift StartAtZero [cFor "y"];
-  !!! Instr.delete [multi sInstr ["0.f *"; "* 0.f"]];
-  (* !!! List.iter rewrite [
+  !!! Instr.delete [multi sInstr ["0.f *"; "* 0.f"]]; (* LATER: disappears earlier *)
+  (* LATER !!! List.iter rewrite [
     "int a; int b; int c; ==> (a + b <= c + b) == (a <= b)";
   ]; *)
   let bind_gradient name =
@@ -83,7 +94,7 @@ let _ = Run.script_cpp (fun () ->
   !! Matrix.elim_mops [];
 
   bigstep "parallelism";
-  !! Omp.header ();
+  !! Omp.header (); (* should be implicit *)
   !! Omp.simd ~clause:[Simdlen 8] [nbMulti; cFor "x"];
   !! Omp.parallel_for [cFor "by"];
 )

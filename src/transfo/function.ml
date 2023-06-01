@@ -210,7 +210,9 @@ int f2() { // result of Funciton_basic.inline_cal
   int s = r;
 } *)
 let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
-    ?(delete : bool = false) ?(debug : bool = false) (tg : target) : unit =
+  ?(delete : bool = false) ?(debug : bool = false) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
+  =
+  (* TODO: Marks.with_fresh_mark (fun subst_mark -> *)
     (* variable for storing the function names, in case if [delete] is true it will use this name to target the declarations and delete them *)
     let function_names = ref Var_set.empty in
     Stats.comp_stats "iteri_on_transformed_targets" (fun () ->
@@ -238,6 +240,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
         if args <> [] then bind_args args [new_target];
         let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
         Stats.comp_stats "inline" (fun () ->
+          (* TODO: ~subst_mark for simpl *)
           Function_basic.inline ~body_mark [new_target];);
         Stats.comp_stats "intro" (fun () ->
           Accesses_basic.intro [cMark body_mark];);
@@ -254,24 +257,26 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
           | Failure e -> raise e
           in
           if success_attach then begin
-            Variable.inline [new_target];
-            Variable.inline_and_rename [nbAny; cVarDef !resname];
+            Variable.inline ~simpl [new_target];
+            Variable.inline_and_rename ~simpl [nbAny; cVarDef !resname];
             if not keep_res then begin
               ignore (Trace.backtrack_on_failure (fun () ->
-                Variable.inline_and_rename [nbAny; cMark "__inline_instruction"]
+                Variable.inline_and_rename ~simpl [nbAny; cMark "__inline_instruction"]
               ));
               (* TODO: only with | TransfoError ? *)
               Marks.remove "__inline_instruction" [nbAny;cMark "__inline_instruction" ]
             end
           end else if not keep_res then
             ignore (Trace.backtrack_on_failure (fun () ->
-              Variable.inline_and_rename [nbAny; cMark "__inline_instruction"]
+              Variable.inline_and_rename ~simpl [nbAny; cMark "__inline_instruction"]
               (* TODO: only with | TransfoError ? *)
             ));
           Marks.remove my_mark [nbAny; new_target]
         end;
         Marks.remove my_mark [nbAny; new_target];
+        Debug_transfo.current_ast "before proj";
         Record_basic.simpl_proj (target_of_path path_to_seq);
+        Debug_transfo.current_ast "after proj";
 
       )
         in
@@ -300,6 +305,8 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
     if delete then Instr.delete [cOr
       (List.map (fun name -> [cTopFunDef name]) (Var_set.elements !function_names))];
     )
+    (* simpl [cMark subst_mark];
+    ) *)
 
 (* [beta ~indepth tg]: expects the target [tg] to be pointing at a function call or a function declaration whose
      parent trm is a function call. If its the first case then it will just call Function_basic.beta.

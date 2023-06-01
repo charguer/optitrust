@@ -49,7 +49,7 @@ let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const
 
 (* LATER: inlining of f(3) could be ideally implemented as  variable.inline + function.beta,
    but for now we implement a function that covers both beta and inline at once, as it is simpler *)
-let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm) : trm =
+let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option) (p_local : path) (t : trm) : trm =
   let error = "Function_core.inline_aux: the targeted function call should be contained into an instruction that
      belongs toa local or global scope" in
   let tl = trm_inv ~error trm_seq_inv t in
@@ -73,7 +73,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         let fun_call_args = if trm_has_cstyle Method_call fun_call then snd (Xlist.uncons fun_call_args1) else fun_call_args1 in
         let fresh_args = List.map Internal.fresh_args fun_call_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in
-        let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
+        let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x (trm_may_add_mark subst_mark y) acc) fun_decl_body fresh_args fun_call_args in
         let name = match t.desc with | Trm_let (vk, (x, _), _) -> x| _ -> ""  in
         let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
         let marked_body = begin match body_mark with
@@ -105,9 +105,9 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
     trm_seq ~annot:t.annot new_tl
 
 (* [inline index body_mark p_local t p]: applies [inline_aux] at the trm [t] with path [p]. *)
-let inline (index: int) (body_mark : string option) (p_local : path) : Transfo.local =
+let inline (index: int) (body_mark : string option) ~(subst_mark : mark option) (p_local : path) : Transfo.local =
   Stats.comp_stats "Function_core.inline" (fun () -> apply_on_path (
-    Stats.comp_stats "Function_core.inline_aux" (fun () -> inline_aux index body_mark p_local)))
+    Stats.comp_stats "Function_core.inline_aux" (fun () -> inline_aux index body_mark subst_mark p_local)))
 
 (* [use_infix_ops_aux allow_identity t]: transforms an explicit write operation to an implicit one
       [allow_identity] - if true then the transformation will never fail

@@ -375,7 +375,7 @@ let inline ?(accept_functions : bool = false) ?(simpl = default_inline_simpl) (t
     Assumption:
       if the target [tg] points to the following instruction int y = x; then
       no occurrence of x appears after that instruction *)
-let inline_and_rename (tg : target) : unit =
+let inline_and_rename ?(simpl = default_inline_simpl) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
@@ -388,22 +388,22 @@ let inline_and_rename (tg : target) : unit =
           begin match v.desc with
           | Trm_var (_, x) ->
             if is_typ_const ty then begin
-                inline spec_target;
+                inline ~simpl spec_target;
                 renames (ByList [(x.qvar_var,y)]) tg_scope
               end
              else begin
               Variable_basic.to_const spec_target;
-              inline spec_target;
+              inline ~simpl spec_target;
               renames (ByList [(x.qvar_var,y)]) tg_scope
               end
           | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation v ->
              if is_typ_const ty then begin
-                inline spec_target;
+                inline ~simpl spec_target;
                 renames (ByList [(x.qvar_var,y)]) tg_scope
               end
              else begin
               Variable_basic.to_const spec_target;
-              inline spec_target;
+              inline ~simpl spec_target;
               renames (ByList [(x.qvar_var,y)]) tg_scope
               end
           | _ ->

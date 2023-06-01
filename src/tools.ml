@@ -213,10 +213,11 @@ let option_ors (opts : 'a option list) : 'a option =
   List.fold_left option_or None opts
 
 (* [unsome x_opt]: extracts the underlying object of [x_opt] is there is one such object. *)
-let unsome (x_opt : 'a option) : 'a =
+let unsome ?(error:string="Tools.unsome found None") (x_opt : 'a option) : 'a =
   match x_opt with
   | Some x -> x
-  | None -> failwith "Tools.unsome: please check if the optional is different from none before calling this function"
+  | None -> failwith error
+
 
 
 (******************************************************************************)

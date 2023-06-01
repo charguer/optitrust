@@ -1010,6 +1010,7 @@ let%transfo slide ?(index : var = "b${id}")
   Target.iter (fun _ p ->
     Loop_basic.slide ~index ~bound ~size ~step (target_of_path p);
     simpl_range ~simpl (target_of_path p);
+    simpl_range ~simpl (target_of_path (Path.to_inner_loop p));
   ) tg
 
 (* [delete_void]: deletes a loop nest with empty body.

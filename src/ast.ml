@@ -1305,6 +1305,11 @@ let fail (loc : location) (err : string) : 'a =
   | None -> raise (TransfoError err)
   | Some _ -> raise (TransfoError (loc_to_string loc ^ " : " ^ err))
 
+let unsome_or_fail (loc: location) (error: string) (x_opt : 'a option) : 'a =
+    match x_opt with
+    | Some x -> x
+    | None -> fail loc error
+
 let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
   try f () with
   | TransfoError msg2 -> assert (msg = msg2)

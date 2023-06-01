@@ -586,7 +586,10 @@ let simpl_proj_aux (t : trm) : trm =
               | Some i -> snd (Mlist.nth tl i)
               | _ -> t
               end
-              else  t
+              else
+                (* FIXME: gives up here when trying to implement Function.inline ~simpl while it should not
+                   printf "gave up tid\n"; *)
+                t
         | _ -> trm_map aux t
         end
       | _ -> trm_map aux t

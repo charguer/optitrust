@@ -464,7 +464,7 @@ val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 
 val get_trm_at : target -> trm option
 
-val get_trm_at_unsome : target -> trm
+val get_trm_at_exn : target -> trm
 
 val get_ast : unit -> trm
 
