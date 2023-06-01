@@ -1,8 +1,18 @@
-class A {
-  int a;
-  int b;
- public:
-  A(int i, int j) : a{i}, b(j) {}
-};
+// #include "../../include/optitrust.h"
+#include <stdio.h>
+// #include <vector>
 
-int main(){}
+int main() {
+  std::vector<int> x(10);
+  bool b = x.size() > x.size();
+  if (b) {
+
+  }
+  int s = x.size();
+  if (s < s) {
+
+  }
+  if (x.size() < x.size()) {
+
+  }
+}
