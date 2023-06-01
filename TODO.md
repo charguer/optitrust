@@ -168,3 +168,7 @@ gnome-terminal --geometry 100x30+0+0 -e "bash -c \"~/shared/verified_transfo/src
     -dump-ast-details
   and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp]
 ***************************************************************************************************************)
+
+
+
+prevent generation of .ml files in folders by shortcuts

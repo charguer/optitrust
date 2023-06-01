@@ -844,6 +844,7 @@ let rec dump_step_tree_to_js (get_next_id:unit->int) (out:string->unit) (id:int)
   let i = s.step_infos in
   let json =
     Json.obj_quoted_keys [
+      "id", Json.int id;
       "kind", Json.str (step_kind_to_string s.step_kind);
       "exectime", Json.float i.step_exectime;
       "name", Json.str i.step_name;
@@ -866,6 +867,7 @@ let rec dump_step_tree_to_js (get_next_id:unit->int) (out:string->unit) (id:int)
 
    var steps = [];
    steps[i] = {
+      id: i,
       kind: "..",
       exectime: 0.0453;   // in seconds
       name: "..",
@@ -981,6 +983,8 @@ let dump_diff_and_exit () : unit =
   let kind = step.step_kind in
   if kind <> Step_root && kind <> Step_big && kind <> Step_scoped
     then failwith (sprintf "dump_diff_and_exit: expects the current step to be Root, Big or Scoped, found %s" (step_kind_to_string kind));
+  if (get_cur_step ()).step_sub = []
+    then failwith "dump_diff_and_exit: no step was recorded; the script should start with '!!' or 'bigstep'";
   let last_step = get_last_substep () in
   if !Flags.only_big_steps && last_step.step_kind <> Step_big
     then failwith "dump_diff_and_exit: cannot show a diff for a big-step, no call to bigstep was made";
