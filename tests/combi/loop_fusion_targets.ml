@@ -27,5 +27,7 @@ int main() {
 
 let _ = Run.script_cpp ( fun _ ->
   !! Loop.fusion_targets [multi cFor ["i"; "j"]];
+  Trace.step_justif "foo!!";
   !! Loop.fusion_targets ~nest_of:2 [nbMulti; cFor "k0"];
+  Trace.step_justif "bar"
 )

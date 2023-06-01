@@ -317,6 +317,7 @@ let open_step ?(line : int option) ?(step_script:string="") ~(kind:step_kind) ~(
 (* [step_justif txt] is called by a transformation after open_step in order
    to store an textual explaination of why it is correct. *)
 let step_justif (justif:string) : unit =
+  printf "step_justif: ^^ %s^^\n" justif;
   let step = get_cur_step () in
   let infos = step.step_infos in
   infos.step_justif <- justif::infos.step_justif
@@ -849,7 +850,7 @@ let rec dump_step_tree_to_js (get_next_id:unit->int) (out:string->unit) (id:int)
       "exectime", Json.float i.step_exectime;
       "name", Json.str i.step_name;
       "script", Json.base64 (Base64.encode_exn i.step_script);
-      "args", Json.(listof (fun (k,v) -> listof str [k;v])) i.step_args;
+      "args", Json.(listof (fun (k,v) -> Json.obj_quoted_keys ["name", str k; "value",str v])) i.step_args;
       "isvalid", Json.bool (i.step_justif <> []);
         (* TODO: at the moment, we assume that a justification item means is-valid *)
       "justif", Json.(listof str) i.step_justif;

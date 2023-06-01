@@ -14,9 +14,9 @@ OUTPUT_FILE=$2
 
 sed 's/^\([[:space:]]*\)show_\([^[:space:](]*\)/\1show_\2 ~line:__LINE__ /
 s/^\([[:space:]]*\)show /\1show ~line:__LINE__ /
-s/bigstep/Trace.open_bigstep ~line:__LINE__ /
-s/!!!/Trace.open_smallstep ~line:__LINE__ ~reparse:true ();/
-s/!!/Trace.open_smallstep ~line:__LINE__ ();/
-s/\open Target/open Target let ____ = (!!)/' ${INPUT_FILE} > ${OUTPUT_FILE}
+s/^\([[:space:]]*\)bigstep/\1Trace.open_bigstep ~line:__LINE__ /
+s/^\([[:space:]]*\)!!!/\1Trace.open_smallstep ~line:__LINE__ ~reparse:true ();/
+s/^\([[:space:]]*\)!!/\1Trace.open_smallstep ~line:__LINE__ ();/
+s/^\([[:space:]]*\)\open Target/\1open Target let ____ = (!!)/' ${INPUT_FILE} > ${OUTPUT_FILE}
 
 # TODO: (*use -w33 attribute on open Target*)

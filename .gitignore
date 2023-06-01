@@ -4,4 +4,5 @@ optitrust.opam
 tester_last_args.txt
 *_trace*.js
 *_trace*.txt
+*_trace*.html
 *_inter.ml

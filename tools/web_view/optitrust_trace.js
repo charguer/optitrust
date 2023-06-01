@@ -339,7 +339,11 @@ function stepToHTML(step) {
   if (step.kind == "Target") {
      step.isvalid = true;
   }
-  s = "<div class='step-title" + (step.isvalid ? " step-valid" : "") + "'>[" + step.kind + "] " + step.script + "</div><ul class='step-sub'> " + sSubs + "</ul>\n";
+  s += "<div class='step-title" + (step.isvalid ? " step-valid" : "") + "'>[" + escapeHTML(step.kind) + "] " + escapeHTML(step.name) + " " + escapeHTML(step.script) + "</div>";
+  for (var i = 0; i < step.justif.length; i++) {
+    s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
+  }
+  s += "<ul class='step-sub'> " + sSubs + "</ul>\n";
   return s;
 }
 
