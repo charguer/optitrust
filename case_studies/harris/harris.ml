@@ -16,6 +16,15 @@ module Image = struct
     (* TODO: transfo to remove useless if inside a for *)
 end
 
+let simpl_mins ?(simpl = Arith.default_simpl) (tg : target) : unit =
+  let rewrite rule = Rewrite.equiv_at ~simpl ~ctx:true ~indepth:true rule tg in
+  List.iter rewrite [
+    "int h; int by; ==> by + min(h, by + 36) - min(h - 2, by + 34) == by + 2";
+    "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 2, by + 34) == y - 2";
+    "int h; int by; ==> by + min(h, by + 36) - min(h - 4, by + 32) == by + 4";
+    "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 4, by + 32) == y - 4";
+  ]
+
 let _ = Run.script_cpp (fun () ->
   let simpl = Arith.default_simpl in
   let int = trm_int in
@@ -46,25 +55,10 @@ let _ = Run.script_cpp (fun () ->
   bigstep "circular buffers";
   (* TODO: Image.loop_align_stop_extend_start ~like:[cFor "y" ~body:[cArrayWrite "gray"]] [cFor "y" ~body:[any cArrayWrite ["ix"; "gray"]]] *)
   !! Image.loop_align_stop_extend_start "y" ~start:(trm_var "by") ~stop:(expr "min(h, by + 36)");
-  let rewrite rule = Rewrite.equiv_at ~simpl ~ctx:true ~indepth:true rule [] in
-  !!! List.iter rewrite [
-    "int h; int by; ==> by + min(h, by + 36) - min(h - 2, by + 34) == by + 2";
-    "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 2, by + 34) == y - 2";
-    "int h; int by; ==> by + min(h, by + 36) - min(h - 4, by + 32) == by + 4";
-    "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 4, by + 32) == y - 4";
-  ];
+  !! simpl_mins [];
   !! Loop.fusion_targets [cFor "y" ~body:[any cArrayWrite ["gray"; "ix"; "ixx"; "out"]]];
   let local_matrix (m, tile) =
-    let tmp_m = ("l_" ^ m) in
-    Matrix.local_name_tile m ~into:tmp_m ~alloc_instr:[cVarDef m] ~indices:["y"; "x"] tile [cFunBody "harris"; cFor ~body:[cArrayWrite m] "y"];
-    (* FIXME: dangerous transformation? *)
-    (* TODO: Matrix.delete_not_read + Loop.delete_void
-       - how close to Matrix.elim is this? *)
-    Instr.delete [occFirst; cFor "y" ~body:[cArrayRead m]];
-    Instr.delete [occLast; cFor "y" ~body:[cArrayWrite m]];
-    (* Loop.delete_all_void [cFor "by"]; *)
-    Matrix.delete ~var:m [cFunBody "harris"];
-    Variable.rename ~into:m [cVarDef tmp_m];
+    Matrix.local_name_tile m ~alloc_instr:[cVarDef m] ~indices:["y"; "x"] tile [cFunBody "harris"; cFor ~body:[cArrayWrite m] "y"]
   in
   !! List.iter local_matrix [
     ("gray", [(expr "by", int 36); (int 0, expr "w")]);

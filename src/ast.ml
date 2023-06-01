@@ -44,6 +44,14 @@ type vars = var list
 (* let vars_to_string vs = Tools.list_to_string vs *)
 let vars_to_string vs = Trace_printers.(list_arg_printer string_arg_printer vs)
 
+(* [next_var_int]: generates an integer for variable names *)
+let next_var_int : unit -> int =
+  Tools.fresh_generator()
+
+(* [fresh_var]: creates a var based on [next_var_int] generator *)
+let fresh_var : unit -> var =
+  fun () -> "_v" ^ string_of_int (next_var_int ())
+
 (* [qvar]: qualiefied variables, Ex M :: N :: x
     qx = {qvar_var = "x"; qvar_path = ["M"; "N"]; qvar_str = "M :: N :: x"}. *)
 type qvar = {qvar_var : var; qvar_path : var list; qvar_str : string}

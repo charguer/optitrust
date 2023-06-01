@@ -228,3 +228,45 @@ let%transfo elim_constant (tg : target) : unit =
     elim_mops ((target_of_path p_seq) @ [nbAny; cArrayRead x]);
     Arrays.elim_constant (target_of_path p_def);
   ) tg
+
+(* [delete] expects target [tg] to point to a definition of matrix [var], and deletes it.
+  Both allocation and de-allocation instructions are deleted.
+  Checks that [var] is not used anywhere in the visible scope.
+   *)
+let%transfo delete (tg : target) : unit =
+  Target.iter (fun t p ->
+    let t_local = Path.get_trm_at_path p t in
+    let error = "Matrix.delete: expected target on variable definition" in
+    let (_, var, _, _) = trm_inv ~error trm_let_inv t_local in
+    let (_, p_seq) = Path.index_in_seq p in
+    Matrix_basic.delete ~var (target_of_path p_seq)
+  ) tg
+
+let delete_alias = delete
+
+(* [local_name_tile]: like the basic transfo, but deletes the
+   original matrix if [delete] is true or if [into] is empty.
+   *)
+let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : var = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+  let (delete, rename, into) = if into = ""
+    then (true, true, fresh_var ())
+    else (delete, false, into)
+  in
+  Target.iter (fun t p ->
+    Matrix_basic.local_name_tile ~indices ?alloc_instr v ~into tile ~local_ops (target_of_path p);
+    if delete then begin
+      let (_, surrounding_seq) = Path.index_in_seq p in
+      let surrounding_tg = target_of_path surrounding_seq in
+      (* FIXME: dangerous transformation, replace with:
+        - Matrix.delete_dead_writes [cArrayWrite v]
+        - Matrix.delete_dead_writes [cArrayRead v] / [cMark mark; dSeqNth 0]
+          *)
+      Instr.delete (surrounding_tg @ [nbMulti; cFor "" ~body:[cOr [[cArrayRead v]; [cArrayWrite v]]]]);
+      Loop.delete_all_void surrounding_tg;
+      Marks.with_fresh_mark_on p (fun m ->
+        delete_alias (Option.value ~default:(surrounding_tg @ [cVarDef v]) alloc_instr);
+        if rename then
+          Variable_basic.rename ~into:v [cMark m; cVarDef into];
+      )
+    end
+  ) tg
