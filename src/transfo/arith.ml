@@ -8,10 +8,12 @@ let find_surrounding_path (p : path) (t : trm) : path =
   let rec aux p =
     let pp = Path.parent p in
     let pp_t = Path.resolve_path pp t in
-    (* pp_t.is_statement *)
-    if is_prim_arith_call pp_t then aux pp else p
+    (* not pp_t.is_statement *)
+    (* is_prim_arith_call pp_t *)
+    if not pp_t.is_statement then aux pp else p
   in
-  assert (not (Path.resolve_path p t).is_statement);
+  (* can be useful for user to directly target statement
+  assert (not (Path.resolve_path p t).is_statement); *)
   aux p
 
 (* [simpl_surrounding_expr] first goes to the outside of the targeted expression,

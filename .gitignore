@@ -2,3 +2,6 @@ optitrust.opam
 .vscode/action.sh
 .vscode/action_out.txt
 tester_last_args.txt
+*_trace*.js
+*_trace*.txt
+*_inter.ml

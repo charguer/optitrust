@@ -609,7 +609,7 @@ let count_calls (t : trm) : int =
 let unfold_funcalls : Transfo.t =
 
   let unfold_funcalls_transfo (tg_instr : target) (tg_call : target) : unit =
-    let tr_call = get_trm_at_unsome tg_call in
+    let tr_call = get_trm_at_exn tg_call in
     let ty = match tr_call.desc with
       | Trm_apps ({desc = Trm_var _} as f, args) ->
         let def = Ast_data.get_function_def f in

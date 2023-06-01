@@ -96,8 +96,8 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(a
 
 (* [local_name_tile ~mark var into tg]: expects the target to point at an instruction that contains
       an occurrence of [var] then it will define a matrix [into] whose dimensions will correspond to a tile of [var]. Then we copy the contents of the matrix [var] into [into] according to the given tile offsets and finally we free up the memory. *)
-let%transfo local_name_tile ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ~into:(into : var) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
-  let remove = (my_mark = None) in
+let%transfo local_name_tile ?(mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ~into:(into : var) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+  let remove = (mark = None) in
   let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
       | Trm_let (_, (_, ty), _) -> get_inner_ptr_type ty
@@ -129,7 +129,7 @@ let%transfo local_name_tile ?(my_mark : mark option) ?(indices : (var list) = []
         | Some t1 ->
           let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
           if not remove then Internal.nobrace_enter();
-          Matrix_core.local_name_tile my_mark v tile into alloc_trms var_type indices local_ops t p
+          Matrix_core.local_name_tile mark v tile into alloc_trms var_type indices local_ops t p
         | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
         end
       | None ->
@@ -138,7 +138,7 @@ let%transfo local_name_tile ?(my_mark : mark option) ?(indices : (var list) = []
           let tg1 = (seq_tg @ [var_target]) in
           let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
           if not remove then Internal.nobrace_enter();
-          Matrix_core.local_name_tile my_mark v tile into alloc_trms var_type indices local_ops t p
+          Matrix_core.local_name_tile mark v tile into alloc_trms var_type indices local_ops t p
 
         | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
         end
@@ -444,6 +444,7 @@ let delete_on (var : var) (t : trm) : trm =
   let rec update_accesses_and_alloc (t : trm) : trm =
     match trm_let_inv t with
     | Some (_kind, v, vtyp, init) when v = var ->
+      (* TODO: deal with CALLOC *)
       assert (Option.is_some (Matrix_core.alloc_inv_with_ty init));
       trm_seq_no_brace []
     | _ ->

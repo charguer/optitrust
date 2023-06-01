@@ -68,13 +68,13 @@ let%transfo bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool 
    @correctness: always works, and also needs to instantiate variables in the
    local invariants in the body. *)
 
-let%transfo inline ?(body_mark : mark option) (tg : target) : unit =
+let%transfo inline ?(body_mark : mark option) ?(subst_mark : mark option) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
     apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
      (fun  t (p, p_local, i) ->
         Stats.comp_stats "inline call to Function_core.inline" (fun () ->
-          Function_core.inline i body_mark p_local t p)) tg))
+          Function_core.inline i body_mark ~subst_mark p_local t p)) tg))
 
 
 (* [beta ~body_mark tg]: similar to [function_inline] the main difference is that [beta] is used in the cases

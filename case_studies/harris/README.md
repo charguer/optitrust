@@ -43,3 +43,4 @@ make bench_[name]
 # Script Notes
 
 - not necessary for perf: `Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_ix"] ~fresh_name:"g${occ}" [cArrayRead "gray"];`
+- without overlapped tiling: `!! Image.loop_align_stop_extend_start "y" ~start:(int 0) ~stop:(trm_var "h");`

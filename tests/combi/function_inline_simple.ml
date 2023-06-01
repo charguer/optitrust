@@ -12,7 +12,7 @@ let _ = Run.doc_script_cpp (fun () ->
 "
 int f(int x){ return x + 1;}
 
-int main(){ 
+int main(){
   int x = 3;
   int y = f(x);
 }
