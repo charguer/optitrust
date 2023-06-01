@@ -552,6 +552,16 @@ let init ?(prefix : string = "") ~(parser: parser) (filename : string) : unit =
 let finalize () : unit =
   close_root_step()
 
+(* [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
+let finalize_on_error () : unit =
+  let rec close_all_steps () : unit =
+    match the_trace.step_stack with
+    | [] -> failwith "close_close_all_stepsstep: the_trace should not be empty"
+    | [_root_step] -> finalize()
+    | _step :: _ -> close_step(); close_all_steps()
+    in
+  close_all_steps()
+
 (* [get_last_substep] returns the last substep, which corresponds to the
     step to be visualized by a diff *)
 let get_last_substep () : step_tree =
@@ -846,21 +856,15 @@ let rec dump_step_tree_to_js (get_next_id:unit->int) (out:string->unit) (id:int)
     cmd (sprintf "%s | base64 -w 0 > tmp.base64" s);
     Xfile.get_contents ~newline_at_end:false "tmp.base64"
     in
-  let compute_diff () : string =
-    compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp" in
-  (* LATER:
-  let srcBefore = compute_command_base64 "cat tmp_after.cpp" in
-  out (sprintf "codes[%d] = window.atob(\"%s\");\n" i src);
-  *)
   (* Assign ids to sub-steps *)
   let sub_ids = List.map (fun _ -> get_next_id()) s.step_sub in
   (* Dump Json for this node *)
   let ctx = the_trace.context in
-  let diff64 : string =
-    output_prog ctx "tmp_before" s.step_ast_before;
-    output_prog ctx "tmp_after" s.step_ast_after;
-    compute_diff()
-    in
+  output_prog ctx "tmp_before" s.step_ast_before;
+  output_prog ctx "tmp_after" s.step_ast_after;
+  let sBefore = compute_command_base64 "cat tmp_before.cpp" in
+  let sAfter = compute_command_base64 "cat tmp_after.cpp" in
+  let sDiff = compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp" in
   let i = s.step_infos in
   let json =
     Json.obj_quoted_keys [
@@ -874,7 +878,9 @@ let rec dump_step_tree_to_js (get_next_id:unit->int) (out:string->unit) (id:int)
         (* TODO: at the moment, we assume that a justification item means is-valid *)
       "justif", Json.(listof str) i.step_justif;
       "sub", Json.(listof int) sub_ids;
-      "diff", Json.base64 diff64;
+      "ast_before", Json.base64 sBefore;
+      "ast_after", Json.base64 sAfter;
+      "diff", Json.base64 sDiff;
     ] in
   out (sprintf "steps[%d] = %s;\n" id (Json.to_string json));
   (* Process sub-steps recursively *)

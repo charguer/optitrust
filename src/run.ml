@@ -146,6 +146,11 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     | None -> default_basename ^ extension
   in
 
+  let produce_trace () : unit =
+    Trace.dump_trace_to_js ~prefix ();
+    Trace.dump_trace_to_textfile ~prefix ()
+    in
+
   (* DEBUG: Printf.printf "script default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)
 
   let stats_before = Stats.get_cur_stats () in
@@ -153,11 +158,17 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   (* Set the input file, execute the function [f], dump the results. *)
   (try
     Trace.init ~prefix ~parser filename;
-    (try
-      f ()
-    with
-    | Stop -> ()
-    );
+    begin
+      try f ()
+      with
+      | Stop -> ()
+      | e when !Flags.dump_trace ->
+          (* If dump-trace, try best effort to produce a partial trace *)
+          Trace.finalize_on_error();
+          produce_trace();
+          Printf.printf "ERROR! showing trace nontheless";
+          exit 0
+    end;
     flush stdout;
     (* If we requested a diff for the last line of the script, print it *)
     if check_exit_at_end
@@ -173,10 +184,8 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     (* Stores the current ast to the end of the history *)
     Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
     (* Dump full trace if [-dump-trace] option was provided *)
-    if !Flags.dump_trace then begin
-      Trace.dump_trace_to_js ~prefix ();
-      Trace.dump_trace_to_textfile ~prefix ();
-    end;
+    if !Flags.dump_trace
+      then produce_trace();
     begin match !Flags.dump_big_steps with (* DEPRECATED? *)
     | None -> ()
     | Some foldername -> Trace.dump_steps ~onlybig:true ~prefix foldername

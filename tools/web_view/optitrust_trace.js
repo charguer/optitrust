@@ -166,13 +166,6 @@ var idSourceLeft = -1;
 var idSourceRight = -1;
 var selectedStep = undefined; // stores a step object
 
-function openSourceAtLine(idSource, line) {
-  loadSource(idSource);
-  // TODO: autoscrolling does not work...
-  var delay = 1000; // milliseconds
-   setTimeout(function() { scrollToLine(line); },
-   delay);
-}
 
 function loadDiffFromString(diffString) {
   // this function should be called only after DOM contents is loaded
@@ -185,9 +178,9 @@ function loadDiffFromString(diffString) {
  $('.d2h-file-side-diff').first().addClass('diffBefore');
  $('.d2h-file-side-diff').last().addClass('diffAfter');
  $('.diffBefore .d2h-code-side-linenumber').click(function(e) {
-     var line = e.target.outerText; openSourceAtLine(idSourceLeft, line); });
+     var line = e.target.outerText; loadSourceAtLine(selectedStep.ast_before, line); });
  $('.diffAfter .d2h-code-side-linenumber').click(function(e) {
-     var line = e.target.outerText; openSourceAtLine(idSourceRight, line); });
+     var line = e.target.outerText; loadSourceAtLine(selectedStep.ast_after, line); });
 
   // if hideLines() has been called once, call it again
   if (hiddenLines) {
@@ -251,12 +244,22 @@ function displayInfo(descr) {
   $("#infoDiv").html(descr);
 }
 
-function loadSource(id) {
-  resetView();
+function loadSourceAtLine(sourceCode, line) {
+  loadSource(sourceCode);
+  // TODO: autoscrolling does not work...
+  var delay = 1000; // milliseconds
+   setTimeout(function() { scrollToLine(line); },
+   delay);
+}
+
+function loadSource(sourceCode, dontResetView) {
+  if (! dontResetView) {
+    resetView();
+  }
   $("#sourceDiv").show();
-  editor.setValue(codes[id]);
+  editor.setValue(sourceCode);
   // DEPRECTED $("#button_code_" + id).addClass("ctrl-button-selected");
-  showBdiffCovered(id);
+  // showBdiffCovered(id);
   curSource = id;
 }
 
@@ -300,15 +303,6 @@ function loadBdiff(id) {
   idSourceRight =bigsteps[id].stop;
 }
 
-// LATER: remove, as curSource is deprecated
-function nextSource() {
-  if (curSource == -1 && curSdiff != -1) {
-    curSource = curSdiff;
-  }
-  var id = Math.min(curSource + 1, codes.length-1);
-  loadSource(id);
-}
-
 // LATER: simplify, as curSource is deprecated
 function nextSdiff() {
   if (curSdiff == -1 && curSource != -1) {
@@ -332,6 +326,12 @@ function nextBdiff() {
   loadBdiff(id);
 }
 
+// handles a click on a step, to view details
+function loadStep(idStep) {
+  var step = steps[idStep];
+  loadSource(step.ast_before, true);
+}
+
 function stepToHTML(step) {
   // console.log("steptohtml " + step.id);
   var s = "";
@@ -346,7 +346,7 @@ function stepToHTML(step) {
   var validityClass = "";
   validityClass = (step.isvalid) ? "step-valid" : "step-invalid";
 
-  s += "<div class='step-title " + validityClass + "'>[" + escapeHTML(step.kind) + "] " + escapeHTML(step.name) + " " + escapeHTML(step.script) + "</div>";
+  s += "<div onclick='loadStep(" + step.id + ")' class='step-title " + validityClass + "'>[" + escapeHTML(step.kind) + "] " + escapeHTML(step.name) + " " + escapeHTML(step.script) + "</div>";
   for (var i = 0; i < step.justif.length; i++) {
     s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
   }
@@ -461,8 +461,6 @@ document.addEventListener('DOMContentLoaded', function () {
   initSteps();
   initControls();
   // editor.setValue("click on a button");
-  // loadSource(codes.length-1);
-  // loadSource(0);
   if (hasBigsteps) {
     loadBdiff(0); }
   else {

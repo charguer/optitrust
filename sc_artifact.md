@@ -688,7 +688,7 @@ If you want to see just a few diffs, the key binding for "F6" is sufficient.
     "args": "View big step diff",
   },
   {
-    "key": "shift+alt+f6",
+    "key": "shift+f5",
     "command": "workbench.action.tasks.runTask",
     "args": "View trace",
   },
