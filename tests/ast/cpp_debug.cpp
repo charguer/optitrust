@@ -12,7 +12,8 @@ int main() {
   if (s < s) {
 
   }
-  if (x.size() < x.size()) {
+  /*if (((int)x.size()) < ((int)x.size())) {
 
   }
+  */
 }
