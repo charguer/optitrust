@@ -162,9 +162,8 @@ let subst_aux (name : var) (space : trm) (t : trm) : trm =
   Internal.subst_var name space t
 
 (* [subst name space t p]: applies [subst_aux] at trm [t] with path [p] *)
-let subst (name : var)(space : trm) : Transfo.local =
+let subst (name : var) (space : trm) : Transfo.local =
   apply_on_path (subst_aux name space)
-
 
 
 (* [init_detach_aux t]: detaches the targeted variable declaration,

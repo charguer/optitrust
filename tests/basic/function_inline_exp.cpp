@@ -46,7 +46,7 @@ exit_body:;
   int result;
   result = 10;
   int;
-  /*@bodyk*/ { result + 4; } /*bodyk@*/
+  /*@bodyk*/ { result + /*@substk*/ 4 /*substk@*/; } /*bodyk@*/
 }
 
 class Test_method_inline {

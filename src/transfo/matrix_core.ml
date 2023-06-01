@@ -338,7 +338,7 @@ let local_name_tile_aux (mark : mark option) (var : var) (tile : nd_tile) (local
   let alloc_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc ?init tile_dims size )) in
   let map_indices = List.map (fun (offset, size) -> fun i -> trm_sub i offset) tile in
   let new_t = replace_all_accesses var local_var tile_dims map_indices t in
-  begin match local_ops with
+  let final_trm = begin match local_ops with
     | Local_arith _ ->
       let write_on_local_var =
         trm_set (access (trm_var_get local_var) tile_dims tile_indices) (trm_get (access (trm_var_get var) dims indices)) in
@@ -347,8 +347,7 @@ let local_name_tile_aux (mark : mark option) (var : var) (tile : nd_tile) (local
       let load_for = trm_fors nested_loop_range write_on_local_var in
       let unload_for = trm_fors nested_loop_range write_on_var in
       let free_instr = free (trm_var_get local_var) in
-      let final_trm = trm_seq_no_brace [alloc_instr; load_for; new_t; unload_for; free_instr] in
-      begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
+      trm_seq_no_brace [alloc_instr; load_for; new_t; unload_for; free_instr]
     | Local_obj (init, swap, free_fn) ->
       let write_on_local_var =
         trm_apps (trm_var init)  [access (trm_var_get local_var) tile_dims tile_indices] in
@@ -360,9 +359,9 @@ let local_name_tile_aux (mark : mark option) (var : var) (tile : nd_tile) (local
       let thrd_instr = trm_fors nested_loop_range write_on_var in
       let frth_instr = trm_fors nested_loop_range free_local_var in
       let last_instr = free (trm_var_get local_var) in
-      let final_trm = trm_seq_no_brace [alloc_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
-      begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
-    end
+      trm_seq_no_brace [alloc_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr]
+  end in
+  trm_may_add_mark mark final_trm
 
 
 (* [local_name_tile]: applies [local_name_tile_aux] at trm [t] with path [p]. *)

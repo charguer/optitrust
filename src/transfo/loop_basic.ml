@@ -536,3 +536,27 @@ let%transfo slide ?(index : var = "b${id}")
   ~(step : trm)
   (tg : target) : unit =
   Target.apply_at_target_paths (slide_on index bound size step) tg
+
+let delete_void_on (i : int) (t_seq : trm) : trm option =
+  (* 1. check empty body *)
+  Option.bind (trm_seq_nth_inv i t_seq) (fun t_loop ->
+    Option.bind (trm_for_inv_instrs t_loop) (fun (_, body) ->
+      if Mlist.is_empty body
+      (* 2. delete *)
+      then Some (Sequence_core.delete i 1 t_seq [])
+      else None
+    ))
+
+(* [delete_void]: deletes a loop with empty body. *)
+let%transfo delete_void (tg : target) : unit =
+  Trace.step_justif_always_correct ();
+  Target.apply (fun t p ->
+    let (i, p_seq) = Path.index_in_seq p in
+    Path.apply_on_path (fun t_seq ->
+      match delete_void_on i t_seq with
+      | Some t2 -> t2
+      | None ->
+        let loop_t = Path.get_trm_at_path p t in
+        fail loop_t.loc "Loop_basic.delete_void: expected a simple loop with empty body, surrounded by a sequence"
+    ) t p_seq
+  ) tg

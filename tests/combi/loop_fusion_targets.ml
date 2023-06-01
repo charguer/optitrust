@@ -26,9 +26,6 @@ int main() {
 
 
 let _ = Run.script_cpp ( fun _ ->
-  !! Loop.fusion_targets [nbMulti; cOr [
-    [cFor "i"];
-    [cFor "j"]
-  ]];
+  !! Loop.fusion_targets [multi cFor ["i"; "j"]];
   !! Loop.fusion_targets ~nest_of:2 [nbMulti; cFor "k0"];
 )

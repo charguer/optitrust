@@ -275,13 +275,15 @@ let cInclude (s : string) : constr =
 let cOr (tgl : target list) : constr =
   Constr_or tgl
 
-let cOrMap (f : 'a -> constr) (l : 'a list) : constr =
+(* TODO: should this add 'nbAny'? *)
+(* [any f l]: targets any [f l0], .., [f lN] *)
+let any (f : 'a -> constr) (l : 'a list) : constr =
   cOr (List.map (fun x -> [f x]) l)
 
 (* LATER: symbole infixe/prefixe? *)
-(* autoriser plusieurs nbMulti; cVarDefs; cFuns *)
+(* [multi f l]: targets multiple [f l0], .., [f lN] *)
 let multi (f : 'a -> constr) (l : 'a list) : constr =
-  cTarget [nbMulti; cOrMap f l]
+  cTarget [nbMulti; cOr (List.map (fun x -> [f x]) l)]
 
 (* [cAnd tgl]: matches the intersection of the target list [tgl]. *)
 let cAnd (tgl : target list) : constr =
@@ -1649,23 +1651,18 @@ let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : t
   show ~line (* DEPRECATED ~reparse*) ~types:true tg
 
 
+  (** LATER rename to get_trm_at_option et gt_trm_at_exn *)
+(* [get_trm_at_unsome tg]: similar to [get_trm_at] but this one fails incase there is not trm that corresponds to the target [tg]. *)
+let get_trm_at_exn (tg : target) : trm =
+  let t = Trace.ast() in
+  let tg_path = resolve_target_exactly_one_with_stringreprs_available tg t in
+  Path.resolve_path tg_path t
+
 (* [get_trm_at]: get the trm that corresponds to the target [tg]
     NOTE: call this function only on targets that resolve to a unique trm. *)
-let get_trm_at (tg : target) : trm option  =
-  let t_ast = ref None in
-  Trace.call (fun t ->
-    try
-      let tg_path = resolve_target_exactly_one_with_stringreprs_available tg t in
-      t_ast := Some (Path.resolve_path tg_path t)
-    with | _ -> t_ast := None
-  );
-  !t_ast
-
-(* [get_trm_at_unsome tg]: similar to [get_trm_at] but this one fails incase there is not trm that corresponds to the target [ŧg]. *)
-let get_trm_at_unsome (tg : target) : trm =
-  match get_trm_at tg with
-  | Some t -> t
-  | None -> assert false
+let get_trm_at (tg : target) : trm option =
+  try Some (get_trm_at_exn tg)
+  with _ -> None
 
 (* [get_ast ()]: return the full ast. *)
 let get_ast () : trm =
