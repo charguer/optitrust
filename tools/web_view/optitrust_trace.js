@@ -41,11 +41,10 @@ var smallsteps = [];
 var bigsteps = [];
 var hasBigsteps = undefined; // false iff bigsteps is empty
 
-// parameters
-var displayTime = false;
 
 // checkbox status
-var displayTargetStep = false;
+var optionTargetSteps = false;
+var optionExectime = true;
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -154,6 +153,11 @@ function htmlButton(id, label, css, onclick) {
   return "<button id='" + id + "' class='" + css + "' type ='button' onclick='" + onclick + "'>" + label + "</button>";
 }
 
+function htmlCheckbox(id, label, css, onclick) {
+  return "<label><input id='" + id + "' class='" + css + "' type='checkbox' onclick='" + onclick + "'>" + label + "</label>";
+}
+
+
 function htmlSpan(contents, css) {
   return "<span class='" + css +"'>" + contents + "</span>";
 }
@@ -261,7 +265,7 @@ function loadSource(sourceCode, dontResetView) {
   editor.setValue(sourceCode);
   // DEPRECTED $("#button_code_" + id).addClass("ctrl-button-selected");
   // showBdiffCovered(id);
-  curSource = id;
+  //curSource = id;
 }
 
 function loadSdiff(id) {
@@ -272,7 +276,7 @@ function loadSdiff(id) {
   selectedStep = step;
   loadDiffFromString(step.diff);
   var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
-  if (displayTime) {
+  if (optionExectime) {
     var sTime = htmlSpan(step.exectime + "ms", "timing-info") + "<div style='clear: both'></div>";
     sStep += sTime;
   }
@@ -339,13 +343,31 @@ function stepToHTML(step) {
   var sSubs = "";
   for (var i = 0; i < step.sub.length; i++) {
     var substep = steps[step.sub[i]];
-    if (!displayTargetStep && substep.kind == "Target") {
+    if (!optionTargetSteps && substep.kind == "Target") {
       continue;
     }
     sSubs += "<li>" + stepToHTML(substep) + "</li>\n";
   }
   var validityClass = "";
   validityClass = (step.isvalid) ? "step-valid" : "step-invalid";
+  var sTime = "";
+  if (optionExectime) {
+    var t = 1000 * step.exectime; // milliseconds
+    var nb = "";
+    if (t > 10) {
+      nb = Math.round(t);
+    } else if (t > 1) {
+      nb = Math.round(10* t) / 10;
+    } else {
+      nb = Math.round(100 * t) / 100;
+    }
+    sTime = "" + nb + "ms";
+    if (t > 100) {
+      sTime = "<span class='exectime-heavy'>" + sTime + "</span>";
+    } else if (t > 10) {
+      sTime = "<span class='exectime-mid'>" + sTime + "</span>";
+    }
+  }
   var sKind = escapeHTML(step.kind);
   if (step.script_line !== undefined) {
     sKind = "<b>" + step.script_line + "</b>";
@@ -354,8 +376,12 @@ function stepToHTML(step) {
   if (step.kind == "Big") {
     sScript = "<b>Bigstep: " + sScript + "</b>";
   }
+  var sOnClick = "";
+  if (step.hasOwnProperty("id")) { // LATER: refine
+    sOnClick = "onclick='loadStep(" + step.id + ")'";
+  }
 
-  s += "<div onclick='loadStep(" + step.id + ")' class='step-title " + validityClass + "'>[" + sKind + "] " + escapeHTML(step.name) + " " + sScript + "</div>";
+  s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + " [" + sKind + "] " + escapeHTML(step.name) + " " + sScript + "</div>";
   for (var i = 0; i < step.justif.length; i++) {
     s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
   }
@@ -411,8 +437,21 @@ function initControls() {
 
   // Details button
   s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
+  s += htmlCheckbox("option_Exectime", "exectime", "details-checkbox", "updateOptions()");
+  s += htmlCheckbox("option_TargetSteps", "target-steps", "details-checkbox", "updateOptions()");
 
   $("#contents").html(s);
+
+  // initialize checkboxes
+  $('#option_Exectime').attr('checked', optionExectime);
+  $('#option_TargetSteps').attr('checked', optionTargetSteps);
+}
+
+// handles modification of options by click on the checkboxes
+function updateOptions() {
+  optionExectime = $('#option_Exectime').prop('checked');
+  optionTargetSteps = $('#option_TargetSteps').prop('checked');
+  toggleDetails(); toggleDetails();
 }
 
 function initSteps() {
@@ -435,6 +474,9 @@ function initSteps() {
     for (var i = 0; i < stepIds.length; i++) {
       var smallstep_id = stepIds[i];
       var smallstep = steps[smallstep_id];
+      if (smallstep.kind == "Parsing") {
+        continue;
+      }
       if (smallstep.kind != "Small") {
         console.log("Error: numberSmallSteps expected a small step but encountered a step of kind " + smallstep.kind);
       }
@@ -447,16 +489,19 @@ function initSteps() {
   if (hasBigsteps) {
     // filling of [bigsteps] and [smallsteps] array
     for (var i = 0; i < rootSub.length; i++) {
-      var bigstep_i_id = rootSub[i];
-      var bigstep_i = steps[bigstep_i_id];
-      if (bigstep_i.kind != "Big") {
-        console.log("Error: initSteps expected a big-step but encountered a step of kind " + bigstep_i.kind);
+      var bigstep_id = rootSub[i];
+      var bigstep = steps[bigstep_id];
+      if (smallstep.kind == "Parsing") {
+        continue;
       }
-      bigstep_i.id = bigstep_i_id;
-      bigstep_i.start = curSmallStep;
-      numberSmallSteps(bigstep_i.sub);
-      bigstep_i.stop = curSmallStep;
-      bigsteps[i] = bigstep_i;
+      if (bigstep.kind != "Big") {
+        console.log("Error: initSteps expected a big-step but encountered a step of kind " + bigstep.kind);
+      }
+      bigstep.id = bigstep_id;
+      bigstep.start = curSmallStep;
+      numberSmallSteps(bigstep.sub);
+      bigstep.stop = curSmallStep;
+      bigsteps[i] = bigstep;
     }
   } else {
     // there are no big-steps, filling only [smallsteps] array

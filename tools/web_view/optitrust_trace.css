@@ -153,3 +153,9 @@ h2 {
 .step-title:hover {
    cursor:pointer;
 }
+.exectime-heavy {
+  background: #FF6666;
+}
+.exectime-mid {
+  background: #ffcf66;
+}
