@@ -20,6 +20,10 @@ ${TRACEFLAGS:=""}
 # Path to tools folder and src folder
 TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0";)")
 
+# Save arguments for redo command
+echo "${TOOLS_FOLDER}/view_result.sh $*" > "${TOOLS_FOLDER}/_last_view_result.sh"
+chmod +x "${TOOLS_FOLDER}/_last_view_result.sh"
+
 # This can help with opam switches
 eval $(opam env)
 
