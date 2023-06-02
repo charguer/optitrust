@@ -1,0 +1,85 @@
+
+- split loop that writes in p.x then in p.y
+  => separate ownership of record fields
+
+- move const definitions
+  => certainly correct if unique names since no shadowing possible
+
+- variable reuse:
+  we can reuse a storage cell for saving data if no further read is performed in that storage until the storage is destroyed;
+
+- int x = f(a)
+  g(b)
+  int y = f(a) --> delete
+  h(y) --> replace with h(x)
+  can be explained by a move of y next to x
+  requiring check of effect independence,
+  then correct if f(a) is only doing reads.
+
+- inline last write:
+  b[i] = a[i]
+  c[i] = b[i]
+  there b[i] can be replaced because "is last write"
+  then can be deleted because no longer needed:
+  delete never-read array b
+
+- likewise
+  t[i] = v
+  can be deleted if t[i] is a storage that is about
+  to be discarded
+
+- int x = a[i]
+  ..
+  .. -> replace all occ of x by a[i]
+  => correct if no writes in a[i] on that scope
+
+- scaling:
+  apply to all reads and writes to an array a scaling factor
+  technically, all t[i].x are multiplied by cstX
+  and all t[i].y are multiplied by cstY.
+  Division on all reads.
+  => can be explained by owning the cells separately
+
+- HARD: shift t[i] by i, with anticipation:
+   v = f(a)
+   t[i] = v
+   -->
+   v = f(a) - i
+   t[i] = v
+  ==> presumably give up on explaining this yet
+
+- delete constant var without occurence and
+  unique name so no shadowing possible;
+  Argument: correct if typechecks afterwards
+
+- double to float casting, or changing storage
+  => correct if allow precision loss
+  => document in script WithPrecisionLoss (...)
+  wrapper to temporary enable the flag
+
+- trusted: replace fwrap with fwrapInt
+  trusted: rewrite nontrivial math equality
+
+- replace int_of_double(A+B) with A,
+  where A is an int
+  and B is of the form  "X - int_of_double(X)"
+  therefore in the range [0,1)
+  => trusted, or requires prover
+
+- delocalize ~init_zero:
+  requires knowledge that previous array was zero init
+  => could be checked by a predicate "IsZero $M"
+  => or could be obtained using a read_last_write
+
+- trusted: apply bijection to array accesses
+  => trust the fact that it is a bijection
+
+- delete useless array initialization
+
+- delete never read bag
+
+- permissions on concurrent and private bags
+
+- copy a reference declaration just before a loop split
+
+- add alignas
