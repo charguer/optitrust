@@ -159,3 +159,12 @@ h2 {
 .exectime-mid {
   background: #ffcf66;
 }
+.exectime-small {
+  background: #ffffff;
+}
+.exectime-heavy, .exectime-mid, .exectime-small {
+  margin-right: 5px;
+  padding-right: 2px;
+  padding-left: 2px;
+  padding-bottom: 1px;
+}

@@ -42,9 +42,9 @@ var bigsteps = [];
 var hasBigsteps = undefined; // false iff bigsteps is empty
 
 
-// checkbox status
+// checkbox status; may change default values here
 var optionTargetSteps = false;
-var optionExectime = true;
+var optionExectime = false;
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -362,11 +362,14 @@ function stepToHTML(step) {
       nb = Math.round(100 * t) / 100;
     }
     sTime = "" + nb + "ms";
-    if (t > 100) {
-      sTime = "<span class='exectime-heavy'>" + sTime + "</span>";
+    var sTimeClass = "exectime-small";
+    if (t > 50) {
+      sTimeClass = "exectime-heavy";
     } else if (t > 10) {
-      sTime = "<span class='exectime-mid'>" + sTime + "</span>";
+      sTimeClass = "exectime-mid";
     }
+    sTime = "<span class='" + sTimeClass + "'>" + sTime + "</span>";
+
   }
   var sKind = escapeHTML(step.kind);
   if (step.script_line !== undefined) {
