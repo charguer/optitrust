@@ -10,10 +10,7 @@ let trm_result: formula = trm_var var_result
 type evar = trm option
 type unification_ctx = evar varmap
 
-let builtin_env = { pure = []; linear = []; fun_contracts =
-                                              Var_map.add "__get" (["p"], unknown_fun_contract)
-                                                (Var_map.add "__set" (["p"; "v"], unknown_fun_contract)
-                                                (Var_map.add "__add" (["x1"; "x2"], unknown_fun_contract) Var_map.empty))}
+let builtin_env = { pure = []; linear = []; fun_contracts = Var_map.empty }
 
 let rec unify_var (xe: var) (t: trm) (evar_ctx: unification_ctx) : unification_ctx option =
   let open Tools.OptionMonad in
@@ -114,7 +111,7 @@ let trm_map_vars (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> var -
     let _, body' = f_map body_ctx body in
     let cont_ctx, fn' = map_binder ctx (qvar_to_var fn) in
     let t' = ret (body' == body)
-      (trm_let_fun ~annot ?loc ~contract fn' res args' body')
+      (trm_let_fun ~annot ?loc ?contract fn' res args' body')
     in
     (* TODO: Proper function type here *)
     (cont_ctx, t')
@@ -284,6 +281,7 @@ let rec res_impl_leftovers (res_from: resource_set) ?(subst_ctx: tmap = Var_map.
   in
 
   (* TODO: Manage RO arguments *)
+  (* LATER: Display RO frames *)
 
   (* All unifications should be done at this point. There is a bug if it's not the case. *)
   let subst_ctx = Var_map.map (function
@@ -362,10 +360,19 @@ let trm_fun_var_inv (t:trm): var option =
 let resources_to_string res : string =
   match res with
   | Some res ->
-  let spure = String.concat "" (List.map Ast_fromto_AstC.named_formula_to_string res.pure) in
-  let slin = String.concat "" (List.map Ast_fromto_AstC.named_formula_to_string res.linear) in
+  let spure = Ast_fromto_AstC.ctx_resource_list_to_string res.pure in
+  let slin = Ast_fromto_AstC.ctx_resource_list_to_string res.linear in
   Printf.sprintf "[%s] {%s}" spure slin
   | None -> "UnspecifiedRes"
+
+let _ = Printexc.register_printer (function
+  | Resource_not_found (item, context) ->
+    Some (Printf.sprintf "Resource %s not found in context %s" (Ast_fromto_AstC.named_formula_to_string item) (Ast_fromto_AstC.ctx_resource_list_to_string context))
+  | Spec_not_found fn ->
+    Some (Printf.sprintf "No specification for function %s" fn)
+  | NotConsumedResources res ->
+    Some (Printf.sprintf "Resources not consumed after the end of the block: %s" (Ast_fromto_AstC.ctx_resource_list_to_string res))
+  | _ -> None)
 
 (* TODO: better name *)
 let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: trm): resource_spec =
@@ -379,14 +386,14 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
 
     | Trm_let_fun (name, ret_type, args, body, contract) ->
       let name = qvar_to_var name in
-      begin match contract.pre with
-      | Some pre ->
-        let body_res = bind_new_resources ~old_res:res ~new_res:pre in
-        ignore (compute_inplace ?expected_res:contract.post (Some body_res) body)
-      | None -> ()
-      end;
-      let args = List.map (fun (x, _) -> x) args in
-      Some { res with fun_contracts = Var_map.add name (args, contract) res.fun_contracts }
+      begin match contract with
+      | Some contract ->
+        let body_res = bind_new_resources ~old_res:res ~new_res:contract.pre in
+        ignore (compute_inplace ?expected_res:(Some contract.post) (Some body_res) body);
+        let args = List.map (fun (x, _) -> x) args in
+        Some { res with fun_contracts = Var_map.add name (args, contract) res.fun_contracts }
+      | None -> Some res
+      end
 
     | Trm_seq instrs ->
       (* Free the cells allocated with stack new *)
@@ -414,7 +421,7 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
     | Trm_apps (fn, args) ->
       let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv fn in
       begin match Var_map.find_opt fn res.fun_contracts with
-      | Some (contract_args, { pre = Some pre; post }) ->
+      | Some (contract_args, { pre ; post }) ->
         (* TODO: Cast into readonly: attention à l'erreur générée *)
         (* f(3+i), f(g(a)) où g renvoie a + a, f(g(a)) où g ensures res mod a = 0 *)
         let subst_map = ref Var_map.empty in
@@ -427,15 +434,14 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
         let subst_ctx, res_frame = res_impl_leftovers res ~subst_ctx effective_pre in
         t.ctx.ctx_resources_frame <- Some res_frame;
 
-        let* post in
         let _, inst_post = subst_in_res subst_ctx post in
         Some (bind_new_resources ~old_res:res ~new_res:{ inst_post with linear = inst_post.linear @ res_frame })
 
-      | Some (_, { pre = None }) -> None
-      | None -> failwith ("Undeclared function used: " ^ fn)
+      | None when fn = "__admitted" -> None
+      | None -> raise (Spec_not_found fn)
       end
 
-    | _ -> failwith "Resource_core.compute_inplace: not implemented"
+    | _ -> failwith ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
   in
 
   (*Printf.eprintf "With resources: %s\nSaving %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);*)

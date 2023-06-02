@@ -504,13 +504,13 @@ and trm_desc =
   | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm * resource_spec (* int x = 3 *)
   | Trm_let_mult of varkind * typed_vars * trm list
-  | Trm_let_fun of qvar * typ * typed_vars * trm * fun_contract
+  | Trm_let_fun of qvar * typ * typed_vars * trm * fun_spec
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
   | Trm_seq of trm mlist       (* { st1; st2; st3 } *)
   | Trm_apps of trm * trm list (* f(t1, t2) *)
   | Trm_while of trm * trm     (* while (t1) { t2 } *)
-  | Trm_for of loop_range  * trm * loop_contract
+  | Trm_for of loop_range  * trm * loop_spec
   | Trm_for_c of trm * trm * trm * trm * resource_spec
   | Trm_do_while of trm * trm (* TODO: Can this be efficiently desugared? *)
   (* Remark: in the AST, arguments of cases that are enum labels
@@ -539,7 +539,7 @@ and trm_desc =
   | Trm_namespace of string * trm * bool          (* namespaces *)
   | Trm_template of template_parameter_list * trm (* templates *)
   | Trm_using_directive of string                 (* using namespace std *)
-  | Trm_fun of typed_vars * typ option * trm * fun_contract (* anonymous functions, [&](int const& x) -> void ({r += x;}) *) (* TODO: Is return type useful ? *)
+  | Trm_fun of typed_vars * typ option * trm * fun_spec (* anonymous functions, [&](int const& x) -> void ({r += x;}) *) (* TODO: Is return type useful ? *)
   | Trm_delete of bool * trm                      (* delete t, delete[] t *)
 
 and hyp = string
@@ -555,12 +555,16 @@ and resource_set = {
 and resource_spec = resource_set option
 
 and fun_contract =
-  { pre: resource_spec;
-    post: resource_spec }
+  { pre: resource_set;
+    post: resource_set }
+
+and fun_spec = fun_contract option
 
 and loop_contract =
-  { invariant: resource_spec;
+  { invariant: resource_set;
     iter_contract: fun_contract }
+
+and loop_spec = loop_contract option
 
 (* ajouter à trm Typ_var, Typ_constr id (list typ), Typ_const, Typ_array (typ * trm) *)
 
@@ -976,12 +980,6 @@ let unknown_ctx: ctx =
   { ctx_types = None; ctx_resources_before = None; ctx_resources_after = None;
     ctx_resources_frame = None; }
 
-let unknown_fun_contract: fun_contract =
-  { pre = None; post = None }
-
-let unknown_loop_contract: loop_contract =
-  { invariant = None; iter_contract = unknown_fun_contract }
-
 (* **************************** Trm constructors *************************** *)
 
 (* [trm_annot_default]: default trm annotation *)
@@ -1121,7 +1119,7 @@ let trm_let_mult ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (kind :
 
 (* [trm_let ~annot ?loc ?ctx name ret_typ args body]: function definition *)
 let trm_let_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(qpath : var list = [])
-  ?(qvar : qvar = empty_qvar) ?(contract: fun_contract = unknown_fun_contract)
+  ?(qvar : qvar = empty_qvar) ?(contract: fun_spec)
   (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
   let qname = qvar_build name ~qpath in
   let qname = if qvar = empty_qvar then qname else qvar in
@@ -1129,7 +1127,7 @@ let trm_let_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(qpath 
 
 (* [trm_fun ~annot ?loc args ret_typ body]: anonymous function.  *)
 (* FIXME; WRONG type for this expression... *)
-let trm_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_contract = unknown_fun_contract)
+let trm_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_spec)
   (args : typed_vars) (ret_typ : typ option) (body : trm) =
   trm_make ~annot ?loc ~typ:(typ_unit()) ?ctx (Trm_fun (args, ret_typ, body, contract))
 
@@ -1187,7 +1185,7 @@ let trm_uninitialized ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ()
   trm_make ~annot ?loc ?ctx (Trm_val (Val_lit (Lit_uninitialized)))
 
 (* [trm_for ~annot ?loc ?ctx index start direction stop step body]: simple for loop *)
-let trm_for ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: loop_contract = unknown_loop_contract)
+let trm_for ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: loop_spec)
   (loop_range : loop_range) (body : trm) : trm =
   trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_for (loop_range, body, contract))
 
@@ -1835,7 +1833,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
     trm_let ~annot ?loc vk tv init'
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
-    trm_let_fun ~annot ?loc ~qvar:f' ~contract "" res args body'
+    trm_let_fun ~annot ?loc ~qvar:f' ?contract "" res args body'
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
@@ -1875,7 +1873,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
     let start' = f false start in
     let stop' = f false stop in
     let body' = f is_terminal body in
-    trm_for ~annot ?loc ~contract (index, start', direction, stop', m_step, is_parallel) body'
+    trm_for ~annot ?loc ?contract (index, start', direction, stop', m_step, is_parallel) body'
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, f is_terminal body)) cases in
@@ -1951,7 +1949,7 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
     ret (body' == body)
-        (trm_let_fun ~annot ?loc ~qvar:f' ~contract ~ctx "" res args body' )
+        (trm_let_fun ~annot ?loc ~qvar:f' ?contract ~ctx "" res args body' )
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = aux then_ in

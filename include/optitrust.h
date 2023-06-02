@@ -91,6 +91,8 @@ void __consumes(const char*) {}
 void __produces(const char*) {}
 void __independantly_modifies(const char*) {}
 
+void __admitted() {}
+
 /*
 template<typename T> T __with_ghost(T, const char*);
 */

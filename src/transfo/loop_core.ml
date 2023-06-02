@@ -144,7 +144,7 @@ let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm
       let new_body = trm_seq new_tl in
         trm_seq_no_brace [
           trm_let_array Var_mutable (!new_name, !ty) (Trm stop_bd) (trm_uninitialized ());
-          trm_for ~contract l_range new_body ]
+          trm_for ?contract l_range new_body ]
     | _ -> fail t.loc "Loop_core.hoist_aux: body of the loop should be a sequence"
     end
   | _ -> fail t.loc "Loop_core.hoist_aux: only simple loops are supported"
@@ -171,7 +171,7 @@ let fusion_on_block_aux (keep_label : bool) (t : trm) : trm =
            else
           acc @ (Mlist.to_list (for_loop_body_trms loop))
       ) [] tl in
-      let res = trm_for ~contract l_range (trm_seq_nomarks fusioned_body) in
+      let res = trm_for ?contract l_range (trm_seq_nomarks fusioned_body) in
       if keep_label then trm_pass_labels t res else res
     | _ -> fail t.loc "Loop_core.fusion_on_block_aux: all loops should be simple loops"
     end
@@ -266,7 +266,7 @@ let move_out_aux (mark : mark option) (trm_index : int) (t : trm) : trm =
   let loop =
   match t.desc with
   | Trm_for (l_range, _, contract) ->
-    trm_for ~contract l_range (trm_seq new_tl)
+    trm_for ?contract l_range (trm_seq new_tl)
   | Trm_for_c (init, cond, step, _, invariant) ->
     trm_for_c ?invariant init cond step (trm_seq new_tl)
   | _ -> fail t.loc "Loop_core.move_out_aux: expected a loop" in

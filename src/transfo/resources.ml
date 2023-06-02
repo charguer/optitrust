@@ -13,5 +13,5 @@ let set_fun_contract (contract: fun_contract) (tg : Target.target) : unit =
 let recompute_all_resources () : unit =
   let t = Trace.ast () in
   (* TODO: Configurable base environment *)
-  let t = Resources_core.(trm_recompute_resources builtin_env t) in
+  let t = Resources_computation.(trm_recompute_resources builtin_env t) in
   Trace.set_ast t

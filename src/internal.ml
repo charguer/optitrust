@@ -503,7 +503,7 @@ let remove_nobrace_if_sequence (t : trm) : trm =
 let change_loop_body (loop : trm) (body : trm) : trm =
   match loop.desc with
   | Trm_for (l_range, _, contract) ->
-    trm_for ~contract l_range body
+    trm_for ?contract l_range body
   | Trm_for_c (init, cond, step, _, invariant) ->
     trm_for_c ?invariant init cond step body
   | _-> fail loop.loc "Internal.change_loop_body: expected for loop"

@@ -397,14 +397,70 @@ in aux t
 
 (********************** Decode contract annotations ***************************)
 
+open Resources_contract
+
+let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
+  let open Tools.OptionMonad in
+  let* fn, args = trm_apps_inv t in
+  let* fn_name = trm_var_inv fn in
+  let* clause =
+    match fn_name with
+    | "__requires" -> Some Requires
+    | "__ensures" -> Some Ensures
+    | "__invariant" -> Some Invariant
+    | "__reads" -> Some Reads
+    | "__modifies" -> Some Modifies
+    | "__consumes" -> Some Consumes
+    | "__produces" -> Some Produces
+    | "__independantly_modifies" -> Some IndependantlyModifies
+    | _ -> None
+  in
+  let* arg = List.nth_opt args 0 in
+  let* arg = trm_lit_inv arg in
+  let* arg =
+    match arg with
+    | Lit_string s -> Some s
+    | _ -> None
+  in
+  Some (clause, arg)
+
+let rec extract_encoded_contract_clauses (seq: trm mlist):
+  (contract_clause_type * string) list * trm mlist =
+  match Option.bind (Mlist.nth_opt seq 0) encoded_contract_inv with
+  | Some contract ->
+    let cont, seq = extract_encoded_contract_clauses (Mlist.pop_front seq) in
+    contract::cont, seq
+  | None -> [], seq
+
+let extract_fun_contract (seq: trm mlist) : fun_spec * trm mlist =
+  let enc_contract, seq = extract_encoded_contract_clauses seq in
+  let contract = List.fold_left (fun contract (clause, desc) ->
+      let contract = Option.value ~default:empty_fun_contract contract in
+      try
+        let res_list = Resource_cparser.resource_list (Resource_clexer.lex_resources) (Lexing.from_string desc) in
+        Some (List.fold_left (fun contract res -> push_fun_contract_clause clause res contract) contract res_list)
+      with Resource_cparser.Error ->
+        failwith ("Failed to parse resource: " ^ desc)
+    ) None enc_contract
+  in
+  (contract, seq)
+
 let rec contract_elim (t: trm): trm =
   match t.desc with
-  (* TODO: Parsing of contract and resource annotations *)
+  | Trm_let_fun (qv, ty, args, body, contract) ->
+    assert (contract == None);
+    let body_seq = trm_inv trm_seq_inv body in
+    let contract, new_body = extract_fun_contract body_seq in
+    let new_body = Mlist.map contract_elim new_body in
+    trm_alter ~desc:(Trm_let_fun (qv, ty, args, trm_seq new_body, contract)) t
+  (*| Trm_for (range, body, _) -> failwith "TODO"
+  | Trm_for_c (init, cond, step, body, _) -> failwith "TODO"*)
   | _ -> trm_map contract_elim t
 
-
-let formula_to_string (f: formula) : string =
-  AstC_to_c.ast_to_string ~optitrust_syntax:true f
+let rec formula_to_string (f: formula) : string =
+  match trm_var_model_inv f with
+  | Some (x, formula) -> Printf.sprintf "%s => %s" x (formula_to_string formula)
+  | None -> AstC_to_c.ast_to_string ~optitrust_syntax:true f (* LATER: use a custom printer for formulas *)
 
 let named_formula_to_string (name, formula): string =
   let sformula = formula_to_string formula in
@@ -435,56 +491,53 @@ let ctx_resources_to_trm (res: resource_set) : trm =
   trm_apps (trm_var "__ctx_res") [trm_string spure; trm_string slin]
 
 
-let display_ctx_resources (t: trm): trm =
-  let tl_before = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before) in
+let display_ctx_resources (t: trm): trm list =
   let tl_after = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after) in
   let tl_frame = Option.to_list (Option.map (fun res_frame ->
       trm_apps (trm_var "__ctx_frame") [trm_string (ctx_resource_list_to_string res_frame)]) t.ctx.ctx_resources_frame) in
-  trm_seq (Mlist.of_list (tl_before @ tl_frame @ [t] @ tl_after))
+  (tl_frame @ [t] @ tl_after)
 
 let computed_resources_intro (t: trm): trm =
   let rec aux t =
     match t.desc with
-    | Trm_seq instrs ->
-      trm_like ~old:t (trm_seq (Mlist.map (fun instr -> display_ctx_resources (aux instr)) instrs))
+    | Trm_seq instrs when not (List.mem Main_file (trm_get_files_annot t)) ->
+      let tl_before = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before) in
+      trm_like ~old:t (trm_seq (Mlist.of_list (tl_before @ List.concat_map (fun instr -> display_ctx_resources (aux instr)) (Mlist.to_list instrs))))
     | _ -> trm_map_with_terminal_opt ~keep_ctx:true false (fun _ -> aux) t
   in
-  (*Internal.nobrace_enter();*)
-  let t = aux t in
-  (*let id = Nobrace.exit () in
-  Internal.clean_no_brace_seq id t*)
-  t
+  aux t
 
 
 let rec contract_intro (t: trm): trm =
   let push_named_formulas (contract_prim: var) (named_formulas: (var option * formula) list) (t: trm): trm =
-    let sres = String.concat "" (List.map named_formula_to_string named_formulas) in
+    let sres = ctx_resource_list_to_string named_formulas in
     let tres = trm_apps (trm_var contract_prim) [trm_string sres] in
     insert_aux 0 tres t
   in
 
-  let push_resource_set (pure_prim: var) (linear_prim: var) (res_set: resource_spec) (t: trm): trm =
-    match res_set with
-    | None -> t
-    | Some res_set ->
-      let t =
-        if res_set.linear <> []
-          then push_named_formulas linear_prim res_set.linear t
-          else t
-      in
-      if res_set.pure <> [] || res_set.linear == [] then
-        push_named_formulas pure_prim res_set.pure t
-      else t
+  let push_resource_set (pure_prim: var) (linear_prim: var) (res_set: resource_set) (t: trm): trm =
+    let t =
+      if res_set.linear <> []
+        then push_named_formulas linear_prim res_set.linear t
+        else t
+    in
+    if res_set.pure <> [] || res_set.linear == [] then
+      push_named_formulas pure_prim res_set.pure t
+    else t
   in
 
   match t.desc with
   | Trm_let_fun (qv, ty, args, body0, contract) ->
     let body = contract_intro body0 in
-    let body = push_resource_set "__ensures" "__produces" contract.post body in
-    let body = push_resource_set "__requires" "__consumes" contract.pre body in
+    let body = match contract with
+      | Some contract ->
+        let body = push_resource_set "__ensures" "__produces" contract.post body in
+        push_resource_set "__requires" "__consumes" contract.pre body
+      | None -> body
+    in
     if body == body0
       then t
-      else trm_like ~old:t (trm_let_fun (qvar_to_var qv) ty args body ~contract)
+      else trm_like ~old:t (trm_let_fun (qvar_to_var qv) ty args body ?contract)
 
   | Trm_seq instrs ->
     trm_like ~old:t (trm_seq (Mlist.map contract_intro instrs))
