@@ -15,6 +15,7 @@ steps[0] = {
    justif: ["..", ".." ],
    isvalid: true,
    script: window.atob("..."),
+   scriptline: 23, // possibly undefined
    astBefore: window.atob("..."), // NOT YET IMPLEMENTED; could also an id of an source code stored in a different array, for improved factorization
    astAfter: window.atob("..."), // NOT YET IMPLEMENTED
    diff: window.atob("..."), // could be slow if requested for all!
@@ -191,7 +192,7 @@ function loadDiffFromString(diffString) {
 function resetView() {
   $("#sourceDiv").hide();
   $("#diffDiv").hide();
-  $("#detailsDiv").hide();
+  $("#detailsDiv").html("");
   $("#infoDiv").html("");
   curSource = -1;
   curSdiff = -1;
@@ -345,8 +346,16 @@ function stepToHTML(step) {
   }
   var validityClass = "";
   validityClass = (step.isvalid) ? "step-valid" : "step-invalid";
+  var sKind = escapeHTML(step.kind);
+  if (step.script_line !== undefined) {
+    sKind = "<b>" + step.script_line + "</b>";
+  }
+  var sScript = escapeHTML(step.script);
+  if (step.kind == "Big") {
+    sScript = "<b>Bigstep: " + sScript + "</b>";
+  }
 
-  s += "<div onclick='loadStep(" + step.id + ")' class='step-title " + validityClass + "'>[" + escapeHTML(step.kind) + "] " + escapeHTML(step.name) + " " + escapeHTML(step.script) + "</div>";
+  s += "<div onclick='loadStep(" + step.id + ")' class='step-title " + validityClass + "'>[" + sKind + "] " + escapeHTML(step.name) + " " + sScript + "</div>";
   for (var i = 0; i < step.justif.length; i++) {
     s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
   }
@@ -354,14 +363,15 @@ function stepToHTML(step) {
   return s;
 }
 
-
 // handles click on the details button
 function toggleDetails() {
-  $("#detailsDiv").toggle();
-  $("#diffDiv").toggle();
-  var showingDetails = ($("#detailsDiv").css('display') == "block");
-  if (showingDetails) {
+  var shouldShowDetails = ($("#detailsDiv").html() == "");
+  resetView();
+  if (shouldShowDetails) {
+    $("#diffDiv").hide();
     $("#detailsDiv").html(stepToHTML(selectedStep));
+  } else {
+    $("#detailsDiv").html("");
   }
 }
 

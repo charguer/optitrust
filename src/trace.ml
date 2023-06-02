@@ -873,6 +873,7 @@ let rec dump_step_tree_to_js (get_next_id:unit->int) (out:string->unit) (id:int)
       "exectime", Json.float i.step_exectime;
       "name", Json.str i.step_name;
       "script", Json.base64 (Base64.encode_exn i.step_script);
+      "script_line", Json.(optionof int) i.step_script_line;
       "args", Json.(listof (fun (k,v) -> Json.obj_quoted_keys ["name", str k; "value",str v])) i.step_args;
       "isvalid", Json.bool i.step_valid;
         (* TODO: at the moment, we assume that a justification item means is-valid *)
@@ -900,6 +901,7 @@ let rec dump_step_tree_to_js (get_next_id:unit->int) (out:string->unit) (id:int)
       args: [ { name: "..", value: ".."}, { name: "..", value: ".." } ],
       justif: ["..", ".." ],
       script: window.atob("..."),
+      scriptline: 23, // possibly undefined
       astBefore: window.atob("..."), // NOT YET IMPLEMENTED; could also an id of an source code stored in a different array, for improved factorization
       astAfter: window.atob("..."), // NOT YET IMPLEMENTED
       diff: window.atob("..."), // could be slow if requested for all!

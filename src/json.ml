@@ -56,6 +56,12 @@ let list (xs:t list) : t =
 let listof (k:'a -> t) (xs:'a list) : t =
   list (List.map k xs)
 
+(* [optionof k l]: creates a Json value or 'undefined' from an OCaml option value *)
+let optionof (k:'a -> t) (o:'a option) : t =
+  match o with
+  | None -> raw "undefined"
+  | Some v -> k v
+
 (* [obj xvs]: creates a Json object from a list of pairs of Json elements *)
 let obj (xvs:(t*t) list) : t =
   Obj xvs
