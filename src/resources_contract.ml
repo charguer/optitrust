@@ -13,16 +13,28 @@ type contract_clause_type =
 type contract_resource = hyp option * formula
 
 let var_has_model = trm_var "_HasModel"
-let read_only = trm_var "_RO"
+let var_read_only = trm_var "_RO"
 
-let trm_var_model (x: var) (model: formula) =
+let trm_var_model (x: var) (model: formula): formula =
   trm_apps var_has_model [trm_var x; model]
 
-let trm_var_model_inv (t: trm): (var * formula) option =
+let trm_var_model_inv (t: formula): (var * formula) option =
   match trm_apps_inv t with
   | Some (fn, [tx; tf]) ->
     begin match trm_var_inv fn, trm_var_inv tx with
     | Some "_HasModel", Some x -> Some (x, tf)
+    | _ -> None
+    end
+  | _ -> None
+
+let trm_read_only (t: formula) =
+  trm_apps var_read_only [t]
+
+let trm_read_only_inv (t: formula): formula option =
+  match trm_apps_inv t with
+  | Some (fn, [t]) ->
+    begin match trm_var_inv fn with
+    | Some "_RO" -> Some t
     | _ -> None
     end
   | _ -> None
@@ -45,7 +57,7 @@ let push_linear_res (res: contract_resource) (res_set: resource_set) =
   { res_set with linear = res :: res_set.linear }
 
 let push_read_only_res ((name, formula): contract_resource) (res_set: resource_set) =
-  push_pure_res (name, trm_apps read_only [formula]) res_set
+  push_pure_res (name, trm_read_only formula) res_set
 
 (* Preserving user syntax: two possibilities
    - Use another structured type for storage in AST

@@ -1,4 +1,5 @@
 open Ast
+open Resources_contract
 
 type resource_item = (hyp option * formula)
 type pure_resource_set = resource_item list
@@ -200,14 +201,24 @@ let trm_free_vars (t: trm): Var_set.t =
    [item] is not found inside the resource list [res_list] *)
 exception Resource_not_found of resource_item * resource_item list
 
-let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx: unification_ctx): unification_ctx =
+(* Unify the given resource_item with one of the resources in the pure resource set.
+   If it fails raise a Resource_not_found exception.
+   If it is a read only resource and leftover_linear is given, also try to
+   unify the read only formula inside leftover_linear. *)
+let unify_pure ((x, formula): resource_item) (res: pure_resource_set) ?(leftover_linear: linear_resource_set = []) (evar_ctx: unification_ctx): unification_ctx =
   (* Add flag to disallow pure instantiation *)
   let exception Found of unification_ctx in
+  let find_formula formula (_, formula_candidate) =
+    match unify_trm formula_candidate formula evar_ctx with
+    | Some evar_ctx -> raise (Found evar_ctx)
+    | None -> ()
+  in
   try
-    List.iter (fun (_, formula_candidate) ->
-        match unify_trm formula_candidate formula evar_ctx with
-        | Some evar_ctx -> raise (Found evar_ctx)
-        | None -> ()) res;
+    List.iter (find_formula formula) res;
+    begin match trm_read_only_inv formula with
+    | Some ro_formula -> List.iter (find_formula ro_formula) leftover_linear
+    | None -> ()
+    end;
     raise (Resource_not_found ((x, formula), res))
   with Found evar_ctx -> evar_ctx
 
@@ -277,11 +288,10 @@ let rec res_impl_leftovers (res_from: resource_set) ?(subst_ctx: tmap = Var_map.
 
   let leftover_linear, evar_ctx = subtract_linear_res res_from.linear res_to.linear evar_ctx in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
-      unify_pure res_item res_from.pure evar_ctx) evar_ctx res_to.pure
+      unify_pure res_item res_from.pure ~leftover_linear evar_ctx) evar_ctx res_to.pure
   in
 
-  (* TODO: Manage RO arguments *)
-  (* LATER: Display RO frames *)
+  (* LATER: Display RO frames? *)
 
   (* All unifications should be done at this point. There is a bug if it's not the case. *)
   let subst_ctx = Var_map.map (function
