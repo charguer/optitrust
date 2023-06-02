@@ -334,7 +334,15 @@ function nextBdiff() {
 // handles a click on a step, to view details
 function loadStep(idStep) {
   var step = steps[idStep];
-  loadSource(step.ast_before, true);
+  if (step.kind == "Target") {
+    $("#diffDiv").show();
+    loadDiffFromString(step.diff);
+    //loadSource(step.ast_after, true);
+  } else {
+    $("#diffDiv").hide();
+    // loadSource(step.ast_before, true);
+    loadSource(step.ast_before, true);
+  }
 }
 
 function stepToHTML(step) {
