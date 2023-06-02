@@ -1637,6 +1637,7 @@ let show_ast ?(line:int = -1) () : unit =
 
 (* [show_res] enables to view the result of resource computations. *)
 let show_res (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
+  Flags.in_show_res_mode := true;
   let t = Trace.ast() in
   let tres = Resources_computation.(trm_recompute_resources builtin_env t) in
   Trace.interactive_step ~line ~ast_before:(fun () -> t) ~ast_after:(fun () -> Ast_fromto_AstC.computed_resources_intro tres)

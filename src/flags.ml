@@ -198,3 +198,5 @@ let documentation_save_file_at_first_check = ref ""
     -dump-ast-details
   and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp]
 ***************************************************************************************************************)
+
+let in_show_res_mode = ref false
