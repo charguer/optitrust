@@ -78,6 +78,8 @@ fi
 #==========================================================================
 # Patch the script if needed to handle intermediate states
 
+TIMER2=`date +%s%3N`
+
 # TODO: extract the logic of these two modes into separate files
 
 if [ "${MODE}" = "save_inter" ]; then
@@ -151,7 +153,7 @@ fi
 #==========================================================================
 # Generate the script instrumented with line numbers
 
-TIMER2=`date +%s%3N`
+TIMER3=`date +%s%3N`
 
 # From "${SRCBASE}.ml", we create ""{SRCBASE}_with_lines.ml" by inserting
 # the line numbers in the relevant places. See documentation in add_lines.sh.
@@ -160,7 +162,7 @@ ${TOOLS_FOLDER}/add_lines.sh ${SRCBASE}.ml ${SRCBASE}_with_lines.ml
 #==========================================================================
 # Compile the script
 
-TIMER3=`date +%s%3N`
+TIMER4=`date +%s%3N`
 
 ${TOOLS_FOLDER}/build_cmxs.sh ${SRCBASE}_with_lines.ml
 
@@ -169,14 +171,14 @@ PROG="${SRCBASE}_with_lines.cmxs"
 #==========================================================================
 # Execute the script
 
-TIMER4=`date +%s%3N`
+TIMER5=`date +%s%3N`
 
 OCAMLRUNPARAM=b dune exec --no-build optitrust_runner -- ${PROG} ${OPTIONS} ${FLAGS}
 
 #==========================================================================
 # Open the output
 
-TIMER5=`date +%s%3N`
+TIMER6=`date +%s%3N`
 
 if [ "${MODE}" = "view_diff" ] || [ "${MODE}" = "view_diff_from_inter" ] || [ "${MODE}" = "view_diff_enc" ]; then
 
@@ -204,11 +206,12 @@ fi
 #==========================================================================
 # Report on execution time
 
-TIMER6=`date +%s%3N`
+TIMER7=`date +%s%3N`
 
 echo "Time process args: $((${TIMER2}-${TIMER1}))ms"
-echo "Time gen with-lines: $((${TIMER3}-${TIMER2}))ms"
-echo "Time build cmx: $((${TIMER4}-${TIMER3}))ms"
-echo "Time dune exec: $((${TIMER5}-${TIMER4}))ms"
-echo "Time open result: $((${TIMER6}-${TIMER5}))ms"
-echo "Time total: $((${TIMER6}-${TIMER1}))ms"
+echo "Time gen checkpoints: $((${TIMER3}-${TIMER2}))ms"
+echo "Time gen with-lines: $((${TIMER4}-${TIMER3}))ms"
+echo "Time build cmx:  $((${TIMER5}-${TIMER4}))ms"
+echo "Time dune exec: $((${TIMER6}-${TIMER5}))ms"
+echo "Time open result: $((${TIMER7}-${TIMER6}))ms"
+echo "Time total: $((${TIMER7}-${TIMER1}))ms"
