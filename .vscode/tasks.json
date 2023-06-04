@@ -123,12 +123,11 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "../tools/view_result_intermediate.sh",
+          "../tools/view_result.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
-            "view_diff",
-            "recompile_optitrust_no",
+            "view_diff_from_inter"
         ]
       },
       {
@@ -139,11 +138,11 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "../tools/view_result_intermediate.sh",
+            "../tools/view_result.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
-            "view_diff",
+            "view_diff_from_inter",
             "recompile_optitrust_yes",
         ]
       },
@@ -155,12 +154,11 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "../tools/view_result_intermediate.sh",
+            "../tools/view_result.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
-            "view_diff",
-            "recompile_optitrust_no",
+            "view_diff_from_inter",
             "-only-big-steps",
         ]
       },
@@ -172,12 +170,11 @@ file{
           "cwd": "${workspaceFolder}/.vscode"
         },
         "args": [
-            "../tools/view_result_intermediate.sh",
+            "../tools/view_result.sh",
             "${fileDirname}",
             "${fileBasenameNoExtension}",
             "${lineNumber}",
-            "save_intermediate_state",
-            "recompile_optitrust_no",
+            "save_inter"
         ]
       },
       {
