@@ -337,6 +337,7 @@ let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target
 
     Assumption: Both a and C should be declared as constant variables. *)
 let%transfo unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit =
+  Trace.step_justif "correct if scoping is respected (TODO: check)";
   Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Loop_core.unroll braces my_mark) tg)
 

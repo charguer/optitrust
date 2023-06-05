@@ -40,7 +40,7 @@ let map f = function
 
     NOTE: if applied on non const variable, the variable must additionaly not have
     been mutated between the replacement point and its initialization. *)
-let fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : unit =
+let%transfo fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
@@ -66,7 +66,7 @@ let fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : unit =
 (* [insert_and_fold]: expects the target [tg] to point at a relative location, then it inserts a new variable
      declaration at that location. The new declared variable is [name] with [typ] and [value].
      This variable will be folded on all the ast nodes that come after the declared variable. *)
-let insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value : trm) (tg : target) : unit =
+let%transfo insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value : trm) (tg : target) : unit =
   Variable_basic.insert ~reparse:true ~name ~typ ~value tg;
   Variable_basic.fold [cVarDef name]
 
@@ -128,7 +128,7 @@ let insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value : trm) 
         return 0;
     } *)
 
-let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
+let%transfo delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
    (ov : var) ~into:(nv : var)
   ~array_size:(arrs : string) (tg : target) : unit =
   let middle_mark = match mark with | None -> Mark.next () | Some m -> m in
@@ -142,7 +142,7 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : local_op
     that will unroll all the introduced loops from the basic delocalize transformation and convert the newly declared array
     to a list of variables namely for each index on variable, this variables should be given by the user through the labelled
     argument [vars]. *)
-let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
+let%transfo delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
    (ov : var) ~into:(nv : var)  ~array_size:(arrs : string)
   ~local_vars:(lv : vars) (tg : target) : unit =
   Variable_basic.local_name ~mark ov ~into:nv tg;
@@ -156,7 +156,7 @@ let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_in
 (* [intro_pattern_array ~pattern_aux_vars ~const ~pattern_vars ~pattern tg]: expects the target [tg] to be
      pointing to expressions of the form [pattern], then it will create an array of coefficients for each
     [pattern_vars] and replace the current coefficients with array accesses. *)
-let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false) ~pattern_vars:(pattern_vars : string ) ~pattern:(pattern : string) (tg : target) : unit =
+let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false) ~pattern_vars:(pattern_vars : string ) ~pattern:(pattern : string) (tg : target) : unit =
   Trace.call (fun t ->
   (* Temporary hack till Arthur enables the usage of the new parser *)
   let str = pattern_vars ^ "==>" ^ pattern_aux_vars ^ "==> " ^ pattern in
@@ -192,7 +192,7 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
 (* [detach_if_needed tg]: expects the target [tg] to be pointing at a variable declaration, then it will
     check if that declaration was already initialized or not, if that's the case than it will deatch that
     declaration, otherwise no change is applied. *)
-let detach_if_needed (tg : target) : unit =
+let%transfo detach_if_needed (tg : target) : unit =
   iter_on_targets (fun t p ->
     let decl_t  = Path.resolve_path p t in
     match decl_t.desc with
@@ -213,7 +213,7 @@ let detach_if_needed (tg : target) : unit =
     remove that declaration and replace all its occurrences with [space]
 
    @correctness: correct if the previous variable space was never read after the reuse point. *)
-let reuse ?(reparse : bool = false) (space : trm) (tg : target) : unit =
+let%transfo reuse ?(reparse : bool = false) (space : trm) (tg : target) : unit =
   reparse_after ~reparse (iter_on_targets (fun t p ->
       let decl_t = Path.resolve_path p t in
       begin match decl_name decl_t with
@@ -231,7 +231,7 @@ let reuse ?(reparse : bool = false) (space : trm) (tg : target) : unit =
     each pair consists the current variable and the one that is going to replace it.
     Or AddSuffix s, in this case all the variables declared inside the targeted sequence
      are going to be renamed by adding the suffix [s] at the end of its current name. *)
-let renames (rename : rename) (tg : target) : unit =
+let%transfo renames (rename : rename) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
@@ -330,7 +330,7 @@ let default_unfold_simpl (tg : target) : unit =
           Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is non valid C code.
           After calling Record_basic.simpl_proj {0, 1}.x becomes 0 .
           Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them. *)
-let unfold ?(accept_functions : bool = false) ?(simpl = default_unfold_simpl) ?(delete : bool = true) ?(at : target = [])(tg : target) : unit =
+let%transfo unfold ?(accept_functions : bool = false) ?(simpl : Transfo.t = default_unfold_simpl) ?(delete : bool = true) ?(at : target = [])(tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let tg_decl = target_of_path p in
@@ -365,7 +365,7 @@ let default_inline_simpl (tg : target) : unit =
 
 (* [inline ~accept_functions ~simpl_deref tg]: similar to [unfold] except that this transformation
      deletes the targeted declaration by default. *)
-let inline ?(accept_functions : bool = false) ?(simpl = default_inline_simpl) (tg : target) : unit =
+let%transfo inline ?(accept_functions : bool = false) ?(simpl : Transfo.t = default_inline_simpl) (tg : target) : unit =
   unfold ~accept_functions ~simpl ~delete:true tg
 
 (* [inline_and_rename]: expects the target [tg] to point at a variable declaration with an initial value
@@ -375,7 +375,7 @@ let inline ?(accept_functions : bool = false) ?(simpl = default_inline_simpl) (t
     Assumption:
       if the target [tg] points to the following instruction int y = x; then
       no occurrence of x appears after that instruction *)
-let inline_and_rename ?(simpl = default_inline_simpl) (tg : target) : unit =
+let%transfo inline_and_rename ?(simpl: Transfo.t = default_inline_simpl) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
@@ -419,7 +419,7 @@ let inline_and_rename ?(simpl = default_inline_simpl) (tg : target) : unit =
 (* [elim_redundant ~source tg]: expects the target [tg] to be point at a variable declaration with an initial value being
     the same as the variable declaration where [source] points to. Then it will fold the variable at [source] into
     the variable declaration [tg] and inline the declaration in [tg]. *)
-let elim_redundant ?(source : target = []) (tg : target) : unit =
+let%transfo elim_redundant ?(source : target = []) (tg : target) : unit =
   iteri_on_targets (fun i t p ->
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
@@ -462,12 +462,12 @@ let elim_redundant ?(source : target = []) (tg : target) : unit =
 (* [insert ~constr name typ value tg]: expects the target [tg] to point at a location in a sequence then it wil insert a
     new variable declaration with name: [name] and type:[typ] and initialization value [value].
     This transformation is basically the same as the basic one except that this has a default value for the type argument. *)
-let insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ = typ_auto ()) ~name:(name : string) ?(value : trm = trm_uninitialized()) (tg : target) : unit =
+let%transfo insert ?(const : bool = true) ?(reparse : bool = false) ?(typ : typ = typ_auto ()) ~name:(name : string) ?(value : trm = trm_uninitialized()) (tg : target) : unit =
  Variable_basic.insert ~const ~reparse ~name ~typ ~value tg
 
 (* [insert_list ~const names typ values tg]: expects the target [tg] to be poiting to a location in a sequence
     then it wil insert a new variable declaration with [name], [typ] and initialization [value] *)
-let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) (tg : target) : unit =
+let%transfo insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) (tg : target) : unit =
   let defs = List.rev defs in
   reparse_after ~reparse (fun tg ->
     List.iter (fun (typ, name, value) ->
@@ -476,7 +476,7 @@ let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : 
   ) tg
 
 (* [insert_list_same_type typ name_vals tg]: inserts a list of variables with type [typ] and name and value give as argument in [name_vals]. *)
-let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (string * trm) list) (tg : target) : unit =
+let%transfo insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (string * trm) list) (tg : target) : unit =
   let const = false in
   reparse_after ~reparse (fun tg ->
     List.iter (fun (name, value) ->
@@ -495,7 +495,7 @@ let insert_list_same_type ?(reparse : bool = false) (typ : typ) (name_vals : (st
    LATER: document arguments passed to [bind].
    LATER: add arguments for marks that could remain at the end
 *)
-let bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ option) ?(dest : target = []) (fresh_name : var) (tg : target) : unit =
+let%transfo bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ option) ?(dest : target = []) (fresh_name : var) (tg : target) : unit =
   if dest = [] then fail None "bind_multi: optional dest not yet supported";
   (* mark all occurrences to be replaced *)
   let mark_tg = Mark.next() in
@@ -526,7 +526,7 @@ let bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : typ opti
    It takes a target that aims at one or more expressions.
    If multiple expressions are targeted, targeted expressions that are syntactically equal must correspond to semantically equal expressions.
    *)
-let bind_syntactic ?(dest : target = []) ?(fresh_name : var = "x${occ}") (tg : target) : unit =
+let%transfo bind_syntactic ?(dest : target = []) ?(fresh_name : var = "x${occ}") (tg : target) : unit =
   if dest = [] then fail None "bind_multi: optional dest not yet supported";
   Marks.with_marks (fun next_mark ->
   (* introduce a binding for every syntactically different occurrence *)

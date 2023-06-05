@@ -155,6 +155,7 @@ let%transfo split (tg : target) : unit =
         [braces] - denotes a flag for the visibility of the blocks meaning that this block partition will be meaningful only for
           other transformations that call explicitly the partition transformation. *)
 let%transfo partition ?(braces : bool = false) (blocks : int list) (tg : target) : unit =
+  Trace.step_justif "correct if scoping is respected (TODO: check)";
   if not braces then Internal.nobrace_enter();
   Target.apply_on_targets (Sequence_core.partition blocks braces) tg
 
