@@ -279,7 +279,7 @@ function loadSdiff(id) {
   loadDiffFromString(step.diff);
   var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
   if (optionExectime) {
-    var sTime = htmlSpan(step.exectime + "ms", "timing-info") + "<div style='clear: both'></div>";
+    var sTime = htmlSpan(Math.round(1000 * step.exectime) + "ms", "timing-info") + "<div style='clear: both'></div>";
     sStep += sTime;
   }
   displayInfo(sStep);
@@ -488,15 +488,19 @@ function initControls() {
   $("#contents").html(s);
 
   // initialize checkboxes
-  $('#option_Exectime').attr('checked', optionExectime);
-  $('#option_TargetSteps').attr('checked', optionTargetSteps);
-  $('#option_IOSteps').attr('checked', optionIOSteps);
-  $('#option_ShowAST').attr('checked', optionShowAST);
+  $('#option_Exectime').prop('checked', optionExectime);
+  $('#option_TargetSteps').prop('checked', optionTargetSteps);
+  $('#option_IOSteps').prop('checked', optionIOSteps);
+  $('#option_ShowAST').prop('checked', optionShowAST);
 }
 
 // handles modification of options by click on the checkboxes
 function updateOptions() {
   optionExectime = $('#option_Exectime').prop('checked');
+  if (optionExectime) {
+    optionIOSteps = true;
+    $('#option_IOSteps').prop('checked', optionIOSteps);
+  }
   optionTargetSteps = $('#option_TargetSteps').prop('checked');
   optionIOSteps = $('#option_IOSteps').prop('checked');
   optionShowAST = $('#option_ShowAST').prop('checked');
