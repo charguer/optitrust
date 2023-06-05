@@ -334,15 +334,18 @@ function nextBdiff() {
 // handles a click on a step, to view details
 function loadStep(idStep) {
   var step = steps[idStep];
+  loadDiffFromString(step.diff);
+  $("#diffDiv").show();
+  /*
   if (step.kind == "Target") {
     $("#diffDiv").show();
-    loadDiffFromString(step.diff);
     //loadSource(step.ast_after, true);
   } else {
     $("#diffDiv").hide();
     // loadSource(step.ast_before, true);
     loadSource(step.ast_before, true);
   }
+  */
 }
 
 function stepToHTML(step) {
@@ -502,7 +505,7 @@ function initSteps() {
     for (var i = 0; i < rootSub.length; i++) {
       var bigstep_id = rootSub[i];
       var bigstep = steps[bigstep_id];
-      if (smallstep.kind == "Parsing") {
+      if (bigstep.kind == "Parsing") {
         continue;
       }
       if (bigstep.kind != "Big") {
