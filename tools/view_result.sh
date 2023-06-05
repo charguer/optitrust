@@ -19,6 +19,14 @@ ${TRACEFLAGS:=""}
 
 # Path to tools folder and src folder
 TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0";)")
+SRC_FOLDER=$(readlink -f ${TOOLS_FOLDER}/../src)
+
+# Disallow execution in the src folder
+if [[ ${DIRNAME}/ == ${SRC_FOLDER}/* ]]
+then
+    echo "Cannot start view_result.sh in the src folder" >&2
+    exit 2
+fi
 
 # Save arguments for redo command
 echo "${TOOLS_FOLDER}/view_result.sh $*" > "${TOOLS_FOLDER}/_last_view_result.sh"

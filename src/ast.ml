@@ -1340,7 +1340,7 @@ let typ_has_attribute (att : attribute) (ty : typ) : bool =
   List.mem att ty.typ_attributes
 
 (* [TransfoError]: exception raised in case a transformation fails *)
-exception TransfoError of string
+exception TransfoError of location * string
 
 (* [Resolve_target_failure]: exception raised when a target couldn't be resolved *)
 exception Resolve_target_failure of location option * string
@@ -1348,22 +1348,27 @@ exception Resolve_target_failure of location option * string
 (* [loc_to_string loc]: pretty print a trm location *)
 let loc_to_string (loc : location) : string =
   match loc with
-  | None -> ""
+  | None -> "Unknown location"
   | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column};
-          loc_end = {pos_line = end_row; pos_col = end_column}} -> (filename ^ " start_location [" ^
-                                (string_of_int start_row) ^": " ^ (string_of_int start_column) ^" ]" ^
-                                " end_location [" ^ (string_of_int end_row) ^": " ^
-                                (string_of_int end_column) ^" ]")
+          loc_end = {pos_line = end_row; pos_col = end_column}} ->
+    if start_row <> end_row then
+      Printf.sprintf "File %s, lines %d-%d, columns %d-%d" filename start_row end_row start_column end_column
+    else if start_column <> end_column then
+      Printf.sprintf "File %s, line %d, columns %d-%d" filename start_row start_column end_column
+    else
+      Printf.sprintf "File %s, line %d, column %d" filename start_row start_column
+
+let _ = Printexc.register_printer (function
+  | TransfoError (loc, errmsg) -> Some (Printf.sprintf "%s: %s" (loc_to_string loc) errmsg)
+  | _ -> None)
 
 (* [fail loc err]: fails with error [err] raised at location [loc] *)
 let fail (loc : location) (err : string) : 'a =
-  match loc with
-  | None -> raise (TransfoError err)
-  | Some _ -> raise (TransfoError (loc_to_string loc ^ " : " ^ err))
+  raise (TransfoError (loc, err))
 
 let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
   try f () with
-  | TransfoError msg2 -> assert (msg = msg2)
+  | TransfoError (_, msg2) -> assert (msg = msg2)
 
 (* ********************************** Annotation manipulation ************************************ *)
 (**** Attributes  ****)

@@ -488,7 +488,7 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
 
     | _ -> failwith ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
     end with e when !Flags.resource_errors_as_warnings ->
-      Printf.eprintf "Resource computation warning: %s\n" (Printexc.to_string e);
+      Printf.eprintf "%s: Resource computation warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
       None
   in
 
@@ -496,7 +496,10 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
   t.ctx.ctx_resources_after <- res;
   match res, expected_res with
   | Some res, Some expected_res ->
-    assert_res_impl res expected_res;
+    begin try assert_res_impl res expected_res
+    with e when !Flags.resource_errors_as_warnings ->
+      Printf.eprintf "%s: Resource check warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
+    end;
     Some expected_res
   | _, None -> res
   | None, _ -> expected_res
