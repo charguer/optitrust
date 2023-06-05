@@ -15,6 +15,7 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
+
   !! Variable_basic.to_const [cVarDef "x"];
   !! Variable_basic.to_const [cVarDef "y"];
   !! Variable_basic.to_const [cVarDef "z"];
@@ -29,9 +30,17 @@ let _ = Run.script_cpp (fun _ ->
      => performs simpl_deref on the sequence that contains varDef q *)
   (*!! Variable_basic.simpl_deref ~indepth:true [cVarDef "r"];*)
   !! Variable_basic.to_const [cVarDef "r"];
-  
+
   !! Variable_basic.to_const [cVarDef "f"];
   !! Variable_basic.to_const [cVarDef "g"];
+
+  (* LATER: check failures
+
+  !! Variable_basic.to_const [cVarDef "bad"];
+  !! Trace.reparse();
+  !! Trace.failure_expected (fun () -> ());
+  *)
+
 )
 
 (* Note: recall that currently const references are not supported,
