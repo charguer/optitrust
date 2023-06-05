@@ -36,8 +36,9 @@ let new_add (label : string) : Target.Transfo.t =
    matching the target [tg].
 
    @correctness: always correct. *)
-let add (label : string) : Target.Transfo.t =
-  Target.apply_on_targets (Label_core.add label)
+let%transfo add (label : string) (tg:target) : unit =
+  Trace.step_justif_always_correct();
+  Target.apply_on_targets (Label_core.add label) tg
 
 (* [remove label tg]: removes a C-label named [label] matched by th target [tg]. *)
 let remove : Target.Transfo.t =

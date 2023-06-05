@@ -160,19 +160,49 @@ TIMER3=`date +%s%3N`
 # the line numbers in the relevant places. See documentation in add_lines.sh.
 ${TOOLS_FOLDER}/add_lines.sh ${SRCBASE}.ml ${SRCBASE}_with_lines.ml
 
+
 #==========================================================================
-# Compile the script
+# Check the dependencies
+# We need a rebuild of the cmx file if any src/ file is more recent
+# than the .ml script
 
 TIMER4=`date +%s%3N`
 
-${TOOLS_FOLDER}/build_cmxs.sh ${SRCBASE}_with_lines.ml
+NEEDS_REBUILD="1"
+
+find ${OPTITRUST_FOLDER}/src -name "*.ml" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f1-1 -d" "
+
+#%T@ gives you the modification time like a unix timestamp
+# sort -n sorts numerically,
+# tail -1 takes the last line (highest timestamp),
+# cut -f1 -d" " cuts away the second field (the filename) from the output
+
+#exit
+
+#todate=$(date -d 2013-07-18 +%s)
+#cond=$(date -d 2014-08-19 +%s)
+
+#if [ $todate -ge $cond ];
+#then
+#  NEEDS_REBUILD="1"
+#fi
+
+
+#==========================================================================
+# Compile the script
+
+TIMER5=`date +%s%3N`
+
+if [ "${NEEDS_REBUILD}" = "1" ]; then
+  ${TOOLS_FOLDER}/build_cmxs.sh ${SRCBASE}_with_lines.ml
+fi
 
 PROG="${SRCBASE}_with_lines.cmxs"
 
 #==========================================================================
 # Execute the script
 
-TIMER5=`date +%s%3N`
+TIMER6=`date +%s%3N`
 
 # if [ ! -z ${OPTIONS} ]; then
 echo "Execution options: ${OPTIONS}"
@@ -182,7 +212,7 @@ OCAMLRUNPARAM=b dune exec --no-build optitrust_runner -- ${PROG} ${OPTIONS} ${FL
 #==========================================================================
 # Open the output
 
-TIMER6=`date +%s%3N`
+TIMER7=`date +%s%3N`
 
 if [ "${MODE}" = "view_diff" ] || [ "${MODE}" = "view_diff_from_inter" ] || [ "${MODE}" = "view_diff_enc" ]; then
 
@@ -210,12 +240,13 @@ fi
 #==========================================================================
 # Report on execution time
 
-TIMER7=`date +%s%3N`
+TIMER8=`date +%s%3N`
 
 echo "Time process args: $((${TIMER2}-${TIMER1}))ms"
 echo "Time gen checkpoints: $((${TIMER3}-${TIMER2}))ms"
 echo "Time gen with-lines: $((${TIMER4}-${TIMER3}))ms"
-echo "Time build cmx:  $((${TIMER5}-${TIMER4}))ms"
-echo "Time dune exec: $((${TIMER6}-${TIMER5}))ms"
-echo "Time open result: $((${TIMER7}-${TIMER6}))ms"
-echo "Time total: $((${TIMER7}-${TIMER1}))ms"
+echo "Time dependencies:  $((${TIMER5}-${TIMER4}))ms"
+echo "Time build cmx: $((${TIMER6}-${TIMER5}))ms"
+echo "Time dune exec: $((${TIMER7}-${TIMER6}))ms"
+echo "Time open result: $((${TIMER8}-${TIMER7}))ms"
+echo "Time total: $((${TIMER8}-${TIMER1}))ms"

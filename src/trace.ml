@@ -275,13 +275,33 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     in
   the_trace.step_stack <- [step_root]
 
+(* [step_set_validity s] sets a computation to be valid if all its substeps are valid
+   and form a contiguous chain *)
+let step_set_validity (s : step_tree) : unit =
+  let infos = s.step_infos in
+  if not infos.step_valid then begin
+    if List.for_all (fun sub -> sub.step_infos.step_valid) s.step_sub then begin
+      let asts1: trm list = [s.step_ast_before] @
+        (List.map (fun sub -> sub.step_ast_after) s.step_sub);
+      in
+      let asts2: trm list = (List.map (fun sub -> sub.step_ast_before) s.step_sub) @
+        [s.step_ast_after]
+      in
+      (*printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts1);
+      printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts2);*)
+      let computed_validity = List.for_all2 (==) asts1 asts2 in
+      infos.step_valid <- computed_validity
+    end
+  end
+
 (* [finalize_step] is called by [close_root_step] and [close_step] *)
 let finalize_step (step : step_tree) : unit =
   let infos = step.step_infos in
   infos.step_exectime <- now() -. infos.step_time_start;
   infos.step_args <- List.rev infos.step_args;
   step.step_ast_after <- the_trace.cur_ast;
-  step.step_sub <- List.rev step.step_sub
+  step.step_sub <- List.rev step.step_sub;
+  step_set_validity step
 
 (* [get_root_step()] returns the root step, after close_root_step has been called *)
 let get_root_step () : step_tree =
@@ -345,6 +365,7 @@ let step_arg ~(name:string) ~(value:string) : unit =
   let infos = step.step_infos in
   infos.step_args <- (name,value)::infos.step_args
 
+(* [step_set_validity s] sets a computation to be valid if all its substeps are valid *)
 let step_set_validity (s : step_tree) : unit =
   let infos = s.step_infos in
   if not infos.step_valid then begin
@@ -354,6 +375,8 @@ let step_set_validity (s : step_tree) : unit =
     let asts2: trm list = (List.map (fun sub -> sub.step_ast_before) s.step_sub) @
       [s.step_ast_after]
     in
+    printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts1);
+    printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts2);
     let computed_validity = List.for_all2 (==) asts1 asts2 in
     infos.step_valid <- computed_validity
   end
@@ -374,10 +397,9 @@ let close_step ?(check:step_tree option) () : unit =
           if step != opened_step
             then failwith "close_step: not closing the expected step"
       end;
-      (* Computing validity *)
-      step_set_validity step;
-      (* Folding step into parent substeps *)
+      (* Finalize the step, by reversing the list of substeps and computing validity *)
       finalize_step step;
+      (* Folding step into parent substeps *)
       parent_step.step_sub <- step :: parent_step.step_sub;
       the_trace.step_stack <- stack_tail
 
@@ -881,6 +903,12 @@ let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
           | Some ty -> AstC_to_c.typ_to_string ty
           | None -> "-" in
         Target.trm_add_mark_at_paths markof ps t)
+
+  Example: show the address of each AST
+  let _ = Trace.trace_custom_postprocessing := (fun t ->
+    let markof _pi ti = Tools.pointer_to_string ti in
+    Target.trm_add_mark_at_paths markof [[]] t
+    )
 *)
 
 
