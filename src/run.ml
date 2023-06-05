@@ -164,7 +164,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
       | Stop -> ()
       | e when !Flags.dump_trace ->
           (* If dump-trace, try best effort to produce a partial trace *)
-          Trace.finalize_on_error();
+          Trace.finalize_on_error ~error:(Printexc.to_string e);
           produce_trace();
           Printf.printf "========> ERROR! showing trace nontheless\n";
           exit 0

@@ -149,7 +149,7 @@ type stepdescr = {
 
 
 (* [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_parsing | Step_scoped | Step_aborted | Step_interactive
+type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_parsing | Step_scoped | Step_aborted | Step_interactive | Step_error
 
 (* [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -163,6 +163,7 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_scoped -> "Scoped"
   | Step_aborted -> "Aborted"
   | Step_interactive -> "Interactive"
+  | Step_error -> "Error"
 
 (* [step_infos] *)
 type step_infos = {
@@ -449,9 +450,13 @@ let backtrack_on_failure (f : unit -> unit) : backtrack_result =
   close_step ~check:s ();
   res
 
-(* [parsing_step f] accounts for a parsing operation *)
+(* [parsing_step f] adds a step accounting for a parsing operation *)
 let parsing_step (f : unit -> unit) : unit =
   step ~valid:true ~kind:Step_parsing ~name:"" f
+
+(* [error_step f] adds a step accounting for a fatal error *)
+let error_step (error : string) : unit =
+  step ~valid:false ~kind:Step_error ~name:error (fun () -> ())
 
 (* [open_target_resolve_step] *)
 let open_target_resolve_step () : unit =
@@ -553,11 +558,11 @@ let finalize () : unit =
   close_root_step()
 
 (* [finalize_on_error()]: performs a best effort to close all steps after an error occurred *)
-let finalize_on_error () : unit =
+let finalize_on_error ~(error:string) : unit =
   let rec close_all_steps () : unit =
     match the_trace.step_stack with
     | [] -> failwith "close_close_all_stepsstep: the_trace should not be empty"
-    | [_root_step] -> finalize()
+    | [_root_step] -> error_step error; finalize()
     | _step :: _ -> close_step(); close_all_steps()
     in
   close_all_steps()

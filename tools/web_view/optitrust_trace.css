@@ -150,9 +150,14 @@ h2 {
 .step-invalid {
   background: #99c9ff;
 }
+.step-error {
+  background: #ff3939;
+  font-weight: bold;
+}
 .step-title:hover {
    cursor:pointer;
 }
+
 .exectime-heavy {
   background: #FF6666;
 }

@@ -360,7 +360,13 @@ function stepToHTML(step) {
     sSubs += "<li>" + stepToHTML(substep) + "</li>\n";
   }
   var validityClass = "";
-  validityClass = (step.isvalid) ? "step-valid" : "step-invalid";
+  if (step.kind == "Error") {
+    validityClass = "step-error";
+  } else if (step.isvalid) {
+    validityClass= "step-valid";
+  } else {
+    validityClass = "step-invalid";
+ }
   var sTime = "";
   if (optionExectime) {
     var t = 1000 * step.exectime; // milliseconds
