@@ -346,7 +346,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
   step
 
 (* [step_justif txt] is called by a transformation after open_step in order
-   to store an textual explaination of why it is correct. *)
+   to store explaination of why it is correct *)
 let step_justif (justif:string) : unit =
   let step = get_cur_step () in
   let infos = step.step_infos in
@@ -842,10 +842,12 @@ let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (
 (* [reparse ()]: function takes the current AST, prints it to a file, and parses it
    as if it was a fresh input. Doing so ensures in particular that all the type
    information is properly set up. WARNING: reparsing discards all the marks in the AST. *)
-let reparse ?(info : string = "") ?(parser: parser option) () : unit =
+let reparse ?(update_cur_ast : bool = true) ?(info : string = "") ?(parser: parser option) () : unit =
   parsing_step (fun () ->
     let info = if info <> "" then info else "the code during the step starting at" in
-    the_trace.cur_ast <- reparse_trm ~info ?parser the_trace.context the_trace.cur_ast
+    let tnew = reparse_trm ~info ?parser the_trace.context the_trace.cur_ast in
+    if update_cur_ast
+      then the_trace.cur_ast <- tnew
   )
 
 (* Work-around for a name clash *)

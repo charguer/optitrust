@@ -1714,12 +1714,14 @@ let get_toplevel_function_name_containing (dl : path) : string option =
 
 
 (* [reparse_only fun_nmaes]: reparse only those functions whose identifier is contained in [fun_names]. *)
-let reparse_only (fun_names : string list) : unit =
+let reparse_only ?(update_cur_ast : bool = true) (fun_names : string list) : unit =
   Trace.parsing_step (fun () -> Trace.call (fun t ->
     let chopped_ast, chopped_ast_map  =  hide_function_bodies (function f -> not (List.mem f fun_names)) t in
-    let parsed_chopped_ast = Trace.reparse_trm  (Trace.get_context ()) chopped_ast in
-    let new_ast = update_chopped_ast parsed_chopped_ast chopped_ast_map in
-    Trace.set_ast new_ast
+    let parsed_chopped_ast = Trace.reparse_trm (Trace.get_context ()) chopped_ast in
+    if update_cur_ast then begin
+      let new_ast = update_chopped_ast parsed_chopped_ast chopped_ast_map in
+      Trace.set_ast new_ast
+    end
   ))
 
 (* [get_relative_type tg]: get the type of target relative , Before, After, First Last. *)
@@ -1745,7 +1747,7 @@ let get_relative_type (tg : target) : target_relative option =
 (* TODO: change strategy for reparse, probably based on missing types?
    else on annotations added by clangml but cleared by smart-constructors
    TODO URGENT: the resolve_target does not work with the new Dir_before system *)
-let reparse_after ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit =
+let reparse_after ?(update_cur_ast : bool = true) ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit =
     if not reparse then tr tg else begin
       let tg = enable_multi_targets tg in
       let ast = (get_ast()) in
@@ -1763,9 +1765,9 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit
       if !Flags.use_light_diff then begin
         let fun_names = List.map get_toplevel_function_name_containing tg_paths in
         let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
-        reparse_only fun_names
+        reparse_only ~update_cur_ast fun_names
       end else
-        Trace.reparse();
+        Trace.reparse ~update_cur_ast ();
     end
 
 (* LATER: use this more efficient version that avoids computing path resolution twice

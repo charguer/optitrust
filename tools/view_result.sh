@@ -160,6 +160,7 @@ TIMER3=`date +%s%3N`
 # the line numbers in the relevant places. See documentation in add_lines.sh.
 ${TOOLS_FOLDER}/add_lines.sh ${SRCBASE}.ml ${SRCBASE}_with_lines.ml
 
+PROG="${SRCBASE}_with_lines.cmxs"
 
 #==========================================================================
 # Check the dependencies
@@ -168,24 +169,17 @@ ${TOOLS_FOLDER}/add_lines.sh ${SRCBASE}.ml ${SRCBASE}_with_lines.ml
 
 TIMER4=`date +%s%3N`
 
-NEEDS_REBUILD="1"
+LAST_MODIF_LIB=`find ${OPTITRUST_FOLDER}/src -name "*.ml" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f2-2 -d" "`
 
-find ${OPTITRUST_FOLDER}/src -name "*.ml" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f1-1 -d" "
+NEEDS_REBUILD="0"
 
-#%T@ gives you the modification time like a unix timestamp
-# sort -n sorts numerically,
-# tail -1 takes the last line (highest timestamp),
-# cut -f1 -d" " cuts away the second field (the filename) from the output
-
-#exit
-
-#todate=$(date -d 2013-07-18 +%s)
-#cond=$(date -d 2014-08-19 +%s)
-
-#if [ $todate -ge $cond ];
-#then
-#  NEEDS_REBUILD="1"
-#fi
+if [ ${LAST_MODIF_LIB} -nt ${PROG} ]; then
+  echo "Compiled cmx is out of date compared with ${LAST_MODIF_LIB}"
+  NEEDS_REBUILD="1"
+elif [ ${FILEBASE}.ml -nt ${PROG} ]; then
+  echo "Compiled cmx is out of date compared with ${FILEBASE}.ml"
+  NEEDS_REBUILD="1"
+fi
 
 
 #==========================================================================
@@ -194,10 +188,12 @@ find ${OPTITRUST_FOLDER}/src -name "*.ml" -type f -printf '%T@ %p\n' | sort -n |
 TIMER5=`date +%s%3N`
 
 if [ "${NEEDS_REBUILD}" = "1" ]; then
+   echo "Building cmxs file"
   ${TOOLS_FOLDER}/build_cmxs.sh ${SRCBASE}_with_lines.ml
+else
+   echo "Skipping build of cmxs file"
 fi
 
-PROG="${SRCBASE}_with_lines.cmxs"
 
 #==========================================================================
 # Execute the script
