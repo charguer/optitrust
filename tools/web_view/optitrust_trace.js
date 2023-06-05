@@ -43,6 +43,7 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 
 
 // checkbox status; may change default values here
+var optionDetails = true;
 var optionTargetSteps = false;
 var optionExectime = false;
 var optionIOSteps = false;
@@ -196,10 +197,10 @@ function loadDiffFromString(diffString) {
 }
 
 function resetView() {
-  $("#sourceDiv").hide();
+  /*$("#sourceDiv").hide();
   $("#diffDiv").hide();
   $("#detailsDiv").html("");
-  $("#infoDiv").html("");
+  $("#infoDiv").html("");*/
   curSource = -1;
   curSdiff = -1;
   curBdiff = -1;
@@ -276,6 +277,7 @@ function loadSdiff(id) {
   $("#diffDiv").show();
   var step = smallsteps[id];
   selectedStep = step;
+  reloadView(); //loadStepDetails(step.id);
   loadDiffFromString(step.diff);
   var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
   if (optionExectime) {
@@ -298,6 +300,7 @@ function loadBdiff(id) {
   $("#diffDiv").show();
   var step = bigsteps[id];
   selectedStep = step;
+  reloadView(); // loadStepDetails(step.id);
   loadDiffFromString(step.diff);
   $("#button_bdiff_" + id).addClass("ctrl-button-selected");
   var sStep = htmlSpan(escapeHTML(step.script), "step-info");
@@ -312,9 +315,9 @@ function loadBdiff(id) {
 
 // LATER: simplify, as curSource is deprecated
 function nextSdiff() {
-  if (curSdiff == -1 && curSource != -1) {
+  /*if (curSdiff == -1 && curSource != -1) {
     curSdiff = curSource - 1;
-  }
+  }*/
   //var id = Math.min(curSdiff + 1, smallsteps.length-1);
   var id = (curSdiff + 1) % smallsteps.length;
   loadSdiff(id);
@@ -322,19 +325,23 @@ function nextSdiff() {
 
 // LATER: simplify, as curSource is deprecated
 function nextBdiff() {
-  if (curBdiff == -1) {
+  /*if (curBdiff == -1) {
     if (curSdiff == -1 && curSource != -1) {
       curSdiff = curSource - 1;
     }
     curBdiff = getBdiffCovering(curSdiff) - 1; // anticipate for the +1 operation
   }
   //var id = Math.min(curBdiff + 1, bigsteps.length-1);
+  if (curBdiff == -1) {
+    curBdiff = 0;
+  }*/
   var id = (curBdiff + 1) % bigsteps.length;
+  console.log(id);
   loadBdiff(id);
 }
 
 // handles a click on a step, to view details
-function loadStep(idStep) {
+function loadStepDetails(idStep) {
   var step = steps[idStep];
   if (optionShowAST) {
     loadSource(step.ast_after, true);
@@ -413,7 +420,7 @@ function stepToHTML(step) {
   }
   var sOnClick = "";
   if (step.hasOwnProperty("id")) { // LATER: refine
-    sOnClick = "onclick='loadStep(" + step.id + ")'";
+    sOnClick = "onclick='loadStepDetails(" + step.id + ")'";
   }
 
   s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + " [" + sKind + "] " + escapeHTML(step.name) + " " + sScript + "</div>";
@@ -424,23 +431,33 @@ function stepToHTML(step) {
   return s;
 }
 
-// handles click on the "details" button
-function toggleDetails() {
-  var shouldShowDetails = ($("#detailsDiv").html() == "");
+function reloadView() {
+  // var shouldShowDetails = ($("#detailsDiv").html() == "");
   resetView();
-  if (shouldShowDetails) {
-    $("#diffDiv").hide();
-    $("#detailsDiv").html(stepToHTML(selectedStep));
+  if (optionDetails) {
+    $("#detailsDiv").show();
   } else {
-    $("#detailsDiv").html("");
+    $("#detailsDiv").hide();
   }
+  if (typeof selectedStep !== "undefined") {
+    loadStepDetails(selectedStep.id); // TODO inline here?
+    $("#detailsDiv").html(stepToHTML(selectedStep));
+  }
+
+  //if (shouldShowDetails) {
+  //  $("#diffDiv").hide();
+
+  //} else {
+  //  $("#detailsDiv").html("");
+  //}
 }
 
 // handles click on the "all" button
 function viewDetailsAll() {
-  $("#diffDiv").hide();
+  // $("#diffDiv").hide();
   selectedStep = steps[0]; // root
-  $("#detailsDiv").html(stepToHTML(selectedStep));
+  reloadView();
+  // $("#detailsDiv").html(stepToHTML(selectedStep));
 }
 
 function initControls() {
@@ -478,8 +495,9 @@ function initControls() {
   addRow("SmallSteps", sSdiff);
 
   // Details button
-  s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
+  // s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
   s += htmlButton("button_all", "all", "details-button", "viewDetailsAll()");
+  s += htmlCheckbox("option_Details", "details", "details-checkbox", "updateOptions()");
   s += htmlCheckbox("option_Exectime", "exectime", "details-checkbox", "updateOptions()");
   s += htmlCheckbox("option_TargetSteps", "target-steps", "details-checkbox", "updateOptions()");
   s += htmlCheckbox("option_IOSteps", "io-steps", "details-checkbox", "updateOptions()");
@@ -488,6 +506,7 @@ function initControls() {
   $("#contents").html(s);
 
   // initialize checkboxes
+  $('#option_Details').prop('checked', optionDetails);
   $('#option_Exectime').prop('checked', optionExectime);
   $('#option_TargetSteps').prop('checked', optionTargetSteps);
   $('#option_IOSteps').prop('checked', optionIOSteps);
@@ -496,6 +515,7 @@ function initControls() {
 
 // handles modification of options by click on the checkboxes
 function updateOptions() {
+  optionDetails = $('#option_Details').prop('checked');
   optionExectime = $('#option_Exectime').prop('checked');
   if (optionExectime) {
     optionIOSteps = true;
@@ -504,7 +524,7 @@ function updateOptions() {
   optionTargetSteps = $('#option_TargetSteps').prop('checked');
   optionIOSteps = $('#option_IOSteps').prop('checked');
   optionShowAST = $('#option_ShowAST').prop('checked');
-  toggleDetails(); toggleDetails();
+  reloadView();
 }
 
 function initSteps() {
@@ -583,7 +603,7 @@ document.addEventListener('DOMContentLoaded', function () {
     stepInit = startupOpenStep;
   }
   selectedStep = steps[stepInit];
-  toggleDetails(); // calls loadStep(selectedStep)
+  reloadView(); // calls loadStepDetails(selectedStep)
 });
 
 // alternative:

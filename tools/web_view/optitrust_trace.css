@@ -202,8 +202,8 @@ h2 {
 }
 
 .resizing-handle {
-  background: transparent;
-  width: 10px;
+  background: rgb(192, 192, 192); /*transparent;*/
+  width: 8px;
   margin: 0 -5px;
   cursor:col-resize;
   z-index: 999;
