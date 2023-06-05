@@ -98,6 +98,7 @@ h2 {
   min-width: 5em;
   margin-top: 8px;
   text-align: center;
+  margin-right: 1em;
 }
 
 .next-button {
@@ -147,6 +148,10 @@ h2 {
 .step-valid, .step-justif {
   background: #99ffc9;
 }
+.step-justif {
+  margin-left: 3em;
+}
+
 .step-invalid {
   background: #99c9ff;
 }

@@ -866,15 +866,34 @@ let cmd s =
   (* FOR DEBUG Printf.printf "execute: %s\n" s; flush stdout; *)
   ignore (Sys.command s)
 
+(* [trace_custom_postprocessing] is a function applied to all ast-after that are dumped in the trace;
+   for debugging purposes only *)
+let trace_custom_postprocessing : (trm -> trm) ref = ref (fun t -> t)
+
+(* EXAMPLE POSTPROCESSING: display the type of every statement;
+   place this definition at the top of your script.
+
+      let _ = Trace.trace_custom_postprocessing := (fun t ->
+        let tg = [nbAny; cPred (fun ti -> ti.is_statement)] in
+        let ps = resolve_target tg t in
+        let markof _pi ti =
+          match ti.typ with
+          | Some ty -> AstC_to_c.typ_to_string ty
+          | None -> "-" in
+        Target.trm_add_mark_at_paths markof ps t)
+*)
+
+
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (* [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)
 let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bool = false) (get_next_id:unit->int) (out:string->unit) (id:int) (s:step_tree) : unit =
   let i = s.step_infos in
   (* Report diff and AST for details *)
+  let is_smallstep_of_targeted_line =
+    (i.step_script_line <> Some (-1)) && (* LATER: use options *)
+    (i.step_script_line = Some !Flags.trace_details_only_for_line) in
   let is_substep_of_targeted_line =
-      is_substep_of_targeted_line
-    || (i.step_script_line = Some !Flags.trace_details_only_for_line)
-    in
+      is_substep_of_targeted_line || is_smallstep_of_targeted_line in
   let details =
         (!Flags.trace_details_only_for_line = -1) (* details for all steps *)
      || s.step_kind = Step_big
@@ -894,8 +913,10 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
   let ctx = the_trace.context in
   let sBefore, sAfter, sDiff =
     if details then begin
-      output_prog ~beautify ctx "tmp_before" s.step_ast_before;
-      output_prog ~beautify ctx "tmp_after" s.step_ast_after;
+      let ast_before = !trace_custom_postprocessing s.step_ast_before in
+      let ast_after = !trace_custom_postprocessing s.step_ast_after in
+      output_prog ~beautify ctx "tmp_before" ast_before;
+      output_prog ~beautify ctx "tmp_after" ast_after;
       let sBefore = compute_command_base64 "cat tmp_before.cpp" in
       let sAfter = compute_command_base64 "cat tmp_after.cpp" in
       let sDiff = compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp" in
@@ -922,6 +943,9 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
       "diff", Json.base64 sDiff;
     ] in
   out (sprintf "steps[%d] = %s;\n" id (Json.to_string json));
+  (* If this step is the targeted step, mention it as such *)
+  if is_smallstep_of_targeted_line
+    then out (sprintf "var startupOpenStep = %d;\n" id);
   (* Process sub-steps recursively *)
   List.iter2 aux sub_ids s.step_sub
 
@@ -930,6 +954,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
    contents of the step_tree. The JS file is structured as follows
    (up to the order of the definitions):
 
+   var startupOpenStep = 45; // optional binding
    var steps = [];
    steps[i] = {
       id: i,

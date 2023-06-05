@@ -1466,6 +1466,28 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 (*                                   New target system TODO: deprecate old one *)
 (******************************************************************************)
 
+(* [trm_add_marks_at_paths marks ps t] adds at the paths [ps] the marks named
+   [marks] in the term [t], and returns the resulting term. *)
+(* LATER: could use a system to set all the marks in a single pass over the ast,
+    able to hand the Dir_before *)
+let trm_add_marks_at_paths (marks:mark list) (ps:paths) (t:trm) : trm =
+  if List.length ps <> List.length marks
+    then failwith "trm_add_marks_at_paths: expects as many marks as paths";
+  List.fold_left2 (fun t p m ->
+      match last_dir_before_inv p with
+      | None -> apply_on_path (trm_add_mark m) t p
+      | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
+    t ps marks
+
+(* [trm_add_mark_at_paths markof ps t] adds a mark computed as
+   [markof pi ti] at the path [pi] reaching a subterm [ti]
+   among the list of paths [ps] *)
+let trm_add_mark_at_paths (markof:path->trm->mark) (ps:paths) (t:trm) : trm =
+  let marks = List.map (fun pi ->
+    let ti = Path.get_trm_at_path pi t in
+    markof pi ti) ps in
+  trm_add_marks_at_paths marks ps t
+
 (* LATER: add an optimization flag for transformations who know that they don't
    break the paths in the case of multiple targets, this avoids placing marks
    in the tree when -dump-trace is not requested *)
@@ -1499,13 +1521,7 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
     | _ ->
       (* LATER: optimization to avoid mark for first occurrence *)
       let marks = List.map (fun _ -> Mark.next()) ps in
-      (* LATER: could use a system to set all the marks in a single pass over the ast,
-          able to hand the Dir_before *)
-      let t = List.fold_left2 (fun t p m ->
-        match last_dir_before_inv p with
-        | None -> apply_on_path (trm_add_mark m) t p
-        | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
-        t ps marks in
+      let t = trm_add_marks_at_paths marks ps t in
       Trace.set_ast t;
       (* Iterate over these marks *)
       try

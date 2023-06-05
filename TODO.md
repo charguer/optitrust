@@ -178,3 +178,12 @@ gnome-terminal --geometry 100x30+0+0 -e "bash -c \"~/shared/verified_transfo/src
 
 
 prevent generation of .ml files in folders by shortcuts
+
+
+todate=$(date -d 2013-07-18 +%s)
+cond=$(date -d 2014-08-19 +%s)
+
+if [ $todate -ge $cond ];
+then
+    break
+fi
