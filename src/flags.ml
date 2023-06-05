@@ -36,6 +36,9 @@ let set_dump_clang_ast () : unit =
 (* [dump_trace]: call [Trace.dump_trace_to_js] in addition to [Trace.dump] at the end of the script. *)
 let dump_trace : bool ref = ref false
 
+(* [trace_details_only_for_target_line]: whether to skip diff and ASTs for steps others than bigsteps and smallsteps, and for the substeps of the step targeted. *)
+let trace_details_only_for_line : int ref = ref (-1)
+
 (* [dump_big_steps]: call [Trace.dump_big_steps] in addition to [Trace.dump] at the end of the script.
    Files are generated in the subfolder [!dump_big_steps].  *)
 let dump_big_steps : string option ref = ref None
@@ -155,6 +158,7 @@ let spec : cmdline_args =
      ("-debug-reparse", Arg.Set debug_reparse, " print on stdout the line number at which each reparse is performed");
      ("-reparse-at-big-steps", Arg.Set reparse_at_big_steps, " force reparsing at every big step (implies -debug-reparse)");
      ("-dump-trace", Arg.Set dump_trace, " produce a JS file with all the steps performed by the transformation script");
+     ("-trace-details-only-for-line", Arg.Set_int trace_details_only_for_line, " speedup up the construction of the trace by only dumping diff and ASTs for one targeted smallstep");
      ("-dump-small-steps", Arg.String set_dump_small_steps, " produce a distinct file for each small step");
      ("-dump-big-steps", Arg.String set_dump_big_steps, " produce a distinct file for each big step");
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");

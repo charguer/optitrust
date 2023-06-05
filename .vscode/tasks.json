@@ -85,6 +85,22 @@ file{
         ]
       },
       {
+        "label": "View trace with -trace-details-only-for-line",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "../tools/view_result.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_trace",
+            "-trace-details-only-for-line ${lineNumber}"
+        ]
+      },
+      {
         "label": "View big step diff",
         "type": "shell",
         "command": "./run_action.sh",

@@ -111,9 +111,15 @@ LATER
     {
     "key":"shift+f5",
     "command": "workbench.action.tasks.runTask",
-    "args": "Compile the current test with -dump-trace",
-    // "when": "resourceDirname =~ /^.*\/verified_transfo\/src\/tests\/.*$/"
+    "args": "View trace",
+     // "args": "Compile the current test with -dump-trace",
   },
+    {
+    "key":"alt+f5",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View trace with -trace-details-only-for-line",
+  },
+
 
 
 
