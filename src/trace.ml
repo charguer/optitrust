@@ -871,10 +871,10 @@ let cmd s =
 let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bool = false) (get_next_id:unit->int) (out:string->unit) (id:int) (s:step_tree) : unit =
   let i = s.step_infos in
   (* Report diff and AST for details *)
+  let is_smallstep_of_targeted_line =
+    (i.step_script_line = Some !Flags.trace_details_only_for_line) in
   let is_substep_of_targeted_line =
-      is_substep_of_targeted_line
-    || (i.step_script_line = Some !Flags.trace_details_only_for_line)
-    in
+      is_substep_of_targeted_line || is_smallstep_of_targeted_line in
   let details =
         (!Flags.trace_details_only_for_line = -1) (* details for all steps *)
      || s.step_kind = Step_big
@@ -922,6 +922,9 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
       "diff", Json.base64 sDiff;
     ] in
   out (sprintf "steps[%d] = %s;\n" id (Json.to_string json));
+  (* If this step is the targeted step, mention it as such *)
+  if is_smallstep_of_targeted_line
+    then out (sprintf "var startupOpenStep = %d;\n" id);
   (* Process sub-steps recursively *)
   List.iter2 aux sub_ids s.step_sub
 
@@ -930,6 +933,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
    contents of the step_tree. The JS file is structured as follows
    (up to the order of the definitions):
 
+   var startupOpenStep = 45; // optional binding
    var steps = [];
    steps[i] = {
       id: i,

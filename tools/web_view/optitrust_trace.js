@@ -4,7 +4,7 @@
 // TODO: restore the feature of displaying sources at lines
 
 /*
-
+var startupOpenStep = 45; // optional binding
 var steps = [];
 steps[0] = {
    id: 0, // corresponds to the step number
@@ -46,6 +46,7 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 var optionTargetSteps = false;
 var optionExectime = false;
 var optionIOSteps = false;
+var optionShowAST = false;
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -335,8 +336,16 @@ function nextBdiff() {
 // handles a click on a step, to view details
 function loadStep(idStep) {
   var step = steps[idStep];
-  loadDiffFromString(step.diff);
-  $("#diffDiv").show();
+  if (optionShowAST) {
+    loadSource(step.ast_after, true);
+    $("#diffDiv").hide();
+    $("#sourceDiv").show();
+  } else {
+    loadDiffFromString(step.diff);
+    $("#diffDiv").show();
+    $("#sourceDiv").hide();
+  }
+
   /*
   if (step.kind == "Target") {
     $("#diffDiv").show();
@@ -466,6 +475,7 @@ function initControls() {
   s += htmlCheckbox("option_Exectime", "exectime", "details-checkbox", "updateOptions()");
   s += htmlCheckbox("option_TargetSteps", "target-steps", "details-checkbox", "updateOptions()");
   s += htmlCheckbox("option_IOSteps", "io-steps", "details-checkbox", "updateOptions()");
+  s += htmlCheckbox("option_ShowAST", "show-ast", "details-checkbox", "updateOptions()");
 
   $("#contents").html(s);
 
@@ -473,6 +483,7 @@ function initControls() {
   $('#option_Exectime').attr('checked', optionExectime);
   $('#option_TargetSteps').attr('checked', optionTargetSteps);
   $('#option_IOSteps').attr('checked', optionIOSteps);
+  $('#option_ShowAST').attr('checked', optionShowAST);
 }
 
 // handles modification of options by click on the checkboxes
@@ -480,6 +491,7 @@ function updateOptions() {
   optionExectime = $('#option_Exectime').prop('checked');
   optionTargetSteps = $('#option_TargetSteps').prop('checked');
   optionIOSteps = $('#option_IOSteps').prop('checked');
+  optionShowAST = $('#option_ShowAST').prop('checked');
   toggleDetails(); toggleDetails();
 }
 
@@ -552,9 +564,13 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   $('#button_bdiff_next').focus();
 
-  // start by showing the tree of steps on the root
-  selectedStep = steps[0];
-  toggleDetails();
+  // start by showing the tree of steps on the root, or the requested step
+  var stepInit = 0; // root
+  if (typeof startupOpenStep !== "undefined") {
+    stepInit = startupOpenStep;
+  }
+  selectedStep = steps[stepInit];
+  toggleDetails(); // calls loadStep(selectedStep)
 });
 
 // alternative:
