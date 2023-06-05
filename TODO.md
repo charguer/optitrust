@@ -187,3 +187,18 @@ if [ $todate -ge $cond ];
 then
     break
 fi
+
+#DATE_MODIF_LIB=`find ${OPTITRUST_FOLDER}/src -name "*.ml" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f1-1 -d" "`
+#DATE_MODIF_SRC=`find . -name "${FILEBASE}.ml" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f1-1 -d" "`
+#DATE_MODIF_CMX=`find . -name "${PROG}" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f1-1 -d" "`
+
+# Explainations:
+#   %T@ gives you the modification time like a unix timestamp
+#   sort -n sorts numerically,
+#   tail -1 takes the last line (highest timestamp),
+#   cut -f1 -d" " cuts away the second field (the filename) from the output
+
+
+#if (( $(echo "${DATE_MODIF_CMX} > ${DATE_MODIF_LIB}" |bc -l) )); then
+#  echo "cmx more recent than lib"
+#fi

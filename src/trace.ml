@@ -346,7 +346,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
   step
 
 (* [step_justif txt] is called by a transformation after open_step in order
-   to store an textual explaination of why it is correct. *)
+   to store explaination of why it is correct *)
 let step_justif (justif:string) : unit =
   let step = get_cur_step () in
   let infos = step.step_infos in
