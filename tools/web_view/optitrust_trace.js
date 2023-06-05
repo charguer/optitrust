@@ -544,6 +544,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initEditor();
   initSteps();
   initControls();
+  initSplitView();
   // editor.setValue("click on a button");
   if (hasBigsteps) {
     loadBdiff(0); }
@@ -559,3 +560,67 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // alternative:
 // but there could be many lines..
+
+
+//// vertical split resizing
+
+var resizer, leftSplit, rightSplit;
+
+function initSplitView() {
+  resizer = document.getElementById('vSplitDiv');
+  leftSplit = resizer.previousElementSibling;
+  rightSplit = resizer.nextElementSibling;
+  resizer.addEventListener('mousedown', mouseDownHandler);
+}
+
+// The current position of mouse
+let x = 0;
+let y = 0;
+
+// Width of left side
+let leftWidth = 0;
+
+// Handle the mousedown event
+// that's triggered when user drags the resizer
+const mouseDownHandler = function (e) {
+    // Get the current mouse position
+    x = e.clientX;
+    y = e.clientY;
+
+    leftWidth = leftSplit.getBoundingClientRect().width;
+
+    // Attach the listeners to `document`
+    document.addEventListener('mousemove', mouseMoveHandler);
+    document.addEventListener('mouseup', mouseUpHandler);
+};
+
+const mouseMoveHandler = function (e) {
+  // How far the mouse has been moved
+  const dx = e.clientX - x;
+  const dy = e.clientY - y;
+
+  const newLeftWidth = ((leftWidth + dx) * 100) / resizer.parentNode.getBoundingClientRect().width;
+  leftSplit.style.width = `${newLeftWidth}%`;
+
+  document.body.style.cursor = 'col-resize';
+  leftSplit.style.userSelect = 'none';
+  leftSplit.style.pointerEvents = 'none';
+
+  rightSplit.style.userSelect = 'none';
+  rightSplit.style.pointerEvents = 'none';
+};
+
+const mouseUpHandler = function () {
+  resizer.style.removeProperty('cursor');
+  document.body.style.removeProperty('cursor');
+
+  leftSplit.style.removeProperty('user-select');
+  leftSplit.style.removeProperty('pointer-events');
+
+  rightSplit.style.removeProperty('user-select');
+  rightSplit.style.removeProperty('pointer-events');
+
+  // Remove the handlers of `mousemove` and `mouseup`
+  document.removeEventListener('mousemove', mouseMoveHandler);
+  document.removeEventListener('mouseup', mouseUpHandler);
+};

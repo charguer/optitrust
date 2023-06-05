@@ -176,3 +176,32 @@ h2 {
   padding-left: 2px;
   padding-bottom: 1px;
 }
+
+/* ---- vertical split view */
+
+.split-pane {
+  display: flex;
+  /* flex-direction: row; */
+  outline: 1px solid #888;
+}
+
+.left-pane {
+  background: #EEE;
+  border-right: 1px solid #CCC;
+}
+
+.right-pane {
+  background: #FFF;
+  flex: 1 1 0%;
+  /* flex-grow: 1; */
+}
+
+.resizing-handle {
+  background: transparent;
+  width: 10px;
+  margin: 0 -5px;
+  cursor:col-resize;
+  z-index: 999;
+}
+
+/* ---- */
