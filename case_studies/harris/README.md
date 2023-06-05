@@ -28,6 +28,9 @@ make bench_[name]
 - improve 'acc' variable renaming step
   - `Variable.rename ~add_suffix:array` / `Variable.rename ~op:AddSuffix(array)`
   - allow renaming to depend on context (e.g. `acc_${out}`)
+- `List.iter local_matrix`
+  - `("gray", [Some (expr "by", int 36);  None])`
+  - `("gray", [(dim1, (expr "by", int 36))])`
 - FIXME: duplicates even with suffix:
   ```
   !! ["conv3x3"; "sobelX"; "sobelY"; (* "binomial"; *) "mul"; "coarsity"] |>  List.iter (fun fun_to_inline ->

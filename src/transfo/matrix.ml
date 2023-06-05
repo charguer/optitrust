@@ -247,13 +247,14 @@ let delete_alias = delete
 (* [local_name_tile]: like the basic transfo, but deletes the
    original matrix if [delete] is true or if [into] is empty.
    *)
-let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : var = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : var = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   let (delete, rename, into) = if into = ""
     then (true, true, fresh_var ())
     else (delete, false, into)
   in
-  Target.iter (fun t p ->
-    Matrix_basic.local_name_tile ~indices ?alloc_instr v ~into tile ~local_ops (target_of_path p);
+  Marks.with_fresh_mark (fun mark_accesses -> Target.iter (fun t p ->
+    Matrix_basic.local_name_tile ~mark_accesses ~indices ?alloc_instr v ~into tile ~local_ops (target_of_path p);
+    simpl [cMark mark_accesses];
     if delete then begin
       let (_, surrounding_seq) = Path.index_in_seq p in
       let surrounding_tg = target_of_path surrounding_seq in
@@ -269,4 +270,4 @@ let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = [])
           Variable_basic.rename ~into:v [cMark m; cVarDef into];
       )
     end
-  ) tg
+  ) tg)

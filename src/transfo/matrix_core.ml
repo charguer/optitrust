@@ -134,14 +134,14 @@ let free (t : trm) : trm = trm_free t
 let free_inv (t : trm) : trm option = trm_free_inv t
 
 (* [replace_all_accesses]: replace all accesses to [prev_v] in [t] with accesses to [v], using new [dims] and changing indices with [map_indices].*)
-let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices : (trm -> trm) list) (t : trm) : trm =
+let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices : (trm -> trm) list) (mark : mark option) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match access_inv t with
     | Some (f, prev_dims, prev_indices) ->
       begin match trm_var_get_inv f with
       | Some (_, n) when n = prev_v ->
         let indices = List.map2 (fun m i -> m i) map_indices prev_indices in
-        access (trm_var_get v) dims indices
+        trm_may_add_mark mark (access (trm_var_get v) dims indices)
       | _ -> trm_map aux t
       end
     | None ->
@@ -325,7 +325,7 @@ let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices local_ops)
 
 (* TODO: Factorize *)
-let local_name_tile_aux (mark : mark option) (var : var) (tile : nd_tile) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (var list) )(local_ops : local_ops) (t : trm) : trm =
+let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var : var) (tile : nd_tile) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (var list) )(local_ops : local_ops) (t : trm) : trm =
   let dims, size, zero_init = malloc_trms in
   let local_var_type = var_type in
   let init = if zero_init then Some (trm_int 0) else None in
@@ -337,7 +337,7 @@ let local_name_tile_aux (mark : mark option) (var : var) (tile : nd_tile) (local
   let tile_indices = List.map2 (fun (offset, _) ind -> trm_sub ind offset) tile indices in
   let alloc_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc ?init tile_dims size )) in
   let map_indices = List.map (fun (offset, size) -> fun i -> trm_sub i offset) tile in
-  let new_t = replace_all_accesses var local_var tile_dims map_indices t in
+  let new_t = replace_all_accesses var local_var tile_dims map_indices mark_accesses t in
   let final_trm = begin match local_ops with
     | Local_arith _ ->
       let write_on_local_var =
@@ -365,8 +365,8 @@ let local_name_tile_aux (mark : mark option) (var : var) (tile : nd_tile) (local
 
 
 (* [local_name_tile]: applies [local_name_tile_aux] at trm [t] with path [p]. *)
-let local_name_tile (mark : mark option) (var : var) (tile : nd_tile) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : var list ) (local_ops : local_ops) : Target.Transfo.local =
-  Target.apply_on_path (local_name_tile_aux mark var tile local_var malloc_trms var_type indices local_ops)
+let local_name_tile (mark : mark option) (mark_accesses : mark option) (var : var) (tile : nd_tile) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : var list ) (local_ops : local_ops) : Target.Transfo.local =
+  Target.apply_on_path (local_name_tile_aux mark mark_accesses var tile local_var malloc_trms var_type indices local_ops)
 
 
 (* TODO: Factorize me *)

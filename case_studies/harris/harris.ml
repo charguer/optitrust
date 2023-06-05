@@ -66,17 +66,14 @@ let _ = Run.script_cpp (fun () ->
   !! Image.loop_align_stop_extend_start ~start:(trm_var "by") ~stop:(expr "min(h, by + 36)") [nbMulti; cFor "y" ~body:[any cArrayWrite ["ix"; "out"]]];
   !! simpl_mins [];
   !! Loop.fusion_targets [cFor "y" ~body:[any cArrayWrite ["gray"; "ix"; "ixx"; "out"]]];
-  let local_matrix (m, tile) = (* TODO remove ~indices *)
-    Matrix.local_name_tile m ~alloc_instr:[cVarDef m] ~indices:["y"; "x"] tile [cFunBody "harris"; cFor ~body:[cArrayWrite m] "y"]
-  in (* LATER: ("gray", [Some (expr "by", int 36);  None]);  *)
-    (* LATER: ("gray", [(dim1, (expr "by", int 36))]);  *)
+  let local_matrix (m, tile) =
+    Matrix.local_name_tile m ~simpl ~alloc_instr:[cVarDef m] tile [cFunBody "harris"; cFor ~body:[cArrayWrite m] "y"]
+  in
   !! List.iter local_matrix [
     ("gray", [(expr "by", int 36); (int 0, expr "w")]);
     ("ix", [(expr "by", int 34); (int 0, expr "w - 2")]);
     ("iy", [(expr "by", int 34); (int 0, expr "w - 2")]);
   ];
-  (* TODO: local_name_tile ~simpl *)
-  !! simpl [];
   let circular_buffer var = Matrix.storage_folding ~dim:0 ~size:(int 4) ~var [cFunBody "harris"; cFor "by"] in
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
   (* LATER: (a - 4 + b)%4 =  (a+b)%4 avec analyse statique *)
@@ -94,7 +91,6 @@ let _ = Run.script_cpp (fun () ->
   !! Matrix.elim_mops [];
 
   bigstep "parallelism";
-  !! Omp.header (); (* should be implicit *)
   !! Omp.simd ~clause:[Simdlen 8] [nbMulti; cFor "x"];
   !! Omp.parallel_for [cFor "by"];
 )
