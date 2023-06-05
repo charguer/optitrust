@@ -340,11 +340,13 @@ let step_arg ~(name:string) ~(value:string) : unit =
 let step_set_validity (s : step_tree) : unit =
   let infos = s.step_infos in
   if not infos.step_valid then begin
-    let generated_asts: trm list = List.flatten [
-      (List.concat_map (fun sub -> [sub.step_ast_before; sub.step_ast_after]) s.step_sub);
+    let asts1: trm list = [s.step_ast_before] @
+      (List.map (fun sub -> sub.step_ast_after) s.step_sub);
+    in
+    let asts2: trm list = (List.map (fun sub -> sub.step_ast_before) s.step_sub) @
       [s.step_ast_after]
-    ] in
-    let (computed_validity, _) = List.fold_left (fun (valid, a) b -> (valid && (a == b), b)) (true, s.step_ast_before) generated_asts in
+    in
+    let computed_validity = List.for_all2 (==) asts1 asts2 in
     infos.step_valid <- computed_validity
   end
 
