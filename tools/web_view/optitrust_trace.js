@@ -45,6 +45,7 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 // checkbox status; may change default values here
 var optionTargetSteps = false;
 var optionExectime = false;
+var optionIOSteps = false;
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -357,10 +358,15 @@ function stepToHTML(step) {
     if (!optionTargetSteps && substep.kind == "Target") {
       continue;
     }
+    if (!optionIOSteps && substep.kind == "I/O") {
+      continue;
+    }
     sSubs += "<li>" + stepToHTML(substep) + "</li>\n";
   }
   var validityClass = "";
-  if (step.kind == "Error") {
+  if (step.kind == "I/O" || step.kind == "Target") {
+    validityClass = "step-io-target";
+  } else if (step.kind == "Error") {
     validityClass = "step-error";
   } else if (step.isvalid) {
     validityClass= "step-valid";
@@ -459,18 +465,21 @@ function initControls() {
   s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
   s += htmlCheckbox("option_Exectime", "exectime", "details-checkbox", "updateOptions()");
   s += htmlCheckbox("option_TargetSteps", "target-steps", "details-checkbox", "updateOptions()");
+  s += htmlCheckbox("option_IOSteps", "io-steps", "details-checkbox", "updateOptions()");
 
   $("#contents").html(s);
 
   // initialize checkboxes
   $('#option_Exectime').attr('checked', optionExectime);
   $('#option_TargetSteps').attr('checked', optionTargetSteps);
+  $('#option_IOSteps').attr('checked', optionIOSteps);
 }
 
 // handles modification of options by click on the checkboxes
 function updateOptions() {
   optionExectime = $('#option_Exectime').prop('checked');
   optionTargetSteps = $('#option_TargetSteps').prop('checked');
+  optionIOSteps = $('#option_IOSteps').prop('checked');
   toggleDetails(); toggleDetails();
 }
 
@@ -494,7 +503,7 @@ function initSteps() {
     for (var i = 0; i < stepIds.length; i++) {
       var smallstep_id = stepIds[i];
       var smallstep = steps[smallstep_id];
-      if (smallstep.kind == "Parsing") {
+      if (smallstep.kind == "I/O") {
         continue;
       }
       if (smallstep.kind != "Small") {
@@ -511,7 +520,7 @@ function initSteps() {
     for (var i = 0; i < rootSub.length; i++) {
       var bigstep_id = rootSub[i];
       var bigstep = steps[bigstep_id];
-      if (bigstep.kind == "Parsing") {
+      if (bigstep.kind == "I/O") {
         continue;
       }
       if (bigstep.kind != "Big") {

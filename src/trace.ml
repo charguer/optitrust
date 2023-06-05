@@ -3,6 +3,13 @@ open Stats
 open Tools
 open PPrint
 
+
+let debug = false
+
+(******************************************************************************)
+(*                             File excerpts                                  *)
+(******************************************************************************)
+
 (* [ml_file_excerpts]: maps line numbers to the corresponding sections in-between [!!] marks in
    the source file. Line numbers are counted from 1 in that map. *)
 module Int_map = Map.Make(Int)
@@ -149,7 +156,7 @@ type stepdescr = {
 
 
 (* [step_kind] : classifies the kind of steps *)
-type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_parsing | Step_scoped | Step_aborted | Step_interactive | Step_error
+type step_kind = Step_root | Step_big | Step_small | Step_transfo | Step_target_resolve | Step_io | Step_scoped | Step_aborted | Step_interactive | Step_error
 
 (* [step_kind_to_string] converts a step-kind into a string *)
 let step_kind_to_string (k:step_kind) : string =
@@ -159,7 +166,7 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_small -> "Small"
   | Step_transfo -> "Transfo"
   | Step_target_resolve -> "Target"
-  | Step_parsing -> "Parsing"
+  | Step_io -> "I/O"
   | Step_scoped -> "Scoped"
   | Step_aborted -> "Aborted"
   | Step_interactive -> "Interactive"
@@ -452,7 +459,11 @@ let backtrack_on_failure (f : unit -> unit) : backtrack_result =
 
 (* [parsing_step f] adds a step accounting for a parsing operation *)
 let parsing_step (f : unit -> unit) : unit =
-  step ~valid:true ~kind:Step_parsing ~name:"" f
+  step ~valid:true ~kind:Step_io ~name:"Parsing" f
+
+(* [dumping_step f] adds a step accounting for a parsing operation *)
+let dumping_step (f : unit -> unit) : unit =
+  step ~valid:true ~kind:Step_io ~name:"Dumping" f
 
 (* [error_step f] adds a step accounting for a fatal error *)
 let error_step (error : string) : unit =
@@ -855,8 +866,21 @@ let cmd s =
 
 (* LATER: optimize script to avoid computing twice the same ASTs for step[i].after and step[i+1].after *)
 (* [dump_step_tree_to_js] auxiliary function for [dump_trace_to_js] *)
-let rec dump_step_tree_to_js ?(beautify : bool = false) (get_next_id:unit->int) (out:string->unit) (id:int) (s:step_tree) : unit =
-  let aux = dump_step_tree_to_js ~beautify get_next_id out in
+let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bool = false) (get_next_id:unit->int) (out:string->unit) (id:int) (s:step_tree) : unit =
+  let i = s.step_infos in
+  (* Report diff and AST for details *)
+  let is_substep_of_targeted_line =
+      is_substep_of_targeted_line
+    || (i.step_script_line = Some !Flags.trace_details_only_for_line)
+    in
+  let details =
+        (!Flags.trace_details_only_for_line = -1) (* details for all steps *)
+     || s.step_kind = Step_big
+     || s.step_kind = Step_small
+     || is_substep_of_targeted_line
+     in
+  (* Recursive calls *)
+  let aux = dump_step_tree_to_js ~is_substep_of_targeted_line ~beautify get_next_id out in
   (* LATER: move these functions elsewhere? *)
   let compute_command_base64 (s : string) : string =
     cmd (sprintf "%s | base64 -w 0 > tmp.base64" s);
@@ -866,12 +890,17 @@ let rec dump_step_tree_to_js ?(beautify : bool = false) (get_next_id:unit->int) 
   let sub_ids = List.map (fun _ -> get_next_id()) s.step_sub in
   (* Dump Json for this node *)
   let ctx = the_trace.context in
-  output_prog ~beautify ctx "tmp_before" s.step_ast_before;
-  output_prog ~beautify ctx "tmp_after" s.step_ast_after;
-  let sBefore = compute_command_base64 "cat tmp_before.cpp" in
-  let sAfter = compute_command_base64 "cat tmp_after.cpp" in
-  let sDiff = compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp" in
-  let i = s.step_infos in
+  let sBefore, sAfter, sDiff =
+    if details then begin
+      output_prog ~beautify ctx "tmp_before" s.step_ast_before;
+      output_prog ~beautify ctx "tmp_after" s.step_ast_after;
+      let sBefore = compute_command_base64 "cat tmp_before.cpp" in
+      let sAfter = compute_command_base64 "cat tmp_after.cpp" in
+      let sDiff = compute_command_base64 "git diff --ignore-all-space --no-index -U10 tmp_before.cpp tmp_after.cpp" in
+      sBefore, sAfter, sDiff
+    end else begin
+      "", "", ""
+    end in
   let json =
     Json.obj_quoted_keys [
       "id", Json.int id;
@@ -919,7 +948,7 @@ let dump_trace_to_js ?(beautify : bool = false) ?(prefix : string = "") () : uni
   let prefix =
     if prefix = "" then the_trace.context.prefix else prefix in
   let filename = prefix ^ "_trace.js" in
-  printf "Dumping trace to '%s'\n" filename;
+  if debug then printf "Dumping trace to '%s'\n" filename;
   let out_js = open_out filename in
   let out = output_string out_js in
   let step_tree = get_root_step() in
@@ -929,7 +958,7 @@ let dump_trace_to_js ?(beautify : bool = false) ?(prefix : string = "") () : uni
     !next_id in
   out "var steps = [];\n";
   let idroot = get_next_id() in
-  dump_step_tree_to_js ~beautify get_next_id out idroot step_tree;
+  dump_step_tree_to_js ~is_substep_of_targeted_line:false ~beautify get_next_id out idroot step_tree;
   (* Clean up the files generated by the functions located in dump_step_tree_to_js_and_return_id
      LATER: move this elsewhere *)
   cmd "rm -f tmp.base64 tmp_after.cpp tmp_before.cpp";
@@ -970,7 +999,7 @@ let dump_trace_to_textfile ?(prefix : string = "") () : unit =
   let prefix =
     if prefix = "" then the_trace.context.prefix else prefix in
   let filename = prefix ^ "_trace.txt" in
-  printf "Dumping trace to '%s'\n" filename;
+  if debug then printf "Dumping trace to '%s'\n" filename;
   step_tree_to_file filename (get_root_step())
 
 
@@ -1214,19 +1243,14 @@ let bigstep (s : string) : unit =
 
    If you use [dump] in your script, make sure to call [!! Trace.dump] with the
    prefix [!!] in order for the diff visualization to work well for the last
-   command before the call to dump.
-
-   WILL BE DEPRECATED: If the command line argument [-dump-trace] was provided, then the
-   function writes all the ASTs from the history into javascript files. *)
-(* LATER for mli: val dump : ?prefix:string -> unit -> unit *)
+   command before the call to dump. *)
 let dump ?(prefix : string = "") () : unit =
-  (* Dump final result, for every [switch] branch *)
-  let ctx = the_trace.context in
-  let prefix =
-    if prefix = "" then (* ctx.directory ^ *) ctx.prefix else prefix
-  in
-  output_prog ctx (prefix ^ "_out") (the_trace.cur_ast)
-
+  dumping_step (fun () ->
+    let ctx = the_trace.context in
+    let prefix =
+      if prefix = "" then (* ctx.directory ^ *) ctx.prefix else prefix in
+    output_prog ctx (prefix ^ "_out") (the_trace.cur_ast)
+  )
 
 (* DEPRECATED? [only_interactive_step line f]: invokes [f] only if the argument [line]
    matches the command line argument [-exit-line]. If so, it calls the

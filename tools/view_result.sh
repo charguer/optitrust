@@ -75,6 +75,7 @@ else
   fi
 fi
 
+
 #==========================================================================
 # Patch the script if needed to handle intermediate states
 
@@ -172,6 +173,9 @@ PROG="${SRCBASE}_with_lines.cmxs"
 # Execute the script
 
 TIMER5=`date +%s%3N`
+
+# if [ ! -z ${OPTIONS} ]; then
+echo "Execution options: ${OPTIONS}"
 
 OCAMLRUNPARAM=b dune exec --no-build optitrust_runner -- ${PROG} ${OPTIONS} ${FLAGS}
 

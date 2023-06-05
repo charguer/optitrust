@@ -147,8 +147,10 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   in
 
   let produce_trace () : unit =
-    Trace.dump_trace_to_js ~prefix ();
-    Trace.dump_trace_to_textfile ~prefix ()
+    let (), exectime = Tools.measure_time (fun () ->
+      Trace.dump_trace_to_js ~prefix ();
+      Trace.dump_trace_to_textfile ~prefix ()) in
+      Printf.printf "Time dump-trace: %dms\n" exectime;
     in
 
   (* DEBUG: Printf.printf "script default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)
@@ -159,7 +161,11 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   (try
     Trace.init ~prefix ~parser filename;
     begin
-      try f ()
+      try
+
+        let (), exectime = Tools.measure_time f in
+        Printf.printf "Time script-exec: %dms\n" exectime;
+
       with
       | Stop -> ()
       | e when !Flags.dump_trace ->
@@ -173,7 +179,11 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     (* If we requested a diff for the last line of the script, print it *)
     if check_exit_at_end
       then Trace.check_exit_at_end();
-    (* Otherwise, we finalize the script, and collapse the stack onto the root step *)
+    (* Stores the current ast to the end of the history *)
+    Trace.close_smallstep_if_needed();
+    Trace.close_bigstep_if_needed();
+    Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
+    (* Collapse the step stack onto the root step *)
     Trace.finalize();
     (* TODO:
           IF ~expected_ast<>"" then load and unserialized expected ast and
@@ -181,8 +191,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
             and batch.ml calls at the very end Run.batch_postlude
             which dumps the list contents on stdout and into a file.
             In this case, we skip trace.dump and other dumps. *)
-    (* Stores the current ast to the end of the history *)
-    Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
+
     (* Dump full trace if [-dump-trace] option was provided *)
     if !Flags.dump_trace
       then produce_trace();
@@ -219,36 +228,39 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
      See the specification of [generate_source_with_inlined_header_cpp] for additional features.
    The rest of the options are the same as [script f] *)
 let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string option) ?(parser : Trace.parser option) (f : unit -> unit) : unit =
-  (* Handles preprocessor *)
-  Compcert_parser.Clflags.prepro_options := prepro;
+  let res, exectime = Tools.measure_time (fun () ->
+    (* Handles preprocessor *)
+    Compcert_parser.Clflags.prepro_options := prepro;
 
-  (* Handles on-the-fly inlining *)
-  let filename =
-    match inline with
-    | [] -> filename
-    | _ ->
-      let program_basename = get_program_basename () in
-      let basepath = Filename.dirname program_basename in
-      let filename =
-        match filename with
-        | Some filename -> filename
-        | None -> (Filename.basename program_basename) ^ ".cpp"
-      in
-      let basename = Filename.chop_extension filename in
-      let inlinefilename = basename ^ "_inlined.cpp" in
-      let reldir_inline = List.map (fun p -> Filename.concat basepath p) inline in
-      generate_source_with_inlined_header_cpp (Filename.concat basepath filename) reldir_inline (Filename.concat basepath inlinefilename);
-      if debug_inline_cpp then Printf.printf "Generated %s\n" inlinefilename;
-      Some inlinefilename
-  in
+    (* Handles on-the-fly inlining *)
+    let filename =
+      match inline with
+      | [] -> filename
+      | _ ->
+        let program_basename = get_program_basename () in
+        let basepath = Filename.dirname program_basename in
+        let filename =
+          match filename with
+          | Some filename -> filename
+          | None -> (Filename.basename program_basename) ^ ".cpp"
+        in
+        let basename = Filename.chop_extension filename in
+        let inlinefilename = basename ^ "_inlined.cpp" in
+        let reldir_inline = List.map (fun p -> Filename.concat basepath p) inline in
+        generate_source_with_inlined_header_cpp (Filename.concat basepath filename) reldir_inline (Filename.concat basepath inlinefilename);
+        if debug_inline_cpp then Printf.printf "Generated %s\n" inlinefilename;
+        Some inlinefilename
+    in
 
-  let parser =
-    match parser with
-    | Some p -> p
-    | None -> CParsers.get_default ()
-  in
+    let parser =
+      match parser with
+      | Some p -> p
+      | None -> CParsers.get_default ()
+    in
 
-  script ~parser ?filename ~extension:".cpp" ~check_exit_at_end ?prefix f
+    script ~parser ?filename ~extension:".cpp" ~check_exit_at_end ?prefix f) in
+  Printf.printf "Time script-cpp: %dms\n" exectime;
+  res
 
 (* [doc_script_cpp ~parser f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
     as a string, and stores this contents into [foo_doc.cpp], where [foo.ml] is the name of the current file. It then

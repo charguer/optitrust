@@ -154,6 +154,9 @@ h2 {
   background: #ff3939;
   font-weight: bold;
 }
+.step-io-target {
+  background: #fdf7bf;
+}
 .step-title:hover {
    cursor:pointer;
 }
@@ -162,7 +165,7 @@ h2 {
   background: #FF6666;
 }
 .exectime-mid {
-  background: #ffcf66;
+  background: #fdda8f;
 }
 .exectime-small {
   background: #ffffff;
