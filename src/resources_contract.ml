@@ -39,15 +39,24 @@ let trm_read_only_inv (t: formula): formula option =
     end
   | _ -> None
 
+let formula_cell (x: var): formula =
+   trm_var_model x (trm_var "Cell")
+
 type contract_clause = contract_clause_type * contract_resource
 
-let empty_resource_set = { pure = []; linear = []; fun_contracts = Var_map.empty }
+let resource_set ?(pure = []) ?(linear = []) ?(fun_contracts = Var_map.empty) () =
+  { pure; linear; fun_contracts }
+
+let empty_resource_set = resource_set ()
 
 let empty_fun_contract =
   { pre = empty_resource_set; post = empty_resource_set }
 
 let empty_loop_contract =
   { invariant = empty_resource_set; iter_contract = empty_fun_contract }
+
+
+
 
 let push_pure_res (res: contract_resource) (res_set: resource_set) =
   { res_set with pure = res :: res_set.pure }

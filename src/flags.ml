@@ -200,3 +200,5 @@ let documentation_save_file_at_first_check = ref ""
 ***************************************************************************************************************)
 
 let in_show_res_mode = ref false
+
+let resource_errors_as_warnings = ref false

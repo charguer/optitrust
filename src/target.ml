@@ -1594,7 +1594,7 @@ let target_between_show_transfo (m : mark) : Transfo.local_between =
 let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
   Tools.resetable_fresh_generator()
 
-(* [show ~line:int tg]: ransformation for visualizing targets.
+(* [show ~line:int tg]: transformation for visualizing targets.
    The operation add marks if the command line argument [-exit-line]
    matches the [line] argument provided to the function. Otherwise, the
    [show] function only checks that the path resolve properly.
@@ -1637,10 +1637,11 @@ let show_ast ?(line:int = -1) () : unit =
 
 (* [show_res] enables to view the result of resource computations. *)
 let show_res (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
-  Flags.in_show_res_mode := true;
   let t = Trace.ast() in
   let tres = Resources_computation.(trm_recompute_resources builtin_env t) in
-  Trace.interactive_step ~line ~ast_before:(fun () -> t) ~ast_after:(fun () -> Ast_fromto_AstC.computed_resources_intro tres)
+  Trace.interactive_step ~line ~ast_before:(fun () -> t) ~ast_after:(fun () ->
+      Flags.in_show_res_mode := true;
+      Ast_fromto_AstC.computed_resources_intro tres)
 
 (* LATER: Fix me *)
 (* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)

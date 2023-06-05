@@ -11,7 +11,21 @@ let trm_result: formula = trm_var var_result
 type evar = trm option
 type unification_ctx = evar varmap
 
-let builtin_env = { pure = []; linear = []; fun_contracts = Var_map.empty }
+let set_fun_contract =
+  { pre = resource_set ~linear:[(None, formula_cell "p")] ();
+    post = resource_set ~linear:[(None, formula_cell "p")] (); }
+
+let builtin_env = resource_set ~fun_contracts:(
+  Var_map.add "__new" (["init"],
+    { pre = empty_resource_set;
+      post = resource_set ~linear:[(None, formula_cell var_result)] () }) @@
+  Var_map.add "__get" (["p"],
+    { pre = push_read_only_res (None, formula_cell "p") empty_resource_set;
+      post = empty_resource_set; }) @@
+  Var_map.add "__set" (["p"; "x"], set_fun_contract) @@
+  Var_map.add "__add" (["x1"; "x2"], empty_fun_contract) @@
+  Var_map.add "__add_inplace" (["p"; "x"], set_fun_contract) @@
+  Var_map.empty) ()
 
 let rec unify_var (xe: var) (t: trm) (evar_ctx: unification_ctx) : unification_ctx option =
   let open Tools.OptionMonad in
@@ -355,6 +369,8 @@ let prim_to_var (p: prim): var =
   match p with
   | Prim_unop u -> unop_to_var u
   | Prim_binop b -> binop_to_var b
+  | Prim_compound_assgn_op b -> binop_to_var b ^ "_inplace"
+  | Prim_new _ -> "__new"
   | _ -> raise Unimplemented
 
 let trm_fun_var_inv (t:trm): var option =
@@ -391,7 +407,7 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
   let open Tools.OptionMonad in
   let res =
     let* res in
-    match t.desc with
+    try begin match t.desc with
     | Trm_val _ | Trm_var _ -> Some res (* TODO: Manage return values for pointers *)
 
     | Trm_let_fun (name, ret_type, args, body, contract) ->
@@ -406,15 +422,30 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
       end
 
     | Trm_seq instrs ->
-      (* Free the cells allocated with stack new *)
-      let add_dummy_let t =
-        match t.desc with
-        | Trm_let _ | Trm_let_fun _ -> t
-        | _ -> trm_let Var_immutable ("__dummy", typ_auto ()) t
-      in
+      (*let add_dummy_let t =*)
+      (*  match t.desc with*)
+      (*  | Trm_let _ | Trm_let_fun _ -> t*)
+      (*  | _ -> trm_let Var_immutable ("__dummy", typ_auto ()) t*)
+      (*in*)
       let instrs = Mlist.to_list instrs in
-      let instrs = List.map add_dummy_let instrs in
-      List.fold_left compute_inplace (Some res) instrs
+      (*let instrs = List.map add_dummy_let instrs in*)
+      let* res = List.fold_left compute_inplace (Some res) instrs in
+
+      (* Free the cells allocated with stack new *)
+      let extract_let_mut ti =
+        match trm_let_inv ti with
+        | Some (_, x, _, t) ->
+          begin match new_operation_inv t with
+          | Some _ -> [x]
+          | None -> []
+          end
+        | None -> []
+      in
+      let to_free = List.concat_map extract_let_mut instrs in
+      (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
+      let res_to_free = resource_set ~linear:(List.map (fun x -> (None, formula_cell x)) to_free) () in
+      let _, linear = res_impl_leftovers res res_to_free in
+      Some { res with linear }
 
     | Trm_let (_, (var, typ), body, spec) ->
       begin match spec with
@@ -436,10 +467,14 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
         (* f(3+i), f(g(a)) où g renvoie a + a, f(g(a)) où g ensures res mod a = 0 *)
         let subst_map = ref Var_map.empty in
         let avoid_names = ref (resource_names pre) in
-        List.iter2 (fun contract_arg effective_arg ->
+        begin try
+          List.iter2 (fun contract_arg effective_arg ->
             subst_map := Var_map.add contract_arg effective_arg !subst_map;
             avoid_names := Var_set.union (trm_free_vars effective_arg) !avoid_names
           ) contract_args args;
+        with Invalid_argument _ ->
+          failwith (Printf.sprintf "Mismatching number of arguments for %s" fn)
+        end;
         let subst_ctx, effective_pre = subst_in_res ~forbidden_binders:!avoid_names !subst_map pre in
         let subst_ctx, res_frame = res_impl_leftovers res ~subst_ctx effective_pre in
         t.ctx.ctx_resources_frame <- Some res_frame;
@@ -452,6 +487,9 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
       end
 
     | _ -> failwith ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
+    end with e when !Flags.resource_errors_as_warnings ->
+      Printf.eprintf "Resource computation warning: %s\n" (Printexc.to_string e);
+      None
   in
 
   (*Printf.eprintf "With resources: %s\nSaving %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);*)
@@ -472,5 +510,5 @@ let rec trm_deep_copy (t: trm) : trm =
 
 let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm =
   let t = trm_deep_copy t in
-  let _ = compute_inplace (Some init_ctx) t in
+  ignore (compute_inplace (Some init_ctx) t);
   t
