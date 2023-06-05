@@ -18,6 +18,7 @@ type t =
 (* [quote x]: adds quotes around string x, and escape the quotes *)
 let quote (x:string) : string =
   let x = Str.global_replace (Str.regexp "\"") "\\\"" x in
+  let x = Str.global_replace (Str.regexp "\n") "<br/>" x in
   "\"" ^ x ^ "\""
 
 
