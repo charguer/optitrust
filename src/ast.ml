@@ -977,13 +977,13 @@ let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statemen
  ?(typ : typ option) ?(ctx : ctx option) ?(desc : trm_desc option) (t : trm) : trm =
     let annot = match annot with Some x -> x | None -> t.annot in
     let loc = match loc with Some x -> x | None -> t.loc in
+    let typ = match typ with | None -> t.typ | _ -> typ in
     let is_statement = match is_statement with
       | Some x -> x
       | None -> match desc with
                 | Some d -> is_statement_of_desc typ d
                 | None -> t.is_statement
       in
-    let typ = match typ with | None -> t.typ | _ -> typ in
     let ctx = match ctx with | None -> t.ctx | _ -> ctx in
     let desc = match desc with | Some x -> x | None -> t.desc in
     trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ()
@@ -1950,8 +1950,8 @@ let trm_map_with_terminal_opt (is_terminal : bool) (f: bool -> trm -> trm) (t : 
 
 (* [trm_map_with_terminal is_terminal f t] *)
 let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm =
-  (* TODO FIXME: trm_map_with_terminal_opt is_terminal f t*)
-  trm_map_with_terminal_unopt is_terminal f t
+  trm_map_with_terminal_opt is_terminal f t
+  (* trm_map_with_terminal_unopt is_terminal f t *)
 
 (* [trm_map f]: applies f on t recursively *)
 let trm_map (f : trm -> trm) (t : trm) : trm =

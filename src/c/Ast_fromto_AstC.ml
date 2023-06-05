@@ -295,7 +295,7 @@ let infix_elim (t : trm) : trm =
          represented as [Trm_apps (Prim_compound_assgn_op binop) [trm_addressof(x),y]],
        likewise for [ x -= y]*)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr]) ->
-      trm_replace (Trm_apps(op, [trm_address_of tl; tr])) t
+      trm_alter ~typ:(typ_unit ()) ~desc:(Trm_apps(op, [trm_address_of tl; tr])) t
     (* Convert [ x++ ] into [ (++)(&x) ], where [(++)] is like the [incr] function in OCaml *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base]) when is_postfix_unary unop ->
       trm_replace (Trm_apps(op, [trm_address_of base])) t

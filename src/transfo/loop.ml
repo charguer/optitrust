@@ -229,7 +229,7 @@ let%transfo hoist_decl_loop_list
   (loops : int list)
   (tg : target) : unit
   =
-  iter_on_targets (fun t p ->
+  Target.iter (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match trm_let_inv tg_trm with
     | Some (_, x, _, init) -> Marks.with_fresh_mark_on (p @ [Dir_body; Dir_arg_nth 0]) (fun m ->

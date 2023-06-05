@@ -114,6 +114,8 @@ val cStrictNew : constr
 
 val cTarget : constr list -> constr
 
+val cPred : (trm -> bool) -> constr
+
 val cInclude : string -> constr
 
 val cWriteVar : ?regexp:bool -> ?substr:bool -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr

@@ -267,6 +267,9 @@ let sExprRegexp ?(substr : bool = true) (s : string) : constr =
 (*                                Ast nodes                                   *)
 (******************************************************************************)
 
+let cPred (p : trm -> bool) : constr =
+  Constr_pred p
+
 (* [cInclude s]: matches include directives. *)
 let cInclude (s : string) : constr =
     Constr_include s

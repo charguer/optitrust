@@ -423,7 +423,8 @@ and tr_stmt (s : stmt) : trm =
        )([], []) dls in
        trm_let_mult ?loc ?ctx Var_mutable (List.rev typed_vars) (List.rev init_list)
     end
-  | Expr e -> tr_expr e
+  | Expr e ->
+    tr_expr e
   | Label {label = l; body = s} ->
     let t = tr_stmt s in
     trm_add_label l t
