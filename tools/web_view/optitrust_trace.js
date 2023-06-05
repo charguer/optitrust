@@ -424,7 +424,7 @@ function stepToHTML(step) {
   return s;
 }
 
-// handles click on the details button
+// handles click on the "details" button
 function toggleDetails() {
   var shouldShowDetails = ($("#detailsDiv").html() == "");
   resetView();
@@ -434,6 +434,13 @@ function toggleDetails() {
   } else {
     $("#detailsDiv").html("");
   }
+}
+
+// handles click on the "all" button
+function viewDetailsAll() {
+  $("#diffDiv").hide();
+  selectedStep = steps[0]; // root
+  $("#detailsDiv").html(stepToHTML(selectedStep));
 }
 
 function initControls() {
@@ -472,6 +479,7 @@ function initControls() {
 
   // Details button
   s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
+  s += htmlButton("button_all", "all", "details-button", "viewDetailsAll()");
   s += htmlCheckbox("option_Exectime", "exectime", "details-checkbox", "updateOptions()");
   s += htmlCheckbox("option_TargetSteps", "target-steps", "details-checkbox", "updateOptions()");
   s += htmlCheckbox("option_IOSteps", "io-steps", "details-checkbox", "updateOptions()");

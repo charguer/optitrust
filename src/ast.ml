@@ -1235,7 +1235,7 @@ let trm_set ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   ?(typ : typ option = Some (typ_unit ()))  (lhs : trm) (rhs : trm) : trm =
   trm_apps ~annot:annot ?loc ?ctx ?typ (trm_binop Binop_set) [lhs; rhs]
 
-(* [trm_set ~annot ?loc ?ctx t1 t2] *)
+(* [trm_neq ~annot ?loc ?ctx t1 t2] *)
 let trm_neq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (t1 : trm) (t2 : trm) : trm =
   trm_apps ~annot:annot ?loc ?ctx ~typ:(typ_unit ()) (trm_binop Binop_neq) [t1; t2]
