@@ -15,14 +15,14 @@ module Image = struct
     Arith.(simpl_rec gather_rec) tg
     (* TODO: transfo to remove useless if inside a for *)
 
-      (*
   let loop_align_stop_extend_start_like ~(orig:target) (tg:target) : unit =
     let t = get_trm_at_exn orig in
-    let () = trm_inv ~error trm_for_inv in
-    loop_align_stop_extend_start ~start ~stop ~tg
-    *)
+    let error = "Image.loop_align_stop_extend_start_like: expected simple loop" in
+    let ((_index, start, _dir, stop, _step, _par), _body) = trm_inv ~error trm_for_inv t in
+    loop_align_stop_extend_start ~start ~stop tg
 end
 
+(* TODO: generalize *)
 let simpl_mins ?(simpl = Arith.default_simpl) (tg : target) : unit =
   let rewrite rule = Rewrite.equiv_at ~simpl ~ctx:true ~indepth:true rule tg in
   List.iter rewrite [
@@ -32,18 +32,25 @@ let simpl_mins ?(simpl = Arith.default_simpl) (tg : target) : unit =
     "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 4, by + 32) == y - 4";
   ]
 
+(* TODO: generalize *)
+let simpl_inplace_noop (tg : target) : unit =
+  Target.iter (fun _ p ->
+    let surrounding_instr_p = Loop.find_surrounding_instr p (Trace.ast ()) in
+    Arith.default_simpl (target_of_path p);
+    let surrounding_instr = (target_of_path surrounding_instr_p) in
+    Instr.delete (surrounding_instr @ [nbAny; sInstr "+= 0"]);
+  ) tg
+
 let _ = Run.script_cpp (fun () ->
   let simpl = Arith.default_simpl in
   let int = trm_int in
 
   bigstep "inline operators";
-  (* Function.inline_def *)
   (* TODO: make Function.inline ~simpl work *)
-  !! Function.inline ~simpl ~delete:true [nbMulti; cFun "conv2D"];
+  !! Function.inline_def ~simpl [cFunDef "conv2D"];
   !! Loop.unroll ~nest_of:2 [nbMulti; cFor ~body:[cPlusEqVar "acc"] "i"];
-  !! Matrix.elim_constant [nbMulti; cVarDef "weights"];
-  (* elim_constant ~simpl: simpl arith '* 0.0f' + simpl 'acc += 0.0' / simpl_inplace_noop *)
-  !! Function.inline ~simpl ~delete:true [multi cFun ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"]];
+  !! Matrix.elim_constant ~simpl:simpl_inplace_noop [nbMulti; cVarDef "weights"];
+  !! Function.inline_def ~simpl [multi cFunDef ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"]];
   !! Variable.inline ~simpl [multi cVarDef ["h1"; "w1"; "h2"; "w2"]];
 
   bigstep "fuse operators";
@@ -62,8 +69,7 @@ let _ = Run.script_cpp (fun () ->
   !!! Loop.fusion_targets [cFor "by" ~body:[any cArrayWrite ["gray"; "ix"; "out"]]];
 
   bigstep "circular buffers";
-  (* TODO: Image.loop_align_stop_extend_start ~like:[cFor "y" ~body:[cArrayWrite "gray"]] [cFor "y" ~body:[any cArrayWrite ["ix"; "out"]]] *)
-  !! Image.loop_align_stop_extend_start ~start:(trm_var "by") ~stop:(expr "min(h, by + 36)") [nbMulti; cFor "y" ~body:[any cArrayWrite ["ix"; "out"]]];
+  !! Image.loop_align_stop_extend_start_like ~orig:[cFor "y" ~body:[cArrayWrite "gray"]] [nbMulti; cFor "y" ~body:[any cArrayWrite ["ix"; "out"]]];
   !! simpl_mins [];
   !! Loop.fusion_targets [cFor "y" ~body:[any cArrayWrite ["gray"; "ix"; "ixx"; "out"]]];
   let local_matrix (m, tile) =
@@ -76,14 +82,9 @@ let _ = Run.script_cpp (fun () ->
   ];
   let circular_buffer var = Matrix.storage_folding ~dim:0 ~size:(int 4) ~var [cFunBody "harris"; cFor "by"] in
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
-  (* LATER: (a - 4 + b)%4 =  (a+b)%4 avec analyse statique *)
 
   bigstep "code details";
   !!! Loop.shift StartAtZero [cFor "y"];
-  !!! Instr.delete [multi sInstr ["0.f *"; "* 0.f"]]; (* LATER: disappears earlier *)
-  (* LATER !!! List.iter rewrite [
-    "int a; int b; int c; ==> (a + b <= c + b) == (a <= b)";
-  ]; *)
   let bind_gradient name =
     Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [cArrayRead name]
   in

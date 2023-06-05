@@ -123,6 +123,7 @@ let%transfo intro_mops (dim : trm) (tg : target) : unit =
 
   TODO:
   - eliminate MALLOC2 into malloc(sizeof(T[n][m]))?
+  - ~simpl
 *)
 let%transfo elim_mops (tg : target): unit =
   let targets = ref [] in
@@ -220,14 +221,16 @@ let%transfo elim ?(simpl : Transfo.t = simpl_void_loops) (tg : target) : unit =
    then first uses [Matrix.elim_mops] on all reads before attempting
    to use [Arrays.elim_constant].
    *)
-let%transfo elim_constant (tg : target) : unit =
-  Target.iter (fun t p_def ->
+let%transfo elim_constant ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+  Target.iter (fun t p_def -> Marks.with_fresh_mark (fun mark_accesses ->
     let t_def = Path.resolve_path p_def t in
     let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
     let (_, p_seq) = Path.index_in_seq p_def in
+    (* TODO: use simpl there as well? *)
     elim_mops ((target_of_path p_seq) @ [nbAny; cArrayRead x]);
-    Arrays.elim_constant (target_of_path p_def);
-  ) tg
+    Arrays.elim_constant ~mark_accesses (target_of_path p_def);
+    simpl [nbAny; cMark mark_accesses];
+  )) tg
 
 (* [delete] expects target [tg] to point to a definition of matrix [var], and deletes it.
   Both allocation and de-allocation instructions are deleted.

@@ -17,10 +17,9 @@ void harris(float* out, int h, int w, const float* in) {
     for (int y = 0; y < min(h, 36 + by) - by; y++) {
 #pragma omp simd simdlen(8)
       for (int x = 0; x < w; x++) {
-        gray[y % 4 * w + x] =
-            0.298999994993f * in[0 * h * w + (y + by) * w + x] +
-            0.587000012398f * in[h * w + (y + by) * w + x] +
-            0.11400000006f * in[2 * h * w + (y + by) * w + x];
+        gray[y % 4 * w + x] = 0.298999994993f * in[(y + by) * w + x] +
+                              0.587000012398f * in[h * w + (y + by) * w + x] +
+                              0.11400000006f * in[2 * h * w + (y + by) * w + x];
       }
       if (2 + by <= y + by) {
 #pragma omp simd simdlen(8)

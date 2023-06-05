@@ -71,7 +71,7 @@ let%transfo set_explicit (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Arrays_core.set_explicit) tg)
 
-let elim_constant_on (decl_index : int) (t : trm) : trm =
+let elim_constant_on (mark_accesses : mark option) (decl_index : int) (t : trm) : trm =
   let array_var = ref "" in
   let array_vals = ref [] in
   Nobrace.enter ();
@@ -95,7 +95,7 @@ let elim_constant_on (decl_index : int) (t : trm) : trm =
         let error = "Arrays.elim_constant_on: array accesses must be literals" in
         (* TODO: check that moving trm evaluation here is ok *)
         begin match trm_inv ~error trm_lit_inv index with
-        | Lit_int i -> List.nth !array_vals i
+        | Lit_int i -> trm_may_add_mark mark_accesses (List.nth !array_vals i)
         | _ -> fail index.loc error
         end
       | _ -> trm_map update_accesses t
@@ -114,8 +114,8 @@ let elim_constant_on (decl_index : int) (t : trm) : trm =
 
 (* [elim_constant] expects the target [tg] to point at a constant array literal declaration, and resolves all its accesses, that must be constant, to eliminate it.
   *)
-let%transfo elim_constant (tg : target) : unit =
+let%transfo elim_constant ?(mark_accesses : mark option) (tg : target) : unit =
   Target.apply (fun t p ->
     let (i, p_seq) = Path.index_in_seq p in
-    Path.apply_on_path (elim_constant_on i) t p_seq
+    Path.apply_on_path (elim_constant_on mark_accesses i) t p_seq
   ) tg

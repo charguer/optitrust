@@ -31,6 +31,13 @@ make bench_[name]
 - `List.iter local_matrix`
   - `("gray", [Some (expr "by", int 36);  None])`
   - `("gray", [(dim1, (expr "by", int 36))])`
+- `List.iter circular_buffer`
+  - `(a - 4 + b)%4 = (a+b)%4`, requires static analysis
+- ```
+  List.iter rewrite [
+    "int a; int b; int c; ==> (a + b <= c + b) == (a <= b)";
+  ];
+  ```
 - FIXME: duplicates even with suffix:
   ```
   !! ["conv3x3"; "sobelX"; "sobelY"; (* "binomial"; *) "mul"; "coarsity"] |>  List.iter (fun fun_to_inline ->
@@ -46,4 +53,5 @@ make bench_[name]
 # Script Notes
 
 - not necessary for perf: `Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_ix"] ~fresh_name:"g${occ}" [cArrayRead "gray"];`
-- without overlapped tiling: `!! Image.loop_align_stop_extend_start "y" ~start:(int 0) ~stop:(trm_var "h");`
+- without overlapped tiling: `Image.loop_align_stop_extend_start ~start:(int 0) ~stop:(trm_var "h");`
+- with overlapped tiling: `Image.loop_align_stop_extend_start ~start:(trm_var "by") ~stop:(expr "min(h, by + 36)")`

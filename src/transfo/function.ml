@@ -308,6 +308,19 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
     (* simpl [cMark subst_mark];
     ) *)
 
+(* [inline_def]: like [inline], but with [tg] targeting the function definition.
+   All function calls are inlined, with [delete = true] as default. *)
+let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
+  ?(delete : bool = true) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
+  =
+  Target.iter (fun t p ->
+    let def_trm = Path.resolve_path p t in
+    let error = "Function.inline_def: expected function definition" in
+    let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv def_trm in
+    (* FIXME: deal with qvar *)
+    inline ~resname ~vars ~args ~keep_res ~delete ~simpl [nbMulti; cFun qvar.qvar_var];
+  ) tg
+
 (* [beta ~indepth tg]: expects the target [tg] to be pointing at a function call or a function declaration whose
      parent trm is a function call. If its the first case then it will just call Function_basic.beta.
      If its the second case then this transformation will just redirect the target to the parent function call
