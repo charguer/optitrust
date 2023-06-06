@@ -49,7 +49,9 @@ var optionTargetSteps = false;
 var optionExectime = false;
 var optionIOSteps = false;
 var optionShowAST = false;
-var dontShowTags = new Set(["trivial"]); // TODO: UI control
+// TODO: UI control
+var dontShowTags = new Set(["trivial", "valid_by_composition", "should_be_valid_by_composition"]);
+var optionShowAtomicSubsteps = false;
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -367,19 +369,21 @@ function loadStepDetails(idStep) {
   */
 }
 
-function stepToHTML(step) {
+function stepToHTML(step, isRoot) {
   // console.log("steptohtml " + step.id);
   var s = "";
   var sSubs = "";
-  for (var i = 0; i < step.sub.length; i++) {
-    var substep = steps[step.sub[i]];
-    sSubs += stepToHTML(substep)
+  if (!optionShowAtomicSubsteps && !step.tags.includes("atomic")) {
+    for (var i = 0; i < step.sub.length; i++) {
+      var substep = steps[step.sub[i]];
+      sSubs += stepToHTML(substep, false)
+    }
   }
 
   const hideStep =
     (!optionTargetSteps && step.kind == "Target") ||
     (!optionIOSteps && step.kind == "I/O") ||
-    (step.tags.some((x) => dontShowTags.has(x)))
+    (step.tags.some((x) => dontShowTags.has(x)));
   if (hideStep) {
     return sSubs;
   }
@@ -436,7 +440,7 @@ function stepToHTML(step) {
   }
   s += "<ul class='step-sub'> " + sSubs + "</ul>\n";
 
-  if (step.kind == "Root") {
+  if (isRoot) {
     return s;
   } else {
     return "<li>" + s + "</li>\n";
@@ -453,7 +457,7 @@ function reloadView() {
   }
   if (typeof selectedStep !== "undefined") {
     loadStepDetails(selectedStep.id); // TODO inline here?
-    $("#detailsDiv").html(stepToHTML(selectedStep));
+    $("#detailsDiv").html(stepToHTML(selectedStep, true));
   }
 
   //if (shouldShowDetails) {

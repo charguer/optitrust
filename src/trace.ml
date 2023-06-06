@@ -292,8 +292,10 @@ let step_set_validity (s : step_tree) : unit =
       in
       (*printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts1);
       printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts2);*)
-      let computed_validity = List.for_all2 (==) asts1 asts2 in
-      infos.step_valid <- computed_validity
+      if List.for_all2 (==) asts1 asts2 then begin
+        infos.step_tags <- "valid_by_composition" :: infos.step_tags;
+        infos.step_valid <- true
+      end
     end
   end
 
@@ -375,25 +377,17 @@ let step_tag (tag : string) : unit =
   let infos = step.step_infos in
   infos.step_tags <- tag :: infos.step_tags
 
-(* [step_trivial] is called by a transformation after open_step to indicate that it is trivial, or trivially explained by its sub-transformations. *)
+(* [step_trivial] is called by a transformation after open_step to indicate that it is trivial, or trivially explained by its substeps. *)
 let step_trivial () : unit =
   step_tag "trivial"
 
-(* [step_set_validity s] sets a computation to be valid if all its substeps are valid *)
-let step_set_validity (s : step_tree) : unit =
-  let infos = s.step_infos in
-  if not infos.step_valid then begin
-    let asts1: trm list = [s.step_ast_before] @
-      (List.map (fun sub -> sub.step_ast_after) s.step_sub);
-    in
-    let asts2: trm list = (List.map (fun sub -> sub.step_ast_before) s.step_sub) @
-      [s.step_ast_after]
-    in
-    printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts1);
-    printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts2);
-    let computed_validity = List.for_all2 (==) asts1 asts2 in
-    infos.step_valid <- computed_validity
-  end
+(* [step_atomic] is called by a transformation after open_step to indicate that it is atomic, e.g. looking at its substeps does not explain why it is correct. *)
+let step_atomic () : unit =
+  step_tag "atomic"
+
+(* [step_valid_by_composition] is called by a transformation after open_step to indicate that it should be valid by composition. This can be used for filtering trace display or checking that it is indeed valid by composition. *)
+let step_valid_by_composition () : unit =
+  step_tag "should_be_valid_by_composition"
 
 (* [close_step] is called at the end of every big-step, or small-step,
    or combi, or basic transformation. The step to close can be passed
@@ -772,6 +766,14 @@ let cleanup_cpp_file_using_clang_format ?(uncomment_pragma : bool = false) (file
 (* [get_header ()]: get the header of the current file (e.g. include directives) *)
 let get_header () : string =
   the_trace.context.header
+
+(* [ensure_header]: ensures that the header [h] is included in the header of the current file. *)
+(* FIXME: does not show in diff this way *)
+let ensure_header (h : string) : unit =
+  let ctx = the_trace.context in
+  let found = Tools.pattern_matches h (ctx.header) in
+  if not found then
+    the_trace.context <- { ctx with header = ctx.header ^ "\n" ^ h }
 
 (* [output_prog ctx prefix ast]: writes the program described by the term [ast]
    in several files:

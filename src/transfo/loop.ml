@@ -50,7 +50,7 @@ let%transfo hoist_alloc_loop_list
   (loops : int list)
   (tg : target) : unit
   =
-  (* Trace.step_trivial (); ? *)
+  Trace.step_valid_by_composition ();
   let tmp_marks = ref [] in
   let alloc_mark = Mark.next () in
   let may_detach_init (x : var) (init : trm) (p : path) =
@@ -198,6 +198,7 @@ let%transfo hoist ?(tmp_names : string = "${var}_step${i}")
             and [1] represents a loop for which a dimension should be created.
 *)
 let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   let rec aux (remaining_loops : int list) (p : path) : unit =
     match remaining_loops with
     | [] -> ()
@@ -230,6 +231,7 @@ let%transfo hoist_decl_loop_list
   (loops : int list)
   (tg : target) : unit
   =
+  Trace.step_valid_by_composition ();
   Target.iter (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match trm_let_inv tg_trm with
@@ -254,6 +256,7 @@ let find_surrounding_instr (p : path) (t : trm) : path =
 let%transfo hoist_expr_loop_list (name : string)
                          (loops : int list)
                          (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   Target.iter (fun t p ->
     let instr_path = find_surrounding_instr p t in
     Variable.bind name (target_of_path p);
@@ -304,6 +307,7 @@ let%transfo hoist_expr (name : string)
                ?(indep : var list = [])
                ?(dest : target = [])
                (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   targets_iter_with_loop_lists ~indep ~dest (fun loops p ->
     (* Printf.printf "%s\n" (Tools.list_to_string (List.map string_of_int loops)); *)
     hoist_expr_loop_list name loops (target_of_path p)
@@ -752,6 +756,7 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
 
     [nest_of]: denotes the number of nested loops to consider. *)
 let%transfo unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) ?(nest_of : int = 1) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   assert (nest_of > 0);
   let rec aux p nest_of =
     if nest_of > 1 then
@@ -825,6 +830,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : var) (p : path): 
    and surrounding instructions will be fissioned ([Loop.fission_all_instrs]).
    *)
 let%transfo reorder_at ?(order : vars = []) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   (* [remaining_loops]: sublist of [List.rev order]
      [p]: path to either the target instruction at [tg],
           or a surrounding for loop. *)
@@ -990,7 +996,7 @@ let%transfo tile ?(index : var = "b${id}")
         ?(iter : tile_iteration = TileIterLocal)
         (tile_size : trm)
         (tg : target) : unit =
-  Trace.step_trivial ();
+  Trace.step_valid_by_composition ();
   Target.iter (fun t p ->
     match (iter, bound) with
     | (TileIterGlobal, _) | (_, TileDivides) ->

@@ -31,6 +31,7 @@ let%transfo copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:target = 
    This is sufficient but not necessary, a manual commutation proof can be used
    as well. *)
 let%transfo move ?(rev : bool = false) ~dest:(dest : target) (tg : target) : unit =
+  Trace.step_atomic ();
   copy ~rev ~delete:true ~dest tg
 
 

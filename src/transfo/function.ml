@@ -313,6 +313,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
 let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
   ?(delete : bool = true) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
   =
+  Trace.step_valid_by_composition ();
   Target.iter (fun t p ->
     let def_trm = Path.resolve_path p t in
     let error = "Function.inline_def: expected function definition" in

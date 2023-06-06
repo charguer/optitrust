@@ -127,6 +127,7 @@ let%transfo gather_targets ?(dest : gather_dest = GatherAtLast) (tg : target) : 
    Note: The transformation does not check if [tg] points to some invariant code or not
    LATER: Check if [tg] is dependent on other instructions of the same scope *)
 let%transfo move ~dest:(dest : target) (tg : target) : unit =
+  Trace.step_atomic ();
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     Marks.add "instr_move_out" (target_of_path p);

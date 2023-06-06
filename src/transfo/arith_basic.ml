@@ -31,7 +31,6 @@ let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : 
 
 (* [simpl_rec f tg] just an alias for simpl ~indepth:true tg *)
 let%transfo simpl_rec (f : (expr -> expr)) (tg : target) : unit =
-  Trace.step_trivial ();
   simpl ~indepth:true f tg
 
 
