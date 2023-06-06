@@ -44,10 +44,12 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 
 // checkbox status; may change default values here
 var optionDetails = true;
+var optionJustif = false;
 var optionTargetSteps = false;
 var optionExectime = false;
 var optionIOSteps = false;
 var optionShowAST = false;
+var dontShowTags = new Set(["trivial"]); // TODO: UI control
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -371,14 +373,17 @@ function stepToHTML(step) {
   var sSubs = "";
   for (var i = 0; i < step.sub.length; i++) {
     var substep = steps[step.sub[i]];
-    if (!optionTargetSteps && substep.kind == "Target") {
-      continue;
-    }
-    if (!optionIOSteps && substep.kind == "I/O") {
-      continue;
-    }
-    sSubs += "<li>" + stepToHTML(substep) + "</li>\n";
+    sSubs += stepToHTML(substep)
   }
+
+  const hideStep =
+    (!optionTargetSteps && step.kind == "Target") ||
+    (!optionIOSteps && step.kind == "I/O") ||
+    (step.tags.some((x) => dontShowTags.has(x)))
+  if (hideStep) {
+    return sSubs;
+  }
+
   var validityClass = "";
   if (step.kind == "I/O" || step.kind == "Target") {
     validityClass = "step-io-target";
@@ -388,7 +393,7 @@ function stepToHTML(step) {
     validityClass= "step-valid";
   } else {
     validityClass = "step-invalid";
- }
+  }
   var sTime = "";
   if (optionExectime) {
     var t = 1000 * step.exectime; // milliseconds
@@ -424,11 +429,18 @@ function stepToHTML(step) {
   }
 
   s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + " [" + sKind + "] " + escapeHTML(step.name) + " " + sScript + "</div>";
-  for (var i = 0; i < step.justif.length; i++) {
-    s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
+  if (optionJustif) {
+    for (var i = 0; i < step.justif.length; i++) {
+      s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
+    }
   }
   s += "<ul class='step-sub'> " + sSubs + "</ul>\n";
-  return s;
+
+  if (step.kind == "Root") {
+    return s;
+  } else {
+    return "<li>" + s + "</li>\n";
+  }
 }
 
 function reloadView() {
@@ -498,6 +510,7 @@ function initControls() {
   // s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
   s += htmlButton("button_all", "all", "details-button", "viewDetailsAll()");
   s += htmlCheckbox("option_Details", "details", "details-checkbox", "updateOptions()");
+  s += htmlCheckbox("option_Justif", "justif", "justif-checkbox", "updateOptions()");
   s += htmlCheckbox("option_Exectime", "exectime", "details-checkbox", "updateOptions()");
   s += htmlCheckbox("option_TargetSteps", "target-steps", "details-checkbox", "updateOptions()");
   s += htmlCheckbox("option_IOSteps", "io-steps", "details-checkbox", "updateOptions()");
@@ -507,6 +520,7 @@ function initControls() {
 
   // initialize checkboxes
   $('#option_Details').prop('checked', optionDetails);
+  $('#option_Justif').prop('checked', optionJustif);
   $('#option_Exectime').prop('checked', optionExectime);
   $('#option_TargetSteps').prop('checked', optionTargetSteps);
   $('#option_IOSteps').prop('checked', optionIOSteps);
@@ -516,6 +530,7 @@ function initControls() {
 // handles modification of options by click on the checkboxes
 function updateOptions() {
   optionDetails = $('#option_Details').prop('checked');
+  optionJustif = $('#option_Justif').prop('checked');
   optionExectime = $('#option_Exectime').prop('checked');
   if (optionExectime) {
     optionIOSteps = true;

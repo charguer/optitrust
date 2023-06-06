@@ -50,6 +50,7 @@ let%transfo hoist_alloc_loop_list
   (loops : int list)
   (tg : target) : unit
   =
+  (* Trace.step_trivial (); ? *)
   let tmp_marks = ref [] in
   let alloc_mark = Mark.next () in
   let may_detach_init (x : var) (init : trm) (p : path) =
@@ -989,6 +990,7 @@ let%transfo tile ?(index : var = "b${id}")
         ?(iter : tile_iteration = TileIterLocal)
         (tile_size : trm)
         (tg : target) : unit =
+  Trace.step_trivial ();
   Target.iter (fun t p ->
     match (iter, bound) with
     | (TileIterGlobal, _) | (_, TileDivides) ->

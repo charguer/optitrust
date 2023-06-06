@@ -181,7 +181,9 @@ type step_infos = {
   mutable step_name : string;
   mutable step_args : (string * string) list;
   mutable step_valid : bool;
-  mutable step_justif : string list; }
+  mutable step_justif : string list;
+  mutable step_tags : string list;
+}
 
 (* [step_tree]: history type used for storing all the trace information about all steps, recursively *)
 type step_tree = {
@@ -264,8 +266,9 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
     step_name = "Full script";
     step_args = [("extension", the_trace.context.extension) ];
     step_justif = [];
-    step_valid = false; }
-   in
+    step_valid = false;
+    step_tags = [];
+  } in
   let step_root = {
     step_kind = Step_root;
     step_ast_before = the_trace.cur_ast;
@@ -333,8 +336,9 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     step_name = name;
     step_args = [];
     step_justif = [];
-    step_valid = valid; }
-   in
+    step_valid = valid;
+    step_tags = [];
+  } in
   let step = {
     step_kind = kind;
     step_ast_before = the_trace.cur_ast;
@@ -364,6 +368,16 @@ let step_arg ~(name:string) ~(value:string) : unit =
   let step = get_cur_step () in
   let infos = step.step_infos in
   infos.step_args <- (name,value)::infos.step_args
+
+(* [step_tag] is called by a transformation after open_step in order to associate a tag with itself. *)
+let step_tag (tag : string) : unit =
+  let step = get_cur_step () in
+  let infos = step.step_infos in
+  infos.step_tags <- tag :: infos.step_tags
+
+(* [step_trivial] is called by a transformation after open_step to indicate that it is trivial, or trivially explained by its sub-transformations. *)
+let step_trivial () : unit =
+  step_tag "trivial"
 
 (* [step_set_validity s] sets a computation to be valid if all its substeps are valid *)
 let step_set_validity (s : step_tree) : unit =
@@ -967,6 +981,7 @@ let rec dump_step_tree_to_js ~(is_substep_of_targeted_line:bool) ?(beautify : bo
       "isvalid", Json.bool i.step_valid;
         (* TODO: at the moment, we assume that a justification item means is-valid *)
       "justif", Json.(listof str) i.step_justif;
+      "tags", Json.(listof str) i.step_tags;
       "sub", Json.(listof int) sub_ids;
       "ast_before", Json.base64 sBefore;
       "ast_after", Json.base64 sAfter;
