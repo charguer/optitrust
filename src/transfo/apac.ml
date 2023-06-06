@@ -589,21 +589,32 @@ let count_calls (t : trm) : int =
     the function call and replace the function targeted with the newly created
     variable. *)
 let unfold_funcalls : Transfo.t =
-  let unfold_funcalls_transfo (tg_instr : target) (tg_call : target) : unit =
-    let tr_call = get_trm_at_exn tg_call in
-    let ty = match tr_call.desc with
+  let unfold_funcalls_transfo (tg_instr : target) (tg_call : trm) : unit =
+    let tr_call = tg_call in
+    let error = "Apac.unfold_funcalls: expected a target to a function call." in
+    let (f, _) = trm_inv ~error trm_apps_inv tr_call in
+    let _ = Debug_transfo.trm_internal "term is" tr_call in
+    let error = "Not a var" in
+    let (_, qvar) = trm_inv ~error trm_var_inv f in
+    let _ = Printf.printf "Type of %s " qvar in
+    let ty = Option.get tr_call.typ in
+    let atomic = if is_atomic_typ ty then "atomic" else "not atmic" in
+    let _ = Printf.printf "is %s\n" atomic in
+    (*let ty = match tr_call.desc with
       | Trm_apps ({desc = Trm_var _} as f, args) ->
+        let (_, qvar) = trm_inv trm_var_inv f in
+        let _ = Printf.printf "Unfolding function: %s\n" qvar in
         let def = Ast_data.get_function_def f in
         let (_, ty, _, _) = trm_inv trm_let_fun_inv def in
         ty
       | _ -> assert false
-    in
+    in*)
     let new_name = "__var_" ^ (string_of_int (gen_id())) in
     let tr_let_var = trm_let_mut (new_name, get_inner_const_type ty) (trm_uninitialized ()) in
     let tr_set = trm_set (trm_var new_name) tr_call in
     if not (same_types ty (typ_unit ()))
     then begin
-      Target.apply_at_target_paths (fun _ -> trm_apps (trm_unop Unop_get) [trm_var new_name]) tg_call;
+      Target.apply_at_target_paths (fun _ -> trm_apps (trm_unop Unop_get) [trm_var new_name]) tg_instr;
       Internal.nobrace_remove_after (fun _ ->
         Target.apply_at_target_paths (fun t -> trm_seq_no_brace [tr_let_var; tr_set; t]) tg_instr);
       end
@@ -611,20 +622,30 @@ let unfold_funcalls : Transfo.t =
   in
   Target.iter (fun t p ->
     let fixed_tg = (target_of_path p ) @ [nbAny; cFun ""] in
+    (*Target.iter (fun t p ->
+      let (p_seq, local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
+      ...
+      ) fixed_tg*)
     (* TODO: Find corresponding method in new API. *)
     iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
       (fun i t (path_to_seq, local_path, i1)  ->
+
         let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
         let path_to_call = path_to_instruction @ local_path in
         let tg_instr = target_of_path path_to_instruction in
         let tg_call = target_of_path path_to_call in
         let tg_out_trm = Path.resolve_path path_to_instruction t in
+        let _ = Debug_transfo.trm "tg_out_trm" (Option.get (get_init_val tg_out_trm)) in
+        let _ = Debug_transfo.current_ast_at_target "tg_call" tg_call in
         match tg_out_trm.desc with
-        | Trm_let _ -> unfold_funcalls_transfo tg_instr tg_call
-        | Trm_apps (_, [lhs; rhs]) when is_set_operation tg_out_trm && count_calls rhs >= 2 ->
+        (* Function call when the return value is used in a variable definition. *)
+        | Trm_let (_, v, c) -> unfold_funcalls_transfo tg_instr (Option.get (get_init_val tg_out_trm))
+        (* Function call when the return value is assigned to an existing variable. *)
+       (* | Trm_apps (_, [lhs; rhs]) when is_set_operation tg_out_trm && count_calls rhs >= 2 ->
           unfold_funcalls_transfo tg_instr tg_call
+        (* Function call without using the return value. *)
         | Trm_apps ({ desc = Trm_var _ }, _) when count_calls tg_out_trm >= 2->
-          unfold_funcalls_transfo tg_instr tg_call
+          unfold_funcalls_transfo tg_instr tg_call*)
         | _ -> ()
         ) fixed_tg;
     )
@@ -765,6 +786,8 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
     match t.desc with
     (* Function call *)
     | Trm_apps ({ desc = Trm_var _} as f, args) ->
+      let (_, qvar) = trm_inv trm_var_inv f in
+      let _ = Printf.printf "Getting deps of function: %s\n" qvar in
       let l = Hashtbl.find fad (Ast_data.get_function_usr_unsome f) in
       List.fold_left2 (fun acc ({dep_depth; dep_in; _} as dep_info) t ->
         match (Apac_basic.get_inner_all_unop_and_access t).desc with
@@ -802,7 +825,9 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
     | Trm_apps (_, tl) -> List.fold_left aux dis tl
     (* Variable *)
     | Trm_var (_, qv) ->
+      let _ = Printf.printf "Trying to find %s\n" qv.qvar_str in
       let (depth, _) = Hashtbl.find vd qv.qvar_str in
+      let _ = Printf.printf "Found %s\n" qv.qvar_str in
       let di = { dep_depth = depth; dep_in = true; dep_shared = false;} in
       (qv.qvar_str, di) :: dis
     | _ -> dis
