@@ -1,6 +1,5 @@
 open Optitrust
 open Target
-open Ast
 open Ast_fromto_AstC
 
 

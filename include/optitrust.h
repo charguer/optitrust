@@ -80,3 +80,19 @@ int ANY(int maxValue) { return 0; }
 int exact_div(int n, int b) {
   return n / b;
 }
+
+
+void __requires(const char*) {}
+void __ensures(const char*) {}
+void __invariant(const char*) {}
+void __reads(const char*) {}
+void __modifies(const char*) {}
+void __consumes(const char*) {}
+void __produces(const char*) {}
+void __independantly_modifies(const char*) {}
+
+void __admitted() {}
+
+/*
+template<typename T> T __with_ghost(T, const char*);
+*/

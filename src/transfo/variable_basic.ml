@@ -201,11 +201,11 @@ let%transfo simpl_deref ?(indepth : bool = false) (tg : target) : unit =
 (* [exchange var1 var2 tg]: expects the target [tg] to point at an instruction that contains both the
     variable [var1] and [var2], then it will try to swap all the occurrences of [var1] with [var2]. *)
 let%transfo exchange (v1 : var) (v2 : var) (tg : target) : unit =
-  let tm = Trm_map.empty in
-  let tm = Trm_map.add v1 (trm_var v2) tm in
-  let tm = Trm_map.add v2 (trm_var v1) tm in
+  let tm = Var_map.empty in
+  let tm = Var_map.add v1 (trm_var v2) tm in
+  let tm = Var_map.add v2 (trm_var v1) tm in
   Target.apply_on_targets (
-    Target.apply_on_path (fun t1 -> Internal.subst tm t1)) tg
+    Target.apply_on_path (fun t1 -> Subst.subst tm t1)) tg
 
 (* [ref_to_pointer tg]: expects thee target [tg] to be pointing at a reference declaration, then it will convert
     this reference into a pointer. *)

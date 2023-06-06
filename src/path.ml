@@ -293,45 +293,45 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_while (aux cond, body)}
        | Dir_cond, Trm_do_while (body, cond) ->
           { t with desc = Trm_do_while (body, aux cond)}
-       | Dir_cond, Trm_for_c (init, cond, step, body) ->
-          { t with desc = Trm_for_c (init, aux cond, step, body)}
+       | Dir_cond, Trm_for_c (init, cond, step, body, contract) ->
+          { t with desc = Trm_for_c (init, aux cond, step, body, contract)}
        | Dir_cond, Trm_switch (cond, cases) ->
           { t with desc = Trm_switch (aux cond, cases)}
        | Dir_then, Trm_if (cond, then_t, else_t) ->
           { t with desc = Trm_if (cond, aux then_t, else_t)}
        | Dir_else, Trm_if (cond, then_t, else_t) ->
           { t with desc = Trm_if (cond, then_t, aux else_t) }
-       | Dir_var_body, Trm_let (vk,tx,body) ->
+       | Dir_var_body, Trm_let (vk,tx,body,bound_res) ->
           let body =
           begin match new_operation_inv body with
           | Some (ty, arg) -> trm_new ty (aux arg)
           | None -> aux body
           end in
-          { t with desc = Trm_let (vk, tx, body)}
-       | Dir_body, Trm_let (vk, tx, body) ->
-          trm_replace (Trm_let (vk, tx, aux body)) t
-       | Dir_body, Trm_let_fun (x, tx, txl, body) ->
-          { t with desc = Trm_let_fun (x, tx, txl, aux body)}
-       | Dir_body, Trm_for (l_range, body) ->
-          { t with desc = Trm_for (l_range, aux body) }
-       | Dir_body, Trm_for_c (init, cond, step, body) ->
-          { t with desc = Trm_for_c (init, cond, step, aux body) }
+          { t with desc = Trm_let (vk, tx, body, bound_res)}
+       | Dir_body, Trm_let (vk, tx, body, bound_res) ->
+          trm_replace (Trm_let (vk, tx, aux body, bound_res)) t
+       | Dir_body, Trm_let_fun (x, tx, txl, body, contract) ->
+          { t with desc = Trm_let_fun (x, tx, txl, aux body, contract)}
+       | Dir_body, Trm_for (l_range, body, contract) ->
+          { t with desc = Trm_for (l_range, aux body, contract) }
+       | Dir_body, Trm_for_c (init, cond, step, body, contract) ->
+          { t with desc = Trm_for_c (init, cond, step, aux body, contract) }
        | Dir_body, Trm_while (cond, body) ->
           { t with desc = Trm_while (cond, aux body)}
        | Dir_body, Trm_do_while (body, cond) ->
           trm_replace (Trm_do_while (aux body, cond)) t
        | Dir_body, Trm_abort (Ret (Some body)) ->
           { t with desc = Trm_abort (Ret (Some (aux body)))}
-       | Dir_for_start, Trm_for ((index, start, direction, stop, step,is_parallel), body) ->
-          { t with desc = Trm_for ((index, aux start, direction, stop, step, is_parallel), body)}
-       | Dir_for_stop, Trm_for ((index, start, direction, stop, step, is_parallel), body) ->
-          { t with desc = Trm_for ((index, start, direction, aux stop, step, is_parallel), body)}
-       | Dir_for_step, Trm_for ((index, start, direction, stop, step, is_parallel), body) ->
-          { t with desc = Trm_for ((index, start, direction, stop, apply_on_loop_step aux step, is_parallel), body)}
-       | Dir_for_c_init, Trm_for_c (init, cond, step, body) ->
-          { t with desc = Trm_for_c (aux init, cond, step, body)}
-       | Dir_for_c_step, Trm_for_c (init, cond, step, body) ->
-          { t with desc = Trm_for_c (init, cond, aux step, body)}
+       | Dir_for_start, Trm_for ((index, start, direction, stop, step,is_parallel), body, contract) ->
+          { t with desc = Trm_for ((index, aux start, direction, stop, step, is_parallel), body, contract)}
+       | Dir_for_stop, Trm_for ((index, start, direction, stop, step, is_parallel), body, contract) ->
+          { t with desc = Trm_for ((index, start, direction, aux stop, step, is_parallel), body, contract)}
+       | Dir_for_step, Trm_for ((index, start, direction, stop, step, is_parallel), body, contract) ->
+          { t with desc = Trm_for ((index, start, direction, stop, apply_on_loop_step aux step, is_parallel), body, contract)}
+       | Dir_for_c_init, Trm_for_c (init, cond, step, body, contract) ->
+          { t with desc = Trm_for_c (aux init, cond, step, body, contract)}
+       | Dir_for_c_step, Trm_for_c (init, cond, step, body, contract) ->
+          { t with desc = Trm_for_c (init, cond, aux step, body, contract)}
        | Dir_app_fun, Trm_apps (f, tl) ->
           (*
             warning: the type of f may change
@@ -340,7 +340,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_apps (aux f, tl)}
        | Dir_arg_nth n, Trm_apps (f, tl) ->
           { t with desc = Trm_apps (f, Xlist.update_nth n aux tl)}
-       | Dir_arg_nth n, Trm_let_fun (x, tx, txl, body) ->
+       | Dir_arg_nth n, Trm_let_fun (x, tx, txl, body, contract) ->
           let txl' =
             Xlist.update_nth n
               (fun (x1, tx) ->
@@ -352,17 +352,17 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
               )
               txl
           in
-          trm_replace (Trm_let_fun (x, tx, txl', body)) t
-        | Dir_name , Trm_let (vk,(x,tx),body) ->
+          trm_replace (Trm_let_fun (x, tx, txl', body, contract)) t
+        | Dir_name , Trm_let (vk,(x,tx),body,bound_res) ->
           let t' = aux (trm_var ?loc:t.loc x) in
           begin match t'.desc with
-          | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x'.qvar_var, tx), body)}
+          | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x'.qvar_var, tx), body, bound_res)}
           | _ -> fail t.loc "Path.apply_on_path: transformation must preserve variable names"
           end
-       | Dir_name, Trm_let_fun (x, tx, txl, body) ->
+       | Dir_name, Trm_let_fun (x, tx, txl, body, contract) ->
           let t' = aux (trm_var ?loc:t.loc ~qvar:x "") in
           begin match t'.desc with
-          | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body)}
+          | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body, contract)}
           | _ ->
              fail t.loc "Path.apply_on_path: transformation must preserve names(function)"
           end
@@ -397,7 +397,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
            fail t.loc (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
 
        end in
-        { newt with typ = None; ctx = None }
+        { newt with typ = None; ctx = unknown_ctx }
         (* TODO: go through trm_build in order to keep track of the fact that this is a fresh AST node
           in the sense Node_to_reparse
           TODO: also search for desc = in the whole codebase
@@ -413,6 +413,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
 (***********************************************************************************)
 
 (* [resolve_path_and_ctx dl t]: follow the explicit path and return the corresponding subterm and its context *)
+(* TODO: The context part of this function is never used *)
 let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
   let rec aux_on_path_rec (dl : path) (t : trm) (ctx : trm list) : trm * (trm list) =
     match dl with
@@ -447,7 +448,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
          | Dir_cond, Trm_do_while (_, cond)
          | Dir_cond, Trm_switch (cond, _) ->
           aux cond ctx
-       | Dir_cond, Trm_for_c (init, cond, _, _) ->
+       | Dir_cond, Trm_for_c (init, cond, _, _, _) ->
           begin match init.desc with
           | Trm_let _  -> aux cond (init :: ctx)
           | _ -> aux cond ctx
@@ -456,7 +457,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           aux then_t ctx
        | Dir_else, Trm_if (_, _, else_t) ->
           aux else_t ctx
-       | Dir_body, Trm_let_fun (_, _, args, body) ->
+       | Dir_body, Trm_let_fun (_, _, args, body, _) ->
           (* do as if fun args were heap allocated *)
           let args_decl =
             List.rev_map
@@ -466,36 +467,36 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
               args
           in
           aux body (args_decl@ctx)
-       | Dir_body, Trm_for_c (init, _, _, body) ->
+       | Dir_body, Trm_for_c (init, _, _, body, _) ->
           begin match init.desc with
           | Trm_let _ ->
              aux body (init :: ctx)
           | _ -> aux body ctx
           end
-       | Dir_body, Trm_for (_, body) ->
+       | Dir_body, Trm_for (_, body, _) ->
           aux body ctx
-       | Dir_var_body, Trm_let (_, _, body) ->
+       | Dir_var_body, Trm_let (_, _, body, _) ->
           let new_op_arg = new_operation_arg body in
           if is_new_operation body then aux new_op_arg (body :: ctx) else aux body ctx
-       | Dir_body, Trm_let (_, _, body)
+       | Dir_body, Trm_let (_, _, body, _)
          | Dir_body, Trm_while (_, body)
          | Dir_body, Trm_do_while (body, _)
          | Dir_body, Trm_abort (Ret (Some body)) ->
           aux body ctx
-       | Dir_for_start, Trm_for (l_range, _) ->
+       | Dir_for_start, Trm_for (l_range, _, _) ->
           let (_, start, _, _, _, _) = l_range in
           aux start ctx
-       | Dir_for_stop, Trm_for (l_range, _) ->
+       | Dir_for_stop, Trm_for (l_range, _, _) ->
           let (_,  _, _, stop, _, _) = l_range in
           aux stop ctx
 
-       | Dir_for_step, Trm_for (l_range, _) ->
+       | Dir_for_step, Trm_for (l_range, _, _) ->
           let (_, _, _, _, step, _) = l_range in
           let step_trm = loop_step_to_trm step in
           aux step_trm ctx
-       | Dir_for_c_init, Trm_for_c (init, _, _, _) ->
+       | Dir_for_c_init, Trm_for_c (init, _, _, _, _) ->
           aux init ctx
-       | Dir_for_c_step, Trm_for_c (init, _, step, _) ->
+       | Dir_for_c_step, Trm_for_c (init, _, step, _, _) ->
           begin match init.desc with
           | Trm_let _ ->
              aux step (init :: ctx)
@@ -504,12 +505,12 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
        | Dir_app_fun, Trm_apps (f, _) -> aux f ctx
        | Dir_arg_nth n, Trm_apps (_, tl) ->
           app_to_nth loc tl n (fun nth_t -> aux nth_t ctx)
-       | Dir_arg_nth n, Trm_let_fun (_, _, arg, _) ->
+       | Dir_arg_nth n, Trm_let_fun (_, _, arg, _, _) ->
           app_to_nth loc arg n
             (fun (x, _) -> aux (trm_var ?loc x) ctx)
-       | Dir_name, Trm_let_fun (x, _, _, _) ->
+       | Dir_name, Trm_let_fun (x, _, _, _, _) ->
           aux (trm_var ?loc ~qvar:x "") ctx
-       | Dir_name , Trm_let (_,(x,_),_)
+       | Dir_name , Trm_let (_,(x,_),_,_)
          | Dir_name, Trm_goto x ->
           aux (trm_var ?loc x) ctx
        | Dir_name, Trm_typedef td ->

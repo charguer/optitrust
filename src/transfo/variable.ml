@@ -44,7 +44,7 @@ let fold ?(at : target = []) ?(nonconst : bool = false) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_let (vk, (_, tx), _) ->
+    | Trm_let (vk, (_, tx), _, _) ->
       let ty = get_inner_ptr_type tx in
       begin match ty.typ_desc with
       (* If the declared variable has a refernce type checking its mutability is not needed*)
@@ -178,9 +178,9 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool = false
     let values = Trm_matching.tmap_to_list pattern_vars (Trm_matching.tmap_filter_keys pattern_vars inst) in
     List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v) values;
     let inst = List.map (fun (x, _) -> get_array_access (trm_var_possibly_mut ~const x) (trm_int id_path)) pattern_vars in
-    let new_inst = Trm_map.empty in
-    let new_inst = List.fold_left2 (fun acc (x, _) y -> Trm_map.add x y acc) new_inst pattern_vars inst in
-    let new_t = Internal.subst new_inst pattern_instr in
+    let new_inst = Var_map.empty in
+    let new_inst = List.fold_left2 (fun acc (x, _) y -> Var_map.add x y acc) new_inst pattern_vars inst in
+    let new_t = Subst.subst new_inst pattern_instr in
     apply_on_targets (fun t p -> apply_on_path (fun _ -> new_t) t p) (target_of_path p)
   ) tg;
   let vk = if const then Var_immutable else Var_mutable in
@@ -196,7 +196,7 @@ let detach_if_needed (tg : target) : unit =
   iter_on_targets (fun t p ->
     let decl_t  = Path.resolve_path p t in
     match decl_t.desc with
-    | Trm_let(vk,(_, _), init) ->
+    | Trm_let(vk,(_, _), init, _) ->
       begin match vk with
       | Var_immutable -> ()
       | _ ->
@@ -335,7 +335,7 @@ let unfold ?(accept_functions : bool = false) ?(simpl = default_unfold_simpl) ?(
     let tg_trm = Path.resolve_path p t in
     let tg_decl = target_of_path p in
     match tg_trm.desc with
-    | Trm_let (vk, (x, _tx), init) ->
+    | Trm_let (vk, (x, _tx), init, _) ->
 
       let mark = begin match get_init_val init with
       | Some init -> Mark.next ()
@@ -381,7 +381,7 @@ let inline_and_rename ?(simpl = default_inline_simpl) (tg : target) : unit =
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     let tg_scope = target_of_path path_to_seq in
     match tg_trm.desc with
-    | Trm_let (vk, (y, ty), init) ->
+    | Trm_let (vk, (y, ty), init, _) ->
         let spec_target = tg_scope @ [cVarDef y] in
         begin match get_init_val init with
         | Some v ->
@@ -425,7 +425,7 @@ let elim_redundant ?(source : target = []) (tg : target) : unit =
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
     let seq_trm = Path.resolve_path path_to_seq t in
     match tg_trm.desc with
-    | Trm_let (_, (x, _), init_x) ->
+    | Trm_let (_, (x, _), init_x, _) ->
       let source_var = ref "" in
       if source = []
         then
@@ -435,7 +435,7 @@ let elim_redundant ?(source : target = []) (tg : target) : unit =
             if i >= index then ()
                 else
                 begin match t1.desc with
-                | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y ->
+                | Trm_let (_, (y, _), init_y, _) when Internal.same_trm init_x init_y ->
                   source_var := y
                 | _ -> ()
                 end
@@ -449,7 +449,7 @@ let elim_redundant ?(source : target = []) (tg : target) : unit =
             | Some p -> Path.resolve_path p t
             | None -> fail t.loc "Variable.elim_redundant: the number of source targets  should be equal to the number of the main targets" in
           match source_decl_trm.desc with
-          | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y ->
+          | Trm_let (_, (y, _), init_y, _) when Internal.same_trm init_x init_y ->
             source_var := y
           | _ -> fail source_decl_trm.loc "Variable.elim_redundant: the soource target should point to a variable declaration"
         end;

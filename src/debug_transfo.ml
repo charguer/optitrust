@@ -3,19 +3,19 @@ open Ast
 open Target
 
 let path (msg : string) (p : path) : unit =
-  printf "%s: %s\n" msg (Path.path_to_string p)
+  eprintf "%s: %s\n" msg (Path.path_to_string p)
 
 let paths (msg : string) (ps : paths) : unit =
-  printf "%s: %s\n" msg (Tools.list_to_string (List.map Path.path_to_string ps))
+  eprintf "%s: %s\n" msg (Tools.list_to_string (List.map Path.path_to_string ps))
 
 let trm (msg : string) (t : trm) : unit =
-  printf "%s: %s\n" msg (AstC_to_c.ast_to_string t)
+  eprintf "%s: %s\n" msg (AstC_to_c.ast_to_string t)
 
 let trm_internal (msg : string) (t : trm) : unit =
-  printf "%s: %s\n" msg (Ast_to_text.ast_to_string t)
+  eprintf "%s: %s\n" msg (Ast_to_text.ast_to_string t)
 
 let trms (msg : string) (ts : trms) : unit =
-  printf "%s: %s\n" msg (Tools.list_to_string (List.map AstC_to_c.ast_to_string ts))
+  eprintf "%s: %s\n" msg (Tools.list_to_string (List.map AstC_to_c.ast_to_string ts))
 
 let current_ast (msg : string) : unit =
   trm msg (Trace.ast ())

@@ -6,3 +6,4 @@ tester_last_args.txt
 *_trace*.txt
 *_trace*.html
 *_inter.ml
+tools/_last_view_result.sh

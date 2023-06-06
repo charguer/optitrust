@@ -47,6 +47,18 @@ ${TRACEFLAGS:=""}
 # Path to the tools and optitrust folder
 TOOLS_FOLDER=$(dirname -- "$(readlink -f -- "$0";)")
 OPTITRUST_FOLDER="${TOOLS_FOLDER}/.."
+SRC_FOLDER=$(readlink -f ${TOOLS_FOLDER}/../src)
+
+# Disallow execution in the src folder
+if [[ ${DIRNAME}/ == ${SRC_FOLDER}/* ]]
+then
+    echo "Cannot start view_result.sh in the src folder" >&2
+    exit 2
+fi
+
+# Save arguments for redo command
+echo "${TOOLS_FOLDER}/view_result.sh $*" > "${TOOLS_FOLDER}/_last_view_result.sh"
+chmod +x "${TOOLS_FOLDER}/_last_view_result.sh"
 
 #==========================================================================
 # Setting up the environment, and read additional settings

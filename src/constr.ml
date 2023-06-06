@@ -969,12 +969,12 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         false
      | Constr_regexp r, _ -> match_regexp_trm r t
      | Constr_for_c (p_init, p_cond, p_step, p_body),
-       Trm_for_c (init, cond, step, body) ->
+       Trm_for_c (init, cond, step, body, _) ->
         check_target p_init init &&
         check_target p_cond cond &&
         check_target p_step step &&
         check_target p_body body
-     | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body), Trm_for(l_range, body) ->
+     | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body), Trm_for(l_range, body, _) ->
         let (index, start, direction, stop, step, _is_parallel) = l_range in
         let direction_match = match p_direction with
         | None -> true
@@ -995,7 +995,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_target p_then then_t &&
         check_target p_else else_t
-      | Constr_decl_var (ty_pred, name, p_body) , Trm_let (_,(x,tx), body) ->
+      | Constr_decl_var (ty_pred, name, p_body) , Trm_let (_,(x,tx), body, _) ->
         ty_pred (get_inner_ptr_type tx) &&
         check_name name x &&
         check_target p_body body
@@ -1007,7 +1007,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           acc || b
         ) false tvl tl
      | Constr_decl_fun (ty_pred, name, cl_args, p_body,is_def, cx_opt),
-       Trm_let_fun (x, tx, args, body) ->
+       Trm_let_fun (x, tx, args, body, _) ->
         let body_check =
           let is_body_unit = is_trm_uninitialized body in
           if is_def then (check_target p_body body && not (is_body_unit))
@@ -1536,9 +1536,9 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      end
   else
      begin match t.desc with
-     | Trm_let (_ ,(_, _), body) ->
+     | Trm_let (_ ,(_, _), body, _) ->
        add_dir Dir_body (aux body)
-     | Trm_let_fun (_, _ , _,body) ->
+     | Trm_let_fun (_, _ , _,body, _) ->
         add_dir Dir_body (aux_body body)
      | Trm_typedef td  ->
       begin match td.typdef_body with
@@ -1573,14 +1573,14 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
       end
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (aux body)
-     | Trm_for (l_range, body) ->
+     | Trm_for (l_range, body, _) ->
         let ( _, start, _, stop, step, is_parallel) = l_range in
         let step_t = loop_step_to_trm step in
         (add_dir Dir_for_start (aux start)) @
         (add_dir Dir_for_stop (aux stop)) @
         (add_dir Dir_for_step (aux step_t)) @
         (add_dir Dir_body (aux_body body))
-     | Trm_for_c (init, cond, step, body) ->
+     | Trm_for_c (init, cond, step, body, _) ->
         (* init *)
         (add_dir Dir_for_c_init (aux init)) @
         (* cond *)
@@ -1670,47 +1670,47 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
     | Dir_cond, Trm_do_while (_, cond)
-    | Dir_cond, Trm_for_c (_, cond, _, _)
+    | Dir_cond, Trm_for_c (_, cond, _, _, _)
     | Dir_cond, Trm_switch (cond, _) ->
      add_dir Dir_cond (aux cond)
   | Dir_then, Trm_if (_, then_t, _) ->
      add_dir Dir_then (aux then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (aux else_t)
-  | Dir_var_body, Trm_let (_, _, body) ->
+  | Dir_var_body, Trm_let (_, _, body, _) ->
      let new_op_arg = new_operation_arg body in
      add_dir Dir_var_body (aux new_op_arg)
-  | Dir_body, Trm_let (_, _,body)
-    | Dir_body, Trm_let_fun (_, _, _, body)
-    | Dir_body, Trm_for_c (_, _, _, body)
-    | Dir_body, Trm_for (_, body)
+  | Dir_body, Trm_let (_, _,body, _)
+    | Dir_body, Trm_let_fun (_, _, _, body, _)
+    | Dir_body, Trm_for_c (_, _, _, body, _)
+    | Dir_body, Trm_for (_, body, _)
     | Dir_body, Trm_while (_, body)
     | Dir_body, Trm_do_while (body, _)
     | Dir_body, Trm_abort (Ret (Some body)) ->
      add_dir Dir_body (aux body)
-  | Dir_for_c_init, Trm_for_c (init, _, _, _) ->
+  | Dir_for_c_init, Trm_for_c (init, _, _, _, _) ->
      add_dir Dir_for_c_init (aux init)
-  | Dir_for_c_step, Trm_for_c (_, _, step, _) ->
+  | Dir_for_c_step, Trm_for_c (_, _, step, _, _) ->
      add_dir Dir_for_c_step (aux step)
-  | Dir_for_start, Trm_for (l_range, _) ->
+  | Dir_for_start, Trm_for (l_range, _, _) ->
      let (_, start,  _, _, _, _) = l_range in
      add_dir Dir_for_start (aux start)
-  | Dir_for_stop, Trm_for (l_range, _) ->
+  | Dir_for_stop, Trm_for (l_range, _, _) ->
      let (_, _, _, stop, _, _) = l_range in
      add_dir Dir_for_stop (aux stop)
   | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (aux f)
   | Dir_arg_nth n, Trm_apps (_, tl) ->
      app_to_nth_dflt loc tl n (fun nth_t ->
          add_dir (Dir_arg_nth n) (aux nth_t))
-  | Dir_arg_nth n, Trm_let_fun (_, _, arg, _) ->
+  | Dir_arg_nth n, Trm_let_fun (_, _, arg, _, _) ->
      let tl = List.map (fun (x, _) -> trm_var ?loc x) arg in
      app_to_nth_dflt loc tl n (fun nth_t ->
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
      add_dir Dir_name (aux (trm_var ?loc td.typdef_tconstr))
-  | Dir_name, Trm_let_fun (x, _, _, _) ->
+  | Dir_name, Trm_let_fun (x, _, _, _, _) ->
     add_dir Dir_name (aux (trm_var ?loc ~qvar:x ""))
-  | Dir_name, Trm_let (_,(x,_),_)
+  | Dir_name, Trm_let (_,(x,_),_, _)
     | Dir_name, Trm_goto x ->
      add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_case (n, cd), Trm_switch (_, cases) ->

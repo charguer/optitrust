@@ -331,7 +331,7 @@ let%transfo beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : target
     match tg_trm.desc with
     | Trm_apps _ ->
       Function_basic.beta ~body_mark tg
-    | Trm_let_fun (_f, _, _, _) ->
+    | Trm_let_fun (_f, _, _, _, _) ->
       let parent_path, _ = Xlist.unlast p in
       let parent_node = Path.resolve_path parent_path t in
       begin match parent_node.desc with
@@ -364,7 +364,7 @@ let%transfo uninline ?(contains_for_loop : bool = false) ~fct:(fct : target) (tg
   iter_on_targets (fun _ p ->
     let mark = Mark.next () in
     match tg_fun_def.desc with
-    | Trm_let_fun (_, _, _, body) ->
+    | Trm_let_fun (_, _, _, body, _) ->
       begin match body.desc with
       | Trm_seq tl ->
         let nb = Mlist.length tl in

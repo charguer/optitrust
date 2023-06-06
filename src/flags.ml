@@ -205,3 +205,12 @@ let reset_flags_to_default () : unit =
   use_light_diff := false;
   pretty_matrix_notation := false
 
+(* *************************************************************************************************************
+  Note: to see a diff at the level of the OptiTrust AST, use:
+    -dump-ast-details
+  and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp]
+***************************************************************************************************************)
+
+let in_show_res_mode = ref false
+
+let resource_errors_as_warnings = ref false

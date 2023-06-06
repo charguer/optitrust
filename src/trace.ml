@@ -725,7 +725,7 @@ let get_header () : string =
    - one describing the internal AST ("prefix_enc.cpp")
    - one describing the CPP code ("prefix.cpp").
    The CPP code is automatically formatted using clang-format. *)
-let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
+let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   let use_clang_format = beautify && !Flags.use_clang_format in
   let file_prog = prefix ^ ctx.extension in
   let out_prog = open_out file_prog in
@@ -736,7 +736,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     (* LATER: try to find a way to put the includes in the AST so we can do simply ast_to_file *)
     output_string out_prog ctx.header;
     let beautify_mindex = beautify && !Flags.pretty_matrix_notation in
-    if !Flags.bypass_cfeatures
+    if !Flags.bypass_cfeatures || bypass_cfeatures
       then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
       else AstC_to_c.ast_to_outchannel ~beautify_mindex ~comment_pragma:use_clang_format out_prog (Ast_fromto_AstC.cfeatures_intro ast);
     output_string out_prog "\n";
@@ -971,9 +971,9 @@ let dump_trace_to_textfile ?(prefix : string = "") () : unit =
 
 (* [output_prog_check_empty ~ast_and_enc ctx prefix ast_opt]: similar to [output_prog], but it
    generates an empty file in case the [ast] is an empty ast. *)
-let output_prog_check_empty ?(ast_and_enc : bool = true) (ctx : context) (prefix : string) (ast_opt : trm) : unit =
+let output_prog_check_empty ?(bypass_cfeatures:bool=false) ?(ast_and_enc : bool = true) (ctx : context) (prefix : string) (ast_opt : trm) : unit =
   match ast_opt.desc with
-  | Trm_seq tl when Mlist.length tl <> 0 -> output_prog ~ast_and_enc ctx prefix ast_opt
+  | Trm_seq tl when Mlist.length tl <> 0 -> output_prog ~bypass_cfeatures ~ast_and_enc ctx prefix ast_opt
   | _ ->
       let file_prog = prefix ^ ctx.extension in
       let out_prog = open_out file_prog in
@@ -1004,8 +1004,8 @@ let dump_diff_and_exit () : unit =
   let ctx = trace.context in
   let prefix = (* ctx.directory ^ *) ctx.prefix in
   (* Common printinf function *)
-  let output_ast ?(ast_and_enc:bool=true) filename_prefix ast =
-    output_prog_check_empty ~ast_and_enc ctx filename_prefix ast;
+  let output_ast ?(bypass_cfeatures:bool=false) ?(ast_and_enc:bool=true) filename_prefix ast =
+    output_prog_check_empty ~bypass_cfeatures ~ast_and_enc ctx filename_prefix ast;
     print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
     in
   (* Extrat the two ASTs that should be used for the diff *)
@@ -1029,9 +1029,10 @@ let dump_diff_and_exit () : unit =
       then light_diff astBefore astAfter
       else astBefore, astAfter in
 
-  (* Generate files *)
+  (* Generate files. If in mode "show_res", astAfter is shown without decoding. *)
   output_ast (prefix ^ "_before") astBefore;
-  output_ast (prefix ^ "_after") astAfter;
+  let bypass_cfeatures = !Flags.in_show_res_mode in
+  output_ast ~bypass_cfeatures (prefix ^ "_after") astAfter;
   print_info None "Writing ast and code into %s.js " prefix;
   (* Exit *)
   close_logs ();
