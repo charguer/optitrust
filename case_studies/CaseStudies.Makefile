@@ -1,4 +1,4 @@
-include ./Common.Makefile
+include ../Common.Makefile
 
 _build:
 	$(V)mkdir _build

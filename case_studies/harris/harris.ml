@@ -3,17 +3,13 @@ open Target
 open Ast
 
 let _ = Flags.pretty_matrix_notation := true
-(* let _ = Flags.analyse_stats := true *)
 
-(* keep local *)
 module Image = struct
   let loop_align_stop_extend_start ~(start : trm) ~(stop : trm) (tg : target) : unit =
     Loop.shift (StopAt stop) tg;
     Loop.extend_range ~start:(ExtendTo start) tg;
-    (* FIXME: hack to trigger missed simplifications *)
     Trace.reparse ();
     Arith.(simpl_rec gather_rec) tg
-    (* TODO: transfo to remove useless if inside a for *)
 
   let loop_align_stop_extend_start_like ~(orig:target) (tg:target) : unit =
     let t = get_trm_at_exn orig in
@@ -23,7 +19,8 @@ module Image = struct
 end
 
 (* TODO: generalize *)
-let simpl_mins ?(simpl = Arith.default_simpl) (tg : target) : unit =
+let%transfo simpl_mins ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+  Trace.step_atomic ();
   let rewrite rule = Rewrite.equiv_at ~simpl ~ctx:true ~indepth:true rule tg in
   List.iter rewrite [
     "int h; int by; ==> by + min(h, by + 36) - min(h - 2, by + 34) == by + 2";
@@ -33,7 +30,8 @@ let simpl_mins ?(simpl = Arith.default_simpl) (tg : target) : unit =
   ]
 
 (* TODO: generalize *)
-let simpl_inplace_noop (tg : target) : unit =
+let%transfo simpl_inplace_noop (tg : target) : unit =
+  Trace.step_atomic ();
   Target.iter (fun _ p ->
     let surrounding_instr_p = Loop.find_surrounding_instr p (Trace.ast ()) in
     Arith.default_simpl (target_of_path p);
@@ -46,7 +44,6 @@ let _ = Run.script_cpp (fun () ->
   let int = trm_int in
 
   bigstep "inline operators";
-  (* TODO: make Function.inline ~simpl work *)
   !! Function.inline_def ~simpl [cFunDef "conv2D"];
   !! Loop.unroll ~nest_of:2 [nbMulti; cFor ~body:[cPlusEqVar "acc"] "i"];
   !! Matrix.elim_constant ~simpl:simpl_inplace_noop [nbMulti; cVarDef "weights"];

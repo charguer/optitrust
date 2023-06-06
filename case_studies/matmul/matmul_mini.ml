@@ -5,7 +5,7 @@ open Ast
 let _ = Flags.pretty_matrix_notation := true
 
 
-let _ = Run.script_cpp ~filename:"matmul.cpp" (fun () ->
+let _ = Run.script_cpp (fun () ->
 
    !! Loop.tile (trm_int 4) ~index:"kj" ~iter:TileIterGlobal [cFor "k"];
    !! Loop.tile (trm_int 32) ~index:"bi" ~bound:TileDivides [cFor "i"];

@@ -314,6 +314,7 @@ let%transfo hoist_expr (name : string)
   ) tg
 
 let%transfo simpl_range ~(simpl : Target.Transfo.t) (tg : target) : unit =
+  Trace.step_trivial ();
   Target.iter (fun _ p ->
     simpl (target_of_path (p @ [Dir_for_start]));
     simpl (target_of_path (p @ [Dir_for_stop]));
@@ -324,6 +325,7 @@ let%transfo simpl_range ~(simpl : Target.Transfo.t) (tg : target) : unit =
 - [inline] if true, inline the index shift in the loop body *)
 (* TODO: what if index name is same as original loop index name? *)
 let%transfo shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_kind) ?(inline : bool = true) ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   let index' = if index = "" then begin
     if not inline then
       fail None "Loop.shift: expected name for index variable when inline = false";
@@ -350,6 +352,7 @@ let%transfo shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_ki
 (* [extend_range]: like [Loop_basic.extend_range], plus arithmetic and conditional simplifications.
    *)
 let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : extension_kind = ExtendNothing) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   Target.iter (fun t p ->
     Loop_basic.extend_range ~start ~stop (target_of_path p);
     (* TODO: simpl_range? *)
@@ -398,6 +401,7 @@ let adapt_indices ~(upwards : bool) (p : path) : unit =
     [adapt_fused_indices] - attempts to adapt the indices of fused loops using [Loop.extend_range] and [Loop.shift], otherwise by default the loops need to have the same range.
   *)
 let%transfo fusion ?(nb : int = 2) ?(nest_of : int = 1) ?(upwards : bool = true) ?(adapt_fused_indices : bool = true) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   Target.iter (fun _ p ->
     Marks.with_fresh_mark_on p (fun m ->
       for _ = 2 to nb do
@@ -429,6 +433,7 @@ let%transfo fusion ?(nb : int = 2) ?(nest_of : int = 1) ?(upwards : bool = true)
   LATER ?(into_occ : int = 1)
   *)
 let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_all_indices : bool = false) ?(adapt_fused_indices : bool = true) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   assert (not adapt_all_indices); (* TODO *)
   (* adapt_all_indices => adapt_fused_indices *)
   let adapt_fused_indices = adapt_all_indices || adapt_fused_indices in
@@ -1015,6 +1020,7 @@ let%transfo slide ?(index : var = "b${id}")
   ~(step : trm)
   ?(simpl : Transfo.t = default_simpl)
   (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   Target.iter (fun _ p ->
     Loop_basic.slide ~index ~bound ~size ~step (target_of_path p);
     simpl_range ~simpl (target_of_path p);

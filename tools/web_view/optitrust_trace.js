@@ -50,8 +50,9 @@ var optionExectime = false;
 var optionIOSteps = false;
 var optionShowAST = false;
 // TODO: UI control
-var dontShowTags = new Set(["trivial", "valid_by_composition", "should_be_valid_by_composition"]);
+var hideTags = new Set(["trivial", "valid_by_composition", "should_be_valid_by_composition", "simpl.arith"]);
 var optionShowAtomicSubsteps = false;
+var optionShowNoops = false;
 
 /*
 var optionsDescr = [
@@ -398,6 +399,11 @@ function loadStepDetails(idStep) {
 }
 
 function stepToHTML(step, isRoot) {
+  if (!optionShowNoops && (step.ast_before == step.ast_after)) {
+    // TODO: precompute '==' somewhere
+    return "";
+  }
+
   // console.log("steptohtml " + step.id);
   var s = "";
   var sSubs = "";
@@ -411,7 +417,7 @@ function stepToHTML(step, isRoot) {
   const hideStep =
     (!optionTargetSteps && step.kind == "Target") ||
     (!optionIOSteps && step.kind == "I/O") ||
-    (step.tags.some((x) => dontShowTags.has(x)));
+    (step.tags.some((x) => hideTags.has(x)));
   if (hideStep) {
     return sSubs;
   }
