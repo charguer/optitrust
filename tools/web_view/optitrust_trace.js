@@ -53,6 +53,23 @@ var optionShowAST = false;
 var dontShowTags = new Set(["trivial", "valid_by_composition", "should_be_valid_by_composition"]);
 var optionShowAtomicSubsteps = false;
 
+/*
+var optionsDescr = [
+    { key: "exectime",
+      name: "Exectime",
+      kind: "UI",
+      default: false,
+    }
+var options = {};
+// options.exectime = true;
+
+// var usedTags = [];
+// foreach tags
+    optionsDescr[] = ...
+
+    tag noop
+*/
+
 //---------------------------------------------------
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
@@ -185,6 +202,17 @@ function loadDiffFromString(diffString) {
  var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
  diff2htmlUi.draw();
  diff2htmlUi.highlightCode();
+
+ const reg1 = /<del>([\s\n]*)/g
+ $('.d2h-code-line-ctn').each(function() {
+  $(this).html( $(this).html().replace(reg1, "$1<del>") );
+});
+
+const reg2 = /<ins>([\s\n]*)/g
+$('.d2h-code-line-ctn').each(function() {
+ $(this).html( $(this).html().replace(reg2, "$1<ins>") );
+});
+
 
  // identify the two sides of the diff, and register handlers for click on the line numbers;
  $('.d2h-file-side-diff').first().addClass('diffBefore');
