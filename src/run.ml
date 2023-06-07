@@ -148,7 +148,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
 
   let produce_trace () : unit =
     let (), exectime = Tools.measure_time (fun () ->
-      Trace.dump_trace_to_js ~prefix ();
+      Trace.dump_trace_to_js ~beautify:true ~prefix ();
       Trace.dump_trace_to_textfile ~prefix ()) in
       Printf.printf "Time dump-trace: %dms\n" exectime;
     in
