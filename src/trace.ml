@@ -1030,8 +1030,8 @@ let dump_diff_and_exit () : unit =
       else astBefore, astAfter in
 
   (* Generate files. If in mode "show_res", astAfter is shown without decoding. *)
-  output_ast (prefix ^ "_before") astBefore;
-  let bypass_cfeatures = !Flags.in_show_res_mode in
+  let bypass_cfeatures = !Flags.bypass_cfeatures_decoding in
+  output_ast ~bypass_cfeatures (prefix ^ "_before") astBefore;
   output_ast ~bypass_cfeatures (prefix ^ "_after") astAfter;
   print_info None "Writing ast and code into %s.js " prefix;
   (* Exit *)

@@ -1641,9 +1641,8 @@ let show_ast ?(line:int = -1) () : unit =
 let show_res (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
   let t = Trace.ast() in
   let tres = Resources_computation.(trm_recompute_resources builtin_env t) in
-  Trace.interactive_step ~line ~ast_before:(fun () -> t) ~ast_after:(fun () ->
-      Flags.in_show_res_mode := true;
-      Ast_fromto_AstC.computed_resources_intro tres)
+  Trace.interactive_step ~line ~ast_before:(fun () -> t)
+    ~ast_after:(fun () -> Ast_fromto_AstC.computed_resources_intro tres)
 
 (* LATER: Fix me *)
 (* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)

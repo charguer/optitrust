@@ -236,6 +236,7 @@ let unify_pure ((x, formula): resource_item) (res: pure_resource_set) ?(leftover
     raise (Resource_not_found ((x, formula), res))
   with Found evar_ctx -> evar_ctx
 
+
 let unify_and_remove_linear ((x, formula): resource_item) (res: linear_resource_set)
   (evar_ctx: unification_ctx): linear_resource_set * unification_ctx =
   (* LATER: Improve the structure of the linear_resource_set to make this
@@ -266,6 +267,7 @@ let subtract_linear_res (res_from: linear_resource_set) (res_removed: linear_res
 let filter_evar_candidates (res: resource_set): resource_set * var list =
   (* TODO: maybe check free vars inside function contracts? *)
   (* This function completely forgets about ghost variable shadowing *)
+  (* LATER: Un tri topologique serait un peu plus robuste *)
   let combine_used_vars used_vars (_, formula) =
     Var_set.union used_vars (trm_free_vars formula)
   in
@@ -288,24 +290,28 @@ exception NotConsumedResources of linear_resource_set
    effectively, this checks that all resources inside [res_to] can be built
    from resources inside [res_from] and returns the remaining linear resources
    after instantiation.
-   If given, the substitution context [subst_ctx] is applied to [res_to] during
-   the comparisons.
    Pure resources (ghosts) can be inferred using unification.
+
+   If given [evar_ctx] is used as an initial unification context, and replaces
+   the context inferred from pure resources. In that case, pure ressources must
+   already be filtered out of [res_to].
 
    TODO: Add unit tests for this specific function
 *)
-let rec res_impl_leftovers (res_from: resource_set) ?(subst_ctx: tmap = Var_map.empty) (res_to: resource_set) : tmap * linear_resource_set =
-  (* LATER: Un tri topologique serait un peu plus robuste *)
-  let res_to, evar_candidates = filter_evar_candidates res_to in
-  let evar_ctx = Var_map.map (fun x -> Some x) subst_ctx in
-  let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx) evar_ctx evar_candidates in
+(* Complexifier le type de retour pour séparer RO frame *)
+let rec res_impl_leftovers (res_from: resource_set) ?(evar_ctx: unification_ctx option) (res_to: resource_set) : tmap * linear_resource_set =
+  let evar_ctx, res_to = match evar_ctx with
+    | Some evar_ctx -> (evar_ctx, res_to)
+    | None ->
+      let res_to, evar_candidates = filter_evar_candidates res_to in
+      let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx) Var_map.empty evar_candidates in
+      (evar_ctx, res_to)
+  in
 
   let leftover_linear, evar_ctx = subtract_linear_res res_from.linear res_to.linear evar_ctx in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
       unify_pure res_item res_from.pure ~leftover_linear evar_ctx) evar_ctx res_to.pure
   in
-
-  (* LATER: Display RO frames? *)
 
   (* All unifications should be done at this point. There is a bug if it's not the case. *)
   let subst_ctx = Var_map.map (function
@@ -422,13 +428,7 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
       end
 
     | Trm_seq instrs ->
-      (*let add_dummy_let t =*)
-      (*  match t.desc with*)
-      (*  | Trm_let _ | Trm_let_fun _ -> t*)
-      (*  | _ -> trm_let Var_immutable ("__dummy", typ_auto ()) t*)
-      (*in*)
       let instrs = Mlist.to_list instrs in
-      (*let instrs = List.map add_dummy_let instrs in*)
       let* res = List.fold_left compute_inplace (Some res) instrs in
 
       (* Free the cells allocated with stack new *)
@@ -465,8 +465,9 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
       | Some (contract_args, { pre ; post }) ->
         (* TODO: Cast into readonly: attention à l'erreur générée *)
         (* f(3+i), f(g(a)) où g renvoie a + a, f(g(a)) où g ensures res mod a = 0 *)
+
         let subst_map = ref Var_map.empty in
-        let avoid_names = ref (resource_names pre) in
+        let avoid_names = ref (resource_names pre) in (* FIXME: This should also contain program variable names *)
         begin try
           List.iter2 (fun contract_arg effective_arg ->
             subst_map := Var_map.add contract_arg effective_arg !subst_map;
@@ -476,10 +477,18 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
           failwith (Printf.sprintf "Mismatching number of arguments for %s" fn)
         end;
         let subst_ctx, effective_pre = subst_in_res ~forbidden_binders:!avoid_names !subst_map pre in
-        let subst_ctx, res_frame = res_impl_leftovers res ~subst_ctx effective_pre in
-        t.ctx.ctx_resources_frame <- Some res_frame;
 
-        let _, inst_post = subst_in_res subst_ctx post in
+        let effective_pre, evar_candidates = filter_evar_candidates effective_pre in
+        let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx) Var_map.empty evar_candidates in
+
+        let ghost_subst_ctx, res_frame = res_impl_leftovers res ~evar_ctx effective_pre in
+        t.ctx.ctx_resources_frame <- Some res_frame;
+        let ghost_subst_ctx, effective_pre = subst_in_res ~forbidden_binders:!avoid_names ghost_subst_ctx effective_pre in
+        t.ctx.ctx_resources_used <- Some effective_pre;
+
+        let _, inst_post = subst_in_res ~forbidden_binders:!avoid_names subst_ctx post in
+        let _, inst_post = subst_in_res ~forbidden_binders:!avoid_names ghost_subst_ctx inst_post in
+        t.ctx.ctx_resources_produced <- Some inst_post;
         Some (bind_new_resources ~old_res:res ~new_res:{ inst_post with linear = inst_post.linear @ res_frame })
 
       | None when fn = "__admitted" -> None

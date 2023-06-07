@@ -80,6 +80,14 @@ let use_light_diff : bool ref = ref false
 (* [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them. *)
 let bypass_cfeatures : bool ref = ref false
 
+(* [bypass_cfeatures_decoding]: Same as bypass_cfeatures but only for the decoding pass, to show what is
+   actually seen internally after the encoding is done. *)
+let bypass_cfeatures_decoding = ref false
+
+(* [resource_errors_as_warnings]: Do not error on resource computation failure but only print a warning instead.
+   Useful for debugging resource typing. *)
+let resource_errors_as_warnings = ref false
+
 (* [execute_show_even_in_batch_mode]: flag used for unit tests on targets that use the show function. *)
 let execute_show_even_in_batch_mode : bool ref = ref false
 
@@ -210,7 +218,3 @@ let reset_flags_to_default () : unit =
     -dump-ast-details
   and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp]
 ***************************************************************************************************************)
-
-let in_show_res_mode = ref false
-
-let resource_errors_as_warnings = ref false

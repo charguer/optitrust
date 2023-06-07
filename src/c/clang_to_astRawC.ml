@@ -95,18 +95,14 @@ let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
   ctx_constr := Var_map.add c tid (!ctx_constr)
 
 (* [get_ctx]: gets the current context *)
-let get_ctx () : ctx = {
-  ctx_types = Some {
+let get_ctx () : ctx =
+  typing_ctx {
     ctx_var = !ctx_var;
     ctx_tconstr = !ctx_tconstr;
     ctx_typedef = !ctx_typedef;
     ctx_label = !ctx_label;
     ctx_constr = !ctx_constr;
-  };
-  ctx_resources_before = None;
-  ctx_resources_after = None;
-  ctx_resources_frame = None;
-}
+  }
 
 
 (* [redundant_decl]: a reference used for checking if the declaration is redundant or not. *)

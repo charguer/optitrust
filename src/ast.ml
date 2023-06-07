@@ -491,7 +491,8 @@ and ctx = {
   mutable ctx_resources_before: resource_set option;
   mutable ctx_resources_after: resource_set option;
   mutable ctx_resources_frame: resource_item list option;
-  (*mutable ctx_resources_instance: trm Var_map.t option; (* should we record instances? *)*)
+  mutable ctx_resources_used: resource_set option;
+  mutable ctx_resources_produced: resource_set option;
 }
 
 (* [typ_ctx]: stores all the information about types, labels, constructors, etc. *)
@@ -986,7 +987,11 @@ let typ_lref ?(annot : typ_annot list = []) ?(attributes = [])
 
 let unknown_ctx: ctx =
   { ctx_types = None; ctx_resources_before = None; ctx_resources_after = None;
-    ctx_resources_frame = None; }
+    ctx_resources_frame = None; ctx_resources_used = None; ctx_resources_produced = None }
+
+let typing_ctx (ctx_types: typ_ctx): ctx =
+  { ctx_types = Some ctx_types; ctx_resources_before = None; ctx_resources_after = None;
+    ctx_resources_frame = None; ctx_resources_used = None; ctx_resources_produced = None }
 
 (* **************************** Trm constructors *************************** *)
 

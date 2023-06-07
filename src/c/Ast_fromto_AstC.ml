@@ -485,17 +485,19 @@ let insert_aux (index : int) (code : trm) (t : trm) : trm =
 let ctx_resource_list_to_string (res: resource_item list) : string =
   String.concat " " (List.map named_formula_to_string res)
 
-let ctx_resources_to_trm (res: resource_set) : trm =
+let ctx_resources_to_trm ?(fn_name = "__ctx_res") (res: resource_set) : trm =
   let spure = ctx_resource_list_to_string res.pure in
   let slin = ctx_resource_list_to_string res.linear in
-  trm_apps (trm_var "__ctx_res") [trm_string spure; trm_string slin]
+  trm_apps (trm_var fn_name) [trm_string spure; trm_string slin]
 
 
 let display_ctx_resources (t: trm): trm list =
   let tl_after = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after) in
   let tl_frame = Option.to_list (Option.map (fun res_frame ->
-      trm_apps (trm_var "__ctx_frame") [trm_string (ctx_resource_list_to_string res_frame)]) t.ctx.ctx_resources_frame) in
-  (tl_frame @ [t] @ tl_after)
+      trm_apps (trm_var "__framed_res") [trm_string (ctx_resource_list_to_string res_frame)]) t.ctx.ctx_resources_frame) in
+  let tl_used = Option.to_list (Option.map (ctx_resources_to_trm ~fn_name:"__used_res") t.ctx.ctx_resources_used) in
+  let tl_produced = Option.to_list (Option.map (ctx_resources_to_trm ~fn_name:"__produced_res") t.ctx.ctx_resources_produced) in
+  (tl_used @ tl_frame @ [t] @ tl_produced @ tl_after)
 
 let computed_resources_intro (t: trm): trm =
   let rec aux t =
