@@ -210,3 +210,14 @@ h2 {
 }
 
 /* ---- */
+
+/* ---- compact: */
+ul {
+  list-style-type: none;
+  margin: 0;
+  padding-left: 0;
+}
+li {
+  padding-left: 1ex;
+}
+/* ---- */

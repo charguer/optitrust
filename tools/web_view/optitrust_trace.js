@@ -139,6 +139,7 @@ var configuration = {
    fileContentToggle: false,
    matching: 'lines',
    outputFormat: 'side-by-side',
+   // outputFormat: 'line-by-line',
    synchronisedScroll: true,
    highlight: true,
    renderNothingWhenEmpty: false,
@@ -214,6 +215,11 @@ $('.d2h-code-line-ctn').each(function() {
  $(this).html( $(this).html().replace(reg2, "$1<ins>") );
 });
 
+// more compact 'tabs':
+const reg3 = /  /g
+$('.d2h-code-line-ctn').each(function() {
+ $(this).html( $(this).html().replace(reg3, " ") );
+});
 
  // identify the two sides of the diff, and register handlers for click on the line numbers;
  $('.d2h-file-side-diff').first().addClass('diffBefore');
@@ -407,7 +413,10 @@ function stepToHTML(step, isRoot) {
   // console.log("steptohtml " + step.id);
   var s = "";
   var sSubs = "";
-  if (!optionShowAtomicSubsteps && !step.tags.includes("atomic")) {
+
+  const hideSubsteps =
+    (!optionShowAtomicSubsteps && !step.tags.includes("atomic"));
+  if (hideSubsteps) {
     for (var i = 0; i < step.sub.length; i++) {
       var substep = steps[step.sub[i]];
       sSubs += stepToHTML(substep, false)
@@ -418,7 +427,10 @@ function stepToHTML(step, isRoot) {
     (!optionTargetSteps && step.kind == "Target") ||
     (!optionIOSteps && step.kind == "I/O") ||
     (step.tags.some((x) => hideTags.has(x)));
-  if (hideStep) {
+  if (isRoot) {
+    // compact:
+    return "<ul class='step-sub'> " + sSubs + "</ul>\n";
+  } else if (hideStep) {
     return sSubs;
   }
 
@@ -453,9 +465,11 @@ function stepToHTML(step, isRoot) {
     sTime = "<span class='" + sTimeClass + "'>" + sTime + "</span>";
 
   }
-  var sKind = escapeHTML(step.kind);
+
+  // compact:
+  var sKind = ""; // escapeHTML(step.kind);
   if (step.script_line !== undefined) {
-    sKind = "<b>" + step.script_line + "</b>";
+    sKind = " [<b>" + step.script_line + "</b>] ";
   }
   var sScript = escapeHTML(step.script);
   if (step.kind == "Big") {
@@ -466,7 +480,7 @@ function stepToHTML(step, isRoot) {
     sOnClick = "onclick='loadStepDetails(" + step.id + ")'";
   }
 
-  s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + " [" + sKind + "] " + escapeHTML(step.name) + " " + sScript + "</div>";
+  s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + escapeHTML(step.name) + " " + sScript + "</div>";
   if (optionJustif) {
     for (var i = 0; i < step.justif.length; i++) {
       s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
