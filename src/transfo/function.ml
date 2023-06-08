@@ -39,6 +39,7 @@ let%transfo bind_args (fresh_names : vars) (tg : target) : unit =
      Either the user can give a list of variables together with their new names, or he can give the postifx
      that's going to be assigned to all the declared vairables. *)
 let%transfo elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   iter_on_targets (fun t p ->
     let tg_trm = Stats.comp_stats "elim_body_resolve" (fun () -> Path.resolve_path p t) in
     let error = "Function.elim_body: the given target should point at a sequence." in
@@ -212,6 +213,7 @@ int f2() { // result of Funciton_basic.inline_cal
 let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
   ?(delete : bool = false) ?(debug : bool = false) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
   =
+  Trace.step_valid_by_composition ();
   (* TODO: Marks.with_fresh_mark (fun subst_mark -> *)
     (* variable for storing the function names, in case if [delete] is true it will use this name to target the declarations and delete them *)
     let function_names = ref Var_set.empty in

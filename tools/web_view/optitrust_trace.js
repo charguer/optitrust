@@ -43,6 +43,7 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 
 
 // checkbox status; may change default values here
+var optionCompact = false;
 var optionDetails = true;
 var optionJustif = false;
 var optionTargetSteps = false;
@@ -50,8 +51,9 @@ var optionExectime = false;
 var optionIOSteps = false;
 var optionShowAST = false;
 // TODO: UI control
-var dontShowTags = new Set(["trivial", "valid_by_composition", "should_be_valid_by_composition"]);
+var hideTags = new Set(["trivial", "valid_by_composition", "should_be_valid_by_composition", "simpl.arith"]);
 var optionShowAtomicSubsteps = false;
+var optionShowNoops = false;
 
 /*
 var optionsDescr = [
@@ -138,6 +140,7 @@ var configuration = {
    fileContentToggle: false,
    matching: 'lines',
    outputFormat: 'side-by-side',
+   // outputFormat: 'line-by-line',
    synchronisedScroll: true,
    highlight: true,
    renderNothingWhenEmpty: false,
@@ -213,6 +216,12 @@ $('.d2h-code-line-ctn').each(function() {
  $(this).html( $(this).html().replace(reg2, "$1<ins>") );
 });
 
+if (optionCompact) {
+  const reg3 = /  /g
+  $('.d2h-code-line-ctn').each(function() {
+    $(this).html( $(this).html().replace(reg3, " ") );
+  });
+}
 
  // identify the two sides of the diff, and register handlers for click on the line numbers;
  $('.d2h-file-side-diff').first().addClass('diffBefore');
@@ -398,10 +407,18 @@ function loadStepDetails(idStep) {
 }
 
 function stepToHTML(step, isRoot) {
+  if (!optionShowNoops && (step.ast_before == step.ast_after)) {
+    // TODO: precompute '==' somewhere
+    return "";
+  }
+
   // console.log("steptohtml " + step.id);
   var s = "";
   var sSubs = "";
-  if (!optionShowAtomicSubsteps && !step.tags.includes("atomic")) {
+
+  const hideSubsteps =
+    (!optionShowAtomicSubsteps && !step.tags.includes("atomic"));
+  if (hideSubsteps) {
     for (var i = 0; i < step.sub.length; i++) {
       var substep = steps[step.sub[i]];
       sSubs += stepToHTML(substep, false)
@@ -411,8 +428,10 @@ function stepToHTML(step, isRoot) {
   const hideStep =
     (!optionTargetSteps && step.kind == "Target") ||
     (!optionIOSteps && step.kind == "I/O") ||
-    (step.tags.some((x) => dontShowTags.has(x)));
-  if (hideStep) {
+    (step.tags.some((x) => hideTags.has(x)));
+  if (isRoot) {
+    return "<ul class='step-sub'> " + sSubs + "</ul>\n";
+  } else if (hideStep) {
     return sSubs;
   }
 
@@ -447,9 +466,12 @@ function stepToHTML(step, isRoot) {
     sTime = "<span class='" + sTimeClass + "'>" + sTime + "</span>";
 
   }
-  var sKind = escapeHTML(step.kind);
+
+  var sKind = "";
   if (step.script_line !== undefined) {
-    sKind = "<b>" + step.script_line + "</b>";
+    sKind = " [<b>" + step.script_line + "</b>] ";
+  } else if (!optionCompact) {
+    sKind = " [" + escapeHTML(step.kind) + "] ";
   }
   var sScript = escapeHTML(step.script);
   if (step.kind == "Big") {
@@ -460,7 +482,7 @@ function stepToHTML(step, isRoot) {
     sOnClick = "onclick='loadStepDetails(" + step.id + ")'";
   }
 
-  s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + " [" + sKind + "] " + escapeHTML(step.name) + " " + sScript + "</div>";
+  s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + escapeHTML(step.name) + " " + sScript + "</div>";
   if (optionJustif) {
     for (var i = 0; i < step.justif.length; i++) {
       s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"

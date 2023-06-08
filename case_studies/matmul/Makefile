@@ -3,7 +3,7 @@ TESTS := matmul.ml
 matmul_mini_trace.js: matmul_mini_with_lines.cmxs matmul.cpp matmul_mini_with_lines.ml
 	$(V)OCAMLRUNPARAM=b $(RUNNER) ./$< -dump-trace $(FLAGS) $(TRACEFLAGS)
 
-include ../Common.Makefile
+include ../CaseStudies.Makefile
 
 # FIXME: avoid this
 %.c: %.cpp

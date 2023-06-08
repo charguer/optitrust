@@ -389,6 +389,10 @@ let step_atomic () : unit =
 let step_valid_by_composition () : unit =
   step_tag "should_be_valid_by_composition"
 
+(* [step_simpl_arith] is called by a transformation after open_step to indicate that it performs arithmetic simplifications. This can be used for filtering trace display. *)
+let step_simpl_arith () : unit =
+  step_tag "simpl.arith"
+
 (* [close_step] is called at the end of every big-step, or small-step,
    or combi, or basic transformation. The step to close can be passed
    as an optional argument, to check that the exected step is being closed.
@@ -773,7 +777,7 @@ let ensure_header (h : string) : unit =
   let ctx = the_trace.context in
   let found = Tools.pattern_matches h (ctx.header) in
   if not found then
-    the_trace.context <- { ctx with header = ctx.header ^ "\n" ^ h }
+    the_trace.context <- { ctx with header = ctx.header ^ h ^ "\n" }
 
 (* [output_prog ctx prefix ast]: writes the program described by the term [ast]
    in several files:

@@ -15,6 +15,7 @@ echo "(executable
   (modules ${FILEBASE})
   (modes (native plugin))
   (promote)
+  (preprocess (pps ppx_transfo))
   (libraries optitrust))
 
 (alias

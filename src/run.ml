@@ -107,6 +107,16 @@ exception Stop
 let stop () : unit =
   raise Stop
 
+(* [may_report_time msg f]: returns the result of [f()] and, if not in batch mode, reports the time taken by that call on stdout. *)
+let may_report_time (msg : string) (f : unit -> 'a) : 'a =
+  if Flags.is_batch_mode () then
+    f ()
+  else begin
+    let (r, t) = Tools.measure_time f in
+    Printf.printf "Time %s: %dms\n" msg t;
+    r
+  end
+
 (* [script ~filename ~extension ~batching ~check_exit_at_end ~prefix ~parser f]:
    serves as "main" function for an Optitrust script. It takes care of parsing
    the command line arguments, handling the errors, and parsing the file that will be processed,
@@ -147,10 +157,9 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
   in
 
   let produce_trace () : unit =
-    let (), exectime = Tools.measure_time (fun () ->
-      Trace.dump_trace_to_js ~prefix ();
-      Trace.dump_trace_to_textfile ~prefix ()) in
-      Printf.printf "Time dump-trace: %dms\n" exectime;
+    may_report_time "dump-trace" (fun () ->
+      Trace.dump_trace_to_js ~beautify:true ~prefix ();
+      Trace.dump_trace_to_textfile ~prefix ())
     in
 
   (* DEBUG: Printf.printf "script default_basename=%s filename=%s prefix=%s \n" default_basename filename prefix; *)
@@ -162,10 +171,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
     Trace.init ~prefix ~parser filename;
     begin
       try
-
-        let (), exectime = Tools.measure_time f in
-        Printf.printf "Time script-exec: %dms\n" exectime;
-
+        may_report_time "script-exec" f
       with
       | Stop -> ()
       | e when !Flags.dump_trace ->
@@ -228,7 +234,7 @@ let script ?(filename : string option) ~(extension : string) ?(check_exit_at_end
      See the specification of [generate_source_with_inlined_header_cpp] for additional features.
    The rest of the options are the same as [script f] *)
 let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string option) ?(parser : Trace.parser option) (f : unit -> unit) : unit =
-  let res, exectime = Tools.measure_time (fun () ->
+  may_report_time "script-cpp" (fun () ->
     (* Handles preprocessor *)
     Compcert_parser.Clflags.prepro_options := prepro;
 
@@ -258,9 +264,7 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
       | None -> CParsers.get_default ()
     in
 
-    script ~parser ?filename ~extension:".cpp" ~check_exit_at_end ?prefix f) in
-  Printf.printf "Time script-cpp: %dms\n" exectime;
-  res
+    script ~parser ?filename ~extension:".cpp" ~check_exit_at_end ?prefix f)
 
 (* [doc_script_cpp ~parser f src]: is a variant of [script_cpp] that takes as input a piece of source code [src]
     as a string, and stores this contents into [foo_doc.cpp], where [foo.ml] is the name of the current file. It then

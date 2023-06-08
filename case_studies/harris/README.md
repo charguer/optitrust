@@ -19,8 +19,27 @@ Benchmark `[name].cpp` implementation:
 make bench_[name]
 ```
 
+# Naive Code Improvements
+
+```c
+// TODO: this should be added by OptiTrust tiling
+inline int min(int a, int b) { return a < b ? a : b; }
+
+// NOTE: need to decide if 'in' has 3 or 4 channels (alpha)
+void grayscale(float* out,
+               int h, int w,
+               const float* in)
+```
+
+# Optimized Code Improvements
+
+- allocate one circuler buffer per thread, instead of one per iteration
+
 # Script Improvements
 
+- TODO: make Function.inline ~simpl work
+- `loop_align_stop_extend_start`
+  - remove hack: reparse to trigger missed simplifications
 - `Function.inline [nbMulti; cDiff [[cTopFunDef ""]] [[cFunDef "harris"]]]`
 - `Variable.inline ~simpl [nbMulti; cFunBody "harris"; cConstDef ""]`
 - `Instr.accumulate ~nb:9 [nbMulti; cVarDef "acc"];`

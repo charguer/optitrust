@@ -2,6 +2,7 @@
   (name batch)
   (modules batching batch)
   (modes (native plugin) (byte exe))
+  (preprocess (pps ppx_transfo))
   (libraries optitrust)
   (promote)
   ; disable warning 27: unused var strict

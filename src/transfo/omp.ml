@@ -35,4 +35,4 @@ let parallel_for ?(clause : clause list = []) ?(collapse : int = 0) : Target.Tra
 
 let simd ?(clause : clause list = []) : Transfo.t =
   ensure_header ();
-  transfo_on_targets (trm_add_pragma (Simd clause))
+  Omp_basic.simd ~clause
