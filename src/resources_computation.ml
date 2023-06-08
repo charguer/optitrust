@@ -202,14 +202,29 @@ let rename_var_in_res (x: var) (new_x: var) (res: resource_set) : resource_set =
   snd (subst_in_res (Var_map.singleton x (trm_var new_x)) res)
 
 (* TODO: Use a real trm_fold later to avoid reconstructing trm *)
-let trm_free_vars (t: trm): Var_set.t =
+let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
   let fv = ref Var_set.empty in
   let _ = trm_map_vars (fun bound_set binder -> (Var_set.add binder bound_set, binder))
     (fun bound_set var ->
       (if Var_set.mem var bound_set then () else fv := Var_set.add var !fv); trm_var var)
-    Var_set.empty t
+    bound_vars t
   in
   !fv
+
+let fun_contract_free_vars (contract: fun_contract): Var_set.t =
+  let fold_res_list bound_vars fv res =
+    List.fold_left (fun (bound_vars, fv) (x, formula) ->
+      let bound_vars = match x with
+        | None -> bound_vars
+        | Some x -> Var_set.add x bound_vars
+      in
+      (bound_vars, Var_set.union (trm_free_vars ~bound_vars formula) fv)) (bound_vars, fv) res
+  in
+  let bound_vars, free_vars = fold_res_list Var_set.empty Var_set.empty contract.pre.pure in
+  let _, free_vars = fold_res_list bound_vars free_vars contract.pre.linear in
+  let bound_vars, free_vars = fold_res_list bound_vars free_vars contract.post.pure in
+  let _, free_vars = fold_res_list bound_vars free_vars contract.post.linear in
+  free_vars
 
 (* [Resource_not_found (item, res_list)]: exception raised when the resource
    [item] is not found inside the resource list [res_list] *)
@@ -358,6 +373,10 @@ let resource_names (res: resource_set) =
   in
   Var_set.union (res_list_names res.pure) (res_list_names res.linear)
 
+let cast_into_read_only (res: resource_set): resource_set =
+  let pure = List.fold_left (fun pure (x, formula) -> (x, trm_read_only formula) :: pure) res.pure res.linear in
+  { res with pure; linear = [] }
+
 exception Unimplemented
 
 let unop_to_var (u: unary_op): var =
@@ -406,8 +425,27 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "Resources not consumed after the end of the block: %s" (Ast_fromto_AstC.ctx_resource_list_to_string res))
   | _ -> None)
 
-(* TODO: better name *)
-let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: trm): resource_spec =
+(* LATER: Extensible list of applications that can be translated into formula *)
+let rec formula_of_trm (t: trm): formula option =
+  let open Tools.OptionMonad in
+  match t.desc with
+  | Trm_val _ | Trm_var _ -> Some t
+  | Trm_apps (fn, args) ->
+    let* f_args = try Some (List.map (fun arg -> Option.get (formula_of_trm arg)) args) with Invalid_argument _ -> None in
+    begin match trm_prim_inv fn with
+      | Some Prim_binop Binop_add
+      | Some Prim_binop Binop_sub
+      | Some Prim_binop Binop_mul
+      | Some Prim_binop Binop_div
+      | Some Prim_binop Binop_mod
+          -> Some (trm_apps fn f_args)
+      | _ -> None
+    end
+  | _ -> None
+
+(* TODO: better name? *)
+let rec compute_inplace ?(expected_res: resource_spec) ~(arg_restriction:bool) (res: resource_spec) (t: trm): resource_spec =
+  let aux = compute_inplace ~arg_restriction in
   (*Printf.eprintf "With resources: %s\nComputing %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);*)
   t.ctx.ctx_resources_before <- res;
   let open Tools.OptionMonad in
@@ -421,7 +459,7 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
       begin match contract with
       | Some contract ->
         let body_res = bind_new_resources ~old_res:res ~new_res:contract.pre in
-        ignore (compute_inplace ?expected_res:(Some contract.post) (Some body_res) body);
+        ignore (aux ?expected_res:(Some contract.post) (Some body_res) body);
         let args = List.map (fun (x, _) -> x) args in
         Some { res with fun_contracts = Var_map.add name (args, contract) res.fun_contracts }
       | None -> Some res
@@ -429,7 +467,7 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
 
     | Trm_seq instrs ->
       let instrs = Mlist.to_list instrs in
-      let* res = List.fold_left compute_inplace (Some res) instrs in
+      let* res = List.fold_left aux (Some res) instrs in
 
       (* Free the cells allocated with stack new *)
       let extract_let_mut ti =
@@ -451,32 +489,43 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
       begin match spec with
       | Some bound_res ->
         let expected_res = rename_var_in_res var var_result bound_res in
-        ignore (compute_inplace ~expected_res (Some res) body);
+        ignore (aux ~expected_res (Some res) body);
         (* Use the bound_res contract but keep res existing pure facts *)
         Some (bind_new_resources ~old_res:res ~new_res:bound_res)
       | None ->
-        let* res_after = compute_inplace (Some res) body in
+        let* res_after = aux (Some res) body in
         Some (rename_var_in_res var_result var res_after)
       end
 
-    | Trm_apps (fn, args) ->
+    | Trm_apps (fn, effective_args) ->
       let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv fn in
       begin match Var_map.find_opt fn res.fun_contracts with
-      | Some (contract_args, { pre ; post }) ->
+      | Some (contract_args, contract) ->
         (* TODO: Cast into readonly: attention à l'erreur générée *)
         (* f(3+i), f(g(a)) où g renvoie a + a, f(g(a)) où g ensures res mod a = 0 *)
 
         let subst_map = ref Var_map.empty in
-        let avoid_names = ref (resource_names pre) in (* FIXME: This should also contain program variable names *)
+        let avoid_names = ref (resource_names contract.pre) in (* FIXME: This should also contain program variable names *)
+        let read_only_res = cast_into_read_only res in
+        let contract_fv = fun_contract_free_vars contract in
         begin try
           List.iter2 (fun contract_arg effective_arg ->
-            subst_map := Var_map.add contract_arg effective_arg !subst_map;
-            avoid_names := Var_set.union (trm_free_vars effective_arg) !avoid_names
-          ) contract_args args;
+            (* LATER: Collect pure facts of arguments *)
+            ignore (compute_inplace ~arg_restriction:true (Some read_only_res) effective_arg);
+
+            if Var_set.mem contract_arg contract_fv then begin
+              let arg_formula = match formula_of_trm effective_arg with
+                | Some formula -> formula
+                | None -> fail effective_arg.loc (Printf.sprintf "Could not make a formula out of term '%s', required because of instantiation of %s contract" (AstC_to_c.ast_to_string effective_arg) fn)
+              in
+              subst_map := Var_map.add contract_arg arg_formula !subst_map;
+              avoid_names := Var_set.union (trm_free_vars effective_arg) !avoid_names
+            end
+          ) contract_args effective_args;
         with Invalid_argument _ ->
           failwith (Printf.sprintf "Mismatching number of arguments for %s" fn)
         end;
-        let subst_ctx, effective_pre = subst_in_res ~forbidden_binders:!avoid_names !subst_map pre in
+        let subst_ctx, effective_pre = subst_in_res ~forbidden_binders:!avoid_names !subst_map contract.pre in
 
         let effective_pre, evar_candidates = filter_evar_candidates effective_pre in
         let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx) Var_map.empty evar_candidates in
@@ -486,7 +535,7 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
         let ghost_subst_ctx, effective_pre = subst_in_res ~forbidden_binders:!avoid_names ghost_subst_ctx effective_pre in
         t.ctx.ctx_resources_used <- Some effective_pre;
 
-        let _, inst_post = subst_in_res ~forbidden_binders:!avoid_names subst_ctx post in
+        let _, inst_post = subst_in_res ~forbidden_binders:!avoid_names subst_ctx contract.post in
         let _, inst_post = subst_in_res ~forbidden_binders:!avoid_names ghost_subst_ctx inst_post in
         t.ctx.ctx_resources_produced <- Some inst_post;
         Some (bind_new_resources ~old_res:res ~new_res:{ inst_post with linear = inst_post.linear @ res_frame })
@@ -503,15 +552,24 @@ let rec compute_inplace ?(expected_res: resource_spec) (res: resource_spec) (t: 
 
   (*Printf.eprintf "With resources: %s\nSaving %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);*)
   t.ctx.ctx_resources_after <- res;
-  match res, expected_res with
-  | Some res, Some expected_res ->
-    begin try assert_res_impl res expected_res
-    with e when !Flags.resource_errors_as_warnings ->
-      Printf.eprintf "%s: Resource check warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
+  let res = match res, expected_res with
+    | Some res, Some expected_res ->
+      begin try assert_res_impl res expected_res
+      with e when !Flags.resource_errors_as_warnings ->
+        Printf.eprintf "%s: Resource check warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
+      end;
+      Some expected_res
+    | _, None -> res
+    | None, _ -> expected_res
+  in
+
+  if arg_restriction then
+    begin match res with
+    | Some res when res.linear <> [] -> fail t.loc "Impure function argument"
+    | _ -> ()
     end;
-    Some expected_res
-  | _, None -> res
-  | None, _ -> expected_res
+  res
+
 
 let ctx_copy (ctx: ctx): ctx = { ctx with ctx_types = ctx.ctx_types }
 
@@ -522,5 +580,5 @@ let rec trm_deep_copy (t: trm) : trm =
 
 let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm =
   let t = trm_deep_copy t in
-  ignore (compute_inplace (Some init_ctx) t);
+  ignore (compute_inplace ~arg_restriction:false (Some init_ctx) t);
   t
