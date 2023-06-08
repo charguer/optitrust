@@ -43,34 +43,71 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 
 
 // checkbox status; may change default values here
-var optionCompact = false;
-var optionDetails = true;
-var optionJustif = false;
-var optionTargetSteps = false;
-var optionExectime = false;
-var optionIOSteps = false;
-var optionShowAST = false;
-// TODO: UI control
+
+
+// todo: in init function, gather tags in the trace
+// generate one option for each tag
+// set their default value based on the hideTags array
+// update the display of the checkboxes after loading
 var hideTags = new Set(["trivial", "valid_by_composition", "should_be_valid_by_composition", "simpl.arith"]);
-var optionShowAtomicSubsteps = false;
-var optionShowNoops = false;
 
-/*
 var optionsDescr = [
-    { key: "exectime",
-      name: "Exectime",
-      kind: "UI",
-      default: false,
-    }
+  { key: "details",
+    name: "details",
+    kind: "UI",
+    default: true,
+  },
+  { key: "ast_before",
+    name: "ast-before",
+    kind: "UI",
+    default: false,
+  },
+  { key: "ast_after",
+    name: "ast-after",
+    kind: "UI",
+    default: false,
+  },
+  { key: "compact",
+    name: "compact",
+    kind: "UI",
+    default: false,
+  },
+  { key: "justif",
+    name: "justification",
+    kind: "UI",
+    default: true,
+  },
+  { key: "exectime",
+    name: "exectime",
+    kind: "UI",
+    default: false,
+  },
+  { key: "io_steps",
+    name: "io-steps",
+    kind: "UI",
+    default: false,
+  },
+  { key: "target_steps",
+    name: "target-steps",
+    kind: "UI",
+    default: false,
+  },
+  { key: "noop_steps",
+    name: "noop-steps",
+    kind: "UI",
+    default: false,
+  },
+  { key: "atomic_substeps",
+    name: "atomic-substeps",
+    kind: "UI",
+    default: false,
+  }
+];
 var options = {};
-// options.exectime = true;
-
-// var usedTags = [];
-// foreach tags
-    optionsDescr[] = ...
-
-    tag noop
-*/
+for (var i = 0; i < optionsDescr.length; i++) {
+  var descr = optionsDescr[i];
+  options[descr.key] = descr.default;
+}
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -216,7 +253,7 @@ $('.d2h-code-line-ctn').each(function() {
  $(this).html( $(this).html().replace(reg2, "$1<ins>") );
 });
 
-if (optionCompact) {
+if (options.compact) {
   const reg3 = /  /g
   $('.d2h-code-line-ctn').each(function() {
     $(this).html( $(this).html().replace(reg3, " ") );
@@ -321,7 +358,7 @@ function loadSdiff(id) {
   reloadView(); //loadStepDetails(step.id);
   loadDiffFromString(step.diff);
   var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
-  if (optionExectime) {
+  if (options.exectime) {
     var sTime = htmlSpan(Math.round(1000 * step.exectime) + "ms", "timing-info") + "<div style='clear: both'></div>";
     sStep += sTime;
   }
@@ -384,8 +421,9 @@ function nextBdiff() {
 // handles a click on a step, to view details
 function loadStepDetails(idStep) {
   var step = steps[idStep];
-  if (optionShowAST) {
-    loadSource(step.ast_after, true);
+  if (options.ast_before || options.ast_after) {
+    var ast = (options.ast_before) ? step.ast_before : step.ast_after;
+    loadSource(ast, true);
     $("#diffDiv").hide();
     $("#sourceDiv").show();
   } else {
@@ -407,7 +445,7 @@ function loadStepDetails(idStep) {
 }
 
 function stepToHTML(step, isRoot) {
-  if (!optionShowNoops && (step.ast_before == step.ast_after)) {
+  if (!options.noop_steps && (step.ast_before == step.ast_after)) {
     // TODO: precompute '==' somewhere
     return "";
   }
@@ -417,7 +455,7 @@ function stepToHTML(step, isRoot) {
   var sSubs = "";
 
   const hideSubsteps =
-    (!optionShowAtomicSubsteps && !step.tags.includes("atomic"));
+    (!options.atomic_substeps && !step.tags.includes("atomic"));
   if (hideSubsteps) {
     for (var i = 0; i < step.sub.length; i++) {
       var substep = steps[step.sub[i]];
@@ -426,8 +464,8 @@ function stepToHTML(step, isRoot) {
   }
 
   const hideStep =
-    (!optionTargetSteps && step.kind == "Target") ||
-    (!optionIOSteps && step.kind == "I/O") ||
+    (!options.target_steps && step.kind == "Target") ||
+    (!options.io_steps && step.kind == "I/O") ||
     (step.tags.some((x) => hideTags.has(x)));
   if (isRoot) {
     return "<ul class='step-sub'> " + sSubs + "</ul>\n";
@@ -446,7 +484,7 @@ function stepToHTML(step, isRoot) {
     validityClass = "step-invalid";
   }
   var sTime = "";
-  if (optionExectime) {
+  if (options.exectime) {
     var t = 1000 * step.exectime; // milliseconds
     var nb = "";
     if (t > 10) {
@@ -470,7 +508,7 @@ function stepToHTML(step, isRoot) {
   var sKind = "";
   if (step.script_line !== undefined) {
     sKind = " [<b>" + step.script_line + "</b>] ";
-  } else if (!optionCompact) {
+  } else if (!options.compact) {
     sKind = " [" + escapeHTML(step.kind) + "] ";
   }
   var sScript = escapeHTML(step.script);
@@ -483,7 +521,7 @@ function stepToHTML(step, isRoot) {
   }
 
   s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + escapeHTML(step.name) + " " + sScript + "</div>";
-  if (optionJustif) {
+  if (options.justif) {
     for (var i = 0; i < step.justif.length; i++) {
       s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
     }
@@ -500,7 +538,7 @@ function stepToHTML(step, isRoot) {
 function reloadView() {
   // var shouldShowDetails = ($("#detailsDiv").html() == "");
   resetView();
-  if (optionDetails) {
+  if (options.details) {
     $("#detailsDiv").show();
   } else {
     $("#detailsDiv").hide();
@@ -563,36 +601,46 @@ function initControls() {
   // Details button
   // s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
   s += htmlButton("button_all", "all", "details-button", "viewDetailsAll()");
-  s += htmlCheckbox("option_Details", "details", "details-checkbox", "updateOptions()");
-  s += htmlCheckbox("option_Justif", "justif", "justif-checkbox", "updateOptions()");
-  s += htmlCheckbox("option_Exectime", "exectime", "details-checkbox", "updateOptions()");
-  s += htmlCheckbox("option_TargetSteps", "target-steps", "details-checkbox", "updateOptions()");
-  s += htmlCheckbox("option_IOSteps", "io-steps", "details-checkbox", "updateOptions()");
-  s += htmlCheckbox("option_ShowAST", "show-ast", "details-checkbox", "updateOptions()");
+
+  // Generate checkboxes
+  for (var i = 0; i < optionsDescr.length; i++) {
+    var descr = optionsDescr[i];
+    var id = "option_" + descr.key;
+    s += htmlCheckbox(id, descr.name, "details-checkbox", "updateOptions()");
+  }
 
   $("#contents").html(s);
 
   // initialize checkboxes
-  $('#option_Details').prop('checked', optionDetails);
-  $('#option_Justif').prop('checked', optionJustif);
-  $('#option_Exectime').prop('checked', optionExectime);
-  $('#option_TargetSteps').prop('checked', optionTargetSteps);
-  $('#option_IOSteps').prop('checked', optionIOSteps);
-  $('#option_ShowAST').prop('checked', optionShowAST);
+  for (var i = 0; i < optionsDescr.length; i++) {
+    var descr = optionsDescr[i];
+    var id = "option_" + descr.key;
+    $('#' + id).prop('checked', options[descr.key]);
+  }
 }
 
 // handles modification of options by click on the checkboxes
 function updateOptions() {
-  optionDetails = $('#option_Details').prop('checked');
-  optionJustif = $('#option_Justif').prop('checked');
-  optionExectime = $('#option_Exectime').prop('checked');
-  if (optionExectime) {
-    optionIOSteps = true;
-    $('#option_IOSteps').prop('checked', optionIOSteps);
+  var ast_before_was_checked = options.ast_before;
+  for (var i = 0; i < optionsDescr.length; i++) {
+    var descr = optionsDescr[i];
+    var id = "option_" + descr.key;
+    options[descr.key] = $('#' + id).prop('checked');
   }
-  optionTargetSteps = $('#option_TargetSteps').prop('checked');
-  optionIOSteps = $('#option_IOSteps').prop('checked');
-  optionShowAST = $('#option_ShowAST').prop('checked');
+  if (options.exectime) {
+    options.io_steps = true;
+    $('#option_io_steps').prop('checked', options.io_steps);
+  }
+  if (options.ast_before && options.ast_after) {
+    if (ast_before_was_checked) {
+      options.ast_before = false;
+      $('#option_ast_before').prop('checked', options.ast_before);
+    } else {
+      options.ast_after = false;
+      $('#option_ast_after').prop('checked', options.ast_after);
+      // LATER: a function to change an option and the checkbox
+    }
+  }
   reloadView();
 }
 
