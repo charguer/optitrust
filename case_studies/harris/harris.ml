@@ -4,20 +4,6 @@ open Ast
 
 let _ = Flags.pretty_matrix_notation := true
 
-module Image = struct
-  let loop_align_stop_extend_start ~(start : trm) ~(stop : trm) (tg : target) : unit =
-    Loop.shift (StopAt stop) tg;
-    Loop.extend_range ~start:(ExtendTo start) tg;
-    Trace.reparse ();
-    Arith.(simpl_rec gather_rec) tg
-
-  let loop_align_stop_extend_start_like ~(orig:target) (tg:target) : unit =
-    let t = get_trm_at_exn orig in
-    let error = "Image.loop_align_stop_extend_start_like: expected simple loop" in
-    let ((_index, start, _dir, stop, _step, _par), _body) = trm_inv ~error trm_for_inv t in
-    loop_align_stop_extend_start ~start ~stop tg
-end
-
 (* TODO: generalize *)
 let%transfo simpl_mins ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.step_atomic ();
@@ -66,7 +52,7 @@ let _ = Run.script_cpp (fun () ->
   !!! Loop.fusion_targets [cFor "by" ~body:[any cArrayWrite ["gray"; "ix"; "out"]]];
 
   bigstep "circular buffers";
-  !! Image.loop_align_stop_extend_start_like ~orig:[cFor "y" ~body:[cArrayWrite "gray"]] [nbMulti; cFor "y" ~body:[any cArrayWrite ["ix"; "out"]]];
+  !! Stencil.loop_align_stop_extend_start_like ~orig:[cFor "y" ~body:[cArrayWrite "gray"]] [nbMulti; cFor "y" ~body:[any cArrayWrite ["ix"; "out"]]];
   !! simpl_mins [];
   !! Loop.fusion_targets [cFor "y" ~body:[any cArrayWrite ["gray"; "ix"; "ixx"; "out"]]];
   let local_matrix (m, tile) =

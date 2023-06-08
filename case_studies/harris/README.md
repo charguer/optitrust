@@ -42,8 +42,6 @@ void grayscale(float* out,
   - remove hack: reparse to trigger missed simplifications
 - `Function.inline [nbMulti; cDiff [[cTopFunDef ""]] [[cFunDef "harris"]]]`
 - `Variable.inline ~simpl [nbMulti; cFunBody "harris"; cConstDef ""]`
-- `Instr.accumulate ~nb:9 [nbMulti; cVarDef "acc"];`
-- remove `0.0f * x`
 - improve 'acc' variable renaming step
   - `Variable.rename ~add_suffix:array` / `Variable.rename ~op:AddSuffix(array)`
   - allow renaming to depend on context (e.g. `acc_${out}`)

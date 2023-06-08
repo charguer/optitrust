@@ -203,7 +203,8 @@ TIMER6=`date +%s%3N`
 # if [ ! -z ${OPTIONS} ]; then
 echo "Execution options: ${OPTIONS}"
 
-OCAMLRUNPARAM=b dune exec --no-build optitrust_runner -- ${PROG} ${OPTIONS} ${FLAGS}
+# TODO: --no-build
+OCAMLRUNPARAM=b dune exec optitrust_runner -- ${PROG} ${OPTIONS} ${FLAGS}
 
 #==========================================================================
 # Open the output

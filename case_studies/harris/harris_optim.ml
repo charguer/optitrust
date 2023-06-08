@@ -5,29 +5,30 @@ let _ = Run.script_cpp (fun () ->
   let simpl = Arith.default_simpl in
   let int = trm_int in
 
-  bigstep "inline operators";
-  !! Function.inline_local_funs [cFunDef "harris"];
+  bigstep "fuse operators";
+  (* implicit 'fuse_ops'
+     !! Function.inline_def ([cTopFunDef ""] *t [cFunBody "harris"; cFun ""]);
+     !! Function.inline [nbMulti; [cTopFunDef ""] -t [cFunDef "harris"]] *)
+  (* implicit: !! Variable.unique_name [nbMulti; cVarDef "acc"]; *)
+  let fuse ops = Stencil.fuse_operators ~nest_of:2 [any cFun ops] in
+  !! List.iter fuse [["sobelX"; "sobelY"]; ["mul"; "sum3x3", "coarsity"]];
+  (* implicit: !! Matrix.elim [multi cVarDef ["ixx"; "ixy"; "iyy"; "sxx"; "sxy"; "syy"]]; *)
+
+  bigstep "???";
   !! Loop.unroll ~nest_of:2 [nbMulti; cFor ~body:[cPlusEqVar "acc"] "i"];
   !! Matrix.elim_constant [nbMulti; cVarDef "weights"];
-  !! Variable.inline [multi cVarConst ()];
-
-  bigstep "fuse operators";
-  let rename_acc_of array = Variable.rename ~into:("acc_" ^ array) [cFor ~body:[cArrayWrite array] ""; cVarDef "acc"] in
-  !! List.iter rename_acc_of ["ix"; "iy"; "sxx"; "sxy"; "syy"];
-  let fuse arrays = Loop.fusion_targets ~nest_of:2 [cFor "y" ~body:[any cArrayWrite arrays]] in
-  !! List.iter fuse [["ix"; "iy"]; ["ixx"; "ixy"; "iyy"]; ["sxx"; "sxy"; "syy"; "out"]];
-  !! Matrix.elim [multi cVarDef ["ixx"; "ixy"; "iyy"; "sxx"; "sxy"; "syy"]];
+  !! Variable.inline [cScalarVars ()];
 
   bigstep "overlapped tiling over lines";
-  let tile_size = 32 in
+  !! Stencil.overlapped_tiling ~tile_size:32 ~overlaps:[2; 4]
+    [cFor "y" ~body:[any cArrayWrite ["out", "ix", "gray"]]];
+  (* implicit:
   let slide overlap = Loop.slide ~size:(int (tile_size + overlap)) ~step:(int tile_size) in
   !!! slide 0 [cFor "y" ~body:[cArrayWrite "out"]];
   !! slide 2 [cFor "y" ~body:[cArrayWrite "ix"]];
   !! slide 4 [cFor "y" ~body:[cArrayWrite "gray"]];
   !!! Loop.fusion_targets [cFor "by" ~body:[any cArrayWrite ["gray"; "ix"; "out"]]];
-
-  bigstep "circular buffers";
-  !! Image.loop_align_stop_extend_start_like ~orig:[cFor "y" ~body:[cArrayWrite "gray"]] [nbMulti; cFor "y" ~body:[any cArrayWrite ["ix"; "out"]]];
+  !! Image.loop_align_stop_extend_start_like [nbMulti; cFor "y"];
   !! simpl_mins [];
   !! Loop.fusion_targets [cFor "y" ~body:[any cArrayWrite ["gray"; "ix"; "ixx"; "out"]]];
   let local_matrix (m, tile) =
@@ -38,6 +39,9 @@ let _ = Run.script_cpp (fun () ->
     ("ix", [(expr "by", int 34); (int 0, expr "w - 2")]);
     ("iy", [(expr "by", int 34); (int 0, expr "w - 2")]);
   ];
+  *)
+
+  bigstep "circular buffers";
   let circular_buffer var = Matrix.storage_folding ~dim:0 ~size:(int 4) ~var [cFunBody "harris"; cFor "by"] in
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
 
@@ -48,8 +52,6 @@ let _ = Run.script_cpp (fun () ->
   in
   !!! List.iter bind_gradient ["ix"; "iy"];
   !! Matrix.elim_mops [];
-
-
 
   bigstep "parallelism";
   !! Omp.simd [nbMulti; cFor "x"];
