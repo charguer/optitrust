@@ -24,7 +24,15 @@ let builtin_env = resource_set ~fun_contracts:(
       post = empty_resource_set; }) @@
   Var_map.add "__set" (["p"; "x"], set_fun_contract) @@
   Var_map.add "__add" (["x1"; "x2"], empty_fun_contract) @@
+  Var_map.add "__sub" (["x1"; "x2"], empty_fun_contract) @@
+  Var_map.add "__mul" (["x1"; "x2"], empty_fun_contract) @@
   Var_map.add "__add_inplace" (["p"; "x"], set_fun_contract) @@
+  Var_map.add "__matrix2_get" (["p"; "m"; "n"; "i"; "j"],
+    { pre = push_read_only_res (None, formula_matrix2 "p" (trm_var "m") (trm_var "n")) empty_resource_set;
+      post = empty_resource_set; }) @@
+  Var_map.add "__matrix2_set" (["p"; "m"; "n"; "i"; "j"; "v"],
+    { pre = resource_set ~linear:[None, formula_matrix2 "p" (trm_var "m") (trm_var "n")] ();
+      post = resource_set ~linear:[None, formula_matrix2 "p" (trm_var "m") (trm_var "n")] (); }) @@
   Var_map.empty) ()
 
 let rec unify_var (xe: var) (t: trm) (evar_ctx: unification_ctx) : unification_ctx option =
@@ -244,7 +252,7 @@ let unify_pure ((x, formula): resource_item) (res: pure_resource_set) ?(leftover
   in
   try
     List.iter (find_formula formula) res;
-    begin match trm_read_only_inv formula with
+    begin match formula_read_only_inv formula with
     | Some ro_formula -> List.iter (find_formula ro_formula) leftover_linear
     | None -> ()
     end;
@@ -374,7 +382,7 @@ let resource_names (res: resource_set) =
   Var_set.union (res_list_names res.pure) (res_list_names res.linear)
 
 let cast_into_read_only (res: resource_set): resource_set =
-  let pure = List.fold_left (fun pure (x, formula) -> (x, trm_read_only formula) :: pure) res.pure res.linear in
+  let pure = List.fold_left (fun pure (x, formula) -> (x, formula_read_only formula) :: pure) res.pure res.linear in
   { res with pure; linear = [] }
 
 exception Unimplemented
@@ -387,6 +395,8 @@ let unop_to_var (u: unary_op): var =
 let binop_to_var (u: binary_op): var =
   match u with
   | Binop_add -> "__add"
+  | Binop_sub -> "__sub"
+  | Binop_mul -> "__mul"
   | Binop_set -> "__set"
   | _ -> raise Unimplemented
 
@@ -443,6 +453,37 @@ let rec formula_of_trm (t: trm): formula option =
     end
   | _ -> None
 
+let matrix2_access_inv (t: trm): (trm * trm * trm * trm * trm) option =
+  let open Tools.OptionMonad in
+  let* tfn, targs = trm_apps_inv t in
+  let* tmat, tindex = match trm_prim_inv tfn, targs with
+    | Some (Prim_binop Binop_array_access), [tmat; tindex] -> Some (tmat, tindex)
+    | _ -> None
+  in
+  let* tidxfn, tidxargs = trm_apps_inv tindex in
+  match trm_var_inv tidxfn, tidxargs with
+  | Some "MINDEX2", [tm; tn; ti; tj] -> Some (tmat, tm, tn, ti, tj)
+  | _ -> None
+
+(* Currenty array accesses are composed of weird functions calls that cannot
+ * be given an easy spec to work with. For the resource computation we replace
+ * there calls into more straigthforward array accesses.
+ * LATER: Find a convenient way of encode array accesses such that both
+ * transformations and resource computation agree on the interface. *)
+let decode_array_access (fn: trm) (args: trm list): trm * trm list =
+  match trm_prim_inv fn, args with
+  | Some (Prim_unop Unop_get), [tptr] ->
+    begin match matrix2_access_inv tptr with
+    | Some (tmat, tm, tn, ti, tj) -> ((trm_var "__matrix2_get"), [tmat; tm; tn; ti; tj])
+    | _ -> (fn, args)
+    end
+  | Some (Prim_binop Binop_set), [tptr; tval] ->
+    begin match matrix2_access_inv tptr with
+    | Some (tmat, tm, tn, ti, tj) -> ((trm_var "__matrix2_set"), [tmat; tm; tn; ti; tj; tval])
+    | _ -> (fn, args)
+    end
+  | _ -> (fn, args)
+
 (* TODO: better name? *)
 let rec compute_inplace ?(expected_res: resource_spec) ~(arg_restriction:bool) (res: resource_spec) (t: trm): resource_spec =
   let aux = compute_inplace ~arg_restriction in
@@ -459,7 +500,7 @@ let rec compute_inplace ?(expected_res: resource_spec) ~(arg_restriction:bool) (
       begin match contract with
       | Some contract ->
         let body_res = bind_new_resources ~old_res:res ~new_res:contract.pre in
-        ignore (aux ?expected_res:(Some contract.post) (Some body_res) body);
+        ignore (aux ~expected_res:contract.post (Some body_res) body);
         let args = List.map (fun (x, _) -> x) args in
         Some { res with fun_contracts = Var_map.add name (args, contract) res.fun_contracts }
       | None -> Some res
@@ -498,6 +539,8 @@ let rec compute_inplace ?(expected_res: resource_spec) ~(arg_restriction:bool) (
       end
 
     | Trm_apps (fn, effective_args) ->
+      let (fn, effective_args) = decode_array_access fn effective_args in
+
       let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv fn in
       begin match Var_map.find_opt fn res.fun_contracts with
       | Some (contract_args, contract) ->
@@ -544,7 +587,29 @@ let rec compute_inplace ?(expected_res: resource_spec) ~(arg_restriction:bool) (
       | None -> raise (Spec_not_found fn)
       end
 
-    | _ -> failwith ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
+    | Trm_for (range, body, None) ->
+      (* If no spec is given, put all the resources in the invariant (best effort) *)
+      (* TODO: Still try to be clever about Group with a corresponding range *)
+      let expected_res = resource_set ~linear:res.linear () in
+      ignore (aux ~expected_res (Some res) body);
+      Some res
+
+    | Trm_for (range, body, Some contract) ->
+      (* FIXME: Invariant could depend on the index *)
+      let before_loop_res = res_union contract.invariant (res_group_range range contract.iter_contract.pre) in
+      let _, res_frame = res_impl_leftovers res before_loop_res in
+
+      let loop_body_pre = res_union contract.invariant contract.iter_contract.pre in
+      let loop_body_pre = { loop_body_pre with fun_contracts = res.fun_contracts } in
+      let loop_body_post = res_union contract.invariant contract.iter_contract.post in
+      ignore (aux ~expected_res:loop_body_post (Some loop_body_pre) body);
+
+      (* FIXME: Here we drop pure resources in the invariant, instead we should filter them.
+         We must at least remove read only resources. *)
+      let after_loop_res = res_group_range range contract.iter_contract.post in
+      Some (bind_new_resources ~old_res:res ~new_res:{ after_loop_res with linear = contract.invariant.linear @ after_loop_res.linear @ res_frame })
+
+    | _ -> fail t.loc ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
     end with e when !Flags.resource_errors_as_warnings ->
       Printf.eprintf "%s: Resource computation warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
       None

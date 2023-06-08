@@ -412,7 +412,7 @@ let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
     | "__modifies" -> Some Modifies
     | "__consumes" -> Some Consumes
     | "__produces" -> Some Produces
-    | "__independantly_modifies" -> Some IndependantlyModifies
+    | "__sequentially_modifies" -> Some SequentiallyModifies
     | _ -> None
   in
   let* arg = List.nth_opt args 0 in
@@ -432,35 +432,49 @@ let rec extract_encoded_contract_clauses (seq: trm mlist):
     contract::cont, seq
   | None -> [], seq
 
-let extract_fun_contract (seq: trm mlist) : fun_spec * trm mlist =
+let extract_contract (empty_contract: 'c) (push_contract_clause: contract_clause_type -> contract_resource -> 'c -> 'c) (seq: trm mlist) : 'c option * trm mlist =
   let enc_contract, seq = extract_encoded_contract_clauses seq in
   let contract = List.fold_left (fun contract (clause, desc) ->
-      let contract = Option.value ~default:empty_fun_contract contract in
+      let contract = Option.value ~default:empty_contract contract in
       try
         let res_list = Resource_cparser.resource_list (Resource_clexer.lex_resources) (Lexing.from_string desc) in
-        Some (List.fold_left (fun contract res -> push_fun_contract_clause clause res contract) contract res_list)
+        Some (List.fold_left (fun contract res -> push_contract_clause clause res contract) contract res_list)
       with Resource_cparser.Error ->
         failwith ("Failed to parse resource: " ^ desc)
     ) None enc_contract
   in
   (contract, seq)
 
+let extract_fun_contract (seq: trm mlist) : fun_spec * trm mlist =
+  extract_contract empty_fun_contract push_fun_contract_clause seq
+
+let extract_loop_contract (seq: trm mlist) : loop_spec * trm mlist =
+  extract_contract empty_loop_contract push_loop_contract_clause seq
+
 let rec contract_elim (t: trm): trm =
   match t.desc with
   | Trm_let_fun (qv, ty, args, body, contract) ->
-    assert (contract == None);
+    assert (contract = None);
     let body_seq = trm_inv trm_seq_inv body in
     let contract, new_body = extract_fun_contract body_seq in
     let new_body = Mlist.map contract_elim new_body in
     trm_alter ~desc:(Trm_let_fun (qv, ty, args, trm_seq new_body, contract)) t
-  (*| Trm_for (range, body, _) -> failwith "TODO"
-  | Trm_for_c (init, cond, step, body, _) -> failwith "TODO"*)
+  | Trm_for (range, body, contract) ->
+    assert (contract = None);
+    let body_seq = trm_inv trm_seq_inv body in
+    let contract, new_body = extract_loop_contract body_seq in
+    let new_body = Mlist.map contract_elim new_body in
+    trm_alter ~desc:(Trm_for (range, trm_seq new_body, contract)) t
+  (*| Trm_for_c (init, cond, step, body, _) -> failwith "TODO"*)
   | _ -> trm_map contract_elim t
 
 let rec formula_to_string (f: formula) : string =
-  match trm_var_model_inv f with
-  | Some (x, formula) -> Printf.sprintf "%s => %s" x (formula_to_string formula)
-  | None -> AstC_to_c.ast_to_string ~optitrust_syntax:true f (* LATER: use a custom printer for formulas *)
+  match formula_read_only_inv f with
+  | Some formula -> sprintf "RO(%s)" (formula_to_string formula)
+  | None ->
+    match formula_var_model_inv f with
+    | Some (x, formula) -> Printf.sprintf "%s => %s" x (formula_to_string formula)
+    | None -> AstC_to_c.ast_to_string ~optitrust_syntax:true f (* LATER: use a custom printer for formulas *)
 
 let named_formula_to_string (name, formula): string =
   let sformula = formula_to_string formula in
@@ -497,7 +511,7 @@ let display_ctx_resources (t: trm): trm list =
       trm_apps (trm_var "__framed_res") [trm_string (ctx_resource_list_to_string res_frame)]) t.ctx.ctx_resources_frame) in
   let tl_used = Option.to_list (Option.map (ctx_resources_to_trm ~fn_name:"__used_res") t.ctx.ctx_resources_used) in
   let tl_produced = Option.to_list (Option.map (ctx_resources_to_trm ~fn_name:"__produced_res") t.ctx.ctx_resources_produced) in
-  (tl_used @ tl_frame @ [t] @ tl_produced @ tl_after)
+  (tl_frame @ tl_used @ [t] @ tl_produced @ tl_after)
 
 let computed_resources_intro (t: trm): trm =
   let rec aux t =

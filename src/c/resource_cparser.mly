@@ -11,17 +11,21 @@
 
 %%
 
-formula:
+atomic_formula:
   | x=IDENT
       { trm_var x }
-  | func=formula; LPAR; args=separated_list(COMMA, formula); RPAR
+  | func=atomic_formula; LPAR; args=separated_list(COMMA, formula); RPAR
       { trm_apps func args }
-  | x=IDENT; FAT_ARROW; f=formula
-      { trm_var_model x f }
-  | LPAR; FUN args=separated_nonempty_list(COMMA, IDENT); ARROW; body=formula; RPAR;
-      { trm_fun (List.map (fun x -> (x, typ_make Typ_auto)) args) None body }
   | LPAR; f=formula; RPAR
       { f }
+
+formula:
+  | f=atomic_formula;
+      { f }
+  | x=IDENT; FAT_ARROW; f=atomic_formula;
+      { formula_var_model x f }
+  | FUN args=separated_nonempty_list(COMMA, IDENT); ARROW; body=formula;
+      { trm_fun (List.map (fun x -> (x, typ_make Typ_auto)) args) None body }
 
 resource:
   | f=formula; SEMICOLON

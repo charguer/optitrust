@@ -569,6 +569,8 @@ and fun_contract =
 
 and fun_spec = fun_contract option
 
+(* { invariant(0) * Group(range(), fun i -> iter_contract.pre(i)) } for_loop { invariant(n) * iter_contract.post(i) } *)
+(* { invariant(i) * iter_contract.pre(i) } Boucle à l'étape i { invariant(i) * iter_contract.post(i) } *)
 and loop_contract =
   { invariant: resource_set;
     iter_contract: fun_contract }

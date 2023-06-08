@@ -89,10 +89,10 @@ void __reads(const char*) {}
 void __modifies(const char*) {}
 void __consumes(const char*) {}
 void __produces(const char*) {}
-void __independantly_modifies(const char*) {}
+void __sequentially_modifies(const char*) {}
 
 void __admitted() {}
 
 /*
-template<typename T> T __with_ghost(T, const char*);
+template<typename T> T __spec_hint(T, const char*);
 */
