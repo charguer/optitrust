@@ -31,6 +31,10 @@ void grayscale(float* out,
                const float* in)
 ```
 
+# Optimized Code Improvements
+
+- allocate one circuler buffer per thread, instead of one per iteration
+
 # Script Improvements
 
 - TODO: make Function.inline ~simpl work

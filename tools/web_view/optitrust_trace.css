@@ -211,7 +211,7 @@ h2 {
 
 /* ---- */
 
-/* ---- compact: */
+/* ---- compact:
 ul {
   list-style-type: none;
   margin: 0;
@@ -220,4 +220,4 @@ ul {
 li {
   padding-left: 1ex;
 }
-/* ---- */
+---- */

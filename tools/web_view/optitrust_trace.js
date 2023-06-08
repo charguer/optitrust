@@ -43,6 +43,7 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 
 
 // checkbox status; may change default values here
+var optionCompact = false;
 var optionDetails = true;
 var optionJustif = false;
 var optionTargetSteps = false;
@@ -215,11 +216,12 @@ $('.d2h-code-line-ctn').each(function() {
  $(this).html( $(this).html().replace(reg2, "$1<ins>") );
 });
 
-// more compact 'tabs':
-const reg3 = /  /g
-$('.d2h-code-line-ctn').each(function() {
- $(this).html( $(this).html().replace(reg3, " ") );
-});
+if (optionCompact) {
+  const reg3 = /  /g
+  $('.d2h-code-line-ctn').each(function() {
+    $(this).html( $(this).html().replace(reg3, " ") );
+  });
+}
 
  // identify the two sides of the diff, and register handlers for click on the line numbers;
  $('.d2h-file-side-diff').first().addClass('diffBefore');
@@ -428,7 +430,6 @@ function stepToHTML(step, isRoot) {
     (!optionIOSteps && step.kind == "I/O") ||
     (step.tags.some((x) => hideTags.has(x)));
   if (isRoot) {
-    // compact:
     return "<ul class='step-sub'> " + sSubs + "</ul>\n";
   } else if (hideStep) {
     return sSubs;
@@ -466,10 +467,11 @@ function stepToHTML(step, isRoot) {
 
   }
 
-  // compact:
-  var sKind = ""; // escapeHTML(step.kind);
+  var sKind = "";
   if (step.script_line !== undefined) {
     sKind = " [<b>" + step.script_line + "</b>] ";
+  } else if (!optionCompact) {
+    sKind = " [" + escapeHTML(step.kind) + "] ";
   }
   var sScript = escapeHTML(step.script);
   if (step.kind == "Big") {
