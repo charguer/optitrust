@@ -454,9 +454,9 @@ function stepToHTML(step, isRoot) {
   var s = "";
   var sSubs = "";
 
-  const hideSubsteps =
-    (!options.atomic_substeps && !step.tags.includes("atomic"));
-  if (hideSubsteps) {
+  const showSubsteps =
+    (options.atomic_substeps || !step.tags.includes("atomic"));
+  if (showSubsteps) {
     for (var i = 0; i < step.sub.length; i++) {
       var substep = steps[step.sub[i]];
       sSubs += stepToHTML(substep, false)
