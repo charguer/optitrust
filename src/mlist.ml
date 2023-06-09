@@ -67,6 +67,9 @@ let nth_opt (ml : 'a t) (index : int) : 'a option =
 let fold_lefti (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
   Xlist.fold_lefti acc_f acc ml.items
 
+let for_all p ml =
+  List.for_all p (to_list ml)
+
 (* [for_all2 p ml1 ml2]: applies List.for_all2 to ml1.items and ml2.items. *)
 let for_all2 p ml1 ml2 =
   List.for_all2 p (to_list ml1) (to_list ml2)

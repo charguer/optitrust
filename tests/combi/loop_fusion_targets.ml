@@ -27,7 +27,5 @@ int main() {
 
 let _ = Run.script_cpp ( fun _ ->
   !! Loop.fusion_targets [multi cFor ["i"; "j"]];
-  Trace.step_justif "foo!!";
-  !! Loop.fusion_targets ~nest_of:2 [nbMulti; cFor "k0"];
-  Trace.step_justif "bar"
+  !! Loop.fusion_targets ~nest_of:2 ~rename:(fun p -> Some (Variable.Rename.AddSuffix (string_of_int (fst (Path.index_in_seq p))))) [nbMulti; cFor "k0"];
 )

@@ -432,7 +432,7 @@ let%transfo fusion ?(nb : int = 2) ?(nest_of : int = 1) ?(upwards : bool = true)
 
   LATER ?(into_occ : int = 1)
   *)
-let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_all_indices : bool = false) ?(adapt_fused_indices : bool = true) (tg : target) : unit =
+let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_all_indices : bool = false) ?(adapt_fused_indices : bool = true) ?(rename : path -> Variable.rename option = fun p -> None) (tg : target) : unit =
   Trace.step_valid_by_composition ();
   assert (not adapt_all_indices); (* TODO *)
   (* adapt_all_indices => adapt_fused_indices *)
@@ -454,7 +454,14 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
   ) (nbMulti :: tg);
   (* TODO: use gather_targets GatherAt preprocessing *)
   (* Then, fuse all loops into one, moving loops in the sequence if necessary. *)
+  let may_rename_loop_body loop_p =
+    Option.iter  (fun r ->
+      let inner_loop_p = Path.to_inner_loop_n (nest_of - 1) loop_p in
+      Variable.renames r (target_of_path (inner_loop_p @ [Path.Dir_body]));
+    ) (rename loop_p)
+    in
   let p_seq = Option.get !seq_path in
+  let ordered_indices = List.sort compare !indices_in_seq in
   let rec fuse_loops fuse_into shift todo =
     match todo with
     | [] -> ()
@@ -466,6 +473,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
         Printf.printf "fuse_into: %i\n" fuse_into; *)
         let to_fuse' = to_fuse in (* no shift *)
         let p_current = p_seq @ [Path.Dir_seq_nth to_fuse'] in
+        may_rename_loop_body p_current;
         if to_fuse' <> fuse_into - 1 then begin
           Instr_basic.move ~dest:(tBefore :: fuse_into_tg) (target_of_path p_current);
         end;
@@ -476,6 +484,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
       if to_fuse > fuse_into then begin
         let to_fuse' = to_fuse + shift in
         let p_current = p_seq @ [Path.Dir_seq_nth to_fuse'] in
+        may_rename_loop_body p_current;
         if to_fuse' <> (fuse_into + 1) then begin
           Instr_basic.move ~dest:(tAfter :: fuse_into_tg) (target_of_path p_current);
         end;
@@ -483,10 +492,10 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
         fuse_loops fuse_into (shift - 1) todo;
       end;
   in
-  let ordered_indices = List.sort compare !indices_in_seq in
   match into with
   | Some tg ->
     let p = Target.resolve_target_exactly_one tg (Trace.ast ()) in
+    may_rename_loop_body p;
     let (fuse_into, p_seq) = Path.index_in_seq p in
     (* TODO: Option.get error message *)
     let pos = Option.get (Xlist.index_of fuse_into ordered_indices) in
@@ -501,6 +510,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
     match ordered_indices with
     | [] -> ()
     | fuse_into :: to_fuse ->
+      may_rename_loop_body (p_seq @ [Dir_seq_nth fuse_into]);
       fuse_loops fuse_into 0 to_fuse
 
 (* [move_out ~upto tg]: expects the target [tg] to point at an instruction inside a for loop,

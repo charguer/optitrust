@@ -25,5 +25,5 @@ int main() {
 
 
 let _ = Run.script_cpp ( fun _ ->
-  !! Stencil.fusion_targets ~nest_of:2 [nbMulti; cFunBody "add2"; cFun "add"];
+  !! Stencil.fusion_targets ~nest_of:2 ~outputs:["out"] [nbMulti; cFunBody "add2"; cFun "add"];
 )

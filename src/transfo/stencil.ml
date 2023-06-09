@@ -37,12 +37,31 @@ let rec pry_loop_nest (nest_of: int) (simpl : Transfo.t) (p : path) : unit =
 
 (* / fuse_recompute? / fuse_inlined? *)
 let%transfo fusion_targets ?(nest_of : int = 1) ~(outputs : var list) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+  let var_of_access (access_t : trm) : var =
+    let error = "Stencil.fusion_targets: expected array write on base variable" in
+    let (base, index) = trm_inv ~error array_access_inv access_t in
+    let (_, var) = begin match trm_var_inv base with
+    | Some x -> x
+    | None -> trm_inv ~error trm_var_get_inv base
+    end in
+    var
+  in
   Marks.with_fresh_mark (fun to_fuse ->
+    let writes = ref [] in
     Target.iter (fun _ p ->
       pry_loop_nest nest_of simpl p;
-      Marks.add to_fuse (target_of_path p)
+      Marks.add to_fuse (target_of_path p);
+      Target.iter (fun t p ->
+        let waccess_t = Path.get_trm_at_path p t in
+        writes := (var_of_access waccess_t) :: !writes;
+      ) ((target_of_path p) @ [cArrayWriteAccess ""]);
     ) tg;
-    Loop.fusion_targets ~nest_of [cMark to_fuse];
-    let writes = [] in (* TODO: collect_array_writes *)
-    Matrix.elim [cDiff [[multi cVarDef writes]] [[multi cVarDef outputs]]]
+    let rename loop_p =
+      let waccess_t = get_trm_at_exn ((target_of_path loop_p) @ [cArrayWriteAccess ""]) in
+      let written = var_of_access waccess_t in
+      Some (Variable.Rename.AddSuffix ("_" ^ written))
+    in
+    Loop.fusion_targets ~nest_of ~rename [cMark to_fuse];
+    (* TODO: restrict to outer sequence *)
+    Matrix.elim [nbAny; cDiff [[any cVarDef !writes]] [[any cVarDef outputs]]];
   )

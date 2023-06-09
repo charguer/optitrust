@@ -2972,10 +2972,6 @@ let is_struct_init (t : trm) : bool =
   match t.desc with
   | Trm_record _ -> true | _ -> false
 
-(* [is_trm_seq t]: checks if [t] has [Trm_seq tl] description. *)
-let is_trm_seq (t : trm) : bool =
-  match t.desc with | Trm_seq _ -> true | _ -> false
-
 (* [is_same_binop op1 op2 ]: checks if two primitive operations are the same *)
 let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool =
   match op1, op2 with

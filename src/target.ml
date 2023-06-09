@@ -1046,8 +1046,8 @@ let cArrayRead ?(index = []) (x : var) : constr =
     [[cCellAccess ~base:[cVar x] ~index ()]]
     [[cArrayWriteAccess x]]] ()
 
-let cPlusEqVar (name : string) : constr =
-  cPrimFun ~args:[[cVar name]; [cTrue]] (Prim_compound_assgn_op Binop_add)
+let cPlusEq (lhs_tg : target) : constr =
+  cPrimFun ~args:[lhs_tg; [cTrue]] (Prim_compound_assgn_op Binop_add)
 
 (* [cOmp_match_all]: matches an OpenMP directive. *)
 let cOmp_match_all : directive->bool =

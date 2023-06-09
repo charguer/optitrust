@@ -30,11 +30,17 @@ let _ = Run.script_cpp (fun () ->
   let int = trm_int in
 
   bigstep "inline operators";
-  !! Function.inline_def ~simpl [cFunDef "conv2D"];
-  !! Loop.unroll ~nest_of:2 [nbMulti; cFor ~body:[cPlusEqVar "acc"] "i"];
-  !! Matrix.elim_constant ~simpl:simpl_inplace_noop [nbMulti; cVarDef "weights"];
-  !! Function.inline_def ~simpl [multi cFunDef ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"]];
   !! Variable.inline ~simpl [multi cVarDef ["h1"; "w1"; "h2"; "w2"]];
+  let fuse (ops, outputs) = Stencil.fusion_targets ~nest_of:2 ~outputs [any cFun ops] in
+  !! List.iter fuse [
+    ["sobelX"; "sobelY"], ["ix"; "iy"];
+    ["mul"], ["ixx"; "ixy"; "iyy"];
+    ["sum3x3"; "coarsity"], ["coarsity"];
+  ];
+
+  (* >>> TODO <<< *)
+  !! Loop.unroll ~nest_of:2 [nbMulti; cFor ~body:[cPlusEq [cVarReg "acc_.*"]] "i"];
+  !! Matrix.elim_constant ~simpl:simpl_inplace_noop [nbMulti; cVarDefReg "weights.*"];
 
   bigstep "fuse operators";
   let rename_acc_of array = Variable.rename ~into:("acc_" ^ array) [cFor ~body:[cArrayWrite array] ""; cVarDef "acc"] in
