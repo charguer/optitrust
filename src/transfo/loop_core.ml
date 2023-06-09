@@ -392,5 +392,5 @@ let rename_index (new_index : var) : Transfo.local =
     let error = "Loop_core.shift: expected a target to a simple for loop" in
     let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
     let new_body = Internal.subst_var index (trm_var new_index) body in
-    trm_for (new_index, start, direction, stop, step, is_parallel) new_body
+    trm_for ~annot:t.annot (new_index, start, direction, stop, step, is_parallel) new_body
   )

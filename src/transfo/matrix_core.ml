@@ -4,6 +4,14 @@ open Target
 (* list of (offset, size) *)
 type nd_tile = (trm * trm) list
 
+(* TODO?
+(* [tile_none]: special tile value where the dimension should be kept fully *)
+let tile_all: trm * trm = trm_int 1, trm_int 0
+
+(* [tile_none]: special tile value where the dimension should be dropped *)
+let tile_none: trm * trm = trm_int 0, trm_int 0
+*)
+
 (* [access t dims indices]: builds the a matrix access with the index defined by macro [MINDEX], see [mindex] function.
     Ex: x[MINDEX(N1,N2,N3, i1, i2, i3)]. *)
 let access ?(annot : trm_annot = trm_annot_default) (t : trm) (dims : trms) (indices : trms) : trm =

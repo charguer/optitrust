@@ -3550,6 +3550,11 @@ let is_trm_unit (t : trm) : bool =
   | Some Lit_unit -> true
   | _ -> false
 
+let is_trm_int (cst : int) (t : trm) : bool =
+  match trm_lit_inv t with
+  | Some (Lit_int c) when c = cst -> true
+  | _ -> false
+
 (* [has_empty_body t]: checks if the function [t] has an empty body or not. *)
 let has_empty_body (t : trm) : bool =
   match t.desc with

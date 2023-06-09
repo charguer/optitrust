@@ -122,6 +122,10 @@ let occLast : constr =
 let target_of_path (p : path) : target =
   [Constr_paths [p]]
 
+(* [target_of_paths ps]: converts paths [ps] to a target. *)
+let target_of_paths (ps : paths) : target =
+  [Constr_paths ps]
+
 (* [dRoot]: matches the root of the ast. *)
 let dRoot : constr =
     Constr_root
