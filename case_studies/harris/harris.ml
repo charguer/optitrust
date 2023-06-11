@@ -29,36 +29,30 @@ let _ = Run.script_cpp (fun () ->
   let simpl = Arith.default_simpl in
   let int = trm_int in
 
-  bigstep "inline operators";
+  bigstep "fuse stencils with overlapped tiling over lines";
   !! Variable.inline ~simpl [multi cVarDef ["h1"; "w1"; "h2"; "w2"]];
-  let fuse (ops, outputs) = Stencil.fusion_targets ~nest_of:2 ~outputs [any cFun ops] in
+  let fuse (ops, overlaps, outputs) = Stencil.fusion_targets ~nest_of:2 ~outputs ~overlaps [any cFun ops] in
+  let overlaps_2x2 vars = List.map (fun i -> i,
+    List.init 2 (fun _ -> trm_int 2)) vars in
   !! List.iter fuse [
-    ["sobelX"; "sobelY"], ["ix"; "iy"];
-    ["mul"], ["ixx"; "ixy"; "iyy"];
-    ["sum3x3"; "coarsity"], ["coarsity"];
+    ["grayscale"], [], ["gray"];
+    ["sobelX"; "sobelY"], [], ["ix"; "iy"];
+    ["mul"; "sum3x3"; "coarsity"], overlaps_2x2 ["ixx"; "ixy"; "iyy"], ["out"];
   ];
+  !! Function.delete [multi cFunDef ["grayscale"; "sobelX"; "sobelY"; "mul"; "sum3x3"; "coarsity"; "conv2D"]];
 
-  (* >>> TODO <<< *)
+  (* TODO: move into details *)
+  !! Matrix.elim [multi cVarDef ["ixx"; "ixy"; "iyy"]];
   !! Loop.unroll ~nest_of:2 [nbMulti; cFor ~body:[cPlusEq [cVarReg "acc_.*"]] "i"];
-  !! Matrix.elim_constant ~simpl:simpl_inplace_noop [nbMulti; cVarDefReg "weights.*"];
 
-  bigstep "fuse operators";
-  let rename_acc_of array = Variable.rename ~into:("acc_" ^ array) [cFor ~body:[cArrayWrite array] ""; cVarDef "acc"] in
-  !! List.iter rename_acc_of ["ix"; "iy"; "sxx"; "sxy"; "syy"];
-  let fuse arrays = Loop.fusion_targets ~nest_of:2 [cFor "y" ~body:[any cArrayWrite arrays]] in
-  !! List.iter fuse [["ix"; "iy"]; ["ixx"; "ixy"; "iyy"]; ["sxx"; "sxy"; "syy"; "out"]];
-  !! Matrix.elim [multi cVarDef ["ixx"; "ixy"; "iyy"; "sxx"; "sxy"; "syy"]];
+  !! Stencil.fusion_targets_tile [int 32] ~outputs:["out"] ~overlaps:[
+    "gray", [int 4]; "ix", [int 2]
+  ] [nbMulti; cFunBody "harris"; cFor "y"];
 
-  bigstep "overlapped tiling over lines";
-  let tile_size = 32 in
-  let slide overlap = Loop.slide ~size:(int (tile_size + overlap)) ~step:(int tile_size) in
-  !!! slide 0 [cFor "y" ~body:[cArrayWrite "out"]];
-  !! slide 2 [cFor "y" ~body:[cArrayWrite "ix"]];
-  !! slide 4 [cFor "y" ~body:[cArrayWrite "gray"]];
-  !!! Loop.fusion_targets [cFor "by" ~body:[any cArrayWrite ["gray"; "ix"; "out"]]];
 
+  (* TODO: stopped here *)
   bigstep "circular buffers";
-  !! Stencil.loop_align_stop_extend_start_like ~orig:[cFor "y" ~body:[cArrayWrite "gray"]] [nbMulti; cFor "y" ~body:[any cArrayWrite ["ix"; "out"]]];
+  !! Stencil.loop_align_stop_extend_start_like ~orig:[cFor "y_gray" ~body:[cArrayWrite "gray"]] [nbMulti; cFor "" ~body:[cStrict; cFor "x"; any cArrayWrite ["ix"; "out"]]];
   !! simpl_mins [];
   !! Loop.fusion_targets [cFor "y" ~body:[any cArrayWrite ["gray"; "ix"; "ixx"; "out"]]];
   let local_matrix (m, tile) =
@@ -73,6 +67,7 @@ let _ = Run.script_cpp (fun () ->
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
 
   bigstep "code details";
+  !! Matrix.elim_constant ~simpl:simpl_inplace_noop [nbMulti; cVarDefReg "weights.*"];
   !!! Loop.shift StartAtZero [cFor "y"];
   let bind_gradient name =
     Variable.bind_syntactic ~dest:[tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [cArrayRead name]

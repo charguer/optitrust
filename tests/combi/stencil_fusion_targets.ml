@@ -25,7 +25,6 @@ int main() {
 
 
 let _ = Run.script_cpp ( fun _ ->
-  bigstep "a";
   !! Stencil.fusion_targets ~nest_of:2 ~outputs:["out"] [cFunBody "add2"; nbMulti; cFun "add"];
   !! Stencil.fusion_targets ~nest_of:2 ~outputs:["out"] [cFunBody "add2vbox"; multi cFun ["vbox"; "add"]];
   !! Stencil.fusion_targets ~nest_of:2 ~outputs:["out"]

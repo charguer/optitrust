@@ -1033,13 +1033,14 @@ let%transfo slide ?(index : var = "b${id}")
   (tg : target) : unit =
   Trace.step_valid_by_composition ();
   Target.iter (fun _ p ->
+    let bound = if is_trm_int 1 step then TileDivides else bound in
     Loop_basic.slide ~index ~bound ~size ~step (target_of_path p);
     simpl_range ~simpl (target_of_path p);
-    begin match (iter, bound) with
-    | (TileIterGlobal, _) | (_, TileDivides) ->
-      simpl_range ~simpl (target_of_path (Path.to_inner_loop p));
-    | _ ->
+    begin match iter with
+    | TileIterLocal ->
       shift StartAtZero ~simpl (target_of_path (Path.to_inner_loop p));
+    | _  ->
+      simpl_range ~simpl (target_of_path (Path.to_inner_loop p));
     end;
   ) tg
 

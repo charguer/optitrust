@@ -1,0 +1,11 @@
+(executable
+  (name batch)
+  (modules batching batch)
+  (modes (native plugin) (byte exe))
+  (preprocess (pps ppx_transfo))
+  (libraries optitrust)
+  (promote)
+  ; disable warning 27: unused var strict
+  ; disable warning 33: unused open
+  ; disable warning 50: unexpected docstring
+  (flags (:standard -w -27-33-50)))

@@ -501,13 +501,9 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
       | Some (_, wr_i_var) ->
         Internal.subst_var wr_i_var rd_i value
       | None ->
-        let error = "Matrix_basic.read_last_write: expected write index to be a variable or constant" in
-        begin match (trm_lit_inv wr_i, trm_lit_inv rd_i) with
-        | (Some (Lit_int wr_i_cst), Some (Lit_int rd_i_cst)) ->
-          assert (wr_i_cst = rd_i_cst);
-          value
-        | _ -> fail wr_i.loc error
-        end
+        let error = "Matrix_basic.read_last_write: expected write index to be a variable, or to be the same as the read index" in
+        if (Internal.same_trm wr_i rd_i) then value
+        else fail wr_i.loc error
       end
     ) wr_value (List.combine wr_indices rd_indices)
     in

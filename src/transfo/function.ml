@@ -298,13 +298,18 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | _ -> fail tg_out_trm.loc "Function.inline: please be sure that you're tageting a proper function call"
-      end
+      end;
     ) tg;
     if delete then Instr.delete [cOr
       (List.map (fun name -> [cTopFunDef name]) (Var_set.elements !function_names))];
     );
     simpl [cMark subst_mark];
   )
+
+(* [delete]: deletes function definitions targeted by [tg]. *)
+let%transfo delete (tg : target) : unit =
+  (* TODO: check that definitions are deleted + that they were not used *)
+  Instr.delete tg
 
 (* [inline_def]: like [inline], but with [tg] targeting the function definition.
    All function calls are inlined, with [delete = true] as default. *)
@@ -317,7 +322,7 @@ let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") 
     let error = "Function.inline_def: expected function definition" in
     let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv def_trm in
     (* FIXME: deal with qvar *)
-    inline ~resname ~vars ~args ~keep_res ~delete ~simpl [nbMulti; cFun qvar.qvar_var];
+    inline ~resname ~vars ~args ~keep_res ~delete ~simpl [nbAny; cFun qvar.qvar_var];
   ) tg
 
 (* [beta ~indepth tg]: expects the target [tg] to be pointing at a function call or a function declaration whose

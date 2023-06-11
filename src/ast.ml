@@ -38,6 +38,9 @@ type var = string
 (* [Var_set]: a set module used for storing variables *)
 module Var_set = Set.Make(String)
 
+(* [Var_map]: a map module used for mapping variables to values *)
+module Var_map = Map.Make(String)
+
 (* [vars]: variables, a list of elements of type variable *)
 type vars = var list
 

@@ -272,6 +272,14 @@ let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = [])
         delete_alias (Option.value ~default:(surrounding_tg @ [cVarDef v]) alloc_instr);
         if rename then
           Variable_basic.rename ~into:v [cMark m; cVarDef into];
-      )
+      );
     end
+  ) tg)
+
+(* same as [local_name_tile] but with target [tg] pointing at an instruction within a sequence, introduces the local name for the rest of the sequence. *)
+let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : var = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+  Marks.with_fresh_mark (fun mark -> Target.iter (fun t p ->
+    Sequence.intro_after ~mark (target_of_path p);
+    local_name_tile ~delete ~indices ?alloc_instr v ~into tile ~local_ops ~simpl (target_of_path p);
+    Sequence.elim [cMark mark];
   ) tg)
