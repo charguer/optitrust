@@ -95,8 +95,8 @@ void harris(float* out, int h, int w, const float* in) {
           acc_syy += iy8 * iy8;
           float det_out = acc_sxx * acc_syy - acc_sxy * acc_sxy;
           float trace_out = acc_sxx + acc_syy;
-          out[(y_out - min(h, 36 + y) + y + min(-4 + h, 32 + y)) * (-4 + w) +
-              x] = det_out - 0.0399999991059f * trace_out * trace_out;
+          out[(-4 + y_out + y) * (-4 + w) + x] =
+              det_out - 0.0399999991059f * trace_out * trace_out;
         }
       }
     }
