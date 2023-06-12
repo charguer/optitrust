@@ -236,7 +236,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
           ) args;
         trm_iter (aux va) t
       (* Declare new ref/ptr that refer/point to argument : update vars_arg. *)
-      | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }) ->
+      | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }, _) ->
         Apac_basic.update_vars_arg_on_trm_let
           (fun () -> ())
           (fun () -> ())
@@ -299,7 +299,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
   List.iter (fun t ->
     let va = Hashtbl.create 10 in
     match t.desc with
-    | Trm_let_fun (qv, _, args, body) ->
+    | Trm_let_fun (qv, _, args, body, _) ->
       (* Add class attributes. *)
       let {is_method; args_const} = fac_find_from_trm t in
       if is_method then begin
@@ -394,7 +394,7 @@ let heapify_nested_seq : Transfo.t =
       | Trm_for _ | Trm_for_c _  -> trm_map (aux (Hashtbl.copy ptrs) false) t
       | Trm_while _ | Trm_switch _ | Trm_if _ -> trm_map (aux ptrs false) t
 
-      | Trm_let (_, (var, ty), _) ->
+      | Trm_let (_, (var, ty), _, _) ->
         (* Remove variable from occurs when declaring them again. *)
         if Hashtbl.mem ptrs var then begin Hashtbl.remove ptrs var; trm_map (aux ptrs is_first_depth) t end
         (* Heapify new variable only for first depth. *)
@@ -523,7 +523,7 @@ let sync_with_taskwait : Transfo.t =
     let rec aux (decl_vars : (var, dep) Hashtbl.t) (t : trm) : trm =
       match t.desc with
       | Trm_seq _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
-      | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t
+      | Trm_let (_, (var, ty), _, _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t
       | Trm_let_mult (_, tvl, _) ->
         List.iter (fun (var, ty) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty))) tvl; t
       | Trm_if (cond, _, _) | Trm_switch (cond , _) ->
@@ -536,14 +536,14 @@ let sync_with_taskwait : Transfo.t =
         let l = get_all_vars [] cond in
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) t
-      | Trm_for ((var, _, _, _, step, _), _) ->
+      | Trm_for ((var, _, _, _, step, _), _, _) ->
         let l = begin match step with
         | Step tr -> get_all_vars [var] tr
         | _ -> [var]
         end in
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (remove_n 1 l) t)
-      | Trm_for_c (init, cond, step, _) ->
+      | Trm_for_c (init, cond, step, _, _) ->
         let (l, n) = begin match init.desc with
         | Trm_let (_, (var, ty), _, _) ->
           Hashtbl.add decl_vars var (get_dep var ty);
@@ -786,8 +786,8 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
     match t.desc with
     (* Function call *)
     | Trm_apps ({ desc = Trm_var _} as f, args) ->
-      let (_, qvar) = trm_inv trm_var_inv f in
-      let _ = Printf.printf "Getting deps of function: %s\n" qvar in
+      (*let (_, qvar) = trm_inv trm_var_inv f in
+      let _ = Printf.printf "Getting deps of function: %s\n" qvar in*)
       let l = Hashtbl.find fad (Ast_data.get_function_usr_unsome f) in
       List.fold_left2 (fun acc ({dep_depth; dep_in; _} as dep_info) t ->
         match (Apac_basic.get_inner_all_unop_and_access t).desc with
@@ -884,7 +884,7 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
       | Trm_seq _ | Trm_if _ | Trm_for _ | Trm_for_c _ | Trm_while _ | Trm_do_while _ | Trm_switch _ ->
         trm_map (aux (Hashtbl.copy vd))  t
       (* New variable *)
-      | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }) ->
+      | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }, _) ->
         Hashtbl.add vd var (Apac_basic.get_cptr_depth (get_inner_ptr_type ty), var); t
       | Trm_let_mult (_, tvl, _) ->
         List.iter (fun (var, ty) -> Hashtbl.add vd var (Apac_basic.get_cptr_depth ty, var)) tvl; t
@@ -899,7 +899,7 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
     let tg_trm = Path.get_trm_at_path p t in
     let vd = Hashtbl.create 10 in
     match tg_trm.desc with
-    | Trm_let_fun (_, _, tvl, _) ->
+    | Trm_let_fun (_, _, tvl, _, _) ->
       List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add vd var (Apac_basic.get_cptr_depth ty, var)) tvl;
       Target.apply_at_target_paths (aux vd) (target_of_path (p @ [Dir_body]))
     | _ -> fail None "Apac.insert_tasks_naive: expected a target to a function definition"

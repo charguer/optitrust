@@ -224,7 +224,7 @@ let get_constified_arg (ty : typ) : typ =
     [t] - AST of the function definition. *)
 let constify_args_aux (is_args_const : bool list) (is_method_const : bool) (t : trm) : trm =
   match t.desc with
-  | Trm_let_fun (qvar, ret_typ, args, body) ->
+  | Trm_let_fun (qvar, ret_typ, args, body, _) ->
     let is_args_const = if is_args_const = []
       then List.init (List.length args) (fun _ -> true)
       else is_args_const in
@@ -232,7 +232,7 @@ let constify_args_aux (is_args_const : bool list) (is_method_const : bool) (t : 
       if b then (v, (get_constified_arg ty)) else (v, ty)
       ) args is_args_const) in
 
-    let t = trm_let_fun ~annot:t.annot ?loc:t.loc ?ctx:t.ctx ~qvar "" ret_typ const_args body in
+    let t = trm_let_fun ~annot:t.annot ?loc:t.loc ~qvar "" ret_typ const_args body in
     if is_method_const then trm_add_cstyle Const_method t else t
   | _ -> fail t.loc "Apac_basic.constify_args_aux expected a target to a function definition."
 
@@ -306,7 +306,7 @@ let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
     [on_other] : callback for the remaining cases. *)
 let update_vars_arg_on_trm_let (on_ref : unit -> 'a) (on_ptr : unit -> 'a) (on_other : unit -> 'a) (va : vars_arg) (t: trm) : 'a =
   match t.desc with
-  | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }) ->
+  | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }, _) ->
     if trm_has_cstyle Reference t then
       match (get_inner_all_unop_and_access tr).desc with
       | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
@@ -367,7 +367,7 @@ let constify_args_alias_aux (is_args_const : bool list) (t : trm) : trm =
     (* the syntax allows to declare variable in the condition statement
        but clangml currently cannot parse it *)
     | Trm_if _ | Trm_switch _ | Trm_while _ -> trm_map (aux (Hashtbl.copy va)) t
-    | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }) ->
+    | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }, _) ->
       update_vars_arg_on_trm_let
         (fun () -> let ty = typ_ref (get_constified_arg (get_inner_ptr_type ty)) in trm_let_mut (lname, ty) tr)
         (fun () -> let ty = get_constified_arg (get_inner_ptr_type ty) in trm_let_mut (lname, get_inner_const_type ty) tr)
@@ -388,12 +388,12 @@ let constify_args_alias_aux (is_args_const : bool list) (t : trm) : trm =
     | _ -> trm_map (aux va) t
   in
   match t.desc with
-  | Trm_let_fun (qvar, ret_typ, args, body) ->
+  | Trm_let_fun (qvar, ret_typ, args, body, _) ->
     let is_const = if is_args_const = [] then List.init (List.length args) (fun _ -> true) else is_args_const in
     let va : vars_arg= Hashtbl.create 10 in
     (* Only add constified arguments *)
     List.iteri (fun i (b, (var, ty)) -> if b then Hashtbl.add va var (get_cptr_depth ty, i)) (List.combine is_const args);
-    trm_let_fun ~annot:t.annot ?loc:t.loc ?ctx:t.ctx ~qvar "" ret_typ args (aux va body)
+    trm_let_fun ~annot:t.annot ?loc:t.loc ~qvar "" ret_typ args (aux va body)
   | _ -> fail t.loc "Apac_basic.constify_args expected a target to a function definition."
 
 (* [constify_args ~is_args_const tg]: expects target [tg] to point at a function
@@ -418,7 +418,7 @@ let array_typ_to_ptr_typ (ty : typ) : typ =
    [t] - AST of the variable declaration. *)
 let stack_to_heap_aux (t : trm) : trm =
   match t.desc with
-  | Trm_let (vk, (var, ty), tr) ->
+  | Trm_let (vk, (var, ty), tr, _) ->
     if trm_has_cstyle Reference t
       then begin match vk with
         | Var_immutable -> fail None "So reference are not always mutable."
@@ -499,7 +499,7 @@ let mark_taskable_function_aux (mark : mark) (t :trm) : trm =
     | _ -> trm_iter aux t
   in
   match t.desc with
-  | Trm_let_fun (_, _, _, body) ->
+  | Trm_let_fun (_, _, _, body, _) ->
     aux body;
     if !count >= 2 then trm_add_mark mark t else t
   | _ -> fail None "Apac_basic.mark_taskable_function: expected a target to a function definition"
