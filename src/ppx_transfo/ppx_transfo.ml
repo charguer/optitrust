@@ -5,6 +5,10 @@ let pat_var_inv (pat : pattern) : (string, extension) result =
   | Ppat_var loc -> Ok loc.txt
   | _ -> Error (Location.error_extensionf ~loc:pat.ppat_loc "let%%transfo: Only simple binding names are supported")
 
+let module_of_location (l : Location.t) : string =
+  let fname = l.loc_start.pos_fname in
+  String.capitalize_ascii (Filename.remove_extension (Filename.basename fname))
+
 let (let+) r cont =
   match r with
   | Ok r -> cont r
@@ -66,9 +70,7 @@ let deal_with_binding (loc : Location.t) (binding : value_binding): value_bindin
       let+ name in
       let args = B.elist (List.rev args) in
       let continuation = B.pexp_fun Nolabel None B.punit expr in
-      (* TODO: Replace print_call with the real tracing function *)
-      (* Trace_printers.print_call ~name:"name" ~args:[..] (fun () -> body) *)
-      B.pexp_apply (B.evar ("Trace.transfo_step")) [(Labelled "name", (B.estring name)); (Labelled "args", args); (Nolabel, continuation)]
+      B.pexp_apply (B.evar ("Trace.transfo_step")) [(Labelled "name", (B.estring (Printf.sprintf "%s.%s" (module_of_location loc) name))); (Labelled "args", args); (Nolabel, continuation)]
   in
   { binding with pvb_expr = dive_into_args binding.pvb_expr [] }
 
