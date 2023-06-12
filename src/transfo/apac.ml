@@ -569,50 +569,54 @@ let sync_with_taskwait : Transfo.t =
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
   )
 
-(* generate a new id *)
-let next_id = Tools.fresh_generator ()
+(* [unfold_funcalls tg]: moves all function calls under target [tg] out of
+    variable declarations and nested function calls.
 
-(* [count_calls t]: counts the number of function calls in [t]. *)
-let count_calls (t : trm) : int =
-  let rec aux (count : int) (t : trm) : int =
-    match t.desc with
-    | Trm_apps (f, args) ->
-      let count = match f.desc with | Trm_var _ -> count+1 | _ -> count in
-      List.fold_left (fun acc t -> aux acc t) count args
-    | _ -> count
-  in
-  aux 0 t
+    Example:
 
-(* [unfold_funcalls tg]: expects the user to have filled [fun_defs] in Ast_data
-    (Ast_data.fill_fun_defs_tbl). It will search all function calls under
-    target [tg]. Then, it will create a new variable, change its value within
-    the function call and replace the function targeted with the newly created
-    variable. *)
+          int a = f(g(2));
+
+    becomes:
+
+          int __var_1;
+          __var_1 = g(2);
+          int __var_2;
+          __var_2 = f(__var_1);
+          int a = __var_2;
+
+    However:
+
+          int a;
+          a = f(g(2));
+
+    becomes:
+
+          int a;
+          int __var_1;
+          __var_1 = g(2);
+          a = f(__var_1);
+
+    as the call to 'f' is already dissociated from the declaration of 'a'. See
+    also comments within the function.
+*)
 let unfold_funcalls : Transfo.t =
-  Target.iter (fun t1 p1 ->
-    (* Look for any function call in the body of the function which is the
-       target of this transformation. However, we skip all the calls to
-       functions the return type of which is 'void'. *)
-    let fundefs = (target_of_path p1) @ [nbAny; cFun ""(*; cDiff [] [[cHasTypeAst (typ_unit ())]] *)] in
-    (*let _ = Debug_transfo.trm_internal "h" (get_trm_at_exn (target_of_path p)) in*)
-    Target.iter (fun t2 p2 ->
-      let var = "__var_" ^ (string_of_int (next_id ())) in
-      let _ = Printf.printf "Creating %s\n" var in
-      Variable_basic.bind var (target_of_path p2);
-      Variable_basic.init_detach ((target_of_path p1) @ [cVarDef var])
-      (* let (path_to_seq, local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
-        let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
-              let path_to_call = path_to_instruction @ local_path in
-             (* let tg_instr = target_of_path path_to_instruction in*)
-              let tg_call = target_of_path path_to_call in
-              let tg_out_trm = Path.resolve_path path_to_instruction t in
-              let _ = Debug_transfo.trm_internal "tg_out_trm" (Option.get (get_init_val tg_out_trm)) in
-              let _ = Debug_transfo.current_ast_at_target "tg_call" tg_call in
-              let tr_call = get_trm_at_exn tg_call in
-              let ty = Option.value ~default:(typ_float ()) tr_call.typ in
-              Printf.printf "typ: %s" (Tools.document_to_string (Ast_to_text.print_typ ty)) *)
-      ) fundefs
-    )
+  Target.iter (fun t p ->
+    (* Get the parent term to check whether it is an assignment (outside of a
+       declaration). If it is the case, we do not need to apply the
+       transformation. It would only create a superfluous variable. *)
+    let parent_path = Path.parent p in
+    let parent_target = target_of_path parent_path in
+    if not (is_set_operation (get_trm_at_exn parent_target))
+    then begin
+      (* Define new intermediate variable. *)
+      let var = "__var_" ^ (string_of_int (next_var_int ())) in
+      (* Bind the return value of the current function call to that variable. *)
+      Variable_basic.bind var (target_of_path p);
+      (* Separate the assignment of the return value from the declaration of the
+         variable. *)
+      Variable_basic.init_detach [cVarDef var];
+    end
+  )
 
 (* [dep_info]: stores data of dependencies of tasks. *)
 type dep_info = {
