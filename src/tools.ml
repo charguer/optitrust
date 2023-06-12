@@ -79,11 +79,10 @@ let document_to_string ?(width:PPrint.requirement=80) (d : document) : string =
 
 (* [fresh_generator()]: generates a function that can be used to return
    the next integer at each invokation. *)
-(* LATER: this option ?init seems boggus, because it resets the generator at every call...  *)
-let fresh_generator ?(init : bool = false) () : (unit -> int) =
+let fresh_generator () : (unit -> int) =
   let n = ref 0 in
   fun () ->
-    if init then n := 0 else incr n;
+    incr n;
     !n
 
 (* [resetable_fresh_generator()]: returns a pair of a generator and its reset function *)
@@ -101,7 +100,8 @@ let next_tmp_name: unit -> string =
 
 (* [list_to_string ?sep ?bounds l]: returns a string representation of a list of strings.
    By default, it produces [  [s1; s2; s3] ]. *)
-let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"]) (l : string list) : string =
+let list_to_string ?(sep:string=";") ?(add_space:bool=true) ?(bounds:string list = ["[";"]"]) (l : string list) : string =
+  let sep = if add_space then sep ^ " " else sep in
   let (bl,br) = match bounds with
     | [bl; br] -> (bl,br)
     | _ -> failwith "list_to_string: bounds argument must be a list of length 2"
@@ -109,7 +109,7 @@ let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"]) (l : stri
   let rec aux = function
     | [] -> ""
     | [s] -> s
-    | s1 :: s2 :: sl -> s1 ^ sep ^ " " ^ aux (s2 :: sl)
+    | s1 :: s2 :: sl -> s1 ^ sep ^ aux (s2 :: sl)
   in
   bl ^ aux l ^ br
 

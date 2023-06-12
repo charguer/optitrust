@@ -497,11 +497,14 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
     if not (Internal.same_trm wr_base rd_base) then
       fail t.loc "Matrix_basic.read_last_write: array base mistmach";
     let rd_value = List.fold_left (fun value (wr_i, rd_i) ->
-      let (_, wr_i_var) = trm_inv
-        ~error:"Matrix_basic.read_last_write: expected write index to be a variable"
-        trm_var_inv wr_i
-      in
-      Internal.subst_var wr_i_var rd_i value
+      begin match trm_var_inv wr_i with
+      | Some (_, wr_i_var) ->
+        Internal.subst_var wr_i_var rd_i value
+      | None ->
+        let error = "Matrix_basic.read_last_write: expected write index to be a variable, or to be the same as the read index" in
+        if (Internal.same_trm wr_i rd_i) then value
+        else fail wr_i.loc error
+      end
     ) wr_value (List.combine wr_indices rd_indices)
     in
     rd_value

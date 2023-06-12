@@ -2,14 +2,14 @@ open Optitrust
 open Target
 
 
-let _ = Run.doc_script_cpp (fun () -> 
+let _ = Run.doc_script_cpp (fun () ->
 
   !! Function.inline [cFun "f"];
 
 )
 
 "
-typedef struct { 
+typedef struct {
   int x;
   int y;
 } vect;

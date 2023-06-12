@@ -38,6 +38,9 @@ type var = string
 (* [Var_set]: a set module used for storing variables *)
 module Var_set = Set.Make(String)
 
+(* [Var_map]: a map module used for mapping variables to values *)
+module Var_map = Map.Make(String)
+
 (* [vars]: variables, a list of elements of type variable *)
 type vars = var list
 
@@ -2972,10 +2975,6 @@ let is_struct_init (t : trm) : bool =
   match t.desc with
   | Trm_record _ -> true | _ -> false
 
-(* [is_trm_seq t]: checks if [t] has [Trm_seq tl] description. *)
-let is_trm_seq (t : trm) : bool =
-  match t.desc with | Trm_seq _ -> true | _ -> false
-
 (* [is_same_binop op1 op2 ]: checks if two primitive operations are the same *)
 let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool =
   match op1, op2 with
@@ -3552,6 +3551,11 @@ let is_trm_initialization_list (t : trm) : bool =
 let is_trm_unit (t : trm) : bool =
   match trm_lit_inv t with
   | Some Lit_unit -> true
+  | _ -> false
+
+let is_trm_int (cst : int) (t : trm) : bool =
+  match trm_lit_inv t with
+  | Some (Lit_int c) when c = cst -> true
   | _ -> false
 
 (* [has_empty_body t]: checks if the function [t] has an empty body or not. *)

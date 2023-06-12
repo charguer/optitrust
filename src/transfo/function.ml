@@ -214,7 +214,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
   ?(delete : bool = false) ?(debug : bool = false) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
   =
   Trace.step_valid_by_composition ();
-  (* TODO: Marks.with_fresh_mark (fun subst_mark -> *)
+  Marks.with_fresh_mark (fun subst_mark ->
     (* variable for storing the function names, in case if [delete] is true it will use this name to target the declarations and delete them *)
     let function_names = ref Var_set.empty in
     Stats.comp_stats "iteri_on_transformed_targets" (fun () ->
@@ -242,8 +242,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
         if args <> [] then bind_args args [new_target];
         let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
         Stats.comp_stats "inline" (fun () ->
-          (* TODO: ~subst_mark for simpl *)
-          Function_basic.inline ~body_mark [new_target];);
+          Function_basic.inline ~body_mark ~subst_mark [new_target];);
         Stats.comp_stats "intro" (fun () ->
           Accesses_basic.intro [cMark body_mark];);
         Stats.comp_stats "elim_body" (fun () ->
@@ -276,10 +275,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
           Marks.remove my_mark [nbAny; new_target]
         end;
         Marks.remove my_mark [nbAny; new_target];
-        (* Debug_transfo.current_ast "before proj"; *)
         Record_basic.simpl_proj (target_of_path path_to_seq);
-        (* Debug_transfo.current_ast "after proj"; *)
-
       )
         in
       begin match tg_out_trm.desc with
@@ -302,13 +298,18 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | _ -> fail tg_out_trm.loc "Function.inline: please be sure that you're tageting a proper function call"
-      end
+      end;
     ) tg;
     if delete then Instr.delete [cOr
       (List.map (fun name -> [cTopFunDef name]) (Var_set.elements !function_names))];
-    )
-    (* simpl [cMark subst_mark];
-    ) *)
+    );
+    simpl [cMark subst_mark];
+  )
+
+(* [delete]: deletes function definitions targeted by [tg]. *)
+let%transfo delete (tg : target) : unit =
+  (* TODO: check that definitions are deleted + that they were not used *)
+  Instr.delete tg
 
 (* [inline_def]: like [inline], but with [tg] targeting the function definition.
    All function calls are inlined, with [delete = true] as default. *)
@@ -321,7 +322,7 @@ let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") 
     let error = "Function.inline_def: expected function definition" in
     let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv def_trm in
     (* FIXME: deal with qvar *)
-    inline ~resname ~vars ~args ~keep_res ~delete ~simpl [nbMulti; cFun qvar.qvar_var];
+    inline ~resname ~vars ~args ~keep_res ~delete ~simpl [nbAny; cFun qvar.qvar_var];
   ) tg
 
 (* [beta ~indepth tg]: expects the target [tg] to be pointing at a function call or a function declaration whose

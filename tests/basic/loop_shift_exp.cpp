@@ -6,7 +6,7 @@ int main() {
     const int i = i2 - 2;
     x += i;
   }
-  for (int j2 = st + -st; j2 < st + N + -st; j2++) {
+  for (int j2 = 0; j2 < st + N - st; j2++) {
     const const int j = j2 - -st;
     x += j;
   }
@@ -19,8 +19,7 @@ int main() {
     const const int l = l2 - shift;
     x += l;
   }
-  for (int m3 = 2 + (N - (N - 2)) + (4 - (2 + (N - (N - 2))));
-       m3 < N - 2 + (N - (N - 2)) + (4 - (2 + (N - (N - 2)))); m3++) {
+  for (int m3 = 4; m3 < N + (4 - (2 + (N - (N - 2)))); m3++) {
     const int m2 = m3 - (4 - (2 + (N - (N - 2))));
     const int m = m2 - (N - (N - 2));
     x += m;

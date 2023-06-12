@@ -122,6 +122,10 @@ let occLast : constr =
 let target_of_path (p : path) : target =
   [Constr_paths [p]]
 
+(* [target_of_paths ps]: converts paths [ps] to a target. *)
+let target_of_paths (ps : paths) : target =
+  [Constr_paths ps]
+
 (* [dRoot]: matches the root of the ast. *)
 let dRoot : constr =
     Constr_root
@@ -1046,8 +1050,8 @@ let cArrayRead ?(index = []) (x : var) : constr =
     [[cCellAccess ~base:[cVar x] ~index ()]]
     [[cArrayWriteAccess x]]] ()
 
-let cPlusEqVar (name : string) : constr =
-  cPrimFun ~args:[[cVar name]; [cTrue]] (Prim_compound_assgn_op Binop_add)
+let cPlusEq (lhs_tg : target) : constr =
+  cPrimFun ~args:[lhs_tg; [cTrue]] (Prim_compound_assgn_op Binop_add)
 
 (* [cOmp_match_all]: matches an OpenMP directive. *)
 let cOmp_match_all : directive->bool =

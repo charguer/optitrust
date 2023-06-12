@@ -432,7 +432,7 @@ let%transfo fusion ?(nb : int = 2) ?(nest_of : int = 1) ?(upwards : bool = true)
 
   LATER ?(into_occ : int = 1)
   *)
-let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_all_indices : bool = false) ?(adapt_fused_indices : bool = true) (tg : target) : unit =
+let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_all_indices : bool = false) ?(adapt_fused_indices : bool = true) ?(rename : path -> Variable.rename option = fun p -> None) (tg : target) : unit =
   Trace.step_valid_by_composition ();
   assert (not adapt_all_indices); (* TODO *)
   (* adapt_all_indices => adapt_fused_indices *)
@@ -454,7 +454,14 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
   ) (nbMulti :: tg);
   (* TODO: use gather_targets GatherAt preprocessing *)
   (* Then, fuse all loops into one, moving loops in the sequence if necessary. *)
+  let may_rename_loop_body loop_p =
+    Option.iter  (fun r ->
+      let inner_loop_p = Path.to_inner_loop_n (nest_of - 1) loop_p in
+      Variable.renames r (target_of_path (inner_loop_p @ [Path.Dir_body]));
+    ) (rename loop_p)
+    in
   let p_seq = Option.get !seq_path in
+  let ordered_indices = List.sort compare !indices_in_seq in
   let rec fuse_loops fuse_into shift todo =
     match todo with
     | [] -> ()
@@ -466,6 +473,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
         Printf.printf "fuse_into: %i\n" fuse_into; *)
         let to_fuse' = to_fuse in (* no shift *)
         let p_current = p_seq @ [Path.Dir_seq_nth to_fuse'] in
+        may_rename_loop_body p_current;
         if to_fuse' <> fuse_into - 1 then begin
           Instr_basic.move ~dest:(tBefore :: fuse_into_tg) (target_of_path p_current);
         end;
@@ -476,6 +484,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
       if to_fuse > fuse_into then begin
         let to_fuse' = to_fuse + shift in
         let p_current = p_seq @ [Path.Dir_seq_nth to_fuse'] in
+        may_rename_loop_body p_current;
         if to_fuse' <> (fuse_into + 1) then begin
           Instr_basic.move ~dest:(tAfter :: fuse_into_tg) (target_of_path p_current);
         end;
@@ -483,10 +492,10 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
         fuse_loops fuse_into (shift - 1) todo;
       end;
   in
-  let ordered_indices = List.sort compare !indices_in_seq in
   match into with
   | Some tg ->
     let p = Target.resolve_target_exactly_one tg (Trace.ast ()) in
+    may_rename_loop_body p;
     let (fuse_into, p_seq) = Path.index_in_seq p in
     (* TODO: Option.get error message *)
     let pos = Option.get (Xlist.index_of fuse_into ordered_indices) in
@@ -501,6 +510,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
     match ordered_indices with
     | [] -> ()
     | fuse_into :: to_fuse ->
+      may_rename_loop_body (p_seq @ [Dir_seq_nth fuse_into]);
       fuse_loops fuse_into 0 to_fuse
 
 (* [move_out ~upto tg]: expects the target [tg] to point at an instruction inside a for loop,
@@ -1016,15 +1026,53 @@ let%transfo tile ?(index : var = "b${id}")
 *)
 let%transfo slide ?(index : var = "b${id}")
   ?(bound : tile_bound = TileBoundMin)
+  ?(iter : tile_iteration = TileIterLocal)
   ~(size : trm)
   ~(step : trm)
   ?(simpl : Transfo.t = default_simpl)
   (tg : target) : unit =
   Trace.step_valid_by_composition ();
   Target.iter (fun _ p ->
+    let bound = if is_trm_int 1 step then TileDivides else bound in
     Loop_basic.slide ~index ~bound ~size ~step (target_of_path p);
     simpl_range ~simpl (target_of_path p);
-    simpl_range ~simpl (target_of_path (Path.to_inner_loop p));
+    begin match iter with
+    | TileIterLocal ->
+      shift StartAtZero ~simpl (target_of_path (Path.to_inner_loop p));
+    | _  ->
+      simpl_range ~simpl (target_of_path (Path.to_inner_loop p));
+    end;
+  ) tg
+
+(* [slides]: like [slide], but operating on a nest of multiple loops and putting all loops over elements inside the bunch of loops over tiles. *)
+let%transfo slides ?(index : var = "b${id}")
+  ?(bound : tile_bound = TileBoundMin)
+  ?(iter : tile_iteration = TileIterLocal)
+  ~(size_steps : (trm * trm) option list)
+  ?(simpl : Transfo.t = default_simpl)
+  (tg : target) : unit =
+  Trace.step_valid_by_composition ();
+  Target.iter (fun _ p ->
+    let size_steps_bottom_up = List.rev (List.mapi (fun i x -> (i, x)) size_steps) in
+    let prev_outer_elt_loop = ref None in
+    let slide_at_inner_loop (i, size_step) =
+      match size_step with
+      | Some (size, step) ->
+        let target_p = Path.to_inner_loop_n i p in
+        (* Debug_transfo.current_ast_at_path "sliding" target_p; *)
+        slide ~index ~bound ~iter ~size ~step ~simpl (target_of_path target_p);
+        let tile_loop_p = Path.to_inner_loop target_p in
+        begin match !prev_outer_elt_loop with
+        | Some potl ->
+          let outer_elt_loop = Path.to_inner_loop potl in
+          move (target_of_path tile_loop_p) ~before:(target_of_path outer_elt_loop);
+          prev_outer_elt_loop := Some (Path.to_outer_loop outer_elt_loop)
+        | None ->
+          prev_outer_elt_loop := Some (tile_loop_p)
+        end
+      | None -> ()
+    in
+    List.iter slide_at_inner_loop size_steps_bottom_up
   ) tg
 
 (* [delete_void]: deletes a loop nest with empty body.
@@ -1058,3 +1106,24 @@ let%transfo delete_all_void (tg : target) : unit =
       | None -> t
     )) t p
   ) tg
+
+let rec get_indices (nest_of : int) (outer_p : path) : var list =
+  if nest_of > 0 then
+    let error = "Loop.get_indices: expected simple loop" in
+    let ((index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv (Path.resolve_path outer_p (Trace.ast ())) in
+    let nested_indices = get_indices (nest_of - 1) (Path.to_inner_loop outer_p) in
+    index :: nested_indices
+  else []
+
+(* sets loop indices, internal because there must be no overlap between new names and previous names *)
+let rec set_indices_internal (indices : var list) (outer_p : path) : unit =
+  match indices with
+  | i :: ri ->
+    Loop_basic.rename_index i (target_of_path outer_p);
+    set_indices_internal ri (Path.to_inner_loop outer_p)
+  | [] -> ()
+
+let set_indices (indices : var list) (outer_p : path) : unit =
+  let tmp_indices = List.init (List.length indices) (fun _ -> fresh_var ()) in
+  set_indices_internal tmp_indices outer_p;
+  set_indices_internal indices outer_p;
