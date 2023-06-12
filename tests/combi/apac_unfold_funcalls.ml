@@ -2,9 +2,8 @@ open Optitrust
 open Target 
 open Ast
 
-let _ = Run.script_cpp (fun () ->
-
-  (* Ast_data.fill_fun_defs_tbl (get_ast());*)
-  
-  !! Apac.unfold_funcalls [cFunBody "h"];
+let _ = Run.script_cpp (fun () -> 
+  !! Apac.unfold_funcalls [
+    nbAny; cDiff [[cFunBody "h"; cFun ""]] [[cHasTypeAst (typ_unit ())]]
+  ];
 )
