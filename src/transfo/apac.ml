@@ -569,8 +569,8 @@ let sync_with_taskwait : Transfo.t =
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
   )
 
-(* [gen_id ()]: unique integer generator *)
-let gen_id = Tools.fresh_generator ()
+(* generate a new id *)
+let next_id = Tools.fresh_generator ()
 
 (* [count_calls t]: counts the number of function calls in [t]. *)
 let count_calls (t : trm) : int =
@@ -589,65 +589,29 @@ let count_calls (t : trm) : int =
     the function call and replace the function targeted with the newly created
     variable. *)
 let unfold_funcalls : Transfo.t =
-  let unfold_funcalls_transfo (tg_instr : target) (tg_call : trm) : unit =
-    let tr_call = tg_call in
-    let error = "Apac.unfold_funcalls: expected a target to a function call." in
-    let (f, _) = trm_inv ~error trm_apps_inv tr_call in
-    let _ = Debug_transfo.trm_internal "term is" tr_call in
-    let error = "Not a var" in
-    let (_, qvar) = trm_inv ~error trm_var_inv f in
-    let _ = Printf.printf "Type of %s " qvar in
-    let ty = Option.get tr_call.typ in
-    let atomic = if is_atomic_typ ty then "atomic" else "not atmic" in
-    let _ = Printf.printf "is %s\n" atomic in
-    (*let ty = match tr_call.desc with
-      | Trm_apps ({desc = Trm_var _} as f, args) ->
-        let (_, qvar) = trm_inv trm_var_inv f in
-        let _ = Printf.printf "Unfolding function: %s\n" qvar in
-        let def = Ast_data.get_function_def f in
-        let (_, ty, _, _) = trm_inv trm_let_fun_inv def in
-        ty
-      | _ -> assert false
-    in*)
-    let new_name = "__var_" ^ (string_of_int (gen_id())) in
-    let tr_let_var = trm_let_mut (new_name, get_inner_const_type ty) (trm_uninitialized ()) in
-    let tr_set = trm_set (trm_var new_name) tr_call in
-    if not (same_types ty (typ_unit ()))
-    then begin
-      Target.apply_at_target_paths (fun _ -> trm_apps (trm_unop Unop_get) [trm_var new_name]) tg_instr;
-      Internal.nobrace_remove_after (fun _ ->
-        Target.apply_at_target_paths (fun t -> trm_seq_no_brace [tr_let_var; tr_set; t]) tg_instr);
-      end
-    else ()
-  in
-  Target.iter (fun t p ->
-    let fixed_tg = (target_of_path p ) @ [nbAny; cFun ""] in
-    (*Target.iter (fun t p ->
-      let (p_seq, local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
-      ...
-      ) fixed_tg*)
-    (* TODO: Find corresponding method in new API. *)
-    iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-      (fun i t (path_to_seq, local_path, i1)  ->
-
+  Target.iter (fun t1 p1 ->
+    (* Look for any function call in the body of the function which is the
+       target of this transformation. However, we skip all the calls to
+       functions the return type of which is 'void'. *)
+    let fundefs = (target_of_path p1) @ [nbAny; cFun ""(*; cDiff [] [[cHasTypeAst (typ_unit ())]] *)] in
+    (*let _ = Debug_transfo.trm_internal "h" (get_trm_at_exn (target_of_path p)) in*)
+    Target.iter (fun t2 p2 ->
+      let var = "__var_" ^ (string_of_int (next_id ())) in
+      let _ = Printf.printf "Creating %s\n" var in
+      Variable_basic.bind var (target_of_path p2);
+      Variable_basic.init_detach ((target_of_path p1) @ [cVarDef var])
+      (* let (path_to_seq, local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
         let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
-        let path_to_call = path_to_instruction @ local_path in
-        let tg_instr = target_of_path path_to_instruction in
-        let tg_call = target_of_path path_to_call in
-        let tg_out_trm = Path.resolve_path path_to_instruction t in
-        let _ = Debug_transfo.trm "tg_out_trm" (Option.get (get_init_val tg_out_trm)) in
-        let _ = Debug_transfo.current_ast_at_target "tg_call" tg_call in
-        match tg_out_trm.desc with
-        (* Function call when the return value is used in a variable definition. *)
-        | Trm_let (_, v, c) -> unfold_funcalls_transfo tg_instr (Option.get (get_init_val tg_out_trm))
-        (* Function call when the return value is assigned to an existing variable. *)
-       (* | Trm_apps (_, [lhs; rhs]) when is_set_operation tg_out_trm && count_calls rhs >= 2 ->
-          unfold_funcalls_transfo tg_instr tg_call
-        (* Function call without using the return value. *)
-        | Trm_apps ({ desc = Trm_var _ }, _) when count_calls tg_out_trm >= 2->
-          unfold_funcalls_transfo tg_instr tg_call*)
-        | _ -> ()
-        ) fixed_tg;
+              let path_to_call = path_to_instruction @ local_path in
+             (* let tg_instr = target_of_path path_to_instruction in*)
+              let tg_call = target_of_path path_to_call in
+              let tg_out_trm = Path.resolve_path path_to_instruction t in
+              let _ = Debug_transfo.trm_internal "tg_out_trm" (Option.get (get_init_val tg_out_trm)) in
+              let _ = Debug_transfo.current_ast_at_target "tg_call" tg_call in
+              let tr_call = get_trm_at_exn tg_call in
+              let ty = Option.value ~default:(typ_float ()) tr_call.typ in
+              Printf.printf "typ: %s" (Tools.document_to_string (Ast_to_text.print_typ ty)) *)
+      ) fundefs
     )
 
 (* [dep_info]: stores data of dependencies of tasks. *)
