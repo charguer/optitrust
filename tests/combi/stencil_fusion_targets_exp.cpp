@@ -70,17 +70,22 @@ void vboxadd(int* out, int* a, int* b, int h, int w) {
 void hboxadd(int* out, int* a, int* b, int h, int w) {
   for (int y = 0; y < h - 2; y += 32) {
     int* ab = (int*)MALLOC2(32 + 2, w, sizeof(int));
-    for (int y_ab = 0; y_ab < min(h, y + 34) - y; y_ab++) {
+    for (int y_out = 0; y_out < min(h, y + 34) - y; y_out++) {
       for (int x = 0; x < w; x++) {
-        ab[MINDEX2(34, w, y_ab, x)] =
-            a[MINDEX2(h, w, y_ab + y, x)] + b[MINDEX2(h, w, y_ab + y, x)];
+        ab[MINDEX2(34, w, y_out, x)] =
+            a[MINDEX2(h, w, y_out + y, x)] + b[MINDEX2(h, w, y_out + y, x)];
       }
-    }
-    for (int y_out = 0; y_out < min(h - 2, y + 32) - y; y_out++) {
-      for (int x = 0; x < w; x++) {
-        out[MINDEX2(h, w, y_out + y - 2, x)] =
-            ab[MINDEX2(34, w, y_out, x)] + ab[MINDEX2(34, w, y_out + 1, x)] +
-            ab[MINDEX2(34, w, y_out + 2, x)];
+      if (min(h, y + 34) - min(h - 2, y + 32) <= y_out) {
+        for (int x = 0; x < w; x++) {
+          out[MINDEX2(h, w, y_out - min(h, y + 34) + y + min(h - 2, y + 32) - 2,
+                      x)] =
+              ab[MINDEX2(34, w, y_out - min(h, y + 34) + min(h - 2, y + 32),
+                         x)] +
+              ab[MINDEX2(34, w, y_out - min(h, y + 34) + min(h - 2, y + 32) + 1,
+                         x)] +
+              ab[MINDEX2(34, w, y_out - min(h, y + 34) + min(h - 2, y + 32) + 2,
+                         x)];
+        }
       }
     }
     free(ab);

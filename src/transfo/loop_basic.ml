@@ -426,14 +426,16 @@ let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
   let index' = index in
   let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
   let ((index, start, direction, stop, step, is_parallel), body_terms) = trm_inv ~error trm_for_inv_instrs t in
-  let shift = match kind with
-  | ShiftBy s -> s
-  | StartAtZero -> trm_minus start
-  | StartAt v -> trm_sub v start
-  | StopAt v -> trm_sub v stop
+  let (shift, start', stop') = match kind with
+  (* spec:
+    let start' = trm_add start shift in
+    let stop' = trm_add stop shift in *)
+  | ShiftBy s -> (s, trm_add start s, trm_add stop s)
+  (* NOTE: assuming int type *)
+  | StartAtZero -> (trm_minus start, trm_int 0, trm_sub stop start)
+  | StartAt v -> (trm_sub v start, v, trm_add stop (trm_sub v start))
+  | StopAt v -> (trm_sub v stop, trm_add start (trm_sub v stop), v)
   in
-  let start' = trm_add start shift in
-  let stop' = trm_add stop shift in
   (* NOTE: assuming int type if no type is available *)
   let body_terms' = Mlist.push_front (
     trm_let_immut (index, (Option.value ~default:(typ_int ()) start.typ))

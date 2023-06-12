@@ -25,6 +25,15 @@ int main() {
     }
     free(y);
   }
+  for (int i = 0; i < 10; i++) {
+    T* z = (T*)MALLOC3(1, 8, 4, sizeof(T));
+    for (int j = 2; j < 10; j++) {
+      for (int k = 0; k < 4; k++) {
+        z[MINDEX3(1, 8, 4, 0, j - 2, k)] = 1;
+      }
+    }
+    free(z);
+  }
   int z = 0;
   return 0;
 }

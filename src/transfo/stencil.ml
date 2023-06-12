@@ -26,6 +26,8 @@ let%transfo loop_align_stop_extend_start_like ~(orig:target) ?(nest_of : int = 1
   let ps = resolve_target tg (Trace.ast ()) in
   let rec aux (nest_of : int) (orig_p : path) (ps : paths) =
     if nest_of > 0 then begin
+      (* is this a good idea? simplify original loop range before using it. *)
+      Loop.simpl_range ~simpl (target_of_path orig_p);
       let t = Path.resolve_path orig_p (Trace.ast ()) in
       let error = "Stencil.loop_align_stop_extend_start_like: expected simple loop" in
       let ((_index, start, _dir, stop, _step, _par), _body) = trm_inv ~error trm_for_inv t in
@@ -86,13 +88,23 @@ let var_of_access (access_t : trm) : var =
   | None -> trm_inv ~error trm_var_get_inv base
   end in
   var
+let var_of_def (def_t : trm) : var =
+  let error = "Stencil.var_of_def: expected variable declaration" in
+  let (_, var, _, _) = trm_inv ~error trm_let_inv def_t in
+  var
 
 let collect_writes (p : path) : Var_set.t =
   let writes = ref Var_set.empty in
+  (* 1. collect all array writes *)
   Target.iter (fun t p ->
     let waccess_t = Path.get_trm_at_path p t in
     writes := Var_set.add (var_of_access waccess_t) !writes;
   ) ((target_of_path p) @ [nbAny; cArrayWriteAccess ""]);
+  (* 2. filter out all writes to locally defined arrays *)
+  Target.iter (fun t p ->
+    let vdef_t = Path.get_trm_at_path p t in
+    writes := Var_set.remove (var_of_def vdef_t) !writes;
+  ) ((target_of_path p) @ [nbAny; cVarDef ""]);
   !writes
 
 (*
@@ -100,7 +112,7 @@ let collect_writes (p : path) : Var_set.t =
  [overlaps]: list of [var, overlap] pairs, where [var] is a variable being written to by a loop, that needs to be produced in tiles of [tile_size + overlap] due to following dependencies.
  [outputs]: list of variables to keep alive after the stencil chain is fused.
  *)
-let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)) list = []) ~(outputs : var list) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)) list = []) ~(outputs : var list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = true) (tg : target) : unit =
   let outer_loop_count = List.length tile in
   let surrounding_sequence = ref None in
   let must_be_in_surrounding_sequence p =
@@ -141,17 +153,20 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)
     ) tg;
     (* 2. fuse loop nests *)
     let to_fuse_paths = Target.resolve_target [nbMulti; cMark to_fuse] (Trace.ast ()) in
-    (*
-    begin match to_fuse_paths with
-    | first :: others ->
-      loop_align_stop_extend_start_like ~nest_of ~simpl ~orig:(target_of_path first) (target_of_paths others)
-    | _ -> ()
-    end; *)
+    let nest_to_fuse = if fuse_inner_loops
+      then outer_loop_count + (List.length tile) else outer_loop_count in
+    if fuse_inner_loops then begin
+      match to_fuse_paths with
+      | first :: others ->
+        loop_align_stop_extend_start_like ~nest_of:nest_to_fuse ~simpl ~orig:(target_of_path first) (target_of_paths others)
+      | _ -> ()
+    end;
     let rename loop_p =
       let writes = Var_set.elements (collect_writes loop_p) in
       Some (Variable.Rename.AddSuffix (Tools.list_to_string ~sep:"_" ~bounds:["_";""] ~add_space:false writes))
     in
-    Loop.fusion_targets ~nest_of:outer_loop_count ~rename ~into:(target_of_path (snd (Xlist.unlast to_fuse_paths))) (target_of_paths to_fuse_paths);
+    (* Debug_transfo.current_ast_at_target "before fusion" [nbMulti; cMark to_fuse]; *)
+    Loop.fusion_targets ~nest_of:nest_to_fuse ~rename ~into:(target_of_path (snd (Xlist.unlast to_fuse_paths))) (target_of_paths to_fuse_paths);
     (* Debug_transfo.current_ast_at_target "after fusion" [nbMulti; cMark to_fuse]; *)
     (* 3. reduce temporary storage *)
     let surrounding_seq = Tools.unsome !surrounding_sequence in
@@ -179,5 +194,5 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)
     Var_map.iter reduce_local_memory local_memory
   )
 
-let fusion_targets ~(nest_of : int) ?(overlaps : (var * (trm list)) list = []) ~(outputs : var list) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
-  fusion_targets_tile (List.init nest_of (fun _ -> trm_int 1)) ~overlaps ~outputs ~simpl tg
+let fusion_targets ~(nest_of : int) ?(overlaps : (var * (trm list)) list = []) ~(outputs : var list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = false) (tg : target) : unit =
+  fusion_targets_tile (List.init nest_of (fun _ -> trm_int 1)) ~overlaps ~outputs ~simpl ~fuse_inner_loops tg
