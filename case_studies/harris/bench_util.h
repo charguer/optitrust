@@ -29,7 +29,7 @@ constexpr uint32_t MIN_SAMPLES = 3;
 // and the upper quartile of the runtimes is no more than this.
 // Controls accuracy. The closer to zero this gets the more
 // reliable the answer, but the longer it may take to run.
-constexpr double ACCURACY = 0.02;
+constexpr double ACCURACY = 0.03;
 
 inline double benchmark_sample(uint32_t iterations, const std::function<void(uint32_t)> &f) {
   auto start = Halide::Tools::benchmark_now();
@@ -68,6 +68,7 @@ inline uint32_t benchmark_and_print_samples(const std::function<void(uint32_t)> 
 
     fprintf(stderr, "iterations per sample: %u, sample time: %f\n",
       iters_per_sample, samples[0]);
+    uint32_t sampled_iters = iters_per_sample;
     if (samples[0] < kTimeEpsilon) {
       // If the fastest time is tiny, then trying to use it to predict next_iters
       // can just explode into something unpredictably huge, which could take far too
@@ -89,7 +90,9 @@ inline uint32_t benchmark_and_print_samples(const std::function<void(uint32_t)> 
     // Ensure we never explode beyond the max.
     if (iters_per_sample >= MAX_ITERS_PER_SAMPLE) {
       iters_per_sample = MAX_ITERS_PER_SAMPLE;
-      samples.clear(); // invalidate the collected samples
+      if (sampled_iters != MAX_ITERS_PER_SAMPLE) {
+        samples.clear(); // invalidate the collected samples
+      }
       fprintf(stderr, "iterations per sample capped to %u\n", iters_per_sample);
       break;
     }

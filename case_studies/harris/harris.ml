@@ -31,38 +31,40 @@ let _ = Run.script_cpp (fun () ->
   let int = trm_int in
   let ctx = cFunBody "harris" in
 
-  bigstep "fuse stencils with overlapped line tiling";
   !! Variable.inline ~simpl [ctx; multi cVarDef ["h1"; "w1"; "h2"; "w2"]];
-  let fuse (ops, overlaps, outputs) = Stencil.fusion_targets ~nest_of:2 ~outputs ~overlaps [ctx; any cFun ops] in
-  let overlaps_2x2 vars = List.map (fun i -> i,
-    List.init 2 (fun _ -> trm_int 2)) vars in
+  let fuse (ops, overlaps, outputs) =
+    Stencil.fusion_targets ~nest_of:2 ~outputs ~overlaps [ctx; any cFun ops] in
+  let overlaps_2x2 vars = List.map (fun i -> i, [int 2; int 2]) vars in
   !! List.iter fuse [
     ["grayscale"], [], ["gray"];
     ["sobelX"; "sobelY"], [], ["ix"; "iy"];
     ["mul"; "sum3x3"; "coarsity"], overlaps_2x2 ["ixx"; "ixy"; "iyy"], ["out"];
   ];
-  !! Stencil.fusion_targets_tile [int 32] ~outputs:["out"] ~overlaps:[
-    "gray", [int 4]; "ix", [int 2]
-  ] [ctx; nbMulti; cFor "y"];
-
-  bigstep "use circular buffers";
+  !! Stencil.fusion_targets_tile [int 32] ~outputs:["out"]
+     ~overlaps:["gray", [int 4]; "ix", [int 2]]
+     [ctx; nbMulti; cFor "y"];
+  !! simpl_mins [ctx]; (* TODO: should this be done by Stencil.fusion_targets? *)
   let circular_buffer var = Matrix.storage_folding ~dim:0 ~size:(int 4) ~var [ctx; cFor "y"] in
   !! List.iter circular_buffer ["gray"; "ix"; "iy"];
-
-  bigstep "code details";
-  !! simpl_mins [ctx]; (* TODO: should this be done by Stencil.fusion_targets? *)
+  (* !! Matrix.storage_folding ~dim:0 ~size:(int 4) [ctx; multi cVarDef ["gray"; "ix"; "iy"]]; *)
   !! Matrix.elim [ctx; multi cVarDef ["ixx"; "ixy"; "iyy"]];
   !! Loop.unroll ~nest_of:2 [ctx; nbMulti; cFor ~body:[cPlusEq [cVarReg "acc_.*"]] "i"];
   (* FIXME: need Matrix.inline_constant to avoid deleting functions *)
   !! Function.delete [multi cFunDef ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "conv2D"; "mul"; "coarsity"]];
+  (* for every non-constant index, unroll its for loops *)
   !! Matrix.elim_constant ~simpl:simpl_inplace_noop [nbMulti; cVarDefReg "weights.*"];
   let bind_gradient name =
     Variable.bind_syntactic ~dest:[ctx; tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [ctx; cArrayRead name]
   in
   !!! List.iter bind_gradient ["ix"; "iy"];
+(**
+  open sprintf dans target
+  Array.bind_syntactic
+  Variable.bind_syntactic ~dest:[ctx; tBefore; cVarDef "acc_sxx"] ~fresh_name_comp:(fun occ p t -> sprintf "%s%d" (array_read_basevar t) occ)[ctx; multi cArrayRead ["ix"; "iy"]]
+*)
   !! Matrix.elim_mops [ctx];
-
-  bigstep "parallelism";
-  !! Omp.simd ~clause:[Simdlen 8] [ctx; nbMulti; cFor "x"];
   !! Omp.parallel_for [ctx; cFor "y"];
+  !! Omp.simd ~clause:[Simdlen 8] [ctx; nbMulti; cFor "x"];
+
+
 )

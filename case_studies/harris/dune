@@ -1,0 +1,6 @@
+(executable
+  (name harris)
+  (modules harris)
+  (modes (native plugin))
+  (preprocess (pps ppx_transfo))
+  (libraries optitrust))

@@ -14,7 +14,7 @@ let _ = Flags.pretty_matrix_notation := true
 *)
 
 let _ = Run.script_cpp (fun () ->
-  let tile (loop_id, tile_size) = Loop.tile (trm_int tile_size) ~index:("b" ^ loop_id) ~bound:TileDivides [cFor loop_id] in
+  let tile (loop_id, tile_size) = Loop.tile (int tile_size) ~index:("b" ^ loop_id) ~bound:TileDivides [cFor loop_id] in
   !! List.iter tile [("i", 32); ("j", 32); ("k", 4)];
   !! Loop.reorder_at ~order:["bi"; "bj"; "bk"; "i"; "k"; "j"] [cPlusEq [cVar "sum"]];
   !!! Loop.hoist_expr ~dest:[tBefore; cFor "bi"] "pB" ~indep:["bi"; "i"] [cArrayRead "B"];
