@@ -1,0 +1,17 @@
+# TO FIX:
+record_align_field.ml
+loop_hoist.ml
+loop_fission.ml
+loop_unroll.ml
+loop_unfold_bound.ml
+matrix_reorder_dims.ml
+record_align_field.ml
+apac_heapify_nested_seq.ml
+
+# NO FIX:
+aos_to_soa.ml
+
+# ???
+swap_coords_fixed.ml
+swap_coords_vari.ml
+specialize_function_arg.ml

@@ -17,7 +17,7 @@ module StringSet = Set.Make(String)
     (either via filenames, or via a 'key' name refering to a groupe of files)
   - comparison either at the AST level or at the cpp source level via diff
   - call to "./tester __last" reuses the arguments provided to the last call
-    (these arguments are saved in the file ./tester_last_args.txt,
+    (these arguments are saved in the file ./__last.tests,
     the target "all" is taken if this file does not exist yet)
 
   It produces as output:
@@ -35,9 +35,7 @@ VERY-LATER: mode for compiling sources with gcc at a given standard
 
 *)
 
-let tmp_file = "/tmp/optitrust_tester"
-
-let last_args_file = "tester_last_args.txt"
+let last_args_file = "__last.tests"
   (* LATER: decide if this file could be in _build/default/.. *)
 
 let do_is_ko (cmd : string) : bool =
@@ -55,139 +53,70 @@ let do_or_die (cmd : string) : unit =
       command_output_lines *)
 
 (*****************************************************************************)
-(* Saving/retrieving arguments of the last call *)
+(* Saving arguments of the last call in the __last target *)
 
 (* Save to the file [last_args_file] the targets provided, assuming the target
    does not contain "__last" *)
 let save_last_tests (keys : string list) : unit =
   if not (List.mem "__last" keys)
     then Xfile.put_lines last_args_file keys
-
-(* Obtain the contents of the file [last_args_file], or "all" if the file does not exist *)
-let get_last_tests () : string list =
-  if Sys.file_exists last_args_file
-    then Xfile.get_lines last_args_file
-    else ["all"]
+  else if not (Sys.file_exists last_args_file)
+    then Xfile.put_lines last_args_file ["all"]
 
 
 (*****************************************************************************)
 (* Description of keys *)
 
-(* Gather the list of *.ml files in a directory.
-   Ignores *_with_lines.ml files.
-   *)
-let get_list_of_tests_in_dir (folder : string) : string list =
-  do_or_die (sprintf
-    "find %s -name \"*.ml\" -and -not -name \"*_with_lines.ml\" > %s"
-    folder tmp_file);
-  Xfile.get_lines tmp_file
+module File_set = Set.Make(String)
 
+let get_alias_targets (alias_filename: string) : string list =
+  let folder = Filename.dirname alias_filename in
+  let lines = Xfile.get_lines_or_empty alias_filename in
+  List.filter_map (fun l ->
+      if String.starts_with ~prefix:"#" l || String.length l = 0
+        then None
+        else Some (Filename.concat folder l)) lines
 
-(* Gather the list of *.ml files for a given key. May contain duplicates. *)
-let rec list_of_tests_from_key (key : string) : string list =
-  let aux = list_of_tests_from_key in
-  match key with
-  | "__last" -> get_last_tests ()
-  | "all" -> (aux "basic") @
-             (aux "combi") @
-             (aux "target") @
-             (aux "ast") @
-             (aux "case_studies")
-  (* TODO: factorize dir keywords? *)
-  | "basic" -> get_list_of_tests_in_dir "tests/basic"
-  | "combi" -> get_list_of_tests_in_dir "tests/combi"
-  | "target" -> get_list_of_tests_in_dir "tests/target"
-  | "ast" -> get_list_of_tests_in_dir "tests/ast"
-  | "case_studies" -> (aux "mm") @
-                      (aux "harris")
-  (* TODO: pic *)
-  | "mm" | "matmul" -> ["case_studies/matmul/matmul.ml"]
-  (* TODO: box_blur *)
-  | "harris" -> ["case_studies/harris/harris.ml"]
-  | file -> [file]
-  (* TODO: when giving a name, try find a path of the form tests/*/name *)
-  (* TODO: target "ignore" specially treated to ignore the ignore list
-     *)
-  (* LATER: support the test name when the user are not providing the .ml extension *)
-  (* LATER: provider a folder *)
+let get_tests_in_dir (folder: string) : File_set.t * File_set.t =
+  let ignored_files = get_alias_targets (Filename.concat folder "ignored.tests") in
+  let ignored_files = List.fold_left (fun acc f -> File_set.add f acc) File_set.empty ignored_files in
+  let folder_files = Sys.readdir folder in
+  let test_files = List.fold_left (fun acc f ->
+      if String.ends_with ~suffix:".ml" f && not (String.ends_with ~suffix:"_with_lines.ml" f)
+      then
+        let filename = Filename.concat folder f in
+        if File_set.mem filename ignored_files
+          then acc
+          else File_set.add filename acc
+      else acc) File_set.empty (Array.to_list folder_files) in
+  test_files, ignored_files
 
-(* TODO: read from a file instead? *)
-let basic_tests_to_ignore = [
-  (* TO FIX: *)
-  "function_uninline.ml";
-  "record_method_to_const.ml";
-	"function_rename_args.ml";
-	"align_def.ml";
-	"matrix_insert_access_dim_index.ml";
-	"record_reorder_fields.ml";
-  (* NO FIX: *)
-	"aos_to_soa_typedef.ml";
-	"aos_to_soa_sized_array.ml";
-	"variable_change_type.ml";
-  (* ??? *)
-	"record_update_fields_type.ml";
-  "record_modif.ml";
-  "record_to_variables.ml";
-  "variable_ref_to_var.ml";
-  "variable_exchange.ml";
-  "pattern_replace.ml";
-]
-let combi_tests_to_ignore = [
-  (* TO FIX: *)
-  "record_align_field.ml";
-	"loop_hoist.ml";
-	"loop_fission.ml";
-	"loop_unroll.ml";
-  "loop_unfold_bound.ml";
-  "matrix_reorder_dims.ml";
-	"record_align_field.ml";
-	"apac_heapify_nested_seq.ml";
-  (* NO FIX: *)
-  "aos_to_soa.ml";
-  (* ??? *)
-  "swap_coords_fixed.ml";
-  "swap_coords_vari.ml";
-  "specialize_function_arg.ml";
-]
-let target_tests_to_ignore = [
-  (* TO FIX: *)
-  "target_type.ml";
-  (* NOT A TEST: *)
-	"target_regexp.ml";
-	"target_debug.ml";
-  (* ??? *)
-  "target_accesses.ml";
-  "target_get_set.ml";
-]
-let ast_tests_to_ignore = [
-  (* TO FIX: *)
-	"c_raw.ml";
-	"c_serialize.ml";
-	"cpp_features.ml";
-	"cpp_big.ml";
-  (* NOT A TEST: *)
-  "cpp_debug.ml";
-  "c_ast_debug.ml";
-]
-let tests_to_ignore =
-  (List.map (fun f -> "tests/basic/" ^ f) basic_tests_to_ignore) @
-  (List.map (fun f -> "tests/combi/" ^ f) combi_tests_to_ignore) @
-  (List.map (fun f -> "tests/target/" ^ f) target_tests_to_ignore) @
-  (List.map (fun f -> "tests/ast/" ^ f) ast_tests_to_ignore)
+let rec resolve_test_targets (target_list: string list) : File_set.t * File_set.t =
+  List.fold_left (fun (test_files, ignored_files) target ->
+    if String.ends_with ~suffix:".ml" target then
+      (File_set.add target test_files, ignored_files)
+    else
+      let alias_filename = target ^ ".tests" in
+      let (new_test_files, new_ignored_files) =
+        if Sys.file_exists alias_filename then
+          let sub_targets = get_alias_targets alias_filename in
+          resolve_test_targets sub_targets
+        else
+          get_tests_in_dir target
+      in
+      (File_set.union test_files new_test_files, File_set.union ignored_files new_ignored_files)
+  ) (File_set.empty, File_set.empty) target_list
 
 (* Takes the list of target arguments on the command line;
-   and expand the 'keys', remove duplicates and ignored tests.
+   and expand the 'targets', remove duplicates and ignored tests.
    Returns (tests_to_process, ignored_tests)
 *)
-let compute_tests_to_process (keys : string list) : (string list * string list) =
-  let tests = List.concat_map list_of_tests_from_key keys in
-  let unique_tests = Xlist.remove_duplicates tests in
-  (* We ignore tests that are in the ignore-list defined above, except if they
-     are requested explicitly as a command line argument *)
-  let (ignored_tests, tests_to_process) =
-    List.partition (fun x -> List.mem x tests_to_ignore && not (List.mem x keys)) unique_tests in
-  (* TODO : garder quand meme les keys *)
-  (tests_to_process, ignored_tests)
+let compute_tests_to_process (targets: string list): (string list * string list) =
+  let test_file_set, ignored_file_set = resolve_test_targets targets in
+  (* Tests that were otherwise selected are not ignored *)
+  let ignored_file_set = File_set.diff ignored_file_set test_file_set in
+  (File_set.elements test_file_set, File_set.elements ignored_file_set)
+
 
 (*****************************************************************************)
 (* Options *)

@@ -1,5 +1,23 @@
-#!/bin/sh
-
+#!/bin/bash
 OPTITRUST=$(dirname $0)
+CURRENT_PATH=$(realpath --relative-to=${OPTITRUST} $(pwd))
+
+ARGS=()
+for arg in $@
+do
+    if [ -e $arg ] || [ -f $arg.tests ]
+    then
+        ARGS+=("${CURRENT_PATH}/$arg")
+    elif [ -e ${OPTITRUST}/tests/$arg ] || [ -f ${OPTITRUST}/tests/$arg.tests ]
+    then
+        ARGS+=("tests/$arg")
+    elif [ -e ${OPTITRUST}/case_studies/$arg ] || [ -f ${OPTITRUST}/case_studies/$arg.tests ]
+    then
+        ARGS+=("case_studies/$arg")
+    else
+        ARGS+=("$arg")
+    fi
+done
+
 cd ${OPTITRUST}
-OCAMLRUNPARAM=b dune exec tests/tester.exe -- $@
+OCAMLRUNPARAM=b dune exec tests/tester.exe -- ${ARGS[*]}
