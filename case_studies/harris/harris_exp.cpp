@@ -7,6 +7,72 @@
 
 int min(int a, int b) { return (a < b ? a : b); }
 
+void grayscale(float* out, int h, int w, const float* in) {
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      out[y][x] = 0.298999994993f * in[0][y][x] +
+                  0.587000012398f * in[1][y][x] + 0.11400000006f * in[2][y][x];
+    }
+  }
+}
+
+void conv2D(float* out, int h, int w, const float* in, int m, int n,
+            const float* weights) {
+  for (int y = 0; y < h - m + 1; y++) {
+    for (int x = 0; x < w - n + 1; x++) {
+      float acc = 0.f;
+      for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+          acc += in[y + i][x + j] * weights[i][j];
+        }
+      }
+      out[y][x] = acc;
+    }
+  }
+}
+
+const float weights_sobelX[3 * 3] = {-1.f / 12.f, 0.f, 1.f / 12.f,
+                                     -2.f / 12.f, 0.f, 2.f / 12.f,
+                                     -1.f / 12.f, 0.f, 1.f / 12.f};
+
+void sobelX(float* out, int h, int w, const float* in) {
+  conv2D(out, h, w, in, 3, 3, weights_sobelX);
+}
+
+const float weights_sobelY[3 * 3] = {-1.f / 12.f, -2.f / 12.f, -1.f / 12.f,
+                                     0.f / 12.f,  0.f / 12.f,  0.f / 12.f,
+                                     1.f / 12.f,  2.f / 12.f,  1.f / 12.f};
+
+void sobelY(float* out, int h, int w, const float* in) {
+  conv2D(out, h, w, in, 3, 3, weights_sobelY);
+}
+
+const float weights_sum3x3[3 * 3] = {1.f, 1.f, 1.f, 1.f, 1.f,
+                                     1.f, 1.f, 1.f, 1.f};
+
+void sum3x3(float* out, int h, int w, const float* in) {
+  conv2D(out, h, w, in, 3, 3, weights_sum3x3);
+}
+
+void mul(float* out, int h, int w, const float* a, const float* b) {
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      out[y][x] = a[y][x] * b[y][x];
+    }
+  }
+}
+
+void coarsity(float* out, int h, int w, const float* sxx, const float* sxy,
+              const float* syy, float kappa) {
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      float det = sxx[y][x] * syy[y][x] - sxy[y][x] * sxy[y][x];
+      float trace = sxx[y][x] + syy[y][x];
+      out[y][x] = det - kappa * trace * trace;
+    }
+  }
+}
+
 void harris(float* out, int h, int w, const float* in) {
 #pragma omp parallel for
   for (int y = 0; y < -4 + h; y += 32) {

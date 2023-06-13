@@ -778,9 +778,9 @@ let%transfo unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle 
       aux (Path.to_inner_loop p) (nest_of - 1);
     unroll_nest_of_1 (target_of_path p);
   in
-  reparse_after ~reparse:(not braces) (
+  (* reparse_after ~reparse:(not braces) ( *)
     Target.iter (fun t p -> aux p nest_of)
-  ) tg
+  (* ) *) tg
 
 (* [reorder ~order tg]:  expects the target [tg] to point at the first loop included in the [order]
     list, then it will find all the nested loops starting from the targeted loop [tg] and

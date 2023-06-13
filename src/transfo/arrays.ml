@@ -3,21 +3,29 @@ include Arrays_basic
 open Target
 open Ast
 
-let is_loop_with_index (i : var) (t : trm) : bool =
+(* returns the [i] and [indices - i] if [t] is a loop over index [i]. *)
+let inv_loop_with_index_in (indices : Var_set.t) (t : trm) : (var * Var_set.t) option =
   match trm_for_inv t with
-  | Some ((idx, _, _, _, _, _), _) when idx = i -> true
-  | _ -> false
+  | Some ((idx, _, _, _, _, _), _) when Var_set.mem idx indices ->
+    Some (idx, Var_set.remove idx indices)
+  | _ -> None
 
-let find_surrounding_loop (i : var) (p : path) : path =
-  let rec aux p =
+let find_surrounding_loops (indices : Var_set.t) (p : path) : paths =
+  let rec aux indices p =
+    if Var_set.is_empty indices then []
+    else begin
     let p_t = Path.resolve_path p (Trace.ast ()) in
-    if is_loop_with_index i p_t then p else aux (Path.parent p)
+    match inv_loop_with_index_in indices p_t with
+    | Some (_, indices) ->
+      p :: (aux indices (Path.parent p))
+    | None -> aux indices (Path.parent p)
+    end
   in
-  aux p
+  aux indices p
 
-let unroll_surrounding_loop (i : var) (p : path) : unit =
-  let loop_p = find_surrounding_loop i p in
-  Loop.unroll loop_p
+let unroll_surrounding_loops (indices : Var_set.t) (p : path) : unit =
+  let loop_ps = find_surrounding_loops indices p in
+  Loop.unroll (target_of_paths loop_ps)
 
 let unroll_index_vars_from_array_reads (tg : target) : unit =
   Target.iter (fun t p ->
@@ -32,18 +40,25 @@ let unroll_index_vars_from_array_reads (tg : target) : unit =
       | _ -> trm_iter collect_vars t
     in
     collect_vars index;
-    Var_set.iter (fun i -> unroll_surrounding_loop i p) !vars
+    unroll_surrounding_loops !vars p
   ) tg
+
+(* FIXME: should be equal to arith default? *)
+let default_inline_constant_simpl tg = Arith.(simpl_surrounding_expr (fun x -> compute (gather x))) (nbAny :: tg)
 
 (* [inline_constant] expects the target [decl] to point at a constant array literal declaration, and resolves all accesses targeted by [tg], that must be at constant indices.
 For every variable in non-constant indices, this transformation will attempt unrolling the corresponding for loop.
   *)
-let%transfo inline_constant ?(mark_accesses : mark option) ~(decl : target) (tg : target) : unit =
+let%transfo inline_constant ?(mark_accesses : mark option) ~(decl : target) ?(simpl : Transfo.t = default_inline_constant_simpl) (tg : target) : unit =
   (* TODO: unroll if necessary *)
   Marks.with_fresh_mark (fun m ->
     Marks.add m tg;
+    Debug_transfo.current_ast_at_target "aic 1" [cMark m];
     unroll_index_vars_from_array_reads [cMark m];
-    Arrays_basic.inline_constant ?mark_accesses ~decl [cMark m]
+    Debug_transfo.current_ast_at_target "aic 1.5" [nbMulti; cMark m];
+    simpl [cMark m];
+    Debug_transfo.current_ast_at_target "aic 2" [nbMulti; cMark m];
+    Arrays_basic.inline_constant ?mark_accesses ~decl [nbMulti; cMark m]
   )
 
 (* [elim_constant] expects the target [tg] to point at a constant array literal declaration, and resolves all its accesses, that must be at constant indices. Then, eliminates the array declaration.

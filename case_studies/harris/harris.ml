@@ -46,8 +46,8 @@ let _ = Run.script_cpp (fun () ->
   !! simpl_mins [ctx]; (* TODO: should this be done by Stencil.fusion_targets? *)
   !! Matrix.storage_folding ~dim:0 ~size:(int 4) [ctx; multi cVarDef ["gray"; "ix"; "iy"]];
   !! Matrix.elim [ctx; multi cVarDef ["ixx"; "ixy"; "iyy"]];
-  let inline_cst v = Matrix.inline_constant ~simpl:simpl_inplace_noop ~decl:[cVarDef v] [ctx; nbMulti; cArrayRead v] in
-  !! List.iter inline_cst ["weights_sobelX"; "weights_sobelY"; "weights_sum3x3"];
+  let inline v = Matrix.inline_constant ~simpl:simpl_inplace_noop ~decl:[cVarDef v] [ctx; nbMulti; cArrayRead v] in
+  !! List.iter inline ["weights_sobelX"; "weights_sobelY"; "weights_sum3x3"];
   let bind_gradient name =
     Variable.bind_syntactic ~dest:[ctx; tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [ctx; cArrayRead name]
   in

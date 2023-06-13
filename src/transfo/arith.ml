@@ -27,4 +27,7 @@ let%transfo simpl_surrounding_expr ?(indepth : bool = true) (f : (expr -> expr))
     Arith_basic.simpl ~indepth f (target_of_path p);
   ) !paths_to_simpl
 
+(* TODO?
+let default_simpl tg = simpl_surrounding_expr (fun x -> compute (gather x)) (nbAny :: tg)
+*)
 let default_simpl tg = simpl_surrounding_expr gather (nbAny :: tg)

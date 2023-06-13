@@ -13,6 +13,8 @@ let _ = Flags.pretty_matrix_notation := true
    c.f. README.md
 *)
 
+let int = trm_int
+
 let _ = Run.script_cpp (fun () ->
   let tile (loop_id, tile_size) = Loop.tile (int tile_size) ~index:("b" ^ loop_id) ~bound:TileDivides [cFor loop_id] in
   !! List.iter tile [("i", 32); ("j", 32); ("k", 4)];
