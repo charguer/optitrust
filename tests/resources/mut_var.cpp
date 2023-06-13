@@ -13,7 +13,7 @@ void incr_twice(int* k) {
 }
 
 void mut_var(int x) {
-  __ensures("");
+  __pure();
 
   const int y = 3;
   int z = y;

@@ -82,6 +82,7 @@ int exact_div(int n, int b) {
 }
 
 
+void __pure() {}
 void __requires(const char*) {}
 void __ensures(const char*) {}
 void __invariant(const char*) {}
@@ -89,6 +90,7 @@ void __reads(const char*) {}
 void __modifies(const char*) {}
 void __consumes(const char*) {}
 void __produces(const char*) {}
+void __sequentially_reads(const char*) {}
 void __sequentially_modifies(const char*) {}
 
 void __admitted() {}

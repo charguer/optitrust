@@ -33,6 +33,7 @@ type strm = string
 type styp = string
 
 (* [var]: variable *)
+(* LATER: Add integer id to variables to simplify comparison and manage aliasing *)
 type var = string
 
 (* [Var_set]: a set module used for storing variables *)
@@ -551,9 +552,10 @@ and trm_desc =
   | Trm_fun of typed_vars * typ option * trm * fun_spec (* anonymous functions, [&](int const& x) -> void ({r += x;}) *) (* TODO: Is return type useful ? *)
   | Trm_delete of bool * trm                      (* delete t, delete[] t *)
 
-and hyp = string
+(* The id is a unique name for the hypothesis that cannot be shadowed *)
+and hyp = { name: string option; id: int }
 and formula = trm
-and resource_item = hyp option * formula
+and resource_item = hyp * formula
 
 and resource_set = {
   pure: resource_item list;
@@ -569,10 +571,11 @@ and fun_contract =
 
 and fun_spec = fun_contract option
 
-(* { invariant(0) * Group(range(), fun i -> iter_contract.pre(i)) } for_loop { invariant(n) * iter_contract.post(i) } *)
-(* { invariant(i) * iter_contract.pre(i) } Boucle à l'étape i { invariant(i) * iter_contract.post(i) } *)
+(* forall ghosts, { invariant(0) * Group(range(), fun i -> iter_contract.pre(i)) } loop { invariant(n) * Group(iter_contract.post(i)) } *)
+(* forall ghosts, { invariant(i) * iter_contract.pre(i) } loop body { invariant(i) * iter_contract.post(i) } *)
 and loop_contract =
-  { invariant: resource_set;
+  { loop_ghosts: resource_item list;
+    invariant: resource_set;
     iter_contract: fun_contract }
 
 and loop_spec = loop_contract option

@@ -1,7 +1,6 @@
 #include "../../include/optitrust.h"
 
 float* matrix_alloc(int N1, int N2) {
-  __requires("");
   __produces("_Res => Matrix2(N1, N2);");
   __admitted();
   float* p = (float*)malloc(N1 * N2 * sizeof(float));
@@ -11,22 +10,19 @@ float* matrix_alloc(int N1, int N2) {
 void matrix_free(float* p) {
   __requires("N2: int; N1: int;");
   __consumes("p => Matrix2(N1, N2);");
-  __ensures("");
   __admitted();
   free(p);
 }
 
 void matrix_copy(float* in, float* out, int n, int m) {
-  __requires("RO(in => Matrix2(n, m));");
-  __consumes("out => Matrix2(n, m);");
-  __produces("out => Matrix2(n, m);");
+  __modifies("out => Matrix2(n, m);");
+  __reads("in => Matrix2(n, m);");
   __admitted();
   memcpy(in, out, n * m * sizeof(float));
 }
 
 int main() {
-  __requires("");
-  __ensures("");
+  __pure();
   const int n = 3;
   float* const a = matrix_alloc(n, n);
   float* const b = matrix_alloc(n, n);

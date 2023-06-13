@@ -405,6 +405,7 @@ let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
   let* fn_name = trm_var_inv fn in
   let* clause =
     match fn_name with
+    | "__pure" -> Some Requires
     | "__requires" -> Some Requires
     | "__ensures" -> Some Ensures
     | "__invariant" -> Some Invariant
@@ -412,10 +413,11 @@ let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
     | "__modifies" -> Some Modifies
     | "__consumes" -> Some Consumes
     | "__produces" -> Some Produces
+    | "__sequentially_reads" -> Some SequentiallyReads
     | "__sequentially_modifies" -> Some SequentiallyModifies
     | _ -> None
   in
-  let* arg = List.nth_opt args 0 in
+  let arg = Option.value ~default:(trm_string "") (List.nth_opt args 0) in
   let* arg = trm_lit_inv arg in
   let* arg =
     match arg with
@@ -470,15 +472,15 @@ let rec contract_elim (t: trm): trm =
 
 let rec formula_to_string (f: formula) : string =
   match formula_read_only_inv f with
-  | Some formula -> sprintf "RO(%s)" (formula_to_string formula)
+  | Some { frac; formula } -> sprintf "RO(%s, %s)" (formula_to_string frac) (formula_to_string formula)
   | None ->
     match formula_var_model_inv f with
     | Some (x, formula) -> Printf.sprintf "%s => %s" x (formula_to_string formula)
     | None -> AstC_to_c.ast_to_string ~optitrust_syntax:true f (* LATER: use a custom printer for formulas *)
 
-let named_formula_to_string (name, formula): string =
+let named_formula_to_string (hyp, formula): string =
   let sformula = formula_to_string formula in
-  match name with
+  match hyp.name with
   | None ->
       Printf.sprintf "%s;" sformula
   | Some name ->
@@ -525,35 +527,102 @@ let computed_resources_intro (t: trm): trm =
 
 
 let rec contract_intro (t: trm): trm =
-  let push_named_formulas (contract_prim: var) (named_formulas: (var option * formula) list) (t: trm): trm =
-    let sres = ctx_resource_list_to_string named_formulas in
-    let tres = trm_apps (trm_var contract_prim) [trm_string sres] in
-    insert_aux 0 tres t
+  let push_named_formulas (contract_prim: var) (named_formulas: resource_item list) (t: trm): trm =
+    if named_formulas = [] then
+      t
+    else
+      let sres = ctx_resource_list_to_string named_formulas in
+      let tres = trm_apps (trm_var contract_prim) [trm_string sres] in
+      insert_aux 0 tres t
   in
 
-  let push_resource_set (pure_prim: var) (linear_prim: var) (res_set: resource_set) (t: trm): trm =
-    let t =
-      if res_set.linear <> []
-        then push_named_formulas linear_prim res_set.linear t
-        else t
+  let push_reads_and_modifies (reads_prim: var) (modifies_prim: var) (pre: resource_set) (post: resource_set) (t: trm): resource_set * resource_set * trm =
+    let pre_resource_tbl = Hashtbl.create (List.length pre.linear) in
+    List.iter (fun (_, formula) -> Hashtbl.add pre_resource_tbl formula ()) pre.linear;
+
+    let formula_not_mem_before_pop (_, formula) =
+      if Hashtbl.mem pre_resource_tbl formula then (
+        Hashtbl.remove pre_resource_tbl formula;
+        false
+      ) else true
     in
-    if res_set.pure <> [] || res_set.linear == [] then
-      push_named_formulas pure_prim res_set.pure t
-    else t
+
+    let post_linear = List.filter formula_not_mem_before_pop post.linear in
+    let common_linear, pre_linear = List.partition formula_not_mem_before_pop pre.linear in
+    assert (Hashtbl.length pre_resource_tbl = 0);
+
+    (* FIXME: This assumes that all fractions were auto-generated *)
+    let frac_to_remove = Hashtbl.create (List.length common_linear) in
+    let reads_res, modifies_res =
+      List.partition_map (fun (h, formula) ->
+        match formula_read_only_inv formula with
+        | Some { frac; formula = ro_formula } ->
+          begin match trm_var_inv frac with
+          | Some frac_atom ->
+            Hashtbl.add frac_to_remove frac_atom ();
+            Left (h, ro_formula)
+          | None -> Right (h, formula)
+          end
+        | None -> Right (h, formula)) common_linear
+    in
+
+    let hyp_not_mem_before_pop (hyp, _) =
+      match hyp.name with
+      | Some x ->
+        if Hashtbl.mem frac_to_remove x then (
+          Hashtbl.remove frac_to_remove x;
+          false
+        ) else true
+      | None -> true
+    in
+    let pre_pure = List.filter hyp_not_mem_before_pop pre.pure in
+    assert (Hashtbl.length frac_to_remove = 0);
+
+    let t = push_named_formulas reads_prim reads_res t in
+    let t = push_named_formulas modifies_prim modifies_res t in
+    ({ pre with pure = pre_pure; linear = pre_linear }, { post with linear = post_linear }, t)
+  in
+
+  let push_fun_contract (contract: fun_contract) (body: trm): trm =
+    let pre, post, body = push_reads_and_modifies "__reads" "__modifies" contract.pre contract.post body in
+    let body = push_named_formulas "__produces" post.linear body in
+    let body = push_named_formulas "__ensures" post.pure body in
+    let body = push_named_formulas "__consumes" pre.linear body in
+    let body = push_named_formulas "__requires" pre.pure body in
+    body
   in
 
   match t.desc with
   | Trm_let_fun (qv, ty, args, body0, contract) ->
     let body = contract_intro body0 in
-    let body = match contract with
+    let body =
+      match contract with
+      | Some contract when contract = empty_fun_contract ->
+        insert_aux 0 (trm_apps (trm_var "__pure") []) body
       | Some contract ->
-        let body = push_resource_set "__ensures" "__produces" contract.post body in
-        push_resource_set "__requires" "__consumes" contract.pre body
+        push_fun_contract contract body
       | None -> body
     in
     if body == body0
       then t
-      else trm_like ~old:t (trm_let_fun (qvar_to_var qv) ty args body ?contract)
+      else trm_like ~old:t (trm_let_fun (qvar_to_var qv) ty args body)
+
+  | Trm_for (range, body0, contract) ->
+    let body = contract_intro body0 in
+    let body =
+      match contract with
+      | Some contract when contract = empty_loop_contract ->
+        insert_aux 0 (trm_apps (trm_var "__pure") []) body
+      | Some contract ->
+        let body = push_fun_contract contract.iter_contract body in
+        let _, invariant, body = push_reads_and_modifies "__sequentially_reads" "__sequentially_modifies" { contract.invariant with pure = contract.loop_ghosts @ contract.invariant.pure } contract.invariant body in
+        assert (invariant.linear = []);
+        push_named_formulas "__invariant" invariant.pure body
+      | None -> body
+    in
+    if body == body0
+      then t
+      else trm_like ~old:t (trm_for range body)
 
   | Trm_seq instrs ->
     trm_like ~old:t (trm_seq (Mlist.map contract_intro instrs))

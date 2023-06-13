@@ -23,8 +23,7 @@ void matrix_copy(float* in, float* out, int n, int m) {
 }
 
 int main() {
-  __requires("");
-  __produces("");
+  __pure();
   const int n = 3;
 
   float* const a = matrix_alloc(n, n);

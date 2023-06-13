@@ -7,7 +7,7 @@ int f(int x) {
 }
 
 int g(int x) {
-    __ensures("");
+    __pure();
     __admitted();
     return 2*x;
 }
