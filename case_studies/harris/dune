@@ -4,3 +4,10 @@
   (modes (native plugin))
   (preprocess (pps ppx_transfo))
   (libraries optitrust))
+
+(executable
+  (name harris_no_stencil)
+  (modules harris_no_stencil)
+  (modes (native plugin))
+  (preprocess (pps ppx_transfo))
+  (libraries optitrust))
