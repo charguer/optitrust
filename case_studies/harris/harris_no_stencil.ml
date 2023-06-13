@@ -46,7 +46,7 @@ let _ = Run.script_cpp ~filename:"harris.cpp" (fun () ->
   bigstep "inline operators";
   !! Function.inline_def ~simpl [cFunDef "conv2D"];
   !! Loop.unroll ~nest_of:2 [nbMulti; cFor ~body:[cPlusEq [cVar "acc"]] "i"];
-  !! Matrix.elim_constant ~simpl:simpl_inplace_noop [nbMulti; cVarDef "weights"];
+  !! Matrix.elim_constant ~simpl:simpl_inplace_noop [nbMulti; cVarDefReg "weights.*"];
   !! Function.inline_def ~simpl [multi cFunDef ["grayscale"; "sobelX"; "sobelY"; "sum3x3"; "mul"; "coarsity"]];
   !! Variable.inline ~simpl [multi cVarDef ["h1"; "w1"; "h2"; "w2"]];
 
@@ -77,8 +77,7 @@ let _ = Run.script_cpp ~filename:"harris.cpp" (fun () ->
     ("ix", [(expr "by", int 34); (int 0, expr "w - 2")]);
     ("iy", [(expr "by", int 34); (int 0, expr "w - 2")]);
   ];
-  let circular_buffer var = Matrix.storage_folding ~dim:0 ~size:(int 4) ~var [cFunBody "harris"; cFor "by"] in
-  !! List.iter circular_buffer ["gray"; "ix"; "iy"];
+  !! Matrix.storage_folding ~dim:0 ~size:(int 4) [cFunBody "harris"; multi cVarDef ["gray"; "ix"; "iy"]];
 
   bigstep "code details";
   !!! Loop.shift StartAtZero [cFor "y"];

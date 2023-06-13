@@ -218,6 +218,18 @@ let%transfo elim ?(simpl : Transfo.t = simpl_void_loops) (tg : target) : unit =
 (* TODO: local_name_tile ~shift_to_zero *)
 (* + shift_to_zero ~nest_of *)
 
+(* [inline_constant]: expects [tg] to target a matrix definition,
+   then first uses [Matrix.elim_mops] on all reads before attempting
+   to use [Arrays.inline_constant].
+   *)
+let%transfo inline_constant ?(simpl : Transfo.t = Arith.default_simpl) ~(decl : target) (tg : target) : unit =
+  Target.iter (fun t p -> Marks.with_fresh_mark (fun mark_accesses ->
+    (* TODO: use simpl there as well? *)
+    elim_mops (target_of_path p);
+    Arrays.inline_constant ~mark_accesses ~decl (target_of_path p);
+    simpl [nbAny; cMark mark_accesses];
+  )) tg
+
 (* [elim_constant]: expects [tg] to target a matrix definition,
    then first uses [Matrix.elim_mops] on all reads before attempting
    to use [Arrays.elim_constant].
@@ -233,16 +245,24 @@ let%transfo elim_constant ?(simpl : Transfo.t = Arith.default_simpl) (tg : targe
     simpl [nbAny; cMark mark_accesses];
   )) tg
 
+(* [iter_on_var_defs]: helper for transformations that need to iterate
+  on variable definitions while requiring the path to the surrounding sequence.
+   *)
+let iter_on_var_defs (f : (varkind * var * typ * trm) -> (int * path) -> unit) (tg : target) : unit =
+  Target.iter (fun t p ->
+    let t_local = Path.get_trm_at_path p t in
+    let error = "Matrix.iter_on_var_defs: expected target on variable definition" in
+    let let_bits = trm_inv ~error trm_let_inv t_local in
+    let seq_bits = Path.index_in_seq p in
+    f let_bits seq_bits
+  ) tg
+
 (* [delete] expects target [tg] to point to a definition of matrix [var], and deletes it.
   Both allocation and de-allocation instructions are deleted.
   Checks that [var] is not used anywhere in the visible scope.
    *)
 let%transfo delete (tg : target) : unit =
-  Target.iter (fun t p ->
-    let t_local = Path.get_trm_at_path p t in
-    let error = "Matrix.delete: expected target on variable definition" in
-    let (_, var, _, _) = trm_inv ~error trm_let_inv t_local in
-    let (_, p_seq) = Path.index_in_seq p in
+  iter_on_var_defs (fun (_, var, _, _) (_, p_seq) ->
     Matrix_basic.delete ~var (target_of_path p_seq)
   ) tg
 
@@ -283,3 +303,9 @@ let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : (var list)
     local_name_tile ~delete ~indices ?alloc_instr v ~into tile ~local_ops ~simpl (target_of_path p);
     Sequence.elim [cMark mark];
   ) tg)
+
+let%transfo storage_folding ~(dim : int) ~(size : trm)
+  ?(kind : storage_folding_kind = ModuloIndices) (tg : target) : unit =
+  iter_on_var_defs (fun (_, var, _, _) (_, p_seq) ->
+    Matrix_basic.storage_folding ~var ~dim ~size ~kind (target_of_path p_seq)
+  ) tg
