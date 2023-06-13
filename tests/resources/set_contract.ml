@@ -3,7 +3,6 @@ open Target
 open Ast
 
 let _ = Flags.dump_ast_details := true
-let _ = Flags.use_clang_format := false
 (*let _ = Flags.bypass_cfeatures := true*)
 
 let cell ?(name: string option) (t: trm) =

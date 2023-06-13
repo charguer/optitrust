@@ -210,8 +210,10 @@ let reset_flags_to_default () : unit =
   execute_show_even_in_batch_mode := false;
   dump_ast_details := false;
   bypass_cfeatures := false;
+  bypass_cfeatures_decoding := false;
   use_light_diff := false;
-  pretty_matrix_notation := false
+  pretty_matrix_notation := false;
+  resource_errors_as_warnings := false
 
 (* *************************************************************************************************************
   Note: to see a diff at the level of the OptiTrust AST, use:
