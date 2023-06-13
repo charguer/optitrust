@@ -20,7 +20,9 @@ let _ = Run.script_cpp (fun () ->
   !! Apac.mark_taskable_function "taskable" [nbAny; cFunDef ""];
 
   (* unfold call taskable *)
-  Apac.unfold_funcalls [nbAny; cMark "taskable"];
+  Apac.unfold_funcalls [
+    nbAny; cDiff [[cMark "taskable"]] [[cHasTypeAst (typ_unit ())]]
+  ];
 
   (* heapify *)
   (* uses add/remove mark to target sequence with depth > 0 *)
