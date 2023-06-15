@@ -394,6 +394,11 @@ let tag_simpl_arith () : unit =
   tag "simpl";
   tag "simpl_arith"
 
+(* [tag_simpl_access] is called by a transformation after open_step to indicate that it performs array/matrix access simplificatoins.
+  *)
+let tag_simpl_access () : unit =
+  tag "simpl.access"
+
 (* [close_step] is called at the end of every big-step, or small-step,
    or combi, or basic transformation. The step to close can be passed
    as an optional argument, to check that the exected step is being closed.
