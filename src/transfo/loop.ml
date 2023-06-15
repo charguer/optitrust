@@ -314,7 +314,7 @@ let%transfo hoist_expr (name : string)
   ) tg
 
 let%transfo simpl_range ~(simpl : Target.Transfo.t) (tg : target) : unit =
-  Trace.step_trivial ();
+  Trace.step_simpl_arith ();
   Target.iter (fun _ p ->
     simpl (target_of_path (p @ [Dir_for_start]));
     simpl (target_of_path (p @ [Dir_for_stop]));

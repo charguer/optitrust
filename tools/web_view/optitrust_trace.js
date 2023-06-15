@@ -49,7 +49,7 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 // generate one option for each tag
 // set their default value based on the hideTags array
 // update the display of the checkboxes after loading
-var hideTags = new Set(["trivial", "valid_by_composition", "should_be_valid_by_composition", "simpl.arith"]);
+var hideTags = new Set(["trivial", "valid_by_composition", "should_be_valid_by_composition", "simpl.arith", "simpl.access"]);
 
 var optionsDescr = [
   { key: "details",
@@ -67,15 +67,20 @@ var optionsDescr = [
     kind: "UI",
     default: false,
   },
+  { key: "stats",
+    name: "stats",
+    kind: "UI",
+    default: false,
+  },
   { key: "compact",
     name: "compact",
     kind: "UI",
-    default: false,
+    default: true,
   },
   { key: "justif",
     name: "justification",
     kind: "UI",
-    default: true,
+    default: false,
   },
   { key: "exectime",
     name: "exectime",
@@ -99,6 +104,11 @@ var optionsDescr = [
   },
   { key: "atomic_substeps",
     name: "atomic-substeps",
+    kind: "UI",
+    default: false,
+  },
+  { key: "basic_modules",
+    name: "basic-modules",
     kind: "UI",
     default: false,
   }
@@ -425,10 +435,18 @@ function loadStepDetails(idStep) {
     var ast = (options.ast_before) ? step.ast_before : step.ast_after;
     loadSource(ast, true);
     $("#diffDiv").hide();
+    $("#statsDiv").hide();
     $("#sourceDiv").show();
+  } else if (options.stats) {
+    let visitedSteps = new Set();
+    $("#statsDiv").html(stepToHTMLStats(step, true, visitedSteps));
+    $("#diffDiv").hide();
+    $("#statsDiv").show();
+    $("#sourceDiv").hide();
   } else {
     loadDiffFromString(step.diff);
     $("#diffDiv").show();
+    $("#statsDiv").hide();
     $("#sourceDiv").hide();
   }
 
@@ -520,7 +538,12 @@ function stepToHTML(step, isRoot) {
     sOnClick = "onclick='loadStepDetails(" + step.id + ")'";
   }
 
-  s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + escapeHTML(step.name) + " " + sScript + "</div>";
+  var sName = escapeHTML(step.name);
+  if (!options.basic_modules) {
+    sName = sName.replace(/_basic/,'');
+  }
+
+  s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + sName + " " + sScript + "</div>";
   if (options.justif) {
     for (var i = 0; i < step.justif.length; i++) {
       s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
@@ -533,6 +556,44 @@ function stepToHTML(step, isRoot) {
   } else {
     return "<li>" + s + "</li>\n";
   }
+}
+
+// TODO: factorize with stepToHTML?
+function stepToHTMLStats(step) {
+  let visitedSteps = new Set();
+  visitSteps(step, visitedSteps);
+  return "<ul>" + [...visitedSteps].sort().map(x => "<li>" + x + "</li>").join('') + "</li>";
+}
+
+function visitSteps(step, visitedSteps) {
+  if (!options.noop_steps && (step.ast_before == step.ast_after)) {
+    // TODO: precompute '==' somewhere
+    return "";
+  }
+
+  const showSubsteps =
+    (options.atomic_substeps || !step.tags.includes("atomic"));
+  if (showSubsteps) {
+    for (var i = 0; i < step.sub.length; i++) {
+      var substep = steps[step.sub[i]];
+      visitSteps(substep, visitedSteps);
+    }
+  }
+
+  var sName = escapeHTML(step.name);
+  if (!options.basic_modules) {
+    sName = sName.replace(/_basic/,'');
+  }
+
+  const hideStep =
+    (visitedSteps.has(sName)) ||
+    (step.kind != "Transfo") ||
+    (step.tags.some((x) => hideTags.has(x)));
+  if (hideStep) {
+    return;
+  }
+
+  visitedSteps.add(sName);
 }
 
 function reloadView() {

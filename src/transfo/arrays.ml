@@ -53,11 +53,8 @@ let%transfo inline_constant ?(mark_accesses : mark option) ~(decl : target) ?(si
   (* TODO: unroll if necessary *)
   Marks.with_fresh_mark (fun m ->
     Marks.add m tg;
-    Debug_transfo.current_ast_at_target "aic 1" [cMark m];
     unroll_index_vars_from_array_reads [cMark m];
-    Debug_transfo.current_ast_at_target "aic 1.5" [nbMulti; cMark m];
     simpl [cMark m];
-    Debug_transfo.current_ast_at_target "aic 2" [nbMulti; cMark m];
     Arrays_basic.inline_constant ?mark_accesses ~decl [nbMulti; cMark m]
   )
 
