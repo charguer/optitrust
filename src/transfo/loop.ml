@@ -554,6 +554,7 @@ let%transfo move_out ?(upto : string = "") (tg : target) : unit =
                      value the quoted loop index
      [after] - similar to [before] but now is the index of the loop after whom we want to move [loop_to_move]. *)
 let%transfo move ?(before : target = []) ?(after : target = []) (loop_to_move : target) : unit =
+  Trace.step_valid_by_composition ();
   Trace.call (fun t ->
    let loop_to_move_path = resolve_target_exactly_one_with_stringreprs_available loop_to_move t in
    let loop_to_move_trm = Path.resolve_path loop_to_move_path t in
