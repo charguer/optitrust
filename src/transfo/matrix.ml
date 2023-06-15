@@ -126,7 +126,7 @@ let%transfo intro_mops (dim : trm) (tg : target) : unit =
   - ~simpl
 *)
 let%transfo elim_mops (tg : target): unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   let targets = ref [] in
   Target.iter (fun _ p ->
     targets := (target_of_path p) :: !targets;

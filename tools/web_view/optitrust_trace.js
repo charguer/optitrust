@@ -44,14 +44,20 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 
 // checkbox status; may change default values here
 
+var optionsDefaultValueForTags = { // true = checked = hidden
+    "trivial": false,
+    "valid_by_composition": true,
+    "should_be_valid_by_composition": false,
+    "simpl.arith": true,
+    "IO": true,
+    "target": true,
+    "marks": true,
+    "simpl": true,
+   };
 
-// todo: in init function, gather tags in the trace
-// generate one option for each tag
-// set their default value based on the hideTags array
-// update the display of the checkboxes after loading
-var hideTags = new Set(["trivial", "valid_by_composition", "should_be_valid_by_composition", "simpl.arith"]);
+var allTags = {}; // filled by initAllTags
 
-var optionsDescr = [
+var optionsDescr = [ // extended by initAllTags
   { key: "details",
     name: "details",
     kind: "UI",
@@ -82,7 +88,13 @@ var optionsDescr = [
     kind: "UI",
     default: false,
   },
-  { key: "io_steps",
+  { key: "tags",
+    name: "tags",
+    kind: "UI",
+    default: false,
+  },
+  /* DEPRECATED
+   { key: "io_steps",
     name: "io-steps",
     kind: "UI",
     default: false,
@@ -91,7 +103,7 @@ var optionsDescr = [
     name: "target-steps",
     kind: "UI",
     default: false,
-  },
+  },*/
   { key: "noop_steps",
     name: "noop-steps",
     kind: "UI",
@@ -103,11 +115,9 @@ var optionsDescr = [
     default: false,
   }
 ];
-var options = {};
-for (var i = 0; i < optionsDescr.length; i++) {
-  var descr = optionsDescr[i];
-  options[descr.key] = descr.default;
-}
+var options = {}; // filled by initOptions
+
+
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -463,10 +473,10 @@ function stepToHTML(step, isRoot) {
     }
   }
 
-  const hideStep =
-    (!options.target_steps && step.kind == "Target") ||
-    (!options.io_steps && step.kind == "I/O") ||
-    (step.tags.some((x) => hideTags.has(x)));
+  const hideStep = (step.tags.some((tag) => options["hide-" + tag]));
+  // DEPRECATED
+    // (!options.target_steps && step.kind == "Target") ||
+    // (!options.io_steps && step.kind == "IO") ||
   if (isRoot) {
     return "<ul class='step-sub'> " + sSubs + "</ul>\n";
   } else if (hideStep) {
@@ -474,7 +484,7 @@ function stepToHTML(step, isRoot) {
   }
 
   var validityClass = "";
-  if (step.kind == "I/O" || step.kind == "Target") {
+  if (step.kind == "IO" || step.kind == "Target") {
     validityClass = "step-io-target";
   } else if (step.kind == "Error") {
     validityClass = "step-error";
@@ -508,6 +518,8 @@ function stepToHTML(step, isRoot) {
   var sKind = "";
   if (step.script_line !== undefined) {
     sKind = " [<b>" + step.script_line + "</b>] ";
+  } else if (step.kind == "Transfo") {
+    sKind = "";
   } else if (!options.compact) {
     sKind = " [" + escapeHTML(step.kind) + "] ";
   }
@@ -519,8 +531,16 @@ function stepToHTML(step, isRoot) {
   if (step.hasOwnProperty("id")) { // LATER: refine
     sOnClick = "onclick='loadStepDetails(" + step.id + ")'";
   }
+  var sTags = "";
+  if (options.tags) {
+    sTags += " Tags:[";
+    for (var t = 0; t < step.tags.length; t++) {
+      sTags += step.tags[t] + ",";
+    }
+    sTags += "]";
+  }
 
-  s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + escapeHTML(step.name) + " " + sScript + "</div>";
+  s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + escapeHTML(step.name) + " " + sScript + sTags + "</div>";
   if (options.justif) {
     for (var i = 0; i < step.justif.length; i++) {
       s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
@@ -564,6 +584,31 @@ function viewDetailsAll() {
   // $("#detailsDiv").html(stepToHTML(selectedStep));
 }
 
+// handles click on the "full" button
+function viewDetailsFull() {
+  for (var key in options) {
+    options[key] = false;
+  }
+  options["details"] = true;
+  options["justif"] = true;
+  options["exectime"] = true;
+  options["noop_steps"] = true; // TODO: should be a tag
+
+  // update checkbox display // TODO: use this also in other place
+  for (var key in options) {
+    $('#option_' + key).prop('checked', options[key]);
+  }
+  reloadView();
+}
+
+function initOptions() {
+  for (var i = 0; i < optionsDescr.length; i++) {
+    var descr = optionsDescr[i];
+    options[descr.key] = descr.default;
+  }
+}
+
+initOptions();
 function initControls() {
   var s = "";
   function addRow(sTitle, sRow) {
@@ -609,6 +654,9 @@ function initControls() {
     s += htmlCheckbox(id, descr.name, "details-checkbox", "updateOptions()");
   }
 
+  // Full button
+  s += htmlButton("button_full", "full", "details-button", "viewDetailsFull()");
+
   $("#contents").html(s);
 
   // initialize checkboxes
@@ -627,10 +675,11 @@ function updateOptions() {
     var id = "option_" + descr.key;
     options[descr.key] = $('#' + id).prop('checked');
   }
+  /* LATER
   if (options.exectime) {
-    options.io_steps = true;
-    $('#option_io_steps').prop('checked', options.io_steps);
-  }
+    options["hide-IO"] = false;
+    $('#option_hide-IO').prop('checked', false);
+  }*/
   if (options.ast_before && options.ast_after) {
     if (ast_before_was_checked) {
       options.ast_before = false;
@@ -664,7 +713,7 @@ function initSteps() {
     for (var i = 0; i < stepIds.length; i++) {
       var smallstep_id = stepIds[i];
       var smallstep = steps[smallstep_id];
-      if (smallstep.kind == "I/O") {
+      if (smallstep.kind == "IO") {
         continue;
       }
       if (smallstep.kind != "Small") {
@@ -681,7 +730,7 @@ function initSteps() {
     for (var i = 0; i < rootSub.length; i++) {
       var bigstep_id = rootSub[i];
       var bigstep = steps[bigstep_id];
-      if (bigstep.kind == "I/O") {
+      if (bigstep.kind == "IO") {
         continue;
       }
       if (bigstep.kind != "Big") {
@@ -699,11 +748,39 @@ function initSteps() {
   }
 }
 
-
+function initAllTags() {
+  // fills the object allTags with keys that correspond to all possible tags
+  for (var i = 0; i < steps.length; i++) {
+    var tags = steps[i].tags;
+    for (var t = 0; t < tags.length; t++) {
+      var tag = tags[t];
+      allTags[tag] = true;
+    }
+  }
+  // LATER: organize known tags to the front
+  // completes the options array with one entry per tag
+  for (tag in allTags) {
+    var val =
+      (optionsDefaultValueForTags.hasOwnProperty(tag))
+      ? optionsDefaultValueForTags[tag]
+      : false;
+    var key = "hide-" + tag;
+    var descr = {
+      key: key,
+      name: key,
+      kind: "UI",
+      default: val,
+    };
+    optionsDescr.push(descr);
+    options[key] = val;
+  }
+}
 
 document.addEventListener('DOMContentLoaded', function () {
   initEditor();
   initSteps();
+  initAllTags();
+  initOptions();
   initControls();
   initSplitView();
   // editor.setValue("click on a button");

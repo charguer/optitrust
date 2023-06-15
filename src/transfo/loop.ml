@@ -50,7 +50,7 @@ let%transfo hoist_alloc_loop_list
   (loops : int list)
   (tg : target) : unit
   =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   let tmp_marks = ref [] in
   let alloc_mark = Mark.next () in
   let may_detach_init (x : var) (init : trm) (p : path) =
@@ -198,7 +198,7 @@ let%transfo hoist ?(tmp_names : string = "${var}_step${i}")
             and [1] represents a loop for which a dimension should be created.
 *)
 let%transfo hoist_instr_loop_list (loops : int list) (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   let rec aux (remaining_loops : int list) (p : path) : unit =
     match remaining_loops with
     | [] -> ()
@@ -231,7 +231,7 @@ let%transfo hoist_decl_loop_list
   (loops : int list)
   (tg : target) : unit
   =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   Target.iter (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match trm_let_inv tg_trm with
@@ -256,7 +256,7 @@ let find_surrounding_instr (p : path) (t : trm) : path =
 let%transfo hoist_expr_loop_list (name : string)
                          (loops : int list)
                          (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   Target.iter (fun t p ->
     let instr_path = find_surrounding_instr p t in
     Variable.bind name (target_of_path p);
@@ -307,14 +307,15 @@ let%transfo hoist_expr (name : string)
                ?(indep : var list = [])
                ?(dest : target = [])
                (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   targets_iter_with_loop_lists ~indep ~dest (fun loops p ->
     (* Printf.printf "%s\n" (Tools.list_to_string (List.map string_of_int loops)); *)
     hoist_expr_loop_list name loops (target_of_path p)
   ) tg
 
 let%transfo simpl_range ~(simpl : Target.Transfo.t) (tg : target) : unit =
-  Trace.step_trivial ();
+  Trace.tag_trivial ();
+  Trace.tag "simpl";
   Target.iter (fun _ p ->
     simpl (target_of_path (p @ [Dir_for_start]));
     simpl (target_of_path (p @ [Dir_for_stop]));
@@ -325,7 +326,7 @@ let%transfo simpl_range ~(simpl : Target.Transfo.t) (tg : target) : unit =
 - [inline] if true, inline the index shift in the loop body *)
 (* TODO: what if index name is same as original loop index name? *)
 let%transfo shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_kind) ?(inline : bool = true) ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   let index' = if index = "" then begin
     if not inline then
       fail None "Loop.shift: expected name for index variable when inline = false";
@@ -352,7 +353,7 @@ let%transfo shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_ki
 (* [extend_range]: like [Loop_basic.extend_range], plus arithmetic and conditional simplifications.
    *)
 let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : extension_kind = ExtendNothing) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   Target.iter (fun t p ->
     Loop_basic.extend_range ~start ~stop (target_of_path p);
     (* TODO: simpl_range? *)
@@ -401,7 +402,7 @@ let adapt_indices ~(upwards : bool) (p : path) : unit =
     [adapt_fused_indices] - attempts to adapt the indices of fused loops using [Loop.extend_range] and [Loop.shift], otherwise by default the loops need to have the same range.
   *)
 let%transfo fusion ?(nb : int = 2) ?(nest_of : int = 1) ?(upwards : bool = true) ?(adapt_fused_indices : bool = true) (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   Target.iter (fun _ p ->
     Marks.with_fresh_mark_on p (fun m ->
       for _ = 2 to nb do
@@ -433,7 +434,7 @@ let%transfo fusion ?(nb : int = 2) ?(nest_of : int = 1) ?(upwards : bool = true)
   LATER ?(into_occ : int = 1)
   *)
 let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_all_indices : bool = false) ?(adapt_fused_indices : bool = true) ?(rename : path -> Variable.rename option = fun p -> None) (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   assert (not adapt_all_indices); (* TODO *)
   (* adapt_all_indices => adapt_fused_indices *)
   let adapt_fused_indices = adapt_all_indices || adapt_fused_indices in
@@ -771,7 +772,7 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
 
     [nest_of]: denotes the number of nested loops to consider. *)
 let%transfo unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) ?(nest_of : int = 1) (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   assert (nest_of > 0);
   let rec aux p nest_of =
     if nest_of > 1 then
@@ -845,7 +846,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : var) (p : path): 
    and surrounding instructions will be fissioned ([Loop.fission_all_instrs]).
    *)
 let%transfo reorder_at ?(order : vars = []) (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   (* [remaining_loops]: sublist of [List.rev order]
      [p]: path to either the target instruction at [tg],
           or a surrounding for loop. *)
@@ -1011,7 +1012,7 @@ let%transfo tile ?(index : var = "b${id}")
         ?(iter : tile_iteration = TileIterLocal)
         (tile_size : trm)
         (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   Target.iter (fun t p ->
     match (iter, bound) with
     | (TileIterGlobal, _) | (_, TileDivides) ->
@@ -1031,7 +1032,7 @@ let%transfo slide ?(index : var = "b${id}")
   ~(step : trm)
   ?(simpl : Transfo.t = default_simpl)
   (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   Target.iter (fun _ p ->
     let bound = if is_trm_int 1 step then TileDivides else bound in
     Loop_basic.slide ~index ~bound ~size ~step (target_of_path p);
@@ -1051,7 +1052,7 @@ let%transfo slides ?(index : var = "b${id}")
   ~(size_steps : (trm * trm) option list)
   ?(simpl : Transfo.t = default_simpl)
   (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  Trace.tag_valid_by_composition ();
   Target.iter (fun _ p ->
     let size_steps_bottom_up = List.rev (List.mapi (fun i x -> (i, x)) size_steps) in
     let prev_outer_elt_loop = ref None in

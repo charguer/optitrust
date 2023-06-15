@@ -199,6 +199,7 @@ let simpl_index_add_on (t : trm) : trm =
    *)
 let%transfo simpl_index_add (tg : target) : unit =
   Trace.step_justif "correct when size and index expressions are pure (TODO: check)";
+  Trace.tag "simpl";
   Target.apply_at_target_paths simpl_index_add_on tg
 
 let simpl_access_of_access_on (t : trm) : trm =
@@ -217,6 +218,7 @@ let simpl_access_of_access_on (t : trm) : trm =
    *)
 let%transfo simpl_access_of_access (tg : target) : unit =
   Trace.step_justif_always_correct ();
+  Trace.tag "simpl";
   Target.apply_at_target_paths simpl_access_of_access_on tg
 
 (* internal *)

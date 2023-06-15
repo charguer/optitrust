@@ -166,7 +166,7 @@ let step_kind_to_string (k:step_kind) : string =
   | Step_small -> "Small"
   | Step_transfo -> "Transfo"
   | Step_target_resolve -> "Target"
-  | Step_io -> "I/O"
+  | Step_io -> "IO"
   | Step_scoped -> "Scoped"
   | Step_aborted -> "Aborted"
   | Step_interactive -> "Interactive"
@@ -329,7 +329,7 @@ let get_excerpt (line : int) : string =
 
 (* [open_step] is called at the start of every big-step, or small-step,
    or combi, or basic transformation. *)
-let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") ~(kind:step_kind) ~(name:string) () : step_tree =
+let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) () : step_tree =
   let infos = {
     step_script;
     step_script_line = line;
@@ -339,7 +339,7 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
     step_args = [];
     step_justif = [];
     step_valid = valid;
-    step_tags = [];
+    step_tags = tags;
   } in
   let step = {
     step_kind = kind;
@@ -371,27 +371,28 @@ let step_arg ~(name:string) ~(value:string) : unit =
   let infos = step.step_infos in
   infos.step_args <- (name,value)::infos.step_args
 
-(* [step_tag] is called by a transformation after open_step in order to associate a tag with itself. *)
-let step_tag (tag : string) : unit =
+(* [tag] is called by a transformation after open_step in order to associate a tag with itself. *)
+let tag (s : string) : unit =
   let step = get_cur_step () in
   let infos = step.step_infos in
-  infos.step_tags <- tag :: infos.step_tags
+  infos.step_tags <- s :: infos.step_tags
 
-(* [step_trivial] is called by a transformation after open_step to indicate that it is trivial, or trivially explained by its substeps. *)
-let step_trivial () : unit =
-  step_tag "trivial"
+(* [tag_trivial] is called by a transformation after open_step to indicate that it is trivial, or trivially explained by its substeps. *)
+let tag_trivial () : unit =
+  tag "trivial"
 
-(* [step_atomic] is called by a transformation after open_step to indicate that it is atomic, e.g. looking at its substeps does not explain why it is correct. *)
-let step_atomic () : unit =
-  step_tag "atomic"
+(* [tag_atomic] is called by a transformation after open_step to indicate that it is atomic, e.g. looking at its substeps does not explain why it is correct. *)
+let tag_atomic () : unit =
+  tag "atomic"
 
-(* [step_valid_by_composition] is called by a transformation after open_step to indicate that it should be valid by composition. This can be used for filtering trace display or checking that it is indeed valid by composition. *)
-let step_valid_by_composition () : unit =
-  step_tag "should_be_valid_by_composition"
+(* [tag_valid_by_composition] is called by a transformation after open_step to indicate that it should be valid by composition. This can be used for filtering trace display or checking that it is indeed valid by composition. *)
+let tag_valid_by_composition () : unit =
+  tag "should_be_valid_by_composition"
 
-(* [step_simpl_arith] is called by a transformation after open_step to indicate that it performs arithmetic simplifications. This can be used for filtering trace display. *)
-let step_simpl_arith () : unit =
-  step_tag "simpl.arith"
+(* [tag_simpl_arith] is called by a transformation after open_step to indicate that it performs arithmetic simplifications. This can be used for filtering trace display. *)
+let tag_simpl_arith () : unit =
+  tag "simpl";
+  tag "simpl_arith"
 
 (* [close_step] is called at the end of every big-step, or small-step,
    or combi, or basic transformation. The step to close can be passed
@@ -448,8 +449,8 @@ let close_root_step () : unit =
 
 
 (* [step] is a function wrapping the body of a transformation *)
-let step ?(valid:bool=false) ?(line : int = -1) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
-  let s = open_step ~valid ~line ~kind ~name () in
+let step ?(valid:bool=false) ?(line : int = -1) ?(tags:string list=[]) ~(kind:step_kind) ~(name:string) (body : unit -> 'a) : 'a =
+  let s = open_step ~valid ~line ~tags ~kind ~name () in
   let r = body () in
   assert (get_cur_step () == s);
   close_step ~check:s ();
@@ -495,11 +496,11 @@ let backtrack_on_failure (f : unit -> unit) : backtrack_result =
 
 (* [parsing_step f] adds a step accounting for a parsing operation *)
 let parsing_step (f : unit -> unit) : unit =
-  step ~valid:true ~kind:Step_io ~name:"Parsing" f
+  step ~valid:true ~kind:Step_io ~name:"Parsing" ~tags:["IO"] f
 
 (* [dumping_step f] adds a step accounting for a parsing operation *)
 let dumping_step (f : unit -> unit) : unit =
-  step ~valid:true ~kind:Step_io ~name:"Dumping" f
+  step ~valid:true ~kind:Step_io ~name:"Dumping" ~tags:["IO"] f
 
 (* [error_step f] adds a step accounting for a fatal error *)
 let error_step (error : string) : unit =
@@ -507,7 +508,7 @@ let error_step (error : string) : unit =
 
 (* [open_target_resolve_step] *)
 let open_target_resolve_step () : unit =
-  ignore (open_step ~valid:true ~kind:Step_target_resolve ~name:"" ())
+  ignore (open_step ~valid:true ~kind:Step_target_resolve ~tags:["target"] ~name:"" ())
 
 (* [close_target_resolve_step] has a special handling because it saves a diff
    between an AST and an AST decorated with marks for targeted paths,

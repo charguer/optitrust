@@ -6,7 +6,7 @@ let _ = Flags.pretty_matrix_notation := true
 
 (* TODO: generalize *)
 let%transfo simpl_mins ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
-  Trace.step_atomic ();
+  Trace.tag_atomic ();
   let rewrite rule = Rewrite.equiv_at ~simpl ~ctx:true ~indepth:true rule tg in
   List.iter rewrite [
     "int h; int by; ==> min(h, by + 36) - min(h - 2, by + 34) == 2";
@@ -18,7 +18,7 @@ let%transfo simpl_mins ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) 
 
 (* TODO: generalize *)
 let%transfo simpl_inplace_noop (tg : target) : unit =
-  Trace.step_atomic ();
+  Trace.tag_atomic ();
   Target.iter (fun _ p ->
     let surrounding_instr_p = Loop.find_surrounding_instr p (Trace.ast ()) in
     Arith.default_simpl (target_of_path p);

@@ -198,6 +198,7 @@ let%transfo to_nonconst (tg : target) : unit =
 (* [simpl_deref ~indepth tg]: expects the target [tg] to be pointing at expressions of the form  *(&b), &( *b) in depth
     if [indepth] is set to true or at the give target if [indepth] is false.*)
 let%transfo simpl_deref ?(indepth : bool = false) (tg : target) : unit =
+  Trace.tag "simpl";
   Target.apply_on_targets (Variable_core.simpl_deref indepth) tg
 
 (* [exchange var1 var2 tg]: expects the target [tg] to point at an instruction that contains both the
