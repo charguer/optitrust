@@ -27,6 +27,7 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_extern _, Trm_extern _ -> true
   | Trm_namespace _, Trm_namespace _ -> true
   | Trm_template _, Trm_template _ -> true
+  | Trm_hyp _, Trm_hyp _ -> true
   | _ , _ -> false
 
 (* [same_trm ~ast_decode t1 t2]: check if [t1] and [t2] have the same string representation *)

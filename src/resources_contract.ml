@@ -1,11 +1,12 @@
 open Ast
 
-let next_hyp_id = ref 0
+let next_hyp_id = Tools.fresh_generator ()
 
 let new_hyp (name: var option): hyp =
-  let id = !next_hyp_id in
-  next_hyp_id := !next_hyp_id + 1;
-  { name; id }
+  let id = next_hyp_id () in
+  match name with
+  | Some name -> { name; id }
+  | None -> { name = sprintf "#%d" id ; id }
 
 let new_anon_hyp (): hyp = new_hyp None
 
@@ -43,8 +44,8 @@ let formula_read_only ~(frac: formula) (res: formula) =
   trm_apps var_read_only [frac; res]
 
 let new_frac (): var * resource_item =
-  let frac_var = sprintf "frac#%d" !next_hyp_id in
-  (frac_var, (new_hyp (Some frac_var), var_frac))
+  let frac_hyp = new_anon_hyp () in
+  (frac_hyp.name, (frac_hyp, var_frac))
 
 type read_only_formula = { frac: formula; formula: formula }
 let formula_read_only_inv (t: formula): read_only_formula option =

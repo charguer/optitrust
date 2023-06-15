@@ -797,7 +797,7 @@ let get_trm_kind (t : trm) : trm_kind =
     in
    match t.desc with
    | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
-   | Trm_var _ -> TrmKind_Expr
+   | Trm_var _ | Trm_hyp _ -> TrmKind_Expr
    | Trm_record _ | Trm_array _ -> TrmKind_Expr
    | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
    | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr

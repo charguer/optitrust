@@ -480,11 +480,9 @@ let rec formula_to_string (f: formula) : string =
 
 let named_formula_to_string (hyp, formula): string =
   let sformula = formula_to_string formula in
-  match hyp.name with
-  | None ->
-      Printf.sprintf "%s;" sformula
-  | Some name ->
-      Printf.sprintf "%s: %s;" name sformula
+  if not !Flags.always_name_resource_hyp && hyp.name.[0] = '#'
+    then Printf.sprintf "%s;" sformula
+    else Printf.sprintf "%s: %s;" hyp.name sformula
 
 (* FIXME: Copied from Sequence_core to avoid circular dependancy *)
 (* [insert_aux index code t]: inserts trm [code] at index [index] in sequence [t],
@@ -501,19 +499,44 @@ let insert_aux (index : int) (code : trm) (t : trm) : trm =
 let ctx_resource_list_to_string (res: resource_item list) : string =
   String.concat " " (List.map named_formula_to_string res)
 
-let ctx_resources_to_trm ?(fn_name = "__ctx_res") (res: resource_set) : trm =
+let ctx_resources_to_trm (res: resource_set) : trm =
   let spure = ctx_resource_list_to_string res.pure in
   let slin = ctx_resource_list_to_string res.linear in
-  trm_apps (trm_var fn_name) [trm_string spure; trm_string slin]
+  trm_apps (trm_var "__ctx_res") [trm_string spure; trm_string slin]
 
+let ctx_used_res_item_to_string (res: used_resource_item) : string =
+  let sinst = formula_to_string res.inst_by in
+  let sformula = formula_to_string res.used_formula in
+  Printf.sprintf "%s := %s : %s;" res.hyp_to_inst.name sinst sformula
+
+let ctx_used_res_to_trm (used_res: used_resource_set) : trm =
+  let spure = String.concat " " (List.map ctx_used_res_item_to_string used_res.used_pure) in
+  let slin = String.concat " " (List.map ctx_used_res_item_to_string used_res.used_linear) in
+  trm_apps (trm_var "__used_res") [trm_string spure; trm_string slin]
+
+let ctx_produced_res_item_to_string (res: produced_resource_item) : string =
+  let sformula = formula_to_string res.produced_formula in
+  Printf.sprintf "%s := %s : %s;" res.produced_hyp.name res.produced_from.name sformula
+
+let ctx_produced_res_to_trm (produced_res: produced_resource_set) : trm =
+  let spure = String.concat " " (List.map ctx_produced_res_item_to_string produced_res.produced_pure) in
+  let slin = String.concat " " (List.map ctx_produced_res_item_to_string produced_res.produced_linear) in
+  trm_apps (trm_var "__produced_res") [trm_string spure; trm_string slin]
 
 let display_ctx_resources (t: trm): trm list =
+  let t =
+    match t.desc with
+    | Trm_let (_, _, body, _) -> { t with ctx = { body.ctx with ctx_resources_before = t.ctx.ctx_resources_before; ctx_resources_after = t.ctx.ctx_resources_after } }
+    | _ -> t
+  in
   let tl_after = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after) in
+  let tl_used_by_args = Option.to_list (Option.map (fun res_frame ->
+      trm_apps (trm_var "__used_by_args_res") [trm_string (ctx_resource_list_to_string res_frame)]) t.ctx.ctx_resources_used_by_args) in
   let tl_frame = Option.to_list (Option.map (fun res_frame ->
       trm_apps (trm_var "__framed_res") [trm_string (ctx_resource_list_to_string res_frame)]) t.ctx.ctx_resources_frame) in
-  let tl_used = Option.to_list (Option.map (ctx_resources_to_trm ~fn_name:"__used_res") t.ctx.ctx_resources_used) in
-  let tl_produced = Option.to_list (Option.map (ctx_resources_to_trm ~fn_name:"__produced_res") t.ctx.ctx_resources_produced) in
-  (tl_frame @ tl_used @ [t] @ tl_produced @ tl_after)
+  let tl_used = Option.to_list (Option.map ctx_used_res_to_trm t.ctx.ctx_resources_used) in
+  let tl_produced = Option.to_list (Option.map ctx_produced_res_to_trm t.ctx.ctx_resources_produced) in
+  (tl_used_by_args @ tl_frame @ tl_used @ [t] @ tl_produced @ tl_after)
 
 let computed_resources_intro (t: trm): trm =
   let rec aux t =
@@ -567,13 +590,10 @@ let rec contract_intro (t: trm): trm =
     in
 
     let hyp_not_mem_before_pop (hyp, _) =
-      match hyp.name with
-      | Some x ->
-        if Hashtbl.mem frac_to_remove x then (
-          Hashtbl.remove frac_to_remove x;
-          false
-        ) else true
-      | None -> true
+      if Hashtbl.mem frac_to_remove hyp.name then (
+        Hashtbl.remove frac_to_remove hyp.name;
+        false
+      ) else true
     in
     let pre_pure = List.filter hyp_not_mem_before_pop pre.pure in
     assert (Hashtbl.length frac_to_remove = 0);

@@ -88,6 +88,10 @@ let bypass_cfeatures_decoding = ref false
    Useful for debugging resource typing. *)
 let resource_errors_as_warnings = ref false
 
+(* [always_name_resource_hyp]: Always print named for resource hypothesis even if they were unnamed.
+ * Automatically set to true during show_res. *)
+let always_name_resource_hyp = ref false
+
 (* [execute_show_even_in_batch_mode]: flag used for unit tests on targets that use the show function. *)
 let execute_show_even_in_batch_mode : bool ref = ref false
 

@@ -97,4 +97,6 @@ void __admitted() {}
 
 /*
 template<typename T> T __spec_hint(T, const char*);
+template<typename T> T __spec_out_name(T, const char*);
+void __res_rename(const char*);
 */

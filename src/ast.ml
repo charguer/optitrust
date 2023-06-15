@@ -492,8 +492,9 @@ and ctx = {
   mutable ctx_resources_before: resource_set option;
   mutable ctx_resources_after: resource_set option;
   mutable ctx_resources_frame: resource_item list option;
-  mutable ctx_resources_used: resource_set option;
-  mutable ctx_resources_produced: resource_set option;
+  mutable ctx_resources_used: used_resource_set option;
+  mutable ctx_resources_produced: produced_resource_set option;
+  mutable ctx_resources_used_by_args: resource_item list option;
 }
 
 (* [typ_ctx]: stores all the information about types, labels, constructors, etc. *)
@@ -551,9 +552,11 @@ and trm_desc =
   | Trm_using_directive of string                 (* using namespace std *)
   | Trm_fun of typed_vars * typ option * trm * fun_spec (* anonymous functions, [&](int const& x) -> void ({r += x;}) *) (* TODO: Is return type useful ? *)
   | Trm_delete of bool * trm                      (* delete t, delete[] t *)
+  | Trm_hyp of hyp (* FIXME: Temporary until all vars have id *)
 
 (* The id is a unique name for the hypothesis that cannot be shadowed *)
-and hyp = { name: string option; id: int }
+and hyp_id = int
+and hyp = { name: string; id: hyp_id }
 and formula = trm
 and resource_item = hyp * formula
 
@@ -565,20 +568,42 @@ and resource_set = {
 
 and resource_spec = resource_set option
 
-and fun_contract =
-  { pre: resource_set;
-    post: resource_set }
+and fun_contract = {
+  pre: resource_set;
+  post: resource_set;
+}
 
 and fun_spec = fun_contract option
 
 (* forall ghosts, { invariant(0) * Group(range(), fun i -> iter_contract.pre(i)) } loop { invariant(n) * Group(iter_contract.post(i)) } *)
 (* forall ghosts, { invariant(i) * iter_contract.pre(i) } loop body { invariant(i) * iter_contract.post(i) } *)
-and loop_contract =
-  { loop_ghosts: resource_item list;
-    invariant: resource_set;
-    iter_contract: fun_contract }
+and loop_contract = {
+  loop_ghosts: resource_item list;
+  invariant: resource_set;
+  iter_contract: fun_contract;
+}
 
 and loop_spec = loop_contract option
+
+and used_resource_item = {
+  hyp_to_inst: hyp;
+  inst_by: formula;
+  used_formula: formula;
+}
+and used_resource_set = {
+  used_pure: used_resource_item list;
+  used_linear: used_resource_item list
+}
+
+and produced_resource_item = {
+  produced_hyp: hyp;
+  produced_from: hyp;
+  produced_formula: formula;
+}
+and produced_resource_set = {
+  produced_pure: produced_resource_item list;
+  produced_linear: produced_resource_item list;
+}
 
 (* ajouter à trm Typ_var, Typ_constr id (list typ), Typ_const, Typ_array (typ * trm) *)
 
@@ -990,13 +1015,15 @@ let typ_lref ?(annot : typ_annot list = []) ?(attributes = [])
 
 (* ************************* Resource constructors ************************* *)
 
-let unknown_ctx: ctx =
-  { ctx_types = None; ctx_resources_before = None; ctx_resources_after = None;
-    ctx_resources_frame = None; ctx_resources_used = None; ctx_resources_produced = None }
+let unknown_ctx: ctx = {
+  ctx_types = None; ctx_resources_before = None; ctx_resources_after = None;
+  ctx_resources_frame = None; ctx_resources_used = None; ctx_resources_produced = None;
+  ctx_resources_used_by_args = None;
+}
+
 
 let typing_ctx (ctx_types: typ_ctx): ctx =
-  { ctx_types = Some ctx_types; ctx_resources_before = None; ctx_resources_after = None;
-    ctx_resources_frame = None; ctx_resources_used = None; ctx_resources_produced = None }
+  { unknown_ctx with ctx_types = Some ctx_types }
 
 (* **************************** Trm constructors *************************** *)
 
