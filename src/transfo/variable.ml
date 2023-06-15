@@ -331,6 +331,7 @@ let default_unfold_simpl (tg : target) : unit =
           After calling Record_basic.simpl_proj {0, 1}.x becomes 0 .
           Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them. *)
 let%transfo unfold ?(accept_functions : bool = false) ?(simpl : Transfo.t = default_unfold_simpl) ?(delete : bool = true) ?(at : target = [])(tg : target) : unit =
+  Trace.step_valid_by_composition ();
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let tg_decl = target_of_path p in
@@ -366,6 +367,7 @@ let default_inline_simpl (tg : target) : unit =
 (* [inline ~accept_functions ~simpl_deref tg]: similar to [unfold] except that this transformation
      deletes the targeted declaration by default. *)
 let%transfo inline ?(accept_functions : bool = false) ?(simpl : Transfo.t = default_inline_simpl) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   unfold ~accept_functions ~simpl ~delete:true tg
 
 (* [inline_and_rename]: expects the target [tg] to point at a variable declaration with an initial value
@@ -527,6 +529,7 @@ let%transfo bind_multi ?(const : bool = false) ?(is_ptr : bool = false) ?(typ : 
    If multiple expressions are targeted, targeted expressions that are syntactically equal must correspond to semantically equal expressions.
    *)
 let%transfo bind_syntactic ?(dest : target = []) ?(fresh_name : var = "x${occ}") (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   if dest = [] then fail None "bind_multi: optional dest not yet supported";
   Marks.with_marks (fun next_mark ->
   (* introduce a binding for every syntactically different occurrence *)

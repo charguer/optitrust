@@ -6,6 +6,7 @@ open Ast
 type nd_tile = Matrix_core.nd_tile
 
 let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   Target.iter (fun t p ->
     let loop_t = Path.resolve_path p t in
     let error = "Stencil.loop_align_stop_extend_start: expected simple loop" in
@@ -22,6 +23,7 @@ let%transfo loop_align_stop_extend_start ~(start : trm) ~(stop : trm) ?(simpl : 
   simpl tg *)
 
 let%transfo loop_align_stop_extend_start_like ~(orig:target) ?(nest_of : int = 1) ?(simpl : Transfo.t = Arith.default_simpl) (tg:target) : unit =
+  Trace.step_valid_by_composition ();
   let orig_p = resolve_target_exactly_one orig (Trace.ast ()) in
   let ps = resolve_target tg (Trace.ast ()) in
   let rec aux (nest_of : int) (orig_p : path) (ps : paths) =
@@ -113,6 +115,7 @@ let collect_writes (p : path) : Var_set.t =
  [outputs]: list of variables to keep alive after the stencil chain is fused.
  *)
 let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)) list = []) ~(outputs : var list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = true) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   let outer_loop_count = List.length tile in
   let surrounding_sequence = ref None in
   let must_be_in_surrounding_sequence p =
@@ -195,4 +198,5 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)
   )
 
 let fusion_targets ~(nest_of : int) ?(overlaps : (var * (trm list)) list = []) ~(outputs : var list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = false) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   fusion_targets_tile (List.init nest_of (fun _ -> trm_int 1)) ~overlaps ~outputs ~simpl ~fuse_inner_loops tg

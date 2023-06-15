@@ -50,6 +50,7 @@ let default_inline_constant_simpl tg = Arith.(simpl_surrounding_expr (fun x -> c
 For every variable in non-constant indices, this transformation will attempt unrolling the corresponding for loop.
   *)
 let%transfo inline_constant ?(mark_accesses : mark option) ~(decl : target) ?(simpl : Transfo.t = default_inline_constant_simpl) (tg : target) : unit =
+  Trace.step_valid_by_composition ();
   (* TODO: unroll if necessary *)
   Marks.with_fresh_mark (fun m ->
     Marks.add m tg;
