@@ -509,10 +509,10 @@ let ctx_used_res_item_to_string (res: used_resource_item) : string =
   let sformula = formula_to_string res.used_formula in
   Printf.sprintf "%s := %s : %s;" res.hyp_to_inst.name sinst sformula
 
-let ctx_used_res_to_trm (used_res: used_resource_set) : trm =
+let ctx_used_res_to_trm ~(clause_name: string) (used_res: used_resource_set) : trm =
   let spure = String.concat " " (List.map ctx_used_res_item_to_string used_res.used_pure) in
   let slin = String.concat " " (List.map ctx_used_res_item_to_string used_res.used_linear) in
-  trm_apps (trm_var "__used_res") [trm_string spure; trm_string slin]
+  trm_apps (trm_var clause_name) [trm_string spure; trm_string slin]
 
 let ctx_produced_res_item_to_string (res: produced_resource_item) : string =
   let sformula = formula_to_string res.produced_formula in
@@ -529,21 +529,32 @@ let display_ctx_resources (t: trm): trm list =
     | Trm_let (_, _, body, _) -> { t with ctx = { body.ctx with ctx_resources_before = t.ctx.ctx_resources_before; ctx_resources_after = t.ctx.ctx_resources_after } }
     | _ -> t
   in
+  let tl_used = Option.to_list (Option.map (fun res_used ->
+      let s_used = String.concat " " (List.filter_map (function
+          | _, NotUsed -> None
+          | hyp, UsedReadOnly -> Some (sprintf "RO(%s);" hyp.name)
+          | hyp, UsedFull -> Some (sprintf "%s;" hyp.name))
+          (Hyp_map.bindings res_used))
+      in
+      trm_apps (trm_var "__used_res") [trm_string s_used]) t.ctx.ctx_resources_usage) in
+  let tl = match t.ctx.ctx_resources_contract_invoc with
+    | None -> [t]
+    | Some contract_invoc ->
+      let t_frame = trm_apps (trm_var "__framed_res") [trm_string (ctx_resource_list_to_string contract_invoc.contract_frame)] in
+      let t_inst = ctx_used_res_to_trm ~clause_name:"__contract_inst" contract_invoc.contract_inst in
+      let t_produced = ctx_produced_res_to_trm contract_invoc.contract_produced in
+      [t_frame; t_inst; t; t_produced]
+  in
   let tl_after = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_after) in
-  let tl_used_by_args = Option.to_list (Option.map (fun res_frame ->
-      trm_apps (trm_var "__used_by_args_res") [trm_string (ctx_resource_list_to_string res_frame)]) t.ctx.ctx_resources_used_by_args) in
-  let tl_frame = Option.to_list (Option.map (fun res_frame ->
-      trm_apps (trm_var "__framed_res") [trm_string (ctx_resource_list_to_string res_frame)]) t.ctx.ctx_resources_frame) in
-  let tl_used = Option.to_list (Option.map ctx_used_res_to_trm t.ctx.ctx_resources_used) in
-  let tl_produced = Option.to_list (Option.map ctx_produced_res_to_trm t.ctx.ctx_resources_produced) in
-  (tl_used_by_args @ tl_frame @ tl_used @ [t] @ tl_produced @ tl_after)
+  (tl_used @ tl @ tl_after)
 
 let computed_resources_intro (t: trm): trm =
   let rec aux t =
     match t.desc with
     | Trm_seq instrs when not (List.mem Main_file (trm_get_files_annot t)) ->
       let tl_before = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before) in
-      trm_like ~old:t (trm_seq (Mlist.of_list (tl_before @ List.concat_map (fun instr -> display_ctx_resources (aux instr)) (Mlist.to_list instrs))))
+      let tl_post_inst = Option.to_list (Option.map (ctx_used_res_to_trm ~clause_name:"__post_inst") t.ctx.ctx_resources_post_inst) in
+      trm_like ~old:t (trm_seq (Mlist.of_list (tl_before @ List.concat_map (fun instr -> display_ctx_resources (aux instr)) (Mlist.to_list instrs) @ tl_post_inst)))
     | _ -> trm_map_with_terminal_opt ~keep_ctx:true false (fun _ -> aux) t
   in
   aux t

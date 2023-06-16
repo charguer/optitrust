@@ -58,6 +58,16 @@ let fresh_var : unit -> var =
 (* FIXME: Storing qvar_str is redundant and ugly, why doing that ? *)
 type qvar = {qvar_var : var; qvar_path : var list; qvar_str : string}
 
+(* The id is a unique name for the hypothesis that cannot be shadowed *)
+type hyp_id = int
+type hyp = { name: string; id: hyp_id }
+module Hyp = struct
+  type t = hyp
+  let compare h1 h2 =
+    Int.compare h1.id h2.id
+end
+module Hyp_map = Map.Make(Hyp)
+
 (* [typconstr]: name of type constructors (e.g. [list] in Ocaml's type [int list];
    or [vect] in C type [struct { int x,y }; *)
 type typconstr = string
@@ -488,13 +498,16 @@ and trms = trm list
 and ctx = {
   mutable ctx_types: typ_ctx option;
 
-  (* The set of accessible resources after this term. *)
+  (* The set of accessible resources before this term. *)
   mutable ctx_resources_before: resource_set option;
+  (* The map of used variables inside the trm (recursively) *)
+  mutable ctx_resources_usage: resource_usage_map option;
+  (* The resources framed, used and produced during a contract invocation *)
+  mutable ctx_resources_contract_invoc: contract_invoc option;
+  (* The set of accessible resources after this term. *)
   mutable ctx_resources_after: resource_set option;
-  mutable ctx_resources_frame: resource_item list option;
-  mutable ctx_resources_used: used_resource_set option;
-  mutable ctx_resources_produced: produced_resource_set option;
-  mutable ctx_resources_used_by_args: resource_item list option;
+  (* The instantiation of the requested post condition *)
+  mutable ctx_resources_post_inst: used_resource_set option;
 }
 
 (* [typ_ctx]: stores all the information about types, labels, constructors, etc. *)
@@ -554,9 +567,6 @@ and trm_desc =
   | Trm_delete of bool * trm                      (* delete t, delete[] t *)
   | Trm_hyp of hyp (* FIXME: Temporary until all vars have id *)
 
-(* The id is a unique name for the hypothesis that cannot be shadowed *)
-and hyp_id = int
-and hyp = { name: string; id: hyp_id }
 and formula = trm
 and resource_item = hyp * formula
 
@@ -603,6 +613,19 @@ and produced_resource_item = {
 and produced_resource_set = {
   produced_pure: produced_resource_item list;
   produced_linear: produced_resource_item list;
+}
+
+and resource_usage =
+  | NotUsed
+  | UsedReadOnly
+  | UsedFull
+
+and resource_usage_map = resource_usage Hyp_map.t
+
+and contract_invoc = {
+  contract_frame: resource_item list;
+  contract_inst: used_resource_set;
+  contract_produced: produced_resource_set;
 }
 
 (* ajouter à trm Typ_var, Typ_constr id (list typ), Typ_const, Typ_array (typ * trm) *)
@@ -1017,10 +1040,9 @@ let typ_lref ?(annot : typ_annot list = []) ?(attributes = [])
 
 let unknown_ctx: ctx = {
   ctx_types = None; ctx_resources_before = None; ctx_resources_after = None;
-  ctx_resources_frame = None; ctx_resources_used = None; ctx_resources_produced = None;
-  ctx_resources_used_by_args = None;
+  ctx_resources_usage = None; ctx_resources_contract_invoc = None;
+  ctx_resources_post_inst = None;
 }
-
 
 let typing_ctx (ctx_types: typ_ctx): ctx =
   { unknown_ctx with ctx_types = Some ctx_types }

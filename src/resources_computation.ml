@@ -646,62 +646,109 @@ let decode_array_access (fn: trm) (args: trm list): trm * trm list =
     end
   | _ -> (fn, args)
 
-type used_mode =
-| UsedFull
-| UsedReadOnly
+let empty_usage_map (res: resource_set): resource_usage_map =
+ List.fold_left (fun acc (h, _) -> Hyp_map.add h NotUsed acc) Hyp_map.empty res.linear
+
+let update_usage_map ~(current_usage: resource_usage_map) ~(child_usage: resource_usage_map): resource_usage_map =
+  Hyp_map.merge (fun _ cur_use ch_use ->
+      match cur_use, ch_use with
+      | None, _ -> None
+      | Some u, None -> Some u
+      | Some NotUsed, Some u -> Some u
+      | Some u, Some NotUsed -> Some u
+      | Some UsedReadOnly, Some u -> Some u
+      | Some u, Some UsedReadOnly -> Some u
+      | Some UsedFull, Some UsedFull -> Some UsedFull
+    ) current_usage child_usage
+
+let update_usage_map_opt ~(current_usage: resource_usage_map option) ~(child_usage: resource_usage_map option): resource_usage_map option =
+  let open Tools.OptionMonad in
+  let* current_usage in
+  let* child_usage in
+  Some (update_usage_map ~current_usage ~child_usage)
+
+let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource_usage_map) : resource_usage_map =
+  (* TODO: Maybe manage pure as well *)
+  let locally_used =
+    List.fold_left (fun usage_map { inst_by } ->
+      match inst_split_read_only_inv inst_by with
+      | Some (_, orig_hyp) -> Hyp_map.add orig_hyp UsedReadOnly usage_map
+      | None ->
+        match inst_hyp_inv inst_by with
+        | Some hyp -> Hyp_map.add hyp UsedFull usage_map
+        | None -> failwith "Weird resource used"
+    ) Hyp_map.empty res_used.used_linear
+  in
+  update_usage_map ~current_usage:usage_map ~child_usage:locally_used
+
+let rec compute_resources_and_update_usage ?(expected_res: resource_spec) (res: resource_spec) (current_usage: resource_usage_map option) (t: trm): resource_usage_map option * resource_spec =
+  let child_usage, res = compute_resources ?expected_res res t in
+  let usage_map = update_usage_map_opt ~current_usage ~child_usage in
+  (usage_map, res)
 
 (* TODO: better name? *)
-let rec compute_inplace ?(expected_res: resource_spec) ?(used_tracker: (hyp_id, used_mode) Hashtbl.t option) (res: resource_spec) (t: trm): resource_spec =
-  let aux = compute_inplace in
+and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: trm): resource_usage_map option * resource_spec =
   (*Printf.eprintf "With resources: %s\nComputing %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);*)
   t.ctx.ctx_resources_before <- res;
-  let open Tools.OptionMonad in
-  let res =
-    let* res in
+  let (let**) (x: 'a option) (f: 'a -> 'b option * 'c option) =
+    match x with
+    | Some x -> f x
+    | None -> None, None
+  in
+  let usage_map, res =
+    let** res in
+    let usage_map = empty_usage_map res in
     try begin match t.desc with
-    | Trm_val _ | Trm_var _ -> Some res (* TODO: Manage return values for pointers *)
+    | Trm_val _ | Trm_var _ -> (Some usage_map, Some res) (* TODO: Manage return values for pointers *)
 
     | Trm_let_fun (name, ret_type, args, body, contract) ->
       let name = qvar_to_var name in
       begin match contract with
       | Some contract ->
         let body_res = bind_new_resources ~old_res:res ~new_res:contract.pre in
-        ignore (aux ~expected_res:contract.post (Some body_res) body);
+        (* LATER: Merge used pure facts *)
+        ignore (compute_resources ~expected_res:contract.post (Some body_res) body);
         let args = List.map (fun (x, _) -> x) args in
-        Some { res with fun_contracts = Var_map.add name (args, contract) res.fun_contracts }
-      | None -> Some res
+        (Some usage_map, Some { res with fun_contracts = Var_map.add name (args, contract) res.fun_contracts })
+      | None -> (Some usage_map, Some res)
       end
 
     | Trm_seq instrs ->
       let instrs = Mlist.to_list instrs in
-      let* res = List.fold_left aux (Some res) instrs in
-
-      (* Free the cells allocated with stack new *)
-      let extract_let_mut ti =
-        match trm_let_inv ti with
-        | Some (_, x, _, t) ->
-          begin match new_operation_inv t with
-          | Some _ -> [x]
-          | None -> []
-          end
-        | None -> []
+      let usage_map, res = List.fold_left (fun (usage_map, res) inst ->
+          compute_resources_and_update_usage res usage_map inst)
+          (Some usage_map, Some res) instrs
       in
-      let to_free = List.concat_map extract_let_mut instrs in
-      (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
-      let res_to_free = resource_set ~linear:(List.map (fun x -> (new_anon_hyp (), formula_cell x)) to_free) () in
-      let _, _, linear = res_impl_leftovers ~split_frac:false res res_to_free in
-      Some { res with linear }
+
+      let res = Option.map (fun res ->
+        (* Free the cells allocated with stack new *)
+        let extract_let_mut ti =
+          match trm_let_inv ti with
+          | Some (_, x, _, t) ->
+            begin match new_operation_inv t with
+            | Some _ -> [x]
+            | None -> []
+            end
+          | None -> []
+        in
+        let to_free = List.concat_map extract_let_mut instrs in
+        (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
+        let res_to_free = resource_set ~linear:(List.map (fun x -> (new_anon_hyp (), formula_cell x)) to_free) () in
+        let _, _, linear = res_impl_leftovers ~split_frac:false res res_to_free in
+        { res with linear }) res
+      in
+      usage_map, res
 
     | Trm_let (_, (var, typ), body, spec) ->
       begin match spec with
       | Some bound_res ->
         let expected_res = rename_var_in_res var var_result bound_res in
-        ignore (aux ~expected_res (Some res) body);
+        let usage_map, _ = compute_resources_and_update_usage ~expected_res (Some res) (Some usage_map) body in
         (* Use the bound_res contract but keep res existing pure facts *)
-        Some (bind_new_resources ~old_res:res ~new_res:bound_res)
+        usage_map, Some (bind_new_resources ~old_res:res ~new_res:bound_res)
       | None ->
-        let* res_after = aux (Some res) body in
-        Some (rename_var_in_res var_result var res_after)
+        let usage_map, res_after = compute_resources_and_update_usage (Some res) (Some usage_map) body in
+        usage_map, Option.map (fun res_after -> rename_var_in_res var_result var res_after) res_after
       end
 
     | Trm_apps (fn, effective_args) ->
@@ -710,20 +757,18 @@ let rec compute_inplace ?(expected_res: resource_spec) ?(used_tracker: (hyp_id, 
       let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv fn in
       begin match Var_map.find_opt fn res.fun_contracts with
       | Some (contract_args, contract) ->
-        let subst_map = ref Var_map.empty in
-        let avoid_names = ref (resource_names res) in (* FIXME: This should also contain program variable names *)
         (* TODO: Cast into readonly: better error message when a resource exists in RO only but asking for RW *)
         let read_only_res = cast_into_read_only res in
         let contract_fv = fun_contract_free_vars contract in
-        let arg_used_tracker = Hashtbl.create 1 in
-        begin try
-          List.iter2 (fun contract_arg effective_arg ->
+        let subst_ctx, usage_map = try
+          List.fold_left2 (fun (subst_map, usage_map) contract_arg effective_arg ->
             (* Give resources as read only and check that they are still there after the argument evaluation *)
             (* LATER: Collect pure facts of arguments:
                f(3+i), f(g(a)) where g returns a + a, f(g(a)) where g ensures res mod a = 0 *)
-            begin match compute_inplace ~used_tracker:arg_used_tracker (Some read_only_res) effective_arg with
-            | Some arg_post ->
-              begin try ignore (assert_res_impl arg_post (resource_set ~linear:read_only_res.linear ()))
+            let usage_map, post_arg_res = compute_resources_and_update_usage (Some read_only_res) usage_map effective_arg in
+            begin match post_arg_res with
+            | Some post_arg_res ->
+              begin try ignore (assert_res_impl post_arg_res (resource_set ~linear:read_only_res.linear ()))
               with e -> raise (ImpureFunctionArgument e)
               end
             | None -> ()
@@ -734,42 +779,27 @@ let rec compute_inplace ?(expected_res: resource_spec) ?(used_tracker: (hyp_id, 
                 | Some formula -> formula
                 | None -> fail effective_arg.loc (Printf.sprintf "Could not make a formula out of term '%s', required because of instantiation of %s contract" (AstC_to_c.ast_to_string effective_arg) fn)
               in
-              subst_map := Var_map.add contract_arg arg_formula !subst_map;
-              avoid_names := Var_set.union (trm_free_vars effective_arg) !avoid_names
-            end
-          ) contract_args effective_args;
+              Var_map.add contract_arg arg_formula subst_map, usage_map
+            end else
+              subst_map, usage_map
+          ) (Var_map.empty, Some usage_map) contract_args effective_args;
         with Invalid_argument _ ->
           failwith (Printf.sprintf "Mismatching number of arguments for %s" fn)
-        end;
+        in
 
-        let res_used_by_args = List.filter (fun (h, _) -> Hashtbl.mem arg_used_tracker h.id) read_only_res.linear in
-        t.ctx.ctx_resources_used_by_args <- Some res_used_by_args;
+        let subst_ctx, res_used, res_frame = res_impl_leftovers ~split_frac:true ~subst_ctx res contract.pre in
 
-        let subst_ctx, res_used, res_frame = res_impl_leftovers ~split_frac:true ~subst_ctx:!subst_map res contract.pre in
-        t.ctx.ctx_resources_frame <- Some res_frame;
-        t.ctx.ctx_resources_used <- Some res_used;
-
-        begin match used_tracker with
-        | Some tracker ->
-          Hashtbl.iter (fun key value -> Hashtbl.add tracker key value) arg_used_tracker;
-          (* TODO: Same for pure variables? *)
-          List.iter (fun { inst_by } ->
-              match inst_split_read_only_inv inst_by with
-              | Some (_, orig_hyp) -> Hashtbl.add tracker orig_hyp.id UsedReadOnly
-              | None ->
-                match inst_hyp_inv inst_by with
-                | Some hyp -> Hashtbl.add tracker hyp.id UsedFull
-                | None -> failwith "Weird resource used"
-            ) res_used.used_linear;
-        | None -> ()
-        end;
+        let usage_map = Option.map (fun usage_map -> add_used_set_to_usage_map res_used usage_map) usage_map in
 
         let res_produced = compute_produced_resources subst_ctx contract.post in
-        t.ctx.ctx_resources_produced <- Some res_produced;
+        t.ctx.ctx_resources_contract_invoc <- Some {
+            contract_frame = res_frame;
+            contract_inst = res_used;
+            contract_produced = res_produced };
 
-        Some (bind_new_resources ~old_res:res ~new_res:(res_merge_after_frame res_produced res_frame))
+        usage_map, Some (bind_new_resources ~old_res:res ~new_res:(res_merge_after_frame res_produced res_frame))
 
-      | None when fn = "__admitted" -> None
+      | None when fn = "__admitted" -> None, None
       | None -> raise (Spec_not_found fn)
       end
 
@@ -777,41 +807,50 @@ let rec compute_inplace ?(expected_res: resource_spec) ?(used_tracker: (hyp_id, 
       (* If no spec is given, put all the resources in the invariant (best effort) *)
       (* TODO: Still try to be clever about Group with a corresponding range *)
       let expected_res = resource_set ~linear:res.linear () in
-      ignore (aux ~expected_res (Some res) body);
-      Some res
+      let usage_map, _ = compute_resources_and_update_usage ~expected_res (Some res) (Some usage_map) body in
+      usage_map, Some res
 
     | Trm_for ((index, tstart, _, tend, step, _) as range, body, Some contract) ->
-      let invariant_before = subst_var_in_res index tstart contract.invariant in
-      let before_loop_res = res_union invariant_before (res_group_range range contract.iter_contract.pre) in
-      let before_loop_res = { before_loop_res with pure = contract.loop_ghosts @ before_loop_res.pure } in
-      let ghost_subst_ctx, res_used, res_frame = res_impl_leftovers ~split_frac:true res before_loop_res in
-      t.ctx.ctx_resources_frame <- Some res_frame;
-      t.ctx.ctx_resources_used <- Some res_used;
-
+      (* Compute resources inside the loop body *)
       let loop_body_pre = res_union contract.invariant contract.iter_contract.pre in
       let loop_body_pre = { loop_body_pre with pure = contract.loop_ghosts @ loop_body_pre.pure; fun_contracts = res.fun_contracts } in
       let invariant_after_one_iter = subst_var_in_res index (trm_add (trm_var index) (loop_step_to_trm step)) contract.invariant in
       let loop_body_post = res_union invariant_after_one_iter contract.iter_contract.post in
-      ignore (aux ~expected_res:loop_body_post (Some loop_body_pre) body);
+      ignore (compute_resources ~expected_res:loop_body_post (Some loop_body_pre) body);
+
+      (* Compute resources outside the loop *)
+      let invariant_before = subst_var_in_res index tstart contract.invariant in
+      let before_loop_res = res_union invariant_before (res_group_range range contract.iter_contract.pre) in
+      let before_loop_res = { before_loop_res with pure = contract.loop_ghosts @ before_loop_res.pure } in
+      let ghost_subst_ctx, res_used, res_frame = res_impl_leftovers ~split_frac:true res before_loop_res in
 
       let after_loop_res = res_union contract.invariant (res_group_range range contract.iter_contract.post) in
       let after_loop_res = compute_produced_resources (Var_map.add index tend ghost_subst_ctx) after_loop_res in
-      Some (bind_new_resources ~old_res:res ~new_res:(res_merge_after_frame after_loop_res res_frame))
+
+      t.ctx.ctx_resources_contract_invoc <- Some { contract_frame = res_frame; contract_inst = res_used; contract_produced = after_loop_res };
+
+      let usage_map = add_used_set_to_usage_map res_used usage_map in
+
+      Some usage_map, Some (bind_new_resources ~old_res:res ~new_res:(res_merge_after_frame after_loop_res res_frame))
 
     | _ -> fail t.loc ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
     end with e when !Flags.resource_errors_as_warnings ->
       Printf.eprintf "%s: Resource computation warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
-      None
+      None, None
     | ResourceError (None, place, err) -> raise (ResourceError (t.loc, place, err))
     | ResourceError (Some _, _, _) as e -> raise e
     | e -> raise (ResourceError (t.loc, ResourceComputation, e))
   in
 
+  t.ctx.ctx_resources_usage <- usage_map;
   (*Printf.eprintf "With resources: %s\nSaving %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);*)
   t.ctx.ctx_resources_after <- res;
-  match res, expected_res with
+  let res =
+    match res, expected_res with
     | Some res, Some expected_res ->
-      begin try ignore (assert_res_impl res expected_res)
+      begin try
+        let used_res = assert_res_impl res expected_res in
+        t.ctx.ctx_resources_post_inst <- Some used_res
       with e when !Flags.resource_errors_as_warnings ->
         Printf.eprintf "%s: Resource check warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
       | ResourceError _ as e -> raise e
@@ -820,6 +859,8 @@ let rec compute_inplace ?(expected_res: resource_spec) ?(used_tracker: (hyp_id, 
       Some expected_res
     | _, None -> res
     | None, _ -> expected_res
+  in
+  usage_map, res
 
 let ctx_copy (ctx: ctx): ctx = { ctx with ctx_types = ctx.ctx_types }
 
@@ -830,5 +871,5 @@ let rec trm_deep_copy (t: trm) : trm =
 
 let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm =
   let t = trm_deep_copy t in
-  ignore (compute_inplace (Some init_ctx) t);
+  ignore (compute_resources (Some init_ctx) t);
   t
