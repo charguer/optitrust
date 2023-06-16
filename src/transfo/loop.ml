@@ -234,13 +234,12 @@ let%transfo hoist_decl_loop_list
   Trace.step_valid_by_composition ();
   Target.iter (fun t p ->
     let tg_trm = Path.resolve_path p t in
-    match trm_let_inv tg_trm with
-    | Some (_, x, _, init) -> Marks.with_fresh_mark_on (p @ [Dir_body; Dir_arg_nth 0]) (fun m ->
-        hoist_alloc_loop_list ~tmp_names ~name ~inline loops tg;
-        hoist_instr_loop_list loops [cBinop ~rhs:[cMark m] Binop_set];
-      )
-    | None -> fail tg_trm.loc "expected let"
-  ) tg
+    let error = "Loop.hoist_decl_loop_list: expected let" in
+    let _ = trm_inv ~error trm_let_inv tg_trm in
+    Marks.with_fresh_mark_on (p @ [Dir_body; Dir_arg_nth 0]) (fun m ->
+      hoist_alloc_loop_list ~tmp_names ~name ~inline loops tg;
+      hoist_instr_loop_list loops [cBinop ~rhs:[cMark m] Binop_set];
+    )) tg
 
 (* private *)
 let find_surrounding_instr (p : path) (t : trm) : path =

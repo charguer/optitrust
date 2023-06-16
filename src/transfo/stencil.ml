@@ -198,5 +198,5 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)
   )
 
 let fusion_targets ~(nest_of : int) ?(overlaps : (var * (trm list)) list = []) ~(outputs : var list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = false) (tg : target) : unit =
-  Trace.step_valid_by_composition ();
+  (* Trace.step_valid_by_composition (); *)
   fusion_targets_tile (List.init nest_of (fun _ -> trm_int 1)) ~overlaps ~outputs ~simpl ~fuse_inner_loops tg

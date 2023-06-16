@@ -211,13 +211,16 @@ h2 {
 
 /* ---- */
 
-/* ---- compact:
+/* ---- compact:*/
 ul {
-  list-style-type: none;
+  /* list-style-type: none;  */
   margin: 0;
-  padding-left: 0;
+  padding-left: 3ex;
 }
-li {
+ul ul {
   padding-left: 1ex;
 }
----- */
+li {
+  padding-left: 0ex;
+}
+/*---- */
