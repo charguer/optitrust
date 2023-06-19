@@ -449,10 +449,13 @@ let rec contract_elim (t: trm): trm =
   match t.desc with
   | Trm_let_fun (qv, ty, args, body, contract) ->
     assert (contract == None);
-    let body_seq = trm_inv trm_seq_inv body in
-    let contract, new_body = extract_fun_contract body_seq in
-    let new_body = Mlist.map contract_elim new_body in
-    trm_alter ~desc:(Trm_let_fun (qv, ty, args, trm_seq new_body, contract)) t
+    begin match trm_seq_inv body with
+    | Some body_seq ->
+      let contract, new_body = extract_fun_contract body_seq in
+      let new_body = Mlist.map contract_elim new_body in
+      trm_alter ~desc:(Trm_let_fun (qv, ty, args, trm_seq new_body, contract)) t
+    | None -> trm_map contract_elim t
+    end
   (*| Trm_for (range, body, _) -> failwith "TODO"
   | Trm_for_c (init, cond, step, body, _) -> failwith "TODO"*)
   | _ -> trm_map contract_elim t
