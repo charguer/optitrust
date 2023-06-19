@@ -1,5 +1,4 @@
 open Optitrust
-open Ast
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->

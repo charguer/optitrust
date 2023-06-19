@@ -3,8 +3,8 @@ open Target
 
 (* [delete tg]: expects the target [tg] to point at an instruction inside a sequence
       then it will remove that instruciton from that sequence *)
-let delete : Target.Transfo.t =
-  Sequence_basic.delete
+let%transfo delete (tg : target) : unit =
+  Sequence_basic.delete tg
 
 (* [copy ~target tg]: expects the target [tg] to point at an instruction that is
     going to be copied to the relative target [where]. If [delete] is true then
@@ -31,6 +31,7 @@ let%transfo copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:target = 
    This is sufficient but not necessary, a manual commutation proof can be used
    as well. *)
 let%transfo move ?(rev : bool = false) ~dest:(dest : target) (tg : target) : unit =
+  Trace.tag_atomic ();
   copy ~rev ~delete:true ~dest tg
 
 

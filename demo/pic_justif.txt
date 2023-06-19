@@ -26,7 +26,7 @@
 - likewise
   t[i] = v
   can be deleted if t[i] is a storage that is about
-  to be discarded
+  to bec discarded
 
 - int x = a[i]
   ..

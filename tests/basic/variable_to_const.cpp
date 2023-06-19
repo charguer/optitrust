@@ -36,3 +36,19 @@ int test_vect(){
     int gv = *(&g[1]);
   }
 }
+
+/* check failures LATER
+
+int test_write(int* p) {
+  *p = 4;
+}
+
+int test_write(int* const p) {
+}
+
+int test_fail() {
+  int bad = 5; // cannot to_const this variable
+  test_write(&bad);
+  // bad = 6;
+}
+*/

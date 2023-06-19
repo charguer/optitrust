@@ -199,3 +199,7 @@ let rec drop (n : int) (l: 'a list) : 'a list =
 (* [take_last n l]: takes the last [n] elements from [l]. *)
 let take_last (n : int) (l : 'a list) : 'a list =
   drop ((List.length l) - n) l
+
+(* [diff l1 l2]: takes the difference between lists [l1] and [l2].
+   *)
+let diff l1 l2 = List.filter (fun x -> not (List.mem x l2)) l1

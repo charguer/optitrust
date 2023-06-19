@@ -283,16 +283,28 @@ let normalize_one (e : expr) : expr =
           | (ai, { expr_desc = Expr_prod [(1,ei); (bi, { expr_desc = Expr_int 1; _})]; _ }) -> [(ai * bi, ei)]
           | we -> [we]) wes))
     | Expr_prod wes ->
-        mk (Expr_prod (List.concat_map (function
-          | (_ai, { expr_desc = Expr_int 1; _ }) -> []
-          | (_ai, { expr_desc = Expr_double 1.; _}) -> []
-          | (0, _ei) -> []
-          | (1, { expr_desc = Expr_prod wesi; _}) -> wesi
-          | (-1, { expr_desc = Expr_prod wesi; _}) -> List.map (fun (w,ei) -> (-w, ei)) wesi
-          | (ai, { expr_desc = Expr_sum [(bi, { expr_desc = Expr_int 1; _})]; expr_loc = loc; _}) -> [(ai, expr_int ?loc bi)]
-          | (ai, { expr_desc = Expr_sum [(bi, ei)]; expr_loc = loc; _}) when is_integer_typ e.expr_typ ->
-            [(ai, expr_int ?loc bi); (ai, ei)]
-          | we -> [we]) wes))
+      let is_val = ref None in  (* TODO: replace side effect with dedicated recursion for early abort *)
+      let p2 = Expr_prod (List.concat_map (function
+      | (_ai, ({ expr_desc = Expr_int 0; _ } as ezero)) ->
+        is_val := Some ezero;
+        []
+      | (_ai, ({ expr_desc = Expr_double 0.; _} as ezero)) ->
+        is_val := Some ezero;
+        []
+      | (_ai, { expr_desc = Expr_int 1; _ }) -> []
+      | (_ai, { expr_desc = Expr_double 1.; _}) -> []
+      | (0, _ei) -> []
+      | (1, { expr_desc = Expr_prod wesi; _}) -> wesi
+      | (-1, { expr_desc = Expr_prod wesi; _}) -> List.map (fun (w,ei) -> (-w, ei)) wesi
+      | (ai, { expr_desc = Expr_sum [(bi, { expr_desc = Expr_int 1; _})]; expr_loc = loc; _}) -> [(ai, expr_int ?loc bi)]
+      | (ai, { expr_desc = Expr_sum [(bi, ei)]; expr_loc = loc; _}) when is_integer_typ e.expr_typ ->
+        [(ai, expr_int ?loc bi); (ai, ei)]
+      | we -> [we]) wes)
+      in
+      begin match !is_val with
+      | None -> mk p2
+      | Some v -> v
+      end
     (* [e1 / 1 = 1] *)
     | Expr_binop (Binop_div, e1, { expr_desc = Expr_int 1; _}) -> e1
     | Expr_binop (Binop_div, e1, { expr_desc = Expr_prod []; _}) -> e1

@@ -117,6 +117,7 @@ let%transfo intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : 
     e.g., points at [{t2;t3}] inside [{ t1; { t2; t3 }; t4 }]. It "elims" the contents of the inner sequence,
     producing e.g., [{ t1; t2; t3; t3}]. *)
 let%transfo elim (tg : target) : unit =
+  Trace.justif "correct if scoping is not broken (TODO: check)";
   Internal.nobrace_remove_after ( fun _ ->
   Target.apply_on_targets (Sequence_core.elim) tg)
 
@@ -155,6 +156,7 @@ let%transfo split (tg : target) : unit =
         [braces] - denotes a flag for the visibility of the blocks meaning that this block partition will be meaningful only for
           other transformations that call explicitly the partition transformation. *)
 let%transfo partition ?(braces : bool = false) (blocks : int list) (tg : target) : unit =
+  Trace.justif "correct if scoping is respected (TODO: check)";
   if not braces then Internal.nobrace_enter();
   Target.apply_on_targets (Sequence_core.partition blocks braces) tg
 

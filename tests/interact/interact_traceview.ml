@@ -13,7 +13,9 @@ open Target
 (* Dump a javascript file with the full trace at the end,
    when executing 'make interact_traceview.out'  *)
 let  _ =
-  Flags.dump_trace := true
+  Flags.dump_trace := true;
+  Flags.use_clang_format := true
+
 
 let _ = Run.script_cpp (fun _ ->
 
@@ -22,7 +24,7 @@ let _ = Run.script_cpp (fun _ ->
     !! Label.add "lab2" [cVarDef "a"];
     bigstep "second part";
     (* Activate the line below to see a trace with failure in the middle *)
-    !! if false then failwith "ok";
+    !! if false then failwith "the error message";
     !! Label.add "lab3" [cVarDef "a"];
     !! Label.add "lab4" [cVarDef "a"];
     !! Label.add "lab5" [cVarDef "a"];

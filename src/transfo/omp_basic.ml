@@ -8,314 +8,314 @@ open Target
 (******************************************************************************)
 (*                            OpenMP directives                               *)
 (******************************************************************************)
-let atomic ?(ao : atomic_operation option) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Atomic ao))
+let%transfo atomic ?(ao : atomic_operation option) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Atomic ao)) tg
 
-let atomic_capture : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Atomic_capture))
+let%transfo atomic_capture (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Atomic_capture)) tg
 
-let barrier : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Barrier))
+let%transfo barrier (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Barrier)) tg
 
-let cancel ?(clause : clause list = []) (construct_type_clause : clause) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Cancel (construct_type_clause, clause)))
+let%transfo cancel ?(clause : clause list = []) (construct_type_clause : clause) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Cancel (construct_type_clause, clause))) tg
 
-let cancellation_point ?(clause : clause list = []) (construct_type_clause : clause) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Cancellation_point (construct_type_clause, clause)))
+let%transfo cancellation_point ?(clause : clause list = []) (construct_type_clause : clause) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Cancellation_point (construct_type_clause, clause))) tg
 
-let critical ?(hint : var = "") (v : var) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Critical (v, hint)))
+let%transfo critical ?(hint : var = "") (v : var) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Critical (v, hint))) tg
 
-let declare_simd ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Declare_simd clause ))
+let%transfo declare_simd ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Declare_simd clause )) tg
 
-let declare_reduction (ri : reduction_identifier) (tl : typvars) (e : expression) (clause : clause) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Declare_reduction (ri, tl, e, clause)))
+let%transfo declare_reduction (ri : reduction_identifier) (tl : typvars) (e : expression) (clause : clause) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Declare_reduction (ri, tl, e, clause))) tg
 
-let declare_target ?(clause : clause list = []): Transfo.t =
-  transfo_on_targets (trm_add_pragma (Declare_target clause))
+let%transfo declare_target ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Declare_target clause)) tg
 
-let distribute ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Distribute clause))
+let%transfo distribute ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Distribute clause)) tg
 
-let distribute_parallel_for ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Distribute_parallel_for clause ))
+let%transfo distribute_parallel_for ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Distribute_parallel_for clause )) tg
 
-let distribute_parallel_for_simd ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Distribute_parallel_for_simd clause ))
+let%transfo distribute_parallel_for_simd ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Distribute_parallel_for_simd clause )) tg
 
-let distribute_simd : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Distribute_simd))
+let%transfo distribute_simd (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Distribute_simd)) tg
 
-let end_declare_target  : Transfo.t =
-  transfo_on_targets (trm_add_pragma (End_declare_target))
+let%transfo end_declare_target (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (End_declare_target)) tg
 
-let flush (vl : vars) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Flush vl))
+let%transfo flush (vl : vars) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Flush vl)) tg
 
-let for_ ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (For clause))
+let%transfo for_ ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (For clause)) tg
 
-let for_simd ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (For_simd clause))
+let%transfo for_simd ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (For_simd clause)) tg
 
-let master : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Master))
+let%transfo master (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Master)) tg
 
-let ordered ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Ordered clause))
+let%transfo ordered ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Ordered clause)) tg
 
-let parallel ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Parallel clause))
+let%transfo parallel ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Parallel clause)) tg
 
-let parallel_for ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Parallel_for clause))
+let%transfo parallel_for ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Parallel_for clause)) tg
 
-let parallel_for_simd ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Parallel_for_simd clause))
+let%transfo parallel_for_simd ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Parallel_for_simd clause)) tg
 
-let parallel_sections ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Parallel_sections clause))
+let%transfo parallel_sections ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Parallel_sections clause)) tg
 
-let section : Transfo.t =
-  transfo_on_targets (trm_add_pragma Section)
+let%transfo section (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma Section) tg
 
-let simd ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Simd clause))
+let%transfo simd ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Simd clause)) tg
 
-let single ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Single clause))
+let%transfo single ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Single clause)) tg
 
-let target ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Target clause))
+let%transfo target ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Target clause)) tg
 
-let target_data ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Target_data clause))
+let%transfo target_data ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Target_data clause)) tg
 
-let target_enter_data ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Target_enter_data clause))
+let%transfo target_enter_data ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Target_enter_data clause)) tg
 
-let target_exit_data ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Target_exit_data clause))
+let%transfo target_exit_data ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Target_exit_data clause)) tg
 
-let target_teams ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Target_teams clause))
+let%transfo target_teams ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Target_teams clause)) tg
 
-let target_teams_distribute ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Target_teams_distribute clause))
+let%transfo target_teams_distribute ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Target_teams_distribute clause)) tg
 
-let target_teams_distribute_parallel_for ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Target_teams_distribute_parallel_for clause))
+let%transfo target_teams_distribute_parallel_for ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Target_teams_distribute_parallel_for clause)) tg
 
-let target_teams_distribute_parallel_for_simd ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Target_teams_distribute_parallel_for_simd clause))
+let%transfo target_teams_distribute_parallel_for_simd ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Target_teams_distribute_parallel_for_simd clause)) tg
 
-let target_teams_distribute_simd ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Target_teams_distribute_simd clause))
+let%transfo target_teams_distribute_simd ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Target_teams_distribute_simd clause)) tg
 
-let target_update ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Target_update clause))
+let%transfo target_update ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Target_update clause)) tg
 
-let task ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Task clause))
+let%transfo task ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Task clause)) tg
 
-let taskgroup : Transfo.t =
-  transfo_on_targets (trm_add_pragma Taskgroup)
+let%transfo taskgroup (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma Taskgroup) tg
 
-let taskloop ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Taskloop clause))
+let%transfo taskloop ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Taskloop clause)) tg
 
-let taskloop_simd ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Taskloop_simd clause))
+let%transfo taskloop_simd ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Taskloop_simd clause)) tg
 
-let taskwait ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Taskwait clause))
+let%transfo taskwait ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Taskwait clause)) tg
 
-let taskyield  : Transfo.t =
-  transfo_on_targets (trm_add_pragma Taskyield)
+let%transfo taskyield  (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma Taskyield) tg
 
-let teams ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Teams clause))
+let%transfo teams ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Teams clause)) tg
 
-let teams_distribute ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Teams_distribute clause))
+let%transfo teams_distribute ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Teams_distribute clause)) tg
 
-let teams_distribute_end ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Teams_distribute_end clause))
+let%transfo teams_distribute_end ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Teams_distribute_end clause)) tg
 
-let teams_distribute_parallel_for ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Teams_distribute_parallel_for clause))
+let%transfo teams_distribute_parallel_for ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Teams_distribute_parallel_for clause)) tg
 
-let teams_distribute_parallel_for_simd ?(clause : clause list = []) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Teams_distribute_parallel_for_simd clause))
+let%transfo teams_distribute_parallel_for_simd ?(clause : clause list = []) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Teams_distribute_parallel_for_simd clause)) tg
 
-let threadprivate (vl : vars) : Transfo.t =
-  transfo_on_targets (trm_add_pragma (Threadprivate vl))
+let%transfo threadprivate (vl : vars) (tg : target) : unit =
+  transfo_on_targets (trm_add_pragma (Threadprivate vl)) tg
 
 
 (******************************************************************************)
 (*                             OpenMP routines                                *)
 (******************************************************************************)
-let set_num_threads (nb_threads : int) : Transfo.t=
+let%transfo set_num_threads (nb_threads : int) (tg : target) : unit=
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.set_num_threads nb_threads i t p)
+    Omp_core.set_num_threads nb_threads i t p) tg
 
-let get_num_threads (nb_threads : var) : Transfo.t =
+let%transfo get_num_threads (nb_threads : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_num_threads nb_threads i t p)
+    Omp_core.get_num_threads nb_threads i t p) tg
 
-let declare_num_threads ?(tg : target = [tFirst; dRoot]) (nb_threads : var) : unit =
+let%transfo declare_num_threads ?(tg : target = [tFirst; dRoot]) (nb_threads : var) : unit =
   apply_on_targets_between (fun t (p, i) ->
     Omp_core.declare_num_threads nb_threads i t p) tg
 
-let get_max_threads (max_threads : var) : Transfo.t =
+let%transfo get_max_threads (max_threads : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_max_threads max_threads i t p)
+    Omp_core.get_max_threads max_threads i t p) tg
 
-let get_thread_num ?(const : bool = true) (thread_id : var) : Transfo.t =
+let%transfo get_thread_num ?(const : bool = true) (thread_id : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_thread_num const thread_id i t p)
+    Omp_core.get_thread_num const thread_id i t p) tg
 
-let get_num_procs (num_procs : var) : Transfo.t =
+let%transfo get_num_procs (num_procs : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_num_procs num_procs i t p)
+    Omp_core.get_num_procs num_procs i t p) tg
 
-let in_parallel (in_parallel : var) : Transfo.t =
+let%transfo in_parallel (in_parallel : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.in_parallel in_parallel i t p)
+    Omp_core.in_parallel in_parallel i t p) tg
 
-let set_dynamic (thread_id : int) : Transfo.t =
+let%transfo set_dynamic (thread_id : int) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.set_dynamic thread_id i t p)
+    Omp_core.set_dynamic thread_id i t p) tg
 
-let get_dynamic (is_dynamic : var) : Transfo.t =
+let%transfo get_dynamic (is_dynamic : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_dynamic is_dynamic i t p)
+    Omp_core.get_dynamic is_dynamic i t p) tg
 
-let get_cancellation (is_cancellation : var) : Transfo.t =
+let%transfo get_cancellation (is_cancellation : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_cancellation is_cancellation i t p)
+    Omp_core.get_cancellation is_cancellation i t p) tg
 
-let set_nested (nested : int) : Transfo.t =
+let%transfo set_nested (nested : int) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.set_nested nested i t p)
+    Omp_core.set_nested nested i t p) tg
 
-let get_nested (is_nested : var) : Transfo.t =
+let%transfo get_nested (is_nested : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_nested is_nested i t p)
+    Omp_core.get_nested is_nested i t p) tg
 
-let set_schedule (sched_kind : sched_type) (modifier : int) : Transfo.t =
+let%transfo set_schedule (sched_kind : sched_type) (modifier : int) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.set_schedule sched_kind modifier i t p)
+    Omp_core.set_schedule sched_kind modifier i t p) tg
 
-let get_schedule (sched_kind : sched_type) (modifier : int) : Transfo.t =
+let%transfo get_schedule (sched_kind : sched_type) (modifier : int) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_schedule sched_kind modifier i t p)
+    Omp_core.get_schedule sched_kind modifier i t p) tg
 
-let get_thread_limit (limit : var) : Transfo.t =
+let%transfo get_thread_limit (limit : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_thread_limit limit i t p)
+    Omp_core.get_thread_limit limit i t p) tg
 
-let set_max_active_levels (max_levels : int) : Transfo.t =
+let%transfo set_max_active_levels (max_levels : int) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.set_max_active_levels max_levels i t p)
+    Omp_core.set_max_active_levels max_levels i t p) tg
 
-let get_max_active_levels (max_levels : var) : Transfo.t =
+let%transfo get_max_active_levels (max_levels : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_max_active_levels max_levels i t p)
+    Omp_core.get_max_active_levels max_levels i t p) tg
 
-let get_level (level : var) : Transfo.t =
+let%transfo get_level (level : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_level level i t p)
+    Omp_core.get_level level i t p) tg
 
-let get_ancestor_thread_num (thread_num : var) : Transfo.t =
+let%transfo get_ancestor_thread_num (thread_num : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_ancestor_thread_num thread_num i t p)
+    Omp_core.get_ancestor_thread_num thread_num i t p) tg
 
-let get_team_size (level : int) (size : var) : Transfo.t =
+let%transfo get_team_size (level : int) (size : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_team_size level size i t p)
+    Omp_core.get_team_size level size i t p) tg
 
-let get_active_level (active_level : var) : Transfo.t =
+let%transfo get_active_level (active_level : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_active_level active_level i t p)
+    Omp_core.get_active_level active_level i t p) tg
 
-let in_final (in_final : var) : Transfo.t =
+let%transfo in_final (in_final : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.in_final in_final i t p)
+    Omp_core.in_final in_final i t p) tg
 
-let set_default_device (device_num : var) : Transfo.t =
+let%transfo set_default_device (device_num : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.set_default_device device_num i t p)
+    Omp_core.set_default_device device_num i t p) tg
 
-let get_default_device (default_device : var) : Transfo.t =
+let%transfo get_default_device (default_device : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_default_device default_device i t p)
+    Omp_core.get_default_device default_device i t p) tg
 
-let get_proc_bind (proc_bind : var) : Transfo.t =
+let%transfo get_proc_bind (proc_bind : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_proc_bind  proc_bind i t p)
+    Omp_core.get_proc_bind  proc_bind i t p) tg
 
-let get_num_devices (num_devices : var) : Transfo.t =
+let%transfo get_num_devices (num_devices : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_num_devices num_devices i t p)
+    Omp_core.get_num_devices num_devices i t p) tg
 
-let get_num_teams (num_teams : var) : Transfo.t =
+let%transfo get_num_teams (num_teams : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_num_teams num_teams i t p)
+    Omp_core.get_num_teams num_teams i t p) tg
 
-let get_team_num (team_num : var) : Transfo.t =
+let%transfo get_team_num (team_num : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_team_num team_num i t p)
+    Omp_core.get_team_num team_num i t p) tg
 
-let is_initial_device (is_initial_device : var) : Transfo.t =
+let%transfo is_initial_device (is_initial_device : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.is_initial_device is_initial_device i t p)
+    Omp_core.is_initial_device is_initial_device i t p) tg
 
-let init_lock (lock : var) : Transfo.t =
+let%transfo init_lock (lock : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.init_lock lock i t p)
+    Omp_core.init_lock lock i t p) tg
 
-let init_nest_lock (lock : var) : Transfo.t =
+let%transfo init_nest_lock (lock : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.init_nest_lock lock i t p)
+    Omp_core.init_nest_lock lock i t p) tg
 
-let destroy_lock (lock : var) : Transfo.t =
+let%transfo destroy_lock (lock : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.destroy_lock lock i t p)
+    Omp_core.destroy_lock lock i t p) tg
 
-let destroy_nest_lock (lock : var) : Transfo.t =
+let%transfo destroy_nest_lock (lock : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.destroy_nest_lock lock i t p)
+    Omp_core.destroy_nest_lock lock i t p) tg
 
-let set_lock (lock : var) : Transfo.t =
+let%transfo set_lock (lock : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.set_lock lock i t p)
+    Omp_core.set_lock lock i t p) tg
 
-let set_nest_lock (lock : var) : Transfo.t =
+let%transfo set_nest_lock (lock : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.set_nest_lock lock i t p)
+    Omp_core.set_nest_lock lock i t p) tg
 
-let unset_lock (lock : var) : Transfo.t =
+let%transfo unset_lock (lock : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.unset_lock lock i t p)
+    Omp_core.unset_lock lock i t p) tg
 
-let unset_nest_lock (lock : var) : Transfo.t =
+let%transfo unset_nest_lock (lock : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.unset_nest_lock lock i t p)
+    Omp_core.unset_nest_lock lock i t p) tg
 
-let test_lock (lock : var) : Transfo.t =
+let%transfo test_lock (lock : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.test_lock lock i t p)
+    Omp_core.test_lock lock i t p) tg
 
-let test_nest_lock (lock : var) : Transfo.t =
+let%transfo test_nest_lock (lock : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.test_nest_lock lock i t p)
+    Omp_core.test_nest_lock lock i t p) tg
 
-let get_wtime (wtime : var) : Transfo.t =
+let%transfo get_wtime (wtime : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_wtime wtime i t p)
+    Omp_core.get_wtime wtime i t p) tg
 
-let get_wtick (wtick : var) : Transfo.t =
+let%transfo get_wtick (wtick : var) (tg : target) : unit =
   apply_on_targets_between (fun t (p, i) ->
-    Omp_core.get_wtick wtick i t p)
+    Omp_core.get_wtick wtick i t p) tg

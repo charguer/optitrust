@@ -14,13 +14,15 @@ int main() {
   }
   for (int k0 = 0; k0 < n; k0++) {
     for (int k1 = 0; k1 < n; k1++) {
-      p += k0;
+      const int tmp = k0;
+      p += tmp;
     }
   }
   int y = 2;
   for (int k0 = 0; k0 < n; k0++) {
     for (int k1 = 0; k1 < n; k1++) {
-      p += k1;
+      const int tmp = k1;
+      p += tmp;
     }
   }
   for (int j = 0; j < n; j++) {

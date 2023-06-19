@@ -1,6 +1,26 @@
 open Ast
 open Target
 
+(* [delete tg]: delete the targeted function definition.
+   Correct if the function is never used.
+   Currently checked by verifying that the targets correspond to
+   function definitions, and by retychecking the code *)
+let%transfo delete (tg : target) : unit =
+  let tr () =
+    Sequence_basic.delete tg in
+  if !Flags.check_validity then begin
+    Trace.justif "The function is unused.";
+    Target.iter_at_target_paths (fun t ->
+      let error =  "Function.delete expects to target a function definition" in
+      let _ = trm_inv ~error trm_let_fun_inv t in
+      ()
+    ) tg;
+    tr();
+    Trace.retypecheck(); (* TODO: report error in unit test *)
+  end else
+    tr ()
+
+
 (* [bind_intro ~fresh_name ~const ~my_mark tg]: expects the target [t] to point at a function call.
      Then it will generate a new variable declaration named as [fresh_name] with type being the same
      as the one of the function call, and initialized to the function call itself.
@@ -69,6 +89,7 @@ let%transfo bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool 
    local invariants in the body. *)
 
 let%transfo inline ?(body_mark : mark option) ?(subst_mark : mark option) (tg : target) : unit =
+  Trace.justif "Function inlining is always correct (exploiting the fact that arguments are duplicable expressions).";
   Internal.nobrace_remove_after (fun _ ->
     Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
     apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)

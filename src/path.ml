@@ -397,7 +397,9 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
            fail t.loc (Printf.sprintf "Path.apply_on_path: direction %s does not match with trm %s" s (AstC_to_c.ast_to_string t))
 
        end in
-        { newt with typ = None; ctx = unknown_ctx }
+        (* NOTE: we don't reset the types, we need to keep them,
+           for is_statement *)
+        { newt with ctx = unknown_ctx }
         (* TODO: go through trm_build in order to keep track of the fact that this is a fresh AST node
           in the sense Node_to_reparse
           TODO: also search for desc = in the whole codebase

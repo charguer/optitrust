@@ -1,6 +1,6 @@
 TESTS := harris.ml
 
-include ../Common.Makefile
+include ../CaseStudies.Makefile
 
 _build/%.o: %.c #_build
 	$(V)$(CC) $(OPT_FLAGS) -fPIC -std=c11 -I ../../include/ $(WARN_FLAGS) -c $< -o $@

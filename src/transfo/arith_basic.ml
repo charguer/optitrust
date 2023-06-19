@@ -26,11 +26,13 @@ let%transfo apply (op : binary_op) (arg : trm) (tg : target) : unit =
    - gather  for grouping and cancelling out similar expressions in sums and produts
    - expand  for expanding products involving sums. *)
 let%transfo simpl ?(indepth : bool = false) (f: (expr -> expr)) (tg : target) : unit =
-  Trace.step_justif_always_correct ();
+  Trace.justif_always_correct ();
+  Trace.tag_simpl_arith ();
   apply_on_targets (Arith_core.simplify indepth f) tg
 
 (* [simpl_rec f tg] just an alias for simpl ~indepth:true tg *)
 let%transfo simpl_rec (f : (expr -> expr)) (tg : target) : unit =
+  Trace.tag_simpl_arith ();
   simpl ~indepth:true f tg
 
 

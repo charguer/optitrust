@@ -68,6 +68,7 @@ int main()
   // test float
   float f;
   f = -2.f / 12.f;
+  f = 0.0f * f;
 
   // test for loop shift
   int ls;
