@@ -283,14 +283,17 @@ let open_root_step ?(source : string = "<unnamed-file>") () : unit =
 let step_set_validity (s : step_tree) : unit =
   let infos = s.step_infos in
   if not infos.step_valid then begin
-    if List.for_all (fun sub -> sub.step_infos.step_valid) s.step_sub then begin
+    let kinds_excluded = [Step_target_resolve; Step_io; Step_aborted] in
+    let subs = List.filter (fun si -> not (List.mem si.step_kind kinds_excluded)) s.step_sub in
+    if List.for_all (fun sub -> sub.step_infos.step_valid) subs then begin
       let asts1: trm list = [s.step_ast_before] @
-        (List.map (fun sub -> sub.step_ast_after) s.step_sub);
+        (List.map (fun sub -> sub.step_ast_after) subs);
       in
-      let asts2: trm list = (List.map (fun sub -> sub.step_ast_before) s.step_sub) @
+      let asts2: trm list = (List.map (fun sub -> sub.step_ast_before) subs) @
         [s.step_ast_after]
       in
-      (*printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts1);
+      (*printf "%s\n" (infos.step_name);
+      printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts1);
       printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts2);*)
       if List.for_all2 (==) asts1 asts2 then begin
         infos.step_tags <- "valid_by_composition" :: infos.step_tags;
@@ -353,16 +356,16 @@ let open_step ?(valid:bool=false) ?(line : int option) ?(step_script:string="") 
 
 (* [step_justif txt] is called by a transformation after open_step in order
    to store explaination of why it is correct *)
-let step_justif (justif:string) : unit =
+let justif (justif:string) : unit =
   let step = get_cur_step () in
   let infos = step.step_infos in
   infos.step_valid <- true;
   infos.step_justif <- justif::infos.step_justif
 
-(* [step_justif_always_correct()] is a specialized version of [step_justif]
+(* [justif_always_correct()] is a specialized version of [step_justif]
    for transformation that are always correct. *)
-let step_justif_always_correct () : unit =
-  step_justif "always correct"
+let justif_always_correct () : unit =
+  justif "always correct"
 
 (* [step_arg] is called by a transformation after open_step in order
    to store the string representations of one argument. *)

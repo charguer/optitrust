@@ -1546,6 +1546,12 @@ let trm_lit_inv (t : trm) : lit option =
   | Trm_val (Val_lit v) -> Some v
   | _ -> None
 
+(* [trm_int_inv t] gets an int literal from a trm *)
+let trm_int_inv (t : trm) : int option =
+  match trm_lit_inv t with
+  | Some (Lit_int n) -> Some n
+  | _ -> None
+
 
 (* [trm_inv ~arror k t]: returns the results of applying [k] on t, if the result is [None] thne
      then function fails with error [error]. *)

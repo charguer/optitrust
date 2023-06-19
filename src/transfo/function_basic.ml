@@ -8,13 +8,11 @@ open Target
 let%transfo delete (tg : target) : unit =
   let tr () =
     Sequence_basic.delete tg in
-  if true then begin
-    Trace.step_justif "The function is unused.";
-    printf "Function_basic.delete needs to be guarded by Flags.check_validity";
-    Target.iter (fun t p ->
-      let ti = Path.get_trm_at_path p t in
+  if !Flags.check_validity then begin
+    Trace.justif "The function is unused.";
+    Target.iter_at_target_paths (fun t ->
       let error =  "Function.delete expects to target a function definition" in
-      let _ = trm_inv ~error trm_let_fun_inv ti in
+      let _ = trm_inv ~error trm_let_fun_inv t in
       ()
     ) tg;
     tr();
@@ -91,6 +89,7 @@ let%transfo bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool 
    local invariants in the body. *)
 
 let%transfo inline ?(body_mark : mark option) ?(subst_mark : mark option) (tg : target) : unit =
+  Trace.justif "Function inlining is always correct (exploiting the fact that arguments are duplicable expressions).";
   Internal.nobrace_remove_after (fun _ ->
     Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
     apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)

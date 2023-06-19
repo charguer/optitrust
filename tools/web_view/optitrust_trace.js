@@ -50,7 +50,7 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 
 var optionsDefaultValueForTags = { // true = checked = hidden
     "trivial": false,
-    "valid_by_composition": true,
+    "valid_by_composition": false,
     "should_be_valid_by_composition": false,
     "simpl.arith": true,
     "IO": true,
@@ -593,7 +593,7 @@ function stepToHTML(step, isOutermostLevel) {
 
   if (options.justif) {
     for (var i = 0; i < step.justif.length; i++) {
-      s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
+      s += "<div class='step-justif-text'>" + escapeHTML(step.justif[i]) + "</div>"
     }
   }
 

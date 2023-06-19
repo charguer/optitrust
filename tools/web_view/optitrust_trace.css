@@ -148,8 +148,10 @@ h2 {
 .step-valid, .step-justif {
   background: #99ffc9;
 }
-.step-justif {
+.step-justif-text {
   margin-left: 3em;
+  background: #dafae9;
+  font-style: italic;
 }
 
 .step-invalid {

@@ -66,14 +66,30 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
      (* TODO: other cases *)
      assert (Internal.same_trm start (trm_int 0));
      assert (direction = DirUp);
-     let (count, iteration_to_index) = if is_step_one step
-     then (stop, fun i -> i)
-     else match step with
-     | Step s ->
-      (trm_div stop s, fun i -> trm_mul i s)
-     | _ -> assert false
-     in
-     let tile_count = trm_exact_div count tile_size in
+     let (count, iteration_to_index) =
+      if is_step_one step
+        then (stop, fun i -> i)
+        else match step with
+        | Step s ->
+          (trm_div stop s, fun i -> trm_mul i s)
+        | _ -> assert false
+       in
+     let ratio : int option =
+       match trm_int_inv count, trm_int_inv tile_size with
+       | Some ncount, Some ntile_size
+           when ntile_size > 0 && ncount mod ntile_size = 0 -> Some (ncount / ntile_size)
+       | _ -> None
+       in
+     if !Flags.check_validity then begin
+       if ratio = None
+         then fail t.loc "Could not syntactically check that loop bound is divisible by tile size";
+       Trace.justif "Exact tiling is correct: could syntactically check the divisibility.";
+     end;
+     let tile_count =
+       match ratio with
+       | Some r -> trm_int r
+       | None -> trm_exact_div count tile_size
+       in
      let iteration = trm_add (trm_mul (trm_var ?typ:start.typ tile_index) tile_size)
       (trm_var ?typ:start.typ index)
      in
@@ -82,6 +98,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
        trm_for (index, (trm_int 0), DirUp, tile_size, Post_inc, is_parallel) (Internal.change_trm (trm_var index) new_index body)
      ])
   end else begin
+  Trace.justif "Tiling in this form is always correct.";
   let tile_bound =
    if is_step_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index ) (trm_mul tile_size (loop_step_to_trm step)) in
   let inner_loop =
@@ -91,6 +108,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
      trm_apps (trm_var "min") [stop; tile_bound] in
      trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
    | TileDivides ->
+     (* TODO: should be assert false ? *)
      trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
    | TileBoundAnd ->
      let init = trm_let_mut (index, typ_int ()) (trm_var tile_index) in

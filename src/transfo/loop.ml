@@ -50,7 +50,8 @@ let%transfo hoist_alloc_loop_list
   (loops : int list)
   (tg : target) : unit
   =
-  Trace.tag_valid_by_composition ();
+  Trace.justif "Always correct: per-iteration storage is allocated outside the loop.";
+  (*Trace.tag_valid_by_composition ();*)
   let tmp_marks = ref [] in
   let alloc_mark = Mark.next () in
   let may_detach_init (x : var) (init : trm) (p : path) =
@@ -1092,7 +1093,7 @@ let%transfo delete_void ?(nest_of : int = 1) (tg : target) : unit =
 (* TODO: should this be in basic? *)
 (* [delete_void]: deletes all loop nests with empty body. *)
 let%transfo delete_all_void (tg : target) : unit =
-  Trace.step_justif_always_correct ();
+  Trace.justif_always_correct ();
   Target.apply (fun t p ->
     Path.apply_on_path (trm_bottom_up (fun t ->
       match trm_seq_inv t with

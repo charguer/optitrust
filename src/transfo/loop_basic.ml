@@ -159,7 +159,7 @@ let%transfo hoist ?(name : var = "${var}_step")
           ?(mark : mark option)
           ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))
          (tg : target) : unit =
-  Trace.step_justif_always_correct ();
+  Trace.justif_always_correct ();
   Internal.nobrace_remove_after (fun _ ->
     Target.apply (fun t p_instr ->
       let (i, p) = Path.index_in_surrounding_loop p_instr in
@@ -347,7 +347,7 @@ let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target
 
     Assumption: Both a and C should be declared as constant variables. *)
 let%transfo unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit =
-  Trace.step_justif "correct if scoping is respected (TODO: check)";
+  Trace.justif "correct if scoping is respected (TODO: check)";
   Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Loop_core.unroll braces my_mark) tg)
 
@@ -563,7 +563,7 @@ let delete_void_on (i : int) (t_seq : trm) : trm option =
 
 (* [delete_void]: deletes a loop with empty body. *)
 let%transfo delete_void (tg : target) : unit =
-  Trace.step_justif_always_correct ();
+  Trace.justif_always_correct ();
   Target.apply (fun t p ->
     let (i, p_seq) = Path.index_in_seq p in
     Path.apply_on_path (fun t_seq ->

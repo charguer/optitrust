@@ -198,7 +198,7 @@ let simpl_index_add_on (t : trm) : trm =
    For correctness, size and index expressions must be pure.
    *)
 let%transfo simpl_index_add (tg : target) : unit =
-  Trace.step_justif "correct when size and index expressions are pure (TODO: check)";
+  Trace.justif "correct when size and index expressions are pure (TODO: check)";
   Trace.tag_simpl_access ();
   Target.apply_at_target_paths simpl_index_add_on tg
 
@@ -217,7 +217,7 @@ let simpl_access_of_access_on (t : trm) : trm =
    TODO: should this be in another file?
    *)
 let%transfo simpl_access_of_access (tg : target) : unit =
-  Trace.step_justif_always_correct ();
+  Trace.justif_always_correct ();
   Trace.tag_simpl_access ();
   Target.apply_at_target_paths simpl_access_of_access_on tg
 
@@ -292,7 +292,7 @@ end
 
    *)
 let%transfo intro_malloc0 (x : var) (tg : target) : unit =
-  Trace.step_justif_always_correct ();
+  Trace.justif_always_correct ();
   Target.apply_at_target_paths (intro_malloc0_on x) tg
 
 (*
@@ -381,7 +381,7 @@ let elim_mindex_on (t : trm) : trm =
    [...]
    *)
 let%transfo elim_mindex (tg : target) : unit =
-  Trace.step_justif "correct if size and index expressions are pure (TODO: check)";
+  Trace.justif "correct if size and index expressions are pure (TODO: check)";
   Target.apply_at_target_paths elim_mindex_on tg
 
 let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =

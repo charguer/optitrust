@@ -2,6 +2,7 @@ open Optitrust
 open Target
 open Ast
 
+let _ = Flags.check_validity := true
 let _ = Flags.pretty_matrix_notation := true
 
 (* Reproducing a TVM schedule from:

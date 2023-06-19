@@ -80,6 +80,9 @@ let verbose_mode : bool ref = ref false
    (* TODO: could it be true by default? *)
 let use_light_diff : bool ref = ref false
 
+(* TODO: merge *)
+let check_validity = ref false
+
 (* [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them. *)
 let bypass_cfeatures : bool ref = ref false
 
@@ -207,5 +210,6 @@ let reset_flags_to_default () : unit =
   dump_ast_details := false;
   bypass_cfeatures := false;
   use_light_diff := false;
-  pretty_matrix_notation := false
+  pretty_matrix_notation := false;
+  check_validity := false
 
