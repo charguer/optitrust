@@ -300,7 +300,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
       | _ -> fail tg_out_trm.loc "Function.inline: please be sure that you're tageting a proper function call"
       end;
     ) tg;
-    if delete then Instr.delete [cOr
+    if delete then Function_basic.delete [cOr
       (List.map (fun name -> [cTopFunDef name]) (Var_set.elements !function_names))];
     );
     simpl [cMark subst_mark];

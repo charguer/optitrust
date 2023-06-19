@@ -6,12 +6,22 @@ open Target
    Currently checked by verifying that the targets correspond to
    function definitions, and by retychecking the code *)
 let%transfo delete (tg : target) : unit =
+  let tr () =
+    Sequence_basic.delete tg in
   if true then begin
+    Trace.step_justif "The function is unused.";
     printf "Function_basic.delete needs to be guarded by Flags.check_validity";
-    (*Target.iter (fun t p -> ) tg;
-    Trace.retypecheck;*)
-  end;
-  Sequence_basic.delete tg
+    Target.iter (fun t p ->
+      let ti = Path.get_trm_at_path p t in
+      let error =  "Function.delete expects to target a function definition" in
+      let _ = trm_inv ~error trm_let_fun_inv ti in
+      ()
+    ) tg;
+    tr();
+    Trace.retypecheck(); (* TODO: report error in unit test *)
+  end else
+    tr ()
+
 
 (* [bind_intro ~fresh_name ~const ~my_mark tg]: expects the target [t] to point at a function call.
      Then it will generate a new variable declaration named as [fresh_name] with type being the same
