@@ -1637,14 +1637,17 @@ let show_ast ?(line:int = -1) () : unit =
   let t = Trace.ast() in
   Trace.interactive_step ~line ~ast_before:(fun () -> empty_ast) ~ast_after:(fun () -> t)
 
+let show_computed_res ?(line:int = -1) ?(ast: trm = Trace.ast ()) () : unit =
+  Flags.(with_flag display_resources false (fun () ->
+    with_flag always_name_resource_hyp true (fun () ->
+      Trace.interactive_step ~line ~ast_before:(fun () -> ast)
+        ~ast_after:(fun () -> Ast_fromto_AstC.computed_resources_intro ast))))
+
 (* [show_res] enables to view the result of resource computations. *)
 let show_res (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
   let t = Trace.ast() in
   let tres = Resources_computation.(trm_recompute_resources builtin_env t) in
-  Flags.always_name_resource_hyp := true;
-  Trace.interactive_step ~line ~ast_before:(fun () -> t)
-    ~ast_after:(fun () -> Ast_fromto_AstC.computed_resources_intro tres);
-  Flags.always_name_resource_hyp := false
+  show_computed_res ~line ~ast:tres ()
 
 (* LATER: Fix me *)
 (* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)

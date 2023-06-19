@@ -2088,8 +2088,7 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
 
 (* [trm_map_with_terminal is_terminal f t] *)
 let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm =
-  (* TODO FIXME: trm_map_with_terminal_opt is_terminal f t*)
-  trm_map_with_terminal_unopt is_terminal f t
+  trm_map_with_terminal_opt is_terminal f t
 
 (* [trm_map f]: applies f on t recursively *)
 let trm_map (f : trm -> trm) (t : trm) : trm =
@@ -3025,7 +3024,7 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
       | Trm_let_fun (f, ty, tv, _, _) ->
         if f_pred f.qvar_var then begin
           t_map := Var_map.add f.qvar_var t !t_map;
-         trm_let_fun ~annot:t.annot ~qvar:f "" ty tv (trm_lit  Lit_uninitialized) end
+         trm_let_fun ~annot:t.annot ~qvar:f ~ctx:t.ctx "" ty tv (trm_lit Lit_uninitialized) end
         else t
       | _ -> trm_map aux t
       in

@@ -736,6 +736,12 @@ let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(ast_and_e
     (* LATER: try to find a way to put the includes in the AST so we can do simply ast_to_file *)
     output_string out_prog ctx.header;
     let beautify_mindex = beautify && !Flags.pretty_matrix_notation in
+    let ast =
+      if !Flags.display_resources
+        then Ast_fromto_AstC.computed_resources_intro ast
+        else ast
+    in
+
     if !Flags.bypass_cfeatures || bypass_cfeatures
       then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
       else AstC_to_c.ast_to_outchannel ~beautify_mindex ~comment_pragma:use_clang_format out_prog (Ast_fromto_AstC.cfeatures_intro ast);

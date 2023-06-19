@@ -470,13 +470,25 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
         | None -> underscore
         | Some ty -> print_typ ~only_desc ty
       in
-      braces (separate (blank 1) [string "annot"; equals;
-                                dannot ^^ semi ^//^ string "desc"; equals;
-                                ddesc ^^ semi ^//^ string "loc"; equals;
-                                dloc ^^ semi ^//^ string "is_statement"; equals;
-                                dinstr ^^ semi ^//^ string "add"; equals;
-                                string "typ"; equals;
-                                dtyp])
+
+      let opt_str c o = if o = None then "-" else c in
+      let dctx =
+        String.concat ""
+            [ opt_str "t" t.ctx.ctx_types;
+              opt_str "b" t.ctx.ctx_resources_before;
+              opt_str "u" t.ctx.ctx_resources_usage;
+              opt_str "c" t.ctx.ctx_resources_contract_invoc;
+              opt_str "a" t.ctx.ctx_resources_after;
+              opt_str "p" t.ctx.ctx_resources_post_inst] in
+
+      braces (separate (blank 1)
+        [string "annot"; equals; dannot ^^ semi ^//^
+         string "loc"; equals; dloc ^^ semi ^//^
+         string "is_statement"; equals; dinstr ^^ semi ^//^
+         (*LATER: string "add"; equals;*)
+         string "typ"; equals; dtyp ^//^
+         string "ctx"; equals; string dctx ^^ semi ^//^
+         string "desc"; equals; ddesc ])
 
 (* [print_files_annot ann]: prints as string files annotation [ann] *)
 and print_files_annot (ann : files_annot) : document =

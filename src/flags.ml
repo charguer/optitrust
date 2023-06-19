@@ -92,6 +92,9 @@ let resource_errors_as_warnings = ref false
  * Automatically set to true during show_res. *)
 let always_name_resource_hyp = ref false
 
+(* [display_resources]: When showing diffs display resources on both sides *)
+let display_resources = ref false
+
 (* [execute_show_even_in_batch_mode]: flag used for unit tests on targets that use the show function. *)
 let execute_show_even_in_batch_mode : bool ref = ref false
 
@@ -217,7 +220,15 @@ let reset_flags_to_default () : unit =
   bypass_cfeatures_decoding := false;
   use_light_diff := false;
   pretty_matrix_notation := false;
-  resource_errors_as_warnings := false
+  resource_errors_as_warnings := false;
+  always_name_resource_hyp := false;
+  display_resources := false
+
+let with_flag (flag: 'a ref) (value: 'a) (func: unit -> unit): unit =
+  let init_value = !flag in
+  flag := value;
+  func ();
+  flag := init_value
 
 (* *************************************************************************************************************
   Note: to see a diff at the level of the OptiTrust AST, use:

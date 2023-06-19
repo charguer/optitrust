@@ -482,11 +482,12 @@ let res_merge_after_frame (res_after: produced_resource_set) (frame: linear_reso
       begin match trm_var_inv frac_atom with
       | Some atom when Hashtbl.mem ro_formulas (ro_formula, atom) ->
         Hashtbl.remove ro_formulas (ro_formula, atom); sub_frac
+      (* DEBUG:
       | Some atom ->
         Printf.eprintf "Failed to find %s\n" atom;
-        Printf.eprintf "%s\n" (Ast_to_text.ast_to_string ro_formula);
+        Printf.eprintf "%s\n" (AstC_to_c.ast_to_string ro_formula);
         Hashtbl.iter (fun (a, _) () -> Printf.eprintf "%b\n%s\n" (a = ro_formula) (Ast_to_text.ast_to_string a)) ro_formulas;
-        trm_sub sub_frac frac_atom
+        trm_sub sub_frac frac_atom*)
       | _ -> trm_sub sub_frac frac_atom
       end
     | None -> frac
@@ -742,6 +743,7 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
     | Trm_let (_, (var, typ), body, spec) ->
       begin match spec with
       | Some bound_res ->
+        (* FIXME: This breaks usage_map because it allows renaming without using the renamed hypothesis *)
         let expected_res = rename_var_in_res var var_result bound_res in
         let usage_map, _ = compute_resources_and_update_usage ~expected_res (Some res) (Some usage_map) body in
         (* Use the bound_res contract but keep res existing pure facts *)
