@@ -23,7 +23,9 @@ steps[0] = {
    }
 step[1] = ...
 
-  // A field parent_id is set by initParents
+Additional fields are set by the function   initTree
+- parent_id
+- has_valid_parent
 
 The function initSteps() builds an array of [bigsteps] and an array of [smallsteps],
 in order of appearance.
@@ -524,6 +526,8 @@ function stepToHTML(step, isOutermostLevel) {
     validityClass = "step-error";
   } else if (step.isvalid) {
     validityClass= "step-valid";
+  } else if (step.has_valid_parent) {
+    validityClass = "step-has-valid_parent";
   } else {
     validityClass = "step-invalid";
   }
@@ -836,13 +840,12 @@ function initSteps() {
   }
 }
 
-function initParents() {
-  steps[0].parent_id = 0;  // the root is its own parent
-  for (var i = 0; i < steps.length; i++) {
-    var sub = steps[i].sub;
-    for (var j = 0; j < sub.length; j++) {
-      steps[sub[j]].parent_id = i;
-    }
+function initTree(id, parent_id, has_valid_parent) {
+  var step = steps[id];
+  step.parent_id = parent_id;
+  step.has_valid_parent = has_valid_parent;
+  for (var j = 0; j < step.sub.length; j++) {
+    initTree(step.sub[j], id, (has_valid_parent || step.isvalid));
   }
 }
 
@@ -878,7 +881,7 @@ function initAllTags() {
 document.addEventListener('DOMContentLoaded', function () {
   initEditor();
   initSteps();
-  initParents();
+  initTree(0, 0, false); // the root is its own parent, has no valid parent
   initAllTags();
   initOptions();
   initControls();
