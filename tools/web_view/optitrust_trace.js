@@ -15,7 +15,7 @@ steps[0] = {
    justif: ["..", ".." ],
    isvalid: true,
    script: window.atob("..."),
-   scriptline: 23, // possibly undefined
+   script_line: 23, // possibly undefined
    astBefore: window.atob("..."), // NOT YET IMPLEMENTED; could also an id of an source code stored in a different array, for improved factorization
    astAfter: window.atob("..."), // NOT YET IMPLEMENTED
    diff: window.atob("..."), // could be slow if requested for all!
@@ -23,16 +23,18 @@ steps[0] = {
    }
 step[1] = ...
 
+  // A field parent_id is set by initParents
+
 The function initSteps() builds an array of [bigsteps] and an array of [smallsteps],
 in order of appearance.
 
 Representation of a big step:
   bigsteps[k] = step object with additional fields:
-      id: // the id of the step in the steps array
+      bigstep_id: // the id of the step in the bigsteps array
       start: // an index in smallstep array, inclusive
       stop: // an index in smallstep array, exclusive
   smallsteps[k] = step object with additional fields:
-      id: // the id of the step in the steps array
+      smallspep_id: // the id of the step in the smallsteps array
 
 */
 
@@ -375,7 +377,7 @@ function loadSdiff(id) {
   $("#diffDiv").show();
   var step = smallsteps[id];
   selectedStep = step;
-  reloadView(); //loadStepDetails(step.id);
+  reloadTraceView(); //loadStepDetails(step.id);
   loadDiffFromString(step.diff);
   var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
   if (options.exectime) {
@@ -398,7 +400,7 @@ function loadBdiff(id) {
   $("#diffDiv").show();
   var step = bigsteps[id];
   selectedStep = step;
-  reloadView(); // loadStepDetails(step.id);
+  reloadTraceView(); // loadStepDetails(step.id);
   loadDiffFromString(step.diff);
   $("#button_bdiff_" + id).addClass("ctrl-button-selected");
   var sStep = htmlSpan(escapeHTML(step.script), "step-info");
@@ -438,6 +440,19 @@ function nextBdiff() {
   loadBdiff(id);
 }
 
+// handles a click on a step bullet item, to focus on that step
+function focusOnStep(idStep) {
+  resetView();
+  var step = steps[idStep];
+  selectedStep = step;
+  if (step.hasOwnProperty("smallstep_id")) {
+    loadSdiff(step.smallstep_id);
+  } else if (step.hasOwnProperty("bigstep_id")) {
+    loadSdiff(step.bigstep_id);
+  }
+  reloadTraceView();
+}
+
 // handles a click on a step, to view details
 function loadStepDetails(idStep) {
   var step = steps[idStep];
@@ -472,7 +487,7 @@ function loadStepDetails(idStep) {
   */
 }
 
-function stepToHTML(step, isRoot) {
+function stepToHTML(step, isOutermostLevel) {
   if (!options.noop_steps && (step.ast_before == step.ast_after)) {
     // TODO: precompute '==' somewhere
     return "";
@@ -495,9 +510,10 @@ function stepToHTML(step, isRoot) {
   // DEPRECATED
     // (!options.target_steps && step.kind == "Target") ||
     // (!options.io_steps && step.kind == "IO") ||
-  if (isRoot) {
+  var isRoot = (step.id == 0);
+  /*if (isRoot) {
     return "<ul class='step-sub'> " + sSubs + "</ul>\n";
-  } else if (hideStep) {
+  } else */ if (hideStep) {
     return sSubs;
   }
 
@@ -532,7 +548,6 @@ function stepToHTML(step, isRoot) {
     sTime = "<span class='" + sTimeClass + "'>" + sTime + "</span>";
 
   }
-
   var sKind = "";
   if (step.script_line !== undefined) {
     sKind = " [<b>" + step.script_line + "</b>] ";
@@ -562,16 +577,26 @@ function stepToHTML(step, isRoot) {
     sName = sName.replace(/_basic/,'');
   }
 
-  s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + sName + " " + sScript + sTags + "</div>";
+  var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.id + ")'";
+  if (isOutermostLevel && step.id != 0) {
+    var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.parent_id + ")'";
+  }
+
+  // Line contents
+  if (! isRoot) {
+    s += "<div><span class='step-bullet' " + sOnClickFocusOnStep + ">&diams;</span><span " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + sName + " " + sScript + sTags + "</span></div>";
+  }
 
   if (options.justif) {
     for (var i = 0; i < step.justif.length; i++) {
       s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
     }
   }
+
+  // Substeps
   s += "<ul class='step-sub'> " + sSubs + "</ul>\n";
 
-  if (isRoot) {
+  if (isOutermostLevel) {
     return s;
   } else {
     return "<li>" + s + "</li>\n";
@@ -616,7 +641,7 @@ function visitSteps(step, visitedSteps) {
   visitedSteps.add(sName);
 }
 
-function reloadView() {
+function reloadTraceView() {
   // var shouldShowDetails = ($("#detailsDiv").html() == "");
   resetView();
   if (options.details) {
@@ -641,7 +666,7 @@ function reloadView() {
 function viewDetailsAll() {
   // $("#diffDiv").hide();
   selectedStep = steps[0]; // root
-  reloadView();
+  reloadTraceView();
   // $("#detailsDiv").html(stepToHTML(selectedStep));
 }
 
@@ -659,7 +684,7 @@ function viewDetailsFull() {
   for (var key in options) {
     $('#option_' + key).prop('checked', options[key]);
   }
-  reloadView();
+  reloadTraceView();
 }
 
 function initOptions() {
@@ -751,7 +776,7 @@ function updateOptions() {
       // LATER: a function to change an option and the checkbox
     }
   }
-  reloadView();
+  reloadTraceView();
 }
 
 function initSteps() {
@@ -780,7 +805,8 @@ function initSteps() {
       if (smallstep.kind != "Small") {
         console.log("Error: numberSmallSteps expected a small step but encountered a step of kind " + smallstep.kind);
       }
-      smallstep.id = smallstep_id;
+      // DEPRECATED(redundant) smallstep.id = smallstep_id;
+      smallstep.smallstep_id = curSmallStep;
       smallsteps[curSmallStep] = smallstep;
       curSmallStep++;
     }
@@ -797,10 +823,11 @@ function initSteps() {
       if (bigstep.kind != "Big") {
         console.log("Error: initSteps expected a big-step but encountered a step of kind " + bigstep.kind);
       }
-      bigstep.id = bigstep_id;
+      // DEPRECATED(redundant) bigstep.id = bigstep_id;
       bigstep.start = curSmallStep;
       numberSmallSteps(bigstep.sub);
       bigstep.stop = curSmallStep;
+      bigstep.bigstep_id = i;
       bigsteps[i] = bigstep;
     }
   } else {
@@ -808,6 +835,17 @@ function initSteps() {
     numberSmallSteps(rootSub);
   }
 }
+
+function initParents() {
+  steps[0].parent_id = 0;  // the root is its own parent
+  for (var i = 0; i < steps.length; i++) {
+    var sub = steps[i].sub;
+    for (var j = 0; j < sub.length; j++) {
+      steps[sub[j]].parent_id = i;
+    }
+  }
+}
+
 
 function initAllTags() {
   // fills the object allTags with keys that correspond to all possible tags
@@ -840,6 +878,7 @@ function initAllTags() {
 document.addEventListener('DOMContentLoaded', function () {
   initEditor();
   initSteps();
+  initParents();
   initAllTags();
   initOptions();
   initControls();
@@ -858,7 +897,7 @@ document.addEventListener('DOMContentLoaded', function () {
     stepInit = startupOpenStep;
   }
   selectedStep = steps[stepInit];
-  reloadView(); // calls loadStepDetails(selectedStep)
+  reloadTraceView(); // calls loadStepDetails(selectedStep)
 });
 
 // alternative:

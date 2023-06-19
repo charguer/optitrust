@@ -221,3 +221,15 @@ li {
   padding-left: 1ex;
 }
 ---- */
+
+ul.step-sub {
+  list-style:none;
+  padding-left: 1.5em;
+}
+
+.step-bullet {
+  padding-right: 0.5em;
+}
+.step-bullet:hover {
+  cursor:pointer;
+}
