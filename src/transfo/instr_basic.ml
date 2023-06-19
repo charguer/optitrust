@@ -3,8 +3,8 @@ open Target
 
 (* [delete tg]: expects the target [tg] to point at an instruction inside a sequence
       then it will remove that instruciton from that sequence *)
-let delete : Target.Transfo.t =
-  Sequence_basic.delete
+let%transfo delete (tg : target) : unit =
+  Sequence_basic.delete tg
 
 (* [copy ~target tg]: expects the target [tg] to point at an instruction that is
     going to be copied to the relative target [where]. If [delete] is true then

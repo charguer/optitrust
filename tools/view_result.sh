@@ -27,6 +27,10 @@
 #==========================================================================
 # Processing script arguments
 
+# OPTION: for printing timing info, uncomment the line
+#export PRINTTIME="1"
+${PRINTTIME:=""}
+
 # Throughout the script, we measure execution times
 TIMER1=`date +%s%3N`
 
@@ -239,11 +243,13 @@ fi
 
 TIMER8=`date +%s%3N`
 
-echo "Time process args: $((${TIMER2}-${TIMER1}))ms"
-echo "Time gen checkpoints: $((${TIMER3}-${TIMER2}))ms"
-echo "Time gen with-lines: $((${TIMER4}-${TIMER3}))ms"
-echo "Time dependencies:  $((${TIMER5}-${TIMER4}))ms"
-echo "Time build cmx: $((${TIMER6}-${TIMER5}))ms"
-echo "Time dune exec: $((${TIMER7}-${TIMER6}))ms"
-echo "Time open result: $((${TIMER8}-${TIMER7}))ms"
-echo "Time total: $((${TIMER8}-${TIMER1}))ms"
+if [ ! -z "${PRINTTIME}" ]; then
+  echo "Time process args: $((${TIMER2}-${TIMER1}))ms"
+  echo "Time gen checkpoints: $((${TIMER3}-${TIMER2}))ms"
+  echo "Time gen with-lines: $((${TIMER4}-${TIMER3}))ms"
+  echo "Time dependencies:  $((${TIMER5}-${TIMER4}))ms"
+  echo "Time build cmx: $((${TIMER6}-${TIMER5}))ms"
+  echo "Time dune exec: $((${TIMER7}-${TIMER6}))ms"
+  echo "Time open result: $((${TIMER8}-${TIMER7}))ms"
+  echo "Time total: $((${TIMER8}-${TIMER1}))ms"
+fi

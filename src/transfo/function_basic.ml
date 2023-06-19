@@ -1,6 +1,18 @@
 open Ast
 open Target
 
+(* [delete tg]: delete the targeted function definition.
+   Correct if the function is never used.
+   Currently checked by verifying that the targets correspond to
+   function definitions, and by retychecking the code *)
+let%transfo delete (tg : target) : unit =
+  if true then begin
+    printf "Function_basic.delete needs to be guarded by Flags.check_validity";
+    (*Target.iter (fun t p -> ) tg;
+    Trace.retypecheck;*)
+  end;
+  Sequence_basic.delete tg
+
 (* [bind_intro ~fresh_name ~const ~my_mark tg]: expects the target [t] to point at a function call.
      Then it will generate a new variable declaration named as [fresh_name] with type being the same
      as the one of the function call, and initialized to the function call itself.

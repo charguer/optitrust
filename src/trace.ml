@@ -879,6 +879,10 @@ let reparse ?(update_cur_ast : bool = true) ?(info : string = "") ?(parser: pars
 (* Work-around for a name clash *)
 let reparse_alias = reparse
 
+(* [retypecheck] is currently implemented as [reparse], but in the future it
+   would use a dedicated typechecker. *)
+let retypecheck = reparse
+
 
 (******************************************************************************)
 (*                                   More dump                                *)
