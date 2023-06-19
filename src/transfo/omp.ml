@@ -6,12 +6,9 @@ include Omp_basic
 let omp_header = "#include \"omp.h\""
 
 (* [header ()]: insert omp.h header at top of the file *)
-let header () : unit =
-  Sequence.insert (stmt omp_header) [tFirst; dRoot]
-
 let ensure_header () : unit =
-  let found = Tools.pattern_matches omp_header Trace.the_trace.context.header in
-  if not found then header ()
+  (* Sequence.insert (stmt omp_header) [tFirst; dRoot]; *)
+  Trace.ensure_header omp_header
 
 (* [set_num_threads threadnum tg]: sometimes omp_get_num_threads doesn't work with gcc for that we need to apply the following trick
      #pragma omp parallel
@@ -38,4 +35,4 @@ let parallel_for ?(clause : clause list = []) ?(collapse : int = 0) : Target.Tra
 
 let simd ?(clause : clause list = []) : Transfo.t =
   ensure_header ();
-  transfo_on_targets (trm_add_pragma (Simd clause))
+  Omp_basic.simd ~clause

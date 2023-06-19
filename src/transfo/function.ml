@@ -39,6 +39,7 @@ let%transfo bind_args (fresh_names : vars) (tg : target) : unit =
      Either the user can give a list of variables together with their new names, or he can give the postifx
      that's going to be assigned to all the declared vairables. *)
 let%transfo elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
+  Trace.tag_valid_by_composition ();
   iter_on_targets (fun t p ->
     let tg_trm = Stats.comp_stats "elim_body_resolve" (fun () -> Path.resolve_path p t) in
     let error = "Function.elim_body: the given target should point at a sequence." in
@@ -212,7 +213,8 @@ int f2() { // result of Funciton_basic.inline_cal
 let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
   ?(delete : bool = false) ?(debug : bool = false) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
   =
-  (* TODO: Marks.with_fresh_mark (fun subst_mark -> *)
+  Trace.tag_valid_by_composition ();
+  Marks.with_fresh_mark (fun subst_mark ->
     (* variable for storing the function names, in case if [delete] is true it will use this name to target the declarations and delete them *)
     let function_names = ref Var_set.empty in
     Stats.comp_stats "iteri_on_transformed_targets" (fun () ->
@@ -240,8 +242,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
         if args <> [] then bind_args args [new_target];
         let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
         Stats.comp_stats "inline" (fun () ->
-          (* TODO: ~subst_mark for simpl *)
-          Function_basic.inline ~body_mark [new_target];);
+          Function_basic.inline ~body_mark ~subst_mark [new_target];);
         Stats.comp_stats "intro" (fun () ->
           Accesses_basic.intro [cMark body_mark];);
         Stats.comp_stats "elim_body" (fun () ->
@@ -274,10 +275,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
           Marks.remove my_mark [nbAny; new_target]
         end;
         Marks.remove my_mark [nbAny; new_target];
-        (* Debug_transfo.current_ast "before proj"; *)
         Record_basic.simpl_proj (target_of_path path_to_seq);
-        (* Debug_transfo.current_ast "after proj"; *)
-
       )
         in
       begin match tg_out_trm.desc with
@@ -300,13 +298,32 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
         mark_added := true;
         post_processing ~deep_cleanup:true ();
       | _ -> fail tg_out_trm.loc "Function.inline: please be sure that you're tageting a proper function call"
-      end
+      end;
     ) tg;
-    if delete then Instr.delete [cOr
+    if delete then Function_basic.delete [cOr
       (List.map (fun name -> [cTopFunDef name]) (Var_set.elements !function_names))];
-    )
-    (* simpl [cMark subst_mark];
-    ) *)
+    );
+    simpl [cMark subst_mark];
+  )
+
+(* [delete]: deletes function definitions targeted by [tg]. *)
+let%transfo delete (tg : target) : unit =
+  (* TODO: check that definitions are deleted + that they were not used *)
+  Instr.delete tg
+
+(* [inline_def]: like [inline], but with [tg] targeting the function definition.
+   All function calls are inlined, with [delete = true] as default. *)
+let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
+  ?(delete : bool = true) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
+  =
+  Trace.tag_valid_by_composition ();
+  Target.iter (fun t p ->
+    let def_trm = Path.resolve_path p t in
+    let error = "Function.inline_def: expected function definition" in
+    let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv def_trm in
+    (* FIXME: deal with qvar *)
+    inline ~resname ~vars ~args ~keep_res ~delete ~simpl [nbAny; cFun qvar.qvar_var];
+  ) tg
 
 (* [beta ~indepth tg]: expects the target [tg] to be pointing at a function call or a function declaration whose
      parent trm is a function call. If its the first case then it will just call Function_basic.beta.

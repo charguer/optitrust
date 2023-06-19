@@ -36,11 +36,17 @@ type styp = string
 (* LATER: Add integer id to variables to simplify comparison and manage aliasing *)
 type var = string
 
+(* [vars]: variables, a list of elements of type variable *)
+type vars = var list
+
 (* [Var_set]: a set module used for storing variables *)
 module Var_set = Set.Make(String)
 
-(* [vars]: variables, a list of elements of type variable *)
-type vars = var list
+(* [Var_map]: a map module used for mapping variables to values *)
+module Var_map = Map.Make(String)
+
+(* [varmap]: instantiation of Var_map *)
+type 'a varmap = 'a Var_map.t
 
 (* let vars_to_string vs = Tools.list_to_string vs *)
 let vars_to_string vs = Trace_printers.(list_arg_printer string_arg_printer vs)
@@ -106,12 +112,6 @@ type field = string
 
 (* [fields]: struct fields as a list of fields *)
 type fields = field list
-
-(* ['a varmap] is a map from string to ['a] *)
-module Var_map = Map.Make(String)
-
-(* [varmap]: instantiation of Var_map *)
-type 'a varmap = 'a Var_map.t
 
 (* [label]: labels (for records) *)
 type label = string
@@ -1096,13 +1096,13 @@ let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statemen
  ?(typ : typ option) ?(ctx : ctx option) ?(desc : trm_desc option) (t : trm) : trm =
     let annot = match annot with Some x -> x | None -> t.annot in
     let loc = match loc with Some x -> x | None -> t.loc in
+    let typ = match typ with | None -> t.typ | _ -> typ in
     let is_statement = match is_statement with
       | Some x -> x
       | None -> match desc with
                 | Some d -> is_statement_of_desc typ d
                 | None -> t.is_statement
       in
-    let typ = match typ with | None -> t.typ | _ -> typ in
     let ctx = Option.value ~default:t.ctx ctx in
     let desc = match desc with | Some x -> x | None -> t.desc in
     trm_build ~annot ~desc ?loc ~is_statement ?typ ~ctx ()
@@ -1359,7 +1359,7 @@ let trm_set ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   ?(typ : typ option = Some (typ_unit ()))  (lhs : trm) (rhs : trm) : trm =
   trm_apps ~annot:annot ?loc ?ctx ?typ (trm_binop Binop_set) [lhs; rhs]
 
-(* [trm_set ~annot ?loc ?ctx t1 t2] *)
+(* [trm_neq ~annot ?loc ?ctx t1 t2] *)
 let trm_neq ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (t1 : trm) (t2 : trm) : trm =
   trm_apps ~annot:annot ?loc ?ctx ~typ:(typ_unit ()) (trm_binop Binop_neq) [t1; t2]
@@ -1672,13 +1672,19 @@ let trm_lit_inv (t : trm) : lit option =
   | Trm_val (Val_lit v) -> Some v
   | _ -> None
 
+(* [trm_int_inv t] gets an int literal from a trm *)
+let trm_int_inv (t : trm) : int option =
+  match trm_lit_inv t with
+  | Some (Lit_int n) -> Some n
+  | _ -> None
+
 
 (* [trm_inv ~error k t]: returns the results of applying [k] on t, if the result is [None]
      then function fails with error [error]. *)
 let trm_inv ?(error : string = "") ?(loc : location) (k : trm -> 'a option) (t : trm) : 'a =
   let loc = if loc = None then t.loc else loc in
   match k t with
-  | None -> if error = "" then assert false else fail loc error
+  | None -> fail loc (if error = "" then "failed inversion" else error)
   | Some r -> r
 
 let typ_inv ?(error : string = "") (loc : location) (k : typ -> 'a option) (t : typ) : 'a =
@@ -2084,7 +2090,6 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
     | _ -> t
     end
   | _ -> t
-
 
 (* [trm_map_with_terminal is_terminal f t] *)
 let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm =
@@ -3109,10 +3114,6 @@ let is_struct_init (t : trm) : bool =
   match t.desc with
   | Trm_record _ -> true | _ -> false
 
-(* [is_trm_seq t]: checks if [t] has [Trm_seq tl] description. *)
-let is_trm_seq (t : trm) : bool =
-  match t.desc with | Trm_seq _ -> true | _ -> false
-
 (* [is_same_binop op1 op2 ]: checks if two primitive operations are the same *)
 let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool =
   match op1, op2 with
@@ -3689,6 +3690,11 @@ let is_trm_initialization_list (t : trm) : bool =
 let is_trm_unit (t : trm) : bool =
   match trm_lit_inv t with
   | Some Lit_unit -> true
+  | _ -> false
+
+let is_trm_int (cst : int) (t : trm) : bool =
+  match trm_lit_inv t with
+  | Some (Lit_int c) when c = cst -> true
   | _ -> false
 
 (* [has_empty_body t]: checks if the function [t] has an empty body or not. *)

@@ -15,8 +15,8 @@ class test_class {
   int x;
 
  public:
-  void move_this(int d) { += (this->x, d); }
-  void move(int d) { += (x, d); }
+  void move_this(int d) { this->x += d; }
+  void move(int d) { x += d; }
   bool test_this() { return this->x == x; }
 };
 
@@ -33,21 +33,21 @@ void test_vector() {
 
 int test_iterator(std::vector<int> v) {
   int r = 0;
-  for (auto it = std::begin(v); it != std::end(v); (it)++) {
-    += (r, (*(it)));
+  for (auto it = std::begin(v); it != std::end(v); it++) {
+    r += (*it);
   }
   return r;
 }
 
 void test_lambda(std::vector<int> v) {
   int r = 0;
-  auto f = [&](const int& x) -> void { += (r, x); };
+  auto f = [&](const int& x) -> void { r += x; };
   std::for_each(std::begin(v), std::end(v), f);
 }
 
 int test_lambda_inline(std::vector<int> v) {
   int r = 0;
-  std::for_each(std::begin(v), std::end(v), [&](const int& x) { += (r, x); });
+  std::for_each(std::begin(v), std::end(v), [&](const int& x) { r += x; });
   return r;
 }
 
@@ -68,8 +68,8 @@ struct Box {
 
 template <typename A, typename B>
 void update(Box<A, B>* b, A key, B value) {
-  set(b->key, key);
-  set(b->value, value);
+  b->key = key;
+  b->value = value;
 }
 
 class Box2 {
@@ -99,20 +99,20 @@ class Test {
 
 Test::Test(int y) {}
 
-Test::Test() { set(x, 0); }
+Test::Test() { x = 0; }
 
 int Test::get() { return x; }
 
-void Test::set(int y) { set(x, y); }
+void Test::set(int y) { x = y; }
 
 class A {
   int a;
   int b;
 
  public:
-  A(int i) { set(a, i); }
-  A(int i, int j) { set(a, i); }
-  A(int i, int j, int k) { set(a, i); }
+  A(int i) { a = i; }
+  A(int i, int j) { a = i; }
+  A(int i, int j, int k) { a = i; }
 };
 
 int main() {

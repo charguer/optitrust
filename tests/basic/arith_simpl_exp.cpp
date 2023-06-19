@@ -55,6 +55,7 @@ int main() {
   w = a + a * 3 + f(b * f(c + c) / b);
   float f;
   f = -2.f / 12.f;
+  f = 0.f;
   int ls;
   ls = x + 2;
   ls = x;

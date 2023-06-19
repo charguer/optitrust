@@ -98,6 +98,7 @@ h2 {
   min-width: 5em;
   margin-top: 8px;
   text-align: center;
+  margin-right: 1em;
 }
 
 .next-button {
@@ -147,17 +148,31 @@ h2 {
 .step-valid, .step-justif {
   background: #99ffc9;
 }
+.step-justif-text {
+  margin-left: 3em;
+  background: #dafae9;
+  font-style: italic;
+}
+
 .step-invalid {
   background: #99c9ff;
+}
+.step-error {
+  background: #ff3939;
+  font-weight: bold;
+}
+.step-io-target {
+  background: #fdf7bf;
 }
 .step-title:hover {
    cursor:pointer;
 }
+
 .exectime-heavy {
   background: #FF6666;
 }
 .exectime-mid {
-  background: #ffcf66;
+  background: #fdda8f;
 }
 .exectime-small {
   background: #ffffff;
@@ -167,4 +182,56 @@ h2 {
   padding-right: 2px;
   padding-left: 2px;
   padding-bottom: 1px;
+}
+
+/* ---- vertical split view */
+
+.split-pane {
+  display: flex;
+  /* flex-direction: row; */
+  outline: 1px solid #888;
+}
+
+.left-pane {
+  background: #EEE;
+  border-right: 1px solid #CCC;
+}
+
+.right-pane {
+  background: #FFF;
+  flex: 1 1 0%;
+  /* flex-grow: 1; */
+}
+
+.resizing-handle {
+  background: rgb(192, 192, 192); /*transparent;*/
+  width: 8px;
+  margin: 0 -5px;
+  cursor:col-resize;
+  z-index: 999;
+}
+
+/* ---- */
+
+/* ---- compact:
+ul {
+  list-style-type: none;
+  margin: 0;
+  padding-left: 0;
+}
+li {
+  padding-left: 1ex;
+}
+---- */
+
+ul.step-sub {
+  list-style:none;
+  padding-left: 1.5em;
+}
+
+.step-bullet {
+  padding-right: 0.5em;
+}
+.step-bullet:hover {
+  cursor:pointer;
 }

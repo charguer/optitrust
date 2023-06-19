@@ -82,11 +82,17 @@ else:
     kfactor = 4
 
     # Algorithm
+    # k = tvm.te.reduce_axis((0, P), "k")
+    # A = tvm.te.placeholder((M, P), name="A")
+    # B = tvm.te.placeholder((P, N), name="B")
+    # C = te.compute((M, N), lambda m, n: te.sum(A[m, k] * B[k, n], axis=k), name="C")
+
+    # needs to be rewritten:
+
+    # Algorithm 2
     k = tvm.te.reduce_axis((0, P), "k")
     A = tvm.te.placeholder((M, P), name="A")
     B = tvm.te.placeholder((P, N), name="B")
-    # C = te.compute((M, N), lambda m, n: te.sum(A[m, k] * B[k, n], axis=k), name="C")
-    # needs to be rewritten:
     packedB = tvm.te.compute(
       (N / bn, P, bn), lambda bigN, k, littleN: B[k, bigN * bn + littleN], name="packedB"
     )

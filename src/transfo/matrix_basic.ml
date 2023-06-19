@@ -96,7 +96,7 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(a
 
 (* [local_name_tile ~mark var into tg]: expects the target to point at an instruction that contains
       an occurrence of [var] then it will define a matrix [into] whose dimensions will correspond to a tile of [var]. Then we copy the contents of the matrix [var] into [into] according to the given tile offsets and finally we free up the memory. *)
-let%transfo local_name_tile ?(mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ~into:(into : var) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ~into:(into : var) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
   let remove = (mark = None) in
   let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
@@ -129,7 +129,7 @@ let%transfo local_name_tile ?(mark : mark option) ?(indices : (var list) = []) ?
         | Some t1 ->
           let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
           if not remove then Internal.nobrace_enter();
-          Matrix_core.local_name_tile mark v tile into alloc_trms var_type indices local_ops t p
+          Matrix_core.local_name_tile mark mark_accesses v tile into alloc_trms var_type indices local_ops t p
         | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
         end
       | None ->
@@ -138,7 +138,7 @@ let%transfo local_name_tile ?(mark : mark option) ?(indices : (var list) = []) ?
           let tg1 = (seq_tg @ [var_target]) in
           let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
           if not remove then Internal.nobrace_enter();
-          Matrix_core.local_name_tile mark v tile into alloc_trms var_type indices local_ops t p
+          Matrix_core.local_name_tile mark mark_accesses v tile into alloc_trms var_type indices local_ops t p
 
         | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
         end
@@ -198,7 +198,8 @@ let simpl_index_add_on (t : trm) : trm =
    For correctness, size and index expressions must be pure.
    *)
 let%transfo simpl_index_add (tg : target) : unit =
-  Trace.step_justif "correct when size and index expressions are pure";
+  Trace.justif "correct when size and index expressions are pure (TODO: check)";
+  Trace.tag_simpl_access ();
   Target.apply_at_target_paths simpl_index_add_on tg
 
 let simpl_access_of_access_on (t : trm) : trm =
@@ -216,7 +217,8 @@ let simpl_access_of_access_on (t : trm) : trm =
    TODO: should this be in another file?
    *)
 let%transfo simpl_access_of_access (tg : target) : unit =
-  Trace.step_justif_always_correct ();
+  Trace.justif_always_correct ();
+  Trace.tag_simpl_access ();
   Target.apply_at_target_paths simpl_access_of_access_on tg
 
 (* internal *)
@@ -281,7 +283,7 @@ end
    -->
    {
      T* x = MALLOC0(sizeof(T));
-     ... uses x ...
+     ... uses &x[MINDEX0()] ...
      free(x);
      ...
    }
@@ -290,6 +292,7 @@ end
 
    *)
 let%transfo intro_malloc0 (x : var) (tg : target) : unit =
+  Trace.justif_always_correct ();
   Target.apply_at_target_paths (intro_malloc0_on x) tg
 
 (*
@@ -378,6 +381,7 @@ let elim_mindex_on (t : trm) : trm =
    [...]
    *)
 let%transfo elim_mindex (tg : target) : unit =
+  Trace.justif "correct if size and index expressions are pure (TODO: check)";
   Target.apply_at_target_paths elim_mindex_on tg
 
 let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
@@ -495,11 +499,14 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
     if not (Internal.same_trm wr_base rd_base) then
       fail t.loc "Matrix_basic.read_last_write: array base mistmach";
     let rd_value = List.fold_left (fun value (wr_i, rd_i) ->
-      let wr_i_var = trm_inv
-        ~error:"Matrix_basic.read_last_write: expected write index to be a variable"
-        trm_var_inv wr_i
-      in
-      Subst.subst_var wr_i_var rd_i value
+      begin match trm_var_inv wr_i with
+      | Some wr_i_var ->
+        Subst.subst_var wr_i_var rd_i value
+      | None ->
+        let error = "Matrix_basic.read_last_write: expected write index to be a variable, or to be the same as the read index" in
+        if (Internal.same_trm wr_i rd_i) then value
+        else fail wr_i.loc error
+      end
     ) wr_value (List.combine wr_indices rd_indices)
     in
     rd_value

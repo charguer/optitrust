@@ -16,8 +16,10 @@ int main() {
   int x = 1;
   for (int k0 = 0; k0 < n; k0++) {
     for (int k1 = 0; k1 < n; k1++) {
-      p += k0;
-      p += k1;
+      const int tmp3 = k0;
+      p += tmp3;
+      const int tmp5 = k1;
+      p += tmp5;
     }
   }
   int y = 2;

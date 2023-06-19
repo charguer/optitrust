@@ -1,7 +1,8 @@
-include ./Common.Makefile
+include ../Common.Makefile
 
+.PHONY: _build
 _build:
-	$(V)mkdir _build
+	$(V)mkdir -p _build
 
 # -march=core-avx2 -mtune=core-avx2
 # -march=native -mtune=native

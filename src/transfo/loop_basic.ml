@@ -159,7 +159,7 @@ let%transfo hoist ?(name : var = "${var}_step")
           ?(mark : mark option)
           ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))
          (tg : target) : unit =
-  Trace.step_justif_always_correct ();
+  Trace.justif_always_correct ();
   Internal.nobrace_remove_after (fun _ ->
     Target.apply (fun t p_instr ->
       let (i, p) = Path.index_in_surrounding_loop p_instr in
@@ -222,11 +222,21 @@ let%transfo fission_all_instrs (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_at_target_paths fission_all_instrs_on tg)
 
+(* TODO: valid in C but not C++? *)
+let normalize_loop_step (s : loop_step) : loop_step =
+  match s with
+  | Pre_inc -> Post_inc
+  | Post_inc -> Post_inc
+  | Pre_dec -> Post_dec
+  | Post_dec -> Post_dec
+  | Step amount ->
+    if is_trm_int 1 amount then Post_inc else s
+
 let same_loop_step (a : loop_step) (b : loop_step) : bool =
-  match (a, b) with
-  | (Pre_inc, Pre_inc) -> true
+  match ((normalize_loop_step a), (normalize_loop_step b)) with
+  (* | (Pre_inc, Pre_inc) -> true *)
   | (Post_inc, Post_inc) -> true
-  | (Pre_dec, Pre_dec) -> true
+  (* | (Pre_dec, Pre_dec) -> true *)
   | (Post_dec, Post_dec) -> true
   | (Step s_a, Step s_b) -> Internal.same_trm s_a s_b
   | _ -> false
@@ -337,6 +347,7 @@ let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target
 
     Assumption: Both a and C should be declared as constant variables. *)
 let%transfo unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit =
+  Trace.justif "correct if scoping is respected (TODO: check)";
   Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Loop_core.unroll braces my_mark) tg)
 
@@ -415,19 +426,21 @@ let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
   let index' = index in
   let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
   let ((index, start, direction, stop, step, is_parallel), body_terms) = trm_inv ~error trm_for_inv_instrs t in
-  let shift = match kind with
-  | ShiftBy s -> s
-  | StartAtZero -> trm_minus start
-  | StartAt v -> trm_sub v start
-  | StopAt v -> trm_sub v stop
+  let (shift, start', stop') = match kind with
+  (* spec:
+    let start' = trm_add start shift in
+    let stop' = trm_add stop shift in *)
+  | ShiftBy s -> (s, trm_add start s, trm_add stop s)
+  (* NOTE: assuming int type *)
+  | StartAtZero -> (trm_minus start, trm_int 0, trm_sub stop start)
+  | StartAt v -> (trm_sub v start, v, trm_add stop (trm_sub v start))
+  | StopAt v -> (trm_sub v stop, trm_add start (trm_sub v stop), v)
   in
-  let start' = trm_add start shift in
-  let stop' = trm_add stop shift in
-  (* NOTE: Option.get assuming all types are available *)
+  (* NOTE: assuming int type if no type is available *)
   let body_terms' = Mlist.push_front (
-    trm_let_immut (index, (Option.get start.typ))
+    trm_let_immut (index, (Option.value ~default:(typ_int ()) start.typ))
       (trm_sub (trm_var index') shift)) body_terms in
-  trm_for_instrs (index', start', direction, stop', step, is_parallel) body_terms'
+  trm_for_instrs ~annot:t.annot (index', start', direction, stop', step, is_parallel) body_terms'
 
 (* [shift index kind]: shifts a loop index range according to [kind], using a new [index] name.
   *)
@@ -452,7 +465,8 @@ let extend_range_on (start_extension : extension_kind) (stop_extension : extensi
   let error = "Loop_basic.extend_range_on: expected a target to a simple for loop" in
   let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
   assert (direction = DirUp);
-  assert (is_step_one step);
+  (* TODO: does it work in other cases?
+     assert (is_step_one step); *)
   (* avoid merging new ifs with previous ones *)
   let added_if = ref false in
   let make_if cond body =
@@ -477,7 +491,7 @@ let extend_range_on (start_extension : extension_kind) (stop_extension : extensi
   | ExtendTo v -> (v, if_after_start body')
   | ExtendBy v -> (trm_sub start v, if_after_start body')
   end in
-  trm_for (index, start', direction, stop', step, is_parallel) body''
+  trm_for ~annot:t.annot (index, start', direction, stop', step, is_parallel) body''
 
 (* [extend_range]: extends the range of a loop on [lower] and/or [upper] bounds.
    The body of the loop is guarded by ifs statements, doing nothing on the extension points.
@@ -549,7 +563,7 @@ let delete_void_on (i : int) (t_seq : trm) : trm option =
 
 (* [delete_void]: deletes a loop with empty body. *)
 let%transfo delete_void (tg : target) : unit =
-  Trace.step_justif_always_correct ();
+  Trace.justif_always_correct ();
   Target.apply (fun t p ->
     let (i, p_seq) = Path.index_in_seq p in
     Path.apply_on_path (fun t_seq ->

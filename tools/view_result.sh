@@ -27,6 +27,10 @@
 #==========================================================================
 # Processing script arguments
 
+# OPTION: for printing timing info, uncomment the line
+#export PRINTTIME="1"
+${PRINTTIME:=""}
+
 # Throughout the script, we measure execution times
 TIMER1=`date +%s%3N`
 
@@ -86,6 +90,7 @@ else
     OPTIONS="${OPTIONS} -dump-ast-details"
   fi
 fi
+
 
 #==========================================================================
 # Patch the script if needed to handle intermediate states
@@ -171,26 +176,56 @@ TIMER3=`date +%s%3N`
 # the line numbers in the relevant places. See documentation in add_lines.sh.
 ${TOOLS_FOLDER}/add_lines.sh ${SRCBASE}.ml ${SRCBASE}_with_lines.ml
 
+PROG="${SRCBASE}_with_lines.cmxs"
+
 #==========================================================================
-# Compile the script
+# Check the dependencies
+# We need a rebuild of the cmx file if any src/ file is more recent
+# than the .ml script
 
 TIMER4=`date +%s%3N`
 
-${TOOLS_FOLDER}/build_cmxs.sh ${SRCBASE}_with_lines.ml
+LAST_MODIF_LIB=`find ${OPTITRUST_FOLDER}/src -name "*.ml" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f2-2 -d" "`
 
-PROG="${SRCBASE}_with_lines.cmxs"
+NEEDS_REBUILD="0"
+
+if [ ${LAST_MODIF_LIB} -nt ${PROG} ]; then
+  echo "Compiled cmx is out of date compared with ${LAST_MODIF_LIB}"
+  NEEDS_REBUILD="1"
+elif [ ${FILEBASE}.ml -nt ${PROG} ]; then
+  echo "Compiled cmx is out of date compared with ${FILEBASE}.ml"
+  NEEDS_REBUILD="1"
+fi
+
+
+#==========================================================================
+# Compile the script
+
+TIMER5=`date +%s%3N`
+
+if [ "${NEEDS_REBUILD}" = "1" ]; then
+   echo "Building cmxs file"
+  ${TOOLS_FOLDER}/build_cmxs.sh ${SRCBASE}_with_lines.ml
+else
+   echo "Skipping build of cmxs file"
+fi
+
 
 #==========================================================================
 # Execute the script
 
-TIMER5=`date +%s%3N`
+TIMER6=`date +%s%3N`
 
-OCAMLRUNPARAM=b dune exec --no-build optitrust_runner -- ${PROG} ${OPTIONS} ${FLAGS}
+# if [ ! -z ${OPTIONS} ]; then
+echo "Execution options: ${OPTIONS}"
+
+# TODO: --no-build
+OCAMLRUNPARAM=b dune exec optitrust_runner -- ${PROG} ${OPTIONS} ${FLAGS}
 
 #==========================================================================
 # Open the output
 
-TIMER6=`date +%s%3N`
+TIMER7=`date +%s%3N`
 
 if [ "${MODE}" = "view_diff" ] || [ "${MODE}" = "view_diff_from_inter" ] || [ "${MODE}" = "view_diff_enc" ]; then
 
@@ -218,12 +253,15 @@ fi
 #==========================================================================
 # Report on execution time
 
-TIMER7=`date +%s%3N`
+TIMER8=`date +%s%3N`
 
-echo "Time process args: $((${TIMER2}-${TIMER1}))ms"
-echo "Time gen checkpoints: $((${TIMER3}-${TIMER2}))ms"
-echo "Time gen with-lines: $((${TIMER4}-${TIMER3}))ms"
-echo "Time build cmx:  $((${TIMER5}-${TIMER4}))ms"
-echo "Time dune exec: $((${TIMER6}-${TIMER5}))ms"
-echo "Time open result: $((${TIMER7}-${TIMER6}))ms"
-echo "Time total: $((${TIMER7}-${TIMER1}))ms"
+if [ ! -z "${PRINTTIME}" ]; then
+  echo "Time process args: $((${TIMER2}-${TIMER1}))ms"
+  echo "Time gen checkpoints: $((${TIMER3}-${TIMER2}))ms"
+  echo "Time gen with-lines: $((${TIMER4}-${TIMER3}))ms"
+  echo "Time dependencies:  $((${TIMER5}-${TIMER4}))ms"
+  echo "Time build cmx: $((${TIMER6}-${TIMER5}))ms"
+  echo "Time dune exec: $((${TIMER7}-${TIMER6}))ms"
+  echo "Time open result: $((${TIMER8}-${TIMER7}))ms"
+  echo "Time total: $((${TIMER8}-${TIMER1}))ms"
+fi

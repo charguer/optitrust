@@ -122,6 +122,10 @@ let occLast : constr =
 let target_of_path (p : path) : target =
   [Constr_paths [p]]
 
+(* [target_of_paths ps]: converts paths [ps] to a target. *)
+let target_of_paths (ps : paths) : target =
+  [Constr_paths ps]
+
 (* [dRoot]: matches the root of the ast. *)
 let dRoot : constr =
     Constr_root
@@ -266,6 +270,9 @@ let sExprRegexp ?(substr : bool = true) (s : string) : constr =
 (******************************************************************************)
 (*                                Ast nodes                                   *)
 (******************************************************************************)
+
+let cPred (p : trm -> bool) : constr =
+  Constr_pred p
 
 (* [cInclude s]: matches include directives. *)
 let cInclude (s : string) : constr =
@@ -1043,8 +1050,8 @@ let cArrayRead ?(index = []) (x : var) : constr =
     [[cCellAccess ~base:[cVar x] ~index ()]]
     [[cArrayWriteAccess x]]] ()
 
-let cPlusEqVar (name : string) : constr =
-  cPrimFun ~args:[[cVar name]; [cTrue]] (Prim_compound_assgn_op Binop_add)
+let cPlusEq (lhs_tg : target) : constr =
+  cPrimFun ~args:[lhs_tg; [cTrue]] (Prim_compound_assgn_op Binop_add)
 
 (* [cOmp_match_all]: matches an OpenMP directive. *)
 let cOmp_match_all : directive->bool =
@@ -1463,6 +1470,28 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 (*                                   New target system TODO: deprecate old one *)
 (******************************************************************************)
 
+(* [trm_add_marks_at_paths marks ps t] adds at the paths [ps] the marks named
+   [marks] in the term [t], and returns the resulting term. *)
+(* LATER: could use a system to set all the marks in a single pass over the ast,
+    able to hand the Dir_before *)
+let trm_add_marks_at_paths (marks:mark list) (ps:paths) (t:trm) : trm =
+  if List.length ps <> List.length marks
+    then failwith "trm_add_marks_at_paths: expects as many marks as paths";
+  List.fold_left2 (fun t p m ->
+      match last_dir_before_inv p with
+      | None -> apply_on_path (trm_add_mark m) t p
+      | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
+    t ps marks
+
+(* [trm_add_mark_at_paths markof ps t] adds a mark computed as
+   [markof pi ti] at the path [pi] reaching a subterm [ti]
+   among the list of paths [ps] *)
+let trm_add_mark_at_paths (markof:path->trm->mark) (ps:paths) (t:trm) : trm =
+  let marks = List.map (fun pi ->
+    let ti = Path.get_trm_at_path pi t in
+    markof pi ti) ps in
+  trm_add_marks_at_paths marks ps t
+
 (* LATER: add an optimization flag for transformations who know that they don't
    break the paths in the case of multiple targets, this avoids placing marks
    in the tree when -dump-trace is not requested *)
@@ -1496,13 +1525,7 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
     | _ ->
       (* LATER: optimization to avoid mark for first occurrence *)
       let marks = List.map (fun _ -> Mark.next()) ps in
-      (* LATER: could use a system to set all the marks in a single pass over the ast,
-          able to hand the Dir_before *)
-      let t = List.fold_left2 (fun t p m ->
-        match last_dir_before_inv p with
-        | None -> apply_on_path (trm_add_mark m) t p
-        | Some (p_to_seq,i) -> apply_on_path (trm_add_mark_between i m) t p_to_seq)
-        t ps marks in
+      let t = trm_add_marks_at_paths marks ps t in
       Trace.set_ast t;
       (* Iterate over these marks *)
       try
@@ -1542,6 +1565,9 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
 (* [iter] same as [iteri] but without occurence index *)
 let iter (tr : trm -> path -> unit) : target -> unit =
   iteri (fun occ t p -> tr t p)
+
+let iter_at_target_paths (transfo : trm -> unit) (tg : target) : unit =
+  iter (fun t p -> transfo (Path.get_trm_at_path p t)) tg
 
 (* [applyi tr tg]: apply transformation [tr] on the current ast
    to each of the paths targeted by [tg].
@@ -1699,12 +1725,14 @@ let get_toplevel_function_name_containing (dl : path) : string option =
 
 
 (* [reparse_only fun_nmaes]: reparse only those functions whose identifier is contained in [fun_names]. *)
-let reparse_only (fun_names : string list) : unit =
+let reparse_only ?(update_cur_ast : bool = true) (fun_names : string list) : unit =
   Trace.parsing_step (fun () -> Trace.call (fun t ->
     let chopped_ast, chopped_ast_map  =  hide_function_bodies (function f -> not (List.mem f fun_names)) t in
-    let parsed_chopped_ast = Trace.reparse_trm  (Trace.get_context ()) chopped_ast in
-    let new_ast = update_chopped_ast parsed_chopped_ast chopped_ast_map in
-    Trace.set_ast new_ast
+    let parsed_chopped_ast = Trace.reparse_trm (Trace.get_context ()) chopped_ast in
+    if update_cur_ast then begin
+      let new_ast = update_chopped_ast parsed_chopped_ast chopped_ast_map in
+      Trace.set_ast new_ast
+    end
   ))
 
 (* [get_relative_type tg]: get the type of target relative , Before, After, First Last. *)
@@ -1730,7 +1758,7 @@ let get_relative_type (tg : target) : target_relative option =
 (* TODO: change strategy for reparse, probably based on missing types?
    else on annotations added by clangml but cleared by smart-constructors
    TODO URGENT: the resolve_target does not work with the new Dir_before system *)
-let reparse_after ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit =
+let reparse_after ?(update_cur_ast : bool = true) ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit =
     if not reparse then tr tg else begin
       let tg = enable_multi_targets tg in
       let ast = (get_ast()) in
@@ -1748,9 +1776,9 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) (tg : target) : unit
       if !Flags.use_light_diff then begin
         let fun_names = List.map get_toplevel_function_name_containing tg_paths in
         let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
-        reparse_only fun_names
+        reparse_only ~update_cur_ast fun_names
       end else
-        Trace.reparse();
+        Trace.reparse ~update_cur_ast ();
     end
 
 (* LATER: use this more efficient version that avoids computing path resolution twice

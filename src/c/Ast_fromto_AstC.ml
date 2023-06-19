@@ -295,7 +295,7 @@ let infix_elim (t : trm) : trm =
          represented as [Trm_apps (Prim_compound_assgn_op binop) [trm_addressof(x),y]],
        likewise for [ x -= y]*)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr]) ->
-      trm_replace (Trm_apps(op, [trm_address_of tl; tr])) t
+      trm_alter ~typ:(typ_unit ()) ~desc:(Trm_apps(op, [trm_address_of tl; tr])) t
     (* Convert [ x++ ] into [ (++)(&x) ], where [(++)] is like the [incr] function in OCaml *)
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop unop)); _} as op, [base]) when is_postfix_unary unop ->
       trm_replace (Trm_apps(op, [trm_address_of base])) t
@@ -457,17 +457,24 @@ let rec contract_elim (t: trm): trm =
   match t.desc with
   | Trm_let_fun (qv, ty, args, body, contract) ->
     assert (contract = None);
-    let body_seq = trm_inv trm_seq_inv body in
-    let contract, new_body = extract_fun_contract body_seq in
-    let new_body = Mlist.map contract_elim new_body in
-    trm_alter ~desc:(Trm_let_fun (qv, ty, args, trm_seq new_body, contract)) t
+    begin match trm_seq_inv body with
+    | Some body_seq ->
+      let contract, new_body = extract_fun_contract body_seq in
+      let new_body = Mlist.map contract_elim new_body in
+      trm_alter ~desc:(Trm_let_fun (qv, ty, args, trm_seq new_body, contract)) t
+    | None -> trm_map contract_elim t
+    end
+
   | Trm_for (range, body, contract) ->
     assert (contract = None);
-    let body_seq = trm_inv trm_seq_inv body in
-    let contract, new_body = extract_loop_contract body_seq in
-    let new_body = Mlist.map contract_elim new_body in
-    trm_alter ~desc:(Trm_for (range, trm_seq new_body, contract)) t
-  (*| Trm_for_c (init, cond, step, body, _) -> failwith "TODO"*)
+    begin match trm_seq_inv body with
+    | Some body_seq ->
+      let contract, new_body = extract_loop_contract body_seq in
+      let new_body = Mlist.map contract_elim new_body in
+      trm_alter ~desc:(Trm_for (range, trm_seq new_body, contract)) t
+    | None -> trm_map contract_elim t
+    end
+
   | _ -> trm_map contract_elim t
 
 let rec formula_to_string (f: formula) : string =

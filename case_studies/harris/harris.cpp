@@ -2,10 +2,8 @@
 #include <stdlib.h>
 #include "../../include/optitrust.h"
 
-// TODO: this should be added by OptiTrust tiling
 inline int min(int a, int b) { return a < b ? a : b; }
 
-// NOTE: need to decide if 'in' has 3 or 4 channels (alpha)
 void grayscale(float* out,
                int h, int w,
                const float* in)
@@ -32,13 +30,7 @@ void conv2D(float* out,
             const float* weights)
 {
   for (int y = 0; y < (h - m + 1); y++) {
-    // int r0 = (y + 0) * w;
-    // int r1 = (y + 1) * w;
-    // int r2 = (y + 2) * w;
     for (int x = 0; x < (w - n + 1); x++) {
-      // int c0 = x + 0;
-      // int c1 = x + 1;
-      // int c2 = x + 2;
       float acc = 0.0f;
       for (int i = 0; i < m; i++) {
         for (int j = 0; j < n; j++) {
@@ -50,55 +42,43 @@ void conv2D(float* out,
   }
 }
 
+const float weights_sobelX[3 * 3] = {
+    -1.f/12.f, 0.f, 1.f/12.f,
+    -2.f/12.f, 0.f, 2.f/12.f,
+    -1.f/12.f, 0.f, 1.f/12.f
+};
+
 void sobelX(float* out,
             int h, int w,
             const float* in)
 {
-  // NOTE: /12 used in Halide instead of /8
-  const float weights[3 * 3] = {
-      -1.f/12.f, 0.f, 1.f/12.f,
-      -2.f/12.f, 0.f, 2.f/12.f,
-      -1.f/12.f, 0.f, 1.f/12.f
-  };
-  conv2D(out, h, w, in, 3, 3, weights);
+  conv2D(out, h, w, in, 3, 3, weights_sobelX);
 }
+
+const float weights_sobelY[3 * 3] = {
+    -1.f/12.f, -2.f/12.f, -1.f/12.f,
+      0.f/12.f,  0.f/12.f,  0.f/12.f,
+      1.f/12.f,  2.f/12.f,  1.f/12.f
+};
 
 void sobelY(float* out,
             int h, int w,
             const float* in)
 {
-  // NOTE: /12 used in Halide instead of /8
-  const float weights[3 * 3] = {
-      -1.f/12.f, -2.f/12.f, -1.f/12.f,
-       0.f/12.f,  0.f/12.f,  0.f/12.f,
-       1.f/12.f,  2.f/12.f,  1.f/12.f
-  };
-  conv2D(out, h, w, in, 3, 3, weights);
+  conv2D(out, h, w, in, 3, 3, weights_sobelY);
 }
 
-/* NOTE: box sum used in Halide instead
-void binomial(float* out,
-              int h, int w,
-              const float* in)
-{
-  const float weights[3 * 3] = {
-      1.f/16.f, 2.f/16.f, 1.f/16.f,
-      2.f/16.f, 4.f/16.f, 2.f/16.f,
-      1.f/16.f, 2.f/16.f, 1.f/16.f
-  };
-  conv2D(out, h, w, in, 3, 3, weights);
-}
-*/
+const float weights_sum3x3[3 * 3] = {
+    1.f, 1.f, 1.f,
+    1.f, 1.f, 1.f,
+    1.f, 1.f, 1.f
+};
+
 void sum3x3(float* out,
             int h, int w,
             const float* in)
 {
-  const float weights[3 * 3] = {
-      1.f, 1.f, 1.f,
-      1.f, 1.f, 1.f,
-      1.f, 1.f, 1.f
-  };
-  conv2D(out, h, w, in, 3, 3, weights);
+  conv2D(out, h, w, in, 3, 3, weights_sum3x3);
 }
 
 void mul(float* out,

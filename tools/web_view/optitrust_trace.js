@@ -4,7 +4,7 @@
 // TODO: restore the feature of displaying sources at lines
 
 /*
-
+var startupOpenStep = 45; // optional binding
 var steps = [];
 steps[0] = {
    id: 0, // corresponds to the step number
@@ -15,7 +15,7 @@ steps[0] = {
    justif: ["..", ".." ],
    isvalid: true,
    script: window.atob("..."),
-   scriptline: 23, // possibly undefined
+   script_line: 23, // possibly undefined
    astBefore: window.atob("..."), // NOT YET IMPLEMENTED; could also an id of an source code stored in a different array, for improved factorization
    astAfter: window.atob("..."), // NOT YET IMPLEMENTED
    diff: window.atob("..."), // could be slow if requested for all!
@@ -23,16 +23,20 @@ steps[0] = {
    }
 step[1] = ...
 
+Additional fields are set by the function   initTree
+- parent_id
+- has_valid_parent
+
 The function initSteps() builds an array of [bigsteps] and an array of [smallsteps],
 in order of appearance.
 
 Representation of a big step:
   bigsteps[k] = step object with additional fields:
-      id: // the id of the step in the steps array
+      bigstep_id: // the id of the step in the bigsteps array
       start: // an index in smallstep array, inclusive
       stop: // an index in smallstep array, exclusive
   smallsteps[k] = step object with additional fields:
-      id: // the id of the step in the steps array
+      smallspep_id: // the id of the step in the smallsteps array
 
 */
 
@@ -43,8 +47,91 @@ var hasBigsteps = undefined; // false iff bigsteps is empty
 
 
 // checkbox status; may change default values here
-var optionTargetSteps = false;
-var optionExectime = false;
+
+var optionsDefaultValueForTags = { // true = checked = hidden
+    "trivial": false,
+    "valid_by_composition": false,
+    "should_be_valid_by_composition": false,
+    "simpl.arith": true,
+    "IO": true,
+    "target": true,
+    "marks": true,
+    "simpl": true,
+   };
+
+var allTags = {}; // filled by initAllTags
+
+var optionsDescr = [ // extended by initAllTags
+  { key: "details",
+    name: "details",
+    kind: "UI",
+    default: true,
+  },
+  { key: "ast_before",
+    name: "ast-before",
+    kind: "UI",
+    default: false,
+  },
+  { key: "ast_after",
+    name: "ast-after",
+    kind: "UI",
+    default: false,
+  },
+  { key: "stats",
+    name: "stats",
+    kind: "UI",
+    default: false,
+  },
+  { key: "compact",
+    name: "compact",
+    kind: "UI",
+    default: true,
+  },
+  { key: "justif",
+    name: "justification",
+    kind: "UI",
+    default: false,
+  },
+  { key: "exectime",
+    name: "exectime",
+    kind: "UI",
+    default: false,
+  },
+  { key: "tags",
+    name: "tags",
+    kind: "UI",
+    default: false,
+  },
+  /* DEPRECATED
+   { key: "io_steps",
+    name: "io-steps",
+    kind: "UI",
+    default: false,
+  },
+  { key: "target_steps",
+    name: "target-steps",
+    kind: "UI",
+    default: false,
+  },*/
+  { key: "noop_steps",
+    name: "noop-steps",
+    kind: "UI",
+    default: false,
+  },
+  { key: "atomic_substeps",
+    name: "atomic-substeps",
+    kind: "UI",
+    default: false,
+  },
+  { key: "basic_modules",
+    name: "basic-modules",
+    kind: "UI",
+    default: false,
+  }
+];
+var options = {}; // filled by initOptions
+
+
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -114,6 +201,7 @@ var configuration = {
    fileContentToggle: false,
    matching: 'lines',
    outputFormat: 'side-by-side',
+   // outputFormat: 'line-by-line',
    synchronisedScroll: true,
    highlight: true,
    renderNothingWhenEmpty: false,
@@ -179,6 +267,23 @@ function loadDiffFromString(diffString) {
  diff2htmlUi.draw();
  diff2htmlUi.highlightCode();
 
+ const reg1 = /<del>([\s\n]*)/g
+ $('.d2h-code-line-ctn').each(function() {
+  $(this).html( $(this).html().replace(reg1, "$1<del>") );
+});
+
+const reg2 = /<ins>([\s\n]*)/g
+$('.d2h-code-line-ctn').each(function() {
+ $(this).html( $(this).html().replace(reg2, "$1<ins>") );
+});
+
+if (options.compact) {
+  const reg3 = /  /g
+  $('.d2h-code-line-ctn').each(function() {
+    $(this).html( $(this).html().replace(reg3, " ") );
+  });
+}
+
  // identify the two sides of the diff, and register handlers for click on the line numbers;
  $('.d2h-file-side-diff').first().addClass('diffBefore');
  $('.d2h-file-side-diff').last().addClass('diffAfter');
@@ -194,10 +299,10 @@ function loadDiffFromString(diffString) {
 }
 
 function resetView() {
-  $("#sourceDiv").hide();
+  /*$("#sourceDiv").hide();
   $("#diffDiv").hide();
   $("#detailsDiv").html("");
-  $("#infoDiv").html("");
+  $("#infoDiv").html("");*/
   curSource = -1;
   curSdiff = -1;
   curBdiff = -1;
@@ -274,10 +379,11 @@ function loadSdiff(id) {
   $("#diffDiv").show();
   var step = smallsteps[id];
   selectedStep = step;
+  reloadTraceView(); //loadStepDetails(step.id);
   loadDiffFromString(step.diff);
   var sStep = htmlSpan(newlinetobr(escapeHTML(step.script)), "step-info");
-  if (optionExectime) {
-    var sTime = htmlSpan(step.exectime + "ms", "timing-info") + "<div style='clear: both'></div>";
+  if (options.exectime) {
+    var sTime = htmlSpan(Math.round(1000 * step.exectime) + "ms", "timing-info") + "<div style='clear: both'></div>";
     sStep += sTime;
   }
   displayInfo(sStep);
@@ -296,6 +402,7 @@ function loadBdiff(id) {
   $("#diffDiv").show();
   var step = bigsteps[id];
   selectedStep = step;
+  reloadTraceView(); // loadStepDetails(step.id);
   loadDiffFromString(step.diff);
   $("#button_bdiff_" + id).addClass("ctrl-button-selected");
   var sStep = htmlSpan(escapeHTML(step.script), "step-info");
@@ -310,9 +417,9 @@ function loadBdiff(id) {
 
 // LATER: simplify, as curSource is deprecated
 function nextSdiff() {
-  if (curSdiff == -1 && curSource != -1) {
+  /*if (curSdiff == -1 && curSource != -1) {
     curSdiff = curSource - 1;
-  }
+  }*/
   //var id = Math.min(curSdiff + 1, smallsteps.length-1);
   var id = (curSdiff + 1) % smallsteps.length;
   loadSdiff(id);
@@ -320,22 +427,56 @@ function nextSdiff() {
 
 // LATER: simplify, as curSource is deprecated
 function nextBdiff() {
-  if (curBdiff == -1) {
+  /*if (curBdiff == -1) {
     if (curSdiff == -1 && curSource != -1) {
       curSdiff = curSource - 1;
     }
     curBdiff = getBdiffCovering(curSdiff) - 1; // anticipate for the +1 operation
   }
   //var id = Math.min(curBdiff + 1, bigsteps.length-1);
+  if (curBdiff == -1) {
+    curBdiff = 0;
+  }*/
   var id = (curBdiff + 1) % bigsteps.length;
+  console.log(id);
   loadBdiff(id);
 }
 
-// handles a click on a step, to view details
-function loadStep(idStep) {
+// handles a click on a step bullet item, to focus on that step
+function focusOnStep(idStep) {
+  resetView();
   var step = steps[idStep];
-  loadDiffFromString(step.diff);
-  $("#diffDiv").show();
+  selectedStep = step;
+  if (step.hasOwnProperty("smallstep_id")) {
+    loadSdiff(step.smallstep_id);
+  } else if (step.hasOwnProperty("bigstep_id")) {
+    loadSdiff(step.bigstep_id);
+  }
+  reloadTraceView();
+}
+
+// handles a click on a step, to view details
+function loadStepDetails(idStep) {
+  var step = steps[idStep];
+  if (options.ast_before || options.ast_after) {
+    var ast = (options.ast_before) ? step.ast_before : step.ast_after;
+    loadSource(ast, true);
+    $("#diffDiv").hide();
+    $("#statsDiv").hide();
+    $("#sourceDiv").show();
+  } else if (options.stats) {
+    let visitedSteps = new Set();
+    $("#statsDiv").html(stepToHTMLStats(step, true, visitedSteps));
+    $("#diffDiv").hide();
+    $("#statsDiv").show();
+    $("#sourceDiv").hide();
+  } else {
+    loadDiffFromString(step.diff);
+    $("#diffDiv").show();
+    $("#statsDiv").hide();
+    $("#sourceDiv").hide();
+  }
+
   /*
   if (step.kind == "Target") {
     $("#diffDiv").show();
@@ -348,21 +489,50 @@ function loadStep(idStep) {
   */
 }
 
-function stepToHTML(step) {
+function stepToHTML(step, isOutermostLevel) {
+  if (!options.noop_steps && (step.ast_before == step.ast_after)) {
+    // TODO: precompute '==' somewhere
+    return "";
+  }
+
   // console.log("steptohtml " + step.id);
   var s = "";
   var sSubs = "";
-  for (var i = 0; i < step.sub.length; i++) {
-    var substep = steps[step.sub[i]];
-    if (!optionTargetSteps && substep.kind == "Target") {
-      continue;
+
+  const showSubsteps =
+    (options.atomic_substeps || !step.tags.includes("atomic"));
+  if (showSubsteps) {
+    for (var i = 0; i < step.sub.length; i++) {
+      var substep = steps[step.sub[i]];
+      sSubs += stepToHTML(substep, false)
     }
-    sSubs += "<li>" + stepToHTML(substep) + "</li>\n";
   }
+
+  const hideStep = (step.tags.some((tag) => options["hide-" + tag]));
+  // DEPRECATED
+    // (!options.target_steps && step.kind == "Target") ||
+    // (!options.io_steps && step.kind == "IO") ||
+  var isRoot = (step.id == 0);
+  /*if (isRoot) {
+    return "<ul class='step-sub'> " + sSubs + "</ul>\n";
+  } else */ if (hideStep) {
+    return sSubs;
+  }
+
   var validityClass = "";
-  validityClass = (step.isvalid) ? "step-valid" : "step-invalid";
+  if (step.kind == "IO" || step.kind == "Target") {
+    validityClass = "step-io-target";
+  } else if (step.kind == "Error") {
+    validityClass = "step-error";
+  } else if (step.isvalid) {
+    validityClass= "step-valid";
+  } else if (step.has_valid_parent) {
+    validityClass = "step-has-valid_parent";
+  } else {
+    validityClass = "step-invalid";
+  }
   var sTime = "";
-  if (optionExectime) {
+  if (options.exectime) {
     var t = 1000 * step.exectime; // milliseconds
     var nb = "";
     if (t > 10) {
@@ -382,9 +552,13 @@ function stepToHTML(step) {
     sTime = "<span class='" + sTimeClass + "'>" + sTime + "</span>";
 
   }
-  var sKind = escapeHTML(step.kind);
+  var sKind = "";
   if (step.script_line !== undefined) {
-    sKind = "<b>" + step.script_line + "</b>";
+    sKind = " [<b>" + step.script_line + "</b>] ";
+  } else if (step.kind == "Transfo") {
+    sKind = "";
+  } else if (!options.compact) {
+    sKind = " [" + escapeHTML(step.kind) + "] ";
   }
   var sScript = escapeHTML(step.script);
   if (step.kind == "Big") {
@@ -392,29 +566,139 @@ function stepToHTML(step) {
   }
   var sOnClick = "";
   if (step.hasOwnProperty("id")) { // LATER: refine
-    sOnClick = "onclick='loadStep(" + step.id + ")'";
+    sOnClick = "onclick='loadStepDetails(" + step.id + ")'";
+  }
+  var sTags = "";
+  if (options.tags) {
+    sTags += " Tags:[";
+    for (var t = 0; t < step.tags.length; t++) {
+      sTags += step.tags[t] + ",";
+    }
+    sTags += "]";
+  }
+  var sName = escapeHTML(step.name);
+  if (!options.basic_modules) {
+    sName = sName.replace(/_basic/,'');
   }
 
-  s += "<div " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + " [" + sKind + "] " + escapeHTML(step.name) + " " + sScript + "</div>";
-  for (var i = 0; i < step.justif.length; i++) {
-    s += "<div class='step-justif'>" + escapeHTML(step.justif[i]) + "</div>"
+  var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.id + ")'";
+  if (isOutermostLevel && step.id != 0) {
+    var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.parent_id + ")'";
   }
+
+  // Line contents
+  if (! isRoot) {
+    s += "<div><span class='step-bullet' " + sOnClickFocusOnStep + ">&diams;</span><span " + sOnClick + " class='step-title " + validityClass + "'>" + sTime + sKind + sName + " " + sScript + sTags + "</span></div>";
+  }
+
+  if (options.justif) {
+    for (var i = 0; i < step.justif.length; i++) {
+      s += "<div class='step-justif-text'>" + escapeHTML(step.justif[i]) + "</div>"
+    }
+  }
+
+  // Substeps
   s += "<ul class='step-sub'> " + sSubs + "</ul>\n";
-  return s;
-}
 
-// handles click on the details button
-function toggleDetails() {
-  var shouldShowDetails = ($("#detailsDiv").html() == "");
-  resetView();
-  if (shouldShowDetails) {
-    $("#diffDiv").hide();
-    $("#detailsDiv").html(stepToHTML(selectedStep));
+  if (isOutermostLevel) {
+    return s;
   } else {
-    $("#detailsDiv").html("");
+    return "<li>" + s + "</li>\n";
   }
 }
 
+// TODO: factorize with stepToHTML?
+function stepToHTMLStats(step) {
+  let visitedSteps = new Set();
+  visitSteps(step, visitedSteps);
+  return "<ul>" + [...visitedSteps].sort().map(x => "<li>" + x + "</li>").join('') + "</li>";
+}
+
+function visitSteps(step, visitedSteps) {
+  if (!options.noop_steps && (step.ast_before == step.ast_after)) {
+    // TODO: precompute '==' somewhere
+    return "";
+  }
+
+  const showSubsteps =
+    (options.atomic_substeps || !step.tags.includes("atomic"));
+  if (showSubsteps) {
+    for (var i = 0; i < step.sub.length; i++) {
+      var substep = steps[step.sub[i]];
+      visitSteps(substep, visitedSteps);
+    }
+  }
+
+  var sName = escapeHTML(step.name);
+  if (!options.basic_modules) {
+    sName = sName.replace(/_basic/,'');
+  }
+
+  const hideStep =
+    (visitedSteps.has(sName)) ||
+    (step.kind != "Transfo") ||
+    (step.tags.some((x) => hideTags.has(x)));
+  if (hideStep) {
+    return;
+  }
+
+  visitedSteps.add(sName);
+}
+
+function reloadTraceView() {
+  // var shouldShowDetails = ($("#detailsDiv").html() == "");
+  resetView();
+  if (options.details) {
+    $("#detailsDiv").show();
+  } else {
+    $("#detailsDiv").hide();
+  }
+  if (typeof selectedStep !== "undefined") {
+    loadStepDetails(selectedStep.id); // TODO inline here?
+    $("#detailsDiv").html(stepToHTML(selectedStep, true));
+  }
+
+  //if (shouldShowDetails) {
+  //  $("#diffDiv").hide();
+
+  //} else {
+  //  $("#detailsDiv").html("");
+  //}
+}
+
+// handles click on the "all" button
+function viewDetailsAll() {
+  // $("#diffDiv").hide();
+  selectedStep = steps[0]; // root
+  reloadTraceView();
+  // $("#detailsDiv").html(stepToHTML(selectedStep));
+}
+
+// handles click on the "full" button
+function viewDetailsFull() {
+  for (var key in options) {
+    options[key] = false;
+  }
+  options["details"] = true;
+  options["justif"] = true;
+  options["exectime"] = true;
+  options["noop_steps"] = true; // TODO: should be a tag
+
+  // update checkbox display // TODO: use this also in other place
+  for (var key in options) {
+    $('#option_' + key).prop('checked', options[key]);
+  }
+  reloadTraceView();
+}
+
+function initOptions() {
+  for (var i = 0; i < optionsDescr.length; i++) {
+    var descr = optionsDescr[i];
+    options[descr.key] = descr.default;
+  }
+}
+
+initOptions();
 function initControls() {
   var s = "";
   function addRow(sTitle, sRow) {
@@ -450,22 +734,53 @@ function initControls() {
   addRow("SmallSteps", sSdiff);
 
   // Details button
-  s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
-  s += htmlCheckbox("option_Exectime", "exectime", "details-checkbox", "updateOptions()");
-  s += htmlCheckbox("option_TargetSteps", "target-steps", "details-checkbox", "updateOptions()");
+  // s += htmlButton("button_details", "details", "details-button", "toggleDetails()");
+  s += htmlButton("button_all", "all", "details-button", "viewDetailsAll()");
+
+  // Generate checkboxes
+  for (var i = 0; i < optionsDescr.length; i++) {
+    var descr = optionsDescr[i];
+    var id = "option_" + descr.key;
+    s += htmlCheckbox(id, descr.name, "details-checkbox", "updateOptions()");
+  }
+
+  // Full button
+  s += htmlButton("button_full", "full", "details-button", "viewDetailsFull()");
 
   $("#contents").html(s);
 
   // initialize checkboxes
-  $('#option_Exectime').attr('checked', optionExectime);
-  $('#option_TargetSteps').attr('checked', optionTargetSteps);
+  for (var i = 0; i < optionsDescr.length; i++) {
+    var descr = optionsDescr[i];
+    var id = "option_" + descr.key;
+    $('#' + id).prop('checked', options[descr.key]);
+  }
 }
 
 // handles modification of options by click on the checkboxes
 function updateOptions() {
-  optionExectime = $('#option_Exectime').prop('checked');
-  optionTargetSteps = $('#option_TargetSteps').prop('checked');
-  toggleDetails(); toggleDetails();
+  var ast_before_was_checked = options.ast_before;
+  for (var i = 0; i < optionsDescr.length; i++) {
+    var descr = optionsDescr[i];
+    var id = "option_" + descr.key;
+    options[descr.key] = $('#' + id).prop('checked');
+  }
+  /* LATER
+  if (options.exectime) {
+    options["hide-IO"] = false;
+    $('#option_hide-IO').prop('checked', false);
+  }*/
+  if (options.ast_before && options.ast_after) {
+    if (ast_before_was_checked) {
+      options.ast_before = false;
+      $('#option_ast_before').prop('checked', options.ast_before);
+    } else {
+      options.ast_after = false;
+      $('#option_ast_after').prop('checked', options.ast_after);
+      // LATER: a function to change an option and the checkbox
+    }
+  }
+  reloadTraceView();
 }
 
 function initSteps() {
@@ -488,13 +803,14 @@ function initSteps() {
     for (var i = 0; i < stepIds.length; i++) {
       var smallstep_id = stepIds[i];
       var smallstep = steps[smallstep_id];
-      if (smallstep.kind == "Parsing") {
+      if (smallstep.kind == "IO") {
         continue;
       }
       if (smallstep.kind != "Small") {
         console.log("Error: numberSmallSteps expected a small step but encountered a step of kind " + smallstep.kind);
       }
-      smallstep.id = smallstep_id;
+      // DEPRECATED(redundant) smallstep.id = smallstep_id;
+      smallstep.smallstep_id = curSmallStep;
       smallsteps[curSmallStep] = smallstep;
       curSmallStep++;
     }
@@ -505,16 +821,17 @@ function initSteps() {
     for (var i = 0; i < rootSub.length; i++) {
       var bigstep_id = rootSub[i];
       var bigstep = steps[bigstep_id];
-      if (bigstep.kind == "Parsing") {
+      if (bigstep.kind == "IO") {
         continue;
       }
       if (bigstep.kind != "Big") {
         console.log("Error: initSteps expected a big-step but encountered a step of kind " + bigstep.kind);
       }
-      bigstep.id = bigstep_id;
+      // DEPRECATED(redundant) bigstep.id = bigstep_id;
       bigstep.start = curSmallStep;
       numberSmallSteps(bigstep.sub);
       bigstep.stop = curSmallStep;
+      bigstep.bigstep_id = i;
       bigsteps[i] = bigstep;
     }
   } else {
@@ -523,12 +840,52 @@ function initSteps() {
   }
 }
 
+function initTree(id, parent_id, has_valid_parent) {
+  var step = steps[id];
+  step.parent_id = parent_id;
+  step.has_valid_parent = has_valid_parent;
+  for (var j = 0; j < step.sub.length; j++) {
+    initTree(step.sub[j], id, (has_valid_parent || step.isvalid));
+  }
+}
 
+
+function initAllTags() {
+  // fills the object allTags with keys that correspond to all possible tags
+  for (var i = 0; i < steps.length; i++) {
+    var tags = steps[i].tags;
+    for (var t = 0; t < tags.length; t++) {
+      var tag = tags[t];
+      allTags[tag] = true;
+    }
+  }
+  // LATER: organize known tags to the front
+  // completes the options array with one entry per tag
+  for (tag in allTags) {
+    var val =
+      (optionsDefaultValueForTags.hasOwnProperty(tag))
+      ? optionsDefaultValueForTags[tag]
+      : false;
+    var key = "hide-" + tag;
+    var descr = {
+      key: key,
+      name: key,
+      kind: "UI",
+      default: val,
+    };
+    optionsDescr.push(descr);
+    options[key] = val;
+  }
+}
 
 document.addEventListener('DOMContentLoaded', function () {
   initEditor();
   initSteps();
+  initTree(0, 0, false); // the root is its own parent, has no valid parent
+  initAllTags();
+  initOptions();
   initControls();
+  initSplitView();
   // editor.setValue("click on a button");
   if (hasBigsteps) {
     loadBdiff(0); }
@@ -537,10 +894,78 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   $('#button_bdiff_next').focus();
 
-  // start by showing the tree of steps on the root
-  selectedStep = steps[0];
-  toggleDetails();
+  // start by showing the tree of steps on the root, or the requested step
+  var stepInit = 0; // root
+  if (typeof startupOpenStep !== "undefined") {
+    stepInit = startupOpenStep;
+  }
+  selectedStep = steps[stepInit];
+  reloadTraceView(); // calls loadStepDetails(selectedStep)
 });
 
 // alternative:
 // but there could be many lines..
+
+
+//// vertical split resizing
+
+var resizer, leftSplit, rightSplit;
+
+function initSplitView() {
+  resizer = document.getElementById('vSplitDiv');
+  leftSplit = resizer.previousElementSibling;
+  rightSplit = resizer.nextElementSibling;
+  resizer.addEventListener('mousedown', mouseDownHandler);
+}
+
+// The current position of mouse
+let x = 0;
+let y = 0;
+
+// Width of left side
+let leftWidth = 0;
+
+// Handle the mousedown event
+// that's triggered when user drags the resizer
+const mouseDownHandler = function (e) {
+    // Get the current mouse position
+    x = e.clientX;
+    y = e.clientY;
+
+    leftWidth = leftSplit.getBoundingClientRect().width;
+
+    // Attach the listeners to `document`
+    document.addEventListener('mousemove', mouseMoveHandler);
+    document.addEventListener('mouseup', mouseUpHandler);
+};
+
+const mouseMoveHandler = function (e) {
+  // How far the mouse has been moved
+  const dx = e.clientX - x;
+  const dy = e.clientY - y;
+
+  const newLeftWidth = ((leftWidth + dx) * 100) / resizer.parentNode.getBoundingClientRect().width;
+  leftSplit.style.width = `${newLeftWidth}%`;
+
+  document.body.style.cursor = 'col-resize';
+  leftSplit.style.userSelect = 'none';
+  leftSplit.style.pointerEvents = 'none';
+
+  rightSplit.style.userSelect = 'none';
+  rightSplit.style.pointerEvents = 'none';
+};
+
+const mouseUpHandler = function () {
+  resizer.style.removeProperty('cursor');
+  document.body.style.removeProperty('cursor');
+
+  leftSplit.style.removeProperty('user-select');
+  leftSplit.style.removeProperty('pointer-events');
+
+  rightSplit.style.removeProperty('user-select');
+  rightSplit.style.removeProperty('pointer-events');
+
+  // Remove the handlers of `mousemove` and `mouseup`
+  document.removeEventListener('mousemove', mouseMoveHandler);
+  document.removeEventListener('mouseup', mouseUpHandler);
+};

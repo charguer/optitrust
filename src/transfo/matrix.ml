@@ -123,8 +123,10 @@ let%transfo intro_mops (dim : trm) (tg : target) : unit =
 
   TODO:
   - eliminate MALLOC2 into malloc(sizeof(T[n][m]))?
+  - ~simpl
 *)
 let%transfo elim_mops (tg : target): unit =
+  Trace.tag_valid_by_composition ();
   let targets = ref [] in
   Target.iter (fun _ p ->
     targets := (target_of_path p) :: !targets;
@@ -200,6 +202,7 @@ let simpl_void_loops = Loop.delete_all_void
   All reads from [var] must be eliminated The values of [var] must only be read locally, i.e. directly after being written.
   *)
 let%transfo elim ?(simpl : Transfo.t = simpl_void_loops) (tg : target) : unit =
+  Trace.tag_valid_by_composition ();
   Target.iter (fun t p_def ->
     let t_def = Path.resolve_path p_def t in
     let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
@@ -216,17 +219,45 @@ let%transfo elim ?(simpl : Transfo.t = simpl_void_loops) (tg : target) : unit =
 (* TODO: local_name_tile ~shift_to_zero *)
 (* + shift_to_zero ~nest_of *)
 
+(* [inline_constant]: expects [tg] to target a matrix definition,
+   then first uses [Matrix.elim_mops] on all reads before attempting
+   to use [Arrays.inline_constant].
+   *)
+let%transfo inline_constant ?(simpl : Transfo.t = Arith.default_simpl) ~(decl : target) (tg : target) : unit =
+  Trace.tag_valid_by_composition ();
+  Target.iter (fun t p -> Marks.with_fresh_mark (fun mark_accesses ->
+    (* TODO: use simpl there as well? *)
+    elim_mops (target_of_path p);
+    Arrays.inline_constant ~mark_accesses ~decl (target_of_path p);
+    simpl [nbAny; cMark mark_accesses];
+  )) tg
+
 (* [elim_constant]: expects [tg] to target a matrix definition,
    then first uses [Matrix.elim_mops] on all reads before attempting
    to use [Arrays.elim_constant].
    *)
-let%transfo elim_constant (tg : target) : unit =
-  Target.iter (fun t p_def ->
+let%transfo elim_constant ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+  Trace.tag_valid_by_composition ();
+  Target.iter (fun t p_def -> Marks.with_fresh_mark (fun mark_accesses ->
     let t_def = Path.resolve_path p_def t in
     let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
     let (_, p_seq) = Path.index_in_seq p_def in
+    (* TODO: use simpl there as well? *)
     elim_mops ((target_of_path p_seq) @ [nbAny; cArrayRead x]);
-    Arrays.elim_constant (target_of_path p_def);
+    Arrays.elim_constant ~mark_accesses (target_of_path p_def);
+    simpl [nbAny; cMark mark_accesses];
+  )) tg
+
+(* [iter_on_var_defs]: helper for transformations that need to iterate
+  on variable definitions while requiring the path to the surrounding sequence.
+   *)
+let iter_on_var_defs (f : (varkind * var * typ * trm) -> (int * path) -> unit) (tg : target) : unit =
+  Target.iter (fun t p ->
+    let t_local = Path.get_trm_at_path p t in
+    let error = "Matrix.iter_on_var_defs: expected target on variable definition" in
+    let let_bits = trm_inv ~error trm_let_inv t_local in
+    let seq_bits = Path.index_in_seq p in
+    f let_bits seq_bits
   ) tg
 
 (* [delete] expects target [tg] to point to a definition of matrix [var], and deletes it.
@@ -234,11 +265,8 @@ let%transfo elim_constant (tg : target) : unit =
   Checks that [var] is not used anywhere in the visible scope.
    *)
 let%transfo delete (tg : target) : unit =
-  Target.iter (fun t p ->
-    let t_local = Path.get_trm_at_path p t in
-    let error = "Matrix.delete: expected target on variable definition" in
-    let (_, var, _, _) = trm_inv ~error trm_let_inv t_local in
-    let (_, p_seq) = Path.index_in_seq p in
+  Trace.tag_valid_by_composition ();
+  iter_on_var_defs (fun (_, var, _, _) (_, p_seq) ->
     Matrix_basic.delete ~var (target_of_path p_seq)
   ) tg
 
@@ -247,13 +275,15 @@ let delete_alias = delete
 (* [local_name_tile]: like the basic transfo, but deletes the
    original matrix if [delete] is true or if [into] is empty.
    *)
-let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : var = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : var = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+  Trace.tag_valid_by_composition ();
   let (delete, rename, into) = if into = ""
     then (true, true, fresh_var ())
     else (delete, false, into)
   in
-  Target.iter (fun t p ->
-    Matrix_basic.local_name_tile ~indices ?alloc_instr v ~into tile ~local_ops (target_of_path p);
+  Marks.with_fresh_mark (fun mark_accesses -> Target.iter (fun t p ->
+    Matrix_basic.local_name_tile ~mark_accesses ~indices ?alloc_instr v ~into tile ~local_ops (target_of_path p);
+    simpl [cMark mark_accesses];
     if delete then begin
       let (_, surrounding_seq) = Path.index_in_seq p in
       let surrounding_tg = target_of_path surrounding_seq in
@@ -267,6 +297,22 @@ let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = [])
         delete_alias (Option.value ~default:(surrounding_tg @ [cVarDef v]) alloc_instr);
         if rename then
           Variable_basic.rename ~into:v [cMark m; cVarDef into];
-      )
+      );
     end
+  ) tg)
+
+(* same as [local_name_tile] but with target [tg] pointing at an instruction within a sequence, introduces the local name for the rest of the sequence. *)
+let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : var = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+  Trace.tag_valid_by_composition ();
+  Marks.with_fresh_mark (fun mark -> Target.iter (fun t p ->
+    Sequence.intro_after ~mark (target_of_path p);
+    local_name_tile ~delete ~indices ?alloc_instr v ~into tile ~local_ops ~simpl (target_of_path p);
+    Sequence.elim [cMark mark];
+  ) tg)
+
+let%transfo storage_folding ~(dim : int) ~(size : trm)
+  ?(kind : storage_folding_kind = ModuloIndices) (tg : target) : unit =
+  Trace.tag_valid_by_composition ();
+  iter_on_var_defs (fun (_, var, _, _) (_, p_seq) ->
+    Matrix_basic.storage_folding ~var ~dim ~size ~kind (target_of_path p_seq)
   ) tg

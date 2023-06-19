@@ -15,6 +15,12 @@ int main() {
   }
   int r = t2[MINDEX1(3, 0)] + t2[MINDEX1(3, 1)] + t2[MINDEX1(3, 2)];
 
+  int* t3 = (int*) MALLOC2(1, 3, sizeof(int));
+  for (int i = 0; i < 3; i++) {
+    t3[MINDEX2(1, 3, 0, i)] = i;
+  }
+  int r2 = t3[MINDEX2(1, 3, 0, 0)] + t3[MINDEX2(1, 3, 0, 1)] + t3[MINDEX2(1, 3, 0, 2)];
+
   float* img = (float*) MALLOC2(8, 8, sizeof(float));
   for (int y = 0; y < 8; y++) {
     for (int x = 0; x < 8; x++) {
@@ -35,5 +41,6 @@ int main() {
   free(img);
   free(t);
   free(t2);
+  free(t3);
   return 0;
 }
