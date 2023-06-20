@@ -1,6 +1,5 @@
-#include <vector>
-
 #include <algorithm>
+#include <vector>
 
 class test_static_class {
  private:

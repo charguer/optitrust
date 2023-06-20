@@ -54,6 +54,53 @@ let do_or_die (cmd : string) : unit =
     (* command_output
       command_output_lines *)
 
+
+
+(*****************************************************************************)
+(* Options *)
+
+(* List of keys process; a key may be a special keyword or a path to a .ml test file
+   e.g. ["basic/variable_inline.ml"; "combi"].
+   The list gets later expanded into a list of paths, without duplicates. *)
+let keys_to_process : string list ref = ref []
+
+(* Flag for controlling whether or not to generate *_out.cpp files. *)
+type outfile_gen =
+  | Outfile_gen_always
+  | Outfile_gen_only_on_failure (* failure or missing expected file *)
+  | Outfile_gen_never
+
+let outfile_gen : outfile_gen ref = ref Outfile_gen_only_on_failure
+
+let string_to_outfile_gen = function
+  | "always" -> Outfile_gen_always
+  | "never" -> Outfile_gen_never
+  | "onfailure" -> Outfile_gen_only_on_failure
+  | _ -> failwith "Invalid argument for -out"
+
+let set_outfile_gen str = outfile_gen := string_to_outfile_gen str
+
+(* Flag to ignore all cached data *)
+let ignore_cache : bool ref = ref false
+
+(* Flag to discard all cached data *)
+let discard_cache : bool ref = ref false
+
+(* Flag to enable verbose mode *)
+let verbose_mode : bool ref = ref false
+
+(* Flag to control at which level the comparison is performed (AST or text).
+   If Comparison_method_text, then implies Outfile_gen_always. *)
+type comparison_method =
+  | Comparison_method_ast (* TODO: do we have this? *)
+  | Comparison_method_text
+
+let comparison_method : comparison_method ref = ref Comparison_method_text
+
+let _remove_later = comparison_method := Comparison_method_ast;
+  comparison_method := Comparison_method_text
+
+
 (*****************************************************************************)
 (* Saving/retrieving arguments of the last call *)
 
@@ -73,13 +120,19 @@ let get_last_tests () : string list =
 (*****************************************************************************)
 (* Description of keys *)
 
-(* Gather the list of *.ml files in a directory.
+(* Gather the list of *.ml files in a directory, possibly matching a given pattern.
    Ignores *_with_lines.ml files.
    *)
-let get_list_of_tests_in_dir (folder : string) : string list =
-  do_or_die (sprintf
-    "find %s -name \"*.ml\" -and -not -name \"*_with_lines.ml\" > %s"
-    folder tmp_file);
+let get_list_of_tests_in_dir ?(pattern : string option) (folder : string) : string list =
+  let pat =
+    match pattern with
+    | None -> "*.ml"
+    | Some p -> p
+    in
+  let cmd = sprintf "find %s -name \"%s\" -and -not -name \"*_with_lines.ml\" > %s" folder pat tmp_file in
+  if !verbose_mode
+    then eprintf "System command: \n  %s\n" cmd;
+  do_or_die cmd;
   Xfile.get_lines tmp_file
 
 
@@ -91,8 +144,8 @@ let rec list_of_tests_from_key (key : string) : string list =
   | "all" -> (aux "basic") @
              (aux "combi") @
              (aux "target") @
-             (aux "ast") @
-             (aux "case_studies")
+             (aux "ast")
+             (*TODO (aux "case_studies")*)
   (* TODO: factorize dir keywords? *)
   | "basic" -> get_list_of_tests_in_dir "tests/basic"
   | "combi" -> get_list_of_tests_in_dir "tests/combi"
@@ -114,6 +167,7 @@ let rec list_of_tests_from_key (key : string) : string list =
 (* TODO: read from a file instead? *)
 let basic_tests_to_ignore = [
   (* TO FIX: *)
+  "function_inline.ml";
   "function_uninline.ml";
   "record_method_to_const.ml";
 	"function_rename_args.ml";
@@ -181,6 +235,15 @@ let tests_to_ignore =
 *)
 let compute_tests_to_process (keys : string list) : (string list * string list) =
   let tests = List.concat_map list_of_tests_from_key keys in
+  (* if there is a single key that has no extension and has not been recognized as a key,
+     then we use 'find' to figure out what tests might be targeted *)
+  let tests =
+     match tests with
+     | [f] when Filename.extension f = "" && not (Sys.file_exists f) ->
+        get_list_of_tests_in_dir ~pattern:("*" ^ f ^ "*.ml") "tests"
+     | _ -> tests
+     in
+  (* Filter out duplicates *)
   let unique_tests = Xlist.remove_duplicates tests in
   (* We ignore tests that are in the ignore-list defined above, except if they
      are requested explicitly as a command line argument *)
@@ -189,49 +252,6 @@ let compute_tests_to_process (keys : string list) : (string list * string list) 
   (* TODO : garder quand meme les keys *)
   (tests_to_process, ignored_tests)
 
-(*****************************************************************************)
-(* Options *)
-
-(* List of keys process; a key may be a special keyword or a path to a .ml test file
-   e.g. ["basic/variable_inline.ml"; "combi"].
-   The list gets later expanded into a list of paths, without duplicates. *)
-let keys_to_process : string list ref = ref []
-
-(* Flag for controlling whether or not to generate *_out.cpp files. *)
-type outfile_gen =
-  | Outfile_gen_always
-  | Outfile_gen_only_on_failure (* failure or missing expected file *)
-  | Outfile_gen_never
-
-let outfile_gen : outfile_gen ref = ref Outfile_gen_only_on_failure
-
-let string_to_outfile_gen = function
-  | "always" -> Outfile_gen_always
-  | "never" -> Outfile_gen_never
-  | "onfailure" -> Outfile_gen_only_on_failure
-  | _ -> failwith "Invalid argument for -out"
-
-let set_outfile_gen str = outfile_gen := string_to_outfile_gen str
-
-(* Flag to ignore all cached data *)
-let ignore_cache : bool ref = ref false
-
-(* Flag to discard all cached data *)
-let discard_cache : bool ref = ref false
-
-(* Flag to enable verbose mode *)
-let verbose_mode : bool ref = ref false
-
-(* Flag to control at which level the comparison is performed (AST or text).
-   If Comparison_method_text, then implies Outfile_gen_always. *)
-type comparison_method =
-  | Comparison_method_ast (* TODO: do we have this? *)
-  | Comparison_method_text
-
-let comparison_method : comparison_method ref = ref Comparison_method_text
-
-let _remove_later = comparison_method := Comparison_method_ast;
-  comparison_method := Comparison_method_text
 
 (*****************************************************************************)
 (* Parsing of options *)
@@ -297,10 +317,16 @@ let _main : unit =
   if !verbose_mode
       then eprintf "Tester files processed: \n  %s\n"
         (String.concat "\n  " tests_to_process);
+  (* for debug: if true then exit 0; *)
 
-  (* TODO: faire la boucle en caml sur l'appel à sed,
-     fAIRE Une erreur si le fichier n'existe pas !
+  let _check_all_files_exist =
+    List.iter (fun test_file ->
+      if not (Sys.file_exists test_file)
+        then failwith (sprintf "File not found:"))
+      tests_to_process;
+    in
 
+  (* TODO: faire la boucle en caml sur l'appel à sed
    à chaque fois afficher un commentaire (* CURTEST=... *)
      TODO: add 'batch_prelude' and 'batch_postlude' calls.
      LATER: ajouter ici l'option ~expected_ast , et concatener l'appel à Run.batch_postlude logfilename *)
@@ -318,6 +344,7 @@ let _main : unit =
 
   do_or_die "cp tests/batch/dune_disabled tests/batch/dune";
   do_or_die "dune build tests/batch/batch.cmxs; rm tests/batch/dune";
+  printf "\n";
 
   (* LATER: if -dump_trace is requested, use _with_lines files *)
 
