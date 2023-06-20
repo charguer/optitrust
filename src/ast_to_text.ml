@@ -174,9 +174,6 @@ and print_val ?(only_desc : bool = false) (v : value) : document =
   | Val_lit l ->
      let dl = print_lit l in
      print_node "Val_lit" ^^ parens dl
-  | Val_ptr l ->
-     if l = 0 then string "NULL"
-     else fail None "Ast_to_text.print_val: pointers not implemented"
   | Val_prim p ->
      let dp = print_prim ~only_desc p in
      print_node "Val_prim" ^^ parens dp
@@ -220,7 +217,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
       let td = print_trm ~only_desc t in
       match lb with Some lb -> parens (string lb ^^ comma ^^blank 1 ^^ td) | None -> td) tl in
      print_node "Trm_record" ^^ print_list dtl
-  | Trm_let (vk,(x,tx),t) ->
+  | Trm_let (vk,(x,tx),t,_) ->
     let dvk = match vk with
     | Var_immutable -> string "Var_immutable"
     | Var_mutable ->  string "Var_mutable"
@@ -242,7 +239,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     print_node "Trm_let_mult" ^^
       parens (separate (comma ^^ break 1)
         [dvk; dtx; print_list dtl;])
-  | Trm_let_fun (f, r, tvl, b) ->
+  | Trm_let_fun (f, r, tvl, b, _) ->
     let dout = print_typ ~only_desc r in
     let dtvl = List.map(function (x,tx) ->
           let dtx = print_typ ~only_desc tx in
@@ -274,14 +271,14 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let dc = print_trm ~only_desc c in
      print_node "Trm_do_while" ^^ parens (db ^^ comma ^/^ dc)
 
-  | Trm_for_c (init, cond, step, body) ->
+  | Trm_for_c (init, cond, step, body, _) ->
      let dinit = print_trm ~only_desc init in
      let dcond = print_trm ~only_desc cond in
      let dstep = print_trm ~only_desc step in
      let dbody = print_trm ~only_desc body in
      print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
-  | Trm_for (l_range, body) ->
+  | Trm_for (l_range, body, _) ->
     let (index, start, direction, stop, step, is_parallel) = l_range in
     let dstart = print_trm ~only_desc start in
     let dstop = print_trm ~only_desc stop in
@@ -352,7 +349,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
       [string name; string (string_of_bool inline); dt])
   | Trm_template _ ->  print_node "Trm_template _"
   | Trm_using_directive str -> print_node "Trm_using_directive " ^^ string str
-  | Trm_fun (tvl , ty_opt, b) ->
+  | Trm_fun (tvl , ty_opt, b, _) ->
     let dtout = begin match ty_opt with | Some ty -> string "Some " ^^ print_typ ~only_desc ty | None -> string "None" end in
     let dtvl = List.map(function (x,tx) ->
           let dtx = print_typ ~only_desc tx in
@@ -367,6 +364,8 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     print_node "Trm_delete"  ^^
       parens (separate (comma ^^ break 1)
         [bd; td])
+  | Trm_hyp h ->
+    string "Trm_hyp(" ^^ blank 1 ^^ string (string_of_int h.id) ^^ comma ^^ string h.name ^^ rparen
 
 
 (* [print_record_type rt]: converts record types to pprint document *)
@@ -471,13 +470,25 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
         | None -> underscore
         | Some ty -> print_typ ~only_desc ty
       in
-      braces (separate (blank 1) [string "annot"; equals;
-                                dannot ^^ semi ^//^ string "desc"; equals;
-                                ddesc ^^ semi ^//^ string "loc"; equals;
-                                dloc ^^ semi ^//^ string "is_statement"; equals;
-                                dinstr ^^ semi ^//^ string "add"; equals;
-                                string "typ"; equals;
-                                dtyp])
+
+      let opt_str c o = if o = None then "-" else c in
+      let dctx =
+        String.concat ""
+            [ opt_str "t" t.ctx.ctx_types;
+              opt_str "b" t.ctx.ctx_resources_before;
+              opt_str "u" t.ctx.ctx_resources_usage;
+              opt_str "c" t.ctx.ctx_resources_contract_invoc;
+              opt_str "a" t.ctx.ctx_resources_after;
+              opt_str "p" t.ctx.ctx_resources_post_inst] in
+
+      braces (separate (blank 1)
+        [string "annot"; equals; dannot ^^ semi ^//^
+         string "loc"; equals; dloc ^^ semi ^//^
+         string "is_statement"; equals; dinstr ^^ semi ^//^
+         (*LATER: string "add"; equals;*)
+         string "typ"; equals; dtyp ^//^
+         string "ctx"; equals; string dctx ^^ semi ^//^
+         string "desc"; equals; ddesc ])
 
 (* [print_files_annot ann]: prints as string files annotation [ann] *)
 and print_files_annot (ann : files_annot) : document =

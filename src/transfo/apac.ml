@@ -13,7 +13,7 @@ let parallel_task_group ?(mark : mark = "") : Transfo.t =
 
     transfo_on_targets ( fun t ->
       match t.desc with
-      | Trm_let_fun (qvar, ret_typ, args, body) ->
+      | Trm_let_fun (qvar, ret_typ, args, body, contract) ->
         let body_tl = match trm_seq_inv body with
         | Some (tl) -> Mlist.map (fun t ->
           match t.desc with
@@ -24,7 +24,7 @@ let parallel_task_group ?(mark : mark = "") : Transfo.t =
           ) tl
         | None -> assert false
         in
-        trm_alter ~desc:(Trm_let_fun(qvar, ret_typ, args, (trm_seq body_tl))) t
+        trm_alter ~desc:(Trm_let_fun(qvar, ret_typ, args, (trm_seq body_tl), contract)) t
       | _ -> assert false
       ) (target_of_path p)
     )
@@ -177,7 +177,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
   (* init fac *)
   List.iter2 (fun t tid ->
     match t.desc with
-    | Trm_let_fun (qv, ty, args, _) ->
+    | Trm_let_fun (qv, ty, args, _, _) ->
       let is_method = tid <> -1 in
       let acs = List.map (fun (_, ty) -> {
           is_ptr_or_ref = is_cptr_or_ref ty ;
@@ -228,7 +228,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
         trm_iter (aux va) t
 
       (* declare new ref/ptr that refer/point to argument : update vars_arg *)
-      | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }) ->
+      | Trm_let (_, _, { desc = Trm_apps (_, [tr]); _ }, _) ->
         Apac_core.update_vars_arg_on_trm_let
           (fun () -> ())
           (fun () -> ())
@@ -277,7 +277,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
         let {ret_ptr_depth; is_ret_ref; _} = Hashtbl.find fac cur_usr in
         if is_ret_ref then
           begin match trm_var_inv tr with
-          | Some (a, var_name) when Hashtbl.mem va var_name -> add_elt_in_to_process va cur_usr var_name
+          | Some var_name when Hashtbl.mem va var_name -> add_elt_in_to_process va cur_usr var_name
           | _ -> ()
           end
         else if ret_ptr_depth > 0 then
@@ -296,7 +296,7 @@ let identify_constifiable_functions (tg : target) : constifiable =
   List.iter (fun t ->
     let va = Hashtbl.create 10 in
     match t.desc with
-    | Trm_let_fun (qv, _, args, body) ->
+    | Trm_let_fun (qv, _, args, body, _) ->
       (* add class attributes *)
       let {is_method; args_const} = fac_find_from_trm t in
       if is_method then begin
@@ -396,7 +396,7 @@ let heapify_nested_seq : Transfo.t =
       | Trm_for _ | Trm_for_c _  -> trm_map (aux (Hashtbl.copy ptrs) false) t
       | Trm_while _ | Trm_switch _ | Trm_if _ -> trm_map (aux ptrs false) t
 
-      | Trm_let (_, (var, ty), _) ->
+      | Trm_let (_, (var, ty), _, _) ->
         (* remove variable from occurs when declaring them again *)
         if Hashtbl.mem ptrs var then begin Hashtbl.remove ptrs var; trm_map (aux ptrs is_first_depth) t end
         (* heapify new variable only for first depth *)
@@ -510,12 +510,12 @@ let sync_with_taskwait : Transfo.t =
       | Trm_do_while (body, cond) ->
         let new_body = add_taskwait_end_seq decl_vars vars body in
         trm_alter ~desc:(Trm_do_while (new_body, cond)) t
-      | Trm_for (l_range, body) ->
+      | Trm_for (l_range, body, contract) ->
         let new_body = add_taskwait_end_seq decl_vars vars body in
-        trm_alter ~desc:(Trm_for (l_range, new_body)) t
-      | Trm_for_c (init, cond, step, body) ->
+        trm_alter ~desc:(Trm_for (l_range, new_body, contract)) t
+      | Trm_for_c (init, cond, step, body, contract) ->
         let new_body = add_taskwait_end_seq decl_vars vars body in
-        trm_alter ~desc:(Trm_for_c (init, cond, step, new_body)) t
+        trm_alter ~desc:(Trm_for_c (init, cond, step, new_body, contract)) t
       | _ -> t
     in
 
@@ -533,7 +533,7 @@ let sync_with_taskwait : Transfo.t =
       match t.desc with
       | Trm_seq _ -> trm_map (aux (Hashtbl.copy decl_vars)) t
 
-      | Trm_let (_, (var, ty), _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t
+      | Trm_let (_, (var, ty), _, _) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty)); t
 
       | Trm_let_mult (_, tvl, _) ->
         List.iter (fun (var, ty) -> Hashtbl.add decl_vars var (get_dep var (get_inner_ptr_type ty))) tvl; t
@@ -551,7 +551,7 @@ let sync_with_taskwait : Transfo.t =
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) t
 
-      | Trm_for ((var, _, _, _, step, _), _) ->
+      | Trm_for ((var, _, _, _, step, _), _, _) ->
         let l = begin match step with
         | Step tr -> get_all_vars [var] tr
         | _ -> [var]
@@ -559,9 +559,9 @@ let sync_with_taskwait : Transfo.t =
         let t = add_taskwait_loop_body decl_vars l t in
         trm_map (aux (Hashtbl.copy decl_vars)) (add_taskwait decl_vars (remove_n 1 l) t)
 
-      | Trm_for_c (init, cond, step, _) ->
+      | Trm_for_c (init, cond, step, _, _) ->
         let (l, n) = begin match init.desc with
-        | Trm_let (_, (var, ty), _) ->
+        | Trm_let (_, (var, ty), _, _) ->
           Hashtbl.add decl_vars var (get_dep var ty);
           (get_all_vars [var] cond, 1)
         | Trm_let_mult (_, tvl, _) ->
@@ -582,7 +582,7 @@ let sync_with_taskwait : Transfo.t =
     let tg_trm = Path.get_trm_at_path p t in
     let decl_vars = Hashtbl.create 10 in
     match tg_trm.desc with
-    | Trm_let_fun (qv, ty, args, body) ->
+    | Trm_let_fun (qv, ty, args, body, _) ->
       List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add decl_vars var (get_dep var ty)) args;
       transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
@@ -740,7 +740,7 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
     match t.desc with
     | Trm_seq _ | Trm_namespace _ -> trm_iter (aux fad is_method) t
     | Trm_typedef { typdef_body = Typdef_record _; _ } -> trm_iter (aux fad true) t
-    | Trm_let_fun (qv, _, tvl, _) when qv.qvar_str <> "main" ->
+    | Trm_let_fun (qv, _, tvl, _, _) when qv.qvar_str <> "main" ->
       let fc = Ast_data.get_function_usr_unsome t in
       let args_info = List.map (fun (var, ty) ->
         let dep_in = is_dep_in ty in
@@ -892,7 +892,7 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
         trm_map (aux (Hashtbl.copy vd))  t
 
       (* new variable *)
-      | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }) ->
+      | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }, _) ->
         Hashtbl.add vd var (Apac_core.get_cptr_depth (get_inner_ptr_type ty), var); t
       | Trm_let_mult (_, tvl, _) ->
         List.iter (fun (var, ty) -> Hashtbl.add vd var (Apac_core.get_cptr_depth ty, var)) tvl; t
@@ -910,7 +910,7 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
     let tg_trm = Path.get_trm_at_path p t in
     let vd = Hashtbl.create 10 in
     match tg_trm.desc with
-    | Trm_let_fun (_, _, tvl, _) ->
+    | Trm_let_fun (_, _, tvl, _, _) ->
       List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add vd var (Apac_core.get_cptr_depth ty, var)) tvl;
       transfo_on_targets (aux vd) (target_of_path (p @ [Dir_body]))
     | _ -> fail None "Apac.insert_tasks_naive: expected a target to a function definition"

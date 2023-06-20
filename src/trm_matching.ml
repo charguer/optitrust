@@ -60,7 +60,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
   if defs = [] then fail ast_of_file.loc "Trm_matching.parse_pattern: couldn't parse pattern";
   let (_, main_fun) = Xlist.unlast defs in
   match main_fun.desc with
-  | Trm_let_fun (_, _, args, body) ->
+  | Trm_let_fun (_, _, args, body, _) ->
     begin match body.desc with
     | Trm_seq tl1 ->
       if Mlist.length tl1 < 1 then fail body.loc "Trm_matching.parse_pattern: please enter a pattern
@@ -104,15 +104,15 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
      they are bound to the special term trm_uninitialized. *)
      (* LATER: we may need one day to introduce another special term Trm_uninstantiated  *)
   let pat_vars_association = Ast.trm_uninitialized() in
-  let inst = ref (List.fold_left (fun acc (x,ty) -> Trm_map.add x (ty, pat_vars_association) acc) Trm_map.empty vars) in
+  let inst = ref (List.fold_left (fun acc (x,ty) -> Var_map.add x (ty, pat_vars_association) acc) Var_map.empty vars) in
   let is_var (x : var) : bool =
-    Trm_map.mem x !inst in
+    Var_map.mem x !inst in
   let find_var (x : var) (u : trm) : unit =
-    match Trm_map.find_opt x !inst with
+    match Var_map.find_opt x !inst with
     | None -> failwith "Trm_matching.rule_match: called find_var without first checking is_var"
     | Some (ty,t0) ->
         if Ast.is_trm_uninitialized t0 then
-          inst := Trm_map.add x (ty,u) !inst
+          inst := Var_map.add x (ty,u) !inst
         else if not (Internal.same_trm ~ast_decode:false t0 u) then begin
           if error_msg then begin (* TODO: if + raise helper *)
             Printf.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x
@@ -124,16 +124,16 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
         end
     in
   let _get_binding (x : var) : (var * typ) option =
-    match Trm_map.find_opt x !inst with
+    match Var_map.find_opt x !inst with
     | None -> None
     | Some (ty,t0) -> match t0.desc with
        | Trm_var (_, y) -> Some (y.qvar_var,ty)
        | _ -> None
     in
   let with_binding ?(loc:location) (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
-     inst := Trm_map.add x (ty, trm_var ?loc y) !inst;
+     inst := Var_map.add x (ty, trm_var ?loc y) !inst;
      f();
-     inst := Trm_map.remove x !inst;
+     inst := Var_map.remove x !inst;
     (* Note: it would be incorrect to simply restore the map to its value before the call to [f],
        because other variables than [x] may have been instantiated during the call to [f]. *)
      in
@@ -157,8 +157,8 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     let rec aux_with_bindings (ts1 : trms) (ts2 : trms) : unit =
       match ts1, ts2 with
       | [], [] -> ()
-      | ({ desc = Trm_let (_vk1, (x1,t1), init1); _ } as dt1) :: tr1,
-        ({ desc = Trm_let (_vk2, (x2,t2), init2); _ } as dt2) :: tr2 ->
+      | ({ desc = Trm_let (_vk1, (x1,t1), init1, _); _ } as dt1) :: tr1,
+        ({ desc = Trm_let (_vk2, (x2,t2), init2, _); _ } as dt2) :: tr2 ->
            if not (same_types  (get_inner_ptr_type t1) (get_inner_ptr_type t2)) then begin
             Printf.printf "Type mismatch on trm_let\n";
             mismatch ~t1:dt1 ~t2:dt2 ()
@@ -210,8 +210,8 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 
-    | Trm_for ((index1, start1, _direction1, stop1, step1, _is_parallel1), body1),
-      Trm_for ((index2, start2, _direction2, stop2, step2, _is_parallel2), body2) ->
+    | Trm_for ((index1, start1, _direction1, stop1, step1, _is_parallel1), body1, _),
+      Trm_for ((index2, start2, _direction2, stop2, step2, _is_parallel2), body2, _) ->
         aux start1 start2;
         aux stop1 stop2;
         begin match step1, step2 with
@@ -220,7 +220,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
         end;
         with_binding (typ_int()) index1 index2 (fun () -> aux body1 body2)
 
-    | Trm_for_c (init1, cond1, step1, body1), Trm_for_c (init2, cond2, step2, body2) ->
+    | Trm_for_c (init1, cond1, step1, body1, _), Trm_for_c (init2, cond2, step2, body2, _) ->
         aux_with_bindings [init1; cond1; step1; body1] [init2; cond2; step2; body2]
 
     | Trm_seq tl1, Trm_seq tl2 ->
@@ -241,7 +241,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     end;
     raise Rule_mismatch
   end;
-  Trm_map.map (fun (_ty,t) -> t) !inst
+  Var_map.map (fun (_ty,t) -> t) !inst
 
 (* [Rule_match_ast_list_no_occurrence_for]: exception raised by [tmap_to_list] *)
 exception Rule_match_ast_list_no_occurrence_for of string
@@ -249,7 +249,7 @@ exception Rule_match_ast_list_no_occurrence_for of string
 
 (* [tmap_to_list keys map]: gets the values of [keys] in [map] as a list *)
 let tmap_to_list (keys : typed_vars) (map : tmap) : trms =
-  List.map (fun (x, _) -> match Trm_map.find_opt x map with
+  List.map (fun (x, _) -> match Var_map.find_opt x map with
     | Some v -> v
     | None -> raise (Rule_match_ast_list_no_occurrence_for x)
   ) keys
@@ -257,12 +257,12 @@ let tmap_to_list (keys : typed_vars) (map : tmap) : trms =
 (* [tmap_filter_keys keys map]: get a map with filtered keys *)
 let tmap_filter_keys (keys : typed_vars) (map : tmap) : tmap =
   let keys = fst (List.split keys) in
-  Trm_map.filter (fun k _ -> List.mem k keys) map
+  Var_map.filter (fun k _ -> List.mem k keys) map
 
 (* [rule_match_as_list pattern_vars pattern_instr t]: returns the list of key values in the map generated from rule_match *)
 let rule_match_as_list (pattern_vars : typed_vars) (pattern_instr : trm)  (t : trm) : trms =
   let inst : tmap = rule_match pattern_vars  pattern_instr t in
-  List.map (fun (x,_) -> match Trm_map.find_opt x inst with
+  List.map (fun (x,_) -> match Var_map.find_opt x inst with
     | Some v -> v
     | None -> raise (Rule_match_ast_list_no_occurrence_for x)
   ) pattern_vars

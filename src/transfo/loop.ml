@@ -18,7 +18,7 @@ let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option) (tg : tar
     let tg_trm = Path.resolve_path p t in
       let detach_first =
       match tg_trm.desc with
-        | Trm_let (_, (_, _), init) ->
+        | Trm_let (_, (_, _), init, _) ->
           begin match init.desc with
           | Trm_val(Val_lit (Lit_uninitialized)) -> false
           | Trm_val(Val_prim (Prim_new _))-> false
@@ -134,7 +134,7 @@ let%transfo hoist_alloc_loop_list
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_let (_, (x, _), init) ->
+    | Trm_let (_, (x, _), init, _) ->
       if 1 <= (List.length loops) then begin
         let name_template = Tools.string_subst "${var}" x tmp_names in
         let alloc_name =
@@ -726,7 +726,7 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
           | _ -> fail t.loc "Loop.unroll: could not get the number of steps to unroll"
       in
     match tg_loop_trm.desc with
-    | Trm_for (l_range, _) ->
+    | Trm_for (l_range, _, _) ->
       let (_, start, _, stop, _, _) = l_range in
       let nb_instr = begin match stop.desc with
       | Trm_apps (_, [_;bnd]) ->
@@ -945,7 +945,7 @@ let%transfo unfold_bound (tg : target) : unit =
   iter_on_targets( fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_for (l_range, _) ->
+    | Trm_for (l_range, _, _) ->
       let (_, _, _, stop, _, _) = l_range in
       begin match stop.desc with
       | Trm_var (_, x) ->
@@ -964,7 +964,7 @@ let grid_enumerate ?(indices : string list = []) : Transfo.t =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_for (l_range, _) ->
+    | Trm_for (l_range, _, _) ->
       let (index, _, _, stop, _, _) = l_range in
       begin match trm_prod_inv stop with
       | [] -> fail tg_trm.loc "Loop.grid_enumerate: the bound of the targeted loop should be a product of the bounds of each dimension"

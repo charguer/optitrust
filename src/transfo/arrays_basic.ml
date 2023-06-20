@@ -76,7 +76,7 @@ let inline_constant_on (array_var : var) (array_vals : trm list) (mark_accesses 
   (* Debug_transfo.trm "t" t; *)
   let ptr_t = trm_inv ~error trm_get_inv t in
   let (base, index) = trm_inv ~error array_access_inv ptr_t in
-  let (_, var) = trm_inv ~error trm_var_inv base in
+  let var = trm_inv ~error trm_var_inv base in
   if var <> array_var then
     fail base.loc error;
   (* TODO: check that moving trm evaluation here is ok *)
@@ -107,7 +107,6 @@ let elim_on (decl_index : int) (t : trm) : trm =
     let _array_mlist = trm_inv ~error array_inv init in
     trm_seq_no_brace []
   in
-
   (* TODO: check that its not used anywhere *)
 
   let instrs = trm_inv

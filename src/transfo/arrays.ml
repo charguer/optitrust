@@ -36,7 +36,7 @@ let unroll_index_vars_from_array_reads (tg : target) : unit =
     let vars = ref Var_set.empty in
     let rec collect_vars (t : trm) : unit =
       match trm_var_inv t with
-      | Some (_, v) -> vars := Var_set.add v !vars
+      | Some v -> vars := Var_set.add v !vars
       | _ -> trm_iter collect_vars t
     in
     collect_vars index;

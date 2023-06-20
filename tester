@@ -1,17 +1,56 @@
 #!/bin/bash
 
 OPTITRUST=$(dirname $0)
-ARGS=$@
+CURRENT_PATH=$(realpath --relative-to=${OPTITRUST} $(pwd))
 
-SRCFOLDER=`realpath ${OPTITRUST}/src`
-FILEPATH=`realpath ${ARGS}`
+ARGS=()
 
 # If file is in the /src folder, then target the last test
-if [[ ${FILEPATH} = *"${SRCFOLDER}"* ]]; then
-  ARGS="__last"
+if [ "$#" -eq 1 ]; then
+  SRCFOLDER=`realpath ${OPTITRUST}/src`
+  FILEPATH=`realpath $@`
+  if [[ ${FILEPATH} = *"${SRCFOLDER}"* ]]; then
+    ARGS+=("last")
+  fi
 fi
 
-echo "Executing: tester ${ARGS}"
+# Otherwise
+if [ -z ${ARGS} ]; then
+
+  for arg in $@; do
+
+      if [ -e $arg ] || [ -f $arg.tests ]
+      then
+          ARGS+=("${CURRENT_PATH}/$arg")
+      elif [ -e ${OPTITRUST}/tests/$arg ] || [ -f ${OPTITRUST}/tests/$arg.tests ]
+      then
+          ARGS+=("tests/$arg")
+      elif [ -e ${OPTITRUST}/case_studies/$arg ] || [ -f ${OPTITRUST}/case_studies/$arg.tests ]
+      then
+          ARGS+=("case_studies/$arg")
+      else
+
+        # If argument is a single key that has no extension and has not been recognized as a key,
+        # then we use 'find' to figure out what tests might be targeted, e.g. "./tester swap"
+        # LATER: generalize to several arguments
+
+        RES=`find tests -name "*${arg}*.ml" -and -not -name "*_with_lines.ml"`
+        echo ${RES}
+        if [ -z "${RES}" ]; then
+          echo "Unknown target code, and no test with name '*${arg}*.ml'"
+          exit 1
+        fi
+
+        for res in "${RES}"; do
+          ARGS+=("${res}")
+        done
+
+      fi
+  done
+
+fi
+
+echo "Tester: ${ARGS[*]}"
 
 cd ${OPTITRUST}
-OCAMLRUNPARAM=b dune exec tests/tester.exe -- ${ARGS}
+OCAMLRUNPARAM=b dune exec tests/tester.exe -- ${ARGS[*]}

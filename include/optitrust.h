@@ -81,3 +81,23 @@ int ANY(int maxValue) { return 0; }
 int exact_div(int n, int b) {
   return n / b;
 }
+
+
+void __pure() {}
+void __requires(const char*) {}
+void __ensures(const char*) {}
+void __invariant(const char*) {}
+void __reads(const char*) {}
+void __modifies(const char*) {}
+void __consumes(const char*) {}
+void __produces(const char*) {}
+void __sequentially_reads(const char*) {}
+void __sequentially_modifies(const char*) {}
+
+void __admitted() {}
+
+/*
+template<typename T> T __spec_hint(T, const char*);
+template<typename T> T __spec_out_name(T, const char*);
+void __res_rename(const char*);
+*/

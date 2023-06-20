@@ -222,6 +222,16 @@ let unsome ?(error:string="Tools.unsome found None") (x_opt : 'a option) : 'a =
   | None -> failwith error
 
 
+(* [OptionMonad]: when opened add the operators [let*] and [and*] for the
+   option monad. *)
+module OptionMonad = struct
+  let (let*) = Option.bind
+
+  let (and*) a b =
+    let* a in
+    let* b in
+    Some (a, b)
+end
 
 (******************************************************************************)
 (*                          Extensions for Hashtbl                            *)

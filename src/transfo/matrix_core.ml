@@ -85,7 +85,7 @@ let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
       begin match trm_apps_inv t3 with
       | Some (f, args) ->
         begin match trm_var_inv f with
-        | Some (_, f_name) when (Tools.pattern_matches "MALLOC" f_name) ->
+        | Some f_name when (Tools.pattern_matches "MALLOC" f_name) ->
           let dims, size = Xlist.unlast args in
           Some (dims, Option.get (typ_ptr_inv ty), size)
         | _ -> None
@@ -125,7 +125,7 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
 (* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
 let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) option =
   match t.desc with
-  | Trm_let (_, (x, ty), init) ->
+  | Trm_let (_, (x, ty), init, _) ->
     begin match get_init_val init with
     | Some init1 ->
       begin match alloc_inv  init1 with
@@ -147,14 +147,14 @@ let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices
     match access_inv t with
     | Some (f, prev_dims, prev_indices) ->
       begin match trm_var_get_inv f with
-      | Some (_, n) when n = prev_v ->
+      | Some n when n = prev_v ->
         let indices = List.map2 (fun m i -> m i) map_indices prev_indices in
         trm_may_add_mark mark (access (trm_var_get v) dims indices)
       | _ -> trm_map aux t
       end
     | None ->
       begin match trm_var_inv t with
-      | Some (_, n) when n = prev_v ->
+      | Some n when n = prev_v ->
         fail t.loc "Matrix_core.replace_all_accesses: variable access is not covered"
       | _ -> trm_map aux t
       end
@@ -305,7 +305,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
       let write_on_var =
         trm_set (access (trm_var_get var) dims indices) (trm_get (access (trm_var_get local_var) dims indices)) in
       let snd_instr = trm_fors nested_loop_range write_on_local_var in
-      let new_t = Internal.subst_var var (trm_var local_var) t in
+      let new_t = Subst.subst_var var (trm_var local_var) t in
       let thrd_instr = trm_fors nested_loop_range write_on_var in
       let last_instr = free (trm_var_get local_var) in
       let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
@@ -318,7 +318,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
       let free_local_var =
         trm_apps (trm_var free_fn)  [access (trm_var_get local_var) dims indices] in
       let snd_instr = trm_fors nested_loop_range write_on_local_var in
-      let new_t = Internal.subst_var var (trm_var local_var) t in
+      let new_t = Subst.subst_var var (trm_var local_var) t in
       let thrd_instr = trm_fors nested_loop_range write_on_var in
       let frth_instr = trm_fors nested_loop_range free_local_var in
       let last_instr = free (trm_var_get local_var) in
@@ -387,7 +387,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
     let add_labels = List.length labels = 3 in
     let decl = Mlist.nth tl 0 in
     begin match decl.desc with
-    | Trm_let (_, (local_var, ty), init) ->
+    | Trm_let (_, (local_var, ty), init, _) ->
       begin match get_init_val init with
       | Some init1 ->
         begin match init1.desc with

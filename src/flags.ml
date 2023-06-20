@@ -80,14 +80,29 @@ let verbose_mode : bool ref = ref false
    (* TODO: could it be true by default? *)
 let use_light_diff : bool ref = ref false
 
-(* TODO: merge *)
-let check_validity = ref false
-
 (* [bypass_cfeatures]: flag used for debugging the [cfeatures_elim/intro] functions, by bypassing them. *)
 let bypass_cfeatures : bool ref = ref false
 
+(* [bypass_cfeatures_decoding]: Same as bypass_cfeatures but only for the decoding pass, to show what is
+   actually seen internally after the encoding is done. *)
+let bypass_cfeatures_decoding = ref false
+
+(* [resource_errors_as_warnings]: Do not error on resource computation failure but only print a warning instead.
+   Useful for debugging resource typing. *)
+let resource_errors_as_warnings = ref false
+
+(* [always_name_resource_hyp]: Always print named for resource hypothesis even if they were unnamed.
+ * Automatically set to true during show_res. *)
+let always_name_resource_hyp = ref false
+
+(* [display_resources]: When showing diffs display resources on both sides *)
+let display_resources = ref false
+
 (* [execute_show_even_in_batch_mode]: flag used for unit tests on targets that use the show function. *)
 let execute_show_even_in_batch_mode : bool ref = ref false
+
+(* [check_validity]: perform validation of transformations *)
+let check_validity = ref false
 
 (* [serialized_mode]: type to deal with serialized AST ,
   | Serialized_None: do not read or write any serialized ast, just parse the input file.
@@ -209,7 +224,22 @@ let reset_flags_to_default () : unit =
   execute_show_even_in_batch_mode := false;
   dump_ast_details := false;
   bypass_cfeatures := false;
+  bypass_cfeatures_decoding := false;
   use_light_diff := false;
   pretty_matrix_notation := false;
+  resource_errors_as_warnings := false;
+  always_name_resource_hyp := false;
+  display_resources := false;
   check_validity := false
 
+let with_flag (flag: 'a ref) (value: 'a) (func: unit -> unit): unit =
+  let init_value = !flag in
+  flag := value;
+  func ();
+  flag := init_value
+
+(* *************************************************************************************************************
+  Note: to see a diff at the level of the OptiTrust AST, use:
+    -dump-ast-details
+  and the shortcut "ctrl+shift+f6" for opening the diff between [*_before_enc.cpp] and [*_after_enc.cpp]
+***************************************************************************************************************)

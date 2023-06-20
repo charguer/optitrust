@@ -1,0 +1,5 @@
+(menhir
+  (modules resource_cparser))
+
+(ocamllex
+  (modules resource_clexer))

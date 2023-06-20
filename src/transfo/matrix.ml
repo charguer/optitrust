@@ -10,7 +10,7 @@ let%transfo intro_calloc (tg : target) : unit =
   iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with
-    | Trm_let (_, (x,_), init) ->
+    | Trm_let (_, (x,_), init, _) ->
       begin match get_init_val init with
       | Some t1 ->
         begin match t1.desc with
@@ -54,7 +54,7 @@ let%transfo intro_malloc (tg : target) : unit =
   iter_on_targets ( fun t p ->
     let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with
-    | Trm_let (_, (x,_), init) ->
+    | Trm_let (_, (x,_), init, _) ->
       begin match get_init_val init with
       | Some t1 ->
         begin match t1.desc with
@@ -88,7 +88,7 @@ let%transfo biject (fun_bij : string) (tg : target) : unit =
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     match tg_trm.desc with
-    | Trm_let (_, (p, _), _) ->
+    | Trm_let (_, (p, _), _, _) ->
       Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVar p] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."]
     | Trm_apps (_, [{desc = Trm_var (_, p)}; _])  when is_set_operation tg_trm ->
       Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p.qvar_var] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])

@@ -3,10 +3,10 @@ open Ast
 open Target
 
 let path (msg : string) (p : path) : unit =
-  printf "%s: %s\n" msg (Path.path_to_string p)
+  eprintf "%s: %s\n" msg (Path.path_to_string p)
 
 let paths (msg : string) (ps : paths) : unit =
-  printf "%s: %s\n" msg (Tools.list_to_string (List.map Path.path_to_string ps))
+  eprintf "%s: %s\n" msg (Tools.list_to_string (List.map Path.path_to_string ps))
 
 let trm ?(internal : bool = false) (msg : string) (t : trm) : unit =
   let t_str = if internal
@@ -16,7 +16,7 @@ let trm ?(internal : bool = false) (msg : string) (t : trm) : unit =
   printf "%s: %s\n" msg t_str
 
 let trms (msg : string) (ts : trms) : unit =
-  printf "%s: %s\n" msg (Tools.list_to_string (List.map AstC_to_c.ast_to_string ts))
+  eprintf "%s: %s\n" msg (Tools.list_to_string (List.map AstC_to_c.ast_to_string ts))
 
 let current_ast ?(internal : bool = false) (msg : string) : unit =
   trm ~internal msg (Trace.ast ())

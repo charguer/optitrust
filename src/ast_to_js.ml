@@ -1,18 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 (* BROKEN: Json.Raw replaces Json.Str *)
 
 (* A module for creating a json view of OptiTrust ast *)
@@ -219,13 +204,13 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_array l ->
         [ kind_to_field "array";
           children_to_field (List.mapi ichild_to_json (List.map aux (Mlist.to_list l))) ]
-    | Trm_let (_,(x,typ),init) ->
+    | Trm_let (_,(x,typ),init,_) ->
         [ kind_to_field "var-def";
           (strquote "name", strquote x);
           (strquote "def-type", typ_to_json typ);
           children_to_field ([(child_to_json "init" (aux init))])]
     | Trm_let_mult _ -> [] (* TODO: *)
-    | Trm_let_fun (f, typ, xts, tbody) ->
+    | Trm_let_fun (f, typ, xts, tbody, _) ->
       [ kind_to_field "fun-def";
             (strquote "name", strquote f.qvar_var);
             (strquote "args", typed_var_list_to_json xts);
@@ -251,7 +236,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         let children = (child_to_json "fun" (aux f)) :: args_children in
         [ kind_to_field "app";
           children_to_field children]
-    | Trm_for (l_range, body) ->
+    | Trm_for (l_range, body, _) ->
       let (index, start, _, stop, step, _) = l_range in
       [ kind_to_field "simple_for";
           (strquote "index", strquote index);
@@ -260,7 +245,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
             child_to_json "stop" (aux stop);
             child_to_json "step" (aux (loop_step_to_trm step));
             child_to_json "body" (aux body) ] ]
-    | Trm_for_c (init, cond, step, body) ->
+    | Trm_for_c (init, cond, step, body, _) ->
         [ kind_to_field "for";
           children_to_field [
             child_to_json "init" (aux init);
@@ -336,7 +321,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_using_directive nmspc ->
       [ kind_to_field "using namespace";
           value_to_field nmspc]
-    | Trm_fun (xfs, ty_opt, tbody) ->
+    | Trm_fun (xfs, ty_opt, tbody, _) ->
       let ret_ty_js = begin match ty_opt with | Some ty -> typ_to_json ty | None -> Json.str "" end in
       [ kind_to_field "lambda";
             (strquote "args", typed_var_list_to_json xfs);
@@ -345,6 +330,10 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_delete (_, tbody) ->
         [ kind_to_field "delete";
           children_to_field ([(child_to_json "body" (aux tbody))])]
+    | Trm_hyp h ->
+        [ kind_to_field "hyp";
+          value_to_field h.name;
+          children_to_field [] ]
 
 
 (* [ast_to_json trm_root]: converts a full ast to a Json object *)

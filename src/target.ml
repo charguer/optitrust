@@ -1622,7 +1622,7 @@ let target_between_show_transfo (m : mark) : Transfo.local_between =
 let (show_next_id, show_next_id_reset) : (unit -> int) * (unit -> unit) =
   Tools.resetable_fresh_generator()
 
-(* [show ~line:int tg]: ransformation for visualizing targets.
+(* [show ~line:int tg]: transformation for visualizing targets.
    The operation add marks if the command line argument [-exit-line]
    matches the [line] argument provided to the function. Otherwise, the
    [show] function only checks that the path resolve properly.
@@ -1663,13 +1663,17 @@ let show_ast ?(line:int = -1) () : unit =
   let t = Trace.ast() in
   Trace.interactive_step ~line ~ast_before:(fun () -> empty_ast) ~ast_after:(fun () -> t)
 
+let show_computed_res ?(line:int = -1) ?(ast: trm = Trace.ast ()) () : unit =
+  Flags.(with_flag display_resources false (fun () ->
+    with_flag always_name_resource_hyp true (fun () ->
+      Trace.interactive_step ~line ~ast_before:(fun () -> ast)
+        ~ast_after:(fun () -> Ast_fromto_AstC.computed_resources_intro ast))))
+
 (* [show_res] enables to view the result of resource computations. *)
 let show_res (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
   let t = Trace.ast() in
-  let compute_res t = t in (* TODO *)
-  let tres = compute_res t in
-  let decode t = t in (* TODO *)
-  Trace.interactive_step ~line ~ast_before:(fun () -> t) ~ast_after:(fun () -> decode tres)
+  let tres = Resources_computation.(trm_recompute_resources builtin_env t) in
+  show_computed_res ~line ~ast:tres ()
 
 (* LATER: Fix me *)
 (* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
@@ -1709,7 +1713,7 @@ let get_function_name_at (dl : path) : string option =
     | None -> fail None "get_function_name_at: couldn't retrive the function name at the targeted path"
    in
   match fun_decl.desc with
-  | Trm_let_fun (f, _, _, _) -> Some f.qvar_var
+  | Trm_let_fun (f, _, _, _, _) -> Some f.qvar_var
   | _ -> None
 
 

@@ -27,6 +27,7 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_extern _, Trm_extern _ -> true
   | Trm_namespace _, Trm_namespace _ -> true
   | Trm_template _, Trm_template _ -> true
+  | Trm_hyp _, Trm_hyp _ -> true
   | _ , _ -> false
 
 (* [same_trm ~ast_decode t1 t2]: check if [t1] and [t2] have the same string representation *)
@@ -101,9 +102,9 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
       | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
          trm_unop ~annot:t.annot ?loc:t.loc
            (Unop_cast (change_typ ty))
-      | Trm_let (vk,(y,ty),init) ->
-        trm_let ~annot:t.annot ?loc:t.loc vk (y,change_typ ty) (aux init)
-      | Trm_let_fun (f, ty, args, body) ->
+      | Trm_let (vk,(y,ty),init,bound_resources) ->
+        trm_let ~annot:t.annot ?loc:t.loc ?bound_resources vk (y,change_typ ty) (aux init)
+      | Trm_let_fun (f, ty, args, body, _) ->
          trm_let_fun ~annot:t.annot ?loc:t.loc ~qvar:f "" (change_typ ty)
             (List.map (fun (y, ty) -> (y, change_typ ty)) args)
             (aux body)
@@ -262,7 +263,7 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
       end
     | None -> -1
     end
-  | Trm_let (_,(_,tx),_) ->
+  | Trm_let (_,(_,tx),_,_) ->
     get_typid_from_typ (get_inner_ptr_type tx)
   | Trm_var _ ->
       begin match t.typ with
@@ -295,8 +296,8 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
                   end) None rfs
                | _ -> None
                end
-    | Trm_let (_, (y, _),_ ) when y = x -> Some t1
-    | Trm_let_fun (y, _, _, body) when (is_qvar_var y x) ->
+    | Trm_let (_, (y, _), _, _) when y = x -> Some t1
+    | Trm_let_fun (y, _, _, body, _) when (is_qvar_var y x) ->
       if require_body then begin
         match body.desc with
         | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
@@ -321,8 +322,8 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
 let rec local_decl (x : var) (t : trm) : trm option =
   match t.desc with
   | Trm_typedef td when td.typdef_tconstr = x -> Some t
-  | Trm_let (_, (y, _),_ ) when y = x -> Some t
-  | Trm_let_fun (y, _, _, body) ->
+  | Trm_let (_, (y, _), _, _) when y = x -> Some t
+  | Trm_let_fun (y, _, _, body, _) ->
     if (is_qvar_var y x) then Some t else local_decl x body
   | Trm_seq tl ->
     Mlist.fold_left(
@@ -343,7 +344,7 @@ let rec local_decl (x : var) (t : trm) : trm option =
     ordered list of their indices where the order is the depth order *)
 let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
-  | Trm_for (l_range, body) ->
+  | Trm_for (l_range, body, _) ->
     let (index, _, _, _, _, _) = l_range in
     begin match body.desc with
     | Trm_seq tl when Mlist.length tl = 1  ->
@@ -351,7 +352,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
       index :: get_loop_nest_indices f_loop
     | _ -> index :: []
     end
-  | Trm_for_c (_, _, _, body) ->
+  | Trm_for_c (_, _, _, body, _) ->
     let index = for_loop_index t in
     begin match body.desc with
     | Trm_seq tl when Mlist.length tl = 1 ->
@@ -365,9 +366,9 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
     and gives a loop with the same components as loop [t] but with body b. And the trm is the body of the loop [t]. *)
 let extract_loop (t : trm) : ((trm -> trm) * trm) option =
   match t.desc with
-  | Trm_for_c (init, cond, step, body) ->
+  | Trm_for_c (init, cond, step, body, _) ->
     Some ((fun b -> trm_for_c init cond step b), body)
-  | Trm_for (l_range, body) ->
+  | Trm_for (l_range, body, _) ->
     Some ((fun b -> trm_for l_range b), body)
   | _ ->
     fail t.loc "Internal.extract_loop: expected a loop"
@@ -399,10 +400,10 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
     | Record_field_member (f, ty) -> Record_field_member (rename_fun f, ty)
     | Record_field_method t ->
       begin match t.desc with
-      | Trm_let_fun (fn, ret_ty, args, body) ->
+      | Trm_let_fun (fn, ret_ty, args, body, contract) ->
         let new_fn = qvar_update ~var:(rename_fun fn.qvar_var) fn in
         (* let new_fn = {fn with qvar_str = rename_fun fn.qvar_var} in  *)
-        let new_t = trm_alter  ~desc:(Trm_let_fun (new_fn, ret_ty, args, body)) t in
+        let new_t = trm_alter  ~desc:(Trm_let_fun (new_fn, ret_ty, args, body, contract)) t in
         Record_field_method new_t
       | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
       end
@@ -502,10 +503,10 @@ let remove_nobrace_if_sequence (t : trm) : trm =
 (* [change_loop_body loop body]: change the current body of loop [loop] with [body] *)
 let change_loop_body (loop : trm) (body : trm) : trm =
   match loop.desc with
-  | Trm_for (l_range, _) ->
-    trm_for l_range body
-  | Trm_for_c (init, cond, step, _) ->
-    trm_for_c init cond step body
+  | Trm_for (l_range, _, contract) ->
+    trm_for ?contract l_range body
+  | Trm_for_c (init, cond, step, _, invariant) ->
+    trm_for_c ?invariant init cond step body
   | _-> fail loop.loc "Internal.change_loop_body: expected for loop"
 
 (* [is_trm_loop t] check if [t] is a loop or not *)
@@ -555,56 +556,6 @@ let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
     trm_var ~annot:t.annot ?loc:t.loc ~typ:(typ_constr x) y
   | _ -> trm_map (replace_type_with x y) t
 
-(* [subst tm t]: find all the occurrences of variables in [t] and check if they belong to map [tm]
-    if yes then assign its values otherwise do nothing *)
-(* LATER: open question: can this be implemented using onscope? *)
-let rec subst (tm : tmap) (t : trm) : trm =
-  let aux (t : trm) : trm =
-    subst tm t in
-  (* make a recursive call by removing from the map
-    the keys that satisfy [f] *)
-  let aux_filter (f : var -> bool)  (t : trm) : trm =
-    let tm2 = Trm_map.filter (fun k v -> not (f k)) tm in
-    subst tm2 t in
-  match t.desc with
-  (* Hack to avoid unnecessary get operations when we substitute a variable occurrence with arbitrary code *)
-  | Trm_var (vk, x) ->
-    begin match Trm_map.find_opt x.qvar_var tm with
-    | Some t1 ->
-      let t1 = {t1 with annot = t1.annot} in
-      if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1
-    | _ -> t
-    end
-  | Trm_seq ts ->
-    let cur_tm = ref tm in
-    let subst_item ti =
-      begin match ti.desc with
-      | Trm_let (_, (x, ty), tbody) ->
-        let ti2 = subst !cur_tm ti in
-        cur_tm := Trm_map.filter (fun k _v -> k <> x) tm;
-        ti2
-      | Trm_let_fun (f, __retty, targs, tbody) ->
-        cur_tm := Trm_map.filter (fun k _v -> k <> f.qvar_var) tm;
-        subst !cur_tm ti
-      | _ -> subst !cur_tm ti
-      end
-      in
-      let ts2 = Mlist.map subst_item ts in
-      { t with desc = Trm_seq ts2}
-  | Trm_for (l_range, _) ->
-    let (index, _, _, _, _, _) = l_range in
-    trm_map (aux_filter (fun x -> x = index)) t
-  | Trm_for_c (init, _, _, _) ->
-    let vs = vars_bound_in_trm_init init in
-    trm_map (aux_filter (fun x -> List.mem x vs)) t
-  | _ -> trm_map aux t
-
-
-(* [subst x u t]: replace all the occurences of x with t *)
-let subst_var (x : var) (u : trm) (t : trm) =
-  let empty_tmap =  Trm_map.empty  in
-  let tmap = Trm_map.add x u empty_tmap  in
-  subst tmap t
 
 (* FIXME: unused? *)
 (* [clean_nobraces tg]: remove all the hidden sequence starting from target [ŧg] *)
@@ -655,8 +606,8 @@ let get_field_name (rf : record_field) : var option =
   | Record_field_member (n, _) -> Some n
   | Record_field_method t1 ->
     begin match t1.desc with
-    | Trm_let (_, (n, _), _) -> Some n
-    | Trm_let_fun (qn, _, _, _) -> Some qn.qvar_var
+    | Trm_let (_, (n, _), _, _) -> Some n
+    | Trm_let_fun (qn, _, _, _, _) -> Some qn.qvar_var
     | _ -> None
     end
 

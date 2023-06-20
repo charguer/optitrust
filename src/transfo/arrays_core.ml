@@ -41,7 +41,7 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
     let array_name = ref "" in
     let f_update_at (t : trm) : trm =
       begin match t.desc with
-        | Trm_let (_, (x , tx), init) ->
+        | Trm_let (_, (x , tx), init, _) ->
           array_name := x;
           begin match (get_inner_ptr_type tx).typ_desc with
           | Typ_array (t_var,_) ->
@@ -211,7 +211,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
       | _ -> fail t.loc "Arrays_core.tile_aux: no enums expected"
       end
 
-    | Trm_let (Var_mutable, (y,ty), init) when y = base_type_name ->
+    | Trm_let (Var_mutable, (y,ty), init, _) when y = base_type_name ->
         begin match ty.typ_desc with
         | Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _};_} when (is_qvar_var y base_type_name) ->
           trm_let Var_mutable ~annot:d.annot (y.qvar_var, ty) init
@@ -438,7 +438,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
         | _ -> trm_map aux t
         end
 
-    | Trm_let (vk, (n, dx), init) ->
+    | Trm_let (vk, (n, dx), init, _) ->
        begin match dx.typ_desc with
        | Typ_ptr {inner_typ = ty;_} ->
         begin match ty.typ_desc with
@@ -464,7 +464,7 @@ let aos_to_soa (tv : typvar) (sz : var): Target.Transfo.local =
     [t] - ast of the array declaration. *)
 let set_explicit_aux (t : trm) : trm =
   match t.desc with
-  | Trm_let (vk, (x, tx), init) ->
+  | Trm_let (vk, (x, tx), init, _) ->
     let init = match get_init_val init with
     | Some init -> init
     | None -> fail t.loc "set_explicit_aux: could not get the initialization trms for the targeted array declaration" in
