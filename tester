@@ -19,14 +19,16 @@ if [ -z ${ARGS} ]; then
 
   for arg in $@; do
 
-      if [ -e $arg ] || [ -f $arg.tests ]
-      then
+      # If special target is "fix", we execute tests from "errors.tests"
+      # except those that are in ignore lists. -- TODO
+      if [ "$arg" = "fix" ];  then
+        ARGS+=("-respect-ignore")
+        ARGS+=("errors")
+      elif [ -e $arg ] || [ -f $arg.tests ]; then
           ARGS+=("${CURRENT_PATH}/$arg")
-      elif [ -e ${OPTITRUST}/tests/$arg ] || [ -f ${OPTITRUST}/tests/$arg.tests ]
-      then
+      elif [ -e ${OPTITRUST}/tests/$arg ] || [ -f ${OPTITRUST}/tests/$arg.tests ]; then
           ARGS+=("tests/$arg")
-      elif [ -e ${OPTITRUST}/case_studies/$arg ] || [ -f ${OPTITRUST}/case_studies/$arg.tests ]
-      then
+      elif [ -e ${OPTITRUST}/case_studies/$arg ] || [ -f ${OPTITRUST}/case_studies/$arg.tests ]; then
           ARGS+=("case_studies/$arg")
       else
 

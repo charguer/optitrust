@@ -81,6 +81,9 @@ let set_outfile_gen str = outfile_gen := string_to_outfile_gen str
 (* Flag to ignore all cached data *)
 let ignore_cache : bool ref = ref false
 
+(* Flag to ignore ignored files explicitly mentioned *)
+let respect_ignore : bool ref = ref false
+
 (* Flag to discard all cached data *)
 let discard_cache : bool ref = ref false
 
@@ -162,7 +165,11 @@ let rec resolve_test_targets (target_list: string list) : File_set.t * File_set.
 let compute_tests_to_process (targets: string list): (string list * string list) =
   let test_file_set, ignored_file_set = resolve_test_targets targets in
   (* Tests that were otherwise selected are not ignored *)
-  let ignored_file_set = File_set.diff ignored_file_set test_file_set in
+  let test_file_set, ignored_file_set =
+    if !respect_ignore
+      then File_set.diff test_file_set ignored_file_set, ignored_file_set
+      else test_file_set, File_set.diff ignored_file_set test_file_set
+    in
   (File_set.elements test_file_set, File_set.elements ignored_file_set)
   (* TODO: restore the fact that tests are executed in requested order *)
 
@@ -177,6 +184,7 @@ type cmdline_args = (string * Arg.spec * string) list
 let spec : cmdline_args =
    [ ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
      ("-ignore-cache", Arg.Set ignore_cache, " ignore the serialized AST, force reparse of source files; does not modify the existing serialized data");
+     ("-respect-ignore", Arg.Set respect_ignore, " don't execute ignored files even if they are explicitly mentioned.");
      ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for
      tests that are executed.");
      ("-v", Arg.Set verbose_mode, " report details on the testing process.");
@@ -239,6 +247,8 @@ let _main : unit =
         then failwith (sprintf "File not found:"))
       tests_to_process;
     in
+
+  (* TODO : tester si la liste de test est vide *)
 
   (* TODO: faire la boucle en caml sur l'appel à sed
    à chaque fois afficher un commentaire (* CURTEST=... *)
@@ -310,7 +320,7 @@ let _main : unit =
           if do_is_ko (sprintf "./tests/diff.sh %s %s > /dev/null" filename_out filename_exp) then begin
             printf "ERROR: unexpected output for %s\n" test_prefix;
             meld_args := sprintf "--diff %s %s" filename_out filename_exp :: !meld_args;
-            ignore_args := sprintf "echo \"%s.ml\" >> %s/ignored.tests" (Filename.basename test_prefix) (Filename.dirname test_prefix) :: !ignore_args;
+            ignore_args := sprintf "echo \"%s.ml\" >> %s/ignored.tests && sed -i '\\,%s.ml,d' errors.tests" (Filename.basename test_prefix) (Filename.dirname test_prefix) (test_prefix) :: !ignore_args;
             error_tests := sprintf "%s.ml" test_prefix :: !error_tests;
             incr ko_count;
           end else

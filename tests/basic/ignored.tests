@@ -18,3 +18,6 @@ record_to_variables.ml
 variable_ref_to_var.ml
 variable_exchange.ml
 pattern_replace.ml
+function_inline.ml
+function_inline.ml
+function_inline.ml
