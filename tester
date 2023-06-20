@@ -1,7 +1,17 @@
-#!/bin/sh
+#!/bin/bash
 
 OPTITRUST=$(dirname $0)
 ARGS=$@
+
+SRCFOLDER=`realpath ${OPTITRUST}/src`
+FILEPATH=`realpath ${ARGS}`
+
+# If file is in the /src folder, then target the last test
+if [[ ${FILEPATH} = *"${SRCFOLDER}"* ]]; then
+  ARGS="__last"
+fi
+
+echo "Executing: tester ${ARGS}"
 
 cd ${OPTITRUST}
 OCAMLRUNPARAM=b dune exec tests/tester.exe -- ${ARGS}

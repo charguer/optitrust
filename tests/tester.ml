@@ -144,7 +144,8 @@ let rec list_of_tests_from_key (key : string) : string list =
   | "all" -> (aux "basic") @
              (aux "combi") @
              (aux "target") @
-             (aux "ast")
+             (aux "ast") @
+             (aux "mm")
              (*TODO (aux "case_studies")*)
   (* TODO: factorize dir keywords? *)
   | "basic" -> get_list_of_tests_in_dir "tests/basic"
