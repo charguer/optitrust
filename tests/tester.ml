@@ -81,9 +81,6 @@ let set_outfile_gen str = outfile_gen := string_to_outfile_gen str
 (* Flag to ignore all cached data *)
 let ignore_cache : bool ref = ref false
 
-(* Flag to ignore ignored files explicitly mentioned *)
-let respect_ignore : bool ref = ref false
-
 (* Flag to discard all cached data *)
 let discard_cache : bool ref = ref false
 
@@ -118,32 +115,37 @@ let save_last_tests (keys : string list) : unit =
 
 module File_set = Set.Make(String)
 
+let filename_concat folder filename =
+  if folder = "." then filename else Filename.concat folder filename
+
+
 let get_alias_targets (alias_filename: string) : string list =
   let folder = Filename.dirname alias_filename in
   let lines = Xfile.get_lines_or_empty alias_filename in
   List.filter_map (fun l ->
       if String.starts_with ~prefix:"#" l || String.length l = 0
         then None
-        else Some (Filename.concat folder l)) lines
+        else Some (filename_concat folder l)) lines
 
-let get_tests_in_dir (folder: string) : File_set.t * File_set.t =
-  let ignored_files = get_alias_targets (Filename.concat folder "ignored.tests") in
+let get_tests_in_dir (folder: string) : string list * File_set.t =
+  let ignored_files = get_alias_targets (filename_concat folder "ignored.tests") in
   let ignored_files = List.fold_left (fun acc f -> File_set.add f acc) File_set.empty ignored_files in
   let folder_files = Sys.readdir folder in
-  let test_files = List.fold_left (fun acc f ->
+  let test_files = List.filter_map (fun f ->
       if String.ends_with ~suffix:".ml" f && not (String.ends_with ~suffix:"_with_lines.ml" f)
       then
-        let filename = Filename.concat folder f in
+        let filename = filename_concat folder f in
         if File_set.mem filename ignored_files
-          then acc
-          else File_set.add filename acc
-      else acc) File_set.empty (Array.to_list folder_files) in
-  test_files, ignored_files
+          then None
+          else Some filename
+      else None) (Array.to_list folder_files) in
+  List.sort String.compare test_files, ignored_files
 
-let rec resolve_test_targets (target_list: string list) : File_set.t * File_set.t =
-  List.fold_left (fun (test_files, ignored_files) target ->
+let rec resolve_test_targets (target_list: string list) : string list * File_set.t =
+  let test_files, ignored_file_set =
+    List.fold_right (fun target (test_files, ignored_files) ->
     if String.ends_with ~suffix:".ml" target then
-      (File_set.add target test_files, ignored_files)
+      (target :: test_files, ignored_files)
     else
       let alias_filename = target ^ ".tests" in
       let (new_test_files, new_ignored_files) =
@@ -153,25 +155,24 @@ let rec resolve_test_targets (target_list: string list) : File_set.t * File_set.
         else
           get_tests_in_dir target
       in
-      (File_set.union test_files new_test_files, File_set.union ignored_files new_ignored_files)
-  ) (File_set.empty, File_set.empty) target_list
+      (new_test_files @ test_files, File_set.union ignored_files new_ignored_files)
+  ) target_list ([], File_set.empty)
+  in
+  (test_files, ignored_file_set)
 
 
 (* Takes the list of target arguments on the command line;
    and expand the 'targets', remove duplicates and ignored tests.
    Returns (tests_to_process, ignored_tests)
 *)
-
 let compute_tests_to_process (targets: string list): (string list * string list) =
-  let test_file_set, ignored_file_set = resolve_test_targets targets in
+  let test_files, ignored_file_set = resolve_test_targets targets in
+  let test_files = Xlist.remove_duplicates test_files in
   (* Tests that were otherwise selected are not ignored *)
-  let test_file_set, ignored_file_set =
-    if !respect_ignore
-      then File_set.diff test_file_set ignored_file_set, ignored_file_set
-      else test_file_set, File_set.diff ignored_file_set test_file_set
-    in
-  (File_set.elements test_file_set, File_set.elements ignored_file_set)
-  (* TODO: restore the fact that tests are executed in requested order *)
+  let ignored_file_set =
+    List.fold_left (fun acc t -> File_set.remove t acc) ignored_file_set test_files
+  in
+  (test_files, File_set.elements ignored_file_set)
 
 
 (*****************************************************************************)
@@ -184,7 +185,6 @@ type cmdline_args = (string * Arg.spec * string) list
 let spec : cmdline_args =
    [ ("-out", Arg.String set_outfile_gen, " generate output file: 'always', or 'never', or 'onfailure' (default)");
      ("-ignore-cache", Arg.Set ignore_cache, " ignore the serialized AST, force reparse of source files; does not modify the existing serialized data");
-     ("-respect-ignore", Arg.Set respect_ignore, " don't execute ignored files even if they are explicitly mentioned.");
      ("-discard-cache", Arg.Set discard_cache, " clear all serialized AST; save serizalize data for
      tests that are executed.");
      ("-v", Arg.Set verbose_mode, " report details on the testing process.");

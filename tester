@@ -9,7 +9,7 @@ ARGS=()
 if [ "$#" -eq 1 ]; then
   SRCFOLDER=`realpath ${OPTITRUST}/src`
   FILEPATH=`realpath $@`
-  if [[ ${FILEPATH} = *"${SRCFOLDER}"* ]]; then
+  if [[ ${FILEPATH} = "${SRCFOLDER}"* ]]; then
     ARGS+=("last")
   fi
 fi
@@ -19,40 +19,37 @@ if [ -z ${ARGS} ]; then
 
   for arg in $@; do
 
-      # If special target is "fix", we execute tests from "errors.tests"
-      # except those that are in ignore lists. -- TODO
-      if [ "$arg" = "fix" ];  then
-        ARGS+=("-respect-ignore")
-        ARGS+=("errors")
-      elif [ -e $arg ] || [ -f $arg.tests ]; then
-          ARGS+=("${CURRENT_PATH}/$arg")
+      if [ ${CURRENT_PATH} != "." ] && ([ -e $arg ] || [ -f $arg.tests ]); then
+          if [ $arg = "." ]; then
+            ARGS+=("${CURRENT_PATH}")
+          else
+            ARGS+=("${CURRENT_PATH}/$arg")
+          fi
+
+      elif [ -e ${OPTITRUST}/$arg ] || [ -f ${OPTITRUST}/$arg.tests ] || [ $arg = "last" ]; then
+          ARGS+=("$arg")
       elif [ -e ${OPTITRUST}/tests/$arg ] || [ -f ${OPTITRUST}/tests/$arg.tests ]; then
           ARGS+=("tests/$arg")
       elif [ -e ${OPTITRUST}/case_studies/$arg ] || [ -f ${OPTITRUST}/case_studies/$arg.tests ]; then
           ARGS+=("case_studies/$arg")
-      else
 
+      else
         # If argument is a single key that has no extension and has not been recognized as a key,
         # then we use 'find' to figure out what tests might be targeted, e.g. "./tester swap"
-        # LATER: generalize to several arguments
 
-        RES=`find tests -name "*${arg}*.ml" -and -not -name "*_with_lines.ml"`
-        echo ${RES}
+        RES=$(find tests -name "*${arg}*.ml" -and -not -name "*_with_lines.ml")
         if [ -z "${RES}" ]; then
-          echo "Unknown target code, and no test with name '*${arg}*.ml'"
+          echo "Unknown test target, and no test with name '*${arg}*.ml'"
           exit 1
         fi
 
         for res in "${RES}"; do
           ARGS+=("${res}")
         done
-
       fi
   done
 
 fi
-
-echo "Tester: ${ARGS[*]}"
 
 cd ${OPTITRUST}
 OCAMLRUNPARAM=b dune exec tests/tester.exe -- ${ARGS[*]}
