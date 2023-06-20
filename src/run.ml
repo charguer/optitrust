@@ -44,7 +44,7 @@ let process_cmdline_args (args : Flags.cmdline_args) : unit =
   as the cpp file, we should generalize this in the support. *)
 
 (* [debug_inline_cpp]: only for debugging purposes *)
-let debug_inline_cpp = true
+let debug_inline_cpp = false
 
 let generate_source_with_inlined_header_cpp (input_file:string) (inline:string list) (output_file:string) : unit =
   let s = ref (Xfile.get_contents input_file) in

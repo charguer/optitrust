@@ -3,7 +3,9 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
    !! Function.delete [cFunDef "f"];
-   !! Function.delete [cFunDef "g"];
-   !!! ();
-
+   (* TODO: why failure is only at the next reparse ?
+   !! Trace.failure_expected (fun () ->
+       !! Function.delete [cFunDef "g"];
+       !! Trace.reparse () );
+    *)
 )

@@ -269,7 +269,7 @@ FLAGS="-reparse-at-big-steps"
 Multiple flags can be passed at once in the string.
 
 
-# Troubleshouting
+# Troubleshooting
 
 If the watch script is not launched in a background terminal, then the execution of a task simply hangs.
 Start the watch, press the shortcut again, click on "terminate/restart the task".
@@ -278,6 +278,13 @@ In case of missing opam packages, or incorrect opam switch loaded:
 ```
   Reason: /home/charguer/.opam/4.09.1+flambda/lib/ocaml/stublibs/dllunix.so: undefined symbol: caml_local_roots
 ```
+
+Trick:
+   gnome-session-properties
+add an entry for
+   optitrust watcher
+   ~/shared/verified_transfo/src/.vscode/watch.sh
+
 
 # JEmalloc
 

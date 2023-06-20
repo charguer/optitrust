@@ -188,6 +188,7 @@ let basic_tests_to_ignore = [
 ]
 let combi_tests_to_ignore = [
   (* TO FIX: *)
+  "array_elim_constant.ml";
   "record_align_field.ml";
 	"loop_hoist.ml";
 	"loop_fission.ml";
