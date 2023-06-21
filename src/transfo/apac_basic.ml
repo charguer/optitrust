@@ -128,6 +128,111 @@ let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
     Target.apply_at_target_paths (use_goto_for_return_on mark) tg
   )
 
+(* [arg_id] an argument identifier. Within the constification process, we
+    represent function arguments as pairs of the qualified name of the function
+    they belong to and their position in the list of arguments of that function.
+
+    For example, let us consider the following function definition:
+
+       int multiply(int op1, int op2) { return op1 * op2; }
+
+    The 'arg_id' corresponding to the argument 'op2' would look as follows.
+
+       ({ qvar_var: "multiply", qvar_path: [], qvar_str: "multiply"}, 1)
+  *)
+type arg_id = qvar * int
+
+(* [const_arg]: an argument constification record. *)
+type const_arg = {
+  (* Tells whether the argument is a reference or a pointer. *)
+  is_ptr_or_ref : bool;
+  (* Tells whether the argument can be constified. *)
+  mutable is_const : bool;
+  (* List of arguments that depend on this argument. For each argument, the list
+     stores the qualified name of the function the argument belongs to as well
+     as its position in the list of arguments of that function.
+
+     For example, let us consider the following function definition:
+
+        int multiply(int op1, int op2) { return op1 * op2; }
+
+     The entry in 'dependency_of' corresponding to the argument 'op2' would
+     look as follows.
+
+        ({ qvar_var: "multiply", qvar_path: [], qvar_str: "multiply"}, 1)
+  *)
+  mutable dependency_of : arg_id list;
+}
+
+(* [const_fun]: a function constification record. *)
+type const_fun = {
+  (* List of constification records for all the argument of the function. When,
+     the function is in fact a class method, we consider the corresponding
+     object as an argument of the function too. In this case, the object is
+     prepended to 'const_args'. *)
+  const_args : const_arg list;
+  (* Tells whether the return value is a reference or a pointer. *)
+  is_ret_ptr_or_ref : bool;
+}
+
+(* [const_funs]: type for a hash table of [const_fun]. The keys are the
+    qualified names of the functions. *)
+type const_funs = (fun_loc, const_fun) Hashtbl.t
+
+(* Create our hash table of [const_fun] with an initial size of 10. The size of
+   the table will grow automatically if needed. *)
+let const_records : const_funs = Hashtbl.create 10
+
+(* [const_lookup_candidates]: expects the target [tg] to point at a function
+    definition. It adds a new entry into 'const_records' based on the
+    information about the function. *)
+let const_lookup_candidates : Transfo.t =
+  Target.iter (fun trm path ->
+    let error = "Apac_basic.const_lookup_candidates: expected a target to a \
+      function definition!" in
+    let fun_def = get_trm_at_path trm path in
+    let (qvar, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv fun_def in
+    let const_args = List.map (fun (_, ty) -> {
+      is_ptr_or_ref = is_typ_ptr ty or is_typ_array ty;
+      is_const = true;
+      dependency_of = [];
+    }) args in
+    let const : const_fun = {
+      const_args: const_args;
+      is_ret_ptr_or_ref = is_typ_ptr ret_ty or is_typ_array ret_ty;
+    } in
+    Hashtbl.add const_records qvar const
+  )
+
+let const_analyze_dependencies : Transfo.t =
+  Target.iter (fun parent_trm parent_path ->
+    let fun_calls = (target_of_path parent_path) @ [nbAny; cFun ""] in
+    Target.iter (fun call_trm call_path ->
+      let fun_call = get_trm_at_path call_trm call_path in
+      let error = "Apac_basic.const_analyze_dependencies: expected a target to a \
+            function call!" in
+      let (f, args) = trm_inv ~error trm_apps_inv fun_call in
+      let error = "Apac_basic.const_analyze_dependencies: unable to extract \
+            function name from the call!" in
+      let (_, qvar) = trm_inv ~error trm_var_inv f in
+      if Hashtbl.mem const_records qvar then
+      begin
+        let fun_call_const = Hashtbl.find const_records qvar in
+        let fun_args_const = fun_call_const.const_args in
+        List.iteri (fun i t ->
+
+        ) args
+      end
+    ) fun_calls
+  )
+
+(*let lookup_const_candidates : Transfo.t =
+  (* Create a stack for the arguments to unconstify. *)
+  let to_process : arg_id Stack.t = Stack.create () in
+  Target.iter (fun trm path ->
+
+  )*)
+
 (* [is_typdef_alias ty]: checks if [ty] is a defined type alias. *)
 let is_typdef_alias (ty : typ) : bool =
   match ty.typ_desc with
