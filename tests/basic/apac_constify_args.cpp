@@ -12,6 +12,4 @@ void g(float *, double &, int const **&) {}
 
 void h(pINT, ppINT) {}
 
-void i(A &);
-
 void i(A &) {}
