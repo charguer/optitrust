@@ -1145,7 +1145,7 @@ let dump_diff_and_exit () : unit =
   if kind <> Step_root && kind <> Step_big && kind <> Step_scoped
     then failwith (sprintf "dump_diff_and_exit: expects the current step to be Root, Big or Scoped, found %s" (step_kind_to_string kind));
   if (get_cur_step ()).step_sub = []
-    then failwith "dump_diff_and_exit: no step was recorded; the script should start with '!!' or 'bigstep'";
+    then failwith "dump_diff_and_exit: make sure you cursor is on a line starting with '!!' or 'bigstep'";
   let last_step = get_last_substep () in
   if !Flags.only_big_steps && last_step.step_kind <> Step_big
     then failwith "dump_diff_and_exit: cannot show a diff for a big-step, no call to bigstep was made";
