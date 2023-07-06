@@ -32,7 +32,7 @@ let loop_minimize_on (t: trm): trm =
   in
 
   let contract = match contract with
-    | None -> { loop_ghosts = []; invariant = res_before; iter_contract = empty_fun_contract }
+    | None -> { loop_ghosts = res_before.pure; invariant = { res_before with pure = [] }; iter_contract = empty_fun_contract }
     | Some contract -> contract
   in
 
