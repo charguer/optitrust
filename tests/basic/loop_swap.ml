@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
 
-  !! Loop_basic.swap [cFor "i"];
+  !! Loop.swap [cFor "i"];
 
 )
 
@@ -18,9 +18,9 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Loop_basic.swap [cFor "a"];
-  !! Loop_basic.swap [cFor "a"];
-  !! Loop_basic.swap [cFor "c"];
-  !! Loop_basic.swap [cFor "b"];
+  !! Loop.swap [cFor "a"];
+  !! Loop.swap [cFor "a"];
+  !! Loop.swap [cFor "c"];
+  !! Loop.swap [cFor "b"];
 
 )

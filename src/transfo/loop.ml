@@ -1,6 +1,7 @@
 open Ast
 open Target
 include Loop_basic
+include Loop_swap
 
 let default_simpl = Arith.default_simpl
 
@@ -571,14 +572,14 @@ let%transfo move ?(before : target = []) ?(after : target = []) (loop_to_move : 
     if List.mem targeted_loop_index loop_to_move_nested_indices
       then begin
            let choped_indices = Xlist.chop_after targeted_loop_index loop_to_move_nested_indices in
-           List.iter (fun _ -> Loop_basic.swap loop_to_move) choped_indices
+           List.iter (fun _ -> Loop_swap.f loop_to_move) choped_indices
            end
       else if List.mem loop_to_move_index targeted_loop_nested_indices then
         begin
         let choped_indices = Xlist.chop_after loop_to_move_index targeted_loop_nested_indices in
         let choped_indices = Xlist.chop_after targeted_loop_index (List.rev choped_indices) in
         let tg = target_of_path targeted_loop_path in
-        List.iter (fun x -> Loop_basic.swap (tg @ [cFor x])) choped_indices
+        List.iter (fun x -> Loop_swap.f (tg @ [cFor x])) choped_indices
         end
       else fail loop_to_move_trm.loc "Loop.move: the given targets are not correct"
 
@@ -591,14 +592,14 @@ let%transfo move ?(before : target = []) ?(after : target = []) (loop_to_move : 
       then begin
            let choped_indices = Xlist.chop_after targeted_loop_index loop_to_move_nested_indices in
            let choped_indices = Xlist.chop_after loop_to_move_index (List.rev choped_indices) in
-           List.iter (fun _ -> Loop_basic.swap loop_to_move) (List.rev choped_indices)
+           List.iter (fun _ -> Loop_swap.f loop_to_move) (List.rev choped_indices)
            end
       else if List.mem loop_to_move_index targeted_loop_nested_indices then
         begin
         let choped_indices = Xlist.chop_after loop_to_move_index targeted_loop_nested_indices in
         let tg = target_of_path targeted_loop_path in
         List.iter (fun x ->
-          Loop_basic.swap (tg @ [cFor x]))
+          Loop_swap.f (tg @ [cFor x]))
          (List.rev choped_indices)
         end
       else fail loop_to_move_trm.loc "Loop.move: the given targets are not correct"
@@ -835,7 +836,7 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : var) (p : path): 
           loops to be swaped *)
       hoist_all_allocs (target_of_path (path_of_loop_surrounding_mark_current_ast m));
       fission_all_instrs (target_of_path (path_of_loop_surrounding_mark_current_ast m));
-      Loop_basic.swap (target_of_path (path_of_loop_surrounding_mark_current_ast m));
+      Loop_swap.f (target_of_path (path_of_loop_surrounding_mark_current_ast m));
       (* Printf.printf "after i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
     end
   )
@@ -1129,3 +1130,6 @@ let set_indices (indices : var list) (outer_p : path) : unit =
   let tmp_indices = List.init (List.length indices) (fun _ -> fresh_var ()) in
   set_indices_internal tmp_indices outer_p;
   set_indices_internal indices outer_p;
+  ()
+
+let f () = assert false

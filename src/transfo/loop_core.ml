@@ -1,29 +1,6 @@
 open Ast
 open Target
 
-(* [swap_aux t]: swaps the order of two nested loops, the targeted loop with the immediate inner loop,
-       [t] - ast of the targeted loop. *)
-let swap_aux (t : trm) : trm =
-  match Internal.extract_loop t with
-  | Some (loop1, body1) ->
-    begin match body1.desc with
-    | Trm_seq tl when Mlist.length tl = 1 ->
-      let loop2 = Mlist.nth tl 0 in
-      begin match Internal.extract_loop loop2 with
-      | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
-      | None -> fail body1.loc "Loop_core..swap_aux: should target a loop with nested loop^inside"
-      end
-    | _ -> begin match Internal.extract_loop body1 with
-           | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
-           | None -> fail body1.loc "Loop_core..swap_aux: should target a loop with nested inner loops"
-           end
-    end
-  | None -> fail t.loc "Loop_core.swap_aux: should target a loop"
-
-(* [swap t p] - applies [swap_aux] at trm [t] with path [p] *)
-let swap : Transfo.local =
-  apply_on_path (swap_aux)
-
 (*  [color_aux nb_colors i_color t]: transform a loop into two nested loops based on the coloring pattern,
       [nb_colors] - a variable used to represent the number of colors,
       [i_color] - a variable representing the index used of the new outer loop,

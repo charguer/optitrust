@@ -1,11 +1,6 @@
 open Ast
 open Target
 
-(* [swap tg]: expects the target [tg] to point at a loop that contains an
-   immediately-nested loop. The transformation swaps the two loops. *)
-let%transfo swap (tg : target) : unit =
-  apply_on_targets (Loop_core.swap) tg
-
 (* [color nb_colors i_color tg]: expects the target [tg] to point at a simple for  loop,
    let's say [for (int i = start; i < stop; i += step) { body } ].
    [nb_colors] - an expression denoting the number of colors (e.g., ["2"]),
