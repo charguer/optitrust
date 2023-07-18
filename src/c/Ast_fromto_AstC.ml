@@ -481,8 +481,8 @@ let rec formula_to_string (f: formula) : string =
   match formula_read_only_inv f with
   | Some { frac; formula } -> sprintf "RO(%s, %s)" (formula_to_string frac) (formula_to_string formula)
   | None ->
-    match formula_var_model_inv f with
-    | Some (x, formula) -> Printf.sprintf "%s => %s" x (formula_to_string formula)
+    match formula_model_inv f with
+    | Some (t, formula) -> Printf.sprintf "%s ~> %s" (AstC_to_c.ast_to_string ~optitrust_syntax:true t) (formula_to_string formula)
     | None -> AstC_to_c.ast_to_string ~optitrust_syntax:true f (* LATER: use a custom printer for formulas *)
 
 let named_formula_to_string (hyp, formula): string =

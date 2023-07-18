@@ -34,14 +34,19 @@ let builtin_env = resource_set ~fun_contracts:(
   Var_map.add "__add" (["x1"; "x2"], empty_fun_contract) @@
   Var_map.add "__sub" (["x1"; "x2"], empty_fun_contract) @@
   Var_map.add "__mul" (["x1"; "x2"], empty_fun_contract) @@
+  Var_map.add "__array_access" (["tab"; "i"], empty_fun_contract) @@
   Var_map.add "__add_inplace" (["p"; "x"], set_fun_contract) @@
   Var_map.add "__sub_inplace" (["p"; "x"], set_fun_contract) @@
   Var_map.add "__mul_inplace" (["p"; "x"], set_fun_contract) @@
-  Var_map.add "__matrix2_get" (["p"; "m"; "n"; "i"; "j"],
+  (* TODO: Remove next 2 *)
+  (*Var_map.add "__matrix2_get" (["p"; "m"; "n"; "i"; "j"],
     push_read_only_fun_contract_res (None, formula_matrix2 "p" (trm_var "m") (trm_var "n")) empty_fun_contract) @@
   Var_map.add "__matrix2_set" (["p"; "m"; "n"; "i"; "j"; "v"],
     { pre = resource_set ~linear:[new_anon_hyp (), formula_matrix2 "p" (trm_var "m") (trm_var "n")] ();
-      post = resource_set ~linear:[new_anon_hyp (), formula_matrix2 "p" (trm_var "m") (trm_var "n")] (); }) @@
+      post = resource_set ~linear:[new_anon_hyp (), formula_matrix2 "p" (trm_var "m") (trm_var "n")] (); }) @@*)
+  Var_map.add "MINDEX2" (["m"; "n"; "i"; "j"], empty_fun_contract) @@
+  Var_map.add "MINDEX3" (["sz1"; "sz2"; "sz3"; "i"; "j"; "k"], empty_fun_contract) @@
+  Var_map.add "MINDEX4" (["sz1"; "sz2"; "sz3"; "sz4"; "i"; "j"; "k"; "l"], empty_fun_contract) @@
   Var_map.empty) ()
 
 (* A formula that may instantiate contract variables with
@@ -105,7 +110,24 @@ and unify_trm (t: trm) (te: trm) (evar_ctx: unification_ctx) : unification_ctx o
     let* f, args = trm_apps_inv t in
     let* evar_ctx = unify_trm f fe evar_ctx in
     List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in unify_trm arg arge evar_ctx) (Some evar_ctx) args argse
-  | _ -> failwith "unify_trm: unhandled constructor" (* TODO: Implement the rest of constructors *)
+  | Trm_fun (argse, _, bodye, _) ->
+    let* args, _, body, _ = trm_fun_inv t in
+    let* evar_ctx, masked_ctx =
+      try
+        Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, _) ->
+            let masked_entry = Var_map.find_opt arge evar_ctx in
+            let evar_ctx = Var_map.add arge (Some (trm_var arg)) evar_ctx in
+            (evar_ctx, (arge, masked_entry) :: masked)
+          ) (evar_ctx, []) argse args)
+      with Invalid_argument _ -> None
+    in
+    let* evar_ctx = unify_trm body bodye evar_ctx in
+    Some (List.fold_left (fun evar_ctx (arge, masked_entry) ->
+        match masked_entry with
+        | Some entry -> Var_map.add arge entry evar_ctx
+        | None -> Var_map.remove arge evar_ctx
+      ) evar_ctx masked_ctx)
+  | _ -> failwith (sprintf "unify_trm: unhandled constructor %s" (AstC_to_c.ast_to_string t)) (* TODO: Implement the rest of constructors *)
 
 (* TODO: is this different from trm_free_vars ? *)
 let trm_used_vars (t: trm): Var_set.t =
@@ -163,6 +185,7 @@ let trm_map_vars (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> var -
   | Trm_var (_, x) ->
     let x = qvar_to_var x in
     (ctx, map_var ctx x)
+
   | Trm_let (var_kind, (var, typ), body, bound_resources) ->
     let _, body' = f_map ctx body in
     let cont_ctx, var' = map_binder ctx var in
@@ -195,7 +218,12 @@ let trm_map_vars (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> var -
     in
     (ctx, t')
 
-  (* TODO: Missing Trm_fun, will be done when deduplicating trm_let_fun *)
+  | Trm_fun (args, ret, body, contract) ->
+    let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) -> let ctx, arg' = map_binder ctx arg in (ctx, (arg', typ))) ctx args in
+    let _, body' = f_map body_ctx body in
+    let t' = trm_fun ~annot ?loc ?contract args' ret body' in
+    (* TODO: Proper function type here *)
+    (ctx, t')
 
   | _ -> (ctx, trm_map_with_ctx f_map ctx t)
   in
@@ -217,6 +245,7 @@ let trm_subst_map_binder (forbidden_binders, subst_map) binder =
     ((forbidden_binders, subst_map), new_binder)
   else
     let forbidden_binders = Var_set.add binder forbidden_binders in
+    let subst_map = Var_map.add binder (trm_var binder) subst_map in
     ((forbidden_binders, subst_map), binder)
 
 let trm_subst_map_var (_, subst_map) var =
@@ -280,6 +309,11 @@ let fun_contract_free_vars (contract: fun_contract): Var_set.t =
    [item] is not found inside the resource list [res_list] *)
 exception Resource_not_found of resource_item * resource_item list
 
+let raise_resource_not_found ((name, formula): resource_item) (evar_ctx: unification_ctx) (inside: resource_item list) =
+  let subst_ctx = Var_map.mapi (fun var subst -> match subst with Some t -> t | None -> trm_var ("?" ^ var)) evar_ctx in
+  let formula = trm_subst subst_ctx Var_set.empty formula in
+  raise (Resource_not_found ((name, formula), inside))
+
 (* Unify the given resource_item with one of the resources in the pure resource set.
    Also add a binding from x to the found resource in evar_ctx.
    If it fails raise a Resource_not_found exception. *)
@@ -294,7 +328,7 @@ let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx:
   try
     (* TODO: would a fold / recursion be easier to read? *)
     List.iter (find_formula formula) res;
-    raise (Resource_not_found ((x, formula), res))
+    raise_resource_not_found (x, formula) evar_ctx res
   with Found evar_ctx -> evar_ctx
 
 let rec unify_and_remove_linear ((x, formula): resource_item) (res: linear_resource_set)
@@ -338,21 +372,26 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
   try match formula_read_only_inv formula with
     | Some { frac; formula = ro_formula } when split_frac ->
-      begin match trm_var_inv frac with
-      | Some frac_var ->
-        begin match Var_map.find_opt frac_var evar_ctx with
-        | Some None ->
-          let new_frac, _ = new_frac () in (* LATER: store new generated frac ghosts *)
-          let evar_ctx = Var_map.add frac_var (Some (trm_var new_frac)) evar_ctx in
-          unify_and_split_read_only x ~new_frac ro_formula res evar_ctx
-        | _ ->
-          unify_and_remove_linear (x, formula) res evar_ctx
+      begin match trm_apps_inv frac with
+      | Some (maybe_full, [frac]) when trm_var_inv maybe_full = Some "_Full" ->
+        unify_and_remove_linear (x, formula_read_only ~frac ro_formula) res evar_ctx
+      | _ ->
+        begin match trm_var_inv frac with
+        | Some frac_var ->
+          begin match Var_map.find_opt frac_var evar_ctx with
+          | Some None ->
+            let new_frac, _ = new_frac () in (* LATER: store new generated frac ghosts *)
+            let evar_ctx = Var_map.add frac_var (Some (trm_var new_frac)) evar_ctx in
+            unify_and_split_read_only x ~new_frac ro_formula res evar_ctx
+          | _ ->
+            unify_and_remove_linear (x, formula) res evar_ctx
+          end
+        | _ -> unify_and_remove_linear (x, formula) res evar_ctx
         end
-      | _ -> unify_and_remove_linear (x, formula) res evar_ctx
       end
     | _ -> unify_and_remove_linear (x, formula) res evar_ctx
   with Not_found ->
-    raise (Resource_not_found ((x, formula), res))
+    raise_resource_not_found (x, formula) evar_ctx res
 
 (* [subtract_linear_resource]: subtract [res_removed] from [res_from].
    Raise [Resource_not_found] if one resource is missing.
@@ -573,6 +612,7 @@ let binop_to_var (u: binary_op): var =
   | Binop_add -> "__add"
   | Binop_sub -> "__sub"
   | Binop_mul -> "__mul"
+  | Binop_array_access -> "__array_access"
   | Binop_set -> "__set"
   | _ -> raise Unimplemented
 
@@ -634,41 +674,19 @@ let rec formula_of_trm (t: trm): formula option =
       | Some Prim_binop Binop_mul
       | Some Prim_binop Binop_div
       | Some Prim_binop Binop_mod
+      | Some Prim_binop Binop_array_access
           -> Some (trm_apps fn f_args)
-      | _ -> None
+      | Some _ -> None
+      | None ->
+        begin match trm_var_inv fn with
+          | Some "MINDEX2"
+          | Some "MINDEX3"
+          | Some "MINDEX4"
+            -> Some (trm_apps fn f_args)
+          | _ -> None
+        end
     end
   | _ -> None
-
-let matrix2_access_inv (t: trm): (trm * trm * trm * trm * trm) option =
-  let open Tools.OptionMonad in
-  let* tfn, targs = trm_apps_inv t in
-  let* tmat, tindex = match trm_prim_inv tfn, targs with
-    | Some (Prim_binop Binop_array_access), [tmat; tindex] -> Some (tmat, tindex)
-    | _ -> None
-  in
-  let* tidxfn, tidxargs = trm_apps_inv tindex in
-  match trm_var_inv tidxfn, tidxargs with
-  | Some "MINDEX2", [tm; tn; ti; tj] -> Some (tmat, tm, tn, ti, tj)
-  | _ -> None
-
-(* Currenty array accesses are composed of weird functions calls that cannot
- * be given an easy spec to work with. For the resource computation we replace
- * there calls into more straigthforward array accesses.
- * LATER: Find a convenient way of encode array accesses such that both
- * transformations and resource computation agree on the interface. *)
-let decode_array_access (fn: trm) (args: trm list): trm * trm list =
-  match trm_prim_inv fn, args with
-  | Some (Prim_unop Unop_get), [tptr] ->
-    begin match matrix2_access_inv tptr with
-    | Some (tmat, tm, tn, ti, tj) -> ((trm_var "__matrix2_get"), [tmat; tm; tn; ti; tj])
-    | _ -> (fn, args)
-    end
-  | Some (Prim_binop Binop_set), [tptr; tval] ->
-    begin match matrix2_access_inv tptr with
-    | Some (tmat, tm, tn, ti, tj) -> ((trm_var "__matrix2_set"), [tmat; tm; tn; ti; tj; tval])
-    | _ -> (fn, args)
-    end
-  | _ -> (fn, args)
 
 let empty_usage_map (res: resource_set): resource_usage_map =
  List.fold_left (fun acc (h, _) -> Hyp_map.add h NotUsed acc) Hyp_map.empty res.linear
@@ -705,6 +723,8 @@ let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource
   in
   update_usage_map ~current_usage:usage_map ~child_usage:locally_used
 
+let debug_print_computation_stack = false
+
 (* FIXME: name is confusing because [compute_resources] already updates [t.ctx.ctx_resources_usage].
    Rename to [compute_usage_map_and_resources]? *)
 let rec compute_resources_and_update_usage ?(expected_res: resource_spec) (res: resource_spec) (current_usage: resource_usage_map option) (t: trm): resource_usage_map option * resource_spec =
@@ -714,7 +734,7 @@ let rec compute_resources_and_update_usage ?(expected_res: resource_spec) (res: 
 
 (* TODO: better name? *)
 and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: trm): resource_usage_map option * resource_spec =
-  (*Printf.eprintf "With resources: %s\nComputing %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);*)
+  if debug_print_computation_stack then Printf.eprintf "With resources: %s\nComputing %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);
   t.ctx.ctx_resources_before <- res;
   let (let**) (x: 'a option) (f: 'a -> 'b option * 'c option) =
     match x with
@@ -779,8 +799,6 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
       end
 
     | Trm_apps (fn, effective_args) ->
-      let (fn, effective_args) = decode_array_access fn effective_args in
-
       let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv fn in
       begin match Var_map.find_opt fn res.fun_contracts with
       | Some (contract_args, contract) ->
@@ -839,18 +857,18 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
       usage_map, Some res
 
     | Trm_for ((index, tstart, _, tend, step, _) as range, body, Some contract) ->
+      (* Compute resources outside the loop *)
+      let invariant_before = subst_var_in_resources index tstart contract.invariant in
+      let before_loop_res = res_union invariant_before (res_group_range range contract.iter_contract.pre) in
+      let before_loop_res = { before_loop_res with pure = contract.loop_ghosts @ before_loop_res.pure } in
+      let ghost_subst_ctx, res_used, res_frame = resource_impl_leftovers ~split_frac:true res before_loop_res in
+
       (* Compute resources inside the loop body *)
       let loop_body_pre = res_union contract.invariant contract.iter_contract.pre in
       let loop_body_pre = { loop_body_pre with pure = contract.loop_ghosts @ loop_body_pre.pure; fun_contracts = res.fun_contracts } in
       let invariant_after_one_iter = subst_var_in_resources index (trm_add (trm_var index) (loop_step_to_trm step)) contract.invariant in
       let loop_body_post = res_union invariant_after_one_iter contract.iter_contract.post in
       ignore (compute_resources ~expected_res:loop_body_post (Some loop_body_pre) body);
-
-      (* Compute resources outside the loop *)
-      let invariant_before = subst_var_in_resources index tstart contract.invariant in
-      let before_loop_res = res_union invariant_before (res_group_range range contract.iter_contract.pre) in
-      let before_loop_res = { before_loop_res with pure = contract.loop_ghosts @ before_loop_res.pure } in
-      let ghost_subst_ctx, res_used, res_frame = resource_impl_leftovers ~split_frac:true res before_loop_res in
 
       let after_loop_res = res_union contract.invariant (res_group_range range contract.iter_contract.post) in
       let after_loop_res = compute_produced_resources (Var_map.add index tend ghost_subst_ctx) after_loop_res in
@@ -860,6 +878,9 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
       let usage_map = add_used_set_to_usage_map res_used usage_map in
 
       Some usage_map, Some (bind_new_resources ~old_res:res ~new_res:(resource_merge_after_frame after_loop_res res_frame))
+
+    | Trm_typedef _ ->
+      Some usage_map, Some res
 
     | _ -> fail t.loc ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
     end with e when !Flags.resource_errors_as_warnings ->
@@ -871,7 +892,7 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
   in
 
   t.ctx.ctx_resources_usage <- usage_map;
-  (*Printf.eprintf "With resources: %s\nSaving %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);*)
+  if debug_print_computation_stack then Printf.eprintf "With resources: %s\nSaving %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);
   t.ctx.ctx_resources_after <- res;
   let res =
     match res, expected_res with

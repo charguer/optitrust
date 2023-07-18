@@ -6,8 +6,8 @@ void h() {
   int y = 0;
   int z = 0;
   for (int i = 0; i < 3; ++i) {
-    __sequentially_modifies("z => Cell;");
-    __sequentially_reads("y => Cell;");
+    __sequentially_modifies("z ~> Cell;");
+    __sequentially_reads("y ~> Cell;");
     z = y;
   }
 }

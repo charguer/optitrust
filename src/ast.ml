@@ -1706,6 +1706,10 @@ let trm_let_fun_inv (t : trm) : (qvar * typ * typed_vars * trm) option =
   | Trm_let_fun (f, ret_ty, args, body, _) -> Some (f, ret_ty, args, body)
   | _ -> None
 
+let trm_fun_inv (t: trm) : (typed_vars * typ option * trm * fun_spec) option =
+  match t.desc with
+  | Trm_fun (args, typ, body, contract) -> Some (args, typ, body, contract)
+  | _ -> None
 
 (* [trm_apps_inv t]: returns the components of a [trm_apps] constructor in case [t] is function application.
     Otherwise it returns [None]. *)
@@ -3720,6 +3724,7 @@ let mindex (dims : trms) (indices : trms) : trm =
   trm_apps (trm_var mindex) (dims @ indices)
 
 (* [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t]/ *)
+(* Consider (trm * trm) list *)
 let mindex_inv (t : trm) : (trms * trms) option =
   match t.desc with
   | Trm_apps (f, dims_and_indices) ->
