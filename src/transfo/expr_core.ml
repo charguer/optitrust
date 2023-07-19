@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [update f t]: replaces an expression [t] with [f t]. *)
 let update (f : trm -> trm) : Target.Transfo.local =
@@ -32,7 +32,7 @@ let view_subterms_aux (stringreprs : AstC_to_c.stringreprs) (ro : Constr.rexp op
           else sprintf "%d(%d)-%d(%d)" start_row start_column end_row end_column
       in
     let strm =
-      match Ast.trm_get_stringreprid t with
+      match Trm.trm_get_stringreprid t with
       | Some id ->
         begin match Hashtbl.find_opt stringreprs id with
         | None -> sprintf "<no_stringrepr_for:%d>" id

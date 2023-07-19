@@ -3,9 +3,9 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-  
-  !! Cast_basic.insert Ast.(typ_double ()) [cReadVar "a"];
-  
+
+  !! Cast_basic.insert Typ.(typ_double ()) [cReadVar "a"];
+
 )
 
 "
@@ -17,7 +17,7 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Cast_basic.insert Ast.(typ_double ()) [cReadVar "a"];
-  !! Cast_basic.insert Ast.(typ_float ()) [cReadVar "b"];
+  !! Cast_basic.insert Typ.(typ_double ()) [cReadVar "a"];
+  !! Cast_basic.insert Typ.(typ_float ()) [cReadVar "b"];
 
 )

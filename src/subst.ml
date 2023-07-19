@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [subst tm t]: find all the occurrences of variables in [t] and check if they belong to map [tm]
     if yes then assign its values otherwise do nothing *)

@@ -1,9 +1,9 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
 let _ = Run.doc_script_cpp (fun _ ->
-    
+
   !! Variable.insert ~typ:(ty "int") ~name:"b" ~value:(lit "2") [tAfter; cVarDef "a"];
 
 )

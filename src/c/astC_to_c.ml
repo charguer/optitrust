@@ -1,5 +1,5 @@
 open PPrint
-open Ast
+open Syntax
 open Precedence
 open Tools
 
@@ -326,7 +326,7 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
       begin
       let sid =
         if not !print_stringreprids then "" else begin
-        match Ast.trm_get_stringreprid t with
+        match Trm.trm_get_stringreprid t with
         | None -> "[-]"
         | Some id -> Printf.sprintf "[%d]" id
         end in

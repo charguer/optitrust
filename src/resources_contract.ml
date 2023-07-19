@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 let next_hyp_id = Tools.fresh_generator ()
 

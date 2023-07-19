@@ -1,5 +1,5 @@
 open Printf
-open Ast
+open Syntax
 open Target
 
 let path (msg : string) (p : path) : unit =

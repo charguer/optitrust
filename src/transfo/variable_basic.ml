@@ -1,5 +1,5 @@
 open Target
-open Ast
+open Syntax
 
 
 (* [fold ~at tg]: expects the target [tg] to point at a variable declaration,

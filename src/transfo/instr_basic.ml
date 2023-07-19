@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 
 (* [delete tg]: expects the target [tg] to point at an instruction inside a sequence

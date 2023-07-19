@@ -1,6 +1,6 @@
 open Clang.Ast
 open Clang.Bindings
-open Ast
+open Syntax
 open Tools
 
 (* [loc_of_node n]: gets the location of node [n] *)

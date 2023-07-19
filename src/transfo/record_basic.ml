@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 include Record_core
 include Record_core.Rename
@@ -17,16 +17,16 @@ let set_implicit ?(keep_label : bool = true) : Transfo.t =
 
 (* [reorder_fields order tg]: expects the target to be pointing at typedef struct or class.
       then it changes the order of the fields based on [order].
-      [order] - can be one of the following 
+      [order] - can be one of the following
         Move_before (x,fl) -> all the fields that belong to [fl] are moved before the field [x].
         Move_after (x,fl) -> all the fields that belong to [fl] are moved after the field [x].
         Reorder_all [fl] -> all the fields are reorder an will appear like [fl].
-      
+
     @correctness: Correct if pointer arithmetic to field is replaced everywhere,
       might be impossible to prove in case of casts between types.*)
 let reorder_fields (order : fields_order) : Transfo.t =
   apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p, i) -> Record_core.reorder_fields order i t p) 
+    (fun t (p, i) -> Record_core.reorder_fields order i t p)
 
 (* [reveal_field ~reparse field_to_reveal_field tg]: expects the target [tg] to point at a typedef struct,
     then it will find [field_to_reveal_field] and it's underlying type and it will
@@ -94,7 +94,7 @@ let struct_modif_simple ?(use_annot_of : bool = false) ?(new_fields : (label * t
  *)
 
 
-(* [change_field_access_kind acc_kind f tg]: expects the target [tg] to point a typedef, then it will find 
+(* [change_field_access_kind acc_kind f tg]: expects the target [tg] to point a typedef, then it will find
     field [f] at change its access kind to [acc_kind]. *)
 let change_field_access_kind ?(field : field = "") (acc_kind : record_field_annot) : Transfo.t =
   apply_on_targets(Record_core.change_field_access_kind acc_kind field)
@@ -106,7 +106,7 @@ let make_all_memebers_public : Transfo.t =
 
 (* [method_to_const method_name]: expects the target [ŧg] to be pointing at a typedef record definition.
     Then it will check if the method of that record definition is already a const method or not.
-    If it's a const method then this transformation does nothing, otherwise it will transform that method to a const one. 
+    If it's a const method then this transformation does nothing, otherwise it will transform that method to a const one.
     Note: If [method_name] is not specified by the user all the methods will be converted to const methods.*)
-let method_to_const ?(method_name : var = "") : Transfo.t = 
+let method_to_const ?(method_name : var = "") : Transfo.t =
   apply_on_targets (Record_core.method_to_const method_name)

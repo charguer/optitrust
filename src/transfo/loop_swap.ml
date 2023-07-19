@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 
 (* [swap_on t]: swaps the order of two nested loops, the targeted loop with the immediate inner loop,

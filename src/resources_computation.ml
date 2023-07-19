@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Resources_contract
 
 type pure_resource_set = resource_item list

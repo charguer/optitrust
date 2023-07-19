@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [transform_aux f_get f_set t]: applies f_get or f_set depending on the fact if
     [t] is a get operation or a set operation,
@@ -8,11 +8,11 @@ open Ast
 let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
   let error = "Accesses_core.transform_aux: expected either a get or a set operation" in
   let (f,args) = trm_inv ~error trm_apps_inv t in
-  if is_get_operation t 
+  if is_get_operation t
     then f_get t
     else if is_set_operation t
-     then begin match args with 
-      | [addr; targ] -> 
+     then begin match args with
+      | [addr; targ] ->
         trm_replace (Trm_apps (f, [addr; f_set targ])) t
       | _ -> fail t.loc "Accesses_core.transform_aux: expected either a get or a set operation"
       end

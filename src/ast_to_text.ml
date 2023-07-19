@@ -1,5 +1,5 @@
 open PPrint
-open Ast
+open Syntax
 open Tools
 
 

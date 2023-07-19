@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [deg_aux vec_align t]: adds the alignas attribute to the  declaration [t],
       [vec_align] - alignment size,

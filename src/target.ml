@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Tools
 open Path
 
@@ -1126,7 +1126,7 @@ let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_n
   (* DEBUG Printf.printf "compute_stringreprs %d\n" (match topfuns with
     | None -> -1
     | Some ts -> List.length ts); *)
-  let t2 = Ast.label_subterms_with_fresh_stringreprids f t in
+  let t2 = Trm.label_subterms_with_fresh_stringreprids f t in
   let t3 =
     match topfuns with
     | None -> t2 (* need string reprs for all top level functions *)
@@ -1138,7 +1138,7 @@ let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_n
           | Some rexp -> Printf.printf "-> %s\n" (rexp_to_string rexp)) topfuns_regexps; *)
         let hidetopfun topfunname =
           not (List.exists (fun rexp -> Constr.check_name rexp topfunname) topfuns_regexps) in
-        let t3, _ = Ast.hide_function_bodies hidetopfun t2 in
+        let t3, _ = hide_function_bodies hidetopfun t2 in
         t3
     in
   AstC_to_c.init_stringreprs();

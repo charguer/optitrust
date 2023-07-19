@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [check test_name t1 t2]: checks if [t1] and [t2] are equal or not, if not
     this function will print both the C code and the Optitrust ast.

@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 open Resources_contract
 
 let _ = Flags.dump_ast_details := true

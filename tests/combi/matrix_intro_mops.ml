@@ -1,12 +1,12 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
 
 let _ = Run.doc_script_cpp (fun _ ->
 
   !! Matrix.intro_mops (var "nbCells") [cVarDef "deposit"];
-  
+
 )
 
 "

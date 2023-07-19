@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [typid_to_typedef tid ]: gets the declaration of a typedef with id [tid]. *)
 let typid_to_typedef (tid : typconstrid) : typedef option =
@@ -10,7 +10,7 @@ let typid_to_typedef (tid : typconstrid) : typedef option =
       when tid = tid1 -> Some td
     | _ -> None
   in
-  
+
   let t_root = Target.get_ast () in
   match t_root.desc with
   | Trm_seq _ -> aux t_root
@@ -22,9 +22,9 @@ let record_typ_to_typid (ty : typ) : typconstrid option =
     match ty.typ_desc with
     | Typ_const ty -> aux ty
     | Typ_ptr { inner_typ = ty; _ } -> aux ty
-    | Typ_constr (_, tid, _) -> 
+    | Typ_constr (_, tid, _) ->
       begin match typid_to_typedef tid with
-      | Some (td) -> 
+      | Some (td) ->
         begin match td.typdef_body with
         | Typdef_alias ty -> aux ty
         | Typdef_record _ -> Some (tid)
@@ -46,7 +46,7 @@ let typid_to_trm (tid : typconstrid) : trm option =
       when tid = tid1 -> Some t
     | _ -> None
   in
-  
+
   let t_root = Target.get_ast () in
   match t_root.desc with
   | Trm_seq _ -> aux t_root

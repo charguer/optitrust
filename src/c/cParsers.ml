@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* TODO: Get rid of this aweful C(++) only include handling *)
 (* [get_cpp_includes filename]: gets the list of file includes syntactically visible

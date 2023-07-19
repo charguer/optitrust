@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 
 (* [insert_if single_branch index cond t]: takes one or two instructions and create an if statement or an if else

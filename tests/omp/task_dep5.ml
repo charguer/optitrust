@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
 (* TODO: FIx trm_let_mult *)
 

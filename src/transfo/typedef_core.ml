@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 
 (* [fold_aux fold_at index]: replaces occurrences of the typedef underlying type with the defined type,
@@ -66,7 +66,7 @@ let unfold (delete : bool) (unfold_at : target) (index : int) : Target.Transfo.l
       [name] - new typ name
       [t] - ast of the surrounding sequence of the targeted typedef *)
 let insert_copy_aux (name : string) (t : trm) : trm =
-  let error = "Typedef_core.insert_copy_aux: expected a typedef declaration." in 
+  let error = "Typedef_core.insert_copy_aux: expected a typedef declaration." in
   let td = trm_inv ~error trm_typedef_inv t in
   let td_copy = trm_typedef {td with typdef_tconstr = name} in
   trm_seq_no_brace [t; td_copy]

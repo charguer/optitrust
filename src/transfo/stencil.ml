@@ -1,5 +1,5 @@
 open Target
-open Ast
+open Syntax
 
 (* TODO: unit tests + document *)
 

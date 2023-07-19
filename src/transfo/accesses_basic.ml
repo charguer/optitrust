@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 
 (* [transform ~reparse f_get f_set tg]: expects the target [tg] to point at a trm inside a set or a get operation.

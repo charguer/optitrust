@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [apply_rule rule t]: applies rule [rule] on trm [t]. *)
 let apply_rule_aux ~(error_msg : bool) ~(mark : mark option) (rule : rewrite_rule) (t : trm) : trm =

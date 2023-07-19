@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 
 (* [color nb_colors i_color tg]: expects the target [tg] to point at a simple for  loop,

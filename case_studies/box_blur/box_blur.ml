@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
 let by x = (lit (string_of_int x))
 

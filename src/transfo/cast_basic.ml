@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [insert ty tg]: expects the target [tg] to point at any expression that can be casted,
     then it will cast it to type [ty] *)

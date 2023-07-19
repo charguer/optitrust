@@ -1,5 +1,5 @@
-open Ast
-open Ast.AstParser
+open Syntax
+open AstParser
 
 (* [parse_pattern pattern globdefs ctx ]: returns the list of variables used in [pattern] and the ast of that [pattern].
     [globdefs] - code entered as string that contains all the functions used in the pattern
@@ -103,7 +103,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
      when pattern variables are not yet instantiated,
      they are bound to the special term trm_uninitialized. *)
      (* LATER: we may need one day to introduce another special term Trm_uninstantiated  *)
-  let pat_vars_association = Ast.trm_uninitialized() in
+  let pat_vars_association = Trm.trm_uninitialized() in
   let inst = ref (List.fold_left (fun acc (x,ty) -> Var_map.add x (ty, pat_vars_association) acc) Var_map.empty vars) in
   let is_var (x : var) : bool =
     Var_map.mem x !inst in
@@ -111,7 +111,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     match Var_map.find_opt x !inst with
     | None -> failwith "Trm_matching.rule_match: called find_var without first checking is_var"
     | Some (ty,t0) ->
-        if Ast.is_trm_uninitialized t0 then
+        if Trm.is_trm_uninitialized t0 then
           inst := Var_map.add x (ty,u) !inst
         else if not (Internal.same_trm ~ast_decode:false t0 u) then begin
           if error_msg then begin (* TODO: if + raise helper *)

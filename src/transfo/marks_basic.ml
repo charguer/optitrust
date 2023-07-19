@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 
 (* [add m tg]: adds mark [m] to the trm that correpsonds to target [tg].

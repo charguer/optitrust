@@ -1,11 +1,11 @@
-open Ast
+open Syntax
 
 (******************************************************************************)
 (*                             OpenMP routines                                *)
 (******************************************************************************)
 let set_num_threads_aux (nb_threads : int) (index : int) (t : trm) : trm =
   let error = "Omp_core.set_num_threads_aux: expected the sequence where the call to the routine is going to be added." in
-  let tl = trm_inv ~error trm_seq_inv t in 
+  let tl = trm_inv ~error trm_seq_inv t in
   let new_tl = Mlist.insert_at index (trm_omp_routine (Set_num_threads nb_threads)) tl in
   trm_seq ~annot:t.annot new_tl
 
@@ -14,7 +14,7 @@ let set_num_threads (nb_threads : int) (index : int) : Target.Transfo.local =
 
 let get_num_threads_aux (nb_threads : var) (index : int) (t : trm) : trm =
   let error = "Omp_core.get_num_threads_aux: expected the sequence where the call to the routine is going to be added." in
-  let tl = trm_inv ~error trm_seq_inv t in 
+  let tl = trm_inv ~error trm_seq_inv t in
   let find_prev_decl = Internal.toplevel_decl nb_threads in
   let new_trm =
   begin match find_prev_decl with
@@ -31,7 +31,7 @@ let get_num_threads (nb_threads : var) (index : int) : Target.Transfo.local =
 
 let declare_num_threads_aux (nb_threads : var) (index : int) (t : trm) : trm =
   let error = "Omp_core.declare_num_threads_aux: expected the sequence where the call to the routine is going to be added" in
-  let tl = trm_inv ~error trm_seq_inv t in 
+  let tl = trm_inv ~error trm_seq_inv t in
   let new_dl = trm_let_mut (nb_threads, typ_int()) (trm_uninitialized()) in
   let new_tl = Mlist.insert_at index new_dl tl in
   trm_seq ~annot:t.annot new_tl
@@ -267,7 +267,7 @@ let get_level (level : var) (index : int) : Target.Transfo.local =
   Target.apply_on_path (get_level_aux level index)
 
 let get_ancestor_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm =
-  let error = "Omp_core.get_ancestor_thread_num_aux: expected the sequence where the call to the routine is going to be added." in 
+  let error = "Omp_core.get_ancestor_thread_num_aux: expected the sequence where the call to the routine is going to be added." in
   let tl = trm_inv ~error trm_seq_inv t in
   let find_prev_decl = Internal.toplevel_decl thread_num in
   let new_trm =

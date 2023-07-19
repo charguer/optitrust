@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 
 (* LATER: ARTHUR: find out whether other languages consider label

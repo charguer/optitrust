@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
 (* Example struct_modif transformation #1: scaling field "x" by a factor 2 *)
 
@@ -89,7 +89,7 @@ let mysuffix (suffix : string) tg =
       assert (Mlist.length sl = List.length oldfields); (* else trm_record could not have the targeted type *)
       let fix_field i (lb, ti) =
         let (_field,_typ_field) = List.nth oldfields i in (* not needed here *)
-         (lb, aux ti) 
+         (lb, aux ti)
        in
       reuse_annot_of t (trm_record (Mlist.mapi fix_field sl)) in
 

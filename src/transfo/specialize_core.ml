@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 
 (* [any_aux e t]: replaces the function call [t] with [e]

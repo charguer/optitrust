@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
 
 let _ = Run.doc_script_cpp (fun _ ->
@@ -16,7 +16,7 @@ int main() {
 "
 
 let _ = Run.script_cpp (fun _ ->
-  
+
   (* replace multiple occurrences of variable "a" with variable "b" *)
   !! Expr_basic.replace (var "i") [nbMulti; cVar "a"];
   (* replace the definition of "x" with a definition of "y" --somewhat arbitrary *)

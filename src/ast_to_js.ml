@@ -2,7 +2,7 @@
 
 (* A module for creating a json view of OptiTrust ast *)
 
-open Ast
+open Syntax
 open Ast_to_text
 open PPrint
 

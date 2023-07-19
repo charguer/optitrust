@@ -1,8 +1,8 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
-let _ = Run.doc_script_cpp (fun () -> 
+let _ = Run.doc_script_cpp (fun () ->
 
   !! Variable.delocalize "a" ~into:"x" ~index:"k" ~mark:"A" ~array_size:"N" ~ops:(Local_arith (Lit_int 0, Binop_add) ) [cFor "i"];
 
@@ -27,7 +27,7 @@ int main(){
 
 
 let _ =  Run.script_cpp ( fun () ->
-  
+
   !! Variable.delocalize "a" ~into:"x" ~index:"k" ~mark:"A" ~array_size:"N" ~ops:(Local_arith (Lit_int 0, Binop_add) ) [cFor "i"];
   !! Trace.alternative (fun () ->
     !! Variable.local_name "a" ~into:"x" ~mark:"section_of_interest" [cFor "i"];

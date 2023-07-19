@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 include Loop_basic
 include Loop_swap

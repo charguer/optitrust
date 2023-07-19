@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
 let _ = Flags.check_validity := true
 let _ = Flags.pretty_matrix_notation := true

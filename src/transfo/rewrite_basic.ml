@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 
 (* [equiv_at rule]: expects the target [tg] to point at a trm where [rule] can be applied to transform

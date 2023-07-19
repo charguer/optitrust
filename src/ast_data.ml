@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [fun_defs_tbl]: hashtable type, used for storing the function definitions based on their signature.
     The key is the Unified Symbol Resolution.

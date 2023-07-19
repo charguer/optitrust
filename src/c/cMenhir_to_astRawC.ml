@@ -1,4 +1,4 @@
-open! Ast
+open! Syntax
 open Tools
 open Compcert_parser
 

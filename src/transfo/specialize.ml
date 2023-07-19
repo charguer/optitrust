@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 include Specialize_basic
 

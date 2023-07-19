@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [add_aux m t]: adds mark [m] to the node [t],
      [m] - the mark which is addded,

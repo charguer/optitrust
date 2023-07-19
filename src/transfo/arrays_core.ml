@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [inline_array_access array_var new_vars t]: change all the occurences of the array to variables,
     params:

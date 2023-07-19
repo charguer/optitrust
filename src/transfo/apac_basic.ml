@@ -1,11 +1,11 @@
-open Ast
+open Syntax
 open Target
 include Apac_core
 
 (* [use_goto_for_return mark]: expects the target [tg] to point at a function definition,
     then it will transform the body of that function definition as follows.
 
-    First of all wraps the body of the function into a sequence and marks it with [mark] if 
+    First of all wraps the body of the function into a sequence and marks it with [mark] if
     [mark] <> "". Then it considers two cases.
 
     Case1:
@@ -18,23 +18,23 @@ include Apac_core
         2) Replaces each return statement inside the wrapped sequence with "__res = x; goto __exit"
         3) Add after the new sequence, adds the labelled statement "__exit; return __res;" *)
 let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ -> 
+  Internal.nobrace_remove_after (fun _ ->
     apply_on_targets (Apac_core.use_goto_for_return mark) tg)
-  
+
 (* [constify_args ~is_const tg]: expect the target [tg] to point at a function definition.
-   Then it will add the "const" keyword where is it possible in the type of the argument. 
+   Then it will add the "const" keyword where is it possible in the type of the argument.
    The list [is_args_const] determines which argument to constify. *)
 let constify_args ?(is_args_const : bool list = []) ?(is_method_const : bool = false): Transfo.t =
   apply_on_targets (Apac_core.constify_args is_args_const is_method_const)
 
 (* [constify_args ~is_args_const tg]: expect the target [tg] to point at a function definition.
-   Then in the body, it will add the "const" keyword where is it possible in variables that 
+   Then in the body, it will add the "const" keyword where is it possible in variables that
    are pointer or reference to the constified arguments of the function..
    The list [is_args_const] determines which argument is constified. *)
 let constify_args_alias ?(is_args_const : bool list = []) : Transfo.t =
   apply_on_targets (Apac_core.constify_args_alias is_args_const)
 
-(* [stack_to_heap tg]: expect the target [tg] to point at a variable declaration. 
+(* [stack_to_heap tg]: expect the target [tg] to point at a variable declaration.
     Then the variable declared will be declared on the heap. *)
 let stack_to_heap : Transfo.t =
   apply_on_targets (Apac_core.stack_to_heap)

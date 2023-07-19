@@ -1,5 +1,5 @@
 %{
-  open Ast
+  open Syntax
   open Resources_contract
 %}
 

@@ -1,8 +1,8 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
-let _ = Run.doc_script_cpp (fun () -> 
+let _ = Run.doc_script_cpp (fun () ->
 
   !! Variable.delocalize_in_vars "a" ~into:"x" ~index:"k" ~mark:"section_of_interest" ~array_size:"N" ~ops:(Local_arith (Lit_int 0, Binop_add) ) ~local_vars:["xa";"xb"] [cFor "i"];
 

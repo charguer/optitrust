@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 
 (* [copy_aux dest_index index t]: copies instruction with [index] to the [dest_index],
      [dest_index] - the relative [index] where the target instruction will be copied,
@@ -7,7 +7,7 @@ open Ast
      [t] - ast of the surrounding sequence of the targeted instruction. *)
 let copy_aux (dest_index : int) (index : int) (delete : bool) (t : trm) : trm =
   let error = "Instr_core.copy_aux: expected the surrounding sequence of the targeted instructions." in
-  let tl = trm_inv ~error trm_seq_inv t in 
+  let tl = trm_inv ~error trm_seq_inv t in
   let instr_to_copy = Mlist.nth tl index in
   let index_to_remove = if dest_index <= index then index + 1 else index in
   let new_tl = Mlist.insert_at dest_index instr_to_copy tl in

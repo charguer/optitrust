@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 
 (* [delete tg]: delete the targeted function definition.

@@ -1,11 +1,11 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
 let _ = Run.doc_script_cpp (fun _ ->
 
   !! Loop_basic.grid_enumerate [("x", lit "3"); ("y", lit "4")] [cFor "c"];
-  
+
 )
 
 "

@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Str
 open Tools
 open Path
@@ -851,7 +851,7 @@ let get_stringrepr (t : trm) : string =
     match !stringreprs with
     | None -> fail t.loc (Printf.sprintf "Constr.get_stringrepr: stringreprs must be computed and registered before resolving constraints, %s" (Ast_to_text.ast_to_string t))
     | Some m ->
-        match Ast.trm_get_stringreprid t with
+        match Trm.trm_get_stringreprid t with
         | Some id ->
           begin match Hashtbl.find_opt m id with
           | None ->
@@ -1507,7 +1507,7 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
       let paths_on_the_mlist =
         if !old_resolution then [] else
         (* find paths towards mark-between in a MList, in which case we generate a Dir_before *)
-        match c, Ast.trm_mlist_inv t with
+        match c, trm_mlist_inv t with
         | (Constr_mark (pred,_)), (Some marks) ->
             List.concat (List.mapi (fun i ms -> if List.exists pred ms then [[Dir_before i]] else []) marks)
         | _ -> []

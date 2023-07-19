@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
 let _ = Run.doc_script_cpp (fun _ ->
 
@@ -15,7 +15,7 @@ int main () {
   int p[5] = {0,1,2,3,4};
   p[0] = 10;
   int a = p[1];
-  
+
   return 0;
 }
 "

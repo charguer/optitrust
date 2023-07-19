@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Path
 open Target
 include Arith_basic

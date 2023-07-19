@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 open Path
 include Function_basic

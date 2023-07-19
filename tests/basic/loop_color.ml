@@ -1,9 +1,9 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
 let _ = Run.doc_script_cpp (fun _ ->
-    
+
   !! Loop_basic.color (lit "2") ~index:"ci" [cFor "i"];
 
 )

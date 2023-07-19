@@ -1,4 +1,4 @@
-open Ast
+open Syntax
 open Target
 
 (* [fold_aux as_reference fold_at index t]: fold the targeted variable declaration,

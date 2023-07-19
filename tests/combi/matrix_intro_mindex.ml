@@ -1,9 +1,9 @@
 open Optitrust
 open Target
-open Ast
+open Syntax
 
 
-let _ = Run.doc_script_cpp (fun () -> 
+let _ = Run.doc_script_cpp (fun () ->
 
   !! Matrix.intro_mindex (var "N") [cVarDef "p"];
 

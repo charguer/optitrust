@@ -1,4 +1,4 @@
-type mark = Mark.t
+type mark = string (* must be the same as Ast.mark *)
 
 (* ['a t]: mlist is a record of two fields, items is the list of objects it contains
    and marks is the list of marks for each in-between location. *)
