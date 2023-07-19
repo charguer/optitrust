@@ -318,7 +318,6 @@ let raise_resource_not_found ((name, formula): resource_item) (evar_ctx: unifica
    If it fails raise a Resource_not_found exception. *)
 let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx: unification_ctx): unification_ctx =
   (* Add flag to disallow pure instantiation *)
-  let exception Found of unification_ctx in
   let find_formula formula (hyp_candidate, formula_candidate) =
     Option.map (fun evar_ctx -> Var_map.add x.name (Some (trm_var hyp_candidate.name)) evar_ctx)
       (unify_trm formula_candidate formula evar_ctx)
