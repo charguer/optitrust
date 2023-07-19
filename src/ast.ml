@@ -48,6 +48,8 @@ module Var_map = Map.Make(String)
 (* [varmap]: instantiation of Var_map *)
 type 'a varmap = 'a Var_map.t
 
+let var_map_of_list l = Var_map.of_seq (List.to_seq l)
+
 (* let vars_to_string vs = Tools.list_to_string vs *)
 let vars_to_string vs = Trace_printers.(list_arg_printer string_arg_printer vs)
 
