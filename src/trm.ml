@@ -153,6 +153,11 @@ let trm_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: 
   (args : typed_vars) (ret_typ : typ option) (body : trm) =
   trm_make ~annot ?loc ~typ:(typ_unit()) ?ctx (Trm_fun (args, ret_typ, body, contract))
 
+let trm_fun_inv (t: trm) : (typed_vars * typ option * trm * fun_spec) option =
+    match t.desc with
+    | Trm_fun (args, typ, body, contract) -> Some (args, typ, body, contract)
+    | _ -> None
+
 (* [trm_typedef ~annot ?loc ?ctx def_typ]: type definition *)
 let trm_typedef ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option)
   (def_typ : typedef): trm =

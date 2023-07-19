@@ -70,6 +70,8 @@ module Var_map = Map.Make(String)
 (* [varmap]: instantiation of Var_map *)
 type 'a varmap = 'a Var_map.t
 
+let var_map_of_list l = Var_map.of_seq (List.to_seq l)
+
 (* let vars_to_string vs = Tools.list_to_string vs *)
 let vars_to_string vs = Trace_printers.(list_arg_printer string_arg_printer vs)
 
@@ -996,9 +998,6 @@ let assert_transfo_error (msg : string) (f : unit -> unit) : unit =
 
 (* ********************************************************************************************** *)
 
-
-
-
 (* [print_info loc]: computes a function that prints information related to some location in file only if the verbose
    flag is activated *)
 let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
@@ -1378,4 +1377,3 @@ let get_member_type (rf : record_field) : typ =
     end
 
 (*****************************************************************************)
-

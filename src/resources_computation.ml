@@ -4,36 +4,49 @@ open Resources_contract
 type pure_resource_set = resource_item list
 type linear_resource_set = resource_item list
 
+(* The built-in variable representing a function's return value. *)
 let var_result = "_Res"
 let trm_result: formula = trm_var var_result
 
-type evar = trm option
-type unification_ctx = evar varmap
+(* The value associated with an existential variable (evar).
+   None if the value is unknown, Some if the value is known (it was unified). *)
+type eval = trm option
 
+(* The unification context is a map from variables to evals.
+   If a variable is not in the map, then it is not an evar, and should not be substituted/unified.
+   If a variable is in the map, then it is an evar, and should be substituted/unified (i.e. its eval should eventually become Some). *)
+type unification_ctx = eval varmap
+
+(* The contract of the [set] function. *)
 let set_fun_contract =
   { pre = resource_set ~linear:[(new_anon_hyp (), formula_cell "p")] ();
     post = resource_set ~linear:[(new_anon_hyp (), formula_cell "p")] (); }
 
-let builtin_env = resource_set ~fun_contracts:(
-  Var_map.add "__new" (["init"],
-    { pre = empty_resource_set;
-      post = resource_set ~linear:[(new_anon_hyp (), formula_cell var_result)] () }) @@
-  Var_map.add "__get" (["p"],
-    push_read_only_fun_contract_res (None, formula_cell "p") empty_fun_contract) @@
-  Var_map.add "__set" (["p"; "x"], set_fun_contract) @@
-  Var_map.add "__add" (["x1"; "x2"], empty_fun_contract) @@
-  Var_map.add "__sub" (["x1"; "x2"], empty_fun_contract) @@
-  Var_map.add "__mul" (["x1"; "x2"], empty_fun_contract) @@
-  Var_map.add "__add_inplace" (["p"; "x"], set_fun_contract) @@
-  Var_map.add "__sub_inplace" (["p"; "x"], set_fun_contract) @@
-  Var_map.add "__mul_inplace" (["p"; "x"], set_fun_contract) @@
-  Var_map.add "__matrix2_get" (["p"; "m"; "n"; "i"; "j"],
-    push_read_only_fun_contract_res (None, formula_matrix2 "p" (trm_var "m") (trm_var "n")) empty_fun_contract) @@
-  Var_map.add "__matrix2_set" (["p"; "m"; "n"; "i"; "j"; "v"],
-    { pre = resource_set ~linear:[new_anon_hyp (), formula_matrix2 "p" (trm_var "m") (trm_var "n")] ();
-      post = resource_set ~linear:[new_anon_hyp (), formula_matrix2 "p" (trm_var "m") (trm_var "n")] (); }) @@
-  Var_map.empty) ()
 
+(* The environment containing the contracts of builtin functions. *)
+let builtin_env = resource_set ~fun_contracts:(var_map_of_list [
+  "__new", (["init"],
+    { pre = empty_resource_set;
+      post = resource_set ~linear:[(new_anon_hyp (), formula_cell var_result)] () });
+  "__get", (["p"],
+    push_read_only_fun_contract_res (None, formula_cell "p") empty_fun_contract);
+  "__set", (["p"; "x"], set_fun_contract);
+  "__add", (["x1"; "x2"], empty_fun_contract);
+  "__sub", (["x1"; "x2"], empty_fun_contract);
+  "__mul", (["x1"; "x2"], empty_fun_contract);
+  "__array_access", (["tab"; "i"], empty_fun_contract);
+  "__add_inplace", (["p"; "x"], set_fun_contract);
+  "__sub_inplace", (["p"; "x"], set_fun_contract);
+  "__mul_inplace", (["p"; "x"], set_fun_contract);
+  "MINDEX2", (["m"; "n"; "i"; "j"], empty_fun_contract);
+  "MINDEX3", (["sz1"; "sz2"; "sz3"; "i"; "j"; "k"], empty_fun_contract);
+  "MINDEX4", (["sz1"; "sz2"; "sz3"; "sz4"; "i"; "j"; "k"; "l"], empty_fun_contract)]) ()
+
+(* A formula that may instantiate contract variables with
+   hypotheses from the calling context.
+   When instantating a contract with X := Y substitutions,
+   Y is a formula_inst.
+  *)
 type formula_inst = formula
 
 let inst_hyp (h: hyp): formula_inst =
@@ -65,14 +78,18 @@ let rec unify_var (xe: var) (t: trm) (evar_ctx: unification_ctx) : unification_c
   let open Tools.OptionMonad in
   match Var_map.find_opt xe evar_ctx with
   | None ->
+    (* [xe] cannot be substituted, it must be equal to [t]. *)
     let* x = trm_var_inv t in
     if x = xe then Some evar_ctx else None
   | Some None ->
+    (* [xe] can be substituted, do it. *)
     Some (Var_map.add xe (Some t) evar_ctx)
   | Some (Some t_evar) ->
+    (* [xe] was already substituted, its substitution must be equal to [t]. *)
     if are_same_trm t t_evar then Some evar_ctx else None
 
 and are_same_trm (t1: trm) (t2: trm): bool =
+  (* they are the same if they can be unified without allowing substitutions. *)
   Option.is_some (unify_trm t1 t2 Var_map.empty)
 
 and unify_trm (t: trm) (te: trm) (evar_ctx: unification_ctx) : unification_ctx option =
@@ -90,8 +107,26 @@ and unify_trm (t: trm) (te: trm) (evar_ctx: unification_ctx) : unification_ctx o
     let* f, args = trm_apps_inv t in
     let* evar_ctx = unify_trm f fe evar_ctx in
     List.fold_left2 (fun evar_ctx arg arge -> let* evar_ctx in unify_trm arg arge evar_ctx) (Some evar_ctx) args argse
-  | _ -> failwith "unify_trm: unhandled constructor" (* TODO: Implement the rest of constructors *)
+  | Trm_fun (argse, _, bodye, _) ->
+    let* args, _, body, _ = trm_fun_inv t in
+    let* evar_ctx, masked_ctx =
+      try
+        Some (List.fold_left2 (fun (evar_ctx, masked) (arge, _) (arg, _) ->
+            let masked_entry = Var_map.find_opt arge evar_ctx in
+            let evar_ctx = Var_map.add arge (Some (trm_var arg)) evar_ctx in
+            (evar_ctx, (arge, masked_entry) :: masked)
+          ) (evar_ctx, []) argse args)
+      with Invalid_argument _ -> None
+    in
+    let* evar_ctx = unify_trm body bodye evar_ctx in
+    Some (List.fold_left (fun evar_ctx (arge, masked_entry) ->
+        match masked_entry with
+        | Some entry -> Var_map.add arge entry evar_ctx
+        | None -> Var_map.remove arge evar_ctx
+      ) evar_ctx masked_ctx)
+  | _ -> failwith (sprintf "unify_trm: unhandled constructor %s" (AstC_to_c.ast_to_string t)) (* TODO: Implement the rest of constructors *)
 
+(* TODO: this is different from trm_free_vars because bound variables are not treated. delete ? *)
 let trm_used_vars (t: trm): Var_set.t =
   let vars = ref Var_set.empty in
   let rec aux t = match trm_var_inv t with
@@ -147,6 +182,7 @@ let trm_map_vars (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> var -
   | Trm_var (_, x) ->
     let x = qvar_to_var x in
     (ctx, map_var ctx x)
+
   | Trm_let (var_kind, (var, typ), body, bound_resources) ->
     let _, body' = f_map ctx body in
     let cont_ctx, var' = map_binder ctx var in
@@ -179,7 +215,12 @@ let trm_map_vars (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> var -
     in
     (ctx, t')
 
-  (* TODO: Missing Trm_fun, will be done when deduplicating trm_let_fun *)
+  | Trm_fun (args, ret, body, contract) ->
+    let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) -> let ctx, arg' = map_binder ctx arg in (ctx, (arg', typ))) ctx args in
+    let _, body' = f_map body_ctx body in
+    let t' = trm_fun ~annot ?loc ?contract args' ret body' in
+    (* TODO: Proper function type here *)
+    (ctx, t')
 
   | _ -> (ctx, trm_map_with_ctx f_map ctx t)
   in
@@ -192,7 +233,14 @@ let rec gen_var_name forbidden_names seed =
   else
     seed
 
-let trm_subst_map_binder (forbidden_binders, subst_map) binder =
+(* (Internal)
+  Updates [forbidden_binders] and [subst_map] when entering the scope of [binder],
+  avoiding name conflicts by renaming the binder if necessary.
+
+  trm_subst_binder ({x}, [y => x]) x =
+    ({x, x0}, [y => x, x => x0]) x0
+  *)
+let trm_subst_binder (forbidden_binders, subst_map) binder =
   if Var_set.mem binder forbidden_binders then
     let new_binder = gen_var_name forbidden_binders binder in
     let forbidden_binders = Var_set.add new_binder forbidden_binders in
@@ -200,25 +248,23 @@ let trm_subst_map_binder (forbidden_binders, subst_map) binder =
     ((forbidden_binders, subst_map), new_binder)
   else
     let forbidden_binders = Var_set.add binder forbidden_binders in
+    let subst_map = Var_map.add binder (trm_var binder) subst_map in
     ((forbidden_binders, subst_map), binder)
 
-let trm_subst_map_var (_, subst_map) var =
+let trm_subst_var (_, subst_map) var =
   match Var_map.find_opt var subst_map with
   | Some t -> t
   | None -> trm_var var
 
 (* LATER: preserve shadowing *)
 let trm_subst subst_map forbidden_binders t =
-  trm_map_vars trm_subst_map_binder trm_subst_map_var (forbidden_binders, subst_map) t
+  trm_map_vars trm_subst_binder trm_subst_var (forbidden_binders, subst_map) t
 
-let rename_avoiding forbidden_binders t =
-  trm_subst Var_map.empty forbidden_binders t
-
-let subst_in_res ?(forbidden_binders = Var_set.empty) (subst_map: tmap) (res: resource_set): tmap * resource_set =
+let subst_in_resources ?(forbidden_binders = Var_set.empty) (subst_map: tmap) (res: resource_set): tmap * resource_set =
   let subst_var_in_resource_list =
     List.fold_left_map (fun subst_ctx (h, t) ->
         let (forbidden_binders, subst_map) as subst_ctx, h =
-          let subst_ctx, x = trm_subst_map_binder subst_ctx h.name in
+          let subst_ctx, x = trm_subst_binder subst_ctx h.name in
           (subst_ctx, { h with name = x })
         in
         let t = trm_subst subst_map forbidden_binders t in
@@ -230,11 +276,11 @@ let subst_in_res ?(forbidden_binders = Var_set.empty) (subst_map: tmap) (res: re
   (snd subst_ctx, { pure; linear;
     fun_contracts = res.fun_contracts (* TODO: subst here as well? *) })
 
-let subst_var_in_res (x: var) (t: trm) (res: resource_set) : resource_set =
-  snd (subst_in_res (Var_map.singleton x t) res)
+let subst_var_in_resources (x: var) (t: trm) (res: resource_set) : resource_set =
+  snd (subst_in_resources (Var_map.singleton x t) res)
 
-let rename_var_in_res (x: var) (new_x: var) (res: resource_set) : resource_set =
-  subst_var_in_res x (trm_var new_x) res
+let rename_var_in_resources (x: var) (new_x: var) (res: resource_set) : resource_set =
+  subst_var_in_resources x (trm_var new_x) res
 
 (* TODO: Use a real trm_fold later to avoid reconstructing trm *)
 let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
@@ -262,21 +308,23 @@ let fun_contract_free_vars (contract: fun_contract): Var_set.t =
    [item] is not found inside the resource list [res_list] *)
 exception Resource_not_found of resource_item * resource_item list
 
+let raise_resource_not_found ((name, formula): resource_item) (evar_ctx: unification_ctx) (inside: resource_item list) =
+  let subst_ctx = Var_map.mapi (fun var subst -> match subst with Some t -> t | None -> trm_var ("?" ^ var)) evar_ctx in
+  let formula = trm_subst subst_ctx Var_set.empty formula in
+  raise (Resource_not_found ((name, formula), inside))
+
 (* Unify the given resource_item with one of the resources in the pure resource set.
    Also add a binding from x to the found resource in evar_ctx.
    If it fails raise a Resource_not_found exception. *)
 let unify_pure ((x, formula): resource_item) (res: pure_resource_set) (evar_ctx: unification_ctx): unification_ctx =
   (* Add flag to disallow pure instantiation *)
-  let exception Found of unification_ctx in
   let find_formula formula (hyp_candidate, formula_candidate) =
-    match unify_trm formula_candidate formula evar_ctx with
-    | Some evar_ctx -> raise (Found (Var_map.add x.name (Some (trm_var hyp_candidate.name)) evar_ctx))
-    | None -> ()
+    Option.map (fun evar_ctx -> Var_map.add x.name (Some (trm_var hyp_candidate.name)) evar_ctx)
+      (unify_trm formula_candidate formula evar_ctx)
   in
-  try
-    List.iter (find_formula formula) res;
-    raise (Resource_not_found ((x, formula), res))
-  with Found evar_ctx -> evar_ctx
+  match List.find_map (find_formula formula) res with
+  | Some evar_ctx -> evar_ctx
+  | None -> raise_resource_not_found (x, formula) evar_ctx res
 
 let rec unify_and_remove_linear ((x, formula): resource_item) (res: linear_resource_set)
   (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
@@ -284,7 +332,7 @@ let rec unify_and_remove_linear ((x, formula): resource_item) (res: linear_resou
      function faster on most frequent cases *)
   let aux res = unify_and_remove_linear (x, formula) res evar_ctx in
   match res with
-  | [] -> raise Not_found
+  | [] -> raise Not_found (* caught later to create a Resource_not_found. *)
   | (candidate_name, formula_candidate) as hyp_candidate :: res ->
     match unify_trm formula_candidate formula evar_ctx with
     | Some evar_ctx -> ({ hyp_to_inst = x; inst_by = inst_hyp candidate_name; used_formula = formula_candidate }, res, evar_ctx)
@@ -298,7 +346,7 @@ let rec unify_and_split_read_only (hyp_to_inst: hyp) ~(new_frac: var) (formula: 
      function faster on most frequent cases *)
   let aux res = unify_and_split_read_only hyp_to_inst ~new_frac formula res evar_ctx in
   match res with
-  | [] -> raise Not_found
+  | [] -> raise Not_found (* caught later to create a Resource_not_found. *)
   | (h, formula_candidate) as hyp_candidate :: res ->
     let cur_frac, formula_candidate = match formula_read_only_inv formula_candidate with
       | Some { frac; formula } -> frac, formula
@@ -312,41 +360,49 @@ let rec unify_and_split_read_only (hyp_to_inst: hyp) ~(new_frac: var) (formula: 
       let used, res, evar_ctx = aux res in
       (used, hyp_candidate :: res, evar_ctx)
 
-let subtract_linear_res_item ~(split_frac: bool) ((x, formula): resource_item) (res: linear_resource_set)
+(* FIXME: explain relationship to unify_and_remove_linear. explain [split_frac] somewhere. *)
+let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_item) (res: linear_resource_set)
   (evar_ctx: unification_ctx): used_resource_item * linear_resource_set * unification_ctx =
   try match formula_read_only_inv formula with
     | Some { frac; formula = ro_formula } when split_frac ->
-      begin match trm_var_inv frac with
-      | Some frac_var ->
-        begin match Var_map.find_opt frac_var evar_ctx with
-        | Some None ->
-          let new_frac, _ = new_frac () in (* LATER: store new generated frac ghosts *)
-          let evar_ctx = Var_map.add frac_var (Some (trm_var new_frac)) evar_ctx in
-          unify_and_split_read_only x ~new_frac ro_formula res evar_ctx
-        | _ ->
-          unify_and_remove_linear (x, formula) res evar_ctx
+      begin match trm_apps_inv frac with
+      | Some (maybe_full, [frac]) when trm_var_inv maybe_full = Some "_Full" ->
+        unify_and_remove_linear (x, formula_read_only ~frac ro_formula) res evar_ctx
+      | _ ->
+        begin match trm_var_inv frac with
+        | Some frac_var ->
+          begin match Var_map.find_opt frac_var evar_ctx with
+          | Some None ->
+            let new_frac, _ = new_frac () in (* LATER: store new generated frac ghosts *)
+            let evar_ctx = Var_map.add frac_var (Some (trm_var new_frac)) evar_ctx in
+            unify_and_split_read_only x ~new_frac ro_formula res evar_ctx
+          | _ ->
+            unify_and_remove_linear (x, formula) res evar_ctx
+          end
+        | _ -> unify_and_remove_linear (x, formula) res evar_ctx
         end
-      | _ -> unify_and_remove_linear (x, formula) res evar_ctx
       end
     | _ -> unify_and_remove_linear (x, formula) res evar_ctx
   with Not_found ->
-    raise (Resource_not_found ((x, formula), res))
+    raise_resource_not_found (x, formula) evar_ctx res
 
-(* [subtract_linear_res]: subtract [res_removed] from [res_from].
+(* [subtract_linear_resource]: subtract [res_removed] from [res_from].
    Raise [Resource_not_found] if one resource is missing.
    Use the unification environment [evar_ctx] for all resources in [res_removed]
    potentially instantiating evars inside.
    If [split_frac] is true, always try to give a smaller fraction than what is
    inside [res_from] for evar fractions.
 *)
-let subtract_linear_res ~(split_frac: bool) (res_from: linear_resource_set) (res_removed: linear_resource_set)
+let subtract_linear_resource ~(split_frac: bool) (res_from: linear_resource_set) (res_removed: linear_resource_set)
   (evar_ctx: unification_ctx) : used_resource_item list * linear_resource_set * unification_ctx =
   List.fold_left (fun (used_list, res_from, evar_ctx) res_item ->
-      let used, res_from, evar_ctx = subtract_linear_res_item ~split_frac res_item res_from evar_ctx in
+      let used, res_from, evar_ctx = subtract_linear_resource_item ~split_frac res_item res_from evar_ctx in
       (used :: used_list, res_from, evar_ctx)
     ) ([], res_from, evar_ctx) res_removed
 
-let filter_evar_candidates (res: resource_set): resource_set * var list =
+(* Eliminates dominated evars from [res], returning the dominated evars and the remaining resources.
+   An evar is dominated if its value will be implied by the instantation of other resources (i.e. it appears in the formula of another resource). *)
+let eliminate_dominated_evars (res: resource_set): resource_set * var list =
   (* TODO: maybe check free vars inside function contracts? *)
   (* This function completely forgets about ghost variable shadowing *)
   (* LATER: Un tri topologique serait un peu plus robuste *)
@@ -355,19 +411,20 @@ let filter_evar_candidates (res: resource_set): resource_set * var list =
   in
   let used_vars = List.fold_left combine_used_vars Var_set.empty res.pure in
   let used_vars = List.fold_left combine_used_vars used_vars res.linear in
-  let evar_candidates = ref [] in
+  let dominated_evars = ref [] in
   let pure = List.filter (fun (h, _) ->
       if Var_set.mem h.name used_vars then
-        (evar_candidates := h.name :: !evar_candidates; false)
+        (dominated_evars := h.name :: !dominated_evars; false)
       else true) res.pure
   in
-  ({ res with pure }, !evar_candidates)
+  ({ res with pure }, !dominated_evars)
 
 exception Spec_not_found of var
 exception NotConsumedResources of linear_resource_set
 exception ImpureFunctionArgument of exn
 
-(* [res_impl_leftovers]: checks that [res_from] ==> [res_to] * [H] in
+(* previous name: resource_impl_leftovers *)
+(* [extract_resources]: checks that [res_from] ==> [res_to] * [H] in
    separation logic and return the leftover linear resources [H] along with
    the substitution context after instantiating ghost variables in [res_to]:
    effectively, this checks that all resources inside [res_to] can be built
@@ -381,15 +438,15 @@ exception ImpureFunctionArgument of exn
 
    TODO: Add unit tests for this specific function
 *)
-let rec res_impl_leftovers ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: tmap = Var_map.empty) (res_to: resource_set) : tmap * used_resource_set * linear_resource_set =
-  let filtered_res_to, evar_candidates = filter_evar_candidates res_to in
+let rec extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_ctx: tmap = Var_map.empty) (res_to: resource_set) : tmap * used_resource_set * linear_resource_set =
+  let remaining_res_to, dominated_evars = eliminate_dominated_evars res_to in
   let evar_ctx = List.fold_left (fun evar_ctx x -> Var_map.add x None evar_ctx)
-      (Var_map.map (fun x -> Some x) subst_ctx) evar_candidates
+      (Var_map.map (fun x -> Some x) subst_ctx) dominated_evars
   in
 
-  let used_linear, leftover_linear, evar_ctx = subtract_linear_res ~split_frac res_from.linear res_to.linear evar_ctx in
+  let used_linear, leftover_linear, evar_ctx = subtract_linear_resource ~split_frac res_from.linear res_to.linear evar_ctx in
   let evar_ctx = List.fold_left (fun evar_ctx res_item ->
-      unify_pure res_item res_from.pure evar_ctx) evar_ctx filtered_res_to.pure
+      unify_pure res_item res_from.pure evar_ctx) evar_ctx remaining_res_to.pure
   in
 
   (* All unifications should be done at this point. There is a bug if it's not the case. *)
@@ -402,6 +459,7 @@ let rec res_impl_leftovers ~(split_frac: bool) (res_from: resource_set) ?(subst_
       { hyp_to_inst = hyp; inst_by = Var_map.find hyp.name subst_ctx; used_formula = trm_subst subst_ctx Var_set.empty formula }
     ) res_to.pure in
 
+  (* TODO: what is this? *)
   ignore (Var_map.merge
             (fun fn_name spec_from spec_to ->
               match spec_from, spec_to with
@@ -410,20 +468,21 @@ let rec res_impl_leftovers ~(split_frac: bool) (res_from: resource_set) ?(subst_
               | Some spec_from, Some spec_to ->
                 if spec_from = spec_to
                   then None
-                  else failwith "res_impl_leftovers: Unimplemented complex contract implications"
+                  else failwith "extract_resources: Unimplemented complex contract implications"
             )
             res_from.fun_contracts res_to.fun_contracts);
 
   (subst_ctx, { used_pure; used_linear }, leftover_linear)
 
-(* [assert_res_impl]: checks that [res_from] ==> [res_to] *)
-and assert_res_impl (res_from: resource_set) (res_to: resource_set) : used_resource_set =
-  let _, used_res, leftovers = res_impl_leftovers ~split_frac:false res_from res_to in
+(* FIXME: resource set intuition breaks down, should we talk about resource predicates? *)
+(* [assert_resource_impl]: checks that [res_from] ==> [res_to] *)
+and assert_resource_impl (res_from: resource_set) (res_to: resource_set) : used_resource_set =
+  let _, used_res, leftovers = extract_resources ~split_frac:false res_from res_to in
   if leftovers <> [] then raise (NotConsumedResources leftovers);
   used_res
 
-
-let compute_produced_resources (subst_ctx: tmap) (contract_res: resource_set) : produced_resource_set =
+(* Computes the resources produced by [contract_post] given the [subst_ctx] instantation of the contract. *)
+let compute_produced_resources (subst_ctx: tmap) (contract_post: resource_set) : produced_resource_set =
   let forbidden_binders = Var_map.fold (fun _ formula acc -> Var_set.union acc (trm_free_vars formula)) subst_ctx Var_set.empty in
   let compute_produced_resources_list =
     List.fold_left_map (fun subst_ctx (h, formula) ->
@@ -434,8 +493,8 @@ let compute_produced_resources (subst_ctx: tmap) (contract_res: resource_set) : 
         (subst_ctx, produced)
       )
   in
-  let subst_ctx, produced_pure = compute_produced_resources_list subst_ctx contract_res.pure in
-  let _, produced_linear = compute_produced_resources_list subst_ctx contract_res.linear in
+  let subst_ctx, produced_pure = compute_produced_resources_list subst_ctx contract_post.pure in
+  let _, produced_linear = compute_produced_resources_list subst_ctx contract_post.linear in
   { produced_pure; produced_linear }
 
 let produced_resources_to_resource_set (res_produced: produced_resource_set): resource_set =
@@ -454,14 +513,15 @@ let rec trm_keep_only_desc (t: trm): trm =
   in
   trm_map_with_terminal_unopt false (fun _ -> trm_keep_only_desc) t
 
-(* [res_merge_after_frame]:
+(* [resource_merge_after_frame]:
+ * Returns [res_after] * [frame] with simplifications.
  * Cancels magic wands in [frame] with linear resources in [res_after] and
  * returns the produced resource_set.
  *
  * Ex: res_after.linear = RO('a, t)  and  frame = RO('b - 'a, t)
  * gives res.linear = RO('b, t)
  *)
-let res_merge_after_frame (res_after: produced_resource_set) (frame: linear_resource_set) : resource_set =
+let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear_resource_set) : resource_set =
   let res_after = produced_resources_to_resource_set res_after in
   let ro_formulas = Hashtbl.create (List.length res_after.linear) in
   (* Accumulate into ro_formulas the pairs ('a, t) when res_after.linear contains RO('a, t) *)
@@ -517,13 +577,13 @@ let res_merge_after_frame (res_after: produced_resource_set) (frame: linear_reso
   assert (Hashtbl.length ro_formulas = 0);
   { res_after with linear }
 
-(* [bind_new_resources]: Add new pure resources to the old ones and replace linear resources *)
+(* [bind_new_resources]: Add new pure resources to the old ones and replace linear resources. *)
 let bind_new_resources ~(old_res: resource_set) ~(new_res: resource_set): resource_set =
   { pure = new_res.pure @ old_res.pure;
     linear = new_res.linear;
     fun_contracts = Var_map.union (fun _ new_c _ -> Some new_c) new_res.fun_contracts old_res.fun_contracts }
 
-let resource_names (res: resource_set) =
+let resource_names (res: resource_set) : Var_set.t =
   let res_list_names (res: resource_item list) =
     List.fold_left (fun avoid_names (h, _) ->
             Var_set.add h.name avoid_names) Var_set.empty res
@@ -551,6 +611,7 @@ let binop_to_var (u: binary_op): var =
   | Binop_add -> "__add"
   | Binop_sub -> "__sub"
   | Binop_mul -> "__mul"
+  | Binop_array_access -> "__array_access"
   | Binop_set -> "__set"
   | _ -> raise Unimplemented
 
@@ -598,7 +659,11 @@ let _ = Printexc.register_printer (function
     Some (Printf.sprintf "%s: Resource check error: %s" (loc_to_string loc) (Printexc.to_string err))
   | _ -> None)
 
-(* LATER: Extensible list of applications that can be translated into formula *)
+(* LATER: Extensible list of applications that can be translated into formula.
+   OR A term can be embedded in a formula if it is pure (no linear resources).
+   Does [t] change or is this just checking whether trm_is_formula?
+   I.e. are the trm and formula languages intersecting or separate?
+   *)
 let rec formula_of_trm (t: trm): formula option =
   let open Tools.OptionMonad in
   match t.desc with
@@ -611,41 +676,19 @@ let rec formula_of_trm (t: trm): formula option =
       | Some Prim_binop Binop_mul
       | Some Prim_binop Binop_div
       | Some Prim_binop Binop_mod
+      | Some Prim_binop Binop_array_access
           -> Some (trm_apps fn f_args)
-      | _ -> None
+      | Some _ -> None
+      | None ->
+        begin match trm_var_inv fn with
+          | Some "MINDEX2"
+          | Some "MINDEX3"
+          | Some "MINDEX4"
+            -> Some (trm_apps fn f_args)
+          | _ -> None
+        end
     end
   | _ -> None
-
-let matrix2_access_inv (t: trm): (trm * trm * trm * trm * trm) option =
-  let open Tools.OptionMonad in
-  let* tfn, targs = trm_apps_inv t in
-  let* tmat, tindex = match trm_prim_inv tfn, targs with
-    | Some (Prim_binop Binop_array_access), [tmat; tindex] -> Some (tmat, tindex)
-    | _ -> None
-  in
-  let* tidxfn, tidxargs = trm_apps_inv tindex in
-  match trm_var_inv tidxfn, tidxargs with
-  | Some "MINDEX2", [tm; tn; ti; tj] -> Some (tmat, tm, tn, ti, tj)
-  | _ -> None
-
-(* Currenty array accesses are composed of weird functions calls that cannot
- * be given an easy spec to work with. For the resource computation we replace
- * there calls into more straigthforward array accesses.
- * LATER: Find a convenient way of encode array accesses such that both
- * transformations and resource computation agree on the interface. *)
-let decode_array_access (fn: trm) (args: trm list): trm * trm list =
-  match trm_prim_inv fn, args with
-  | Some (Prim_unop Unop_get), [tptr] ->
-    begin match matrix2_access_inv tptr with
-    | Some (tmat, tm, tn, ti, tj) -> ((trm_var "__matrix2_get"), [tmat; tm; tn; ti; tj])
-    | _ -> (fn, args)
-    end
-  | Some (Prim_binop Binop_set), [tptr; tval] ->
-    begin match matrix2_access_inv tptr with
-    | Some (tmat, tm, tn, ti, tj) -> ((trm_var "__matrix2_set"), [tmat; tm; tn; ti; tj; tval])
-    | _ -> (fn, args)
-    end
-  | _ -> (fn, args)
 
 let empty_usage_map (res: resource_set): resource_usage_map =
  List.fold_left (fun acc (h, _) -> Hyp_map.add h NotUsed acc) Hyp_map.empty res.linear
@@ -682,14 +725,16 @@ let add_used_set_to_usage_map (res_used: used_resource_set) (usage_map: resource
   in
   update_usage_map ~current_usage:usage_map ~child_usage:locally_used
 
-let rec compute_resources_and_update_usage ?(expected_res: resource_spec) (res: resource_spec) (current_usage: resource_usage_map option) (t: trm): resource_usage_map option * resource_spec =
-  let child_usage, res = compute_resources ?expected_res res t in
-  let usage_map = update_usage_map_opt ~current_usage ~child_usage in
-  (usage_map, res)
+let debug_print_computation_stack = false
 
-(* TODO: better name? *)
-and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: trm): resource_usage_map option * resource_spec =
-  (*Printf.eprintf "With resources: %s\nComputing %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);*)
+(* TODO?
+Resources.Computation.compute_resource
+Resources.compute = Resources.Computation.compute_resource
+when dune supports this.
+*)
+(* compute_resource = compute_resources_and_merge_usage ~current_usage:(empty_usage_map res) *)
+let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: trm): resource_usage_map option * resource_spec =
+  if debug_print_computation_stack then Printf.eprintf "With resources: %s\nComputing %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);
   t.ctx.ctx_resources_before <- res;
   let (let**) (x: 'a option) (f: 'a -> 'b option * 'c option) =
     match x with
@@ -717,7 +762,7 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
     | Trm_seq instrs ->
       let instrs = Mlist.to_list instrs in
       let usage_map, res = List.fold_left (fun (usage_map, res) inst ->
-          compute_resources_and_update_usage res usage_map inst)
+          compute_resources_and_merge_usage res usage_map inst)
           (Some usage_map, Some res) instrs
       in
 
@@ -735,7 +780,7 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
         let to_free = List.concat_map extract_let_mut instrs in
         (*Printf.eprintf "Trying to free %s from %s\n\n" (String.concat ", " to_free) (resources_to_string (Some res));*)
         let res_to_free = resource_set ~linear:(List.map (fun x -> (new_anon_hyp (), formula_cell x)) to_free) () in
-        let _, _, linear = res_impl_leftovers ~split_frac:false res res_to_free in
+        let _, _, linear = extract_resources ~split_frac:false res res_to_free in
         { res with linear }) res
       in
       usage_map, res
@@ -744,21 +789,20 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
       begin match spec with
       | Some bound_res ->
         (* FIXME: This breaks usage_map because it allows renaming without using the renamed hypothesis *)
-        let expected_res = rename_var_in_res var var_result bound_res in
-        let usage_map, _ = compute_resources_and_update_usage ~expected_res (Some res) (Some usage_map) body in
+        let expected_res = rename_var_in_resources var var_result bound_res in
+        let usage_map, _ = compute_resources_and_merge_usage ~expected_res (Some res) (Some usage_map) body in
         (* Use the bound_res contract but keep res existing pure facts *)
         usage_map, Some (bind_new_resources ~old_res:res ~new_res:bound_res)
       | None ->
-        let usage_map, res_after = compute_resources_and_update_usage (Some res) (Some usage_map) body in
-        usage_map, Option.map (fun res_after -> rename_var_in_res var_result var res_after) res_after
+        let usage_map, res_after = compute_resources_and_merge_usage (Some res) (Some usage_map) body in
+        usage_map, Option.map (fun res_after -> rename_var_in_resources var_result var res_after) res_after
       end
 
     | Trm_apps (fn, effective_args) ->
-      let (fn, effective_args) = decode_array_access fn effective_args in
-
       let fn = trm_inv ~error:"Calling an anonymous function that is not bound to a variable is unsupported" trm_fun_var_inv fn in
       begin match Var_map.find_opt fn res.fun_contracts with
       | Some (contract_args, contract) ->
+        (* The arguments of the function call cannot have write effects, and cannot be referred to in the function contract unless they are formula-convertible (cf. formula_of_term). *)
         (* TODO: Cast into readonly: better error message when a resource exists in RO only but asking for RW *)
         let read_only_res = cast_into_read_only res in
         let contract_fv = fun_contract_free_vars contract in
@@ -767,10 +811,10 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
             (* Give resources as read only and check that they are still there after the argument evaluation *)
             (* LATER: Collect pure facts of arguments:
                f(3+i), f(g(a)) where g returns a + a, f(g(a)) where g ensures res mod a = 0 *)
-            let usage_map, post_arg_res = compute_resources_and_update_usage (Some read_only_res) usage_map effective_arg in
+            let usage_map, post_arg_res = compute_resources_and_merge_usage (Some read_only_res) usage_map effective_arg in
             begin match post_arg_res with
             | Some post_arg_res ->
-              begin try ignore (assert_res_impl post_arg_res (resource_set ~linear:read_only_res.linear ()))
+              begin try ignore (assert_resource_impl post_arg_res (resource_set ~linear:read_only_res.linear ()))
               with e -> raise (ImpureFunctionArgument e)
               end
             | None -> ()
@@ -789,7 +833,7 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
           failwith (Printf.sprintf "Mismatching number of arguments for %s" fn)
         in
 
-        let subst_ctx, res_used, res_frame = res_impl_leftovers ~split_frac:true ~subst_ctx res contract.pre in
+        let subst_ctx, res_used, res_frame = extract_resources ~split_frac:true ~subst_ctx res contract.pre in
 
         let usage_map = Option.map (fun usage_map -> add_used_set_to_usage_map res_used usage_map) usage_map in
 
@@ -799,7 +843,7 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
             contract_inst = res_used;
             contract_produced = res_produced };
 
-        usage_map, Some (bind_new_resources ~old_res:res ~new_res:(res_merge_after_frame res_produced res_frame))
+        usage_map, Some (bind_new_resources ~old_res:res ~new_res:(resource_merge_after_frame res_produced res_frame))
 
       | None when fn = "__admitted" -> None, None
       | None -> raise (Spec_not_found fn)
@@ -809,22 +853,22 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
       (* If no spec is given, put all the resources in the invariant (best effort) *)
       (* TODO: Still try to be clever about Group with a corresponding range *)
       let expected_res = resource_set ~linear:res.linear () in
-      let usage_map, _ = compute_resources_and_update_usage ~expected_res (Some res) (Some usage_map) body in
+      let usage_map, _ = compute_resources_and_merge_usage ~expected_res (Some res) (Some usage_map) body in
       usage_map, Some res
 
     | Trm_for ((index, tstart, _, tend, step, _) as range, body, Some contract) ->
+      (* Compute resources outside the loop *)
+      let invariant_before = subst_var_in_resources index tstart contract.invariant in
+      let before_loop_res = res_union invariant_before (res_group_range range contract.iter_contract.pre) in
+      let before_loop_res = { before_loop_res with pure = contract.loop_ghosts @ before_loop_res.pure } in
+      let ghost_subst_ctx, res_used, res_frame = extract_resources ~split_frac:true res before_loop_res in
+
       (* Compute resources inside the loop body *)
       let loop_body_pre = res_union contract.invariant contract.iter_contract.pre in
       let loop_body_pre = { loop_body_pre with pure = contract.loop_ghosts @ loop_body_pre.pure; fun_contracts = res.fun_contracts } in
-      let invariant_after_one_iter = subst_var_in_res index (trm_add (trm_var index) (loop_step_to_trm step)) contract.invariant in
+      let invariant_after_one_iter = subst_var_in_resources index (trm_add (trm_var index) (loop_step_to_trm step)) contract.invariant in
       let loop_body_post = res_union invariant_after_one_iter contract.iter_contract.post in
       ignore (compute_resources ~expected_res:loop_body_post (Some loop_body_pre) body);
-
-      (* Compute resources outside the loop *)
-      let invariant_before = subst_var_in_res index tstart contract.invariant in
-      let before_loop_res = res_union invariant_before (res_group_range range contract.iter_contract.pre) in
-      let before_loop_res = { before_loop_res with pure = contract.loop_ghosts @ before_loop_res.pure } in
-      let ghost_subst_ctx, res_used, res_frame = res_impl_leftovers ~split_frac:true res before_loop_res in
 
       let after_loop_res = res_union contract.invariant (res_group_range range contract.iter_contract.post) in
       let after_loop_res = compute_produced_resources (Var_map.add index tend ghost_subst_ctx) after_loop_res in
@@ -833,7 +877,10 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
 
       let usage_map = add_used_set_to_usage_map res_used usage_map in
 
-      Some usage_map, Some (bind_new_resources ~old_res:res ~new_res:(res_merge_after_frame after_loop_res res_frame))
+      Some usage_map, Some (bind_new_resources ~old_res:res ~new_res:(resource_merge_after_frame after_loop_res res_frame))
+
+    | Trm_typedef _ ->
+      Some usage_map, Some res
 
     | _ -> fail t.loc ("Resource_core.compute_inplace: not implemented for " ^ AstC_to_c.ast_to_string t)
     end with e when !Flags.resource_errors_as_warnings ->
@@ -845,13 +892,13 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
   in
 
   t.ctx.ctx_resources_usage <- usage_map;
-  (*Printf.eprintf "With resources: %s\nSaving %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);*)
+  if debug_print_computation_stack then Printf.eprintf "With resources: %s\nSaving %s\n\n" (resources_to_string res) (AstC_to_c.ast_to_string t);
   t.ctx.ctx_resources_after <- res;
   let res =
     match res, expected_res with
     | Some res, Some expected_res ->
       begin try
-        let used_res = assert_res_impl res expected_res in
+        let used_res = assert_resource_impl res expected_res in
         t.ctx.ctx_resources_post_inst <- Some used_res
       with e when !Flags.resource_errors_as_warnings ->
         Printf.eprintf "%s: Resource check warning: %s\n" (loc_to_string t.loc) (Printexc.to_string e);
@@ -863,6 +910,11 @@ and compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t: tr
     | None, _ -> expected_res
   in
   usage_map, res
+
+and compute_resources_and_merge_usage ?(expected_res: resource_spec) (res: resource_spec) (current_usage: resource_usage_map option) (t: trm): resource_usage_map option * resource_spec =
+  let child_usage, res = compute_resources ?expected_res res t in
+  let usage_map = update_usage_map_opt ~current_usage ~child_usage in
+  (usage_map, res)
 
 let ctx_copy (ctx: ctx): ctx = { ctx with ctx_types = ctx.ctx_types }
 

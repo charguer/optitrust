@@ -13,13 +13,13 @@ int g(int x) {
 }
 
 int modify(int* t) {
-    __modifies("t => Cell;");
+    __modifies("t ~> Cell;");
     __admitted();
     return 1;
 }
 
 void h(int* t) {
-    __modifies("t => Cell;");
+    __modifies("t ~> Cell;");
     int r = f(3);
     r = *t;
     const int s0 = g(g(3));

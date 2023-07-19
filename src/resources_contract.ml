@@ -28,14 +28,14 @@ let var_read_only = trm_var "_RO"
 let var_frac = trm_var "_Fraction"
 let full_frac = trm_int 1
 
-let formula_var_model (x: var) (model: formula): formula =
-  trm_apps var_has_model [trm_var x; model]
+let formula_model (x: trm) (model: formula): formula =
+  trm_apps var_has_model [x; model]
 
-let formula_var_model_inv (t: formula): (var * formula) option =
+let formula_model_inv (t: formula): (trm * formula) option =
   match trm_apps_inv t with
   | Some (fn, [tx; tf]) ->
-    begin match trm_var_inv fn, trm_var_inv tx with
-    | Some "_HasModel", Some x -> Some (x, tf)
+    begin match trm_var_inv fn with
+    | Some "_HasModel" -> Some (tx, tf)
     | _ -> None
     end
   | _ -> None
@@ -58,10 +58,10 @@ let formula_read_only_inv (t: formula): read_only_formula option =
   | _ -> None
 
 let formula_cell (x: var): formula =
-  formula_var_model x (trm_var "Cell")
+  formula_model (trm_var x) (trm_var "Cell")
 
 let formula_matrix2 (x: var) (dim1: trm) (dim2: trm): formula =
-  formula_var_model x (trm_apps (trm_var "Matrix2") [dim1; dim2])
+  formula_model (trm_var x) (trm_apps (trm_var "Matrix2") [dim1; dim2])
 
 type contract_clause = contract_clause_type * contract_resource
 

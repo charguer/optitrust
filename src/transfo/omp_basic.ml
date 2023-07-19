@@ -65,8 +65,21 @@ let%transfo master (tg : target) : unit =
 let%transfo ordered ?(clause : clause list = []) (tg : target) : unit =
   transfo_on_targets (trm_add_pragma (Ordered clause)) tg
 
+let parallel_on (clause: clause list) (t: trm): trm =
+  if !Flags.check_validity then begin
+    match Resources.trm_for_inv_contract t with
+    | Some (_, _, Some contract) ->
+      List.iter (fun (x, formula) ->
+          match Resources_contract.formula_read_only_inv formula with
+          | Some _ -> ()
+          | None -> failwith (sprintf "Transformation Omp.parallel is invalid: %s is used sequentially and is not read only." (Ast_fromto_AstC.named_formula_to_string (x, formula)))
+        ) contract.invariant.linear
+    | _ -> failwith "Transformation Omp.parallel is invalid: it is not applied on an annotated for loop."
+  end;
+  trm_add_pragma (Parallel clause) t
+
 let%transfo parallel ?(clause : clause list = []) (tg : target) : unit =
-  transfo_on_targets (trm_add_pragma (Parallel clause)) tg
+  transfo_on_targets (parallel_on clause) tg
 
 let%transfo parallel_for ?(clause : clause list = []) (tg : target) : unit =
   transfo_on_targets (trm_add_pragma (Parallel_for clause)) tg
