@@ -1,21 +1,10 @@
 
-TOMERGE BRANCH
-
-- optim_marks: 2022/03: wip on optimizing the insertion and localization of marks
-
-UNMERGED BRANCHES
-
-- ocaml, ocaml_output, quentin, struct_modif
-  : 2022/04: preliminary work for setting up the ocaml front-end, to be continued;
-  ocaml-tmp: 2021/07: older work for setting up the ocaml front-end, don't know the status.
-
-- generator: 2022/03 use of a generator for generating input data for pic_demo, to be investigated
-
-SNAPSHOTS
-
-- stable_demo_2: 2022/03 a snapshop at which the demo was working. keep until a new stable_demo is tagged.
 
 LEGACY
 
-- rust: 2021/06 seems too hard to merge, but interesting AST visualization tools to reuse.
+- legacy_pic_generator: 2022/03: for pic-demo, use of a generator for generating input data for pic_demo
+- legacy_struct_modif: 2022/05: ideas on how to generalize transfo that change a record layout
+- legacy_optim_marks: 2022/03: a few ideas on how to optimize the insertion and localization of marks
+- legacy_rust: 2021/06 seems too hard to merge, but interesting AST visualization tools to reuse.
+- legacy_ocaml_wip, legacy_ocaml_printer: 2021/07: a few ideas on how to set up the ocaml front-end.
 
