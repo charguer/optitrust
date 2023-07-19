@@ -1,4 +1,48 @@
 
+If you want to skip this step in future use of VScode, type
+`gnome-session-properties`, add an entry with the name
+`optitrust watcher` and the path to the watch script
+(e.g. `~/optitrust/src/.vscode/watch.sh`)
+
+
+
+
+
+### For future use
+```
+  // LATER: FOR FUTURE USE ONLY
+    {
+    "key":"ctrl+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View documentation for unit test",
+    "when": "config.workspaceKeybindings.OptiTrust.enabled"
+  },
+
+
+  {
+    "key":"shift+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Recompile and view diff",
+    "when": "config.workspaceKeybindings.OptiTrust.enabled"
+  },
+
+  {
+    "key":"f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Open unit test ML and CPP files",
+    "when": "config.workspaceKeybindings.OptiTrust.enabled && resourceFilename == Makefile && resourceDirname =~ /^.*\/verified_transfo\/src\/tests\/.*$/"
+  },
+
+
+
+-
+```
+ sudo mkdir -p /usr/local/lib/compcert; cp ~/verified_transfo/src/src/cparser/include/* /usr/local/lib/compcert"
+```
+
+
+
+
 - prendre le répo actuel, le cloner sur https://github.com/charguer/optitrust, garder uniquement src/
   /Splitting a subfolder out into a new repository/
 
@@ -202,3 +246,78 @@ fi
 #if (( $(echo "${DATE_MODIF_CMX} > ${DATE_MODIF_LIB}" |bc -l) )); then
 #  echo "cmx more recent than lib"
 #fi
+
+
+
+
+Useful entries for `keybindings.json`
+```
+{
+    "key": "ctrl+shift+alt+t",
+    "command": "workbench.action.tasks.terminate"
+}
+```
+
+
+# Usage
+
+A transformation script is a `.ml` file. See [`SCRIPT.md`](SCRIPT.md) for
+instructions on how to write scripts.
+
+To edit a transformation script with the possibility of (partially) executing
+it:
+- Copy the `.vscode` directory into the directory that contains the script.
+- In a terminal, go to the script directory and open Visual Studio Code by
+  executing `code .`.
+- Select the script file in the Visual Studio Code interface.
+- To execute the script up to a given instruction, put the cursor on the line of
+  this instruction and use the shortcut chosen during the setup phase.
+  Assumption: the instruction holds on one line.
+- To fully execute the script, just put the cursor on the line of the last
+  instruction and use the shortcut.
+
+When a script is (partially) executed, a diff for the source code before and
+after the last transformation step is displayed with Meld.
+
+
+# Source codes
+
+Source codes in C or in C++ are allowed, but only a subset of these languages is
+dealt with.
+
+Constraints on switch statements:
+- Cases must end with a break instruction.
+- Nested cases must share their entire body. We call them case groups.
+
+Constraint on `const` variables: it is forbidden to use the "address of"
+operator on them.
+
+Variables that are not `const` are heap allocated: the corresponding AST use
+`const` pointers to such variables. This should be transparent for the user.
+
+
+# Optitrust flags
+
+You can create a file called `optitrust_flags.sh` in the working directory,
+to define the variable `FLAGS`. Examples include:
+
+```
+# generation of stats.log
+FLAGS="-analyse-stats"
+FLAGS="-analyse-stats-details"
+
+# generation of _enc.cpp files
+FLAGS="-dump-ast-details"
+
+# reports the lines at which reparse operations are performed
+FLAGS="-debug-reparse"
+
+# add a reparse operation at every !^ symbol in the script
+FLAGS="-reparse-at-big-steps"
+
+```
+
+In case of missing opam packages, or incorrect opam switch loaded:
+```
+  Reason: /home/charguer/.opam/4.09.1+flambda/lib/ocaml/stublibs/dllunix.so: undefined symbol: caml_local_roots
+```

@@ -1,48 +1,12 @@
 {
-  "launch": {
-
-    "configurations": [],
-    "compounds": []
-  },
-  "cSpell.words": [
-    "for",
-    "i",
-    "int",
-    "main",
-    "n",
-    "t",
-    "u",
-    "vect"
-  ],
+  "workspaceKeybindings.OptiTrust.enabled": true,
   "search.exclude": {
     "**/_build": true,
   },
-  "files.associations": {
-    "*.ml": "ocaml",
-    "*.mli": "ocaml",
-    "*.json": "jsonc",
-    "*.md": "markdown",
-    "*.v": "coq",
-    "functional": "cpp",
-    "*.tcc": "cpp",
-    "random": "cpp",
-    "array": "cpp",
-    "istream": "cpp",
-    "tuple": "cpp",
-    "utility": "cpp",
-    "particle_chunk.h": "c",
-    "particle_chunk_alloc.h": "c",
-    "particle.h": "c",
-    "space_filling_curves.h": "c",
-    "cmath": "cpp",
-    "typeinfo": "cpp",
-    "parameters.h": "c",
-    "papi_handlers.h": "c",
-    "random.h": "c",
-    "initial_distributions.h": "c",
-    "algorithm": "c",
-    "optitrust.h": "c"
-  },
-  //"editor.wordWrap": "bounded",
-  "files.trimTrailingWhitespace": true
+  "files.trimTrailingWhitespace": true,
+	"editor.tabSize": 2,
+	"editor.detectIndentation": false,
+
 }
+
+
