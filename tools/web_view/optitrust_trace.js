@@ -77,11 +77,11 @@ var optionsDescr = [ // extended by initAllTags
     kind: "UI",
     default: false,
   },
-  { key: "stats",
+/*  { key: "stats",
     name: "stats",
     kind: "UI",
     default: false,
-  },
+  }, */
   { key: "compact",
     name: "compact",
     kind: "UI",
@@ -464,7 +464,7 @@ function loadStepDetails(idStep) {
     $("#diffDiv").hide();
     $("#statsDiv").hide();
     $("#sourceDiv").show();
-  } else if (options.stats) {
+  } else if (/* options.stats */ false) {
     let visitedSteps = new Set();
     $("#statsDiv").html(stepToHTMLStats(step, true, visitedSteps));
     $("#diffDiv").hide();
@@ -580,6 +580,7 @@ function stepToHTML(step, isOutermostLevel) {
   if (!options.basic_modules) {
     sName = sName.replace(/_basic/,'');
   }
+  sName = sName.replace(/_loop_list/,'');
 
   var sOnClickFocusOnStep = "onclick='focusOnStep(" + step.id + ")'";
   if (isOutermostLevel && step.id != 0) {

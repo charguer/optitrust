@@ -43,7 +43,7 @@ let _ = Run.script_cpp (fun () ->
   !! Stencil.fusion_targets_tile [int 32] ~outputs:["out"]
      ~overlaps:["gray", [int 4]; "ix", [int 2]]
      [ctx; nbMulti; cFor "y"];
-  !! simpl_mins [ctx]; (* TODO: should this be done by Stencil.fusion_targets? *)
+  !! simpl_mins [ctx];
   !! Matrix.storage_folding ~dim:0 ~size:(int 4) [ctx; multi cVarDef ["gray"; "ix"; "iy"]];
   !! Matrix.elim [ctx; multi cVarDef ["ixx"; "ixy"; "iyy"]];
   let inline v = Matrix.inline_constant ~simpl:simpl_inplace_noop ~decl:[cVarDef v] [ctx; nbMulti; cArrayRead v] in
@@ -52,11 +52,6 @@ let _ = Run.script_cpp (fun () ->
     Variable.bind_syntactic ~dest:[ctx; tBefore; cVarDef "acc_sxx"] ~fresh_name:(name ^ "${occ}") [ctx; cArrayRead name]
   in
   !!! List.iter bind_gradient ["ix"; "iy"];
-(**
-  open sprintf dans target
-  Array.bind_syntactic
-  Variable.bind_syntactic ~dest:[ctx; tBefore; cVarDef "acc_sxx"] ~fresh_name_comp:(fun occ p t -> sprintf "%s%d" (array_read_basevar t) occ)[ctx; multi cArrayRead ["ix"; "iy"]]
-*)
   !! Matrix.elim_mops [ctx];
   !! Omp.parallel_for [ctx; cFor "y"];
   !! Omp.simd ~clause:[Simdlen 8] [ctx; nbMulti; cFor "x"];
