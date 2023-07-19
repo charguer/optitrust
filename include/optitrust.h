@@ -96,6 +96,8 @@ void __sequentially_modifies(const char*) {}
 
 void __admitted() {}
 
+typedef void __ghost;
+
 /*
 template<typename T> T __spec_hint(T, const char*);
 template<typename T> T __spec_out_name(T, const char*);
