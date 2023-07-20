@@ -1,0 +1,13 @@
+(executable
+  (name matmul)
+  (modules matmul)
+  (modes (native plugin))
+  (preprocess (pps ppx_transfo))
+  (libraries optitrust))
+
+(executable
+  (name matmul_mini)
+  (modules matmul_mini)
+  (modes (native plugin))
+  (preprocess (pps ppx_transfo))
+  (libraries optitrust))

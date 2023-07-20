@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-
+open Typ (* TODO: avoid this *)
 
 let _ = Run.script_cpp (fun () ->
   let t = get_ast() in
