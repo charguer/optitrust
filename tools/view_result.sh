@@ -168,48 +168,11 @@ else
 fi
 
 #==========================================================================
-# Generate the script instrumented with line numbers
-
-TIMER3=`date +%s%3N`
-
-# From "${SRCBASE}.ml", we create ""{SRCBASE}_with_lines.ml" by inserting
-# the line numbers in the relevant places. See documentation in add_lines.sh.
-${TOOLS_FOLDER}/add_lines.sh ${SRCBASE}.ml ${SRCBASE}_with_lines.ml
-
-PROG="${SRCBASE}_with_lines.cmxs"
-
-#==========================================================================
-# Check the dependencies
-# We need a rebuild of the cmx file if any src/ file is more recent
-# than the .ml script
-
-TIMER4=`date +%s%3N`
-
-LAST_MODIF_LIB=`find ${OPTITRUST_FOLDER}/src -name "*.ml" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f2-2 -d" "`
-
-NEEDS_REBUILD="0"
-
-if [ ${LAST_MODIF_LIB} -nt ${PROG} ]; then
-  echo "Compiled cmx is out of date compared with ${LAST_MODIF_LIB}"
-  NEEDS_REBUILD="1"
-elif [ ${FILEBASE}.ml -nt ${PROG} ]; then
-  echo "Compiled cmx is out of date compared with ${FILEBASE}.ml"
-  NEEDS_REBUILD="1"
-fi
-
-
-#==========================================================================
 # Compile the script
 
 TIMER5=`date +%s%3N`
 
-if [ "${NEEDS_REBUILD}" = "1" ]; then
-   echo "Building cmxs file"
-  ${TOOLS_FOLDER}/build_cmxs.sh ${SRCBASE}_with_lines.ml
-else
-   echo "Skipping build of cmxs file"
-fi
-
+${TOOLS_FOLDER}/build_cmxs.sh ${SRCBASE}.ml
 
 #==========================================================================
 # Execute the script
@@ -220,7 +183,7 @@ TIMER6=`date +%s%3N`
 echo "Execution options: ${OPTIONS}"
 
 # TODO: --no-build
-OCAMLRUNPARAM=b dune exec optitrust_runner -- ${PROG} ${OPTIONS} ${FLAGS}
+OCAMLRUNPARAM=b dune exec optitrust_runner -- ${SRCBASE}.cmxs ${OPTIONS} ${FLAGS}
 
 #==========================================================================
 # Open the output
@@ -255,7 +218,7 @@ fi
 
 TIMER8=`date +%s%3N`
 
-if [ ! -z "${PRINTTIME}" ]; then
+if false && [ ! -z "${PRINTTIME}" ]; then
   echo "Time process args: $((${TIMER2}-${TIMER1}))ms"
   echo "Time gen checkpoints: $((${TIMER3}-${TIMER2}))ms"
   echo "Time gen with-lines: $((${TIMER4}-${TIMER3}))ms"

@@ -1,6 +1,11 @@
+# Assume MAIN is the filename of the script
+
+out: $(MAIN:.ml=_out.cpp)
+trace: $(MAIN:.ml=_trace.js)
+
 include ../Common.Makefile
 
-.PHONY: _build
+.PHONY: _build out trace
 _build:
 	$(V)mkdir -p _build
 

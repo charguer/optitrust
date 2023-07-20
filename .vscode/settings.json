@@ -6,7 +6,12 @@
   "files.trimTrailingWhitespace": true,
 	"editor.tabSize": 2,
 	"editor.detectIndentation": false,
-
+  "ocaml.server.args": [
+    "--fallback-read-dot-merlin",
+  ],
+  "files.associations": {
+    "*.Makefile": "makefile",
+  }
 }
 
 
