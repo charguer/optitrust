@@ -3,323 +3,228 @@
     // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
+      // Build using make
       {
-        "label": "Compile and install the library and compile all unit tests",
+        "label": "Build everything",
         "type": "shell",
         "command": "make all",
         "options": {
           "cwd": "${workspaceFolder}"
-        },
-        "problemMatcher": []
-      },
-      {
-        "label": "Compile and install the library then execute one unit test",
-        "type": "shell",
-        "command": "./run_action.sh",
-        "options": {
-          "cwd": "${workspaceFolder}/.vscode"
-        },
-      },
-      {
-        "label": "Compile the library without installation tests",
-        "type": "shell",
-        "command": "make library",
-        "options": {
-          "cwd": "${workspaceFolder}"
-        },
-      },
-      {
-        "label": "Compile and build everything",
-        "type": "shell",
-        "command": "make all", // was make all
-        "options": {
-          // "cwd": "${workspaceFolder}"
         }
       },
       {
-        "label": "View state",
+        "label": "Build everything in the current folder",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "make all",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode"
-        },
-        "args": [
-            "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "view_result",
-            ""
-        ]
+          "cwd": "${fileDirname}"
+        }
       },
+
+      // View diff or trace
       {
         "label": "View diff",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode"
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
         },
         "args": [
-          "../tools/view_result.sh",
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_diff",
-          /*"-dump-last",
-          "5"*/
+          "view_diff"
         ]
       },
       {
         "label": "View trace",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode"
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
         },
         "args": [
-            "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "view_trace",
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_trace"
         ]
       },
       {
         "label": "View trace with -trace-details-only-for-line",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode"
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
         },
         "args": [
-            "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "view_trace",
-            "-trace-details-only-for-line ${lineNumber}"
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_trace",
+          "-trace-details-only-for-line ${lineNumber}"
         ]
       },
       {
         "label": "View big step diff",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode"
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
         },
         "args": [
-            "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "view_diff",
-            "-only-big-steps"
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_diff",
+          "-only-big-steps"
         ]
       },
       {
         "label": "View diff for ast encoding",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode"
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
         },
         "args": [
-            "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "view_diff_enc",
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_diff_enc"
         ]
       },
       {
-        "label": "Execute from intermediate state",
+        "label": "View diff from intermediate state",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode"
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
         },
         "args": [
-          "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "view_diff_from_inter"
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_diff_from_inter"
         ]
       },
       {
-        "label": "Recompile and execute from intermediate state",
+        "label": "View big step diff from intermediate state",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode"
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
         },
         "args": [
-            "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "view_diff_from_inter",
-            "recompile_optitrust_yes",
-        ]
-      },
-      {
-        "label": "Execute a big step from intermediate state",
-        "type": "shell",
-        "command": "./run_action.sh",
-        "options": {
-          "cwd": "${workspaceFolder}/.vscode"
-        },
-        "args": [
-            "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "view_diff_from_inter",
-            "-only-big-steps",
+          "${fileDirname}",
+          "${fileBasenameNoExtension}",
+          "${lineNumber}",
+          "view_diff_from_inter",
+          "-only-big-steps"
         ]
       },
       {
         "label": "Save intermediate state",
         "type": "shell",
-        "command": "./run_action.sh",
+        "command": "tools/view_result.sh",
         "options": {
-          "cwd": "${workspaceFolder}/.vscode"
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
         },
         "args": [
-            "../tools/view_result.sh",
-            "${fileDirname}",
-            "${fileBasenameNoExtension}",
-            "${lineNumber}",
-            "save_inter"
-        ]
-      },
-      {
-        "label": "View documentation for unit test",
-        "type": "shell",
-        "command": "make",
-        "options": {
-          "cwd": "${fileDirname}"
-        }
-        "args": [
-            "${fileBasenameNoExtension}.doc",
-        ]
-      },
-      {
-        "label": "Compile and run current",
-        "type":"shell",
-        "command":"make ${fileBasenameNoExtension}.out",
-        "options": {
-          "cwd": "${fileDirname}"
-        },
-      },
-      {
-        "label": "Compile the full current folder",
-        "type": "shell",
-        "command": "make all",
-        "options": {
-          "cwd": "${fileDirname}"
-        },
-      },
-      { // LATER: if current folder contains exp_out, we could also produce the .chk
-      // DEPRECATED?
-        "label": "Recompile then compile and run current",
-        "type":"shell",
-        "command":"make optitrust; make ${fileBasenameNoExtension}.out",
-        "options": {
-          "cwd": "${fileDirname}"
-        },
-       "args": [
-          "../tools/view_result.sh",
           "${fileDirname}",
           "${fileBasenameNoExtension}",
           "${lineNumber}",
-          "view_result",
-          ""
+          "save_inter"
         ]
-    },
-    {
-      "label": "Compile and run current",
-      "type": "shell",
-      "command": "make ${fileBasenameNoExtension}.out",
-      "options": {
-        "cwd": "${fileDirname}"
+      },
+      {
+        "label": "Redo last view command",
+        "type": "shell",
+        "command": "tools/_last_view_result.sh",
+        "options": {
+          "cwd": "${workspaceFolder}",
+          "shell": {
+            "args": ["-i"]
+          }
+        }
+      },
+
+      // Run unit tests
+      {
+        "label": "Run the current test",
+        "type": "shell",
+        "command": "./tester",
+        "args": [
+          "${relativeFile}"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}"
+        }
+      },
+      {
+        "label": "Run the current test with -dump-trace",
+        "type": "shell",
+        "command": "./tester",
+        "args": [
+          "${relativeFile}",
+          "-dump-trace"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}"
+        }
+      },
+      {
+        "label": "Run all the tests",
+        "type": "shell",
+        "command": "./tester",
+        "options": {
+          "cwd": "${workspaceFolder}"
+        }
+      },
+      {
+        "label": "Rerun the last-tried test(s)",
+        "type": "shell",
+        "command": "./tester",
+        "args": [
+          "__last"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}"
+        }
+      },
+      {
+        "label": "Open unit test ML and CPP files",
+        "type": "shell",
+        "command": "./.vscode/open_test.sh",
+        "args": [
+          "${fileDirname}",
+          "${fileBasename}",
+          "${lineNumber}"
+        ]
       }
-    },
-    {
-      "label": "Compile the last-tried test(s)",
-      "type": "shell",
-      "command": "./tester",
-      "args": [
-        "__last"
-      ]
-      "options": {
-        "cwd": "${workspaceFolder}"
-      }
-    },
-    {
-      "label": "Compile the current test",
-      "type": "shell",
-      "command": "./tester",
-      "args": [
-        "${relativeFile}"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      }
-    },
-    {
-      "label": "Compile the current test with -dump-trace",
-      "type": "shell",
-      "command": "./tester",
-      "args": [
-        "${relativeFile}",
-        "-dump-trace"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      }
-    },
-    {
-      "label": "Recompile then compile and run current",
-      "type": "shell",
-      "command": "make optitrust; make ${fileBasenameNoExtension}.out",
-      "options": {
-        "cwd": "${fileDirname}"
-      }
-    },
-    {
-      "label": "First recompile optitrust then compile the full current folder",
-      "type": "shell",
-      "command": "make optitrust; make all",
-      "options": {
-        "cwd": "${fileDirname}"
-      }
-    },
-    {
-      "label": "Start the inotifywait watch",
-      "type": "shell",
-      "command": "./.vscode/watch.sh "
-    },
-    {
-      "label": "Execute transformation script (dump trace)",
-      "type": "shell",
-      "command": "./tools/view_result.sh",
-      "args": [
-        "${fileDirname}",
-        "${fileBasenameNoExtension}",
-        "${lineNumber}",
-        "-dump-trace"
-      ]
-    },
-    {
-      "label": "Open unit test ML and CPP files",
-      "type": "shell",
-      "command": "./.vscode/open_test.sh",
-      "args": [
-        "${fileDirname}",
-        "${fileBasename}",
-        "${lineNumber}"
-      ]
-    }
-  ]
+    ]
 }

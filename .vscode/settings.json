@@ -1,5 +1,5 @@
 {
-  "workspaceKeybindings.OptiTrust.enabled": true,
+  "optitrust.enableKeybindings": true,
   "search.exclude": {
     "**/_build": true,
   },
@@ -13,5 +13,3 @@
     "*.Makefile": "makefile",
   }
 }
-
-
