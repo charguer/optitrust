@@ -1,5 +1,5 @@
 #include "../../include/optitrust.h"
-
+#include "omp.h"
 __ghost ghost_array_focus(float* M, int i) {
   __requires("dim: int;");
   __consumes("M ~> Array(dim);");
@@ -75,7 +75,7 @@ void array_copy_par(float* A, float* B, int n) {
   __modifies("B ~> Array(n);");
   __reads("A ~> Array(n);");
   ghost_array_unfold(B);
-#pragma omp parallel
+#pragma omp parallel for
   for (int i = 0; i < n; ++i) {
     __sequentially_reads("A ~> Array(n);");
     __modifies("B[i] ~> Cell;");

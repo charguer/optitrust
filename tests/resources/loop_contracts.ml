@@ -8,7 +8,7 @@ let _ = Run.script_cpp (fun () ->
   show_res ();
 
   !! Trace.failure_expected (fun () ->
-    Omp.parallel [cFunDef "array_copy_explicit"; cFor "i"]);
+    Omp.parallel_for [cFunDef "array_copy_explicit"; cFor "i"]);
 
-  !! Omp.parallel [cFunDef "array_copy_par"; cFor "i"];
+  !! Omp.parallel_for [cFunDef "array_copy_par"; cFor "i"];
 )

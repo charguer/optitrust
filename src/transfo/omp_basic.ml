@@ -53,11 +53,25 @@ let%transfo end_declare_target (tg : target) : unit =
 let%transfo flush (vl : vars) (tg : target) : unit =
   transfo_on_targets (trm_add_pragma (Flush vl)) tg
 
+let add_pragma_on_parallelizable_for (directive: directive) (t: trm): trm =
+  if !Flags.check_validity then begin
+    match Resources.trm_for_inv_contract t with
+    | Some (_, _, Some contract) ->
+      List.iter (fun (x, formula) ->
+          match Resources_contract.formula_read_only_inv formula with
+          | Some _ -> ()
+          | None -> failwith (sprintf "OMP transformation is invalid: %s is used sequentially and is not read only." (Ast_fromto_AstC.named_formula_to_string (x, formula)))
+        ) contract.invariant.linear;
+      Trace.justif "The for loop is parallelizable";
+    | _ -> failwith "OMP transformation is invalid: it is not applied on an annotated for loop."
+  end;
+  trm_add_pragma directive t
+
 let%transfo for_ ?(clause : clause list = []) (tg : target) : unit =
-  transfo_on_targets (trm_add_pragma (For clause)) tg
+  transfo_on_targets (add_pragma_on_parallelizable_for (For clause)) tg
 
 let%transfo for_simd ?(clause : clause list = []) (tg : target) : unit =
-  transfo_on_targets (trm_add_pragma (For_simd clause)) tg
+  transfo_on_targets (add_pragma_on_parallelizable_for (For_simd clause)) tg
 
 let%transfo master (tg : target) : unit =
   transfo_on_targets (trm_add_pragma (Master)) tg
@@ -65,27 +79,14 @@ let%transfo master (tg : target) : unit =
 let%transfo ordered ?(clause : clause list = []) (tg : target) : unit =
   transfo_on_targets (trm_add_pragma (Ordered clause)) tg
 
-let parallel_on (clause: clause list) (t: trm): trm =
-  if !Flags.check_validity then begin
-    match Resources.trm_for_inv_contract t with
-    | Some (_, _, Some contract) ->
-      List.iter (fun (x, formula) ->
-          match Resources_contract.formula_read_only_inv formula with
-          | Some _ -> ()
-          | None -> failwith (sprintf "Transformation Omp.parallel is invalid: %s is used sequentially and is not read only." (Ast_fromto_AstC.named_formula_to_string (x, formula)))
-        ) contract.invariant.linear
-    | _ -> failwith "Transformation Omp.parallel is invalid: it is not applied on an annotated for loop."
-  end;
-  trm_add_pragma (Parallel clause) t
-
 let%transfo parallel ?(clause : clause list = []) (tg : target) : unit =
-  transfo_on_targets (parallel_on clause) tg
+  transfo_on_targets (trm_add_pragma (Parallel clause)) tg
 
 let%transfo parallel_for ?(clause : clause list = []) (tg : target) : unit =
-  transfo_on_targets (trm_add_pragma (Parallel_for clause)) tg
+  transfo_on_targets (add_pragma_on_parallelizable_for (Parallel_for clause)) tg
 
 let%transfo parallel_for_simd ?(clause : clause list = []) (tg : target) : unit =
-  transfo_on_targets (trm_add_pragma (Parallel_for_simd clause)) tg
+  transfo_on_targets (add_pragma_on_parallelizable_for (Parallel_for_simd clause)) tg
 
 let%transfo parallel_sections ?(clause : clause list = []) (tg : target) : unit =
   transfo_on_targets (trm_add_pragma (Parallel_sections clause)) tg
@@ -94,7 +95,7 @@ let%transfo section (tg : target) : unit =
   transfo_on_targets (trm_add_pragma Section) tg
 
 let%transfo simd ?(clause : clause list = []) (tg : target) : unit =
-  transfo_on_targets (trm_add_pragma (Simd clause)) tg
+  transfo_on_targets (add_pragma_on_parallelizable_for (Simd clause)) tg
 
 let%transfo single ?(clause : clause list = []) (tg : target) : unit =
   transfo_on_targets (trm_add_pragma (Single clause)) tg
