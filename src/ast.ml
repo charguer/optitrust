@@ -1742,6 +1742,13 @@ let trm_var_inv (t : trm) : var option =
   | Trm_var (_, x) -> Some x.qvar_var
   | _ -> None
 
+(* [trm_var_inv_qvar t]: like [trm_var_inv] but if [t] is a variable occurrence,
+   it returns the entire [qvar] component, not only its [qvar_var] member. *)
+let trm_var_inv_qvar (t : trm) : var option =
+  match t.desc with
+  | Trm_var (_, x) -> Some x
+  | _ -> None
+
 (* [trm_free_inv]: deconstructs a 'free(x)' call. *)
 let trm_free_inv (t : trm) : trm option =
   match trm_apps_inv t with
