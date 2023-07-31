@@ -1048,67 +1048,6 @@ let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
 
 (* ********************************************************************************************** *)
 
-(* [trm_iter f t]: similar to [trm_map] but this one doesn't return a trm at the end. *)
-let trm_iter (f : trm -> unit) (t : trm) : unit =
-  match t.desc with
-  | Trm_array tl ->
-    Mlist.iter f tl
-  | Trm_record tl ->
-    Mlist.iter (function (_, t) -> f t) tl
-  | Trm_let (vk, tv, init, _) ->
-    f init
-  | Trm_let_mult (vk, tvl, tl) ->
-    List.iter f tl
-  | Trm_let_fun (f', res, args, body, _) ->
-    f body
-  | Trm_if (cond, then_, else_) ->
-    f cond;  f then_ ; f else_
-  | Trm_seq tl ->
-    Mlist.iter f tl
-  | Trm_apps (func, args) ->
-    f func; List.iter f args
-  | Trm_while (cond, body) ->
-    f cond; f body
-  | Trm_for_c (init, cond, step, body, _) ->
-    f init; f cond; f step; f body
-  | Trm_for (l_range, body, _) ->
-    let (index, start, direction, stop, step, is_parallel) = l_range in
-    f start; f stop;
-    begin match step with
-     | Post_inc | Post_dec | Pre_inc | Pre_dec -> ()
-     | Step sp -> f sp
-    end;
-    f body
-  | Trm_do_while (body, cond) ->
-    f body; f cond
-  | Trm_switch (cond, cases) ->
-     f cond;
-     List.iter (fun (tl, body) -> f body) cases
-  | Trm_abort a ->
-    begin match a with
-    | Ret (Some t') -> f t'
-    | _ -> ()
-    end
-  | Trm_namespace (name, t, b) ->
-    f t
-  | Trm_delete (is_array, t) ->
-    f t
-  | Trm_typedef td ->
-    begin match td.typdef_body with
-    | Typdef_record rfl ->
-      List.iter (fun (rf, rf_ann) ->
-        match rf with
-        | Record_field_method t1 -> f t1
-        | _ -> ()
-      ) rfl
-    | _ -> ()
-    end
-  | _ -> ()
-
-
-(* ********************************************************************************************** *)
-
-
 (* [contains_decl x t]: checks if t constains a sub-trm that is a redeclaration of a variable x *)
 let contains_decl (x : var) (t : trm) : bool =
   let rec aux (t : trm) : bool =
