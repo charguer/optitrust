@@ -1,6 +1,8 @@
 open Optitrust
 open Target
 
+let _ = Flags.check_validity := true
+
 let _ = Run.doc_script_cpp (fun _ ->
 
   !! Sequence_basic.intro 2 [cVarDef "a"];
@@ -39,4 +41,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.failure_expected (fun () ->
        Sequence_basic.intro_between [tAfter; cVarDef "z"] [tAfter; cVarDef "z"]);
 
+  !! Trace.failure_expected (fun () ->
+    Sequence_basic.intro 1 [cFor "k"; cVarDef "a"]);
+  !! Sequence_basic.intro 2 [cFor "k"; cVarDef "b"]
 )

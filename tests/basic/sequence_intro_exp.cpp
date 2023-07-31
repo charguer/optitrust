@@ -16,6 +16,14 @@ int main() {
         w = j;
       }
     }
+    int a = 0;
+    for (int k = 0; k < 10; k++) {
+      int a = 1;
+      {
+        int b = a + a;
+        int c = a + b;
+      }
+    }
     return 0;
   }
 }
