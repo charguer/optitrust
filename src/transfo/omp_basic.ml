@@ -55,15 +55,11 @@ let%transfo flush (vl : vars) (tg : target) : unit =
 
 let add_pragma_on_parallelizable_for (directive: directive) (t: trm): trm =
   if !Flags.check_validity then begin
-    match Resources.trm_for_inv_contract t with
-    | Some (_, _, Some contract) ->
-      List.iter (fun (x, formula) ->
-          match Resources_contract.formula_read_only_inv formula with
-          | Some _ -> ()
-          | None -> failwith (sprintf "OMP transformation is invalid: %s is used sequentially and is not read only." (Ast_fromto_AstC.named_formula_to_string (x, formula)))
-        ) contract.invariant.linear;
-      Trace.justif "The for loop is parallelizable";
-    | _ -> failwith "OMP transformation is invalid: it is not applied on an annotated for loop."
+    let error = "OMP transformation is invalid: it is not applied on an annotated for loop." in
+    let contract = trm_inv ~error Resources.trm_for_contract t in
+    let error = "OMP transformation is invalid" in
+    List.iter (Resources.assert_hyp_read_only ~error) contract.invariant.linear;
+    Trace.justif "The for loop is parallelizable";
   end;
   trm_add_pragma directive t
 

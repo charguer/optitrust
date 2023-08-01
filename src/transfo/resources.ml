@@ -23,6 +23,11 @@ let trm_for_inv_contract t =
   | Trm_for (range, body, contract) -> Some (range, body, contract)
   | _ -> None
 
+let trm_for_contract t =
+  match trm_for_inv_contract t with
+  | Some (_, _, Some c) -> Some c
+  | _ -> None
+
 let loop_minimize_on (t: trm): trm =
   let range, body, contract = trm_inv ~error:"loop_minimize_on: not a for loop" trm_for_inv_contract t in
   let res_before =
@@ -69,3 +74,8 @@ let loop_minimize_on (t: trm): trm =
 let%transfo loop_minimize (tg: target) : unit =
   recompute_all_resources (); (* TODO: Incrementalize this computation *)
   Target.apply_at_target_paths loop_minimize_on tg
+
+let assert_hyp_read_only ~(error : string) ((x, t) : (hyp * formula)) : unit =
+  match formula_read_only_inv t with
+  | Some _ -> ()
+  | None -> failwith (sprintf "%s: %s is used sequentially and is not read only." error (Ast_fromto_AstC.named_formula_to_string (x, t)))
