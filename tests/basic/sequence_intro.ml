@@ -43,5 +43,8 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Trace.failure_expected (fun () ->
     Sequence_basic.intro 1 [cFor "k"; cVarDef "a"]);
-  !! Sequence_basic.intro 2 [cFor "k"; cVarDef "b"]
+  !! Sequence_basic.intro 2 [cFor "k"; cVarDef "b"];
+
+  !! Trace.failure_expected (fun () ->
+    Sequence_basic.intro 1 [cFor "l"; cVarDef "a"]);
 )

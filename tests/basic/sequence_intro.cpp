@@ -20,6 +20,16 @@ int main() {
     int c = a + b;
   }
 
+  for (int l = 0; l < 20; l++) {
+    int a;
+    a = 0;
+    for (int l2 = 0; l2 < 10; l++) {
+      if (l < l2) {
+        a = l2;
+      }
+    }
+  }
+
   return 0;
 }
 
