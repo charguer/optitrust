@@ -3393,7 +3393,7 @@ let top_level_fun_bindings (t : trm) : tmap =
   !tmap
 
 (* [get_common_top_fun tm1 tm2]: takes two maps, binding function names to terms describing the function bodies,
-    and returns the list of function names that ard bound to the same terms in the two maps. *)
+    and returns the list of function names that are bound to the same terms in the two maps. *)
 let get_common_top_fun (tm1 : tmap) (tm2 : tmap) : vars =
   let common = ref [] in
   Var_map.iter (fun f1 b1 ->
