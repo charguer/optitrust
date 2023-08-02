@@ -1563,11 +1563,11 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
     Constr.old_resolution := c_o_r_bak (* TEMPORARY *)
 
 (* [iter] same as [iteri] but without occurence index *)
-let iter (tr : trm -> path -> unit) : target -> unit =
-  iteri (fun occ t p -> tr t p)
+let iter ?(rev : bool = false) (tr : trm -> path -> unit) : target -> unit =
+  iteri ~rev (fun occ t p -> tr t p)
 
-let iter_at_target_paths (transfo : trm -> unit) (tg : target) : unit =
-  iter (fun t p -> transfo (Path.get_trm_at_path p t)) tg
+let iter_at_target_paths ?(rev : bool = false) (transfo : trm -> unit) (tg : target) : unit =
+  iter ~rev (fun t p -> transfo (Path.get_trm_at_path p t)) tg
 
 (* [applyi tr tg]: apply transformation [tr] on the current ast
    to each of the paths targeted by [tg].
@@ -1576,14 +1576,14 @@ let iter_at_target_paths (transfo : trm -> unit) (tg : target) : unit =
             [i] is the index of the occurrence,
             [t] is the current full ast
             [p] is the path towards the target occurrence. *)
-let applyi (tr : int -> trm -> path -> trm) (tg : target): unit =
-  iteri (fun occ t p -> Trace.set_ast (tr occ t p)) tg
+let applyi ?(rev : bool = false) (tr : int -> trm -> path -> trm) (tg : target): unit =
+  iteri ~rev (fun occ t p -> Trace.set_ast (tr occ t p)) tg
 
-let apply (tr : trm -> path -> trm) (tg : target) : unit =
-  applyi (fun _occ t p -> tr t p) tg
+let apply ?(rev : bool = false) (tr : trm -> path -> trm) (tg : target) : unit =
+  applyi ~rev (fun _occ t p -> tr t p) tg
 
-let apply_at_target_paths (transfo : trm -> trm) (tg : target) : unit =
-  apply (fun t p -> Path.apply_on_path transfo t p) tg
+let apply_at_target_paths ?(rev : bool = false) (transfo : trm -> trm) (tg : target) : unit =
+  apply ~rev (fun t p -> Path.apply_on_path transfo t p) tg
 
 (* ... [transfo t i] where [t] denotes the sequence and [i] denotes the index
    of the item in the sequence before which the target is aiming at. *)

@@ -13,7 +13,7 @@ let%transfo copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:target = 
   Target.apply_on_transformed_targets ~rev (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) ->
       let tg_dest_path_seq, dest_index = if dest = [] then p, i+1 else Target.resolve_target_between_exactly_one dest t in
-      if tg_dest_path_seq <> p then fail None "Instr_basic.move: the destination target should be unique and belong to the same block as the main targets";
+      if tg_dest_path_seq <> p then fail None "Instr_basic.copy: the destination target should be unique and belong to the same block as the main targets";
       Instr_core.copy dest_index i delete t p) tg
 
 
@@ -31,9 +31,21 @@ let%transfo copy ?(rev : bool = false) ?(delete : bool = false) ?(dest:target = 
    This is sufficient but not necessary, a manual commutation proof can be used
    as well. *)
 let%transfo move ?(rev : bool = false) ~dest:(dest : target) (tg : target) : unit =
-  Trace.tag_atomic ();
-  copy ~rev ~delete:true ~dest tg
-
+  Resources.required_for_check ();
+  Target.apply ~rev (fun t instr_p ->
+    let (p_seq, i) = Internal.isolate_last_dir_in_seq instr_p in
+    let dest_p_seq, dest_index = if dest = [] then p_seq, i+1 else Target.resolve_target_between_exactly_one dest t in
+    if dest_p_seq <> p_seq then fail None "Instr_basic.move: the destination target should be unique and belong to the same block as the main targets";
+    if !Flags.check_validity then begin
+      let instr_t = Path.resolve_path instr_p t in
+      let (first_swapped_i, last_swapped_i) = if i < dest_index then (i+1, dest_index) else (dest_index, i-1) in
+      for swapped_instr_i = first_swapped_i to last_swapped_i do
+        let swapped_instr_t = Path.resolve_path (p_seq @ [Dir_seq_nth swapped_instr_i]) t in
+        Resources.assert_commute instr_t swapped_instr_t
+      done
+    end;
+    Instr_core.copy dest_index i true t p_seq
+  ) tg
 
 (* [read_last_write ~write tg]: expects the target [tg] to point at a read operation,
     then it replaces the read operation with left hand side of the write operation targeted

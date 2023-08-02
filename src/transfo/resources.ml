@@ -18,6 +18,10 @@ let recompute_all_resources () : unit =
   let t = Resources_computation.(trm_recompute_resources builtin_env t) in
   Trace.set_ast t
 
+(* TODO: avoid recomputing all resources for validity checks. *)
+let required_for_check () : unit =
+  if !Flags.check_validity then recompute_all_resources ()
+
 let trm_for_inv_contract t =
   match t.desc with
   | Trm_for (range, body, contract) -> Some (range, body, contract)
@@ -79,3 +83,26 @@ let assert_hyp_read_only ~(error : string) ((x, t) : (hyp * formula)) : unit =
   match formula_read_only_inv t with
   | Some _ -> ()
   | None -> failwith (sprintf "%s: %s is used sequentially and is not read only." error (Ast_fromto_AstC.named_formula_to_string (x, t)))
+
+let assert_commute (a : trm) (b : trm) : unit =
+  (* TODO: let error' = error in *)
+  let error = "expected resources usage to be available" in
+  let a_res = Tools.unsome ~error a.ctx.ctx_resources_usage in
+  let b_res = Tools.unsome ~error b.ctx.ctx_resources_usage in
+  (* NotUsed / UsedReadOnly / UsedFull *)
+  let res_merge _ a_res_usage b_res_usage =
+    match (a_res_usage, b_res_usage) with
+    | (Some a_res_usage, Some b_res_usage) ->
+      begin match (a_res_usage, b_res_usage) with
+      | (NotUsed, _)
+      | (_, NotUsed) -> None
+      | (UsedFull, _)
+      | (_, UsedFull) -> Some (a_res_usage, b_res_usage)
+      | _ -> None
+      end
+    | _ -> None
+  in
+  (* FIXME: also check produce/consume? *)
+  let interference = Hyp_map.merge res_merge a_res b_res in
+  if not (Hyp_map.is_empty interference) then
+    fail b.loc (sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, _) -> x.name) (Hyp_map.bindings interference))))
