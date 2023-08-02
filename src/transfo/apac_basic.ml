@@ -128,19 +128,18 @@ let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
     Target.apply_at_target_paths (use_goto_for_return_on mark) tg
   )
 
-(* [arg_id] an argument identifier. Within the constification process, we
-    represent function arguments as pairs of the qualified name of the function
-    they belong to and their position in the list of arguments of that function.
+(* [arg_id] an argument identifier. Within the constification process, we refer
+    to function arguments through the name of the associated function and their
+    position in the list of arguments of the function's definition.
 
     For example, let us consider the following function definition:
 
-       int multiply(int op1, int op2) { return op1 * op2; }
+      int multiply(int op1, int op2) { return op1 * op2; }
 
-    The 'arg_id' corresponding to the argument 'op2' would look as follows.
+    The 'arg_id' corresponding to the argument 'op2' will look as follows.
 
-       ({ qvar_var: "multiply", qvar_path: [], qvar_str: "multiply"}, 1)
-  *)
-type arg_id = qvar * int
+      ("multiply", 1) *)
+type arg_id = string * int
 
 (* [const_arg]: an argument constification record. *)
 type const_arg = {
@@ -148,21 +147,45 @@ type const_arg = {
   is_ptr_or_ref : bool;
   (* Tells whether the argument can be constified. *)
   mutable is_const : bool;
-  (* List of arguments that depend on this argument. For each argument, the list
-     stores the qualified name of the function the argument belongs to as well
-     as its position in the list of arguments of that function.
+  (* If the argument is a reference or a pointer, i.e. when [is_ptr_or_ref] is
+     true, and if the value in memory it refers or points to is modified within
+     the body of the associated function, the argument must not be constified.
+     
+     To explain [to_unconst_by_propagation] let us consider a function [g]
+     defined as follows:
 
-     For example, let us consider the following function definition:
+       void g(int &val) { val += 4; }
 
-        int multiply(int op1, int op2) { return op1 * op2; }
+     and a function [f] defined as follows:
 
-     The entry in 'dependency_of' corresponding to the argument 'op2' would
-     look as follows.
+       int f(int a, int b) { g(b); return a + b; }
 
-        ({ qvar_var: "multiply", qvar_path: [], qvar_str: "multiply"}, 1)
-  *)
-  mutable dependency_of : arg_id list;
+     In [g], [val] is a reference and the referenced value is modified within
+     the function's body. Therefore, the argument [val] must not be constified.
+     However, [f] calls [g] and passes one of its arguments, i.e. [b], by
+     reference to [g]. This way, the value referenced by [b] will be modified
+     within [g]. We already know that [val] in [g] must not be constified.
+     Because of this dependency, we must propagate this decision also to [b] in
+     [f]. To achieve this and keep track of the dependency, we will add:
+
+       (f, 1)
+
+     to the [to_unconst_by_propagation] list in the [const_arg] record of [val]
+     in [g]. See [arg_id] for more details on this data type. *)
+  mutable to_unconst_by_propagation : arg_id list;
 }
+
+(* [const_aliases]: type for hash table of argument aliases. Pointers and
+   references used within a function definition might be linked to the same data
+   as the arguments of the function, i.e. they represent aliases to the
+   function's arguments. Therefore, when we constify an argument, we must
+   constify its aliases too. To keep trace of argument aliases, we use a hash
+   table data type where the key is the name of the alias and the value is a
+   pair of integers. The first integer gives the position of the aliased
+   argument in the list of arguments of the concerned function declaration. The
+   second integer gives the pointer degree of the alias, if the latter is a
+   pointer, e.g. the pointer degree of [int ** tab] is 2. *)
+type const_aliases = (string, (int * int)) Hashtbl.t
 
 (* [const_fun]: a function constification record. *)
 type const_fun = {
@@ -171,60 +194,357 @@ type const_fun = {
      object as an argument of the function too. In this case, the object is
      prepended to 'const_args'. *)
   const_args : const_arg list;
-  (* Tells whether the return value is a reference or a pointer. *)
-  is_ret_ptr_or_ref : bool;
+  (* Tells whether the return value is a pointer. *)
+  is_ret_ptr : bool;
+  (* Tells whether the return value is a reference. *)
+  is_ret_ref : bool;
 }
 
-(* [const_funs]: type for a hash table of [const_fun]. The keys are the
-    qualified names of the functions. *)
-type const_funs = (fun_loc, const_fun) Hashtbl.t
+(* [const_funs]: type for a hash table of [const_fun]. The keys are the names of
+   the functions. *)
+type const_funs = (string, const_fun) Hashtbl.t
 
 (* Create our hash table of [const_fun] with an initial size of 10. The size of
    the table will grow automatically if needed. *)
 let const_records : const_funs = Hashtbl.create 10
 
+(* FIXME: Only termporary. *)
+let cstfbl : constifiable = Hashtbl.create 10
+
+(* Create a stack of arguments that must not be constified. *)
+let to_unconst : arg_id Stack.t = Stack.create ()
+
 (* [const_lookup_candidates]: expects the target [tg] to point at a function
-    definition. It adds a new entry into 'const_records' based on the
-    information about the function. *)
+   definition. It adds a new entry into 'const_records' based on the information
+   about the function. *)
 let const_lookup_candidates : Transfo.t =
+  const_records.clear ();
   Target.iter (fun trm path ->
-    let error = "Apac_basic.const_lookup_candidates: expected a target to a \
-      function definition!" in
-    let fun_def = get_trm_at_path trm path in
-    let (qvar, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv fun_def in
-    let const_args = List.map (fun (_, ty) -> {
-      is_ptr_or_ref = is_typ_ptr ty or is_typ_array ty;
-      is_const = true;
-      dependency_of = [];
-    }) args in
-    let const : const_fun = {
-      const_args: const_args;
-      is_ret_ptr_or_ref = is_typ_ptr ret_ty or is_typ_array ret_ty;
-    } in
-    Hashtbl.add const_records qvar const
-  )
+      let error = "Apac_basic.const_lookup_candidates: expected a target to a \
+                   function definition!" in
+      let fun_def = get_trm_at_path trm path in
+      let (qvar, ret_ty, args, _) = trm_inv ~error trm_let_fun_inv fun_def in
+      let const_args = List.map (
+                           fun (_, ty) -> {
+                               is_ptr_or_ref = is_typ_ptr ty or is_typ_array ty;
+                               is_const = true;
+                               to_unconst_by_propagation = [];
+                         }) args in
+      let const : const_fun = {
+          const_args: const_args;
+          is_ret_ptr = is_typ_ptr ret_ty;
+          is_ret_ref = is_typ_array ret_ty;
+        } in
+      Hashtbl.add const_records qvar.qvar_str const
+    )
 
-let const_analyze_dependencies : Transfo.t =
-  Target.iter (fun parent_trm parent_path ->
-    let fun_calls = (target_of_path parent_path) @ [nbAny; cFun ""] in
-    Target.iter (fun call_trm call_path ->
-      let fun_call = get_trm_at_path call_trm call_path in
-      let error = "Apac_basic.const_analyze_dependencies: expected a target to a \
-            function call!" in
-      let (f, args) = trm_inv ~error trm_apps_inv fun_call in
-      let error = "Apac_basic.const_analyze_dependencies: unable to extract \
-            function name from the call!" in
-      let (_, qvar) = trm_inv ~error trm_var_inv f in
-      if Hashtbl.mem const_records qvar then
+(* [const_compute_one]: recursively visits all the terms of a function
+   definition body in order to resolve dependencies between arguments *)
+let rec const_compute_one (aliases : const_aliases) (fun_name : string)
+          (fun_body : trm) : unit =
+  match fun_body.desc with
+  (* New scope *)
+  | Trm_seq _
+    | Trm_for _
+    | Trm_for_c _
+    | Trm_if _
+    | Trm_switch _
+    | Trm_while _ ->
+     trm_iter (const_compute_one (Hashtbl.copy aliases) fun_name) fun_body
+  (* Function call: update dependencies. *)
+  | Trm_apps ({ desc = Trm_var (_ , name); _ }, args) when
+         Hashtbl.mem const_records name.qvar_str ->
+     let fun_call_const = Hashtbl.find const_records name.qvar_str in
+     let fun_args_const = fun_call_const.const_args in
+     List.iteri (fun index arg ->
+         let arg_var = trm_strip_accesses_and_references_and_get arg in
+         if trm_is_var arg_var then
+           begin
+             let arg_qvar = trm_var_inv_qvar arg_var in
+             if Hashtbl.mem aliases arg_qvar.qvar_str then
+               begin
+                 let (_, arg_index) = Hashtbl.find aliases arg_qvar.qvar_str in
+                 let arg_const = List.nth fun_args_const index in
+                 if arg_const.is_ptr_or_ref then
+                   begin
+                     arg_const.to_unconst_by_propagation <-
+                       (fun_name, arg_index) ::
+                         arg_const.to_unconst_by_propagation
+                   end
+               end
+           end
+       ) args;
+     trm_iter (const_compute_one aliases fun_name) fun_body
+  (* Variable declaration: update list of aliases. *)
+  | Trm_let (_, (lval_name, lval_typ), { desc = Trm_apps (_, [rval]); _ }, _) ->
+     if trm_has_cstyle Reference fun_body then
+       begin
+         let rval_var = trm_strip_accesses_and_references_and_get rval in
+         if trm_is_var rval_var then
+           begin
+             let rval_qvar = trm_var_inv_qvar rval_var in
+             if Hashtbl.mem aliases rval_qvar.qvar_str then
+               begin
+                 let (_, rval_index) =
+                   Hashtbl.find aliases rval_qvar.qvar_str in
+                 Hashtbl.add aliases lval_name (0, rval_index)
+               end
+           end
+       end
+     else if
+       is_typ_ptr (get_inner_const_type (get_inner_ptr_type lval_typ)) then
+       begin
+         let rval_var = trm_resolve_pointer_and_get_with_degree rval in
+         if trm_is_var rval_var then
+           begin
+             let rval_qvar = trm_var_inv_qvar rval_var in
+             if Hashtbl.mem aliases rval_qvar.qvar_str then
+               begin
+                 let (arg_degree, arg_index) =
+                   Hashtbl.find aliases rval_qvar.qvar_str in
+                 (* [lval] is an alias of [rval] only if both of them are
+                    pointers. *)
+                 if (rval_degree + arg_degree) > 0 then
+                   begin
+                     Hashtbl.add aliases
+                       lval_name (get_cptr_depth lval_typ, arg_index)
+                   end
+               end
+           end
+       end;
+     trm_iter (const_compute_one aliases fun_name) fun_body
+  (* Assignment or compound assignment: update the unconstification stack. *)
+  | Trm_apps _ when is_set_operation fun_body ->
+     let error = "Apac_basic.const_compute_one: expected set operation." in
+     let (lval, rval) = trm_inv ~error set_inv fun_body in
+     begin
+       match trm_resolve_binop_lval_name_and_get_with_deref lval with
+       (* The lvalue has been modified by assignment, if it is an argument or an
+          alias to an argument, we must not constify it. *)
+       | Some (lval_name, lval_deref) when Hashtbl.mem aliases lval_name ->
+          (* An alias of the same name may have been used multiple times to
+             alias different memory locations.
+
+             For example, in:
+
+               L1: void f(int * a, int * b, int * c) {
+               L2:   int * d = a;
+               L3:   d = c; 
+               L4:   *d = 1;
+               L5: }
+             
+             [d] is declared as an alias to [a] on L2. The data pointed to by
+             [a] is not modified within the function. On L3, [d] becomes an
+             alias for [c]. Then, on L4, the data pointed to by [c] is modified
+             through its alias [d]. Therefore, the analysis will conclude that
+             nor [c] nor [d] should be constified. However, for [a] it will
+             conclude that the argument can be constified as the data it is
+             pointing to is never modified within the function. In the end, this
+             will produce a compilation error as [a], which became const, is
+             assigned to the non-const [d] on L2.
+
+             In order to prevent this situation from happening, we must
+             propagate the unconstification to previously aliased arguments too.
+             As the [aliases] hash table stores all the values that were ever
+             assigned to a given key, we only have to [find_all] of them and
+             push them to the unconstification stack. *)
+          let all_aliases = Hashtbl.find_all aliases lval_name in
+          List.iter (fun (_, arg_index) ->
+              Stack.push (fun_name, arg_index) to_unconst
+            ) all_aliases;
+          (* When an alias changes a target, i.e. when the lvalue variable was
+             not dereferenced, we have to add a new entry into [aliases]. This
+             happens, for example, on L3 in the aforementioned example. *)
+          let rval_var = trm_resolve_pointer_and_get_with_degree rval in
+          if trm_is_var rval_var and not lval_deref then
+            begin
+              let rval_qvar = trm_var_inv_qvar rval_var in
+              if Hashtbl.mem aliases rval_qvar.qvar_str then
+                begin
+                  let (arg_degree, arg_index) =
+                    Hashtbl.find aliases rval_qvar.qvar_str in
+                  let (lval_degree, _) = List.nth 1 all_aliases in
+                  Hashtbl.add aliases lval_name (lval_degree, arg_index)
+                end
+            end
+       | _ -> ()
+     end;
+     trm_iter (const_compute_one aliases fun_name) fun_body
+  (* Increment or decrement unary operation: update the unconstification
+     stack. *)
+  | Trm_apps _ when trm_is_unop_inc_or_dec fun_body ->
+     let var_name = trm_resolve_var_name_in_unop_inc_or_dec_and_get fun_body in
+     (* Propagate the unconstification to all previously aliased arguments. *)
+     let all_aliases = Hashtbl.find_all aliases var_name in
+     List.iter (fun (_, arg_index) ->
+         Stack.push (fun_name, arg_index) to_unconst
+       ) all_aliases;
+     trm_iter (const_compute_one aliases fun_name) fun_body
+  (* Return statement: update the unconstification stack if the return value is
+     a reference or a pointer. *)
+  | Trm_abort (Ret (Some ret)) ->
+     let fun_const = Hashtbl.find const_records fun_name in
+     if fun_const.is_ptr_ref then
+       begin
+         let ret_var_name = trm_var_inv ret in
+         if Hashtbl.mem aliases ret_var_name then
+           begin
+             (* Propagate the unconstification to all previously aliased
+                arguments. *)
+             let all_aliases = Hashtbl.find_all aliases ret_var_name in
+             List.iter (fun (_, arg_index) ->
+                 Stack.push (fun_name, arg_index) to_unconst
+               ) all_aliases;
+           end
+       end;
+     trm_iter (const_compute_one aliases fun_name) fun_body
+  | _ -> trm_iter (const_compute_one aliases fun_name) fun_body
+
+let rec unconst : unit =
+    match Stack.pop_opt to_unconst with
+    | Some (fun_name, index) ->
+      let { const_args; _ } = Hashtbl.find const_records fun_name in
+      let arg = List.nth const_args index in
+      if arg.is_const then
       begin
-        let fun_call_const = Hashtbl.find const_records qvar in
-        let fun_args_const = fun_call_const.const_args in
-        List.iteri (fun i t ->
+        arg.is_const <- false;
+        List.iter (
+          fun element -> Stack.push element to_unconst
+        ) arg.to_unconst_by_propagation
+      end;
+      unconst to_unconst
+    | None -> ()
 
-        ) args
-      end
-    ) fun_calls
-  )
+let const_compute_all : Transfo.t =
+  to_unconst.clear ();
+  Target.iter (fun trm path ->
+      let error = "Apac_basic.const_compute_dependencies_and_fill_to_unconst: \
+                   expected target to a function definition." in
+      let (qvar, ret_ty, args, body, _) =
+        trm_inv ~error trm_let_fun_inv (get_trm_at_path path) in
+      let aliases : const_aliases = Hashtbl.create 10 in
+      (* TODO : Trouver comment obtenir la classe à laquelle appartient la
+         fonction, si tel est le cas, et ajouter les membres de la classe à la
+         liste des alias. *)
+      (* Add arguments to the list of aliases. *)
+      List.iteri (fun index (name, typ) ->
+        Hashtbl.add aliases name (get_cptr_depth typ, index)
+      ) args;
+      (* Actually compute the dependencies of the function definition at [path]
+         and fill [to_unconst]. *)
+      const_compute_one aliases qvar.qvar_str body
+  );
+  unconst;
+  (* FIXME: To remove once all of the constification functions will be
+     recoded. *)
+  Hashtbl.iter (fun fun_loc { const_args; _ } ->
+    let is_one_const = List.map (fun { is_const; _ } -> is_const) const_args in
+    Hashtbl.add cstfbl fun_loc (is_one_const, false)
+  ) const_records;
+
+(* [trm_strip_accesses_and_references_and_get t]: strips [*t, &t, ...]
+    recursively and returns [t]. *)
+let rec trm_strip_accesses_and_references_and_get (t : trm) : trm =
+  match t.desc with
+  | Trm_apps
+    ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) ->
+    trm_strip_accesses_and_references_and_get t
+  | Trm_apps
+    ({ desc = Trm_val (Val_prim (Prim_binop array_access)); _ }, [t; _]) ->
+    trm_strip_accesses_and_references_and_get t
+  | _ -> t
+
+(* [trm_resolve_pointer_and_get_with_degree t] : tries to resolve pointer
+   operation [t] and return the term corresponding to the variable involved in
+   the pointer operation as well as the pointer degree.
+
+   For example, for [**a] it returns (-2, a) where [a] denotes the term
+   corresponding to the variable [a] and -2 means that the pointer was
+   dereferenced 2 times. *)
+let trm_resolve_pointer_and_get_with_degree (t : trm) : (int * trm) option =
+  let degree = ref 0 in
+  let rec aux (t : trm) : trm option =
+    match t.desc with
+    (* Unary operation: strip, update degree and recurse. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
+       begin match op with
+       | Unop_get -> decr degree; aux t
+       | Unop_address -> incr degree; aux t
+       | Unop_cast ty -> degree := degree + (get_cptr_depth ty); aux t
+       | _ -> None
+       end
+    (* Array access: strip, update degree and recurse. *)
+    | Trm_apps ({
+            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            _ }, [t; _]) -> decr degree; aux t
+    (* Other binary operation: strip, update degree and recurse on both left and
+       right-hand sides. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+       begin match (aux lhs, aux rhs) with
+       | Some(res), None -> Some(res)
+       | None, Some(res) -> Some(res)
+       | None, None
+         (* In practice, binary operations between two pointers supported in
+            C/C++ can not lead to a valid alias of one of them. *)
+         | Some(_), Some(_) -> None
+       end
+    (* Target variable: return the pointer degree and the corresponding AST
+       term. *)
+    | Trm_var res -> Some(res)
+    | _ -> None
+  in
+  match (aux t) with
+  | Some (trm) -> (!degree, trm)
+  | _ -> None
+
+let trm_resolve_binop_lval_name_and_get_with_deref (t : trm) :
+      (string * bool) option =
+  let rec aux (dereferenced : bool) (t : trm) : (string * bool) option =
+    match t.desc with
+    (* We have found the variable, return. *)
+    | Trm_var (_, qvar) -> (qvar.qvar_str, dereferenced)
+    (* [t] is an array access, which means that the operand was dereferenced.
+       Continue resolution on the latter. *)
+    | Trm_apps ({
+            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            _ }, [t; _]) -> aux true t
+    (* [t] is a unary operation. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (op))); _ }, [t]) ->
+       begin match op with
+       (* A get operation, e.g. [*operand], as well as a structure access, e.g.
+          [operand.member], both imply that the operand was dereferenced.
+          Continue resolution on the latter. *)
+       | Unop_get
+         | Unop_struct_access _ -> aux true t
+       (* A structure access through pointer, e.g. [operand->member], means that
+          the operand was not dereferenced. We have finished resolving,
+          return. *)
+       | Unop_struct_get label -> Some (label, dereferenced)
+       (* In case of another binary operation, do nothing and continue
+          resolution on the operand. *)
+       | _ -> aux dereferenced t
+       end
+    | _ -> None
+  in
+  aux false t
+
+(* [trm_resolve_var_name_in_unop_inc_or_dec_and_get t]: tries to resolve the
+   variable involved in a unary increment or decrement operation [t] and return
+   its name. *)
+let rec trm_resolve_var_name_in_unop_inc_or_dec_and_get (t : trm) :
+          string option =
+  match t.desc with
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _}, [term]) when
+         (is_prefix_unary op or is_postfix_unary) ->
+     trm_resolve_var_name_in_unop_inc_or_dec_and_get term
+  | Trm_apps ({
+          desc = Trm_val (Val_prim (Prim_unop (Unop_get | Unop_address)));
+          _}, [term]) -> trm_resolve_var_name_in_unop_inc_or_dec_and_get term
+  | Trm_apps ({
+          desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+          _}, [term; _]) -> trm_resolve_var_name_in_unop_inc_or_dec_and_get term
+  | Trm_var (_, qvar) -> Some qvar.qvar_str
+  | _ -> None
 
 (*let lookup_const_candidates : Transfo.t =
   (* Create a stack for the arguments to unconstify. *)
@@ -356,14 +676,6 @@ type 'a vars_tbl = (var, (int * 'a)) Hashtbl.t
 (* [vars_arg]: hashtable of variables referring to the pointer depth of that
     argument and the position of the argument. *)
 type vars_arg = int vars_tbl
-
-(* [get_inner_all_unop_and_access t]: unfold all unary operators and array
-    accesses. *)
-let rec get_inner_all_unop_and_access (t : trm) : trm =
-  match t.desc with
-  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) -> get_inner_all_unop_and_access t
-  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop array_access)); _ }, [t; _]) -> get_inner_all_unop_and_access t
-  | _ -> t
 
 (* [get_vars_data_from_cptr_arith va t] : resolve pointer operation to get the
     pointer variable. Then, return the data of the corresponding variable stored
