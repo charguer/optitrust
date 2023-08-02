@@ -30,23 +30,14 @@ let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
 let delete (index : int) (nb_instr : int) : Transfo.local =
   apply_on_path (delete_aux index nb_instr)
 
-(** Lists all the let-bindings inside [tl_new_scope] interfering with the instructions in [tl_after].
-    A let-binding interferes if it appears as a free variable in [tl_after]. *)
-let find_scope_interference tl_new_scope tl_after : var list =
-  let fv_after = trm_free_vars (trm_seq tl_after) in
-  let find_toplevel_bind t =
-    match trm_let_inv t with
-    | Some (_, x, _, _) when Var_set.mem x fv_after -> Some x
-    | _ -> None
-  in
-  List.filter_map find_toplevel_bind (Mlist.to_list tl_new_scope)
-
 (* [intro_aux index nb t]: regroups instructions with indices falling in the range [index, index + nb) into a sub-sequence,
        [mark] - mark to insert on the new sub-sequence,
        [label] - a label to insert on the new sub-sequence,
        [index] - index where the grouping is performed,
        [nb] - number of instructions to consider,
        [t] - ast of the outer sequence where the insertion is performed.
+
+  Correct if the variables bound in the sub-sequence are only used locally, i.e. there is no scope interference with the outer sequence continuation.
 *)
 let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm) : trm =
   let error = "Sequence_core.intro_aux: expected the sequence on which the grouping is performed." in
@@ -55,10 +46,10 @@ let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm)
   let tl_before, tl_rest = Mlist.split index tl in
   let tl_seq, tl_after = Mlist.split nb tl_rest in
   if !Flags.check_validity then begin
-    match find_scope_interference tl_seq tl_after with
+    match Internal.find_scope_interference tl_seq tl_after with
     | [] -> Trace.justif "No scope interference between new sequence and outer sequence continuation"
-    | [x] -> failwith (sprintf "variable %s is used after the new sequence but will now be out of scope." x)
-    | xs -> failwith (sprintf "variables %s are used after the new sequence but will now be out of scope." (String.concat ", " xs))
+    | [x] -> failwith (sprintf "variable '%s' is used after the new sequence but will now be out of scope." x)
+    | xs -> failwith (sprintf "variables %s are used after the new sequence but will now be out of scope." (Tools.list_to_string ~sep:"', '" ~bounds:["'";"'"] xs))
   end;
   let tl_around = Mlist.merge tl_before tl_after in
   let intro_seq = trm_seq tl_seq in
@@ -71,7 +62,12 @@ let intro (mark : string) (label : label) (index : int) (nb : int) : Transfo.loc
   apply_on_path (intro_aux mark label index nb)
 
 (* [elim_aux index t]: inlines an inner sequence into the outer one,
-      [t] - ast of the sequence to be removed.  *)
+      [t] - ast of the sequence to be removed.
+
+  This function does not perform the inlining, but simply tags the inner sequence as 'nobrace'.
+
+  Correct if there is no name conflict between the variables bound in the  inner sequence and the ones used in the outer sequence continuation, i.e. there is no scope interference with the outer sequence continuation. This is checked by the code responsible for removing 'nobrace' sequences.
+  *)
 let elim_aux (t : trm) : trm =
   let error = "Sequence_core.elim_aux: expected the sequence to be deleteds." in
   let tl = trm_inv ~error trm_seq_inv t in

@@ -12,6 +12,18 @@ int main() {
     int y = 1;
     int z = 5;
   }
+  for (int i = 0; i < 2; i++) {
+    {
+      int s0 = i;
+    }
+  }
+  for (int s1 = 0; s1 < 2; s1++) {
+    {
+      int s1 = 0;
+      // x = s1;
+    }
+    x = s1;
+  }
   return 0;
 }
 

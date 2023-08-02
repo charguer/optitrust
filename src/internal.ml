@@ -434,17 +434,44 @@ let get_item_and_its_relatives (index : int) (items : 'a mlist) : ('a mlist * 'a
   in
   (lfront, element, lback)
 
-(* [inline_sublist_at index ml]: in the case of nested sequence, nested initialization lists for arrays and structs,
-    this function can be used to inline the sublist at [index] into the main list. *)
-let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
+(* TODO: move in another file, 'scope.ml'? *)
+(** Lists all the let-bindings inside [tl_new_scope] interfering with the instructions in [tl_after].
+    A let-binding interferes if it appears as a free variable in [tl_after]. *)
+let find_scope_interference tl_new_scope tl_after : var list =
+  let fv_after = trm_free_vars (trm_seq tl_after) in
+  let find_toplevel_bind t =
+    match trm_let_inv t with
+    | Some (_, x, _, _) when Var_set.mem x fv_after -> Some x
+    | _ -> None
+  in
+  List.filter_map find_toplevel_bind (Mlist.to_list tl_new_scope)
+
+(* [inline_seq_at index ml]: in the case of nested sequence,
+    this function can be used to inline the sublist at [index] into the main list.
+
+    Also checks for variable scope interference.
+  *)
+let inline_seq_at (index : int) (ml : trm mlist) : trm mlist =
   let lfront, st, lback  = get_item_and_its_relatives index ml in
   match st.desc with
-  | Trm_seq tl -> Mlist.merge (Mlist.merge lfront tl) lback
-  | _ -> fail st.loc "Internal.inline_sublist_at: expected an ast node which taks a mlist as parameter"
+  | Trm_seq tl ->
+    if !Flags.check_validity then begin
+      match find_scope_interference tl lback with
+      (* NOTE: assumes that nobrace elimination is called by a tranformation that introduces nobraces. *)
+      | [] -> Trace.justif "No scope interference between inlined sequence and outer sequence continuation"
+      | [x] -> failwith (sprintf "variable '%s' is used after the inlined sequence but will now be shadowed" x)
+      | xs -> failwith (sprintf "variables %s are used after the inlined sequence but will now be shadowed" (Tools.list_to_string ~sep:"', '" ~bounds:["'";"'"] xs))
+    end;
+    Mlist.merge (Mlist.merge lfront tl) lback
+  | _ -> fail st.loc "Internal.inline_seq_at: expected an ast node which taks a mlist as parameter"
 
 
 (* [clean_no_brace_seq ~all id t]: remove all the sequences from ast with annotation No_braces if [all] is set to true
-    otherwise remove only those sequence with id [id]. *)
+    otherwise remove only those sequence with id [id].
+
+  Everytime an inner sequence is inlined into an outer sequence, this checks that there is no scope interefence between the variables bound in the inner sequence and the ones used in the outer sequence continuation.
+  This assumes that shadowing is allowed.
+  *)
 let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
@@ -452,7 +479,7 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
       let indices_list = List.flatten (List.mapi (fun i t1 ->
         let current_seq_id = get_nobrace_id t1 in
         begin match current_seq_id with
-        | Some c_i when  (all || (c_i = id)) -> [i]
+        | Some c_i when (all || (c_i = id)) -> [i]
         | _ -> []
         end
       ) (Mlist.to_list tl)) in
@@ -460,7 +487,7 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
 
       let new_tl =
         if indices_list <> [] then
-          List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list)
+          List.fold_left (fun acc x_i -> inline_seq_at x_i acc) tl (List.rev indices_list)
         else new_tl in
       trm_replace (Trm_seq new_tl) t
     | _ -> trm_map aux t
@@ -484,7 +511,7 @@ let set_nobrace_if_sequence (t : trm) : trm =
   | Trm_seq tl1 -> trm_seq_no_brace (Mlist.to_list tl1)
   | _-> t
 
-(* [is_nobrace t]: check if the current sequence is a hidden sequence or not*)
+(* [is_nobrace t]: check if the current sequence is a hidden sequence or not *)
 let is_nobrace (t : trm) : bool =
   match t.desc with
   | Trm_seq _ ->

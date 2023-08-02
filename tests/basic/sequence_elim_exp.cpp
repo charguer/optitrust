@@ -7,5 +7,11 @@ int main() {
   int u = 2;
   int y = 1;
   int z = 5;
+  int s0 = 0;
+  int s0 = 1;
+  for (int s1 = 0; s1 < 2; s1++) {
+    { int s1 = 0; }
+    x = s1;
+  }
   return 0;
 }
