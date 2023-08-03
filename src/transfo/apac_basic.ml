@@ -2,6 +2,211 @@ open Ast
 open Target
 open Path
 
+(* [get_inner_all_unop_and_access t]: unfold all unary operators and array
+    accesses. *)
+let rec get_inner_all_unop_and_access (t : trm) : trm =
+  match t.desc with
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) -> get_inner_all_unop_and_access t
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop array_access)); _ }, [t; _]) -> get_inner_all_unop_and_access t
+  | _ -> t
+
+(* [is_typdef_alias ty]: checks if [ty] is a defined type alias. *)
+let is_typdef_alias (ty : typ) : bool =
+  match ty.typ_desc with
+  | Typ_constr (_, id, _) ->
+    begin match Context.typid_to_typedef id with
+    | Some (td) ->
+      begin match td.typdef_body with
+      | Typdef_alias _ -> true
+      | _  -> false
+      end
+    | None -> false
+    end
+  | _ -> false
+
+(* [get_inner_typdef_alias ty]: returns the inner type of the defined type
+    alias. *)
+let get_inner_typedef_alias (ty : typ) : typ option =
+  match ty.typ_desc with
+  | Typ_constr (_, id, _) ->
+    begin match Context.typid_to_typedef id with
+    | Some (td) ->
+      begin match td.typdef_body with
+      | Typdef_alias ty -> Some (ty)
+      | _  -> None
+      end
+    | None -> None
+    end
+  | _ -> None
+
+(* [get_cptr_depth ty]: returns the number of C pointer of the type [ty]. *)
+let get_cptr_depth (ty : typ) : int =
+  let rec aux (depth : int) (ty : typ) : int =
+    match ty.typ_desc with
+    | Typ_const ty -> aux depth ty
+    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> aux (depth) ty
+    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty } -> aux (depth+1) ty
+    | Typ_array (ty, _) -> aux (depth+1) ty
+    | Typ_constr _ when is_typdef_alias ty ->
+      begin match get_inner_typedef_alias ty with
+      | Some (ty) -> aux depth ty
+      | None -> assert false
+      end
+    | _ -> depth
+  in
+  aux 0 ty
+
+(* [trm_strip_accesses_and_references_and_get t]: strips [*t, &t, ...]
+    recursively and returns [t]. *)
+let rec trm_strip_accesses_and_references_and_get (t : trm) : trm =
+  match t.desc with
+  | Trm_apps
+    ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) ->
+    trm_strip_accesses_and_references_and_get t
+  | Trm_apps
+    ({ desc = Trm_val (Val_prim (Prim_binop array_access)); _ }, [t; _]) ->
+    trm_strip_accesses_and_references_and_get t
+  | _ -> t
+         
+(* [trm_resolve_pointer_and_get_with_degree t] : tries to resolve pointer
+   operation [t] and return the term corresponding to the variable involved in
+   the pointer operation as well as the pointer degree.
+
+   For example, for [**a] it returns (-2, a) where [a] denotes the term
+   corresponding to the variable [a] and -2 means that the pointer was
+   dereferenced 2 times. *)
+let trm_resolve_pointer_and_get_with_degree (t : trm) : (int * trm) option =
+  let degree = ref 0 in
+  let rec aux (t : trm) : trm option =
+    match t.desc with
+    (* Unary operation: strip, update degree and recurse. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
+       begin match op with
+       | Unop_get -> decr degree; aux t
+       | Unop_address -> incr degree; aux t
+       | Unop_cast ty -> degree := !degree + (get_cptr_depth ty); aux t
+       | _ -> None
+       end
+    (* Array access: strip, update degree and recurse. *)
+    | Trm_apps ({
+            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            _ }, [t; _]) -> decr degree; aux t
+    (* Other binary operation: strip, update degree and recurse on both left and
+       right-hand sides. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+       begin match (aux lhs, aux rhs) with
+       | Some(res), None -> Some(res)
+       | None, Some(res) -> Some(res)
+       | None, None
+         (* In practice, binary operations between two pointers supported in
+            C/C++ can not lead to a valid alias of one of them. *)
+         | Some(_), Some(_) -> None
+       end
+    (* Target variable: return the pointer degree and the corresponding AST
+       term. *)
+    | _ when trm_is_var t -> Some(t)
+    | _ -> None
+  in
+  match (aux t) with
+  | Some (trm) -> Some(!degree, trm)
+  | _ -> None
+
+let trm_resolve_binop_lval_name_and_get_with_deref (t : trm) :
+      (string * bool) option =
+  let rec aux (dereferenced : bool) (t : trm) : (string * bool) option =
+    match t.desc with
+    (* We have found the variable, return. *)
+    | Trm_var (_, qvar) -> Some (qvar.qvar_str, dereferenced)
+    (* [t] is an array access, which means that the operand was dereferenced.
+       Continue resolution on the latter. *)
+    | Trm_apps ({
+            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            _ }, [t; _]) -> aux true t
+    (* [t] is a unary operation. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (op))); _ }, [t]) ->
+       begin match op with
+       (* A get operation, e.g. [*operand], as well as a structure access, e.g.
+          [operand.member], both imply that the operand was dereferenced.
+          Continue resolution on the latter. *)
+       | Unop_get
+         | Unop_struct_access _ -> aux true t
+       (* A structure access through pointer, e.g. [operand->member], means that
+          the operand was not dereferenced. We have finished resolving,
+          return. *)
+       | Unop_struct_get label -> Some (label, dereferenced)
+       (* In case of another binary operation, do nothing and continue
+          resolution on the operand. *)
+       | _ -> aux dereferenced t
+       end
+    | _ -> None
+  in
+  aux false t
+
+(* [trm_resolve_var_name_in_unop_inc_or_dec_and_get t]: tries to resolve the
+   variable involved in a unary increment or decrement operation [t] and return
+   its name. *)
+let rec trm_resolve_var_name_in_unop_inc_or_dec_and_get (t : trm) :
+          string option =
+  match t.desc with
+  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _}, [term]) when
+         (is_prefix_unary op || is_postfix_unary op) ->
+     trm_resolve_var_name_in_unop_inc_or_dec_and_get term
+  | Trm_apps ({
+          desc = Trm_val (Val_prim (Prim_unop (Unop_get | Unop_address)));
+          _}, [term]) -> trm_resolve_var_name_in_unop_inc_or_dec_and_get term
+  | Trm_apps ({
+          desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+          _}, [term; _]) -> trm_resolve_var_name_in_unop_inc_or_dec_and_get term
+  | Trm_var (_, qvar) -> Some qvar.qvar_str
+  | _ -> None
+
+(*let lookup_const_candidates : Transfo.t =
+  (* Create a stack for the arguments to unconstify. *)
+  let to_process : arg_id Stack.t = Stack.create () in
+  Target.iter (fun trm path ->
+
+  )*)
+
+(* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)
+let rec get_constified_arg_aux (ty : typ) : typ =
+  let annot = ty.typ_annot in
+  let attributes = ty.typ_attributes in
+  match ty.typ_desc with
+  | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty} ->
+    typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (get_constified_arg_aux ty))
+  | Typ_const {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty }; typ_annot = annot; typ_attributes = attributes} ->
+    typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (get_constified_arg_aux ty))
+  | Typ_constr (_, id, _) ->
+    begin match Context.typid_to_typedef id with
+    | Some td ->
+      begin match td.typdef_body with
+      | Typdef_alias ty -> get_constified_arg_aux ty
+      | _ -> typ_const ty
+      end
+    | None -> typ_const ty
+    end
+  | Typ_const _ -> ty
+  | _ -> typ_const ty
+
+(* [get_constified_arg ty]: applies [get_constified_arg_aux] at the typ [ty] or
+    the typ pointer by [ty].
+
+    If [ty] is a reference or a rvalue reference, it returns the constified typ
+    of [ty]. *)
+let get_constified_arg (ty : typ) : typ =
+  let annot = ty.typ_annot in
+  let attributes = ty.typ_attributes in
+  match ty.typ_desc with
+  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
+    begin match ty.typ_desc with
+    (* rvalue reference *)
+    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
+      typ_lref ~annot ~attributes (get_constified_arg_aux ty)
+    (* reference *)
+    | _ -> typ_ref ~annot ~attributes (get_constified_arg_aux ty)
+    end
+  | _ -> get_constified_arg_aux ty
+
 (* [task_group_on ~master t]: see [task_group] *)
 let task_group_on ~(master : bool) (t : trm) : trm =
   (* Draw the list of pragmas to apply. *)
@@ -209,7 +414,7 @@ type const_funs = (string, const_fun) Hashtbl.t
 let const_records : const_funs = Hashtbl.create 10
 
 (* FIXME: Only termporary. *)
-let cstfbl : constifiable = Hashtbl.create 10
+let cstfbl = Hashtbl.create 10
 
 (* Create a stack of arguments that must not be constified. *)
 let to_unconst : arg_id Stack.t = Stack.create ()
@@ -218,20 +423,20 @@ let to_unconst : arg_id Stack.t = Stack.create ()
    definition. It adds a new entry into 'const_records' based on the information
    about the function. *)
 let const_lookup_candidates : Transfo.t =
-  const_records.clear ();
+  Hashtbl.clear const_records;
   Target.iter (fun trm path ->
       let error = "Apac_basic.const_lookup_candidates: expected a target to a \
                    function definition!" in
-      let fun_def = get_trm_at_path trm path in
+      let fun_def = get_trm_at_path path trm in
       let (qvar, ret_ty, args, _) = trm_inv ~error trm_let_fun_inv fun_def in
       let const_args = List.map (
                            fun (_, ty) -> {
-                               is_ptr_or_ref = is_typ_ptr ty or is_typ_array ty;
+                               is_ptr_or_ref = is_typ_ptr ty || is_typ_array ty;
                                is_const = true;
                                to_unconst_by_propagation = [];
                          }) args in
       let const : const_fun = {
-          const_args: const_args;
+          const_args = const_args;
           is_ret_ptr = is_typ_ptr ret_ty;
           is_ret_ref = is_typ_array ret_ty;
         } in
@@ -260,7 +465,9 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
          let arg_var = trm_strip_accesses_and_references_and_get arg in
          if trm_is_var arg_var then
            begin
-             let arg_qvar = trm_var_inv_qvar arg_var in
+             let error = "Apac_basic.const_compute_one: unable to retrieve \
+                          qualified name of an argument" in
+             let arg_qvar = trm_inv ~error trm_var_inv_qvar arg_var in
              if Hashtbl.mem aliases arg_qvar.qvar_str then
                begin
                  let (_, arg_index) = Hashtbl.find aliases arg_qvar.qvar_str in
@@ -282,7 +489,9 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
          let rval_var = trm_strip_accesses_and_references_and_get rval in
          if trm_is_var rval_var then
            begin
-             let rval_qvar = trm_var_inv_qvar rval_var in
+             let error = "Apac_basic.const_compute_one: unable to retrieve \
+                          qualified name of an rvalue" in
+             let rval_qvar = trm_inv ~error trm_var_inv_qvar rval_var in
              if Hashtbl.mem aliases rval_qvar.qvar_str then
                begin
                  let (_, rval_index) =
@@ -294,10 +503,15 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
      else if
        is_typ_ptr (get_inner_const_type (get_inner_ptr_type lval_typ)) then
        begin
-         let rval_var = trm_resolve_pointer_and_get_with_degree rval in
+         let error = "Apac_basic.const_compute_one: unable to resolve \
+                      pointer" in
+         let (rval_degree, rval_var) =
+           trm_inv ~error trm_resolve_pointer_and_get_with_degree rval in
          if trm_is_var rval_var then
            begin
-             let rval_qvar = trm_var_inv_qvar rval_var in
+             let error = "Apac_basic.const_compute_one: unable to retrieve \
+                          qualified name of an rvalue" in
+             let rval_qvar = trm_inv ~error trm_var_inv_qvar rval_var in
              if Hashtbl.mem aliases rval_qvar.qvar_str then
                begin
                  let (arg_degree, arg_index) =
@@ -327,11 +541,11 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
 
              For example, in:
 
-               L1: void f(int * a, int * b, int * c) {
-               L2:   int * d = a;
-               L3:   d = c; 
-               L4:   *d = 1;
-               L5: }
+             L1: void f(int * a, int * b, int * c) {
+             L2:   int * d = a;
+             L3:   d = c; 
+             L4:   *d = 1;
+             L5: }
              
              [d] is declared as an alias to [a] on L2. The data pointed to by
              [a] is not modified within the function. On L3, [d] becomes an
@@ -355,15 +569,20 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
           (* When an alias changes a target, i.e. when the lvalue variable was
              not dereferenced, we have to add a new entry into [aliases]. This
              happens, for example, on L3 in the aforementioned example. *)
-          let rval_var = trm_resolve_pointer_and_get_with_degree rval in
-          if trm_is_var rval_var and not lval_deref then
+          let error = "Apac_basic.const_compute_one: unable to resolve \
+                       pointer" in
+          let (_, rval_var) =
+            trm_inv ~error trm_resolve_pointer_and_get_with_degree rval in
+          if trm_is_var rval_var && not lval_deref then
             begin
-              let rval_qvar = trm_var_inv_qvar rval_var in
+             let error = "Apac_basic.const_compute_one: unable to retrieve \
+                          qualified name of an rvalue" in
+              let rval_qvar = trm_inv ~error trm_var_inv_qvar rval_var in
               if Hashtbl.mem aliases rval_qvar.qvar_str then
                 begin
                   let (arg_degree, arg_index) =
                     Hashtbl.find aliases rval_qvar.qvar_str in
-                  let (lval_degree, _) = List.nth 1 all_aliases in
+                  let (lval_degree, _) = List.nth all_aliases 1 in
                   Hashtbl.add aliases lval_name (lval_degree, arg_index)
                 end
             end
@@ -373,7 +592,11 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
   (* Increment or decrement unary operation: update the unconstification
      stack. *)
   | Trm_apps _ when trm_is_unop_inc_or_dec fun_body ->
-     let var_name = trm_resolve_var_name_in_unop_inc_or_dec_and_get fun_body in
+     let error = "Apac_basic.const_compute_one: unable to retrieve variable \
+                  name" in
+     let var_name = trm_inv ~error
+                      trm_resolve_var_name_in_unop_inc_or_dec_and_get fun_body
+     in
      (* Propagate the unconstification to all previously aliased arguments. *)
      let all_aliases = Hashtbl.find_all aliases var_name in
      List.iter (fun (_, arg_index) ->
@@ -384,9 +607,11 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
      a reference or a pointer. *)
   | Trm_abort (Ret (Some ret)) ->
      let fun_const = Hashtbl.find const_records fun_name in
-     if fun_const.is_ptr_ref then
+     if fun_const.is_ret_ptr || fun_const.is_ret_ref then
        begin
-         let ret_var_name = trm_var_inv ret in
+         let error = "Apac_basic.const_compute_one: unable to retrieve name of \
+                      return variable" in
+         let ret_var_name = trm_inv ~error trm_var_inv ret in
          if Hashtbl.mem aliases ret_var_name then
            begin
              (* Propagate the unconstification to all previously aliased
@@ -400,7 +625,7 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
      trm_iter (const_compute_one aliases fun_name) fun_body
   | _ -> trm_iter (const_compute_one aliases fun_name) fun_body
 
-let rec unconst : unit =
+let rec unconst () : unit =
     match Stack.pop_opt to_unconst with
     | Some (fun_name, index) ->
       let { const_args; _ } = Hashtbl.find const_records fun_name in
@@ -412,16 +637,16 @@ let rec unconst : unit =
           fun element -> Stack.push element to_unconst
         ) arg.to_unconst_by_propagation
       end;
-      unconst to_unconst
+      unconst ()
     | None -> ()
 
 let const_compute_all : Transfo.t =
-  to_unconst.clear ();
+  Stack.clear to_unconst;
   Target.iter (fun trm path ->
       let error = "Apac_basic.const_compute_dependencies_and_fill_to_unconst: \
                    expected target to a function definition." in
-      let (qvar, ret_ty, args, body, _) =
-        trm_inv ~error trm_let_fun_inv (get_trm_at_path path) in
+      let (qvar, ret_ty, args, body) =
+        trm_inv ~error trm_let_fun_inv (get_trm_at_path path trm) in
       let aliases : const_aliases = Hashtbl.create 10 in
       (* TODO : Trouver comment obtenir la classe à laquelle appartient la
          fonction, si tel est le cas, et ajouter les membres de la classe à la
@@ -433,211 +658,16 @@ let const_compute_all : Transfo.t =
       (* Actually compute the dependencies of the function definition at [path]
          and fill [to_unconst]. *)
       const_compute_one aliases qvar.qvar_str body
-  );
-  unconst;
+    )
+
+let unconst_and_const () : unit =
+  unconst ();
   (* FIXME: To remove once all of the constification functions will be
      recoded. *)
   Hashtbl.iter (fun fun_loc { const_args; _ } ->
     let is_one_const = List.map (fun { is_const; _ } -> is_const) const_args in
     Hashtbl.add cstfbl fun_loc (is_one_const, false)
-  ) const_records;
-
-(* [trm_strip_accesses_and_references_and_get t]: strips [*t, &t, ...]
-    recursively and returns [t]. *)
-let rec trm_strip_accesses_and_references_and_get (t : trm) : trm =
-  match t.desc with
-  | Trm_apps
-    ({ desc = Trm_val (Val_prim (Prim_unop _)); _ }, [t]) ->
-    trm_strip_accesses_and_references_and_get t
-  | Trm_apps
-    ({ desc = Trm_val (Val_prim (Prim_binop array_access)); _ }, [t; _]) ->
-    trm_strip_accesses_and_references_and_get t
-  | _ -> t
-
-(* [trm_resolve_pointer_and_get_with_degree t] : tries to resolve pointer
-   operation [t] and return the term corresponding to the variable involved in
-   the pointer operation as well as the pointer degree.
-
-   For example, for [**a] it returns (-2, a) where [a] denotes the term
-   corresponding to the variable [a] and -2 means that the pointer was
-   dereferenced 2 times. *)
-let trm_resolve_pointer_and_get_with_degree (t : trm) : (int * trm) option =
-  let degree = ref 0 in
-  let rec aux (t : trm) : trm option =
-    match t.desc with
-    (* Unary operation: strip, update degree and recurse. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
-       begin match op with
-       | Unop_get -> decr degree; aux t
-       | Unop_address -> incr degree; aux t
-       | Unop_cast ty -> degree := degree + (get_cptr_depth ty); aux t
-       | _ -> None
-       end
-    (* Array access: strip, update degree and recurse. *)
-    | Trm_apps ({
-            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t; _]) -> decr degree; aux t
-    (* Other binary operation: strip, update degree and recurse on both left and
-       right-hand sides. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
-       begin match (aux lhs, aux rhs) with
-       | Some(res), None -> Some(res)
-       | None, Some(res) -> Some(res)
-       | None, None
-         (* In practice, binary operations between two pointers supported in
-            C/C++ can not lead to a valid alias of one of them. *)
-         | Some(_), Some(_) -> None
-       end
-    (* Target variable: return the pointer degree and the corresponding AST
-       term. *)
-    | Trm_var res -> Some(res)
-    | _ -> None
-  in
-  match (aux t) with
-  | Some (trm) -> (!degree, trm)
-  | _ -> None
-
-let trm_resolve_binop_lval_name_and_get_with_deref (t : trm) :
-      (string * bool) option =
-  let rec aux (dereferenced : bool) (t : trm) : (string * bool) option =
-    match t.desc with
-    (* We have found the variable, return. *)
-    | Trm_var (_, qvar) -> (qvar.qvar_str, dereferenced)
-    (* [t] is an array access, which means that the operand was dereferenced.
-       Continue resolution on the latter. *)
-    | Trm_apps ({
-            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t; _]) -> aux true t
-    (* [t] is a unary operation. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (op))); _ }, [t]) ->
-       begin match op with
-       (* A get operation, e.g. [*operand], as well as a structure access, e.g.
-          [operand.member], both imply that the operand was dereferenced.
-          Continue resolution on the latter. *)
-       | Unop_get
-         | Unop_struct_access _ -> aux true t
-       (* A structure access through pointer, e.g. [operand->member], means that
-          the operand was not dereferenced. We have finished resolving,
-          return. *)
-       | Unop_struct_get label -> Some (label, dereferenced)
-       (* In case of another binary operation, do nothing and continue
-          resolution on the operand. *)
-       | _ -> aux dereferenced t
-       end
-    | _ -> None
-  in
-  aux false t
-
-(* [trm_resolve_var_name_in_unop_inc_or_dec_and_get t]: tries to resolve the
-   variable involved in a unary increment or decrement operation [t] and return
-   its name. *)
-let rec trm_resolve_var_name_in_unop_inc_or_dec_and_get (t : trm) :
-          string option =
-  match t.desc with
-  | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _}, [term]) when
-         (is_prefix_unary op or is_postfix_unary) ->
-     trm_resolve_var_name_in_unop_inc_or_dec_and_get term
-  | Trm_apps ({
-          desc = Trm_val (Val_prim (Prim_unop (Unop_get | Unop_address)));
-          _}, [term]) -> trm_resolve_var_name_in_unop_inc_or_dec_and_get term
-  | Trm_apps ({
-          desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-          _}, [term; _]) -> trm_resolve_var_name_in_unop_inc_or_dec_and_get term
-  | Trm_var (_, qvar) -> Some qvar.qvar_str
-  | _ -> None
-
-(*let lookup_const_candidates : Transfo.t =
-  (* Create a stack for the arguments to unconstify. *)
-  let to_process : arg_id Stack.t = Stack.create () in
-  Target.iter (fun trm path ->
-
-  )*)
-
-(* [is_typdef_alias ty]: checks if [ty] is a defined type alias. *)
-let is_typdef_alias (ty : typ) : bool =
-  match ty.typ_desc with
-  | Typ_constr (_, id, _) ->
-    begin match Context.typid_to_typedef id with
-    | Some (td) ->
-      begin match td.typdef_body with
-      | Typdef_alias _ -> true
-      | _  -> false
-      end
-    | None -> false
-    end
-  | _ -> false
-
-(* [get_inner_typdef_alias ty]: returns the inner type of the defined type
-    alias. *)
-let get_inner_typedef_alias (ty : typ) : typ option =
-  match ty.typ_desc with
-  | Typ_constr (_, id, _) ->
-    begin match Context.typid_to_typedef id with
-    | Some (td) ->
-      begin match td.typdef_body with
-      | Typdef_alias ty -> Some (ty)
-      | _  -> None
-      end
-    | None -> None
-    end
-  | _ -> None
-
-(* [get_cptr_depth ty]: returns the number of C pointer of the type [ty]. *)
-let get_cptr_depth (ty : typ) : int =
-  let rec aux (depth : int) (ty : typ) : int =
-    match ty.typ_desc with
-    | Typ_const ty -> aux depth ty
-    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } -> aux (depth) ty
-    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty } -> aux (depth+1) ty
-    | Typ_array (ty, _) -> aux (depth+1) ty
-    | Typ_constr _ when is_typdef_alias ty ->
-      begin match get_inner_typedef_alias ty with
-      | Some (ty) -> aux depth ty
-      | None -> assert false
-      end
-    | _ -> depth
-  in
-  aux 0 ty
-
-(* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)
-let rec get_constified_arg_aux (ty : typ) : typ =
-  let annot = ty.typ_annot in
-  let attributes = ty.typ_attributes in
-  match ty.typ_desc with
-  | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty} ->
-    typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (get_constified_arg_aux ty))
-  | Typ_const {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty }; typ_annot = annot; typ_attributes = attributes} ->
-    typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (get_constified_arg_aux ty))
-  | Typ_constr (_, id, _) ->
-    begin match Context.typid_to_typedef id with
-    | Some td ->
-      begin match td.typdef_body with
-      | Typdef_alias ty -> get_constified_arg_aux ty
-      | _ -> typ_const ty
-      end
-    | None -> typ_const ty
-    end
-  | Typ_const _ -> ty
-  | _ -> typ_const ty
-
-(* [get_constified_arg ty]: applies [get_constified_arg_aux] at the typ [ty] or
-    the typ pointer by [ty].
-
-    If [ty] is a reference or a rvalue reference, it returns the constified typ
-    of [ty]. *)
-let get_constified_arg (ty : typ) : typ =
-  let annot = ty.typ_annot in
-  let attributes = ty.typ_attributes in
-  match ty.typ_desc with
-  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
-    begin match ty.typ_desc with
-    (* rvalue reference *)
-    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
-      typ_lref ~annot ~attributes (get_constified_arg_aux ty)
-    (* reference *)
-    | _ -> typ_ref ~annot ~attributes (get_constified_arg_aux ty)
-    end
-  | _ -> get_constified_arg_aux ty
+  ) const_records
 
 (* [constify_args_aux is_args_const t]: transforms the type of arguments of a
     function declaration in such a way that "const" keywords are added wherever
