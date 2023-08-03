@@ -2933,7 +2933,7 @@ let rec trm_is_val_or_var (t : trm) : bool =
 let trm_is_unop_inc_or_dec (t : trm) : bool =
   match t.desc with
   | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _}, _) when
-         (is_prefix_unary op or is_postfix_unary op) -> true
+         (is_prefix_unary op) || (is_postfix_unary op) -> true
   | _ -> false
 
 (* [trm_for_inv t]: gets the loop range from loop [t] *)
