@@ -506,27 +506,19 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
      else if
        is_typ_ptr (get_inner_const_type (get_inner_ptr_type lval_typ)) then
        begin
-         let error = "Apac_basic.const_compute_one: unable to resolve \
-                      pointer" in
-         let (rval_degree, rval_var) =
-           trm_inv ~error trm_resolve_pointer_and_get_with_degree rval in
-         if trm_is_var rval_var then
+         let (alias_idx, rval_var) =
+           match (trm_resolve_pointer_and_check_if_alias rval aliases) with
+           | Some (idx, t) -> (idx, t)
+           | None -> (-1, trm_unit ())
+         in
+         let _ = Printf.printf "alias_idx: %d\n" alias_idx in
+         if alias_idx > -1 then
            begin
              let error = "Apac_basic.const_compute_one: unable to retrieve \
                           qualified name of an rvalue" in
              let rval_qvar = trm_inv ~error trm_var_inv_qvar rval_var in
-             if Hashtbl.mem aliases rval_qvar.qvar_str then
-               begin
-                 let (arg_degree, arg_index) =
-                   Hashtbl.find aliases rval_qvar.qvar_str in
-                 (* [lval] is an alias of [rval] only if both of them are
-                    pointers. *)
-                 if (rval_degree + arg_degree) > 0 then
-                   begin
-                     Hashtbl.add aliases
-                       lval_name (get_cptr_depth lval_typ, arg_index)
-                   end
-               end
+             let _ = Printf.printf "rval_qvar_str: %s\n" rval_qvar.qvar_str in
+             Hashtbl.add aliases lval_name (get_cptr_depth lval_typ, alias_idx)
            end
        end;
      trm_iter (const_compute_one aliases fun_name) fun_body
@@ -572,23 +564,14 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
           (* When an alias changes a target, i.e. when the lvalue variable was
              not dereferenced, we have to add a new entry into [aliases]. This
              happens, for example, on L3 in the aforementioned example. *)
-          let error = "Apac_basic.const_compute_one: unable to resolve \
-                       pointer" in
-          let (_, rval_var) =
-            trm_inv ~error trm_resolve_pointer_and_get_with_degree rval in
-          if trm_is_var rval_var && not lval_deref then
-            begin
-             let error = "Apac_basic.const_compute_one: unable to retrieve \
-                          qualified name of an rvalue" in
-              let rval_qvar = trm_inv ~error trm_var_inv_qvar rval_var in
-              if Hashtbl.mem aliases rval_qvar.qvar_str then
-                begin
-                  let (arg_degree, arg_index) =
-                    Hashtbl.find aliases rval_qvar.qvar_str in
-                  let (lval_degree, _) = List.nth all_aliases 1 in
-                  Hashtbl.add aliases lval_name (lval_degree, arg_index)
-                end
-            end
+          let (alias_idx, rval_var) =
+            match (trm_resolve_pointer_and_check_if_alias rval aliases) with
+            | Some (idx, t) -> (idx, t)
+            | None -> (-1, trm_unit ())
+          in
+          if alias_idx > -1 && not lval_deref then
+            let (lval_degree, _) = List.nth all_aliases 0 in
+            Hashtbl.add aliases lval_name (lval_degree, alias_idx)
        | _ -> ()
      end;
      trm_iter (const_compute_one aliases fun_name) fun_body
