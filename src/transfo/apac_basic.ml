@@ -445,7 +445,7 @@ let const_lookup_candidates : Transfo.t =
       let const : const_fun = {
           const_args = const_args;
           is_ret_ptr = is_typ_ptr ret_ty;
-          is_ret_ref = is_typ_array ret_ty;
+          is_ret_ref = is_typ_array ret_ty || is_typ_ref ret_ty;
         } in
       Hashtbl.add const_records qvar.qvar_str const
     )
