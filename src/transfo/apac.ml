@@ -73,9 +73,7 @@ type fun_const = {
     The key of the hashtable is the function's Unified Symbol Resolution. *)
 type fun_args_const = (fun_loc, fun_const) Hashtbl.t
 
-(* [constifiable]: hashtable storing constification records for all of the
-    functions. *)
-type constifiable = (fun_loc, (bool list * bool)) Hashtbl.t
+
 
 (* [is_cptr_or_ref ty]: checks if [ty] is a reference or a pointer type. *)
 let is_cptr_or_ref (ty : typ) : bool =
@@ -350,12 +348,14 @@ let identify_constifiable_functions (tg : target) : constifiable =
     whenever it is possible. *)
 let constify_functions_arguments (cstfbl : constifiable) : Transfo.t =
   Target.iter ( fun tt p ->
+                let _ = Printf.printf "constify_functions_arguments\n" in 
     let tr = Path.get_trm_at_path p tt in
     let tg = nbAny :: target_of_path p in
     match tr.desc with
-    | Trm_let_fun _ ->
-      begin match (Hashtbl.find_opt cstfbl (Ast_data.get_function_usr_unsome tr)) with
+    | Trm_let_fun (qvar, _, _, _, _) ->
+      begin match (Hashtbl.find_opt cstfbl qvar.qvar_str) with
       | Some (is_args_const, is_method_const) ->
+         let _ = Printf.printf "constify_functions_arguments : Trm_let_fun\n" in 
         Apac_basic.constify_args ~is_args_const ~is_method_const tg;
         Apac_basic.constify_args_alias ~is_args_const tg
       | None -> ()

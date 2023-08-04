@@ -370,8 +370,12 @@ type const_funs = (string, const_fun) Hashtbl.t
    the table will grow automatically if needed. *)
 let const_records : const_funs = Hashtbl.create 10
 
+(* [constifiable]: hashtable storing constification records for all of the
+    functions. *)
+type constifiable = (string, (bool list * bool)) Hashtbl.t
+
 (* FIXME: Only termporary. *)
-let cstfbl = Hashtbl.create 10
+let cstfbl : constifiable = Hashtbl.create 10
 
 (* Create a stack of arguments that must not be constified. *)
 let to_unconst : arg_id Stack.t = Stack.create ()
@@ -462,6 +466,7 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
   (* Function call: update dependencies. *)
   | Trm_apps ({ desc = Trm_var (_ , name); _ }, args) when
          Hashtbl.mem const_records name.qvar_str ->
+     let _ = Printf.printf "Call to %s\n" name.qvar_str in
      let fun_call_const = Hashtbl.find const_records name.qvar_str in
      let fun_args_const = fun_call_const.const_args in
      List.iteri (fun index arg ->
@@ -475,8 +480,10 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
                begin
                  let (_, arg_index) = Hashtbl.find aliases arg_qvar.qvar_str in
                  let arg_const = List.nth fun_args_const index in
+                 let _ = Printf.printf "alias: %s\n" arg_qvar.qvar_str in
                  if arg_const.is_ptr_or_ref then
                    begin
+                     Printf.printf "arg is ptr or ref (%s, %d)\n" fun_name index;
                      arg_const.to_unconst_by_propagation <-
                        (fun_name, arg_index) ::
                          arg_const.to_unconst_by_propagation
@@ -617,12 +624,13 @@ let rec unconst () : unit =
       let { const_args; _ } = Hashtbl.find const_records fun_name in
       let arg = List.nth const_args index in
       if arg.is_const then
-      begin
+        begin
+        Printf.printf "Unconsting (%s, %d)...\n" fun_name index;  
         arg.is_const <- false;
         List.iter (
-          fun element -> Stack.push element to_unconst
-        ) arg.to_unconst_by_propagation
-      end;
+            fun element -> Stack.push element to_unconst
+          ) arg.to_unconst_by_propagation
+        end;
       unconst ()
     | None -> ()
 
@@ -639,6 +647,7 @@ let const_compute_all : Transfo.t =
          liste des alias. *)
       (* Add arguments to the list of aliases. *)
       List.iteri (fun index (name, typ) ->
+        Printf.printf "Arg name for aliases : %s\n" name;
         Hashtbl.add aliases name (get_cptr_depth typ, index)
       ) args;
       (* Actually compute the dependencies of the function definition at [path]
@@ -651,8 +660,9 @@ let unconst_and_const () : unit =
   (* FIXME: To remove once all of the constification functions will be
      recoded. *)
   Hashtbl.iter (fun fun_loc { const_args; _ } ->
-    let is_one_const = List.map (fun { is_const; _ } -> is_const) const_args in
-    Hashtbl.add cstfbl fun_loc (is_one_const, false)
+    let is_one_const = List.map (fun { is_const; _ } -> Printf.printf "Adding to cstfbl: %s, %B\n" fun_loc is_const; is_const) const_args in
+    Hashtbl.add cstfbl fun_loc (is_one_const, false);
+
   ) const_records
 
 (* [constify_args_aux is_args_const t]: transforms the type of arguments of a
@@ -666,10 +676,12 @@ let unconst_and_const () : unit =
 let constify_args_aux (is_args_const : bool list) (is_method_const : bool) (t : trm) : trm =
   match t.desc with
   | Trm_let_fun (qvar, ret_typ, args, body, _) ->
+     let _ = Printf.printf "constify_args_aux\n" in 
     let is_args_const = if is_args_const = []
       then List.init (List.length args) (fun _ -> true)
       else is_args_const in
     let const_args = (List.map2 (fun (v, ty) b ->
+                          let _ = Printf.printf "Is b? %B\n" b in
       if b then (v, (get_constified_arg ty)) else (v, ty)
       ) args is_args_const) in
 
