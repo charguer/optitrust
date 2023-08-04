@@ -2659,6 +2659,12 @@ let is_typ_ptr (ty : typ) : bool =
   | Typ_ptr {ptr_kind = Ptr_kind_mut;_} -> true
   | _ -> false
 
+(* [is_typ_ptr ty]: checks if [ty] is a reference type *)
+let is_typ_ref (ty : typ) : bool =
+  match ty.typ_desc with
+  | Typ_ptr {ptr_kind = Ptr_kind_ref;_} -> true
+  | _ -> false
+
 (* [is_typ_fun ty]: checks if [ty] is a function type *)
 let is_typ_fun (ty : typ) : bool =
   match ty.typ_desc with
