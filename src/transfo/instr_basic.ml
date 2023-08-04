@@ -38,10 +38,15 @@ let%transfo move ?(rev : bool = false) ~dest:(dest : target) (tg : target) : uni
     if dest_p_seq <> p_seq then fail None "Instr_basic.move: the destination target should be unique and belong to the same block as the main targets";
     if !Flags.check_validity then begin
       let instr_t = Path.resolve_path instr_p t in
-      let (first_swapped_i, last_swapped_i) = if i < dest_index then (i+1, dest_index) else (dest_index, i-1) in
+      let (first_swapped_i, last_swapped_i, assert_commute) =
+        if i < dest_index
+        then (i+1, dest_index-1, Resources.assert_commute instr_t)
+        else (dest_index, i-1, fun x -> Resources.assert_commute x instr_t)
+      in
+      (* DEBUG: printf "i: %i, di: %i, fi: %i, li: %i\n" i dest_index first_swapped_i last_swapped_i; *)
       for swapped_instr_i = first_swapped_i to last_swapped_i do
         let swapped_instr_t = Path.resolve_path (p_seq @ [Dir_seq_nth swapped_instr_i]) t in
-        Resources.assert_commute instr_t swapped_instr_t
+        assert_commute swapped_instr_t
       done
     end;
     Instr_core.copy dest_index i true t p_seq
