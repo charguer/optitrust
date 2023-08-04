@@ -67,49 +67,6 @@ let rec trm_strip_accesses_and_references_and_get (t : trm) : trm =
     ({ desc = Trm_val (Val_prim (Prim_binop array_access)); _ }, [t; _]) ->
     trm_strip_accesses_and_references_and_get t
   | _ -> t
-         
-(* [trm_resolve_pointer_and_get_with_degree t] : tries to resolve pointer
-   operation [t] and return the term corresponding to the variable involved in
-   the pointer operation as well as the pointer degree.
-
-   For example, for [**a] it returns (-2, a) where [a] denotes the term
-   corresponding to the variable [a] and -2 means that the pointer was
-   dereferenced 2 times. *)
-let trm_resolve_pointer_and_get_with_degree (t : trm) : (int * trm) option =
-  let degree = ref 0 in
-  let rec aux (t : trm) : trm option =
-    match t.desc with
-    (* Unary operation: strip, update degree and recurse. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
-       begin match op with
-       | Unop_get -> decr degree; aux t
-       | Unop_address -> incr degree; aux t
-       | Unop_cast ty -> degree := !degree + (get_cptr_depth ty); aux t
-       | _ -> None
-       end
-    (* Array access: strip, update degree and recurse. *)
-    | Trm_apps ({
-            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t; _]) -> decr degree; aux t
-    (* Other binary operation: strip, update degree and recurse on both left and
-       right-hand sides. *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
-       begin match (aux lhs, aux rhs) with
-       | Some(res), None -> Some(res)
-       | None, Some(res) -> Some(res)
-       | None, None
-         (* In practice, binary operations between two pointers supported in
-            C/C++ can not lead to a valid alias of one of them. *)
-         | Some(_), Some(_) -> None
-       end
-    (* Target variable: return the pointer degree and the corresponding AST
-       term. *)
-    | _ when trm_is_var t -> Some(t)
-    | _ -> None
-  in
-  match (aux t) with
-  | Some (trm) -> Some(!degree, trm)
-  | _ -> None
 
 let trm_resolve_binop_lval_name_and_get_with_deref (t : trm) :
       (string * bool) option =
@@ -418,6 +375,49 @@ let cstfbl = Hashtbl.create 10
 
 (* Create a stack of arguments that must not be constified. *)
 let to_unconst : arg_id Stack.t = Stack.create ()
+         
+(* [trm_resolve_pointer_and_check_if_alias t] : tries to resolve pointer
+   operation [t] and checks whether the resulting pointer is an argument or an
+   alias to an argument. In the end, it returns the term corresponding to the
+   resulting pointer and if the latter is an argument or an alias to an
+   argument, it returns the associated argument index. *)
+let trm_resolve_pointer_and_check_if_alias
+      (t : trm) (aliases : const_aliases) : (int * trm) option =
+  let rec aux (degree : int) (t : trm) : (int * trm) option =
+    match t.desc with
+    (* Unary operation: strip, update degree and recurse. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
+       begin match op with
+       | Unop_get -> aux (degree - 1) t
+       | Unop_address -> aux (degree + 1) t
+       | Unop_cast ty -> aux (degree + get_cptr_depth ty) t
+       | _ -> None
+       end
+    (* Array access: strip, update degree and recurse. *)
+    | Trm_apps ({
+            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            _ }, [t; _]) -> aux (degree - 1) t
+    (* Other binary operation: strip, update degree and recurse on both left and
+       right-hand sides. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+       begin match (aux degree lhs, aux degree rhs) with
+       | Some (res), None -> Some (res)
+       | None, Some (res) -> Some (res)
+       | None, None
+         (* In practice, binary operations between two pointers supported in
+            C/C++ can not lead to a valid alias of one of them. *)
+         | Some (_), Some (_) -> None
+       end
+    (* Variable: check if its an argument or an alias to an argument, then
+       return the corresponding argument index and AST term. *)
+    | Trm_var (_, qvar) ->
+       begin match Hashtbl.find_opt aliases qvar.qvar_str with
+       | Some (deg, idx) when (degree + deg) > 0 -> Some (idx, t)
+       | _ -> None
+       end
+    | _ -> None
+  in
+  aux 0 t
 
 (* [const_lookup_candidates]: expects the target [tg] to point at a function
    definition. It adds a new entry into 'const_records' based on the information
