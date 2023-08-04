@@ -429,9 +429,12 @@ let const_lookup_candidates : Transfo.t =
                    function definition!" in
       let fun_def = get_trm_at_path path trm in
       let (qvar, ret_ty, args, _) = trm_inv ~error trm_let_fun_inv fun_def in
+      let _ = Printf.printf "Candidate : %s\n" qvar.qvar_str in
       let const_args = List.map (
                            fun (_, ty) -> {
-                               is_ptr_or_ref = is_typ_ptr ty || is_typ_array ty;
+                               is_ptr_or_ref =
+                                 is_typ_ptr ty || is_typ_ref ty ||
+                                   is_typ_array ty;
                                is_const = true;
                                to_unconst_by_propagation = [];
                          }) args in
