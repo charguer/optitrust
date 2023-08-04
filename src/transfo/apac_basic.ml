@@ -600,20 +600,34 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
      a reference or a pointer. *)
   | Trm_abort (Ret (Some ret)) ->
      let fun_const = Hashtbl.find const_records fun_name in
-     if fun_const.is_ret_ptr || fun_const.is_ret_ref then
+     if fun_const.is_ret_ref then
        begin
-         let error = "Apac_basic.const_compute_one: unable to retrieve name of \
-                      return variable" in
-         let ret_var_name = trm_inv ~error trm_var_inv ret in
-         if Hashtbl.mem aliases ret_var_name then
-           begin
-             (* Propagate the unconstification to all previously aliased
-                arguments. *)
-             let all_aliases = Hashtbl.find_all aliases ret_var_name in
-             List.iter (fun (_, arg_index) ->
-                 Stack.push (fun_name, arg_index) to_unconst
-               ) all_aliases;
-           end
+         (* If the return type of the function is a reference, there are two
+            return term types we can possibly deal with: *)
+         match (trm_var_inv ret) with
+         (* 1) a variable term corresponding to the reference, *)
+         | Some ret_var_name ->
+            begin
+              (* Propagate the unconstification to all previously aliased
+                 arguments. *)
+              let all_aliases = Hashtbl.find_all aliases ret_var_name in
+              List.iter (fun (_, arg_index) ->
+                  Stack.push (fun_name, arg_index) to_unconst
+                ) all_aliases
+            end
+         (* 2) a function call with reference return type. In this case, there
+               is nothing to do as the function call cannot be an alias to an
+               argument. *)
+         | _ -> ()
+       end
+     else if fun_const.is_ret_ptr then
+       begin
+         let (alias_idx, ret_var) =
+           match (trm_resolve_pointer_and_check_if_alias ret aliases) with
+           | Some (idx, t) -> (idx, t)
+           | None -> (-1, trm_unit ())
+         in
+         if alias_idx > -1 then Stack.push (fun_name, alias_idx) to_unconst
        end;
      trm_iter (const_compute_one aliases fun_name) fun_body
   | _ -> trm_iter (const_compute_one aliases fun_name) fun_body
