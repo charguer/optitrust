@@ -421,18 +421,6 @@ let update_record_fields_type ?(pattern : string = "")(typ_update : typ -> typ )
       in
     apply_on_record_fields app_fun rfs
 
-(* TODO: move in another file, 'scope.ml'? *)
-(** Lists all the let-bindings inside [tl_new_scope] interfering with the instructions in [tl_after].
-    A let-binding interferes if it appears as a free variable in [tl_after]. *)
-let find_scope_interference tl_new_scope tl_after : var list =
-  let fv_after = trm_free_vars (trm_seq tl_after) in
-  let find_toplevel_bind t =
-    match trm_let_inv t with
-    | Some (_, x, _, _) when Var_set.mem x fv_after -> Some x
-    | _ -> None
-  in
-  List.filter_map find_toplevel_bind (Mlist.to_list tl_new_scope)
-
 (* [change_loop_body loop body]: change the current body of loop [loop] with [body] *)
 let change_loop_body (loop : trm) (body : trm) : trm =
   match loop.desc with

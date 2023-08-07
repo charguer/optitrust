@@ -13,7 +13,7 @@ let trm ?(internal : bool = false) (msg : string) (t : trm) : unit =
     then Ast_to_text.ast_to_string t
     else AstC_to_c.ast_to_string t
     in
-  printf "%s: %s\n" msg t_str
+  eprintf "%s: %s\n" msg t_str
 
 let trms (msg : string) (ts : trms) : unit =
   eprintf "%s: %s\n" msg (Tools.list_to_string (List.map AstC_to_c.ast_to_string ts))

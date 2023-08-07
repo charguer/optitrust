@@ -1,8 +1,10 @@
 open Optitrust
 open Target
 
+let _ = Flags.check_validity := true
+
 let _ = Run.doc_script_cpp (fun _ ->
-  
+
   !! Function_basic.bind_intro ~fresh_name:"a" [cFun "g"];
 
 )
@@ -20,7 +22,7 @@ int main() {
 let _ = Run.script_cpp (fun _ ->
 
   (* Function tests *)
-  let fun_tg = cTopFunDef "test_function" in 
+  let fun_tg = cTopFunDef "test_function" in
   !! Function_basic.bind_intro ~fresh_name:"s" [fun_tg; cFun "h"];
   !! Function_basic.bind_intro ~fresh_name:"b" [fun_tg; sExpr "f(a)"];
   (* same with a mark *)

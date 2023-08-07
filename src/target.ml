@@ -1566,8 +1566,8 @@ let iteri ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) 
 let iter ?(rev : bool = false) (tr : trm -> path -> unit) : target -> unit =
   iteri ~rev (fun occ t p -> tr t p)
 
-let iter_at_target_paths ?(rev : bool = false) (transfo : trm -> unit) (tg : target) : unit =
-  iter ~rev (fun t p -> transfo (Path.get_trm_at_path p t)) tg
+let iter_at_target_paths ?(rev : bool = false) (transfo : trm -> path -> unit) (tg : target) : unit =
+  iter ~rev (fun t p -> transfo (Path.get_trm_at_path p t) p) tg
 
 (* [applyi tr tg]: apply transformation [tr] on the current ast
    to each of the paths targeted by [tg].

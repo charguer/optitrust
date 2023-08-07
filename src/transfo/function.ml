@@ -306,11 +306,6 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
     simpl [cMark subst_mark];
   )
 
-(* [delete]: deletes function definitions targeted by [tg]. *)
-let%transfo delete (tg : target) : unit =
-  (* TODO: check that definitions are deleted + that they were not used *)
-  Instr.delete tg
-
 (* [inline_def]: like [inline], but with [tg] targeting the function definition.
    All function calls are inlined, with [delete = true] as default. *)
 let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)

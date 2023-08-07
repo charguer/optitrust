@@ -1,5 +1,5 @@
 int main() {
-  int *t;
+  int* t;
   int a = 2;
   {
     int a = 0 * 2;
@@ -14,4 +14,14 @@ int main() {
     t[2] = a;
   }
   return 0;
+}
+
+void name_conflict_1() {
+  { int a = 0; }
+  { int a = 1; }
+}
+
+void name_conflict_2() {
+  int a = 0;
+  int a = 1;
 }

@@ -46,10 +46,7 @@ let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm)
   let tl_before, tl_rest = Mlist.split index tl in
   let tl_seq, tl_after = Mlist.split nb tl_rest in
   if !Flags.check_validity then begin
-    match Internal.find_scope_interference tl_seq tl_after with
-    | [] -> Trace.justif "No scope interference between new sequence and outer sequence continuation"
-    | [x] -> failwith (sprintf "variable '%s' is used after the new sequence but will now be out of scope." x)
-    | xs -> failwith (sprintf "variables %s are used after the new sequence but will now be out of scope." (Tools.list_to_string ~sep:"', '" ~bounds:["'";"'"] xs))
+    Scope.assert_no_interference ~after_what:"the new sequence" ~on_interference:"out of scope" tl_seq tl_after
   end;
   let tl_around = Mlist.merge tl_before tl_after in
   let intro_seq = trm_seq tl_seq in

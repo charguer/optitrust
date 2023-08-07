@@ -1,6 +1,8 @@
 open Optitrust
 open Target
 
+let _ = Flags.check_validity := true
+
 let _ = Run.doc_script_cpp (fun _ ->
   !! Matrix_basic.intro_malloc0 "x" [cFor "i"; dBody];
   !! Loop_basic.hoist [cVarDef "x"];
@@ -24,7 +26,7 @@ let _ = Run.script_cpp (fun () ->
   !! Loop_basic.hoist [cVarDef "x"];
   !! Loop_basic.hoist [cVarDef "z"];
   (*
-  !! Ast.assert_transfo_error "expected uninitialized allocation" (fun _ -> 
+  !! Ast.assert_transfo_error "expected uninitialized allocation" (fun _ ->
     Loop_basic.hoist [cVarDef "w"]);
 *)
 

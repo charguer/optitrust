@@ -1,6 +1,7 @@
 open Optitrust
 open Target
 
+let _ = Flags.check_validity := true
 
 let _ = Run.doc_script_cpp (fun _ ->
 
@@ -21,6 +22,10 @@ int main() {
 let _ = Run.script_cpp (fun _ ->
 
   !! Loop_basic.unroll ~braces:true [cFor "i"];
-  (* TODO: test unroll on SIMD loop *)
+  !! Loop_basic.unroll ~braces:true [cFor "j"];
 
+  (* following is OK because we allow shadowing. *)
+  !! Loop_basic.unroll ~braces:false [cFor "k"];
+
+  (* TODO: test unroll on SIMD loop *)
 )

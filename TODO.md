@@ -8,8 +8,6 @@
   Replace all trm_ and typ_ prefixes with Trm. and Typ, after making sure to rename
   reserved names, such as `fun` (rename to `func`) or `let` (rename to `bind`).
 
-- Create a file nobrace.ml.
-
 - Remove file internal.ml.
 
 - Clean up path.ml. A bunch of functions should be migrated from internal.ml and target.ml
@@ -328,6 +326,8 @@
 
 # Case study
 
+- (AC) Fix pic_demo and remove `Loop.hoist_old`
+
 - (TK) Add a case study in the style of BLAS code
 
 - Add a case study for optimizing a Hashtbl implementation,
@@ -341,3 +341,12 @@
 - Augment the trace view with floating-point divergence figures for every small-step.
 
 - Create a mechanism for scripting the generation of interactive demos, for the webiste.
+
+# Pending Issues to Track
+
+To learn more, just grep for the tag in the source code:
+```sh
+grep -r '[tag]' .
+```
+
+- #advanced-scoping-check

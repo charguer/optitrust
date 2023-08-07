@@ -70,3 +70,12 @@ void g(int x, int y, U t[2]){
 
   return 0;
 }
+
+void name_conflict() {
+  int nc1[2];
+  int nc2[2];
+  nc1[0] = 1;
+  nc1[1] = 2;
+  nc2[0] = 3;
+  nc2[1] = 4;
+}

@@ -55,7 +55,8 @@ let%transfo rename ~into:(new_name : var) (tg : target) : unit =
    It then splits the instruction into a variable declaration and a set operation. *)
 let%transfo init_detach (tg : target) : unit =
   Trace.justif_always_correct ();
-  Nobrace_transfo.remove_after ( fun _ ->
+  (* TODO: #advanced-scoping-check ? can also trust nothing can go wrong here. *)
+  Nobrace_transfo.remove_after ~check_scoping:false ( fun _ ->
     Target.apply_on_targets (Variable_core.init_detach) tg
   )
 
@@ -124,7 +125,8 @@ let%transfo local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : ta
    [ops] - the delocalize operation, it can be an arithmetic delocalization or an object delocalization
     of the array declared inside the block. *)
 let%transfo delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : local_ops) (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun _ ->
+  (* FIXME: #advanced-scoping-check *)
+  Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
     Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
 
 
@@ -169,7 +171,8 @@ let%transfo subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm)
       (* LATER: it seems that a mark is introduced and not eliminated *)
 let%transfo bind ?(const : bool = false) ?(mark_let : mark option) ?(mark_occ : mark option) ?(mark_body : mark = "") ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : var) (tg : target) : unit =
   Trace.justif "correct if modified expression has no writes (TODO: check)";
-  Nobrace_transfo.remove_after ~remove:remove_nobrace ( fun _ ->
+  (* FIXME: #advanced-scoping-check, current check does not work if targeted subexpression is inside a let. *)
+  Nobrace_transfo.remove_after ~check_scoping:false ~remove:remove_nobrace ( fun _ ->
     Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
@@ -199,6 +202,7 @@ let%transfo to_nonconst (tg : target) : unit =
     if [indepth] is set to true or at the give target if [indepth] is false.*)
 let%transfo simpl_deref ?(indepth : bool = false) (tg : target) : unit =
   Trace.tag "simpl";
+  Trace.justif_always_correct ();
   Target.apply_on_targets (Variable_core.simpl_deref indepth) tg
 
 (* [exchange var1 var2 tg]: expects the target [tg] to point at an instruction that contains both the

@@ -10,13 +10,10 @@ let%transfo delete (tg : target) : unit =
   let tr () =
     Sequence_basic.delete tg in
   if !Flags.check_validity then begin
-    Trace.justif "The function is unused.";
-    Target.iter_at_target_paths (fun t ->
-      let error =  "Function.delete expects to target a function definition" in
-      let (_qvar, _, _, _) = trm_inv ~error trm_let_fun_inv t in
-      (* let f = qvar_to_var qvar in *)
-      (* TODO: check *)
-      ()
+    Target.iter_at_target_paths (fun t p ->
+      let error =  "Function.delete expects to target a function definition within a sequence" in
+      let (_, _, _, _) = trm_inv ~error trm_let_fun_inv t in
+      Scope.assert_unused p
     ) tg;
     tr();
     (* Trace.retypecheck(); (* TODO: report error in unit test *) *)
@@ -27,7 +24,7 @@ let%transfo delete (tg : target) : unit =
 (* [bind_intro ~fresh_name ~const ~my_mark tg]: expects the target [t] to point at a function call.
      Then it will generate a new variable declaration named as [fresh_name] with type being the same
      as the one of the function call, and initialized to the function call itself.
-     If [const] is true the the binded variable will be declraed as an immutable variable otherwise immutable.
+     If [const] is true the the bound variable will be declared as an immutable variable otherwise immutable.
      Then it will fold the newly declared variable.
 
      @correctness: correct if the new order of evaluation of expressions is
@@ -93,7 +90,8 @@ let%transfo bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool 
 
 let%transfo inline ?(body_mark : mark option) ?(subst_mark : mark option) (tg : target) : unit =
   Trace.justif "Function inlining is always correct (exploiting the fact that arguments are duplicable expressions).";
-  Nobrace_transfo.remove_after (fun _ ->
+  (* TODO: #advanced-scoping-check ? can also trust nothing can go wrong here. *)
+  Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
     Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
     apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
      (fun  t (p, p_local, i) ->

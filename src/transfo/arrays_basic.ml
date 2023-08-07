@@ -6,7 +6,8 @@ open Target
     [new_vars] - denotes the list of variables that is going to replace the initial declaration
       the length of this list is equal to [size -1] where [size] is the size of the array.*)
 let%transfo to_variables (new_vars : vars) (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun _ ->
+  (* FIXME: #advanced-scoping-check. Requires more advanced scope checks, e.g. marking variables def-use chains, or keeping tack of a set of variables that are bound in outer scope. *)
+  Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Arrays_core.to_variables new_vars i t p
   ) tg)
@@ -18,7 +19,8 @@ let%transfo to_variables (new_vars : vars) (tg : target) : unit =
    [block_type] - denotes the name of the array which is going to represent a tile.
    [block_size] - size of the block of tiles. *)
 let%transfo tile ?(block_type : typvar = "") (block_size : var) (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun _ ->
+  (* FIXME: #advanced-scoping-check *)
+  Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Arrays_core.tile block_type block_size i t p) tg)
 
@@ -68,7 +70,8 @@ let aos_to_soa (tv : typvar) (sz : var) : unit =
     each of the cells of the targeted array.
 *)
 let%transfo set_explicit (tg : target) : unit =
-  Nobrace_transfo.remove_after (fun _ ->
+  (* TODO: #advanced-scoping-check ? can also trust nothing can go wrong here *)
+  Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
     apply_on_targets (Arrays_core.set_explicit) tg)
 
 let inline_constant_on (array_var : var) (array_vals : trm list) (mark_accesses : mark option) (t : trm) : trm =
@@ -115,7 +118,8 @@ let elim_on (decl_index : int) (t : trm) : trm =
   let new_instrs = Mlist.update_nth decl_index remove_decl instrs in
 
   let nobrace_id = Nobrace.exit () in
-  Nobrace_transfo.clean_seq nobrace_id (
+  (* FIXME: #advanced-scoping-check, could detect if deleted variables was used. *)
+  Nobrace_transfo.clean_seq ~check_scoping:false nobrace_id (
     trm_seq ~annot:t.annot ?loc:t.loc new_instrs)
 
 (* [elim] expects the target [tg] to point at a constant array literal declaration, and eliminates it if it is not accessed anymore.
