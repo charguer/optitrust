@@ -476,7 +476,6 @@ let trm_get_labels (t : trm) =
  let trm_is_nobrace_seq (t : trm) : bool =
    List.exists (function No_braces _ -> true | _ -> false) t.annot.trm_annot_cstyle
 
-
 (* [trm_vardef_get_trm_varse]: gets the singleton declaration variable in the case when [t] is a variable declaration
     or a list of variable in the case when we have multiple variable declarations in one line *)
 let rec trm_vardef_get_vars (t : trm) : var list =
@@ -1376,11 +1375,6 @@ let for_loop_body_trms (t : trm) : trm mlist =
 
 (*****************************************************************************)
 
-
-(* [trm_seq_no_brace tl]: genereates a no_brace sequence with a fresh id *)
-let trm_seq_no_brace (tl : trms) : trm=
-trm_add_cstyle (No_braces (Nobrace.current())) (trm_seq (Mlist.of_list tl))
-
 (* [trm_main_inv_toplevel_defs ast]: returns a list of all toplevel declarations *)
 let trm_main_inv_toplevel_defs (ast : trm) : trm list =
 match ast.desc with
@@ -1394,19 +1388,6 @@ match t.desc with
  let new_tl = Mlist.insert_at (Mlist.length tl) t_insert tl in
  trm_seq ~annot:t.annot new_tl
 | _ -> fail t.loc "Ast.trm_seq_add_last: expected a sequence"
-
-(* [get_nobrace_id t]: gets the id of the sequence annotated as No_braces *)
-let get_nobrace_id (t : trm) : int option =
-let rec aux l = match l with
-| [] -> None
-| hd :: tl ->
-begin match hd with
-| No_braces i -> Some i
-| _ -> aux tl
-end in
-aux t.annot.trm_annot_cstyle
-
-
 
 (* [get_lit_from_trm_lit t]: gets the literal value from a trm_lit *)
 let get_lit_from_trm_lit (t : trm) : lit =

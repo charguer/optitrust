@@ -173,7 +173,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
         let ty = get_inner_const_type ty in
         begin match ty.typ_desc with
         | Typ_constr (y, _, _) when (is_qvar_var y struct_name) ->
-          let lfront, (_,trm_to_change) , lback = Internal.get_item_and_its_relatives field_index term_list in
+          let lfront, (_,trm_to_change) , lback = Mlist.get_item_and_its_relatives field_index term_list in
           begin match trm_to_change.desc with
           | Trm_record sl ->
             let new_term_list = Mlist.merge_list [lfront; sl; lback] in

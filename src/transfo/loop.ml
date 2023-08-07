@@ -519,7 +519,7 @@ let%transfo fusion_targets ?(into : target option) ?(nest_of : int = 1) ?(adapt_
     In case of nested loops the user can specify the index of the upmost loop before which
     the instructions is going to be moved to.*)
 let%transfo move_out ?(upto : string = "") (tg : target) : unit =
-  Internal.nobrace_remove_after( fun _ ->
+  Nobrace_transfo.remove_after( fun _ ->
   iter_on_targets (fun t exp ->
     let (_, p) = Path.index_in_surrounding_loop exp in
     match upto with

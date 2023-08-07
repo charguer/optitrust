@@ -77,8 +77,8 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
         let name = match t.desc with | Trm_let (vk, (x, _), _, _) -> x| _ -> ""  in
         let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
         let marked_body = begin match body_mark with
-        | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body
-        | _ -> Internal.set_nobrace_if_sequence processed_body
+        | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Nobrace.set_if_sequence processed_body
+        | _ -> Nobrace.set_if_sequence processed_body
         end  in
         let marked_body = if trm_has_cstyle Method_call fun_call
           then

@@ -3,6 +3,7 @@ include Trm
 include Typ
 include Mark
 
+let trm_seq_no_brace = Nobrace.trm_seq
 
 (* [AstParser]: module for integrating pieces of code given as input by the user. *)
 module AstParser = struct

@@ -6,7 +6,7 @@ include Record_core.Rename
 (* [set_explicit tg]: expects the target [tg] to point at a set instruction where one struct
     instance has been assigned another struct instance. *)
 let set_explicit (tg : target) : unit =
-  Internal.nobrace_remove_after ( fun _ ->
+  Nobrace_transfo.remove_after ( fun _ ->
   apply_on_targets(Record_core.set_explicit) tg)
 
 (*  [set_implicit tg]: expects the target [tg] to point at a sequence containing

@@ -185,7 +185,7 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
   ) tg;
   let vk = if const then Var_immutable else Var_mutable in
   let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array vk (x, typ_double ()) (Const nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([tBefore] @ (target_of_path !path_to_surrounding_seq) @ [dSeqNth !minimal_index]))
   )
 

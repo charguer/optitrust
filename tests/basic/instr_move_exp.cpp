@@ -9,4 +9,6 @@ int main() {
   z = x;
   int t = 2;
   t = x;
+  const int v = 0;
+  y = v;
 }

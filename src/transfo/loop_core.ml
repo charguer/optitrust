@@ -238,8 +238,8 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
           end in
         let body_i = Subst.subst_var index new_index body in
         let body_i = if braces
-                      then Internal.remove_nobrace_if_sequence body_i
-                      else Internal.set_nobrace_if_sequence body_i in
+                      then Nobrace.remove_if_sequence body_i
+                      else Nobrace.set_if_sequence body_i in
         body_i :: acc ) [] (List.rev unrolled_loop_range) in
       begin match my_mark with
       | "" -> trm_seq_no_brace unrolled_body
@@ -256,7 +256,7 @@ let unroll (braces : bool)(my_mark : mark) : Transfo.local =
     [t] - ast of the for loop. *)
 let move_out_aux (mark : mark option) (trm_index : int) (t : trm) : trm =
   let tl = try for_loop_body_trms t with | TransfoError _ -> fail t.loc "Loop_core.move_out_aux: expected a for loop" in
-  let lfront, trm_inv, lback = Internal.get_item_and_its_relatives trm_index tl in
+  let lfront, trm_inv, lback = Mlist.get_item_and_its_relatives trm_index tl in
   let new_tl = Mlist.merge lfront lback in
   let loop =
   match t.desc with
@@ -280,8 +280,8 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
   let if_stmt = Mlist.nth tl trm_index in
   let error = "Loop_core.unswitch_aux: expected an if statement."  in
   let (cond, then_, else_) = trm_inv ~error trm_if_inv if_stmt in
-  let then_ = Internal.set_nobrace_if_sequence then_ in
-  let else_ = Internal.set_nobrace_if_sequence else_ in
+  let then_ = Nobrace.set_if_sequence then_ in
+  let else_ = Nobrace.set_if_sequence else_ in
   let wrap_branch (t1 : trm) : trm  = Internal.change_loop_body t (trm_seq (Mlist.replace_at trm_index t1 tl )) in
   trm_if cond (wrap_branch then_) (wrap_branch else_)
 

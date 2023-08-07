@@ -501,7 +501,7 @@ and compute_body (loc : location) (body_acc : trms)
       | Break ->
         begin match List.rev body_acc with
           | [t] -> (t, sl)
-          | tl -> trm_add_cstyle (No_braces (Nobrace.current ())) (trm_seq_nomarks ?loc ~ctx:(get_ctx ()) tl), sl
+          | tl -> Nobrace.trm_add_style (trm_seq_nomarks ?loc ~ctx:(get_ctx ()) tl), sl
         end
       | _ ->
         let t = tr_stmt s in

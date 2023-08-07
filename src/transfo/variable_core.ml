@@ -207,7 +207,7 @@ exception Init_attach_occurrence_below_control
 let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
   let error = "Variable_core.init_attach_axu: expected the surrounding sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
-    let lfront, trm_to_change, lback  = Internal.get_item_and_its_relatives index tl in
+    let lfront, trm_to_change, lback  = Mlist.get_item_and_its_relatives index tl in
     let error = "Variable_core.init_attach_aux: expected a variable declaration." in
     let (_, x, tx, _) = trm_inv ~error trm_let_inv trm_to_change in
     let tg = [nbAny;cSeq (); cStrict;cWriteVar x] in
@@ -503,7 +503,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
 
-    let lfront, dl, lback = Internal.get_item_and_its_relatives index tl in
+    let lfront, dl, lback = Mlist.get_item_and_its_relatives index tl in
     begin match dl.desc with
     | Trm_let (vk, (x, tx), init, _) ->
       let update_seq (new_dl : trm) (new_lback : trm mlist) (new_lfront : trm mlist) : trm =

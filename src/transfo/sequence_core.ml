@@ -173,8 +173,8 @@ let shuffle_aux (braces : bool) (t : trm) : trm =
             let temp_el = Mlist.nth tl2 i in
             let temp_el =
             if braces
-              then Internal.remove_nobrace_if_sequence temp_el
-              else Internal.set_nobrace_if_sequence temp_el in
+              then Nobrace.remove_if_sequence temp_el
+              else Nobrace.set_if_sequence temp_el in
           temp_el :: acc
           | _ -> fail t1.loc "Sequence_core.shuffle_aux: all the elements of the blocks should be sequences"
           end

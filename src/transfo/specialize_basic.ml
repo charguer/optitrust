@@ -26,7 +26,7 @@ let choose (choice : string) (tg : target) : unit =
 
 (* [fundefs spec_name spec_args tg] *)
 let fundefs (spec_name : string) (spec_args : (trm option) list) (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     apply_on_targets (Specialize_core.fun_defs spec_name spec_args) tg)
 
 (* [funcalls spec_name args_to_choose tg]: expects the target [ŧg] to point to a function call, and assumes that

@@ -1149,35 +1149,6 @@ let tile_bound_to_string = function
 
 (*****************************************************************************)
 
-(* [Nobrace]: module for managing nobrace sequences(hidden sequences), these sequence are visible only at the AST level *)
-module Nobrace = struct
-
-  let ids = ref []
-
-  let current_id = ref 0
-
-  let init () =
-    ids := !current_id :: !ids
-
-  let enter () =
-    current_id := !current_id + 1;
-    ids := !current_id :: !ids
-
-  let current () =
-    match !ids with
-    | [] ->  failwith "current:empty list"
-    | id :: _rest -> id
-
-  let exit () =
-    match !ids with
-    | [] -> failwith "exit: empty list"
-    | id :: rest ->
-        ids := rest;
-        id
-end
-
-(*****************************************************************************)
-
 (* TODO: move *)
 (* [rename]: variable renaming based on the suffix or by using a predefined list of pairs, where each pair gives the
     current variable and the one that is going to replace it *)

@@ -55,7 +55,7 @@ let%transfo rename ~into:(new_name : var) (tg : target) : unit =
    It then splits the instruction into a variable declaration and a set operation. *)
 let%transfo init_detach (tg : target) : unit =
   Trace.justif_always_correct ();
-  Internal.nobrace_remove_after ( fun _ ->
+  Nobrace_transfo.remove_after ( fun _ ->
     Target.apply_on_targets (Variable_core.init_detach) tg
   )
 
@@ -85,7 +85,7 @@ let%transfo init_attach ?(const : bool = false) (tg : target) : unit =
                                                 a = x;
                                               }@nobrace *)
 let%transfo local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : target) : unit =
-  Internal.nobrace_enter();
+  Nobrace.enter();
   Target.apply_on_targets (Variable_core.local_name mark var nv) tg
 
 
@@ -124,7 +124,7 @@ let%transfo local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : ta
    [ops] - the delocalize operation, it can be an arithmetic delocalization or an object delocalization
     of the array declared inside the block. *)
 let%transfo delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : local_ops) (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
 
 
@@ -169,7 +169,7 @@ let%transfo subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm)
       (* LATER: it seems that a mark is introduced and not eliminated *)
 let%transfo bind ?(const : bool = false) ?(mark_let : mark option) ?(mark_occ : mark option) ?(mark_body : mark = "") ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : var) (tg : target) : unit =
   Trace.justif "correct if modified expression has no writes (TODO: check)";
-  Internal.nobrace_remove_after ~remove:remove_nobrace ( fun _ ->
+  Nobrace_transfo.remove_after ~remove:remove_nobrace ( fun _ ->
     Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in

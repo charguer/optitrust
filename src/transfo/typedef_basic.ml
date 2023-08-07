@@ -23,7 +23,7 @@ let unfold ?(delete : bool = false) ?(at : target = []) (tg : target) : unit =
 (* [insert_copy name tg]: expects the target [tg] to point at a typedef, then copies the content
       of the body of typedef at gives to it the name [name]. *)
 let insert_copy (name : string) (tg : Target.target) : unit =
-  Internal.nobrace_remove_after( fun _ -> Target.apply_on_targets (Typedef_core.insert_copy name) tg)
+  Nobrace_transfo.remove_after( fun _ -> Target.apply_on_targets (Typedef_core.insert_copy name) tg)
 
 (* [insert name td_body]: expects target [tg] to point at a relative location inside a sequence
     then it will insert a typedef declaration on that location.

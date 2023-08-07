@@ -444,7 +444,7 @@ let heapify_nested_seq : Transfo.t =
     let decl_cptrs = Hashtbl.create 10 in
     let tg_trm = Path.get_trm_at_path p t in
     match tg_trm.desc with
-    | Trm_seq tl -> Internal.nobrace_remove_after (fun _ ->
+    | Trm_seq tl -> Nobrace_transfo.remove_after (fun _ ->
       transfo_on_targets (trm_map (aux decl_cptrs true)) (target_of_path p));
       transfo_on_targets (add_end_delete_task decl_cptrs) (target_of_path p)
     | _ -> fail None "Apac.heapify_nested_seq: Expects target to point at a sequence"

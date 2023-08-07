@@ -177,3 +177,15 @@ let update_at_index_and_fix_beyond ?(delete : bool = false) (index : int) (f_upd
   let element = if delete then empty else update_nth 0 f_update_at element in
   let lback = map f_update_further lback in
   merge_list [lfront; element; lback]
+
+(* [get_item_and_its_relatives index trms]: for an  item [t] with index [index] in the mlist its belongs to,
+    returns the list of items before [t], [t] itself and the list of items that come after [t]. *)
+let get_item_and_its_relatives (index : int) (items : 'a t) : ('a t * 'a * 'a t) =
+  let lfront, lback = split index items in
+  let element, lback = split 1 lback in
+  let element =
+    if length element = 1
+      then nth element 0
+      else failwith "Mlist.get_item_and_its_relatives: expected a list with a single element"
+  in
+  (lfront, element, lback)

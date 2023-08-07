@@ -124,7 +124,7 @@ let use_goto_for_return_on (mark : mark) (t : trm) : trm =
     [mark] - mark to put on the sequence the function's body is wrapped into,
     [tg] - target function definition AST term. *)
 let use_goto_for_return ?(mark : mark = "") (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     Target.apply_at_target_paths (use_goto_for_return_on mark) tg
   )
 
@@ -486,7 +486,7 @@ let unfold_let_mult_aux (t : trm) : trm =
     DOES NOT WORK : causes different variable encoding between Trm_let,
     Trm_let_mult and function's arguments. *)
 let unfold_let_mult (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     Target.apply_at_target_paths (unfold_let_mult_aux) tg)
 
 (* [mark_taskable_function]: adds mark [mark] where tasks will be created in a

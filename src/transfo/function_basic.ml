@@ -3,6 +3,7 @@ open Target
 
 (* [delete tg]: delete the targeted function definition.
    Correct if the function is never used.
+
    Currently checked by verifying that the targets correspond to
    function definitions, and by retychecking the code *)
 let%transfo delete (tg : target) : unit =
@@ -12,11 +13,13 @@ let%transfo delete (tg : target) : unit =
     Trace.justif "The function is unused.";
     Target.iter_at_target_paths (fun t ->
       let error =  "Function.delete expects to target a function definition" in
-      let _ = trm_inv ~error trm_let_fun_inv t in
+      let (_qvar, _, _, _) = trm_inv ~error trm_let_fun_inv t in
+      (* let f = qvar_to_var qvar in *)
+      (* TODO: check *)
       ()
     ) tg;
     tr();
-    Trace.retypecheck(); (* TODO: report error in unit test *)
+    (* Trace.retypecheck(); (* TODO: report error in unit test *) *)
   end else
     tr ()
 
@@ -30,7 +33,7 @@ let%transfo delete (tg : target) : unit =
      @correctness: correct if the new order of evaluation of expressions is
       not changed or does not matter. *)
 let%transfo bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : target) : unit =
-  Internal.nobrace_remove_after ( fun _ ->
+  Nobrace_transfo.remove_after ( fun _ ->
     applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ t (p, p_local, i)  ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
@@ -90,7 +93,7 @@ let%transfo bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool 
 
 let%transfo inline ?(body_mark : mark option) ?(subst_mark : mark option) (tg : target) : unit =
   Trace.justif "Function inlining is always correct (exploiting the fact that arguments are duplicable expressions).";
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
     apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
      (fun  t (p, p_local, i) ->
@@ -135,7 +138,7 @@ let%transfo replace_with_change_args (new_fun_name : string) (arg_mapper : trms 
     [arg] - is the name of the argument that's going to be inserted,
     [func] - the name of the new function that's going to be inserted. *)
 let%transfo dsp_def ?(arg : var = "res") ?(func : var = "dsp") (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Function_core.dsp_def i arg func t p) tg)
 

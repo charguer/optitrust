@@ -66,7 +66,7 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(a
         | None -> fail None "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
         end in (var_type, alloc_trms)
     in
-  Internal.nobrace_remove_after ~remove (fun _ ->
+  Nobrace_transfo.remove_after ~remove (fun _ ->
     Target.(apply_on_targets (fun t p ->
       let seq_p, _ = Internal.isolate_last_dir_in_seq p in
       let seq_tg = target_of_path seq_p in
@@ -76,7 +76,7 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(a
         begin match get_trm_at tg1 with
         | Some t1 ->
           let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
-          if not remove then Internal.nobrace_enter();
+          if not remove then Nobrace.enter();
           Matrix_core.local_name my_mark v into alloc_trms var_type indices local_ops t p
         | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
         end
@@ -85,7 +85,7 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(a
         | Some t1 ->
           let tg1 = (seq_tg @ [var_target]) in
           let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
-          if not remove then Internal.nobrace_enter();
+          if not remove then Nobrace.enter();
           Matrix_core.local_name my_mark v into alloc_trms var_type indices local_ops t p
 
         | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
@@ -118,7 +118,7 @@ let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option)
         | None -> fail None "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
         end in (var_type, alloc_trms)
     in
-  Internal.nobrace_remove_after ~remove (fun _ ->
+  Nobrace_transfo.remove_after ~remove (fun _ ->
     Target.(apply_on_targets (fun t p ->
       let seq_p, _ = Internal.isolate_last_dir_in_seq p in
       let seq_tg = target_of_path seq_p in
@@ -128,7 +128,7 @@ let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option)
         begin match get_trm_at tg1 with
         | Some t1 ->
           let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
-          if not remove then Internal.nobrace_enter();
+          if not remove then Nobrace.enter();
           Matrix_core.local_name_tile mark mark_accesses v tile into alloc_trms var_type indices local_ops t p
         | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
         end
@@ -137,7 +137,7 @@ let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option)
         | Some t1 ->
           let tg1 = (seq_tg @ [var_target]) in
           let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
-          if not remove then Internal.nobrace_enter();
+          if not remove then Nobrace.enter();
           Matrix_core.local_name_tile mark mark_accesses v tile into alloc_trms var_type indices local_ops t p
 
         | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
@@ -356,7 +356,7 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
   ]
 
 let%transfo stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (tg : target) : unit =
-  Internal.nobrace_remove_after (fun () ->
+  Nobrace_transfo.remove_after (fun () ->
     Target.apply_at_target_paths (stack_copy_on var copy_var copy_dims) tg)
 
 let elim_mindex_on (t : trm) : trm =
@@ -475,7 +475,7 @@ let delete_on (var : var) (t : trm) : trm =
   Checks that [var] is not used anywhere.
    *)
 let%transfo delete ~(var : var) (tg : target) : unit =
-  Internal.nobrace_remove_after (fun () ->
+  Nobrace_transfo.remove_after (fun () ->
     Target.apply_at_target_paths (delete_on var) tg)
 
 (* [read_last_write]: expects the target [tg] to pint at a matrix read operation, and replaces it with the value that was last written to this matrix index. The [write] target must correspond to this last write.

@@ -50,7 +50,7 @@ let%transfo tile ?(index : var = "b${id}")
     for each index of the for loop. *)
 (* LATER/ deprecated *)
 let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     apply_on_transformed_targets (Path.index_in_surrounding_loop)
      (fun t (i, p) -> Loop_core.hoist_old name i array_size t p) tg)
 
@@ -155,7 +155,7 @@ let%transfo hoist ?(name : var = "${var}_step")
           ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))
          (tg : target) : unit =
   Trace.justif_always_correct ();
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     Target.apply (fun t p_instr ->
       let (i, p) = Path.index_in_surrounding_loop p_instr in
       Path.apply_on_path (hoist_on name mark arith_f i) t p
@@ -183,7 +183,7 @@ let fission_on (index : int) (t : trm) : trm =
    first loop after index i. Writes in new second loop need to never overwrite
    writes in first loop after index i. *)
 let%transfo fission (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     Target.apply (fun t p_before ->
       let (p_seq, split_i) = Path.last_dir_before_inv_success p_before in
       let p_loop = Path.parent_with_dir p_seq Dir_body in
@@ -214,7 +214,7 @@ let fission_all_instrs_on (t : trm) : trm =
    one per instruction in the loop body.
    *)
 let%transfo fission_all_instrs (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     Target.apply_at_target_paths fission_all_instrs_on tg)
 
 (* TODO: valid in C but not C++? *)
@@ -343,7 +343,7 @@ let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target
     Assumption: Both a and C should be declared as constant variables. *)
 let%transfo unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit =
   Trace.justif "correct if scoping is respected (TODO: check)";
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     apply_on_targets (Loop_core.unroll braces my_mark) tg)
 
 (* [move_out tg]: expects the target [tg] to point at an instruction inside the loop
@@ -355,7 +355,7 @@ let%transfo unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : targe
     LATER: Implement a combi transformation that will check if the targeted instruction
     is dependent on any local variable or the loop index. *)
 let%transfo move_out ?(mark : mark option) (tg : target) : unit =
-  Internal.nobrace_remove_after ( fun _ ->
+  Nobrace_transfo.remove_after ( fun _ ->
   apply_on_transformed_targets (Path.index_in_surrounding_loop)
     (fun t (i, p) -> Loop_core.move_out mark i t p ) tg)
 
@@ -365,7 +365,7 @@ let%transfo move_out ?(mark : mark option) (tg : target) : unit =
 
    @correctness: requires that the loop is parallelizable *)
 let%transfo unswitch (tg : target) : unit =
-  Internal.nobrace_remove_after ( fun _ ->
+  Nobrace_transfo.remove_after ( fun _ ->
   apply_on_transformed_targets(Path.index_in_surrounding_loop)
     (fun t (i, p) -> Loop_core.unswitch i t p) tg)
 
@@ -400,7 +400,7 @@ let%transfo fold ~index:(index : var) ~start:(start : int) ~step:(step : int) (t
 (* [split_range nb cut tg]: expects the target [tg] to point at a simple loop
     then based on the arguments nb or cut it will split the loop into two loops. *)
 let%transfo split_range ?(nb : int = 0) ?(cut : trm = trm_unit()) (tg : target) : unit =
-  Internal.nobrace_remove_after( fun _ ->
+  Nobrace_transfo.remove_after( fun _ ->
     apply_on_targets (Loop_core.split_range nb cut) tg )
 
 type shift_kind =

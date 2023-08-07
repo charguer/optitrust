@@ -99,7 +99,7 @@ let%transfo intro_before ?(mark : mark = "") ? (label : label = "") (tg : target
      Here, the user can specify explicitly the targets to the first and the last instructions that
      are going to be isolated into a sequence. *)
 let%transfo intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : target) (tg_end : target) : unit =
-  Internal.nobrace_remove_after ( fun  _ ->
+  Nobrace_transfo.remove_after ( fun  _ ->
   Trace.apply (fun t ->
     let ps_beg : (path * int) list = resolve_target_between tg_beg t in
     let ps_end : (path * int) list = resolve_target_between tg_end t in
@@ -117,8 +117,9 @@ let%transfo intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : 
     e.g., points at [{t2;t3}] inside [{ t1; { t2; t3 }; t4 }]. It "elims" the contents of the inner sequence,
     producing e.g., [{ t1; t2; t3; t3}]. *)
 let%transfo elim (tg : target) : unit =
-  Trace.justif "correct if scoping is not broken (TODO: check)";
-  Internal.nobrace_remove_after ( fun _ ->
+  (* checked by nobrace_remove_after:
+    Trace.justif "correct if scoping is not broken"; *)
+  Nobrace_transfo.remove_after ( fun _ ->
   Target.apply_on_targets (Sequence_core.elim) tg)
 
 (* [intro_on_instr ~mark ~visible tg]: expecets the target [tg] to point at an instruction,
@@ -130,13 +131,13 @@ let%transfo elim (tg : target) : unit =
 let%transfo intro_on_instr ?(mark : mark = "")
                    ?(label : label = "")
                    ?(visible : bool = true) (tg : target) : unit =
-   if not visible then Internal.nobrace_enter();
+   if not visible then Nobrace.enter();
    Target.apply_on_targets (Sequence_core.intro_on_instr visible mark label) tg
 
 (* [elim_on_instr tg]: expects the target [tg] to point at a sequence that contains a single instruction,
     then it removes that sequence. *)
 let%transfo elim_on_instr (tg : target) : unit =
-   Internal.nobrace_remove_after ( fun _ ->
+   Nobrace_transfo.remove_after ( fun _ ->
     Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, _) -> Sequence_core.elim t p) tg
    )
@@ -144,7 +145,7 @@ let%transfo elim_on_instr (tg : target) : unit =
 (* [split tg]: expects the target [tg] to point in between two instructions, then it will split the sequence
      that contains that location into two sequences. *)
 let%transfo split (tg : target) : unit =
-  Internal.nobrace_remove_after (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     Target.apply_on_targets_between (fun t (p, i) ->
       let is_fun_body = Internal.is_decl_body p in
       Sequence_core.split i is_fun_body t p) tg)
@@ -157,7 +158,7 @@ let%transfo split (tg : target) : unit =
           other transformations that call explicitly the partition transformation. *)
 let%transfo partition ?(braces : bool = false) (blocks : int list) (tg : target) : unit =
   Trace.justif "correct if scoping is respected (TODO: check)";
-  if not braces then Internal.nobrace_enter();
+  if not braces then Nobrace.enter();
   Target.apply_on_targets (Sequence_core.partition blocks braces) tg
 
 (* [shuffle ~braces tg]: expects the target [tg] to point at a sequence of blocks, this transformation will transpose the block structure
