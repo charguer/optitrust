@@ -292,13 +292,14 @@ let step_set_validity (s : step_tree) : unit =
       let asts2: trm list = (List.map (fun sub -> sub.step_ast_before) subs) @
         [s.step_ast_after]
       in
-      (*printf "%s\n" (infos.step_name);
-      printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts1);
-      printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts2);*)
       if List.for_all2 (==) asts1 asts2 then begin
         infos.step_tags <- "valid_by_composition" :: infos.step_tags;
         infos.step_valid <- true
-      end
+      end (* else begin
+        printf "%s\n" (infos.step_name);
+        printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts1);
+        printf "%s\n" (Trace_printers.list_arg_printer pointer_to_string asts2);
+      end *)
     end
   end
 

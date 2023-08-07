@@ -47,7 +47,8 @@ let%transfo move ?(rev : bool = false) ~dest:(dest : target) (tg : target) : uni
       for swapped_instr_i = first_swapped_i to last_swapped_i do
         let swapped_instr_t = Path.resolve_path (p_seq @ [Dir_seq_nth swapped_instr_i]) t in
         assert_commute swapped_instr_t
-      done
+      done;
+      Trace.justif "resources commute"
     end;
     Instr_core.copy dest_index i true t p_seq
   ) tg

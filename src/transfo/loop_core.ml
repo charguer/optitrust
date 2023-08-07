@@ -60,7 +60,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
      if !Flags.check_validity then begin
        if ratio = None
          then fail t.loc "Could not syntactically check that loop bound is divisible by tile size";
-       Trace.justif "Exact tiling is correct: could syntactically check the divisibility.";
+       Trace.justif "loop range is syntactically dividable by tile size";
      end;
      let tile_count =
        match ratio with

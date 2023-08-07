@@ -22,6 +22,12 @@ let recompute_all_resources () : unit =
 let required_for_check () : unit =
   if !Flags.check_validity then recompute_all_resources ()
 
+let justif_correct (why : string) : unit =
+  if !Flags.check_validity then begin
+    recompute_all_resources ();
+    Trace.justif (sprintf "resources are correct: %s" why)
+  end
+
 let trm_for_inv_contract t =
   match t.desc with
   | Trm_for (range, body, contract) -> Some (range, body, contract)

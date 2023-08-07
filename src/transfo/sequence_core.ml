@@ -46,7 +46,8 @@ let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm)
   let tl_before, tl_rest = Mlist.split index tl in
   let tl_seq, tl_after = Mlist.split nb tl_rest in
   if !Flags.check_validity then begin
-    Scope.assert_no_interference ~after_what:"the new sequence" ~on_interference:"out of scope" tl_seq tl_after
+    Scope.assert_no_interference ~after_what:"the new sequence" ~on_interference:"out of scope" tl_seq tl_after;
+    Trace.justif "local variables are not used after the new sequence"
   end;
   let tl_around = Mlist.merge tl_before tl_after in
   let intro_seq = trm_seq tl_seq in

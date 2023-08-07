@@ -117,10 +117,10 @@ let%transfo intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : 
     e.g., points at [{t2;t3}] inside [{ t1; { t2; t3 }; t4 }]. It "elims" the contents of the inner sequence,
     producing e.g., [{ t1; t2; t3; t3}]. *)
 let%transfo elim (tg : target) : unit =
-  (* checked by nobrace_remove_after:
-    Trace.justif "correct if scoping is not broken"; *)
   Nobrace_transfo.remove_after ( fun _ ->
-  Target.apply_on_targets (Sequence_core.elim) tg)
+  Target.apply_on_targets (Sequence_core.elim) tg);
+  (* checked by Nobrace_transfo.remove_after:  *)
+  Trace.justif "local variables are not used after eliminated sequence"
 
 (* [intro_on_instr ~mark ~visible tg]: expecets the target [tg] to point at an instruction,
     then it will wrap a sequence around that instruction.

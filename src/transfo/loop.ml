@@ -51,7 +51,7 @@ let%transfo hoist_alloc_loop_list
   (loops : int list)
   (tg : target) : unit
   =
-  Trace.justif "Always correct: per-iteration storage is allocated outside the loop.";
+  Trace.justif "always correct: per-iteration storage is allocated outside the loop";
   (*Trace.tag_valid_by_composition ();*)
   let tmp_marks = ref [] in
   let alloc_mark = Mark.next () in

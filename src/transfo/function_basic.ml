@@ -13,7 +13,7 @@ let%transfo delete (tg : target) : unit =
     Target.iter_at_target_paths (fun t p ->
       let error =  "Function.delete expects to target a function definition within a sequence" in
       let (_, _, _, _) = trm_inv ~error trm_let_fun_inv t in
-      Scope.assert_unused p
+      Scope.justif_unused p
     ) tg;
     tr();
     (* Trace.retypecheck(); (* TODO: report error in unit test *) *)
@@ -89,7 +89,7 @@ let%transfo bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool 
    local invariants in the body. *)
 
 let%transfo inline ?(body_mark : mark option) ?(subst_mark : mark option) (tg : target) : unit =
-  Trace.justif "Function inlining is always correct (exploiting the fact that arguments are duplicable expressions).";
+  Resources.justif_correct "arguments are pure/reproducible";
   (* TODO: #advanced-scoping-check ? can also trust nothing can go wrong here. *)
   Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
     Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->

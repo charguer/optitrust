@@ -11,8 +11,6 @@ let inline_seq_at ~(check_scoping : bool) (index : int) (ml : trm mlist) : trm m
   match st.desc with
   | Trm_seq tl ->
     if (check_scoping && !Flags.check_validity) then begin
-      (* NOTE: assumes that nobrace elimination is called by a tranformation that introduces nobraces. *)
-      (* FIXME: will mark the transformation as valid even if this criteria is not sufficient. *)
       Scope.assert_no_interference ~after_what:"the inlined sequence" ~on_interference:"shadowed" tl lback
     end;
     Mlist.merge (Mlist.merge lfront tl) lback
