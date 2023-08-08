@@ -672,9 +672,16 @@ let const_compute_all : Transfo.t =
       let (qvar, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv
                                          (get_trm_at_path path trm) in
       let aliases : const_aliases = Hashtbl.create 10 in
-      (* TODO : Trouver comment obtenir la classe à laquelle appartient la
-         fonction, si tel est le cas, et ajouter les membres de la classe à la
-         liste des alias. *)
+      let class_siblings = match (find_parent_typedef_record path) with
+        | Some (td) -> typedef_get_members td
+        | None -> [] in
+      if List.length class_siblings > 0 then
+        begin
+          List.iter (fun (name, typ) ->
+              Printf.printf "Class sibling for aliases : %s\n" name;
+              Hashtbl.add aliases name (get_cptr_depth typ, 0)
+            ) class_siblings
+        end;
       (* Add arguments to the list of aliases. *)
       List.iteri (fun index (name, typ) ->
         Printf.printf "Arg name for aliases : %s\n" name;
