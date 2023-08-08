@@ -7,5 +7,6 @@ errors.tests
 *_trace*.txt
 *_trace*.html
 *_inter.ml
+*_inlined.cpp
 tools/_last_view_result.sh
 .idea

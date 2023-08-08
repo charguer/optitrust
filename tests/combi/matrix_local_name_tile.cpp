@@ -18,7 +18,7 @@ int main() {
       }
     }
   }
-  free(a);
+  MFREE3(N1, N2, N3, a);
 
   T* b = (T*) MALLOC3 (N1, N2, N3, sizeof(T));
   for (int i = 0; i < 10; i++) {
@@ -28,7 +28,7 @@ int main() {
       }
     }
   }
-  free(b);
+  MFREE3(N1, N2, N3, b);
 
   T* c = (T*) MALLOC3 (N1, N2, N3, sizeof(T));
   for (int i = 0; i < 10; i++) {
@@ -43,7 +43,7 @@ int main() {
       }
     }
   }
-  free(c);
+  MFREE3(N1, N2, N3, c);
 
   int z = 0;
   return 0;

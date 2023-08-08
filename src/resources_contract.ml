@@ -60,8 +60,9 @@ let formula_read_only_inv (t: formula): read_only_formula option =
 let formula_cell (x: var): formula =
   formula_model (trm_var x) (trm_var "Cell")
 
-let formula_matrix2 (x: var) (dim1: trm) (dim2: trm): formula =
-  formula_model (trm_var x) (trm_apps (trm_var "Matrix2") [dim1; dim2])
+let formula_matrix (x: var) (dims: trms) : formula =
+  let matrixN = trm_var (sprintf "Matrix%d" (List.length dims)) in
+  formula_model (trm_var x) (trm_apps matrixN dims)
 
 type contract_clause = contract_clause_type * contract_resource
 

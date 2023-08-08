@@ -265,7 +265,7 @@ let intro_malloc0_on (x : var) (t : trm) : trm = begin
         instr2
       end
     ) instrs2 in
-    let instrs4 = Mlist.insert_at (!last_use + 1) (Matrix_core.free (trm_var_get x)) instrs3 in
+    let instrs4 = Mlist.insert_at (!last_use + 1) (Matrix_core.free [] (trm_var_get x)) instrs3 in
     trm_seq ~annot:t.annot instrs4
   | None -> fail t.loc "Matrix_basic.intro_malloc0_on: expected unintialized stack allocation"
 end
@@ -385,14 +385,15 @@ let%transfo elim_mindex (tg : target) : unit =
   Target.apply_at_target_paths elim_mindex_on tg
 
 let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
+  let new_dims = ref [] in
   let rec update_accesses_and_alloc (t : trm) : trm =
     match Matrix_core.access_inv t with
     | Some (f, dims, indices) ->
       begin match trm_var_get_inv f with
       | Some v when v = var -> begin
-        let new_dims = Xlist.update_nth dim (fun _ -> n) dims in
+        new_dims := Xlist.update_nth dim (fun _ -> n) dims;
         let new_indices = Xlist.update_nth dim (fun i -> trm_mod i n) indices in
-        Matrix_core.access ~annot:t.annot f new_dims new_indices
+        Matrix_core.access ~annot:t.annot f !new_dims new_indices
         end
       | _ -> trm_map update_accesses_and_alloc t
       end
@@ -410,16 +411,15 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
         | Some n when n = var ->
           fail t.loc "Matrix_basic.storage_folding_on: variable access is not covered"
         | _ ->
-          let is_free_var = begin match Matrix_core.free_inv t with
+          begin match Matrix_core.free_inv t with
           | Some freed ->
             begin match trm_var_get_inv freed with
-            | Some n -> n = var
-            | None -> false
+            | Some n when n = var ->
+              Matrix_core.free !new_dims freed
+            | _ -> trm_map update_accesses_and_alloc t
             end
-          | None -> false
-          end in
-          if is_free_var then t
-          else trm_map update_accesses_and_alloc t
+          | None -> trm_map update_accesses_and_alloc t
+          end
         end
       end
   in

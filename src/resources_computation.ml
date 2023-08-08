@@ -22,9 +22,6 @@ let builtin_env = resource_set ~fun_contracts:(var_map_of_list [
       post = resource_set ~linear:[(new_anon_hyp (), formula_cell var_result)] () });
   "__get", (["p"],
     push_read_only_fun_contract_res (None, formula_cell "p") empty_fun_contract);
-  "__cast", (["p"],
-  { pre = resource_set ~linear:[(new_anon_hyp (), formula_cell "p")] ();
-    post = resource_set ~linear:[(new_anon_hyp (), formula_cell var_result)] (); });
   "__set", (["p"; "x"], set_fun_contract);
   "__add", (["x1"; "x2"], empty_fun_contract);
   "__sub", (["x1"; "x2"], empty_fun_contract);
@@ -33,14 +30,7 @@ let builtin_env = resource_set ~fun_contracts:(var_map_of_list [
   "__add_inplace", (["p"; "x"], set_fun_contract);
   "__sub_inplace", (["p"; "x"], set_fun_contract);
   "__mul_inplace", (["p"; "x"], set_fun_contract);
-  "MALLOC2", (["m"; "n"; "s"],
-    { pre = empty_resource_set;
-      post = resource_set ~linear:[(new_anon_hyp (), formula_matrix2 var_result (trm_var "m") (trm_var "n"))] () }
-  );
-  (* TODO: free / MFREE2 "free", (["p"], *)
-  "MINDEX2", (["m"; "n"; "i"; "j"], empty_fun_contract);
-  "MINDEX3", (["sz1"; "sz2"; "sz3"; "i"; "j"; "k"], empty_fun_contract);
-  "MINDEX4", (["sz1"; "sz2"; "sz3"; "sz4"; "i"; "j"; "k"; "l"], empty_fun_contract)]) ()
+  ]) ()
 
 (* A formula that may instantiate contract variables with
    hypotheses from the calling context.

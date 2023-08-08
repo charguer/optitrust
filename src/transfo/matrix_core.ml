@@ -77,24 +77,16 @@ let alloc_with_ty ?(annot : trm_annot = trm_annot_default) (dims : trms) (ty : t
     trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size]))
 
 let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
-(* TODO: avoid cascade of matches? *)
-  match trm_new_inv t with
-  | Some (_, t2) ->
-    begin match trm_cast_inv t2 with
-    | Some (ty, t3) ->
-      begin match trm_apps_inv t3 with
-      | Some (f, args) ->
-        begin match trm_var_inv f with
-        | Some f_name when (Tools.pattern_matches "MALLOC" f_name) ->
-          let dims, size = Xlist.unlast args in
-          Some (dims, Option.get (typ_ptr_inv ty), size)
-        | _ -> None
-        end
-      | None -> None
-      end
-    | None -> None
-    end
-  | None -> None
+  Option.bind (trm_new_inv t) (fun (_, t2) ->
+  Option.bind (trm_cast_inv t2) (fun (ty, t3) ->
+  Option.bind (trm_apps_inv t3) (fun (f, args) ->
+  Option.bind (trm_var_inv f) (fun f_name ->
+    if Tools.pattern_matches "MALLOC" f_name
+    then begin
+      let dims, size = Xlist.unlast args in
+      Some (dims, Option.get (typ_ptr_inv ty), size)
+    end else None
+  ))))
 
 (* |alloc_aligned ~init dims size alignment] create a call to function MALLOC_ALIGNED$(N) where [N] is the
      number of dimensions and [size] is the size in bytes occupied by a single matrix element in
@@ -137,9 +129,19 @@ let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) 
 
   | _ -> None
 
-(* TODO: free(m); vs MFREE(m) ? *)
-let free (t : trm) : trm = trm_free t
-let free_inv (t : trm) : trm option = trm_free_inv t
+let free (dims : trms) (t : trm) : trm =
+  let n = List.length dims in
+  trm_apps (trm_var ("MFREE" ^  (string_of_int n))) (dims @ [t])
+
+let free_inv (t : trm) : trm option =
+  Option.bind (trm_apps_inv t) (fun (f, args) ->
+  Option.bind (trm_var_inv f) (fun f_name ->
+    if Tools.pattern_matches "MFREE" f_name
+    then begin
+      let _dims, t = Xlist.unlast args in
+      Some t
+    end else None
+  ))
 
 (* [replace_all_accesses]: replace all accesses to [prev_v] in [t] with accesses to [v], using new [dims] and changing indices with [map_indices].*)
 let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices : (trm -> trm) list) (mark : mark option) (t : trm) : trm =
@@ -307,7 +309,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
       let snd_instr = trm_fors nested_loop_range write_on_local_var in
       let new_t = Subst.subst_var var (trm_var local_var) t in
       let thrd_instr = trm_fors nested_loop_range write_on_var in
-      let last_instr = free (trm_var_get local_var) in
+      let last_instr = free dims (trm_var_get local_var) in
       let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
       begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
     | Local_obj (init, swap, free_fn) ->
@@ -321,7 +323,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
       let new_t = Subst.subst_var var (trm_var local_var) t in
       let thrd_instr = trm_fors nested_loop_range write_on_var in
       let frth_instr = trm_fors nested_loop_range free_local_var in
-      let last_instr = free (trm_var_get local_var) in
+      let last_instr = free dims (trm_var_get local_var) in
       let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
       begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
     end
@@ -354,7 +356,7 @@ let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var 
         trm_set (access (trm_var_get var) dims indices) (trm_get (access (trm_var_get local_var) tile_dims tile_indices)) in
       let load_for = trm_fors nested_loop_range write_on_local_var in
       let unload_for = trm_fors nested_loop_range write_on_var in
-      let free_instr = free (trm_var_get local_var) in
+      let free_instr = free tile_dims (trm_var_get local_var) in
       trm_seq_no_brace [alloc_instr; load_for; new_t; unload_for; free_instr]
     | Local_obj (init, swap, free_fn) ->
       let write_on_local_var =
@@ -366,7 +368,7 @@ let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var 
       let snd_instr = trm_fors nested_loop_range write_on_local_var in
       let thrd_instr = trm_fors nested_loop_range write_on_var in
       let frth_instr = trm_fors nested_loop_range free_local_var in
-      let last_instr = free (trm_var_get local_var) in
+      let last_instr = free tile_dims (trm_var_get local_var) in
       trm_seq_no_brace [alloc_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr]
   end in
   trm_may_add_mark mark final_trm

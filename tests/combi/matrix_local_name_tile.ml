@@ -14,7 +14,7 @@ int main (){
   for (int i = 3; i < 7; i++) {
     a[MINDEX1(10, i)];
   }
-  free(a);
+  MFREE1(10, a);
 }
 "
 

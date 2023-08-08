@@ -1,8 +1,7 @@
 #include "../../include/optitrust.h"
 #include "matmul.h"
-
-// NOTE: using pretty matrix notation
 #include "omp.h"
+// NOTE: using pretty matrix notation
 
 void mm1024(float* C, float* A, float* B) {
   float* pB = (float*)malloc(sizeof(float[32][256][4][32]));
@@ -58,8 +57,8 @@ void mm1024(float* C, float* A, float* B) {
           C[1024 * (32 * bi + i) + 32 * bj + j] = sum[32 * i + j];
         }
       }
-      free(sum);
+      MFREE2(32, 32, sum);
     }
   }
-  free(pB);
+  MFREE4(32, 256, 4, 32, pB);
 }

@@ -17,7 +17,7 @@ int main() {
     }
   }
 
-  free(a);
-  free(b);
+  MFREE1(N, a);
+  MFREE1(N - 2, b);
   return 0;
 }

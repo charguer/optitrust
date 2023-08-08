@@ -96,7 +96,7 @@ int main() {
       bag_free(&bagNexts[MINDEX2(nbCells, N0, idCell, bagKind)]);
     }
   }
-  free(bagNexts);
+  MFREE1(nbCells, bagNexts);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_swap(&bagNext[MINDEX1(nbCells, idCell)],
              &bagCur[MINDEX1(nbCells, idCell)]);
@@ -118,7 +118,7 @@ int main() {
       bag_free(&bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
     }
   }
-  free(bagNexts1);
+  MFREE1(nbCells, bagNexts1);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_swap(&bagNext1[MINDEX1(nbCells, idCell)],
              &bagCur[MINDEX1(nbCells, idCell)]);

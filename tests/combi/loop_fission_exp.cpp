@@ -45,12 +45,23 @@ int main() {
         }
       }
     }
+    for (int i = 1; i < n; i++) {
+      for (int j = 0; j < m; j++) {
+        int e = j;
+      }
+    }
   }
   for (int i = 1; i < n; i++) {
-    for (int j = 1; j < n; j++) {
-      for (int k = 1; k < n; k++) {
+    for (int j = 1; j < m; j++) {
+      for (int k = 1; k < o; k++) {
         int y = i;
         int b = i;
+      }
+    }
+  }
+  for (int i = 1; i < n; i++) {
+    for (int j = 1; j < m; j++) {
+      for (int k = 1; k < o; k++) {
         int c = i;
       }
     }

@@ -62,7 +62,7 @@ void vboxadd(int* out, int* a, int* b, int h, int w) {
       out[MINDEX2(h, w - 2, y, x)] = ab[MINDEX2(1, 3, 0, 0)] +
                                      ab[MINDEX2(1, 3, 0, 1)] +
                                      ab[MINDEX2(1, 3, 0, 2)];
-      free(ab);
+      MFREE2(1, 1 + 2, ab);
     }
   }
 }
@@ -88,6 +88,6 @@ void hboxadd(int* out, int* a, int* b, int h, int w) {
         }
       }
     }
-    free(ab);
+    MFREE2(32 + 2, w, ab);
   }
 }

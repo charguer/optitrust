@@ -119,7 +119,7 @@ let hoist_on (name : string)
   then *) begin
     let free_index_opt = ref None in
     Mlist.iteri (fun i instr ->
-      match trm_free_inv instr with
+      match Matrix_core.free_inv instr with
       | Some freed ->
         begin match trm_get_inv freed with
         | Some x ->
@@ -146,7 +146,7 @@ let hoist_on (name : string)
       trm_let_mut (!new_name, (typ_ptr Ptr_kind_mut !ty))
         (Matrix_core.alloc_with_ty !new_dims !ty));
     trm_for ~annot:t.annot range new_body;
-    trm_free (trm_var_get !new_name);
+    Matrix_core.free !new_dims (trm_var_get !new_name);
   ]
 
 (* TODO: document *)

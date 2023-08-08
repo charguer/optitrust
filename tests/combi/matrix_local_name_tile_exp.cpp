@@ -15,7 +15,7 @@ int main() {
       }
     }
   }
-  free(a);
+  MFREE3(10, 8, 4, a);
   for (int i = 0; i < 10; i++) {
     T* y = (T*)MALLOC3(10, 8, 4, sizeof(T));
     for (int j = 2; j < 10; j++) {
@@ -23,7 +23,7 @@ int main() {
         y[MINDEX3(10, 8, 4, i, j - 2, k)] = 1;
       }
     }
-    free(y);
+    MFREE3(10, 8, 4, y);
   }
   for (int i = 0; i < 10; i++) {
     T* z = (T*)MALLOC3(1, 8, 4, sizeof(T));
@@ -32,7 +32,7 @@ int main() {
         z[MINDEX3(1, 8, 4, 0, j - 2, k)] = 1;
       }
     }
-    free(z);
+    MFREE3(1, 8, 4, z);
   }
   int z = 0;
   return 0;

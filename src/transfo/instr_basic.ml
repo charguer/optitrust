@@ -43,7 +43,6 @@ let%transfo move ?(rev : bool = false) ~dest:(dest : target) (tg : target) : uni
         then (i+1, dest_index-1, Resources.assert_commute instr_t)
         else (dest_index, i-1, fun x -> Resources.assert_commute x instr_t)
       in
-      (* DEBUG: printf "i: %i, di: %i, fi: %i, li: %i\n" i dest_index first_swapped_i last_swapped_i; *)
       for swapped_instr_i = first_swapped_i to last_swapped_i do
         let swapped_instr_t = Path.resolve_path (p_seq @ [Dir_seq_nth swapped_instr_i]) t in
         assert_commute swapped_instr_t

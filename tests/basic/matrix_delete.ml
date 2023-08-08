@@ -12,7 +12,7 @@ let _ = Run.doc_script_cpp (fun _ ->
 
 int main() {
   int* a = (int*) MALLOC1(10, sizeof(int));
-  free(a);
+  MFREE1(10, a);
   return 0;
 }
 "

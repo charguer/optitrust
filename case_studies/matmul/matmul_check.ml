@@ -16,7 +16,8 @@ let _ = Flags.pretty_matrix_notation := true
 
 let int = trm_int
 
-let _ = Run.script_cpp (fun () ->
+(* FIXME: avoid inlining *)
+let _ = Run.script_cpp ~inline:["../../include/optitrust.h"] (fun () ->
   (* show_res (); *)
 
   !! Function.inline_def [cFunDef "mm"];

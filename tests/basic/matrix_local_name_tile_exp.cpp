@@ -34,8 +34,8 @@ int main() {
       }
     }
   }
-  free(x);
-  free(a);
+  MFREE3(10, 8, 4, x);
+  MFREE3(N1, N2, N3, a);
   b = (T*)CALLOC3(N1, N2, N3, sizeof(T));
   for (int i = 0; i < 10; i++) {
     T* y = (T*)CALLOC3(10, 8, 4, sizeof(T));
@@ -60,9 +60,9 @@ int main() {
         }
       }
     }
-    free(y);
+    MFREE3(10, 8, 4, y);
   }
-  free(b);
+  MFREE3(N1, N2, N3, b);
   int z = 0;
   return 0;
 }

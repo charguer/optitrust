@@ -2,11 +2,10 @@
 apac_constify_functions_arguments.ml
 array_elim_constant.ml
 record_align_field.ml
-loop_hoist.ml
-loop_fission.ml
 loop_unroll.ml
 loop_unfold_bound.ml
 matrix_reorder_dims.ml
+matrix_delocalize.ml
 record_align_field.ml
 apac_heapify_nested_seq.ml
 

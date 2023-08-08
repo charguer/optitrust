@@ -15,8 +15,8 @@ int main() {
     z[MINDEX0()] = x[MINDEX0()];
     int w = 0;
   }
-  free(z_step);
-  free(x_step);
+  MFREE1(10, z_step);
+  MFREE1(10, x_step);
   int* yl = (int*)MALLOC3(5, 4, 8 / 2, sizeof(int));
   for (int l = 0; l < 5; l++) {
     int* ym = &yl[MINDEX3(5, 4, 8 / 2, l, 0, 0)];
@@ -29,5 +29,5 @@ int main() {
       }
     }
   }
-  free(yl);
+  MFREE3(5, 4, 8 / 2, yl);
 }

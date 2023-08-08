@@ -64,6 +64,7 @@ let%transfo hoist_alloc_loop_list
       Matrix_basic.intro_malloc0 x (target_of_path seq_path);
     end
   in
+  let added_dims = ref 0 in
   let rec mark_and_hoist prev_name name_template (i : int) (p : path) =
     let more_hoists = i + 1 <= (List.length loops) in
     let maybe_mark = if more_hoists then None else Some alloc_mark in
@@ -75,7 +76,7 @@ let%transfo hoist_alloc_loop_list
       Loop_basic.move_out ?mark:maybe_mark (target_of_path p);
       let (outer_i, outer_path) = Path.index_in_seq (Path.to_outer_loop p) in
       let new_loop_path = outer_path @ [Dir_seq_nth (outer_i + 1)] in
-      Instr.move ~dest:([tAfter] @ (target_of_path new_loop_path)) [cFun ~args:[[cVar prev_name]] "free"];
+      Instr.move ~dest:([tAfter] @ (target_of_path new_loop_path)) [cFun ~args:((List.init !added_dims (fun _ -> [])) @ [[cVar prev_name]]) (sprintf "MFREE%d" !added_dims)];
       prev_name
     end
     | 1 -> begin
@@ -92,6 +93,7 @@ let%transfo hoist_alloc_loop_list
       end
     | _ -> fail None "expected list of 0 and 1s"
     in
+    added_dims := !added_dims + varies_in_current_loop;
     let (_, loop_path) = Path.index_in_surrounding_loop p in
     let next_target = (target_of_path loop_path) @ [cVarDef next_name] in
     if more_hoists then

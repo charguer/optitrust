@@ -44,23 +44,22 @@ let process_cmdline_args (args : Flags.cmdline_args) : unit =
   as the cpp file, we should generalize this in the support. *)
 
 (* [debug_inline_cpp]: only for debugging purposes *)
-let debug_inline_cpp = false
+let debug_inline_cpp = true
 
-let generate_source_with_inlined_header_cpp (input_file:string) (inline:string list) (output_file:string) : unit =
-  let s = ref (Xfile.get_contents input_file) in
+let generate_source_with_inlined_header_cpp (basepath : string) (input_file : string) (inline : string list) (output_file : string) : unit =
+  let s = ref (Xfile.get_contents (Filename.concat basepath input_file)) in
   let perform_inline finline =
-      let finline_nodir = Filename.basename finline in
-      let include_instr = "#include \"" ^ finline_nodir ^ "\"" in
+      let include_instr = "#include \"" ^ finline ^ "\"" in
       if debug_inline_cpp then Printf.printf "Inlined %s\n" include_instr;
-      let contents = Xfile.get_contents finline in
+      let contents = Xfile.get_contents (Filename.concat basepath finline) in
       s := Tools.string_subst_first include_instr contents !s;
       s := Tools.string_subst include_instr "" !s
     in
   let process_item finline =
-    let basename = Filename.basename finline in
+    (* let basename = Filename.basename finline in *)
     let extension = Filename.extension finline in
     if extension = ".hc" then begin
-      let corename = Filename.chop_extension basename in
+      let corename = Filename.chop_extension finline in
       let fheader = corename ^ ".h" in
       let fimplem = corename ^ ".c" in
       let include_instr = "#include \"" ^ fheader ^ "\"" in
@@ -70,7 +69,7 @@ let generate_source_with_inlined_header_cpp (input_file:string) (inline:string l
       perform_inline fimplem;
       perform_inline fheader;
     end else if extension = ".h-" then begin
-      let corename = Filename.chop_extension basename in
+      let corename = Filename.chop_extension finline in
       let fheader = corename ^ ".h" in
       let include_instr = "#include \"" ^ fheader ^ "\"" in
       s := Tools.string_subst include_instr "" !s;
@@ -79,7 +78,7 @@ let generate_source_with_inlined_header_cpp (input_file:string) (inline:string l
     end
   in
   List.iter process_item inline;
-  Xfile.put_contents output_file !s
+  Xfile.put_contents (Filename.concat basepath output_file) !s
 
 (* [get_program_basename ()]: returns the basename of the current binary program being used.
     It takes care to remove the leading './' and takes care to remove the "with_lines" suffix. *)
@@ -252,8 +251,7 @@ let script_cpp ?(filename : string option) ?(prepro : string list = []) ?(inline
         in
         let basename = Filename.chop_extension filename in
         let inlinefilename = basename ^ "_inlined.cpp" in
-        let reldir_inline = List.map (fun p -> Filename.concat basepath p) inline in
-        generate_source_with_inlined_header_cpp (Filename.concat basepath filename) reldir_inline (Filename.concat basepath inlinefilename);
+        generate_source_with_inlined_header_cpp basepath filename inline inlinefilename;
         if debug_inline_cpp then Printf.printf "Generated %s\n" inlinefilename;
         Some inlinefilename
     in

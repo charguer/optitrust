@@ -70,7 +70,7 @@ int main() {
   for (int i1 = 0; i1 < nbCells; i1++) {
     bag_free(&bagNexts[MINDEX1(nbCells, i1)]);
   }
-  free(bagNexts);
+  MFREE1(nbCells, bagNexts);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_swap(&bagNext[MINDEX1(nbCells, idCell)],
              &bagCur[MINDEX1(nbCells, idCell)]);
