@@ -667,10 +667,10 @@ let find_parent_typedef_record (p : path) : trm option =
 let const_compute_all : Transfo.t =
   Stack.clear to_unconst;
   Target.iter (fun trm path ->
-      let error = "Apac_basic.const_compute_dependencies_and_fill_to_unconst: \
-                   expected target to a function definition." in
-      let (qvar, ret_ty, args, body) =
-        trm_inv ~error trm_let_fun_inv (get_trm_at_path path trm) in
+      let error = "Apac_basic.const_compute_all: expected target to a function \
+                   definition." in
+      let (qvar, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv
+                                         (get_trm_at_path path trm) in
       let aliases : const_aliases = Hashtbl.create 10 in
       (* TODO : Trouver comment obtenir la classe à laquelle appartient la
          fonction, si tel est le cas, et ajouter les membres de la classe à la
