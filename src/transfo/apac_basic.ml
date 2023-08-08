@@ -648,6 +648,22 @@ let rec unconst () : unit =
       unconst ()
     | None -> ()
 
+let find_parent_typedef_record (p : path) : trm option =
+  let reversed = List.tl (List.rev p) in
+  let rec aux (p : path) : trm option =
+    match p with
+    | e :: f -> 
+       begin
+         let tg = target_of_path (List.rev p) in
+         let t = get_trm_at_exn tg in
+         match t.desc with
+         | Trm_typedef { typdef_body = Typdef_record _; _ } -> Some (t)
+         | _ -> aux f
+       end
+    | [] -> None
+  in
+  aux reversed
+
 let const_compute_all : Transfo.t =
   Stack.clear to_unconst;
   Target.iter (fun trm path ->
