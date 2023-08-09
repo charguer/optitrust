@@ -433,7 +433,8 @@ let const_lookup_candidates : Transfo.t =
                    function definition!" in
       let fun_def = get_trm_at_path path trm in
       let (qvar, ret_ty, args, _) = trm_inv ~error trm_let_fun_inv fun_def in
-      let _ = Printf.printf "Candidate : %s\n" qvar.qvar_str in
+      let pth = if List.length qvar.qvar_path > 0 then List.nth qvar.qvar_path 0 else "N/A" in 
+      let _ = Printf.printf "Candidate : %s at path : %s\n" qvar.qvar_str pth in
       let const_args = List.map (
                            fun (_, ty) -> {
                                is_ptr_or_ref =
