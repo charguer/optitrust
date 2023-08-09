@@ -4,7 +4,7 @@ open Resources_contract
 
 let set_fun_contract_on (contract: fun_contract) (t: trm): trm =
   let name, ret_typ, args, body = trm_inv ~error:"Resources.set_fun_contract_on: Expected function" trm_let_fun_inv t in
-  trm_like ~old:t (trm_let_fun (qvar_to_var name) ret_typ args ~contract body)
+  trm_like ~old:t (trm_let_fun ~qvar:name name.qvar_var ret_typ args ~contract body)
 
 let set_fun_contract (contract: fun_contract) (tg : Target.target) : unit =
   Target.apply_at_target_paths (set_fun_contract_on contract) tg

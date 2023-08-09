@@ -158,9 +158,9 @@ let trm_map_vars (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> var -
   | Trm_let_fun (fn, res, args, body, contract) ->
     let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) -> let ctx, arg' = map_binder ctx arg in (ctx, (arg', typ))) ctx args in
     let _, body' = f_map body_ctx body in
-    let cont_ctx, fn' = map_binder ctx (qvar_to_var fn) in
+    let cont_ctx, fn' = map_binder ctx fn.qvar_var in
     let t' = ret (body' == body)
-      (trm_let_fun ~annot ?loc ?contract fn' res args' body')
+      (trm_let_fun ~annot ?loc ?contract ~qvar:fn fn' res args' body')
     in
     (* TODO: Proper function type here *)
     (cont_ctx, t')

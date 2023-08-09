@@ -643,7 +643,7 @@ let rec contract_intro (t: trm): trm =
     in
     if body == body0
       then t
-      else trm_like ~old:t (trm_let_fun (qvar_to_var qv) ty args body)
+      else trm_like ~old:t (trm_let_fun ~qvar:qv qv.qvar_var ty args body)
 
   | Trm_for (range, body0, contract) ->
     let body = contract_intro body0 in
