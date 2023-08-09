@@ -111,13 +111,14 @@ let annot_has_cstyle (cs : cstyle_annot) (t_ann : trm_annot) : bool =
 let trm_val ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (v : value) : trm =
   trm_make ~annot ?loc ?typ ?ctx (Trm_val v)
 
-(* [trm_var ?annot ?loc ?typ ?ctx ?kind x]: variable occurrence *)
-(* FIXME: Weird arguments -> inefficient (cf. [typ_constr]) *)
+(** [trm_var]: create a variable occurence. *)
 let trm_var ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
-  ?(kind : varkind = Var_mutable) ?(qpath : var list = []) ?(qvar : qvar = empty_qvar) (x : var) : trm =
-  let qx = qvar_build x ~qpath in
-  let qx = if qvar = empty_qvar then qx else qvar in
-  trm_make ~annot ?loc ?typ ?ctx (Trm_var (kind, qx))
+?(kind : varkind = Var_mutable) (v : var) : trm =
+  trm_make ~annot ?loc ?typ ?ctx (Trm_var (kind, v))
+
+(** [new_var]: create a new variable, using a fresh identifier. *)
+let new_var ?(qualifier : string list = []) (name : string) : var =
+  let id = next_var_int () in { qualifier; name; id }
 
 (* [trm_array ~annot ?loc ?typ ?ctx tl]: array initialization list *)
 let trm_array ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
@@ -140,12 +141,9 @@ let trm_let_mult ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (kind :
   trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_let_mult (kind, tvl, tl))
 
 (* [trm_let ~annot ?loc ?ctx name ret_typ args body]: function definition *)
-let trm_let_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(qpath : var list = [])
-  ?(qvar : qvar = empty_qvar) ?(contract: fun_spec)
-  (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
-  let qname = qvar_build name ~qpath in
-  let qname = if qvar = empty_qvar then qname else qvar in
-  trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_let_fun (qname, ret_typ, args, body, contract))
+let trm_let_fun ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) ?(contract: fun_spec)
+  (v : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
+  trm_make ~annot ?loc ~typ:(typ_unit ()) ?ctx (Trm_let_fun (v, ret_typ, args, body, contract))
 
 (* [trm_fun ~annot ?loc args ret_typ body]: anonymous function.  *)
 (* FIXME; WRONG type for this expression... *)
@@ -247,9 +245,13 @@ let trm_using_directive ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx o
   (namespace : string) =
   trm_make ~annot ?loc ?typ ?ctx (Trm_using_directive namespace)
 
+(* FIXME: #this-id
+  need to give local ID to this for every method
+*)
 (* [trm_this ~annot ?loc ?typ ?ctx ()]: this pointer. *)
 let trm_this ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) () =
-  trm_make ~annot ?loc ?typ ?ctx (Trm_var (Var_immutable, qvar_build "this" ))
+  failwith "issue #this-id"
+  (* trm_make ~annot ?loc ?typ ?ctx (trm_var "this") *)
 
 (* [trm_delete ~annot ?loc ?typ ?ctx is_array_form t]: delete operator  *)
 let trm_delete ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (is_array_form : bool) (t : trm) =
@@ -306,9 +308,11 @@ let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc) ?(c
   let t = trm_lit ?loc ?ctx Lit_nullptr in
   if uppercase then trm_add_cstyle Display_null_uppercase t else t
 
+let var_free = new_var "free"
+
 (* [trm_free]: build a term calling the 'free' function. *)
 let trm_free ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (memory : trm) : trm =
-  trm_apps (trm_var "free") [memory]
+  trm_apps ~annot ?loc ?ctx (trm_var var_free) [memory]
 
 (* [trm_prim ~annot ?loc ?ctx p]: primitives *)
 let trm_prim ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (p : prim) : trm =
@@ -526,7 +530,7 @@ let trm_let_inv (t : trm) : (varkind * var * typ * trm) option =
 
 (* [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration.
      Otherwise it returns a [None]. *)
-let trm_let_fun_inv (t : trm) : (qvar * typ * typed_vars * trm) option =
+let trm_let_fun_inv (t : trm) : (var * typ * typed_vars * trm) option =
   match t.desc with
   | Trm_let_fun (f, ret_ty, args, body, _) -> Some (f, ret_ty, args, body)
   | _ -> None
@@ -564,7 +568,7 @@ let trm_val_inv (t: trm): value option =
     Otherwise it returns [None]. *)
 let trm_var_inv (t : trm) : var option =
   match t.desc with
-  | Trm_var (_, x) -> Some x.qvar_var
+  | Trm_var (_, x) -> Some x
   | _ -> None
 
 (* [trm_free_inv]: deconstructs a 'free(x)' call. *)
@@ -572,7 +576,7 @@ let trm_free_inv (t : trm) : trm option =
   match trm_apps_inv t with
   | Some (f, [x]) ->
     begin match trm_var_inv f with
-    | Some f_name when f_name = "free" -> Some x
+    | Some f_var when var_eq f_var var_free -> Some x
     | _ -> None
     end
   | _ -> None
@@ -667,7 +671,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
     trm_let ~annot ?loc vk tv init'
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
-    trm_let_fun ~annot ?loc ~qvar:f' ?contract "" res args body'
+    trm_let_fun ~annot ?loc ?contract f' res args body'
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
@@ -777,7 +781,7 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
     if (body' == body) then t else
-        (trm_let_fun ~annot ?loc ~qvar:f' ?contract ~ctx "" res args body' )
+        (trm_let_fun ~annot ?loc ?contract ~ctx f' res args body' )
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = aux then_ in
@@ -941,7 +945,6 @@ and unify_trm (t: trm) (te: trm) (evar_ctx: unification_ctx) : unification_ctx o
   let check cond = if cond then Some evar_ctx else None in
   match te.desc with
   | Trm_var (_, xe) ->
-    let xe = qvar_to_var xe in
     unify_var xe t evar_ctx
   | Trm_val ve ->
     let* v = trm_val_inv t in
@@ -1023,9 +1026,7 @@ let trm_map_vars (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> var -
 
   let rec f_map ctx t: 'ctx * trm = match t.desc with
   | Trm_var (_, x) ->
-    let x = qvar_to_var x in
     (ctx, map_var ctx x)
-
   | Trm_let (var_kind, (var, typ), body, bound_resources) ->
     let _, body' = f_map ctx body in
     let cont_ctx, var' = map_binder ctx var in
@@ -1037,7 +1038,7 @@ let trm_map_vars (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> var -
   | Trm_let_fun (fn, res, args, body, contract) ->
     let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) -> let ctx, arg' = map_binder ctx arg in (ctx, (arg', typ))) ctx args in
     let _, body' = f_map body_ctx body in
-    let cont_ctx, fn' = map_binder ctx (qvar_to_var fn) in
+    let cont_ctx, fn' = map_binder ctx fn in
     let t' = ret (body' == body)
       (trm_let_fun ~annot ?loc ?contract fn' res args' body')
     in
@@ -1070,12 +1071,14 @@ let trm_map_vars (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> var -
   snd (f_map ctx t)
 
 (* TODO: Make a better naming with numbers later *)
-let rec gen_var_name forbidden_names seed =
-  if Var_set.mem seed forbidden_names then
+let gen_var_name forbidden_names seed =
+  failwith "issue #var-id"
+  (* if QualifiedSet.mem seed forbidden_names then
     gen_var_name forbidden_names (seed ^ "'")
   else
     seed
-
+*)
+(* TODO: #var-id *)
 (* (Internal)
   Updates [forbidden_binders] and [subst_map] when entering the scope of [binder],
   avoiding name conflicts by renaming the binder if necessary.
@@ -1084,15 +1087,18 @@ let rec gen_var_name forbidden_names seed =
     ({x, x0}, [y => x, x => x0]) x0
   *)
 let trm_subst_binder (forbidden_binders, subst_map) binder =
-  if Var_set.mem binder forbidden_binders then
+  failwith "issue #var-id"
+  (*
+  if QualifiedSet.mem binder forbidden_binders then
     let new_binder = gen_var_name forbidden_binders binder in
-    let forbidden_binders = Var_set.add new_binder forbidden_binders in
-    let subst_map = Var_map.add binder (trm_var new_binder) subst_map in
+    let forbidden_binders = QualifiedSet.add new_binder forbidden_binders in
+    let subst_map = QualifiedSet.add binder (trm_var new_binder) subst_map in
     ((forbidden_binders, subst_map), new_binder)
   else
-    let forbidden_binders = Var_set.add binder forbidden_binders in
-    let subst_map = Var_map.add binder (trm_var binder) subst_map in
+    let forbidden_binders = QualifiedSet.add binder forbidden_binders in
+    let subst_map = QualifiedSet.add binder (trm_var binder) subst_map in
     ((forbidden_binders, subst_map), binder)
+    *)
 
 let trm_subst_var (_, subst_map) var =
   match Var_map.find_opt var subst_map with
@@ -1136,9 +1142,9 @@ let hide_function_bodies (f_pred : var -> bool) (t : trm) : trm * tmap =
     let rec aux (t : trm) : trm =
       match t.desc with
       | Trm_let_fun (f, ty, tv, _, _) ->
-        if f_pred f.qvar_var then begin
-          t_map := Var_map.add f.qvar_var t !t_map;
-         trm_let_fun ~annot:t.annot ~qvar:f ~ctx:t.ctx "" ty tv (trm_lit Lit_uninitialized) end
+        if f_pred f then begin
+          t_map := Var_map.add f t !t_map;
+         trm_let_fun ~annot:t.annot ~ctx:t.ctx f ty tv (trm_lit Lit_uninitialized) end
         else t
       | _ -> trm_map aux t
       in
@@ -1154,7 +1160,7 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
       let new_tl =
       Mlist.map (fun def -> match def.desc with
       | Trm_let_fun (f, _, _, _, _) ->
-        begin match Var_map.find_opt f.qvar_var chopped_fun_map with
+        begin match Var_map.find_opt f chopped_fun_map with
         | Some tdef ->  tdef
         | _ -> def
         end
@@ -1189,8 +1195,8 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
 let decl_name (t : trm) : var option =
   match t.desc with
   | Trm_let (_,(x,_),_, _) -> Some x
-  | Trm_let_fun (f, _, _, _, _) -> Some f.qvar_var
-  | Trm_typedef td -> Some td.typdef_tconstr
+  | Trm_let_fun (f, _, _, _, _) -> Some f
+  | Trm_typedef td -> Some td.typdef_typvar
   | _ -> None
 
 (* [vars_bound_in_trm_init t]: gets the list of variables that are bound inside the initialization trm of the for_c loop*)
@@ -1237,7 +1243,7 @@ let for_loop_index (t : trm) : var =
         - for (int i = …; …) *)
      begin match init.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                 [{desc = Trm_var (_, x); _}; _]) -> x.qvar_var
+                 [{desc = Trm_var (_, x); _}; _]) -> x
      | _ -> begin match decl_name init with
             | Some x -> x
             | None -> fail init.loc "Ast.for_loop_index: could't get the loop index"
@@ -1804,11 +1810,11 @@ match trm_new_inv t with
 
 
   (* [trm_struct_access ~annot ?typ base field]: creates a struct_access encoding *)
-  let trm_struct_access ?(annot = trm_annot_default) ?(typ : typ option) (base : trm) (field : var) : trm =
+  let trm_struct_access ?(annot = trm_annot_default) ?(typ : typ option) (base : trm) (field : field) : trm =
     trm_apps ?typ (trm_unop ~annot (Unop_struct_access field)) [base]
 
   (* [trm_struct_get ~annot ?typ base field]: creates a struct_get encoding *)
-  let trm_struct_get ?(annot = trm_annot_default) ?(typ : typ option) (base : trm) (field : var) : trm =
+  let trm_struct_get ?(annot = trm_annot_default) ?(typ : typ option) (base : trm) (field : field) : trm =
     trm_apps ?typ (trm_unop ~annot (Unop_struct_get field)) [base]
 
   (* [trm_array_access~annot ?typ base index]: creates array_access(base, index) encoding *)
@@ -1843,9 +1849,11 @@ match trm_new_inv t with
   let trm_new (ty : typ) (t : trm) : trm =
     trm_apps (trm_prim (Prim_new ty)) [t]
 
+let var_any_bool = new_var "ANY_BOOL"
+
   (* [trm_any_bool]: generates ANY_BOOL () *)
   let trm_any_bool : trm =
-    trm_apps (trm_var "ANY_BOOL") []
+    trm_apps (trm_var var_any_bool) []
 
   (* [trm_minus ?loc ?ctx ?typ t]: generates -t *)
   let trm_minus ?(loc) ?(ctx : ctx option) ?(typ) (t : trm) : trm =
@@ -2224,6 +2232,8 @@ let get_typ_arguments (t : trm) : typ list =
 
 (* ========== matrix helpers =========== *)
 
+let vars_mindex = List.init 4 (fun n -> new_var ("MINDEX" ^ (string_of_int n)))
+
 (* [mindex dims indices]: builds a call to the macro MINDEX(dims, indices)
     [dims] - dimensions of the matrix access,
     [indices ] - indices of the matrix access.
@@ -2235,7 +2245,7 @@ let get_typ_arguments (t : trm) : typ list =
       if List.length dims <> List.length indices then fail None "Matrix_core.mindex: the number of
           dimension should correspond to the number of indices";
       let n = List.length dims in
-      let mindex = "MINDEX" ^ (string_of_int n) in
+      let mindex = List.nth vars_mindex n in
       trm_apps (trm_var mindex) (dims @ indices)
 
     (* [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t]/ *)
@@ -2243,7 +2253,7 @@ let get_typ_arguments (t : trm) : typ list =
       match t.desc with
       | Trm_apps (f, dims_and_indices) ->
         begin match f.desc with
-        | Trm_var (_, f_name) when (Tools.pattern_matches "MINDEX" f_name.qvar_var) ->
+        | Trm_var (_, fv) when (Tools.pattern_matches "MINDEX" fv.name) ->
           let n = List.length dims_and_indices in
           if (n mod 2 = 0) then
             Some (Xlist.split_at (n/2) dims_and_indices)

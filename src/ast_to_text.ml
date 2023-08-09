@@ -14,13 +14,13 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_const t ->
     let dt = print_typ ~only_desc t in
     print_node "Typ_const" ^^ dt
-  | Typ_var (x, tid) ->
-    print_node "Typ_var" ^^ parens ( separate (comma ^^ break 1) [string x; string (string_of_int tid)])
-  | Typ_constr (tv, tid, tl) ->
-    let tv_d = print_qvar tv in
+  | Typ_var tv ->
+    print_node "Typ_var" ^^ parens (print_var tv)
+  | Typ_constr (tv, tl) ->
+    let tv_d = print_var tv in
     let tl = List.map (print_typ ~only_desc) tl in
     print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1)
-      [tv_d; string (string_of_int tid); print_list tl])
+      [tv_d; print_list tl])
   | Typ_auto -> string "Typ_auto"
   | Typ_unit -> string "Typ_unit"
   | Typ_int -> string "Typ_int"
@@ -189,13 +189,10 @@ and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
   | Injected -> string "Injected class type"  ^^ blank 1
   | Others -> empty
 
-(* [print_qvar]: converts [qx] into a docuemnt. *)
-and print_qvar (qx : qvar) : document =
-  let qpath_str = List.map string qx.qvar_path in
-  lbrace ^^ string "qvar_var" ^^ equals ^^ string qx.qvar_var ^^ semi ^^
-  string "qvar_path" ^^ equals ^^ Tools.list_to_doc ~bounds:[lbrace; rbrace] qpath_str ^^ semi ^^
-  string "qvar_str" ^^ equals ^^ string qx.qvar_str
-
+(* [print_var]: converts [v] into a docuemnt. *)
+and print_var (v : var) : document =
+  (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^
+  string v.name ^^ string "#" ^^ string (string_of_int v.id)
 
 (* [print_trm_desc ~only_desc t]: converts the description of trm [t] to pprint document *)
 and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
@@ -203,10 +200,10 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_val v ->
      let dv = print_val ~only_desc v in
      print_node "Trm_val" ^^ parens dv
-  | Trm_var (vk, qx) ->
+  | Trm_var (vk, v) ->
     let var_kind_str = match vk with | Var_immutable -> string "Var_immutable" | Var_mutable -> string "Var_mutable" in
-    let qx_d = print_qvar qx in
-    string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ qx_d ^^ rparen
+    let v_d = print_var v in
+    string "Trm_var(" ^^ blank 1 ^^ var_kind_str ^^ comma ^^ v_d ^^ rparen
   | Trm_array tl ->
      let tl = Mlist.to_list tl in
      let dtl = List.map (print_trm ~only_desc) tl in
@@ -226,13 +223,13 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dtx = print_typ ~only_desc tx in
     let dt = print_trm ~only_desc t in
     print_node "Trm_let" ^^
-      parens (separate (comma ^^ break 1) [dvk;string x;dtx;dt])
+      parens (separate (comma ^^ break 1) [dvk; print_var x; dtx; dt])
   | Trm_let_mult (vk, tvl, tl) ->
     let dvk = match vk with
     | Var_mutable -> string "Var_mutable"
     | Var_immutable -> string "Var_immutable"
       in
-    let dtx = List.map (fun (x, ty) -> parens (string x ^^ comma ^^ print_typ ~only_desc:true ty)) tvl in
+    let dtx = List.map (fun (x, ty) -> parens (print_var x ^^ comma ^^ print_typ ~only_desc:true ty)) tvl in
     let dts = List.map (fun t -> print_trm ~only_desc t) tl in
     let dtl = List.map2 (fun v t ->  parens (v ^^ comma ^^ t)) dtx dts in
     let dtx = Tools.list_to_doc ~sep:comma dtx in
@@ -243,9 +240,9 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dout = print_typ ~only_desc r in
     let dtvl = List.map(function (x,tx) ->
           let dtx = print_typ ~only_desc tx in
-          print_pair (string x) dtx) tvl in
+          print_pair (print_var x) dtx) tvl in
     let dt = print_trm ~only_desc b in
-    let fd = print_qvar f in
+    let fd = print_var f in
     print_node "Trm_let_fun" ^^
       parens (separate (comma ^^ break 1)
         [fd; dout; print_list dtvl; dt])
@@ -298,7 +295,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dparallel = string (string_of_bool is_parallel) in
     let dbody = print_trm ~only_desc body in
     print_node "Trm_for" ^^ parens (separate (comma ^^ break 1)
-      [string index; dstart; ddir; dstop; dstep; dparallel; dbody])
+      [print_var index; dstart; ddir; dstop; dstep; dparallel; dbody])
   | Trm_switch (cond, cases) ->
      let dcond = print_trm ~only_desc cond in
      let dcases =
@@ -353,7 +350,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dtout = begin match ty_opt with | Some ty -> string "Some " ^^ print_typ ~only_desc ty | None -> string "None" end in
     let dtvl = List.map(function (x,tx) ->
           let dtx = print_typ ~only_desc tx in
-          print_pair (string x) dtx) tvl in
+          print_pair (print_var x) dtx) tvl in
     let dt = print_trm ~only_desc b in
     print_node "Trm_fun" ^^
       parens (separate (comma ^^ break 1)
@@ -377,15 +374,14 @@ and print_record_type (rt : record_type) : document =
 
 (* [print_typedef ~only_desc td]: converts typedef to pprint document *)
 and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
-  let tid = td.typdef_typid in
-  let tname = td.typdef_tconstr in
+  let tv = td.typdef_typvar in
   let tbody = td.typdef_body in
 
   match tbody with
   | Typdef_alias t ->
     let dt = print_typ ~only_desc t in
     print_node "Typedef_alias" ^^ parens ( separate (comma ^^ break 1)
-     [string tname; string (string_of_int tid); dt ])
+     [print_var tv; dt ])
   | Typdef_record rfl ->
     let get_document_list (rfl : record_fields) : document list =
       let rec aux acc = function
@@ -403,7 +399,7 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
       in
       let dtl = get_document_list rfl in
      print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
-      [string tname; string (string_of_int tid); print_list dtl ])
+      [print_var tv; print_list dtl ])
   | Typdef_sum _ ->
     fail None "Ast_to_text.print_typedef: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
@@ -412,13 +408,13 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
          (List.map
             (fun (y, t_o) ->
               match t_o with
-              | None -> print_pair (string y) underscore
-              | Some t -> print_pair (string y) (print_trm ~only_desc t)
+              | None -> print_pair (print_var y) underscore
+              | Some t -> print_pair (print_var y) (print_trm ~only_desc t)
             )
             enum_const_l
          )
      in
-     print_node "Typedef_enum" ^^ print_pair (string tname) denum_const_l
+     print_node "Typedef_enum" ^^ print_pair (print_var tv) denum_const_l
 
 and print_trm_annot (t : trm) : document =
 

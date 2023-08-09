@@ -350,3 +350,6 @@ grep -r '[tag]' .
 ```
 
 - #advanced-scoping-check
+- #var-id
+- #this-id
+- #type-id

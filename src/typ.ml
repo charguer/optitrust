@@ -31,15 +31,15 @@ let typ_const ?(annot : typ_annot list = []) ?(attributes = [])
   (* DEPRECATED {typ_annot = annot; typ_desc = Typ_const t; typ_attributes} *)
   typ_make ~annot ~attributes (Typ_const t)
 
-(* [typ_constr ~annot ~attributes ~tid ~tl x]: constructed type constructor *)
-(* FIXME: Super weird arguments -> useless qtx created + inefficient comparison *)
-let typ_constr ?(annot : typ_annot list = []) ?(attributes = [])
-  ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = []) ?(qpath : var list = [])
-  ?(qtypvar : qvar = empty_qvar) (x : typvar) : typ =
-  let qtx = qvar_build x ~qpath in
-  let qtx = if qtypvar = empty_qvar then qtx else qtypvar in
-  (* DEPRECATED {typ_annot = annot; typ_desc = Typ_constr (qtx, tid, tl); typ_attributes} *)
-  typ_make ~annot ~attributes (Typ_constr (qtx, tid, tl))
+(** [typ_constr]: create a type constructor. *)
+let typ_constr ?(annot : typ_annot list = []) ?(attributes = []) ?(tl : typ list = []) (v : var) : typ =
+  typ_make ~annot ~attributes (Typ_constr (v, tl))
+
+(** [typ_new_constr]: create a new type constructor, using a fresh identifier. *)
+let typ_new_constr ?(annot : typ_annot list = []) ?(attributes = []) ?(tl : typ list = []) ?(qualifier : string list = []) (name : string) : typ =
+  (* TODO: should this use a different counter ? *)
+  let id = next_var_int () in
+  typ_constr ~annot ~attributes ~tl { qualifier; name; id }
 
 (* [typ_auto ~annot ~attributes ()]: auto type constructor *)
 let typ_auto ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
@@ -198,8 +198,8 @@ let is_generated_typ (ty : typ) : bool =
     | (Typ_ptr _| Typ_array _) -> Typ_kind_array
     | Typ_fun _ -> Typ_kind_fun
     | Typ_var _ -> Typ_kind_var
-    | Typ_constr (_, tyid, _) ->
-       let td_opt = Typ_map.find_opt tyid ctx.ctx_typedef in
+    | Typ_constr (ty, _) ->
+       let td_opt = Typ_map.find_opt ty ctx.ctx_typedef in
        begin match td_opt with
        | None -> Typ_kind_undefined
        | Some td ->
@@ -287,11 +287,11 @@ let is_typ_fun (ty : typ) : bool =
   | Typ_fun _ -> true | _ -> false
 
 (* [is_typ_struct struct_name ty]: checks if [ty] is a constructed struct type *)
-let is_typ_struct (struct_name : var) (ty_opt : typ option) : bool =
+let is_typ_struct (struct_name : string) (ty_opt : typ option) : bool =
   match ty_opt with
   | Some ty ->
     begin match ty.typ_desc with
-    | Typ_constr (sn, _, _) -> is_qvar_var sn struct_name
+    | Typ_constr (sn, _) -> sn.name = struct_name
     | _ -> false
     end
   | None -> false
@@ -342,10 +342,11 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
       match typ_1.typ_desc, typ_2.typ_desc with
       | Typ_const typ_a1, Typ_const typ_a2 ->
         (aux typ_a1 typ_a2)
-      | Typ_var (a1, _), Typ_var (a2, _) ->
-        a1 = a2
-      | Typ_constr (typ_var1, typ_id1, typ_list1), Typ_constr (typ_var2, typ_id2, typ_list2) ->
-        (is_qvar_eq typ_var1 typ_var2) && (typ_id1 = typ_id2) && (typ_list1 = typ_list2)
+      | Typ_var tv1, Typ_var tv2 ->
+        typvar_eq tv1 tv2
+      | Typ_constr (tv1, _), Typ_constr (tv2, _) ->
+        typvar_eq tv1 tv2
+        (* TODO DEBUG? && (typ_list1 = typ_list2) *)
       | Typ_unit, Typ_unit -> true
       | Typ_int, Typ_int -> true
       | Typ_float, Typ_float -> true

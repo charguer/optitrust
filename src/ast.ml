@@ -54,18 +54,25 @@ type strm = string
 (* [styp]: string representation of a type, as provided by the user *)
 type styp = string
 
-(* [var]: variable *)
-(* LATER: Add integer id to variables to simplify comparison and manage aliasing *)
-type var = string
+type var_id = int
+(* [var]: variables are uniquely identified with [id], but are printed using a qualified name. *)
+type var = { qualifier: string list; name: string; id: var_id }
+
+let var_eq (v1 : var) (v2 : var) : bool = v1.id = v2.id
+
+module Var = struct
+  type t = var
+  let compare v1 v2 = Int.compare v1.id v2.id
+end
 
 (* [vars]: variables, a list of elements of type variable *)
 type vars = var list
 
 (* [Var_set]: a set module used for storing variables *)
-module Var_set = Set.Make(String)
+module Var_set = Set.Make(Var)
 
 (* [Var_map]: a map module used for mapping variables to values *)
-module Var_map = Map.Make(String)
+module Var_map = Map.Make(Var)
 
 (* [varmap]: instantiation of Var_map *)
 type 'a varmap = 'a Var_map.t
@@ -81,59 +88,33 @@ let next_var_int : unit -> int =
 
 (* [fresh_var]: creates a var based on [next_var_int] generator *)
 let fresh_var : unit -> var =
-  fun () -> "_v" ^ string_of_int (next_var_int ())
+  fun () -> (
+    let id = next_var_int () in
+    { qualifier = []; name = "_v" ^ string_of_int id; id }
+  )
 
-(* [qvar]: qualiefied variables, Ex M :: N :: x
-    qx = {qvar_var = "x"; qvar_path = ["M"; "N"]; qvar_str = "M :: N :: x"}. *)
-(* FIXME: Storing qvar_str is redundant and ugly, why doing that ? *)
-type qvar = {qvar_var : var; qvar_path : var list; qvar_str : string}
+module QualifiedName = struct
+  type t = string list * string
+  let compare ((q1, n1) : t) ((q2, n2) : t) =
+    match List.compare (String.compare) q1 q2 with
+    | 0 -> String.compare n1 n2
+    | c -> c
+end
 
-
-(* [qvar_build qv qp qs]: builds a qvar record with fields qvar_var = [qvar], qvar_path = [qpath] and qvar_str = [qs]. TODO FIX COMMENT *)
-let qvar_build ?(qpath : var list = []) (qvar : var) : qvar =
-  let qstr =
-    if qpath = []
-      then qvar
-      else  (Xlist.fold_lefti (fun i acc p -> if i = 0 then p else acc ^ "::  " ^ p ) "" qpath ) ^ "::" ^ qvar
-    in
- {qvar_var = qvar; qvar_path = qpath; qvar_str = qstr}
-
-(* [qvar_update ~qpath var qv]: updates [qv] by updating the fields [qvar_var] and [qvar_path] respectively.*)
-let qvar_update ?(qpath : var list = []) ?(var : var = "") (qv : qvar) : qvar =
-  let qpath = if qpath = [] then qv.qvar_path else qpath in
-  let qvar = if var = "" then qv.qvar_var else var in
-  qvar_build ~qpath qvar
-
-(* [empty_qvar]: empty qvar is just a qvar with the string representation being the empty string. *)
-let empty_qvar : qvar =
-  {qvar_var = ""; qvar_path = []; qvar_str = ""}
-
-(* FIXME: This function should not exists but is useful for quick code.
- * Assumes that the path is empty *)
-let qvar_to_var (q: qvar) : var =
-  assert (q.qvar_path = []);
-  q.qvar_var
-
+module QualifiedSet = Map.Make(QualifiedName)
+module QualifiedMap = Map.Make(QualifiedName)
 
 (* The id is a unique name for the hypothesis that cannot be shadowed *)
-type hyp_id = int
-type hyp = { name: string; id: hyp_id }
-module Hyp = struct
-  type t = hyp
-  let compare h1 h2 =
-    Int.compare h1.id h2.id
-end
-module Hyp_map = Map.Make(Hyp)
+type hyp = var
+module Hyp_map = Var_map
 
 (* [typconstr]: name of type constructors (e.g. [list] in Ocaml's type [int list];
    or [vect] in C type [struct { int x,y }; *)
 type typconstr = string
 
 (* [typvar]: name of type variables (e.g. ['a] in type ['a list] *)
-type typvar = var
-
-(* [qtypvar]: qname of the type variables *)
-type qtypvar = qvar
+(* LATER: #type-id, should type ids be like var ids ? how does that interect with typconstrid ? *)
+type typvar = { qualifier: string list; name: string }
 
 (* [typvars]: a list of typvar *)
 type typvars = typvar list
@@ -152,8 +133,8 @@ type stringreprid = int
 let next_stringreprid : (unit -> stringreprid) =
   Tools.fresh_generator ()
 
-(* ['a typmap] is a map from [typeid] to ['a] *)
-module Typ_map = Map.Make(Int)
+(* ['a typmap] is a map from [typvar] to ['a] *)
+module Typ_map = Var_map
 
 (* [typmap]: instantiation of Typ_map *)
 type 'a typmap = 'a Typ_map.t
@@ -210,9 +191,8 @@ and code_kind =
 (* [typ_desc]: type description *)
 and typ_desc =
   | Typ_const of typ   (* e.g. [const int *] is a pointer on a [const int] type. *)
-  | Typ_var of typvar * typconstrid  (* e.g. ['a] in the type ['a -> 'a] -- *)
-  (* FIXME: ^ One of the two argument is redundant, we should probably only keep the id, or use sharing *)
-  | Typ_constr of qtypvar * typconstrid * typ list (* e.g. [int list] or
+  | Typ_var of typvar  (* e.g. ['a] in the type ['a -> 'a] -- *)
+  | Typ_constr of typvar * typ list (* e.g. [int list] or
                                                   [(int,string) map] or [vect] *)
   (* FIXME: ^ One of the two first argument is redundant, we should probably only keep the id, or use sharing *)
   | Typ_auto                                (* auto *)
@@ -269,8 +249,7 @@ and typed_vars = typed_var list
      body of the type *)
 and typedef = {
   typdef_loc : location;      (* the location of the typedef *)
-  typdef_typid : typconstrid; (* the unique id associated with the type [t] *)
-  typdef_tconstr : typconstr; (* the name [t] *)
+  typdef_typvar : typvar; (* the defined type [t] *)
   typdef_vars : typvars;      (* the list containing the names ['a] and ['b];
          [typedef_vars] is always the empty list in C code without templates *)
   typdef_body : typdef_body;(* the body of the definition,
@@ -566,10 +545,10 @@ and ctx = {
 and typ_ctx = {
   ctx_var : typ varmap;             (* from [var] to [typ], i.e. giving the type
                                        of program variables *)
-  ctx_tconstr : typconstrid varmap; (* from [typconstr] to [typconstrid] *)
-  ctx_typedef : typedef typmap;     (* from [typconstrid] to [typedef] *)
-  ctx_label : typconstrid varmap;   (* from [label] to [typconstrid] *)
-  ctx_constr : typconstrid varmap;  (* from [constr] to [typconstrid] *)
+  ctx_tconstr : typ QualifiedMap.t; (* from qualified name to type. *)
+  ctx_typedef : typedef typmap;     (* from [typ] to [typedef] *)
+  ctx_label : typ varmap;   (* from [label] to [typ] *)
+  ctx_constr : typ varmap;  (* from [constr] to [typ] *)
 }
 
 (*****************************************************************************)
@@ -584,12 +563,12 @@ and loop_range = var * trm * loop_dir * trm * loop_step * loop_parallel
 (* [trm_desc]: description of an ast node *)
 and trm_desc =
   | Trm_val of value
-  | Trm_var of varkind * qvar (* TODO: varkind ?? *)
+  | Trm_var of varkind * var (* TODO: varkind ?? *)
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_record of (label option * trm) mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm * resource_spec (* int x = 3 *)
   | Trm_let_mult of varkind * typed_vars * trm list
-  | Trm_let_fun of qvar * typ * typed_vars * trm * fun_spec
+  | Trm_let_fun of var * typ * typed_vars * trm * fun_spec
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm  (* if (x > 0) {x += 1} else{x -= 1} *)
   | Trm_seq of trm mlist       (* { st1; st2; st3 } *)
@@ -1069,20 +1048,6 @@ let contains_decl (x : var) (t : trm) : bool =
     | _ -> false
   in aux t
 
-(* [is_qvar_var]: checks is [qv.qvar_var] is equal to [v]. *)
-let is_qvar_var (qv : qvar) (v : var) : bool =
-  qv.qvar_var = v
-
-
-(* [contains_occurrence x t]: checks if [t] contains any occurrence of the variable [x]*)
-let contains_occurrence (x : var) (t : trm) : bool =
-  let rec aux (t : trm) : bool =
-    match t.desc with
-    | Trm_var (_, y) -> is_qvar_var y x
-    | Trm_apps (_, tl) -> List.fold_left (fun acc t1 -> acc || aux t1) false tl
-    | _ -> false
-  in aux t
-
 (* [contains_field_access f t]: checks if [t] contains an access on field [f] *)
 let contains_field_access (f : field) (t : trm) : bool =
   let rec aux (t : trm) : bool =
@@ -1097,10 +1062,6 @@ let contains_field_access (f : field) (t : trm) : bool =
   in aux t
 
 (* ********************************************************************************************** *)
-
-(* [is_qvar_eq qv1 qv2]: checks is qv1 = qv2. *)
-let is_qvar_eq (qv1 : qvar) (qv2 : qvar) : bool =
-  (qv1.qvar_var = qv2.qvar_var) && (qv1.qvar_path = qv2.qvar_path) && (qv1.qvar_str = qv2.qvar_str)
 
 (* [same_sizes sz1 sz2]: checks if two arrays are of the same size *)
 let same_sizes (sz1 : size) (sz2 : size) : bool =
@@ -1193,7 +1154,7 @@ let top_level_fun_bindings (t : trm) : tmap =
       | Trm_seq tl ->
         Mlist.iter (fun t1 ->
           match t1.desc with
-          | Trm_let_fun (f, _, _, body, _) -> tmap := Var_map.add f.qvar_var body !tmap
+          | Trm_let_fun (f, _, _, body, _) -> tmap := Var_map.add f body !tmap
           | _ -> ()
         ) tl
       | _ -> fail t.loc "Ast.top_level_fun_bindings: expected the global sequence that contains all the toplevel declarations"
@@ -1223,10 +1184,8 @@ let get_mutability (t : trm) : varkind option =
 
 (*****************************************************************************)
 
-
-
-(* [trm_var_assoc_list to_map al]: creats a map from an association list wher keys are string and values are trms *)
-let map_from_trm_var_assoc_list (al : (string * trm) list) : tmap =
+(* [trm_var_assoc_list to_map al]: creates a map from an association list wher keys are variables and values are trms *)
+let map_from_trm_var_assoc_list (al : (var * trm) list) : tmap =
   let tm = Var_map.empty in
   List.fold_left (fun acc (k, v) -> Var_map.add k v acc) tm al
 

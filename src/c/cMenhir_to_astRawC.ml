@@ -13,24 +13,24 @@ let loc_of_cloc (cloc : C.location) : location =
 
 
 (* [ctx_tconstr]: a map for storing constructed types based on their ids *)
-let ctx_tconstr : typconstrid varmap ref = ref Var_map.empty
+let ctx_tconstr : typ QualifiedMap.t ref = ref QualifiedMap.empty
 
 (* [ctx_typedef]: a map for storing typedefs based on the types they define *)
 let ctx_typedef : typedef typmap ref = ref Typ_map.empty
 
 (* [ctx_label]: a map for storing labels based on their ids *)
-let ctx_label : typconstrid varmap ref = ref Var_map.empty
+let ctx_label : typ varmap ref = ref Var_map.empty
 
 (* ctx_constr]: a map for storing ids !! *)
-let ctx_constr : typconstrid varmap ref = ref Var_map.empty
+let ctx_constr : typ varmap ref = ref Var_map.empty
 
 (* [debug_typedefs]: flag for debugging typedefs *)
 let debug_typedefs = false
 
 (* [ctx_tconstr_add tn tid]: adds constructed type [tv] with id [tid] in map [ctx_tconstr] *)
-let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
-  if debug_typedefs then Printf.printf "Type %s has been added into map with typconstrid %d\n" tn tid;
-  ctx_tconstr := Var_map.add tn tid (!ctx_tconstr)
+let ctx_tconstr_add (tn : QualifiedName.t) (t : typ) : unit =
+  if debug_typedefs then Printf.printf "Type %s has been added into map with typconstrid %d\n" tn.name tid;
+  ctx_tconstr := QualifiedMap.add tn t (!ctx_tconstr)
 
 (* [ctx_typedef_add tn tid td]: adds typedef [td] with id [tid] in map [ctx_typedef] *)
 let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =

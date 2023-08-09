@@ -109,7 +109,7 @@ let get_ctx () : ctx =
 let redundant_decl = ref false
 
 (* [get_typid_for_type ty]: gets the type id for type [tv]*)
-let get_typid_for_type (tv : typvar) : int  =
+let get_typ (qualifier : string list) (name : string) : int  =
    let tid = Var_map.find_opt tv !ctx_tconstr in
    begin match tid with
    | Some id -> id

@@ -1,5 +1,7 @@
 open Syntax
 
+(* FIXME: #var-id , keep a single subst implementation *)
+
 (* [subst tm t]: find all the occurrences of variables in [t] and check if they belong to map [tm]
     if yes then assign its values otherwise do nothing *)
 let rec subst (tm : tmap) (t : trm) : trm =
@@ -13,7 +15,7 @@ let rec subst (tm : tmap) (t : trm) : trm =
   match t.desc with
   (* Hack to avoid unnecessary get operations when we substitute a variable occurrence with arbitrary code *)
   | Trm_var (vk, x) ->
-    begin match Var_map.find_opt x.qvar_var tm with
+    begin match Var_map.find_opt x tm with
     | Some t1 ->
       let t1 = {t1 with annot = t1.annot} in
       if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1
@@ -28,7 +30,7 @@ let rec subst (tm : tmap) (t : trm) : trm =
         cur_tm := Var_map.filter (fun k _v -> k <> x) tm;
         ti2
       | Trm_let_fun (f, __retty, targs, tbody, _) ->
-        cur_tm := Var_map.filter (fun k _v -> k <> f.qvar_var) tm;
+        cur_tm := Var_map.filter (fun k _v -> k <> f) tm;
         subst !cur_tm ti
       | _ -> subst !cur_tm ti
       end

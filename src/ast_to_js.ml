@@ -57,7 +57,8 @@ let loc_to_json (t : trm) : json =
 
 (* [typd_var_lis_to_json ty]: converts a list of typed vars to a Json object *)
 let typed_var_list_to_json (tv : typed_vars) : json =
-  Json.Obj (List.map (fun (v,typ) -> (strquote v, typ_to_json typ)) tv)
+  (* TODO: #var-id , also encode qualifier and id ? *)
+  Json.Obj (List.map (fun (v,typ) -> (strquote v.name, typ_to_json typ)) tv)
 
 
 (* [child_to_json label child_id]: auxiliary function for converting trm child nodes to Json objects *)
@@ -195,7 +196,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [] ]
     | Trm_var (_, x) ->
         [ kind_to_field "var";
-          value_to_field x.qvar_var;
+          value_to_field x.name; (* TODO: #var-id , also encode qualifier and id ? *)
           children_to_field [] ]
     | Trm_record l ->
         [ kind_to_field  "struct";
@@ -206,19 +207,19 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field (List.mapi ichild_to_json (List.map aux (Mlist.to_list l))) ]
     | Trm_let (_,(x,typ),init,_) ->
         [ kind_to_field "var-def";
-          (strquote "name", strquote x);
+          (strquote "name", strquote x.name); (* TODO: #var-id , also encode qualifier and id ? *)
           (strquote "def-type", typ_to_json typ);
           children_to_field ([(child_to_json "init" (aux init))])]
     | Trm_let_mult _ -> [] (* TODO: *)
     | Trm_let_fun (f, typ, xts, tbody, _) ->
       [ kind_to_field "fun-def";
-            (strquote "name", strquote f.qvar_var);
+            (strquote "name", strquote f.name); (* TODO: #var-id , also encode qualifier and id ? *)
             (strquote "args", typed_var_list_to_json xts);
             (strquote "return_type", typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
     | Trm_typedef td ->
       [ kind_to_field "typdef";
-        (strquote "name", strquote td.typdef_tconstr);
+        (strquote "name", strquote td.typdef_typvar.name); (* TODO: #var-id , also encode qualifier and id ? *)
         (strquote "contents", typdef_to_json td);
         children_to_field [] ]
     | Trm_if (cond, then_, else_) ->
@@ -239,7 +240,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_for (l_range, body, _) ->
       let (index, start, _, stop, step, _) = l_range in
       [ kind_to_field "simple_for";
-          (strquote "index", strquote index);
+          (strquote "index", strquote index.name); (* TODO: #var-id , also encode qualifier and id ? *)
           children_to_field [
             child_to_json "start" (aux start);
             child_to_json "stop" (aux stop);

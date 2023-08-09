@@ -36,7 +36,7 @@ resource:
   | f=formula; SEMICOLON
       { (None, f) }
   | hyp=IDENT; COLON; f=formula; SEMICOLON
-      { (Some hyp, f) }
+      { (Some { qualifier = []; name = hyp; id = -1 }, f) }
 
 resource_list:
   | res_list=resource*; EOF { res_list }

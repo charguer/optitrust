@@ -15,11 +15,12 @@ module AstParser = struct
 
   let ty ty = typ_str (Atyp ty)
 
-  let subst_dollar_number (inst : string list) (s : string) : string =
-  Xlist.fold_lefti (fun i acc insti ->
+  let subst_dollar_number (inst : var list) (s : string) : string =
+    failwith "#var-id"
+  (* Xlist.fold_lefti (fun i acc insti ->
     Tools.string_subst ("${"^(string_of_int i) ^ "}") insti acc
   ) s inst
-
+*)
   let expr ?(vars : var list = []) (e : string)  =
     let e = if vars = [] then e else subst_dollar_number vars e in
     code (Expr e)

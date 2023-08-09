@@ -17,8 +17,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
     | Trm_typedef td ->
       begin match td.typdef_body with
       | Typdef_alias dx ->
-         let ty_x = typ_constr td.typdef_tconstr ~tid:td.typdef_typid in
-         dx, ty_x
+         dx, td.typdef_typ
       | _ -> fail d.loc "Typedef_core.fold_aux: expected a type definition"
       end
     | _ -> fail d.loc "Typedef_core.fold_aux: expected a typedef"

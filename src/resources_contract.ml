@@ -5,8 +5,8 @@ let next_hyp_id = Tools.fresh_generator ()
 let new_hyp (name: var option): hyp =
   let id = next_hyp_id () in
   match name with
-  | Some name -> { name; id }
-  | None -> { name = sprintf "#%d" id ; id }
+  | Some name -> name
+  | None -> { qualifier = []; name = sprintf "#%d" id ; id }
 
 let new_anon_hyp (): hyp = new_hyp None
 
@@ -23,9 +23,9 @@ type contract_clause_type =
 
 type contract_resource = var option * formula
 
-let var_has_model = trm_var "_HasModel"
-let var_read_only = trm_var "_RO"
-let var_frac = trm_var "_Fraction"
+let var_has_model = trm_var (new_var "_HasModel")
+let var_read_only = trm_var (new_var "_RO")
+let var_frac = trm_var (new_var "_Fraction")
 let full_frac = trm_int 1
 
 let formula_model (x: trm) (model: formula): formula =
@@ -35,7 +35,7 @@ let formula_model_inv (t: formula): (trm * formula) option =
   match trm_apps_inv t with
   | Some (fn, [tx; tf]) ->
     begin match trm_var_inv fn with
-    | Some "_HasModel" -> Some (tx, tf)
+    | Some fnv when fnv.name = "_HasModel" -> Some (tx, tf)
     | _ -> None
     end
   | _ -> None
@@ -45,23 +45,27 @@ let formula_read_only ~(frac: formula) (res: formula) =
 
 let new_frac (): var * resource_item =
   let frac_hyp = new_anon_hyp () in
-  (frac_hyp.name, (frac_hyp, var_frac))
+  (frac_hyp, (frac_hyp, var_frac))
 
 type read_only_formula = { frac: formula; formula: formula }
 let formula_read_only_inv (t: formula): read_only_formula option =
   match trm_apps_inv t with
   | Some (fn, [frac; formula]) ->
     begin match trm_var_inv fn with
-    | Some "_RO" -> Some { frac ; formula }
+    | Some fnv when fnv.name = "_RO" -> Some { frac ; formula }
     | _ -> None
     end
   | _ -> None
 
+let var_cell = trm_var (new_var "Cell")
+
 let formula_cell (x: var): formula =
-  formula_model (trm_var x) (trm_var "Cell")
+  formula_model (trm_var x) var_cell
+
+let vars_matrix = List.init 4 (fun n -> trm_var (new_var (sprintf "Matrix%d" n)))
 
 let formula_matrix (x: var) (dims: trms) : formula =
-  let matrixN = trm_var (sprintf "Matrix%d" (List.length dims)) in
+  let matrixN = List.nth vars_matrix (List.length dims) in
   formula_model (trm_var x) (trm_apps matrixN dims)
 
 type contract_clause = contract_clause_type * contract_resource
@@ -121,9 +125,12 @@ let push_loop_contract_clause (clause: contract_clause_type)
     { contract with invariant = push_linear_res res contract.invariant }
   | _ -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
 
+let var_group = trm_var (new_var "Group")
+let var_range = trm_var (new_var "range")
+
 let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) (fi: formula) =
   if dir <> DirUp then failwith "formula_group_range only supports DirUp";
-  trm_apps (trm_var "Group") [trm_apps (trm_var "range") [tfrom; tto; loop_step_to_trm step]; trm_fun [idx, typ_int ()] None fi]
+  trm_apps var_group [trm_apps var_range [tfrom; tto; loop_step_to_trm step]; trm_fun [idx, typ_int ()] None fi]
 
 let res_group_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;
