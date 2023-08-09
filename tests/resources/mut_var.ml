@@ -5,5 +5,5 @@ open Target
 
 let _ = Run.script_cpp (fun () ->
     show_ast ();
-    show_res ();
+    Resources.show ();
 )

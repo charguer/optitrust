@@ -8,7 +8,7 @@ let _ = Flags.display_resources := true*)
 
 let _ = Run.script_cpp (fun () ->
     show_ast ();
-    show_res ();
+    Resources.show ();
 
     recompute_all_resources ();
     show_computed_res ();

@@ -19,7 +19,7 @@ let _ = Run.script_cpp (fun () ->
   (* Show the current ast *)
   show_ast();
   (* Show the resources *)
-  show_res();
+  Resources.show();
 
   (* Showing operation with step at front *)
   !! Label.add "m1" [cVarDef "b"];

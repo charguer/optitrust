@@ -857,6 +857,10 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
     (string "malloc(sizeof(") ^^ (string ty_str) ^^
     (separate empty (List.map bracketed_trm dims)) ^^
     (string "))")
+  (* Case of MFREE *)
+  | Trm_var (_, x) when (!print_beautify_mindex && Tools.pattern_matches "MFREE" x.qvar_str) ->
+    let dims, ptr = Xlist.unlast tl in
+    (string "free") ^^ lparen ^^ (decorate_trm ptr) ^^ rparen
   (* Case of function by name *)
   | Trm_var (_, x) ->
     let var_doc = trm_var_to_doc x f in

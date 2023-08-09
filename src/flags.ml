@@ -92,7 +92,7 @@ let bypass_cfeatures_decoding = ref false
 let resource_errors_as_warnings = ref false
 
 (* [always_name_resource_hyp]: Always print named for resource hypothesis even if they were unnamed.
- * Automatically set to true during show_res. *)
+ * Automatically set to true during Resources.show. *)
 let always_name_resource_hyp = ref false
 
 (* [display_resources]: When showing diffs display resources on both sides *)

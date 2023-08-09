@@ -1669,12 +1669,6 @@ let show_computed_res ?(line:int = -1) ?(ast: trm = Trace.ast ()) () : unit =
       Trace.interactive_step ~line ~ast_before:(fun () -> ast)
         ~ast_after:(fun () -> Ast_fromto_AstC.computed_resources_intro ast))))
 
-(* [show_res] enables to view the result of resource computations. *)
-let show_res (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
-  let t = Trace.ast() in
-  let tres = Resources_computation.(trm_recompute_resources builtin_env t) in
-  show_computed_res ~line ~ast:tres ()
-
 (* LATER: Fix me *)
 (* [show_type ~line ~reparse tg]: an alias for show with the argument [types] set to true. *)
 let show_type ?(line : int = -1) (*DEPRECATED?(reparse : bool = false)*) (tg : target) : unit =

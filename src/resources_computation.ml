@@ -640,6 +640,13 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
         usage_map, Some (bind_new_resources ~old_res:res ~new_res:(resource_merge_after_frame res_produced res_frame))
 
+      | None when fn = "__cast" ->
+        (* TK: we treat cast as identity function. *)
+        (* FIXME: this breaks invariant that function arguments are pure/reproducible. *)
+        begin match effective_args with
+        | [arg] -> compute_resources_and_merge_usage (Some res) (Some usage_map) arg
+        | _ -> failwith "expected 1 argument for cast"
+        end
       | None when fn = "__admitted" -> None, None
       | None -> raise (Spec_not_found fn)
       end

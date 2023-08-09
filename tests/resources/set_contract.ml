@@ -16,5 +16,5 @@ let _ = Run.script_cpp (fun () ->
     let r2 = { pure = []; linear = [cell "n"; cell "m"]; fun_contracts = Var_map.empty } in
     !! Resources.set_fun_contract { pre = r2 ; post = r2 } [cFunDef "incr_both"];
 
-    show_res ();
+    Resources.show ();
 )

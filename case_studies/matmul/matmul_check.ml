@@ -18,7 +18,7 @@ let int = trm_int
 
 (* FIXME: avoid inlining *)
 let _ = Run.script_cpp ~inline:["../../include/optitrust.h"] (fun () ->
-  (* show_res (); *)
+  (* Resources.show (); *)
 
   !! Function.inline_def [cFunDef "mm"];
   let tile (loop_id, tile_size) = Loop.tile (int tile_size) ~index:("b" ^ loop_id) ~bound:TileDivides [cFor loop_id] in

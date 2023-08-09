@@ -1161,7 +1161,7 @@ let dump_diff_and_exit () : unit =
       then light_diff astBefore astAfter
       else astBefore, astAfter in
 
-  (* Generate files. If in mode "show_res", astAfter is shown without decoding. *)
+  (* Generate files. If in mode "Resources.show", astAfter is shown without decoding. *)
   let bypass_cfeatures = !Flags.bypass_cfeatures_decoding in
   output_ast ~bypass_cfeatures (prefix ^ "_before") astBefore;
   output_ast ~bypass_cfeatures (prefix ^ "_after") astAfter;

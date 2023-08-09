@@ -109,3 +109,9 @@ let assert_commute (before : trm) (after : trm) : unit =
   let interference = Hyp_map.merge res_merge a_res b_res in
   if not (Hyp_map.is_empty interference) then
     fail after.loc (sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s != %s" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2)) (Hyp_map.bindings interference))))
+
+(* [show] enables to view the result of resource computations. *)
+let show (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
+  let t = Trace.ast() in
+  let tres = Resources_computation.(trm_recompute_resources builtin_env t) in
+  show_computed_res ~line ~ast:tres ()
