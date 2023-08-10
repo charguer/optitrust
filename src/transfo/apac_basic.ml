@@ -351,15 +351,17 @@ type const_aliases = (string, (int * int)) Hashtbl.t
 
 (* [const_fun]: a function constification record. *)
 type const_fun = {
-  (* List of constification records for all the argument of the function. When,
-     the function is in fact a class method, we consider the corresponding
-     object as an argument of the function too. In this case, the object is
-     prepended to 'const_args'. *)
-  const_args : const_arg list;
-  (* Tells whether the return value is a pointer. *)
-  is_ret_ptr : bool;
-  (* Tells whether the return value is a reference. *)
-  is_ret_ref : bool;
+    (* List of constification records for all the argument of the function. *)
+    const_args : const_arg list;
+    (* Tells whether the function can be constified. Note that this information
+       is relevant only if the function is a class member method. *)
+    mutable is_const : bool;
+    (* Tells whether the return value is a pointer. *)
+    is_ret_ptr : bool;
+    (* Tells whether the return value is a reference. *)
+    is_ret_ref : bool;
+    (* Tells whether the function is a class member method. *)
+    mutable is_class_method : bool;
 }
 
 (* [const_funs]: type for a hash table of [const_fun]. The keys are the names of
@@ -445,8 +447,10 @@ let const_lookup_candidates : Transfo.t =
                          }) args in
       let const : const_fun = {
           const_args = const_args;
+          is_const = true;
           is_ret_ptr = is_typ_ptr ret_ty;
           is_ret_ref = is_typ_array ret_ty || is_typ_ref ret_ty;
+          is_class_method = false;
         } in
       Hashtbl.add const_records qvar.qvar_str const
     )
@@ -634,20 +638,28 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
   | _ -> trm_iter (const_compute_one aliases fun_name) fun_body
 
 let rec unconst () : unit =
-    match Stack.pop_opt to_unconst with
-    | Some (fun_name, index) ->
-      let { const_args; _ } = Hashtbl.find const_records fun_name in
-      let arg = List.nth const_args index in
-      if arg.is_const then
-        begin
-        Printf.printf "Unconsting (%s, %d)...\n" fun_name index;  
-        arg.is_const <- false;
-        List.iter (
-            fun element -> Stack.push element to_unconst
-          ) arg.to_unconst_by_propagation
-        end;
-      unconst ()
-    | None -> ()
+  match Stack.pop_opt to_unconst with
+  | Some (fun_name, index) ->
+     Printf.printf "Unconst on (%s, %d)...\n" fun_name index;
+     let const_record = Hashtbl.find const_records fun_name in
+     let nb_args = List.length const_record.const_args in
+     if index < nb_args then
+       begin
+         let arg = List.nth const_record.const_args index in
+         if arg.is_const then
+           begin  
+             arg.is_const <- false;
+             List.iter (
+                 fun element -> Stack.push element to_unconst
+               ) arg.to_unconst_by_propagation;
+           end;
+       end
+     (* When the function is a class member method and a class sibling is
+        being modified within its body, the function must not be
+        consitifed. *)
+     else if const_record.is_class_method then const_record.is_const <- false;
+     unconst ()
+  | None -> ()
 
 let find_parent_typedef_record (p : path) : trm option =
   let reversed = List.tl (List.rev p) in
@@ -655,7 +667,7 @@ let find_parent_typedef_record (p : path) : trm option =
     match p with
     | e :: f -> 
        begin
-         let tg = target_of_path (List.rev p) in
+         let tg = target_of_path (List.rev p) in (* FIXME : Optimize by passing non-reversed list as argument ? *)
          let t = get_trm_at_exn tg in
          match t.desc with
          | Trm_typedef { typdef_body = Typdef_record _; _ } -> Some (t)
@@ -672,17 +684,21 @@ let const_compute_all : Transfo.t =
                    definition." in
       let (qvar, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv
                                          (get_trm_at_path path trm) in
+      let nb_args = List.length args in
+      let const_record = Hashtbl.find const_records qvar.qvar_str in
       let aliases : const_aliases = Hashtbl.create 10 in
       let class_siblings = match (find_parent_typedef_record path) with
         | Some (td) -> typedef_get_members td
         | None -> [] in
       if List.length class_siblings > 0 then
         begin
-          List.iter (fun (name, typ) ->
+          const_record.is_class_method <- true;
+          List.iteri (fun index (name, typ) ->
               Printf.printf "Class sibling for aliases : %s\n" name;
-              Hashtbl.add aliases name (get_cptr_depth typ, 0)
+              Hashtbl.add aliases name (get_cptr_depth typ, nb_args + index)
             ) class_siblings
-        end;
+        end
+      else const_record.is_const <- false;
       (* Add arguments to the list of aliases. *)
       List.iteri (fun index (name, typ) ->
         Printf.printf "Arg name for aliases : %s\n" name;
@@ -697,11 +713,10 @@ let unconst_and_const () : unit =
   unconst ();
   (* FIXME: To remove once all of the constification functions will be
      recoded. *)
-  Hashtbl.iter (fun fun_loc { const_args; _ } ->
-    let is_one_const = List.map (fun { is_const; _ } -> Printf.printf "Adding to cstfbl: %s, %B\n" fun_loc is_const; is_const) const_args in
-    Hashtbl.add cstfbl fun_loc (is_one_const, false);
-
-  ) const_records
+  Hashtbl.iter (fun fun_loc const_fun_record ->
+      let is_one_const = List.map (fun (const_arg_record : const_arg) -> const_arg_record.is_const) const_fun_record.const_args in
+      Hashtbl.add cstfbl fun_loc (is_one_const, const_fun_record.is_const);
+    ) const_records
 
 (* [constify_args_aux is_args_const t]: transforms the type of arguments of a
     function declaration in such a way that "const" keywords are added wherever
