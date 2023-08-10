@@ -1699,6 +1699,13 @@ let trm_let_inv (t : trm) : (varkind * var * typ * trm) option =
   | Trm_let (vk, (x, tx), init, _) -> Some (vk, x, tx, init)
   | _ -> None
 
+(* [trm_let_mult_inv t]: returns the components of a [trm_let_mult] constructor if [t] is a multiple let declaration.
+     Otherwise it returns [None]. *)
+let trm_let_mult_inv (t : trm) : (varkind * typed_vars * trm list) option =
+  match t.desc with
+  | Trm_let_mult (vk, tvs, inits) -> Some (vk, tvs, inits)
+  | _ -> None
+
 (* [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration.
      Otherwise it returns a [None]. *)
 let trm_let_fun_inv (t : trm) : (qvar * typ * typed_vars * trm) option =
