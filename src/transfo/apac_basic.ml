@@ -962,6 +962,16 @@ let unfold_let_mult_aux (t : trm) : trm =
     trm_seq_no_brace decls
   | _ -> fail None "Apac_basic.unfold_let_mult: expected a target to a multiple variable declaration."
 
+let unfold_let_mult_on (t : trm) : trm =
+  let error = "Apac_basic.unfold_let_mult_on: expected a target to a multiple \
+               variable declaration." in
+  let _ = Debug_transfo.trm ~internal:true "let_mult_before" t in
+  let (vk, tvs, tis) = trm_inv ~error trm_let_mult_inv t in
+  let declarations = List.map2 (fun tv ti -> let out = trm_let vk tv ti in out) tvs tis in
+  let nt = trm_seq_no_brace declarations in
+  let _ = Debug_transfo.trm "seq_after" nt in
+  nt
+
 (* [unfold_let_mult tg]: expects target [tg] to point at a multiple variable
     declaration. Then, it will replace it by a sequence of simple variable
     declarations.
@@ -970,7 +980,7 @@ let unfold_let_mult_aux (t : trm) : trm =
     Trm_let_mult and function's arguments. *)
 let unfold_let_mult (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    Target.apply_at_target_paths (unfold_let_mult_aux) tg)
+      Target.apply_at_target_paths (unfold_let_mult_on) tg)
 
 (* [mark_taskable_function]: adds mark [mark] where tasks will be created in a
     function body. Naive implementation, minimum 2 function call in the body. *)
