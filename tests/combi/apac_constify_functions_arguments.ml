@@ -9,6 +9,6 @@ let _ = Run.script_cpp (fun () ->
 
   Apac_basic.unconst_and_const ();
   
-           !! Apac.constify_functions_arguments Apac_basic.cstfbl [nbAny; cFunDefAndDecl ""];
+  !! Apac.constify_functions_arguments Apac_basic.cstfbl [nbAny; cFunDefAndDecl ""];
 
 )
