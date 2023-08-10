@@ -255,3 +255,9 @@ let hashtbl_keys_to_list (h : ('a, 'b) Hashtbl.t) : 'a list =
 (* [hashtbl_to_list h]: returns all pairs of key/value of [h] as a list. *)
 let hashtbl_to_list (h : ('a, 'b) Hashtbl.t) : ('a * 'b) list =
   Hashtbl.fold (fun k v acc -> (k, v) :: acc) h []
+
+(******************************************************************************)
+(*                          Functor Applications                         *)
+(******************************************************************************)
+
+module String_map = Map.Make(String)

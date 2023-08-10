@@ -58,44 +58,45 @@ let file_of_node (n : 'a node) : string =
 let ctx_var : typ varmap ref = ref Var_map.empty
 
 (* [ctx_tconstr]: a map for storing constructed types based on their ids *)
-let ctx_tconstr : typconstrid varmap ref = ref Var_map.empty
+let ctx_tconstr : typconstrid Qualified_map.t ref = ref Qualified_map.empty
 
 (* [ctx_typedef]: a map for storing typedefs based on the types they define *)
 let ctx_typedef : typedef typmap ref = ref Typ_map.empty
 
 (* [ctx_label]: a map for storing labels based on their ids *)
-let ctx_label : typconstrid varmap ref = ref Var_map.empty
+let ctx_label : typconstrid labelmap ref = ref String_map.empty
 
 (* ctx_constr]: a map for storing ids !! *)
-let ctx_constr : typconstrid varmap ref = ref Var_map.empty
+let ctx_constr : typconstrid constrnamemap ref = ref String_map.empty
 
 (* [debug_typedefs]: flag for debugging typedefs *)
 let debug_typedefs = false
 
-(* [ctx_var_add tv]: adds variable [tv] with type [t] in map [ctx_var] *)
-let ctx_var_add (tv : typvar) (t : typ) : unit =
+(* [ctx_var_add tv]: adds variable [v] with type [t] in map [ctx_var] *)
+let ctx_var_add (tv : var) (t : typ) : unit =
   ctx_var := Var_map.add tv t (!ctx_var)
 
 (* [ctx_tconstr_add tn tid]: adds constructed type [tv] with id [tid] in map [ctx_tconstr] *)
 let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
-  if debug_typedefs then Printf.printf "Type %s has been added into map with typconstrid %d\n" tn tid;
-  ctx_tconstr := Var_map.add tn tid (!ctx_tconstr)
+  if debug_typedefs then Printf.printf "Type %s has been added into map with typconstrid %d\n" (Tools.document_to_string (Ast_to_text.print_typconstr tn)) tid;
+  ctx_tconstr := Qualified_map.add tn tid (!ctx_tconstr)
 
 (* [ctx_typedef_add tn tid td]: adds typedef [td] with id [tid] in map [ctx_typedef] *)
 let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =
-  if debug_typedefs then Printf.printf "Typedef for %s has been registered\n" tn;
+  if debug_typedefs then Printf.printf "Typedef for %s has been registered\n" (Tools.document_to_string (Ast_to_text.print_typconstr tn));
   ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
 (* [ctx_label_add lb tid]: adds label [lb] with id [tid] in map [ctx_label] *)
 let ctx_label_add (lb : label) (tid : typconstrid) : unit =
-  ctx_label := Var_map.add lb tid (!ctx_label)
+  ctx_label := String_map.add lb tid (!ctx_label)
 
 (* [ctx_constr_add c tid]: adds constr [c] with id [tid] in map [ctx_constr_add] *)
 let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
-  ctx_constr := Var_map.add c tid (!ctx_constr)
+  ctx_constr := String_map.add c tid (!ctx_constr)
 
 (* [get_ctx]: gets the current context *)
 let get_ctx () : ctx =
+  (* FIXME: #var-id , ids are -1 wich breaks all varmaps. *)
   typing_ctx {
     ctx_var = !ctx_var;
     ctx_tconstr = !ctx_tconstr;
@@ -104,13 +105,20 @@ let get_ctx () : ctx =
     ctx_constr = !ctx_constr;
   }
 
+(* CHECK: #var-id , can we use C.ident.stamp as id ? *)
+let name_to_var ?(qualifier = []) (n : string) : var =
+  { qualifier; name = n; id = -1 }
+
+(* CHECK: #type-id *)
+let name_to_typconstr ?(qualifier = []) (n : string) : typconstr =
+  [], n
 
 (* [redundant_decl]: a reference used for checking if the declaration is redundant or not. *)
 let redundant_decl = ref false
 
 (* [get_typid_for_type ty]: gets the type id for type [tv]*)
-let get_typ (qualifier : string list) (name : string) : int  =
-   let tid = Var_map.find_opt tv !ctx_tconstr in
+let get_typid_for_type (qualifier : string list) (name : string) : int  =
+   let tid = Qualified_map.find_opt (qualifier, name) !ctx_tconstr in
    begin match tid with
    | Some id -> id
    | None -> -1
@@ -184,7 +192,7 @@ let get_typ (qualifier : string list) (name : string) : int  =
   | PipePipe -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop Binop_or))
   | PlusPlus -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_unop (Unop_post_inc)))
   | Subscript -> trm_prim ?loc ?ctx (Prim_overloaded_op (Prim_binop (Binop_array_get)))
-  | Call -> trm_var "overloaded_call"
+  | Call -> trm_var (name_to_var "overloaded_call")
   | _ -> fail loc "Clang_to_astRawC.overloaded_op: non supported operator"
 
 (* [wrap_const ~const t]: wrap type [t] into a const type if [const] is true *)
@@ -262,7 +270,7 @@ let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types
     begin match n with
       | IdentifierName n ->
         let qpath = tr_nested_name_specifier ?loc nns  in
-        let typ_to_add = typ_constr n ~qpath ~tid:(get_typid_for_type n)  in
+        let typ_to_add = typ_constr (qpath, n) ~tid:(get_typid_for_type qpath n)  in
         wrap_const ~const typ_to_add
       | _ -> fail loc ("tr_type_desc: only identifiers are allowed in type definitions")
     end
@@ -275,7 +283,7 @@ let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types
       | NoKeyword -> let tr_ty = tr_qual_type q in
         begin match tr_ty.typ_desc with
         | Typ_constr (qty, tid, tl) ->
-          typ_constr ~annot:tr_ty.typ_annot ~attributes:tr_ty.typ_attributes ~tid ~tl ~qpath qty.qvar_var
+          typ_constr ~annot:tr_ty.typ_annot ~attributes:tr_ty.typ_attributes ~tid ~tl (qpath, (snd qty))
         | _ -> tr_ty
         end
       | _ -> fail loc "Clang_to_astRawC.tr_type_desc: this elaborated type is not supported."
@@ -284,14 +292,14 @@ let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types
     let qpath = tr_nested_name_specifier ?loc nns in
     begin match n with
       | IdentifierName n ->
-         typ_constr n ~qpath ~tid:(get_typid_for_type n)
+         typ_constr ~tid:(get_typid_for_type qpath n) (qpath, n)
       | _ -> fail loc "Clang_to_astRawC.tr_type_desc: only identifiers are allowed in records"
     end
   | Enum {nested_name_specifier = nns; name = n; _} ->
     let qpath = tr_nested_name_specifier ?loc nns in
     begin match n with
       | IdentifierName n ->
-         typ_constr n ~qpath ~tid:(get_typid_for_type n)
+         typ_constr ~tid:(get_typid_for_type qpath n) (qpath, n)
       | _ -> fail loc "Clang_to_astRawC.tr_type_desc: only identifiers are allowed in enums"
     end
   | TemplateTypeParm name ->
@@ -305,7 +313,7 @@ let rec tr_type_desc ?(loc : location) ?(const : bool = false) ?(tr_record_types
     (* temporary hack for printing <> *)
     let tl = if tl = [] then [typ_unit()] else tl in
 
-    wrap_const ~const (typ_constr nm ~tid:(-1) ~tl)
+    wrap_const ~const (typ_constr ([], nm) ~tid:(-1) ~tl)
   | Decltype e ->
     let tr_e = tr_expr e in
     wrap_const ~const (typ_decl tr_e)
@@ -587,10 +595,10 @@ and tr_expr (e : expr) : trm =
         begin match a with
           | ArgumentExpr e ->
             let t = tr_expr e in
-            trm_apps ?loc ?typ ~ctx (trm_var ?loc "sizeof") [t]
+            trm_apps ?loc ?typ ~ctx (trm_var ?loc (name_to_var "sizeof")) [t]
           | ArgumentType q ->
             let ty = tr_qual_type q in
-            trm_var ?loc ?typ ~ctx ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")")
+            trm_var ?loc ?typ ~ctx (name_to_var ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")"))
         end
       | _ -> fail loc "Clang_to_astRawC.tr_expr: unsupported unary expr"
     end
@@ -675,18 +683,18 @@ and tr_expr (e : expr) : trm =
     let tf = tr_expr f in
     let tf = trm_add_cstyle (Clang_cursor (cursor_of_node f)) tf in
     begin match tf.desc with
-    | Trm_var (_, x) when x.qvar_var = "exact_div" ->
+    | Trm_var (_, x) when x.name = "exact_div" ->
       begin match List.map tr_expr el with
       | [n; b] ->
         trm_apps ?loc ~ctx ?typ (trm_binop Binop_exact_div) [n; b]
       | _ -> fail loc "Clang_to_astRawC.tr_expr: 'exact_div' expects two arguments"
       end
-    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x.qvar_var 0 ->
+    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x.name 0 ->
         begin match el with
         | [tl;tr] -> trm_set ?loc ~ctx (tr_expr tl) (tr_expr tr)
         | _ -> fail loc "Clang_to_astRawC.tr_expr: overloaded= expects two arguments"
         end
-    | Trm_var (_, x) when x.qvar_var = "overloaded_call" ->
+    | Trm_var (_, x) when x.name = "overloaded_call" ->
       let t_args = List.map tr_expr el in
       let call_name , call_args = Xlist.uncons t_args in
       trm_apps ?loc ~ctx ?typ call_name call_args
@@ -701,6 +709,7 @@ and tr_expr (e : expr) : trm =
           we look at the type given in their declaration to take into account
           type aliases
          *)
+        let qpath = tr_nested_name_specifier ?loc nns in
         let typ : typ option =
           (*
             clangml version: does not work (q = InvalidType for several vars in
@@ -709,10 +718,9 @@ and tr_expr (e : expr) : trm =
           (* let q = Clang.Type.of_cursor (Clang.Expr.get_definition e) in
            * Some (tr_qual_type ?loc q) *)
           (* hack with ctx_var *)
-          Var_map.find_opt s !ctx_var
+          Var_map.find_opt (name_to_var ~qualifier:qpath s) !ctx_var
         in
-        let qpath = tr_nested_name_specifier ?loc nns in
-        let res = trm_var ?loc ~ctx ?typ ~qpath s  in
+        let res = trm_var ?loc ~ctx ?typ (name_to_var ~qualifier:qpath s) in
         let targs = List.map (fun (targ : template_argument) -> begin match targ with | Type q -> tr_qual_type ?loc q | _ -> fail loc "Clang_to_astRawC.tr_expr: something went wrong." end) targs in
         begin match targs with
         | [] -> res
@@ -806,7 +814,7 @@ and tr_expr (e : expr) : trm =
     let tb = tr_stmt b in
     let pl = match po with | Some pl -> pl | None -> [] in
     let args = List.map (fun {decoration = _;
-      desc = {qual_type = q; name = n; default = _}} -> (n, tr_qual_type ?loc q)) pl in
+      desc = {qual_type = q; name = n; default = _}} -> (name_to_var n, tr_qual_type ?loc q)) pl in
     List.iter (fun (y, ty) -> ctx_var_add y ty) args;
     trm_fun args tt tb
   | This -> trm_this ()
@@ -831,7 +839,7 @@ and tr_expr (e : expr) : trm =
     let args = List.filter (fun (d : expr) -> match d.desc with | TemplateRef _ -> false | _ -> true) args in
     let tr_args = List.map tr_expr args in
     let f_name = AstC_to_c.typ_to_string tq  in
-    trm_apps (trm_var f_name) tr_args
+    trm_apps (trm_var (name_to_var f_name)) tr_args
   | ParenList el ->
     begin match el with
     | [e] -> tr_expr e
@@ -875,8 +883,9 @@ and tr_decl_list (dl : decl list) : trms =
           then fail loc (Printf.sprintf "Clang_to_astRawC.Typedef-struct: the struct name (%s) must match the typedef name (%s).\n" tn rn);
 
         (* First add the constructor name to the context, needed for recursive types *)
+        let tc = name_to_typconstr tn in
         let tid = next_typconstrid () in
-        ctx_tconstr_add tn tid;
+        ctx_tconstr_add tc tid;
 
         (* Second, parse the fields names and types *)
         let prod_list = List.map ( fun (d : decl) ->
@@ -904,7 +913,7 @@ and tr_decl_list (dl : decl list) : trms =
           typdef_vars = [];
           typdef_body = Typdef_record prod_list
           } in
-        ctx_typedef_add tn tid td;
+        ctx_typedef_add tc tid td;
         let trm_td = trm_typedef ?loc ~ctx:(get_ctx ()) td in
         let trm_td = if is_rec_type then trm_add_cstyle Is_rec_struct trm_td else trm_td in
         let tl' = tr_decl_list dl' in
@@ -940,15 +949,16 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
       List.map
         (fun ({desc = {constant_name; constant_init}; _} : enum_constant) ->
            match constant_init with
-           | None -> ((constant_name, None) : var * (trm option))
+           | None -> ((name_to_var constant_name, None) : var * (trm option))
            | Some e ->
              let t_init = tr_expr e in
-             (constant_name, Some t_init)
+             (name_to_var constant_name, Some t_init)
         )
         constants
     in
+    let tc = name_to_typconstr tn in
     let tid = next_typconstrid () in
-    ctx_tconstr_add tn tid;
+    ctx_tconstr_add tc tid;
     let td = {
       typdef_loc = loc;
       typdef_typid = tid;
@@ -956,7 +966,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
       typdef_vars = [];
       typdef_body = Typdef_enum enum_constant_l
     } in
-    ctx_typedef_add tn tid td;
+    ctx_typedef_add tc tid td;
     trm_typedef ?loc ~ctx td
   | Function {linkage = _; function_type = t; nested_name_specifier = nns;
               name = n; body = bo; deleted = _; constexpr = _; _} ->
@@ -985,13 +995,13 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
               | None -> trm_lit ?loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ?loc ~qpath s out_t  [] tb
+            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t  [] tb
           | Some {non_variadic = pl; variadic = _} ->
             let args =
               List.combine
                 (List.map
                    (fun {decoration = _;
-                         desc = {qual_type = _; name = n; default = _}} -> n)
+                         desc = {qual_type = _; name = n; default = _}} -> (name_to_var n))
                    pl
                 )
                 args_t
@@ -1002,7 +1012,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
               | None -> trm_lit ?loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ?loc ~qpath s out_t  args tb
+            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t  args tb
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in
@@ -1034,13 +1044,13 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
               | None -> trm_lit ?loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ?loc ~qpath s out_t  [] tb
+            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t  [] tb
           | Some {non_variadic = pl; variadic = _} ->
             let args =
               List.combine
                 (List.map
                    (fun {decoration = _;
-                         desc = {qual_type = _; name = n; default = _}} -> n)
+                         desc = {qual_type = _; name = n; default = _}} -> (name_to_var n))
                    pl
                 )
                 args_t
@@ -1051,7 +1061,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
               | None -> trm_lit ?loc Lit_uninitialized
               | Some s -> tr_stmt s
             in
-            trm_let_fun ?loc ~qpath s out_t  args tb
+            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t  args tb
         end
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in
@@ -1064,7 +1074,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     let class_name = Tools.clean_class_name cn in
     let qpath = if in_class_decl then [] else [cn] in
     let args = List.map (fun {decoration = _;
-       desc = {qual_type = q; name = n; default = _}} -> (n,tr_qual_type ?loc q)) pl in
+       desc = {qual_type = q; name = n; default = _}} -> (name_to_var n,tr_qual_type ?loc q)) pl in
     let tb = match bd with
     | None -> trm_lit ?loc Lit_uninitialized
     | Some s -> tr_stmt s in
@@ -1075,7 +1085,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
           let t_il = tr_member_initialized_list ?loc il in
           insert_at_top_of_seq t_il tb
       in
-    let res = trm_let_fun ?loc ~qpath class_name (typ_unit ()) args tb in
+    let res = trm_let_fun ?loc (name_to_var ~qualifier:qpath class_name) (typ_unit ()) args tb in
     let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in
     if ib
      then trm_add_cstyle (Class_constructor Constructor_implicit) res
@@ -1087,7 +1097,8 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     let tb = match bd with
     | None -> trm_lit ?loc Lit_uninitialized
     | Some s -> tr_stmt s in
-    let res = trm_let_fun ?loc (Tools.clean_class_name cn) (typ_unit ()) [] tb in
+    let class_name = Tools.clean_class_name cn in
+    let res = trm_let_fun ?loc (name_to_var class_name) (typ_unit ()) [] tb in
     let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in
     if df
       then trm_add_cstyle (Class_destructor Destructor_default) res
@@ -1118,7 +1129,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
         | Construct {args = args; qual_type = q} ->
           let el = List.filter (fun (e : expr) -> match e.desc with DefaultArg -> false | _ -> true) args in
           let tq = tr_qual_type ?loc q in
-          let f_name = trm_var (AstC_to_c.typ_to_string tq) in
+          let f_name = trm_var (name_to_var (AstC_to_c.typ_to_string tq)) in
           let args = List.map tr_expr el in
           begin match q.desc with
           | Elaborated _ -> trm_add_cstyle Constructed_init (trm_apps f_name args)
@@ -1136,13 +1147,15 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
         end
       end
       in
-    ctx_var_add n tt;
+    let v = name_to_var n in
+    ctx_var_add v tt;
     (* dummy value used for variable mutability *)
     let mut = if is_typ_const tt then Var_immutable else Var_mutable  in
-    trm_let ?loc mut (n,tt) te
+    trm_let ?loc mut (v,tt) te
   | TypedefDecl {name = tn; underlying_type = q} ->
+    let tc = name_to_typconstr tn in
     let tid = next_typconstrid () in
-    ctx_tconstr_add tn tid;
+    ctx_tconstr_add tc tid;
     let tq = tr_qual_type ?loc q in
     let td = {
       typdef_loc = loc;
@@ -1152,13 +1165,14 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
       typdef_body = Typdef_alias tq
     }
     in
-    ctx_typedef_add tn tid td;
+    ctx_typedef_add tc tid td;
     trm_typedef ?loc ~ctx td
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
       | IdentifierName tn ->
+        let tc = name_to_typconstr tn in
         let tid = next_typconstrid () in
-        ctx_tconstr_add tn tid;
+        ctx_tconstr_add tc tid;
         let tq = tr_qual_type ?loc q in
         let td = {
           typdef_loc = loc;
@@ -1166,7 +1180,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
           typdef_tconstr = tn;
           typdef_vars = [];
           typdef_body = Typdef_alias tq;} in
-        ctx_typedef_add tn tid td;
+        ctx_typedef_add tc tid td;
         trm_typedef ?loc ~ctx td
       | _ -> fail loc "Clang_to_astRawC.tr_decl: only identifiers allowed for type aliases"
     end
@@ -1215,8 +1229,9 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
       | _ -> Printf.printf "Failing from here\n";
         fail loc "Clang_to_astRawC.tr_decl_list: only fields are allowed in record declaration"
     ) [] fl in
+      let tc = name_to_typconstr rn in
       let tid = next_typconstrid () in
-      ctx_tconstr_add rn tid;
+      ctx_tconstr_add tc tid;
       let td = {
           typdef_loc = loc;
           typdef_typid = tid;
@@ -1224,7 +1239,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
           typdef_vars = [];
           typdef_body = Typdef_record prod_list
           } in
-        ctx_typedef_add rn tid td;
+        ctx_typedef_add tc tid td;
 
       begin match k with
       | Struct -> trm_add_cstyle Is_struct (trm_typedef ?loc ~ctx:(get_ctx()) td)

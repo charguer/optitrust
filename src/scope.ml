@@ -6,7 +6,7 @@ let trm_let_or_let_fun_inv t =
   | Some (_, x, _, _) -> Some x
   | _ ->
   begin match trm_let_fun_inv t with
-  | Some (qvar, _, _, _) -> Some (qvar_to_var qvar)
+  | Some (x, _, _, _) -> Some x
   | _ -> None
   end
 
@@ -25,15 +25,15 @@ let find_interference tl_new_scope tl_after : var list =
 let assert_no_interference ~(after_what : string) ~(on_interference : string) tl_new_scope tl_after : unit =
   match find_interference tl_new_scope tl_after with
   | [] -> ()
-  | [x] -> failwith (sprintf "local variable '%s' is used after %s, but will now be %s" x after_what on_interference)
-  | xs -> failwith (sprintf "local variables %s are used after %s, but will now be %s" (Tools.list_to_string ~sep:"', '" ~bounds:["'";"'"] xs) after_what on_interference)
+  | [x] -> failwith (sprintf "local variable '%s' is used after %s, but will now be %s" (var_to_string x) after_what on_interference)
+  | xs -> failwith (sprintf "local variables %s are used after %s, but will now be %s" (Tools.list_to_string ~sep:"', '" ~bounds:["'";"'"] (List.map var_to_string xs)) after_what on_interference)
 
 (** If [x] is used in [instrs], traces a justification, otherwise fails. *)
 let justif_unused_in (x : var) (instrs : trm mlist) : unit =
   let fv = trm_free_vars (trm_seq instrs) in
   if Var_set.mem x fv then
-    failwith (sprintf "'%s' is used" x);
-  Trace.justif (sprintf "'%s' is unused" x)
+    failwith (sprintf "'%s' is used" (var_to_string x));
+  Trace.justif (sprintf "'%s' is unused" (var_to_string x))
 
 (** Given a path to a variable definition, assert that it is unused using [justif_unused_in]. *)
 let justif_unused (p : Path.path) : unit =

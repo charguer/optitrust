@@ -13,40 +13,41 @@ let loc_of_cloc (cloc : C.location) : location =
 
 
 (* [ctx_tconstr]: a map for storing constructed types based on their ids *)
-let ctx_tconstr : typ QualifiedMap.t ref = ref QualifiedMap.empty
+let ctx_tconstr : typconstrid Qualified_map.t ref = ref Qualified_map.empty
 
 (* [ctx_typedef]: a map for storing typedefs based on the types they define *)
 let ctx_typedef : typedef typmap ref = ref Typ_map.empty
 
 (* [ctx_label]: a map for storing labels based on their ids *)
-let ctx_label : typ varmap ref = ref Var_map.empty
+let ctx_label : typconstrid labelmap ref = ref String_map.empty
 
 (* ctx_constr]: a map for storing ids !! *)
-let ctx_constr : typ varmap ref = ref Var_map.empty
+let ctx_constr : typconstrid constrnamemap ref = ref String_map.empty
 
 (* [debug_typedefs]: flag for debugging typedefs *)
 let debug_typedefs = false
 
-(* [ctx_tconstr_add tn tid]: adds constructed type [tv] with id [tid] in map [ctx_tconstr] *)
-let ctx_tconstr_add (tn : QualifiedName.t) (t : typ) : unit =
-  if debug_typedefs then Printf.printf "Type %s has been added into map with typconstrid %d\n" tn.name tid;
-  ctx_tconstr := QualifiedMap.add tn t (!ctx_tconstr)
+(* [ctx_tconstr_add tn tid]: adds constructed type [tc] with id [tid] in map [ctx_tconstr] *)
+let ctx_tconstr_add (tc : typconstr) (tid : typconstrid) : unit =
+  if debug_typedefs then Printf.printf "Type %s has been added into map with typconstrid %d\n" (Tools.document_to_string (Ast_to_text.print_typconstr tc)) tid;
+  ctx_tconstr := Qualified_map.add tc tid (!ctx_tconstr)
 
 (* [ctx_typedef_add tn tid td]: adds typedef [td] with id [tid] in map [ctx_typedef] *)
 let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =
-  if debug_typedefs then Printf.printf "Typedef for %s has been registered\n" tn;
+  if debug_typedefs then Printf.printf "Typedef for %s has been registered\n" (Tools.document_to_string (Ast_to_text.print_typconstr tn));
   ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
 (* [ctx_label_add lb tid]: adds label [lb] with id [tid] in map [ctx_label] *)
 let ctx_label_add (lb : label) (tid : typconstrid) : unit =
-  ctx_label := Var_map.add lb tid (!ctx_label)
+  ctx_label := String_map.add lb tid (!ctx_label)
 
 (* [ctx_constr_add c tid]: adds constr [c] with id [tid] in map [ctx_constr_add] *)
 let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
-  ctx_constr := Var_map.add c tid (!ctx_constr)
+  ctx_constr := String_map.add c tid (!ctx_constr)
 
 (* [get_ctx]: get the current context *)
 let get_ctx () : ctx =
+  (* FIXME: #var-id , ids are -1 wich breaks all varmaps. *)
   typing_ctx {
     ctx_var = Var_map.empty;
     ctx_tconstr = !ctx_tconstr;
@@ -55,9 +56,18 @@ let get_ctx () : ctx =
     ctx_constr = !ctx_constr;
   }
 
+(* CHECK: #var-id , can we use C.ident.stamp as id ? *)
+let name_to_var (n : string) : var =
+  { qualifier = []; name = n; id = -1 }
+
+(* CHECK: #type-id *)
+let name_to_typconstr (n : string) : typconstr =
+  [], n
+
 (* [get_typid_for_type ty]: gets the type id for type [tv]*)
 let get_typid_from_trm (tv : typvar) : int  =
-   let tid = Var_map.find_opt tv !ctx_tconstr in
+  (* CHECK: #var-id , is this correct? *)
+   let tid = Qualified_map.find_opt ([], tv) !ctx_tconstr in
    begin match tid with
    | Some id -> id
    | None -> -1
@@ -133,15 +143,15 @@ let rec tr_type  (ty : C.typ) : Ast.typ =
       typ_fun tl ty
     end
   | C.TNamed ({name = n;_}, att) ->
-    let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n) in
+    let typ_to_add = typ_constr (name_to_typconstr n) ~tid:(get_typid_from_trm n) in
     wrap_const att (typ_to_add)
   | C.TStruct ({name = n;_}, att) ->
-      let typ_to_add = typ_record Struct (typ_constr n ~tid:(next_typconstrid())) in
+      let typ_to_add = typ_record Struct (typ_constr (name_to_typconstr n) ~tid:(next_typconstrid())) in
       wrap_const att (typ_to_add)
   | C.TUnion ({name = n;_}, att) ->
       fail None "CMenhir_to_astRawC.OptiTrust does not support inline use of struct or union; you must use a typedef"
   | C.TEnum ({name = n; _}, att) ->
-    typ_constr n ~tid:(get_typid_from_trm n)
+    typ_constr (name_to_typconstr n) ~tid:(get_typid_from_trm n)
   | C.TVoid _ -> typ_unit ()
 
 
@@ -224,7 +234,7 @@ and tr_stmt (s : C.stmt) : trm =
              end
       in
     let mut = if is_typ_const tt then Var_immutable else Var_mutable in
-    trm_let ?loc mut (n, tt) te
+    trm_let ?loc mut (name_to_var n, tt) te
   | Spragma (p, s1) ->
     (* pragmas are parsed as annotations to the proceeding instruction *)
     let tp = tr_pragma p in
@@ -308,16 +318,16 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
   | EConst c -> tr_constant ~typ ?loc ~is_boolean c
   | ESizeof ty ->
     let ty = tr_type ty in
-    trm_var ?loc ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")")
+    trm_var ?loc (name_to_var ("sizeof(" ^ AstC_to_c.typ_to_string ty ^ ")"))
   | EAlignof ty ->
      let ty = tr_type ty in
-     trm_var ?loc ~typ ("_Alignas(" ^ AstC_to_c.typ_to_string ty ^ ")")
+     trm_var ?loc ~typ (name_to_var ("_Alignas(" ^ AstC_to_c.typ_to_string ty ^ ")"))
   | EVar {name = n; _} ->
     (* Booleans are parsed as const variables, here we need to convert them into literals *)
     begin match Tools.bool_of_var n with
     | Some b ->
       trm_lit ?loc (Lit_bool b)
-    | None -> trm_var ?loc ~ctx ~typ n
+    | None -> trm_var ?loc ~ctx ~typ (name_to_var n)
     end
 
   | EUnop (unop, e) ->
@@ -411,7 +421,7 @@ and tr_expr ?(is_boolean : bool = false) (e : C.exp) : trm =
   | ECall (f, el) ->
     let tf = tr_expr f in
     begin match tf.desc with
-    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x.qvar_var 0 ->
+    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x.name 0 ->
       begin match el with
       | [tl; tr] -> trm_set ?loc ~ctx (tr_expr tl) (tr_expr tr)
       | _ -> fail loc "CMenhir_to_astRawC.tr_expr: overloaded= expects two arguments"
@@ -437,47 +447,49 @@ and tr_globdef (d : C.globdecl) : trm =
       | C.TFun (ty1, params, _, att) ->
         let tt = tr_type ty1 in
         begin match params with
-        | None -> trm_let_fun n tt [] (trm_lit (Lit_uninitialized))
+        | None -> trm_let_fun (name_to_var n) tt [] (trm_lit (Lit_uninitialized))
         | Some pl ->
           let get_args (tv : C.ident * C.typ) : (var * typ) =
             let (id, ty) = tv in
             let ty = tr_type ty in
-            (id.name, ty) in
+            (name_to_var id.name, ty)
+          in
           let args = List.map get_args pl in
-          trm_let_fun ?loc ~ctx n tt args (trm_lit (Lit_uninitialized))
+          trm_let_fun ?loc ~ctx (name_to_var n) tt args (trm_lit (Lit_uninitialized))
         end
       | _ -> fail None "CMenhir_to_astRawC.tr_globdef: this function prototype is not supported"
       end
       else
         let mut = if is_typ_const tt then Var_immutable else Var_mutable in
-        trm_let ?loc ~ctx mut (n, tt) te
+        trm_let ?loc ~ctx mut (name_to_var n, tt) te
   | C.Gfundef {fd_storage = _; fd_inline = inline; fd_name = {name = n;_}; fd_attrib = _att; fd_ret = ty; fd_params = po; fd_body = bo; _} ->
     let tt = tr_type ty in
     let tb = tr_stmt bo in
     let res =
       begin match po with
       | [] ->
-        trm_let_fun n tt [] tb
+        trm_let_fun (name_to_var n) tt [] tb
       | _ ->
         let get_args (tv : C.ident * C.typ) : (var * typ) =
           let (id, ty) = tv in
           let ty = tr_type ty in
-          (id.name, ty)
+          (name_to_var id.name, ty)
          in
         let args = List.map get_args po in
-        trm_let_fun ?loc ~ctx n tt args tb
+        trm_let_fun ?loc ~ctx (name_to_var n) tt args tb
       end in
     if inline then trm_add_cstyle Fun_inline res else res
   | C.Genumdef ({C.name = tn}, att, enum_list) ->
     let el = List.map (fun ({C.name = constant_name; }, _, exp_opt) ->
       match exp_opt with
-      | None -> (constant_name, None)
+      | None -> (name_to_var constant_name, None)
       | Some e ->
         let t_init = tr_expr e in
-        (constant_name, Some t_init)
+        (name_to_var constant_name, Some t_init)
     ) enum_list in
+    let tc = name_to_typconstr tn in
     let tid = next_typconstrid () in
-    ctx_tconstr_add tn tid;
+    ctx_tconstr_add tc tid;
     let td = {
       typdef_loc = None;
       typdef_typid = tid;
@@ -485,11 +497,12 @@ and tr_globdef (d : C.globdecl) : trm =
       typdef_vars = [];
       typdef_body = Typdef_enum el
     } in
-    ctx_typedef_add tn tid td;
+    ctx_typedef_add tc tid td;
     trm_typedef ?loc ~ctx td
   | C.Gtypedef ({C.name = tn}, ty) ->
+    let tc = name_to_typconstr tn in
     let tid = next_typconstrid () in
-    ctx_tconstr_add tn tid;
+    ctx_tconstr_add tc tid;
     let ty = tr_type ty in
     let td = {
       typdef_loc = loc;
@@ -499,14 +512,15 @@ and tr_globdef (d : C.globdecl) : trm =
       typdef_body = Typdef_alias ty
     }
     in
-    ctx_typedef_add tn tid td;
+    ctx_typedef_add tc tid td;
     trm_typedef ?loc ~ctx td;
   | _ -> fail loc "CMenhir_to_astRawC.tr_globdef: declaration not supported"
 
 (* [tr_typedef] translates a typedef (struct only for the moment) *)
-let tr_typedef struct_is_named loc sn fl ty =
+let tr_typedef struct_is_named loc (sn : string) fl ty =
+  let tc = name_to_typconstr sn in
   let tid = next_typconstrid () in
-  ctx_tconstr_add sn tid;
+  ctx_tconstr_add tc tid;
   let prod_list = List.map (fun {C.fld_name = fr; fld_typ = ft; _} -> (Record_field_member (fr, tr_type ft), Access_unspecified)) fl in
   let td = {
     typdef_loc = loc;
@@ -516,7 +530,7 @@ let tr_typedef struct_is_named loc sn fl ty =
     typdef_body = Typdef_record prod_list
   } in
   let ctx = get_ctx () in
-  ctx_typedef_add sn tid td;
+  ctx_typedef_add tc tid td;
   trm_typedef ?loc ~ctx td
 
 

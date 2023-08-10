@@ -66,22 +66,22 @@ let set_inv (t : trm) : (trm * trms * trms * trm)  option =
 let alloc ?(init : trm option) (dims : trms) (size : trm) : trm =
   let n = List.length dims in
   match init with
-  | Some _ -> trm_apps (trm_var ("CALLOC" ^  (string_of_int n))) (dims @ [size])
-  | None -> trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size])
+  | Some _ -> trm_apps (trm_toplevel_var ("CALLOC" ^  (string_of_int n))) (dims @ [size])
+  | None -> trm_apps (trm_toplevel_var ("MALLOC" ^  (string_of_int n))) (dims @ [size])
 
 
 let alloc_with_ty ?(annot : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
   let n = List.length dims in
-  let size = trm_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
+  let size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
   trm_cast ~annot (typ_ptr Ptr_kind_mut ty) (
-    trm_apps (trm_var ("MALLOC" ^  (string_of_int n))) (dims @ [size]))
+    trm_apps (trm_toplevel_var ("MALLOC" ^  (string_of_int n))) (dims @ [size]))
 
 let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
   Option.bind (trm_new_inv t) (fun (_, t2) ->
   Option.bind (trm_cast_inv t2) (fun (ty, t3) ->
   Option.bind (trm_apps_inv t3) (fun (f, args) ->
-  Option.bind (trm_var_inv f) (fun f_name ->
-    if Tools.pattern_matches "MALLOC" f_name
+  Option.bind (trm_var_inv f) (fun f_var ->
+    if Tools.pattern_matches "MALLOC" f_var.name
     then begin
       let dims, size = Xlist.unlast args in
       Some (dims, Option.get (typ_ptr_inv ty), size)
@@ -93,7 +93,7 @@ let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
      the memory and [alignment] is the alignment size. *)
 let alloc_aligned (dims : trms) (size : trm) (alignment : trm)  : trm =
   let n = List.length dims in
-  trm_apps (trm_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
+  trm_apps (trm_toplevel_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
 
 
 (* [zero_initialized]: a boolean type used as flag to tell if the array cells should be initialized to zero or not. *)
@@ -105,17 +105,17 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
   match t.desc with
   | Trm_apps (f, args) ->
     begin match f.desc with
-    | Trm_var (_, f_name) ->
+    | Trm_var (_, f_var) ->
       let dims , size = Xlist.unlast args in
-      if (Tools.pattern_matches "CALLOC" f_name.qvar_var) then Some (dims, size, true)
-        else if (Tools.pattern_matches "MALLOC" f_name.qvar_var) then Some (dims, size, false)
+      if (Tools.pattern_matches "CALLOC" f_var.name) then Some (dims, size, true)
+        else if (Tools.pattern_matches "MALLOC" f_var.name) then Some (dims, size, false)
         else None
     | _ -> None
     end
   | _ -> None
 
 (* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
-let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) option =
+let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) option =
   match t.desc with
   | Trm_let (_, (x, ty), init, _) ->
     begin match get_init_val init with
@@ -131,12 +131,12 @@ let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) 
 
 let free (dims : trms) (t : trm) : trm =
   let n = List.length dims in
-  trm_apps (trm_var ("MFREE" ^  (string_of_int n))) (dims @ [t])
+  trm_apps (trm_toplevel_var ("MFREE" ^  (string_of_int n))) (dims @ [t])
 
 let free_inv (t : trm) : trm option =
   Option.bind (trm_apps_inv t) (fun (f, args) ->
-  Option.bind (trm_var_inv f) (fun f_name ->
-    if Tools.pattern_matches "MFREE" f_name
+  Option.bind (trm_var_inv f) (fun f_var ->
+    if Tools.pattern_matches "MFREE" f_var.name
     then begin
       let _dims, t = Xlist.unlast args in
       Some t
@@ -171,7 +171,7 @@ let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices
      [t] - ast of the call to alloc. *)
 let intro_calloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var (_, f);_},[dim; size]) when (is_qvar_var f "calloc") ->
+  | Trm_apps ({desc = Trm_var (_, f);_},[dim; size]) when f.name = "calloc" ->
     alloc ~init:(trm_int 0) [dim] size
   | _ -> fail t.loc "Matrix_core.intro_calloc_aux: expected a function call to calloc"
 
@@ -183,7 +183,7 @@ let intro_calloc : Target.Transfo.local =
      [t] - ast of the call to alloc. *)
 let intro_malloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var (_, f);_},[{desc = Trm_apps (_,[dim ;size]);_}]) when (is_qvar_var f "malloc") ->
+  | Trm_apps ({desc = Trm_var (_, f);_},[{desc = Trm_apps (_,[dim ;size]);_}]) when (var_has_name f "malloc") ->
     alloc [dim] size
   | _ -> fail t.loc "Matrix_core.intro_malloc: expected a function call to malloc"
 
@@ -297,7 +297,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   let init = if zero_init then Some (trm_int 0) else None in
   let fst_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc ?init dims size )) in
   let indices_list = begin match indices with
-  | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
+  | [] -> List.mapi (fun i _ -> new_var ("i" ^ (string_of_int (i + 1)))) dims | _ as l -> l  end in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_range = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp,  dim, Post_inc, false)) dims indices_list in
   begin match local_ops with

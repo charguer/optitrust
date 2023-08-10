@@ -172,7 +172,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
       | Some ty ->
         let ty = get_inner_const_type ty in
         begin match ty.typ_desc with
-        | Typ_constr (y, _, _) when (is_qvar_var y struct_name) ->
+        | Typ_constr (y, _, _) when (var_has_name y struct_name) ->
           let lfront, (_,trm_to_change) , lback = Mlist.get_item_and_its_relatives field_index term_list in
           begin match trm_to_change.desc with
           | Trm_record sl ->
@@ -331,8 +331,8 @@ let reorder_fields_aux (order : fields_order) (index : int) (t : trm) : trm =
           match rf with
           | Record_field_member (lb, _) -> (lb, i)
           | Record_field_method t1 ->
-            begin match decl_name t1 with
-            | Some n -> (n, i)
+            begin match trm_typedef_inv t1 with
+            | Some td -> (td.typdef_tconstr, i)
             | _ -> fail t.loc "Record_core.reorder_fields_aux: unkown method definition."
             end
         ) rfl in
@@ -379,7 +379,7 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
         | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
           begin match base.desc with
-          | Trm_var (_, v) when (is_qvar_var v name) ->
+          | Trm_var (_, v) when (var_has_name v name) ->
             trm_var (Convention.name_app name field)
           | _ -> trm_map aux t
           end
@@ -473,7 +473,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
           begin match base.typ with
           | Some ty ->
             begin match ty.typ_desc with
-            | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
+            | Typ_constr (x, _, _) when (var_has_name x struct_name) ->
               trm_apps ~annot:t.annot ?typ:t.typ ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))})  [base]
             | _ -> trm_map aux t
             end
@@ -483,7 +483,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
         begin match base.typ with
           | Some ty ->
             begin match ty.typ_desc with
-            | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
+            | Typ_constr (x, _, _) when (var_has_name x struct_name) ->
               trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))}  [base]
             | _ -> trm_map aux t
             end
@@ -497,7 +497,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
         begin match (get_operation_arg member_base).typ with
         | Some ty ->
           begin match ty.typ_desc with
-          | Typ_constr (x, _, _) when (is_qvar_var x struct_name) ->
+          | Typ_constr (x, _, _) when (var_has_name x struct_name) ->
             trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_var (vk, qvar_update ~var:(rename qf.qvar_var) qf)} args
           | _ -> trm_map aux t
           end
@@ -766,7 +766,7 @@ let method_to_const_aux (method_name : var) (t : trm) : trm =
                 else if method_name = "" then (Record_field_method (trm_add_cstyle Const_method t1), rf_ann)
                 else
                   begin match decl_name t1 with
-                  | Some name when method_name = name ->
+                  | Some td when method_name = td.typdef_tconstr ->
                     if trm_has_cstyle Const_method t1
                       then (rf, rf_ann)(* begin Printf.printf ("Nothing to change, method %s is already const." method_name); (rf, rf_ann) end *)
                       else

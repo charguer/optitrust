@@ -351,5 +351,6 @@ grep -r '[tag]' .
 
 - #advanced-scoping-check
 - #var-id
-- #this-id
-- #type-id
+  - #var-id-dir-name
+  - #this-id
+  - #type-id

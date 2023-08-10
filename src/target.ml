@@ -364,7 +364,7 @@ let cVarDef ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = 
 
 
 (* [cVarDefs vars]: matches a list of variable definitions based on their names. *)
-let cVarDefs (vars : vars) : constr =
+let cVarDefs (vars : string list) : constr =
   let vardefs = List.map (fun v -> [cVarDef v]) vars in
   cOr vardefs
 
@@ -566,7 +566,7 @@ let cTopFunDefAndDeclReg (reg : string) : constr =
   cTopFunDefAndDecl ~regexp:true reg
 
 (* [cTopFunDefs names]: matches multiple top level function definitions based on [names]. *)
-let cTopFunDefs (names : var list) : constr =
+let cTopFunDefs (names : string list) : constr =
   cOr (List.map (fun name -> [cTopFunDef name]) names)
 
 (* [cTopFunDefReg]: matches top level function definitions using the regular expression [reg]. *)
@@ -718,7 +718,7 @@ let cFun ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_p
   cCall ~fun_ ~args ~args_pred ~accept_encoded:false ~regexp name
 
 (* [cFuns funs]: matches a list of function calls based on their names. *)
-let cFuns (funs : var list) : constr =
+let cFuns (funs : string list) : constr =
   let funcalls = List.map (fun f -> [cFun f]) funs in
   cOr funcalls
 
@@ -798,7 +798,7 @@ let cWriteVar ?(regexp : bool = false) ?(substr : bool = false) ?(typ : string =
   cWrite ~lhs:[cStrictNew;cVar ~regexp ~substr ~typ ~typ_pred name] ()
 
 (* [cReadVar x]: matches a read operation on variable [x]. *)
-let cReadVar (x : var) : constr =
+let cReadVar (x : string) : constr =
   cRead ~addr:[cStrictNew; cVar x] ()
 
 (* [cMark m]: matches a trm that is marked with mark [m]. *)
@@ -1038,14 +1038,14 @@ let cCell ?(cell_index : int option) () : constr =
   | None -> cTarget [cArrayInit; cStrict; cTrue]
   | Some i -> cTarget [cArrayInit; dArrayNth i]
 
-let cArrayWrite (x : var) : constr =
+let cArrayWrite (x : string) : constr =
   cWrite ~lhs:[cCellAccess ~base:[cVar x] ()] ()
 
-let cArrayWriteAccess (x : var) : constr =
+let cArrayWriteAccess (x : string) : constr =
   cTarget [cWrite (); dLHS; cCellAccess ~base:[cVar x] ()]
 
 (* FIXME: seems weird *)
-let cArrayRead ?(index = []) (x : var) : constr =
+let cArrayRead ?(index = []) (x : string) : constr =
   cRead ~addr:[cDiff
     [[cCellAccess ~base:[cVar x] ~index ()]]
     [[cArrayWriteAccess x]]] ()
@@ -1136,8 +1136,8 @@ let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_n
         List.iter (function
           | None -> assert false
           | Some rexp -> Printf.printf "-> %s\n" (rexp_to_string rexp)) topfuns_regexps; *)
-        let hidetopfun topfunname =
-          not (List.exists (fun rexp -> Constr.check_name rexp topfunname) topfuns_regexps) in
+        let hidetopfun topfunvar =
+          not (List.exists (fun rexp -> Constr.check_name rexp topfunvar.name) topfuns_regexps) in
         let t3, _ = hide_function_bodies hidetopfun t2 in
         t3
     in
@@ -1700,26 +1700,26 @@ let get_ast () : trm =
 (* type reparse = | Reparse_none | Reparse_only_paths | Reparse_all. *)
 
 
-(* [get_function_name_at dl]: get the name of the function that corresponds to [dl]. *)
-let get_function_name_at (dl : path) : string option =
+(* [get_function_var_at dl]: get the name of the function that corresponds to [dl]. *)
+let get_function_var_at (dl : path) : var option =
   let fun_decl = match get_trm_at (target_of_path dl) with
     | Some fd -> fd
     | None -> fail None "get_function_name_at: couldn't retrive the function name at the targeted path"
    in
   match fun_decl.desc with
-  | Trm_let_fun (f, _, _, _, _) -> Some f.qvar_var
+  | Trm_let_fun (f, _, _, _, _) -> Some f
   | _ -> None
 
 
-(* [get_top_level_function_name_containing dl]: get the name of the top level function that contains the path [dl]. *)
-let get_toplevel_function_name_containing (dl : path) : string option =
+(* [get_top_level_function_var_containing dl]: get the name of the top level function that contains the path [dl]. *)
+let get_toplevel_function_var_containing (dl : path) : var option =
   match dl with
-  | Dir_seq_nth i :: Dir_body :: _ -> get_function_name_at [Dir_seq_nth i]
+  | Dir_seq_nth i :: Dir_body :: _ -> get_function_var_at [Dir_seq_nth i]
   | _ -> None
 
 
 (* [reparse_only fun_nmaes]: reparse only those functions whose identifier is contained in [fun_names]. *)
-let reparse_only ?(update_cur_ast : bool = true) (fun_names : string list) : unit =
+let reparse_only ?(update_cur_ast : bool = true) (fun_names : var list) : unit =
   Trace.parsing_step (fun () -> Trace.call (fun t ->
     let chopped_ast, chopped_ast_map  =  hide_function_bodies (function f -> not (List.mem f fun_names)) t in
     let parsed_chopped_ast = Trace.reparse_trm (Trace.get_context ()) chopped_ast in
@@ -1768,9 +1768,9 @@ let reparse_after ?(update_cur_ast : bool = true) ?(reparse : bool = true) (tr :
         ) in
       tr tg;
       if !Flags.use_light_diff then begin
-        let fun_names = List.map get_toplevel_function_name_containing tg_paths in
-        let fun_names = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
-        reparse_only ~update_cur_ast fun_names
+        let fun_vars = List.map get_toplevel_function_var_containing tg_paths in
+        let fun_vars = Xlist.remove_duplicates (List.filter_map (fun d -> d) fun_vars) in
+        reparse_only ~update_cur_ast fun_vars
       end else
         Trace.reparse ~update_cur_ast ();
     end

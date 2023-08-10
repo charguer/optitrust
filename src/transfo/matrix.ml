@@ -16,11 +16,11 @@ let%transfo intro_calloc (tg : target) : unit =
         begin match t1.desc with
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[calloc_trm]) ->
           begin match calloc_trm.desc with
-          | Trm_apps ({desc = Trm_var (_, f);_}, _) when (is_qvar_var f "calloc") ->
+          | Trm_apps ({desc = Trm_var (_, f);_}, _) when (var_has_name f "calloc") ->
             Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
           | _ -> fail t1.loc "intro_calloc: couldn't find the call to calloc function"
           end
-        | Trm_apps ({desc = Trm_var (_, f);_},_) when (is_qvar_var f "calloc") ->
+        | Trm_apps ({desc = Trm_var (_, f);_},_) when (var_has_name f "calloc") ->
           Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
         | _ -> try Matrix_basic.intro_calloc [cWriteVar x; cFun "calloc"]
           with | TransfoError _ -> fail tg_trm.loc "intro_calloc: couldn't find the calloc
@@ -60,11 +60,11 @@ let%transfo intro_malloc (tg : target) : unit =
         begin match t1.desc with
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm]) ->
           begin match malloc_trm.desc with
-          | Trm_apps ({desc = Trm_var (_, f);_}, _) when (is_qvar_var f "malloc") ->
+          | Trm_apps ({desc = Trm_var (_, f);_}, _) when (var_has_name f "malloc") ->
             Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
           | _ -> fail t1.loc "intro_malloc: couldn't find the call to malloc function"
           end
-        | Trm_apps ({desc = Trm_var (_, f);_},_) when  (is_qvar_var f "malloc") ->
+        | Trm_apps ({desc = Trm_var (_, f);_},_) when  (var_has_name f "malloc") ->
           Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
         | _ ->
          try Matrix_basic.intro_malloc [cWriteVar x; cFun "malloc"]

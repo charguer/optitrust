@@ -29,13 +29,17 @@ let get_varkind (env : env) (x : var) : varkind =
   | Some m -> m
   | _ -> Var_immutable
 
-(* [is_qvar_mutable env x]: checks if variable [x] is mutable or not *)
-let is_qvar_mutable (env : env) (x : qvar) : bool =
-  get_varkind env x.qvar_var = Var_mutable
+(* [is_var_mutable env x]: checks if variable [x] is mutable or not *)
+let is_var_mutable (env : env) (x : var) : bool =
+  get_varkind env x = Var_mutable
 
 (* [env_extend env e varkind]: adds variable [e] into environment [env] *)
 let env_extend (env : env) (e : var) (varkind : varkind) : env =
   Var_map.add e varkind env
+
+(* CHECK: #var-id , define trm_var that uses a ctx? *)
+let name_to_var (name : string) : var =
+  { qualifier = []; name; id = -1 }
 
 (* [add_var env x xm]: adds variable [x] into environemnt [env] with value [xm] *)
 let add_var (env : env ref) (x : var) (xm : varkind) : unit =
@@ -82,7 +86,7 @@ let stackvar_elim (t : trm) : trm =
     trm_simplify_addressof_and_get
     begin match t.desc with
     | Trm_var (_, x) ->
-      if is_qvar_mutable !env x
+      if is_var_mutable !env x
         then trm_get (trm_replace (Trm_var (Var_mutable, x)) t)
         else trm_replace (Trm_var (Var_immutable, x)) t
     | Trm_let (_, (x, ty), tbody, bound_res) ->
@@ -117,7 +121,7 @@ let stackvar_elim (t : trm) : trm =
     | Trm_seq _ when not (trm_is_nobrace_seq t) -> onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody, _) ->
       (* function names are by default immutable *)
-      add_var env f.qvar_var Var_immutable;
+      add_var env f Var_immutable;
       onscope env t (fun t -> List.iter (fun (x, _tx) ->
        let mut = Var_immutable in (* if is_typ_ptr tx then Var_mutable else Var_immutable in *)
        add_var env x mut) targs; trm_map aux t)
@@ -149,7 +153,7 @@ let stackvar_intro (t : trm) : trm =
     begin match t.desc with
     | Trm_var (_, x) ->
       (* Note: if AST invariants are preserved (are they?) the first argument of Trm_var should be equal to [Env.get !env x] *)
-      if is_qvar_mutable !env x
+      if is_var_mutable !env x
         then trm_address_of (trm_replace (Trm_var (Var_mutable, x)) t)
         else t
     | Trm_let (_, (x, tx), tbody, bound_res) ->
@@ -180,14 +184,14 @@ let stackvar_intro (t : trm) : trm =
     | Trm_seq _ when not (trm_is_nobrace_seq t) ->
       onscope env t (trm_map aux)
     | Trm_let_fun (f, _retty, targs, _tbody, _) ->
-      add_var env f.qvar_var Var_immutable;
+      add_var env f Var_immutable;
       onscope env t (fun t ->
       List.iter (fun (x, _tx) -> let mut = Var_immutable in (add_var env x mut)) targs; trm_map aux t)
     | Trm_for (l_range, _, _) ->
       let (index, _, _, _, _, _) = l_range in
       onscope env t (fun t -> begin add_var env index Var_immutable; trm_map aux t end)
     | Trm_for_c _ -> onscope env t (fun t -> trm_map aux t)
-    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_qvar_mutable !env x  -> t1
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_}, [{desc = Trm_var (_,x); _} as t1]) when is_var_mutable !env x  -> t1
     | _ -> trm_map aux t
     end in
    aux t
@@ -328,7 +332,7 @@ let method_call_elim (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base])} as tr, args) ->
       let t_var = begin match Ast_data.get_cursor_of_trm tr with
-      | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var f)
+      | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var (name_to_var f))
       | None -> fail t.loc "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
       end in
       trm_add_cstyle Method_call (trm_apps (t_var) ([base] @ args))
@@ -345,7 +349,7 @@ let method_call_intro (t : trm) : trm =
       let base, args = Xlist.uncons args in
       let struct_access =
         begin match f.desc with
-        | Trm_var (_, f) -> trm_struct_get base f.qvar_var
+        | Trm_var (_, f) -> trm_struct_get base f.name
         (* Special case when function_beta transformation is applied. *)
         | _ -> f
         end in
@@ -357,19 +361,18 @@ let method_call_intro (t : trm) : trm =
 let class_member_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_let_fun (qv, ty, vl, body, contract) when is_class_constructor t ->
+    | Trm_let_fun (v, ty, vl, body, contract) when is_class_constructor t ->
       let this_mut = Var_mutable in
-      let q_var = qv.qvar_var in
-      let this_typ = typ_ptr_generated (typ_constr q_var ~tid:(Clang_to_astRawC.get_typid_for_type q_var)) in
-      let this_body = trm_apps (trm_var "malloc") [trm_var ("sizeof(" ^ q_var ^ ")")] in
-      let this_alloc = trm_let this_mut ("this", this_typ) this_body in
-      let ret_this = trm_ret (Some (trm_var_get "this")) in
+      let this_typ = typ_ptr_generated (typ_constr (v.qualifier, v.name) ~tid:(Clang_to_astRawC.get_typid_for_type v.qualifier v.name)) in
+      let this_body = trm_apps (trm_var (name_to_var "malloc")) [trm_var (name_to_var ("sizeof(" ^ v.name ^ ")"))] in
+      let this_alloc = trm_let this_mut (trm_this (), this_typ) this_body in
+      let ret_this = trm_ret (Some (trm_get (trm_this ()))) in
       begin match body.desc with
       | Trm_seq tl ->
         let new_tl = Mlist.push_front this_alloc tl in
         let new_tl = Mlist.push_back ret_this new_tl in
         let new_body = trm_alter ~desc:(Trm_seq new_tl) t in
-        trm_alter ~desc:(Trm_let_fun (qv, this_typ, vl, new_body, contract)) t
+        trm_alter ~desc:(Trm_let_fun (v, this_typ, vl, new_body, contract)) t
       | Trm_val (Val_lit Lit_uninitialized) ->  t
       | _ ->  fail t.loc "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
       end
@@ -399,12 +402,29 @@ in aux t
 
 open Resources_contract
 
+let __pure = new_var "__pure"
+let __requires = new_var "__requires"
+let __ensures = new_var "__ensures"
+let __invariant = new_var "__invariant"
+let __reads = new_var "__reads"
+let __modifies = new_var "__modifies"
+let __consumes = new_var "__consumes"
+let __produces = new_var "__produces"
+let __sequentially_reads = new_var "__sequentially_reads"
+let __sequentially_modifies = new_var "__sequentially_modifies"
+let __ctx_res = new_var "__ctx_res"
+let __produced_res = new_var "__produced_res"
+let __used_res = new_var "__used_res"
+let __framed_res = new_var "__framed_res"
+let __contract_inst = new_var "__contract_inst"
+let __post_inst = new_var "__post_inst"
+
 let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
   let open Tools.OptionMonad in
   let* fn, args = trm_apps_inv t in
-  let* fn_name = trm_var_inv fn in
+  let* fn_var = trm_var_inv fn in
   let* clause =
-    match fn_name with
+    match fn_var.name with
     | "__pure" -> Some Requires
     | "__requires" -> Some Requires
     | "__ensures" -> Some Ensures
@@ -509,17 +529,17 @@ let ctx_resource_list_to_string (res: resource_item list) : string =
 let ctx_resources_to_trm (res: resource_set) : trm =
   let spure = ctx_resource_list_to_string res.pure in
   let slin = ctx_resource_list_to_string res.linear in
-  trm_apps (trm_var "__ctx_res") [trm_string spure; trm_string slin]
+  trm_apps (trm_var __ctx_res) [trm_string spure; trm_string slin]
 
 let ctx_used_res_item_to_string (res: used_resource_item) : string =
   let sinst = formula_to_string res.inst_by in
   let sformula = formula_to_string res.used_formula in
   Printf.sprintf "%s := %s : %s;" res.hyp_to_inst.name sinst sformula
 
-let ctx_used_res_to_trm ~(clause_name: string) (used_res: used_resource_set) : trm =
+let ctx_used_res_to_trm ~(clause: var) (used_res: used_resource_set) : trm =
   let spure = String.concat " " (List.map ctx_used_res_item_to_string used_res.used_pure) in
   let slin = String.concat " " (List.map ctx_used_res_item_to_string used_res.used_linear) in
-  trm_apps (trm_var clause_name) [trm_string spure; trm_string slin]
+  trm_apps (trm_var clause) [trm_string spure; trm_string slin]
 
 let ctx_produced_res_item_to_string (res: produced_resource_item) : string =
   let sformula = formula_to_string res.produced_formula in
@@ -528,7 +548,7 @@ let ctx_produced_res_item_to_string (res: produced_resource_item) : string =
 let ctx_produced_res_to_trm (produced_res: produced_resource_set) : trm =
   let spure = String.concat " " (List.map ctx_produced_res_item_to_string produced_res.produced_pure) in
   let slin = String.concat " " (List.map ctx_produced_res_item_to_string produced_res.produced_linear) in
-  trm_apps (trm_var "__produced_res") [trm_string spure; trm_string slin]
+  trm_apps (trm_var __produced_res) [trm_string spure; trm_string slin]
 
 let display_ctx_resources (t: trm): trm list =
   let t =
@@ -543,12 +563,12 @@ let display_ctx_resources (t: trm): trm list =
           | hyp, UsedFull -> Some (sprintf "%s;" hyp.name))
           (Hyp_map.bindings res_used))
       in
-      trm_apps (trm_var "__used_res") [trm_string s_used]) t.ctx.ctx_resources_usage) in
+      trm_apps (trm_var __used_res) [trm_string s_used]) t.ctx.ctx_resources_usage) in
   let tl = match t.ctx.ctx_resources_contract_invoc with
     | None -> [t]
     | Some contract_invoc ->
-      let t_frame = trm_apps (trm_var "__framed_res") [trm_string (ctx_resource_list_to_string contract_invoc.contract_frame)] in
-      let t_inst = ctx_used_res_to_trm ~clause_name:"__contract_inst" contract_invoc.contract_inst in
+      let t_frame = trm_apps (trm_var __framed_res) [trm_string (ctx_resource_list_to_string contract_invoc.contract_frame)] in
+      let t_inst = ctx_used_res_to_trm ~clause:__contract_inst contract_invoc.contract_inst in
       let t_produced = ctx_produced_res_to_trm contract_invoc.contract_produced in
       [t_frame; t_inst; t; t_produced]
   in
@@ -560,7 +580,7 @@ let computed_resources_intro (t: trm): trm =
     match t.desc with
     | Trm_seq instrs when not (List.mem Main_file (trm_get_files_annot t)) ->
       let tl_before = Option.to_list (Option.map ctx_resources_to_trm t.ctx.ctx_resources_before) in
-      let tl_post_inst = Option.to_list (Option.map (ctx_used_res_to_trm ~clause_name:"__post_inst") t.ctx.ctx_resources_post_inst) in
+      let tl_post_inst = Option.to_list (Option.map (ctx_used_res_to_trm ~clause:__post_inst) t.ctx.ctx_resources_post_inst) in
       trm_like ~old:t (trm_seq (Mlist.of_list (tl_before @ List.concat_map (fun instr -> display_ctx_resources (aux instr)) (Mlist.to_list instrs) @ tl_post_inst)))
     | _ -> trm_map_with_terminal_opt ~keep_ctx:true false (fun _ -> aux) t
   in
@@ -608,8 +628,8 @@ let rec contract_intro (t: trm): trm =
     in
 
     let hyp_not_mem_before_pop (hyp, _) =
-      if Hashtbl.mem frac_to_remove hyp.name then (
-        Hashtbl.remove frac_to_remove hyp.name;
+      if Hashtbl.mem frac_to_remove hyp then (
+        Hashtbl.remove frac_to_remove hyp;
         false
       ) else true
     in
@@ -622,11 +642,11 @@ let rec contract_intro (t: trm): trm =
   in
 
   let push_fun_contract (contract: fun_contract) (body: trm): trm =
-    let pre, post, body = push_reads_and_modifies "__reads" "__modifies" contract.pre contract.post body in
-    let body = push_named_formulas "__produces" post.linear body in
-    let body = push_named_formulas "__ensures" post.pure body in
-    let body = push_named_formulas "__consumes" pre.linear body in
-    let body = push_named_formulas "__requires" pre.pure body in
+    let pre, post, body = push_reads_and_modifies __reads __modifies contract.pre contract.post body in
+    let body = push_named_formulas __produces post.linear body in
+    let body = push_named_formulas __ensures post.pure body in
+    let body = push_named_formulas __consumes pre.linear body in
+    let body = push_named_formulas __requires pre.pure body in
     body
   in
 
@@ -636,26 +656,26 @@ let rec contract_intro (t: trm): trm =
     let body =
       match contract with
       | Some contract when contract = empty_fun_contract ->
-        insert_aux 0 (trm_apps (trm_var "__pure") []) body
+        insert_aux 0 (trm_apps (trm_var __pure) []) body
       | Some contract ->
         push_fun_contract contract body
       | None -> body
     in
     if body == body0
       then t
-      else trm_like ~old:t (trm_let_fun (qvar_to_var qv) ty args body)
+      else trm_like ~old:t (trm_let_fun qv ty args body)
 
   | Trm_for (range, body0, contract) ->
     let body = contract_intro body0 in
     let body =
       match contract with
       | Some contract when contract = empty_loop_contract ->
-        insert_aux 0 (trm_apps (trm_var "__pure") []) body
+        insert_aux 0 (trm_apps (trm_var __pure) []) body
       | Some contract ->
         let body = push_fun_contract contract.iter_contract body in
-        let _, invariant, body = push_reads_and_modifies "__sequentially_reads" "__sequentially_modifies" { contract.invariant with pure = contract.loop_ghosts @ contract.invariant.pure } contract.invariant body in
+        let _, invariant, body = push_reads_and_modifies __sequentially_reads __sequentially_modifies { contract.invariant with pure = contract.loop_ghosts @ contract.invariant.pure } contract.invariant body in
         assert (invariant.linear = []);
-        push_named_formulas "__invariant" invariant.pure body
+        push_named_formulas __invariant invariant.pure body
       | None -> body
     in
     if body == body0

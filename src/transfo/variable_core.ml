@@ -122,7 +122,7 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
     end in
     let rec aux (t1 : trm) : trm =
       match t1.desc with
-      | Trm_var (vk, y) when (is_qvar_var y x) ->
+      | Trm_var (vk, y) when (var_has_name y x) ->
          let q_new_name = qvar_build new_name in
           trm_replace (Trm_var (vk, q_new_name)) t1
       | _ -> trm_map aux t1
@@ -468,7 +468,7 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
       let _, t' = aux t in t'
     in
     match t.desc with
-    | Trm_var (_, y) when (is_qvar_var y x) -> (true, t)
+    | Trm_var (_, y) when (var_has_name y x) -> (true, t)
     | Trm_apps (_, [t1]) when is_get_operation t ->
       let r, t1' = aux t1 in
       (false, if r then t1' else trm_get ~annot:t.annot t1')
@@ -488,7 +488,7 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
 (* [remove_get_operations_on_var_temporary x t]: to be removed. *)
 let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (* ARTHUR *)
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [{desc = Trm_var (_,y);_}as ty]) when (is_qvar_var y x) -> ty
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [{desc = Trm_var (_,y);_}as ty]) when (var_has_name y x) -> ty
   | _ -> trm_map (remove_get_operations_on_var_temporary x) t
 
 (* [Variable_to_const_abort]: exception raised by [from_to_const_aux]. *)
@@ -534,7 +534,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
               begin match t1.desc with
               | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
                 begin match ls.desc with
-                | Trm_var (_, y) when (is_qvar_var y x) -> fail ls.loc "Variable_core.to_const_aux: variables with one or more write operations can't be converted to immutable ones"
+                | Trm_var (_, y) when (var_has_name y x) -> fail ls.loc "Variable_core.to_const_aux: variables with one or more write operations can't be converted to immutable ones"
                 | _ ->
                   (* if contains_occurrence x ls
                             then fail ls.loc "Variable_core.to_const_aux: struct instances with

@@ -947,6 +947,13 @@ let check_hastype (pred : typ->bool) (t : trm) : bool =
     | Some ty -> pred ty
     | None -> false
 
+(* [check_name name s]: checks if constraint [name] matches string [s] *)
+let check_name (name : constr_name) (s : string) : bool =
+  match name with
+  | None -> true
+  | Some r ->
+     match_regexp_str r s
+
 (* [check_constraint c]: checks if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
    if trm_has_cstyle Multi_decl t then
@@ -982,7 +989,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         let direction_match = match p_direction with
         | None -> true
         | Some d -> d = direction in
-        check_name p_index index &&
+        check_name p_index index.name &&
         direction_match &&
         check_target p_start start &&
         check_target p_stop stop &&
@@ -1000,12 +1007,12 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_else else_t
       | Constr_decl_var (ty_pred, name, p_body) , Trm_let (_,(x,tx), body, _) ->
         ty_pred (get_inner_ptr_type tx) &&
-        check_name name x &&
+        check_name name x.name &&
         check_target p_body body
      | Constr_decl_vars (ty_pred, name, p_body), Trm_let_mult (_, tvl, tl) ->
         List.fold_left2 (fun acc (x, tx) body ->
           let b = ty_pred (get_inner_ptr_type tx) &&
-            check_name name x &&
+            check_name name x.name &&
             check_target p_body body in
           acc || b
         ) false tvl tl
@@ -1020,7 +1027,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | _ , _ -> true
           in
         ty_pred tx &&
-        check_name name x.qvar_var &&
+        check_name name x.name &&
         check_args cl_args args &&
         body_check &&
         cursor_check
@@ -1042,7 +1049,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_list ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
         in constra_app *)
      | Constr_var name, Trm_var (_, x) ->
-        check_name name x.qvar_var
+        check_name name x.name
      | Constr_lit pred_l, Trm_val (Val_lit l) ->
         pred_l l
      | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args) ->
@@ -1058,7 +1065,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           check_list ~depth:(DepthAny) cl_args args
      | Constr_label (so, p_body), _ ->
         let t_labels = trm_get_labels t in
-        List.fold_left (fun acc l -> check_name so l || acc) false t_labels &&
+        List.fold_left (fun acc (l : label) -> check_name so l || acc) false t_labels &&
         check_target p_body t
      | Constr_goto so, Trm_goto l ->
         check_name so l
@@ -1105,13 +1112,6 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | _ -> false
      end
 
-(* [check_name name s]: checks if constraint [name] matches string [s] *)
-and check_name (name : constr_name) (s : string) : bool =
-  match name with
-  | None -> true
-  | Some r ->
-     match_regexp_str r s
-
 (* [check_list ~depth lpred tl]: checks if [tl] satisfy the predicate [lpred] *)
 and check_list ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trms) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
@@ -1126,13 +1126,13 @@ and check_args (lpred : target_list_pred) (txl : typed_vars) : bool =
 
 (* [check_arg tg tx]: checks if the typed-variable [tx] satisfies the argument-constraint [tg].
    An argument constraint is a singleton constraint, of the form [cArg ..] or [cTrue]. *)
-and check_arg (tg:arg_constraint) ((var_name, var_typ) : typed_var) : bool =
+and check_arg (tg:arg_constraint) ((var, var_typ) : typed_var) : bool =
   match tg with
   | [] -> true
   | [c] -> begin match c with
            | Constr_bool true -> true
            | Constr_arg (var_constraint, typ_constraint) ->
-              var_constraint var_name && typ_constraint var_typ
+              var_constraint var.name && typ_constraint var_typ
            | _ -> fail None "Constr.check_arg: target expressing constraints on arguments must be of
                              the form [cArg...] or [cTrue]."
           end
@@ -1196,13 +1196,13 @@ and check_kind (k : case_kind) (tl : trms) : bool =
 
 (* [check_enum_const cec xto_l]: checks if [xto_l] are matched by constraint [cec] *)
 and check_enum_const (cec : constr_enum_const)
-  (xto_l : (string * (trm option)) list) : bool =
+  (xto_l : (var * (trm option)) list) : bool =
   match cec with
   | None -> true
   | Some cnp_l ->
      List.for_all2
        (fun (cn, p) (n, t_o) ->
-         check_name cn n &&
+         check_name cn n.name &&
          match p, t_o with
          | [], None -> true
          | _, None -> false
@@ -1566,7 +1566,8 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
            ([], [])
            xto_l
         in
-        add_dir Dir_name (aux (trm_var ?loc td.typdef_tconstr)) @
+        (* CHECK: #var-id-dir-name , is this correct? *)
+        add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = -1 })) @
         (explore_list (List.map (fun (y, _) -> trm_var ?loc y) xto_l)
            (fun n -> Dir_enum_const (n, Enum_const_name))
            (aux)) @
@@ -1711,12 +1712,15 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      app_to_nth_dflt loc tl n (fun nth_t ->
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
-     add_dir Dir_name (aux (trm_var ?loc td.typdef_tconstr))
+    (* CHECK: #var-id-dir-name , is this correct? *)
+     add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = -1 }))
   | Dir_name, Trm_let_fun (x, _, _, _, _) ->
-    add_dir Dir_name (aux (trm_var ?loc ~qvar:x ""))
-  | Dir_name, Trm_let (_,(x,_),_, _)
-    | Dir_name, Trm_goto x ->
-     add_dir Dir_name (aux (trm_var ?loc x))
+    add_dir Dir_name (aux (trm_var ?loc x))
+  | Dir_name, Trm_let (_,(x,_),_, _) ->
+    add_dir Dir_name (aux (trm_var ?loc x))
+  | Dir_name, Trm_goto x ->
+    (* CHECK: #var-id-dir-name , is this correct? *)
+    add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = x; id = -1 }))
   | Dir_case (n, cd), Trm_switch (_, cases) ->
      app_to_nth_dflt loc cases n
        (fun (tl, body) ->

@@ -120,6 +120,23 @@ let trm_var ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
 let new_var ?(qualifier : string list = []) (name : string) : var =
   let id = next_var_int () in { qualifier; name; id }
 
+(* FIXME: #var-id , do we want this global map or should this be context ? *)
+let toplevel_vars: var_id Qualified_map.t ref = ref Qualified_map.empty
+
+(** [trm_toplevel_var]: creates a toplevel variable occurence.
+  A new variable identifier is created if the variable did not exist.
+    *)
+let toplevel_var ?(qualifier : string list = []) (name : string) : var =
+  match Qualified_map.find_opt (qualifier, name) !toplevel_vars with
+  | None ->
+    let v = new_var ~qualifier name in
+    toplevel_vars := Qualified_map.add (qualifier, name) v.id !toplevel_vars;
+    v
+  | Some id -> { qualifier; name; id }
+
+let trm_toplevel_var ?(qualifier : string list = []) (name : string) : trm =
+  trm_var (toplevel_var ~qualifier name)
+
 (* [trm_array ~annot ?loc ?typ ?ctx tl]: array initialization list *)
 let trm_array ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
   (tl : trm mlist) : trm =
@@ -308,7 +325,7 @@ let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc) ?(c
   let t = trm_lit ?loc ?ctx Lit_nullptr in
   if uppercase then trm_add_cstyle Display_null_uppercase t else t
 
-let var_free = new_var "free"
+let var_free = toplevel_var "free"
 
 (* [trm_free]: build a term calling the 'free' function. *)
 let trm_free ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (memory : trm) : trm =
@@ -1073,7 +1090,7 @@ let trm_map_vars (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> var -
 (* TODO: Make a better naming with numbers later *)
 let gen_var_name forbidden_names seed =
   failwith "issue #var-id"
-  (* if QualifiedSet.mem seed forbidden_names then
+  (* if Qualified_set.mem seed forbidden_names then
     gen_var_name forbidden_names (seed ^ "'")
   else
     seed
@@ -1089,14 +1106,14 @@ let gen_var_name forbidden_names seed =
 let trm_subst_binder (forbidden_binders, subst_map) binder =
   failwith "issue #var-id"
   (*
-  if QualifiedSet.mem binder forbidden_binders then
+  if Qualified_set.mem binder forbidden_binders then
     let new_binder = gen_var_name forbidden_binders binder in
-    let forbidden_binders = QualifiedSet.add new_binder forbidden_binders in
-    let subst_map = QualifiedSet.add binder (trm_var new_binder) subst_map in
+    let forbidden_binders = Qualified_set.add new_binder forbidden_binders in
+    let subst_map = Qualified_set.add binder (trm_var new_binder) subst_map in
     ((forbidden_binders, subst_map), new_binder)
   else
-    let forbidden_binders = QualifiedSet.add binder forbidden_binders in
-    let subst_map = QualifiedSet.add binder (trm_var binder) subst_map in
+    let forbidden_binders = Qualified_set.add binder forbidden_binders in
+    let subst_map = Qualified_set.add binder (trm_var binder) subst_map in
     ((forbidden_binders, subst_map), binder)
     *)
 
@@ -1191,12 +1208,11 @@ let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
     trm_map (label_subterms_with_fresh_stringreprids f) t2
 
 
-(* [decl_name t]: returns the name of the declared object *)
+(* [decl_name t]: returns the name of the declared variable/function. *)
 let decl_name (t : trm) : var option =
   match t.desc with
   | Trm_let (_,(x,_),_, _) -> Some x
   | Trm_let_fun (f, _, _, _, _) -> Some f
-  | Trm_typedef td -> Some td.typdef_typvar
   | _ -> None
 
 (* [vars_bound_in_trm_init t]: gets the list of variables that are bound inside the initialization trm of the for_c loop*)
@@ -1244,7 +1260,7 @@ let for_loop_index (t : trm) : var =
      begin match init.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                  [{desc = Trm_var (_, x); _}; _]) -> x
-     | _ -> begin match decl_name init with
+     | _ -> begin match trm_var_inv init with
             | Some x -> x
             | None -> fail init.loc "Ast.for_loop_index: could't get the loop index"
             end
@@ -2189,7 +2205,8 @@ let get_typ_arguments (t : trm) : typ list =
     | _ -> acc
   ) [] c_annot
 
-
+let var_has_name (v : var) (n : string) : bool =
+  v.qualifier = [] && v.name = n
 
 (* [is_trm_record t]: checks if [t] has [Trm_record] or [Trm_array] description or not. *)
   let is_trm_record (t : trm) : bool =
@@ -2232,8 +2249,6 @@ let get_typ_arguments (t : trm) : typ list =
 
 (* ========== matrix helpers =========== *)
 
-let vars_mindex = List.init 4 (fun n -> new_var ("MINDEX" ^ (string_of_int n)))
-
 (* [mindex dims indices]: builds a call to the macro MINDEX(dims, indices)
     [dims] - dimensions of the matrix access,
     [indices ] - indices of the matrix access.
@@ -2245,8 +2260,8 @@ let vars_mindex = List.init 4 (fun n -> new_var ("MINDEX" ^ (string_of_int n)))
       if List.length dims <> List.length indices then fail None "Matrix_core.mindex: the number of
           dimension should correspond to the number of indices";
       let n = List.length dims in
-      let mindex = List.nth vars_mindex n in
-      trm_apps (trm_var mindex) (dims @ indices)
+      let mindex = trm_toplevel_var ("MINDEX" ^ (string_of_int n)) in
+      trm_apps mindex (dims @ indices)
 
     (* [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t]/ *)
     let mindex_inv (t : trm) : (trms * trms) option =

@@ -346,7 +346,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
               (fun (x1, tx) ->
                 let t' = aux (trm_var ?loc:t.loc x1) in
                 match t'.desc with
-                | Trm_var (_,  x') -> (x'.qvar_var, tx)
+                | Trm_var (_,  x') -> (x', tx)
                 | _ ->
                    fail t.loc ("Path.apply_on_path: transformation must preserve fun arguments")
               )
@@ -356,11 +356,11 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         | Dir_name , Trm_let (vk,(x,tx),body,bound_res) ->
           let t' = aux (trm_var ?loc:t.loc x) in
           begin match t'.desc with
-          | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x'.qvar_var, tx), body, bound_res)}
+          | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x', tx), body, bound_res)}
           | _ -> fail t.loc "Path.apply_on_path: transformation must preserve variable names"
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body, contract) ->
-          let t' = aux (trm_var ?loc:t.loc ~qvar:x "") in
+          let t' = aux (trm_var ?loc:t.loc x) in
           begin match t'.desc with
           | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body, contract)}
           | _ ->
@@ -512,12 +512,16 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           app_to_nth loc arg n
             (fun (x, _) -> aux (trm_var ?loc x) ctx)
        | Dir_name, Trm_let_fun (x, _, _, _, _) ->
-          aux (trm_var ?loc ~qvar:x "") ctx
-       | Dir_name , Trm_let (_,(x,_),_,_)
-         | Dir_name, Trm_goto x ->
           aux (trm_var ?loc x) ctx
+       | Dir_name , Trm_let (_,(x,_),_,_) ->
+          aux (trm_var ?loc x) ctx
+       | Dir_name, Trm_goto x ->
+         (* CHECK: #var-id-dir-name , is this correct? *)
+         aux (trm_var ?loc { qualifier = []; name = x; id = -1}) ctx
        | Dir_name, Trm_typedef td ->
-        aux (trm_var ?loc td.typdef_tconstr) ctx
+        (* CHECK: #var-id-dir-name , is this correct? *)
+        let var = { qualifier = []; name = td.typdef_tconstr; id = -1 } in
+        aux (trm_var ?loc var) ctx
        | Dir_case (n, cd), Trm_switch (_, cases) ->
           app_to_nth loc cases n
             (fun (tl, body) ->

@@ -14,13 +14,13 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_const t ->
     let dt = print_typ ~only_desc t in
     print_node "Typ_const" ^^ dt
-  | Typ_var tv ->
-    print_node "Typ_var" ^^ parens (print_var tv)
-  | Typ_constr (tv, tl) ->
-    let tv_d = print_var tv in
+  | Typ_var (name, tid) ->
+    print_node "Typ_var" ^^ parens (separate (comma ^^ break 1) [string name; string (string_of_int tid)])
+  | Typ_constr (tc, tid, tl) ->
+    let tv_d = print_typconstr tc in
     let tl = List.map (print_typ ~only_desc) tl in
     print_node "Typ_constr" ^^ parens ( separate (comma ^^ break 1)
-      [tv_d; print_list tl])
+      [tv_d; string (string_of_int tid); print_list tl])
   | Typ_auto -> string "Typ_auto"
   | Typ_unit -> string "Typ_unit"
   | Typ_int -> string "Typ_int"
@@ -193,6 +193,10 @@ and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
 and print_var (v : var) : document =
   (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^
   string v.name ^^ string "#" ^^ string (string_of_int v.id)
+
+and print_typconstr ((qualifier, name) : typconstr) : document =
+  (concat_map (fun q -> string q ^^ string "::") qualifier) ^^
+  string name
 
 (* [print_trm_desc ~only_desc t]: converts the description of trm [t] to pprint document *)
 and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
@@ -374,14 +378,14 @@ and print_record_type (rt : record_type) : document =
 
 (* [print_typedef ~only_desc td]: converts typedef to pprint document *)
 and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
-  let tv = td.typdef_typvar in
+  let tconstr = td.typdef_tconstr in
   let tbody = td.typdef_body in
 
   match tbody with
   | Typdef_alias t ->
     let dt = print_typ ~only_desc t in
     print_node "Typedef_alias" ^^ parens ( separate (comma ^^ break 1)
-     [print_var tv; dt ])
+     [string tconstr; dt ])
   | Typdef_record rfl ->
     let get_document_list (rfl : record_fields) : document list =
       let rec aux acc = function
@@ -399,7 +403,7 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
       in
       let dtl = get_document_list rfl in
      print_node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
-      [print_var tv; print_list dtl ])
+      [string tconstr; print_list dtl ])
   | Typdef_sum _ ->
     fail None "Ast_to_text.print_typedef: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
@@ -414,7 +418,7 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
             enum_const_l
          )
      in
-     print_node "Typedef_enum" ^^ print_pair (print_var tv) denum_const_l
+     print_node "Typedef_enum" ^^ print_pair (string tconstr) denum_const_l
 
 and print_trm_annot (t : trm) : document =
 

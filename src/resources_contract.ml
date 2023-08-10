@@ -2,13 +2,18 @@ open Syntax
 
 let next_hyp_id = Tools.fresh_generator ()
 
-let new_hyp (name: var option): hyp =
-  let id = next_hyp_id () in
-  match name with
-  | Some name -> name
-  | None -> { qualifier = []; name = sprintf "#%d" id ; id }
+let new_hyp ?(qualifier = []) (name : string) : hyp =
+  let id = next_var_int () in
+  { qualifier; name; id }
 
-let new_anon_hyp (): hyp = new_hyp None
+let new_anon_hyp (): hyp =
+  let hid = next_hyp_id () in
+  new_hyp (sprintf "#%d" hid)
+
+let new_hyp_like (h: hyp option): hyp =
+  match h with
+  | Some h -> new_hyp ~qualifier:h.qualifier h.name
+  | None -> new_anon_hyp ()
 
 type contract_clause_type =
   | Requires
@@ -23,6 +28,7 @@ type contract_clause_type =
 
 type contract_resource = var option * formula
 
+(* CHECK: #var-id *)
 let var_has_model = trm_var (new_var "_HasModel")
 let var_read_only = trm_var (new_var "_RO")
 let var_frac = trm_var (new_var "_Fraction")
@@ -62,10 +68,8 @@ let var_cell = trm_var (new_var "Cell")
 let formula_cell (x: var): formula =
   formula_model (trm_var x) var_cell
 
-let vars_matrix = List.init 4 (fun n -> trm_var (new_var (sprintf "Matrix%d" n)))
-
 let formula_matrix (x: var) (dims: trms) : formula =
-  let matrixN = List.nth vars_matrix (List.length dims) in
+  let matrixN = trm_toplevel_var (sprintf "Matrix%d" (List.length dims)) in
   formula_model (trm_var x) (trm_apps matrixN dims)
 
 type contract_clause = contract_clause_type * contract_resource
@@ -83,7 +87,7 @@ let empty_loop_contract =
 
 
 let new_res_item ((name, formula): contract_resource): resource_item =
-  (new_hyp name, formula)
+  (new_hyp_like name, formula)
 
 let push_pure_res (res: contract_resource) (res_set: resource_set) =
   { res_set with pure = new_res_item res :: res_set.pure }
@@ -125,6 +129,7 @@ let push_loop_contract_clause (clause: contract_clause_type)
     { contract with invariant = push_linear_res res contract.invariant }
   | _ -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
 
+(* CHECK: #var-id *)
 let var_group = trm_var (new_var "Group")
 let var_range = trm_var (new_var "range")
 

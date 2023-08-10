@@ -297,7 +297,7 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
                | _ -> None
                end
     | Trm_let (_, (y, _), _, _) when y = x -> Some t1
-    | Trm_let_fun (y, _, _, body, _) when (is_qvar_var y x) ->
+    | Trm_let_fun (y, _, _, body, _) when (var_has_name y x) ->
       if require_body then begin
         match body.desc with
         | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
@@ -324,7 +324,7 @@ let rec local_decl (x : var) (t : trm) : trm option =
   | Trm_typedef td when td.typdef_tconstr = x -> Some t
   | Trm_let (_, (y, _), _, _) when y = x -> Some t
   | Trm_let_fun (y, _, _, body, _) ->
-    if (is_qvar_var y x) then Some t else local_decl x body
+    if (var_has_name y x) then Some t else local_decl x body
   | Trm_seq tl ->
     Mlist.fold_left(
       fun acc t1 ->
@@ -466,7 +466,7 @@ let get_constr_from_target (tg : target) : constr =
 (* [repalce_type_with x y]: replace the current type of variable [y] to [typ_constr x] *)
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
-  | Trm_var (_, y') when (is_qvar_var y' y) ->
+  | Trm_var (_, y') when (var_has_name y' y) ->
     trm_var ~annot:t.annot ?loc:t.loc ~typ:(typ_constr x) y
   | _ -> trm_map (replace_type_with x y) t
 

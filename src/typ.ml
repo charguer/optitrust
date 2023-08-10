@@ -32,14 +32,8 @@ let typ_const ?(annot : typ_annot list = []) ?(attributes = [])
   typ_make ~annot ~attributes (Typ_const t)
 
 (** [typ_constr]: create a type constructor. *)
-let typ_constr ?(annot : typ_annot list = []) ?(attributes = []) ?(tl : typ list = []) (v : var) : typ =
-  typ_make ~annot ~attributes (Typ_constr (v, tl))
-
-(** [typ_new_constr]: create a new type constructor, using a fresh identifier. *)
-let typ_new_constr ?(annot : typ_annot list = []) ?(attributes = []) ?(tl : typ list = []) ?(qualifier : string list = []) (name : string) : typ =
-  (* TODO: should this use a different counter ? *)
-  let id = next_var_int () in
-  typ_constr ~annot ~attributes ~tl { qualifier; name; id }
+let typ_constr ?(annot : typ_annot list = []) ?(attributes = []) ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = []) (name : typconstr) : typ =
+  typ_make ~annot ~attributes (Typ_constr (name, tid, tl))
 
 (* [typ_auto ~annot ~attributes ()]: auto type constructor *)
 let typ_auto ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
@@ -198,8 +192,8 @@ let is_generated_typ (ty : typ) : bool =
     | (Typ_ptr _| Typ_array _) -> Typ_kind_array
     | Typ_fun _ -> Typ_kind_fun
     | Typ_var _ -> Typ_kind_var
-    | Typ_constr (ty, _) ->
-       let td_opt = Typ_map.find_opt ty ctx.ctx_typedef in
+    | Typ_constr (_, tid, _) ->
+       let td_opt = Typ_map.find_opt tid ctx.ctx_typedef in
        begin match td_opt with
        | None -> Typ_kind_undefined
        | Some td ->
@@ -287,11 +281,11 @@ let is_typ_fun (ty : typ) : bool =
   | Typ_fun _ -> true | _ -> false
 
 (* [is_typ_struct struct_name ty]: checks if [ty] is a constructed struct type *)
-let is_typ_struct (struct_name : string) (ty_opt : typ option) : bool =
+let is_typ_struct (struct_name : Qualified_name.t) (ty_opt : typ option) : bool =
   match ty_opt with
   | Some ty ->
     begin match ty.typ_desc with
-    | Typ_constr (sn, _) -> sn.name = struct_name
+    | Typ_constr (sn, _, _) -> sn = struct_name
     | _ -> false
     end
   | None -> false
@@ -342,11 +336,10 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
       match typ_1.typ_desc, typ_2.typ_desc with
       | Typ_const typ_a1, Typ_const typ_a2 ->
         (aux typ_a1 typ_a2)
-      | Typ_var tv1, Typ_var tv2 ->
-        typvar_eq tv1 tv2
-      | Typ_constr (tv1, _), Typ_constr (tv2, _) ->
-        typvar_eq tv1 tv2
-        (* TODO DEBUG? && (typ_list1 = typ_list2) *)
+      | Typ_var (_, id1), Typ_var (_, id2) ->
+        id1 = id2
+      | Typ_constr (_, id1, tl1), Typ_constr (_, id2, tl2) ->
+        (id1 = id2) && (tl1 = tl2)
       | Typ_unit, Typ_unit -> true
       | Typ_int, Typ_int -> true
       | Typ_float, Typ_float -> true

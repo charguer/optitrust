@@ -91,7 +91,7 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
   match t with
   | Typ_const t when is_typ_ptr t -> typ_to_doc t ^^ string " const"
   | Typ_const t -> string " const "  ^^ typ_to_doc t
-  | Typ_constr (tv, args) ->
+  | Typ_constr (tc, tid, args) ->
 
     let d_args = if args = [] || is_injected
       then empty
@@ -101,7 +101,7 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
       | _ -> langle ^^ list_to_doc ~sep:comma ~bounds:[empty; empty] (List.map typ_to_doc args) ^^ rangle
       end in
 
-    var_to_doc tv ^^ d_args
+    typconstr_to_doc tc ^^ d_args
   | Typ_auto  -> string "auto"
   | Typ_unit -> string "void"
   | Typ_int -> string "int"
@@ -125,7 +125,7 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
   | Typ_fun _ ->
      print_info None "AstC_to_c.typ_desc_to_doc: typ_fun not implemented\n";
      at
-  | Typ_var tv -> var_to_doc tv
+  | Typ_var (name, _) -> string name
   | Typ_record (rt, n) ->
     let d = typ_to_doc n in
     let drt = record_type_to_doc rt in
@@ -143,6 +143,10 @@ let rec typ_desc_to_doc ?(is_injected : bool = false) (t : typ_desc) : document 
 and var_to_doc (v : var) : document =
   (concat_map (fun q -> string q ^^ string "::") v.qualifier) ^^
   (string v.name)
+
+and typconstr_to_doc ((qualifier, name) : typconstr) : document =
+  (concat_map (fun q -> string q ^^ string "::") qualifier) ^^
+  (string name)
 
 (* [typ_annot_to_doc]: converts type annotations to pprint document. *)
 and typ_annot_to_doc (a : typ_annot) : document =
@@ -392,7 +396,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
           else begin match t.typ with
           | Some ty ->
             begin match ty.typ_desc with
-            | Typ_constr (tv, _) when tv.id <> -1 -> parens(typ_to_doc ty)
+            | Typ_constr (_, tid, _) when tid <> -1 -> parens(typ_to_doc ty)
             | _ -> empty
             end
           | None -> empty
@@ -730,19 +734,19 @@ and access_ctrl_to_doc (acc_ctrl : access_control) : document =
 (* [typedef_to_doc ~semicolon td]: converts a type definition to pprint document *)
 and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []) (td : typedef) : document =
   let dsemi = if semicolon then semi else empty in
-  let tv = td.typdef_typvar in
+  let tc = [], td.typdef_tconstr in
   match td.typdef_body with
   | Typdef_alias t ->
       begin match t.typ_desc with
       | Typ_array _ ->
-         string "typedef" ^^ blank 1 ^^ typed_var_to_doc var_to_doc (tv, t) ^^ dsemi
+         string "typedef" ^^ blank 1 ^^ typed_var_to_doc typconstr_to_doc (tc, t) ^^ dsemi
       | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = {typ_desc = Typ_fun (tyl, r); _}} ->
          let dl = List.map typ_to_doc tyl in
          let dr = typ_to_doc r in
          separate (blank 1)
-         [string "typedef"; dr; parens (star ^^ var_to_doc tv) ^^ parens (separate (comma ^^ blank 1) dl)] ^^ dsemi
+         [string "typedef"; dr; parens (star ^^ typconstr_to_doc tc) ^^ parens (separate (comma ^^ blank 1) dl)] ^^ dsemi
       | _ ->
-         separate (blank 1) [string "typedef"; typ_to_doc t; var_to_doc tv] ^^ dsemi
+         separate (blank 1) [string "typedef"; typ_to_doc t; typconstr_to_doc tc] ^^ dsemi
       end
   | Typdef_record rfl ->
     let get_document_list ?(default_access : access_control = Access_private)(rtl : record_fields) : document list =
@@ -766,7 +770,7 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
        in
       let dl = get_document_list rfl in
       let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
-      let record_type = var_to_doc td.typdef_typvar in
+      let record_type = typconstr_to_doc tc in
       if List.mem Is_struct t_annot
         then string "struct" ^^ blank 1 ^^ record_type ^^ sbody ^^ blank 1 ^^ semi
         else if List.mem Is_rec_struct t_annot
@@ -789,7 +793,7 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
            | Some t -> separate (blank 1) [var_to_doc y; equals; decorate_trm t]
          )
         enum_const_l in
-      separate (blank 1) [string "enum"; var_to_doc tv;
+      separate (blank 1) [string "enum"; typconstr_to_doc tc;
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
 (* [multi_decl_to_doc loc tl]: converts a sequence with multiple variable declarations into a single multi variable declaration *)
@@ -1143,6 +1147,7 @@ and atomic_operation_to_doc (ao : atomic_operation option) : document =
 (* [directive_to_doc d]: OpenMP directive to pprint document *)
 and directive_to_doc (d : directive) : document =
   let vl_to_doc vs = separate_map (string ",") var_to_doc vs in
+  let tvl_to_doc tvs = separate_map (string ",") string tvs in
   match d with
   | Atomic ao -> string "atomic" ^^ blank 1 ^^ (atomic_operation_to_doc ao)
   | Atomic_capture -> string "atomic" ^^ blank 1 ^^ string "capture"
@@ -1152,7 +1157,7 @@ and directive_to_doc (d : directive) : document =
   | Critical (name, hint) -> string "critical" ^^ parens (var_to_doc name) ^^ string "hint" ^^ parens (var_to_doc hint)
   | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd " ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Declare_reduction (ri, tvl, e, c) ->  string "declare" ^^ blank 1 ^^ string "simd" ^^ parens (
-    reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ blank 1 ^^ vl_to_doc tvl ^^
+    reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ blank 1 ^^ tvl_to_doc tvl ^^
     string e ^^ clause_to_doc c)
   | Declare_target cl -> string "declare" ^^ blank 1 ^^ string "target " ^^ (list_to_doc ~sep:(blank 1) ~empty (List.map clause_to_doc cl))
   | Distribute cl -> string "distribute" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~empty (List.map clause_to_doc cl))

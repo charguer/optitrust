@@ -58,6 +58,10 @@ type var_id = int
 (* [var]: variables are uniquely identified with [id], but are printed using a qualified name. *)
 type var = { qualifier: string list; name: string; id: var_id }
 
+let var_to_string (v : var) : string =
+  String.concat "" (List.map (fun q -> q ^ "::") v.qualifier) ^
+  v.name ^ "#" ^ (string_of_int v.id)
+
 let var_eq (v1 : var) (v2 : var) : bool = v1.id = v2.id
 
 module Var = struct
@@ -93,7 +97,7 @@ let fresh_var : unit -> var =
     { qualifier = []; name = "_v" ^ string_of_int id; id }
   )
 
-module QualifiedName = struct
+module Qualified_name = struct
   type t = string list * string
   let compare ((q1, n1) : t) ((q2, n2) : t) =
     match List.compare (String.compare) q1 q2 with
@@ -101,8 +105,8 @@ module QualifiedName = struct
     | c -> c
 end
 
-module QualifiedSet = Map.Make(QualifiedName)
-module QualifiedMap = Map.Make(QualifiedName)
+module Qualified_set = Map.Make(Qualified_name)
+module Qualified_map = Map.Make(Qualified_name)
 
 (* The id is a unique name for the hypothesis that cannot be shadowed *)
 type hyp = var
@@ -110,16 +114,16 @@ module Hyp_map = Var_map
 
 (* [typconstr]: name of type constructors (e.g. [list] in Ocaml's type [int list];
    or [vect] in C type [struct { int x,y }; *)
-type typconstr = string
+type typconstr = Qualified_name.t
 
 (* [typvar]: name of type variables (e.g. ['a] in type ['a list] *)
-(* LATER: #type-id, should type ids be like var ids ? how does that interect with typconstrid ? *)
-type typvar = { qualifier: string list; name: string }
+type typvar = string
 
 (* [typvars]: a list of typvar *)
 type typvars = typvar list
 
 (* [typconstrid]: unique identifier for typ constructors*)
+(* LATER: #type-id, should type ids be like var ids ? how does that interect with typconstrid ? *)
 type typconstrid = int
 
 (* [next_typconstrid ()] generates and return a new id *)
@@ -133,8 +137,8 @@ type stringreprid = int
 let next_stringreprid : (unit -> stringreprid) =
   Tools.fresh_generator ()
 
-(* ['a typmap] is a map from [typvar] to ['a] *)
-module Typ_map = Var_map
+(* ['a typmap] is a map from [typeid] to ['a] *)
+module Typ_map = Map.Make(Int)
 
 (* [typmap]: instantiation of Typ_map *)
 type 'a typmap = 'a Typ_map.t
@@ -147,6 +151,7 @@ type fields = field list
 
 (* [label]: labels (for records) *)
 type label = string
+type 'a labelmap = 'a Tools.String_map.t
 
 (* [labels]: a list of labels. *)
 type labels = label list
@@ -154,8 +159,9 @@ type labels = label list
 (* [string_trm]: description of a term as a string (convenient for the user) *)
 type string_trm = string
 
-(* [constrname]: constructor name (for enum and algebraic datatypes) *)
+(* [constrname]: constructor name (for typedef, enum and algebraic datatypes) *)
 type constrname = string
+type 'a constrnamemap = 'a Tools.String_map.t
 
 (* [size]: array sizes *)
 type size =
@@ -191,10 +197,13 @@ and code_kind =
 (* [typ_desc]: type description *)
 and typ_desc =
   | Typ_const of typ   (* e.g. [const int *] is a pointer on a [const int] type. *)
-  | Typ_var of typvar  (* e.g. ['a] in the type ['a -> 'a] -- *)
-  | Typ_constr of typvar * typ list (* e.g. [int list] or
+  | Typ_var of typvar * typconstrid (* e.g. ['a] in the type ['a -> 'a] -- *)
+  (* FIXME: ^ One of the two argument is redundant, we should probably only keep the id, or use sharing
+     #type-id *)
+  | Typ_constr of typconstr * typconstrid * typ list (* e.g. [int list] or
                                                   [(int,string) map] or [vect] *)
-  (* FIXME: ^ One of the two first argument is redundant, we should probably only keep the id, or use sharing *)
+  (* FIXME: ^ One of the two first argument is redundant, we should probably only keep the id, or use sharing
+     #type-id *)
   | Typ_auto                                (* auto *)
   (* FIXME: ^ It seems that auto should not be treated as a type but more like the absence of type information *)
   | Typ_unit                                (* void *)
@@ -249,7 +258,10 @@ and typed_vars = typed_var list
      body of the type *)
 and typedef = {
   typdef_loc : location;      (* the location of the typedef *)
-  typdef_typvar : typvar; (* the defined type [t] *)
+  typdef_tconstr : constrname; (* the defined type [t] *)
+  typdef_typid : typconstrid; (* the unique id associated with the type [t] *)
+  (* FIXME: ^ One of the two first argument is redundant, we should probably only keep the id, or use sharing
+    #type-id *)
   typdef_vars : typvars;      (* the list containing the names ['a] and ['b];
          [typedef_vars] is always the empty list in C code without templates *)
   typdef_body : typdef_body;(* the body of the definition,
@@ -545,10 +557,11 @@ and ctx = {
 and typ_ctx = {
   ctx_var : typ varmap;             (* from [var] to [typ], i.e. giving the type
                                        of program variables *)
-  ctx_tconstr : typ QualifiedMap.t; (* from qualified name to type. *)
-  ctx_typedef : typedef typmap;     (* from [typ] to [typedef] *)
-  ctx_label : typ varmap;   (* from [label] to [typ] *)
-  ctx_constr : typ varmap;  (* from [constr] to [typ] *)
+  ctx_tconstr : typconstrid Qualified_map.t; (* from [typconstr] to [typconstrid]. *)
+  ctx_typedef : typedef typmap;     (* from [typconstrid] to [typedef] *)
+  ctx_label : typconstrid labelmap;   (* from [label] to [typconstrid] *)
+  ctx_constr : typconstrid constrnamemap;  (* from [constrname] to [typconstrid] *)
+     (* ^ FIXME: #type-id cleanup all these maps, document better. *)
 }
 
 (*****************************************************************************)

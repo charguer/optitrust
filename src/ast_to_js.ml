@@ -219,7 +219,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
     | Trm_typedef td ->
       [ kind_to_field "typdef";
-        (strquote "name", strquote td.typdef_typvar.name); (* TODO: #var-id , also encode qualifier and id ? *)
+        (strquote "name", strquote td.typdef_tconstr);
         (strquote "contents", typdef_to_json td);
         children_to_field [] ]
     | Trm_if (cond, then_, else_) ->
