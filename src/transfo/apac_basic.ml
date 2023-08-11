@@ -418,6 +418,54 @@ let trm_resolve_pointer_and_check_if_alias
   in
   aux 0 t
 
+(* [trm_let_update_aliases ?reference tv ti aliases]: checks whether the
+   variable declaration specified by the typed variable [tv] and the
+   initializaion term [ti] creates an alias to an already existing variable or
+   function argument. If it is the case, it updates the alias hash table
+   [aliases] accordingly.
+
+   Note that when the function is applied on the elements of a simple variable
+   declaration, i.e. a [trm_let], the [is_reference] function used to check
+   whether the new variable is a reference has no effect. This is due to
+   differences in representing simple [trm_let] and multiple [trm_let_mult]
+   variable declarations in OptiTrust. In this case, the optional [reference]
+   parameter can be used to ensure the test evaluates correctly. See a usage
+   example in [const_compte_one]. *)
+let trm_let_update_aliases ?(reference = false)
+      (tv : typed_var) (ti : trm) (aliases : const_aliases) : unit =
+  let (v, ty) = tv in
+  let error = "Apac_basic.trm_let_update_aliases: unable to retrieve qualified \
+               name of a variable initialization term" in
+  if is_reference ty || reference then
+    begin
+      let ti_var = trm_strip_accesses_and_references_and_get ti in
+      if trm_is_var ti_var then
+        begin
+          let ti_qvar = trm_inv ~error trm_var_inv_qvar ti_var in
+          if Hashtbl.mem aliases ti_qvar.qvar_str then
+            begin
+              let (_, ti_index) =
+                Hashtbl.find aliases ti_qvar.qvar_str in
+              Hashtbl.add aliases v (0, ti_index)
+            end
+        end
+    end
+  else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then
+    begin
+      let (alias_idx, ti_var) =
+        match (trm_resolve_pointer_and_check_if_alias ti aliases) with
+        | Some (idx, t) -> (idx, t)
+        | None -> (-1, trm_unit ())
+      in
+      let _ = Printf.printf "alias_idx: %d\n" alias_idx in
+      if alias_idx > -1 then
+        begin
+          let ti_qvar = trm_inv ~error trm_var_inv_qvar ti_var in
+          let _ = Printf.printf "rval_qvar_str: %s\n" ti_qvar.qvar_str in
+          Hashtbl.add aliases v (get_cptr_depth ty, alias_idx)
+        end
+    end
+
 (* [const_lookup_candidates]: expects the target [tg] to point at a function
    definition. It adds a new entry into 'const_records' based on the information
    about the function. *)
@@ -491,41 +539,15 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
        ) args;
      trm_iter (const_compute_one aliases fun_name) fun_body
   (* Variable declaration: update list of aliases. *)
-  | Trm_let (_, (lval_name, lval_typ), { desc = Trm_apps (_, [rval]); _ }, _) ->
-     if trm_has_cstyle Reference fun_body then
-       begin
-         let rval_var = trm_strip_accesses_and_references_and_get rval in
-         if trm_is_var rval_var then
-           begin
-             let error = "Apac_basic.const_compute_one: unable to retrieve \
-                          qualified name of an rvalue" in
-             let rval_qvar = trm_inv ~error trm_var_inv_qvar rval_var in
-             if Hashtbl.mem aliases rval_qvar.qvar_str then
-               begin
-                 let (_, rval_index) =
-                   Hashtbl.find aliases rval_qvar.qvar_str in
-                 Hashtbl.add aliases lval_name (0, rval_index)
-               end
-           end
-       end
-     else if
-       is_typ_ptr (get_inner_const_type (get_inner_ptr_type lval_typ)) then
-       begin
-         let (alias_idx, rval_var) =
-           match (trm_resolve_pointer_and_check_if_alias rval aliases) with
-           | Some (idx, t) -> (idx, t)
-           | None -> (-1, trm_unit ())
-         in
-         let _ = Printf.printf "alias_idx: %d\n" alias_idx in
-         if alias_idx > -1 then
-           begin
-             let error = "Apac_basic.const_compute_one: unable to retrieve \
-                          qualified name of an rvalue" in
-             let rval_qvar = trm_inv ~error trm_var_inv_qvar rval_var in
-             let _ = Printf.printf "rval_qvar_str: %s\n" rval_qvar.qvar_str in
-             Hashtbl.add aliases lval_name (get_cptr_depth lval_typ, alias_idx)
-           end
-       end;
+  | Trm_let (_, lval, { desc = Trm_apps (_, [rval]); _ }, _) ->
+     trm_let_update_aliases ~reference:(trm_has_cstyle Reference fun_body)
+       lval rval aliases;
+     trm_iter (const_compute_one aliases fun_name) fun_body
+  (* Multiple variable declaration: update list of aliases. *)
+  | Trm_let_mult (_, lvals, rvals) ->
+     List.iter2 (
+         fun lval rval -> trm_let_update_aliases lval rval aliases
+       ) lvals rvals;
      trm_iter (const_compute_one aliases fun_name) fun_body
   (* Assignment or compound assignment: update the unconstification stack. *)
   | Trm_apps _ when is_set_operation fun_body ->
