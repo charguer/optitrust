@@ -382,7 +382,7 @@ let cstfbl : constifiable = Hashtbl.create 10
 (* Create a stack of arguments that must not be constified. *)
 let to_unconst : arg_id Stack.t = Stack.create ()
          
-(* [trm_resolve_pointer_and_check_if_alias t] : tries to resolve pointer
+(* [trm_resolve_pointer_and_check_if_alias t]: tries to resolve pointer
    operation [t] and checks whether the resulting pointer is an argument or an
    alias to an argument. In the end, it returns the term corresponding to the
    resulting pointer and if the latter is an argument or an alias to an
