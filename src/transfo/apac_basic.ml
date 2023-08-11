@@ -117,45 +117,61 @@ let rec trm_resolve_var_name_in_unop_inc_or_dec_and_get (t : trm) :
   | Trm_var (_, qvar) -> Some qvar.qvar_str
   | _ -> None
 
-(* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)
-let rec get_constified_arg_aux (ty : typ) : typ =
-  let annot = ty.typ_annot in
-  let attributes = ty.typ_attributes in
+(* [typ_constify ty]: constifies [ty] by applying the 'const' keyword wherever
+   it is possible. *)
+let typ_constify (ty : typ) : typ =
+  (* Auxiliary function to recursively constify [ty], e.g. 'int * a' becomes
+     'const int * const a'. *)
+  let rec aux (ty : typ) : typ =
+    match ty.typ_desc with
+    (* [ty] is a pointer. *)
+    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = inner_ty} ->
+       typ_const (
+           typ_ptr ~annot:ty.typ_annot ~attributes:ty.typ_attributes
+             Ptr_kind_mut (aux inner_ty)
+         )
+    (* [ty] is a constant pointer. *)
+    | Typ_const { typ_desc =
+                    Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = inner_ty };
+                  typ_annot = ty.typ_annot;
+                  typ_attributes = ty.typ_attributes } ->
+       typ_const (
+           typ_ptr ~annot:ty.typ_annot ~attributes:ty.typ_attributes
+             Ptr_kind_mut (aux inner_ty)
+         )
+    (* [ty] is a user-defined constructed type. *)
+    | Typ_constr (_, id, _) ->
+       begin match Context.typid_to_typedef id with
+       (* [ty] is a 'typedef' declaration. *)
+       | Some td ->
+          begin match td.typdef_body with
+          (* If the constructed type is an alias to another type, recurse. *) 
+          | Typdef_alias inner_ty -> aux inner_ty
+          (* Otherwise, constify the constructed type and return. *)
+          | _ -> typ_const ty
+          end
+       (* [ty] is not a 'typedef' declaration. *)
+       | None -> typ_const ty
+       end
+    (* [ty] is already a constant type. There is nothing to do. *)
+    | Typ_const _ -> ty
+    (* Deal with any other case. *)
+    | _ -> typ_const ty
+  in
+  (* Here begins the main entry point of the function, from where the auxiliary
+     function is called. *)
   match ty.typ_desc with
-  | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty} ->
-    typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (get_constified_arg_aux ty))
-  | Typ_const {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty }; typ_annot = annot; typ_attributes = attributes} ->
-    typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (get_constified_arg_aux ty))
-  | Typ_constr (_, id, _) ->
-    begin match Context.typid_to_typedef id with
-    | Some td ->
-      begin match td.typdef_body with
-      | Typdef_alias ty -> get_constified_arg_aux ty
-      | _ -> typ_const ty
-      end
-    | None -> typ_const ty
+  (* [ty] is a reference. *)
+  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = inner_ty } ->
+    begin match inner_ty.typ_desc with
+    (* [ty] is an rvalue reference, i.e. '&&' is used. *)
+    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = inner_inner_ty } ->
+      typ_lref ~annot:ty.typ_annot ~attributes:ty.typ_attributes (aux ty)
+    (* [ty] is a simple reference. *)
+    | _ -> typ_ref ~annot:ty.typ_annot ~attributes:ty.typ_attributes (aux ty)
     end
-  | Typ_const _ -> ty
-  | _ -> typ_const ty
-
-(* [get_constified_arg ty]: applies [get_constified_arg_aux] at the typ [ty] or
-    the typ pointer by [ty].
-
-    If [ty] is a reference or a rvalue reference, it returns the constified typ
-    of [ty]. *)
-let get_constified_arg (ty : typ) : typ =
-  let annot = ty.typ_annot in
-  let attributes = ty.typ_attributes in
-  match ty.typ_desc with
-  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
-    begin match ty.typ_desc with
-    (* rvalue reference *)
-    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
-      typ_lref ~annot ~attributes (get_constified_arg_aux ty)
-    (* reference *)
-    | _ -> typ_ref ~annot ~attributes (get_constified_arg_aux ty)
-    end
-  | _ -> get_constified_arg_aux ty
+  (* [ty] is of any other type. *)
+  | _ -> aux ty
 
 (* [task_group_on ~master t]: see [task_group] *)
 let task_group_on ~(master : bool) (t : trm) : trm =
@@ -422,7 +438,8 @@ let trm_resolve_pointer_and_check_if_alias
    variable declaration specified by the typed variable [tv] and the
    initializaion term [ti] creates an alias to an already existing variable or
    function argument. If it is the case, it updates the alias hash table
-   [aliases] accordingly.
+   [aliases] accordingly and returns [1] if [tv] is a reference and [2] if [tv]
+   is a pointer. Otherwise, it does nothing and returns [0].
 
    Note that when the function is applied on the elements of a simple variable
    declaration, i.e. a [trm_let], the [is_reference] function used to check
@@ -432,7 +449,7 @@ let trm_resolve_pointer_and_check_if_alias
    parameter can be used to ensure the test evaluates correctly. See a usage
    example in [const_compte_one]. *)
 let trm_let_update_aliases ?(reference = false)
-      (tv : typed_var) (ti : trm) (aliases : const_aliases) : unit =
+      (tv : typed_var) (ti : trm) (aliases : const_aliases) : int =
   let (v, ty) = tv in
   let error = "Apac_basic.trm_let_update_aliases: unable to retrieve qualified \
                name of a variable initialization term" in
@@ -446,7 +463,8 @@ let trm_let_update_aliases ?(reference = false)
             begin
               let (_, ti_index) =
                 Hashtbl.find aliases ti_qvar.qvar_str in
-              Hashtbl.add aliases v (0, ti_index)
+              Hashtbl.add aliases v (0, ti_index);
+              1
             end
         end
     end
@@ -462,9 +480,11 @@ let trm_let_update_aliases ?(reference = false)
         begin
           let ti_qvar = trm_inv ~error trm_var_inv_qvar ti_var in
           let _ = Printf.printf "rval_qvar_str: %s\n" ti_qvar.qvar_str in
-          Hashtbl.add aliases v (get_cptr_depth ty, alias_idx)
+          Hashtbl.add aliases v (get_cptr_depth ty, alias_idx);
+          2
         end
     end
+  else 0
 
 (* [const_lookup_candidates]: expects the target [tg] to point at a function
    definition. It adds a new entry into 'const_records' based on the information
@@ -724,199 +744,214 @@ let const_compute_all : Transfo.t =
       const_compute_one aliases qvar.qvar_str body
     )
 
-let unconst_and_const () : unit =
-  unconst ();
-  (* FIXME: To remove once all of the constification functions will be
-     recoded. *)
-  Hashtbl.iter (fun fun_loc const_fun_record ->
-      let is_one_const = List.map (fun (const_arg_record : const_arg) -> const_arg_record.is_const) const_fun_record.const_args in
-      Hashtbl.add cstfbl fun_loc (is_one_const, const_fun_record.is_const);
-    ) const_records
+(* [constify_args_on ?force t]: see [constify_args]. *)
+let constify_args_on ?(force = false) (t : trm) : trm =
+  (* Try to deconstruct the target function definition term. *)
+  let error = "Apac_basic.constify_args_on expected a target to a function \
+               definition." in
+  let (qvar, ret_typ, args, body, specs) = trm_inv ~error trm_let_fun_inv t in
+  (* Optionally, force the constification of all of the function's arguments as
+     well as the constification of the function itself. *)
+  if force then
+    begin
+      (* Constify all of the function's arguments. *)
+      let const_args = List.map (fun (v, ty) -> (v, (typ_constify ty))) args in
+      (* Rebuild the function definition term using the list of constified
+         arguments and constify it. *)
+      trm_add_cstyle Const_method (
+          trm_let_fun ~annot:t.annot ~loc:t.loc ~qvar
+            qvar.qvar_var ret_typ const_args body specs
+        )
+    end
+  (* Otherwise, have a look at the constification record of the function to find
+     out which of its arguments should be constified, if any, and whether the
+     function itself should be constified. *)
+  else
+    (* Gather the constification record of the function. *)
+    let const_record = Hashtbl.find const_records qvar.qvar_str in
+    (* Simultaneously loop over the list of function's arguments as well as over
+       the list of argument constification records and constify the arguments
+       that should be constified according to the corresponding constification
+       record. *)
+    let const_args = List.map2 (fun (v, ty) cr ->
+                         if cr.is_const then (v, (typ_constify ty)) else (v, ty)
+                       ) args const_record.const_args in
+    (* Rebuild the function definition term using the list of constified
+       arguments. *)
+    let let_fun_with_const_args =
+      trm_let_fun ~annot:t.annot ~loc:t.loc ~qvar
+        qvar.qvar_var ret_typ const_args body specs in
+    (* Constify the function too if the constification record says so. *)
+    if const_record.is_const then
+      trm_add_cstyle Const_method let_fun_with_const_args
+    else
+      let_fun_with_const_args
 
-(* [constify_args_aux is_args_const t]: transforms the type of arguments of a
-    function declaration in such a way that "const" keywords are added wherever
-    it is possible.
+(* [constify_args ?force tg]: expects the target [tg] to point at a function
+   definition. Then, based on the constification records in [const_records], it
+   shall constify the arguments that should be constified. If the corresponding
+   constification record says so, it shall also constify the target function
+   itself.
 
-    [is_args_const] - list of booleans that tells for each argument whether it
-     should be constified. The list should contain as many items as there are
-     arguments in the target function.
-    [t] - AST of the function definition. *)
-let constify_args_aux (is_args_const : bool list) (is_method_const : bool) (t : trm) : trm =
-  match t.desc with
-  | Trm_let_fun (qvar, ret_typ, args, body, _) ->
-     let _ = Printf.printf "constify_args_aux\n" in 
-    let is_args_const = if is_args_const = []
-      then List.init (List.length args) (fun _ -> true)
-      else is_args_const in
-    let const_args = (List.map2 (fun (v, ty) b ->
-                          let _ = Printf.printf "Is b? %B\n" b in
-      if b then (v, (get_constified_arg ty)) else (v, ty)
-      ) args is_args_const) in
+   One can force, e.g. for testing purposes, the function to ignore the
+   constification records and to constify all of the function's arguments as
+   well as the function itself. *)
+let constify_args ?(force = false) : Transfo.t =
+  Target.apply_at_target_paths (constify_args_on ~force)
 
-    let t = trm_let_fun ~annot:t.annot ?loc:t.loc ~qvar "" ret_typ const_args body in
-    if is_method_const then trm_add_cstyle Const_method t else t
-  | _ -> fail t.loc "Apac_basic.constify_args_aux expected a target to a function definition."
-
-(* [constify_args ~is_const tg]: expect the target [tg] to point at a function
-    definition. Then it will add the "const" keyword wherever it is possible in
-    the type of the argument.
-
-   The list [is_args_const] determines which argument to constify. *)
-let constify_args ?(is_args_const : bool list = []) ?(is_method_const : bool = false): Transfo.t =
-  Target.apply_at_target_paths (constify_args_aux is_args_const is_method_const)
-
-(* [vars_tbl]: hashtable generic to keep track of variables and their pointer
-    depth. This abstrastion is used for generic functions. *)
-type 'a vars_tbl = (var, (int * 'a)) Hashtbl.t
-
-(* [vars_arg]: hashtable of variables referring to the pointer depth of that
-    argument and the position of the argument. *)
-type vars_arg = int vars_tbl
-
-(* [get_vars_data_from_cptr_arith va t] : resolve pointer operation to get the
-    pointer variable. Then, return the data of the corresponding variable stored
-    in vars_tbl. *)
-let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
-  let rec aux (depth : int) (t: trm) : 'a option =
+(* [constify_aliases_on ?force t]: see [constify_aliases]. *)
+let constify_aliases_on ?(force = false) (t : trm) : trm =
+  (* Auxiliary function to recursively constify all of the aliases. *)
+  let rec aux (aliases : const_aliases) (t : trm) : trm =
     match t.desc with
-    (* unop : progress deeper + update depth *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _ }, [t]) ->
-      begin match uo with
-      | Unop_get -> aux (depth-1) t
-      | Unop_address -> aux (depth+1) t
-      | Unop_cast ty -> aux (depth + get_cptr_depth ty) t
-      | _ -> None
-      end
-    (* binop array access : progress deeper + update depth *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _ },
-        [t; _]) -> aux (depth-1) t
-    (* binop : progress deeper + resolve left and right sides *)
-    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
-      begin match (aux depth lhs, aux depth rhs) with
-      | Some(res), None -> Some(res)
-      | None, Some(res) -> Some(res)
-      | None, None -> None
-      | Some(_), Some(_) -> fail None "Should not happen : Binary operator between pointers"
-      end
-    (* variable : resolve variable *)
-    | Trm_var (_ ,qv) ->
-      begin match Hashtbl.find_opt va qv.qvar_str with
-      | Some (d, arg_idx) when (d + depth) > 0 -> Some (arg_idx)
-      | _ -> None
-      end
-    | _ -> None
+    (* New scope: do nothing and recurse deeper with a local copy of the table
+       of aliases. *)
+    | Trm_seq _
+      | Trm_for _
+      | Trm_for_c _
+      | Trm_if _
+      | Trm_switch _
+      | Trm_while _ -> trm_map (aux (Hashtbl.copy aliases)) t
+    (* Variable declaration: update list of aliases and constify the lvalue if
+       it is an alias to a constant variable. *)
+    | Trm_let (_, lval, { desc = Trm_apps (_, [rval]); _ }, _) ->
+       (* Check whether the declared variable is a reference. *)
+       let reference = trm_has_cstyle Reference fun_body in
+       (* Check whether the declared variable is an alias to a function argument
+          or a previously declared variable and return the alias type, i.e.
+          reference (1), pointer (2). (0) means that the variable is not an
+          alias. *)
+       let which_alias = trm_let_update_aliases ~reference lval rval aliases in
+       (* If the variable is an alias, we have to constify the variable and
+          rebuild the corresponding declaration term. *)
+       if which_alias > 0 then
+         begin
+           let (lval_var, lval_ty) = lval in
+           (* The variable is a reference. *)
+           if which_alias == 1 then
+             begin
+               let const_ty =
+                 typ_ref (typ_constify (get_inner_ptr_type lval_ty)) in
+               trm_let_mut (lval_var, const_ty) rval
+             end
+           (* The variable is a pointer. *)
+           else if which_alias == 2 then
+             begin
+               let const_ty = typ_constify (get_inner_ptr_type lval_ty) in
+               trm_let_mut (lval_var, get_inner_const_type const_ty) rval
+             end
+         end
+       (* If the variable is not an alias, there is nothing to do, we return the
+          term as is. *)
+       else
+         t
+    (* Multiple variable declaration: update list of aliases and constify the
+       lvalues if they are alias to constant variables. *)
+    | Trm_let_mult (vk, lvals, rvals) ->
+       (* Check whether the declared variables represent aliases to function
+          arguments or previously declared variables and return the alias types
+          in a list where (1) corresponds to a reference, (2) to a pointer and
+          (0) means that the variable is not an alias. *)
+       let which_aliases : int list =
+         List.map2 (
+             fun lval rval -> trm_let_update_aliases lval rval aliases
+           ) in
+       (* Compute the sum of values in [which_aliases]. *)
+       let sum_aliases = List.fold_left (fun a b -> a + b) 0 which_aliases in
+       (* If there is at least one alias in the multiple variable declaration,
+          [sum_aliases] shall be non-zero. *)
+       if sum_aliases > 0 then
+         begin
+           (* In this case, we have two possible cases. One, all of the
+              variables are aliases and have to be consitifed. Two, only some of
+              the variables are aliases and not all of them have to be
+              constified.
+
+              To determine whether at least one of the variables is not an
+              alias, we check the positivity of all values in [which_aliases]
+              and compute a logical AND. *)
+           let all_const_aliases =
+             List.fold_left (fun a b -> a && (b > 0)) true which_aliases in
+           (* If the result is [true], all of the variables are aliases and have
+              to be constified. *)
+           if all_const_aliases then
+             begin
+               let const_lvals = List.map (fun (lval_var, lval_ty) ->
+                                     (lval_var, typ_constify lval_ty)
+                                   ) in
+               trm_let_mult vk const_lvals rvals
+             end
+           (* FIXME: The other case is not implemented yet. Indeed, to ensure a
+              partial constification of a multiple variable declaration, i.e.
+              when not all of the declared variables have to be constified, is
+              legal, we would have to transform the corresponding [trm_let_mult]
+              into a sequence of [trm_let], i.e. a sequence of simple variable
+              declarations. However, this transformation function, see
+              [apac_unfold_let_mult], is not working properly yet. *)
+           else
+             begin
+               fail t.loc "Apac_basic.constify_aliases_on: partial \
+                           consitification of a multiple variable declaration \
+                           is not supported yet."
+             end
+         end
+       else
+         t
+    (* Other cases: do nothing and recurse deeper. *)
+    | _ -> trm_map (aux aliases) t
   in
-  aux 0 t
+  (* This is the main entry point where the auxiliary function is called from.
+     
+     Deconstruct the function definition term. *)
+  let error = "Apac_basic.constify_aliases_on: expected a target to a function \
+               definition." in
+  let (qvar, ret_typ, args, body, specs) = trm_inv ~error trm_let_fun_inv t in
+  (* Gather the constification record of the function. *)
+  let const_record = Hashtbl.find const_records qvar.qvar_str in
+  (* Create an alias hash table. *)
+  let aliases : const_aliases = Hashtbl.create 10 in
+  (* Optionally, force the constification of all of the aliases by adding all of
+     the function arguments into the hash table of aliases. *)
+  if force then
+    begin
+      List.iteri (fun index (arg_var, arg_ty) ->
+          Hashtbl.add aliases arg_var (get_cptr_depth arg_ty, index)
+        ) args
+    end
+  (* Otherwise, have a look at the constification record of the function to find
+     out which of its arguments have been constified, if any. Then, add them to
+     the hash table of aliases so as to constify all of their aliases as well.
 
-(* [update_vars_arg_on_trm_let on_ref on_ptr on_other va t]:
-    It will add the variable to [va] if it is a reference or a pointer to an
-    argument. Then, it will call the corresponding callback.
+     The principle adopted here is the opposite of [const_compute_one]. In the
+     latter, hash tables of aliases are used to keep track of variables or
+     arguments that must not be constified whereas, here, we use them to keep
+     track of only those arguments that have been constified and their alias
+     variables to which we have to propagate the constification process. *)
+  else
+    begin
+      let index = ref 0 in
+      List.iter2 (fun (arg_var, arg_ty) arg_cr ->
+          if arg_cr.is_const then
+            Hashtbl.add aliases arg_var (get_cptr_depth arg_ty, index)
+        )
+    end;
+  (* Call the auxiliary function to constify the aliases in the body of the
+     function. *)
+  let body_with_const_aliases = aux aliases body in
+  (* Rebuild and return the function definition term with the updated body. *)
+  trm_let_fun ~annot:t.annot ~loc:t.loc ~qvar
+    qvar.qvar_var ret_ty args body_with_const_aliases specs
 
-    [va] : vars_arg which stores the arguments,
-    [t] : trm of a variable declaration,
-    [on_ref] : callback if the variable is a reference to an argument,
-    [on_ptr] : callback if the variable is a pointer to an argument,
-    [on_other] : callback for the remaining cases. *)
-let update_vars_arg_on_trm_let (on_ref : unit -> 'a) (on_ptr : unit -> 'a) (on_other : unit -> 'a) (va : vars_arg) (t: trm) : 'a =
-  match t.desc with
-  | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }, _) ->
-    if trm_has_cstyle Reference t then
-      match (get_inner_all_unop_and_access tr).desc with
-      | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
-        let (_, arg_idx) = Hashtbl.find va qv.qvar_str in
-        Hashtbl.add va lname (get_cptr_depth ty, arg_idx);
-        on_ref()
-      | _ -> on_other()
-    else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then
-      match get_vars_data_from_cptr_arith va tr with
-      | Some (arg_idx) ->
-        Hashtbl.add va lname (get_cptr_depth ty, arg_idx);
-        on_ptr()
-      | None -> on_other()
-    else on_other()
-  | _ -> fail None "Apac_basic.update_vars_arg_on_trm_let: expect [t] to be a variable declaration"
+(* [constify_aliases ?force tg]: expects target the target [tg] to point at a
+   function definition. Then, based on the constification records in
+   [const_records], it shall constify the aliases to arguments that have been
+   constified during the constification process.
 
-(* [update_vars_arg_on_trm_let_mult_iter on_ref on_ptr on_other va t]:
-      It will add the variable to [va] if it is a reference or a pointer to an argument,
-      then it will call the corresponding callback.
-    [va] : vars_arg which stores the arguments
-    [name] : name of the variable
-    [ty] : type of the variable
-    [t] : trm of the right side of the "-" (rvalue),
-    [on_ref] : callback if the variable is a reference to an argument,
-    [on_ptr] : callback if the variable is a pointer to an argument,
-    [on_other] : callback for the remaining cases. *)
-let update_vars_arg_on_trm_let_mult_iter (on_ref : unit -> 'a) (on_ptr : unit -> 'a) (on_other : unit -> 'a)
-    (va : vars_arg) (name : var) (ty : typ) (t: trm) : 'a =
-  if is_reference ty then
-    match (get_inner_all_unop_and_access t).desc with
-    | Trm_var (_, qv) when Hashtbl.mem va qv.qvar_str ->
-      let (_, arg_idx) = Hashtbl.find va qv.qvar_str in
-      Hashtbl.add va name (get_cptr_depth ty, arg_idx);
-      on_ref()
-    | _ -> on_other()
-  else if is_typ_ptr (get_inner_const_type ty) then
-    match get_vars_data_from_cptr_arith va t with
-    | Some (arg_idx) ->
-      Hashtbl.add va name (get_cptr_depth ty, arg_idx);
-      on_ptr()
-    | None -> on_other()
-  else on_other()
-
-(* [constify_args_alias_aux is_args_const t]: transforms the type of variables
-    that refer to constified arguments in such way that "const" keywords are
-    added wherever it is possible.
-
-    Note : It will fail if it has to partially constify a Trm_let_mult.
-
-    [is_args_const] - list of booleans that tells whether an argument is
-     constified. Its length must be the number of arguments,
-    [t] - AST of the function definition. *)
-let constify_args_alias_aux (is_args_const : bool list) (t : trm) : trm =
-  let rec aux (va : vars_arg) (t :trm) : trm=
-    match t.desc with
-    (* new scope *)
-    | Trm_seq _ | Trm_for _ | Trm_for_c _ -> trm_map (aux (Hashtbl.copy va)) t
-    (* the syntax allows to declare variable in the condition statement
-       but clangml currently cannot parse it *)
-    | Trm_if _ | Trm_switch _ | Trm_while _ -> trm_map (aux (Hashtbl.copy va)) t
-    | Trm_let (_, (lname, ty), { desc = Trm_apps (_, [tr]); _ }, _) ->
-      update_vars_arg_on_trm_let
-        (fun () -> let ty = typ_ref (get_constified_arg (get_inner_ptr_type ty)) in trm_let_mut (lname, ty) tr)
-        (fun () -> let ty = get_constified_arg (get_inner_ptr_type ty) in trm_let_mut (lname, get_inner_const_type ty) tr)
-        (fun () -> t)
-        va t
-    | Trm_let_mult (vk, tvl, tl) ->
-      (* fail if partial constify : more than zero, less than all *)
-      let is_mutated = ref false in
-      let l = List.map2 (fun (lname, ty) t ->
-        update_vars_arg_on_trm_let_mult_iter
-          (fun () -> is_mutated := true; ((lname, get_constified_arg ty), t))
-          (fun () -> is_mutated := true; ((lname, get_constified_arg ty), t))
-          (fun () -> if !is_mutated then fail None "Apac_basic.constify_args_alias_aux: Trm_let_mult partial constify" else ((lname, ty), t))
-          va lname ty t
-      ) tvl tl in
-      let (tvl, tl) = List.split l in
-      trm_let_mult vk tvl tl
-    | _ -> trm_map (aux va) t
-  in
-  match t.desc with
-  | Trm_let_fun (qvar, ret_typ, args, body, _) ->
-    let is_const = if is_args_const = [] then List.init (List.length args) (fun _ -> true) else is_args_const in
-    let va : vars_arg= Hashtbl.create 10 in
-    (* Only add constified arguments *)
-    List.iteri (fun i (b, (var, ty)) -> if b then Hashtbl.add va var (get_cptr_depth ty, i)) (List.combine is_const args);
-    trm_let_fun ~annot:t.annot ?loc:t.loc ~qvar "" ret_typ args (aux va body)
-  | _ -> fail t.loc "Apac_basic.constify_args expected a target to a function definition."
-
-(* [constify_args ~is_args_const tg]: expects target [tg] to point at a function
-    definition. Then, in the body, it will add the "const" keyword wherever it
-    is possible in variables that are pointers or references to the constified
-    arguments of the function.
-
-    The list [is_args_const] determines which argument is constified. *)
-let constify_args_alias ?(is_args_const : bool list = []) : Transfo.t =
-  Target.apply_at_target_paths (constify_args_alias_aux is_args_const)
+   One can force, e.g. for testing purposes, the function to ignore the
+   constification records and to constify the aliases to all of the function's
+   arguments. *)
+let constify_aliases ?(force = false) : Transfo.t =
+  Target.apply_at_target_paths (constify_aliases_on ~force)
 
 (* [array_typ_to_ptr_typ]: changes Typ_array to
     Typ_ptr {ptr_kind = Ptr_kind_mut; _}. *)
