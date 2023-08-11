@@ -1,4 +1,3 @@
-
 int f(int a) {
     int b = a;
     b = 1;
@@ -65,14 +64,11 @@ void n5(int * a, int & b, int c) {
     int & e = n4(b, c);
 }
 
-/* FIXME: Cannot work for now. At first, we have to implement variable
-          declaration unfolding.
 void o(int a, int b, int c) {
     int &d=a, *e=&b;
     d = 1;
     *e = 1;
 }
-*/
 
 /*
 namespace BB {
@@ -113,4 +109,5 @@ int CC::q(int a) {
 
 void q(CC a, int b, int c) {
     a.f(&b, 1);
-    }*/
+    }
+*/
