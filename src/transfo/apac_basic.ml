@@ -117,13 +117,6 @@ let rec trm_resolve_var_name_in_unop_inc_or_dec_and_get (t : trm) :
   | Trm_var (_, qvar) -> Some qvar.qvar_str
   | _ -> None
 
-(*let lookup_const_candidates : Transfo.t =
-  (* Create a stack for the arguments to unconstify. *)
-  let to_process : arg_id Stack.t = Stack.create () in
-  Target.iter (fun trm path ->
-
-  )*)
-
 (* [get_constified_arg_aux ty]: return the constified typ of the typ [ty]*)
 let rec get_constified_arg_aux (ty : typ) : typ =
   let annot = ty.typ_annot in
