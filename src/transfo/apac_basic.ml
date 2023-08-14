@@ -120,25 +120,22 @@ let rec trm_resolve_var_name_in_unop_inc_or_dec_and_get (t : trm) :
 (* [typ_constify ty]: constifies [ty] by applying the 'const' keyword wherever
    it is possible. *)
 let typ_constify (ty : typ) : typ =
+  (* Aliases for often referenced values *)
+  let annot = ty.typ_annot in
+  let attributes = ty.typ_attributes in
   (* Auxiliary function to recursively constify [ty], e.g. 'int * a' becomes
      'const int * const a'. *)
   let rec aux (ty : typ) : typ =
     match ty.typ_desc with
     (* [ty] is a pointer. *)
-    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = inner_ty} ->
-       typ_const (
-           typ_ptr ~annot:ty.typ_annot ~attributes:ty.typ_attributes
-             Ptr_kind_mut (aux inner_ty)
-         )
+    | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty } ->
+       typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (aux ty))
     (* [ty] is a constant pointer. *)
     | Typ_const { typ_desc =
-                    Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = inner_ty };
-                  typ_annot = ty.typ_annot;
-                  typ_attributes = ty.typ_attributes } ->
-       typ_const (
-           typ_ptr ~annot:ty.typ_annot ~attributes:ty.typ_attributes
-             Ptr_kind_mut (aux inner_ty)
-         )
+                    Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = ty };
+                  typ_annot = annot;
+                  typ_attributes = attributes } ->
+       typ_const (typ_ptr ~annot ~attributes Ptr_kind_mut (aux ty))
     (* [ty] is a user-defined constructed type. *)
     | Typ_constr (_, id, _) ->
        begin match Context.typid_to_typedef id with
@@ -146,7 +143,7 @@ let typ_constify (ty : typ) : typ =
        | Some td ->
           begin match td.typdef_body with
           (* If the constructed type is an alias to another type, recurse. *) 
-          | Typdef_alias inner_ty -> aux inner_ty
+          | Typdef_alias ty -> aux ty
           (* Otherwise, constify the constructed type and return. *)
           | _ -> typ_const ty
           end
@@ -162,13 +159,13 @@ let typ_constify (ty : typ) : typ =
      function is called. *)
   match ty.typ_desc with
   (* [ty] is a reference. *)
-  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = inner_ty } ->
-    begin match inner_ty.typ_desc with
+  | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
+    begin match ty.typ_desc with
     (* [ty] is an rvalue reference, i.e. '&&' is used. *)
-    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = inner_inner_ty } ->
-      typ_lref ~annot:ty.typ_annot ~attributes:ty.typ_attributes (aux ty)
+    | Typ_ptr { ptr_kind = Ptr_kind_ref; inner_typ = ty } ->
+      typ_lref ~annot ~attributes (aux ty)
     (* [ty] is a simple reference. *)
-    | _ -> typ_ref ~annot:ty.typ_annot ~attributes:ty.typ_attributes (aux ty)
+    | _ -> typ_ref ~annot ~attributes (aux ty)
     end
   (* [ty] is of any other type. *)
   | _ -> aux ty
