@@ -1066,3 +1066,43 @@ let mark_taskable_function_aux (mark : mark) (t :trm) : trm =
     definition. Then, it may add mark [mark] if the function is taskable. *)
 let mark_taskable_function (mark : mark) : Transfo.t =
   Target.apply_at_target_paths (mark_taskable_function_aux mark)
+
+
+
+(* [vars_tbl]: hashtable generic to keep track of variables and their pointer
+    depth. This abstrastion is used for generic functions. *)
+type 'a vars_tbl = (var, (int * 'a)) Hashtbl.t 
+(* [get_vars_data_from_cptr_arith va t] : resolve pointer operation to get the
+    pointer variable. Then, return the data of the corresponding variable stored
+    in vars_tbl. *)
+let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
+  let rec aux (depth : int) (t: trm) : 'a option =
+    match t.desc with
+    (* unop : progress deeper + update depth *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _ }, [t]) ->
+      begin match uo with
+      | Unop_get -> aux (depth-1) t
+      | Unop_address -> aux (depth+1) t
+      | Unop_cast ty -> aux (depth + get_cptr_depth ty) t
+      | _ -> None
+      end
+    (* binop array access : progress deeper + update depth *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _ },
+        [t; _]) -> aux (depth-1) t
+    (* binop : progress deeper + resolve left and right sides *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+      begin match (aux depth lhs, aux depth rhs) with
+      | Some(res), None -> Some(res)
+      | None, Some(res) -> Some(res)
+      | None, None -> None
+      | Some(_), Some(_) -> fail None "Should not happen : Binary operator between pointers"
+      end
+    (* variable : resolve variable *)
+    | Trm_var (_ ,qv) ->
+      begin match Hashtbl.find_opt va qv.qvar_str with
+      | Some (d, arg_idx) when (d + depth) > 0 -> Some (arg_idx)
+      | _ -> None
+      end
+    | _ -> None
+  in
+  aux 0 t
