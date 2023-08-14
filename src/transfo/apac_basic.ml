@@ -463,7 +463,9 @@ let trm_let_update_aliases ?(reference = false)
               Hashtbl.add aliases v (0, ti_index);
               1
             end
+          else 0
         end
+      else 0
     end
   else if is_typ_ptr (get_inner_const_type (get_inner_ptr_type ty)) then
     begin
@@ -480,6 +482,7 @@ let trm_let_update_aliases ?(reference = false)
           Hashtbl.add aliases v (get_cptr_depth ty, alias_idx);
           2
         end
+      else 0
     end
   else 0
 
@@ -557,13 +560,14 @@ let rec const_compute_one (aliases : const_aliases) (fun_name : string)
      trm_iter (const_compute_one aliases fun_name) fun_body
   (* Variable declaration: update list of aliases. *)
   | Trm_let (_, lval, { desc = Trm_apps (_, [rval]); _ }, _) ->
-     trm_let_update_aliases ~reference:(trm_has_cstyle Reference fun_body)
-       lval rval aliases;
+     let _ =
+       trm_let_update_aliases ~reference:(trm_has_cstyle Reference fun_body)
+         lval rval aliases in
      trm_iter (const_compute_one aliases fun_name) fun_body
   (* Multiple variable declaration: update list of aliases. *)
   | Trm_let_mult (_, lvals, rvals) ->
      List.iter2 (
-         fun lval rval -> trm_let_update_aliases lval rval aliases
+         fun lval rval -> let _ = trm_let_update_aliases lval rval aliases in ()
        ) lvals rvals;
      trm_iter (const_compute_one aliases fun_name) fun_body
   (* Assignment or compound assignment: update the unconstification stack. *)
@@ -746,7 +750,7 @@ let constify_args_on ?(force = false) (t : trm) : trm =
   (* Try to deconstruct the target function definition term. *)
   let error = "Apac_basic.constify_args_on expected a target to a function \
                definition." in
-  let (qvar, ret_typ, args, body, specs) = trm_inv ~error trm_let_fun_inv t in
+  let (qvar, ret_typ, args, body) = trm_inv ~error trm_let_fun_inv t in
   (* Optionally, force the constification of all of the function's arguments as
      well as the constification of the function itself. *)
   if force then
@@ -756,8 +760,7 @@ let constify_args_on ?(force = false) (t : trm) : trm =
       (* Rebuild the function definition term using the list of constified
          arguments and constify it. *)
       trm_add_cstyle Const_method (
-          trm_let_fun ~annot:t.annot ~loc:t.loc ~qvar
-            qvar.qvar_var ret_typ const_args body specs
+          trm_let_fun ~annot:t.annot ~qvar qvar.qvar_var ret_typ const_args body
         )
     end
   (* Otherwise, have a look at the constification record of the function to find
@@ -770,14 +773,13 @@ let constify_args_on ?(force = false) (t : trm) : trm =
        the list of argument constification records and constify the arguments
        that should be constified according to the corresponding constification
        record. *)
-    let const_args = List.map2 (fun (v, ty) cr ->
+    let const_args = List.map2 (fun (v, ty) (cr : const_arg) ->
                          if cr.is_const then (v, (typ_constify ty)) else (v, ty)
                        ) args const_record.const_args in
     (* Rebuild the function definition term using the list of constified
        arguments. *)
     let let_fun_with_const_args =
-      trm_let_fun ~annot:t.annot ~loc:t.loc ~qvar
-        qvar.qvar_var ret_typ const_args body specs in
+      trm_let_fun ~annot:t.annot ~qvar qvar.qvar_var ret_typ const_args body in
     (* Constify the function too if the constification record says so. *)
     if const_record.is_const then
       trm_add_cstyle Const_method let_fun_with_const_args
@@ -813,7 +815,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
        it is an alias to a constant variable. *)
     | Trm_let (_, lval, { desc = Trm_apps (_, [rval]); _ }, _) ->
        (* Check whether the declared variable is a reference. *)
-       let reference = trm_has_cstyle Reference fun_body in
+       let reference = trm_has_cstyle Reference t in
        (* Check whether the declared variable is an alias to a function argument
           or a previously declared variable and return the alias type, i.e.
           reference (1), pointer (2). (0) means that the variable is not an
@@ -837,6 +839,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
                let const_ty = typ_constify (get_inner_ptr_type lval_ty) in
                trm_let_mut (lval_var, get_inner_const_type const_ty) rval
              end
+           else t
          end
        (* If the variable is not an alias, there is nothing to do, we return the
           term as is. *)
@@ -852,7 +855,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
        let which_aliases : int list =
          List.map2 (
              fun lval rval -> trm_let_update_aliases lval rval aliases
-           ) in
+           ) lvals rvals in
        (* Compute the sum of values in [which_aliases]. *)
        let sum_aliases = List.fold_left (fun a b -> a + b) 0 which_aliases in
        (* If there is at least one alias in the multiple variable declaration,
@@ -875,7 +878,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
              begin
                let const_lvals = List.map (fun (lval_var, lval_ty) ->
                                      (lval_var, typ_constify lval_ty)
-                                   ) in
+                                   ) lvals in
                trm_let_mult vk const_lvals rvals
              end
            (* FIXME: The other case is not implemented yet. Indeed, to ensure a
@@ -902,7 +905,7 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
      Deconstruct the function definition term. *)
   let error = "Apac_basic.constify_aliases_on: expected a target to a function \
                definition." in
-  let (qvar, ret_typ, args, body, specs) = trm_inv ~error trm_let_fun_inv t in
+  let (qvar, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
   (* Gather the constification record of the function. *)
   let const_record = Hashtbl.find const_records qvar.qvar_str in
   (* Create an alias hash table. *)
@@ -927,17 +930,17 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
   else
     begin
       let index = ref 0 in
-      List.iter2 (fun (arg_var, arg_ty) arg_cr ->
+      List.iter2 (fun (arg_var, arg_ty) (arg_cr : const_arg) ->
           if arg_cr.is_const then
-            Hashtbl.add aliases arg_var (get_cptr_depth arg_ty, index)
-        )
+            Hashtbl.add aliases arg_var (get_cptr_depth arg_ty, !index)
+        ) args const_record.const_args
     end;
   (* Call the auxiliary function to constify the aliases in the body of the
      function. *)
   let body_with_const_aliases = aux aliases body in
   (* Rebuild and return the function definition term with the updated body. *)
-  trm_let_fun ~annot:t.annot ~loc:t.loc ~qvar
-    qvar.qvar_var ret_ty args body_with_const_aliases specs
+  trm_let_fun ~annot:t.annot ~qvar
+    qvar.qvar_var ret_ty args body_with_const_aliases
 
 (* [constify_aliases ?force tg]: expects target the target [tg] to point at a
    function definition. Then, based on the constification records in
