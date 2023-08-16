@@ -1,7 +1,7 @@
 open Syntax
 open Target
 open Path
-
+(*
 (* [get_inner_all_unop_and_access t]: unfold all unary operators and array
     accesses. *)
 let rec get_inner_all_unop_and_access (t : trm) : trm =
@@ -1107,3 +1107,4 @@ let get_vars_data_from_cptr_arith (va : 'a vars_tbl) (t: trm) : 'a option =
     | _ -> None
   in
   aux 0 t
+*)

@@ -150,11 +150,11 @@ let%transfo insert ?(const : bool = false) ?(reparse : bool = false) ?(value : t
   Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p)) tg
 
 
-(* [subst name ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
-    variable [name], then it will check for occurrences of the variable [subst] and replace is with [put]. *)
-let%transfo subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) (tg : target) : unit =
+(* [subst ~subst ~space tg]]: expects the target [tg] to point at any trm that could contain an occurrence of the
+    variable [subst], then it will check for occurrences of the variable [subst] and replace is with [put]. *)
+let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : target) : unit =
   Target.reparse_after ~reparse (
-    Target.apply_on_targets (Variable_core.subst name put)
+    Target.apply_on_targets (Variable_core.subst subst put)
   ) tg
 
 (* [bind ~const ~mark fresh_name tg]: expects the target [tg] to be pointing at any trm, then it will insert a variable declaration
