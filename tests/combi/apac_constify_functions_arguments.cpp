@@ -1,4 +1,3 @@
-
 int f(int a) {
     int b = a;
     b = 1;
@@ -71,6 +70,7 @@ void o(int a, int b, int c) {
     *e = 1;
 }
 
+/*
 namespace BB {
     void h(int& a) {
         a = 1;
@@ -109,4 +109,5 @@ int CC::q(int a) {
 
 void q(CC a, int b, int c) {
     a.f(&b, 1);
-}
+    }
+*/

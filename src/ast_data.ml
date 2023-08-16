@@ -55,7 +55,7 @@ let fill_fun_defs_tbl (t : trm) : unit =
   Hashtbl.clear fun_defs;
   let rec aux (t : trm) : unit =
     match t.desc with
-    | Trm_let_fun (qf, ret_ty, args, body, _) ->
+    | Trm_let_fun (qf, ret_ty, _args, body, _) ->
       begin match get_function_usr t with
       | Some usr -> Hashtbl.add fun_defs usr t
       | None -> () (* Maybe it shoudl fail here! *)

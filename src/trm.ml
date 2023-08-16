@@ -547,6 +547,13 @@ let trm_let_inv (t : trm) : (varkind * var * typ * trm) option =
   | Trm_let (vk, (x, tx), init, _) -> Some (vk, x, tx, init)
   | _ -> None
 
+(* [trm_let_mult_inv t]: returns the components of a [trm_let_mult] constructor if [t] is a multiple let declaration.
+     Otherwise it returns [None]. *)
+let trm_let_mult_inv (t : trm) : (varkind * typed_vars * trm list) option =
+  match t.desc with
+  | Trm_let_mult (vk, tvs, inits) -> Some (vk, tvs, inits)
+  | _ -> None
+
 (* [trm_let_fun_inv t]: returns the componnets of a [trm_let_fun] constructor if [t] is a function declaration.
      Otherwise it returns a [None]. *)
 let trm_let_fun_inv (t : trm) : (var * typ * typed_vars * trm) option =
@@ -1654,12 +1661,38 @@ List.map (fun t ->
   | _ -> fail t.loc "Ast.decl_list_to_typed_vars: expected a list of declarations"
 ) tl
 
+(* [trm_is_var t]: checks if [t] is a variable occurrence. *)
+let trm_is_var (t : trm) : bool =
+  match t.desc with
+  | Trm_var _ -> true
+  | _ -> false
+
 (* [trm_is_val_or_var t]: checks if [t] is a variable occurrence or a value *)
 let rec trm_is_val_or_var (t : trm) : bool =
 match t.desc with
 | Trm_val _ | Trm_var _ -> true
 | Trm_apps (_, [var_occ]) when is_get_operation t -> trm_is_val_or_var var_occ
 | _ -> false
+
+(* [is_prefix_unary unop]: checks if [unop] is a prefix unary operator *)
+let is_prefix_unary (unop : unary_op) : bool =
+  match unop with
+  | Unop_post_inc | Unop_post_dec -> true
+  | _ -> false
+
+(* [is_postfix_unary unop]: checks if [unop] is a postfix unary operator *)
+let is_postfix_unary (unop : unary_op) : bool =
+  match unop with
+  | Unop_pre_inc | Unop_pre_dec -> true
+  | _ -> false
+
+  (* [trm_is_unop_inc_or_dec t] checks whether [t] represents a unary increment or
+     decrement operation. *)
+  let trm_is_unop_inc_or_dec (t : trm) : bool =
+    match t.desc with
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _}, _) when
+           (is_prefix_unary op) || (is_postfix_unary op) -> true
+    | _ -> false
 
 (* [trm_for_inv t]: gets the loop range from loop [t] *)
 let trm_for_inv (t : trm) : (loop_range * trm)  option =
@@ -1764,12 +1797,6 @@ match trm_new_inv t with
     | Prim_compound_assgn_op binop -> Some binop
     | Prim_binop binop -> Some binop
     | _ -> None
-
-  (* [is_postfix_unary unop]: checks if [unop] is a postfix unary operator *)
-  let is_postfix_unary (unop : unary_op) : bool =
-    match unop with
-    | Unop_post_inc | Unop_post_dec -> true
-    | _ -> false
 
   (* [is_arith_fun p]: checks if the primitive function [p] is an arithmetic operation or not *)
   let is_arith_fun (p : prim) : bool =
