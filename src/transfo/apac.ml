@@ -4,6 +4,36 @@ open Target
 open Path
 open Mlist
 include Apac_basic
+include Apac_core
+
+(* [constify]: expects target [tg] to point at a function definition. It
+   constifies function arguments and functions whenever it is possible depending
+   on data accesses, aliases and dependencies. *)
+let constify (tg : target) : unit =
+  (* Step 1: Clear the hash table of constification records. *)
+  Hashtbl.clear Apac_core.const_records;
+  (* Step 2: Iterate over [tg] and fill the hash table of constification
+     records. *)
+  Apac_core.const_lookup_candidates tg;
+  (* Step 3: Clear the stack of arguments and functions to unconstify after the
+     analysis of data accesses, aliases and dependencies. Indeed, the
+     constification algorithm begins by consedring that all functions and
+     function arguments can be constified. It then performs an analysis (in
+     Step 4) of data accesses, aliases and dependencies and unconstifies all of
+     the variables (aliases), arguments and functions where the constification
+     is not possible. *)
+  Stack.clear Apac_core.to_unconst;
+  (* Step 4: Perform an analysis of data accesses, aliases and dependencies,
+     then decide which variables (aliases), arguments and functions should not
+     be constified. *)
+  Apac_core.const_compute tg;
+  (* Step 5: Propagate the unconstification. *)
+  Apac_core.const_unconst ();
+  (* Step 6: Effectively transform the AST so as to add 'const' keywords to
+     function arguments, functions and *)
+  Apac_basic.constify_args tg;
+  (* Step 7: aliases of function arguments. *)
+  Apac_basic.constify_aliases tg
 
 (* [parallel_task_group tg]: expects target [tg] to point at a function
     definition.
@@ -139,7 +169,7 @@ let get_dep (var : var) (ty : typ) : dep =
   let rec aux (depth : int) : dep =
     if depth > 0 then Dep_ptr (aux (depth-1)) else Dep_var var
   in
-  aux (get_cptr_depth ty)
+  aux (typ_get_degree ty)
 
 (* [sync_with_taskwait tg]: expects target [tg] to point at a function
     definition. Then, it will add 'taskwait' OpenMP pragmas before loop and
@@ -320,7 +350,7 @@ let rec is_base_type (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
   | Typ_constr _ ->
-    begin match get_inner_typedef_alias ty with
+    begin match Apac_core.typ_get_alias ty with
     (* alias *)
     | Some (ty) -> is_base_type ty
     (* 'class', 'struct', 'union', 'enum' ... *)
@@ -336,8 +366,8 @@ let rec is_dep_in (ty : typ) : bool =
   let rec aux (ty : typ) : bool =
     match ty.typ_desc with
     (* Unwrap alias. *)
-    | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) ->
-      begin match get_inner_typedef_alias (get_inner_const_type ty) with
+    | Typ_constr _ | Typ_const _ when Apac_core.typ_is_alias (get_inner_const_type ty) ->
+      begin match Apac_core.typ_get_alias (get_inner_const_type ty) with
       | Some (ty) -> aux ty
       | None -> assert false
       end
@@ -358,8 +388,8 @@ let rec is_dep_in (ty : typ) : bool =
   in
   match ty.typ_desc with
   (* Unwrap alias *)
-  | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) ->
-    begin match get_inner_typedef_alias (get_inner_const_type ty) with
+  | Typ_constr _ | Typ_const _ when Apac_core.typ_is_alias (get_inner_const_type ty) ->
+    begin match Apac_core.typ_get_alias (get_inner_const_type ty) with
     | Some (ty) -> is_dep_in ty
     | None -> assert false
     end
@@ -390,7 +420,7 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
       let args_info = List.map (fun (var, ty) ->
         let dep_in = is_dep_in ty in
         let is_record = match Context.record_typ_to_typid ty with | Some (_) -> true | None -> false in
-        {dep_depth = Apac_basic.get_cptr_depth (get_inner_ptr_type ty);
+        {dep_depth = Apac_core.typ_get_degree (get_inner_ptr_type ty);
         dep_in = dep_in;
         dep_shared = is_reference ty || (is_record && dep_in);}) tvl
       in
@@ -466,7 +496,7 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
       let _ = Printf.printf "Getting deps of function: %s\n" qvar in*)
       let l = Hashtbl.find fad (Ast_data.get_function_usr_unsome f) in
       List.fold_left2 (fun acc ({dep_depth; dep_in; _} as dep_info) t ->
-        match (Apac_basic.get_inner_all_unop_and_access t).desc with
+        match (Apac_core.trm_strip_accesses_and_references_and_get t).desc with
         | Trm_var (_, qv) ->
           let di = { dep_info with dep_depth = if dep_depth = -1 then (count_unop_get t) - 1 else dep_depth}  in
           (qv.qvar_str, di) :: acc
@@ -484,7 +514,7 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
         ) dis l args
     (* Set operation *)
     | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
-      begin match (Apac_basic.get_inner_all_unop_and_access lhs).desc with
+      begin match (Apac_core.trm_strip_accesses_and_references_and_get lhs).desc with
       | Trm_var (_, qv) ->
         let (depth, _) = Hashtbl.find vd qv.qvar_str in
         let di = { dep_depth = depth; dep_in = false; dep_shared = true;} in
@@ -561,9 +591,9 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
         trm_map (aux (Hashtbl.copy vd))  t
       (* New variable *)
       | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }, _) ->
-        Hashtbl.add vd var (Apac_basic.get_cptr_depth (get_inner_ptr_type ty), var); t
+        Hashtbl.add vd var (Apac_core.typ_get_degree (get_inner_ptr_type ty), var); t
       | Trm_let_mult (_, tvl, _) ->
-        List.iter (fun (var, ty) -> Hashtbl.add vd var (Apac_basic.get_cptr_depth ty, var)) tvl; t
+        List.iter (fun (var, ty) -> Hashtbl.add vd var (Apac_core.typ_get_degree ty, var)) tvl; t
       (* New task *)
       | Trm_apps _ ->
         let dis = get_apps_deps vd fad t in
@@ -576,7 +606,7 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
     let vd = Hashtbl.create 10 in
     match tg_trm.desc with
     | Trm_let_fun (_, _, tvl, _, _) ->
-      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add vd var (Apac_basic.get_cptr_depth ty, var)) tvl;
+      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add vd var (Apac_core.typ_get_degree ty, var)) tvl;
       Target.apply_at_target_paths (aux vd) (target_of_path (p @ [Dir_body]))
     | _ -> fail None "Apac.insert_tasks_naive: expected a target to a function definition"
   )
