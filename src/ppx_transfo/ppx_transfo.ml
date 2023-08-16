@@ -20,7 +20,7 @@ let printers_map = Longident.Map.of_seq (List.to_seq [
     (Lident "int", "string_of_int");
     (Lident "bool", "string_of_bool");
     (Lident "string", "Trace_printers.string_arg_printer");
-    (Lident "var", "Trace_printers.string_arg_printer");
+    (Lident "var", "var_to_string");
     (Lident "mark", "Trace_printers.string_arg_printer");
     (Lident "vars", "vars_to_string");
     (Lident "option", "Trace_printers.option_arg_printer");

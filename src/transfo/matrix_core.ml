@@ -171,7 +171,7 @@ let replace_all_accesses (prev_v : var) (v : var) (dims : trm list) (map_indices
      [t] - ast of the call to alloc. *)
 let intro_calloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var (_, f);_},[dim; size]) when f.name = "calloc" ->
+  | Trm_apps ({desc = Trm_var (_, f);_},[dim; size]) when var_has_name f "calloc" ->
     alloc ~init:(trm_int 0) [dim] size
   | _ -> fail t.loc "Matrix_core.intro_calloc_aux: expected a function call to calloc"
 
@@ -291,13 +291,14 @@ let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.l
       [t] - ast of thee instuction which contains accesses to [var]. *)
 
 (* TODO: superseded by tile version *)
-let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (var list) )(local_ops : local_ops) (t : trm) : trm =
+let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (string list) )(local_ops : local_ops) (t : trm) : trm =
   let dims, size, zero_init = malloc_trms in
   let local_var_type = var_type in
   let init = if zero_init then Some (trm_int 0) else None in
   let fst_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc ?init dims size )) in
   let indices_list = begin match indices with
-  | [] -> List.mapi (fun i _ -> new_var ("i" ^ (string_of_int (i + 1)))) dims | _ as l -> l  end in
+  | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
+  let indices_list = List.map Trm.new_var indices_list in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_range = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp,  dim, Post_inc, false)) dims indices_list in
   begin match local_ops with
@@ -331,16 +332,17 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
 
 (* TODO: superseded by tile version, except when accesses are not visible (new_t = subst_var does not work) *)
 (* [local_name mark var local_var malloc_trms var_type indices local_ops t p]: applies [local_name_aux] at trm [t] with path [p]. *)
-let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : var list ) (local_ops : local_ops) : Target.Transfo.local =
+let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : string list ) (local_ops : local_ops) : Target.Transfo.local =
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices local_ops)
 
 (* TODO: Factorize *)
-let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var : var) (tile : nd_tile) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (var list) )(local_ops : local_ops) (t : trm) : trm =
+let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var : var) (tile : nd_tile) (local_var : string) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (var list) )(local_ops : local_ops) (t : trm) : trm =
   let dims, size, zero_init = malloc_trms in
+  let local_var = Trm.new_var local_var in
   let local_var_type = var_type in
   let init = if zero_init then Some (trm_int 0) else None in
   let indices_list = begin match indices with
-  | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
+  | [] -> List.mapi (fun i _ -> new_var ("i" ^ (string_of_int (i + 1)))) dims | _ as l -> l  end in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_range = List.map2 (fun (offset, size) ind -> (ind, offset, DirUp, trm_add offset size, Post_inc, false)) tile indices_list in
   let tile_dims = List.map (fun (_, size) -> size) tile in
@@ -375,7 +377,7 @@ let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var 
 
 
 (* [local_name_tile]: applies [local_name_tile_aux] at trm [t] with path [p]. *)
-let local_name_tile (mark : mark option) (mark_accesses : mark option) (var : var) (tile : nd_tile) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : var list ) (local_ops : local_ops) : Target.Transfo.local =
+let local_name_tile (mark : mark option) (mark_accesses : mark option) (var : var) (tile : nd_tile) (local_var : string) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : var list ) (local_ops : local_ops) : Target.Transfo.local =
   Target.apply_on_path (local_name_tile_aux mark mark_accesses var tile local_var malloc_trms var_type indices local_ops)
 
 
@@ -383,6 +385,7 @@ let local_name_tile (mark : mark option) (mark_accesses : mark option) (var : va
 
 (* [delocalize_aux dim init_zero acc_in_place acc any_mark labels index]: TODO  *)
 let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (any_mark : mark) (labels : label list) (index : string) (ops : local_ops) (t : trm) : trm =
+  let index = new_var index in
   match t.desc with
   | Trm_seq tl ->
     if Mlist.length tl < 5 then fail t.loc "Matrix_core.delocalize_aux: the targeted  sequence does not have the correct shape";
@@ -406,7 +409,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                 let indices = List.fold_left (fun acc (ind, _, _, _, _, _) -> (trm_var ind) :: acc) [] (List.rev loop_range) in
                 let new_indices = (trm_var index) :: indices in
                 let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc, false)] in
-                let tg = [nbAny; cCellAccess ~base:[cVar local_var] ()] in
+                let tg = [nbAny; cCellAccess ~base:[cVar local_var.name] ()] in
                 let set_instr =
                 begin match body.desc with
                 | Trm_seq tl when Mlist.length tl = 1->
@@ -445,11 +448,12 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                         end
                       else
                         if not acc_provided then fail t.loc "Matrix_core.delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
+                          let acc_var = new_var acc in
                           (trm_seq_nomarks [
-                            trm_let_mut (acc, typ_double ()) init_val;
+                            trm_let_mut (acc_var, typ_double ()) init_val;
                             trm_for (index, (trm_int 0), DirUp, dim, (Post_inc), false) (trm_seq_nomarks [
-                                op_fun (trm_var acc) (trm_get new_access)]);
-                            trm_set (get_operation_arg old_var_access) (trm_var_get acc)]) in
+                                op_fun (trm_var acc_var) (trm_get new_access)]);
+                            trm_set (get_operation_arg old_var_access) (trm_var_get acc_var)]) in
                   let new_fst_instr =
                     if add_labels then begin
                       let label_to_add = List.nth labels 0 in
@@ -469,7 +473,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let ps2 = resolve_target tg thrd_instr in
                   let new_thrd_instr =
                     List.fold_left (fun acc p ->
-                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var "ANY") [dim]))) acc p
+                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_toplevel_var "ANY") [dim]))) acc p
                     ) thrd_instr ps2 in
 
                   let new_frth_instr =
@@ -510,7 +514,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let ps2 = resolve_target tg thrd_instr in
                   let new_thrd_instr =
                     List.fold_left (fun acc p ->
-                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var "ANY") [dim]))) acc p
+                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_toplevel_var "ANY") [dim]))) acc p
                     ) thrd_instr ps2 in
 
                   let frth_instr = Mlist.nth tl 3 in

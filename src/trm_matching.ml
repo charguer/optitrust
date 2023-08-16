@@ -1,6 +1,8 @@
 open Syntax
 open AstParser
 
+(* CHECK: #var-id, uses of x.name in this file *)
+
 (* [parse_pattern pattern globdefs ctx ]: returns the list of variables used in [pattern] and the ast of that [pattern].
     [globdefs] - code entered as string that contains all the functions used in the pattern
     [ctx] - if set to true than the user doesn't need to provide the declarations of the functions used in pattern
@@ -75,7 +77,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
         end
       | _ -> pattern_instr_ret
       end in
-      let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x aux_var_decls then Some (x, ty) else None ) args in
+      let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x.name aux_var_decls then Some (x, ty) else None ) args in
       let pattern_vars = List.filter (fun (x, ty) -> not (List.mem (x, ty) aux_vars ) ) args in
       (pattern_vars, aux_vars, pattern_instr)
     | _ -> fail body.loc ("Trm_matching.parse_pattern: body of the function f should be a sequence " ^ (AstC_to_c.ast_to_string body))
@@ -115,7 +117,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
           inst := Var_map.add x (ty,u) !inst
         else if not (Internal.same_trm ~ast_decode:false t0 u) then begin
           if error_msg then begin (* TODO: if + raise helper *)
-            Printf.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x
+            Printf.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" (var_to_string x)
               (AstC_to_c.ast_to_string ~optitrust_syntax:true t0) (AstC_to_c.ast_to_string ~optitrust_syntax:true u);
             Printf.printf "Witout encodings: '%s' is not identical to '%s'.\n" (AstC_to_c.ast_to_string t0) (AstC_to_c.ast_to_string  u);
             Printf.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
@@ -127,7 +129,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     match Var_map.find_opt x !inst with
     | None -> None
     | Some (ty,t0) -> match t0.desc with
-       | Trm_var (_, y) -> Some (y.qvar_var,ty)
+       | Trm_var (_, y) -> Some (y, ty)
        | _ -> None
     in
   let with_binding ?(loc:location) (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
@@ -174,39 +176,39 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
     match t1.desc, t2.desc with
 
     (* Case for treating a match against a pattern variable *)
-    | Trm_var (_, x), _ when is_var x.qvar_var -> find_var x.qvar_var t2
+    | Trm_var (_, x), _ when is_var x -> find_var x t2
 
     (* Case for treating a match against a pattern such as [body(i)],
        where [body] is a pattern variable that corresponds to a function. *)
-    | Trm_apps (({ desc = Trm_var (_, x); _} as trm_x), ts1), _ when higher_order_inst && is_var x.qvar_var ->
+    | Trm_apps (({ desc = Trm_var (_, x); _} as trm_x), ts1), _ when higher_order_inst && is_var x ->
         let typ_args, typ_ret =
           match trm_x.typ with
-          | None -> fail t1.loc (Printf.sprintf "Trm_matching.rule_match: no type available for %s; try reparsing first" x.qvar_var)
+          | None -> fail t1.loc (Printf.sprintf "Trm_matching.rule_match: no type available for %s; try reparsing first" (var_to_string x))
           | Some ({typ_desc = Typ_fun (typ_args, typ_ret); _}) -> typ_args, typ_ret
-          | _ -> fail t1.loc (Printf.sprintf "Trm_matching.rule_match: the variable %s is used as a function but does not have a function type" x.qvar_var)
+          | _ -> fail t1.loc (Printf.sprintf "Trm_matching.rule_match: the variable %s is used as a function but does not have a function type" (var_to_string x))
           in
         let msg1 i ti = fail None (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s
-                                     is not a variable.  It is the term: %s" i x.qvar_var (Ast_to_text.ast_to_string ti)) in
+                                     is not a variable.  It is the term: %s" i (var_to_string x) (Ast_to_text.ast_to_string ti)) in
         let xargs = List.mapi (fun i ti -> match ti.desc with
           | Trm_var (_, x)
           (* LATER: find out if it is really correct to igore the get operation here *)
-          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x); _}]) -> x.qvar_var
+          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x); _}]) -> x
           | _ -> msg1 i ti) ts1 in
         (* DEPRECATED
           let msg2 i = fail t2.loc (Printf.sprintf "Trm_matching.rule_match: the %d-th argument of the higher-order function variable %s is not found in the instantiation map" i x) in
           let targs = List.mapi (fun i xi -> match get_binding xi with Some typed_yi -> typed_yi | None -> msg2 i) xargs in *)
         if List.length typ_args <> List.length xargs
           then fail t2.loc (Printf.sprintf "Trm_matching.rule_match: the function call does not have the same number of arguments
-                                            as the higher-order function variable %s" x.qvar_var);
+                                            as the higher-order function variable %s" (var_to_string x));
         let targs = List.combine xargs typ_args in
         (* LATER ARTHUR: we need to replace "get p" by "p" for each argument "p" that did not have type const *)
         (* let body = t2 in *)
         let body = List.fold_left (fun tacc x ->
           Variable_core.remove_get_operations_on_var_temporary x tacc) t2 xargs in
-        let func = trm_let_fun ~qvar:x "" typ_ret targs body in
-        find_var x.qvar_var func
+        let func = trm_let_fun x typ_ret targs body in
+        find_var x func
 
-    | Trm_var (_, x1), Trm_var (_, x2) when is_qvar_eq  x1 x2 -> ()
+    | Trm_var (_, x1), Trm_var (_, x2) when x1 = x2 -> ()
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 
@@ -244,7 +246,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
   Var_map.map (fun (_ty,t) -> t) !inst
 
 (* [Rule_match_ast_list_no_occurrence_for]: exception raised by [tmap_to_list] *)
-exception Rule_match_ast_list_no_occurrence_for of string
+exception Rule_match_ast_list_no_occurrence_for of var
 
 
 (* [tmap_to_list keys map]: gets the values of [keys] in [map] as a list *)

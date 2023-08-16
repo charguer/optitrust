@@ -10,7 +10,7 @@ let color_aux (nb_colors : trm) (i_color : var option) (t : trm) : trm =
   let ((index , start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
   let i_color = match i_color with
    | Some cl -> cl
-   | _ -> "c" ^ index
+   | _ -> new_var ("c" ^ index.name)
   in
   let is_step_one =
     begin match step with
@@ -34,10 +34,10 @@ let color (nb_colors : trm) (i_color : var option ) : Transfo.local =
       [bound] - a tile_bound type variable representing the type of the bound used in
                  this transformation,
       [t] - ast of targeted loop. *)
-let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
+let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : trm) : trm =
   let error = "Loop_core.tile_aux: only simple loops are supported." in
   let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
-  let tile_index = Tools.string_subst "${id}" index tile_index in
+  let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
   (* TODO: enable other styles for TileDivides *)
   if bound = TileDivides then begin
      (* TODO: other cases *)
@@ -82,7 +82,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
    begin match bound with
    | TileBoundMin ->
      let tile_bound =
-     trm_apps (trm_var "min") [stop; tile_bound] in
+     trm_apps (trm_toplevel_var "min") [stop; tile_bound] in
      trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
    | TileDivides ->
      (* TODO: should be assert false ? *)
@@ -107,7 +107,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : trm) (t : trm)
   end
 
 (* [tile tile_index bound tile_size t p]: applies [tile_aux] at trm [t] with path [p] *)
-let tile (tile_index : var) (bound : tile_bound) (tile_size : trm) : Transfo.local =
+let tile (tile_index : string) (bound : tile_bound) (tile_size : trm) : Transfo.local =
    apply_on_path (tile_aux tile_index bound tile_size )
 
 (* [hoist_aux name decl_index array_size t]: extracts a variable declared inside a loop as an array of size [loop_bound -1]
@@ -116,7 +116,7 @@ let tile (tile_index : var) (bound : tile_bound) (tile_size : trm) : Transfo.loc
               entered by the user, the dafault pattern ${var}_step is used,
       [t] - ast of the loop. *)
 (* LATER/ deprecated *)
-let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm) : trm =
+let hoist_aux (name : string) (decl_index : int) (array_size : trm option) (t : trm) : trm =
   match t.desc with
   | Trm_for (l_range, body, contract) ->
     begin match body.desc with
@@ -126,11 +126,11 @@ let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm
       (* Arith.simpl *)
       let stop_bd = begin match array_size with | Some arr_sz -> arr_sz | None -> stop end in
       let ty = ref (typ_auto()) in
-      let new_name = ref "" in
+      let new_name = ref dummy_var in
       let f_update (t : trm) : trm =
         match t.desc with
         | Trm_let (vk, (x, tx), _, _) ->
-          new_name := Tools.string_subst "${var}" x name;
+          new_name := new_var (Tools.string_subst "${var}" x.name name);
           ty := get_inner_ptr_type tx;
           trm_let_ref (x, (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var_get !new_name; trm_var index] )
         | _ -> fail t.loc "Loop_core.hoist_aux: expected a variable declaration"
@@ -146,7 +146,7 @@ let hoist_aux (name : var) (decl_index : int) (array_size : trm option) (t : trm
 
 (* [hoist name index array_size t p]: applies [hoist_aux] at trm [t] with path [p]. *)
 (* LATER/ deprecated *)
-let hoist_old (name : var) (index : int) (array_size : trm option): Transfo.local =
+let hoist_old (name : string) (index : int) (array_size : trm option): Transfo.local =
    apply_on_path (hoist_aux name index array_size)
 
 (* [fusion_on_block_aux t]: merges two or more loops with the same components except the body,
@@ -184,6 +184,7 @@ let grid_enumerate_aux (indices_and_bounds : (string * trm) list) (t : trm) : tr
   let error = "Loop_core.grid_enumerate_aux: expected a simple for loop" in
   let (l_range, body) = trm_inv ~error trm_for_inv t in
   let (index, _, direction, _, _, is_parallel) = l_range in
+  let indices_and_bounds = List.map (fun (i, b) -> Trm.new_var i, b) indices_and_bounds in
   let new_body =
     begin match body.desc with
     | Trm_seq tl ->
@@ -292,12 +293,12 @@ let unswitch (trm_index : int) : Transfo.local =
 (* [to_unit_steps_aux new_index t]: transforms loop [t] into a loop with unit steps,
       [new_index] - a string representing the new index for the transformed loop,
       [t] - ast of the loop to be transformed. *)
-let to_unit_steps_aux (new_index : var) (t : trm) : trm =
+let to_unit_steps_aux (new_index : string) (t : trm) : trm =
   let error = "Loop_core.to_unit_steps: only simple loops are supported." in
   let ((index, start, direction, stop, step, is_parallel), _) = trm_inv ~error trm_for_inv t in
-  let new_index = match new_index with
-  | "" -> index ^ "_step"
-  | _ -> new_index in
+  let new_index = new_var (match new_index with
+  | "" -> index.name ^ "_step"
+  | _ -> new_index) in
 
   let body_trms = for_loop_body_trms t in
   let body_trms = Mlist.map (fun t -> Internal.change_trm (trm_var index) (trm_var_get index) t) body_trms in
@@ -327,7 +328,7 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
     (trm_seq (Mlist.insert_at 0 new_decl body_trms ))
 
 (* [loop_to_unit_steps new_index t p]: applies [to_unit_steps_aux] to the trm [t] with path [p]. *)
-let to_unit_steps (new_index : var) : Transfo.local =
+let to_unit_steps (new_index : string) : Transfo.local =
   apply_on_path (to_unit_steps_aux new_index)
 
 
@@ -382,10 +383,11 @@ let split_range (nb : int) (cut : trm) : Transfo.local =
   apply_on_path (split_range_aux nb cut)
 
 (* [rename_index new_index]: renames the loop index variable *)
-let rename_index (new_index : var) : Transfo.local =
+let rename_index (new_index : string) : Transfo.local =
   apply_on_path (fun t ->
     let error = "Loop_core.shift: expected a target to a simple for loop" in
     let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
+    let new_index = { qualifier = []; name = new_index; id = index.id } in
     let new_body = Subst.subst_var index (trm_var new_index) body in
     trm_for ~annot:t.annot (new_index, start, direction, stop, step, is_parallel) new_body
   )

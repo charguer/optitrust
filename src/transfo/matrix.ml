@@ -22,13 +22,13 @@ let%transfo intro_calloc (tg : target) : unit =
           end
         | Trm_apps ({desc = Trm_var (_, f);_},_) when (var_has_name f "calloc") ->
           Matrix_basic.intro_calloc ((target_of_path p) @ [cFun "calloc"])
-        | _ -> try Matrix_basic.intro_calloc [cWriteVar x; cFun "calloc"]
+        | _ -> try Matrix_basic.intro_calloc [cWriteVar x.name; cFun "calloc"]
           with | TransfoError _ -> fail tg_trm.loc "intro_calloc: couldn't find the calloc
             opertion on the targeted variable"
         end
 
       | _ ->
-         try Matrix_basic.intro_calloc [cWriteVar x; cFun "calloc"]
+         try Matrix_basic.intro_calloc [cWriteVar x.name; cFun "calloc"]
           with | TransfoError _ -> fail tg_trm.loc "intro_calloc: couldn't find the calloc
             opertion on the targeted variable"
       end
@@ -44,7 +44,7 @@ let%transfo intro_mindex (dim : trm) (tg : target) : unit =
     let tg_trm = Path.get_trm_at_path p t in
     let error = "Matrix.intro_mindex: the target should point at matrix declaration." in
     let (_, x, _, _) = trm_inv ~error trm_let_inv tg_trm in
-    Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVar x] ()]
+    Matrix_basic.intro_mindex dim [nbAny; cCellAccess ~base:[cVar x.name] ()]
   ) tg
 
 (* [intro_malloc tg]: expects the target [tg] to point at a variable declaration
@@ -67,13 +67,13 @@ let%transfo intro_malloc (tg : target) : unit =
         | Trm_apps ({desc = Trm_var (_, f);_},_) when  (var_has_name f "malloc") ->
           Matrix_basic.intro_malloc ((target_of_path p) @ [cFun "malloc"])
         | _ ->
-         try Matrix_basic.intro_malloc [cWriteVar x; cFun "malloc"]
+         try Matrix_basic.intro_malloc [cWriteVar x.name; cFun "malloc"]
           with | TransfoError _ -> fail tg_trm.loc "intro_malloc: couldn't find the malloc
             operation on the targeted variable"
         end
 
       | _ ->
-         try Matrix_basic.intro_malloc [cWriteVar x; cFun "malloc"]
+         try Matrix_basic.intro_malloc [cWriteVar x.name; cFun "malloc"]
           with | TransfoError _ -> fail tg_trm.loc "intro_malloc: couldn't find the malloc
             opertion on the targeted variable"
       end
@@ -83,15 +83,15 @@ let%transfo intro_malloc (tg : target) : unit =
 
 (* [biject fun_bij tg]: expects the target [tg] to point at at a matrix declaration , then it will search for all its
     acccesses and replace MINDEX with  [fun_bij]. *)
-let%transfo biject (fun_bij : string) (tg : target) : unit =
+let%transfo biject (fun_bij : var) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     match tg_trm.desc with
     | Trm_let (_, (p, _), _, _) ->
-      Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVar p] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."]
+      Expr.replace_fun fun_bij [nbAny; cCellAccess ~base:[cVar p.name] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."]
     | Trm_apps (_, [{desc = Trm_var (_, p)}; _])  when is_set_operation tg_trm ->
-      Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p.qvar_var] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
+      Expr.replace_fun fun_bij ((target_of_path path_to_seq) @ [nbAny; cCellAccess ~base:[cVar p.name] ~index:[cFun ""] (); cFun ~regexp:true "MINDEX."])
     | _ -> fail tg_trm.loc "biject: expected a variable declaration"
   ) tg
 
@@ -152,7 +152,7 @@ let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_i
     let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in
     Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [cMark middle_mark];
 
-    let tg_decl_access = cOr [[cVarDef into];[cWriteVar into]; [cCellAccess ~base:[cVar into] ()]] in
+    let tg_decl_access = cOr [[cVarDef into.name];[cWriteVar into.name]; [cCellAccess ~base:[cVar into.name] ()]] in
     if last then Matrix_basic.reorder_dims ~rotate_n:1 [nbAny; tg_decl_access; cFun ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
     begin match use with
       | Some e ->   Specialize.any e [nbAny; cMark any_mark]
@@ -166,7 +166,7 @@ let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_i
          let nb_labels = List.length labels in
          if nb_labels <> 3 then ();
          let label_alloc = List.nth labels 0 in
-         if label_alloc <> "" then begin Instr.move ~dest:[tAfter;cTarget alloc] [cLabel label_alloc]; Instr.move ~dest:[tBefore; cFunDef "" ~body:[cLabel label_alloc]] [cLabel label_alloc; cVarDef into] end;
+         if label_alloc <> "" then begin Instr.move ~dest:[tAfter;cTarget alloc] [cLabel label_alloc]; Instr.move ~dest:[tBefore; cFunDef "" ~body:[cLabel label_alloc]] [cLabel label_alloc; cVarDef into.name] end;
          let label_dealloc = List.nth labels 2 in
          if label_dealloc <> "" then begin match dealloc_tg with
           | Some da_tg -> Instr.move ~dest:[tAfter; cTarget da_tg] [cLabel label_dealloc]
@@ -190,7 +190,7 @@ let%transfo reorder_dims ?(rotate_n : int option) ?(order : int list = []) (tg :
     let tg_trm = Path.resolve_path p t in
     let error = "Matrix.reorder_dims: expected a target to a variable declaration." in
     let (_, x, _, _) = trm_inv ~error trm_let_inv tg_trm in
-    Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr [[cVarDef x; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x] (); cFun ~regexp:true "MINDEX."]]])
+    Matrix_basic.reorder_dims ~rotate_n ~order ((target_of_path path_to_seq) @ [cOr [[cVarDef x.name; cFun ~regexp:true "M.ALLOC."];[cCellAccess ~base:[cVar x.name] (); cFun ~regexp:true "MINDEX."]]])
   ) tg
 
 (* FIXME:
@@ -208,10 +208,10 @@ let%transfo elim ?(simpl : Transfo.t = simpl_void_loops) (tg : target) : unit =
     let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
     let (_, p_seq) = Path.index_in_seq p_def in
     let tg_seq = target_of_path p_seq in
-    read_last_write ~write:(tg_seq @ [cArrayWrite x]) (tg_seq @ [nbAny; cArrayRead x]);
+    read_last_write ~write:(tg_seq @ [cArrayWrite x.name]) (tg_seq @ [nbAny; cArrayRead x.name]);
     (* FIXME: dangerous transformation? *)
     (* TODO: Matrix.delete_not_read *)
-    Instr.delete (tg_seq @ [nbAny; cArrayWrite x]);
+    Instr.delete (tg_seq @ [nbAny; cArrayWrite x.name]);
     delete ~var:x tg_seq;
     simpl tg_seq
   ) tg
@@ -243,7 +243,7 @@ let%transfo elim_constant ?(simpl : Transfo.t = Arith.default_simpl) (tg : targe
     let (_, x, _, _) = trm_inv ~error:"expected variable definition" trm_let_inv t_def in
     let (_, p_seq) = Path.index_in_seq p_def in
     (* TODO: use simpl there as well? *)
-    elim_mops ((target_of_path p_seq) @ [nbAny; cArrayRead x]);
+    elim_mops ((target_of_path p_seq) @ [nbAny; cArrayRead x.name]);
     Arrays.elim_constant ~mark_accesses (target_of_path p_def);
     simpl [nbAny; cMark mark_accesses];
   )) tg
@@ -275,10 +275,10 @@ let delete_alias = delete
 (* [local_name_tile]: like the basic transfo, but deletes the
    original matrix if [delete] is true or if [into] is empty.
    *)
-let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : var = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : string = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   let (delete, rename, into) = if into = ""
-    then (true, true, fresh_var ())
+    then (true, true, fresh_var_name ())
     else (delete, false, into)
   in
   Marks.with_fresh_mark (fun mark_accesses -> Target.iter (fun t p ->
@@ -291,18 +291,18 @@ let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = [])
         - Matrix.delete_dead_writes [cArrayWrite v]
         - Matrix.delete_dead_writes [cArrayRead v] / [cMark mark; dSeqNth 0]
           *)
-      Instr.delete (surrounding_tg @ [nbMulti; cFor "" ~body:[cOr [[cArrayRead v]; [cArrayWrite v]]]]);
+      Instr.delete (surrounding_tg @ [nbMulti; cFor "" ~body:[cOr [[cArrayRead v.name]; [cArrayWrite v.name]]]]);
       Loop.delete_all_void surrounding_tg;
       Marks.with_fresh_mark_on p (fun m ->
-        delete_alias (Option.value ~default:(surrounding_tg @ [cVarDef v]) alloc_instr);
+        delete_alias (Option.value ~default:(surrounding_tg @ [cVarDef v.name]) alloc_instr);
         if rename then
-          Variable_basic.rename ~into:v [cMark m; cVarDef into];
+          Variable_basic.rename ~into:v.name [cMark m; cVarDef into];
       );
     end
   ) tg)
 
 (* same as [local_name_tile] but with target [tg] pointing at an instruction within a sequence, introduces the local name for the rest of the sequence. *)
-let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : var = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : string = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Marks.with_fresh_mark (fun mark -> Target.iter (fun t p ->
     Sequence.intro_after ~mark (target_of_path p);

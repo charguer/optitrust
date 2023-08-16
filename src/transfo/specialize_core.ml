@@ -20,7 +20,7 @@ let any (e : trm) : Target.Transfo.local =
      the predicate  [select_arg],
       [select_arg] - a predicate on the index of the argument that should be choosed,
       [t] - ast of the call to function choose. *)
-let choose_aux (select_arg : string list -> int) (t : trm) : trm =
+let choose_aux (select_arg : var list -> int) (t : trm) : trm =
   match t.desc with
   | Trm_apps (_f, argnb :: args)  ->
     begin match argnb.desc with
@@ -28,10 +28,10 @@ let choose_aux (select_arg : string list -> int) (t : trm) : trm =
        if nb <> List.length args then fail t.loc "Specialize_core.choose_aux: number of args is not correct";
         let choices = List.map (fun arg ->
           match arg.desc with
-          | Trm_var (_, s) -> s.qvar_var
+          | Trm_var (_, s) -> s
           | Trm_apps (_, [v])  ->
             begin match v.desc with
-            | Trm_var (_, v) -> v.qvar_var
+            | Trm_var (_, v) -> v
             | _ -> fail arg.loc "Specialize_core.choose_aux: could not match non constant variable"
             end
           | _ ->
@@ -46,7 +46,7 @@ let choose_aux (select_arg : string list -> int) (t : trm) : trm =
 
 
 (* [choose select_arg t p]: applies [choose_aux] at trm [t] with path [p]. *)
-let choose (select_arg : string list -> int) : Target.Transfo.local =
+let choose (select_arg : var list -> int) : Target.Transfo.local =
   Target.apply_on_path (choose_aux select_arg)
 
 
@@ -55,7 +55,7 @@ let choose (select_arg : string list -> int) : Target.Transfo.local =
       [spec_name] - the name of the copy
       [spec_args] - an optional list of trms, telling the transformation which argss it shoudl specialize,
       [t] - ast of the function definition. *)
-let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) : trm =
+let fun_defs_aux (spec_name : var) (spec_args : (trm option) list) (t : trm) : trm =
   match t.desc with
   | Trm_let_fun (qf, ret_ty, args, body, _) ->
     (* Check if spec_args is of the correct shape. *)
@@ -84,7 +84,7 @@ let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) 
 
     ) [] (List.rev args) in
 
-    let new_body = trm_seq_nomarks [trm_apps (trm_var ~qvar:qf "") call_args] in
+    let new_body = trm_seq_nomarks [trm_apps (trm_var qf) call_args] in
 
     let new_def = trm_let_fun spec_name ret_ty new_args new_body in
 
@@ -93,7 +93,7 @@ let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) 
 
 
 (* [fun_defs spec_name spec_args t p]: applies [fun_defs_aux] at trm [ŧ] with path [p]. *)
-let fun_defs (spec_name : string) (spec_args : (trm option) list) : Target.Transfo.local =
+let fun_defs (spec_name : var) (spec_args : (trm option) list) : Target.Transfo.local =
   apply_on_path (fun_defs_aux spec_name spec_args)
 
 
@@ -101,7 +101,7 @@ let fun_defs (spec_name : string) (spec_args : (trm option) list) : Target.Trans
     [spec_name] - the name of the function that appears on the new call,
     [args_to_choose] - a list of booleans telling the transformation which of the current arguments
         from the current call should be kept.*)
-let fun_calls_aux (spec_name : string) (args_to_choose : bool list) (t : trm) : trm =
+let fun_calls_aux (spec_name : var) (args_to_choose : bool list) (t : trm) : trm =
   match t.desc with
   | Trm_apps (_f, args) ->
     let new_args = List.fold_left2 (fun acc b t1 ->
@@ -112,5 +112,5 @@ let fun_calls_aux (spec_name : string) (args_to_choose : bool list) (t : trm) : 
   | _ -> fail t.loc "Specialize_core.fun_calls_aux: expected a target to a function call"
 
 (* [fun_calls spec_name args_to_choose t p]: applies [fun_calls_aux] to the trm [t] with path [p]. *)
-let fun_calls (spec_name : string) (args_to_choose : bool list) : Transfo.local =
+let fun_calls (spec_name : var) (args_to_choose : bool list) : Transfo.local =
   apply_on_path (fun_calls_aux spec_name args_to_choose)

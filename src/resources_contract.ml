@@ -41,7 +41,7 @@ let formula_model_inv (t: formula): (trm * formula) option =
   match trm_apps_inv t with
   | Some (fn, [tx; tf]) ->
     begin match trm_var_inv fn with
-    | Some fnv when fnv.name = "_HasModel" -> Some (tx, tf)
+    | Some fnv when var_has_name fnv "_HasModel" -> Some (tx, tf)
     | _ -> None
     end
   | _ -> None
@@ -58,7 +58,7 @@ let formula_read_only_inv (t: formula): read_only_formula option =
   match trm_apps_inv t with
   | Some (fn, [frac; formula]) ->
     begin match trm_var_inv fn with
-    | Some fnv when fnv.name = "_RO" -> Some { frac ; formula }
+    | Some fnv when var_has_name fnv "_RO" -> Some { frac ; formula }
     | _ -> None
     end
   | _ -> None

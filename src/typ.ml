@@ -310,7 +310,8 @@ let typ_align (align : trm) (ty : typ) =
     | Typ_array _ -> true
     | _ -> false
 
-
+let typconstr_has_name ((qualifier, name) : typconstr) (n : string) : bool =
+  qualifier = [] && name = n
 
 (* ********************************************************************************************** *)
 

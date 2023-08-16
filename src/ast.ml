@@ -84,17 +84,17 @@ type 'a varmap = 'a Var_map.t
 let var_map_of_list l = Var_map.of_seq (List.to_seq l)
 
 (* let vars_to_string vs = Tools.list_to_string vs *)
-let vars_to_string vs = Trace_printers.(list_arg_printer string_arg_printer vs)
+let vars_to_string vs = Trace_printers.(list_arg_printer var_to_string vs)
 
 (* [next_var_int]: generates an integer for variable names *)
 let next_var_int : unit -> int =
   Tools.fresh_generator()
 
-(* [fresh_var]: creates a var based on [next_var_int] generator *)
-let fresh_var : unit -> var =
+(* [fresh_var]: creates a variable name based on [next_var_int] generator *)
+let fresh_var_name : unit -> string =
   fun () -> (
     let id = next_var_int () in
-    { qualifier = []; name = "_v" ^ string_of_int id; id }
+    "_v" ^ string_of_int id
   )
 
 module Qualified_name = struct
@@ -835,7 +835,7 @@ and directive =
   | Barrier
   | Cancel of clause * clause list
   | Cancellation_point of clause * clause list
-  | Critical of var * var
+  | Critical of var * string
   | Declare_simd of clause list
   | Declare_reduction of reduction_identifier * typvars * expression * clause
   | Declare_target of clause list
@@ -950,9 +950,9 @@ type tmap = trm Var_map.t
 
 (* [fields_order]: the order should be provided as argument to the transformation [reorder_fields]. *)
 type fields_order =
-  | Move_before of (string * string list)
-  | Move_after of (string * string list)
-  | Reorder_all of var list
+  | Move_before of (field * field list)
+  | Move_after of (field * field list)
+  | Reorder_all of field list
 
 (* ************************* Resource constructors ************************* *)
 
@@ -1137,7 +1137,7 @@ type local_ops =
    Maybe should only take += even for functional
       *)
   | Local_arith of lit * binary_op
-  | Local_obj of string * string * string
+  | Local_obj of var * var * var
 
 
 (*****************************************************************************)

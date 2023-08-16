@@ -65,9 +65,10 @@ let rec pry_loop_nest (nest_of: int) (simpl : Transfo.t) (p : path) : unit =
   Keeps outer loop index names and uses [written] as suffix for inner loop index names.
   Returns the list of created inner loop index names.
   *)
-let may_slide (written : var list) (sizes : trm list) (steps : trm list) ~(simpl : Transfo.t) (p : path) : var list =
+let may_slide (written : var list) (sizes : trm list) (steps : trm list) ~(simpl : Transfo.t) (p : path) : string list =
+  let written = List.map (fun v -> v.name) written in
   let outer_loop_count = List.length sizes in
-  let outer_loop_indices = Loop.get_indices outer_loop_count p in
+  let outer_loop_indices = List.map (fun v -> v.name) (Loop.get_indices outer_loop_count p) in
   let size_steps = List.map2 (fun size step ->
     if (is_trm_int 1 size) && (is_trm_int 1 step) then
       None
@@ -165,7 +166,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)
       | _ -> ()
     end;
     let rename loop_p =
-      let writes = Var_set.elements (collect_writes loop_p) in
+      let writes = List.map (fun v -> v.name) (Var_set.elements (collect_writes loop_p)) in
       Some (Variable.Rename.AddSuffix (Tools.list_to_string ~sep:"_" ~bounds:["_";""] ~add_space:false writes))
     in
     (* Debug_transfo.current_ast_at_target "before fusion" [nbMulti; cMark to_fuse]; *)
@@ -179,7 +180,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)
     let reduce_local_memory var (sizes, _) =
       let fused_p = path_of_target_mark_one_current_ast to_fuse in
       let inner_p = Path.to_inner_loop_n outer_loop_count fused_p in
-      let alloc_instr = (target_of_path surrounding_seq) @ [cVarDef var] in
+      let alloc_instr = (target_of_path surrounding_seq) @ [cVarDef var.name] in
       let alloc_trm = get_trm_at_exn (alloc_instr @ [dInit]) in
       let error = "Stencil.fusion_targets_tile: expected allocation instruction" in
       let (dims, _ty, _size) = trm_inv ~error Matrix_core.alloc_inv_with_ty alloc_trm in

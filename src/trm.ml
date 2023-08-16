@@ -120,6 +120,8 @@ let trm_var ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
 let new_var ?(qualifier : string list = []) (name : string) : var =
   let id = next_var_int () in { qualifier; name; id }
 
+let dummy_var = { qualifier = []; name = ""; id = -2 }
+
 (* FIXME: #var-id , do we want this global map or should this be context ? *)
 let toplevel_vars: var_id Qualified_map.t ref = ref Qualified_map.empty
 

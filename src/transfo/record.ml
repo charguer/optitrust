@@ -12,7 +12,7 @@ let set_explicit (tg : Target.target) : unit =
       | Trm_let (_, (x,tx), _, _) ->
         if is_reference tx then Printf.printf "WARNING: set_explicit on a reference can only be correct if the reference is used for read-only purpose\n";
         Variable_basic.init_detach (Target.target_of_path p);
-        Record_basic.set_explicit ((Target.target_of_path surrounding_seq) @ [Target.cStrict;Target.cWriteVar x])
+        Record_basic.set_explicit ((Target.target_of_path surrounding_seq) @ [Target.cStrict;Target.cWriteVar x.name])
       | _ -> Record_basic.set_explicit (Target.target_of_path p)
       end
 
@@ -53,7 +53,7 @@ let set_implicit (tg : Target.target) : unit =
       when one wants to rename only one field of a Record. [field] is the current field name
       [into] is the new name that is going to replace all the occurrences of field in the context of
       the targeted typedef Record. *)
-let rename_field (field : field) ~into:(into : var): Target.Transfo.t =
+let rename_field (field : field) ~into:(into : string): Target.Transfo.t =
   rename_fields (only_for field (fun _ -> into))
 
 

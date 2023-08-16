@@ -125,7 +125,7 @@ let set_implicit (keep_label : bool) : Transfo.local =
 (* [inline_struct_accesses x t]: changes all the occurrences of the struct accesses to a field into a field,
       [x] - the name of the field for which the transformation is applied,
       [t] - ast node located in the same level as the stract declaration or deeper. *)
-let inline_struct_accesses (x : var) (t : trm) : trm =
+let inline_struct_accesses (x : field) (t : trm) : trm =
   let rec aux (outer_field : string) (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, base) ->
@@ -172,7 +172,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
       | Some ty ->
         let ty = get_inner_const_type ty in
         begin match ty.typ_desc with
-        | Typ_constr (y, _, _) when (var_has_name y struct_name) ->
+        | Typ_constr (y, _, _) when (typconstr_has_name y struct_name) ->
           let lfront, (_,trm_to_change) , lback = Mlist.get_item_and_its_relatives field_index term_list in
           begin match trm_to_change.desc with
           | Trm_record sl ->
@@ -180,12 +180,12 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
             trm_record ~annot:t.annot ?typ:t.typ new_term_list
 
           | Trm_apps (_, [{desc = Trm_var (_, p);_} as v]) when is_get_operation trm_to_change ->
-            let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ?typ:v.typ ~qvar:p "") f))) field_list in
+            let sl = List.map (fun f -> (None, trm_get (trm_struct_access (trm_var ?typ:v.typ p) f))) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
             trm_record ~annot:t.annot ?typ:t.typ new_term_list
 
           | Trm_var (_, p) ->
-            let sl = List.map (fun f -> (None, trm_struct_get (trm_var ?typ:t.typ ~qvar:p "") f)) field_list in
+            let sl = List.map (fun f -> (None, trm_struct_get (trm_var ?typ:t.typ p) f)) field_list in
             let new_term_list = Mlist.merge_list [lfront; Mlist.of_list sl; lback] in
             trm_record ~annot:t.annot ?typ:t.typ new_term_list
 
@@ -350,7 +350,7 @@ let reorder_fields_aux (order : fields_order) (index : int) (t : trm) : trm =
       match t.desc with
       | Trm_record mlt ->
         begin match t.typ with
-        | Some {typ_desc = Typ_constr (qty, _, _)} when qty.qvar_var = !struct_name ->
+        | Some {typ_desc = Typ_constr (qty, _, _)} when typconstr_has_name qty !struct_name ->
           let lt = Mlist.to_list mlt in
           let reordered_lt = Xlist.reorder !bij lt in
           trm_alter ~desc:(Trm_record (Mlist.of_list reordered_lt)) t
@@ -371,7 +371,7 @@ let reorder_fields (order : fields_order) (index : int) : Transfo.local =
     [name] - name of the variable to replace the struct access,
     [field] - struct accesses on this field are going to be replaced with [name],
     [t] - ast node located in the same level as the variable declaration. *)
-let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
+let inline_struct_accesses (name : var) (field : field) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     begin match t.desc with
     | Trm_apps (f, [base]) ->
@@ -379,8 +379,9 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
         | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
           begin match base.desc with
-          | Trm_var (_, v) when (var_has_name v name) ->
-            trm_var (Convention.name_app name field)
+          | Trm_var (_, v) when v = name ->
+            (* FIXME: #var-id *)
+            trm_var (new_var (Convention.name_app name.name field))
           | _ -> trm_map aux t
           end
       | _ -> trm_map aux t
@@ -397,7 +398,7 @@ let to_variables_aux (index : int) (t : trm) : trm =
   let error = "Record_core.struct_to_variables_aux: expected the surrounding sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
   let field_list = ref [] in
-  let var_name = ref "" in
+  let var_name = ref dummy_var in
   let f_update (t : trm) : trm =
     let error = "Record_core.struct_to_variables_aux: expected a variable declaration." in
     let (_, x, tx, init) = trm_inv ~error trm_let_inv t in
@@ -425,7 +426,8 @@ let to_variables_aux (index : int) (t : trm) : trm =
                            | _ -> []
                            end in
       let var_decls = List.mapi(fun i (sf, ty) ->
-        let new_name = Convention.name_app x sf in
+        (* FIXME: #var-id *)
+        let new_name = new_var (Convention.name_app x.name sf) in
         match struct_init_list with
         | [] -> trm_let_mut (new_name, ty) (trm_uninitialized ())
         | _ -> trm_let_mut (new_name, ty) (List.nth struct_init_list i)
@@ -464,7 +466,7 @@ type rename = Rename.t
       [struct_name] - the constructed type whose fields are going to be renamed,
       [rename] - a type used to rename the struct fields,
       [t] - any node in the same level as the struct declaration.*)
-let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm =
+let rename_struct_accesses (struct_name : string) (rename : rename) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, [base]) ->
@@ -473,7 +475,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
           begin match base.typ with
           | Some ty ->
             begin match ty.typ_desc with
-            | Typ_constr (x, _, _) when (var_has_name x struct_name) ->
+            | Typ_constr (x, _, _) when (typconstr_has_name x struct_name) ->
               trm_apps ~annot:t.annot ?typ:t.typ ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))})  [base]
             | _ -> trm_map aux t
             end
@@ -483,7 +485,7 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
         begin match base.typ with
           | Some ty ->
             begin match ty.typ_desc with
-            | Typ_constr (x, _, _) when (var_has_name x struct_name) ->
+            | Typ_constr (x, _, _) when (typconstr_has_name x struct_name) ->
               trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))}  [base]
             | _ -> trm_map aux t
             end
@@ -497,8 +499,9 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
         begin match (get_operation_arg member_base).typ with
         | Some ty ->
           begin match ty.typ_desc with
-          | Typ_constr (x, _, _) when (var_has_name x struct_name) ->
-            trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_var (vk, qvar_update ~var:(rename qf.qvar_var) qf)} args
+          | Typ_constr (x, _, _) when (typconstr_has_name x struct_name) ->
+            let renamed_var = { qualifier = qf.qualifier; name = rename qf.name; id = qf.id } in
+            trm_apps ~annot:t.annot ?typ:t.typ {f with desc = Trm_var (vk, renamed_var)} args
           | _ -> trm_map aux t
           end
 
@@ -648,11 +651,11 @@ end
     [struct_name] - used for checking the type of the struct access,
     [arg] - see Struct_modif module,
     [t] - trm corresponding to the surrounding sequence of the targeted typedef. *)
-let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fields) (struct_name : var) (arg : Struct_modif.arg) (t : trm) : trm =
+let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fields) (struct_name : string) (arg : Struct_modif.arg) (t : trm) : trm =
+  let struct_typconstr = [], struct_name in
+  let is_target_typ base = is_typ_struct struct_typconstr base.typ in
   let rec aux (t : trm) : trm =
     let default () = trm_map aux t in
-    let is_target_typ base =
-      is_typ_struct struct_name base.typ in
 
     match set_struct_access_inv t with
     | Some (base, _field, _rhs) -> (* LATER: use when clause? *)
@@ -674,13 +677,13 @@ let modif_accesses (old_and_new_fields : Struct_modif.fields * Struct_modif.fiel
         | None ->
           begin match struct_get_inv t with
           | Some (base, _field) ->
-            if is_typ_struct struct_name base.typ
+            if is_target_typ base
               then arg.f_struct_get aux t
               else default()
           | None ->
             begin match struct_init_inv t with
             | Some sl ->
-              if is_typ_struct struct_name t.typ
+              if is_target_typ t
                 then arg.f_alloc old_and_new_fields aux t
                 else default()
             | None -> default ()
@@ -763,8 +766,10 @@ let method_to_const_aux (method_name : var) (t : trm) : trm =
             | Record_field_method t1  ->
               if is_class_constructor t1
                 then (rf, rf_ann)
-                else if method_name = "" then (Record_field_method (trm_add_cstyle Const_method t1), rf_ann)
+                else if method_name = dummy_var then (Record_field_method (trm_add_cstyle Const_method t1), rf_ann)
                 else
+                  failwith "unimplemented, #var-id"
+                  (*
                   begin match decl_name t1 with
                   | Some td when method_name = td.typdef_tconstr ->
                     if trm_has_cstyle Const_method t1
@@ -773,7 +778,7 @@ let method_to_const_aux (method_name : var) (t : trm) : trm =
                         let t1 = trm_add_cstyle Const_method t1 in
                         (Record_field_method t1, rf_ann)
                   | _ -> (rf, rf_ann)
-                  end
+                  end *)
             | _ -> (rf, rf_ann)
         ) rfl in
 

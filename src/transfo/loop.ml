@@ -14,7 +14,7 @@ let path_of_loop_surrounding_mark_current_ast (m : mark) : path =
   loop_path
 
 (* LATER/ deprecated *)
-let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
+let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
       let detach_first =
@@ -139,14 +139,14 @@ let%transfo hoist_alloc_loop_list
     match tg_trm.desc with
     | Trm_let (_, (x, _), init, _) ->
       if 1 <= (List.length loops) then begin
-        let name_template = Tools.string_subst "${var}" x tmp_names in
+        let name_template = Tools.string_subst "${var}" x.name tmp_names in
         let alloc_name =
           if inline && (name = "")
-          then x
-          else Tools.string_subst "${var}" x name
+          then x.name
+          else Tools.string_subst "${var}" x.name name
         in
         may_detach_init x init p;
-        mark_and_hoist x name_template 1 p;
+        mark_and_hoist x.name name_template 1 p;
         make_pretty_and_unmark alloc_name;
       end
     | _ -> fail tg_trm.loc "Loop.hoist: expected a variable declaration"
@@ -327,7 +327,7 @@ let%transfo simpl_range ~(simpl : Target.Transfo.t) (tg : target) : unit =
 (* [shift ~index kind ~inline]: shifts a loop index according to [kind].
 - [inline] if true, inline the index shift in the loop body *)
 (* TODO: what if index name is same as original loop index name? *)
-let%transfo shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_kind) ?(inline : bool = true) ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
+let%transfo shift ?(reparse : bool = false) ?(index : string = "") (kind : shift_kind) ?(inline : bool = true) ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   let index' = if index = "" then begin
     if not inline then
@@ -348,7 +348,7 @@ let%transfo shift ?(reparse : bool = false) ?(index : var = "") (kind : shift_ki
     simpl [nbAny; cMark mark]
   end;
   if index = "" then
-  Loop_basic.rename_index prev_index (target_of_path p)
+  Loop_basic.rename_index prev_index.name (target_of_path p)
   end
   ) tg
 
@@ -393,7 +393,7 @@ let adapt_indices ~(upwards : bool) (p : path) : unit =
   let (loop_range2, _) = trm_inv ~error trm_for_inv loop2 in
   if not (same_loop_index loop_range1 loop_range2) then begin
     let (idx, _, _, _, _, _) = loop_range1 in
-    rename_index idx (target_of_path loop2_p)
+    rename_index idx.name (target_of_path loop2_p)
   end
 
 (* [fusion nb tg]: expects the target [tg] to point at a for loop followed by one or more for loops.
@@ -534,7 +534,7 @@ let%transfo move_out ?(upto : string = "") (tg : target) : unit =
             match  tg_trm.desc with
             | Trm_for _ ->
               let index = for_loop_index tg_trm in
-              if index = upto then
+              if var_has_name index upto then
                   begin
                   Loop_basic.move_out tg;
                   quit_loop := true;
@@ -578,7 +578,7 @@ let%transfo move ?(before : target = []) ?(after : target = []) (loop_to_move : 
         let choped_indices = Xlist.chop_after loop_to_move_index targeted_loop_nested_indices in
         let choped_indices = Xlist.chop_after targeted_loop_index (List.rev choped_indices) in
         let tg = target_of_path targeted_loop_path in
-        List.iter (fun x -> Loop_swap.f (tg @ [cFor x])) choped_indices
+        List.iter (fun x -> Loop_swap.f (tg @ [cFor x.name])) choped_indices
         end
       else fail loop_to_move_trm.loc "Loop.move: the given targets are not correct"
 
@@ -598,7 +598,7 @@ let%transfo move ?(before : target = []) ?(after : target = []) (loop_to_move : 
         let choped_indices = Xlist.chop_after loop_to_move_index targeted_loop_nested_indices in
         let tg = target_of_path targeted_loop_path in
         List.iter (fun x ->
-          Loop_swap.f (tg @ [cFor x]))
+          Loop_swap.f (tg @ [cFor x.name]))
          (List.rev choped_indices)
         end
       else fail loop_to_move_trm.loc "Loop.move: the given targets are not correct"
@@ -713,7 +713,7 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
     Marks.add my_mark (target_of_path p);
     (* Function used in the case when the loop bound is a constant variable *)
     let aux (x : var) (t : trm) : int  =
-      Variable_basic.unfold ~at:[cMark my_mark] [cVarDef x];
+      Variable_basic.unfold ~at:[cMark my_mark] [cVarDef x.name];
           let var_decl = match Internal.toplevel_decl x with
             | Some d -> d
             | None -> fail t.loc "Loop.unroll: could not find the declaration of the loop bound variable"
@@ -732,16 +732,16 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
       | Trm_apps (_, [_;bnd]) ->
         begin match bnd.desc with
         | Trm_val (Val_lit (Lit_int n)) -> n
-        | Trm_var (_, x) -> aux x.qvar_var t
+        | Trm_var (_, x) -> aux x t
         | _ -> fail stop.loc "Loop.unroll: expected eitehr a constant variable of a literal"
         end
       | Trm_var (_, x) ->
           let start_nb = begin match start.desc with
-          | Trm_var (_, y) -> aux y.qvar_var t
+          | Trm_var (_, y) -> aux y t
           | Trm_val (Val_lit (Lit_int n)) -> n
           | _ -> fail start.loc "Loop.unroll: expected a loop of the form for (int i = a; i < N; i where a should be a constant variable"
           end in
-          (aux x.qvar_var t) - start_nb
+          (aux x t) - start_nb
       | Trm_val (Val_lit (Lit_int n)) -> n
       | _ -> fail stop.loc "Loop.unroll: expected an addition of two constants or a constant variable"
       end
@@ -792,7 +792,7 @@ let%transfo unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle 
       All loops have as bodies blocks of code(sequences).
 
     @correctness: correct if loops are parallelizable. *)
-let%transfo reorder ?(order : vars = []) (tg : target) : unit =
+let%transfo reorder ?(order : string list = []) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let tg_loop = Path.resolve_path p t in
     let indices = Internal.get_loop_nest_indices tg_loop in
@@ -801,7 +801,7 @@ let%transfo reorder ?(order : vars = []) (tg : target) : unit =
       then fail tg_loop.loc "[Loop.reorder]: the number of indices provided in argument [order] exceeds the number of nested loops that appears in the code."
     else if nb_order = 0
       then ()
-    else if nb_order = 1 && List.nth order 0 <> List.nth indices 0
+    else if nb_order = 1 && not (var_has_name (List.nth indices 0) (List.nth order 0))
       then fail tg_loop.loc "[Loop.reorder]: the single index in the argument [order] should match the name of the targeted loop."
     else
     let _, targeted_loop_index = Xlist.unlast order in
@@ -949,9 +949,9 @@ let%transfo unfold_bound (tg : target) : unit =
       let (_, _, _, stop, _, _) = l_range in
       begin match stop.desc with
       | Trm_var (_, x) ->
-        Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.qvar_var]
+        Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
       | Trm_apps (_, [{desc = Trm_var (_, x);_}]) when is_get_operation stop ->
-        Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.qvar_var]
+        Variable_basic.unfold ~at:(target_of_path p) [cVarDef x.name]
       | _ -> fail tg_trm.loc "Loop.unfold_bound: can't unfold loop bounds that are not variables"
       end
     | _ -> fail tg_trm.loc "Loop.unfold_bound: expected a target to a simple for loop"
@@ -971,7 +971,7 @@ let grid_enumerate ?(indices : string list = []) : Transfo.t =
       | bounds ->
         let indices_and_bounds =
         if indices = [] then
-          let indices = List.mapi (fun i _ -> index ^ (string_of_int i)) bounds in
+          let indices = List.mapi (fun i _ -> index.name ^ (string_of_int i)) bounds in
           List.combine indices bounds
         else begin
           if List.length indices <> List.length bounds then fail tg_trm.loc "Loop.grid_enumerate: the provided list of indices does
@@ -993,8 +993,8 @@ let%transfo change_iter ~src:(it_fun : var) ~dst:(loop_fun : var) (tg : target) 
     let mark = "loop_change_iter_mark" in
     Marks.add mark (target_of_path p);
     let mark_tg = cMark mark in
-    Function.uninline ~contains_for_loop:true ~fct:[cTopFunDef it_fun] tg_instr;
-    Expr.replace_fun ~inline:true loop_fun [mark_tg; cFun it_fun];
+    Function.uninline ~contains_for_loop:true ~fct:[cTopFunDef it_fun.name] tg_instr;
+    Expr.replace_fun ~inline:true loop_fun [mark_tg; cFun it_fun.name];
     Function.beta ~indepth:true [mark_tg];
     Marks.remove mark [cMark mark]
   ) tg
@@ -1008,7 +1008,7 @@ let tile_iteration_to_string = function
   | TileIterLocal -> "TileIterLocal"
   | TileIterGlobal -> "TileIterGlobal"
 
-let%transfo tile ?(index : var = "b${id}")
+let%transfo tile ?(index : string = "b${id}")
         ?(bound : tile_bound = TileBoundMin)
         ?(iter : tile_iteration = TileIterLocal)
         (tile_size : trm)
@@ -1026,7 +1026,7 @@ let%transfo tile ?(index : var = "b${id}")
 
 (* [slide]: like [tile] but with the addition of a [step] parameter that controls how many iterations stand between the start of two tiles. Depending on [step] and [size], some iterations may be discarded or duplicated.
 *)
-let%transfo slide ?(index : var = "b${id}")
+let%transfo slide ?(index : string = "b${id}")
   ?(bound : tile_bound = TileBoundMin)
   ?(iter : tile_iteration = TileIterLocal)
   ~(size : trm)
@@ -1047,7 +1047,7 @@ let%transfo slide ?(index : var = "b${id}")
   ) tg
 
 (* [slides]: like [slide], but operating on a nest of multiple loops and putting all loops over elements inside the bunch of loops over tiles. *)
-let%transfo slides ?(index : var = "b${id}")
+let%transfo slides ?(index : string = "b${id}")
   ?(bound : tile_bound = TileBoundMin)
   ?(iter : tile_iteration = TileIterLocal)
   ~(size_steps : (trm * trm) option list)
@@ -1118,15 +1118,15 @@ let rec get_indices (nest_of : int) (outer_p : path) : var list =
   else []
 
 (* sets loop indices, internal because there must be no overlap between new names and previous names *)
-let rec set_indices_internal (indices : var list) (outer_p : path) : unit =
+let rec set_indices_internal (indices : string list) (outer_p : path) : unit =
   match indices with
   | i :: ri ->
     Loop_basic.rename_index i (target_of_path outer_p);
     set_indices_internal ri (Path.to_inner_loop outer_p)
   | [] -> ()
 
-let set_indices (indices : var list) (outer_p : path) : unit =
-  let tmp_indices = List.init (List.length indices) (fun _ -> fresh_var ()) in
+let set_indices (indices : string list) (outer_p : path) : unit =
+  let tmp_indices = List.init (List.length indices) (fun _ -> fresh_var_name ()) in
   set_indices_internal tmp_indices outer_p;
   set_indices_internal indices outer_p;
   ()

@@ -67,6 +67,6 @@ let%transfo elim_constant ?(mark_accesses : mark option) (tg : target) : unit =
     let error = "Arrays.elim_constant: expected constant array literal declaration" in
     let (_, var, _, _) = trm_inv ~error trm_let_inv decl_t in
     let (_, p_seq) = Path.index_in_seq p in
-    inline_constant ?mark_accesses ~decl:(target_of_path p) ((target_of_path p_seq) @ [nbAny; cArrayRead var]);
+    inline_constant ?mark_accesses ~decl:(target_of_path p) ((target_of_path p_seq) @ [nbAny; cArrayRead var.name]);
     Arrays_basic.elim (target_of_path p);
   ) tg

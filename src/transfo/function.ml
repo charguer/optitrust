@@ -13,7 +13,7 @@ type rename = Variable.Rename.t
       then it just leaves it as an empty string "". Basically this transformation is
       just an aplication of bind_intro n times. Where n is the numer of strings inside
       [fresh_names] different from "". *)
-let%transfo bind_args (fresh_names : vars) (tg : target) : unit =
+let%transfo bind_args (fresh_names : string list) (tg : target) : unit =
   iter_on_targets (fun t p ->
     let call_trm = get_trm_at_path p t in
     let call_mark = "bind_args_mark" in
@@ -54,7 +54,7 @@ let%transfo elim_body ?(vars : rename = AddSuffix "") (tg : target) : unit =
     Then it will just call bind args and bind_intro.
     Basically this tranasformation just binds a variable to the targeted function call
     and its arguments.*)
-let%transfo bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : target) : unit =
+let%transfo bind ?(fresh_name : string = "res") ?(args : string list = []) (tg : target) : unit =
   bind_args args tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
@@ -210,7 +210,7 @@ int f2() { // result of Funciton_basic.inline_cal
   _exit:;
   int s = r;
 } *)
-let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
+let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : string list = []) ?(keep_res : bool = false)
   ?(delete : bool = false) ?(debug : bool = false) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
   =
   Trace.tag_valid_by_composition ();
@@ -231,7 +231,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
       let mark_added = ref false in
       let call_trm = Path.get_trm_at_path path_to_call t in
       begin match call_trm.desc with
-        | Trm_apps ({desc = Trm_var (_, f)}, _) -> function_names := Var_set.add f.qvar_var !function_names;
+        | Trm_apps ({desc = Trm_var (_, f)}, _) -> function_names := Var_set.add f !function_names;
         | _ ->  fail t.loc "Function.get_function_name_from_call: couldn't get the name of the called function"
       end;
 
@@ -301,14 +301,14 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
       end;
     ) tg;
     if delete then Function_basic.delete [cOr
-      (List.map (fun name -> [cTopFunDef name]) (Var_set.elements !function_names))];
+      (List.map (fun f -> [cTopFunDef f.name]) (Var_set.elements !function_names))];
     );
     simpl [cMark subst_mark];
   )
 
 (* [inline_def]: like [inline], but with [tg] targeting the function definition.
    All function calls are inlined, with [delete = true] as default. *)
-let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) ?(keep_res : bool = false)
+let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(args : string list = []) ?(keep_res : bool = false)
   ?(delete : bool = true) ?(simpl : Transfo.t = Variable.default_inline_simpl) (tg : target) : unit
   =
   Trace.tag_valid_by_composition ();
@@ -317,7 +317,7 @@ let%transfo inline_def ?(resname : string = "") ?(vars : rename = AddSuffix "") 
     let error = "Function.inline_def: expected function definition" in
     let (qvar, _, _, _) = trm_inv ~error trm_let_fun_inv def_trm in
     (* FIXME: deal with qvar *)
-    inline ~resname ~vars ~args ~keep_res ~delete ~simpl [nbAny; cFun qvar.qvar_var];
+    inline ~resname ~vars ~args ~keep_res ~delete ~simpl [nbAny; cFun qvar.name];
   ) tg
 
 (* [beta ~indepth tg]: expects the target [tg] to be pointing at a function call or a function declaration whose

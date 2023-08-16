@@ -88,7 +88,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
      *)
     | Trm_let_fun (f, _, _, _, _) ->
       if accept_functions
-        then Subst.subst_var f.qvar_var dl t
+        then Subst.subst_var f dl t
         else fail dl.loc "Variable_core.unfold_aux: please set call this fucntion with the argumnet accep_functions set to true. "
 
     | _ -> fail t.loc "Variable_core.unfodl_aux: expected a target to a variable or function definition"
@@ -105,13 +105,14 @@ let unfold (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_
       [index] - index of the targeted declaration inside its surrounding sequence,
       [new_name] - the new name for the targeted variable,
       [t] - ast of the sequence that contains the targeted declaration. *)
-let rename_aux (index : int) (new_name : var) (t : trm) : trm =
+let rename_aux (index : int) (new_name : string) (t : trm) : trm =
   let error = "Variable_core.rename_aux: expected the surrounding sequence of the targeted declaration." in
   let tl = trm_inv ~error trm_seq_inv t in
+  let new_var = new_var new_name in
   let f_update (t : trm) : trm =
     match t.desc with
     | Trm_let (vk,( x, tx), init, _) ->
-      trm_let ~annot:t.annot vk (new_name, tx) init
+      trm_let ~annot:t.annot vk (new_var, tx) init
     | _ -> fail t.loc "Variable_core.rename_aux: expected a target to variable declaration"
     in
   let f_update_further (t : trm) : trm =
@@ -122,9 +123,8 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
     end in
     let rec aux (t1 : trm) : trm =
       match t1.desc with
-      | Trm_var (vk, y) when (var_has_name y x) ->
-         let q_new_name = qvar_build new_name in
-          trm_replace (Trm_var (vk, q_new_name)) t1
+      | Trm_var (vk, y) when y = x ->
+          trm_replace (Trm_var (vk, new_var)) t1
       | _ -> trm_map aux t1
     in aux t
   in
@@ -151,7 +151,7 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
 
 
 (* [rename new_name index t p]: applies [rename_aux] at trm [t] with path [p]. *)
-let rename (new_name : var) (index : int): Transfo.local =
+let rename (new_name : string) (index : int): Transfo.local =
   apply_on_path (rename_aux index new_name)
 
 (* [subst_aux name space t]: replaces all occurrences of [name] with [space],
@@ -210,7 +210,7 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
     let lfront, trm_to_change, lback  = Mlist.get_item_and_its_relatives index tl in
     let error = "Variable_core.init_attach_aux: expected a variable declaration." in
     let (_, x, tx, _) = trm_inv ~error trm_let_inv trm_to_change in
-    let tg = [nbAny;cSeq (); cStrict;cWriteVar x] in
+    let tg = [nbAny;cSeq (); cStrict;cWriteVar x.name] in
     let new_tl = Mlist.merge lfront lback in
     let new_t = trm_seq ~annot:t.annot new_tl in
     let ps = resolve_target tg new_t in
@@ -242,7 +242,7 @@ let init_attach (const : bool) (index : int) : Transfo.local =
       [local_var] - the name of the variable to be declared and replace all the occurrences of [curr_var],
       [t] - ast of the trm that contains [curr_var]. *)
 let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : trm =
-  let vardef_trm = begin match get_trm_at [cVarDef curr_var] with
+  let vardef_trm = begin match get_trm_at [cVarDef curr_var.name] with
     | Some vt -> vt
     | None -> fail None "local_name_aux: couldn't find the variable provided as argument"
     end in
@@ -266,7 +266,8 @@ let local_name (mark : mark) (curr_var : var) (local_var : var) : Transfo.local 
              and the fold_lefting operation used for the reduction,
       [index] - the index for the two added loops,
       [t] - the ast of the sequence generated after applying the local_name transformation. *)
-let delocalize_aux (array_size : string) (ops : local_ops) (index : string) (t : trm) : trm =
+let delocalize_aux (array_size : var) (ops : local_ops) (index : string) (t : trm) : trm =
+  let index = Trm.new_var index in
   let error = "Variable_core.delocalize_aux: expected the nobrace sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
     if Mlist.length tl <> 3 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
@@ -297,7 +298,7 @@ let delocalize_aux (array_size : string) (ops : local_ops) (index : string) (t :
           trm_for (index, (trm_int 1), DirUp, (trm_var array_size), Post_inc, false)
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index]) init_trm])]
           in
-      let new_snd_instr = Subst.subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_apps (trm_var "ANY") [trm_var array_size] ]) snd_instr  in
+      let new_snd_instr = Subst.subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_apps (trm_toplevel_var "ANY") [trm_var array_size] ]) snd_instr  in
       let new_thrd_trm = trm_seq_no_brace [
                       trm_set (curr_var_trm) (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]));
                       trm_for (index, (trm_int 1), DirUp, (trm_var array_size), Post_inc, false) (trm_seq_nomarks [op])
@@ -311,7 +312,7 @@ let delocalize_aux (array_size : string) (ops : local_ops) (index : string) (t :
 
 
 (* [delocalize array_size ops index t p]: applies [delocalize_aux] at trm [t] with path [p]. *)
-let delocalize (array_size : string) (ops : local_ops) (index : string) : Transfo.local =
+let delocalize (array_size : var) (ops : local_ops) (index : string) : Transfo.local =
   apply_on_path (delocalize_aux array_size ops index )
 
 
@@ -326,7 +327,7 @@ let delocalize (array_size : string) (ops : local_ops) (index : string) : Transf
 let insert_aux (index : int) (const : bool) (name : string) (typ : typ) (value : trm) (t : trm) : trm =
   let error = "Variable_core.insert_aux: expected the sequence where the declaration is oing to be inserted" in
   let tl = trm_inv ~error trm_seq_inv t in
-  let new_decl = if const then trm_let_immut (name, typ) value else trm_let_mut (name, typ) value in
+  let new_decl = if const then trm_let_immut (Trm.new_var name, typ) value else trm_let_mut (Trm.new_var name, typ) value in
   let new_tl = Mlist.insert_at index new_decl tl in
   trm_seq ~annot:t.annot new_tl
 
@@ -351,7 +352,7 @@ let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
       let dl = Mlist.nth tl index in
       let error = "Variable_core.change_type_aux: expected a target to a variable declaration." in
       let (_, x, tx, _) = trm_inv ~error trm_let_inv dl in
-        Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[cVar x]] t
+        Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[cVar x.name]] t
       in
     let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
     trm_seq ~annot:t.annot new_tl
@@ -375,7 +376,7 @@ let change_type (new_type : typvar) (index : int) : Transfo.local =
          to handle arrays *)
       (* LATER: figure out whether mark option should use "" as none, and whether
          trm_add_mark should just be a noop when the mark is "" *)
-let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (index : int) (fresh_name : var) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) (t : trm) : trm =
+let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (index : int) (fresh_name : string) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let f_update (t : trm) : trm =
@@ -390,12 +391,9 @@ let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (i
       | Some ty -> ty
       | _ -> typ_auto()
        in
-      let replacement_node = trm_var_possibly_mut ~const ~typ:node_type fresh_name in
-      let replacement_node = (* LATER; use trm_add_mark_opt *)
-        match mark_occ with
-        | Some m -> trm_add_mark m replacement_node
-        | _ -> replacement_node
-        in
+      let fresh_var = new_var fresh_name in
+      let replacement_node = trm_may_add_mark mark_occ (
+        trm_var_possibly_mut ~const ~typ:node_type fresh_var) in
       (*
       Printf.printf "replacement_node: %s\n" (AstC_to_c.ast_to_string replacement_node);
       Printf.printf "t: %s\n" (AstC_to_c.ast_to_string t);
@@ -420,9 +418,9 @@ let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (i
         let sz = (Mlist.length tl)  in
         if const
           then
-            trm_let_array Var_immutable (fresh_name, node_type) (Const sz) targeted_node
+            trm_let_array Var_immutable (fresh_var, node_type) (Const sz) targeted_node
           else
-            trm_let_array Var_mutable (fresh_name, node_type) (Const sz) targeted_node
+            trm_let_array Var_mutable (fresh_var, node_type) (Const sz) targeted_node
       | _ ->
         (*
         Printf.printf "not array\n";
@@ -431,19 +429,15 @@ let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (i
         let node_type = if is_ptr then typ_ptr Ptr_kind_mut node_type else node_type in
         let node_type = begin match typ with | Some ty -> ty | _ -> node_type end in
         if const
-          then trm_let_immut (fresh_name, node_type) targeted_node
-          else trm_let_mut (fresh_name, node_type) targeted_node
+          then trm_let_immut (fresh_var, node_type) targeted_node
+          else trm_let_mut (fresh_var, node_type) targeted_node
       end in
       (*
       Printf.printf "decl_to_insert: %s\n" (AstC_to_c.ast_to_string decl_to_insert);
       Printf.printf "node_to_change: %s\n" (AstC_to_c.ast_to_string node_to_change);
       Printf.printf "----\n";
       *)
-      let decl_to_insert = (* LATER; use trm_add_mark_opt *)
-        match mark_let with
-        | Some m -> trm_add_mark m decl_to_insert
-        | _ -> decl_to_insert
-        in
+      let decl_to_insert = trm_may_add_mark mark_let decl_to_insert in
       trm_seq_no_brace [decl_to_insert; node_to_change]
     in
     let new_tl = Mlist.update_nth index f_update tl in
@@ -455,7 +449,7 @@ let bind_aux (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (i
   | _ -> fail t.loc "Variable_core.bind_aux: expected the surrounding sequence"
 
 (* [bind mark_let mark_occ mark_body index fresh_name const is_ptr typ p_local t p]: applies [bind_aux] at trm [t] with path [p]. *)
-let bind (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (index : int) (fresh_name : var) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) : Transfo.local =
+let bind (mark_let:mark option) (mark_occ:mark option) (mark_body : mark) (index : int) (fresh_name : string) (const : bool) (is_ptr : bool) (typ : typ option) (p_local : path) : Transfo.local =
   apply_on_path (bind_aux mark_let mark_occ mark_body index fresh_name const is_ptr typ p_local)
 
 (* [remove_get_operations_on_var x t]: removes one layer of get operations on variable [x].
@@ -468,7 +462,7 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
       let _, t' = aux t in t'
     in
     match t.desc with
-    | Trm_var (_, y) when (var_has_name y x) -> (true, t)
+    | Trm_var (_, y) when y = x -> (true, t)
     | Trm_apps (_, [t1]) when is_get_operation t ->
       let r, t1' = aux t1 in
       (false, if r then t1' else trm_get ~annot:t.annot t1')
@@ -488,7 +482,7 @@ let remove_get_operations_on_var (x : var) (t : trm) : trm =
 (* [remove_get_operations_on_var_temporary x t]: to be removed. *)
 let rec remove_get_operations_on_var_temporary (x : var) (t : trm) : trm = (* ARTHUR *)
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [{desc = Trm_var (_,y);_}as ty]) when (var_has_name y x) -> ty
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get))}, [{desc = Trm_var (_,y);_}as ty]) when y = x -> ty
   | _ -> trm_map (remove_get_operations_on_var_temporary x) t
 
 (* [Variable_to_const_abort]: exception raised by [from_to_const_aux]. *)
@@ -534,7 +528,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
               begin match t1.desc with
               | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
                 begin match ls.desc with
-                | Trm_var (_, y) when (var_has_name y x) -> fail ls.loc "Variable_core.to_const_aux: variables with one or more write operations can't be converted to immutable ones"
+                | Trm_var (_, y) when y = x -> fail ls.loc "Variable_core.to_const_aux: variables with one or more write operations can't be converted to immutable ones"
                 | _ ->
                   (* if contains_occurrence x ls
                             then fail ls.loc "Variable_core.to_const_aux: struct instances with
@@ -583,7 +577,7 @@ let simpl_deref (indepth : bool) : Transfo.local =
 let ref_to_pointer_aux (index : int) (t : trm) : trm =
   let error = "Variable_core.ref_to_pointer_aux: expected the surrounding sequence of the targeted reference declaration." in
   let tl = trm_inv ~error trm_seq_inv t in
-  let var_name = ref "" in
+  let var_name = ref dummy_var in
   let f_update (t : trm) : trm =
     match t.desc with
     | Trm_let (vk,( x, tx), init, _) when trm_has_cstyle Reference t ->

@@ -683,7 +683,7 @@ and tr_expr (e : expr) : trm =
     let tf = tr_expr f in
     let tf = trm_add_cstyle (Clang_cursor (cursor_of_node f)) tf in
     begin match tf.desc with
-    | Trm_var (_, x) when x.name = "exact_div" ->
+    | Trm_var (_, x) when var_has_name x "exact_div" ->
       begin match List.map tr_expr el with
       | [n; b] ->
         trm_apps ?loc ~ctx ?typ (trm_binop Binop_exact_div) [n; b]
@@ -694,7 +694,7 @@ and tr_expr (e : expr) : trm =
         | [tl;tr] -> trm_set ?loc ~ctx (tr_expr tl) (tr_expr tr)
         | _ -> fail loc "Clang_to_astRawC.tr_expr: overloaded= expects two arguments"
         end
-    | Trm_var (_, x) when x.name = "overloaded_call" ->
+    | Trm_var (_, x) when var_has_name x "overloaded_call" ->
       let t_args = List.map tr_expr el in
       let call_name , call_args = Xlist.uncons t_args in
       trm_apps ?loc ~ctx ?typ call_name call_args

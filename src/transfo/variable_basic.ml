@@ -46,7 +46,7 @@ let%transfo inline ?(mark : mark = "") ?(accept_functions : bool = false) (tg : 
 
 (* [rename ~into tg]: expects the target [tg] to be pointing at a declaration, then it will
     rename its declaration and all its occurrences. *)
-let%transfo rename ~into:(new_name : var) (tg : target) : unit =
+let%transfo rename ~into:(new_name : string) (tg : target) : unit =
   Trace.justif "correct if there is no name conflict (TODO: check)";
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.rename new_name i t p) tg
@@ -124,7 +124,7 @@ let%transfo local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : ta
    [array_size] - denotes the size of the array inside the block
    [ops] - the delocalize operation, it can be an arithmetic delocalization or an object delocalization
     of the array declared inside the block. *)
-let%transfo delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : local_ops) (tg : target) : unit =
+let%transfo delocalize ?(index : string = "dl_k") ~array_size:(arr_s : var) ~ops:(dl_o : local_ops) (tg : target) : unit =
   (* FIXME: #advanced-scoping-check *)
   Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
     Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
@@ -169,7 +169,7 @@ let%transfo subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm)
       (* LATER: document the behavior of ${occ} in the case [tg] aims at multiple targets *)
       (* LATER: document the [îs_ptr] and explain why it is needed *)
       (* LATER: it seems that a mark is introduced and not eliminated *)
-let%transfo bind ?(const : bool = false) ?(mark_let : mark option) ?(mark_occ : mark option) ?(mark_body : mark = "") ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : var) (tg : target) : unit =
+let%transfo bind ?(const : bool = false) ?(mark_let : mark option) ?(mark_occ : mark option) ?(mark_body : mark = "") ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : string) (tg : target) : unit =
   Resources.justif_correct "arguments are pure/reproducible";
   (* FIXME: #advanced-scoping-check, current check does not work if targeted subexpression is inside a let. *)
   Nobrace_transfo.remove_after ~check_scoping:false ~remove:remove_nobrace ( fun _ ->

@@ -29,7 +29,7 @@ let%transfo color (nb_colors : trm) ?(index : var option) (tg : target) : unit =
    It produces:
    [for (int index = 0; index < stop; index += tile_size) {
       for (int i = index; i < min(X, bx+B); i++) { body }]. *)
-let%transfo tile ?(index : var = "b${id}")
+let%transfo tile ?(index : string = "b${id}")
          ?(bound : tile_bound = TileBoundMin)
          (tile_size : trm) (tg : target) : unit =
   apply_on_targets (Loop_core.tile index bound tile_size) tg
@@ -49,7 +49,7 @@ let%transfo tile ?(index : var = "b${id}")
     [x_step] - denotes the array name that is going to hoist all the values of the targeted variable
     for each index of the for loop. *)
 (* LATER/ deprecated *)
-let hoist_old ?(name : var = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
+let hoist_old ?(name : string = "${var}_step") ?(array_size : trm option) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     apply_on_transformed_targets (Path.index_in_surrounding_loop)
      (fun t (i, p) -> Loop_core.hoist_old name i array_size t p) tg)
@@ -77,8 +77,8 @@ let hoist_on (name : string)
   in
   let body_instrs = trm_inv ~error trm_seq_inv body in
   let ty = ref (typ_auto()) in
-  let old_name = ref "" in
-  let new_name = ref "" in
+  let old_var = ref dummy_var in
+  let new_var = ref dummy_var in
   let new_dims = ref [] in
   let with_mindex (dims : trms) : trm =
     new_dims := (arith_f array_size) :: dims;
@@ -89,8 +89,8 @@ let hoist_on (name : string)
   let update_decl (decl : trm) : trm =
     let error = "Loop_basic.hoist_on: expected variable declaration" in
     let (vk, x, tx, init) = trm_inv ~error trm_let_inv decl in
-    old_name := x;
-    new_name := Tools.string_subst "${var}" x name;
+    old_var := x;
+    new_var := Trm.new_var (Tools.string_subst "${var}" x.name name);
     ty := get_inner_ptr_type tx;
     begin match Matrix_core.alloc_inv_with_ty init with
     | Some (dims, _, elem_size) ->
@@ -99,7 +99,7 @@ let hoist_on (name : string)
       ty := Option.get (typ_ptr_inv !ty);
       (* TODO: let_immut? *)
       trm_let_mut (x, (get_inner_ptr_type tx))
-        (trm_array_access (trm_var_get !new_name) mindex)
+        (trm_array_access (trm_var_get !new_var) mindex)
     | None ->
       fail init.loc "expected MALLOCN initialization";
       (* DEPRECATED: before MALLOC0
@@ -124,7 +124,7 @@ let hoist_on (name : string)
         begin match trm_get_inv freed with
         | Some x ->
           begin match trm_var_inv x with
-          | Some freed_name when freed_name = !old_name ->
+          | Some freed_name when freed_name = !old_var ->
             assert (Option.is_none !free_index_opt);
             free_index_opt := Some i;
           | _ -> ()
@@ -143,14 +143,14 @@ let hoist_on (name : string)
   trm_seq_no_brace [
     trm_may_add_mark mark (
       (* TODO: let_immut? *)
-      trm_let_mut (!new_name, (typ_ptr Ptr_kind_mut !ty))
+      trm_let_mut (!new_var, (typ_ptr Ptr_kind_mut !ty))
         (Matrix_core.alloc_with_ty !new_dims !ty));
     trm_for ~annot:t.annot range new_body;
-    Matrix_core.free !new_dims (trm_var_get !new_name);
+    Matrix_core.free !new_dims (trm_var_get !new_var);
   ]
 
 (* TODO: document *)
-let%transfo hoist ?(name : var = "${var}_step")
+let%transfo hoist ?(name : string = "${var}_step")
           ?(mark : mark option)
           ?(arith_f : trm -> trm = Arith_core.(simplify_aux true gather_rec))
          (tg : target) : unit =
@@ -385,7 +385,7 @@ let%transfo unswitch (tg : target) : unit =
             int i = (a + (j * B));
             s += i;
            } *)
-let%transfo to_unit_steps ?(index : var = "" ) (tg : target) : unit =
+let%transfo to_unit_steps ?(index : string = "" ) (tg : target) : unit =
   apply_on_targets (Loop_core.to_unit_steps index) tg
 
 (* [fold ~direction index start stop step tg]: expects the target [tg] to point at the first instruction in a sequence
@@ -417,8 +417,8 @@ let shift_kind_to_string = function
 
 
 (* [shift_on index kind]: shifts a loop index to start from zero or by a given amount. *)
-let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
-  let index' = index in
+let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
+  let index' = new_var index in
   let error = "Loop_basic.shift_on: expected a target to a simple for loop" in
   let ((index, start, direction, stop, step, is_parallel), body_terms) = trm_inv ~error trm_for_inv_instrs t in
   let (shift, start', stop') = match kind with
@@ -439,7 +439,7 @@ let shift_on (index : var) (kind : shift_kind) (t : trm): trm =
 
 (* [shift index kind]: shifts a loop index range according to [kind], using a new [index] name.
   *)
-let%transfo shift ?(reparse : bool = false) (index : var) (kind : shift_kind) (tg : target) : unit =
+let%transfo shift ?(reparse : bool = false) (index : string) (kind : shift_kind) (tg : target) : unit =
   (* FIXME: having to think about reparse here is not great *)
   reparse_after ~reparse (
     Target.apply_at_target_paths (shift_on index kind)) tg
@@ -497,21 +497,21 @@ let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : exte
   Target.apply_at_target_paths (extend_range_on start stop) tg
 
 (* [rename_index new_index]: renames the loop index variable *)
-let%transfo rename_index (new_index : var) (tg : target) : unit =
+let%transfo rename_index (new_index : string) (tg : target) : unit =
   apply_on_targets (Loop_core.rename_index new_index) tg
 
 (* FIXME: duplicated code from tiling. *)
-let slide_on (tile_index : var) (bound : tile_bound) (tile_size : trm) (tile_step : trm) (t : trm) : trm =
+let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_step : trm) (t : trm) : trm =
   let error = "Loop_basic.slide_on: only simple loops are supported." in
   let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
-  let tile_index = Tools.string_subst "${id}" index tile_index in
+  let tile_index = new_var (Tools.string_subst "${id}" index.name tile_index) in
   let tile_bound =
    if is_step_one step then trm_add (trm_var tile_index) tile_size else trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step)) in
   let inner_loop =
   begin match bound with
   | TileBoundMin ->
     let tile_bound =
-    trm_apps (trm_var "min") [stop; tile_bound] in
+    trm_apps (trm_toplevel_var "min") [stop; tile_bound] in
     trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
   | TileDivides ->
     trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
@@ -539,7 +539,7 @@ let slide_on (tile_index : var) (bound : tile_bound) (tile_size : trm) (tile_ste
 
 (* [slide]: like [tile] but with the addition of a [step] parameter that controls how many iterations stand between the start of two tiles. Depending on [step] and [size], some iterations may be discarded or duplicated.
 *)
-let%transfo slide ?(index : var = "b${id}")
+let%transfo slide ?(index : string = "b${id}")
   ?(bound : tile_bound = TileBoundMin)
   ~(size : trm)
   ~(step : trm)

@@ -24,9 +24,10 @@ let function_arg (spec_name : string) (args_to_keep : bool list) (tg : target) :
           Some (Clang.get_cursor_referenced call_clang_id)
         | None -> None
           in
-      Specialize_basic.funcalls spec_name args_to_keep (target_of_path p);
 
-      Specialize_basic.fundefs spec_name opt_trms [cTopFunDef ?clang_id qf.qvar_var]
+      let spec_var = new_var spec_name in
+      Specialize_basic.funcalls spec_var args_to_keep (target_of_path p);
+      Specialize_basic.fundefs spec_var opt_trms [cTopFunDef ?clang_id qf.name]
 
     | _ -> fail tg_trm.loc "Specialize.function_arg: expected a target to a function call."
 

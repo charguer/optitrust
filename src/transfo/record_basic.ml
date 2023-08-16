@@ -109,5 +109,5 @@ let make_all_memebers_public : Transfo.t =
     Then it will check if the method of that record definition is already a const method or not.
     If it's a const method then this transformation does nothing, otherwise it will transform that method to a const one.
     Note: If [method_name] is not specified by the user all the methods will be converted to const methods.*)
-let%transfo method_to_const ?(method_name : var = "") (tg : target) : unit =
+let%transfo method_to_const ?(method_name : var = dummy_var) (tg : target) : unit =
   apply_on_targets (Record_core.method_to_const method_name) tg

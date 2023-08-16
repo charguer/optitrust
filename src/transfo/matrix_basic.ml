@@ -36,7 +36,7 @@ let%transfo insert_access_dim_index (new_dim : trm) (new_index : trm) (tg : targ
 
 (* [biject fun_name tg]: expectes the target [tg] to point at a function call, then it replaces the name
      of the called function with [fun_name]. *)
-let%transfo biject (fun_name : string) (tg : target) : unit =
+let%transfo biject (fun_name : var) (tg : target) : unit =
   Expr.replace_fun fun_name tg
 
 (* TODO: implement using local_name_tile to avoid duplication *)
@@ -44,7 +44,7 @@ let%transfo biject (fun_name : string) (tg : target) : unit =
       an occurrence of [var] then it will define a matrix [into] whose dimensions will be the same
       as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finally we
       free up the memory. *)
-let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ~into:(into : var) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) ?(alloc_instr : target option) (v : var) ~into:(into : var) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
   let remove = (my_mark = None) in
   let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
@@ -52,10 +52,10 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(a
       | Trm_apps (_, [lhs; _rhs]) when is_set_operation t ->
         begin match lhs.typ with
         | Some ty -> ty
-        | None -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" v)
+        | None -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" (var_to_string v))
         end
       | _ -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr
-          target doesn't point to a write operation or a variable declaration \n'" v)
+          target doesn't point to a write operation or a variable declaration \n'" (var_to_string v))
       end in
       let alloc_trms = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with
         | Some at ->
@@ -70,7 +70,7 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(a
     Target.(apply_on_targets (fun t p ->
       let seq_p, _ = Internal.isolate_last_dir_in_seq p in
       let seq_tg = target_of_path seq_p in
-      let var_target = cOr [[cVarDef v]; [cWriteVar v]] in
+      let var_target = cOr [[cVarDef v.name]; [cWriteVar v.name]] in
       begin match alloc_instr with
       | Some tg1 ->
         begin match get_trm_at tg1 with
@@ -96,7 +96,7 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(a
 
 (* [local_name_tile ~mark var into tg]: expects the target to point at an instruction that contains
       an occurrence of [var] then it will define a matrix [into] whose dimensions will correspond to a tile of [var]. Then we copy the contents of the matrix [var] into [into] according to the given tile offsets and finally we free up the memory. *)
-let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ~into:(into : var) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ~(into : string) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
   let remove = (mark = None) in
   let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with
@@ -104,10 +104,10 @@ let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option)
       | Trm_apps (_, [lhs; _rhs]) when is_set_operation t ->
         begin match lhs.typ with
         | Some ty -> ty
-        | None -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" v)
+        | None -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" (var_to_string v))
         end
       | _ -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr
-          target doesn't point to a write operation or a variable declaration \n'" v)
+          target doesn't point to a write operation or a variable declaration \n'" (var_to_string v))
       end in
       let alloc_trms = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with
         | Some at ->
@@ -122,7 +122,7 @@ let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option)
     Target.(apply_on_targets (fun t p ->
       let seq_p, _ = Internal.isolate_last_dir_in_seq p in
       let seq_tg = target_of_path seq_p in
-      let var_target = cOr [[cVarDef v]; [cWriteVar v]] in
+      let var_target = cOr [[cVarDef v.name]; [cWriteVar v.name]] in
       begin match alloc_instr with
       | Some tg1 ->
         begin match get_trm_at tg1 with
@@ -310,9 +310,10 @@ let%transfo intro_malloc0 (x : var) (tg : target) : unit =
 *)
 (* TODO: rename name to var and stack_name to copy_name, rename d to copy_dims *)
 (* TODO: Matrix.local_name_tile + Matrix.to_array *)
-let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : trm =
+let stack_copy_on (name : var) (stack_name : string) (d : int) (t : trm) : trm =
   let dims_and_typ_opt : (trms * typ) option ref = ref None in
   let common_indices_opt : trms option ref = ref None in
+  let stack_var = new_var stack_name in
   let rec update_accesses (t : trm) : trm =
     match Matrix_core.access_inv t with
     | Some (f, dims, indices) ->
@@ -328,7 +329,7 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
         | None -> common_indices_opt := Some common_indices
         end;
         List.fold_left (fun acc i ->
-          trm_array_access acc i) (trm_var_get stack_name) new_indices
+          trm_array_access acc i) (trm_var_get stack_var) new_indices
         end
       | _ -> trm_map update_accesses t
       end
@@ -347,15 +348,15 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
     typ_array acc (Trm i)
   ) typ new_dims in
   let copy_offset = trm_array_access (trm_var_get name) (mindex dims (common_indices @ (List.init d (fun _ -> trm_int 0)))) in
-  let copy_size = trm_var ("sizeof(" ^ (AstC_to_c.typ_to_string array_typ) ^ ")") in
+  let copy_size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string array_typ) ^ ")") in
   trm_seq_no_brace [
-    trm_let_mut (stack_name, array_typ) (trm_uninitialized ());
-    trm_apps (trm_var "memcpy") [trm_var_get stack_name; copy_offset; copy_size];
+    trm_let_mut (stack_var, array_typ) (trm_uninitialized ());
+    trm_apps (trm_toplevel_var "memcpy") [trm_var_get stack_var; copy_offset; copy_size];
     new_t;
-    trm_apps (trm_var "memcpy") [copy_offset; trm_var_get stack_name; copy_size];
+    trm_apps (trm_toplevel_var "memcpy") [copy_offset; trm_var_get stack_var; copy_size];
   ]
 
-let%transfo stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (tg : target) : unit =
+let%transfo stack_copy ~(var : var) ~(copy_var : string) ~(copy_dims : int) (tg : target) : unit =
   Nobrace_transfo.remove_after (fun () ->
     Target.apply_at_target_paths (stack_copy_on var copy_var copy_dims) tg)
 

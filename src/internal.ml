@@ -105,7 +105,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
       | Trm_let (vk,(y,ty),init,bound_resources) ->
         trm_let ~annot:t.annot ?loc:t.loc ?bound_resources vk (y,change_typ ty) (aux init)
       | Trm_let_fun (f, ty, args, body, _) ->
-         trm_let_fun ~annot:t.annot ?loc:t.loc ~qvar:f "" (change_typ ty)
+         trm_let_fun ~annot:t.annot ?loc:t.loc f (change_typ ty)
             (List.map (fun (y, ty) -> (y, change_typ ty)) args)
             (aux body)
       | Trm_typedef td ->
@@ -127,7 +127,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
                    | Some ty -> ty
                    | None -> fail t.loc "Internal.apply_change: all variable occurrences should have a type"
                    end in
-        trm_var ~annot:t.annot ?loc:t.loc ~typ:(change_typ ty) ~qvar:x ""
+        trm_var ~annot:t.annot ?loc:t.loc ~typ:(change_typ ty) x
       | _ -> trm_map aux t
     in
     replace_type_annot (aux t)
@@ -209,14 +209,14 @@ let is_decl_body (dl : path) : bool =
   | Dir_body :: _ -> true
   | _ -> false
 
-(* [fresh_args t]: rename all the occurrences of a variable by adding an underscore as prefix *)
+(* [fresh_args t]: rename all the occurrences of a variable by changing their id. *)
 let fresh_args (t : trm) : trm =
   match t.desc with
-  | Trm_var (kind, x) -> trm_var ~kind ("_" ^ x.qvar_var)
+  | Trm_var (kind, x) -> trm_var ~kind (new_var ~qualifier:x.qualifier x.name)
   | _ -> t
 
 (* [get_field_list td]: in the case of typedef struct give back the list of struct fields *)
-let get_field_list (td : typedef) : (var * typ) list =
+let get_field_list (td : typedef) : (field * typ) list =
   match td.typdef_body with
   | Typdef_record rfl ->
     List.map (fun (rf, _) ->
@@ -273,12 +273,13 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
   | _ -> -1
 
 
-(* [toplevel_decl ~require_body x]: finds the toplevel declaration of variable x, x may be a function, variable, typedef or a class method.
+(* [toplevel_decl ~require_body x]: finds the toplevel declaration of variable x, x may be a function or variable.
       If [require_body] is set to true, then only definitions are considered.*)
 let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
   let full_ast = Target.get_ast () in
-  let rec aux(t1 : trm) : trm option =
+  let aux(t1 : trm) : trm option =
     match t1.desc with
+    (* DEPRECATED:
     | Trm_typedef td ->
         if td.typdef_tconstr = x
           then Some t1
@@ -295,9 +296,9 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
                     end
                   end) None rfs
                | _ -> None
-               end
+               end *)
     | Trm_let (_, (y, _), _, _) when y = x -> Some t1
-    | Trm_let_fun (y, _, _, body, _) when (var_has_name y x) ->
+    | Trm_let_fun (y, _, _, body, _) when y = x ->
       if require_body then begin
         match body.desc with
         | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
@@ -321,10 +322,10 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
 (* [local_decl x t]: check if [t] is a declaration with name [x], if that's the case the return that declaration *)
 let rec local_decl (x : var) (t : trm) : trm option =
   match t.desc with
-  | Trm_typedef td when td.typdef_tconstr = x -> Some t
+  (* DEPRECATED: | Trm_typedef td when td.typdef_tconstr = x -> Some t *)
   | Trm_let (_, (y, _), _, _) when y = x -> Some t
   | Trm_let_fun (y, _, _, body, _) ->
-    if (var_has_name y x) then Some t else local_decl x body
+    if y = x then Some t else local_decl x body
   | Trm_seq tl ->
     Mlist.fold_left(
       fun acc t1 ->
@@ -394,6 +395,7 @@ let apply_on_record_fields (app_fun : record_field -> record_field ) (rfs : reco
 
 
 (* [rename_record_fields]: renames all the fields [rfs] by applying function [rename_fun]. *)
+(* FIXME: #var-id , sets id to -1, requiring id inference afterwards. *)
 let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) : record_fields =
   let app_fun (rf : record_field) : record_field =
     match rf with
@@ -401,8 +403,7 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
     | Record_field_method t ->
       begin match t.desc with
       | Trm_let_fun (fn, ret_ty, args, body, contract) ->
-        let new_fn = qvar_update ~var:(rename_fun fn.qvar_var) fn in
-        (* let new_fn = {fn with qvar_str = rename_fun fn.qvar_var} in  *)
+        let new_fn = { qualifier = fn.qualifier; name = rename_fun  fn.name; id = -1 } in
         let new_t = trm_alter  ~desc:(Trm_let_fun (new_fn, ret_ty, args, body, contract)) t in
         Record_field_method new_t
       | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
@@ -463,16 +464,9 @@ let get_constr_from_target (tg : target) : constr =
   | [cnst] -> cnst
   | _ -> cTarget tg
 
-(* [repalce_type_with x y]: replace the current type of variable [y] to [typ_constr x] *)
-let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
-  match t.desc with
-  | Trm_var (_, y') when (var_has_name y' y) ->
-    trm_var ~annot:t.annot ?loc:t.loc ~typ:(typ_constr x) y
-  | _ -> trm_map (replace_type_with x y) t
-
 (* [replace_return_with_assign exit_label r t]: removes all the return statements from the body of a function declaration,
       [exit_label] - generated only if [t] is there is a sequence that contains not terminal instructions,
-      [r] - the name of the variable replacing the return statement,
+      [r] - the name of the variable replacing the return statement, can be [dummy_var] to ... ?
       [t] - ast of the body of the function. *)
 let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : label = "") (r : var) (t : trm) : (trm * int) =
   let nb_gotos = ref 0 in
@@ -484,7 +478,7 @@ let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : la
         begin match t1 with
         | Some t2 ->
           let t1' = (aux false t2) in
-          let t_assign = if r = "" then t2 else trm_set (trm_var r) t1' in
+          let t_assign = if r = dummy_var then t2 else trm_set (trm_var r) t1' in
           if is_terminal
             then t_assign
             else begin
@@ -507,13 +501,14 @@ let replace_return_with_assign ?(check_terminal : bool = true) ?(exit_label : la
 
 
 (* [get_field_name rf]: returns the name of the field [rf]. *)
-let get_field_name (rf : record_field) : var option =
+let get_field_name (rf : record_field) : string option =
   match rf with
   | Record_field_member (n, _) -> Some n
   | Record_field_method t1 ->
+    (* CHECK: #var-id *)
     begin match t1.desc with
-    | Trm_let (_, (n, _), _, _) -> Some n
-    | Trm_let_fun (qn, _, _, _, _) -> Some qn.qvar_var
+    | Trm_let (_, (n, _), _, _) -> Some n.name
+    | Trm_let_fun (qn, _, _, _, _) -> Some qn.name
     | _ -> None
     end
 
@@ -524,7 +519,8 @@ let fix_class_member_accesses (class_name : var) (t : trm) : trm =
     match struct_get_inv t with
     | Some (base, field) ->
       begin match base.desc with
-      | Trm_var (_, qn) when qn.qvar_var = "this" ->
+      (* FIXME: #this-id *)
+      | Trm_var (_, qn) when var_has_name qn "this" ->
         trm_struct_get ~annot:t.annot (trm_var_get class_name) field
       | _ -> trm_map aux t
       end

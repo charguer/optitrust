@@ -29,7 +29,7 @@ let%transfo delete (tg : target) : unit =
 
      @correctness: correct if the new order of evaluation of expressions is
       not changed or does not matter. *)
-let%transfo bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : target) : unit =
+let%transfo bind_intro ?(fresh_name : string = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : target) : unit =
   Nobrace_transfo.remove_after ( fun _ ->
     applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ t (p, p_local, i)  ->
@@ -102,7 +102,7 @@ let%transfo inline ?(body_mark : mark option) ?(subst_mark : mark option) (tg : 
 (* [beta ~body_mark tg]: similar to [function_inline] the main difference is that [beta] is used in the cases
     when the decaration of the function call can be founded at the targeted function call contrary to [inline]
     which will need to find first the toplevel declaration.  *)
-let beta ?(body_mark : var = "") (tg : target) : unit =
+let beta ?(body_mark : mark = "") (tg : target) : unit =
   inline ~body_mark tg
 
 
@@ -135,7 +135,7 @@ let%transfo replace_with_change_args (new_fun_name : string) (arg_mapper : trms 
      inserts a new version of that definition whose return type is void.
     [arg] - is the name of the argument that's going to be inserted,
     [func] - the name of the new function that's going to be inserted. *)
-let%transfo dsp_def ?(arg : var = "res") ?(func : var = "dsp") (tg : target) : unit =
+let%transfo dsp_def ?(arg : var = dummy_var) ?(func : string = "dsp") (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Function_core.dsp_def i arg func t p) tg)
@@ -145,6 +145,6 @@ let%transfo dsp_def ?(arg : var = "res") ?(func : var = "dsp") (tg : target) : u
     Let's say that the targeted function call is r = f(x, y);
     If [dsp] is the empty string, then "f_dsp" will be used as a name based on the original name "f".
     Note: This transformation assumes that dsp_def has been already applied to the definition of the called function. *)
-let%transfo dsp_call ?(dsp : var = "") (tg : target) : unit =
+let%transfo dsp_call ?(dsp : string = "") (tg : target) : unit =
   apply_on_transformed_targets (Path.parent)
     (fun t p -> Function_core.dsp_call dsp t p) tg
