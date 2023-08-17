@@ -8,7 +8,13 @@ let trm_seq_no_brace = Nobrace.trm_seq
 
 (* TODO: reflect on the API implications of #var-id (e.g. where this function is called) *)
 let find_var_in_current_ast ?(target : target = []) (name : string) : var =
-  let vars = trm_def_or_used_vars (Trace.ast ()) in
+  let t = Trace.ast () in
+  let vars =
+    if target = [] then trm_def_or_used_vars t
+    else List.fold_left (fun acc p ->
+      Var_set.union acc (trm_def_or_used_vars (Path.resolve_path p t))
+    ) Var_set.empty (resolve_target target t)
+  in
   let candidates = Var_set.filter (fun v -> v.qualifier = [] && v.name = name) vars in
   match Var_set.cardinal candidates with
   | 0 -> failwith (sprintf "could not find variable '%s' in current AST variables: %s" name (vars_to_string (Var_set.elements vars)))

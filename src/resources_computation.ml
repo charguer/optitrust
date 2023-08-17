@@ -8,26 +8,26 @@ type linear_resource_set = resource_item list
 (* FIXME: #var-id, id should change *)
 let var_result = new_var "_Res"
 let trm_result: formula = trm_var var_result
-
+(* CHECK: #var-id *)
+let _Full = toplevel_var "_Full"
 
 (* The contract of the [set] function. *)
 let set_fun_contract p =
   { pre = resource_set ~linear:[(new_anon_hyp (), formula_cell p)] ();
     post = resource_set ~linear:[(new_anon_hyp (), formula_cell p)] (); }
 
-(* CHECK: #var-id *)
-let __admitted = new_var "__admitted"
-let __cast = new_var "__cast"
-let __new = new_var "__new"
-let __get = new_var "__get"
-let __set = new_var "__set"
-let __add = new_var "__add"
-let __sub = new_var "__sub"
-let __mul = new_var "__mul"
-let __array_access = new_var "__array_access"
-let __add_inplace = new_var "__add_inplace"
-let __sub_inplace = new_var "__sub_inplace"
-let __mul_inplace = new_var "__mul_inplace"
+let __admitted = toplevel_var "__admitted"
+let __cast = toplevel_var "__cast"
+let __new = toplevel_var "__new"
+let __get = toplevel_var "__get"
+let __set = toplevel_var "__set"
+let __add = toplevel_var "__add"
+let __sub = toplevel_var "__sub"
+let __mul = toplevel_var "__mul"
+let __array_access = toplevel_var "__array_access"
+let __add_inplace = toplevel_var "__add_inplace"
+let __sub_inplace = toplevel_var "__sub_inplace"
+let __mul_inplace = toplevel_var "__mul_inplace"
 
 (* The environment containing the contracts of builtin functions. *)
 let builtin_env =
@@ -125,8 +125,8 @@ exception Resource_not_found of resource_item * resource_item list
 
 let raise_resource_not_found ((name, formula): resource_item) (evar_ctx: unification_ctx) (inside: resource_item list) =
   let subst_ctx = Var_map.mapi (fun var subst ->
-    (* FIXME: #var-id *)
-    match subst with Some t -> t | None -> trm_var { qualifier = var.qualifier; name = ("?" ^ var.name); id = -1 }
+    (* CHECK: #var-id *)
+    match subst with Some t -> t | None -> trm_var { qualifier = var.qualifier; name = ("?" ^ var.name); id = -2 }
   ) evar_ctx in
   let formula = trm_subst subst_ctx Var_set.empty formula in
   raise (Resource_not_found ((name, formula), inside))
@@ -184,10 +184,8 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   try match formula_read_only_inv formula with
     | Some { frac; formula = ro_formula } when split_frac ->
       begin match trm_apps_inv frac with
-      (* FIXME: #var-id
       | Some (maybe_full, [frac]) when trm_var_inv maybe_full = Some _Full ->
         unify_and_remove_linear (x, formula_read_only ~frac ro_formula) res evar_ctx
-        *)
       | _ ->
         begin match trm_var_inv frac with
         | Some frac_var ->
@@ -421,32 +419,28 @@ let cast_into_read_only (res: resource_set): resource_set =
 
 exception Unimplemented
 
-let unop_to_var (u: unary_op): var =
+let unop_to_var_name (u: unary_op): string =
   match u with
-  | Unop_get -> __get
-  | Unop_cast t -> __cast
+  | Unop_get -> "__get"
+  | Unop_cast t -> "__cast"
   | _ -> raise Unimplemented
 
-let binop_to_var (u: binary_op): var =
+let binop_to_var_name (u: binary_op): string =
   match u with
-  | Binop_add -> __add
-  | Binop_sub -> __sub
-  | Binop_mul -> __mul
-  | Binop_array_access -> __array_access
-  | Binop_set -> __set
+  | Binop_add -> "__add"
+  | Binop_sub -> "__sub"
+  | Binop_mul -> "__mul"
+  | Binop_array_access -> "__array_access"
+  | Binop_set -> "__set"
   | _ -> raise Unimplemented
 
 let prim_to_var (p: prim): var =
-  match p with
-  | Prim_unop u -> unop_to_var u
-  | Prim_binop b -> binop_to_var b
-  (* FIXME: #var-id , use hash table instead of lets
-  | Prim_compound_assgn_op b -> binop_to_var b ^ _inplace *)
-  | Prim_compound_assgn_op Binop_add -> __add_inplace
-  | Prim_compound_assgn_op Binop_sub -> __sub_inplace
-  | Prim_compound_assgn_op Binop_mul -> __mul_inplace
-  | Prim_new _ -> __new
-  | _ -> raise Unimplemented
+  toplevel_var (match p with
+  | Prim_unop u -> unop_to_var_name u
+  | Prim_binop b -> binop_to_var_name b
+  | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
+  | Prim_new _ -> "__new"
+  | _ -> raise Unimplemented)
 
 let trm_fun_var_inv (t:trm): var option =
   try

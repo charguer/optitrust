@@ -32,9 +32,9 @@ type contract_clause_type =
 type contract_resource = var option * formula
 
 (* CHECK: #var-id *)
-let var_has_model = trm_var (new_var "_HasModel")
-let var_read_only = trm_var (new_var "_RO")
-let var_frac = trm_var (new_var "_Fraction")
+let var_has_model = trm_toplevel_var "_HasModel"
+let var_read_only = trm_toplevel_var "_RO"
+let var_frac = trm_toplevel_var "_Fraction"
 let full_frac = trm_int 1
 
 let formula_model (x: trm) (model: formula): formula =
@@ -133,8 +133,8 @@ let push_loop_contract_clause (clause: contract_clause_type)
   | _ -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
 
 (* CHECK: #var-id *)
-let var_group = trm_var (new_var "Group")
-let var_range = trm_var (new_var "range")
+let var_group = trm_toplevel_var "Group"
+let var_range = trm_toplevel_var "range"
 
 let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) (fi: formula) =
   if dir <> DirUp then failwith "formula_group_range only supports DirUp";

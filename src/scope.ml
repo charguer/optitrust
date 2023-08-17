@@ -18,9 +18,10 @@ let trm_let_or_let_fun_inv t =
     A let-binding interferes if it appears as a free variable in [tl_after]. *)
 let find_interference tl_new_scope tl_after : var list =
   let fv_after = trm_free_vars (trm_seq tl_after) in
+  let fv_after = Qualified_set.of_seq (Seq.map (fun v -> (v.qualifier, v.name)) (Var_set.to_seq fv_after)) in
   let find_toplevel_bind t =
     match trm_let_or_let_fun_inv t with
-    | Some x when Var_set.mem x fv_after -> Some x
+    | Some x when Qualified_set.mem (x.qualifier, x.name) fv_after -> Some x
     | _ -> None
   in
   List.filter_map find_toplevel_bind (Mlist.to_list tl_new_scope)

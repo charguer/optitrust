@@ -265,12 +265,15 @@ let trm_using_directive ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx o
   trm_make ~annot ?loc ?typ ?ctx (Trm_using_directive namespace)
 
 (* FIXME: #this-id
-  need to give local ID to this for every method
+   NOTE: ONLY USE DURING PARSING AND ELIMINATE AFTER
+  id -1 is given during parsing, need to properly infer its ID afterwards (unique id for every method, etc).
 *)
-(* [trm_this ~annot ?loc ?typ ?ctx ()]: this pointer. *)
+let var_this = { qualifier = []; name = "this"; id = -1 }
+
+(* [trm_this ~annot ?loc ?typ ?ctx ()]: this pointer.
+   NOTE: ONLY USE DURING PARSING AND ELIMINATE AFTER *)
 let trm_this ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) () =
-  failwith "issue #this-id"
-  (* trm_make ~annot ?loc ?typ ?ctx (trm_var "this") *)
+  trm_make ~annot ?loc ?typ ?ctx (Trm_var (Var_immutable, var_this))
 
 (* [trm_delete ~annot ?loc ?typ ?ctx is_array_form t]: delete operator  *)
 let trm_delete ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) (is_array_form : bool) (t : trm) =

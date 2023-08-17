@@ -367,7 +367,7 @@ let class_member_elim (t : trm) : trm =
       let this_mut = Var_mutable in
       let this_typ = typ_ptr_generated (typ_constr (v.qualifier, v.name) ~tid:(Clang_to_astRawC.get_typid_for_type v.qualifier v.name)) in
       let this_body = trm_apps (trm_var (name_to_var "malloc")) [trm_var (name_to_var ("sizeof(" ^ v.name ^ ")"))] in
-      let this_alloc = trm_let this_mut (trm_this (), this_typ) this_body in
+      let this_alloc = trm_let this_mut (var_this, this_typ) this_body in
       let ret_this = trm_ret (Some (trm_get (trm_this ()))) in
       begin match body.desc with
       | Trm_seq tl ->

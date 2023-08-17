@@ -6,7 +6,7 @@ open Target
    and document this function. *)
 
 let _ = Run.doc_script_cpp (fun () ->
-  let a = find_var_in_current_ast "a" in
+  let a = find_var_in_current_ast ~target:[cChoose] "a" in
   !! Specialize_basic.choose a [cChoose];
 
 )

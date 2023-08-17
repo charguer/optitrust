@@ -248,7 +248,10 @@ let same_loop_range
 let loop_index ((idx, _, _, _, _, _) : loop_range) : var = idx
 
 let same_loop_index (a : loop_range) (b : loop_range) : bool =
-  (loop_index a) = (loop_index b)
+  let ia = loop_index a in
+  let ib = loop_index b in
+  assert (ia.qualifier = [] && ib.qualifier = []);
+  ia.name = ib.name
 
 (* [t] is a sequence;
    [index] is the index of the first loop to fuse in seq [t].

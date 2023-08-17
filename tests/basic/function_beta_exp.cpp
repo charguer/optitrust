@@ -22,7 +22,7 @@ void test_method() {
   int a = 1;
   X b;
   int c;
-  c = b.x + a;
+  c = a.x + a;
 }
 
 int main() {}
