@@ -14,7 +14,7 @@ let constify (tg : target) : unit =
   Hashtbl.clear Apac_core.const_records;
   (* Step 2: Iterate over [tg] and fill the hash table of constification
      records. *)
-  Apac_core.const_lookup_candidates tg;
+  Apac_core.build_constification_records tg;
   (* Step 3: Clear the stack of arguments and functions to unconstify after the
      analysis of data accesses, aliases and dependencies. Indeed, the
      constification algorithm begins by consedring that all functions and
@@ -26,9 +26,9 @@ let constify (tg : target) : unit =
   (* Step 4: Perform an analysis of data accesses, aliases and dependencies,
      then decide which variables (aliases), arguments and functions should not
      be constified. *)
-  Apac_core.const_compute tg;
+  Apac_core.identify_mutables tg;
   (* Step 5: Propagate the unconstification. *)
-  Apac_core.const_unconst ();
+  Apac_core.unconstify_mutables ();
   (* Step 6: Effectively transform the AST so as to add 'const' keywords to
      function arguments, functions and *)
   Apac_basic.constify_args tg;

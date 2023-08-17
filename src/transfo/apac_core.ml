@@ -421,11 +421,11 @@ let find_parent_typedef_record (p : path) : trm option =
   in
   aux reversed
 
-(* [const_unconst] pops out the elements from [to_unconst] (global variable, see
-   Part II.1) one by one and propagates the unconstification through the
-   concerned function constification records in [const_records] (global
-   variable, see Part II.1). *)
-let rec const_unconst () : unit =
+(* [unconstify_mutables] pops out the elements from [to_unconst] (global
+   variable, see Part II.1) one by one and propagates the unconstification
+   through the concerned function constification records in [const_records]
+   (global variable, see Part II.1). *)
+let rec unconstify_mutables () : unit =
   (* Pop out an element from [to_unconst]. *)
   match Stack.pop_opt to_unconst with
   | Some (fun_name, index) ->
@@ -461,7 +461,7 @@ let rec const_unconst () : unit =
         function must not be consitifed. *)
      else if const_record.is_class_method then const_record.is_const <- false;
      (* Recurse. *)
-     const_unconst ()
+     unconstify_mutables ()
   (* When the stack is empty, stop and return. *)
   | None -> ()
 
@@ -470,8 +470,8 @@ let rec const_unconst () : unit =
 (* IV.1 Constification                    *)
 (******************************************)
 
-(* [const_lookup_candidates_on]: see [const_lookup_candidates]. *)
-let const_lookup_candidates_on (t : trm) : unit =
+(* [build_constification_records_on]: see [build_constification_records]. *)
+let build_constification_records_on (t : trm) : unit =
   (* Deconstruct the function definition term. *)
   let error = "Apac_basic.const_lookup_candidates: expected a target to a \
                function definition!" in
@@ -499,14 +499,14 @@ let const_lookup_candidates_on (t : trm) : unit =
   (* and add it to [const_records] (global variable, see Part II.1). *)
   Hashtbl.add const_records qvar.qvar_str const
 
-(* [const_lookup_candidates]: expects the target [tg] to point at a function
-   definition. It adds a new entry into [const_records] (global variable, see
-   Part II.1) based on the information about the function. *)
-let const_lookup_candidates (tg : target) : unit =
-  Target.iter_at_target_paths (const_lookup_candidates_on) tg
+(* [build_constification_records]: expects the target [tg] to point at a
+   function definition. It adds a new entry into [const_records] (global
+   variable, see Part II.1) based on the information about the function. *)
+let build_constification_records (tg : target) : unit =
+  Target.iter_at_target_paths (build_constification_records_on) tg
 
-(* [const_compute_on]: see [const_compute]. *)
-let const_compute_on (p : path) (t : trm) : unit =
+(* [identify_mutables_on]: see [identify_mutables]. *)
+let identify_mutables_on (p : path) (t : trm) : unit =
   (* Auxiliary function which recursively visits all the terms of the body
      [fun_body] of the function [fun_name] in order to resolve dependencies
      between arguments and aliases. *)
@@ -536,7 +536,7 @@ let const_compute_on (p : path) (t : trm) : unit =
          let arg_var = trm_strip_accesses_and_references_and_get arg in
          if trm_is_var arg_var then
            begin
-             let error = "Apac_basic.const_compute_on: unable to retrieve \
+             let error = "Apac_basic.identify_mutables_on: unable to retrieve \
                           qualified name of an argument" in
              (* deconstruct the variable term. *)
              let arg_qvar = trm_inv ~error trm_var_inv_qvar arg_var in
@@ -575,7 +575,7 @@ let const_compute_on (p : path) (t : trm) : unit =
      trm_iter (aux aliases fun_name) fun_body
   (* Assignment or compound assignment: update the unconstification stack. *)
   | Trm_apps _ when is_set_operation fun_body ->
-     let error = "Apac_basic.const_compute_on: expected set operation." in
+     let error = "Apac_basic.identify_mutables_on: expected set operation." in
      let (lval, rval) = trm_inv ~error set_inv fun_body in
      begin
        match trm_resolve_binop_lval_name_and_get_with_deref lval with
@@ -629,7 +629,7 @@ let const_compute_on (p : path) (t : trm) : unit =
   (* Increment or decrement unary operation: update the unconstification
      stack. *)
   | Trm_apps _ when trm_is_unop_inc_or_dec fun_body ->
-     let error = "Apac_basic.const_compute_on: unable to retrieve variable \
+     let error = "Apac_basic.identify_mutables_on: unable to retrieve variable \
                   name" in
      let var_name = trm_inv ~error
                       trm_resolve_var_name_in_unop_or_array_access_and_get
@@ -685,7 +685,7 @@ let const_compute_on (p : path) (t : trm) : unit =
   (* This is the main entry point of the function from where the auxiliary
      function shall be called. *)
   (* Deconstruct the target function definition term. *)
-  let error = "Apac_basic.const_compute_all: expected target to a function \
+  let error = "Apac_basic.identify_mutables_on: expected target to a function \
                definition." in
   let (qvar, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
   (* Count the function's arguments. *)
@@ -720,10 +720,10 @@ let const_compute_on (p : path) (t : trm) : unit =
      and fill [to_unconst]. *)
   aux aliases qvar.qvar_str body
 
-(* [const_compute]: expects the target [tg] to point at a function definition.
-   It recurses over the body of the target function definition in order to
-   figure out which function arguments and possible aliases to arguments should
-   not be constified and adds them to the [to_unconst] stack (global variable,
-   see Part II.1). *)
-let const_compute (tg : target) : unit =
-  Target.iter (fun t p -> const_compute_on p (get_trm_at_path p t)) tg
+(* [identify_mutables]: expects the target [tg] to point at a function
+   definition. It recurses over the body of the target function definition in
+   order to figure out which function arguments and possible aliases to
+   arguments should not be constified and adds them to the [to_unconst] stack
+   (global variable, see Part II.1). *)
+let identify_mutables (tg : target) : unit =
+  Target.iter (fun t p -> identify_mutables_on p (get_trm_at_path p t)) tg
