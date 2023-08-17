@@ -6,7 +6,7 @@ open Mlist
 include Apac_basic
 include Apac_core
 
-(* [constify]: expects target [tg] to point at a function definition. It
+(* [constify tg]: expects target [tg] to point at a function definition. It
    constifies function arguments and functions whenever it is possible depending
    on data accesses, aliases and dependencies. *)
 let constify (tg : target) : unit =
