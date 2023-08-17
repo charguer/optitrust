@@ -35,6 +35,40 @@ let constify (tg : target) : unit =
   (* Step 7: aliases of function arguments. *)
   Apac_basic.constify_aliases tg
 
+(* [mark_taskification_candidates_on]: see [mark_taskification_candidates]. *)
+let mark_taskification_candidates_on (t : trm) : trm =
+  (* Initialize a reference holding the number of function calls within the body
+     of the target function definiton. *)
+  let count = ref 0 in
+  (* Define an auxiliary function to count the number of function calls within
+     the body of the target function definition. *)
+  let rec aux (t : trm) : unit =
+    match t.desc with
+    (* If [t] is a function call, increase [count] and recurse deeper in the
+       AST. *)
+    | Trm_apps ({ desc = Trm_var _}, _) -> incr count; trm_iter aux t
+    (* Otherwise, recurse deeper in the AST. *)
+    | _ -> trm_iter aux t
+  in
+  (* Deconstruct the function definition term [t]. *)
+  let error = "Apac_basic.mark_taskification_candidates_on: expected a target \
+               to a function definition." in
+  let (_, _, _, body) = trm_inv ~error trm_let_fun_inv t in
+  (* Call the locally-defined auxiliary function to count the number of function
+     calls within the body of [t]. *)
+  aux body;
+  (* If there are at least two function calls, mark the entire function as
+     candidate for taskification. Otherwie, return the AST term unchanged. *)
+  if !count > 1 then trm_add_mark "taskify" t else t
+
+(* [mark_taskification_candidates]: expects the target [tg] to point at a
+   function definition. It marks the functions to taskify, i.e. the functions to
+   the body of which we shall insert tasks. For now, we use a naive algorithm to
+   determine the candidates for taskification. We consider every function
+   performing at least two function calls. *)
+let mark_taskification_candidates (tg : target) : unit =
+  Target.apply_at_target_paths (mark_taskification_candidates_on) tg
+
 (* [parallel_task_group tg]: expects target [tg] to point at a function
     definition.
 
