@@ -29,7 +29,7 @@ void h() {
   __var_3 = f(1);
   int __var_4;
   __var_4 = f(2);
-  auto __var_5;
+  int __var_5;
   __var_5 = g(__var_3, __var_4);
   int c = __var_5;
   int __var_6;

@@ -35,39 +35,55 @@ let constify (tg : target) : unit =
   (* Step 7: aliases of function arguments. *)
   Apac_basic.constify_aliases tg
 
-(* [mark_taskification_candidates_on]: see [mark_taskification_candidates]. *)
-let mark_taskification_candidates_on (t : trm) : trm =
-  (* Initialize a reference holding the number of function calls within the body
-     of the target function definiton. *)
-  let count = ref 0 in
-  (* Define an auxiliary function to count the number of function calls within
-     the body of the target function definition. *)
-  let rec aux (t : trm) : unit =
-    match t.desc with
-    (* If [t] is a function call, increase [count] and recurse deeper in the
-       AST. *)
-    | Trm_apps ({ desc = Trm_var _}, _) -> incr count; trm_iter aux t
-    (* Otherwise, recurse deeper in the AST. *)
-    | _ -> trm_iter aux t
-  in
-  (* Deconstruct the function definition term [t]. *)
-  let error = "Apac_basic.mark_taskification_candidates_on: expected a target \
-               to a function definition." in
-  let (_, _, _, body) = trm_inv ~error trm_let_fun_inv t in
-  (* Call the locally-defined auxiliary function to count the number of function
-     calls within the body of [t]. *)
-  aux body;
-  (* If there are at least two function calls, mark the entire function as
-     candidate for taskification. Otherwie, return the AST term unchanged. *)
-  if !count > 1 then trm_add_mark "taskify" t else t
+(* [unfold_function_calls tg]: expects target [tg] to point at a function
+   definition. It moves all function calls under target [tg] out of variable
+   declarations and nested function calls.
 
-(* [mark_taskification_candidates]: expects the target [tg] to point at a
-   function definition. It marks the functions to taskify, i.e. the functions to
-   the body of which we shall insert tasks. For now, we use a naive algorithm to
-   determine the candidates for taskification. We consider every function
-   performing at least two function calls. *)
-let mark_taskification_candidates (tg : target) : unit =
-  Target.apply_at_target_paths (mark_taskification_candidates_on) tg
+    Example:
+
+          int a = f(g(2));
+
+    becomes:
+
+          int __var_1;
+          __var_1 = g(2);
+          int __var_2;
+          __var_2 = f(__var_1);
+          int a = __var_2;
+
+    However:
+
+          int a;
+          a = f(g(2));
+
+    becomes:
+
+          int a;
+          int __var_1;
+          __var_1 = g(2);
+          a = f(__var_1);
+
+    as the call to 'f' is already dissociated from the declaration of 'a'. See
+    also comments within the function.
+*)
+let unfold_function_calls (tg : target) : unit =
+  Target.iter (fun t p ->
+    (* Get the parent term to check whether it is an assignment (outside of a
+       declaration). If it is the case, we do not need to apply the
+       transformation. It would only create a superfluous variable. *)
+    let parent_path = Path.parent p in
+    let parent_target = target_of_path parent_path in
+    if not (is_set_operation (get_trm_at_exn parent_target))
+    then begin
+      (* Define new intermediate variable. *)
+      let var = "__var_" ^ (string_of_int (next_var_int ())) in
+      (* Bind the return value of the current function call to that variable. *)
+      Variable_basic.bind var (target_of_path p);
+      (* Separate the assignment of the return value from the declaration of the
+         variable. *)
+      Variable_basic.init_detach [cVarDef var];
+    end
+  ) tg
 
 (* [parallel_task_group tg]: expects target [tg] to point at a function
     definition.
@@ -307,55 +323,6 @@ let sync_with_taskwait : Transfo.t =
       List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add decl_vars var (get_dep var ty)) args;
       transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
-  )
-
-(* [unfold_funcalls tg]: moves all function calls under target [tg] out of
-    variable declarations and nested function calls.
-
-    Example:
-
-          int a = f(g(2));
-
-    becomes:
-
-          int __var_1;
-          __var_1 = g(2);
-          int __var_2;
-          __var_2 = f(__var_1);
-          int a = __var_2;
-
-    However:
-
-          int a;
-          a = f(g(2));
-
-    becomes:
-
-          int a;
-          int __var_1;
-          __var_1 = g(2);
-          a = f(__var_1);
-
-    as the call to 'f' is already dissociated from the declaration of 'a'. See
-    also comments within the function.
-*)
-let unfold_funcalls : Transfo.t =
-  Target.iter (fun t p ->
-    (* Get the parent term to check whether it is an assignment (outside of a
-       declaration). If it is the case, we do not need to apply the
-       transformation. It would only create a superfluous variable. *)
-    let parent_path = Path.parent p in
-    let parent_target = target_of_path parent_path in
-    if not (is_set_operation (get_trm_at_exn parent_target))
-    then begin
-      (* Define new intermediate variable. *)
-      let var = "__var_" ^ (string_of_int (next_var_int ())) in
-      (* Bind the return value of the current function call to that variable. *)
-      Variable_basic.bind var (target_of_path p);
-      (* Separate the assignment of the return value from the declaration of the
-         variable. *)
-      Variable_basic.init_detach [cVarDef var];
-    end
   )
 
 (* [fun_loc]: function's Unified Symbol Resolution *)
