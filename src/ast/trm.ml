@@ -66,9 +66,9 @@ let trm_alter ?(annot : trm_annot option) ?(loc : location option) ?(is_statemen
 let trm_replace (desc : trm_desc) (t : trm) : trm =
   trm_alter ~desc t
 
-(* [trm_like]: copies the annotations and the location of the old trm into a new trm *)
+(* [trm_like]: copies the annotations, location and type of the old trm into a new trm *)
 let trm_like ~(old:trm) (t:trm): trm =
-  trm_alter ~annot:old.annot ~loc:old.loc t
+  trm_alter ~annot:old.annot ~loc:old.loc ?typ:old.typ t
 
 (* **************************** CStyle *************************** *)
 

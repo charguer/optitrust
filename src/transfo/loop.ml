@@ -910,7 +910,7 @@ let%transfo fission ?(nest_of : int  = 1) (tg : target) : unit =
     the number of consecutive instructions [nb_instr] that can be converted into a single loop.
    @correctness: always correct, as we can map all intermediate predicates
    to numbered predicates on the loop. *)
-let%transfo fold  ?(start : int = 0) ?(step : int = 1) ~index:(index : var) (nb_instr : int) (tg : target) : unit =
+let%transfo fold  ?(start : int = 0) ?(step : int = 1) ~(index : string) (nb_instr : int) (tg : target) : unit =
   let mark = "opti_fold" in
   Sequence_basic.intro ~mark nb_instr tg;
   Loop_basic.fold ~index ~start ~step [cMark mark]
@@ -918,7 +918,7 @@ let%transfo fold  ?(start : int = 0) ?(step : int = 1) ~index:(index : var) (nb_
 
 (* [fold_instrs ~index ~start ~step tg]: similar to [fold] except that this one asks the user to provide a generic target
      that can match all the instructions that can be converted into a single loop. *)
-let%transfo fold_instrs ~index:(index : var) ?(start : int = 0) ?(step : int = 1) (tg : target) : unit =
+let%transfo fold_instrs ~(index : string) ?(start : int = 0) ?(step : int = 1) (tg : target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in
   let first_target = [occFirst] @ (filter_constr_occurrence tg) in

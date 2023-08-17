@@ -25,7 +25,7 @@ let choose (choice : var) (tg : target) : unit =
     | Some id -> id) tg
 
 (* [fundefs spec_name spec_args tg] *)
-let fundefs (spec_name : var) (spec_args : (trm option) list) (tg : target) : unit =
+let fundefs (spec_name : string) (spec_args : (trm option) list) (tg : target) : unit =
   (* FIXME: #advanced-scoping-check *)
   Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
     apply_on_targets (Specialize_core.fun_defs spec_name spec_args) tg)

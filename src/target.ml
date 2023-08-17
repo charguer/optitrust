@@ -1,4 +1,7 @@
-open Syntax
+open Ast
+open Trm
+open Typ
+open Mark
 open Tools
 open Path
 
@@ -9,16 +12,8 @@ type path = Path.path
 type paths = path list
 type case_dir = Path.case_dir
 
-(* NOW INCLUDED
-type constr = Constr.constr
-type target = constr list
-*)
-
 (* Shorthands for Trace functions *)
 include Trace
-
-include AstParser
-
 
 (******************************************************************************)
 (*                        Smart constructors for targets                      *)

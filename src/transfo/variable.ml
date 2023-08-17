@@ -129,10 +129,10 @@ let%transfo insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value
     } *)
 
 let%transfo delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
-   (ov : var) ~into:(nv : var)
+   (ov : var) ~(into : string)
   ~(array_size : var) (tg : target) : unit =
   let middle_mark = match mark with | None -> Mark.next () | Some m -> m in
-  Variable_basic.local_name ~mark:middle_mark ov ~into:nv tg;
+  Variable_basic.local_name ~mark:middle_mark ov ~into tg;
   Variable_basic.delocalize ~index ~array_size ~ops [cMark middle_mark];
   begin
    match mark with | None -> Marks.remove middle_mark [cMark middle_mark] | _ -> ()
@@ -143,13 +143,13 @@ let%transfo delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : 
     to a list of variables namely for each index on variable, this variables should be given by the user through the labelled
     argument [vars]. *)
 let%transfo delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
-   (ov : var) ~into:(nv : var)  ~(array_size : var)
+   (ov : var) ~(into : string)  ~(array_size : var)
   ~local_vars:(lv : string list) (tg : target) : unit =
-  Variable_basic.local_name ~mark ov ~into:nv tg;
+  Variable_basic.local_name ~mark ov ~into tg;
   Variable_basic.delocalize ~index ~array_size ~ops [cMark mark];
   Variable_basic.unfold ~at:[cFor index] [nbAny;cVarDef array_size.name];
   Loop_basic.unroll ~braces:false [nbMulti ;cFor index];
-  Arrays_basic.to_variables  lv [cVarDef nv.name];
+  Arrays_basic.to_variables  lv [cVarDef into];
   Marks.remove "section_of_interest" [cMark "section_of_interest"]
 
 

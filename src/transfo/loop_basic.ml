@@ -13,7 +13,7 @@ open Target
    In the general case, it produces:
    [for (int index = 0; index < nb_color; index++) {
       for (int i = index*step; i < stop; i += step*nb_color) { body }]. *)
-let%transfo color (nb_colors : trm) ?(index : var option) (tg : target) : unit =
+let%transfo color (nb_colors : trm) ?(index : string option) (tg : target) : unit =
   apply_on_targets (Loop_core.color nb_colors index) tg
 
 (* [tile tile_size index tg]: expects the target [tg] to point at a simple loop,
@@ -392,7 +392,7 @@ let%transfo to_unit_steps ?(index : string = "" ) (tg : target) : unit =
     and it assumes that the sequence containing the target [tg] is composed of a list of instructions which
     can be expressed into a single for loop with [index] [direction] [start] [nb_instructions] and [step] as loop
     components. *)
-let%transfo fold ~index:(index : var) ~start:(start : int) ~step:(step : int) (tg : target) : unit =
+let%transfo fold ~(index : string) ~(start : int) ~(step : int) (tg : target) : unit =
   apply_on_targets (
     Loop_core.fold index start step
   ) tg

@@ -142,7 +142,7 @@ let%transfo elim_mops (tg : target): unit =
    varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated
     environment where the delocalizing transformatino is going to be performed *)
 let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
-  ?(last : bool = false)  ?(use : trm option) (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string)
+  ?(last : bool = false)  ?(use : trm option) (var : var) ~(into : string) ~dim:(dim : trm)  ~index:(index : string)
   ?(indices : string list = []) ~ops:(ops : local_ops) ?(alloc_instr : target option) ?(labels : label list = []) ?(dealloc_tg : target option) (tg : target) : unit =
 
     let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
@@ -152,7 +152,7 @@ let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_i
     let any_mark = begin match use with | Some _ -> "any_mark_deloc" | _ -> "" end in
     Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~any_mark ~dim ~index ~ops ~labels [cMark middle_mark];
 
-    let tg_decl_access = cOr [[cVarDef into.name];[cWriteVar into.name]; [cCellAccess ~base:[cVar into.name] ()]] in
+    let tg_decl_access = cOr [[cVarDef into];[cWriteVar into]; [cCellAccess ~base:[cVar into] ()]] in
     if last then Matrix_basic.reorder_dims ~rotate_n:1 [nbAny; tg_decl_access; cFun ~regexp:true "M\\(.NDEX\\|ALLOC\\)."] ;
     begin match use with
       | Some e ->   Specialize.any e [nbAny; cMark any_mark]
@@ -166,7 +166,7 @@ let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_i
          let nb_labels = List.length labels in
          if nb_labels <> 3 then ();
          let label_alloc = List.nth labels 0 in
-         if label_alloc <> "" then begin Instr.move ~dest:[tAfter;cTarget alloc] [cLabel label_alloc]; Instr.move ~dest:[tBefore; cFunDef "" ~body:[cLabel label_alloc]] [cLabel label_alloc; cVarDef into.name] end;
+         if label_alloc <> "" then begin Instr.move ~dest:[tAfter;cTarget alloc] [cLabel label_alloc]; Instr.move ~dest:[tBefore; cFunDef "" ~body:[cLabel label_alloc]] [cLabel label_alloc; cVarDef into] end;
          let label_dealloc = List.nth labels 2 in
          if label_dealloc <> "" then begin match dealloc_tg with
           | Some da_tg -> Instr.move ~dest:[tAfter; cTarget da_tg] [cLabel label_dealloc]

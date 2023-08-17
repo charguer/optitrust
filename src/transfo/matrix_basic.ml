@@ -44,7 +44,7 @@ let%transfo biject (fun_name : var) (tg : target) : unit =
       an occurrence of [var] then it will define a matrix [into] whose dimensions will be the same
       as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finally we
       free up the memory. *)
-let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) ?(alloc_instr : target option) (v : var) ~into:(into : var) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+let%transfo local_name ?(my_mark : mark option) ?(indices : (string list) = []) ?(alloc_instr : target option) (v : var) ~(into : string) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
   let remove = (my_mark = None) in
   let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
     let var_type = begin match t.desc with

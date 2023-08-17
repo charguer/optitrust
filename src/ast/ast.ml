@@ -105,7 +105,7 @@ module Qualified_name = struct
     | c -> c
 end
 
-module Qualified_set = Map.Make(Qualified_name)
+module Qualified_set = Set.Make(Qualified_name)
 module Qualified_map = Map.Make(Qualified_name)
 
 (* The id is a unique name for the hypothesis that cannot be shadowed *)

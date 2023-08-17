@@ -1,10 +1,12 @@
 open Optitrust
+open Syntax
 open Target
 
 let _ = Flags.check_validity := true
 
 let _ = Run.doc_script_cpp (fun _ ->
-  !! Matrix_basic.delete ~var:"a" [cFunBody "main"];
+  let a = find_var_in_current_ast "a" in
+  !! Matrix_basic.delete ~var:a [cFunBody "main"];
 )
 
 "
@@ -18,6 +20,8 @@ int main() {
 "
 
 let _ = Run.script_cpp (fun _ ->
-  !! Matrix_basic.delete ~var:"a" [cFunBody "main"];
-  !! Matrix_basic.delete ~var:"b" [cFunBody "main"];
+  let a = find_var_in_current_ast "a" in
+  let b = find_var_in_current_ast "b" in
+  !! Matrix_basic.delete ~var:a [cFunBody "main"];
+  !! Matrix_basic.delete ~var:b [cFunBody "main"];
 )

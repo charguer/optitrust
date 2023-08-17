@@ -1,12 +1,13 @@
 open Optitrust
+open Syntax
 open Target
 
 (* LATER: wait until we have support for templates to properly implementation CHOOSE
    and document this function. *)
 
 let _ = Run.doc_script_cpp (fun () ->
-
-  !! Specialize_basic.choose "a" [cChoose];
+  let a = find_var_in_current_ast "a" in
+  !! Specialize_basic.choose a [cChoose];
 
 )
 
@@ -26,6 +27,7 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Specialize_basic.choose "xa" [cChoose];
+  let xa = find_var_in_current_ast "xa" in
+  !! Specialize_basic.choose xa [cChoose];
 
 )

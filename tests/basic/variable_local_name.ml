@@ -1,9 +1,9 @@
 open Optitrust
-open Target
+open Syntax
 
 let _ = Run.doc_script_cpp (fun _ ->
-
-  !! Variable_basic.local_name "x" ~into:"y" [cLabel "sec"];
+  let x = find_var_in_current_ast "x" in
+  !! Variable_basic.local_name x ~into:"y" [cLabel "sec"];
 
 )
 
@@ -20,7 +20,7 @@ sec:{
 "
 
 let _ = Run.script_cpp (fun _ ->
-
-  !! Variable_basic.local_name ~mark:"mymark" "a"  ~into:"x" [cFor "i"];
+  let a = find_var_in_current_ast "a" in
+  !! Variable_basic.local_name ~mark:"mymark" a  ~into:"x" [cFor "i"];
 
 )

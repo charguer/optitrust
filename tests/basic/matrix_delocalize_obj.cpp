@@ -32,8 +32,6 @@ particle *bag_iter_begin(bag_iter *it, bag *b);
 
 particle *bag_iter_next_common(bag_iter *it, bool destructive);
 
-void bag_merge(bag* b, bag* other);
-
 void bag_push(bag *b, particle p);
 
 void bag_init(bag *b);

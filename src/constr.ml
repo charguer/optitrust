@@ -1,4 +1,7 @@
-open Syntax
+open Ast
+open Trm
+open Typ
+open Mark
 open Str
 open Tools
 open Path

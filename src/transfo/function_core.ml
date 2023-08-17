@@ -191,10 +191,11 @@ let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms)
      [func] - name of the newly added function definition,
      [t] - ast of the original function definition. *)
 
-let dsp_def_aux (index : int) (arg : var) (func : string) (t : trm) : trm =
+let dsp_def_aux (index : int) (arg : string) (func : string) (t : trm) : trm =
   let error = "Function_core.dsp_def_aux: expected the surrounding sequence of the targeted function definition." in
   let tl = trm_inv ~error trm_seq_inv t in
 
+  let arg = Trm.new_var arg in
   let f_update (t : trm) : trm =
     let error = "Function_core.dsp_def_aux: expected a target to a function definition." in
     let (f, ret_ty, tvl, body) = trm_inv ~error trm_let_fun_inv t in
@@ -209,7 +210,7 @@ let dsp_def_aux (index : int) (arg : var) (func : string) (t : trm) : trm =
   trm_seq ~annot:t.annot new_tl
 
 (* [dsp_def index arg func t p]: applies [dsp_def_aux] at trm [t] with path [p]. *)
-  let dsp_def (index : int) (arg : var) (func : string) : Transfo.local =
+  let dsp_def (index : int) (arg : string) (func : string) : Transfo.local =
   apply_on_path (dsp_def_aux index arg func)
 
 (* [dsp_call_aux dps t]: changes a write operation with lhs a function call to a function call,

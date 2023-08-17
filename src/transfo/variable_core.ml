@@ -241,7 +241,8 @@ let init_attach (const : bool) (index : int) : Transfo.local =
       [curr_var] - the previous name of the variable, this is used to find all its occurrences,
       [local_var] - the name of the variable to be declared and replace all the occurrences of [curr_var],
       [t] - ast of the trm that contains [curr_var]. *)
-let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : trm =
+let local_name_aux (mark : mark) (curr_var : var) (local_var : string) (t : trm) : trm =
+  let local_var = Trm.new_var local_var in
   let vardef_trm = begin match get_trm_at [cVarDef curr_var.name] with
     | Some vt -> vt
     | None -> fail None "local_name_aux: couldn't find the variable provided as argument"
@@ -257,7 +258,7 @@ let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : 
   trm_add_mark mark final_trm
 
 (* [local_name mark curr_var local_var t p]: applies [local_name_aux] at trm [t] with path [p]. *)
-let local_name (mark : mark) (curr_var : var) (local_var : var) : Transfo.local =
+let local_name (mark : mark) (curr_var : var) (local_var : string) : Transfo.local =
   apply_on_path(local_name_aux mark curr_var local_var)
 
 (* [delocalize_aux array_size ops index t]: see [Variable_basic.delocalize],

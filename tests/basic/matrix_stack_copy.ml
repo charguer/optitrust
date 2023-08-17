@@ -1,11 +1,13 @@
 open Optitrust
+open Syntax
 open Target
 open Path
 
 let _ = Flags.check_validity := true
 
 let _ = Run.doc_script_cpp (fun () ->
-   !! Matrix.stack_copy ~var:"s" ~copy_var:"x" ~copy_dims:1 [occFirst; cFor "j"];
+  let s = find_var_in_current_ast "s" in
+   !! Matrix.stack_copy ~var:s ~copy_var:"x" ~copy_dims:1 [occFirst; cFor "j"];
 )
 
 "
@@ -25,6 +27,7 @@ int main () {
 "
 
 let _ = Run.script_cpp (fun () ->
-   !! Matrix.stack_copy ~var:"s" ~copy_var:"x" ~copy_dims:1 [occFirst; cFor "j"];
+  let s = find_var_in_current_ast "s" in
+   !! Matrix.stack_copy ~var:s ~copy_var:"x" ~copy_dims:1 [occFirst; cFor "j"];
    !!! ();
 )

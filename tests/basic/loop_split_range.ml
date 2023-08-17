@@ -1,5 +1,5 @@
 open Optitrust
-open Target
+open Syntax
 
 let _ = Flags.check_validity := true
 

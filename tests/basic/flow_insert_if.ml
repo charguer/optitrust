@@ -1,11 +1,11 @@
 open Optitrust
-open Target
+open Syntax
 
 
 let _ = Run.doc_script_cpp (fun _ ->
 
   !! Flow_basic.insert_if ~cond:(expr "x > 0") [sInstr "x++"];
-  
+
 )
 
 "

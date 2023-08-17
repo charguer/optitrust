@@ -55,7 +55,8 @@ let choose (select_arg : var list -> int) : Target.Transfo.local =
       [spec_name] - the name of the copy
       [spec_args] - an optional list of trms, telling the transformation which argss it shoudl specialize,
       [t] - ast of the function definition. *)
-let fun_defs_aux (spec_name : var) (spec_args : (trm option) list) (t : trm) : trm =
+let fun_defs_aux (spec_name : string) (spec_args : (trm option) list) (t : trm) : trm =
+  let spec_var = Trm.new_var spec_name in
   match t.desc with
   | Trm_let_fun (qf, ret_ty, args, body, _) ->
     (* Check if spec_args is of the correct shape. *)
@@ -86,14 +87,14 @@ let fun_defs_aux (spec_name : var) (spec_args : (trm option) list) (t : trm) : t
 
     let new_body = trm_seq_nomarks [trm_apps (trm_var qf) call_args] in
 
-    let new_def = trm_let_fun spec_name ret_ty new_args new_body in
+    let new_def = trm_let_fun spec_var ret_ty new_args new_body in
 
     trm_seq_no_brace [t; new_def]
   | _ -> fail t.loc "Specialize_core.fun_defs_aux: expected a target to a function definition."
 
 
 (* [fun_defs spec_name spec_args t p]: applies [fun_defs_aux] at trm [ŧ] with path [p]. *)
-let fun_defs (spec_name : var) (spec_args : (trm option) list) : Target.Transfo.local =
+let fun_defs (spec_name : string) (spec_args : (trm option) list) : Target.Transfo.local =
   apply_on_path (fun_defs_aux spec_name spec_args)
 
 

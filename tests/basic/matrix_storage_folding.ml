@@ -3,7 +3,8 @@ open Syntax
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-  !! Matrix_basic.storage_folding ~var:"a" ~dim:0 ~size:(trm_int 3) [cFunBody "main"];
+  let a = find_var_in_current_ast "a" in
+  !! Matrix_basic.storage_folding ~var:a ~dim:0 ~size:(trm_int 3) [cFunBody "main"];
 )
 
 "
@@ -33,8 +34,10 @@ let _ = Run.script_cpp (fun _ ->
       COMBI target alloc instead of ~var
        + may introduce variable for basic
      *)
-  !! Matrix_basic.storage_folding ~var:"a" ~dim:0 ~size:(trm_int 3) [cFunBody "main"];
-  !! Matrix_basic.storage_folding ~var:"b" ~dim:0 ~size:(trm_int 3) [cFunBody "main"];
+  let a = find_var_in_current_ast "a" in
+  let b = find_var_in_current_ast "b" in
+  !! Matrix_basic.storage_folding ~var:a ~dim:0 ~size:(trm_int 3) [cFunBody "main"];
+  !! Matrix_basic.storage_folding ~var:b ~dim:0 ~size:(trm_int 3) [cFunBody "main"];
   (* TODO?
   Array.to_variables
    + generalize to Matrix.to_variables on last dim

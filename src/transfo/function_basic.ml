@@ -135,7 +135,7 @@ let%transfo replace_with_change_args (new_fun_name : string) (arg_mapper : trms 
      inserts a new version of that definition whose return type is void.
     [arg] - is the name of the argument that's going to be inserted,
     [func] - the name of the new function that's going to be inserted. *)
-let%transfo dsp_def ?(arg : var = dummy_var) ?(func : string = "dsp") (tg : target) : unit =
+let%transfo dsp_def ?(arg : string = "res") ?(func : string = "dsp") (tg : target) : unit =
   Nobrace_transfo.remove_after (fun _ ->
     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Function_core.dsp_def i arg func t p) tg)

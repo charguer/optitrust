@@ -291,8 +291,9 @@ let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.l
       [t] - ast of thee instuction which contains accesses to [var]. *)
 
 (* TODO: superseded by tile version *)
-let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (string list) )(local_ops : local_ops) (t : trm) : trm =
+let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (string list) )(local_ops : local_ops) (t : trm) : trm =
   let dims, size, zero_init = malloc_trms in
+  let local_var = Trm.new_var local_var in
   let local_var_type = var_type in
   let init = if zero_init then Some (trm_int 0) else None in
   let fst_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc ?init dims size )) in
@@ -332,7 +333,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
 
 (* TODO: superseded by tile version, except when accesses are not visible (new_t = subst_var does not work) *)
 (* [local_name mark var local_var malloc_trms var_type indices local_ops t p]: applies [local_name_aux] at trm [t] with path [p]. *)
-let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : string list ) (local_ops : local_ops) : Target.Transfo.local =
+let local_name (mark : mark option) (var : var) (local_var : string) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : string list ) (local_ops : local_ops) : Target.Transfo.local =
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices local_ops)
 
 (* TODO: Factorize *)

@@ -25,9 +25,12 @@ let function_arg (spec_name : string) (args_to_keep : bool list) (tg : target) :
         | None -> None
           in
 
-      let spec_var = new_var spec_name in
+      Specialize_basic.fundefs spec_name opt_trms [cTopFunDef ?clang_id qf.name];
+      (* FIXME: #var-id,
+          1. recover var from previous transfo?
+          2. create var before previous transfo? *)
+      let spec_var = find_var_in_current_ast spec_name in
       Specialize_basic.funcalls spec_var args_to_keep (target_of_path p);
-      Specialize_basic.fundefs spec_var opt_trms [cTopFunDef ?clang_id qf.name]
 
     | _ -> fail tg_trm.loc "Specialize.function_arg: expected a target to a function call."
 

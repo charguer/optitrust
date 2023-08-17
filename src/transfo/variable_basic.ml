@@ -85,9 +85,9 @@ let%transfo init_attach ?(const : bool = false) (tg : target) : unit =
        }@nobrace                                }
                                                 a = x;
                                               }@nobrace *)
-let%transfo local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : target) : unit =
+let%transfo local_name ?(mark : mark = "") (var : var) ~(into : string) (tg : target) : unit =
   Nobrace.enter();
-  Target.apply_on_targets (Variable_core.local_name mark var nv) tg
+  Target.apply_on_targets (Variable_core.local_name mark var into) tg
 
 
 (* [delocalize array_size neutral_element fold_operation tg]: expects the target [tg] to point to

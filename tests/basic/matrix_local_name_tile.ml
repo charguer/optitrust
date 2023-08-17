@@ -5,7 +5,8 @@ open Syntax
 let _ = Flags.check_validity := true
 
 let _ = Run.doc_script_cpp (fun _ ->
-  !! Matrix_basic.local_name_tile "a" ~into:"b" [(trm_int 3, trm_int 4)] [cFor "i"];
+  let a = find_var_in_current_ast "a" in
+  !! Matrix_basic.local_name_tile a ~into:"b" [(trm_int 3, trm_int 4)] [cFor "i"];
 )
 
 "
@@ -22,6 +23,8 @@ int main (){
 
 let _ = Run.script_cpp (fun _ ->
   let tile offset size = (trm_int offset, trm_int size) in
-  !! Matrix_basic.local_name_tile "a" ~into:"x" [tile 0 10; tile 2 8; tile 0 4] [cFor ~body:[cArrayWrite "a"] "i"];
-  !! Matrix_basic.local_name_tile "b" ~into:"y" [tile 0 10; tile 2 8; tile 0 4] ~alloc_instr:[cWriteVar "b"] [cFor ~body:[cArrayWrite "b"] "j"];
+  let a = find_var_in_current_ast "a" in
+  let b = find_var_in_current_ast "b" in
+  !! Matrix_basic.local_name_tile a ~into:"x" [tile 0 10; tile 2 8; tile 0 4] [cFor ~body:[cArrayWrite "a"] "i"];
+  !! Matrix_basic.local_name_tile b ~into:"y" [tile 0 10; tile 2 8; tile 0 4] ~alloc_instr:[cWriteVar "b"] [cFor ~body:[cArrayWrite "b"] "j"];
 )

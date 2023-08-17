@@ -2,10 +2,12 @@ include Ast
 include Trm
 include Typ
 include Mark
+include Target
 
 let trm_seq_no_brace = Nobrace.trm_seq
 
-let find_var_in_current_ast (name : string) : var =
+(* TODO: reflect on the API implications of #var-id (e.g. where this function is called) *)
+let find_var_in_current_ast ?(target : target = []) (name : string) : var =
   let vars = trm_def_or_used_vars (Trace.ast ()) in
   let candidates = Var_set.filter (fun v -> v.qualifier = [] && v.name = name) vars in
   match Var_set.cardinal candidates with
@@ -38,3 +40,4 @@ module AstParser = struct
   let instr s = code (Instr s)
 
 end
+include AstParser

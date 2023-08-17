@@ -5,13 +5,13 @@ open Target
       [nb_colors] - a variable used to represent the number of colors,
       [i_color] - a variable representing the index used of the new outer loop,
       [t] - ast of the loop. *)
-let color_aux (nb_colors : trm) (i_color : var option) (t : trm) : trm =
+let color_aux (nb_colors : trm) (i_color : string option) (t : trm) : trm =
   let error = "Loop_core.color_aux: only simple loops are supported." in
   let ((index , start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
-  let i_color = match i_color with
+  let i_color = new_var (match i_color with
    | Some cl -> cl
-   | _ -> new_var ("c" ^ index.name)
-  in
+   | _ -> "c" ^ index.name
+  ) in
   let is_step_one =
     begin match step with
     | Post_inc | Pre_inc -> true
@@ -26,7 +26,7 @@ let color_aux (nb_colors : trm) (i_color : var option) (t : trm) : trm =
   ))
 
 (* [color nb_colors i_color t p]: applies [color_aux] at trm [t] with path [p] *)
-let color (nb_colors : trm) (i_color : var option ) : Transfo.local =
+let color (nb_colors : trm) (i_color : string option ) : Transfo.local =
     apply_on_path (color_aux nb_colors  i_color)
 
 (*  [tile_aux divides b tile_index t]: tiles loop [t],
@@ -341,7 +341,8 @@ let to_unit_steps (new_index : string) : Transfo.local =
     NOTE: we trust the user that "stop" corresponds to the number of iterations
     LATER: use  sExpr  to mark the subexpression that correspnod to the string "start";
     then you can Generic.replace at these marks.*)
-let fold_aux (index : var) (start : int) (step : int) (t : trm) : trm =
+let fold_aux (index : string) (start : int) (step : int) (t : trm) : trm =
+  let index = new_var index in
   let error = "Loop_core.fold_aux: expected a sequence of instructions" in
   let tl = trm_inv ~error trm_seq_inv t in
   let nb = Mlist.length tl in
@@ -357,7 +358,7 @@ let fold_aux (index : var) (start : int) (step : int) (t : trm) : trm =
   trm_pass_labels t (trm_for (index, (trm_int start), DirUp, (trm_int nb), (if step = 1 then Post_inc else Step (trm_int step)), false) (trm_seq_nomarks [loop_body]))
 
 (* [fold index start step t p]: applies [fold_aux] at trm [t] with path [p]. *)
-let fold (index : var) (start : int) (step : int) : Transfo.local =
+let fold (index : string) (start : int) (step : int) : Transfo.local =
   apply_on_path (fold_aux index start step)
 
 (* [split_range_aux nb cut]: splits a loop into two loops based on the range,
