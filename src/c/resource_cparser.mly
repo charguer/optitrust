@@ -1,5 +1,7 @@
 %{
-  open Syntax
+  open Ast
+  open Trm
+  open Typ
   open Resources_contract
 %}
 

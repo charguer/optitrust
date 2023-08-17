@@ -1,4 +1,7 @@
-open Syntax
+open Ast
+open Trm
+open Typ
+open Mark
 
 let next_hyp_id = Tools.fresh_generator ()
 

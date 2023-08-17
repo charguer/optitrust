@@ -1,5 +1,8 @@
 open PPrint
-open Syntax
+open Ast
+open Trm
+open Typ
+open Mark
 open Tools
 
 

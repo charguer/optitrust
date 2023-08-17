@@ -1,6 +1,9 @@
 open Clang.Ast
 open Clang.Bindings
-open Syntax
+open Ast
+open Trm
+open Typ
+open Mark
 open Tools
 
 (* [loc_of_node n]: gets the location of node [n] *)
@@ -54,19 +57,11 @@ let file_of_node (n : 'a node) : string =
   environment like done in stackelim. *)
 
 
-(* [ctx_var]: a map for storing variable types *)
-let ctx_var : typ varmap ref = ref Var_map.empty
-
-(* [ctx_tconstr]: a map for storing constructed types based on their ids *)
+(* maps from [typ_ctx] *)
+let ctx_var : typ Qualified_map.t ref = ref Qualified_map.empty
 let ctx_tconstr : typconstrid Qualified_map.t ref = ref Qualified_map.empty
-
-(* [ctx_typedef]: a map for storing typedefs based on the types they define *)
 let ctx_typedef : typedef typmap ref = ref Typ_map.empty
-
-(* [ctx_label]: a map for storing labels based on their ids *)
 let ctx_label : typconstrid labelmap ref = ref String_map.empty
-
-(* ctx_constr]: a map for storing ids !! *)
 let ctx_constr : typconstrid constrnamemap ref = ref String_map.empty
 
 (* [debug_typedefs]: flag for debugging typedefs *)
@@ -74,7 +69,7 @@ let debug_typedefs = false
 
 (* [ctx_var_add tv]: adds variable [v] with type [t] in map [ctx_var] *)
 let ctx_var_add (tv : var) (t : typ) : unit =
-  ctx_var := Var_map.add tv t (!ctx_var)
+  ctx_var := Qualified_map.add (tv.qualifier, tv.name) t (!ctx_var)
 
 (* [ctx_tconstr_add tn tid]: adds constructed type [tv] with id [tid] in map [ctx_tconstr] *)
 let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
@@ -718,7 +713,7 @@ and tr_expr (e : expr) : trm =
           (* let q = Clang.Type.of_cursor (Clang.Expr.get_definition e) in
            * Some (tr_qual_type ?loc q) *)
           (* hack with ctx_var *)
-          Var_map.find_opt (name_to_var ~qualifier:qpath s) !ctx_var
+          Qualified_map.find_opt (qpath, s) !ctx_var
         in
         let res = trm_var ?loc ~ctx ?typ (name_to_var ~qualifier:qpath s) in
         let targs = List.map (fun (targ : template_argument) -> begin match targ with | Type q -> tr_qual_type ?loc q | _ -> fail loc "Clang_to_astRawC.tr_expr: something went wrong." end) targs in
@@ -1340,4 +1335,4 @@ let tr_ast (t : translation_unit) : trm =
       (fun h dl ->
          trm_set_include h (trm_seq_nomarks (tr_decl_list dl)))
       include_map in
-    trm_set_mainfile (trm_seq_nomarks ?loc  ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ tr_decl_list file_decls))
+    C_scope.infer_var_ids (trm_set_mainfile (trm_seq_nomarks ?loc  ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ tr_decl_list file_decls)))

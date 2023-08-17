@@ -12,16 +12,10 @@ let loc_of_cloc (cloc : C.location) : location =
   | (file, line) -> Some {loc_file = file; loc_start = {pos_line = line; pos_col = 0}; loc_end = {pos_line = line; pos_col = 0}} (* LATER: Find the correct location *)
 
 
-(* [ctx_tconstr]: a map for storing constructed types based on their ids *)
+(* maps from [typ_ctx] *)
 let ctx_tconstr : typconstrid Qualified_map.t ref = ref Qualified_map.empty
-
-(* [ctx_typedef]: a map for storing typedefs based on the types they define *)
 let ctx_typedef : typedef typmap ref = ref Typ_map.empty
-
-(* [ctx_label]: a map for storing labels based on their ids *)
 let ctx_label : typconstrid labelmap ref = ref String_map.empty
-
-(* ctx_constr]: a map for storing ids !! *)
 let ctx_constr : typconstrid constrnamemap ref = ref String_map.empty
 
 (* [debug_typedefs]: flag for debugging typedefs *)
@@ -47,16 +41,15 @@ let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
 
 (* [get_ctx]: get the current context *)
 let get_ctx () : ctx =
-  (* FIXME: #var-id , ids are -1 wich breaks all varmaps. *)
   typing_ctx {
-    ctx_var = Var_map.empty;
+    ctx_var = Qualified_map.empty;
     ctx_tconstr = !ctx_tconstr;
     ctx_typedef = !ctx_typedef;
     ctx_label = !ctx_label;
     ctx_constr = !ctx_constr;
   }
 
-(* CHECK: #var-id , can we use C.ident.stamp as id ? *)
+(* LATER: can/should we use C.ident.stamp as id ? *)
 let name_to_var (n : string) : var =
   { qualifier = []; name = n; id = -1 }
 
@@ -66,7 +59,6 @@ let name_to_typconstr (n : string) : typconstr =
 
 (* [get_typid_for_type ty]: gets the type id for type [tv]*)
 let get_typid_from_trm (tv : typvar) : int  =
-  (* CHECK: #var-id , is this correct? *)
    let tid = Qualified_map.find_opt ([], tv) !ctx_tconstr in
    begin match tid with
    | Some id -> id
@@ -570,4 +562,4 @@ let tr_globdefs (gs : C.globdecl list) : trms =
 (* [tr_ast tl]: translates a C.program into OptiTrust AST *)
 let tr_ast (tl : C.program) : trm =
   let tl = tr_globdefs tl in
-  trm_set_mainfile (trm_seq_nomarks tl)
+  C_scope.infer_var_ids (trm_set_mainfile (trm_seq_nomarks tl))

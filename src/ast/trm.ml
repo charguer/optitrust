@@ -866,12 +866,12 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
   | _ -> t
 
 (* [trm_map_with_terminal is_terminal f t] *)
-let trm_map_with_terminal (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm =
-  trm_map_with_terminal_opt is_terminal f t
+let trm_map_with_terminal ?(keep_ctx = false) (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm =
+  trm_map_with_terminal_opt ~keep_ctx is_terminal f t
 
 (* [trm_map f]: applies f on t recursively *)
-let trm_map (f : trm -> trm) (t : trm) : trm =
-  trm_map_with_terminal false (fun _is_terminal t -> f t) t
+let trm_map ?(keep_ctx = false) (f : trm -> trm) (t : trm) : trm =
+  trm_map_with_terminal ~keep_ctx false (fun _is_terminal t -> f t) t
 
 (* [trm_bottom_up]: applies f on t recursively from bottom to top. *)
 let rec trm_bottom_up (f : trm -> trm) (t : trm) : trm =
@@ -1013,9 +1013,10 @@ let trm_used_vars (t: trm): Var_set.t =
    used for the continuation of t (if it has any).
    This combinator allows one to get a view with continuations while the AST
    stores sequences. *)
-let trm_map_with_ctx (f: 'ctx -> trm -> 'ctx * trm) (ctx: 'ctx) (t: trm): trm =
+let trm_map_with_ctx ?(keep_ctx = false) (f: 'ctx -> trm -> 'ctx * trm) (ctx: 'ctx) (t: trm): trm =
   let annot = t.annot in
   let loc = t.loc in
+  let t_ctx = if keep_ctx then t.ctx else unknown_ctx in
 
   let ret nochange t' =
     if nochange then t else t' in
@@ -1033,66 +1034,72 @@ let trm_map_with_ctx (f: 'ctx -> trm -> 'ctx * trm) (ctx: 'ctx) (t: trm): trm =
         ) tl
     in
     ret (Mlist.for_all2 (==) tl tl')
-      (trm_seq ~annot ?loc tl')
+      (trm_seq ~annot ?loc ~ctx:t_ctx tl')
   | Trm_for_c (init, cond, step, body, invariant) ->
     let ctx, init' = f ctx init in
     let _, cond' = f ctx cond in
     let _, step' = f ctx step in
     let _, body' = f ctx body in
     ret (init' == init && cond' == cond && step' == step && body' == body)
-      (trm_for_c ~annot ?loc ?invariant init' cond' step' body')
+      (trm_for_c ~annot ?loc ~ctx:t_ctx ?invariant init' cond' step' body')
   | _ ->
-    trm_map (fun ti -> let _, ti' = f ctx ti in ti') t
+    trm_map ~keep_ctx (fun ti -> let _, ti' = f ctx ti in ti') t
 
-let trm_map_vars (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> var -> trm) (ctx: 'ctx) (t: trm): trm =
-  let annot = t.annot in
-  let loc = t.loc in
-  let ret nochange t' =
-    if nochange then t else t' in
+type metadata = trm_annot * location * typ option * ctx
 
-  let rec f_map ctx t: 'ctx * trm = match t.desc with
-  | Trm_var (_, x) ->
-    (ctx, map_var ctx x)
-  | Trm_let (var_kind, (var, typ), body, bound_resources) ->
-    let _, body' = f_map ctx body in
-    let cont_ctx, var' = map_binder ctx var in
-    let t = ret (body == body')
-      (trm_let ~annot ?loc ?bound_resources var_kind (var', typ) body')
-    in
-    (cont_ctx, t)
+let trm_map_vars ?(keep_ctx = false) (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> metadata -> var -> trm) (ctx: 'ctx) (t: trm): trm =
+  let rec f_map ctx t: 'ctx * trm =
+    let annot = t.annot in
+    let loc = t.loc in
+    let typ = t.typ in
+    let t_ctx = if keep_ctx then t.ctx else unknown_ctx in
+    let ret nochange t' = if nochange then t else t' in
+    match t.desc with
+    | Trm_var (_, x) ->
+      (ctx, map_var ctx (annot, loc, typ, t_ctx) x)
+    | Trm_let (var_kind, (var, typ), body, bound_resources) ->
+      let _, body' = f_map ctx body in
+      let cont_ctx, var' = map_binder ctx var in
+      let t' = ret (body == body' && var == var')
+        (trm_let ~annot ?loc ~ctx:t_ctx ?bound_resources var_kind (var', typ) body')
+      in
+      (cont_ctx, t')
 
-  | Trm_let_fun (fn, res, args, body, contract) ->
-    let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) -> let ctx, arg' = map_binder ctx arg in (ctx, (arg', typ))) ctx args in
-    let _, body' = f_map body_ctx body in
-    let cont_ctx, fn' = map_binder ctx fn in
-    let t' = ret (body' == body)
-      (trm_let_fun ~annot ?loc ?contract fn' res args' body')
-    in
-    (* TODO: Proper function type here *)
-    (cont_ctx, t')
+    | Trm_let_fun (fn, res, args, body, contract) ->
+      let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) ->
+        let ctx, arg' = map_binder ctx arg in
+        (ctx, (arg', typ))
+      ) ctx args in
+      let _, body' = f_map body_ctx body in
+      let cont_ctx, fn' = map_binder ctx fn in
+      let t' = ret (body' == body && args == args' && fn == fn')
+        (trm_let_fun ~annot ?loc ~ctx:t_ctx ?contract fn' res args' body')
+      in
+      (* TODO: Proper function type here *)
+      (cont_ctx, t')
 
-  | Trm_for ((index, start, dir, stop, step, is_par), body, contract) ->
-    let loop_ctx, index' = map_binder ctx index in
-    let step' = match step with
-    | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
-    | Step sp -> Step (snd (f_map loop_ctx sp))
-    in
-    let _, start' = f_map loop_ctx start in
-    let _, stop' = f_map loop_ctx stop in
-    let _, body' = f_map loop_ctx body in
-    let t' = ret (step' == step && start' == start && stop' == stop && body' == body)
-      (trm_for ~annot ?loc (index', start', dir, stop', step', is_par) body')
-    in
-    (ctx, t')
+    | Trm_for ((index, start, dir, stop, step, is_par), body, contract) ->
+      let loop_ctx, index' = map_binder ctx index in
+      let step' = match step with
+      | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
+      | Step sp -> Step (snd (f_map loop_ctx sp))
+      in
+      let _, start' = f_map loop_ctx start in
+      let _, stop' = f_map loop_ctx stop in
+      let _, body' = f_map loop_ctx body in
+      let t' = ret (index' == index && step' == step && start' == start && stop' == stop && body' == body)
+        (trm_for ~annot ?loc ~ctx:t_ctx (index', start', dir, stop', step', is_par) body')
+      in
+      (ctx, t')
 
-  | Trm_fun (args, ret, body, contract) ->
-    let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) -> let ctx, arg' = map_binder ctx arg in (ctx, (arg', typ))) ctx args in
-    let _, body' = f_map body_ctx body in
-    let t' = trm_fun ~annot ?loc ?contract args' ret body' in
-    (* TODO: Proper function type here *)
-    (ctx, t')
+    | Trm_fun (args, ret, body, contract) ->
+      let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) -> let ctx, arg' = map_binder ctx arg in (ctx, (arg', typ))) ctx args in
+      let _, body' = f_map body_ctx body in
+      let t' = trm_fun ~annot ?loc ~ctx:t_ctx ?contract args' ret body' in
+      (* TODO: Proper function type here *)
+      (ctx, t')
 
-  | _ -> (ctx, trm_map_with_ctx f_map ctx t)
+    | _ -> (ctx, trm_map_with_ctx ~keep_ctx f_map ctx t)
   in
   snd (f_map ctx t)
 
@@ -1126,10 +1133,10 @@ let trm_subst_binder (forbidden_binders, subst_map) binder =
     ((forbidden_binders, subst_map), binder)
     *)
 
-let trm_subst_var (_, subst_map) var =
+let trm_subst_var (_, subst_map) (annot, loc, typ, _ctx) var =
   match Var_map.find_opt var subst_map with
   | Some t -> t
-  | None -> trm_var var
+  | None -> trm_var ~annot ?loc ?typ var
 
 (* LATER: preserve shadowing *)
 let trm_subst subst_map forbidden_binders t =
@@ -1139,7 +1146,7 @@ let trm_subst subst_map forbidden_binders t =
 let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
   let fv = ref Var_set.empty in
   let _ = trm_map_vars (fun bound_set binder -> (Var_set.add binder bound_set, binder))
-    (fun bound_set var ->
+    (fun bound_set _ var ->
       (if Var_set.mem var bound_set then () else fv := Var_set.add var !fv); trm_var var)
     bound_vars t
   in
@@ -2322,3 +2329,23 @@ let build_nested_accesses (base : trm) (access_list : trm_access list) : trm =
       trm_apps (trm_binop (Binop_array_get)) [acc;i]
   ) base access_list
 
+let trm_def_or_used_vars (t : trm) : Var_set.t =
+  let vars = ref Var_set.empty in
+  let rec aux t =
+    match trm_var_inv t with
+    | Some x -> vars := Var_set.add x !vars
+    | _ ->
+    begin match trm_let_inv t with
+    | Some (_, x, _, _) -> vars := Var_set.add x !vars
+    | _ ->
+    begin match trm_let_fun_inv t with
+    | Some (x, _, _, _) -> vars := Var_set.add x !vars
+    | _ ->
+    begin match trm_for_inv t with
+    | Some ((x, _, _, _, _, _), _) -> vars := Var_set.add x !vars
+    | _ -> ()
+    end end end;
+    trm_iter aux t
+  in
+  aux t;
+  !vars

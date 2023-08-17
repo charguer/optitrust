@@ -1,4 +1,5 @@
-open Syntax
+open Ast
+open Trm
 
 (* [associativity]: associativity type of primitive operations. *)
 type associativity = LtoR | RtoL | NA

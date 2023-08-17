@@ -35,7 +35,8 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
       (new_vars] - a list of strings of length equal to the size of the array,
       [index] - index of the instruction inside the sequence,
       [t] - ast of the surrounding sequence of the array declaration. *)
-let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
+let to_variables_aux (new_vars : string list) (index : int) (t : trm) : trm =
+  let new_vars = List.map Trm.new_var new_vars in
   match t.desc with
   | Trm_seq tl ->
     let array_var = ref dummy_var in
@@ -76,7 +77,7 @@ let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
 
 
 (* [to_variables new_vars index t p]: applies [to_variables_aux] at trm [t] with path [p]. *)
-let to_variables (new_vars : vars) (index : int): Target.Transfo.local =
+let to_variables (new_vars : string list) (index : int): Target.Transfo.local =
   Target.apply_on_path (to_variables_aux new_vars index)
 
 (* [apply_tiling base_type block_name b x]: changes all the occurences of the array to the tiled form,

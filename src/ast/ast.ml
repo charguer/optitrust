@@ -555,7 +555,8 @@ and ctx = {
 
 (* [typ_ctx]: stores all the information about types, labels, constructors, etc. *)
 and typ_ctx = {
-  ctx_var : typ varmap;             (* from [var] to [typ], i.e. giving the type
+  (* TODO: #var-id, use a varmap? requires changes in clang_to_astRawC *)
+  ctx_var : typ Qualified_map.t;             (* from [var] to [typ], i.e. giving the type
                                        of program variables *)
   ctx_tconstr : typconstrid Qualified_map.t; (* from [typconstr] to [typconstrid]. *)
   ctx_typedef : typedef typmap;     (* from [typconstrid] to [typedef] *)

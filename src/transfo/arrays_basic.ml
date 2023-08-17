@@ -5,7 +5,7 @@ open Target
     Then it transforms this declaration into a list of declarations.
     [new_vars] - denotes the list of variables that is going to replace the initial declaration
       the length of this list is equal to [size -1] where [size] is the size of the array.*)
-let%transfo to_variables (new_vars : vars) (tg : target) : unit =
+let%transfo to_variables (new_vars : string list) (tg : target) : unit =
   (* FIXME: #advanced-scoping-check. Requires more advanced scope checks, e.g. marking variables def-use chains, or keeping tack of a set of variables that are bound in outer scope. *)
   Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
     apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)

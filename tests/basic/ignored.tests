@@ -1,3 +1,9 @@
+# #var-id
+apac_constify_args.ml
+apac_stack_to_heap.ml
+apac_unfold_let_mult.ml
+apac_use_goto_for_return.ml
+
 # TO FIX:
 function_uninline.ml
 record_method_to_const.ml

@@ -5,11 +5,19 @@ include Mark
 
 let trm_seq_no_brace = Nobrace.trm_seq
 
+let find_var_in_current_ast (name : string) : var =
+  let vars = trm_def_or_used_vars (Trace.ast ()) in
+  let candidates = Var_set.filter (fun v -> v.qualifier = [] && v.name = name) vars in
+  match Var_set.cardinal candidates with
+  | 0 -> failwith (sprintf "could not find variable '%s' in current AST variables: %s" name (vars_to_string (Var_set.elements vars)))
+  | 1 -> Var_set.choose candidates
+  | n -> failwith (sprintf "%d variables with name '%s' found in current AST: %s" n name (vars_to_string (Var_set.elements candidates)))
+
 (* [AstParser]: module for integrating pieces of code given as input by the user. *)
 module AstParser = struct
-  let var v = trm_var v
+  let var v = trm_var (find_var_in_current_ast v)
 
-  let var_mut v = trm_var_get v
+  let var_mut v = trm_var_get (find_var_in_current_ast v)
 
   let lit l = code (Lit l)
 

@@ -144,7 +144,7 @@ let%transfo delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : 
     argument [vars]. *)
 let%transfo delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
    (ov : var) ~into:(nv : var)  ~(array_size : var)
-  ~local_vars:(lv : vars) (tg : target) : unit =
+  ~local_vars:(lv : string list) (tg : target) : unit =
   Variable_basic.local_name ~mark ov ~into:nv tg;
   Variable_basic.delocalize ~index ~array_size ~ops [cMark mark];
   Variable_basic.unfold ~at:[cFor index] [nbAny;cVarDef array_size.name];
