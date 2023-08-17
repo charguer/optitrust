@@ -3,16 +3,10 @@ open Target
 open Ast
 
 let _ = Run.script_cpp (fun () ->
-(******************************************************************************)
-(*                                Pre-processing                              *)
-(******************************************************************************)
   !! Apac.constify [nbAny; cFunDefAndDecl ""];
-(******************************************************************************)
-(*                                Processing                                  *)
-(******************************************************************************)
-  (*!! Apac.mark_taskable_function "taskable" [nbAny; cFunDef ""];
+  !! Apac.mark_taskification_candidates [nbAny; cFunDef ""];
 
-  (* unfold call taskable *)
+  (* unfold call taskable
   Apac.unfold_funcalls [
     nbAny; cDiff [[cMark "taskable"]] [[cHasTypeAst (typ_unit ())]]
   ];

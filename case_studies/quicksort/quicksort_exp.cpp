@@ -14,7 +14,7 @@ void init(int* arr) {
   }
 }
 
-void Partition(int* outPivot, int* arr, const int rightLimit) {
+/*@taskify*/ void Partition(int* outPivot, int* arr, const int rightLimit) {
   int pivot = arr[rightLimit - 1];
   int idxLeft = -1;
   int idxIter;
@@ -26,7 +26,7 @@ void Partition(int* outPivot, int* arr, const int rightLimit) {
   }
   swap(&arr[idxLeft + 1], &arr[rightLimit - 1]);
   *outPivot = idxLeft + 1;
-}
+} /*taskify@*/
 
 void InsertionSort(int* arr, const int rightLimit) {
   for (int idx = 0; idx < rightLimit - 1; ++idx) {
@@ -41,7 +41,7 @@ void InsertionSort(int* arr, const int rightLimit) {
   }
 }
 
-void SortCore(int* inOutData, const int rightLimit) {
+/*@taskify*/ void SortCore(int* inOutData, const int rightLimit) {
   if (0 >= rightLimit) {
     return;
   }
@@ -53,11 +53,11 @@ void SortCore(int* inOutData, const int rightLimit) {
     SortCore(&inOutData[0], pivot);
     SortCore(&inOutData[pivot + 1], rightLimit - (pivot + 1));
   }
-}
+} /*taskify@*/
 
 void Sort(int* inOutData, const int inSize) { SortCore(inOutData, inSize); }
 
-int main() {
+/*@taskify*/ int main() {
   int* data = (int*)malloc(100000000 * sizeof(int));
   if (!data) {
     printf("Error while allocating data array!\n");
@@ -76,4 +76,4 @@ int main() {
   }
   free(data);
   return 0;
-}
+} /*taskify@*/
