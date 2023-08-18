@@ -4,7 +4,7 @@ open Ast
 
 let _ = Run.script_cpp (fun () ->
   !! Apac.constify [nbAny; cFunDefAndDecl ""];
-  !! Apac.mark_taskification_candidates [nbAny; cFunDef ""];
+  !! Apac_basic.mark_taskification_candidates [nbAny; cFunDef ""];
 
   (* unfold call taskable
   Apac.unfold_funcalls [
