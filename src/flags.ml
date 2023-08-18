@@ -215,6 +215,9 @@ let process_cmdline_args ?(args : cmdline_args = []) () : unit =
     the output associated with the documentation of a unit test, before running the main contents of the file. *)
 let documentation_save_file_at_first_check = ref ""
 
+(* cf. Trm.trm_combinators_unsupported_case *)
+let trm_combinators_warn_unsupported_case = ref true
+
 (* [reset_flags_to_default] is used by [batching.ml] to avoid propagation of effects
   TODO: complete implementation by going over all relevant flags,
   and using a record of values.
@@ -230,7 +233,8 @@ let reset_flags_to_default () : unit =
   resource_errors_as_warnings := false;
   always_name_resource_hyp := false;
   display_resources := false;
-  check_validity := false
+  check_validity := false;
+  trm_combinators_warn_unsupported_case := true
 
 let with_flag (flag: 'a ref) (value: 'a) (func: unit -> unit): unit =
   let init_value = !flag in

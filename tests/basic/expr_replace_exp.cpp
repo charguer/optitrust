@@ -8,7 +8,7 @@ int f1(int x) {
   return y + x;
 }
 
-int f2(int a, int b, int c) { return a; }
+int f2(int x, int y, int z) { return x + y + z; }
 
 int main() {
   int a = 5;

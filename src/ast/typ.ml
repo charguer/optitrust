@@ -35,6 +35,11 @@ let typ_const ?(annot : typ_annot list = []) ?(attributes = [])
 let typ_constr ?(annot : typ_annot list = []) ?(attributes = []) ?(tid : typconstrid = next_typconstrid ()) ?(tl : typ list = []) (name : typconstr) : typ =
   typ_make ~annot ~attributes (Typ_constr (name, tid, tl))
 
+let typ_constr_inv (t : typ) : (typconstr * typconstrid * typ list) option =
+  match t.typ_desc with
+  | Typ_constr (name, tid, tl) -> Some (name, tid, tl)
+  | _ -> None
+
 (* [typ_auto ~annot ~attributes ()]: auto type constructor *)
 let typ_auto ?(annot : typ_annot list = []) ?(attributes = []) () : typ =
   typ_make ~annot ~attributes Typ_auto

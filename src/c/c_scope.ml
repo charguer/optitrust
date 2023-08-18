@@ -1,18 +1,20 @@
 open Ast
 open Trm
 
-let debug = false
+let debug = true
 
 (* FIXME: triggers on multiple function declarations/definitions. *)
 exception InvalidVarId of string
 
+(** Set of variables defined in the current surrounding sequence, and maps from variables to their unique ids. *)
+type scope_ctx = Qualified_set.t * var_id Qualified_map.t
+
 (* FIXME: code mostly duplicated from [trm_map_vars] *)
 let rec map_vars
-  (map_var: 'sctx -> metadata -> var -> trm)
-  (map_seq: 'sctx -> trm -> 'sctx)
-  (map_binder: 'sctx -> var -> 'sctx * var)
-  (scope_ctx: 'sctx) (t: trm): 'sctx * trm =
-  let aux = map_vars map_var map_seq map_binder in
+  (map_var: scope_ctx -> metadata -> var -> trm)
+  (map_binder: scope_ctx -> var -> scope_ctx * var)
+  (scope_ctx: scope_ctx) (t: trm): scope_ctx * trm =
+  let aux = map_vars map_var map_binder in
   let annot = t.annot in
   let loc = t.loc in
   let typ = t.typ in
@@ -23,7 +25,7 @@ let rec map_vars
     (scope_ctx, map_var scope_ctx (annot, loc, typ, ctx, kind) x)
 
   | Trm_seq tl ->
-    let sctx = ref (map_seq scope_ctx t) in
+    let sctx = ref (Qualified_set.empty, snd scope_ctx) in
     let tl' = Mlist.map (fun t ->
       let new_ctx, t' = aux !sctx t in
       sctx := new_ctx;
@@ -41,6 +43,21 @@ let rec map_vars
       (trm_let ~annot ?loc ~ctx ?bound_resources var_kind (var', typ) body')
     in
     (cont_ctx, t')
+
+  | Trm_let_mult (vk, tvs, ts) ->
+    (* CHECK: #var-id, is this correct? *)
+    let ts' = List.map (fun t -> snd (aux scope_ctx t)) ts in
+    let cont_ctx = ref scope_ctx in
+    let tvs' = List.map (fun tv ->
+      let var, typ = tv in
+      let cont_ctx', var' = map_binder !cont_ctx var in
+      cont_ctx := cont_ctx';
+      if var == var' then tv else (var', typ)
+    ) tvs in
+    let t' = ret ((List.for_all2 (==) ts ts') && List.for_all2 (==) tvs tvs')
+      (trm_let_mult ~annot ?loc ~ctx vk tvs' ts')
+    in
+    (!cont_ctx, t')
 
   | Trm_let_fun (fn, res, args, body, contract) ->
     let body_ctx, args' = List.fold_left_map (fun sctx (arg, typ) ->
@@ -89,15 +106,16 @@ let rec map_vars
     (scope_ctx, t')
 
   | Trm_typedef td ->
-    let cont_ctx = ref scope_ctx in
+    (* Class namespace *)
+    let class_ctx = ref (Qualified_set.empty, snd scope_ctx) in
     let body' = begin match td.typdef_body with
     | Typdef_alias _ -> td.typdef_body
     | Typdef_record rfl ->
       let rfl' = List.map (fun (rf, rf_ann) ->
         let rf' = begin match rf with
         | Record_field_method rft ->
-          let (cont_ctx', rft') = aux !cont_ctx rft in
-          cont_ctx := cont_ctx';
+          let (class_ctx', rft') = aux !class_ctx rft in
+          class_ctx := class_ctx';
           if rft == rft' then rf else
             Record_field_method rft'
         | Record_field_member _ -> rf
@@ -110,7 +128,15 @@ let rec map_vars
     let t' = ret (body' == td.typdef_body)
       (trm_typedef ~annot ?loc ~ctx { td with typdef_body = body' })
     in
-    (!cont_ctx, t')
+    let (_, class_var_ids) = !class_ctx in
+    let class_name = td.typdef_tconstr in
+    let may_update_qualifier ((qname, id): Qualified_name.t * var_id) =
+      if (Qualified_map.find_opt qname (snd scope_ctx)) = (Some id)
+      then (qname, id) (* this variable was the same in the outer scope *)
+      else ((class_name :: fst qname, snd qname), id)
+    in
+    let cont_ctx = (fst scope_ctx, Qualified_map.of_seq (Seq.map may_update_qualifier (Qualified_map.to_seq class_var_ids))) in
+    (cont_ctx, t')
 
   | _ ->
     let map_f ti =
@@ -119,11 +145,8 @@ let rec map_vars
     in
     (scope_ctx, trm_map ~keep_ctx:true map_f t)
 
-(** Set of variables defined in the current surrounding sequence, and maps from variables to their unique ids. *)
-type scope_ctx = Qualified_set.t * var_id Qualified_map.t
-
 (** internal *)
-let initial_scope_ctx: scope_ctx = Qualified_set.empty, Qualified_map.empty
+let toplevel_scope_ctx (): scope_ctx = Qualified_set.empty, !toplevel_vars
 
 (** internal *)
 let check_map_var ((_conflict_set, var_ids) : scope_ctx) (annot, loc, typ, ctx, kind) var =
@@ -132,10 +155,6 @@ let check_map_var ((_conflict_set, var_ids) : scope_ctx) (annot, loc, typ, ctx, 
     raise (InvalidVarId (sprintf "variable use %s does not satisfy C/C++ scoping rules" (var_to_string var)))
   else
     trm_var ~annot ?loc ?typ ~ctx ~kind var
-
-(** internal *)
-let check_map_seq ((_conflict_set, var_ids) : scope_ctx) (_: trm) : scope_ctx =
-  (Qualified_set.empty, var_ids)
 
 (** internal *)
 let check_map_binder ((conflict_set, var_ids) : scope_ctx) var =
@@ -147,7 +166,7 @@ let check_map_binder ((conflict_set, var_ids) : scope_ctx) var =
 
 (** Given term [t], check that all variable ids agree with their qualified name for C/C++ scoping rules. *)
 let check_var_ids (t : trm) : unit =
-  ignore (map_vars check_map_var check_map_seq check_map_binder initial_scope_ctx t)
+  ignore (map_vars check_map_var check_map_binder (toplevel_scope_ctx ()) t)
 
 (** internal *)
 let infer_map_binder (scope_ctx : scope_ctx) var =
@@ -172,6 +191,6 @@ let infer_map_var ((conflict_set, var_ids) : scope_ctx) (annot, loc, typ, ctx, k
   Only variable ids equal to [-1] are inferred, other ids are checked. *)
 let infer_var_ids (t : trm) : trm =
   if debug then Xfile.put_contents "/tmp/ids_before.txt" (Ast_to_text.ast_to_string t);
-  let _, t2 = map_vars infer_map_var check_map_seq infer_map_binder initial_scope_ctx t in
+  let _, t2 = map_vars infer_map_var infer_map_binder (toplevel_scope_ctx ()) t in
   if debug then Xfile.put_contents "/tmp/ids_after.txt" (Ast_to_text.ast_to_string t2);
   t2

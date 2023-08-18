@@ -2,7 +2,7 @@ open Ast
 open Trm
 open Typ
 
-let debug = false
+let debug = true
 
 let debug_before_after_trm (msg : string) (f : trm -> trm) : trm -> trm =
   if debug then (fun t ->
@@ -342,8 +342,14 @@ let method_call_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base])} as tr, args) ->
+      let ((class_qualifier, class_name), _, _) =
+        Tools.unsome (
+          Option.bind base.typ (fun base_typ ->
+            typ_constr_inv base_typ))
+      in
+      let qualifier = class_qualifier @ [class_name] in
       let t_var = begin match Ast_data.get_cursor_of_trm tr with
-      | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var (name_to_var f))
+      | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var (name_to_var ~qualifier f))
       | None -> fail t.loc "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
       end in
       trm_add_cstyle Method_call (trm_apps (t_var) ([base] @ args))
@@ -362,7 +368,7 @@ let method_call_intro (t : trm) : trm =
         begin match f.desc with
         | Trm_var (_, f) -> trm_struct_get base f.name
         (* Special case when function_beta transformation is applied. *)
-        | _ -> f
+        | _ -> failwith "DEPRECATED?" (* f *)
         end in
       trm_alter ~desc:(Trm_apps (struct_access, args)) t
     | _ -> trm_map aux t
@@ -729,8 +735,8 @@ let cfeatures_elim (t : trm) : trm =
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
-  caddress_intro t |>
-  C_scope.infer_var_ids |>
+  C_scope.infer_var_ids t |>
+  caddress_intro |>
   stackvar_intro |>
   infix_intro |>
   class_member_intro |>

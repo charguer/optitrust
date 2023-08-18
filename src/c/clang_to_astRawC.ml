@@ -1055,8 +1055,6 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in
     let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in
-    (* added by Ast_fromto_AstC:
-       let res = trm_add_cstyle Method_call res in *)
     if st
       then trm_add_cstyle Static_fun res
       else if c then trm_add_cstyle Const_method res

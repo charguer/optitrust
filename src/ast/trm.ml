@@ -680,6 +680,14 @@ let trm_mlist_inv (t : trm) : mark list list option =
 
 (* ********************************************************************************************** *)
 
+let trm_combinators_unsupported_case (f_name : string) (t : trm) : trm =
+  if !Flags.trm_combinators_warn_unsupported_case then begin
+    Printf.printf "WARNING: don't know how to '%s' on '%s'\n" f_name (trm_desc_to_string t.desc);
+    Printf.printf "<suppressing similar warnings henceforth>\n";
+    Flags.trm_combinators_warn_unsupported_case := false;
+  end;
+  t
+
 (* [trm_map_with_terminal_unop is_terminal f t]: applies function [f] over ast nodes, if nodes are terminal nodes than
     specific treatment is considered depending on the definition of function f
     For this function terminal means that the end of the term would be the end of the function.
@@ -766,7 +774,8 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
       trm_typedef ~annot ?loc td
     | _ -> t
     end
-  | _ -> failwith (sprintf "don't know how to 'trm_map_with_terminal_unopt' on %s" (trm_desc_to_string t.desc))
+  | _ ->
+    trm_combinators_unsupported_case "trm_map_with_terminal_unopt"  t
 
 (* TODO ARTHUR: think about how to factorize this.
 
@@ -891,7 +900,9 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
     let body' = f false body in
     if (body == body') then t else
       (trm_namespace ~annot ?loc ~ctx name body' b)
-  | _ -> failwith (sprintf "don't know how to 'trm_map_with_terminal_opt' on %s" (trm_desc_to_string t.desc))
+
+  | _ ->
+    trm_combinators_unsupported_case "trm_map_with_terminal_opt"  t
 
 (* [trm_map_with_terminal is_terminal f t] *)
 let trm_map_with_terminal ?(keep_ctx = false) (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm =
@@ -962,7 +973,8 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     | _ -> ()
     end
   | Trm_fun (_, _, body, _) -> f body
-  | Trm_arbitrary _ -> failwith "don't know how to 'trm_iter' on arbitrary term"
+  | Trm_arbitrary _ ->
+    ignore (trm_combinators_unsupported_case "trm_iter" t)
   | Trm_val _ | Trm_var _ | Trm_goto _  | Trm_extern _ | Trm_omp_routine _  | Trm_template _ | Trm_using_directive _ -> ()
 
 

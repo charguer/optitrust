@@ -223,7 +223,7 @@ let dsp_call_aux (dsp : string) (t : trm) : trm =
     | Trm_apps ({desc = Trm_var (_, f); _}, args) ->
         let dsp_name = if dsp = "" then f.name ^ "_dsp" else dsp in
         (* FIXME: #var-id *)
-        trm_apps (trm_var (new_var dsp_name)) (args @ [lhs])
+        trm_apps (trm_toplevel_var dsp_name) (args @ [lhs])
     | _ -> fail rhs.loc "Function_core.dsp_call_aux: expected a target to a function call."
     end
   | _ -> fail t.loc "Function_core.dsp_call_aux: expected a target to a function call, whose parent is a write operation."

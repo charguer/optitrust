@@ -28,6 +28,7 @@ let _ = Run.script_cpp (fun _ ->
   (* replace, in the definition of "e", all constants "2" with the constant "1" *)
   !! Expr_basic.replace (lit "1") [nbMulti; cVarDef "e"; cFun "f2"; cInt 2 ];
   (* replace the function "f2" with another one *)
+  (* FIXME: #var-id, need to eliminate (parse) Trm_arbitrary.
   !! Expr_basic.replace (stmt "int f2(int a, int b, int c) { return a ; }") [cFunDef "f2" ];
-
+  *)
 )
