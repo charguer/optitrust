@@ -1,6 +1,8 @@
 open Ast
 open Trm
 
+let debug = false
+
 (* FIXME: triggers on multiple function declarations/definitions. *)
 exception InvalidVarId of string
 
@@ -17,8 +19,8 @@ let rec map_vars
   let ctx = t.ctx in
   let ret nochange t' = if nochange then t else t' in
   match t.desc with
-  | Trm_var (_, x) ->
-    (scope_ctx, map_var scope_ctx (annot, loc, typ, ctx) x)
+  | Trm_var (kind, x) ->
+    (scope_ctx, map_var scope_ctx (annot, loc, typ, ctx, kind) x)
 
   | Trm_seq tl ->
     let sctx = ref (map_seq scope_ctx t) in
@@ -76,15 +78,39 @@ let rec map_vars
     in
     (scope_ctx, t')
 
-  | Trm_fun (args, ret, body, contract) ->
+  | Trm_fun (args, ret_typ, body, contract) ->
     let body_ctx, args' = List.fold_left_map (fun sctx (arg, typ) ->
       let sctx, arg' = map_binder sctx arg in
       (sctx, (arg', typ))
     ) scope_ctx args in
     let _, body' = aux body_ctx body in
-    let t' = trm_fun ~annot ?loc ~ctx ?contract args' ret body' in
+    let t' = trm_fun ~annot ?loc ~ctx ?contract args' ret_typ body' in
     (* TODO: Proper function type here *)
     (scope_ctx, t')
+
+  | Trm_typedef td ->
+    let cont_ctx = ref scope_ctx in
+    let body' = begin match td.typdef_body with
+    | Typdef_alias _ -> td.typdef_body
+    | Typdef_record rfl ->
+      let rfl' = List.map (fun (rf, rf_ann) ->
+        let rf' = begin match rf with
+        | Record_field_method rft ->
+          let (cont_ctx', rft') = aux !cont_ctx rft in
+          cont_ctx := cont_ctx';
+          if rft == rft' then rf else
+            Record_field_method rft'
+        | Record_field_member _ -> rf
+        end in
+        rf', rf_ann
+      ) rfl in
+      if List.for_all2 (==) rfl rfl' then td.typdef_body else Typdef_record rfl'
+    | _ -> failwith "C_scope.map_vars: unexpected typdef_body"
+    end in
+    let t' = ret (body' == td.typdef_body)
+      (trm_typedef ~annot ?loc ~ctx { td with typdef_body = body' })
+    in
+    (!cont_ctx, t')
 
   | _ ->
     let map_f ti =
@@ -100,12 +126,12 @@ type scope_ctx = Qualified_set.t * var_id Qualified_map.t
 let initial_scope_ctx: scope_ctx = Qualified_set.empty, Qualified_map.empty
 
 (** internal *)
-let check_map_var ((_conflict_set, var_ids) : scope_ctx) (annot, loc, typ, ctx) var =
+let check_map_var ((_conflict_set, var_ids) : scope_ctx) (annot, loc, typ, ctx, kind) var =
   let qualified = (var.qualifier, var.name) in
   if Qualified_map.find_opt qualified var_ids <> Some var.id then
     raise (InvalidVarId (sprintf "variable use %s does not satisfy C/C++ scoping rules" (var_to_string var)))
   else
-    trm_var ~annot ?loc ?typ ~ctx var
+    trm_var ~annot ?loc ?typ ~ctx ~kind var
 
 (** internal *)
 let check_map_seq ((_conflict_set, var_ids) : scope_ctx) (_: trm) : scope_ctx =
@@ -132,20 +158,20 @@ let infer_map_binder (scope_ctx : scope_ctx) var =
   check_map_binder scope_ctx var'
 
 (** internal *)
-let infer_map_var ((conflict_set, var_ids) : scope_ctx) (annot, loc, typ, ctx) var =
+let infer_map_var ((conflict_set, var_ids) : scope_ctx) (annot, loc, typ, ctx, kind) var =
   let qualified = (var.qualifier, var.name) in
   (* printf "vars: %s" (Var_set.elements) *)
   if var.id = -1 then
-    trm_var ~annot ?loc ?typ ~ctx begin match Qualified_map.find_opt qualified var_ids with
+    trm_var ~annot ?loc ?typ ~ctx ~kind begin match Qualified_map.find_opt qualified var_ids with
     | Some id -> { qualifier = var.qualifier; name = var.name; id }
     | None -> toplevel_var ~qualifier:var.qualifier var.name
     end
-  else check_map_var (conflict_set, var_ids) (annot, loc, typ, ctx) var
+  else check_map_var (conflict_set, var_ids) (annot, loc, typ, ctx, kind) var
 
 (** Given term [t], infer variable ids such that they agree with their qualified name for C/C++ scoping rules.
   Only variable ids equal to [-1] are inferred, other ids are checked. *)
 let infer_var_ids (t : trm) : trm =
+  if debug then Xfile.put_contents "/tmp/ids_before.txt" (Ast_to_text.ast_to_string t);
   let _, t2 = map_vars infer_map_var check_map_seq infer_map_binder initial_scope_ctx t in
-  (* Xfile.put_contents "/tmp/a_enc.txt" (Ast_to_text.ast_to_string t);
-  Xfile.put_contents "/tmp/b_enc.txt" (Ast_to_text.ast_to_string t2); *)
+  if debug then Xfile.put_contents "/tmp/ids_after.txt" (Ast_to_text.ast_to_string t2);
   t2

@@ -689,6 +689,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
   let loc = t.loc in
   let typ = t.typ in
   match t.desc with
+  | Trm_val _ | Trm_var _ -> t
   | Trm_array tl ->
     let tl' = Mlist.map (f false) tl in
     trm_array ~annot ?loc ?typ tl'
@@ -765,8 +766,7 @@ let trm_map_with_terminal_unopt (is_terminal : bool) (f: bool -> trm -> trm) (t 
       trm_typedef ~annot ?loc td
     | _ -> t
     end
-
-  | _ -> t
+  | _ -> failwith (sprintf "don't know how to 'trm_map_with_terminal_unopt' on %s" (trm_desc_to_string t.desc))
 
 (* TODO ARTHUR: think about how to factorize this.
 
@@ -794,6 +794,7 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
     if Mlist.for_all2 (==) tl tl' then tl else tl' in
 
   match t.desc with
+  | Trm_val _ | Trm_var _ -> t
   | Trm_array tl ->
     let tl' = fmlist false tl in
     if (tl' == tl) then t else
@@ -807,10 +808,30 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
     let init' = f false init in
     if (init' == init) then t else
         (trm_let ~annot ?loc ?bound_resources ~ctx vk tv init')
+  (* Trm_let_mult *)
   | Trm_let_fun (f', res, args, body, contract) ->
     let body' = f false body in
     if (body' == body) then t else
         (trm_let_fun ~annot ?loc ?contract ~ctx f' res args body' )
+  | Trm_typedef td ->
+    let body' = begin match td.typdef_body with
+    | Typdef_alias _ -> td.typdef_body
+    | Typdef_record rfl ->
+      let rfl' = List.map (fun (rf, rf_ann) ->
+        let rf' = begin match rf with
+        | Record_field_method rft ->
+          let rft' = f false rft in
+          if rft == rft' then rf else
+            Record_field_method rft'
+        | Record_field_member _ -> rf
+        end in
+        rf', rf_ann
+      ) rfl in
+      if List.for_all2 (==) rfl rfl' then td.typdef_body else Typdef_record rfl'
+    | _ -> failwith "trm_map_with_terminal_opt: unexpected typdef_body"
+    end in
+    if (body' == td.typdef_body) then t else
+      trm_typedef ~annot ?loc ~ctx { td with typdef_body = body' }
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = aux then_ in
@@ -866,7 +887,11 @@ let trm_map_with_terminal_opt ?(keep_ctx = false) (is_terminal : bool) (f: bool 
             (trm_ret ~annot ?loc ~ctx (Some t'2))
     | _ -> t
     end
-  | _ -> t
+  | Trm_namespace (name, body, b) ->
+    let body' = f false body in
+    if (body == body') then t else
+      (trm_namespace ~annot ?loc ~ctx name body' b)
+  | _ -> failwith (sprintf "don't know how to 'trm_map_with_terminal_opt' on %s" (trm_desc_to_string t.desc))
 
 (* [trm_map_with_terminal is_terminal f t] *)
 let trm_map_with_terminal ?(keep_ctx = false) (is_terminal : bool)  (f : bool -> trm -> trm) (t : trm) : trm =
@@ -937,7 +962,8 @@ let trm_iter (f : trm -> unit) (t : trm) : unit =
     | _ -> ()
     end
   | Trm_fun (_, _, body, _) -> f body
-  | Trm_val _ | Trm_var _ | Trm_goto _ | Trm_arbitrary _ | Trm_extern _ | Trm_omp_routine _  | Trm_template _ | Trm_using_directive _  | Trm_hyp _ -> ()
+  | Trm_arbitrary _ -> failwith "don't know how to 'trm_iter' on arbitrary term"
+  | Trm_val _ | Trm_var _ | Trm_goto _  | Trm_extern _ | Trm_omp_routine _  | Trm_template _ | Trm_using_directive _ -> ()
 
 
 
@@ -1048,7 +1074,7 @@ let trm_map_with_ctx ?(keep_ctx = false) (f: 'ctx -> trm -> 'ctx * trm) (ctx: 'c
   | _ ->
     trm_map ~keep_ctx (fun ti -> let _, ti' = f ctx ti in ti') t
 
-type metadata = trm_annot * location * typ option * ctx
+type metadata = trm_annot * location * typ option * ctx * varkind
 
 let trm_map_vars ?(keep_ctx = false) (map_binder: 'ctx -> var -> 'ctx * var) (map_var: 'ctx -> metadata -> var -> trm) (ctx: 'ctx) (t: trm): trm =
   let rec f_map ctx t: 'ctx * trm =
@@ -1058,8 +1084,8 @@ let trm_map_vars ?(keep_ctx = false) (map_binder: 'ctx -> var -> 'ctx * var) (ma
     let t_ctx = if keep_ctx then t.ctx else unknown_ctx in
     let ret nochange t' = if nochange then t else t' in
     match t.desc with
-    | Trm_var (_, x) ->
-      (ctx, map_var ctx (annot, loc, typ, t_ctx) x)
+    | Trm_var (kind, x) ->
+      (ctx, map_var ctx (annot, loc, typ, t_ctx, kind) x)
     | Trm_let (var_kind, (var, typ), body, bound_resources) ->
       let _, body' = f_map ctx body in
       let cont_ctx, var' = map_binder ctx var in
@@ -1136,10 +1162,10 @@ let trm_subst_binder (forbidden_binders, subst_map) binder =
     ((forbidden_binders, subst_map), binder)
     *)
 
-let trm_subst_var (_, subst_map) (annot, loc, typ, _ctx) var =
+let trm_subst_var (_, subst_map) (annot, loc, typ, _ctx, kind) var =
   match Var_map.find_opt var subst_map with
   | Some t -> t
-  | None -> trm_var ~annot ?loc ?typ var
+  | None -> trm_var ~annot ?loc ?typ ~kind var
 
 (* LATER: preserve shadowing *)
 let trm_subst subst_map forbidden_binders t =

@@ -2,6 +2,16 @@ open Ast
 open Trm
 open Typ
 
+let debug = false
+
+let debug_before_after_trm (msg : string) (f : trm -> trm) : trm -> trm =
+  if debug then (fun t ->
+    Xfile.put_contents (sprintf "/tmp/%s_before.txt" msg) (Ast_to_text.ast_to_string t);
+    let t2 = f t in
+    Xfile.put_contents (sprintf "/tmp/%s_after.txt" msg) (Ast_to_text.ast_to_string t2);
+    t2
+  ) else f
+
 (*
 
   t[i]  =  get(array_access(t,i))  = array_read(t,i)
@@ -39,13 +49,12 @@ let is_var_mutable (env : env) (x : var) : bool =
 let env_extend (env : env) (e : var) (varkind : varkind) : env =
   Var_map.add e varkind env
 
-(* CHECK: #var-id , define trm_var that uses a ctx? *)
-let name_to_var (name : string) : var =
-  { qualifier = []; name; id = -1 }
-
 (* [add_var env x xm]: adds variable [x] into environemnt [env] with value [xm] *)
 let add_var (env : env ref) (x : var) (xm : varkind) : unit =
   env := env_extend !env x xm
+
+let name_to_var ?(qualifier = []) (n : string) : var =
+  { qualifier; name = n; id = -1 }
 
 (* [trm_address_of t]: adds the "&" operator before [t]
     Note: if for example t = *a then [trm_address_of t] = &( *a) = a *)
@@ -339,8 +348,8 @@ let method_call_elim (t : trm) : trm =
       end in
       trm_add_cstyle Method_call (trm_apps (t_var) ([base] @ args))
     | _ -> trm_map aux t
-   in aux t
-
+   in
+   debug_before_after_trm "mcall" aux t
 
 (* [method_call_intro t]: decodes class methods calls. *)
 let method_call_intro (t : trm) : trm =
@@ -363,10 +372,13 @@ let method_call_intro (t : trm) : trm =
 let class_member_elim (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
+    | Trm_let_fun (v, ty, vl, body, contract) when trm_has_cstyle Method t ->
+      let this_typ = typ_ptr_generated (typ_constr (v.qualifier, v.name) ~tid:(Clang_to_astRawC.get_typid_for_type v.qualifier v.name)) in
+      trm_alter ~desc:(Trm_let_fun (v, ty, (var_this, this_typ) :: vl, body, contract)) t
     | Trm_let_fun (v, ty, vl, body, contract) when is_class_constructor t ->
       let this_mut = Var_mutable in
       let this_typ = typ_ptr_generated (typ_constr (v.qualifier, v.name) ~tid:(Clang_to_astRawC.get_typid_for_type v.qualifier v.name)) in
-      let this_body = trm_apps (trm_var (name_to_var "malloc")) [trm_var (name_to_var ("sizeof(" ^ v.name ^ ")"))] in
+      let this_body = trm_apps (trm_toplevel_var  "malloc") [trm_toplevel_var ("sizeof(" ^ v.name ^ ")")] in
       let this_alloc = trm_let this_mut (var_this, this_typ) this_body in
       let ret_this = trm_ret (Some (trm_get (trm_this ()))) in
       begin match body.desc with
@@ -379,13 +391,24 @@ let class_member_elim (t : trm) : trm =
       | _ ->  fail t.loc "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
       end
     | _ -> trm_map aux t
-  in aux t
+  in
+  debug_before_after_trm "cmember" aux t
 
 
 (* [class_member_intro t]: decodes class members. *)
 let class_member_intro (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
+    | Trm_let_fun (qv, ty, vl, body, contract) when trm_has_cstyle Method t ->
+      let ((v_this, _), vl') = Xlist.uncons vl in
+      let rec fix_body t =
+        match trm_var_inv t with
+        | Some x when x = v_this && (not (trm_has_cstyle Implicit_this t)) ->
+          trm_like ~old:t (trm_this ())
+        | _ -> trm_map fix_body t
+      in
+      let body' = fix_body body in
+      trm_alter ~desc:(Trm_let_fun (qv, ty, vl', body', contract)) t
     | Trm_let_fun (qv, ty, vl, body, contract) when is_class_constructor t ->
       begin match body.desc with
       | Trm_seq tl ->
@@ -694,11 +717,25 @@ let rec contract_intro (t: trm): trm =
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
 let cfeatures_elim (t : trm) : trm =
-  class_member_elim (cseq_items_void_type (caddress_elim (stackvar_elim (infix_elim (method_call_elim (contract_elim t))))))
+  contract_elim t |>
+  method_call_elim |>
+  class_member_elim |>
+  infix_elim |>
+  C_scope.infer_var_ids |>
+  stackvar_elim |>
+  caddress_elim |>
+  cseq_items_void_type |>
+  C_scope.infer_var_ids
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
 let cfeatures_intro (t : trm) : trm =
-  contract_intro (method_call_intro (infix_intro (stackvar_intro (caddress_intro (class_member_intro t)))))
+  caddress_intro t |>
+  C_scope.infer_var_ids |>
+  stackvar_intro |>
+  infix_intro |>
+  class_member_intro |>
+  method_call_intro |>
+  contract_intro
 
 (* Note: recall that currently const references are not supported
    Argument of why const ref is not so useful

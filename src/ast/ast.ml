@@ -59,14 +59,19 @@ type var_id = int
 type var = { qualifier: string list; name: string; id: var_id }
 
 let var_to_string (v : var) : string =
-  String.concat "" (List.map (fun q -> q ^ "::") v.qualifier) ^
-  v.name ^ "#" ^ (string_of_int v.id)
+  let q_str = String.concat "" (List.map (fun q -> q ^ "::") v.qualifier) in
+  let id_str = if v.id = -1 then "?" else (string_of_int v.id) in
+  q_str ^ v.name ^ "#" ^ id_str
 
-let var_eq (v1 : var) (v2 : var) : bool = v1.id = v2.id
+let var_eq (v1 : var) (v2 : var) : bool =
+  assert (v1.id >= 0 && v2.id >= 0);
+  v1.id = v2.id
 
 module Var = struct
   type t = var
-  let compare v1 v2 = Int.compare v1.id v2.id
+  let compare v1 v2 =
+    assert (v1.id >= 0 && v2.id >= 0);
+    Int.compare v1.id v2.id
 end
 
 (* [vars]: variables, a list of elements of type variable *)
@@ -371,6 +376,8 @@ and cstyle_annot =
 
   (* [const] meta-information on a C++ method, to indicate that the object is not modified *)
   | Const_method
+  (* meta-information identifying a C++ method *)
+  | Method
 
   (*  [class foo {  int x;  foo() : x(3) { bla} }] is encoded as
      [class foo {  int x; foo() { x = 3; bla  }], where [x=3] is tagged as Constructed_init
@@ -619,9 +626,6 @@ and trm_desc =
   | Trm_using_directive of string                 (* using namespace std *)
   | Trm_fun of typed_vars * typ option * trm * fun_spec (* anonymous functions, [&](int const& x) -> void ({r += x;}) *) (* TODO: Is return type useful ? *)
   | Trm_delete of bool * trm                      (* delete t, delete[] t *)
-  | Trm_hyp of hyp (* FIXME: Temporary until all vars have id *)
-
-
 
 (*****************************************************************************)
 
@@ -925,6 +929,35 @@ and omp_routine =
   | Get_wtick
 
 (*****************************************************************************)
+
+let trm_desc_to_string : trm_desc -> string =
+  function
+  | Trm_val _ -> "Trm_val"
+  | Trm_var _ -> "Trm_var"
+  | Trm_array _ -> "Trm_array"
+  | Trm_record _ -> "Trm_record"
+  | Trm_let _ -> "Trm_let"
+  | Trm_let_mult _ -> "Trm_let_mult"
+  | Trm_let_fun _ -> "Trm_let_fun"
+  | Trm_typedef _ -> "Trm_typedef"
+  | Trm_if _ -> "Trm_if"
+  | Trm_seq _ -> "Trm_seq"
+  | Trm_apps _ -> "Trm_apps"
+  | Trm_while _ -> "Trm_while"
+  | Trm_for _ -> "Trm_for"
+  | Trm_for_c _ -> "Trm_for_c"
+  | Trm_do_while _ -> "Trm_do_while"
+  | Trm_switch _ -> "Trm_switch"
+  | Trm_abort _ -> "Trm_abort"
+  | Trm_goto _ -> "Trm_goto"
+  | Trm_arbitrary _ -> "Trm_arbitrary"
+  | Trm_omp_routine _ -> "Trm_omp_routine"
+  | Trm_extern _ -> "Trm_extern"
+  | Trm_namespace _ -> "Trm_namespace"
+  | Trm_template _ -> "Trm_template"
+  | Trm_using_directive _ -> "Trm_using_directive"
+  | Trm_fun _ -> "Trm_fun"
+  | Trm_delete _ -> "Trm_delete"
 
 let resource_usage_opt_to_string = function
 | None -> "None"

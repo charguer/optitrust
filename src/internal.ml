@@ -27,7 +27,6 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_extern _, Trm_extern _ -> true
   | Trm_namespace _, Trm_namespace _ -> true
   | Trm_template _, Trm_template _ -> true
-  | Trm_hyp _, Trm_hyp _ -> true
   | _ , _ -> false
 
 (* [same_trm ~ast_decode t1 t2]: check if [t1] and [t2] have the same string representation *)
@@ -277,26 +276,26 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
       If [require_body] is set to true, then only definitions are considered.*)
 let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
   let full_ast = Target.get_ast () in
-  let aux(t1 : trm) : trm option =
+  let rec aux(t1 : trm) : trm option =
     match t1.desc with
-    (* DEPRECATED:
     | Trm_typedef td ->
-        if td.typdef_tconstr = x
-          then Some t1
-          else begin match td.typdef_body with
-               | Typdef_record rfs ->
-                 List.fold_left (fun acc (rf, _) ->
-                  begin match acc with
-                  | Some _ -> acc
-                  | _ ->
-                    begin match rf with
-                    | Record_field_method t2 ->
-                      aux t2
-                    | _ -> None
-                    end
-                  end) None rfs
-               | _ -> None
-               end *)
+      (* FIXME: #var-id: check and cleanup constrname/var comparisons, what is happening here? *)
+      if var_has_name x td.typdef_tconstr
+        then Some t1
+        else begin match td.typdef_body with
+          | Typdef_record rfs ->
+            List.fold_left (fun acc (rf, _) ->
+            begin match acc with
+            | Some _ -> acc
+            | _ ->
+              begin match rf with
+              | Record_field_method t2 ->
+                aux t2
+              | _ -> None
+              end
+            end) None rfs
+          | _ -> None
+          end
     | Trm_let (_, (y, _), _, _) when y = x -> Some t1
     | Trm_let_fun (y, _, _, body, _) when y = x ->
       if require_body then begin
@@ -403,7 +402,7 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
     | Record_field_method t ->
       begin match t.desc with
       | Trm_let_fun (fn, ret_ty, args, body, contract) ->
-        let new_fn = { qualifier = fn.qualifier; name = rename_fun  fn.name; id = -1 } in
+        let new_fn = Trm.new_var ~qualifier:fn.qualifier fn.name in
         let new_t = trm_alter  ~desc:(Trm_let_fun (new_fn, ret_ty, args, body, contract)) t in
         Record_field_method new_t
       | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."

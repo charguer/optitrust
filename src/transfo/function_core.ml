@@ -58,12 +58,12 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
   let f_update (t : trm) : trm =
     let fun_call = Path.resolve_path p_local t in
     begin match fun_call.desc with
-    | Trm_apps(tfun, fun_call_args1) ->
+    | Trm_apps(tfun, fun_call_args) ->
       let fun_decl = begin match tfun.desc with
       | Trm_var (_, f) ->
         begin match Internal.toplevel_decl ~require_body:true f with
         | Some decl -> decl
-        | _ -> fail tfun.loc "Function_core.inline_aux: couldn't find the toplevel decl for the targeted function call"
+        | _ -> fail tfun.loc (sprintf "Function_core.inline_aux: couldn't find the toplevel decl for the targeted function call '%s'" (var_to_string f))
         end
       | Trm_let_fun _ -> tfun
       | _ -> fail tfun.loc "Function_core.inline_aux: expected either a function call or a beta function call"
@@ -71,7 +71,7 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
       begin match fun_decl.desc with
       | Trm_let_fun (_f, ty, args, body, _) ->
         let fun_decl_arg_vars = fst (List.split args) in
-        let fun_call_args = if trm_has_cstyle Method_call fun_call then snd (Xlist.uncons fun_call_args1) else fun_call_args1 in
+        (* DEPRECATED: let fun_call_args = if trm_has_cstyle Method_call fun_call then snd (Xlist.uncons fun_call_args1) else fun_call_args1 in *)
         let fresh_args = List.map Internal.fresh_args fun_call_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Subst.subst_var x y acc) body fun_decl_arg_vars fresh_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x (trm_may_add_mark subst_mark y) acc) fun_decl_body fresh_args fun_call_args in
@@ -83,7 +83,7 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
         end  in
         let marked_body = if trm_has_cstyle Method_call fun_call
           then
-            let class_name = fst (Xlist.uncons fun_call_args1) in
+            let class_name = fst (Xlist.uncons fun_call_args) in
             match trm_var_inv (get_operation_arg class_name) with
             | Some c_name -> Internal.fix_class_member_accesses c_name marked_body
             | _ -> fail class_name.loc "Function_core.inline_aux: bad encodings."

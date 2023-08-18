@@ -1015,6 +1015,7 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     if !redundant_decl then trm_add_cstyle Redundant_decl res else res
   | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; nested_name_specifier = nns; _};
                static = st; const = c; _} ->
+    assert (in_class_decl = true);
     let qpath = tr_nested_name_specifier ?loc nns in
     let s =
       begin match n with
@@ -1030,37 +1031,32 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     let res =
     begin match tt.typ_desc with
       | Typ_fun (args_t, out_t) ->
-        begin match po with
+        let args = begin match po with
           | None ->
             if List.length args_t != 0 then
               fail loc "Clang_to_astRawC.tr_decl: wrong size of argument list";
-            let tb =
-              match bo with
-              | None -> trm_lit ?loc Lit_uninitialized
-              | Some s -> tr_stmt s
-            in
-            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t  [] tb
+            []
           | Some {non_variadic = pl; variadic = _} ->
-            let args =
-              List.combine
-                (List.map
-                   (fun {decoration = _;
-                         desc = {qual_type = _; name = n; default = _}} -> (name_to_var n))
-                   pl
-                )
-                args_t
-            in
-            List.iter (fun (y, ty) -> ctx_var_add y ty) args;
-            let tb =
-              match bo with
-              | None -> trm_lit ?loc Lit_uninitialized
-              | Some s -> tr_stmt s
-            in
-            trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t  args tb
-        end
+            List.combine
+              (List.map
+                  (fun {decoration = _;
+                        desc = {qual_type = _; name = n; default = _}} -> (name_to_var n))
+                  pl
+              )
+              args_t
+        end in
+        List.iter (fun (y, ty) -> ctx_var_add y ty) args;
+        let tb =
+          match bo with
+          | None -> trm_lit ?loc Lit_uninitialized
+          | Some s -> tr_stmt s
+        in
+        trm_add_cstyle Method (trm_let_fun ?loc (name_to_var ~qualifier:qpath s) out_t  args tb)
       |_ -> fail loc "Clang_to_astRawC.tr_decl: should not happen"
     end in
     let res = trm_add_cstyle (Clang_cursor (cursor_of_node d)) res in
+    (* added by Ast_fromto_AstC:
+       let res = trm_add_cstyle Method_call res in *)
     if st
       then trm_add_cstyle Static_fun res
       else if c then trm_add_cstyle Const_method res
@@ -1335,4 +1331,4 @@ let tr_ast (t : translation_unit) : trm =
       (fun h dl ->
          trm_set_include h (trm_seq_nomarks (tr_decl_list dl)))
       include_map in
-    C_scope.infer_var_ids (trm_set_mainfile (trm_seq_nomarks ?loc  ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ tr_decl_list file_decls)))
+    trm_set_mainfile (trm_seq_nomarks ?loc  ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ tr_decl_list file_decls))

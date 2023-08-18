@@ -368,9 +368,6 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     print_node "Trm_delete"  ^^
       parens (separate (comma ^^ break 1)
         [bd; td])
-  | Trm_hyp h ->
-    string "Trm_hyp(" ^^ blank 1 ^^ string (string_of_int h.id) ^^ comma ^^ string h.name ^^ rparen
-
 
 (* [print_record_type rt]: converts record types to pprint document *)
 and print_record_type (rt : record_type) : document =
@@ -538,6 +535,7 @@ and print_cstyle_annot (ann : cstyle_annot) : document =
  | Explicit_constructor -> string "Explicit_constructor"
  | Default_constructor -> string "Default_constructor"
  | Const_method -> string "Const_method"
+ | Method -> string "Method"
  | Constructed_init -> string "Constructed_init"
  | Class_constructor ck -> print_constructor_kind ck
  | Class_destructor dk -> print_destructor_kind dk

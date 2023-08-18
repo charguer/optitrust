@@ -803,7 +803,7 @@ let get_trm_kind (t : trm) : trm_kind =
     in
    match t.desc with
    | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
-   | Trm_var _ | Trm_hyp _ -> TrmKind_Expr
+   | Trm_var _ -> TrmKind_Expr
    | Trm_record _ | Trm_array _ -> TrmKind_Expr
    | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
    | Trm_let _ | Trm_let_mult _ -> TrmKind_Instr
@@ -1570,7 +1570,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
            xto_l
         in
         (* CHECK: #var-id-dir-name , is this correct? *)
-        add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = -1 })) @
+        add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = -2 })) @
         (explore_list (List.map (fun (y, _) -> trm_var ?loc y) xto_l)
            (fun n -> Dir_enum_const (n, Enum_const_name))
            (aux)) @
@@ -1716,14 +1716,14 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
          add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
     (* CHECK: #var-id-dir-name , is this correct? *)
-     add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = -1 }))
+     add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = td.typdef_tconstr; id = -2 }))
   | Dir_name, Trm_let_fun (x, _, _, _, _) ->
     add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_name, Trm_let (_,(x,_),_, _) ->
     add_dir Dir_name (aux (trm_var ?loc x))
   | Dir_name, Trm_goto x ->
     (* CHECK: #var-id-dir-name , is this correct? *)
-    add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = x; id = -1 }))
+    add_dir Dir_name (aux (trm_var ?loc { qualifier = []; name = x; id = -2 }))
   | Dir_case (n, cd), Trm_switch (_, cases) ->
      app_to_nth_dflt loc cases n
        (fun (tl, body) ->

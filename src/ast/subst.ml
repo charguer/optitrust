@@ -1,4 +1,6 @@
-open Syntax
+open Ast
+open Trm
+open Typ
 
 (* FIXME: #var-id , keep a single subst implementation *)
 

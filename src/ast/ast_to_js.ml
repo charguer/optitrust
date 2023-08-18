@@ -331,11 +331,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_delete (_, tbody) ->
         [ kind_to_field "delete";
           children_to_field ([(child_to_json "body" (aux tbody))])]
-    | Trm_hyp h ->
-        [ kind_to_field "hyp";
-          value_to_field h.name;
-          children_to_field [] ]
-
 
 (* [ast_to_json trm_root]: converts a full ast to a Json object *)
 let ast_to_json (trm_root : trm) : json =

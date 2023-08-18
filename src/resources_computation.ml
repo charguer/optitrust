@@ -59,11 +59,11 @@ let builtin_env =
 type formula_inst = formula
 
 let inst_hyp (h: hyp): formula_inst =
-  trm_make (Trm_hyp h)
+  trm_make (Trm_var (Var_immutable, h))
 
 let inst_hyp_inv (f: formula_inst) =
   match f.desc with
-  | Trm_hyp h -> Some h
+  | Trm_var (Var_immutable, h) -> Some h
   | _ -> None
 
 let var_SplitRO = new_var "SplitRO"

@@ -380,9 +380,6 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
       else  *)
         let var_doc = trm_var_to_doc x t in
         dattr ^^ var_doc
-    | Trm_hyp h ->
-        let var_doc = trm_var_to_doc h t in
-        dattr ^^ var_doc
     | Trm_array tl -> let tl = Mlist.to_list tl in
        let dl = List.map (decorate_trm ~semicolon ~print_struct_init_type:false) tl in
        dattr ^^ braces (separate (comma ^^ blank 1) dl)
