@@ -116,28 +116,34 @@ let trm_var ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
 ?(kind : varkind = Var_mutable) (v : var) : trm =
   trm_make ~annot ?loc ?typ ?ctx (Trm_var (kind, v))
 
-(** [new_var]: create a new variable, using a fresh identifier. *)
+(** Creates a new variable, using a fresh identifier. *)
 let new_var ?(qualifier : string list = []) (name : string) : var =
   let id = next_var_int () in { qualifier; name; id }
+
+(** Refers to a variable by name, letting its identifier be inferred.
+    This variable cannot be stored in a [varmap] before its identifier is inferred. *)
+let name_to_var ?(qualifier : string list = []) (name : string) : var =
+  { qualifier; name; id = -1 }
 
 let dummy_var = { qualifier = []; name = ""; id = -2 }
 
 (* FIXME: #var-id , do we want this global map or should this be context ? *)
-let toplevel_vars: var_id Qualified_map.t ref = ref Qualified_map.empty
+(** Map of toplevel free variables, i.e. variables that are never bound in the current file. *)
+let toplevel_free_vars: var_id Qualified_map.t ref = ref Qualified_map.empty
 
-(** [trm_toplevel_var]: creates a toplevel variable occurence.
+(** [trm_toplevel_free_var]: creates a toplevel free variable occurence.
   A new variable identifier is created if the variable did not exist.
     *)
-let toplevel_var ?(qualifier : string list = []) (name : string) : var =
-  match Qualified_map.find_opt (qualifier, name) !toplevel_vars with
+let toplevel_free_var ?(qualifier : string list = []) (name : string) : var =
+  match Qualified_map.find_opt (qualifier, name) !toplevel_free_vars with
   | None ->
     let v = new_var ~qualifier name in
-    toplevel_vars := Qualified_map.add (qualifier, name) v.id !toplevel_vars;
+    toplevel_free_vars := Qualified_map.add (qualifier, name) v.id !toplevel_free_vars;
     v
   | Some id -> { qualifier; name; id }
 
-let trm_toplevel_var ?(qualifier : string list = []) (name : string) : trm =
-  trm_var (toplevel_var ~qualifier name)
+let trm_toplevel_free_var ?(qualifier : string list = []) (name : string) : trm =
+  trm_var (toplevel_free_var ~qualifier name)
 
 (* [trm_array ~annot ?loc ?typ ?ctx tl]: array initialization list *)
 let trm_array ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option)
@@ -264,14 +270,11 @@ let trm_using_directive ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx o
   (namespace : string) =
   trm_make ~annot ?loc ?typ ?ctx (Trm_using_directive namespace)
 
-(* FIXME: #this-id
-   NOTE: ONLY USE DURING PARSING AND ELIMINATE AFTER
-  id -1 is given during parsing, need to properly infer its ID afterwards (unique id for every method, etc).
-*)
-let var_this = { qualifier = []; name = "this"; id = -1 }
+(* NOTE: var id = -1 *)
+let var_this = name_to_var "this"
 
 (* [trm_this ~annot ?loc ?typ ?ctx ()]: this pointer.
-   NOTE: ONLY USE DURING PARSING AND ELIMINATE AFTER *)
+   NOTE: var id = -1 *)
 let trm_this ?(annot = trm_annot_default) ?(loc) ?(typ) ?(ctx : ctx option) () =
   trm_make ~annot ?loc ?typ ?ctx (Trm_var (Var_immutable, var_this))
 
@@ -330,7 +333,7 @@ let trm_null ?(uppercase : bool = false) ?(annot = trm_annot_default) ?(loc) ?(c
   let t = trm_lit ?loc ?ctx Lit_nullptr in
   if uppercase then trm_add_cstyle Display_null_uppercase t else t
 
-let var_free = toplevel_var "free"
+let var_free = toplevel_free_var "free"
 
 (* [trm_free]: build a term calling the 'free' function. *)
 let trm_free ?(annot = trm_annot_default) ?(loc) ?(ctx : ctx option) (memory : trm) : trm =
@@ -2337,7 +2340,7 @@ let var_has_name (v : var) (n : string) : bool =
       if List.length dims <> List.length indices then fail None "Matrix_core.mindex: the number of
           dimension should correspond to the number of indices";
       let n = List.length dims in
-      let mindex = trm_toplevel_var ("MINDEX" ^ (string_of_int n)) in
+      let mindex = trm_var (name_to_var ("MINDEX" ^ (string_of_int n))) in
       trm_apps mindex (dims @ indices)
 
     (* [mindex_inv t]: returns the list of dimensions and indices from the call to MINDEX [t]/ *)

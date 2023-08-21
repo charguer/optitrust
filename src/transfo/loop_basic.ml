@@ -174,7 +174,7 @@ let fission_on (index : int) (t : trm) : trm =
   let tl1, tl2 = Mlist.split index tl in
   trm_seq_no_brace [
     trm_for_instrs l_range tl1;
-    trm_for_instrs l_range tl2;]
+    trm_copy (trm_for_instrs l_range tl2);]
 
 (* [fission tg]: expects the target [tg] to point somewhere inside the body of the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
@@ -283,13 +283,21 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
   ) loops in
   match loops_ri with
   | [(loop_range1, loop_instrs1); (loop_range2, loop_instrs2)] ->
+    (* DEPRECATED: need to rename index anyway since #var-id
     if not (same_loop_index loop_range1 loop_range2) then
-      fail t.loc "Loop_basic.fusion_on: expected matching loop indices";
+      fail t.loc "Loop_basic.fusion_on: expected matching loop indices"; *)
     if not (same_loop_range loop_range1 loop_range2) then
       fail t.loc "Loop_basic.fusion_on: expected matching loop ranges";
-    let new_loop_instrs = Mlist.merge loop_instrs1 loop_instrs2 in
-    (* TODO: trm_for_update on loop1? *)
     let new_loop_range = fst (List.nth loops_ri target_loop_i) in
+    let (idx1, _, _, _, _, _) = loop_range1 in
+    let (idx2, _, _, _, _, _) = loop_range2 in
+    let loop_instrs1', loop_instrs2' =
+      if upwards
+      then loop_instrs1, Mlist.map (Subst.subst_var idx2 (trm_var idx1)) loop_instrs2
+      else Mlist.map (Subst.subst_var idx1 (trm_var idx2)) loop_instrs1, loop_instrs2
+    in
+    let new_loop_instrs = Mlist.merge loop_instrs1' loop_instrs2' in
+    (* TODO: trm_for_update on loop1? *)
     let new_loop = trm_for_instrs ~annot:lt.annot ?loc:lt.loc new_loop_range new_loop_instrs in
     let new_instrs = Mlist.insert_at update_index new_loop other_instrs in
     trm_seq ~annot:t.annot ?loc:t.loc new_instrs
@@ -514,7 +522,7 @@ let slide_on (tile_index : string) (bound : tile_bound) (tile_size : trm) (tile_
   begin match bound with
   | TileBoundMin ->
     let tile_bound =
-    trm_apps (trm_toplevel_var "min") [stop; tile_bound] in
+    trm_apps (trm_var (name_to_var "min")) [stop; tile_bound] in
     trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
   | TileDivides ->
     trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body

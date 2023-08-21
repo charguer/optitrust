@@ -82,7 +82,7 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
    begin match bound with
    | TileBoundMin ->
      let tile_bound =
-     trm_apps (trm_toplevel_var "min") [stop; tile_bound] in
+     trm_apps (trm_var (name_to_var "min")) [stop; tile_bound] in
      trm_for (index, (trm_var tile_index), direction, (tile_bound), step, is_parallel) body
    | TileDivides ->
      (* TODO: should be assert false ? *)
@@ -94,9 +94,9 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
          then (trm_add (trm_var tile_index) tile_size)
          else (trm_add (trm_var tile_index) (trm_mul tile_size (loop_step_to_trm step) ) ))) (trm_ineq direction (trm_var_get index) stop)
       in
-     let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_var index]
+     let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_var_get index]
        else trm_prim_compound Binop_add (trm_var index) (loop_step_to_trm step) in
-     let new_body = Internal.change_trm (trm_var index) (trm_var_get index) body in
+     let new_body = Subst.subst_var index (trm_var_get index) body in
      trm_for_c init cond step new_body
    end in
    let outer_loop_step = if is_step_one step then Step tile_size else Step (trm_mul tile_size (loop_step_to_trm step)) in
@@ -212,41 +212,40 @@ let grid_enumerate (indices_and_bounds : (string * trm) list) : Transfo.local =
       [my_mark] - a mark left on the top generated sequence,
       [t] - ast of the loop. *)
 let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
-  match t.desc with
-  | Trm_for (l_range, body, contract) ->
-      let (index, start, _, stop, _, _) = l_range in
-      let unrolled_loop_range =
-        begin match stop.desc with
-        | Trm_apps(_,[_; bnd]) ->
-           begin match bnd.desc with
-           | Trm_val (Val_lit (Lit_int bnd)) ->
-             Xlist.range 0 (bnd - 1)
-           | _ -> fail bnd.loc "Loop_core.unroll_aux: expected a literal trm"
-           end
-         | Trm_val (Val_lit (Lit_int bnd)) ->
-             begin match start.desc with
-             | Trm_val (Val_lit (Lit_int strt)) ->
-               Xlist.range 0 (bnd - 1 - strt)
-             | _ -> fail start.loc "Loop_core.unroll_aux: expected a "
-             end
-        | _ -> fail t.loc "Loop_core.unroll_aux: the loop that is going to be unrolled should have a bound which is a sum of a variable and a literal"
-        end in
-      let unrolled_body = List.fold_left ( fun acc i1 ->
-        let new_index =
+  let error = "Loop_core.unroll_aux: only simple loops supported" in
+  let (l_range, body) = trm_inv ~error trm_for_inv t in
+  let (index, start, _, stop, _, _) = l_range in
+  let unrolled_loop_range =
+    begin match stop.desc with
+    | Trm_apps(_,[_; bnd]) ->
+        begin match bnd.desc with
+        | Trm_val (Val_lit (Lit_int bnd)) ->
+          Xlist.range 0 (bnd - 1)
+        | _ -> fail bnd.loc "Loop_core.unroll_aux: expected a literal trm"
+        end
+      | Trm_val (Val_lit (Lit_int bnd)) ->
           begin match start.desc with
-          | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
-          | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))]
-          end in
-        let body_i = Subst.subst_var index new_index body in
-        let body_i = if braces
-                      then Nobrace.remove_if_sequence body_i
-                      else Nobrace.set_if_sequence body_i in
-        body_i :: acc ) [] (List.rev unrolled_loop_range) in
-      begin match my_mark with
-      | "" -> trm_seq_no_brace unrolled_body
-      | _ -> trm_seq_no_brace [trm_add_mark my_mark (trm_seq_no_brace unrolled_body)]
-      end
-  | _ -> fail t.loc "Loop_core.unroll_aux: only simple loops supported"
+          | Trm_val (Val_lit (Lit_int strt)) ->
+            Xlist.range 0 (bnd - 1 - strt)
+          | _ -> fail start.loc "Loop_core.unroll_aux: expected a "
+          end
+    | _ -> fail t.loc "Loop_core.unroll_aux: the loop that is going to be unrolled should have a bound which is a sum of a variable and a literal"
+    end in
+  let unrolled_body = List.fold_left ( fun acc i1 ->
+    let new_index =
+      begin match start.desc with
+      | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
+      | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))]
+      end in
+    let body_i = Subst.subst_var index new_index (trm_copy body) in
+    let body_i = if braces
+                  then Nobrace.remove_if_sequence body_i
+                  else Nobrace.set_if_sequence body_i in
+    body_i :: acc ) [] (List.rev unrolled_loop_range) in
+  begin match my_mark with
+  | "" -> trm_seq_no_brace unrolled_body
+  | _ -> trm_seq_no_brace [trm_add_mark my_mark (trm_seq_no_brace unrolled_body)]
+  end
 
 (* [unroll braces my_mark t p]: applies [unroll_aux] at trm [t] with path [p]. *)
 let unroll (braces : bool)(my_mark : mark) : Transfo.local =
@@ -284,7 +283,7 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
   let then_ = Nobrace.set_if_sequence then_ in
   let else_ = Nobrace.set_if_sequence else_ in
   let wrap_branch (t1 : trm) : trm  = Internal.change_loop_body t (trm_seq (Mlist.replace_at trm_index t1 tl )) in
-  trm_if cond (wrap_branch then_) (wrap_branch else_)
+  trm_if cond (wrap_branch then_) (trm_copy (wrap_branch else_))
 
 (* [unswitch trm_index t p]: applies [unswitch_aux] at trm [t] with path [p]. *)
 let unswitch (trm_index : int) : Transfo.local =
@@ -377,7 +376,7 @@ let split_range_aux (nb : int)(cut : trm)(t : trm) : trm =
   end in
   trm_seq_no_brace [
     trm_for (index, start, direction, split_index, step, is_parallel) body;
-    trm_for (index, split_index, direction, stop, step, is_parallel) body]
+    trm_copy (trm_for (index, split_index, direction, stop, step, is_parallel) body)]
 
 (* [split_range nb cut t p]: applies [split_range_aux] at the trm [t] with path [p]. *)
 let split_range (nb : int) (cut : trm) : Transfo.local =

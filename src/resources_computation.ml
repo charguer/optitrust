@@ -9,25 +9,25 @@ type linear_resource_set = resource_item list
 let var_result = new_var "_Res"
 let trm_result: formula = trm_var var_result
 (* CHECK: #var-id *)
-let _Full = toplevel_var "_Full"
+let _Full = toplevel_free_var "_Full"
 
 (* The contract of the [set] function. *)
 let set_fun_contract p =
   { pre = resource_set ~linear:[(new_anon_hyp (), formula_cell p)] ();
     post = resource_set ~linear:[(new_anon_hyp (), formula_cell p)] (); }
 
-let __admitted = toplevel_var "__admitted"
-let __cast = toplevel_var "__cast"
-let __new = toplevel_var "__new"
-let __get = toplevel_var "__get"
-let __set = toplevel_var "__set"
-let __add = toplevel_var "__add"
-let __sub = toplevel_var "__sub"
-let __mul = toplevel_var "__mul"
-let __array_access = toplevel_var "__array_access"
-let __add_inplace = toplevel_var "__add_inplace"
-let __sub_inplace = toplevel_var "__sub_inplace"
-let __mul_inplace = toplevel_var "__mul_inplace"
+let __admitted = toplevel_free_var "__admitted"
+let __cast = toplevel_free_var "__cast"
+let __new = toplevel_free_var "__new"
+let __get = toplevel_free_var "__get"
+let __set = toplevel_free_var "__set"
+let __add = toplevel_free_var "__add"
+let __sub = toplevel_free_var "__sub"
+let __mul = toplevel_free_var "__mul"
+let __array_access = toplevel_free_var "__array_access"
+let __add_inplace = toplevel_free_var "__add_inplace"
+let __sub_inplace = toplevel_free_var "__sub_inplace"
+let __mul_inplace = toplevel_free_var "__mul_inplace"
 
 (* The environment containing the contracts of builtin functions. *)
 let builtin_env =
@@ -76,7 +76,7 @@ let inst_split_read_only_inv (f: formula_inst): (var * hyp) option =
   match trm_apps_inv f with
   | Some (fn, [frac; hyp]) ->
     begin match trm_var_inv fn with
-    | Some v when v.id = var_SplitRO.id ->
+    | Some v when var_eq v var_SplitRO ->
       let* frac = trm_var_inv frac in
       let* hyp = inst_hyp_inv hyp in
       Some (frac, hyp)
@@ -184,7 +184,7 @@ let subtract_linear_resource_item ~(split_frac: bool) ((x, formula): resource_it
   try match formula_read_only_inv formula with
     | Some { frac; formula = ro_formula } when split_frac ->
       begin match trm_apps_inv frac with
-      | Some (maybe_full, [frac]) when trm_var_inv maybe_full = Some _Full ->
+      | Some (maybe_full, [frac]) when Option.equal var_eq (trm_var_inv maybe_full) (Some _Full) ->
         unify_and_remove_linear (x, formula_read_only ~frac ro_formula) res evar_ctx
       | _ ->
         begin match trm_var_inv frac with
@@ -435,7 +435,7 @@ let binop_to_var_name (u: binary_op): string =
   | _ -> raise Unimplemented
 
 let prim_to_var (p: prim): var =
-  toplevel_var (match p with
+  toplevel_free_var (match p with
   | Prim_unop u -> unop_to_var_name u
   | Prim_binop b -> binop_to_var_name b
   | Prim_compound_assgn_op b -> (binop_to_var_name b ^ "_inplace")
@@ -661,14 +661,14 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
 
         usage_map, Some (bind_new_resources ~old_res:res ~new_res:(resource_merge_after_frame res_produced res_frame))
 
-      | None when fn = __cast ->
+      | None when var_eq fn __cast ->
         (* TK: we treat cast as identity function. *)
         (* FIXME: this breaks invariant that function arguments are pure/reproducible. *)
         begin match effective_args with
         | [arg] -> compute_resources_and_merge_usage (Some res) (Some usage_map) arg
         | _ -> failwith "expected 1 argument for cast"
         end
-      | None when fn = __admitted -> None, None
+      | None when var_eq fn __admitted -> None, None
       | None -> raise (Spec_not_found fn)
       end
 

@@ -24,8 +24,9 @@ let _ = Run.script_cpp (fun _ ->
   !! Loop_basic.unroll ~braces:true [cFor "i"];
   !! Loop_basic.unroll ~braces:true [cFor "j"];
 
-  (* following is OK because we allow shadowing. *)
-  !! Loop_basic.unroll ~braces:false [cFor "k"];
+  (* following is not OK because of C re-definition. *)
+  !! Trace.failure_expected (fun () ->
+    Loop_basic.unroll ~braces:false [cFor "k"]);
 
   (* TODO: test unroll on SIMD loop *)
 )

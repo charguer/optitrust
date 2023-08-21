@@ -268,11 +268,13 @@ let%transfo hoist_expr_loop_list (name : string)
 
 (* internal *)
 let targets_iter_with_loop_lists
-  ?(indep : var list = [])
+  ?(indep : string list = [])
   ?(dest : target = [])
   (f : int list -> path -> unit)
   (tg : target) : unit =
 begin
+  (* LATER: #var-id, find in loop nest rather than all subterm. *)
+  let indep = Var_set.of_list (List.map find_var_in_current_ast indep)in
   assert (dest <> []);
   Target.iter (fun t target_path ->
     let hoist_path = Target.resolve_target_exactly_one dest t in
@@ -291,7 +293,7 @@ begin
     let (rev_loop_list, _) = List.fold_left (fun (rev_loop_list, p) elem ->
       let new_rev_loop_list = match trm_for_inv (resolve_path_current_ast p) with
       | Some ((i, _start, _dir, _stop, _step, _par), _) ->
-        let loop_val = if List.mem i indep then 0 else 1 in
+        let loop_val = if Var_set.mem i indep then 0 else 1 in
         loop_val :: rev_loop_list
       | None -> rev_loop_list
       in
@@ -307,7 +309,7 @@ end
    loop indices that the expression does not depend on in [indep],
    and specifying where to hoist using [dest] target. *)
 let%transfo hoist_expr (name : string)
-               ?(indep : var list = [])
+               ?(indep : string list = [])
                ?(dest : target = [])
                (tg : target) : unit =
   Trace.tag_valid_by_composition ();
@@ -377,8 +379,9 @@ let%transfo extend_range ?(start : extension_kind = ExtendNothing) ?(stop : exte
   ) tg
 
 (* internal *)
-(* TODO: doc *)
 let adapt_indices ~(upwards : bool) (p : path) : unit =
+  ()
+  (* TODO DEPRECATED: need to rename index anyway since #var-id
   let t = Trace.ast () in
   let (index, p_seq) = Path.index_in_seq p in
   let (loop1_p, loop2_p) =
@@ -394,7 +397,7 @@ let adapt_indices ~(upwards : bool) (p : path) : unit =
   if not (same_loop_index loop_range1 loop_range2) then begin
     let (idx, _, _, _, _, _) = loop_range1 in
     rename_index idx.name (target_of_path loop2_p)
-  end
+  end *)
 
 (* [fusion nb tg]: expects the target [tg] to point at a for loop followed by one or more for loops.
     Merge them into a single loop.

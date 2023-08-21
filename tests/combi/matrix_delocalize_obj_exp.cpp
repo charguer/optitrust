@@ -58,10 +58,12 @@ bag* bagNexts1;
 
 void allocate() {
   bagNext1 = (bag*)MALLOC1(nbCells, sizeof(bag));
-  bagNexts1 = (bag*)MALLOC2(nbCells, N0, sizeof(bag));
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagKind = 0; bagKind < N0; bagKind++) {
-      bag_init(&bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
+  /*no-brace*/ {
+    /*no-brace*/ { bagNexts1 = (bag*)MALLOC2(nbCells, N0, sizeof(bag)); }
+    for (int idCell = 0; idCell < nbCells; idCell++) {
+      for (int bagKind = 0; bagKind < N0; bagKind++) {
+        bag_init(&bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
+      }
     }
   }
 }
@@ -73,52 +75,60 @@ int main() {
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_init(&bagNext[MINDEX1(nbCells, idCell)]);
   }
-  bag* bagNexts = (bag*)MALLOC2(nbCells, N0, sizeof(bag));
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagKind = 0; bagKind < N0; bagKind++) {
-      bag_init(&bagNexts[MINDEX2(nbCells, N0, idCell, bagKind)]);
+  /*no-brace*/ {
+    bag* bagNexts = (bag*)MALLOC2(nbCells, N0, sizeof(bag));
+    for (int idCell = 0; idCell < nbCells; idCell++) {
+      for (int bagKind = 0; bagKind < N0; bagKind++) {
+        bag_init(&bagNexts[MINDEX2(nbCells, N0, idCell, bagKind)]);
+      }
     }
-  }
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL;
-         p = bag_iter_next_common(&bag_it, true)) {
-      bag_push(&bagNexts[MINDEX2(nbCells, N0, idCell, ANY(N0))], *p);
+    for (int idCell = 0; idCell < nbCells; idCell++) {
+      for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL;
+           p = bag_iter_next_common(&bag_it, true)) {
+        bag_push(&bagNexts[MINDEX2(nbCells, N0, idCell, ANY(N0))], *p);
+      }
     }
-  }
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagKind = 0; bagKind < N0; bagKind++) {
-      bag_merge(&bagNext[MINDEX1(nbCells, idCell)],
-                &bagNexts[MINDEX2(nbCells, N0, idCell, bagKind)]);
+    for (int idCell = 0; idCell < nbCells; idCell++) {
+      for (int bagKind = 0; bagKind < N0; bagKind++) {
+        bag_merge(&bagNext[MINDEX1(nbCells, idCell)],
+                  &bagNexts[MINDEX2(nbCells, N0, idCell, bagKind)]);
+      }
     }
-  }
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagKind = 0; bagKind < N0; bagKind++) {
-      bag_free(&bagNexts[MINDEX2(nbCells, N0, idCell, bagKind)]);
+    for (int idCell = 0; idCell < nbCells; idCell++) {
+      for (int bagKind = 0; bagKind < N0; bagKind++) {
+        bag_free(&bagNexts[MINDEX2(nbCells, N0, idCell, bagKind)]);
+      }
     }
+    MFREE1(nbCells, bagNexts);
   }
-  MFREE1(nbCells, bagNexts);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_swap(&bagNext[MINDEX1(nbCells, idCell)],
              &bagCur[MINDEX1(nbCells, idCell)]);
   }
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL;
-         p = bag_iter_next_common(&bag_it, true)) {
-      bag_push(&bagNexts1[MINDEX2(nbCells, N0, idCell, ANY(N0))], *p);
+  /*no-brace*/ {
+    /*no-brace*/ {
+      for (int idCell = 0; idCell < nbCells; idCell++) {
+        for (particle* p = bag_iter_begin(&bag_it, NULL); p != NULL;
+             p = bag_iter_next_common(&bag_it, true)) {
+          bag_push(&bagNexts1[MINDEX2(nbCells, N0, idCell, ANY(N0))], *p);
+        }
+      }
+      for (int idCell = 0; idCell < nbCells; idCell++) {
+        for (int bagKind = 0; bagKind < N0; bagKind++) {
+          bag_merge(&bagNext1[MINDEX1(nbCells, idCell)],
+                    &bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
+        }
+      }
+    }
+    /*no-brace*/ {
+      for (int idCell = 0; idCell < nbCells; idCell++) {
+        for (int bagKind = 0; bagKind < N0; bagKind++) {
+          bag_free(&bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
+        }
+      }
+      MFREE1(nbCells, bagNexts1);
     }
   }
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagKind = 0; bagKind < N0; bagKind++) {
-      bag_merge(&bagNext1[MINDEX1(nbCells, idCell)],
-                &bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
-    }
-  }
-  for (int idCell = 0; idCell < nbCells; idCell++) {
-    for (int bagKind = 0; bagKind < N0; bagKind++) {
-      bag_free(&bagNexts1[MINDEX2(nbCells, N0, idCell, bagKind)]);
-    }
-  }
-  MFREE1(nbCells, bagNexts1);
   for (int idCell = 0; idCell < nbCells; idCell++) {
     bag_swap(&bagNext1[MINDEX1(nbCells, idCell)],
              &bagCur[MINDEX1(nbCells, idCell)]);

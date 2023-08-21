@@ -27,7 +27,8 @@ let _ = Run.script_cpp ( fun _ ->
 
   (* Shadowing behaviour (1). *)
   !! Loop_basic.unroll [cFor "i"];
-  !! Sequence_basic.elim [nbMulti; cSeq ~args:[[cVarDef "s0"]] ()];
+  !! Trace.failure_expected (fun () ->
+    Sequence_basic.elim [nbMulti; cSeq ~args:[[cVarDef "s0"]] ()]);
 
   (* Shadowing behaviour (2). *)
   !! Trace.failure_expected (fun () ->

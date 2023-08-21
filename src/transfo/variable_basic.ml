@@ -55,8 +55,7 @@ let%transfo rename ~into:(new_name : string) (tg : target) : unit =
    It then splits the instruction into a variable declaration and a set operation. *)
 let%transfo init_detach (tg : target) : unit =
   Trace.justif_always_correct ();
-  (* TODO: #advanced-scoping-check ? can also trust nothing can go wrong here. *)
-  Nobrace_transfo.remove_after ~check_scoping:false ( fun _ ->
+  Nobrace_transfo.remove_after ( fun _ ->
     Target.apply_on_targets (Variable_core.init_detach) tg
   )
 
@@ -124,10 +123,9 @@ let%transfo local_name ?(mark : mark = "") (var : var) ~(into : string) (tg : ta
    [array_size] - denotes the size of the array inside the block
    [ops] - the delocalize operation, it can be an arithmetic delocalization or an object delocalization
     of the array declared inside the block. *)
-let%transfo delocalize ?(index : string = "dl_k") ~array_size:(arr_s : var) ~ops:(dl_o : local_ops) (tg : target) : unit =
-  (* FIXME: #advanced-scoping-check *)
-  Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
-    Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
+let%transfo delocalize ?(index : string = "dl_k") ~(array_size : trm) ~ops:(dl_o : local_ops) (tg : target) : unit =
+  Nobrace_transfo.remove_after (fun _ ->
+    Target.apply_on_targets (Variable_core.delocalize array_size dl_o index ) tg)
 
 
 (* [change_type new_type tg]: expects [tg] to point a variable declaration, then it will change the type of
@@ -171,8 +169,7 @@ let%transfo subst ?(reparse : bool = false) ~(subst : var) ~(put : trm) (tg : ta
       (* LATER: it seems that a mark is introduced and not eliminated *)
 let%transfo bind ?(const : bool = false) ?(mark_let : mark option) ?(mark_occ : mark option) ?(mark_body : mark = "") ?(is_ptr : bool = false) ?(remove_nobrace: bool = true) ?(typ : typ option) (fresh_name : string) (tg : target) : unit =
   Resources.justif_correct "arguments are pure/reproducible";
-  (* FIXME: #advanced-scoping-check, current check does not work if targeted subexpression is inside a let. *)
-  Nobrace_transfo.remove_after ~check_scoping:false ~remove:remove_nobrace ( fun _ ->
+  Nobrace_transfo.remove_after ~remove:remove_nobrace ( fun _ ->
     Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in

@@ -20,7 +20,8 @@ let rec subst (tm : tmap) (t : trm) : trm =
     begin match Var_map.find_opt x tm with
     | Some t1 ->
       let t1 = {t1 with annot = t1.annot} in
-      if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1
+      (* FIXME: #var-id, should be trm_copy rather than refresh_var_ids *)
+      Scope.refresh_var_ids (if (is_trm_arbit t1 && vk = Var_mutable) then trm_address_of t1 else t1)
     | _ -> t
     end
   | Trm_seq ts ->

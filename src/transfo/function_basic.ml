@@ -90,8 +90,7 @@ let%transfo bind_intro ?(fresh_name : string = "__OPTITRUST___VAR") ?(const : bo
 
 let%transfo inline ?(body_mark : mark option) ?(subst_mark : mark option) (tg : target) : unit =
   Resources.justif_correct "arguments are pure/reproducible";
-  (* TODO: #advanced-scoping-check ? can also trust nothing can go wrong here. *)
-  Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     Stats.comp_stats "inline apply_on_transformed_targets" (fun () ->
     apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
      (fun  t (p, p_local, i) ->

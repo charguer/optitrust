@@ -49,10 +49,6 @@ let get_ctx () : ctx =
     ctx_constr = !ctx_constr;
   }
 
-(* LATER: can/should we use C.ident.stamp as id ? *)
-let name_to_var (n : string) : var =
-  { qualifier = []; name = n; id = -1 }
-
 (* CHECK: #type-id *)
 let name_to_typconstr (n : string) : typconstr =
   [], n

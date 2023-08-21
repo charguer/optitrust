@@ -22,6 +22,7 @@ void name_conflict_1() {
 }
 
 void name_conflict_2() {
-  int a = 0;
-  int a = 1;
+  for (int k = 0; k < 2; k++) {
+    int a = k;
+  }
 }

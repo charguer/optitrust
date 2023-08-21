@@ -1,5 +1,4 @@
 open Optitrust
-open Target
 open Syntax
 open Resources_contract
 

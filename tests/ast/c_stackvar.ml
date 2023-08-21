@@ -14,6 +14,8 @@ let filename =
   | _ -> "c_big.cpp"
 
 let _ = Run.script_cpp ~filename (fun () ->
+  Trace.apply C_scope.infer_var_ids;
+
   (* TODO  let t = Trace.ast() in *)
   !! Trace.apply stackvar_elim;   (* Press F6 on this line to see the encoding *) (* Press Alt+F6 to check the blank diff of the round-trip *)
   !! Trace.apply stackvar_intro; (* Press F6 on this line to see the decoding *)

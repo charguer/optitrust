@@ -1,10 +1,10 @@
 open Ast
-open Nobrace
 
 (* [inline_seq_at index ml]: in the case of nested sequence,
     this function can be used to inline the sublist at [index] into the main list.
 
     If [check_scoping], also checks for variable scope interference.
+    [check_scoping] is DEPRECATED, use var ids instead.
   *)
 let inline_seq_at ~(check_scoping : bool) (index : int) (ml : trm mlist) : trm mlist =
   let lfront, st, lback  = Mlist.get_item_and_its_relatives index ml in
@@ -16,44 +16,45 @@ let inline_seq_at ~(check_scoping : bool) (index : int) (ml : trm mlist) : trm m
     Mlist.merge (Mlist.merge lfront tl) lback
   | _ -> fail st.loc "Internal.inline_seq_at: expected an ast node which taks a mlist as parameter"
 
-
+(* internal *)
 (* [clean_seq ~all id t]: remove all the sequences from ast with annotation No_braces if [all] is set to true
     otherwise remove only those sequence with id [id].
 
-  If [check_scoping = true]: Everytime an inner sequence is inlined into an outer sequence, this checks that there is no scope interefence between the variables bound in the inner sequence and the ones used in the outer sequence continuation.
-  This assumes that shadowing is allowed.
+  [check_scoping] is DEPRECATED, use var ids instead.
   *)
-let clean_seq ~(check_scoping : bool) ?(all : bool = false) (id : int) (t : trm) : trm =
+let clean_seq ?(check_scoping : bool = true) ?(all : bool = false) (id : int) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
-      let indices_list = List.flatten (List.mapi (fun i t1 ->
-        let current_seq_id = get_id t1 in
-        begin match current_seq_id with
+      let indices_list = List.flatten (List.mapi (fun i ti ->
+        begin match Nobrace.get_id ti with
         | Some c_i when (all || (c_i = id)) -> [i]
         | _ -> []
         end
       ) (Mlist.to_list tl)) in
-      let new_tl = Mlist.map aux tl in
+      let tl2 = Mlist.map aux tl in
 
-      let new_tl =
+      let tl3 =
         if indices_list <> [] then
-          List.fold_left (fun acc x_i -> inline_seq_at ~check_scoping x_i acc) tl (List.rev indices_list)
-        else new_tl in
-      Trm.trm_replace (Trm_seq new_tl) t
+          List.fold_left (fun acc x_i -> inline_seq_at ~check_scoping x_i acc) tl2 (List.rev indices_list)
+        else tl2 in
+      Trm.trm_replace (Trm_seq tl3) t
     | _ -> Trm.trm_map aux t
   in aux t
 
 (* [remove_and_exit ?remove ()]: apply function clean_no_brace over the curren ast.
   By default, scope is checked: inlining nobrace sequences should not change variable usage. *)
 let remove_and_exit ?(check_scoping = true) ?(remove:bool=true) () =
-  let id = exit () in
+  assert (check_scoping = true);
+  let id = Nobrace.exit () in
   if remove
-    then Trace.apply (fun ast -> clean_seq ~check_scoping id ast)
+    then Trace.apply (fun ast ->
+      clean_seq ~check_scoping:false id ast |>
+      Scope.infer_var_ids)
 
 (* [remove_after ~remove f]: wrapper for creating and deleting a nobrace sequence *)
 let remove_after ?(check_scoping = true) ?(remove : bool = true) (f : unit -> unit) : unit =
-  enter ();
+  Nobrace.enter ();
   f ();
   remove_and_exit ~check_scoping ~remove ()
 

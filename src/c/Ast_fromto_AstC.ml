@@ -384,7 +384,7 @@ let class_member_elim (t : trm) : trm =
     | Trm_let_fun (v, ty, vl, body, contract) when is_class_constructor t ->
       let this_mut = Var_mutable in
       let this_typ = typ_ptr_generated (typ_constr (v.qualifier, v.name) ~tid:(Clang_to_astRawC.get_typid_for_type v.qualifier v.name)) in
-      let this_body = trm_apps (trm_toplevel_var  "malloc") [trm_toplevel_var ("sizeof(" ^ v.name ^ ")")] in
+      let this_body = trm_apps (trm_toplevel_free_var  "malloc") [trm_toplevel_free_var ("sizeof(" ^ v.name ^ ")")] in
       let this_alloc = trm_let this_mut (var_this, this_typ) this_body in
       let ret_this = trm_ret (Some (trm_get (trm_this ()))) in
       begin match body.desc with
@@ -722,7 +722,8 @@ let rec contract_intro (t: trm): trm =
 
 (* [cfeatures_elim t] converts a raw ast as produced by a C parser into an ast with OptiTrust semantics.
    It assumes [t] to be a full program or a right value. *)
-let cfeatures_elim (t : trm) : trm =
+let cfeatures_elim: trm -> trm =
+  debug_before_after_trm "cfeatures_elim" (fun t ->
   contract_elim t |>
   method_call_elim |>
   class_member_elim |>
@@ -731,17 +732,18 @@ let cfeatures_elim (t : trm) : trm =
   stackvar_elim |>
   caddress_elim |>
   cseq_items_void_type |>
-  C_scope.infer_var_ids
+  C_scope.infer_var_ids)
 
 (* [cfeatures_intro t] converts an OptiTrust ast into a raw C that can be pretty-printed in C syntax *)
-let cfeatures_intro (t : trm) : trm =
+let cfeatures_intro : trm -> trm =
+  debug_before_after_trm "cfeatures_intro" (fun t ->
   C_scope.infer_var_ids t |>
   caddress_intro |>
   stackvar_intro |>
   infix_intro |>
   class_member_intro |>
   method_call_intro |>
-  contract_intro
+  contract_intro)
 
 (* Note: recall that currently const references are not supported
    Argument of why const ref is not so useful

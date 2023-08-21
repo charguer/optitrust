@@ -19,13 +19,14 @@ let rec map_vars
   let loc = t.loc in
   let typ = t.typ in
   let ctx = t.ctx in
+  let clear_conflicts scope_ctx = (Qualified_set.empty, snd scope_ctx) in
   let ret nochange t' = if nochange then t else t' in
   match t.desc with
   | Trm_var (kind, x) ->
     (scope_ctx, map_var scope_ctx (annot, loc, typ, ctx, kind) x)
 
   | Trm_seq tl ->
-    let sctx = ref (Qualified_set.empty, snd scope_ctx) in
+    let sctx = ref (clear_conflicts scope_ctx) in
     let tl' = Mlist.map (fun t ->
       let new_ctx, t' = aux !sctx t in
       sctx := new_ctx;
@@ -63,7 +64,7 @@ let rec map_vars
     let body_ctx, args' = List.fold_left_map (fun sctx (arg, typ) ->
       let sctx, arg' = map_binder sctx arg in
       (sctx, (arg', typ))
-    ) scope_ctx args in
+    ) (clear_conflicts scope_ctx) args in
     let _, body' = aux body_ctx body in
     let cont_ctx, fn' = map_binder scope_ctx fn in
     let t' = ret (body' == body && args == args' && fn == fn')
@@ -107,7 +108,7 @@ let rec map_vars
 
   | Trm_typedef td ->
     (* Class namespace *)
-    let class_ctx = ref (Qualified_set.empty, snd scope_ctx) in
+    let class_ctx = ref (clear_conflicts scope_ctx) in
     let body' = begin match td.typdef_body with
     | Typdef_alias _ -> td.typdef_body
     | Typdef_record rfl ->
@@ -146,7 +147,7 @@ let rec map_vars
     (scope_ctx, trm_map ~keep_ctx:true map_f t)
 
 (** internal *)
-let toplevel_scope_ctx (): scope_ctx = Qualified_set.empty, !toplevel_vars
+let toplevel_scope_ctx (): scope_ctx = Qualified_set.empty, !toplevel_free_vars
 
 (** internal *)
 let check_map_var ((_conflict_set, var_ids) : scope_ctx) (annot, loc, typ, ctx, kind) var =
@@ -183,7 +184,7 @@ let infer_map_var ((conflict_set, var_ids) : scope_ctx) (annot, loc, typ, ctx, k
   if var.id = -1 then
     trm_var ~annot ?loc ?typ ~ctx ~kind begin match Qualified_map.find_opt qualified var_ids with
     | Some id -> { qualifier = var.qualifier; name = var.name; id }
-    | None -> toplevel_var ~qualifier:var.qualifier var.name
+    | None -> toplevel_free_var ~qualifier:var.qualifier var.name
     end
   else check_map_var (conflict_set, var_ids) (annot, loc, typ, ctx, kind) var
 

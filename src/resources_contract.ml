@@ -32,9 +32,9 @@ type contract_clause_type =
 type contract_resource = var option * formula
 
 (* CHECK: #var-id *)
-let var_has_model = trm_toplevel_var "_HasModel"
-let var_read_only = trm_toplevel_var "_RO"
-let var_frac = trm_toplevel_var "_Fraction"
+let var_has_model = trm_toplevel_free_var "_HasModel"
+let var_read_only = trm_toplevel_free_var "_RO"
+let var_frac = trm_toplevel_free_var "_Fraction"
 let full_frac = trm_int 1
 
 let formula_model (x: trm) (model: formula): formula =
@@ -72,7 +72,7 @@ let formula_cell (x: var): formula =
   formula_model (trm_var x) var_cell
 
 let formula_matrix (x: var) (dims: trms) : formula =
-  let matrixN = trm_toplevel_var (sprintf "Matrix%d" (List.length dims)) in
+  let matrixN = trm_toplevel_free_var (sprintf "Matrix%d" (List.length dims)) in
   formula_model (trm_var x) (trm_apps matrixN dims)
 
 type contract_clause = contract_clause_type * contract_resource
@@ -133,8 +133,8 @@ let push_loop_contract_clause (clause: contract_clause_type)
   | _ -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
 
 (* CHECK: #var-id *)
-let var_group = trm_toplevel_var "Group"
-let var_range = trm_toplevel_var "range"
+let var_group = trm_toplevel_free_var "Group"
+let var_range = trm_toplevel_free_var "range"
 
 let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) (fi: formula) =
   if dir <> DirUp then failwith "formula_group_range only supports DirUp";

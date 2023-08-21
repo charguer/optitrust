@@ -3,8 +3,8 @@ open Target
 open Syntax
 
 let _ = Run.doc_script_cpp (fun () ->
-
-  !! Variable.delocalize "a" ~into:"x" ~index:"k" ~mark:"A" ~array_size:"N" ~ops:(Local_arith (Lit_int 0, Binop_add) ) [cFor "i"];
+  let a = find_var_in_current_ast "a" in
+  !! Variable.delocalize a ~into:"x" ~index:"k" ~mark:"A" ~array_size:(var "N") ~ops:(Local_arith (Lit_int 0, Binop_add) ) [cFor "i"];
 
 )
 "
@@ -28,15 +28,21 @@ int main(){
 
 let _ =  Run.script_cpp ( fun () ->
 
-  !! Variable.delocalize "a" ~into:"x" ~index:"k" ~mark:"A" ~array_size:"N" ~ops:(Local_arith (Lit_int 0, Binop_add) ) [cFor "i"];
+  let a = find_var_in_current_ast "a" in
+  !! Variable.delocalize a ~into:"x" ~index:"k" ~mark:"A" ~array_size:(var "N") ~ops:(Local_arith (Lit_int 0, Binop_add) ) [cFor "i"];
   !! Trace.alternative (fun () ->
-    !! Variable.local_name "a" ~into:"x" ~mark:"section_of_interest" [cFor "i"];
-    !! Variable_basic.delocalize  ~array_size:"N" ~ops:(Local_arith (Lit_int 0, Binop_add)) [cMark "section_of_interest"] ;
+    !! Variable.local_name a ~into:"x" ~mark:"section_of_interest" [cFor "i"];
+    !! Variable_basic.delocalize  ~array_size:(var "N") ~ops:(Local_arith (Lit_int 0, Binop_add)) [cMark "section_of_interest"] ;
     !! ());
-  !! Variable.delocalize "a" ~into:"y" ~index:"k" ~mark:"B" ~array_size:"N" ~ops:(Local_obj ("clean", "transfer", "")) [cFor "j"];
+  let ops = Local_obj (
+    name_to_var "clean",
+    name_to_var "transfer",
+    name_to_var ""
+  ) in
+  !! Variable.delocalize a ~into:"y" ~index:"k" ~mark:"B" ~array_size:(var "N") ~ops [cFor "j"];
   !! Trace.alternative (fun () ->
-    !! Variable.local_name  "a" ~into:"x" ~mark:"section_of_interest" [cFor "i"];
-    !! Variable_basic.delocalize  ~array_size:"N" ~ops:(Local_obj ("clean", "transfer", "")) [cMark "section_of_interest"] ;
+    !! Variable.local_name  a ~into:"x" ~mark:"section_of_interest" [cFor "i"];
+    !! Variable_basic.delocalize  ~array_size:(var "N") ~ops [cMark "section_of_interest"] ;
     !! ());
 
 )

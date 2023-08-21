@@ -208,7 +208,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
         let func = trm_let_fun x typ_ret targs body in
         find_var x func
 
-    | Trm_var (_, x1), Trm_var (_, x2) when x1 = x2 -> ()
+    | Trm_var (_, x1), Trm_var (_, x2) when var_eq x1 x2 -> ()
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 

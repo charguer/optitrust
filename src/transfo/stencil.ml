@@ -115,14 +115,20 @@ let collect_writes (p : path) : Var_set.t =
  [overlaps]: list of [var, overlap] pairs, where [var] is a variable being written to by a loop, that needs to be produced in tiles of [tile_size + overlap] due to following dependencies.
  [outputs]: list of variables to keep alive after the stencil chain is fused.
  *)
-let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)) list = []) ~(outputs : var list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = true) (tg : target) : unit =
+let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (string * (trm list)) list = []) ~(outputs : string list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = true) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   let outer_loop_count = List.length tile in
   let surrounding_sequence = ref None in
+  let overlaps': (var * (trm list)) list ref = ref [] in
+  let outputs': Var_set.t ref = ref Var_set.empty in
   let must_be_in_surrounding_sequence p =
     let (_, p_seq) = Path.index_in_seq p in
     match !surrounding_sequence with
-    | None -> surrounding_sequence := Some p_seq
+    | None ->
+      surrounding_sequence := Some p_seq;
+      let find_var = find_var_in_current_ast ~target:(target_of_path p_seq) in
+      overlaps' := List.map (fun (v_name, l) -> (find_var v_name, l)) overlaps;
+      outputs' := Var_set.of_list (List.map find_var outputs);
     | Some p_seq' -> assert (p_seq = p_seq')
   in
   Marks.with_fresh_mark (fun to_fuse ->
@@ -137,7 +143,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)
       let overlap_tile =
         begin match List.find_opt (fun (w, _) ->
           Var_set.mem w writes
-        ) overlaps with
+        ) !overlaps' with
         | Some (w, ot) -> ot
         | None -> List.map (fun _ -> trm_int 0) tile
         end
@@ -174,7 +180,7 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)
     (* Debug_transfo.current_ast_at_target "after fusion" [nbMulti; cMark to_fuse]; *)
     (* 3. reduce temporary storage *)
     let surrounding_seq = Tools.unsome !surrounding_sequence in
-    let local_memory = Var_map.filter (fun v _ -> not (List.mem v outputs)) !all_writes in
+    let local_memory = Var_map.filter (fun v _ -> not (Var_set.mem v !outputs')) !all_writes in
     let fused_p = path_of_target_mark_one_current_ast to_fuse in
     let outer_loop_indices = Loop.get_indices outer_loop_count fused_p in
     let reduce_local_memory var (sizes, _) =
@@ -198,6 +204,6 @@ let%transfo fusion_targets_tile (tile : trm list) ?(overlaps : (var * (trm list)
     Var_map.iter reduce_local_memory local_memory
   )
 
-let fusion_targets ~(nest_of : int) ?(overlaps : (var * (trm list)) list = []) ~(outputs : var list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = false) (tg : target) : unit =
+let fusion_targets ~(nest_of : int) ?(overlaps : (string * (trm list)) list = []) ~(outputs : string list) ?(simpl : Transfo.t = Arith.default_simpl) ?(fuse_inner_loops : bool = false) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   fusion_targets_tile (List.init nest_of (fun _ -> trm_int 1)) ~overlaps ~outputs ~simpl ~fuse_inner_loops tg

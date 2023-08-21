@@ -1,3 +1,8 @@
+# #var-id
+apac_insert_tasks_naive.ml
+apac_parallel_task_group.ml
+apac_sync_with_taskwait.ml
+
 # TO FIX:
 apac_constify_functions_arguments.ml
 array_elim_constant.ml

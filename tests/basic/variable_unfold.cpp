@@ -7,11 +7,11 @@ int main() {
   const int a = 2;
   const int b = a + a;
 
-  
+
   int c = 3;
   int d = c + c;
-  
-  
+
+
   int& e = c;
   d = e + e;
 
@@ -19,7 +19,7 @@ int main() {
   // inlining of function
   const int e1 = f(2);
 
-  
+
 
   return 0;
 }

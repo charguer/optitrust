@@ -348,12 +348,12 @@ let stack_copy_on (name : var) (stack_name : string) (d : int) (t : trm) : trm =
     typ_array acc (Trm i)
   ) typ new_dims in
   let copy_offset = trm_array_access (trm_var_get name) (mindex dims (common_indices @ (List.init d (fun _ -> trm_int 0)))) in
-  let copy_size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string array_typ) ^ ")") in
+  let copy_size = trm_toplevel_free_var ("sizeof(" ^ (AstC_to_c.typ_to_string array_typ) ^ ")") in
   trm_seq_no_brace [
     trm_let_mut (stack_var, array_typ) (trm_uninitialized ());
-    trm_apps (trm_toplevel_var "memcpy") [trm_var_get stack_var; copy_offset; copy_size];
+    trm_apps (trm_toplevel_free_var "memcpy") [trm_var_get stack_var; copy_offset; copy_size];
     new_t;
-    trm_apps (trm_toplevel_var "memcpy") [copy_offset; trm_var_get stack_var; copy_size];
+    trm_apps (trm_toplevel_free_var "memcpy") [copy_offset; trm_var_get stack_var; copy_size];
   ]
 
 let%transfo stack_copy ~(var : var) ~(copy_var : string) ~(copy_dims : int) (tg : target) : unit =

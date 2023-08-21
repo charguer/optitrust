@@ -20,7 +20,7 @@ let inline_array_access (array_var : var) (new_vars : vars) (t : trm) : trm =
             else (trm_var (List.nth new_vars i))
         | Trm_apps ({desc = Trm_var (_, x); _}, _) when var_has_name x "ANY" ->
           let nb_vars = List.length new_vars in
-          trm_address_of (trm_apps (trm_toplevel_var "CHOOSE") ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var_get new_vars)))
+          trm_address_of (trm_apps (trm_var (name_to_var "CHOOSE")) ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var_get new_vars)))
         | _ -> fail index.loc "Arrays_core.inline_array_access: only integer indices are supported"
         end
       | _ ->  trm_map aux t
@@ -142,7 +142,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
     let new_size (t_size : trm) : trm =
       if AstC_to_c.ast_to_string t_size =
          "sizeof(" ^ AstC_to_c.typ_to_string base_type ^ ")"
-      then trm_toplevel_var ("sizeof(" ^ block_name ^ ")")
+      then trm_toplevel_free_var ("sizeof(" ^ block_name ^ ")")
       else trm_apps (trm_binop Binop_mul) [trm_var block_size; t_size]
     in
     let new_alloc (t_alloc : trm) : trm =

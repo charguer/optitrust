@@ -130,7 +130,7 @@ let%transfo insert_and_fold ~name:(name : string) ~typ:(typ : typ) ~value:(value
 
 let%transfo delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : local_ops = Local_arith (Lit_int 0, Binop_add) )
    (ov : var) ~(into : string)
-  ~(array_size : var) (tg : target) : unit =
+  ~(array_size : trm) (tg : target) : unit =
   let middle_mark = match mark with | None -> Mark.next () | Some m -> m in
   Variable_basic.local_name ~mark:middle_mark ov ~into tg;
   Variable_basic.delocalize ~index ~array_size ~ops [cMark middle_mark];
@@ -146,7 +146,7 @@ let%transfo delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "secti
    (ov : var) ~(into : string)  ~(array_size : var)
   ~local_vars:(lv : string list) (tg : target) : unit =
   Variable_basic.local_name ~mark ov ~into tg;
-  Variable_basic.delocalize ~index ~array_size ~ops [cMark mark];
+  Variable_basic.delocalize ~index ~array_size:(trm_var array_size) ~ops [cMark mark];
   Variable_basic.unfold ~at:[cFor index] [nbAny;cVarDef array_size.name];
   Loop_basic.unroll ~braces:false [nbMulti ;cFor index];
   Arrays_basic.to_variables  lv [cVarDef into];
@@ -185,8 +185,7 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
   ) tg;
   let vk = if const then Var_immutable else Var_mutable in
   let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let_array vk (x, typ_double ()) (Const nb_paths) (trm_array (Mlist.of_list (Array.to_list all_values.(id_var))))) pattern_vars in
-  (* FIXME: #advanced-scoping-check *)
-  Nobrace_transfo.remove_after ~check_scoping:false (fun _ ->
+  Nobrace_transfo.remove_after (fun _ ->
     Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([tBefore] @ (target_of_path !path_to_surrounding_seq) @ [dSeqNth !minimal_index]))
   )
 

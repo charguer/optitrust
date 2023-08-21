@@ -66,15 +66,15 @@ let set_inv (t : trm) : (trm * trms * trms * trm)  option =
 let alloc ?(init : trm option) (dims : trms) (size : trm) : trm =
   let n = List.length dims in
   match init with
-  | Some _ -> trm_apps (trm_toplevel_var ("CALLOC" ^  (string_of_int n))) (dims @ [size])
-  | None -> trm_apps (trm_toplevel_var ("MALLOC" ^  (string_of_int n))) (dims @ [size])
+  | Some _ -> trm_apps (trm_var (name_to_var ("CALLOC" ^  (string_of_int n)))) (dims @ [size])
+  | None -> trm_apps (trm_var (name_to_var ("MALLOC" ^  (string_of_int n)))) (dims @ [size])
 
 
 let alloc_with_ty ?(annot : trm_annot = trm_annot_default) (dims : trms) (ty : typ) : trm =
   let n = List.length dims in
-  let size = trm_toplevel_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
+  let size = trm_toplevel_free_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
   trm_cast ~annot (typ_ptr Ptr_kind_mut ty) (
-    trm_apps (trm_toplevel_var ("MALLOC" ^  (string_of_int n))) (dims @ [size]))
+    trm_apps (trm_toplevel_free_var ("MALLOC" ^  (string_of_int n))) (dims @ [size]))
 
 let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
   Option.bind (trm_new_inv t) (fun (_, t2) ->
@@ -93,7 +93,7 @@ let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
      the memory and [alignment] is the alignment size. *)
 let alloc_aligned (dims : trms) (size : trm) (alignment : trm)  : trm =
   let n = List.length dims in
-  trm_apps (trm_toplevel_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
+  trm_apps (trm_toplevel_free_var ("MALLOC_ALIGNED" ^  (string_of_int n))) (dims @ [size; alignment])
 
 
 (* [zero_initialized]: a boolean type used as flag to tell if the array cells should be initialized to zero or not. *)
@@ -131,7 +131,7 @@ let vardef_alloc_inv (t : trm) : (var * typ * trms * trm * zero_initialized) opt
 
 let free (dims : trms) (t : trm) : trm =
   let n = List.length dims in
-  trm_apps (trm_toplevel_var ("MFREE" ^  (string_of_int n))) (dims @ [t])
+  trm_apps (trm_var (name_to_var ("MFREE" ^  (string_of_int n)))) (dims @ [t])
 
 let free_inv (t : trm) : trm option =
   Option.bind (trm_apps_inv t) (fun (f, args) ->
@@ -308,9 +308,9 @@ let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc
         trm_set (access (trm_var_get local_var) dims indices) (trm_get (access (trm_var_get var) dims indices)) in
       let write_on_var =
         trm_set (access (trm_var_get var) dims indices) (trm_get (access (trm_var_get local_var) dims indices)) in
-      let snd_instr = trm_fors nested_loop_range write_on_local_var in
+      let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
       let new_t = Subst.subst_var var (trm_var local_var) t in
-      let thrd_instr = trm_fors nested_loop_range write_on_var in
+      let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
       let last_instr = free dims (trm_var_get local_var) in
       let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
       begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
@@ -321,10 +321,10 @@ let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc
         trm_apps (trm_var swap) [access (trm_var_get var) dims indices; access (trm_var_get local_var) dims indices] in
       let free_local_var =
         trm_apps (trm_var free_fn)  [access (trm_var_get local_var) dims indices] in
-      let snd_instr = trm_fors nested_loop_range write_on_local_var in
+      let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
       let new_t = Subst.subst_var var (trm_var local_var) t in
-      let thrd_instr = trm_fors nested_loop_range write_on_var in
-      let frth_instr = trm_fors nested_loop_range free_local_var in
+      let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
+      let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
       let last_instr = free dims (trm_var_get local_var) in
       let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr] in
       begin match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm end
@@ -357,8 +357,8 @@ let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var 
         trm_set (access (trm_var_get local_var) tile_dims tile_indices) (trm_get (access (trm_var_get var) dims indices)) in
       let write_on_var =
         trm_set (access (trm_var_get var) dims indices) (trm_get (access (trm_var_get local_var) tile_dims tile_indices)) in
-      let load_for = trm_fors nested_loop_range write_on_local_var in
-      let unload_for = trm_fors nested_loop_range write_on_var in
+      let load_for = trm_copy (trm_fors nested_loop_range write_on_local_var) in
+      let unload_for = trm_copy (trm_fors nested_loop_range write_on_var) in
       let free_instr = free tile_dims (trm_var_get local_var) in
       trm_seq_no_brace [alloc_instr; load_for; new_t; unload_for; free_instr]
     | Local_obj (init, swap, free_fn) ->
@@ -368,9 +368,9 @@ let local_name_tile_aux (mark : mark option) (mark_accesses : mark option) (var 
         trm_apps (trm_var swap) [access (trm_var_get var) dims indices; access (trm_var_get local_var) tile_dims tile_indices] in
       let free_local_var =
         trm_apps (trm_var free_fn)  [access (trm_var_get local_var) tile_dims tile_indices] in
-      let snd_instr = trm_fors nested_loop_range write_on_local_var in
-      let thrd_instr = trm_fors nested_loop_range write_on_var in
-      let frth_instr = trm_fors nested_loop_range free_local_var in
+      let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
+      let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
+      let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
       let last_instr = free tile_dims (trm_var_get local_var) in
       trm_seq_no_brace [alloc_instr; snd_instr; new_t; thrd_instr; frth_instr; last_instr]
   end in
@@ -474,7 +474,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let ps2 = resolve_target tg thrd_instr in
                   let new_thrd_instr =
                     List.fold_left (fun acc p ->
-                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_toplevel_var "ANY") [dim]))) acc p
+                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var (name_to_var "ANY")) [dim]))) acc p
                     ) thrd_instr ps2 in
 
                   let new_frth_instr =
@@ -486,7 +486,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                      if label_to_add = "" then fifth_instr else trm_add_label label_to_add fifth_instr
                       else fifth_instr in
 
-                    trm_seq ~annot:t.annot (Mlist.of_list [new_fst_instr; new_snd_instr; new_thrd_instr; new_frth_instr; new_fifth_instr])
+                    trm_seq ~annot:t.annot (Mlist.of_list [new_fst_instr; trm_copy new_snd_instr; new_thrd_instr; trm_copy new_frth_instr; new_fifth_instr])
                   | _ -> fail set_instr.loc "Matrix_core.delocalize_aux"
                   end
                 | Local_obj (_init_f, _merge_f, free_f) ->
@@ -515,7 +515,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   let ps2 = resolve_target tg thrd_instr in
                   let new_thrd_instr =
                     List.fold_left (fun acc p ->
-                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_toplevel_var "ANY") [dim]))) acc p
+                      apply_on_path (insert_access_dim_index_aux dim (trm_add_mark any_mark (trm_apps (trm_var (name_to_var "ANY")) [dim]))) acc p
                     ) thrd_instr ps2 in
 
                   let frth_instr = Mlist.nth tl 3 in
@@ -546,7 +546,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
 
                   let sixth_instr = Mlist.nth tl 5 in
                     let final_groups =
-                      if List.length labels = 0 then [new_fst_instr; new_snd_instr; new_thrd_instr; new_frth_instr; new_fifth_instr; sixth_instr]
+                      if List.length labels = 0 then [new_fst_instr; trm_copy new_snd_instr; new_thrd_instr; trm_copy new_frth_instr; trm_copy new_fifth_instr; sixth_instr]
                        else List.mapi ( fun i lb ->
                         let new_subsgroup = if i = 0
                           then trm_seq_no_brace [new_fst_instr; new_snd_instr]

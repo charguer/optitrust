@@ -1,14 +1,13 @@
 
 open Optitrust
 open Target
-
+(*
 let _ = Run.doc_script_cpp (fun _ ->
 
   !! Variable_basic.fold ~at:[cVarDef "q"] [cVarDef "p"];
   !! Variable_basic.fold ~at:[cVarDef "x"] [cVarDef "p"];
 
 )
-
 "
 int main() {
   int t[2];
@@ -18,6 +17,7 @@ int main() {
 }
 "
 
+*)
 let _ = Run.script_cpp (fun _->
 
   (* Example with pointers *)

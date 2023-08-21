@@ -1,9 +1,68 @@
 open Ast
 open Trm
 
+(** Erase variable identifiers, useful for e.g. embedding a subexpression in a new context. *)
+let erase_var_ids (t : trm) : trm =
+  let rec aux t =
+    match trm_var_inv t with
+    | Some x -> trm_var ~annot:t.annot ?loc:t.loc ?typ:t.typ ~ctx:t.ctx (name_to_var ~qualifier:x.qualifier x.name)
+    | _ -> trm_map aux t
+  in
+  aux t
+
+(** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
+let refresh_var_ids (t : trm) : trm =
+  let map_binder var_map v =
+    assert (not (Var_map.mem v var_map));
+    let new_v = new_var ~qualifier:v.qualifier v.name in
+    (Var_map.add v new_v var_map, new_v)
+  in
+  let map_var var_map (annot, loc, typ, ctx, kind) v =
+    let new_v =
+      if v.id = -1 then v
+      else match Var_map.find_opt v var_map with
+      | Some nv -> nv
+      | None -> v
+    in
+    trm_var ~annot ?loc ?typ ~ctx new_v
+  in
+  trm_map_vars map_binder map_var Var_map.empty t
+
+(* LATER: #var-id, flag to disable check for performance *)
+let check_unique_var_ids (t : trm) : unit =
+  (* LATER: refactor with function mapping over bindings? *)
+  let vars = ref Var_set.empty in
+  let add_var v =
+    if Var_set.mem v !vars then
+      failwith (sprintf "variable '%s' is not declared with a unique id" (var_to_string v));
+    vars := Var_set.add v !vars
+  in
+  let rec aux t =
+    begin match t.desc with
+    | Trm_let (_, (x, _), _, _) ->
+      add_var x
+    | Trm_let_mult (_, tvs, _) ->
+      List.iter (fun (x, _) -> add_var x) tvs
+    | Trm_let_fun (x, _, _, _, _) ->
+      add_var x
+    | Trm_for ((x, _, _, _, _, _), _, _) ->
+      add_var x
+    (* | Trm_typedef td -> *)
+    | _ -> ()
+    end;
+    trm_iter aux t
+  in
+  aux t
+
 (* TODO: deal with OCaml and other languages *)
-let infer_var_ids = C_scope.infer_var_ids
-let check_var_ids = C_scope.check_var_ids
+let infer_var_ids t =
+ let t2 = C_scope.infer_var_ids t in
+ check_unique_var_ids t2;
+ t2
+
+let check_var_ids t =
+  C_scope.check_var_ids t;
+  check_unique_var_ids t
 
 let trm_let_or_let_fun_inv t =
   match trm_let_inv t with

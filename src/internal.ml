@@ -47,7 +47,8 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
     if same_trm t' t_before then
-      t_after
+      (* FIXME: #var-id, should be trm_copy rather than refresh_var_ids *)
+      Scope.refresh_var_ids t_after
       else trm_map apply_change t'
       in
   if change_at = [[]] then
@@ -296,8 +297,8 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
             end) None rfs
           | _ -> None
           end
-    | Trm_let (_, (y, _), _, _) when y = x -> Some t1
-    | Trm_let_fun (y, _, _, body, _) when y = x ->
+    | Trm_let (_, (y, _), _, _) when var_eq y x -> Some t1
+    | Trm_let_fun (y, _, _, body, _) when var_eq y x ->
       if require_body then begin
         match body.desc with
         | Trm_seq _ -> Some t1 (* LATER: we might want to test insted if body.desc <> trm_uninitialized or something like that *)
@@ -322,9 +323,9 @@ let toplevel_decl ?(require_body:bool=false) (x : var) : trm option =
 let rec local_decl (x : var) (t : trm) : trm option =
   match t.desc with
   (* DEPRECATED: | Trm_typedef td when td.typdef_tconstr = x -> Some t *)
-  | Trm_let (_, (y, _), _, _) when y = x -> Some t
+  | Trm_let (_, (y, _), _, _) when var_eq y x -> Some t
   | Trm_let_fun (y, _, _, body, _) ->
-    if y = x then Some t else local_decl x body
+    if var_eq y x then Some t else local_decl x body
   | Trm_seq tl ->
     Mlist.fold_left(
       fun acc t1 ->
@@ -402,7 +403,7 @@ let rename_record_fields (rename_fun : string -> string ) (rfs : record_fields) 
     | Record_field_method t ->
       begin match t.desc with
       | Trm_let_fun (fn, ret_ty, args, body, contract) ->
-        let new_fn = Trm.new_var ~qualifier:fn.qualifier fn.name in
+        let new_fn = { qualifier = fn.qualifier; name = (rename_fun fn.name); id = fn.id } in
         let new_t = trm_alter  ~desc:(Trm_let_fun (new_fn, ret_ty, args, body, contract)) t in
         Record_field_method new_t
       | _ -> fail t.loc "Internal.rename_record_fields: record member not supported."
@@ -518,7 +519,7 @@ let fix_class_member_accesses (class_name : var) (t : trm) : trm =
     match struct_get_inv t with
     | Some (base, field) ->
       begin match base.desc with
-      (* FIXME: #this-id *)
+      (* FIXME: use var id? *)
       | Trm_var (_, qn) when var_has_name qn "this" ->
         trm_struct_get ~annot:t.annot (trm_var_get class_name) field
       | _ -> trm_map aux t

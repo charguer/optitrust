@@ -4,11 +4,15 @@ include Typ
 include Mark
 include Target
 
+(* FIXME: #var-id, move elsewhere. *)
+let trm_copy = Scope.refresh_var_ids
+
 let trm_seq_no_brace = Nobrace.trm_seq
 
 (* TODO: reflect on the API implications of #var-id (e.g. where this function is called) *)
 let find_var_in_current_ast ?(target : target = []) (name : string) : var =
-  let t = Trace.ast () in
+  (* LATER: make var id inference incremental? *)
+  let t = Scope.infer_var_ids (Trace.ast ()) in
   let vars =
     if target = [] then trm_def_or_used_vars t
     else List.fold_left (fun acc p ->
@@ -23,9 +27,11 @@ let find_var_in_current_ast ?(target : target = []) (name : string) : var =
 
 (* [AstParser]: module for integrating pieces of code given as input by the user. *)
 module AstParser = struct
-  let var v = trm_var (find_var_in_current_ast v)
+  let var v = trm_var (name_to_var v)
+  (* DEPRECATED: (find_var_in_current_ast v) *)
 
-  let var_mut v = trm_var_get (find_var_in_current_ast v)
+  let var_mut v = trm_var_get (name_to_var v)
+  (* DEPRECATED: (find_var_in_current_ast v) *)
 
   let lit l = code (Lit l)
 

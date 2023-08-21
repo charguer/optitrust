@@ -1,5 +1,4 @@
 open Syntax
-open Target
 
 (* [fold_aux as_reference fold_at index t]: fold the targeted variable declaration,
       [fold_at] - target where folding should be performed, if left empty
@@ -267,7 +266,7 @@ let local_name (mark : mark) (curr_var : var) (local_var : string) : Transfo.loc
              and the fold_lefting operation used for the reduction,
       [index] - the index for the two added loops,
       [t] - the ast of the sequence generated after applying the local_name transformation. *)
-let delocalize_aux (array_size : var) (ops : local_ops) (index : string) (t : trm) : trm =
+let delocalize_aux (array_size : trm) (ops : local_ops) (index : string) (t : trm) : trm =
   let index = Trm.new_var index in
   let error = "Variable_core.delocalize_aux: expected the nobrace sequence." in
   let tl = trm_inv ~error trm_seq_inv t in
@@ -294,15 +293,15 @@ let delocalize_aux (array_size : var) (ops : local_ops) (index : string) (t : tr
               trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index])]
       end in
       let new_first_trm = trm_seq_no_brace[
-          trm_let_array vk (local_var, var_type) (Trm (trm_var array_size)) (trm_uninitialized ());
+          trm_let_array vk (local_var, var_type) (Trm array_size) (trm_uninitialized ());
           trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]) (trm_get curr_var_trm);
-          trm_for (index, (trm_int 1), DirUp, (trm_var array_size), Post_inc, false)
-         (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index]) init_trm])]
+          trm_copy (trm_for (index, (trm_int 1), DirUp, array_size, Post_inc, false)
+         (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index]) init_trm]))]
           in
-      let new_snd_instr = Subst.subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_apps (trm_toplevel_var "ANY") [trm_var array_size] ]) snd_instr  in
+      let new_snd_instr = Subst.subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_apps (trm_var (name_to_var "ANY")) [array_size] ]) snd_instr  in
       let new_thrd_trm = trm_seq_no_brace [
                       trm_set (curr_var_trm) (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]));
-                      trm_for (index, (trm_int 1), DirUp, (trm_var array_size), Post_inc, false) (trm_seq_nomarks [op])
+                      trm_for (index, (trm_int 1), DirUp, array_size, Post_inc, false) (trm_seq_nomarks [op])
                      ] in
       let new_tl = (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) in
       { t with desc = Trm_seq new_tl}
@@ -313,7 +312,7 @@ let delocalize_aux (array_size : var) (ops : local_ops) (index : string) (t : tr
 
 
 (* [delocalize array_size ops index t p]: applies [delocalize_aux] at trm [t] with path [p]. *)
-let delocalize (array_size : var) (ops : local_ops) (index : string) : Transfo.local =
+let delocalize (array_size : trm) (ops : local_ops) (index : string) : Transfo.local =
   apply_on_path (delocalize_aux array_size ops index )
 
 

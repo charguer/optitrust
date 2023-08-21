@@ -1,8 +1,8 @@
 open Optitrust
-open Target
+open Syntax
 
 
-let _ = Run.doc_script_cpp (fun () -> 
+let _ = Run.doc_script_cpp (fun () ->
 
   !! Align.alloc (lit "64") [cFun "MALLOC1"];
 
@@ -19,7 +19,7 @@ int main (){
 
   const int N = 10;
   int *p = (int *) MALLOC1(N, sizeof(int));
-  
+
   return 0;
 }
 "

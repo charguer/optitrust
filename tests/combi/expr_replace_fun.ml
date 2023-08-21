@@ -1,10 +1,11 @@
 open Optitrust
-open Target
+open Syntax
 
 
 let _ = Run.doc_script_cpp (fun _ ->
 
-  !! Expr_basic.replace_fun "g" [cFun "f"];
+  let g = find_var_in_current_ast "g" in
+  !! Expr_basic.replace_fun g [cFun "f"];
 
 )
 
@@ -21,11 +22,12 @@ int main() {
 
 
 let _ = Run.script_cpp (fun _ ->
- 
+
+  let fv = find_var_in_current_ast in
   (* replace the function call to "f" with a function call to "f1" *)
-  !! Expr.replace_fun ~inline:true "f1" [cFun "f"];
-  !! Expr.replace_fun "f" [cFun "f1"];
-  !! Expr.replace_fun ~inline:true "f3" [cFun "f2"];
-  !! Expr.replace_fun "f2" [cFun "f3"];
+  !! Expr.replace_fun ~inline:true (fv "f1") [cFun "f"];
+  !! Expr.replace_fun (fv "f") [cFun "f1"];
+  !! Expr.replace_fun ~inline:true (fv "f3") [cFun "f2"];
+  !! Expr.replace_fun (fv "f2") [cFun "f3"];
 
 )

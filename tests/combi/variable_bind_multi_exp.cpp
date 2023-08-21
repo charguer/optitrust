@@ -6,7 +6,7 @@ int main() {
   int t = 0;
   int b = 2 + s;
   for (int j = 0; j < 3; j++) {
-    t += b;
+    /*no-brace*/ { t += b; }
     t += b;
   }
   int r = (4 + 3) * (4 + 3) + (4 + 4) * (4 + 4);

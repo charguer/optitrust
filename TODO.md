@@ -351,6 +351,7 @@ grep -r '[tag]' .
 
 - #advanced-scoping-check
 - #var-id
+  - Some APIs need to evolve, picking between string or var
   - because we have var-id, can replace combi cVar/cFor/cFun name queries with id queries
   - #var-id-dir-name
   - #this-id

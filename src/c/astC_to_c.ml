@@ -432,7 +432,10 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
           else if trm_is_nobrace_seq t
             then
             let dl = List.map (decorate_trm ~semicolon:true) tl in
-            dattr ^^ separate hardline dl
+            (* CHECK: #var-id, made nobrace visible *)
+            (* DEBUG: let nb = string (sprintf "/*no-brace %d*/" (Option.get (Nobrace.get_id t))) in *)
+            let nb = string "/*no-brace*/" in
+            nb ^^ surround 2 1 lbrace (dattr ^^ separate hardline dl) rbrace
           else if trm_is_include t then empty
           else
             let counter = ref (-1) in

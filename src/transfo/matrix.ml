@@ -142,8 +142,8 @@ let%transfo elim_mops (tg : target): unit =
    varsion of [Matrix_basic.delocalize], this transformation first calls Matrix_basi.local_name to create the isolated
     environment where the delocalizing transformatino is going to be performed *)
 let%transfo delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option)
-  ?(last : bool = false)  ?(use : trm option) (var : var) ~(into : string) ~dim:(dim : trm)  ~index:(index : string)
-  ?(indices : string list = []) ~ops:(ops : local_ops) ?(alloc_instr : target option) ?(labels : label list = []) ?(dealloc_tg : target option) (tg : target) : unit =
+  ?(last : bool = false)  ?(use : trm option) (var : var) ~(into : string) ~(dim : trm)  ~(index : string)
+  ?(indices : string list = []) ~(ops : local_ops) ?(alloc_instr : target option) ?(labels : label list = []) ?(dealloc_tg : target option) (tg : target) : unit =
 
     let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
     let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
