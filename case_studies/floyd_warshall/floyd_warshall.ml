@@ -32,11 +32,7 @@ let _ = Run.script_cpp (fun () ->
   bigstep "optimize loop k=i";
   !! Sequence.intro ~mark:"k=i-loop" ~start:[tBefore; occIndex 2; cFor "i"] ~stop:[tAfter; occIndex 2; cFor "i"] ();
   !! Loop.isolate_first_iteration [cMark "k=i-loop"; cFor "i"]; (*cTarget*)
-  !! Expr.replace (expr "k") [occIndex 0; cMark "k=i-loop"; sExpr "k + 0"]; (*multi*)
-  !! Expr.replace (expr "k") [occIndex 0; cMark "k=i-loop"; sExpr "k + 0"]; (*multi*)
-  !! Expr.replace (expr "k") [occIndex 0; cMark "k=i-loop"; sExpr "k + 0"]; (*multi*)
-  !! Expr.replace (expr "k") [occIndex 0; cMark "k=i-loop"; sExpr "k + 0"]; (*multi*)
-  !! Expr.replace (expr "k") [occIndex 0; cMark "k=i-loop"; sExpr "k + 0"]; (*multi*)
+  !! Arith.(simpl_rec gather_rec) [];
   !! Sequence.delete [cMark "k=i-loop"; cFor "i"];
   !! Instr.move ~dest:[tBefore; cMark "k=i-loop"; cIf ~cond:[sExpr "k == k"] ()] [cMark "k=i-loop"; cArrayWrite "kj"];
   !! Sequence.delete [cMark "k=i-loop"; cIf ~cond:[sExpr "k == k"] ()];
@@ -54,10 +50,7 @@ let _ = Run.script_cpp (fun () ->
   !! Sequence.intro ~mark:"j=k-loop" ~start:[tBefore; occIndex 2; cFor "j"] ~stop:[tAfter; occIndex 2; cFor "j"] ();
   !! Loop.isolate_first_iteration [cMark "j=k-loop"; cFor "j"];
   !! Sequence.delete [cMark "j=k-loop"; cFor "j"];
-  !! Expr.replace (expr "k") [occIndex 0; cMark "j=k-loop"; sExpr "k + 0"]; (*multi*)
-  !! Expr.replace (expr "k") [occIndex 0; cMark "j=k-loop"; sExpr "k + 0"]; (*multi*)
-  !! Expr.replace (expr "k") [occIndex 0; cMark "j=k-loop"; sExpr "k + 0"]; (*multi*)
-  !! Expr.replace (expr "k") [occIndex 0; cMark "j=k-loop"; sExpr "k + 0"]; (*multi*)
+  !! Arith.(simpl_rec gather_rec) [];
   !! Instr.move ~dest:[tBefore; cMark "j=k-loop"; cIf ~cond:[sExpr "k == k"] ()] [cMark "j=k-loop"; cArrayWrite "ik"];
   !! Sequence.delete [cMark "j=k-loop"; cIf ~cond:[sExpr "k == k"] ()];
   !! Sequence.elim [cMark "j=k-loop"];
@@ -78,10 +71,7 @@ let _ = Run.script_cpp (fun () ->
   !! Sequence.intro ~mark:"j=k-loop" ~start:[tBefore; occIndex 5; cFor "j"] ~stop:[tAfter; occIndex 5; cFor "j"] ();
   !! Loop.isolate_first_iteration [cMark "j=k-loop"; cFor "j"];
   !! Sequence.delete [cMark "j=k-loop"; cFor "j"];
-  !! Expr.replace (expr "k") [occIndex 0; cMark "j=k-loop"; sExpr "k + 0"]; (*multi*)
-  !! Expr.replace (expr "k") [occIndex 0; cMark "j=k-loop"; sExpr "k + 0"]; (*multi*)
-  !! Expr.replace (expr "k") [occIndex 0; cMark "j=k-loop"; sExpr "k + 0"]; (*multi*)
-  !! Expr.replace (expr "k") [occIndex 0; cMark "j=k-loop"; sExpr "k + 0"]; (*multi*)
+  !! Arith.(simpl_rec gather_rec) [];
   !! Instr.move ~dest:[tBefore; cMark "j=k-loop"; cIf ~cond:[sExpr "k == k"] ()] [cMark "j=k-loop"; cArrayWrite "ik"];
   !! Sequence.delete [cMark "j=k-loop"; cIf ~cond:[sExpr "k == k"] ()];
   !! Sequence.elim [cMark "j=k-loop"];
