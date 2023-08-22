@@ -96,7 +96,7 @@ let next_var_int : unit -> int =
   Tools.fresh_generator()
 
 (* [fresh_var]: creates a variable name based on [next_var_int] generator *)
-let fresh_var_name ?(prefix : "_v") (): string =
+let fresh_var_name ?(prefix = "_v") (): string =
   let id = next_var_int () in
   prefix ^ string_of_int id
 

@@ -2,7 +2,7 @@ open Ast
 open Trm
 open Typ
 
-let debug = true
+let debug = false
 
 let debug_before_after_trm (msg : string) (f : trm -> trm) : trm -> trm =
   if debug then (fun t ->

@@ -57,8 +57,8 @@ void mm1024(float* C, float* A, float* B) {
           C[1024 * (32 * bi + i) + 32 * bj + j] = sum[32 * i + j];
         }
       }
-      MFREE2(32, 32, sum);
+      free(sum);
     }
   }
-  MFREE4(32, 256, 4, 32, pB);
+  free(pB);
 }

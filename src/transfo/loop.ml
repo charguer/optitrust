@@ -273,8 +273,6 @@ let targets_iter_with_loop_lists
   (f : int list -> path -> unit)
   (tg : target) : unit =
 begin
-  (* LATER: #var-id, find in loop nest rather than all subterm. *)
-  let indep = Var_set.of_list (List.map find_var_in_current_ast indep)in
   assert (dest <> []);
   Target.iter (fun t target_path ->
     let hoist_path = Target.resolve_target_exactly_one dest t in
@@ -293,7 +291,7 @@ begin
     let (rev_loop_list, _) = List.fold_left (fun (rev_loop_list, p) elem ->
       let new_rev_loop_list = match trm_for_inv (resolve_path_current_ast p) with
       | Some ((i, _start, _dir, _stop, _step, _par), _) ->
-        let loop_val = if Var_set.mem i indep then 0 else 1 in
+        let loop_val = if List.mem i.name indep then 0 else 1 in
         loop_val :: rev_loop_list
       | None -> rev_loop_list
       in
@@ -818,7 +816,7 @@ let%transfo reorder ?(order : string list = []) (tg : target) : unit =
    local variables will be hoisted ([Loop.hoist]),
    and surrounding instructions will be fissioned ([Loop.fission_all_instrs]).
    *)
-let rec bring_down_loop ?(is_at_bottom : bool = true) (index : var) (p : path): unit =
+let rec bring_down_loop ?(is_at_bottom : bool = true) (index : string) (p : path): unit =
   let hoist_all_allocs (tg : target) : unit =
     hoist_alloc_loop_list [1] (tg @ [nbAny; cStrict; cVarDef ""])
   in
@@ -831,8 +829,9 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : var) (p : path): 
       trm_for_inv loop_trm in
     (* Printf.printf "before i = '%s':\n%s\n" i (AstC_to_c.ast_to_string (Trace.ast ())); *)
     (* recursively bring the loop down if necessary *)
-    if i <> index then
+    if i.name <> index then begin
       bring_down_loop index ~is_at_bottom:false loop_path;
+    end;
     (* bring the loop down by one if necessary *)
     if not is_at_bottom then begin
       (* hoist all allocs and fission all instrs to isolate the
@@ -855,7 +854,7 @@ let%transfo reorder_at ?(order : string list = []) (tg : target) : unit =
   (* [remaining_loops]: sublist of [List.rev order]
      [p]: path to either the target instruction at [tg],
           or a surrounding for loop. *)
-  let rec aux (remaining_loops : vars) (p : path) : unit =
+  let rec aux (remaining_loops : string list) (p : path) : unit =
     match remaining_loops with
     | [] -> ()
     | loop_index :: rl -> begin
@@ -866,8 +865,8 @@ let%transfo reorder_at ?(order : string list = []) (tg : target) : unit =
       )
       end
   in
+  let remaining_loops = List.rev order in
   Target.iter (fun t p ->
-    let remaining_loops = List.rev_map (find_var_in_current_ast ~target:(target_of_path p)) order in
     aux remaining_loops p
   ) tg
 
