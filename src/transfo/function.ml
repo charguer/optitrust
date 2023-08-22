@@ -222,7 +222,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
     (fun i t (path_to_seq, local_path, i1) ->
       let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in
       let resname = ref resname in
-      if !resname = "" then resname := "__TEMP_Optitrust";
+      if !resname = "" then resname := sprintf "__res_%d" i;
       let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
       let path_to_call = path_to_instruction @ local_path in
 
@@ -266,7 +266,7 @@ let%transfo inline ?(resname : string = "") ?(vars : rename = AddSuffix "") ?(ar
               ));
               (* TODO: only with | TransfoError ? *)
               Marks.remove "__inline_instruction" [nbAny;cMark "__inline_instruction" ]
-            end
+            end;
           end else if not keep_res then
             ignore (Trace.backtrack_on_failure (fun () ->
               Variable.inline_and_rename ~simpl [nbAny; cMark "__inline_instruction"]

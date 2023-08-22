@@ -23,6 +23,11 @@ let swap_on (t : trm) : trm =
 (* [swap tg]: expects the target [tg] to point at a loop that contains an
    immediately-nested loop. The transformation swaps the two loops. *)
 let%transfo swap (tg : target) : unit =
-  apply_at_target_paths swap_on tg
+  apply_at_target_paths swap_on tg;
+  if !Flags.check_validity then begin
+    C_scope.check_var_ids (Trace.ast ());
+    (* TODO: check parallelisable as well
+       Trace.justif ""; *)
+  end
 
 let f = swap

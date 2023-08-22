@@ -127,7 +127,7 @@ let%transfo rename_args (new_args : var list) (tg : target) : unit =
 
 (* [replace_with_change_args new_fun_name arg_mapper tg]: expects the target [tg] to point at a function call, then it will
     replace the name of the called function with [new_fun_name] and apply [arrg_mapper] to its arguments. *)
-let%transfo replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) (tg : target) : unit =
+let%transfo replace_with_change_args (new_fun_name : var) (arg_mapper : trms -> trms) (tg : target) : unit =
    apply_on_targets (Function_core.replace_with_change_args new_fun_name arg_mapper) tg
 
 (* [dsp_def ~arg ~func tg]: expects the target [tg] to point at a function definition, then it will

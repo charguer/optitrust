@@ -96,11 +96,9 @@ let next_var_int : unit -> int =
   Tools.fresh_generator()
 
 (* [fresh_var]: creates a variable name based on [next_var_int] generator *)
-let fresh_var_name : unit -> string =
-  fun () -> (
-    let id = next_var_int () in
-    "_v" ^ string_of_int id
-  )
+let fresh_var_name ?(prefix : "_v") (): string =
+  let id = next_var_int () in
+  prefix ^ string_of_int id
 
 module Qualified_name = struct
   type t = string list * string

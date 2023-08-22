@@ -73,7 +73,7 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
         let fun_decl_arg_vars = fst (List.split args) in
         (* DEPRECATED: let fun_call_args = if trm_has_cstyle Method_call fun_call then snd (Xlist.uncons fun_call_args1) else fun_call_args1 in *)
         let fresh_args = List.map Internal.fresh_args fun_call_args in
-        let fun_decl_body = List.fold_left2 (fun acc x y -> Subst.subst_var x y acc) body fun_decl_arg_vars fresh_args in
+        let fun_decl_body = List.fold_left2 (fun acc x y -> Subst.subst_var x y acc) (trm_copy body) fun_decl_arg_vars fresh_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x (trm_may_add_mark subst_mark y) acc) fun_decl_body fresh_args fun_call_args in
         let name = match t.desc with | Trm_let (vk, (x, _), _, _) -> x| _ -> dummy_var in
         let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
@@ -175,14 +175,16 @@ let rename_args (vl : var list) : Transfo.local =
 (* [replace_with_change_args_aux new_fun_name arg_mapper t]: change the name of the called function and its arguments
       [new_fun_name] - the new name that is going to replace the current one,
       [arg_mapper] - a function to change the arguments. *)
-let replace_with_change_args_aux (new_fun_name : string) (arg_mapper : trms -> trms) (t : trm) : trm =
+let replace_with_change_args_aux (new_fun_name : var) (arg_mapper : trms -> trms) (t : trm) : trm =
   let error = "Function_core.replace_with_change_args_aux: expected a target to a function call" in
   let (f, args) = trm_inv ~error trm_apps_inv t in
+  (* to change name and keep qualifier/id:
   let fv = trm_inv ~error trm_var_inv f in
-  trm_replace (Trm_apps ((trm_var { qualifier = fv.qualifier; name = new_fun_name; id = fv.id }), arg_mapper args)) t
+  { qualifier = fv.qualifier; name = new_fun_name; id = fv.id } *)
+  trm_replace (Trm_apps ((trm_var new_fun_name), arg_mapper args)) t
 
 (* [replace_with_change_args new_fun_name arg_mapper t p]: applies [replace_with_change_args_aux] at trm [t] with path [p]. *)
-let replace_with_change_args (new_fun_name : string) (arg_mapper : trms -> trms) : Transfo.local =
+let replace_with_change_args (new_fun_name : var) (arg_mapper : trms -> trms) : Transfo.local =
   apply_on_path (replace_with_change_args_aux new_fun_name arg_mapper)
 
 (* [dsp_def_aux index arg func t]: changes the destination pasing style,

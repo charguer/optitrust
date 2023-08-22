@@ -26,20 +26,24 @@ let%transfo loop_align_stop_extend_start_like ~(orig:target) ?(nest_of : int = 1
   Trace.tag_valid_by_composition ();
   let orig_p = resolve_target_exactly_one orig (Trace.ast ()) in
   let ps = resolve_target tg (Trace.ast ()) in
-  let rec aux (nest_of : int) (orig_p : path) (ps : paths) =
+  let rec aux (nest_of : int) (orig_p : path) (ps : paths) (map_vars : tmap list) =
     if nest_of > 0 then begin
       (* is this a good idea? simplify original loop range before using it. *)
       Loop.simpl_range ~simpl (target_of_path orig_p);
       let t = Path.resolve_path orig_p (Trace.ast ()) in
       let error = "Stencil.loop_align_stop_extend_start_like: expected simple loop" in
-      let ((_index, start, _dir, stop, _step, _par), _body) = trm_inv ~error trm_for_inv t in
-      List.iter (fun p ->
-        loop_align_stop_extend_start ~start ~stop ~simpl (target_of_path p)
-      ) ps;
+      let ((index, start, _dir, stop, _step, _par), _body) = trm_inv ~error trm_for_inv t in
+      let map_vars' = List.map2 (fun p map_var ->
+        let start = Subst.subst map_var start in
+        let stop = Subst.subst map_var stop in
+        let ((tg_index, _, _, _, _, _), _) = trm_inv ~error trm_for_inv (Path.resolve_path p (Trace.ast ())) in
+        loop_align_stop_extend_start ~start ~stop ~simpl (target_of_path p);
+        Var_map.add index (trm_var tg_index) map_var
+      ) ps map_vars in
       aux (nest_of - 1) (Path.to_inner_loop orig_p)
-        (List.map Path.to_inner_loop ps)
+        (List.map Path.to_inner_loop ps) map_vars'
     end
-  in aux nest_of orig_p ps
+  in aux nest_of orig_p ps (List.map (fun _ -> Var_map.empty) ps)
 
 (* TODO: inline ~delete:IfOnlyCall *)
 let rec pry_loop_nest (nest_of: int) (simpl : Transfo.t) (p : path) : unit =

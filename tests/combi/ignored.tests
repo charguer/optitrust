@@ -2,6 +2,7 @@
 apac_insert_tasks_naive.ml
 apac_parallel_task_group.ml
 apac_sync_with_taskwait.ml
+variable_intro_pattern_array.ml
 
 # TO FIX:
 apac_constify_functions_arguments.ml

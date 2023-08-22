@@ -749,7 +749,7 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
       | _ -> fail stop.loc "Loop.unroll: expected an addition of two constants or a constant variable"
       end
         in
-      Loop_basic.unroll ~braces:true ~my_mark [cMark my_mark];
+      Loop_basic.unroll ~inner_braces:true ~outer_seq_with_mark:my_mark [cMark my_mark];
       let block_list = Xlist.range 0 (nb_instr-1) in
       (* List.iter (fun x ->
         Variable.renames (AddSuffix (string_of_int x)) ([occIndex ~nb:nb_instr x; cMark my_mark;cSeq ()])
@@ -758,7 +758,8 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
          Sequence_basic.partition ~braces blocks [cMark my_mark; dSeqNth x]
       ) block_list;
       if shuffle then Sequence_basic.shuffle ~braces [cMark my_mark];
-      Marks.remove my_mark [nbAny;cMark my_mark]
+      Sequence_basic.elim [cMark my_mark];
+      (* Marks.remove my_mark [nbAny;cMark my_mark] *)
     | _ -> fail tg_loop_trm.loc "Loop.unroll: expected a loop to unroll"
   ) tg
 
@@ -849,12 +850,12 @@ let rec bring_down_loop ?(is_at_bottom : bool = true) (index : var) (p : path): 
    local variables will be hoisted ([Loop.hoist]),
    and surrounding instructions will be fissioned ([Loop.fission_all_instrs]).
    *)
-let%transfo reorder_at ?(order : vars = []) (tg : target) : unit =
+let%transfo reorder_at ?(order : string list = []) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   (* [remaining_loops]: sublist of [List.rev order]
      [p]: path to either the target instruction at [tg],
           or a surrounding for loop. *)
-  let rec aux (remaining_loops : var list) (p : path) : unit =
+  let rec aux (remaining_loops : vars) (p : path) : unit =
     match remaining_loops with
     | [] -> ()
     | loop_index :: rl -> begin
@@ -866,7 +867,8 @@ let%transfo reorder_at ?(order : vars = []) (tg : target) : unit =
       end
   in
   Target.iter (fun t p ->
-    aux (List.rev order) p
+    let remaining_loops = List.rev_map (find_var_in_current_ast ~target:(target_of_path p)) order in
+    aux remaining_loops p
   ) tg
 
 (* internal *)
@@ -938,8 +940,10 @@ let%transfo fold_instrs ~(index : string) ?(start : int = 0) ?(step : int = 1) (
 (* [isolate_first_iteration tg]: expects the target [tg] to be pointing at a simple loop, then it will
    split that loop into two loops by calling split_range transformation. Finally it will unroll the first loop. *)
 let%transfo isolate_first_iteration (tg : target) : unit =
-  Loop_basic.split_range ~nb:1 tg;
-  unroll ([occFirst] @ tg)
+  Target.iter (fun t p ->
+    Loop_basic.split_range ~nb:1 (target_of_path p);
+    unroll (target_of_path p)
+  ) tg
 
 
 (* [unfold_bound tg]: inlines the bound of the targeted loop if that loop is a simple for loop and if that bound

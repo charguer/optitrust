@@ -148,7 +148,7 @@ let%transfo delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "secti
   Variable_basic.local_name ~mark ov ~into tg;
   Variable_basic.delocalize ~index ~array_size:(trm_var array_size) ~ops [cMark mark];
   Variable_basic.unfold ~at:[cFor index] [nbAny;cVarDef array_size.name];
-  Loop_basic.unroll ~braces:false [nbMulti ;cFor index];
+  Loop_basic.unroll ~inner_braces:false [nbMulti ;cFor index];
   Arrays_basic.to_variables  lv [cVarDef into];
   Marks.remove "section_of_interest" [cMark "section_of_interest"]
 

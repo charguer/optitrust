@@ -202,7 +202,7 @@ let fission_all_instrs_on (t : trm) : trm =
     begin match body.desc with
     | Trm_seq tl ->
       let body_lists = List.map (fun t1 -> trm_seq_nomarks [t1]) (Mlist.to_list tl) in
-      trm_seq_no_brace (List.map (fun t1 -> trm_for ?contract l_range t1) body_lists)
+      trm_seq_no_brace (List.map (fun t1 -> trm_copy (trm_for ?contract l_range t1)) body_lists)
     | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: expected the sequence inside the loop body"
     end
   | _ -> fail t.loc "Loop_basic.fission_all_instrs_on: only simple loops are supported"
@@ -352,10 +352,10 @@ let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target
       j is an integer in range from 0 to C.
 
     Assumption: Both a and C should be declared as constant variables. *)
-let%transfo unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit =
+let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  = "")  (tg : target): unit =
   Trace.justif_always_correct ();
   Nobrace_transfo.remove_after (fun _ ->
-    apply_on_targets (Loop_core.unroll braces my_mark) tg)
+    apply_on_targets (Loop_core.unroll inner_braces outer_seq_with_mark) tg)
 
 (* [move_out tg]: expects the target [tg] to point at an instruction inside the loop
     that is not dependent on the index of the loop or any local variable.
@@ -446,7 +446,8 @@ let shift_on (index : string) (kind : shift_kind) (t : trm): trm =
   let body_terms' = Mlist.push_front (
     trm_let_immut (index, (Option.value ~default:(typ_int ()) start.typ))
       (trm_sub (trm_var index') shift)) body_terms in
-  trm_for_instrs ~annot:t.annot (index', start', direction, stop', step, is_parallel) body_terms'
+  let t2 = trm_for_instrs ~annot:t.annot (index', start', direction, stop', step, is_parallel) body_terms' in
+  t2
 
 (* [shift index kind]: shifts a loop index range according to [kind], using a new [index] name.
   *)

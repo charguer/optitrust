@@ -141,9 +141,9 @@ let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
         if braces
           then Mlist.of_list (List.map trm_seq (List.rev partition))
           else Mlist.of_list (List.map (fun x -> trm_seq_no_brace (Mlist.to_list x)) (List.rev partition))
-          in
-        let seq = if not braces then trm_seq_no_brace (Mlist.to_list tl) else trm_seq new_tl in
-        trm_pass_marks t seq
+        in
+      let seq = if braces then trm_seq new_tl else trm_seq_no_brace (Mlist.to_list tl) in
+      trm_pass_marks t seq
 
 (* [partition blocks braces t p]: applies [partition_aux] at trm [t] with path [p]. *)
 let partition (blocks : int list) (braces : bool): Transfo.local =

@@ -97,7 +97,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
 
 (* [unfold delete_decl accept_functions mark unfold_at index t p]: applies [unfold_aux] at trm [t] with path [p]. *)
 let unfold (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (p_local : path) : Transfo.local =
-  apply_on_path(unfold_aux delete_decl accept_functions mark unfold_at index p_local)
+  apply_on_path (unfold_aux delete_decl accept_functions mark unfold_at index p_local)
 
 
 (* [rename_aux index new_name t]: renames the variable declared on the targeted declaration all its occurrences,
@@ -209,13 +209,17 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
     let lfront, trm_to_change, lback  = Mlist.get_item_and_its_relatives index tl in
     let error = "Variable_core.init_attach_aux: expected a variable declaration." in
     let (_, x, tx, _) = trm_inv ~error trm_let_inv trm_to_change in
-    let tg = [nbAny;cSeq (); cStrict;cWriteVar x.name] in
     let new_tl = Mlist.merge lfront lback in
     let new_t = trm_seq ~annot:t.annot new_tl in
+    let tg = [nbAny; cWriteVar x.name] in
     let ps = resolve_target tg new_t in
     let nb_occs = List.length ps in
+    let nb_seq_occs = List.length (List.filter (fun p -> List.length p = 1) ps) in
+    (* Debug_transfo.trm "new_t" new_t;
+    Debug_transfo.current_ast_at_target "tg" tg;
+    printf "nb_seq_occs: %d\n" nb_seq_occs; *)
     if nb_occs = 0 then raise Init_attach_no_occurrences
-     else if nb_occs >= 2 then raise Init_attach_occurrence_below_control;
+     else if nb_occs > nb_seq_occs then raise Init_attach_occurrence_below_control;
     Xlist.fold_lefti (fun i acc p ->
       if i = 0 then begin
       apply_on_path (fun t1 ->

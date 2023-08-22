@@ -158,8 +158,8 @@ let%transfo split (tg : target) : unit =
           other transformations that call explicitly the partition transformation. *)
 let%transfo partition ?(braces : bool = false) (blocks : int list) (tg : target) : unit =
   Trace.justif "correct if scoping is respected (TODO: check)";
-  if not braces then Nobrace.enter();
-  Target.apply_on_targets (Sequence_core.partition blocks braces) tg
+  Nobrace_transfo.remove_after (fun () ->
+    Target.apply_on_targets (Sequence_core.partition blocks braces) tg)
 
 (* [shuffle ~braces tg]: expects the target [tg] to point at a sequence of blocks, this transformation will transpose the block structure
 

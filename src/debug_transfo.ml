@@ -27,4 +27,8 @@ let current_ast_at_path ?(internal : bool = false) (msg : string) (p : Path.path
   trm ~internal msg (Path.resolve_path p (Trace.ast ()))
 
 let current_ast_at_target ?(internal : bool = false) (msg : string) (tg : Target.target) : unit =
-  Target.iter (fun t p -> trm ~internal msg (Path.resolve_path p t)) tg
+  let found = ref 0 in
+  Target.iter (fun t p ->
+    found := !found + 1;
+    trm ~internal (sprintf "%s (%d)" msg !found) (Path.resolve_path p t)) tg;
+  if !found = 0 then prt "%s: no match\n" msg

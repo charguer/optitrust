@@ -36,11 +36,13 @@ let%transfo fold ?(at : target = []) (tg : target) : unit =
 
      NOTE: the targeted variable must be a const variable. *)
 let%transfo unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : target = []) (tg : target) : unit =
+  Trace.apply (Scope.infer_var_ids);
   Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun t (p, p_local, i) -> Variable_core.unfold false accept_functions mark at i p_local t p) tg
 
 (* [inline]: similar to [unfold] but this one deletes the targeted declaration. *)
 let%transfo inline ?(mark : mark = "") ?(accept_functions : bool = false) (tg : target) : unit =
+  Trace.apply (Scope.infer_var_ids);
   Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun t (p, p_local, i) -> Variable_core.unfold true accept_functions mark [] i p_local t p) tg
 

@@ -316,3 +316,7 @@ let%transfo storage_folding ~(dim : int) ~(size : trm)
   iter_on_var_defs (fun (_, var, _, _) (_, p_seq) ->
     Matrix_basic.storage_folding ~var ~dim ~size ~kind (target_of_path p_seq)
   ) tg
+
+let%transfo stack_copy ~(var : string) ~(copy_var : string) ~(copy_dims : int) (tg : target) : unit =
+  let var = find_var_in_current_ast ~target:tg var in
+  Matrix_basic.stack_copy ~var ~copy_var ~copy_dims tg

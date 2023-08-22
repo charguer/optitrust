@@ -22,7 +22,7 @@ let _ = Run.script_cpp (fun _ ->
   (* !! Function.inline ~vars:(AddSuffix "${occ}") [occFirst;cFun "f?"]; *)
   !! Function.inline [nbMulti; cFun "vect_mul"];
   !! Function.inline [nbMulti; cFun "vect_add"];
-  !! Function.inline  [nbMulti; cFun "vect_op"];
+  !! Function.inline [nbMulti; cFun "vect_op"];
   (* TODO
    vect r;
   if (true) {
@@ -55,7 +55,6 @@ const vect w = r
 
   (* with naming of the arguments *)
   !! Trace.alternative (fun () ->
-    !! Function.inline  ~args:["v"] [nbMulti;cFunDef "main";cFun "f"];
-    !!());
+    Function.inline ~vars:(Variable.Rename.add_suffix "2") ~args:["v"] [nbMulti;cFunDef "main";cFun "f"];);
 
 )
