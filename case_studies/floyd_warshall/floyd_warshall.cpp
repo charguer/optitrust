@@ -1,6 +1,6 @@
 #include "../../include/optitrust.h"
 
-static int default_floyd(uint32_t N, uint32_t *A)
+static int optitrust_floyd(uint32_t N, uint32_t *A)
 {
   // Floyd-Warshall Algorithm
   for (uint32_t k = 0; k < N; k++)
