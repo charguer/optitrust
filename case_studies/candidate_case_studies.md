@@ -62,6 +62,11 @@ Includes matrix multiplication, convolution, packaed convolution, depthwise conv
 - Optimized data structure implementations (HashMap, ..).
 - Optimized sorting algorithms (e.g. [Futhark example for GPU](https://futhark-lang.org/examples/radix-sort.html)).
 - Optimized binary search (e.g. [Futhark example for GPU](https://futhark-lang.org/examples/binary-search.html)).
-- Work-efficient scan implementations, see Federico Pizzuti paper, see [single pass parallel prefix scan with decoupled look back](https://research.nvidia.com/publication/2016-03_single-pass-parallel-prefix-scan-decoupled-look-back).
+- Parallel In-Place Algorithms: https://epubs.siam.org/doi/abs/10.1137/1.9781611976489.9
+- Work-efficient scan implementations:
+  - see [single pass parallel prefix scan with decoupled look back](https://research.nvidia.com/publication/2016-03_single-pass-parallel-prefix-scan-decoupled-look-back)
+  - see Federico Pizzuti paper
+  - sequence alignement: https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-016-0930-z
+  - graph algorithms: https://dl.acm.org/doi/abs/10.1145/3434393
 - Optimizing user code that uses library code?
   - Beyond [Weld](https://www.weld.rs/)? Weld can improve the performance of workflows such as SQL with Spark SQL, logistic regression with TensorFlow, and data cleaning in NumPy and Pandas.
