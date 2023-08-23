@@ -54,8 +54,8 @@ let%transfo inline_constant ?(mark_accesses : mark option) ~(decl : target) ?(si
   (* TODO: unroll if necessary *)
   Marks.with_fresh_mark (fun m ->
     Marks.add m tg;
-    unroll_index_vars_from_array_reads [cMark m];
-    simpl [cMark m];
+    unroll_index_vars_from_array_reads [nbMulti; cMark m];
+    simpl [nbAny; cMark m];
     Arrays_basic.inline_constant ?mark_accesses ~decl [nbMulti; cMark m]
   )
 

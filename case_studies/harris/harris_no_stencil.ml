@@ -23,10 +23,12 @@ let%transfo simpl_mins ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) 
   Trace.tag_atomic ();
   let rewrite rule = Rewrite.equiv_at ~simpl ~ctx:true ~indepth:true rule tg in
   List.iter rewrite [
-    "int h; int by; ==> by + min(h, by + 36) - min(h - 2, by + 34) == by + 2";
-    "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 2, by + 34) == y - 2";
-    "int h; int by; ==> by + min(h, by + 36) - min(h - 4, by + 32) == by + 4";
-    "int h; int y; int by; ==> y - min(h, by + 36) + min(h - 4, by + 32) == y - 4";
+    (* "int h; int by; ==> by + min(h, by + 36) - min(h - 2, by + 34) == by + 2"; *)
+    "int h; int by; ==> min(h, by + 36) - min(h - 2, by + 34) == 2";
+    "int h; int y; int by; ==> y - min(h, by + 36) + by + min(h - 2, by + 34) == y + by - 2";
+    (* "int h; int by; ==> by + min(h, by + 36) - min(h - 4, by + 32) == by + 4"; *)
+    "int h; int by; ==> min(h, by + 36) - min(h - 4, by + 32) == 4";
+    "int h; int y; int by; ==> y - min(h, by + 36) + by + min(h - 4, by + 32) == y + by - 4";
   ]
 
 (* TODO: generalize *)

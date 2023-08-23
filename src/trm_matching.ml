@@ -158,6 +158,7 @@ let rule_match ?(higher_order_inst : bool = false ) ?(error_msg = true) (vars : 
       raise Rule_mismatch
       in
     let aux_list (ts1 : trms) (ts2 : trms) : unit =
+      if List.length ts1 <> List.length ts2 then mismatch ();
       List.iter2 aux ts1 ts2 in
     (* [aux_with_bindings] is a function for matching two lists of terms,
        making sure to extend the [inst] map to take into account the

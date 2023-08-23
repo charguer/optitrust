@@ -146,7 +146,8 @@ let no_atoms = Atom_map.empty
 let is_integer_typ (typ : typ option) : bool =
   match typ with
   | Some t ->
-    begin match t.typ_desc with
+    let t2 = Option.value ~default:t (typ_const_inv t) in
+    begin match t2.typ_desc with
     | Typ_int -> true
     | Typ_float | Typ_double -> false
     | _ -> failwith (Printf.sprintf "unsupported type: %s" (AstC_to_c.typ_to_string t))
