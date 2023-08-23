@@ -45,22 +45,30 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
   let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
 
   let main_fun_str = "\nint f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ ";\n}" in
-  if ctx
-    then
+  let ctx_defs_orig = if ctx
+    then begin
       let ast = Target.get_ast () in
       let ast2 = trm_seq_add_last (stmt main_fun_str) ast in
       let prefix = Filename.remove_extension output_file in
       Trace.output_prog (Trace.get_context ()) prefix ast2;
+      trm_main_inv_toplevel_defs ast
       (* AstC_to_c.ast_to_file output_file ast2; *)
-    else
+    end else begin
       Xfile.put_contents output_file main_fun_str;
+      []
+    end
+  in
 
   let _, ast_of_file = Trace.parse ~parser:(CParsers.get_default ()) output_file in
   Sys.remove output_file;
 
   let defs = trm_main_inv_toplevel_defs ast_of_file in
   if defs = [] then fail ast_of_file.loc "Trm_matching.parse_pattern: couldn't parse pattern";
-  let (_, main_fun) = Xlist.unlast defs in
+  let (ctx_defs, main_fun) = Xlist.unlast defs in
+  let ctx_vars_to_orig = Var_map.of_seq (Seq.zip
+    (Seq.filter_map Trm.decl_name (List.to_seq ctx_defs))
+    (Seq.filter_map (fun t -> Option.map trm_var (Trm.decl_name t))
+      (List.to_seq ctx_defs_orig))) in
   match main_fun.desc with
   | Trm_let_fun (_, _, args, body, _) ->
     begin match body.desc with
@@ -79,7 +87,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
       end in
       let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x.name aux_var_decls then Some (x, ty) else None ) args in
       let pattern_vars = List.filter (fun (x, ty) -> not (List.mem (x, ty) aux_vars ) ) args in
-      (pattern_vars, aux_vars, pattern_instr)
+      (pattern_vars, aux_vars, Subst.subst ctx_vars_to_orig pattern_instr)
     | _ -> fail body.loc ("Trm_matching.parse_pattern: body of the function f should be a sequence " ^ (AstC_to_c.ast_to_string body))
       end
   | _ -> fail main_fun.loc "Trm_matching.parse_pattern: the pattern was not entered correctly"

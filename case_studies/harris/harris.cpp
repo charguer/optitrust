@@ -136,13 +136,13 @@ void harris(float* out, int h, int w, const float* in) {
   sum3x3(syy, h1, w1, iyy);
   coarsity(out, h2, w2, sxx, sxy, syy, 0.04f);
 
-  free(gray);
-  free(ix);
-  free(iy);
-  free(ixx);
-  free(ixy);
-  free(iyy);
-  free(sxx);
-  free(sxy);
-  free(syy);
+  MFREE2(h, w, gray);
+  MFREE2(h1, w1, ix);
+  MFREE2(h1, w1, iy);
+  MFREE2(h1, w1, ixx);
+  MFREE2(h1, w1, ixy);
+  MFREE2(h1, w1, iyy);
+  MFREE2(h2, w2, sxx);
+  MFREE2(h2, w2, sxy);
+  MFREE2(h2, w2, syy);
 }

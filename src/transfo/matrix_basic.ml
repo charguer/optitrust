@@ -483,6 +483,7 @@ let%transfo delete ~(var : var) (tg : target) : unit =
   For correctness, if [V] was written at index [i], reading [V[j/i]] should be equivalent to reading at index [j].
    *)
 let%transfo read_last_write ~(write : target) (tg : target) : unit =
+  Trace.apply Scope.infer_var_ids;
   let write_trm = match Target.get_trm_at write with
   | Some wt -> wt
   | None -> fail None "Matrix_basic.read_least_write: write target not found"

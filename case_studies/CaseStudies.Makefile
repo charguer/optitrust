@@ -22,6 +22,7 @@ OPT_FLAGS := -xhost -fiopenmp -Ofast -vec -qopt-report=max -g
 # -fsave-optimization-record
 # -fmerge-all-constants
 
+# FIXME: broken rule
 icx_analyze_%: _build/%.so
 	$(V)icx $(OPT_FLAGS) --analyze -qopt-report=max -std=c11 -I ../../include/ $(WARN_FLAGS) $< -o $@
 

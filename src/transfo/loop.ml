@@ -754,7 +754,7 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
       ) block_list; *)
        List.iter (fun x ->
          Sequence_basic.partition ~braces blocks [cMark my_mark; dSeqNth x]
-      ) block_list;
+      ) (List.rev block_list);
       if shuffle then Sequence_basic.shuffle ~braces [cMark my_mark];
       Sequence_basic.elim [cMark my_mark];
       (* Marks.remove my_mark [nbAny;cMark my_mark] *)
