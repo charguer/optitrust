@@ -6,9 +6,8 @@ open Target
 let _ = Flags.pretty_matrix_notation := true
 
 let _ = Run.script_cpp (fun () ->
-  !! Variable.insert_and_fold ~typ:(ty "uint32_t") ~name:"sum" ~value:(expr "A[i * N + k] + A[k * N + j]") [tBefore; cIf ()];
-
   bigstep "contiguous allocation of accessed memory";
+  !! Variable.insert_and_fold ~typ:(ty "uint32_t") ~name:"sum" ~value:(expr "A[i * N + k] + A[k * N + j]") [tBefore; cIf ()];
   (* Store the values in the kth-row needed to compute distances in a contiguous manner *)
   !! Loop.hoist_expr ~dest:[tBefore; cFor "i" ] "kj" ~indep:["i"] [occIndex 1; cArrayRead "A"];
   (* Update them properly when i == k *)
