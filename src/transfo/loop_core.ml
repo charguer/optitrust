@@ -210,7 +210,7 @@ let grid_enumerate (indices_and_bounds : (string * trm) list) : Transfo.local =
       [braces] - a flag on the visibility of generated sequences,
       [my_mark] - a mark left on the top generated sequence,
       [t] - ast of the loop. *)
-let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
+let unroll_aux (braces : bool) (my_mark : mark) (subst_mark : mark option) (t : trm) : trm =
   match t.desc with
   | Trm_for (l_range, body, contract) ->
       let (index, start, _, stop, _, _) = l_range in
@@ -236,7 +236,7 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
           | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
           | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))]
           end in
-        let body_i = Subst.subst_var index new_index body in
+        let body_i = Subst.subst_var index (trm_may_add_mark subst_mark new_index) body in
         let body_i = if braces
                       then Nobrace.remove_if_sequence body_i
                       else Nobrace.set_if_sequence body_i in
@@ -248,8 +248,8 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
   | _ -> fail t.loc "Loop_core.unroll_aux: only simple loops supported"
 
 (* [unroll braces my_mark t p]: applies [unroll_aux] at trm [t] with path [p]. *)
-let unroll (braces : bool)(my_mark : mark) : Transfo.local =
-  apply_on_path (unroll_aux braces my_mark)
+let unroll (braces : bool) (my_mark : mark) (subst_mark : mark option) : Transfo.local =
+  apply_on_path (unroll_aux braces my_mark subst_mark)
 
 (* [move_out_aux trm_index t]: moves an invariant instruction just before loop [t],
     [trm_index] - index of that instruction on its surrouding sequence,

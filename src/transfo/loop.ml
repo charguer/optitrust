@@ -724,7 +724,7 @@ DETAILS for [unroll]
 
     LATER: This transformation should be factorized, that may change the docs. *)
 
-let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : target) : unit =
+let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) ?(simpl: Transfo.t = default_simpl) ?(shuffle : bool = false) (tg : target) : unit =
   (* in [unroll]: reparse_after ~reparse:(not braces) *)
   Target.iteri (fun i t p ->
     let my_mark = "__unroll_" ^ string_of_int i in
@@ -765,7 +765,10 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
       | _ -> fail stop.loc "Loop.unroll: expected an addition of two constants or a constant variable"
       end
         in
-      Loop_basic.unroll ~braces:true ~my_mark [cMark my_mark];
+      Marks.with_fresh_mark (fun subst_mark ->
+        Loop_basic.unroll ~braces:true ~my_mark ~subst_mark [cMark my_mark];
+        simpl [nbAny; cMark subst_mark];
+      );
       let block_list = Xlist.range 0 (nb_instr-1) in
       (* List.iter (fun x ->
         Variable.renames (AddSuffix (string_of_int x)) ([occIndex ~nb:nb_instr x; cMark my_mark;cSeq ()])
@@ -791,7 +794,7 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
     [shuffle]: shuffle blocks
 
     [nest_of]: denotes the number of nested loops to consider. *)
-let%transfo unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) ?(nest_of : int = 1) (tg : target) : unit =
+let%transfo unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) ?(simpl: Transfo.t = default_simpl) ?(nest_of : int = 1) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   assert (nest_of > 0);
   let rec aux p nest_of =
@@ -953,9 +956,9 @@ let%transfo fold_instrs ~index:(index : var) ?(start : int = 0) ?(step : int = 1
 
 (* [isolate_first_iteration tg]: expects the target [tg] to be pointing at a simple loop, then it will
    split that loop into two loops by calling split_range transformation. Finally it will unroll the first loop. *)
-let%transfo isolate_first_iteration (tg : target) : unit =
+let%transfo isolate_first_iteration ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
   Loop_basic.split_range ~nb:1 tg;
-  unroll ([occFirst] @ tg)
+  unroll ~simpl ([occFirst] @ tg)
 
 
 (* [unfold_bound tg]: inlines the bound of the targeted loop if that loop is a simple for loop and if that bound

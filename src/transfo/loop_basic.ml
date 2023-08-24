@@ -314,10 +314,10 @@ let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target
       j is an integer in range from 0 to C.
 
     Assumption: Both a and C should be declared as constant variables. *)
-let%transfo unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : target): unit =
+let%transfo unroll ?(braces : bool = false) ?(my_mark : mark  = "") ?(subst_mark : mark option)  (tg : target): unit =
   Trace.justif_always_correct ();
   Nobrace_transfo.remove_after (fun _ ->
-    apply_on_targets (Loop_core.unroll braces my_mark) tg)
+    apply_on_targets (Loop_core.unroll braces my_mark subst_mark) tg)
 
 (* [move_out tg]: expects the target [tg] to point at an instruction inside the loop
     that is not dependent on the index of the loop or any local variable.
