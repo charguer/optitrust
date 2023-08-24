@@ -29,25 +29,28 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.split_range ~cut:(expr "k+1") [occIndex 2; cFor "i"];
 
   bigstep "optimize loop k=i";
-  !! Sequence.intro ~mark:"k=i-loop" ~start:[tBefore; occIndex 2; cFor "i"] ~stop:[tAfter; occIndex 2; cFor "i"] ();
-  !! Loop.isolate_first_iteration [cMark "k=i-loop"; cFor "i"]; (*cTarget*)
-  !! Sequence.delete [cMark "k=i-loop"; cFor "i"];
+  !!! Sequence.intro ~mark:"k=i-loop" ~start:[tBefore; occIndex 2; cFor "i"] ~stop:[tAfter; occIndex 2; cFor "i"] ();
+  !! (
+    Loop.shift StartAtZero [cMark "k=i-loop"; cFor "i"];
+    Loop.unroll [cMark "k=i-loop"; cFor "i"]
+  );
   !! Instr.move ~dest:[tBefore; cMark "k=i-loop"; cIf ~cond:[sExpr "k == k"] ()] [cMark "k=i-loop"; cArrayWrite "kj"];
   !! Sequence.delete [cMark "k=i-loop"; cIf ~cond:[sExpr "k == k"] ()];
   !! Sequence.elim [cMark "k=i-loop"];
-  !!! ();
 
   bigstep "split top to left and right";
-  !! Loop.split_range ~cut:(expr "k") [occIndex 1; cFor "j"];
+  !!! Loop.split_range ~cut:(expr "k") [occIndex 1; cFor "j"];
   !! Sequence.delete [occIndex 0; cIf ~cond:[sExpr "j == k"] ()];
   !! Loop.split_range ~cut:(expr "k+1") [occIndex 2; cFor "j"];
 
   !! Loop.fission_all_instrs ~nest_of:1 [occIndex 1; cFor "i"];
 
   bigstep "optimize loop j=k on top";
-  !! Sequence.intro ~mark:"j=k-loop" ~start:[tBefore; occIndex 2; cFor "j"] ~stop:[tAfter; occIndex 2; cFor "j"] ();
-  !! Loop.isolate_first_iteration [cMark "j=k-loop"; cFor "j"];
-  !! Sequence.delete [cMark "j=k-loop"; cFor "j"];
+  !!! Sequence.intro ~mark:"j=k-loop" ~start:[tBefore; occIndex 2; cFor "j"] ~stop:[tAfter; occIndex 2; cFor "j"] ();
+  !! (
+    Loop.shift StartAtZero [cMark "j=k-loop"; cFor "j"];
+    Loop.unroll [cMark "j=k-loop"; cFor "j"]
+  );
   !! Instr.move ~dest:[tBefore; cMark "j=k-loop"; cIf ~cond:[sExpr "k == k"] ()] [cMark "j=k-loop"; cArrayWrite "ik"];
   !! Sequence.delete [cMark "j=k-loop"; cIf ~cond:[sExpr "k == k"] ()];
   !! Sequence.elim [cMark "j=k-loop"];
