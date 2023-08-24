@@ -10,7 +10,7 @@ int main() {
   const int N2 = 10;
   const int N3 = 10;
   // TODO: deal with CALLOC
-  T* a = (T*) MALLOC3 (N1, N2, N3, sizeof(T));
+  T* const a = (T* const) MALLOC3 (N1, N2, N3, sizeof(T));
   for (int i = 0; i < 10; i++) {
     for (int j = 2; j < 10; j++) {
       for (int k = 0; k < 4; k++) {
@@ -20,7 +20,7 @@ int main() {
   }
   MFREE3(N1, N2, N3, a);
 
-  T* b = (T*) MALLOC3 (N1, N2, N3, sizeof(T));
+  T* const b = (T* const) MALLOC3 (N1, N2, N3, sizeof(T));
   for (int i = 0; i < 10; i++) {
     for (int j = 2; j < 10; j++) {
       for (int k = 0; k < 4; k++) {
@@ -30,7 +30,7 @@ int main() {
   }
   MFREE3(N1, N2, N3, b);
 
-  T* c = (T*) MALLOC3 (N1, N2, N3, sizeof(T));
+  T* const c = (T* const) MALLOC3 (N1, N2, N3, sizeof(T));
   for (int i = 0; i < 10; i++) {
     for (int j = 2; j < 10; j++) {
       for (int k = 0; k < 4; k++) {

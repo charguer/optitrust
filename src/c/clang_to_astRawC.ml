@@ -764,8 +764,11 @@ and tr_expr (e : expr) : trm =
       match te.typ with
       | Some {typ_desc = Typ_array (ty, _); _} -> Some ty
       | Some {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty}; _} -> Some ty
+      | Some {typ_desc = Typ_const { typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty}; _}; _ } -> Some ty
       (* should not happen *)
-      | _ -> None
+      | _ ->
+        printf "WARNING: does not support array subscript base type '%s'" (Tools.option_to_string AstC_to_c.typ_to_string te.typ);
+        None
     in
       trm_apps ?loc ~ctx ?typ (trm_binop ?loc ~ctx (Binop_array_get)) [te; ti]
 

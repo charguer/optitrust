@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 int main() {
-  float* s = (float*)MALLOC2(32, 32, sizeof(float));
+  float* const s = (float* const) MALLOC2(32, 32, sizeof(float));
   // s[32][32] = { 0 };
 
   for (int i = 0; i < 32; i++) {
@@ -21,6 +21,6 @@ int main() {
     printf("\n");
   }
 
-  free(s);
+  MFREE2(32, 32, s);
   return 0;
 }

@@ -5,7 +5,7 @@ int* t;
 int* u;
 
 int main() {
-  int* t2 = (int*)MALLOC1(10, sizeof(int));
+  int* const t2 = (int* const)MALLOC1(10, sizeof(int));
   for (int i = 0; i < 10; i++) {
     t2[MINDEX1(10, i)] = t[i];
   }
@@ -15,7 +15,7 @@ int main() {
     int z = x;
   }
   MFREE1(10, t2);
-  int* t02 = (int*)MALLOC0(sizeof(int));
+  int* const t02 = (int* const)MALLOC0(sizeof(int));
   t02[MINDEX0()] = t[0];
   for (int l = 0; l < 5; l++) {
     for (int m = 0; m < 2; m++) {
@@ -23,7 +23,7 @@ int main() {
     }
   }
   MFREE0(t02);
-  int* a2 = (int*)MALLOC1(8, sizeof(int));
+  int* const a2 = (int* const)MALLOC1(8, sizeof(int));
   for (int a = 0; a < 8; a++) {
     a2[MINDEX1(8, a)] = a;
   }

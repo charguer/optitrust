@@ -211,7 +211,7 @@ let grid_enumerate (indices_and_bounds : (string * trm) list) : Transfo.local =
       [inner_braces] - a flag on the visibility of generated inner sequences,
       [outer_seq_mark] - generates an outer sequence with a mark,
       [t] - ast of the loop. *)
-let unroll_aux (inner_braces : bool) (outer_seq_mark : mark) (t : trm) : trm =
+let unroll_aux (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : mark option) (t : trm) : trm =
   let error = "Loop_core.unroll_aux: only simple loops supported" in
   let (l_range, body) = trm_inv ~error trm_for_inv t in
   let (index, start, _, stop, _, _) = l_range in
@@ -237,19 +237,19 @@ let unroll_aux (inner_braces : bool) (outer_seq_mark : mark) (t : trm) : trm =
       | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
       | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))]
       end in
-    let body_i = Subst.subst_var index new_index (trm_copy body) in
+    let body_i = Subst.subst_var index (trm_may_add_mark subst_mark new_index) (trm_copy body) in
     let body_i = if inner_braces
                   then Nobrace.remove_if_sequence body_i
                   else Nobrace.set_if_sequence body_i in
     body_i :: acc ) [] (List.rev unrolled_loop_range) in
-  begin match outer_seq_mark with
+  begin match outer_seq_with_mark with
   | "" -> trm_seq_no_brace unrolled_body
-  | _ -> trm_add_mark outer_seq_mark (trm_seq_nomarks unrolled_body)
+  | _ -> trm_add_mark outer_seq_with_mark (trm_seq_nomarks unrolled_body)
   end
 
 (* [unroll braces my_mark t p]: applies [unroll_aux] at trm [t] with path [p]. *)
-let unroll (inner_braces : bool) (outer_seq_with_mark : mark) : Transfo.local =
-  apply_on_path (unroll_aux inner_braces outer_seq_with_mark)
+let unroll (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : mark option) : Transfo.local =
+  apply_on_path (unroll_aux inner_braces outer_seq_with_mark subst_mark)
 
 (* [move_out_aux trm_index t]: moves an invariant instruction just before loop [t],
     [trm_index] - index of that instruction on its surrouding sequence,

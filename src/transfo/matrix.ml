@@ -275,14 +275,15 @@ let delete_alias = delete
 (* [local_name_tile]: like the basic transfo, but deletes the
    original matrix if [delete] is true or if [into] is empty.
    *)
-let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : string = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = []) ~(alloc_instr : target) ?(into : string = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   let (delete, rename, into) = if into = ""
     then (true, true, fresh_var_name ())
     else (delete, false, into)
   in
   Marks.with_fresh_mark (fun mark_accesses -> Target.iter (fun t p ->
-    Matrix_basic.local_name_tile ~mark_accesses ~indices ?alloc_instr v ~into tile ~local_ops (target_of_path p);
+    let v = ref dummy_var in
+    Matrix_basic.local_name_tile ~mark_accesses ~indices ~alloc_instr ~ret_var:v ~into tile ~local_ops (target_of_path p);
     simpl [cMark mark_accesses];
     if delete then begin
       let (_, surrounding_seq) = Path.index_in_seq p in
@@ -291,22 +292,23 @@ let%transfo local_name_tile ?(delete: bool = false) ?(indices : (var list) = [])
         - Matrix.delete_dead_writes [cArrayWrite v]
         - Matrix.delete_dead_writes [cArrayRead v] / [cMark mark; dSeqNth 0]
           *)
-      Instr.delete (surrounding_tg @ [nbMulti; cFor "" ~body:[cOr [[cArrayRead v.name]; [cArrayWrite v.name]]]]);
+      Instr.delete (surrounding_tg @ [nbMulti; cFor "" ~body:[cOr [[cArrayRead !v.name]; [cArrayWrite !v.name]]]]);
       Loop.delete_all_void surrounding_tg;
       Marks.with_fresh_mark_on p (fun m ->
-        delete_alias (Option.value ~default:(surrounding_tg @ [cVarDef v.name]) alloc_instr);
+        (* (Option.value ~default:(surrounding_tg @ [cVarDef !v]) alloc_instr *)
+        delete_alias alloc_instr;
         if rename then
-          Variable_basic.rename ~into:v.name [cMark m; cVarDef into];
+          Variable_basic.rename ~into:!v.name [cMark m; cVarDef into];
       );
     end
   ) tg)
 
 (* same as [local_name_tile] but with target [tg] pointing at an instruction within a sequence, introduces the local name for the rest of the sequence. *)
-let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ?(into : string = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
+let%transfo local_name_tile_after ?(delete: bool = false) ?(indices : (var list) = []) ~(alloc_instr : target) ?(into : string = "") (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) ?(simpl : Transfo.t = Arith.default_simpl) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   Marks.with_fresh_mark (fun mark -> Target.iter (fun t p ->
     Sequence.intro_after ~mark (target_of_path p);
-    local_name_tile ~delete ~indices ?alloc_instr v ~into tile ~local_ops ~simpl (target_of_path p);
+    local_name_tile ~delete ~indices ~alloc_instr ~into tile ~local_ops ~simpl (target_of_path p);
     Sequence.elim [cMark mark];
   ) tg)
 

@@ -38,6 +38,11 @@ int main() {
       int z = 0;
     }
   }
+
+  for (int mi = 0; mi < 8; mi++) {
+    float* const m = (float* const) MALLOC1(2, sizeof(float));
+    MFREE1(2, m);
+  }
 }
 /*
 int test1() {
@@ -47,7 +52,7 @@ int test1() {
       }
     }
 }
-//    --> first hoist  
+//    --> first hoist
 int test2() {
   for (int l = 0; l < 5; l++) {
     int* x_step = (int*) MALLOC1(2, sizeof(int));

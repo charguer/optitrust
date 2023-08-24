@@ -55,8 +55,14 @@ let%transfo hoist_alloc_loop_list
   (*Trace.tag_valid_by_composition ();*)
   let tmp_marks = ref [] in
   let alloc_mark = Mark.next () in
+  let dim_count = ref 0 in
   let may_detach_init (x : var) (init : trm) (p : path) =
-    let is_trm_malloc = Option.is_some (Matrix_core.alloc_inv_with_ty init) in
+    let is_trm_malloc = match Matrix_core.alloc_inv_with_ty init with
+    | Some (dims, _, _) ->
+      dim_count := List.length dims;
+      true
+    | None -> false
+    in
     let detach_first = not (is_trm_malloc || (is_trm_uninitialized init) || (is_trm_new_uninitialized init)) in
     if detach_first then begin
       Variable_basic.init_detach (target_of_path p);
@@ -64,24 +70,21 @@ let%transfo hoist_alloc_loop_list
       Matrix_basic.intro_malloc0 x (target_of_path seq_path);
     end
   in
-  let added_dims = ref 0 in
   let rec mark_and_hoist prev_name name_template (i : int) (p : path) =
     let more_hoists = i + 1 <= (List.length loops) in
     let maybe_mark = if more_hoists then None else Some alloc_mark in
     let varies_in_current_loop = List.nth loops ((List.length loops) - i) in
     let next_name = match varies_in_current_loop with
     | 0 -> begin
-      (* Printf.printf "move out %s\n" prev_name; *)
-      (* TODO: have combined move_out alloc + free *)
+      (* following may also swap instrs *)
       Loop_basic.move_out ?mark:maybe_mark (target_of_path p);
-      let (outer_i, outer_path) = Path.index_in_seq (Path.to_outer_loop p) in
+      let (outer_i, outer_path) = Path.index_in_seq (snd (Path.index_in_surrounding_loop p)) in
       let new_loop_path = outer_path @ [Dir_seq_nth (outer_i + 1)] in
-      Instr.move ~dest:([tAfter] @ (target_of_path new_loop_path)) [cFun ~args:((List.init !added_dims (fun _ -> [])) @ [[cVar prev_name]]) (sprintf "MFREE%d" !added_dims)];
+      Instr.move ~dest:([tAfter] @ (target_of_path new_loop_path)) [cFun ~args:((List.init !dim_count (fun _ -> [])) @ [[cVar prev_name]]) (sprintf "MFREE%d" !dim_count)];
       prev_name
     end
     | 1 -> begin
       let next_name = Tools.string_subst "${i}" (string_of_int i) name_template in
-      (* Printf.printf "hoist %s -> %s\n" prev_name next_name; *)
       let (instr_index, seq_path) = Path.index_in_seq p in
       let seq_target = target_of_path seq_path in
       let seq_mark = Mark.next () in
@@ -93,7 +96,7 @@ let%transfo hoist_alloc_loop_list
       end
     | _ -> fail None "expected list of 0 and 1s"
     in
-    added_dims := !added_dims + varies_in_current_loop;
+    dim_count := !dim_count + varies_in_current_loop;
     let (_, loop_path) = Path.index_in_surrounding_loop p in
     let next_target = (target_of_path loop_path) @ [cVarDef next_name] in
     if more_hoists then
@@ -301,6 +304,22 @@ begin
     f (List.rev rev_loop_list) target_path
   ) tg
 end
+
+(* TODO: is this redundant with Loop.hoist? *)
+(* [hoist_expr]: same as [hoist_alloc_loop_list], but allows specifying
+   loop indices that the expression does not depend on in [indep],
+   and specifying where to hoist using [dest] target. *)
+let%transfo hoist_alloc
+    ?(tmp_names : string = "${var}_step${i}")
+    ?(name : string = "")
+    ?(inline : bool = true)
+    ?(indep : string list = [])
+    ?(dest : target = [])
+    (tg : target) : unit =
+  Trace.tag_valid_by_composition ();
+  targets_iter_with_loop_lists ~indep ~dest (fun loops p ->
+    hoist_alloc_loop_list ~tmp_names ~name ~inline loops (target_of_path p)
+  ) tg
 
 (* TODO: add unit tests in combi/loop_hoist.ml *)
 (* [hoist_expr]: same as [hoist_expr_loop_list], but allows specifying
@@ -706,7 +725,7 @@ DETAILS for [unroll]
 
     LATER: This transformation should be factorized, that may change the docs. *)
 
-let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : target) : unit =
+let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) ?(simpl: Transfo.t = default_simpl) ?(shuffle : bool = false) (tg : target) : unit =
   (* in [unroll]: reparse_after ~reparse:(not braces) *)
   Target.iteri (fun i t p ->
     let my_mark = "__unroll_" ^ string_of_int i in
@@ -747,7 +766,10 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
       | _ -> fail stop.loc "Loop.unroll: expected an addition of two constants or a constant variable"
       end
         in
-      Loop_basic.unroll ~inner_braces:true ~outer_seq_with_mark:my_mark [cMark my_mark];
+      Marks.with_fresh_mark (fun subst_mark ->
+        Loop_basic.unroll ~inner_braces:true ~outer_seq_with_mark:my_mark ~subst_mark [cMark my_mark];
+        simpl [nbAny; cMark subst_mark];
+      );
       let block_list = Xlist.range 0 (nb_instr-1) in
       (* List.iter (fun x ->
         Variable.renames (AddSuffix (string_of_int x)) ([occIndex ~nb:nb_instr x; cMark my_mark;cSeq ()])
@@ -774,7 +796,7 @@ let%transfo unroll_nest_of_1 ?(braces : bool = false) ?(blocks : int list = []) 
     [shuffle]: shuffle blocks
 
     [nest_of]: denotes the number of nested loops to consider. *)
-let%transfo unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) ?(nest_of : int = 1) (tg : target) : unit =
+let%transfo unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) ?(simpl: Transfo.t = default_simpl) ?(nest_of : int = 1) (tg : target) : unit =
   Trace.tag_valid_by_composition ();
   assert (nest_of > 0);
   let rec aux p nest_of =
@@ -938,10 +960,10 @@ let%transfo fold_instrs ~(index : string) ?(start : int = 0) ?(step : int = 1) (
 
 (* [isolate_first_iteration tg]: expects the target [tg] to be pointing at a simple loop, then it will
    split that loop into two loops by calling split_range transformation. Finally it will unroll the first loop. *)
-let%transfo isolate_first_iteration (tg : target) : unit =
+let%transfo isolate_first_iteration ?(simpl: Transfo.t = default_simpl) (tg : target) : unit =
   Target.iter (fun t p ->
     Loop_basic.split_range ~nb:1 (target_of_path p);
-    unroll (target_of_path p)
+    unroll ~simpl (target_of_path p)
   ) tg
 
 

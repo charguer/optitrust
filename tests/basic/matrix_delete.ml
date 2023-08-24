@@ -13,7 +13,7 @@ let _ = Run.doc_script_cpp (fun _ ->
 #include \"../../include/optitrust.h\"
 
 int main() {
-  int* a = (int*) MALLOC1(10, sizeof(int));
+  int* const a = (int* const) MALLOC1(10, sizeof(int));
   MFREE1(10, a);
   return 0;
 }
