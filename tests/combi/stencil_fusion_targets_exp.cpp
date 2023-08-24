@@ -54,7 +54,7 @@ void add2vbox(int* out, int* a, int* b, int h, int w) {
 void vboxadd(int* out, int* a, int* b, int h, int w) {
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w - 2; x++) {
-      int* ab = (int*)MALLOC2(1, 1 + 2, sizeof(int));
+      int* const ab = (int* const)MALLOC2(1, 1 + 2, sizeof(int));
       for (int x_ab = 0; x_ab < 3; x_ab++) {
         ab[MINDEX2(1, 3, 0, x_ab)] =
             a[MINDEX2(h, w, y, x_ab + x)] + b[MINDEX2(h, w, y, x_ab + x)];
@@ -69,7 +69,7 @@ void vboxadd(int* out, int* a, int* b, int h, int w) {
 
 void hboxadd(int* out, int* a, int* b, int h, int w) {
   for (int y = 0; y < h - 2; y += 32) {
-    int* ab = (int*)MALLOC2(32 + 2, w, sizeof(int));
+    int* const ab = (int* const)MALLOC2(32 + 2, w, sizeof(int));
     for (int y_out = 0; y_out < min(h, y + 34) - y; y_out++) {
       for (int x = 0; x < w; x++) {
         ab[MINDEX2(34, w, y_out, x)] =

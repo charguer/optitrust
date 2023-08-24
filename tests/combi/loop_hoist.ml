@@ -28,5 +28,6 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.hoist ~inline:false ~name:"xk" [cFor "k"; cVarDef "x"];
   !! Loop.hoist ~nest_of:2 [cFor "l"; cVarDef "x"];
   !! Loop.hoist ~nest_of:3 ~name:"xa" [cFor "a"; cVarDef "x"];
+  !! Loop.hoist_alloc ~indep:["mi"] ~dest:[tBefore; cFor "mi"] [cVarDef "m"];
   !!! ();
 )

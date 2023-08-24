@@ -96,52 +96,18 @@ let%transfo local_name ?(my_mark : mark option) ?(indices : (var list) = []) ?(a
 
 (* [local_name_tile ~mark var into tg]: expects the target to point at an instruction that contains
       an occurrence of [var] then it will define a matrix [into] whose dimensions will correspond to a tile of [var]. Then we copy the contents of the matrix [var] into [into] according to the given tile offsets and finally we free up the memory. *)
-let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option) ?(indices : (var list) = []) ?(alloc_instr : target option) (v : var) ~into:(into : var) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
+let%transfo local_name_tile ?(mark : mark option) ?(mark_accesses : mark option) ?(indices : (var list) = []) ~(alloc_instr : target) ?(ret_var : var ref = ref "") ~into:(into : var) (tile : Matrix_core.nd_tile) ?(local_ops : local_ops = Local_arith (Lit_int 0, Binop_add)) (tg : target) : unit =
   let remove = (mark = None) in
-  let get_alloc_type_and_trms (t : trm) (tg1 : target) : typ * (trms * trm * bool) =
-    let var_type = begin match t.desc with
-      | Trm_let (_, (_, ty), _, _) -> get_inner_ptr_type ty
-      | Trm_apps (_, [lhs; _rhs]) when is_set_operation t ->
-        begin match lhs.typ with
-        | Some ty -> ty
-        | None -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s\n'" v)
-        end
-      | _ -> fail t.loc (Printf.sprintf "Matrix_basic.get_alloc_type_and_trms: couldn't findd the type of variable %s, alloc_instr
-          target doesn't point to a write operation or a variable declaration \n'" v)
-      end in
-      let alloc_trms = begin match Target.get_trm_at (tg1 @ [Target.cFun ~regexp:true ".ALLOC."]) with
-        | Some at ->
-          begin match Matrix_core.alloc_inv at with
-          | Some (dims, sz, zero_init) -> (dims, sz, zero_init)
-          | _ -> fail t.loc "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
-          end
-        | None -> fail None "Matrix_basic.get_alloc_type_and_trms: couldn't get the dimensions and the size of the matrix"
-        end in (var_type, alloc_trms)
-    in
   Nobrace_transfo.remove_after ~remove (fun _ ->
     Target.(apply_on_targets (fun t p ->
-      let seq_p, _ = Internal.isolate_last_dir_in_seq p in
-      let seq_tg = target_of_path seq_p in
-      let var_target = cOr [[cVarDef v]; [cWriteVar v]] in
-      begin match alloc_instr with
-      | Some tg1 ->
-        begin match get_trm_at tg1 with
-        | Some t1 ->
-          let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
-          if not remove then Nobrace.enter();
-          Matrix_core.local_name_tile mark mark_accesses v tile into alloc_trms var_type indices local_ops t p
-        | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
-        end
-      | None ->
-        begin match get_trm_at (seq_tg @ [var_target]) with
-        | Some t1 ->
-          let tg1 = (seq_tg @ [var_target]) in
-          let var_type, alloc_trms = get_alloc_type_and_trms t1 tg1 in
-          if not remove then Nobrace.enter();
-          Matrix_core.local_name_tile mark mark_accesses v tile into alloc_trms var_type indices local_ops t p
-
-        | None -> fail None "Matrix_basic.local_name: alloc_instr target does not match to any ast node"
-        end
+      begin match get_trm_at alloc_instr with
+      | Some t1 ->
+        let error = "Matrix_basic.local_name_tile: alloc_instr should target a matrix allocation" in
+        let v, dims, elem_ty, size = trm_inv ~error Matrix_core.let_alloc_inv_with_ty t1 in
+        ret_var := v;
+        if not remove then Nobrace.enter();
+        Matrix_core.local_name_tile mark mark_accesses v tile into dims elem_ty size indices local_ops t p
+      | None -> fail None "Matrix_basic.local_name_tile: alloc_instr target does not match to any ast node"
       end
     ) tg)
   )
@@ -228,7 +194,7 @@ let find_occurences_and_add_mindex0 (x : var) (t : trm) : (bool * trm) =
     match trm_var_inv t with
     | Some y when x = y ->
       found := true;
-      trm_array_access (trm_var_get y) (mindex [] [])
+      trm_array_access (trm_var y) (mindex [] [])
     | _ -> trm_map loop t
   in
   let res_t = loop t in
@@ -253,7 +219,7 @@ let intro_malloc0_on (x : var) (t : trm) : trm = begin
   ) instrs;
   match !decl_info_opt with
   | Some (decl_index, decl_ty) ->
-    let new_decl = trm_let_mut (x, decl_ty) (Matrix_core.alloc_with_ty [] (get_inner_ptr_type decl_ty)) in
+    let new_decl = Matrix_core.let_alloc_with_ty x [] (get_inner_ptr_type decl_ty) in
     let instrs2 = Mlist.replace_at decl_index new_decl instrs in
     let last_use = ref decl_index in
     let instrs3 = Mlist.mapi (fun i instr ->
@@ -265,7 +231,7 @@ let intro_malloc0_on (x : var) (t : trm) : trm = begin
         instr2
       end
     ) instrs2 in
-    let instrs4 = Mlist.insert_at (!last_use + 1) (Matrix_core.free [] (trm_var_get x)) instrs3 in
+    let instrs4 = Mlist.insert_at (!last_use + 1) (Matrix_core.free [] (trm_var x)) instrs3 in
     trm_seq ~annot:t.annot instrs4
   | None -> fail t.loc "Matrix_basic.intro_malloc0_on: expected unintialized stack allocation"
 end
@@ -316,10 +282,10 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
   let rec update_accesses (t : trm) : trm =
     match Matrix_core.access_inv t with
     | Some (f, dims, indices) ->
-      begin match trm_var_get_inv f with
+      begin match trm_var_inv f with
       | Some n when n = name -> begin
         if Option.is_none !dims_and_typ_opt then begin
-          let typ = Option.get (typ_ptr_inv (Option.get f.typ)) in
+          let typ = Option.get (typ_const_ptr_inv (Option.get f.typ)) in
           dims_and_typ_opt := Some (dims, typ);
         end;
         let (common_indices, new_indices) = Xlist.split_at d indices in
@@ -346,7 +312,7 @@ let stack_copy_on (name : string) (stack_name : string) (d : int) (t : trm) : tr
   let array_typ = List.fold_left (fun acc i ->
     typ_array acc (Trm i)
   ) typ new_dims in
-  let copy_offset = trm_array_access (trm_var_get name) (mindex dims (common_indices @ (List.init d (fun _ -> trm_int 0)))) in
+  let copy_offset = trm_array_access (trm_var name) (mindex dims (common_indices @ (List.init d (fun _ -> trm_int 0)))) in
   let copy_size = trm_var ("sizeof(" ^ (AstC_to_c.typ_to_string array_typ) ^ ")") in
   trm_seq_no_brace [
     trm_let_mut (stack_name, array_typ) (trm_uninitialized ());
@@ -389,7 +355,7 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
   let rec update_accesses_and_alloc (t : trm) : trm =
     match Matrix_core.access_inv t with
     | Some (f, dims, indices) ->
-      begin match trm_var_get_inv f with
+      begin match trm_var_inv f with
       | Some v when v = var -> begin
         new_dims := Xlist.update_nth dim (fun _ -> n) dims;
         let new_indices = Xlist.update_nth dim (fun i -> trm_mod i n) indices in
@@ -398,14 +364,10 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
       | _ -> trm_map update_accesses_and_alloc t
       end
     | None ->
-      begin match trm_let_inv t with
-      | Some (_kind, v, vtyp, init) when v = var ->
-        begin match Matrix_core.alloc_inv_with_ty init with
-        | Some (dims, etyp, size) ->
-          let new_dims = Xlist.update_nth dim (fun _ -> n) dims in
-          trm_let_mut ~annot:t.annot (v, (get_inner_ptr_type vtyp)) (Matrix_core.alloc_with_ty new_dims etyp)
-        | _ -> trm_map update_accesses_and_alloc t
-        end
+      begin match Matrix_core.let_alloc_inv_with_ty t with
+      | Some (v, dims, etyp, size) when v = var ->
+        let new_dims = Xlist.update_nth dim (fun _ -> n) dims in
+        trm_let ~annot:t.annot Var_immutable (v, typ_const_ptr etyp) (Matrix_core.alloc_with_ty new_dims etyp)
       | _ ->
         begin match trm_var_inv t with
         | Some n when n = var ->
@@ -413,7 +375,7 @@ let storage_folding_on (var : var) (dim : int) (n : trm) (t : trm) : trm =
         | _ ->
           begin match Matrix_core.free_inv t with
           | Some freed ->
-            begin match trm_var_get_inv freed with
+            begin match trm_var_inv freed with
             | Some n when n = var ->
               Matrix_core.free !new_dims freed
             | _ -> trm_map update_accesses_and_alloc t
@@ -446,6 +408,7 @@ let%transfo storage_folding ~(var : var) ~(dim : int) ~(size : trm)
 (* TODO: redundant code with storage folding *)
 let delete_on (var : var) (t : trm) : trm =
   let rec update_accesses_and_alloc (t : trm) : trm =
+    (* TODO: use let_alloc_inv_with_ty *)
     match trm_let_inv t with
     | Some (_kind, v, vtyp, init) when v = var ->
       (* TODO: deal with CALLOC *)
@@ -458,7 +421,7 @@ let delete_on (var : var) (t : trm) : trm =
       | _ ->
         let is_free_var = begin match Matrix_core.free_inv t with
         | Some freed ->
-          begin match trm_var_get_inv freed with
+          begin match trm_var_inv freed with
           | Some n -> n = var
           | None -> false
           end

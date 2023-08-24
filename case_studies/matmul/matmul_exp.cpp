@@ -4,7 +4,7 @@
 // NOTE: using pretty matrix notation
 
 void mm1024(float* C, float* A, float* B) {
-  float* pB = (float*)malloc(sizeof(float[32][256][4][32]));
+  float* const pB = (float* const)malloc(sizeof(float[32][256][4][32]));
 #pragma omp parallel for
   for (int bj = 0; bj < 32; bj++) {
     for (int bk = 0; bk < 256; bk++) {
@@ -19,7 +19,7 @@ void mm1024(float* C, float* A, float* B) {
 #pragma omp parallel for
   for (int bi = 0; bi < 32; bi++) {
     for (int bj = 0; bj < 32; bj++) {
-      float* sum = (float*)malloc(sizeof(float[32][32]));
+      float* const sum = (float* const)malloc(sizeof(float[32][32]));
       for (int i = 0; i < 32; i++) {
         for (int j = 0; j < 32; j++) {
           sum[32 * i + j] = 0.f;
@@ -57,8 +57,8 @@ void mm1024(float* C, float* A, float* B) {
           C[1024 * (32 * bi + i) + 32 * bj + j] = sum[32 * i + j];
         }
       }
-      MFREE2(32, 32, sum);
+      free(sum);
     }
   }
-  MFREE4(32, 256, 4, 32, pB);
+  free(pB);
 }

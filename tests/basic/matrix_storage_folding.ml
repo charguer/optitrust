@@ -10,8 +10,8 @@ let _ = Run.doc_script_cpp (fun _ ->
 #include \"../../include/optitrust.h\"
 
 int main() {
-  int* a = (int*) MALLOC1(10, sizeof(int));
-  int* b = (int*) MALLOC1(8, sizeof(int));
+  int* const a = (int* const) MALLOC1(10, sizeof(int));
+  int* const b = (int* const) MALLOC1(8, sizeof(int));
   for (int i = 0; i < 10; i++) {
      a[MINDEX1(10, i)] = i;
     if (i >= 2) {

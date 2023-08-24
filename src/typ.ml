@@ -152,6 +152,9 @@ let typ_const_inv (ty : typ) : typ option =
   | Typ_const typ -> Some typ
   | _ -> None
 
+let typ_const_ptr (ty : typ) : typ =
+  typ_const (typ_ptr Ptr_kind_mut ty)
+
 (* [typ_const_ptr_inv ty]: get the inner type of a constant pointer *)
 let typ_const_ptr_inv (ty : typ) : typ option =
   Option.bind (typ_const_inv ty) typ_ptr_inv

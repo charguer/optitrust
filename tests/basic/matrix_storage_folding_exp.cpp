@@ -7,8 +7,8 @@ int N;
 typedef float T;
 
 int main() {
-  T* a = (T*)MALLOC1(3, sizeof(T));
-  T* b = (T*)MALLOC1(3, sizeof(T));
+  T* const a = (T* const)MALLOC1(3, sizeof(T));
+  T* const b = (T* const)MALLOC1(3, sizeof(T));
   for (int i = 0; i < N; i++) {
     a[MINDEX1(3, i % 3)] = i;
     if (i >= 2) {

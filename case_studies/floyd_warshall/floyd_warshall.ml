@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-open Syntax
+(* open Syntax *)
 
 (* let _ = Flags.check_validity := true *)
 let _ = Flags.pretty_matrix_notation := true
@@ -20,7 +20,7 @@ let _ = Run.script_cpp (fun () ->
   !!! ();
 
   (*!! Types.replace "auto*" "uint32_t*" [cVarDef "ik"];*)
-  (*!! Loop_basic.move_out [cVarDef "kj"];*)
+  !! Loop.hoist_alloc ~indep:["k"] ~dest:[tBefore; cFor "k"] [multi cVarDef ["kj"; "ik"]];
 
   bigstep "split to top and bottom";
   (* Split ranges, such that the ifs can be removed *)
