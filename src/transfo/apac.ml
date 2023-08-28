@@ -11,7 +11,7 @@ include Apac_core
    on data accesses, aliases and dependencies. *)
 let constify (tg : target) : unit =
   (* Step 1: Clear the hash table of constification records. *)
-  Hashtbl.clear Apac_core.const_records;
+  VarHashtbl.clear Apac_core.const_records;
   (* Step 2: Iterate over [tg] and fill the hash table of constification
      records. *)
   Apac_core.build_constification_records tg;
@@ -118,7 +118,7 @@ let parallel_task_group : Transfo.t =
     (* 5) Remove the mark. *)
     Marks.remove mark [cMark mark];
   )
-
+(*
 (* [decl_cptrs]: hashtable storing available varaibles and whether they are
     arrays. *)
 type decl_cptrs = (var, bool) Hashtbl.t
@@ -171,7 +171,7 @@ let heapify_nested_seq : Transfo.t =
           then trm_map (aux ptrs is_first_depth) t
           else trm_map (aux ptrs is_first_depth) (Apac_basic.stack_to_heap_aux t)
       (* Dereference heapified variables. *)
-      | Trm_var (kind, qv) when Hashtbl.mem ptrs qv.qvar_str && not (Hashtbl.find ptrs qv.qvar_str) -> trm_get t
+      | Trm_var (kind, qv) when Hashtbl.mem ptrs qv && not (Hashtbl.find ptrs qv) -> trm_get t
       (* Add delete task before:
           - 'return': everytime,
           - 'break', 'continue': only the current loop, not deeper. *)
@@ -211,7 +211,7 @@ let heapify_nested_seq : Transfo.t =
 let rec get_all_vars (acc: vars) (t : trm) : vars =
   match t.desc with
   | Trm_apps (_, tl) -> List.fold_left get_all_vars acc tl
-  | Trm_var (_, qv) when not (List.mem qv.qvar_str acc) -> qv.qvar_str :: acc
+  | Trm_var (_, qv) when not (List.mem qv acc) -> qv :: acc
   | _ -> acc
 
 (* [get_dep var ty]: returns the dep of the typ [ty]. *)
@@ -320,13 +320,13 @@ let sync_with_taskwait : Transfo.t =
     let decl_vars = Hashtbl.create 10 in
     match tg_trm.desc with
     | Trm_let_fun (qv, ty, args, body, _) ->
-      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add decl_vars var (get_dep var ty)) args;
+      List.iter (fun (var, ty) -> if var.name <> "" then Hashtbl.add decl_vars var (get_dep var ty)) args;
       transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
   )
 
 (* [fun_loc]: function's Unified Symbol Resolution *)
-type fun_loc = string
+type fun_loc = var
 
 (* [dep_info]: stores data of dependencies of tasks. *)
 type dep_info = {
@@ -416,7 +416,7 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
     match t.desc with
     | Trm_seq _ | Trm_namespace _ -> trm_iter (aux fad is_method) t
     | Trm_typedef { typdef_body = Typdef_record _; _ } -> trm_iter (aux fad true) t
-    | Trm_let_fun (qv, _, tvl, _, _) when qv.qvar_str <> "main" ->
+    | Trm_let_fun (qv, _, tvl, _, _) when qv.name <> "main" ->
       let fc = Ast_data.get_function_usr_unsome t in
       let args_info = List.map (fun (var, ty) ->
         let dep_in = is_dep_in ty in
@@ -468,21 +468,21 @@ let is_unary_mutation (t : trm) : bool =
 
 (* [get_unary_mutation_qvar t]: returns fully qualified name of a variable
     behind unary mutatation operator. *)
-let get_unary_mutation_qvar (t : trm) : qvar =
-  let rec aux (t : trm) : qvar =
+let get_unary_mutation_qvar (t : trm) : var =
+  let rec aux (t : trm) : var =
     match t.desc with
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (Unop_get | Unop_address))); _}, [t]) -> aux t
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _}, [t; _]) -> aux t
     | Trm_var (_, name)-> name
-    | _ -> empty_qvar
+    | _ -> new_var "hello"
   in
   match t.desc with
   | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _}, [tr]) ->
     begin match uo with
     | Unop_post_dec | Unop_post_inc | Unop_pre_dec | Unop_pre_inc -> aux tr
-    | _ -> empty_qvar
+    | _ -> new_var "hello"
     end
-  | _ -> empty_qvar
+  | _ -> new_var "hello"
 
 (* [get_apps_deps vd fad t]: gets the list of dependencies of trm [t]. Expects
     the transformation [unfold_funcall] to be applied before. The returned list
@@ -500,7 +500,7 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
         match (Apac_core.trm_strip_accesses_and_references_and_get t).desc with
         | Trm_var (_, qv) ->
           let di = { dep_info with dep_depth = if dep_depth = -1 then (count_unop_get t) - 1 else dep_depth}  in
-          (qv.qvar_str, di) :: acc
+          (qv.name, di) :: acc
         | Trm_apps (_, tl) ->
           (* Resolve pointers. *)
           let dep_infos = if dep_depth > 1  && not dep_in
@@ -611,4 +611,4 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
       Target.apply_at_target_paths (aux vd) (target_of_path (p @ [Dir_body]))
     | _ -> fail None "Apac.insert_tasks_naive: expected a target to a function definition"
   )
-*)
+ *)
