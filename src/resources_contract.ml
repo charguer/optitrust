@@ -31,7 +31,6 @@ type contract_clause_type =
 
 type contract_resource = var option * formula
 
-(* CHECK: #var-id *)
 let var_has_model = trm_toplevel_free_var "_HasModel"
 let var_read_only = trm_toplevel_free_var "_RO"
 let var_frac = trm_toplevel_free_var "_Fraction"
@@ -66,7 +65,7 @@ let formula_read_only_inv (t: formula): read_only_formula option =
     end
   | _ -> None
 
-let var_cell = trm_var (new_var "Cell")
+let var_cell = trm_var (toplevel_free_var "Cell")
 
 let formula_cell (x: var): formula =
   formula_model (trm_var x) var_cell

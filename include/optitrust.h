@@ -173,6 +173,24 @@ __ghost ghost_matrix2_ro_unfocus(float* M) {
     __admitted();
 }
 
+__ghost ghost_matrix2_unfold(float* M) {
+  __requires("m: int; n: int;");
+  __consumes("M ~> Matrix2(m, n);");
+  __produces("Group(range(0, m, 1), fun i -> "
+             "Group(range(0, n, 1), fun j -> "
+             "&M[MINDEX2(m, n, i, j)] ~> Cell));");
+  __admitted();
+}
+
+__ghost ghost_matrix2_fold(float* M) {
+  __requires("m: int; n: int;");
+  __consumes("Group(range(0, m, 1), fun i ->"
+             "Group(range(0, n, 1), fun j ->"
+             "&M[MINDEX2(m, n, i, j)] ~> Cell));");
+  __produces("M ~> Matrix2(m, n);");
+  __admitted();
+}
+
 /* ---- Arithmetic Functions ---- */
 
 int exact_div(int n, int b) {

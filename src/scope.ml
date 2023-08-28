@@ -26,7 +26,7 @@ let refresh_var_ids (t : trm) : trm =
     in
     trm_var ~annot ?loc ?typ ~ctx new_v
   in
-  trm_map_vars map_binder map_var Var_map.empty t
+  trm_map_vars ~map_binder map_var Var_map.empty t
 
 (* LATER: #var-id, flag to disable check for performance *)
 let check_unique_var_ids (t : trm) : unit =

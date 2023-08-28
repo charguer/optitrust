@@ -433,22 +433,22 @@ in aux t
 
 open Resources_contract
 
-let __pure = new_var "__pure"
-let __requires = new_var "__requires"
-let __ensures = new_var "__ensures"
-let __invariant = new_var "__invariant"
-let __reads = new_var "__reads"
-let __modifies = new_var "__modifies"
-let __consumes = new_var "__consumes"
-let __produces = new_var "__produces"
-let __sequentially_reads = new_var "__sequentially_reads"
-let __sequentially_modifies = new_var "__sequentially_modifies"
-let __ctx_res = new_var "__ctx_res"
-let __produced_res = new_var "__produced_res"
-let __used_res = new_var "__used_res"
-let __framed_res = new_var "__framed_res"
-let __contract_inst = new_var "__contract_inst"
-let __post_inst = new_var "__post_inst"
+let __pure = name_to_var "__pure"
+let __requires = name_to_var "__requires"
+let __ensures = name_to_var "__ensures"
+let __invariant = name_to_var "__invariant"
+let __reads = name_to_var "__reads"
+let __modifies = name_to_var "__modifies"
+let __consumes = name_to_var "__consumes"
+let __produces = name_to_var "__produces"
+let __sequentially_reads = name_to_var "__sequentially_reads"
+let __sequentially_modifies = name_to_var "__sequentially_modifies"
+let __ctx_res = name_to_var "__ctx_res"
+let __produced_res = name_to_var "__produced_res"
+let __used_res = name_to_var "__used_res"
+let __framed_res = name_to_var "__framed_res"
+let __contract_inst = name_to_var "__contract_inst"
+let __post_inst = name_to_var "__post_inst"
 
 let encoded_contract_inv (t: trm): (contract_clause_type * string) option =
   let open Tools.OptionMonad in

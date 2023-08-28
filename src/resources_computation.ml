@@ -6,9 +6,8 @@ type linear_resource_set = resource_item list
 
 (* The built-in variable representing a function's return value. *)
 (* FIXME: #var-id, id should change *)
-let var_result = new_var "_Res"
+let var_result = toplevel_free_var "_Res"
 let trm_result: formula = trm_var var_result
-(* CHECK: #var-id *)
 let _Full = toplevel_free_var "_Full"
 
 (* The contract of the [set] function. *)
@@ -16,7 +15,7 @@ let set_fun_contract p =
   { pre = resource_set ~linear:[(new_anon_hyp (), formula_cell p)] ();
     post = resource_set ~linear:[(new_anon_hyp (), formula_cell p)] (); }
 
-let __admitted = toplevel_free_var "__admitted"
+(* LATER: express these as parsed C function definitions *)
 let __cast = toplevel_free_var "__cast"
 let __new = toplevel_free_var "__new"
 let __get = toplevel_free_var "__get"
@@ -66,7 +65,7 @@ let inst_hyp_inv (f: formula_inst) =
   | Trm_var (Var_immutable, h) -> Some h
   | _ -> None
 
-let var_SplitRO = new_var "SplitRO"
+let var_SplitRO = toplevel_free_var "SplitRO"
 
 let inst_split_read_only ~(new_frac: var) (h: hyp) : formula_inst =
   trm_apps (trm_var var_SplitRO) [trm_var new_frac; inst_hyp h]
@@ -87,11 +86,7 @@ let inst_split_read_only_inv (f: formula_inst): (var * hyp) option =
 let subst_in_resources ?(forbidden_binders = Var_set.empty) (subst_map: tmap) (res: resource_set): tmap * resource_set =
   let subst_var_in_resource_list =
     List.fold_left_map (fun subst_ctx (h, t) ->
-        let (forbidden_binders, subst_map) as subst_ctx, h =
-          let subst_ctx, x = trm_subst_binder subst_ctx h.name in
-          (subst_ctx, { h with name = x })
-        in
-        let t = trm_subst subst_map forbidden_binders t in
+        let t = trm_subst subst_map t in
         (subst_ctx, (h, t))
       )
   in
@@ -125,10 +120,9 @@ exception Resource_not_found of resource_item * resource_item list
 
 let raise_resource_not_found ((name, formula): resource_item) (evar_ctx: unification_ctx) (inside: resource_item list) =
   let subst_ctx = Var_map.mapi (fun var subst ->
-    (* CHECK: #var-id *)
-    match subst with Some t -> t | None -> trm_var { qualifier = var.qualifier; name = ("?" ^ var.name); id = -2 }
+    match subst with Some t -> t | None -> trm_var { var with name = ("?" ^ var.name) }
   ) evar_ctx in
-  let formula = trm_subst subst_ctx Var_set.empty formula in
+  let formula = trm_subst subst_ctx formula in
   raise (Resource_not_found ((name, formula), inside))
 
 (* Unify the given resource_item with one of the resources in the pure resource set.
@@ -274,7 +268,7 @@ let rec extract_resources ~(split_frac: bool) (res_from: resource_set) ?(subst_c
   in
 
   let used_pure = List.map (fun (hyp, formula) ->
-      { hyp_to_inst = hyp; inst_by = Var_map.find hyp subst_ctx; used_formula = trm_subst subst_ctx Var_set.empty formula }
+      { hyp_to_inst = hyp; inst_by = Var_map.find hyp subst_ctx; used_formula = trm_subst subst_ctx formula }
     ) res_to.pure in
 
   (* TODO: what is this? *)
@@ -301,11 +295,10 @@ and assert_resource_impl (res_from: resource_set) (res_to: resource_set) : used_
 
 (* Computes the resources produced by [contract_post] given the [subst_ctx] instantation of the contract. *)
 let compute_produced_resources (subst_ctx: tmap) (contract_post: resource_set) : produced_resource_set =
-  let forbidden_binders = Var_map.fold (fun _ formula acc -> Var_set.union acc (trm_free_vars formula)) subst_ctx Var_set.empty in
   let compute_produced_resources_list =
     List.fold_left_map (fun subst_ctx (h, formula) ->
         let produced_hyp = new_anon_hyp () in
-        let produced_formula = trm_subst subst_ctx forbidden_binders formula in
+        let produced_formula = trm_subst subst_ctx formula in
         let produced = { produced_hyp; produced_from = h; produced_formula } in
         let subst_ctx = Var_map.add h (trm_var produced_hyp) subst_ctx in
         (subst_ctx, produced)
@@ -668,7 +661,9 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
         | [arg] -> compute_resources_and_merge_usage (Some res) (Some usage_map) arg
         | _ -> failwith "expected 1 argument for cast"
         end
-      | None when var_eq fn __admitted -> None, None
+      | None when fn.name = "__admitted" ->
+        (* LATER: Force the function __admitted inside optitrust.h to have a predefined id to make this check faster and allow proper shadowing *)
+        None, None
       | None -> raise (Spec_not_found fn)
       end
 
@@ -711,7 +706,7 @@ let rec compute_resources ?(expected_res: resource_spec) (res: resource_spec) (t
       None, None
     | ResourceError (None, place, err) -> raise (ResourceError (t.loc, place, err))
     | ResourceError (Some _, _, _) as e -> raise e
-    | e -> raise (ResourceError (t.loc, ResourceComputation, e))
+    | e -> Printexc.(raise_with_backtrace (ResourceError (t.loc, ResourceComputation, e)) (get_raw_backtrace ()))
   in
 
   t.ctx.ctx_resources_usage <- usage_map;
@@ -748,5 +743,6 @@ let rec trm_deep_copy (t: trm) : trm =
 
 let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm =
   let t = trm_deep_copy t in
+  let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
   ignore (compute_resources (Some init_ctx) t);
   t
