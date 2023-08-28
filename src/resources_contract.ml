@@ -137,7 +137,9 @@ let var_range = trm_toplevel_free_var "range"
 
 let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) (fi: formula) =
   if dir <> DirUp then failwith "formula_group_range only supports DirUp";
-  trm_apps var_group [trm_apps var_range [tfrom; tto; loop_step_to_trm step]; trm_fun [idx, typ_int ()] None fi]
+  let range_var = new_var ~qualifier:idx.qualifier idx.name in
+  let fi = trm_subst (Var_map.singleton idx (trm_var range_var)) fi in
+  trm_apps var_group [trm_apps var_range [tfrom; tto; loop_step_to_trm step]; trm_fun [range_var, typ_int ()] None fi]
 
 let res_group_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;

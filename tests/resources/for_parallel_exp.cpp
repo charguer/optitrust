@@ -174,16 +174,6 @@ __ghost ghost_matrix2_ro_unfocus(float* M) {
   __admitted();
 }
 
-int exact_div(int n, int b) {
-  __pure();
-  __admitted();
-  return n / b;
-}
-
-void MFREE(void* p) { free(p); }
-
-int ANY(int maxValue) { return 0; }
-
 __ghost ghost_matrix2_unfold(float* M) {
   __requires("n: int; m: int;");
   __consumes("M ~> Matrix2(m, n);");
@@ -202,23 +192,15 @@ __ghost ghost_matrix2_fold(float* M) {
   __admitted();
 }
 
-__ghost ghost_matrix2_ro_focus(float* M, int i, int j) {
-  __requires("f: _Fraction; n: int; m: int;");
-  __consumes("RO(f, M ~> Matrix2(m, n));");
-  __produces(
-      "RO(f, M ~> FocussedMatrix2(m, n, i, j)); RO(f, M[MINDEX2(m, n, i, j)] "
-      "~> Cell);");
+int exact_div(int n, int b) {
+  __pure();
   __admitted();
+  return n / b;
 }
 
-__ghost ghost_matrix2_ro_unfocus(float* M) {
-  __requires("f: _Fraction; j: int; i: int; n: int; m: int;");
-  __consumes(
-      "RO(_Full(f), M[MINDEX2(m, n, i, j)] ~> Cell); RO(_Full(f), M ~> "
-      "FocussedMatrix2(m, n, i, j));");
-  __produces("RO(f, M ~> Matrix2(m, n));");
-  __admitted();
-}
+void MFREE(void* p) { free(p); }
+
+int ANY(int maxValue) { return 0; }
 
 void matmul(float* C, float* A, float* B, int m, int n, int p) {
   __modifies("C ~> Matrix2(m, n);");
