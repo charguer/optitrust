@@ -1307,11 +1307,39 @@ let trm_map_vars
   in
   snd (f_map ctx t)
 
+
+(** Erase variable identifiers, useful for e.g. embedding a subexpression in a new context. *)
+let trm_erase_var_ids (t : trm) : trm =
+  let rec aux t =
+    match trm_var_inv t with
+    | Some x -> trm_var ~annot:t.annot ?loc:t.loc ?typ:t.typ ~ctx:t.ctx (name_to_var ~qualifier:x.qualifier x.name)
+    | _ -> trm_map aux t
+  in
+  aux t
+
+(** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
+let trm_copy (t : trm) : trm =
+  let map_binder var_map v _ =
+    assert (not (Var_map.mem v var_map));
+    let new_v = new_var ~qualifier:v.qualifier v.name in
+    (Var_map.add v new_v var_map, new_v)
+  in
+  let map_var var_map (annot, loc, typ, ctx, kind) v =
+    let new_v =
+      if v.id = -1 then v
+      else match Var_map.find_opt v var_map with
+      | Some nv -> nv
+      | None -> v
+    in
+    trm_var ~annot ?loc ?typ ~ctx new_v
+  in
+  trm_map_vars ~map_binder map_var Var_map.empty t
+
 (* Assumes var-id's are unique, can locally break scope rules and might require a binder renaming. *)
 let trm_subst (subst_map: trm varmap) (t: trm) =
   let subst_var (subst_map: trm varmap) ((annot, loc, typ, _ctx, kind): metadata) (var: var) =
     match Var_map.find_opt var subst_map with
-    | Some t -> t
+    | Some t -> trm_copy t
     | None -> trm_var ~annot ?loc ?typ ~kind var
   in
   trm_map_vars subst_var subst_map t

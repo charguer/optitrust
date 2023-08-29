@@ -4,9 +4,6 @@ include Typ
 include Mark
 include Target
 
-(* FIXME: #var-id, move elsewhere. *)
-let trm_copy = Scope.refresh_var_ids
-
 let trm_seq_no_brace = Nobrace.trm_seq
 
 (* TODO: reflect on the API implications of #var-id (e.g. where this function is called) *)

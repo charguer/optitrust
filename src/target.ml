@@ -1138,7 +1138,7 @@ let compute_stringreprs ?(optitrust_syntax:bool=false) ?(topfuns:Constr.constr_n
         t3
     in
   AstC_to_c.init_stringreprs();
-  let t3_c_syntax = Ast_fromto_AstC.cfeatures_intro (Scope.erase_var_ids t3) in
+  let t3_c_syntax = Ast_fromto_AstC.cfeatures_intro (trm_erase_var_ids t3) in
   let _doc = AstC_to_c.ast_to_doc ~optitrust_syntax t3_c_syntax in (* fill in the [AstC_to_c.stringreprs] table, ignore the result *)
   let m = AstC_to_c.get_and_clear_stringreprs() in
   t2, m (* we return t2, not t3, because t3 has hidden bodies *)

@@ -1,33 +1,6 @@
 open Ast
 open Trm
 
-(** Erase variable identifiers, useful for e.g. embedding a subexpression in a new context. *)
-let erase_var_ids (t : trm) : trm =
-  let rec aux t =
-    match trm_var_inv t with
-    | Some x -> trm_var ~annot:t.annot ?loc:t.loc ?typ:t.typ ~ctx:t.ctx (name_to_var ~qualifier:x.qualifier x.name)
-    | _ -> trm_map aux t
-  in
-  aux t
-
-(** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
-let refresh_var_ids (t : trm) : trm =
-  let map_binder var_map v _ =
-    assert (not (Var_map.mem v var_map));
-    let new_v = new_var ~qualifier:v.qualifier v.name in
-    (Var_map.add v new_v var_map, new_v)
-  in
-  let map_var var_map (annot, loc, typ, ctx, kind) v =
-    let new_v =
-      if v.id = -1 then v
-      else match Var_map.find_opt v var_map with
-      | Some nv -> nv
-      | None -> v
-    in
-    trm_var ~annot ?loc ?typ ~ctx new_v
-  in
-  trm_map_vars ~map_binder map_var Var_map.empty t
-
 (* LATER: #var-id, flag to disable check for performance *)
 let check_unique_var_ids (t : trm) : unit =
   (* LATER: refactor with function mapping over bindings? *)
