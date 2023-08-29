@@ -12,7 +12,7 @@ let erase_var_ids (t : trm) : trm =
 
 (** Uses a fresh variable identifier for every variable declation, useful for e.g. copying a term while keeping unique ids. *)
 let refresh_var_ids (t : trm) : trm =
-  let map_binder var_map v =
+  let map_binder var_map v _ =
     assert (not (Var_map.mem v var_map));
     let new_v = new_var ~qualifier:v.qualifier v.name in
     (Var_map.add v new_v var_map, new_v)

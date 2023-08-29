@@ -762,7 +762,7 @@ and typedef_to_doc ?(semicolon : bool = true) ?(t_annot : cstyle_annot list = []
         | Record_field_method t1 -> trm_to_doc t1
         *)
         | Record_field_method t1 ->
-          let semi = if has_empty_body t1 then semi else empty in
+          let semi = if is_fun_with_empty_body t1 then semi else empty in
           decorate_trm t1 ^^ semi
          in
         if rt_annot <> !access_ctrl

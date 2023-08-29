@@ -34,9 +34,12 @@ namespace Y {
 }
 
 namespace Z {
-  void g(int a) {
+  void g(int a, int, int) {
     Y::h(a);
   }
 }
 
-int main (){}
+int main () {
+  int x = 1;
+  Y::h(x);
+}

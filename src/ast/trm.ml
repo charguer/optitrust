@@ -1097,7 +1097,7 @@ let trm_map_vars
   ?(enter_scope: 'ctx -> 'ctx = fun ctx -> ctx)
   ?(exit_typedef: typedef -> 'ctx -> 'ctx -> 'ctx = fun _ old_ctx _ -> old_ctx)
   ?(exit_namespace: string -> 'ctx -> 'ctx -> 'ctx = fun _ old_ctx _ -> old_ctx)
-  ?(map_binder: 'ctx -> var -> 'ctx * var = fun ctx bind -> (ctx, bind))
+  ?(map_binder: 'ctx -> var -> trm option -> 'ctx * var = fun ctx bind t -> (ctx, bind))
   (map_var: 'ctx -> metadata -> var -> trm)
   (ctx: 'ctx) (t: trm): trm =
   let rec f_map ctx t: 'ctx * trm =
@@ -1113,7 +1113,7 @@ let trm_map_vars
     | Trm_let (var_kind, (var, typ), body, bound_resources) ->
       (* TODO: map inside bound_resources *)
       let _, body' = f_map ctx body in
-      let cont_ctx, var' = map_binder ctx var in
+      let cont_ctx, var' = map_binder ctx var (Some t) in
       let t' = if (body == body' && var == var')
         then t
         else (trm_let ~annot ?loc ~ctx:t_ctx ?bound_resources var_kind (var', typ) body')
@@ -1125,7 +1125,7 @@ let trm_map_vars
       let cont_ctx = ref ctx in
       let tvs' = List.map (fun tv ->
         let var, typ = tv in
-        let cont_ctx', var' = map_binder !cont_ctx var in
+        let cont_ctx', var' = map_binder !cont_ctx var None in
         cont_ctx := cont_ctx';
         if var == var' then tv else (var', typ)
       ) tvs in
@@ -1137,7 +1137,7 @@ let trm_map_vars
 
     | Trm_let_fun (fn, resources, args, body, contract) ->
       let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) ->
-        let ctx, arg' = map_binder ctx arg in
+        let ctx, arg' = map_binder ctx arg None in
         (ctx, (arg', typ))
       ) (enter_scope ctx) args in
       let body_ctx, contract = match contract with
@@ -1147,7 +1147,7 @@ let trm_map_vars
           (body_ctx, Some contract)
       in
       let _, body' = f_map body_ctx body in
-      let cont_ctx, fn' = map_binder ctx fn in
+      let cont_ctx, fn' = map_binder ctx fn (Some t) in
       let t' = if (body' == body && args == args' && fn == fn')
         then t
         else (trm_let_fun ~annot ?loc ~ctx:t_ctx ?contract fn' resources args' body')
@@ -1156,7 +1156,7 @@ let trm_map_vars
       (cont_ctx, t')
 
     | Trm_for ((index, start, dir, stop, step, is_par), body, contract) ->
-      let loop_ctx, index' = map_binder (enter_scope ctx) index in
+      let loop_ctx, index' = map_binder (enter_scope ctx) index (Some t) in
       let loop_ctx, contract' = match contract with
       | None -> (loop_ctx, None)
       | Some c ->
@@ -1196,7 +1196,7 @@ let trm_map_vars
       (ctx, t')
 
     | Trm_fun (args, ret, body, contract) ->
-      let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) -> let ctx, arg' = map_binder ctx arg in (ctx, (arg', typ))) (enter_scope ctx) args in
+      let body_ctx, args' = List.fold_left_map (fun ctx (arg, typ) -> let ctx, arg' = map_binder ctx arg (Some t) in (ctx, (arg', typ))) (enter_scope ctx) args in
       let body_ctx, contract = match contract with
         | None -> (body_ctx, None)
         | Some contract ->
@@ -1212,6 +1212,7 @@ let trm_map_vars
 
     | Trm_typedef td ->
       (* Class namespace *)
+      (* FIXME: almost duplicated code with 'trm_map_with_ctx' for Trm_seq *)
       let class_ctx = ref (enter_scope ctx) in
       let body' = begin match td.typdef_body with
       | Typdef_alias _ -> td.typdef_body
@@ -1240,23 +1241,37 @@ let trm_map_vars
       in
       let cont_ctx = exit_typedef td' ctx !class_ctx in
       (cont_ctx, t')
-(*
-    | Trm_namespace name body ->
-      let body_ctx, body' = f_map (enter_scope ctx) body in
+
+    | Trm_namespace (name, body, inline) ->
+      let body_ctx = ref (enter_scope ctx) in
+      let body' = begin match body.desc with
+      | Trm_seq instrs ->
+        (* FIXME: duplicated code with 'trm_map_with_ctx' for Trm_seq *)
+        let instrs' = Mlist.map (fun t ->
+          let body_ctx', t' = f_map !body_ctx t in
+          body_ctx := body_ctx';
+          t'
+        ) instrs in
+        if Mlist.for_all2 (==) instrs instrs'
+          then body
+          else trm_seq ~annot:body.annot ?loc:body.loc ~ctx:body.ctx instrs'
+      | _ ->
+        failwith "unexpected namespace body"
+      end in
       let t' = if (body == body')
         then t
-        else (trm_namespace ~annot ?loc ~ctx:t_ctx name body')
+        else (trm_namespace ~annot ?loc ~ctx:t_ctx name body' inline)
       in
-      let cont_ctx = exit_namespace name ctx body_ctx in
+      let cont_ctx = exit_namespace name ctx !body_ctx in
       (cont_ctx, t')
-*)
+
     | _ -> (ctx, trm_map_with_ctx ~keep_ctx f_map ctx t)
 
   and resource_items_map ctx resources: 'ctx * resource_item list =
     List.fold_left_map (fun ctx resources ->
       let (name, formula) = resources in
       let _, formula' = f_map ctx formula in
-      let ctx, name' = map_binder ctx name in
+      let ctx, name' = map_binder ctx name None in
       let resources' = if (name == name' && formula == formula')
         then resources else (name', formula')
       in
@@ -1304,7 +1319,7 @@ let trm_subst (subst_map: trm varmap) (t: trm) =
 (* TODO: Use a real trm_fold later to avoid reconstructing trm *)
 let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
   let fv = ref Var_set.empty in
-  let _ = trm_map_vars ~map_binder:(fun bound_set binder -> (Var_set.add binder bound_set, binder))
+  let _ = trm_map_vars ~map_binder:(fun bound_set binder _ -> (Var_set.add binder bound_set, binder))
     (fun bound_set _ var ->
       (if Var_set.mem var bound_set then () else fv := Var_set.add var !fv); trm_var var)
     bound_vars t
@@ -2038,7 +2053,8 @@ match trm_new_inv t with
 
   (* [trm_get ~annot ?typ t]: embeds [t] into a get operation *)
   let trm_get ?(annot = trm_annot_default) ?(typ : typ option) (t : trm) : trm =
-    trm_apps ~annot (trm_unop Unop_get) [t]
+    let typ = Tools.option_or typ (Option.bind t.typ typ_of_get) in
+    trm_apps ~annot ?typ (trm_unop Unop_get) [t]
 
   (* [trm_address_of ~anot ?typ t]: creates an address operation in [t] *)
   let trm_address_of ?(annot = trm_annot_default) ?(typ : typ option) (t : trm) : trm =
@@ -2435,11 +2451,11 @@ let var_has_name (v : var) (n : string) : bool =
     | Some (Lit_int c) when c = cst -> true
     | _ -> false
 
-  (* [has_empty_body t]: checks if the function [t] has an empty body or not. *)
-  let has_empty_body (t : trm) : bool =
-    match t.desc with
-    | Trm_let_fun (_, _, _, body, _) when is_trm_uninitialized body -> true
-    | _ -> false
+(* [is_fun_with_empty_body t]: checks if the function [t] has an empty body or not. *)
+let is_fun_with_empty_body (t : trm) : bool =
+  match t.desc with
+  | Trm_let_fun (_, _, _, body, _) when is_trm_uninitialized body -> true
+  | _ -> false
 
 
 (* ========== matrix helpers =========== *)
