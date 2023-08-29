@@ -72,6 +72,8 @@ module Var = struct
   let compare v1 v2 =
     assert (v1.id >= 0 && v2.id >= 0);
     Int.compare v1.id v2.id
+  let equal v1 v2 = var_eq v1 v2
+  let hash v = Hashtbl.hash v.id
 end
 
 (* [vars]: variables, a list of elements of type variable *)

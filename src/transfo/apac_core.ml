@@ -9,16 +9,9 @@ open Path
 (* I.1 Constification        *)
 (*****************************)
 
-(* [VarHash] and [VarHashtbl]: specific type of hash tables where the keys are
-   of type [var]. *)
-module VarHash =
-  struct
-    type t = var
-    let equal v1 v2 = v1.id = v2.id
-    let hash v = Hashtbl.hash v.id
-  end
-
-module VarHashtbl = Hashtbl.Make(VarHash)
+(* [VarHashtbl]: specific type of hash tables where the keys are of type
+   [var]. *)
+module VarHashtbl = Hashtbl.Make(Var)
 
 (* [const_arg]: an argument constification record. *)
 type const_arg = {
