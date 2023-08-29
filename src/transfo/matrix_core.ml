@@ -74,7 +74,7 @@ let alloc_with_ty ?(annot : trm_annot = trm_annot_default) (dims : trms) (ty : t
   let n = List.length dims in
   let size = trm_toplevel_free_var ("sizeof(" ^ (AstC_to_c.typ_to_string ty) ^ ")") in
   trm_cast ~annot (typ_const_ptr ty) (
-    trm_apps (trm_toplevel_free_var ("MALLOC" ^  (string_of_int n))) (dims @ [size]))
+    trm_apps (trm_var (name_to_var ("MALLOC" ^  (string_of_int n)))) (dims @ [size]))
 
 let alloc_inv_with_ty (t : trm) : (trms * typ * trm)  option =
   (* Option.bind (trm_new_inv t) (fun (_, t2) -> *)
