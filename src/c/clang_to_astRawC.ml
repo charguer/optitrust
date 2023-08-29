@@ -6,6 +6,13 @@ open Typ
 open Mark
 open Tools
 
+let warn_array_subscript_not_supported (t : typ option) : unit =
+  let str = Tools.option_to_string AstC_to_c.typ_to_string t in
+  if not (String_set.mem str !Flags.warned_array_subscript_not_supported) then begin
+    Flags.warned_array_subscript_not_supported := String_set.add str !Flags.warned_array_subscript_not_supported;
+    printf "WARNING: does not support array subscript base type '%s'\n" str;
+  end
+
 (* [loc_of_node n]: gets the location of node [n] *)
 let loc_of_node (n : 'a node) : location =
   let start_location_of_node = Clang.get_range_start (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n))in
@@ -765,9 +772,9 @@ and tr_expr (e : expr) : trm =
       | Some {typ_desc = Typ_array (ty, _); _} -> Some ty
       | Some {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty}; _} -> Some ty
       | Some {typ_desc = Typ_const { typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty}; _}; _ } -> Some ty
-      (* should not happen *)
       | _ ->
-        printf "WARNING: does not support array subscript base type '%s'" (Tools.option_to_string AstC_to_c.typ_to_string te.typ);
+        (* happens for, e.g., typedef T = int*; *)
+        warn_array_subscript_not_supported te.typ;
         None
     in
       trm_apps ?loc ~ctx ?typ (trm_binop ?loc ~ctx (Binop_array_get)) [te; ti]

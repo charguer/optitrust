@@ -27,4 +27,16 @@ void test_method(){
 
 }
 
+namespace Y {
+  void h(int& a) {
+    a = 1;
+  }
+}
+
+namespace Z {
+  void g(int a) {
+    Y::h(a);
+  }
+}
+
 int main (){}

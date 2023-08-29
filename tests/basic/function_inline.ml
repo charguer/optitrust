@@ -40,4 +40,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Function_basic.inline [tc;cFun "m"];
   !! Function_basic.inline ~body_mark:"bodyk" [tc;cFun "k"];
 
+  !! Function_basic.inline [cTopFunDef "test_nameclash"; cFun "f"];
 )

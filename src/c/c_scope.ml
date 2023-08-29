@@ -34,12 +34,15 @@ let check_map_binder ((conflict_set, var_ids) : scope_ctx) var =
 (** internal *)
 let scope_ctx_exit_typedef td old_ctx td_ctx =
   let class_name = td.typdef_tconstr in
+
+(** internal *)
+let scope_ctx_exit_namespace name outer_ctx inner_ctx =
   let may_update_qualifier ((qname, id): Qualified_name.t * var_id) =
-    if (Qualified_map.find_opt qname (snd old_ctx)) = (Some id)
+    if (Qualified_map.find_opt qname (snd outer_ctx)) = (Some id)
     then (qname, id) (* this variable was the same in the outer scope *)
-    else ((class_name :: fst qname, snd qname), id)
+    else ((name :: fst qname, snd qname), id)
   in
-  (fst old_ctx, Qualified_map.of_seq (Seq.map may_update_qualifier (Qualified_map.to_seq (snd td_ctx))))
+  (fst outer_ctx, Qualified_map.of_seq (Seq.map may_update_qualifier (Qualified_map.to_seq (snd inner_ctx))))
 
 (** Given term [t], check that all variable ids agree with their qualified name for C/C++ scoping rules. *)
 let check_var_ids (t : trm) : unit =

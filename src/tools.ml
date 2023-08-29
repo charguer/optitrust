@@ -261,3 +261,4 @@ let hashtbl_to_list (h : ('a, 'b) Hashtbl.t) : ('a * 'b) list =
 (******************************************************************************)
 
 module String_map = Map.Make(String)
+module String_set = Set.Make(String)

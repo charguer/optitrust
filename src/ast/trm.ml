@@ -1096,6 +1096,7 @@ let trm_map_vars
   ?(keep_ctx = false)
   ?(enter_scope: 'ctx -> 'ctx = fun ctx -> ctx)
   ?(exit_typedef: typedef -> 'ctx -> 'ctx -> 'ctx = fun _ old_ctx _ -> old_ctx)
+  ?(exit_namespace: string -> 'ctx -> 'ctx -> 'ctx = fun _ old_ctx _ -> old_ctx)
   ?(map_binder: 'ctx -> var -> 'ctx * var = fun ctx bind -> (ctx, bind))
   (map_var: 'ctx -> metadata -> var -> trm)
   (ctx: 'ctx) (t: trm): trm =
@@ -1239,7 +1240,16 @@ let trm_map_vars
       in
       let cont_ctx = exit_typedef td' ctx !class_ctx in
       (cont_ctx, t')
-
+(*
+    | Trm_namespace name body ->
+      let body_ctx, body' = f_map (enter_scope ctx) body in
+      let t' = if (body == body')
+        then t
+        else (trm_namespace ~annot ?loc ~ctx:t_ctx name body')
+      in
+      let cont_ctx = exit_namespace name ctx body_ctx in
+      (cont_ctx, t')
+*)
     | _ -> (ctx, trm_map_with_ctx ~keep_ctx f_map ctx t)
 
   and resource_items_map ctx resources: 'ctx * resource_item list =
