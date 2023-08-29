@@ -8,7 +8,8 @@ int main() {
   const int N1 = 10;
   const int N2 = 10;
   const int N3 = 10;
-  T* a = (T*) CALLOC3 (N1, N2, N3, sizeof(T));
+  // FIXME: CALLOC
+  T* const a = (T* const) MALLOC3 (N1, N2, N3, sizeof(T));
   for (int i = 0; i < 10; i++) {
     for (int j = 2; j < 10; j++) {
       for (int k = 0; k < 4; k++) {

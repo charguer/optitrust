@@ -151,6 +151,9 @@ let typ_const_inv (ty : typ) : typ option =
   | Typ_const typ -> Some typ
   | _ -> None
 
+let typ_const_ptr (ty : typ) : typ =
+  typ_const (typ_ptr Ptr_kind_mut ty)
+
 (* [typ_const_ptr_inv ty]: get the inner type of a constant pointer *)
 let typ_const_ptr_inv (ty : typ) : typ option =
   Option.bind (typ_const_inv ty) typ_ptr_inv
@@ -365,3 +368,10 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
       | Typ_array (typa1, size1), Typ_array (typa2, size2) ->
           (same_types typa1 typa2) && (same_sizes size1 size2)
       | _, _ -> false)
+
+let typ_of_get (t : typ) : typ option =
+  match t with
+  | { typ_desc = Typ_array (ty, _); _} -> Some ty
+  | { typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty}; _} -> Some ty
+  | { typ_desc = Typ_const { typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty}; _}; _ } -> Some ty
+  | _ -> None

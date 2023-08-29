@@ -31,7 +31,6 @@ type contract_clause_type =
 
 type contract_resource = var option * formula
 
-(* CHECK: #var-id *)
 let var_has_model = trm_toplevel_free_var "_HasModel"
 let var_read_only = trm_toplevel_free_var "_RO"
 let var_frac = trm_toplevel_free_var "_Fraction"
@@ -66,7 +65,7 @@ let formula_read_only_inv (t: formula): read_only_formula option =
     end
   | _ -> None
 
-let var_cell = trm_var (new_var "Cell")
+let var_cell = trm_var (toplevel_free_var "Cell")
 
 let formula_cell (x: var): formula =
   formula_model (trm_var x) var_cell
@@ -138,7 +137,9 @@ let var_range = trm_toplevel_free_var "range"
 
 let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) (fi: formula) =
   if dir <> DirUp then failwith "formula_group_range only supports DirUp";
-  trm_apps var_group [trm_apps var_range [tfrom; tto; loop_step_to_trm step]; trm_fun [idx, typ_int ()] None fi]
+  let range_var = new_var ~qualifier:idx.qualifier idx.name in
+  let fi = trm_subst_var idx (trm_var range_var) fi in
+  trm_apps var_group [trm_apps var_range [tfrom; tto; loop_step_to_trm step]; trm_fun [range_var, typ_int ()] None fi]
 
 let res_group_range (range: loop_range) (res: resource_set): resource_set =
   { pure = List.map (fun (x, fi) -> (x, formula_group_range range fi)) res.pure;

@@ -41,7 +41,7 @@ void test_fun(){
 class Test_method_inline {
   private:
     int u;
-  
+
   public:
     int f(int x){
       int a = x + x;
@@ -76,9 +76,9 @@ class Test_method_inline {
 void test_class_method (){
   Test_method_inline c;
   int x = 3;
-  
+
   int y = c.f(x);
-  
+
   int y1 = c.f1();
   int z = c.g(x);
   int u = c.h(x);
@@ -87,6 +87,11 @@ void test_class_method (){
   int result;
   result = 10;
   result = c.k(result, 4);
+}
+
+void test_nameclash() {
+  int x = f(1);
+  int y = f(2);
 }
 
 int main(){}

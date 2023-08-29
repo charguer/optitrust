@@ -6,6 +6,13 @@ open Typ
 open Mark
 open Tools
 
+let warn_array_subscript_not_supported (t : typ option) : unit =
+  let str = Tools.option_to_string AstC_to_c.typ_to_string t in
+  if not (String_set.mem str !Flags.warned_array_subscript_not_supported) then begin
+    Flags.warned_array_subscript_not_supported := String_set.add str !Flags.warned_array_subscript_not_supported;
+    printf "WARNING: does not support array subscript base type '%s'\n" str;
+  end
+
 (* [loc_of_node n]: gets the location of node [n] *)
 let loc_of_node (n : 'a node) : location =
   let start_location_of_node = Clang.get_range_start (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n))in
@@ -760,14 +767,12 @@ and tr_expr (e : expr) : trm =
        if e's type is x*, make sure typ is x (it is not always the case if x is
        declared through a typedef)
       *)
-    let typ =
-      match te.typ with
-      | Some {typ_desc = Typ_array (ty, _); _} -> Some ty
-      | Some {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty}; _} -> Some ty
-      (* should not happen *)
-      | _ -> None
-    in
-      trm_apps ?loc ~ctx ?typ (trm_binop ?loc ~ctx (Binop_array_get)) [te; ti]
+    let typ = Option.bind te.typ typ_of_get in
+    if typ = None then begin
+      (* happens for, e.g., typedef T = int*; *)
+      warn_array_subscript_not_supported te.typ;
+    end;
+    trm_apps ?loc ~ctx ?typ (trm_binop ?loc ~ctx (Binop_array_get)) [te; ti]
 
   | Construct {qual_type = _; args = el} ->
     (* only known use case: return of a struct variable *)
@@ -1011,7 +1016,6 @@ and tr_decl ?(in_class_decl : bool = false) (d : decl) : trm =
     if !redundant_decl then trm_add_cstyle Redundant_decl res else res
   | CXXMethod {function_decl = {linkage = _; function_type = ty; name = n; body = bo; deleted = _; constexpr = _; nested_name_specifier = nns; _};
                static = st; const = c; _} ->
-    assert (in_class_decl = true);
     let qpath = tr_nested_name_specifier ?loc nns in
     let s =
       begin match n with

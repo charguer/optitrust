@@ -25,4 +25,9 @@ let _ = Run.script_cpp (fun _ ->
   (* Class methods *)
   !! Variable_basic.unfold ~accept_functions:true [cFunDef "f_X"];
   !! Function_basic.beta [cTopFunDef "test_method"; cFun ""];
+
+  (* Namespaces *)
+  (* FIXME:
+    !! Variable_basic.unfold ~accept_functions:true [cFunDef "h"];
+    !! Function_basic.beta [cTopFunDef "g"; cFun ""]; *)
 )

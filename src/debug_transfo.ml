@@ -20,6 +20,13 @@ let trm ?(internal : bool = false) (msg : string) (t : trm) : unit =
 let trms (msg : string) (ts : trms) : unit =
   prt "%s: %s\n" msg (Tools.list_to_string (List.map AstC_to_c.ast_to_string ts))
 
+let typ (msg : string) (t : typ) : unit =
+  let t_str = AstC_to_c.typ_to_string t in
+  prt "%s: %s\n" msg t_str
+
+let typs (msg : string) (ts : typ list) : unit =
+  prt "%s: %s\n" msg (Tools.list_to_string (List.map AstC_to_c.typ_to_string ts))
+
 let current_ast ?(internal : bool = false) (msg : string) : unit =
   trm ~internal msg (Trace.ast ())
 

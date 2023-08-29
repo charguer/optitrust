@@ -47,8 +47,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
     if same_trm t' t_before then
-      (* FIXME: #var-id, should be trm_copy rather than refresh_var_ids *)
-      Scope.refresh_var_ids t_after
+      trm_copy t_after
       else trm_map apply_change t'
       in
   if change_at = [[]] then

@@ -6,7 +6,7 @@ int main() {
   for (int i = i + 1; i < 10; i++) {
     x += i;
   }
-  x += st + 0;
+  x += st;
   for (int j = j + 1; j < N; j++) {
     x += j;
   }
@@ -15,7 +15,7 @@ int main() {
   for (int k = k + 1; k < N; k++) {
     x += k;
   }
-  x += st + 0;
+  x += st;
   for (int l = l + 1; l < N; l++) {
     x += l;
   }

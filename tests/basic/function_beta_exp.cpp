@@ -25,4 +25,15 @@ void test_method() {
   c = b.x + a;
 }
 
-int main() {}
+namespace Y {
+void h(int& a) { a = 1; }
+}  // namespace Y
+
+namespace Z {
+void g(int a, int, int) { Y::h(a); }
+}  // namespace Z
+
+int main() {
+  int x = 1;
+  Y::h(x);
+}

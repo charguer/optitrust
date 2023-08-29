@@ -3,7 +3,7 @@
 #include "../../include/optitrust.h"
 
 int main() {
-  float* s = (float*)MALLOC2(32, 32, sizeof(float));
+  float* const s = (float* const)MALLOC2(32, 32, sizeof(float));
   for (int i = 0; i < 32; i++) {
     float x[32];
     memcpy(x, &s[MINDEX2(32, 32, i, 0)], sizeof(float[32]));
@@ -20,6 +20,6 @@ int main() {
     }
     printf("\n");
   }
-  free(s);
+  MFREE2(32, 32, s);
   return 0;
 }

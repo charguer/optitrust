@@ -14,6 +14,7 @@ let set_fun_contract (contract: fun_contract) (tg : Target.target) : unit =
 
 let recompute_all_resources () : unit =
   let t = Trace.ast () in
+  let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
   (* TODO: Configurable base environment *)
   let t = Resources_computation.(trm_recompute_resources builtin_env t) in
   Trace.set_ast t
@@ -113,5 +114,6 @@ let assert_commute (before : trm) (after : trm) : unit =
 (* [show] enables to view the result of resource computations. *)
 let show (*LATER?(details:bool=true)*) ?(line:int = -1) () : unit =
   let t = Trace.ast() in
+  let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
   let tres = Resources_computation.(trm_recompute_resources builtin_env t) in
   show_computed_res ~line ~ast:tres ()

@@ -10,7 +10,6 @@ let _ = Run.script_cpp (fun () ->
     show_ast ();
     Resources.show ();
 
-    recompute_all_resources ();
-    show_computed_res ();
-    loop_minimize [cFor "i"];
+    !! loop_minimize [cFor "i"];
+    Resources.show ();
 )

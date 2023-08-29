@@ -76,9 +76,9 @@ void coarsity(float* out, int h, int w, const float* sxx, const float* sxy,
 void harris(float* out, int h, int w, const float* in) {
 #pragma omp parallel for
   for (int y = 0; y < -4 + h; y += 32) {
-    float* iy = (float*)malloc(sizeof(float[4][-2 + w]));
-    float* ix = (float*)malloc(sizeof(float[4][-2 + w]));
-    float* gray = (float*)malloc(sizeof(float[4][w]));
+    float* const iy = (float* const)malloc(sizeof(float[4][-2 + w]));
+    float* const ix = (float* const)malloc(sizeof(float[4][-2 + w]));
+    float* const gray = (float* const)malloc(sizeof(float[4][w]));
     for (int y_out = 0; y_out < min(h, 36 + y) - y; y_out++) {
 #pragma omp simd simdlen(8)
       for (int x = 0; x < w; x++) {

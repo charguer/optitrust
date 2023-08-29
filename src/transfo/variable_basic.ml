@@ -211,7 +211,7 @@ let%transfo exchange (v1 : var) (v2 : var) (tg : target) : unit =
   let tm = Var_map.add v1 (trm_var v2) tm in
   let tm = Var_map.add v2 (trm_var v1) tm in
   Target.apply_on_targets (
-    Target.apply_on_path (fun t1 -> Subst.subst tm t1)) tg
+    Target.apply_on_path (fun t1 -> trm_subst tm t1)) tg
 
 (* [ref_to_pointer tg]: expects thee target [tg] to be pointing at a reference declaration, then it will convert
     this reference into a pointer. *)

@@ -218,6 +218,10 @@ let documentation_save_file_at_first_check = ref ""
 (* cf. Trm.trm_combinators_unsupported_case *)
 let trm_combinators_warn_unsupported_case = ref true
 
+(* TODO: keep per-file state somewhere cleaner *)
+(* cf. Clang_to_astRawC.warn_array_subscript_not_supported *)
+let warned_array_subscript_not_supported = ref Tools.String_set.empty
+
 (* [reset_flags_to_default] is used by [batching.ml] to avoid propagation of effects
   TODO: complete implementation by going over all relevant flags,
   and using a record of values.
@@ -234,7 +238,8 @@ let reset_flags_to_default () : unit =
   always_name_resource_hyp := false;
   display_resources := false;
   check_validity := false;
-  trm_combinators_warn_unsupported_case := true
+  trm_combinators_warn_unsupported_case := true;
+  warned_array_subscript_not_supported := Tools.String_set.empty
 
 let with_flag (flag: 'a ref) (value: 'a) (func: unit -> unit): unit =
   let init_value = !flag in

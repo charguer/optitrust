@@ -76,7 +76,7 @@ let hoist_on (name : string)
   | _ -> fail t.loc "Loop_basic.hoist_on: unsupported loop step"
   in
   let body_instrs = trm_inv ~error trm_seq_inv body in
-  let ty = ref (typ_auto()) in
+  let elem_ty = ref (typ_auto()) in
   let old_var = ref dummy_var in
   let new_var = ref dummy_var in
   let new_dims = ref [] in
@@ -87,66 +87,39 @@ let hoist_on (name : string)
     mindex !new_dims partial_indices
   in
   let update_decl (decl : trm) : trm =
-    let error = "Loop_basic.hoist_on: expected variable declaration" in
-    let (vk, x, tx, init) = trm_inv ~error trm_let_inv decl in
+    let error = "Loop_basic.hoist_on: expected variable declaration with MALLOCN initialization" in
+    let (x, dims, etyp, elem_size) = trm_inv ~error Matrix_core.let_alloc_inv_with_ty decl in
     old_var := x;
     new_var := Trm.new_var (Tools.string_subst "${var}" x.name name);
-    ty := get_inner_ptr_type tx;
-    begin match Matrix_core.alloc_inv_with_ty init with
-    | Some (dims, _, elem_size) ->
-      let mindex = with_mindex dims in
-      (* extra reference to remove *)
-      ty := Option.get (typ_ptr_inv !ty);
-      (* TODO: let_immut? *)
-      trm_let_mut (x, (get_inner_ptr_type tx))
-        (trm_array_access (trm_var_get !new_var) mindex)
-    | None ->
-      fail init.loc "expected MALLOCN initialization";
-      (* DEPRECATED: before MALLOC0
-      if not ((is_trm_uninitialized init) || (is_trm_new_uninitialized init))
-      then fail init.loc "expected uninitialized allocation";
-      let mindex = with_mindex [] in
-      trm_let_ref (x, (get_inner_ptr_type tx))
-        (trm_array_access (trm_var_get !new_name) mindex)
-      *)
-    end
+    elem_ty := etyp;
+    let mindex = with_mindex dims in
+    trm_let Var_immutable (x, typ_const_ptr etyp)
+      (trm_array_access (trm_var !new_var) mindex)
   in
   let body_instrs_new_decl = Mlist.update_nth decl_index update_decl body_instrs in
-  (*
-  Printf.printf "body_instrs_new_decl:\n%s\n" (AstC_to_c.ast_to_string (trm_seq ~annot:body.annot body_instrs_new_decl));
-  *)
-  let new_body_instrs = (* if (List.length !new_dims > 1)
-  then *) begin
+  let new_body_instrs = begin
     let free_index_opt = ref None in
     Mlist.iteri (fun i instr ->
       match Matrix_core.free_inv instr with
       | Some freed ->
-        begin match trm_get_inv freed with
-        | Some x ->
-          begin match trm_var_inv x with
-          | Some freed_name when freed_name = !old_var ->
-            assert (Option.is_none !free_index_opt);
-            free_index_opt := Some i;
-          | _ -> ()
-          end
-        | None -> ()
+        begin match trm_var_inv freed with
+        | Some freed_var when var_eq freed_var !old_var ->
+          assert (Option.is_none !free_index_opt);
+          free_index_opt := Some i;
+        | _ -> ()
         end
       | _ -> ()
     ) body_instrs_new_decl;
     match !free_index_opt with
     | Some free_index -> Mlist.remove free_index 1 body_instrs_new_decl
     | None -> fail body.loc "Loop_basic.hoist: expected free instruction"
-  end (* DEPRECATED: before MALLOC0
-    else body_instrs_new_decl *)
-  in
+  end in
   let new_body = trm_seq ~annot:body.annot new_body_instrs in
   trm_seq_no_brace [
-    trm_may_add_mark mark (
-      (* TODO: let_immut? *)
-      trm_let_mut (!new_var, (typ_ptr Ptr_kind_mut !ty))
-        (Matrix_core.alloc_with_ty !new_dims !ty));
+    trm_may_add_mark mark
+      (Matrix_core.let_alloc_with_ty !new_var !new_dims !elem_ty);
     trm_for ~annot:t.annot range new_body;
-    Matrix_core.free !new_dims (trm_var_get !new_var);
+    Matrix_core.free !new_dims (trm_var !new_var);
   ]
 
 (* TODO: document *)
@@ -293,8 +266,8 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     let (idx2, _, _, _, _, _) = loop_range2 in
     let loop_instrs1', loop_instrs2' =
       if upwards
-      then loop_instrs1, Mlist.map (Subst.subst_var idx2 (trm_var idx1)) loop_instrs2
-      else Mlist.map (Subst.subst_var idx1 (trm_var idx2)) loop_instrs1, loop_instrs2
+      then loop_instrs1, Mlist.map (trm_subst_var idx2 (trm_var idx1)) loop_instrs2
+      else Mlist.map (trm_subst_var idx1 (trm_var idx2)) loop_instrs1, loop_instrs2
     in
     let new_loop_instrs = Mlist.merge loop_instrs1' loop_instrs2' in
     (* TODO: trm_for_update on loop1? *)
@@ -352,10 +325,10 @@ let%transfo grid_enumerate (index_and_bounds : (string * trm) list) (tg : target
       j is an integer in range from 0 to C.
 
     Assumption: Both a and C should be declared as constant variables. *)
-let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  = "")  (tg : target): unit =
+let%transfo unroll ?(inner_braces : bool = false) ?(outer_seq_with_mark : mark  = "") ?(subst_mark : mark option)  (tg : target): unit =
   Trace.justif_always_correct ();
   Nobrace_transfo.remove_after (fun _ ->
-    apply_on_targets (Loop_core.unroll inner_braces outer_seq_with_mark) tg)
+    apply_on_targets (Loop_core.unroll inner_braces outer_seq_with_mark subst_mark) tg)
 
 (* [move_out tg]: expects the target [tg] to point at an instruction inside the loop
     that is not dependent on the index of the loop or any local variable.

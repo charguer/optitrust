@@ -27,3 +27,21 @@ class test {
 
 };
 
+class CC {
+public:
+    int * i;
+    void f(int * a, int b) {
+        i = a;
+        *i = 1;
+    }
+    int q(int a);
+};
+
+int q2(int a) {
+  CC cc;
+  return cc.q(a);
+}
+
+int CC::q(int a) {
+    return a;
+}
