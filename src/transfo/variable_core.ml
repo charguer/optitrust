@@ -61,14 +61,14 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
       begin match vk with
       | Var_immutable ->
         begin match unfold_at with
-        | [] -> Subst.subst_var x init t
+        | [] -> trm_subst_var x init t
         | _ -> Internal.change_trm ~change_at:[unfold_at] (trm_var x) init t
         end
       | Var_mutable ->
         if trm_has_cstyle Reference dl
           then
             begin match unfold_at with
-            | [] -> Subst.subst_var x init t
+            | [] -> trm_subst_var x init t
             | _ -> Internal.change_trm ~change_at:[unfold_at] (trm_var x) init t
             end
           else fail dl.loc "Variable_core.unfold_aux: only const variables are safe to unfold"
@@ -87,7 +87,7 @@ let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unf
      *)
     | Trm_let_fun (f, _, _, _, _) ->
       if accept_functions
-        then Subst.subst_var f dl t
+        then trm_subst_var f dl t
         else fail dl.loc "Variable_core.unfold_aux: please set call this fucntion with the argumnet accep_functions set to true. "
 
     | _ -> fail t.loc "Variable_core.unfodl_aux: expected a target to a variable or function definition"
@@ -158,7 +158,7 @@ let rename (new_name : string) (index : int): Transfo.local =
         [space] - trm which is going to replace all the occurrences of [name],
         [t] - any node in the ast that contains an occurrence of [name]. *)
 let subst_aux (name : var) (space : trm) (t : trm) : trm =
-  Subst.subst_var name space t
+  trm_subst_var name space t
 
 (* [subst name space t p]: applies [subst_aux] at trm [t] with path [p] *)
 let subst (name : var) (space : trm) : Transfo.local =
@@ -302,7 +302,7 @@ let delocalize_aux (array_size : trm) (ops : local_ops) (index : string) (t : tr
           trm_copy (trm_for (index, (trm_int 1), DirUp, array_size, Post_inc, false)
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_var index]) init_trm]))]
           in
-      let new_snd_instr = Subst.subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_apps (trm_var (name_to_var "ANY")) [array_size] ]) snd_instr  in
+      let new_snd_instr = trm_subst_var local_var  (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_apps (trm_var (name_to_var "ANY")) [array_size] ]) snd_instr  in
       let new_thrd_trm = trm_seq_no_brace [
                       trm_set (curr_var_trm) (trm_get (trm_apps (trm_binop Binop_array_access)[trm_var_get local_var; trm_lit (Lit_int 0)]));
                       trm_for (index, (trm_int 1), DirUp, array_size, Post_inc, false) (trm_seq_nomarks [op])
@@ -498,7 +498,7 @@ let from_to_const_aux (to_const : bool) (index : int) (t : trm) : trm =
               in
             let init_type = get_inner_const_type tx in
             let new_dl = trm_pass_marks dl (trm_let_mut (x, init_type) init_val) in
-            let new_lback = Mlist.map (Subst.subst_var x (trm_var_possibly_mut ~typ:init_type x)) lback in
+            let new_lback = Mlist.map (trm_subst_var x (trm_var_possibly_mut ~typ:init_type x)) lback in
             update_seq new_dl new_lback lfront
           end
 
@@ -570,7 +570,7 @@ let ref_to_pointer_aux (index : int) (t : trm) : trm =
     | _ -> fail t.loc "Variable_core.ref_to_pointer_aux: expected a target to a variable declaration"
     in
   let f_update_further (t : trm) : trm =
-    Subst.subst_var !var_name (trm_var_get !var_name) t in
+    trm_subst_var !var_name (trm_var_get !var_name) t in
 
   let new_tl = Mlist.update_at_index_and_fix_beyond index f_update f_update_further tl in
   trm_seq ~annot:t.annot new_tl

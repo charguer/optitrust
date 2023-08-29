@@ -87,7 +87,7 @@ let parse_pattern ?(glob_defs : string = "") ?(ctx : bool = false) (pattern : st
       end in
       let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x.name aux_var_decls then Some (x, ty) else None ) args in
       let pattern_vars = List.filter (fun (x, ty) -> not (List.mem (x, ty) aux_vars ) ) args in
-      (pattern_vars, aux_vars, Subst.subst ctx_vars_to_orig pattern_instr)
+      (pattern_vars, aux_vars, trm_subst ctx_vars_to_orig pattern_instr)
     | _ -> fail body.loc ("Trm_matching.parse_pattern: body of the function f should be a sequence " ^ (AstC_to_c.ast_to_string body))
       end
   | _ -> fail main_fun.loc "Trm_matching.parse_pattern: the pattern was not entered correctly"

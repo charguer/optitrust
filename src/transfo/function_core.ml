@@ -73,7 +73,7 @@ let inline_aux (index : int) (body_mark : mark option) (subst_mark : mark option
         let fun_decl_arg_vars = fst (List.split args) in
         (* DEPRECATED: let fun_call_args = if trm_has_cstyle Method_call fun_call then snd (Xlist.uncons fun_call_args1) else fun_call_args1 in *)
         let fresh_args = List.map Internal.fresh_args fun_call_args in
-        let fun_decl_body = List.fold_left2 (fun acc x y -> Subst.subst_var x y acc) (trm_copy body) fun_decl_arg_vars fresh_args in
+        let fun_decl_body = List.fold_left2 (fun acc x y -> trm_subst_var x y acc) (trm_copy body) fun_decl_arg_vars fresh_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x (trm_may_add_mark subst_mark y) acc) fun_decl_body fresh_args fun_call_args in
         let name = match t.desc with | Trm_let (vk, (x, _), _, _) -> x| _ -> dummy_var in
         let processed_body, nb_gotos = Internal.replace_return_with_assign ~exit_label:"exit_body" name fun_decl_body in
@@ -165,7 +165,7 @@ let rename_args_aux (vl : var list) (t : trm) : trm =
   let renamed_args = List.map2 (fun v1 (arg1, ty1) -> if v1 <> dummy_var then (v1, ty1) else (arg1, ty1)) vl args in
   let assoc_list = List.fold_left2 (fun acc v1 (arg1, _ty1) -> if v1 <> dummy_var then (arg1, trm_var v1) ::  acc else acc) [] vl args in
   let tm = map_from_trm_var_assoc_list assoc_list in
-  let new_body = Subst.subst tm body in
+  let new_body = trm_subst tm body in
   trm_let_fun f retty renamed_args new_body
 
 (* [rename_args vl t p]: applies [rename_aux] at trm [t] with path [p] *)
