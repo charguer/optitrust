@@ -517,7 +517,7 @@ let build_constification_records_on (t : trm) : unit =
    function definition. It adds a new entry into [const_records] (global
    variable, see Part II.1) based on the information about the function. *)
 let build_constification_records (tg : target) : unit =
-  Target.old_iter_at_target_paths (build_constification_records_on) tg
+  Target.iter_at_target_paths (build_constification_records_on) tg
 
 (* [identify_mutables_on]: see [identify_mutables]. *)
 let identify_mutables_on (p : path) (t : trm) : unit =
