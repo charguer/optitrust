@@ -266,8 +266,8 @@ let fusion_on (index : int) (upwards : bool) (t : trm) : trm =
     let (idx2, _, _, _, _, _) = loop_range2 in
     let loop_instrs1', loop_instrs2' =
       if upwards
-      then loop_instrs1, Mlist.map (Subst.subst_var idx2 (trm_var idx1)) loop_instrs2
-      else Mlist.map (Subst.subst_var idx1 (trm_var idx2)) loop_instrs1, loop_instrs2
+      then loop_instrs1, Mlist.map (trm_subst_var idx2 (trm_var idx1)) loop_instrs2
+      else Mlist.map (trm_subst_var idx1 (trm_var idx2)) loop_instrs1, loop_instrs2
     in
     let new_loop_instrs = Mlist.merge loop_instrs1' loop_instrs2' in
     (* TODO: trm_for_update on loop1? *)

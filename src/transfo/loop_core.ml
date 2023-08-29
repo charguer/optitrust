@@ -96,7 +96,7 @@ let tile_aux (tile_index : string) (bound : tile_bound) (tile_size : trm) (t : t
       in
      let step =  if is_step_one step then trm_apps (trm_unop Unop_post_inc) [trm_var_get index]
        else trm_prim_compound Binop_add (trm_var index) (loop_step_to_trm step) in
-     let new_body = Subst.subst_var index (trm_var_get index) body in
+     let new_body = trm_subst_var index (trm_var_get index) body in
      trm_for_c init cond step new_body
    end in
    let outer_loop_step = if is_step_one step then Step tile_size else Step (trm_mul tile_size (loop_step_to_trm step)) in
@@ -237,7 +237,7 @@ let unroll_aux (inner_braces : bool) (outer_seq_with_mark : mark) (subst_mark : 
       | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
       | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))]
       end in
-    let body_i = Subst.subst_var index (trm_may_add_mark subst_mark new_index) (trm_copy body) in
+    let body_i = trm_subst_var index (trm_may_add_mark subst_mark new_index) (trm_copy body) in
     let body_i = if inner_braces
                   then Nobrace.remove_if_sequence body_i
                   else Nobrace.set_if_sequence body_i in
@@ -388,6 +388,6 @@ let rename_index (new_index : string) : Transfo.local =
     let error = "Loop_core.shift: expected a target to a simple for loop" in
     let ((index, start, direction, stop, step, is_parallel), body) = trm_inv ~error trm_for_inv t in
     let new_index = { qualifier = []; name = new_index; id = index.id } in
-    let new_body = Subst.subst_var index (trm_var new_index) body in
+    let new_body = trm_subst_var index (trm_var new_index) body in
     trm_for ~annot:t.annot (new_index, start, direction, stop, step, is_parallel) new_body
   )

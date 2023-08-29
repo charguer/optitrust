@@ -180,7 +180,7 @@ let%transfo intro_pattern_array ?(pattern_aux_vars : string = "") ?(const : bool
     let inst = List.map (fun (x, _) -> get_array_access (trm_var_possibly_mut ~const x) (trm_int id_path)) pattern_vars in
     let new_inst = Var_map.empty in
     let new_inst = List.fold_left2 (fun acc (x, _) y -> Var_map.add x y acc) new_inst pattern_vars inst in
-    let new_t = Subst.subst new_inst pattern_instr in
+    let new_t = trm_subst new_inst pattern_instr in
     apply_on_targets (fun t p -> apply_on_path (fun _ -> new_t) t p) (target_of_path p)
   ) tg;
   let vk = if const then Var_immutable else Var_mutable in

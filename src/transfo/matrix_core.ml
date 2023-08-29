@@ -319,7 +319,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc
       let write_on_var =
         trm_set (access (trm_var_get var) dims indices) (trm_get (access (trm_var_get local_var) dims indices)) in
       let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
-      let new_t = Subst.subst_var var (trm_var local_var) t in
+      let new_t = trm_subst_var var (trm_var local_var) t in
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
       let last_instr = free dims (trm_var_get local_var) in
       let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
@@ -332,7 +332,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : string) (malloc
       let free_local_var =
         trm_apps (trm_var free_fn)  [access (trm_var_get local_var) dims indices] in
       let snd_instr = trm_copy (trm_fors nested_loop_range write_on_local_var) in
-      let new_t = Subst.subst_var var (trm_var local_var) t in
+      let new_t = trm_subst_var var (trm_var local_var) t in
       let thrd_instr = trm_copy (trm_fors nested_loop_range write_on_var) in
       let frth_instr = trm_copy (trm_fors nested_loop_range free_local_var) in
       let last_instr = free dims (trm_var_get local_var) in

@@ -466,7 +466,7 @@ let%transfo read_last_write ~(write : target) (tg : target) : unit =
     let rd_value = List.fold_left (fun value (wr_i, rd_i) ->
       begin match trm_var_inv wr_i with
       | Some wr_i_var ->
-        Subst.subst_var wr_i_var rd_i value
+        trm_subst_var wr_i_var rd_i value
       | None ->
         let error = "Matrix_basic.read_last_write: expected write index to be a variable, or to be the same as the read index" in
         if (Internal.same_trm wr_i rd_i) then value

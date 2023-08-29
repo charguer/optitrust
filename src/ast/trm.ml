@@ -1308,13 +1308,17 @@ let trm_map_vars
   snd (f_map ctx t)
 
 (* Assumes var-id's are unique, can locally break scope rules and might require a binder renaming. *)
-let trm_subst_var (subst_map: trm varmap) ((annot, loc, typ, _ctx, kind): metadata) (var: var) =
-  match Var_map.find_opt var subst_map with
-  | Some t -> t
-  | None -> trm_var ~annot ?loc ?typ ~kind var
-
 let trm_subst (subst_map: trm varmap) (t: trm) =
-  trm_map_vars trm_subst_var subst_map t
+  let subst_var (subst_map: trm varmap) ((annot, loc, typ, _ctx, kind): metadata) (var: var) =
+    match Var_map.find_opt var subst_map with
+    | Some t -> t
+    | None -> trm_var ~annot ?loc ?typ ~kind var
+  in
+  trm_map_vars subst_var subst_map t
+
+(*** [subst x u t]: replace all the occurences of x with u in t *)
+let trm_subst_var (x : var) (u : trm) (t : trm) =
+  trm_subst (Var_map.singleton x u) t
 
 (* TODO: Use a real trm_fold later to avoid reconstructing trm *)
 let trm_free_vars ?(bound_vars = Var_set.empty) (t: trm): Var_set.t =
