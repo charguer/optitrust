@@ -350,15 +350,17 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
     match trm_binop_inv Binop_sub frac with
     | Some (sub_frac, frac_atom) ->
       let sub_frac = reunite_fracs sub_frac ro_formula in
+      let ro_formula_erased = trm_keep_only_desc ro_formula in
       begin match trm_var_inv frac_atom with
-      | Some atom when Hashtbl.mem ro_formulas (ro_formula, atom) ->
-        Hashtbl.remove ro_formulas (ro_formula, atom); sub_frac
+      | Some atom when Hashtbl.mem ro_formulas (ro_formula_erased, atom) ->
+        Hashtbl.remove ro_formulas (ro_formula_erased, atom);
+        sub_frac
       (* DEBUG:
       | Some atom ->
-        Printf.eprintf "Failed to find %s\n" atom;
+        Printf.eprintf "Failed to find %s\n" (var_to_string atom);
         Printf.eprintf "%s\n" (AstC_to_c.ast_to_string ro_formula);
-        Hashtbl.iter (fun (a, _) () -> Printf.eprintf "%b\n%s\n" (a = ro_formula) (Ast_to_text.ast_to_string a)) ro_formulas;
-        trm_sub sub_frac frac_atom*)
+        Hashtbl.iter (fun (a, _) () -> Printf.eprintf "%b -- %s\n" (a = ro_formula) (AstC_to_c.ast_to_string a)) ro_formulas;
+        trm_sub sub_frac frac_atom *)
       | _ -> trm_sub sub_frac frac_atom
       end
     | None -> frac
@@ -376,10 +378,13 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
   let linear = List.fold_left (fun acc (h, formula) ->
       match formula_read_only_inv formula with
       | Some { frac; formula = ro_formula } ->
-        let ro_formula = trm_keep_only_desc ro_formula in
+        let ro_formula_erased = trm_keep_only_desc ro_formula in
+        (* DEBUG
+        Hashtbl.iter (fun (a, _) () -> Printf.eprintf "%b -- %s\n" (a = ro_formula_erased) (AstC_to_c.ast_to_string a)) ro_formulas;
+        Printf.eprintf "formula: %s\n" (AstC_to_c.ast_to_string ro_formula_erased); *)
         begin match trm_var_inv frac with
-        | Some frac when Hashtbl.mem ro_formulas (ro_formula, frac) ->
-          Hashtbl.remove ro_formulas (ro_formula, frac);
+        | Some frac when Hashtbl.mem ro_formulas (ro_formula_erased, frac) ->
+          Hashtbl.remove ro_formulas (ro_formula_erased, frac);
           (h, formula) :: acc
         | Some frac -> acc (* Consumed ro_formula *)
         | None -> (h, formula) :: acc
@@ -741,8 +746,8 @@ let rec trm_deep_copy (t: trm) : trm =
   t.ctx <- ctx_copy unknown_ctx; (* LATER *)
   t
 
+(* hypothesis: needs var_ids to be calculated *)
 let trm_recompute_resources (init_ctx: resource_set) (t: trm): trm =
   let t = trm_deep_copy t in
-  let t = Scope.infer_var_ids t in (* Resource computation needs var_ids to be calculated *)
   ignore (compute_resources (Some init_ctx) t);
   t
