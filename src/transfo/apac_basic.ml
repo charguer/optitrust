@@ -424,6 +424,29 @@ let stack_to_heap_aux (t : trm) : trm =
 let stack_to_heap : Transfo.t =
   Target.apply_at_target_paths (stack_to_heap_aux)
 
+(*let heapify ?(cstyle = false) (t : trm) : trm =
+  let aux (v : var) (ty : typ) (init : trm) ?(reference = false) :
+        typed_var * trm =
+    if reference || is_reference ty then
+      begin
+        let inner_ty = get_inner_ptr_type ty in
+        if is_typ_const inner_ty && not (trm_can_resolve_pointer init) then
+          begin
+            if cstyle then
+              trm_let_immut (var, ty)
+            else
+              trm_let_immut (var, ty) (trm_new inner_ty (trm_get init))
+    
+  (* [t] must be either *)
+  match t.desc with
+  (* a simple variable declaration, or *)
+  | Trm_let (kind, (v, ty), init, _) ->
+     
+  (* a multiple variable declaration. *)
+  | Trm_let_mult (kind, vtys, inits) ->
+  | _ -> fail t.loc "Apac_basic.heapify: expected a target to a variable \
+                     declaration or a multiple variable declaration."
+ *)
 (* [unfold_let_mult_aux t]: transforms multiple variable declaration instruction
     to a sequence of variable declarations.
 

@@ -346,6 +346,39 @@ let trm_resolve_pointer_and_aliased_variable
   in
   aux 0 t
 
+(* [trm_can_resolve_to_unique t]: tries to resolve operation [t] to unique variable and
+   returns [true] on success and [false] otherwise. *)
+(*
+let rec trm_can_resolve_pointer (t : trm) : bool =
+    match t.desc with
+    (* Unary operation: strip, update degree and recurse. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop op)); _ }, [t]) ->
+       begin match op with
+       | Unop_get
+         | Unop_address
+         | Unop_cast _ -> aux t
+       | _ -> false
+       end
+    (* Array access: strip, update degree and recurse. *)
+    | Trm_apps ({
+            desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
+            _ }, [t; _]) -> aux t
+    (* Other binary operation: strip, update degree and recurse on both left and
+       right-hand sides. *)
+    | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
+       begin match (aux lhs, aux rhs) with
+       | true, false -> true
+       | false, true -> true
+       | false, false
+         (* In practice, binary operations between two pointers supported in
+            C/C++ can not lead to a valid alias of one of them. *)
+         | true, true -> false
+       end
+    (* Variable: check if its an argument or an alias to an argument, then
+       return the corresponding argument index and AST term. *)
+    | Trm_var _ -> true
+    | _ -> false
+ *)
 (* [trm_let_update_aliases ?reference tv ti aliases]: checks in [aliases]
    whether the variable declaration specified by the typed variable [tv] and the
    initializaion term [ti] creates an alias to an already existing variable or
