@@ -37,8 +37,6 @@ let _ = Run.script_cpp (fun _ ->
   !! Trace.failure_expected (fun () ->
     Instr_basic.move ~dest:[tBefore; cVarWrite "x"] [cVarWrite "z"]);
 
-  (* TODO: handle pure resources *)
-  (* !! Trace.failure_expected (fun () ->
+  !! Trace.failure_expected (fun () ->
     Instr_basic.move ~dest:[tBefore; cVarDef "v"] [cVarWrite "y"]);
-    *)
 )

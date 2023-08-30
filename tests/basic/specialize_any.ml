@@ -10,7 +10,7 @@ let _ = Run.doc_script_cpp (fun _ ->
 
 "
 #include \"../../include/optitrust.h\"
-int ANY(int);
+
 int main() {
   int i = 0;
   int a = ANY(2);

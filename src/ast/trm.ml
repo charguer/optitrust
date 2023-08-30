@@ -1208,6 +1208,21 @@ let trm_map_vars
       (* TODO: Proper function type here *)
       (ctx, t')
 
+    (* LATER: add bool for no scope seq? *)
+    | Trm_seq instrs when trm_is_include t ->
+      (* FIXME: almost duplicated code with 'trm_map_with_ctx' for Trm_seq *)
+      let cont_ctx = ref ctx in
+      let instrs' = Mlist.map (fun t ->
+        let cont_ctx', t' = f_map !cont_ctx t in
+        cont_ctx := cont_ctx';
+        t'
+      ) instrs in
+      let t' = if Mlist.for_all2 (==) instrs instrs'
+        then t
+        else trm_seq ~annot ?loc ~ctx:t_ctx instrs'
+      in
+      (!cont_ctx, t')
+
     | Trm_seq _ -> (ctx, trm_map_with_ctx ~keep_ctx f_map (enter_scope ctx) t)
 
     | Trm_typedef td ->
