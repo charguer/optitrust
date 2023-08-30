@@ -6,12 +6,19 @@ include Target
 
 let trm_seq_no_brace = Nobrace.trm_seq
 
+let skip_includes (t : trm) : trm =
+  match trm_seq_inv t with
+  | Some instrs ->
+    let _, not_include = Mlist.partition trm_is_include instrs in
+    trm_seq not_include
+  | None -> t
+
 (* TODO: reflect on the API implications of #var-id (e.g. where this function is called) *)
 let find_var_in_current_ast ?(target : target = []) (name : string) : var =
   (* LATER: make var id inference incremental? *)
   let t = Scope.infer_var_ids (Trace.ast ()) in
   let vars =
-    if target = [] then trm_def_or_used_vars t
+    if target = [] then trm_def_or_used_vars (skip_includes t)
     else List.fold_left (fun acc p ->
       Var_set.union acc (trm_def_or_used_vars (Path.resolve_path p t))
     ) Var_set.empty (resolve_target target t)

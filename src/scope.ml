@@ -16,7 +16,9 @@ let check_unique_var_ids (t : trm) : unit =
       add_var x
     | Trm_let_mult (_, tvs, _) ->
       List.iter (fun (x, _) -> add_var x) tvs
-    | Trm_let_fun (x, _, _, _, _) ->
+    | Trm_let_fun (x, _, _, _, _)
+      (* FIXME: kind of C-specific? *)
+      when not (Trm.is_fun_with_empty_body t) ->
       add_var x
     | Trm_for ((x, _, _, _, _, _), _, _) ->
       add_var x

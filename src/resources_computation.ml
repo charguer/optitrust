@@ -27,13 +27,19 @@ let __array_access = toplevel_free_var "__array_access"
 let __add_inplace = toplevel_free_var "__add_inplace"
 let __sub_inplace = toplevel_free_var "__sub_inplace"
 let __mul_inplace = toplevel_free_var "__mul_inplace"
+let __post_inc = toplevel_free_var "__post_inc"
+let __post_dec = toplevel_free_var "__post_dec"
+let __pre_inc = toplevel_free_var "__pre_inc"
+let __pre_dec = toplevel_free_var "__pre_dec"
 
 (* The environment containing the contracts of builtin functions. *)
 let builtin_env =
   let h x = new_hyp x in
   let p1 = h "p" in let p2 = h "p" in
   let p3 = h "p" in let p4 = h "p" in
-  let p5 = h "p" in
+  let p5 = h "p" in let p6 = h "p" in
+  let p7 = h "p" in let p8 = h "p" in
+  let p9 = h "p" in
   resource_set ~fun_contracts:(var_map_of_list [
     __new, ([h "init"],
       { pre = empty_resource_set;
@@ -48,6 +54,10 @@ let builtin_env =
     __add_inplace, ([p3; h "x"], set_fun_contract p3);
     __sub_inplace, ([p4; h "x"], set_fun_contract p4);
     __mul_inplace, ([p5; h "x"], set_fun_contract p5);
+    __post_inc, ([p6], set_fun_contract p6);
+    __post_dec, ([p7], set_fun_contract p7);
+    __pre_inc, ([p8], set_fun_contract p8);
+    __pre_dec, ([p9], set_fun_contract p9);
   ]) ()
 
 (* A formula that may instantiate contract variables with
@@ -420,6 +430,10 @@ exception Unimplemented
 let unop_to_var_name (u: unary_op): string =
   match u with
   | Unop_get -> "__get"
+  | Unop_pre_inc -> "__pre_inc"
+  | Unop_pre_dec -> "__pre_dec"
+  | Unop_post_inc -> "__post_inc"
+  | Unop_post_dec -> "__post_dec"
   | Unop_cast t -> "__cast"
   | _ -> raise Unimplemented
 

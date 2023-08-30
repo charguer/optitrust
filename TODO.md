@@ -349,10 +349,12 @@ To learn more, just grep for the tag in the source code:
 grep -r '[tag]' .
 ```
 
+- #unop-inc-dec
+  - Looks like we have "Unop_post_inc *(var x)" which does not work for resources?
 - #advanced-scoping-check
 - #var-id
   - Some APIs need to evolve, picking between string or var
-  - because we have var-id, can replace combi cVar/cFor/cFun name queries with id queries
+  - because we have var-id, can replace combi cVar/cFor/cFun name queries with id queries cVarId/cForId/cFunId
   - #var-id-dir-name
   - #this-id
   - #type-id

@@ -1281,23 +1281,25 @@ let filter_out_include (filename : string)
     | d :: dl ->
       let (include_map, file_decls) = aux include_map dl in
       let file = file_of_node d in
-      (* keep only project included files *)
-      if Filename.dirname file <> Filename.dirname filename
-      then (include_map, file_decls)
-      else
-      if file <> filename
-      then
-        (Include_map.update (Filename.basename file)
-           (fun dlo ->
-              match dlo with
-              | None -> Some [d]
-              | Some dl -> Some (d :: dl)
-           )
-           include_map,
-         file_decls
+      (* keep only project included files and optitrust.h,
+         TODO: use a whitelist instead. *)
+      let is_in_current_dir = Filename.dirname file = Filename.dirname filename in
+      let is_optitrust_h = Filename.basename file = "optitrust.h" in
+      if is_in_current_dir || is_optitrust_h then
+        if file <> filename
+        then
+          (Include_map.update (Filename.basename file)
+             (fun dlo ->
+                match dlo with
+                | None -> Some [d]
+                | Some dl -> Some (d :: dl)
+             )
+             include_map,
+           file_decls
 
-        )
-      else (include_map, d :: file_decls)
+          )
+        else (include_map, d :: file_decls)
+      else (include_map, file_decls)
   in
   aux (Include_map.empty) dl
 

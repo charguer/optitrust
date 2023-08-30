@@ -617,6 +617,8 @@ and trm_desc =
   | Trm_abort of abort                            (* return or break or continue *)
   | Trm_goto of label                             (* goto foo *)
   | Trm_arbitrary of code_kind                    (* "int x = 10" *)
+  (* TODO: new root for multi-files
+    | Trm_files of trms *)
   | Trm_omp_routine of omp_routine                (* get_thread_id *)
   | Trm_extern of string * trms                   (* extern keyword *)
   | Trm_namespace of string * trm * bool          (* namespaces *)

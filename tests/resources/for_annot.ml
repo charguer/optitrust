@@ -2,9 +2,9 @@ open Optitrust
 open Target
 
 (*let _ = Flags.resource_errors_as_warnings := true*)
+(* let _ = Flags.display_includes := true *)
 
-(* FIXME: avoid inlining *)
-let _ = Run.script_cpp ~inline:["../../include/optitrust.h"] (fun () ->
-    show_ast ();
-    Resources.show ();
+let _ = Run.script_cpp (fun () ->
+  show_ast ();
+  Resources.show ();
 )

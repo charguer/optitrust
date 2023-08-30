@@ -26,6 +26,9 @@ let dump_ast_details : bool ref = ref false
    *)
 let pretty_matrix_notation : bool ref = ref false
 
+(* whether to display includes AST or not. *)
+let display_includes : bool ref = ref false
+
 (* [dump_clang_ast]: flag to dump the AST as produced by clang into a specific file,
    by default "clang_ast.ml".  *)
 let dump_clang_ast = ref None
@@ -234,6 +237,7 @@ let reset_flags_to_default () : unit =
   bypass_cfeatures_decoding := false;
   use_light_diff := false;
   pretty_matrix_notation := false;
+  display_includes := false;
   resource_errors_as_warnings := false;
   always_name_resource_hyp := false;
   display_resources := false;

@@ -91,6 +91,7 @@ let assert_hyp_read_only ~(error : string) ((x, t) : (hyp * formula)) : unit =
   | Some _ -> ()
   | None -> failwith (sprintf "%s: %s is used sequentially and is not read only." error (Ast_fromto_AstC.named_formula_to_string (x, t)))
 
+(* checks that effects commute, infer var ids to check pure facts scope. *)
 let assert_commute (before : trm) (after : trm) : unit =
   (* TODO: let error' = error in *)
   let error = "expected resources usage to be available" in
@@ -106,7 +107,6 @@ let assert_commute (before : trm) (after : trm) : unit =
     | (_, Some UsedFull) -> Some (a_res_usage, b_res_usage)
     | _ -> None
   in
-  (* FIXME: pure facts scope. *)
   let interference = Hyp_map.merge res_merge a_res b_res in
   if not (Hyp_map.is_empty interference) then
     fail after.loc (sprintf "the resources do not commute: %s\n" (Tools.list_to_string (List.map (fun (x, (f1, f2)) -> sprintf "%s: %s != %s" x.name (resource_usage_opt_to_string f1) (resource_usage_opt_to_string f2)) (Hyp_map.bindings interference))))
