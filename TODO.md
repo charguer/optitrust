@@ -15,7 +15,10 @@
 
 - Remove file ast_data.ml, moving stuff into typing.ml and cpp.ml.
 
+# Features
 
+- `Trm_files` do deal with multiple files, and simplify includes
+- encode Module/namespace the same way?
 
 # Typechecking
 
@@ -188,6 +191,13 @@
 
 # Parser
 
+- Keep marks on reparse: add identity decoration functions
+
+- Eliminate `Trm_arbitrary` on the fly
+  - on creation, set flag to 'partial/full/none'
+  - after step, full or partial reparse on functions that contain arbitrary terms
+  - also have 'disabled' flag to prevent reparse temporarily for combis (e.g. insert_multi)
+
 - Decide whether we want to preserve support for CompCert parser. The benefits
   was fast parsing of simple code snippets, such as rewriting rules.
 
@@ -226,6 +236,10 @@
   We can use ocaml-style annotation, e.g., to know whether the prefered layout
   for a conditional is one line, on 3 lines, or on 4 lines.
 
+# Debug
+
+- reparse and retype all intermediate steps up to depth d
+- allow disabing for invalid intermediate steps
 
 # Repo
 
