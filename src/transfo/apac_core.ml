@@ -543,8 +543,15 @@ let build_constification_records_on (t : trm) : unit =
       is_ret_ref = is_typ_array ret_ty || is_typ_ref ret_ty;
       is_class_method = false;
     } in
-  (* and add it to [const_records] (global variable, see Part II.1). *)
-  VarHashtbl.add const_records var const
+  (* and add it to [const_records] (global variable, see Part II.1) if it is not
+     present in the hash table already, e.g. in the case of a
+     pre-declaration. *)
+  if not (VarHashtbl.mem const_records var) then
+    begin
+      Printf.printf "Accepted : %s\n" (var_to_string var);
+      VarHashtbl.add const_records var const
+    end
+      
 
 (* [build_constification_records]: expects the target [tg] to point at a
    function definition. It adds a new entry into [const_records] (global
