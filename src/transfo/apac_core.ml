@@ -355,29 +355,22 @@ let rec trm_can_resolve_pointer (t : trm) : bool =
        begin match op with
        | Unop_get
          | Unop_address
-         | Unop_cast _ -> aux t
+         | Unop_cast _ -> trm_can_resolve_pointer t
        | _ -> false
        end
     (* Array access: strip, update degree and recurse. *)
     | Trm_apps ({
             desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)));
-            _ }, [t; _]) -> aux t
+            _ }, [t; _]) -> trm_can_resolve_pointer t
     (* Other binary operation: strip, update degree and recurse on both left and
        right-hand sides. *)
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop _ )); _ }, [lhs; rhs]) ->
-       begin match (aux lhs, aux rhs) with
-       | true, false -> true
-       | false, true -> true
-       | false, false
-         (* In practice, binary operations between two pointers supported in
-            C/C++ can not lead to a valid alias of one of them. *)
-         | true, true -> false
-       end
+       (trm_can_resolve_pointer lhs) || (trm_can_resolve_pointer rhs)
     (* Variable: check if its an argument or an alias to an argument, then
        return the corresponding argument index and AST term. *)
     | Trm_var _ -> true
     | _ -> false
- *)
+
 (* [trm_let_update_aliases ?reference tv ti aliases]: checks in [aliases]
    whether the variable declaration specified by the typed variable [tv] and the
    initializaion term [ti] creates an alias to an already existing variable or
