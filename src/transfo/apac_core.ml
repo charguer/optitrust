@@ -348,7 +348,6 @@ let trm_resolve_pointer_and_aliased_variable
 
 (* [trm_can_resolve_to_unique t]: tries to resolve operation [t] to unique variable and
    returns [true] on success and [false] otherwise. *)
-(*
 let rec trm_can_resolve_pointer (t : trm) : bool =
     match t.desc with
     (* Unary operation: strip, update degree and recurse. *)
