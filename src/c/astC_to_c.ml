@@ -15,6 +15,7 @@ let print_commented_pragma = ref false
 
 (* [print_beautify_mindex]: only for internal use. *)
 let print_beautify_mindex = ref false
+let print_marks_encoded = ref false
 
 (* [print_stringreprids]: only for debugging purposes. *)
 let print_stringreprids = ref false
@@ -320,6 +321,11 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
   list_to_doc ~sep:(string "\n") ~bounds:[empty; hardline] t_pragmas_str in
 
   let t_labels = trm_get_labels t in
+  let t_marks = trm_get_marks t in
+  let t_labels = if !print_marks_encoded && t.is_statement
+    then t_labels @ (List.map (fun m -> "__mark_" ^ m) t_marks)
+    else t_labels
+  in
   let dlabels = if t_labels = []
     then empty
     else
@@ -329,24 +335,27 @@ and decorate_trm ?(semicolon : bool = false) ?(prec : int = 0) ?(print_struct_in
 
   let dt = if parentheses then parens (dt) else dpragmas ^^ dlabels ^^ dt in
 
-  let t_marks = trm_get_marks t in
+  if !print_marks_encoded then begin
+    assert (not !print_stringreprids);
+    if t.is_statement then dt
+    else List.fold_left (fun acc m ->
+      string "__MARK" ^^ parens (dquotes (string m) ^^ comma ^^ acc)
+    ) dt t_marks
+  end else if t_marks = [] && not !print_stringreprids
+  then dt
+  else begin
+    let sid =
+      if not !print_stringreprids then "" else begin
+      match Trm.trm_get_stringreprid t with
+      | None -> "[-]"
+      | Some id -> Printf.sprintf "[%d]" id
+      end in
 
-  if t_marks = [] && not !print_stringreprids
-    then dt
-    else
-      begin
-      let sid =
-        if not !print_stringreprids then "" else begin
-        match Trm.trm_get_stringreprid t with
-        | None -> "[-]"
-        | Some id -> Printf.sprintf "[%d]" id
-        end in
-
-      let m = list_to_string ~sep:"," ~bounds:["";""] t_marks in
-      let sleft = string ("/*@" ^ sid ^ m ^ "*/") in
-      let sright =  string ("/*" ^ sid ^ m ^ "@*/") in
-      sleft ^^ dt ^^ sright
-      end
+    let m = list_to_string ~sep:"," ~bounds:["";""] t_marks in
+    let sleft = string ("/*@" ^ sid ^ m ^ "*/") in
+    let sright =  string ("/*" ^ sid ^ m ^ "@*/") in
+    sleft ^^ dt ^^ sright
+  end
 
 (* [trm_var_to_doc v t]: pretty prints trm_vars, including here type arguments and nested name specifiers. *)
 and trm_var_to_doc (x : var) (t : trm) : document =
@@ -1289,10 +1298,11 @@ and unpack_trm_for ?(loc: location) (l_range : loop_range) (body : trm) : trm =
 
 (* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
     If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)
-let ast_to_doc ?(comment_pragma : bool = false) ?(beautify_mindex : bool = false) ?(optitrust_syntax:bool=false) (t : trm) : document =
+let ast_to_doc ?(comment_pragma : bool = false) ?(beautify_mindex : bool = false) ?(keep_marks = false) ?(optitrust_syntax:bool=false) (t : trm) : document =
   let comment_pragma = false in (* temporary *)
   if comment_pragma then print_commented_pragma := true;
   print_beautify_mindex := beautify_mindex;
+  print_marks_encoded := keep_marks;
   if optitrust_syntax then print_optitrust_syntax := true;
   let d = decorate_trm t in
   if optitrust_syntax then print_optitrust_syntax := false;
@@ -1300,8 +1310,8 @@ let ast_to_doc ?(comment_pragma : bool = false) ?(beautify_mindex : bool = false
   d
 
 (* [ast_to_outchannel ~comment_pragma ~optitrust_syntax out t]: print ast [t] to an out_channel [out] *)
-let ast_to_outchannel ?(comment_pragma : bool = false) ?(beautify_mindex : bool = false) ?(optitrust_syntax:bool=false) (out : out_channel) (t : trm) : unit =
-  ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc ~beautify_mindex ~comment_pragma ~optitrust_syntax t)
+let ast_to_outchannel ?(comment_pragma : bool = false) ?(beautify_mindex : bool = false) ?(keep_marks = false) ?(optitrust_syntax:bool=false) (out : out_channel) (t : trm) : unit =
+  ToChannel.pretty 0.9 (!Flags.code_print_width) out (ast_to_doc ~beautify_mindex ~keep_marks ~comment_pragma ~optitrust_syntax t)
 
 (* [ast_to_file ~optitrust_syntax filename t]: print ast [t] to file [filename] *)
 let ast_to_file ?(optitrust_syntax:bool=false) (filename : string) (t : trm) : unit =

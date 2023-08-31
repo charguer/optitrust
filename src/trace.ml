@@ -798,7 +798,7 @@ let ensure_header (h : string) : unit =
    - one describing the internal AST ("prefix_enc.cpp")
    - one describing the CPP code ("prefix.cpp").
    The CPP code is automatically formatted using clang-format. *)
-let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
+let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(keep_marks = false) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   let use_clang_format = beautify && !Flags.use_clang_format in
   let file_prog = prefix ^ ctx.extension in
   let out_prog = open_out file_prog in
@@ -816,8 +816,8 @@ let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(ast_and_e
     in
 
     if !Flags.bypass_cfeatures || bypass_cfeatures
-      then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
-      else AstC_to_c.ast_to_outchannel ~beautify_mindex ~comment_pragma:use_clang_format out_prog (Ast_fromto_AstC.cfeatures_intro ast);
+      then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true ~keep_marks out_prog ast
+      else AstC_to_c.ast_to_outchannel ~keep_marks ~beautify_mindex ~comment_pragma:use_clang_format out_prog (Ast_fromto_AstC.cfeatures_intro ast);
     output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->
@@ -866,7 +866,7 @@ let reparse_trm ?(info : string = "") ?(parser: parser option) (ctx : context) (
     flush stdout
   end;
   let in_prefix = (Filename.dirname ctx.prefix) ^ "/tmp_" ^ (Filename.basename ctx.prefix) in
-  output_prog ~beautify:false ctx in_prefix ast;
+  output_prog ~beautify:false ~keep_marks:true ctx in_prefix ast;
 
   let parser =
     match parser with

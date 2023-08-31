@@ -4,6 +4,11 @@
 #include <assert.h>
 #include <string.h>
 
+template<typename T>
+inline T __MARK(const char* mark, T v) {
+  return v;
+}
+
 /* ---- Resource Annotations ---- */
 
 void __pure() {}

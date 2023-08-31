@@ -1,3 +1,5 @@
+#include "../../include/optitrust.h"
+
 typedef struct { int x; int y; } vect;
 
 int f(int n) {
@@ -10,7 +12,7 @@ int f(int n) {
   return 3;
 }
 
-int main() {  
+int main() {
   for (int i = 0; i < 3; i++) {
     vect r = { f(2), f(3) };
   }
