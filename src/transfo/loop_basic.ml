@@ -454,7 +454,7 @@ let extend_range_on (start_extension : extension_kind) (stop_extension : extensi
     added_if := true;
     let t = trm_if cond body (trm_unit ()) in
     if should_merge
-    then Option.get (Flow_core.may_merge_ifs t)
+    then Option.get (If_core.may_merge t)
     else t
   in
   let if_before_stop body = trm_seq_nomarks [make_if (trm_lt (trm_var index) stop) body] in

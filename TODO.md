@@ -19,6 +19,15 @@
 
 - `Trm_files` do deal with multiple files, and simplify includes
 - encode Module/namespace the same way?
+- term comparison function
+  - compare modulo names?
+  - compare marks?
+  - save diffs?
+  - compare annots?
+    - compare pragmas / cstyle ?
+  - compare types?
+  - compare computed resources?
+  - compare contracts?
 
 # Typechecking
 
@@ -108,6 +117,8 @@
 
 # Tester
 
+- tester should call gcc on test outputs if they don't match the expected outputs
+
 - Serialize the expected output files to enable comparisons at the AST-level
   rather than at the text level. Need to check dependencies to ensure that
   serialized files are up-to-date wrt text files.
@@ -191,7 +202,7 @@
 
 # Parser
 
-- Keep marks on reparse: add identity decoration functions
+- Keep marks on reparse: tests same ASt and reuse marks at paths
 
 - Eliminate `Trm_arbitrary` on the fly
   - on creation, set flag to 'partial/full/none'
@@ -367,6 +378,7 @@ grep -r '[tag]' .
   - Looks like we have "Unop_post_inc *(var x)" which does not work for resources?
 - #advanced-scoping-check
 - #var-id
+  - hook to let builtin var with id and set correct id in code after parsing
   - Some APIs need to evolve, picking between string or var
   - because we have var-id, can replace combi cVar/cFor/cFun name queries with id queries cVarId/cForId/cFunId
   - #var-id-dir-name
