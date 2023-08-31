@@ -372,81 +372,289 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
 let constify_aliases ?(force = false) (tg : target) : unit =
   Target.apply_at_target_paths (constify_aliases_on ~force) tg
 
-(* [array_typ_to_ptr_typ]: changes Typ_array to
-    Typ_ptr {ptr_kind = Ptr_kind_mut; _}. *)
-let array_typ_to_ptr_typ (ty : typ) : typ =
-  match ty.typ_desc with
-  | Typ_array (ty, _) -> typ_ptr Ptr_kind_mut ty
-  | _ -> ty
-
-(* [stack_to_heap_aux t]: transforms a variable declaration in such a way that
-    the variable is declared on the heap.
-
-   [t] - AST of the variable declaration. *)
-let stack_to_heap_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_let (vk, (var, ty), tr, _) ->
-    if trm_has_cstyle Reference t
-      then begin match vk with
-        | Var_immutable -> fail None "So reference are not always mutable."
-          (* trm_let_immut (var, (typ_ptr Ptr_kind_mut ty)) (trm_new ty (trm_get tr)) *)
-        | Var_mutable ->
-          let in_typ = get_inner_ptr_type ty in
-          if is_typ_const in_typ
-            then trm_let_immut (var, ty) (trm_new in_typ (trm_get tr))
-            else trm_let_mut (var, ty) (trm_new in_typ (trm_get tr))
-        end
-      else
-        begin match vk with
-        | Var_immutable -> trm_let_immut (var, (typ_ptr Ptr_kind_mut ty)) (trm_new ty tr)
-        | Var_mutable ->
-          let in_ty = get_inner_ptr_type ty in
-          let ty = if is_typ_array in_ty then array_typ_to_ptr_typ in_ty else ty in
-          let tr = if is_typ_array in_ty && is_typ_const (get_inner_array_type in_ty)
-            then trm_new in_ty tr else tr in
-          trm_let_mut (var, ty) tr
-        end
-  | Trm_let_mult (vk, tvl, tl) ->
-    let l = List.map2 (fun (var, ty) t ->
-      let ty2 =
-        if is_typ_array ty then array_typ_to_ptr_typ ty
-        else if is_typ_const ty then typ_const (typ_ptr Ptr_kind_mut ty)
-        else typ_ptr Ptr_kind_mut ty
-      in
-      ((var, ty2), trm_new ty t)
-      ) tvl tl in
-    let (tvl, tl) = List.split l in
-    trm_let_mult vk tvl tl
-  | _ -> fail None "Apac_basic.stack_to_heap: expected a target to a variable declaration."
-
-(* [stack_to_heap tg]: expects the target [tg] to point at a variable
-    declaration. Then, the variable will be declared on the heap. *)
-let stack_to_heap : Transfo.t =
-  Target.apply_at_target_paths (stack_to_heap_aux)
-
-(*let heapify ?(cstyle = false) (t : trm) : trm =
-  let aux (v : var) (ty : typ) (init : trm) ?(reference = false) :
-        typed_var * trm =
-    if reference || is_reference ty then
+(* [heapify_on t]: see [heapify]. *)
+let heapify_on (t : trm) : trm =
+  (* [heapify_on.single ?reference ?mult v ty init] is an auxiliary function for
+     processing a single variable declaration represented by the variable [v] of
+     type [ty] and by the initialization term [init]. It is thus possible to set
+     the [mult] parameter to [true] and call it multiple times in a loop in the
+     case of a multiple variable declaration. The [reference] parameter is
+     useful in the case of a simple variable declaration when the reference
+     status has to be determined before calling the function as the information
+     cannot be restored from within the function like in the case of a multiple
+     variable declaration. *)
+  let single ?(reference = false) ?(mult = false)
+        (v : var) (ty : typ) (init : trm) : typed_var * trm =
+    (* Depending on whether it is a multiple [mult] is [true] or a single
+       variable declaration [mult] is [false], the encoding of the type and the
+       const status in the OptiTrust AST differs. *)
+    if mult then
       begin
-        let inner_ty = get_inner_ptr_type ty in
-        if is_typ_const inner_ty && not (trm_can_resolve_pointer init) then
+        (* Acquire the inner type of [ty], e.g. [const int] from [const
+           int[5]]. *)
+        let tyi = get_inner_type ty in
+        (* If we are declaring a reference, *)
+        if is_reference ty then
           begin
-            if cstyle then
-              trm_let_immut (var, ty)
+            (* we have to do something only when it is a constant reference to a
+               literal value, i.e. it is not referencing a previously
+               user-allocated memory location. *)
+            if is_typ_const tyi && not (trm_can_resolve_pointer init) then
+              (* In the case of a multiple variable declaration, [ty] is not a
+                 reference yet. We have to both constify it and assign it the
+                 reference type. *)
+              ((v, typ_ptr Ptr_kind_ref (typ_const ty)), trm_new tyi init)
+            (* Otherwise, we return the declarations elements as they are. *)
             else
-              trm_let_immut (var, ty) (trm_new inner_ty (trm_get init))
-    
+              ((v, ty), init)
+          end
+        (* Otherwise, we distinguish three different cases: *)
+        else
+          begin
+            (* 1) The value as well as the memory location are const, e.g. in
+               [int const * a = &i, * const b = &j] it is the case of [b]. *)
+            if is_typ_const ty then
+              begin
+                let _ = Printf.printf "const %s" (var_to_string v) in
+                let _ = Debug_transfo.typ "of ty" ty in 
+                let _ = Debug_transfo.typ "and tyi" tyi in
+                (* If the variable is already a pointer, we do not need to
+                   transform it to a pointer type. *)
+                let ty2 =
+                  if is_typ_ptr (get_inner_const_type tyi) then
+                    ty
+                  else typ_ptr Ptr_kind_mut ty
+                in
+                (* If the variable is a pointer, we consider that it already
+                   points to some data in the heap. If it is not the case, e.g.
+                   in [int i = 1; int * a = &i], it is not of the responsibility
+                   of this transformation function. Otherwise, we replace the
+                   initial [init] an adequate allocation term.
+
+                   Note that, here, we perform the test on the inner type
+                   because [ty] is a const type in this case. *)
+                let init2 = if is_typ_ptr tyi then init else trm_new ty init in
+                (* Return the updated variable declaration and definition. *)
+                ((v, ty2), init2)
+              end
+            (* 2) We are declaring a static array (of values, of pointers, const
+               or not), e.g. [int * a[10]]. *)
+            else if is_typ_array ty then
+              begin
+                let _ = Printf.printf "array %s" (var_to_string v) in
+                let _ = Debug_transfo.typ "of ty" ty in 
+                let _ = Debug_transfo.typ "and tyi" tyi in
+                (* To transform a static array allocation to a dynamic array
+                   allocation, we need to determine its inner type, i.e. the
+                   type of the values stored in the array (without the square
+                   brackets), for the construction of the [new <inner-type>]
+                   allocation term. Note that if the static variable is an array
+                   of constants, e.g. [int const tab[2]], [tya] shall be [const
+                   int]. *)
+                let tya = get_inner_array_type tyi in
+                (* We then transform the lvalue type to a pointer, e.g. [int
+                   tab[2]] becomes [int * tab]. *)
+                let ty2 = typ_ptr Ptr_kind_mut tya in
+                (* If it is an array of constants, we also need to add [const]
+                   to [const int * tab] so as it becomes [const int * const
+                   tab]. *)
+                let ty2 = if is_typ_const tya then typ_const ty2 else ty2 in
+                (* Return the updated variable declaration and definition. *)
+                ((v, ty2), trm_new ty init)
+              end
+            (* 3) Any other cases. Typically, we refer here to static variable
+               declarations and definitions such as [int a = 1] or to variable
+               declarations and definitions that were not fully constified, i.e.
+               where either the value or the memory location is not const or
+               none of the two. *)
+            else
+              begin
+                let _ = Printf.printf "other %s" (var_to_string v) in
+                let _ = Debug_transfo.typ " of ty" ty in 
+                let _ = Debug_transfo.typ " and tyi" tyi in
+                (*let tya = if is_typ_array tyi then get_inner_array_type tyi else ty in*)
+                (* If the variable is already a pointer, we do not need to
+                   transform it to a pointer type. *)
+                let ty2 =
+                  if not (is_typ_ptr ty) then typ_ptr Ptr_kind_mut ty else ty in
+                (* If the variable is a pointer, we consider that it already
+                   points to some data in the heap. If it is not the case, e.g.
+                   in [int i = 1; int * a = &i], it is not of the responsibility
+                   of this transformation function.
+
+                   Note that, here, we perform the test on directly [ty] is the
+                   outer type is not a const type in this case. *)
+                let init2 = if is_typ_ptr ty then init else trm_new ty init in
+                (* Return the updated variable declaration and definition. *)
+                ((v, ty2), init2)
+              end
+          end
+      end
+    else
+      begin
+        (* Acquire the inner type of [ty], e.g. [int] from [int *]. Note that in
+           this example, [int *] actually encodes a statically allocated [int].
+           This encoding is present only in the case of simple variable
+           declarations. This is why we use [get_inner_ptr_type] here instead of
+           [get_inner_type] like in the case of multiple variable
+           declarations. *)
+        let tyi = get_inner_ptr_type ty in
+        (* If we are declaring a reference, *)
+        if reference then
+          (* we have to apply a get operation on the initialization term.
+             Otherwise, OptiTrust shall add a [&] operator to the latter, e.g.
+             [const int &b = 1] would become [const int &b = &1]. This behavior
+             is present only in the case of a single variable declaration and is
+             independent of the condition below. *)
+          let init2 = trm_get init in
+          begin
+            (* Here, we have to do something only when it is a constant
+               reference to a literal value, i.e. it is not referencing a
+               previously user-allocated memory location. *)
+            if is_typ_const tyi && not (trm_can_resolve_pointer init) then
+              (* In the case of a simple variable declaration, [ty] is already a
+                 reference. We only have to constify it. *)
+              ((v, typ_const ty), trm_new tyi init2)
+            else
+              (* The above affirmation is true only in the case of constant
+                 references. For mutable references, we have to restore the
+                 reference type of [tyi]. Otherwise, a [int &e = i] results in
+                 [int * e = i] even if the heapification is not performed. *)
+              ((v, typ_ptr Ptr_kind_ref tyi), init2)
+          end
+        (* Otherwise, we distinguish three different cases: *)
+        else
+          begin
+            (* 1) The value as well as the memory location are const, e.g. in
+               [int const * a = &i, * const b = &j] it is the case of [b]. *)
+            if is_typ_const ty then
+              begin
+                (* In the case of a simple variable declaration, we acquire the
+                   inner const type directly from [ty] unlike in the case of a
+                   multiple variable declaration (see above). *)
+                let tyc = get_inner_const_type ty in
+                let _ = Printf.printf "const simple %s" (var_to_string v) in
+                let _ = Debug_transfo.typ " of ty" ty in 
+                let _ = Debug_transfo.typ " and tyc" tyc in
+                (* If the variable is already a pointer, we do not need to
+                   transform it to a pointer type. *)
+                let ty2 =
+                  if is_typ_ptr tyc then tyc else typ_ptr Ptr_kind_mut tyc in
+                (* Then, we have to restore the const status of the variable. *)
+                let ty2 = typ_const ty2 in                
+                (* If the variable is a pointer, we consider that it already
+                   points to some data in the heap. If it is not the case, e.g.
+                   in [int i = 1; int * a = &i], it is not of the responsibility
+                   of this transformation function. Otherwise, we replace the
+                   initial [init] an adequate allocation term.
+
+                   Note that, here, we perform the test on the inner type
+                   because [ty] is a const type in this case. *)
+                let init2 = if is_typ_ptr tyc then init else trm_new ty init in
+                (* Return the updated variable declaration and definition. *)
+                ((v, ty2), init2)
+              end
+            (* 2) We are declaring a static array (of values, of pointers, const
+               or not), e.g. [int * a[10]]. *)
+            else if is_typ_array tyi then
+              begin
+                let _ = Printf.printf "array simple %s" (var_to_string v) in
+                let _ = Debug_transfo.typ " of ty" ty in
+                let _ = Debug_transfo.typ " and tyi" tyi in
+                (* To transform a static array allocation to a dynamic array
+                   allocation, we need to determine its inner type, i.e. the
+                   type of the values stored in the array (without the square
+                   brackets), for the construction of the [new <inner-type>]
+                   allocation term. Note that if the static variable is an array
+                   of constants, e.g. [int const tab[2]], [tya] shall be [const
+                   int]. *)
+                let tya = get_inner_array_type tyi in
+                let _ = Debug_transfo.typ " and tya" tya in                
+                (* We then transform the lvalue type to a pointer, e.g. [int
+                   tab[2]] becomes [int * tab]. *)
+                let ty2 = typ_ptr Ptr_kind_mut tya in
+                (* If it is an array of constants, we also need to add [const]
+                   to [const int * tab] so as it becomes [const int * const
+                   tab]. *)
+                let ty2 = if is_typ_const tya then typ_const ty2 else ty2 in
+                (* The transformation of [init] to an adequate allocation term
+                   is required only in the case of an array of constants.
+                   Otherwise, it is done implicitly by OptiTrust. *)
+                let init2 =
+                  if is_typ_const tya then trm_new ty init else init in
+                (* Return the updated variable declaration and definition. *)
+                ((v, ty2), init2)
+              end
+            (* 3) Any other cases. Typically, we refer here to static variable
+               declarations and definitions such as [int a = 1] or to variable
+               declarations and definitions that were not fully constified, i.e.
+               where either the value or the memory location is not const or
+               none of the two. *)
+            else
+              let _ = Printf.printf "other simple %s" (var_to_string v) in
+              let _ = Debug_transfo.typ " of ty" ty in 
+              let _ = Debug_transfo.typ " and tyi" tyi in               
+              (* We then transform the lvalue type to a pointer, e.g. [int a]
+                 becomes [int * a]. *)
+              let ty2 = typ_ptr Ptr_kind_mut tyi in
+              (* Then, we have to restore the const status of the variable if it
+                 was present in the original inner type [tyi]. *)
+              let ty2 = if is_typ_const tyi then typ_const ty2 else ty2 in
+                (* The transformation of [init] to an adequate allocation term
+                   is required only in the case of an array of constants.
+                   Otherwise, it is done implicitly by OptiTrust. *)
+              let init2 = if is_typ_const tyi then trm_new ty init else init in
+              (* Return the updated variable declaration and definition. *)
+              ((v, ty2), init2)
+          end
+      end
+  in
   (* [t] must be either *)
   match t.desc with
   (* a simple variable declaration, or *)
   | Trm_let (kind, (v, ty), init, _) ->
-     
+     (* Call [heapify_on.single] once. *)
+     let ((v2, ty2), init2) =
+       single ~reference:(trm_has_cstyle Reference t) v ty init in
+     (* Return an update single variable declaration term. *)
+     trm_let kind (v2, ty2) init2
   (* a multiple variable declaration. *)
   | Trm_let_mult (kind, vtys, inits) ->
+     (* Call [heapify_on.single] multiple times in a loop over all the
+        declarations in the multiple variable declaration term. *)
+     let updated = List.map2 (
+                       fun (v, ty) init -> single ~mult:true v ty init
+                     ) vtys inits in
+     (* The upcoming instruction expects the updates typed variables and
+        initialization terms in separate lists. *)
+     let (vtys2, inits2) = List.split updated in
+     (* Return an update multiple variable declaration term. *)
+     trm_let_mult kind vtys2 inits2
   | _ -> fail t.loc "Apac_basic.heapify: expected a target to a variable \
                      declaration or a multiple variable declaration."
- *)
+
+(* [heapify tg]: expects the target [tg] to point at a simple or a multiple
+   variable declaration. Then, if it is necessary, i.e. if the variable is not a
+   reference or a pointer to a previously user-allocated memory location, the
+   function shall promote the variable from the stack to the heap. 
+
+   Example:
+
+   int tab[5] = { 1, 2, 3, 4, 5 };
+
+   becomes:
+
+   int * tab = new int[5] { 1, 2, 3, 4, 5 }
+
+   However, in:
+
+   int * a = new int(10);
+   int &b = &a;
+
+   nor [a] nor [b] are transformed. *)
+let heapify (tg : target) : unit =
+  Target.apply_at_target_paths (heapify_on) tg
+
 (* [unfold_let_mult_aux t]: transforms multiple variable declaration instruction
     to a sequence of variable declarations.
 
