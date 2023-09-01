@@ -1,7 +1,7 @@
 open Ast
 open Trm
 
-let debug = true
+let debug = false
 
 (* FIXME: triggers on multiple function declarations/definitions. *)
 exception InvalidVarId of string

@@ -4,20 +4,23 @@ open Syntax
 (* let _ = Flags.check_validity := true *)
 let _ = Flags.pretty_matrix_notation := true
 
+(*
+  1. improve data locality by storing values in contiguous memory allocations.
+    - note: requires inserting conditional updates for correctness, should this be done before hoisting?
+    - note: is this needed for 'kj'?
+  2. split loop ranges to eliminate conditional branching
+  *)
+
 let _ = Run.script_cpp (fun () ->
-  bigstep "contiguous allocation of accessed memory";
+  bigstep "store kth values in contiguous memory allocations";
   !! Variable.insert_and_fold ~typ:(ty "uint32_t") ~name:"sum" ~value:(expr "A[i * N + k] + A[k * N + j]") [tBefore; cIf ()];
-  (* Store the values in the kth-row needed to compute distances in a contiguous manner *)
   !! Loop.hoist_expr ~dest:[tBefore; cFor "i" ] "kj" ~indep:["i"] [occIndex 1; cArrayRead "A"];
-  (* Update them properly when i == k *)
+  !! Loop.hoist_expr ~dest:[tBefore; cFor "i"] "ik" ~indep:["j"] [cFor "i"; occIndex 0; cArrayRead "A"];
   !! Sequence.insert (stmt "if (i == k) { kj[j] = sum;}") [tAfter; cArrayWrite "A"];
-  (* Do the same for the k-th column *)
-  !!! Loop.hoist_expr ~dest:[occIndex 0; tAfter; cFor "j"] "ik" ~indep:["j"] [cFor "i"; occIndex 0; cArrayRead "A"];
   !! Sequence.insert (stmt "if (j == k) { ik[i] = sum;}") [tAfter; cArrayWrite "A"];
   !! Loop.hoist_alloc ~indep:["k"] ~dest:[tBefore; cFor "k"] [multi cVarDef ["kj"; "ik"]];
 
   bigstep "split to top and bottom";
-  (* Split ranges, such that the ifs can be removed *)
   !! Loop.split_range ~cut:(expr "k") [occIndex 1; cFor "i"];
   !! Loop.split_range ~cut:(expr "k+1") [occIndex 2; cFor "i"];
   !!! (
