@@ -2,5 +2,5 @@ open Optitrust
 open Target 
 
 let _ = Run.script_cpp (fun () ->
-            !! Apac.constify [nbAny; cFunDef ""];
+            !! Apac.constify [nbAny; cFunDefAndDecl ""];
 )
