@@ -85,6 +85,9 @@ module Var_set = Set.Make(Var)
 (* [Var_map]: a map module used for mapping variables to values *)
 module Var_map = Map.Make(Var)
 
+(* [Var_Hashtbl]: a hash table module used for variables *)
+module Var_Hashtbl = Hashtbl.Make(Var)
+
 (* [varmap]: instantiation of Var_map *)
 type 'a varmap = 'a Var_map.t
 

@@ -11,7 +11,7 @@ include Apac_core
    on data accesses, aliases and dependencies. *)
 let constify (tg : target) : unit =
   (* Step 1: Clear the hash table of constification records. *)
-  VarHashtbl.clear Apac_core.const_records;
+  Var_Hashtbl.clear Apac_core.const_records;
   (* Step 2: Iterate over [tg] and fill the hash table of constification
      records. *)
   Apac_core.build_constification_records tg;

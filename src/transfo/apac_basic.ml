@@ -187,17 +187,23 @@ let constify_args_on ?(force = false) (t : trm) : trm =
      function itself should be constified. *)
   else
     (* Gather the constification record of the function. *)
-    let const_record = VarHashtbl.find Apac_core.const_records var in
+    let const_record = Var_Hashtbl.find Apac_core.const_records var in
+    let _ = Printf.printf "Fun %s is %s\n" (var_to_string var) (if const_record.is_class_method then "in class" else "not in class") in
+    let this = List.hd args in
+    let args = if const_record.is_class_method then List.tl args else args in
     (* Simultaneously loop over the list of function's arguments as well as over
        the list of argument constification records and constify the arguments
        that should be constified according to the corresponding constification
        record. *)
     let (_, const_args_record) = List.split const_record.const_args in
+    let _ = Printf.printf "args is %d long and arg_records are %d long\n" (List.length args) (List.length const_args_record) in
     let const_args = List.map2 (fun (v, ty) (cr : const_arg) ->
                          if cr.is_const then (v, (typ_constify ty)) else (v, ty)
                        ) args const_args_record in
     (* Rebuild the function definition term using the list of constified
        arguments. *)
+    let const_args =
+      if const_record.is_class_method then this::const_args else const_args in
     let let_fun_with_const_args =
       trm_let_fun ~annot:t.annot var ret_typ const_args body in
     (* Constify the function too if the constification record says so. *)
@@ -327,15 +333,18 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
                definition." in
   let (var, ret_ty, args, body) = trm_inv ~error trm_let_fun_inv t in
   (* Gather the constification record of the function. *)
-  let const_record = VarHashtbl.find Apac_core.const_records var in
+  let const_record = Var_Hashtbl.find Apac_core.const_records var in
+  let this = List.hd args in
+  let args = if const_record.is_class_method then List.tl args else args in
   (* Create an alias hash table. *)
-  let aliases : const_aliases = VarHashtbl.create 10 in
+  let aliases : const_aliases = LVar_Hashtbl.create 10 in
   (* Optionally, force the constification of all of the aliases by adding all of
      the function arguments into the hash table of aliases. *)
   if force then
     begin
       List.iter (fun (arg_var, arg_ty) ->
-          VarHashtbl.add aliases arg_var (arg_var, typ_get_degree arg_ty)
+          let arg_lv : lvar = { v = arg_var; l = String.empty } in
+          LVar_Hashtbl.add aliases arg_lv (arg_lv, typ_get_degree arg_ty)
         ) args
     end
   (* Otherwise, have a look at the constification record of the function to find
@@ -350,13 +359,18 @@ let constify_aliases_on ?(force = false) (t : trm) : trm =
   else
     begin
       let (_, const_args_record) = List.split const_record.const_args in
+      let _ = Printf.printf "aliases: args is %d long and arg_records are %d long for %s\n" (List.length args) (List.length const_args_record) (var_to_string var) in
       List.iter2 (fun (arg_var, arg_ty) (arg_cr : const_arg) ->
           if arg_cr.is_const then
-            VarHashtbl.add aliases arg_var (arg_var, typ_get_degree arg_ty)
+            begin
+              let arg_lv : lvar = { v = arg_var; l = String.empty } in
+              LVar_Hashtbl.add aliases arg_lv (arg_lv, typ_get_degree arg_ty)
+            end
         ) args const_args_record
     end;
   (* Call the auxiliary function to constify the aliases in the body of the
      function. *)
+  let args = if const_record.is_class_method then this::args else args in
   let body_with_const_aliases = aux aliases body in
   (* Rebuild and return the function definition term with the updated body. *)
   trm_let_fun ~annot:t.annot var ret_ty args body_with_const_aliases
