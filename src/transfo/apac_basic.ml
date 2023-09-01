@@ -189,6 +189,7 @@ let constify_args_on ?(force = false) (t : trm) : trm =
     (* Gather the constification record of the function. *)
     let const_record = Var_Hashtbl.find Apac_core.const_records var in
     let _ = Printf.printf "Fun %s is %s\n" (var_to_string var) (if const_record.is_class_method then "in class" else "not in class") in
+    let _ = Printf.printf "Fun %s is %s\n" (var_to_string var) (if const_record.is_const then "is const" else "not const") in
     let this = List.hd args in
     let args = if const_record.is_class_method then List.tl args else args in
     (* Simultaneously loop over the list of function's arguments as well as over

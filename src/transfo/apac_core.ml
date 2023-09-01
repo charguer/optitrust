@@ -140,6 +140,8 @@ type const_aliases = (lvar * int) LVar_Hashtbl.t
    function itself should be unconstified. *)
 type const_unconst = (var * var) Stack.t
 
+type const_unconst_objects = (var * var * var) Stack.t
+
 (******************************************************************)
 (* PART II: DECLARATION AND/OR INITIALIZATION OF GLOBAL VARIABLES *)
 (* II.1 Constification                                            *)
@@ -152,6 +154,8 @@ let const_records : const_funs = Var_Hashtbl.create 10
 (* Create a stack of arguments that must not be constified. See [const_unconst]
    for more details. *)
 let to_unconst : const_unconst = Stack.create ()
+
+let to_unconst_objects : const_unconst_objects = Stack.create ()
 
 (******************************)
 (* PART III: HELPER FUNCTIONS *)
@@ -526,44 +530,73 @@ let find_parent_typedef_record (p : path) : trm option =
    variable, see Part II.1) one by one and propagates the unconstification
    through the concerned function constification records in [const_records]
    (global variable, see Part II.1). *)
-let rec unconstify_mutables () : unit =
-  (* Pop out an element from [to_unconst]. *)
-  match Stack.pop_opt to_unconst with
-  | Some (fn, ar) ->
-     Printf.printf "Unconst on (%s, %s)...\n" (var_to_string fn) (var_to_string ar);
-     (* Find the corresponding function constification record in
-        [const_records]. *)
-     let const_record = Var_Hashtbl.find const_records fn in
-     (* If the argument we should unconstify is in fact the function itself, *)
-     if var_eq fn ar then
-       (* it means that the function is a class member method and a class
-          sibling is being modified within its body. Therefore, the function
-          must not be consitifed. *)
-       begin
-         if const_record.is_class_method then const_record.is_const <- false
-       end
-     else
-       begin
-         (* we gather the corresponding argument constification record. *)
-         let (_, arg) =
-           List.find (fun (x, _) -> x.id = ar.id) const_record.const_args in
-         (* Then, if needed, *)
-         if arg.is_const then
-           begin
-             (* we unconstify the argument *)
-             arg.is_const <- false;
-             (* and push to [to_unconst] all of the function arguments that
-                should be unconstified by propagation. In other terms, we need
-                to follow the dependencies too. *)
-             List.iter (
-                 fun element -> Stack.push element to_unconst
-               ) arg.to_unconst_by_propagation;
-           end;
-       end;
-     (* Recurse. *)
-     unconstify_mutables ()
-  (* When the stack is empty, stop and return. *)
-  | None -> ()
+let unconstify_mutables () : unit =
+  let rec unconstify_to_unconst () : unit =
+    (* Pop out an element from [to_unconst]. *)
+    match Stack.pop_opt to_unconst with
+    | Some (fn, ar) ->
+       Printf.printf "Unconst on (%s, %s)...\n" (var_to_string fn) (var_to_string ar);
+       (* Find the corresponding function constification record in
+          [const_records]. *)
+       let const_record = Var_Hashtbl.find const_records fn in
+       (* If the argument we should unconstify is in fact the function itself, *)
+       if var_eq fn ar then
+         (* it means that the function is a class member method and a class
+            sibling is being modified within its body. Therefore, the function
+            must not be consitifed. *)
+         begin
+           if const_record.is_class_method then const_record.is_const <- false
+         end
+       else
+         begin
+           (* we gather the corresponding argument constification record. *)
+           let (_, arg) =
+             List.find (fun (x, _) -> x.id = ar.id) const_record.const_args in
+           (* Then, if needed, *)
+           if arg.is_const then
+             begin
+               (* we unconstify the argument *)
+               arg.is_const <- false;
+               (* and push to [to_unconst] all of the function arguments that
+                  should be unconstified by propagation. In other terms, we need
+                  to follow the dependencies too. *)
+               List.iter (
+                   fun element -> Stack.push element to_unconst
+                 ) arg.to_unconst_by_propagation;
+             end;
+         end;
+       (* Recurse. *)
+       unconstify_to_unconst ()
+    (* When the stack is empty, stop and return. *)
+    | None -> ()
+  in
+  let rec unconstify_to_unconst_objects () : unit =
+    match Stack.pop_opt to_unconst_objects with
+    | Some (fn, ar, ff) ->
+       (* Find the corresponding function constification record in
+          [const_records]. *)
+       let const_record_ff = Var_Hashtbl.find const_records ff in
+       if const_record_ff.is_class_method && not const_record_ff.is_const then
+         begin
+           let const_record_fn = Var_Hashtbl.find const_records fn in
+           let (_, arg) =
+             List.find (fun (x, _) -> x.id = ar.id) const_record_fn.const_args
+           in
+           Printf.printf "Unconst on (%s, %s) because of (%s)...\n" (var_to_string fn) (var_to_string ar) (var_to_string ff);
+           (* Then, if needed, *)
+           if arg.is_const then
+             begin
+               (* we unconstify the argument *)
+               arg.is_const <- false;
+             end
+         end;
+       (* Recurse. *)
+       unconstify_to_unconst_objects ()
+    (* When the stack is empty, stop and return. *)
+    | None -> ()
+  in
+  unconstify_to_unconst ();
+  unconstify_to_unconst_objects ()       
 
 (******************************************)
 (* PART IV: CORE TRANSFORMATION FUNCTIONS *)
@@ -638,6 +671,8 @@ let identify_mutables_on (p : path) (t : trm) : unit =
           constification records of all of the arguments. *)
        let fun_call_const = Var_Hashtbl.find const_records name in
        let fun_args_const = fun_call_const.const_args in
+       let _ = Printf.printf "Parsed args: %d, nb args in record: %d\n" (List.length args) (List.length fun_args_const) in
+       let shift = (List.length args) - (List.length fun_args_const) in
        (* For each argument of the function call, we *)
        List.iteri (fun index arg ->
            (* go through the access and reference operations to obtain the AST
@@ -657,17 +692,22 @@ let identify_mutables_on (p : path) (t : trm) : unit =
                  begin
                    (* determine the index of the argument it is aliasing, *)
                    let (aliased, _) = LVar_Hashtbl.find aliases arg_lvar in
-                   (* find the contification record of that argument *)
-                   let (_, arg_const) = List.nth fun_args_const index in
-                   let _ = Printf.printf "alias: %s\n" (lvar_to_string arg_lvar) in
-                   (* and if the latter is a pointer or a reference, *)
-                   if arg_const.is_ptr_or_ref then
+                   if (index - shift) < 0 then
+                     Stack.push (fun_var, arg_var, name) to_unconst_objects
+                   else
                      begin
-                       Printf.printf "arg is ptr or ref (%s, %s)\n" (var_to_string fun_var) (lvar_to_string aliased);
-                       (* we will have to unconstify it by propagation. *)
-                       arg_const.to_unconst_by_propagation <-
-                         (fun_var, aliased.v) ::
-                           arg_const.to_unconst_by_propagation
+                       (* find the contification record of that argument *)
+                       let (_, arg_const) = List.nth fun_args_const (index - shift) in
+                       let _ = Printf.printf "alias: %s\n" (lvar_to_string arg_lvar) in
+                       (* and if the latter is a pointer or a reference, *)
+                       if arg_const.is_ptr_or_ref then
+                         begin
+                           Printf.printf "arg is ptr or ref (%s, %s)\n" (var_to_string fun_var) (lvar_to_string aliased);
+                           (* we will have to unconstify it by propagation. *)
+                           arg_const.to_unconst_by_propagation <-
+                             (fun_var, aliased.v) ::
+                               arg_const.to_unconst_by_propagation
+                         end
                      end
                  end
              end
@@ -839,8 +879,9 @@ let identify_mutables_on (p : path) (t : trm) : unit =
           Printf.printf "Class sibling for aliases : %s\n" (lvar_to_string lv);
           LVar_Hashtbl.add aliases lv (lv, typ_get_degree ty)
         ) class_siblings
-    end
-  else const_record.is_const <- false;
+    end;
+  if not const_record.is_class_method then
+    const_record.is_const <- false;
   (* the arguments of the function itself. This is necessary in order to be able
      to identify possible aliases to these variables within the body of the
      function during the analysis using the auxiliary function defined above. *)
