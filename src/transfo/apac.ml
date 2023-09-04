@@ -76,7 +76,7 @@ let unfold_function_calls (tg : target) : unit =
     if not (is_set_operation (get_trm_at_exn parent_target))
     then begin
       (* Define new intermediate variable. *)
-      let var = "__var_" ^ (string_of_int (next_var_int ())) in
+      let var = fresh_var_name ~prefix:"__var_" () in
       (* Bind the return value of the current function call to that variable. *)
       Variable_basic.bind var (target_of_path p);
       (* Separate the assignment of the return value from the declaration of the
