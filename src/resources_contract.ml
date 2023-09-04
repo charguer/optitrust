@@ -66,13 +66,19 @@ let formula_read_only_inv (t: formula): read_only_formula option =
   | _ -> None
 
 let var_cell = trm_var (toplevel_free_var "Cell")
+let var_group = trm_toplevel_free_var "Group"
+let var_range = trm_toplevel_free_var "range"
 
 let formula_cell (x: var): formula =
   formula_model (trm_var x) var_cell
 
-let formula_matrix (x: var) (dims: trms) : formula =
-  let matrixN = trm_toplevel_free_var (sprintf "Matrix%d" (List.length dims)) in
-  formula_model (trm_var x) (trm_apps matrixN dims)
+let formula_matrix (m: trm) (dims: trm list) : formula =
+  let indices = List.mapi (fun i _ -> new_var (sprintf "i%d" (i+1))) dims in
+  let mindex_n = trm_var (name_to_var (sprintf "MINDEX%d" (List.length dims))) in
+  let inner_trm = formula_model (trm_array_access m (trm_apps mindex_n (dims @ List.map trm_var indices))) var_cell in
+  List.fold_right2 (fun idx dim formula ->
+    trm_apps var_group [trm_apps var_range [trm_int 0; dim; trm_int 1]; trm_fun [idx, typ_int ()] None formula])
+    indices dims inner_trm
 
 type contract_clause = contract_clause_type * contract_resource
 
@@ -91,11 +97,29 @@ let empty_loop_contract =
 let new_res_item ((name, formula): contract_resource): resource_item =
   (new_hyp_like name, formula)
 
+let rec desugar_formula (formula: formula): formula =
+  match formula_model_inv formula with
+  | Some (var, model) ->
+    begin
+    match trm_apps_inv model with
+    | Some (f, args) ->
+      begin match trm_var_inv f with
+      | Some f when f.name = sprintf "Matrix%d" (List.length args) ->
+        formula_matrix var args
+      | _ -> trm_map desugar_formula formula
+      end
+    | None -> trm_map desugar_formula formula
+    end
+  | None -> trm_map desugar_formula formula
+
+let desugar_res ((name, formula): contract_resource): contract_resource =
+  (name, desugar_formula formula)
+
 let push_pure_res (res: contract_resource) (res_set: resource_set) =
-  { res_set with pure = new_res_item res :: res_set.pure }
+  { res_set with pure = new_res_item (desugar_res res) :: res_set.pure }
 
 let push_linear_res (res: contract_resource) (res_set: resource_set) =
-  { res_set with linear = new_res_item res :: res_set.linear }
+  { res_set with linear = new_res_item (desugar_res res) :: res_set.linear }
 
 let push_read_only_fun_contract_res ((name, formula): contract_resource) (contract: fun_contract): fun_contract =
   let frac_var, frac_ghost = new_frac () in
@@ -131,10 +155,6 @@ let push_loop_contract_clause (clause: contract_clause_type)
     { contract with invariant = push_linear_res res contract.invariant }
   | _ -> { contract with iter_contract = push_fun_contract_clause clause res contract.iter_contract }
 
-(* CHECK: #var-id *)
-let var_group = trm_toplevel_free_var "Group"
-let var_range = trm_toplevel_free_var "range"
-
 let formula_group_range ((idx, tfrom, dir, tto, step, _): loop_range) (fi: formula) =
   if dir <> DirUp then failwith "formula_group_range only supports DirUp";
   let range_var = new_var ~qualifier:idx.qualifier idx.name in
@@ -149,4 +169,3 @@ let res_group_range (range: loop_range) (res: resource_set): resource_set =
 let res_union (res1: resource_set) (res2: resource_set): resource_set =
   { pure = res1.pure @ res2.pure; linear = res1.linear @ res2.linear;
     fun_contracts = Var_map.union (fun _ _ c -> Some c) res1.fun_contracts res2.fun_contracts }
-
