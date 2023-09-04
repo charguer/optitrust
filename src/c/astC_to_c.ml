@@ -555,8 +555,6 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
         ) tpl in
         string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl
      | Trm_fun (tvl, ty_opt , body, _) ->  dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
-     (* DEPRECATED | Trm_this ->
-        if trm_has_cstyle Implicit_this t then empty else string "this" *)
      | Trm_delete (is_array, body) ->
          let is_arr = if is_array then string "[]" else empty in
          let dbody = decorate_trm body in
@@ -847,6 +845,11 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
   let aux_arguments f_as_doc =
       f_as_doc ^^ list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
       in
+  let implicit_this_access_inv t =
+    match t.desc with
+    | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop (Unop_struct_access field)))); _}, [a]) when trm_has_cstyle Implicit_this a -> Some field
+    | _ -> None
+  in
 
   match f.desc with
   (* Case of function pointers *)
@@ -892,7 +895,11 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
               begin match op with
               | Unop_get when !print_optitrust_syntax ->
                   string "get(" ^^ d ^^ string ")"
-              | Unop_get -> star ^^ d
+              | Unop_get ->
+                begin match implicit_this_access_inv t with
+                | Some field -> string field
+                | _ -> star ^^ d
+                end
               | Unop_address ->ampersand ^^ d
               | Unop_neg -> bang ^^ d
               | Unop_bitwise_neg -> tilde ^^ d
@@ -905,16 +912,15 @@ and apps_to_doc ?(prec : int = 0) (f : trm) (tl : trms) : document =
               | Unop_struct_access f1 when !print_optitrust_syntax ->
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f1) ^^ string ")"
               | (Unop_struct_get f1 | Unop_struct_access f1) ->
-                 if is_get_operation t then
+                if trm_has_cstyle Implicit_this t then string f1
+                else if is_get_operation t then
                     if trm_has_cstyle Display_no_arrow f
                       then
                         d ^^ dot ^^ string f1
                       else
                         let d = decorate_trm ~prec (get_operation_arg t) in
                         d ^^ minus ^^ rangle ^^ string f1
-                 else
-                    if trm_has_cstyle Implicit_this t then string f1
-                    else d ^^ dot ^^ string f1
+                 else d ^^ dot ^^ string f1
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
                  parens dty ^^ blank 1 ^^ d
