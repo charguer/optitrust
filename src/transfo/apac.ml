@@ -4,7 +4,87 @@ open Target
 open Path
 open Mlist
 include Apac_basic
-(*
+include Apac_core
+
+(* [constify tg]: expects target [tg] to point at a function definition. It
+   constifies function arguments and functions whenever it is possible depending
+   on data accesses, aliases and dependencies. *)
+let constify (tg : target) : unit =
+  (* Step 1: Clear the hash table of constification records. *)
+  Var_Hashtbl.clear Apac_core.const_records;
+  (* Step 2: Iterate over [tg] and fill the hash table of constification
+     records. *)
+  Apac_core.build_constification_records tg;
+  (* Step 3: Clear the stack of arguments and functions to unconstify after the
+     analysis of data accesses, aliases and dependencies. Indeed, the
+     constification algorithm begins by consedring that all functions and
+     function arguments can be constified. It then performs an analysis (in
+     Step 4) of data accesses, aliases and dependencies and unconstifies all of
+     the variables (aliases), arguments and functions where the constification
+     is not possible. *)
+  Stack.clear Apac_core.to_unconst;
+  (* Step 4: Perform an analysis of data accesses, aliases and dependencies,
+     then decide which variables (aliases), arguments and functions should not
+     be constified. *)
+  Apac_core.identify_mutables tg;
+  (* Step 5: Propagate the unconstification. *)
+  Apac_core.unconstify_mutables ();
+  (* Step 6: Effectively transform the AST so as to add 'const' keywords to
+     function arguments, functions and *)
+  Apac_basic.constify_args tg;
+  (* Step 7: aliases of function arguments. *)
+  Apac_basic.constify_aliases tg
+
+(* [unfold_function_calls tg]: expects target [tg] to point at a function
+   definition. It moves all function calls under target [tg] out of variable
+   declarations and nested function calls.
+
+    Example:
+
+          int a = f(g(2));
+
+    becomes:
+
+          int __var_1;
+          __var_1 = g(2);
+          int __var_2;
+          __var_2 = f(__var_1);
+          int a = __var_2;
+
+    However:
+
+          int a;
+          a = f(g(2));
+
+    becomes:
+
+          int a;
+          int __var_1;
+          __var_1 = g(2);
+          a = f(__var_1);
+
+    as the call to 'f' is already dissociated from the declaration of 'a'. See
+    also comments within the function.
+*)
+let unfold_function_calls (tg : target) : unit =
+  Target.iter (fun t p ->
+    (* Get the parent term to check whether it is an assignment (outside of a
+       declaration). If it is the case, we do not need to apply the
+       transformation. It would only create a superfluous variable. *)
+    let parent_path = Path.parent p in
+    let parent_target = target_of_path parent_path in
+    if not (is_set_operation (get_trm_at_exn parent_target))
+    then begin
+      (* Define new intermediate variable. *)
+      let var = "__var_" ^ (string_of_int (next_var_int ())) in
+      (* Bind the return value of the current function call to that variable. *)
+      Variable_basic.bind var (target_of_path p);
+      (* Separate the assignment of the return value from the declaration of the
+         variable. *)
+      Variable_basic.init_detach [cVarDef var];
+    end
+  ) tg
+
 (* [parallel_task_group tg]: expects target [tg] to point at a function
     definition.
 
@@ -38,7 +118,7 @@ let parallel_task_group : Transfo.t =
     (* 5) Remove the mark. *)
     Marks.remove mark [cMark mark];
   )
-
+(*
 (* [decl_cptrs]: hashtable storing available varaibles and whether they are
     arrays. *)
 type decl_cptrs = (var, bool) Hashtbl.t
@@ -91,7 +171,7 @@ let heapify_nested_seq : Transfo.t =
           then trm_map (aux ptrs is_first_depth) t
           else trm_map (aux ptrs is_first_depth) (Apac_basic.stack_to_heap_aux t)
       (* Dereference heapified variables. *)
-      | Trm_var (kind, qv) when Hashtbl.mem ptrs qv.qvar_str && not (Hashtbl.find ptrs qv.qvar_str) -> trm_get t
+      | Trm_var (kind, qv) when Hashtbl.mem ptrs qv && not (Hashtbl.find ptrs qv) -> trm_get t
       (* Add delete task before:
           - 'return': everytime,
           - 'break', 'continue': only the current loop, not deeper. *)
@@ -131,7 +211,7 @@ let heapify_nested_seq : Transfo.t =
 let rec get_all_vars (acc: vars) (t : trm) : vars =
   match t.desc with
   | Trm_apps (_, tl) -> List.fold_left get_all_vars acc tl
-  | Trm_var (_, qv) when not (List.mem qv.qvar_str acc) -> qv.qvar_str :: acc
+  | Trm_var (_, qv) when not (List.mem qv acc) -> qv :: acc
   | _ -> acc
 
 (* [get_dep var ty]: returns the dep of the typ [ty]. *)
@@ -139,7 +219,7 @@ let get_dep (var : var) (ty : typ) : dep =
   let rec aux (depth : int) : dep =
     if depth > 0 then Dep_ptr (aux (depth-1)) else Dep_var var
   in
-  aux (get_cptr_depth ty)
+  aux (typ_get_degree ty)
 
 (* [sync_with_taskwait tg]: expects target [tg] to point at a function
     definition. Then, it will add 'taskwait' OpenMP pragmas before loop and
@@ -240,62 +320,13 @@ let sync_with_taskwait : Transfo.t =
     let decl_vars = Hashtbl.create 10 in
     match tg_trm.desc with
     | Trm_let_fun (qv, ty, args, body, _) ->
-      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add decl_vars var (get_dep var ty)) args;
+      List.iter (fun (var, ty) -> if var.name <> "" then Hashtbl.add decl_vars var (get_dep var ty)) args;
       transfo_on_targets (trm_map (aux decl_vars)) (target_of_path p)
     | _ -> fail None "Apac.sync_with_taskwait: Expects target to point at a function declaration"
   )
 
-(* [unfold_funcalls tg]: moves all function calls under target [tg] out of
-    variable declarations and nested function calls.
-
-    Example:
-
-          int a = f(g(2));
-
-    becomes:
-
-          int __var_1;
-          __var_1 = g(2);
-          int __var_2;
-          __var_2 = f(__var_1);
-          int a = __var_2;
-
-    However:
-
-          int a;
-          a = f(g(2));
-
-    becomes:
-
-          int a;
-          int __var_1;
-          __var_1 = g(2);
-          a = f(__var_1);
-
-    as the call to 'f' is already dissociated from the declaration of 'a'. See
-    also comments within the function.
-*)
-let unfold_funcalls : Transfo.t =
-  Target.iter (fun t p ->
-    (* Get the parent term to check whether it is an assignment (outside of a
-       declaration). If it is the case, we do not need to apply the
-       transformation. It would only create a superfluous variable. *)
-    let parent_path = Path.parent p in
-    let parent_target = target_of_path parent_path in
-    if not (is_set_operation (get_trm_at_exn parent_target))
-    then begin
-      (* Define new intermediate variable. *)
-      let var = "__var_" ^ (string_of_int (next_var_int ())) in
-      (* Bind the return value of the current function call to that variable. *)
-      Variable_basic.bind var (target_of_path p);
-      (* Separate the assignment of the return value from the declaration of the
-         variable. *)
-      Variable_basic.init_detach [cVarDef var];
-    end
-  )
-
 (* [fun_loc]: function's Unified Symbol Resolution *)
-type fun_loc = string
+type fun_loc = var
 
 (* [dep_info]: stores data of dependencies of tasks. *)
 type dep_info = {
@@ -320,7 +351,7 @@ let rec is_base_type (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_int | Typ_float | Typ_double | Typ_bool | Typ_char | Typ_string | Typ_unit -> true
   | Typ_constr _ ->
-    begin match get_inner_typedef_alias ty with
+    begin match Apac_core.typ_get_alias ty with
     (* alias *)
     | Some (ty) -> is_base_type ty
     (* 'class', 'struct', 'union', 'enum' ... *)
@@ -336,8 +367,8 @@ let rec is_dep_in (ty : typ) : bool =
   let rec aux (ty : typ) : bool =
     match ty.typ_desc with
     (* Unwrap alias. *)
-    | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) ->
-      begin match get_inner_typedef_alias (get_inner_const_type ty) with
+    | Typ_constr _ | Typ_const _ when Apac_core.typ_is_alias (get_inner_const_type ty) ->
+      begin match Apac_core.typ_get_alias (get_inner_const_type ty) with
       | Some (ty) -> aux ty
       | None -> assert false
       end
@@ -358,8 +389,8 @@ let rec is_dep_in (ty : typ) : bool =
   in
   match ty.typ_desc with
   (* Unwrap alias *)
-  | Typ_constr _ | Typ_const _ when is_typdef_alias (get_inner_const_type ty) ->
-    begin match get_inner_typedef_alias (get_inner_const_type ty) with
+  | Typ_constr _ | Typ_const _ when Apac_core.typ_is_alias (get_inner_const_type ty) ->
+    begin match Apac_core.typ_get_alias (get_inner_const_type ty) with
     | Some (ty) -> is_dep_in ty
     | None -> assert false
     end
@@ -385,12 +416,12 @@ let get_functions_args_deps (tg : target) : fun_args_deps =
     match t.desc with
     | Trm_seq _ | Trm_namespace _ -> trm_iter (aux fad is_method) t
     | Trm_typedef { typdef_body = Typdef_record _; _ } -> trm_iter (aux fad true) t
-    | Trm_let_fun (qv, _, tvl, _, _) when qv.qvar_str <> "main" ->
+    | Trm_let_fun (qv, _, tvl, _, _) when qv.name <> "main" ->
       let fc = Ast_data.get_function_usr_unsome t in
       let args_info = List.map (fun (var, ty) ->
         let dep_in = is_dep_in ty in
         let is_record = match Context.record_typ_to_typid ty with | Some (_) -> true | None -> false in
-        {dep_depth = Apac_basic.get_cptr_depth (get_inner_ptr_type ty);
+        {dep_depth = Apac_core.typ_get_degree (get_inner_ptr_type ty);
         dep_in = dep_in;
         dep_shared = is_reference ty || (is_record && dep_in);}) tvl
       in
@@ -437,21 +468,21 @@ let is_unary_mutation (t : trm) : bool =
 
 (* [get_unary_mutation_qvar t]: returns fully qualified name of a variable
     behind unary mutatation operator. *)
-let get_unary_mutation_qvar (t : trm) : qvar =
-  let rec aux (t : trm) : qvar =
+let get_unary_mutation_qvar (t : trm) : var =
+  let rec aux (t : trm) : var =
     match t.desc with
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop (Unop_get | Unop_address))); _}, [t]) -> aux t
     | Trm_apps ({ desc = Trm_val (Val_prim (Prim_binop (Binop_array_access))); _}, [t; _]) -> aux t
     | Trm_var (_, name)-> name
-    | _ -> empty_qvar
+    | _ -> new_var "hello"
   in
   match t.desc with
   | Trm_apps ({ desc = Trm_val (Val_prim (Prim_unop uo)); _}, [tr]) ->
     begin match uo with
     | Unop_post_dec | Unop_post_inc | Unop_pre_dec | Unop_pre_inc -> aux tr
-    | _ -> empty_qvar
+    | _ -> new_var "hello"
     end
-  | _ -> empty_qvar
+  | _ -> new_var "hello"
 
 (* [get_apps_deps vd fad t]: gets the list of dependencies of trm [t]. Expects
     the transformation [unfold_funcall] to be applied before. The returned list
@@ -466,10 +497,10 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
       let _ = Printf.printf "Getting deps of function: %s\n" qvar in*)
       let l = Hashtbl.find fad (Ast_data.get_function_usr_unsome f) in
       List.fold_left2 (fun acc ({dep_depth; dep_in; _} as dep_info) t ->
-        match (Apac_basic.get_inner_all_unop_and_access t).desc with
+        match (Apac_core.trm_strip_accesses_and_references_and_get t).desc with
         | Trm_var (_, qv) ->
           let di = { dep_info with dep_depth = if dep_depth = -1 then (count_unop_get t) - 1 else dep_depth}  in
-          (qv.qvar_str, di) :: acc
+          (qv.name, di) :: acc
         | Trm_apps (_, tl) ->
           (* Resolve pointers. *)
           let dep_infos = if dep_depth > 1  && not dep_in
@@ -484,7 +515,7 @@ let get_apps_deps (vd : vars_depth) (fad : fun_args_deps) (t : trm) : dep_infos 
         ) dis l args
     (* Set operation *)
     | Trm_apps (_, [lhs; rhs]) when is_set_operation t ->
-      begin match (Apac_basic.get_inner_all_unop_and_access lhs).desc with
+      begin match (Apac_core.trm_strip_accesses_and_references_and_get lhs).desc with
       | Trm_var (_, qv) ->
         let (depth, _) = Hashtbl.find vd qv.qvar_str in
         let di = { dep_depth = depth; dep_in = false; dep_shared = true;} in
@@ -561,9 +592,9 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
         trm_map (aux (Hashtbl.copy vd))  t
       (* New variable *)
       | Trm_let (_, (var, ty), { desc = Trm_apps (_, [tr]); _ }, _) ->
-        Hashtbl.add vd var (Apac_basic.get_cptr_depth (get_inner_ptr_type ty), var); t
+        Hashtbl.add vd var (Apac_core.typ_get_degree (get_inner_ptr_type ty), var); t
       | Trm_let_mult (_, tvl, _) ->
-        List.iter (fun (var, ty) -> Hashtbl.add vd var (Apac_basic.get_cptr_depth ty, var)) tvl; t
+        List.iter (fun (var, ty) -> Hashtbl.add vd var (Apac_core.typ_get_degree ty, var)) tvl; t
       (* New task *)
       | Trm_apps _ ->
         let dis = get_apps_deps vd fad t in
@@ -576,8 +607,8 @@ let insert_tasks_naive (fad : fun_args_deps) : Transfo.t =
     let vd = Hashtbl.create 10 in
     match tg_trm.desc with
     | Trm_let_fun (_, _, tvl, _, _) ->
-      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add vd var (Apac_basic.get_cptr_depth ty, var)) tvl;
+      List.iter (fun (var, ty) -> if var <> "" then Hashtbl.add vd var (Apac_core.typ_get_degree ty, var)) tvl;
       Target.apply_at_target_paths (aux vd) (target_of_path (p @ [Dir_body]))
     | _ -> fail None "Apac.insert_tasks_naive: expected a target to a function definition"
   )
-*)
+ *)

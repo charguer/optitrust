@@ -4,12 +4,13 @@ using ppINT = int**;
 
 struct A {};
 
-void e(const int) {}
+void e(const int a) {}
 
-void f(int) {}
+void f(int a) {}
 
-void g(float *, double &, int const **&) {}
+// TODO: Be able to use anonymous arguments, e.g. void g(float *, double &, ...)
+void g(float * a, double & b, int const **& c) {}
 
-void h(pINT, ppINT) {}
+void h(pINT a, ppINT b) {}
 
-void i(A &) {}
+void i(A & a) {}

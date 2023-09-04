@@ -10,9 +10,9 @@ let%transfo delete (tg : target) : unit =
   let tr () =
     Sequence_basic.delete tg in
   if !Flags.check_validity then begin
-    Target.iter_at_target_paths (fun t p ->
+    Target.iter (fun t p ->
       let error =  "Function.delete expects to target a function definition within a sequence" in
-      let (_, _, _, _) = trm_inv ~error trm_let_fun_inv t in
+      let (_, _, _, _) = trm_inv ~error trm_let_fun_inv (Path.get_trm_at_path p t) in
       Scope.justif_unused p
     ) tg;
     tr();

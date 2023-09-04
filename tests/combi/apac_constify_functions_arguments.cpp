@@ -70,19 +70,17 @@ void o(int a, int b, int c) {
     *e = 1;
 }
 
-/*
 namespace BB {
     void h(int& a) {
         a = 1;
     }
 }
 
-namespace AA
-{
+namespace AA {
     void f(int &a) {
         a = 1;   
     }
-
+    
     void g(int a, int b, int c) {
         f(a);
         BB::h(b);
@@ -96,11 +94,19 @@ void p(int a, int b) {
 class CC {
 public:
     int * i;
+    // int * j;
+    
     void f(int * a, int b) {
         i = a;
+        // j = c;
         *i = 1;
+        // *j = 42;
+        // this->p(i, j);
     }
+    
     int q(int a);
+
+    // void p(int * a, int * b) { *a = *b + 1; }
 };
 
 int CC::q(int a) {
@@ -109,5 +115,5 @@ int CC::q(int a) {
 
 void q(CC a, int b, int c) {
     a.f(&b, 1);
-    }
-*/
+}
+
