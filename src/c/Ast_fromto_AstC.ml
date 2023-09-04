@@ -554,8 +554,8 @@ let insert_aux (index : int) (code : trm) (t : trm) : trm =
   (* TODO: Should use alter here ? *)
   trm_seq ~annot:t.annot new_tl
 
-let ctx_resource_list_to_string (res: resource_item list) : string =
-  String.concat " " (List.map named_formula_to_string res)
+let ctx_resource_list_to_string ?(sep = " ") (res: resource_item list) : string =
+  String.concat sep (List.map named_formula_to_string res)
 
 let ctx_resources_to_trm (res: resource_set) : trm =
   let spure = ctx_resource_list_to_string res.pure in
@@ -629,19 +629,20 @@ let rec contract_intro (t: trm): trm =
   in
 
   let push_reads_and_modifies (reads_prim: var) (modifies_prim: var) (pre: resource_set) (post: resource_set) (t: trm): resource_set * resource_set * trm =
-    let pre_resource_tbl = Hashtbl.create (List.length pre.linear) in
-    List.iter (fun (_, formula) -> Hashtbl.add pre_resource_tbl formula ()) pre.linear;
-
-    let formula_not_mem_before_pop (_, formula) =
-      if Hashtbl.mem pre_resource_tbl formula then (
-        Hashtbl.remove pre_resource_tbl formula;
-        false
-      ) else true
+    let post_linear = ref post.linear in
+    let rec try_remove_same_formula formula l =
+      match l with
+      | [] -> None
+      | (_,f)::l when are_same_trm f formula -> Some l
+      | res::l -> Option.map (fun l -> res::l) (try_remove_same_formula formula l)
     in
-
-    let post_linear = List.filter formula_not_mem_before_pop post.linear in
-    let common_linear, pre_linear = List.partition formula_not_mem_before_pop pre.linear in
-    assert (Hashtbl.length pre_resource_tbl = 0);
+    let common_linear, pre_linear = List.partition
+      (fun (_, formula) ->
+        match try_remove_same_formula formula !post_linear with
+        | None -> false
+        | Some new_post_linear -> post_linear := new_post_linear; true)
+      pre.linear
+    in
 
     (* FIXME: This assumes that all fractions were auto-generated *)
     let frac_to_remove = Hashtbl.create (List.length common_linear) in
@@ -669,7 +670,7 @@ let rec contract_intro (t: trm): trm =
 
     let t = push_named_formulas reads_prim reads_res t in
     let t = push_named_formulas modifies_prim modifies_res t in
-    ({ pre with pure = pre_pure; linear = pre_linear }, { post with linear = post_linear }, t)
+    ({ pre with pure = pre_pure; linear = pre_linear }, { post with linear = !post_linear }, t)
   in
 
   let push_fun_contract (contract: fun_contract) (body: trm): trm =

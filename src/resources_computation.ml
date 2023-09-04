@@ -326,13 +326,6 @@ let produced_resources_to_resource_set (res_produced: produced_resource_set): re
   let linear = forget_origin res_produced.produced_linear in
   { pure; linear; fun_contracts = Var_map.empty }
 
-let rec trm_keep_only_desc (t: trm): trm =
-  let t =
-    match t.desc with
-    | Trm_var (_, qx) -> trm_var qx
-    | t -> trm_make t
-  in
-  trm_map_with_terminal_unopt false (fun _ -> trm_keep_only_desc) t
 
 (* [resource_merge_after_frame]:
  * Returns [res_after] * [frame] with simplifications.
@@ -350,21 +343,30 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
       match formula_read_only_inv formula with
       | Some { frac; formula = ro_formula } ->
         begin match trm_var_inv frac with
-        | Some frac_var -> Hashtbl.add ro_formulas (trm_keep_only_desc ro_formula, frac_var) ()
+        | Some frac_var -> Hashtbl.add ro_formulas frac_var ro_formula
         | None -> ()
         end
       | None -> ()
     ) res_after.linear;
 
+    let rec try_pop_ro_formula frac ro_formula =
+    match Hashtbl.find_opt ro_formulas frac with
+    | Some candidate_formula ->
+      Hashtbl.remove ro_formulas frac;
+      if are_same_trm ro_formula candidate_formula then
+        true
+      else
+        let res = try_pop_ro_formula frac ro_formula in
+        Hashtbl.add ro_formulas frac candidate_formula;
+        res
+    | None -> false
+  in
   let rec reunite_fracs frac ro_formula =
     match trm_binop_inv Binop_sub frac with
     | Some (sub_frac, frac_atom) ->
       let sub_frac = reunite_fracs sub_frac ro_formula in
-      let ro_formula_erased = trm_keep_only_desc ro_formula in
       begin match trm_var_inv frac_atom with
-      | Some atom when Hashtbl.mem ro_formulas (ro_formula_erased, atom) ->
-        Hashtbl.remove ro_formulas (ro_formula_erased, atom);
-        sub_frac
+      | Some atom when try_pop_ro_formula atom ro_formula -> sub_frac
       (* DEBUG:
       | Some atom ->
         Printf.eprintf "Failed to find %s\n" (var_to_string atom);
@@ -378,7 +380,7 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
   let frame = List.map (fun (x, formula) ->
       match formula_read_only_inv formula with
       | Some { frac; formula = ro_formula } ->
-        let frac = reunite_fracs frac (trm_keep_only_desc ro_formula) in
+        let frac = reunite_fracs frac ro_formula in
         if frac = full_frac
           then (x, ro_formula)
           else (x, formula_read_only ~frac ro_formula)
@@ -388,14 +390,11 @@ let resource_merge_after_frame (res_after: produced_resource_set) (frame: linear
   let linear = List.fold_left (fun acc (h, formula) ->
       match formula_read_only_inv formula with
       | Some { frac; formula = ro_formula } ->
-        let ro_formula_erased = trm_keep_only_desc ro_formula in
         (* DEBUG
         Hashtbl.iter (fun (a, _) () -> Printf.eprintf "%b -- %s\n" (a = ro_formula_erased) (AstC_to_c.ast_to_string a)) ro_formulas;
         Printf.eprintf "formula: %s\n" (AstC_to_c.ast_to_string ro_formula_erased); *)
         begin match trm_var_inv frac with
-        | Some frac when Hashtbl.mem ro_formulas (ro_formula_erased, frac) ->
-          Hashtbl.remove ro_formulas (ro_formula_erased, frac);
-          (h, formula) :: acc
+        | Some frac when try_pop_ro_formula frac ro_formula -> (h, formula) :: acc
         | Some frac -> acc (* Consumed ro_formula *)
         | None -> (h, formula) :: acc
         end
@@ -464,12 +463,15 @@ let trm_fun_var_inv (t:trm): var option =
       Printf.sprintf "%s: %s\n" msg (Ast_to_text.ast_to_string t) in
     fail t.loc (trm_internal "unimplemented trm_fun_var_inv construction" t)
 
+let resource_list_to_string res_list : string =
+  Ast_fromto_AstC.ctx_resource_list_to_string ~sep:"\n" res_list
+
 let resources_to_string res : string =
   match res with
   | Some res ->
-  let spure = Ast_fromto_AstC.ctx_resource_list_to_string res.pure in
-  let slin = Ast_fromto_AstC.ctx_resource_list_to_string res.linear in
-  Printf.sprintf "pure = %s | linear = %s" spure slin
+  let spure = resource_list_to_string res.pure in
+  let slin = resource_list_to_string res.linear in
+  Printf.sprintf "pure:\n%s\n\nlinear:\n%s\n" spure slin
   | None -> "UnspecifiedRes"
 
 type resource_error_phase = ResourceComputation | ResourceCheck
@@ -477,11 +479,11 @@ exception ResourceError of location * resource_error_phase * exn
 
 let _ = Printexc.register_printer (function
   | Resource_not_found (item, context) ->
-    Some (Printf.sprintf "Resource '%s' not found in context '%s'" (Ast_fromto_AstC.named_formula_to_string item) (Ast_fromto_AstC.ctx_resource_list_to_string context))
+    Some (Printf.sprintf "Resource not found:\n%s\nIn context:\n%s" (Ast_fromto_AstC.named_formula_to_string item) (resource_list_to_string context))
   | Spec_not_found fn ->
     Some (Printf.sprintf "No specification for function %s" (var_to_string fn))
   | NotConsumedResources res ->
-    Some (Printf.sprintf "Resources not consumed after the end of the block: '%s'" (Ast_fromto_AstC.ctx_resource_list_to_string res))
+    Some (Printf.sprintf "Resources not consumed after the end of the block:\n%s" (resource_list_to_string res))
   | ImpureFunctionArgument err ->
     Some (Printf.sprintf "Function argument subexpression resource preservation check failed: %s" (Printexc.to_string err))
   | ResourceError (loc, ResourceComputation, err) ->
