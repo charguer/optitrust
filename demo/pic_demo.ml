@@ -300,7 +300,7 @@ let _ = Run.script_cpp ~parser:Parsers.Menhir ~prepro ~inline:["pic_demo.h";"bag
                       || (b${0} == grid${0} - block && co.i${0} < halfBlock)")) in
   !! Variable.insert ~typ:(ty "bool") ~name:"isDistFromBlockLessThanHalfABlock"
       ~value:push_cond [tBefore; step; pushop];
-  !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") [step; pushop];
+  !! If.insert ~cond:(var "isDistFromBlockLessThanHalfABlock") [step; pushop];
   !! Specialize.any (var_mut "PRIVATE") [step; cIf(); dThen; pushop; cAny];
   !! Specialize.any (var_mut "SHARED") [step; cIf(); dElse; pushop; cAny];
   !! Expr.replace_fun "bag_push_serial" [step; cIf(); dThen; pushop];

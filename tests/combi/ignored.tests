@@ -1,11 +1,9 @@
 # #var-id
 apac_insert_tasks_naive.ml
-apac_parallel_task_group.ml
 apac_sync_with_taskwait.ml
 variable_intro_pattern_array.ml
 
 # TO FIX:
-apac_constify_functions_arguments.ml
 array_elim_constant.ml
 record_align_field.ml
 loop_unroll.ml
@@ -22,4 +20,4 @@ aos_to_soa.ml
 swap_coords_fixed.ml
 swap_coords_vari.ml
 specialize_function_arg.ml
-apac_unfold_funcalls.ml
+

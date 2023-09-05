@@ -735,7 +735,8 @@ and tr_expr (e : expr) : trm =
           begin match f with
           | FieldName id ->
             let f = tr_ident id in
-            let t_this = trm_add_cstyle Implicit_this (trm_this ()) in
+            (* TODO: give type to trm_this *)
+            let t_this = trm_get (trm_add_cstyle Implicit_this (trm_this ())) in
             trm_apps ?loc ~ctx ?typ (trm_unop (Unop_struct_get f)) [t_this]
           | _ -> fail loc "Clang_to_astRawC.tr_expr: fields should be accesses by names"
           end
@@ -813,7 +814,7 @@ and tr_expr (e : expr) : trm =
       desc = {qual_type = q; name = n; default = _}} -> (name_to_var n, tr_qual_type ?loc q)) pl in
     List.iter (fun (y, ty) -> ctx_var_add y ty) args;
     trm_fun args tt tb
-  | This -> trm_this ()
+  | This -> trm_this ?loc ?typ ~ctx ()
   | UnexposedExpr ImplicitValueInitExpr ->
     print_info loc "tr_expr: implicit initial value\n";
     trm_lit ?loc ~ctx Lit_uninitialized

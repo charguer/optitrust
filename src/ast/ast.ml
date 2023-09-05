@@ -72,6 +72,8 @@ module Var = struct
   let compare v1 v2 =
     assert (v1.id >= 0 && v2.id >= 0);
     Int.compare v1.id v2.id
+  let equal v1 v2 = var_eq v1 v2
+  let hash v = Hashtbl.hash v.id
 end
 
 (* [vars]: variables, a list of elements of type variable *)
@@ -82,6 +84,9 @@ module Var_set = Set.Make(Var)
 
 (* [Var_map]: a map module used for mapping variables to values *)
 module Var_map = Map.Make(Var)
+
+(* [Var_Hashtbl]: a hash table module used for variables *)
+module Var_Hashtbl = Hashtbl.Make(Var)
 
 (* [varmap]: instantiation of Var_map *)
 type 'a varmap = 'a Var_map.t

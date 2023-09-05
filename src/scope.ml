@@ -1,5 +1,51 @@
 open Ast
 open Trm
+module String_map = Tools.String_map
+
+let unique_alpha_rename (t : trm) : trm =
+  (* NOTE: using unqualified names to detect conflict because
+     namespace management is language-dependant.contents
+
+     LATER: also add language-specific ability to correct qualifiers?
+    *)
+  let in_use = ref (
+    String_map.of_seq (
+      Seq.map (fun ((_q, n), v) -> (n, 0)) (
+        Qualified_map.to_seq (
+          !toplevel_free_vars)))) in
+  let var_map = ref (
+    Var_map.of_seq (
+      Seq.map (fun ((q, n), id) ->
+        let var = { qualifier = q; name = n; id = id } in
+        (var, n)) (
+        Qualified_map.to_seq (
+          !toplevel_free_vars)))) in
+  let common_map_var v =
+    let v' = match Var_map.find_opt v !var_map with
+    | Some name' -> { v with name = name' }
+    | None ->
+      let (v', i) = begin
+        match String_map.find_opt v.name !in_use with
+        | Some i -> ({ v with name = v.name ^ "__" ^ (string_of_int i) }, i)
+        | None -> (v, -1)
+      end in
+      in_use := String_map.add v.name (i + 1) !in_use;
+      var_map := Var_map.add v v'.name !var_map;
+      v'
+    in
+    (* DEBUG:
+    Printf.printf "v: %s\n" (var_to_string v);
+    Printf.printf "v': %s\n" (var_to_string v'); *)
+    v'
+  in
+  let map_binder () var _t =
+    ((), common_map_var var)
+  in
+  let map_var () (annot, loc, typ, ctx, kind) var =
+    let var' = common_map_var var in
+    trm_var ~annot ?loc ?typ ~ctx ~kind var'
+  in
+  trm_map_vars ~map_binder map_var () t
 
 (* LATER: #var-id, flag to disable check for performance *)
 let check_unique_var_ids (t : trm) : unit =
