@@ -356,7 +356,7 @@ and trm_var_to_doc (x : var) (t : trm) : document =
   var_to_doc x ^^ typ_args_d
 
 (* [trm_to_doc ~semicolon ~prec ~print_struct_init_type  t]: converts [t] to a pprint document *)
-and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false)  (t : trm) : document =
+and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : bool = false) (t : trm) : document =
   let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
   let t_attributes = trm_get_attr t in
@@ -368,7 +368,7 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
   let d =
     begin match t.desc with
     | Trm_val v ->
-       if trm_has_cstyle Empty_cond t
+      if trm_has_cstyle Empty_cond t
         then empty
         else dattr ^^ val_to_doc (trm_get_cstyles t) (t.typ) v
     | Trm_var (_, x) ->
@@ -378,151 +378,153 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
             then empty
             else string "this"
       else  *)
-        let var_doc = trm_var_to_doc x t in
-        dattr ^^ var_doc
+      let var_doc = trm_var_to_doc x t in
+      dattr ^^ var_doc
     | Trm_array tl -> let tl = Mlist.to_list tl in
-       let dl = List.map (decorate_trm ~semicolon ~print_struct_init_type:false) tl in
-       dattr ^^ braces (separate (comma ^^ blank 1) dl)
+      let dl = List.map (decorate_trm ~semicolon ~print_struct_init_type:false) tl in
+      dattr ^^ braces (separate (comma ^^ blank 1) dl)
     | Trm_record tl ->
-       let tl = Mlist.to_list tl in
-       let dec_trm (t : trm) = decorate_trm ~print_struct_init_type:false ~semicolon t in
-       let dl = List.map (fun (lb_opt, t1) ->
+      let tl = Mlist.to_list tl in
+      let dec_trm (t : trm) = decorate_trm ~print_struct_init_type:false ~semicolon t in
+      let dl = List.map (fun (lb_opt, t1) ->
         match lb_opt with
         | Some lb -> dot ^^ string lb ^^ equals  ^^ dec_trm t1
         | None -> dec_trm t1
-       ) tl in
-       let init_type = if not print_struct_init_type
-          then empty
-          else begin match t.typ with
-          | Some ty ->
-            begin match ty.typ_desc with
-            | Typ_constr (_, tid, _) when tid <> -1 -> parens(typ_to_doc ty)
-            | _ -> empty
-            end
-          | None -> empty
+      ) tl in
+      let init_type = if not print_struct_init_type
+        then empty
+        else begin match t.typ with
+        | Some ty ->
+          begin match ty.typ_desc with
+          | Typ_constr (_, tid, _) when tid <> -1 -> parens(typ_to_doc ty)
+          | _ -> empty
           end
-        in
-       dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
+        | None -> empty
+        end
+      in
+      dattr ^^ init_type ^^ blank 1 ^^  braces (separate (comma ^^ blank 1) dl)
     | Trm_let (_,tx,t,_) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_mult (_, tvl, tl) -> dattr ^^ trm_let_mult_to_doc ~semicolon tvl tl
     | Trm_let_fun (f, r, tvl, b, _) ->
-        let fun_annot = trm_get_cstyles t in
-        let static = if trm_has_cstyle Static_fun t then string "static" else empty in
-        dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc ~semicolon fun_annot f r tvl b
+      let fun_annot = trm_get_cstyles t in
+      let static = if trm_has_cstyle Static_fun t then string "static" else empty in
+      dattr ^^ static ^^ blank 1 ^^ trm_let_fun_to_doc ~semicolon fun_annot f r tvl b
     | Trm_typedef td ->
       let t_annot = trm_get_cstyles t in
       dattr ^^ typedef_to_doc ~semicolon ~t_annot td
     | Trm_if (b, then_, else_) ->
-       let db = decorate_trm ~semicolon:false b in
-       let dt = decorate_trm ~semicolon:true then_ in
-       begin match else_.desc with
-       | Trm_val (Val_lit Lit_unit) ->
-          dattr ^^ separate (blank 1) [string "if"; parens db; dt]
-       | _ ->
-          let de = decorate_trm ~semicolon:true else_ in
-          dattr ^^ separate (blank 1) [string "if"; parens db; dt] ^^
-            hardline ^^ string "else" ^^ blank 1 ^^ de
-       end
+      let db = decorate_trm ~semicolon:false b in
+      let dt = decorate_trm ~semicolon:true then_ in
+      begin match else_.desc with
+      | Trm_val (Val_lit Lit_unit) ->
+        dattr ^^ separate (blank 1) [string "if"; parens db; dt]
+      | _ ->
+        let de = decorate_trm ~semicolon:true else_ in
+        dattr ^^ separate (blank 1) [string "if"; parens db; dt] ^^
+          hardline ^^ string "else" ^^ blank 1 ^^ de
+      end
     | Trm_seq tl ->
-       let tl_m = tl.marks in
-       let tl = Mlist.to_list tl in
-       let tl = List.filter (fun t -> not (trm_has_cstyle Redundant_decl t)) tl in
-       if trm_has_cstyle Multi_decl t
-          then dattr ^^ multi_decl_to_doc loc tl
-          else if trm_is_nobrace_seq t
-            then
-            let dl = List.map (decorate_trm ~semicolon:true) tl in
-            (* CHECK: #var-id, made nobrace visible *)
-            (* DEBUG: let nb = string (sprintf "/*no-brace %d*/" (Option.get (Nobrace.get_id t))) in *)
-            let nb = string "/*no-brace*/" in
-            nb ^^ surround 2 1 lbrace (dattr ^^ separate hardline dl) rbrace
-          else if (not !Flags.display_includes) && (trm_is_include t)
-          then empty
-          else
-            let counter = ref (-1) in
-            let dl = List.map (decorate_trm ~semicolon:true) tl in
-            let dl = Xlist.fold_lefti (fun i acc m ->
-             if m <> [] then begin
-               incr counter;
-               let m = list_to_string ~sep:"," m in
-               let s = string ("/*@" ^ m ^ "@*/") in
-               Xlist.insert_at (i + !counter) s acc end
-             else acc
-            ) dl tl_m in
-            counter := -1;
-            let res = if trm_is_mainfile t then
-              let header = if !print_beautify_mindex
-                then (string "// NOTE: using pretty matrix notation") ^^ hardline
-                else empty in
-              header ^^ (separate (twice hardline) dl)
-            else surround 2 1 lbrace (separate hardline dl) rbrace in
-            dattr ^^ res
+      let tl_m = tl.marks in
+      let tl = Mlist.to_list tl in
+      let tl = List.filter (fun t -> not (trm_has_cstyle Redundant_decl t)) tl in
+      if trm_has_cstyle Multi_decl t
+        then dattr ^^ multi_decl_to_doc loc tl
+        else if trm_is_nobrace_seq t
+          then
+          let dl = List.map (decorate_trm ~semicolon:true) tl in
+          (* CHECK: #var-id, made nobrace visible *)
+          (* DEBUG: let nb = string (sprintf "/*no-brace %d*/" (Option.get (Nobrace.get_id t))) in *)
+          let nb = string "/*no-brace*/" in
+          nb ^^ surround 2 1 lbrace (dattr ^^ separate hardline dl) rbrace
+        else if (not !Flags.display_includes) && (trm_is_include t)
+        then empty
+        else
+          let counter = ref (-1) in
+          let dl = List.map (decorate_trm ~semicolon:true) tl in
+          let dl = Xlist.fold_lefti (fun i acc m ->
+            if m <> [] then begin
+              incr counter;
+              let m = list_to_string ~sep:"," m in
+              let s = string ("/*@" ^ m ^ "@*/") in
+              Xlist.insert_at (i + !counter) s acc end
+            else acc
+          ) dl tl_m in
+          counter := -1;
+          let res = if trm_is_mainfile t then
+            let header = if !print_beautify_mindex
+              then (string "// NOTE: using pretty matrix notation") ^^ hardline
+              else empty in
+            header ^^ (separate (twice hardline) dl)
+          else surround 2 1 lbrace (separate hardline dl) rbrace in
+          dattr ^^ res
+    | Trm_apps _ when trm_has_cstyle ResourceFormula t ->
+      dattr ^^ formula_to_doc t ^^ dsemi
     | Trm_apps (f, tl) ->
-           dattr ^^ apps_to_doc ~prec f tl ^^ dsemi
-     | Trm_while (b, t) ->
-        let db = decorate_trm b in
-        let dt = decorate_trm ~semicolon:true t in
-        dattr ^^ separate (blank 1) [string "while"; parens db; dt]
-     | Trm_do_while (t, b) ->
+      dattr ^^ apps_to_doc ~prec f tl ^^ dsemi
+    | Trm_while (b, t) ->
+      let db = decorate_trm b in
+      let dt = decorate_trm ~semicolon:true t in
+      dattr ^^ separate (blank 1) [string "while"; parens db; dt]
+    | Trm_do_while (t, b) ->
       let dt = decorate_trm t in
       let db = decorate_trm b in
       dattr ^^ string "do " ^^ dt ^^ blank 1 ^^ string "while " ^^ parens db ^^ semi
-     | Trm_for_c (init, cond, step, body, _) ->
-        let dinit = decorate_trm init in
-        let dcond = decorate_trm cond in
-        let dstep = decorate_trm step in
-        let dbody = decorate_trm ~semicolon:true body in
-        dattr ^^ string "for" ^^ blank 1 ^^
-          parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
-            blank 1 ^^ dbody
-     | Trm_for (l_range, body, _) ->
-       let full_loop = unpack_trm_for ?loc:t.loc l_range body in
-       decorate_trm full_loop
-     | Trm_switch (cond, cases) ->
-        let dcond = decorate_trm cond in
-        let dcases =
-          separate hardline
-            (List.map
-               (fun (tl, body) ->
-                 (match tl with
-                  | [] -> string "default" ^^ colon
-                  | _ ->
-                     (separate hardline
-                        (List.map (fun t ->
-                         string "case" ^^ blank 1 ^^ decorate_trm t ^^ colon) tl)
-                     )
-                 ) ^^
-                 nest 2 (hardline ^^ decorate_trm ~semicolon:true body ^^
-                           hardline ^^ string "break" ^^ semi)
-               )
-               cases
-            )
-        in
-        dattr ^^ string "switch" ^^ blank 1 ^^ parens dcond ^^ blank 1 ^^
-          surround 2 1 lbrace dcases rbrace
-     | Trm_abort a ->
-        begin match a with
-        | Ret t_o ->
-           begin match t_o with
-           | None -> dattr ^^ string "return" ^^ dsemi
-           | Some t -> dattr ^^ string "return " ^^ decorate_trm ~print_struct_init_type:true t ^^ dsemi
-           end
-        | Break _ -> dattr ^^ string "break" ^^ dsemi
-        | Continue _ -> dattr ^^ string "continue" ^^ dsemi
-        end
-     | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
-     | Trm_arbitrary a_kind  ->
-        let code_str =
-        begin match a_kind with
-        | Lit l -> string l
-        | Expr e -> string e
-        | Stmt s -> string s
-        | Instr s -> string s ^^ semi
-        | _ -> fail t.loc "AstC_to_c.trm_to_doc: arbitrary code should be entered by using Lit, Expr and Stmt only"
-        end  in
-        dattr ^^ code_str
-     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
-     | Trm_extern (lang, tl) ->
+    | Trm_for_c (init, cond, step, body, _) ->
+      let dinit = decorate_trm init in
+      let dcond = decorate_trm cond in
+      let dstep = decorate_trm step in
+      let dbody = decorate_trm ~semicolon:true body in
+      dattr ^^ string "for" ^^ blank 1 ^^
+        parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
+          blank 1 ^^ dbody
+    | Trm_for (l_range, body, _) ->
+      let full_loop = unpack_trm_for ?loc:t.loc l_range body in
+      decorate_trm full_loop
+    | Trm_switch (cond, cases) ->
+      let dcond = decorate_trm cond in
+      let dcases =
+        separate hardline
+          (List.map
+              (fun (tl, body) ->
+                (match tl with
+                | [] -> string "default" ^^ colon
+                | _ ->
+                    (separate hardline
+                      (List.map (fun t ->
+                        string "case" ^^ blank 1 ^^ decorate_trm t ^^ colon) tl)
+                    )
+                ) ^^
+                nest 2 (hardline ^^ decorate_trm ~semicolon:true body ^^
+                          hardline ^^ string "break" ^^ semi)
+              )
+              cases
+          )
+      in
+      dattr ^^ string "switch" ^^ blank 1 ^^ parens dcond ^^ blank 1 ^^
+        surround 2 1 lbrace dcases rbrace
+    | Trm_abort a ->
+      begin match a with
+      | Ret t_o ->
+          begin match t_o with
+          | None -> dattr ^^ string "return" ^^ dsemi
+          | Some t -> dattr ^^ string "return " ^^ decorate_trm ~print_struct_init_type:true t ^^ dsemi
+          end
+      | Break _ -> dattr ^^ string "break" ^^ dsemi
+      | Continue _ -> dattr ^^ string "continue" ^^ dsemi
+      end
+    | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
+    | Trm_arbitrary a_kind  ->
+      let code_str =
+      begin match a_kind with
+      | Lit l -> string l
+      | Expr e -> string e
+      | Stmt s -> string s
+      | Instr s -> string s ^^ semi
+      | _ -> fail t.loc "AstC_to_c.trm_to_doc: arbitrary code should be entered by using Lit, Expr and Stmt only"
+      end  in
+      dattr ^^ code_str
+    | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
+    | Trm_extern (lang, tl) ->
         begin match tl with
         | [t1] ->
           let dt = decorate_trm ~semicolon:true t1 in
@@ -531,35 +533,37 @@ and trm_to_doc ?(semicolon=false) ?(prec : int = 0) ?(print_struct_init_type : b
           let dl = List.map (decorate_trm ~semicolon:true) tl in
           dattr ^^ string "extern " ^^ string lang ^^ blank 1^^surround 2 1 lbrace (separate hardline dl) rbrace
         end
-     | Trm_namespace (name, t1, inline) ->
+    | Trm_namespace (name, t1, inline) ->
       let inline = if inline then string "inline" else empty in
       let dt = decorate_trm ~semicolon:true t1 in
       dattr ^^ inline ^^ string "namespace" ^^ blank 1 ^^ string name ^^  blank 1 ^^ dt
-     | Trm_using_directive nmspc -> string "using namespace " ^^ string nmspc ^^ semi
-     | Trm_template (tpl, t1) ->
-        let dl = decorate_trm t1 in
-        let dtpl = List.map (fun (n, tpk, _) ->
-          match tpk with
-          | Type_name typ_opt ->
-            begin match typ_opt with
-            | Some ty -> string "typename " ^^ string n ^^ equals ^^ typ_to_doc ty
-            | None -> string "typename " ^^ string n
-            end
-          | NonType (ty, t_opt) ->
-            begin match t_opt with
-            | Some t1 -> typ_to_doc ty ^^ blank 1 ^^ string n ^^ equals ^^ decorate_trm t1
-            | None -> typ_to_doc ty ^^ blank 1 ^^ string n
-            end
-          | Template _ -> fail None "AstC_to_c.template_param_kind_to_doc: nested templates are not supported"
-
+    | Trm_using_directive nmspc -> string "using namespace " ^^ string nmspc ^^ semi
+    | Trm_template (tpl, t1) ->
+      let dl = decorate_trm t1 in
+      let dtpl = List.map (fun (n, tpk, _) ->
+        match tpk with
+        | Type_name typ_opt ->
+          begin match typ_opt with
+          | Some ty -> string "typename " ^^ string n ^^ equals ^^ typ_to_doc ty
+          | None -> string "typename " ^^ string n
+          end
+        | NonType (ty, t_opt) ->
+          begin match t_opt with
+          | Some t1 -> typ_to_doc ty ^^ blank 1 ^^ string n ^^ equals ^^ decorate_trm t1
+          | None -> typ_to_doc ty ^^ blank 1 ^^ string n
+          end
+        | Template _ -> fail None "AstC_to_c.template_param_kind_to_doc: nested templates are not supported"
         ) tpl in
-        string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl
-     | Trm_fun (tvl, ty_opt , body, _) ->  dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
-     | Trm_delete (is_array, body) ->
-         let is_arr = if is_array then string "[]" else empty in
-         let dbody = decorate_trm body in
-         string "delete" ^^ is_arr ^^ blank 1 ^^ dbody ^^ semi
-     end in
+      string "template" ^^ blank 1 ^^ (list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl
+    | Trm_fun (tvl, ty_opt, body, _) when trm_has_cstyle ResourceFormula t -> dattr ^^ formula_fun_to_doc ~semicolon ty_opt tvl body
+    | Trm_fun (tvl, ty_opt, body, _) -> dattr ^^ trm_fun_to_doc ~semicolon ty_opt tvl body
+     (* DEPRECATED | Trm_this ->
+        if trm_has_cstyle Implicit_this t then empty else string "this" *)
+    | Trm_delete (is_array, body) ->
+      let is_arr = if is_array then string "[]" else empty in
+      let dbody = decorate_trm body in
+      string "delete" ^^ is_arr ^^ blank 1 ^^ dbody ^^ semi
+    end in
   (* Save the result in the optional stringreprs table, before returning the document *)
   add_stringreprs_entry t d;
   d
@@ -716,6 +720,10 @@ and trm_let_fun_to_doc ?(semicolon : bool = false) (fun_annot : cstyle_annot lis
       let const = List.mem Const_method fun_annot in
       aux_fun_to_doc ~semicolon ~const ~inline f r args b
 
+(* [trm_fun_to_doc ~semicolon ty tvl b]: converts a lambda function from a resource formula to a pprint document. *)
+and formula_fun_to_doc ?(semicolon : bool = true) (ty : typ option) (tvl : typed_vars) (b : trm) : document =
+  let dsemi = if semicolon then semi else empty in
+  string "fun" ^^ blank 1 ^^ separate (blank 1) (List.map (fun (v, _) -> var_to_doc v) tvl) ^^ blank 1 ^^ string "->" ^^ blank 1 ^^ trm_to_doc b ^^ dsemi
 
 (* [trm_fun_to_doc ~semicolon ty tvl b]: converts a lambda function to a pprint document. *)
 and trm_fun_to_doc ?(semicolon : bool = true) (ty : typ option) (tvl : typed_vars) (b : trm) : document =
@@ -1288,6 +1296,15 @@ and unpack_trm_for ?(loc: location) (l_range : loop_range) (body : trm) : trm =
 
     end in
     trm_for_c ?loc init cond step body
+
+and formula_to_doc (f: formula): document =
+  let open Resources_contract in
+  match formula_matrix_inv f with
+  | Some (m, dims) -> formula_to_doc (formula_model m (trm_apps (trm_var (name_to_var (sprintf "Matrix%d" (List.length dims)))) dims))
+  | None ->
+    match formula_model_inv f with
+    | Some (t, formula) -> (trm_to_doc t) ^^ blank 1 ^^ string "~>" ^^ blank 1 ^^ (trm_to_doc formula)
+    | None -> trm_to_doc {f with annot = {f.annot with trm_annot_cstyle = []}}
 
 (* [ast_to_doc ~comment_pragma ~optitrust_syntax t]: converts a full OptiTrust ast to a pprint document.
     If [comment_pragma] is true then OpenMP pragmas will be aligned to the left. If [optitrust_syntax] is true then encodings are made visible. *)

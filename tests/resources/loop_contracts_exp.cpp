@@ -1,5 +1,6 @@
 #include "../../include/optitrust.h"
 #include "omp.h"
+
 __ghost ghost_array_focus(float* M, int i) {
   __requires("dim: int;");
   __consumes("M ~> Array(dim);");
@@ -16,16 +17,17 @@ __ghost ghost_array_unfocus(float* M) {
 
 __ghost ghost_array_ro_focus(float* M, int i) {
   __requires("f: _Fraction; dim: int;");
-  __consumes("RO(f, M ~> Array(dim));");
-  __produces("RO(f, M ~> FocussedArray(dim, i)); RO(f, M[i] ~> Cell);");
+  __consumes("_RO(f, M ~> Array(dim));");
+  __produces("_RO(f, M ~> FocussedArray(dim, i)); _RO(f, M[i] ~> Cell);");
   __admitted();
 }
 
 __ghost ghost_array_ro_unfocus(float* M) {
   __requires("f: _Fraction; i: int; dim: int;");
   __consumes(
-      "RO(_Full(f), M[i] ~> Cell); RO(_Full(f), M ~> FocussedArray(dim, i));");
-  __produces("RO(f, M ~> Array(dim));");
+      "_RO(_Full(f), M[i] ~> Cell); _RO(_Full(f), M ~> FocussedArray(dim, "
+      "i));");
+  __produces("_RO(f, M ~> Array(dim));");
   __admitted();
 }
 
@@ -58,15 +60,13 @@ void array_copy_explicit(float* A, float* B, int n) {
 __ghost ghost_array_unfold(float* M) {
   __requires("dim: int;");
   __consumes("M ~> Array(dim);");
-  __produces(
-      "Group(range(0, dim, 1), [&] ( auto i )   _HasModel(M[i], Cell));");
+  __produces("Group(range(0, dim, 1), fun i -> M[i] ~> Cell);");
   __admitted();
 }
 
 __ghost ghost_array_fold(float* M) {
   __requires("dim: int;");
-  __consumes(
-      "Group(range(0, dim, 1), [&] ( auto i )   _HasModel(M[i], Cell));");
+  __consumes("Group(range(0, dim, 1), fun i -> M[i] ~> Cell);");
   __produces("M ~> Array(dim);");
   __admitted();
 }

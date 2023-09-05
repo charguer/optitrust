@@ -4,7 +4,6 @@ void matmul(float* C, float* A, float* B, int m, int n, int p) {
   __reads("A ~> Matrix2(m, p); B ~> Matrix2(p, n);");
   __modifies("C ~> Matrix2(m, n);");
 
-  ghost_matrix2_unfold(C);
   for (int i = 0; i < m; i++) {
     __sequentially_reads("A ~> Matrix2(m, p); B ~> Matrix2(p, n);");
     __modifies("Group(range(0, n, 1), fun j -> &C[MINDEX2(m, n, i, j)] ~> Cell);");
@@ -25,5 +24,4 @@ void matmul(float* C, float* A, float* B, int m, int n, int p) {
       C[MINDEX2(m, n, i, j)] = sum;
     }
   }
-  ghost_matrix2_fold(C);
 }

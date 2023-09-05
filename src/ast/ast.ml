@@ -403,6 +403,10 @@ and cstyle_annot =
   (* tag for printing [NULL] instead of [nullptr] *)
   | Display_null_uppercase
 
+  (* tag for printing using resource syntax
+     LATER: Use different printers for different languages *)
+  | ResourceFormula
+
 (* [constructor_kind]: special annotation for constructors *)
 and constructor_kind =
   | Constructor_implicit

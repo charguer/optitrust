@@ -578,13 +578,8 @@ let contract_elim (t: trm): trm =
   | _ -> trm_map aux t
   in aux t
 
-let rec formula_to_string (f: formula) : string =
-  match formula_read_only_inv f with
-  | Some { frac; formula } -> sprintf "RO(%s, %s)" (formula_to_string frac) (formula_to_string formula)
-  | None ->
-    match formula_model_inv f with
-    | Some (t, formula) -> Printf.sprintf "%s ~> %s" (AstC_to_c.ast_to_string ~optitrust_syntax:true t) (formula_to_string formula)
-    | None -> AstC_to_c.ast_to_string ~optitrust_syntax:true f (* LATER: use a custom printer for formulas *)
+let formula_to_string (f: formula) : string =
+  AstC_to_c.ast_to_string ~optitrust_syntax:true f
 
 let named_formula_to_string (hyp, formula): string =
   let sformula = formula_to_string formula in
