@@ -1,27 +1,27 @@
 class CC {
  public:
   int* i;
-  void f__0(int* a__0, int b__0) {
-    i = a__0;
+  void f_2(int* a_2, int b_2) {
+    i = a_2;
     *i = 1;
   }
-  int q(int a__1);
+  int q(int a_3);
 };
 
-int q2(int a__2) {
+int q2(int a_4) {
   CC cc;
-  return cc.q(a__2);
+  return cc.q(a_4);
 }
 
-int CC::q(int a__3) { return a__3; }
+int CC::q(int a_5) { return a_5; }
 
 class CC2 {
  public:
   int* i;
   int* j;
-  void f__1(int* a__4, int* c__0, int b__1) { int h = this->q__0(1); }
-  int q__0(int a__5) { return a__5; }
-  void p(int* a__6, int* b__2) { *a__6 = *b__2 + 1; }
+  void f_3(int* a_6, int* c_2, int b_3) { int h = this->q_2(1); }
+  int q_2(int a_7) { return a_7; }
+  void p(int* a_8, int* b_4) { *a_8 = *b_4 + 1; }
 };
 
 class CC3 {
@@ -29,29 +29,29 @@ class CC3 {
   int* i;
   int* j;
   static void qf() {}
-  void f__2(int* a__7, int* c__1, int b__3) {
-    i = a__7;
-    j = c__1;
-    this->p__0(i, j);
+  void f_4(int* a_9, int* c_3, int b_5) {
+    i = a_9;
+    j = c_3;
+    this->p_2(i, j);
     CC3::qf();
     qf();
-    q__1(1);
+    q_3(1);
   }
-  int q__1(int a__8) { return a__8; }
-  void p__0(int* a__9, int* b__4) { *a__9 = *b__4 + 1; }
+  int q_3(int a_10) { return a_10; }
+  void p_2(int* a_11, int* b_6) { *a_11 = *b_6 + 1; }
 };
 
-void cc3__0() {
+void cc3_2() {
   CC3 cc3;
-  cc3.q__1(0);
+  cc3.q_3(0);
 }
 
-void cc3_bis(CC3* cc3__1) { cc3__1->q__1(0); }
+void cc3_bis(CC3* cc3_3) { cc3_3->q_3(0); }
 
 namespace Q {
-void f__3();
-void f__3() {
-  Q::f__3();
+void f_5();
+void f_5() {
+  Q::f_5();
   return;
 }
 }  // namespace Q
