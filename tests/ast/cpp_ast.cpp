@@ -24,46 +24,4 @@ class test {
   {
     return;
   }
-
-};
-
-class CC {
-public:
-    int * i;
-    void f(int * a, int b) {
-        i = a;
-        *i = 1;
-    }
-    int q(int a);
-};
-
-int q2(int a) {
-  CC cc;
-  return cc.q(a);
-}
-
-int CC::q(int a) {
-    return a;
-}
-
-class CC2 {
-public:
-    int * i;
-    int * j;
-
-    void f(int * a, int * c, int b) {
-        //i = a;
-        //j = c;
-        //i = c;
-        //*i = 1;
-        //*j = 42;
-        int h = this->q(1);
-        //p(i, j);
-    }
-
-    int q(int a) {
-      return a;
-    }
-
-    void p(int * a, int * b) { *a = *b + 1; }
 };

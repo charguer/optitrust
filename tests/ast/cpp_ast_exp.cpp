@@ -22,20 +22,3 @@ class queue {
 class test {
   static void Partition(int* outPivot, queue<int> data) { return; }
 };
-
-class CC {
- public:
-  int* i;
-  void f(int* a, int b) {
-    i = a;
-    *i = 1;
-  }
-  int q(int a);
-};
-
-int q2(int a) {
-  CC cc;
-  return cc.q(a);
-}
-
-int CC::q(int a) { return a; }

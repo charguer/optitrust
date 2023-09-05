@@ -12,6 +12,9 @@ let debug_before_after_trm (msg : string) (f : trm -> trm) : trm -> trm =
     t2
   ) else f
 
+let debug_current_stage (msg: string) : unit =
+  if debug then printf "%s\n" msg
+
 (*
 
   t[i]  =  get(array_access(t,i))  = array_read(t,i)
@@ -92,6 +95,7 @@ let create_env () = ref env_empty
 
    Note: "reference" annotation is added to allow decoding *)
 let stackvar_elim (t : trm) : trm =
+  debug_current_stage "stackvar_elim";
   let env = create_env () in
   let rec aux (t : trm) : trm =
     trm_simplify_addressof_and_get
@@ -158,6 +162,7 @@ let stackvar_elim (t : trm) : trm =
     typically [*x] in the optitrust ast is printed as [x], and if the star operation
     was carrying a mark, then it is currently not displayed! *)
 let stackvar_intro (t : trm) : trm =
+  debug_current_stage "stackvar_intro";
   let env = create_env () in
   let rec aux (t : trm) : trm =
     trm_simplify_addressof_and_get
@@ -215,8 +220,9 @@ let stackvar_intro (t : trm) : trm =
      - [t[i]] becomes [t + i] -- nothing to do in the code of the translation
      Note: [t + i] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_array_access, [t; i])))]
            [t + offset(f)] is represented in OptiTrust as [Trm_apps (Trm_val (Val_prim (Prim_struct_access "f")),[t])] *)
-let rec caddress_elim (t : trm) : trm =
-  let aux t = caddress_elim t in (* recursive calls for rvalues *)
+let caddress_elim (t : trm) : trm =
+  debug_current_stage "caddress_elim";
+  let rec aux t =
   let mk ?(annot = trm_annot_default) td = trm_alter ~desc:td ~annot t in
   trm_simplify_addressof_and_get
   (begin
@@ -236,6 +242,7 @@ let rec caddress_elim (t : trm) : trm =
         trm_get { t with desc = Trm_apps ({ t with desc = Trm_val (Val_prim (Prim_binop (Binop_array_access)))}, [u1; u2]) }
     | _ -> trm_map aux t
     end)
+  in aux t
 
 (* [is_access t]: checks if trm [t] is a struct access or an array access *)
 let is_access (t : trm) : bool =
@@ -282,7 +289,9 @@ let rec caddress_intro_aux (is_access_t : bool) (t : trm) : trm =
     end
   end
 
-let caddress_intro = caddress_intro_aux false
+let caddress_intro =
+  debug_current_stage "caddress_intro";
+  caddress_intro_aux false
 
 (* [cseq_items_void_type t]: updates [t] in such a way that all instructions appearing in sequences
    have type [Typ_unit]. This might not be the case, for example on [x += 2;], Menhir provides an
@@ -304,6 +313,7 @@ let rec cseq_items_void_type (t : trm) : trm =
     - x = y becomes =(&x, y)
     - x += y becomes +=(&x,y) *)
 let infix_elim (t : trm) : trm =
+  debug_current_stage "infix_elim";
   let rec aux (t : trm) : trm =
     match t.desc with
     (* Convert [ x += y ]  into [ (+=)(&x, y) ]
@@ -325,6 +335,7 @@ let infix_elim (t : trm) : trm =
     [+=(&x, y)] becomes [x += y]
     [=(&x, y)] becomes [x = y]*)
 let infix_intro (t : trm) : trm =
+  debug_current_stage "infix_intro";
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_val (Val_prim (Prim_compound_assgn_op binop))} as op, [tl; tr]) ->
@@ -339,26 +350,35 @@ let infix_intro (t : trm) : trm =
 
 (* [method_elim t]: encodes class method calls.  *)
 let method_call_elim (t : trm) : trm =
+  debug_current_stage "method_call_elim";
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps ({desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f)))}, [base])} as tr, args) ->
       let ((class_qualifier, class_name), _, _) =
-        Tools.unsome (
-          Option.bind base.typ (fun base_typ ->
-            typ_constr_inv base_typ))
+        match Option.bind base.typ typ_constr_inv with
+        | Some r -> r
+        | None ->
+        begin match Option.bind (trm_get_inv base) (fun gb ->
+                    Option.bind gb.typ (fun gbt ->
+                    Option.bind (typ_ptr_inv gbt) (fun btyp ->
+                    typ_constr_inv btyp))) with
+        | Some r -> r
+        | None -> failwith (sprintf "Ast_fromto_AstC.method_call_elim: unsupported base: %s\n" (Ast_to_text.ast_to_string base))
+        end
       in
       let qualifier = class_qualifier @ [class_name] in
       let t_var = begin match Ast_data.get_cursor_of_trm tr with
       | Some (cx) -> trm_add_cstyle (Clang_cursor cx) (trm_var (name_to_var ~qualifier f))
       | None -> fail t.loc "Ast_fromto_AstC.method_call_elim: method call witout cxcursor."
       end in
-      trm_add_cstyle Method_call (trm_apps (t_var) ([base] @ args))
+      trm_add_cstyle Method_call (trm_apps (t_var) ([trm_address_of base] @ args))
     | _ -> trm_map aux t
    in
    debug_before_after_trm "mcall" aux t
 
 (* [method_call_intro t]: decodes class methods calls. *)
 let method_call_intro (t : trm) : trm =
+  debug_current_stage "method_call_intro";
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, args) when trm_has_cstyle Method_call t ->
@@ -366,7 +386,7 @@ let method_call_intro (t : trm) : trm =
       let base, args = Xlist.uncons args in
       let struct_access =
         begin match f.desc with
-        | Trm_var (_, f) -> trm_struct_get base f.name
+        | Trm_var (_, f) -> trm_struct_get (trm_get base) f.name
         (* Special case when function_beta transformation is applied. *)
         | _ -> failwith "DEPRECATED?" (* f *)
         end in
@@ -376,40 +396,67 @@ let method_call_intro (t : trm) : trm =
 
 (* [class_member_elim t]: encodes class members. *)
 let class_member_elim (t : trm) : trm =
-  let rec aux (t : trm) : trm =
-    match t.desc with
+  debug_current_stage "class_member_elim";
+  (* workaround to substitute untyped 'this' variables with typed 'this' variables required by 'method_call_elim' *)
+  let to_subst = ref Var_map.empty in
+  let get_class_typ (current_class : typvar option) (method_var : var) : typ =
+    let c = match current_class with
+    | Some c -> c
+    | None -> snd (Xlist.unlast method_var.qualifier)
+    in
+    typ_ptr_generated (typ_constr ([], c) ~tid:(Clang_to_astRawC.get_typid_for_type [] c))
+  in
+  let rec aux (current_class : typvar option) (t : trm) : trm =
+    begin match t.desc with
+    | Trm_typedef td ->
+      trm_map (aux (Some td.typdef_tconstr)) t
     | Trm_let_fun (v, ty, vl, body, contract) when trm_has_cstyle Method t ->
-      let this_typ = typ_ptr_generated (typ_constr (v.qualifier, v.name) ~tid:(Clang_to_astRawC.get_typid_for_type v.qualifier v.name)) in
+      let var_this = new_var "this" in
+      let this_typ = get_class_typ current_class v in
+      let typed_this = trm_var ~typ:this_typ var_this in
+      to_subst := Var_map.add var_this typed_this !to_subst;
       trm_alter ~desc:(Trm_let_fun (v, ty, (var_this, this_typ) :: vl, body, contract)) t
     | Trm_let_fun (v, ty, vl, body, contract) when is_class_constructor t ->
-      let this_mut = Var_mutable in
-      let this_typ = typ_ptr_generated (typ_constr (v.qualifier, v.name) ~tid:(Clang_to_astRawC.get_typid_for_type v.qualifier v.name)) in
+      let this_mut = Var_immutable in
+      let var_this = new_var "this" in
+      let this_typ = get_class_typ current_class v in
       let this_body = trm_apps (trm_toplevel_free_var  "malloc") [trm_toplevel_free_var ("sizeof(" ^ v.name ^ ")")] in
       let this_alloc = trm_let this_mut (var_this, this_typ) this_body in
-      let ret_this = trm_ret (Some (trm_get (trm_this ()))) in
+      let typed_this = trm_var ~typ:this_typ var_this in
+      to_subst := Var_map.add var_this typed_this !to_subst;
+      let ret_this = trm_ret (Some (trm_get typed_this)) in
       begin match body.desc with
       | Trm_seq tl ->
-        let new_tl = Mlist.push_front this_alloc tl in
+        let new_tl = Mlist.map (trm_subst_var var_this typed_this) tl in
+        let new_tl = Mlist.push_front this_alloc new_tl in
         let new_tl = Mlist.push_back ret_this new_tl in
         let new_body = trm_alter ~desc:(Trm_seq new_tl) t in
         trm_alter ~desc:(Trm_let_fun (v, this_typ, vl, new_body, contract)) t
       | Trm_val (Val_lit Lit_uninitialized) ->  t
       | _ ->  fail t.loc "Ast_fromto_AstC.class_member_elim: ill defined class constructor."
       end
-    | _ -> trm_map aux t
+    | _ -> trm_map (aux current_class) t
+    end
   in
-  debug_before_after_trm "cmember" aux t
+  let on_subst old_t new_t =
+    (* keep implicit this annotations etc *)
+    trm_alter ~annot:old_t.annot ~loc:old_t.loc new_t
+  in
+  debug_before_after_trm "cmember" (fun t ->
+    aux None t |> C_scope.infer_var_ids |> trm_subst ~on_subst !to_subst
+  ) t
 
 
 (* [class_member_intro t]: decodes class members. *)
 let class_member_intro (t : trm) : trm =
+  debug_current_stage "class_member_intro";
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_let_fun (qv, ty, vl, body, contract) when trm_has_cstyle Method t ->
       let ((v_this, _), vl') = Xlist.uncons vl in
       let rec fix_body t =
         match trm_var_inv t with
-        | Some x when x = v_this && (not (trm_has_cstyle Implicit_this t)) ->
+        | Some x when var_eq x v_this && (not (trm_has_cstyle Implicit_this t)) ->
           trm_like ~old:t (trm_this ())
         | _ -> trm_map fix_body t
       in
@@ -504,16 +551,18 @@ let extract_fun_contract (seq: trm mlist) : fun_spec * trm mlist =
 let extract_loop_contract (seq: trm mlist) : loop_spec * trm mlist =
   extract_contract empty_loop_contract push_loop_contract_clause seq
 
-let rec contract_elim (t: trm): trm =
+let contract_elim (t: trm): trm =
+  debug_current_stage "contract_elim";
+  let rec aux t =
   match t.desc with
   | Trm_let_fun (qv, ty, args, body, contract) ->
     assert (contract = None);
     begin match trm_seq_inv body with
     | Some body_seq ->
       let contract, new_body = extract_fun_contract body_seq in
-      let new_body = Mlist.map contract_elim new_body in
+      let new_body = Mlist.map aux new_body in
       trm_alter ~desc:(Trm_let_fun (qv, ty, args, trm_seq new_body, contract)) t
-    | None -> trm_map contract_elim t
+    | None -> trm_map aux t
     end
 
   | Trm_for (range, body, contract) ->
@@ -521,12 +570,13 @@ let rec contract_elim (t: trm): trm =
     begin match trm_seq_inv body with
     | Some body_seq ->
       let contract, new_body = extract_loop_contract body_seq in
-      let new_body = Mlist.map contract_elim new_body in
+      let new_body = Mlist.map aux new_body in
       trm_alter ~desc:(Trm_for (range, trm_seq new_body, contract)) t
-    | None -> trm_map contract_elim t
+    | None -> trm_map aux t
     end
 
-  | _ -> trm_map contract_elim t
+  | _ -> trm_map aux t
+  in aux t
 
 let rec formula_to_string (f: formula) : string =
   match formula_read_only_inv f with
@@ -619,6 +669,7 @@ let computed_resources_intro (t: trm): trm =
 
 
 let rec contract_intro (t: trm): trm =
+  (* debug_current_stage "contract_intro"; *)
   let push_named_formulas (contract_prim: var) (named_formulas: resource_item list) (t: trm): trm =
     if named_formulas = [] then
       t
@@ -725,12 +776,14 @@ let rec contract_intro (t: trm): trm =
 let cfeatures_elim: trm -> trm =
   debug_before_after_trm "cfeatures_elim" (fun t ->
   contract_elim t |>
-  method_call_elim |>
   class_member_elim |>
+  method_call_elim |>
   infix_elim |>
   C_scope.infer_var_ids |>
   stackvar_elim |>
+  C_scope.infer_var_ids |>
   caddress_elim |>
+  C_scope.infer_var_ids |>
   cseq_items_void_type |>
   C_scope.infer_var_ids)
 
@@ -741,8 +794,8 @@ let cfeatures_intro : trm -> trm =
   caddress_intro |>
   stackvar_intro |>
   infix_intro |>
-  class_member_intro |>
   method_call_intro |>
+  class_member_intro |>
   contract_intro)
 
 (* Note: recall that currently const references are not supported
