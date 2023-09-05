@@ -813,7 +813,8 @@ let output_prog ?(bypass_cfeatures:bool=false) ?(beautify:bool=true) ?(ast_and_e
       if !Flags.display_resources
         then Ast_fromto_AstC.computed_resources_intro ast
         else ast
-    in
+      in
+      (* TODO: !Flags.display_var_ids *)
 
     if !Flags.bypass_cfeatures || bypass_cfeatures
       then AstC_to_c.ast_to_outchannel ~optitrust_syntax:true out_prog ast
